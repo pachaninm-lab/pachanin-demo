@@ -1,33 +1,25 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { integrationRegistry } from '../../../../../packages/integration-sdk/src/registry';
 import type { MockFtsAdapter } from '../../../../../packages/integration-sdk/src/adapters/fts.adapter';
 import type { MockRshnAdapter } from '../../../../../packages/integration-sdk/src/adapters/rshn.adapter';
 import type { MockMarineAdapter } from '../../../../../packages/integration-sdk/src/adapters/marine.adapter';
 
-export type IncotermsCode = 'EXW' | 'FCA' | 'CPT' | 'CIP' | 'DAP' | 'DPU' | 'DDP' | 'FAS' | 'FOB' | 'CFR' | 'CIF';
-export type Currency = 'RUB' | 'USD' | 'EUR' | 'CNY';
+// Списки, курсы и правила живут в export-trade.contract.ts по одному разу;
+// имена типов ре-экспортированы, чтобы существующие импорты не сломались.
+export type { Currency, IncotermsCode } from './export-trade.contract';
+import type { Currency, IncotermsCode } from './export-trade.contract';
+import {
+  DEFAULT_DISTANCE_KM,
+  DEFAULT_INSURANCE_PCT,
+  DEFAULT_VOLUME_TONS,
+  CBR_RATES,
+  CURRENCIES,
+  FREIGHT_RATE_RUB_PER_TON_KM,
+  INCOTERMS_RULES,
+  exchangeRateFor,
+  incotermsRuleFor,
+} from './export-trade.contract';
 
-// ЦБ РФ rates (mock — in production fetched daily from cbr.ru)
-const CBR_RATES: Record<Currency, number> = {
-  RUB: 1,
-  USD: 89.5,
-  EUR: 96.2,
-  CNY: 12.3,
-};
-
-const INCOTERMS_RULES: Record<IncotermsCode, { risk: string; costIncludes: string[]; modes: string[] }> = {
-  EXW: { risk: 'Переходит у продавца на складе', costIncludes: ['none'], modes: ['all'] },
-  FCA: { risk: 'Переходит при передаче перевозчику', costIncludes: ['origin_charges'], modes: ['all'] },
-  CPT: { risk: 'Переходит при передаче первому перевозчику', costIncludes: ['freight_to_dest'], modes: ['all'] },
-  CIP: { risk: 'Переходит при передаче первому перевозчику', costIncludes: ['freight_to_dest', 'insurance'], modes: ['all'] },
-  DAP: { risk: 'Переходит в месте назначения (без выгрузки)', costIncludes: ['freight_to_dest', 'destination_customs'], modes: ['all'] },
-  DPU: { risk: 'Переходит после выгрузки в месте назначения', costIncludes: ['freight_to_dest', 'unloading', 'destination_customs'], modes: ['all'] },
-  DDP: { risk: 'Переходит в месте назначения (с растаможкой)', costIncludes: ['freight_to_dest', 'destination_customs', 'import_duties'], modes: ['all'] },
-  FAS: { risk: 'Переходит вдоль борта судна', costIncludes: ['inland_freight'], modes: ['sea', 'inland_waterway'] },
-  FOB: { risk: 'Переходит на борту судна', costIncludes: ['inland_freight', 'loading'], modes: ['sea', 'inland_waterway'] },
-  CFR: { risk: 'Переходит на борту в порту отгрузки', costIncludes: ['inland_freight', 'loading', 'ocean_freight'], modes: ['sea', 'inland_waterway'] },
-  CIF: { risk: 'Переходит на борту в порту отгрузки', costIncludes: ['inland_freight', 'loading', 'ocean_freight', 'insurance'], modes: ['sea', 'inland_waterway'] },
-};
 
 @Injectable()
 export class ExportTradeService {
@@ -58,23 +50,43 @@ export class ExportTradeService {
     incoterms: IncotermsCode;
     breakdown: Record<string, number>;
   } {
-    const rule = INCOTERMS_RULES[params.incoterms];
-    const dist = params.distanceKm ?? 500;
-    const weight = params.volumeTons ?? 1;
+    // Неизвестный базис давал undefined и падал на rule.costIncludes —
+    // TypeError, то есть 500 на вводе пользователя. Замерено.
+    const rule = incotermsRuleFor(params.incoterms);
+    if (!rule) throw new BadRequestException('EXPORT_INCOTERMS_UNKNOWN');
+
+    // Неизвестная валюта давала undefined, деление на него — NaN, а в JSON
+    // сумма уезжала как null: цена без цифры. Замерено.
+    const rate = exchangeRateFor(params.currency);
+    if (rate === undefined) throw new BadRequestException('EXPORT_CURRENCY_UNKNOWN');
+
+    const dist = params.distanceKm ?? DEFAULT_DISTANCE_KM;
+    const weight = params.volumeTons ?? DEFAULT_VOLUME_TONS;
+    const insurancePct = params.includeInsurancePct ?? DEFAULT_INSURANCE_PCT;
+
+    // Цена строкой не складывалась, а КОНКАТЕНИРОВАЛАСЬ: «500» + фрахт +
+    // страховка давали «5001750001» вместо 175 501 — завышение в 28 500 раз,
+    // и итог уходил в ответ строкой. Number.isFinite строку не пропускает.
+    for (const [name, value] of [
+      ['priceRub', params.priceRub], ['distanceKm', dist],
+      ['volumeTons', weight], ['includeInsurancePct', insurancePct],
+    ] as const) {
+      if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+        throw new BadRequestException(`EXPORT_MEASURE_INVALID:${name}`);
+      }
+    }
 
     let freightRub = 0;
     if (rule.costIncludes.some(c => c.includes('freight') || c === 'ocean_freight' || c === 'inland_freight' || c === 'loading')) {
-      freightRub = Math.round(dist * weight * 350);
+      freightRub = Math.round(dist * weight * FREIGHT_RATE_RUB_PER_TON_KM);
     }
 
     let insuranceRub = 0;
     if (rule.costIncludes.includes('insurance')) {
-      const rate = (params.includeInsurancePct ?? 0.1) / 100;
-      insuranceRub = Math.round(params.priceRub * rate);
+      insuranceRub = Math.round(params.priceRub * (insurancePct / 100));
     }
 
     const totalRub = params.priceRub + freightRub + insuranceRub;
-    const rate = CBR_RATES[params.currency];
     const totalCurrency = Math.round((totalRub / rate) * 100) / 100;
 
     return {
@@ -96,8 +108,13 @@ export class ExportTradeService {
   }
 
   getExchangeRates(): { rates: Record<Currency, number>; base: 'RUB'; updatedAt: string; source: 'cbr.ru (mock)' } {
+    // Ответ собирается обычным объектом: внутренняя таблица без прототипа
+    // остаётся внутренней и наружу не отдаётся.
+    const rates = Object.fromEntries(
+      CURRENCIES.map((currency) => [currency, CBR_RATES[currency] as number]),
+    ) as Record<Currency, number>;
     return {
-      rates: CBR_RATES,
+      rates,
       base: 'RUB',
       updatedAt: new Date().toISOString(),
       source: 'cbr.ru (mock)',
@@ -105,7 +122,11 @@ export class ExportTradeService {
   }
 
   convertCurrency(amountRub: number, toCurrency: Currency): { amount: number; currency: Currency; rate: number } {
-    const rate = CBR_RATES[toCurrency];
+    const rate = exchangeRateFor(toCurrency);
+    if (rate === undefined) throw new BadRequestException('EXPORT_CURRENCY_UNKNOWN');
+    if (typeof amountRub !== 'number' || !Number.isFinite(amountRub) || amountRub < 0) {
+      throw new BadRequestException('EXPORT_MEASURE_INVALID:amountRub');
+    }
     return { amount: Math.round((amountRub / rate) * 100) / 100, currency: toCurrency, rate };
   }
 
