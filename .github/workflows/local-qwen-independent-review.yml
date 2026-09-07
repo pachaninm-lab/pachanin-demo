@@ -77,12 +77,12 @@ jobs:
           printf '%s  %s\n' "$LLAMA_ARCHIVE_SHA256" "$archive" | sha256sum --check --strict
           mkdir -p "$RUNNER_TEMP/llama"
           tar -xzf "$archive" -C "$RUNNER_TEMP/llama"
-          mapfile -t llama_cli_candidates < <(find "$RUNNER_TEMP/llama" -type f -name llama-cli -perm -u+x -print)
-          (( ${#llama_cli_candidates[@]} == 1 )) || {
-            printf 'Expected exactly one llama-cli binary, found %s\n' "${#llama_cli_candidates[@]}" >&2
+          mapfile -t llama_completion_candidates < <(find "$RUNNER_TEMP/llama" -type f -name llama-completion -perm -u+x -print)
+          (( ${#llama_completion_candidates[@]} == 1 )) || {
+            printf 'Expected exactly one llama-completion binary, found %s\n' "${#llama_completion_candidates[@]}" >&2
             exit 20
           }
-          printf 'LLAMA_CLI=%s\n' "${llama_cli_candidates[0]}" >> "$GITHUB_ENV"
+          printf 'LLAMA_COMPLETION=%s\n' "${llama_completion_candidates[0]}" >> "$GITHUB_ENV"
 
       - name: Download and verify immutable Qwen coder model
         shell: bash
@@ -206,8 +206,15 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          timeout 900 "$LLAMA_CLI" \
+          # b10809 llama-cli is an interactive chat UI, not a raw JSON transport.
+          # Use the completion executable from the same hash-verified archive.
+          # Preserve the preformatted prompt; never escape it or shift its context.
+          timeout 900 "$LLAMA_COMPLETION" \
             --offline \
+            --no-conversation \
+            --no-escape \
+            --simple-io \
+            --no-context-shift \
             --model "$MODEL_FILE" \
             --file "$RUNNER_TEMP/review-prompt.txt" \
             --ctx-size 32768 \
@@ -222,8 +229,25 @@ jobs:
             --repeat-penalty 1 \
             --grammar-file "$RUNNER_TEMP/review.gbnf" \
             --no-display-prompt \
-            --log-disable \
-            > "$RUNNER_TEMP/review.raw"
+            --log-verbosity 0 \
+            < /dev/null > "$RUNNER_TEMP/review.completion.raw"
+          # Completion tokens use LOG_LEVEL_OUTPUT; --log-disable discards them.
+          # Strip only the exact EOG trailer emitted by the pinned completion tool.
+          # Token-limit/context-limit exits without that trailer remain failures.
+          python3 - "$RUNNER_TEMP/review.completion.raw" "$RUNNER_TEMP/review.raw" <<'PY'
+          import pathlib
+          import sys
+
+          source, target = map(pathlib.Path, sys.argv[1:])
+          raw = source.read_text(encoding='utf-8', errors='strict').rstrip()
+          trailer = ' [end of text]'
+          if not raw.endswith(trailer):
+              raise SystemExit('Completion did not finish at EOG; refusing incomplete output.')
+          payload = raw[:-len(trailer)].strip()
+          if not payload:
+              raise SystemExit('Completion returned empty model output.')
+          target.write_text(payload + '\n', encoding='utf-8')
+          PY
           [[ -s "$RUNNER_TEMP/review.raw" ]] || {
             echo 'Local model returned empty output.' >&2
             exit 40
