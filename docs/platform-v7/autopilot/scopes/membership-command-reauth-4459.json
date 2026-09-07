@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/membership-command-reauth-4459",
+  "status": "active",
+  "purpose": "ASVS V7.5.1 requires full re-authentication before modifying account attributes that affect authentication. organization-invitation.service.ts required none for any of its three membership commands. The third is the serious one: resetting another member's MFA is an account-takeover primitive, and a hijacked organization-admin session obtained it with only the role, a rate limit and a version check.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/membership-command-reauth-4459.json",
+    "apps/api/src/common/security/fresh-mfa.ts",
+    "apps/api/src/common/security/fresh-mfa.spec.ts",
+    "apps/api/src/modules/auth/organization-invitation.service.ts",
+    "apps/api/src/modules/auth/organization-membership-reauth.spec.ts",
+    "docs/security/asvs-applicability-decisions.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+  ],
+  "requiredInvariants": [
+    "The previous record named one command; measurement found three. changeMembershipRole, revokeMembership and resetMembershipMfa all lacked any freshness check, and all three are gated now.",
+    "The gate runs FIRST, before the administrator is even resolved. The behavioural spec stubs everything the command would touch afterwards to throw a plain Error, so a ForbiddenException in the result proves the ordering rather than asserting it in prose.",
+    "The control is stated once. The same check already existed five times in the tree, redeclared in each place and in TWO different meanings - some allow 30 seconds of forward clock skew, some reject any negative age. The new call site takes a shared module with the meaning written down instead of picking one by accident.",
+    "The five existing call sites are NOT rewritten in this pass. That is a separate refactor with its own regression risk across settlement and staff-access; the divergence is recorded as a finding rather than removed in passing.",
+    "The refusal code is FRESH_MFA_REQUIRED, identical to what the existing sites already return, so a client cannot distinguish the new gate from the old ones.",
+    "One line was REMOVED from the control because it could not be proven: the Number.isFinite check was redundant, since an unreadable timestamp yields NaN and every comparison with NaN is false. A mutation deleting it failed no test. An unprovable line in a security control is worse than its absence; the property is pinned by a test instead.",
+    "No dependency, schema, migration, RLS or policy change. No registration business logic, 1C, marketing or presentation code. No production, REG.RU, DNS, database or credential mutation. New mandatory cost: 0 RUB.",
+    "The two cryptographic-inventory files are regenerated, never hand-edited. discover-cryptography.mjs writes the .json and the .md together and its staleness test reads the pair; adding source files moves scannedFiles, so both are regenerated here and neither is touched by hand."
+  ],
+  "acceptance": [
+    "Measured before changing anything: organization-invitation.service.ts contained zero occurrences of any freshness check across its three membership commands.",
+    "Six mutations of the control and its call sites were run, each verified to have applied: removing the gate from one command, from all three, accepting an unconfirmed factor, accepting any future timestamp, widening the window to a day - all five turn the suite red. The sixth, removing the isFinite guard, changed nothing, which is why that line was deleted rather than kept.",
+    "V7.5.1 PASS is machine-revocable: four mutations with the matrix rebuilt each time - removing all three gates, untracking the behavioural spec, dropping the clock-skew bound, and weakening the ordering assertion - all four drive the verdict to NOT_ASSESSED.",
+    "Matrix on this head: PASS 129 -> 130, FAIL 90 -> 89. Exactly one verdict changed; no collateral drift.",
+    "Full @pc/api suite: 2893 passed, 0 failed. scripts/security suite green."
+  ]
+}
