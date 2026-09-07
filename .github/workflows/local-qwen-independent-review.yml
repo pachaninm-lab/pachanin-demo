@@ -135,20 +135,21 @@ jobs:
               "verdict": {"type": "string", "enum": ["PASS", "BLOCK"]},
               "findings": {
                 "type": "array",
+                "maxItems": 20,
                 "items": {
                   "type": "object",
                   "properties": {
                     "severity": {"type": "string", "enum": ["P0", "P1", "P2"]},
                     "path": {"type": "string"},
                     "line": {"type": "integer", "minimum": 1},
-                    "title": {"type": "string"},
-                    "reason": {"type": "string"}
+                    "title": {"type": "string", "minLength": 1, "maxLength": 240},
+                    "reason": {"type": "string", "minLength": 1, "maxLength": 1600}
                   },
                   "required": ["severity", "path", "line", "title", "reason"],
                   "additionalProperties": false
                 }
               },
-              "summary": {"type": "string"}
+              "summary": {"type": "string", "minLength": 1, "maxLength": 1200}
             },
             "required": ["verdict", "findings", "summary"],
             "additionalProperties": false
@@ -182,18 +183,22 @@ jobs:
           ws ::= [ \t\n\r]*
           GBNF
 
-          python3 - "$RUNNER_TEMP/pr.diff" "$RUNNER_TEMP/review-policy.txt" "$RUNNER_TEMP/review-prompt.txt" "$REPO" "$PR_NUMBER" "$HEAD_SHA" "$DIFF_SHA256" <<'PY'
+          python3 - "$RUNNER_TEMP/pr.diff" "$RUNNER_TEMP/review-policy.txt" "$RUNNER_TEMP/review-schema.json" "$RUNNER_TEMP/review-prompt.txt" "$REPO" "$PR_NUMBER" "$HEAD_SHA" "$DIFF_SHA256" <<'PY'
           import pathlib
           import sys
 
-          diff_path, policy_path, output_path, repo, pr_number, head_sha, diff_sha = sys.argv[1:]
+          diff_path, policy_path, schema_path, output_path, repo, pr_number, head_sha, diff_sha = sys.argv[1:]
           diff = pathlib.Path(diff_path).read_text(encoding='utf-8', errors='strict')
           # Neutralize model control-token sequences if they appear inside reviewed code.
           diff = diff.replace('<|', '< |').replace('|>', '| >')
           policy = pathlib.Path(policy_path).read_text(encoding='utf-8')
+          schema = pathlib.Path(schema_path).read_text(encoding='utf-8')
           prompt = (
               '<|im_start|>system\n'
               + policy
+              + '\nTrusted output schema (not pull-request content):\n'
+              + schema
+              + '\nKeep descriptions concise and non-repeating within the schema bounds.\n'
               + '<|im_end|>\n'
               + '<|im_start|>user\n'
               + f'Repository: {repo}\nPull request: #{pr_number}\nExact head: {head_sha}\nDiff SHA-256: {diff_sha}\n'
@@ -272,9 +277,20 @@ jobs:
 
           raw_path, diff_path, canonical_path = sys.argv[1:]
           raw = pathlib.Path(raw_path).read_text(encoding='utf-8').strip()
+          def unique_object(pairs):
+              result = {}
+              for key, item in pairs:
+                  if key in result:
+                      raise ValueError('Duplicate JSON key: ' + key)
+                  result[key] = item
+              return result
+
+          def reject_constant(value):
+              raise ValueError('Non-JSON constant: ' + value)
+
           try:
-              value = json.loads(raw)
-          except json.JSONDecodeError as exc:
+              value = json.loads(raw, object_pairs_hook=unique_object, parse_constant=reject_constant)
+          except (json.JSONDecodeError, ValueError) as exc:
               raise SystemExit(f'Invalid model JSON: {exc}')
           if not isinstance(value, dict) or set(value) != {'verdict', 'findings', 'summary'}:
               raise SystemExit('Model output keys are not exact.')
