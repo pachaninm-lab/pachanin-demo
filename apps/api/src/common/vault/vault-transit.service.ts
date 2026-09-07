@@ -10,6 +10,16 @@ const VAULT_ADDR = process.env.VAULT_ADDR || 'http://vault:8200';
 const VAULT_TOKEN = process.env.VAULT_TOKEN || '';
 const TRANSIT_KEY = 'grainflow-pdn';
 
+/**
+ * Каждый вызов Transit ограничен по времени.
+ *
+ * Шифрование ПДн стоит на пути запроса, а encryptFields/decryptFields идут по
+ * полям последовательно. Без предела недоступный Vault держит запрос сколько
+ * угодно долго, и на одном событийном цикле Node это исчерпывает пул запросов —
+ * отказ в обслуживании без единого сбоя со стороны Vault.
+ */
+const VAULT_TRANSIT_TIMEOUT_MS = 5_000;
+
 @Injectable()
 export class VaultTransitService {
   private readonly logger = new Logger(VaultTransitService.name);
@@ -28,6 +38,7 @@ export class VaultTransitService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ plaintext: b64 }),
+        signal: AbortSignal.timeout(VAULT_TRANSIT_TIMEOUT_MS),
       });
       if (!resp.ok) throw new Error(`Vault encrypt failed: ${resp.status}`);
       const data = await resp.json();
@@ -50,6 +61,7 @@ export class VaultTransitService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ ciphertext }),
+        signal: AbortSignal.timeout(VAULT_TRANSIT_TIMEOUT_MS),
       });
       if (!resp.ok) throw new Error(`Vault decrypt failed: ${resp.status}`);
       const data = await resp.json();
