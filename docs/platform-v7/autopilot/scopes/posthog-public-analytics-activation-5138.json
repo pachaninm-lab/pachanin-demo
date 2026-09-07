@@ -10,8 +10,7 @@
     "scripts/production-web-exact-sha.sh",
     "scripts/provision-production-posthog-public-analytics.sh",
     "scripts/check-production-posthog-public-analytics-provision.mjs",
-    "scripts/run-repo-build-test-contour.mjs",
-    "docs/security/cryptographic-inventory.json"
+    "scripts/run-repo-build-test-contour.mjs"
   ],
   "requiredInvariants": [
     "Production activation is REG.RU VPS only and must preserve exact-main-SHA image authority.",
@@ -21,7 +20,7 @@
     "The existing Production Web Exact-SHA Release must preserve an already-installed PostHog override without learning or logging its project reference, and absence of that override must leave existing release behavior unchanged.",
     "Session replay, autocapture, browser-side PostHog SDK loading, CSP widening, cookies, durable user identity, person profiles, private-route analytics, PII and free-text export remain prohibited.",
     "No registration, authentication, role assignment, tenant isolation, RBAC, database schema, API authority, Yandex analytics behavior or non-web production service is changed by this scope.",
-    "Any new repository files must be reflected by the canonical cryptographic inventory without weakening inventory verification.",
+    "The activation scope adds no scanned apps/** or packages/** source file, so the canonical cryptographic inventory must remain unchanged rather than being edited or regenerated for these scripts.",
     "No new npm dependency or recurring paid infrastructure commitment is introduced."
   ],
   "productionHosting": "REG_RU_VPS_ONLY",
