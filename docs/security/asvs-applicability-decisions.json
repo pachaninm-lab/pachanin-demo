@@ -1732,6 +1732,7 @@
       "evidence": [
         "apps/web/middleware.ts",
         "apps/web/app/api/csp-report/route.ts",
+        "apps/web/lib/security/csp-report.ts",
         "apps/web/tests/unit/cspReportingAndCrossOriginHeaders.spec.ts"
       ],
       "conditions": [
@@ -1751,13 +1752,35 @@
           "condition": "the endpoint that receives the reports still exists and still bounds what it reads and what it writes to the log",
           "check": "PRESENT_ALL_AT_PATH",
           "paths": [
+            "apps/web/app/api/csp-report/route.ts",
+            "apps/web/lib/security/csp-report.ts"
+          ],
+          "patterns": [
+            "csp-report"
+          ]
+        },
+        {
+          "condition": "the bounds themselves are still in the module the route calls",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/security/csp-report.ts"
+          ],
+          "patterns": [
+            "max_reports_per_window",
+            "\\u0000-\\u001f",
+            "max_field_chars"
+          ]
+        },
+        {
+          "condition": "the route still reads the body under a ceiling and still answers 204 to everything",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
             "apps/web/app/api/csp-report/route.ts"
           ],
           "patterns": [
-            "export async function post",
             "readboundedbody",
-            "max_reports_per_window",
-            "\\u0000-\\u001f"
+            "status: 204",
+            "export async function post"
           ]
         },
         {
@@ -1771,7 +1794,7 @@
           ]
         }
       ],
-      "note": "The served CSP now names /api/csp-report through report-uri and, for browsers that use the Reporting API, through report-to with the endpoint declared in a Reporting-Endpoints header. The receiving route exists and is deliberately narrow: it reads the body under a ceiling rather than trusting content-length (chunked requests carry none, which is why the pre-check form is unsound), it admits at most 120 reports per minute and counts the rest, it strips control characters from every logged field so a sender cannot append its own line to the log, and it answers 204 to everything so it is not an oracle. Reachability is part of the control and is checked separately: the route is in the middleware public allowlist, because a browser sends violation reports without credentials and would otherwise receive a redirect to the login form. Proven by negative mutation: removing report-uri, removing the allowlist entry, removing the control-character strip and removing the window budget each fail a distinct test."
+      "note": "The served CSP now names /api/csp-report through report-uri and, for browsers that use the Reporting API, through report-to with the endpoint declared in a Reporting-Endpoints header. The receiving route exists and is deliberately narrow: it reads the body under a ceiling rather than trusting content-length (chunked requests carry none, which is why the pre-check form is unsound), it admits at most 120 reports per minute and counts the rest, it strips control characters from every logged field so a sender cannot append its own line to the log, and it answers 204 to everything so it is not an oracle. Reachability is part of the control and is checked separately: the route is in the middleware public allowlist, because a browser sends violation reports without credentials and would otherwise receive a redirect to the login form. The pure logic lives in apps/web/lib/security/csp-report.ts rather than in the route file: a Next.js Route Handler may only export names from a fixed set, and exporting a helper so a test could import it fails the production build with \"normaliseReport is not a valid Route export field\". Unit tests do not catch that - vitest does not enforce the route contract, only next build does. Proven by negative mutation: removing report-uri, removing the allowlist entry, removing the control-character strip and removing the window budget each fail a distinct test."
     },
     {
       "requirementId": "V3.4.8",

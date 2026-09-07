@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { admit, extractReports, normaliseReport } from '../../app/api/csp-report/route';
+import { admit, extractReports, normaliseReport } from '../../lib/security/csp-report';
 
 /**
  * ASVS 5.0 V3.4.7 (адрес отчётов CSP), V3.4.8 (Cross-Origin-Opener-Policy) и
