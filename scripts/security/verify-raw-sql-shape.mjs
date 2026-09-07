@@ -80,6 +80,39 @@ export function readTemplate(text, start) {
   return null;
 }
 
+/** A type argument longer than this is not a result shape; stop reading. */
+const TYPE_ARGUMENT_LIMIT = 4096;
+
+/**
+ * Read the type argument of `$queryRaw<…>` from its opening `<`, tracking
+ * angle-bracket depth so nested generics close correctly.
+ *
+ * The first version matched it with `<([^>]*(?:<[^>]*>[^>]*)*)>`, which CodeQL
+ * flagged as exponential backtracking (js/redos) and which measurement
+ * confirmed: `$queryRaw<` followed by 30 repetitions of `<<>` — a string of
+ * 101 bytes — took 3 seconds, and every two further repetitions roughly
+ * quadrupled that. Any scanned source file could have hung CI. A single
+ * forward pass has no backtracking at all.
+ *
+ * @returns {{type: string, end: number} | null} end is the index of the `>`
+ */
+export function readTypeArgument(text, start) {
+  let index = start + 1;
+  let depth = 1;
+  let out = '';
+  while (index < text.length && out.length <= TYPE_ARGUMENT_LIMIT) {
+    const character = text[index];
+    if (character === '<') depth += 1;
+    else if (character === '>') {
+      depth -= 1;
+      if (depth === 0) return { type: out, end: index };
+    }
+    out += character;
+    index += 1;
+  }
+  return null;
+}
+
 /** Field names asserted by an inline object type. Empty for a named type. */
 export function assertedFields(typeArgument) {
   if (!typeArgument.includes('{')) return [];
@@ -102,14 +135,20 @@ export function scanSource(file, text) {
   let namedType = 0;
   let selectStar = 0;
 
-  const call = /\$queryRaw<([^>]*(?:<[^>]*>[^>]*)*)>\s*\(\s*Prisma\.sql/gu;
-  for (const match of text.matchAll(call)) {
-    const tick = text.indexOf('`', match.index + match[0].length);
+  const MARKER = '$queryRaw<';
+  for (let at = text.indexOf(MARKER); at !== -1; at = text.indexOf(MARKER, at + 1)) {
+    const argument = readTypeArgument(text, at + MARKER.length - 1);
+    if (!argument) continue;
+    // Anchored and bounded: the call must continue `(Prisma.sql` right here.
+    const after = text.slice(argument.end + 1, argument.end + 64);
+    if (!/^\s*\(\s*Prisma\.sql/u.test(after)) continue;
+
+    const tick = text.indexOf('`', argument.end);
     if (tick === -1) continue;
     const template = readTemplate(text, tick);
     if (!template) continue;
 
-    const fields = assertedFields(match[1]);
+    const fields = assertedFields(argument.type);
     if (fields.length === 0) {
       namedType += 1;
       continue;
@@ -125,7 +164,7 @@ export function scanSource(file, text) {
     if (missing.length) {
       findings.push({
         file,
-        line: text.slice(0, match.index).split('\n').length,
+        line: text.slice(0, at).split('\n').length,
         missing,
       });
     }

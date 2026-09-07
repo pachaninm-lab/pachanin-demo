@@ -71,6 +71,28 @@ test('producibleNames collects quoted aliases, bare aliases and bare identifiers
   }
 });
 
+test('a pathological type argument is scanned in linear time, not exponential', () => {
+  // CodeQL js/redos on the first version: `<([^>]*(?:<[^>]*>[^>]*)*)>`.
+  // Measured on that regex — `$queryRaw<` plus 30 repetitions of `<<>`, a
+  // string of 101 bytes, took 3 seconds, and every two further repetitions
+  // roughly quadrupled it. Any scanned source file could have hung CI.
+  const evil = `$queryRaw<${'<<>'.repeat(400)}!`;
+  const started = Date.now();
+  scanSource('evil.ts', evil);
+  const elapsed = Date.now() - started;
+  assert.ok(elapsed < 1000, `scan took ${elapsed}ms on a ${evil.length}-byte pathological input`);
+});
+
+test('reads a doubly nested generic the old single-level pattern could not balance', () => {
+  // Array<Record<string, unknown>> occurs 5 times in this repository and was
+  // silently skipped by the previous pattern - not reported, just not seen.
+  const result = scanSource(
+    'a.ts',
+    call('Array<Record<string, unknown>>', 'SELECT source FROM t'),
+  );
+  assert.equal(result.namedType, 1, 'the call is seen and classified, not skipped');
+});
+
 test('the working tree has no raw query asserting an absent field', () => {
   const files = execFileSync('git', ['ls-files', 'apps/api/src/**/*.ts', 'packages/**/*.ts'], { encoding: 'utf8' })
     .split('\n')
