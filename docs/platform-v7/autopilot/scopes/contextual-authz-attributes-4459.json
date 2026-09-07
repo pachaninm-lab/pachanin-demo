@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/contextual-authz-attributes-4459",
+  "status": "active",
+  "purpose": "ASVS V8.1.3 asks the documentation to define the environmental and contextual attributes used to make security decisions. The existing record said none were used at all, which measurement shows is wrong for two of four: the client IP reaches a denial through the pre-auth rate limiter, and time reaches one through the failed-login lockout. Device and location genuinely are not inputs. This pass records all four - the used and the unused - and makes the unused half falsifiable by the tree.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/contextual-authz-attributes-4459.json",
+    "docs/security/contextual-security-attributes.json",
+    "scripts/security/verify-contextual-security-attributes.mjs",
+    "scripts/security/verify-contextual-security-attributes.test.mjs",
+    "docs/security/asvs-applicability-decisions.json",
+    ".github/workflows/sbom-scan.yml"
+  ],
+  "requiredInvariants": [
+    "The record corrects the previous one rather than replacing it silently. The earlier note said no contextual control existed to document; that is false for IP and time, and the correction names both mechanisms with their thresholds.",
+    "An attribute that is NOT a decision input is recorded with the same weight as one that is. 'We do not use location' is an answer to the requirement, not an omission.",
+    "The negative half is what holds the record to the tree. An attribute declared not to be a decision input must not appear in a COMPARISON anywhere in access-decision code - the guards and the auth module, 52 files. Presence in audit metadata is explicitly not a comparison: writing to a log is not a decision.",
+    "A negative claim with no pattern by which it could ever fail is refused as UNCHECKABLE_NEGATIVE_CLAIM. An unfalsifiable claim is not evidence.",
+    "A positive claim must name the site where the decision is made, and that file must exist; a decision input with no site fails, and a named file that is gone fails.",
+    "No access-control behaviour is changed by this pass. Nothing is added to, removed from, or reweighted in any authorization decision; the rate limiter, the lockout and the guards are read, not edited.",
+    "No dependency, schema, migration, RLS or policy change. No registration, 1C, marketing or presentation code. No production, REG.RU, DNS, database or credential mutation. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "Measured: 4 contextual attributes, 2 of them real decision inputs. IP - trusted-proxy resolution, bucket key ip|<address>, RATE_LIMIT_GENERAL over RATE_LIMIT_GENERAL_WINDOW_SECONDS, action HTTP 429, fail-closed when the trusted address is unresolvable. Time - MAX_FAILED_LOGINS = 5, then locked_until and Retry-After.",
+    "Device and location verified as non-inputs by measurement, not assumption: userAgent reaches auth.service.ts and enters clientMetadata only, and a grep for any comparison of it returns nothing.",
+    "The negative check is proven against REAL code edits rather than a stub: inserting a userAgent comparison into pre-auth-rate-limit.guard.ts fails the gate with the exact file and line, and so does inserting a country-code check.",
+    "V8.1.3 PASS is machine-revocable: four mutations with the matrix rebuilt each time - untracking the register, emptying the falsifiable pattern set, disabling the negative check, and removing the guard's fail-closed branch - all four drive the verdict to NOT_ASSESSED.",
+    "A weakness in the decision's own condition was found by that mutation run and fixed here: requiring only the negativeClaimPatterns key was satisfied by an empty object, so the gate went red while the matrix still read PASS. The condition now requires the patterns themselves, and the mutation revokes correctly.",
+    "V8.1.4 deliberately stays FAIL: it asks for contextual factors IN ADDITION TO function-level, data-specific and field-level authorization, and those three are undocumented (V8.1.1, V8.1.2 remain FAIL). Its note is corrected where it claimed no contextual factors are used.",
+    "Matrix on this head: PASS 129 -> 130, FAIL 90 -> 89. Exactly one verdict changed; no collateral drift. scripts/security 151/151 green."
+  ]
+}

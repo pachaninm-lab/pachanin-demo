@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "pc-crop.contextual-security-attributes.v1",
+  "purpose": "ASVS V8.1.3 asks the documentation to define the environmental and contextual attributes used to make security decisions; V8.1.4 asks it to state the attributes evaluated, the thresholds, and the action taken. Both halves are recorded here. An attribute that is NOT a decision input is recorded too, with the same weight: 'we do not use location' is an answer to the requirement, and a gate holds it to the tree so the claim cannot quietly stop being true.",
+  "attributes": [
+    {
+      "id": "client-ip",
+      "name": "IP-адрес клиента",
+      "isDecisionInput": true,
+      "resolvedBy": ["apps/api/src/common/security/trusted-proxy.ts"],
+      "decisionSites": ["apps/api/src/common/guards/pre-auth-rate-limit.guard.ts"],
+      "decision": "Ограничение частоты запросов до аутентификации. Адрес берётся через доверенную политику прокси, а не из заголовка напрямую.",
+      "threshold": "RATE_LIMIT_GENERAL запросов (по умолчанию 300) за RATE_LIMIT_GENERAL_WINDOW_SECONDS (по умолчанию 60) на ключ ip|<адрес>.",
+      "action": "DENY: HTTP 429 при исчерпании корзины.",
+      "failureMode": "Fail closed: если доверенный адрес клиента неразрешим, запрос отклоняется, а не пропускается."
+    },
+    {
+      "id": "time",
+      "name": "Время",
+      "isDecisionInput": true,
+      "resolvedBy": ["apps/api/src/modules/auth/auth.service.ts"],
+      "decisionSites": ["apps/api/src/modules/auth/auth.service.ts"],
+      "decision": "Блокировка входа после серии неудачных попыток и срок годности выданных токенов и тикетов.",
+      "threshold": "MAX_FAILED_LOGINS = 5 неудачных попыток на учётную запись; далее выставляется locked_until.",
+      "action": "DENY: вход отклоняется до истечения locked_until, ответ несёт Retry-After, вычисленный как locked_until минус текущее время.",
+      "failureMode": "Счётчик и метка хранятся на стороне сервера, а не в запросе."
+    },
+    {
+      "id": "device",
+      "name": "Устройство и User-Agent",
+      "isDecisionInput": false,
+      "resolvedBy": [],
+      "decisionSites": [],
+      "decision": "Не входит ни в одно решение о доступе. User-Agent доходит до auth.service.ts и попадает только в метаданные аудита через clientMetadata; он нигде не сравнивается, и сессия к нему не привязана.",
+      "threshold": "Нет.",
+      "action": "Нет. Запись в аудит - это не решение.",
+      "failureMode": "Отсутствие привязки к устройству означает, что украденный токен не отклоняется по признаку другого устройства. Это записанный факт, а не одобрение."
+    },
+    {
+      "id": "location",
+      "name": "Геолокация",
+      "isDecisionInput": false,
+      "resolvedBy": [],
+      "decisionSites": [],
+      "decision": "Не используется. Географическое положение нигде не выводится и не влияет на решения; IP-адрес применяется только как ключ ограничения частоты, а не как признак страны или региона.",
+      "threshold": "Нет.",
+      "action": "Нет.",
+      "failureMode": "Вход из нового региона не вызывает ни повышения фактора, ни отказа."
+    }
+  ],
+  "negativeClaimPatterns": {
+    "device": ["useragent", "user-agent", "deviceid", "devicefingerprint"],
+    "location": ["geoip", "geolite", "maxmind", "countrycode", "region_code", "latitude", "longitude"]
+  },
+  "decisionRoots": [
+    "apps/api/src/common/guards",
+    "apps/api/src/modules/auth"
+  ]
+}

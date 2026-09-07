@@ -26,6 +26,9 @@ on:
       - 'scripts/security/verify-crypto-migration-plan.mjs'
       - 'scripts/security/verify-crypto-migration-plan.test.mjs'
       - 'docs/security/CRYPTO_MIGRATION_PLAN.md'
+      - 'scripts/security/verify-contextual-security-attributes.mjs'
+      - 'scripts/security/verify-contextual-security-attributes.test.mjs'
+      - 'docs/security/contextual-security-attributes.json'
       - 'scripts/security/verify-authentication-pathways.test.mjs'
       - 'docs/security/THREAT_MODEL.md'
       - 'docs/security/cryptographic-inventory.json'
@@ -71,6 +74,9 @@ on:
       - 'scripts/security/verify-crypto-migration-plan.mjs'
       - 'scripts/security/verify-crypto-migration-plan.test.mjs'
       - 'docs/security/CRYPTO_MIGRATION_PLAN.md'
+      - 'scripts/security/verify-contextual-security-attributes.mjs'
+      - 'scripts/security/verify-contextual-security-attributes.test.mjs'
+      - 'docs/security/contextual-security-attributes.json'
       - 'scripts/security/verify-authentication-pathways.test.mjs'
       - 'docs/security/THREAT_MODEL.md'
       - 'docs/security/cryptographic-inventory.json'
@@ -222,6 +228,9 @@ jobs:
 
       - name: Verify every key records where it may be used
         run: node scripts/security/verify-key-usage.mjs
+
+      - name: Verify contextual attributes in access decisions
+        run: node scripts/security/verify-contextual-security-attributes.mjs
 
       - name: Verify no decision cites something that is gone
         run: node scripts/security/verify-decision-evidence.mjs
