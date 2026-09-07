@@ -1,12 +1,12 @@
-import { NextResponse } from 'next/server';
 import { commercialFetch } from '../../../../../lib/commercial-api';
+import { jsonNoStore } from '../../../../../lib/http/no-store';
 
 export async function GET(_: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   try {
     const payload = await commercialFetch(`/companies/${params.id}`);
-    return NextResponse.json(payload);
+    return jsonNoStore(payload);
   } catch {
-    return NextResponse.json({ ok: false, company: null }, { status: 200 });
+    return jsonNoStore({ ok: false, company: null }, { status: 200 });
   }
 }

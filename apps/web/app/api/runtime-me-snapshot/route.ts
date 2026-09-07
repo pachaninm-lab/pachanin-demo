@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
 import { runtimeApiUrl, runtimeAuthHeaders } from '../runtime-auth-helpers';
+import { jsonNoStore } from '../../../lib/http/no-store';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,8 +7,8 @@ export async function GET() {
   try {
     const response = await fetch(runtimeApiUrl('/runtime/me/snapshot'), { cache: 'no-store', headers: await runtimeAuthHeaders() });
     const payload = await response.json().catch(() => ({}));
-    return NextResponse.json(payload, { status: response.ok ? 200 : response.status });
+    return jsonNoStore(payload, { status: response.ok ? 200 : response.status });
   } catch {
-    return NextResponse.json({ ok: false }, { status: 200 });
+    return jsonNoStore({ ok: false }, { status: 200 });
   }
 }

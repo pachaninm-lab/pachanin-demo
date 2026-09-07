@@ -219,6 +219,9 @@ jobs:
       - name: Verify request validation coverage ratchet
         run: node scripts/security/verify-request-validation-coverage.mjs
 
+      - name: Verify no API handler leaves its response cacheable
+        run: node scripts/security/verify-api-cache-control.mjs
+
       - name: Verify every key records where it may be used
         run: node scripts/security/verify-key-usage.mjs
 
