@@ -26,6 +26,9 @@ on:
       - 'scripts/security/verify-crypto-migration-plan.mjs'
       - 'scripts/security/verify-crypto-migration-plan.test.mjs'
       - 'docs/security/CRYPTO_MIGRATION_PLAN.md'
+      - 'scripts/security/verify-sensitive-operation-stepup.mjs'
+      - 'scripts/security/verify-sensitive-operation-stepup.test.mjs'
+      - 'docs/security/sensitive-operations-registry.json'
       - 'scripts/security/verify-authentication-pathways.test.mjs'
       - 'docs/security/THREAT_MODEL.md'
       - 'docs/security/cryptographic-inventory.json'
@@ -71,6 +74,9 @@ on:
       - 'scripts/security/verify-crypto-migration-plan.mjs'
       - 'scripts/security/verify-crypto-migration-plan.test.mjs'
       - 'docs/security/CRYPTO_MIGRATION_PLAN.md'
+      - 'scripts/security/verify-sensitive-operation-stepup.mjs'
+      - 'scripts/security/verify-sensitive-operation-stepup.test.mjs'
+      - 'docs/security/sensitive-operations-registry.json'
       - 'scripts/security/verify-authentication-pathways.test.mjs'
       - 'docs/security/THREAT_MODEL.md'
       - 'docs/security/cryptographic-inventory.json'
@@ -222,6 +228,9 @@ jobs:
 
       - name: Verify every key records where it may be used
         run: node scripts/security/verify-key-usage.mjs
+
+      - name: Verify step-up on highly sensitive operations
+        run: node scripts/security/verify-sensitive-operation-stepup.mjs
 
       - name: Verify no decision cites something that is gone
         run: node scripts/security/verify-decision-evidence.mjs

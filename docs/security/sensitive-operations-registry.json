@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "pc-crop.sensitive-operations.v1",
+  "purpose": "ASVS V7.5.3 requires further authentication with at least one factor before highly sensitive transactions or operations. What counts as highly sensitive is a judgement, and it is written here by a person. What is machine-checked is the other half: every mutating route on a surface named here must carry the declared step-up, or stand in the exemption list with a reason. A new route added without one fails the build rather than being discovered a year later.",
+  "serviceLayerStepUps": "Не всякая повторная аутентификация выражается декоратором. Команды членства в организации — смена роли, исключение участника и сброс чужого MFA — гейтятся в сервисе через requireFreshMfa и проверяются поведенческим тестом apps/api/src/modules/auth/organization-membership-reauth.spec.ts, а не этим сканером: он читает контроллеры. Решения по регистрационным заявкам гейтятся так же в registration-decision.service.ts и registration-cancellation.service.ts.",
+  "controllers": [
+    {
+      "file": "apps/api/src/modules/settlement-engine/settlement-engine.controller.ts",
+      "whySensitive": "Это денежный контур: резервирование, выпуск средств, возврат, удержания, сверка и отзыв банковских ключей. Выпуск средств — самая чувствительная операция платформы, потому что она необратима вне банковского контура.",
+      "stepUpMarkers": ["@UseGuards(SettlementFinancialMfaGuard)"],
+      "howEnforced": "SettlementFinancialMfaGuard требует, чтобы сессия несла подтверждённый фактор не старше 15 минут, и падает закрыто при отсутствии пользователя. Заголовки клиента доказательством не считаются: отметка берётся из серверной сессии.",
+      "exemptRoutes": [
+        {
+          "verb": "Post",
+          "path": "bank-callback",
+          "because": "Это единственный путь подтверждения денег со стороны банка, и у него нет пользовательской сессии вовсе: маршрут @Public(), а подлинность устанавливается проверкой подписи, связывающей партнёра, версию ключа, идентификатор события и отпечаток канонического тела до начала транзакции. Требовать здесь повторную аутентификацию не у кого — фактор подтверждает человек, а вызывающий не человек."
+        }
+      ]
+    }
+  ]
+}

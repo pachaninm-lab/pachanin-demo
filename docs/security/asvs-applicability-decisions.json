@@ -5237,48 +5237,82 @@
     {
       "requirementId": "V7.5.3",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "money-command:apps/api/src/modules/deals/deal-command.policy.ts",
-        "authoritative-path:apps/api/src/modules/deals/postgresql-deal-command.service.ts",
-        "wired-gate-elsewhere:apps/api/src/modules/auth/registration-decision.service.ts"
+        "docs/security/sensitive-operations-registry.json",
+        "scripts/security/verify-sensitive-operation-stepup.mjs",
+        "scripts/security/verify-sensitive-operation-stepup.test.mjs",
+        "apps/api/src/modules/settlement-engine/settlement-engine.controller.ts",
+        "apps/api/src/modules/settlement-engine/settlement-financial-mfa.guard.ts",
+        "apps/api/src/modules/auth/organization-membership-reauth.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "a highly sensitive money operation exists as a command",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the money surface names why it is highly sensitive, what its step-up is, and how the one exempt route is authenticated instead",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/api/src/modules/deals/deal-command.policy.ts"
+            "docs/security/sensitive-operations-registry.json"
           ],
           "patterns": [
-            "bank_release_request"
-          ]
-        },
-        {
-          "condition": "the path that executes it still asks for no further authentication",
-          "check": "ABSENT_AT_PATH",
-          "paths": [
-            "apps/api/src/modules/deals/postgresql-deal-command.service.ts"
-          ],
-          "patterns": [
-            "requirefreshmfa",
-            "mfaverifiedat",
-            "fresh_mfa",
-            "step-up"
-          ]
-        },
-        {
-          "condition": "a wired further-authentication gate exists elsewhere, so the capability is real",
-          "check": "PRESENT_AT_PATH",
-          "paths": [
-            "apps/api/src/modules/auth/registration-decision.service.ts"
-          ],
-          "patterns": [
+            "whysensitive",
+            "stepupmarkers",
+            "settlementfinancialmfaguard",
+            "exemptroutes",
+            "bank-callback",
+            "organization-membership-reauth.spec.ts",
             "requirefreshmfa"
+          ]
+        },
+        {
+          "condition": "the release of funds carries the step-up on that route itself, not merely somewhere in the same file",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/settlement-engine/settlement-engine.controller.ts"
+          ],
+          "patterns": [
+            "@post('deal/:id/release')\n  @roles('accounting', 'support_manager', 'admin')\n  @useguards(settlementfinancialmfaguard)"
+          ]
+        },
+        {
+          "condition": "the step-up fails closed and reads the factor from the server-side session rather than from the caller",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/settlement-engine/settlement-financial-mfa.guard.ts"
+          ],
+          "patterns": [
+            "if (!request.user)",
+            "recent_financial_mfa_required",
+            "assertrecentsettlementfinancialmfa(request.user)"
+          ]
+        },
+        {
+          "condition": "a route added without the step-up, an exemption with no reason, an exemption for a route that does not exist, and a surface declaring no marker at all each fail the build",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-sensitive-operation-stepup.mjs"
+          ],
+          "patterns": [
+            "sensitive_route_without_step_up",
+            "exemption_without_reason",
+            "exemption_for_missing_route",
+            "controller_without_marker",
+            "redundant_exemption"
+          ]
+        },
+        {
+          "condition": "the parse is cross-checked against an independent count, so it cannot report a clean surface by missing routes",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-sensitive-operation-stepup.test.mjs"
+          ],
+          "patterns": [
+            "agrees with an independent grep",
+            "releasing funds requires further authentication",
+            "attached below the route decorator"
           ]
         }
       ],
-      "note": "Releasing funds is the most sensitive operation this platform performs, and the path that executes it asks for nothing beyond an already-authenticated session. The session must carry a verified second factor to exist at all, which is a real baseline, but the requirement asks for further authentication at the point of the operation and there is none: no fresh-MFA check, no step-up, no secondary verification anywhere on the command path. The capability is not missing from the platform - registration-decision.service.ts refuses a decision unless MFA was verified within 15 minutes - it is simply not applied where the money moves. Read together with V2.3.5, the money-release command has neither a second approver nor a re-authentication step."
+      "note": "ЗАПИСЬ БЫЛА УСТАРЕВШЕЙ, и это главное в закрытии. Прежняя формулировка утверждала, что путь выпуска средств «не просит ничего сверх уже аутентифицированной сессии» и что повторной аутентификации нет нигде на командном пути. Измерение по текущему дереву показывает обратное: POST deal/:id/release несёт @UseGuards(SettlementFinancialMfaGuard), как и семь других изменяющих маршрутов денежного контура — terms, reserve, refund, holds, holds/:holdId/release, reconciliation и отзыв банковского ключа. Восемь маршрутов из девяти защищены, и число сверено с независимым grep.\n\nДевятый — bank-callback — исключён с причиной, а не пропущен. У него нет пользовательской сессии вовсе: маршрут @Public(), а подлинность устанавливается проверкой подписи, связывающей партнёра, версию ключа, идентификатор события и отпечаток канонического тела до начала транзакции. Требовать повторную аутентификацию не у кого: фактор подтверждает человек, а вызывающий здесь не человек.\n\nСам гейт падает закрыто: при отсутствии пользователя — отказ, дальше требуется подтверждённый фактор не старше 15 минут, и отметка берётся из серверной сессии, а не из заголовков клиента.\n\nДобавлена проверка, которой не было: новый изменяющий маршрут на этой поверхности без гейта роняет сборку с точным именем маршрута. Проверено мутацией — снятие гейта именно с release даёт SENSITIVE_ROUTE_WITHOUT_STEP_UP на нём. Отклоняются также исключение без причины, исключение для несуществующего маршрута, исключение для уже защищённого маршрута и поверхность, не объявившая ни одного маркера (иначе проверка проходила бы тривиально).\n\nРазбор контроллера был неверен в первой версии и исправлен: он шёл построчно и сбрасывал накопитель на любой строке без @, а многострочный @RateLimit({...}) состоит из таких строк — так терялось три маршрута из девяти, включая release. Разбор теперь режет класс по границам членов, и тест сверяет число маршрутов с независимым grep, чтобы пропуск не выглядел чистой поверхностью.\n\nЧто этот сканер НЕ видит, записано в реестре, а не умолчано: повторная аутентификация команд членства в организации и решений по регистрационным заявкам стоит в сервисах, а не в декораторах, и проверяется своими поведенческими тестами.\n\nДва условия самого решения оказались слабее проверки и исправлены здесь же — найдено мутацией. Первое требовало лишь присутствия строки @UseGuards(SettlementFinancialMfaGuard) в файле, а она переживает снятие гейта именно с release: маркер остаётся ещё на семи маршрутах. Условие теперь содержит сам блок декораторов release вместе с гейтом. Второе требовало ключ serviceLayerStepUps, который переживает замену его содержимого на «n/a»; условие теперь требует названные им тест и функцию."
     },
     {
       "requirementId": "V7.6.1",

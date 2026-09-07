@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/sensitive-operation-stepup-4459",
+  "status": "active",
+  "purpose": "ASVS V7.5.3 requires further authentication before highly sensitive operations. The existing record said the fund-release path asks for nothing beyond an already-authenticated session. Measurement against the current tree shows that is no longer true: release carries SettlementFinancialMfaGuard, as do seven other money-mutating routes. What was missing was not the control but any check that it stays attached.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "stackedOn": "security/own-session-management-4459",
+  "stackedReason": "Continues the V7.5.x contour and inherits the shared fresh-MFA control from the two branches below it; its scope lists the cumulative diff because the guard measures a branch against main.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/sensitive-operation-stepup-4459.json",
+    "docs/security/sensitive-operations-registry.json",
+    "scripts/security/verify-sensitive-operation-stepup.mjs",
+    "scripts/security/verify-sensitive-operation-stepup.test.mjs",
+    "docs/security/asvs-applicability-decisions.json",
+    ".github/workflows/sbom-scan.yml",
+    "apps/api/src/common/security/fresh-mfa.ts",
+    "apps/api/src/common/security/fresh-mfa.spec.ts",
+    "apps/api/src/modules/auth/organization-invitation.service.ts",
+    "apps/api/src/modules/auth/organization-membership-reauth.spec.ts",
+    "apps/api/src/modules/auth/auth.controller.ts",
+    "apps/api/src/modules/auth/auth.service.ts",
+    "apps/api/src/modules/auth/persistent-auth.repository.ts",
+    "apps/api/src/modules/auth/own-session-management.spec.ts",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+  ],
+  "requiredInvariants": [
+    "No runtime behaviour changes on this branch. The settlement controller, its guard and every route are read, never edited; this pass adds a registry, a checker and a corrected record.",
+    "The stale record is corrected openly rather than quietly overwritten. It claimed no step-up existed on the command path; eight of nine mutating money routes carry one, and the count is cross-checked against an independent grep.",
+    "The one exempt route carries a reason, not silence. bank-callback is @Public() with no user session at all - authenticity comes from a signature binding partner, key version, event id and the canonical body fingerprint - so there is nobody to re-authenticate.",
+    "A surface that declares no step-up marker is refused rather than passing trivially, and an exemption without a reason, for a missing route, or for a route already guarded each fail.",
+    "What this scanner cannot see is written down instead of implied absent: membership commands and registration decisions are gated in services, not decorators, and are proven by their own behavioural tests.",
+    "No dependency, schema, migration, RLS or policy change. No registration business logic, 1C, marketing or presentation code. No production, REG.RU, DNS, database or credential mutation. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "Measured: 9 mutating routes on the settlement controller, 8 carrying the step-up, 1 exempt with a stated reason. Both numbers agree with an independent grep.",
+    "The controller parser was WRONG in its first version and the error is recorded: walking line by line, it reset its accumulator on any line not starting with @, and a multi-line @RateLimit({...}) consists of such lines - so it lost three routes of nine, including deal/:id/release, the most sensitive one. It now splits the class on member boundaries, and a test pins the route count against grep.",
+    "Three mutations of the tree each turn the checker red: removing the guard from fund release (named by exact route), making the guard stop failing closed on an absent user, and breaking the member split.",
+    "V7.5.3 PASS is machine-revocable: four mutations with the matrix rebuilt each time - unguarding fund release, untracking the registry, disabling the route check, and hiding the service-layer note - all four drive the verdict to NOT_ASSESSED.",
+    "Two of the decision's own conditions were found too weak by that run and fixed here: the bare guard marker survived unguarding release because seven other routes still carry it, and the serviceLayerStepUps key survived replacing its content with 'n/a'. Both now bind the content they are about.",
+    "Matrix on this head: PASS 129 -> 132, FAIL 90 -> 87 across the stack. scripts/security 153/153 green."
+  ]
+}
