@@ -130,3 +130,85 @@ test('each detection pattern still matches something', () => {
   const unused = MINTING_PATTERNS.map(([kind]) => kind).filter((kind) => !kinds.has(kind));
   assert.deepEqual(unused, [], 'a detection pattern matches nothing and would not notice a regression');
 });
+
+/**
+ * ASVS V6.3.4 просит не только отсутствия недокументированных путей, но и того,
+ * чтобы средства защиты и стойкость аутентификации применялись СОГЛАСОВАННО.
+ *
+ * Про кабинетные пути в записи было сказано честно: «вероятно, держится, но
+ * вероятно — это не доказательство». Ниже вероятность заменена измерением. Каждое
+ * свойство, которое модель угроз утверждает про E, F и G, закреплено против
+ * дерева, поэтому ослабление любого из них роняет сборку, а не обнаруживается
+ * при следующем аудите.
+ */
+const OWNER_CABINET = 'apps/web/app/platform-v7/staff/open-cabinet/route.ts';
+const CABINET_SESSION = 'apps/web/app/api/platform-v7/cabinet-session/route.ts';
+const CABINET_LOCK = 'apps/web/app/api/platform-v7/cabinet-lock-login/route.ts';
+
+test('E: the production-reachable cabinet demands an ACTIVE PLATFORM_OWNER with MFA, decided by the API', () => {
+  const source = readFileSync(OWNER_CABINET, 'utf8');
+  // Both halves in one predicate: an ACTIVE assignment that is not PLATFORM_OWNER,
+  // or a PLATFORM_OWNER assignment that is not ACTIVE, must not authorize.
+  assert.match(source, /item\.role === 'PLATFORM_OWNER' && item\.status === 'ACTIVE'/u);
+  assert.match(source, /authenticationAssurance\.mfaVerified/u);
+  // The decision is the API's. A cookie the browser already holds cannot assert it.
+  assert.match(source, /!capabilities \|\| !activeOwner \|\| !capabilities\.authenticationAssurance\.mfaVerified/u);
+});
+
+test('E: an unauthorized or unreachable authority mints nothing', () => {
+  const source = readFileSync(OWNER_CABINET, 'utf8');
+  // 401/403 is a denial; anything else non-ok is unavailable. Neither issues a
+  // cabinet, so a failing authority cannot become an open door.
+  assert.match(source, /response\.status === 401 \|\| response\.status === 403\) return \{ status: 'denied' \}/u);
+  assert.match(source, /!response\.ok\) return \{ status: 'unavailable' \}/u);
+});
+
+test('E: the weaker branch cannot outlive or outrank the stronger one', () => {
+  const source = readFileSync(OWNER_CABINET, 'utf8');
+  const api = Number(source.match(/MAX_API_OWNER_TTL_SECONDS = ([^;]+);/u)[1].split('*').reduce((a, b) => a * Number(b.trim()), 1));
+  const fixture = Number(source.match(/MAX_CONTROLLED_TTL_SECONDS = ([^;]+);/u)[1].split('*').reduce((a, b) => a * Number(b.trim()), 1));
+  assert.equal(api, 60 * 60);
+  assert.equal(fixture, 8 * 60 * 60);
+  // The fixture branch is not reachable in production at all, so its longer life
+  // is a property of the review contour, not a weaker production credential.
+  assert.match(source, /PC_CABINET_TEST_ACCESS_EXPIRES_AT/u);
+  assert.match(source, /if \(ttlSeconds < 60\) return \{ status: 'denied' \}/u);
+});
+
+test('E: the role is bound by the server, so a submitted role cannot widen the cabinet', () => {
+  const source = readFileSync(OWNER_CABINET, 'utf8');
+  // This is the "cannot present as more than the account behind it" property.
+  assert.match(source, /The server binds the role to its fixed controlled/u);
+  assert.match(source, /controlledCabinetContext\(role\)/u);
+});
+
+test('F: a browser-supplied role is refused wherever production is even possible', () => {
+  const source = readFileSync(CABINET_SESSION, 'utf8');
+  assert.match(source, /directBodyRoleAllowed/u);
+  // Allowed only under an explicit development or test environment - not merely
+  // "not production", which an unset NODE_ENV would satisfy.
+  assert.match(source, /envValue\(env, 'NODE_ENV'\) === 'development' \|\| envValue\(env, 'NODE_ENV'\) === 'test'/u);
+  assert.match(source, /const role = verifiedRole \?\? \(directBodyRoleAllowed \? bodyRole : ''\)/u);
+});
+
+test('G: the shared-password cabinet answers 410 in production before reading anything', () => {
+  const source = readFileSync(CABINET_LOCK, 'utf8');
+  const handler = source.slice(source.indexOf('export async function POST('));
+  const guard = handler.indexOf("process.env.NODE_ENV === 'production'");
+  const firstRead = handler.indexOf('request.json()');
+  assert.ok(guard >= 0 && firstRead > guard, 'the production refusal must precede reading the body');
+  assert.match(handler, /status: 410/u);
+});
+
+test('the three cabinet pathways the threat model names are the three that exist', () => {
+  // A fourth minting route would make the consistency claim above cover less than
+  // it appears to. The inventory test above catches a new pathway; this one keeps
+  // the consistency evidence tied to exactly the pathways it examined.
+  for (const file of [OWNER_CABINET, CABINET_SESSION, CABINET_LOCK]) {
+    assert.ok(readFileSync(file, 'utf8').length > 0, file);
+  }
+  const model = readFileSync(THREAT_MODEL, 'utf8');
+  assert.match(model, /Owner cabinet open/u);
+  assert.match(model, /Cabinet session/u);
+  assert.match(model, /Cabinet lock login/u);
+});

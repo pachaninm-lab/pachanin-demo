@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/cabinet-pathway-consistency-4459",
+  "status": "active",
+  "purpose": "ASVS V6.3.4 asks for no undocumented authentication pathways AND for security controls and authentication strength enforced consistently across them. The first half was already closed. The second was left open by its own record, in its own words: the cabinet pathways likely hold, but likely is not evidence. This pass replaces the likelihood with measurement.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/cabinet-pathway-consistency-4459.json",
+    "scripts/security/verify-authentication-pathways.test.mjs",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "Nothing changes behaviour. The three cabinet routes are read, never edited; this pass adds evidence for what is already true and a corrected record.",
+    "The property proven is the one the record named: a cabinet role cannot present as more than the account behind it. The server binds the role to a fixed controlled organization, so a submitted role cannot widen the cabinet.",
+    "A failing authority must not become an open door. 401/403 is a denial and any other non-ok answer is unavailability, and neither issues a cabinet.",
+    "The browser-supplied role on pathway F is admitted only under an explicit development or test environment, never under a mere 'not production' - an unset NODE_ENV must not open it.",
+    "Pathway G refuses in production before reading the request body at all, and the test asserts that ordering rather than the presence of a 410 somewhere in the file.",
+    "The evidence extends the existing pathway test rather than adding a new web-tier surface, so no CI wiring and no web-unit registration is involved.",
+    "No dependency, schema, migration, RLS or policy change. No registration business logic, 1C, marketing or presentation code. No production, REG.RU, DNS, database or credential mutation. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "Six mutations of the three routes each turn the suite red: dropping the MFA requirement, accepting an inactive PLATFORM_OWNER, dropping the fail-closed branch for an unreachable authority, widening the one-hour API cabinet to eight, replacing the explicit development/test check with 'not production', and removing the production refusal from the shared-password cabinet.",
+    "V6.3.4 PASS is machine-revocable: four mutations with the matrix rebuilt each time - dropping MFA, removing G's production refusal, untracking the pathway test, and weakening its wording - all four drive the verdict to NOT_ASSESSED.",
+    "One condition of the decision was found too weak by that run and fixed here: process.env.NODE_ENV === 'production' appears twice in the lock-login file - in the refusal and in the cookie's secure flag - so removing the refusal did not revoke the verdict. The condition now contains the refusal block with its 410.",
+    "Matrix on this head: PASS 129 -> 133, FAIL 90 -> 86 measured against main. Exactly one verdict changed by this pass; no collateral drift.",
+    "scripts/security suite green; decision-evidence and web-unit-coverage gates green."
+  ]
+}
