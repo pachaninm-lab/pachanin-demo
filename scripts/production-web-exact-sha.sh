@@ -8,6 +8,8 @@ PC_PROD_COMPOSE="${PC_PROD_COMPOSE:-}"
 PC_PROD_PROJECT="${PC_PROD_PROJECT:-}"
 PC_HARDENING_OVERRIDE="${PC_HARDENING_OVERRIDE:-${PC_PROD_DIR%/}/compose.production-hardening.override.yml}"
 PC_IMAGE_OVERRIDE="${PC_IMAGE_OVERRIDE:-${PC_PROD_DIR%/}/compose.production-web-image.override.yml}"
+POSTHOG_RUNTIME_ENV_FILE="${PC_POSTHOG_RUNTIME_ENV_FILE:-${PC_PROD_DIR%/}/.pc-posthog-public-analytics.env}"
+POSTHOG_RUNTIME_OVERRIDE="${PC_POSTHOG_RUNTIME_OVERRIDE:-${PC_PROD_DIR%/}/compose.pc-posthog-public-analytics.override.yml}"
 IMAGE_REPOSITORY="${PC_WEB_IMAGE_REPOSITORY:-ghcr.io/pachaninm-lab/grainflow-web}"
 LIVE_ACCEPTANCE_SCRIPT="${PC_LIVE_ACCEPTANCE_SCRIPT:-}"
 
@@ -62,6 +64,8 @@ require_path "$PC_PROD_DIR" PC_PROD_DIR
 require_path "$PC_PROD_COMPOSE" PC_PROD_COMPOSE
 require_path "$PC_HARDENING_OVERRIDE" PC_HARDENING_OVERRIDE
 require_path "$PC_IMAGE_OVERRIDE" PC_IMAGE_OVERRIDE
+require_path "$POSTHOG_RUNTIME_ENV_FILE" POSTHOG_RUNTIME_ENV_FILE
+require_path "$POSTHOG_RUNTIME_OVERRIDE" POSTHOG_RUNTIME_OVERRIDE
 [[ -d "$PC_PROD_DIR" ]] || fail "production directory does not exist: $PC_PROD_DIR"
 
 if [[ "$PC_HARDENING_OVERRIDE" != /* ]]; then
@@ -70,11 +74,62 @@ fi
 if [[ "$PC_IMAGE_OVERRIDE" != /* ]]; then
   PC_IMAGE_OVERRIDE="${PC_PROD_DIR%/}/$PC_IMAGE_OVERRIDE"
 fi
+if [[ "$POSTHOG_RUNTIME_ENV_FILE" != /* ]]; then
+  POSTHOG_RUNTIME_ENV_FILE="${PC_PROD_DIR%/}/$POSTHOG_RUNTIME_ENV_FILE"
+fi
+if [[ "$POSTHOG_RUNTIME_OVERRIDE" != /* ]]; then
+  POSTHOG_RUNTIME_OVERRIDE="${PC_PROD_DIR%/}/$POSTHOG_RUNTIME_OVERRIDE"
+fi
 [[ -f "$PC_HARDENING_OVERRIDE" ]] || fail "hardening override does not exist: $PC_HARDENING_OVERRIDE"
 [[ -d "$(dirname "$PC_IMAGE_OVERRIDE")" ]] || fail "image override directory does not exist: $(dirname "$PC_IMAGE_OVERRIDE")"
 if [[ "$ACTION" != audit ]]; then
   [[ -x "$LIVE_ACCEPTANCE_SCRIPT" ]] || fail 'PC_LIVE_ACCEPTANCE_SCRIPT must point to an executable acceptance script'
   command -v python3 >/dev/null 2>&1 || fail 'Python 3 is required for strict live acceptance JSON parsing'
+fi
+
+posthog_env_present=0
+posthog_override_present=0
+[[ -e "$POSTHOG_RUNTIME_ENV_FILE" ]] && posthog_env_present=1
+[[ -e "$POSTHOG_RUNTIME_OVERRIDE" ]] && posthog_override_present=1
+[[ "$posthog_env_present" == "$posthog_override_present" ]] || fail 'POSTHOG_RUNTIME_AUTHORITY_PARTIAL'
+posthog_runtime_override_present=0
+if (( posthog_env_present == 1 )); then
+  [[ "$POSTHOG_RUNTIME_ENV_FILE" == "${PC_PROD_DIR%/}/"* ]] || fail 'POSTHOG_RUNTIME_FILE_OUTSIDE_PRODUCTION_DIRECTORY'
+  [[ "$POSTHOG_RUNTIME_OVERRIDE" == "${PC_PROD_DIR%/}/"* ]] || fail 'POSTHOG_RUNTIME_OVERRIDE_OUTSIDE_PRODUCTION_DIRECTORY'
+  [[ -f "$POSTHOG_RUNTIME_ENV_FILE" && ! -L "$POSTHOG_RUNTIME_ENV_FILE" ]] || fail 'POSTHOG_RUNTIME_FILE_INVALID'
+  [[ -f "$POSTHOG_RUNTIME_OVERRIDE" && ! -L "$POSTHOG_RUNTIME_OVERRIDE" ]] || fail 'POSTHOG_RUNTIME_OVERRIDE_INVALID'
+  [[ "$(stat -c '%a:%u:%g' "$POSTHOG_RUNTIME_ENV_FILE")" == '600:0:0' ]] || fail 'POSTHOG_RUNTIME_FILE_INVALID'
+  [[ "$(stat -c '%a:%u:%g' "$POSTHOG_RUNTIME_OVERRIDE")" == '600:0:0' ]] || fail 'POSTHOG_RUNTIME_OVERRIDE_INVALID'
+  python3 - "$POSTHOG_RUNTIME_ENV_FILE" <<'PY' || fail 'POSTHOG_RUNTIME_FILE_INVALID'
+import re
+import sys
+raw = open(sys.argv[1], encoding='ascii').read()
+if not raw.endswith('\n') or '\r' in raw or '\0' in raw:
+    raise SystemExit(1)
+lines = raw.rstrip('\n').split('\n')
+if len(lines) != 2:
+    raise SystemExit(1)
+values = {}
+for line in lines:
+    name, sep, value = line.partition('=')
+    if sep != '=' or name in values:
+        raise SystemExit(1)
+    values[name] = value
+if set(values) != {'POSTHOG_PROJECT_REFERENCE', 'POSTHOG_INGEST_REGION'}:
+    raise SystemExit(1)
+if not re.fullmatch(r'phc_[A-Za-z0-9_-]{20,96}', values['POSTHOG_PROJECT_REFERENCE']):
+    raise SystemExit(1)
+if values['POSTHOG_INGEST_REGION'] != 'us':
+    raise SystemExit(1)
+PY
+  python3 - "$POSTHOG_RUNTIME_OVERRIDE" "$POSTHOG_RUNTIME_ENV_FILE" <<'PY' || fail 'POSTHOG_RUNTIME_OVERRIDE_INVALID'
+import json
+import sys
+expected = "services:\n  web:\n    env_file:\n      - " + json.dumps(sys.argv[2]) + "\n"
+if open(sys.argv[1], encoding='utf-8').read() != expected:
+    raise SystemExit(1)
+PY
+  posthog_runtime_override_present=1
 fi
 
 compose_version="$(docker compose version --short | sed 's/^v//')"
@@ -98,6 +153,9 @@ for raw_file in "${RAW_COMPOSE_FILES[@]}"; do
 done
 (( compose_file_count >= 1 )) || fail 'no production Compose files were resolved'
 BASE_DC+=(-f "$PC_HARDENING_OVERRIDE")
+if (( posthog_runtime_override_present == 1 )); then
+  BASE_DC+=(-f "$POSTHOG_RUNTIME_OVERRIDE")
+fi
 
 cd "$PC_PROD_DIR"
 "${BASE_DC[@]}" config --quiet
@@ -164,6 +222,7 @@ printf 'CURRENT_WEB_STATE=%s\n' "$current_state"
 printf 'CURRENT_WEB_LEGACY=%s\n' "$legacy_web"
 printf 'WATCHTOWER_CONTAINERS=%s\n' "${#watchtower_ids[@]}"
 printf 'PERSISTENT_IMAGE_OVERRIDE=%s\n' "$PC_IMAGE_OVERRIDE"
+printf 'POSTHOG_RUNTIME_OVERRIDE_PRESENT=%s\n' "$posthog_runtime_override_present"
 
 if [[ "$ACTION" == audit ]]; then
   if [[ -f "$PC_IMAGE_OVERRIDE" ]]; then
