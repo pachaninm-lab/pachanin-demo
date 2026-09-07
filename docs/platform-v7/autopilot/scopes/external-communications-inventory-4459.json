@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/external-communications-inventory-4459",
+  "status": "active",
+  "purpose": "ASVS V13.1.1 asks that all communication needs be documented, including external services relied upon AND cases where an end user can provide an external location the application will then connect to. Nothing enumerated either. This pass closes it with an inventory generated from source and gated against going stale - not with prose. The requirement is itself a documentation requirement, so the artifact is the control; what makes it evidence rather than description is that it is measured, cross-checked, and revocable.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/external-communications-inventory-4459.json",
+    "scripts/security/build-external-communications-inventory.mjs",
+    "scripts/security/build-external-communications-inventory.test.mjs",
+    "docs/security/external-communications-registry.json",
+    "docs/security/external-communications-inventory.json",
+    "docs/security/EXTERNAL_COMMUNICATIONS.md",
+    "docs/security/asvs-applicability-decisions.json",
+    ".github/workflows/sbom-scan.yml"
+  ],
+  "requiredInvariants": [
+    "The registry carries only what a scanner cannot derive - intent, data class, failure behaviour. Every other field is measured from source on every build, and three disagreements fail it: an outbound module with no registration, a registration with no live outbound call, and a declared authentication posture the source does not carry.",
+    "Discovery keys on the import, never on a call-site name. safe-outbound-request.ts assigns its transport to a variable (const send = isHttps ? httpsRequest : httpRequest), so counting calls to the imported name finds nothing there. An import cannot be aliased away.",
+    "fetch is not the only transport. The first version of this inventory searched only fetch( and missed two real external channels - the SSRF-guarded partner webhook through request() from node:https, and outbound mail through connect() from node:net/node:tls. The omission is recorded in the decision note, not quietly corrected.",
+    "isIP and createServer are deliberately not counted: the first parses an address, the second accepts incoming connections. Counting either would inflate the inventory with channels that do not exist.",
+    "The second half of the requirement is a separate obligation. User-supplied destinations get their own section; here that is the partner-registered webhook URL, where the control is destination restriction through vetDestination, not authentication.",
+    "The inventory cannot go stale in either direction: the test suite compares the committed copy against a fresh generation, and CI regenerates then refuses a tree where the committed copy differs.",
+    "Nothing is claimed beyond the requirement. V13.1.2 and V13.1.3 stay FAIL: no configured connection limit, pool size or maxSockets exists anywhere in the tree, and closing them with documentation would pass description off as control.",
+    "The fetch call count is cross-checked against an independent grep in the test suite. For node:* transports no site count is asserted at all, because the call can go through a variable and a number nobody measured is not evidence.",
+    "No dependency, schema, migration, RLS or policy change. No registration, 1C, marketing or presentation code. No production, REG.RU, DNS, database or credential mutation. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "Measured: 10 outbound modules in apps/api/src across three transports; 12 fetch call sites, agreeing with an independent grep. One system carries no authentication of any kind (the ML scoring service) and one degrades silently (the same service returns null rather than raising).",
+    "The scanner was wrong first and the correction is recorded: a fetch-only scan found 8 modules and missed safe-outbound-request.ts and auth-mail-smtp.ts entirely.",
+    "Five mutations of the scanner and registry each turn the suite red: reverting to a fetch-only scan, counting isIP as a transport, counting createServer as a transport, dropping the user-supplied flag, and dropping the SMTP registration.",
+    "V13.1.1 PASS is machine-revocable: four mutations applied with the matrix rebuilt each time - untracking the inventory, removing the user-supplied section, removing the user-supplied registration, and removing the CI staleness check - all four drove the verdict to NOT_ASSESSED.",
+    "Matrix on this head: PASS 129 -> 130, FAIL 90 -> 89, NOT_APPLICABLE 88, NOT_ASSESSED 38. Exactly one verdict changed; no collateral drift.",
+    "scripts/security suite 156/156 green; decision-evidence, key-usage and web-unit-coverage gates green; sbom-scan.yml parses and runs the new check."
+  ]
+}
