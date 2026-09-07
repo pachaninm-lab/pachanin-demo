@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "pc-crop.authorization-rules.v1",
+  "purpose": "ASVS V8.1.1 asks the documentation to define rules for function-level and data-specific access based on consumer permissions and resource attributes. The restrictions in this tree are strong and stand in two layers - roles at the entrance and row-level policies in the database - but nothing stated what they are meant to be, so an implementation could not be reviewed against an intent. This registry carries the intent; the vocabulary of roles, resource attributes and policy files is measured from the tree on every build.",
+  "functionLevel": "Решение на уровне функции принимает цепочка из трёх глобальных guard'ов (APP_GUARD в app.module.ts): PreAuthRateLimitGuard, AppAuthGuard и RateLimitGuard. Обработчик открыт роли, названной в `@Roles(...)` на методе или классе; `@Public()` снимает требование аутентификации и является явным исключением, а не отсутствием правила. Особый случай — `ANY_AUTHENTICATED`: это не роль, а признак «любая аутентифицированная роль», и roles.guard.ts возвращает true, не сверяясь со списком.",
+  "dataLevel": "Решение на уровне данных принимает PostgreSQL: политики RLS сверяют строку с признаками текущего запроса, которые приложение кладёт в сессионные переменные перед транзакцией. Ни одна политика не доверяет значению из тела запроса — только этим переменным. Роль GUEST до этого слоя не доходит: rls-transaction.service.ts отклоняет её как guest_role_forbidden.",
+  "notCovered": "Уровень ПОЛЕЙ. Эти правила говорят, кто вправе вызвать функцию и какие строки увидит, но не говорят, какие поля строки он вправе читать и писать. Это V8.1.2, и он остаётся FAIL; закрывать его этим документом было бы подменой требования соседним.\n\nКонтекстные признаки решений (IP, время) описаны отдельно в contextual-security-attributes.json под V8.1.3 и здесь не повторяются.\n\nЗАПИСАННОЕ РАСХОЖДЕНИЕ, не исправленное здесь: CommercialRulesController перечисляет в классовом `@Roles(...)` все четырнадцать ролей, включая GUEST, тогда как policy-engine.service.ts безусловно отказывает GUEST (`deny.guest.all`, «GUEST не имеет доступа к защищённым ресурсам»). Этот контроллер policy engine не вызывает, и ни один guard его не вызывает, поэтому отказ там не срабатывает. Фактического обхода при этом нет: слой данных отклоняет GUEST как guest_role_forbidden, и ни один путь аутентификации роль GUEST не выдаёт. Но два слоя заявляют противоположное намерение, а это ровно то, что требование V8.1.1 просит сделать видимым. Приведение их в согласие — правка бизнес-логики и решение владельца, а не следствие описания.",
+  "roles": [
+    { "id": "ADMIN", "mayDo": "Административные операции во всех контурах: учёт, аукционы, аудит, аутентификация, сертификаты, пакеты доказательств, экспорт, интеграции, склад, лаборатория, логистика, лоты, железная дорога, планировщик маршрутов, поставщики услуг, расчётный движок." },
+    { "id": "SUPPORT_MANAGER", "mayDo": "Сопровождение клиента в тех же контурах, что и ADMIN, кроме аутентификации: доступ на поддержку, а не на администрирование платформы." },
+    { "id": "EXECUTIVE", "mayDo": "Управленческий обзор: аукционы, сертификаты, экспортная торговля, склад, лоты, железная дорога, поставщики услуг, расчётный движок." },
+    { "id": "FARMER", "mayDo": "Сторона-продавец: учёт, аукционы, сертификаты, сделки, пакеты доказательств, экспорт, склад, лаборатория, лоты." },
+    { "id": "BUYER", "mayDo": "Сторона-покупатель: учёт, аукционы, сертификаты, пакеты доказательств, экспорт, склад, лаборатория, лоты, расчётный движок." },
+    { "id": "LOGISTICIAN", "mayDo": "Перевозка и маршруты: сертификаты, пакеты доказательств, интеграции, склад, логистика, железная дорога, планировщик маршрутов, поставщики услуг." },
+    { "id": "DRIVER", "mayDo": "Исполнение рейса: пакеты доказательств, склад, логистика, планировщик маршрутов." },
+    { "id": "ELEVATOR", "mayDo": "Приёмка и хранение: пакеты доказательств, склад, лаборатория, логистика, поставщики услуг." },
+    { "id": "LAB", "mayDo": "Лабораторные результаты: сертификаты, пакеты доказательств, склад, лаборатория, поставщики услуг." },
+    { "id": "SURVEYOR", "mayDo": "Независимый замер: склад и лаборатория." },
+    { "id": "ACCOUNTING", "mayDo": "Учётные операции: мониторинг сертификатов, экспортная торговля, интеграции, склад, железная дорога, поставщики услуг, расчётный движок." },
+    { "id": "COMPLIANCE_OFFICER", "mayDo": "Комплаенс-контроль: учёт, аукционы, сертификаты, склад, лаборатория, лоты." },
+    { "id": "ARBITRATOR", "mayDo": "Разрешение споров: сертификаты, склад, расчётный движок." },
+    { "id": "GUEST", "mayDo": "Ничего в защищённых контурах. Роль существует в перечислении и в policy-engine как безусловный отказ, а слой данных отклоняет её как guest_role_forbidden. Присутствие GUEST в классовом `@Roles(...)` контроллера commercial-rules записано выше как расхождение слоёв." },
+    { "id": "ANY_AUTHENTICATED", "mayDo": "Не роль, а признак: обработчик открыт любой аутентифицированной роли. roles.guard.ts при виде этого значения возвращает true, не сверяясь со списком ролей. Применяется в ai-insights, auth, commodity-profiles, deals, organization-capabilities, regulatory-integration." }
+  ],
+  "resourceAttributes": [
+    { "id": "app.current_tenant_id", "restricts": "Арендатора: строка видна только в пределах своего тенанта. Обязателен — rls-transaction.service.ts отклоняет запрос без него как tenant_required.", "setBy": "Приложение перед транзакцией из проверенного контекста запроса." },
+    { "id": "app.current_org_id", "restricts": "Организацию: строки, принадлежащие организации текущего пользователя.", "setBy": "Приложение из контекста запроса." },
+    { "id": "app.current_user_id", "restricts": "Строки, привязанные к конкретному пользователю, а не только к его организации.", "setBy": "Приложение из проверенного токена." },
+    { "id": "app.current_role", "restricts": "Роль, от имени которой политика оценивает строку.", "setBy": "Приложение из проверенного токена." },
+    { "id": "app.current_session_id", "restricts": "Привязку к конкретной сессии там, где строка принадлежит сессии, а не пользователю.", "setBy": "Приложение из проверенного токена." },
+    { "id": "app.runtime_company_ids", "restricts": "Набор компаний, доступных исполнительному контуру. Значение — список, разбираемый через string_to_array, поэтому метки проверяются на форму перед подстановкой.", "setBy": "Приложение из проверенного контекста исполнения." },
+    { "id": "app.runtime_role_codes", "restricts": "Набор ролевых кодов исполнительного контура, когда одной роли недостаточно.", "setBy": "Приложение из проверенного контекста исполнения." },
+    { "id": "app.runtime_privileged", "restricts": "Признак привилегированного исполнения для служебных путей вроде обработчика outbox.", "setBy": "Приложение, только для служебных процессов." }
+  ],
+  "policyFiles": [
+    "infra/sql/postgresql-deal-authority-policies.sql",
+    "infra/sql/postgresql-document-authority-policies.sql",
+    "infra/sql/postgresql-labs-authority-policies.sql",
+    "infra/sql/postgresql-logistics-authority-policies.sql",
+    "infra/sql/postgresql-outbox-worker-policies.sql",
+    "infra/sql/postgresql-regulatory-integration-inbox-policies.sql",
+    "infra/sql/postgresql-settlement-authority-policies.sql",
+    "infra/sql/production-rls-policies.sql",
+    "infra/sql/runtime_rls_policies.sql"
+  ]
+}

@@ -26,6 +26,10 @@ on:
       - 'scripts/security/verify-crypto-migration-plan.mjs'
       - 'scripts/security/verify-crypto-migration-plan.test.mjs'
       - 'docs/security/CRYPTO_MIGRATION_PLAN.md'
+      - 'scripts/security/build-authorization-rules.mjs'
+      - 'scripts/security/build-authorization-rules.test.mjs'
+      - 'docs/security/authorization-rules-registry.json'
+      - 'infra/sql/**'
       - 'scripts/security/verify-authentication-pathways.test.mjs'
       - 'docs/security/THREAT_MODEL.md'
       - 'docs/security/cryptographic-inventory.json'
@@ -71,6 +75,10 @@ on:
       - 'scripts/security/verify-crypto-migration-plan.mjs'
       - 'scripts/security/verify-crypto-migration-plan.test.mjs'
       - 'docs/security/CRYPTO_MIGRATION_PLAN.md'
+      - 'scripts/security/build-authorization-rules.mjs'
+      - 'scripts/security/build-authorization-rules.test.mjs'
+      - 'docs/security/authorization-rules-registry.json'
+      - 'infra/sql/**'
       - 'scripts/security/verify-authentication-pathways.test.mjs'
       - 'docs/security/THREAT_MODEL.md'
       - 'docs/security/cryptographic-inventory.json'
@@ -222,6 +230,11 @@ jobs:
 
       - name: Verify every key records where it may be used
         run: node scripts/security/verify-key-usage.mjs
+
+      - name: Verify the authorization rules cover the tree
+        run: |
+          node scripts/security/build-authorization-rules.mjs
+          git diff --exit-code docs/security/AUTHORIZATION_RULES.md
 
       - name: Verify no decision cites something that is gone
         run: node scripts/security/verify-decision-evidence.mjs

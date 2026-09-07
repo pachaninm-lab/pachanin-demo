@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/authorization-rules-registry-4459",
+  "status": "active",
+  "purpose": "ASVS V8.1.1 asks the documentation to define function-level and data-specific access rules based on consumer permissions and resource attributes. The restrictions were already strong and stood in two layers - roles at the entrance, row-level policies in the database - but nothing said what they are meant to be, so no implementation could be reviewed against an intent. This pass writes the intent and measures the vocabulary from the tree so the two cannot drift apart.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/authorization-rules-registry-4459.json",
+    "docs/security/authorization-rules-registry.json",
+    "docs/security/AUTHORIZATION_RULES.md",
+    "scripts/security/build-authorization-rules.mjs",
+    "scripts/security/build-authorization-rules.test.mjs",
+    "docs/security/asvs-applicability-decisions.json",
+    ".github/workflows/sbom-scan.yml"
+  ],
+  "requiredInvariants": [
+    "No authorization behaviour is changed. Guards, decorators, the policy engine and every row-level policy are read, never edited. Nothing gains or loses access as a result of this pass.",
+    "The vocabulary is measured from the tree and reconciled in both directions: a role that gates a handler with no rule, and a rule for a role that gates nothing, both fail the build. The same holds for resource attributes and for files defining row-level policies.",
+    "A rule entry that says nothing is refused. 'ADMIN may do stuff' is not a rule, and the gate rejects it by length rather than accepting a placeholder.",
+    "The multi-line decorator is read in full. A single-line grep finds 14 roles; the parser finds 15, and the missing one is GUEST - which is precisely the one that exposes a disagreement between layers.",
+    "The GUEST disagreement is RECORDED, not fixed. CommercialRulesController lists all fourteen roles including GUEST while policy-engine.service.ts denies GUEST unconditionally and never runs for that controller. There is no actual bypass - the data layer refuses GUEST as guest_role_forbidden and no authentication path issues that role - so defence in depth catches it, not intent. Reconciling the layers is a business-logic edit and the owner's decision; documenting it is not a substitute for that.",
+    "Field-level access is explicitly NOT claimed. These rules say who may call a function and which rows they see, not which fields of a row they may read or write. That is V8.1.2, it stays FAIL, and closing it with this document would be answering a requirement with its neighbour. V8.1.4 stays FAIL for the same reason.",
+    "No dependency, schema, migration, RLS or policy change. No registration, 1C, marketing or presentation code. No production, REG.RU, DNS, database or credential mutation. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "Measured: 15 role values across 57 @Roles sites, 42 @Public sites, 8 resource attributes read by policies, 9 files carrying 65 row-level policies.",
+    "The measurement corrected its own first version: a single-line grep reported 14 roles and missed GUEST inside a fourteen-line decorator. A test now pins the multi-line case.",
+    "Six reconciliation mutations each turn the suite red: dropping a documented role, inventing one, dropping a described attribute, inventing one, dropping a policy file, inventing one - plus a blank rule entry.",
+    "V8.1.1 PASS is machine-revocable: four mutations with the matrix rebuilt each time - untracking the rendered rules, erasing the recorded GUEST disagreement, disabling the phantom-role check, and claiming field-level access is covered - all four drive the verdict to NOT_ASSESSED.",
+    "A weakness in the decision's own condition was found by that mutation run and fixed here: a substring check for 'V8.1.2' survived replacing the whole non-coverage paragraph, so the condition now also requires 'уровень полей' and 'остаётся FAIL'.",
+    "Matrix on this head: PASS 129 -> 130, FAIL 90 -> 89. Exactly one verdict changed; no collateral drift. scripts/security 155/155 green."
+  ]
+}
