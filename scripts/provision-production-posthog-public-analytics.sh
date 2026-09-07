@@ -36,6 +36,11 @@ runtime_file="$prod_dir/.pc-posthog-public-analytics.env"
 override_file="$prod_dir/compose.pc-posthog-public-analytics.override.yml"
 [[ "$runtime_file" == "$prod_dir"/* && "$override_file" == "$prod_dir"/* ]] || fail RUNTIME_PATH_OUTSIDE_PRODUCTION_DIRECTORY 13
 [[ ! -L "$runtime_file" && ! -L "$override_file" ]] || fail RUNTIME_SYMLINK_FORBIDDEN 14
+runtime_file_present=0
+override_file_present=0
+[[ -e "$runtime_file" ]] && runtime_file_present=1
+[[ -e "$override_file" ]] && override_file_present=1
+[[ "$runtime_file_present" == "$override_file_present" ]] || fail RUNTIME_AUTHORITY_PARTIAL 42
 
 validate_runtime_file() {
   local candidate="$1"
