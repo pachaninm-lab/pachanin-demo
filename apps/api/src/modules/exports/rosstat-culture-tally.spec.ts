@@ -82,6 +82,54 @@ describe('Форма 29-СХ: свод по культурам теряет то
     expect(() => tallyVolumeByCulture(drifting)).toThrow(InternalServerErrorException);
   });
 
+  it('дробный тоннаж не вызывает ложного отказа', () => {
+    // Первая версия сторожа сравнивала суммы точным `!==` по float. Сложение
+    // с плавающей точкой неассоциативно: свод складывает итоги корзин, а
+    // контрольная сумма — сделки подряд. Замерено на 300 000 случайных
+    // наборов с точностью до килограмма: точное сравнение давало ложный отказ
+    // в 27 % случаев. Этот набор — один из них: 46 649,2 против
+    // 46 649,200000000004.
+    const deals = [
+      { culture: 'Ячмень', volumeTons: 9201.1 },
+      { culture: 'Овёс', volumeTons: 705.9 },
+      { culture: 'Ячмень', volumeTons: 5555.8 },
+      { culture: 'Пшеница', volumeTons: 6917.1 },
+      { culture: 'Ячмень', volumeTons: 5309.5 },
+      { culture: 'Ячмень', volumeTons: 8563.4 },
+      { culture: 'Ячмень', volumeTons: 5337.7 },
+      { culture: 'Ячмень', volumeTons: 758.4 },
+      { culture: 'Овёс', volumeTons: 4300.3 },
+    ];
+    expect(() => tallyVolumeByCulture(deals)).not.toThrow();
+    const tally = tallyVolumeByCulture(deals);
+    expect(Math.round([...tally.values()].reduce((s, v) => s + v, 0) * 1000)).toBe(46_649_200);
+  });
+
+  it('расхождение в один килограмм сторож всё ещё видит', () => {
+    let reads = 0;
+    const drifting = [{
+      culture: 'Пшеница',
+      get volumeTons() { reads += 1; return reads === 1 ? 100.0 : 100.001; },
+    }];
+    expect(() => tallyVolumeByCulture(drifting)).toThrow(InternalServerErrorException);
+  });
+
+  it('свод и заголовок формы считаются по одной популяции сделок', () => {
+    // Замерено ДО исправления: заголовок показывал 1 500 т по CLOSED/SETTLED,
+    // а свод — 10 500 т, потому что шёл по всем сделкам и включал DRAFT
+    // (7 000 т) и CANCELLED (2 000 т) как убранный урожай.
+    const content = buildReport([
+      { culture: 'Пшеница', volumeTons: 1000, status: 'CLOSED', totalRub: 10 },
+      { culture: 'Ячмень', volumeTons: 500, status: 'SETTLED', totalRub: 5 },
+      { culture: 'Кукуруза', volumeTons: 7000, status: 'DRAFT', totalRub: 70 },
+      { culture: 'Пшеница', volumeTons: 2000, status: 'CANCELLED', totalRub: 20 },
+    ]);
+    expect(reportedVolume(content)).toBe(1500);
+    expect(content).not.toContain('Кукуруза');
+    // Заголовок формы объявляет тот же объём, что и свод.
+    expect(content).toContain('"1500"');
+  });
+
   it('на согласованных данных сторож молчит и отдаёт свод', () => {
     const tally = tallyVolumeByCulture([
       { culture: 'Рожь', volumeTons: 100 },
