@@ -1,0 +1,53 @@
+name: One-shot publish FNS 5127 atomic patch
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  publish:
+    if: github.head_ref == 'governance/publish-fns-5127-atomic-20260907'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: pachaninm-lab/pachanin-demo
+          ref: feat/role-eligibility-fns-registry-coverage-authority-5064
+          fetch-depth: 0
+          token: ${{ github.token }}
+      - name: Guard exact target head and apply audited patch atomically
+        shell: bash
+        env:
+          EXPECTED_HEAD: e1a51f37dc4d2a548c023cc9477752022f5ccdfe
+          TARGET_BRANCH: feat/role-eligibility-fns-registry-coverage-authority-5064
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$EXPECTED_HEAD" || { echo "TARGET_HEAD_MOVED expected=$EXPECTED_HEAD actual=$actual"; exit 1; }
+          cat > /tmp/fns.patch.gz.b64 <<'PATCH_B64'
+H4sIAE8Vn2oCA91ce3PbOJL/358Cl8oUrRMlS7b8SqKppWU60Y4ieSkpO9nZOS5FQRI3EqkhKSeeVO6zXwPgAyBBivI4c1eXSsky0WigG41+/Ah47iwWqNFYOiGyTqztNoAP52TrO8HGOtk4S98KHc8NTk5bpxet69ZF+6oF/0zfW2MTr52lM3PWTvhoLtzA9PHSCUL/0bS9B+xbS2xau3Dl+dCesmoGv63R7E8b6shx5/gLuuhcLDr4qtNpNk9nVxg4X5+idqt10ekcNRqNP1H2o3q9/mfK/5e/oEbn8lq9QHXyo925RvDoRn/bHx4hfXh7hF4udq5N6F++PkJHddBGz3I917GtNbI9f7sLGmv8gNdIf2tMB8jHgbeGQZvoJ4y3aOsFTug84BMXLy3yBa0979Nuiyx3TplBV/8RJdNrzLDlO+4SbX08hzFCjBw3cOYYeS5G914QLn08/tsABSG0bbAbngSutQ1WXtg8qvcMXZvoaGQgQ78faD0d3U2HvUl/NESciprRHKmq8NLfrU3HdY+P6ghtyTc00X+eqOzXObadAIQ3rRBN+u/18UR7fz/5x1G9dlQ39MnUGI7RRLsZ6Ij2p7NK+y+xi5myTWcue5w+SzRght4nzDVsrNBe4TmsKWh7HqCbPqyN2OQtfTduoDMbaMO3U+2tjqhFjekE4ac+QQGo116ZWytcoS7aLk1QsbX2liqvoKO6NubWnQz19/7kHazEdheaD9YahAGK96Bro68N+v/Qb5n4CI31gd6boJ421tkD6PpOH0aK/Y//Rsp//dJqXP/6td369lJBE9J2pw1Sah2+x8zIP+4rqHc3A7MG8zim/NS22q69euW4IV5iH/0nOkX1MvLTDHmnnPwsQ95uldN3MvRn5eTnGfLzcvKLDPl1OfnlYbJeZcgvysmvM+RXKXEN/YDabfLRih/WwNRyS9fiWTBK8DfErqiBkSc1auX2zvdhn5vcrik3vmXTmavLZkoPv9geDARMgpV1en4BD7aWH2DfBO8TMIoAttLG4h4swE2szJ0bOmvG/s4Yvc/4kcjNpkMFZG5LRg+Gb+gwm8Db+TbuKnfDsYI0kHGZ9px7G8txuwp1nnEr8SK7oKto4Lo+6ArjNjJudQPdfIR2C/blAziaOfFKt/q4h4bTwWCMBtp4QkTbzdZOsEqbVaIR+o2xGvTf9yeonap45u3cucmcV6lu4xWlDImkvINT01ZO9+nDzBqkDZm1SBsya5I2cGuTmQbXktCvIo0S0hW21uHKZA84Ctvx7Z0TMiVwz6musSkRaJWZN8e9QKBVRiB+PnJJV1lJI3K5lKDgANs7OuGF5ax3QMU1r60gNLHvez7kBfNUSKuZpAmfIB/inlv2bzuHBHBQrO1ttmsc8t3WHiQBprPZen5o0p1MAhhHMLMC2C8uTvIQrm23nYOmTWIUjrsT+7EdYy4c11qLLSm5ufXWjv2YU5mMZmUFK44g5lvMIkuRYYAXC8zsArTtLRa8ysQ4znkOuR+LfMVAv5ugv476YqIS6YEtOl3+eCDIaFaCY4kaiANZFbmXsqEkvixNGsnQFje01RQ2fpe4A24CVtHMrLKZ1bicJqjmhnqj6XBy7MPoEEpmIIwbko6ZlEkVyW/740kfskLkNyEo/RsWkiZQUg40s/pja5hIHCdw0MHndOmX69Iv0mU6ewinXRpUqRbJB6+lXCrmNFkG1x+jRBVUuIkx1VlGpvSHH0Dvt2b/Vh9O+nd93VAEHoE4acKLhKCo93g0NXq6OR1qH7T+gCSf2d4Zz5mbigKpeYOm5o2HtpImF5DZB1knOhxNEOj8mJmS2WldKWry/VKpZXoLAUAy8jtdG0zefcwOKsQHSbfeYDTWb7O9ctEj35NXpXyq+5SVVWeBwKLWJFxEiqz8stiSZ9LK9MqEHGonsFzEVlLKqkYjj/LoTVes0+Ti8z0ia91P+CTWxctr5lJKTvyJlpW4N4JH455+vGlmPVqrhn5ELeoHJFTUaxGaLkvy+HHuwAfeHjhOloehf+jrfzcN/W/TvqHfZtcpW8rK1S3kHOkm7o3e3w/0iW4ONVK3awOzNzLup2PY00mTfnen09Q4bqvltl0+b5H7u6y9SjOaSl1zuU6lXrksqFKvbP5RoOIc2ZtScy7MrQpXUJZn5YmZ0fRGH3RDewsLO5qY9wb8NswaTibtq6SKglyuYMqyvK7ShO/6YIqKAFIo2nTybmT0Jxo1RUrFbS4oZl+9CvEXmk/wVUUmdkqeJo8yO4nxi1pLd+3+bKjEbZQmQnQdMkCQQxrS7CdTTQYky4lXLqXiEr1NSsGjjXUCsX0Y/aQjDVILIDkAzKPwGY/Y1djM76c3g34PeL81tOEE6T/rvSlBDP8o88kIbe08GOsTX7/BRBZUSRayRNxoBAXFNg4Cz49Hhc+MLFU4x5CBKcnzOc5y/kdz6WuAwLdPNt58t8bBCZG8wQ2Ye9AgGV08eCP2kU1IWx4cGzfDgEe9n5dzBPIvzi4XV1fn+LzZxHYHd84XdqcA5H/m8TOY/jNzJxD+eUdtE3gSfl4RAB9/IREM2ZB/BcgAlnrK8c4NjIhfL2I3ZtzQ1yPq3r7BktMvJOkLke99DiCVsD5bsP7hyoF8k76VaL78bYf9R8P6/MYg+2RHjMnwPv/y64/H94wi+G39r6NG5OQJhFwJzGvEjvj7AXrJEAeAekmfZwP2Gmlweg5wL2EXA3zRA6iso2/lQF9G7+nvhYCfQMEHMKEhC/wJjVmsTGjMwmJCY0UQkOtTAgQKVBkwUGiTAIJCe2VQUJxXVWBQ6FUBHBTlkgKEAkkOJORac0Ch0CYHCwWSIsBQIJKAhkK7BDgU2nPgYUaCQgBxDx3DAAWiQiCxlErCKA8oiqrNgIqi9yoCpVJ3UBVc5AbNA4xpYznIuGfYCkCjOA0p2ChOxiqbqbVvpql7LAYfS1xjVRAy1+VwIPJZ1l0OSIo69/fr3C/TuQhOvvzqev4G9sDveP4t0Xr8JatRClhy03ki4JjncCDoyDF4IvCY51AZfMx3rQpA5nseCkIWTvtgILJYAYeCkRJ9VAQk8z3LQEmB+hDjKgYnX36NIRct/FasEhlAWYn4yUNUBCplKmFgZVYLzwNYSsaLcJWDx5PxyoGX+bUsAjBlRvicIKZs61YGMiV2fgiYme9eFdDM96wKauZ7FgKbAikU61p09gyx5AoCC/Lc9SOUp763W66Q5SJs+WsH+yjiZFuu64Vo64M0OXau5zbwFwiL2IUyGCorC61BBB/F+woRGKeJhh6iWoWRljscBDDs2loiJ8hxBBrvMzSHHpr5zhy0RypntLS2zSpyv9m7p/ejtVX6CACoZLdIUdv8jqmG3OYntA+93d/jIAEiFJcj24PkJpQyNDdpzCG60hbhccbFcG1Px3XLWOzHdhtcZnkcAS/tGk3IXRvmGhNUwHlzlHKsV8B4mE5FPXK6y+orK7zkhb0U25HBuUJ6qgr7rsZwsH/VXucgMYhVBBj7pfXr6++Jj26x/T3AUcY2QkbPO/PZ6dm8c9lsXuOzKxvjc/w9kdFo8O8Bi0asKSZ6pp4SSPRMbZ8RTHSOA9t3ZvhYqQyIKio6hqTkRwKMsuXHX2CE8DgGPmvN0HtnPeAbjN0euHw8n0CcCI7bxGBSc6GOo0tO407gW9K7ufHsT00STogZwX/o1eBGId3ICD1w21C3Hr/445Dji31DFNb1+3oqsjpd2dfJf0KnF8+cd+2VTBaflf2dKgXFvcIWhrG9S1ke2ypInXW68rlCVsV3S4JPvn+QQYJrhGG9bA4VPfhePs8ZXeSDZbQge4tQqWOsPoV5kG808oDSnZAwhWqAlLmsnnsERlDbN7jC3vZW2Kc57AwvPB9SWfcxuYOBPB8l1zAsSF590gd8nBU8unbi6epssDleE1oYLUXnAijJIYO0A5LWhiuMAsddrjHJraMbIdwNjfgmCLnAEWILEvQFmu+2a3KrQ7zhAdS5WXDe8yuK3napKPac6Bu4U9vH0Dty1ce/RH2iSxivpIW7GtMIpgC0eL1sgKwhUJDYcXmpttuoftlSr58hdNB3ar/GIYG9R4tf4EVa0okt94kpX162LltXZ1fXZ8r3CSLVUagXFRxxNVSqirM5DKWq4H+fiFpV53woirXXTe31dJVciADsP9VbpZi84IlQ5Bw88AuknHbcB/DnpNxOvQQDTT6v4MP1kGXbeBtCJZwSkOyZVttBbtsLmTTZdNswnw02tszLBI1gA2M1oQKcHUAcZb0t+8y2Lk7PZs3m+WX74to6P5uLWe8BLFkue0AH4mXaV2fk4h350WY5qnDxLjo8YrqeufW9jRdfwjN0cpPLGA10ekYGpqp/IUgopi459cWQI56wS3nWLKBBIXHJ1tJyaB2DBZ/dpNymLmifeBVw/T69f7dbLBzbIQuNH5w5ZQXRBcWZzUnMP4kPwGh6f0vu4u07zk5E4XHJLsrcvDnk1g17Mb/KZ8mlR+JZogzJJ4kC0V6bKVS3/eFYN0hyORmVvkOhp9OFnIJkGGwa0Y+IlD5P342o/JsfNSIJH7fssFhal4IXe1x7VszT5I8BqFFb/H6dxcU5PeBXQx+0wVQfs/PzIKAfC0jOFsGqQcQTxFap0lSl3TqFSNRqn522r8/hdy4s5Ropa/biY6C/haybHBqffATCry+YW3/xKvR3+Jvy6tW/A8+dqfYazMsk1g2BY7M9roHoW5j1sQIzuOjU8gQgCl2R2PT3HLe6HcH+iazd/OyA59mFSSb+Etr13kAzKAgRkcVIBjkA9Vp4nrmuCY1sm9YLwQtmMCJjVcIvOVBX7XYqaPny8uyidd5qtc6U6CBfjNXkSpQqG4d78xodahGqMcEy6CFbFk36d1mtvflRWqMQzE6mR0LO3rTN2CVQJouh9aFk0X/u6ff0BJvSmxoGGJP5UdcMU7sZ60NI6MhBotE0GgLszLyD9M5kmYYZ3VxgS9L9gROo+4OS3ATZvzRUTnIhsX9H7U5ca9kCP2Ux0z31f20xWZFYtjZsw9+TaAQrlN4USWvMeBEUVRxA1C0JdvWSzfqaHAPNRjwNYg2kbcBs/ZimGEmpvQC3gzZWcrH8dyh40O/Y9xok90iKIPLKgLKjyQq7iu5BEPVzldUJCxsnLHadJK9EuGvqUBSBj2tWCBpc4IoDRxQquJpU8PBz77NLXDz7LXOeKooatgfej11bF08aZY4QRSee+FNCacRQ6aHe4vARWxDVdBIs2FaOnuVcd528e/KBMVJO0cZxIVMJlJIQYLMQ0GZxRXgprwrv2ulOhyTjtnzQNppbj7IBC4LM/9+gT1dIGvjF9fzfCv7z0uB/wL5KXeFx7u8wxCuUyQhV8Wwb12UTX5aVnnArONOWP8WWP7cmu+ZafD6t4ERa0Rm0wiusubNmuSurFXc9y6DVMtT1bjoYmDcaRLX+UGe2QkBPVfaR2e2puHTjxyaCmYlwhLGgFL8RaBeMlqq11D8wp5R2bNGOzOriiFz1MH1GObxrJOwOKIti6D6GY1QBbOnG2IqaQ066kgv4Ykzo5s7dikGiW3D3ngsaXaFOU2XHcbotNXPWpkte00a8aFOws8n1BnBbXYl/XmH7E/Vpkka2neSN37tqlJaMbI3/UJHy1Aol/ZMxhcVJ7kxLWYWSXF2vir/zZUluNcrSzKK3E0LhIJzCKUtJ2QGFtDAYQkCijCGBHA2mhChXIFDm+Rw1o4zvWg4I8fUg9e3P0qkuzFjNH58hX/9uwp8eKLzkknqZJvLkYBZa7x0UjYmdJHp6culSWLeQtxwEQN2Sv3D24iVEAY0ERnNqDF6gxgMC09QNY2SY48novttGb94o5L0IBQrPrjtqB9XPW231nMCEWx+i1wIpPwT/dBX0T4LKKgZs+/HE+GgmZfj70a0+6N5r43FMA57NjN6KJHskT8WSOfjs35vstbF5O3qv9YfmWL/XDBrkkw4NlKnSb6aDn4pL9cTWui2KvT21L4xcjwTKLx4x8tt+D+Ism+bR/wClh/JDx04AAA==
+PATCH_B64
+          base64 -d /tmp/fns.patch.gz.b64 | gzip -d > /tmp/fns.patch
+          git apply --check /tmp/fns.patch
+          git apply /tmp/fns.patch
+          git diff --check
+          changed="$(git diff --name-only | sort)"
+          expected="$(printf '%s\n' \
+            apps/api/prisma/migrations/20260906180000_role_eligibility_fns_registry_coverage_authority/migration.sql \
+            apps/api/src/modules/role-eligibility/role-eligibility-fns-registry-coverage.service.ts \
+            apps/api/src/modules/role-eligibility/role-eligibility-fns-registry-coverage.spec.ts \
+            scripts/role-eligibility-postgres-smoke.sh | sort)"
+          test "$changed" = "$expected" || { echo "UNEXPECTED_SCOPE"; printf '%s\n' "$changed"; exit 1; }
+          bash -n scripts/role-eligibility-postgres-smoke.sh
+          git config user.name 'pachaninm-lab'
+          git config user.email 'pachaninm@gmail.com'
+          git add -- $changed
+          git commit -m 'fix(role-eligibility): execute FNS negative authority in PostgreSQL' -m 'Move the canonical EGRUL absence/finality predicate into one PostgreSQL resolver, validate legal-entity INN checksum inside the DB authority boundary, and make real PostgreSQL smoke execute fail-closed no-finality, proven-finality negative, positive, and invalid-identifier cases. Registration/enforcement/production remain unchanged.'
+          new_head="$(git rev-parse HEAD)"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          echo "PUBLISHED_FNS_HEAD=$new_head"
