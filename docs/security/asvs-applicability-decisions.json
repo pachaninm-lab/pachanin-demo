@@ -5167,37 +5167,72 @@
     {
       "requirementId": "V7.5.2",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "staff-plane:apps/api/src/modules/staff-access/staff-access.controller.ts",
-        "auth-controller:apps/api/src/modules/auth/auth.controller.ts"
+        "apps/api/src/modules/auth/auth.controller.ts",
+        "apps/api/src/modules/auth/auth.service.ts",
+        "apps/api/src/modules/auth/persistent-auth.repository.ts",
+        "apps/api/src/modules/auth/own-session-management.spec.ts",
+        "apps/api/src/common/security/fresh-mfa.ts",
+        "apps/api/src/modules/staff-access/staff-access.controller.ts"
       ],
       "conditions": [
         {
-          "condition": "the staff plane lets a caller view and terminate their own sessions",
-          "check": "PRESENT_AT_PATH",
-          "paths": [
-            "apps/api/src/modules/staff-access/staff-access.controller.ts"
-          ],
-          "patterns": [
-            "access/sessions",
-            "access/sessions/:id/revoke"
-          ]
-        },
-        {
-          "condition": "the user-facing auth surface offers no equivalent",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the user-facing auth surface offers both halves the requirement names: seeing the caller's own active sessions and terminating one or all of them",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/auth/auth.controller.ts"
           ],
           "patterns": [
-            "@get('sessions",
-            "listsessions",
-            "revokeownsessions"
+            "@get('sessions')",
+            "sessions/:sessionid/revoke",
+            "sessions/revoke-all-own",
+            "listownsessions",
+            "revokeownsession",
+            "revokeallownsessions"
+          ]
+        },
+        {
+          "condition": "terminating requires authenticating again with at least one factor, while viewing does not",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.service.ts"
+          ],
+          "patterns": [
+            "async listownsessions",
+            "async revokeownsession",
+            "async revokeallownsessions",
+            "requirefreshmfa(user);",
+            "session_not_found"
+          ]
+        },
+        {
+          "condition": "the termination is scoped to the caller inside the SQL, not by a check performed before it, so a foreign session id changes no row",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/persistent-auth.repository.ts"
+          ],
+          "patterns": [
+            "async revokeownsession(",
+            "and user_id = ${userid}",
+            "async listactiveusersessions("
+          ]
+        },
+        {
+          "condition": "the behaviour is proven rather than asserted in prose: scoping, the equal answer for foreign and missing sessions, and the absence of the hashed fingerprints from the listing",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/own-session-management.spec.ts"
+          ],
+          "patterns": [
+            "scopes the termination by user in sql",
+            "foreign, an already-ended and a missing session",
+            "never returns the hashed fingerprints",
+            "viewing does not require a fresh factor"
           ]
         }
       ],
-      "note": "Staff can view their active sessions and revoke one. Ordinary platform users cannot: the only session-termination endpoint on the user-facing auth surface is ADMIN-only. The capability constant SECURITY_SESSION_REVOKE_OWN is defined in membership-capability.resolver.ts but is wired to no route, so it grants nothing. The staff plane is credited; the gap is the user plane."
+      "note": "Закрыто добавлением недостающей половины поверхности, а не переописанием существующей. Прежняя запись верна: staff-плоскость умела показывать и завершать сессии, обычный пользователь - нет, а единственный путь завершения на пользовательской поверхности, sessions/revoke-user, доступен только ADMIN и работает по ЧУЖОМУ идентификатору пользователя. Константа SECURITY_SESSION_REVOKE_OWN существовала и не была подключена ни к одному маршруту, то есть не давала ничего.\n\nДобавлены три маршрута: GET sessions, POST sessions/:sessionId/revoke и POST sessions/revoke-all-own.\n\nРазделение по требованию: завершение требует свежего фактора, просмотр - нет. Это не послабление, а прочтение текста: скобка «having authenticated again with at least one factor» относится к terminate. Заставлять подтверждать фактор ради того, чтобы УВИДЕТЬ захват собственной учётной записи, значило бы поставить препятствие там, где нужна скорость.\n\nПринадлежность проверяется в самом SQL. Существующая revokeSession принимает любой идентификатор и пользователем не ограничена - вызвать её с чужим было бы прямой небезопасной ссылкой на объект. Новый путь держит user_id в WHERE, поэтому чужой идентификатор не меняет ни одной строки, а не меняет их «почти всегда». Проверено мутацией: удаление этой строки роняет набор.\n\nЧужая, уже завершённая и несуществующая сессия отвечают ОДИНАКОВО (SESSION_NOT_FOUND): различие сделало бы ответ оракулом существования чужих идентификаторов.\n\nИз списка намеренно исключены user_agent_hash и ip_hash. Они хешированы, владельцу бесполезны и являются отпечатком; тест проверяет, что проекция их не содержит, и мутация, добавляющая ip_hash, роняет набор.\n\nЧто НЕ заявлено: этот проход даёт видимость и завершение, но не уведомление о новой сессии и не распознавание устройства - ни того, ни другого требование не просит, и ни то, ни другое не появилось."
     },
     {
       "requirementId": "V7.5.3",

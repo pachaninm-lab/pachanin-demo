@@ -250,6 +250,15 @@ const AUTH_CHAIN_CONTENTION_SIGNATURES = [
   '(prev_hash)',
 ];
 
+export interface ActiveUserSessionRow {
+  id: string;
+  mfa_level: string;
+  mfa_verified_at: Date | null;
+  created_at: Date;
+  last_seen_at: Date;
+  expires_at: Date;
+}
+
 @Injectable()
 export class PersistentAuthRepository {
   constructor(readonly prisma: PrismaService) {}
@@ -1296,6 +1305,78 @@ export class PersistentAuthRepository {
       WHERE session_id = ${sessionId}
         AND status IN ('ACTIVE', 'ROTATED')
     `);
+  }
+
+  /**
+   * Активные сессии одного пользователя (ASVS V7.5.2).
+   *
+   * Возвращаются только те поля, которые владелец сессии может осмысленно
+   * прочитать о себе. user_agent_hash и ip_hash намеренно не отдаются: они
+   * хешированы, пользователю бесполезны и являются отпечатком.
+   */
+  async listActiveUserSessions(
+    client: AuthSqlClient,
+    userId: string,
+  ): Promise<ActiveUserSessionRow[]> {
+    return client.$queryRaw<ActiveUserSessionRow[]>(Prisma.sql`
+      SELECT
+        s.id,
+        s.mfa_level,
+        s.mfa_verified_at,
+        s.created_at,
+        s.last_seen_at,
+        s.expires_at
+      FROM auth.sessions s
+      WHERE s.user_id = ${userId}
+        AND s.status IN ('ACTIVE', 'MFA_PENDING')
+        AND s.expires_at > NOW()
+      ORDER BY s.last_seen_at DESC
+    `);
+  }
+
+  /**
+   * Завершение СВОЕЙ сессии по идентификатору.
+   *
+   * Принадлежность проверяется в самом SQL, а не отдельным запросом до него:
+   * revokeSession выше принимает любой идентификатор, и вызвать её с чужим -
+   * это прямая небезопасная ссылка на объект. Здесь user_id стоит в WHERE,
+   * поэтому чужой идентификатор не изменит ни одной строки, а не изменит их
+   * "почти всегда".
+   *
+   * @returns число завершённых сессий: 0 означает, что сессия не принадлежит
+   * вызывающему, уже завершена или не существует - три случая, которые снаружи
+   * обязаны выглядеть одинаково.
+   */
+  async revokeOwnSession(
+    client: AuthSqlClient,
+    userId: string,
+    sessionId: string,
+    reason: string,
+  ): Promise<number> {
+    const revoked = await client.$executeRaw(Prisma.sql`
+      UPDATE auth.sessions
+      SET status = 'REVOKED',
+          revoked_at = NOW(),
+          revocation_reason = ${reason},
+          updated_at = NOW()
+      WHERE id = ${sessionId}
+        AND user_id = ${userId}
+        AND status IN ('ACTIVE', 'MFA_PENDING')
+    `);
+    if (revoked > 0) {
+      await client.$executeRaw(Prisma.sql`
+        UPDATE auth.refresh_tokens rt
+        SET status = 'REVOKED',
+            revoked_at = NOW(),
+            revocation_reason = ${reason}
+        FROM auth.sessions s
+        WHERE s.id = rt.session_id
+          AND s.id = ${sessionId}
+          AND s.user_id = ${userId}
+          AND rt.status IN ('ACTIVE', 'ROTATED')
+      `);
+    }
+    return revoked;
   }
 
   async revokeAllUserSessions(
