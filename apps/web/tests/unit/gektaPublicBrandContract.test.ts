@@ -40,6 +40,16 @@ const visibleBrandSources = [
 const allBrandSources = Object.values(sources).join('\n');
 
 describe('Gekta public brand contract', () => {
+  it('keeps the mobile menu target above the strict browser acceptance floor', () => {
+    const siteHeader = read('components/platform-v7/PublicSiteHeader.tsx');
+    const rule = siteHeader.match(/\.pc-site-header\[data-public-site-header='canonical'\] \.pc-site-mobile-menu > summary \{([^}]+)\}/);
+    expect(rule).not.toBeNull();
+    for (const property of ['width', 'min-width', 'height', 'min-height']) {
+      expect(rule![1]).toContain(`${property}: 48px !important`);
+    }
+  });
+
+
   it('uses the canonical Russian brand, descriptor and action language', () => {
     expect(sources.assistant).toContain("open: 'Спросить Гекту'");
     expect(sources.assistant).toContain("title: 'Гекта'");

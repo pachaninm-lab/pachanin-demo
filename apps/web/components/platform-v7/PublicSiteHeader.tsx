@@ -344,9 +344,13 @@ const PUBLIC_SITE_HEADER_STYLES = `
     height: 36px !important;
     flex-basis: 36px !important;
   }
+  /* Keep a real touch-size margin above the 44px acceptance floor, including
+   * fractional CSS-pixel geometry returned by Firefox. */
   .pc-site-header[data-public-site-header='canonical'] .pc-site-mobile-menu > summary {
-    width: 44px !important;
-    min-width: 44px !important;
+    width: 48px !important;
+    min-width: 48px !important;
+    height: 48px !important;
+    min-height: 48px !important;
   }
   .pc-site-header[data-public-site-header='canonical'] .pc-site-locale-switch {
     min-width: 44px !important;
