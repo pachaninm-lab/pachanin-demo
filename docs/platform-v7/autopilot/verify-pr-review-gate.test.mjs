@@ -25,6 +25,8 @@ import {
   localQwenRunMatches,
   OCTOPUS_ACTION_SHA,
   OCTOPUS_STATUS_CONTEXT,
+  OCTOPUS_WORKFLOW_PATH,
+  octopusRunMatches,
   positiveExactHeadCodexReviews,
   positiveExactHeadCopilotReviews,
   positiveExactHeadLocalQwenPairs,
@@ -269,7 +271,11 @@ test('local Qwen workflow is immutable, local-only inference, opt-in and never e
   assert.match(workflow, /--seed 424242/u);
   assert.match(workflow, /--json-schema-file/u);
   assert.match(workflow, /--offline/u);
-  assert.match(workflow, /findings=\[\]/u);
+  // The invariant is that a PASS verdict may not carry findings, and a BLOCK
+  // verdict may not be empty. The workflow enforces both in its validator; assert
+  // the enforcement, not a literal spelling of it that the workflow never used.
+  assert.match(workflow, /if verdict == 'PASS' and findings:\s*\n\s*raise SystemExit/u);
+  assert.match(workflow, /if verdict == 'BLOCK' and not findings:\s*\n\s*raise SystemExit/u);
   assert.match(workflow, /review-provider\/local-qwen/u);
   assert.match(workflow, /^\s*contents:\s*read\s*$/mu);
   assert.match(workflow, /^\s*pull-requests:\s*write\s*$/mu);
@@ -303,4 +309,161 @@ test('review reconciliation workflow uses supported dispatch wiring and complete
   assert.match(workflow, /^\s*cancel-in-progress:\s*false\s*$/mu);
   assert.match(workflow, /gh api --paginate --slurp/u);
   assert.match(workflow, /event_type=review-gate-reconcile/u);
+});
+
+function octopusRunFixture(repo = 'pachaninm-lab/pachanin-demo', runId = '34139689333') {
+  return {
+    run: {
+      id: Number(runId),
+      path: OCTOPUS_WORKFLOW_PATH,
+      event: 'pull_request_target',
+      status: 'completed',
+      conclusion: 'success',
+      head_sha: head,
+      repository: { full_name: repo },
+      pull_requests: [{ number: 5151 }],
+    },
+    candidate: { runId },
+    repo,
+    prNumber: 5151,
+  };
+}
+
+test('Octopus authority is bound to the pinned provider run, not to a shared bot identity', () => {
+  // Without this binding the Octopus path is satisfied by a review body plus a
+  // commit status alone — both writable by github-actions[bot], the shared identity
+  // of every workflow here holding pull-requests:write and statuses:write.
+  const { run, candidate, repo, prNumber } = octopusRunFixture();
+  assert.equal(octopusRunMatches(run, candidate, head, repo, prNumber), true);
+
+  const rejected = {
+    'another workflow running as the same actor': { ...run, path: '.github/workflows/attacker.yml' },
+    'a run for a different commit': { ...run, head_sha: oldHead },
+    'a push-triggered run, where PR content would be the code that ran': { ...run, event: 'push' },
+    'a workflow_dispatch run': { ...run, event: 'workflow_dispatch' },
+    // The provider workflow produces a run with identical path, event, head and PR
+    // when its clean-review validation fails. Only the conclusion separates them.
+    'a real provider run that FAILED its clean-review check': { ...run, conclusion: 'failure' },
+    'a cancelled provider run': { ...run, conclusion: 'cancelled' },
+    'a run still in progress': { ...run, status: 'in_progress', conclusion: null },
+    'an incoherent in-progress run carrying a success conclusion': { ...run, status: 'in_progress' },
+    'a run belonging to another repository': { ...run, repository: { full_name: 'someone/else' } },
+    'a run for another pull request': { ...run, pull_requests: [{ number: 4242 }] },
+    'a run attached to no pull request': { ...run, pull_requests: [] },
+    'a run whose id is not the one the body cited': { ...run, id: 999 },
+    'no run at all': null,
+  };
+
+  for (const [reason, mutated] of Object.entries(rejected)) {
+    assert.equal(
+      octopusRunMatches(mutated, candidate, head, repo, prNumber),
+      false,
+      `must not trust ${reason}`,
+    );
+  }
+});
+
+test('the Octopus run binding refuses a malformed context instead of trusting it', () => {
+  const { run, candidate, repo, prNumber } = octopusRunFixture();
+  assert.equal(octopusRunMatches(run, candidate, 'not-a-sha', repo, prNumber), false);
+  assert.equal(octopusRunMatches(run, candidate, head, '', prNumber), false);
+  assert.equal(octopusRunMatches(run, candidate, head, repo, 0), false);
+  assert.equal(octopusRunMatches(run, null, head, repo, prNumber), false);
+});
+
+test('a pull_request_target run reports the pull request head, not the base branch', () => {
+  // Load-bearing and previously disputed: were a pull_request_target run's head_sha
+  // the BASE branch SHA — as github.sha is for that event — the head_sha check would
+  // never match and the whole provider path would be dead code that silently can
+  // never satisfy the gate. Two real runs of the provider workflow, against their
+  // pull requests' heads:
+  //   run 34139689333 head_sha 2912b4de70579036f8b759ac6cdfdfc8325ba827
+  //     PR #5151 head 2912b4de70579036f8b759ac6cdfdfc8325ba827, base 968b65e67
+  //   run 34139481341 head_sha 8488aab562a17c44f7739d55a5e65191ea0ee1a5
+  //     PR #5124 head 8488aab562a17c44f7739d55a5e65191ea0ee1a5, base 1eb81f4de
+  // In both, head_sha is the pull request head. The run object's head_sha and the
+  // github.sha context value are different things for this event.
+  const prHead = '2912b4de70579036f8b759ac6cdfdfc8325ba827';
+  const baseSha = '968b65e67c8a6755aecfd81ea870c0e0fa4c7160';
+  const { run, candidate, repo, prNumber } = octopusRunFixture();
+
+  assert.equal(octopusRunMatches({ ...run, head_sha: prHead }, candidate, prHead, repo, prNumber), true);
+  // Were a run to report the base SHA instead, refuse it rather than widen: a gate
+  // that fails closed beats one bound to the wrong commit.
+  assert.equal(octopusRunMatches({ ...run, head_sha: baseSha }, candidate, prHead, repo, prNumber), false);
+});
+
+test('main() binds every machine provider to a workflow run, with none left on identity alone', () => {
+  const verifier = readFileSync(new URL('./verify-pr-review-gate.mjs', import.meta.url), 'utf8');
+  const mainBody = verifier.slice(verifier.indexOf('function main()'));
+
+  // Both machine providers must resolve a live run; neither may be satisfied by a
+  // review body and a commit status alone.
+  assert.match(mainBody, /octopusRunMatches\(run, candidate, headSha, repo, prNumber\)/u);
+  assert.match(mainBody, /localQwenRunMatches\(run, candidate, headSha, repo, prNumber\)/u);
+  assert.doesNotMatch(
+    mainBody,
+    /const octopusAuthority = positiveExactHeadOctopusAttestations\(/u,
+    'Octopus authority must not be taken straight from the review/status pair',
+  );
+  assert.doesNotMatch(mainBody, /MACHINE_FALLBACK/u);
+});
+
+test('the accepted evidence is rendered from the provider workflow, not hand-written', () => {
+  // Every other provider test builds its fixtures by hand. That leaves open the
+  // failure mode that created this contour: the workflow's published body or status
+  // text drifts, the suite stays green, and the gate silently becomes unsatisfiable
+  // because no real attestation can ever be parsed again.
+  const repo = 'pachaninm-lab/pachanin-demo';
+  const attestationHead = 'e'.repeat(40);
+  const summarySha256 = 'f'.repeat(64);
+  const runId = '4242424242';
+
+  const lines = readFileSync(
+    new URL('../../../.github/workflows/octopus-independent-review.yml', import.meta.url),
+    'utf8',
+  ).split('\n');
+
+  const render = (text) => text
+    .replaceAll('\\`', '`')
+    .replaceAll('${SUMMARY_SHA256:0:16}', summarySha256.slice(0, 16))
+    .replaceAll('$SUMMARY_SHA256', summarySha256)
+    .replaceAll('$GITHUB_RUN_ID', runId)
+    .replaceAll('$HEAD_SHA', attestationHead)
+    .replaceAll('$REPO', repo);
+
+  const bodyStart = lines.findIndex((line) => line.includes('body="$(cat <<EOF'));
+  const bodyEnd = lines.findIndex((line, index) => index > bodyStart && line.trim() === 'EOF');
+  assert.ok(bodyStart >= 0 && bodyEnd > bodyStart, 'workflow must publish a heredoc attestation body');
+  const template = lines.slice(bodyStart + 1, bodyEnd);
+  const indent = Math.min(
+    ...template.filter((line) => line.trim()).map((line) => line.match(/^ */u)[0].length),
+  );
+  const body = render(template.map((line) => line.slice(indent)).join('\n'));
+
+  const successAt = lines.findIndex((line) => line.includes('-f state=success'));
+  assert.ok(successAt >= 0, 'workflow must publish a success provider status');
+  const successBlock = lines.slice(successAt, successAt + 6).join('\n');
+  const description = successBlock.match(/-f description="([^"]*)"/u);
+  const targetUrl = successBlock.match(/-f target_url="([^"]*)"/u);
+  const context = successBlock.match(/-f context=(\S+)/u);
+  assert.ok(description && targetUrl && context, 'success status must set context, description and target_url');
+  assert.equal(context[1], OCTOPUS_STATUS_CONTEXT);
+
+  const accepted = positiveExactHeadOctopusAttestations(
+    [{ user: { login: 'github-actions[bot]' }, commit_id: attestationHead, state: 'COMMENTED', body }],
+    [{
+      context: context[1],
+      state: 'success',
+      creator: { login: 'github-actions[bot]' },
+      description: render(description[1]),
+      target_url: render(targetUrl[1]),
+    }],
+    attestationHead,
+    repo,
+  );
+
+  assert.equal(accepted.length, 1, 'the verifier must accept the evidence the workflow emits');
+  assert.equal(accepted[0].runId, runId);
+  assert.equal(accepted[0].summarySha256, summarySha256);
 });

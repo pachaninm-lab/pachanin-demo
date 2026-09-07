@@ -152,6 +152,36 @@ function parseLocalQwenAttestation(review, headSha) {
   };
 }
 
+/**
+ * Binds an Octopus attestation to the pinned provider workflow's own run.
+ *
+ * Without this the Octopus path is satisfied by a review body and a commit status
+ * alone, and both are written by github-actions[bot] — the shared identity of every
+ * workflow in this repository holding pull-requests:write and statuses:write. The
+ * run id is read out of the review body, so it is caller-supplied and every field
+ * is checked against the live run rather than trusted. A run that merely exists is
+ * not enough either: the provider workflow publishes a run with the same path,
+ * event, head and pull request when its clean-review validation FAILS (exit 20 on
+ * findings, 21 on an empty summary, 22 while indexing). Only a completed successful
+ * run is evidence, and unlike a commit status — last-writer-wins — a finished run's
+ * conclusion cannot be rewritten afterwards.
+ */
+export function octopusRunMatches(run, candidate, headSha, repo, prNumber) {
+  const expectedHead = String(headSha || '').trim();
+  const repository = String(repo || '').trim();
+  const expectedPr = Number(prNumber || 0);
+  if (!run || !candidate || !/^[0-9a-f]{40}$/u.test(expectedHead) || !repository) return false;
+  if (!Number.isInteger(expectedPr) || expectedPr <= 0) return false;
+  if (String(run?.id || '') !== String(candidate.runId || '')) return false;
+  if (String(run?.path || '') !== OCTOPUS_WORKFLOW_PATH) return false;
+  if (String(run?.event || '') !== 'pull_request_target') return false;
+  if (String(run?.status || '') !== 'completed' || String(run?.conclusion || '') !== 'success') return false;
+  if (String(run?.head_sha || '') !== expectedHead) return false;
+  if (String(run?.repository?.full_name || '') !== repository) return false;
+  if (!Array.isArray(run?.pull_requests) || !run.pull_requests.some((pr) => Number(pr?.number) === expectedPr)) return false;
+  return true;
+}
+
 export function positiveExactHeadLocalQwenPairs(reviews, statuses, headSha, repo) {
   const repository = String(repo || '').trim();
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u.test(repository)) return [];
@@ -431,7 +461,16 @@ function main() {
   const positiveCopilotReviews = positiveExactHeadCopilotReviews(reviews, headSha);
   const copilotAuthority = positiveCopilotReviews.length > 0;
 
-  const positiveOctopusAttestations = positiveExactHeadOctopusAttestations(reviews, commitStatuses, headSha, repo);
+  const octopusPairs = positiveExactHeadOctopusAttestations(reviews, commitStatuses, headSha, repo);
+  const positiveOctopusAttestations = [];
+  for (const candidate of octopusPairs) {
+    try {
+      const run = fetchWorkflowRun(repo, candidate.runId);
+      if (octopusRunMatches(run, candidate, headSha, repo, prNumber)) positiveOctopusAttestations.push(candidate);
+    } catch {
+      // Missing/inaccessible workflow-run evidence cannot satisfy review authority.
+    }
+  }
   const octopusAuthority = positiveOctopusAttestations.length > 0;
 
   const localQwenPairs = positiveExactHeadLocalQwenPairs(reviews, commitStatuses, headSha, repo);
