@@ -3,6 +3,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types/request-user';
 import { OrganizationsService, CreateOrgDto } from './organizations.service';
+import { UpdateOrganizationStatusDto } from './dto/update-organization-status.dto';
 
 @Controller('api/organizations')
 @UseGuards(JwtAuthGuard)
@@ -34,7 +35,7 @@ export class OrganizationsController {
   }
 
   @Patch(':id/status')
-  updateStatus(@Param('id') id: string, @Body() body: { status: string }, @CurrentUser() user: RequestUser) {
+  updateStatus(@Param('id') id: string, @Body() body: UpdateOrganizationStatusDto, @CurrentUser() user: RequestUser) {
     return this.orgs.updateStatus(id, body.status, user);
   }
 }

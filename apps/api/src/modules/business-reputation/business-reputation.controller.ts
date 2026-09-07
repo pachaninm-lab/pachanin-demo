@@ -3,6 +3,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types/request-user';
 import { BusinessReputationService } from './business-reputation.service';
+import { ReputationBatchDto } from './dto/reputation-batch.dto';
 
 @Controller('api/reputation')
 @UseGuards(JwtAuthGuard)
@@ -18,7 +19,7 @@ export class BusinessReputationController {
   }
 
   @Post('orgs/batch')
-  getScoreBatch(@Body() body: { orgIds: string[] }, @CurrentUser() user: RequestUser) {
+  getScoreBatch(@Body() body: ReputationBatchDto, @CurrentUser() user: RequestUser) {
     return this.reputation.getScoreBatch(body.orgIds ?? [], user);
   }
 }
