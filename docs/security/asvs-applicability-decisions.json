@@ -3155,7 +3155,7 @@
           ]
         }
       ],
-      "note": "apps/api/src/modules/auth/auth.controller.ts wires a distinct @RateLimit decorator (name/scope/limit/windowSeconds, most with an env override) to essentially every auth route (login 8/60s, register 5/300s, password-reset request 5/900s and confirm 8/900s, mfa/verify 10/60s, mfa-recovery/confirm 8/900s, and more) — a real, comprehensive, per-route anti-automation mechanism, not a stub. But the one document that names it, docs/security/THREAT_MODEL.md, gives it one line (\"rate limiting present across API surfaces\") with no thresholds, no windows, and nothing about preventing malicious lockout of a legitimate user. A second document, docs/platform-v7/audit/SR5_REDIS_RATELIMIT_WEBSOCKET_PLAN.md, actively contradicts the live code, stating \"No rate limiting. No @nestjs/throttler, no Throttle decorator, no gateway/middleware limiting requests\" — false today, verified against the same auth.controller.ts."
+      "note": "apps/api/src/modules/auth/auth.controller.ts wires a distinct @RateLimit decorator (name/scope/limit/windowSeconds, most with an env override) to essentially every auth route (login 8/60s, register 5/300s, password-reset request 5/900s and confirm 8/900s, mfa/verify 10/60s, mfa-recovery/confirm 8/900s, and more) — a real, comprehensive, per-route anti-automation mechanism, not a stub. But the one document that names it, docs/security/THREAT_MODEL.md, gives it one line (\"rate limiting present across API surfaces\") with no thresholds, no windows, and nothing about preventing malicious lockout of a legitimate user. A second document, docs/platform-v7/audit/SR5_REDIS_RATELIMIT_WEBSOCKET_PLAN.md, actively contradicts the live code, stating \"No rate limiting. No @nestjs/throttler, no Throttle decorator, no gateway/middleware limiting requests\" — false today, verified against the same auth.controller.ts.\n\nИЗМЕРЕНО И ЗАПИСАНО, вердикт не меняется. Требование просит документацию сделать ясным, как эти средства ПРЕДОТВРАЩАЮТ злонамеренную блокировку учётной записи. Измерение показывает, что они её не предотвращают:\n- auth.login_throttles ключуется ТОЛЬКО account_hash = hash('account:' + email); IP в ключ не входит (persistent-auth.repository.ts, ensureLoginThrottle);\n- MAX_FAILED_LOGINS = 5, LOGIN_LOCKOUT_MS = 15 минут (auth.service.ts);\n- ограничение частоты на самом логине — scope 'ip', 8 запросов за 60 секунд.\nОтсюда стоимость атаки: пять запросов запирают известный адрес на пятнадцать минут, а чтобы держать его запертым бесконечно, хватает примерно двадцати запросов в час с одного адреса — далеко внутри лимита 8/60с. Знание чужого email достаточно; пароль знать не нужно.\n\nПоэтому документацией это требование закрыть нельзя: описать можно только то, что предотвращения нет. Устранение — решение владельца, а не механическая правка: обычный приём (ключевать счётчик по паре account+IP и держать отдельный, более высокий общий счётчик на учётную запись) требует изменения схемы таблицы login_throttles и ослабляет защиту от распределённого подбора по одной учётной записи, если сделать его неаккуратно. Это размен, а не очевидное улучшение.\n\nЧто при этом сделано правильно и не должно потеряться при исправлении: несуществующий адрес обрабатывается так же, как существующий, и тоже накапливает отказы — это намеренное сопротивление перечислению, и изменение ключа не должно его разрушить."
     },
     {
       "requirementId": "V6.1.2",
@@ -3590,7 +3590,7 @@
           ]
         }
       ],
-      "note": "The implementation itself is genuinely strong — @RateLimit is wired to essentially every auth endpoint with sane, distinct limits (login 8/60s, password-reset request 5/900s, mfa/verify 10/60s, and more), and rate-limit.service.ts HMACs the bucket key with a production-enforced pepper rather than storing raw IPs. But this requirement asks whether the controls are \"implemented according to the application's security documentation\" (V6.1.1), and that documentation is either too thin to check against or actively wrong (SR5 doc). This fails as a consequence of V6.1.1, not because the rate-limiting code itself is weak."
+      "note": "The implementation itself is genuinely strong — @RateLimit is wired to essentially every auth endpoint with sane, distinct limits (login 8/60s, password-reset request 5/900s, mfa/verify 10/60s, and more), and rate-limit.service.ts HMACs the bucket key with a production-enforced pepper rather than storing raw IPs. But this requirement asks whether the controls are \"implemented according to the application's security documentation\" (V6.1.1), and that documentation is either too thin to check against or actively wrong (SR5 doc). This fails as a consequence of V6.1.1, not because the rate-limiting code itself is weak.\n\nИЗМЕРЕНО И ЗАПИСАНО, вердикт не меняется. Требование просит документацию сделать ясным, как эти средства ПРЕДОТВРАЩАЮТ злонамеренную блокировку учётной записи. Измерение показывает, что они её не предотвращают:\n- auth.login_throttles ключуется ТОЛЬКО account_hash = hash('account:' + email); IP в ключ не входит (persistent-auth.repository.ts, ensureLoginThrottle);\n- MAX_FAILED_LOGINS = 5, LOGIN_LOCKOUT_MS = 15 минут (auth.service.ts);\n- ограничение частоты на самом логине — scope 'ip', 8 запросов за 60 секунд.\nОтсюда стоимость атаки: пять запросов запирают известный адрес на пятнадцать минут, а чтобы держать его запертым бесконечно, хватает примерно двадцати запросов в час с одного адреса — далеко внутри лимита 8/60с. Знание чужого email достаточно; пароль знать не нужно.\n\nПоэтому документацией это требование закрыть нельзя: описать можно только то, что предотвращения нет. Устранение — решение владельца, а не механическая правка: обычный приём (ключевать счётчик по паре account+IP и держать отдельный, более высокий общий счётчик на учётную запись) требует изменения схемы таблицы login_throttles и ослабляет защиту от распределённого подбора по одной учётной записи, если сделать его неаккуратно. Это размен, а не очевидное улучшение.\n\nЧто при этом сделано правильно и не должно потеряться при исправлении: несуществующий адрес обрабатывается так же, как существующий, и тоже накапливает отказы — это намеренное сопротивление перечислению, и изменение ключа не должно его разрушить."
     },
     {
       "requirementId": "V6.3.2",
@@ -5520,13 +5520,19 @@
       ],
       "conditions": [
         {
-          "condition": "no adaptive control reads time, location or device as an access input",
+          "condition": "no adaptive control reads time, location or device as an access input - detected by what a real geolocation control would use, not by any mention of the word",
           "check": "ABSENT_IN_TREE",
           "patterns": [
             "timeofday",
-            "geoip",
             "devicefingerprint",
-            "adaptiveauth"
+            "adaptiveauth",
+            "maxmind",
+            "geolite",
+            "geoip-lite",
+            "geoipcountry",
+            "cf-ipcountry",
+            "x-vercel-ip-country",
+            "geoiplookup"
           ],
           "roots": [
             "apps",
@@ -5534,7 +5540,7 @@
           ]
         }
       ],
-      "note": "No adaptive or contextual security control exists. The only geolocation reference in the application is a Permissions-Policy header that disables it. The requirement is unmet, not inapplicable - an application making authorization decisions could use these inputs and this one does not."
+      "note": "No adaptive or contextual security control exists. The only geolocation reference in the application is a Permissions-Policy header that disables it. The requirement is unmet, not inapplicable - an application making authorization decisions could use these inputs and this one does not.\n\nУСЛОВИЕ ПОЧИНЕНО, вердикт восстановлен, а не изменён. Между сборками это решение молча перестало проверяться: оно ушло из FAIL в NOT_ASSESSED, потому что признак отсутствия «geoip» стал совпадать после слияния #5131 — с флагом '$geoip_disable': true в аналитике, который геолокацию ВЫКЛЮЧАЕТ. Подстрочная проверка не отличает использование от отключения, и посторонняя правка приватности вывела требование из-под наблюдения.\n\nПризнаки заменены на те, которыми пользуется настоящий геоконтроль: maxmind, geolite, geoip-lite, geoipcountry, cf-ipcountry, x-vercel-ip-country, geoiplookup. Ни один из них не является флагом отключения, и все семь в дереве отсутствуют — проверено. Требование снова FAIL, то есть снова проверяется; NOT_ASSESSED здесь было не лучшим состоянием, а отсутствием наблюдения."
     },
     {
       "requirementId": "V8.3.1",
