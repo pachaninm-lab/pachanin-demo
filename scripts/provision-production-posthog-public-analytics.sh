@@ -20,7 +20,7 @@ project_reference="$(printf '%s' "$project_reference_b64" | base64 --decode 2>/d
 [[ "$project_reference" != *$'\n'* && "$project_reference" != *$'\r'* ]] || fail PROJECT_REFERENCE_INVALID 8
 unset project_reference_b64 PC_POSTHOG_PROJECT_REFERENCE_B64
 
-mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+mapfile -t web_ids < <(docker ps -q --no-trunc --filter 'label=com.docker.compose.service=web')
 (( ${#web_ids[@]} == 1 )) || fail COMPOSE_WEB_AUTHORITY_AMBIGUOUS 9
 web_id="${web_ids[0]}"
 
@@ -222,7 +222,7 @@ rollback_needed=1
 new_web_id=""
 new_state=missing
 for attempt in $(seq 1 75); do
-  mapfile -t new_web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+  mapfile -t new_web_ids < <(docker ps -q --no-trunc --filter 'label=com.docker.compose.service=web')
   if (( ${#new_web_ids[@]} == 1 )); then
     new_web_id="${new_web_ids[0]}"
     new_state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$new_web_id")"

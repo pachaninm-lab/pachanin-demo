@@ -258,10 +258,16 @@ set -Eeuo pipefail
 state="$(tr -d '\\n' < "$PC_FIXTURE_STATE")"
 image_id="sha256:${'a'.repeat(64)}"
 if [[ "$1" == ps ]]; then
-  if [[ "$*" == *"label=com.docker.compose.service=web"* ]]; then
-    [[ "$state" == 1 ]] && printf 'web-new\\n' || printf 'web-old\\n'
-  else
-    [[ "$state" == 1 ]] && printf 'web-new\\napi-1\\n' || printf 'web-old\\napi-1\\n'
+  # Model the real Docker CLI: default quiet IDs are short; --no-trunc IDs are full.
+  [[ "$state" == 1 ]] && web_id="${'b'.repeat(64)}" || web_id="${'c'.repeat(64)}"
+  api_id="${'d'.repeat(64)}"
+  if [[ "$*" != *"--no-trunc"* ]]; then
+    web_id="\${web_id:0:12}"
+    api_id="\${api_id:0:12}"
+  fi
+  printf '%s\\n' "$web_id"
+  if [[ "$*" != *"label=com.docker.compose.service=web"* ]]; then
+    printf '%s\\n' "$api_id"
   fi
   exit 0
 fi
@@ -274,13 +280,13 @@ if [[ "$1" == inspect ]]; then
     exit 0
   fi
   if [[ "$format" == *"com.docker.compose.project"* ]]; then printf 'fixtureproj\\n'; exit 0; fi
-  if [[ "$format" == *"com.docker.compose.service"* ]]; then [[ "$id" == api-1 ]] && printf 'api\\n' || printf 'web\\n'; exit 0; fi
-  if [[ "$format" == *".Config.Image"* ]]; then [[ "$id" == api-1 ]] && printf 'fixture/api:exact\\n' || printf 'fixture/web:exact\\n'; exit 0; fi
+  if [[ "$format" == *"com.docker.compose.service"* ]]; then [[ "$id" == ${'d'.repeat(12)}* ]] && printf 'api\\n' || printf 'web\\n'; exit 0; fi
+  if [[ "$format" == *".Config.Image"* ]]; then [[ "$id" == ${'d'.repeat(12)}* ]] && printf 'fixture/api:exact\\n' || printf 'fixture/web:exact\\n'; exit 0; fi
   if [[ "$format" == *"{{.Image}}"* ]]; then printf '%s\\n' "$image_id"; exit 0; fi
   if [[ "$format" == *"if .State.Health"* && "$format" == *"1"* ]]; then printf '1\\n'; exit 0; fi
   if [[ "$format" == *"State.Health.Status"* ]]; then printf 'healthy\\n'; exit 0; fi
   if [[ "$format" == *"range .Config.Env"* ]]; then
-    if [[ "$id" != api-1 && "$state" == 1 ]]; then
+    if [[ "$id" != ${'d'.repeat(12)}* && "$state" == 1 ]]; then
       printf 'POSTHOG_PROJECT_REFERENCE=%s\\n' "$PC_FIXTURE_REFERENCE"
       printf 'POSTHOG_INGEST_REGION=us\\n'
     fi

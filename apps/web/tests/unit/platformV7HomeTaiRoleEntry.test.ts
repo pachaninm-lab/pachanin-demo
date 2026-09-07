@@ -52,7 +52,8 @@ describe('platform-v7 Gekta and nine-role public value scenario', () => {
     expect(aiExperience).toContain("type RoleKey = 'seller' | 'buyer' | 'logistics' | 'driver' | 'storage' | 'laboratory' | 'surveyor' | 'bank' | 'employee';");
     expect(aiExperience).toContain("title: 'Одна Сделка — девять понятных рабочих перспектив'");
     expect(aiExperience).not.toContain("status: 'NOT_ATTESTED'");
-    expect(aiExperience).toContain('Неподключённый источник не показывается подключённым');
+    expect(aiExperience).toContain('Гекта не придумывает данные внешней системы, если не получила их из разрешённого источника.');
+    expect(aiExperience).not.toContain('Неподключённый источник не показывается подключённым');
   });
 
   it('makes the Gekta role selector keyboard complete and panel-linked', () => {
