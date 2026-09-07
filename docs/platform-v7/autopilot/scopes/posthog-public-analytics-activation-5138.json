@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "ops/posthog-public-analytics-activation-5138",
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction-2026-09-07-posthog-continue",
+  "purpose": "Add a bounded, fail-closed REG.RU runtime provision mechanism for the already-governed PostHog public analytics implementation without exposing project configuration to browser code or expanding analytics into protected routes.",
+  "authorityBaseExactMain": "08318d991cb929681f8ce957eda63c649d29052a",
+  "effectiveAfter": "This governance manifest is merged to main. The activation branch must then start from that accepted main and remain inside the finite path set below.",
+  "allowedPaths": [
+    "scripts/production-web-exact-sha.sh",
+    "scripts/provision-production-posthog-public-analytics.sh",
+    "scripts/check-production-posthog-public-analytics-provision.mjs",
+    "scripts/run-repo-build-test-contour.mjs",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "requiredInvariants": [
+    "Production activation is REG.RU VPS only and must preserve exact-main-SHA image authority.",
+    "POSTHOG_PROJECT_REFERENCE is never committed, printed, uploaded as evidence, or exposed to browser code; runtime storage must be a root-owned mode-0600 file inside the canonical production directory.",
+    "Authoritative PostHog project metadata proves the cloud region is us; activation must set POSTHOG_INGEST_REGION=us and must not accept arbitrary ingestion origins.",
+    "The provisioner may affect only the web Compose service, must recreate it with the identical image ID, and must fail closed on ambiguous Compose authority, symlinks, malformed runtime data, or configuration drift.",
+    "The existing Production Web Exact-SHA Release must preserve an already-installed PostHog override without learning or logging its project reference, and absence of that override must leave existing release behavior unchanged.",
+    "Session replay, autocapture, browser-side PostHog SDK loading, CSP widening, cookies, durable user identity, person profiles, private-route analytics, PII and free-text export remain prohibited.",
+    "No registration, authentication, role assignment, tenant isolation, RBAC, database schema, API authority, Yandex analytics behavior or non-web production service is changed by this scope.",
+    "Any new repository files must be reflected by the canonical cryptographic inventory without weakening inventory verification.",
+    "No new npm dependency or recurring paid infrastructure commitment is introduced."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
