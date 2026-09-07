@@ -3,9 +3,22 @@ set -Eeuo pipefail
 : "${DATABASE_URL:?DATABASE_URL is required}"
 MIGRATION_BASE='apps/api/prisma/migrations/20260902140000_role_eligibility_shadow/migration.sql'
 MIGRATION_SUPERSEDED='apps/api/prisma/migrations/20260902143000_role_eligibility_superseded_current_guard/migration.sql'
+MIGRATION_RUNTIME='apps/api/prisma/migrations/20260902150000_role_eligibility_runtime_principal_boundary/migration.sql'
 MIGRATION_COVERAGE='apps/api/prisma/migrations/20260906180000_role_eligibility_fns_registry_coverage_authority/migration.sql'
 
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+-- Existing production-compatible principals precede the coverage migration.
+-- They remain NOINHERIT with direct bounded grants, not auxiliary membership.
+DO $runtime_fixture_roles$
+DECLARE runtime_role TEXT;
+BEGIN
+  FOREACH runtime_role IN ARRAY ARRAY['pc_deal_runtime','app_runtime','one_deal_app','app_deal','app_service'] LOOP
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=runtime_role) THEN
+      EXECUTE format('CREATE ROLE %I NOLOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE',runtime_role);
+    END IF;
+  END LOOP;
+END
+$runtime_fixture_roles$;
 CREATE SCHEMA IF NOT EXISTS auth;
 CREATE TABLE public.organizations (
   id TEXT PRIMARY KEY,
@@ -35,6 +48,7 @@ SQL
 
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_BASE"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_SUPERSEDED"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_RUNTIME"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_COVERAGE"
 
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
@@ -554,6 +568,43 @@ BEGIN
 END
 $resolver_invalidation_guards$;
 ROLLBACK;
+
+BEGIN;
+DO $resolver_application_principals$
+DECLARE
+  runtime_role TEXT;
+  resolved_state TEXT;
+BEGIN
+  FOREACH runtime_role IN ARRAY ARRAY['pc_deal_runtime','app_runtime','one_deal_app','app_deal','app_service'] LOOP
+    IF pg_has_role(runtime_role,'pc_role_eligibility_runtime','MEMBER')
+       OR pg_has_role(runtime_role,'pc_role_eligibility_observer','MEMBER') THEN
+      RAISE EXCEPTION 'RESOLVER_APPLICATION_ROLE_MEMBERSHIP_ESCALATED role=%',runtime_role;
+    END IF;
+    IF has_table_privilege(runtime_role,'eligibility.registry_generation_authority','INSERT')
+       OR has_table_privilege(runtime_role,'eligibility.registry_generation_authority','UPDATE')
+       OR has_table_privilege(runtime_role,'eligibility.registry_generation_authority','DELETE') THEN
+      RAISE EXCEPTION 'RESOLVER_APPLICATION_AUTHORITY_WRITE_PRESENT role=%',runtime_role;
+    END IF;
+    IF has_table_privilege(runtime_role,'auth.registration_applications','SELECT')
+       OR has_table_privilege(runtime_role,'auth.registration_applications','INSERT')
+       OR has_table_privilege(runtime_role,'auth.registration_applications','UPDATE')
+       OR has_table_privilege(runtime_role,'auth.registration_applications','DELETE') THEN
+      RAISE EXCEPTION 'RESOLVER_APPLICATION_REGISTRATION_ACCESS_PRESENT role=%',runtime_role;
+    END IF;
+    EXECUTE format('SET LOCAL ROLE %I',runtime_role);
+    IF current_user IS DISTINCT FROM runtime_role THEN
+      RAISE EXCEPTION 'RESOLVER_APPLICATION_PRINCIPAL_NOT_ENTERED role=%',runtime_role;
+    END IF;
+    SELECT state INTO STRICT resolved_state
+    FROM eligibility.resolve_fns_egrul_inn('7707083893',clock_timestamp());
+    IF resolved_state IS DISTINCT FROM 'FOUND' THEN
+      RAISE EXCEPTION 'RESOLVER_APPLICATION_PRINCIPAL_LOOKUP_FAILED role=% state=%',runtime_role,resolved_state;
+    END IF;
+    RESET ROLE;
+  END LOOP;
+END
+$resolver_application_principals$;
+ROLLBACK;
 SQL
 
 printf '%s\n' \
@@ -571,4 +622,5 @@ printf '%s\n' \
   'FNS_SOURCE_FINALITY_MODEL=PASS' \
   'EGRUL_EGRIP_ACTIVE_DOMAIN_SEPARATION=PASS' \
   'CURRENT_YEAR_BULK_ABSENCE_WITHOUT_FINALITY_NOT_FOUND=0' \
-  'FNS_NEGATIVE_AUTHORITY_PREDICATE=PASS'
+  'FNS_NEGATIVE_AUTHORITY_PREDICATE=PASS' \
+  'FNS_RUNTIME_RESOLVER_EXECUTION=PASS'

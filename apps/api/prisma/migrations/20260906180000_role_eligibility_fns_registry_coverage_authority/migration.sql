@@ -647,6 +647,7 @@ BEGIN
       EXECUTE format('REVOKE INSERT, UPDATE, DELETE ON eligibility.registry_generation_authority FROM %I', role_name);
       EXECUTE format('GRANT SELECT ON eligibility.registry_generation_authority TO %I', role_name);
       EXECUTE format('GRANT EXECUTE ON FUNCTION eligibility.activate_registry_generation(TEXT, TEXT, TEXT) TO %I', role_name);
+      EXECUTE format('GRANT EXECUTE ON FUNCTION eligibility.resolve_fns_egrul_inn(TEXT, TIMESTAMPTZ) TO %I', role_name);
     END IF;
   END LOOP;
 END
