@@ -23,7 +23,7 @@ export function GektaMobileDrawer({ open, closeLabel, onClose, children }: { ope
     workspace?.querySelectorAll<HTMLElement>(':scope > *').forEach((element) => {
       if (element !== dialog) inertTargets.add(element);
     });
-    document.querySelectorAll<HTMLElement>("[data-gekta-server-discovery='true'], [data-gekta-floating-entry]").forEach((element) => inertTargets.add(element));
+    document.querySelectorAll<HTMLElement>("[data-gekta-server-discovery='true'], [data-gekta-floating-entry], [data-gekta-public-header='true']").forEach((element) => inertTargets.add(element));
 
     const snapshots: InertSnapshot[] = [...inertTargets].map((element) => ({
       element,

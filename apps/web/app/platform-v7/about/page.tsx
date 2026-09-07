@@ -137,6 +137,8 @@ const COPY: Record<Locale, Copy> = {
   },
 };
 
+const LEGAL_LABELS: Record<Locale, readonly string[]> = { ru: ['Конфиденциальность', 'Условия использования', 'Условия сервиса', 'Документы'], en: ['Privacy', 'Terms', 'Service information', 'Documents'], zh: ['隐私', '使用条款', '服务说明', '文件'] };
+
 const LEGAL_LINKS = [
   { label: 'Privacy', href: '/platform-v7/privacy' },
   { label: 'Terms', href: '/platform-v7/terms' },
@@ -240,7 +242,7 @@ export default async function AboutPage() {
 
         <section className='p7-about-legal' aria-labelledby='p7-about-legal-title'>
           <div><h2 id='p7-about-legal-title'>{copy.legalTitle}</h2><p>{copy.legalText}</p></div>
-          <nav aria-label={copy.legalTitle}>{LEGAL_LINKS.map((item) => <Link key={item.href} href={`${item.href}${lang}`}>{item.label}</Link>)}</nav>
+          <nav aria-label={copy.legalTitle}>{LEGAL_LINKS.map((item, index) => <Link key={item.href} href={`${item.href}${lang}`}>{LEGAL_LABELS[locale][index]}</Link>)}</nav>
         </section>
 
         <nav className='p7-about-bottom-nav' aria-label={copy.home}>
@@ -270,7 +272,7 @@ const ABOUT_PAGE_CSS = `
 .p7-about-hero{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(360px,.95fr);gap:64px;align-items:center;padding:52px 0 74px}
 .p7-about-hero-copy{min-width:0}.p7-about-eyebrow{display:block;margin-bottom:12px;color:#087a3b;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
 .p7-about-hero h1{max-width:12ch;margin:0;color:#102019;font-size:clamp(46px,5.2vw,68px);font-weight:760;line-height:.98;letter-spacing:-.05em;text-wrap:balance}
-.p7-about-hero-copy>p{max-width:62ch;margin:22px 0 0;color:#526159;font-size:18px;line-height:1.58}.p7-about-hero-copy>small{display:block;margin-top:12px;color:#6b7972;font-size:12px;line-height:1.5}
+.p7-about-hero-copy>p{max-width:62ch;margin:22px 0 0;color:#526159;font-size:18px;line-height:1.58}.p7-about-hero-copy>small{display:block;margin-top:12px;color:#58685f;font-size:12px;line-height:1.5}
 .p7-about-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px}.p7-about-primary,.p7-about-secondary{min-height:48px;display:inline-flex;align-items:center;justify-content:center;padding:0 18px;border-radius:12px;font-size:14px;font-weight:760;text-decoration:none}
 .p7-about-primary{background:#087a3b;color:#fff;border:1px solid #087a3b}.p7-about-primary:hover{background:#07572e}.p7-about-secondary{background:#fff;color:#173429;border:1px solid #cfddd5}.p7-about-secondary:hover{border-color:#96b5a4;background:#f2f7f4}
 .p7-about-journey{overflow:hidden;border:1px solid #cfddd5;border-radius:20px;background:#fff;box-shadow:0 24px 64px rgba(16,42,29,.08)}.p7-about-journey>strong{display:block;padding:18px 20px;border-bottom:1px solid #dce5e0;color:#19382a;font-size:14px}

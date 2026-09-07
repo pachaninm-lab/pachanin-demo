@@ -55,7 +55,9 @@ const PUBLIC_SITE_HEADER_STYLES = `
   max-height: 64px !important;
   gap: 10px !important;
   padding-inline: clamp(12px, 3vw, 32px) !important;
-}
+}.pc-site-header[data-public-site-header='canonical'] .pc-site-brand,
+.pc-site-header[data-public-site-header='canonical'] .pc-site-nav a { min-height: 44px; }
+.pc-site-header[data-public-site-header='canonical'] .pc-site-nav a { min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
 .pc-site-brand {
   display: inline-flex;
   align-items: center;
