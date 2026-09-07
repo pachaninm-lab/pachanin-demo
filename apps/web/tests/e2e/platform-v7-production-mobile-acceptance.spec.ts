@@ -189,10 +189,19 @@ async function expectLinkedPageLocaleContinuity(page: Page, name: LinkedPublicPa
       await expect(page.locator(`.pc-v6-header-actions a[href="/platform-v7/register?lang=${locale}"]`)).toBeVisible();
       await expect(page.locator(`footer a[href="/platform-v7/contact?lang=${locale}"]`)).toBeVisible();
       break;
-    case 'trust':
+    case 'trust': {
       await expect(page.locator('.pc-trust-back')).toHaveAttribute('href', `/platform-v7?lang=${locale}`);
-      await expect(page.locator('.pc-trust-primary')).toHaveAttribute('href', `/platform-v7/contact?lang=${locale}`);
+      const registration = page.locator('main .pc-trust-primary');
+      await expect(registration).toHaveCount(2);
+      for (const action of await registration.all()) {
+        await expect(action).toBeVisible();
+        await expect(action).toHaveAttribute('href', `/platform-v7/register?lang=${locale}`);
+      }
+      const contact = page.locator('.pc-trust-contact-link');
+      await expect(contact).toBeVisible();
+      await expect(contact).toHaveAttribute('href', `/platform-v7/contact?lang=${locale}`);
       break;
+    }
     case 'contact':
       await expect(page.locator('.p7-contact-register')).toHaveAttribute('href', `/platform-v7/register?lang=${locale}`);
       break;

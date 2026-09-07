@@ -75,7 +75,15 @@ test.describe('Platform V7 Trust exact responsive acceptance', () => {
         const registerHref = `/platform-v7/register?lang=${locale}`;
         const loginHref = `/platform-v7/login?lang=${locale}`;
         await expect(header.locator('.pc-trust-header-register')).toHaveAttribute('href', registerHref);
-        await expect(page.locator('main .pc-trust-primary').first()).toHaveAttribute('href', registerHref);
+        const registration = page.locator('main .pc-trust-primary');
+        await expect(registration).toHaveCount(2);
+        for (const action of await registration.all()) {
+          await expect(action).toBeVisible();
+          await expect(action).toHaveAttribute('href', registerHref);
+        }
+        const contact = page.locator('.pc-trust-contact-link');
+        await expect(contact).toBeVisible();
+        await expect(contact).toHaveAttribute('href', `/platform-v7/contact?lang=${locale}`);
 
         if (viewport.width <= 430) {
           await expect(header.locator('.pc-trust-header-login')).toBeHidden();
