@@ -8,6 +8,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { hashPassword, verifyPassword } from './password-hashing';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { requireFreshMfa } from '../../common/security/fresh-mfa';
 import type { RequestUser } from '../../common/types/request-user';
 import { isStrongPassword } from '../../common/validators/strong-password.validator';
 import {
@@ -598,6 +599,11 @@ export class OrganizationInvitationService {
     idempotencyKeyInput: string,
     correlationId: string,
   ) {
+    // Изменение чужой роли, исключение участника и сброс чужого MFA — это
+    // изменения атрибутов, влияющих на аутентификацию. Требуется свежее
+    // подтверждение фактора, а не только роль администратора: перехваченная
+    // сессия администратора иначе даёт сброс MFA другого участника.
+    requireFreshMfa(user);
     const admin = await this.requireAdmin(user);
     this.assertRoleWithinCeiling(admin.role, role);
     if (membershipId === admin.id) throw new ForbiddenException({ code: 'SELF_ROLE_CHANGE_FORBIDDEN' });
@@ -645,6 +651,11 @@ export class OrganizationInvitationService {
     idempotencyKeyInput: string,
     correlationId: string,
   ) {
+    // Изменение чужой роли, исключение участника и сброс чужого MFA — это
+    // изменения атрибутов, влияющих на аутентификацию. Требуется свежее
+    // подтверждение фактора, а не только роль администратора: перехваченная
+    // сессия администратора иначе даёт сброс MFA другого участника.
+    requireFreshMfa(user);
     const admin = await this.requireAdmin(user);
     if (membershipId === admin.id) throw new ForbiddenException({ code: 'SELF_REVOKE_FORBIDDEN' });
     const idempotencyKey = this.requireIdempotencyKey(idempotencyKeyInput);
@@ -699,6 +710,11 @@ export class OrganizationInvitationService {
     correlationId: string,
     deliveryKey?: string,
   ) {
+    // Изменение чужой роли, исключение участника и сброс чужого MFA — это
+    // изменения атрибутов, влияющих на аутентификацию. Требуется свежее
+    // подтверждение фактора, а не только роль администратора: перехваченная
+    // сессия администратора иначе даёт сброс MFA другого участника.
+    requireFreshMfa(user);
     const admin = await this.requireAdmin(user);
     if (membershipId === admin.id) throw new ForbiddenException({ code: 'SELF_MFA_RESET_FORBIDDEN' });
     const idempotencyKey = this.requireIdempotencyKey(idempotencyKeyInput);

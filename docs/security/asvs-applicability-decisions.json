@@ -5100,48 +5100,69 @@
     {
       "requirementId": "V7.5.1",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "role-change-service:apps/api/src/modules/auth/organization-invitation.service.ts",
-        "fresh-mfa-gate:apps/api/src/modules/auth/registration-decision.service.ts"
+        "apps/api/src/common/security/fresh-mfa.ts",
+        "apps/api/src/common/security/fresh-mfa.spec.ts",
+        "apps/api/src/modules/auth/organization-invitation.service.ts",
+        "apps/api/src/modules/auth/organization-membership-reauth.spec.ts",
+        "apps/api/src/modules/auth/registration-decision.service.ts"
       ],
       "conditions": [
         {
-          "condition": "the role change is implemented in this service",
-          "check": "PRESENT_AT_PATH",
+          "condition": "one shared re-authentication control exists with its window and its clock-skew bound stated in one place",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/fresh-mfa.ts"
+          ],
+          "patterns": [
+            "mfa_freshness_window_ms",
+            "mfa_clock_skew_tolerance_ms",
+            "fresh_mfa_required",
+            "requirefreshmfa",
+            "isfreshmfa"
+          ]
+        },
+        {
+          "condition": "every membership command that changes an attribute affecting authentication requires it",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/auth/organization-invitation.service.ts"
           ],
           "patterns": [
-            "changemembershiprole"
+            "import { requirefreshmfa }",
+            "requirefreshmfa(user);"
           ]
         },
         {
-          "condition": "that service still requires no re-authentication for it",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the refusal is proven by behaviour on the real commands, before the administrator is even resolved",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/api/src/modules/auth/organization-invitation.service.ts"
+            "apps/api/src/modules/auth/organization-membership-reauth.spec.ts"
           ],
           "patterns": [
-            "requirefreshmfa",
-            "fresh_mfa",
-            "mfaverifiedat",
-            "step-up"
+            "changemembershiprole",
+            "revokemembership",
+            "resetmembershipmfa",
+            "refuses before resolving the administrator",
+            "reached past the fresh-factor gate"
           ]
         },
         {
-          "condition": "a wired fresh-MFA gate does exist elsewhere, so the capability is real",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the control's boundaries are pinned rather than assumed: an unconfirmed factor, a stale one, and a timestamp from the future beyond clock skew are each refused",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/api/src/modules/auth/registration-decision.service.ts"
+            "apps/api/src/common/security/fresh-mfa.spec.ts"
           ],
           "patterns": [
-            "requirefreshmfa",
-            "fresh_mfa_required"
+            "configured but unconfirmed factor",
+            "only clock skew from the future",
+            "cannot read as a time",
+            "confirmed before the window"
           ]
         }
       ],
-      "note": "A fresh-MFA gate exists and is genuinely wired: registration-decision.service.ts refuses a review decision unless the reviewer verified MFA within 15 minutes, at three call sites. It is credited here because it shows the capability is real and invoked - unlike the signing-authority policy under V2.3.5, which has no callers at all. But it guards registration review, not account attributes. Changing an organization membership role is a sensitive attribute change and organization-invitation.service.ts applies no re-authentication to it - only rate limiting at the controller and an optimistic version check. The password path is different and defensible: there is no in-session password change endpoint, only a reset requiring an emailed token, which is itself a re-authentication."
+      "note": "Закрыто применением повторной аутентификации там, где её не было, а не описанием. Прежняя запись назвала одну команду - смену роли участника; измерение нашло три. organization-invitation.service.ts не имел проверки свежести фактора НИ В ОДНОЙ из команд: changeMembershipRole, revokeMembership и resetMembershipMfa. Третья особенно существенна: сброс чужого MFA - это примитив захвата учётной записи, и до этой правки перехваченная сессия администратора организации давала его при наличии только роли, ограничения частоты и проверки версии.\n\nКонтроль сведён в одно место. Проверка свежести уже существовала в дереве ПЯТИ раз, объявленная заново в каждом (auth.service.ts, registration-decision, registration-cancellation, settlement-financial-mfa.guard, staff-access.service), и в ДВУХ разных смыслах: часть допускает 30 секунд расхождения часов вперёд, часть отвергает любой отрицательный возраст. Новая площадка не выбирает семантику случайно - она берёт общий модуль с явно записанным смыслом. Пять существующих площадок в этом проходе НЕ переписаны: это отдельный рефакторинг с собственным риском регрессии, и расхождение записано как находка, а не устранено мимоходом.\n\nОтказ доказан поведением на настоящих методах: заглушки, которые команда тронула бы после гейта, бросают обычный Error, поэтому ForbiddenException в результате означает, что гейт отработал ПЕРВЫМ. Стоял бы он позже - перехваченная сессия успела бы что-то изменить.\n\nИз контроля снята одна строка, которую нельзя было доказать: проверка Number.isFinite была избыточна, потому что нечитаемая отметка даёт NaN, а любое сравнение с NaN ложно. Найдено мутацией - её удаление не роняло ни одного теста. Недоказуемая строка в контроле безопасности хуже, чем её отсутствие; свойство закреплено тестом.\n\nЧто НЕ заявлено: смена собственного пароля в сессии в этом сервисе отсутствует как путь, и требование к ней здесь не применяется. Пути смены собственных email и телефона за пределами этого сервиса не проверялись в этом проходе и вердиктом не покрыты."
     },
     {
       "requirementId": "V7.5.2",
