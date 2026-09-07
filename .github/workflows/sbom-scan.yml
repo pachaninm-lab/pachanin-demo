@@ -26,6 +26,9 @@ on:
       - 'scripts/security/verify-crypto-migration-plan.mjs'
       - 'scripts/security/verify-crypto-migration-plan.test.mjs'
       - 'docs/security/CRYPTO_MIGRATION_PLAN.md'
+      - 'scripts/security/build-secret-rotation-schedule.mjs'
+      - 'scripts/security/build-secret-rotation-schedule.test.mjs'
+      - 'docs/security/SECRET_ROTATION_SCHEDULE.md'
       - 'scripts/security/verify-authentication-pathways.test.mjs'
       - 'docs/security/THREAT_MODEL.md'
       - 'docs/security/cryptographic-inventory.json'
@@ -71,6 +74,9 @@ on:
       - 'scripts/security/verify-crypto-migration-plan.mjs'
       - 'scripts/security/verify-crypto-migration-plan.test.mjs'
       - 'docs/security/CRYPTO_MIGRATION_PLAN.md'
+      - 'scripts/security/build-secret-rotation-schedule.mjs'
+      - 'scripts/security/build-secret-rotation-schedule.test.mjs'
+      - 'docs/security/SECRET_ROTATION_SCHEDULE.md'
       - 'scripts/security/verify-authentication-pathways.test.mjs'
       - 'docs/security/THREAT_MODEL.md'
       - 'docs/security/cryptographic-inventory.json'
@@ -222,6 +228,11 @@ jobs:
 
       - name: Verify every key records where it may be used
         run: node scripts/security/verify-key-usage.mjs
+
+      - name: Verify the secret rotation schedule is current
+        run: |
+          node scripts/security/build-secret-rotation-schedule.mjs
+          git diff --exit-code docs/security/SECRET_ROTATION_SCHEDULE.md
 
       - name: Verify no decision cites something that is gone
         run: node scripts/security/verify-decision-evidence.mjs
