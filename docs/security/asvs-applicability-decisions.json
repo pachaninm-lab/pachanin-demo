@@ -5356,26 +5356,85 @@
     {
       "requirementId": "V8.1.3",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "documentation-set:docs/security/THREAT_MODEL.md",
-        "documentation-set:SECURITY.md"
+        "docs/security/contextual-security-attributes.json",
+        "scripts/security/verify-contextual-security-attributes.mjs",
+        "scripts/security/verify-contextual-security-attributes.test.mjs",
+        "apps/api/src/common/guards/pre-auth-rate-limit.guard.ts",
+        "apps/api/src/common/security/trusted-proxy.ts",
+        "apps/api/src/modules/auth/auth.service.ts"
       ],
       "conditions": [
         {
-          "condition": "no document defines environmental or contextual attributes for access decisions",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the register defines, for every contextual attribute, the decision it feeds, its threshold, the action taken and the failure mode - including the attributes that are not used",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "docs/security/THREAT_MODEL.md",
-            "SECURITY.md"
+            "docs/security/contextual-security-attributes.json"
           ],
           "patterns": [
-            "contextual attribute",
-            "environmental attribute"
+            "isdecisioninput",
+            "\"threshold\"",
+            "\"action\"",
+            "\"failuremode\"",
+            "client-ip",
+            "\"time\"",
+            "\"device\"",
+            "\"location\""
+          ]
+        },
+        {
+          "condition": "each negative claim carries the concrete patterns by which it could fail; an empty pattern set would leave 'not a decision input' unfalsifiable while still reading as an answer",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "docs/security/contextual-security-attributes.json"
+          ],
+          "patterns": [
+            "negativeclaimpatterns",
+            "useragent",
+            "deviceid",
+            "geoip",
+            "countrycode"
+          ]
+        },
+        {
+          "condition": "the negative claims are falsifiable by the tree: an attribute recorded as not a decision input must not be compared inside access-decision code",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-contextual-security-attributes.mjs"
+          ],
+          "patterns": [
+            "negative_claim_contradicted",
+            "uncheckable_negative_claim",
+            "comparisonsites",
+            "decision_input_without_site"
+          ]
+        },
+        {
+          "condition": "the two attributes recorded as used reach a real decision: the client IP through the pre-auth rate limiter, which fails closed when the trusted address is unresolvable",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/guards/pre-auth-rate-limit.guard.ts"
+          ],
+          "patterns": [
+            "resolverequestip(request)",
+            "rate_limit_general",
+            "trusted client ip is unavailable."
+          ]
+        },
+        {
+          "condition": "and time through the failed-login lockout",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.service.ts"
+          ],
+          "patterns": [
+            "max_failed_logins = 5",
+            "lockeduntil"
           ]
         }
       ],
-      "note": "No document defines time, location, device or any other contextual attribute as an input to access decisions. Consistent with V8.2.4, where no such control exists to document."
+      "note": "Исправлено по измерению: прежняя запись утверждала, что контекстных признаков в решениях о доступе нет вовсе («no such control exists to document»). Это неверно для двух из четырёх. IP-адрес доходит до отказа через pre-auth-rate-limit.guard.ts: адрес берётся доверенной политикой прокси, ключ корзины ip|<адрес>, порог RATE_LIMIT_GENERAL за окно RATE_LIMIT_GENERAL_WINDOW_SECONDS, действие - HTTP 429; при неразрешимом доверенном адресе запрос отклоняется, а не пропускается. Время доходит до отказа через блокировку входа: MAX_FAILED_LOGINS = 5, дальше locked_until и Retry-After. Верной прежняя запись была в другом - документа не существовало.\n\nДва признака действительно НЕ участвуют, и записаны с тем же весом, потому что «мы этого не используем» - это ответ на требование, а не умолчание. User-Agent доходит до auth.service.ts и попадает только в метаданные аудита через clientMetadata: он нигде не сравнивается, сессия к нему не привязана. Геолокация не выводится нигде; IP служит ключом ограничения частоты, а не признаком страны.\n\nДержит запись к дереву отрицательная половина, а не положительная. Признак, объявленный не входящим в решение, не должен встречаться в СРАВНЕНИИ внутри кода решений о доступе - 52 файла в guards и modules/auth. Проверено настоящей правкой кода, а не подставным объектом: добавление сравнения User-Agent в guard роняет сборку с точным файлом и строкой, добавление проверки страны - тоже. Присутствие в метаданных аудита сравнением не считается и не запрещается: запись в журнал - это не решение.\n\nУтверждение без способа опровержения тоже отклоняется: признак, объявленный неиспользуемым и не давший ни одного шаблона, по которому это можно проверить, роняет сборку как UNCHECKABLE_NEGATIVE_CLAIM.\n\nЧто НЕ заявлено: V8.1.4 остаётся FAIL и закрыт этим не будет. Он просит описать контекстные факторы В ДОПОЛНЕНИЕ к авторизации на уровне функций, данных и полей, а эти три уровня не описаны - V8.1.1 и V8.1.2 остаются FAIL. Заявить дополнение к отсутствующему основанию значило бы закрыть требование его меньшей половиной. Отдельно не заявляется risk-based step-up: MFA существует, но контекстом не вызывается, и это записано в реестре как отсутствие.\n\nУсловие решения было слабее самой проверки, и это исправлено здесь же. Первая версия требовала лишь присутствия ключа negativeClaimPatterns, а пустой объект этому удовлетворяет: гейт при этом краснеет (UNCHECKABLE_NEGATIVE_CLAIM), но матрица продолжала показывать PASS. Проверено мутацией - опустошение набора шаблонов не отзывало вердикт. Условие теперь требует сами шаблоны."
     },
     {
       "requirementId": "V8.1.4",
@@ -5399,7 +5458,7 @@
           ]
         }
       ],
-      "note": "Nothing describes how environmental or contextual factors would be weighed, because none are used. The requirement is unmet rather than inapplicable: the platform makes access decisions, it simply makes them without these inputs and without saying so."
+      "note": "Оставлен FAIL осознанно, после закрытия V8.1.3. Контекстные признаки теперь описаны: реестр docs/security/contextual-security-attributes.json называет признак, порог, действие и режим отказа для каждого из четырёх, включая два неиспользуемых. Но это требование просит описать контекстные факторы В ДОПОЛНЕНИЕ к авторизации на уровне функций, данных и полей, а этих трёх описаний нет: V8.1.1 и V8.1.2 остаются FAIL. Дополнение к отсутствующему основанию - не ответ на требование.\n\nПрежняя формулировка «none are used» больше не верна и заменена: IP-адрес и время доходят до отказа (429 по ключу ip|<адрес>; блокировка входа после MAX_FAILED_LOGINS = 5). Чего действительно нет - это risk-based step-up: MFA не вызывается контекстом, порогов риска не существует, и набор действий ограничен отказом, а не включает challenge."
     },
     {
       "requirementId": "V8.2.1",
