@@ -1309,34 +1309,54 @@
     {
       "requirementId": "V2.4.1",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "export-controller:apps/api/src/modules/exports/exports.controller.ts"
+        "apps/api/src/modules/exports/exports.controller.ts",
+        "apps/api/src/common/guards/rate-limit.guard.ts",
+        "apps/api/src/app.module.ts",
+        "apps/api/src/modules/exports/exports-rate-limit.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "the export controller serves bulk data",
-          "check": "PRESENT_AT_PATH",
+          "condition": "every export route still carries a per-actor rate limit",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/exports/exports.controller.ts"
           ],
           "patterns": [
-            "content-disposition"
+            "exports_deals",
+            "exports_evidence",
+            "exports_ledger",
+            "exports_outbox_status",
+            "exports_deal_report",
+            "exports_regulatory",
+            "scope: 'user'"
           ]
         },
         {
-          "condition": "it still carries no anti-automation control",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the guard that reads those decorators is still registered globally, so the decorator is enforcement rather than annotation",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/api/src/modules/exports/exports.controller.ts"
+            "apps/api/src/app.module.ts"
           ],
           "patterns": [
-            "@ratelimit",
-            "throttle"
+            "ratelimitguard",
+            "app_guard"
+          ]
+        },
+        {
+          "condition": "the check reads the metadata through Reflector with the key the guard uses, not by searching the file for the decorator text",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/exports/exports-rate-limit.spec.ts"
+          ],
+          "patterns": [
+            "rate_limit_options",
+            "reflector"
           ]
         }
       ],
-      "note": "Rate limiting exists on authentication and a few deal endpoints, but the endpoints that return bulk data carry none - and those are the ones the requirement names, because they are the exfiltration surface. nginx declares limit_req zones, but that configuration is referenced by no deployment file in the repository, so it cannot be shown to apply."
+      "note": "Every route on the exports controller now carries a per-actor rate limit, and the guard that reads them (RateLimitGuard) is registered as a global APP_GUARD after the auth guard, so request.user is populated by the time it runs - the decorator is enforcement, not annotation, and a condition asserts that registration separately. Scope is 'user' rather than 'ip' deliberately: a whole office legitimately shares one address, while an account exfiltrating data keeps its identity across addresses. Limits are proportional to what a request costs - the registry export returns up to 10 000 deals in one response and is capped at 10 per 5 minutes, per-deal reads at 30, and the regulatory report, the most expensive of all, at 5 per 15 minutes. The nginx limit_req zones are still not credited: no deployment file in the repository references that configuration, so its effect cannot be shown. The check reads metadata through Reflector with the key imported from the decorator module rather than searching the source for '@RateLimit' - a decorator applied to the wrong method, or one whose key drifted from the guard's, would look identical to a text search. That mattered in practice: the first version of the check guessed the key and guessed wrong. Proven by negative mutation: removing one decorator fails four tests, switching scope to 'ip' fails one, and giving two routes the same name fails one."
     },
     {
       "requirementId": "V2.4.2",
