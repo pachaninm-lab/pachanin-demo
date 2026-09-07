@@ -107,10 +107,13 @@ describe('platform-v7 final public entry', () => {
   });
 
   it('preserves RU EN ZH when returning from the linked Trust Center', () => {
-    expect(trustPage).toContain("if (element.props.href === '/platform-v7')");
-    expect(trustPage).toContain('nextProps.href = `/platform-v7?lang=${locale}`');
-    expect(trustPage).toContain('nextProps.actions = rebrandTrustCopy(element.props.actions, locale)');
-    expect(trustPage).not.toContain('return cloneElement(element, undefined, ...children)');
+    expect(trustPage).toContain('const lang = `?lang=${encodeURIComponent(locale)}`');
+    expect(trustPage).toContain("href={`/platform-v7${lang}`}");
+    expect(trustPage).toContain('brandHomeLabel={copy.brandHome}');
+    expect(trustPage).toContain("href={`/platform-v7/login${lang}`}");
+    expect(trustPage).toContain("href={`/platform-v7/register${lang}`}");
+    expect(trustPage).not.toContain('rebrandTrustCopy');
+    expect(trustPage).not.toContain('cloneElement');
   });
 
   it('states external-system boundaries without false-live language or internal jargon', () => {

@@ -56,6 +56,7 @@ jobs:
             tests/unit/surfaceRoleMappingParity.test.ts \
             tests/unit/platformV7ProductionI18nRuntimeBridge.test.tsx \
             tests/unit/platformV7PublicCjkTypography.test.ts \
+            tests/unit/platformV7TrustPublicSurface.test.ts \
             2>&1 | tee /tmp/web-unit.log
 
       - name: Upload web-unit log
