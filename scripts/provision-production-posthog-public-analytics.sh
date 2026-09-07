@@ -89,6 +89,47 @@ runtime_status=EXISTING
 override_status=EXISTING
 created_runtime=0
 created_override=0
+rollback_needed=0
+runtime_temp=""
+override_temp=""
+
+# Own cleanup from the first temporary write through final runtime acceptance.
+# Rejection before Docker must not leave authority for a later exact-SHA release.
+rollback_on_exit() {
+  local rc=$? restore_ok=1 cleanup_failed=0
+  trap - EXIT INT TERM
+  if (( rollback_needed == 1 )); then
+    if ! "${dc[@]}" up -d --no-deps --pull never --force-recreate web >/dev/null 2>&1; then
+      printf 'POSTHOG_RUNTIME_ERROR=ROLLBACK_FAILED\n' >&2
+      restore_ok=0
+      (( rc != 0 )) || rc=43
+    fi
+  fi
+  # A failed restore may leave the new container active. Preserve its authority
+  # for explicit recovery instead of deleting configuration that it still uses.
+  if (( restore_ok == 1 )); then
+    if (( created_override == 1 )); then
+      rm -f -- "$override_file" >/dev/null 2>&1 || cleanup_failed=1
+    fi
+    if (( created_runtime == 1 && cleanup_failed == 0 )); then
+      rm -f -- "$runtime_file" >/dev/null 2>&1 || cleanup_failed=1
+    fi
+  fi
+  if [[ -n "$runtime_temp" ]]; then
+    rm -f -- "$runtime_temp" >/dev/null 2>&1 || cleanup_failed=1
+  fi
+  if [[ -n "$override_temp" ]]; then
+    rm -f -- "$override_temp" >/dev/null 2>&1 || cleanup_failed=1
+  fi
+  if (( cleanup_failed == 1 )); then
+    printf 'POSTHOG_RUNTIME_ERROR=CLEANUP_FAILED\n' >&2
+    (( rc != 0 )) || rc=44
+  fi
+  exit "$rc"
+}
+trap rollback_on_exit EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 if [[ -e "$runtime_file" ]]; then
   validate_runtime_file "$runtime_file" || fail EXISTING_RUNTIME_INVALID 15
@@ -105,7 +146,6 @@ PY
 else
   umask 077
   runtime_temp="$(mktemp "$prod_dir/.pc-posthog-public-analytics.env.XXXXXX")"
-  trap 'rm -f -- "${runtime_temp:-}" "${override_temp:-}"' EXIT
   printf 'POSTHOG_PROJECT_REFERENCE=%s\n' "$project_reference" > "$runtime_temp"
   printf 'POSTHOG_INGEST_REGION=us\n' >> "$runtime_temp"
   chown 0:0 "$runtime_temp"
@@ -138,7 +178,6 @@ PY
   override_status=CREATED
   created_override=1
 fi
-trap - EXIT
 
 IFS=',' read -r -a raw_files <<< "$prod_compose"
 compose_files=()
@@ -200,21 +239,10 @@ if (( override_was_authoritative == 1 )) \
   printf 'POSTHOG_WEB_IMAGE_UNCHANGED=1\n'
   printf 'POSTHOG_NON_WEB_UNCHANGED=1\n'
   printf 'PRODUCTION_MUTATION=NONE_ALREADY_READY\n'
+  trap - EXIT INT TERM
   exit 0
 fi
 
-rollback_needed=0
-rollback_on_exit() {
-  local rc=$?
-  trap - EXIT INT TERM
-  if (( rollback_needed == 1 )); then
-    "${dc[@]}" up -d --no-deps --pull never --force-recreate web >/dev/null 2>&1 || true
-    (( created_override == 0 )) || rm -f -- "$override_file"
-    (( created_runtime == 0 )) || rm -f -- "$runtime_file"
-  fi
-  exit "$rc"
-}
-trap rollback_on_exit EXIT INT TERM
 rollback_needed=1
 
 "${target_dc[@]}" up -d --no-deps --pull never --force-recreate web

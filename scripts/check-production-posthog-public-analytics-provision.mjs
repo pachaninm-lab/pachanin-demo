@@ -233,6 +233,7 @@ const prodDir = path.join(fixtureRoot, 'prod');
 const baseCompose = path.join(prodDir, 'compose.yml');
 const overrideFile = path.join(prodDir, 'compose.pc-posthog-public-analytics.override.yml');
 const stateFile = path.join(fixtureRoot, 'state');
+const callsFile = path.join(fixtureRoot, 'docker-calls');
 const fixtureReference = `phc_${'A'.repeat(32)}`;
 fs.mkdirSync(fixtureBin);
 fs.mkdirSync(prodDir);
@@ -252,6 +253,11 @@ if [[ "$#" == 3 && "$1" == -c && "$2" == '%a:%u:%g' ]]; then
   exit 0
 fi
 exec /usr/bin/stat "$@"
+`, { mode: 0o700 });
+fs.writeFileSync(path.join(fixtureBin, 'mv'), `#!/usr/bin/env bash
+set -Eeuo pipefail
+if [[ "\${PC_FIXTURE_FAILURE:-}" == override-install && "\${!#}" == "$PC_FIXTURE_OVERRIDE" ]]; then exit 72; fi
+exec /bin/mv "$@"
 `, { mode: 0o700 });
 fs.writeFileSync(path.join(fixtureBin, 'docker'), `#!/usr/bin/env bash
 set -Eeuo pipefail
@@ -282,10 +288,14 @@ if [[ "$1" == inspect ]]; then
   if [[ "$format" == *"com.docker.compose.project"* ]]; then printf 'fixtureproj\\n'; exit 0; fi
   if [[ "$format" == *"com.docker.compose.service"* ]]; then [[ "$id" == ${'d'.repeat(12)}* ]] && printf 'api\\n' || printf 'web\\n'; exit 0; fi
   if [[ "$format" == *".Config.Image"* ]]; then [[ "$id" == ${'d'.repeat(12)}* ]] && printf 'fixture/api:exact\\n' || printf 'fixture/web:exact\\n'; exit 0; fi
-  if [[ "$format" == *"{{.Image}}"* ]]; then printf '%s\\n' "$image_id"; exit 0; fi
+  if [[ "$format" == *"{{.Image}}"* ]]; then
+    if [[ "$state" == 1 && "\${PC_FIXTURE_FAILURE:-}" == post-recreate-* ]]; then image_id="sha256:${'e'.repeat(64)}"; fi
+    printf '%s\\n' "$image_id"; exit 0
+  fi
   if [[ "$format" == *"if .State.Health"* && "$format" == *"1"* ]]; then printf '1\\n'; exit 0; fi
   if [[ "$format" == *"State.Health.Status"* ]]; then printf 'healthy\\n'; exit 0; fi
   if [[ "$format" == *"range .Config.Env"* ]]; then
+    if [[ "$id" == ${'d'.repeat(12)}* && "\${PC_FIXTURE_FAILURE:-}" == non-web-leak ]]; then printf 'POSTHOG_INGEST_REGION=us\\n'; fi
     if [[ "$id" != ${'d'.repeat(12)}* && "$state" == 1 ]]; then
       printf 'POSTHOG_PROJECT_REFERENCE=%s\\n' "$PC_FIXTURE_REFERENCE"
       printf 'POSTHOG_INGEST_REGION=us\\n'
@@ -295,6 +305,7 @@ if [[ "$1" == inspect ]]; then
   exit 1
 fi
 if [[ "$1" == image && "$2" == inspect ]]; then
+  if [[ "\${PC_FIXTURE_FAILURE:-}" == image-drift ]]; then image_id="sha256:${'e'.repeat(64)}"; fi
   printf '%s\\n' "$image_id"
   exit 0
 fi
@@ -304,19 +315,29 @@ if [[ "$1" == compose ]]; then
     case "$arg" in config|up) command_name="$arg"; break;; esac
   done
   if [[ "$command_name" == config ]]; then
+    if [[ "\${PC_FIXTURE_FAILURE:-}" == compose-config ]]; then exit 73; fi
     [[ "$*" == *"--services"* ]] && printf 'web\\n'
     exit 0
   fi
   if [[ "$command_name" == up ]]; then
-    printf '1\\n' > "$PC_FIXTURE_STATE"
+    if [[ "$*" == *"$PC_FIXTURE_OVERRIDE"* ]]; then
+      printf 'activate\\n' >> "$PC_FIXTURE_CALLS"
+      if [[ "\${PC_FIXTURE_FAILURE:-}" == recreate ]]; then exit 74; fi
+      printf '1\\n' > "$PC_FIXTURE_STATE"
+    else
+      printf 'rollback\\n' >> "$PC_FIXTURE_CALLS"
+      if [[ "\${PC_FIXTURE_FAILURE:-}" == post-recreate-rollback-fails ]]; then exit 75; fi
+      printf '0\\n' > "$PC_FIXTURE_STATE"
+    fi
     exit 0
   fi
 fi
 exit 1
 `, { mode: 0o700 });
 
-const runProvisioner = () => spawnSync('bash', [paths.provisioner, 'provision'], {
+const runProvisioner = (failure = '') => spawnSync('bash', [paths.provisioner, 'provision'], {
   encoding: 'utf8',
+  timeout: 15000,
   env: {
     ...process.env,
     PATH: `${fixtureBin}:${process.env.PATH}`,
@@ -325,11 +346,50 @@ const runProvisioner = () => spawnSync('bash', [paths.provisioner, 'provision'],
     PC_FIXTURE_BASE_COMPOSE: baseCompose,
     PC_FIXTURE_OVERRIDE: overrideFile,
     PC_FIXTURE_STATE: stateFile,
+    PC_FIXTURE_CALLS: callsFile,
+    PC_FIXTURE_FAILURE: failure,
     PC_FIXTURE_REFERENCE: fixtureReference,
   },
 });
 
+// A rejected first activation must not leave latent authority for a later release.
+const runtimeFile = path.join(prodDir, '.pc-posthog-public-analytics.env');
+const rejectionCases = [
+  ['override-install', 21, false, false],
+  ['compose-config', 73, false, false],
+  ['image-drift', 26, false, false],
+  ['non-web-leak', 30, false, false],
+  ['recreate', 74, true, false],
+  ['post-recreate-image-drift', 34, true, false],
+  ['post-recreate-rollback-fails', 34, true, true],
+];
 try {
+  for (const [failure, expectedExit, reachesDockerUp, rollbackFails] of rejectionCases) {
+    fs.writeFileSync(stateFile, '0\n');
+    fs.writeFileSync(callsFile, '');
+    const result = runProvisioner(failure);
+    const output = `${result.stdout || ''}\n${result.stderr || ''}`;
+    if (result.status !== expectedExit) failures.push(`rejection ${failure}: expected exit ${expectedExit}, got ${result.status}`);
+    if (output.includes(fixtureReference)) failures.push(`rejection ${failure}: project reference leaked`);
+    const calls = fs.readFileSync(callsFile, 'utf8');
+    if (reachesDockerUp ? calls !== 'activate\nrollback\n' : calls !== '') {
+      failures.push(`rejection ${failure}: unexpected activation/rollback calls`);
+    }
+    const state = fs.readFileSync(stateFile, 'utf8').trim();
+    if (state !== (rollbackFails ? '1' : '0')) failures.push(`rejection ${failure}: original runtime state not restored`);
+    if (rollbackFails) {
+      if (!output.includes('POSTHOG_RUNTIME_ERROR=ROLLBACK_FAILED')) failures.push(`rejection ${failure}: rollback failure was hidden`);
+      if (!fs.existsSync(runtimeFile) || !fs.existsSync(overrideFile)) failures.push(`rejection ${failure}: potentially active authority was deleted`);
+    } else if (fs.existsSync(runtimeFile) || fs.existsSync(overrideFile)) {
+      failures.push(`rejection ${failure}: rejected activation left latent runtime authority`);
+    }
+    const unexpected = fs.readdirSync(prodDir).filter((name) => !['compose.yml', '.pc-posthog-public-analytics.env', 'compose.pc-posthog-public-analytics.override.yml'].includes(name));
+    if (unexpected.length) failures.push(`rejection ${failure}: temporary authority files survived`);
+    fs.rmSync(runtimeFile, { force: true });
+    fs.rmSync(overrideFile, { force: true });
+  }
+  fs.writeFileSync(stateFile, '0\n');
+  fs.writeFileSync(callsFile, '');
   const first = runProvisioner();
   if (first.status !== 0) {
     failures.push(`${paths.provisioner}: fixture provision failed: ${first.stderr.trim()}`);
@@ -350,7 +410,6 @@ try {
     }
   }
 
-  const runtimeFile = path.join(prodDir, '.pc-posthog-public-analytics.env');
   const expectedRuntime = `POSTHOG_PROJECT_REFERENCE=${fixtureReference}\nPOSTHOG_INGEST_REGION=us\n`;
   if (!fs.existsSync(runtimeFile) || fs.readFileSync(runtimeFile, 'utf8') !== expectedRuntime) {
     failures.push(`${paths.provisioner}: runtime file mismatch`);
@@ -368,6 +427,17 @@ try {
   }
   if (second.stdout.includes(fixtureReference) || second.stderr.includes(fixtureReference)) {
     failures.push(`${paths.provisioner}: project reference leaked on idempotent run`);
+  }
+
+  // Rejection must preserve an already valid pair and never recreate web.
+  for (const failure of ['compose-config', 'image-drift', 'non-web-leak']) {
+    const before = [runtimeFile, overrideFile].map(snapshotRuntimePath);
+    fs.writeFileSync(callsFile, '');
+    const result = runProvisioner(failure);
+    if (result.status === 0) failures.push(`existing ${failure}: rejection was not enforced`);
+    if (`${result.stdout || ''}${result.stderr || ''}`.includes(fixtureReference)) failures.push(`existing ${failure}: reference leaked`);
+    if (fs.readFileSync(callsFile, 'utf8') !== '' || fs.readFileSync(stateFile, 'utf8').trim() !== '1') failures.push(`existing ${failure}: runtime mutated`);
+    if (JSON.stringify(before) !== JSON.stringify([runtimeFile, overrideFile].map(snapshotRuntimePath))) failures.push(`existing ${failure}: accepted authority changed`);
   }
 
   fs.rmSync(overrideFile, { force: true });
