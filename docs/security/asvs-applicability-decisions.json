@@ -1728,45 +1728,95 @@
     {
       "requirementId": "V3.4.7",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "repository-scan:no-csp-report-endpoint"
+        "apps/web/middleware.ts",
+        "apps/web/app/api/csp-report/route.ts",
+        "apps/web/lib/security/csp-report.ts",
+        "apps/web/tests/unit/cspReportingAndCrossOriginHeaders.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "the served CSP still specifies no report-uri or report-to directive anywhere",
-          "check": "ABSENT_IN_TREE",
-          "roots": [
-            "apps/web"
+          "condition": "the served CSP still names a report destination through both mechanisms, and the report-to endpoint is still declared",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/middleware.ts"
           ],
           "patterns": [
-            "report-uri",
-            "report-to"
+            "report-uri /api/csp-report",
+            "report-to csp-endpoint",
+            "reporting-endpoints"
+          ]
+        },
+        {
+          "condition": "the endpoint that receives the reports still exists and still bounds what it reads and what it writes to the log",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/csp-report/route.ts",
+            "apps/web/lib/security/csp-report.ts"
+          ],
+          "patterns": [
+            "csp-report"
+          ]
+        },
+        {
+          "condition": "the bounds themselves are still in the module the route calls",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/security/csp-report.ts"
+          ],
+          "patterns": [
+            "max_reports_per_window",
+            "\\u0000-\\u001f",
+            "max_field_chars"
+          ]
+        },
+        {
+          "condition": "the route still reads the body under a ceiling and still answers 204 to everything",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/csp-report/route.ts"
+          ],
+          "patterns": [
+            "readboundedbody",
+            "status: 204",
+            "export async function post"
+          ]
+        },
+        {
+          "condition": "the endpoint is still reachable without a session, since the browser sends reports with no credentials",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/middleware.ts"
+          ],
+          "patterns": [
+            "'/api/csp-report',"
           ]
         }
       ],
-      "note": "The CSP names no location to report violations to - neither report-uri nor report-to appears anywhere in the policy or in apps/web/lib or apps/web/app. Violations that do occur (including ones caused by the unsafe-inline/unsafe-eval gap recorded under V3.4.3) are invisible to the operator; the browser silently blocks or allows per the policy with nothing recorded anywhere this application controls. Corrected on review: the scan roots originally excluded apps/web/middleware.ts (which sits directly under apps/web, not under apps/web/lib or apps/web/app), even though this decision itself identifies that file as the effective location for served headers - so a future addition there would not have caused this FAIL to self-revoke. Roots now include apps/web directly."
+      "note": "The served CSP now names /api/csp-report through report-uri and, for browsers that use the Reporting API, through report-to with the endpoint declared in a Reporting-Endpoints header. The receiving route exists and is deliberately narrow: it reads the body under a ceiling rather than trusting content-length (chunked requests carry none, which is why the pre-check form is unsound), it admits at most 120 reports per minute and counts the rest, it strips control characters from every logged field so a sender cannot append its own line to the log, and it answers 204 to everything so it is not an oracle. Reachability is part of the control and is checked separately: the route is in the middleware public allowlist, because a browser sends violation reports without credentials and would otherwise receive a redirect to the login form. The pure logic lives in apps/web/lib/security/csp-report.ts rather than in the route file: a Next.js Route Handler may only export names from a fixed set, and exporting a helper so a test could import it fails the production build with \"normaliseReport is not a valid Route export field\". Unit tests do not catch that - vitest does not enforce the route contract, only next build does. Proven by negative mutation: removing report-uri, removing the allowlist entry, removing the control-character strip and removing the window budget each fail a distinct test."
     },
     {
       "requirementId": "V3.4.8",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "repository-scan:no-coop-header"
+        "apps/web/middleware.ts",
+        "apps/web/tests/unit/cspReportingAndCrossOriginHeaders.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "no Cross-Origin-Opener-Policy header is still set anywhere in the web app",
-          "check": "ABSENT_IN_TREE",
-          "roots": [
-            "apps/web"
+          "condition": "every response from applySecurityHeaders still carries Cross-Origin-Opener-Policy: same-origin",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/middleware.ts"
           ],
           "patterns": [
-            "cross-origin-opener-policy"
+            "cross-origin-opener-policy', 'same-origin"
           ]
         }
       ],
-      "note": "No response sets Cross-Origin-Opener-Policy - a scan of apps/web/lib and apps/web/app for the header name returns zero matches, and it is absent from applySecurityHeaders() alongside the headers that are set. Without it, a window this application opens (or is opened by) retains the default shared-window-object behaviour that enables tabnabbing and frame-counting-style attacks the header exists to close off. Corrected on review: the scan roots originally excluded apps/web/middleware.ts (which sits directly under apps/web, not under apps/web/lib or apps/web/app), even though this decision itself identifies that file as the effective location for served headers - so a future addition there would not have caused this FAIL to self-revoke. Roots now include apps/web directly."
+      "note": "applySecurityHeaders now sets Cross-Origin-Opener-Policy: same-origin, so a document does not share a browsing context group with whatever opened it. The risk of setting it was measured before it was set rather than assumed: window.open does not occur anywhere in apps/web, and the government identity flow is a full-page authorization-code redirect (govIdentityBridge.ts sets redirect_uri), so there is no popup whose opener reference this header could break. Proven by negative mutation: removing the header fails the test."
     },
     {
       "requirementId": "V3.5.1",
@@ -1905,22 +1955,21 @@
       "status": "FAIL",
       "evidence": [
         "apps/api/src/modules/storage/storage.service.ts",
-        "repository-scan:no-corp-header"
+        "apps/web/middleware.ts"
       ],
       "conditions": [
         {
-          "condition": "no Cross-Origin-Resource-Policy header is still set anywhere in the API or web app",
-          "check": "ABSENT_IN_TREE",
-          "roots": [
-            "apps/api/src",
-            "apps/web"
+          "condition": "the download path still hands the browser a presigned storage URL, so the bytes are fetched from the storage origin and no header this application sets governs that load",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/storage/storage.service.ts"
           ],
           "patterns": [
-            "cross-origin-resource-policy"
+            "getpresigneddownloadurl"
           ]
         }
       ],
-      "note": "A handful of routes check sec-fetch-site (credited under V3.5.3), but that covers the chat/assistant endpoints specifically, not authenticated file access generally. The file-download path (storage.service.ts's getDownloadUrl, already assessed under V3.2.1) issues a presigned object-storage URL with a TTL - once issued, anyone holding that URL can load it directly against the storage origin for the life of the TTL, bypassing this application's request handling (and any Sec-Fetch check on it) entirely. No Cross-Origin-Resource-Policy header is set anywhere in the API or the web app - a scan returns zero matches - so there is no browser-side backstop instructing a cross-origin page not to embed a returned resource either. Corrected on review: the scan roots originally excluded apps/web/middleware.ts (which sits directly under apps/web, not under apps/web/lib or apps/web/app), even though this decision itself identifies that file as the effective location for served headers - so a future addition there would not have caused this FAIL to self-revoke. Roots now include apps/web directly."
+      "note": "Updated, and the verdict does not change. Cross-Origin-Resource-Policy: same-origin is now set on every response from applySecurityHeaders, which removes the part of the earlier note that said the header appears nowhere. It does not close this requirement, and saying so plainly matters more than the header: the file-download path issues a presigned object-storage URL (storage.service.ts getDownloadUrl), the bytes never pass through this application, and the browser loads them from the storage origin - so a header set here cannot govern that load at all. The earlier condition asserted that no CORP header existed anywhere; keeping it would have made this decision self-revoke the moment the header was added, for a reason unrelated to why the requirement fails. The condition is now anchored on the presigned path that is the actual gap. Closing this needs the storage origin itself to return CORP, or the download to be proxied through the application - neither is a change to this repository alone."
     },
     {
       "requirementId": "V3.6.1",
