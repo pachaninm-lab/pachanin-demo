@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { safeInternalPath } from '@/lib/safe-internal-path';
 import { redirect } from 'next/navigation';
 
 const DEMO_ROLES = [
@@ -15,9 +16,10 @@ const DEMO_ROLES = [
 ] as const;
 
 function normalizeReturnTo(value: string | string[] | undefined) {
-  const raw = Array.isArray(value) ? value[0] : value;
-  if (!raw || !raw.startsWith('/')) return '/';
-  return raw;
+  // Здесь значение сегодня не доходит до редиректа: matchDemoRole требует
+  // совпадения с одним из десяти жёстко заданных путей. Проверка всё равно
+  // приведена к общей, чтобы этот сторож не скопировали дальше уже сломанным.
+  return safeInternalPath(value);
 }
 
 function matchDemoRole(returnTo: string) {

@@ -2,6 +2,7 @@ import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE, CSRF_COOKIE, SESSION_COOKIE, sessionMarkerCookie } from '@/lib/auth-cookies';
 import { CABINET_SESSION_COOKIE } from '@/lib/server/auth-session-response';
+import { readRequestCookie } from '@/lib/request-cookie';
 import {
   controlledCabinetContext,
   type ControlledCabinetContext,
@@ -155,8 +156,13 @@ function requestOriginAllowed(request: NextRequest): boolean {
 
 function csrfTokenValid(request: NextRequest, token: unknown): boolean {
   if (!requestOriginAllowed(request) || typeof token !== 'string' || !token) return false;
-  const cookieTokens = request.cookies.getAll(CSRF_COOKIE).map((cookie) => cookie.value).filter(Boolean);
-  return cookieTokens.some((cookieToken) => constantTimeEqual(cookieToken, token));
+  // Разбор заголовка общий с assertCsrf. Раньше здесь читался разбор Next,
+  // который при повторе куки берёт последнее значение, а assertCsrf брал
+  // первое, — один и тот же запрос получал два разных ответа. Общая функция
+  // отказывает при неоднозначности вместо того, чтобы выбирать сторону.
+  const cookieToken = readRequestCookie(request, CSRF_COOKIE);
+  if (!cookieToken) return false;
+  return constantTimeEqual(cookieToken, token);
 }
 
 async function parseRequest(request: NextRequest): Promise<ParsedRequest> {

@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 import { ACCESS_COOKIE } from './auth-cookies';
 import { isPrivilegedSurfaceRole, roleMatches, toSurfaceRole, type SurfaceRoleKey } from '../../../shared/role-contract';
+import { readRequestCookie } from './request-cookie';
 
 export type ServerRequestActor = {
   isAuthenticated: boolean;
@@ -34,16 +35,6 @@ function parseJson<T>(value: Buffer): T | null {
   } catch {
     return null;
   }
-}
-
-function readCookie(request: Request, name: string) {
-  const raw = request.headers.get('cookie') || '';
-  const prefix = `${name}=`;
-  const part = raw
-    .split(';')
-    .map((item) => item.trim())
-    .find((item) => item.startsWith(prefix));
-  return part ? decodeURIComponent(part.slice(prefix.length)) : '';
 }
 
 function extractBearerToken(request: Request) {
@@ -97,7 +88,7 @@ export async function getServerRequestActor(request: Request): Promise<ServerReq
     }
   }
 
-  const token = readCookie(request, ACCESS_COOKIE) || extractBearerToken(request);
+  const token = readRequestCookie(request, ACCESS_COOKIE) || extractBearerToken(request);
   if (!token) {
     return {
       isAuthenticated: false,

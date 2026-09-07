@@ -78,17 +78,24 @@ export class IntegrationEventsService {
       where: { createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
     }).catch(() => []);
 
-    const stats: Record<string, { total: number; ok: number; error: number; avgMs: number }> = {};
+    // Тот же класс, что в compliance: ключ приходит из данных, поэтому Map.
+    // Литерал терял запись с именем `__proto__` целиком и портил счётчики на
+    // любом имени, совпадающем с членом Object.prototype.
+    const stats = new Map<string, { total: number; ok: number; error: number; avgMs: number }>();
     for (const e of events) {
-      if (!stats[e.adapterName]) stats[e.adapterName] = { total: 0, ok: 0, error: 0, avgMs: 0 };
-      stats[e.adapterName].total++;
-      if (e.status === 'SUCCESS') stats[e.adapterName].ok++;
-      else stats[e.adapterName].error++;
-      stats[e.adapterName].avgMs += e.durationMs ?? 0;
+      let entry = stats.get(e.adapterName);
+      if (!entry) {
+        entry = { total: 0, ok: 0, error: 0, avgMs: 0 };
+        stats.set(e.adapterName, entry);
+      }
+      entry.total++;
+      if (e.status === 'SUCCESS') entry.ok++;
+      else entry.error++;
+      entry.avgMs += e.durationMs ?? 0;
     }
-    for (const name of Object.keys(stats)) {
-      if (stats[name].total > 0) stats[name].avgMs = Math.round(stats[name].avgMs / stats[name].total);
+    for (const entry of stats.values()) {
+      if (entry.total > 0) entry.avgMs = Math.round(entry.avgMs / entry.total);
     }
-    return stats;
+    return Object.fromEntries(stats);
   }
 }
