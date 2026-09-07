@@ -69,7 +69,7 @@ describe('platform-v7 visible public operating copy', () => {
   it('keeps crop positioning and registration-first conversion on the first screen', () => {
     expect(hero).toContain('Платформа управления агросделками в растениеводстве');
     expect(hero).toContain("title: 'Управляйте агросделкой'");
-    expect(home).toContain("nav: { connect: 'Зарегистрироваться'");
+    expect(home).toContain("nav: { connect: 'Начать'");
     expect(home).toContain("secondary: 'Зарегистрироваться'");
     expect(home).toContain("tertiary: 'Скачать презентацию'");
     expect(home).toContain("primary: 'Посмотреть, как работает Сделка'");
