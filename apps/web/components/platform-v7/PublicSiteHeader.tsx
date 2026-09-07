@@ -366,6 +366,10 @@ const PUBLIC_SITE_HEADER_STYLES = `
   }
 }
 @media (max-width: 430px) {
+  /* Leave room for the full brand and 48px menu at 320px without shrinking text. */
+  .pc-site-header[data-public-site-header='canonical'] :is(.pc-v6-header-cta, .pc-ppe-primary-button, .p7-about-register, .p7-contact-register) {
+    padding-inline: 8px !important;
+  }
   .pc-site-header[data-public-site-header='canonical'].pc-site-header.pc-site-header {
     gap: 4px !important;
     padding-inline: 6px !important;

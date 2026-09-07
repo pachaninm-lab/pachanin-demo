@@ -50,6 +50,16 @@ describe('Gekta public brand contract', () => {
   });
 
 
+  it('reserves narrow-screen room for the full registration label and 48px menu', () => {
+    const siteHeader = read('components/platform-v7/PublicSiteHeader.tsx');
+    const narrowRules = siteHeader.split('@media (max-width: 430px) {')[1]?.split('@media (max-width: 340px) {')[0];
+    expect(narrowRules).toBeDefined();
+    const primary = narrowRules!.match(/:is\(\.pc-v6-header-cta, \.pc-ppe-primary-button, \.p7-about-register, \.p7-contact-register\) \{([^}]+)\}/);
+    expect(primary).not.toBeNull();
+    expect(primary![1]).toContain('padding-inline: 8px !important');
+    expect(primary![1]).not.toMatch(/font-size|overflow|text-overflow|display/);
+  });
+
   it('uses the canonical Russian brand, descriptor and action language', () => {
     expect(sources.assistant).toContain("open: 'Спросить Гекту'");
     expect(sources.assistant).toContain("title: 'Гекта'");
