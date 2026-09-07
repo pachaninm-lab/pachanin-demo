@@ -11,7 +11,11 @@ type InertSnapshot = Readonly<{
 }>;
 
 export function GektaMobileDrawer({ open, closeLabel, onClose, children }: { open: boolean; closeLabel: string; onClose: () => void; children: React.ReactNode }) {
-  const panelRef = useDialogFocus(open, onClose);
+  // Parent background updates must not restart an open dialog's focus session.
+  const closeRef = React.useRef(onClose);
+  React.useEffect(() => { closeRef.current = onClose; }, [onClose]);
+  const closeCurrentDrawer = React.useCallback(() => closeRef.current(), []);
+  const panelRef = useDialogFocus(open, closeCurrentDrawer);
   const dialogRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
