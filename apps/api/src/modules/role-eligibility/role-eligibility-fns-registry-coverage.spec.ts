@@ -11,6 +11,26 @@ function sqlText(query: unknown): string {
 }
 
 describe('RoleEligibilityFnsRegistryCoverageService', () => {
+  it.each([new Date(Number.NaN), null, '2026-09-07'])('rejects an invalid decision time %s before querying', async (decisionAt) => {
+    const { service, queryRaw } = createService();
+    await expect(service.resolveEgrulInn('7707083893', decisionAt as Date))
+      .rejects.toThrow('FNS_EGRUL_DECISION_TIME_INVALID');
+    expect(queryRaw).not.toHaveBeenCalled();
+  });
+
+  it('rejects an empty PostgreSQL result rather than inventing a verdict', async () => {
+    const { service } = createService([]);
+    await expect(service.resolveEgrulInn('7707083893'))
+      .rejects.toThrow('FNS_EGRUL_COVERAGE_RESOLUTION_EMPTY');
+  });
+
+  it('rejects an ambiguous PostgreSQL result rather than choosing its first row', async () => {
+    const row = { state: 'FOUND', generation_id: 'g', generation: 'g', authority_token: null, matched_records: 1n, matched_ogrns: 1n };
+    const { service } = createService([row, row]);
+    await expect(service.resolveEgrulInn('7707083893'))
+      .rejects.toThrow('FNS_EGRUL_COVERAGE_RESOLUTION_AMBIGUOUS');
+  });
+
   it('rejects an invalid legal-entity INN before touching PostgreSQL', async () => {
     const { service, queryRaw } = createService();
     await expect(service.resolveEgrulInn('7707083892')).resolves.toMatchObject({
@@ -53,20 +73,13 @@ describe('RoleEligibilityFnsRegistryCoverageService', () => {
 
     expect(queryRaw).toHaveBeenCalledTimes(1);
     const text = sqlText(queryRaw.mock.calls[0][0]);
-    expect(text).toContain("g.source='FNS' AND g.registry_domain='EGRUL' AND g.status='ACTIVE'");
-    expect(text).toContain("h.registry_domain='EGRUL'");
-    expect(text).toContain('a.generation_id=g.id');
-    expect(text).toContain('r.generation_id=g.id');
-    expect(text).toContain("s.coverage_kind NOT IN ('COMPLETE_NATIONAL_CORPUS','COMPLETE_EFFECTIVE_CORPUS')");
-    expect(text).toContain('s.effective_cutoff <');
-    expect(text).toContain('s.source_finality IS DISTINCT FROM TRUE');
-    expect(text).toContain("THEN 'COVERAGE_NOT_FINAL'");
-    expect(text).toContain("ELSE 'AUTHORITATIVE_NOT_FOUND'");
-    expect(text).toContain('s.authority_token,');
-    expect(text).not.toContain('COALESCE(s.authority_token,s.content_sha256)');
+    expect(text).toContain('FROM eligibility.resolve_fns_egrul_inn(');
+    expect(text).toContain('state,generation_id,generation,authority_token,matched_records,matched_ogrns');
+    expect(text).not.toContain('registry_generations');
+    expect(text).not.toContain('COALESCE');
   });
 
-  it('requires healthy exact-generation coherence before any positive or negative assertion', async () => {
+  it('delegates authority semantics to the single canonical PostgreSQL resolver instead of duplicating predicate SQL', async () => {
     const { service, queryRaw } = createService([{
       state: 'SOURCE_UNAVAILABLE',
       generation_id: 'elg-test',
@@ -77,11 +90,9 @@ describe('RoleEligibilityFnsRegistryCoverageService', () => {
     }]);
     await service.resolveEgrulInn('7707083893');
     const text = sqlText(queryRaw.mock.calls[0][0]);
-    expect(text).toContain("s.health_status IS DISTINCT FROM 'HEALTHY'");
-    expect(text).toContain("s.circuit_state IS DISTINCT FROM 'CLOSED'");
-    expect(text).toContain('s.active_generation IS DISTINCT FROM s.generation');
-    expect(text).toContain('s.health_parser_version IS DISTINCT FROM s.parser_version');
-    expect(text).toContain('s.health_schema_version IS DISTINCT FROM s.schema_version');
+    expect(text).toContain('eligibility.resolve_fns_egrul_inn');
+    expect(text).not.toContain('source_health');
+    expect(text).not.toContain('registry_generation_authority');
   });
 
   it('does not invent an authority token when no accepted authority row exists', async () => {

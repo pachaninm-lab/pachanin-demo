@@ -479,6 +479,150 @@ BEGIN
 END
 $function$;
 
+-- Canonical corpus-level EGRUL resolver. Keep positive/negative lookup and
+-- every authority-bearing predicate inside one PostgreSQL statement/snapshot.
+CREATE OR REPLACE FUNCTION eligibility.resolve_fns_egrul_inn(
+  p_inn TEXT,
+  p_decision_at TIMESTAMPTZ
+)
+RETURNS TABLE (
+  state TEXT,
+  generation_id TEXT,
+  generation TEXT,
+  authority_token TEXT,
+  matched_records BIGINT,
+  matched_ogrns BIGINT
+)
+LANGUAGE sql
+STABLE
+SET search_path = pg_catalog, eligibility
+AS $function$
+  WITH input_valid AS MATERIALIZED (
+    SELECT CASE
+      WHEN p_inn !~ '^[0-9]{10}$' THEN FALSE
+      ELSE (
+        (
+          substring(p_inn,1,1)::integer * 2 +
+          substring(p_inn,2,1)::integer * 4 +
+          substring(p_inn,3,1)::integer * 10 +
+          substring(p_inn,4,1)::integer * 3 +
+          substring(p_inn,5,1)::integer * 5 +
+          substring(p_inn,6,1)::integer * 9 +
+          substring(p_inn,7,1)::integer * 4 +
+          substring(p_inn,8,1)::integer * 6 +
+          substring(p_inn,9,1)::integer * 8
+        ) % 11 % 10
+      ) = substring(p_inn,10,1)::integer
+    END AS valid
+  ),
+  current_generation AS MATERIALIZED (
+    SELECT g.id,g.generation,g.content_sha256,g.parser_version,g.schema_version,g.fresh_until
+    FROM eligibility.registry_generations AS g
+    WHERE g.source='FNS' AND g.registry_domain='EGRUL' AND g.status='ACTIVE'
+    ORDER BY g.activated_at DESC NULLS LAST,g.published_at DESC,g.id DESC
+    LIMIT 1
+  ),
+  bound_state AS MATERIALIZED (
+    SELECT
+      g.id AS generation_id,
+      g.generation,
+      g.content_sha256,
+      g.parser_version,
+      g.schema_version,
+      g.fresh_until AS generation_fresh_until,
+      h.status AS health_status,
+      h.circuit_state,
+      h.active_generation,
+      h.parser_version AS health_parser_version,
+      h.schema_version AS health_schema_version,
+      h.fresh_until AS health_fresh_until,
+      h.consecutive_failures,
+      h.last_error_code,
+      a.coverage_kind,
+      a.acquisition_complete,
+      a.local_import_integrity,
+      a.baseline_coverage,
+      a.update_continuity,
+      a.source_finality,
+      a.continuity_policy_version,
+      a.continuity_policy_hash,
+      a.finality_policy_version,
+      a.finality_policy_hash,
+      a.effective_cutoff,
+      a.authority_token
+    FROM current_generation AS g
+    LEFT JOIN eligibility.source_health AS h
+      ON h.source='FNS'
+     AND h.registry_domain='EGRUL'
+    LEFT JOIN eligibility.registry_generation_authority AS a
+      ON a.generation_id=g.id
+     AND a.source='FNS'
+     AND a.registry_domain='EGRUL'
+  ),
+  matches AS MATERIALIZED (
+    SELECT
+      COUNT(r.id)::bigint AS matched_records,
+      COUNT(DISTINCT r.subject_ogrn)::bigint AS matched_ogrns
+    FROM current_generation AS g
+    LEFT JOIN eligibility.registry_records AS r
+      ON r.generation_id=g.id
+     AND r.source='FNS'
+     AND r.subject_inn=p_inn
+  )
+  SELECT
+    CASE
+      WHEN i.valid IS DISTINCT FROM TRUE THEN 'INVALID_IDENTIFIER'
+      WHEN p_decision_at IS NULL OR NOT isfinite(p_decision_at) THEN 'SOURCE_UNAVAILABLE'
+      WHEN s.generation_id IS NULL THEN 'SOURCE_UNAVAILABLE'
+      WHEN s.parser_version IS DISTINCT FROM 'fns-egrul-v1'
+        OR s.schema_version NOT IN ('EGRUL_408','EGRUL_407')
+        OR s.health_status IS DISTINCT FROM 'HEALTHY'
+        OR s.circuit_state IS DISTINCT FROM 'CLOSED'
+        OR s.active_generation IS DISTINCT FROM s.generation
+        OR s.health_parser_version IS DISTINCT FROM s.parser_version
+        OR s.health_schema_version IS DISTINCT FROM s.schema_version
+        OR s.consecutive_failures IS DISTINCT FROM 0
+        OR s.last_error_code IS NOT NULL
+        THEN 'SOURCE_UNAVAILABLE'
+      WHEN s.generation_fresh_until <= p_decision_at
+        OR s.health_fresh_until IS NULL
+        OR s.health_fresh_until <= p_decision_at
+        OR s.health_fresh_until IS DISTINCT FROM s.generation_fresh_until
+        THEN 'STALE'
+      WHEN COALESCE(m.matched_records,0) > 0 AND COALESCE(m.matched_ogrns,0) = 1
+        THEN 'FOUND'
+      WHEN COALESCE(m.matched_records,0) > 0
+        THEN 'REVIEW_REQUIRED'
+      WHEN s.authority_token IS NULL
+        OR s.coverage_kind NOT IN ('COMPLETE_NATIONAL_CORPUS','COMPLETE_EFFECTIVE_CORPUS')
+        OR s.acquisition_complete IS DISTINCT FROM TRUE
+        OR s.local_import_integrity IS DISTINCT FROM TRUE
+        OR s.baseline_coverage IS DISTINCT FROM TRUE
+        OR s.update_continuity IS DISTINCT FROM TRUE
+        OR s.effective_cutoff IS NULL
+        OR s.effective_cutoff < p_decision_at
+        OR s.continuity_policy_version IS NULL
+        OR s.continuity_policy_hash IS NULL
+        THEN 'COVERAGE_NOT_PROVEN'
+      WHEN s.source_finality IS DISTINCT FROM TRUE
+        OR s.finality_policy_version IS NULL
+        OR s.finality_policy_hash IS NULL
+        THEN 'COVERAGE_NOT_FINAL'
+      ELSE 'AUTHORITATIVE_NOT_FOUND'
+    END::text AS state,
+    s.generation_id,
+    s.generation,
+    s.authority_token::text,
+    COALESCE(m.matched_records,0)::bigint AS matched_records,
+    COALESCE(m.matched_ogrns,0)::bigint AS matched_ogrns
+  FROM input_valid AS i
+  LEFT JOIN bound_state AS s ON TRUE
+  LEFT JOIN matches AS m ON TRUE
+$function$;
+
+REVOKE ALL ON FUNCTION eligibility.resolve_fns_egrul_inn(TEXT, TIMESTAMPTZ) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION eligibility.resolve_fns_egrul_inn(TEXT, TIMESTAMPTZ) TO pc_role_eligibility_runtime;
+
 REVOKE ALL ON FUNCTION eligibility.record_fns_egrul_predecessor(TEXT, TEXT) FROM PUBLIC;
 REVOKE ALL ON FUNCTION eligibility.activate_registry_generation(TEXT, TEXT, TEXT) FROM PUBLIC;
 

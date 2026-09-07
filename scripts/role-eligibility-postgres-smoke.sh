@@ -183,6 +183,121 @@ BEGIN
 END
 $runtime_no_promotion$;
 RESET ROLE;
+
+-- Execute the canonical FNS/EGRUL absence resolver against real PostgreSQL.
+-- Unit mocks are insufficient evidence for finality/absence semantics.
+UPDATE eligibility.source_health AS h
+SET fresh_until = g.fresh_until
+FROM eligibility.registry_generations AS g
+WHERE h.source='FNS' AND h.registry_domain='EGRUL'
+  AND g.id='elg_egrul_b';
+
+INSERT INTO eligibility.registry_records(
+  id,generation_id,source,source_record_id,subject_inn,subject_ogrn,record_type,
+  normalized_payload,source_published_at,payload_sha256,created_at
+) VALUES (
+  'elr_egrul_b_present','elg_egrul_b','FNS','1027700132195','7707083893','1027700132195',
+  'EGRUL_LEGAL_ENTITY','{"active":true}'::jsonb,clock_timestamp(),repeat('b',64),clock_timestamp()
+);
+
+SET ROLE pc_role_eligibility_runtime;
+DO $resolver_without_finality$
+DECLARE
+  resolved_state TEXT;
+  resolved_generation TEXT;
+BEGIN
+  SELECT state,generation INTO STRICT resolved_state,resolved_generation
+  FROM eligibility.resolve_fns_egrul_inn(
+    '7736050003',
+    (SELECT effective_cutoff FROM eligibility.registry_generation_authority WHERE generation_id='elg_egrul_b')
+  );
+  IF resolved_state IS DISTINCT FROM 'COVERAGE_NOT_FINAL' OR resolved_generation IS DISTINCT FROM 'egrul-b' THEN
+    RAISE EXCEPTION 'CURRENT_YEAR_ABSENCE_WITHOUT_FINALITY_FAIL_CLOSED_INVALID state=% generation=%',
+      resolved_state,resolved_generation;
+  END IF;
+
+  SELECT state INTO STRICT resolved_state
+  FROM eligibility.resolve_fns_egrul_inn(
+    '7707083893',
+    (SELECT effective_cutoff FROM eligibility.registry_generation_authority WHERE generation_id='elg_egrul_b')
+  );
+  IF resolved_state IS DISTINCT FROM 'FOUND' THEN
+    RAISE EXCEPTION 'EGRUL_PRESENT_IDENTIFIER_NOT_FOUND state=%',resolved_state;
+  END IF;
+END
+$resolver_without_finality$;
+RESET ROLE;
+
+-- A separately accepted finality fact may authorize a zero-row negative only
+-- when every other exact-generation/domain/health/coverage predicate is true.
+INSERT INTO eligibility.registry_generations(
+  id,source,generation,published_at,downloaded_at,content_sha256,record_count,
+  parser_version,schema_version,status,fresh_until,created_at,validated_at
+) VALUES (
+  'elg_egrul_final','FNS','egrul-final',clock_timestamp()+interval '2 minutes',clock_timestamp(),repeat('c',64),1,
+  'fns-egrul-v1','EGRUL_408','VALIDATED',clock_timestamp()+interval '1 day',clock_timestamp(),clock_timestamp()
+);
+INSERT INTO eligibility.registry_records(
+  id,generation_id,source,source_record_id,subject_inn,subject_ogrn,record_type,
+  normalized_payload,source_published_at,payload_sha256,created_at
+) VALUES (
+  'elr_egrul_final_present','elg_egrul_final','FNS','1027700132195','7707083893','1027700132195',
+  'EGRUL_LEGAL_ENTITY','{"active":true}'::jsonb,clock_timestamp(),repeat('d',64),clock_timestamp()
+);
+INSERT INTO eligibility.registry_generation_authority(
+  generation_id,source,registry_domain,coverage_kind,generation_mode,
+  acquisition_complete,local_import_integrity,baseline_coverage,update_continuity,source_finality,
+  continuity_policy_version,continuity_policy_hash,finality_policy_version,finality_policy_hash,
+  effective_cutoff,authority_token
+) VALUES (
+  'elg_egrul_final','FNS','EGRUL','COMPLETE_NATIONAL_CORPUS','FULL_BASELINE',
+  TRUE,TRUE,TRUE,TRUE,TRUE,
+  'fns-egrul-continuity-v1',repeat('e',64),'fns-egrul-finality-test-v1',repeat('f',64),
+  clock_timestamp()+interval '1 minute',repeat('0',64)
+);
+SELECT eligibility.activate_registry_generation('FNS','EGRUL','egrul-final');
+UPDATE eligibility.source_health AS h
+SET status='HEALTHY',circuit_state='CLOSED',active_generation=g.generation,
+    parser_version=g.parser_version,schema_version=g.schema_version,
+    fresh_until=g.fresh_until,consecutive_failures=0,last_error_code=NULL,
+    last_success_at=clock_timestamp(),checked_at=clock_timestamp(),updated_at=clock_timestamp()
+FROM eligibility.registry_generations AS g
+WHERE h.source='FNS' AND h.registry_domain='EGRUL' AND g.id='elg_egrul_final';
+
+SET ROLE pc_role_eligibility_runtime;
+DO $resolver_with_finality$
+DECLARE
+  resolved_state TEXT;
+  resolved_token TEXT;
+  invalid_time TIMESTAMPTZ;
+BEGIN
+  SELECT state,authority_token INTO STRICT resolved_state,resolved_token
+  FROM eligibility.resolve_fns_egrul_inn('7736050003',clock_timestamp());
+  IF resolved_state IS DISTINCT FROM 'AUTHORITATIVE_NOT_FOUND' OR resolved_token IS NULL THEN
+    RAISE EXCEPTION 'PROVEN_FINALITY_NEGATIVE_RESOLUTION_INVALID state=% token=%',resolved_state,resolved_token;
+  END IF;
+
+  SELECT state INTO STRICT resolved_state
+  FROM eligibility.resolve_fns_egrul_inn('7707083893',clock_timestamp());
+  IF resolved_state IS DISTINCT FROM 'FOUND' THEN
+    RAISE EXCEPTION 'FINAL_AUTHORITY_PRESENT_IDENTIFIER_NOT_FOUND state=%',resolved_state;
+  END IF;
+
+  SELECT state INTO STRICT resolved_state
+  FROM eligibility.resolve_fns_egrul_inn('7707083892',clock_timestamp());
+  IF resolved_state IS DISTINCT FROM 'INVALID_IDENTIFIER' THEN
+    RAISE EXCEPTION 'INVALID_IDENTIFIER_REACHED_NEGATIVE_AUTHORITY state=%',resolved_state;
+  END IF;
+  FOREACH invalid_time IN ARRAY ARRAY[NULL::TIMESTAMPTZ,'infinity'::TIMESTAMPTZ,'-infinity'::TIMESTAMPTZ] LOOP
+    SELECT state INTO STRICT resolved_state
+    FROM eligibility.resolve_fns_egrul_inn('7736050003',invalid_time);
+    IF resolved_state IS DISTINCT FROM 'SOURCE_UNAVAILABLE' THEN
+      RAISE EXCEPTION 'INVALID_DECISION_TIME_REACHED_NEGATIVE_AUTHORITY state=%',resolved_state;
+    END IF;
+  END LOOP;
+END
+$resolver_with_finality$;
+RESET ROLE;
 SQL
 
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
@@ -380,6 +495,67 @@ END
 $superseded$;
 SQL
 
+# Roll back each diagnostic mutation; no accepted fixture is permanently changed.
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+BEGIN;
+SET LOCAL ROLE pc_role_eligibility_runtime;
+DO $resolver_invalidation_guards$
+DECLARE
+  original eligibility.source_health%ROWTYPE;
+  resolved_state TEXT;
+  cutoff TIMESTAMPTZ;
+BEGIN
+  SELECT * INTO STRICT original FROM eligibility.source_health
+  WHERE source='FNS' AND registry_domain='EGRUL';
+  SELECT effective_cutoff INTO STRICT cutoff FROM eligibility.registry_generation_authority
+  WHERE generation_id='elg_egrul_final';
+
+  SELECT state INTO STRICT resolved_state
+  FROM eligibility.resolve_fns_egrul_inn('7736050003',cutoff+interval '1 microsecond');
+  IF resolved_state IS DISTINCT FROM 'COVERAGE_NOT_PROVEN' THEN
+    RAISE EXCEPTION 'EXPIRED_CUTOFF_REACHED_NEGATIVE_AUTHORITY state=%',resolved_state;
+  END IF;
+  SELECT state INTO STRICT resolved_state
+  FROM eligibility.resolve_fns_egrul_inn('7736050003',original.fresh_until);
+  IF resolved_state IS DISTINCT FROM 'STALE' THEN
+    RAISE EXCEPTION 'EXPIRED_FRESHNESS_REACHED_NEGATIVE_AUTHORITY state=%',resolved_state;
+  END IF;
+
+  UPDATE eligibility.source_health SET active_generation='different-generation'
+  WHERE source='FNS' AND registry_domain='EGRUL';
+  SELECT state INTO STRICT resolved_state FROM eligibility.resolve_fns_egrul_inn('7736050003',cutoff);
+  IF resolved_state IS DISTINCT FROM 'SOURCE_UNAVAILABLE' THEN
+    RAISE EXCEPTION 'MISMATCHED_GENERATION_REACHED_NEGATIVE_AUTHORITY state=%',resolved_state;
+  END IF;
+  UPDATE eligibility.source_health SET active_generation=original.active_generation,status='DEGRADED'
+  WHERE source='FNS' AND registry_domain='EGRUL';
+  SELECT state INTO STRICT resolved_state FROM eligibility.resolve_fns_egrul_inn('7736050003',cutoff);
+  IF resolved_state IS DISTINCT FROM 'SOURCE_UNAVAILABLE' THEN
+    RAISE EXCEPTION 'DEGRADED_SOURCE_REACHED_NEGATIVE_AUTHORITY state=%',resolved_state;
+  END IF;
+  UPDATE eligibility.source_health SET status=original.status,circuit_state='OPEN'
+  WHERE source='FNS' AND registry_domain='EGRUL';
+  SELECT state INTO STRICT resolved_state FROM eligibility.resolve_fns_egrul_inn('7736050003',cutoff);
+  IF resolved_state IS DISTINCT FROM 'SOURCE_UNAVAILABLE' THEN
+    RAISE EXCEPTION 'OPEN_CIRCUIT_REACHED_NEGATIVE_AUTHORITY state=%',resolved_state;
+  END IF;
+  UPDATE eligibility.source_health SET circuit_state=original.circuit_state,parser_version='unaccepted-parser'
+  WHERE source='FNS' AND registry_domain='EGRUL';
+  SELECT state INTO STRICT resolved_state FROM eligibility.resolve_fns_egrul_inn('7736050003',cutoff);
+  IF resolved_state IS DISTINCT FROM 'SOURCE_UNAVAILABLE' THEN
+    RAISE EXCEPTION 'MISMATCHED_PARSER_REACHED_NEGATIVE_AUTHORITY state=%',resolved_state;
+  END IF;
+  UPDATE eligibility.source_health SET parser_version=original.parser_version,fresh_until=original.fresh_until+interval '1 second'
+  WHERE source='FNS' AND registry_domain='EGRUL';
+  SELECT state INTO STRICT resolved_state FROM eligibility.resolve_fns_egrul_inn('7736050003',cutoff);
+  IF resolved_state IS DISTINCT FROM 'STALE' THEN
+    RAISE EXCEPTION 'INCOHERENT_FRESHNESS_REACHED_NEGATIVE_AUTHORITY state=%',resolved_state;
+  END IF;
+END
+$resolver_invalidation_guards$;
+ROLLBACK;
+SQL
+
 printf '%s\n' \
   'POSTGRESQL_AUTHORITY=PASS' \
   'OBSERVER_AUTHORITY=PASS' \
@@ -394,4 +570,5 @@ printf '%s\n' \
   'REGISTRY_COVERAGE_MODEL=PASS' \
   'FNS_SOURCE_FINALITY_MODEL=PASS' \
   'EGRUL_EGRIP_ACTIVE_DOMAIN_SEPARATION=PASS' \
-  'CURRENT_YEAR_BULK_ABSENCE_WITHOUT_FINALITY_NOT_FOUND=0'
+  'CURRENT_YEAR_BULK_ABSENCE_WITHOUT_FINALITY_NOT_FOUND=0' \
+  'FNS_NEGATIVE_AUTHORITY_PREDICATE=PASS'
