@@ -196,10 +196,6 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
   }
 }
 @media (max-width: 767px) {
-  .pc-v7-public-entry {
-    --entry-public-header-base: 48px;
-    --entry-header-height: calc(var(--entry-public-header-base) + var(--entry-public-header-offset));
-  }
   .pc-v7-public-entry [data-comparison-row='true'] > span:first-of-type::before {
     width: 18px;
     height: 18px;
@@ -231,125 +227,6 @@ html[data-p7-language='zh'] h3 { line-height: 1.14; }
     margin-top: 12px;
     font-size: 15px;
     line-height: 1.42;
-  }
-}
-@media (max-width: 430px) {
-  .pc-v7-public-entry {
-    --entry-public-header-base: 100px !important;
-    --pc-public-header-base-height: 100px !important;
-    --pc-public-header-total-height: calc(100px + var(--entry-public-header-offset)) !important;
-    --entry-header-height: calc(var(--entry-public-header-base) + var(--entry-public-header-offset)) !important;
-  }
-  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-header {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    align-content: center !important;
-    align-items: center !important;
-    height: 100px !important;
-    min-height: 100px !important;
-    max-height: 100px !important;
-    gap: 4px !important;
-    padding-inline: 8px !important;
-  }
-  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-mobile-nav {
-    top: calc(var(--entry-public-header-offset) + var(--entry-public-header-base) + 4px) !important;
-    max-height: calc(100dvh - var(--entry-public-header-offset) - var(--entry-public-header-base) - 20px) !important;
-  }
-  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-mark {
-    display: none !important;
-  }
-  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand {
-    flex: 1 0 100% !important;
-    width: 100% !important;
-    min-width: 44px !important;
-    min-height: 44px !important;
-    gap: 0 !important;
-    overflow: visible !important;
-  }
-  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-text {
-    flex: 1 1 auto !important;
-    min-width: 0 !important;
-    overflow: visible !important;
-  }
-  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-text strong {
-    display: block !important;
-    width: auto !important;
-    max-width: none !important;
-    min-width: 0 !important;
-    overflow: visible !important;
-    color: #071611 !important;
-    font-size: 14px !important;
-    line-height: 1.05 !important;
-    letter-spacing: -.035em !important;
-    white-space: nowrap !important;
-    overflow-wrap: normal !important;
-    word-break: normal !important;
-    text-overflow: clip !important;
-  }
-  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] :is(
-    .pc-site-brand,
-    .pc-skip-link,
-    .pc-site-mobile-menu > summary,
-    .pc-site-locale-switch,
-    .entry-login,
-    .pc-v6-header-cta,
-    label[for='difference-more-toggle'],
-    label[for='phases-more-toggle'],
-    label[for='functions-more-toggle']
-  ) {
-    min-width: 44px !important;
-    min-height: 44px !important;
-  }
-  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-actions {
-    flex: 0 0 100% !important;
-    width: 100% !important;
-    min-width: 0 !important;
-    justify-content: flex-end !important;
-    gap: 4px !important;
-  }
-  [data-testid='platform-v7-root-execution-cockpit'] .pc-v6-header-actions {
-    display: flex !important;
-    flex: 0 1 auto !important;
-    width: auto !important;
-    min-width: 0 !important;
-    align-items: center !important;
-    justify-content: flex-end !important;
-    gap: 4px !important;
-  }
-  [data-testid='platform-v7-root-execution-cockpit'] .pc-site-locale-switch {
-    width: 44px !important;
-    min-width: 44px !important;
-    padding-inline: 4px !important;
-  }
-  [data-testid='platform-v7-root-execution-cockpit'] .pc-v6-header-cta {
-    display: inline-flex !important;
-    flex: 0 0 auto !important;
-    width: auto !important;
-    min-width: 44px !important;
-    height: 44px !important;
-    min-height: 44px !important;
-    max-width: none !important;
-    padding: 0 8px !important;
-    overflow: visible !important;
-    color: #fff !important;
-    font-size: 11px !important;
-    line-height: 1.05 !important;
-    white-space: nowrap !important;
-    text-align: center !important;
-  }
-  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] [data-testid='platform-v7-deal-card'] > div:first-child {
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr) !important;
-    gap: 10px !important;
-  }
-  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] [data-testid='platform-v7-deal-card'] > div:first-child > div {
-    min-width: 0 !important;
-  }
-  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] [data-testid='platform-v7-deal-card'] > div:first-child > b {
-    justify-self: start !important;
-    max-width: 100% !important;
-    white-space: normal !important;
-    text-align: left !important;
   }
 }
 @media (max-width: 359px) {
