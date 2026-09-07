@@ -1,10 +1,27 @@
-import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ActionExecutorService } from '../../common/action-executor/action-executor.service';
 import { RequestUser, Role } from '../../common/types/request-user';
 import { AuditService } from '../audit/audit.service';
+import { REGULATORY_REPORT_TYPES } from './dto/generate-regulatory-report.dto';
 
 const COMPLIANCE_ROLES: Role[] = [Role.COMPLIANCE_OFFICER, Role.ADMIN];
+
+/**
+ * Граница периода отчёта: разобранная дата либо отказ, но никогда Invalid Date.
+ *
+ * `new Date('мусор')` возвращает Invalid Date, а не бросает. Дальше это
+ * значение уходило в предикат Prisma, а на `.toISOString()` падало RangeError —
+ * то есть 500 на пользовательском вводе, уже после того как запрос ушёл в базу.
+ */
+function boundaryDate(value: string | undefined, fallback: Date, field: 'from' | 'to'): Date {
+  if (value === undefined || value === null || value === '') return fallback;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new BadRequestException(`Границу периода отчёта "${field}" не удалось разобрать как дату.`);
+  }
+  return parsed;
+}
 
 @Injectable()
 export class ComplianceService {
@@ -72,6 +89,14 @@ export class ComplianceService {
     user: RequestUser,
   ) {
     this.assertComplianceRole(user);
+    // Вызывающий в обход границы не должен уметь записать произвольный статус.
+    // Замерено до правки: любая строка уходила и в kycTask.status, и в
+    // organization.kycStatus, а решение об организации принимается сравнением
+    // с 'APPROVED', поэтому 'approved' в нижнем регистре не одобряло
+    // организацию, а ПРИОСТАНАВЛИВАЛО её.
+    if (resolution?.status !== 'APPROVED' && resolution?.status !== 'REJECTED') {
+      throw new BadRequestException('Решение по задаче KYC может быть только APPROVED или REJECTED.');
+    }
     const before = await this.prisma.kycTask.findUnique({ where: { id: taskId } });
     const task = await this.prisma.kycTask.update({
       where: { id: taskId },
@@ -226,8 +251,22 @@ export class ComplianceService {
     this.assertComplianceRole(user);
     const tenantId = this.assertTenantScope(user);
 
-    const from = params.from ? new Date(params.from) : new Date(Date.now() - 30 * 86_400_000);
-    const to = params.to ? new Date(params.to) : new Date();
+    if (!REGULATORY_REPORT_TYPES.includes(reportType as (typeof REGULATORY_REPORT_TYPES)[number])) {
+      // reportType шёл в `rpt-${reportType.toLowerCase()}-…` и оттуда в
+      // objectId записи аудита. Не-строка давала TypeError и 500; произвольная
+      // строка попадала в идентификатор отчёта дословно.
+      throw new BadRequestException('Неизвестный тип регуляторного отчёта.');
+    }
+
+    const from = boundaryDate(params.from, new Date(Date.now() - 30 * 86_400_000), 'from');
+    const to = boundaryDate(params.to, new Date(), 'to');
+    // Перевёрнутый диапазон принимался молча и давал rowCount 0 — отчёт
+    // РЕГУЛЯТОРУ за период, сообщающий «операций нет», хотя они есть. Пустой
+    // отчёт и отчёт по пустому периоду выглядят одинаково, и различить их
+    // постфактум нельзя, поэтому отказ, а не молчаливый ноль.
+    if (from.getTime() > to.getTime()) {
+      throw new BadRequestException('Начало периода отчёта не может быть позже его конца.');
+    }
 
     // Предиката тенанта не было: отчёт регулятору собирался по сделкам ВСЕЙ
     // платформы. Соседний exportRegulatoryReport в exports.service.ts делает

@@ -13,6 +13,8 @@ import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import { RequestUser } from '../../common/types/request-user';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { StorageService } from './storage.service';
+import { ConfirmUploadDto } from './dto/confirm-upload.dto';
+import { RequestUploadDto } from './dto/request-upload.dto';
 
 @Controller('api/storage')
 @UseGuards(JwtAuthGuard)
@@ -29,12 +31,7 @@ export class StorageController {
     windowEnv: 'RATE_LIMIT_EVIDENCE_WINDOW_SECONDS',
   })
   requestUpload(
-    @Body() body: {
-      filename: string;
-      mimeType: string;
-      sizeBytes: number;
-      dealId: string;
-    },
+    @Body() body: RequestUploadDto,
     @CurrentUser() user: RequestUser,
   ) {
     return this.storage.requestUpload(body, user);
@@ -52,7 +49,7 @@ export class StorageController {
   })
   confirmUpload(
     @Param('fileId') fileId: string,
-    @Body() body: { sha256: string },
+    @Body() body: ConfirmUploadDto,
     @CurrentUser() user: RequestUser,
   ) {
     return this.storage.confirmUpload(fileId, body.sha256, user);

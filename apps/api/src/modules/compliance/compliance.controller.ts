@@ -5,6 +5,9 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types/request-user';
 import { attachmentDisposition } from '../../common/security/content-disposition';
+import { BlockOrganizationDto } from './dto/block-organization.dto';
+import { GenerateRegulatoryReportDto } from './dto/generate-regulatory-report.dto';
+import { ResolveKycTaskDto } from './dto/resolve-kyc-task.dto';
 
 @Controller('api/compliance')
 @UseGuards(JwtAuthGuard)
@@ -24,7 +27,7 @@ export class ComplianceController {
   @Patch('kyc-queue/:id/resolve')
   resolveKycTask(
     @Param('id') id: string,
-    @Body() body: { status: 'APPROVED' | 'REJECTED'; notes?: string },
+    @Body() body: ResolveKycTaskDto,
     @CurrentUser() user: RequestUser,
   ) {
     return this.compliance.resolveKycTask(id, body, user);
@@ -38,7 +41,7 @@ export class ComplianceController {
   @Post('block-org/:orgId')
   blockOrg(
     @Param('orgId') orgId: string,
-    @Body() body: { reason: string },
+    @Body() body: BlockOrganizationDto,
     @CurrentUser() user: RequestUser,
   ) {
     return this.compliance.blockOrganization(orgId, body.reason, user);
@@ -83,7 +86,7 @@ export class ComplianceController {
   /** Генерация регуляторного отчёта (ТЗ 12.3) */
   @Post('regulatory-reports/generate')
   generateRegulatoryReport(
-    @Body() body: { reportType: string; period?: string; from?: string; to?: string },
+    @Body() body: GenerateRegulatoryReportDto,
     @CurrentUser() user: RequestUser,
   ) {
     return this.compliance.generateRegulatoryReport(body.reportType, body, user);
