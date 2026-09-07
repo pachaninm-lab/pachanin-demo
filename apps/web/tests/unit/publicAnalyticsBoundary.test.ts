@@ -152,9 +152,19 @@ describe('PostHog public product analytics boundary', () => {
       name: 'stage_selected',
       properties: {
         source: 'public_v5_quick_journey',
-        option: 'buyer',
       },
     });
+  });
+
+  it('accepts finite intent options and rejects role-shaped or arbitrary options', () => {
+    for (const option of ['sell', 'buy', 'execute', 'control', 'progress', 'evidence', 'payment', 'deviation']) {
+      expect(sanitizePublicProductAnalyticsDetail({ name: 'stage_selected', option }))
+        .toEqual({ name: 'stage_selected', properties: { option } });
+    }
+    for (const option of ['buyer', 'seller', 'customer_7700123456', 'https://example.com', 'free text']) {
+      expect(sanitizePublicProductAnalyticsDetail({ name: 'stage_selected', option }))
+        .toEqual({ name: 'stage_selected', properties: {} });
+    }
   });
 
   it('keeps useful producer metadata only through bounded values', () => {
@@ -286,3 +296,4 @@ describe('analytics markup is no longer inherited by every page', () => {
     expect(read('next.config.js')).not.toContain('mc.yandex.ru');
   });
 });
+

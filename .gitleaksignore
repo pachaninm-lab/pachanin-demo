@@ -41,3 +41,6 @@ ecdc1130ca1bc424f3ccecb072115e304722c971:apps/tai/tai/cpu_benchmark_execution.py
 # False positive: the same deterministic SDIZ idempotency test fixture at its original
 # location inside the workflow block scalar, surfaced when a wider push range was scanned.
 72c83adf77d1c7a42f190e1960bcf4d22674f740:.github/workflows/pc-crop-08f-sync-main.yml:generic-api-key:126
+
+# False positive: SHA-256 of public GektaAccessGate.tsx, asserted for source immutability; not a credential.
+bcc5ba620f5e8cfec4e540c4b9fab4e236393c63:apps/web/tests/unit/platformV7RootWorkEntry.test.ts:generic-api-key:227
