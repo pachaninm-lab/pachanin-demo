@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "status": "active",
+  "issue": 5064,
+  "branch": "feat/role-eligibility-fns-registry-coverage-authority-5064",
+  "allowedPaths": [
+    "apps/api/prisma/migrations/20260906180000_role_eligibility_fns_registry_coverage_authority/migration.sql",
+    "apps/api/src/modules/role-eligibility/role-eligibility.types.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-registry.repository.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-source-health.service.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-source-health.service.spec.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-registry-sync.service.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-registry-sync.spec.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-fns-egrul-ingest.repository.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-fns-egrul-composition.spec.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-fns-registry-coverage.service.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-fns-registry-coverage.spec.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility.repository.ts",
+    "scripts/role-eligibility-postgres-smoke.sh"
+  ],
+  "forbiddenPaths": [
+    "apps/web/**",
+    "infra/**",
+    "apps/api/src/modules/registration/**",
+    "apps/api/src/modules/role-eligibility/role-eligibility-policy.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-enforcement-policy.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-enforcement.repository.ts",
+    ".github/workflows/**"
+  ],
+  "notes": "PROMOTION AFTER MERGED #5118 and accepted #5033/#5099 preservation prerequisite. Active implementation authority is bound only to feat/role-eligibility-fns-registry-coverage-authority-5064 and only to the listed forward-only migration/application/acceptance files. #5064 owns FNS registry-domain, coverage, immutable lineage, source-finality and one PostgreSQL-coherent negative-resolution route. Required DB semantics: server-controlled non-null registry_domain; active generation and source health keyed by (source, registry_domain); conservative historical backfill with coverage UNKNOWN and source_finality false; domain-scoped activation; immutable baseline/predecessor/update-package lineage and continuity-policy identity; distinct ACQUISITION_COMPLETE, LOCAL_IMPORT_INTEGRITY, BASELINE_COVERAGE, UPDATE_CONTINUITY and SOURCE_FINALITY facts; deterministic domain-aware fingerprints; no generic adapter/manual SQL/operator path may self-claim complete coverage or finality. Corpus-level negative resolution must bind a valid identifier to one exact current domain authority token, matching source-health generation, freshness, accepted parser/schema/policy, coverage, continuity, SOURCE_FINALITY=true and zero-row lookup in one stable PostgreSQL snapshot; A-to-B activation races must stay consistently bound or retry. Current-year EGRUL bulk absence with SOURCE_FINALITY false/unknown remains COVERAGE_NOT_FINAL/REVIEW_REQUIRED and never legal non-existence; no guessed lag may manufacture finality. RSME remains positive-only and signed no-record point evidence remains separate under #5059. Preserve EGRUL/EGRIP simultaneous domain isolation. Explicitly excluded: #5067 O(delta) current-pointer storage, canonical identity/status/canonical-field policy, registration/UI/infra/credentials, enforcement activation and production mutation. The implementation branch cannot modify this authority manifest. Real PostgreSQL smoke must prove migration/restore/drift safety, least privilege, inability of generic runtime paths to promote partial/unknown data, EGRUL/EGRIP isolation, immutable lineage, finality default false, negative lookup generation-race safety and zero false NOT_FOUND without finality. REG.RU only. ROLE_ELIGIBILITY_ENFORCEMENT=false. New mandatory recurring code/SaaS cost: 0 RUB. Promotion itself is governance-only and must be terminal-green, self-audited, drift-checked and SHA-bound before active authority exists in trusted main; unavailable independent review must never be represented as PASS."
+}
