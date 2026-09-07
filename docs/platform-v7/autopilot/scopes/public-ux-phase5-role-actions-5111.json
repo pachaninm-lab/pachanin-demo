@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "wip/public-ux-phase5-role-actions-5111",
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction-2026-09-07-continue-public-ux-5111",
+  "purpose": "Correct the public nine-role Deal explanation after Phase 5 human evidence proved that the shared stage-level next action can incorrectly present buyer/seller work as the action of driver, laboratory, bank and other roles. Keep one Deal and one seven-stage journey while making each role's allowed next action truthful in RU, EN and ZH without changing protected authorization or real workflow authority.",
+  "authorityBaseExactMain": "1eb81f4dea95625ba79410af4046c457aa897c10",
+  "effectiveAfter": "The governance PR adding this manifest must be independently reviewed and merged to main. The implementation branch must then be created or rematerialized from the accepted exact main containing this manifest; implementation must not create or widen its own scope.",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/PublicDealRoleScenario.tsx",
+    "apps/web/playwright.acceptance.config.ts",
+    "apps/web/tests/e2e/platform-v7-role-human-acceptance.spec.ts",
+    "docs/platform-v7/public-experience/2026-09-05-acceptance.md"
+  ],
+  "requiredInvariants": [
+    "The public visitor taxonomy remains exactly nine choices: seller, buyer, logistics, driver, elevator/storage, laboratory, surveyor, bank/finance and platform employee. This scope creates no additional role and removes no role.",
+    "The public Deal journey remains exactly seven ordinary stages. This scope does not change Deal state authority, stage authority, APIs, database state, protected cabinets or real participant permissions.",
+    "For every one of the nine public roles at every one of the seven public Deal stages, the visible next-action explanation must describe only work that is appropriate to that role at that stage. A role with no active action at the selected stage must say so plainly and identify when or why it becomes relevant rather than borrowing another participant's action.",
+    "No public role may present another role's commercial, financial, laboratory, logistics, storage or platform-employee decision as if the selected role were authorized to perform it.",
+    "Shared stage context, illustrative evidence and the ordinary Deal story may remain common across roles, but role lens, responsibility, next action and money meaning must remain semantically compatible with the selected role.",
+    "The public role explanation remains illustrative only. Selecting a public role or stage does not assign permissions, authenticate a user, reveal private data, create a Deal or perform a command.",
+    "RU, EN and ZH must express the same role/action boundary without untranslated fallbacks or a stronger authority claim in one locale than another.",
+    "Keyboard Home/End/Arrow navigation, aria-selected, tab/tabpanel linkage, focus, mobile horizontal tab discovery, no-horizontal-page-overflow and reduced-motion/accessibility behavior must not regress.",
+    "The existing Gekta explanation remains assistance-only: Gekta may explain facts and options but must not be described as independently performing a critical participant action.",
+    "apps/web/playwright.acceptance.config.ts may change only as needed to keep the exact Phase 5 role-human acceptance spec registered in the existing Design System v8 matrix. Existing browser projects, retries, workers and security/cabinet tests must not be removed, weakened or skipped.",
+    "No auth, registration business logic, role assignment, tenant/RBAC authority, API, Prisma/database, middleware authorization, workflow, release, production topology, credentials, Gekta gateway/account/entitlement/consent or personal-cabinet source may change."
+  ],
+  "forbiddenChanges": [
+    ".github/workflows/**",
+    "apps/landing/**",
+    "apps/api/**",
+    "apps/web/app/api/**",
+    "apps/web/app/platform-v7/register/**",
+    "apps/web/components/gekta/GektaChatWorkspace.tsx",
+    "apps/web/lib/**",
+    "apps/web/middleware.ts",
+    "packages/**",
+    "prisma/**",
+    "scripts/**",
+    "pnpm-lock.yaml",
+    "package.json",
+    "production credentials or server configuration"
+  ],
+  "acceptance": [
+    "The implementation diff is a strict subset of the four allowed paths and contains no protected-authority code.",
+    "Automated Phase 5 semantics exercise all 9 roles across all 7 stages in RU, EN and ZH, for 189 role-stage-locale states, and prove the next-action text corresponds to the selected role or explicitly states that the role has no active action at that stage.",
+    "The existing 45 human-evidence screenshots remain required: RU at 320, 390 and 1280 plus EN and ZH at 390 for every role.",
+    "Cross-browser keyboard traversal of all nine role tabs remains required in Chromium, Firefox and WebKit with correct focus, aria-selected and tabpanel linkage.",
+    "The public explanation still states that it is an illustrative example and that real permissions are assigned only after registration and organisation verification.",
+    "No horizontal page overflow, clipped words, inaccessible role tabs or overlapping fixed controls are introduced by the role-action correction.",
+    "Exact-head CI/browser evidence and genuine independent review remain required before merge. Owner self-audit does not substitute for independent review.",
+    "Final 100/100 still requires the accepted public merge chain, exact-SHA REG.RU deployment and live desktop/mobile RU/EN/ZH human acceptance."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
