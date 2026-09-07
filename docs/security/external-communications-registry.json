@@ -1,0 +1,154 @@
+{
+  "schemaVersion": "pc-crop.external-communications-registry.v1",
+  "purpose": "ASVS V13.1.1 asks that the application's communication needs be documented: what it talks to over the network, for what, and what happens when the call fails. This registry carries the half a scanner cannot derive - intent and failure behaviour. Every other field in the generated inventory is measured from source, and an outbound call site in a module that is not registered here fails the build rather than going unrecorded.",
+  "systems": [
+    {
+      "id": "vault-transit",
+      "name": "HashiCorp Vault Transit",
+      "modules": [
+        "apps/api/src/common/vault/vault-transit.service.ts"
+      ],
+      "need": "Шифрование и расшифровка персональных данных (ПДн) через Transit-ключ grainflow-pdn. Ключ не покидает Vault; приложение никогда не держит ключевой материал.",
+      "dataClass": "PERSONAL_DATA",
+      "authentication": "X-Vault-Token из переменной окружения VAULT_TOKEN.",
+      "authenticationKind": "header",
+      "onFailure": "Ошибка логируется и пробрасывается: запрос падает. Данные не сохраняются в открытом виде и не отдаются.",
+      "degradesSilently": false,
+      "userSuppliedDestination": false
+    },
+    {
+      "id": "ai-assistant-provider",
+      "name": "AI assistant model provider",
+      "modules": [
+        "apps/api/src/modules/ai-insights/ai-assistant.service.ts"
+      ],
+      "need": "Ответы ассистента для внутренних пользователей. Хост обязан быть в списке AI_ASSISTANT_ALLOWED_HOSTS.",
+      "dataClass": "USER_CONTENT",
+      "authentication": "Bearer-токен из AI_ASSISTANT_API_KEY.",
+      "authenticationKind": "header",
+      "onFailure": "Бросает provider_http_<код>, provider_missing_stream или provider_empty_response; ответ ассистента не выдаётся.",
+      "degradesSilently": false,
+      "userSuppliedDestination": false
+    },
+    {
+      "id": "restricted-public-qwen",
+      "name": "Restricted public Qwen provider",
+      "modules": [
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts"
+      ],
+      "need": "Ограниченный публичный ассистент. Включается только через TAI_RESTRICTED_QWEN_PUBLIC_ENABLED и тот же список разрешённых хостов.",
+      "dataClass": "PUBLIC_CONTENT",
+      "authentication": "Bearer-токен из AI_ASSISTANT_API_KEY.",
+      "authenticationKind": "header",
+      "onFailure": "Поток прерывается по AbortSignal; ответ не выдаётся.",
+      "degradesSilently": false,
+      "userSuppliedDestination": false
+    },
+    {
+      "id": "ml-scoring",
+      "name": "ML scoring service",
+      "modules": [
+        "apps/api/src/modules/ml-client/ml-client.service.ts"
+      ],
+      "need": "Скоринг и прогнозные оценки. Адрес из ML_SERVICE_URL, по умолчанию внутренний http://ml-service:8001.",
+      "dataClass": "BUSINESS_DATA",
+      "authentication": "НЕТ. Вызов не несёт ни заголовка авторизации, ни ключа. Это записанный факт, а не одобрение: доверие к этому сервису держится исключительно на сетевой изоляции.",
+      "authenticationKind": "none",
+      "onFailure": "Возвращает null. Отказ ML деградирует до отсутствия оценки, а не до ошибки запроса - вызывающая сторона обязана считать отсутствие оценки нормальным состоянием.",
+      "degradesSilently": true,
+      "userSuppliedDestination": false
+    },
+    {
+      "id": "object-storage",
+      "name": "S3-compatible object storage",
+      "modules": [
+        "apps/api/src/modules/storage/object-storage.adapter.ts"
+      ],
+      "need": "Чтение и удаление объектов документооборота. Конечная точка обязана быть http или https и полностью сконфигурирована.",
+      "dataClass": "DOCUMENTS",
+      "authentication": "Подписанный заголовок Authorization (AWS-совместимая подпись).",
+      "authenticationKind": "header",
+      "onFailure": "Бросает ошибку с кодом ответа; объект не считается прочитанным или удалённым.",
+      "degradesSilently": false,
+      "userSuppliedDestination": false
+    },
+    {
+      "id": "role-eligibility-registry",
+      "name": "Role-eligibility registry source",
+      "modules": [
+        "apps/api/src/modules/role-eligibility/role-eligibility-security.ts"
+      ],
+      "need": "Загрузка выгрузок государственного реестра для проверки права на роль.",
+      "dataClass": "REGISTRY_DATA",
+      "authentication": "Транспортная: только https, без учётных данных в URL, только порт 443, хост из списка разрешённых.",
+      "authenticationKind": "transport-allowlist",
+      "onFailure": "Бросает типизированную ошибку (_HTTPS_REQUIRED, _HOST_NOT_ALLOWLISTED, _CONTENT_TYPE_CHANGED, _RESPONSE_TOO_LARGE); выгрузка не принимается.",
+      "degradesSilently": false,
+      "userSuppliedDestination": false
+    },
+    {
+      "id": "telegram-marketing",
+      "name": "Telegram Bot API",
+      "modules": [
+        "apps/api/src/modules/marketing/connectors/telegram.publisher.ts"
+      ],
+      "need": "Публикация маркетинговых сообщений в канал. Конечная точка api.telegram.org.",
+      "dataClass": "PUBLIC_CONTENT",
+      "authentication": "Токен бота в пути запроса; формат токена проверяется до вызова.",
+      "authenticationKind": "url-path-token",
+      "onFailure": "Бросает ServiceUnavailableException; публикация не считается выполненной.",
+      "degradesSilently": false,
+      "userSuppliedDestination": false
+    },
+    {
+      "id": "vk-marketing",
+      "name": "VK wall.post API",
+      "modules": [
+        "apps/api/src/modules/marketing/connectors/vk.publisher.ts"
+      ],
+      "need": "Публикация маркетинговых записей на стену. Конечная точка api.vk.com/method/wall.post.",
+      "dataClass": "PUBLIC_CONTENT",
+      "authentication": "Токен доступа в теле запроса; требуется ключ идемпотентности.",
+      "authenticationKind": "request-body-token",
+      "onFailure": "Бросает ServiceUnavailableException; публикация не считается выполненной.",
+      "degradesSilently": false,
+      "userSuppliedDestination": false
+    },
+    {
+      "id": "partner-webhook-destinations",
+      "name": "Partner-supplied webhook destinations",
+      "modules": [
+        "apps/api/src/common/security/safe-outbound-request.ts"
+      ],
+      "need": "ASVS V13.1.1 требует назвать случаи, когда внешний адрес задаёт пользователь. Партнёр регистрирует URL вебхука через partner-API, и приложение потом само туда ходит: при регистрации, из тестовой ручки POST webhooks/:id/test и из диспетчера доставки. Адрес назначения выбирает не платформа.",
+      "dataClass": "PARTNER_EVENTS",
+      "authentication": "Исходящий вызов не несёт учётных данных платформы. Защита здесь не аутентификация, а ограничение назначения: схема, отсутствие учётных данных в URL, список разрешённых хостов и политика IP-адресов, применяемые до и во время соединения.",
+      "authenticationKind": "transport-allowlist",
+      "onFailure": "vetDestination бросает ошибку до открытия соединения; доставка не выполняется и адрес не принимается.",
+      "degradesSilently": false,
+      "userSuppliedDestination": true
+    },
+    {
+      "id": "smtp-mail",
+      "name": "Outbound SMTP mail server",
+      "modules": [
+        "apps/api/src/modules/auth-mail/auth-mail-smtp.ts"
+      ],
+      "need": "Отправка писем аутентификации (подтверждение адреса, восстановление доступа) через сконфигурированный SMTP-сервер PC_SMTP_HOST:PC_SMTP_PORT. Соединение открывается напрямую сокетом node:net/node:tls, а не HTTP-клиентом.",
+      "dataClass": "PERSONAL_DATA",
+      "authentication": "Учётные данные SMTP из PC_SMTP_USER и PC_SMTP_PASS, передаются в SMTP-сессии, а не в заголовке HTTP.",
+      "authenticationKind": "protocol-session",
+      "onFailure": "Ошибка транспорта поднимается вызывающей стороне; письмо не считается отправленным.",
+      "degradesSilently": false,
+      "userSuppliedDestination": false
+    }
+  ],
+  "authenticationKinds": {
+    "header": "Учётные данные идут в заголовке запроса. Обязаны быть измеримы в исходнике.",
+    "url-path-token": "Токен в пути запроса. Заголовка авторизации нет и быть не должно.",
+    "request-body-token": "Токен в теле запроса. Заголовка авторизации нет и быть не должно.",
+    "transport-allowlist": "Учётных данных нет вовсе; доступ ограничен схемой, портом и списком разрешённых хостов.",
+    "none": "Аутентификации нет ни в каком виде. Записанный факт, не одобрение.",
+    "protocol-session": "Учётные данные передаются в самом протоколе (например, SMTP AUTH), а не в HTTP-заголовке."
+  }
+}

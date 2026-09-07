@@ -1,0 +1,335 @@
+{
+  "schemaVersion": "pc-crop.external-communications-inventory.v1",
+  "scanRoots": [
+    "apps/api/src"
+  ],
+  "scannedFiles": 570,
+  "systems": [
+    {
+      "id": "ai-assistant-provider",
+      "name": "AI assistant model provider",
+      "need": "Ответы ассистента для внутренних пользователей. Хост обязан быть в списке AI_ASSISTANT_ALLOWED_HOSTS.",
+      "dataClass": "USER_CONTENT",
+      "authentication": "Bearer-токен из AI_ASSISTANT_API_KEY.",
+      "onFailure": "Бросает provider_http_<код>, provider_missing_stream или provider_empty_response; ответ ассистента не выдаётся.",
+      "authenticationKind": "header",
+      "degradesSilently": false,
+      "userSuppliedDestination": false,
+      "carriesAuthentication": true,
+      "everyFetchCallBounded": true,
+      "fetchCallSites": 2,
+      "transports": [
+        "fetch"
+      ],
+      "modules": [
+        {
+          "module": "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
+          "transports": [
+            "fetch"
+          ],
+          "fetchCallSites": 2,
+          "environment": [
+            "AI_ASSISTANT_ALLOWED_HOSTS",
+            "AI_ASSISTANT_API_KEY",
+            "AI_ASSISTANT_BASE_URL",
+            "AI_ASSISTANT_MAX_TOKENS",
+            "AI_ASSISTANT_MODEL",
+            "AI_ASSISTANT_PROVIDER",
+            "AI_ASSISTANT_TIMEOUT_MS"
+          ],
+          "carriesAuthentication": true,
+          "everyFetchCallBounded": true
+        }
+      ]
+    },
+    {
+      "id": "ml-scoring",
+      "name": "ML scoring service",
+      "need": "Скоринг и прогнозные оценки. Адрес из ML_SERVICE_URL, по умолчанию внутренний http://ml-service:8001.",
+      "dataClass": "BUSINESS_DATA",
+      "authentication": "НЕТ. Вызов не несёт ни заголовка авторизации, ни ключа. Это записанный факт, а не одобрение: доверие к этому сервису держится исключительно на сетевой изоляции.",
+      "onFailure": "Возвращает null. Отказ ML деградирует до отсутствия оценки, а не до ошибки запроса - вызывающая сторона обязана считать отсутствие оценки нормальным состоянием.",
+      "authenticationKind": "none",
+      "degradesSilently": true,
+      "userSuppliedDestination": false,
+      "carriesAuthentication": false,
+      "everyFetchCallBounded": true,
+      "fetchCallSites": 1,
+      "transports": [
+        "fetch"
+      ],
+      "modules": [
+        {
+          "module": "apps/api/src/modules/ml-client/ml-client.service.ts",
+          "transports": [
+            "fetch"
+          ],
+          "fetchCallSites": 1,
+          "environment": [
+            "ML_SERVICE_URL"
+          ],
+          "carriesAuthentication": false,
+          "everyFetchCallBounded": true
+        }
+      ]
+    },
+    {
+      "id": "object-storage",
+      "name": "S3-compatible object storage",
+      "need": "Чтение и удаление объектов документооборота. Конечная точка обязана быть http или https и полностью сконфигурирована.",
+      "dataClass": "DOCUMENTS",
+      "authentication": "Подписанный заголовок Authorization (AWS-совместимая подпись).",
+      "onFailure": "Бросает ошибку с кодом ответа; объект не считается прочитанным или удалённым.",
+      "authenticationKind": "header",
+      "degradesSilently": false,
+      "userSuppliedDestination": false,
+      "carriesAuthentication": true,
+      "everyFetchCallBounded": true,
+      "fetchCallSites": 2,
+      "transports": [
+        "fetch"
+      ],
+      "modules": [
+        {
+          "module": "apps/api/src/modules/storage/object-storage.adapter.ts",
+          "transports": [
+            "fetch"
+          ],
+          "fetchCallSites": 2,
+          "environment": [],
+          "carriesAuthentication": true,
+          "everyFetchCallBounded": true
+        }
+      ]
+    },
+    {
+      "id": "partner-webhook-destinations",
+      "name": "Partner-supplied webhook destinations",
+      "need": "ASVS V13.1.1 требует назвать случаи, когда внешний адрес задаёт пользователь. Партнёр регистрирует URL вебхука через partner-API, и приложение потом само туда ходит: при регистрации, из тестовой ручки POST webhooks/:id/test и из диспетчера доставки. Адрес назначения выбирает не платформа.",
+      "dataClass": "PARTNER_EVENTS",
+      "authentication": "Исходящий вызов не несёт учётных данных платформы. Защита здесь не аутентификация, а ограничение назначения: схема, отсутствие учётных данных в URL, список разрешённых хостов и политика IP-адресов, применяемые до и во время соединения.",
+      "onFailure": "vetDestination бросает ошибку до открытия соединения; доставка не выполняется и адрес не принимается.",
+      "authenticationKind": "transport-allowlist",
+      "degradesSilently": false,
+      "userSuppliedDestination": true,
+      "carriesAuthentication": false,
+      "everyFetchCallBounded": true,
+      "fetchCallSites": 0,
+      "transports": [
+        "httpRequest",
+        "httpsRequest"
+      ],
+      "modules": [
+        {
+          "module": "apps/api/src/common/security/safe-outbound-request.ts",
+          "transports": [
+            "httpRequest",
+            "httpsRequest"
+          ],
+          "fetchCallSites": 0,
+          "environment": [
+            "PARTNER_WEBHOOK_ALLOWED_HOSTS"
+          ],
+          "carriesAuthentication": false,
+          "everyFetchCallBounded": true
+        }
+      ]
+    },
+    {
+      "id": "restricted-public-qwen",
+      "name": "Restricted public Qwen provider",
+      "need": "Ограниченный публичный ассистент. Включается только через TAI_RESTRICTED_QWEN_PUBLIC_ENABLED и тот же список разрешённых хостов.",
+      "dataClass": "PUBLIC_CONTENT",
+      "authentication": "Bearer-токен из AI_ASSISTANT_API_KEY.",
+      "onFailure": "Поток прерывается по AbortSignal; ответ не выдаётся.",
+      "authenticationKind": "header",
+      "degradesSilently": false,
+      "userSuppliedDestination": false,
+      "carriesAuthentication": true,
+      "everyFetchCallBounded": true,
+      "fetchCallSites": 2,
+      "transports": [
+        "fetch"
+      ],
+      "modules": [
+        {
+          "module": "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+          "transports": [
+            "fetch"
+          ],
+          "fetchCallSites": 2,
+          "environment": [
+            "AI_ASSISTANT_ALLOWED_HOSTS",
+            "AI_ASSISTANT_API_KEY",
+            "AI_ASSISTANT_BASE_URL",
+            "AI_ASSISTANT_MAX_TOKENS",
+            "AI_ASSISTANT_MODEL",
+            "AI_ASSISTANT_PROVIDER",
+            "AI_ASSISTANT_TIMEOUT_MS",
+            "TAI_RESTRICTED_QWEN_PUBLIC_ENABLED"
+          ],
+          "carriesAuthentication": true,
+          "everyFetchCallBounded": true
+        }
+      ]
+    },
+    {
+      "id": "role-eligibility-registry",
+      "name": "Role-eligibility registry source",
+      "need": "Загрузка выгрузок государственного реестра для проверки права на роль.",
+      "dataClass": "REGISTRY_DATA",
+      "authentication": "Транспортная: только https, без учётных данных в URL, только порт 443, хост из списка разрешённых.",
+      "onFailure": "Бросает типизированную ошибку (_HTTPS_REQUIRED, _HOST_NOT_ALLOWLISTED, _CONTENT_TYPE_CHANGED, _RESPONSE_TOO_LARGE); выгрузка не принимается.",
+      "authenticationKind": "transport-allowlist",
+      "degradesSilently": false,
+      "userSuppliedDestination": false,
+      "carriesAuthentication": false,
+      "everyFetchCallBounded": true,
+      "fetchCallSites": 1,
+      "transports": [
+        "fetch"
+      ],
+      "modules": [
+        {
+          "module": "apps/api/src/modules/role-eligibility/role-eligibility-security.ts",
+          "transports": [
+            "fetch"
+          ],
+          "fetchCallSites": 1,
+          "environment": [],
+          "carriesAuthentication": false,
+          "everyFetchCallBounded": true
+        }
+      ]
+    },
+    {
+      "id": "smtp-mail",
+      "name": "Outbound SMTP mail server",
+      "need": "Отправка писем аутентификации (подтверждение адреса, восстановление доступа) через сконфигурированный SMTP-сервер PC_SMTP_HOST:PC_SMTP_PORT. Соединение открывается напрямую сокетом node:net/node:tls, а не HTTP-клиентом.",
+      "dataClass": "PERSONAL_DATA",
+      "authentication": "Учётные данные SMTP из PC_SMTP_USER и PC_SMTP_PASS, передаются в SMTP-сессии, а не в заголовке HTTP.",
+      "onFailure": "Ошибка транспорта поднимается вызывающей стороне; письмо не считается отправленным.",
+      "authenticationKind": "protocol-session",
+      "degradesSilently": false,
+      "userSuppliedDestination": false,
+      "carriesAuthentication": false,
+      "everyFetchCallBounded": true,
+      "fetchCallSites": 0,
+      "transports": [
+        "connectTcp",
+        "connectTls"
+      ],
+      "modules": [
+        {
+          "module": "apps/api/src/modules/auth-mail/auth-mail-smtp.ts",
+          "transports": [
+            "connectTcp",
+            "connectTls"
+          ],
+          "fetchCallSites": 0,
+          "environment": [
+            "AUTH_MAIL_TRANSPORT_FILE",
+            "NODE_ENV",
+            "PC_MAIL_FROM",
+            "PC_SMTP_HOST",
+            "PC_SMTP_PASS",
+            "PC_SMTP_PORT",
+            "PC_SMTP_USER"
+          ],
+          "carriesAuthentication": false,
+          "everyFetchCallBounded": true
+        }
+      ]
+    },
+    {
+      "id": "telegram-marketing",
+      "name": "Telegram Bot API",
+      "need": "Публикация маркетинговых сообщений в канал. Конечная точка api.telegram.org.",
+      "dataClass": "PUBLIC_CONTENT",
+      "authentication": "Токен бота в пути запроса; формат токена проверяется до вызова.",
+      "onFailure": "Бросает ServiceUnavailableException; публикация не считается выполненной.",
+      "authenticationKind": "url-path-token",
+      "degradesSilently": false,
+      "userSuppliedDestination": false,
+      "carriesAuthentication": false,
+      "everyFetchCallBounded": true,
+      "fetchCallSites": 1,
+      "transports": [
+        "fetch"
+      ],
+      "modules": [
+        {
+          "module": "apps/api/src/modules/marketing/connectors/telegram.publisher.ts",
+          "transports": [
+            "fetch"
+          ],
+          "fetchCallSites": 1,
+          "environment": [],
+          "carriesAuthentication": false,
+          "everyFetchCallBounded": true
+        }
+      ]
+    },
+    {
+      "id": "vault-transit",
+      "name": "HashiCorp Vault Transit",
+      "need": "Шифрование и расшифровка персональных данных (ПДн) через Transit-ключ grainflow-pdn. Ключ не покидает Vault; приложение никогда не держит ключевой материал.",
+      "dataClass": "PERSONAL_DATA",
+      "authentication": "X-Vault-Token из переменной окружения VAULT_TOKEN.",
+      "onFailure": "Ошибка логируется и пробрасывается: запрос падает. Данные не сохраняются в открытом виде и не отдаются.",
+      "authenticationKind": "header",
+      "degradesSilently": false,
+      "userSuppliedDestination": false,
+      "carriesAuthentication": true,
+      "everyFetchCallBounded": false,
+      "fetchCallSites": 2,
+      "transports": [
+        "fetch"
+      ],
+      "modules": [
+        {
+          "module": "apps/api/src/common/vault/vault-transit.service.ts",
+          "transports": [
+            "fetch"
+          ],
+          "fetchCallSites": 2,
+          "environment": [
+            "VAULT_ADDR",
+            "VAULT_TOKEN"
+          ],
+          "carriesAuthentication": true,
+          "everyFetchCallBounded": false
+        }
+      ]
+    },
+    {
+      "id": "vk-marketing",
+      "name": "VK wall.post API",
+      "need": "Публикация маркетинговых записей на стену. Конечная точка api.vk.com/method/wall.post.",
+      "dataClass": "PUBLIC_CONTENT",
+      "authentication": "Токен доступа в теле запроса; требуется ключ идемпотентности.",
+      "onFailure": "Бросает ServiceUnavailableException; публикация не считается выполненной.",
+      "authenticationKind": "request-body-token",
+      "degradesSilently": false,
+      "userSuppliedDestination": false,
+      "carriesAuthentication": false,
+      "everyFetchCallBounded": true,
+      "fetchCallSites": 1,
+      "transports": [
+        "fetch"
+      ],
+      "modules": [
+        {
+          "module": "apps/api/src/modules/marketing/connectors/vk.publisher.ts",
+          "transports": [
+            "fetch"
+          ],
+          "fetchCallSites": 1,
+          "environment": [],
+          "carriesAuthentication": false,
+          "everyFetchCallBounded": true
+        }
+      ]
+    }
+  ]
+}

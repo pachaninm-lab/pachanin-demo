@@ -8445,38 +8445,84 @@
     {
       "requirementId": "V13.1.1",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "documentation-set:docs/security/THREAT_MODEL.md",
-        "documentation-set:SECURITY.md"
+        "docs/security/EXTERNAL_COMMUNICATIONS.md",
+        "docs/security/external-communications-inventory.json",
+        "docs/security/external-communications-registry.json",
+        "scripts/security/build-external-communications-inventory.mjs",
+        "scripts/security/build-external-communications-inventory.test.mjs",
+        "apps/api/src/common/security/safe-outbound-request.ts",
+        "apps/api/src/modules/auth-mail/auth-mail-smtp.ts"
       ],
       "conditions": [
         {
-          "condition": "the application still calls out to external services that a communication-needs document would have to enumerate",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the inventory exists and answers, for every external system, what it is talked to for, with what authentication, and what happens when the call fails",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/api/src/modules/ml-client/ml-client.service.ts",
-            "apps/api/src/modules/search/search.module.ts"
+            "docs/security/EXTERNAL_COMMUNICATIONS.md"
           ],
           "patterns": [
-            "fetch(",
-            "elasticsearchmodule"
+            "опись внешних коммуникаций",
+            "класс данных",
+            "при отказе",
+            "адреса, которые задаёт пользователь"
           ]
         },
         {
-          "condition": "no document enumerating external communication needs exists in the security documentation set",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the registry carries the half a scanner cannot derive - intent, data class and failure behaviour - including the user-supplied destination case the requirement names",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "docs/security/THREAT_MODEL.md",
-            "SECURITY.md"
+            "docs/security/external-communications-registry.json"
           ],
           "patterns": [
-            "communication needs",
-            "external services relied upon"
+            "usersupplieddestination",
+            "onfailure",
+            "dataclass",
+            "authenticationkind",
+            "partner-webhook-destinations",
+            "smtp-mail"
+          ]
+        },
+        {
+          "condition": "the inventory is generated from source and cannot go stale: an unregistered outbound module, a phantom registration, or a declared authentication posture the source does not carry each fail the build",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/build-external-communications-inventory.mjs"
+          ],
+          "patterns": [
+            "unregistered_outbound_module",
+            "registered_module_has_no_outbound_call",
+            "authentication_declaration_mismatch",
+            "outbound_node_imports"
+          ]
+        },
+        {
+          "condition": "the scan sees every outbound transport, not only fetch, and is cross-checked against an independent count",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/build-external-communications-inventory.test.mjs"
+          ],
+          "patterns": [
+            "fetch is not the only outbound transport",
+            "cannot be aliased away",
+            "not outbound transports",
+            "independent grep"
+          ]
+        },
+        {
+          "condition": "CI regenerates the inventory and refuses a tree where the committed copy differs",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            ".github/workflows/sbom-scan.yml"
+          ],
+          "patterns": [
+            "build-external-communications-inventory.mjs",
+            "git diff --exit-code docs/security/external_communications.md"
           ]
         }
       ],
-      "note": "No document enumerates what the application talks to over the network, for what purpose, or what happens when a call fails. THREAT_MODEL.md has trust boundaries and threat categories but no communications inventory; SECURITY.md has neither. The gap is real rather than a documentation nicety: this assessment itself had to rediscover, by reading source, that the platform calls an ML scoring service, Elasticsearch, an S3-compatible object store, a Qwen model endpoint, and Vault - and that one of those calls (ML) carries no authentication at all. A reader should not have to grep the codebase to learn that."
+      "note": "Закрыто описью, порождаемой из исходников, а не документом. Реестр несёт только ту половину, которую нельзя вывести сканером - назначение, класс данных и поведение при отказе; всё остальное измеряется при каждой сборке, и расхождение роняет сборку: модуль с исходящим вызовом без записи в реестре, запись без живого вызова, и заявленная аутентификация, которой в исходнике нет.\n\nПервая версия описи была неполной, и это записано, а не исправлено молча: она искала только fetch( и потому не видела два реальных внешних канала - SSRF-защищённый запрос к вебхуку партнёра через request() из node:https и исходящую почту через connect() из node:net/node:tls. Обнаружение теперь идёт по импорту, а не по имени в месте вызова, потому что safe-outbound-request.ts присваивает транспорт переменной (const send = isHttps ? httpsRequest : httpRequest) и счёт по имени там не находит ничего. isIP и createServer намеренно не считаются: первое разбирает адрес, второе принимает входящие соединения.\n\nТребование состоит из двух частей, и вторая - случаи, когда внешний адрес задаёт конечный пользователь - закрыта отдельным разделом. Такой случай здесь один: партнёр регистрирует URL вебхука, и платформа потом сама туда ходит из трёх мест. Защита там не аутентификация, а ограничение назначения через vetDestination.\n\nЧто опись НЕ утверждает: она не заявляет пределов на число одновременных соединений и не заявляет стратегии управления ресурсами. Это V13.1.2 и V13.1.3, и они остаются FAIL - ни одного настроенного предела (connection_limit, размер пула, maxSockets) в дереве нет вовсе, и закрывать их документацией значило бы выдать описание за контроль.\n\nСтолбец числа вызовов считает только fetch и говорит об этом: транспорты node:* обнаруживаются по импорту, потому что вызов может идти через переменную, и заявлять для них точное число мест было бы измерением, которого не делали. Счёт fetch сверяется в тестах с независимым grep."
     },
     {
       "requirementId": "V13.1.2",
