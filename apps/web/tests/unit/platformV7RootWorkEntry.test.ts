@@ -50,7 +50,7 @@ describe('platform-v7 final public entry', () => {
       'Сделка и договор',
       'Логистика и поставка',
       'Приёмка и качество',
-      'Документы и готовность расчёта',
+      'Документы и основания расчёта',
       'Расчёт и закрытие',
     ]) expect(storyCopy).toContain(`title: '${title}'`);
     expect(storyCopy).toContain("journey: '7 шагов'");
@@ -113,7 +113,7 @@ describe('platform-v7 final public entry', () => {
     expect(trustPage).not.toContain('return cloneElement(element, undefined, ...children)');
   });
 
-  it('states integration maturity without false-live language or internal jargon', () => {
+  it('states external-system boundaries without false-live language or internal jargon', () => {
     const combined = `${page}\n${home}\n${homeCopy}\n${storyCopy}`.toLowerCase();
     for (const token of [
       'production-ready',
@@ -126,9 +126,12 @@ describe('platform-v7 final public entry', () => {
       'controlled pilot',
       'pre-integration',
       'not_attested',
+      'готовность расчёта',
+      'settlement readiness',
     ]) expect(combined).not.toContain(token);
-    expect(home).toContain('внешние интеграции не считаются активными без подтверждённого подключения организации');
-    expect(storyCopy).toContain('Внешние системы подключаются через отдельные управляемые интеграции');
+    expect(home).toContain('платформа не приписывает им действий без внешнего основания');
+    expect(storyCopy).toContain('Внешние системы используются через отдельные управляемые адаптеры');
+    expect(storyCopy).toContain('Схема обмена и права организации определяются до передачи данных.');
   });
 
   it('ships explicit RU EN ZH copy and the approved crop hero', () => {

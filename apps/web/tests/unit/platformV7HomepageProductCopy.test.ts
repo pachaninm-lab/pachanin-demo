@@ -41,7 +41,11 @@ describe('platform-v7 homepage product copy', () => {
 
   it('presents one crop Deal product with nine roles and seven public steps in RU EN ZH', () => {
     expect(hero).toContain('ведёт одну агросделку от товара и торгов до поставки, качества, документов и расчёта');
-    expect(hero).toContain('что уже подтверждено и что делать дальше');
+    expect(hero).toContain('какие факты и основания доступны и что делать дальше');
+    expect(hero).toContain('с собственным искусственным интеллектом');
+    expect(hero).toContain('with proprietary artificial intelligence');
+    expect(hero).toContain('配备自主人工智能');
+    expect(hero).not.toContain('что уже подтверждено и что делать дальше');
     expect(hero).toContain('но не принимает решение вместо человека');
     expect(story).toContain('Полный контур агросделки собран в одной рабочей системе');
     expect(story).toContain('The complete agricultural Deal workflow in one operating system');
@@ -54,19 +58,33 @@ describe('platform-v7 homepage product copy', () => {
     expect(story).toContain("journey: '7 个步骤'");
   });
 
-  it('explains accounting and EDI as conditional external connections', () => {
+  it('explains accounting and EDI through sources, routes and organisation rights', () => {
     expect(story).toContain("accountingQ: 'Как бухгалтер работает с 1С и ЭДО?'");
     expect(story).toContain("accountingQ: 'How does an accountant work with 1C and EDI?'");
     expect(story).toContain("accountingQ: '会计人员如何使用 1C 和电子单据系统？'");
-    expect(story).toContain('Внешние системы подключаются через отдельные управляемые интеграции');
-    expect(story).toContain('Конкретная схема, доступность интеграции и права подтверждаются для организации до обмена данными.');
+    expect(story).toContain('Внешние системы используются через отдельные управляемые адаптеры');
+    expect(story).toContain('Схема обмена и права организации определяются до передачи данных.');
+    expect(story).toContain('External systems are used through separate managed adapters.');
+    expect(story).toContain('数据传输前需确定机构的交换方案和权限。');
+    expect(story).not.toContain('доступность интеграции');
+    expect(story).not.toContain('verified Deal data and statuses');
+    expect(story).not.toContain('已确认的交易数据和状态');
     expect(story).not.toContain('бухгалтер продолжает работать в привычной 1С и ЭДО');
     expect(story).not.toContain('без двойного ввода');
   });
 
-  it('keeps examples explicitly fictional and internal maturity jargon out of final homepage copy', () => {
+  it('keeps examples explicitly fictional and status/readiness language out of final homepage copy', () => {
     const publicCopy = [story, home, homeOperating, hero, connect, page].join('\n').toLowerCase();
-    for (const phrase of ['controlled pilot', 'pre-integration', 'not_attested', 'production-like simulation', 'fake-live']) {
+    for (const phrase of [
+      'controlled pilot',
+      'pre-integration',
+      'not_attested',
+      'production-like simulation',
+      'fake-live',
+      'готовность расчёта',
+      'settlement readiness',
+      '结算准备',
+    ]) {
       expect(publicCopy).not.toContain(phrase);
     }
     expect(story).toContain("heroSampleLabel: 'Вымышленный пример Сделки'");
@@ -76,6 +94,9 @@ describe('platform-v7 homepage product copy', () => {
     expect(story).toContain('Ниже показан вымышленный пример Сделки');
     expect(story).toContain('The section below is a fictional Deal example');
     expect(story).toContain('下面展示的是虚构交易示例');
+    expect(story).toContain("status: 'Факты и основания'");
+    expect(story).toContain("status: 'Facts and grounds'");
+    expect(story).toContain("status: '事实与依据'");
   });
 
   it('makes registration the clear next step and keeps organization help distinct', () => {
@@ -100,10 +121,13 @@ describe('platform-v7 homepage product copy', () => {
 });
 
 describe('platform-v7 linked public-page trust', () => {
-  it('keeps About crop-oriented and free of internal maturity shorthand', () => {
+  it('keeps About crop-oriented, bounded in the canonical header and free of internal maturity shorthand', () => {
     expect(about).toContain("type Locale = 'ru' | 'en' | 'zh'");
     expect(about).toContain('агросделки в растениеводстве');
     expect(about).toContain('/platform-v7/register');
+    expect(about).toContain("className='pc-v6-header-cta p7-about-register'");
+    expect(about).not.toContain("className='pc-site-action p7-about-register'");
+    expect(about).toContain('.pc-site-header:has(.p7-about-register) .p7-about-login,.pc-site-header:has(.p7-about-register) .p7-about-register{width:auto;min-width:44px;height:44px');
     expect(about.toLowerCase()).not.toContain('controlled pilot');
     expect(about.toLowerCase()).not.toContain('pre-integration');
     expect(about.toLowerCase()).not.toContain('зерновой сделки');
@@ -136,9 +160,10 @@ describe('platform-v7 linked public-page trust', () => {
 
   it('states Gekta authority boundaries in human language without fake live sources', () => {
     expect(ai).not.toContain("status: 'NOT_ATTESTED'");
-    expect(ai).toContain('Неподключённая внешняя система не отображается как подключённая.');
+    expect(ai).toContain('Гекта не придумывает данные внешней системы, если не получила их из разрешённого источника.');
     expect(ai).toContain('Гекта не назначает роль и не меняет права доступа.');
     expect(ai).toContain('Гекта не подписывает, не отправляет и не выпускает деньги без разрешённого человеческого действия.');
+    expect(ai).not.toContain('Неподключённая внешняя система не отображается как подключённая.');
     expect(ai).not.toContain('Vercel');
     expect(ai).not.toContain('Netlify');
     expect(aiPage).toContain("title: 'Гекта в работе — Прозрачная Цена'");
@@ -153,7 +178,7 @@ describe('platform-v7 linked public-page trust', () => {
     expect(how.toLowerCase()).not.toContain('controlled pilot');
   });
 
-  it('removes invented privacy records and fake local request success', () => {
+  it('keeps the immutable privacy rights panel free of invented providers and fake local request success', () => {
     for (const invented of [
       'ООО «ГрейнФлоу»',
       'Yandex Cloud',
@@ -165,19 +190,27 @@ describe('platform-v7 linked public-page trust', () => {
       'Wialon',
     ]) expect(privacyPanel).not.toContain(invented);
     expect(privacyPanel).toContain('не показывает вымышленные персональные записи, согласия, обращения или статусы');
-    expect(privacyPanel).toContain('обращение считается направленным только после фактической отправки');
+    expect(privacyPanel).toContain('обращение считается направленным только после фактической отправки через доступный канал связи');
     expect(privacyPanel).toContain("href='/platform-v7/contact'");
     expect(privacyPanel).not.toContain('setActionStatus');
     expect(privacyPanel).not.toContain('setConsents');
     expect(privacyPolicy).toContain('Юридически значимые реквизиты оператора персональных данных публикуются только после их подтверждения официальными документами.');
   });
 
-  it('keeps named accounting/EDI systems conditional instead of claiming active connections', () => {
-    expect(accounting).toContain('Возможные маршруты подключения');
-    expect(accounting).toContain('Перечень показывает поддерживаемые направления интеграции, а не подтверждение активного соединения.');
-    expect(accounting).toContain('доступность конкретного маршрута и фактический обмен подтверждаются отдельно для организации');
-    for (const overclaim of ['1С подключена', 'Диадок подключён', 'Saby подключён', 'без двойного ввода']) {
-      expect(accounting).not.toContain(overclaim);
+  it('keeps named accounting and EDI systems as source-based directions rather than connection states', () => {
+    expect(accounting).toContain('Возможные направления обмена данными');
+    expect(accounting).toContain('Перечень показывает возможные направления интеграции, а не факт обмена с конкретной организацией.');
+    expect(accounting).toContain('каждый внешний факт должен иметь соответствующий источник и основание обмена');
+    for (const overclaim of [
+      '1С подключена',
+      'Диадок подключён',
+      'Saby подключён',
+      'active connection',
+      'verified statuses',
+      'unconfirmed route',
+      'без двойного ввода',
+    ]) {
+      expect(accounting.toLowerCase()).not.toContain(overclaim.toLowerCase());
     }
   });
 });

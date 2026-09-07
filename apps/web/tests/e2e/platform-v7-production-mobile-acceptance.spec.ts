@@ -137,6 +137,34 @@ async function expectKeyboardCompleteRoleTabs(page: Page) {
   await expect(page.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', 'public-role-tab-employee');
 }
 
+async function expectStageAwareDealWorkspace(page: Page) {
+  const workspace = page.locator('section[aria-label="Упрощённый экран рабочего кабинета"]');
+  await expect(workspace).toBeVisible();
+
+  const stageRail = workspace.locator('[aria-label="Семь этапов одной Сделки"]');
+  const stageButtons = stageRail.getByRole('button');
+  await expect(stageButtons).toHaveCount(7);
+  await expect(stageButtons.first()).toHaveAttribute('aria-current', 'step');
+  await expect(workspace.getByText('Сначала стороны работают с одной версией товара и условий', { exact: true })).toBeVisible();
+
+  const readingSizes = await workspace.locator('p:visible, strong:visible, button:visible').evaluateAll((nodes) => nodes.map((node) => ({
+    text: (node.textContent ?? '').trim().slice(0, 80),
+    fontSize: Number.parseFloat(window.getComputedStyle(node).fontSize),
+  })));
+  expect(readingSizes.length).toBeGreaterThan(0);
+  expect(
+    readingSizes.every((item) => Number.isFinite(item.fontSize) && item.fontSize >= 12),
+    JSON.stringify(readingSizes, null, 2),
+  ).toBe(true);
+
+  await stageButtons.last().click();
+  await expect(stageButtons.last()).toHaveAttribute('aria-current', 'step');
+  await expect(workspace.getByText('Нормальное завершение и исключения остаются внутри одной Сделки', { exact: true })).toBeVisible();
+
+  await stageButtons.first().click();
+  await expect(stageButtons.first()).toHaveAttribute('aria-current', 'step');
+}
+
 async function expectLinkedPageLocaleContinuity(page: Page, name: LinkedPublicPageName, locale: LinkedLocale) {
   expect(new URL(page.url()).searchParams.get('lang')).toBe(locale);
 
@@ -245,6 +273,7 @@ test.describe('Platform V7 exact responsive public acceptance', () => {
 
       await expectRegistrationOnlyPrimaryCtas(page);
       await expectKeyboardCompleteRoleTabs(page);
+      await expectStageAwareDealWorkspace(page);
       await expectCurrentAnchorsBelowStickyHeader(page);
       await expectNoHorizontalOverflow(page);
       expect(runtimeFailures).toEqual([]);
