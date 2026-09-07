@@ -3651,37 +3651,80 @@
     {
       "requirementId": "V6.3.4",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
+        "apps/web/app/api/platform-v7/cabinet-lock-login/route.ts",
+        "apps/web/app/api/platform-v7/cabinet-session/route.ts",
+        "apps/web/app/platform-v7/staff/open-cabinet/route.ts",
+        "apps/web/middleware.ts",
         "depends-on:V6.1.3",
         "docs/security/THREAT_MODEL.md",
-        "scripts/security/verify-authentication-pathways.test.mjs",
-        "apps/web/middleware.ts",
-        "apps/web/app/platform-v7/staff/open-cabinet/route.ts"
+        "scripts/security/verify-authentication-pathways.test.mjs"
       ],
       "conditions": [
         {
-          "condition": "a cabinet cookie is still minted by a route whose consistency with the primary pathway has not been proven surface by surface",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the production-reachable cabinet requires an ACTIVE PLATFORM_OWNER assignment with MFA verified, and the API decides it rather than a cookie the browser already holds",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/web/app/platform-v7/staff/open-cabinet/route.ts"
           ],
           "patterns": [
-            "signcabinetsession"
+            "item.role === 'platform_owner' && item.status === 'active'",
+            "authenticationassurance.mfaverified",
+            "!capabilities || !activeowner || !capabilities.authenticationassurance.mfaverified"
           ]
         },
         {
-          "condition": "the middleware still resolves a role from that cabinet cookie",
-          "check": "PRESENT_AT_PATH",
+          "condition": "an unauthorized or unreachable authority mints nothing, and the role is bound by the server rather than taken from the submission",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/web/middleware.ts"
+            "apps/web/app/platform-v7/staff/open-cabinet/route.ts"
           ],
           "patterns": [
-            "cabinet_session_cookie"
+            "response.status === 401 || response.status === 403) return { status: 'denied' }",
+            "!response.ok) return { status: 'unavailable' }",
+            "the server binds the role to its fixed controlled",
+            "max_api_owner_ttl_seconds = 60 * 60"
+          ]
+        },
+        {
+          "condition": "a browser-supplied cabinet role is refused unless the environment is explicitly development or test, so an unset NODE_ENV does not open it",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/platform-v7/cabinet-session/route.ts"
+          ],
+          "patterns": [
+            "envvalue(env, 'node_env') === 'development' || envvalue(env, 'node_env') === 'test'",
+            "const role = verifiedrole ?? (directbodyroleallowed ? bodyrole : '')"
+          ]
+        },
+        {
+          "condition": "the shared-password cabinet refuses in production before reading the request, bound to that refusal rather than to any mention of production in the file",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/platform-v7/cabinet-lock-login/route.ts"
+          ],
+          "patterns": [
+            "if (process.env.node_env === 'production') {\n    return nextresponse.json(\n      { ok: false, reason: 'controlled_test_login_disabled_in_production' },\n      { status: 410"
+          ]
+        },
+        {
+          "condition": "each of those properties is pinned against the tree, so weakening one fails the build rather than waiting for the next audit",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-authentication-pathways.test.mjs"
+          ],
+          "patterns": [
+            "an active platform_owner with mfa",
+            "mints nothing",
+            "cannot outlive or outrank",
+            "bound by the server",
+            "refused wherever production is even possible",
+            "before reading anything"
           ]
         }
       ],
-      "note": "The first half of this requirement is now met and the second is not, which is why it stays FAIL rather than following V6.1.3 to PASS. There are no longer undocumented pathways: THREAT_MODEL.md names all twelve minting surfaces and scripts/security/verify-authentication-pathways.test.mjs fails the build when a new one appears or a documented one disappears, in both directions, mutation-checked. What is not established is that security controls and authentication strength are enforced CONSISTENTLY across them. The API side is coherent: one access-token format, issuer, audience and type all checked, session scope re-read from auth.sessions on every request rather than trusted from the token, and every one-time bearer credential minted purpose-bound and versioned by the opaque token authority. The web tier is where the question is open. Three routes mint a cabinet cookie signed with JWT_SECRET that the API never sees and never accepts, and the Next.js middleware reads it to decide which role's pages render. Proving consistency means proving, surface by surface, what the middleware trusts that cookie to assert and that a cabinet role cannot present as more than the account behind it - and the strongest of the three, the owner cabinet open, already demands an ACTIVE PLATFORM_OWNER assignment with MFA verified, so the likely answer is that it holds. Likely is not evidence. The remaining differences that are settled and deliberate are recorded rather than left implicit: Gekta login requires MFA unconditionally where platform login requires it by role and account, which makes the second pathway stronger rather than inconsistent and is a property of the account rather than of the route the caller picks; and the demo and cabinet-lock contours produce credentials production cannot mint. Raised as #4780."
+      "note": "Первая половина требования была закрыта раньше: недокументированных путей нет, все двенадцать площадок выпуска названы в THREAT_MODEL.md, и verify-authentication-pathways.test.mjs роняет сборку в обе стороны при появлении новой или исчезновении названной. Открытой оставалась вторая половина — согласованность средств защиты и стойкости — и запись формулировала это честно: «вероятно, держится, но вероятно — это не доказательство».\n\nВероятность заменена измерением. Каждое свойство, которое модель угроз утверждает про три кабинетных пути, закреплено против дерева:\n- E (единственный достижимый в продакшене) требует назначения PLATFORM_OWNER именно в статусе ACTIVE И подтверждённого MFA, причём решение принимает API, а не cookie, который браузер уже держит;\n- отказ авторитета не превращается в открытую дверь: 401/403 — это отказ, любой другой не-ok — недоступность, и ни один из них не выпускает кабинет;\n- роль привязывает сервер к фиксированной контролируемой организации, поэтому присланная роль не может расширить кабинет. Это и есть свойство «не может представиться большим, чем стоящая за ним учётная запись»;\n- срок жизни ветки, авторизованной API, — час против восьми у фикстурной, а фикстурная в продакшене недостижима вовсе;\n- F принимает роль из тела только при NODE_ENV, равном development или test, а не «не production»: незаданное значение её не открывает;\n- G отвечает 410 в продакшене ДО чтения тела запроса.\n\nПроверено мутацией: снятие требования MFA, приём неактивного владельца, отказ от закрытого поведения при недоступном авторитете, расширение часового срока до восьми, замена явного development/test на «не production» и снятие продакшен-отказа с G — все шесть роняют набор.\n\nПоведение при этом не менялось ничем: три маршрута прочитаны, а не отредактированы. Закрыто доказательством того, что уже верно, а не новой правкой.\n\nОстальные различия между путями остаются записанными как намеренные, а не как несогласованность: вход Gekta требует MFA безусловно там, где платформенный требует его по роли и учётной записи, что делает второй путь СИЛЬНЕЕ, а не иным; демо- и cabinet-lock-контуры выпускают учётные данные, которые продакшен выпустить не может.\n\nОдно условие самого решения оказалось слабее проверки и исправлено здесь же — найдено мутацией. Строка process.env.NODE_ENV === 'production' встречается в этом файле дважды: в отказе и в флаге secure у cookie, поэтому снятие отказа её не убирало и вердикт не отзывался. Условие теперь содержит сам блок отказа вместе с кодом 410."
     },
     {
       "requirementId": "V6.3.5",
