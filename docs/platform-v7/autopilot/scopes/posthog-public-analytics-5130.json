@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/posthog-public-analytics-5130",
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction-2026-09-07-posthog-public-analytics",
+  "purpose": "Add privacy-bounded public product analytics through the existing first-party web boundary without session replay, PII collection, protected-route telemetry, registration changes or production topology changes.",
+  "authorityBaseExactMain": "25dd83e227184b11ee101de748a698dfa36c15af",
+  "effectiveAfter": "This governance manifest is merged to main. The implementation branch must then synchronize to that accepted main and stay within the finite path set below.",
+  "allowedPaths": [
+    "apps/web/app/platform-v7/actions/runtime-actions.ts",
+    "apps/web/components/analytics/PublicAnalytics.tsx",
+    "apps/web/lib/analytics/analytics-boundary.ts",
+    "apps/web/tests/unit/publicAnalyticsBoundary.test.ts"
+  ],
+  "requiredInvariants": [
+    "Session replay, autocapture and browser-side PostHog SDK loading remain disabled.",
+    "Analytics remains fail-closed outside the existing public allowlist plus exact /platform-v7; no descendant /platform-v7/* route becomes eligible by prefix.",
+    "The browser sends analytics only to the existing Next.js application boundary; third-party capture is performed server-side and must never block product availability.",
+    "Only a finite event-name and property allowlist may be transmitted; free text, form values, email, phone, arbitrary URLs, nested objects, tenant data, auth data and protected-route data are discarded.",
+    "No registration, authentication, role assignment, tenant isolation, RBAC, database schema, API authority, CSP relaxation, GitHub workflow, release authority or REG.RU topology is changed by this implementation.",
+    "PostHog capture must use person-profile suppression and geo-IP enrichment disablement. Visitor network addresses must not be deliberately placed in event properties.",
+    "No new npm dependency or recurring paid infrastructure commitment is introduced by this scope.",
+    "Existing Yandex public analytics boundary and its session-replay prohibition remain unchanged unless independently governed later."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
