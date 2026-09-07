@@ -269,7 +269,12 @@ test('local Qwen workflow is immutable, local-only inference, opt-in and never e
   assert.match(workflow, new RegExp(LOCAL_QWEN_POLICY_SHA256, 'u'));
   assert.match(workflow, /--temperature 0/u);
   assert.match(workflow, /--seed 424242/u);
-  assert.match(workflow, /--json-schema-file/u);
+  // The invariant is that decoding is constrained to a machine-checkable shape, so
+  // the model cannot emit prose the validator would then have to guess at. The
+  // mechanism moved from a JSON schema file to a GBNF grammar; assert the constraint
+  // and the file it is loaded from, not a spelling of the flag that carried it.
+  assert.match(workflow, /--grammar-file "\$RUNNER_TEMP\/review\.gbnf"/u);
+  assert.match(workflow, /review\.gbnf/u);
   assert.match(workflow, /--offline/u);
   // The invariant is that a PASS verdict may not carry findings, and a BLOCK
   // verdict may not be empty. The workflow enforces both in its validator; assert
