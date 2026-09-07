@@ -14,7 +14,15 @@
       ],
       "mustNotProtect": [
         "Platform access tokens, which are signed under JWT_SECRET. The API's env validation requires this name while no API code signs with it - recorded rather than silently tidied away"
-      ]
+      ],
+      "rotation": {
+        "criticality": "HIGH",
+        "cadence": "CALENDAR",
+        "intervalDays": 90,
+        "rotationSupport": "COORDINATED_CUTOVER",
+        "blastRadius": "Подделка токенов коммерческой поверхности, которые этот репозиторий только проверяет и не выпускает.",
+        "rationale": "Материал выпускает внешняя сторона, поэтому смена согласуется с ней; интервал держим равным JWT_SECRET, потому что проверяющая сторона здесь."
+      }
     },
     {
       "name": "AI_ASSISTANT_API_KEY",
@@ -28,7 +36,15 @@
       ],
       "mustNotProtect": [
         "Any application data. It is a third-party service credential"
-      ]
+      ],
+      "rotation": {
+        "criticality": "MEDIUM",
+        "cadence": "CALENDAR",
+        "intervalDays": 90,
+        "rotationSupport": "PROVIDER_REVOCABLE",
+        "blastRadius": "Расход квоты и доступ к модельному провайдеру от нашего имени. Данных платформы не защищает.",
+        "rationale": "Отзывается и перевыпускается у провайдера независимо от развёртывания, поэтому смена дешёвая и делается по календарю."
+      }
     },
     {
       "name": "AI_ASSISTANT_MAX_TOKENS",
@@ -81,7 +97,15 @@
       ],
       "mustNotProtect": [
         "Any credential or session material. This contour encrypts queued mail, not anything that admits a request"
-      ]
+      ],
+      "rotation": {
+        "criticality": "HIGH",
+        "cadence": "CALENDAR",
+        "intervalDays": 180,
+        "rotationSupport": "OVERLAPPING_KEYS",
+        "blastRadius": "Расшифровка полезной нагрузки почтового outbox в покое.",
+        "rationale": "Живёт под версионированным набором ключей, где каждая версия выводит свой ключ, поэтому смена - это ввод новой версии без перешифровки старых записей. Простоя нет."
+      }
     },
     {
       "name": "AUTH_MAIL_OUTBOX_KEYRING_DIR",
@@ -107,7 +131,15 @@
       ],
       "mustNotProtect": [
         "Any session, credential or application data at rest. It authenticates an inbound counterparty message and nothing else"
-      ]
+      ],
+      "rotation": {
+        "criticality": "CRITICAL",
+        "cadence": "CALENDAR",
+        "intervalDays": 90,
+        "rotationSupport": "OVERLAPPING_KEYS",
+        "blastRadius": "Подделка колбэка банка, то есть ложное подтверждение движения денег.",
+        "rationale": "Реестр ключей уже принимает несколько ключей одновременно с окнами действия, поэтому смена идёт без простоя: новый ключ вводится, старый доживает своё окно. Это единственный денежный контур с поддержкой перекрытия, и им следует пользоваться, а не откладывать смену."
+      }
     },
     {
       "name": "CRM_WEBHOOK_TOKEN",
@@ -120,7 +152,15 @@
       ],
       "mustNotProtect": [
         "Anything in the platform contour"
-      ]
+      ],
+      "rotation": {
+        "criticality": "MEDIUM",
+        "cadence": "CALENDAR",
+        "intervalDays": 180,
+        "rotationSupport": "COORDINATED_CUTOVER",
+        "blastRadius": "Подделка доставки лида в CRM под устаревшим именем переменной.",
+        "rationale": "Устаревшее имя за PLATFORM_V7_CRM_WEBHOOK_TOKEN. Меняется вместе с ним; отдельного срока не имеет смысла держать."
+      }
     },
     {
       "name": "DEAL_REGISTRY_CURSOR_SECRET",
@@ -133,7 +173,15 @@
       ],
       "mustNotProtect": [
         "Any session or credential. Its fallback to JWT_SECRET when unset was a boundary violation raised as #4790; the fallback remains, but domain separation means the signing key differs from the session-signing secret whichever material is in use"
-      ]
+      ],
+      "rotation": {
+        "criticality": "MEDIUM",
+        "cadence": "CALENDAR",
+        "intervalDays": 180,
+        "rotationSupport": "COORDINATED_CUTOVER",
+        "blastRadius": "Подделка курсора пагинации реестра сделок, привязанного к набору фильтров, под которым он выпущен.",
+        "rationale": "Ключ подписи выводится из этого материала через HKDF, а не используется напрямую, поэтому смена не трогает других потребителей. Инвалидируются только открытые курсоры."
+      }
     },
     {
       "name": "EDO_WEBHOOK_SECRET",
@@ -146,7 +194,15 @@
       ],
       "mustNotProtect": [
         "Any session or credential material, and any other integration's webhooks - each integration authenticates under its own secret"
-      ]
+      ],
+      "rotation": {
+        "criticality": "HIGH",
+        "cadence": "CALENDAR",
+        "intervalDays": 180,
+        "rotationSupport": "COORDINATED_CUTOVER",
+        "blastRadius": "Подделка события ЭДО, подписанного HMAC-SHA256 по сырому телу запроса.",
+        "rationale": "Общий секрет с контрагентом: смена требует согласованного перехода, поэтому срок длиннее банковского, где перекрытие поддержано."
+      }
     },
     {
       "name": "GEKTA_ANONYMOUS_SESSION_SECRET",
@@ -159,7 +215,15 @@
       ],
       "mustNotProtect": [
         "Any authenticated session. An anonymous session must never be upgradable into one by re-signing"
-      ]
+      ],
+      "rotation": {
+        "criticality": "MEDIUM",
+        "cadence": "CALENDAR",
+        "intervalDays": 180,
+        "rotationSupport": "COORDINATED_CUTOVER",
+        "blastRadius": "Подделка анонимной сессии просмотра Gekta, которая не несёт ни личности, ни прав.",
+        "rationale": "Радиус ограничен сессией без прав, поэтому срок вдвое длиннее ключей аутентификации; смена сбрасывает анонимные сессии и ничего больше."
+      }
     },
     {
       "name": "GEKTA_PHONE_ENCRYPTION_KEY",
@@ -172,7 +236,15 @@
       ],
       "mustNotProtect": [
         "Lookup indexes. Searching by phone uses a separate pepper, so the encryption key never has to be present to answer a lookup"
-      ]
+      ],
+      "rotation": {
+        "criticality": "CRITICAL",
+        "cadence": "EVENT_DRIVEN",
+        "intervalDays": null,
+        "rotationSupport": "DATA_MIGRATION_REQUIRED",
+        "blastRadius": "Расшифровка хранимых телефонных номеров, то есть массовое раскрытие ПДн.",
+        "rationale": "Календарный срок здесь был бы выдумкой: смена требует перешифровки всех хранимых номеров, а не ввода новой версии. Триггер - подозрение на компрометацию или плановая миграция; до появления версионированного набора ключей календарная смена не заявляется, потому что её нечем выполнить."
+      }
     },
     {
       "name": "GEKTA_PHONE_LOOKUP_PEPPER",
@@ -185,7 +257,15 @@
       ],
       "mustNotProtect": [
         "The phone numbers themselves. It produces a lookup value, never plaintext, and cannot reverse one"
-      ]
+      ],
+      "rotation": {
+        "criticality": "CRITICAL",
+        "cadence": "EVENT_DRIVEN",
+        "intervalDays": null,
+        "rotationSupport": "DATA_MIGRATION_REQUIRED",
+        "blastRadius": "Перебор слепого индекса телефонов: с этим значением номер можно подобрать по индексу, не расшифровывая хранимое.",
+        "rationale": "Перец нельзя сменить, не пересчитав каждый слепой индекс: старые индексы перестанут находиться. Заявлять для него 90 дней значило бы записать расписание, которое никто не выполнит. Триггер - компрометация или миграция индекса."
+      }
     },
     {
       "name": "JWT_SECRET",
@@ -213,7 +293,15 @@
       "mustNotProtect": [
         "Opaque one-time credentials. Password reset, MFA recovery, invitation, email verification, membership selection, refresh, MFA challenge, registration status, backup code and staff access digests derive a separate key by HKDF under a purpose label, and the API refuses to start in production without a dedicated key for it",
         "Anything outside the authentication contour. Its reuse as the deal-registry cursor fallback was a boundary violation, raised as #4790 and closed: the cursor now derives its own key by HKDF under pc-deal-registry-cursor:v1, so this material signs no cursor even when it is the material the cursor key is derived from"
-      ]
+      ],
+      "rotation": {
+        "criticality": "CRITICAL",
+        "cadence": "CALENDAR",
+        "intervalDays": 90,
+        "rotationSupport": "COORDINATED_CUTOVER",
+        "blastRadius": "Подделка любого access-токена платформы и Gekta, а в веб-слое - сессионной cookie кабинета. Это полный обход аутентификации для всех ролей сразу.",
+        "rationale": "Самый широкий радиус поражения в дереве, и код подписи не принимает несколько ключей одновременно, поэтому смена - это разовый переход с инвалидацией живых токенов. 90 дней выбраны как компромисс между этим радиусом и стоимостью принудительного разлогина всех."
+      }
     },
     {
       "name": "MARKETING_TELEGRAM_WEBHOOK_SECRET",
@@ -226,7 +314,15 @@
       ],
       "mustNotProtect": [
         "Anything in the platform contour. The marketing surface holds no authority over deals, money or identity"
-      ]
+      ],
+      "rotation": {
+        "criticality": "MEDIUM",
+        "cadence": "CALENDAR",
+        "intervalDays": 180,
+        "rotationSupport": "COORDINATED_CUTOVER",
+        "blastRadius": "Подделка вебхука маркетингового бота Telegram.",
+        "rationale": "Контур маркетинга, деньги и ПДн не затрагиваются; смена согласуется со стороной Telegram."
+      }
     },
     {
       "name": "MFA_LOGIN_TICKET_SECRET",
@@ -239,7 +335,15 @@
       ],
       "mustNotProtect": [
         "Any session that survives the MFA step. A ticket carries a pending challenge, not an authenticated identity"
-      ]
+      ],
+      "rotation": {
+        "criticality": "CRITICAL",
+        "cadence": "CALENDAR",
+        "intervalDays": 90,
+        "rotationSupport": "COORDINATED_CUTOVER",
+        "blastRadius": "Подделка короткоживущего тикета MFA, то есть обход второго фактора.",
+        "rationale": "Обход MFA - это отказ от второго фактора целиком. Тикеты короткоживущие, поэтому переход почти не виден пользователю: смена инвалидирует только тикеты в полёте."
+      }
     },
     {
       "name": "ORGANIZATION_INVITATION_DELIVERY_KEY",
@@ -256,7 +360,15 @@
       ],
       "mustNotProtect": [
         "The invitation credential itself, which is minted and digested by the opaque token authority under its own key"
-      ]
+      ],
+      "rotation": {
+        "criticality": "HIGH",
+        "cadence": "CALENDAR",
+        "intervalDays": 180,
+        "rotationSupport": "COORDINATED_CUTOVER",
+        "blastRadius": "Выдача себя за путь доставки почты для приглашений в организацию и восстановления MFA.",
+        "rationale": "Граница доставки внутренняя, обе стороны наши; смена не затрагивает внешних контрагентов."
+      }
     },
     {
       "name": "PASSWORD_RESET_DELIVERY_KEY",
@@ -272,7 +384,15 @@
       ],
       "mustNotProtect": [
         "The reset credential itself, and any other delivery contour - registration and invitation each hold their own key"
-      ]
+      ],
+      "rotation": {
+        "criticality": "HIGH",
+        "cadence": "CALENDAR",
+        "intervalDays": 180,
+        "rotationSupport": "COORDINATED_CUTOVER",
+        "blastRadius": "Выдача себя за путь доставки почты сброса пароля.",
+        "rationale": "Тот же внутренний контур доставки; радиус - подмена канала сброса, а не подделка самого токена сброса."
+      }
     },
     {
       "name": "PC_ACCEPTANCE_JWT_SECRET",
@@ -285,7 +405,15 @@
       ],
       "mustNotProtect": [
         "Anything production reaches. It exists so acceptance never borrows a real signing secret"
-      ]
+      ],
+      "rotation": {
+        "criticality": "NON_PRODUCTION",
+        "cadence": "PER_RUN",
+        "intervalDays": null,
+        "rotationSupport": "EPHEMERAL",
+        "blastRadius": "Ничего в продакшене: значение существует только внутри приёмочной матрицы браузеров.",
+        "rationale": "Задаётся на запуск приёмки и не покидает её. Календарное расписание для него было бы записью о секрете, которого в продакшене нет."
+      }
     },
     {
       "name": "PC_ACCEPTANCE_TLS_KEY",
@@ -298,7 +426,15 @@
       ],
       "mustNotProtect": [
         "Any production endpoint. It is generated for the run and never leaves it"
-      ]
+      ],
+      "rotation": {
+        "criticality": "NON_PRODUCTION",
+        "cadence": "PER_RUN",
+        "intervalDays": null,
+        "rotationSupport": "EPHEMERAL",
+        "blastRadius": "Ничего в продакшене: TLS-ключ локального HTTPS-сервера приёмочной матрицы.",
+        "rationale": "Существует только на время прогона приёмки."
+      }
     },
     {
       "name": "PC_CABINET_SESSION_SECRET",
@@ -318,7 +454,15 @@
       ],
       "mustNotProtect": [
         "Anything on its own. It is a fallback name for the same material rather than a separate key, so it inherits every boundary JWT_SECRET has"
-      ]
+      ],
+      "rotation": {
+        "criticality": "HIGH",
+        "cadence": "CALENDAR",
+        "intervalDays": 90,
+        "rotationSupport": "COORDINATED_CUTOVER",
+        "blastRadius": "Подделка сессионной cookie кабинета в резервном режиме, когда JWT_SECRET не задан.",
+        "rationale": "Резервный путь, но при срабатывании даёт тот же доступ, что и основной, поэтому и срок тот же."
+      }
     },
     {
       "name": "PLATFORM_V7_CRM_WEBHOOK_TOKEN",
@@ -331,7 +475,15 @@
       ],
       "mustNotProtect": [
         "Anything in the platform contour"
-      ]
+      ],
+      "rotation": {
+        "criticality": "MEDIUM",
+        "cadence": "CALENDAR",
+        "intervalDays": 180,
+        "rotationSupport": "COORDINATED_CUTOVER",
+        "blastRadius": "Подделка доставки лида в CRM.",
+        "rationale": "Предпочтительное имя. Смена согласуется со стороной CRM."
+      }
     },
     {
       "name": "REGISTRATION_DELIVERY_KEY",
@@ -353,7 +505,15 @@
       ],
       "mustNotProtect": [
         "The registration credential itself, and any other delivery contour"
-      ]
+      ],
+      "rotation": {
+        "criticality": "MEDIUM",
+        "cadence": "CALENDAR",
+        "intervalDays": 180,
+        "rotationSupport": "COORDINATED_CUTOVER",
+        "blastRadius": "Выдача себя за путь доставки регистрационной почты и решений по заявкам.",
+        "rationale": "Тот же внутренний контур доставки; регистрационный поток не трогается."
+      }
     },
     {
       "name": "RESEND_API_KEY",
@@ -373,7 +533,15 @@
       ],
       "mustNotProtect": [
         "Any application data. It is a third-party service credential"
-      ]
+      ],
+      "rotation": {
+        "criticality": "MEDIUM",
+        "cadence": "CALENDAR",
+        "intervalDays": 90,
+        "rotationSupport": "PROVIDER_REVOCABLE",
+        "blastRadius": "Отправка почты от нашего имени через Resend. Данных платформы не защищает.",
+        "rationale": "Отзывается у провайдера независимо; риск - рассылка от нашего имени, а не раскрытие данных."
+      }
     },
     {
       "name": "TAI_PLATFORM_TOOL_HMAC_SECRET_B64",
@@ -386,7 +554,15 @@
       ],
       "mustNotProtect": [
         "User sessions and any credential a person presents. It binds a machine-to-machine assertion"
-      ]
+      ],
+      "rotation": {
+        "criticality": "HIGH",
+        "cadence": "CALENDAR",
+        "intervalDays": 90,
+        "rotationSupport": "COORDINATED_CUTOVER",
+        "blastRadius": "Подделка утверждений вызова инструмента между платформой и рантаймом Gekta, то есть выполнение инструмента от имени платформы.",
+        "rationale": "Обе стороны наши, поэтому переход управляем и не требует согласования с внешним контрагентом."
+      }
     },
     {
       "name": "VAULT_TOKEN",
@@ -399,7 +575,15 @@
       ],
       "mustNotProtect": [
         "Any application data. It is a credential to an external service, and the material Vault holds never becomes this token"
-      ]
+      ],
+      "rotation": {
+        "criticality": "CRITICAL",
+        "cadence": "CALENDAR",
+        "intervalDays": 30,
+        "rotationSupport": "PROVIDER_REVOCABLE",
+        "blastRadius": "Доступ к transit-движку Vault, то есть к операциям шифрования и расшифровки ПДн. Сам по себе ничего не шифрует.",
+        "rationale": "Vault выдаёт токены с собственным сроком жизни и отзывает их немедленно, поэтому короткий срок здесь ничего не стоит и должен быть коротким: этот токен - вход в контур ПДн."
+      }
     }
   ]
 }

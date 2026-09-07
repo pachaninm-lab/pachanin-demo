@@ -8549,36 +8549,86 @@
     {
       "requirementId": "V13.1.4",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "apps/api/src/common/config/secrets.ts",
-        "documentation-set:docs/security/SECRET_ROTATION_REGISTER.md"
+        "docs/security/SECRET_ROTATION_SCHEDULE.md",
+        "docs/security/cryptographic-key-usage.json",
+        "scripts/security/build-secret-rotation-schedule.mjs",
+        "scripts/security/build-secret-rotation-schedule.test.mjs",
+        "scripts/security/verify-key-usage.mjs",
+        "scripts/security/verify-key-usage.test.mjs",
+        "apps/api/src/common/config/secrets.ts"
       ],
       "conditions": [
         {
-          "condition": "critical secrets are still enumerated by name in the resolver, so the material for a list exists",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the schedule exists, names every secret with its criticality, its period, how it can actually be rotated and what a compromise gives an attacker",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/api/src/common/config/secrets.ts"
+            "docs/security/SECRET_ROTATION_SCHEDULE.md"
           ],
           "patterns": [
-            "requiresecret"
+            "расписание ротации секретов",
+            "критичность",
+            "периодичность",
+            "как меняется",
+            "что даёт компрометация",
+            "обоснование"
           ]
         },
         {
-          "condition": "no rotation schedule is documented for any secret",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the schedule is not one interval written across everything: material whose rotation needs a data migration is event-driven, and material with overlapping-key support says rotation costs no downtime",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "docs/security/SECRET_ROTATION_REGISTER.md",
-            "docs/security/THREAT_MODEL.md"
+            "docs/security/SECRET_ROTATION_SCHEDULE.md"
           ],
           "patterns": [
-            "rotation schedule",
-            "rotate every"
+            "требует миграции данных, календарно невыполнима",
+            "без простоя",
+            "по событию",
+            "отзывается и перевыпускается у провайдера"
+          ]
+        },
+        {
+          "condition": "the schedule lives beside the usage boundary in one register rather than a second list of secrets that can drift from the first",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "docs/security/cryptographic-key-usage.json"
+          ],
+          "patterns": [
+            "rotationsupport",
+            "blastradius",
+            "intervaldays",
+            "data_migration_required",
+            "overlapping_keys",
+            "provider_revocable"
+          ]
+        },
+        {
+          "condition": "a secret cannot enter the tree without a schedule, a schedule cannot contradict its own cadence, and configuration cannot carry one",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-key-usage.mjs"
+          ],
+          "patterns": [
+            "unscheduled_secret",
+            "unusable_rotation_record",
+            "rotation_on_non_secret",
+            "auditrotation"
+          ]
+        },
+        {
+          "condition": "CI regenerates the schedule and refuses a tree where the committed copy differs",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            ".github/workflows/sbom-scan.yml"
+          ],
+          "patterns": [
+            "build-secret-rotation-schedule.mjs",
+            "git diff --exit-code docs/security/secret_rotation_schedule.md"
           ]
         }
       ],
-      "note": "The secrets critical to the platform are identifiable - every requireSecret() call site names one - but no document defines a rotation schedule for any of them, based on a threat model or otherwise. SECRET_ROTATION_REGISTER.md is a scan report and an incident procedure, not a schedule; its own text says the inventory for material held outside Git does not exist yet. This is the same gap already recorded against V11.1.1, seen from the configuration side."
+      "note": "Требование состоит из двух половин: назвать секреты, критичные для безопасности, и дать расписание их смены, опирающееся на модель угроз и требования бизнеса. Первая половина уже существовала - реестр cryptographic-key-usage.json перечисляет 27 единиц ключевого материала и для каждой говорит, где она применяется и что может и не может защищать. Не было второй.\n\nРасписание добавлено в тот же реестр, а не в отдельный файл, намеренно: два списка секретов разойдутся, и разойдутся молча. Человекочитаемое расписание порождается из него и сверяется в CI на устаревание.\n\nЕдиного интервала здесь нет, и это главное в записи. Одна цифра поперёк всех секретов была бы неверна дважды: она завышает выполнимое там, где смена требует миграции данных, и занижает должное там, где провайдер отзывает токен за секунду. Поэтому каждый секрет несёт способ смены, а не только срок:\n- BANK_HMAC_SECRET меняется без простоя - реестр банковских ключей уже принимает несколько ключей с окнами действия, и это существующая возможность, а не план;\n- AUTH_MAIL_OUTBOX_KEY живёт под версионированным набором, где каждая версия выводит свой ключ;\n- VAULT_TOKEN отзывается у Vault немедленно, поэтому 30 дней здесь ничего не стоят, а он вход в контур ПДн;\n- GEKTA_PHONE_LOOKUP_PEPPER и GEKTA_PHONE_ENCRYPTION_KEY календарной даты НЕ несут. Перец нельзя сменить, не пересчитав каждый слепой индекс; ключ - не перешифровав каждый хранимый номер. Записать для них «каждые 90 дней» значило бы записать расписание, которое никто не выполнит, и тест это запрещает явно.\n\nПроверка держит запись к дереву с трёх сторон: секрет без расписания роняет сборку, расписание, противоречащее собственной периодичности (календарь без интервала или интервал без календаря), роняет сборку, и расписание на configuration, которому нечего менять, тоже роняет. Отдельный тест запрещает схлопывание в один интервал и запрещает календарную дату для материала с миграцией.\n\nЧто НЕ заявлено: это расписание, а не доказательство того, что смена произошла. Требование просит документацию, и она есть; факт выполнения ротации - предмет эксплуатации, и здесь он не утверждается."
     },
     {
       "requirementId": "V13.2.1",
