@@ -105,29 +105,17 @@ export class DurableOutboxWorker {
   }
 
   async drainOnce(workerId: string, limit = 25): Promise<OutboxDrainReport> {
-    if (!Number.isInteger(limit) || limit < 1 || limit > 500) {
-      throw new Error('limit must be between 1 and 500');
-    }
-
+    const claimed = await this.claimBatch(workerId, limit);
     const report: OutboxDrainReport = {
       workerId,
-      claimed: 0,
+      claimed: claimed.length,
       delivered: 0,
       retried: 0,
       deadLettered: 0,
       leaseLost: 0,
     };
 
-    // Delivery is intentionally serial, so leasing a full batch up front only
-    // lets one slow or poison message hold unrelated work hostage. Keep the
-    // configured batch size as the maximum work per drain, but acquire each
-    // lease immediately before that entry is delivered. Peer workers can then
-    // continue claiming healthy work while this worker is blocked on a handler.
-    for (let processed = 0; processed < limit; processed += 1) {
-      const [entry] = await this.claimBatch(workerId, 1);
-      if (!entry) break;
-      report.claimed++;
-
+    for (const entry of claimed) {
       const handler = this.handlers.get(entry.type) ?? this.fallbackHandler;
       if (!handler) {
         try {
