@@ -7,6 +7,7 @@ const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'u
 
 const wrapper = read('apps/web/components/platform-v7/PlatformV7StrategicHomeInternational.tsx');
 const home = read('apps/web/components/platform-v7/PlatformV7StrategicHome.tsx');
+const siteHeader = read('apps/web/components/platform-v7/PublicSiteHeader.tsx');
 const page = read('apps/web/app/platform-v7/page.tsx');
 const story = read('apps/web/i18n/platform-v7-home-story-product.ts');
 const css = read('apps/web/styles/platform-v7-international-home-fix.css');
@@ -55,26 +56,27 @@ describe('platform-v7 international homepage completion', () => {
     expect(css).toContain('font-size: 14px !important');
   });
 
-  it('keeps the full brand and registration available together in the mobile fixed header', () => {
-    const authority = ".pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit']";
+  it('keeps full brand and registration together in one canonical 64px mobile header', () => {
     expect(home).toContain("<a href={registerHref} className='pc-v6-header-cta'>{copy.nav.connect}</a>");
-    expect(css).toContain('.pc-v7-public-entry .pc-v6-header-cta');
-    expect(css).toContain('display: inline-flex !important');
-    expect(css).toContain('@media (max-width: 430px)');
-    expect(css).toContain('--pc-public-header-total-height: 96px !important');
-    expect(css).toContain(`${authority} .pc-site-header`);
-    expect(css).toContain('flex-wrap: wrap !important');
-    expect(css).toContain('height: 96px !important');
-    expect(css).toContain(`${authority} .pc-site-brand`);
-    expect(css).toContain(`${authority} .pc-site-brand-text`);
-    expect(css).toContain(`${authority} .pc-site-brand-text strong`);
-    expect(css).toContain('display: grid !important');
-    expect(css).toContain('overflow: visible !important');
-    expect(css).toContain('white-space: nowrap !important');
-    expect(css).not.toContain('.pc-site-brand-text {\n    display: none !important;');
-    expect(css).toContain(`${authority} .pc-site-actions`);
-    expect(css).toContain('flex: 1 0 100% !important');
-    expect(css).toContain('@media (max-width: 359px)');
+    expect(siteHeader).toContain("data-public-site-header='canonical'");
+    expect(siteHeader).toContain(".pc-site-header[data-public-site-header='canonical'].pc-site-header.pc-site-header");
+    expect(siteHeader).toContain('flex-wrap: nowrap !important');
+    expect(siteHeader).toContain('height: 64px !important');
+    expect(siteHeader).toContain("<strong>Прозрачная Цена</strong>");
+    expect(siteHeader).toContain('font-size: 14px !important');
+    expect(siteHeader).toContain('white-space: normal !important');
+    expect(siteHeader).toContain('min-width: 84px !important');
+    expect(siteHeader).toContain(".pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .entry-login > span");
+    expect(siteHeader).toContain(".pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-v6-header-cta");
+    expect(siteHeader).toContain('min-width: 44px !important');
+    expect(siteHeader).not.toContain(".pc-site-brand-text {\n    display: none !important;");
+    expect(css).not.toContain('--pc-public-header-total-height: 96px !important');
+    expect(css).not.toContain('height: 96px !important');
+    expect(css).not.toContain('flex-wrap: wrap !important');
+    expect(page).not.toContain('--entry-public-header-base: 100px !important');
+    expect(page).not.toContain('height: 100px !important');
+    expect(page).not.toContain('--entry-public-header-base: 48px');
+    expect(css).toContain('scroll-margin-top: calc(var(--pc-public-header-total-height, 64px) + 18px) !important');
   });
 
   it('keeps semantic homepage copy in normal DOM instead of CSS substitution', () => {

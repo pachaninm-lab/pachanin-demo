@@ -416,6 +416,21 @@
   }
 }
 
+/* On phones, role-workspace details are reading surfaces rather than a dense
+ * data table. One column prevents fragmented words at 390/430 px. */
+@media (max-width: 430px) {
+  .actionGrid,
+  .contextRow {
+    grid-template-columns: 1fr;
+  }
+
+  .rolePanel strong,
+  .contextRow > span {
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+}
+
 @media (max-width: 359px) {
   .workspaceHeader {
     display: grid;

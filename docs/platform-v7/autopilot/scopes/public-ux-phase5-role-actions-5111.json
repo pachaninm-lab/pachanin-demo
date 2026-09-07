@@ -4,7 +4,7 @@
   "status": "active",
   "authorizedBy": "explicit-user-instruction-2026-09-07-continue-public-ux-5111",
   "purpose": "Correct the public nine-role Deal explanation after Phase 5 human evidence proved that the shared stage-level next action can incorrectly present buyer/seller work as the action of driver, laboratory, bank and other roles. Keep one Deal and one seven-stage journey while making each role's allowed next action truthful in RU, EN and ZH without changing protected authorization or real workflow authority.",
-  "authorityBaseExactMain": "1eb81f4dea95625ba79410af4046c457aa897c10",
+  "authorityBaseExactMain": "9aec05b0c4711ce168a54e8232cd36aaf9890080",
   "effectiveAfter": "The governance PR adding this manifest must be independently reviewed and merged to main. The implementation branch must then be created or rematerialized from the accepted exact main containing this manifest; implementation must not create or widen its own scope.",
   "allowedPaths": [
     "apps/web/components/platform-v7/PublicDealRoleScenario.tsx",

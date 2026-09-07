@@ -4,7 +4,7 @@
   "status": "active",
   "authorizedBy": "explicit-user-instruction-2026-09-06-continue-public-ux-5111",
   "purpose": "Complete Phase 3 of #5111 by normalizing every remaining homepage-reachable public surface onto the canonical public shell, removing visitor-facing status/readiness presentation, correcting inherited public metadata framing, and resolving responsive/floating-shell inconsistencies without changing authentication, registration authority, AI gateway authority or legal-consent authority.",
-  "authorityBaseExactMain": "1eb81f4dea95625ba79410af4046c457aa897c10",
+  "authorityBaseExactMain": "9aec05b0c4711ce168a54e8232cd36aaf9890080",
   "effectiveAfter": "This independent governance PR is reviewed and merged to main. The implementation branch must then be created or rematerialized from the accepted exact main containing this manifest; implementation must not widen its own scope.",
   "allowedPaths": [
     "apps/web/app/pc-public-entry/platform-v7/home-approved-contact-dock.css",

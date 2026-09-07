@@ -57,7 +57,9 @@ describe('platform-v7 accounting closure homepage value', () => {
   });
 
   it('is responsive and accessible on the public homepage', () => {
-    expect(section).toContain("role='list'");
+    expect(section).toContain("role='group'");
+    expect(section).not.toContain("role='listitem'");
+    expect(section).toContain("aria-label={copy.flowLabel}");
     expect(section).toContain("aria-labelledby='accounting-close-title'");
     expect(styles).toContain('@media (max-width: 767px)');
     expect(styles).toContain('grid-template-columns: minmax(0, 1fr)');
