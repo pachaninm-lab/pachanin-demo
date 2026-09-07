@@ -1,9 +1,16 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RequestUser, Role } from '../../common/types/request-user';
 import { integrationRegistry } from '../../../../../packages/integration-sdk/src/registry';
 import type { MockBkiAdapter } from '../../../../../packages/integration-sdk/src/adapters/bki.adapter';
 import { NotificationsService } from '../notifications/notifications.service';
+import {
+  ALLOWED_FACTORS,
+  FACTORING_AMOUNT_MAX_KOPECKS,
+  FACTORING_AMOUNT_MIN_KOPECKS,
+  isAllowedFactor,
+  isUsableAmountKopecks,
+} from './factoring.contract';
 
 export type FactoringStatus = 'PENDING' | 'SCORING' | 'APPROVED' | 'REJECTED' | 'ACTIVE' | 'REPAID' | 'OVERDUE';
 
@@ -39,7 +46,6 @@ type DealScoreRow = { id: string; status: string; totalKopecks: bigint | null; t
 
 const FINANCE_ROLES: ReadonlySet<Role> = new Set([Role.ADMIN, Role.ACCOUNTING, Role.EXECUTIVE, Role.FARMER, Role.BUYER]);
 const ADMIN_ACCOUNTING_EXECUTIVE: ReadonlySet<Role> = new Set([Role.ADMIN, Role.ACCOUNTING, Role.EXECUTIVE]);
-const ALLOWED_FACTORS = ['Сбербанк Факторинг', 'ВТБ Факторинг', 'Альфа-Банк', 'Открытие Факторинг', 'ПСБ Факторинг'];
 const DUE_SOON_DAYS = [7, 3];
 const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours
 
@@ -116,8 +122,15 @@ export class FactoringService implements OnModuleInit, OnModuleDestroy {
     if (!FINANCE_ROLES.has(user.role)) {
       throw new ForbiddenException('Доступ запрещён');
     }
-    if (!ALLOWED_FACTORS.includes(params.factorName)) {
+    if (!isAllowedFactor(params.factorName)) {
       throw new ForbiddenException(`Факторинговая компания "${params.factorName}" не подключена`);
+    }
+    // Граница уже проверила сумму, но сервис не полагается на неё: вызывающий
+    // в обход контроллера не должен уметь записать минус, NaN или Infinity.
+    if (!isUsableAmountKopecks(params.requestedAmountKopecks)) {
+      throw new BadRequestException(
+        `FACTORING_AMOUNT_INVALID: ожидается целое от ${FACTORING_AMOUNT_MIN_KOPECKS} до ${FACTORING_AMOUNT_MAX_KOPECKS} копеек`,
+      );
     }
 
     const score = await this.scoreOrganization(params.organizationId, user);
@@ -355,7 +368,8 @@ export class FactoringService implements OnModuleInit, OnModuleDestroy {
     return app;
   }
 
-  listFactors(): string[] {
+  /** Список заморожен: вызывающий получает его на чтение, а не на правку. */
+  listFactors(): readonly string[] {
     return ALLOWED_FACTORS;
   }
 }

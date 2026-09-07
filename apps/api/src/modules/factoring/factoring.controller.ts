@@ -3,6 +3,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser, Role } from '../../common/types/request-user';
 import { FactoringService } from './factoring.service';
+import { CreateFactoringApplicationDto } from './dto/factoring.dto';
 import { ForbiddenException } from '@nestjs/common';
 
 const OVERDUE_CHECK_ROLES: ReadonlySet<Role> = new Set([Role.ADMIN, Role.ACCOUNTING]);
@@ -19,10 +20,18 @@ export class FactoringController {
 
   @Post('applications')
   createApplication(
-    @Body() body: { dealId: string; organizationId: string; factorName: string; requestedAmountKopecks: number },
+    @Body() body: CreateFactoringApplicationDto,
     @CurrentUser() user: RequestUser,
   ) {
-    return this.factoring.createApplication(body, user);
+    return this.factoring.createApplication(
+      {
+        dealId: body.dealId,
+        organizationId: body.organizationId,
+        factorName: body.factorName,
+        requestedAmountKopecks: body.requestedAmountKopecks,
+      },
+      user,
+    );
   }
 
   @Get('applications')
