@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/login-lockout-finding-4459",
+  "status": "active",
+  "purpose": "Two corrections to the evidence base, no verdict claimed and no code changed. First: V6.1.1 asks the documentation to make clear how anti-automation controls PREVENT malicious account lockout, and measurement shows they do not - the finding is recorded rather than papered over. Second: V8.2.4 silently stopped being evaluated between builds because an unrelated privacy merge made one of its absence patterns match; the condition is repaired so the requirement is under observation again.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/decision-record-accuracy-4459.json",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "No verdict is claimed as PASS by this pass. V6.1.1 and V6.3.1 stay FAIL; V8.2.4 returns from NOT_ASSESSED to FAIL, which raises the FAIL count from 89 to 90 because that is the honest number - NOT_ASSESSED there was not a better state, it was the absence of observation.",
+    "No application code is touched. The login lockout is measured and written down, not changed: keying the counter by account and IP needs a schema change to auth.login_throttles and is a trade-off against distributed password spraying, so it is the owner's decision.",
+    "The enumeration resistance already present must not be lost in any later fix: a non-existent address is treated exactly like an existing one and also accumulates failures. That is deliberate, and re-keying the throttle must preserve it.",
+    "The repaired V8.2.4 patterns detect what a real geolocation control would use, never a mention of the word. All seven are verified absent from the tree, and the PostHog disable flag that broke the old pattern deliberately does not match.",
+    "No dependency, schema, migration, RLS or policy change. No registration business logic, 1C, marketing or presentation code. No production, REG.RU, DNS, database or credential mutation. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "Login lockout measured exactly: auth.login_throttles is keyed by account_hash = hash('account:' + email) with no IP component; MAX_FAILED_LOGINS = 5; LOGIN_LOCKOUT_MS = 15 minutes; the login route is rate limited per IP at 8 per 60 seconds. Five requests lock a known address for fifteen minutes, and roughly twenty requests an hour from one address hold it locked. Knowing the address is enough; the password is not needed.",
+    "V8.2.4 drift diagnosed to its cause: the absence pattern 'geoip' began matching '$geoip_disable': true, introduced by the privacy-bounded PostHog merge - a flag that turns geolocation OFF. A substring check cannot tell use from disablement.",
+    "The repair is falsifiable in both directions, proven by mutation: introducing a real maxmind lookup drives the verdict to NOT_ASSESSED for re-assessment, while the PostHog disable flag alone leaves it FAIL.",
+    "Matrix against current main c725f6af4: exactly one verdict changes, V8.2.4 NOT_ASSESSED -> FAIL. PASS 129, FAIL 90, NOT_APPLICABLE 88, NOT_ASSESSED 38."
+  ]
+}
