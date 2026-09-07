@@ -47,6 +47,7 @@ requireAll('provisioner', [
   "stat -c '%a:%u:%g'",
   'chmod 0600',
   'chown 0:0',
+  'RUNTIME_AUTHORITY_PARTIAL',
   'ACTIVE_POSTHOG_AUTHORITY_UNTRACKED',
   'POSTHOG_RUNTIME_LEAKED_TO_NON_WEB_SERVICE',
   'POSTHOG_WEB_IMAGE_UNCHANGED=1',
@@ -219,11 +220,11 @@ try {
   if (!fs.existsSync(runtimeFile) || fs.readFileSync(runtimeFile, 'utf8') !== expectedRuntime) {
     failures.push(`${paths.provisioner}: runtime file mismatch`);
   }
+  const expectedOverride = `services:\n  web:\n    env_file:\n      - ${JSON.stringify(runtimeFile)}\n`;
   if (!fs.existsSync(overrideFile)) {
     failures.push(`${paths.provisioner}: override file missing`);
-  } else {
-    const expectedOverride = `services:\n  web:\n    env_file:\n      - ${JSON.stringify(runtimeFile)}\n`;
-    if (fs.readFileSync(overrideFile, 'utf8') !== expectedOverride) failures.push(`${paths.provisioner}: override file mismatch`);
+  } else if (fs.readFileSync(overrideFile, 'utf8') !== expectedOverride) {
+    failures.push(`${paths.provisioner}: override file mismatch`);
   }
 
   const second = runProvisioner();
@@ -232,6 +233,26 @@ try {
   }
   if (second.stdout.includes(fixtureReference) || second.stderr.includes(fixtureReference)) {
     failures.push(`${paths.provisioner}: project reference leaked on idempotent run`);
+  }
+
+  fs.rmSync(overrideFile, { force: true });
+  const envOnly = runProvisioner();
+  if (envOnly.status === 0 || !envOnly.stderr.includes('POSTHOG_RUNTIME_ERROR=RUNTIME_AUTHORITY_PARTIAL')) {
+    failures.push(`${paths.provisioner}: env-only partial authority was not rejected`);
+  }
+  if (envOnly.stdout.includes(fixtureReference) || envOnly.stderr.includes(fixtureReference)) {
+    failures.push(`${paths.provisioner}: project reference leaked during env-only rejection`);
+  }
+
+  fs.writeFileSync(overrideFile, expectedOverride, { mode: 0o600 });
+  fs.chmodSync(overrideFile, 0o600);
+  fs.rmSync(runtimeFile, { force: true });
+  const overrideOnly = runProvisioner();
+  if (overrideOnly.status === 0 || !overrideOnly.stderr.includes('POSTHOG_RUNTIME_ERROR=RUNTIME_AUTHORITY_PARTIAL')) {
+    failures.push(`${paths.provisioner}: override-only partial authority was not rejected`);
+  }
+  if (overrideOnly.stdout.includes(fixtureReference) || overrideOnly.stderr.includes(fixtureReference)) {
+    failures.push(`${paths.provisioner}: project reference leaked during override-only rejection`);
   }
 } finally {
   fs.rmSync(fixtureRoot, { recursive: true, force: true });
