@@ -8929,45 +8929,66 @@
     {
       "requirementId": "V13.4.2",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "apps/api/src/main.ts",
         "apps/api/src/common/logger/masked-logger.service.ts",
+        "apps/api/src/common/logger/masked-logger-levels.spec.ts",
+        "apps/api/src/main.ts",
+        "apps/api/src/outbox-worker.ts",
+        "apps/api/src/marketing-outbox-worker.ts",
         "apps/api/src/common/kafka/kafka-producer.service.ts"
       ],
       "conditions": [
         {
-          "condition": "the bootstrap logger still extends ConsoleLogger with no logLevels restriction, so Nest’s default level set stays active in production",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the production level set exists, excludes debug and verbose, and keeps the levels that carry failures",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/common/logger/masked-logger.service.ts"
           ],
           "patterns": [
-            "extends consolelogger"
+            "production_log_levels",
+            "resolveloglevels",
+            "'log', 'warn', 'error', 'fatal'];"
           ]
         },
         {
-          "condition": "no logLevels restriction exists anywhere in the API source to narrow that default",
-          "check": "ABSENT_IN_TREE",
-          "roots": [
-            "apps/api/src"
-          ],
-          "patterns": [
-            "loglevels"
-          ]
-        },
-        {
-          "condition": "a runtime call site still logs at debug level with message content, proving the level is live rather than theoretical",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the restriction is applied in the constructor, so none of the three installation sites can omit it",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/api/src/common/kafka/kafka-producer.service.ts"
+            "apps/api/src/common/logger/masked-logger.service.ts"
           ],
           "patterns": [
-            "logger.debug("
+            "constructor() {",
+            "this.setloglevels(resolveloglevels());"
+          ]
+        },
+        {
+          "condition": "the suppression is proven by behaviour rather than by the presence of an option: a debug call in production writes nothing, and redaction still runs on what is emitted",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/logger/masked-logger-levels.spec.ts"
+          ],
+          "patterns": [
+            "produces no output at all",
+            "islevelenabled('debug')",
+            "level suppression did not replace redaction",
+            "no construction site can forget it"
+          ]
+        },
+        {
+          "condition": "every place that installs the logger goes through the class that carries the restriction rather than constructing a bare ConsoleLogger",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts",
+            "apps/api/src/outbox-worker.ts",
+            "apps/api/src/marketing-outbox-worker.ts"
+          ],
+          "patterns": [
+            "new maskedloggerservice()"
           ]
         }
       ],
-      "note": "Corrected on review: an earlier version of this decision recorded PASS on the reasoning that MaskedLoggerService is not a \"verbose or debug\" logger, which conflated masking with level suppression — they are different things, and only the first is true here. main.ts does construct the Nest application with new MaskedLoggerService(), and that class does redact sensitive substrings from every log call. But MaskedLoggerService extends ConsoleLogger with no constructor and no logLevels option, so it inherits Nest’s default logger levels, which include debug and verbose; nothing anywhere in apps/api/src sets logLevels or LOG_LEVEL to narrow that default for any environment, including production. This is not a theoretical gap: kafka-producer.service.ts calls this.logger.debug() at two call sites with the Kafka topic and the serialized message value, so debug-level output does execute at runtime whenever the transport-unavailable path is hit, unmasked by anything other than MaskedLoggerService’s substring redaction. Debug/diagnostic log levels are enabled by default, which is exactly what this requirement asks to be verified false. Masking sensitive substrings within debug output is a separate, real control (V16 territory) and does not substitute for the level itself being disabled."
+      "note": "Закрыто подавлением уровня, а не переписыванием мест вызова. Предыдущая запись была верна в диагнозе: MaskedLoggerService расширяет ConsoleLogger, маскирование и подавление уровня — разные вещи, и класс делал только первое. Без опции logLevels наследовался набор Nest по умолчанию, куда входят debug и verbose, и это не теория: kafka-producer.service.ts пишет на debug тему и сериализованное значение сообщения.\n\nОграничение стоит в конструкторе, а не на площадках создания. Логгер ставится в трёх местах — main.ts, outbox-worker.ts и marketing-outbox-worker.ts — и каждое пишет голое new MaskedLoggerService(). Площадку можно забыть при добавлении четвёртой; конструктор забыть нельзя. Уровни ставятся после super() намеренно: ConsoleLogger принимает logLevels только вместе с аргументом context, а фиксация context здесь стёрла бы имя модуля из каждой строки лога.\n\nМесто вызова debug в kafka-producer.service.ts НЕ удалено, и это осознанно. Требование просит выключить отладочные режимы в продакшене, а не вычистить отладочные вызовы из исходников: вне продакшена они полезны и продолжают работать. Удаление вызова к тому же сделало бы контроль непроверяемым — исчез бы сам случай, на котором он доказывается.\n\nДоказано поведением, а не наличием опции: тест ставит NODE_ENV=production, перехватывает stdout и убеждается, что debug и verbose не пишут ничего, а error пишет. Отдельный тест проверяет, что подавление уровня не подменило маскирование — пароль в записи уровня log по-прежнему вычищается. Четыре мутации роняют набор: снятие ограничения из конструктора, возврат debug в продакшен-набор, удаление error из него, и подстрочное сравнение NODE_ENV вместо точного, при котором 'not-production' считался бы продакшеном.\n\nЧто НЕ заявлено: это уровень логирования API и двух воркеров. Отладочные режимы других компонентов — веб-слоя, инфраструктуры — здесь не проверяются и не утверждаются."
     },
     {
       "requirementId": "V13.4.3",
