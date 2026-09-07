@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "governance/octopus-review-5148",
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction-2026-09-07-solve-now-without-codex",
+  "purpose": "Authorize a zero-cost independent exact-head code-review provider for public pull requests when Codex/Copilot review is unavailable, without weakening owner self-audit, exact-head, CI, thread, or drift requirements.",
+  "authorityBaseExactMain": "1eb81f4dea95625ba79410af4046c457aa897c10",
+  "effectiveAfter": "This governance manifest is merged to main. A separate implementation branch must then start from that accepted main and remain inside the finite path set below.",
+  "allowedPaths": [
+    ".github/workflows/octopus-independent-review.yml",
+    ".github/workflows/automerge.yml",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.mjs",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
+  ],
+  "requiredInvariants": [
+    "Octopus Review is an additional genuine independent provider; Codex and GitHub Copilot remain valid and owner self-audit never counts as independent review.",
+    "The Octopus action must be pinned to exact commit c7156c0dc465c20e8b06da84b92b64f9ae8c7c36; floating tags are forbidden in the accepted workflow.",
+    "No Octopus API key, signup, paid plan, secret purchase, or new recurring cost may be introduced; only the public-repository community tier is authorized.",
+    "The provider workflow must execute from accepted main authority and must not execute untrusted pull-request code.",
+    "The workflow token may have only contents:read and pull-requests:write permissions; source-code write, deployments, packages, secrets, actions administration and production permissions are forbidden.",
+    "Octopus evidence is acceptable only for the exact current PR head, only when the independent provider returns findings-count=0, and only when the provider workflow itself completes successfully on that same head.",
+    "A github-actions actor alone is never sufficient evidence; the verifier must require the dedicated provider workflow identity plus an exact structured Octopus attestation bound to the current head.",
+    "Existing exact-head CI, owner self-audit, unresolved review-thread, latest change-request and main-drift requirements remain mandatory and fail closed.",
+    "No MACHINE_FALLBACK, owner-posted provider PASS, arbitrary bot review, stale-head review, prefix-only authority, or fabricated independent evidence is authorized.",
+    "No registration, authentication, database, application-domain, PostHog runtime, REG.RU production, deployment or user-facing behavior is changed by this scope.",
+    "No new npm dependency is introduced; the provider action is invoked only by exact immutable GitHub Action commit SHA.",
+    "Standard GitHub-hosted Actions on this public repository may be used because they incur no new recurring cost."
+  ],
+  "productionHosting": "UNCHANGED_REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
