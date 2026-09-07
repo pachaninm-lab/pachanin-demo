@@ -2,9 +2,10 @@ import { getPlatformV7HomeCopy as getBaseHomeCopy } from './platform-v7-home-v3'
 
 const operatingCopy = {
   ru: {
+    a11y: { controlTower: 'Упрощённый пример одной Сделки' },
     nav: { connect: 'Начать', status: 'Доверие и контроль' },
     hero: {
-      primary: 'Посмотреть, как работает Сделка',
+      primary: 'Посмотреть пример Сделки',
       secondary: 'Зарегистрироваться',
       tertiary: 'Скачать презентацию',
       proofLabel: 'Как платформа ведёт Сделку',
@@ -12,7 +13,7 @@ const operatingCopy = {
     lifecycle: {
       lead: 'Семь понятных шагов ведут Сделку от товара и условий до расчёта и закрытия. На каждом шаге видны факты, ответственный, основание и следующий шаг.',
       hint: 'Семь шагов обычной Сделки.',
-      phases: ['Товар и условия', 'Торги и контрагент', 'Сделка и договор', 'Логистика и поставка', 'Приёмка и качество', 'Документы и готовность расчёта', 'Расчёт и закрытие'],
+      phases: ['Товар и условия', 'Торги и контрагент', 'Сделка и договор', 'Логистика и поставка', 'Приёмка и качество', 'Документы и основание расчёта', 'Расчёт и закрытие'],
     },
     final: {
       title: 'Начните работать с платформой',
@@ -25,9 +26,10 @@ const operatingCopy = {
     },
   },
   en: {
+    a11y: { controlTower: 'Simplified example of one Deal' },
     nav: { connect: 'Register', status: 'Trust and control' },
     hero: {
-      primary: 'See how a Deal works',
+      primary: 'View the Deal example',
       secondary: 'Register',
       tertiary: 'Download presentation',
       proofLabel: 'How the platform runs a Deal',
@@ -35,7 +37,7 @@ const operatingCopy = {
     lifecycle: {
       lead: 'Seven clear steps take a Deal from product and terms to settlement and closure. Every step shows facts, owner, evidence and the next action.',
       hint: 'Seven steps of an ordinary Deal.',
-      phases: ['Product and terms', 'Bidding and counterparty', 'Deal and contract', 'Logistics and delivery', 'Acceptance and quality', 'Documents and settlement readiness', 'Settlement and closure'],
+      phases: ['Product and terms', 'Bidding and counterparty', 'Deal and contract', 'Logistics and delivery', 'Acceptance and quality', 'Documents and settlement basis', 'Settlement and closure'],
     },
     final: {
       title: 'Start using the platform',
@@ -48,9 +50,10 @@ const operatingCopy = {
     },
   },
   zh: {
+    a11y: { controlTower: '一笔交易的简化示例' },
     nav: { connect: '注册', status: '信任与控制' },
     hero: {
-      primary: '查看交易如何运行',
+      primary: '查看交易示例',
       secondary: '注册',
       tertiary: '下载演示文稿',
       proofLabel: '平台如何管理交易',
@@ -58,7 +61,7 @@ const operatingCopy = {
     lifecycle: {
       lead: '七个清晰步骤把交易从商品与条件推进到结算与关闭，每一步都显示事实、责任方、依据和下一步。',
       hint: '普通交易的七个步骤。',
-      phases: ['商品与条件', '竞价与交易方', '交易与合同', '物流与交付', '验收与质量', '文件与结算准备', '结算与关闭'],
+      phases: ['商品与条件', '竞价与交易方', '交易与合同', '物流与交付', '验收与质量', '文件与结算依据', '结算与关闭'],
     },
     final: {
       title: '开始使用平台',
@@ -78,6 +81,7 @@ export function getPlatformV7HomeCopy(locale: string) {
 
   return {
     ...base,
+    a11y: { ...base.a11y, ...localized.a11y },
     nav: { ...base.nav, ...localized.nav },
     hero: { ...base.hero, ...localized.hero },
     lifecycle: { ...base.lifecycle, ...localized.lifecycle },
