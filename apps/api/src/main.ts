@@ -59,6 +59,16 @@ async function bootstrap() {
   app.enableCors({
     origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
     credentials: true,
+    // ASVS 5.0 V4.1.4: список методов задан явно, а не оставлен на умолчание
+    // фреймворка. Привязка маршрутов и так не даст выполниться обработчику для
+    // необъявленного метода — но это ограничивает то, ЧТО выполняется, и ничего
+    // не говорит о том, что preflight РЕКЛАМИРУЕТ браузеру.
+    //
+    // Список измерен по декораторам контроллеров, а не выписан наугад:
+    // @Get 221, @Post 206, @Patch 31, @Delete 7, @Put 1. Ни @Head, ни @Options,
+    // ни @All не объявлены нигде; OPTIONS добавлен потому, что им идёт сам
+    // preflight.
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
 
   // HTTP metrics instrumentation

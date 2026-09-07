@@ -23,6 +23,7 @@ export class VaultTransitService {
       const b64 = Buffer.from(plaintext, 'utf-8').toString('base64');
       const resp = await fetch(`${VAULT_ADDR}/v1/transit/encrypt/${TRANSIT_KEY}`, {
         method: 'POST',
+        redirect: 'error',
         headers: {
           'X-Vault-Token': VAULT_TOKEN,
           'Content-Type': 'application/json',
@@ -45,6 +46,7 @@ export class VaultTransitService {
     try {
       const resp = await fetch(`${VAULT_ADDR}/v1/transit/decrypt/${TRANSIT_KEY}`, {
         method: 'POST',
+        redirect: 'error',
         headers: {
           'X-Vault-Token': VAULT_TOKEN,
           'Content-Type': 'application/json',
