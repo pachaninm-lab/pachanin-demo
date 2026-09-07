@@ -20,10 +20,21 @@ AS $function$
   END
 $function$;
 
-ALTER TABLE eligibility.registry_generations ADD COLUMN registry_domain TEXT;
+ALTER TABLE eligibility.registry_generations ADD COLUMN IF NOT EXISTS registry_domain TEXT;
 UPDATE eligibility.registry_generations
 SET registry_domain = eligibility.derive_registry_domain(source, schema_version)
 WHERE registry_domain IS NULL;
+DO $registry_generations_domain_not_null$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM eligibility.registry_generations
+    WHERE registry_domain IS NULL
+  ) THEN
+    RAISE EXCEPTION 'registry_generations.registry_domain backfill incomplete';
+  END IF;
+END
+$registry_generations_domain_not_null$;
 
 ALTER TABLE eligibility.registry_generations
   ALTER COLUMN registry_domain SET NOT NULL,
@@ -76,10 +87,21 @@ DROP INDEX IF EXISTS eligibility.registry_generations_one_active_per_source_idx;
 CREATE UNIQUE INDEX registry_generations_one_active_per_source_domain_idx
   ON eligibility.registry_generations(source, registry_domain) WHERE status = 'ACTIVE';
 
-ALTER TABLE eligibility.source_health ADD COLUMN registry_domain TEXT;
+ALTER TABLE eligibility.source_health ADD COLUMN IF NOT EXISTS registry_domain TEXT;
 UPDATE eligibility.source_health
 SET registry_domain = eligibility.derive_registry_domain(source, schema_version)
 WHERE registry_domain IS NULL;
+DO $source_health_domain_not_null$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM eligibility.source_health
+    WHERE registry_domain IS NULL
+  ) THEN
+    RAISE EXCEPTION 'source_health.registry_domain backfill incomplete';
+  END IF;
+END
+$source_health_domain_not_null$;
 ALTER TABLE eligibility.source_health
   ALTER COLUMN registry_domain SET NOT NULL,
   ADD CONSTRAINT source_health_registry_domain_check
