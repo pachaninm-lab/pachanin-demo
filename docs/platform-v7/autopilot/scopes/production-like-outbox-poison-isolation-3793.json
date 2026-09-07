@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/production-like-outbox-poison-isolation-3793",
+  "status": "active",
+  "operationalStatus": "PRODUCTION_LIKE_OUTBOX_POISON_ISOLATION_DETERMINISTIC",
+  "issue": 3793,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/production-like-outbox-poison-isolation-3793.json",
+    "scripts/release/production-like-kubernetes-outbox-runtime.sh"
+  ],
+  "boundaries": {
+    "productionMutation": false,
+    "runtimeBusinessBehaviorChange": false,
+    "databaseSchemaChange": false,
+    "workerReplicaCountChange": false,
+    "acceptanceThresholdWeakened": false,
+    "timeoutOnlyFix": false,
+    "securityGateDisabled": false,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "the oversized poison row completes its first real worker attempt and is durably observed in PENDING retry backoff with retryCount=1 before healthy rows are seeded",
+    "twenty healthy rows become SENT while the poison row remains active in the real retry path",
+    "the harness waits for PENDING or DEAD_LETTER before forcing nextRetryAt",
+    "the poison row reaches DEAD_LETTER after the real retry path",
+    "the two-replica topology, payload, batch size, backlog thresholds and worker implementation remain unchanged",
+    "source drift or duplicate replacement anchors fail closed",
+    "the exact-head Production-like Kubernetes Acceptance is terminal PASS"
+  ],
+  "productionHosting": "NO_PRODUCTION_MUTATION"
+}
