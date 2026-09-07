@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/production-hardening-13-4-4459",
+  "status": "active",
+  "purpose": "ASVS V13.4.2 asks that debug modes be disabled in production. MaskedLoggerService extends ConsoleLogger and redacts sensitive substrings from every record, but redaction and level suppression are different things and it did only the first. With no logLevels option it inherited Nest's default set, which includes debug and verbose, and nothing anywhere narrowed it for production. The gap was live: kafka-producer.service.ts logs the topic and the serialized message value at debug level.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/production-debug-mode-4459.json",
+    "apps/api/src/common/logger/masked-logger.service.ts",
+    "apps/api/src/common/logger/masked-logger-levels.spec.ts",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "The restriction lives in the constructor, not at the installation sites. The logger is installed in three places - main.ts, outbox-worker.ts and marketing-outbox-worker.ts - each writing a bare new MaskedLoggerService(). A fourth site could forget the option; it cannot forget the constructor.",
+    "Levels are set after super() deliberately. ConsoleLogger accepts logLevels only alongside a context argument, and pinning context here would erase the calling module's name from every log line - trading one regression for another.",
+    "Suppression must not replace redaction. Masking still runs on everything that is emitted, and a test asserts a password in a log-level record is still redacted.",
+    "The debug call site in kafka-producer.service.ts is NOT removed. The requirement asks that debug modes be off in production, not that debug calls be deleted from the source: outside production they are useful, and removing the call would also remove the case the control is proven on.",
+    "Levels that carry failures - log, warn, error, fatal - stay enabled in production. Hardening that blinds operators to errors is a different defect, and a test asserts each of them individually.",
+    "NODE_ENV is matched exactly, not by substring, so a value like 'not-production' is not read as production.",
+    "No dependency, schema, migration, RLS or policy change. No registration, 1C, marketing or presentation code. No production, REG.RU, DNS, database or credential mutation. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "Proven by behaviour, not by the presence of an option: with NODE_ENV=production the test intercepts stdout and asserts debug and verbose write nothing while error writes.",
+    "Four mutations each turn the spec red: removing the constructor restriction, returning debug to the production set, dropping error from it, and matching NODE_ENV by substring instead of equality.",
+    "V13.4.2 PASS is machine-revocable: four mutations with the matrix rebuilt each time - removing the constructor restriction, returning debug to production, untracking the spec, and weakening the behavioural assertion - all four drove the verdict to NOT_ASSESSED.",
+    "Matrix on this head: PASS 129 -> 130, FAIL 90 -> 89. Exactly one verdict changed; no collateral drift.",
+    "apps/api typecheck shows no new error; scripts/security 144/144 green; decision-evidence and web-unit-coverage gates green."
+  ]
+}

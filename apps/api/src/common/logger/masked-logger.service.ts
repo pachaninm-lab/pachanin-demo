@@ -1,4 +1,5 @@
 import { ConsoleLogger, Injectable } from '@nestjs/common';
+import type { LogLevel } from '@nestjs/common';
 import { REDACTED, isSensitiveFieldName, maskText } from '../security/sensitive-data';
 
 /**
@@ -77,8 +78,37 @@ function maskParams(params: any[]): string[] {
   return params.map((param) => maskSensitive(String(param)));
 }
 
+/**
+ * Уровни логирования решаются здесь, а не на каждой площадке создания логгера.
+ *
+ * ConsoleLogger без опции logLevels наследует набор Nest по умолчанию, куда
+ * входят debug и verbose. Маскирование и подавление уровня — разные вещи: этот
+ * класс вычищает чувствительные подстроки из каждой записи, но не решает, какие
+ * записи вообще появляются. В продакшене debug живой, и это не теория —
+ * kafka-producer.service.ts пишет на этом уровне тему и сериализованное
+ * значение сообщения.
+ *
+ * Логгер ставится в трёх местах (main.ts и два воркера), поэтому ограничение
+ * стоит в конструкторе: площадку создания забыть можно, конструктор — нет.
+ */
+export const PRODUCTION_LOG_LEVELS: readonly LogLevel[] = ['log', 'warn', 'error', 'fatal'];
+export const DEVELOPMENT_LOG_LEVELS: readonly LogLevel[] = ['log', 'warn', 'error', 'fatal', 'debug', 'verbose'];
+
+export function resolveLogLevels(nodeEnv: string | undefined = process.env.NODE_ENV): LogLevel[] {
+  const production = String(nodeEnv ?? '').trim().toLowerCase() === 'production';
+  return [...(production ? PRODUCTION_LOG_LEVELS : DEVELOPMENT_LOG_LEVELS)];
+}
+
 @Injectable()
 export class MaskedLoggerService extends ConsoleLogger {
+  constructor() {
+    super();
+    // Уровни ставятся после super(), чтобы не занимать аргумент context: он
+    // принадлежит вызывающей стороне, и фиксация его здесь стёрла бы имя модуля
+    // из каждой строки лога.
+    this.setLogLevels(resolveLogLevels());
+  }
+
   log(message: any, ...optionalParams: any[]) {
     super.log(maskSensitive(String(message)), ...maskParams(optionalParams));
   }
