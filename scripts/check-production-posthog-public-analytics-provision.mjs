@@ -98,6 +98,135 @@ try {
   failures.push(`${paths.scope}: invalid JSON: ${error.message}`);
 }
 
+// Execute the real release entrypoint. A Docker sentinel stops admitted fixtures
+// before any deployment command; invalid authority must stop before that sentinel.
+// lstat snapshots also prove rejection does not replace dangling links or files.
+const executorFixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-posthog-executor-'));
+const executorFixtureBin = path.join(executorFixtureRoot, 'bin');
+fs.mkdirSync(executorFixtureBin);
+fs.writeFileSync(path.join(executorFixtureBin, 'docker'), [
+  '#!/usr/bin/env bash',
+  'printf "called\\n" >> "$PC_EXECUTOR_DOCKER_MARKER"',
+  'printf "PC_EXECUTOR_DOCKER_BOUNDARY\\n" >&2',
+  'exit 86',
+  '',
+].join('\n'), { mode: 0o700 });
+fs.writeFileSync(path.join(executorFixtureBin, 'stat'), [
+  '#!/usr/bin/env python3',
+  'import os, stat, sys',
+  "if len(sys.argv) != 4 or sys.argv[1:3] != ['-c', '%a:%u:%g']:",
+  '    raise SystemExit(96)',
+  "print(format(stat.S_IMODE(os.stat(sys.argv[3]).st_mode), 'o') + ':0:0')",
+  '',
+].join('\n'), { mode: 0o700 });
+const snapshotRuntimePath = (file) => {
+  try {
+    const info = fs.lstatSync(file);
+    return JSON.stringify({
+      mode: info.mode,
+      kind: info.isSymbolicLink() ? 'link' : info.isDirectory() ? 'directory' : 'file',
+      value: info.isSymbolicLink() ? fs.readlinkSync(file)
+        : info.isFile() ? fs.readFileSync(file, 'utf8') : null,
+    });
+  } catch (error) {
+    if (error.code === 'ENOENT') return 'absent';
+    throw error;
+  }
+};
+const executorCases = [
+  ['absent', 'absent', null],
+  ['file', 'file', null],
+  ['file', 'absent', 'POSTHOG_RUNTIME_AUTHORITY_PARTIAL'],
+  ['absent', 'file', 'POSTHOG_RUNTIME_AUTHORITY_PARTIAL'],
+  ['dangling', 'absent', 'POSTHOG_RUNTIME_AUTHORITY_PARTIAL'],
+  ['absent', 'dangling', 'POSTHOG_RUNTIME_AUTHORITY_PARTIAL'],
+  ['dangling', 'dangling', 'POSTHOG_RUNTIME_FILE_INVALID'],
+  ['dangling', 'file', 'POSTHOG_RUNTIME_FILE_INVALID'],
+  ['file', 'dangling', 'POSTHOG_RUNTIME_OVERRIDE_INVALID'],
+  ['symlink', 'file', 'POSTHOG_RUNTIME_FILE_INVALID'],
+  ['file', 'symlink', 'POSTHOG_RUNTIME_OVERRIDE_INVALID'],
+  ['directory', 'file', 'POSTHOG_RUNTIME_FILE_INVALID'],
+  ['file', 'directory', 'POSTHOG_RUNTIME_OVERRIDE_INVALID'],
+  ['open-mode', 'file', 'POSTHOG_RUNTIME_FILE_INVALID'],
+  ['file', 'open-mode', 'POSTHOG_RUNTIME_OVERRIDE_INVALID'],
+  ['malformed', 'file', 'POSTHOG_RUNTIME_FILE_INVALID'],
+  ['file', 'malformed', 'POSTHOG_RUNTIME_OVERRIDE_INVALID'],
+];
+try {
+  for (const action of ['audit', 'deploy', 'rollback']) {
+    for (const [envKind, overrideKind, expectedError] of executorCases) {
+      const label = `${action}:${envKind}/${overrideKind}`;
+      const dir = fs.mkdtempSync(path.join(executorFixtureRoot, `${action}-`));
+      const envFile = path.join(dir, '.pc-posthog-public-analytics.env');
+      const override = path.join(dir, 'compose.pc-posthog-public-analytics.override.yml');
+      const compose = path.join(dir, 'compose.yml');
+      const hardening = path.join(dir, 'compose.production-hardening.override.yml');
+      const imageOverride = path.join(dir, 'compose.production-web-image.override.yml');
+      const acceptance = path.join(dir, 'acceptance.sh');
+      const dockerMarker = path.join(dir, 'docker-called');
+      const acceptanceMarker = path.join(dir, 'acceptance-called');
+      const reference = `phc_${'B'.repeat(32)}`;
+      const envBody = `POSTHOG_PROJECT_REFERENCE=${reference}\nPOSTHOG_INGEST_REGION=us\n`;
+      const overrideBody = `services:\n  web:\n    env_file:\n      - ${JSON.stringify(envFile)}\n`;
+      fs.writeFileSync(compose, 'services:\n  web:\n    image: fixture/web:exact\n');
+      fs.writeFileSync(hardening, 'services: {}\n');
+      fs.writeFileSync(imageOverride, 'services: {}\n');
+      fs.writeFileSync(acceptance, '#!/usr/bin/env bash\nprintf "called\\n" >> "$PC_EXECUTOR_ACCEPTANCE_MARKER"\nexit 85\n', { mode: 0o700 });
+      const install = (file, kind, body) => {
+        if (kind === 'absent') return;
+        if (kind === 'dangling') { fs.symlinkSync(`${file}.missing`, file); return; }
+        if (kind === 'directory') { fs.mkdirSync(file); return; }
+        if (kind === 'symlink') {
+          fs.writeFileSync(`${file}.target`, body, { mode: 0o600 });
+          fs.symlinkSync(`${file}.target`, file);
+          return;
+        }
+        fs.writeFileSync(file, kind === 'malformed' ? 'invalid\n' : body);
+        fs.chmodSync(file, kind === 'open-mode' ? 0o644 : 0o600);
+      };
+      install(envFile, envKind, envBody);
+      install(override, overrideKind, overrideBody);
+      const watchedPaths = [envFile, override, imageOverride, `${envFile}.target`, `${override}.target`];
+      const before = watchedPaths.map(snapshotRuntimePath);
+      const result = spawnSync('bash', [path.resolve(paths.executor), action, 'a'.repeat(40)], {
+        encoding: 'utf8',
+        timeout: 10000,
+        env: {
+          ...process.env,
+          PATH: `${executorFixtureBin}:${process.env.PATH}`,
+          PC_PROD_DIR: dir,
+          PC_PROD_COMPOSE: compose,
+          PC_PROD_PROJECT: 'fixtureproj',
+          PC_HARDENING_OVERRIDE: hardening,
+          PC_IMAGE_OVERRIDE: imageOverride,
+          PC_POSTHOG_RUNTIME_ENV_FILE: envFile,
+          PC_POSTHOG_RUNTIME_OVERRIDE: override,
+          PC_LIVE_ACCEPTANCE_SCRIPT: acceptance,
+          PC_EXECUTOR_DOCKER_MARKER: dockerMarker,
+          PC_EXECUTOR_ACCEPTANCE_MARKER: acceptanceMarker,
+        },
+      });
+      const output = `${result.stdout || ''}\n${result.stderr || ''}`;
+      if (result.error || result.signal) failures.push(`executor ${label}: process did not terminate normally`);
+      if (expectedError) {
+        if (result.status === 0 || !output.includes(`ERROR: ${expectedError}`)) {
+          failures.push(`executor ${label}: required rejection ${expectedError} missing`);
+        }
+        if (fs.existsSync(dockerMarker)) failures.push(`executor ${label}: invalid authority reached Docker`);
+      } else if (result.status !== 86 || !fs.existsSync(dockerMarker) || !output.includes('PC_EXECUTOR_DOCKER_BOUNDARY')) {
+        failures.push(`executor ${label}: valid authority did not reach the Docker boundary`);
+      }
+      if (fs.existsSync(acceptanceMarker)) failures.push(`executor ${label}: live acceptance unexpectedly executed`);
+      if (output.includes(reference)) failures.push(`executor ${label}: project reference leaked`);
+      if (JSON.stringify(before) !== JSON.stringify(watchedPaths.map(snapshotRuntimePath))) {
+        failures.push(`executor ${label}: runtime paths or image override changed during admission`);
+      }
+    }
+  }
+} finally {
+  fs.rmSync(executorFixtureRoot, { recursive: true, force: true });
+}
+
 const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pc-posthog-runtime-'));
 const fixtureBin = path.join(fixtureRoot, 'bin');
 const prodDir = path.join(fixtureRoot, 'prod');

@@ -89,8 +89,8 @@ fi
 
 posthog_env_present=0
 posthog_override_present=0
-[[ -e "$POSTHOG_RUNTIME_ENV_FILE" ]] && posthog_env_present=1
-[[ -e "$POSTHOG_RUNTIME_OVERRIDE" ]] && posthog_override_present=1
+[[ -e "$POSTHOG_RUNTIME_ENV_FILE" || -L "$POSTHOG_RUNTIME_ENV_FILE" ]] && posthog_env_present=1
+[[ -e "$POSTHOG_RUNTIME_OVERRIDE" || -L "$POSTHOG_RUNTIME_OVERRIDE" ]] && posthog_override_present=1
 [[ "$posthog_env_present" == "$posthog_override_present" ]] || fail 'POSTHOG_RUNTIME_AUTHORITY_PARTIAL'
 posthog_runtime_override_present=0
 if (( posthog_env_present == 1 )); then
