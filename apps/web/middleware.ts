@@ -119,6 +119,9 @@ const PUBLIC_API_EXACT = new Set([
   '/api/platform-v7/organization-connect',
   '/api/platform-v7/inquiries',
   '/api/platform-v7/leads',
+  // Браузер шлёт отчёт о нарушении CSP без учётных данных и не повторяет
+  // попытку. За сессией такая точка не работала бы вовсе.
+  '/api/csp-report',
 ]);
 
 function isPrivateMode(): boolean {
@@ -213,10 +216,26 @@ function applySecurityHeaders(response: NextResponse, protectedResponse = false,
   response.headers.set('referrer-policy', 'no-referrer');
   response.headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=()');
   response.headers.set('strict-transport-security', 'max-age=31536000; includeSubDomains; preload');
+  // Куда браузер шлёт нарушения. Без адреса политика работает, но её
+  // срабатывания никто не видит: ни ложные, ни настоящие. Указаны оба
+  // механизма — report-uri устарел, но поддержан шире, а report-to требует
+  // объявления адресата отдельным заголовком Reporting-Endpoints.
+  response.headers.set('reporting-endpoints', 'csp-endpoint="/api/csp-report"');
   response.headers.set(
     'content-security-policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; report-uri /api/csp-report; report-to csp-endpoint"
   );
+  // Разрыв связи с окном-открывателем: документ не делит browsing context
+  // group со страницей, которая его открыла. Измерено перед постановкой:
+  // window.open в apps/web не встречается ни разу, а вход через
+  // государственный провайдер идёт полностраничным редиректом
+  // (govIdentityBridge.ts выставляет redirect_uri), поэтому popup-потоков,
+  // которые этот заголовок мог бы сломать, здесь нет.
+  response.headers.set('cross-origin-opener-policy', 'same-origin');
+  // Ресурсы приложения не встраиваются чужими сайтами. Это согласовано с уже
+  // стоящим frame-ancestors 'none', и Access-Control-Allow-Origin в apps/web
+  // не выставляется нигде, то есть кросс-доменных потребителей нет.
+  response.headers.set('cross-origin-resource-policy', 'same-origin');
   if (protectedResponse) {
     response.headers.set('cache-control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
     response.headers.set('pragma', 'no-cache');
