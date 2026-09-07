@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/own-session-management-4459",
+  "status": "active",
+  "purpose": "ASVS V7.5.2 requires that users can view and, having authenticated again with at least one factor, terminate any or all of their active sessions. Staff could; ordinary users could not. The only termination endpoint on the user-facing surface is ADMIN-only and works on someone else's user id, and the capability constant SECURITY_SESSION_REVOKE_OWN was wired to no route at all, so it granted nothing.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "stackedOn": "security/membership-command-reauth-4459",
+  "stackedReason": "This work uses the shared fresh-MFA control introduced there. Duplicating it would have made a sixth copy of a primitive that already exists five times in the tree, which is the opposite of what that pass was for.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/own-session-management-4459.json",
+    "apps/api/src/modules/auth/auth.controller.ts",
+    "apps/api/src/modules/auth/auth.service.ts",
+    "apps/api/src/modules/auth/persistent-auth.repository.ts",
+    "apps/api/src/modules/auth/own-session-management.spec.ts",
+    "docs/security/asvs-applicability-decisions.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "apps/api/src/common/security/fresh-mfa.ts",
+    "apps/api/src/common/security/fresh-mfa.spec.ts",
+    "apps/api/src/modules/auth/organization-invitation.service.ts",
+    "apps/api/src/modules/auth/organization-membership-reauth.spec.ts"
+  ],
+  "requiredInvariants": [
+    "Ownership is enforced inside the SQL, never by a check performed before it. The existing revokeSession takes any session id and is not user-scoped; calling it with a foreign id would be a direct object reference. The new path keeps user_id in the WHERE, so a foreign id changes no row at all rather than changing none 'almost always'.",
+    "A foreign session, an already-ended session and a missing one answer identically with SESSION_NOT_FOUND. Distinguishing them would turn the endpoint into an oracle for other people's session identifiers.",
+    "Terminating requires a fresh factor; viewing does not. That is the requirement's own wording - the parenthetical attaches to terminate - and gating the view would put an obstacle exactly where speed matters: seeing that your account has been taken over.",
+    "user_agent_hash and ip_hash are deliberately not projected. They are hashed, tell the owner nothing, and are a fingerprint.",
+    "No existing endpoint changes behaviour. sessions/revoke-user stays ADMIN-only and untouched; revokeSession and revokeAllUserSessions keep their current semantics and callers.",
+    "No dependency, schema or migration change: both new repository methods read and write tables that already exist. No registration business logic, 1C, marketing or presentation code. No production, REG.RU, DNS, database or credential mutation. New mandatory cost: 0 RUB.",
+    "The two cryptographic-inventory files are regenerated, never hand-edited, because adding source files moves scannedFiles.",
+    "The four paths carried in from security/membership-command-reauth-4459 are listed here too. The guard measures a branch against main, so a stacked branch must account for the whole cumulative diff or it reports files it has no authority for; listing them describes what this head actually changes relative to main rather than hiding half of it."
+  ],
+  "acceptance": [
+    "Three routes added: GET sessions, POST sessions/:sessionId/revoke, POST sessions/revoke-all-own, each rate limited, the destructive ones more tightly than the read.",
+    "Six mutations each turn the suite red, every one verified to have actually applied: removing the user scope from the termination, removing it from the listing, projecting ip_hash into the listing, gating the view on a fresh factor, ungating the single termination, and removing the equal answer for a foreign id.",
+    "Three earlier mutation attempts reported NOT APPLIED and were re-run rather than counted: perl interpolates ${userId} inside \\Q...\\E before quoting it, and a \\n written inside \\Q...\\E is a literal backslash-n. A mutation that does not apply is a green run proving nothing.",
+    "Matrix on this head: PASS 129 -> 131, FAIL 90 -> 88, covering V7.5.1 from the branch below and V7.5.2 from this one. No collateral drift.",
+    "Full @pc/api suite: 2902 passed, 0 failed. apps/api typecheck shows no new error. scripts/security 144/144 green."
+  ]
+}

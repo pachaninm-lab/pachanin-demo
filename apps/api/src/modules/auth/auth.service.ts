@@ -46,6 +46,7 @@ import {
   PersistentAuthRepository,
   SessionContextRow,
 } from './persistent-auth.repository';
+import { requireFreshMfa } from '../../common/security/fresh-mfa';
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -829,6 +830,69 @@ export class AuthService {
       mfaVerified: Boolean(context.mfa_verified_at),
       mfaVerifiedAt: context.mfa_verified_at?.toISOString(),
     };
+  }
+
+  /**
+   * Свои активные сессии (ASVS V7.5.2, половина «посмотреть»).
+   *
+   * Повторной аутентификации не требует намеренно: требование просит её для
+   * завершения сессии, а не для просмотра списка. Заставлять подтверждать фактор
+   * ради того, чтобы увидеть захват собственной учётной записи, значило бы
+   * поставить препятствие ровно там, где нужна скорость.
+   */
+  async listOwnSessions(user: RequestUser) {
+    const rows = await this.repository.listActiveUserSessions(this.repository.prisma, user.id);
+    return rows.map((row) => ({
+      id: row.id,
+      current: row.id === user.sessionId,
+      mfaLevel: row.mfa_level,
+      mfaVerifiedAt: row.mfa_verified_at?.toISOString() ?? null,
+      createdAt: row.created_at.toISOString(),
+      lastSeenAt: row.last_seen_at.toISOString(),
+      expiresAt: row.expires_at.toISOString(),
+    }));
+  }
+
+  /**
+   * Завершение своей сессии (ASVS V7.5.2, половина «завершить»).
+   *
+   * Требует свежего фактора: завершение чужих сессий - это то, что делает
+   * захвативший, чтобы вытеснить владельца, и то, что делает владелец, чтобы
+   * вытеснить захватившего. Побеждать должен тот, кто может подтвердить фактор.
+   */
+  async revokeOwnSession(user: RequestUser, sessionId: string, reason = 'USER_REVOKED') {
+    requireFreshMfa(user);
+    const revoked = await this.repository.transaction(async (tx) => {
+      const count = await this.repository.revokeOwnSession(tx, user.id, sessionId, reason);
+      if (count > 0) {
+        await this.audit(tx, {
+          userId: user.id,
+          action: 'auth.sessions.revoke_own',
+          outcome: 'SUCCESS',
+          reason,
+        });
+      }
+      return count;
+    });
+    // Чужая, уже завершённая и несуществующая сессия отвечают одинаково: иначе
+    // ответ становится оракулом существования чужих идентификаторов.
+    if (revoked === 0) throw new NotFoundException({ code: 'SESSION_NOT_FOUND' });
+    return { success: true, sessionId, reason };
+  }
+
+  /** Завершение всех своих сессий, включая текущую. */
+  async revokeAllOwnSessions(user: RequestUser, reason = 'USER_REVOKED_ALL') {
+    requireFreshMfa(user);
+    await this.repository.transaction(async (tx) => {
+      await this.repository.revokeAllUserSessions(tx, user.id, reason);
+      await this.audit(tx, {
+        userId: user.id,
+        action: 'auth.sessions.revoke_all_own',
+        outcome: 'SUCCESS',
+        reason,
+      });
+    });
+    return { success: true, reason };
   }
 
   async revokeUserSessions(userId: string, reason = 'ADMIN_REVOKE') {

@@ -229,6 +229,35 @@ export class AuthController {
     return this.authService.revokeUserSessions(dto.userId, dto.reason || 'ADMIN_REVOKE');
   }
 
+  /**
+   * ASVS V7.5.2: владелец учётной записи должен видеть свои активные сессии и
+   * уметь завершить любую из них или все.
+   *
+   * До этого такой возможности не было ни у одного обычного пользователя:
+   * единственный путь завершения на этой поверхности - sessions/revoke-user -
+   * доступен только ADMIN и работает по чужому идентификатору пользователя.
+   */
+  @Get('sessions')
+  @RateLimit({ name: 'auth_own_session_list', scope: 'user', limit: 60, windowSeconds: 60 })
+  listOwnSessions(@CurrentUser() user: RequestUser) {
+    return this.authService.listOwnSessions(user);
+  }
+
+  @Post('sessions/:sessionId/revoke')
+  @RateLimit({ name: 'auth_own_session_revoke', scope: 'user', limit: 20, windowSeconds: 60, includeParams: ['sessionId'] })
+  revokeOwnSession(
+    @Param('sessionId') sessionId: string,
+    @CurrentUser() user: RequestUser,
+  ) {
+    return this.authService.revokeOwnSession(user, sessionId);
+  }
+
+  @Post('sessions/revoke-all-own')
+  @RateLimit({ name: 'auth_own_session_revoke_all', scope: 'user', limit: 5, windowSeconds: 300 })
+  revokeAllOwnSessions(@CurrentUser() user: RequestUser) {
+    return this.authService.revokeAllOwnSessions(user);
+  }
+
   @Get('me')
   me(@CurrentUser() user: RequestUser) {
     return this.authService.me(user);
