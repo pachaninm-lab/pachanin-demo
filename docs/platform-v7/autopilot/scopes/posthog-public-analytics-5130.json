@@ -7,7 +7,7 @@
   "authorityBaseExactMain": "25dd83e227184b11ee101de748a698dfa36c15af",
   "effectiveAfter": "This governance manifest is merged to main. The implementation branch must then synchronize to that accepted main and stay within the finite path set below.",
   "allowedPaths": [
-    "apps/web/app/platform-v7/actions/runtime-actions.ts",
+    "apps/web/app/layout.tsx",
     "apps/web/components/analytics/PublicAnalytics.tsx",
     "apps/web/lib/analytics/analytics-boundary.ts",
     "apps/web/tests/unit/publicAnalyticsBoundary.test.ts"
