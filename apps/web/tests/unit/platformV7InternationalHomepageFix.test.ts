@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-const root = process.cwd();
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'utf8');
 
 const wrapper = read('apps/web/components/platform-v7/PlatformV7StrategicHomeInternational.tsx');
@@ -127,6 +128,17 @@ describe('platform-v7 international homepage completion', () => {
     expect(trustContent).toContain('Что платформа не заявляет без доказательств');
     expect(trustContent).toContain('ISO, SOC 2 или иная сертификация — без опубликованного подтверждения');
     expect(trustContent).toContain('У Гекты нет самостоятельного права менять Сделку');
+  });
+
+  it('keeps the wide-desktop contact dock in a narrow non-text-obscuring rail', () => {
+    expect(css).toContain('@media (min-width: 1180px)');
+    expect(css).toContain('body:has(.pc-v7-public-entry)');
+    expect(css).toContain('width: 54px !important');
+    expect(css).toContain('grid-template-rows: repeat(3, 48px) !important');
+    expect(css).toContain('width: 48px !important');
+    expect(css).toContain('min-height: 48px !important');
+    expect(css).toContain('.pc-public-contact-dock-action strong');
+    expect(css).toContain('clip-path: inset(50%) !important');
   });
 
   it('retains mobile dock sizing, reduced-motion and forced-colors resilience', () => {

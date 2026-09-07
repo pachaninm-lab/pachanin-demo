@@ -13,7 +13,7 @@ describe('platform-v7 public Gekta passport', () => {
   const government = read('components/platform-v7/PublicGovernmentDataContour.tsx');
   const seo = read('lib/platform-v7/public-seo-routes.json');
 
-  it('publishes one indexable passport route in the same public design system', () => {
+  it('publishes one indexable Gekta route in the same public design system', () => {
     expect(page).toContain("data-testid='platform-v7-ai-in-action-authority'");
     expect(page).toContain("canonical: '/platform-v7/ai-in-action'");
     expect(page).toContain("data-ai-experience-route='/platform-v7/ai-in-action'");
@@ -24,9 +24,11 @@ describe('platform-v7 public Gekta passport', () => {
     expect(page).toContain("import '@/styles/platform-v7-public-intelligence-layer.css'");
     expect(seo).toContain('"path": "/platform-v7/ai-in-action"');
     expect(home).toContain("const taiHref = `/platform-v7/ai-in-action?lang=${encodeURIComponent(normalizedLocale)}`;");
+    expect(page).toContain("href={`/platform-v7/trust${suffix}`}");
+    expect(page).not.toContain("href={`/platform-v7/status${suffix}`}");
   });
 
-  it('implements the ten passport sections required by the public positioning', () => {
+  it('implements the ten explanatory sections required by the public positioning', () => {
     expect(experience).toContain("id='role'");
     expect(experience).toContain("id='role-analysis'");
     expect(experience).toContain("id='documents'");
@@ -39,13 +41,17 @@ describe('platform-v7 public Gekta passport', () => {
     expect(experience).toContain("id='connection'");
   });
 
-  it('keeps human operational boundaries explicit without visitor-facing internal status codes', () => {
+  it('uses human boundaries instead of visitor-facing status codes', () => {
     expect(experience).not.toContain("status: 'NOT_ATTESTED'");
     expect(experience).toContain("hidden aria-hidden='true' data-release-compat='ai-passport'");
-    expect(experience).toContain('Неподключённая внешняя система не отображается как подключённая.');
+    expect(experience).toContain('Гекта не придумывает данные внешней системы, если не получила их из разрешённого источника.');
     expect(experience).toContain('Гекта не назначает роль и не меняет права доступа.');
     expect(experience).toContain('Гекта не подписывает, не отправляет и не выпускает деньги без разрешённого человеческого действия.');
     expect(experience).toContain('Данные государственных личных кабинетов не извлекаются обходным screen scraping.');
+    expect(experience).toContain("boundary: 'Проверяемые границы'");
+    expect(experience).toContain("title: 'Гекта объясняет, что происходит в Сделке и что делать дальше'");
+    expect(experience).not.toContain("title: 'Гекта объясняет состояние Сделки");
+    expect(experience).not.toContain('внутренних технических статусов');
     expect(experience).not.toContain('Production остаётся в собственном VPS-контуре платформы');
     expect(experience).not.toContain('Vercel');
     expect(experience).not.toContain('Netlify');
@@ -67,7 +73,7 @@ describe('platform-v7 public Gekta passport', () => {
     expect(experience).not.toContain('sessionStorage');
   });
 
-  it('shows safe government source statuses instead of fabricated live checks', () => {
+  it('retains fail-closed government source metadata while hiding connection statuses from the visitor presentation', () => {
     expect(government).toContain("status: 'OFFICIAL_ACCESS_REQUIRED'");
     expect(government).toContain("status: 'PUBLIC_REGISTRY'");
     expect(government).not.toContain("status: 'CONNECTED'");
@@ -75,9 +81,15 @@ describe('platform-v7 public Gekta passport', () => {
     expect(government).toContain('Screen scraping запрещён');
     expect(government).toContain('ACCREDITED_OPERATOR_API');
     expect(government).toContain('CONDITIONAL_OFFICIAL_API');
+    expect(page).toContain('AI_PUBLIC_CLEANUP_CSS');
+    expect(page).toContain('.pc-public-government-source-grid button small');
+    expect(page).toContain('.pc-public-government-result-unchecked');
+    expect(page).toContain('.pc-public-government-status-button');
+    expect(page).toContain('.pc-public-government-result dl > div:has(code)');
+    expect(page).toContain('display: none !important');
   });
 
-  it('preserves the unified public AI, support and call dock on the passport route', () => {
+  it('preserves the unified public AI, support and call dock on the Gekta route', () => {
     expect(contextual).toContain("const AI_IN_ACTION = '/platform-v7/ai-in-action';");
     expect(contextual).toContain('AI_IN_ACTION,');
     expect(contextual).not.toContain('if (path === AI_IN_ACTION) return null;');
@@ -88,9 +100,10 @@ describe('platform-v7 public Gekta passport', () => {
     expect(experience).toContain('ru: {');
     expect(experience).toContain('en: {');
     expect(experience).toContain('zh: {');
-    expect(experience).toContain('Gekta explains Deal state and the next step from available evidence');
-    expect(experience).toContain('Gekta 根据可用依据解释交易状态和下一步');
-    expect(experience).toContain("<a href='/platform-v7/register' className={styles.primary}");
+    expect(experience).toContain('Gekta explains what is happening in the Deal and what comes next');
+    expect(experience).toContain('Gekta 解释交易中正在发生什么，以及下一步做什么');
+    expect(experience).toContain('const registerHref = `/platform-v7/register${localeSuffix}`;');
+    expect(experience).toContain('<a href={registerHref} className={styles.primary}');
     expect(page).toContain("href={`/platform-v7/register${suffix}`}");
     expect(styles).toContain('@media (prefers-reduced-motion: reduce)');
     expect(styles).toContain('@media (forced-colors: active)');
