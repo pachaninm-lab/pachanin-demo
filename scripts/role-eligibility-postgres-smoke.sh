@@ -61,6 +61,15 @@ INSERT INTO eligibility.registry_generations(
   ('elg_egrip_a','FNS','egrip-a',clock_timestamp(),clock_timestamp(),repeat('2',64),1,'fns-egrip-v1','EGRIP_407','VALIDATED',clock_timestamp()+interval '1 day',clock_timestamp(),clock_timestamp()),
   ('elg_egrul_b','FNS','egrul-b',clock_timestamp()+interval '1 minute',clock_timestamp(),repeat('3',64),1,'fns-egrul-v1','EGRUL_408','VALIDATED',clock_timestamp()+interval '1 day',clock_timestamp(),clock_timestamp());
 
+INSERT INTO eligibility.registry_records(
+  id,generation_id,source,source_record_id,subject_inn,subject_ogrn,record_type,
+  normalized_payload,source_published_at,payload_sha256,created_at
+) VALUES
+  ('elr_egrul_a_present','elg_egrul_a','FNS','1027700132195','7707083893','1027700132195',
+   'EGRUL_LEGAL_ENTITY','{"active":true}'::jsonb,clock_timestamp(),repeat('a',64),clock_timestamp()),
+  ('elr_egrul_b_present','elg_egrul_b','FNS','1027700132195','7707083893','1027700132195',
+   'EGRUL_LEGAL_ENTITY','{"active":true}'::jsonb,clock_timestamp(),repeat('b',64),clock_timestamp());
+
 DO $domain_backfill$
 BEGIN
   IF (SELECT registry_domain FROM eligibility.registry_generations WHERE id='elg_egrul_a') <> 'EGRUL' THEN
@@ -89,6 +98,10 @@ BEGIN
 END
 $simultaneous_domains$;
 
+-- Daily continuity is persisted while the target is still VALIDATED and its
+-- predecessor is the current ACTIVE EGRUL generation. The authority verifier
+-- later consumes this exact edge; callers cannot substitute lineage fields.
+SELECT eligibility.record_fns_egrul_predecessor('elg_egrul_b','elg_egrul_a');
 SELECT eligibility.activate_registry_generation('FNS','EGRUL','egrul-b');
 
 DO $domain_monotonicity$
@@ -111,6 +124,10 @@ INSERT INTO eligibility.source_health(
 ) VALUES
   ('FNS','EGRUL','HEALTHY','CLOSED','egrul-b','fns-egrul-v1','EGRUL_408',clock_timestamp(),clock_timestamp(),clock_timestamp()+interval '1 day',0,NULL,clock_timestamp()),
   ('FNS','EGRIP','HEALTHY','CLOSED','egrip-a','fns-egrip-v1','EGRIP_407',clock_timestamp(),clock_timestamp(),clock_timestamp()+interval '1 day',0,NULL,clock_timestamp());
+UPDATE eligibility.source_health AS h
+SET fresh_until=g.fresh_until
+FROM eligibility.registry_generations AS g
+WHERE h.source='FNS' AND h.registry_domain='EGRUL' AND g.id='elg_egrul_b';
 
 DO $health_domains$
 BEGIN
@@ -120,35 +137,55 @@ BEGIN
 END
 $health_domains$;
 
-INSERT INTO eligibility.registry_generation_authority(
-  generation_id,source,registry_domain,coverage_kind,generation_mode,
-  acquisition_complete,local_import_integrity,baseline_coverage,update_continuity,source_finality,
-  baseline_generation_id,predecessor_generation_id,update_package_id,update_package_sha256,
-  continuity_policy_version,continuity_policy_hash,effective_cutoff,authority_token
-) VALUES (
-  'elg_egrul_b','FNS','EGRUL','COMPLETE_EFFECTIVE_CORPUS','DAILY_EFFECTIVE',
-  TRUE,TRUE,TRUE,TRUE,FALSE,
-  'elg_egrul_a','elg_egrul_a','daily-2026-09-07',repeat('4',64),
-  'fns-egrul-continuity-v1',repeat('5',64),clock_timestamp(),repeat('6',64)
+-- External coverage facts enter only as immutable content-addressed evidence.
+-- Booleans, policy identities, lineage and authority_token are not parameters.
+SET ROLE pc_role_eligibility_authority;
+SELECT eligibility.record_fns_egrul_authority_evidence(
+  'elg_egrul_b','ACQUISITION_COMPLETE','sha256:' || repeat('1',64),repeat('1',64),NULL
 );
+SELECT eligibility.record_fns_egrul_authority_evidence(
+  'elg_egrul_b','BASELINE_COVERAGE','sha256:' || repeat('2',64),repeat('2',64),
+  (SELECT published_at FROM eligibility.registry_generations WHERE id='elg_egrul_b')
+);
+SELECT eligibility.materialize_fns_egrul_registry_authority('elg_egrul_b');
+RESET ROLE;
 
-INSERT INTO eligibility.registry_generation_authority(
-  generation_id,source,registry_domain,authority_token
-) VALUES ('elg_egrip_a','FNS','EGRIP',repeat('7',64));
-
-DO $conservative_finality$
+DO $evidence_bound_nonfinal_authority$
+DECLARE
+  a RECORD;
 BEGIN
-  IF (SELECT source_finality FROM eligibility.registry_generation_authority WHERE generation_id='elg_egrul_b') IS DISTINCT FROM FALSE THEN
-    RAISE EXCEPTION 'CURRENT_YEAR_FINALITY_WAS_FABRICATED';
+  SELECT * INTO STRICT a FROM eligibility.registry_generation_authority WHERE generation_id='elg_egrul_b';
+  IF a.coverage_kind <> 'COMPLETE_EFFECTIVE_CORPUS' OR a.generation_mode <> 'DAILY_EFFECTIVE'
+     OR a.acquisition_complete IS DISTINCT FROM TRUE OR a.local_import_integrity IS DISTINCT FROM TRUE
+     OR a.baseline_coverage IS DISTINCT FROM TRUE OR a.update_continuity IS DISTINCT FROM TRUE
+     OR a.source_finality IS DISTINCT FROM FALSE
+     OR a.acquisition_evidence_id IS NULL OR a.local_import_evidence_id IS NULL
+     OR a.baseline_coverage_evidence_id IS NULL OR a.update_continuity_evidence_id IS NULL
+     OR a.source_finality_evidence_id IS NOT NULL THEN
+    RAISE EXCEPTION 'EVIDENCE_BOUND_NONFINAL_AUTHORITY_INVALID';
   END IF;
-  IF (SELECT coverage_kind FROM eligibility.registry_generation_authority WHERE generation_id='elg_egrip_a') <> 'UNKNOWN' THEN
-    RAISE EXCEPTION 'LEGACY_UNKNOWN_COVERAGE_NOT_CONSERVATIVE';
+  IF NOT EXISTS (
+    SELECT 1 FROM eligibility.registry_authority_policy_catalog p
+    WHERE p.source='FNS' AND p.registry_domain='EGRUL' AND p.policy_kind='CONTINUITY'
+      AND p.policy_version=a.continuity_policy_version AND p.policy_hash=a.continuity_policy_hash
+  ) THEN
+    RAISE EXCEPTION 'CONTINUITY_POLICY_NOT_ACCEPTED';
   END IF;
-  IF (SELECT source_finality FROM eligibility.registry_generation_authority WHERE generation_id='elg_egrip_a') IS DISTINCT FROM FALSE THEN
-    RAISE EXCEPTION 'DEFAULT_FINALITY_NOT_FALSE';
+  IF a.predecessor_generation_id <> 'elg_egrul_a'
+     OR a.update_package_id <> 'egrul-b'
+     OR a.update_package_sha256 <> repeat('3',64) THEN
+    RAISE EXCEPTION 'DAILY_AUTHORITY_NOT_BOUND_TO_PERSISTED_LINEAGE';
   END IF;
 END
-$conservative_finality$;
+$evidence_bound_nonfinal_authority$;
+
+DO $conservative_egrip$
+BEGIN
+  IF EXISTS (SELECT 1 FROM eligibility.registry_generation_authority WHERE generation_id='elg_egrip_a') THEN
+    RAISE EXCEPTION 'EGRIP_AUTHORITY_WAS_FABRICATED';
+  END IF;
+END
+$conservative_egrip$;
 
 DO $lineage_domain_guard$
 BEGIN
@@ -156,19 +193,34 @@ BEGIN
     id,source,generation,published_at,downloaded_at,content_sha256,record_count,
     parser_version,schema_version,status,fresh_until,created_at,validated_at
   ) VALUES (
-    'elg_egrul_cross','FNS','egrul-cross',clock_timestamp(),clock_timestamp(),repeat('8',64),1,
+    'elg_egrul_cross','FNS','egrul-cross',clock_timestamp()+interval '90 seconds',clock_timestamp(),repeat('8',64),1,
     'fns-egrul-v1','EGRUL_408','VALIDATED',clock_timestamp()+interval '1 day',clock_timestamp(),clock_timestamp()
   );
   BEGIN
-    INSERT INTO eligibility.registry_generation_authority(
-      generation_id,source,registry_domain,coverage_kind,generation_mode,baseline_generation_id,authority_token
-    ) VALUES ('elg_egrul_cross','FNS','EGRUL','UNKNOWN','UNKNOWN','elg_egrip_a',repeat('9',64));
+    PERFORM eligibility.record_fns_egrul_predecessor('elg_egrul_cross','elg_egrip_a');
     RAISE EXCEPTION 'CROSS_DOMAIN_LINEAGE_UNEXPECTEDLY_ACCEPTED';
   EXCEPTION WHEN raise_exception THEN
     IF SQLERRM = 'CROSS_DOMAIN_LINEAGE_UNEXPECTEDLY_ACCEPTED' THEN RAISE; END IF;
   END;
 END
 $lineage_domain_guard$;
+
+DO $arbitrary_policy_guard$
+BEGIN
+  BEGIN
+    INSERT INTO eligibility.registry_generation_authority(
+      generation_id,source,registry_domain,coverage_kind,generation_mode,
+      continuity_policy_version,continuity_policy_hash,authority_token
+    ) VALUES (
+      'elg_egrul_cross','FNS','EGRUL','UNKNOWN','UNKNOWN',
+      'unaccepted-v1',repeat('9',64),repeat('0',64)
+    );
+    RAISE EXCEPTION 'ARBITRARY_POLICY_UNEXPECTEDLY_ACCEPTED';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM = 'ARBITRARY_POLICY_UNEXPECTEDLY_ACCEPTED' THEN RAISE; END IF;
+  END;
+END
+$arbitrary_policy_guard$;
 
 DO $authority_append_only$
 BEGIN
@@ -194,25 +246,21 @@ BEGIN
     RAISE EXCEPTION 'RUNTIME_AUTHORITY_UPDATE_UNEXPECTEDLY_ALLOWED';
   EXCEPTION WHEN insufficient_privilege THEN NULL;
   END;
+  BEGIN
+    PERFORM eligibility.record_fns_egrul_authority_evidence(
+      'elg_egrul_b','SOURCE_FINALITY','sha256:' || repeat('3',64),repeat('3',64),clock_timestamp()
+    );
+    RAISE EXCEPTION 'RUNTIME_EVIDENCE_WRITER_UNEXPECTEDLY_ALLOWED';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  BEGIN
+    PERFORM eligibility.materialize_fns_egrul_registry_authority('elg_egrul_b');
+    RAISE EXCEPTION 'RUNTIME_AUTHORITY_VERIFIER_UNEXPECTEDLY_ALLOWED';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
 END
 $runtime_no_promotion$;
 RESET ROLE;
-
--- Execute the canonical FNS/EGRUL absence resolver against real PostgreSQL.
--- Unit mocks are insufficient evidence for finality/absence semantics.
-UPDATE eligibility.source_health AS h
-SET fresh_until = g.fresh_until
-FROM eligibility.registry_generations AS g
-WHERE h.source='FNS' AND h.registry_domain='EGRUL'
-  AND g.id='elg_egrul_b';
-
-INSERT INTO eligibility.registry_records(
-  id,generation_id,source,source_record_id,subject_inn,subject_ogrn,record_type,
-  normalized_payload,source_published_at,payload_sha256,created_at
-) VALUES (
-  'elr_egrul_b_present','elg_egrul_b','FNS','1027700132195','7707083893','1027700132195',
-  'EGRUL_LEGAL_ENTITY','{"active":true}'::jsonb,clock_timestamp(),repeat('b',64),clock_timestamp()
-);
 
 SET ROLE pc_role_eligibility_runtime;
 DO $resolver_without_finality$
@@ -242,8 +290,8 @@ END
 $resolver_without_finality$;
 RESET ROLE;
 
--- A separately accepted finality fact may authorize a zero-row negative only
--- when every other exact-generation/domain/health/coverage predicate is true.
+-- A separately accepted finality evidence object may authorize a zero-row
+-- negative only when every exact-generation/domain/health/coverage predicate is true.
 INSERT INTO eligibility.registry_generations(
   id,source,generation,published_at,downloaded_at,content_sha256,record_count,
   parser_version,schema_version,status,fresh_until,created_at,validated_at
@@ -258,17 +306,22 @@ INSERT INTO eligibility.registry_records(
   'elr_egrul_final_present','elg_egrul_final','FNS','1027700132195','7707083893','1027700132195',
   'EGRUL_LEGAL_ENTITY','{"active":true}'::jsonb,clock_timestamp(),repeat('d',64),clock_timestamp()
 );
-INSERT INTO eligibility.registry_generation_authority(
-  generation_id,source,registry_domain,coverage_kind,generation_mode,
-  acquisition_complete,local_import_integrity,baseline_coverage,update_continuity,source_finality,
-  continuity_policy_version,continuity_policy_hash,finality_policy_version,finality_policy_hash,
-  effective_cutoff,authority_token
-) VALUES (
-  'elg_egrul_final','FNS','EGRUL','COMPLETE_NATIONAL_CORPUS','FULL_BASELINE',
-  TRUE,TRUE,TRUE,TRUE,TRUE,
-  'fns-egrul-continuity-v1',repeat('e',64),'fns-egrul-finality-test-v1',repeat('f',64),
-  clock_timestamp()+interval '1 minute',repeat('0',64)
+
+SET ROLE pc_role_eligibility_authority;
+SELECT eligibility.record_fns_egrul_authority_evidence(
+  'elg_egrul_final','ACQUISITION_COMPLETE','sha256:' || repeat('4',64),repeat('4',64),NULL
 );
+SELECT eligibility.record_fns_egrul_authority_evidence(
+  'elg_egrul_final','BASELINE_COVERAGE','sha256:' || repeat('5',64),repeat('5',64),
+  (SELECT published_at FROM eligibility.registry_generations WHERE id='elg_egrul_final')
+);
+SELECT eligibility.record_fns_egrul_authority_evidence(
+  'elg_egrul_final','SOURCE_FINALITY','sha256:' || repeat('6',64),repeat('6',64),
+  (SELECT published_at FROM eligibility.registry_generations WHERE id='elg_egrul_final')
+);
+SELECT eligibility.materialize_fns_egrul_registry_authority('elg_egrul_final');
+RESET ROLE;
+
 SELECT eligibility.activate_registry_generation('FNS','EGRUL','egrul-final');
 UPDATE eligibility.source_health AS h
 SET status='HEALTHY',circuit_state='CLOSED',active_generation=g.generation,
@@ -278,27 +331,53 @@ SET status='HEALTHY',circuit_state='CLOSED',active_generation=g.generation,
 FROM eligibility.registry_generations AS g
 WHERE h.source='FNS' AND h.registry_domain='EGRUL' AND g.id='elg_egrul_final';
 
+DO $accepted_final_authority$
+DECLARE
+  a RECORD;
+BEGIN
+  SELECT * INTO STRICT a FROM eligibility.registry_generation_authority WHERE generation_id='elg_egrul_final';
+  IF a.source_finality IS DISTINCT FROM TRUE OR a.source_finality_evidence_id IS NULL
+     OR a.generation_mode <> 'FULL_BASELINE' OR a.coverage_kind <> 'COMPLETE_NATIONAL_CORPUS'
+     OR a.baseline_generation_id <> 'elg_egrul_final'
+     OR a.predecessor_generation_id IS NOT NULL OR a.update_package_id IS NOT NULL THEN
+    RAISE EXCEPTION 'FINAL_AUTHORITY_NOT_VERIFIER_DERIVED';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM eligibility.registry_authority_policy_catalog p
+    WHERE p.source='FNS' AND p.registry_domain='EGRUL' AND p.policy_kind='FINALITY'
+      AND p.policy_version=a.finality_policy_version AND p.policy_hash=a.finality_policy_hash
+  ) THEN
+    RAISE EXCEPTION 'FINALITY_POLICY_NOT_ACCEPTED';
+  END IF;
+END
+$accepted_final_authority$;
+
 SET ROLE pc_role_eligibility_runtime;
 DO $resolver_with_finality$
 DECLARE
   resolved_state TEXT;
   resolved_token TEXT;
+  cutoff TIMESTAMPTZ;
   invalid_time TIMESTAMPTZ;
 BEGIN
+  SELECT effective_cutoff INTO STRICT cutoff
+  FROM eligibility.registry_generation_authority
+  WHERE generation_id='elg_egrul_final';
+
   SELECT state,authority_token INTO STRICT resolved_state,resolved_token
-  FROM eligibility.resolve_fns_egrul_inn('7736050003',clock_timestamp());
+  FROM eligibility.resolve_fns_egrul_inn('7736050003',cutoff);
   IF resolved_state IS DISTINCT FROM 'AUTHORITATIVE_NOT_FOUND' OR resolved_token IS NULL THEN
     RAISE EXCEPTION 'PROVEN_FINALITY_NEGATIVE_RESOLUTION_INVALID state=% token=%',resolved_state,resolved_token;
   END IF;
 
   SELECT state INTO STRICT resolved_state
-  FROM eligibility.resolve_fns_egrul_inn('7707083893',clock_timestamp());
+  FROM eligibility.resolve_fns_egrul_inn('7707083893',cutoff);
   IF resolved_state IS DISTINCT FROM 'FOUND' THEN
     RAISE EXCEPTION 'FINAL_AUTHORITY_PRESENT_IDENTIFIER_NOT_FOUND state=%',resolved_state;
   END IF;
 
   SELECT state INTO STRICT resolved_state
-  FROM eligibility.resolve_fns_egrul_inn('7707083892',clock_timestamp());
+  FROM eligibility.resolve_fns_egrul_inn('7707083892',cutoff);
   IF resolved_state IS DISTINCT FROM 'INVALID_IDENTIFIER' THEN
     RAISE EXCEPTION 'INVALID_IDENTIFIER_REACHED_NEGATIVE_AUTHORITY state=%',resolved_state;
   END IF;
@@ -328,6 +407,24 @@ BEGIN
   INTO r FROM pg_roles WHERE rolname='pc_role_eligibility_runtime';
   IF NOT FOUND OR r.rolcanlogin OR r.rolinherit OR r.rolsuper OR r.rolbypassrls OR r.rolcreatedb OR r.rolcreaterole THEN
     RAISE EXCEPTION 'RUNTIME_ROLE_ATTRIBUTES_INVALID';
+  END IF;
+  SELECT rolcanlogin,rolinherit,rolsuper,rolbypassrls,rolcreatedb,rolcreaterole
+  INTO r FROM pg_roles WHERE rolname='pc_role_eligibility_authority';
+  IF NOT FOUND OR r.rolcanlogin OR r.rolinherit OR r.rolsuper OR r.rolbypassrls OR r.rolcreatedb OR r.rolcreaterole THEN
+    RAISE EXCEPTION 'AUTHORITY_ROLE_ATTRIBUTES_INVALID';
+  END IF;
+  IF has_table_privilege('pc_role_eligibility_authority','eligibility.registry_generation_authority_evidence','INSERT')
+     OR has_table_privilege('pc_role_eligibility_authority','eligibility.registry_generation_authority','INSERT')
+     OR has_table_privilege('pc_role_eligibility_authority','eligibility.registry_authority_policy_catalog','INSERT') THEN
+    RAISE EXCEPTION 'AUTHORITY_ROLE_RAW_TABLE_WRITE_PRESENT';
+  END IF;
+  IF NOT has_function_privilege('pc_role_eligibility_authority','eligibility.record_fns_egrul_authority_evidence(text,text,text,character,timestamp with time zone)','EXECUTE')
+     OR NOT has_function_privilege('pc_role_eligibility_authority','eligibility.materialize_fns_egrul_registry_authority(text)','EXECUTE') THEN
+    RAISE EXCEPTION 'AUTHORITY_ROLE_BOUNDED_FUNCTION_MISSING';
+  END IF;
+  IF has_function_privilege('pc_role_eligibility_runtime','eligibility.record_fns_egrul_authority_evidence(text,text,text,character,timestamp with time zone)','EXECUTE')
+     OR has_function_privilege('pc_role_eligibility_runtime','eligibility.materialize_fns_egrul_registry_authority(text)','EXECUTE') THEN
+    RAISE EXCEPTION 'RUNTIME_ROLE_AUTHORITY_PROMOTION_EXECUTE_PRESENT';
   END IF;
   IF has_table_privilege('pc_role_eligibility_observer','auth.registration_applications','SELECT') THEN
     RAISE EXCEPTION 'OBSERVER_DIRECT_REGISTRATION_SELECT_PRESENT';
@@ -577,13 +674,26 @@ DECLARE
 BEGIN
   FOREACH runtime_role IN ARRAY ARRAY['pc_deal_runtime','app_runtime','one_deal_app','app_deal','app_service'] LOOP
     IF pg_has_role(runtime_role,'pc_role_eligibility_runtime','MEMBER')
-       OR pg_has_role(runtime_role,'pc_role_eligibility_observer','MEMBER') THEN
+       OR pg_has_role(runtime_role,'pc_role_eligibility_observer','MEMBER')
+       OR pg_has_role(runtime_role,'pc_role_eligibility_authority','MEMBER') THEN
       RAISE EXCEPTION 'RESOLVER_APPLICATION_ROLE_MEMBERSHIP_ESCALATED role=%',runtime_role;
     END IF;
     IF has_table_privilege(runtime_role,'eligibility.registry_generation_authority','INSERT')
        OR has_table_privilege(runtime_role,'eligibility.registry_generation_authority','UPDATE')
        OR has_table_privilege(runtime_role,'eligibility.registry_generation_authority','DELETE') THEN
       RAISE EXCEPTION 'RESOLVER_APPLICATION_AUTHORITY_WRITE_PRESENT role=%',runtime_role;
+    END IF;
+    IF has_table_privilege(runtime_role,'eligibility.registry_generation_authority_evidence','INSERT')
+       OR has_table_privilege(runtime_role,'eligibility.registry_generation_authority_evidence','UPDATE')
+       OR has_table_privilege(runtime_role,'eligibility.registry_generation_authority_evidence','DELETE')
+       OR has_table_privilege(runtime_role,'eligibility.registry_authority_policy_catalog','INSERT')
+       OR has_table_privilege(runtime_role,'eligibility.registry_authority_policy_catalog','UPDATE')
+       OR has_table_privilege(runtime_role,'eligibility.registry_authority_policy_catalog','DELETE') THEN
+      RAISE EXCEPTION 'RESOLVER_APPLICATION_EVIDENCE_POLICY_WRITE_PRESENT role=%',runtime_role;
+    END IF;
+    IF has_function_privilege(runtime_role,'eligibility.record_fns_egrul_authority_evidence(text,text,text,character,timestamp with time zone)','EXECUTE')
+       OR has_function_privilege(runtime_role,'eligibility.materialize_fns_egrul_registry_authority(text)','EXECUTE') THEN
+      RAISE EXCEPTION 'RESOLVER_APPLICATION_PROMOTION_EXECUTE_PRESENT role=%',runtime_role;
     END IF;
     IF has_table_privilege(runtime_role,'auth.registration_applications','SELECT')
        OR has_table_privilege(runtime_role,'auth.registration_applications','INSERT')
@@ -623,4 +733,7 @@ printf '%s\n' \
   'EGRUL_EGRIP_ACTIVE_DOMAIN_SEPARATION=PASS' \
   'CURRENT_YEAR_BULK_ABSENCE_WITHOUT_FINALITY_NOT_FOUND=0' \
   'FNS_NEGATIVE_AUTHORITY_PREDICATE=PASS' \
+  'FNS_EVIDENCE_BACKED_AUTHORITY=PASS' \
+  'FNS_ACCEPTED_POLICY_CATALOG=PASS' \
+  'FNS_DAILY_LINEAGE_REQUIRED=PASS' \
   'FNS_RUNTIME_RESOLVER_EXECUTION=PASS'
