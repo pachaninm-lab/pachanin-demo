@@ -23,6 +23,17 @@ export type OutboxStatusSummary = {
   isApiAvailable: boolean;
 };
 
+export type SettlementPaymentSummary = Readonly<Record<string, unknown> & {
+  status: string;
+  reconciliationStatus: string;
+}>;
+
+export type SettlementPaymentsSnapshot = Readonly<{
+  payments: SettlementPaymentSummary[];
+  totalManualReview: number;
+  isApiAvailable: boolean;
+}>;
+
 const STATIC_FALLBACK: OutboxStatusSummary = {
   pending: [],
   manualReview: [],
@@ -42,15 +53,26 @@ export async function getOutboxStatus(dealId?: string): Promise<OutboxStatusSumm
       headers: await serverAuthHeaders(),
     });
     if (!res.ok) throw new Error(`outbox ${res.status}`);
-    const data = await res.json();
+    const raw: unknown = await res.json();
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('outbox schema');
+    const data = raw as Record<string, unknown>;
+    if (!Array.isArray(data.pending) || !Array.isArray(data.failed) || !Array.isArray(data.confirmed)) {
+      throw new Error('outbox schema');
+    }
+    const manualReview = data.manualReview === undefined
+      ? []
+      : Array.isArray(data.manualReview)
+        ? data.manualReview
+        : null;
+    if (manualReview === null) throw new Error('outbox schema');
     return {
-      pending: Array.isArray(data.pending) ? data.pending : [],
-      manualReview: Array.isArray(data.manualReview) ? data.manualReview : [],
-      failed: Array.isArray(data.failed) ? data.failed : [],
-      totalPending: Array.isArray(data.pending) ? data.pending.length : 0,
-      totalFailed: Array.isArray(data.failed) ? data.failed.length : 0,
-      hasManualReview: Array.isArray(data.manualReview) && data.manualReview.length > 0,
-      hasFailures: Array.isArray(data.failed) && data.failed.length > 0,
+      pending: data.pending as OutboxServerEntry[],
+      manualReview: manualReview as OutboxServerEntry[],
+      failed: data.failed as OutboxServerEntry[],
+      totalPending: data.pending.length,
+      totalFailed: data.failed.length,
+      hasManualReview: manualReview.length > 0,
+      hasFailures: data.failed.length > 0,
       isApiAvailable: true,
     };
   } catch {
@@ -58,18 +80,33 @@ export async function getOutboxStatus(dealId?: string): Promise<OutboxStatusSumm
   }
 }
 
-export async function getPayments(): Promise<any[]> {
+export async function getPaymentsSnapshot(): Promise<SettlementPaymentsSnapshot> {
   try {
     const res = await fetch(serverApiUrl('/settlement-engine/payments'), {
       cache: 'no-store',
       headers: await serverAuthHeaders(),
     });
     if (!res.ok) throw new Error(`payments ${res.status}`);
-    const data = await res.json();
-    return Array.isArray(data) ? data : [];
+    const raw: unknown = await res.json();
+    if (!Array.isArray(raw)) throw new Error('payments schema');
+    const payments = raw.map((value): SettlementPaymentSummary => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('payments schema');
+      const item = value as Record<string, unknown>;
+      if (typeof item.status !== 'string' || typeof item.reconciliationStatus !== 'string') {
+        throw new Error('payments schema');
+      }
+      return Object.freeze({ ...item, status: item.status, reconciliationStatus: item.reconciliationStatus });
+    });
+    const totalManualReview = payments.filter((payment) =>
+      payment.status === 'MANUAL_REVIEW' || payment.reconciliationStatus === 'MANUAL_REVIEW').length;
+    return { payments, totalManualReview, isApiAvailable: true };
   } catch {
-    return [];
+    return { payments: [], totalManualReview: 0, isApiAvailable: false };
   }
+}
+
+export async function getPayments(): Promise<any[]> {
+  return (await getPaymentsSnapshot()).payments;
 }
 
 export async function getDealBankWorkspace(dealId: string): Promise<any | null> {

@@ -4,7 +4,7 @@ import { ExecutiveSignalWall, type ExecutiveSignal } from '@/components/platform
 import { EmptyState } from '@/components/platform-v7/EmptyState';
 import { getDealsCanonical } from '@/lib/deals-server';
 import { getDisputesSnapshot, disputeTotalHeldRub, openDisputeCount } from '@/lib/disputes-server';
-import { getOutboxStatus } from '@/lib/outbox-server';
+import { getOutboxStatus, getPaymentsSnapshot } from '@/lib/outbox-server';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { getPlatformV7BiCockpitState } from '@/lib/platform-v7/runtime/bi-cockpit-state';
 import { UnitEconomicsPassport } from '@/components/platform-v7/UnitEconomicsPassport';
@@ -26,10 +26,11 @@ function formatMoney(rub: number): string {
 }
 
 export default async function ExecutivePage() {
-  const [deals, disputesSnapshot, outbox] = await Promise.all([
+  const [deals, disputesSnapshot, outbox, paymentsSnapshot] = await Promise.all([
     getDealsCanonical(),
     getDisputesSnapshot(),
     getOutboxStatus(),
+    getPaymentsSnapshot(),
   ]);
 
   const disputes = disputesSnapshot.disputes;
@@ -42,12 +43,16 @@ export default async function ExecutivePage() {
   const outboxAvailable = outbox.isApiAvailable;
   const pendingBank = outboxAvailable ? outbox.totalPending : 0;
   const failedBank = outboxAvailable ? outbox.totalFailed : 0;
+  const paymentsAvailable = paymentsSnapshot.isApiAvailable;
+  const manualReviewBank = paymentsAvailable ? paymentsSnapshot.totalManualReview : 0;
   const bi = getPlatformV7BiCockpitState();
 
   const liveBlockers = [
     ...(!disputesAvailable ? [{ id: 'disputes-source', label: 'Источник споров недоступен · состояние неизвестно', severity: 'warn' as const }] : []),
-    ...(!outboxAvailable ? [{ id: 'outbox-source', label: 'Источник банковских подтверждений недоступен · состояние неизвестно', severity: 'warn' as const }] : []),
+    ...(!outboxAvailable ? [{ id: 'outbox-source', label: 'Источник банковской доставки недоступен · состояние неизвестно', severity: 'warn' as const }] : []),
+    ...(!paymentsAvailable ? [{ id: 'payments-source', label: 'Источник банковской сверки недоступен · состояние неизвестно', severity: 'warn' as const }] : []),
     ...(disputeCount > 0 ? [{ id: 'disputes', label: `${disputeCount} открытых спора · ${formatMoney(heldRub)} удержано`, severity: 'stop' as const }] : []),
+    ...(manualReviewBank > 0 ? [{ id: 'bank-manual-review', label: `${manualReviewBank} банковских операций требуют ручной сверки`, severity: 'stop' as const }] : []),
     ...(failedBank > 0 ? [{ id: 'bank-failed', label: `${failedBank} банковских операций завершились ошибкой`, severity: 'stop' as const }] : []),
     ...(pendingBank > 0 ? [{ id: 'bank', label: `${pendingBank} банковских операций ожидают подтверждения`, severity: 'warn' as const }] : []),
   ];
@@ -55,7 +60,7 @@ export default async function ExecutivePage() {
   const signals: ExecutiveSignal[] = [
     { label: 'Деньги в блоке', value: disputesAvailable ? formatMoney(heldRub) : '—', detail: !disputesAvailable ? 'источник споров недоступен' : disputeCount > 0 ? 'удержано до решения споров' : 'удержаний нет', state: !disputesAvailable ? 'wait' : heldRub > 0 ? 'stop' : 'ok' },
     { label: 'Открытые споры', value: disputesAvailable ? String(disputeCount) : '—', detail: disputesAvailable ? 'каждый спор связан с конкретной Сделкой' : 'состояние неизвестно', state: !disputesAvailable ? 'wait' : disputeCount > 0 ? 'stop' : 'ok' },
-    { label: 'Банк', value: outboxAvailable ? String(pendingBank) : '—', detail: !outboxAvailable ? 'состояние банковских подтверждений неизвестно' : failedBank > 0 ? `${failedBank} операций завершились ошибкой` : pendingBank > 0 ? 'операции требуют внешнего подтверждения' : 'ожидающих операций нет', state: !outboxAvailable ? 'wait' : failedBank > 0 ? 'stop' : pendingBank > 0 ? 'wait' : 'ok' },
+    { label: 'Банк', value: manualReviewBank > 0 ? String(manualReviewBank) : failedBank > 0 ? String(failedBank) : outboxAvailable && paymentsAvailable ? String(pendingBank) : '—', detail: manualReviewBank > 0 ? 'операции требуют ручной сверки' : failedBank > 0 ? 'операции завершились ошибкой доставки' : !outboxAvailable || !paymentsAvailable ? 'состояние банковского контура неизвестно' : pendingBank > 0 ? 'операции требуют внешнего подтверждения' : 'ожидающих операций нет', state: manualReviewBank > 0 || failedBank > 0 ? 'stop' : !outboxAvailable || !paymentsAvailable || pendingBank > 0 ? 'wait' : 'ok' },
     { label: 'Портфель', value: formatMoney(totalVolume), detail: `${dealList.length} сделок · ${activeDeals.length} активных`, state: 'ok' },
   ];
 
@@ -69,7 +74,7 @@ export default async function ExecutivePage() {
       statusTone={liveBlockers.some((item) => item.severity === 'stop') ? 'critical' : liveBlockers.length > 0 ? 'warning' : 'success'}
       liveStatus={(
         <LiveApiStatusBar
-          apiOnline={outbox.isApiAvailable}
+          apiOnline={disputesAvailable && outboxAvailable && paymentsAvailable}
           blockers={liveBlockers}
           pendingBankOps={pendingBank}
           openDisputes={disputeCount}
@@ -80,40 +85,48 @@ export default async function ExecutivePage() {
         />
       )}
       priority={{
-        state: !disputesAvailable || !outboxAvailable ? 'active' : disputeCount > 0 || failedBank > 0 ? 'critical' : pendingBank > 0 ? 'active' : 'ready',
+        state: disputeCount > 0 || manualReviewBank > 0 || failedBank > 0 ? 'critical' : !disputesAvailable || !outboxAvailable || !paymentsAvailable || pendingBank > 0 ? 'active' : 'ready',
         eyebrow: 'Главный управленческий сигнал',
-        title: !disputesAvailable
-          ? 'Проверить доступность реестра споров'
-          : !outboxAvailable
-            ? 'Проверить доступность банковских подтверждений'
-          : disputeCount > 0
+        title: disputeCount > 0
           ? `Разобрать причины удержания ${formatMoney(heldRub)}`
+          : manualReviewBank > 0
+            ? `Разобрать ${manualReviewBank} операций ручной банковской сверки`
           : failedBank > 0
             ? `Разобрать ${failedBank} ошибок банковской доставки`
+          : !disputesAvailable
+            ? 'Проверить доступность реестра споров'
+          : !outboxAvailable
+            ? 'Проверить доступность банковской доставки'
+          : !paymentsAvailable
+            ? 'Проверить доступность банковской сверки'
           : pendingBank > 0
             ? `Проверить ${pendingBank} банковских подтверждений`
             : 'Критических отклонений нет',
-        description: !disputesAvailable
-          ? 'Источник споров недоступен или вернул непроверяемые данные. Дашборд не объявляет all-clear, пока серверный реестр не восстановит подтверждаемое состояние.'
-          : !outboxAvailable
-            ? 'Источник банковских подтверждений недоступен. Дашборд не трактует отсутствие данных как отсутствие ожидающих операций.'
-          : disputeCount > 0
+        description: disputeCount > 0
           ? 'Сначала разберите причины удержаний и владельцев процесса. Операционные действия остаются у уполномоченных ролей внутри Сделки.'
+          : manualReviewBank > 0
+            ? 'Банковская сверка зафиксировала MANUAL_REVIEW. Дашборд не объявляет all-clear до разрешения расхождения уполномоченными ролями.'
           : failedBank > 0
             ? 'Есть подтверждённые ошибки доставки банковских событий. Дашборд показывает их как critical и не подменяет разбор оператором и банковским контуром.'
+          : !disputesAvailable
+            ? 'Источник споров недоступен или вернул непроверяемые данные. Дашборд не объявляет all-clear, пока серверный реестр не восстановит подтверждаемое состояние.'
+          : !outboxAvailable
+            ? 'Источник банковской доставки недоступен. Отсутствие данных не трактуется как отсутствие проблем.'
+          : !paymentsAvailable
+            ? 'Источник банковской сверки недоступен. Статус MANUAL_REVIEW нельзя подтвердить, поэтому all-clear отключён.'
           : pendingBank > 0
             ? 'Есть внешние банковские подтверждения в ожидании. Дашборд показывает влияние, но не подменяет банковский authority.'
             : 'Портфель без критических удержаний и банковских блокеров. Контролируйте сделки и динамику без ручного вмешательства.',
-        blocker: !disputesAvailable ? 'состояние споров неизвестно' : !outboxAvailable ? 'состояние банковских подтверждений неизвестно' : disputeCount > 0 ? `${disputeCount} открытых спора` : failedBank > 0 ? `${failedBank} ошибок банковской доставки` : pendingBank > 0 ? `${pendingBank} банковских операций` : 'нет',
-        owner: !disputesAvailable || !outboxAvailable ? 'оператор платформы' : disputeCount > 0 ? 'оператор + арбитр + банк' : failedBank > 0 || pendingBank > 0 ? 'банк + оператор' : 'нет эскалации',
-        impact: !disputesAvailable || !outboxAvailable ? 'неизвестно до восстановления источника' : heldRub > 0 ? formatMoney(heldRub) : failedBank > 0 ? `${failedBank} ошибок` : pendingBank > 0 ? `${pendingBank} операций` : 'нет денежного влияния',
+        blocker: disputeCount > 0 ? `${disputeCount} открытых спора` : manualReviewBank > 0 ? `${manualReviewBank} операций MANUAL_REVIEW` : failedBank > 0 ? `${failedBank} ошибок банковской доставки` : !disputesAvailable ? 'состояние споров неизвестно' : !outboxAvailable ? 'состояние банковской доставки неизвестно' : !paymentsAvailable ? 'состояние банковской сверки неизвестно' : pendingBank > 0 ? `${pendingBank} банковских операций` : 'нет',
+        owner: disputeCount > 0 ? 'оператор + арбитр + банк' : manualReviewBank > 0 || failedBank > 0 || pendingBank > 0 ? 'банк + оператор' : !disputesAvailable || !outboxAvailable || !paymentsAvailable ? 'оператор платформы' : 'нет эскалации',
+        impact: heldRub > 0 ? formatMoney(heldRub) : manualReviewBank > 0 ? `${manualReviewBank} операций на ручной сверке` : failedBank > 0 ? `${failedBank} ошибок` : !disputesAvailable || !outboxAvailable || !paymentsAvailable ? 'неизвестно до восстановления источника' : pendingBank > 0 ? `${pendingBank} операций` : 'нет денежного влияния',
         result: 'эскалация владельцу процесса, а не ручная правка данных',
       }}
       facts={[
         { label: 'Портфель', value: formatMoney(totalVolume), hint: `${dealList.length} сделок всего` },
         { label: 'Активных сделок', value: String(activeDeals.length), hint: 'не закрыты и не отменены' },
         { label: 'Деньги в блоке', value: disputesAvailable ? formatMoney(heldRub) : '—', hint: !disputesAvailable ? 'состояние споров неизвестно' : disputeCount > 0 ? `${disputeCount} открытых спора` : 'удержаний нет' },
-        { label: 'Ошибки банка', value: outboxAvailable ? String(failedBank) : '—', hint: !outboxAvailable ? 'состояние неизвестно' : failedBank > 0 ? 'требуют разбора' : 'ошибок доставки нет' },
+        { label: 'Ручная сверка банка', value: paymentsAvailable ? String(manualReviewBank) : '—', hint: !paymentsAvailable ? 'состояние неизвестно' : manualReviewBank > 0 ? 'MANUAL_REVIEW требует разбора' : failedBank > 0 ? `${failedBank} ошибок доставки отдельно` : 'расхождений нет' },
       ]}
       boundary='Руководитель имеет read-only обзор. Экран не расширяет RBAC, не создаёт банк-статус и не позволяет обходить ответственных участников Сделки.'
     >
@@ -159,6 +172,20 @@ export default async function ExecutivePage() {
                 href='/platform-v7/status'
                 title='Требует внимания: источник банка'
                 detail='Состояние банковских подтверждений неизвестно — all-clear отключён до восстановления источника'
+              />
+            ) : null}
+            {!paymentsAvailable ? (
+              <OperationalQueueLink
+                href='/platform-v7/executive'
+                title='Требует внимания: источник банковской сверки'
+                detail='MANUAL_REVIEW нельзя подтвердить — all-clear отключён до восстановления источника'
+              />
+            ) : null}
+            {manualReviewBank > 0 ? (
+              <OperationalQueueLink
+                href='/platform-v7/executive'
+                title='Требуют внимания: ручная банковская сверка'
+                detail={`${manualReviewBank} операций имеют статус MANUAL_REVIEW`}
               />
             ) : null}
             {failedBank > 0 ? (
