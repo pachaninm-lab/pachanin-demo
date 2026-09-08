@@ -28,6 +28,9 @@ fail(){
 cleanup(){
   local status=$?
   trap - EXIT ERR
+  # A rejected probe has already closed its input. Its SIGPIPE must not replace
+  # the original fail-closed status while best-effort cleanup releases handles.
+  trap '' PIPE
   if [[ -n "$probe_write" ]]; then printf 'finish\n' >&"$probe_write" || true; exec {probe_write}>&- || true; fi
   if [[ -n "$probe_read" ]]; then exec {probe_read}<&- || true; fi
   if [[ -n "$probe_pid" ]]; then kill "$probe_pid" >/dev/null 2>&1 || true; fi
@@ -151,6 +154,7 @@ probe_open(){
   IFS= read -r -t 45 observation <&"$probe_read" || fail API_READ_ONLY_PROBE_FAILED
   printf '%s' "$observation" >"$temporary/observation.json"
   probe_error="$(node_tool probe-error <"$temporary/observation.json")" || fail API_PROBE_RESPONSE_INVALID
+  node_tool probe-diagnostics <"$temporary/observation.json" || fail API_PROBE_RESPONSE_INVALID
   [[ -z "$probe_error" ]] || fail "$probe_error"
   node_tool snapshot-sql <"$temporary/observation.json" >"$temporary/identity.sql" || fail API_READ_ONLY_PROBE_REJECTED
   "${dc_migration[@]}" run --rm --no-deps --pull never -T --entrypoint /nodejs/bin/node "$migration_service" \
