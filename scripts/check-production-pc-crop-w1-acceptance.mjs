@@ -28,6 +28,23 @@ const SAFE_ERROR = /^[A-Z][A-Z0-9_]{2,95}$/;
 export function blocked(code) { throw new Error(code); }
 export function errorCode(error) { return SAFE_ERROR.test(error?.message ?? '') ? error.message : 'UNCLASSIFIED_PROBE_FAILURE'; }
 export function sha256(value) { return crypto.createHash('sha256').update(value).digest('hex'); }
+export function probeErrorPayload(error) {
+  const payload = { error: errorCode(error) };
+  const drift = error?.checksumDrift;
+  if (payload.error === 'APPLIED_MIGRATION_CHECKSUM_DRIFT' && drift
+    && /^[0-9a-f]{64}$/.test(drift.migrationSha256 ?? '')
+    && /^[0-9a-f]{64}$/.test(drift.expectedSha256 ?? '')
+    && /^(?:[0-9a-f]{64}|INVALID)$/.test(drift.appliedSha256 ?? '')) {
+    payload.checksumDrift = { migrationSha256: drift.migrationSha256, expectedSha256: drift.expectedSha256, appliedSha256: drift.appliedSha256 };
+  }
+  return payload;
+}
+export function probeDiagnostics(value) {
+  const safe = probeErrorPayload({ message: value?.error, checksumDrift: value?.checksumDrift });
+  if (!safe.checksumDrift) return '';
+  return Object.entries(safe.checksumDrift).map(([key, hash]) =>
+    `PC_W1_CHECKSUM_DRIFT_${{migrationSha256:'MIGRATION',expectedSha256:'EXPECTED',appliedSha256:'APPLIED'}[key]}_SHA256=${hash}\n`).join('');
+}
 function sortedObject(value) { return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))); }
 const MIGRATION_NAME = /^(?:0001_postgresql_initial|[0-9]{14}_[a-z0-9_]+)$/;
 
@@ -73,7 +90,12 @@ export function classifyLedger(manifestInput, ledger) {
     if (row.rolled_back_at != null || row.finished_at == null) continue;
     if (!Object.hasOwn(manifest, row.migration_name)) blocked('UNRECOGNIZED_APPLIED_MIGRATION');
     if (applied.has(row.migration_name)) blocked('DUPLICATE_APPLIED_MIGRATION');
-    if (row.checksum !== manifest[row.migration_name]) blocked('APPLIED_MIGRATION_CHECKSUM_DRIFT');
+    if (row.checksum !== manifest[row.migration_name]) {
+      const error = new Error('APPLIED_MIGRATION_CHECKSUM_DRIFT');
+      error.checksumDrift = { migrationSha256: sha256(row.migration_name), expectedSha256: manifest[row.migration_name],
+        appliedSha256: typeof row.checksum === 'string' && /^[0-9a-f]{64}$/.test(row.checksum) ? row.checksum : 'INVALID' };
+      throw error;
+    }
     applied.set(row.migration_name, row);
   }
   const pending = Object.keys(manifest).filter(name => !applied.has(name));
@@ -180,6 +202,9 @@ export function runtimeFingerprint(containers, excludedApi) {
 export const EVIDENCE_VALUES = Object.freeze({
   PC_W1_RESULT: /^(READY_EXACT_SEVEN|VERIFIED_ALREADY_APPLIED|MIGRATIONS_APPLIED_PENDING_API_ACCEPTANCE|BLOCKED)$/,
   PC_W1_ERROR: SAFE_ERROR,
+  PC_W1_CHECKSUM_DRIFT_MIGRATION_SHA256: /^[0-9a-f]{64}$/,
+  PC_W1_CHECKSUM_DRIFT_EXPECTED_SHA256: /^[0-9a-f]{64}$/,
+  PC_W1_CHECKSUM_DRIFT_APPLIED_SHA256: /^(?:[0-9a-f]{64}|INVALID)$/,
   PC_W1_TARGET_SHA: /^[0-9a-f]{40}$/,
   PC_W1_BASELINE_API_SHA: /^[0-9a-f]{40}$/,
   PC_W1_DATABASE_IDENTITY: /^PASS$/,
@@ -210,6 +235,9 @@ export function parseEvidence(raw, { requireTerminal = true } = {}) {
   }
   if (requireTerminal && !result.PC_W1_RESULT) blocked('MISSING_TERMINAL_EVIDENCE');
   if (result.PC_W1_RESULT === 'BLOCKED' && !result.PC_W1_ERROR) blocked('MISSING_BLOCKER_CODE');
+  const driftKeys = Object.keys(result).filter(key => key.startsWith('PC_W1_CHECKSUM_DRIFT_'));
+  if (driftKeys.length && (driftKeys.length !== 3 || result.PC_W1_RESULT !== 'BLOCKED'
+    || result.PC_W1_ERROR !== 'APPLIED_MIGRATION_CHECKSUM_DRIFT')) blocked('CONTRADICTORY_CHECKSUM_DIAGNOSTICS');
   if (result.PC_W1_RESULT && result.PC_W1_RESULT !== 'BLOCKED') {
     if (result.PC_W1_ERROR) blocked('CONTRADICTORY_REMOTE_EVIDENCE');
     for (const key of ['PC_W1_TARGET_SHA', 'PC_W1_BASELINE_API_SHA', 'PC_W1_DATABASE_IDENTITY', 'PC_W1_PENDING_MIGRATIONS',
@@ -400,7 +428,7 @@ export function checkSources(root) {
 
 const args = process.argv.slice(2);
 if (process.argv[1] === '--runtime-probe') {
-  runtimeProbe(process.argv[2]).catch(error => { process.stdout.write(JSON.stringify({ error: errorCode(error) }) + '\n'); process.exitCode = 1; });
+  runtimeProbe(process.argv[2]).catch(error => { process.stdout.write(JSON.stringify(probeErrorPayload(error)) + '\n'); process.exitCode = 1; });
 } else if (process.argv[1] === '--runtime-tool' || (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href)) {
   try {
     if (args[0] === 'snapshot-sql') process.stdout.write(snapshotSql(JSON.parse(fs.readFileSync(0, 'utf8'))));
@@ -413,6 +441,7 @@ if (process.argv[1] === '--runtime-probe') {
       const value=JSON.parse(fs.readFileSync(0,'utf8'));
       if(value.error) process.stdout.write(SAFE_ERROR.test(value.error) ? value.error : 'UNCLASSIFIED_PROBE_FAILURE');
     }
+    else if (args[0] === 'probe-diagnostics') process.stdout.write(probeDiagnostics(JSON.parse(fs.readFileSync(0,'utf8'))));
     else if (args[0] === 'evidence') { parseEvidence(fs.readFileSync(0, 'utf8')); console.log('PC_W1_EVIDENCE_CONTRACT=PASS'); }
     else if (args[0] === 'probe-field') {
       const value = validateSnapshot(JSON.parse(fs.readFileSync(0, 'utf8')));

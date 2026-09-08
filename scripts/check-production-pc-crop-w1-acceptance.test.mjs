@@ -9,7 +9,7 @@ import { spawnSync } from 'node:child_process';
 import { checkManifests } from './check-ci-postgres-image-authority.mjs';
 import { TARGET_MIGRATIONS, TARGET_TABLES, readMigrationManifest, validateManifest, decodeManifest, validateImageManifest,
   classifyLedger, validateApiEnvironment, validateSnapshot, snapshotSql, parseEvidence,
-  validateMigrationImage, validateCompose, runtimeFingerprint, errorCode, checkSources } from './check-production-pc-crop-w1-acceptance.mjs';
+  validateMigrationImage, validateCompose, runtimeFingerprint, errorCode, probeErrorPayload, probeDiagnostics, checkSources } from './check-production-pc-crop-w1-acceptance.mjs';
 
 const baseName='20260902204500_role_eligibility_app_deal_api_boundary';
 const manifest={ [baseName]:'a'.repeat(64), ...TARGET_MIGRATIONS };
@@ -54,6 +54,33 @@ test('unrecognized successful and duplicate successful migration ledger rows blo
 });
 test('historical applied checksum drift blocks before migration',()=>{
   rejects(()=>classifyLedger(manifest,[{...finished(baseName),checksum:'0'.repeat(64)}]),'APPLIED_MIGRATION_CHECKSUM_DRIFT');
+});
+test('checksum drift emits only an identifiable migration fingerprint and the two checksum values',()=>{
+  let failure;
+  try {classifyLedger(manifest,[{...finished(baseName),checksum:'0'.repeat(64)}]);}catch(error){failure=error;}
+  const payload=probeErrorPayload(failure);
+  assert.deepEqual(payload,{error:'APPLIED_MIGRATION_CHECKSUM_DRIFT',checksumDrift:{
+    migrationSha256:crypto.createHash('sha256').update(baseName).digest('hex'),expectedSha256:manifest[baseName],appliedSha256:'0'.repeat(64)}});
+  const output=probeDiagnostics(payload);
+  assert.doesNotMatch(output,/migration_name|postgresql:|secret|20260902204500/);
+  const evidence=output+'PC_W1_ERROR=APPLIED_MIGRATION_CHECKSUM_DRIFT\nPC_W1_DATABASE_MUTATION=NONE\nPC_W1_RESULT=BLOCKED\n';
+  assert.equal(parseEvidence(evidence).PC_W1_CHECKSUM_DRIFT_APPLIED_SHA256,'0'.repeat(64));
+  const source=fs.readFileSync(new URL('./check-production-pc-crop-w1-acceptance.mjs',import.meta.url),'utf8');
+  const transported=spawnSync(process.execPath,['--input-type=module','-e',source,'--','--runtime-tool','probe-diagnostics'],{input:JSON.stringify(payload),encoding:'utf8'});
+  assert.equal(transported.status,0);assert.equal(transported.stdout,output);assert.equal(transported.stderr,'');
+  rejects(()=>parseEvidence(output+lines(readyEvidence())),'CONTRADICTORY_CHECKSUM_DIAGNOSTICS');
+});
+test('invalid ledger checksum and untrusted error properties cannot leak raw text',()=>{
+  let failure;
+  try {classifyLedger(manifest,[{...finished(baseName),checksum:'secret=/private/config'}]);}catch(error){failure=error;}
+  assert.equal(probeErrorPayload(failure).checksumDrift.appliedSha256,'INVALID');
+  assert.doesNotMatch(probeDiagnostics(probeErrorPayload(failure)),/secret|private/);
+  for(const key of ['migrationSha256','expectedSha256','appliedSha256']){
+    const altered=probeErrorPayload(failure);altered.checksumDrift[key]='secret=/private/config';
+    assert.equal(probeDiagnostics(altered),'');
+  }
+  assert.deepEqual(probeErrorPayload(new Error('secret=/private/config')),{error:'UNCLASSIFIED_PROBE_FAILURE'});
+  assert.equal(probeDiagnostics({error:'OTHER_FAILURE',checksumDrift:probeErrorPayload(failure).checksumDrift}),'');
 });
 test('rolled-back records are not counted as successful applications',()=>{
   assert.equal(classifyLedger(manifest,[finished(baseName),{...finished(Object.keys(TARGET_MIGRATIONS)[0]),rolled_back_at:'2026-09-08'}]).pendingCount,7);
@@ -217,6 +244,13 @@ test('shell invalid invocation fails before Docker and leaks no caller text',()=
   const value=spawnSync('bash',[script,'/private/path?secret=value','bad','1'],{encoding:'utf8',env:{PATH:process.env.PATH}});
   assert.equal(value.status,1);assert.equal(value.stderr,'');
   assert.deepEqual({...parseEvidence(value.stdout)},{PC_W1_ERROR:'INVALID_ARGUMENTS',PC_W1_DATABASE_MUTATION:'NONE',PC_W1_RESULT:'BLOCKED'});
+});
+test('cleanup preserves the original error when a rejected probe has closed its pipe',()=>{
+  const source=fs.readFileSync(new URL('./production-pc-crop-w1-migrations.sh',import.meta.url),'utf8');
+  const cleanup=source.slice(source.indexOf('cleanup(){'),source.indexOf('\ntrap cleanup EXIT'));
+  const script=`set -Eeuo pipefail\nprobe_pid=''; probe_read=''; temporary=''; failure_emitted=1; mutation=NONE\n${cleanup}\nexec {probe_write}> >(exit 0)\nchild=$!\nwait "$child"\ntrap cleanup EXIT\nexit 1\n`;
+  const result=spawnSync('bash',[],{input:script,encoding:'utf8'});
+  assert.equal(result.signal,null);assert.equal(result.status,1);assert.equal(result.stdout,'');
 });
 test('checker works as Docker eval helper without host Node or local paths',()=>{
   const source=fs.readFileSync(new URL('./check-production-pc-crop-w1-acceptance.mjs',import.meta.url),'utf8');
