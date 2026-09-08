@@ -135,6 +135,7 @@ export default async function PlatformV7DealFlowPage() {
   const lang = localeKey(await getLocale());
   const t = COPY[lang];
   const href = (pathname: string) => `${pathname}?lang=${lang}`;
+  const protectedHref = (pathname: string) => `/platform-v7/login?lang=${lang}&next=${encodeURIComponent(href(pathname))}`;
   return (
     <main className='p7-deal-flow-page' data-testid='platform-v7-deal-flow-page' data-lang={lang} data-p7-no-translate='true'>
       <style>{css}</style>
@@ -171,7 +172,7 @@ export default async function PlatformV7DealFlowPage() {
 
       <section className='p7-money-section' aria-labelledby='money-title'>
         <div><span className='p7-flow-kicker'>{t.moneyKicker}</span><h2 id='money-title'>{t.moneyTitle}</h2><p>{t.moneyText}</p></div>
-        <div className='p7-money-card'><Banknote size={28} /><strong>{t.deal.amount}</strong><p>{t.moneyStatus}</p><Link href={href('/platform-v7/bank')}>{t.bankAction}</Link></div>
+        <div className='p7-money-card'><Banknote size={28} /><strong>{t.deal.amount}</strong><p>{t.moneyStatus}</p><Link href={protectedHref('/platform-v7/bank')}>{t.bankAction}</Link></div>
       </section>
 
       <section className='p7-flow-section' aria-labelledby='roles-title'>
