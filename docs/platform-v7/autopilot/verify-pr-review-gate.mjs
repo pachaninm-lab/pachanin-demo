@@ -62,6 +62,13 @@ function normalizeLogin(review) {
   return String(review?.user?.login || review?.author?.login || '').trim();
 }
 
+export function isGitHubRepositorySlug(repo) {
+  const repository = String(repo || '').trim();
+  const match = repository.match(/^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/u);
+  if (!match) return false;
+  return match[1] !== '.' && match[1] !== '..' && match[2] !== '.' && match[2] !== '..';
+}
+
 function exactHeadReviewsByLogins(reviews, headSha, allowedLogins) {
   const expected = String(headSha || '').trim();
   return (reviews || []).filter((review) => {
@@ -102,7 +109,7 @@ function parseOctopusAttestation(review, headSha) {
   if (!POSITIVE_OCTOPUS_REVIEW_STATES.has(state)) return null;
 
   const body = String(review?.body || '').trim();
-  const match = body.match(/^OCTOPUS INDEPENDENT REVIEW: PASS\nExact head: `([0-9a-f]{40})`\nProvider workflow: `([^`]+)`\nProvider action: `([0-9a-f]{40})`\nFindings: `0`\nSummary SHA-256: `([0-9a-f]{64})`\nWorkflow run: `([1-9][0-9]*)`$/u);
+  const match = body.match(/^OCTOPUS INDEPENDENT REVIEW: PASS\nExact head: `([0-9a-f]{40})`\nProvider workflow: `([^`]+)`\nProvider action: `([0-9a-f]{40})`\nFindings: `0`\nSummary SHA-256: `([0-9a-f]{64})`\nWorkflow run: `([1-9][0-9]{0,19})`$/u);
   if (!match) return null;
   if (match[1] !== expected) return null;
   if (match[2] !== OCTOPUS_WORKFLOW_PATH) return null;
@@ -117,7 +124,7 @@ function parseOctopusAttestation(review, headSha) {
 
 export function positiveExactHeadOctopusAttestations(reviews, statuses, headSha, repo) {
   const repository = String(repo || '').trim();
-  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u.test(repository)) return [];
+  if (!isGitHubRepositorySlug(repository)) return [];
 
   // GitHub's commit-status endpoint is reverse chronological. Authority is
   // deliberately bound to the newest provider status: a later failure/pending
@@ -146,10 +153,12 @@ export function octopusAttestationMatchesWorkflowRun(attestation, run, repo, prN
   const expectedHead = String(headSha || '').trim();
   const expectedPr = Number(prNumber || 0);
   if (!attestation || !run) return false;
-  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u.test(repository)) return false;
+  if (!isGitHubRepositorySlug(repository)) return false;
   if (!/^[0-9a-f]{40}$/u.test(expectedHead)) return false;
   if (!Number.isInteger(expectedPr) || expectedPr <= 0) return false;
-  if (Number(run?.id) !== Number(attestation.runId)) return false;
+  const attestedRunId = String(attestation?.runId || '').trim();
+  if (!/^[1-9][0-9]{0,19}$/u.test(attestedRunId)) return false;
+  if (String(run?.id ?? '').trim() !== attestedRunId) return false;
   if (String(run?.name || '').trim() !== 'Independent Octopus Review') return false;
   if (String(run?.path || '').trim() !== OCTOPUS_WORKFLOW_PATH) return false;
   if (String(run?.event || '').trim() !== 'pull_request_target') return false;
@@ -294,8 +303,8 @@ function ghJson(args) {
 export function octopusActionsRunUrl(repo, runId) {
   const repository = String(repo || '').trim();
   const id = String(runId || '').trim();
-  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u.test(repository)) return '';
-  if (!/^[1-9][0-9]*$/u.test(id)) return '';
+  if (!isGitHubRepositorySlug(repository)) return '';
+  if (!/^[1-9][0-9]{0,19}$/u.test(id)) return '';
   return `https://api.github.com/repos/${repository}/actions/runs/${id}`;
 }
 
@@ -320,6 +329,10 @@ function fetchPublicOctopusActionsRun(repo, runId) {
     '--proto', '=https',
     '--connect-timeout', '10',
     '--max-time', '20',
+    '--retry', '2',
+    '--retry-delay', '1',
+    '--retry-max-time', '25',
+    '--retry-all-errors',
     '-H', 'Accept: application/vnd.github+json',
     '-H', 'X-GitHub-Api-Version: 2022-11-28',
     '-H', 'User-Agent: platform-v7-exact-head-review-gate',
