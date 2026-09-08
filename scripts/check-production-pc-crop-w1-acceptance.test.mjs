@@ -9,7 +9,7 @@ import { spawnSync } from 'node:child_process';
 import { checkManifests } from './check-ci-postgres-image-authority.mjs';
 import { TARGET_MIGRATIONS, TARGET_TABLES, readMigrationManifest, validateManifest, decodeManifest, validateImageManifest,
   classifyLedger, validateApiEnvironment, validateSnapshot, snapshotSql, parseEvidence,
-  validateMigrationImage, validateCompose, runtimeFingerprint, errorCode, probeErrorPayload, probeDiagnostics, checkSources } from './check-production-pc-crop-w1-acceptance.mjs';
+  validateMigrationImage, validateCompose, runtimeFingerprint, errorCode, probeErrorPayload, probeDiagnostics, ledgerDiagnostics, checkSources } from './check-production-pc-crop-w1-acceptance.mjs';
 
 const baseName='20260902204500_role_eligibility_app_deal_api_boundary';
 const manifest={ [baseName]:'a'.repeat(64), ...TARGET_MIGRATIONS };
@@ -59,8 +59,11 @@ test('checksum drift emits only an identifiable migration fingerprint and the tw
   let failure;
   try {classifyLedger(manifest,[{...finished(baseName),checksum:'0'.repeat(64)}]);}catch(error){failure=error;}
   const payload=probeErrorPayload(failure);
-  assert.deepEqual(payload,{error:'APPLIED_MIGRATION_CHECKSUM_DRIFT',checksumDrift:{
-    migrationSha256:crypto.createHash('sha256').update(baseName).digest('hex'),expectedSha256:manifest[baseName],appliedSha256:'0'.repeat(64)}});
+  assert.equal(payload.error,'APPLIED_MIGRATION_CHECKSUM_DRIFT');
+  assert.deepEqual(payload.checksumDrift,{
+    migrationSha256:crypto.createHash('sha256').update(baseName).digest('hex'),expectedSha256:manifest[baseName],appliedSha256:'0'.repeat(64),
+    appliedValueSha256:crypto.createHash('sha256').update(JSON.stringify('0'.repeat(64))).digest('hex')});
+  assert.equal(payload.ledgerDiagnostics.DRIFTED,1);
   const output=probeDiagnostics(payload);
   assert.doesNotMatch(output,/migration_name|postgresql:|secret|20260902204500/);
   const evidence=output+'PC_W1_ERROR=APPLIED_MIGRATION_CHECKSUM_DRIFT\nPC_W1_DATABASE_MUTATION=NONE\nPC_W1_RESULT=BLOCKED\n';
@@ -69,6 +72,40 @@ test('checksum drift emits only an identifiable migration fingerprint and the tw
   const transported=spawnSync(process.execPath,['--input-type=module','-e',source,'--','--runtime-tool','probe-diagnostics'],{input:JSON.stringify(payload),encoding:'utf8'});
   assert.equal(transported.status,0);assert.equal(transported.stdout,output);assert.equal(transported.stderr,'');
   rejects(()=>parseEvidence(output+lines(readyEvidence())),'CONTRADICTORY_CHECKSUM_DIAGNOSTICS');
+});
+test('whole-ledger diagnostics identify the source marker and every class without admitting any drift',()=>{
+  const initial='0001_postgresql_initial';
+  const m={...manifest,[initial]:'b'.repeat(64)};
+  const row=(name,checksum)=>({migration_name:name,checksum,finished_at:'2026-09-08',rolled_back_at:null});
+  const ledger=[row(initial,'grainflow_v3_initial_postgresql'),finished(baseName),finished(baseName),row(baseName,'c'.repeat(64)),
+    row('unknown_name','a'.repeat(64)),{...finished(baseName),finished_at:null},{...finished(baseName),rolled_back_at:'2026-09-09'}];
+  const d=ledgerDiagnostics(m,ledger);
+  assert.deepEqual({...d,SHA256:'HASH'},{ROWS:7,MATCHED:2,DRIFTED:2,UNKNOWN:1,DUPLICATES:2,UNFINISHED:1,ROLLED_BACK:1,LEGACY_INITIAL_MARKERS:1,SHA256:'HASH'});
+  assert.equal(d.SHA256,ledgerDiagnostics(m,[...ledger].reverse()).SHA256);
+  assert.notEqual(d.SHA256,ledgerDiagnostics(m,ledger.slice(1)).SHA256);
+  rejects(()=>classifyLedger(m,ledger),'UNFINISHED_MIGRATION');
+  rejects(()=>classifyLedger(m,ledger.filter(row=>row.finished_at!=null)),'APPLIED_MIGRATION_CHECKSUM_DRIFT');
+  assert.equal(ledgerDiagnostics(m,[row(initial,'other_bad_value')]).LEGACY_INITIAL_MARKERS,0);
+  const real=fs.readFileSync(new URL('../apps/api/prisma/migrations/0001_postgresql_initial/migration.sql',import.meta.url),'utf8');
+  assert.match(real,/'grainflow_v3_initial_postgresql'/);
+});
+test('ledger diagnostics reject partial, contradictory and unbounded output and disclose no raw values',()=>{
+  let error;
+  try {classifyLedger(manifest,[{...finished(baseName),checksum:'private-value'}]);}catch(e){error=e;}
+  const payload=probeErrorPayload(error),output=probeDiagnostics(payload);
+  const end='PC_W1_ERROR=APPLIED_MIGRATION_CHECKSUM_DRIFT\nPC_W1_DATABASE_MUTATION=NONE\nPC_W1_RESULT=BLOCKED\n';
+  assert.doesNotMatch(output,/private-value|migration_name|finished_at/);
+  assert.equal(parseEvidence(output+end).PC_W1_LEDGER_ROWS,'1');
+  for(const [key,value] of Object.entries(payload.ledgerDiagnostics)) {
+    const changed=structuredClone(payload);changed.ledgerDiagnostics[key]=key==='SHA256'?'secret-path':10001;
+    assert.equal(probeErrorPayload({message:changed.error,...changed}).ledgerDiagnostics,undefined);
+    rejects(()=>parseEvidence(output.replace(`PC_W1_LEDGER_${key}=${value}\n`,'')+end),'CONTRADICTORY_LEDGER_DIAGNOSTICS');
+  }
+  rejects(()=>parseEvidence(output.replace('PC_W1_LEDGER_ROWS=1','PC_W1_LEDGER_ROWS=2')+end),'CONTRADICTORY_LEDGER_DIAGNOSTICS');
+  rejects(()=>parseEvidence(output+end.replace('MUTATION=NONE','MUTATION=BOUNDED_SEVEN_MIGRATIONS')),'CONTRADICTORY_LEDGER_DIAGNOSTICS');
+  rejects(()=>parseEvidence(output+'PC_W1_RESULT=READY_EXACT_SEVEN\n'),'CONTRADICTORY_CHECKSUM_DIAGNOSTICS');
+  const changed=structuredClone(payload);changed.checksumDrift.appliedValueSha256='private-value';
+  assert.doesNotMatch(probeDiagnostics(changed),/private-value/);
 });
 test('invalid ledger checksum and untrusted error properties cannot leak raw text',()=>{
   let failure;

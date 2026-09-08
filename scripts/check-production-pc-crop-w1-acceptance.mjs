@@ -28,6 +28,26 @@ const SAFE_ERROR = /^[A-Z][A-Z0-9_]{2,95}$/;
 export function blocked(code) { throw new Error(code); }
 export function errorCode(error) { return SAFE_ERROR.test(error?.message ?? '') ? error.message : 'UNCLASSIFIED_PROBE_FAILURE'; }
 export function sha256(value) { return crypto.createHash('sha256').update(value).digest('hex'); }
+const LEDGER_COUNTS = ['ROWS', 'MATCHED', 'DRIFTED', 'UNKNOWN', 'DUPLICATES', 'UNFINISHED', 'ROLLED_BACK', 'LEGACY_INITIAL_MARKERS'];
+// Diagnostic only: this observation is never consulted by migration admission.
+export function ledgerDiagnostics(manifest, ledger) {
+  const counts = Object.fromEntries(LEDGER_COUNTS.map(key => [key, 0]));
+  const names = new Set();
+  const fingerprints = [];
+  for (const row of ledger) {
+    counts.ROWS++;
+    fingerprints.push(sha256(JSON.stringify([row.migration_name, row.checksum, row.finished_at, row.rolled_back_at])));
+    if (row.rolled_back_at != null) { counts.ROLLED_BACK++; continue; }
+    if (row.finished_at == null) { counts.UNFINISHED++; continue; }
+    if (names.has(row.migration_name)) counts.DUPLICATES++;
+    names.add(row.migration_name);
+    if (!Object.hasOwn(manifest, row.migration_name)) { counts.UNKNOWN++; continue; }
+    if (row.checksum === manifest[row.migration_name]) counts.MATCHED++;
+    else counts.DRIFTED++;
+    if (row.migration_name === '0001_postgresql_initial' && row.checksum === 'grainflow_v3_initial_postgresql') counts.LEGACY_INITIAL_MARKERS++;
+  }
+  return { ...counts, SHA256: sha256(JSON.stringify(fingerprints.sort())) };
+}
 export function probeErrorPayload(error) {
   const payload = { error: errorCode(error) };
   const drift = error?.checksumDrift;
@@ -36,14 +56,21 @@ export function probeErrorPayload(error) {
     && /^[0-9a-f]{64}$/.test(drift.expectedSha256 ?? '')
     && /^(?:[0-9a-f]{64}|INVALID)$/.test(drift.appliedSha256 ?? '')) {
     payload.checksumDrift = { migrationSha256: drift.migrationSha256, expectedSha256: drift.expectedSha256, appliedSha256: drift.appliedSha256 };
+    if (/^[0-9a-f]{64}$/.test(drift.appliedValueSha256 ?? '')) payload.checksumDrift.appliedValueSha256 = drift.appliedValueSha256;
+    const ledger = error?.ledgerDiagnostics;
+    if (ledger && LEDGER_COUNTS.every(key => Number.isSafeInteger(ledger[key]) && ledger[key] >= 0 && ledger[key] <= 10000)
+      && /^[0-9a-f]{64}$/.test(ledger.SHA256 ?? '')) {
+      payload.ledgerDiagnostics = Object.fromEntries([...LEDGER_COUNTS, 'SHA256'].map(key => [key, ledger[key]]));
+    }
   }
   return payload;
 }
 export function probeDiagnostics(value) {
-  const safe = probeErrorPayload({ message: value?.error, checksumDrift: value?.checksumDrift });
+  const safe = probeErrorPayload({ message: value?.error, checksumDrift: value?.checksumDrift, ledgerDiagnostics: value?.ledgerDiagnostics });
   if (!safe.checksumDrift) return '';
   return Object.entries(safe.checksumDrift).map(([key, hash]) =>
-    `PC_W1_CHECKSUM_DRIFT_${{migrationSha256:'MIGRATION',expectedSha256:'EXPECTED',appliedSha256:'APPLIED'}[key]}_SHA256=${hash}\n`).join('');
+    `PC_W1_CHECKSUM_DRIFT_${{migrationSha256:'MIGRATION',expectedSha256:'EXPECTED',appliedSha256:'APPLIED',appliedValueSha256:'APPLIED_VALUE'}[key]}_SHA256=${hash}\n`).join('')
+    + (safe.ledgerDiagnostics ? Object.entries(safe.ledgerDiagnostics).map(([key, value]) => `PC_W1_LEDGER_${key}=${value}\n`).join('') : '');
 }
 function sortedObject(value) { return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))); }
 const MIGRATION_NAME = /^(?:0001_postgresql_initial|[0-9]{14}_[a-z0-9_]+)$/;
@@ -93,7 +120,9 @@ export function classifyLedger(manifestInput, ledger) {
     if (row.checksum !== manifest[row.migration_name]) {
       const error = new Error('APPLIED_MIGRATION_CHECKSUM_DRIFT');
       error.checksumDrift = { migrationSha256: sha256(row.migration_name), expectedSha256: manifest[row.migration_name],
-        appliedSha256: typeof row.checksum === 'string' && /^[0-9a-f]{64}$/.test(row.checksum) ? row.checksum : 'INVALID' };
+        appliedSha256: typeof row.checksum === 'string' && /^[0-9a-f]{64}$/.test(row.checksum) ? row.checksum : 'INVALID',
+        appliedValueSha256: sha256(JSON.stringify(row.checksum ?? null)) };
+      error.ledgerDiagnostics = ledgerDiagnostics(manifest, ledger);
       throw error;
     }
     applied.set(row.migration_name, row);
@@ -205,6 +234,9 @@ export const EVIDENCE_VALUES = Object.freeze({
   PC_W1_CHECKSUM_DRIFT_MIGRATION_SHA256: /^[0-9a-f]{64}$/,
   PC_W1_CHECKSUM_DRIFT_EXPECTED_SHA256: /^[0-9a-f]{64}$/,
   PC_W1_CHECKSUM_DRIFT_APPLIED_SHA256: /^(?:[0-9a-f]{64}|INVALID)$/,
+  PC_W1_CHECKSUM_DRIFT_APPLIED_VALUE_SHA256: /^[0-9a-f]{64}$/,
+  ...Object.fromEntries(LEDGER_COUNTS.map(key => [`PC_W1_LEDGER_${key}`, /^(?:0|[1-9][0-9]{0,3}|10000)$/])),
+  PC_W1_LEDGER_SHA256: /^[0-9a-f]{64}$/,
   PC_W1_TARGET_SHA: /^[0-9a-f]{40}$/,
   PC_W1_BASELINE_API_SHA: /^[0-9a-f]{40}$/,
   PC_W1_DATABASE_IDENTITY: /^PASS$/,
@@ -236,8 +268,18 @@ export function parseEvidence(raw, { requireTerminal = true } = {}) {
   if (requireTerminal && !result.PC_W1_RESULT) blocked('MISSING_TERMINAL_EVIDENCE');
   if (result.PC_W1_RESULT === 'BLOCKED' && !result.PC_W1_ERROR) blocked('MISSING_BLOCKER_CODE');
   const driftKeys = Object.keys(result).filter(key => key.startsWith('PC_W1_CHECKSUM_DRIFT_'));
-  if (driftKeys.length && (driftKeys.length !== 3 || result.PC_W1_RESULT !== 'BLOCKED'
+  if (driftKeys.length && (![3,4].includes(driftKeys.length) || !result.PC_W1_CHECKSUM_DRIFT_MIGRATION_SHA256
+    || !result.PC_W1_CHECKSUM_DRIFT_EXPECTED_SHA256 || !result.PC_W1_CHECKSUM_DRIFT_APPLIED_SHA256 || result.PC_W1_RESULT !== 'BLOCKED'
     || result.PC_W1_ERROR !== 'APPLIED_MIGRATION_CHECKSUM_DRIFT')) blocked('CONTRADICTORY_CHECKSUM_DIAGNOSTICS');
+  const ledgerKeys = Object.keys(result).filter(key => key.startsWith('PC_W1_LEDGER_'));
+  if (ledgerKeys.length) {
+    const count = key => Number(result[`PC_W1_LEDGER_${key}`]);
+    if (ledgerKeys.length !== LEDGER_COUNTS.length + 1 || driftKeys.length !== 4 || result.PC_W1_RESULT !== 'BLOCKED'
+      || result.PC_W1_ERROR !== 'APPLIED_MIGRATION_CHECKSUM_DRIFT' || result.PC_W1_DATABASE_MUTATION !== 'NONE'
+      || count('DRIFTED') < 1 || count('ROWS') !== ['MATCHED','DRIFTED','UNKNOWN','UNFINISHED','ROLLED_BACK'].reduce((n,key) => n+count(key),0)
+      || count('DUPLICATES') > count('MATCHED')+count('DRIFTED')+count('UNKNOWN')
+      || count('LEGACY_INITIAL_MARKERS') > count('DRIFTED')) blocked('CONTRADICTORY_LEDGER_DIAGNOSTICS');
+  }
   if (result.PC_W1_RESULT && result.PC_W1_RESULT !== 'BLOCKED') {
     if (result.PC_W1_ERROR) blocked('CONTRADICTORY_REMOTE_EVIDENCE');
     for (const key of ['PC_W1_TARGET_SHA', 'PC_W1_BASELINE_API_SHA', 'PC_W1_DATABASE_IDENTITY', 'PC_W1_PENDING_MIGRATIONS',
