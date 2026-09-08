@@ -37,11 +37,11 @@ async function seedWarmRegistry() {
   await prisma.$executeRawUnsafe(`
     INSERT INTO eligibility.registry_generations(
       id,source,generation,published_at,downloaded_at,content_sha256,record_count,
-      parser_version,schema_version,status,fresh_until,created_at,validated_at,activated_at
+      parser_version,schema_version,status,fresh_until,created_at
     ) VALUES (
       'load_fns_active','FNS','load-fns-active',clock_timestamp(),clock_timestamp(),repeat('a',64),
-      ${LOOKUP_DISTRACTOR_ROWS + 1},'load-fns-v1','load-schema-v1','ACTIVE',clock_timestamp()+interval '30 days',
-      clock_timestamp(),clock_timestamp(),clock_timestamp()
+      ${LOOKUP_DISTRACTOR_ROWS + 1},'load-fns-v1','load-schema-v1','STAGING',clock_timestamp()+interval '30 days',
+      clock_timestamp()
     )
   `);
   await prisma.$executeRawUnsafe(`
@@ -63,6 +63,14 @@ async function seedWarmRegistry() {
       'LEGAL_ENTITY_IDENTITY_AND_ACTIVITY','{"active":true}'::jsonb,clock_timestamp(),md5(g::text)||md5((g+1)::text),clock_timestamp()
     FROM generate_series(1,${LOOKUP_DISTRACTOR_ROWS}) AS g
   `);
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe(`
+      UPDATE eligibility.registry_generations
+      SET status='VALIDATED',validated_at=clock_timestamp()
+      WHERE id='load_fns_active' AND status='STAGING'
+    `);
+    await tx.$queryRawUnsafe(`SELECT eligibility.activate_registry_generation('FNS','load-fns-active')`);
+  });
 }
 
 async function localLookup(client = prisma) {
