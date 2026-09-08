@@ -5449,35 +5449,28 @@
       "applicability": "APPLICABLE",
       "status": "FAIL",
       "evidence": [
-        "transaction-context:apps/api/src/common/prisma/rls-transaction.service.ts",
-        "policies:infra/sql/production-rls-policies.sql",
-        "policies:infra/sql/postgresql-deal-authority-policies.sql",
-        "uncovered-table:apps/api/prisma/migrations/20260712090000_industrial_transaction_core/migration.sql"
+        "measured-open-read:docs/security/rls-effective-policies.json",
+        "replay:scripts/security/build-effective-rls-policies.mjs",
+        "still-permissive:apps/api/prisma/migrations/20260831180000_deals_permissive_all_policy_closure/migration.sql",
+        "closed-since:apps/api/prisma/migrations/20260830190000_migration_chain_rls_permissive_closure/migration.sql",
+        "closed-since:apps/api/prisma/migrations/20260831010000_tenant_rls_uncovered_tables/migration.sql",
+        "transaction-context:apps/api/src/common/prisma/rls-transaction.service.ts"
       ],
       "conditions": [
         {
-          "condition": "row policies decide on the bound subject where they exist",
-          "check": "PRESENT_AT_PATH",
+          "condition": "a tenant-bearing table is still readable across tenants by a permissive policy granted to PUBLIC",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "infra/sql/production-rls-policies.sql",
-            "infra/sql/postgresql-deal-authority-policies.sql"
+            "docs/security/rls-effective-policies.json"
           ],
           "patterns": [
-            "app.current_tenant_id"
-          ]
-        },
-        {
-          "condition": "a tenant-bearing table still carries no row level security",
-          "check": "ABSENT_AT_PATH",
-          "paths": [
-            "apps/api/prisma/migrations/20260712090000_industrial_transaction_core/migration.sql"
-          ],
-          "patterns": [
-            "row level security"
+            "\"name\": \"deals_uncontexted_read\"",
+            "\"tenantbearingtable\": true",
+            "\"tenantbearingopenreadcount\": 1"
           ]
         }
       ],
-      "note": "Corrected twice, and the second correction reverses part of the first. Measured denominator: 40 Prisma models carry tenantId, 37 map to a table with ENABLE ROW LEVEL SECURITY, and 3 have no policy at all - deal_events, fgis_grain_tenant_read_provider_claims and fgis_grain_tenant_read_audit_heads. The two FGIS tables look missed rather than excluded: the same migration enables row level security on their siblings. deal_events is live - the authoritative command path reads and writes it inside the RLS transaction - but with no policy on the table the transaction-local tenant setting constrains nothing there. No cross-tenant read is exposed through it today: the one service that would read it filtered by dealId alone, DealEventService, has no reference outside its own file and is registered in no module. deal_events is not unprotected either - the industrial transaction core migration enforces append-only on it - but append-only is an integrity control, not a tenancy control. The earlier version of this note then said: where a policy exists, data-specific access is decided per row by PostgreSQL from the authenticated subject, and that part is strong. That sentence was wrong, and it was wrong in the way this programme keeps finding: it described the database CI builds, not the database a deploy builds. PostgreSQL combines permissive policies with OR, and 0001_postgresql_initial installed three policies granted to PUBLIC whose qualifier is literally true - deals_app_access on deals, audit_select_all on audit_events and ledger_select_all on ledger_entries. Their DROP statements existed only in infra/sql/production-rls-policies.sql, which no deploy path applies: only CI, the rehearsal script and the production-like acceptance harness reference it. On a migration-only database deals_app_access therefore ORs away the strict deals_select installed by 20260712193000, and on the other two the permissive SELECT is the only SELECT policy present. The repository had already articulated this exact principle for a different table - 20260807006000 says the boundary must be part of the forward-only migration chain and not an accidental property of a later deploy artifact - and the same reasoning had not been applied here. The distinction that makes the finding precise is the grantee, not the qualifier: this schema has around sixty policies written as FOR SELECT TO some_narrow_role USING (true), where the role is the boundary and the trivial qualifier is correct. Only a blanket policy granted to PUBLIC is a hole. audit_events and ledger_entries are closed by a migration in this pass and the class is now enforced by identity-rls-no-inert-policies.sql, which fails on any PUBLIC-granted policy whose every qualifier is true, with a source-controlled exclusion list carrying a reason per entry. deals remains excluded and open: closing it needs a deals_update policy, which exists only in the artifact, and the artifact has drifted from the chain in both directions - its deals_insert is broader than the narrowing 20260712195000 installed, and its deals_select is missing the app_deal_basis_deal_visible branch the chain has. Copying it would revert a deliberate tightening. Raised as #4814. This requirement stays FAIL: three tenant-bearing tables still carry no policy and deals still carries a blanket one."
+      "note": "Corrected a third time, and this correction is the first one that was measured rather than read. The previous note said three permissive policies granted to PUBLIC were still installed - deals_app_access on deals, audit_select_all on audit_events, ledger_select_all on ledger_entries - because their DROP statements existed only in infra/sql/production-rls-policies.sql, which no `prisma migrate deploy` applies. That stopped being true. 20260830190000_migration_chain_rls_permissive_closure drops audit_select_all and ledger_select_all inside the chain and replaces them with per-row policies keyed on app.current_tenant_id, the owning org and deal visibility; 20260831180000_deals_permissive_all_policy_closure drops deals_app_access. The same note named three tenant-bearing tables with no policy at all - deal_events and the two FGIS tenant-read tables - and 20260831010000_tenant_rls_uncovered_tables enables RLS, forces it and installs tenant-scoped select and insert policies on all three. Four of the record's claims described a database that no longer exists.\n\nWhat is still open is narrower and worse-documented than any of that. 20260831180000 did not remove the deals exposure, it renamed it: deals_app_access FOR ALL USING (TRUE) became deals_uncontexted_read FOR SELECT USING (TRUE) and deals_uncontexted_update FOR UPDATE USING (TRUE) WITH CHECK (TRUE), both still permissive and still granted to PUBLIC. PostgreSQL ORs permissive policies together, so deals_uncontexted_read ORs away the strict deals_select for every reader: any session that reaches the table reads every tenant's deals. The migration says so in COMMENT ON POLICY and tracks it in #4814; the reason it is still there is that the export and analytics readers run outside an RLS context, so closing it is a change to those readers rather than to a policy. 20260901070000 added a trigger constraining which columns the uncontexted UPDATE may change, which is an integrity control, not a tenancy one.\n\nThis is now measured instead of asserted. scripts/security/build-effective-rls-policies.mjs replays every static CREATE/ALTER/DROP POLICY across the 199 migrations in order - 583 statements, 294 surviving policies - and reports which of them are permissive, granted to PUBLIC and true for every row. Three survive; only one is on a table with a tenant column. inventory.availability_policies holds one immutable formula definition and regulatory_rule_versions holds published rule text, neither of which has a tenant column, so an unconditional read of them is correct. public.deals is the finding. The replay declares its own limit rather than hiding it: five migrations build settlement policies inside PL/pgSQL loops via EXECUTE format(), which no static reader can resolve, and those are listed in dynamicPolicyMigrations instead of guessed at - the statements they build are visibly tenant-scoped, but that is context, not evidence.\n\nV8.2.2 stays FAIL, on one boundary: a tenant-bearing table readable and updatable across tenants by any session that reaches it. It closes when a migration drops deals_uncontexted_read and deals_uncontexted_update, which requires the export and analytics readers to carry an RLS context first."
     },
     {
       "requirementId": "V8.2.3",
