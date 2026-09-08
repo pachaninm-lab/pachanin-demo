@@ -3,7 +3,7 @@
   "branch": "governance/public-home-role-clarity-scope-20260905",
   "status": "active",
   "authorizedBy": "explicit-user-instruction-2026-09-08-complete-homepage-5111-live-acceptance",
-  "purpose": "Refresh the trusted public-home governance slot for the two deterministic exact-production failures remaining after merge #5176: source-native RU/EN/ZH localization of the public Deal execution route and device-scale-safe full-page mobile evidence capture in WebKit, without allowing the implementation branch to authorize or widen its own scope.",
+  "purpose": "Refresh the trusted public-home governance slot for the deterministic exact-production acceptance failures remaining after merge #5176 and the concrete post-merge Codex accessibility finding: source-native RU/EN/ZH localization of the public Deal execution route, robust full-document mobile visual evidence capture in WebKit, and semantic role-based exposure of the seven-stage rail, without allowing the implementation branch to authorize or widen its own scope.",
   "authorityBaseExactMain": "15a834e3993e43da82af2748633a19d2717b1fa6",
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/governance-public-home-role-clarity-scope-20260905.json",
@@ -11,7 +11,7 @@
   ],
   "implementationBranch": "fix/platform-v7-final-production-acceptance-5111",
   "implementationManifest": "docs/platform-v7/autopilot/scopes/public-home-role-clarity-20260905.json",
-  "implementationAllowedPathCount": 3,
+  "implementationAllowedPathCount": 4,
   "boundaries": {
     "productBehaviorChange": true,
     "registrationChange": false,
