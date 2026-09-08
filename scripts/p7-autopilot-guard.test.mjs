@@ -17,6 +17,7 @@ const publicHomeGovernanceBranch = 'governance/public-home-role-clarity-scope-20
 const publicHomeImplementationBranch = 'feat/public-home-role-clarity-20260905';
 const publicHomeGovernanceManifest = 'docs/platform-v7/autopilot/scopes/governance-public-home-role-clarity-scope-20260905.json';
 const publicHomeImplementationManifest = 'docs/platform-v7/autopilot/scopes/public-home-role-clarity-20260905.json';
+const poisonIsolationImplementationBranch = 'fix/production-like-outbox-poison-isolation-3793';
 const sourceGuard = path.resolve('scripts/p7-autopilot-guard.sh');
 const sourceResolver = path.resolve('scripts/p7-source-controlled-scope.mjs');
 const sourceWorkflow = path.resolve('.github/workflows/platform-v7-autopilot-guard.yml');
@@ -281,6 +282,17 @@ test('public-home implementation fails closed when the accepted base manifest is
   const result = runGuard(context);
   assert.notEqual(result.status, 0, output(result));
   assert.match(output(result), /cannot load accepted public-home manifest/u);
+});
+
+test('poison-isolation implementation branch is immutable and fails closed before its manifest resolver is accepted', (t) => {
+  const context = publicHomeImplementationFixture(t);
+  context.implementationBranch = poisonIsolationImplementationBranch;
+  write(context.root, 'README.md', 'must not inherit broad allowedCurrentScope\n');
+  commit(context.root, 'attempt poison implementation before resolver authority');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /no immutable approved scope/u);
+  assert.doesNotMatch(output(result), /Scope guard passed\./u);
 });
 
 test('records immutable prior authority for the EGRUL governance manifest only', () => {
