@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-service-marketplace-authority-4997",
+  "status": "active",
+  "purpose": "Establish the tenant-scoped Service Marketplace lifecycle from request and quote through explicit payer confirmation, evidence, acceptance and non-financial settlement reference.",
+  "authorityBaseExactMain": "2f162c4f20b95cea4849c9c428c82ff9f952c122",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".gitleaksignore",
+    "docs/platform-v7/autopilot/scopes/pc-crop-service-marketplace-authority-4997.json",
+    "packages/domain-core/src/index.ts",
+    "packages/domain-core/src/service-marketplace.ts",
+    "packages/domain-core/src/service-marketplace.test.ts",
+    "apps/api/prisma/schema.prisma",
+    "apps/api/prisma/migrations/20260905030000_service_marketplace_authority/**",
+    "apps/api/src/modules/service-marketplace/**",
+    "apps/api/src/app.module.ts",
+    "apps/api/test/industrial/service-marketplace-authority.e2e-spec.ts",
+    "scripts/platform-v7-one-deal-e2e.sh",
+    "scripts/verify-pc-crop-service-marketplace-scope.test.mjs",
+    ".github/workflows/pc-crop-service-marketplace.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "requiredInvariants": [
+    "REGISTRATION_CODE_CHANGED=0, REGISTRATION_BEHAVIOR_CHANGED=0 and ROLE_ELIGIBILITY_REGRESSION=0.",
+    "Service requests and every lifecycle receipt are PostgreSQL-authoritative, tenant-scoped and idempotent.",
+    "Quotes pin an ACTIVE verified ServiceOffering and use integer money or an explicit manual-quote outcome.",
+    "Provider selection, payer assignment and payer confirmation are distinct irreversible receipts.",
+    "Only the assigned payer can confirm; assignment or selection never creates an obligation.",
+    "Execution, evidence, requester acceptance and settlement reference advance in strict order.",
+    "Settlement records an external or future-ledger reference and always declares createsFinancialObligation=false.",
+    "No accounting path, registration path, Deal Engine mutation, paid dependency, external access or production activation is introduced."
+  ],
+  "acceptance": [
+    "The lifecycle is exactly REQUESTED, QUOTED, PROVIDER_SELECTED, PAYER_ASSIGNED, PAYER_CONFIRMED, EXECUTING, EVIDENCE_SUBMITTED, ACCEPTED and SETTLEMENT_RECORDED.",
+    "Multiple immutable provider quotes may exist before exactly one quote is selected.",
+    "Same-tenant outsiders and cross-tenant actors cannot read or mutate a request unless they are an eligible quoting provider, selected provider, requester or assigned payer.",
+    "Direct row mutation without the matching immutable event, audit row and outbox entry rolls back.",
+    "Exact command replay returns the original receipt and conflicting replay is rejected.",
+    "Concurrent selection or confirmation commands produce one accepted transition and one stale-version result.",
+    "A forced audit or outbox failure rolls back aggregate state and append-only receipts.",
+    "The scope guard confirms no registration, accounting or role-eligibility path changed."
+  ]
+}

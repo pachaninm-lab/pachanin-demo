@@ -5,6 +5,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { applyCsrfHeader } from '@/lib/csrf';
 import styles from './OrganizationAccessShell.module.css';
+import { clearClientSessionState } from '@/lib/client-session-cleanup';
 
 type Locale = 'ru' | 'en' | 'zh';
 
@@ -35,6 +36,7 @@ export function OrganizationAccessShell({ children, locale }: { children: ReactN
         cache: 'no-store',
       });
     } finally {
+      clearClientSessionState();
       document.cookie = 'pc-role=; Max-Age=0; Path=/; SameSite=Lax';
       window.location.assign('/platform-v7/login?logout=1');
     }

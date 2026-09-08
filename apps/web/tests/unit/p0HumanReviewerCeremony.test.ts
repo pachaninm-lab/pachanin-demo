@@ -1,14 +1,9 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
-import { sendTransactionalMail } from '@/lib/server/transactional-mail';
 
 vi.mock('@/lib/server-request-security', () => ({
   assertCsrf: vi.fn(() => ({ ok: true })),
-}));
-
-vi.mock('@/lib/server/transactional-mail', () => ({
-  sendTransactionalMail: vi.fn(),
 }));
 
 const applicationId = 'reg_p0_human_ceremony';
@@ -51,11 +46,6 @@ describe('P0 human reviewer ceremony staff route', () => {
     vi.clearAllMocks();
     vi.stubEnv('API_URL', 'https://api.example.test');
     vi.stubEnv('REGISTRATION_DELIVERY_KEY', 'r'.repeat(32));
-    vi.mocked(sendTransactionalMail).mockResolvedValue({
-      delivered: true,
-      provider: 'smtp',
-      reason: 'sent',
-    });
   });
 
   afterEach(() => {
@@ -68,11 +58,7 @@ describe('P0 human reviewer ceremony staff route', () => {
     const fetchMock = vi.fn().mockResolvedValue(upstreamResponse({
       status: 'ACTIVATED',
       replayed: false,
-      notificationDelivery: {
-        email: 'synthetic-review@example.test',
-        status: 'ACTIVATED',
-        reason: 'approved',
-      },
+      notificationDelivery: { status: 'SENT' },
     }));
     vi.stubGlobal('fetch', fetchMock);
     const info = vi.spyOn(console, 'info').mockImplementation(() => undefined);
@@ -89,9 +75,7 @@ describe('P0 human reviewer ceremony staff route', () => {
       correlationId: 'p0-human-approve:reg_p0_human_ceremony',
     });
     expect(payload).not.toHaveProperty('notificationDelivery');
-    expect(sendTransactionalMail).toHaveBeenCalledWith(expect.objectContaining({
-      to: 'synthetic-review@example.test',
-    }));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
 
     const [target, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     const headers = init.headers as Record<string, string>;
@@ -116,6 +100,7 @@ describe('P0 human reviewer ceremony staff route', () => {
     const fetchMock = vi.fn().mockResolvedValue(upstreamResponse({
       status: 'ACTIVATED',
       replayed: true,
+      notificationDelivery: { status: 'SENT' },
     }));
     vi.stubGlobal('fetch', fetchMock);
     const info = vi.spyOn(console, 'info').mockImplementation(() => undefined);
@@ -132,7 +117,6 @@ describe('P0 human reviewer ceremony staff route', () => {
     });
     expect(payload).not.toHaveProperty('notificationDelivery');
     expect(payload).not.toHaveProperty('notificationDelivered');
-    expect(sendTransactionalMail).not.toHaveBeenCalled();
 
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect((init.headers as Record<string, string>)['idempotency-key']).toBe(idempotencyKey);
@@ -147,5 +131,26 @@ describe('P0 human reviewer ceremony staff route', () => {
       notificationDelivered: false,
       notificationSuppressed: true,
     });
+  });
+
+  it('fails closed when a successful upstream replay lacks durable SENT evidence', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(upstreamResponse({
+      status: 'ACTIVATED',
+      replayed: true,
+    })));
+    const { POST } = await import('@/app/api/staff/[...path]/route');
+
+    const response = await POST(decisionRequest('p0-human-replay-missing-proof'), context);
+    const payload = await response.json() as Record<string, unknown>;
+
+    expect(response.status).toBe(503);
+    expect(payload).toMatchObject({
+      status: 'ACTIVATED',
+      replayed: true,
+      code: 'REGISTRATION_DECISION_NOTIFICATION_PENDING',
+      correlationId: 'p0-human-replay-missing-proof',
+    });
+    expect(payload).not.toHaveProperty('notificationDelivery');
+    expect(payload).not.toHaveProperty('notificationDelivered');
   });
 });

@@ -25,7 +25,12 @@ const logisticsHandoff: HandoffItem[] = [
     role: 'логистика → водитель',
     requirement: 'передаёт назначение, маршрут, транспорт и требования к доказательствам',
     entity: 'DL-9106',
-    href: '/platform-v7/driver',
+    // The dispatcher's own screen, not the driver's cabinet. A logistician who
+    // follows a link into /platform-v7/driver is redirected straight back out
+    // by that layout, because the cabinet requires a verified driver session -
+    // so the link could never work, and offering it blurs a boundary the rest
+    // of this contour is built to keep.
+    href: '/platform-v7/logistics/drivers',
     documentImpact: true,
   },
   {

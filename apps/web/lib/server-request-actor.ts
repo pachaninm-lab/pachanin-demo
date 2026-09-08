@@ -65,7 +65,12 @@ function verifyHs256Jwt(token: string): TokenPayload | null {
   const header = parseJson<{ alg?: string }>(base64UrlDecode(headerSegment));
   const payload = parseJson<TokenPayload>(base64UrlDecode(payloadSegment));
   if (!header || !payload || header.alg !== 'HS256') return null;
-  if (payload.type && payload.type !== 'access') return null;
+  // Fail-closed on the type. The check used to run only when the token
+  // volunteered a type claim, so a token that simply omitted one was accepted.
+  // ASVS V9.2.2 asks the receiving service to verify the type before accepting,
+  // which means absence has to be a refusal. Nothing in this repository mints a
+  // token under this secret, so requiring the claim removes no working flow.
+  if (payload.type !== 'access') return null;
   if (payload.exp && payload.exp * 1000 <= Date.now()) return null;
   const secret = resolveAccessSecret();
   if (!secret) return null;

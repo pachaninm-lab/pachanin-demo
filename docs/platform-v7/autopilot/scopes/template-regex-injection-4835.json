@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4835,
+  "branch": "security/template-regex-injection-4835",
+  "status": "active",
+  "purpose": "Close ASVS V1.2.9. The document generator built a RegExp from every property name of the request body - new RegExp(`\\\\{\\\\{${key}\\\\}\\\\}`, 'g') with the braces escaped and the key not - and used the property value as the replacement string. Reachability was traced rather than assumed: documents.controller.ts declares @Body() variables: Record<string, string | number>, an inline TypeScript type that erases at runtime, so ValidationPipe sees no class and the sender chooses both names and values. The controller is behind RolesGuard, so an authenticated user of any tenant suffices. Five defects sat on that one loop, four of them proven by running them.",
+  "authorityBaseExactMain": "6c359d2918145582e752c35a8c2efe0b2aafe4dc",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/template-regex-injection-4835.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "apps/api/src/modules/documents/document-template.service.ts",
+    "apps/api/src/modules/documents/document-template.service.spec.ts"
+  ],
+  "requiredInvariants": [
+    "Nothing is compiled from input. The requirement says escape the special characters; the stronger answer available here was to stop building a pattern from the input at all. The template is scanned once against a module-constant expression and each field name found there is looked up in a map, so a key can no longer be pattern syntax and no key can influence how long the scan takes.",
+    "Values are concatenated, not used as a replacement string. The second argument of .replace() interprets $&, $`, $' and $n, so a value of $` spliced the document text preceding the match into the field. Concatenation removes that as a class rather than by escaping.",
+    "No substituted text is rescanned. The old loop ran once per key over the whole document, so a value could introduce a placeholder that a later key then filled. A single pass cannot do that.",
+    "The hash semantics are unchanged and pinned by a test. The hash is still computed over the document carrying the literal sentinel in its hash field; changing that value would invalidate every previously issued document, so it is fixed deliberately and not as an accident of the rewrite.",
+    "The hash is written at the remembered position of its own field. content.replace('PLACEHOLDER', hash) took the first occurrence of that string anywhere, so a sender whose field rendered earlier than the hash field took the hash and left the literal sentinel in the document's own hash line.",
+    "The platform-set fields are written after the sender's, so templateVersion and documentHash cannot be overridden.",
+    "V1.3.12 is deliberately NOT claimed and stays FAIL. Its traced instance is closed, but the requirement also asks that the application's regular expressions be free from elements causing exponential backtracking, and no sweep was done: sixteen further new RegExp call sites exist under apps/api/src and apps/web/lib and no backtracking-analysis tool is declared in any manifest. Answering that requirement with one closed instance would be the substitution this programme forbids.",
+    "No production, REG.RU, DNS, database or credential mutation. No migration, no new dependency, no lockfile change. New mandatory cost: 0 RUB.",
+    "The method's tolerance of an absent body is preserved. The previous implementation spread `variables`, and `{...null}` is `{}`; Object.entries(null) throws, so the single-pass rewrite would have turned an empty document into a 500. Normalised, with a test covering null, undefined and non-objects."
+  ],
+  "acceptance": [
+    "The service had no test of any kind before this pass. document-template.service.spec.ts now passes 11 of 11.",
+    "Four defects proven by running them before the fix, not argued from reading: a key of `.*` rewrote every field at once; a value of $` spliced the preceding document text into the field; a key of (.*)*x against an ordinary 1901-character contract did not finish in 120 seconds, and Node being single-threaded that is the whole API process for that pod; and the hash landed in the first field whose value happened to equal the sentinel.",
+    "Mutation, and it is the sharpest evidence in this pass: restoring the original loop verbatim makes the test suite HANG rather than fail - killed at 6m40s - because the ReDoS case never returns. The failure mode of the mutation is the production symptom itself.",
+    "Two further unit mutations, each caught: placing the hash by first string occurrence fails the sentinel test; letting the sender's values win over the platform-set fields fails the override test.",
+    "Two matrix mutations, each revoking V1.2.9: reintroducing a RegExp construction in the file, and removing the position-based hash placement.",
+    "Two of the eleven tests were wrong when first written and were corrected rather than the code being bent to them: the template contains the word ДОГОВОР twice on its own, and buyerName is a real template field, so the original assertions would have passed while proving nothing. Both now compare against a baseline document or use a name the template does not contain.",
+    "V1.2.9 moves FAIL to PASS: PASS 121 to 122, FAIL 98 to 97, applied 332 / rejected 0, with no other verdict moved. V1.3.12 stays FAIL and its condition was re-pointed from the closed instance to the missing sweep, so it now revokes when a backtracking-analysis tool appears rather than when this one line changes.",
+    "Found by review on the PR and fixed rather than argued with: the rewrite dropped the old spread's tolerance of a null or undefined body, which Object.entries does not share. The mutation that removes the normalisation fails the new case. Suite 12 of 12, up from 11."
+  ]
+}

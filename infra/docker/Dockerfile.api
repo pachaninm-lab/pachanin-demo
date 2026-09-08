@@ -15,14 +15,19 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
   pnpm install --frozen-lockfile
 RUN pnpm --filter @pc/api build
 RUN test -f /workspace/apps/api/dist/apps/api/src/main.js
+RUN test -f /workspace/apps/api/dist/apps/api/src/role-eligibility-worker.js
 RUN pnpm --filter @pc/api --prod deploy --legacy /prod/api
 
 # TypeScript emits the API below the workspace-relative path because the API
 # imports shared workspace packages. pnpm deploy carries dependencies only, so
 # copy that exact output and materialize Prisma's generated side effects.
 RUN rm -rf /prod/api/src /prod/api/test /prod/api/prisma /prod/api/dist \
-  && cp -R /workspace/apps/api/dist /prod/api/dist
-RUN test -f /prod/api/dist/apps/api/src/main.js
+  && cp -R /workspace/apps/api/dist /prod/api/dist \
+  && mkdir -p /prod/api/config/eligibility \
+  && cp /workspace/config/eligibility/farmer-okved-v1.json /prod/api/config/eligibility/farmer-okved-v1.json
+RUN test -f /prod/api/dist/apps/api/src/main.js \
+  && test -f /prod/api/dist/apps/api/src/role-eligibility-worker.js \
+  && test -f /prod/api/config/eligibility/farmer-okved-v1.json
 RUN node scripts/release/materialize-prisma-client.mjs /workspace/apps/api /prod/api
 RUN cd /prod/api \
   && node -e "const {PrismaClient}=require('@prisma/client'); if(typeof PrismaClient!=='function') throw new Error('PrismaClient export is unavailable')"

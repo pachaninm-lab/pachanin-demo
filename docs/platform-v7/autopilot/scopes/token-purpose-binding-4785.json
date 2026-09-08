@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4785,
+  "branch": "security/token-purpose-binding-4785",
+  "status": "active",
+  "purpose": "Make every self-contained token this platform accepts be accepted for what it was issued as, rather than told apart by which claim it happens to carry. States the algorithm allowlist on the API (ASVS V9.1.2), gives cabinet sessions an explicit type and audience and requires them, binds the web's read of the API access token to type, issuer and audience (V9.2.2, V9.2.3), and closes a fail-open type check on the commercial-surface verifier. No production deploy.",
+  "authorityBaseExactMain": "b81b4c7a2d4a038e0df8b8039b93b06725c9278e",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/token-purpose-binding-4785.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "apps/api/src/modules/auth/access-token.ts",
+    "apps/web/lib/platform-v7/verified-session.ts",
+    "apps/web/lib/server-request-actor.ts",
+    "apps/web/tests/unit/tokenPurposeBinding.spec.ts",
+    "apps/web/tests/unit/platformV7VerifiedSession.test.ts",
+    ".github/workflows/ci.yml"
+  ],
+  "requiredInvariants": [
+    "No database schema change, no migration, no new dependency. Every change is to how an existing token is minted or checked.",
+    "No control is loosened anywhere. Every edit adds a check or states one that was previously inherited from a library default; the only removal is of a condition that made a check optional.",
+    "The algorithm allowlist is one exported constant used on both sides of the pair - algorithm on sign, algorithms on verify - so signing and verification cannot drift apart.",
+    "The web restates the API's issuer, audience and type because it cannot import from the API package, and the spec reads access-token.ts and fails if the two ever drift.",
+    "The array form of aud that RFC 7519 permits is handled, so a token legitimately carrying several audiences is not refused for that reason alone.",
+    "The commercial-surface verifier now fails closed on an absent type claim. Nothing in this repository mints a token under its secret, so requiring the claim removes no working flow; the direction of the change is fail-closed either way.",
+    "Existing cabinet cookies stop verifying on deploy, because they carry no type or audience. The effect is bounded and stated rather than hidden: a cabinet session is a web-tier view selector with a ceiling of one hour for the API-authorized branch and eight for the fixture, no credential is lost, and the user re-opens the cabinet with the same button. The account's real credential is untouched.",
+    "platformV7VerifiedSession.test.ts is restated, not relaxed. Its fixtures minted a bare token and so no longer exercised the path they were written for; the access claims are added and not one assertion is weakened.",
+    "The CI edit only adds the new spec to the web-unit list. No check is removed and no step is skipped.",
+    "Four unit files are red on this base and CI does not run them. Established by measuring the base before attributing anything, left untouched, and filed as #4786: deciding whether the test or the code is wrong is a separate finding and does not belong in this diff.",
+    "V9.2.3 deliberately stays FAIL. The fixture contour still admits its token by a purpose flag rather than an audience naming the service, so one fixture token is accepted by three consumers. Narrowing the note is not the same as meeting the requirement.",
+    "No production, REG.RU, DNS, database or credential mutation. The 1C, marketing and presentation contours are not touched."
+  ],
+  "acceptance": [
+    "tokenPurposeBinding.spec.ts passes 17 of 17 and enumerates every verifying site from git ls-files rather than trusting the four known ones.",
+    "Five mutations are caught: removing the cabinet type check, the cabinet audience check, the access-reader issuer check, the access-reader audience check, or the API algorithm allowlist; and restoring the fail-open type check on the commercial-surface verifier.",
+    "The cabinet type check is covered by a token carrying the correct audience and the wrong type, so the two checks are not indistinguishable - the first mutation run found this gap and it was closed.",
+    "apps/api/src/modules/auth/auth 40 suites, 614 tests, 0 failed; tsc --noEmit exit 0 for both packages.",
+    "The matrix rebuilds at applied 332 / rejected 0: PASS 102 to 104, FAIL 117 to 115, NOT_ASSESSED unchanged at 38.",
+    "The cryptographic inventory is unchanged, because a named algorithm constant is not a cryptographic call site."
+  ]
+}

@@ -1,6 +1,6 @@
 {
   "schemaVersion": "pc-crop.cryptographic-inventory.v1",
-  "scannedFiles": 2153,
+  "scannedFiles": 2258,
   "operations": [
     {
       "operation": "encryption",
@@ -43,11 +43,11 @@
     {
       "operation": "hash",
       "label": "Hashing",
-      "sites": 78,
+      "sites": 84,
       "algorithms": [
         {
           "algorithm": "sha256",
-          "sites": 78,
+          "sites": 84,
           "files": [
             "apps/api/src/common/outbox/outbox.service.ts",
             "apps/api/src/common/security/rate-limit.service.ts",
@@ -60,6 +60,7 @@
             "apps/api/src/modules/auth/accounting-document-payload.builder.ts",
             "apps/api/src/modules/auth/auth-crypto.ts",
             "apps/api/src/modules/bank-reconciliation/bank-reconciliation.service.ts",
+            "apps/api/src/modules/commercial-rules/commercial-rules.contract.ts",
             "apps/api/src/modules/commodity-profiles/commodity-profile-command.contract.ts",
             "apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.port.ts",
             "apps/api/src/modules/deals/canonical-test-deal.seed.ts",
@@ -79,7 +80,8 @@
             "apps/api/src/modules/logistics/prisma-shipment.repository.ts",
             "apps/api/src/modules/marketing/connectors/vk.publisher.ts",
             "apps/api/src/modules/marketing/marketing-editorial-core.ts",
-            "apps/api/src/modules/mfa/mfa.service.ts",
+            "apps/api/src/modules/mfa/mfa.module.ts",
+            "apps/api/src/modules/organization-capabilities/organization-capability-command.contract.ts",
             "apps/api/src/modules/organization-intake/organization-intake.service.ts",
             "apps/api/src/modules/partner-api/partner-api.service.ts",
             "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.ts",
@@ -96,6 +98,10 @@
             "apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.redrive.repository.ts",
             "apps/api/src/modules/regulatory-integration/regulatory-integration.inbox-lifecycle.repository.ts",
             "apps/api/src/modules/regulatory-integration/regulatory-integration.reconciliation.repository.ts",
+            "apps/api/src/modules/role-eligibility/role-eligibility-security.ts",
+            "apps/api/src/modules/service-marketplace/service-marketplace.contract.ts",
+            "apps/api/src/modules/service-providers/integration-binding.contract.ts",
+            "apps/api/src/modules/service-providers/provider-registry.contract.ts",
             "apps/api/src/modules/settlement-engine/settlement-engine.controller.ts",
             "apps/api/src/modules/settlement-engine/settlement-postgresql.repository.ts",
             "apps/api/src/modules/staff-access/staff-audit.service.ts",
@@ -113,6 +119,7 @@
             "apps/web/lib/platform-v7/tai-internal-stream.ts",
             "apps/web/lib/server/gekta-auth-route.ts",
             "apps/web/lib/server/mfa-login-ticket.ts",
+            "apps/web/scripts/materialize-presentation-pdf.mjs",
             "packages/domain-core/src/audit-log.ts",
             "packages/domain-core/src/deal-event-chain.ts",
             "packages/domain-core/src/deal-signing-service.ts",
@@ -124,7 +131,7 @@
     {
       "operation": "mac",
       "label": "Message authentication",
-      "sites": 24,
+      "sites": 23,
       "algorithms": [
         {
           "algorithm": "sha256",
@@ -153,10 +160,9 @@
         },
         {
           "algorithm": "sha1",
-          "sites": 2,
+          "sites": 1,
           "files": [
-            "apps/api/src/modules/auth/auth-crypto.ts",
-            "apps/api/src/modules/mfa/mfa.service.ts"
+            "apps/api/src/modules/auth/auth-crypto.ts"
           ]
         }
       ]
@@ -164,14 +170,15 @@
     {
       "operation": "kdf-hkdf",
       "label": "Key derivation (HKDF)",
-      "sites": 3,
+      "sites": 4,
       "algorithms": [
         {
           "algorithm": "sha256",
-          "sites": 3,
+          "sites": 4,
           "files": [
             "apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
             "apps/api/src/modules/auth/opaque-token-authority.ts",
+            "apps/api/src/modules/deals/deal-registry-query.service.ts",
             "apps/web/lib/server/gekta-mfa-ticket.ts"
           ]
         }
@@ -246,11 +253,11 @@
     {
       "operation": "csprng",
       "label": "Cryptographic randomness",
-      "sites": 31,
+      "sites": 30,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 31,
+          "sites": 30,
           "files": [
             "apps/api/src/common/config/secrets.ts",
             "apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
@@ -258,7 +265,7 @@
             "apps/api/src/modules/auth/opaque-token-authority.ts",
             "apps/api/src/modules/auth/password-hashing.ts",
             "apps/api/src/modules/gekta/gekta-phone.service.ts",
-            "apps/api/src/modules/mfa/mfa.service.ts",
+            "apps/api/src/modules/mfa/mfa.module.ts",
             "apps/api/src/modules/partner-api/partner-api.service.ts",
             "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.ts",
             "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.repository.ts",
@@ -278,11 +285,11 @@
     {
       "operation": "uuid",
       "label": "UUID generation",
-      "sites": 224,
+      "sites": 240,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 224,
+          "sites": 240,
           "files": [
             "apps/api/src/modules/accounting/connection-attestation.repository.ts",
             "apps/api/src/modules/ai-insights/ai-assistant.controller.ts",
@@ -299,6 +306,7 @@
             "apps/api/src/modules/auth/password-reset.service.ts",
             "apps/api/src/modules/auth/product-session.service.ts",
             "apps/api/src/modules/auth/registration-application.service.ts",
+            "apps/api/src/modules/auth/registration-cancellation.service.ts",
             "apps/api/src/modules/auth/registration-decision.service.ts",
             "apps/api/src/modules/bank-reconciliation/bank-reconciliation.service.ts",
             "apps/api/src/modules/certificate-monitor/certificate-monitor.service.ts",
@@ -323,6 +331,12 @@
             "apps/api/src/modules/regulatory-integration/regulatory-integration.inbox-lifecycle.repository.ts",
             "apps/api/src/modules/regulatory-integration/regulatory-integration.inbox.repository.ts",
             "apps/api/src/modules/regulatory-integration/regulatory-integration.reconciliation.repository.ts",
+            "apps/api/src/modules/role-eligibility/role-eligibility-registry-sync.service.ts",
+            "apps/api/src/modules/role-eligibility/role-eligibility-registry.repository.ts",
+            "apps/api/src/modules/role-eligibility/role-eligibility-worker.service.ts",
+            "apps/api/src/modules/role-eligibility/role-eligibility.controller.ts",
+            "apps/api/src/modules/role-eligibility/role-eligibility.repository.ts",
+            "apps/api/src/modules/role-eligibility/role-eligibility.service.ts",
             "apps/api/src/modules/settlement-engine/settlement-engine.service.ts",
             "apps/api/src/modules/settlement-engine/settlement-postgresql.repository.ts",
             "apps/api/src/modules/staff-access/staff-access.controller.ts",
@@ -375,8 +389,10 @@
             "apps/web/app/api/staff/commodity-profiles/[profileId]/commands/[actionId]/route.ts",
             "apps/web/app/api/staff/integration-control-tower/[[...path]]/route.ts",
             "apps/web/app/api/staff/integrations/_command-proxy.ts",
+            "apps/web/app/api/staff/registration/applications/[applicationId]/cancel/route.ts",
             "apps/web/app/api/staff/workspaces/[...path]/route.ts",
             "apps/web/app/platform-v7/profile/team/OrganizationTeamAdminClient.tsx",
+            "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
             "apps/web/app/platform-v7/staff/open-cabinet/route.ts",
             "apps/web/apps/web/middleware.ts",
             "apps/web/components/crop-platform/CommodityProfileRegistryClient.tsx",
@@ -397,11 +413,11 @@
     {
       "operation": "weak-prng",
       "label": "Non-cryptographic randomness",
-      "sites": 53,
+      "sites": 54,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 53,
+          "sites": 54,
           "files": [
             "apps/api/src/auth-mail-worker.ts",
             "apps/api/src/common/prisma/rls-transaction.service.ts",
@@ -420,6 +436,7 @@
             "apps/api/src/modules/notifications/notifications.service.ts",
             "apps/api/src/modules/organizations/organizations.service.ts",
             "apps/api/src/modules/partner-api/partner-api.service.ts",
+            "apps/api/src/modules/role-eligibility/role-eligibility-registry-sync.service.ts",
             "apps/web/app/api/auth/demo/instant/[role]/route.ts",
             "apps/web/app/api/platform-v7/leads/route.ts",
             "apps/web/app/api/sim/bank-callback/route.ts",

@@ -330,7 +330,6 @@ jobs:
     if: always() && github.event_name == 'workflow_run'
     runs-on: ubuntu-24.04
     permissions:
-      actions: write
       contents: read
       issues: write
       statuses: write
@@ -368,7 +367,7 @@ jobs:
         if: needs.live_preflight.result == 'success'
         with:
           node-version: 22
-      - name: Publish terminal status and dispatch activation
+      - name: Publish terminal preflight status
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_SHA: ${{ needs.upstream_build_gate.outputs.target_sha }}
@@ -418,13 +417,6 @@ jobs:
           EOF
           gh issue comment 3365 --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/comment.md"
           [[ "$state" == success ]]
-          gh api --method POST -H 'Accept: application/vnd.github+json' \
-            "repos/${GITHUB_REPOSITORY}/actions/workflows/tai-restricted-qwen-reg-ru-activation.yml/dispatches" \
-            -f ref='main' \
-            -f "inputs[target_sha]=$TARGET_SHA" \
-            -f 'inputs[confirmation]=ACTIVATE-RESTRICTED-QWEN-REG-RU' \
-            -f "inputs[upstream_run_id]=$GITHUB_RUN_ID" \
-            -f "inputs[upstream_run_attempt]=$GITHUB_RUN_ATTEMPT"
 
   result_gate:
     name: Confirm REG.RU preflight chain result

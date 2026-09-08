@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4798,
+  "branch": "security/decision-evidence-integrity-4798",
+  "status": "active",
+  "purpose": "Refuse an ASVS decision that cites a file the tree no longer has, and refuse a self-revoking condition pointing at one - because an absence check against a missing file always holds, so such a decision looks self-revoking while being unable to revoke. Corrects the one stale citation this found. Documentation and a gate; no runtime change and no production deploy.",
+  "authorityBaseExactMain": "9b185ed840b53b1af0494309757bb64b9d19c91f",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/decision-evidence-integrity-4798.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "scripts/security/verify-decision-evidence.mjs",
+    "scripts/security/verify-decision-evidence.test.mjs",
+    ".github/workflows/sbom-scan.yml"
+  ],
+  "requiredInvariants": [
+    "No runtime code is touched and no verdict is moved. V11.4.1 stays PASS; only a citation that had gone stale and a count that had stopped being true are corrected.",
+    "This exists because the programme kept finding verdicts resting on facts that had quietly expired - a draw that was removed, an inventory that had come to exist, a timestamp already stored, a pathway that mints nothing. Most of that lives in prose and no scanner will catch it. One form is mechanical, and this catches that form rather than pretending to catch all of it.",
+    "The condition case is treated as the serious one and is reported first. A condition is how a PASS revokes itself, and an ABSENT_AT_PATH check against a file that does not exist finds nothing missing, so it holds forever - the decision would look self-revoking while being unable to revoke. Measured before writing the gate: 498 condition paths and every root currently resolve, so this locks in a property that holds today rather than papering over a breach.",
+    "Semantic evidence labels are not mistaken for missing files. The assessment uses entries like repository-scan:no-ldap-integration and stack-mismatch:jndi-is-java-specific to record why something is not applicable; only the part of an entry that looks like a repository path is checked, and the path half of a label:path pair still is.",
+    "The one real finding is corrected rather than suppressed: V11.4.1 cited apps/api/src/modules/mfa/mfa.service.ts, removed in #4688, and its note still said two runtime sites use HMAC-SHA1. There is one. The count now comes from the generated cryptographic inventory rather than from a manual sweep that has to be repeated to stay true.",
+    "Duplicate requirement ids and depends-on targets outside the standard are refused as well, each on its own case; both were measured clean before the gate was added.",
+    "The workflow edit only adds two path entries and one blocking step. No check is removed and no gate is weakened.",
+    "No production, REG.RU, DNS, database or credential mutation. The 1C, marketing and presentation contours are not touched."
+  ],
+  "acceptance": [
+    "The gate fails on a condition path that is gone, a condition root that is gone, a cited file that is gone, a depends-on target outside the standard, and a duplicated requirement id - each on its own case.",
+    "A semantic label is not reported as a missing file, and the path half of a label:path pair still is.",
+    "Run against the committed decisions the gate reports 332 decisions and no problems, which it did not before the V11.4.1 correction.",
+    "The matrix rebuilds at applied 332 / rejected 0 with no verdict moved: PASS 110, FAIL 109, NOT_ASSESSED 38."
+  ]
+}

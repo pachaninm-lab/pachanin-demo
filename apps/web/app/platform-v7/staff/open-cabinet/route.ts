@@ -8,6 +8,7 @@ import {
 } from '@/lib/platform-v7/controlled-test-organizations';
 import { parseStaffCapabilitiesContract } from '@/lib/platform-v7/staff-capabilities';
 import { signCabinetSession, verifyHs256Jwt } from '@/lib/platform-v7/verified-session';
+import { FIXTURE_AUDIENCE, fixtureTokenIsForService } from '@/lib/platform-v7/fixture-token';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -182,6 +183,7 @@ async function parseRequest(request: NextRequest): Promise<ParsedRequest> {
 async function controlledOwnerAuthority(accessToken: string, secret: string): Promise<AuthorityResult | null> {
   if (!controlledFixtureEnabled()) return null;
   const claims = await verifyHs256Jwt(accessToken, secret);
+  if (!fixtureTokenIsForService(claims, FIXTURE_AUDIENCE.ownerCabinet)) return null;
   if (!claims || claims.testAccess !== true) return null;
 
   const nowSeconds = Math.floor(Date.now() / 1000);

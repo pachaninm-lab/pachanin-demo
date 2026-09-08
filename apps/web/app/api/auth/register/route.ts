@@ -5,7 +5,7 @@ import { assertCsrf } from '../../../../lib/server-request-security';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 15;
+export const maxDuration = 30;
 
 const PUBLIC_WORKSPACES = new Set([
   'seller',
@@ -21,10 +21,10 @@ const PUBLIC_WORKSPACES = new Set([
 
 const mailCopy = {
   ru: {
-    subject: 'Прозрачная Цена — подтвердите email',
-    intro: 'Заявка на подключение к платформе «Прозрачная Цена» создана.',
-    action: 'Подтвердите email по одноразовой ссылке:',
-    expiry: 'Ссылка действует 30 минут. После подтверждения заявка перейдёт на проверку организации.',
+    subject: 'Прозрачная Цена — подтвердите адрес электронной почты',
+    intro: 'Заявка на регистрацию на платформе «Прозрачная Цена» принята.',
+    action: 'Для подтверждения адреса электронной почты откройте одноразовую ссылку:',
+    expiry: 'Ссылка действует 30 минут. После подтверждения адреса заявка будет направлена на проверку.',
   },
   en: {
     subject: 'Transparent Price — confirm your email',
@@ -49,6 +49,7 @@ type RegistrationApiPayload = {
   statusToken?: string;
   correlationId?: string;
   emailDelivery?: { email?: string; token?: string; expiresInSeconds?: number };
+  retryAfterSeconds?: number;
   code?: string;
   message?: string;
 };
@@ -84,6 +85,29 @@ function mailChannelConfigured() {
 
 function accountHash(email: string) {
   return createHash('sha256').update(email).digest('hex').slice(0, 16);
+}
+
+function boundedRetryAfterSeconds(value: unknown) {
+  return Number.isInteger(value) && Number(value) >= 1 && Number(value) <= 86_400
+    ? Number(value)
+    : null;
+}
+
+function shouldRetryRegistrationDelivery(result: Awaited<ReturnType<typeof sendTransactionalMail>>) {
+  return result.delivered === false
+    && result.provider === 'smtp'
+    && result.reason.includes('smtp_timeout');
+}
+
+async function deliverRegistrationMail(mail: Parameters<typeof sendTransactionalMail>[0]) {
+  let attempts = 1;
+  let result = await sendTransactionalMail(mail);
+  if (shouldRetryRegistrationDelivery(result)) {
+    attempts = 2;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    result = await sendTransactionalMail(mail);
+  }
+  return { result, attempts };
 }
 
 export async function POST(request: Request) {
@@ -141,6 +165,7 @@ export async function POST(request: Request) {
 
     if (!apiResponse.ok || payload.accepted !== true) {
       const status = apiResponse.status === 409 ? 409 : apiResponse.status === 429 ? 429 : apiResponse.status >= 500 ? 503 : 400;
+      const retryAfterSeconds = status === 429 ? boundedRetryAfterSeconds(payload.retryAfterSeconds) : null;
       console.warn('registration_api_rejected', JSON.stringify({
         correlationId,
         status: apiResponse.status,
@@ -152,6 +177,7 @@ export async function POST(request: Request) {
         code: payload.code || (status === 503 ? 'REGISTRATION_SERVICE_UNAVAILABLE' : 'REGISTRATION_REQUEST_INVALID'),
         message: payload.message || null,
         correlationId,
+        ...(retryAfterSeconds === null ? {} : { retryAfterSeconds }),
       }, status);
     }
 
@@ -169,11 +195,12 @@ export async function POST(request: Request) {
     verifyUrl.searchParams.set('statusToken', payload.statusToken);
     verifyUrl.searchParams.set('lang', locale);
     const copy = mailCopy[locale];
-    const deliveryResult = await sendTransactionalMail({
+    const deliveryAttempt = await deliverRegistrationMail({
       to: delivery.email,
       subject: copy.subject,
       text: [copy.intro, '', copy.action, verifyUrl.toString(), '', copy.expiry].join('\n'),
     });
+    const deliveryResult = deliveryAttempt.result;
     console.info('registration_email_delivery_result', JSON.stringify({
       correlationId,
       registrationApplicationRef: payload.applicationId,
@@ -181,12 +208,14 @@ export async function POST(request: Request) {
       delivered: deliveryResult.delivered,
       provider: deliveryResult.provider,
       reason: deliveryResult.reason,
+      attempts: deliveryAttempt.attempts,
     }));
     if (!deliveryResult.delivered) {
       console.warn('registration_email_delivery_deferred', JSON.stringify({
         correlationId,
         registrationApplicationRef: payload.applicationId,
         accountHash: accountHash(email),
+        attempts: deliveryAttempt.attempts,
       }));
       return json({
         accepted: false,

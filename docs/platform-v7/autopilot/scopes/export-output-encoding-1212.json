@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4802,
+  "branch": "security/export-output-encoding-1212",
+  "status": "active",
+  "purpose": "Close ASVS V1.2.1 and V1.2.10 on the regulatory export contour. Three report builders in exports.service.ts interpolated deal fields into an outgoing document with plain template literals and no encoding: culture and region are free-text columns, so a deal whose culture carried a closing tag produced a different XML document, and the Rosstat CSV wrote a culture into a quoted field without doubling the quote, which ends the field early and shifts every column after it. Both documents are addressed to a regulator. The escaping is put in one shared place for the export path; the FGIS codec keeps its own copy for now because converging them belongs inside the PC-CROP-08C immutable scope.",
+  "authorityBaseExactMain": "bd07dc6552f28c48c121c43b87ee16e1de3de5a5",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/export-output-encoding-1212.json",
+    "apps/api/src/common/security/xml-escape.ts",
+    "apps/api/src/common/security/csv-cell.ts",
+    "apps/api/src/modules/exports/exports.service.ts",
+    "apps/api/src/modules/exports/exports-output-encoding.spec.ts",
+    "docs/security/asvs-applicability-decisions.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+  ],
+  "requiredInvariants": [
+    "The FGIS-Grain codec is not touched. Sharing one escaper with it was written, and reverted: the pc-crop-08c gate enforces an immutable scope over that contour and correctly refused a pass that also carried the export builders. Two escaping implementations therefore exist in the tree, the ASVS note says so rather than glossing it, and convergence is raised as #4806 to be done inside the scope that governs it. The boundary wins over the tidier architecture.",
+    "Encoding, never deletion. A builder that stripped metacharacters would also defeat injection while filing a report that disagrees with the database, so every case asserts both that the structure is unchanged and that decoding the field returns the original value. The deleting variant is a mutation and it fails.",
+    "Encoding, never deletion. A builder that stripped metacharacters would also defeat injection while filing a report that disagrees with the database, so every case asserts both that the structure is unchanged and that decoding the field returns the original value. The deleting variant is a mutation and it fails.",
+    "Characters XML 1.0 cannot carry are dropped rather than escaped, because no entity represents them and a parser rejects the document either way. Tab, newline and carriage return are legal and are kept.",
+    "The CSV guard covers the requirement's own list - =, +, -, @, tab and NUL - plus carriage return, and prefixes an apostrophe rather than deleting the character. It marks a negative number too; that is the named cost, taken because a spreadsheet cannot distinguish the quantity -1 from a payload by its first character either.",
+    "No report changes its schema, element names, field order or filename. Only the encoding of values changes. A regulator receiving a report with no metacharacters in it gets a byte-identical document.",
+    "Registration business logic, 1C, marketing and presentation are not touched. No production, REG.RU, DNS, database or credential mutation, no migration and no new dependency - the tests prove structure by invariant and round-trip rather than by pulling in an XML parser."
+  ],
+  "acceptance": [
+    "exports-output-encoding.spec.ts passes 11 of 11, and no file under regulatory-integration appears in the diff.",
+    "Four mutations are caught: culture returned to raw interpolation fails 3 of 11, deleting instead of encoding fails 5, dropping the CSV quote doubling fails 2, dropping the formula guard fails 2.",
+    "Both verdicts revoke on a negative mutation at the matrix level: unescaping culture rejects V1.2.1, and removing NUL from the trigger set rejects V1.2.10.",
+    "The matrix rebuilds at applied 332 / rejected 0, PASS 111 to 113 and FAIL 108 to 106, with no other verdict moved.",
+    "tsc --noEmit exit 0, node --test scripts/security 111/111, guard=0."
+  ]
+}

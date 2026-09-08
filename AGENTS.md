@@ -70,6 +70,7 @@ Run the closest available checks and document results in PR body:
 - `node scripts/p7-autopilot-dispatcher.mjs`
 - `bash scripts/p7-autopilot-guard.sh`
 - `node scripts/check-production-hosting-authority.mjs`
+- `node --test docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs`
 - `pnpm typecheck`
 - `pnpm test`
 
@@ -95,3 +96,5 @@ Claude should be used as reviewer, architect and risk auditor. Claude should not
 ## Review rule
 
 Review the diff, not the agent report. If changed files exceed allowed scope, block merge.
+
+Every non-draft PR must have a completed Codex review bound to the exact current head SHA before merge or automerge. A head change invalidates the previous review gate. Current, non-outdated review threads must be resolved, and an active latest `CHANGES_REQUESTED` review blocks merge. Automated merge additionally requires all substantive exact-head CI/status checks to be terminal `SUCCESS`, `SKIPPED`, or `NEUTRAL`; pending or red checks defer merge. The repository automation records a passing exact-head review with the `review-gate-passed` label; that label is removed automatically when the review gate no longer holds.

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4839,
+  "branch": "security/evidence-bundle-export-role-4839",
+  "status": "active",
+  "purpose": "Found while mapping the export readers for the RLS-context work on #4839. exportEvidenceBundle was the one export of six that never called assertExportRole. The controller carries only JwtAuthGuard, so role is enforced entirely in the service, and the pair handed any authenticated user of a tenant the full evidence bundle for ANY deal in that tenant - including every file's s3Key - while the neighbouring exportLedgerCsv refused the same caller.",
+  "authorityBaseExactMain": "c0a0eaec1199969d62848cf421b1d04ee717ba41",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/evidence-bundle-export-role-4839.json",
+    "apps/api/src/modules/exports/exports.service.ts",
+    "apps/api/src/modules/exports/exports-tenant-scope.spec.ts"
+  ],
+  "requiredInvariants": [
+    "The fix is one line - the same assertExportRole every sibling export already calls - placed first, in the same order as the siblings. EXPORT_ALLOWED_ROLES is not widened, the tenant predicate is not touched, and no reader is moved.",
+    "Deal participation is NOT introduced as a boundary here. It was never checked on this path; the only boundary was the tenant. Adding a participation model would be a behaviour change beyond this defect, and claiming the endpoint was ever participant-scoped would be false.",
+    "The RLS-context work for #4839 is NOT in this pass. Moving the export readers into RlsTransactionService, removing the four error-swallowing .catch handlers and deciding the OutboxEntry.dealId IS NULL rule stay ahead of closing deals_uncontexted_read, in that order.",
+    "No production, REG.RU, DNS, database or credential mutation. No schema change, no migration, no new dependency, no lockfile change. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "Measured on a real call, not inferred from reading: under DRIVER and under FARMER exportEvidenceBundle returned the file together with its s3Key, while exportLedgerCsv under DRIVER returned Export access denied. Same controller, same guard, same tenant.",
+    "No caller: a repository sweep found no frontend or backend caller of the evidence export endpoint, so the added check breaks no existing flow. Reported because it bounds the blast radius, not as a reason the gap was harmless.",
+    "The previous suite had a test literally named 'роль по-прежнему проверяется первой' that exercised only exportDealsCsv. exportEvidenceBundle appeared in the tenant-scope lists but in no role test - the one method missing the check was the one that test did not cover.",
+    "Role is now asserted over ALL SIX exports in both directions: a role outside the list is refused before any Prisma call, and a role inside it is not refused. A completeness test reflects the table against ExportsService.prototype, so a new export method that forgets assertExportRole fails here rather than being caught at review.",
+    "Three mutations, all caught: removing the new check fails exactly the exportEvidenceBundle role test and only it; dropping exportEvidenceBundle from the table fails the completeness test; making assertExportRole refuse everyone fails all six positive-direction tests.",
+    "exports-tenant-scope 9 of 9 to 24 of 24; the exports module 38 of 38 across three suites; api tsc --noEmit exit 0."
+  ]
+}

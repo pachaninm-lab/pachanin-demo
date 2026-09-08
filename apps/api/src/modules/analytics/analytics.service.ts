@@ -39,19 +39,60 @@ export class AnalyticsService {
     }
   }
 
+  /**
+   * Тенант вызывающего — обязателен, а не желателен.
+   *
+   * ANALYTICS_ROLES — те же четыре роли, что и EXPORT_ALLOWED_ROLES: ADMIN,
+   * EXECUTIVE, ACCOUNTING, COMPLIANCE_OFFICER. В exports.service.ts каждая из
+   * шести выгрузок для них ограничена тенантом; здесь тенанта не было вовсе.
+   * То есть одна и та же роль получала свою сделку через выгрузку и всю
+   * платформу — через агрегат.
+   *
+   * На RLS опереться нельзя: `deals_uncontexted_read ON public."deals"
+   * FOR SELECT USING (TRUE)` жива (#4814), permissive и объединяется со строгой
+   * `deals_select` через OR. Её собственный COMMENT прямо называет причину, по
+   * которой она ещё не снята: «while the export and analytics readers still run
+   * outside an RLS context». Этот файл — вторая половина той причины.
+   *
+   * Отсутствующий tenantId — отказ, а не чтение без границы: иначе токен без
+   * тенанта давал бы ровно тот агрегат, который здесь и закрывается. Та же
+   * форма проверки стоит в exports.service.ts и
+   * postgresql-deal-command.service.ts.
+   */
+  private assertTenantScope(user: RequestUser): string {
+    const tenantId = user.tenantId;
+    if (typeof tenantId !== 'string' || tenantId.length === 0) {
+      throw new ForbiddenException('Analytics tenant scope unavailable');
+    }
+    return tenantId;
+  }
+
   async getUnitEconomics(user: RequestUser, params?: { from?: string; to?: string }): Promise<UnitEconomics> {
     this.assertRole(user);
+    // Отказ не должен зависеть от того, поднята ли база: проверка тенанта
+    // стоит до ветки in-memory, иначе форма границы менялась бы вместе с
+    // режимом развёртывания.
+    const tenantId = this.assertTenantScope(user);
     const from = params?.from ? new Date(params.from) : new Date(Date.now() - 30 * 24 * 3600_000);
     const to = params?.to ? new Date(params.to) : new Date();
 
     if (!this.prisma) return this.mockEconomics(from, to);
 
+    // Предиката тенанта здесь не было вовсе: GMV, число сделок, топ культур,
+    // топ регионов и доля споров считались по ВСЕЙ платформе и отдавались
+    // администратору любого тенанта. Это не «показали не тому» — это сводка
+    // коммерческой активности конкурентов, собранная и выданная по API.
     const deals = await this.prisma.deal.findMany({
-      where: { createdAt: { gte: from, lte: to } },
+      where: { tenantId, createdAt: { gte: from, lte: to } },
       select: { id: true, status: true, totalRub: true, totalKopecks: true, culture: true, region: true, volumeTons: true },
-    }).catch(() => []);
+    });
 
-    const disputes = await this.prisma.dispute.count({ where: { createdAt: { gte: from, lte: to } } }).catch(() => 0);
+    // disputes своей колонки тенанта не имеет (dealId NOT NULL), поэтому
+    // считается по сделкам, уже отобранным выше: второй запрос к deals не
+    // нужен, а граница получается той же самой по построению.
+    const disputes = await this.prisma.dispute.count({
+      where: { dealId: { in: deals.map((deal) => deal.id) }, createdAt: { gte: from, lte: to } },
+    });
 
     let gmvKopecks = 0;
     const cultureMap = new Map<string, { count: number; gmv: number }>();
@@ -61,7 +102,16 @@ export class AnalyticsService {
     let cancelledCount = 0;
 
     for (const deal of deals) {
-      const kopecks = deal.totalKopecks ?? Math.round((deal.totalRub ?? 0) * 100);
+      // totalKopecks — BigInt в схеме, то есть `bigint` в рантайме. Прежний
+      // `deal.totalKopecks ?? ...` возвращал именно bigint, и следующая же
+      // строка `gmvKopecks += kopecks` роняла запрос:
+      // «TypeError: Cannot mix BigInt and other types» (замерено в node, а не
+      // выведено из чтения). Тип этого не показывал: `.catch(() => [])`
+      // расширял элемент массива до `any` и отключал проверку каждого поля
+      // каждой строки. Снятие catch вскрыло дефект, который он же и прятал.
+      const kopecks = deal.totalKopecks === null || deal.totalKopecks === undefined
+        ? Math.round((deal.totalRub ?? 0) * 100)
+        : Number(deal.totalKopecks);
       gmvKopecks += kopecks;
       totalVol += deal.volumeTons ?? 0;
       if (deal.status === 'CLOSED' || deal.status === 'SETTLED') closedCount++;
@@ -205,18 +255,36 @@ export class AnalyticsService {
     entryCount: number;
   }> {
     this.assertRole(user);
+    const tenantId = this.assertTenantScope(user);
     if (!this.prisma) return { totalEscrowKopecks: 0, totalReleasedKopecks: 0, totalDisputeHoldKopecks: 0, totalCommissionKopecks: 0, entryCount: 0 };
 
+    // Здесь не было даже where: чтение шло по всей таблице ledger_entries, и
+    // наружу уходили суммарный эскроу, выплаты, удержания по спорам и комиссия
+    // ВСЕЙ платформы. Соседний exportLedgerCsv тому же вызывающему отдаёт
+    // только проводки одной его сделки.
+    //
+    // У ledger_entries своей колонки тенанта нет, принадлежность определяется
+    // сделкой; проводка без сделки не принадлежит ни одному тенанту и в
+    // tenant-scoped агрегат не попадает.
+    const scopedDealIds = (await this.prisma.deal.findMany({
+      where: { tenantId },
+      select: { id: true },
+    })).map((deal) => deal.id);
+
     const entries = await this.prisma.ledgerEntry.findMany({
+      where: { dealId: { in: scopedDealIds } },
       select: { entryType: true, amountKopecks: true, creditAccount: true, debitAccount: true },
-    }).catch(() => []);
+    });
 
     let escrow = 0, released = 0, disputeHold = 0, commission = 0;
     for (const e of entries) {
-      if (e.entryType === 'ESCROW_RESERVE') escrow += e.amountKopecks;
-      if (e.entryType === 'ESCROW_RELEASE') released += e.amountKopecks;
-      if (e.entryType === 'DISPUTE_HOLD') disputeHold += e.amountKopecks;
-      if (e.entryType === 'COMMISSION') commission += e.amountKopecks;
+      // amountKopecks — BigInt, та же ошибка смешения типов, что и выше.
+      // Форма приведения — та же, что в industrial-deal-command.gateway.ts.
+      const amount = Number(e.amountKopecks);
+      if (e.entryType === 'ESCROW_RESERVE') escrow += amount;
+      if (e.entryType === 'ESCROW_RELEASE') released += amount;
+      if (e.entryType === 'DISPUTE_HOLD') disputeHold += amount;
+      if (e.entryType === 'COMMISSION') commission += amount;
     }
 
     return { totalEscrowKopecks: escrow, totalReleasedKopecks: released, totalDisputeHoldKopecks: disputeHold, totalCommissionKopecks: commission, entryCount: entries.length };

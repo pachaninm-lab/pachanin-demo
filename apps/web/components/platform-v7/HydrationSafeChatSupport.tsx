@@ -38,11 +38,10 @@ function isStrategicHomepage(pathname: string): boolean {
 
 function needsLegacyTranslationBridge(pathname: string): boolean {
   const clean = normalizePath(pathname);
-  return clean === '/platform-v7'
-    || clean === '/pc-public-entry/platform-v7'
-    || clean === '/platform-v7/contact'
-    || clean === '/platform-v7/deal-flow'
-    || clean === '/platform-v7/demo';
+  // The homepage and contact route now own complete RU/EN/ZH source copy.
+  // Keep the legacy DOM translator only where older public surfaces still rely
+  // on dictionary-based post-hydration translation.
+  return clean === '/platform-v7/deal-flow' || clean === '/platform-v7/demo';
 }
 
 /**

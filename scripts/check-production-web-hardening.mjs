@@ -92,6 +92,8 @@ requireText('release', [
   'PERSISTED_WEB_IMAGE=',
   '--pull never',
   'PC_LIVE_ACCEPTANCE_SCRIPT',
+  'command -v python3',
+  'Python 3 is required for strict live acceptance JSON parsing',
   'LEGACY_WEB_PARKED=1',
   'LEGACY_WEB_ADOPTED=1',
   'LEGACY_CONTAINER_RESTORED=',
@@ -128,6 +130,8 @@ requireText('live', [
   'ticket=%s',
   'content_type=%s',
   'body_bytes=%s',
+  'extract_entitlement_ticket()',
+  'answer_ticket="$(extract_entitlement_ticket "$reserve_body"',
   'LIVE_ACTION=',
   'LIVE_ACCEPTANCE=PASS',
 ]);
@@ -299,12 +303,41 @@ forbid('remote', [/sshpass/i, /PC_PROD_SSH_PASSWORD/, /VPS_SSH_PASSWORD/]);
 forbid('live', [
   /cat\s+"?\$stream_body"?/,
   /(?:echo|printf)[^\n]*\$answer_ticket/,
+  /node\s+-e/,
 ]);
 forbid('hardening', [/Netlify.*production/i, /Vercel.*production/i]);
 
 for (const path of [files.release, files.remote, files.live]) {
   const result = spawnSync('bash', ['-n', path], { encoding: 'utf8' });
   if (result.status !== 0) failures.push(`${path}: bash -n failed: ${result.stderr.trim()}`);
+}
+
+const live = contents.get('live') ?? '';
+const extractor = live.match(/extract_entitlement_ticket\(\) \{\n[\s\S]*?\n\}/)?.[0];
+if (!extractor) {
+  failures.push(`${files.live}: entitlement JSON parser is not readable by the regression probe`);
+} else {
+  const validTicket = 'mtce8wuh.L18UUCeYU1yRvdgM';
+  const extractorProbe = spawnSync(
+    'bash',
+    [
+      '-c',
+      `set -euo pipefail
+${extractor}
+parsed="$(extract_entitlement_ticket <(printf '%s\\n' '{"entitlement":{"state":"ANONYMOUS_FREE"},"allowed":true,"ticket":"${validTicket}"}'))"
+[[ "$parsed" == '${validTicket}' ]]
+[[ "$parsed" =~ ^[0-9a-z]{8,12}\\.[A-Za-z0-9_-]{16}$ ]]
+! extract_entitlement_ticket <(printf '%s\\n' '{"allowed":false,"ticket":"${validTicket}"}') >/dev/null
+! extract_entitlement_ticket <(printf '%s\\n' '{"meta":{"allowed":true,"ticket":"${validTicket}"},"allowed":false,"ticket":null}') >/dev/null
+! extract_entitlement_ticket <(printf '%s\\n' '{"allowed":true,"ticket":"${validTicket}","allowed":false,"ticket":null}') >/dev/null`,
+    ],
+    { encoding: 'utf8' },
+  );
+  if (extractorProbe.status !== 0) {
+    failures.push(
+      `${files.live}: node-free entitlement ticket extraction probe failed: ${extractorProbe.stderr.trim()}`,
+    );
+  }
 }
 
 if (failures.length > 0) {

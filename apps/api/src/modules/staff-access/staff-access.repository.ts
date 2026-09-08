@@ -512,7 +512,9 @@ export class StaffAccessRepository {
   }
 
   async latestEventHash(client: StaffSqlClient, actorUserId: string): Promise<string | null> {
-    await client.$executeRaw(Prisma.sql`SELECT auth.lock_staff_access_event_chain(${actorUserId})`);
+    await client.$queryRaw(Prisma.sql`
+      SELECT pg_advisory_xact_lock(hashtextextended(${actorUserId}, 0)) IS NULL AS locked
+    `);
     const rows = await client.$queryRaw<Array<{ hash: string }>>(Prisma.sql`
       SELECT hash FROM auth.staff_access_events
       WHERE actor_user_id = ${actorUserId}

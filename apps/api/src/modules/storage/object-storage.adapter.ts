@@ -20,7 +20,11 @@ export type ObjectInspection = {
 export interface ObjectStorageAdapter {
   readonly driver: 's3' | 'filesystem';
   getPresignedUploadUrl(key: string, mimeType: string, ttlSeconds: number): Promise<PresignedObjectUrl>;
-  getPresignedDownloadUrl(key: string, ttlSeconds: number): Promise<PresignedObjectUrl>;
+  getPresignedDownloadUrl(
+    key: string,
+    ttlSeconds: number,
+    responseOverrides?: Readonly<Record<string, string>>,
+  ): Promise<PresignedObjectUrl>;
   inspectAndHashObject(key: string, maxBytes: number): Promise<ObjectInspection>;
   deleteObject(key: string): Promise<void>;
 }
@@ -92,10 +96,14 @@ export class S3CompatibleStorageAdapter implements ObjectStorageAdapter {
     };
   }
 
-  async getPresignedDownloadUrl(key: string, ttlSeconds: number): Promise<PresignedObjectUrl> {
+  async getPresignedDownloadUrl(
+    key: string,
+    ttlSeconds: number,
+    responseOverrides: Readonly<Record<string, string>> = {},
+  ): Promise<PresignedObjectUrl> {
     const now = new Date();
     return {
-      url: this.presign('GET', key, ttlSeconds, now),
+      url: this.presign('GET', key, ttlSeconds, now, responseOverrides),
       expiresAt: new Date(now.getTime() + ttlSeconds * 1000).toISOString(),
     };
   }
@@ -166,7 +174,13 @@ export class S3CompatibleStorageAdapter implements ObjectStorageAdapter {
     return url;
   }
 
-  private presign(method: 'PUT' | 'GET', key: string, ttlSeconds: number, now: Date): string {
+  private presign(
+    method: 'PUT' | 'GET',
+    key: string,
+    ttlSeconds: number,
+    now: Date,
+    responseOverrides: Readonly<Record<string, string>> = {},
+  ): string {
     const target = this.objectUrl(key);
     const timestamp = amzTimestamp(now);
     const scope = `${timestamp.date}/${this.config.region}/s3/aws4_request`;
@@ -178,9 +192,21 @@ export class S3CompatibleStorageAdapter implements ObjectStorageAdapter {
       ['X-Amz-SignedHeaders', 'host'],
     ];
     if (this.config.sessionToken) params.push(['X-Amz-Security-Token', this.config.sessionToken]);
+    // Folded in before the canonical query is built, so the override is part of
+    // what the signature covers. A response header appended after signing would
+    // be stripped by the storage, and one left unsigned could be removed by
+    // whoever holds the link - which would put the rendering decision back
+    // where this control took it from.
+    for (const [name, value] of Object.entries(responseOverrides)) params.push([name, value]);
     const canonicalQuery = params
       .map(([name, value]) => [encodeRfc3986(name), encodeRfc3986(value)] as const)
-      .sort(([a], [b]) => a.localeCompare(b))
+      // SigV4 canonicalisation sorts by byte value, not by locale. Every
+      // parameter here used to start with X-Amz-, where the two orderings
+      // coincide, so the difference was invisible until a lowercase response
+      // override was added: localeCompare puts it before X-Amz-Algorithm and
+      // the storage would rebuild a different canonical string and reject the
+      // signature.
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
       .map(([name, value]) => `${name}=${value}`)
       .join('&');
     const canonicalRequest = [

@@ -24,6 +24,71 @@ fail() {
   return 1
 }
 
+reclaim_web_pull_space() {
+  local current_web_id current_image_ref current_image_id short_sha target_image docker_root
+  local image_ref image_id
+
+  short_sha="${TARGET_SHA:0:7}"
+  target_image="ghcr.io/pachaninm-lab/grainflow-web:sha-${short_sha}"
+
+  mapfile -t running_web_ids < <(
+    docker ps -q --no-trunc |
+      while read -r id; do
+        image="$(docker inspect --format '{{.Config.Image}}' "$id" 2>/dev/null || true)"
+        if [[ "$image" == *grainflow-web* ]]; then printf '%s\n' "$id"; fi
+      done
+  )
+  (( ${#running_web_ids[@]} == 1 )) ||
+    fail "safe Docker reclaim requires exactly one running grainflow-web container; found ${#running_web_ids[@]}"
+
+  current_web_id="${running_web_ids[0]}"
+  current_image_ref="$(docker inspect --format '{{.Config.Image}}' "$current_web_id")"
+  current_image_id="$(docker inspect --format '{{.Image}}' "$current_web_id")"
+  docker_root="$(docker info --format '{{.DockerRootDir}}')"
+  [[ -d "$docker_root" ]] || fail "Docker root directory is unavailable: $docker_root"
+
+  printf 'DOCKER_RECLAIM_CURRENT_WEB_IMAGE=%s\n' "$current_image_ref"
+  printf 'DOCKER_RECLAIM_TARGET_WEB_IMAGE=%s\n' "$target_image"
+  printf 'DOCKER_RECLAIM_DISK_BEFORE_BEGIN\n'
+  df -Pk "$docker_root"
+  printf 'DOCKER_RECLAIM_DISK_BEFORE_END\n'
+
+  # Only reclaim artifacts that cannot affect running services or persistent data.
+  # Volumes, networks and containers are deliberately outside this bounded cleanup.
+  docker image prune -f >/dev/null
+  docker builder prune -f >/dev/null 2>&1 || true
+
+  while IFS=' ' read -r image_ref image_id; do
+    [[ -n "$image_ref" && -n "$image_id" ]] || continue
+    [[ "$image_ref" == ghcr.io/pachaninm-lab/grainflow-web:sha-* ]] || continue
+
+    if [[ "$image_ref" == "$current_image_ref" ||
+          "$image_ref" == "$target_image" ||
+          "$image_id" == "$current_image_id" ]]; then
+      printf 'DOCKER_RECLAIM_PRESERVED_IMAGE=%s\n' "$image_ref"
+      continue
+    fi
+
+    # Docker refuses this without --force when any container still references
+    # the image. That refusal is intentional: rollback/forensic images in use
+    # are preserved, while genuinely unused historical exact-SHA images go.
+    if docker image rm "$image_ref" >/dev/null 2>&1; then
+      printf 'DOCKER_RECLAIM_REMOVED_UNUSED_IMAGE=%s\n' "$image_ref"
+    else
+      printf 'DOCKER_RECLAIM_PRESERVED_REFERENCED_IMAGE=%s\n' "$image_ref"
+    fi
+  done < <(
+    docker image ls ghcr.io/pachaninm-lab/grainflow-web \
+      --no-trunc \
+      --format '{{.Repository}}:{{.Tag}} {{.ID}}'
+  )
+
+  docker image prune -f >/dev/null
+  printf 'DOCKER_RECLAIM_DISK_AFTER_BEGIN\n'
+  df -Pk "$docker_root"
+  printf 'DOCKER_RECLAIM_DISK_AFTER_END\n'
+}
+
 case "$ACTION" in
   audit) ;;
   deploy|rollback)
@@ -113,6 +178,7 @@ else
   active_hardening_override="${prod_dir%/}/compose.production-hardening.override.yml"
   install -m 0644 "$remote_override" "$active_hardening_override"
   printf 'PERSISTENT_OVERRIDE_MUTATED=1\n'
+  reclaim_web_pull_space
 fi
 
 image_override="${prod_dir%/}/compose.production-web-image.override.yml"

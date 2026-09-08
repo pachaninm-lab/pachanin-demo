@@ -24,6 +24,7 @@ P0_PASSWORD_RESET_MIGRATION="$MIGRATIONS_DIR/20260808120000_p0_password_reset_au
 P0_ORGANIZATION_TEAM_MIGRATION="$MIGRATIONS_DIR/20260808130000_p0_organization_team_authority/migration.sql"
 P0_INVITATION_ACCEPTANCE_MIGRATION="$MIGRATIONS_DIR/20260808140000_p0_invitation_acceptance_authority/migration.sql"
 P0_REGISTRATION_DECISION_MIGRATION="$MIGRATIONS_DIR/20260808140000_p0_registration_decision_authority/migration.sql"
+P0_REGISTRATION_DECISION_LOCK_PRIVILEGE_MIGRATION="$MIGRATIONS_DIR/20260826180000_p0_registration_decision_application_lock_privilege/migration.sql"
 P0_MEMBERSHIP_RECOVERY_MIGRATION="$MIGRATIONS_DIR/20260808150000_p0_invitation_recovery_authority/migration.sql"
 P0_ACCOUNT_LIFECYCLE_MIGRATION="$MIGRATIONS_DIR/20260808160000_p0_account_lifecycle_authority/migration.sql"
 PRODUCT_SESSION_SCOPE_MIGRATION="$MIGRATIONS_DIR/20260813060000_gekta_product_session_scope/migration.sql"
@@ -57,6 +58,7 @@ command -v node >/dev/null || { echo "node is required" >&2; exit 2; }
 [[ -f "$P0_ORGANIZATION_TEAM_MIGRATION" ]] || { echo "Missing $P0_ORGANIZATION_TEAM_MIGRATION" >&2; exit 2; }
 [[ -f "$P0_INVITATION_ACCEPTANCE_MIGRATION" ]] || { echo "Missing $P0_INVITATION_ACCEPTANCE_MIGRATION" >&2; exit 2; }
 [[ -f "$P0_REGISTRATION_DECISION_MIGRATION" ]] || { echo "Missing $P0_REGISTRATION_DECISION_MIGRATION" >&2; exit 2; }
+[[ -f "$P0_REGISTRATION_DECISION_LOCK_PRIVILEGE_MIGRATION" ]] || { echo "Missing $P0_REGISTRATION_DECISION_LOCK_PRIVILEGE_MIGRATION" >&2; exit 2; }
 [[ -f "$P0_MEMBERSHIP_RECOVERY_MIGRATION" ]] || { echo "Missing $P0_MEMBERSHIP_RECOVERY_MIGRATION" >&2; exit 2; }
 [[ -f "$P0_ACCOUNT_LIFECYCLE_MIGRATION" ]] || { echo "Missing $P0_ACCOUNT_LIFECYCLE_MIGRATION" >&2; exit 2; }
 
@@ -165,10 +167,41 @@ admin -f "$P0_PASSWORD_RESET_MIGRATION" >/dev/null
 admin -f "$P0_ORGANIZATION_TEAM_MIGRATION" >/dev/null
 admin -f "$P0_INVITATION_ACCEPTANCE_MIGRATION" >/dev/null
 admin -f "$P0_REGISTRATION_DECISION_MIGRATION" >/dev/null
+admin -f "$P0_REGISTRATION_DECISION_LOCK_PRIVILEGE_MIGRATION" >/dev/null
 admin -f "$P0_MEMBERSHIP_RECOVERY_MIGRATION" >/dev/null
 admin -f "$P0_ACCOUNT_LIFECYCLE_MIGRATION" >/dev/null
 admin -f "$PRODUCT_SESSION_SCOPE_MIGRATION" >/dev/null
 admin -f "$GEKTA_REGISTRATION_MIGRATION" >/dev/null
+
+echo "== proving registration application lock privilege =="
+admin <<'SQL'
+BEGIN;
+SET LOCAL ROLE pc_registration_decision_authority;
+SELECT id
+FROM auth.registration_applications
+WHERE false
+FOR UPDATE;
+ROLLBACK;
+SQL
+
+if denied_output="$(admin 2>&1 <<'SQL'
+\set VERBOSITY sqlstate
+BEGIN;
+SET LOCAL ROLE pc_registration_decision_authority;
+UPDATE auth.registration_applications
+SET status = status, version = version
+WHERE false;
+ROLLBACK;
+SQL
+)"; then
+  echo "Registration decision authority unexpectedly updated non-id application columns" >&2
+  exit 1
+fi
+grep -Fq '42501' <<< "$denied_output" || {
+  echo "Registration decision non-id UPDATE did not fail with SQLSTATE 42501" >&2
+  exit 1
+}
+unset denied_output
 
 echo "== seeding two tenants, a member of staff and two admission applications =="
 admin <<'SQL'

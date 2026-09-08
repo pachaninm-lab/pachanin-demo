@@ -6,14 +6,32 @@ on:
       - 'apps/**'
       - 'packages/**'
       - 'scripts/ip/**'
+      - '.github/workflows/**'
+      - 'scripts/security/verify-action-pinning.mjs'
+      - 'scripts/security/verify-request-validation-coverage.mjs'
+      - 'scripts/security/verify-request-validation-coverage.test.mjs'
+      - 'docs/security/request-validation-baseline.json'
       - 'scripts/security/build-asvs-matrix.mjs'
       - 'scripts/security/build-asvs-matrix.test.mjs'
       - 'scripts/security/asvs-decisions.mjs'
       - 'scripts/security/asvs-decisions.test.mjs'
       - 'scripts/security/discover-cryptography.mjs'
       - 'scripts/security/discover-cryptography.test.mjs'
+      - 'scripts/security/verify-web-unit-coverage.mjs'
+      - 'scripts/security/verify-web-unit-coverage.test.mjs'
+      - 'docs/platform-v7/qa/web-unit-coverage-registry.json'
+      - 'scripts/security/verify-key-usage.mjs'
+      - 'scripts/security/verify-key-usage.test.mjs'
+      - 'docs/security/cryptographic-key-usage.json'
+      - 'scripts/security/verify-crypto-migration-plan.mjs'
+      - 'scripts/security/verify-crypto-migration-plan.test.mjs'
+      - 'docs/security/CRYPTO_MIGRATION_PLAN.md'
+      - 'scripts/security/verify-authentication-pathways.test.mjs'
+      - 'docs/security/THREAT_MODEL.md'
       - 'docs/security/cryptographic-inventory.json'
       - 'docs/security/asvs-applicability-decisions.json'
+      - 'scripts/security/verify-decision-evidence.mjs'
+      - 'scripts/security/verify-decision-evidence.test.mjs'
       - 'docs/ip/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -33,14 +51,32 @@ on:
       - 'apps/**'
       - 'packages/**'
       - 'scripts/ip/**'
+      - '.github/workflows/**'
+      - 'scripts/security/verify-action-pinning.mjs'
+      - 'scripts/security/verify-request-validation-coverage.mjs'
+      - 'scripts/security/verify-request-validation-coverage.test.mjs'
+      - 'docs/security/request-validation-baseline.json'
       - 'scripts/security/build-asvs-matrix.mjs'
       - 'scripts/security/build-asvs-matrix.test.mjs'
       - 'scripts/security/asvs-decisions.mjs'
       - 'scripts/security/asvs-decisions.test.mjs'
       - 'scripts/security/discover-cryptography.mjs'
       - 'scripts/security/discover-cryptography.test.mjs'
+      - 'scripts/security/verify-web-unit-coverage.mjs'
+      - 'scripts/security/verify-web-unit-coverage.test.mjs'
+      - 'docs/platform-v7/qa/web-unit-coverage-registry.json'
+      - 'scripts/security/verify-key-usage.mjs'
+      - 'scripts/security/verify-key-usage.test.mjs'
+      - 'docs/security/cryptographic-key-usage.json'
+      - 'scripts/security/verify-crypto-migration-plan.mjs'
+      - 'scripts/security/verify-crypto-migration-plan.test.mjs'
+      - 'docs/security/CRYPTO_MIGRATION_PLAN.md'
+      - 'scripts/security/verify-authentication-pathways.test.mjs'
+      - 'docs/security/THREAT_MODEL.md'
       - 'docs/security/cryptographic-inventory.json'
       - 'docs/security/asvs-applicability-decisions.json'
+      - 'scripts/security/verify-decision-evidence.mjs'
+      - 'scripts/security/verify-decision-evidence.test.mjs'
       - 'docs/ip/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -179,6 +215,18 @@ jobs:
 
       - name: Verify GitHub Actions pinning ratchet
         run: node scripts/security/verify-action-pinning.mjs
+
+      - name: Verify request validation coverage ratchet
+        run: node scripts/security/verify-request-validation-coverage.mjs
+
+      - name: Verify every key records where it may be used
+        run: node scripts/security/verify-key-usage.mjs
+
+      - name: Verify no decision cites something that is gone
+        run: node scripts/security/verify-decision-evidence.mjs
+
+      - name: Verify every algorithm has a migration path
+        run: node scripts/security/verify-crypto-migration-plan.mjs
 
       - name: Scan the working tree for exposed secrets
         run: node scripts/security/scan-secret-history.mjs

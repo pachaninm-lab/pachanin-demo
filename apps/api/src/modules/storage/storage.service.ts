@@ -10,6 +10,7 @@ import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { RlsTransactionService } from '../../common/prisma/rls-transaction.service';
 import { RequestUser, Role } from '../../common/types/request-user';
+import { attachmentDisposition } from '../../common/security/content-disposition';
 import {
   OBJECT_STORAGE_ADAPTER,
   ObjectInspection,
@@ -203,7 +204,11 @@ export class StorageService {
       throw new ConflictException('Only verified immutable objects can be downloaded.');
     }
     const ttl = boundedInteger(ttlSeconds, 60, MAX_DOWNLOAD_TTL_SECONDS, MAX_DOWNLOAD_TTL_SECONDS);
-    const result = await this.adapter.getPresignedDownloadUrl(record.s3Key, ttl);
+    // V3.2.1: the bytes never pass through this application, so the only place
+    // the rendering context can be decided is the presigned URL itself.
+    const result = await this.adapter.getPresignedDownloadUrl(record.s3Key, ttl, {
+      'response-content-disposition': attachmentDisposition(record.name),
+    });
     return { ...result, file: toStoredFileRecord(record) };
   }
 

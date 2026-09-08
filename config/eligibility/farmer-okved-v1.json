@@ -1,0 +1,16 @@
+{
+  "version": "farmer-okved-v1",
+  "dictionary": "OK 029-2014 (KDES Rev. 2)",
+  "semantics": "Agricultural activity evidence for the platform FARMER role; never an absolute proof by itself.",
+  "matching": "prefix-hierarchy",
+  "prefixes": [
+    "01",
+    "03.2"
+  ],
+  "deprecatedOrReplaced": {},
+  "notes": [
+    "Primary and additional OKVED codes are evaluated identically as evidence.",
+    "A matching code is insufficient when authoritative contradictory evidence exists.",
+    "An ambiguous or incomplete official profile yields REVIEW_REQUIRED, not ELIGIBLE."
+  ]
+}

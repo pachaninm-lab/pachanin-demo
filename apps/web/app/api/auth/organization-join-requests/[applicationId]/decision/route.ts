@@ -2,17 +2,16 @@ import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
 import { assertCsrf } from '@/lib/server-request-security';
-import { sendTransactionalMail } from '@/lib/server/transactional-mail';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 15;
+export const maxDuration = 100;
 
-const mailCopy = {
-  ru: { subject: 'Прозрачная Цена — решение по присоединению', text: (status: string, reason: string) => `Статус заявки на присоединение: ${status}. Основание: ${reason}. Проверьте состояние по исходной защищённой ссылке.` },
-  en: { subject: 'Transparent Price — join request decision', text: (status: string, reason: string) => `Join request status: ${status}. Basis: ${reason}. Check the state using the original protected link.` },
-  zh: { subject: '透明价格 — 加入申请决定', text: (status: string, reason: string) => `加入申请状态：${status}。依据：${reason}。请使用原始安全链接查看状态。` },
-} as const;
+// The API performs four guarded database stages before a Serializable
+// transaction whose maxWait + timeout envelope is 20 seconds. Four default
+// 10-second pool-acquisition windows plus that transaction total 60 seconds;
+// keep explicit transport/query headroom before the bounded durable mail-delivery wait.
+const JOIN_DECISION_UPSTREAM_TIMEOUT_MS = 75_000;
 
 function json(body: Record<string, unknown>, status: number) {
   return NextResponse.json(body, {
@@ -53,8 +52,9 @@ export async function POST(
     return json({ ok: false, code: 'JOIN_REQUEST_SERVICE_UNAVAILABLE', correlationId }, 503);
   }
 
+  let upstreamResponse: Response;
   try {
-    const upstreamResponse = await fetch(`${upstream}/auth/organization-join-requests/${encodeURIComponent(applicationId)}/decision`, {
+    upstreamResponse = await fetch(`${upstream}/auth/organization-join-requests/${encodeURIComponent(applicationId)}/decision`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -67,37 +67,44 @@ export async function POST(
       body: JSON.stringify({ decision, reason }),
       cache: 'no-store',
       redirect: 'manual',
-      signal: AbortSignal.timeout(8_000),
+      signal: AbortSignal.timeout(JOIN_DECISION_UPSTREAM_TIMEOUT_MS),
     });
-    if (upstreamResponse.status >= 300 && upstreamResponse.status < 400) {
-      return json({ ok: false, code: 'UPSTREAM_REDIRECT_REJECTED', correlationId }, 502);
-    }
-    const payload = await upstreamResponse.json().catch(() => ({} as Record<string, unknown>));
-    const notification = payload.notificationDelivery && typeof payload.notificationDelivery === 'object'
-      ? payload.notificationDelivery as { email?: unknown; status?: unknown; reason?: unknown }
-      : null;
-    delete payload.notificationDelivery;
-
-    if (!upstreamResponse.ok) return json({ ...payload, correlationId }, upstreamResponse.status);
-
-    let notificationDelivered = false;
-    if (typeof notification?.email === 'string' && notification.email) {
-      const copy = mailCopy[locale];
-      const delivery = await sendTransactionalMail({
-        to: notification.email,
-        subject: copy.subject,
-        text: copy.text(String(notification.status || 'UPDATED'), String(notification.reason || reason)),
-      });
-      notificationDelivered = delivery.delivered;
-      console.info('organization_join_decision_notification_result', JSON.stringify({
-        correlationId,
-        delivered: delivery.delivered,
-        provider: delivery.provider,
-        reason: delivery.reason,
-      }));
-    }
-    return json({ ...payload, notificationDelivered, correlationId }, upstreamResponse.status);
-  } catch {
+  } catch (error) {
+    const failureClass = error instanceof Error && error.name === 'TimeoutError'
+      ? 'UPSTREAM_TIMEOUT'
+      : 'UPSTREAM_TRANSPORT';
+    console.warn('organization_join_decision_upstream_failure', JSON.stringify({
+      correlationId,
+      failureClass,
+    }));
     return json({ ok: false, code: 'JOIN_REQUEST_SERVICE_UNAVAILABLE', correlationId }, 503);
   }
+
+  if (upstreamResponse.status >= 300 && upstreamResponse.status < 400) {
+    return json({ ok: false, code: 'UPSTREAM_REDIRECT_REJECTED', correlationId }, 502);
+  }
+  const payload = await upstreamResponse.json().catch(() => ({} as Record<string, unknown>));
+  const notification = payload.notificationDelivery && typeof payload.notificationDelivery === 'object'
+    ? payload.notificationDelivery as { status?: unknown }
+    : null;
+  delete payload.notificationDelivery;
+
+  if (!upstreamResponse.ok) return json({ ...payload, correlationId }, upstreamResponse.status);
+
+  const notificationDelivered = notification?.status === 'SENT';
+  console.info('organization_join_decision_notification_result', JSON.stringify({
+    correlationId,
+    delivered: notificationDelivered,
+    provider: 'auth-mail-outbox',
+    reason: String(notification?.status || 'MISSING'),
+  }));
+  if (!notificationDelivered) {
+    return json({
+      ...payload,
+      code: 'REGISTRATION_DECISION_NOTIFICATION_PENDING',
+      correlationId,
+    }, 503);
+  }
+  if (payload.replayed === true) return json({ ...payload, correlationId }, 200);
+  return json({ ...payload, notificationDelivered, correlationId }, 200);
 }

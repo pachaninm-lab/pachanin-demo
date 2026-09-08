@@ -16,7 +16,16 @@ BACKUP_EVIDENCE_B64="${PC_PROD_BACKUP_EVIDENCE_FILE_B64:-${PC_BACKUP_EVIDENCE_FI
 STATE_ROOT="/var/lib/pc-release-authority"
 STATE_FILE="$STATE_ROOT/full-stack-${RUN_ID}.state"
 
-fail() { printf 'ERROR_CODE=%s\n' "$1" >&2; exit "${2:-1}"; }
+RELEASE_ROLLBACK_ARMED=0
+RELEASE_ROLLBACK_ACTIVE=0
+fail() {
+  local code="$1" rc="${2:-1}"
+  printf 'ERROR_CODE=%s\n' "$code" >&2
+  if [[ "${RELEASE_ROLLBACK_ARMED:-0}" == 1 && "${RELEASE_ROLLBACK_ACTIVE:-0}" == 0 ]]; then
+    rollback_and_exit "$rc"
+  fi
+  exit "$rc"
+}
 decode() { [[ -z "$1" ]] || printf '%s' "$1" | base64 -d; }
 trim() { local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
 
@@ -477,6 +486,28 @@ rollback_images() {
   [[ "$restored_web_revision" == "$BASELINE_WEB_REVISION" ]] || return 3
 }
 
+rollback_and_exit() {
+  local rc="${1:-1}" rollback_status=0
+  if [[ "${RELEASE_ROLLBACK_ACTIVE:-0}" == 1 ]]; then
+    exit "$rc"
+  fi
+  RELEASE_ROLLBACK_ACTIVE=1
+  trap - ERR
+  rollback_images || rollback_status=$?
+  printf 'DEPLOYMENT_COMPLETE=0\n' >&2
+  printf 'ROLLBACK_ATTEMPTED=1\n' >&2
+  if [[ "$rollback_status" == 0 ]]; then
+    printf 'ROLLBACK_COMPLETE=1\n' >&2
+    printf 'ROLLBACK_FAILED=0\n' >&2
+    printf 'RESTORED_API_REVISION=%s\n' "${restored_api_revision:-unknown}" >&2
+    printf 'RESTORED_WEB_REVISION=%s\n' "${restored_web_revision:-unknown}" >&2
+  else
+    printf 'ROLLBACK_COMPLETE=0\n' >&2
+    printf 'ROLLBACK_FAILED=1\n' >&2
+  fi
+  exit "$rc"
+}
+
 verify_durable_intake_local_postgres() {
   local pg_id sql result audit_id outbox_id
   pg_id="$(compose_id "$postgres_service")"
@@ -678,10 +709,15 @@ after_ids="$(mktemp)"
 snapshot_unrelated "$before_ids"
 mutated=0
 on_error() {
-  rc=$?
-  if (( mutated == 1 )); then rollback_images >/dev/null 2>&1 || true; fi
+  local rc=$?
+  trap - ERR
+  if [[ "${RELEASE_ROLLBACK_ARMED:-0}" == 1 ]]; then
+    rollback_and_exit "$rc"
+  fi
   printf 'DEPLOYMENT_COMPLETE=0\n' >&2
-  printf 'ROLLBACK_ATTEMPTED=%s\n' "$mutated" >&2
+  printf 'ROLLBACK_ATTEMPTED=0\n' >&2
+  printf 'ROLLBACK_COMPLETE=0\n' >&2
+  printf 'ROLLBACK_FAILED=0\n' >&2
   exit "$rc"
 }
 trap on_error ERR
@@ -709,9 +745,10 @@ else
   fail BACKUP_AUTHORITY_UNAVAILABLE 26
 fi
 
+RELEASE_ROLLBACK_ARMED=1
+mutated=1
 write_override "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override" 1
 "${dc_target[@]}" config --quiet
-mutated=1
 "${dc_target[@]}" run --rm --no-deps --pull never "$migration_service"
 printf 'MIGRATION_COMPLETE=1\n'
 "${dc_target[@]}" up -d --no-deps --pull never api
@@ -738,7 +775,13 @@ new_api_id="$("${dc_target[@]}" ps -q api | head -1)"
 new_web_id="$("${dc_target[@]}" ps -q web | head -1)"
 new_api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$new_api_id")"
 new_web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$new_web_id")"
-[[ "$new_api_revision" == "$TARGET_SHA" && "$new_web_revision" == "$TARGET_SHA" ]] || fail RUNNING_REVISION_MISMATCH 33
+if [[ "$new_api_revision" != "$TARGET_SHA" || "$new_web_revision" != "$TARGET_SHA" ]]; then
+  printf 'RUNNING_API_REVISION=%s\n' "${new_api_revision:-unknown}" >&2
+  printf 'RUNNING_WEB_REVISION=%s\n' "${new_web_revision:-unknown}" >&2
+  fail RUNNING_REVISION_MISMATCH 33
+fi
+RELEASE_ROLLBACK_ARMED=0
+mutated=0
 trap - ERR
 printf 'DEPLOYED_API_REVISION=%s\n' "$new_api_revision"
 printf 'DEPLOYED_WEB_REVISION=%s\n' "$new_web_revision"

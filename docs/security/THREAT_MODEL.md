@@ -5,9 +5,10 @@ programme. Prevention and detection cite controls that exist in this
 repository today; where a control is absent, the entry says so.
 
 Source SHA: `91d0546e938a870c01e35796bd844681041964e3`
-Target: OWASP ASVS 5, Level 3 where applicable. The ASVS matrix
-(`docs/security/ASVS_MATRIX.csv`) is **not yet produced** — this document does
-not substitute for it.
+Target: OWASP ASVS 5, Level 3 where applicable. The ASVS matrix is produced by
+`scripts/security/build-asvs-matrix.mjs` from
+`docs/security/asvs-applicability-decisions.json`; this document does not
+substitute for it, and neither one is evidence that a control is deployed.
 
 No exploitable detail, reproduction steps, secrets or CROWN_JEWEL source
 appear here, by policy.
@@ -220,6 +221,172 @@ exposure; it does not retract what is already published.
   directives must never be cited as evidence about production.
 
 ---
+
+---
+
+## Authentication pathways
+
+Every way a request can come to be treated as authenticated, and what each one
+proves. ASVS 5.0 V6.1.3 asks for exactly this list, together with the controls
+and the authentication strength behind each entry; V6.3.4 asks additionally that
+nothing be missing from it. It is held to the tree by
+`scripts/security/verify-authentication-pathways.test.mjs`, which enumerates
+every file that signs a session token or writes a session cookie and fails when
+one of them is not accounted for here.
+
+**One credential format on the API side.** `apps/api/src/modules/auth/access-token.ts`
+signs and verifies the only access-token format the API accepts, for platform and
+Gekta sessions alike, under one secret, with issuer, audience and token type all
+checked. Session scope is never read from the token: it is re-read from
+`auth.sessions` on every verification, so a client cannot widen its own scope.
+Every one-time bearer credential — password reset, MFA recovery, invitation,
+email verification, membership selection, refresh, MFA challenge, registration
+status, backup code, staff access — is minted by `opaque-token-authority.ts`,
+purpose-bound and versioned, so a token issued for one purpose cannot verify
+against another purpose's record.
+
+**Two tiers, and they are not the same thing.** An API session admits a request
+to data. A *cabinet session* is a web-tier cookie read by the Next.js middleware
+to decide which role's pages render; it is signed with `JWT_SECRET` but the API
+never sees it and never accepts it. Three routes mint one. Everything a cabinet
+session displays is still fetched with an API credential, so it selects a view,
+it does not grant data access.
+
+### Ways in — API sessions
+
+| # | Pathway | Proof required | Strength |
+|---|---|---|---|
+| A | Platform login (`auth.service.ts`) | password, then MFA where the role or account requires it | password (+ TOTP/backup code, conditional) |
+| B | Gekta product login (`gekta-registration.service.ts` → `product-session.service.ts`) | password, then MFA always | password + TOTP/backup code, unconditional |
+| C | Gekta registration email verification | one-time registration token, then TOTP enrolment | address possession + TOTP |
+| D | Demo login (non-production only) | none | none, by design — fail-closed in production |
+
+**A — platform login.** The password is verified with the versioned hashing
+module, then re-read inside the same serializable transaction before a session is
+issued, so a password change between the check and the session invalidates the
+proof. MFA is required when the role demands it, when the account is an
+organization admin, or when the account has enrolled a factor; where required,
+the session starts `MFA_PENDING` with a ten-minute challenge and only the
+verified code activates it.
+
+**B — Gekta product login.** Same password verification, and the stored hash is
+re-read and compared inside the transaction before anything is issued. MFA is
+**not** conditional here: `issueMfaSession` always creates an `MFA_PENDING`
+session and a challenge, and no active token is issued at that step. This
+pathway is strictly stronger than A, deliberately. It is separately scoped: a
+Gekta session lives in the product session store, and the guard resolves it only
+on routes explicitly marked as product-session surfaces, so the two are not
+interchangeable.
+
+**C — Gekta registration email verification.** The one-time registration token
+proves control of the address, and the challenge row must be consumed by exactly
+one update or the flow aborts. It mints an enrolment session, not an active one:
+the TOTP step still has to be completed. No password is presented at this step
+because it was set at registration and its hash already exists.
+
+**D — demo login.** Three routes (`/api/auth/demo`, `/api/auth/demo/role/[role]`,
+`/api/auth/demo/instant/[role]`) and one branch in the web proxy mint
+`demo.`-prefixed cookies with a role derived from the email prefix, with no
+password and no MFA. Four independent controls stand between that and production:
+
+1. `demoLoginAllowed()` returns false whenever `NODE_ENV` is `production`,
+   **before** the enabling flag is read, so production cannot switch it on with
+   an environment variable.
+2. Each route answers 503 when the policy is false.
+3. The token is not a signed JWT, and the API accepts exactly one format, so it
+   cannot authenticate to the API at all.
+4. The web proxy refuses to forward it (`verified_real_session_required`,
+   `demo_session_disabled`) rather than passing it upstream.
+
+The primary login route contains no demo fallback, and a test asserts it stays
+that way.
+
+### Ways in — cabinet sessions (web tier only)
+
+| # | Pathway | Proof required | Production |
+|---|---|---|---|
+| E | Owner cabinet open (`/platform-v7/staff/open-cabinet`) | CSRF + origin, an existing access cookie, and an ACTIVE `PLATFORM_OWNER` assignment with `mfaVerified` confirmed by the API | reachable |
+| F | Cabinet session (`/api/platform-v7/cabinet-session`) | a backend-verified role; a body-supplied role only outside production | body-role path blocked |
+| G | Cabinet lock login (`/api/platform-v7/cabinet-lock-login`) | a configured shared password | 410, always |
+
+**E — owner cabinet open.** The one cabinet pathway reachable in production, and
+the strongest of the three. It requires a CSRF token compared in constant time
+against its cookie plus an allow-listed origin, an existing access cookie, and
+then an authority decision: either the API confirms an ACTIVE `PLATFORM_OWNER`
+assignment **with MFA verified**, or — only when three environment variables
+including a hard expiry date are all set — a controlled test fixture token
+carrying `testAccess` and `owner` claims. A real platform access token cannot
+satisfy the fixture branch: it carries different claim names entirely. The role
+is bound server-side to a fixed controlled test organization and a submitted
+organization that does not match is refused, so this cannot open a customer
+organization. Lifetime is capped at one hour for the API-authorized branch and
+eight for the fixture.
+
+**F — cabinet session.** Issues a cabinet cookie from a backend-verified role.
+The direct body-supplied role is available only under `NODE_ENV` of `development`
+or `test`.
+
+**G — cabinet lock login.** A shared-password gate for non-production review
+contours. It answers 410 in production before reading anything else, and 503
+when no password is configured, so an unset environment cannot become an open
+door.
+
+### Not ways in
+
+**Refresh** rotates a refresh credential within its family and re-issues an
+access token. It performs no authentication and inherits the strength of the
+pathway that created the session; it can neither raise nor lower it.
+
+**MFA step-up** (`/api/auth/mfa-step-up/start|verify`) requires an existing
+access token and elevates an already-authenticated session for control-plane and
+financial actions. Freshness is enforced in the guard for financial commands
+above a threshold.
+
+**Staff access sessions** are not an independent pathway. The guard verifies the
+platform access token first and only then resolves the `x-staff-access-session`
+header, which narrows an already-authenticated actor rather than establishing
+one. A repeated header is rejected rather than merged.
+
+**The gov-id bridge** (`/api/platform-v7/gov-id/start` and `/callback`, gated by
+`PLATFORM_V7_GOV_ID_ENABLED`) is OIDC-shaped but does not authenticate. The
+callback validates `state` against its cookie, then redirects to a fallback
+target with a reason and clears its own cookies. It never exchanges the
+authorization code, never contacts a token endpoint, and writes no session,
+access, refresh or CSRF cookie. Earlier revisions of this programme recorded it
+as the second authentication pathway; re-reading it showed that it is not one,
+and that the pathways that do exist were the ones not written down.
+
+**The Sber Business callback** was a pathway and is one no longer. Its web half
+would have set access, refresh, session and CSRF cookies from any upstream
+payload carrying a token, with no `state` validation and no MFA step, behind a
+server half that returned `not_configured`. It was removed in #4692; only
+read-model helpers remain, with no importer.
+
+### Consistency
+
+A, B and C all terminate in the same place — a session row whose scope is re-read
+on every request — and all three require a second factor before that session
+becomes active, except where A's risk-based rule says none is required for that
+role and account. That exception is a property of the account, not of the route
+taken, and the caller cannot choose it.
+
+D and G are deliberate exceptions that production cannot reach: D produces a
+credential the API refuses, and G answers 410 before it reads its own
+configuration.
+
+E is the case that needs care, because it is reachable in production and mints a
+role-bearing cookie. Two things bound it: the authority check demands an active
+owner assignment **with MFA already verified**, which is a higher bar than
+pathway A clears; and the session it mints is a web-tier view selector bound to a
+controlled test organization, not an API credential.
+
+**Residual risk: MEDIUM.** The inventory is now enforced against the tree, and
+that is a real control: a new minting surface fails the build until it is written
+down. What is *not* yet proven is the second half of V6.3.4 — that the controls
+behind each of these twelve surfaces are enforced consistently. That needs
+per-surface evidence, particularly for what the middleware trusts a cabinet
+cookie to assert, and it is not claimed here.
+
 
 ## Summary of open gaps
 

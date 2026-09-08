@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4690,
+  "branch": "security/remove-sber-session-mint-4690",
+  "status": "active",
+  "purpose": "Remove apps/web/app/api/auth/sber-business/{start,callback}. The callback set the access, refresh, session and CSRF cookies from whatever payload the upstream returned, validated no OAuth state parameter, took no MFA step, and bypassed every identity check the canonical session helper makes. It was inert only because the API half is a stub that never returns a token.",
+  "authorityBaseExactMain": "f7b79a7ef43fcf273bfa6760d213a640e6ce9275",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/remove-sber-session-mint-4690.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "apps/web/app/api/auth/sber-business/start/route.ts",
+    "apps/web/app/api/auth/sber-business/callback/route.ts",
+    "apps/web/tests/unit/sessionMintingSurface.spec.ts",
+    ".github/workflows/ci.yml"
+  ],
+  "requiredInvariants": [
+    "Nothing referenced these routes. The only occurrences of the path in the tree were the two route files themselves and the two API controller handlers they proxy to; no UI element links to either, and /api/auth/sber-business/start never redirected to any authorization URL, so no OAuth flow existed for the callback to complete.",
+    "Removal rather than completion, for the same reason as #4687: finishing this would mean writing an OAuth client half against a server contract that does not exist. The API stub returns status: 'not_configured' with no token, so the real response shape is unknown, and the start route sets no state cookie to validate against. Inventing both would be building a second authentication pathway on speculation, which is the divergence this programme removes.",
+    "The API-side stubs in auth.controller.ts and auth.service.ts are deliberately left alone. They answer status: 'not_configured', which is accurate rather than a false claim of functionality - unlike the MFA stub removed in #4687, which answered 'MFA enabled' while storing nothing. They mint no session, and touching auth.controller.ts would widen this into the API for no security gain.",
+    "The canonical session path is untouched. applyAuthenticatedSession in apps/web/lib/server/auth-session-response.ts remains the only place a session is minted from an upstream payload, and it still refuses to mint anything unless role, user id, organization, tenant and membership are all present.",
+    "No ASVS verdict moves here. V6.1.3 and V6.3.4 stay FAIL pending the rest of #4690 - whether the application has multiple authentication pathways at all is the open question, and this PR only removes one broken half of a candidate.",
+    "No database schema change, no new dependency. apps/landing is not touched. No production, REG.RU, DNS, database or credential mutation."
+  ],
+  "acceptance": [
+    "A session is minted from an upstream payload in exactly one file, the canonical helper - asserted on both ACCESS_COOKIE and REFRESH_COOKIE.",
+    "No route writes the session marker as the bare literal '1', which is what the removed callback wrote and which carries no role, expiry or email for anything downstream to read.",
+    "No sber-business auth route remains in apps/web.",
+    "The canonical helper still names all five identity fields it guards on and still returns null when one is missing.",
+    "The scan walks up to the working tree root rather than trusting the invocation directory, excludes only its own file, and fails if it ever sees fewer than 100 sources.",
+    "Restoring the removed routes fails 3 of the 4 cases; the fourth is an invariant about the canonical helper and correctly holds either way."
+  ]
+}
