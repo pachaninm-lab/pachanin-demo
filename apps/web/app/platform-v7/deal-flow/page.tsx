@@ -146,6 +146,11 @@ export async function generateMetadata(): Promise<Metadata> {
       description: t.metaDescription,
       url: canonical,
     },
+    twitter: {
+      card: 'summary_large_image',
+      title: t.metaTitle,
+      description: t.metaDescription,
+    },
   };
 }
 

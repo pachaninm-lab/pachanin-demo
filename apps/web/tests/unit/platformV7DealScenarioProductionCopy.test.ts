@@ -43,6 +43,11 @@ describe('platform-v7 deal scenario production copy', () => {
     expect(source).toContain("const openGraphLocale = lang === 'en' ? 'en_US' : lang === 'zh' ? 'zh_CN' : 'ru_RU';");
     expect(source).toContain("siteName: t.brand");
     expect(source).toContain("url: canonical");
+    expect(source).toContain("twitter: {");
+    expect(source).toContain("title: t.metaTitle");
+    expect(source).toContain("description: t.metaDescription");
+    const rootLayout = read('apps/web/app/layout.tsx');
+    expect(rootLayout).toContain("pathname === '/platform-v7/deal-flow' ? null : <meta name='description' content={pageDescription} />");
     expect(source).toContain("'ru-RU': 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow?lang=ru'");
     expect(source).toContain("en: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow?lang=en'");
     expect(source).toContain("'zh-CN': 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow?lang=zh'");
