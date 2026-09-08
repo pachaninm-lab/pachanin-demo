@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/asvs-verdict-baseline-4459",
+  "status": "active",
+  "purpose": "Give the ASVS matrix a memory. No run has ever been compared to any other, so a verdict can leave the matrix without anything failing. That is not hypothetical: #5131 added product analytics containing '$geoip_disable': true - a line that turns geolocation off - which matched V8.2.4's ABSENT_IN_TREE pattern 'geoip'. The condition stopped holding, the decision was rejected, and V8.2.4 fell from FAIL to NOT_ASSESSED, from a pull request that touched no security file and named no requirement. It was found by hand weeks later by comparing two runs that happened to still be on disk. 105 decisions use ABSENT_IN_TREE and are exposed to the same failure. This claims no ASVS verdict of its own.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/asvs-verdict-baseline-4459.json",
+    "docs/security/asvs-verdict-baseline.json",
+    "scripts/security/verify-asvs-verdict-baseline.mjs",
+    "scripts/security/verify-asvs-verdict-baseline.test.mjs",
+    ".github/workflows/sbom-scan.yml"
+  ],
+  "requiredInvariants": [
+    "No ASVS verdict changes. This branch adds a gate over the matrix and touches neither the decision file nor any application code, so applicability, status and the rejected set are byte-identical to main before and after.",
+    "The gate judges the artifact the build step wrote, not a second build of its own. The file uploaded as evidence and the file that was checked cannot differ, and no second download of the pinned standard is made.",
+    "An improvement fails the gate too. A gate that fires only on regressions still lets a verdict move without a human reading it, and 'we got better' is a claim somebody should sign. The remedy is one line - --write - so the cost is a deliberate acknowledgement, which is the product.",
+    "A rejected decision is recorded, never laundered. V8.2.4 is rejected on main today; the baseline carries it with the problems verbatim and a written reason, it is printed on every run whether or not anything moved, and both adding and deleting a rejection fail. --write cannot invent that reason - it writes a sentinel the gate refuses - so regenerating leaves the build red until somebody writes the sentence.",
+    "A malformed baseline is a distinct failure from drift. An empty or truncated file reports 'malformed' rather than 345 additions reading like an unrelated catastrophe.",
+    "The matrix is read by column name and a repeated requirement is refused, so neither a reordered CSV nor a duplicated row can be silently absorbed.",
+    "No application code, no registration business logic, no 1C, no marketing, no presentation. No production, REG.RU, DNS, database or credential mutation, no migration, no new dependency, and no change to what any decision measures."
+  ],
+  "acceptance": [
+    "The baseline pins all 345 requirements as applicability/status plus the one standing rejection, and matches main exactly: NOT_ASSESSED 39, PASS 129, NOT_APPLICABLE 88, FAIL 89, rejected 1 (V8.2.4).",
+    "Eight mutations are caught, each naming the requirement. 1: the real drift class reproduced - a probe module under apps/web/lib mentioning 'applet' revokes V3.7.1, reported as REGRESSION APPLICABLE/PASS -> PENDING_APPLICABILITY_REVIEW/NOT_ASSESSED plus NEW REJECTION, from a file no security gate looks at. 2: a declared PASS turned FAIL is REGRESSION. 3: a declared FAIL turned PASS is IMPROVEMENT and still fails. 4: deleting one verdict from the baseline is UNBASELINED. 5: deleting the standing rejection is NEW REJECTION. 6: blanking its acknowledgement is malformed. 7: regenerating with no prior acknowledgement writes the sentinel and the gate refuses it. 8: regenerating with the acknowledgement present is byte-identical and green.",
+    "A FAIL that falls out of assessment is classified EVIDENCE_ROT, not IMPROVEMENT - that is the V8.2.4 shape, and losing a FAIL removes a requirement from observation rather than improving anything.",
+    "verify-asvs-verdict-baseline.test.mjs passes 21 of 21, including two cases asserting the committed baseline is well formed and covers 345 requirements at the pinned source commit.",
+    "The gate runs in sbom-scan.yml after the matrix is built, and its own paths are in both the pull_request and push triggers. The workflow parses as YAML.",
+    "The tree is restored after every mutation and re-verified green; node --test scripts/security passes in full; guard=0.",
+    "Merge order: this branch goes LAST of the #4459 security set. Once the gate is on main, every later pull request that moves a verdict must regenerate the baseline in the same change - which is the point - so merging it after the verdict-moving branches costs one regeneration instead of one per branch. Nothing breaks if it lands earlier; each later branch simply carries its own `--write` line."
+  ]
+}
