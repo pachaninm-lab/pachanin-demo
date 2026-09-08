@@ -176,10 +176,10 @@ async function seedOldElevatorGeneration() {
   await prisma.$executeRawUnsafe(`
     INSERT INTO eligibility.registry_generations(
       id,source,generation,published_at,downloaded_at,content_sha256,record_count,
-      parser_version,schema_version,status,fresh_until,created_at,validated_at,activated_at
+      parser_version,schema_version,status,fresh_until,created_at
     ) VALUES (
       'load_fgis_old','FGIS_GRAIN','load-fgis-old',clock_timestamp(),clock_timestamp(),repeat('1',64),1,
-      'load-fgis-v1','load-schema-v1','ACTIVE',clock_timestamp()+interval '30 days',clock_timestamp(),clock_timestamp(),clock_timestamp()
+      'load-fgis-v1','load-schema-v1','STAGING',clock_timestamp()+interval '30 days',clock_timestamp()
     )
   `);
   await prisma.$executeRawUnsafe(`
@@ -191,6 +191,14 @@ async function seedOldElevatorGeneration() {
       '{"active":true,"elevatorRecord":true,"registryStatus":"OLD"}'::jsonb,clock_timestamp(),repeat('2',64),clock_timestamp()
     )
   `, syntheticInn);
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe(`
+      UPDATE eligibility.registry_generations
+      SET status='VALIDATED',validated_at=clock_timestamp()
+      WHERE id='load_fgis_old' AND status='STAGING'
+    `);
+    await tx.$queryRawUnsafe(`SELECT eligibility.activate_registry_generation('FGIS_GRAIN','load-fgis-old')`);
+  });
 }
 
 async function readActiveElevator() {
