@@ -502,7 +502,7 @@ jobs:
               raise SystemExit('Review diff outside existing context bound')
           (root / 'pr.diff').write_bytes(diff)
           env = {key: value for key, value in os.environ.items() if key not in ('GH_TOKEN', 'GITHUB_TOKEN')}
-          env.update(RUNNER_TEMP=str(root), GITHUB_ENV=str(root / 'environment'), GITHUB_OUTPUT=str(root / 'outputs'), DIFF_SHA256=hashlib.sha256(diff).hexdigest())
+          env.update(RUNNER_TEMP=str(root), GITHUB_ENV=str(root / 'environment'), GITHUB_OUTPUT=str(root / 'outputs'), REPO=repo, PR_NUMBER=number, HEAD_SHA=head, DIFF_SHA256=hashlib.sha256(diff).hexdigest())
           lines = raw.decode('utf-8').splitlines()
           for line in lines:
               match = re.fullmatch(r'      ([A-Z_0-9]+): ([a-zA-Z0-9/_-]+)', line)
