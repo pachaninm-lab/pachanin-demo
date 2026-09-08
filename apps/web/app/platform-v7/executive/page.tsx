@@ -14,6 +14,8 @@ import { MlPricePredictorPanel } from '@/components/platform-v7/MlPricePredictor
 import {
   OperationalCockpitSection,
   OperationalDecisionCockpit,
+  OperationalQueue,
+  OperationalQueueLink,
   operationalCockpitClasses,
 } from '@/components/transaction-ux/OperationalDecisionCockpit';
 
@@ -56,9 +58,9 @@ export default async function ExecutivePage() {
   return (
     <OperationalDecisionCockpit
       testId='platform-v7-executive-v8'
-      eyebrow='Руководитель · только просмотр'
-      title='Контроль результата без операционного вмешательства'
-      description='Руководитель видит деньги, споры, блокеры, портфель и динамику. Экран не даёт полномочий менять Сделку или подтверждать чужие действия.'
+      eyebrow='Личный кабинет руководителя · только просмотр'
+      title='Мой дашборд'
+      description='Главное по платформе на одном экране: портфель, деньги, сделки, споры, логистика и внешние подтверждения. Без операционного вмешательства и расширения полномочий.'
       statusLabel={liveBlockers.length > 0 ? 'есть отклонения' : 'контур стабилен'}
       statusTone={liveBlockers.some((item) => item.severity === 'stop') ? 'critical' : liveBlockers.length > 0 ? 'warning' : 'success'}
       liveStatus={(
@@ -73,25 +75,83 @@ export default async function ExecutivePage() {
         />
       )}
       priority={{
-        state: 'readonly',
+        state: heldRub > 0 ? 'critical' : pendingBank > 0 ? 'active' : 'ready',
         eyebrow: 'Главный управленческий сигнал',
-        title: heldRub > 0 ? `Разобрать причины удержания ${formatMoney(heldRub)}` : 'Критических удержаний нет',
+        title: heldRub > 0
+          ? `Разобрать причины удержания ${formatMoney(heldRub)}`
+          : pendingBank > 0
+            ? `Проверить ${pendingBank} банковских подтверждений`
+            : 'Критических отклонений нет',
         description: heldRub > 0
-          ? 'Руководитель видит причины, владельцев и сроки, но операционные действия выполняют уполномоченные роли внутри Сделки.'
-          : 'Продолжайте контролировать портфель, SLA и динамику без вмешательства в полномочия участников.',
-        blocker: disputeCount > 0 ? `${disputeCount} открытых спора` : 'нет',
-        owner: 'оператор + арбитр + банк',
-        impact: formatMoney(heldRub),
+          ? 'Сначала разберите причины удержаний и владельцев процесса. Операционные действия остаются у уполномоченных ролей внутри Сделки.'
+          : pendingBank > 0
+            ? 'Есть внешние банковские подтверждения в ожидании. Дашборд показывает влияние, но не подменяет банковский authority.'
+            : 'Портфель без критических удержаний и банковских блокеров. Контролируйте сделки, логистику и динамику без ручного вмешательства.',
+        blocker: disputeCount > 0 ? `${disputeCount} открытых спора` : pendingBank > 0 ? `${pendingBank} банковских операций` : 'нет',
+        owner: disputeCount > 0 ? 'оператор + арбитр + банк' : pendingBank > 0 ? 'банк + оператор' : 'нет эскалации',
+        impact: heldRub > 0 ? formatMoney(heldRub) : pendingBank > 0 ? `${pendingBank} операций` : 'нет денежного влияния',
         result: 'эскалация владельцу процесса, а не ручная правка данных',
+        primaryAction: heldRub > 0
+          ? <a className={operationalCockpitClasses.primaryLink} href='/platform-v7/disputes'>Открыть споры</a>
+          : pendingBank > 0
+            ? <a className={operationalCockpitClasses.primaryLink} href='/platform-v7/bank'>Открыть банк</a>
+            : <a className={operationalCockpitClasses.primaryLink} href='/platform-v7/deals'>Открыть сделки</a>,
+        secondaryAction: <a className={operationalCockpitClasses.secondaryLink} href='/platform-v7/status'>Состояние системы</a>,
       }}
       facts={[
         { label: 'Портфель', value: formatMoney(totalVolume), hint: `${dealList.length} сделок всего` },
         { label: 'Активных сделок', value: String(activeDeals.length), hint: 'не закрыты и не отменены' },
-        { label: 'Открытых споров', value: String(disputeCount), hint: 'влияют на удержание и срок закрытия' },
+        { label: 'Деньги в блоке', value: formatMoney(heldRub), hint: disputeCount > 0 ? `${disputeCount} открытых спора` : 'удержаний нет' },
         { label: 'Активных рейсов', value: String(shipmentCount), hint: 'операционный объём исполнения' },
       ]}
       boundary='Руководитель имеет read-only обзор. Экран не расширяет RBAC, не создаёт банк-статус и не позволяет обходить ответственных участников Сделки.'
     >
+      <CollapsibleSection title='Быстрый доступ' summary='сделки · споры · логистика · профиль' defaultOpen>
+        <OperationalQueue>
+          <OperationalQueueLink
+            href='/platform-v7/deals'
+            title='Сделки'
+            detail={`${activeDeals.length} активных · ${formatMoney(totalVolume)} в портфеле`}
+          />
+          <OperationalQueueLink
+            href='/platform-v7/disputes'
+            title='Споры и удержания'
+            detail={disputeCount > 0 ? `${disputeCount} открытых · ${formatMoney(heldRub)} удержано` : 'Открытых споров и удержаний нет'}
+          />
+          <OperationalQueueLink
+            href='/platform-v7/logistics'
+            title='Логистика'
+            detail={`${shipmentCount} активных рейсов`}
+          />
+          <OperationalQueueLink
+            href='/platform-v7/profile'
+            title='Мой профиль и доступ'
+            detail='Организация, membership, роль и MFA из серверной сессии'
+          />
+        </OperationalQueue>
+      </CollapsibleSection>
+
+      {liveBlockers.length > 0 ? (
+        <CollapsibleSection title='Требует внимания' summary={`${liveBlockers.length} управленческих сигнала`} defaultOpen>
+          <OperationalQueue>
+            {disputeCount > 0 ? (
+              <OperationalQueueLink
+                href='/platform-v7/disputes'
+                title='Требуют внимания: споры'
+                detail={`${disputeCount} открытых · влияние ${formatMoney(heldRub)}`}
+              />
+            ) : null}
+            {pendingBank > 0 ? (
+              <OperationalQueueLink
+                href='/platform-v7/bank'
+                title='Требуют внимания: банк'
+                detail={`${pendingBank} операций ожидают внешнего подтверждения`}
+              />
+            ) : null}
+          </OperationalQueue>
+        </CollapsibleSection>
+      ) : null}
+
       <ExecutiveSignalWall signals={signals} />
 
       <OperationalCockpitSection id='portfolio'>
