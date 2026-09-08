@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "status": "proposed",
+  "issue": 5074,
+  "branch": "fix/role-eligibility-fns-egrul-scheduled-recheck-5074",
+  "allowedPaths": [
+    "apps/api/src/modules/role-eligibility/role-eligibility-worker.service.ts",
+    "apps/api/src/modules/role-eligibility/role-eligibility-worker.service.spec.ts"
+  ],
+  "forbiddenPaths": [
+    "apps/api/prisma/**",
+    "apps/web/**",
+    "infra/**"
+  ],
+  "notes": "STAGED PROPOSAL ONLY. ZERO IMPLEMENTATION AUTHORITY until this finite scope is independently reviewed, merged, and separately promoted into immutable trusted base-state authority. Phase B of #5074 only, to be implemented after #5064 establishes domain-scoped FNS authority so the normal worker pipeline re-evaluates the accepted current EGRUL health/generation model rather than the legacy generic-FNS model. An elapsed nextRecheckAt on a terminal legal-entity eligibility check must create/reuse one new authority evaluation even when application version, role, policy and ACTIVE-generation fingerprint are unchanged. Reuse existing RoleEligibilityRepository.createOrGetCheck requestDiscriminator; no repository/schema change is authorized. For one due boundary use a deterministic discriminator derived only from immutable prior check id plus its exact nextRecheckAt (for example scheduled:<checkId>:<dueIso>) so concurrent discoverers converge on one request key. If latest check is PENDING or CHECKING, discovery must not create another check. Do not advance the prior terminal check nextRecheckAt merely to suppress the due event; the new check must re-read source health/freshness and evidence through the normal worker pipeline, and only terminal publication of the new check schedules its next recheck. Preserve generation-change automatic discovery and manual recheck semantics. Avoid false newlyCreated accounting when createOrGetCheck returns an older terminal automatic check. Required focused tests in the new worker service spec: unchanged fingerprint + due terminal creates new scheduled check; same due boundary is idempotent under repeated/concurrent discovery; PENDING/CHECKING latest produces no extra check; not-yet-due terminal does not create scheduled work; changed ACTIVE fingerprint still creates normal automatic work; scheduled check processing reuses the existing processOne/evidence/policy path and does not bypass health/freshness; no registration mutation or enforcement activation. Do not include Phase A generation binding, parser/status fields, delta permissions/lineage, migrations, registration, UI, infra, credentials, production mutation, or recurring cost. Proposal based on exact main 7f8326322dd15a46df8b63a3f4f14d72a177558d and sequencing-dependent on accepted #5064 domain authority."
+}
