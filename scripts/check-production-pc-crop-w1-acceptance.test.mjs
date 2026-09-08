@@ -107,6 +107,29 @@ test('ledger diagnostics reject partial, contradictory and unbounded output and 
   const changed=structuredClone(payload);changed.checksumDrift.appliedValueSha256='private-value';
   assert.doesNotMatch(probeDiagnostics(changed),/private-value/);
 });
+test('all ledger blockers transport complete diagnostics regardless of first anomaly ordering',()=>{
+  const wrong={...finished(baseName),checksum:'private-drift'};
+  for(const [code,ledger] of [
+    ['UNFINISHED_MIGRATION',[wrong,{...finished(baseName),finished_at:null}]],
+    ['DUPLICATE_APPLIED_MIGRATION',[finished(baseName),finished(baseName),wrong]],
+    ['UNRECOGNIZED_APPLIED_MIGRATION',[{...finished(baseName),migration_name:'private-unknown'},wrong]],
+    ['PENDING_SET_NOT_EXACT_SEVEN',[]],
+    ['APPLIED_MIGRATION_CHECKSUM_DRIFT',[wrong,finished(baseName),finished(baseName)]],
+  ]) {
+    let error;try {classifyLedger(manifest,ledger);}catch(e){error=e;}
+    assert.equal(error.message,code);
+    const payload=probeErrorPayload(error),output=probeDiagnostics(payload);
+    assert.equal(payload.ledgerDiagnostics.ROWS,ledger.length);
+    assert.doesNotMatch(output,/private-drift|private-unknown/);
+    const evidence=output+`PC_W1_ERROR=${code}\nPC_W1_DATABASE_MUTATION=NONE\nPC_W1_RESULT=BLOCKED\n`;
+    assert.equal(parseEvidence(evidence).PC_W1_LEDGER_ROWS,String(ledger.length));
+    const source=fs.readFileSync(new URL('./check-production-pc-crop-w1-acceptance.mjs',import.meta.url),'utf8');
+    const transport=spawnSync(process.execPath,['--input-type=module','-e',source,'--','--runtime-tool','probe-diagnostics'],{input:JSON.stringify(payload),encoding:'utf8'});
+    assert.equal(transport.status,0);assert.equal(transport.stdout,output);assert.equal(transport.stderr,'');
+    rejects(()=>parseEvidence(evidence.replace(`PC_W1_ERROR=${code}`,'PC_W1_ERROR=UNRELATED_FAILURE')),code==='APPLIED_MIGRATION_CHECKSUM_DRIFT'?'CONTRADICTORY_CHECKSUM_DIAGNOSTICS':'CONTRADICTORY_LEDGER_DIAGNOSTICS');
+    assert.equal(probeDiagnostics({...payload,error:'UNRELATED_FAILURE'}),'');
+  }
+});
 test('invalid ledger checksum and untrusted error properties cannot leak raw text',()=>{
   let failure;
   try {classifyLedger(manifest,[{...finished(baseName),checksum:'secret=/private/config'}]);}catch(error){failure=error;}
