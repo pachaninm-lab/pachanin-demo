@@ -9,8 +9,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
-  statuses: write
 
 concurrency:
   group: local-qwen-independent-review-${{ github.event_name }}-${{ github.event.pull_request.number }}
@@ -26,6 +24,10 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository &&
       contains(github.event.pull_request.body, '<!-- independent-review:local-qwen -->')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      statuses: write
     timeout-minutes: 35
     env:
       MODEL_REVISION: aebf6a0f72261b12fb8199bc580fe172fe86c901
@@ -135,21 +137,21 @@ jobs:
               "verdict": {"type": "string", "enum": ["PASS", "BLOCK"]},
               "findings": {
                 "type": "array",
-                "maxItems": 20,
+                "maxItems": 2,
                 "items": {
                   "type": "object",
                   "properties": {
                     "severity": {"type": "string", "enum": ["P0", "P1", "P2"]},
-                    "path": {"type": "string"},
+                    "path": {"type": "string", "minLength": 1, "maxLength": 240},
                     "line": {"type": "integer", "minimum": 1},
-                    "title": {"type": "string", "minLength": 1, "maxLength": 240},
-                    "reason": {"type": "string", "minLength": 1, "maxLength": 1600}
+                    "title": {"type": "string", "minLength": 1, "maxLength": 80},
+                    "reason": {"type": "string", "minLength": 1, "maxLength": 260}
                   },
                   "required": ["severity", "path", "line", "title", "reason"],
                   "additionalProperties": false
                 }
               },
-              "summary": {"type": "string", "minLength": 1, "maxLength": 1200}
+              "summary": {"type": "string", "minLength": 1, "maxLength": 200}
             },
             "required": ["verdict", "findings", "summary"],
             "additionalProperties": false
@@ -165,18 +167,30 @@ jobs:
           root ::= "{" ws verdict-kv "," ws findings-kv "," ws summary-kv "}" ws
           verdict-kv ::= "\"verdict\"" ws ":" ws verdict
           findings-kv ::= "\"findings\"" ws ":" ws findings
-          summary-kv ::= "\"summary\"" ws ":" ws string
+          summary-kv ::= "\"summary\"" ws ":" ws summary-string
           verdict ::= "\"PASS\"" | "\"BLOCK\""
-          findings ::= "[" ws "]" ws | "[" ws finding ("," ws finding)* "]" ws
+          findings ::= "[" ws "]" ws | "[" ws finding ("," ws finding)? "]" ws
           finding ::= "{" ws severity-kv "," ws path-kv "," ws line-kv "," ws title-kv "," ws reason-kv "}" ws
           severity-kv ::= "\"severity\"" ws ":" ws severity
-          path-kv ::= "\"path\"" ws ":" ws string
+          path-kv ::= "\"path\"" ws ":" ws path-string
           line-kv ::= "\"line\"" ws ":" ws integer
-          title-kv ::= "\"title\"" ws ":" ws string
-          reason-kv ::= "\"reason\"" ws ":" ws string
+          title-kv ::= "\"title\"" ws ":" ws title-string
+          reason-kv ::= "\"reason\"" ws ":" ws reason-string
           severity ::= "\"P0\"" | "\"P1\"" | "\"P2\""
           integer ::= [1-9] [0-9]*
-          string ::= "\"" char* "\""
+          path-string ::= "\"" char chars-128 chars-64 chars-32 chars-8 chars-4 chars-2 char-opt "\""
+          title-string ::= "\"" char chars-64 chars-8 chars-4 chars-2 char-opt "\""
+          reason-string ::= "\"" char chars-256 chars-2 char-opt "\""
+          summary-string ::= "\"" char chars-128 chars-64 chars-4 chars-2 char-opt "\""
+          chars-256 ::= chars-128 chars-128
+          chars-128 ::= chars-64 chars-64
+          chars-64 ::= chars-32 chars-32
+          chars-32 ::= chars-16 chars-16
+          chars-16 ::= chars-8 chars-8
+          chars-8 ::= chars-4 chars-4
+          chars-4 ::= chars-2 chars-2
+          chars-2 ::= char-opt char-opt
+          char-opt ::= char?
           char ::= [^"\\\x7F\x00-\x1F] | "\\" escape
           escape ::= ["\\/bfnrt] | "u" hex hex hex hex
           hex ::= [0-9a-fA-F]
@@ -198,7 +212,7 @@ jobs:
               + policy
               + '\nTrusted output schema (not pull-request content):\n'
               + schema
-              + '\nKeep descriptions concise and non-repeating within the schema bounds.\n'
+              + '\nReturn at most the two highest-severity concrete findings. Do not quote large diff fragments. Keep every title, reason, path, and summary within the supplied bounds. Any finding blocks; additional defects can surface on the next exact-head review after fixes.\n'
               + '<|im_end|>\n'
               + '<|im_start|>user\n'
               + f'Repository: {repo}\nPull request: #{pr_number}\nExact head: {head_sha}\nDiff SHA-256: {diff_sha}\n'
@@ -227,7 +241,7 @@ jobs:
             --model "$MODEL_FILE" \
             --file "$RUNNER_TEMP/review-prompt.txt" \
             --ctx-size 32768 \
-            --n-predict 1400 \
+            --n-predict 1800 \
             --threads 4 \
             --threads-batch 4 \
             --seed 424242 \
@@ -299,9 +313,9 @@ jobs:
           summary = value['summary']
           if verdict not in {'PASS', 'BLOCK'} or not isinstance(findings, list) or not isinstance(summary, str):
               raise SystemExit('Model output types are invalid.')
-          if not (1 <= len(summary.strip()) <= 1200):
+          if not (1 <= len(summary.strip()) <= 200):
               raise SystemExit('Model summary is empty or too long.')
-          if len(findings) > 20:
+          if len(findings) > 2:
               raise SystemExit('Too many model findings.')
           changed_paths = set()
           for line in pathlib.Path(diff_path).read_text(encoding='utf-8').splitlines():
@@ -314,13 +328,15 @@ jobs:
                   raise SystemExit('Finding schema is invalid.')
               if finding['severity'] not in {'P0', 'P1', 'P2'}:
                   raise SystemExit('Finding severity is invalid.')
+              if not isinstance(finding['path'], str) or not (1 <= len(finding['path'].strip()) <= 240):
+                  raise SystemExit('Finding path is invalid.')
               if finding['path'] not in changed_paths:
                   raise SystemExit(f"Finding path is not changed: {finding['path']}")
               if isinstance(finding['line'], bool) or not isinstance(finding['line'], int) or finding['line'] < 1:
                   raise SystemExit('Finding line is invalid.')
-              if not isinstance(finding['title'], str) or not (1 <= len(finding['title'].strip()) <= 240):
+              if not isinstance(finding['title'], str) or not (1 <= len(finding['title'].strip()) <= 80):
                   raise SystemExit('Finding title is invalid.')
-              if not isinstance(finding['reason'], str) or not (1 <= len(finding['reason'].strip()) <= 1600):
+              if not isinstance(finding['reason'], str) or not (1 <= len(finding['reason'].strip()) <= 260):
                   raise SystemExit('Finding reason is invalid.')
           if verdict == 'PASS' and findings:
               raise SystemExit('PASS verdict has findings.')
@@ -447,11 +463,6 @@ jobs:
     timeout-minutes: 35
     steps:
       - name: Exercise immutable repaired transport against exact PR diff
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -472,15 +483,21 @@ jobs:
           if hashlib.sha256(raw).hexdigest() != expected:
               raise SystemExit('Immutable transport source hash mismatch')
           (root / 'tested-workflow.yml').write_bytes(raw)
-          repo, number, head = (os.environ[key] for key in ('REPO', 'PR_NUMBER', 'HEAD_SHA'))
+          event = json.loads(pathlib.Path(os.environ['GITHUB_EVENT_PATH']).read_text(encoding='utf-8'))
+          repo = os.environ['GITHUB_REPOSITORY']
+          pull = event.get('pull_request') or {}
+          number = str(pull.get('number') or '')
+          head = str((pull.get('head') or {}).get('sha') or '')
           if repo != 'pachaninm-lab/pachanin-demo' or not number.isdecimal() or not re.fullmatch('[0-9a-f]{40}', head):
-              raise SystemExit('Invalid test input identity')
-          def gh(args):
-              return subprocess.check_output(['gh', 'api', *args])
-          live = json.loads(gh([f'repos/{repo}/pulls/{number}']))
+              raise SystemExit('Invalid trusted event identity')
+          api = f'https://api.github.com/repos/{repo}/pulls/{number}'
+          def public_get(url, accept='application/vnd.github+json'):
+              request = urllib.request.Request(url, headers={'Accept': accept, 'User-Agent': 'pinned-qwen-transport-acceptance'})
+              return urllib.request.urlopen(request, timeout=30).read()
+          live = json.loads(public_get(api))
           if live['head']['sha'] != head:
               raise SystemExit('Head moved before transport test')
-          diff = gh(['-H', 'Accept: application/vnd.github.v3.diff', f'repos/{repo}/pulls/{number}'])
+          diff = public_get(api, 'application/vnd.github.v3.diff')
           if not 0 < len(diff) <= 90000:
               raise SystemExit('Review diff outside existing context bound')
           (root / 'pr.diff').write_bytes(diff)
@@ -519,7 +536,7 @@ jobs:
                       if sep != '=' or key not in {'LLAMA_COMPLETION', 'MODEL_FILE'}:
                           raise SystemExit('Unexpected runtime environment output')
                       env[key] = value
-          final = json.loads(gh([f'repos/{repo}/pulls/{number}']))
+          final = json.loads(public_get(api))
           if final['head']['sha'] != head:
               raise SystemExit('Head moved during transport test')
           result = json.loads((root / 'review.canonical.json').read_text())
