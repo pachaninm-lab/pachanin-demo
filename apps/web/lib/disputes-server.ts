@@ -50,7 +50,9 @@ export async function getDisputesSnapshot(): Promise<DisputesSnapshot> {
 }
 
 export async function getDisputes(): Promise<DisputeServerItem[]> {
-  return (await getDisputesSnapshot()).disputes;
+  const snapshot = await getDisputesSnapshot();
+  if (!snapshot.isApiAvailable) return [];
+  return snapshot.disputes;
 }
 
 export async function getDispute(id: string): Promise<DisputeServerItem | null> {
