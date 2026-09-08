@@ -63,9 +63,29 @@ async function captureFullDocumentEvidence(page: Page, path: string) {
     return;
   }
 
+  const captureOverlap = await page.evaluate(() => {
+    const viewportHeight = window.innerHeight;
+    let topOcclusion = 0;
+    let bottomOcclusion = 0;
+
+    for (const node of Array.from(document.querySelectorAll<HTMLElement>('body *'))) {
+      const style = window.getComputedStyle(node);
+      if (style.position !== 'fixed' && style.position !== 'sticky') continue;
+      if (style.display === 'none' || style.visibility === 'hidden') continue;
+      const box = node.getBoundingClientRect();
+      if (box.width <= 0 || box.height <= 0) continue;
+      if (box.top <= 32 && box.bottom > 0) topOcclusion = Math.max(topOcclusion, Math.min(viewportHeight, box.bottom));
+      if (box.bottom >= viewportHeight - 32 && box.top < viewportHeight) {
+        bottomOcclusion = Math.max(bottomOcclusion, Math.min(viewportHeight, viewportHeight - box.top));
+      }
+    }
+
+    return Math.min(viewportHeight - 1, Math.ceil(topOcclusion + bottomOcclusion + 24));
+  });
+  const captureStep = Math.max(1, geometry.viewportHeight - captureOverlap);
   const maxScrollY = Math.max(0, geometry.documentHeight - geometry.viewportHeight);
   const positions: number[] = [];
-  for (let y = 0; y <= maxScrollY; y += geometry.viewportHeight) positions.push(y);
+  for (let y = 0; y <= maxScrollY; y += captureStep) positions.push(y);
   if (positions.at(-1) !== maxScrollY) positions.push(maxScrollY);
 
   const basePath = path.replace(/\.png$/u, '');
