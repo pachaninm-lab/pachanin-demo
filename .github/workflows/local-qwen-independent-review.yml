@@ -477,9 +477,9 @@ jobs:
 
           root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'qwen-transport-acceptance'
           root.mkdir()
-          url = 'https://raw.githubusercontent.com/pachaninm-lab/pachanin-demo/8151f1cf42786053ede4d6243a391e790218d00e/.github/workflows/local-qwen-independent-review.yml'
+          url = 'https://raw.githubusercontent.com/pachaninm-lab/pachanin-demo/0dca919b572efceca6eb89552cbc24813c713d89/.github/workflows/local-qwen-independent-review.yml'
           raw = urllib.request.urlopen(url, timeout=30).read()
-          expected = '11dea8e3cb2c630170c56693daeff5ec2a7cd6f16ccba26365cff55b735d9725'
+          expected = '62b5902abeff2339ecd73f59d4c9bdf0949d262b49805db8b5eee8a51eef159b'
           if hashlib.sha256(raw).hexdigest() != expected:
               raise SystemExit('Immutable transport source hash mismatch')
           (root / 'tested-workflow.yml').write_bytes(raw)
