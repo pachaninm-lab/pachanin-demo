@@ -14,6 +14,7 @@ on:
     branches:
       - main
     paths:
+      - '.gitleaksignore'
       - '.github/workflows/pc-crop-w1-production-acceptance.yml'
       - 'scripts/production-pc-crop-w1-migrations.sh'
       - 'scripts/check-production-pc-crop-w1-acceptance.mjs'
