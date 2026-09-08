@@ -934,8 +934,8 @@ BEGIN
       JOIN chain AS c ON l.generation_id=c.predecessor_generation_id
       WHERE c.depth < 1024
     )
-    SELECT predecessor_generation_id INTO baseline_generation_id
-    FROM chain ORDER BY depth DESC LIMIT 1;
+    SELECT c.predecessor_generation_id INTO baseline_generation_id
+    FROM chain AS c ORDER BY c.depth DESC LIMIT 1;
     IF baseline_generation_id IS NULL THEN
       RAISE EXCEPTION 'daily EGRUL authority baseline root is missing';
     END IF;
