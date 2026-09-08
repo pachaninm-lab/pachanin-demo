@@ -91,12 +91,6 @@ export default async function ExecutivePage() {
         owner: disputeCount > 0 ? 'оператор + арбитр + банк' : pendingBank > 0 ? 'банк + оператор' : 'нет эскалации',
         impact: heldRub > 0 ? formatMoney(heldRub) : pendingBank > 0 ? `${pendingBank} операций` : 'нет денежного влияния',
         result: 'эскалация владельцу процесса, а не ручная правка данных',
-        primaryAction: heldRub > 0
-          ? <a className={operationalCockpitClasses.primaryLink} href='/platform-v7/disputes'>Открыть споры</a>
-          : pendingBank > 0
-            ? <a className={operationalCockpitClasses.primaryLink} href='/platform-v7/bank'>Открыть банк</a>
-            : <a className={operationalCockpitClasses.primaryLink} href='/platform-v7/deals'>Открыть сделки</a>,
-        secondaryAction: <a className={operationalCockpitClasses.secondaryLink} href='/platform-v7/status'>Состояние системы</a>,
       }}
       facts={[
         { label: 'Портфель', value: formatMoney(totalVolume), hint: `${dealList.length} сделок всего` },
