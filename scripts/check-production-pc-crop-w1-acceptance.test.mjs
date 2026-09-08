@@ -123,6 +123,8 @@ test('all ledger blockers transport complete diagnostics regardless of first ano
     assert.doesNotMatch(output,/private-drift|private-unknown/);
     const evidence=output+`PC_W1_ERROR=${code}\nPC_W1_DATABASE_MUTATION=NONE\nPC_W1_RESULT=BLOCKED\n`;
     assert.equal(parseEvidence(evidence).PC_W1_LEDGER_ROWS,String(ledger.length));
+    rejects(()=>parseEvidence(`PC_W1_ERROR=${code}\nPC_W1_DATABASE_MUTATION=NONE\nPC_W1_RESULT=BLOCKED\n`),'CONTRADICTORY_LEDGER_DIAGNOSTICS');
+    rejects(()=>parseEvidence(evidence.split('\n').filter(line=>!line.startsWith('PC_W1_LEDGER_')).join('\n')),'CONTRADICTORY_LEDGER_DIAGNOSTICS');
     const source=fs.readFileSync(new URL('./check-production-pc-crop-w1-acceptance.mjs',import.meta.url),'utf8');
     const transport=spawnSync(process.execPath,['--input-type=module','-e',source,'--','--runtime-tool','probe-diagnostics'],{input:JSON.stringify(payload),encoding:'utf8'});
     assert.equal(transport.status,0);assert.equal(transport.stdout,output);assert.equal(transport.stderr,'');

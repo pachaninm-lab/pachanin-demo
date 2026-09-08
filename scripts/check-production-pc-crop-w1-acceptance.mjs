@@ -278,7 +278,7 @@ export function parseEvidence(raw, { requireTerminal = true } = {}) {
     || !result.PC_W1_CHECKSUM_DRIFT_EXPECTED_SHA256 || !result.PC_W1_CHECKSUM_DRIFT_APPLIED_SHA256 || result.PC_W1_RESULT !== 'BLOCKED'
     || result.PC_W1_ERROR !== 'APPLIED_MIGRATION_CHECKSUM_DRIFT')) blocked('CONTRADICTORY_CHECKSUM_DIAGNOSTICS');
   const ledgerKeys = Object.keys(result).filter(key => key.startsWith('PC_W1_LEDGER_'));
-  if (ledgerKeys.length) {
+  if (ledgerKeys.length || LEDGER_BLOCKERS.includes(result.PC_W1_ERROR)) {
     const count = key => Number(result[`PC_W1_LEDGER_${key}`]);
     const blocker = result.PC_W1_ERROR;
     const requiredCount = {APPLIED_MIGRATION_CHECKSUM_DRIFT:'DRIFTED',UNFINISHED_MIGRATION:'UNFINISHED',UNRECOGNIZED_APPLIED_MIGRATION:'UNKNOWN',DUPLICATE_APPLIED_MIGRATION:'DUPLICATES'}[blocker];
