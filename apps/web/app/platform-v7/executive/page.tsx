@@ -84,7 +84,7 @@ export default async function ExecutivePage() {
       statusTone={liveBlockers.some((item) => item.severity === 'stop') ? 'critical' : liveBlockers.length > 0 ? 'warning' : 'success'}
       liveStatus={(
         <LiveApiStatusBar
-          apiOnline={dealsComplete && disputesAvailable && outboxComplete && paymentsComplete}
+          apiOnline={dealsAvailable && disputesAvailable && outboxAvailable && paymentsAvailable}
           blockers={liveBlockers}
           pendingBankOps={pendingBank}
           openDisputes={disputeCount}
@@ -160,7 +160,7 @@ export default async function ExecutivePage() {
         { label: 'Портфель', value: dealsComplete ? formatMoney(totalVolume) : '—', hint: !dealsAvailable ? 'состояние сделок неизвестно' : !dealsComplete ? 'выборка неполна (лимит 100)' : `${dealList.length} сделок всего` },
         { label: 'Активных сделок', value: dealsComplete ? String(activeDeals.length) : '—', hint: !dealsAvailable ? 'источник недоступен' : !dealsComplete ? 'выборка неполна (лимит 100)' : 'не закрыты и не отменены' },
         { label: 'Деньги в блоке', value: disputesAvailable ? formatMoney(heldRub) : '—', hint: !disputesAvailable ? 'состояние споров неизвестно' : disputeCount > 0 ? `${disputeCount} открытых спора` : 'удержаний нет' },
-        { label: 'Ручная сверка банка', value: paymentsAvailable ? String(manualReviewBank) : '—', hint: !paymentsAvailable ? 'состояние неизвестно' : manualReviewBank > 0 ? 'MANUAL_REVIEW требует разбора' : failedBank > 0 ? `${failedBank} ошибок доставки отдельно` : 'расхождений нет' },
+        { label: 'Ручная сверка банка', value: !paymentsAvailable ? '—' : manualReviewBank > 0 ? String(manualReviewBank) : paymentsComplete ? '0' : '—', hint: !paymentsAvailable ? 'состояние неизвестно' : manualReviewBank > 0 ? 'MANUAL_REVIEW требует разбора' : !paymentsComplete ? 'выборка неполна (лимит 100) · старые MANUAL_REVIEW могут быть вне окна' : failedBank > 0 ? `${failedBank} ошибок доставки отдельно` : 'расхождений нет' },
       ]}
       boundary='Руководитель имеет read-only обзор. Экран не расширяет RBAC, не создаёт банк-статус и не позволяет обходить ответственных участников Сделки.'
     >

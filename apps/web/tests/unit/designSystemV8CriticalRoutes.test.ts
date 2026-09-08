@@ -88,6 +88,10 @@ describe('Design System v8 critical transaction routes', () => {
     expect(dealsServer).toContain('isComplete: raw.length < 100');
     expect(executive).toContain('!dealsComplete');
     expect(executive).toContain("outboxComplete && paymentsComplete ? String(pendingBank)");
+    expect(executive).toContain('apiOnline={dealsAvailable && disputesAvailable && outboxAvailable && paymentsAvailable}');
+    expect(executive).not.toContain('apiOnline={dealsComplete && disputesAvailable && outboxComplete && paymentsComplete}');
+    expect(executive).toContain("value: !paymentsAvailable ? '—' : manualReviewBank > 0 ? String(manualReviewBank) : paymentsComplete ? '0' : '—'");
+    expect(executive).toContain('выборка неполна (лимит 100) · старые MANUAL_REVIEW могут быть вне окна');
     expect(disputesServer).toContain('isApiAvailable: false');
     expect(disputesServer).toContain('isApiAvailable: true');
     expect(outboxServer).toContain('!Array.isArray(data.pending) || !Array.isArray(data.failed) || !Array.isArray(data.confirmed)');
