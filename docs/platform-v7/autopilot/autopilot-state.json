@@ -221,6 +221,15 @@
       "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
       "docs/security/cryptographic-inventory.json"
     ],
+    "ops/pc-crop-w1-production-acceptance-4997": [
+      ".github/workflows/pc-crop-w1-production-acceptance.yml",
+      "scripts/production-pc-crop-w1-migrations.sh",
+      "scripts/check-production-pc-crop-w1-acceptance.mjs",
+      "scripts/check-production-pc-crop-w1-acceptance.test.mjs",
+      "scripts/production-role-eligibility-api-release.sh",
+      "scripts/check-role-eligibility-api-release.mjs",
+      ".github/workflows/production-web-exact-sha.yml"
+    ],
     "governance/pc-crop-post-registration-progress-scope-4997": [
       "docs/platform-v7/autopilot/autopilot-state.json",
       "scripts/p7-autopilot-guard.sh",
@@ -236,7 +245,8 @@
       "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json",
       "docs/platform-v7/crop-platform/post-registration/execution-state.v1.json",
       "docs/platform-v7/crop-platform/post-registration/verify-w0.mjs",
-      "docs/platform-v7/crop-platform/post-registration/w2-a-inventory-reservation-plan.v1.json"
+      "docs/platform-v7/crop-platform/post-registration/w2-a-inventory-reservation-plan.v1.json",
+      "docs/platform-v7/crop-platform/post-registration/verify-w0.test.mjs"
     ],
     "fix/static-presentation-download-buildtime-20260830": [
       "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",

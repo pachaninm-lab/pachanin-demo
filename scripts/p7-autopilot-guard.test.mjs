@@ -9,6 +9,7 @@ const implementationBranches = [
   'fix/p0-registration-authority-rollover-4637',
   'fix/p0-owner-control-plane-audit-lock-4698',
   'feat/pc-crop-auction-inventory-authority-4997',
+  'ops/pc-crop-w1-production-acceptance-4997',
   'docs/pc-crop-post-registration-progress-4997',
   'governance/pc-crop-post-registration-progress-scope-4997',
   'governance/pc-crop-inventory-reservation-scope-4997',
@@ -481,9 +482,9 @@ test('governance branches retain unprivileged head regression validation', () =>
   assert.ok(workflow.includes('run: node --test scripts/p7-autopilot-guard.test.mjs'));
 });
 
-test('Auction inventory uses trusted scope routing while retaining substantive head validation', () => {
+for (const branch of ['feat/pc-crop-auction-inventory-authority-4997', 'ops/pc-crop-w1-production-acceptance-4997']) {
+test(`${branch}: trusted scope routing retains substantive head validation`, () => {
   const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
-  const branch = 'feat/pc-crop-auction-inventory-authority-4997';
   const section = (start, end) => {
     const first = workflow.indexOf(start);
     const last = workflow.indexOf(end, first + start.length);
@@ -510,8 +511,9 @@ test('Auction inventory uses trusted scope routing while retaining substantive h
   for (const [start, end] of [
     ['      - name: Require standard validations in the required guard context', '      - name: Validate immutable scope with trusted base guard on PR head'],
     ['  standard_validation:', '    runs-on: ubuntu-latest'],
-  ]) assert.ok(!section(start, end).includes(`github.head_ref != '${branch}'`), 'Auction must retain substantive head validations');
+  ]) assert.ok(!section(start, end).includes(`github.head_ref != '${branch}'`), `${branch} must retain substantive head validations`);
 });
+}
 
 test('Auction head validation triggers for every immutable state-approved path', () => {
   const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
@@ -525,4 +527,98 @@ test('Auction head validation triggers for every immutable state-approved path',
   const trigger = workflow.slice(first, last);
   const paths = [...trigger.matchAll(/^      - '([^']+)'$/gmu)].map((match) => match[1]);
   for (const file of approved) assert.equal(paths.filter((entry) => entry === file).length, 1, `Each approved Auction path must trigger head validation exactly once: ${file}`);
+});
+
+
+test('W1 release scope authorizes four operational files and three bounded reuse guards', () => {
+  const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+  const approved = state.approvedConcurrentScopes['ops/pc-crop-w1-production-acceptance-4997'];
+  const expected = [
+    '.github/workflows/pc-crop-w1-production-acceptance.yml',
+    'scripts/production-pc-crop-w1-migrations.sh',
+    'scripts/check-production-pc-crop-w1-acceptance.mjs',
+    'scripts/check-production-pc-crop-w1-acceptance.test.mjs',
+    'scripts/production-role-eligibility-api-release.sh',
+    'scripts/check-role-eligibility-api-release.mjs',
+    '.github/workflows/production-web-exact-sha.yml',
+  ];
+  assert.deepEqual(approved, expected);
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const first = workflow.indexOf('\n  pull_request:\n');
+  const last = workflow.indexOf('\nconcurrency:', first);
+  assert.ok(first >= 0 && last > first);
+  const paths = [...workflow.slice(first, last).matchAll(/^      - '([^']+)'$/gmu)].map((match) => match[1]);
+  for (const file of approved) assert.equal(paths.filter((entry) => entry === file).length, 1, `Missing W1 head-validation trigger: ${file}`);
+});
+
+test('W1 implementation cannot authorize itself when the immutable base lacks its scope', (t) => {
+  const branch = 'ops/pc-crop-w1-production-acceptance-4997';
+  const context = fixture(t, branch);
+  const stateFile = 'docs/platform-v7/autopilot/autopilot-state.json';
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, stateFile), 'utf8'));
+  delete state.approvedConcurrentScopes[branch];
+  write(context.root, stateFile, JSON.stringify(state));
+  commit(context.root, 'accepted base without W1 release authority');
+  const baseline = git(context.root, ['rev-parse', 'HEAD']);
+  state.approvedConcurrentScopes[branch] = ['allowed.txt'];
+  write(context.root, stateFile, JSON.stringify(state));
+  write(context.root, 'allowed.txt', 'attempt implementation self-approval\n');
+  commit(context.root, 'attempt head-only W1 release approval');
+  const result = runGuard({ ...context, baseline });
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /no immutable approved scope/u);
+});
+
+test('W1 implementation cannot change runtime files absent from its immutable base scope', (t) => {
+  const branch = 'ops/pc-crop-w1-production-acceptance-4997';
+  const context = fixture(t, branch);
+  const protectedFiles = [
+    'scripts/production-role-eligibility-api-release.sh',
+    'apps/api/src/modules/auth/auth.service.ts',
+    'apps/web/app/platform-v7/register/page.tsx',
+  ];
+  for (const file of protectedFiles) write(context.root, file, 'unauthorized W1 mutation\n');
+  commit(context.root, 'attempt to expand W1 release into runtime code');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /Files outside current autopilot scope/u);
+  for (const file of protectedFiles) assert.ok(output(result).includes(file), `Unapproved path must be rejected: ${file}`);
+});
+
+
+test('W1 implementation cannot add digest or web-lock authority to an older four-file base', (t) => {
+  const branch = 'ops/pc-crop-w1-production-acceptance-4997';
+  const context = fixture(t, branch);
+  const stateFile = 'docs/platform-v7/autopilot/autopilot-state.json';
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, stateFile), 'utf8'));
+  state.approvedConcurrentScopes[branch] = [
+    '.github/workflows/pc-crop-w1-production-acceptance.yml',
+    'scripts/production-pc-crop-w1-migrations.sh',
+    'scripts/check-production-pc-crop-w1-acceptance.mjs',
+    'scripts/check-production-pc-crop-w1-acceptance.test.mjs',
+  ];
+  write(context.root, stateFile, JSON.stringify(state));
+  commit(context.root, 'accepted original four-path W1 scope');
+  const baseline = git(context.root, ['rev-parse', 'HEAD']);
+  for (const file of ['scripts/production-role-eligibility-api-release.sh', 'scripts/check-role-eligibility-api-release.mjs', '.github/workflows/production-web-exact-sha.yml']) {
+    state.approvedConcurrentScopes[branch].push(file);
+    write(context.root, file, 'attempt premature reuse-guard change\n');
+  }
+  write(context.root, stateFile, JSON.stringify(state));
+  commit(context.root, 'attempt implementation-side authority expansion');
+  const result = runGuard({ ...context, baseline });
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /Mutable scope authority changed/u);
+});
+
+
+test('admits the bounded revenue evidence regression suite and runs it in required CI', () => {
+  const state = JSON.parse(fs.readFileSync(path.resolve('docs/platform-v7/autopilot/autopilot-state.json'), 'utf8'));
+  const scope = state.approvedConcurrentScopes['docs/pc-crop-post-registration-progress-4997'];
+  const prefix = 'docs/platform-v7/crop-platform/post-registration/';
+  assert.deepEqual([...scope].sort(), ['README.md', 'dod-baseline.v1.json', 'exact-gap-map.v1.json', 'execution-state.v1.json', 'verify-w0.mjs', 'verify-w0.test.mjs', 'w2-a-inventory-reservation-plan.v1.json'].map(name => prefix + name).sort());
+  assert.ok(scope.every(name => !name.includes('*')));
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  assert.ok(workflow.includes("- 'docs/platform-v7/**'"), 'existing trigger covers the added test');
+  assert.ok(workflow.includes("      - name: Test post-registration evidence rejection\n        if: github.event_name == 'pull_request' && github.head_ref == 'docs/pc-crop-post-registration-progress-4997'\n        run: node --test docs/platform-v7/crop-platform/post-registration/verify-w0.test.mjs"));
 });
