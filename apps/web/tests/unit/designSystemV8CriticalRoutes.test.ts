@@ -94,6 +94,11 @@ describe('Design System v8 critical transaction routes', () => {
     expect(executive).toContain('выборка неполна (лимит 100) · старые MANUAL_REVIEW могут быть вне окна');
     expect(disputesServer).toContain('isApiAvailable: false');
     expect(disputesServer).toContain('isApiAvailable: true');
+    expect(executive).toContain('unresolvedDisputeCount');
+    expect(executive).not.toContain('openDisputeCount');
+    expect(disputesServer).toContain('export function unresolvedDisputeCount');
+    expect(disputesServer).toContain("dispute.status !== 'CLOSED'");
+    expect(executive).toContain('Незакрытые споры');
     expect(outboxServer).toContain('!Array.isArray(data.pending) || !Array.isArray(data.failed) || !Array.isArray(data.confirmed)');
     expect(outboxServer).toContain('totalUnclassified');
     expect(outboxServer).toContain('isComplete: data.total < 200');

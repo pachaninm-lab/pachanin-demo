@@ -3,7 +3,7 @@ import { PriceChart } from '@/components/platform-v7/PriceChart';
 import { ExecutiveSignalWall, type ExecutiveSignal } from '@/components/platform-v7/ExecutiveSignalWall';
 import { EmptyState } from '@/components/platform-v7/EmptyState';
 import { getDealsSnapshot } from '@/lib/deals-server';
-import { getDisputesSnapshot, disputeTotalHeldRub, openDisputeCount } from '@/lib/disputes-server';
+import { getDisputesSnapshot, disputeTotalHeldRub, unresolvedDisputeCount } from '@/lib/disputes-server';
 import { getOutboxStatus, getPaymentsSnapshot } from '@/lib/outbox-server';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
 import { getPlatformV7BiCockpitState } from '@/lib/platform-v7/runtime/bi-cockpit-state';
@@ -41,7 +41,7 @@ export default async function ExecutivePage() {
   const activeDeals = dealList.filter((deal) => !['CLOSED', 'CANCELLED'].includes(deal.status));
   const totalVolume = dealList.reduce((sum, deal) => sum + (deal.totalRub ?? 0), 0);
   const heldRub = disputeTotalHeldRub(disputes);
-  const disputeCount = openDisputeCount(disputes);
+  const disputeCount = unresolvedDisputeCount(disputes);
   const outboxAvailable = outbox.isApiAvailable;
   const pendingBank = outboxAvailable ? outbox.totalPending : 0;
   const failedBank = outboxAvailable ? outbox.totalFailed : 0;
@@ -60,7 +60,7 @@ export default async function ExecutivePage() {
     ...(outboxAvailable && !outboxComplete ? [{ id: 'outbox-incomplete', label: 'История банковской доставки превышает проверяемое окно · состояние неполное', severity: 'warn' as const }] : []),
     ...(!paymentsAvailable ? [{ id: 'payments-source', label: 'Источник банковской сверки недоступен · состояние неизвестно', severity: 'warn' as const }] : []),
     ...(paymentsAvailable && !paymentsComplete ? [{ id: 'payments-incomplete', label: 'История банковской сверки превышает проверяемое окно · состояние неполное', severity: 'warn' as const }] : []),
-    ...(disputeCount > 0 ? [{ id: 'disputes', label: `${disputeCount} открытых спора · ${formatMoney(heldRub)} удержано`, severity: 'stop' as const }] : []),
+    ...(disputeCount > 0 ? [{ id: 'disputes', label: `${disputeCount} незакрытых спора · ${formatMoney(heldRub)} удержано`, severity: 'stop' as const }] : []),
     ...(manualReviewBank > 0 ? [{ id: 'bank-manual-review', label: `${manualReviewBank} банковских операций требуют ручной сверки`, severity: 'stop' as const }] : []),
     ...(unclassifiedBank > 0 ? [{ id: 'bank-unclassified', label: `${unclassifiedBank} банковских событий имеют неподтвержденный статус, включая возможный DEAD_LETTER`, severity: 'stop' as const }] : []),
     ...(failedBank > 0 ? [{ id: 'bank-failed', label: `${failedBank} банковских операций завершились ошибкой`, severity: 'stop' as const }] : []),
@@ -69,7 +69,7 @@ export default async function ExecutivePage() {
 
   const signals: ExecutiveSignal[] = [
     { label: 'Деньги в блоке', value: disputesAvailable ? formatMoney(heldRub) : '—', detail: !disputesAvailable ? 'источник споров недоступен' : disputeCount > 0 ? 'удержано до решения споров' : 'удержаний нет', state: !disputesAvailable ? 'wait' : heldRub > 0 ? 'stop' : 'ok' },
-    { label: 'Открытые споры', value: disputesAvailable ? String(disputeCount) : '—', detail: disputesAvailable ? 'каждый спор связан с конкретной Сделкой' : 'состояние неизвестно', state: !disputesAvailable ? 'wait' : disputeCount > 0 ? 'stop' : 'ok' },
+    { label: 'Незакрытые споры', value: disputesAvailable ? String(disputeCount) : '—', detail: disputesAvailable ? 'каждый спор связан с конкретной Сделкой' : 'состояние неизвестно', state: !disputesAvailable ? 'wait' : disputeCount > 0 ? 'stop' : 'ok' },
     { label: 'Банк', value: manualReviewBank > 0 ? String(manualReviewBank) : unclassifiedBank > 0 ? String(unclassifiedBank) : failedBank > 0 ? String(failedBank) : outboxComplete && paymentsComplete ? String(pendingBank) : '—', detail: manualReviewBank > 0 ? 'операции требуют ручной сверки' : unclassifiedBank > 0 ? 'неподтвержденные статусы, включая возможный DEAD_LETTER' : failedBank > 0 ? 'операции завершились ошибкой доставки' : !outboxComplete || !paymentsComplete ? 'состояние банковского контура неполно' : pendingBank > 0 ? 'операции требуют внешнего подтверждения' : 'ожидающих операций нет', state: manualReviewBank > 0 || unclassifiedBank > 0 || failedBank > 0 ? 'stop' : !outboxComplete || !paymentsComplete || pendingBank > 0 ? 'wait' : 'ok' },
     { label: 'Портфель', value: dealsComplete ? formatMoney(totalVolume) : '—', detail: !dealsAvailable ? 'источник сделок недоступен' : !dealsComplete ? 'выборка сделок неполна (лимит 100)' : `${dealList.length} сделок · ${activeDeals.length} активных`, state: dealsComplete ? 'ok' : 'wait' },
   ];
@@ -151,7 +151,7 @@ export default async function ExecutivePage() {
           : pendingBank > 0
             ? 'Есть внешние банковские подтверждения в ожидании. Дашборд показывает влияние, но не подменяет банковский authority.'
             : 'Портфель без критических удержаний и банковских блокеров. Контролируйте сделки и динамику без ручного вмешательства.',
-        blocker: disputeCount > 0 ? `${disputeCount} открытых спора` : manualReviewBank > 0 ? `${manualReviewBank} операций MANUAL_REVIEW` : unclassifiedBank > 0 ? `${unclassifiedBank} неподтвержденных статусов BANK_` : failedBank > 0 ? `${failedBank} ошибок банковской доставки` : !dealsAvailable ? 'состояние сделок неизвестно' : !dealsComplete ? 'история сделок неполна' : !disputesAvailable ? 'состояние споров неизвестно' : !outboxComplete ? 'история банковской доставки неполна' : !paymentsComplete ? 'история банковской сверки неполна' : pendingBank > 0 ? `${pendingBank} банковских операций` : 'нет',
+        blocker: disputeCount > 0 ? `${disputeCount} незакрытых спора` : manualReviewBank > 0 ? `${manualReviewBank} операций MANUAL_REVIEW` : unclassifiedBank > 0 ? `${unclassifiedBank} неподтвержденных статусов BANK_` : failedBank > 0 ? `${failedBank} ошибок банковской доставки` : !dealsAvailable ? 'состояние сделок неизвестно' : !dealsComplete ? 'история сделок неполна' : !disputesAvailable ? 'состояние споров неизвестно' : !outboxComplete ? 'история банковской доставки неполна' : !paymentsComplete ? 'история банковской сверки неполна' : pendingBank > 0 ? `${pendingBank} банковских операций` : 'нет',
         owner: disputeCount > 0 ? 'оператор + арбитр + банк' : manualReviewBank > 0 || unclassifiedBank > 0 || failedBank > 0 || pendingBank > 0 ? 'банк + оператор' : !dealsComplete || !disputesAvailable || !outboxComplete || !paymentsComplete ? 'оператор платформы' : 'нет эскалации',
         impact: heldRub > 0 ? formatMoney(heldRub) : manualReviewBank > 0 ? `${manualReviewBank} операций на ручной сверке` : unclassifiedBank > 0 ? `${unclassifiedBank} неподтвержденных статусов` : failedBank > 0 ? `${failedBank} ошибок` : !dealsComplete || !disputesAvailable || !outboxComplete || !paymentsComplete ? 'неизвестно до восстановления полного источника' : pendingBank > 0 ? `${pendingBank} операций` : 'нет денежного влияния',
         result: 'эскалация владельцу процесса, а не ручная правка данных',
@@ -159,7 +159,7 @@ export default async function ExecutivePage() {
       facts={[
         { label: 'Портфель', value: dealsComplete ? formatMoney(totalVolume) : '—', hint: !dealsAvailable ? 'состояние сделок неизвестно' : !dealsComplete ? 'выборка неполна (лимит 100)' : `${dealList.length} сделок всего` },
         { label: 'Активных сделок', value: dealsComplete ? String(activeDeals.length) : '—', hint: !dealsAvailable ? 'источник недоступен' : !dealsComplete ? 'выборка неполна (лимит 100)' : 'не закрыты и не отменены' },
-        { label: 'Деньги в блоке', value: disputesAvailable ? formatMoney(heldRub) : '—', hint: !disputesAvailable ? 'состояние споров неизвестно' : disputeCount > 0 ? `${disputeCount} открытых спора` : 'удержаний нет' },
+        { label: 'Деньги в блоке', value: disputesAvailable ? formatMoney(heldRub) : '—', hint: !disputesAvailable ? 'состояние споров неизвестно' : disputeCount > 0 ? `${disputeCount} незакрытых спора` : 'удержаний нет' },
         { label: 'Ручная сверка банка', value: !paymentsAvailable ? '—' : manualReviewBank > 0 ? String(manualReviewBank) : paymentsComplete ? '0' : '—', hint: !paymentsAvailable ? 'состояние неизвестно' : manualReviewBank > 0 ? 'MANUAL_REVIEW требует разбора' : !paymentsComplete ? 'выборка неполна (лимит 100) · старые MANUAL_REVIEW могут быть вне окна' : failedBank > 0 ? `${failedBank} ошибок доставки отдельно` : 'расхождений нет' },
       ]}
       boundary='Руководитель имеет read-only обзор. Экран не расширяет RBAC, не создаёт банк-статус и не позволяет обходить ответственных участников Сделки.'
@@ -174,7 +174,7 @@ export default async function ExecutivePage() {
           <OperationalQueueLink
             href='/platform-v7/disputes'
             title='Споры и удержания'
-            detail={!disputesAvailable ? 'Источник споров недоступен' : disputeCount > 0 ? `${disputeCount} открытых · ${formatMoney(heldRub)} удержано` : 'Открытых споров и удержаний нет'}
+            detail={!disputesAvailable ? 'Источник споров недоступен' : disputeCount > 0 ? `${disputeCount} незакрытых · ${formatMoney(heldRub)} удержано` : 'Незакрытых споров и удержаний нет'}
           />
           <OperationalQueueLink
             href='/platform-v7/profile'
@@ -212,7 +212,7 @@ export default async function ExecutivePage() {
               <OperationalQueueLink
                 href='/platform-v7/disputes'
                 title='Требуют внимания: споры'
-                detail={`${disputeCount} открытых · влияние ${formatMoney(heldRub)}`}
+                detail={`${disputeCount} незакрытых · влияние ${formatMoney(heldRub)}`}
               />
             ) : null}
             {!outboxAvailable ? (

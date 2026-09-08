@@ -79,6 +79,16 @@ export function openDisputeCount(disputes: DisputeServerItem[]): number {
   return disputes.filter((dispute) => dispute.status === 'OPEN' || dispute.status === 'UNDER_REVIEW').length;
 }
 
+/**
+ * Fail-closed executive lifecycle count. A dispute is not operationally closed
+ * until the authority reaches CLOSED: DECISION/APPEALED are pending lifecycle
+ * work, and RESOLVED still requires settlement confirmation before close_case.
+ * Unknown future statuses also remain unresolved by default.
+ */
+export function unresolvedDisputeCount(disputes: DisputeServerItem[]): number {
+  return disputes.filter((dispute) => dispute.status !== 'CLOSED').length;
+}
+
 function parseDispute(value: unknown): DisputeServerItem {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('dispute must be an object');
   const item = value as Record<string, unknown>;
