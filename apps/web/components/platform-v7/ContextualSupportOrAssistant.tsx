@@ -41,6 +41,7 @@ const PUBLIC_EXACT = new Set([
   '/platform-v7/request',
   '/platform-v7/docs',
   '/platform-v7/about',
+  '/platform-v7/trust',
   '/platform-v7/oferta',
   '/platform-v7/roles',
   '/platform-v7/secure-grain-deal',
