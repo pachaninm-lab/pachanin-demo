@@ -41,10 +41,9 @@
   color: #65776b;
 }
 
-body:has(.p0-register-page) .pc-public-contact-dock {
-  right: 12px;
-  width: 334px;
-  max-width: calc(100vw - 24px);
+/* Canonical public header spacing; form and consent controls are unchanged. */
+body .p0-register-page {
+  padding-top: calc(80px + env(safe-area-inset-top, 0px));
 }
 
 .p0-register-consents label {

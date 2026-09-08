@@ -8,9 +8,32 @@ export const CODEX_REVIEW_LOGINS = new Set([
   'chatgpt-codex-connector[bot]',
 ]);
 
+export const COPILOT_REVIEW_LOGINS = new Set([
+  'copilot-pull-request-reviewer[bot]',
+]);
+
+export const OCTOPUS_ACTION_SHA = 'c7156c0dc465c20e8b06da84b92b64f9ae8c7c36';
+export const OCTOPUS_REVIEW_LOGIN = 'github-actions[bot]';
+export const OCTOPUS_STATUS_CONTEXT = 'review-provider/octopus';
+export const OCTOPUS_WORKFLOW_PATH = '.github/workflows/octopus-independent-review.yml';
+
 const COMPLETED_REVIEW_STATES = new Set([
   'APPROVED',
   'CHANGES_REQUESTED',
+  'COMMENTED',
+]);
+
+const POSITIVE_CODEX_REVIEW_STATES = new Set([
+  'APPROVED',
+]);
+
+const POSITIVE_COPILOT_REVIEW_STATES = new Set([
+  'APPROVED',
+  'COMMENTED',
+]);
+
+const POSITIVE_OCTOPUS_REVIEW_STATES = new Set([
+  'APPROVED',
   'COMMENTED',
 ]);
 
@@ -39,14 +62,117 @@ function normalizeLogin(review) {
   return String(review?.user?.login || review?.author?.login || '').trim();
 }
 
-export function exactHeadCodexReviews(reviews, headSha) {
+export function isGitHubRepositorySlug(repo) {
+  const repository = String(repo || '').trim();
+  const match = repository.match(/^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/u);
+  if (!match) return false;
+  return match[1] !== '.' && match[1] !== '..' && match[2] !== '.' && match[2] !== '..';
+}
+
+function exactHeadReviewsByLogins(reviews, headSha, allowedLogins) {
   const expected = String(headSha || '').trim();
   return (reviews || []).filter((review) => {
     const login = normalizeLogin(review);
     const commitId = String(review?.commit_id || review?.commitId || '').trim();
     const state = String(review?.state || '').toUpperCase();
-    return CODEX_REVIEW_LOGINS.has(login) && commitId === expected && COMPLETED_REVIEW_STATES.has(state);
+    return allowedLogins.has(login) && commitId === expected && COMPLETED_REVIEW_STATES.has(state);
   });
+}
+
+export function exactHeadCodexReviews(reviews, headSha) {
+  return exactHeadReviewsByLogins(reviews, headSha, CODEX_REVIEW_LOGINS);
+}
+
+export function positiveExactHeadCodexReviews(reviews, headSha) {
+  return exactHeadCodexReviews(reviews, headSha).filter((review) => (
+    POSITIVE_CODEX_REVIEW_STATES.has(String(review?.state || '').toUpperCase())
+  ));
+}
+
+export function exactHeadCopilotReviews(reviews, headSha) {
+  return exactHeadReviewsByLogins(reviews, headSha, COPILOT_REVIEW_LOGINS);
+}
+
+export function positiveExactHeadCopilotReviews(reviews, headSha) {
+  return exactHeadCopilotReviews(reviews, headSha).filter((review) => (
+    POSITIVE_COPILOT_REVIEW_STATES.has(String(review?.state || '').toUpperCase())
+  ));
+}
+
+function parseOctopusAttestation(review, headSha) {
+  const expected = String(headSha || '').trim();
+  if (!/^[0-9a-f]{40}$/u.test(expected)) return null;
+  if (normalizeLogin(review) !== OCTOPUS_REVIEW_LOGIN) return null;
+  const commitId = String(review?.commit_id || review?.commitId || '').trim();
+  if (commitId !== expected) return null;
+  const state = String(review?.state || '').toUpperCase();
+  if (!POSITIVE_OCTOPUS_REVIEW_STATES.has(state)) return null;
+
+  const body = String(review?.body || '').trim();
+  const match = body.match(/^OCTOPUS INDEPENDENT REVIEW: PASS\nExact head: `([0-9a-f]{40})`\nProvider workflow: `([^`]+)`\nProvider action: `([0-9a-f]{40})`\nFindings: `0`\nSummary SHA-256: `([0-9a-f]{64})`\nWorkflow run: `([1-9][0-9]{0,19})`$/u);
+  if (!match) return null;
+  if (match[1] !== expected) return null;
+  if (match[2] !== OCTOPUS_WORKFLOW_PATH) return null;
+  if (match[3] !== OCTOPUS_ACTION_SHA) return null;
+
+  return {
+    review,
+    summarySha256: match[4],
+    runId: match[5],
+  };
+}
+
+export function positiveExactHeadOctopusAttestations(reviews, statuses, headSha, repo) {
+  const repository = String(repo || '').trim();
+  if (!isGitHubRepositorySlug(repository)) return [];
+
+  // GitHub's commit-status endpoint is reverse chronological. Authority is
+  // deliberately bound to the newest provider status: a later failure/pending
+  // state invalidates an older clean review instead of being shadowed by it.
+  const latestProviderStatus = (statuses || []).find((status) => (
+    String(status?.context || '').trim() === OCTOPUS_STATUS_CONTEXT
+  ));
+  if (!latestProviderStatus) return [];
+  if (String(latestProviderStatus?.state || '').toLowerCase() !== 'success') return [];
+  if (String(latestProviderStatus?.creator?.login || '').trim() !== OCTOPUS_REVIEW_LOGIN) return [];
+
+  const candidates = (reviews || [])
+    .map((review) => parseOctopusAttestation(review, headSha))
+    .filter(Boolean);
+
+  return candidates.filter((candidate) => {
+    const expectedDescription = `Octopus clean ${OCTOPUS_ACTION_SHA.slice(0, 8)} summary=${candidate.summarySha256.slice(0, 16)}`;
+    const expectedTarget = `https://github.com/${repository}/actions/runs/${candidate.runId}`;
+    return String(latestProviderStatus?.description || '').trim() === expectedDescription
+      && String(latestProviderStatus?.target_url || latestProviderStatus?.targetUrl || '').trim() === expectedTarget;
+  });
+}
+
+export function octopusAttestationMatchesWorkflowRun(attestation, run, repo, prNumber, headSha) {
+  const repository = String(repo || '').trim();
+  const expectedHead = String(headSha || '').trim();
+  const expectedPr = Number(prNumber || 0);
+  if (!attestation || !run) return false;
+  if (!isGitHubRepositorySlug(repository)) return false;
+  if (!/^[0-9a-f]{40}$/u.test(expectedHead)) return false;
+  if (!Number.isInteger(expectedPr) || expectedPr <= 0) return false;
+  const attestedRunId = String(attestation?.runId || '').trim();
+  if (!/^[1-9][0-9]{0,19}$/u.test(attestedRunId)) return false;
+  if (String(run?.id ?? '').trim() !== attestedRunId) return false;
+  if (String(run?.name || '').trim() !== 'Independent Octopus Review') return false;
+  if (String(run?.path || '').trim() !== OCTOPUS_WORKFLOW_PATH) return false;
+  if (String(run?.event || '').trim() !== 'pull_request_target') return false;
+  if (String(run?.status || '').trim() !== 'completed') return false;
+  if (String(run?.conclusion || '').trim() !== 'success') return false;
+  if (String(run?.repository?.full_name || '').trim() !== repository) return false;
+  if (String(run?.head_sha || '').trim() !== expectedHead) return false;
+
+  const runPrs = Array.isArray(run?.pull_requests) ? run.pull_requests : [];
+  return runPrs.some((runPr) => (
+    Number(runPr?.number) === expectedPr
+    && String(runPr?.head?.sha || '').trim() === expectedHead
+    && Number(runPr?.head?.repo?.id || 0) === Number(run?.repository?.id || 0)
+  ));
 }
 
 export function cleanCodexReviewPrefixes(comments) {
@@ -60,6 +186,19 @@ export function cleanCodexReviewPrefixes(comments) {
     if (match) prefixes.push(match[1]);
   }
   return prefixes;
+}
+
+export function exactHeadOwnerSelfAudits(comments, ownerLogin, headSha) {
+  const owner = String(ownerLogin || '').trim();
+  const expected = String(headSha || '').trim();
+  if (!owner || !/^[0-9a-f]{40}$/u.test(expected)) return [];
+
+  return (comments || []).filter((comment) => {
+    if (normalizeLogin(comment) !== owner) return false;
+    const body = String(comment?.body || '');
+    const matches = [...body.matchAll(/OWNER SELF-AUDIT:\s*PASS exact head\s*`([0-9a-f]{40})`/gu)];
+    return matches.some((match) => match[1] === expected);
+  });
 }
 
 export function activeUnresolvedThreads(threads) {
@@ -141,6 +280,13 @@ export function ciSnapshotMatchesHead(snapshotHeadSha, expectedHeadSha) {
   return /^[0-9a-f]{40}$/u.test(snapshot) && snapshot === expected;
 }
 
+export function reviewGatePrState(pr) {
+  const state = String(pr?.state || '').toLowerCase();
+  if (state === 'closed') return 'CLOSED';
+  if (state !== 'open' || typeof pr?.draft !== 'boolean') return 'INVALID';
+  return pr.draft ? 'DRAFT' : 'REVIEWABLE';
+}
+
 function runGh(args) {
   return execFileSync('gh', args, {
     encoding: 'utf8',
@@ -151,6 +297,51 @@ function runGh(args) {
 
 function ghJson(args) {
   const raw = runGh(args);
+  return raw ? JSON.parse(raw) : null;
+}
+
+export function octopusActionsRunUrl(repo, runId) {
+  const repository = String(repo || '').trim();
+  const id = String(runId || '').trim();
+  if (!isGitHubRepositorySlug(repository)) return '';
+  if (!/^[1-9][0-9]{0,19}$/u.test(id)) return '';
+  return `https://api.github.com/repos/${repository}/actions/runs/${id}`;
+}
+
+function fetchPublicOctopusActionsRun(repo, runId) {
+  const url = octopusActionsRunUrl(repo, runId);
+  if (!url) throw new Error('Invalid Octopus Actions run identity.');
+
+  // Merge-controller GITHUB_TOKEN permissions deliberately remain minimal and
+  // do not need `actions: read`. This repository is public, so resolve only the
+  // fixed GitHub Actions run endpoint anonymously. Strip GitHub credentials and
+  // ignore user curl configuration; any network/rate-limit/JSON failure is
+  // caught by the caller and therefore fails closed rather than granting review.
+  const env = { ...process.env };
+  delete env.GH_TOKEN;
+  delete env.GITHUB_TOKEN;
+  delete env.GITHUB_AUTH_TOKEN;
+  const raw = execFileSync('curl', [
+    '--disable',
+    '--fail',
+    '--silent',
+    '--show-error',
+    '--proto', '=https',
+    '--connect-timeout', '10',
+    '--max-time', '20',
+    '--retry', '2',
+    '--retry-delay', '1',
+    '--retry-max-time', '25',
+    '--retry-all-errors',
+    '-H', 'Accept: application/vnd.github+json',
+    '-H', 'X-GitHub-Api-Version: 2022-11-28',
+    '-H', 'User-Agent: platform-v7-exact-head-review-gate',
+    url,
+  ], {
+    encoding: 'utf8',
+    env,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
   return raw ? JSON.parse(raw) : null;
 }
 
@@ -174,9 +365,22 @@ function fetchAllIssueComments(repo, prNumber) {
   return pages.flatMap((page) => Array.isArray(page) ? page : []);
 }
 
+function fetchAllCommitStatuses(repo, headSha) {
+  const pages = ghJson([
+    'api',
+    '--paginate',
+    '--slurp',
+    `repos/${repo}/commits/${headSha}/statuses?per_page=100`,
+  ]) || [];
+  return pages.flatMap((page) => Array.isArray(page) ? page : []);
+}
+
 function resolveCommitSha(repo, ref) {
-  const commit = ghJson(['api', `repos/${repo}/commits/${ref}`]);
-  return String(commit?.sha || '').trim();
+  const prefix = String(ref || '').trim();
+  if (!/^[0-9a-f]{10,40}$/u.test(prefix)) return '';
+  const commit = ghJson(['api', `repos/${repo}/commits/${prefix}`]);
+  const sha = String(commit?.sha || '').trim();
+  return /^[0-9a-f]{40}$/u.test(sha) && sha.startsWith(prefix) ? sha : '';
 }
 
 function fetchAllReviewThreads(repo, prNumber) {
@@ -260,16 +464,22 @@ function main() {
   if (!repo) fail('REVIEW_GATE_REPO_MISSING', 'REPO/GITHUB_REPOSITORY is required.');
   if (!Number.isInteger(prNumber) || prNumber <= 0) fail('REVIEW_GATE_PR_MISSING', 'PR_NUMBER must be a positive integer.');
 
+  const [ownerLogin] = String(repo).split('/');
+  if (!ownerLogin) fail('REVIEW_GATE_OWNER_MISSING', `Unable to resolve repository owner from ${repo}.`);
+
   const pr = ghJson(['api', `repos/${repo}/pulls/${prNumber}`]);
   if (!pr) fail('REVIEW_GATE_PR_UNAVAILABLE', `Unable to read PR #${prNumber}.`);
 
-  if (String(pr.state).toLowerCase() !== 'open') {
+  const prState = reviewGatePrState(pr);
+  if (prState === 'INVALID') {
+    fail('REVIEW_GATE_PR_STATE_INVALID', `PR #${prNumber} has an incomplete or unsupported live state.`);
+  }
+  if (prState === 'CLOSED') {
     console.log(`PR_REVIEW_GATE=SKIP_CLOSED pr=${prNumber}`);
     return;
   }
-  if (pr.draft === true) {
-    console.log(`PR_REVIEW_GATE=SKIP_DRAFT pr=${prNumber}`);
-    return;
+  if (prState === 'DRAFT') {
+    fail('REVIEW_GATE_DRAFT', `Draft PR #${prNumber} cannot satisfy exact-head review authority.`);
   }
 
   const headSha = String(pr?.head?.sha || '').trim();
@@ -279,20 +489,55 @@ function main() {
   }
 
   const reviews = fetchAllReviews(repo, prNumber);
-  const exactCodex = exactHeadCodexReviews(reviews, headSha);
   const comments = fetchAllIssueComments(repo, prNumber);
+  const commitStatuses = fetchAllCommitStatuses(repo, headSha);
+
+  const positiveCodexReviews = positiveExactHeadCodexReviews(reviews, headSha);
   const cleanPrefixes = cleanCodexReviewPrefixes(comments);
-  let exactCleanCodex = 0;
+  let exactCleanCodexComments = 0;
   for (const prefix of cleanPrefixes) {
     try {
-      if (resolveCommitSha(repo, prefix) === headSha) exactCleanCodex += 1;
+      if (resolveCommitSha(repo, prefix) === headSha) exactCleanCodexComments += 1;
     } catch {
-      // Ignore a stale or no-longer-resolvable short review prefix.
+      // Ignore stale or no-longer-resolvable reviewed-commit prefixes.
     }
   }
+  const codexAuthority = positiveCodexReviews.length > 0 || exactCleanCodexComments > 0;
 
-  if (exactCodex.length === 0 && exactCleanCodex === 0) {
-    fail('REVIEW_GATE_CODEX_EXACT_HEAD_MISSING', `No completed Codex review is bound to exact head ${headSha}.`);
+  const positiveCopilotReviews = positiveExactHeadCopilotReviews(reviews, headSha);
+  const copilotAuthority = positiveCopilotReviews.length > 0;
+
+  const positiveOctopusAttestations = positiveExactHeadOctopusAttestations(
+    reviews,
+    commitStatuses,
+    headSha,
+    repo,
+  );
+  const workflowBoundOctopusAttestations = positiveOctopusAttestations.filter((attestation) => {
+    try {
+      const run = fetchPublicOctopusActionsRun(repo, attestation.runId);
+      return octopusAttestationMatchesWorkflowRun(attestation, run, repo, prNumber, headSha);
+    } catch {
+      // Provider evidence is fail-closed when its immutable Actions run cannot
+      // be resolved or does not match the exact trusted workflow identity.
+      return false;
+    }
+  });
+  const octopusAuthority = workflowBoundOctopusAttestations.length > 0;
+
+  if (!codexAuthority && !copilotAuthority && !octopusAuthority) {
+    fail(
+      'REVIEW_GATE_INDEPENDENT_EXACT_HEAD_MISSING',
+      `No genuine independent review authority is bound to exact head ${headSha}; accepted providers are Codex clean/approved review, GitHub Copilot exact-head code review, or Octopus exact-head clean attestation plus matching provider status.`,
+    );
+  }
+
+  const ownerSelfAudits = exactHeadOwnerSelfAudits(comments, ownerLogin, headSha);
+  if (ownerSelfAudits.length === 0) {
+    fail(
+      'REVIEW_GATE_OWNER_SELF_AUDIT_MISSING',
+      `No repository-owner self-audit PASS attestation is bound to exact head ${headSha}.`,
+    );
   }
 
   const blockingReviews = latestBlockingChangeRequests(reviews);
@@ -349,7 +594,12 @@ function main() {
     );
   }
 
-  console.log(`PR_REVIEW_GATE=PASS pr=${prNumber} head=${headSha} codexExactHeadReviews=${exactCodex.length} codexExactHeadCleanComments=${exactCleanCodex} unresolvedCurrentThreads=0 ciChecks=${checkedCi}`);
+  const reviewAuthority = codexAuthority
+    ? 'CODEX'
+    : copilotAuthority
+      ? 'GITHUB_COPILOT'
+      : 'OCTOPUS';
+  console.log(`PR_REVIEW_GATE=PASS pr=${prNumber} head=${headSha} reviewAuthority=${reviewAuthority} codexApprovals=${positiveCodexReviews.length} codexExactHeadCleanComments=${exactCleanCodexComments} copilotExactHeadReviews=${positiveCopilotReviews.length} octopusExactHeadAttestations=${workflowBoundOctopusAttestations.length} ownerSelfAuditAttestations=${ownerSelfAudits.length} unresolvedCurrentThreads=0 ciChecks=${checkedCi}`);
 }
 
 const invokedPath = process.argv[1] || '';

@@ -2,7 +2,7 @@
   "schemaVersion": "pc-crop.post-registration.gap-map.v1",
   "issue": 4997,
   "observedAt": "2026-09-05",
-  "exactMainBaseline": "3928fa44d7145879e3739eff7df954592ad3012f",
+  "exactMainBaseline": "0e72c72ae9caaa1f4415e9129318e46bb26c2421",
   "auditLineage": {
     "fullAuditSha": "c4dfc4112599f2a4ff21e1a5cf35345509abad41",
     "deltaReviewedToExactMain": "3928fa44d7145879e3739eff7df954592ad3012f",

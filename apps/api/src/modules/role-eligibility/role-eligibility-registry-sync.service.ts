@@ -6,16 +6,15 @@ import { FnsEvidenceAdapter } from './adapters/fns-evidence.adapter';
 import { AccreditationAdapter } from './adapters/accreditation.adapter';
 import { RoleEligibilityRegistryRepository } from './role-eligibility-registry.repository';
 import { RoleEligibilitySourceHealthService } from './role-eligibility-source-health.service';
-import { EligibilitySourceError, type EligibilitySource, type RegistryAdapterFetchResult } from './role-eligibility.types';
+import {
+  EligibilitySourceError,
+  type EligibilitySource,
+  type RegistryAdapterFetchResult,
+  type RegistryGeneration,
+  type SourceHealthSnapshot,
+} from './role-eligibility.types';
 
-// Platform freshness policy is source-specific. These are safety ceilings, not
-// claims about official publication cadence. A source adapter may only shorten
-// the usable window when its official metadata expires earlier.
 const FRESHNESS_MS: Readonly<Record<EligibilitySource, number>> = Object.freeze({
-  // CBR FullCoList is a dated registry snapshot. The current official page can
-  // remain unchanged for multiple weeks, so a 45-day ceiling avoids declaring
-  // a still-current official snapshot stale after only a few days. If CBR stops
-  // publishing beyond this ceiling, BANK eligibility fails closed as STALE.
   CBR: 45 * 24 * 60 * 60 * 1000,
   FNS: 35 * 24 * 60 * 60 * 1000,
   FGIS_GRAIN: 14 * 24 * 60 * 60 * 1000,
@@ -25,6 +24,10 @@ const FRESHNESS_MS: Readonly<Record<EligibilitySource, number>> = Object.freeze(
 const MAX_FETCH_ATTEMPTS = 3;
 const RETRY_BASE_MS = 300;
 const RETRY_MAX_MS = 2_500;
+const FNS_UNPROVEN_MACHINE_CONTRACT = 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN';
+const FNS_EGRUL_PRESERVATION_AUDIT_FAILED = 'FNS_EGRUL_PRESERVATION_AUDIT_FAILED';
+const FILE_BACKED_EGRUL_SCHEMAS = new Set(['EGRUL_408', 'EGRUL_407']);
+const FILE_BACKED_EGRUL_PARSER_VERSIONS = new Set(['fns-egrul-v1']);
 
 type Adapter = { source: EligibilitySource; fetchGeneration(): Promise<RegistryAdapterFetchResult> };
 
@@ -33,7 +36,6 @@ function retryableFetchFailure(error: unknown): boolean {
     ? error.code
     : error instanceof Error ? error.message : String(error || 'UNKNOWN');
   if (error instanceof EligibilitySourceError && error.health === 'SCHEMA_CHANGED') return false;
-  // Permanent contract/schema/data-integrity failures must not be hammered.
   if (/NOT_PROVEN|MACHINE_CONTRACT|TRANSPORT_NOT_PROVEN|SCHEMA|COLUMN|HEADER|CARDINALITY|DUPLICATE|EMPTY_REGISTRY|PUBLISHED_SNAPSHOT_STALE|CONTENT_HASH_INVALID/i.test(code)) {
     return false;
   }
@@ -63,6 +65,44 @@ export class RoleEligibilityRegistrySyncService {
     private readonly health: RoleEligibilitySourceHealthService,
   ) {
     this.adapters = { CBR: cbr, FGIS_GRAIN: fgis, FNS: fns, ROSACCREDITATION: accreditation };
+  }
+
+  private async preservedFileBackedFnsGeneration(
+    source: EligibilitySource,
+    error: unknown,
+    stagedId: string | null,
+  ): Promise<RegistryGeneration | null> {
+    if (
+      source !== 'FNS'
+      || !(error instanceof EligibilitySourceError)
+      || error.source !== 'FNS'
+      || error.code !== FNS_UNPROVEN_MACHINE_CONTRACT
+      || error.health !== 'UNAVAILABLE'
+      || stagedId !== null
+    ) return null;
+
+    let active: RegistryGeneration | null;
+    let sourceHealth: SourceHealthSnapshot | null;
+    try {
+      active = await this.registry.active('FNS');
+      sourceHealth = await this.health.get('FNS');
+    } catch {
+      return null;
+    }
+
+    if (!active || active.status !== 'ACTIVE') return null;
+    if (!FILE_BACKED_EGRUL_SCHEMAS.has(active.schemaVersion)) return null;
+    if (!FILE_BACKED_EGRUL_PARSER_VERSIONS.has(active.parserVersion)) return null;
+    if (active.freshUntil.getTime() <= Date.now()) return null;
+    if (!sourceHealth || sourceHealth.status !== 'HEALTHY' || sourceHealth.circuitState !== 'CLOSED') return null;
+    if (sourceHealth.activeGeneration !== active.generation) return null;
+    if (sourceHealth.parserVersion !== active.parserVersion) return null;
+    if (sourceHealth.schemaVersion !== active.schemaVersion) return null;
+    if (!sourceHealth.freshUntil || sourceHealth.freshUntil.getTime() !== active.freshUntil.getTime()) return null;
+    if (sourceHealth.freshUntil.getTime() <= Date.now()) return null;
+    if (sourceHealth.consecutiveFailures !== 0 || sourceHealth.lastErrorCode !== null) return null;
+
+    return active;
   }
 
   async sync(source: EligibilitySource) {
@@ -128,6 +168,30 @@ export class RoleEligibilityRegistrySyncService {
         ? error
         : new EligibilitySourceError(source, error instanceof Error ? error.message : `${source}_UNKNOWN_FAILURE`, 'UNAVAILABLE');
       if (stagedId) await this.registry.reject(stagedId);
+
+      const preserved = await this.preservedFileBackedFnsGeneration(source, error, stagedId);
+      if (preserved) {
+        try {
+          await this.registry.auditSourceEvent('ROLE_ELIGIBILITY_SOURCE_FETCH_FAILED', source, correlationId, {
+            errorCode: typed.code,
+            health: typed.health,
+            stagedGenerationId: stagedId,
+            fetchAttempts,
+            healthPreserved: true,
+            preservationReason: FNS_UNPROVEN_MACHINE_CONTRACT,
+            preservedGeneration: preserved.generation,
+            preservedContentSha256: preserved.contentSha256,
+            preservedParserVersion: preserved.parserVersion,
+            preservedSchemaVersion: preserved.schemaVersion,
+            preservedFreshUntil: preserved.freshUntil.toISOString(),
+          });
+        } catch {
+          await this.health.failure(source, 'UNAVAILABLE', FNS_EGRUL_PRESERVATION_AUDIT_FAILED);
+          throw new EligibilitySourceError(source, FNS_EGRUL_PRESERVATION_AUDIT_FAILED, 'UNAVAILABLE');
+        }
+        throw typed;
+      }
+
       await this.health.failure(source, typed.health, typed.code);
       await this.registry.auditSourceEvent('ROLE_ELIGIBILITY_SOURCE_FETCH_FAILED', source, correlationId, {
         errorCode: typed.code,

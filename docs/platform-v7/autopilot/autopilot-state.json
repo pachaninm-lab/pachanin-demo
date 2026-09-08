@@ -227,6 +227,9 @@
       "scripts/p7-autopilot-guard.test.mjs",
       ".github/workflows/platform-v7-autopilot-guard.yml"
     ],
+    "governance/role-eligibility-fns-egrul-file-import-5016": [
+      "docs/platform-v7/autopilot/scopes/role-eligibility-fns-egrul-file-import-5016.json"
+    ],
     "docs/pc-crop-post-registration-progress-4997": [
       "docs/platform-v7/crop-platform/post-registration/README.md",
       "docs/platform-v7/crop-platform/post-registration/dod-baseline.v1.json",

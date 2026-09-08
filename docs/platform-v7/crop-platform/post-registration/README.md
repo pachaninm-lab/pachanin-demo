@@ -77,7 +77,46 @@ them. These findings describe that baseline; current W1/W2 changes are recorded 
 6. live ATI/Sber/1C/EDO/EPD corridors and authentic provider receipts remain
    outside accepted production evidence.
 
-## Execution order and remaining work
+## Revenue-first execution order — owner instruction 2026-09-08
+
+The original specification and all 126 Definition of Done criteria are unchanged.
+The execution order is now **finish W1 → Revenue Slice v1 → remaining original
+DoD**. Do not mechanically complete every historical wave before enabling one
+real commercial transaction.
+
+Fresh read-only REG.RU preflight [34262474799](https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34262474799)
+on main `0e72c72ae9caaa1f4415e9129318e46bb26c2421` found API revision
+`d401f2678070eae3362d22d09b60aadf3a8e042d`, seven pending migrations and no
+unfinished migrations. The W1 capability tables are absent. W1 is merged code,
+but **W1 production completion remains blocked**. No database or runtime was
+changed by this observation.
+
+The old sole-pending migration controller #5013 cannot accept this seven-migration
+state. Its static check also fails deterministically by matching its own forbidden
+literal; it has unresolved independent findings. Do not weaken it or retry it
+unchanged. Prepare a bounded, separately accepted migration stage and reuse the
+existing API-only executor. The full-stack release chain also changes auth-mail
+and web and is not a W1-only operation.
+
+After W1, Revenue Slice v1 follows one real seller and buyer through stock,
+market/offer, agreement, canonical Deal, required documents/signature, applicable
+FGIS Grain checks, execution, settlement, reconciliation and lawful company
+commission/revenue. Government, bank, document and logistics adapters are limited
+to what this transaction needs. Core remains provider-neutral.
+
+`execution-state.v1.json` contains the bounded source map for 15 grouped revenue
+components, their remaining acceptance and external blockers. Revenue progress is
+**0/15 production-accepted components = 0%**; this does not mean the existing code
+is absent. Each group receives credit only with deployment and task evidence.
+Grouping is a reporting convention, not a replacement DoD. The actual farmer,
+buyer, transaction, mandatory receipts and company revenue remain unevidenced.
+
+Server/PostgreSQL authority, RLS, idempotency, audit/outbox, security,
+observability, mobile and human task acceptance apply in every slice. Every
+status reports the overall and revenue percentages, actual new DoD closures,
+blocker and next action. Partner messages still require separate owner approval.
+
+## Existing product continuation after W1
 
 W1 configuration foundations are merged. W2-A introduced canonical physical
 inventory and atomic reservation/release. W2-B then consumed that authority in
@@ -92,7 +131,8 @@ registration edge. The canonical Deal still needs exact allocation of the
 winning quantity, partial reservation remainder must be conserved, and later
 RFQ/Offer writers plus risk acknowledgement/lifecycle/UX remain outstanding.
 
-The next bounded slice is **W2-C: canonical Deal inventory allocation**. Its
+The next product slice after W1 is **W2-C: canonical Deal inventory allocation**,
+reused inside Revenue Slice v1. Its
 finite source/fixture boundary is being approved separately under #5055 before
 any implementation path is opened. The target is to reuse `PrismaDealRepository`,
 the existing Auction award/`DEAL_BASIS_READY` authority and the canonical

@@ -3,7 +3,15 @@
   "issue": 4997,
   "slice": "W2-A/W2-B",
   "status": "INVENTORY_FOUNDATION_AND_AUCTION_BINDING_MERGED_DEAL_ALLOCATION_NEXT",
-  "specificationSections": [7, 8, 9, 10, 11, 13, 14],
+  "specificationSections": [
+    7,
+    8,
+    9,
+    10,
+    11,
+    13,
+    14
+  ],
   "criteria": [
     "INVENTORY=PASS",
     "DOUBLE_SELL_PROTECTION=PASS",
@@ -11,7 +19,7 @@
     "UNVERIFIED_TRADING=PASS"
   ],
   "terminalCredit": 0,
-  "observedMainSha": "3928fa44d7145879e3739eff7df954592ad3012f",
+  "observedMainSha": "0e72c72ae9caaa1f4415e9129318e46bb26c2421",
   "confirmedFindings": [
     {
       "evidence": "apps/api/prisma/migrations/20260905040000_inventory_reservation_authority/migration.sql",
@@ -71,8 +79,8 @@
     "productionHosting": "REG_RU_VPS_ONLY",
     "newMandatoryRecurringCostRub": 0
   },
-  "sourceAuditSha": "3928fa44d7145879e3739eff7df954592ad3012f",
-  "sourceAnchorDelta": "W2-B is merged and accepted in #5040. New Auction lots are inventory-bound and declared-public without fabricated verification. The remaining immediate gap is the existing canonical Deal creation edge: PrismaDealRepository validates Auction basis but does not yet allocate the winning quantity against the immutable inventory binding.",
+  "sourceAuditSha": "0e72c72ae9caaa1f4415e9129318e46bb26c2421",
+  "sourceAnchorDelta": "Bounded source recheck against current main: W1, Inventory, Auction and Canonical Deal sources are unchanged since accepted W2-B. Existing Auction inventory binding remains reusable; next product gap is Deal allocation, with no additional terminal acceptance claimed.",
   "nextContinuation": {
     "id": "W2-C",
     "name": "Canonical Deal inventory allocation from the existing Auction award",
@@ -97,6 +105,8 @@
       "apps/api/prisma/migrations/20260905100000_auction_inventory_binding/migration.sql",
       "apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts"
     ],
-    "scopeRule": "#5055 records a finite future implementation list only. Do not create the implementation branch until independent acceptance is promoted into immutable base-state approvedConcurrentScopes."
-  }
+    "scopeRule": "#5055 records a finite future implementation list only. Do not create the implementation branch until independent acceptance is promoted into immutable base-state approvedConcurrentScopes.",
+    "dependsOn": "W1 completion, accepted #5055 and separate immutable base approval."
+  },
+  "executionPriority": "After W1 production completion, reuse this existing inventory/Deal work as Revenue Slice v1. Do not execute all historical W2/W3/W4/W5/W6 scope mechanically."
 }

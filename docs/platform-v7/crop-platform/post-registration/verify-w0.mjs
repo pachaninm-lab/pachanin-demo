@@ -76,6 +76,44 @@ assert.equal(state.invariants.productionMockEvidenceAccepted, false);
 assert.equal(state.invariants.newMandatoryPaidDependencies, 0);
 assert.equal(state.invariants.externalPartnerMessagesSent, 0);
 
+if (state.revenueSliceV1) {
+  assert.equal(state.executionOrder.mode, 'REVENUE_FIRST');
+  assert.equal(state.executionOrder.specificationChanged, false);
+  assert.equal(state.executionOrder.definitionOfDoneChanged, false);
+  assert.deepEqual(state.executionOrder.order, [
+    'W1_CONFIG_FOUNDATION_COMPLETION', 'REVENUE_SLICE_V1', 'REMAINING_ORIGINAL_DOD',
+  ]);
+  const slice = state.revenueSliceV1;
+  assert.equal(slice.componentCount, 15);
+  assert.equal(slice.components.length, slice.componentCount);
+  assert.equal(new Set(slice.components.map((item) => item.id)).size, slice.componentCount);
+  for (const item of slice.components) {
+    assert.ok(['NOT_ACCEPTED', 'PRODUCTION_ACCEPTED'].includes(item.status));
+    assert.ok(item.classification.length > 0);
+    for (const classification of item.classification) assert.ok(allowedClassifications.has(classification));
+    assert.ok(item.sourceEvidence.length > 0);
+    for (const evidencePath of item.sourceEvidence) {
+      assert.ok(fs.existsSync(path.join(repositoryRoot, evidencePath)), `missing revenue source: ${item.id}/${evidencePath}`);
+    }
+    assert.ok(Array.isArray(item.productionEvidence));
+    if (item.status === 'PRODUCTION_ACCEPTED') {
+      assert.ok(item.productionEvidence.length > 0, `revenue acceptance lacks evidence: ${item.id}`);
+      assert.equal(state.w1Completion.productionStatus, 'ACCEPTED');
+    }
+  }
+  const accepted = slice.components.filter((item) => item.status === 'PRODUCTION_ACCEPTED').length;
+  assert.equal(slice.acceptedComponentCount, accepted);
+  assert.equal(slice.progressPercent, Math.floor(accepted / slice.componentCount * 1000) / 10);
+  if (slice.realTransaction.status === 'ACCEPTED') {
+    assert.equal(accepted, slice.componentCount);
+    for (const [key, value] of Object.entries(slice.realTransaction)) {
+      assert.ok(value, `real commercial transaction lacks ${key}`);
+    }
+  } else {
+    assert.equal(slice.realTransaction.status, 'NOT_EVIDENCED');
+  }
+}
+
 process.stdout.write(
   `PC-CROP DoD verified: ${baseline.criteria.length} criteria, ${counts.PASS} PASS, ${strictPercent.toFixed(1)}% strict progress, ${gapMap.findings.length} gap findings.\n`,
 );

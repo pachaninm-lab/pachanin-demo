@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "governance/public-home-role-clarity-scope-20260905",
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction-2026-09-08-authorize-root-layout-for-homepage-5111-rendered-head-localization",
+  "purpose": "Refresh the trusted public-home governance slot after Codex proved the localized Deal execution page still inherited a manually emitted Russian root description. Authorize exactly one additional implementation path, apps/web/app/layout.tsx, only for a pathname-bounded /platform-v7/deal-flow description suppression, while retaining the existing source-native RU/EN/ZH, semantic accessibility and WebKit visual-evidence repairs.",
+  "authorityBaseExactMain": "db59193bdc3fc7028a2c6052e4603dc79d143bc7",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/governance-public-home-role-clarity-scope-20260905.json",
+    "docs/platform-v7/autopilot/scopes/public-home-role-clarity-20260905.json"
+  ],
+  "implementationBranch": "feat/public-home-role-clarity-20260905",
+  "implementationManifest": "docs/platform-v7/autopilot/scopes/public-home-role-clarity-20260905.json",
+  "implementationAllowedPathCount": 5,
+  "boundaries": {
+    "productBehaviorChange": true,
+    "registrationChange": false,
+    "authenticationChange": false,
+    "authorizationChange": false,
+    "databaseChange": false,
+    "productionMutation": false,
+    "securityGateWeakening": false,
+    "acceptanceGateWeakening": false,
+    "globalSpecificationChange": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
