@@ -1,0 +1,458 @@
+name: PC-CROP W1 Production Acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/pc-crop-w1-production-acceptance.yml'
+      - 'scripts/production-pc-crop-w1-migrations.sh'
+      - 'scripts/check-production-pc-crop-w1-acceptance.mjs'
+      - 'scripts/check-production-pc-crop-w1-acceptance.test.mjs'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.event_name == 'issue_comment' && github.event.issue.number == 4997 && (github.event.comment.body == '/pc-crop w1 preflight current-main' || github.event.comment.body == '/pc-crop w1 deploy current-main') && github.event.comment.user.login == github.repository_owner && github.event.comment.author_association == 'OWNER' && github.actor == github.repository_owner && github.triggering_actor == github.repository_owner && 'pc-crop-production-release-candidate' || format('pc-crop-w1-contract-{0}', github.event.pull_request.number || github.run_id) }}
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  contract:
+    name: Validate bounded W1 production contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event.issue.number == 4997 &&
+       (github.event.comment.body == '/pc-crop w1 preflight current-main' ||
+        github.event.comment.body == '/pc-crop w1 deploy current-main') &&
+       github.event.comment.user.login == github.repository_owner &&
+       github.event.comment.author_association == 'OWNER' &&
+       github.actor == github.repository_owner &&
+       github.triggering_actor == github.repository_owner)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Check bounded executor and immutable registration authority
+        run: |
+          set -euo pipefail
+          bash -n scripts/production-pc-crop-w1-migrations.sh
+          node scripts/check-production-pc-crop-w1-acceptance.mjs
+          node --test scripts/check-production-pc-crop-w1-acceptance.test.mjs
+          node scripts/check-role-eligibility-registration-protected-manifest.mjs
+          node scripts/check-role-eligibility-api-release.mjs
+          node --test docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs
+
+  images:
+    name: Materialize exact W1 images
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 4997 &&
+      (github.event.comment.body == '/pc-crop w1 preflight current-main' ||
+       github.event.comment.body == '/pc-crop w1 deploy current-main') &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner
+    permissions:
+      contents: read
+      packages: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    outputs:
+      target: ${{ steps.images.outputs.target }}
+      migration_digest: ${{ steps.images.outputs.migration_digest }}
+      api_digest: ${{ steps.images.outputs.api_digest }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Verify immutable source and build exact images
+        id: images
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          target=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          [[ "$target" =~ ^[0-9a-f]{40}$ && "$target" == "$GITHUB_SHA" && "$target" == "$(git rev-parse HEAD)" ]]
+          node scripts/check-production-pc-crop-w1-acceptance.mjs
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          for component in migration api; do
+            image="ghcr.io/pachaninm-lab/grainflow-$component:sha-${target:0:7}"
+            dockerfile=infra/docker/Dockerfile.api
+            [[ "$component" != migration ]] || dockerfile=infra/docker/Dockerfile.migrations
+            if ! docker pull "$image" >/dev/null 2>&1; then
+              # Only an explicit registry absence allows first materialization.
+              error_file=$(mktemp)
+              if docker manifest inspect "$image" >/dev/null 2>"$error_file"; then
+                rm -f "$error_file"; echo PC_W1_EXISTING_IMAGE_PULL_FAILED >&2; exit 1
+              fi
+              if ! grep -Eq 'manifest unknown|no such manifest:' "$error_file"; then
+                rm -f "$error_file"; echo PC_W1_IMAGE_REGISTRY_UNAVAILABLE >&2; exit 1
+              fi
+              rm -f "$error_file"
+              docker build --file "$dockerfile" --build-arg "GIT_COMMIT=$target" \
+                --build-arg "BUILD_DATE=$(git show -s --format=%cI "$target")" --tag "$image" .
+              docker push "$image" >/dev/null
+              docker pull "$image" >/dev/null
+            fi
+            revision=$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image")
+            [[ "$revision" == "$target" ]] || { echo PC_W1_IMAGE_REVISION_MISMATCH >&2; exit 1; }
+            digest=$(docker image inspect --format '{{json .RepoDigests}}' "$image" | jq -er '.[0]')
+            [[ "$digest" =~ ^ghcr.io/pachaninm-lab/grainflow-${component}@sha256:[0-9a-f]{64}$ ]]
+            echo "${component}_digest=$digest" >> "$GITHUB_OUTPUT"
+          done
+          echo "target=$target" >> "$GITHUB_OUTPUT"
+
+  rehearsal:
+    name: Rehearse W1 transport and restore on isolated PostgreSQL
+    needs: [contract, images]
+    if: github.event_name == 'issue_comment' && github.event.comment.body == '/pc-crop w1 deploy current-main'
+    permissions:
+      contents: read
+      packages: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    outputs:
+      catalog_sha256: ${{ steps.rehearsal.outputs.catalog_sha256 }}
+    env:
+      PC_W1_REHEARSAL: '1'
+      PC_W1_TARGET_SHA: ${{ needs.images.outputs.target }}
+      PC_W1_API_DIGEST: ${{ needs.images.outputs.api_digest }}
+      PC_W1_MIGRATION_DIGEST: ${{ needs.images.outputs.migration_digest }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ needs.images.outputs.target }}
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Run actual bounded scripts against disposable PostgreSQL
+        id: rehearsal
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          export DOCKER_CONFIG="$HOME/.docker"
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          docker pull "$PC_W1_API_DIGEST" >/dev/null
+          docker pull "$PC_W1_MIGRATION_DIGEST" >/dev/null
+          mkdir -p artifacts/pc-crop-w1-rehearsal
+          export PC_W1_REHEARSAL_REPORT="$GITHUB_WORKSPACE/artifacts/pc-crop-w1-rehearsal/report.json"
+          export PC_W1_REPOSITORY_ROOT="$GITHUB_WORKSPACE"
+          test ! -e "$PC_W1_REHEARSAL_REPORT"
+          sudo --preserve-env=PC_W1_REHEARSAL,PC_W1_TARGET_SHA,PC_W1_API_DIGEST,PC_W1_MIGRATION_DIGEST,PC_W1_REHEARSAL_REPORT,PC_W1_REPOSITORY_ROOT,GITHUB_ACTIONS,GITHUB_REPOSITORY,RUNNER_ENVIRONMENT,DOCKER_CONFIG \
+            "$(command -v node)" --test scripts/check-production-pc-crop-w1-acceptance.test.mjs
+          node - <<'NODE' >> "$GITHUB_OUTPUT"
+          const fs=require('node:fs'),assert=require('node:assert/strict');
+          const r=JSON.parse(fs.readFileSync(process.env.PC_W1_REHEARSAL_REPORT,'utf8'));
+          assert.equal(r.status,'PASS');
+          assert.equal(r.targetSha,process.env.PC_W1_TARGET_SHA);
+          assert.equal(r.apiDigest,process.env.PC_W1_API_DIGEST);
+          assert.equal(r.migrationDigest,process.env.PC_W1_MIGRATION_DIGEST);
+          assert.equal(r.restoreRehearsal,'PASS');
+          assert.equal(r.fullAcceptance,'NOT_EVIDENCED');
+          for(const key of ['wrongDatabase','partialMigration','productionMockMode','policyDrift','grantDrift']) assert.equal(r.negativeCases[key],'PASS');
+          assert.match(r.expectedCatalogSha256,/^[0-9a-f]{64}$/);
+          console.log(`catalog_sha256=${r.expectedCatalogSha256}`);
+          NODE
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: pc-crop-w1-isolated-rehearsal-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/pc-crop-w1-rehearsal
+          if-no-files-found: warn
+          retention-days: 90
+
+  production:
+    name: Observe or apply bounded W1 release on REG.RU
+    needs: [contract, images, rehearsal]
+    if: >-
+      always() && needs.contract.result == 'success' && needs.images.result == 'success' &&
+      ((github.event.comment.body == '/pc-crop w1 preflight current-main' && needs.rehearsal.result == 'skipped') ||
+       (github.event.comment.body == '/pc-crop w1 deploy current-main' && needs.rehearsal.result == 'success')) &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 4997 &&
+      (github.event.comment.body == '/pc-crop w1 preflight current-main' ||
+       github.event.comment.body == '/pc-crop w1 deploy current-main') &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    concurrency:
+      group: role-eligibility-production-api-release
+      cancel-in-progress: false
+      queue: max
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_SHA: ${{ needs.images.outputs.target }}
+      MIGRATION_DIGEST: ${{ needs.images.outputs.migration_digest }}
+      API_DIGEST: ${{ needs.images.outputs.api_digest }}
+      EXPECTED_CATALOG_SHA256: ${{ needs.rehearsal.outputs.catalog_sha256 }}
+      OPERATION: ${{ github.event.comment.body == '/pc-crop w1 deploy current-main' && 'migrate' || 'preflight' }}
+      EVIDENCE_DIR: artifacts/pc-crop-w1-production-acceptance
+      SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+      SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+      SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+      SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+      SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+      SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+      PROD_DIR_SECRET: ${{ secrets.PC_PROD_DIR }}
+      PROD_COMPOSE_SECRET: ${{ secrets.PC_PROD_COMPOSE }}
+      PROD_PROJECT_SECRET: ${{ secrets.PC_PROD_PROJECT }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ needs.images.outputs.target }}
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Recheck source and verify DNS before any operational access
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ && "$TARGET_SHA" == "$GITHUB_SHA" && "$TARGET_SHA" == "$(git rev-parse HEAD)" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          node scripts/check-production-pc-crop-w1-acceptance.mjs
+          node scripts/check-role-eligibility-registration-protected-manifest.mjs
+          [[ "${SSH_HOST_SECRET:-195.19.12.120}" == 195.19.12.120 ]]
+          python3 - <<'PY'
+          import socket
+          addresses={entry[4][0] for entry in socket.getaddrinfo('процент-агро.рф', 443, socket.AF_INET, socket.SOCK_STREAM)}
+          if addresses != {'195.19.12.120'}: raise SystemExit('PC_W1_DNS_AUTHORITY_MISMATCH')
+          print('PC_W1_DNS=PASS')
+          PY
+
+      - name: Authenticate only the protected pinned REG.RU host
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SSH_USER_SECRET" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$SSH_PORT_SECRET" =~ ^[0-9]+$ ]] && (( SSH_PORT_SECRET >= 1 && SSH_PORT_SECRET <= 65535 ))
+          [[ "$SSH_HOST_FINGERPRINT_SECRET" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          key="$HOME/.ssh/id_pc_w1"
+          validate(){
+            tr -d '\r' < "$1" > "$key"; chmod 600 "$key"
+            ssh-keygen -y -P '' -f "$key" >/dev/null 2>&1
+          }
+          try_slot(){
+            local raw="$1" a
+            [[ -n "$raw" ]] || return 1
+            a=$(mktemp)
+            printf '%s\n' "$raw" > "$a"
+            validate "$a" && { rm -f "$a"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$a"
+            validate "$a" && { rm -f "$a"; return 0; }
+            if printf '%s' "$raw" | base64 --decode > "$a" 2>/dev/null && validate "$a"; then rm -f "$a"; return 0; fi
+            rm -f "$a"; return 1
+          }
+          try_slot "$SSH_KEY_PRIMARY" || try_slot "$SSH_KEY_SECONDARY" || try_slot "$SSH_KEY_FALLBACK" || exit 20
+          scan=$(mktemp); match=$(mktemp)
+          for attempt in 1 2 3; do
+            : > "$match"
+            ssh-keyscan -T 10 -p "$SSH_PORT_SECRET" 195.19.12.120 2>/dev/null | sort -u > "$scan" || true
+            while IFS= read -r line; do
+              fp=$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)
+              [[ "$fp" != "$SSH_HOST_FINGERPRINT_SECRET" ]] || printf '%s\n' "$line" >> "$match"
+            done < "$scan"
+            [[ "$(wc -l < "$match")" != 1 ]] || break
+          done
+          [[ "$(wc -l < "$match")" == 1 ]] || { rm -f "$scan" "$match"; echo PC_W1_PIN_MISMATCH >&2; exit 21; }
+          mv "$match" "$HOME/.ssh/known_hosts"; chmod 600 "$HOME/.ssh/known_hosts"; rm -f "$scan"
+          ssh -i "$key" -p "$SSH_PORT_SECRET" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 \
+            "$SSH_USER_SECRET@195.19.12.120" 'test "$(id -u)" -eq 0 && command -v docker >/dev/null && command -v python3 >/dev/null && command -v flock >/dev/null' \
+            >/dev/null 2>&1
+          echo PC_W1_SSH_PINNED=PASS
+
+      - name: Verify deployed registration blobs and prepare immutable transport
+        id: transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh_args=(-i "$HOME/.ssh/id_pc_w1" -p "$SSH_PORT_SECRET" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes)
+          baseline=$(ssh "${ssh_args[@]}" "$SSH_USER_SECRET@195.19.12.120" \
+            'set -euo pipefail; mapfile -t ids < <(docker ps -q --filter label=com.docker.compose.service=api); (( ${#ids[@]} == 1 )); image=$(docker inspect --format "{{.Image}}" "${ids[0]}"); docker image inspect --format "{{index .Config.Labels \"org.opencontainers.image.revision\"}}" "$image"' 2>/dev/null)
+          [[ "$baseline" =~ ^[0-9a-f]{40}$ ]]
+          git cat-file -e "$baseline^{commit}" 2>/dev/null || git fetch --no-tags origin "$baseline"
+          git merge-base --is-ancestor "$baseline" "$TARGET_SHA"
+          BASELINE_SHA="$baseline" node - <<'NODE'
+          const fs=require('node:fs'),{execFileSync}=require('node:child_process');
+          const m=JSON.parse(fs.readFileSync('config/eligibility/registration-protected-manifest.json','utf8'));
+          for(const p of m.paths){
+            const blob=sha=>execFileSync('git',['rev-parse',`${sha}:${p}`],{encoding:'utf8'}).trim();
+            if(blob(process.env.BASELINE_SHA)!==blob(process.env.TARGET_SHA)) throw Error('PC_W1_DEPLOYED_REGISTRATION_DRIFT');
+          }
+          NODE
+          echo "baseline=$baseline" >> "$GITHUB_OUTPUT"
+          node - <<'NODE' > "$RUNNER_TEMP/w1-migration-manifest.b64"
+          const fs=require('node:fs'),crypto=require('node:crypto'),root='apps/api/prisma/migrations';
+          const entries=fs.readdirSync(root,{withFileTypes:true}).filter(d=>d.isDirectory()).map(d=>[d.name,crypto.createHash('sha256').update(fs.readFileSync(`${root}/${d.name}/migration.sql`)).digest('hex')]);
+          process.stdout.write(Buffer.from(JSON.stringify(Object.fromEntries(entries))).toString('base64'));
+          NODE
+          remote="/tmp/pc-crop-w1-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          ssh "${ssh_args[@]}" "$SSH_USER_SECRET@195.19.12.120" "umask 077; mkdir '$remote'" >/dev/null 2>&1
+          scp -i "$HOME/.ssh/id_pc_w1" -P "$SSH_PORT_SECRET" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            scripts/production-pc-crop-w1-migrations.sh scripts/check-production-pc-crop-w1-acceptance.mjs scripts/production-role-eligibility-api-release.sh \
+            "$SSH_USER_SECRET@195.19.12.120:$remote/" >/dev/null 2>&1
+          echo "remote=$remote" >> "$GITHUB_OUTPUT"
+
+      - name: Execute bounded stage and unchanged API-only executor
+        id: operation
+        env:
+          BASELINE_SHA: ${{ steps.transport.outputs.baseline }}
+          REMOTE_DIR: ${{ steps.transport.outputs.remote }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]] || { echo PC_W1_MAIN_DRIFT >&2; exit 31; }
+          [[ "$REMOTE_DIR" =~ ^/tmp/pc-crop-w1-[0-9]+-[0-9]+$ ]]
+          [[ "$MIGRATION_DIGEST" =~ ^ghcr.io/pachaninm-lab/grainflow-migration@sha256:[0-9a-f]{64}$ ]]
+          [[ "$API_DIGEST" =~ ^ghcr.io/pachaninm-lab/grainflow-api@sha256:[0-9a-f]{64}$ ]]
+          [[ "$OPERATION" != migrate || "$EXPECTED_CATALOG_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          encode(){ printf '%s' "$1" | base64 -w0; }
+          dir_b64=$(encode "$PROD_DIR_SECRET"); compose_b64=$(encode "$PROD_COMPOSE_SECRET"); project_b64=$(encode "$PROD_PROJECT_SECRET")
+          manifest_b64=$(cat "$RUNNER_TEMP/w1-migration-manifest.b64")
+          for value in "$dir_b64" "$compose_b64" "$project_b64"; do [[ -z "$value" ]] || echo "::add-mask::$value"; done
+          raw=$(mktemp); chmod 600 "$raw"
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_w1" -p "$SSH_PORT_SECRET" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            "$SSH_USER_SECRET@195.19.12.120" \
+            "PC_PROD_DIR_B64='$dir_b64' PC_PROD_COMPOSE_B64='$compose_b64' PC_PROD_PROJECT_B64='$project_b64' PC_W1_EXPECTED_MIGRATIONS_B64='$manifest_b64' PC_W1_BASELINE_API_SHA='$BASELINE_SHA' PC_W1_EXPECTED_CATALOG_SHA256='$EXPECTED_CATALOG_SHA256' PC_W1_MIGRATION_IMAGE='ghcr.io/pachaninm-lab/grainflow-migration:sha-${TARGET_SHA:0:7}' PC_W1_MIGRATION_DIGEST='$MIGRATION_DIGEST' PC_ROLE_ELIGIBILITY_API_IMAGE='ghcr.io/pachaninm-lab/grainflow-api:sha-${TARGET_SHA:0:7}' PC_W1_API_DIGEST='$API_DIGEST' PC_ROLE_ELIGIBILITY_API_DIGEST='$API_DIGEST' bash -s -- '$OPERATION' '$TARGET_SHA' '$GITHUB_RUN_ID' '$REMOTE_DIR' '$BASELINE_SHA'" \
+            > "$raw" 2>&1 <<'REMOTE'
+          set -Eeuo pipefail
+          set +x
+          operation=$1; target=$2; run=$3; remote=$4; baseline=$5
+          exec 9>/var/lock/pc-crop-w1-production.lock
+          flock -n 9 || { echo PC_W1_BLOCKER=CONCURRENT_W1_OPERATION; exit 40; }
+          api_id(){ mapfile -t ids < <(docker ps -q --filter label=com.docker.compose.service=api); (( ${#ids[@]} == 1 )); printf '%s' "${ids[0]}"; }
+          revision(){ docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$(docker inspect --format '{{.Image}}' "$(api_id)")"; }
+          [[ "$(revision)" == "$baseline" ]] || { echo PC_W1_BLOCKER=BASELINE_DRIFT; exit 41; }
+          env_hash(){ docker inspect "$(api_id)" | python3 -c 'import hashlib,json,sys; print(hashlib.sha256(json.dumps(sorted(json.load(sys.stdin)[0]["Config"]["Env"]),separators=(",",":")).encode()).hexdigest())'; }
+          sibling_hash(){
+            local api project
+            api=$(docker inspect --format '{{.Id}}' "$(api_id)")
+            project=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' "$api")
+            docker ps -aq --no-trunc --filter "label=com.docker.compose.project=$project" | sort | xargs -r docker inspect | \
+              API_EXCLUDED="$api" python3 -c 'import os,hashlib,json,sys; a=json.load(sys.stdin); a=[{k:x.get(k) for k in ("Id","Image","Config","HostConfig","Mounts")} | {"StartedAt":x.get("State",{}).get("StartedAt"),"Running":x.get("State",{}).get("Running")} for x in a if x["Id"]!=os.environ["API_EXCLUDED"]]; print(hashlib.sha256(json.dumps(a,sort_keys=True,separators=(",",":")).encode()).hexdigest())'
+          }
+          before_env=$(env_hash); before_siblings=$(sibling_hash)
+          chmod 0700 "$remote"/*.sh
+          if [[ "$operation" == migrate ]]; then
+            docker pull "$PC_W1_API_DIGEST" >/dev/null 2>&1
+            docker pull "$PC_ROLE_ELIGIBILITY_API_IMAGE" >/dev/null 2>&1
+            [[ "$(docker image inspect --format '{{.Id}}' "$PC_W1_API_DIGEST")" == "$(docker image inspect --format '{{.Id}}' "$PC_ROLE_ELIGIBILITY_API_IMAGE")" ]]
+            [[ "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$PC_W1_API_DIGEST")" == "$target" ]]
+          fi
+          "$remote/production-pc-crop-w1-migrations.sh" "$operation" "$target" "$run"
+          if [[ "$operation" == migrate ]]; then
+            if ! "$remote/production-role-eligibility-api-release.sh" deploy "$target"; then
+              echo PC_W1_LEGACY_LOT_ROLLBACK=DEGRADED_FAIL_CLOSED
+              echo PC_W1_FULL_W1_ACCEPTANCE=NOT_EVIDENCED
+              exit 42
+            fi
+            [[ "$(revision)" == "$target" ]]
+            [[ "$(docker inspect --format '{{.Image}}' "$(api_id)")" == "$(docker image inspect --format '{{.Id}}' "$PC_W1_API_DIGEST")" ]] || { echo PC_W1_BLOCKER=RUNNING_API_DIGEST_MISMATCH; exit 45; }
+            PC_W1_BASELINE_API_SHA="$target" "$remote/production-pc-crop-w1-migrations.sh" preflight "$target" "$run"
+          fi
+          [[ "$(env_hash)" == "$before_env" ]] || { echo PC_W1_BLOCKER=API_ENV_CHANGED; exit 43; }
+          [[ "$(sibling_hash)" == "$before_siblings" ]] || { echo PC_W1_BLOCKER=NON_API_WORKLOAD_CHANGED; exit 44; }
+          echo PC_W1_API_ENV_UNCHANGED=PASS
+          echo PC_W1_NON_API_WORKLOADS_UNCHANGED=PASS
+          echo PC_W1_FULL_W1_ACCEPTANCE=NOT_EVIDENCED
+          echo PC_W1_AUTHENTICATED_ACCEPTANCE=NOT_EVIDENCED
+          echo PC_W1_CONTROLLER_STAGE=COMPLETED
+          REMOTE
+          status=$?
+          set -e
+          # Raw output can contain protected Compose paths. Publish only typed fields.
+          RAW_FILE="$raw" node - <<'NODE' | tee "$EVIDENCE_DIR/stage.log"
+          const fs=require('node:fs');
+          const map=new Map([
+            ['ROLE_ELIGIBILITY_API_RELEASE','PC_W1_API_RELEASE'],
+            ['ROLE_ELIGIBILITY_API_REVISION','PC_W1_DEPLOYED_API_SHA'],
+            ['ROLE_ELIGIBILITY_API_READY','PC_W1_API_READY'],
+            ['ROLE_ELIGIBILITY_API_DIGEST_VERIFIED','PC_W1_API_DIGEST_VERIFIED'],
+            ['ROLE_ELIGIBILITY_API_MUTATION_STARTED','PC_W1_API_MUTATION_STARTED'],
+            ['ROLE_ELIGIBILITY_API_ROLLBACK_ATTEMPTED','PC_W1_API_ROLLBACK_ATTEMPTED'],
+            ['ROLE_ELIGIBILITY_API_ROLLBACK_COMPLETED','PC_W1_API_ROLLBACK_RUNTIME_COMPLETED'],
+            ['ERROR_CODE','PC_W1_EXECUTOR_ERROR'],
+          ]);
+          for(let line of fs.readFileSync(process.env.RAW_FILE,'utf8').split(/\r?\n/)) {
+            const [key,value]=line.split('=');
+            if(map.has(key)) line=`${map.get(key)}=${value}`;
+            if(/^PC_W1_[A-Z0-9_]+=(?:[A-Z][A-Z0-9_]{0,100}|true|false|[0-9]{1,10}|[0-9a-f]{40}|[0-9a-f]{64})$/.test(line)) console.log(line);
+          }
+          NODE
+          rm -f "$raw"
+          echo "PC_W1_REMOTE_EXIT=$status" | tee -a "$EVIDENCE_DIR/stage.log"
+          (( status == 0 )) || exit "$status"
+          grep -Fxq PC_W1_CONTROLLER_STAGE=COMPLETED "$EVIDENCE_DIR/stage.log"
+          [[ "$OPERATION" != migrate ]] || grep -Fxq PC_W1_API_DIGEST_VERIFIED=PASS "$EVIDENCE_DIR/stage.log"
+
+      - name: Verify public REG.RU route without a registration mutation
+        id: public
+        if: steps.operation.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          code=$(curl --silent --show-error --max-time 20 --proto '=https' --tlsv1.2 \
+            --resolve 'xn----8sbjf4befbjgs9b.xn--p1ai:443:195.19.12.120' -o /dev/null -w '%{http_code}' 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7')
+          [[ "$code" == 200 ]] || { echo PC_W1_PUBLIC_ROUTE_FAILED >&2; exit 1; }
+          echo PC_W1_PUBLIC_ROUTE=PASS | tee -a "$EVIDENCE_DIR/stage.log"
+
+      - name: Publish bounded observation with acceptance limits
+        if: always()
+        env:
+          STAGE_OUTCOME: ${{ steps.operation.outcome }}
+          PUBLIC_OUTCOME: ${{ steps.public.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          node - <<'NODE'
+          const fs=require('node:fs'),p=process.env.EVIDENCE_DIR;
+          const stage=fs.existsSync(`${p}/stage.log`)?fs.readFileSync(`${p}/stage.log`,'utf8'):'PC_W1_STAGE=NOT_EXECUTED\n';
+          const text=`PC-CROP W1 bounded ${process.env.OPERATION}, run ${process.env.GITHUB_RUN_ID}\n\nTarget: ${process.env.TARGET_SHA}\nRemote stage: ${process.env.STAGE_OUTCOME}\nPublic route: ${process.env.PUBLIC_OUTCOME}\n\n\`\`\`text\n${stage}\`\`\`\n\nAuthenticated W1 business acceptance: NOT_EVIDENCED. Full W1 DoD acceptance: NOT_EVIDENCED. No real transaction or external provider success is claimed. After migration seven, fallback to the old API blocks legacy lot creation; image rollback is not full functional restoration.\n`;
+          fs.writeFileSync(`${p}/result.md`,text);
+          NODE
+          gh issue comment 4997 --repo "$GITHUB_REPOSITORY" --body-file "$EVIDENCE_DIR/result.md"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: pc-crop-w1-production-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/pc-crop-w1-production-acceptance
+          if-no-files-found: error
+          retention-days: 90
+      - name: Remove temporary transport and local credentials
+        if: always()
+        env:
+          REMOTE_DIR: ${{ steps.transport.outputs.remote }}
+        shell: bash
+        run: |
+          set +e
+          if [[ "$REMOTE_DIR" =~ ^/tmp/pc-crop-w1-[0-9]+-[0-9]+$ && -f "$HOME/.ssh/id_pc_w1" ]]; then
+            ssh -i "$HOME/.ssh/id_pc_w1" -p "$SSH_PORT_SECRET" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 \
+              "$SSH_USER_SECRET@195.19.12.120" "rm -f '$REMOTE_DIR/production-pc-crop-w1-migrations.sh' '$REMOTE_DIR/production-role-eligibility-api-release.sh' '$REMOTE_DIR/check-production-pc-crop-w1-acceptance.mjs'; rmdir '$REMOTE_DIR'" >/dev/null 2>&1
+          fi
+          rm -f "$HOME/.ssh/id_pc_w1" "$HOME/.ssh/known_hosts" "$RUNNER_TEMP/w1-migration-manifest.b64"
