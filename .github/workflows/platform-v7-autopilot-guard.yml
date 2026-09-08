@@ -427,6 +427,9 @@ jobs:
       - name: Validate post-registration DoD register
         if: github.event_name == 'pull_request' && github.head_ref == 'docs/pc-crop-post-registration-progress-4997'
         run: node docs/platform-v7/crop-platform/post-registration/verify-w0.mjs
+      - name: Test post-registration evidence rejection
+        if: github.event_name == 'pull_request' && github.head_ref == 'docs/pc-crop-post-registration-progress-4997'
+        run: node --test docs/platform-v7/crop-platform/post-registration/verify-w0.test.mjs
       - name: Validate standard branch scope on PR head
         if: >-
           github.event_name != 'pull_request' ||
