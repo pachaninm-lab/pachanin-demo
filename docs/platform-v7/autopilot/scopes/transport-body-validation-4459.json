@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/transport-body-validation-4459",
+  "status": "active",
+  "purpose": "Twelve handlers across route planning, railway and export trade declared their body as an inline TypeScript type, which erases to Object at runtime, so ValidationPipe validated none of them and every number went straight into the arithmetic. Measured on the services' own expressions, not supposed: avgSpeedKmh of 0 divides distance by zero and `new Date(Date.now() + Infinity).toISOString()` throws RangeError, answering a malformed request with a 500; a non-numeric latitude does the same through Haversine; a vehicleType outside truck/rail/vessel misses the rate table so the whole tariff is NaN and serialises as null; a negative distance returns a negative tariff. WagonType, WagonStatus, Currency and IncotermsCode were TypeScript unions and therefore existed only at compile time. No verdict is claimed.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/transport-body-validation-4459.json",
+    "apps/api/src/modules/route-planner/route-planner.controller.ts",
+    "apps/api/src/modules/route-planner/dto/route-planner-api.dto.ts",
+    "apps/api/src/modules/route-planner/dto/transport-api.dto.spec.ts",
+    "apps/api/src/modules/railway/railway.controller.ts",
+    "apps/api/src/modules/railway/dto/railway-api.dto.ts",
+    "apps/api/src/modules/export-trade/export-trade.controller.ts",
+    "apps/api/src/modules/export-trade/dto/export-trade-api.dto.ts",
+    "docs/security/asvs-applicability-decisions.json",
+    "docs/security/request-validation-baseline.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+  ],
+  "requiredInvariants": [
+    "Every constraint is read off the code it protects. The rate table's own three keys decide vehicleType; the four CBR currencies and eleven Incoterms are the service's unions restated as values, because a TypeScript union has none at runtime to enumerate; producerInn reuses the INN pattern kyc.dto.ts already enforces rather than introducing a second spelling of the same rule.",
+    "No redundant decorator is left reading as the protection. An earlier version passed { allowNaN: false, allowInfinity: false } to every @IsNumber and said in a comment that @Min alone would let NaN through. The second half is true; the first was redundant - class-validator's isNumber already rejects both - and the mutation run proved it by removing the options and failing nothing. The options are gone and the comment now credits @IsNumber() itself.",
+    "The three decisions this change breaks are re-anchored, not left rejected. V1.4.2 named POST tariff as its live instance and this closes exactly that, so its FAIL would have revoked while the same defect stood in six other endpoints; V2.2.1 and V2.2.2 named three controllers, two of which are fixed here, and PRESENT_AT_PATH requires every named path. All three now hang off the measured ratchet, which owes a debt or does not.",
+    "V1.4.2 is re-pointed at a live instance, never closed on this branch. Three saga handlers still take volumeTons, loadedTons and acceptedTons as undecorated numbers; factoring, arbitrator and storage carry the same defect and are being closed in the owner's open pull requests, so they are not touched here.",
+    "No behaviour that worked stops working: each refusal is paired with the same body made valid, and dead type imports left by the move are removed rather than left to rot.",
+    "No service arithmetic, no policy, no repository, no migration. Request boundary only. No production, REG.RU, DNS, database or credential mutation, no new dependency."
+  ],
+  "acceptance": [
+    "Five pre-existing defects are reproduced on the services' own expressions before anything is asserted about the fix: two RangeError 500s (avgSpeedKmh of 0, non-numeric latitude), a tariff that is NaN and serialises as null, a negative tariff from a negative distance, and Math.max(0, ...) failing to clamp a NaN detention because every comparison with NaN is false.",
+    "Thirteen mutations of the DTO files were run and twelve are caught, each by exactly one case. The thirteenth - removing the explicit NaN/Infinity options - caught nothing, which is why those options are gone.",
+    "The re-anchored conditions revoke correctly in both directions: emptying the ratchet's per-file map rejects V1.4.2, V2.2.1 and V2.2.2 together; converting saga's three inline bodies rejects V1.4.2 alone and leaves V2.2.1 and V2.2.2 standing on the debt that remains elsewhere. Under the old conditions this change alone rejected all three.",
+    "The ratchet moves and is tightened: 66 unvalidated @Body() parameters across 23 files becomes 54 across 20, DTO-typed rise from 134 to 146, and route-planner, railway and export-trade each reach 0.",
+    "No verdict moves: 39 NOT_ASSESSED / 129 PASS / 88 NOT_APPLICABLE / 89 FAIL against main, with V8.2.4 the only rejected decision - main's standing drift, repaired on security/login-lockout-finding-4459.",
+    "transport-api.dto.spec.ts passes 26 of 26; tsc --noEmit on apps/api exits 0; the cryptographic inventory is regenerated and discover-cryptography.test.mjs passes 8 of 8; node --test scripts/security passes in full; guard=0."
+  ]
+}

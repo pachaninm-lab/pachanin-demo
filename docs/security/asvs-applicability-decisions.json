@@ -840,32 +840,33 @@
       "applicability": "APPLICABLE",
       "status": "FAIL",
       "evidence": [
-        "apps/api/src/modules/route-planner/route-planner.controller.ts",
-        "apps/api/src/modules/route-planner/route-planner.service.ts"
+        "closed-instance:apps/api/src/modules/route-planner/dto/route-planner-api.dto.ts",
+        "live-instance:apps/api/src/modules/saga/saga.controller.ts",
+        "measured-debt:docs/security/request-validation-baseline.json"
       ],
       "conditions": [
         {
-          "condition": "the tariff endpoint still takes distanceKm/weightTons as a plain, undecorated type literal rather than a class-validator DTO, so no range check runs before the multiplication",
+          "condition": "a tonnage still reaches the saga command path as an undecorated number",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/route-planner/route-planner.controller.ts"
+            "apps/api/src/modules/saga/saga.controller.ts"
           ],
           "patterns": [
-            "body: { distancekm: number; weighttons: number"
+            "@body() body: {"
           ]
         },
         {
-          "condition": "the service still multiplies those two values directly into a kopeck amount with no prior range or sign check",
+          "condition": "the measured ratchet still owes unvalidated body parameters",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/route-planner/route-planner.service.ts"
+            "docs/security/request-validation-baseline.json"
           ],
           "patterns": [
-            "math.round(distancekm * weighttons * ratepertonkmkopecks)"
+            "\"unvalidatedbodyparametersbyfile\": {\n    \"apps/api"
           ]
         }
       ],
-      "note": "Corrected on review: the original version of this decision reasoned that JavaScript numbers do not wrap around the way fixed-width C integers do, and concluded the requirement does not apply to this runtime at all. That is too broad - the requirement is about sign, range and input validation preventing unsafe arithmetic results, and this codebase has a concrete, live instance of exactly that being skipped. POST tariff in route-planner.controller.ts declares its body as a plain type literal, { distanceKm: number; weightTons: number; vehicleType?: ... }, not a class-validator DTO class - the application does have a global ValidationPipe (main.ts), but class-validator only enforces decorators on an actual class, and there is none here, so nothing validates these two numbers before they reach the service. estimateLogisticsTariff() in route-planner.service.ts multiplies them directly - Math.round(distanceKm * weightTons * ratePerTonKmKopecks) - with no sign or range check first. A caller can submit a negative, non-numeric-after-coercion, or extremely large distanceKm/weightTons and get a nonsensical, negative, NaN or Infinity tariff back with no rejection. The BigInt usage this decision originally cited (deal version numbers, money in kopecks in the settlement path) is real and still a good pattern, but it does not cover this endpoint, so it cannot support a blanket NOT_APPLICABLE for the requirement as a whole."
+      "note": "Corrected on review: the original version of this decision reasoned that JavaScript numbers do not wrap around the way fixed-width C integers do, and concluded the requirement does not apply to this runtime at all. That is too broad - the requirement is about sign, range and input validation preventing unsafe arithmetic results, and this codebase has a concrete, live instance of exactly that being skipped. POST tariff in route-planner.controller.ts declares its body as a plain type literal, { distanceKm: number; weightTons: number; vehicleType?: ... }, not a class-validator DTO class - the application does have a global ValidationPipe (main.ts), but class-validator only enforces decorators on an actual class, and there is none here, so nothing validates these two numbers before they reach the service. estimateLogisticsTariff() in route-planner.service.ts multiplies them directly - Math.round(distanceKm * weightTons * ratePerTonKmKopecks) - with no sign or range check first. A caller can submit a negative, non-numeric-after-coercion, or extremely large distanceKm/weightTons and get a nonsensical, negative, NaN or Infinity tariff back with no rejection. The BigInt usage this decision originally cited (deal version numbers, money in kopecks in the settlement path) is real and still a good pattern, but it does not cover this endpoint, so it cannot support a blanket NOT_APPLICABLE for the requirement as a whole.\n\nUpdate: the instance this decision named is closed. POST tariff now declares EstimateTariffDto, so distanceKm and weightTons are refused unless they are finite numbers at or above zero and vehicleType is one of the three keys of the service's own rate table - the sign and range check the note said was missing now runs before Math.round(distanceKm * weightTons * ratePerTonKmKopecks). Measured before the fix: a vehicleType outside the table made the whole quote NaN, and a negative distance returned a negative tariff.\n\nThe requirement is not met, and the decision is re-anchored rather than closed. Seven endpoints still take a number in an inline body type the pipe cannot see, and several of them are money or quantity: requestedAmountKopecks in factoring, splitPct in arbitrator, sizeBytes in storage, and volumeTons, loadedTons and acceptedTons across three saga handlers. Factoring, arbitrator and storage are being closed in the owner's open pull requests; saga is not, and it is what this condition now names. Anchoring to one endpoint was the flaw the first time: the FAIL revoked the moment that endpoint was fixed, while the defect it stood for was still live in six other places."
     },
     {
       "requirementId": "V1.4.3",
@@ -1037,7 +1038,7 @@
       "conditions": [
         {
           "condition": "the global validation pipe is installed",
-          "check": "PRESENT_AT_PATH",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/main.ts"
           ],
@@ -1047,15 +1048,13 @@
           ]
         },
         {
-          "condition": "endpoints still declare an inline body type the pipe cannot validate",
+          "condition": "the measured ratchet still owes unvalidated body parameters",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/saga/saga.controller.ts",
-            "apps/api/src/modules/export-trade/export-trade.controller.ts",
-            "apps/api/src/modules/railway/railway.controller.ts"
+            "docs/security/request-validation-baseline.json"
           ],
           "patterns": [
-            "@body() body: {"
+            "\"unvalidatedbodyparametersbyfile\": {\n    \"apps/api"
           ]
         }
       ],
@@ -1074,7 +1073,7 @@
       "conditions": [
         {
           "condition": "validation runs in the trusted service layer where it runs at all",
-          "check": "PRESENT_AT_PATH",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/main.ts"
           ],
@@ -1084,15 +1083,13 @@
           ]
         },
         {
-          "condition": "a body-accepting endpoint still bypasses it with an inline type",
+          "condition": "the measured ratchet still owes unvalidated body parameters",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/export-trade/export-trade.controller.ts",
-            "apps/api/src/modules/railway/railway.controller.ts",
-            "apps/api/src/modules/route-planner/route-planner.controller.ts"
+            "docs/security/request-validation-baseline.json"
           ],
           "patterns": [
-            "@body() body: {"
+            "\"unvalidatedbodyparametersbyfile\": {\n    \"apps/api"
           ]
         }
       ],
