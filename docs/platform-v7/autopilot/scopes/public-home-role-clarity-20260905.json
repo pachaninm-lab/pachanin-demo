@@ -1,23 +1,23 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "fix/platform-v7-live-acceptance-5111",
+  "branch": "fix/platform-v7-final-production-acceptance-5111",
   "status": "active",
   "authorizedBy": "explicit-user-instruction-2026-09-08-complete-homepage-5111-live-acceptance",
-  "purpose": "Close the two deterministic post-#5164 REG.RU acceptance defects only: localize the demo volume unit in the locale-owned public copy and align stale production-mobile assertions with the already accepted canonical homepage accessible labels.",
-  "authorityBaseExactMain": "c45156fe3af72f02370caccd72b79591f6f14efb",
-  "effectiveAfter": "This governance refresh must be reviewed and merged to main first. The implementation branch must then be rematerialized from that accepted exact main so this manifest is inherited from the trusted base; the implementation must not create, edit or widen its own scope.",
+  "purpose": "Close the two deterministic exact-production acceptance failures remaining after #5176 only: remove residual Cyrillic from the locale-selected public Deal execution route with source-native RU/EN/ZH copy, and preserve full-page WebKit mobile visual evidence at CSS-pixel scale so device DPR cannot exceed the browser screenshot dimension limit.",
+  "authorityBaseExactMain": "15a834e3993e43da82af2748633a19d2717b1fa6",
+  "effectiveAfter": "This governance refresh must be merged to main first. The implementation branch must then be created from that accepted exact main so this manifest is inherited from the trusted base; the implementation must not create, edit or widen its own scope.",
   "allowedPaths": [
-    "apps/web/app/platform-v7/demo/DemoCleanClient.tsx",
+    "apps/web/app/platform-v7/deal-flow/page.tsx",
     "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
     "apps/web/tests/unit/platformV7DealScenarioProductionCopy.test.ts"
   ],
   "requiredInvariants": [
-    "The demo remains a public illustrative execution surface and grants no authority, access, Deal mutation, payment action or provider connectivity.",
-    "The demo quantity must be locale-owned source copy: RU 240 т, EN 240 t and ZH 240 吨. The no-translate demo surface must not leave residual Cyrillic in EN or ZH through a hard-coded quantity unit.",
-    "The production-mobile acceptance may change only stale accessible-label expectations already superseded by the accepted #5164 homepage. It must preserve all existing viewport, role, stage, overflow, keyboard, accessibility, registration and protected-boundary coverage.",
-    "No assertion may be deleted, skipped, weakened or broadened merely to make CI pass; the changed labels must correspond to real accepted DOM semantics exercised elsewhere in the same suite.",
-    "No auth, registration, tenant, RBAC, API, database, middleware authorization, dependency, workflow, scanner, release topology, production credentials, private cabinet or protected Gekta runtime source may change.",
-    "RU, EN and ZH behavior must remain semantically equivalent and no fabricated live/provider/readiness claim may be introduced."
+    "The Deal execution route remains a public explanatory surface only and grants no authority, access, Deal mutation, payment action or provider connectivity.",
+    "The Deal execution route must own complete locale-native visible and accessible copy for RU, EN and ZH, including metadata, navigation labels, Deal facts, stages, roles, evidence, CTAs and footer. EN and ZH must not depend on partial DOM replacement that can leave residual Cyrillic.",
+    "The existing role/stage/evidence meaning and external-bank truth boundaries remain intact; localization must not invent live provider state, payment finality or expanded participant authority.",
+    "The production-mobile acceptance may change only the screenshot capture scale needed to preserve the same fullPage evidence under WebKit deviceScaleFactor. All viewport, role, stage, overflow, keyboard, accessibility, registration and protected-boundary assertions remain unchanged.",
+    "The mobile repair must retain full-page evidence. It may use Playwright CSS-pixel screenshot scale but must not remove screenshots, skip WebKit, reduce tested viewports, add retries or suppress test failures.",
+    "No auth, registration, tenant, RBAC, API, database, middleware authorization, dependency, workflow, scanner, release topology, production credentials, private cabinet or protected Gekta runtime source may change."
   ],
   "forbiddenChanges": [
     ".github/workflows/**",
@@ -37,10 +37,10 @@
   "acceptance": [
     "The implementation diff is a strict subset of the three allowed paths and contains no governance manifest change.",
     "Exact-head substantive CI, including platform-v7 autopilot guard, Node/CI/web-unit/security/SBOM/Design System v8/Production-like Kubernetes, is terminal green before merge.",
-    "The focused production-copy regression proves all three localized volume literals, rendered t.volume ownership and absence of the old hard-coded <p>240 т</p> source.",
-    "The production-mobile acceptance continues to prove the current canonical workspace region, seven-stage list, bank/finance role visibility and absence of retired maturity/integration role-entry sections.",
-    "Owner self-audit and active review-thread inspection are repeated on the exact implementation head. Independent review is not fabricated; the previously recorded bounded #5111 owner exception may apply only if still valid for this homepage-only repair.",
-    "Final completion still requires merge onto unchanged accepted main, REG.RU exact-SHA deployment, production i18n rerun, production mobile rerun and live desktop/mobile RU/EN/ZH verification."
+    "The focused production-copy regression proves the Deal execution page uses getLocale with RU/EN/ZH source copy and keeps the known EN production residual-Cyrillic fragments out of the EN copy.",
+    "The production-mobile source keeps fullPage true and explicitly uses CSS-pixel screenshot scale; no tested viewport or engine is removed.",
+    "Owner self-audit and active review-thread inspection are repeated on the exact implementation head. Independent review is not fabricated; the bounded #5111 owner exception may apply only to this homepage-completion repair.",
+    "Final completion still requires merge onto unchanged accepted main, REG.RU exact-SHA deployment, production i18n rerun, production mobile rerun and live desktop/mobile RU/EN/ZH visual verification."
   ],
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0
