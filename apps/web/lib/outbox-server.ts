@@ -15,16 +15,22 @@ export type OutboxServerEntry = {
 export type OutboxStatusSummary = {
   pending: OutboxServerEntry[];
   manualReview: OutboxServerEntry[];
+  failed: OutboxServerEntry[];
   totalPending: number;
+  totalFailed: number;
   hasManualReview: boolean;
+  hasFailures: boolean;
   isApiAvailable: boolean;
 };
 
 const STATIC_FALLBACK: OutboxStatusSummary = {
   pending: [],
   manualReview: [],
+  failed: [],
   totalPending: 0,
+  totalFailed: 0,
   hasManualReview: false,
+  hasFailures: false,
   isApiAvailable: false,
 };
 
@@ -40,8 +46,11 @@ export async function getOutboxStatus(dealId?: string): Promise<OutboxStatusSumm
     return {
       pending: Array.isArray(data.pending) ? data.pending : [],
       manualReview: Array.isArray(data.manualReview) ? data.manualReview : [],
+      failed: Array.isArray(data.failed) ? data.failed : [],
       totalPending: Array.isArray(data.pending) ? data.pending.length : 0,
+      totalFailed: Array.isArray(data.failed) ? data.failed.length : 0,
       hasManualReview: Array.isArray(data.manualReview) && data.manualReview.length > 0,
+      hasFailures: Array.isArray(data.failed) && data.failed.length > 0,
       isApiAvailable: true,
     };
   } catch {

@@ -10,6 +10,7 @@
     "docs/platform-v7/autopilot/scopes/pv7-personal-executive-dashboard-20260908.json",
     "apps/web/app/platform-v7/executive/page.tsx",
     "apps/web/lib/disputes-server.ts",
+    "apps/web/lib/outbox-server.ts",
     "apps/web/tests/unit/designSystemV8CriticalRoutes.test.ts"
   ]
 }
