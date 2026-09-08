@@ -222,9 +222,6 @@ export class RoleEligibilityFnsEgrulIngestRepository {
         `);
         const replay = replayRows[0];
         if (replay?.count === base.record_count && (replay.unmatched || 0n) === 0n) {
-          await client.$queryRaw(Prisma.sql`
-            SELECT eligibility.record_fns_egrul_predecessor(${generationId},${base.id})
-          `);
           return { baseGenerationId: base.id, inherited: Number(base.record_count), replayed: true };
         }
         throw new Error('FNS_EGRUL_DELTA_TARGET_ALREADY_INITIALIZED');
@@ -248,9 +245,6 @@ export class RoleEligibilityFnsEgrulIngestRepository {
         WHERE id=${generationId} AND source='FNS' AND registry_domain=${FNS_EGRUL_DOMAIN} AND status='STAGING' AND record_count=0
       `);
       if (updated !== 1) throw new Error('FNS_EGRUL_BASE_COPY_STATE_CHANGED');
-      await client.$queryRaw(Prisma.sql`
-        SELECT eligibility.record_fns_egrul_predecessor(${generationId},${base.id})
-      `);
       return { baseGenerationId: base.id, inherited: inserted, replayed: false };
     });
   }
@@ -308,10 +302,36 @@ export class RoleEligibilityFnsEgrulIngestRepository {
         WHERE id=${generationId} AND source='FNS' AND registry_domain=${FNS_EGRUL_DOMAIN} AND status='STAGING'
       `);
       if (updated !== 1) throw new Error('FNS_EGRUL_DELTA_STATE_CHANGED');
+      return { replaced: deleted, inserted: desired.length };
+    });
+  }
+
+  async sealDailyComposition(generationId: string): Promise<{ baseGenerationId: string }> {
+    return this.runtime(async (client) => {
+      const targetRows = await client.$queryRaw<GenerationState[]>(Prisma.sql`
+        SELECT id,source,registry_domain,status,published_at,content_sha256,parser_version,schema_version,record_count
+        FROM eligibility.registry_generations WHERE id=${generationId} FOR UPDATE
+      `);
+      const target = targetRows[0];
+      if (!target || target.source !== 'FNS' || generationDomain(target) !== FNS_EGRUL_DOMAIN) {
+        throw new Error('FNS_EGRUL_GENERATION_NOT_FOUND');
+      }
+      if (target.status !== 'STAGING') throw new Error('FNS_EGRUL_GENERATION_NOT_STAGING');
+
+      const baseRows = await client.$queryRaw<GenerationState[]>(Prisma.sql`
+        SELECT id,source,registry_domain,status,published_at,content_sha256,parser_version,schema_version,record_count
+        FROM eligibility.registry_generations
+        WHERE source='FNS' AND registry_domain=${FNS_EGRUL_DOMAIN} AND status='ACTIVE' AND id<>${generationId}
+        ORDER BY published_at DESC,id DESC LIMIT 1 FOR SHARE
+      `);
+      const base = baseRows[0];
+      if (!base) throw new Error('FNS_EGRUL_ACTIVE_BASE_REQUIRED');
+      if (base.published_at.getTime() >= target.published_at.getTime()) throw new Error('FNS_EGRUL_DELTA_NOT_NEWER_THAN_BASE');
+
       await client.$queryRaw(Prisma.sql`
         SELECT eligibility.record_fns_egrul_predecessor(${generationId},${base.id})
       `);
-      return { replaced: deleted, inserted: desired.length };
+      return { baseGenerationId: base.id };
     });
   }
 
