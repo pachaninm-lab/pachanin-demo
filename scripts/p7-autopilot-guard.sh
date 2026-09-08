@@ -333,6 +333,20 @@ if [ "${GITHUB_HEAD_REF:-}" = "agent/industrial-readiness-v1-security-gates-v2" 
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$INDUSTRIAL_SECURITY_GATE_SCOPE")
 fi
 
+# The W1 release may append only the two reviewed static-label findings. The
+# trusted-base guard, not the implementation branch, owns this exception bound.
+if [ "$CURRENT_BRANCH" = "$W1_PRODUCTION_ACCEPTANCE_BRANCH" ] && printf '%s\n' "$DIFF_FILES" | grep -Fxq '.gitleaksignore'; then
+  P7_EXCEPTION_BASE="$BASE_REF" P7_EXCEPTION_HEAD="$HEAD_REF" node - <<'JS'
+const assert = require('node:assert/strict');
+const { execFileSync } = require('node:child_process');
+const read = ref => execFileSync('git', ['show', `${ref}:.gitleaksignore`], { encoding: 'utf8' });
+const baseline = read(process.env.P7_EXCEPTION_BASE);
+const head = read(process.env.P7_EXCEPTION_HEAD);
+const approvedAppend = "\n# False positive: static PC_W1_API_DIGEST_VERIFIED output field name in W1 controller history.\n# Exact commit/path/rule/line only; these strings never contained a credential.\n25f4fa23451d9b2fd58ff60ba9badfc063055796:.github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:391\nba4e7b26a34f95ebc5636c6a18785a6a2d63b0b1:.github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:395\n";
+assert.equal(head, baseline + approvedAppend, 'W1 historical scan exceptions must be the exact approved append; existing entries and all other findings remain protected');
+JS
+fi
+
 if [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-transitive-runtime-remediation" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$TRANSITIVE_RUNTIME_REMEDIATION_SCOPE")
 fi

@@ -228,7 +228,8 @@
       "scripts/check-production-pc-crop-w1-acceptance.test.mjs",
       "scripts/production-role-eligibility-api-release.sh",
       "scripts/check-role-eligibility-api-release.mjs",
-      ".github/workflows/production-web-exact-sha.yml"
+      ".github/workflows/production-web-exact-sha.yml",
+      ".gitleaksignore"
     ],
     "governance/pc-crop-post-registration-progress-scope-4997": [
       "docs/platform-v7/autopilot/autopilot-state.json",
@@ -245,7 +246,8 @@
       "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json",
       "docs/platform-v7/crop-platform/post-registration/execution-state.v1.json",
       "docs/platform-v7/crop-platform/post-registration/verify-w0.mjs",
-      "docs/platform-v7/crop-platform/post-registration/w2-a-inventory-reservation-plan.v1.json"
+      "docs/platform-v7/crop-platform/post-registration/w2-a-inventory-reservation-plan.v1.json",
+      "docs/platform-v7/crop-platform/post-registration/verify-w0.test.mjs"
     ],
     "fix/static-presentation-download-buildtime-20260830": [
       "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",

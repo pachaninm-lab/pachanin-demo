@@ -530,7 +530,7 @@ test('Auction head validation triggers for every immutable state-approved path',
 });
 
 
-test('W1 release scope authorizes four operational files and three bounded reuse guards', () => {
+test('W1 release scope authorizes seven operational paths and bounded historical scanner exceptions', () => {
   const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
   const approved = state.approvedConcurrentScopes['ops/pc-crop-w1-production-acceptance-4997'];
   const expected = [
@@ -541,6 +541,7 @@ test('W1 release scope authorizes four operational files and three bounded reuse
     'scripts/production-role-eligibility-api-release.sh',
     'scripts/check-role-eligibility-api-release.mjs',
     '.github/workflows/production-web-exact-sha.yml',
+    '.gitleaksignore',
   ];
   assert.deepEqual(approved, expected);
   const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
@@ -610,3 +611,43 @@ test('W1 implementation cannot add digest or web-lock authority to an older four
   assert.notEqual(result.status, 0, output(result));
   assert.match(output(result), /Mutable scope authority changed/u);
 });
+
+
+test('admits the bounded revenue evidence regression suite and runs it in required CI', () => {
+  const state = JSON.parse(fs.readFileSync(path.resolve('docs/platform-v7/autopilot/autopilot-state.json'), 'utf8'));
+  const scope = state.approvedConcurrentScopes['docs/pc-crop-post-registration-progress-4997'];
+  const prefix = 'docs/platform-v7/crop-platform/post-registration/';
+  assert.deepEqual([...scope].sort(), ['README.md', 'dod-baseline.v1.json', 'exact-gap-map.v1.json', 'execution-state.v1.json', 'verify-w0.mjs', 'verify-w0.test.mjs', 'w2-a-inventory-reservation-plan.v1.json'].map(name => prefix + name).sort());
+  assert.ok(scope.every(name => !name.includes('*')));
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  assert.ok(workflow.includes("- 'docs/platform-v7/**'"), 'existing trigger covers the added test');
+  assert.ok(workflow.includes("      - name: Test post-registration evidence rejection\n        if: github.event_name == 'pull_request' && github.head_ref == 'docs/pc-crop-post-registration-progress-4997'\n        run: node --test docs/platform-v7/crop-platform/post-registration/verify-w0.test.mjs"));
+});
+
+
+for (const mutation of ['approved append', 'extra fingerprint', 'remove prior entry', 'alter fingerprint']) {
+  test(`W1 historical scanner exception: ${mutation}`, (t) => {
+    const context = fixture(t, 'ops/pc-crop-w1-production-acceptance-4997');
+    const stateFile = 'docs/platform-v7/autopilot/autopilot-state.json';
+    const state = JSON.parse(fs.readFileSync(path.join(context.root, stateFile), 'utf8'));
+    state.approvedConcurrentScopes[context.implementationBranch].push('.gitleaksignore');
+    write(context.root, stateFile, JSON.stringify(state));
+    const prior = '# Previously reviewed exception\nprior:exact:fingerprint:1\n';
+    write(context.root, '.gitleaksignore', prior);
+    commit(context.root, 'accepted historical scan exception authority');
+    const baseline = git(context.root, ['rev-parse', 'HEAD']);
+    const approvedAppend = "\n# False positive: static PC_W1_API_DIGEST_VERIFIED output field name in W1 controller history.\n# Exact commit/path/rule/line only; these strings never contained a credential.\n25f4fa23451d9b2fd58ff60ba9badfc063055796:.github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:391\nba4e7b26a34f95ebc5636c6a18785a6a2d63b0b1:.github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:395\n";
+    let content = prior + approvedAppend;
+    if (mutation === 'extra fingerprint') content += 'unreviewed:extra:fingerprint:2\n';
+    if (mutation === 'remove prior entry') content = approvedAppend;
+    if (mutation === 'alter fingerprint') content = content.replace(':395', ':396');
+    write(context.root, '.gitleaksignore', content);
+    commit(context.root, `candidate ${mutation}`);
+    const result = runGuard({ ...context, baseline });
+    if (mutation === 'approved append') assert.equal(result.status, 0, output(result));
+    else {
+      assert.notEqual(result.status, 0, output(result));
+      assert.match(output(result), /exact approved append/u);
+    }
+  });
+}
