@@ -18,6 +18,12 @@ const linkedPageViewports = [
 const linkedLocales = ['ru', 'en', 'zh'] as const;
 type LinkedLocale = (typeof linkedLocales)[number];
 
+const dealFlowMetadataLanguage = {
+  ru: { htmlLang: 'ru', openGraphLocale: 'ru_RU', expectedScript: /\p{Script=Cyrillic}/u },
+  en: { htmlLang: 'en', openGraphLocale: 'en_US', expectedScript: /[A-Za-z]/u },
+  zh: { htmlLang: 'zh-CN', openGraphLocale: 'zh_CN', expectedScript: /\p{Script=Han}/u },
+} as const;
+
 const linkedPublicPages = [
   { name: 'about', path: '/platform-v7/about', ready: 'main h1' },
   { name: 'how-it-works', path: '/platform-v7/how-it-works', ready: '#pc-ppe-explorer-title' },
@@ -49,6 +55,53 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(1);
 }
 
+async function measureViewportOcclusion(page: Page) {
+  return page.evaluate(() => {
+    const viewportHeight = window.innerHeight;
+    let top = 0;
+    let bottom = 0;
+
+    for (const node of Array.from(document.querySelectorAll<HTMLElement>('body *'))) {
+      const style = window.getComputedStyle(node);
+      if (style.position !== 'fixed' && style.position !== 'sticky') continue;
+      if (style.display === 'none' || style.visibility === 'hidden') continue;
+      const box = node.getBoundingClientRect();
+      if (box.width <= 0 || box.height <= 0) continue;
+      if (box.top <= 32 && box.bottom > 0) top = Math.max(top, Math.min(viewportHeight, box.bottom));
+      if (box.bottom >= viewportHeight - 32 && box.top < viewportHeight) {
+        bottom = Math.max(bottom, Math.min(viewportHeight, viewportHeight - box.top));
+      }
+    }
+
+    return { top: Math.ceil(top), bottom: Math.ceil(bottom) };
+  });
+}
+
+async function captureEdgeCoverageWithoutOccluders(page: Page, path: string) {
+  const marker = 'data-p7-evidence-occluder';
+  const styleId = 'p7-evidence-occluder-style';
+  await page.evaluate(({ markerName, injectedStyleId }) => {
+    document.getElementById(injectedStyleId)?.remove();
+    for (const node of Array.from(document.querySelectorAll<HTMLElement>('body *'))) {
+      const position = window.getComputedStyle(node).position;
+      if (position === 'fixed' || position === 'sticky') node.setAttribute(markerName, 'true');
+    }
+    const style = document.createElement('style');
+    style.id = injectedStyleId;
+    style.textContent = `[${markerName}="true"]{visibility:hidden!important}`;
+    document.head.append(style);
+  }, { markerName: marker, injectedStyleId: styleId });
+
+  try {
+    await page.screenshot({ path, fullPage: false, animations: 'disabled', scale: 'css' });
+  } finally {
+    await page.evaluate(({ markerName, injectedStyleId }) => {
+      document.getElementById(injectedStyleId)?.remove();
+      document.querySelectorAll(`[${markerName}]`).forEach((node) => node.removeAttribute(markerName));
+    }, { markerName: marker, injectedStyleId: styleId });
+  }
+}
+
 async function captureFullDocumentEvidence(page: Page, path: string) {
   const geometry = await page.evaluate(() => ({
     documentHeight: Math.max(document.documentElement.scrollHeight, document.body.scrollHeight),
@@ -63,44 +116,76 @@ async function captureFullDocumentEvidence(page: Page, path: string) {
     return;
   }
 
-  const captureOverlap = await page.evaluate(() => {
-    const viewportHeight = window.innerHeight;
-    let topOcclusion = 0;
-    let bottomOcclusion = 0;
-
-    for (const node of Array.from(document.querySelectorAll<HTMLElement>('body *'))) {
-      const style = window.getComputedStyle(node);
-      if (style.position !== 'fixed' && style.position !== 'sticky') continue;
-      if (style.display === 'none' || style.visibility === 'hidden') continue;
-      const box = node.getBoundingClientRect();
-      if (box.width <= 0 || box.height <= 0) continue;
-      if (box.top <= 32 && box.bottom > 0) topOcclusion = Math.max(topOcclusion, Math.min(viewportHeight, box.bottom));
-      if (box.bottom >= viewportHeight - 32 && box.top < viewportHeight) {
-        bottomOcclusion = Math.max(bottomOcclusion, Math.min(viewportHeight, viewportHeight - box.top));
-      }
-    }
-
-    return Math.min(viewportHeight - 1, Math.ceil(topOcclusion + bottomOcclusion + 24));
-  });
-  const captureStep = Math.max(1, geometry.viewportHeight - captureOverlap);
+  const overlapMargin = 24;
   const maxScrollY = Math.max(0, geometry.documentHeight - geometry.viewportHeight);
-  const positions: number[] = [];
-  for (let y = 0; y <= maxScrollY; y += captureStep) positions.push(y);
-  if (positions.at(-1) !== maxScrollY) positions.push(maxScrollY);
-
   const basePath = path.replace(/\.png$/u, '');
-  for (const [index, y] of positions.entries()) {
+  let y = 0;
+  let index = 0;
+  let previousVisibleEnd = 0;
+
+  while (true) {
     await page.evaluate((scrollY) => window.scrollTo(0, scrollY), y);
     await page.waitForTimeout(50);
+    const occlusion = await measureViewportOcclusion(page);
+    const visibleStart = y + occlusion.top;
+    const visibleEnd = y + geometry.viewportHeight - occlusion.bottom;
+
+    expect(visibleEnd - visibleStart, `segment ${index + 1} must expose document content`).toBeGreaterThan(overlapMargin);
+    if (index > 0) {
+      expect(
+        visibleStart,
+        `segment ${index + 1} visible content must overlap the previous segment`,
+      ).toBeLessThanOrEqual(previousVisibleEnd - overlapMargin);
+    }
+
     await page.screenshot({
       path: `${basePath}-part-${String(index + 1).padStart(2, '0')}.png`,
       fullPage: false,
       animations: 'disabled',
       scale: 'css',
     });
+
+    if (index === 0 && occlusion.top > 0) {
+      await captureEdgeCoverageWithoutOccluders(page, `${basePath}-part-01-top-coverage.png`);
+    }
+
+    previousVisibleEnd = Math.max(previousVisibleEnd, visibleEnd);
+    if (y >= maxScrollY) {
+      if (occlusion.bottom > 0) {
+        await captureEdgeCoverageWithoutOccluders(
+          page,
+          `${basePath}-part-${String(index + 1).padStart(2, '0')}-bottom-coverage.png`,
+        );
+      }
+      break;
+    }
+
+    let nextY = Math.min(maxScrollY, Math.floor(visibleEnd - overlapMargin));
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      await page.evaluate((scrollY) => window.scrollTo(0, scrollY), nextY);
+      await page.waitForTimeout(50);
+      const nextOcclusion = await measureViewportOcclusion(page);
+      const nextVisibleStart = nextY + nextOcclusion.top;
+      if (nextVisibleStart <= visibleEnd - overlapMargin) break;
+      const adjusted = Math.floor(visibleEnd - overlapMargin - nextOcclusion.top);
+      expect(adjusted, 'adaptive segmented capture must keep making forward progress').toBeGreaterThan(y);
+      nextY = Math.min(maxScrollY, adjusted);
+    }
+
+    expect(nextY, 'adaptive segmented capture must advance').toBeGreaterThan(y);
+    y = nextY;
+    index += 1;
   }
 
-  await page.evaluate(({ x, y }) => window.scrollTo(x, y), { x: geometry.scrollX, y: geometry.scrollY });
+  await page.evaluate(({ x, y: scrollY }) => window.scrollTo(x, scrollY), { x: geometry.scrollX, y: geometry.scrollY });
+}
+
+async function expectRenderedMeta(page: Page, selector: string) {
+  const meta = page.locator(`head ${selector}`);
+  await expect(meta).toHaveCount(1);
+  const content = await meta.getAttribute('content');
+  expect(content, `${selector} must have content`).toBeTruthy();
+  return content as string;
 }
 
 async function expectVisibleTargetsAtLeast(page: Page, selector: string, minimum: number) {
@@ -353,6 +438,50 @@ test.describe('Platform V7 exact responsive public acceptance', () => {
       );
     });
   }
+});
+
+test.describe('Platform V7 Deal-flow rendered metadata acceptance', () => {
+  test('renders one locale-native RU EN ZH metadata set without inherited Russian head copy', async ({ page }) => {
+    for (const locale of linkedLocales) {
+      const expected = dealFlowMetadataLanguage[locale];
+      const response = await page.goto(`/platform-v7/deal-flow?lang=${locale}`, { waitUntil: 'load' });
+      expect(response?.ok(), `/platform-v7/deal-flow?lang=${locale} should return 2xx`).toBe(true);
+      await expect(page.locator('[data-testid="platform-v7-deal-flow-page"]')).toHaveAttribute('data-lang', locale);
+      await expect(page.locator('html')).toHaveAttribute('lang', expected.htmlLang);
+
+      const title = await page.title();
+      const description = await expectRenderedMeta(page, 'meta[name="description"]');
+      const openGraphTitle = await expectRenderedMeta(page, 'meta[property="og:title"]');
+      const openGraphDescription = await expectRenderedMeta(page, 'meta[property="og:description"]');
+      const openGraphSiteName = await expectRenderedMeta(page, 'meta[property="og:site_name"]');
+      const openGraphLocale = await expectRenderedMeta(page, 'meta[property="og:locale"]');
+      const twitterTitle = await expectRenderedMeta(page, 'meta[name="twitter:title"]');
+      const twitterDescription = await expectRenderedMeta(page, 'meta[name="twitter:description"]');
+      const visibleBrand = (await page.locator('.p7-flow-brand strong').innerText()).trim();
+
+      expect(title).toMatch(expected.expectedScript);
+      expect(description).toMatch(expected.expectedScript);
+      expect(openGraphSiteName).toMatch(expected.expectedScript);
+      expect(openGraphLocale).toBe(expected.openGraphLocale);
+      expect(openGraphTitle).toBe(title);
+      expect(twitterTitle).toBe(title);
+      expect(openGraphDescription).toBe(description);
+      expect(twitterDescription).toBe(description);
+      expect(openGraphSiteName).toBe(visibleBrand);
+
+      const canonical = `https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow?lang=${locale}`;
+      await expect(page.locator('head link[rel="canonical"]')).toHaveCount(1);
+      await expect(page.locator('head link[rel="canonical"]')).toHaveAttribute('href', canonical);
+      await expect(page.locator('head link[rel="alternate"][hreflang="ru-RU"]')).toHaveAttribute('href', 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow?lang=ru');
+      await expect(page.locator('head link[rel="alternate"][hreflang="en"]')).toHaveAttribute('href', 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow?lang=en');
+      await expect(page.locator('head link[rel="alternate"][hreflang="zh-CN"]')).toHaveAttribute('href', 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow?lang=zh');
+
+      if (locale !== 'ru') {
+        const localizedHead = [title, description, openGraphTitle, openGraphDescription, openGraphSiteName, twitterTitle, twitterDescription].join('\n');
+        expect(localizedHead, `${locale} rendered head must contain no residual Cyrillic`).not.toMatch(/\p{Script=Cyrillic}/u);
+      }
+    }
+  });
 });
 
 test.describe('Platform V7 live linked-page acceptance', () => {
