@@ -5,6 +5,8 @@ set +x
 ACTION="${1:-}"
 TARGET_SHA="${2:-}"
 API_IMAGE="${PC_ROLE_ELIGIBILITY_API_IMAGE:-}"
+API_DIGEST="${PC_ROLE_ELIGIBILITY_API_DIGEST:-}"
+PINNED_API_IMAGE_ID=""
 PROD_DIR_B64="${PC_PROD_DIR_B64:-}"
 PROD_COMPOSE_B64="${PC_PROD_COMPOSE_B64:-}"
 PROD_PROJECT_B64="${PC_PROD_PROJECT_B64:-}"
@@ -28,6 +30,16 @@ expected_image="ghcr.io/pachaninm-lab/grainflow-api:sha-${TARGET_SHA:0:7}"
 if [[ "$ACTION" == deploy ]]; then
   [[ "$API_IMAGE" == "$expected_image" ]] || fail API_IMAGE_REFERENCE_INVALID 6
 fi
+if [[ -n "$API_DIGEST" ]]; then
+  [[ "$API_DIGEST" =~ ^ghcr\.io/pachaninm-lab/grainflow-api@sha256:[0-9a-f]{64}$ ]] || fail API_DIGEST_REFERENCE_INVALID 7
+fi
+
+assert_api_image_digest(){
+  [[ -n "$API_DIGEST" ]] || return 0
+  local actual_id
+  actual_id="$(docker image inspect --format '{{.Id}}' "$API_IMAGE" 2>/dev/null || true)"
+  [[ "$actual_id" == "$PINNED_API_IMAGE_ID" ]] || fail API_IMAGE_DIGEST_MISMATCH 43
+}
 
 mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api')
 (( ${#api_ids[@]} == 1 )) || fail COMPOSE_API_AUTHORITY_AMBIGUOUS 10
@@ -186,8 +198,20 @@ while IFS= read -r id; do
   fi
 done < <(docker ps -q --no-trunc)
 
+# Optional digest authority leaves legacy callers unchanged. Resolve it once,
+# then bind every later tag/deployment observation to this immutable image ID.
+if [[ -n "$API_DIGEST" ]]; then
+  docker pull "$API_DIGEST" >/dev/null || fail API_DIGEST_PULL_FAILED 40
+  PINNED_API_IMAGE_ID="$(docker image inspect --format '{{.Id}}' "$API_DIGEST" 2>/dev/null || true)"
+  [[ "$PINNED_API_IMAGE_ID" =~ ^sha256:[0-9a-f]{64}$ ]] || fail API_DIGEST_IMAGE_ID_INVALID 41
+  pinned_revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$API_DIGEST" 2>/dev/null || true)"
+  [[ "$pinned_revision" == "$TARGET_SHA" ]] || fail API_DIGEST_REVISION_MISMATCH 42
+fi
+
 if [[ "$ACTION" == audit ]]; then
   [[ "$baseline_revision" == "$TARGET_SHA" ]] || fail API_IMAGE_REVISION_MISMATCH 27
+  [[ -z "$API_DIGEST" || "$baseline_image_id" == "$PINNED_API_IMAGE_ID" ]] || fail API_AUDIT_DIGEST_MISMATCH 45
+  [[ -z "$API_DIGEST" ]] || emit ROLE_ELIGIBILITY_API_DIGEST_VERIFIED PASS
   emit ROLE_ELIGIBILITY_API_RELEASE PASS
   emit ROLE_ELIGIBILITY_TARGET_SHA "$TARGET_SHA"
   emit ROLE_ELIGIBILITY_API_REVISION "$baseline_revision"
@@ -201,6 +225,7 @@ fi
 docker pull "$API_IMAGE" >/dev/null || fail API_IMAGE_PULL_FAILED 28
 pulled_revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$API_IMAGE" 2>/dev/null || true)"
 [[ "$pulled_revision" == "$TARGET_SHA" ]] || fail API_IMAGE_REVISION_MISMATCH 29
+assert_api_image_digest
 
 cleanup_on_exit(){
   local rc="$1" rollback_ok restored_id restored_revision restored_fingerprint restored_protected
@@ -236,16 +261,19 @@ trap 'cleanup_on_exit "$?"' EXIT
 # Persisting the exact API-only override is itself a production mutation, so arm
 # rollback before writing it. No migration, web recreation, registration action,
 # or other service mutation is permitted by this executor.
+assert_api_image_digest
 MUTATION_STARTED=1
 write_override "$API_IMAGE" || fail API_OVERRIDE_WRITE_FAILED 30
 "${dc_target[@]}" config --quiet || fail COMPOSE_CONFIG_INVALID 31
 [[ "$(configured_api_image)" == "$API_IMAGE" ]] || fail COMPOSE_API_IMAGE_AUTHORITY_MISMATCH 32
 emit ROLE_ELIGIBILITY_API_MUTATION_STARTED 1
 
+assert_api_image_digest
 "${dc_target[@]}" up -d --no-deps --force-recreate --pull never api >/dev/null || fail API_RECREATE_FAILED 33
 new_api_id="$(wait_api)" || fail API_READINESS_FAILED 34
 [[ -n "$new_api_id" && "$new_api_id" != "$baseline_api_id" ]] || fail API_NOT_RECREATED 35
 new_image_id="$(docker inspect --format '{{.Image}}' "$new_api_id")"
+[[ -z "$API_DIGEST" || "$new_image_id" == "$PINNED_API_IMAGE_ID" ]] || fail DEPLOYED_API_DIGEST_MISMATCH 44
 new_revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$new_image_id" 2>/dev/null || true)"
 [[ "$new_revision" == "$TARGET_SHA" ]] || fail DEPLOYED_API_REVISION_MISMATCH 36
 new_runtime_fingerprint="$(runtime_fingerprint "$new_api_id")"
@@ -254,6 +282,7 @@ new_protected_snapshot="$(protected_snapshot "$new_api_id")"
 [[ "$new_protected_snapshot" =~ ^[0-9a-f]{64}$ ]] || fail PROTECTED_SNAPSHOT_INVALID 38
 [[ "$new_protected_snapshot" == "$baseline_protected_snapshot" ]] || fail PROTECTED_CONTAINER_SET_CHANGED 39
 
+[[ -z "$API_DIGEST" ]] || emit ROLE_ELIGIBILITY_API_DIGEST_VERIFIED PASS
 emit ROLE_ELIGIBILITY_API_RELEASE PASS
 emit ROLE_ELIGIBILITY_TARGET_SHA "$TARGET_SHA"
 emit ROLE_ELIGIBILITY_API_REVISION "$new_revision"
