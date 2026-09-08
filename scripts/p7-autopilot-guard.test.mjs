@@ -530,7 +530,7 @@ test('Auction head validation triggers for every immutable state-approved path',
 });
 
 
-test('W1 release scope authorizes exactly four new operational files and every file triggers head validation', () => {
+test('W1 release scope authorizes four operational files and three bounded reuse guards', () => {
   const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
   const approved = state.approvedConcurrentScopes['ops/pc-crop-w1-production-acceptance-4997'];
   const expected = [
@@ -538,6 +538,9 @@ test('W1 release scope authorizes exactly four new operational files and every f
     'scripts/production-pc-crop-w1-migrations.sh',
     'scripts/check-production-pc-crop-w1-acceptance.mjs',
     'scripts/check-production-pc-crop-w1-acceptance.test.mjs',
+    'scripts/production-role-eligibility-api-release.sh',
+    'scripts/check-role-eligibility-api-release.mjs',
+    '.github/workflows/production-web-exact-sha.yml',
   ];
   assert.deepEqual(approved, expected);
   const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
@@ -566,7 +569,7 @@ test('W1 implementation cannot authorize itself when the immutable base lacks it
   assert.match(output(result), /no immutable approved scope/u);
 });
 
-test('W1 implementation cannot change the reused API executor or protected registration code', (t) => {
+test('W1 implementation cannot change runtime files absent from its immutable base scope', (t) => {
   const branch = 'ops/pc-crop-w1-production-acceptance-4997';
   const context = fixture(t, branch);
   const protectedFiles = [
@@ -580,4 +583,30 @@ test('W1 implementation cannot change the reused API executor or protected regis
   assert.notEqual(result.status, 0, output(result));
   assert.match(output(result), /Files outside current autopilot scope/u);
   for (const file of protectedFiles) assert.ok(output(result).includes(file), `Unapproved path must be rejected: ${file}`);
+});
+
+
+test('W1 implementation cannot add digest or web-lock authority to an older four-file base', (t) => {
+  const branch = 'ops/pc-crop-w1-production-acceptance-4997';
+  const context = fixture(t, branch);
+  const stateFile = 'docs/platform-v7/autopilot/autopilot-state.json';
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, stateFile), 'utf8'));
+  state.approvedConcurrentScopes[branch] = [
+    '.github/workflows/pc-crop-w1-production-acceptance.yml',
+    'scripts/production-pc-crop-w1-migrations.sh',
+    'scripts/check-production-pc-crop-w1-acceptance.mjs',
+    'scripts/check-production-pc-crop-w1-acceptance.test.mjs',
+  ];
+  write(context.root, stateFile, JSON.stringify(state));
+  commit(context.root, 'accepted original four-path W1 scope');
+  const baseline = git(context.root, ['rev-parse', 'HEAD']);
+  for (const file of ['scripts/production-role-eligibility-api-release.sh', 'scripts/check-role-eligibility-api-release.mjs', '.github/workflows/production-web-exact-sha.yml']) {
+    state.approvedConcurrentScopes[branch].push(file);
+    write(context.root, file, 'attempt premature reuse-guard change\n');
+  }
+  write(context.root, stateFile, JSON.stringify(state));
+  commit(context.root, 'attempt implementation-side authority expansion');
+  const result = runGuard({ ...context, baseline });
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /Mutable scope authority changed/u);
 });
