@@ -2,11 +2,12 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "feat/public-home-role-clarity-20260905",
   "status": "active",
-  "authorizedBy": "explicit-user-instruction-2026-09-08-complete-homepage-5111-live-acceptance",
-  "purpose": "Close the deterministic exact-production acceptance failures and the concrete post-merge accessibility finding remaining after #5176 only: remove residual Cyrillic from the locale-selected public Deal execution route with source-native RU/EN/ZH copy, preserve complete WebKit mobile visual evidence without exceeding the browser screenshot dimension limit, and restore role-based accessibility verification for the seven-stage Deal rail.",
-  "authorityBaseExactMain": "15a834e3993e43da82af2748633a19d2717b1fa6",
-  "effectiveAfter": "This governance refresh must be merged to main first. The implementation branch must then be rematerialized from that accepted exact main on the already trusted immutable public-home implementation branch so this manifest is inherited from the trusted base; the implementation must not create, edit or widen its own scope.",
+  "authorizedBy": "explicit-user-instruction-2026-09-08-authorize-root-layout-for-homepage-5111-rendered-head-localization",
+  "purpose": "Close the remaining deterministic homepage #5111 production-acceptance and independent-review defects only: keep the public Deal execution route source-native RU/EN/ZH in visible, accessible and rendered-head metadata; preserve complete WebKit mobile visual evidence; retain semantic role-based exposure of the seven-stage Deal rail; and permit the root layout to suppress its manually emitted Russian description only on /platform-v7/deal-flow so the localized route renders one locale-native description.",
+  "authorityBaseExactMain": "db59193bdc3fc7028a2c6052e4603dc79d143bc7",
+  "effectiveAfter": "This governance refresh must be merged to main first. The implementation branch must then inherit that accepted exact main on the already trusted immutable public-home implementation branch; the implementation must not edit or widen its own governance scope.",
   "allowedPaths": [
+    "apps/web/app/layout.tsx",
     "apps/web/app/platform-v7/deal-flow/page.tsx",
     "apps/web/components/platform-v7/PublicDealRoleScenario.tsx",
     "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
@@ -14,12 +15,15 @@
   ],
   "requiredInvariants": [
     "The Deal execution route remains a public explanatory surface only and grants no authority, access, Deal mutation, payment action or provider connectivity.",
-    "The Deal execution route must own complete locale-native visible and accessible copy for RU, EN and ZH, including metadata, navigation labels, Deal facts, stages, roles, evidence, CTAs and footer. EN and ZH must not depend on partial DOM replacement that can leave residual Cyrillic.",
+    "The Deal execution route must own complete locale-native visible, accessible and rendered-head copy for RU, EN and ZH, including metadata, navigation labels, Deal facts, stages, roles, evidence, CTAs and footer. EN and ZH must not inherit or emit Russian title, description, Open Graph or Twitter copy.",
+    "The root layout change is limited to suppressing its manually emitted description only when pathname is /platform-v7/deal-flow; every other root route retains the existing root description behavior.",
+    "The Deal execution route provides locale-native absolute title, description, Open Graph, Twitter, canonical and language-alternate metadata, with exactly one rendered meta description for each RU/EN/ZH route.",
     "The existing role/stage/evidence meaning and external-bank truth boundaries remain intact; localization must not invent live provider state, payment finality or expanded participant authority.",
+    "The public bank CTA remains locale-preserving onboarding to registration rather than a protected deep-link whose current authentication flow does not consume next.",
     "The seven-stage rail must expose an explicit semantically appropriate accessibility role while keeping its existing seven buttons, keyboard behavior, labels and visual structure. Production acceptance must locate that rail through a role-based accessible query, not a raw aria-label selector.",
-    "The production-mobile repair must preserve complete visual evidence for the same page under Chromium and WebKit. If one fullPage bitmap would exceed the engine image-dimension limit, capture deterministic CSS-pixel or segmented viewport evidence that covers the full document; do not delete screenshots, skip WebKit, reduce viewports, add retries, catch-and-ignore screenshot errors or suppress test failures.",
+    "The production-mobile repair must preserve complete visual evidence for the same page under Chromium and WebKit. If one fullPage bitmap would exceed the engine image-dimension limit, capture deterministic segmented viewport evidence that covers the full document; do not delete screenshots, skip WebKit, reduce viewports, add retries, catch-and-ignore screenshot errors or suppress test failures.",
     "All existing viewport, role, stage, overflow, keyboard, accessibility, registration and protected-boundary assertions remain present and at least as strict as the accepted base.",
-    "No auth, registration, tenant, RBAC, API, database, middleware authorization, dependency, workflow, scanner, release topology, production credentials, private cabinet or protected Gekta runtime source may change."
+    "No authentication implementation, registration implementation, tenant, RBAC, API, database, middleware authorization, dependency, workflow, scanner, release topology, production credentials, private cabinet or protected Gekta runtime source may change."
   ],
   "forbiddenChanges": [
     ".github/workflows/**",
@@ -37,13 +41,14 @@
     "production credentials or server configuration"
   ],
   "acceptance": [
-    "The implementation diff is a strict subset of the four allowed paths and contains no governance manifest change.",
+    "The implementation diff is a strict subset of the five allowed paths and contains no governance manifest change.",
     "The implementation runs on the existing trusted immutable branch feat/public-home-role-clarity-20260905 so the accepted-base manifest, not the implementation checkout, remains scope authority.",
     "Exact-head substantive CI, including platform-v7 autopilot guard, Node/CI/web-unit/security/SBOM/Design System v8/Production-like Kubernetes, is terminal green before merge.",
-    "The focused production-copy regression proves the Deal execution page uses locale-native RU/EN/ZH source copy and keeps the known EN production residual-Cyrillic fragments out of the EN copy.",
+    "The focused production-copy regression proves source-native RU/EN/ZH Deal execution copy, locale-preserving onboarding, locale-native metadata and the root-layout exception bounded only to /platform-v7/deal-flow.",
+    "Rendered Next.js acceptance proves RU/EN/ZH each emit exactly one locale-native meta description; EN/ZH title, description, Open Graph and Twitter metadata contain no residual Cyrillic.",
     "The production-mobile source preserves complete visual evidence without an engine-dimension failure and retains every tested viewport and both Chromium and WebKit.",
-    "The seven-stage rail is queried by semantic role in production acceptance, closing the concrete post-merge Codex P1 without weakening stage, keyboard or accessibility coverage.",
-    "Owner self-audit and active review-thread inspection are repeated on the exact implementation head. Independent review is not fabricated; any concrete review finding is resolved before merge and the bounded #5111 owner exception applies only to provider availability.",
+    "The seven-stage rail is queried by semantic role in production acceptance without weakening stage, keyboard or accessibility coverage.",
+    "Owner self-audit and active review-thread inspection are repeated on the exact implementation head. A genuine independent Codex exact-head review is required and every concrete finding must be resolved before merge.",
     "Final completion still requires merge onto unchanged accepted main, REG.RU exact-SHA deployment, production i18n rerun, production mobile rerun and live desktop/mobile RU/EN/ZH visual verification."
   ],
   "productionHosting": "REG_RU_VPS_ONLY",
