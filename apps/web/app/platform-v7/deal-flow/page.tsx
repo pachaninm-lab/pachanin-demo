@@ -134,17 +134,18 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function PlatformV7DealFlowPage() {
   const lang = localeKey(await getLocale());
   const t = COPY[lang];
+  const href = (pathname: string) => `${pathname}?lang=${lang}`;
   return (
     <main className='p7-deal-flow-page' data-testid='platform-v7-deal-flow-page' data-lang={lang} data-p7-no-translate='true'>
       <style>{css}</style>
       <header className='p7-flow-header' aria-label={t.pageNav}>
-        <Link href='/platform-v7' className='p7-flow-brand' aria-label={t.brandHome}>
+        <Link href={href('/platform-v7')} className='p7-flow-brand' aria-label={t.brandHome}>
           <BrandMark size={40} />
           <span><strong>{t.brand}</strong><small>{t.brandSub}</small></span>
         </Link>
         <nav className='p7-flow-actions' aria-label={t.pageActions}>
-          <Link href='/platform-v7' aria-label={t.back}><ArrowLeft size={21} /></Link>
-          <Link href='/platform-v7/contact' aria-label={t.question}><MessageCircleQuestion size={21} /></Link>
+          <Link href={href('/platform-v7')} aria-label={t.back}><ArrowLeft size={21} /></Link>
+          <Link href={href('/platform-v7/contact')} aria-label={t.question}><MessageCircleQuestion size={21} /></Link>
         </nav>
       </header>
 
@@ -153,7 +154,7 @@ export default async function PlatformV7DealFlowPage() {
           <span className='p7-flow-kicker'>{t.heroKicker}</span>
           <h1 id='flow-title'>{t.heroTitle}</h1>
           <p>{t.heroText}</p>
-          <div className='p7-flow-hero-actions'><Link href='/platform-v7/register'>{t.register}<ArrowRight size={18} /></Link><Link href='/platform-v7/contact'>{t.contact}</Link></div>
+          <div className='p7-flow-hero-actions'><Link href={href('/platform-v7/register')}>{t.register}<ArrowRight size={18} /></Link><Link href={href('/platform-v7/contact')}>{t.contact}</Link></div>
         </div>
         <aside className='p7-flow-status' aria-label={t.statusLabel}>
           <span>{t.statusLabel}</span>
@@ -170,7 +171,7 @@ export default async function PlatformV7DealFlowPage() {
 
       <section className='p7-money-section' aria-labelledby='money-title'>
         <div><span className='p7-flow-kicker'>{t.moneyKicker}</span><h2 id='money-title'>{t.moneyTitle}</h2><p>{t.moneyText}</p></div>
-        <div className='p7-money-card'><Banknote size={28} /><strong>{t.deal.amount}</strong><p>{t.moneyStatus}</p><Link href='/platform-v7/bank'>{t.bankAction}</Link></div>
+        <div className='p7-money-card'><Banknote size={28} /><strong>{t.deal.amount}</strong><p>{t.moneyStatus}</p><Link href={href('/platform-v7/bank')}>{t.bankAction}</Link></div>
       </section>
 
       <section className='p7-flow-section' aria-labelledby='roles-title'>
@@ -183,7 +184,7 @@ export default async function PlatformV7DealFlowPage() {
         <ul>{t.evidence.map((item) => <li key={item}><ShieldCheck size={18} />{item}</li>)}</ul>
       </section>
 
-      <footer className='p7-flow-footer'><Link href='/platform-v7'>{t.home}</Link><Link href='/platform-v7/contact'>{t.footerQuestion}</Link></footer>
+      <footer className='p7-flow-footer'><Link href={href('/platform-v7')}>{t.home}</Link><Link href={href('/platform-v7/contact')}>{t.footerQuestion}</Link></footer>
     </main>
   );
 }
