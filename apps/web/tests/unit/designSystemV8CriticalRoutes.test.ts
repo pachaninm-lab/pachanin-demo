@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { canRoleAccessCabinet } from '@/lib/platform-v7/cabinet-access-policy';
 
 const cwd = process.cwd();
 const repoRoot = [cwd, path.resolve(cwd, '../..')]
@@ -14,6 +15,9 @@ const releaseMutation = /fetch\s*\(|method\s*:\s*['"](?:POST|PUT|PATCH|DELETE)['
 
 const documents = read('apps/web/app/platform-v7/documents/page.tsx');
 const disputes = read('apps/web/app/platform-v7/disputes/page.tsx');
+const executive = read('apps/web/app/platform-v7/executive/page.tsx');
+const status = read('apps/web/app/platform-v7/status/page.tsx');
+const disputesServer = read('apps/web/lib/disputes-server.ts');
 const releaseSafety = read('apps/web/app/platform-v7/bank/release-safety/page.tsx');
 const designSystemIndex = read('packages/design-system-v8/src/index.ts');
 const governance = JSON.parse(read('design-governance-v8.json')) as { migratedFiles: string[] };
@@ -54,6 +58,20 @@ describe('Design System v8 critical transaction routes', () => {
     expect(disputes).toContain('labels={copy.labels}');
     expect(disputes).toContain("import { EmptyState } from '@pc/design-system-v8'");
     expect(designSystemIndex).toContain("export { EmptyState } from './EmptyState'");
+  });
+
+  it('keeps executive all-clear fail-closed and routes restricted bank alerts to the read-only status aggregate', () => {
+    expect(executive).toContain('getDisputesSnapshot');
+    expect(executive).toContain('!disputesAvailable');
+    expect(executive).toContain('споры: состояние неизвестно');
+    expect(executive).toContain('Требует внимания: источник споров');
+    expect(executive).toContain("href='/platform-v7/status'");
+    expect(executive).not.toContain("href='/platform-v7/bank'");
+    expect(disputesServer).toContain('isApiAvailable: false');
+    expect(disputesServer).toContain('isApiAvailable: true');
+    expect(status).toContain('getOutboxStatus');
+    expect(status).not.toContain('RbacGuard');
+    expect(canRoleAccessCabinet('executive', '/platform-v7/status')).toBe(true);
   });
 
   it('keeps bank release review server-selected, read-only and callback-authoritative', () => {

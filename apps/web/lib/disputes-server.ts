@@ -29,18 +29,28 @@ export type DisputeServerItem = {
  * an unavailable source; owning workspaces use their independent availability
  * signals before presenting an all-clear state.
  */
-export async function getDisputes(): Promise<DisputeServerItem[]> {
+export type DisputesSnapshot = Readonly<{
+  disputes: DisputeServerItem[];
+  isApiAvailable: boolean;
+}>;
+
+export async function getDisputesSnapshot(): Promise<DisputesSnapshot> {
   try {
     const res = await fetch(serverApiUrl('/disputes'), {
       cache: 'no-store',
       headers: await serverAuthHeaders(),
     });
-    if (!res.ok) return [];
+    if (!res.ok) return { disputes: [], isApiAvailable: false };
     const data: unknown = await res.json();
-    return Array.isArray(data) ? data.map(parseDispute) : [];
+    if (!Array.isArray(data)) return { disputes: [], isApiAvailable: false };
+    return { disputes: data.map(parseDispute), isApiAvailable: true };
   } catch {
-    return [];
+    return { disputes: [], isApiAvailable: false };
   }
+}
+
+export async function getDisputes(): Promise<DisputeServerItem[]> {
+  return (await getDisputesSnapshot()).disputes;
 }
 
 export async function getDispute(id: string): Promise<DisputeServerItem | null> {

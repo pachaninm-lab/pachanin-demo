@@ -3,7 +3,7 @@ import { PriceChart } from '@/components/platform-v7/PriceChart';
 import { ExecutiveSignalWall, type ExecutiveSignal } from '@/components/platform-v7/ExecutiveSignalWall';
 import { EmptyState } from '@/components/platform-v7/EmptyState';
 import { getDealsCanonical } from '@/lib/deals-server';
-import { getDisputes, disputeTotalHeldRub, openDisputeCount } from '@/lib/disputes-server';
+import { getDisputesSnapshot, disputeTotalHeldRub, openDisputeCount } from '@/lib/disputes-server';
 import { getShipments, activeShipmentCount } from '@/lib/logistics-server';
 import { getOutboxStatus } from '@/lib/outbox-server';
 import { CollapsibleSection } from '@/components/platform-v7/CollapsibleSection';
@@ -27,13 +27,15 @@ function formatMoney(rub: number): string {
 }
 
 export default async function ExecutivePage() {
-  const [deals, disputes, shipments, outbox] = await Promise.all([
+  const [deals, disputesSnapshot, shipments, outbox] = await Promise.all([
     getDealsCanonical(),
-    getDisputes(),
+    getDisputesSnapshot(),
     getShipments(),
     getOutboxStatus(),
   ]);
 
+  const disputes = disputesSnapshot.disputes;
+  const disputesAvailable = disputesSnapshot.isApiAvailable;
   const dealList: any[] = Array.isArray(deals) ? deals : [];
   const activeDeals = dealList.filter((deal) => !['CLOSED', 'CANCELLED'].includes(deal.status));
   const totalVolume = dealList.reduce((sum, deal) => sum + (deal.totalRub ?? 0), 0);
@@ -44,13 +46,14 @@ export default async function ExecutivePage() {
   const bi = getPlatformV7BiCockpitState();
 
   const liveBlockers = [
+    ...(!disputesAvailable ? [{ id: 'disputes-source', label: 'Источник споров недоступен · состояние неизвестно', severity: 'warn' as const }] : []),
     ...(disputeCount > 0 ? [{ id: 'disputes', label: `${disputeCount} открытых спора · ${formatMoney(heldRub)} удержано`, severity: 'stop' as const }] : []),
     ...(pendingBank > 0 ? [{ id: 'bank', label: `${pendingBank} банковских операций ожидают подтверждения`, severity: 'warn' as const }] : []),
   ];
 
   const signals: ExecutiveSignal[] = [
-    { label: 'Деньги в блоке', value: formatMoney(heldRub), detail: disputeCount > 0 ? 'удержано до решения споров' : 'удержаний нет', state: heldRub > 0 ? 'stop' : 'ok' },
-    { label: 'Открытые споры', value: String(disputeCount), detail: 'каждый спор связан с конкретной Сделкой', state: disputeCount > 0 ? 'stop' : 'ok' },
+    { label: 'Деньги в блоке', value: disputesAvailable ? formatMoney(heldRub) : '—', detail: !disputesAvailable ? 'источник споров недоступен' : disputeCount > 0 ? 'удержано до решения споров' : 'удержаний нет', state: !disputesAvailable ? 'wait' : heldRub > 0 ? 'stop' : 'ok' },
+    { label: 'Открытые споры', value: disputesAvailable ? String(disputeCount) : '—', detail: disputesAvailable ? 'каждый спор связан с конкретной Сделкой' : 'состояние неизвестно', state: !disputesAvailable ? 'wait' : disputeCount > 0 ? 'stop' : 'ok' },
     { label: 'Банк ожидает', value: String(pendingBank), detail: 'операции требуют внешнего подтверждения', state: pendingBank > 0 ? 'wait' : 'ok' },
     { label: 'Портфель', value: formatMoney(totalVolume), detail: `${dealList.length} сделок · ${activeDeals.length} активных`, state: 'ok' },
   ];
@@ -71,31 +74,37 @@ export default async function ExecutivePage() {
           openDisputes={disputeCount}
           activeShipments={shipmentCount}
           role='EXECUTIVE · Стратегический обзор'
-          summary={`${activeDeals.length} активных сделок · ${formatMoney(totalVolume)} портфель · ${formatMoney(heldRub)} удержано`}
+          summary={disputesAvailable
+            ? `${activeDeals.length} активных сделок · ${formatMoney(totalVolume)} портфель · ${formatMoney(heldRub)} удержано`
+            : `${activeDeals.length} активных сделок · ${formatMoney(totalVolume)} портфель · споры: состояние неизвестно`}
         />
       )}
       priority={{
-        state: disputeCount > 0 ? 'critical' : pendingBank > 0 ? 'active' : 'ready',
+        state: !disputesAvailable ? 'active' : disputeCount > 0 ? 'critical' : pendingBank > 0 ? 'active' : 'ready',
         eyebrow: 'Главный управленческий сигнал',
-        title: disputeCount > 0
+        title: !disputesAvailable
+          ? 'Проверить доступность реестра споров'
+          : disputeCount > 0
           ? `Разобрать причины удержания ${formatMoney(heldRub)}`
           : pendingBank > 0
             ? `Проверить ${pendingBank} банковских подтверждений`
             : 'Критических отклонений нет',
-        description: disputeCount > 0
+        description: !disputesAvailable
+          ? 'Источник споров недоступен или вернул непроверяемые данные. Дашборд не объявляет all-clear, пока серверный реестр не восстановит подтверждаемое состояние.'
+          : disputeCount > 0
           ? 'Сначала разберите причины удержаний и владельцев процесса. Операционные действия остаются у уполномоченных ролей внутри Сделки.'
           : pendingBank > 0
             ? 'Есть внешние банковские подтверждения в ожидании. Дашборд показывает влияние, но не подменяет банковский authority.'
             : 'Портфель без критических удержаний и банковских блокеров. Контролируйте сделки, логистику и динамику без ручного вмешательства.',
-        blocker: disputeCount > 0 ? `${disputeCount} открытых спора` : pendingBank > 0 ? `${pendingBank} банковских операций` : 'нет',
-        owner: disputeCount > 0 ? 'оператор + арбитр + банк' : pendingBank > 0 ? 'банк + оператор' : 'нет эскалации',
-        impact: heldRub > 0 ? formatMoney(heldRub) : pendingBank > 0 ? `${pendingBank} операций` : 'нет денежного влияния',
+        blocker: !disputesAvailable ? 'состояние споров неизвестно' : disputeCount > 0 ? `${disputeCount} открытых спора` : pendingBank > 0 ? `${pendingBank} банковских операций` : 'нет',
+        owner: !disputesAvailable ? 'оператор платформы' : disputeCount > 0 ? 'оператор + арбитр + банк' : pendingBank > 0 ? 'банк + оператор' : 'нет эскалации',
+        impact: !disputesAvailable ? 'неизвестно до восстановления источника' : heldRub > 0 ? formatMoney(heldRub) : pendingBank > 0 ? `${pendingBank} операций` : 'нет денежного влияния',
         result: 'эскалация владельцу процесса, а не ручная правка данных',
       }}
       facts={[
         { label: 'Портфель', value: formatMoney(totalVolume), hint: `${dealList.length} сделок всего` },
         { label: 'Активных сделок', value: String(activeDeals.length), hint: 'не закрыты и не отменены' },
-        { label: 'Деньги в блоке', value: formatMoney(heldRub), hint: disputeCount > 0 ? `${disputeCount} открытых спора` : 'удержаний нет' },
+        { label: 'Деньги в блоке', value: disputesAvailable ? formatMoney(heldRub) : '—', hint: !disputesAvailable ? 'состояние споров неизвестно' : disputeCount > 0 ? `${disputeCount} открытых спора` : 'удержаний нет' },
         { label: 'Активных рейсов', value: String(shipmentCount), hint: 'операционный объём исполнения' },
       ]}
       boundary='Руководитель имеет read-only обзор. Экран не расширяет RBAC, не создаёт банк-статус и не позволяет обходить ответственных участников Сделки.'
@@ -110,7 +119,7 @@ export default async function ExecutivePage() {
           <OperationalQueueLink
             href='/platform-v7/disputes'
             title='Споры и удержания'
-            detail={disputeCount > 0 ? `${disputeCount} открытых · ${formatMoney(heldRub)} удержано` : 'Открытых споров и удержаний нет'}
+            detail={!disputesAvailable ? 'Источник споров недоступен' : disputeCount > 0 ? `${disputeCount} открытых · ${formatMoney(heldRub)} удержано` : 'Открытых споров и удержаний нет'}
           />
           <OperationalQueueLink
             href='/platform-v7/logistics'
@@ -128,6 +137,13 @@ export default async function ExecutivePage() {
       {liveBlockers.length > 0 ? (
         <CollapsibleSection title='Требует внимания' summary={`${liveBlockers.length} управленческих сигнала`} defaultOpen>
           <OperationalQueue>
+            {!disputesAvailable ? (
+              <OperationalQueueLink
+                href='/platform-v7/status'
+                title='Требует внимания: источник споров'
+                detail='Состояние споров неизвестно — all-clear отключён до восстановления источника'
+              />
+            ) : null}
             {disputeCount > 0 ? (
               <OperationalQueueLink
                 href='/platform-v7/disputes'
@@ -137,7 +153,7 @@ export default async function ExecutivePage() {
             ) : null}
             {pendingBank > 0 ? (
               <OperationalQueueLink
-                href='/platform-v7/bank'
+                href='/platform-v7/status'
                 title='Требуют внимания: банк'
                 detail={`${pendingBank} операций ожидают внешнего подтверждения`}
               />
