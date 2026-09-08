@@ -17,6 +17,7 @@ const publicHomeGovernanceBranch = 'governance/public-home-role-clarity-scope-20
 const publicHomeImplementationBranch = 'feat/public-home-role-clarity-20260905';
 const publicHomeGovernanceManifest = 'docs/platform-v7/autopilot/scopes/governance-public-home-role-clarity-scope-20260905.json';
 const publicHomeImplementationManifest = 'docs/platform-v7/autopilot/scopes/public-home-role-clarity-20260905.json';
+const poisonIsolationImplementationBranch = 'fix/production-like-outbox-poison-isolation-3793';
 const sourceGuard = path.resolve('scripts/p7-autopilot-guard.sh');
 const sourceResolver = path.resolve('scripts/p7-source-controlled-scope.mjs');
 const sourceWorkflow = path.resolve('.github/workflows/platform-v7-autopilot-guard.yml');
@@ -283,6 +284,17 @@ test('public-home implementation fails closed when the accepted base manifest is
   assert.match(output(result), /cannot load accepted public-home manifest/u);
 });
 
+test('poison-isolation implementation branch is immutable and fails closed before its manifest resolver is accepted', (t) => {
+  const context = publicHomeImplementationFixture(t);
+  context.implementationBranch = poisonIsolationImplementationBranch;
+  write(context.root, 'README.md', 'must not inherit broad allowedCurrentScope\n');
+  commit(context.root, 'attempt poison implementation before resolver authority');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /no immutable approved scope/u);
+  assert.doesNotMatch(output(result), /Scope guard passed\./u);
+});
+
 test('records immutable prior authority for the EGRUL governance manifest only', () => {
   const state = JSON.parse(fs.readFileSync(path.resolve('docs/platform-v7/autopilot/autopilot-state.json'), 'utf8'));
   assert.deepEqual(state.approvedConcurrentScopes['governance/role-eligibility-fns-egrul-file-import-5016'], ['docs/platform-v7/autopilot/scopes/role-eligibility-fns-egrul-file-import-5016.json']);
@@ -303,6 +315,8 @@ test('runs immutable authority checks from a read-only trusted-base workflow', (
     "github.event.pull_request.head.ref == 'feat/role-eligibility-fns-egrul-file-import-5016'",
     `github.event.pull_request.head.ref == '${publicHomeGovernanceBranch}'`,
     `github.event.pull_request.head.ref == '${publicHomeImplementationBranch}'`,
+    "github.event.pull_request.head.ref == 'governance/production-like-outbox-poison-isolation-scope-3793'",
+    "github.event.pull_request.head.ref == 'fix/production-like-outbox-poison-isolation-3793'",
     "const manifestPath = 'docs/platform-v7/autopilot/scopes/role-eligibility-fns-egrul-file-import-5016.json';",
     "'apps/api/src/fns-egrul-import.ts'",
     "'apps/api/src/modules/role-eligibility/fns-egrul-file-import.service.ts'",
@@ -323,7 +337,7 @@ test('runs immutable authority checks from a read-only trusted-base workflow', (
     "-f name='guard'",
     '-f head_sha="$HEAD_SHA"',
     "-f status='completed'",
-    `github.head_ref == '${publicHomeImplementationBranch}') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}`,
+    `github.head_ref == '${publicHomeImplementationBranch}' || github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' || github.head_ref == 'fix/production-like-outbox-poison-isolation-3793') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}`,
     'needs: standard_validation',
     "if: always() && github.event_name != 'pull_request_target'",
     'git show "$BASE_SHA:scripts/p7-autopilot-guard.sh" > "$TRUSTED_GUARD"',
