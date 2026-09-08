@@ -6,6 +6,7 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { checkManifests } from './check-ci-postgres-image-authority.mjs';
 import { TARGET_MIGRATIONS, TARGET_TABLES, validateManifest, decodeManifest, validateImageManifest,
   classifyLedger, validateApiEnvironment, validateSnapshot, snapshotSql, parseEvidence,
   validateMigrationImage, validateCompose, runtimeFingerprint, errorCode, checkSources } from './check-production-pc-crop-w1-acceptance.mjs';
@@ -247,12 +248,12 @@ test('exact-image PostgreSQL transport, migration, restore and rejection rehears
   }
   const backupBefore=new Set(fs.readdirSync('/root').filter(name=>name.startsWith('pc-w1-backup.')));
   const createdBackups=[];
-  let pgId,postgresDigest,expectedHash;
+  let pgId,databaseImage,expectedHash;
   const dc=(...args)=>run('docker',['compose','--project-directory',fixture,'--project-name',project,'-f',composeFile,...args],{label:'COMPOSE'});
   const sql=(statement,database='grainflow')=>run('docker',['exec','-i',pgId,'psql','-X','--set','ON_ERROR_STOP=1','-U','postgres','-d',database],{input:statement,label:'ISOLATED_SQL'});
   const configFor=(database='grainflow',migrationDatabase=database,mode='disabled')=>({
     services:{
-      postgres:{image:postgresDigest,environment:{POSTGRES_PASSWORD:password,POSTGRES_DB:'grainflow',POSTGRES_USER:'postgres'},
+      postgres:{image:databaseImage,environment:{POSTGRES_PASSWORD:password,POSTGRES_DB:'grainflow',POSTGRES_USER:'postgres'},
         healthcheck:{test:['CMD-SHELL','pg_isready -U postgres -d grainflow'],interval:'1s',timeout:'3s',retries:60}},
       api:{image:apiDigest,command:['-e','setInterval(()=>{},1000)'],environment:{...environment(),DATABASE_URL:url(database,'app_deal_api'),FGIS_GRAIN_MODE:mode}},
       migration:{image:migrationDigest,environment:{DATABASE_URL:url(migrationDatabase)}},
@@ -287,13 +288,16 @@ test('exact-image PostgreSQL transport, migration, restore and rejection rehears
     return evidence;
   };
   try {
-    run('docker',['pull',migrationDigest]);run('docker',['pull',apiDigest]);run('docker',['pull','postgres:16']);
+    const mirrorFile='.github/container-images/postgres-16.v1.json';
+    const mirror=JSON.parse(fs.readFileSync(path.join(root,mirrorFile),'utf8'));
+    assert.deepEqual(checkManifests([{file:mirrorFile,manifest:mirror}]),[],'REHEARSAL_POSTGRES_AUTHORITY_INVALID');
+    databaseImage=`${mirror.mirrored_repository}@${mirror.mirrored_digest}`;
+    run('docker',['pull',migrationDigest]);run('docker',['pull',apiDigest]);run('docker',['pull',databaseImage]);
     const metadata=JSON.parse(run('docker',['image','inspect',apiDigest]).stdout)[0];
     assert.equal(metadata.Config.Labels['org.opencontainers.image.revision'],sha);
     assert.ok(metadata.RepoDigests.includes(apiDigest));
-    const pgMetadata=JSON.parse(run('docker',['image','inspect','postgres:16']).stdout)[0];
-    postgresDigest=pgMetadata.RepoDigests.find(value=>/^postgres@sha256:[0-9a-f]{64}$/.test(value));
-    assert.ok(postgresDigest,'REHEARSAL_POSTGRES_DIGEST_REQUIRED');
+    const pgMetadata=JSON.parse(run('docker',['image','inspect',databaseImage]).stdout)[0];
+    assert.ok(pgMetadata.RepoDigests.includes(databaseImage),'REHEARSAL_POSTGRES_DIGEST_REQUIRED');
     writeConfig();dc('up','-d','--wait','--wait-timeout','90','postgres');
     pgId=dc('ps','-q','postgres').stdout.trim();assert.match(pgId,/^[0-9a-f]{64}$/);
     assert.match(sql('SHOW server_version;').stdout,/16\./);
@@ -356,7 +360,7 @@ test('exact-image PostgreSQL transport, migration, restore and rejection rehears
     // The intentional old API lot-registration degradation stays explicit.
     assert.equal(restored.PC_W1_LEGACY_LOT_ROLLBACK,'DEGRADED_FAIL_CLOSED');
     fs.mkdirSync(path.dirname(report),{recursive:true});
-    fs.writeFileSync(report,JSON.stringify({status:'PASS',scope:'ISOLATED_DATABASE_ONLY',targetSha:sha,apiDigest,migrationDigest,postgresDigest,
+    fs.writeFileSync(report,JSON.stringify({status:'PASS',scope:'ISOLATED_DATABASE_ONLY',targetSha:sha,apiDigest,migrationDigest,postgresDigest:databaseImage,
       expectedCatalogSha256:expectedHash,restoreRehearsal:'PASS',negativeCases:{wrongDatabase:'PASS',partialMigration:'PASS',productionMockMode:'PASS',policyDrift:'PASS',grantDrift:'PASS'},
       fullAcceptance:'NOT_EVIDENCED'},null,2)+'\n',{flag:'wx',mode:0o644});
   } finally {

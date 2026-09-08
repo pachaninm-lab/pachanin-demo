@@ -388,10 +388,19 @@ jobs:
           # Raw output can contain protected Compose paths. Publish only typed fields.
           RAW_FILE="$raw" node - <<'NODE' | tee "$EVIDENCE_DIR/stage.log"
           const fs=require('node:fs');
-          const map={ROLE_ELIGIBILITY_API_RELEASE:'PC_W1_API_RELEASE',ROLE_ELIGIBILITY_API_REVISION:'PC_W1_DEPLOYED_API_SHA',ROLE_ELIGIBILITY_API_READY:'PC_W1_API_READY',ROLE_ELIGIBILITY_API_DIGEST_VERIFIED:'PC_W1_API_DIGEST_VERIFIED',ROLE_ELIGIBILITY_API_MUTATION_STARTED:'PC_W1_API_MUTATION_STARTED',ROLE_ELIGIBILITY_API_ROLLBACK_ATTEMPTED:'PC_W1_API_ROLLBACK_ATTEMPTED',ROLE_ELIGIBILITY_API_ROLLBACK_COMPLETED:'PC_W1_API_ROLLBACK_RUNTIME_COMPLETED',ERROR_CODE:'PC_W1_EXECUTOR_ERROR'};
+          const map=new Map([
+            ['ROLE_ELIGIBILITY_API_RELEASE','PC_W1_API_RELEASE'],
+            ['ROLE_ELIGIBILITY_API_REVISION','PC_W1_DEPLOYED_API_SHA'],
+            ['ROLE_ELIGIBILITY_API_READY','PC_W1_API_READY'],
+            ['ROLE_ELIGIBILITY_API_DIGEST_VERIFIED','PC_W1_API_DIGEST_VERIFIED'],
+            ['ROLE_ELIGIBILITY_API_MUTATION_STARTED','PC_W1_API_MUTATION_STARTED'],
+            ['ROLE_ELIGIBILITY_API_ROLLBACK_ATTEMPTED','PC_W1_API_ROLLBACK_ATTEMPTED'],
+            ['ROLE_ELIGIBILITY_API_ROLLBACK_COMPLETED','PC_W1_API_ROLLBACK_RUNTIME_COMPLETED'],
+            ['ERROR_CODE','PC_W1_EXECUTOR_ERROR'],
+          ]);
           for(let line of fs.readFileSync(process.env.RAW_FILE,'utf8').split(/\r?\n/)) {
             const [key,value]=line.split('=');
-            if(map[key]) line=`${map[key]}=${value}`;
+            if(map.has(key)) line=`${map.get(key)}=${value}`;
             if(/^PC_W1_[A-Z0-9_]+=(?:[A-Z][A-Z0-9_]{0,100}|true|false|[0-9]{1,10}|[0-9a-f]{40}|[0-9a-f]{64})$/.test(line)) console.log(line);
           }
           NODE
