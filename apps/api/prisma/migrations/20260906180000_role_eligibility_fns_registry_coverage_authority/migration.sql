@@ -156,6 +156,12 @@ CREATE TABLE eligibility.registry_generation_lineage (
   update_package_sha256 CHAR(64) NOT NULL,
   source_published_at TIMESTAMPTZ NOT NULL,
   effective_cutoff TIMESTAMPTZ NOT NULL,
+  predecessor_record_count BIGINT NOT NULL CHECK (predecessor_record_count > 0),
+  effective_record_count BIGINT NOT NULL CHECK (effective_record_count > 0),
+  predecessor_covered_count BIGINT NOT NULL CHECK (predecessor_covered_count > 0),
+  new_subject_count BIGINT NOT NULL CHECK (new_subject_count >= 0),
+  predecessor_recordset_sha256 CHAR(64) NOT NULL CHECK (predecessor_recordset_sha256 ~ '^[0-9a-f]{64}$'),
+  effective_recordset_sha256 CHAR(64) NOT NULL CHECK (effective_recordset_sha256 ~ '^[0-9a-f]{64}$'),
   created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
   CONSTRAINT registry_generation_lineage_generation_fk
     FOREIGN KEY (generation_id, source, registry_domain)
@@ -173,6 +179,126 @@ CREATE TRIGGER registry_generation_lineage_append_only
 BEFORE UPDATE OR DELETE ON eligibility.registry_generation_lineage
 FOR EACH ROW EXECUTE FUNCTION eligibility.reject_append_only_mutation();
 
+CREATE OR REPLACE FUNCTION eligibility.compute_registry_recordset_sha256(p_generation_id TEXT)
+RETURNS CHAR(64)
+LANGUAGE plpgsql
+STABLE
+SET search_path = pg_catalog, eligibility
+AS $function$
+DECLARE
+  state BYTEA := public.digest(convert_to('role-eligibility.registry-recordset.v1','UTF8'),'sha256');
+  r RECORD;
+BEGIN
+  FOR r IN
+    SELECT source_record_id,record_type,payload_sha256,subject_inn,subject_ogrn
+    FROM eligibility.registry_records
+    WHERE generation_id=p_generation_id
+    ORDER BY source_record_id,record_type,payload_sha256,id
+  LOOP
+    state := public.digest(
+      state || convert_to(
+        jsonb_build_array(r.source_record_id,r.record_type,r.payload_sha256,r.subject_inn,r.subject_ogrn)::text,
+        'UTF8'
+      ),
+      'sha256'
+    );
+  END LOOP;
+  RETURN encode(state,'hex')::CHAR(64);
+END
+$function$;
+REVOKE ALL ON FUNCTION eligibility.compute_registry_recordset_sha256(TEXT) FROM PUBLIC;
+
+-- Registry generation identity/state is monotonic. Runtime principals may build a
+-- STAGING generation, but they cannot move VALIDATED/ACTIVE data back to STAGING
+-- to reopen record mutation after validation/authority.
+CREATE OR REPLACE FUNCTION eligibility.guard_registry_generation_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, eligibility
+AS $function$
+BEGIN
+  IF NEW.source IS DISTINCT FROM OLD.source
+     OR NEW.registry_domain IS DISTINCT FROM OLD.registry_domain
+     OR NEW.generation IS DISTINCT FROM OLD.generation
+     OR NEW.published_at IS DISTINCT FROM OLD.published_at
+     OR NEW.content_sha256 IS DISTINCT FROM OLD.content_sha256
+     OR NEW.parser_version IS DISTINCT FROM OLD.parser_version
+     OR NEW.schema_version IS DISTINCT FROM OLD.schema_version THEN
+    RAISE EXCEPTION USING ERRCODE='55000', MESSAGE='registry generation identity is immutable';
+  END IF;
+
+  IF OLD.status='STAGING' AND NEW.status NOT IN ('STAGING','VALIDATED','REJECTED') THEN
+    RAISE EXCEPTION USING ERRCODE='55000', MESSAGE='invalid STAGING registry generation transition';
+  ELSIF OLD.status='VALIDATED' AND NEW.status NOT IN ('VALIDATED','ACTIVE','REJECTED') THEN
+    RAISE EXCEPTION USING ERRCODE='55000', MESSAGE='invalid VALIDATED registry generation transition';
+  ELSIF OLD.status='ACTIVE' AND NEW.status NOT IN ('ACTIVE','SUPERSEDED','VALIDATED') THEN
+    RAISE EXCEPTION USING ERRCODE='55000', MESSAGE='invalid ACTIVE registry generation transition';
+  ELSIF OLD.status='SUPERSEDED' AND NEW.status <> 'SUPERSEDED' THEN
+    RAISE EXCEPTION USING ERRCODE='55000', MESSAGE='SUPERSEDED registry generation is immutable';
+  ELSIF OLD.status='REJECTED' AND NEW.status <> 'REJECTED' THEN
+    RAISE EXCEPTION USING ERRCODE='55000', MESSAGE='REJECTED registry generation is immutable';
+  END IF;
+
+  IF OLD.status <> 'STAGING' AND NEW.record_count IS DISTINCT FROM OLD.record_count THEN
+    RAISE EXCEPTION USING ERRCODE='55000', MESSAGE='registry generation cardinality is immutable outside STAGING';
+  END IF;
+  IF EXISTS (SELECT 1 FROM eligibility.registry_generation_lineage WHERE generation_id=OLD.id)
+     AND NEW.record_count IS DISTINCT FROM OLD.record_count THEN
+    RAISE EXCEPTION USING ERRCODE='55000', MESSAGE='sealed EGRUL composition cardinality is immutable';
+  END IF;
+  RETURN NEW;
+END
+$function$;
+REVOKE ALL ON FUNCTION eligibility.guard_registry_generation_mutation() FROM PUBLIC;
+CREATE TRIGGER registry_generations_mutation_guard
+BEFORE UPDATE ON eligibility.registry_generations
+FOR EACH ROW EXECUTE FUNCTION eligibility.guard_registry_generation_mutation();
+
+-- Registry records are mutable only while their generation is STAGING and has
+-- not yet been composition-sealed. This is enforced in PostgreSQL regardless of
+-- the caller's direct table grants.
+CREATE OR REPLACE FUNCTION eligibility.guard_registry_record_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, eligibility
+AS $function$
+DECLARE
+  target_generation_id TEXT;
+  target_status TEXT;
+BEGIN
+  target_generation_id := CASE WHEN TG_OP='DELETE' THEN OLD.generation_id ELSE NEW.generation_id END;
+  IF TG_OP='UPDATE' AND NEW.generation_id IS DISTINCT FROM OLD.generation_id THEN
+    RAISE EXCEPTION USING ERRCODE='55000', MESSAGE='registry record generation identity is immutable';
+  END IF;
+
+  SELECT status INTO target_status
+  FROM eligibility.registry_generations
+  WHERE id=target_generation_id
+  FOR SHARE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION USING ERRCODE='55000', MESSAGE='registry record generation is missing';
+  END IF;
+  IF target_status <> 'STAGING' THEN
+    RAISE EXCEPTION USING ERRCODE='55000', MESSAGE='registry records are immutable outside STAGING';
+  END IF;
+  IF EXISTS (SELECT 1 FROM eligibility.registry_generation_lineage WHERE generation_id=target_generation_id) THEN
+    RAISE EXCEPTION USING ERRCODE='55000', MESSAGE='registry records are immutable after composition seal';
+  END IF;
+  IF to_regclass('eligibility.registry_generation_authority') IS NOT NULL
+     AND EXISTS (SELECT 1 FROM eligibility.registry_generation_authority WHERE generation_id=target_generation_id) THEN
+    RAISE EXCEPTION USING ERRCODE='55000', MESSAGE='registry records are immutable after authority materialization';
+  END IF;
+  IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+  RETURN NEW;
+END
+$function$;
+REVOKE ALL ON FUNCTION eligibility.guard_registry_record_mutation() FROM PUBLIC;
+CREATE TRIGGER registry_records_mutation_guard
+BEFORE INSERT OR UPDATE OR DELETE ON eligibility.registry_records
+FOR EACH ROW EXECUTE FUNCTION eligibility.guard_registry_record_mutation();
+
 CREATE OR REPLACE FUNCTION eligibility.record_fns_egrul_predecessor(
   p_generation_id TEXT,
   p_predecessor_generation_id TEXT
@@ -186,16 +312,24 @@ DECLARE
   target RECORD;
   predecessor RECORD;
   existing RECORD;
+  target_stats RECORD;
+  predecessor_stats RECORD;
+  covered_count BIGINT;
+  new_subject_count BIGINT;
+  target_recordset_sha256 CHAR(64);
+  predecessor_recordset_sha256 CHAR(64);
 BEGIN
-  SELECT id,source,registry_domain,generation,published_at,content_sha256,status
+  PERFORM pg_advisory_xact_lock(hashtextextended('fns-egrul-generation:' || p_generation_id, 0));
+
+  SELECT id,source,registry_domain,generation,published_at,content_sha256,status,record_count
   INTO target
   FROM eligibility.registry_generations
   WHERE id=p_generation_id
-  FOR SHARE;
+  FOR UPDATE;
   IF NOT FOUND
      OR target.source <> 'FNS'
      OR target.registry_domain <> 'EGRUL'
-     OR target.status NOT IN ('STAGING','VALIDATED') THEN
+     OR target.status <> 'STAGING' THEN
     RAISE EXCEPTION 'invalid EGRUL lineage target';
   END IF;
   IF to_regclass('eligibility.registry_generation_authority') IS NOT NULL
@@ -205,7 +339,7 @@ BEGIN
     RAISE EXCEPTION 'EGRUL lineage cannot change after authority materialization';
   END IF;
 
-  SELECT id,source,registry_domain,published_at,status
+  SELECT id,source,registry_domain,published_at,status,record_count
   INTO predecessor
   FROM eligibility.registry_generations
   WHERE id=p_predecessor_generation_id
@@ -218,12 +352,66 @@ BEGIN
     RAISE EXCEPTION 'invalid EGRUL lineage predecessor';
   END IF;
 
+  SELECT COUNT(*)::bigint AS actual_count,
+         COUNT(DISTINCT source_record_id)::bigint AS distinct_subjects,
+         COUNT(*) FILTER (
+           WHERE source <> 'FNS' OR record_type <> 'EGRUL_LEGAL_ENTITY'
+              OR subject_ogrn IS NULL OR source_record_id IS DISTINCT FROM subject_ogrn
+         )::bigint AS invalid_records
+  INTO target_stats
+  FROM eligibility.registry_records
+  WHERE generation_id=target.id;
+
+  SELECT COUNT(*)::bigint AS actual_count,
+         COUNT(DISTINCT source_record_id)::bigint AS distinct_subjects,
+         COUNT(*) FILTER (
+           WHERE source <> 'FNS' OR record_type <> 'EGRUL_LEGAL_ENTITY'
+              OR subject_ogrn IS NULL OR source_record_id IS DISTINCT FROM subject_ogrn
+         )::bigint AS invalid_records
+  INTO predecessor_stats
+  FROM eligibility.registry_records
+  WHERE generation_id=predecessor.id;
+
+  IF target_stats.actual_count IS DISTINCT FROM target.record_count
+     OR target_stats.distinct_subjects IS DISTINCT FROM target_stats.actual_count
+     OR target_stats.invalid_records IS DISTINCT FROM 0::bigint
+     OR predecessor_stats.actual_count IS DISTINCT FROM predecessor.record_count
+     OR predecessor_stats.distinct_subjects IS DISTINCT FROM predecessor_stats.actual_count
+     OR predecessor_stats.invalid_records IS DISTINCT FROM 0::bigint THEN
+    RAISE EXCEPTION 'EGRUL composition record-set integrity is not proven';
+  END IF;
+
+  SELECT COUNT(*)::bigint INTO covered_count
+  FROM eligibility.registry_records AS p
+  JOIN eligibility.registry_records AS t
+    ON t.generation_id=target.id
+   AND t.source='FNS'
+   AND t.record_type='EGRUL_LEGAL_ENTITY'
+   AND t.source_record_id=p.source_record_id
+  WHERE p.generation_id=predecessor.id
+    AND p.source='FNS'
+    AND p.record_type='EGRUL_LEGAL_ENTITY';
+
+  IF covered_count IS DISTINCT FROM predecessor_stats.actual_count THEN
+    RAISE EXCEPTION 'EGRUL composition is missing predecessor subjects';
+  END IF;
+  new_subject_count := target_stats.actual_count - predecessor_stats.actual_count;
+  IF new_subject_count < 0 THEN
+    RAISE EXCEPTION 'EGRUL composition effective cardinality regressed';
+  END IF;
+  target_recordset_sha256 := eligibility.compute_registry_recordset_sha256(target.id);
+  predecessor_recordset_sha256 := eligibility.compute_registry_recordset_sha256(predecessor.id);
+
   INSERT INTO eligibility.registry_generation_lineage(
     generation_id,source,registry_domain,predecessor_generation_id,
-    update_package_id,update_package_sha256,source_published_at,effective_cutoff,created_at
+    update_package_id,update_package_sha256,source_published_at,effective_cutoff,
+    predecessor_record_count,effective_record_count,predecessor_covered_count,new_subject_count,
+    predecessor_recordset_sha256,effective_recordset_sha256,created_at
   ) VALUES (
     target.id,'FNS','EGRUL',predecessor.id,
-    target.generation,target.content_sha256,target.published_at,target.published_at,clock_timestamp()
+    target.generation,target.content_sha256,target.published_at,target.published_at,
+    predecessor_stats.actual_count,target_stats.actual_count,covered_count,new_subject_count,
+    predecessor_recordset_sha256,target_recordset_sha256,clock_timestamp()
   ) ON CONFLICT (generation_id) DO NOTHING;
 
   SELECT * INTO existing
@@ -236,7 +424,13 @@ BEGIN
      OR existing.update_package_id <> target.generation
      OR existing.update_package_sha256 <> target.content_sha256
      OR existing.source_published_at IS DISTINCT FROM target.published_at
-     OR existing.effective_cutoff IS DISTINCT FROM target.published_at THEN
+     OR existing.effective_cutoff IS DISTINCT FROM target.published_at
+     OR existing.predecessor_record_count IS DISTINCT FROM predecessor_stats.actual_count
+     OR existing.effective_record_count IS DISTINCT FROM target_stats.actual_count
+     OR existing.predecessor_covered_count IS DISTINCT FROM covered_count
+     OR existing.new_subject_count IS DISTINCT FROM new_subject_count
+     OR existing.predecessor_recordset_sha256 IS DISTINCT FROM predecessor_recordset_sha256
+     OR existing.effective_recordset_sha256 IS DISTINCT FROM target_recordset_sha256 THEN
     RAISE EXCEPTION 'conflicting EGRUL lineage replay';
   END IF;
   RETURN target.id;
@@ -859,7 +1053,12 @@ DECLARE
   continuity_policy_hash CHAR(64);
   finality_policy_version TEXT;
   finality_policy_hash CHAR(64);
+  predecessor_counts RECORD;
+  covered_count BIGINT;
+  target_recordset_sha256 CHAR(64);
+  predecessor_recordset_sha256 CHAR(64);
 BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended('fns-egrul-generation:' || p_generation_id, 0));
   SELECT id,source,registry_domain,status,published_at,fresh_until,content_sha256,record_count,
          parser_version,schema_version
   INTO target
@@ -877,13 +1076,20 @@ BEGIN
   END IF;
 
   SELECT COUNT(*)::bigint AS actual_count,
-         (COUNT(*) - COUNT(DISTINCT source_record_id || E'\\x1f' || record_type || E'\\x1f' || payload_sha256))::bigint AS duplicates
+         COUNT(DISTINCT source_record_id)::bigint AS distinct_subjects,
+         COUNT(*) FILTER (
+           WHERE source <> 'FNS' OR record_type <> 'EGRUL_LEGAL_ENTITY'
+              OR subject_ogrn IS NULL OR source_record_id IS DISTINCT FROM subject_ogrn
+         )::bigint AS invalid_records
   INTO counts
   FROM eligibility.registry_records
-  WHERE generation_id=target.id AND source='FNS';
-  IF counts.actual_count IS DISTINCT FROM target.record_count OR counts.duplicates IS DISTINCT FROM 0::bigint THEN
+  WHERE generation_id=target.id;
+  IF counts.actual_count IS DISTINCT FROM target.record_count
+     OR counts.distinct_subjects IS DISTINCT FROM counts.actual_count
+     OR counts.invalid_records IS DISTINCT FROM 0::bigint THEN
     RAISE EXCEPTION 'registry authority local import integrity is not proven';
   END IF;
+  target_recordset_sha256 := eligibility.compute_registry_recordset_sha256(target.id);
 
   local_evidence_sha := encode(
     public.digest(
@@ -893,7 +1099,9 @@ BEGIN
           'generationId',target.id,
           'contentSha256',target.content_sha256,
           'recordCount',target.record_count,
-          'duplicateRecords',counts.duplicates
+          'distinctSubjects',counts.distinct_subjects,
+          'invalidRecords',counts.invalid_records,
+          'recordsetSha256',target_recordset_sha256
         )::text,
         'UTF8'
       ),
@@ -911,11 +1119,43 @@ BEGIN
   FROM eligibility.registry_generation_lineage
   WHERE generation_id=target.id;
   IF FOUND THEN
+    SELECT COUNT(*)::bigint AS actual_count,
+           COUNT(DISTINCT source_record_id)::bigint AS distinct_subjects,
+           COUNT(*) FILTER (
+             WHERE source <> 'FNS' OR record_type <> 'EGRUL_LEGAL_ENTITY'
+                OR subject_ogrn IS NULL OR source_record_id IS DISTINCT FROM subject_ogrn
+           )::bigint AS invalid_records
+    INTO predecessor_counts
+    FROM eligibility.registry_records
+    WHERE generation_id=physical.predecessor_generation_id;
+
+    predecessor_recordset_sha256 := eligibility.compute_registry_recordset_sha256(physical.predecessor_generation_id);
+
+    SELECT COUNT(*)::bigint INTO covered_count
+    FROM eligibility.registry_records AS p
+    JOIN eligibility.registry_records AS t
+      ON t.generation_id=target.id
+     AND t.source='FNS'
+     AND t.record_type='EGRUL_LEGAL_ENTITY'
+     AND t.source_record_id=p.source_record_id
+    WHERE p.generation_id=physical.predecessor_generation_id
+      AND p.source='FNS'
+      AND p.record_type='EGRUL_LEGAL_ENTITY';
+
     IF physical.source <> 'FNS' OR physical.registry_domain <> 'EGRUL'
        OR physical.update_package_sha256 IS DISTINCT FROM target.content_sha256
        OR physical.source_published_at IS DISTINCT FROM target.published_at
-       OR physical.effective_cutoff IS DISTINCT FROM target.published_at THEN
-      RAISE EXCEPTION 'persisted EGRUL lineage is not bound to exact generation';
+       OR physical.effective_cutoff IS DISTINCT FROM target.published_at
+       OR physical.effective_record_count IS DISTINCT FROM counts.actual_count
+       OR physical.predecessor_record_count IS DISTINCT FROM predecessor_counts.actual_count
+       OR predecessor_counts.distinct_subjects IS DISTINCT FROM predecessor_counts.actual_count
+       OR predecessor_counts.invalid_records IS DISTINCT FROM 0::bigint
+       OR physical.predecessor_covered_count IS DISTINCT FROM covered_count
+       OR covered_count IS DISTINCT FROM predecessor_counts.actual_count
+       OR physical.new_subject_count IS DISTINCT FROM (counts.actual_count - predecessor_counts.actual_count)
+       OR physical.effective_recordset_sha256 IS DISTINCT FROM target_recordset_sha256
+       OR physical.predecessor_recordset_sha256 IS DISTINCT FROM predecessor_recordset_sha256 THEN
+      RAISE EXCEPTION 'persisted EGRUL lineage is not bound to exact composition';
     END IF;
     generation_mode := 'DAILY_EFFECTIVE';
     coverage_kind := 'COMPLETE_EFFECTIVE_CORPUS';
@@ -950,6 +1190,11 @@ BEGIN
             'predecessorGenerationId',physical.predecessor_generation_id,
             'updatePackageId',physical.update_package_id,
             'updatePackageSha256',physical.update_package_sha256,
+            'predecessorRecordCount',physical.predecessor_record_count,
+            'effectiveRecordCount',physical.effective_record_count,
+            'newSubjectCount',physical.new_subject_count,
+            'predecessorRecordsetSha256',physical.predecessor_recordset_sha256,
+            'effectiveRecordsetSha256',physical.effective_recordset_sha256,
             'effectiveCutoffEpoch',extract(epoch FROM physical.effective_cutoff)
           )::text,
           'UTF8'
@@ -1278,6 +1523,9 @@ AS $function$
             AND l.update_package_id=a.update_package_id
             AND l.update_package_sha256=a.update_package_sha256
             AND l.effective_cutoff IS NOT DISTINCT FROM a.effective_cutoff
+            AND l.effective_record_count=g.record_count
+            AND l.predecessor_covered_count=l.predecessor_record_count
+            AND l.new_subject_count=l.effective_record_count-l.predecessor_record_count
         )
         WHEN a.generation_mode='FULL_BASELINE' THEN
           a.baseline_generation_id=g.id AND a.predecessor_generation_id IS NULL
@@ -1401,7 +1649,7 @@ GRANT EXECUTE ON FUNCTION eligibility.materialize_fns_egrul_registry_authority(T
 DO $bounded_domain_grants$
 DECLARE role_name TEXT;
 BEGIN
-  FOREACH role_name IN ARRAY ARRAY['pc_deal_runtime','app_runtime','one_deal_app','app_deal','app_service'] LOOP
+  FOREACH role_name IN ARRAY ARRAY['pc_deal_runtime','app_runtime','one_deal_app','app_deal','app_service','app_deal_api'] LOOP
     IF EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = role_name) THEN
       EXECUTE format('REVOKE INSERT, UPDATE, DELETE ON eligibility.registry_generation_lineage FROM %I', role_name);
       EXECUTE format('GRANT SELECT ON eligibility.registry_generation_lineage TO %I', role_name);

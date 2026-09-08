@@ -145,6 +145,37 @@ describe('RoleEligibilityFnsRegistryCoverageService', () => {
     expect(postgresSmoke).toContain('ARBITRARY_POLICY_UNEXPECTEDLY_ACCEPTED');
   });
 
+  it('freezes generation identity and registry records once validation or composition seal starts', () => {
+    expect(coverageMigration).toContain('CREATE OR REPLACE FUNCTION eligibility.guard_registry_generation_mutation');
+    expect(coverageMigration).toContain('CREATE TRIGGER registry_generations_mutation_guard');
+    expect(coverageMigration).toContain("OLD.status='ACTIVE' AND NEW.status NOT IN ('ACTIVE','SUPERSEDED','VALIDATED')");
+    expect(coverageMigration).toContain('registry generation cardinality is immutable outside STAGING');
+    expect(coverageMigration).toContain('CREATE OR REPLACE FUNCTION eligibility.guard_registry_record_mutation');
+    expect(coverageMigration).toContain('CREATE TRIGGER registry_records_mutation_guard');
+    expect(coverageMigration).toContain('registry records are immutable outside STAGING');
+    expect(coverageMigration).toContain('registry records are immutable after composition seal');
+    expect(coverageMigration).toContain('registry records are immutable after authority materialization');
+    expect(coverageMigration).toContain("'app_deal_api'");
+    expect(postgresSmoke).toContain('SEALED_COMPOSITION_RECORD_MUTATION_UNEXPECTEDLY_ALLOWED');
+    expect(postgresSmoke).toContain('ACTIVE_GENERATION_REOPEN_UNEXPECTEDLY_ALLOWED');
+    expect(postgresSmoke).toContain('ACTIVE_AUTHORITY_RECORD_MUTATION_UNEXPECTEDLY_ALLOWED');
+  });
+
+  it('derives exact composition manifest facts in PostgreSQL and serializes sealing with authority materialization', () => {
+    expect(coverageMigration).toContain('CREATE OR REPLACE FUNCTION eligibility.compute_registry_recordset_sha256');
+    expect(coverageMigration).toContain('predecessor_recordset_sha256 CHAR(64) NOT NULL');
+    expect(coverageMigration).toContain('effective_recordset_sha256 CHAR(64) NOT NULL');
+    expect(coverageMigration).toContain('EGRUL composition is missing predecessor subjects');
+    expect(coverageMigration).toContain("'recordsetSha256',target_recordset_sha256");
+    expect(coverageMigration).toContain("'predecessorRecordsetSha256',physical.predecessor_recordset_sha256");
+    expect(coverageMigration).toContain("'effectiveRecordsetSha256',physical.effective_recordset_sha256");
+    expect((coverageMigration.match(/pg_advisory_xact_lock\(hashtextextended\('fns-egrul-generation:' \|\| p_generation_id, 0\)\)/g) || []).length).toBeGreaterThanOrEqual(2);
+    expect(postgresSmoke).toContain('EGRUL_COMPOSITION_MANIFEST_INVALID');
+    expect(postgresSmoke).toContain('INCOMPLETE_COMPOSITION_LINEAGE_UNEXPECTEDLY_ACCEPTED');
+    expect(postgresSmoke).toContain('FNS_COMPOSITION_MANIFEST=PASS');
+    expect(postgresSmoke).toContain('FNS_AUTHORITY_SERIALIZATION=PASS');
+  });
+
   it('fails closed when DAILY_EFFECTIVE has no exact persisted composition lineage', () => {
     expect(coverageMigration).toMatch(
       /IF NEW\.generation_mode = 'DAILY_EFFECTIVE' THEN[\s\S]*?IF NOT FOUND THEN[\s\S]*?daily EGRUL authority requires persisted composition lineage/,
