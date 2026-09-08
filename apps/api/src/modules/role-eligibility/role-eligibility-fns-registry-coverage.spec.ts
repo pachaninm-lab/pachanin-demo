@@ -152,6 +152,8 @@ describe('RoleEligibilityFnsRegistryCoverageService', () => {
     expect(coverageMigration).toContain('physical.predecessor_generation_id IS DISTINCT FROM NEW.predecessor_generation_id');
     expect(coverageMigration).toContain('physical.update_package_sha256 IS DISTINCT FROM NEW.update_package_sha256');
     expect(coverageMigration).toContain('s.lineage_valid IS DISTINCT FROM TRUE');
+    expect(coverageMigration).toContain('SELECT c.predecessor_generation_id INTO baseline_generation_id');
+    expect(coverageMigration).toContain('FROM chain AS c ORDER BY c.depth DESC LIMIT 1;');
     expect(postgresSmoke).toContain("SELECT eligibility.record_fns_egrul_predecessor('elg_egrul_b','elg_egrul_a');");
   });
 
