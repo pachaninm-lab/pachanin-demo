@@ -2,6 +2,7 @@
 
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -91,14 +92,34 @@ function fingerprint(value, size, label) {
     && !/^0+$/u.test(value), `${label} must be a full nonzero fingerprint`);
 }
 
+const git = (...args) => execFileSync('git', args, { cwd: repositoryRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+function repositoryCommit(sha, label) {
+  fingerprint(sha, 40, label);
+  // Object lookup prevents a similarly named ref from supplying a missing SHA.
+  assert.equal(git('rev-parse', `--disambiguate=${sha}`), sha, `${label}: missing or ambiguous repository object; fetch accepted history first`);
+  assert.equal(git('cat-file', '-t', sha), 'commit', `${label}: repository commit required`);
+}
+
+function implementationEvidence(proof, component) {
+  repositoryCommit(proof.implementationSha, `${component.id}.implementationSha`);
+  git('merge-base', '--is-ancestor', proof.implementationSha, state.observedMainSha);
+  git('merge-base', '--is-ancestor', proof.implementationSha, proof.deployedSha);
+  for (const source of component.sourceEvidence) {
+    assert.equal(git('cat-file', '-t', `${proof.implementationSha}:${source}`), 'blob', `${component.id}: accepted implementation source missing`);
+    assert.equal(git('rev-parse', `${proof.implementationSha}:${source}`), git('rev-parse', `${proof.deployedSha}:${source}`), `${component.id}: deployed source differs from accepted implementation; renew acceptance evidence`);
+  }
+}
+
 function evidence(value, kind, label) {
   record(value, label);
   assert.equal(value.schemaVersion, 'pc-crop.revenue-evidence.v1', `${label}: evidence schema`);
   assert.equal(value.kind, kind, `${label}: evidence kind`);
   identifier(value.id, `${label}.id`);
-  fingerprint(state.observedProductionSha, 40, 'observedProductionSha');
-  fingerprint(value.deployedSha, 40, `${label}.deployedSha`);
+  repositoryCommit(state.observedMainSha, 'observedMainSha');
+  repositoryCommit(state.observedProductionSha, 'observedProductionSha');
+  repositoryCommit(value.deployedSha, `${label}.deployedSha`);
   assert.equal(value.deployedSha, state.observedProductionSha, `${label}: wrong deployed revision`);
+  git('merge-base', '--is-ancestor', value.deployedSha, state.observedMainSha);
   assert.equal(value.specificationSha256, state.specification.sha256, `${label}: wrong specification`);
   assert.equal(value.environment, 'REG_RU_PRODUCTION', `${label}: production hosting`);
   assert.equal(value.executionMode, 'LIVE', `${label}: live acceptance required`);
@@ -194,6 +215,7 @@ function verifyRealTransaction(transaction) {
       assert.ok(['REG_RU_DEPLOYMENT', 'LIVE_COMPONENT_ACCEPTANCE'].includes(proof.kind), `${item.id}: unsupported production evidence`);
       evidence(proof, proof.kind, `${item.id}.productionEvidence`);
       assert.equal(proof.componentId, item.id, `${item.id}: evidence for another component`);
+      implementationEvidence(proof, item);
       assert.ok(!evidenceKinds.has(proof.kind), `${item.id}: duplicate evidence kind`);
       evidenceKinds.add(proof.kind);
     }

@@ -131,7 +131,8 @@ the matching `componentId` and the following common fields:
 | `schemaVersion` | `pc-crop.revenue-evidence.v1` |
 | `id` | Stable, non-placeholder evidence identifier |
 | `kind` | The applicable evidence kind |
-| `deployedSha` | Full nonzero Git SHA equal to `observedProductionSha` |
+| `deployedSha` | Full repository commit SHA equal to `observedProductionSha`, contained in accepted `observedMainSha` history |
+| `implementationSha` | Component proofs require a repository commit contained in both accepted main and deployed history; every `sourceEvidence` blob must exist there and match the deployed blob |
 | `specificationSha256` | The unchanged final specification fingerprint |
 | `environment` / `executionMode` / `result` | `REG_RU_PRODUCTION` / `LIVE` / `PASS` |
 | `observedAt` | UTC timestamp of the actual observation |
