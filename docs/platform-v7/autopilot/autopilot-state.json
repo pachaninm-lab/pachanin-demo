@@ -221,6 +221,12 @@
       "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
       "docs/security/cryptographic-inventory.json"
     ],
+    "ops/pc-crop-w1-production-acceptance-4997": [
+      ".github/workflows/pc-crop-w1-production-acceptance.yml",
+      "scripts/production-pc-crop-w1-migrations.sh",
+      "scripts/check-production-pc-crop-w1-acceptance.mjs",
+      "scripts/check-production-pc-crop-w1-acceptance.test.mjs"
+    ],
     "governance/pc-crop-post-registration-progress-scope-4997": [
       "docs/platform-v7/autopilot/autopilot-state.json",
       "scripts/p7-autopilot-guard.sh",
