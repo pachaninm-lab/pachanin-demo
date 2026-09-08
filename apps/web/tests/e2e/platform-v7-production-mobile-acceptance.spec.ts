@@ -273,8 +273,8 @@ test.describe('Platform V7 exact responsive public acceptance', () => {
       expect(headings.every((heading) => heading.fontSize >= 26 && heading.fontSize <= 44), JSON.stringify(headings, null, 2)).toBe(true);
       expect(headings.every((heading) => heading.ratio <= 1.2), JSON.stringify(headings, null, 2)).toBe(true);
 
-      await expect(page.getByRole('region', { name: 'Вымышленный пример Сделки' })).toBeVisible();
-      await expect(page.getByRole('list', { name: '7 шагов Сделки' })).toBeVisible();
+      await expect(page.getByRole('region', { name: 'Упрощённый экран рабочего кабинета' })).toBeVisible();
+      await expect(page.locator('[aria-label="Семь этапов одной Сделки"]')).toBeVisible();
       await expect(page.getByRole('tab', { name: 'Банк / финансы', exact: true })).toBeVisible();
       await expect(page.locator('#maturity, #integrations, #role-entry')).toHaveCount(0);
 
