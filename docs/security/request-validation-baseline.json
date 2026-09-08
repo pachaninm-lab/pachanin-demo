@@ -1,9 +1,8 @@
 {
   "schemaVersion": 1,
   "note": "Ratchet baseline for V2.2.1/V2.2.2. Per-file unvalidated @Body() counts may fall but never rise; the DTO-typed total may rise but never fall. Not a claim that the API validates its input.",
-  "minValidatedBodyParameters": 134,
+  "minValidatedBodyParameters": 149,
   "unvalidatedBodyParametersByFile": {
-    "apps/api/src/modules/accounting/accounting.controller.ts": 15,
     "apps/api/src/modules/admin/admin.controller.ts": 5,
     "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts": 2,
     "apps/api/src/modules/anti-fraud/anti-fraud.controller.ts": 1,
