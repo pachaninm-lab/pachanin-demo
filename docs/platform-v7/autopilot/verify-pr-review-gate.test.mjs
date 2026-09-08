@@ -13,8 +13,12 @@ import {
   exactHeadOwnerSelfAudits,
   isIgnoredMergeGateCheck,
   latestBlockingChangeRequests,
+  OCTOPUS_ACTION_SHA,
+  OCTOPUS_STATUS_CONTEXT,
+  octopusAttestationMatchesWorkflowRun,
   positiveExactHeadCodexReviews,
   positiveExactHeadCopilotReviews,
+  positiveExactHeadOctopusAttestations,
   reviewGatePrState,
   substantiveChecks,
 } from './verify-pr-review-gate.mjs';
@@ -111,6 +115,186 @@ test('GitHub Copilot is an explicit independent reviewer provider, not an arbitr
 
   assert.deepEqual(exactHeadCopilotReviews(reviews, head), [reviews[3], reviews[4], reviews[5]]);
   assert.deepEqual(positiveExactHeadCopilotReviews(reviews, head), [reviews[3], reviews[4]]);
+});
+
+test('Octopus authority requires paired exact-head structured review and latest matching success status', () => {
+  const repo = 'pachaninm-lab/pachanin-demo';
+  const summaryHash = 'c'.repeat(64);
+  const runId = '123456789';
+  const body = [
+    'OCTOPUS INDEPENDENT REVIEW: PASS',
+    `Exact head: \`${head}\``,
+    'Provider workflow: `.github/workflows/octopus-independent-review.yml`',
+    `Provider action: \`${OCTOPUS_ACTION_SHA}\``,
+    'Findings: `0`',
+    `Summary SHA-256: \`${summaryHash}\``,
+    `Workflow run: \`${runId}\``,
+  ].join('\n');
+  const goodReview = {
+    user: { login: 'github-actions[bot]' },
+    commit_id: head,
+    state: 'COMMENTED',
+    body,
+  };
+  const goodStatus = {
+    context: OCTOPUS_STATUS_CONTEXT,
+    state: 'success',
+    creator: { login: 'github-actions[bot]' },
+    description: `Octopus clean ${OCTOPUS_ACTION_SHA.slice(0, 8)} summary=${summaryHash.slice(0, 16)}`,
+    target_url: `https://github.com/${repo}/actions/runs/${runId}`,
+  };
+
+  assert.equal(
+    positiveExactHeadOctopusAttestations([goodReview], [goodStatus], head, repo).length,
+    1,
+  );
+  assert.equal(
+    positiveExactHeadOctopusAttestations(
+      [{ ...goodReview, commit_id: oldHead }],
+      [goodStatus],
+      head,
+      repo,
+    ).length,
+    0,
+  );
+  assert.equal(
+    positiveExactHeadOctopusAttestations(
+      [{ ...goodReview, user: { login: 'pachaninm-lab' } }],
+      [goodStatus],
+      head,
+      repo,
+    ).length,
+    0,
+  );
+  assert.equal(
+    positiveExactHeadOctopusAttestations(
+      [goodReview],
+      [{ ...goodStatus, description: 'Octopus clean mismatched evidence' }],
+      head,
+      repo,
+    ).length,
+    0,
+  );
+  assert.equal(
+    positiveExactHeadOctopusAttestations(
+      [goodReview],
+      [{ ...goodStatus, state: 'failure' }, goodStatus],
+      head,
+      repo,
+    ).length,
+    0,
+  );
+});
+
+test('Octopus authority is additionally bound to one successful trusted workflow run on the exact PR head', () => {
+  const repo = 'pachaninm-lab/pachanin-demo';
+  const repositoryId = 1203022077;
+  const prNumber = 5167;
+  const runId = '34180354026';
+  const attestation = { runId };
+  const run = {
+    id: Number(runId),
+    name: 'Independent Octopus Review',
+    path: '.github/workflows/octopus-independent-review.yml',
+    event: 'pull_request_target',
+    status: 'completed',
+    conclusion: 'success',
+    head_sha: head,
+    repository: { id: repositoryId, full_name: repo },
+    pull_requests: [{
+      number: prNumber,
+      head: { sha: head, repo: { id: repositoryId } },
+    }],
+  };
+
+  assert.equal(octopusAttestationMatchesWorkflowRun(attestation, run, repo, prNumber, head), true);
+  for (const mutation of [
+    { id: 1 },
+    { name: 'Some Other Workflow' },
+    { path: '.github/workflows/not-octopus.yml' },
+    { event: 'pull_request' },
+    { status: 'in_progress' },
+    { conclusion: 'failure' },
+    { head_sha: oldHead },
+    { repository: { id: repositoryId, full_name: 'evil/repo' } },
+    { pull_requests: [{ number: 9999, head: { sha: head, repo: { id: repositoryId } } }] },
+    { pull_requests: [{ number: prNumber, head: { sha: oldHead, repo: { id: repositoryId } } }] },
+    { pull_requests: [{ number: prNumber, head: { sha: head, repo: { id: 999 } } }] },
+  ]) {
+    assert.equal(
+      octopusAttestationMatchesWorkflowRun(attestation, { ...run, ...mutation }, repo, prNumber, head),
+      false,
+      JSON.stringify(mutation),
+    );
+  }
+});
+
+test('observed successful Octopus pull_request_target run shape is accepted without weakening exact-head binding', () => {
+  const observed = {
+    id: 34180354026,
+    name: 'Independent Octopus Review',
+    head_sha: '0f6fdeccbcb97a70161198ac0321d0918388a084',
+    path: '.github/workflows/octopus-independent-review.yml',
+    event: 'pull_request_target',
+    status: 'completed',
+    conclusion: 'success',
+    pull_requests: [{
+      number: 5167,
+      head: { sha: '0f6fdeccbcb97a70161198ac0321d0918388a084', repo: { id: 1203022077 } },
+    }],
+    repository: { id: 1203022077, full_name: 'pachaninm-lab/pachanin-demo' },
+  };
+  assert.equal(
+    octopusAttestationMatchesWorkflowRun(
+      { runId: '34180354026' },
+      observed,
+      'pachaninm-lab/pachanin-demo',
+      5167,
+      '0f6fdeccbcb97a70161198ac0321d0918388a084',
+    ),
+    true,
+  );
+});
+
+test('actual #5167 Octopus review, latest status and successful run form one exact-head authority tuple', () => {
+  const actualHead = '0f6fdeccbcb97a70161198ac0321d0918388a084';
+  const repo = 'pachaninm-lab/pachanin-demo';
+  const runId = '34180354026';
+  const summary = '2e552f1f5a628d16efbd4daaea671580a52e853c281dfb42b59a3ef92d5c2af8';
+  const review = {
+    user: { login: 'github-actions[bot]' },
+    commit_id: actualHead,
+    state: 'COMMENTED',
+    body: [
+      'OCTOPUS INDEPENDENT REVIEW: PASS',
+      `Exact head: \`${actualHead}\``,
+      'Provider workflow: `.github/workflows/octopus-independent-review.yml`',
+      `Provider action: \`${OCTOPUS_ACTION_SHA}\``,
+      'Findings: `0`',
+      `Summary SHA-256: \`${summary}\``,
+      `Workflow run: \`${runId}\``,
+    ].join('\n'),
+  };
+  const statuses = [{
+    context: OCTOPUS_STATUS_CONTEXT,
+    state: 'success',
+    creator: { login: 'github-actions[bot]' },
+    description: `Octopus clean ${OCTOPUS_ACTION_SHA.slice(0, 8)} summary=${summary.slice(0, 16)}`,
+    target_url: `https://github.com/${repo}/actions/runs/${runId}`,
+  }];
+  const [attestation] = positiveExactHeadOctopusAttestations([review], statuses, actualHead, repo);
+  assert.ok(attestation);
+  assert.equal(octopusAttestationMatchesWorkflowRun(attestation, {
+    id: Number(runId),
+    name: 'Independent Octopus Review',
+    path: '.github/workflows/octopus-independent-review.yml',
+    event: 'pull_request_target',
+    status: 'completed',
+    conclusion: 'success',
+    head_sha: actualHead,
+    repository: { id: 1203022077, full_name: repo },
+    pull_requests: [{ number: 5167, head: { sha: actualHead, repo: { id: 1203022077 } } }],
+  }, repo, 5167, actualHead), true);
 });
 
 test('recognizes clean Codex review evidence only from the Codex bot and a reviewed commit prefix', () => {
@@ -340,7 +524,7 @@ test('PR state classification fails closed for Draft and incomplete/unknown stat
   assert.equal(reviewGatePrState(null), 'INVALID');
 });
 
-test('verifier main requires genuine independent exact-head authority from Codex or GitHub Copilot', () => {
+test('verifier main requires genuine independent exact-head authority from Codex, GitHub Copilot, or Octopus', () => {
   const verifier = readFileSync(new URL('./verify-pr-review-gate.mjs', import.meta.url), 'utf8');
   const mainStart = verifier.indexOf('function main()');
   assert.ok(mainStart >= 0);
@@ -350,15 +534,42 @@ test('verifier main requires genuine independent exact-head authority from Codex
   assert.match(mainBody, /cleanCodexReviewPrefixes\(comments\)/u);
   assert.match(mainBody, /resolveCommitSha\(repo, prefix\) === headSha/u);
   assert.match(mainBody, /positiveExactHeadCopilotReviews\(reviews, headSha\)/u);
+  assert.match(mainBody, /positiveExactHeadOctopusAttestations/u);
+  assert.match(mainBody, /octopusAttestationMatchesWorkflowRun/u);
+  assert.match(mainBody, /fetchPublicOctopusActionsRun\(repo, attestation\.runId\)/u);
+  assert.match(mainBody, /fetchAllCommitStatuses\(repo, headSha\)/u);
   assert.match(mainBody, /REVIEW_GATE_INDEPENDENT_EXACT_HEAD_MISSING/u);
   assert.match(mainBody, /REVIEW_GATE_OWNER_SELF_AUDIT_MISSING/u);
   assert.match(mainBody, /reviewAuthority=\$\{reviewAuthority\}/u);
   assert.match(mainBody, /GITHUB_COPILOT/u);
+  assert.match(mainBody, /OCTOPUS/u);
   assert.doesNotMatch(mainBody, /MACHINE_FALLBACK/u);
   assert.doesNotMatch(mainBody, /machineReviewAuthorities/u);
   assert.ok(
     mainBody.indexOf('REVIEW_GATE_INDEPENDENT_EXACT_HEAD_MISSING') < mainBody.indexOf('PR_REVIEW_GATE=PASS'),
   );
+});
+
+test('Octopus workflow is immutable, opt-in, no-head-checkout and fails closed on pending review output', () => {
+  const workflow = readFileSync(
+    new URL('../../../.github/workflows/octopus-independent-review.yml', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(workflow, /^\s*pull_request_target:\s*$/mu);
+  assert.match(workflow, /contains\(github\.event\.pull_request\.body, '<!-- independent-review:octopus -->'\)/u);
+  assert.match(workflow, /octopusreview\/action@c7156c0dc465c20e8b06da84b92b64f9ae8c7c36/u);
+  assert.doesNotMatch(workflow, /actions\/checkout/u);
+  assert.match(workflow, /^\s*contents:\s*read\s*$/mu);
+  assert.match(workflow, /^\s*pull-requests:\s*write\s*$/mu);
+  assert.match(workflow, /^\s*statuses:\s*write\s*$/mu);
+  assert.match(workflow, /review-provider\/octopus/u);
+  assert.match(workflow, /indexing in progress/u);
+  assert.match(workflow, /review pending/u);
+  assert.match(workflow, /live_head=.*gh api/u);
+  assert.match(workflow, /OCTOPUS INDEPENDENT REVIEW: PASS/u);
+  assert.match(workflow, /Summary SHA-256/u);
+  assert.match(workflow, /Workflow run/u);
 });
 
 test('review reconciliation workflow uses supported dispatch wiring and complete pagination', () => {
