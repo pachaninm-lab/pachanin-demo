@@ -64,36 +64,36 @@ const statePanelClasses = [styles.panelNormal, styles.panelDeviation, styles.pan
 const TRUST_COPY = {
   ru: {
     eyebrow: 'Доверие и контроль',
-    title: 'Понятно, что подтверждает платформа — и где требуется внешнее подключение',
-    lead: 'Права и переходы контролируются системой, основания сохраняются в истории Сделки, а внешние интеграции не считаются активными без подтверждённого подключения организации.',
+    title: 'Доверие встроено в логику одной Сделки',
+    lead: 'Полномочия определяются ролью и организацией, основания остаются связаны с действиями и документами, а внешние системы взаимодействуют через отдельные разрешённые контуры.',
     cards: [
       ['Ролевые полномочия', 'Публичный выбор роли ничего не открывает. Реальные права назначаются после регистрации и проверки организации.'],
-      ['Проверяемая история', 'Состояния, документы, решения и основания остаются связаны с конкретной Сделкой.'],
-      ['Честная граница интеграций', '1С, ЭДО, финансовые и государственные контуры подключаются отдельно; доступность и права подтверждаются до обмена.'],
+      ['Связная история', 'Условия, события, документы, решения и основания остаются связаны с конкретной Сделкой.'],
+      ['Граница внешних систем', '1С, ЭДО, финансовые и государственные системы взаимодействуют через отдельные контуры; платформа не приписывает им действий без внешнего основания.'],
     ],
     trust: 'Открыть центр доверия',
     contact: 'Связаться с платформой',
   },
   en: {
     eyebrow: 'Trust and control',
-    title: 'See what the platform verifies — and where an external connection is still required',
-    lead: 'Roles and transitions are system-controlled, evidence remains in the Deal history, and external integrations are not presented as active until the organisation connection is confirmed.',
+    title: 'Trust is built into the logic of one Deal',
+    lead: 'Authority follows the role and organisation, evidence stays linked to actions and documents, and external systems interact through separate authorised circuits.',
     cards: [
       ['Role authority', 'Choosing a role publicly grants nothing. Actual permissions follow registration and organisation verification.'],
-      ['Verifiable history', 'States, documents, decisions and evidence remain linked to the specific Deal.'],
-      ['Honest integration boundary', '1C, EDI, financial and government systems connect separately; availability and rights are confirmed before exchange.'],
+      ['Connected history', 'Terms, events, documents, decisions and evidence remain linked to the specific Deal.'],
+      ['External-system boundary', '1C, EDI, financial and government systems interact through separate circuits; the platform does not attribute actions to them without external evidence.'],
     ],
     trust: 'Open Trust Center',
     contact: 'Contact the platform',
   },
   zh: {
     eyebrow: '信任与控制',
-    title: '明确平台已确认什么，以及哪些部分仍需要外部接入',
-    lead: '角色和状态转换由系统控制，依据保留在交易历史中；在机构接入未确认前，不会把外部集成描述为已启用。',
+    title: '信任边界内置于同一笔交易逻辑中',
+    lead: '权限由角色和机构决定，依据始终与操作和文件关联；外部系统通过独立、获授权的交互通道与平台协作。',
     cards: [
       ['角色权限', '公开页面选择角色不会授予任何权限。真实权限在注册和机构核验后确定。'],
-      ['可核验历史', '状态、文件、决定和依据都与具体交易保持关联。'],
-      ['诚实的集成边界', '1C、电子单据、金融和政府系统需要独立接入；数据交换前必须确认可用性与权限。'],
+      ['关联历史', '条件、事件、文件、决定和依据都与具体交易保持关联。'],
+      ['外部系统边界', '1C、电子单据、金融和政府系统通过独立通道交互；没有外部依据时，平台不会把动作归因于这些系统。'],
     ],
     trust: '打开信任中心',
     contact: '联系平台',
@@ -237,7 +237,6 @@ export async function PlatformV7StrategicHome() {
                   <strong>{story.heroDeal.product}</strong>
                   <small>{story.heroDeal.route}</small>
                 </div>
-                <b>{normalState.status}</b>
               </div>
               <div
                 className={`${styles.heroDealProgress} pc-public-deal-stage-rail pc-public-deal-stage-rail--hero`}
@@ -419,7 +418,7 @@ export async function PlatformV7StrategicHome() {
                 {story.demo.states.map((state, index) => (
                   <article key={state.key} className={`${styles.statePanel} ${statePanelClasses[index] ?? ''}`} data-state={state.key}>
                     <div className={styles.demoHeader}>
-                      <div><span>{story.heroDeal.product}</span><small>{story.heroDeal.route}</small></div><b>{state.status}</b>
+                      <div><span>{story.heroDeal.product}</span><small>{story.heroDeal.route}</small></div>
                     </div>
                     <div className={`${styles.demoStageRail} pc-public-deal-stage-rail pc-public-deal-stage-rail--demo`} aria-label={story.demo.stageLabel}>
                       {story.demo.stages.map((stage, stageIndex) => (

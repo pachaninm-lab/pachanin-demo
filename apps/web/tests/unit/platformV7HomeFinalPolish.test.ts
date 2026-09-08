@@ -6,6 +6,7 @@ const read = (relativePath: string) => readFileSync(join(process.cwd(), relative
 
 describe('platform-v7 final homepage polish contract', () => {
   const page = read('app/platform-v7/page.tsx');
+  const siteHeader = read('components/platform-v7/PublicSiteHeader.tsx');
   const home = read('components/platform-v7/PlatformV7StrategicHome.tsx');
   const enhancements = read('components/platform-v7/PlatformV7HomeEnhancements.tsx');
   const finalCss = read('components/platform-v7/PlatformV7HomeFinalPolish.css');
@@ -26,19 +27,23 @@ describe('platform-v7 final homepage polish contract', () => {
     expect(page).not.toContain('font-size: 0');
   });
 
-  it('preserves compact mobile header and minimum touch targets', () => {
-    expect(finalCss).toContain('--entry-public-header-base: 48px !important');
-    expect(finalCss).toContain('--pc-public-header-base-height: 48px !important');
-    expect(finalCss).toContain('height: 48px !important');
+  it('preserves the canonical 64px mobile header and minimum touch targets', () => {
+    expect(siteHeader).toContain(".pc-site-header[data-public-site-header='canonical'].pc-site-header.pc-site-header");
+    expect(siteHeader).toContain('--pc-public-header-base-height: 64px');
+    expect(siteHeader).toContain('height: 64px !important');
+    expect(siteHeader).toContain('min-width: 44px !important');
     expect(finalCss).toContain('min-height: 44px !important');
     expect(finalCss).toContain('width: 44px !important');
     expect(finalCss).toContain("env(safe-area-inset-bottom, 0px)");
-    expect(page).toContain('--entry-public-header-base: 48px');
+    expect(page).not.toContain('--entry-public-header-base: 48px');
   });
 
   it('keeps product proposition and registration before explanatory detail', () => {
     expect(heroCopy).toContain("title: 'Управляйте агросделкой'");
-    expect(heroCopy).toContain('Одна платформа связывает товар и условия');
+    expect(heroCopy).toContain('Сделка может начаться с вашего товара или потребности.');
+    expect(heroCopy).toContain('Вместо разрозненных чатов, таблиц и файлов');
+    expect(heroCopy).toContain('A Deal can start with your product or your demand.');
+    expect(heroCopy).toContain('一笔交易可以从你的商品或采购需求开始。');
     const hero = home.indexOf("className={`pc-v6-hero ${styles.hero}`}");
     const register = home.indexOf("eventName='registration_open'");
     const roles = home.indexOf("id='participants'");
@@ -81,7 +86,7 @@ describe('platform-v7 final homepage polish contract', () => {
     expect(scenario).toContain('className={styles.stageRail}');
     expect(scenario).toContain('className={styles.metrics}');
     expect(scenario).toContain('className={styles.rolePanel}');
-    expect(scenario).toContain("preview: 'Пример рабочей Сделки'");
+    expect(scenario).toContain("preview: 'Упрощённый экран рабочего кабинета'");
     expect(scenario).toContain("label: 'Сотрудник платформы'");
     expect(scenario.toLowerCase()).not.toContain('confirmed_live');
     expect(scenario).not.toContain('accessToken');

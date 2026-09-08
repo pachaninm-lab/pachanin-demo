@@ -137,12 +137,41 @@ async function expectKeyboardCompleteRoleTabs(page: Page) {
   await expect(page.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', 'public-role-tab-employee');
 }
 
+async function expectStageAwareDealWorkspace(page: Page) {
+  const workspace = page.locator('section[aria-label="Упрощённый экран рабочего кабинета"]');
+  await expect(workspace).toBeVisible();
+
+  const stageRail = workspace.locator('[aria-label="Семь этапов одной Сделки"]');
+  const stageButtons = stageRail.getByRole('button');
+  await expect(stageButtons).toHaveCount(7);
+  await expect(stageButtons.first()).toHaveAttribute('aria-current', 'step');
+  await expect(workspace.getByText('Сначала стороны работают с одной версией товара и условий', { exact: true })).toBeVisible();
+
+  const readingSizes = await workspace.locator('p:visible, strong:visible, button:visible').evaluateAll((nodes) => nodes.map((node) => ({
+    text: (node.textContent ?? '').trim().slice(0, 80),
+    fontSize: Number.parseFloat(window.getComputedStyle(node).fontSize),
+  })));
+  expect(readingSizes.length).toBeGreaterThan(0);
+  expect(
+    readingSizes.every((item) => Number.isFinite(item.fontSize) && item.fontSize >= 12),
+    JSON.stringify(readingSizes, null, 2),
+  ).toBe(true);
+
+  await stageButtons.last().click();
+  await expect(stageButtons.last()).toHaveAttribute('aria-current', 'step');
+  await expect(workspace.getByText('Нормальное завершение и исключения остаются внутри одной Сделки', { exact: true })).toBeVisible();
+
+  await stageButtons.first().click();
+  await expect(stageButtons.first()).toHaveAttribute('aria-current', 'step');
+}
+
 async function expectLinkedPageLocaleContinuity(page: Page, name: LinkedPublicPageName, locale: LinkedLocale) {
   expect(new URL(page.url()).searchParams.get('lang')).toBe(locale);
 
   switch (name) {
     case 'about': {
       await expect(page.locator(`a[href="/platform-v7/register?lang=${locale}"]`).first()).toBeVisible();
+      await expect(page.locator(`a[href="/platform-v7/register?lang=${locale}"]`).first()).toBeInViewport({ ratio: 1 });
       const mobileMenuToggle = page.locator('.pc-site-mobile-menu > summary').first();
       if (await mobileMenuToggle.isVisible()) {
         await mobileMenuToggle.click();
@@ -160,10 +189,19 @@ async function expectLinkedPageLocaleContinuity(page: Page, name: LinkedPublicPa
       await expect(page.locator(`.pc-v6-header-actions a[href="/platform-v7/register?lang=${locale}"]`)).toBeVisible();
       await expect(page.locator(`footer a[href="/platform-v7/contact?lang=${locale}"]`)).toBeVisible();
       break;
-    case 'trust':
+    case 'trust': {
       await expect(page.locator('.pc-trust-back')).toHaveAttribute('href', `/platform-v7?lang=${locale}`);
-      await expect(page.locator('.pc-trust-primary')).toHaveAttribute('href', `/platform-v7/contact?lang=${locale}`);
+      const registration = page.locator('main .pc-trust-primary');
+      await expect(registration).toHaveCount(2);
+      for (const action of await registration.all()) {
+        await expect(action).toBeVisible();
+        await expect(action).toHaveAttribute('href', `/platform-v7/register?lang=${locale}`);
+      }
+      const contact = page.locator('.pc-trust-contact-link');
+      await expect(contact).toBeVisible();
+      await expect(contact).toHaveAttribute('href', `/platform-v7/contact?lang=${locale}`);
       break;
+    }
     case 'contact':
       await expect(page.locator('.p7-contact-register')).toHaveAttribute('href', `/platform-v7/register?lang=${locale}`);
       break;
@@ -208,6 +246,7 @@ test.describe('Platform V7 exact responsive public acceptance', () => {
 
       const headerRegistration = page.locator('.pc-v6-header-cta');
       await expect(headerRegistration).toBeVisible();
+      await expect(headerRegistration).toBeInViewport({ ratio: 1 });
       await expect(headerRegistration).toHaveAttribute('href', '/platform-v7/register?lang=ru');
 
       if (viewport.width < 768) {
@@ -245,6 +284,7 @@ test.describe('Platform V7 exact responsive public acceptance', () => {
 
       await expectRegistrationOnlyPrimaryCtas(page);
       await expectKeyboardCompleteRoleTabs(page);
+      await expectStageAwareDealWorkspace(page);
       await expectCurrentAnchorsBelowStickyHeader(page);
       await expectNoHorizontalOverflow(page);
       expect(runtimeFailures).toEqual([]);
