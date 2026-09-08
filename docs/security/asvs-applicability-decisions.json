@@ -1344,7 +1344,11 @@
       "status": "FAIL",
       "evidence": [
         "detection-only:apps/api/src/modules/anti-fraud/anti-fraud.service.ts",
-        "authoritative-path:apps/api/src/modules/deals/postgresql-deal-command.service.ts"
+        "entry-point:apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
+        "bound-implementation:apps/api/src/modules/settlement-engine/settlement-aware-deal-command.service.ts",
+        "authoritative-path:apps/api/src/modules/deals/postgresql-deal-command.service.ts",
+        "base-implementation:apps/api/src/modules/deals/deal-command.service.ts",
+        "linear-chain:apps/api/src/modules/deals/deal-command.policy.ts"
       ],
       "conditions": [
         {
@@ -1358,17 +1362,20 @@
           ]
         },
         {
-          "condition": "the authoritative command path does not consult it",
+          "condition": "no class on the authoritative command path consults it",
           "check": "ABSENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/deals/postgresql-deal-command.service.ts"
+            "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
+            "apps/api/src/modules/settlement-engine/settlement-aware-deal-command.service.ts",
+            "apps/api/src/modules/deals/postgresql-deal-command.service.ts",
+            "apps/api/src/modules/deals/deal-command.service.ts"
           ],
           "patterns": [
             "antifraud"
           ]
         }
       ],
-      "note": "Rapid-transition detection exists and scores, but it prevents nothing: it is reachable only through its own controller endpoint, the deal command path never calls it, and a flagged score is logged and persisted rather than refused. Its state is also an in-process Map, so it would not survive more than one instance."
+      "note": "Rapid-transition detection exists and scores, but it prevents nothing, and the record now names the whole path rather than one link of it. AntiFraudService.checkRapidTransitions counts state changes per deal in a five-minute window and returns a score of 45 past five of them; a flagged score is logged and persisted, never refused. The service has no runtime caller anywhere outside its own module - the only reference in apps/api/src is app.module.ts registering it - so it is reachable through its own controller endpoint and nothing else.\n\nThe command path it does not reach is four classes deep, and the earlier record named only the third of them. DealsController injects IndustrialDealCommandGateway; the gateway calls the DealCommandService token, which deals.module.ts binds with useExisting to SettlementAwareDealCommandService, which extends PostgresqlDealCommandService, which extends DealCommandService itself. The gateway is the entry point and therefore the most natural place to put a timing refusal, and a condition watching only postgresql-deal-command.service.ts would not have noticed one being added there - the FAIL would have stood after the gap was closed. All four are now named.\n\nTwo things stand between this and a PASS, and neither is a documentation problem. The detector's state is an in-process Map, so on more than one instance each replica counts its own transitions and the window means nothing. And the threshold that exists - five transitions in five minutes - was chosen for scoring, where a false positive is a log line. DEAL_ACTIONS is a strictly linear chain of nineteen steps from DRAFT to CLOSED, so reusing that number as a refusal would decide how fast a real grain deal is allowed to advance through inspection, delivery and quality acceptance, and would refuse the legitimate fast ones. That is a product decision about what realistic human timing means for this trade, not a control this assessment can install on its own."
     },
     {
       "requirementId": "V3.1.1",

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/deal-command-path-condition-4459",
+  "status": "active",
+  "purpose": "V2.4.2's FAIL rested on a condition that watched one file of a four-class path, so the gap could have been closed without the FAIL revoking. DealsController injects IndustrialDealCommandGateway; the gateway calls the DealCommandService token, which deals.module.ts binds with useExisting to SettlementAwareDealCommandService, which extends PostgresqlDealCommandService, which extends DealCommandService itself. The condition named only the third of those. The gateway is the entry point and the most natural place to put a timing refusal, and wiring one there left the requirement reading FAIL - measured, not supposed. The record is also corrected to name the whole path and to say plainly what stands between this and a PASS. No verdict changes.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/deal-command-path-condition-4459.json",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "No code is touched at all. This is the decision record and its conditions; the detector, the gateway, the command classes and the deal flow are untouched, and the exposure the requirement describes is exactly as it was.",
+    "The condition covers the path, not one link of it. ABSENT_AT_PATH over all four classes holds only while none of them consults the detector, so closing the gap anywhere on the path revokes the FAIL rather than leaving it standing.",
+    "No timing rule is installed and no threshold is chosen. AntiFraudService's five-transitions-in-five-minutes was picked for scoring, where a false positive is a log line; DEAL_ACTIONS is a strictly linear chain of nineteen steps from DRAFT to CLOSED, so reusing that number as a refusal would decide how fast a real grain deal may advance through inspection, delivery and quality acceptance. That is a product decision, and the record says so instead of quietly making it.",
+    "The record states both remaining obstacles rather than only the reachability one: the detector's state is an in-process Map, so on more than one instance each replica counts its own window and the threshold means nothing.",
+    "V2.4.2 stays FAIL. A widened condition is not a verdict change and is not presented as progress."
+  ],
+  "acceptance": [
+    "The old condition is falsified, not argued against: with it restored and the gateway wired to the detector, the matrix reports V2.4.2 status FAIL and rejects only V8.2.4 - the FAIL would have stood after the gap was closed.",
+    "The new condition revokes on all four classes. Wiring the detector into industrial-deal-command.gateway.ts, settlement-aware-deal-command.service.ts, postgresql-deal-command.service.ts or deal-command.service.ts each rejects the decision and returns V2.4.2 to NOT_ASSESSED.",
+    "The reachability claim is re-measured rather than inherited: AntiFraudService has no reference anywhere in apps/api/src outside its own module except app.module.ts registering it, and none of the four command classes mentions it.",
+    "Every mutated file is restored byte-identically and the matrix returns to 39 NOT_ASSESSED / 129 PASS / 88 NOT_APPLICABLE / 89 FAIL with V8.2.4 the only rejected decision - main's standing drift, repaired on security/login-lockout-finding-4459.",
+    "node --test scripts/security passes in full; guard=0."
+  ]
+}
