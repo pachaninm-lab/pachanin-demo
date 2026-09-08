@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/effective-rls-policies-4459",
+  "status": "active",
+  "purpose": "Answer, by measurement, which row policies a deployed database actually ends up with. Nobody could answer it: 583 policy statements across 199 migrations create and drop the same names repeatedly, and migrations habitually quote the DDL they are replacing in their own header comments. So it was answered by hand, and the V8.2.2 record went stale in four separate claims - it named deals_app_access, audit_select_all and ledger_select_all as still installed when the chain drops all three, and named deal_events and two FGIS tables as carrying no policy when a migration covers all three. It was describing a database that no longer exists. This corrects the record against the replay and re-anchors the requirement to the one boundary that is genuinely still open. No verdict changes: V8.2.2 stays FAIL.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/effective-rls-policies-4459.json",
+    "docs/security/rls-effective-policies.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "scripts/security/build-effective-rls-policies.mjs",
+    "scripts/security/build-effective-rls-policies.test.mjs",
+    ".github/workflows/sbom-scan.yml"
+  ],
+  "requiredInvariants": [
+    "No database is touched. This replays committed SQL text and writes a JSON inventory; it adds no migration, runs no statement, and changes no policy. The exposure it measures stays exactly as it is.",
+    "The replay declares its own limit instead of hiding it. Five migrations build settlement policies inside PL/pgSQL loops via EXECUTE format(), which no static reader can resolve; they are listed in dynamicPolicyMigrations with the table array they iterate, and the document's own note says coverage is static DDL only. A partial replay presented as complete would be a more convincing version of the stale record it replaces.",
+    "A commented-out CREATE POLICY is never counted. That is not hypothetical: the two migrations that drop the permissive policies quote the CREATE statements they remove in their headers, so a scanner that reads comments reports the exact opposite of what the chain does.",
+    "PostgreSQL's own semantics decide what counts as open: permissive policies are ORed, so one permissive PUBLIC policy over every row defeats every strict policy beside it; RESTRICTIVE policies are ANDed and a role-scoped grant is not PUBLIC, so neither is reported as open.",
+    "An open read is only a finding on a table with a tenant column. inventory.availability_policies holds one immutable formula definition and regulatory_rule_versions holds published rule text; reporting those as leaks alongside deals would bury the one that matters.",
+    "The inventory cannot go stale the way the record did: --check regenerates and refuses any difference, and apps/api/prisma/migrations/** is in the workflow triggers, so a migration that changes a policy fails until the inventory is regenerated with it.",
+    "V8.2.2's condition binds to the measured artifact rather than to a historical migration file. The condition it replaces was ABSENT_AT_PATH over 20260712090000, a migration that will never change again - so it held unconditionally and the FAIL could never revoke however completely somebody fixed it.",
+    "No application code, no registration business logic, no 1C, no marketing, no presentation. No production, REG.RU, DNS or credential mutation, no new dependency."
+  ],
+  "acceptance": [
+    "The replay measures 199 migrations, 583 static policy statements, 294 live policies, 3 open reads and 1 open write, of which exactly one read and one write are on a tenant-bearing table: public.deals deals_uncontexted_read and deals_uncontexted_update.",
+    "It independently contradicts the old record: deals_app_access, audit_select_all and ledger_select_all are all absent from the live set, and deal_events plus both FGIS tenant-read tables all carry policies. Two tests assert exactly this, so the correction cannot silently revert.",
+    "Four mutations against the chain behave correctly: a migration dropping deals_uncontexted_read removes it from the open reads; a new permissive PUBLIC read on audit_events is detected; the same statement written as a line or block comment is ignored; AS RESTRICTIVE and TO <role> variants are not reported as open.",
+    "V8.2.2 revokes in both directions at the matrix level. Closing the boundary rejects the decision and returns the requirement to assessment; a second tenant-bearing open read appearing also rejects it. The condition it replaces could do neither.",
+    "--check is falsifiable: a hand-edited inventory is refused, and regenerating restores it byte-identically.",
+    "The matrix is unchanged against main: 39 NOT_ASSESSED / 129 PASS / 88 NOT_APPLICABLE / 89 FAIL, with V8.2.4 the only rejected decision - main's standing drift, repaired on security/login-lockout-finding-4459, not by this branch.",
+    "build-effective-rls-policies.test.mjs passes 22 of 22; node --test scripts/security passes in full; the workflow parses as YAML; guard=0."
+  ]
+}

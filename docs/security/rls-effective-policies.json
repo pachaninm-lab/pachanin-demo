@@ -1,0 +1,3776 @@
+{
+  "schemaVersion": "pc-crop.rls-effective-policies.v1",
+  "note": "Replayed from the migration chain in order. This is what a database built by `prisma migrate deploy` ends up with - not what infra/sql/*.sql would install, and not what any one migration says in isolation. Coverage is STATIC policy DDL only: the migrations in dynamicPolicyMigrations build policies inside PL/pgSQL loops via EXECUTE format(), and those are listed rather than replayed.",
+  "migrations": 199,
+  "statementsApplied": 583,
+  "livePolicies": 294,
+  "openReadCount": 3,
+  "openWriteCount": 1,
+  "tenantBearingOpenReadCount": 1,
+  "tenantBearingOpenWriteCount": 1,
+  "tenantBearingTables": [
+    "auction.admissions",
+    "auction.awards",
+    "auction.bids",
+    "auction.command_receipts",
+    "auction.inventory_bindings",
+    "auction.lots",
+    "auth.audit_events",
+    "auth.mfa_recovery_challenges",
+    "auth.organization_invitations",
+    "auth.sessions",
+    "dispute.appeals",
+    "dispute.cases",
+    "dispute.command_receipts",
+    "dispute.deal_freezes",
+    "dispute.evidence",
+    "dispute.money_instructions",
+    "dispute.participants",
+    "eligibility.audit_events",
+    "eligibility.organization_checks",
+    "eligibility.verdicts",
+    "inventory.availability_snapshots",
+    "inventory.batches",
+    "inventory.command_events",
+    "inventory.positions",
+    "inventory.reservations",
+    "labs.authorized_actors",
+    "labs.equipment",
+    "labs.laboratories",
+    "labs.methods",
+    "labs.protocols",
+    "labs.sample_admissions",
+    "labs.sample_custody_events",
+    "logistics.carriers",
+    "logistics.deal_admissions",
+    "logistics.driver_vehicle_links",
+    "logistics.drivers",
+    "logistics.facilities",
+    "logistics.shipment_bindings",
+    "logistics.vehicles",
+    "public.accounting_advance_offsets",
+    "public.accounting_advances",
+    "public.accounting_deal_services",
+    "public.accounting_document_versions",
+    "public.accounting_documents",
+    "public.accounting_number_counters",
+    "public.accounting_payment_allocations",
+    "public.accounting_payments",
+    "public.accounting_periods",
+    "public.accounting_reconciliations",
+    "public.accounting_work_tasks",
+    "public.audit_events",
+    "public.commercial_decisions",
+    "public.commercial_rule_events",
+    "public.commercial_rule_packs",
+    "public.commercial_rule_sets",
+    "public.commodity_profile_transitions",
+    "public.connection_attestation_subjects",
+    "public.contract_versions",
+    "public.deal_events",
+    "public.deal_participants",
+    "public.deals",
+    "public.fgis_grain_acknowledgements",
+    "public.fgis_grain_exchanges",
+    "public.fgis_grain_provider_attestations",
+    "public.fgis_grain_provider_configurations",
+    "public.fgis_grain_sdiz_projection_batches",
+    "public.fgis_grain_sdiz_projections",
+    "public.fgis_grain_tenant_read_audit_heads",
+    "public.fgis_grain_tenant_read_audits",
+    "public.fgis_grain_tenant_read_authorizations",
+    "public.fgis_grain_tenant_read_provider_claims",
+    "public.integration_binding_events",
+    "public.integration_bindings",
+    "public.integration_capability_evidence",
+    "public.membership_delegations",
+    "public.organization_capability_assignments",
+    "public.organization_capability_events",
+    "public.organization_tax_profiles",
+    "public.organizations",
+    "public.provider_capabilities",
+    "public.provider_registry_events",
+    "public.provider_registry_evidence",
+    "public.providers",
+    "public.regulatory_integration_inbox_conflicts",
+    "public.regulatory_integration_inbox_entries",
+    "public.service_marketplace_events",
+    "public.service_marketplace_quotes",
+    "public.service_marketplace_requests",
+    "public.service_offerings",
+    "public.shipment_gps_points",
+    "public.signing_authorities",
+    "settlement.bank_callbacks",
+    "settlement.bank_operations",
+    "settlement.beneficiaries",
+    "settlement.holds",
+    "settlement.ledger_entries",
+    "settlement.payment_terms",
+    "settlement.payments",
+    "settlement.reconciliation_facts",
+    "support.access_recovery_requests",
+    "support.cases"
+  ],
+  "dynamicPolicyMigrations": [
+    {
+      "migration": "20260713140000_settlement_postgresql_authority",
+      "tables": [
+        "payment_terms",
+        "beneficiaries",
+        "payments",
+        "holds",
+        "bank_operations",
+        "bank_callbacks",
+        "ledger_entries",
+        "reconciliation_facts"
+      ],
+      "statements": [
+        "DROP POLICY IF EXISTS %I_select ON settlement.%I",
+        "CREATE POLICY %I_select ON settlement.%I FOR SELECT USING (tenant_id = current_setting(",
+        "DROP POLICY IF EXISTS %I_insert ON settlement.%I",
+        "CREATE POLICY %I_insert ON settlement.%I FOR INSERT WITH CHECK (tenant_id = current_setting("
+      ]
+    },
+    {
+      "migration": "20260713143000_settlement_rls_qualified_columns",
+      "tables": [
+        "payment_terms",
+        "beneficiaries",
+        "payments",
+        "holds",
+        "bank_operations",
+        "bank_callbacks",
+        "ledger_entries",
+        "reconciliation_facts"
+      ],
+      "statements": [
+        "DROP POLICY IF EXISTS %I_select ON settlement.%I",
+        "CREATE POLICY %I_select ON settlement.%I FOR SELECT USING (%I.tenant_id = current_setting(",
+        "DROP POLICY IF EXISTS %I_insert ON settlement.%I",
+        "CREATE POLICY %I_insert ON settlement.%I FOR INSERT WITH CHECK (%I.tenant_id = current_setting("
+      ]
+    },
+    {
+      "migration": "20260807160000_outbox_runtime_rls_principal_alignment",
+      "tables": [],
+      "statements": [
+        "ALTER POLICY outbox_entries_settlement_callback_update ON public.\"outbox_entries\" TO PUBLIC USING ( CASE WHEN current_user IN ("
+      ]
+    },
+    {
+      "migration": "20260807174000_outbox_tenant_principal_scope_alignment",
+      "tables": [],
+      "statements": [
+        "DROP POLICY IF EXISTS outbox_entries_worker_select ON public.\"outbox_entries\"",
+        "DROP POLICY IF EXISTS outbox_entries_worker_insert ON public.\"outbox_entries\"",
+        "DROP POLICY IF EXISTS outbox_entries_worker_update ON public.\"outbox_entries\"",
+        "CREATE POLICY outbox_entries_worker_select ON public.\"outbox_entries\" FOR SELECT TO PUBLIC USING (current_user IN (",
+        "CREATE POLICY outbox_entries_worker_insert ON public.\"outbox_entries\" FOR INSERT TO PUBLIC WITH CHECK (current_user IN (",
+        "CREATE POLICY outbox_entries_worker_update ON public.\"outbox_entries\" FOR UPDATE TO PUBLIC USING (current_user IN ("
+      ]
+    },
+    {
+      "migration": "20260905040000_inventory_reservation_authority",
+      "tables": [
+        "batches",
+        "positions",
+        "reservations",
+        "availability_snapshots",
+        "command_events"
+      ],
+      "statements": [
+        "CREATE POLICY inventory_own_read ON inventory.%I FOR SELECT USING ( tenant_id = public.app_identity_tenant_id() AND organization_id = public.app_identity_org_id() AND public.app_pc_crop_membership_id() IS NOT NULL)",
+        "CREATE POLICY inventory_command_write ON inventory.%I FOR ALL TO pc_inventory_authority USING ( tenant_id = public.app_identity_tenant_id() AND organization_id = public.app_identity_org_id() AND public.app_pc_crop_membership_id() IS NOT NULL) WITH CHECK ( tenant_id = public.app_identity_tenant_id() AND organization_id = public.app_identity_org_id() AND public.app_pc_crop_membership_id() IS NOT NULL)"
+      ]
+    }
+  ],
+  "openReads": [
+    {
+      "name": "inventory_policy_read",
+      "table": "inventory.availability_policies",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260905040000_inventory_reservation_authority",
+      "tenantBearingTable": false
+    },
+    {
+      "name": "deals_uncontexted_read",
+      "table": "public.deals",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "TRUE",
+      "check": null,
+      "migration": "20260831180000_deals_permissive_all_policy_closure",
+      "tenantBearingTable": true
+    },
+    {
+      "name": "regulatory_rule_versions_read",
+      "table": "public.regulatory_rule_versions",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260816020000_pc_crop_regulatory_rule_registry",
+      "tenantBearingTable": false
+    }
+  ],
+  "openWrites": [
+    {
+      "name": "deals_uncontexted_update",
+      "table": "public.deals",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "TRUE",
+      "check": "TRUE",
+      "migration": "20260831180000_deals_permissive_all_policy_closure",
+      "tenantBearingTable": true
+    }
+  ],
+  "policies": [
+    {
+      "name": "auction_admissions_tenant_select",
+      "table": "auction.admissions",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_rls_context_ready() AND tenant_id = current_setting('app.current_tenant_id', true) AND ( public.app_rls_privileged() OR participant_org_id = current_setting('app.current_org_id', true) OR EXISTS ( SELECT 1 FROM auction.lots lot WHERE lot.tenant_id = admissions.tenant_id AND lot.id = admissions.lot_id AND lot.seller_org_id = current_setting('app.current_org_id', true) ) )",
+      "check": null,
+      "migration": "20260715013000_auction_atomic_execution"
+    },
+    {
+      "name": "auction_awards_tenant_select",
+      "table": "auction.awards",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "NULLIF(current_setting('app.current_tenant_id', true), '') IS NOT NULL AND tenant_id = current_setting('app.current_tenant_id', true)",
+      "check": null,
+      "migration": "20260713210000_auction_postgresql_authority"
+    },
+    {
+      "name": "auction_bids_tenant_select",
+      "table": "auction.bids",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "NULLIF(current_setting('app.current_tenant_id', true), '') IS NOT NULL AND tenant_id = current_setting('app.current_tenant_id', true)",
+      "check": null,
+      "migration": "20260713210000_auction_postgresql_authority"
+    },
+    {
+      "name": "auction_command_receipts_actor_select",
+      "table": "auction.command_receipts",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_rls_context_ready() AND tenant_id = current_setting('app.current_tenant_id', true) AND (actor_id = current_setting('app.current_user_id', true) OR public.app_rls_privileged())",
+      "check": null,
+      "migration": "20260715013000_auction_atomic_execution"
+    },
+    {
+      "name": "auction_inventory_binding_insert",
+      "table": "auction.inventory_bindings",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "pc_inventory_authority"
+      ],
+      "using": null,
+      "check": "tenant_id = public.app_identity_tenant_id() AND organization_id = public.app_identity_org_id() AND public.app_pc_crop_membership_id() IS NOT NULL",
+      "migration": "20260905100000_auction_inventory_binding"
+    },
+    {
+      "name": "auction_inventory_binding_visible",
+      "table": "auction.inventory_bindings",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_rls_context_ready() AND tenant_id = public.app_identity_tenant_id() AND EXISTS (SELECT 1 FROM auction.lots l WHERE l.id = inventory_bindings.lot_id AND l.tenant_id = inventory_bindings.tenant_id AND auction.inventory_binding_visible(l))",
+      "check": null,
+      "migration": "20260905100000_auction_inventory_binding"
+    },
+    {
+      "name": "auction_inventory_lot_insert",
+      "table": "auction.lots",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "pc_inventory_authority"
+      ],
+      "using": null,
+      "check": "tenant_id = public.app_identity_tenant_id() AND seller_org_id = public.app_identity_org_id() AND seller_user_id = public.app_identity_user_id() AND inventory_binding_id IS NOT NULL AND public.app_pc_crop_membership_id() IS NOT NULL",
+      "migration": "20260905100000_auction_inventory_binding"
+    },
+    {
+      "name": "auction_lots_tenant_select",
+      "table": "auction.lots",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "NULLIF(current_setting('app.current_tenant_id', true), '') IS NOT NULL AND tenant_id = current_setting('app.current_tenant_id', true)",
+      "check": null,
+      "migration": "20260713210000_auction_postgresql_authority"
+    },
+    {
+      "name": "inventory_lot_lock",
+      "table": "auction.lots",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "pc_inventory_authority"
+      ],
+      "using": "tenant_id = public.app_identity_tenant_id() AND seller_org_id = public.app_identity_org_id() AND public.app_pc_crop_membership_id() IS NOT NULL",
+      "check": "false",
+      "migration": "20260905040000_inventory_reservation_authority"
+    },
+    {
+      "name": "auth_mail_outbox_enqueue_insert",
+      "table": "auth.mail_outbox",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "pc_auth_mail_enqueue_authority"
+      ],
+      "using": null,
+      "check": "current_user = 'pc_auth_mail_enqueue_authority' AND status = 'PENDING' AND attempt_count = 0 AND lease_owner IS NULL AND lease_token IS NULL AND lease_expires_at IS NULL AND sent_at IS NULL AND redacted_at IS NULL AND idempotency_key LIKE 'auth-mail:%'",
+      "migration": "20260812010000_p0_industrial_auth_mail_outbox"
+    },
+    {
+      "name": "auth_mail_outbox_enqueue_select",
+      "table": "auth.mail_outbox",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_auth_mail_enqueue_authority"
+      ],
+      "using": "current_user = 'pc_auth_mail_enqueue_authority'",
+      "check": null,
+      "migration": "20260812010000_p0_industrial_auth_mail_outbox"
+    },
+    {
+      "name": "auth_mail_outbox_retention_select",
+      "table": "auth.mail_outbox",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_auth_mail_retention_authority"
+      ],
+      "using": "current_user = 'pc_auth_mail_retention_authority' AND status IN ('SENT', 'DEAD_LETTER')",
+      "check": null,
+      "migration": "20260812010000_p0_industrial_auth_mail_outbox"
+    },
+    {
+      "name": "auth_mail_outbox_retention_update",
+      "table": "auth.mail_outbox",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "pc_auth_mail_retention_authority"
+      ],
+      "using": "current_user = 'pc_auth_mail_retention_authority' AND status IN ('SENT', 'DEAD_LETTER')",
+      "check": "current_user = 'pc_auth_mail_retention_authority' AND status IN ('SENT', 'DEAD_LETTER')",
+      "migration": "20260812010000_p0_industrial_auth_mail_outbox"
+    },
+    {
+      "name": "auth_mail_outbox_worker_select",
+      "table": "auth.mail_outbox",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_auth_mail_runtime"
+      ],
+      "using": "current_user = 'pc_auth_mail_runtime'",
+      "check": null,
+      "migration": "20260812010000_p0_industrial_auth_mail_outbox"
+    },
+    {
+      "name": "auth_mail_outbox_worker_update",
+      "table": "auth.mail_outbox",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "pc_auth_mail_runtime"
+      ],
+      "using": "current_user = 'pc_auth_mail_runtime'",
+      "check": "current_user = 'pc_auth_mail_runtime'",
+      "migration": "20260812010000_p0_industrial_auth_mail_outbox"
+    },
+    {
+      "name": "dispute_appeals_select",
+      "table": "dispute.appeals",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "tenant_id = current_setting('app.current_tenant_id', true) AND dispute.case_visible(dispute_id)",
+      "check": null,
+      "migration": "20260715021000_dispute_postgresql_authority"
+    },
+    {
+      "name": "dispute_cases_select",
+      "table": "dispute.cases",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "tenant_id = current_setting('app.current_tenant_id', true) AND dispute.case_visible(id)",
+      "check": null,
+      "migration": "20260715021000_dispute_postgresql_authority"
+    },
+    {
+      "name": "dispute_receipts_select",
+      "table": "dispute.command_receipts",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "tenant_id = current_setting('app.current_tenant_id', true) AND (actor_id = current_setting('app.current_user_id', true) OR current_setting('app.current_role', true) IN ('ADMIN','SUPPORT_MANAGER','ARBITRATOR'))",
+      "check": null,
+      "migration": "20260715021000_dispute_postgresql_authority"
+    },
+    {
+      "name": "dispute_deal_freezes_select",
+      "table": "dispute.deal_freezes",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "tenant_id = current_setting('app.current_tenant_id', true) AND dispute.deal_authorized(deal_id, false)",
+      "check": null,
+      "migration": "20260715021400_dispute_deal_freeze_and_payment_projection"
+    },
+    {
+      "name": "dispute_evidence_select",
+      "table": "dispute.evidence",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "tenant_id = current_setting('app.current_tenant_id', true) AND dispute.case_visible(dispute_id)",
+      "check": null,
+      "migration": "20260715021000_dispute_postgresql_authority"
+    },
+    {
+      "name": "dispute_instructions_select",
+      "table": "dispute.money_instructions",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "tenant_id = current_setting('app.current_tenant_id', true) AND dispute.case_visible(dispute_id)",
+      "check": null,
+      "migration": "20260715021000_dispute_postgresql_authority"
+    },
+    {
+      "name": "dispute_participants_select",
+      "table": "dispute.participants",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "tenant_id = current_setting('app.current_tenant_id', true) AND dispute.case_visible(dispute_id)",
+      "check": null,
+      "migration": "20260715021000_dispute_postgresql_authority"
+    },
+    {
+      "name": "inventory_policy_read",
+      "table": "inventory.availability_policies",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260905040000_inventory_reservation_authority"
+    },
+    {
+      "name": "labs_authorized_actors_admin_insert",
+      "table": "labs.authorized_actors",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "tenant_id = current_setting('app.current_tenant_id', true) AND public.app_rls_privileged()",
+      "migration": "20260713124000_labs_postgresql_authority"
+    },
+    {
+      "name": "labs_authorized_actors_admin_update",
+      "table": "labs.authorized_actors",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "tenant_id = current_setting('app.current_tenant_id', true) AND public.app_rls_privileged()",
+      "check": "tenant_id = current_setting('app.current_tenant_id', true) AND public.app_rls_privileged()",
+      "migration": "20260713124000_labs_postgresql_authority"
+    },
+    {
+      "name": "labs_authorized_actors_select",
+      "table": "labs.authorized_actors",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "tenant_id = current_setting('app.current_tenant_id', true) AND (user_id = current_setting('app.current_user_id', true) OR public.app_rls_privileged())",
+      "check": null,
+      "migration": "20260713123000_labs_postgresql_authority"
+    },
+    {
+      "name": "labs_equipment_admin_insert",
+      "table": "labs.equipment",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "tenant_id = current_setting('app.current_tenant_id', true) AND public.app_rls_privileged()",
+      "migration": "20260713124000_labs_postgresql_authority"
+    },
+    {
+      "name": "labs_equipment_admin_update",
+      "table": "labs.equipment",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "tenant_id = current_setting('app.current_tenant_id', true) AND public.app_rls_privileged()",
+      "check": "tenant_id = current_setting('app.current_tenant_id', true) AND public.app_rls_privileged()",
+      "migration": "20260713124000_labs_postgresql_authority"
+    },
+    {
+      "name": "labs_equipment_select",
+      "table": "labs.equipment",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "tenant_id = current_setting('app.current_tenant_id', true) AND ( public.app_rls_privileged() OR EXISTS ( SELECT 1 FROM labs.authorized_actors actor WHERE actor.tenant_id = labs.equipment.tenant_id AND actor.laboratory_org_id = labs.equipment.laboratory_org_id AND actor.user_id = current_setting('app.current_user_id', true) AND actor.status = 'ACTIVE' ) )",
+      "check": null,
+      "migration": "20260713123000_labs_postgresql_authority"
+    },
+    {
+      "name": "labs_laboratories_admin_insert",
+      "table": "labs.laboratories",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "tenant_id = current_setting('app.current_tenant_id', true) AND public.app_rls_privileged()",
+      "migration": "20260713124000_labs_postgresql_authority"
+    },
+    {
+      "name": "labs_laboratories_admin_update",
+      "table": "labs.laboratories",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "tenant_id = current_setting('app.current_tenant_id', true) AND public.app_rls_privileged()",
+      "check": "tenant_id = current_setting('app.current_tenant_id', true) AND public.app_rls_privileged()",
+      "migration": "20260713124000_labs_postgresql_authority"
+    },
+    {
+      "name": "labs_laboratories_select",
+      "table": "labs.laboratories",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "tenant_id = current_setting('app.current_tenant_id', true) AND (organization_id = current_setting('app.current_org_id', true) OR public.app_rls_privileged())",
+      "check": null,
+      "migration": "20260713120000_labs_postgresql_authority"
+    },
+    {
+      "name": "labs_methods_admin_insert",
+      "table": "labs.methods",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "tenant_id = current_setting('app.current_tenant_id', true) AND public.app_rls_privileged()",
+      "migration": "20260713124000_labs_postgresql_authority"
+    },
+    {
+      "name": "labs_methods_admin_update",
+      "table": "labs.methods",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "tenant_id = current_setting('app.current_tenant_id', true) AND public.app_rls_privileged()",
+      "check": "tenant_id = current_setting('app.current_tenant_id', true) AND public.app_rls_privileged()",
+      "migration": "20260713124000_labs_postgresql_authority"
+    },
+    {
+      "name": "labs_methods_select",
+      "table": "labs.methods",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "tenant_id = current_setting('app.current_tenant_id', true) AND ( public.app_rls_privileged() OR EXISTS ( SELECT 1 FROM labs.authorized_actors actor WHERE actor.tenant_id = labs.methods.tenant_id AND actor.laboratory_org_id = labs.methods.laboratory_org_id AND actor.user_id = current_setting('app.current_user_id', true) AND actor.status = 'ACTIVE' ) )",
+      "check": null,
+      "migration": "20260713123000_labs_postgresql_authority"
+    },
+    {
+      "name": "labs_protocols_insert",
+      "table": "labs.protocols",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "tenant_id = current_setting('app.current_tenant_id', true) AND finalized_by_user_id = current_setting('app.current_user_id', true) AND EXISTS ( SELECT 1 FROM public.\"lab_samples\" sample WHERE sample.\"id\" = sample_id AND public.app_labs_deal_authorized(sample.\"dealId\", sample.\"labId\", true) )",
+      "migration": "20260713120000_labs_postgresql_authority"
+    },
+    {
+      "name": "labs_protocols_select",
+      "table": "labs.protocols",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "tenant_id = current_setting('app.current_tenant_id', true) AND EXISTS ( SELECT 1 FROM public.\"lab_samples\" sample WHERE sample.\"id\" = sample_id AND public.app_labs_deal_authorized(sample.\"dealId\", sample.\"labId\", false) )",
+      "check": null,
+      "migration": "20260713120000_labs_postgresql_authority"
+    },
+    {
+      "name": "labs_admissions_select",
+      "table": "labs.sample_admissions",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "tenant_id = current_setting('app.current_tenant_id', true) AND public.app_labs_deal_authorized(deal_id, laboratory_org_id, false)",
+      "check": null,
+      "migration": "20260713120000_labs_postgresql_authority"
+    },
+    {
+      "name": "labs_admissions_update",
+      "table": "labs.sample_admissions",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "tenant_id = current_setting('app.current_tenant_id', true) AND status = 'ACTIVE' AND public.app_labs_deal_authorized(deal_id, laboratory_org_id, true)",
+      "check": "tenant_id = current_setting('app.current_tenant_id', true) AND public.app_labs_deal_authorized(deal_id, laboratory_org_id, true)",
+      "migration": "20260713120000_labs_postgresql_authority"
+    },
+    {
+      "name": "labs_sample_admissions_admin_insert",
+      "table": "labs.sample_admissions",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "tenant_id = current_setting('app.current_tenant_id', true) AND public.app_rls_privileged()",
+      "migration": "20260713124000_labs_postgresql_authority"
+    },
+    {
+      "name": "labs_sample_admissions_admin_update",
+      "table": "labs.sample_admissions",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "tenant_id = current_setting('app.current_tenant_id', true) AND public.app_rls_privileged()",
+      "check": "tenant_id = current_setting('app.current_tenant_id', true) AND public.app_rls_privileged()",
+      "migration": "20260713124000_labs_postgresql_authority"
+    },
+    {
+      "name": "labs_custody_insert",
+      "table": "labs.sample_custody_events",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "tenant_id = current_setting('app.current_tenant_id', true) AND actor_user_id = current_setting('app.current_user_id', true) AND EXISTS ( SELECT 1 FROM public.\"lab_samples\" sample WHERE sample.\"id\" = sample_id AND public.app_labs_deal_authorized(sample.\"dealId\", sample.\"labId\", true) )",
+      "migration": "20260713120000_labs_postgresql_authority"
+    },
+    {
+      "name": "labs_custody_select",
+      "table": "labs.sample_custody_events",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "tenant_id = current_setting('app.current_tenant_id', true) AND EXISTS ( SELECT 1 FROM public.\"lab_samples\" sample WHERE sample.\"id\" = sample_id AND public.app_labs_deal_authorized(sample.\"dealId\", sample.\"labId\", false) )",
+      "check": null,
+      "migration": "20260713120000_labs_postgresql_authority"
+    },
+    {
+      "name": "accounting_advance_offsets_command_insert",
+      "table": "public.accounting_advance_offsets",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND \"appliedByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260817120000_pc_crop_accounting_advances"
+    },
+    {
+      "name": "accounting_advance_offsets_member_select",
+      "table": "public.accounting_advance_offsets",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "check": null,
+      "migration": "20260817120000_pc_crop_accounting_advances"
+    },
+    {
+      "name": "accounting_advances_command_insert",
+      "table": "public.accounting_advances",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND \"recordedByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260817120000_pc_crop_accounting_advances"
+    },
+    {
+      "name": "accounting_advances_command_update",
+      "table": "public.accounting_advances",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "check": "\"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "migration": "20260817120000_pc_crop_accounting_advances"
+    },
+    {
+      "name": "accounting_advances_member_select",
+      "table": "public.accounting_advances",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "check": null,
+      "migration": "20260817120000_pc_crop_accounting_advances"
+    },
+    {
+      "name": "accounting_deal_services_command_insert",
+      "table": "public.accounting_deal_services",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND \"recordedByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260817170000_pc_crop_accounting_deal_services"
+    },
+    {
+      "name": "accounting_deal_services_command_update",
+      "table": "public.accounting_deal_services",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "check": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "migration": "20260817170000_pc_crop_accounting_deal_services"
+    },
+    {
+      "name": "accounting_deal_services_member_select",
+      "table": "public.accounting_deal_services",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "check": null,
+      "migration": "20260817170000_pc_crop_accounting_deal_services"
+    },
+    {
+      "name": "accounting_document_versions_command_insert",
+      "table": "public.accounting_document_versions",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND \"createdByMembershipId\" = public.app_pc_crop_membership_id() AND \"signedAt\" IS NULL AND \"signedByMembershipId\" IS NULL AND \"signingAuthorityId\" IS NULL AND \"signatureCertificateFingerprint\" IS NULL",
+      "migration": "20260816000000_pc_crop_accounting_documents"
+    },
+    {
+      "name": "accounting_document_versions_command_sign",
+      "table": "public.accounting_document_versions",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND \"signedAt\" IS NULL",
+      "check": "\"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "migration": "20260816000000_pc_crop_accounting_documents"
+    },
+    {
+      "name": "accounting_document_versions_member_select",
+      "table": "public.accounting_document_versions",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "check": null,
+      "migration": "20260816000000_pc_crop_accounting_documents"
+    },
+    {
+      "name": "accounting_documents_command_insert",
+      "table": "public.accounting_documents",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND \"createdByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260816000000_pc_crop_accounting_documents"
+    },
+    {
+      "name": "accounting_documents_command_update",
+      "table": "public.accounting_documents",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "check": "\"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "migration": "20260816000000_pc_crop_accounting_documents"
+    },
+    {
+      "name": "accounting_documents_member_select",
+      "table": "public.accounting_documents",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "check": null,
+      "migration": "20260816000000_pc_crop_accounting_documents"
+    },
+    {
+      "name": "accounting_number_counters_command_insert",
+      "table": "public.accounting_number_counters",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "migration": "20260816010000_pc_crop_accounting_number_counter"
+    },
+    {
+      "name": "accounting_number_counters_command_update",
+      "table": "public.accounting_number_counters",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "check": "\"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "migration": "20260816010000_pc_crop_accounting_number_counter"
+    },
+    {
+      "name": "accounting_number_counters_member_select",
+      "table": "public.accounting_number_counters",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "check": null,
+      "migration": "20260816010000_pc_crop_accounting_number_counter"
+    },
+    {
+      "name": "accounting_payment_allocations_command_insert",
+      "table": "public.accounting_payment_allocations",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND \"allocatedByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260817200000_pc_crop_accounting_payments"
+    },
+    {
+      "name": "accounting_payment_allocations_member_select",
+      "table": "public.accounting_payment_allocations",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "check": null,
+      "migration": "20260817200000_pc_crop_accounting_payments"
+    },
+    {
+      "name": "accounting_payments_command_insert",
+      "table": "public.accounting_payments",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND \"recordedByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260817200000_pc_crop_accounting_payments"
+    },
+    {
+      "name": "accounting_payments_command_update",
+      "table": "public.accounting_payments",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "check": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "migration": "20260817200000_pc_crop_accounting_payments"
+    },
+    {
+      "name": "accounting_payments_member_select",
+      "table": "public.accounting_payments",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "check": null,
+      "migration": "20260817200000_pc_crop_accounting_payments"
+    },
+    {
+      "name": "accounting_periods_command_insert",
+      "table": "public.accounting_periods",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND \"openedByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260816200000_pc_crop_accounting_periods"
+    },
+    {
+      "name": "accounting_periods_command_update",
+      "table": "public.accounting_periods",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND \"status\" <> 'CLOSED'",
+      "check": "\"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND ( \"closedByMembershipId\" IS NULL OR \"closedByMembershipId\" = public.app_pc_crop_membership_id() )",
+      "migration": "20260816200000_pc_crop_accounting_periods"
+    },
+    {
+      "name": "accounting_periods_member_select",
+      "table": "public.accounting_periods",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "check": null,
+      "migration": "20260816200000_pc_crop_accounting_periods"
+    },
+    {
+      "name": "accounting_reconciliations_command_insert",
+      "table": "public.accounting_reconciliations",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND \"preparedByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260817220000_pc_crop_accounting_reconciliation"
+    },
+    {
+      "name": "accounting_reconciliations_command_update",
+      "table": "public.accounting_reconciliations",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "check": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "migration": "20260817220000_pc_crop_accounting_reconciliation"
+    },
+    {
+      "name": "accounting_reconciliations_member_select",
+      "table": "public.accounting_reconciliations",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "check": null,
+      "migration": "20260817220000_pc_crop_accounting_reconciliation"
+    },
+    {
+      "name": "accounting_work_tasks_command_insert",
+      "table": "public.accounting_work_tasks",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND \"origin\" = 'MANUAL' AND \"createdByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260816190000_pc_crop_accounting_work_tasks"
+    },
+    {
+      "name": "accounting_work_tasks_command_update",
+      "table": "public.accounting_work_tasks",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "check": "\"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND ( \"resolvedByMembershipId\" IS NULL OR \"resolvedByMembershipId\" = public.app_pc_crop_membership_id() )",
+      "migration": "20260816190000_pc_crop_accounting_work_tasks"
+    },
+    {
+      "name": "accounting_work_tasks_member_select",
+      "table": "public.accounting_work_tasks",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "check": null,
+      "migration": "20260816190000_pc_crop_accounting_work_tasks"
+    },
+    {
+      "name": "audit_events_insert",
+      "table": "public.audit_events",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_rls_context_ready() AND \"actorUserId\" = current_setting('app.current_user_id', true) AND \"actorRole\" = current_setting('app.current_role', true) AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND \"orgId\" = current_setting('app.current_org_id', true) AND (\"dealId\" IS NULL OR public.app_rls_deal_visible(\"dealId\"))",
+      "migration": "20260830190000_migration_chain_rls_permissive_closure"
+    },
+    {
+      "name": "audit_events_select",
+      "table": "public.audit_events",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_rls_context_ready() AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND ( public.app_rls_privileged() OR \"orgId\" = current_setting('app.current_org_id', true) OR (\"dealId\" IS NOT NULL AND public.app_rls_deal_visible(\"dealId\")) )",
+      "check": null,
+      "migration": "20260830190000_migration_chain_rls_permissive_closure"
+    },
+    {
+      "name": "public_org_intake_audit_insert",
+      "table": "public.audit_events",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid = 'public.audit_events'::regclass)) AND \"tenantId\" IS NULL AND \"orgId\" IS NULL AND \"dealId\" IS NULL AND \"disputeId\" IS NULL AND action = 'public:organization-intake:create' AND \"actorUserId\" = 'public:organization-intake' AND \"actorRole\" = 'PUBLIC' AND \"objectType\" = 'PublicOrganizationConnectionRequest' AND \"objectId\" LIKE 'public-org-request-%' AND outcome = 'SUCCESS'",
+      "migration": "20260723113000_public_organization_connection_intake"
+    },
+    {
+      "name": "checkpoints_insert",
+      "table": "public.checkpoints",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "\"tenantId\" = current_setting('app.current_tenant_id', true) AND \"actorId\" = current_setting('app.current_user_id', true) AND EXISTS ( SELECT 1 FROM public.\"shipments\" shipment WHERE shipment.\"id\" = \"shipmentId\" AND public.app_logistics_deal_authorized(shipment.\"dealId\", shipment.\"driverUserId\", true) )",
+      "migration": "20260713100000_logistics_postgresql_authority"
+    },
+    {
+      "name": "checkpoints_select",
+      "table": "public.checkpoints",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "\"tenantId\" = current_setting('app.current_tenant_id', true) AND EXISTS ( SELECT 1 FROM public.\"shipments\" shipment WHERE shipment.\"id\" = \"shipmentId\" AND public.app_logistics_deal_authorized(shipment.\"dealId\", shipment.\"driverUserId\", false) )",
+      "check": null,
+      "migration": "20260713100000_logistics_postgresql_authority"
+    },
+    {
+      "name": "commercial_decision_insert",
+      "table": "public.commercial_decisions",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_pc_crop_membership_id() IS NOT NULL AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id() AND \"actorUserId\" = public.app_identity_user_id() AND \"actorMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260905010000_commercial_rules_authority"
+    },
+    {
+      "name": "commercial_decision_select",
+      "table": "public.commercial_decisions",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id()",
+      "check": null,
+      "migration": "20260905010000_commercial_rules_authority"
+    },
+    {
+      "name": "commercial_rule_event_insert",
+      "table": "public.commercial_rule_events",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_organization_capability_is_org_admin() AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id() AND \"actorUserId\" = public.app_identity_user_id() AND \"actorMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260905010000_commercial_rules_authority"
+    },
+    {
+      "name": "commercial_rule_event_select",
+      "table": "public.commercial_rule_events",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id()",
+      "check": null,
+      "migration": "20260905010000_commercial_rules_authority"
+    },
+    {
+      "name": "commercial_rule_pack_insert",
+      "table": "public.commercial_rule_packs",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_organization_capability_is_org_admin() AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id() AND \"status\" = 'DRAFT' AND \"createdByMembershipId\" = public.app_pc_crop_membership_id() AND \"updatedByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260905010000_commercial_rules_authority"
+    },
+    {
+      "name": "commercial_rule_pack_select",
+      "table": "public.commercial_rule_packs",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id() AND (\"status\" = 'PUBLISHED' OR public.app_organization_capability_is_org_admin())",
+      "check": null,
+      "migration": "20260905010000_commercial_rules_authority"
+    },
+    {
+      "name": "commercial_rule_pack_update",
+      "table": "public.commercial_rule_packs",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_organization_capability_is_org_admin() AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id()",
+      "check": "public.app_organization_capability_is_org_admin() AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id() AND \"updatedByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260905010000_commercial_rules_authority"
+    },
+    {
+      "name": "commercial_rule_set_insert",
+      "table": "public.commercial_rule_sets",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_organization_capability_is_org_admin() AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id() AND \"status\" = 'DRAFT' AND \"createdByMembershipId\" = public.app_pc_crop_membership_id() AND \"updatedByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260905010000_commercial_rules_authority"
+    },
+    {
+      "name": "commercial_rule_set_select",
+      "table": "public.commercial_rule_sets",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id() AND (\"status\" = 'PUBLISHED' OR public.app_organization_capability_is_org_admin())",
+      "check": null,
+      "migration": "20260905010000_commercial_rules_authority"
+    },
+    {
+      "name": "commercial_rule_set_update",
+      "table": "public.commercial_rule_sets",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_organization_capability_is_org_admin() AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id()",
+      "check": "public.app_organization_capability_is_org_admin() AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id() AND \"updatedByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260905010000_commercial_rules_authority"
+    },
+    {
+      "name": "commodity_profile_transitions_select",
+      "table": "public.commodity_profile_transitions",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_rls_context_ready() AND public.app_rls_privileged()",
+      "check": null,
+      "migration": "20260720131500_commodity_profile_registry_authority"
+    },
+    {
+      "name": "commodity_profile_transitions_write",
+      "table": "public.commodity_profile_transitions",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_rls_context_ready() AND public.app_rls_privileged()",
+      "migration": "20260720131500_commodity_profile_registry_authority"
+    },
+    {
+      "name": "auction_inventory_profile_lock",
+      "table": "public.commodity_profile_versions",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "pc_inventory_authority"
+      ],
+      "using": "status = 'EFFECTIVE' AND \"effectiveFrom\" <= clock_timestamp() AND (\"effectiveTo\" IS NULL OR \"effectiveTo\" > clock_timestamp()) AND public.app_pc_crop_membership_id() IS NOT NULL",
+      "check": "false",
+      "migration": "20260905100000_auction_inventory_binding"
+    },
+    {
+      "name": "commodity_profile_versions_select",
+      "table": "public.commodity_profile_versions",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_rls_context_ready() AND ( public.app_rls_privileged() OR ( \"status\" = 'EFFECTIVE' AND \"effectiveFrom\" <= CURRENT_TIMESTAMP AND (\"effectiveTo\" IS NULL OR CURRENT_TIMESTAMP < \"effectiveTo\") ) )",
+      "check": null,
+      "migration": "20260720131500_commodity_profile_registry_authority"
+    },
+    {
+      "name": "commodity_profile_versions_write",
+      "table": "public.commodity_profile_versions",
+      "permissive": true,
+      "command": "ALL",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_rls_context_ready() AND public.app_rls_privileged()",
+      "check": "public.app_rls_context_ready() AND public.app_rls_privileged()",
+      "migration": "20260720131500_commodity_profile_registry_authority"
+    },
+    {
+      "name": "commodity_profiles_select",
+      "table": "public.commodity_profiles",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_rls_context_ready() AND ( public.app_rls_privileged() OR EXISTS ( SELECT 1 FROM public.\"commodity_profile_versions\" v WHERE v.\"profileId\" = \"commodity_profiles\".\"id\" AND v.\"status\" = 'EFFECTIVE' AND v.\"effectiveFrom\" <= CURRENT_TIMESTAMP AND (v.\"effectiveTo\" IS NULL OR CURRENT_TIMESTAMP < v.\"effectiveTo\") ) )",
+      "check": null,
+      "migration": "20260720131500_commodity_profile_registry_authority"
+    },
+    {
+      "name": "commodity_profiles_write",
+      "table": "public.commodity_profiles",
+      "permissive": true,
+      "command": "ALL",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_rls_context_ready() AND public.app_rls_privileged()",
+      "check": "public.app_rls_context_ready() AND public.app_rls_privileged()",
+      "migration": "20260720131500_commodity_profile_registry_authority"
+    },
+    {
+      "name": "connection_attestation_subject_tenant_org_policy",
+      "table": "public.connection_attestation_subjects",
+      "permissive": true,
+      "command": "ALL",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "\"tenantId\" = current_setting('app.current_tenant_id', true) AND \"organizationId\" = current_setting('app.current_org_id', true)",
+      "check": "\"tenantId\" = current_setting('app.current_tenant_id', true) AND \"organizationId\" = current_setting('app.current_org_id', true)",
+      "migration": "20260818090000_pc_crop_connection_attestation_subjects"
+    },
+    {
+      "name": "contract_versions_command_insert",
+      "table": "public.contract_versions",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND \"createdByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260816040000_pc_crop_contract_versions"
+    },
+    {
+      "name": "contract_versions_command_update",
+      "table": "public.contract_versions",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "check": "\"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "migration": "20260816040000_pc_crop_contract_versions"
+    },
+    {
+      "name": "contract_versions_member_select",
+      "table": "public.contract_versions",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "check": null,
+      "migration": "20260816040000_pc_crop_contract_versions"
+    },
+    {
+      "name": "deal_documents_insert",
+      "table": "public.deal_documents",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_rls_context_ready() AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND public.app_document_deal_authorized(\"dealId\") AND ( ( \"type\" = 'EVIDENCE_FILE' AND \"status\" = 'UPLOAD_PENDING' AND NOT \"isImmutable\" AND \"hash\" IS NULL AND \"s3Key\" IS NOT NULL AND \"mimeType\" IS NOT NULL AND \"sizeBytes\" > 0 AND ( \"uploadedByUserId\" = current_setting('app.current_user_id', true) OR public.app_rls_privileged() ) ) OR ( \"type\" <> 'EVIDENCE_FILE' AND \"uploadedByUserId\" = current_setting('app.current_user_id', true) AND \"createdByOrgId\" = current_setting('app.current_org_id', true) AND current_setting('app.current_role', true) IN ( 'ADMIN', 'COMPLIANCE_OFFICER', 'SUPPORT_MANAGER', 'FARMER', 'BUYER', 'LOGISTICIAN', 'SURVEYOR', 'LAB', 'ELEVATOR', 'ACCOUNTING' ) AND \"idempotencyKey\" IS NOT NULL AND \"isImmutable\" AND ( ( \"type\" = 'PACKAGE_MANIFEST' AND \"status\" = 'PACKAGE_MANIFEST_CREATED' AND \"sourceFileId\" IS NULL AND \"signatureFileId\" IS NULL AND \"s3Key\" IS NULL ) OR ( \"type\" IN ( 'contract', 'transport_waybill', 'quality_certificate', 'acceptance_act', 'sdiz', 'lab_protocol', 'bank_basis', 'dispute_resolution' ) AND \"status\" IN ('PENDING_REVIEW', 'SIGNATURE_PENDING_VERIFICATION') ) ) ) )",
+      "migration": "20260713090000_documents_postgresql_authority"
+    },
+    {
+      "name": "deal_documents_select",
+      "table": "public.deal_documents",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_rls_context_ready() AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND public.app_document_deal_authorized(\"dealId\")",
+      "check": null,
+      "migration": "20260713090000_documents_postgresql_authority"
+    },
+    {
+      "name": "deal_documents_update",
+      "table": "public.deal_documents",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_rls_context_ready() AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND public.app_document_deal_authorized(\"dealId\") AND ( ( \"type\" = 'EVIDENCE_FILE' AND NOT \"isImmutable\" AND ( ( current_user IN ('app_storage', 'one_deal_storage') AND \"status\" = 'UPLOAD_PENDING' ) OR ( current_user NOT IN ('app_storage', 'one_deal_storage') AND \"status\" IN ('UPLOAD_PENDING', 'UPLOAD_EXPIRED', 'DELETE_PENDING', 'DELETE_FAILED') ) ) AND ( \"uploadedByUserId\" = current_setting('app.current_user_id', true) OR public.app_rls_privileged() ) ) OR ( \"type\" <> 'EVIDENCE_FILE' AND NOT \"isImmutable\" AND current_setting('app.current_role', true) IN ( 'ADMIN', 'COMPLIANCE_OFFICER', 'SUPPORT_MANAGER', 'FARMER', 'BUYER', 'SURVEYOR' ) ) )",
+      "check": "public.app_rls_context_ready() AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND public.app_document_deal_authorized(\"dealId\") AND ( ( \"type\" = 'EVIDENCE_FILE' AND ( ( current_user IN ('app_storage', 'one_deal_storage') AND (\"status\" = 'VERIFIED' OR left(\"status\", 12) = 'QUARANTINED_') ) OR ( current_user NOT IN ('app_storage', 'one_deal_storage') AND \"status\" IN ( 'UPLOAD_PENDING', 'UPLOAD_EXPIRED', 'DELETE_PENDING', 'DELETE_FAILED', 'DELETED' ) ) ) AND ( \"uploadedByUserId\" = current_setting('app.current_user_id', true) OR public.app_rls_privileged() ) ) OR ( \"type\" <> 'EVIDENCE_FILE' AND current_setting('app.current_role', true) IN ( 'ADMIN', 'COMPLIANCE_OFFICER', 'SUPPORT_MANAGER', 'FARMER', 'BUYER', 'SURVEYOR' ) ) )",
+      "migration": "20260713090000_documents_postgresql_authority"
+    },
+    {
+      "name": "deal_events_tenant_insert",
+      "table": "public.deal_events",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "app_rls_context_ready() AND \"tenantId\" = current_setting('app.current_tenant_id', true)",
+      "migration": "20260831010000_tenant_rls_uncovered_tables"
+    },
+    {
+      "name": "deal_events_tenant_select",
+      "table": "public.deal_events",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "app_rls_context_ready() AND \"tenantId\" = current_setting('app.current_tenant_id', true)",
+      "check": null,
+      "migration": "20260831010000_tenant_rls_uncovered_tables"
+    },
+    {
+      "name": "deal_participants_insert",
+      "table": "public.deal_participants",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_rls_context_ready() AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND ( public.app_rls_privileged() OR ( \"accessLevel\" = 'APPROVE' AND \"status\" = 'ACTIVE' AND \"assignedByUserId\" = current_setting('app.current_user_id', true) AND \"revokedAt\" IS NULL AND public.app_deal_basis_participant_allowed( \"dealId\", \"tenantId\", \"organizationId\", \"userId\", \"role\" ) ) )",
+      "migration": "20260712193000_postgresql_deal_authority"
+    },
+    {
+      "name": "deal_participants_select",
+      "table": "public.deal_participants",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_rls_context_ready() AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND ( public.app_rls_privileged() OR ( \"userId\" = current_setting('app.current_user_id', true) AND \"organizationId\" = current_setting('app.current_org_id', true) AND \"role\" = current_setting('app.current_role', true) AND \"status\" = 'ACTIVE' ) )",
+      "check": null,
+      "migration": "20260807006000_deal_participants_select_authority"
+    },
+    {
+      "name": "deals_insert",
+      "table": "public.deals",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_rls_context_ready() AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND current_setting('app.current_role', true) = 'FARMER' AND public.app_deal_basis_deal_visible(to_jsonb(\"deals\"))",
+      "migration": "20260712195000_deal_insert_basis_only"
+    },
+    {
+      "name": "deals_select",
+      "table": "public.deals",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_rls_context_ready() AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND ( public.app_rls_privileged() OR ( current_setting('app.current_role', true) = 'BANK_CALLBACK' AND \"buyerOrgId\" = current_setting('app.current_org_id', true) ) OR EXISTS ( SELECT 1 FROM public.\"deal_participants\" p WHERE p.\"dealId\" = \"deals\".\"id\" AND p.\"tenantId\" = current_setting('app.current_tenant_id', true) AND p.\"organizationId\" = current_setting('app.current_org_id', true) AND p.\"userId\" = current_setting('app.current_user_id', true) AND p.\"role\" = current_setting('app.current_role', true) AND p.\"status\" = 'ACTIVE' AND p.\"accessLevel\" IN ('READ', 'WORK', 'APPROVE') ) OR public.app_deal_basis_deal_visible(to_jsonb(\"deals\")) )",
+      "check": null,
+      "migration": "20260712193000_postgresql_deal_authority"
+    },
+    {
+      "name": "deals_staff_projection",
+      "table": "public.deals",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_staff_authority"
+      ],
+      "using": "current_setting('app.staff_projection_scope', true) = 'org:' || \"sellerOrgId\" OR current_setting('app.staff_projection_scope', true) = 'org:' || \"buyerOrgId\" OR current_setting('app.staff_projection_scope', true) = 'deal:' || id",
+      "check": null,
+      "migration": "20260807004000_bounded_staff_deal_target_scope"
+    },
+    {
+      "name": "deals_uncontexted_read",
+      "table": "public.deals",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "TRUE",
+      "check": null,
+      "migration": "20260831180000_deals_permissive_all_policy_closure"
+    },
+    {
+      "name": "deals_uncontexted_update",
+      "table": "public.deals",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "TRUE",
+      "check": "TRUE",
+      "migration": "20260831180000_deals_permissive_all_policy_closure"
+    },
+    {
+      "name": "fgis_grain_ack_select_policy",
+      "table": "public.fgis_grain_acknowledgements",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "current_user IN ('app_runtime', 'app_service') AND public.app_rls_context_ready() AND current_setting('app.current_role', true) IN ('ADMIN', 'COMPLIANCE_OFFICER', 'OPERATOR', 'EXECUTIVE') AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND \"organizationId\" = current_setting('app.current_org_id', true)",
+      "check": null,
+      "migration": "20260728004500_fgis_grain_outbound_ack"
+    },
+    {
+      "name": "fgis_grain_exchange_select_policy",
+      "table": "public.fgis_grain_exchanges",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "current_user IN ('app_runtime', 'app_service') AND public.app_rls_context_ready() AND current_setting('app.current_role', true) IN ('ADMIN', 'COMPLIANCE_OFFICER', 'EXECUTIVE') AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND \"organizationId\" = current_setting('app.current_org_id', true)",
+      "check": null,
+      "migration": "20260727193000_fgis_grain_exchange_receipt"
+    },
+    {
+      "name": "fgis_grain_provider_attestation_tenant_org_policy",
+      "table": "public.fgis_grain_provider_attestations",
+      "permissive": true,
+      "command": "ALL",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "\"tenantId\" = current_setting('app.current_tenant_id', true) AND \"organizationId\" = current_setting('app.current_org_id', true)",
+      "check": "\"tenantId\" = current_setting('app.current_tenant_id', true) AND \"organizationId\" = current_setting('app.current_org_id', true)",
+      "migration": "20260724145500_fgis_grain_provider_attestation_authority"
+    },
+    {
+      "name": "fgis_grain_provider_config_tenant_org_policy",
+      "table": "public.fgis_grain_provider_configurations",
+      "permissive": true,
+      "command": "ALL",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "\"tenantId\" = current_setting('app.current_tenant_id', true) AND \"organizationId\" = current_setting('app.current_org_id', true)",
+      "check": "\"tenantId\" = current_setting('app.current_tenant_id', true) AND \"organizationId\" = current_setting('app.current_org_id', true)",
+      "migration": "20260724145500_fgis_grain_provider_attestation_authority"
+    },
+    {
+      "name": "fgis_grain_sdiz_batch_insert_policy",
+      "table": "public.fgis_grain_sdiz_projection_batches",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "current_user IN ('app_runtime', 'app_service') AND public.app_rls_context_ready() AND current_setting('app.current_role', true) IN ('ADMIN', 'COMPLIANCE_OFFICER') AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND \"organizationId\" = current_setting('app.current_org_id', true)",
+      "migration": "20260724190000_fgis_grain_sdiz_projection"
+    },
+    {
+      "name": "fgis_grain_sdiz_batch_select_policy",
+      "table": "public.fgis_grain_sdiz_projection_batches",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "current_user IN ('app_runtime', 'app_service') AND public.app_rls_context_ready() AND current_setting('app.current_role', true) IN ('ADMIN', 'COMPLIANCE_OFFICER', 'EXECUTIVE') AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND \"organizationId\" = current_setting('app.current_org_id', true)",
+      "check": null,
+      "migration": "20260724190000_fgis_grain_sdiz_projection"
+    },
+    {
+      "name": "fgis_grain_sdiz_projection_insert_policy",
+      "table": "public.fgis_grain_sdiz_projections",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "current_user IN ('app_runtime', 'app_service') AND public.app_rls_context_ready() AND current_setting('app.current_role', true) IN ('ADMIN', 'COMPLIANCE_OFFICER') AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND \"organizationId\" = current_setting('app.current_org_id', true)",
+      "migration": "20260724190000_fgis_grain_sdiz_projection"
+    },
+    {
+      "name": "fgis_grain_sdiz_projection_select_policy",
+      "table": "public.fgis_grain_sdiz_projections",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "current_user IN ('app_runtime', 'app_service') AND public.app_rls_context_ready() AND current_setting('app.current_role', true) IN ('ADMIN', 'COMPLIANCE_OFFICER', 'EXECUTIVE') AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND \"organizationId\" = current_setting('app.current_org_id', true)",
+      "check": null,
+      "migration": "20260724190000_fgis_grain_sdiz_projection"
+    },
+    {
+      "name": "fgis_grain_sdiz_projection_update_policy",
+      "table": "public.fgis_grain_sdiz_projections",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "current_user IN ('app_runtime', 'app_service') AND public.app_rls_context_ready() AND current_setting('app.current_role', true) IN ('ADMIN', 'COMPLIANCE_OFFICER') AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND \"organizationId\" = current_setting('app.current_org_id', true)",
+      "check": "current_user IN ('app_runtime', 'app_service') AND public.app_rls_context_ready() AND current_setting('app.current_role', true) IN ('ADMIN', 'COMPLIANCE_OFFICER') AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND \"organizationId\" = current_setting('app.current_org_id', true)",
+      "migration": "20260724190000_fgis_grain_sdiz_projection"
+    },
+    {
+      "name": "fgis_grain_tenant_read_audit_heads_insert",
+      "table": "public.fgis_grain_tenant_read_audit_heads",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "fgis_grain_tenant_read_context_ready(true) AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND \"organizationId\" = current_setting('app.current_org_id', true)",
+      "migration": "20260831010000_tenant_rls_uncovered_tables"
+    },
+    {
+      "name": "fgis_grain_tenant_read_audit_heads_select",
+      "table": "public.fgis_grain_tenant_read_audit_heads",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "fgis_grain_tenant_read_context_ready(false) AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND \"organizationId\" = current_setting('app.current_org_id', true)",
+      "check": null,
+      "migration": "20260831010000_tenant_rls_uncovered_tables"
+    },
+    {
+      "name": "fgis_grain_tenant_read_audit_heads_update",
+      "table": "public.fgis_grain_tenant_read_audit_heads",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "fgis_grain_tenant_read_context_ready(true) AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND \"organizationId\" = current_setting('app.current_org_id', true)",
+      "check": null,
+      "migration": "20260831010000_tenant_rls_uncovered_tables"
+    },
+    {
+      "name": "fgis_grain_tenant_read_audit_insert_policy",
+      "table": "public.fgis_grain_tenant_read_audits",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "( public.fgis_grain_tenant_read_context_ready(false) AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND \"organizationId\" = current_setting('app.current_org_id', true) AND \"actorUserId\" = current_setting('app.current_user_id', true) AND \"actorRole\" = current_setting('app.current_role', true) AND current_setting('app.current_role', true) IN ( 'FARMER', 'BUYER', 'LOGISTICIAN', 'ELEVATOR', 'LAB', 'ACCOUNTING', 'EXECUTIVE', 'ADMIN', 'COMPLIANCE_OFFICER', 'SUPPORT_MANAGER' ) ) OR ( \"decision\" IN ('SUCCEEDED', 'FAILED') AND EXISTS ( SELECT 1 FROM public.\"fgis_grain_tenant_read_provider_claims\" AS claim WHERE claim.\"id\" = \"fgis_grain_tenant_read_audits\".\"providerClaimId\" AND claim.\"completedAuditId\" IS NULL AND claim.\"tenantId\" = \"fgis_grain_tenant_read_audits\".\"tenantId\" AND claim.\"organizationId\" = \"fgis_grain_tenant_read_audits\".\"organizationId\" AND claim.\"authorizationId\" = \"fgis_grain_tenant_read_audits\".\"authorizationId\" AND claim.\"authorizationVersion\" = \"fgis_grain_tenant_read_audits\".\"authorizationVersion\" AND claim.\"configurationId\" = \"fgis_grain_tenant_read_audits\".\"configurationId\" AND claim.\"actorUserId\" = \"fgis_grain_tenant_read_audits\".\"actorUserId\" AND claim.\"actorRole\" = \"fgis_grain_tenant_read_audits\".\"actorRole\" AND claim.\"operationCode\" = \"fgis_grain_tenant_read_audits\".\"operationCode\" AND claim.\"correlationId\" = \"fgis_grain_tenant_read_audits\".\"correlationId\" AND claim.\"requestIdempotencyKey\" = \"fgis_grain_tenant_read_audits\".\"requestIdempotencyKey\" AND claim.\"requestReference\" = \"fgis_grain_tenant_read_audits\".\"requestReference\" AND claim.\"requestSha256\" = \"fgis_grain_tenant_read_audits\".\"requestSha256\" ) )",
+      "migration": "20260730101500_fgis_grain_tenant_read_authority"
+    },
+    {
+      "name": "fgis_grain_tenant_read_audit_select_policy",
+      "table": "public.fgis_grain_tenant_read_audits",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.fgis_grain_tenant_read_context_ready(false) AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND \"organizationId\" = current_setting('app.current_org_id', true) AND current_setting('app.current_role', true) IN ( 'FARMER', 'BUYER', 'LOGISTICIAN', 'ELEVATOR', 'LAB', 'ACCOUNTING', 'EXECUTIVE', 'ADMIN', 'COMPLIANCE_OFFICER', 'SUPPORT_MANAGER' )",
+      "check": null,
+      "migration": "20260730101500_fgis_grain_tenant_read_authority"
+    },
+    {
+      "name": "fgis_grain_tenant_read_auth_insert_policy",
+      "table": "public.fgis_grain_tenant_read_authorizations",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.fgis_grain_tenant_read_context_ready(true) AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND \"organizationId\" = current_setting('app.current_org_id', true) AND current_setting('app.current_role', true) IN ('EXECUTIVE', 'ADMIN', 'COMPLIANCE_OFFICER')",
+      "migration": "20260730101500_fgis_grain_tenant_read_authority"
+    },
+    {
+      "name": "fgis_grain_tenant_read_auth_select_policy",
+      "table": "public.fgis_grain_tenant_read_authorizations",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.fgis_grain_tenant_read_context_ready(false) AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND \"organizationId\" = current_setting('app.current_org_id', true) AND current_setting('app.current_role', true) IN ( 'FARMER', 'BUYER', 'LOGISTICIAN', 'ELEVATOR', 'LAB', 'ACCOUNTING', 'EXECUTIVE', 'ADMIN', 'COMPLIANCE_OFFICER', 'SUPPORT_MANAGER' )",
+      "check": null,
+      "migration": "20260730101500_fgis_grain_tenant_read_authority"
+    },
+    {
+      "name": "fgis_grain_tenant_read_auth_update_policy",
+      "table": "public.fgis_grain_tenant_read_authorizations",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.fgis_grain_tenant_read_context_ready(true) AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND \"organizationId\" = current_setting('app.current_org_id', true) AND current_setting('app.current_role', true) IN ('EXECUTIVE', 'ADMIN', 'COMPLIANCE_OFFICER')",
+      "check": "public.fgis_grain_tenant_read_context_ready(true) AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND \"organizationId\" = current_setting('app.current_org_id', true) AND current_setting('app.current_role', true) IN ('EXECUTIVE', 'ADMIN', 'COMPLIANCE_OFFICER')",
+      "migration": "20260730101500_fgis_grain_tenant_read_authority"
+    },
+    {
+      "name": "fgis_grain_tenant_read_provider_claims_insert",
+      "table": "public.fgis_grain_tenant_read_provider_claims",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "fgis_grain_tenant_read_context_ready(true) AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND \"organizationId\" = current_setting('app.current_org_id', true)",
+      "migration": "20260831010000_tenant_rls_uncovered_tables"
+    },
+    {
+      "name": "fgis_grain_tenant_read_provider_claims_select",
+      "table": "public.fgis_grain_tenant_read_provider_claims",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "fgis_grain_tenant_read_context_ready(false) AND \"tenantId\" = current_setting('app.current_tenant_id', true) AND \"organizationId\" = current_setting('app.current_org_id', true)",
+      "check": null,
+      "migration": "20260831010000_tenant_rls_uncovered_tables"
+    },
+    {
+      "name": "integration_binding_event_insert",
+      "table": "public.integration_binding_events",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_organization_capability_is_org_admin() AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id() AND \"actorUserId\" = public.app_identity_user_id() AND \"actorMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260904230000_integration_binding_authority"
+    },
+    {
+      "name": "integration_binding_event_select",
+      "table": "public.integration_binding_events",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id()",
+      "check": null,
+      "migration": "20260904230000_integration_binding_authority"
+    },
+    {
+      "name": "integration_binding_insert",
+      "table": "public.integration_bindings",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_organization_capability_is_org_admin() AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id() AND \"status\" = 'PENDING_VERIFICATION' AND \"createdByMembershipId\" = public.app_pc_crop_membership_id() AND \"updatedByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260904230000_integration_binding_authority"
+    },
+    {
+      "name": "integration_binding_select",
+      "table": "public.integration_bindings",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id()",
+      "check": null,
+      "migration": "20260904230000_integration_binding_authority"
+    },
+    {
+      "name": "integration_binding_update",
+      "table": "public.integration_bindings",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_organization_capability_is_org_admin() AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id()",
+      "check": "public.app_organization_capability_is_org_admin() AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id() AND \"status\" IN ('PENDING_VERIFICATION', 'WITHDRAWN') AND \"updatedByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260904230000_integration_binding_authority"
+    },
+    {
+      "name": "integration_capability_evidence_select",
+      "table": "public.integration_capability_evidence",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id()",
+      "check": null,
+      "migration": "20260904230000_integration_binding_authority"
+    },
+    {
+      "name": "integration_events_select",
+      "table": "public.integration_events",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_rls_context_ready() AND ( (\"dealId\" IS NOT NULL AND public.app_rls_deal_visible(\"dealId\")) OR ( \"dealId\" IS NULL AND current_setting('app.current_role', true) = 'FARMER' AND \"adapterName\" = 'auction' AND \"eventType\" = 'DEAL_BASIS_READY' AND \"status\" = 'CONFIRMED' AND COALESCE(\"responsePayload\", \"requestPayload\") IS NOT NULL AND COALESCE(\"responsePayload\", \"requestPayload\")::jsonb ->> 'tenantId' = current_setting('app.current_tenant_id', true) AND COALESCE(\"responsePayload\", \"requestPayload\")::jsonb ->> 'sellerOrgId' = current_setting('app.current_org_id', true) AND COALESCE(\"responsePayload\", \"requestPayload\")::jsonb ->> 'sellerUserId' = current_setting('app.current_user_id', true) ) )",
+      "check": null,
+      "migration": "20260712193000_postgresql_deal_authority"
+    },
+    {
+      "name": "lab_samples_delete",
+      "table": "public.lab_samples",
+      "permissive": true,
+      "command": "DELETE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "false",
+      "check": null,
+      "migration": "20260713120000_labs_postgresql_authority"
+    },
+    {
+      "name": "lab_samples_insert",
+      "table": "public.lab_samples",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "\"tenantId\" = current_setting('app.current_tenant_id', true) AND public.app_labs_deal_authorized(\"dealId\", \"labId\", true) AND \"assignedActorUserId\" = current_setting('app.current_user_id', true)",
+      "migration": "20260713120000_labs_postgresql_authority"
+    },
+    {
+      "name": "lab_samples_select",
+      "table": "public.lab_samples",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "\"tenantId\" = current_setting('app.current_tenant_id', true) AND public.app_labs_deal_authorized(\"dealId\", \"labId\", false)",
+      "check": null,
+      "migration": "20260713120000_labs_postgresql_authority"
+    },
+    {
+      "name": "lab_samples_update",
+      "table": "public.lab_samples",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "\"tenantId\" = current_setting('app.current_tenant_id', true) AND public.app_labs_deal_authorized(\"dealId\", \"labId\", true)",
+      "check": "\"tenantId\" = current_setting('app.current_tenant_id', true) AND public.app_labs_deal_authorized(\"dealId\", \"labId\", true)",
+      "migration": "20260713120000_labs_postgresql_authority"
+    },
+    {
+      "name": "lab_tests_insert",
+      "table": "public.lab_tests",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "\"tenantId\" = current_setting('app.current_tenant_id', true) AND \"actorUserId\" = current_setting('app.current_user_id', true) AND EXISTS ( SELECT 1 FROM public.\"lab_samples\" sample WHERE sample.\"id\" = \"sampleId\" AND public.app_labs_deal_authorized(sample.\"dealId\", sample.\"labId\", true) )",
+      "migration": "20260713120000_labs_postgresql_authority"
+    },
+    {
+      "name": "lab_tests_select",
+      "table": "public.lab_tests",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "\"tenantId\" = current_setting('app.current_tenant_id', true) AND EXISTS ( SELECT 1 FROM public.\"lab_samples\" sample WHERE sample.\"id\" = \"sampleId\" AND public.app_labs_deal_authorized(sample.\"dealId\", sample.\"labId\", false) )",
+      "check": null,
+      "migration": "20260713120000_labs_postgresql_authority"
+    },
+    {
+      "name": "ledger_entries_insert",
+      "table": "public.ledger_entries",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_rls_context_ready() AND current_setting('app.current_role', true) IN ('ADMIN', 'ACCOUNTING', 'BANK_CALLBACK') AND \"createdByUserId\" = current_setting('app.current_user_id', true) AND (\"dealId\" IS NULL OR public.app_rls_deal_visible(\"dealId\"))",
+      "migration": "20260830190000_migration_chain_rls_permissive_closure"
+    },
+    {
+      "name": "ledger_entries_select",
+      "table": "public.ledger_entries",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_rls_context_ready() AND ( \"debitAccount\" = current_setting('app.current_org_id', true) OR \"creditAccount\" = current_setting('app.current_org_id', true) OR (\"dealId\" IS NOT NULL AND public.app_rls_deal_visible(\"dealId\")) )",
+      "check": null,
+      "migration": "20260830190000_migration_chain_rls_permissive_closure"
+    },
+    {
+      "name": "membership_delegations_accounting_insert",
+      "table": "public.membership_delegations",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND \"fromMembershipId\" = public.app_pc_crop_membership_id() AND \"createdByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260815230000_pc_crop_accounting_write_authority"
+    },
+    {
+      "name": "membership_delegations_accounting_select",
+      "table": "public.membership_delegations",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND ( \"toMembershipId\" = public.app_pc_crop_membership_id() OR \"fromMembershipId\" = public.app_pc_crop_membership_id() OR public.app_identity_is_org_admin() )",
+      "check": null,
+      "migration": "20260815210000_pc_crop_accounting_read_authority"
+    },
+    {
+      "name": "membership_delegations_accounting_update",
+      "table": "public.membership_delegations",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND ( \"fromMembershipId\" = public.app_pc_crop_membership_id() OR \"toMembershipId\" = public.app_pc_crop_membership_id() )",
+      "check": "\"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "migration": "20260815230000_pc_crop_accounting_write_authority"
+    },
+    {
+      "name": "organization_capability_assignment_insert",
+      "table": "public.organization_capability_assignments",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_organization_capability_is_org_admin() AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND \"createdByMembershipId\" = public.app_pc_crop_membership_id() AND \"updatedByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260904120000_organization_capability_authority"
+    },
+    {
+      "name": "organization_capability_assignment_select",
+      "table": "public.organization_capability_assignments",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "check": null,
+      "migration": "20260904120000_organization_capability_authority"
+    },
+    {
+      "name": "organization_capability_assignment_update",
+      "table": "public.organization_capability_assignments",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_organization_capability_is_org_admin() AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "check": "public.app_organization_capability_is_org_admin() AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND \"updatedByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260904120000_organization_capability_authority"
+    },
+    {
+      "name": "organization_capability_event_insert",
+      "table": "public.organization_capability_events",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_organization_capability_is_org_admin() AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND \"actorUserId\" = public.app_identity_user_id() AND \"actorMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260904120000_organization_capability_authority"
+    },
+    {
+      "name": "organization_capability_event_select",
+      "table": "public.organization_capability_events",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "check": null,
+      "migration": "20260904120000_organization_capability_authority"
+    },
+    {
+      "name": "organization_tax_profiles_command_insert",
+      "table": "public.organization_tax_profiles",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND \"createdByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260816030000_pc_crop_organization_tax_profile"
+    },
+    {
+      "name": "organization_tax_profiles_command_update",
+      "table": "public.organization_tax_profiles",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND \"effectiveTo\" IS NULL",
+      "check": "\"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "migration": "20260816030000_pc_crop_organization_tax_profile"
+    },
+    {
+      "name": "organization_tax_profiles_member_select",
+      "table": "public.organization_tax_profiles",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "check": null,
+      "migration": "20260816030000_pc_crop_organization_tax_profile"
+    },
+    {
+      "name": "auction_inventory_organization_lock",
+      "table": "public.organizations",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "pc_inventory_authority"
+      ],
+      "using": "id = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND status = 'ACTIVE' AND public.app_pc_crop_membership_id() IS NOT NULL",
+      "check": "false",
+      "migration": "20260905100000_auction_inventory_binding"
+    },
+    {
+      "name": "organizations_account_anonymization_select",
+      "table": "public.organizations",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_account_anonymization_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260808160000_p0_account_lifecycle_authority"
+    },
+    {
+      "name": "organizations_account_export_select",
+      "table": "public.organizations",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_account_export_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260808160000_p0_account_lifecycle_authority"
+    },
+    {
+      "name": "organizations_admin_update",
+      "table": "public.organizations",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "\"id\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND public.app_identity_is_org_admin()",
+      "check": "\"id\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND public.app_identity_is_org_admin()",
+      "migration": "20260806090000_identity_row_level_security"
+    },
+    {
+      "name": "organizations_bootstrap_insert",
+      "table": "public.organizations",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "pc_identity_bootstrap"
+      ],
+      "using": null,
+      "check": "true",
+      "migration": "20260806090000_identity_row_level_security"
+    },
+    {
+      "name": "organizations_bootstrap_login",
+      "table": "public.organizations",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_identity_bootstrap"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260806090000_identity_row_level_security"
+    },
+    {
+      "name": "organizations_context_select",
+      "table": "public.organizations",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_identity_user_id() IS NOT NULL AND EXISTS ( SELECT 1 FROM public.\"user_orgs\" membership WHERE membership.\"organizationId\" = public.\"organizations\".\"id\" AND membership.\"userId\" = public.app_identity_user_id() )",
+      "check": null,
+      "migration": "20260806090000_identity_row_level_security"
+    },
+    {
+      "name": "organizations_invitation_acceptance_select",
+      "table": "public.organizations",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_invitation_acceptance_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260808140000_p0_invitation_acceptance_authority"
+    },
+    {
+      "name": "organizations_labs_identity_authority",
+      "table": "public.organizations",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_labs_identity_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260807123000_bounded_laboratory_organization_authority"
+    },
+    {
+      "name": "organizations_membership_command_select",
+      "table": "public.organizations",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_organization_membership_command_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260808150000_p0_invitation_recovery_authority"
+    },
+    {
+      "name": "organizations_mfa_recovery_identity_select",
+      "table": "public.organizations",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_mfa_recovery_identity_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260808150000_p0_invitation_recovery_authority"
+    },
+    {
+      "name": "organizations_organization_team_select",
+      "table": "public.organizations",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_organization_access_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260808130000_p0_organization_team_authority"
+    },
+    {
+      "name": "organizations_registration_decision_select",
+      "table": "public.organizations",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_registration_decision_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260808140000_p0_registration_decision_authority"
+    },
+    {
+      "name": "organizations_registration_decision_update",
+      "table": "public.organizations",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "pc_registration_decision_authority"
+      ],
+      "using": "true",
+      "check": "true",
+      "migration": "20260808140000_p0_registration_decision_authority"
+    },
+    {
+      "name": "organizations_registration_lifecycle_insert",
+      "table": "public.organizations",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "pc_registration_lifecycle_authority"
+      ],
+      "using": null,
+      "check": "true",
+      "migration": "20260808110000_p0_registration_lifecycle_authority"
+    },
+    {
+      "name": "organizations_registration_lifecycle_select",
+      "table": "public.organizations",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_registration_lifecycle_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260808110000_p0_registration_lifecycle_authority"
+    },
+    {
+      "name": "organizations_registration_lifecycle_update",
+      "table": "public.organizations",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "pc_registration_lifecycle_authority"
+      ],
+      "using": "true",
+      "check": "true",
+      "migration": "20260808110000_p0_registration_lifecycle_authority"
+    },
+    {
+      "name": "organizations_reviewer_membership_repair_insert",
+      "table": "public.organizations",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "pc_reviewer_membership_repair_authority"
+      ],
+      "using": null,
+      "check": "current_user = 'pc_reviewer_membership_repair_authority' AND current_setting('app.reviewer_membership_repair_scope', true) = 'single' AND \"id\" = 'org_pc_internal_platform_v1' AND \"inn\" = '0000000000' AND \"name\" = 'Прозрачная Цена — внутренний контур' AND \"type\" = 'PLATFORM_INTERNAL' AND \"status\" = 'VERIFIED' AND \"tenantId\" = 'tenant_pc_internal_platform_v1' AND \"verifiedAt\" IS NOT NULL AND \"kycStatus\" = 'VERIFIED' AND \"amlStatus\" = 'CLEAR' AND \"sanctionHit\" = false",
+      "migration": "20260810170000_p0_reviewer_membership_repair"
+    },
+    {
+      "name": "organizations_reviewer_membership_repair_select",
+      "table": "public.organizations",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_reviewer_membership_repair_authority"
+      ],
+      "using": "current_user = 'pc_reviewer_membership_repair_authority' AND current_setting('app.reviewer_membership_repair_scope', true) = 'single' AND ( \"id\" = 'org_pc_internal_platform_v1' OR \"inn\" = '0000000000' OR \"tenantId\" = 'tenant_pc_internal_platform_v1' )",
+      "check": null,
+      "migration": "20260810170000_p0_reviewer_membership_repair"
+    },
+    {
+      "name": "organizations_staff_admission_select",
+      "table": "public.organizations",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_staff_authority"
+      ],
+      "using": "coalesce(current_setting('app.staff_admission_scope', true), '') <> '' AND ( \"id\" = current_setting('app.staff_admission_scope', true) OR ( current_setting('app.staff_admission_scope', true) = 'queue:pending' AND (\"status\" = 'PENDING' OR \"kycStatus\" = 'PENDING') ) )",
+      "check": null,
+      "migration": "20260806103000_bounded_staff_admission_authority"
+    },
+    {
+      "name": "organizations_staff_admission_update",
+      "table": "public.organizations",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "pc_staff_authority"
+      ],
+      "using": "coalesce(current_setting('app.staff_admission_decision', true), '') <> '' AND \"id\" = current_setting('app.staff_admission_decision', true)",
+      "check": "coalesce(current_setting('app.staff_admission_decision', true), '') <> '' AND \"id\" = current_setting('app.staff_admission_decision', true)",
+      "migration": "20260806103000_bounded_staff_admission_authority"
+    },
+    {
+      "name": "organizations_staff_projection",
+      "table": "public.organizations",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_staff_authority"
+      ],
+      "using": "current_setting('app.staff_projection_scope', true) = 'directory' OR current_setting('app.staff_projection_scope', true) = 'org:' || id",
+      "check": null,
+      "migration": "20260807003000_bounded_staff_projection_authority"
+    },
+    {
+      "name": "organizations_staff_reviewer_password_reset_subject",
+      "table": "public.organizations",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_staff_authority"
+      ],
+      "using": "current_setting('app.staff_reviewer_password_reset_scope', true) = 'subject' AND \"id\" = 'org_pc_internal_platform_v1'",
+      "check": null,
+      "migration": "20260812154500_p0_reviewer_password_reset_subject"
+    },
+    {
+      "name": "organizations_staff_reviewer_readiness",
+      "table": "public.organizations",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_staff_authority"
+      ],
+      "using": "current_setting('app.staff_reviewer_readiness_scope', true) = 'aggregate' AND EXISTS ( SELECT 1 FROM public.\"user_orgs\" membership JOIN auth.staff_assignments assignment ON assignment.user_id = membership.\"userId\" WHERE membership.\"organizationId\" = public.\"organizations\".\"id\" AND assignment.role IN ('PLATFORM_OWNER', 'PLATFORM_ADMIN', 'COMPLIANCE_STAFF') AND assignment.status = 'ACTIVE' AND assignment.revoked_at IS NULL AND assignment.suspended_at IS NULL AND assignment.valid_from <= now() AND (assignment.valid_until IS NULL OR assignment.valid_until > now()) )",
+      "check": null,
+      "migration": "20260810124500_p0_reviewer_login_readiness"
+    },
+    {
+      "name": "outbox_entries_commercial_rule_insert",
+      "table": "public.outbox_entries",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "current_user IN ('pc_deal_runtime', 'one_deal_app', 'app_deal', 'app_runtime', 'app_deal_api') AND public.app_rls_context_ready() AND \"type\" = 'commercial.rule.changed.v1' AND \"dealId\" IS NULL AND \"triggeredByUserId\" = public.app_identity_user_id() AND \"correlationId\" IS NOT NULL AND \"auditId\" IS NOT NULL AND \"idempotencyKey\" ~ '^commercial-rule:[0-9a-f]{64}$' AND \"runtimeIdempotencyKey\" = \"idempotencyKey\" AND \"payload\" ->> 'schema' = 'commercial-rule.command.v1' AND \"payload\" #>> '{event,type}' = \"type\" AND \"payload\" #>> '{event,tenantId}' = public.app_identity_tenant_id() AND \"payload\" #>> '{event,organizationId}' = public.app_identity_org_id() AND \"payload\" #>> '{event,auditId}' = \"auditId\" AND \"payload\" #>> '{event,correlationId}' = \"correlationId\" AND EXISTS ( SELECT 1 FROM public.\"commercial_rule_events\" event WHERE event.\"outboxEntryId\" = \"outbox_entries\".\"id\" AND event.\"auditEventId\" = \"outbox_entries\".\"auditId\" AND event.\"tenantId\" = public.app_identity_tenant_id() AND event.\"organizationId\" = public.app_identity_org_id() AND event.\"actorUserId\" = public.app_identity_user_id() AND event.\"actorRole\" = current_setting('app.current_role', true) AND event.\"correlationId\" = \"outbox_entries\".\"correlationId\" AND event.\"commandId\" = \"payload\" #>> '{event,commandId}' AND event.\"aggregateId\" = \"payload\" #>> '{event,aggregateId}' AND event.\"aggregateType\" = \"payload\" #>> '{event,aggregateType}' AND event.\"action\" = \"payload\" #>> '{event,action}' AND event.\"resultStatus\" = \"payload\" #>> '{event,status}' AND event.\"requestFingerprint\" = \"payload\" ->> 'requestFingerprint' AND event.\"aggregateVersion\"::text = \"payload\" #>> '{event,aggregateVersion}' )",
+      "migration": "20260905010000_commercial_rules_authority"
+    },
+    {
+      "name": "outbox_entries_fgis_sdiz_insert",
+      "table": "public.outbox_entries",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "current_user IN ('app_runtime', 'app_service') AND public.app_rls_context_ready() AND current_setting('app.current_role', true) IN ('ADMIN', 'COMPLIANCE_OFFICER') AND \"dealId\" IS NULL AND \"triggeredByUserId\" = current_setting('app.current_user_id', true) AND \"auditId\" IS NOT NULL AND \"correlationId\" IS NOT NULL AND jsonb_typeof(\"payload\") = 'object' AND \"payload\"->>'schemaVersion' = 'pc-crop.fgis-grain-sdiz-projection-batch.v1' AND \"payload\"->>'tenantId' = current_setting('app.current_tenant_id', true) AND \"payload\"->>'organizationId' = current_setting('app.current_org_id', true) AND NULLIF(\"payload\"->>'inboxEntryId', '') IS NOT NULL AND starts_with( \"idempotencyKey\", 'fgis-sdiz-projection:' || current_setting('app.current_tenant_id', true) || ':' || current_setting('app.current_org_id', true) || ':' || (\"payload\"->>'inboxEntryId') || ':' ) AND ( (\"type\" = 'FGIS_GRAIN_SDIZ_PROJECTION_APPLIED' AND \"payload\"->>'kind' = 'APPLIED') OR (\"type\" = 'FGIS_GRAIN_SDIZ_PROJECTION_CONFLICT' AND \"payload\"->>'kind' = 'QUARANTINED') )",
+      "migration": "20260724190000_fgis_grain_sdiz_projection"
+    },
+    {
+      "name": "outbox_entries_fgis_sdiz_select",
+      "table": "public.outbox_entries",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "current_user IN ('app_runtime', 'app_service') AND public.app_rls_context_ready() AND current_setting('app.current_role', true) IN ('ADMIN', 'COMPLIANCE_OFFICER') AND \"dealId\" IS NULL AND \"auditId\" IS NOT NULL AND jsonb_typeof(\"payload\") = 'object' AND \"payload\"->>'schemaVersion' = 'pc-crop.fgis-grain-sdiz-projection-batch.v1' AND \"payload\"->>'tenantId' = current_setting('app.current_tenant_id', true) AND \"payload\"->>'organizationId' = current_setting('app.current_org_id', true) AND ( (\"type\" = 'FGIS_GRAIN_SDIZ_PROJECTION_APPLIED' AND \"payload\"->>'kind' = 'APPLIED') OR (\"type\" = 'FGIS_GRAIN_SDIZ_PROJECTION_CONFLICT' AND \"payload\"->>'kind' = 'QUARANTINED') )",
+      "check": null,
+      "migration": "20260724190000_fgis_grain_sdiz_projection"
+    },
+    {
+      "name": "outbox_entries_insert",
+      "table": "public.outbox_entries",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_outbox_application_deal_visible(\"dealId\")",
+      "migration": "20260808012000_outbox_policy_dependency_isolation"
+    },
+    {
+      "name": "outbox_entries_integration_binding_insert",
+      "table": "public.outbox_entries",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "current_user IN ('pc_deal_runtime', 'one_deal_app', 'app_deal', 'app_runtime', 'app_deal_api') AND public.app_rls_context_ready() AND \"type\" = 'integration.binding.changed.v1' AND \"dealId\" IS NULL AND \"triggeredByUserId\" = public.app_identity_user_id() AND \"correlationId\" IS NOT NULL AND \"auditId\" IS NOT NULL AND \"idempotencyKey\" ~ '^integration-binding:[0-9a-f]{64}$' AND \"runtimeIdempotencyKey\" = \"idempotencyKey\" AND \"payload\" ->> 'schema' = 'integration-binding.command.v1' AND \"payload\" #>> '{event,type}' = \"type\" AND \"payload\" #>> '{event,tenantId}' = public.app_identity_tenant_id() AND \"payload\" #>> '{event,organizationId}' = public.app_identity_org_id() AND \"payload\" #>> '{event,auditId}' = \"auditId\" AND \"payload\" #>> '{event,correlationId}' = \"correlationId\" AND EXISTS ( SELECT 1 FROM public.\"integration_binding_events\" event WHERE event.\"outboxEntryId\" = \"outbox_entries\".\"id\" AND event.\"auditEventId\" = \"outbox_entries\".\"auditId\" AND event.\"tenantId\" = public.app_identity_tenant_id() AND event.\"organizationId\" = public.app_identity_org_id() AND event.\"actorUserId\" = public.app_identity_user_id() AND event.\"actorRole\" = current_setting('app.current_role', true) AND event.\"correlationId\" = \"outbox_entries\".\"correlationId\" AND event.\"commandId\" = \"payload\" #>> '{event,commandId}' AND event.\"integrationBindingId\" = \"payload\" #>> '{event,integrationBindingId}' AND event.\"action\" = \"payload\" #>> '{event,action}' AND event.\"resultStatus\" = \"payload\" #>> '{event,status}' AND event.\"requestFingerprint\" = \"payload\" ->> 'requestFingerprint' AND event.\"aggregateVersion\"::text = \"payload\" #>> '{event,aggregateVersion}' )",
+      "migration": "20260904230000_integration_binding_authority"
+    },
+    {
+      "name": "outbox_entries_inventory_insert",
+      "table": "public.outbox_entries",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "pc_inventory_authority"
+      ],
+      "using": null,
+      "check": "public.app_rls_context_ready() AND public.app_pc_crop_membership_id() IS NOT NULL AND type = 'inventory.position.changed.v1' AND \"dealId\" IS NULL AND \"triggeredByUserId\" = public.app_identity_user_id() AND \"idempotencyKey\" ~ '^inventory:[0-9a-f]{64}$' AND \"runtimeIdempotencyKey\" = \"idempotencyKey\" AND payload->>'schema' = 'inventory.command.v1' AND payload#>>'{event,type}' = type AND payload#>>'{event,tenantId}' = public.app_identity_tenant_id() AND payload#>>'{event,organizationId}' = public.app_identity_org_id() AND payload#>>'{event,auditId}' = \"auditId\" AND payload#>>'{event,correlationId}' = \"correlationId\" AND payload#>>'{receipt,correlationId}' = \"correlationId\" AND EXISTS ( SELECT 1 FROM inventory.availability_snapshots s JOIN public.audit_events a ON a.id = outbox_entries.\"auditId\" WHERE s.id = outbox_entries.payload#>>'{receipt,snapshotId}' AND s.tenant_id = public.app_identity_tenant_id() AND s.organization_id = public.app_identity_org_id() AND s.position_id = outbox_entries.payload#>>'{event,aggregateId}' AND s.source_state_version::text = outbox_entries.payload#>>'{event,aggregateVersion}' AND s.snapshot = outbox_entries.payload#>'{receipt,position}' AND s.content_hash = outbox_entries.payload#>>'{receipt,snapshotHash}' AND a.\"tenantId\" = s.tenant_id AND a.\"orgId\" = s.organization_id AND a.\"objectType\" = 'INVENTORY_POSITION' AND a.\"objectId\" = s.position_id AND a.\"actorUserId\" = public.app_identity_user_id() AND a.\"actorRole\" = public.app_identity_role() AND a.\"afterState\" = s.snapshot AND a.\"correlationId\" = outbox_entries.\"correlationId\" AND a.\"runtimeIdempotencyKey\" = outbox_entries.\"idempotencyKey\" )",
+      "migration": "20260905040000_inventory_reservation_authority"
+    },
+    {
+      "name": "outbox_entries_organization_capability_insert",
+      "table": "public.outbox_entries",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "current_user IN ( 'pc_deal_runtime', 'one_deal_app', 'app_deal', 'app_runtime', 'app_deal_api' ) AND public.app_rls_context_ready() AND \"type\" = 'organization.capability.changed.v1' AND \"dealId\" IS NULL AND \"triggeredByUserId\" = public.app_identity_user_id() AND \"correlationId\" IS NOT NULL AND \"auditId\" IS NOT NULL AND \"idempotencyKey\" ~ '^org-cap:[0-9a-f]{64}$' AND \"runtimeIdempotencyKey\" = \"idempotencyKey\" AND \"payload\" ->> 'schema' = 'organization-capability.command.v1' AND \"payload\" #>> '{event,type}' = \"type\" AND \"payload\" #>> '{event,tenantId}' = public.app_identity_tenant_id() AND \"payload\" #>> '{event,organizationId}' = public.app_identity_org_id() AND \"payload\" #>> '{event,auditId}' = \"auditId\" AND \"payload\" #>> '{event,correlationId}' = \"correlationId\" AND EXISTS ( SELECT 1 FROM public.\"organization_capability_events\" event WHERE event.\"outboxEntryId\" = \"outbox_entries\".\"id\" AND event.\"auditEventId\" = \"outbox_entries\".\"auditId\" AND event.\"tenantId\" = public.app_identity_tenant_id() AND event.\"organizationId\" = public.app_identity_org_id() AND event.\"actorUserId\" = public.app_identity_user_id() AND event.\"actorRole\" = current_setting('app.current_role', true) AND event.\"correlationId\" = \"outbox_entries\".\"correlationId\" AND event.\"commandId\" = \"payload\" #>> '{event,commandId}' AND event.\"assignmentId\" = \"payload\" #>> '{event,aggregateId}' AND event.\"requestFingerprint\" = \"payload\" ->> 'requestFingerprint' AND event.\"action\" = \"payload\" #>> '{event,action}' AND event.\"toStatus\" = \"payload\" #>> '{event,status}' AND event.\"aggregateVersion\"::text = \"payload\" #>> '{event,aggregateVersion}' )",
+      "migration": "20260904120000_organization_capability_authority"
+    },
+    {
+      "name": "outbox_entries_provider_registry_insert",
+      "table": "public.outbox_entries",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "current_user IN ('pc_deal_runtime', 'one_deal_app', 'app_deal', 'app_runtime', 'app_deal_api') AND public.app_rls_context_ready() AND \"type\" = 'provider.registry.changed.v1' AND \"dealId\" IS NULL AND \"triggeredByUserId\" = public.app_identity_user_id() AND \"correlationId\" IS NOT NULL AND \"auditId\" IS NOT NULL AND \"idempotencyKey\" ~ '^provider-registry:[0-9a-f]{64}$' AND \"runtimeIdempotencyKey\" = \"idempotencyKey\" AND \"payload\" ->> 'schema' = 'provider-registry.command.v1' AND \"payload\" #>> '{event,type}' = \"type\" AND \"payload\" #>> '{event,tenantId}' = public.app_identity_tenant_id() AND \"payload\" #>> '{event,organizationId}' = public.app_identity_org_id() AND \"payload\" #>> '{event,auditId}' = \"auditId\" AND \"payload\" #>> '{event,correlationId}' = \"correlationId\" AND EXISTS ( SELECT 1 FROM public.\"provider_registry_events\" event WHERE event.\"outboxEntryId\" = \"outbox_entries\".\"id\" AND event.\"auditEventId\" = \"outbox_entries\".\"auditId\" AND event.\"tenantId\" = public.app_identity_tenant_id() AND event.\"organizationId\" = public.app_identity_org_id() AND event.\"actorUserId\" = public.app_identity_user_id() AND event.\"actorRole\" = current_setting('app.current_role', true) AND event.\"correlationId\" = \"outbox_entries\".\"correlationId\" AND event.\"commandId\" = \"payload\" #>> '{event,commandId}' AND event.\"providerId\" = \"payload\" #>> '{event,providerId}' AND event.\"entityType\" = \"payload\" #>> '{event,entityType}' AND event.\"entityId\" = \"payload\" #>> '{event,entityId}' AND event.\"category\" = \"payload\" #>> '{event,category}' AND event.\"action\" = \"payload\" #>> '{event,action}' AND event.\"resultStatus\" = \"payload\" #>> '{event,status}' AND event.\"requestFingerprint\" = \"payload\" ->> 'requestFingerprint' AND event.\"aggregateVersion\"::text = \"payload\" #>> '{event,aggregateVersion}' )",
+      "migration": "20260904210000_provider_registry_authority"
+    },
+    {
+      "name": "outbox_entries_registration_receipt_insert",
+      "table": "public.outbox_entries",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "pc_registration_receipt_authority"
+      ],
+      "using": null,
+      "check": "current_user = 'pc_registration_receipt_authority' AND \"type\" = 'auth.registration.lifecycle.receipt' AND \"dealId\" IS NULL AND \"status\" = 'PENDING' AND \"idempotencyKey\" = 'registration-lifecycle:' || (\"payload\" ->> 'applicationId') || ':' || (\"payload\" ->> 'applicationVersion') AND \"correlationId\" = \"payload\" ->> 'correlationId' AND \"auditId\" = \"payload\" ->> 'auditId' AND \"triggeredByUserId\" = \"payload\" ->> 'decisionActorUserId' AND \"maxRetries\" = 5 AND \"retryCount\" = 0",
+      "migration": "20260808213000_p0_registration_lifecycle_receipt"
+    },
+    {
+      "name": "outbox_entries_registration_receipt_select",
+      "table": "public.outbox_entries",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_registration_receipt_authority"
+      ],
+      "using": "current_user = 'pc_registration_receipt_authority' AND \"type\" = 'auth.registration.lifecycle.receipt' AND \"idempotencyKey\" LIKE 'registration-lifecycle:%'",
+      "check": null,
+      "migration": "20260808213000_p0_registration_lifecycle_receipt"
+    },
+    {
+      "name": "outbox_entries_reviewer_membership_repair_insert",
+      "table": "public.outbox_entries",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "pc_reviewer_membership_repair_authority"
+      ],
+      "using": null,
+      "check": "current_user = 'pc_reviewer_membership_repair_authority' AND current_setting('app.reviewer_membership_repair_scope', true) = 'single' AND \"id\" = 'outbox_p0_reviewer_membership_repair_v1' AND \"type\" = 'auth.staff.reviewer.membership.repaired' AND \"dealId\" IS NULL AND \"status\" = 'PENDING' AND \"triggeredByUserId\" IS NULL AND \"idempotencyKey\" = 'p0-reviewer-membership-repair:v1' AND \"maxRetries\" = 5 AND \"retryCount\" = 0 AND \"correlationId\" = 'p0-reviewer-membership-repair-v1' AND \"auditId\" = 'sae_p0_reviewer_membership_repair_v1' AND \"payload\" ->> 'schemaVersion' = 'auth.staff.reviewer.membership.repaired.v1' AND \"payload\" ->> 'organizationKind' = 'PLATFORM_INTERNAL' AND \"payload\" ->> 'membershipRole' = 'GUEST' AND \"payload\" ->> 'auditId' = 'sae_p0_reviewer_membership_repair_v1' AND \"payload\" ->> 'correlationId' = 'p0-reviewer-membership-repair-v1'",
+      "migration": "20260810170000_p0_reviewer_membership_repair"
+    },
+    {
+      "name": "outbox_entries_reviewer_membership_repair_select",
+      "table": "public.outbox_entries",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_reviewer_membership_repair_authority"
+      ],
+      "using": "current_user = 'pc_reviewer_membership_repair_authority' AND current_setting('app.reviewer_membership_repair_scope', true) = 'single' AND \"type\" = 'auth.staff.reviewer.membership.repaired' AND \"idempotencyKey\" = 'p0-reviewer-membership-repair:v1'",
+      "check": null,
+      "migration": "20260810170000_p0_reviewer_membership_repair"
+    },
+    {
+      "name": "outbox_entries_select",
+      "table": "public.outbox_entries",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_outbox_application_deal_visible(\"dealId\")",
+      "check": null,
+      "migration": "20260808012000_outbox_policy_dependency_isolation"
+    },
+    {
+      "name": "outbox_entries_service_marketplace_insert",
+      "table": "public.outbox_entries",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "current_user IN ('pc_deal_runtime', 'one_deal_app', 'app_deal', 'app_runtime', 'app_deal_api') AND public.app_rls_context_ready() AND \"type\" = 'service.marketplace.changed.v1' AND \"dealId\" IS NULL AND \"triggeredByUserId\" = public.app_identity_user_id() AND \"correlationId\" IS NOT NULL AND \"auditId\" IS NOT NULL AND \"idempotencyKey\" ~ '^service-marketplace:[0-9a-f]{64}$' AND \"runtimeIdempotencyKey\" = \"idempotencyKey\" AND \"payload\" ->> 'schema' = 'service-marketplace.command.v1' AND \"payload\" #>> '{event,type}' = \"type\" AND \"payload\" #>> '{event,tenantId}' = public.app_identity_tenant_id() AND \"payload\" #>> '{event,actorOrganizationId}' = public.app_identity_org_id() AND \"payload\" #>> '{event,auditId}' = \"auditId\" AND \"payload\" #>> '{event,correlationId}' = \"correlationId\" AND EXISTS ( SELECT 1 FROM public.\"service_marketplace_events\" event WHERE event.\"outboxEntryId\" = \"outbox_entries\".\"id\" AND event.\"auditEventId\" = \"outbox_entries\".\"auditId\" AND event.\"tenantId\" = public.app_identity_tenant_id() AND event.\"actorOrganizationId\" = public.app_identity_org_id() AND event.\"actorUserId\" = public.app_identity_user_id() AND event.\"correlationId\" = \"outbox_entries\".\"correlationId\" AND event.\"commandId\" = \"outbox_entries\".\"payload\" #>> '{event,commandId}' AND event.\"requestId\" = \"outbox_entries\".\"payload\" #>> '{event,requestId}' AND event.\"action\" = \"outbox_entries\".\"payload\" #>> '{event,action}' AND event.\"toStatus\" = \"outbox_entries\".\"payload\" #>> '{event,status}' AND event.\"aggregateVersion\"::text = \"outbox_entries\".\"payload\" #>> '{event,aggregateVersion}' AND event.\"requestFingerprint\" = \"outbox_entries\".\"payload\" ->> 'requestFingerprint' )",
+      "migration": "20260905030000_service_marketplace_authority"
+    },
+    {
+      "name": "outbox_entries_settlement_callback_select",
+      "table": "public.outbox_entries",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_outbox_settlement_callback_visible(\"dealId\", \"idempotencyKey\")",
+      "check": null,
+      "migration": "20260808012000_outbox_policy_dependency_isolation"
+    },
+    {
+      "name": "outbox_entries_settlement_callback_update",
+      "table": "public.outbox_entries",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_outbox_settlement_callback_visible(\"dealId\", \"idempotencyKey\")",
+      "check": "public.app_outbox_settlement_callback_visible(\"dealId\", \"idempotencyKey\")",
+      "migration": "20260808012000_outbox_policy_dependency_isolation"
+    },
+    {
+      "name": "outbox_entries_worker_insert",
+      "table": "public.outbox_entries",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "current_user IN ('app_service', 'app_outbox_worker')",
+      "migration": "20260807160000_outbox_runtime_rls_principal_alignment"
+    },
+    {
+      "name": "outbox_entries_worker_select",
+      "table": "public.outbox_entries",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "current_user IN ('app_service', 'app_outbox_worker', 'app_outbox')",
+      "check": null,
+      "migration": "20260807160000_outbox_runtime_rls_principal_alignment"
+    },
+    {
+      "name": "outbox_entries_worker_update",
+      "table": "public.outbox_entries",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "current_user IN ('app_service', 'app_outbox_worker', 'app_outbox')",
+      "check": "current_user IN ('app_service', 'app_outbox_worker', 'app_outbox')",
+      "migration": "20260807160000_outbox_runtime_rls_principal_alignment"
+    },
+    {
+      "name": "public_org_intake_outbox_insert",
+      "table": "public.outbox_entries",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid = 'public.outbox_entries'::regclass)) AND \"dealId\" IS NULL AND type = 'PUBLIC_ORGANIZATION_CONNECTION_REQUESTED' AND status = 'PENDING' AND \"triggeredByUserId\" IS NULL AND \"idempotencyKey\" LIKE 'public-org-intake:%' AND payload ->> 'source' = 'PUBLIC_PLATFORM_V7' AND NOT (payload ?| ARRAY['organizationName','inn','contactName','position','phone','email','payloadHash'])",
+      "migration": "20260723113000_public_organization_connection_intake"
+    },
+    {
+      "name": "provider_capability_insert",
+      "table": "public.provider_capabilities",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_organization_capability_is_org_admin() AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id() AND \"status\" = 'PENDING_VERIFICATION' AND \"createdByMembershipId\" = public.app_pc_crop_membership_id() AND \"updatedByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260904210000_provider_registry_authority"
+    },
+    {
+      "name": "provider_capability_select",
+      "table": "public.provider_capabilities",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"tenantId\" = public.app_identity_tenant_id() AND (\"organizationId\" = public.app_identity_org_id() OR \"status\" = 'ACTIVE')",
+      "check": null,
+      "migration": "20260904210000_provider_registry_authority"
+    },
+    {
+      "name": "provider_capability_update",
+      "table": "public.provider_capabilities",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_organization_capability_is_org_admin() AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id()",
+      "check": "public.app_organization_capability_is_org_admin() AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id() AND \"status\" IN ('PENDING_VERIFICATION', 'REVOKED') AND \"updatedByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260904210000_provider_registry_authority"
+    },
+    {
+      "name": "provider_registry_event_insert",
+      "table": "public.provider_registry_events",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_organization_capability_is_org_admin() AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id() AND \"actorUserId\" = public.app_identity_user_id() AND \"actorMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260904210000_provider_registry_authority"
+    },
+    {
+      "name": "provider_registry_event_select",
+      "table": "public.provider_registry_events",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id()",
+      "check": null,
+      "migration": "20260904210000_provider_registry_authority"
+    },
+    {
+      "name": "provider_registry_evidence_select",
+      "table": "public.provider_registry_evidence",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"tenantId\" = public.app_identity_tenant_id() AND ( \"organizationId\" = public.app_identity_org_id() OR EXISTS ( SELECT 1 FROM public.\"provider_capabilities\" capability WHERE capability.\"id\" = \"provider_registry_evidence\".\"providerCapabilityId\" AND capability.\"tenantId\" = public.app_identity_tenant_id() AND capability.\"status\" = 'ACTIVE' ) )",
+      "check": null,
+      "migration": "20260904210000_provider_registry_authority"
+    },
+    {
+      "name": "provider_insert",
+      "table": "public.providers",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_organization_capability_is_org_admin() AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id() AND \"status\" = 'PENDING_VERIFICATION' AND \"createdByMembershipId\" = public.app_pc_crop_membership_id() AND \"updatedByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260904210000_provider_registry_authority"
+    },
+    {
+      "name": "provider_select",
+      "table": "public.providers",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"tenantId\" = public.app_identity_tenant_id() AND (\"organizationId\" = public.app_identity_org_id() OR \"status\" = 'ACTIVE')",
+      "check": null,
+      "migration": "20260904210000_provider_registry_authority"
+    },
+    {
+      "name": "provider_update",
+      "table": "public.providers",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_organization_capability_is_org_admin() AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id()",
+      "check": "public.app_organization_capability_is_org_admin() AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id() AND \"updatedByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260904210000_provider_registry_authority"
+    },
+    {
+      "name": "public_org_intake_owner_insert",
+      "table": "public.public_organization_connection_requests",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid = 'public.public_organization_connection_requests'::regclass)) AND source = 'PUBLIC_PLATFORM_V7'",
+      "migration": "20260723113000_public_organization_connection_intake"
+    },
+    {
+      "name": "public_org_intake_owner_select",
+      "table": "public.public_organization_connection_requests",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "current_user = pg_get_userbyid((SELECT relowner FROM pg_class WHERE oid = 'public.public_organization_connection_requests'::regclass))",
+      "check": null,
+      "migration": "20260723113000_public_organization_connection_intake"
+    },
+    {
+      "name": "regulatory_rule_versions_read",
+      "table": "public.regulatory_rule_versions",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260816020000_pc_crop_regulatory_rule_registry"
+    },
+    {
+      "name": "service_marketplace_event_insert",
+      "table": "public.service_marketplace_events",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_pc_crop_membership_id() IS NOT NULL AND \"tenantId\" = public.app_identity_tenant_id() AND \"actorOrganizationId\" = public.app_identity_org_id() AND \"actorUserId\" = public.app_identity_user_id() AND \"actorMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260905030000_service_marketplace_authority"
+    },
+    {
+      "name": "service_marketplace_event_select",
+      "table": "public.service_marketplace_events",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "\"tenantId\" = public.app_identity_tenant_id() AND ( \"actorOrganizationId\" = public.app_identity_org_id() OR EXISTS ( SELECT 1 FROM public.\"service_marketplace_requests\" request_row WHERE request_row.\"id\" = \"service_marketplace_events\".\"requestId\" AND public.app_service_marketplace_participant(request_row) ) )",
+      "check": null,
+      "migration": "20260905030000_service_marketplace_authority"
+    },
+    {
+      "name": "service_marketplace_quote_insert",
+      "table": "public.service_marketplace_quotes",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_pc_crop_membership_id() IS NOT NULL AND \"tenantId\" = public.app_identity_tenant_id() AND \"providerOrganizationId\" = public.app_identity_org_id() AND \"createdByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260905030000_service_marketplace_authority"
+    },
+    {
+      "name": "service_marketplace_quote_select",
+      "table": "public.service_marketplace_quotes",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "\"tenantId\" = public.app_identity_tenant_id() AND EXISTS ( SELECT 1 FROM public.\"service_marketplace_requests\" request_row WHERE request_row.\"id\" = \"service_marketplace_quotes\".\"requestId\" AND (request_row.\"requesterOrganizationId\" = public.app_identity_org_id() OR \"service_marketplace_quotes\".\"providerOrganizationId\" = public.app_identity_org_id() OR request_row.\"selectedProviderOrganizationId\" = public.app_identity_org_id() OR request_row.\"payerOrganizationId\" = public.app_identity_org_id()) )",
+      "check": null,
+      "migration": "20260905030000_service_marketplace_authority"
+    },
+    {
+      "name": "service_marketplace_request_insert",
+      "table": "public.service_marketplace_requests",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_pc_crop_membership_id() IS NOT NULL AND \"tenantId\" = public.app_identity_tenant_id() AND \"requesterOrganizationId\" = public.app_identity_org_id() AND \"createdByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260905030000_service_marketplace_authority"
+    },
+    {
+      "name": "service_marketplace_request_select",
+      "table": "public.service_marketplace_requests",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_service_marketplace_participant(\"service_marketplace_requests\")",
+      "check": null,
+      "migration": "20260905030000_service_marketplace_authority"
+    },
+    {
+      "name": "service_marketplace_request_update",
+      "table": "public.service_marketplace_requests",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_service_marketplace_participant(\"service_marketplace_requests\")",
+      "check": "\"tenantId\" = public.app_identity_tenant_id() AND \"updatedByOrganizationId\" = public.app_identity_org_id() AND \"updatedByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260905030000_service_marketplace_authority"
+    },
+    {
+      "name": "service_offering_insert",
+      "table": "public.service_offerings",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_organization_capability_is_org_admin() AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id() AND \"status\" = 'PENDING_VERIFICATION' AND \"createdByMembershipId\" = public.app_pc_crop_membership_id() AND \"updatedByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260904210000_provider_registry_authority"
+    },
+    {
+      "name": "service_offering_select",
+      "table": "public.service_offerings",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"tenantId\" = public.app_identity_tenant_id() AND (\"organizationId\" = public.app_identity_org_id() OR \"status\" = 'ACTIVE')",
+      "check": null,
+      "migration": "20260904210000_provider_registry_authority"
+    },
+    {
+      "name": "service_offering_update",
+      "table": "public.service_offerings",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_organization_capability_is_org_admin() AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id()",
+      "check": "public.app_organization_capability_is_org_admin() AND \"tenantId\" = public.app_identity_tenant_id() AND \"organizationId\" = public.app_identity_org_id() AND \"status\" IN ('PENDING_VERIFICATION', 'WITHDRAWN') AND \"updatedByMembershipId\" = public.app_pc_crop_membership_id()",
+      "migration": "20260904210000_provider_registry_authority"
+    },
+    {
+      "name": "shipment_gps_points_insert",
+      "table": "public.shipment_gps_points",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "\"tenantId\" = current_setting('app.current_tenant_id', true) AND \"actorUserId\" = current_setting('app.current_user_id', true) AND EXISTS ( SELECT 1 FROM public.\"shipments\" shipment WHERE shipment.\"id\" = \"shipmentId\" AND public.app_logistics_deal_authorized(shipment.\"dealId\", shipment.\"driverUserId\", true) )",
+      "migration": "20260713100000_logistics_postgresql_authority"
+    },
+    {
+      "name": "shipment_gps_points_select",
+      "table": "public.shipment_gps_points",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "\"tenantId\" = current_setting('app.current_tenant_id', true) AND EXISTS ( SELECT 1 FROM public.\"shipments\" shipment WHERE shipment.\"id\" = \"shipmentId\" AND public.app_logistics_deal_authorized(shipment.\"dealId\", shipment.\"driverUserId\", false) )",
+      "check": null,
+      "migration": "20260713100000_logistics_postgresql_authority"
+    },
+    {
+      "name": "shipments_insert",
+      "table": "public.shipments",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "\"tenantId\" = current_setting('app.current_tenant_id', true) AND \"status\" = 'DRIVER_ASSIGNED' AND public.app_logistics_deal_authorized(\"dealId\", \"driverUserId\", true)",
+      "migration": "20260713100000_logistics_postgresql_authority"
+    },
+    {
+      "name": "shipments_select",
+      "table": "public.shipments",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "\"tenantId\" = current_setting('app.current_tenant_id', true) AND public.app_logistics_deal_authorized(\"dealId\", \"driverUserId\", false)",
+      "check": null,
+      "migration": "20260713100000_logistics_postgresql_authority"
+    },
+    {
+      "name": "shipments_update",
+      "table": "public.shipments",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "\"tenantId\" = current_setting('app.current_tenant_id', true) AND public.app_logistics_deal_authorized(\"dealId\", \"driverUserId\", true)",
+      "check": "\"tenantId\" = current_setting('app.current_tenant_id', true) AND public.app_logistics_deal_authorized(\"dealId\", \"driverUserId\", true)",
+      "migration": "20260713100000_logistics_postgresql_authority"
+    },
+    {
+      "name": "signing_authorities_accounting_insert",
+      "table": "public.signing_authorities",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND \"grantedByMembershipId\" = public.app_pc_crop_membership_id() AND \"secondApprovalMembershipId\" IS NOT NULL AND \"secondApprovalMembershipId\" <> \"membershipId\" AND \"secondApprovalMembershipId\" <> \"grantedByMembershipId\"",
+      "migration": "20260815230000_pc_crop_accounting_write_authority"
+    },
+    {
+      "name": "signing_authorities_accounting_select",
+      "table": "public.signing_authorities",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id() AND ( \"membershipId\" = public.app_pc_crop_membership_id() OR public.app_identity_is_org_admin() )",
+      "check": null,
+      "migration": "20260815210000_pc_crop_accounting_read_authority"
+    },
+    {
+      "name": "signing_authorities_accounting_update",
+      "table": "public.signing_authorities",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_pc_crop_membership_id() IS NOT NULL AND \"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "check": "\"organizationId\" = public.app_identity_org_id() AND \"tenantId\" = public.app_identity_tenant_id()",
+      "migration": "20260815230000_pc_crop_accounting_write_authority"
+    },
+    {
+      "name": "auction_inventory_membership_lock",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "pc_inventory_authority"
+      ],
+      "using": "id = public.app_pc_crop_membership_id() AND \"userId\" = public.app_identity_user_id() AND \"organizationId\" = public.app_identity_org_id() AND status = 'ACTIVE' AND is_org_admin AND role::text = public.app_identity_role()",
+      "check": "false",
+      "migration": "20260905100000_auction_inventory_binding"
+    },
+    {
+      "name": "user_orgs_account_anonymization_select",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_account_anonymization_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260808160000_p0_account_lifecycle_authority"
+    },
+    {
+      "name": "user_orgs_account_export_select",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_account_export_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260808160000_p0_account_lifecycle_authority"
+    },
+    {
+      "name": "user_orgs_admin_delete",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "DELETE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "\"organizationId\" = public.app_identity_org_id() AND public.app_identity_is_org_admin()",
+      "check": null,
+      "migration": "20260806090000_identity_row_level_security"
+    },
+    {
+      "name": "user_orgs_admin_insert",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": null,
+      "check": "\"organizationId\" = public.app_identity_org_id() AND public.app_identity_is_org_admin()",
+      "migration": "20260806090000_identity_row_level_security"
+    },
+    {
+      "name": "user_orgs_admin_update",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "\"organizationId\" = public.app_identity_org_id() AND public.app_identity_is_org_admin()",
+      "check": "\"organizationId\" = public.app_identity_org_id() AND public.app_identity_is_org_admin()",
+      "migration": "20260806090000_identity_row_level_security"
+    },
+    {
+      "name": "user_orgs_bootstrap_insert",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "pc_identity_bootstrap"
+      ],
+      "using": null,
+      "check": "true",
+      "migration": "20260806090000_identity_row_level_security"
+    },
+    {
+      "name": "user_orgs_bootstrap_login",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_identity_bootstrap"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260806090000_identity_row_level_security"
+    },
+    {
+      "name": "user_orgs_invitation_acceptance_insert",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "pc_invitation_acceptance_authority"
+      ],
+      "using": null,
+      "check": "true",
+      "migration": "20260808140000_p0_invitation_acceptance_authority"
+    },
+    {
+      "name": "user_orgs_invitation_acceptance_select",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_invitation_acceptance_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260808140000_p0_invitation_acceptance_authority"
+    },
+    {
+      "name": "user_orgs_labs_identity_authority",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_labs_identity_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260807123000_bounded_laboratory_organization_authority"
+    },
+    {
+      "name": "user_orgs_membership_command_select",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_organization_membership_command_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260808150000_p0_invitation_recovery_authority"
+    },
+    {
+      "name": "user_orgs_membership_command_update",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "pc_organization_membership_command_authority"
+      ],
+      "using": "true",
+      "check": "true",
+      "migration": "20260808150000_p0_invitation_recovery_authority"
+    },
+    {
+      "name": "user_orgs_mfa_recovery_identity_select",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_mfa_recovery_identity_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260808150000_p0_invitation_recovery_authority"
+    },
+    {
+      "name": "user_orgs_organization_team_select",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_organization_access_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260808130000_p0_organization_team_authority"
+    },
+    {
+      "name": "user_orgs_registration_decision_select",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_registration_decision_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260808140000_p0_registration_decision_authority"
+    },
+    {
+      "name": "user_orgs_registration_decision_update",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "pc_registration_decision_authority"
+      ],
+      "using": "true",
+      "check": "true",
+      "migration": "20260808140000_p0_registration_decision_authority"
+    },
+    {
+      "name": "user_orgs_registration_lifecycle_insert",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "pc_registration_lifecycle_authority"
+      ],
+      "using": null,
+      "check": "true",
+      "migration": "20260808110000_p0_registration_lifecycle_authority"
+    },
+    {
+      "name": "user_orgs_registration_lifecycle_select",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_registration_lifecycle_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260808110000_p0_registration_lifecycle_authority"
+    },
+    {
+      "name": "user_orgs_registration_lifecycle_update",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "pc_registration_lifecycle_authority"
+      ],
+      "using": "true",
+      "check": "true",
+      "migration": "20260808110000_p0_registration_lifecycle_authority"
+    },
+    {
+      "name": "user_orgs_reviewer_membership_repair_insert",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "pc_reviewer_membership_repair_authority"
+      ],
+      "using": null,
+      "check": "current_user = 'pc_reviewer_membership_repair_authority' AND current_setting('app.reviewer_membership_repair_scope', true) = 'single' AND \"id\" = 'membership_pc_reviewer_internal_v1' AND \"organizationId\" = 'org_pc_internal_platform_v1' AND \"role\" = 'GUEST' AND \"status\" = 'ACTIVE' AND \"requested_workspace\" = 'employee' AND \"isDefault\" = true AND \"is_org_admin\" = true AND \"activated_at\" IS NOT NULL AND \"revoked_at\" IS NULL AND EXISTS ( SELECT 1 FROM auth.staff_assignments assignment WHERE assignment.user_id = public.\"user_orgs\".\"userId\" AND assignment.role = 'PLATFORM_OWNER' AND assignment.status = 'ACTIVE' AND assignment.suspended_at IS NULL AND assignment.revoked_at IS NULL AND assignment.valid_from <= now() AND (assignment.valid_until IS NULL OR assignment.valid_until > now()) )",
+      "migration": "20260810170000_p0_reviewer_membership_repair",
+      "alteredBy": "20260811023000_p0_reviewer_owner_identity_semantics"
+    },
+    {
+      "name": "user_orgs_reviewer_membership_repair_select",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_reviewer_membership_repair_authority"
+      ],
+      "using": "current_user = 'pc_reviewer_membership_repair_authority' AND current_setting('app.reviewer_membership_repair_scope', true) = 'single' AND ( \"id\" = 'membership_pc_reviewer_internal_v1' OR EXISTS ( SELECT 1 FROM auth.staff_assignments assignment WHERE assignment.user_id = public.\"user_orgs\".\"userId\" AND assignment.role = 'PLATFORM_OWNER' AND assignment.status = 'ACTIVE' AND assignment.suspended_at IS NULL AND assignment.revoked_at IS NULL AND assignment.valid_from <= now() AND (assignment.valid_until IS NULL OR assignment.valid_until > now()) ) )",
+      "check": null,
+      "migration": "20260810170000_p0_reviewer_membership_repair",
+      "alteredBy": "20260811023000_p0_reviewer_owner_identity_semantics"
+    },
+    {
+      "name": "user_orgs_self_select",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_identity_user_id() IS NOT NULL AND ( \"userId\" = public.app_identity_user_id() OR ( \"organizationId\" = public.app_identity_org_id() AND public.app_identity_is_org_admin() ) )",
+      "check": null,
+      "migration": "20260806090000_identity_row_level_security"
+    },
+    {
+      "name": "user_orgs_staff_admission_select",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_staff_authority"
+      ],
+      "using": "coalesce(current_setting('app.staff_admission_scope', true), '') <> '' AND \"organizationId\" = current_setting('app.staff_admission_scope', true)",
+      "check": null,
+      "migration": "20260806103000_bounded_staff_admission_authority"
+    },
+    {
+      "name": "user_orgs_staff_projection",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_staff_authority"
+      ],
+      "using": "current_setting('app.staff_projection_scope', true) = 'org:' || \"organizationId\"",
+      "check": null,
+      "migration": "20260807003000_bounded_staff_projection_authority"
+    },
+    {
+      "name": "user_orgs_staff_reviewer_password_reset_subject",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_staff_authority"
+      ],
+      "using": "current_setting('app.staff_reviewer_password_reset_scope', true) = 'subject' AND \"id\" = 'membership_pc_reviewer_internal_v1' AND \"organizationId\" = 'org_pc_internal_platform_v1' AND EXISTS ( SELECT 1 FROM auth.staff_assignments assignment WHERE assignment.user_id = public.\"user_orgs\".\"userId\" AND assignment.role = 'PLATFORM_OWNER' AND assignment.status = 'ACTIVE' AND assignment.revoked_at IS NULL AND assignment.suspended_at IS NULL AND assignment.valid_from <= now() AND (assignment.valid_until IS NULL OR assignment.valid_until > now()) )",
+      "check": null,
+      "migration": "20260812154500_p0_reviewer_password_reset_subject"
+    },
+    {
+      "name": "user_orgs_staff_reviewer_readiness",
+      "table": "public.user_orgs",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_staff_authority"
+      ],
+      "using": "current_setting('app.staff_reviewer_readiness_scope', true) = 'aggregate' AND EXISTS ( SELECT 1 FROM auth.staff_assignments assignment WHERE assignment.user_id = public.\"user_orgs\".\"userId\" AND assignment.role IN ('PLATFORM_OWNER', 'PLATFORM_ADMIN', 'COMPLIANCE_STAFF') AND assignment.status = 'ACTIVE' AND assignment.revoked_at IS NULL AND assignment.suspended_at IS NULL AND assignment.valid_from <= now() AND (assignment.valid_until IS NULL OR assignment.valid_until > now()) )",
+      "check": null,
+      "migration": "20260810124500_p0_reviewer_login_readiness"
+    },
+    {
+      "name": "users_account_anonymization_select",
+      "table": "public.users",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_account_anonymization_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260808160000_p0_account_lifecycle_authority"
+    },
+    {
+      "name": "users_account_anonymization_update",
+      "table": "public.users",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "pc_account_anonymization_authority"
+      ],
+      "using": "true",
+      "check": "true",
+      "migration": "20260808160000_p0_account_lifecycle_authority"
+    },
+    {
+      "name": "users_account_export_select",
+      "table": "public.users",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_account_export_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260808160000_p0_account_lifecycle_authority"
+    },
+    {
+      "name": "users_bootstrap_insert",
+      "table": "public.users",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "pc_identity_bootstrap"
+      ],
+      "using": null,
+      "check": "true",
+      "migration": "20260806090000_identity_row_level_security"
+    },
+    {
+      "name": "users_bootstrap_login",
+      "table": "public.users",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_identity_bootstrap"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260806090000_identity_row_level_security"
+    },
+    {
+      "name": "users_invitation_acceptance_insert",
+      "table": "public.users",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "pc_invitation_acceptance_authority"
+      ],
+      "using": null,
+      "check": "true",
+      "migration": "20260808140000_p0_invitation_acceptance_authority"
+    },
+    {
+      "name": "users_invitation_acceptance_select",
+      "table": "public.users",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_invitation_acceptance_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260808140000_p0_invitation_acceptance_authority"
+    },
+    {
+      "name": "users_labs_identity_authority",
+      "table": "public.users",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_labs_identity_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260807123000_bounded_laboratory_organization_authority"
+    },
+    {
+      "name": "users_membership_command_select",
+      "table": "public.users",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_organization_membership_command_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260808150000_p0_invitation_recovery_authority"
+    },
+    {
+      "name": "users_mfa_finalize_select",
+      "table": "public.users",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_auth_mfa_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260808100000_p0_password_first_multi_membership"
+    },
+    {
+      "name": "users_mfa_finalize_update",
+      "table": "public.users",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "pc_auth_mfa_authority"
+      ],
+      "using": "true",
+      "check": "true",
+      "migration": "20260808100000_p0_password_first_multi_membership"
+    },
+    {
+      "name": "users_mfa_recovery_identity_select",
+      "table": "public.users",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_mfa_recovery_identity_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260808150000_p0_invitation_recovery_authority"
+    },
+    {
+      "name": "users_mfa_recovery_identity_update",
+      "table": "public.users",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "pc_mfa_recovery_identity_authority"
+      ],
+      "using": "true",
+      "check": "true",
+      "migration": "20260808150000_p0_invitation_recovery_authority"
+    },
+    {
+      "name": "users_organization_team_select",
+      "table": "public.users",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_organization_access_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260808130000_p0_organization_team_authority"
+    },
+    {
+      "name": "users_password_format_read",
+      "table": "public.users",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_password_format_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260830220000_password_hash_format_upgrade"
+    },
+    {
+      "name": "users_password_format_upgrade",
+      "table": "public.users",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "pc_password_format_authority"
+      ],
+      "using": "true",
+      "check": "true",
+      "migration": "20260830220000_password_hash_format_upgrade"
+    },
+    {
+      "name": "users_password_reset_select",
+      "table": "public.users",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_password_reset_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260808120000_p0_password_reset_authority"
+    },
+    {
+      "name": "users_password_reset_update",
+      "table": "public.users",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "pc_password_reset_authority"
+      ],
+      "using": "true",
+      "check": "true",
+      "migration": "20260808120000_p0_password_reset_authority"
+    },
+    {
+      "name": "users_registration_decision_select",
+      "table": "public.users",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_registration_decision_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260808140000_p0_registration_decision_authority"
+    },
+    {
+      "name": "users_registration_decision_update",
+      "table": "public.users",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "pc_registration_decision_authority"
+      ],
+      "using": "true",
+      "check": "true",
+      "migration": "20260808140000_p0_registration_decision_authority"
+    },
+    {
+      "name": "users_registration_lifecycle_insert",
+      "table": "public.users",
+      "permissive": true,
+      "command": "INSERT",
+      "roles": [
+        "pc_registration_lifecycle_authority"
+      ],
+      "using": null,
+      "check": "true",
+      "migration": "20260808110000_p0_registration_lifecycle_authority"
+    },
+    {
+      "name": "users_registration_lifecycle_select",
+      "table": "public.users",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_registration_lifecycle_authority"
+      ],
+      "using": "true",
+      "check": null,
+      "migration": "20260808110000_p0_registration_lifecycle_authority"
+    },
+    {
+      "name": "users_registration_lifecycle_update",
+      "table": "public.users",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "pc_registration_lifecycle_authority"
+      ],
+      "using": "true",
+      "check": "true",
+      "migration": "20260808110000_p0_registration_lifecycle_authority"
+    },
+    {
+      "name": "users_reviewer_membership_repair_select",
+      "table": "public.users",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_reviewer_membership_repair_authority"
+      ],
+      "using": "current_user = 'pc_reviewer_membership_repair_authority' AND current_setting('app.reviewer_membership_repair_scope', true) = 'single' AND EXISTS ( SELECT 1 FROM auth.staff_assignments assignment WHERE assignment.user_id = public.\"users\".\"id\" AND assignment.role = 'PLATFORM_OWNER' AND assignment.status = 'ACTIVE' AND assignment.suspended_at IS NULL AND assignment.revoked_at IS NULL AND assignment.valid_from <= now() AND (assignment.valid_until IS NULL OR assignment.valid_until > now()) )",
+      "check": null,
+      "migration": "20260810170000_p0_reviewer_membership_repair",
+      "alteredBy": "20260811023000_p0_reviewer_owner_identity_semantics"
+    },
+    {
+      "name": "users_self_select",
+      "table": "public.users",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_identity_user_id() IS NOT NULL AND ( \"id\" = public.app_identity_user_id() OR ( public.app_identity_is_org_admin() AND EXISTS ( SELECT 1 FROM public.\"user_orgs\" membership WHERE membership.\"userId\" = public.\"users\".\"id\" AND membership.\"organizationId\" = public.app_identity_org_id() ) ) )",
+      "check": null,
+      "migration": "20260806090000_identity_row_level_security"
+    },
+    {
+      "name": "users_self_update",
+      "table": "public.users",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "public.app_identity_user_id() IS NOT NULL AND \"id\" = public.app_identity_user_id()",
+      "check": "public.app_identity_user_id() IS NOT NULL AND \"id\" = public.app_identity_user_id()",
+      "migration": "20260806090000_identity_row_level_security"
+    },
+    {
+      "name": "users_staff_admission_select",
+      "table": "public.users",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_staff_authority"
+      ],
+      "using": "coalesce(current_setting('app.staff_admission_scope', true), '') <> '' AND EXISTS ( SELECT 1 FROM public.\"user_orgs\" membership WHERE membership.\"userId\" = public.\"users\".\"id\" AND membership.\"organizationId\" = current_setting('app.staff_admission_scope', true) )",
+      "check": null,
+      "migration": "20260806103000_bounded_staff_admission_authority"
+    },
+    {
+      "name": "users_staff_projection",
+      "table": "public.users",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_staff_authority"
+      ],
+      "using": "EXISTS ( SELECT 1 FROM public.user_orgs membership WHERE membership.\"userId\" = users.id AND current_setting('app.staff_projection_scope', true) = 'org:' || membership.\"organizationId\" )",
+      "check": null,
+      "migration": "20260807003000_bounded_staff_projection_authority"
+    },
+    {
+      "name": "users_staff_reviewer_password_reset_subject",
+      "table": "public.users",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_staff_authority"
+      ],
+      "using": "current_setting('app.staff_reviewer_password_reset_scope', true) = 'subject' AND EXISTS ( SELECT 1 FROM auth.staff_assignments assignment WHERE assignment.user_id = public.\"users\".\"id\" AND assignment.role = 'PLATFORM_OWNER' AND assignment.status = 'ACTIVE' AND assignment.revoked_at IS NULL AND assignment.suspended_at IS NULL AND assignment.valid_from <= now() AND (assignment.valid_until IS NULL OR assignment.valid_until > now()) )",
+      "check": null,
+      "migration": "20260812154500_p0_reviewer_password_reset_subject"
+    },
+    {
+      "name": "users_staff_reviewer_readiness",
+      "table": "public.users",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "pc_staff_authority"
+      ],
+      "using": "current_setting('app.staff_reviewer_readiness_scope', true) = 'aggregate' AND EXISTS ( SELECT 1 FROM auth.staff_assignments assignment WHERE assignment.user_id = public.\"users\".\"id\" AND assignment.role IN ('PLATFORM_OWNER', 'PLATFORM_ADMIN', 'COMPLIANCE_STAFF') AND assignment.status = 'ACTIVE' AND assignment.revoked_at IS NULL AND assignment.suspended_at IS NULL AND assignment.valid_from <= now() AND (assignment.valid_until IS NULL OR assignment.valid_until > now()) )",
+      "check": null,
+      "migration": "20260810124500_p0_reviewer_login_readiness"
+    },
+    {
+      "name": "bank_callbacks_verified_replay_select",
+      "table": "settlement.bank_callbacks",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "settlement.verified_bank_callback_context( bank_callbacks.deal_id, bank_callbacks.tenant_id, bank_callbacks.partner_id, bank_callbacks.event_id )",
+      "check": null,
+      "migration": "20260807195000_settlement_verified_callback_authority_function"
+    },
+    {
+      "name": "bank_operations_update",
+      "table": "settlement.bank_operations",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "bank_operations.tenant_id = current_setting('app.current_tenant_id', true) AND settlement.deal_authorized(bank_operations.deal_id, true)",
+      "check": "bank_operations.tenant_id = current_setting('app.current_tenant_id', true) AND settlement.deal_authorized(bank_operations.deal_id, true)",
+      "migration": "20260713143000_settlement_rls_qualified_columns"
+    },
+    {
+      "name": "bank_operations_verified_callback_select",
+      "table": "settlement.bank_operations",
+      "permissive": true,
+      "command": "SELECT",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "settlement.verified_bank_callback_context( bank_operations.deal_id, bank_operations.tenant_id, bank_operations.required_partner_id, NULL )",
+      "check": null,
+      "migration": "20260807195000_settlement_verified_callback_authority_function"
+    },
+    {
+      "name": "bank_operations_verified_callback_update",
+      "table": "settlement.bank_operations",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "bank_operations.status = 'PENDING' AND settlement.verified_bank_callback_context( bank_operations.deal_id, bank_operations.tenant_id, bank_operations.required_partner_id, NULL )",
+      "check": "bank_operations.status IN ('CONFIRMED', 'FAILED') AND bank_operations.callback_event_id IS NOT NULL AND bank_operations.callback_key_id IS NOT NULL AND bank_operations.callback_payload_fingerprint IS NOT NULL AND settlement.verified_bank_callback_context( bank_operations.deal_id, bank_operations.tenant_id, bank_operations.required_partner_id, bank_operations.callback_event_id )",
+      "migration": "20260807195000_settlement_verified_callback_authority_function"
+    },
+    {
+      "name": "holds_update",
+      "table": "settlement.holds",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "holds.tenant_id = current_setting('app.current_tenant_id', true) AND settlement.deal_authorized(holds.deal_id, true)",
+      "check": "holds.tenant_id = current_setting('app.current_tenant_id', true) AND settlement.deal_authorized(holds.deal_id, true)",
+      "migration": "20260713143000_settlement_rls_qualified_columns"
+    },
+    {
+      "name": "payments_update",
+      "table": "settlement.payments",
+      "permissive": true,
+      "command": "UPDATE",
+      "roles": [
+        "PUBLIC"
+      ],
+      "using": "payments.tenant_id = current_setting('app.current_tenant_id', true) AND settlement.deal_authorized(payments.deal_id, true)",
+      "check": "payments.tenant_id = current_setting('app.current_tenant_id', true) AND settlement.deal_authorized(payments.deal_id, true)",
+      "migration": "20260713143000_settlement_rls_qualified_columns"
+    }
+  ]
+}

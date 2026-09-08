@@ -32,6 +32,10 @@ on:
       - 'docs/security/asvs-applicability-decisions.json'
       - 'scripts/security/verify-decision-evidence.mjs'
       - 'scripts/security/verify-decision-evidence.test.mjs'
+      - 'scripts/security/build-effective-rls-policies.mjs'
+      - 'scripts/security/build-effective-rls-policies.test.mjs'
+      - 'docs/security/rls-effective-policies.json'
+      - 'apps/api/prisma/migrations/**'
       - 'docs/ip/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -77,6 +81,10 @@ on:
       - 'docs/security/asvs-applicability-decisions.json'
       - 'scripts/security/verify-decision-evidence.mjs'
       - 'scripts/security/verify-decision-evidence.test.mjs'
+      - 'scripts/security/build-effective-rls-policies.mjs'
+      - 'scripts/security/build-effective-rls-policies.test.mjs'
+      - 'docs/security/rls-effective-policies.json'
+      - 'apps/api/prisma/migrations/**'
       - 'docs/ip/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -225,6 +233,14 @@ jobs:
 
       - name: Verify no decision cites something that is gone
         run: node scripts/security/verify-decision-evidence.mjs
+
+      # Which row policies a deployed database actually ends up with cannot be
+      # read off any one migration: the chain creates and drops the same policy
+      # names repeatedly, and migrations quote the DDL they are replacing in
+      # their own comments. Answering it by hand is what left the V8.2.2 record
+      # describing three permissive policies that had already been dropped.
+      - name: Verify the effective row policies match the migration chain
+        run: node scripts/security/build-effective-rls-policies.mjs --check
 
       - name: Verify every algorithm has a migration path
         run: node scripts/security/verify-crypto-migration-plan.mjs
