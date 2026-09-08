@@ -4,6 +4,7 @@ set -Eeuo pipefail
 MIGRATION_BASE='apps/api/prisma/migrations/20260902140000_role_eligibility_shadow/migration.sql'
 MIGRATION_SUPERSEDED='apps/api/prisma/migrations/20260902143000_role_eligibility_superseded_current_guard/migration.sql'
 MIGRATION_RUNTIME='apps/api/prisma/migrations/20260902150000_role_eligibility_runtime_principal_boundary/migration.sql'
+MIGRATION_APP_DEAL_API='apps/api/prisma/migrations/20260902204500_role_eligibility_app_deal_api_boundary/migration.sql'
 MIGRATION_COVERAGE='apps/api/prisma/migrations/20260906180000_role_eligibility_fns_registry_coverage_authority/migration.sql'
 
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
@@ -49,6 +50,7 @@ SQL
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_BASE"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_SUPERSEDED"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_RUNTIME"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_APP_DEAL_API"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_COVERAGE"
 
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
