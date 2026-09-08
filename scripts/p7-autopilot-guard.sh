@@ -15,11 +15,14 @@ PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH="governance/public-home-role-clarity-scope-2
 PUBLIC_HOME_IMPLEMENTATION_BRANCH="feat/public-home-role-clarity-20260905"
 PUBLIC_HOME_GOVERNANCE_MANIFEST="docs/platform-v7/autopilot/scopes/governance-public-home-role-clarity-scope-20260905.json"
 PUBLIC_HOME_IMPLEMENTATION_MANIFEST="docs/platform-v7/autopilot/scopes/public-home-role-clarity-20260905.json"
+POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH="governance/production-like-outbox-poison-isolation-scope-3793"
+POISON_ISOLATION_IMPLEMENTATION_BRANCH="fix/production-like-outbox-poison-isolation-3793"
+POISON_ISOLATION_MANIFEST="docs/platform-v7/autopilot/scopes/production-like-outbox-poison-isolation-3793.json"
 CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
 
 is_immutable_scope_branch() {
   case "$1" in
-    "$REGISTRATION_ROLLOVER_BRANCH"|"$OWNER_AUDIT_LOCK_BRANCH"|"$POST_REGISTRATION_PROGRESS_BRANCH"|"$INVENTORY_RESERVATION_BRANCH"|"$AUCTION_INVENTORY_BRANCH"|"$SCOPE_GOVERNANCE_BRANCH"|"$INVENTORY_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_IMPLEMENTATION_BRANCH") return 0 ;;
+    "$REGISTRATION_ROLLOVER_BRANCH"|"$OWNER_AUDIT_LOCK_BRANCH"|"$POST_REGISTRATION_PROGRESS_BRANCH"|"$INVENTORY_RESERVATION_BRANCH"|"$AUCTION_INVENTORY_BRANCH"|"$SCOPE_GOVERNANCE_BRANCH"|"$INVENTORY_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_IMPLEMENTATION_BRANCH"|"$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH"|"$POISON_ISOLATION_IMPLEMENTATION_BRANCH") return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -362,7 +365,7 @@ if [ "${GITHUB_HEAD_REF:-}" = "fix/exact-main-live-evidence-2659" ]; then
 fi
 
 if is_immutable_scope_branch "$CURRENT_BRANCH"; then
-  APPROVED_BRANCH_SCOPE=$(BASE_REF="$BASE_REF" STATE_FILE="$STATE_FILE" GITHUB_HEAD_REF="$CURRENT_BRANCH" PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH="$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" PUBLIC_HOME_IMPLEMENTATION_BRANCH="$PUBLIC_HOME_IMPLEMENTATION_BRANCH" PUBLIC_HOME_GOVERNANCE_MANIFEST="$PUBLIC_HOME_GOVERNANCE_MANIFEST" PUBLIC_HOME_IMPLEMENTATION_MANIFEST="$PUBLIC_HOME_IMPLEMENTATION_MANIFEST" node - <<'JS'
+  APPROVED_BRANCH_SCOPE=$(BASE_REF="$BASE_REF" STATE_FILE="$STATE_FILE" GITHUB_HEAD_REF="$CURRENT_BRANCH" PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH="$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" PUBLIC_HOME_IMPLEMENTATION_BRANCH="$PUBLIC_HOME_IMPLEMENTATION_BRANCH" PUBLIC_HOME_GOVERNANCE_MANIFEST="$PUBLIC_HOME_GOVERNANCE_MANIFEST" PUBLIC_HOME_IMPLEMENTATION_MANIFEST="$PUBLIC_HOME_IMPLEMENTATION_MANIFEST" POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH="$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" POISON_ISOLATION_MANIFEST="$POISON_ISOLATION_MANIFEST" node - <<'JS'
 const { execFileSync } = require('node:child_process');
 
 const baseRef = String(process.env.BASE_REF || '').trim();
@@ -372,6 +375,8 @@ const publicHomeGovernanceBranch = String(process.env.PUBLIC_HOME_SCOPE_GOVERNAN
 const publicHomeImplementationBranch = String(process.env.PUBLIC_HOME_IMPLEMENTATION_BRANCH || '').trim();
 const publicHomeGovernanceManifest = String(process.env.PUBLIC_HOME_GOVERNANCE_MANIFEST || '').trim();
 const publicHomeImplementationManifest = String(process.env.PUBLIC_HOME_IMPLEMENTATION_MANIFEST || '').trim();
+const poisonIsolationScopeGovernanceBranch = String(process.env.POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH || '').trim();
+const poisonIsolationManifest = String(process.env.POISON_ISOLATION_MANIFEST || '').trim();
 if (!baseRef || !stateFile || !branch) {
   throw new Error('P7_IMMUTABLE_SCOPE: immutable scope inputs are required');
 }
@@ -392,6 +397,8 @@ if (branch === publicHomeGovernanceBranch) {
     throw new Error('P7_IMMUTABLE_SCOPE: accepted public-home manifest identity is invalid');
   }
   scopes = manifest.allowedPaths;
+} else if (branch === poisonIsolationScopeGovernanceBranch) {
+  scopes = [poisonIsolationManifest, 'scripts/p7-autopilot-guard.sh', 'scripts/p7-autopilot-guard.test.mjs'];
 } else {
   let state;
   try {
@@ -454,7 +461,7 @@ if [ -n "$SOURCE_CONTROLLED_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$SOURCE_CONTROLLED_SCOPE")
 fi
 
-if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INVENTORY_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" ]; then
+if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INVENTORY_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" ]; then
   MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$DIFF_FILES" | grep -E '^(AGENTS\.md|docs/platform-v7/autopilot/|scripts/p7-autopilot-guard\.sh$|scripts/p7-autopilot-guard\.test\.mjs$|scripts/p7-source-controlled-scope\.mjs$|\.github/workflows/platform-v7-autopilot-guard\.yml$|\.github/workflows/automerge\.yml$)' || true)
   if [ -n "$MUTABLE_SCOPE_AUTHORITIES" ]; then
     echo "Mutable scope authority changed on a PC-CROP immutable-scope implementation branch:"

@@ -1,213 +1,179 @@
 /*
- * International homepage completion layer.
- * Loaded only by the final homepage wrapper and intentionally independent from
- * the public-assistant viewport work in progress on other branches.
+ * Compatibility stylesheet for the tsconfig-routed international homepage wrapper.
+ * The wrapper is intentionally transparent: this file must not create sections,
+ * replace copy, or hide canonical homepage content. It only retains terminal
+ * mobile/footer spacing and responsive Deal behavior shared by the public shell.
  */
-
-.pc-home-mobile-contact-link {
-  display: none !important;
-}
 
 .pc-v7-public-entry .pc-v6-footer {
   padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
 }
 
-.pc-home-trust,
-.pc-home-connection-process {
-  scroll-margin-top: calc(var(--entry-header-height, 64px) + 18px);
+.pc-v7-public-entry .pc-public-deal-stage-rail {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
-.pc-home-trust {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid #cfdcd4;
-  border-radius: 18px;
-  background:
-    radial-gradient(circle at 92% 8%, rgba(8, 122, 59, 0.08), transparent 30%),
-    linear-gradient(180deg, #fbfdfc 0%, #f4f8f5 100%);
-  box-shadow: 0 16px 38px rgba(16, 42, 29, 0.055);
+/* Public story surfaces explain the workflow without presenting status badges. */
+.pc-v7-public-entry [data-testid='platform-v7-deal-card'] > div:first-child > b,
+.pc-v7-public-entry #live article[data-state] > div:first-child > b {
+  display: none !important;
 }
 
-.pc-home-trust > .pc-v6-section-head,
-.pc-home-connection-process > .pc-v6-section-head {
-  max-width: 780px;
+/* The Deal path is the canonical seven-step story. Do not gate steps 4–7 behind
+ * a disclosure control: desktop scroll pacing and mobile document order must both
+ * expose the complete story without an extra interaction. */
+.pc-v7-public-entry #deal-path #phases-more-toggle,
+.pc-v7-public-entry #deal-path label[for='phases-more-toggle'] {
+  display: none !important;
 }
 
-.pc-home-trust-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 24px;
+.pc-v7-public-entry #deal-path #phases-more-cards {
+  display: contents !important;
 }
 
-.pc-home-trust-grid article {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
-  align-items: start;
-  gap: 13px;
-  padding: 18px;
-  border: 1px solid #d6e1da;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.92);
+/* Anchors follow the shared fixed-header authority instead of a route-specific
+ * guessed height. */
+.pc-v7-public-entry :where(
+  #participants,
+  #difference,
+  #deal-path,
+  #functions,
+  #live,
+  #trust,
+  #tai,
+  #faq,
+  #connect-organization
+) {
+  scroll-margin-top: calc(var(--pc-public-header-total-height, 64px) + 18px) !important;
 }
 
-.pc-home-trust-grid article > svg {
-  width: 20px;
-  height: 20px;
-  box-sizing: content-box;
-  padding: 10px;
-  border-radius: 11px;
-  background: #eaf5ee;
-  color: #087a3b;
-}
-
-.pc-home-trust-grid article > div {
-  min-width: 0;
-  display: grid;
-  gap: 6px;
-}
-
-.pc-home-trust-grid strong {
-  color: #153126;
-  font-size: 15px;
-  font-weight: 740;
-  line-height: 1.3;
-}
-
-.pc-home-trust-grid p {
-  margin: 0;
-  color: #526159;
-  font-size: 13px;
-  line-height: 1.52;
-}
-
-.pc-home-trust-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 9px;
-  margin-top: 20px;
-}
-
-.pc-home-trust-actions a {
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  padding: 0 14px;
-  border: 1px solid #bfd0c6;
-  border-radius: 11px;
-  background: #ffffff;
-  color: #173d2b;
-  font-size: 13px;
-  font-weight: 720;
-  text-decoration: none;
-}
-
-.pc-home-trust-actions .pc-home-trust-primary {
-  border-color: #087a3b;
-  background: #087a3b;
-  color: #ffffff;
-}
-
-.pc-home-trust-actions a:hover {
-  border-color: #087a3b;
-  background: #edf7f1;
-  color: #07572e;
-}
-
-.pc-home-trust-actions .pc-home-trust-primary:hover {
-  background: #075f32;
-  color: #ffffff;
-}
-
-.pc-home-trust-actions a:focus-visible,
-.pc-home-connection-grid article:focus-within {
-  outline: 3px solid rgba(8, 122, 59, 0.22);
-  outline-offset: 2px;
-}
-
-.pc-home-connection-process {
-  padding-bottom: 18px !important;
-}
-
-.pc-home-connection-grid {
-  position: relative;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 24px;
-}
-
-.pc-home-connection-grid::before {
-  position: absolute;
-  top: 31px;
-  right: 15%;
-  left: 15%;
-  height: 1px;
-  background: #b9d1c2;
-  content: '';
-}
-
-.pc-home-connection-grid article {
-  position: relative;
-  z-index: 1;
-  min-width: 0;
-  display: grid;
-  grid-template-columns: auto 38px;
-  align-items: center;
-  column-gap: 10px;
-  row-gap: 10px;
-  padding: 18px;
-  border: 1px solid #d3dfd7;
-  border-radius: 15px;
-  background: #ffffff;
-  box-shadow: 0 10px 24px rgba(16, 42, 29, 0.04);
-}
-
-.pc-home-connection-grid article > span {
-  width: 42px;
-  height: 42px;
-  display: inline-grid;
-  place-items: center;
-  border-radius: 12px;
-  background: #087a3b;
-  color: #ffffff;
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.pc-home-connection-grid article > svg {
-  justify-self: end;
-  color: #4c755f;
-}
-
-.pc-home-connection-grid h3,
-.pc-home-connection-grid p {
-  grid-column: 1 / -1;
-}
-
-.pc-home-connection-grid h3 {
-  margin: 2px 0 0;
-  color: #153126;
-  font-size: 17px;
-  font-weight: 740;
-  line-height: 1.3;
-}
-
-.pc-home-connection-grid p {
-  margin: 0;
-  color: #526159;
-  font-size: 13px;
-  line-height: 1.52;
-}
-
-@media (max-width: 900px) {
-  .pc-site-mobile-nav .pc-home-mobile-contact-link {
-    display: flex !important;
+@media (min-width: 901px) {
+  .pc-v7-public-entry .pc-v6-section-head h2,
+  .pc-v7-public-entry .pc-v6-final h2,
+  .pc-v7-public-entry #connect-organization h2 {
+    font-size: clamp(38px, 3.3vw, 44px) !important;
   }
+}
+
+/* The unified contact dock is useful on desktop, but its default 334px horizontal
+ * footprint can cover the proof strip in the first viewport. At wide desktop
+ * widths keep all three actions while moving them into a narrow icon rail that
+ * fits the right-side gutter. Source labels remain in the accessibility tree. */
+
+/* The first-view Deal card is explanatory product UI, not metadata. Keep every
+ * visible text node at the trusted 14px legibility floor on all viewports. */
+.pc-v7-public-entry [data-testid='platform-v7-deal-card'] :where(span, small, b) {
+  font-size: 14px !important;
+}
+
+/* Accessibility authority for the new public Deal story. The previous muted
+ * treatment did not meet WCAG 2 AA on white surfaces. Keep the semantic content
+ * unchanged while giving phase numbers, stage indices and the Gekta detail link
+ * sufficient contrast in every browser. */
+.pc-v7-public-entry #deal-path article > span:first-child {
+  background: #087a3b !important;
+  color: #fff !important;
+}
+
+.pc-v7-public-entry #participants button > span > small {
+  color: #526159 !important;
+}
+
+.pc-v7-public-entry [data-testid='platform-v7-ai-analysis'] a {
+  color: #07572e !important;
+}
+
+/* Desktop Deal story: the seven phase cards become a restrained sticky stack.
+ * The content remains ordinary DOM content; this only changes how the same
+ * explanation is paced while the visitor scrolls. */
+@media (min-width: 1024px) {
+  .pc-v7-public-entry #deal-path > div:has(> article) {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 28px !important;
+    max-width: 980px;
+    margin-inline: auto;
+  }
+
+  .pc-v7-public-entry #deal-path > div:has(> article) > article,
+  .pc-v7-public-entry #deal-path > div:has(> article) > div > article {
+    position: sticky !important;
+    top: calc(var(--pc-public-header-total-height, 64px) + 24px);
+    min-height: 250px !important;
+    grid-template-columns: 58px minmax(0, 1fr) !important;
+    grid-template-rows: auto auto 1fr !important;
+    column-gap: 20px !important;
+    row-gap: 10px !important;
+    padding: 28px 30px !important;
+    border-radius: 22px !important;
+    background: linear-gradient(180deg, rgba(8, 122, 59, .045), rgba(255,255,255,.98) 36%) !important;
+    box-shadow: 0 22px 54px rgba(16, 42, 29, .09) !important;
+  }
+
+  .pc-v7-public-entry #deal-path article > span:first-child {
+    grid-column: 1;
+    grid-row: 1 / 4;
+    align-self: start;
+  }
+
+  .pc-v7-public-entry #deal-path article > :is(h3, p, small) {
+    grid-column: 2;
+  }
+
+  .pc-v7-public-entry #deal-path article > h3 {
+    font-size: 28px !important;
+    line-height: 1.12 !important;
+  }
+
+  .pc-v7-public-entry #deal-path article > p {
+    max-width: 70ch;
+    font-size: 15px !important;
+    line-height: 1.58 !important;
+  }
+
+  .pc-v7-public-entry #deal-path article > small {
+    align-self: end;
+    font-size: 13px !important;
+  }
+}
+
+/* Progressive enhancement only. Unsupported browsers keep the same readable
+ * static layout. Motion explains sequence; it never conveys unique meaning.
+ * Text remains fully opaque throughout motion so WCAG contrast never degrades. */
+@supports (animation-timeline: view()) {
+  .pc-v7-public-entry #deal-path article,
+  .pc-v7-public-entry [data-testid='platform-v7-ai-analysis'],
+  .pc-v7-public-entry #participants [role='tabpanel'] {
+    animation-name: pc-public-story-reveal;
+    animation-duration: 1ms;
+    animation-fill-mode: both;
+    animation-timeline: view();
+    animation-range: entry 8% cover 32%;
+  }
+}
+
+@keyframes pc-public-story-reveal {
+  from {
+    transform: translateY(28px) scale(.985);
+  }
+  to {
+    transform: translateY(0) scale(1);
+  }
+}
+
+.pc-v7-public-entry .pc-public-deal-stage-rail--hero > * {
+  animation: pc-public-stage-enter 420ms ease both;
+}
+
+.pc-v7-public-entry .pc-public-deal-stage-rail--hero > :nth-child(2) { animation-delay: 70ms; }
+.pc-v7-public-entry .pc-public-deal-stage-rail--hero > :nth-child(3) { animation-delay: 140ms; }
+.pc-v7-public-entry .pc-public-deal-stage-rail--hero > :nth-child(4) { animation-delay: 210ms; }
+.pc-v7-public-entry .pc-public-deal-stage-rail--hero > :nth-child(5) { animation-delay: 280ms; }
+.pc-v7-public-entry .pc-public-deal-stage-rail--hero > :nth-child(6) { animation-delay: 350ms; }
+.pc-v7-public-entry .pc-public-deal-stage-rail--hero > :nth-child(7) { animation-delay: 420ms; }
+
+@keyframes pc-public-stage-enter {
+  from { transform: translateY(6px); }
+  to { transform: translateY(0); }
 }
 
 @media (max-width: 767px) {
@@ -215,172 +181,66 @@
     padding-bottom: calc(82px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
-  .pc-public-contact-dock[data-assistant-context='public'] {
-    right: max(12px, env(safe-area-inset-right, 0px)) !important;
-    left: auto !important;
-    bottom: max(12px, calc(env(safe-area-inset-bottom, 0px) + 10px)) !important;
-    width: 56px !important;
-    min-width: 56px !important;
-    height: 56px !important;
-    grid-template-columns: 1fr !important;
-    padding: 3px !important;
-    border-radius: 18px !important;
-  }
-
-  .pc-public-contact-dock[data-assistant-context='public']
-    .pc-public-contact-dock-action:not(.pc-public-contact-dock-assistant) {
-    display: none !important;
-  }
-
-  .pc-public-contact-dock[data-assistant-context='public']
-    .pc-public-contact-dock-assistant {
-    width: 48px !important;
-    height: 48px !important;
-    min-height: 48px !important;
-    padding: 0 !important;
-    border-radius: 14px !important;
-  }
-
-  .pc-public-contact-dock[data-assistant-context='public']
-    .pc-public-contact-dock-assistant .pc-public-contact-dock-icon {
-    width: 32px !important;
-    height: 32px !important;
-    flex-basis: 32px !important;
-  }
-
-  .pc-public-contact-dock[data-assistant-context='public']
-    .pc-public-contact-dock-assistant strong {
-    position: absolute !important;
-    width: 1px !important;
-    height: 1px !important;
-    padding: 0 !important;
-    margin: -1px !important;
-    overflow: hidden !important;
-    clip: rect(0, 0, 0, 0) !important;
-    clip-path: inset(50%) !important;
-    white-space: nowrap !important;
-    border: 0 !important;
-  }
-
-  .pc-home-trust,
-  .pc-home-connection-process {
-    scroll-margin-top: calc(var(--entry-header-height, 48px) + 12px);
-  }
-
-  .pc-home-trust > .pc-v6-section-head h2,
-  .pc-home-connection-process > .pc-v6-section-head h2 {
-    font-size: clamp(32px, 7.6vw, 38px);
-    line-height: 1.08;
-  }
-
-  .pc-home-trust {
-    margin-inline: -2px;
-    padding: 22px 16px !important;
-    border-radius: 16px;
-  }
-
-  .pc-home-trust-grid {
-    grid-template-columns: 1fr;
-    gap: 9px;
-    margin-top: 18px;
-  }
-
-  .pc-home-trust-grid article {
-    grid-template-columns: 38px minmax(0, 1fr);
-    gap: 11px;
-    padding: 15px;
-  }
-
-  .pc-home-trust-grid article > svg {
-    width: 18px;
-    height: 18px;
-    padding: 9px;
-  }
-
-  .pc-home-trust-actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .pc-home-trust-actions .pc-home-trust-primary {
-    grid-column: 1 / -1;
-  }
-
-  .pc-home-connection-process {
-    padding-top: 36px !important;
-  }
-
-  .pc-home-connection-grid {
-    grid-template-columns: 1fr;
-    gap: 9px;
-    margin-top: 18px;
-  }
-
-  .pc-home-connection-grid::before {
-    top: 22px;
-    bottom: 22px;
-    left: 38px;
+  .pc-v7-public-entry .pc-public-deal-stage-rail--hero small {
+    position: absolute;
     width: 1px;
-    height: auto;
+    height: 1px;
+    overflow: hidden;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    white-space: nowrap;
+    clip-path: inset(50%);
   }
 
-  .pc-home-connection-grid article {
-    grid-template-columns: 42px 32px minmax(0, 1fr);
-    padding: 14px;
+  .pc-v7-public-entry .pc-public-deal-stage-rail--demo {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .pc-home-connection-grid article > span {
-    grid-row: 1 / span 2;
+  /* Mobile keeps the story linear. No sticky card stacking: every one of the
+   * seven steps is read in document order and remains independently clear. */
+  .pc-v7-public-entry #deal-path article {
+    position: relative !important;
+    top: auto !important;
   }
 
-  .pc-home-connection-grid article > svg {
-    grid-column: 2;
-    grid-row: 1;
-    justify-self: center;
-  }
 
-  .pc-home-connection-grid h3,
-  .pc-home-connection-grid p {
-    grid-column: 3;
-  }
 
-  .pc-home-connection-grid h3 {
-    grid-row: 1;
-    align-self: center;
-    margin: 0;
-    font-size: 15px;
-  }
 
-  .pc-home-connection-grid p {
-    grid-row: 2;
-    font-size: 12.5px;
-  }
+
 }
 
-@media (max-width: 360px) {
-  .pc-home-trust-actions {
-    grid-template-columns: 1fr;
+/* RU/EN/ZH place the compact assistant over different Hero Deal rows because
+ * their copy lengths differ. At the smallest accepted widths reserve a narrow
+ * right lane for every row and reduce the dock to a still-accessible 44px action,
+ * preventing first-viewport content occlusion without changing the mobile flow. */
+@media (max-width: 390px) {
+  .pc-v7-public-entry [data-testid='platform-v7-deal-card'] article {
+    padding-right: 56px !important;
   }
 
-  .pc-home-trust-actions .pc-home-trust-primary {
-    grid-column: auto;
+
+}
+
+@media (max-width: 430px) {
+  .pc-v7-public-entry .pc-public-deal-stage-rail--demo {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pc-home-trust-actions a,
-  .pc-home-connection-grid article {
-    transition: none !important;
+  .pc-v7-public-entry * {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
 @media (forced-colors: active) {
-  .pc-home-trust,
-  .pc-home-trust-grid article,
-  .pc-home-connection-grid article,
-  .pc-home-trust-actions a {
-    border: 2px solid ButtonText;
-    background: Canvas;
-    color: ButtonText;
+
+  .pc-v7-public-entry #deal-path article {
+    border: 1px solid CanvasText !important;
+    background: Canvas !important;
+    box-shadow: none !important;
   }
 }

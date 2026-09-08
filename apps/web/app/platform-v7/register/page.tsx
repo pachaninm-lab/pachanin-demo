@@ -2,8 +2,8 @@ import '@/styles/platform-v7-public-register.css';
 import '@/styles/platform-v7-public-register-official.css';
 import '@/styles/platform-v7-public-register-reflow.css';
 import Link from 'next/link';
-import { Home, Languages, LogIn } from 'lucide-react';
-import { BrandMark } from '@/components/v7r/BrandMark';
+import { Languages } from 'lucide-react';
+import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
 import { RegisterFormClientPublic } from './RegisterFormClientPublic';
 
 type Locale = 'ru' | 'en' | 'zh';
@@ -69,30 +69,14 @@ export default async function RegisterPage({
   return (
     <main className='p0-register-page'>
       <div className='p0-register-shell'>
-        <header className='p0-register-header' aria-label={copy.nav}>
-          <Link className='p0-register-brand' href='/platform-v7' aria-label={copy.home}>
-            <BrandMark size={42} />
-            <span>Прозрачная Цена</span>
-          </Link>
-          <nav className='p0-register-header-actions' aria-label={copy.nav}>
-            <a
-              href={`/platform-v7/register?${localeQuery.toString()}`}
-              aria-label={copy.language}
-              title={copy.language}
-            >
-              <Languages size={17} aria-hidden='true' />
-              <span>{locale.toUpperCase()}</span>
-            </a>
-            <Link href='/platform-v7/login' aria-label={copy.login} title={copy.login}>
-              <LogIn size={17} aria-hidden='true' />
-              <span>{copy.login}</span>
-            </Link>
-            <Link href='/platform-v7' aria-label={copy.home} title={copy.home}>
-              <Home size={17} aria-hidden='true' />
-              <span>{copy.home}</span>
-            </Link>
-          </nav>
-        </header>
+        <PublicSiteHeader
+          ariaLabel={copy.nav}
+          brandHomeLabel={copy.home}
+          brandHomeHref={`/platform-v7?lang=${locale}`}
+          showMobileMenu={false}
+          localeControl={<a className='pc-site-locale-switch' href={`/platform-v7/register?${localeQuery.toString()}`} aria-label={copy.language} title={copy.language}><Languages size={17} aria-hidden='true' /><span>{locale.toUpperCase()}</span></a>}
+          actions={<Link className='entry-login' href={`/platform-v7/login?lang=${locale}`} aria-label={copy.login}>{copy.login}</Link>}
+        />
 
         <section className='p0-register-hero' aria-labelledby='p0-register-title'>
           <small>{copy.kicker}</small>
