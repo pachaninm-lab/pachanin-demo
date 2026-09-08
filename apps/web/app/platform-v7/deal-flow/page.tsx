@@ -34,7 +34,7 @@ const COPY = {
     ],
     moneyKicker: 'Основание для расчёта', moneyTitle: 'Оплата привязана к подтверждённым событиям',
     moneyText: 'Платформа показывает, какие условия закрыты и какие документы или данные требуются до расчёта. Финансовое действие выполняется только при подтверждённых основаниях и банковских правилах.',
-    moneyStatus: 'Ожидается подтверждение качества и комплекта документов.', bankAction: 'Открыть банковский контур',
+    moneyStatus: 'Ожидается подтверждение качества и комплекта документов.', bankAction: 'Подключить банк к платформе',
     rolesTitle: 'Ролевые слои', rolesText: 'Участник получает только тот объём информации и действий, который относится к его зоне ответственности.',
     roles: [
       { role: 'Продавец', access: 'партия, рейс, приёмка, документы и основание для оплаты', responsibility: 'закрывает документы и устраняет расхождения' },
@@ -68,7 +68,7 @@ const COPY = {
     ],
     moneyKicker: 'Settlement basis', moneyTitle: 'Payment is tied to confirmed events',
     moneyText: 'The platform shows which conditions are complete and which documents or facts are still required before settlement. A financial action occurs only on confirmed grounds and under bank rules.',
-    moneyStatus: 'Quality and the document set still require confirmation.', bankAction: 'Open bank workspace',
+    moneyStatus: 'Quality and the document set still require confirmation.', bankAction: 'Connect a bank to the platform',
     rolesTitle: 'Role layers', rolesText: 'Each participant receives only the information and actions that belong to that participant’s responsibility.',
     roles: [
       { role: 'Seller', access: 'lot, transport, acceptance, documents and payment basis', responsibility: 'closes document gaps and resolves discrepancies' },
@@ -102,7 +102,7 @@ const COPY = {
     ],
     moneyKicker: '结算依据', moneyTitle: '付款与已确认事件绑定',
     moneyText: '平台展示哪些条件已经完成，以及结算前仍需要哪些文件或事实。金融动作只有在依据确认并符合银行规则后才执行。',
-    moneyStatus: '质量和文件组合仍需要确认。', bankAction: '打开银行工作区',
+    moneyStatus: '质量和文件组合仍需要确认。', bankAction: '接入银行机构',
     rolesTitle: '角色层', rolesText: '每个参与方只获得属于其责任范围的信息和操作。',
     roles: [
       { role: '卖方', access: '批次、运输、验收、文件和付款依据', responsibility: '补齐文件并处理差异' },
@@ -135,7 +135,6 @@ export default async function PlatformV7DealFlowPage() {
   const lang = localeKey(await getLocale());
   const t = COPY[lang];
   const href = (pathname: string) => `${pathname}?lang=${lang}`;
-  const protectedHref = (pathname: string) => `/platform-v7/login?lang=${lang}&next=${encodeURIComponent(href(pathname))}`;
   return (
     <main className='p7-deal-flow-page' data-testid='platform-v7-deal-flow-page' data-lang={lang} data-p7-no-translate='true'>
       <style>{css}</style>
@@ -172,7 +171,7 @@ export default async function PlatformV7DealFlowPage() {
 
       <section className='p7-money-section' aria-labelledby='money-title'>
         <div><span className='p7-flow-kicker'>{t.moneyKicker}</span><h2 id='money-title'>{t.moneyTitle}</h2><p>{t.moneyText}</p></div>
-        <div className='p7-money-card'><Banknote size={28} /><strong>{t.deal.amount}</strong><p>{t.moneyStatus}</p><Link href={protectedHref('/platform-v7/bank')}>{t.bankAction}</Link></div>
+        <div className='p7-money-card'><Banknote size={28} /><strong>{t.deal.amount}</strong><p>{t.moneyStatus}</p><Link href={href('/platform-v7/register')}>{t.bankAction}</Link></div>
       </section>
 
       <section className='p7-flow-section' aria-labelledby='roles-title'>

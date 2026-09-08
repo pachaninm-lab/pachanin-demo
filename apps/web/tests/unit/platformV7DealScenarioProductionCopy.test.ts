@@ -40,11 +40,13 @@ describe('platform-v7 deal scenario production copy', () => {
     expect(source).toContain("access: 'acceptance, weight, lot state and related documents'");
     expect(source).toContain("access: 'confirmed settlement grounds'");
     expect(source).toContain("const href = (pathname: string) => `${pathname}?lang=${lang}`;");
-    expect(source).toContain("const protectedHref = (pathname: string) => `/platform-v7/login?lang=${lang}&next=${encodeURIComponent(href(pathname))}`;");
     expect(source).toContain("href={href('/platform-v7/register')}");
     expect(source).toContain("href={href('/platform-v7/contact')}");
-    expect(source).toContain("href={protectedHref('/platform-v7/bank')}");
-    expect(source).not.toContain("href={href('/platform-v7/bank')}");
+    expect(source).toContain("bankAction: 'Connect a bank to the platform'");
+    expect(source).toContain("bankAction: '接入银行机构'");
+    expect(source).toContain("<Link href={href('/platform-v7/register')}>{t.bankAction}</Link>");
+    expect(source).not.toContain("/platform-v7/bank");
+    expect(source).not.toContain("protectedHref");
     expect(source.slice(enStart, zhStart)).not.toMatch(/[А-Яа-яЁё]/u);
     expect(source.slice(zhStart, end)).not.toMatch(/[А-Яа-яЁё]/u);
   });
