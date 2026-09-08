@@ -100,6 +100,33 @@ function repositoryCommit(sha, label) {
   assert.equal(git('cat-file', '-t', sha), 'commit', `${label}: repository commit required`);
 }
 
+let trustedMainSha;
+function trustedMainCommit() {
+  if (trustedMainSha) return trustedMainSha;
+  const repository = 'pachaninm-lab/pachanin-demo';
+  if (process.env.GITHUB_ACTIONS === 'true') {
+    assert.equal(process.env.GITHUB_REPOSITORY, repository, 'trusted workflow repository required');
+    const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+    assert.equal(event.repository?.full_name, repository, 'trusted event repository required');
+    if (['pull_request', 'pull_request_target'].includes(process.env.GITHUB_EVENT_NAME)) {
+      assert.equal(event.pull_request?.base?.repo?.full_name, repository, 'trusted PR base repository required');
+      assert.equal(event.pull_request?.base?.ref, 'main', 'trusted PR base must be main');
+      trustedMainSha = event.pull_request.base.sha;
+    } else {
+      assert.equal(process.env.GITHUB_REF, 'refs/heads/main', 'non-PR acceptance requires a main workflow');
+      trustedMainSha = process.env.GITHUB_SHA;
+    }
+  } else {
+    // Never trust a mutable local origin/main or the register as main authority.
+    const result = git('ls-remote', '--exit-code', 'https://github.com/pachaninm-lab/pachanin-demo.git', 'refs/heads/main');
+    const match = result.match(/^([0-9a-f]{40})\trefs\/heads\/main$/u);
+    assert.ok(match, 'verified canonical remote main required');
+    trustedMainSha = match[1];
+  }
+  repositoryCommit(trustedMainSha, 'trusted main');
+  return trustedMainSha;
+}
+
 function implementationEvidence(proof, component) {
   repositoryCommit(proof.implementationSha, `${component.id}.implementationSha`);
   git('merge-base', '--is-ancestor', proof.implementationSha, state.observedMainSha);
@@ -116,6 +143,7 @@ function evidence(value, kind, label) {
   assert.equal(value.kind, kind, `${label}: evidence kind`);
   identifier(value.id, `${label}.id`);
   repositoryCommit(state.observedMainSha, 'observedMainSha');
+  git('merge-base', '--is-ancestor', state.observedMainSha, trustedMainCommit());
   repositoryCommit(state.observedProductionSha, 'observedProductionSha');
   repositoryCommit(value.deployedSha, `${label}.deployedSha`);
   assert.equal(value.deployedSha, state.observedProductionSha, `${label}: wrong deployed revision`);

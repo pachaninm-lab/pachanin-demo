@@ -139,6 +139,13 @@ the matching `componentId` and the following common fields:
 | `evidenceUrl` | This repository's Actions run/job/artifact or evidence issue comment URL |
 | `evidenceSha256` | Nonzero SHA-256 of the referenced evidence content |
 
+Before credit is allowed, `observedMainSha` must be contained in an independently
+resolved main history. GitHub Actions uses its trusted event's canonical PR base
+SHA (or its main workflow SHA); local verification reads the canonical GitHub
+`refs/heads/main` directly. Mutable register fields and a local `origin/main`
+cannot authorize an off-main implementation. Missing trusted history blocks
+credit until that history is fetched.
+
 Evidence must document the deployed runtime and the named component's applicable
 live task acceptance. Source files, merged code, CI component tests, preview
 deployments and a deployment report alone cannot replace that acceptance.
