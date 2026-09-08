@@ -1,6 +1,6 @@
 import { serverApiUrl, serverAuthHeaders } from './server-api';
 
-export type DealsSnapshot = Readonly<{ deals: any[]; isApiAvailable: boolean }>;
+export type DealsSnapshot = Readonly<{ deals: any[]; isApiAvailable: boolean; isComplete: boolean }>;
 
 export async function getDealsSnapshot(): Promise<DealsSnapshot> {
   try {
@@ -8,12 +8,12 @@ export async function getDealsSnapshot(): Promise<DealsSnapshot> {
       cache: 'no-store',
       headers: await serverAuthHeaders()
     });
-    if (!response.ok) return { deals: [], isApiAvailable: false };
+    if (!response.ok) return { deals: [], isApiAvailable: false, isComplete: false };
     const raw: unknown = await response.json();
-    if (!Array.isArray(raw)) return { deals: [], isApiAvailable: false };
-    return { deals: raw, isApiAvailable: true };
+    if (!Array.isArray(raw)) return { deals: [], isApiAvailable: false, isComplete: false };
+    return { deals: raw, isApiAvailable: true, isComplete: raw.length < 100 };
   } catch {
-    return { deals: [], isApiAvailable: false };
+    return { deals: [], isApiAvailable: false, isComplete: false };
   }
 }
 

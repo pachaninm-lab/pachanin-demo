@@ -34,6 +34,7 @@ export default async function ExecutivePage() {
   ]);
 
   const dealsAvailable = dealsSnapshot.isApiAvailable;
+  const dealsComplete = dealsAvailable && dealsSnapshot.isComplete;
   const disputes = disputesSnapshot.disputes;
   const disputesAvailable = disputesSnapshot.isApiAvailable;
   const dealList: any[] = dealsSnapshot.deals;
@@ -53,6 +54,7 @@ export default async function ExecutivePage() {
 
   const liveBlockers = [
     ...(!dealsAvailable ? [{ id: 'deals-source', label: 'Источник сделок недоступен · состояние портфеля неизвестно', severity: 'warn' as const }] : []),
+    ...(dealsAvailable && !dealsComplete ? [{ id: 'deals-incomplete', label: 'Реестр сделок достиг лимита 100 строк · агрегаты портфеля неполны', severity: 'warn' as const }] : []),
     ...(!disputesAvailable ? [{ id: 'disputes-source', label: 'Источник споров недоступен · состояние неизвестно', severity: 'warn' as const }] : []),
     ...(!outboxAvailable ? [{ id: 'outbox-source', label: 'Источник банковской доставки недоступен · состояние неизвестно', severity: 'warn' as const }] : []),
     ...(outboxAvailable && !outboxComplete ? [{ id: 'outbox-incomplete', label: 'История банковской доставки превышает проверяемое окно · состояние неполное', severity: 'warn' as const }] : []),
@@ -68,8 +70,8 @@ export default async function ExecutivePage() {
   const signals: ExecutiveSignal[] = [
     { label: 'Деньги в блоке', value: disputesAvailable ? formatMoney(heldRub) : '—', detail: !disputesAvailable ? 'источник споров недоступен' : disputeCount > 0 ? 'удержано до решения споров' : 'удержаний нет', state: !disputesAvailable ? 'wait' : heldRub > 0 ? 'stop' : 'ok' },
     { label: 'Открытые споры', value: disputesAvailable ? String(disputeCount) : '—', detail: disputesAvailable ? 'каждый спор связан с конкретной Сделкой' : 'состояние неизвестно', state: !disputesAvailable ? 'wait' : disputeCount > 0 ? 'stop' : 'ok' },
-    { label: 'Банк', value: manualReviewBank > 0 ? String(manualReviewBank) : failedBank > 0 ? String(failedBank) : outboxAvailable && paymentsAvailable ? String(pendingBank) : '—', detail: manualReviewBank > 0 ? 'операции требуют ручной сверки' : failedBank > 0 ? 'операции завершились ошибкой доставки' : !outboxAvailable || !paymentsAvailable ? 'состояние банковского контура неизвестно' : pendingBank > 0 ? 'операции требуют внешнего подтверждения' : 'ожидающих операций нет', state: manualReviewBank > 0 || failedBank > 0 ? 'stop' : !outboxAvailable || !paymentsAvailable || pendingBank > 0 ? 'wait' : 'ok' },
-    { label: 'Портфель', value: dealsAvailable ? formatMoney(totalVolume) : '—', detail: dealsAvailable ? `${dealList.length} сделок · ${activeDeals.length} активных` : 'источник сделок недоступен', state: dealsAvailable ? 'ok' : 'wait' },
+    { label: 'Банк', value: manualReviewBank > 0 ? String(manualReviewBank) : unclassifiedBank > 0 ? String(unclassifiedBank) : failedBank > 0 ? String(failedBank) : outboxComplete && paymentsComplete ? String(pendingBank) : '—', detail: manualReviewBank > 0 ? 'операции требуют ручной сверки' : unclassifiedBank > 0 ? 'неподтвержденные статусы, включая возможный DEAD_LETTER' : failedBank > 0 ? 'операции завершились ошибкой доставки' : !outboxComplete || !paymentsComplete ? 'состояние банковского контура неполно' : pendingBank > 0 ? 'операции требуют внешнего подтверждения' : 'ожидающих операций нет', state: manualReviewBank > 0 || unclassifiedBank > 0 || failedBank > 0 ? 'stop' : !outboxComplete || !paymentsComplete || pendingBank > 0 ? 'wait' : 'ok' },
+    { label: 'Портфель', value: dealsComplete ? formatMoney(totalVolume) : '—', detail: !dealsAvailable ? 'источник сделок недоступен' : !dealsComplete ? 'выборка сделок неполна (лимит 100)' : `${dealList.length} сделок · ${activeDeals.length} активных`, state: dealsComplete ? 'ok' : 'wait' },
   ];
 
   return (
@@ -82,20 +84,22 @@ export default async function ExecutivePage() {
       statusTone={liveBlockers.some((item) => item.severity === 'stop') ? 'critical' : liveBlockers.length > 0 ? 'warning' : 'success'}
       liveStatus={(
         <LiveApiStatusBar
-          apiOnline={dealsAvailable && disputesAvailable && outboxComplete && paymentsComplete}
+          apiOnline={dealsComplete && disputesAvailable && outboxComplete && paymentsComplete}
           blockers={liveBlockers}
           pendingBankOps={pendingBank}
           openDisputes={disputeCount}
           role='EXECUTIVE · Стратегический обзор'
           summary={!dealsAvailable
             ? 'портфель: состояние неизвестно'
+            : !dealsComplete
+              ? 'портфель: выборка неполна, агрегаты не подтверждены'
             : disputesAvailable
               ? `${activeDeals.length} активных сделок · ${formatMoney(totalVolume)} портфель · ${formatMoney(heldRub)} удержано`
               : `${activeDeals.length} активных сделок · ${formatMoney(totalVolume)} портфель · споры: состояние неизвестно`}
         />
       )}
       priority={{
-        state: disputeCount > 0 || manualReviewBank > 0 || failedBank > 0 || unclassifiedBank > 0 ? 'critical' : !dealsAvailable || !disputesAvailable || !outboxComplete || !paymentsComplete || pendingBank > 0 ? 'active' : 'ready',
+        state: disputeCount > 0 || manualReviewBank > 0 || failedBank > 0 || unclassifiedBank > 0 ? 'critical' : !dealsComplete || !disputesAvailable || !outboxComplete || !paymentsComplete || pendingBank > 0 ? 'active' : 'ready',
         eyebrow: 'Главный управленческий сигнал',
         title: disputeCount > 0
           ? `Разобрать причины удержания ${formatMoney(heldRub)}`
@@ -107,6 +111,8 @@ export default async function ExecutivePage() {
             ? `Разобрать ${failedBank} ошибок банковской доставки`
           : !dealsAvailable
             ? 'Проверить доступность реестра сделок'
+          : !dealsComplete
+            ? 'Проверить полную историю сделок'
           : !disputesAvailable
             ? 'Проверить доступность реестра споров'
           : !outboxAvailable
@@ -130,6 +136,8 @@ export default async function ExecutivePage() {
             ? 'Есть подтверждённые ошибки доставки банковских событий. Дашборд показывает их как critical и не подменяет разбор оператором и банковским контуром.'
           : !dealsAvailable
             ? 'Источник сделок недоступен или вернул непроверяемые данные. Портфель и all-clear не считаются подтвержденными.'
+          : !dealsComplete
+            ? 'Реестр сделок вернул полный лимит 100 строк. Агрегаты портфеля считаются неполными, поэтому all-clear отключён.'
           : !disputesAvailable
             ? 'Источник споров недоступен или вернул непроверяемые данные. Дашборд не объявляет all-clear, пока серверный реестр не восстановит подтверждаемое состояние.'
           : !outboxAvailable
@@ -143,14 +151,14 @@ export default async function ExecutivePage() {
           : pendingBank > 0
             ? 'Есть внешние банковские подтверждения в ожидании. Дашборд показывает влияние, но не подменяет банковский authority.'
             : 'Портфель без критических удержаний и банковских блокеров. Контролируйте сделки и динамику без ручного вмешательства.',
-        blocker: disputeCount > 0 ? `${disputeCount} открытых спора` : manualReviewBank > 0 ? `${manualReviewBank} операций MANUAL_REVIEW` : unclassifiedBank > 0 ? `${unclassifiedBank} неподтвержденных статусов BANK_` : failedBank > 0 ? `${failedBank} ошибок банковской доставки` : !dealsAvailable ? 'состояние сделок неизвестно' : !disputesAvailable ? 'состояние споров неизвестно' : !outboxComplete ? 'история банковской доставки неполна' : !paymentsComplete ? 'история банковской сверки неполна' : pendingBank > 0 ? `${pendingBank} банковских операций` : 'нет',
-        owner: disputeCount > 0 ? 'оператор + арбитр + банк' : manualReviewBank > 0 || unclassifiedBank > 0 || failedBank > 0 || pendingBank > 0 ? 'банк + оператор' : !dealsAvailable || !disputesAvailable || !outboxComplete || !paymentsComplete ? 'оператор платформы' : 'нет эскалации',
-        impact: heldRub > 0 ? formatMoney(heldRub) : manualReviewBank > 0 ? `${manualReviewBank} операций на ручной сверке` : unclassifiedBank > 0 ? `${unclassifiedBank} неподтвержденных статусов` : failedBank > 0 ? `${failedBank} ошибок` : !dealsAvailable || !disputesAvailable || !outboxComplete || !paymentsComplete ? 'неизвестно до восстановления полного источника' : pendingBank > 0 ? `${pendingBank} операций` : 'нет денежного влияния',
+        blocker: disputeCount > 0 ? `${disputeCount} открытых спора` : manualReviewBank > 0 ? `${manualReviewBank} операций MANUAL_REVIEW` : unclassifiedBank > 0 ? `${unclassifiedBank} неподтвержденных статусов BANK_` : failedBank > 0 ? `${failedBank} ошибок банковской доставки` : !dealsAvailable ? 'состояние сделок неизвестно' : !dealsComplete ? 'история сделок неполна' : !disputesAvailable ? 'состояние споров неизвестно' : !outboxComplete ? 'история банковской доставки неполна' : !paymentsComplete ? 'история банковской сверки неполна' : pendingBank > 0 ? `${pendingBank} банковских операций` : 'нет',
+        owner: disputeCount > 0 ? 'оператор + арбитр + банк' : manualReviewBank > 0 || unclassifiedBank > 0 || failedBank > 0 || pendingBank > 0 ? 'банк + оператор' : !dealsComplete || !disputesAvailable || !outboxComplete || !paymentsComplete ? 'оператор платформы' : 'нет эскалации',
+        impact: heldRub > 0 ? formatMoney(heldRub) : manualReviewBank > 0 ? `${manualReviewBank} операций на ручной сверке` : unclassifiedBank > 0 ? `${unclassifiedBank} неподтвержденных статусов` : failedBank > 0 ? `${failedBank} ошибок` : !dealsComplete || !disputesAvailable || !outboxComplete || !paymentsComplete ? 'неизвестно до восстановления полного источника' : pendingBank > 0 ? `${pendingBank} операций` : 'нет денежного влияния',
         result: 'эскалация владельцу процесса, а не ручная правка данных',
       }}
       facts={[
-        { label: 'Портфель', value: dealsAvailable ? formatMoney(totalVolume) : '—', hint: dealsAvailable ? `${dealList.length} сделок всего` : 'состояние сделок неизвестно' },
-        { label: 'Активных сделок', value: dealsAvailable ? String(activeDeals.length) : '—', hint: dealsAvailable ? 'не закрыты и не отменены' : 'источник недоступен' },
+        { label: 'Портфель', value: dealsComplete ? formatMoney(totalVolume) : '—', hint: !dealsAvailable ? 'состояние сделок неизвестно' : !dealsComplete ? 'выборка неполна (лимит 100)' : `${dealList.length} сделок всего` },
+        { label: 'Активных сделок', value: dealsComplete ? String(activeDeals.length) : '—', hint: !dealsAvailable ? 'источник недоступен' : !dealsComplete ? 'выборка неполна (лимит 100)' : 'не закрыты и не отменены' },
         { label: 'Деньги в блоке', value: disputesAvailable ? formatMoney(heldRub) : '—', hint: !disputesAvailable ? 'состояние споров неизвестно' : disputeCount > 0 ? `${disputeCount} открытых спора` : 'удержаний нет' },
         { label: 'Ручная сверка банка', value: paymentsAvailable ? String(manualReviewBank) : '—', hint: !paymentsAvailable ? 'состояние неизвестно' : manualReviewBank > 0 ? 'MANUAL_REVIEW требует разбора' : failedBank > 0 ? `${failedBank} ошибок доставки отдельно` : 'расхождений нет' },
       ]}
@@ -161,7 +169,7 @@ export default async function ExecutivePage() {
           <OperationalQueueLink
             href='/platform-v7/deals'
             title='Сделки'
-            detail={dealsAvailable ? `${activeDeals.length} активных · ${formatMoney(totalVolume)} в портфеле` : 'Источник сделок недоступен'}
+            detail={!dealsAvailable ? 'Источник сделок недоступен' : !dealsComplete ? 'Достигнут лимит 100 сделок · агрегаты неполны' : `${activeDeals.length} активных · ${formatMoney(totalVolume)} в портфеле`}
           />
           <OperationalQueueLink
             href='/platform-v7/disputes'
@@ -184,6 +192,13 @@ export default async function ExecutivePage() {
                 href='/platform-v7/executive'
                 title='Требует внимания: источник сделок'
                 detail='Портфель неизвестен — all-clear отключён до восстановления источника'
+              />
+            ) : null}
+            {dealsAvailable && !dealsComplete ? (
+              <OperationalQueueLink
+                href='/platform-v7/executive'
+                title='Требует внимания: история сделок'
+                detail='Достигнут лимит 100 сделок — агрегаты портфеля неполны'
               />
             ) : null}
             {!disputesAvailable ? (

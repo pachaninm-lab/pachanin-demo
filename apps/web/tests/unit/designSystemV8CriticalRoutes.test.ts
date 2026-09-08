@@ -85,6 +85,9 @@ describe('Design System v8 critical transaction routes', () => {
     expect(executive).not.toContain("href='/platform-v7/bank'");
     expect(dealsServer).toContain('getDealsSnapshot');
     expect(dealsServer).toContain('isApiAvailable: false');
+    expect(dealsServer).toContain('isComplete: raw.length < 100');
+    expect(executive).toContain('!dealsComplete');
+    expect(executive).toContain("outboxComplete && paymentsComplete ? String(pendingBank)");
     expect(disputesServer).toContain('isApiAvailable: false');
     expect(disputesServer).toContain('isApiAvailable: true');
     expect(outboxServer).toContain('!Array.isArray(data.pending) || !Array.isArray(data.failed) || !Array.isArray(data.confirmed)');
