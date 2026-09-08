@@ -49,6 +49,40 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(1);
 }
 
+async function captureFullDocumentEvidence(page: Page, path: string) {
+  const geometry = await page.evaluate(() => ({
+    documentHeight: Math.max(document.documentElement.scrollHeight, document.body.scrollHeight),
+    viewportHeight: window.innerHeight,
+    scrollX: window.scrollX,
+    scrollY: window.scrollY,
+  }));
+  const maxCssImageDimension = 30_000;
+
+  if (geometry.documentHeight <= maxCssImageDimension) {
+    await page.screenshot({ path, fullPage: true, animations: 'disabled', scale: 'css' });
+    return;
+  }
+
+  const maxScrollY = Math.max(0, geometry.documentHeight - geometry.viewportHeight);
+  const positions: number[] = [];
+  for (let y = 0; y <= maxScrollY; y += geometry.viewportHeight) positions.push(y);
+  if (positions.at(-1) !== maxScrollY) positions.push(maxScrollY);
+
+  const basePath = path.replace(/\.png$/u, '');
+  for (const [index, y] of positions.entries()) {
+    await page.evaluate((scrollY) => window.scrollTo(0, scrollY), y);
+    await page.waitForTimeout(50);
+    await page.screenshot({
+      path: `${basePath}-part-${String(index + 1).padStart(2, '0')}.png`,
+      fullPage: false,
+      animations: 'disabled',
+      scale: 'css',
+    });
+  }
+
+  await page.evaluate(({ x, y }) => window.scrollTo(x, y), { x: geometry.scrollX, y: geometry.scrollY });
+}
+
 async function expectVisibleTargetsAtLeast(page: Page, selector: string, minimum: number) {
   const boxes = await page.locator(selector).evaluateAll((nodes) => nodes
     .filter((node) => {
@@ -141,7 +175,7 @@ async function expectStageAwareDealWorkspace(page: Page) {
   const workspace = page.locator('section[aria-label="Упрощённый экран рабочего кабинета"]');
   await expect(workspace).toBeVisible();
 
-  const stageRail = workspace.locator('[aria-label="Семь этапов одной Сделки"]');
+  const stageRail = workspace.getByRole('group', { name: 'Семь этапов одной Сделки' });
   const stageButtons = stageRail.getByRole('button');
   await expect(stageButtons).toHaveCount(7);
   await expect(stageButtons.first()).toHaveAttribute('aria-current', 'step');
@@ -274,7 +308,7 @@ test.describe('Platform V7 exact responsive public acceptance', () => {
       expect(headings.every((heading) => heading.ratio <= 1.2), JSON.stringify(headings, null, 2)).toBe(true);
 
       await expect(page.getByRole('region', { name: 'Упрощённый экран рабочего кабинета' })).toBeVisible();
-      await expect(page.locator('[aria-label="Семь этапов одной Сделки"]')).toBeVisible();
+      await expect(page.getByRole('group', { name: 'Семь этапов одной Сделки' })).toBeVisible();
       await expect(page.getByRole('tab', { name: 'Банк / финансы', exact: true })).toBeVisible();
       await expect(page.locator('#maturity, #integrations, #role-entry')).toHaveCount(0);
 
@@ -293,11 +327,10 @@ test.describe('Platform V7 exact responsive public acceptance', () => {
         history.replaceState(null, '', `${location.pathname}${location.search}`);
         window.scrollTo(0, 0);
       });
-      await page.screenshot({
-        path: testInfo.outputPath(`platform-v7-production-${viewport.name}.png`),
-        fullPage: true,
-        animations: 'disabled',
-      });
+      await captureFullDocumentEvidence(
+        page,
+        testInfo.outputPath(`platform-v7-production-${viewport.name}.png`),
+      );
     });
   }
 });
@@ -326,11 +359,10 @@ test.describe('Platform V7 live linked-page acceptance', () => {
             await expectNoHorizontalOverflow(targetPage);
             expect(runtimeFailures, `${target.path}?lang=${locale} runtime failures`).toEqual([]);
 
-            await targetPage.screenshot({
-              path: testInfo.outputPath(`platform-v7-linked-${target.name}-${locale}-${viewport.name}.png`),
-              fullPage: true,
-              animations: 'disabled',
-            });
+            await captureFullDocumentEvidence(
+              targetPage,
+              testInfo.outputPath(`platform-v7-linked-${target.name}-${locale}-${viewport.name}.png`),
+            );
           } finally {
             await targetPage.close();
           }
