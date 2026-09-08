@@ -3,11 +3,12 @@
   "branch": "fix/platform-v7-final-production-acceptance-5111",
   "status": "active",
   "authorizedBy": "explicit-user-instruction-2026-09-08-complete-homepage-5111-live-acceptance",
-  "purpose": "Close the two deterministic exact-production acceptance failures remaining after #5176 only: remove residual Cyrillic from the locale-selected public Deal execution route with source-native RU/EN/ZH copy, and preserve full-page WebKit mobile visual evidence at CSS-pixel scale so device DPR cannot exceed the browser screenshot dimension limit.",
+  "purpose": "Close the deterministic exact-production acceptance failures and the concrete post-merge accessibility finding remaining after #5176 only: remove residual Cyrillic from the locale-selected public Deal execution route with source-native RU/EN/ZH copy, preserve complete WebKit mobile visual evidence without exceeding the browser screenshot dimension limit, and restore role-based accessibility verification for the seven-stage Deal rail.",
   "authorityBaseExactMain": "15a834e3993e43da82af2748633a19d2717b1fa6",
   "effectiveAfter": "This governance refresh must be merged to main first. The implementation branch must then be created from that accepted exact main so this manifest is inherited from the trusted base; the implementation must not create, edit or widen its own scope.",
   "allowedPaths": [
     "apps/web/app/platform-v7/deal-flow/page.tsx",
+    "apps/web/components/platform-v7/PublicDealRoleScenario.tsx",
     "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
     "apps/web/tests/unit/platformV7DealScenarioProductionCopy.test.ts"
   ],
@@ -15,8 +16,9 @@
     "The Deal execution route remains a public explanatory surface only and grants no authority, access, Deal mutation, payment action or provider connectivity.",
     "The Deal execution route must own complete locale-native visible and accessible copy for RU, EN and ZH, including metadata, navigation labels, Deal facts, stages, roles, evidence, CTAs and footer. EN and ZH must not depend on partial DOM replacement that can leave residual Cyrillic.",
     "The existing role/stage/evidence meaning and external-bank truth boundaries remain intact; localization must not invent live provider state, payment finality or expanded participant authority.",
-    "The production-mobile acceptance may change only the screenshot capture scale needed to preserve the same fullPage evidence under WebKit deviceScaleFactor. All viewport, role, stage, overflow, keyboard, accessibility, registration and protected-boundary assertions remain unchanged.",
-    "The mobile repair must retain full-page evidence. It may use Playwright CSS-pixel screenshot scale but must not remove screenshots, skip WebKit, reduce tested viewports, add retries or suppress test failures.",
+    "The seven-stage rail must expose an explicit semantically appropriate accessibility role while keeping its existing seven buttons, keyboard behavior, labels and visual structure. Production acceptance must locate that rail through a role-based accessible query, not a raw aria-label selector.",
+    "The production-mobile repair must preserve complete visual evidence for the same page under Chromium and WebKit. If one fullPage bitmap would exceed the engine image-dimension limit, capture deterministic CSS-pixel or segmented viewport evidence that covers the full document; do not delete screenshots, skip WebKit, reduce viewports, add retries, catch-and-ignore screenshot errors or suppress test failures.",
+    "All existing viewport, role, stage, overflow, keyboard, accessibility, registration and protected-boundary assertions remain present and at least as strict as the accepted base.",
     "No auth, registration, tenant, RBAC, API, database, middleware authorization, dependency, workflow, scanner, release topology, production credentials, private cabinet or protected Gekta runtime source may change."
   ],
   "forbiddenChanges": [
@@ -35,11 +37,12 @@
     "production credentials or server configuration"
   ],
   "acceptance": [
-    "The implementation diff is a strict subset of the three allowed paths and contains no governance manifest change.",
+    "The implementation diff is a strict subset of the four allowed paths and contains no governance manifest change.",
     "Exact-head substantive CI, including platform-v7 autopilot guard, Node/CI/web-unit/security/SBOM/Design System v8/Production-like Kubernetes, is terminal green before merge.",
-    "The focused production-copy regression proves the Deal execution page uses getLocale with RU/EN/ZH source copy and keeps the known EN production residual-Cyrillic fragments out of the EN copy.",
-    "The production-mobile source keeps fullPage true and explicitly uses CSS-pixel screenshot scale; no tested viewport or engine is removed.",
-    "Owner self-audit and active review-thread inspection are repeated on the exact implementation head. Independent review is not fabricated; the bounded #5111 owner exception may apply only to this homepage-completion repair.",
+    "The focused production-copy regression proves the Deal execution page uses locale-native RU/EN/ZH source copy and keeps the known EN production residual-Cyrillic fragments out of the EN copy.",
+    "The production-mobile source preserves complete visual evidence without an engine-dimension failure and retains every tested viewport and both Chromium and WebKit.",
+    "The seven-stage rail is queried by semantic role in production acceptance, closing the concrete post-merge Codex P1 without weakening stage, keyboard or accessibility coverage.",
+    "Owner self-audit and active review-thread inspection are repeated on the exact implementation head. Independent review is not fabricated; any concrete review finding is resolved before merge and the bounded #5111 owner exception applies only to provider availability.",
     "Final completion still requires merge onto unchanged accepted main, REG.RU exact-SHA deployment, production i18n rerun, production mobile rerun and live desktop/mobile RU/EN/ZH visual verification."
   ],
   "productionHosting": "REG_RU_VPS_ONLY",
