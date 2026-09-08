@@ -75,14 +75,14 @@ export default async function ExecutivePage() {
         />
       )}
       priority={{
-        state: heldRub > 0 ? 'critical' : pendingBank > 0 ? 'active' : 'ready',
+        state: disputeCount > 0 ? 'critical' : pendingBank > 0 ? 'active' : 'ready',
         eyebrow: 'Главный управленческий сигнал',
-        title: heldRub > 0
+        title: disputeCount > 0
           ? `Разобрать причины удержания ${formatMoney(heldRub)}`
           : pendingBank > 0
             ? `Проверить ${pendingBank} банковских подтверждений`
             : 'Критических отклонений нет',
-        description: heldRub > 0
+        description: disputeCount > 0
           ? 'Сначала разберите причины удержаний и владельцев процесса. Операционные действия остаются у уполномоченных ролей внутри Сделки.'
           : pendingBank > 0
             ? 'Есть внешние банковские подтверждения в ожидании. Дашборд показывает влияние, но не подменяет банковский authority.'
