@@ -49,8 +49,12 @@ still does not complete any additional end-to-end DoD criterion.
 | W2-A | #5029 merged | Inventory API 22/22, PostgreSQL 15/15, exact quantities, contention, atomic evidence and restore | Full stock lifecycle, genealogy/custody/title, all market consumers, UX and REG.RU acceptance |
 | W2-B | #5040 merged | New Auction lots require immutable canonical Inventory reservation; DECLARED + PUBLIC_ALLOWED is admitted without fabricated verification; restricted PostgreSQL/HTTP 17/17 and full exact-head CI/review passed | Canonical Deal allocation, later Offer/RFQ consumers, full trust/risk acknowledgement, lifecycle and REG.RU acceptance |
 
-Register maintenance is limited to six files by the immutable base approval
-merged in #5021; branch-local state, manifest and workflow expansion is denied.
+Register maintenance is limited to seven exact files by immutable prior approvals
+#5021 and #5189, including the committed evidence regression suite. Branch-local
+state, manifest and workflow expansion is denied. The required guard runs
+`node --test docs/platform-v7/crop-platform/post-registration/verify-w0.test.mjs`
+to reject untrusted main revisions, incomplete commercial evidence and broken
+transaction/finality/revenue links. Its synthetic fixtures provide no production credit.
 
 The exact current main, PR head, workflow evidence and next step are recorded
 in `execution-state.v1.json`. No W1/W2 production update has been verified. The
