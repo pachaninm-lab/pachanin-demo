@@ -34,6 +34,23 @@ import {
 } from './document-transmission.repository';
 import { WorkTaskStatus } from './work-task.policy';
 import { WorkTaskRepository } from './work-task.repository';
+import {
+  AdvanceAccountingPeriodDto,
+  AllocatePaymentDto,
+  AnswerReconciliationDto,
+  ApplyAdvanceOffsetDto,
+  AttestConnectionDto,
+  CreateWorkTaskDto,
+  DecideDealServiceDto,
+  OpenAccountingPeriodDto,
+  PrepareReconciliationDto,
+  RecordAdvanceDto,
+  RecordDealServiceDto,
+  RecordPaymentDto,
+  RegisterConnectionSubjectDto,
+  ReverseDealServiceDto,
+  TransitionWorkTaskDto,
+} from './dto/accounting-api.dto';
 
 /**
  * The minimum surface the accounting contour needs to be reachable.
@@ -118,13 +135,7 @@ export class AccountingController {
   transition(
     @Param('taskId') taskId: string,
     @CurrentUser() user: RequestUser,
-    @Body()
-    body: {
-      to: WorkTaskStatus;
-      expectedVersion: string;
-      resolutionEventId?: string | null;
-      assignedMembershipId?: string | null;
-    },
+    @Body() body: TransitionWorkTaskDto,
   ) {
     return this.tasks.transition(user, {
       taskId,
@@ -149,14 +160,7 @@ export class AccountingController {
   @Post('tasks')
   createTask(
     @CurrentUser() user: RequestUser,
-    @Body()
-    body: {
-      title: string;
-      humanDescription: string;
-      dealId?: string | null;
-      documentId?: string | null;
-      deadlineAt?: string | null;
-    },
+    @Body() body: CreateWorkTaskDto,
   ) {
     return this.tasks.raiseManual(user, {
       title: body.title ?? '',
@@ -224,7 +228,7 @@ export class AccountingController {
   @Post('periods')
   openPeriod(
     @CurrentUser() user: RequestUser,
-    @Body() body: { periodStart: string; periodEnd: string },
+    @Body() body: OpenAccountingPeriodDto,
   ) {
     return this.periods.open(user, {
       periodStart: new Date(body.periodStart),
@@ -243,7 +247,7 @@ export class AccountingController {
   advancePeriod(
     @Param('periodId') periodId: string,
     @CurrentUser() user: RequestUser,
-    @Body() body: { to: PeriodStatus; expectedVersion: string },
+    @Body() body: AdvanceAccountingPeriodDto,
   ) {
     return this.periods.advance(user, {
       periodId,
@@ -316,15 +320,7 @@ export class AccountingController {
   @Post('advances')
   recordAdvance(
     @CurrentUser() user: RequestUser,
-    @Body()
-    body: {
-      dealId: string;
-      counterpartyOrgId: string;
-      amountKopecks: string;
-      currency?: string;
-      bankOperationId: string;
-      receivedAt: string;
-    },
+    @Body() body: RecordAdvanceDto,
   ) {
     return this.advances.record(user, {
       dealId: body.dealId,
@@ -347,14 +343,7 @@ export class AccountingController {
   applyAdvanceOffset(
     @Param('advanceId') advanceId: string,
     @CurrentUser() user: RequestUser,
-    @Body()
-    body: {
-      amountKopecks: string;
-      appliedAt: string;
-      reason: string;
-      idempotencyKey: string;
-      documentVersionId?: string | null;
-    },
+    @Body() body: ApplyAdvanceOffsetDto,
   ) {
     return this.advances.applyOffset(user, {
       advanceId,
@@ -405,20 +394,7 @@ export class AccountingController {
   @Post('services')
   recordService(
     @CurrentUser() user: RequestUser,
-    @Body()
-    body: {
-      dealId: string;
-      counterpartyOrgId: string;
-      kind: string;
-      quantityMilliUnits: string;
-      tonnageMilliTons?: string | null;
-      periodFrom?: string | null;
-      periodTo?: string | null;
-      rateKopecks: string;
-      currency?: string;
-      renderedAt: string;
-      idempotencyKey: string;
-    },
+    @Body() body: RecordDealServiceDto,
   ) {
     return this.services.record(user, {
       dealId: body.dealId,
@@ -448,7 +424,7 @@ export class AccountingController {
   decideService(
     @Param('serviceId') serviceId: string,
     @CurrentUser() user: RequestUser,
-    @Body() body: { intended: string },
+    @Body() body: DecideDealServiceDto,
   ) {
     if (
       body.intended !== ServiceStatus.APPROVED
@@ -472,7 +448,7 @@ export class AccountingController {
   reverseService(
     @Param('serviceId') serviceId: string,
     @CurrentUser() user: RequestUser,
-    @Body() body: { renderedAt: string; idempotencyKey: string },
+    @Body() body: ReverseDealServiceDto,
   ) {
     return this.services.reverse(user, {
       serviceId,
@@ -515,17 +491,7 @@ export class AccountingController {
   @Post('payments')
   recordPayment(
     @CurrentUser() user: RequestUser,
-    @Body()
-    body: {
-      dealId: string;
-      counterpartyOrgId: string;
-      direction: string;
-      amountKopecks: string;
-      currency?: string;
-      bankOperationId: string;
-      paidAt: string;
-      idempotencyKey: string;
-    },
+    @Body() body: RecordPaymentDto,
   ) {
     return this.payments.record(user, {
       dealId: body.dealId,
@@ -551,15 +517,7 @@ export class AccountingController {
   allocatePayment(
     @Param('paymentId') paymentId: string,
     @CurrentUser() user: RequestUser,
-    @Body()
-    body: {
-      amountKopecks: string;
-      allocatedAt: string;
-      reason: string;
-      idempotencyKey: string;
-      documentVersionId?: string | null;
-      dealServiceId?: string | null;
-    },
+    @Body() body: AllocatePaymentDto,
   ) {
     return this.payments.allocate(user, {
       paymentId,
@@ -635,14 +593,7 @@ export class AccountingController {
   @Post('reconciliations')
   async prepareReconciliation(
     @CurrentUser() user: RequestUser,
-    @Body()
-    body: {
-      dealId: string;
-      counterpartyOrgId: string;
-      periodStart: string;
-      periodEnd: string;
-      currency?: string;
-    },
+    @Body() body: PrepareReconciliationDto,
   ) {
     const outcome = await this.reconciliations.prepare(user, {
       dealId: body.dealId,
@@ -678,7 +629,7 @@ export class AccountingController {
   answerReconciliation(
     @Param('reconciliationId') reconciliationId: string,
     @CurrentUser() user: RequestUser,
-    @Body() body: { intended: string; note?: string | null },
+    @Body() body: AnswerReconciliationDto,
   ) {
     return this.reconciliations.answer(user, {
       reconciliationId,
@@ -719,7 +670,7 @@ export class AccountingController {
   @Post('connections/attestations/subjects')
   registerConnectionSubject(
     @CurrentUser() user: RequestUser,
-    @Body() body: { connectionKind: string; providerCode: string; environment: string },
+    @Body() body: RegisterConnectionSubjectDto,
   ) {
     return this.attestations.register(user, {
       connectionKind: connectionKind(body.connectionKind),
@@ -740,16 +691,7 @@ export class AccountingController {
   attestConnection(
     @Param('subjectId') subjectId: string,
     @CurrentUser() user: RequestUser,
-    @Body()
-    body: {
-      gate: string;
-      decision: string;
-      justification: string;
-      evidenceReference: string;
-      validUntil: string;
-      idempotencyKey: string;
-      correlationId: string;
-    },
+    @Body() body: AttestConnectionDto,
   ) {
     if (isGate(body.gate) === false) {
       throw new BadRequestException(

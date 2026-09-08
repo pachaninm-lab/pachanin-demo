@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/accounting-body-validation-4459",
+  "status": "active",
+  "purpose": "Fifteen accounting handlers declared their body as an inline TypeScript type. An inline type erases to Object at runtime and ValidationPipe skips a parameter whose metatype it cannot transform, so the global pipe validated nothing on any of them. The controller checked what it checked by hand - integer(), instant(), text(), required() - which makes this a narrowing rather than a rescue; the point is the nine call sites that parsed a date as `new Date(body.field)` with no instant(). An unparseable date there is not an error, it is Invalid Date, whose getTime() is NaN, and every comparison against NaN is false - so a guard written as a comparison never fires. V2.2.1 stays FAIL: 51 unvalidated parameters remain across 22 other files.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/accounting-body-validation-4459.json",
+    "apps/api/src/modules/accounting/accounting.controller.ts",
+    "apps/api/src/modules/accounting/dto/accounting-api.dto.ts",
+    "apps/api/src/modules/accounting/dto/accounting-api.dto.spec.ts",
+    "docs/security/request-validation-baseline.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+  ],
+  "requiredInvariants": [
+    "Every constraint is read off what the code already requires, never invented. The money pattern is integer()'s own /^-?\\d+$/; the currency pattern is the database's settlement_payment_currency_check /^[A-Z]{3}$/; every enumeration is the policy constant itself via Object.values, not a copy of its values that would drift when the policy gains a member.",
+    "No behaviour that worked stops working. Each refusal case is paired with the same body made valid, and the accounting suite passes unchanged at 217. Optional fields stay optional: currency absent still means the controller applies its own RUB default.",
+    "The refusal moves to the door, it is not added twice over. Where the controller already refused - service decision, reconciliation answer, attestation gate - the DTO expresses the same rule and the controller keeps its own check, because a DTO guards the pipe and the helper guards the conversion.",
+    "A DTO that narrows an enumeration narrows it for a stated reason. RENDERED is absent from the service decision and PREPARED from the reconciliation answer because putting a line back to rendered is undoing an approval, not making a decision - which is what the controller and the policy already refused.",
+    "No accounting arithmetic, no policy, no repository and no migration is touched. This is the request boundary only: the controller's parameter types, the DTO classes and their suite.",
+    "No production, REG.RU, DNS, database or credential mutation, no new dependency; class-validator and the global pipe are both already in use."
+  ],
+  "acceptance": [
+    "The defect is proven at the policy, not asserted: evaluatePeriodOpen returns permitted=true with no refusals for a window of two Invalid Dates, and raises neither WINDOW_IS_EMPTY nor WINDOW_OVERLAPS against an existing period, because every one of its comparisons is against NaN. An accounting period with no window passed every refusal the policy had.",
+    "All twelve date constraints are bound individually. Each case sends one bad field in an otherwise valid body and asserts the same body with a parseable date resolves - a body with two bad fields would stay green with only one field constrained, which is exactly what the first mutation run showed when removing @IsISO8601 from periodStart left 28 of 28 passing.",
+    "Fifteen mutations of the DTO file are caught: nine date constraints plus the three second occurrences (reconciliation window, service reversal), the ServiceKind enumeration, and the money pattern (5 cases). The suite is restored byte-identically after each.",
+    "The ratchet moves and is tightened: 66 unvalidated @Body() parameters across 23 files becomes 51 across 22, and DTO-typed parameters rise from 134 to 149. accounting.controller.ts goes from 15 to 0.",
+    "V2.2.1 stays FAIL and no verdict moves: the matrix is 39 NOT_ASSESSED / 129 PASS / 88 NOT_APPLICABLE / 89 FAIL against main, with V8.2.4 the only rejected decision - main's standing drift, repaired on security/login-lockout-finding-4459.",
+    "accounting-api.dto.spec.ts passes 33 of 33; the accounting suite passes 217 with none newly skipped; tsc --noEmit on apps/api exits 0; the cryptographic inventory is regenerated and discover-cryptography.test.mjs passes 8 of 8; guard=0."
+  ]
+}
