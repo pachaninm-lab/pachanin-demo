@@ -116,6 +116,69 @@ observability, mobile and human task acceptance apply in every slice. Every
 status reports the overall and revenue percentages, actual new DoD closures,
 blocker and next action. Partner messages still require separate owner approval.
 
+### Revenue evidence contract
+
+The verifier requires `revenueSliceV1`, the original `RS-01` through `RS-15`
+component identities and every `realTransaction` field even at zero progress.
+Removing these objects cannot disable revenue-first verification.
+
+Each production-accepted component requires two typed `productionEvidence`
+records: `REG_RU_DEPLOYMENT` and `LIVE_COMPONENT_ACCEPTANCE`. Both records carry
+the matching `componentId` and the following common fields:
+
+| Field | Required value or format |
+|---|---|
+| `schemaVersion` | `pc-crop.revenue-evidence.v1` |
+| `id` | Stable, non-placeholder evidence identifier |
+| `kind` | The applicable evidence kind |
+| `deployedSha` | Full nonzero Git SHA equal to `observedProductionSha` |
+| `specificationSha256` | The unchanged final specification fingerprint |
+| `environment` / `executionMode` / `result` | `REG_RU_PRODUCTION` / `LIVE` / `PASS` |
+| `observedAt` | UTC timestamp of the actual observation |
+| `evidenceUrl` | This repository's Actions run/job/artifact or evidence issue comment URL |
+| `evidenceSha256` | Nonzero SHA-256 of the referenced evidence content |
+
+Evidence must document the deployed runtime and the named component's applicable
+live task acceptance. Source files, merged code, CI component tests, preview
+deployments and a deployment report alone cannot replace that acceptance.
+The offline verifier checks the record contract and linkage; independent review
+must verify the referenced content and authentic observations. Syntactically
+valid metadata does not authenticate an external receipt.
+
+All 15 accepted components require `realTransaction.status = ACCEPTED` before
+the register can report 100%. Conversely, an accepted real transaction requires
+all 15 components. Its mandatory fields are:
+
+| Transaction field | Evidence kind |
+|---|---|
+| `realFarmerEvidence` | `REAL_FARMER` |
+| `realBuyerEvidence` | `REAL_BUYER` |
+| `canonicalDealEvidence` | `CANONICAL_DEAL` |
+| `applicableRegulatoryReceipts` | Nonempty array of `REGULATORY_RECEIPT` |
+| `executionEvidence` | `EXECUTION_ACCEPTANCE` |
+| `bankFinalityEvidence` | `BANK_FINALITY` |
+| `reconciliationEvidence` | `RECONCILIATION` |
+| `lawfulCommissionBasis` | `LAWFUL_COMMISSION_BASIS` |
+| `companyRevenueEvent` | `COMPANY_REVENUE_EVENT` |
+| `companyCashReceipt` | `COMPANY_CASH_RECEIPT` |
+
+Each transaction record uses the common evidence contract, has a unique `id`,
+and shares `canonicalDealId`, `tenantId`, `farmerOrganizationId`,
+`buyerOrganizationId` and `companyOrganizationId` with `canonicalDealEvidence`.
+The farmer, buyer and platform company must be distinct organizations. Regulatory
+records include `system` and `externalReceiptId`; at least one must be from
+`FGIS_GRAIN`. All other applicable receipts remain required by the original DoD.
+Bank finality and company cash records also require `externalReceiptId`.
+
+The commission basis requires `contractVersionId`. Basis, revenue event and cash
+receipt each contain `currency = RUB` and the same positive `amountKopecks`
+decimal string within PostgreSQL bigint range. The revenue event's
+`commissionBasisEvidenceId` points to the basis; the cash receipt's
+`revenueEventEvidenceId` points to that event and its `payeeOrganizationId`
+equals the platform company. Reconciliation explicitly references
+`bankFinalityEvidenceId` and `companyCashReceiptEvidenceId`. Missing, placeholder,
+unrelated or inconsistent evidence cannot complete the commercial path.
+
 ## Existing product continuation after W1
 
 W1 configuration foundations are merged. W2-A introduced canonical physical

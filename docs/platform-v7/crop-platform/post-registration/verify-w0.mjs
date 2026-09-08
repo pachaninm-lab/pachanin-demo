@@ -76,17 +76,109 @@ assert.equal(state.invariants.productionMockEvidenceAccepted, false);
 assert.equal(state.invariants.newMandatoryPaidDependencies, 0);
 assert.equal(state.invariants.externalPartnerMessagesSent, 0);
 
-if (state.revenueSliceV1) {
+function record(value, label) {
+  assert.ok(value && typeof value === 'object' && !Array.isArray(value), `${label} must be an object`);
+  return value;
+}
+
+function identifier(value, label) {
+  assert.ok(typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9:_.-]{2,199}$/u.test(value)
+    && !/^(placeholder|todo|tbd|unknown|null|undefined|not_evidenced)$/iu.test(value), `${label} must be a real evidence identifier`);
+}
+
+function fingerprint(value, size, label) {
+  assert.ok(typeof value === 'string' && new RegExp(`^[a-f0-9]{${size}}$`, 'u').test(value)
+    && !/^0+$/u.test(value), `${label} must be a full nonzero fingerprint`);
+}
+
+function evidence(value, kind, label) {
+  record(value, label);
+  assert.equal(value.schemaVersion, 'pc-crop.revenue-evidence.v1', `${label}: evidence schema`);
+  assert.equal(value.kind, kind, `${label}: evidence kind`);
+  identifier(value.id, `${label}.id`);
+  fingerprint(state.observedProductionSha, 40, 'observedProductionSha');
+  fingerprint(value.deployedSha, 40, `${label}.deployedSha`);
+  assert.equal(value.deployedSha, state.observedProductionSha, `${label}: wrong deployed revision`);
+  assert.equal(value.specificationSha256, state.specification.sha256, `${label}: wrong specification`);
+  assert.equal(value.environment, 'REG_RU_PRODUCTION', `${label}: production hosting`);
+  assert.equal(value.executionMode, 'LIVE', `${label}: live acceptance required`);
+  assert.equal(value.result, 'PASS', `${label}: passing acceptance required`);
+  assert.ok(typeof value.observedAt === 'string'
+    && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u.test(value.observedAt)
+    && Number.isFinite(Date.parse(value.observedAt)), `${label}: valid observation timestamp required`);
+  assert.ok(typeof value.evidenceUrl === 'string'
+    && /^https:\/\/github\.com\/pachaninm-lab\/pachanin-demo\/(?:actions\/runs\/[1-9]\d*(?:\/job\/[1-9]\d*|\/artifacts\/[1-9]\d*)?|issues\/[1-9]\d*#issuecomment-[1-9]\d*)$/u.test(value.evidenceUrl), `${label}: traceable repository evidence URL required`);
+  fingerprint(value.evidenceSha256, 64, `${label}.evidenceSha256`);
+  return value;
+}
+
+const transactionKinds = {
+  realFarmerEvidence: 'REAL_FARMER',
+  realBuyerEvidence: 'REAL_BUYER',
+  canonicalDealEvidence: 'CANONICAL_DEAL',
+  applicableRegulatoryReceipts: 'REGULATORY_RECEIPT',
+  executionEvidence: 'EXECUTION_ACCEPTANCE',
+  bankFinalityEvidence: 'BANK_FINALITY',
+  reconciliationEvidence: 'RECONCILIATION',
+  lawfulCommissionBasis: 'LAWFUL_COMMISSION_BASIS',
+  companyRevenueEvent: 'COMPANY_REVENUE_EVENT',
+  companyCashReceipt: 'COMPANY_CASH_RECEIPT',
+};
+
+function verifyRealTransaction(transaction) {
+  const anchor = record(transaction.canonicalDealEvidence, 'canonicalDealEvidence');
+  const linkedKeys = ['canonicalDealId', 'tenantId', 'farmerOrganizationId', 'buyerOrganizationId', 'companyOrganizationId'];
+  for (const key of linkedKeys) identifier(anchor[key], `canonicalDealEvidence.${key}`);
+  assert.equal(new Set(linkedKeys.slice(2).map((key) => anchor[key])).size, 3, 'farmer, buyer and platform company must be distinct organizations');
+  const ids = new Set();
+  for (const [key, kind] of Object.entries(transactionKinds)) {
+    const values = key === 'applicableRegulatoryReceipts' ? transaction[key] : [transaction[key]];
+    assert.ok(Array.isArray(values) && values.length > 0, `${key}: complete transaction evidence required`);
+    for (const value of values) {
+      evidence(value, kind, key);
+      assert.ok(!ids.has(value.id), `duplicate transaction evidence id: ${value.id}`);
+      ids.add(value.id);
+      for (const link of linkedKeys) assert.equal(value[link], anchor[link], `${key}: inconsistent ${link}`);
+      if (key === 'applicableRegulatoryReceipts') {
+        identifier(value.system, `${key}.system`);
+        identifier(value.externalReceiptId, `${key}.externalReceiptId`);
+      }
+    }
+  }
+  assert.ok(transaction.applicableRegulatoryReceipts.some((item) => item.system === 'FGIS_GRAIN'), 'first commercial transaction requires FGIS Grain receipt');
+  identifier(transaction.bankFinalityEvidence.externalReceiptId, 'bankFinalityEvidence.externalReceiptId');
+  identifier(transaction.companyCashReceipt.externalReceiptId, 'companyCashReceipt.externalReceiptId');
+  const basis = transaction.lawfulCommissionBasis;
+  const revenue = transaction.companyRevenueEvent;
+  const cash = transaction.companyCashReceipt;
+  identifier(basis.contractVersionId, 'lawfulCommissionBasis.contractVersionId');
+  for (const item of [basis, revenue, cash]) {
+    assert.equal(item.currency, 'RUB', `${item.kind}: commission currency`);
+    assert.ok(typeof item.amountKopecks === 'string' && /^[1-9]\d{0,18}$/u.test(item.amountKopecks)
+      && BigInt(item.amountKopecks) <= 9_223_372_036_854_775_807n, `${item.kind}: positive exact commission amount required`);
+    assert.equal(item.amountKopecks, basis.amountKopecks, `${item.kind}: commission amount mismatch`);
+  }
+  assert.equal(revenue.commissionBasisEvidenceId, basis.id, 'revenue must reference its lawful commission basis');
+  assert.equal(cash.revenueEventEvidenceId, revenue.id, 'cash receipt must reference the revenue event');
+  assert.equal(cash.payeeOrganizationId, anchor.companyOrganizationId, 'cash must be received by the platform company');
+  assert.equal(transaction.reconciliationEvidence.bankFinalityEvidenceId, transaction.bankFinalityEvidence.id, 'reconciliation must link bank finality');
+  assert.equal(transaction.reconciliationEvidence.companyCashReceiptEvidenceId, cash.id, 'reconciliation must link company cash receipt');
+}
+
+{
+  const slice = record(state.revenueSliceV1, 'revenueSliceV1');
+  record(state.executionOrder, 'executionOrder');
   assert.equal(state.executionOrder.mode, 'REVENUE_FIRST');
   assert.equal(state.executionOrder.specificationChanged, false);
   assert.equal(state.executionOrder.definitionOfDoneChanged, false);
   assert.deepEqual(state.executionOrder.order, [
     'W1_CONFIG_FOUNDATION_COMPLETION', 'REVENUE_SLICE_V1', 'REMAINING_ORIGINAL_DOD',
   ]);
-  const slice = state.revenueSliceV1;
   assert.equal(slice.componentCount, 15);
+  assert.ok(Array.isArray(slice.components), 'revenue components must be an array');
   assert.equal(slice.components.length, slice.componentCount);
-  assert.equal(new Set(slice.components.map((item) => item.id)).size, slice.componentCount);
+  assert.deepEqual(slice.components.map((item) => item.id).sort(),
+    Array.from({ length: 15 }, (_, index) => `RS-${String(index + 1).padStart(2, '0')}`), 'canonical revenue component identities required');
   for (const item of slice.components) {
     assert.ok(['NOT_ACCEPTED', 'PRODUCTION_ACCEPTED'].includes(item.status));
     assert.ok(item.classification.length > 0);
@@ -96,21 +188,33 @@ if (state.revenueSliceV1) {
       assert.ok(fs.existsSync(path.join(repositoryRoot, evidencePath)), `missing revenue source: ${item.id}/${evidencePath}`);
     }
     assert.ok(Array.isArray(item.productionEvidence));
+    const evidenceKinds = new Set();
+    for (const proof of item.productionEvidence) {
+      record(proof, `${item.id}.productionEvidence`);
+      assert.ok(['REG_RU_DEPLOYMENT', 'LIVE_COMPONENT_ACCEPTANCE'].includes(proof.kind), `${item.id}: unsupported production evidence`);
+      evidence(proof, proof.kind, `${item.id}.productionEvidence`);
+      assert.equal(proof.componentId, item.id, `${item.id}: evidence for another component`);
+      assert.ok(!evidenceKinds.has(proof.kind), `${item.id}: duplicate evidence kind`);
+      evidenceKinds.add(proof.kind);
+    }
     if (item.status === 'PRODUCTION_ACCEPTED') {
-      assert.ok(item.productionEvidence.length > 0, `revenue acceptance lacks evidence: ${item.id}`);
+      assert.ok(evidenceKinds.has('REG_RU_DEPLOYMENT') && evidenceKinds.has('LIVE_COMPONENT_ACCEPTANCE'), `revenue acceptance lacks deployment and live task evidence: ${item.id}`);
       assert.equal(state.w1Completion.productionStatus, 'ACCEPTED');
     }
   }
   const accepted = slice.components.filter((item) => item.status === 'PRODUCTION_ACCEPTED').length;
   assert.equal(slice.acceptedComponentCount, accepted);
   assert.equal(slice.progressPercent, Math.floor(accepted / slice.componentCount * 1000) / 10);
-  if (slice.realTransaction.status === 'ACCEPTED') {
+  const transaction = record(slice.realTransaction, 'realTransaction');
+  assert.deepEqual(Object.keys(transaction).sort(), ['status', ...Object.keys(transactionKinds)].sort(), 'complete realTransaction evidence fields required');
+  if (accepted === slice.componentCount) {
+    assert.equal(transaction.status, 'ACCEPTED', '100% revenue progress requires a real commercial transaction');
+  }
+  if (transaction.status === 'ACCEPTED') {
     assert.equal(accepted, slice.componentCount);
-    for (const [key, value] of Object.entries(slice.realTransaction)) {
-      assert.ok(value, `real commercial transaction lacks ${key}`);
-    }
+    verifyRealTransaction(transaction);
   } else {
-    assert.equal(slice.realTransaction.status, 'NOT_EVIDENCED');
+    assert.equal(transaction.status, 'NOT_EVIDENCED');
   }
 }
 
