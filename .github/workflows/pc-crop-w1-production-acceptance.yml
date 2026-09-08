@@ -305,10 +305,9 @@ jobs:
           }
           NODE
           echo "baseline=$baseline" >> "$GITHUB_OUTPUT"
-          node - <<'NODE' > "$RUNNER_TEMP/w1-migration-manifest.b64"
-          const fs=require('node:fs'),crypto=require('node:crypto'),root='apps/api/prisma/migrations';
-          const entries=fs.readdirSync(root,{withFileTypes:true}).filter(d=>d.isDirectory()).map(d=>[d.name,crypto.createHash('sha256').update(fs.readFileSync(`${root}/${d.name}/migration.sql`)).digest('hex')]);
-          process.stdout.write(Buffer.from(JSON.stringify(Object.fromEntries(entries))).toString('base64'));
+          node --input-type=module - <<'NODE' > "$RUNNER_TEMP/w1-migration-manifest.b64"
+          import {readMigrationManifest} from './scripts/check-production-pc-crop-w1-acceptance.mjs';
+          process.stdout.write(Buffer.from(JSON.stringify(readMigrationManifest('apps/api/prisma/migrations'))).toString('base64'));
           NODE
           remote="/tmp/pc-crop-w1-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           ssh "${ssh_args[@]}" "$SSH_USER_SECRET@195.19.12.120" "umask 077; mkdir '$remote'" >/dev/null 2>&1

@@ -29,11 +29,28 @@ export function blocked(code) { throw new Error(code); }
 export function errorCode(error) { return SAFE_ERROR.test(error?.message ?? '') ? error.message : 'UNCLASSIFIED_PROBE_FAILURE'; }
 export function sha256(value) { return crypto.createHash('sha256').update(value).digest('hex'); }
 function sortedObject(value) { return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))); }
+const MIGRATION_NAME = /^(?:0001_postgresql_initial|[0-9]{14}_[a-z0-9_]+)$/;
+
+export function readMigrationManifest(root) {
+  const result = {};
+  for (const name of fs.readdirSync(root).sort()) {
+    const entry = path.join(root, name);
+    if (name === 'migration_lock.toml') {
+      if (!fs.lstatSync(entry).isFile()) blocked('MIGRATION_LOCK_FILE_INVALID');
+      continue;
+    }
+    if (!MIGRATION_NAME.test(name) || !fs.lstatSync(entry).isDirectory()) blocked('MIGRATION_DIRECTORY_INVALID');
+    const file = path.join(entry, 'migration.sql');
+    if (!fs.lstatSync(file).isFile()) blocked('MIGRATION_SQL_FILE_INVALID');
+    result[name] = sha256(fs.readFileSync(file));
+  }
+  return validateManifest(result);
+}
 
 export function validateManifest(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || !Object.keys(value).length) blocked('REPOSITORY_MANIFEST_INVALID');
   for (const [name, checksum] of Object.entries(value)) {
-    if (!/^[0-9]{14}_[a-z0-9_]+$/.test(name) || !/^[0-9a-f]{64}$/.test(checksum)) blocked('REPOSITORY_MANIFEST_INVALID');
+    if (!MIGRATION_NAME.test(name) || !/^[0-9a-f]{64}$/.test(checksum)) blocked('REPOSITORY_MANIFEST_INVALID');
   }
   for (const [name, checksum] of Object.entries(TARGET_MIGRATIONS)) {
     if (value[name] !== checksum) blocked('ACCEPTED_MIGRATION_CHECKSUM_MISMATCH');
@@ -388,6 +405,7 @@ if (process.argv[1] === '--runtime-probe') {
   try {
     if (args[0] === 'snapshot-sql') process.stdout.write(snapshotSql(JSON.parse(fs.readFileSync(0, 'utf8'))));
     else if (args[0] === 'image-manifest') validateImageManifest(decodeManifest(process.env.PC_W1_EXPECTED_MIGRATIONS_B64 ?? ''), JSON.parse(fs.readFileSync(0, 'utf8')));
+    else if (args[0] === 'verify-image-files') validateImageManifest(decodeManifest(process.env.PC_W1_EXPECTED_MIGRATIONS_B64 ?? ''), readMigrationManifest('/app/prisma/migrations'));
     else if (args[0] === 'image') validateMigrationImage(JSON.parse(fs.readFileSync(0, 'utf8'))[0], args[1], args[2]);
     else if (args[0] === 'compose') process.stdout.write(validateCompose(JSON.parse(fs.readFileSync(0, 'utf8'))));
     else if (args[0] === 'runtime-fingerprint') process.stdout.write(runtimeFingerprint(JSON.parse(fs.readFileSync(0, 'utf8')), args[1]));
