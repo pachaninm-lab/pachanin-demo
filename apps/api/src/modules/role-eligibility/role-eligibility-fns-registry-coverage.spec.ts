@@ -1,4 +1,13 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { RoleEligibilityFnsRegistryCoverageService } from './role-eligibility-fns-registry-coverage.service';
+
+const root = path.resolve(__dirname, '../../../../..');
+const coverageMigration = fs.readFileSync(
+  path.join(root, 'apps/api/prisma/migrations/20260906180000_role_eligibility_fns_registry_coverage_authority/migration.sql'),
+  'utf8',
+);
+const postgresSmoke = fs.readFileSync(path.join(root, 'scripts/role-eligibility-postgres-smoke.sh'), 'utf8');
 
 function createService(rows: unknown[] = []) {
   const queryRaw = jest.fn().mockResolvedValue(rows);
@@ -109,4 +118,41 @@ describe('RoleEligibilityFnsRegistryCoverageService', () => {
       authorityToken: null,
     });
   });
+
+  it('derives complete coverage/finality only from immutable evidence through the bounded verifier', () => {
+    expect(coverageMigration).toContain('CREATE TABLE eligibility.registry_generation_authority_evidence');
+    expect(coverageMigration).toContain('CREATE OR REPLACE FUNCTION eligibility.record_fns_egrul_authority_evidence');
+    expect(coverageMigration).toContain('CREATE OR REPLACE FUNCTION eligibility.materialize_fns_egrul_registry_authority');
+    expect(coverageMigration).toContain('NEW.acquisition_complete := FALSE;');
+    expect(coverageMigration).toContain('NEW.source_finality := FALSE;');
+    expect(coverageMigration).toContain("e.evidence_kind='ACQUISITION_COMPLETE'");
+    expect(coverageMigration).toContain("e.evidence_kind='SOURCE_FINALITY'");
+    expect(coverageMigration).toContain('s.acquisition_evidence_valid IS DISTINCT FROM TRUE');
+    expect(coverageMigration).toContain('s.source_finality_evidence_valid IS DISTINCT FROM TRUE');
+    expect(coverageMigration).toContain('s.authority_token_valid IS DISTINCT FROM TRUE');
+    expect(postgresSmoke).toContain('SET ROLE pc_role_eligibility_authority;');
+    expect(postgresSmoke).toContain("SELECT eligibility.materialize_fns_egrul_registry_authority('elg_egrul_final');");
+  });
+
+  it('binds continuity and finality to immutable accepted policy identities', () => {
+    expect(coverageMigration).toContain('CREATE TABLE eligibility.registry_authority_policy_catalog');
+    expect(coverageMigration).toContain("'FNS','EGRUL','CONTINUITY','fns-egrul-continuity-v1'");
+    expect(coverageMigration).toContain("'FNS','EGRUL','FINALITY','fns-egrul-finality-v1'");
+    expect(coverageMigration).toContain('continuity policy identity is not accepted for registry authority');
+    expect(coverageMigration).toContain('finality policy identity is not accepted for registry authority');
+    expect(coverageMigration).toContain('s.continuity_policy_accepted IS DISTINCT FROM TRUE');
+    expect(coverageMigration).toContain('s.finality_policy_accepted IS DISTINCT FROM TRUE');
+    expect(postgresSmoke).toContain('ARBITRARY_POLICY_UNEXPECTEDLY_ACCEPTED');
+  });
+
+  it('fails closed when DAILY_EFFECTIVE has no exact persisted composition lineage', () => {
+    expect(coverageMigration).toMatch(
+      /IF NEW\.generation_mode = 'DAILY_EFFECTIVE' THEN[\s\S]*?IF NOT FOUND THEN[\s\S]*?daily EGRUL authority requires persisted composition lineage/,
+    );
+    expect(coverageMigration).toContain('physical.predecessor_generation_id IS DISTINCT FROM NEW.predecessor_generation_id');
+    expect(coverageMigration).toContain('physical.update_package_sha256 IS DISTINCT FROM NEW.update_package_sha256');
+    expect(coverageMigration).toContain('s.lineage_valid IS DISTINCT FROM TRUE');
+    expect(postgresSmoke).toContain("SELECT eligibility.record_fns_egrul_predecessor('elg_egrul_b','elg_egrul_a');");
+  });
+
 });
