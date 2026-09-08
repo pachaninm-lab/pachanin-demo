@@ -2,6 +2,12 @@ import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/co
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RoutePlannerService } from './route-planner.service';
+import {
+  CalculateEtaDto,
+  EstimateTariffDto,
+  RegisterGeofencesDto,
+  UpdateVehiclePositionDto,
+} from './dto/route-planner-api.dto';
 
 @UseGuards(RolesGuard)
 @Roles('LOGISTICIAN', 'DRIVER', 'SUPPORT_MANAGER', 'ADMIN')
@@ -38,7 +44,7 @@ export class RoutePlannerController {
   @Post('vehicles/:vehicleId/position')
   updatePosition(
     @Param('vehicleId') vehicleId: string,
-    @Body() body: { lat: number; lng: number; speed?: number; heading?: number },
+    @Body() body: UpdateVehiclePositionDto,
   ) {
     return this.routePlanner.updateVehiclePosition(vehicleId, { ...body, timestamp: new Date().toISOString() });
   }
@@ -46,7 +52,7 @@ export class RoutePlannerController {
   @Post('vehicles/:vehicleId/geofences')
   registerGeofences(
     @Param('vehicleId') vehicleId: string,
-    @Body() body: { zones: Array<{ id: string; name: string; lat: number; lng: number; radiusMeters: number; type: string }> },
+    @Body() body: RegisterGeofencesDto,
   ) {
     return this.routePlanner.registerGeofences(vehicleId, body.zones as any);
   }
@@ -64,11 +70,7 @@ export class RoutePlannerController {
 
   @Post('calculate-eta')
   calculateEta(
-    @Body() body: {
-      fromLat: number; fromLng: number;
-      toLat: number; toLng: number;
-      avgSpeedKmh?: number;
-    },
+    @Body() body: CalculateEtaDto,
   ) {
     return this.routePlanner.calculateEta(
       { lat: body.fromLat, lng: body.fromLng },
@@ -79,7 +81,7 @@ export class RoutePlannerController {
 
   @Post('tariff')
   estimateTariff(
-    @Body() body: { distanceKm: number; weightTons: number; vehicleType?: 'truck' | 'rail' | 'vessel' },
+    @Body() body: EstimateTariffDto,
   ) {
     return this.routePlanner.estimateLogisticsTariff(body.distanceKm, body.weightTons, body.vehicleType);
   }
