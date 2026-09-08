@@ -42,11 +42,13 @@ export default async function ExecutivePage() {
   const heldRub = disputeTotalHeldRub(disputes);
   const disputeCount = openDisputeCount(disputes);
   const shipmentCount = activeShipmentCount(shipments);
-  const pendingBank = outbox.totalPending ?? 0;
+  const outboxAvailable = outbox.isApiAvailable;
+  const pendingBank = outboxAvailable ? (outbox.totalPending ?? 0) : 0;
   const bi = getPlatformV7BiCockpitState();
 
   const liveBlockers = [
     ...(!disputesAvailable ? [{ id: 'disputes-source', label: 'Источник споров недоступен · состояние неизвестно', severity: 'warn' as const }] : []),
+    ...(!outboxAvailable ? [{ id: 'outbox-source', label: 'Источник банковских подтверждений недоступен · состояние неизвестно', severity: 'warn' as const }] : []),
     ...(disputeCount > 0 ? [{ id: 'disputes', label: `${disputeCount} открытых спора · ${formatMoney(heldRub)} удержано`, severity: 'stop' as const }] : []),
     ...(pendingBank > 0 ? [{ id: 'bank', label: `${pendingBank} банковских операций ожидают подтверждения`, severity: 'warn' as const }] : []),
   ];
@@ -54,7 +56,7 @@ export default async function ExecutivePage() {
   const signals: ExecutiveSignal[] = [
     { label: 'Деньги в блоке', value: disputesAvailable ? formatMoney(heldRub) : '—', detail: !disputesAvailable ? 'источник споров недоступен' : disputeCount > 0 ? 'удержано до решения споров' : 'удержаний нет', state: !disputesAvailable ? 'wait' : heldRub > 0 ? 'stop' : 'ok' },
     { label: 'Открытые споры', value: disputesAvailable ? String(disputeCount) : '—', detail: disputesAvailable ? 'каждый спор связан с конкретной Сделкой' : 'состояние неизвестно', state: !disputesAvailable ? 'wait' : disputeCount > 0 ? 'stop' : 'ok' },
-    { label: 'Банк ожидает', value: String(pendingBank), detail: 'операции требуют внешнего подтверждения', state: pendingBank > 0 ? 'wait' : 'ok' },
+    { label: 'Банк ожидает', value: outboxAvailable ? String(pendingBank) : '—', detail: outboxAvailable ? 'операции требуют внешнего подтверждения' : 'состояние банковских подтверждений неизвестно', state: !outboxAvailable || pendingBank > 0 ? 'wait' : 'ok' },
     { label: 'Портфель', value: formatMoney(totalVolume), detail: `${dealList.length} сделок · ${activeDeals.length} активных`, state: 'ok' },
   ];
 
@@ -80,10 +82,12 @@ export default async function ExecutivePage() {
         />
       )}
       priority={{
-        state: !disputesAvailable ? 'active' : disputeCount > 0 ? 'critical' : pendingBank > 0 ? 'active' : 'ready',
+        state: !disputesAvailable || !outboxAvailable ? 'active' : disputeCount > 0 ? 'critical' : pendingBank > 0 ? 'active' : 'ready',
         eyebrow: 'Главный управленческий сигнал',
         title: !disputesAvailable
           ? 'Проверить доступность реестра споров'
+          : !outboxAvailable
+            ? 'Проверить доступность банковских подтверждений'
           : disputeCount > 0
           ? `Разобрать причины удержания ${formatMoney(heldRub)}`
           : pendingBank > 0
@@ -91,14 +95,16 @@ export default async function ExecutivePage() {
             : 'Критических отклонений нет',
         description: !disputesAvailable
           ? 'Источник споров недоступен или вернул непроверяемые данные. Дашборд не объявляет all-clear, пока серверный реестр не восстановит подтверждаемое состояние.'
+          : !outboxAvailable
+            ? 'Источник банковских подтверждений недоступен. Дашборд не трактует отсутствие данных как отсутствие ожидающих операций.'
           : disputeCount > 0
           ? 'Сначала разберите причины удержаний и владельцев процесса. Операционные действия остаются у уполномоченных ролей внутри Сделки.'
           : pendingBank > 0
             ? 'Есть внешние банковские подтверждения в ожидании. Дашборд показывает влияние, но не подменяет банковский authority.'
             : 'Портфель без критических удержаний и банковских блокеров. Контролируйте сделки, логистику и динамику без ручного вмешательства.',
-        blocker: !disputesAvailable ? 'состояние споров неизвестно' : disputeCount > 0 ? `${disputeCount} открытых спора` : pendingBank > 0 ? `${pendingBank} банковских операций` : 'нет',
-        owner: !disputesAvailable ? 'оператор платформы' : disputeCount > 0 ? 'оператор + арбитр + банк' : pendingBank > 0 ? 'банк + оператор' : 'нет эскалации',
-        impact: !disputesAvailable ? 'неизвестно до восстановления источника' : heldRub > 0 ? formatMoney(heldRub) : pendingBank > 0 ? `${pendingBank} операций` : 'нет денежного влияния',
+        blocker: !disputesAvailable ? 'состояние споров неизвестно' : !outboxAvailable ? 'состояние банковских подтверждений неизвестно' : disputeCount > 0 ? `${disputeCount} открытых спора` : pendingBank > 0 ? `${pendingBank} банковских операций` : 'нет',
+        owner: !disputesAvailable || !outboxAvailable ? 'оператор платформы' : disputeCount > 0 ? 'оператор + арбитр + банк' : pendingBank > 0 ? 'банк + оператор' : 'нет эскалации',
+        impact: !disputesAvailable || !outboxAvailable ? 'неизвестно до восстановления источника' : heldRub > 0 ? formatMoney(heldRub) : pendingBank > 0 ? `${pendingBank} операций` : 'нет денежного влияния',
         result: 'эскалация владельцу процесса, а не ручная правка данных',
       }}
       facts={[
@@ -139,7 +145,7 @@ export default async function ExecutivePage() {
           <OperationalQueue>
             {!disputesAvailable ? (
               <OperationalQueueLink
-                href='/platform-v7/status'
+                href='/platform-v7/executive'
                 title='Требует внимания: источник споров'
                 detail='Состояние споров неизвестно — all-clear отключён до восстановления источника'
               />
@@ -149,6 +155,13 @@ export default async function ExecutivePage() {
                 href='/platform-v7/disputes'
                 title='Требуют внимания: споры'
                 detail={`${disputeCount} открытых · влияние ${formatMoney(heldRub)}`}
+              />
+            ) : null}
+            {!outboxAvailable ? (
+              <OperationalQueueLink
+                href='/platform-v7/status'
+                title='Требует внимания: источник банка'
+                detail='Состояние банковских подтверждений неизвестно — all-clear отключён до восстановления источника'
               />
             ) : null}
             {pendingBank > 0 ? (

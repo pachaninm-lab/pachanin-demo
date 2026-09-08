@@ -63,8 +63,11 @@ describe('Design System v8 critical transaction routes', () => {
   it('keeps executive all-clear fail-closed and routes restricted bank alerts to the read-only status aggregate', () => {
     expect(executive).toContain('getDisputesSnapshot');
     expect(executive).toContain('!disputesAvailable');
+    expect(executive).toContain('!outboxAvailable');
     expect(executive).toContain('споры: состояние неизвестно');
     expect(executive).toContain('Требует внимания: источник споров');
+    expect(executive).toContain("href='/platform-v7/executive'");
+    expect(executive).toContain('Требует внимания: источник банка');
     expect(executive).toContain("href='/platform-v7/status'");
     expect(executive).not.toContain("href='/platform-v7/bank'");
     expect(disputesServer).toContain('isApiAvailable: false');
