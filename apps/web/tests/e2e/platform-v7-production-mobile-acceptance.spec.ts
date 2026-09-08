@@ -55,29 +55,7 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(1);
 }
 
-async function measureViewportOcclusion(page: Page) {
-  return page.evaluate(() => {
-    const viewportHeight = window.innerHeight;
-    let top = 0;
-    let bottom = 0;
-
-    for (const node of Array.from(document.querySelectorAll<HTMLElement>('body *'))) {
-      const style = window.getComputedStyle(node);
-      if (style.position !== 'fixed' && style.position !== 'sticky') continue;
-      if (style.display === 'none' || style.visibility === 'hidden') continue;
-      const box = node.getBoundingClientRect();
-      if (box.width <= 0 || box.height <= 0) continue;
-      if (box.top <= 32 && box.bottom > 0) top = Math.max(top, Math.min(viewportHeight, box.bottom));
-      if (box.bottom >= viewportHeight - 32 && box.top < viewportHeight) {
-        bottom = Math.max(bottom, Math.min(viewportHeight, viewportHeight - box.top));
-      }
-    }
-
-    return { top: Math.ceil(top), bottom: Math.ceil(bottom) };
-  });
-}
-
-async function captureEdgeCoverageWithoutOccluders(page: Page, path: string) {
+async function captureContentCoverageWithoutOccluders(page: Page, path: string) {
   const marker = 'data-p7-evidence-occluder';
   const styleId = 'p7-evidence-occluder-style';
   await page.evaluate(({ markerName, injectedStyleId }) => {
@@ -117,66 +95,48 @@ async function captureFullDocumentEvidence(page: Page, path: string) {
   }
 
   const overlapMargin = 24;
+  expect(geometry.viewportHeight, 'segmented evidence viewport must exceed overlap margin').toBeGreaterThan(overlapMargin);
   const maxScrollY = Math.max(0, geometry.documentHeight - geometry.viewportHeight);
   const basePath = path.replace(/\.png$/u, '');
   let y = 0;
   let index = 0;
-  let previousVisibleEnd = 0;
+  let previousCoverageEnd = 0;
 
   while (true) {
     await page.evaluate((scrollY) => window.scrollTo(0, scrollY), y);
     await page.waitForTimeout(50);
-    const occlusion = await measureViewportOcclusion(page);
-    const visibleStart = y + occlusion.top;
-    const visibleEnd = y + geometry.viewportHeight - occlusion.bottom;
+    const coverageStart = y;
+    const coverageEnd = Math.min(geometry.documentHeight, y + geometry.viewportHeight);
 
-    expect(visibleEnd - visibleStart, `segment ${index + 1} must expose document content`).toBeGreaterThan(overlapMargin);
     if (index > 0) {
       expect(
-        visibleStart,
-        `segment ${index + 1} visible content must overlap the previous segment`,
-      ).toBeLessThanOrEqual(previousVisibleEnd - overlapMargin);
+        coverageStart,
+        `segment ${index + 1} content coverage must overlap the previous segment`,
+      ).toBeLessThanOrEqual(previousCoverageEnd - overlapMargin);
     }
 
+    const part = String(index + 1).padStart(2, '0');
     await page.screenshot({
-      path: `${basePath}-part-${String(index + 1).padStart(2, '0')}.png`,
+      path: `${basePath}-part-${part}.png`,
       fullPage: false,
       animations: 'disabled',
       scale: 'css',
     });
+    await captureContentCoverageWithoutOccluders(
+      page,
+      `${basePath}-part-${part}-content-coverage.png`,
+    );
 
-    if (index === 0 && occlusion.top > 0) {
-      await captureEdgeCoverageWithoutOccluders(page, `${basePath}-part-01-top-coverage.png`);
-    }
+    previousCoverageEnd = Math.max(previousCoverageEnd, coverageEnd);
+    if (y >= maxScrollY) break;
 
-    previousVisibleEnd = Math.max(previousVisibleEnd, visibleEnd);
-    if (y >= maxScrollY) {
-      if (occlusion.bottom > 0) {
-        await captureEdgeCoverageWithoutOccluders(
-          page,
-          `${basePath}-part-${String(index + 1).padStart(2, '0')}-bottom-coverage.png`,
-        );
-      }
-      break;
-    }
-
-    let nextY = Math.min(maxScrollY, Math.floor(visibleEnd - overlapMargin));
-    for (let attempt = 0; attempt < 8; attempt += 1) {
-      await page.evaluate((scrollY) => window.scrollTo(0, scrollY), nextY);
-      await page.waitForTimeout(50);
-      const nextOcclusion = await measureViewportOcclusion(page);
-      const nextVisibleStart = nextY + nextOcclusion.top;
-      if (nextVisibleStart <= visibleEnd - overlapMargin) break;
-      const adjusted = Math.floor(visibleEnd - overlapMargin - nextOcclusion.top);
-      expect(adjusted, 'adaptive segmented capture must keep making forward progress').toBeGreaterThan(y);
-      nextY = Math.min(maxScrollY, adjusted);
-    }
-
-    expect(nextY, 'adaptive segmented capture must advance').toBeGreaterThan(y);
+    const nextY = Math.min(maxScrollY, Math.floor(coverageEnd - overlapMargin));
+    expect(nextY, 'segmented evidence capture must advance').toBeGreaterThan(y);
     y = nextY;
     index += 1;
   }
 
+  expect(previousCoverageEnd, 'segmented content coverage must reach the full document height').toBeGreaterThanOrEqual(geometry.documentHeight);
   await page.evaluate(({ x, y: scrollY }) => window.scrollTo(x, scrollY), { x: geometry.scrollX, y: geometry.scrollY });
 }
 
