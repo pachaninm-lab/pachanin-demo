@@ -536,7 +536,7 @@ test('verifier main requires genuine independent exact-head authority from Codex
   assert.match(mainBody, /positiveExactHeadCopilotReviews\(reviews, headSha\)/u);
   assert.match(mainBody, /positiveExactHeadOctopusAttestations/u);
   assert.match(mainBody, /octopusAttestationMatchesWorkflowRun/u);
-  assert.match(mainBody, /actions\/runs\/\$\{attestation\.runId\}/u);
+  assert.match(mainBody, /fetchPublicOctopusActionsRun\(repo, attestation\.runId\)/u);
   assert.match(mainBody, /fetchAllCommitStatuses\(repo, headSha\)/u);
   assert.match(mainBody, /REVIEW_GATE_INDEPENDENT_EXACT_HEAD_MISSING/u);
   assert.match(mainBody, /REVIEW_GATE_OWNER_SELF_AUDIT_MISSING/u);
