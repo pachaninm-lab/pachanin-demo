@@ -3,7 +3,7 @@
   "branch": "feat/pv7-personal-executive-dashboard-20260908",
   "status": "active",
   "purpose": "Bound the personal executive dashboard change to the existing read-only executive page.",
-  "authorityBaseExactMain": "c45156fe3af72f02370caccd72b79591f6f14efb",
+  "authorityBaseExactMain": "15a834e3993e43da82af2748633a19d2717b1fa6",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
