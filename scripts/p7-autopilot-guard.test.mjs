@@ -610,3 +610,15 @@ test('W1 implementation cannot add digest or web-lock authority to an older four
   assert.notEqual(result.status, 0, output(result));
   assert.match(output(result), /Mutable scope authority changed/u);
 });
+
+
+test('admits the bounded revenue evidence regression suite and runs it in required CI', () => {
+  const state = JSON.parse(fs.readFileSync(path.resolve('docs/platform-v7/autopilot/autopilot-state.json'), 'utf8'));
+  const scope = state.approvedConcurrentScopes['docs/pc-crop-post-registration-progress-4997'];
+  const prefix = 'docs/platform-v7/crop-platform/post-registration/';
+  assert.deepEqual([...scope].sort(), ['README.md', 'dod-baseline.v1.json', 'exact-gap-map.v1.json', 'execution-state.v1.json', 'verify-w0.mjs', 'verify-w0.test.mjs', 'w2-a-inventory-reservation-plan.v1.json'].map(name => prefix + name).sort());
+  assert.ok(scope.every(name => !name.includes('*')));
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  assert.ok(workflow.includes("- 'docs/platform-v7/**'"), 'existing trigger covers the added test');
+  assert.ok(workflow.includes("      - name: Test post-registration evidence rejection\n        if: github.event_name == 'pull_request' && github.head_ref == 'docs/pc-crop-post-registration-progress-4997'\n        run: node --test docs/platform-v7/crop-platform/post-registration/verify-w0.test.mjs"));
+});
