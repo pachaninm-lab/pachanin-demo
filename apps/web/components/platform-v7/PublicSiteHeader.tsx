@@ -55,7 +55,9 @@ const PUBLIC_SITE_HEADER_STYLES = `
   max-height: 64px !important;
   gap: 10px !important;
   padding-inline: clamp(12px, 3vw, 32px) !important;
-}
+}.pc-site-header[data-public-site-header='canonical'] .pc-site-brand,
+.pc-site-header[data-public-site-header='canonical'] .pc-site-nav a { min-height: 44px; }
+.pc-site-header[data-public-site-header='canonical'] .pc-site-nav a { min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
 .pc-site-brand {
   display: inline-flex;
   align-items: center;
@@ -342,9 +344,13 @@ const PUBLIC_SITE_HEADER_STYLES = `
     height: 36px !important;
     flex-basis: 36px !important;
   }
+  /* Keep a real touch-size margin above the 44px acceptance floor, including
+   * fractional CSS-pixel geometry returned by Firefox. */
   .pc-site-header[data-public-site-header='canonical'] .pc-site-mobile-menu > summary {
-    width: 44px !important;
-    min-width: 44px !important;
+    width: 48px !important;
+    min-width: 48px !important;
+    height: 48px !important;
+    min-height: 48px !important;
   }
   .pc-site-header[data-public-site-header='canonical'] .pc-site-locale-switch {
     min-width: 44px !important;
@@ -360,6 +366,10 @@ const PUBLIC_SITE_HEADER_STYLES = `
   }
 }
 @media (max-width: 430px) {
+  /* Leave room for the full brand and 48px menu at 320px without shrinking text. */
+  .pc-site-header[data-public-site-header='canonical'] :is(.pc-v6-header-cta, .pc-ppe-primary-button, .p7-about-register, .p7-contact-register) {
+    padding-inline: 8px !important;
+  }
   .pc-site-header[data-public-site-header='canonical'].pc-site-header.pc-site-header {
     gap: 4px !important;
     padding-inline: 6px !important;
