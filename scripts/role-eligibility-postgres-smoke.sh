@@ -12,7 +12,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
 DO $runtime_fixture_roles$
 DECLARE runtime_role TEXT;
 BEGIN
-  FOREACH runtime_role IN ARRAY ARRAY['pc_deal_runtime','app_runtime','one_deal_app','app_deal','app_service'] LOOP
+  FOREACH runtime_role IN ARRAY ARRAY['pc_deal_runtime','app_runtime','one_deal_app','app_deal','app_service','app_deal_api'] LOOP
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname=runtime_role) THEN
       EXECUTE format('CREATE ROLE %I NOLOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE',runtime_role);
     END IF;
@@ -57,9 +57,9 @@ INSERT INTO eligibility.registry_generations(
   id,source,generation,published_at,downloaded_at,content_sha256,record_count,
   parser_version,schema_version,status,fresh_until,created_at,validated_at
 ) VALUES
-  ('elg_egrul_a','FNS','egrul-a',clock_timestamp(),clock_timestamp(),repeat('1',64),1,'fns-egrul-v1','EGRUL_408','VALIDATED',clock_timestamp()+interval '1 day',clock_timestamp(),clock_timestamp()),
-  ('elg_egrip_a','FNS','egrip-a',clock_timestamp(),clock_timestamp(),repeat('2',64),1,'fns-egrip-v1','EGRIP_407','VALIDATED',clock_timestamp()+interval '1 day',clock_timestamp(),clock_timestamp()),
-  ('elg_egrul_b','FNS','egrul-b',clock_timestamp()+interval '1 minute',clock_timestamp(),repeat('3',64),1,'fns-egrul-v1','EGRUL_408','VALIDATED',clock_timestamp()+interval '1 day',clock_timestamp(),clock_timestamp());
+  ('elg_egrul_a','FNS','egrul-a',clock_timestamp(),clock_timestamp(),repeat('1',64),1,'fns-egrul-v1','EGRUL_408','STAGING',clock_timestamp()+interval '1 day',clock_timestamp(),NULL),
+  ('elg_egrip_a','FNS','egrip-a',clock_timestamp(),clock_timestamp(),repeat('2',64),1,'fns-egrip-v1','EGRIP_407','STAGING',clock_timestamp()+interval '1 day',clock_timestamp(),NULL),
+  ('elg_egrul_b','FNS','egrul-b',clock_timestamp()+interval '1 minute',clock_timestamp(),repeat('3',64),1,'fns-egrul-v1','EGRUL_408','STAGING',clock_timestamp()+interval '1 day',clock_timestamp(),NULL);
 
 INSERT INTO eligibility.registry_records(
   id,generation_id,source,source_record_id,subject_inn,subject_ogrn,record_type,
@@ -81,6 +81,10 @@ BEGIN
 END
 $domain_backfill$;
 
+UPDATE eligibility.registry_generations
+SET status='VALIDATED',validated_at=clock_timestamp()
+WHERE id IN ('elg_egrul_a','elg_egrip_a') AND status='STAGING';
+
 SELECT eligibility.activate_registry_generation('FNS','EGRUL','egrul-a');
 SELECT eligibility.activate_registry_generation('FNS','EGRIP','egrip-a');
 
@@ -98,10 +102,75 @@ BEGIN
 END
 $simultaneous_domains$;
 
--- Daily continuity is persisted while the target is still VALIDATED and its
--- predecessor is the current ACTIVE EGRUL generation. The authority verifier
--- later consumes this exact edge; callers cannot substitute lineage fields.
+-- Daily continuity is sealed while the target is still STAGING. The seal is
+-- derived from the exact predecessor/effective record sets and atomically closes
+-- further record mutation before validation or authority materialization.
 SELECT eligibility.record_fns_egrul_predecessor('elg_egrul_b','elg_egrul_a');
+
+DO $composition_manifest_proof$
+DECLARE l RECORD;
+BEGIN
+  SELECT * INTO STRICT l FROM eligibility.registry_generation_lineage WHERE generation_id='elg_egrul_b';
+  IF l.predecessor_record_count <> 1 OR l.effective_record_count <> 1
+     OR l.predecessor_covered_count <> 1 OR l.new_subject_count <> 0
+     OR l.predecessor_recordset_sha256 IS DISTINCT FROM eligibility.compute_registry_recordset_sha256('elg_egrul_a')
+     OR l.effective_recordset_sha256 IS DISTINCT FROM eligibility.compute_registry_recordset_sha256('elg_egrul_b') THEN
+    RAISE EXCEPTION 'EGRUL_COMPOSITION_MANIFEST_INVALID';
+  END IF;
+END
+$composition_manifest_proof$;
+
+-- A STAGING target with an arbitrary replacement set cannot manufacture
+-- continuity merely by naming the active predecessor.
+INSERT INTO eligibility.registry_generations(
+  id,source,generation,published_at,downloaded_at,content_sha256,record_count,
+  parser_version,schema_version,status,fresh_until,created_at,validated_at
+) VALUES (
+  'elg_egrul_gap','FNS','egrul-gap',clock_timestamp()+interval '30 seconds',clock_timestamp(),repeat('7',64),1,
+  'fns-egrul-v1','EGRUL_408','STAGING',clock_timestamp()+interval '1 day',clock_timestamp(),NULL
+);
+INSERT INTO eligibility.registry_records(
+  id,generation_id,source,source_record_id,subject_inn,subject_ogrn,record_type,
+  normalized_payload,source_published_at,payload_sha256,created_at
+) VALUES (
+  'elr_egrul_gap_only','elg_egrul_gap','FNS','1047796045770','7812345675','1047796045770',
+  'EGRUL_LEGAL_ENTITY','{"active":true}'::jsonb,clock_timestamp(),repeat('7',64),clock_timestamp()
+);
+DO $composition_gap_guard$
+BEGIN
+  BEGIN
+    PERFORM eligibility.record_fns_egrul_predecessor('elg_egrul_gap','elg_egrul_a');
+    RAISE EXCEPTION 'INCOMPLETE_COMPOSITION_LINEAGE_UNEXPECTEDLY_ACCEPTED';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM = 'INCOMPLETE_COMPOSITION_LINEAGE_UNEXPECTEDLY_ACCEPTED' THEN RAISE; END IF;
+  END;
+  IF EXISTS (SELECT 1 FROM eligibility.registry_generation_lineage WHERE generation_id='elg_egrul_gap') THEN
+    RAISE EXCEPTION 'INCOMPLETE_COMPOSITION_LINEAGE_PERSISTED';
+  END IF;
+END
+$composition_gap_guard$;
+
+SET ROLE app_runtime;
+DO $sealed_composition_records$
+BEGIN
+  BEGIN
+    INSERT INTO eligibility.registry_records(
+      id,generation_id,source,source_record_id,subject_inn,subject_ogrn,record_type,
+      normalized_payload,source_published_at,payload_sha256,created_at
+    ) VALUES (
+      'elr_after_seal','elg_egrul_b','FNS','1047796045770','7812345675','1047796045770',
+      'EGRUL_LEGAL_ENTITY','{"active":true}'::jsonb,clock_timestamp(),repeat('e',64),clock_timestamp()
+    );
+    RAISE EXCEPTION 'SEALED_COMPOSITION_RECORD_MUTATION_UNEXPECTEDLY_ALLOWED';
+  EXCEPTION WHEN object_not_in_prerequisite_state THEN NULL;
+  END;
+END
+$sealed_composition_records$;
+RESET ROLE;
+
+UPDATE eligibility.registry_generations
+SET status='VALIDATED',validated_at=clock_timestamp()
+WHERE id='elg_egrul_b' AND status='STAGING';
 SELECT eligibility.activate_registry_generation('FNS','EGRUL','egrul-b');
 
 DO $domain_monotonicity$
@@ -150,6 +219,29 @@ SELECT eligibility.record_fns_egrul_authority_evidence(
 SELECT eligibility.materialize_fns_egrul_registry_authority('elg_egrul_b');
 RESET ROLE;
 
+SET ROLE app_runtime;
+DO $active_generation_freeze$
+BEGIN
+  BEGIN
+    UPDATE eligibility.registry_generations SET status='STAGING' WHERE id='elg_egrul_b';
+    RAISE EXCEPTION 'ACTIVE_GENERATION_REOPEN_UNEXPECTEDLY_ALLOWED';
+  EXCEPTION WHEN object_not_in_prerequisite_state THEN NULL;
+  END;
+  BEGIN
+    INSERT INTO eligibility.registry_records(
+      id,generation_id,source,source_record_id,subject_inn,subject_ogrn,record_type,
+      normalized_payload,source_published_at,payload_sha256,created_at
+    ) VALUES (
+      'elr_after_authority','elg_egrul_b','FNS','1047796045770','7812345675','1047796045770',
+      'EGRUL_LEGAL_ENTITY','{"active":true}'::jsonb,clock_timestamp(),repeat('f',64),clock_timestamp()
+    );
+    RAISE EXCEPTION 'ACTIVE_AUTHORITY_RECORD_MUTATION_UNEXPECTEDLY_ALLOWED';
+  EXCEPTION WHEN object_not_in_prerequisite_state THEN NULL;
+  END;
+END
+$active_generation_freeze$;
+RESET ROLE;
+
 DO $evidence_bound_nonfinal_authority$
 DECLARE
   a RECORD;
@@ -194,7 +286,7 @@ BEGIN
     parser_version,schema_version,status,fresh_until,created_at,validated_at
   ) VALUES (
     'elg_egrul_cross','FNS','egrul-cross',clock_timestamp()+interval '90 seconds',clock_timestamp(),repeat('8',64),1,
-    'fns-egrul-v1','EGRUL_408','VALIDATED',clock_timestamp()+interval '1 day',clock_timestamp(),clock_timestamp()
+    'fns-egrul-v1','EGRUL_408','STAGING',clock_timestamp()+interval '1 day',clock_timestamp(),NULL
   );
   BEGIN
     PERFORM eligibility.record_fns_egrul_predecessor('elg_egrul_cross','elg_egrip_a');
@@ -297,7 +389,7 @@ INSERT INTO eligibility.registry_generations(
   parser_version,schema_version,status,fresh_until,created_at,validated_at
 ) VALUES (
   'elg_egrul_final','FNS','egrul-final',clock_timestamp()+interval '2 minutes',clock_timestamp(),repeat('c',64),1,
-  'fns-egrul-v1','EGRUL_408','VALIDATED',clock_timestamp()+interval '1 day',clock_timestamp(),clock_timestamp()
+  'fns-egrul-v1','EGRUL_408','STAGING',clock_timestamp()+interval '1 day',clock_timestamp(),NULL
 );
 INSERT INTO eligibility.registry_records(
   id,generation_id,source,source_record_id,subject_inn,subject_ogrn,record_type,
@@ -306,6 +398,9 @@ INSERT INTO eligibility.registry_records(
   'elr_egrul_final_present','elg_egrul_final','FNS','1027700132195','7707083893','1027700132195',
   'EGRUL_LEGAL_ENTITY','{"active":true}'::jsonb,clock_timestamp(),repeat('d',64),clock_timestamp()
 );
+UPDATE eligibility.registry_generations
+SET status='VALIDATED',validated_at=clock_timestamp()
+WHERE id='elg_egrul_final' AND status='STAGING';
 
 SET ROLE pc_role_eligibility_authority;
 SELECT eligibility.record_fns_egrul_authority_evidence(
@@ -672,7 +767,7 @@ DECLARE
   runtime_role TEXT;
   resolved_state TEXT;
 BEGIN
-  FOREACH runtime_role IN ARRAY ARRAY['pc_deal_runtime','app_runtime','one_deal_app','app_deal','app_service'] LOOP
+  FOREACH runtime_role IN ARRAY ARRAY['pc_deal_runtime','app_runtime','one_deal_app','app_deal','app_service','app_deal_api'] LOOP
     IF pg_has_role(runtime_role,'pc_role_eligibility_runtime','MEMBER')
        OR pg_has_role(runtime_role,'pc_role_eligibility_observer','MEMBER')
        OR pg_has_role(runtime_role,'pc_role_eligibility_authority','MEMBER') THEN
@@ -736,4 +831,7 @@ printf '%s\n' \
   'FNS_EVIDENCE_BACKED_AUTHORITY=PASS' \
   'FNS_ACCEPTED_POLICY_CATALOG=PASS' \
   'FNS_DAILY_LINEAGE_REQUIRED=PASS' \
+  'FNS_COMPOSITION_MANIFEST=PASS' \
+  'FNS_RECORDSET_IMMUTABILITY=PASS' \
+  'FNS_AUTHORITY_SERIALIZATION=PASS' \
   'FNS_RUNTIME_RESOLVER_EXECUTION=PASS'
