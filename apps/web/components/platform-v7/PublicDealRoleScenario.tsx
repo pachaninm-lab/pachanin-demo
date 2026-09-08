@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import {
   CircleDollarSign,
   FileCheck2,
@@ -22,6 +22,9 @@ type RoleKey =
   | 'surveyor'
   | 'bank'
   | 'employee';
+
+type RoleStageAction = Readonly<{ state: 'active' | 'inactive'; text: string }>;
+type RoleStageActions = Record<Locale, Record<RoleKey, readonly [RoleStageAction, RoleStageAction, RoleStageAction, RoleStageAction, RoleStageAction, RoleStageAction, RoleStageAction]>>;
 
 type RoleScenario = {
   label: string;
@@ -111,6 +114,259 @@ const scenarios: Record<Locale, Record<RoleKey, RoleScenario>> = {
   },
 };
 
+// Canonical role-action copy: #5129 comment 5570029305; public explanation only.
+const roleStageActions: RoleStageActions = {
+  ru: {
+    seller: [
+      {"state": "active", "text": "Подтвердить данные товара и условия своей стороны."},
+      {"state": "active", "text": "Сопоставить предложения и подтвердить коммерческий выбор своей стороны."},
+      {"state": "active", "text": "Подтвердить договорные условия и выполнить разрешённое действие своей стороны."},
+      {"state": "active", "text": "Подготовить партию к передаче и выполнить согласованные обязательства по поставке."},
+      {"state": "active", "text": "Проверить факты приёмки и качества и ответить на относящееся к продавцу отклонение."},
+      {"state": "active", "text": "Передать или исправить документы продавца и проверить основание расчёта."},
+      {"state": "active", "text": "Подтвердить закрытие своей части Сделки либо ответить на относящееся к продавцу исключение."},
+    ],
+    buyer: [
+      {"state": "active", "text": "Подтвердить потребность и требования покупателя к товару и условиям."},
+      {"state": "active", "text": "Сравнить предложения и выбрать допустимый коммерческий вариант своей стороны."},
+      {"state": "active", "text": "Подтвердить договорные условия и выполнить разрешённое действие покупателя."},
+      {"state": "active", "text": "Подтвердить условия приёмки и готовность своей стороны к согласованной поставке."},
+      {"state": "active", "text": "Сопоставить приёмку и качество с условиями и принять решение в пределах роли покупателя."},
+      {"state": "active", "text": "Проверить документы и основание расчёта и выполнить разрешённое действие покупателя."},
+      {"state": "active", "text": "Подтвердить закрытие своей части Сделки либо действовать по относящемуся к покупателю исключению."},
+    ],
+    logistics: [
+      {"state": "inactive", "text": "Активного действия нет: логистика подключается после появления подтверждённой потребности в перевозке."},
+      {"state": "inactive", "text": "Активного действия нет: дождитесь коммерческой основы и параметров будущей перевозки."},
+      {"state": "inactive", "text": "Активного действия нет: логистика начинает работу после создания транспортной задачи из согласованных условий."},
+      {"state": "active", "text": "Сформировать и координировать транспортную задачу, маршрут и назначение перевозки."},
+      {"state": "active", "text": "Зафиксировать относящиеся к перевозке факты доставки без решения за приёмку или качество."},
+      {"state": "active", "text": "Передать или исправить транспортные документы и связанные факты перевозки."},
+      {"state": "inactive", "text": "Активного действия нет: логистика возвращается только при транспортном исключении или корректировке."},
+    ],
+    driver: [
+      {"state": "inactive", "text": "Активного действия нет: водитель подключается только после назначения конкретного рейса."},
+      {"state": "inactive", "text": "Активного действия нет: коммерческий выбор не относится к полномочиям водителя."},
+      {"state": "inactive", "text": "Активного действия нет: договорные решения не относятся к полномочиям водителя."},
+      {"state": "active", "text": "Выполнить назначенный рейс и передать факты, относящиеся к своей транспортной задаче."},
+      {"state": "inactive", "text": "Активного действия нет: вернитесь только если требуется уточнить факт рейса или передачи груза."},
+      {"state": "inactive", "text": "Активного действия нет: вернитесь только если требуется исправить документ по своему рейсу."},
+      {"state": "inactive", "text": "Активного действия нет: закрытие Сделки не является действием водителя."},
+    ],
+    storage: [
+      {"state": "inactive", "text": "Активного действия нет: площадка хранения подключается при направлении конкретной партии на приёмку."},
+      {"state": "inactive", "text": "Активного действия нет: выбор контрагента не относится к полномочиям площадки хранения."},
+      {"state": "inactive", "text": "Активного действия нет: дождитесь основания для приёмки конкретной партии."},
+      {"state": "inactive", "text": "Активного действия нет: роль активируется при фактическом поступлении партии на площадку."},
+      {"state": "active", "text": "Зафиксировать приёмку, вес, размещение и факты движения партии на площадке."},
+      {"state": "active", "text": "Передать документы и подтверждения площадки, относящиеся к принятой партии."},
+      {"state": "inactive", "text": "Активного действия нет: вернитесь только при закрывающем факте хранения или исключении по площадке."},
+    ],
+    laboratory: [
+      {"state": "inactive", "text": "Активного действия нет: лаборатория подключается после появления основания для исследования конкретной партии."},
+      {"state": "inactive", "text": "Активного действия нет: коммерческий выбор не относится к полномочиям лаборатории."},
+      {"state": "inactive", "text": "Активного действия нет: договорные решения сторон не являются лабораторным действием."},
+      {"state": "inactive", "text": "Активного действия нет: дождитесь отбора/передачи образца или поручения на исследование."},
+      {"state": "active", "text": "Принять образец, провести исследование по методике и зафиксировать результат по конкретной партии."},
+      {"state": "active", "text": "Передать протокол или исправить лабораторный документ без принятия решения о расчёте."},
+      {"state": "inactive", "text": "Активного действия нет: лаборатория возвращается только при назначенном повторном исследовании или споре о результате."},
+    ],
+    surveyor: [
+      {"state": "inactive", "text": "Активного действия нет: сюрвейер подключается только после отдельного поручения на независимую проверку."},
+      {"state": "inactive", "text": "Активного действия нет: коммерческий выбор не относится к полномочиям сюрвейера."},
+      {"state": "inactive", "text": "Активного действия нет: договорные решения сторон не являются действием сюрвейера."},
+      {"state": "inactive", "text": "Активного действия нет: дождитесь отдельного поручения и предмета независимой проверки."},
+      {"state": "active", "text": "В пределах поручения зафиксировать независимые факты приёмки/качества и материалы проверки."},
+      {"state": "active", "text": "Передать независимое заключение и относящиеся к нему материалы."},
+      {"state": "inactive", "text": "Активного действия нет: вернитесь только при споре или назначенной финальной/повторной проверке."},
+    ],
+    bank: [
+      {"state": "inactive", "text": "Активного действия нет: финансовый контур подключается после появления подтверждённого финансового основания."},
+      {"state": "inactive", "text": "Активного действия нет: выбор товара и контрагента не является действием банка."},
+      {"state": "inactive", "text": "Активного действия нет: банк не принимает договорное решение вместо сторон."},
+      {"state": "inactive", "text": "Активного действия нет: транспортное исполнение не относится к финансовому контуру."},
+      {"state": "inactive", "text": "Активного действия нет: приёмка и качество должны сначала сформировать подтверждённое финансовое основание."},
+      {"state": "active", "text": "В пределах финансовых полномочий обработать подтверждённое основание и зафиксировать финансовый результат."},
+      {"state": "active", "text": "Зафиксировать финансовый исход закрытия либо выполнить только назначенную финансовую корректировку/возврат."},
+    ],
+    employee: [
+      {"state": "inactive", "text": "Активного действия нет: сотрудник платформы подключается только к назначенному контролируемому исключению."},
+      {"state": "inactive", "text": "Активного действия нет: сотрудник платформы не выбирает контрагента за участника; только назначенное исключение активирует роль."},
+      {"state": "inactive", "text": "Активного действия нет: сотрудник платформы не принимает договорное решение за сторону; роль активна только при назначенном исключении."},
+      {"state": "inactive", "text": "Активного действия нет: сотрудник платформы не выполняет транспортную роль; подключение — только по назначенному исключению."},
+      {"state": "inactive", "text": "Активного действия нет: сотрудник платформы не заменяет приёмку, лабораторию или стороны; подключение — только по исключению."},
+      {"state": "inactive", "text": "Активного действия нет: сотрудник платформы не распоряжается средствами и не подтверждает расчёт за участников; только назначенное исключение."},
+      {"state": "inactive", "text": "Активного действия нет без назначенного исключения; при исключении сотрудник только маршрутизирует Сделку к разрешённому следующему шагу."},
+    ],
+  },
+  en: {
+    seller: [
+      {"state": "active", "text": "Confirm the seller’s product data and terms."},
+      {"state": "active", "text": "Compare offers and confirm the seller-side commercial choice."},
+      {"state": "active", "text": "Confirm contract terms and perform the seller-side permitted action."},
+      {"state": "active", "text": "Prepare the lot for handover and perform agreed seller delivery obligations."},
+      {"state": "active", "text": "Review acceptance/quality facts and respond to a seller-side deviation."},
+      {"state": "active", "text": "Provide or correct seller documents and review the settlement basis."},
+      {"state": "active", "text": "Confirm seller-side closure or respond to a seller-related exception."},
+    ],
+    buyer: [
+      {"state": "active", "text": "Confirm the buyer’s demand and product/term requirements."},
+      {"state": "active", "text": "Compare offers and select the buyer-side permitted commercial option."},
+      {"state": "active", "text": "Confirm contract terms and perform the buyer-side permitted action."},
+      {"state": "active", "text": "Confirm receiving conditions and buyer-side readiness for the agreed delivery."},
+      {"state": "active", "text": "Compare acceptance/quality with terms and take the decision allowed to the buyer."},
+      {"state": "active", "text": "Review documents and settlement basis and perform the buyer-side permitted action."},
+      {"state": "active", "text": "Confirm buyer-side closure or act on a buyer-related exception."},
+    ],
+    logistics: [
+      {"state": "inactive", "text": "No active action: logistics becomes relevant after a confirmed transport need exists."},
+      {"state": "inactive", "text": "No active action: wait for the commercial basis and transport parameters."},
+      {"state": "inactive", "text": "No active action: logistics starts after agreed terms create a transport task."},
+      {"state": "active", "text": "Create and coordinate the transport task, route and assignment."},
+      {"state": "active", "text": "Record delivery facts that belong to transport without deciding acceptance or quality."},
+      {"state": "active", "text": "Provide or correct transport documents and related transport facts."},
+      {"state": "inactive", "text": "No active action: logistics returns only for a transport exception or correction."},
+    ],
+    driver: [
+      {"state": "inactive", "text": "No active action: the driver becomes relevant only after a specific trip is assigned."},
+      {"state": "inactive", "text": "No active action: commercial selection is outside the driver’s authority."},
+      {"state": "inactive", "text": "No active action: contract decisions are outside the driver’s authority."},
+      {"state": "active", "text": "Perform the assigned trip and submit facts belonging to that transport task."},
+      {"state": "inactive", "text": "No active action: return only if a trip or handover fact needs clarification."},
+      {"state": "inactive", "text": "No active action: return only if a document for the assigned trip needs correction."},
+      {"state": "inactive", "text": "No active action: Deal closure is not a driver action."},
+    ],
+    storage: [
+      {"state": "inactive", "text": "No active action: storage becomes relevant when a specific lot is sent for intake."},
+      {"state": "inactive", "text": "No active action: counterparty selection is outside storage authority."},
+      {"state": "inactive", "text": "No active action: wait for the basis to receive a specific lot."},
+      {"state": "inactive", "text": "No active action: the role activates when the lot physically arrives at the site."},
+      {"state": "active", "text": "Record intake, weight, placement and lot-movement facts at the site."},
+      {"state": "active", "text": "Provide storage-site documents and confirmations for the received lot."},
+      {"state": "inactive", "text": "No active action: return only for a storage closure fact or site-related exception."},
+    ],
+    laboratory: [
+      {"state": "inactive", "text": "No active action: the laboratory becomes relevant after there is a basis to test a specific lot."},
+      {"state": "inactive", "text": "No active action: commercial selection is outside laboratory authority."},
+      {"state": "inactive", "text": "No active action: party contract decisions are not laboratory actions."},
+      {"state": "inactive", "text": "No active action: wait for sample handover or a testing assignment."},
+      {"state": "active", "text": "Receive the sample, perform the test under the method and record the result for the exact lot."},
+      {"state": "active", "text": "Provide the protocol or correct a laboratory document without making a settlement decision."},
+      {"state": "inactive", "text": "No active action: the laboratory returns only for an assigned retest or a dispute about the result."},
+    ],
+    surveyor: [
+      {"state": "inactive", "text": "No active action: the surveyor becomes relevant only after an independent inspection is commissioned."},
+      {"state": "inactive", "text": "No active action: commercial selection is outside surveyor authority."},
+      {"state": "inactive", "text": "No active action: party contract decisions are not surveyor actions."},
+      {"state": "inactive", "text": "No active action: wait for a specific inspection commission and scope."},
+      {"state": "active", "text": "Within the commission, record independent acceptance/quality facts and inspection evidence."},
+      {"state": "active", "text": "Provide the independent conclusion and its supporting evidence."},
+      {"state": "inactive", "text": "No active action: return only for a dispute or commissioned final/repeat inspection."},
+    ],
+    bank: [
+      {"state": "inactive", "text": "No active action: finance becomes relevant after a confirmed financial basis exists."},
+      {"state": "inactive", "text": "No active action: product/counterparty selection is not a bank action."},
+      {"state": "inactive", "text": "No active action: the bank does not make the parties’ contract decision."},
+      {"state": "inactive", "text": "No active action: transport execution is outside the financial circuit."},
+      {"state": "inactive", "text": "No active action: acceptance/quality must first produce a confirmed financial basis."},
+      {"state": "active", "text": "Within financial authority, process the confirmed basis and record the financial result."},
+      {"state": "active", "text": "Record the financial closure outcome or perform only an assigned financial correction/reversal."},
+    ],
+    employee: [
+      {"state": "inactive", "text": "No active action: a platform employee acts only on an assigned controlled exception."},
+      {"state": "inactive", "text": "No active action: platform staff do not choose a counterparty for a participant; only an assigned exception activates the role."},
+      {"state": "inactive", "text": "No active action: staff do not make a party’s contract decision; only an assigned exception activates the role."},
+      {"state": "inactive", "text": "No active action: staff do not perform transport work; involvement is exception-only."},
+      {"state": "inactive", "text": "No active action: staff do not replace acceptance, laboratory or party authority; involvement is exception-only."},
+      {"state": "inactive", "text": "No active action: staff do not control participant funds or confirm settlement for them; exception-only."},
+      {"state": "inactive", "text": "No active action without an assigned exception; when assigned, staff only route the Deal to an allowed next step."},
+    ],
+  },
+  zh: {
+    seller: [
+      {"state": "active", "text": "确认卖方的商品数据和交易条件。"},
+      {"state": "active", "text": "比较报价并确认卖方一侧的商业选择。"},
+      {"state": "active", "text": "确认合同条件并执行卖方权限内的动作。"},
+      {"state": "active", "text": "准备批次交付并完成卖方约定的交付义务。"},
+      {"state": "active", "text": "核对接收和质量事实，并处理属于卖方的偏差。"},
+      {"state": "active", "text": "提交或更正卖方文件，并核对结算依据。"},
+      {"state": "active", "text": "确认卖方一侧的交易关闭，或处理与卖方相关的异常。"},
+    ],
+    buyer: [
+      {"state": "active", "text": "确认买方需求以及对商品和条件的要求。"},
+      {"state": "active", "text": "比较报价并选择买方权限内的商业方案。"},
+      {"state": "active", "text": "确认合同条件并执行买方权限内的动作。"},
+      {"state": "active", "text": "确认接收条件以及买方对约定交付的准备。"},
+      {"state": "active", "text": "将接收和质量与约定条件核对，并作出买方权限内的决定。"},
+      {"state": "active", "text": "核对文件和结算依据，并执行买方权限内的动作。"},
+      {"state": "active", "text": "确认买方一侧的交易关闭，或处理与买方相关的异常。"},
+    ],
+    logistics: [
+      {"state": "inactive", "text": "当前无主动操作：出现已确认的运输需求后物流角色才介入。"},
+      {"state": "inactive", "text": "当前无主动操作：等待商业基础和运输参数明确。"},
+      {"state": "inactive", "text": "当前无主动操作：约定条件生成运输任务后物流才开始工作。"},
+      {"state": "active", "text": "创建并协调运输任务、路线和运输分配。"},
+      {"state": "active", "text": "记录属于运输环节的交付事实，不替代接收或质量决定。"},
+      {"state": "active", "text": "提交或更正运输文件及相关运输事实。"},
+      {"state": "inactive", "text": "当前无主动操作：仅在运输异常或需要更正时重新介入。"},
+    ],
+    driver: [
+      {"state": "inactive", "text": "当前无主动操作：只有分配具体运输任务后司机才介入。"},
+      {"state": "inactive", "text": "当前无主动操作：商业选择不属于司机权限。"},
+      {"state": "inactive", "text": "当前无主动操作：合同决定不属于司机权限。"},
+      {"state": "active", "text": "完成已分配的运输任务并提交与该任务有关的事实。"},
+      {"state": "inactive", "text": "当前无主动操作：仅在需要澄清运输或交接事实时处理。"},
+      {"state": "inactive", "text": "当前无主动操作：仅在需要更正本次运输文件时处理。"},
+      {"state": "inactive", "text": "当前无主动操作：交易关闭不属于司机动作。"},
+    ],
+    storage: [
+      {"state": "inactive", "text": "当前无主动操作：具体批次进入接收入库时仓储角色才介入。"},
+      {"state": "inactive", "text": "当前无主动操作：交易对手选择不属于仓储权限。"},
+      {"state": "inactive", "text": "当前无主动操作：等待具体批次的接收依据。"},
+      {"state": "inactive", "text": "当前无主动操作：批次实际到达仓储场地时角色才激活。"},
+      {"state": "active", "text": "记录批次接收、重量、存放和场内移动事实。"},
+      {"state": "active", "text": "提交与已接收批次有关的仓储文件和确认。"},
+      {"state": "inactive", "text": "当前无主动操作：仅在仓储关闭事实或场地异常时处理。"},
+    ],
+    laboratory: [
+      {"state": "inactive", "text": "当前无主动操作：具体批次形成检测依据后实验室才介入。"},
+      {"state": "inactive", "text": "当前无主动操作：商业选择不属于实验室权限。"},
+      {"state": "inactive", "text": "当前无主动操作：交易双方的合同决定不属于实验室动作。"},
+      {"state": "inactive", "text": "当前无主动操作：等待样品交接或检测委托。"},
+      {"state": "active", "text": "接收样品、按方法完成检测，并记录对应具体批次的结果。"},
+      {"state": "active", "text": "提交检测报告或更正实验室文件，不作出结算决定。"},
+      {"state": "inactive", "text": "当前无主动操作：仅在安排复检或对结果产生争议时重新介入。"},
+    ],
+    surveyor: [
+      {"state": "inactive", "text": "当前无主动操作：只有收到独立检验委托后检验机构才介入。"},
+      {"state": "inactive", "text": "当前无主动操作：商业选择不属于检验机构权限。"},
+      {"state": "inactive", "text": "当前无主动操作：交易双方的合同决定不属于检验机构动作。"},
+      {"state": "inactive", "text": "当前无主动操作：等待明确的独立检验委托和范围。"},
+      {"state": "active", "text": "在委托范围内记录独立的接收/质量事实和检验材料。"},
+      {"state": "active", "text": "提交独立检验结论及其支持材料。"},
+      {"state": "inactive", "text": "当前无主动操作：仅在争议或安排最终/复检时重新介入。"},
+    ],
+    bank: [
+      {"state": "inactive", "text": "当前无主动操作：形成已确认的金融依据后金融角色才介入。"},
+      {"state": "inactive", "text": "当前无主动操作：商品或交易对手选择不属于银行动作。"},
+      {"state": "inactive", "text": "当前无主动操作：银行不替交易双方作合同决定。"},
+      {"state": "inactive", "text": "当前无主动操作：运输履约不属于金融环节。"},
+      {"state": "inactive", "text": "当前无主动操作：接收和质量必须先形成已确认的金融依据。"},
+      {"state": "active", "text": "在金融权限范围内处理已确认依据并记录金融结果。"},
+      {"state": "active", "text": "记录交易关闭的金融结果，或仅执行已指定的金融更正/冲正。"},
+    ],
+    employee: [
+      {"state": "inactive", "text": "当前无主动操作：平台员工仅在分配受控异常后介入。"},
+      {"state": "inactive", "text": "当前无主动操作：平台员工不替参与方选择交易对手；只有分配异常后才激活。"},
+      {"state": "inactive", "text": "当前无主动操作：平台员工不替任何一方作合同决定；仅在分配异常后激活。"},
+      {"state": "inactive", "text": "当前无主动操作：平台员工不承担运输角色；仅在分配异常时介入。"},
+      {"state": "inactive", "text": "当前无主动操作：平台员工不替代接收、实验室或交易方权限；仅处理异常。"},
+      {"state": "inactive", "text": "当前无主动操作：平台员工不支配参与方资金，也不替其确认结算；仅处理异常。"},
+      {"state": "inactive", "text": "未分配异常时无主动操作；出现已分配异常时，平台员工只把交易引导至允许的下一步。"},
+    ],
+  },
+};
+
 const stages: Record<Locale, readonly StageScenario[]> = {
   ru: [
     { label: 'Товар и условия', focus: 'Предмет Сделки', title: 'Сначала стороны работают с одной версией товара и условий', explanation: 'Объём, качество, базис, допуски, документы и правила расчёта собираются вокруг одной будущей Сделки.', next: 'Сопоставить потребность и предложение и перейти к выбору контрагента.', evidence: 'Карточка товара или потребности, условия и версия предложения.', cards: [['Товар', 'Культура, объём и характеристики'], ['Условия', 'Базис, допуски и правила'], ['Документы', 'Что потребуется по Сделке'], ['Расчёт', 'Как условия влияют на деньги']], gekta: 'Помогает разложить условия по смыслу, заметить противоречия и объяснить влияние параметров на дальнейший путь Сделки.' },
@@ -151,10 +407,42 @@ export function PublicDealRoleScenario({ locale }: { locale: string }) {
   const normalized: Locale = locale === 'en' || locale === 'zh' ? locale : 'ru';
   const [role, setRole] = useState<RoleKey>('buyer');
   const [stageIndex, setStageIndex] = useState(0);
+  const roleTabsRef = useRef<HTMLDivElement>(null);
   const copy = ui[normalized];
   const selectedRole = useMemo(() => scenarios[normalized][role], [normalized, role]);
   const stageList = stages[normalized];
   const selectedStage = stageList[stageIndex]!;
+  const selectedRoleAction = roleStageActions[normalized][role][stageIndex]!;
+
+  useEffect(() => {
+    const rail = roleTabsRef.current;
+    const selected = rail?.querySelector<HTMLButtonElement>('[aria-selected="true"]');
+    if (!rail || !selected) return;
+
+    const revealSelectedRole = () => {
+      const box = selected.getBoundingClientRect();
+      const railBox = rail.getBoundingClientRect();
+      const style = window.getComputedStyle(rail);
+      const left = railBox.left + (Number.parseFloat(style.borderLeftWidth) || 0);
+      const right = railBox.right - (Number.parseFloat(style.borderRightWidth) || 0);
+      if (box.left >= left && box.right <= right) return;
+      // Match this tab's scroll-snap start; never move the document vertically.
+      rail.scrollTo({
+        left: rail.scrollLeft + box.left - left - (Number.parseFloat(style.paddingLeft) || 0),
+        behavior: 'instant',
+      });
+    };
+
+    revealSelectedRole();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', revealSelectedRole);
+      return () => window.removeEventListener('resize', revealSelectedRole);
+    }
+    const observer = new ResizeObserver(revealSelectedRole);
+    observer.observe(rail);
+    observer.observe(selected);
+    return () => observer.disconnect();
+  }, [role, normalized]);
 
   const handleRoleTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, key: RoleKey) => {
     const currentIndex = roleKeys.indexOf(key);
@@ -172,7 +460,7 @@ export function PublicDealRoleScenario({ locale }: { locale: string }) {
     const nextRole = roleKeys[nextIndex]!;
     setRole(nextRole);
     const tabs = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]');
-    tabs?.[nextIndex]?.focus();
+    tabs?.[nextIndex]?.focus({ preventScroll: true });
   };
 
   return (
@@ -219,7 +507,7 @@ export function PublicDealRoleScenario({ locale }: { locale: string }) {
           <div><span>{copy.gekta}</span><strong>{selectedStage.gekta}</strong><small>{copy.gektaLimit}</small></div>
         </aside>
 
-        <div className={styles.tabs} role='tablist' aria-label={copy.rolesLabel} aria-orientation='horizontal'>
+        <div ref={roleTabsRef} className={styles.tabs} role='tablist' aria-label={copy.rolesLabel} aria-orientation='horizontal'>
           {roleKeys.map((key) => (
             <button
               key={key}
@@ -242,7 +530,7 @@ export function PublicDealRoleScenario({ locale }: { locale: string }) {
           <article className={styles.alert}><ShieldAlert aria-hidden='true' /><div><span>{copy.roleLens}</span><strong>{selectedRole.lens}</strong></div></article>
           <div className={styles.actionGrid}>
             <article><UserRoundCheck aria-hidden='true' /><div><span>{copy.responsibility}</span><strong>{selectedRole.responsibility}</strong></div></article>
-            <article><FileCheck2 aria-hidden='true' /><div><span>{copy.next}</span><strong>{selectedStage.next}</strong></div></article>
+            <article data-role-action-state={selectedRoleAction.state}><FileCheck2 aria-hidden='true' /><div><span>{copy.next}</span><strong>{selectedRoleAction.text}</strong></div></article>
           </div>
           <div className={styles.contextRow}>
             <span><FileCheck2 aria-hidden='true' /><b>{copy.evidence}:</b> {selectedStage.evidence}</span>
