@@ -17,6 +17,9 @@ const publicHomeGovernanceBranch = 'governance/public-home-role-clarity-scope-20
 const publicHomeImplementationBranch = 'feat/public-home-role-clarity-20260905';
 const publicHomeGovernanceManifest = 'docs/platform-v7/autopilot/scopes/governance-public-home-role-clarity-scope-20260905.json';
 const publicHomeImplementationManifest = 'docs/platform-v7/autopilot/scopes/public-home-role-clarity-20260905.json';
+const poisonIsolationImplementationBranch = 'fix/production-like-outbox-poison-isolation-3793';
+const poisonIsolationManifest = 'docs/platform-v7/autopilot/scopes/production-like-outbox-poison-isolation-3793.json';
+const poisonIsolationScript = 'scripts/release/production-like-kubernetes-outbox-runtime.sh';
 const sourceGuard = path.resolve('scripts/p7-autopilot-guard.sh');
 const sourceResolver = path.resolve('scripts/p7-source-controlled-scope.mjs');
 const sourceWorkflow = path.resolve('.github/workflows/platform-v7-autopilot-guard.yml');
@@ -92,6 +95,38 @@ function publicHomeImplementationFixture(t, { withManifest = true } = {}) {
   const baseline = git(root, ['rev-parse', 'HEAD']);
   git(root, ['switch', '-c', publicHomeImplementationBranch]);
   return { root, baseline, implementationBranch: publicHomeImplementationBranch };
+}
+
+function poisonIsolationFixture(t, { manifest = 'valid' } = {}) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-poison-isolation-immutable-scope-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  write(root, 'scripts/p7-autopilot-guard.sh', fs.readFileSync(sourceGuard, 'utf8'), 0o755);
+  write(root, 'scripts/p7-source-controlled-scope.mjs', fs.readFileSync(sourceResolver, 'utf8'), 0o755);
+  write(root, '.github/workflows/platform-v7-autopilot-guard.yml', 'name: fixture\n');
+  write(root, 'docs/platform-v7/autopilot/autopilot-state.json', '{"allowedCurrentScope":["README.md"],"approvedConcurrentScopes":{}}\n');
+  write(root, 'README.md', 'baseline\n');
+  write(root, poisonIsolationScript, 'baseline runtime harness\n');
+  if (manifest !== null) {
+    if (manifest === 'malformed') {
+      write(root, poisonIsolationManifest, '{not-json\n');
+    } else {
+      const value = {
+        schemaVersion: 'platform-v7.concurrent-scope.v1',
+        branch: poisonIsolationImplementationBranch,
+        status: 'active',
+        allowedPaths: [poisonIsolationManifest, poisonIsolationScript],
+        ...(manifest === 'valid' ? {} : manifest),
+      };
+      write(root, poisonIsolationManifest, `${JSON.stringify(value, null, 2)}\n`);
+    }
+  }
+  git(root, ['init', '--initial-branch=main']);
+  git(root, ['config', 'user.name', 'Poison Isolation Guard Test']);
+  git(root, ['config', 'user.email', 'poison-isolation-guard@example.invalid']);
+  commit(root, 'accepted base');
+  const baseline = git(root, ['rev-parse', 'HEAD']);
+  git(root, ['switch', '-c', poisonIsolationImplementationBranch]);
+  return { root, baseline, implementationBranch: poisonIsolationImplementationBranch };
 }
 
 function publicHomeGovernanceFixture(t) {
@@ -281,6 +316,73 @@ test('public-home implementation fails closed when the accepted base manifest is
   const result = runGuard(context);
   assert.notEqual(result.status, 0, output(result));
   assert.match(output(result), /cannot load accepted public-home manifest/u);
+});
+
+test('poison-isolation implementation accepts a script-only diff from the accepted base manifest', (t) => {
+  const context = poisonIsolationFixture(t);
+  write(context.root, poisonIsolationScript, 'accepted runtime harness change\n');
+  commit(context.root, 'change accepted poison-isolation harness');
+  const result = runGuard(context);
+  assert.equal(result.status, 0, output(result));
+  assert.match(result.stdout, /Scope guard passed\./u);
+});
+
+test('poison-isolation implementation fails closed when the accepted base manifest is missing', (t) => {
+  const context = poisonIsolationFixture(t, { manifest: null });
+  write(context.root, poisonIsolationScript, 'attempt without manifest\n');
+  commit(context.root, 'attempt without accepted poison-isolation manifest');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /cannot load accepted poison-isolation manifest/u);
+});
+
+test('poison-isolation implementation fails closed when the accepted base manifest is malformed', (t) => {
+  const context = poisonIsolationFixture(t, { manifest: 'malformed' });
+  write(context.root, poisonIsolationScript, 'attempt with malformed manifest\n');
+  commit(context.root, 'attempt with malformed poison-isolation manifest');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /cannot load accepted poison-isolation manifest/u);
+});
+
+test('poison-isolation implementation rejects an accepted base manifest with the wrong schema', (t) => {
+  const context = poisonIsolationFixture(t, { manifest: { schemaVersion: 'platform-v7.concurrent-scope.v0' } });
+  write(context.root, poisonIsolationScript, 'attempt with wrong schema\n');
+  commit(context.root, 'attempt wrong poison-isolation schema');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /accepted poison-isolation manifest identity is invalid/u);
+});
+
+test('poison-isolation implementation rejects an inactive accepted base manifest', (t) => {
+  const context = poisonIsolationFixture(t, { manifest: { status: 'inactive' } });
+  write(context.root, poisonIsolationScript, 'attempt with inactive manifest\n');
+  commit(context.root, 'attempt inactive poison-isolation scope');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /accepted poison-isolation manifest identity is invalid/u);
+});
+
+test('poison-isolation implementation rejects an accepted base manifest for another branch', (t) => {
+  const context = poisonIsolationFixture(t, { manifest: { branch: 'fix/not-the-poison-isolation-branch' } });
+  write(context.root, poisonIsolationScript, 'attempt with wrong branch\n');
+  commit(context.root, 'attempt wrong poison-isolation branch');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /accepted poison-isolation manifest identity is invalid/u);
+});
+
+test('poison-isolation implementation cannot widen its own manifest', (t) => {
+  const context = poisonIsolationFixture(t);
+  const manifest = JSON.parse(fs.readFileSync(path.join(context.root, poisonIsolationManifest), 'utf8'));
+  manifest.allowedPaths.push('README.md');
+  write(context.root, poisonIsolationManifest, `${JSON.stringify(manifest, null, 2)}\n`);
+  write(context.root, 'README.md', 'self-authorized widening attempt\n');
+  commit(context.root, 'attempt poison-isolation manifest widening');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /Mutable scope authority changed/u);
+  assert.match(output(result), /production-like-outbox-poison-isolation-3793\.json/u);
 });
 
 test('records immutable prior authority for the EGRUL governance manifest only', () => {
