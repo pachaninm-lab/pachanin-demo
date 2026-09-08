@@ -2,16 +2,16 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "governance/public-home-role-clarity-scope-20260905",
   "status": "active",
-  "authorizedBy": "explicit-user-instruction-2026-09-08-complete-homepage-5111-live-acceptance",
-  "purpose": "Refresh the trusted public-home governance slot for the deterministic exact-production acceptance failures remaining after merge #5176 and the concrete post-merge Codex accessibility finding: source-native RU/EN/ZH localization of the public Deal execution route, robust full-document mobile visual evidence capture in WebKit, and semantic role-based exposure of the seven-stage rail, without allowing the implementation branch to authorize or widen its own scope.",
-  "authorityBaseExactMain": "15a834e3993e43da82af2748633a19d2717b1fa6",
+  "authorizedBy": "explicit-user-instruction-2026-09-08-authorize-root-layout-for-homepage-5111-rendered-head-localization",
+  "purpose": "Refresh the trusted public-home governance slot after Codex proved the localized Deal execution page still inherited a manually emitted Russian root description. Authorize exactly one additional implementation path, apps/web/app/layout.tsx, only for a pathname-bounded /platform-v7/deal-flow description suppression, while retaining the existing source-native RU/EN/ZH, semantic accessibility and WebKit visual-evidence repairs.",
+  "authorityBaseExactMain": "db59193bdc3fc7028a2c6052e4603dc79d143bc7",
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/governance-public-home-role-clarity-scope-20260905.json",
     "docs/platform-v7/autopilot/scopes/public-home-role-clarity-20260905.json"
   ],
   "implementationBranch": "feat/public-home-role-clarity-20260905",
   "implementationManifest": "docs/platform-v7/autopilot/scopes/public-home-role-clarity-20260905.json",
-  "implementationAllowedPathCount": 4,
+  "implementationAllowedPathCount": 5,
   "boundaries": {
     "productBehaviorChange": true,
     "registrationChange": false,
