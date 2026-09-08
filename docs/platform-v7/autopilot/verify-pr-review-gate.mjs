@@ -291,6 +291,47 @@ function ghJson(args) {
   return raw ? JSON.parse(raw) : null;
 }
 
+export function octopusActionsRunUrl(repo, runId) {
+  const repository = String(repo || '').trim();
+  const id = String(runId || '').trim();
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u.test(repository)) return '';
+  if (!/^[1-9][0-9]*$/u.test(id)) return '';
+  return `https://api.github.com/repos/${repository}/actions/runs/${id}`;
+}
+
+function fetchPublicOctopusActionsRun(repo, runId) {
+  const url = octopusActionsRunUrl(repo, runId);
+  if (!url) throw new Error('Invalid Octopus Actions run identity.');
+
+  // Merge-controller GITHUB_TOKEN permissions deliberately remain minimal and
+  // do not need `actions: read`. This repository is public, so resolve only the
+  // fixed GitHub Actions run endpoint anonymously. Strip GitHub credentials and
+  // ignore user curl configuration; any network/rate-limit/JSON failure is
+  // caught by the caller and therefore fails closed rather than granting review.
+  const env = { ...process.env };
+  delete env.GH_TOKEN;
+  delete env.GITHUB_TOKEN;
+  delete env.GITHUB_AUTH_TOKEN;
+  const raw = execFileSync('curl', [
+    '--disable',
+    '--fail',
+    '--silent',
+    '--show-error',
+    '--proto', '=https',
+    '--connect-timeout', '10',
+    '--max-time', '20',
+    '-H', 'Accept: application/vnd.github+json',
+    '-H', 'X-GitHub-Api-Version: 2022-11-28',
+    '-H', 'User-Agent: platform-v7-exact-head-review-gate',
+    url,
+  ], {
+    encoding: 'utf8',
+    env,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+  return raw ? JSON.parse(raw) : null;
+}
+
 function fetchAllReviews(repo, prNumber) {
   const pages = ghJson([
     'api',
@@ -461,7 +502,7 @@ function main() {
   );
   const workflowBoundOctopusAttestations = positiveOctopusAttestations.filter((attestation) => {
     try {
-      const run = ghJson(['api', `repos/${repo}/actions/runs/${attestation.runId}`]);
+      const run = fetchPublicOctopusActionsRun(repo, attestation.runId);
       return octopusAttestationMatchesWorkflowRun(attestation, run, repo, prNumber, headSha);
     } catch {
       // Provider evidence is fail-closed when its immutable Actions run cannot

@@ -1,6 +1,9 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { describe, expect, it } from 'vitest';
+import React from 'react';
+import { act, cleanup, render, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { PublicAnalytics } from '../../components/analytics/PublicAnalytics';
 import {
   PUBLIC_ANALYTICS_PATHS,
   SESSION_REPLAY_ENABLED,
@@ -13,6 +16,12 @@ import {
 
 const WEB_ROOT = join(__dirname, '..', '..');
 const read = (relative: string) => readFileSync(join(WEB_ROOT, relative), 'utf8');
+
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/platform-v7',
+}));
+
+afterEach(() => cleanup());
 
 /**
  * Каждое семейство приватных или чувствительных путей перечислено явно.
@@ -297,3 +306,45 @@ describe('analytics markup is no longer inherited by every page', () => {
   });
 });
 
+describe('PostHog public analytics capture lifecycle', () => {
+  it('emits one page view across action-reference rerenders and same-route remounts', async () => {
+    const firstAction = vi.fn(async () => undefined);
+    const rendered = render(React.createElement(PublicAnalytics, {
+      locale: 'ru',
+      capturePublicProductAnalyticsAction: firstAction,
+    }));
+
+    await waitFor(() => expect(firstAction).toHaveBeenCalledTimes(1));
+    expect(firstAction.mock.calls[0]?.[0]).toMatchObject({
+      name: 'public_page_view',
+      properties: { locale: 'ru', source: 'public_analytics_bridge' },
+    });
+
+    const replacementAction = vi.fn(async () => undefined);
+    rendered.rerender(React.createElement(PublicAnalytics, {
+      locale: 'ru',
+      capturePublicProductAnalyticsAction: replacementAction,
+    }));
+
+    await act(async () => Promise.resolve());
+    expect(firstAction).toHaveBeenCalledTimes(1);
+    expect(replacementAction).not.toHaveBeenCalled();
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent('pc:public-product-analytics', {
+        detail: { name: 'deal_demo_open', source: 'home_preview' },
+      }));
+    });
+    await waitFor(() => expect(replacementAction).toHaveBeenCalledTimes(1));
+    expect(replacementAction.mock.calls[0]?.[0]).toMatchObject({ name: 'deal_demo_open' });
+
+    rendered.unmount();
+    const remountedAction = vi.fn(async () => undefined);
+    render(React.createElement(PublicAnalytics, {
+      locale: 'ru',
+      capturePublicProductAnalyticsAction: remountedAction,
+    }));
+    await act(async () => Promise.resolve());
+    expect(remountedAction).not.toHaveBeenCalled();
+  });
+});
