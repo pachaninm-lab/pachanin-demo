@@ -12,6 +12,7 @@ const siteHeader = read('apps/web/components/platform-v7/PublicSiteHeader.tsx');
 const page = read('apps/web/app/platform-v7/page.tsx');
 const story = read('apps/web/i18n/platform-v7-home-story-product.ts');
 const css = read('apps/web/styles/platform-v7-international-home-fix.css');
+const dock = read('apps/web/components/platform-v7/PublicContactDock.tsx').replace(/\s+/g, '');
 const tsconfig = read('apps/web/tsconfig.json');
 const trustContent = read('apps/web/app/trust/page.tsx');
 const trustRoute = read('apps/web/app/platform-v7/trust/page.tsx');
@@ -110,13 +111,16 @@ describe('platform-v7 international homepage completion', () => {
     expect(css).not.toContain('content:');
     expect(css).not.toContain('font-size: 0');
     expect(css).toContain('.pc-v7-public-entry .pc-v6-footer');
-    expect(css).toContain(".pc-public-contact-dock[data-assistant-context='public']");
+    expect(css).not.toContain(".pc-public-contact-dock");
   });
 
   it('publishes the canonical public RU EN ZH Trust Center without unsupported certification claims', () => {
     expect(trustContent).toContain("type Locale = 'ru' | 'en' | 'zh'");
-    expect(trustRoute).toContain("import BaseTrustCenterPage from '../../trust/page'");
-    expect(trustRoute).toContain('rebrandTrustCopy(await BaseTrustCenterPage(), locale)');
+    expect(trustRoute).not.toContain("import BaseTrustCenterPage");
+    expect(trustRoute).toContain("export default async function PlatformV7TrustPage()");
+    expect(trustRoute).not.toContain('rebrandTrustCopy');
+    expect(trustRoute).toContain('const copy = COPY[locale];');
+    expect(trustRoute).toContain('brandHomeLabel={copy.brandHome}');
     expect(trustRoute).toContain("canonical: '/platform-v7/trust'");
     expect(platformLayout).toContain("'/platform-v7/trust',");
     const publicStart = platformLayout.indexOf('const PUBLIC_EXACT_PATHS');
@@ -130,20 +134,22 @@ describe('platform-v7 international homepage completion', () => {
     expect(trustContent).toContain('У Гекты нет самостоятельного права менять Сделку');
   });
 
-  it('keeps the wide-desktop contact dock in a narrow non-text-obscuring rail', () => {
-    expect(css).toContain('@media (min-width: 1180px)');
-    expect(css).toContain('body:has(.pc-v7-public-entry)');
-    expect(css).toContain('width: 54px !important');
-    expect(css).toContain('grid-template-rows: repeat(3, 48px) !important');
-    expect(css).toContain('width: 48px !important');
-    expect(css).toContain('min-height: 48px !important');
-    expect(css).toContain('.pc-public-contact-dock-action strong');
-    expect(css).toContain('clip-path: inset(50%) !important');
+  it('keeps the wide-desktop dock geometry solely in its canonical component', () => {
+    expect(css).not.toContain('.pc-public-contact-dock');
+    expect(dock).toContain('@media(min-width:1180px)');
+    expect(dock).toContain(".pc-public-contact-dock[data-assistant-context='public']");
+    expect(dock).toContain('width:54px!important');
+    expect(dock).toContain('grid-template-rows:repeat(3,48px)!important');
+    expect(dock).toContain('width:48px!important');
+    expect(dock).toContain('min-height:48px!important');
+    expect(dock).toContain('.pc-public-contact-dock-actionstrong');
+    expect(dock).toContain('clip-path:inset(50%)!important');
   });
 
   it('retains mobile dock sizing, reduced-motion and forced-colors resilience', () => {
-    expect(css).toContain('width: 56px !important');
-    expect(css).toContain('min-height: 48px !important');
+    expect(dock).toContain('width:56px!important');
+    expect(dock).toContain('min-height:48px!important');
+    expect(dock).toContain('min-height:44px!important');
     expect(css).toContain('@media (prefers-reduced-motion: reduce)');
     expect(css).toContain('@media (forced-colors: active)');
     expect(trustContent).toContain("aria-labelledby='pc-trust-title'");

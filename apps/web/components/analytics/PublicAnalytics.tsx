@@ -2,7 +2,7 @@
 
 import Script from 'next/script';
 import { usePathname } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   PUBLIC_PRODUCT_ANALYTICS_DOM_EVENTS,
   SESSION_REPLAY_ENABLED,
@@ -15,6 +15,14 @@ import {
 
 const PUBLIC_ANALYTICS_SESSION_KEY = 'pc-public-analytics-tab-v1';
 const MAX_POSTHOG_EVENTS_PER_ROUTE = 120;
+
+// Next.js Server Action references may be replaced by an RSC refresh even when
+// their semantics have not changed. Route state therefore lives outside the
+// component instance: a remount on the same pathname must not restart the
+// page-view emission or reset the per-route safety budget.
+let activePosthogAnalyticsPath: string | null = null;
+let sentPosthogEventsForActivePath = 0;
+let capturedPageViewForActivePath = false;
 
 function viewportGroup(): 'mobile' | 'tablet' | 'desktop' {
   if (window.innerWidth < 720) return 'mobile';
@@ -62,17 +70,31 @@ export function PublicAnalytics({
   capturePublicProductAnalyticsAction,
 }: PublicAnalyticsProps): JSX.Element | null {
   const pathname = usePathname();
+  const captureActionRef = useRef(capturePublicProductAnalyticsAction);
+  captureActionRef.current = capturePublicProductAnalyticsAction;
+  const captureEnabled = typeof capturePublicProductAnalyticsAction === 'function';
 
   useEffect(() => {
-    if (!capturePublicProductAnalyticsAction || !posthogPublicAnalyticsAllowedForPath(pathname)) return;
+    if (activePosthogAnalyticsPath !== pathname) {
+      activePosthogAnalyticsPath = pathname;
+      sentPosthogEventsForActivePath = 0;
+      capturedPageViewForActivePath = false;
+    }
+
+    if (!captureEnabled || !posthogPublicAnalyticsAllowedForPath(pathname)) return;
     const distinctId = ephemeralTabId();
     if (!distinctId) return;
 
     const normalizedLocale = locale === 'en' || locale === 'zh' ? locale : 'ru';
-    let sent = 0;
 
-    const capture = (detail: unknown) => {
-      if (sent >= MAX_POSTHOG_EVENTS_PER_ROUTE) return;
+    const capture = (detail: unknown): boolean => {
+      // An obsolete listener must never spend the budget of a route that has
+      // already replaced it, and remounts must share one bounded counter.
+      if (activePosthogAnalyticsPath !== pathname) return false;
+      if (sentPosthogEventsForActivePath >= MAX_POSTHOG_EVENTS_PER_ROUTE) return false;
+      const captureAction = captureActionRef.current;
+      if (!captureAction) return false;
+
       const source = typeof detail === 'object' && detail !== null && !Array.isArray(detail)
         ? detail as Record<string, unknown>
         : {};
@@ -88,13 +110,15 @@ export function PublicAnalytics({
           : viewportGroup(),
       };
       const sanitized = sanitizePublicProductAnalyticsDetail(enriched);
-      if (!sanitized) return;
-      sent += 1;
-      void capturePublicProductAnalyticsAction({
+      if (!sanitized) return false;
+
+      sentPosthogEventsForActivePath += 1;
+      void captureAction({
         distinctId,
         name: sanitized.name,
         properties: sanitized.properties,
       }).catch(() => undefined);
+      return true;
     };
 
     const receive = (event: Event) => {
@@ -105,14 +129,17 @@ export function PublicAnalytics({
     for (const eventName of PUBLIC_PRODUCT_ANALYTICS_DOM_EVENTS) {
       window.addEventListener(eventName, receive);
     }
-    capture({ name: 'public_page_view', source: 'public_analytics_bridge' });
+
+    if (!capturedPageViewForActivePath) {
+      capturedPageViewForActivePath = capture({ name: 'public_page_view', source: 'public_analytics_bridge' });
+    }
 
     return () => {
       for (const eventName of PUBLIC_PRODUCT_ANALYTICS_DOM_EVENTS) {
         window.removeEventListener(eventName, receive);
       }
     };
-  }, [capturePublicProductAnalyticsAction, locale, pathname]);
+  }, [captureEnabled, locale, pathname]);
 
   // Hooks выше работают независимо от Yandex: exact /platform-v7 разрешён для
   // PostHog, но по-прежнему запрещён исторической Yandex boundary.

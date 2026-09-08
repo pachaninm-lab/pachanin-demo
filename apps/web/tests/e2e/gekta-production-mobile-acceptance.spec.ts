@@ -95,6 +95,11 @@ async function acceptRequiredConsent(page: Page) {
   await expectTargetsAtLeast(acceptButton, 44);
   await acceptButton.click();
   await expect(consent).toHaveCount(0);
+  // useDialogFocus restores the opener in requestAnimationFrame after unmount.
+  // Finish that UI handoff before the next synthetic fill takes keyboard focus.
+  await page.evaluate(() => new Promise<void>(resolve => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  }));
 }
 
 async function acceptConsentIfPresent(page: Page) {
@@ -349,6 +354,7 @@ test.describe('Gekta exact production mobile acceptance', () => {
     const composer = page.locator('#gekta-composer-input');
     const draft = 'Строка 1\nСтрока 2\nСтрока 3\nСтрока 4\nСтрока 5';
     await composer.fill(draft);
+    await expect(composer).toHaveValue(draft);
     await composer.evaluate((node) => (node as HTMLTextAreaElement).setSelectionRange(17, 17));
     await composer.focus();
 
