@@ -123,11 +123,29 @@ function localeKey(locale: string): LocaleKey {
 }
 
 export async function generateMetadata(): Promise<Metadata> {
-  const t = COPY[localeKey(await getLocale())];
+  const lang = localeKey(await getLocale());
+  const t = COPY[lang];
+  const canonical = `https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow?lang=${lang}`;
+  const openGraphLocale = lang === 'en' ? 'en_US' : lang === 'zh' ? 'zh_CN' : 'ru_RU';
   return {
-    title: t.metaTitle,
+    title: { absolute: t.metaTitle },
     description: t.metaDescription,
-    alternates: { canonical: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow' },
+    alternates: {
+      canonical,
+      languages: {
+        'ru-RU': 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow?lang=ru',
+        en: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow?lang=en',
+        'zh-CN': 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow?lang=zh',
+      },
+    },
+    openGraph: {
+      type: 'website',
+      locale: openGraphLocale,
+      siteName: t.brand,
+      title: t.metaTitle,
+      description: t.metaDescription,
+      url: canonical,
+    },
   };
 }
 
