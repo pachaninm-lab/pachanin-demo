@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { checkManifests } from './check-ci-postgres-image-authority.mjs';
-import { TARGET_MIGRATIONS, TARGET_TABLES, validateManifest, decodeManifest, validateImageManifest,
+import { TARGET_MIGRATIONS, TARGET_TABLES, readMigrationManifest, validateManifest, decodeManifest, validateImageManifest,
   classifyLedger, validateApiEnvironment, validateSnapshot, snapshotSql, parseEvidence,
   validateMigrationImage, validateCompose, runtimeFingerprint, errorCode, checkSources } from './check-production-pc-crop-w1-acceptance.mjs';
 
@@ -67,6 +67,35 @@ test('image SQL set must exactly equal entire repository, regardless of key orde
   validateImageManifest(manifest,Object.fromEntries(Object.entries(manifest).reverse()));
   rejects(()=>validateImageManifest(manifest,TARGET_MIGRATIONS),'IMAGE_MIGRATION_SET_MISMATCH');
   rejects(()=>validateImageManifest(manifest,{...manifest,'20260909000000_added_in_image':'0'.repeat(64)}),'IMAGE_MIGRATION_SET_MISMATCH');
+});
+test('actual repository history including the legacy initial migration admits only the exact seven pending',()=>{
+  const root=fileURLToPath(new URL('../apps/api/prisma/migrations/',import.meta.url));
+  const actual=readMigrationManifest(root);
+  assert.ok(Object.keys(actual).length>Object.keys(TARGET_MIGRATIONS).length);
+  assert.equal(actual['0001_postgresql_initial'],crypto.createHash('sha256').update(fs.readFileSync(path.join(root,'0001_postgresql_initial/migration.sql'))).digest('hex'));
+  validateImageManifest(actual,decodeManifest(Buffer.from(JSON.stringify(actual)).toString('base64')));
+  const ledger=Object.entries(actual).filter(([name])=>!Object.hasOwn(TARGET_MIGRATIONS,name)).map(([migration_name,checksum])=>({migration_name,checksum,finished_at:'2026-09-08',rolled_back_at:null}));
+  assert.deepEqual(classifyLedger(actual,ledger),{decision:'READY_EXACT_SEVEN',pendingCount:7});
+  const changed={...actual,'0001_postgresql_initial':'0'.repeat(64)};
+  rejects(()=>validateImageManifest(actual,changed),'IMAGE_MIGRATION_SET_MISMATCH');
+  rejects(()=>classifyLedger(actual,ledger.map(row=>row.migration_name==='0001_postgresql_initial'?{...row,checksum:'0'.repeat(64)}:row)),'APPLIED_MIGRATION_CHECKSUM_DRIFT');
+  const missing={...actual}; delete missing['0001_postgresql_initial'];
+  rejects(()=>validateImageManifest(actual,missing),'IMAGE_MIGRATION_SET_MISMATCH');
+});
+for(const name of ['0002_unaccepted','0001_postgresql_initial_copy','0001_postgresql_initial/child','20260905040000_inventory-reservation']) test(`legacy initial exception does not admit other migration names: ${name}`,()=>{
+  rejects(()=>validateManifest({...manifest,[name]:'0'.repeat(64)}),'REPOSITORY_MANIFEST_INVALID');
+});
+for(const kind of ['directory-symlink','sql-symlink','lock-symlink','unexpected-file']) test(`repository and image scanner rejects ${kind}`,()=>{
+  const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'pc-w1-manifest-'));
+  try {
+    const root=path.join(temporary,'migrations');fs.mkdirSync(root);
+    const external=path.join(temporary,'external');fs.mkdirSync(external);fs.writeFileSync(path.join(external,'migration.sql'),'SELECT 1;');
+    if(kind==='directory-symlink')fs.symlinkSync(external,path.join(root,'0001_postgresql_initial'));
+    if(kind==='sql-symlink') {fs.mkdirSync(path.join(root,'0001_postgresql_initial'));fs.symlinkSync(path.join(external,'migration.sql'),path.join(root,'0001_postgresql_initial/migration.sql'));}
+    if(kind==='lock-symlink')fs.symlinkSync(path.join(external,'migration.sql'),path.join(root,'migration_lock.toml'));
+    if(kind==='unexpected-file')fs.writeFileSync(path.join(root,'unaccepted'),'SELECT 1;');
+    rejects(()=>readMigrationManifest(root),kind==='sql-symlink'?'MIGRATION_SQL_FILE_INVALID':kind==='lock-symlink'?'MIGRATION_LOCK_FILE_INVALID':'MIGRATION_DIRECTORY_INVALID');
+  } finally {fs.rmSync(temporary,{recursive:true,force:true});}
 });
 for(const malformed of [null,[],{},'text',{'../../private':'0'.repeat(64)},{[baseName]:'not-a-checksum'}]) test(`malformed manifest rejected ${JSON.stringify(malformed)}`,()=>{
   rejects(()=>validateManifest(malformed),'REPOSITORY_MANIFEST_INVALID');
@@ -234,12 +263,7 @@ test('exact-image PostgreSQL transport, migration, restore and rejection rehears
   const composeFile=path.join(fixture,'compose.json');
   const bootstrap=path.join(fixture,'bootstrap');fs.mkdirSync(bootstrap,{mode:0o755});
   const migrationRoot=path.join(root,'apps/api/prisma/migrations');
-  const repositoryManifest={};
-  for(const name of fs.readdirSync(migrationRoot).sort()) {
-    if(name==='migration_lock.toml') continue;
-    repositoryManifest[name]=crypto.createHash('sha256').update(fs.readFileSync(path.join(migrationRoot,name,'migration.sql'))).digest('hex');
-  }
-  validateManifest(repositoryManifest);
+  const repositoryManifest=readMigrationManifest(migrationRoot);
   fs.cpSync(path.join(root,'apps/api/prisma/schema.prisma'),path.join(bootstrap,'schema.prisma'));
   fs.mkdirSync(path.join(bootstrap,'migrations'),{mode:0o755});
   fs.copyFileSync(path.join(migrationRoot,'migration_lock.toml'),path.join(bootstrap,'migrations/migration_lock.toml'));

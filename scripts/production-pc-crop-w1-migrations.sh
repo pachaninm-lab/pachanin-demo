@@ -67,17 +67,7 @@ node_tool(){
     --input-type=module -e "$checker_source" -- --runtime-tool "$@"
 }
 docker image inspect "$migration_digest" | node_tool image "$target_sha" "$migration_digest" >/dev/null || fail MIGRATION_IMAGE_IDENTITY_INVALID
-docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
-  --entrypoint /nodejs/bin/node "$migration_digest" -e '
-const fs=require("node:fs"),crypto=require("node:crypto"),base="/app/prisma/migrations";
-const result={}; for(const name of fs.readdirSync(base).sort()) {
-  if(name==="migration_lock.toml") continue;
-  if(!/^[0-9]{14}_[a-z0-9_]+$/.test(name)||!fs.lstatSync(base+"/"+name).isDirectory()) process.exit(1);
-  const file=base+"/"+name+"/migration.sql";
-  if(!fs.lstatSync(file).isFile()||fs.lstatSync(file).isSymbolicLink())process.exit(1);
-  result[name]=crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
-} process.stdout.write(JSON.stringify(result));
-' | node_tool image-manifest >/dev/null || fail IMAGE_MIGRATION_CONTENT_MISMATCH
+node_tool verify-image-files </dev/null >/dev/null || fail IMAGE_MIGRATION_CONTENT_MISMATCH
 
 api_inventory="$(docker ps -q --no-trunc --filter label=com.docker.compose.service=api)"
 mapfile -t api_ids <<< "$api_inventory"
