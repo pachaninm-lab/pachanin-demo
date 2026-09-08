@@ -225,7 +225,10 @@
       ".github/workflows/pc-crop-w1-production-acceptance.yml",
       "scripts/production-pc-crop-w1-migrations.sh",
       "scripts/check-production-pc-crop-w1-acceptance.mjs",
-      "scripts/check-production-pc-crop-w1-acceptance.test.mjs"
+      "scripts/check-production-pc-crop-w1-acceptance.test.mjs",
+      "scripts/production-role-eligibility-api-release.sh",
+      "scripts/check-role-eligibility-api-release.mjs",
+      ".github/workflows/production-web-exact-sha.yml"
     ],
     "governance/pc-crop-post-registration-progress-scope-4997": [
       "docs/platform-v7/autopilot/autopilot-state.json",
