@@ -39,6 +39,13 @@ describe('platform-v7 deal scenario production copy', () => {
     expect(source).toContain("back: 'Back to home'");
     expect(source).toContain("access: 'acceptance, weight, lot state and related documents'");
     expect(source).toContain("access: 'confirmed settlement grounds'");
+    expect(source).toContain("title: { absolute: t.metaTitle }");
+    expect(source).toContain("const openGraphLocale = lang === 'en' ? 'en_US' : lang === 'zh' ? 'zh_CN' : 'ru_RU';");
+    expect(source).toContain("siteName: t.brand");
+    expect(source).toContain("url: canonical");
+    expect(source).toContain("'ru-RU': 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow?lang=ru'");
+    expect(source).toContain("en: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow?lang=en'");
+    expect(source).toContain("'zh-CN': 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow?lang=zh'");
     expect(source).toContain("const href = (pathname: string) => `${pathname}?lang=${lang}`;");
     expect(source).toContain("href={href('/platform-v7/register')}");
     expect(source).toContain("href={href('/platform-v7/contact')}");
