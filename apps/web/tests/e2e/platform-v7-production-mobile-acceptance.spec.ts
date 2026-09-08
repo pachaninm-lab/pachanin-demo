@@ -66,8 +66,9 @@ async function captureContentCoverageWithoutOccluders(page: Page, path: string) 
     }
     const style = document.createElement('style');
     style.id = injectedStyleId;
-    style.textContent = `[${markerName}="true"]{visibility:hidden!important}`;
+    style.textContent = `html body [${markerName}="true"][${markerName}="true"][${markerName}="true"][${markerName}="true"]{opacity:0!important}`;
     document.head.append(style);
+    if (Array.from(document.querySelectorAll<HTMLElement>(`[${markerName}]`)).some((node) => Number.parseFloat(window.getComputedStyle(node).opacity) !== 0)) throw new Error("coverage occluders must be fully transparent");
   }, { markerName: marker, injectedStyleId: styleId });
 
   try {
