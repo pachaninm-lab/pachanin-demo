@@ -35,6 +35,7 @@ export function ledgerDiagnostics(manifest, ledger) {
   const counts = Object.fromEntries(LEDGER_COUNTS.map(key => [key, 0]));
   const names = new Set();
   const fingerprints = [];
+  const unknownMigrations = [];
   for (const row of ledger) {
     counts.ROWS++;
     fingerprints.push(sha256(JSON.stringify([row.migration_name, row.checksum, row.finished_at, row.rolled_back_at])));
@@ -42,12 +43,19 @@ export function ledgerDiagnostics(manifest, ledger) {
     if (row.finished_at == null) { counts.UNFINISHED++; continue; }
     if (names.has(row.migration_name)) counts.DUPLICATES++;
     names.add(row.migration_name);
-    if (!Object.hasOwn(manifest, row.migration_name)) { counts.UNKNOWN++; continue; }
+    if (!Object.hasOwn(manifest, row.migration_name)) {
+      counts.UNKNOWN++;
+      unknownMigrations.push({nameSha256:sha256(row.migration_name),
+        checksumSha256:typeof row.checksum === 'string' && /^[0-9a-f]{64}$/.test(row.checksum) ? row.checksum : 'INVALID',
+        valueSha256:sha256(JSON.stringify(row.checksum ?? null))});
+      continue;
+    }
     if (row.checksum === manifest[row.migration_name]) counts.MATCHED++;
     else counts.DRIFTED++;
     if (row.migration_name === '0001_postgresql_initial' && row.checksum === 'grainflow_v3_initial_postgresql') counts.LEGACY_INITIAL_MARKERS++;
   }
-  return { ...counts, SHA256: sha256(JSON.stringify(fingerprints.sort())) };
+  unknownMigrations.sort((a,b)=>`${a.nameSha256}:${a.valueSha256}`.localeCompare(`${b.nameSha256}:${b.valueSha256}`));
+  return { ...counts, SHA256: sha256(JSON.stringify(fingerprints.sort())), unknownMigrations:unknownMigrations.slice(0,32) };
 }
 export function probeErrorPayload(error) {
   const payload = { error: errorCode(error) };
@@ -62,8 +70,12 @@ export function probeErrorPayload(error) {
   const ledger = error?.ledgerDiagnostics;
   if (LEDGER_BLOCKERS.includes(payload.error) && (payload.error !== 'APPLIED_MIGRATION_CHECKSUM_DRIFT' || payload.checksumDrift) && ledger
     && LEDGER_COUNTS.every(key => Number.isSafeInteger(ledger[key]) && ledger[key] >= 0 && ledger[key] <= 10000)
-    && /^[0-9a-f]{64}$/.test(ledger.SHA256 ?? '')) {
+    && /^[0-9a-f]{64}$/.test(ledger.SHA256 ?? '')
+    && Array.isArray(ledger.unknownMigrations) && ledger.unknownMigrations.length === Math.min(ledger.UNKNOWN,32)
+    && ledger.unknownMigrations.every(row=>row && /^[0-9a-f]{64}$/.test(row.nameSha256 ?? '')
+      && /^(?:[0-9a-f]{64}|INVALID)$/.test(row.checksumSha256 ?? '') && /^[0-9a-f]{64}$/.test(row.valueSha256 ?? ''))) {
     payload.ledgerDiagnostics = Object.fromEntries([...LEDGER_COUNTS, 'SHA256'].map(key => [key, ledger[key]]));
+    payload.ledgerDiagnostics.unknownMigrations = ledger.unknownMigrations.map(row=>({nameSha256:row.nameSha256,checksumSha256:row.checksumSha256,valueSha256:row.valueSha256}));
   }
   return payload;
 }
@@ -71,7 +83,10 @@ export function probeDiagnostics(value) {
   const safe = probeErrorPayload({ message: value?.error, checksumDrift: value?.checksumDrift, ledgerDiagnostics: value?.ledgerDiagnostics });
   return Object.entries(safe.checksumDrift ?? {}).map(([key, hash]) =>
     `PC_W1_CHECKSUM_DRIFT_${{migrationSha256:'MIGRATION',expectedSha256:'EXPECTED',appliedSha256:'APPLIED',appliedValueSha256:'APPLIED_VALUE'}[key]}_SHA256=${hash}\n`).join('')
-    + (safe.ledgerDiagnostics ? Object.entries(safe.ledgerDiagnostics).map(([key, value]) => `PC_W1_LEDGER_${key}=${value}\n`).join('') : '');
+    + (safe.ledgerDiagnostics ? Object.entries(safe.ledgerDiagnostics).filter(([key])=>key!=='unknownMigrations').map(([key, value]) => `PC_W1_LEDGER_${key}=${value}\n`).join('')
+      + `PC_W1_UNKNOWN_DETAILS_COUNT=${safe.ledgerDiagnostics.unknownMigrations.length}\n`
+      + safe.ledgerDiagnostics.unknownMigrations.map((row,index)=>Object.entries(row).map(([key,value])=>
+        `PC_W1_UNKNOWN_${String(index).padStart(2,'0')}_${{nameSha256:'NAME',checksumSha256:'CHECKSUM',valueSha256:'VALUE'}[key]}_SHA256=${value}\n`).join('')).join('') : '');
 }
 function sortedObject(value) { return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))); }
 const MIGRATION_NAME = /^(?:0001_postgresql_initial|[0-9]{14}_[a-z0-9_]+)$/;
@@ -109,14 +124,30 @@ export function decodeManifest(value) {
 export function validateImageManifest(expected, actual) {
   if (JSON.stringify(validateManifest(expected)) !== JSON.stringify(validateManifest(actual))) blocked('IMAGE_MIGRATION_SET_MISMATCH');
 }
+const INITIAL_MIGRATION_NAME = '0001_postgresql_initial';
+const INITIAL_MIGRATION_SHA256 = '2d3708fa99e4ee855c7b9fe69dc4e4506a317ffed34330e3955f5e995d35ffdd';
+// The immutable initial SQL inserted an auxiliary marker into Prisma's ledger.
+// A separate completed row with the canonical checksum remains mandatory.
+// This function supplies no evidence of execution and never changes the ledger.
+export function redundantInitialMarker(manifest, ledger) {
+  if (manifest[INITIAL_MIGRATION_NAME] !== INITIAL_MIGRATION_SHA256) return undefined;
+  const rows = ledger.filter(row => row.migration_name === INITIAL_MIGRATION_NAME);
+  if (rows.length !== 2 || rows.some(row => row.finished_at == null || row.rolled_back_at != null)) return undefined;
+  const canonical = rows.filter(row => row.checksum === INITIAL_MIGRATION_SHA256);
+  const markers = rows.filter(row => row.checksum === 'grainflow_v3_initial_postgresql');
+  return canonical.length === 1 && markers.length === 1 ? markers[0] : undefined;
+}
 export function classifyLedger(manifestInput, ledger) {
   const manifest = validateManifest(manifestInput);
   if (!Array.isArray(ledger)) blocked('MIGRATION_LEDGER_INVALID');
   const diagnostics = ledgerDiagnostics(manifest, ledger);
   try {
   if (ledger.some(row => row.finished_at == null && row.rolled_back_at == null)) blocked('UNFINISHED_MIGRATION');
+  const marker = redundantInitialMarker(manifest, ledger);
+  const legacyInitialMarker = marker ? 'REDUNDANT_SOURCE_MARKER' : 'ABSENT';
   const applied = new Map();
   for (const row of ledger) {
+    if (row === marker) continue;
     if (row.rolled_back_at != null || row.finished_at == null) continue;
     if (!Object.hasOwn(manifest, row.migration_name)) blocked('UNRECOGNIZED_APPLIED_MIGRATION');
     if (applied.has(row.migration_name)) blocked('DUPLICATE_APPLIED_MIGRATION');
@@ -130,9 +161,9 @@ export function classifyLedger(manifestInput, ledger) {
     applied.set(row.migration_name, row);
   }
   const pending = Object.keys(manifest).filter(name => !applied.has(name));
-  if (pending.length === 0) return { decision: 'VERIFIED_ALREADY_APPLIED', pendingCount: 0 };
+  if (pending.length === 0) return { decision: 'VERIFIED_ALREADY_APPLIED', pendingCount: 0, legacyInitialMarker };
   if (JSON.stringify(pending) !== JSON.stringify(Object.keys(TARGET_MIGRATIONS))) blocked('PENDING_SET_NOT_EXACT_SEVEN');
-  return { decision: 'READY_EXACT_SEVEN', pendingCount: 7 };
+  return { decision: 'READY_EXACT_SEVEN', pendingCount: 7, legacyInitialMarker };
   } catch (error) {
     if (LEDGER_BLOCKERS.includes(errorCode(error))) error.ledgerDiagnostics = diagnostics;
     throw error;
@@ -162,6 +193,7 @@ export function validateSnapshot(value) {
   if (!/^pc_w1_[0-9a-f]{32}$/.test(value.nonce ?? '')) blocked('SNAPSHOT_NONCE_INVALID');
   for (const key of ['pid', 'databaseOid', 'roleOid']) if (!Number.isSafeInteger(value[key]) || value[key] <= 0) blocked('SNAPSHOT_IDENTITY_INVALID');
   if (!['READY_EXACT_SEVEN', 'VERIFIED_ALREADY_APPLIED'].includes(value.decision)) blocked('SNAPSHOT_DECISION_INVALID');
+  if (!['ABSENT','REDUNDANT_SOURCE_MARKER'].includes(value.legacyInitialMarker)) blocked('INITIAL_MARKER_EVIDENCE_MISSING');
   if (value.pendingCount !== (value.decision === 'READY_EXACT_SEVEN' ? 7 : 0)) blocked('SNAPSHOT_PENDING_COUNT_INVALID');
   if (!/^[0-9a-f]{64}$/.test(value.environmentHash ?? '')) blocked('API_ENVIRONMENT_HASH_INVALID');
   if (value.tables !== (value.pendingCount === 7 ? 0 : 24)
@@ -237,12 +269,16 @@ export function runtimeFingerprint(containers, excludedApi) {
 export const EVIDENCE_VALUES = Object.freeze({
   PC_W1_RESULT: /^(READY_EXACT_SEVEN|VERIFIED_ALREADY_APPLIED|MIGRATIONS_APPLIED_PENDING_API_ACCEPTANCE|BLOCKED)$/,
   PC_W1_ERROR: SAFE_ERROR,
+  PC_W1_LEGACY_INITIAL_MARKER: /^(ABSENT|REDUNDANT_SOURCE_MARKER)$/,
   PC_W1_CHECKSUM_DRIFT_MIGRATION_SHA256: /^[0-9a-f]{64}$/,
   PC_W1_CHECKSUM_DRIFT_EXPECTED_SHA256: /^[0-9a-f]{64}$/,
   PC_W1_CHECKSUM_DRIFT_APPLIED_SHA256: /^(?:[0-9a-f]{64}|INVALID)$/,
   PC_W1_CHECKSUM_DRIFT_APPLIED_VALUE_SHA256: /^[0-9a-f]{64}$/,
   ...Object.fromEntries(LEDGER_COUNTS.map(key => [`PC_W1_LEDGER_${key}`, /^(?:0|[1-9][0-9]{0,3}|10000)$/])),
   PC_W1_LEDGER_SHA256: /^[0-9a-f]{64}$/,
+  PC_W1_UNKNOWN_DETAILS_COUNT: /^(?:[0-9]|[12][0-9]|3[0-2])$/,
+  ...Object.fromEntries(Array.from({length:32},(_,index)=>['NAME','CHECKSUM','VALUE'].map(field=>
+    [`PC_W1_UNKNOWN_${String(index).padStart(2,'0')}_${field}_SHA256`,field==='CHECKSUM'?/^(?:[0-9a-f]{64}|INVALID)$/:/^[0-9a-f]{64}$/])).flat()),
   PC_W1_TARGET_SHA: /^[0-9a-f]{40}$/,
   PC_W1_BASELINE_API_SHA: /^[0-9a-f]{40}$/,
   PC_W1_DATABASE_IDENTITY: /^PASS$/,
@@ -278,7 +314,8 @@ export function parseEvidence(raw, { requireTerminal = true } = {}) {
     || !result.PC_W1_CHECKSUM_DRIFT_EXPECTED_SHA256 || !result.PC_W1_CHECKSUM_DRIFT_APPLIED_SHA256 || result.PC_W1_RESULT !== 'BLOCKED'
     || result.PC_W1_ERROR !== 'APPLIED_MIGRATION_CHECKSUM_DRIFT')) blocked('CONTRADICTORY_CHECKSUM_DIAGNOSTICS');
   const ledgerKeys = Object.keys(result).filter(key => key.startsWith('PC_W1_LEDGER_'));
-  if (ledgerKeys.length || LEDGER_BLOCKERS.includes(result.PC_W1_ERROR)) {
+  const unknownKeys = Object.keys(result).filter(key=>key.startsWith('PC_W1_UNKNOWN_'));
+  if (ledgerKeys.length || unknownKeys.length || LEDGER_BLOCKERS.includes(result.PC_W1_ERROR)) {
     const count = key => Number(result[`PC_W1_LEDGER_${key}`]);
     const blocker = result.PC_W1_ERROR;
     const requiredCount = {APPLIED_MIGRATION_CHECKSUM_DRIFT:'DRIFTED',UNFINISHED_MIGRATION:'UNFINISHED',UNRECOGNIZED_APPLIED_MIGRATION:'UNKNOWN',DUPLICATE_APPLIED_MIGRATION:'DUPLICATES'}[blocker];
@@ -289,10 +326,15 @@ export function parseEvidence(raw, { requireTerminal = true } = {}) {
       || count('ROWS') !== ['MATCHED','DRIFTED','UNKNOWN','UNFINISHED','ROLLED_BACK'].reduce((n,key) => n+count(key),0)
       || count('DUPLICATES') > count('MATCHED')+count('DRIFTED')+count('UNKNOWN')
       || count('LEGACY_INITIAL_MARKERS') > count('DRIFTED')) blocked('CONTRADICTORY_LEDGER_DIAGNOSTICS');
+    const detailCount=Number(result.PC_W1_UNKNOWN_DETAILS_COUNT);
+    if (detailCount !== Math.min(count('UNKNOWN'),32) || unknownKeys.length !== 1+detailCount*3) blocked('INCOMPLETE_UNKNOWN_MIGRATION_DIAGNOSTICS');
+    for(let index=0;index<detailCount;index++) for(const field of ['NAME','CHECKSUM','VALUE']) {
+      if (!result[`PC_W1_UNKNOWN_${String(index).padStart(2,'0')}_${field}_SHA256`]) blocked('INCOMPLETE_UNKNOWN_MIGRATION_DIAGNOSTICS');
+    }
   }
   if (result.PC_W1_RESULT && result.PC_W1_RESULT !== 'BLOCKED') {
     if (result.PC_W1_ERROR) blocked('CONTRADICTORY_REMOTE_EVIDENCE');
-    for (const key of ['PC_W1_TARGET_SHA', 'PC_W1_BASELINE_API_SHA', 'PC_W1_DATABASE_IDENTITY', 'PC_W1_PENDING_MIGRATIONS',
+    for (const key of ['PC_W1_LEGACY_INITIAL_MARKER', 'PC_W1_TARGET_SHA', 'PC_W1_BASELINE_API_SHA', 'PC_W1_DATABASE_IDENTITY', 'PC_W1_PENDING_MIGRATIONS',
       'PC_W1_SCHEMA_TABLES', 'PC_W1_SCHEMA_STRUCTURAL_CHECKS', 'PC_W1_RUNTIME_UNCHANGED', 'PC_W1_DATABASE_MUTATION',
       'PC_W1_AUTHENTICATED_ACCEPTANCE', 'PC_W1_FULL_ACCEPTANCE', 'PC_W1_LEGACY_LOT_ROLLBACK',
       'PC_W1_API_ENVIRONMENT_SHA256', 'PC_W1_NON_API_RUNTIME_SHA256', 'PC_W1_DATABASE_ROLLBACK']) {
@@ -497,7 +539,7 @@ if (process.argv[1] === '--runtime-probe') {
     else if (args[0] === 'evidence') { parseEvidence(fs.readFileSync(0, 'utf8')); console.log('PC_W1_EVIDENCE_CONTRACT=PASS'); }
     else if (args[0] === 'probe-field') {
       const value = validateSnapshot(JSON.parse(fs.readFileSync(0, 'utf8')));
-      if (!['snapshot','decision','pendingCount','tables','structuralChecks','catalogHash','environmentHash'].includes(args[1])) blocked('PROBE_FIELD_INVALID');
+      if (!['snapshot','decision','pendingCount','tables','structuralChecks','catalogHash','environmentHash','legacyInitialMarker'].includes(args[1])) blocked('PROBE_FIELD_INVALID');
       process.stdout.write(String(value[args[1]] ?? ''));
     } else { checkSources(args[0] ?? process.cwd()); console.log('PC_W1_SOURCE_CONTRACT=PASS'); }
   } catch (error) { console.error(errorCode(error)); process.exitCode = 1; }

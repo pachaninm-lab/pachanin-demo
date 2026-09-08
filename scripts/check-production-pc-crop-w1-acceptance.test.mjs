@@ -18,14 +18,14 @@ const target='a'.repeat(40),digest=`ghcr.io/pachaninm-lab/grainflow-migration@sh
 const clone=value=>structuredClone(value);
 const rejects=(fn,code)=>assert.throws(fn,error=>error.message===code);
 const pre=()=>({ snapshot:'00000003-000001AB-1',nonce:`pc_w1_${'c'.repeat(32)}`,pid:12,databaseOid:42,roleOid:16384,
-  decision:'READY_EXACT_SEVEN',pendingCount:7,tables:0,structuralChecks:'NOT_APPLIED',environmentHash:'d'.repeat(64) });
+  decision:'READY_EXACT_SEVEN',pendingCount:7,legacyInitialMarker:'ABSENT',tables:0,structuralChecks:'NOT_APPLIED',environmentHash:'d'.repeat(64) });
 const environment=()=>({ NODE_ENV:'production', ...Object.fromEntries(['DEAL','DOCUMENT','SHIPMENT','LAB','PAYMENT'].map(name=>[`PLATFORM_V7_${name}_REPOSITORY`,'prisma'])) });
 const image=()=>({ Id:`sha256:${'e'.repeat(64)}`,RepoDigests:[digest],Config:{User:'nonroot',WorkingDir:'/app',Entrypoint:['/nodejs/bin/node'],
   Cmd:['node_modules/prisma/build/index.js','migrate','deploy','--schema','prisma/schema.prisma'],Labels:{'org.opencontainers.image.revision':target}} });
 const compose=()=>({ services:{api:{image:'api'},migration:{image:digest,environment:{DATABASE_URL:'postgresql://isolated.invalid/test'}}} });
 const container=(id='f')=>({ Id:id.repeat(64),Image:`sha256:${'a'.repeat(64)}`,State:{Running:true,StartedAt:'2026-09-08T00:00:00Z'},
   Config:{Env:['NODE_ENV=production'],Cmd:['worker'],Labels:{'com.docker.compose.service':'worker'}},HostConfig:{},Mounts:[],NetworkSettings:{Networks:{isolated:{NetworkID:'n',EndpointID:'e',IPAddress:'172.25.0.2'}}} });
-const readyEvidence=()=>({PC_W1_TARGET_SHA:target,PC_W1_BASELINE_API_SHA:'b'.repeat(40),PC_W1_DATABASE_IDENTITY:'PASS',
+const readyEvidence=()=>({PC_W1_LEGACY_INITIAL_MARKER:'ABSENT',PC_W1_TARGET_SHA:target,PC_W1_BASELINE_API_SHA:'b'.repeat(40),PC_W1_DATABASE_IDENTITY:'PASS',
   PC_W1_PENDING_MIGRATIONS:'7',PC_W1_SCHEMA_TABLES:'0',PC_W1_SCHEMA_STRUCTURAL_CHECKS:'NOT_APPLIED',
   PC_W1_API_ENVIRONMENT_SHA256:'c'.repeat(64),PC_W1_NON_API_RUNTIME_SHA256:'d'.repeat(64),PC_W1_RUNTIME_UNCHANGED:'PASS',
   PC_W1_DATABASE_ROLLBACK:'NOT_REHEARSED',PC_W1_DATABASE_MUTATION:'NONE',PC_W1_AUTHENTICATED_ACCEPTANCE:'NOT_EVIDENCED',
@@ -35,8 +35,8 @@ const lines=value=>Object.entries(value).map(([key,value])=>`${key}=${value}`).j
 test('only the observed seven accepted checksums may be pending',()=>{
   assert.equal(Object.keys(TARGET_MIGRATIONS).length,7);
   assert.equal(TARGET_TABLES.length,24);
-  assert.deepEqual(classifyLedger(manifest,[finished(baseName)]),{decision:'READY_EXACT_SEVEN',pendingCount:7});
-  assert.deepEqual(classifyLedger(manifest,Object.keys(manifest).map(finished)),{decision:'VERIFIED_ALREADY_APPLIED',pendingCount:0});
+  assert.deepEqual(classifyLedger(manifest,[finished(baseName)]),{decision:'READY_EXACT_SEVEN',pendingCount:7,legacyInitialMarker:'ABSENT'});
+  assert.deepEqual(classifyLedger(manifest,Object.keys(manifest).map(finished)),{decision:'VERIFIED_ALREADY_APPLIED',pendingCount:0,legacyInitialMarker:'ABSENT'});
 });
 for(const name of Object.keys(TARGET_MIGRATIONS)) test(`partial applied set blocks: ${name}`,()=>{
   rejects(()=>classifyLedger(manifest,[finished(baseName),finished(name)]),'PENDING_SET_NOT_EXACT_SEVEN');
@@ -45,6 +45,44 @@ test('an extra pending migration cannot ride along with accepted seven',()=>{
   rejects(()=>classifyLedger({...manifest,'20260909000000_unaccepted_change':'1'.repeat(64)},[finished(baseName)]),'PENDING_SET_NOT_EXACT_SEVEN');
 });
 test('older missing migration blocks too',()=>rejects(()=>classifyLedger(manifest,[]),'PENDING_SET_NOT_EXACT_SEVEN'));
+test('the exact historical auxiliary marker requires a separate canonical execution row in either order',()=>{
+  const actual=readMigrationManifest(fileURLToPath(new URL('../apps/api/prisma/migrations',import.meta.url)));
+  const initial='0001_postgresql_initial';
+  const rows=Object.entries(actual).filter(([name])=>!Object.hasOwn(TARGET_MIGRATIONS,name)).map(([migration_name,checksum])=>({migration_name,checksum,finished_at:'2026-09-08',rolled_back_at:null}));
+  const marker={migration_name:initial,checksum:'grainflow_v3_initial_postgresql',finished_at:'2026-09-08',rolled_back_at:null};
+  const before=clone(rows);
+  for(const ledger of [[marker,...rows],[...rows,marker]]) assert.deepEqual(classifyLedger(actual,ledger),{
+    decision:'READY_EXACT_SEVEN',pendingCount:7,legacyInitialMarker:'REDUNDANT_SOURCE_MARKER'});
+  assert.deepEqual(rows,before);
+  const full=[...Object.entries(actual).map(([migration_name,checksum])=>({migration_name,checksum,finished_at:'2026-09-08',rolled_back_at:null})),marker];
+  assert.deepEqual(classifyLedger(actual,full),{decision:'VERIFIED_ALREADY_APPLIED',pendingCount:0,legacyInitialMarker:'REDUNDANT_SOURCE_MARKER'});
+  const badCases=[
+    [actual,[marker,...rows.filter(row=>row.migration_name!==initial)]],
+    [actual,[marker,...rows.map(row=>row.migration_name===initial?{...row,checksum:'0'.repeat(64)}:row)]],
+    [actual,[marker,marker,...rows]],
+    [actual,[marker,...rows,rows.find(row=>row.migration_name===initial)]],
+    [actual,[{...marker,checksum:'other_marker'},...rows]],
+    [{...actual,[initial]:'0'.repeat(64)},[marker,...rows.map(row=>row.migration_name===initial?{...row,checksum:'0'.repeat(64)}:row)]],
+    [actual,[marker,...rows.map(row=>row.migration_name===initial?{...row,rolled_back_at:'2026-09-09'}:row)]],
+    [actual,[{...marker,finished_at:null},...rows]],
+    [actual,[marker,...rows, {...marker,migration_name:'0002_other_initial'}]],
+  ];
+  for(const [m,ledger] of badCases) assert.throws(()=>classifyLedger(m,ledger),/APPLIED_MIGRATION_CHECKSUM_DRIFT|DUPLICATE_APPLIED_MIGRATION|UNFINISHED_MIGRATION|UNRECOGNIZED_APPLIED_MIGRATION/);
+});
+test('successful transport and evidence must disclose how the historical marker was treated',()=>{
+  const source=fs.readFileSync(new URL('./check-production-pc-crop-w1-acceptance.mjs',import.meta.url),'utf8');
+  for(const legacyInitialMarker of ['ABSENT','REDUNDANT_SOURCE_MARKER']) {
+    const snapshot={...pre(),legacyInitialMarker};
+    assert.equal(validateSnapshot(snapshot).legacyInitialMarker,legacyInitialMarker);
+    const transported=spawnSync(process.execPath,['--input-type=module','-e',source,'--','--runtime-tool','probe-field','legacyInitialMarker'],{input:JSON.stringify(snapshot),encoding:'utf8'});
+    assert.equal(transported.status,0);assert.equal(transported.stdout,legacyInitialMarker);
+    assert.equal(parseEvidence(lines({...readyEvidence(),PC_W1_LEGACY_INITIAL_MARKER:legacyInitialMarker})).PC_W1_LEGACY_INITIAL_MARKER,legacyInitialMarker);
+  }
+  const missing=pre();delete missing.legacyInitialMarker;
+  rejects(()=>validateSnapshot(missing),'INITIAL_MARKER_EVIDENCE_MISSING');
+  const evidence=readyEvidence();delete evidence.PC_W1_LEGACY_INITIAL_MARKER;
+  rejects(()=>parseEvidence(lines(evidence)),'INCOMPLETE_REMOTE_EVIDENCE');
+});
 test('unfinished migration blocks even with all successful migrations present',()=>{
   rejects(()=>classifyLedger(manifest,[...Object.keys(manifest).map(finished),{migration_name:'unknown',finished_at:null,rolled_back_at:null}]),'UNFINISHED_MIGRATION');
 });
@@ -80,7 +118,7 @@ test('whole-ledger diagnostics identify the source marker and every class withou
   const ledger=[row(initial,'grainflow_v3_initial_postgresql'),finished(baseName),finished(baseName),row(baseName,'c'.repeat(64)),
     row('unknown_name','a'.repeat(64)),{...finished(baseName),finished_at:null},{...finished(baseName),rolled_back_at:'2026-09-09'}];
   const d=ledgerDiagnostics(m,ledger);
-  assert.deepEqual({...d,SHA256:'HASH'},{ROWS:7,MATCHED:2,DRIFTED:2,UNKNOWN:1,DUPLICATES:2,UNFINISHED:1,ROLLED_BACK:1,LEGACY_INITIAL_MARKERS:1,SHA256:'HASH'});
+  assert.deepEqual({...d,unknownMigrations:undefined,SHA256:'HASH'},{ROWS:7,MATCHED:2,DRIFTED:2,UNKNOWN:1,DUPLICATES:2,UNFINISHED:1,ROLLED_BACK:1,LEGACY_INITIAL_MARKERS:1,unknownMigrations:undefined,SHA256:'HASH'});
   assert.equal(d.SHA256,ledgerDiagnostics(m,[...ledger].reverse()).SHA256);
   assert.notEqual(d.SHA256,ledgerDiagnostics(m,ledger.slice(1)).SHA256);
   rejects(()=>classifyLedger(m,ledger),'UNFINISHED_MIGRATION');
@@ -96,7 +134,7 @@ test('ledger diagnostics reject partial, contradictory and unbounded output and 
   const end='PC_W1_ERROR=APPLIED_MIGRATION_CHECKSUM_DRIFT\nPC_W1_DATABASE_MUTATION=NONE\nPC_W1_RESULT=BLOCKED\n';
   assert.doesNotMatch(output,/private-value|migration_name|finished_at/);
   assert.equal(parseEvidence(output+end).PC_W1_LEDGER_ROWS,'1');
-  for(const [key,value] of Object.entries(payload.ledgerDiagnostics)) {
+  for(const [key,value] of Object.entries(payload.ledgerDiagnostics).filter(([key])=>key!=='unknownMigrations')) {
     const changed=structuredClone(payload);changed.ledgerDiagnostics[key]=key==='SHA256'?'secret-path':10001;
     assert.equal(probeErrorPayload({message:changed.error,...changed}).ledgerDiagnostics,undefined);
     rejects(()=>parseEvidence(output.replace(`PC_W1_LEDGER_${key}=${value}\n`,'')+end),'CONTRADICTORY_LEDGER_DIAGNOSTICS');
@@ -132,6 +170,35 @@ test('all ledger blockers transport complete diagnostics regardless of first ano
     assert.equal(probeDiagnostics({...payload,error:'UNRELATED_FAILURE'}),'');
   }
 });
+test('unknown migration fingerprints identify every observed row without disclosing names or arbitrary values',()=>{
+  const unknown=Array.from({length:4},(_,index)=>({...finished(baseName),migration_name:`private-name-${index}`,checksum:index===0?'private-value':'b'.repeat(64)}));
+  let error;try {classifyLedger(manifest,unknown);}catch(e){error=e;}
+  const payload=probeErrorPayload(error),output=probeDiagnostics(payload);
+  const end='PC_W1_ERROR=UNRECOGNIZED_APPLIED_MIGRATION\nPC_W1_DATABASE_MUTATION=NONE\nPC_W1_RESULT=BLOCKED\n';
+  assert.equal(payload.ledgerDiagnostics.unknownMigrations.length,4);
+  assert.doesNotMatch(output,/private-name|private-value|unknownMigrations|\[object/);
+  assert.equal(parseEvidence(output+end).PC_W1_UNKNOWN_DETAILS_COUNT,'4');
+  assert.equal(payload.ledgerDiagnostics.unknownMigrations[0].nameSha256.length,64);
+  for(const line of output.split('\n').filter(line=>line.startsWith('PC_W1_UNKNOWN_'))) {
+    rejects(()=>parseEvidence(output.replace(line+'\n','')+end),'INCOMPLETE_UNKNOWN_MIGRATION_DIAGNOSTICS');
+  }
+  rejects(()=>parseEvidence(output.split('\n').filter(line=>!line.startsWith('PC_W1_UNKNOWN_')).join('\n')+end),'INCOMPLETE_UNKNOWN_MIGRATION_DIAGNOSTICS');
+  for(const key of ['nameSha256','checksumSha256','valueSha256']) {
+    const invalid=clone(payload);invalid.ledgerDiagnostics.unknownMigrations[0][key]='private-value';
+    assert.equal(probeDiagnostics(invalid),'');
+  }
+  const swapped=clone(payload);swapped.ledgerDiagnostics.unknownMigrations.pop();assert.equal(probeDiagnostics(swapped),'');
+  assert.deepEqual(ledgerDiagnostics(manifest,[...unknown].reverse()),ledgerDiagnostics(manifest,unknown));
+});
+test('unknown detail output is bounded and cannot claim complete coverage beyond 32 records',()=>{
+  const rows=Array.from({length:33},(_,index)=>({...finished(baseName),migration_name:`unknown-${index}`}));
+  let error;try{classifyLedger(manifest,rows);}catch(e){error=e;}
+  const payload=probeErrorPayload(error),output=probeDiagnostics(payload);
+  const evidence=parseEvidence(output+'PC_W1_ERROR=UNRECOGNIZED_APPLIED_MIGRATION\nPC_W1_DATABASE_MUTATION=NONE\nPC_W1_RESULT=BLOCKED\n');
+  assert.equal(evidence.PC_W1_LEDGER_UNKNOWN,'33');assert.equal(evidence.PC_W1_UNKNOWN_DETAILS_COUNT,'32');
+  assert.equal(payload.ledgerDiagnostics.unknownMigrations.length,32);
+  assert.ok(output.length<12000);
+});
 test('invalid ledger checksum and untrusted error properties cannot leak raw text',()=>{
   let failure;
   try {classifyLedger(manifest,[{...finished(baseName),checksum:'secret=/private/config'}]);}catch(error){failure=error;}
@@ -164,7 +231,7 @@ test('actual repository history including the legacy initial migration admits on
   assert.equal(actual['0001_postgresql_initial'],crypto.createHash('sha256').update(fs.readFileSync(path.join(root,'0001_postgresql_initial/migration.sql'))).digest('hex'));
   validateImageManifest(actual,decodeManifest(Buffer.from(JSON.stringify(actual)).toString('base64')));
   const ledger=Object.entries(actual).filter(([name])=>!Object.hasOwn(TARGET_MIGRATIONS,name)).map(([migration_name,checksum])=>({migration_name,checksum,finished_at:'2026-09-08',rolled_back_at:null}));
-  assert.deepEqual(classifyLedger(actual,ledger),{decision:'READY_EXACT_SEVEN',pendingCount:7});
+  assert.deepEqual(classifyLedger(actual,ledger),{decision:'READY_EXACT_SEVEN',pendingCount:7,legacyInitialMarker:'ABSENT'});
   const changed={...actual,'0001_postgresql_initial':'0'.repeat(64)};
   rejects(()=>validateImageManifest(actual,changed),'IMAGE_MIGRATION_SET_MISMATCH');
   rejects(()=>classifyLedger(actual,ledger.map(row=>row.migration_name==='0001_postgresql_initial'?{...row,checksum:'0'.repeat(64)}:row)),'APPLIED_MIGRATION_CHECKSUM_DRIFT');
@@ -430,6 +497,7 @@ test('exact-image PostgreSQL transport, migration, restore and rejection rehears
     // clean isolated database, never from a caller-supplied expected PASS file.
     imageDeploy('reference');moveApi('reference');
     const reference=executor('preflight',{expected:undefined});
+    assert.equal(reference.PC_W1_LEGACY_INITIAL_MARKER,'REDUNDANT_SOURCE_MARKER');
     assert.equal(reference.PC_W1_SCHEMA_STRUCTURAL_CHECKS,'OBSERVED_NOT_MATCHED');
     expectedHash=reference.PC_W1_SCHEMA_CATALOG_SHA256;
     assert.match(expectedHash,/^[0-9a-f]{64}$/);
@@ -458,12 +526,15 @@ test('exact-image PostgreSQL transport, migration, restore and rejection rehears
     moveApi('partial');executor('preflight',{error:'PENDING_SET_NOT_EXACT_SEVEN'});
 
     moveApi('grainflow');
-    assert.equal(executor().PC_W1_RESULT,'READY_EXACT_SEVEN');
+    const beforeMigration=executor();
+    assert.equal(beforeMigration.PC_W1_RESULT,'READY_EXACT_SEVEN');
+    assert.equal(beforeMigration.PC_W1_LEGACY_INITIAL_MARKER,'REDUNDANT_SOURCE_MARKER');
     const applied=executor('migrate');
     assert.equal(applied.PC_W1_RESULT,'MIGRATIONS_APPLIED_PENDING_API_ACCEPTANCE');
     assert.equal(applied.PC_W1_SCHEMA_CATALOG_SHA256,expectedHash);
     const repeated=executor('migrate');
     assert.equal(repeated.PC_W1_RESULT,'VERIFIED_ALREADY_APPLIED');assert.equal(repeated.PC_W1_DATABASE_MUTATION,'NONE');
+    assert.equal(repeated.PC_W1_LEGACY_INITIAL_MARKER,'REDUNDANT_SOURCE_MARKER');
     for(const name of fs.readdirSync('/root')) if(name.startsWith('pc-w1-backup.') && !backupBefore.has(name)) createdBackups.push(path.join('/root',name));
     assert.equal(createdBackups.length,1,'REHEARSAL_BACKUP_COUNT_INVALID');
     const archive=path.join(createdBackups[0],'database.dump'),bytes=fs.readFileSync(archive);
