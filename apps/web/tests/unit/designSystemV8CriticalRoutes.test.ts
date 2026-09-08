@@ -17,6 +17,7 @@ const documents = read('apps/web/app/platform-v7/documents/page.tsx');
 const disputes = read('apps/web/app/platform-v7/disputes/page.tsx');
 const executive = read('apps/web/app/platform-v7/executive/page.tsx');
 const status = read('apps/web/app/platform-v7/status/page.tsx');
+const dealsServer = read('apps/web/lib/deals-server.ts');
 const disputesServer = read('apps/web/lib/disputes-server.ts');
 const outboxServer = read('apps/web/lib/outbox-server.ts');
 const releaseSafety = read('apps/web/app/platform-v7/bank/release-safety/page.tsx');
@@ -62,6 +63,8 @@ describe('Design System v8 critical transaction routes', () => {
   });
 
   it('keeps executive all-clear fail-closed and routes restricted bank alerts to the read-only status aggregate', () => {
+    expect(executive).toContain('getDealsSnapshot');
+    expect(executive).toContain('!dealsAvailable');
     expect(executive).toContain('getDisputesSnapshot');
     expect(executive).toContain('!disputesAvailable');
     expect(executive).toContain('!outboxAvailable');
@@ -72,15 +75,23 @@ describe('Design System v8 critical transaction routes', () => {
     expect(executive).toContain('Требуют внимания: ошибки банка');
     expect(executive).toContain('failedBank > 0');
     expect(executive).toContain('manualReviewBank > 0');
+    expect(executive).toContain('unclassifiedBank > 0');
+    expect(executive).toContain('!outboxComplete');
+    expect(executive).toContain('!paymentsComplete');
     expect(executive).toContain('Требуют внимания: ручная банковская сверка');
     expect(executive).not.toContain('getShipments');
     expect(executive).not.toContain('activeShipmentCount');
     expect(executive).toContain("href='/platform-v7/status'");
     expect(executive).not.toContain("href='/platform-v7/bank'");
+    expect(dealsServer).toContain('getDealsSnapshot');
+    expect(dealsServer).toContain('isApiAvailable: false');
     expect(disputesServer).toContain('isApiAvailable: false');
     expect(disputesServer).toContain('isApiAvailable: true');
     expect(outboxServer).toContain('!Array.isArray(data.pending) || !Array.isArray(data.failed) || !Array.isArray(data.confirmed)');
+    expect(outboxServer).toContain('totalUnclassified');
+    expect(outboxServer).toContain('isComplete: data.total < 200');
     expect(outboxServer).toContain('getPaymentsSnapshot');
+    expect(outboxServer).toContain('isComplete: raw.length < 100');
     expect(outboxServer).toContain("payment.status === 'MANUAL_REVIEW' || payment.reconciliationStatus === 'MANUAL_REVIEW'");
     expect(status).toContain('getOutboxStatus');
     expect(status).not.toContain('RbacGuard');

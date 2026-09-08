@@ -18,6 +18,8 @@ export type OutboxStatusSummary = {
   failed: OutboxServerEntry[];
   totalPending: number;
   totalFailed: number;
+  totalUnclassified: number;
+  isComplete: boolean;
   hasManualReview: boolean;
   hasFailures: boolean;
   isApiAvailable: boolean;
@@ -31,6 +33,7 @@ export type SettlementPaymentSummary = Readonly<Record<string, unknown> & {
 export type SettlementPaymentsSnapshot = Readonly<{
   payments: SettlementPaymentSummary[];
   totalManualReview: number;
+  isComplete: boolean;
   isApiAvailable: boolean;
 }>;
 
@@ -40,6 +43,8 @@ const STATIC_FALLBACK: OutboxStatusSummary = {
   failed: [],
   totalPending: 0,
   totalFailed: 0,
+  totalUnclassified: 0,
+  isComplete: false,
   hasManualReview: false,
   hasFailures: false,
   isApiAvailable: false,
@@ -56,7 +61,8 @@ export async function getOutboxStatus(dealId?: string): Promise<OutboxStatusSumm
     const raw: unknown = await res.json();
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('outbox schema');
     const data = raw as Record<string, unknown>;
-    if (!Array.isArray(data.pending) || !Array.isArray(data.failed) || !Array.isArray(data.confirmed)) {
+    if (!Array.isArray(data.pending) || !Array.isArray(data.failed) || !Array.isArray(data.confirmed)
+      || typeof data.total !== 'number' || !Number.isInteger(data.total) || data.total < 0 || data.total > 200) {
       throw new Error('outbox schema');
     }
     const manualReview = data.manualReview === undefined
@@ -65,14 +71,18 @@ export async function getOutboxStatus(dealId?: string): Promise<OutboxStatusSumm
         ? data.manualReview
         : null;
     if (manualReview === null) throw new Error('outbox schema');
+    const totalUnclassified = data.total - data.pending.length - data.failed.length - data.confirmed.length;
+    if (totalUnclassified < 0) throw new Error('outbox schema');
     return {
       pending: data.pending as OutboxServerEntry[],
       manualReview: manualReview as OutboxServerEntry[],
       failed: data.failed as OutboxServerEntry[],
       totalPending: data.pending.length,
       totalFailed: data.failed.length,
+      totalUnclassified,
+      isComplete: data.total < 200,
       hasManualReview: manualReview.length > 0,
-      hasFailures: data.failed.length > 0,
+      hasFailures: data.failed.length > 0 || totalUnclassified > 0,
       isApiAvailable: true,
     };
   } catch {
@@ -99,9 +109,9 @@ export async function getPaymentsSnapshot(): Promise<SettlementPaymentsSnapshot>
     });
     const totalManualReview = payments.filter((payment) =>
       payment.status === 'MANUAL_REVIEW' || payment.reconciliationStatus === 'MANUAL_REVIEW').length;
-    return { payments, totalManualReview, isApiAvailable: true };
+    return { payments, totalManualReview, isComplete: raw.length < 100, isApiAvailable: true };
   } catch {
-    return { payments: [], totalManualReview: 0, isApiAvailable: false };
+    return { payments: [], totalManualReview: 0, isComplete: false, isApiAvailable: false };
   }
 }
 
