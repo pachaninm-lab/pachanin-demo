@@ -39,6 +39,10 @@ describe('platform-v7 deal scenario production copy', () => {
     expect(source).toContain("back: 'Back to home'");
     expect(source).toContain("access: 'acceptance, weight, lot state and related documents'");
     expect(source).toContain("access: 'confirmed settlement grounds'");
+    expect(source).toContain("const href = (pathname: string) => `${pathname}?lang=${lang}`;");
+    expect(source).toContain("href={href('/platform-v7/register')}");
+    expect(source).toContain("href={href('/platform-v7/contact')}");
+    expect(source).toContain("href={href('/platform-v7/bank')}");
     expect(source.slice(enStart, zhStart)).not.toMatch(/[А-Яа-яЁё]/u);
     expect(source.slice(zhStart, end)).not.toMatch(/[А-Яа-яЁё]/u);
   });
