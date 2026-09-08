@@ -2,7 +2,7 @@
   "schemaVersion": "pc-crop.post-registration.execution-state.v1",
   "programme": "pc-crop-post-registration-operating-system",
   "issue": 4997,
-  "updatedAt": "2026-09-08T18:27:17Z",
+  "updatedAt": "2026-09-08T20:37:00Z",
   "specification": {
     "sha256": "1f85df31b83747741b415fe65c0027e3e0be754bb0caeca5d7b3db4eb6b1e99e",
     "dodListSha256": "091acfafbde256b0028e7dbfb2afe7c97a05c6b899ba1fc9b0ccbfc4b40a93a2",
@@ -10,7 +10,7 @@
     "sections": 111,
     "dodCriteria": 126
   },
-  "observedMainSha": "0e72c72ae9caaa1f4415e9129318e46bb26c2421",
+  "observedMainSha": "3896a475f6407f7bf3ef1bab27b316789e0d2256",
   "auditLineage": {
     "fullAuditSha": "c4dfc4112599f2a4ff21e1a5cf35345509abad41",
     "deltaReviewedToObservedMain": true,
@@ -120,7 +120,7 @@
     "id": "W1-REG_RU",
     "name": "Complete already-merged W1 on REG.RU before Revenue Slice implementation",
     "sourceAudit": "docs/platform-v7/crop-platform/post-registration/execution-state.v1.json#w1Completion",
-    "status": "BOUNDED_RELEASE_AUTHORITY_REQUIRED",
+    "status": "PREFLIGHT_IMPLEMENTATION_FIX_UNDER_REVIEW",
     "registrationCodeChanged": false,
     "registrationBehaviorChanged": false,
     "roleEligibilityEnforcementChanged": false,
@@ -349,12 +349,17 @@
     "pr": 5021,
     "mergeSha": "48dcbec2da506bd5fb27089ab0de4d6545fad9d2",
     "mode": "IMMUTABLE_BASE_SCOPE",
-    "allowedRegisterFiles": 6,
+    "allowedRegisterFiles": 7,
     "guardTests": {
       "passed": 28,
       "total": 28
     },
-    "workflowRun": 33940127251
+    "workflowRun": 33940127251,
+    "regressionSuiteAdmission": {
+      "pr": 5189,
+      "mergeSha": "49464cea6df9fe64146144b852ff83c5a2952222",
+      "requiredCommand": "node --test docs/platform-v7/crop-platform/post-registration/verify-w0.test.mjs"
+    }
   },
   "executionOrder": {
     "mode": "REVENUE_FIRST",
@@ -372,7 +377,7 @@
   },
   "w1Completion": {
     "codeStatus": "MERGED",
-    "productionStatus": "BLOCKED_PENDING_MIGRATIONS",
+    "productionStatus": "BLOCKED_IMAGE_MANIFEST_VALIDATION",
     "terminalCredit": 0,
     "mergedPrs": [
       5001,
@@ -400,7 +405,7 @@
     "obsoleteController": {
       "pr": 5013,
       "head": "d372d418dd4af78d080c2668ea9b18bdb47d9c3f",
-      "status": "NOT_APPLICABLE_TO_SEVEN_PENDING_MIGRATIONS",
+      "status": "CLOSED_SUPERSEDED_BY_5188",
       "ciRun": 33925429538,
       "ciJob": 101192783682,
       "firstCause": "Static negative grep for workflow_dispatch matches its own literal in workflow source; deterministic contract-test failure. No unchanged rerun is justified.",
@@ -409,9 +414,10 @@
         "DNS verification before SSH",
         "Same normalized database authority for API probe and migration service",
         "Protected working directory and Compose path redaction"
-      ]
+      ],
+      "closedEvidence": "https://github.com/pachaninm-lab/pachanin-demo/issues/5013#issuecomment-5591278238"
     },
-    "requiredNext": "Separately accepted bounded seven-migration stage followed by existing API-only exact-SHA executor with the narrowly admitted digest verification from #5187; real pre/post W1 authority and regression evidence. Do not reuse the old sole-pending controller or the full-stack chain that also changes auth-mail and web.",
+    "requiredNext": "Accept exact-head CI and independent review of #5191, repeat current-main read-only preflight, then run the mandatory isolated exact-image PostgreSQL rehearsal before the bounded migration/API release. Full authenticated W1 acceptance remains separate and unevidenced.",
     "requiredEvidence": [
       "Exact target main and seven expected pending migrations rechecked immediately before mutation",
       "Current DNS and pinned host identity",
@@ -421,7 +427,27 @@
       "All non-API workloads and their environment fingerprints unchanged",
       "All W1 tables/constraints/roles and API routes proven on deployed exact revision",
       "Tenant/RLS, revoked authority, idempotency and atomic audit/outbox acceptance"
-    ]
+    ],
+    "releaseController": {
+      "pr": 5188,
+      "mergeSha": "3896a475f6407f7bf3ef1bab27b316789e0d2256",
+      "status": "MERGED_NOT_DEPLOYED"
+    },
+    "latestPreflight": {
+      "run": 34273770028,
+      "targetMainSha": "3896a475f6407f7bf3ef1bab27b316789e0d2256",
+      "evidence": "https://github.com/pachaninm-lab/pachanin-demo/issues/4997#issuecomment-5591343155",
+      "result": "BLOCKED",
+      "error": "IMAGE_MIGRATION_CONTENT_MISMATCH",
+      "databaseMutation": "NONE",
+      "dns": "PASS",
+      "sshPin": "PASS",
+      "registrationBlobsUnchanged": true,
+      "apiAndMigrationImages": "MATERIALIZED",
+      "databaseStateReobserved": false,
+      "fixPr": 5191
+    },
+    "historicalDatabaseObservationNote": "The seven pending migrations, zero unfinished migrations and absent capability tables were observed only in run 34262474799. Run 34273770028 stopped at immutable image manifest verification before the database probe; it does not refresh those database facts."
   },
   "nextAfterW1": {
     "id": "W2-C",

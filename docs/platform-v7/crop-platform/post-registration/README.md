@@ -88,18 +88,26 @@ The execution order is now **finish W1 → Revenue Slice v1 → remaining origin
 DoD**. Do not mechanically complete every historical wave before enabling one
 real commercial transaction.
 
-Fresh read-only REG.RU preflight [34262474799](https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34262474799)
+Historical read-only REG.RU preflight [34262474799](https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34262474799)
 on main `0e72c72ae9caaa1f4415e9129318e46bb26c2421` found API revision
 `d401f2678070eae3362d22d09b60aadf3a8e042d`, seven pending migrations and no
 unfinished migrations. The W1 capability tables are absent. W1 is merged code,
 but **W1 production completion remains blocked**. No database or runtime was
 changed by this observation.
 
-The old sole-pending migration controller #5013 cannot accept this seven-migration
-state. Its static check also fails deterministically by matching its own forbidden
-literal; it has unresolved independent findings. Do not weaken it or retry it
-unchanged. Prepare a bounded, separately accepted migration stage and reuse the
-existing API-only executor. The full-stack release chain also changes auth-mail
+The bounded controller #5188 is merged at
+`3896a475f6407f7bf3ef1bab27b316789e0d2256`; the obsolete sole-pending controller
+#5013 is closed as superseded. Its new read-only preflight
+[34273770028](https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34273770028)
+materialized exact API/migration images and verified DNS, pinned SSH identity and
+unchanged registration blobs, then stopped with `IMAGE_MIGRATION_CONTENT_MISMATCH`
+and `DATABASE_MUTATION=NONE`. It did not reach the database probe or refresh the
+historical database facts above. Fix #5191 admits the existing historical
+`0001_postgresql_initial` name while preserving complete source/image checksum
+equality; it is under exact-head review. After that fix is accepted, repeat the
+read-only preflight, then require the isolated exact-image PostgreSQL rehearsal
+before the bounded migration stage and existing API-only executor. Authenticated
+W1 acceptance remains unevidenced. The full-stack chain also changes auth-mail
 and web and is not a W1-only operation.
 
 After W1, Revenue Slice v1 follows one real seller and buyer through stock,
@@ -140,8 +148,8 @@ the matching `componentId` and the following common fields:
 | `specificationSha256` | The unchanged final specification fingerprint |
 | `environment` / `executionMode` / `result` | `REG_RU_PRODUCTION` / `LIVE` / `PASS` |
 | `observedAt` | UTC timestamp of the actual observation |
-| `evidenceUrl` | This repository's Actions run/job/artifact or evidence issue comment URL |
-| `evidenceSha256` | Nonzero SHA-256 of the referenced evidence content |
+| `evidenceUrl` | Exact canonical `https://github.com/pachaninm-lab/pachanin-demo/actions/runs/<run-id>/artifacts/<artifact-id>` URL; comments and run/job links cannot authenticate content |
+| `evidenceSha256` | SHA-256 of the downloaded immutable artifact ZIP bytes, equal to the GitHub artifact API digest |
 
 Before credit is allowed, `observedMainSha` must be contained in an independently
 resolved main history. GitHub Actions uses its trusted event's canonical PR base
@@ -153,9 +161,45 @@ credit until that history is fetched.
 Evidence must document the deployed runtime and the named component's applicable
 live task acceptance. Source files, merged code, CI component tests, preview
 deployments and a deployment report alone cannot replace that acceptance.
-The offline verifier checks the record contract and linkage; independent review
-must verify the referenced content and authentic observations. Syntactically
-valid metadata does not authenticate an external receipt.
+The executable verifier resolves every evidence artifact before it can report
+verification success. A URL and a nonzero hash cannot authenticate a receipt.
+The exported `verifyRegisterStructure()` returns only
+`STRUCTURE_ONLY_NOT_ACCEPTANCE`; its synthetic unit fixtures cannot grant credit.
+The CLI has no offline acceptance switch, injected transport flag or mock mode.
+
+Resolution requires a read-only `GITHUB_TOKEN` with repository Actions read
+permission. It checks the canonical repository/run/artifact identities, successful
+completed main run, exact producer workflow and attempt, source revision, expiry,
+API digest and the downloaded archive's actual SHA-256. Only GET requests are
+used; the GitHub credential never follows the signed storage redirect. Missing
+credentials, inaccessible or expired artifacts, unknown producers/formats and
+any mismatch fail closed. The zero-credit register requires no token or network.
+The current guard does not expose such a token; future activation needs a
+separately reviewed read-only credential binding.
+
+The only currently supported source is the existing W1 production controller,
+`.github/workflows/pc-crop-w1-production-acceptance.yml`, and only for
+`REG_RU_DEPLOYMENT`. Its workflow and three executing/validating scripts must
+match accepted trusted-main blobs. The resolver reads its actual `stage.log`
+and `result.md`, never a new invented envelope. It requires a successful
+`migrate` operation, matching target and running API revisions, verified server
+OCI digest, database identity, zero pending migrations, all 24 checked schema
+tables and catalog hash, unchanged API environment/other workloads, successful
+public REG.RU HTTPS route and post-deployment verification. The source workflow
+authoritatively performs the OCI, PostgreSQL/FORCE RLS, no-mock and public HTTPS
+checks whose finite output is resolved here. Read-only preflight, isolated
+rehearsal and ordinary CI artifacts cannot replace those observations.
+
+`observedAt` must identify the artifact's actual creation time; a deployment
+observation older than 24 hours must be renewed. API-only W1 release evidence
+does not attest the web-containing RS-03 and RS-15 components. Both authenticated
+and full W1 acceptance remain explicitly `NOT_EVIDENCED` in this controller's
+output. Its verified deployment artifact therefore earns no component or revenue
+credit on its own. There is no approved collector yet for
+`LIVE_COMPONENT_ACCEPTANCE` or any real-transaction evidence kind: all of them
+are rejected until their actual production collector, authority checks and
+format are implemented and separately admitted. Bank finality, FGIS receipts,
+real participants and company cash must never be inferred from W1 deployment.
 
 All 15 accepted components require `realTransaction.status = ACCEPTED` before
 the register can report 100%. Conversely, an accepted real transaction requires
