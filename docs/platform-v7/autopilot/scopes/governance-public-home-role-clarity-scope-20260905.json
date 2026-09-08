@@ -9,7 +9,7 @@
     "docs/platform-v7/autopilot/scopes/governance-public-home-role-clarity-scope-20260905.json",
     "docs/platform-v7/autopilot/scopes/public-home-role-clarity-20260905.json"
   ],
-  "implementationBranch": "fix/platform-v7-final-production-acceptance-5111",
+  "implementationBranch": "feat/public-home-role-clarity-20260905",
   "implementationManifest": "docs/platform-v7/autopilot/scopes/public-home-role-clarity-20260905.json",
   "implementationAllowedPathCount": 4,
   "boundaries": {
