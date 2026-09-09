@@ -13,6 +13,7 @@ const implementationBranches = [
   'docs/pc-crop-post-registration-progress-4997',
   'governance/pc-crop-post-registration-progress-scope-4997',
   'governance/pc-crop-inventory-reservation-scope-4997',
+  'fix/owner-handoff-product-host-20260908',
 ];
 const publicHomeGovernanceBranch = 'governance/public-home-role-clarity-scope-20260905';
 const publicHomeImplementationBranch = 'feat/public-home-role-clarity-20260905';
@@ -408,6 +409,7 @@ test('runs immutable authority checks from a read-only trusted-base workflow', (
     `github.event.pull_request.head.ref == '${publicHomeImplementationBranch}'`,
     "github.event.pull_request.head.ref == 'governance/production-like-outbox-poison-isolation-scope-3793'",
     "github.event.pull_request.head.ref == 'fix/production-like-outbox-poison-isolation-3793'",
+    "github.event.pull_request.head.ref == 'fix/owner-handoff-product-host-20260908'",
     "const manifestPath = 'docs/platform-v7/autopilot/scopes/role-eligibility-fns-egrul-file-import-5016.json';",
     "'apps/api/src/fns-egrul-import.ts'",
     "'apps/api/src/modules/role-eligibility/fns-egrul-file-import.service.ts'",
@@ -428,7 +430,7 @@ test('runs immutable authority checks from a read-only trusted-base workflow', (
     "-f name='guard'",
     '-f head_sha="$HEAD_SHA"',
     "-f status='completed'",
-    `github.head_ref == '${publicHomeImplementationBranch}' || github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' || github.head_ref == 'fix/production-like-outbox-poison-isolation-3793') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}`,
+    `github.head_ref == '${publicHomeImplementationBranch}' || github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' || github.head_ref == 'fix/production-like-outbox-poison-isolation-3793' || github.head_ref == 'fix/owner-handoff-product-host-20260908') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}`,
     'needs: standard_validation',
     "if: always() && github.event_name != 'pull_request_target'",
     'git show "$BASE_SHA:scripts/p7-autopilot-guard.sh" > "$TRUSTED_GUARD"',
