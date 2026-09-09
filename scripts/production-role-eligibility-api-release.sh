@@ -6,6 +6,7 @@ ACTION="${1:-}"
 TARGET_SHA="${2:-}"
 API_IMAGE="${PC_ROLE_ELIGIBILITY_API_IMAGE:-}"
 API_DIGEST="${PC_ROLE_ELIGIBILITY_API_DIGEST:-}"
+W1_ROUTES="${PC_ROLE_ELIGIBILITY_W1_ROUTES:-0}"
 PINNED_API_IMAGE_ID=""
 PROD_DIR_B64="${PC_PROD_DIR_B64:-}"
 PROD_COMPOSE_B64="${PC_PROD_COMPOSE_B64:-}"
@@ -33,6 +34,27 @@ fi
 if [[ -n "$API_DIGEST" ]]; then
   [[ "$API_DIGEST" =~ ^ghcr\.io/pachaninm-lab/grainflow-api@sha256:[0-9a-f]{64}$ ]] || fail API_DIGEST_REFERENCE_INVALID 7
 fi
+[[ "$W1_ROUTES" == 0 || "$W1_ROUTES" == 1 ]] || fail W1_ROUTE_MODE_INVALID 46
+w1_checker_source=""
+if [[ "$W1_ROUTES" == 1 ]]; then
+  [[ "$ACTION" == deploy && -n "$API_DIGEST" ]] || fail W1_ROUTE_DIGEST_REQUIRED 47
+  # Only the fixed companion transported with this exact-main executor is used;
+  # callers cannot supply a command, script path or network destination.
+  w1_checker="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/check-production-pc-crop-w1-acceptance.mjs"
+  [[ -f "$w1_checker" && ! -L "$w1_checker" ]] || fail W1_ROUTE_SOURCE_MISSING 48
+  w1_checker_source="$(cat "$w1_checker")"
+  [[ -n "$w1_checker_source" ]] || fail W1_ROUTE_SOURCE_MISSING 48
+fi
+
+w1_route_boundary(){
+  [[ "$W1_ROUTES" == 1 ]] || return 0
+  local evidence
+  evidence="$(docker exec "$1" /nodejs/bin/node --input-type=module \
+    -e "$w1_checker_source" -- --runtime-routes 2>/dev/null)" || fail W1_API_ROUTE_BOUNDARY_FAILED 49
+  [[ "$evidence" == $'PC_W1_API_ROUTE_BOUNDARY=PASS\nPC_W1_API_ROUTES=5\nPC_W1_AUTHENTICATED_ACCEPTANCE=NOT_EVIDENCED' ]] \
+    || fail W1_API_ROUTE_EVIDENCE_INVALID 50
+  printf '%s\n' "$evidence"
+}
 
 assert_api_image_digest(){
   [[ -n "$API_DIGEST" ]] || return 0
@@ -276,6 +298,7 @@ new_image_id="$(docker inspect --format '{{.Image}}' "$new_api_id")"
 [[ -z "$API_DIGEST" || "$new_image_id" == "$PINNED_API_IMAGE_ID" ]] || fail DEPLOYED_API_DIGEST_MISMATCH 44
 new_revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$new_image_id" 2>/dev/null || true)"
 [[ "$new_revision" == "$TARGET_SHA" ]] || fail DEPLOYED_API_REVISION_MISMATCH 36
+w1_route_boundary "$new_api_id"
 new_runtime_fingerprint="$(runtime_fingerprint "$new_api_id")"
 [[ "$new_runtime_fingerprint" == "$baseline_runtime_fingerprint" ]] || fail API_RUNTIME_CONFIGURATION_CHANGED 37
 new_protected_snapshot="$(protected_snapshot "$new_api_id")"

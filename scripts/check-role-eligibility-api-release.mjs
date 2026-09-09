@@ -43,6 +43,13 @@ requireAll('executor', [
   '[[ -z "$API_DIGEST" || "$baseline_image_id" == "$PINNED_API_IMAGE_ID" ]] || fail API_AUDIT_DIGEST_MISMATCH 45',
   '[[ -z "$API_DIGEST" || "$new_image_id" == "$PINNED_API_IMAGE_ID" ]] || fail DEPLOYED_API_DIGEST_MISMATCH 44',
   '[[ -z "$API_DIGEST" ]] || emit ROLE_ELIGIBILITY_API_DIGEST_VERIFIED PASS',
+  'W1_ROUTES="${PC_ROLE_ELIGIBILITY_W1_ROUTES:-0}"',
+  '[[ "$W1_ROUTES" == 0 || "$W1_ROUTES" == 1 ]] || fail W1_ROUTE_MODE_INVALID 46',
+  '[[ "$ACTION" == deploy && -n "$API_DIGEST" ]] || fail W1_ROUTE_DIGEST_REQUIRED 47',
+  '[[ -f "$w1_checker" && ! -L "$w1_checker" ]] || fail W1_ROUTE_SOURCE_MISSING 48',
+  'w1_route_boundary "$new_api_id"',
+  '|| fail W1_API_ROUTE_BOUNDARY_FAILED 49',
+  '|| fail W1_API_ROUTE_EVIDENCE_INVALID 50',
 ]);
 
 requireAll('workflow', [
@@ -97,6 +104,15 @@ if (!/\[\[ \"\$TARGET_SHA\" =~ \^\[0-9a-f\]\{40\}\$ \]\] \|\| \{ echo ROLE_ELIGI
 if (!/docker pull \"\$API_IMAGE\"/.test(source.executor)) failures.push('executor must pull only the exact API image');
 if (!/services:\n  api:\n    image: \$image\n    pull_policy: never/.test(source.executor)) failures.push('executor override must contain only api image authority');
 if (!/trap 'cleanup_on_exit/.test(source.executor)) failures.push('executor must arm exit rollback');
+const routeProbe=source.executor.indexOf('\nw1_route_boundary "$new_api_id"\n');
+if (!(routeProbe>source.executor.indexOf("trap 'cleanup_on_exit")
+  && routeProbe>source.executor.indexOf('|| fail DEPLOYED_API_REVISION_MISMATCH 36')
+  && routeProbe<source.executor.lastIndexOf('emit ROLE_ELIGIBILITY_API_RELEASE PASS'))) {
+  failures.push('W1 route probe must fail inside the armed rollback boundary before release acceptance');
+}
+if (!source.executor.includes("$'PC_W1_API_ROUTE_BOUNDARY=PASS\\nPC_W1_API_ROUTES=5\\nPC_W1_AUTHENTICATED_ACCEPTANCE=NOT_EVIDENCED'")) {
+  failures.push('W1 route probe must require complete exact evidence without business acceptance');
+}
 if (!/MUTATION_STARTED=1\nwrite_override/.test(source.executor)) failures.push('rollback must be armed before persistent override mutation');
 const tagPull = source.executor.indexOf('docker pull "$API_IMAGE"');
 const firstDigestCheck = source.executor.indexOf('\nassert_api_image_digest\n');
