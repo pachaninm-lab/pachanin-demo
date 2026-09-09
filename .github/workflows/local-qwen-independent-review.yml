@@ -585,7 +585,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           body="$(printf 'LOCAL QWEN INDEPENDENT REVIEW: PASS\nExact head: `%s`\nProvider workflow: `.github/workflows/local-qwen-independent-review.yml`\nModel revision: `%s`\nModel SHA-256: `%s`\nRuntime build: `%s`\nRuntime source commit: `%s`\nRuntime archive SHA-256: `%s`\nPolicy SHA-256: `%s`\nFull diff SHA-256: `%s`\nDiff bytes: `%s`\nChunk count: `%s`\nReview manifest SHA-256: `%s`\nPrompt bundle SHA-256: `%s`\nResponse SHA-256: `%s`\nWorkflow run: `%s`\nVerdict: `PASS`\nFindings: `0`' \
-            "$HEAD_SHA" "$HEAD_SHA" "$MODEL_REVISION" "$MODEL_SHA256" "$LLAMA_BUILD" "$LLAMA_SOURCE_COMMIT" "$LLAMA_ARCHIVE_SHA256" "$POLICY_SHA256" "$DIFF_SHA256" "$DIFF_BYTES" "$CHUNK_COUNT" "$MANIFEST_SHA256" "$PROMPT_BUNDLE_SHA256" "$RESPONSE_SHA256" "$GITHUB_RUN_ID")"
+            "$HEAD_SHA" "$MODEL_REVISION" "$MODEL_SHA256" "$LLAMA_BUILD" "$LLAMA_SOURCE_COMMIT" "$LLAMA_ARCHIVE_SHA256" "$POLICY_SHA256" "$DIFF_SHA256" "$DIFF_BYTES" "$CHUNK_COUNT" "$MANIFEST_SHA256" "$PROMPT_BUNDLE_SHA256" "$RESPONSE_SHA256" "$GITHUB_RUN_ID")"
           jq -n \
             --arg body "$body" \
             --arg commit_id "$HEAD_SHA" \
