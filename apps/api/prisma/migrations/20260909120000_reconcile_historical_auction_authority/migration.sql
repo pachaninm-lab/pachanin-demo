@@ -32,11 +32,11 @@ BEGIN
   ) THEN RAISE EXCEPTION 'W1_LINEAGE_LEDGER_UNRECOGNIZED'; END IF;
   historical := archived_count=4;
   FOR expected IN SELECT * FROM (VALUES
-    ('market','list_open_lots','integer,timestamp with time zone','c7082b888eabd00420bb7f3007425290c08d32891330601e3d2f90821ddd931f',NULL,false,'plpgsql','v','search_path=auction, pg_temp'),
-    ('auction','record_admission','text,text,text,text,timestamp with time zone,text,bigint,text,text','9a650b0d744fe12453525dc810ac14fe0ddf6959dde7f70341f16f882b79073a','ee7af2664b44e3189d48ff8ce60641069a27dd4b2eebb2f23eae55dc561f6f1a',true,'plpgsql','v','search_path=pg_catalog, public, auction'),
-    ('auction','place_bid','text,bigint,numeric,bigint,text,text','68cb115eb01829e921f4d06867f1f17cdcaa999c5e6207a9e97fec7b62a25e0e','9f61cb01e25f93e9a6044c0fd59e3db96b5cedcc121ffadcfea23007917b1a0b',true,'plpgsql','v','search_path=pg_catalog, public, auction'),
-    ('dealx','participant_tenant','text,text,text,text','a1b0ff9212bb21b9d025804af49f0fe286adf3ea16b1d9e91682f9574a9af3b9',NULL,true,'sql','s','search_path=public, pg_temp')
-  ) e(schema_name,function_name,arguments,historical_hash,canonical_hash,definer,language,volatility,search_path) LOOP
+    ('market','list_open_lots','integer,timestamp with time zone','c7082b888eabd00420bb7f3007425290c08d32891330601e3d2f90821ddd931f',NULL,false,'plpgsql','v','search_path=auction, pg_temp',false),
+    ('auction','record_admission','text,text,text,text,timestamp with time zone,text,bigint,text,text','9a650b0d744fe12453525dc810ac14fe0ddf6959dde7f70341f16f882b79073a','ee7af2664b44e3189d48ff8ce60641069a27dd4b2eebb2f23eae55dc561f6f1a',true,'plpgsql','v','search_path=pg_catalog, public, auction',false),
+    ('auction','place_bid','text,bigint,numeric,bigint,text,text','68cb115eb01829e921f4d06867f1f17cdcaa999c5e6207a9e97fec7b62a25e0e','9f61cb01e25f93e9a6044c0fd59e3db96b5cedcc121ffadcfea23007917b1a0b',true,'plpgsql','v','search_path=pg_catalog, public, auction',true),
+    ('dealx','participant_tenant','text,text,text,text','a1b0ff9212bb21b9d025804af49f0fe286adf3ea16b1d9e91682f9574a9af3b9',NULL,true,'sql','s','search_path=public, pg_temp',false)
+  ) e(schema_name,function_name,arguments,historical_hash,canonical_hash,definer,language,volatility,search_path,public_execute) LOOP
     expected_hash := CASE WHEN historical THEN expected.historical_hash ELSE expected.canonical_hash END;
     SELECT count(*) INTO function_count FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
       WHERE n.nspname=expected.schema_name AND p.proname=expected.function_name;
@@ -50,12 +50,19 @@ BEGIN
     IF observed.prokind<>'f' OR observed.prosecdef IS DISTINCT FROM expected.definer
       OR observed.lanname<>expected.language OR observed.provolatile::text<>expected.volatility
       OR observed.proleakproof OR observed.proisstrict
-      OR observed.proconfig IS DISTINCT FROM ARRAY[expected.search_path]
-      OR observed.proowner<>(SELECT relowner FROM pg_class WHERE oid='public._prisma_migrations'::regclass)
-      OR encode(sha256(convert_to(observed.prosrc,'UTF8')),'hex')<>expected_hash
-      OR EXISTS (SELECT 1 FROM aclexplode(COALESCE(observed.proacl,acldefault('f',observed.proowner))) a
-        WHERE a.grantee=0 AND a.privilege_type='EXECUTE')
     THEN RAISE EXCEPTION 'W1_LINEAGE_FUNCTION_AUTHORITY'; END IF;
+    IF observed.proconfig IS DISTINCT FROM ARRAY[expected.search_path]
+    THEN RAISE EXCEPTION 'W1_LINEAGE_FUNCTION_CONFIG'; END IF;
+    IF observed.proowner<>(SELECT relowner FROM pg_class WHERE oid='public._prisma_migrations'::regclass)
+    THEN RAISE EXCEPTION 'W1_LINEAGE_FUNCTION_OWNER'; END IF;
+    IF encode(sha256(convert_to(observed.prosrc,'UTF8')),'hex')<>expected_hash
+    THEN RAISE EXCEPTION 'W1_LINEAGE_FUNCTION_BODY'; END IF;
+    -- 20260715013050 drops place_bid before 20260715013100 recreates it;
+    -- that accepted declaration inherits PostgreSQL's PUBLIC EXECUTE default.
+    -- Match this exact existing ACL; do not grant, revoke or broaden it here.
+    IF (EXISTS (SELECT 1 FROM aclexplode(COALESCE(observed.proacl,acldefault('f',observed.proowner))) a
+      WHERE a.grantee=0 AND a.privilege_type='EXECUTE')) IS DISTINCT FROM expected.public_execute
+    THEN RAISE EXCEPTION 'W1_LINEAGE_FUNCTION_PUBLIC_EXECUTE'; END IF;
   END LOOP;
 END
 $lineage_guard$;

@@ -715,9 +715,9 @@ test('exact-image PostgreSQL transport, migration, restore and rejection rehears
       {input:correction,allowFailure:true,label:'ISOLATED_CORRECTION_POLICY_GUARD'});
     assert.notEqual(guardFailure.status,0);assert.match(guardFailure.stderr,/W1_LINEAGE_POLICY_DRIFT/);
     assert.equal(sql(archiveSql,'historical_guard').stdout,historyBefore,'REHEARSAL_FAILED_CORRECTION_CHANGED_LEDGER');
-    sql('GRANT EXECUTE ON FUNCTION auction.place_bid(text,bigint,numeric,bigint,text,text) TO PUBLIC;','historical');
+    sql('GRANT EXECUTE ON FUNCTION auction.record_admission(text,text,text,text,timestamptz,text,bigint,text,text) TO PUBLIC;','historical');
     moveApi('historical');executor('preflight',{error:'LINEAGE_CATALOG_REFERENCE_MISMATCH'});
-    sql('REVOKE EXECUTE ON FUNCTION auction.place_bid(text,bigint,numeric,bigint,text,text) FROM PUBLIC;','historical');
+    sql('REVOKE EXECUTE ON FUNCTION auction.record_admission(text,text,text,text,timestamptz,text,bigint,text,text) FROM PUBLIC;','historical');
     assert.equal(executor().PC_W1_LINEAGE_CHECKS,'PASS');
 
     // The reference comes from the exact accepted image executing SQL in a

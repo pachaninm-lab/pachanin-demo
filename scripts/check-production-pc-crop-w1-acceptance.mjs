@@ -15,7 +15,7 @@ export const TARGET_MIGRATIONS = Object.freeze({
   '20260905030000_service_marketplace_authority': 'cb936ef015f11aecf1e1f750807cd0af712284874ab8e5fcb99801507561c8e3',
   '20260905040000_inventory_reservation_authority': 'f10e5d8abb3247087f8b97c01b063700f7ba29f5cbcf30d209c5a6fa587b4ff4',
   '20260905100000_auction_inventory_binding': '3659a16fe4e5e5a2a755ab9510835239efa641d0c6a1991ab21f7b1f904174dd',
-  '20260909120000_reconcile_historical_auction_authority': '3354dea63ae07c7849448d2fe4d44413383a9115f2e21daf08f8d21258bd8612',
+  '20260909120000_reconcile_historical_auction_authority': 'f3ed347bbc85d56a697d4aeafdb43ab5f351ff5c5da6a78671b88310f432c0bc',
 });
 export const TARGET_TABLES = Object.freeze([
   ...['organization_capability_assignments', 'organization_capability_events', 'providers', 'provider_capabilities',
