@@ -2,7 +2,7 @@
   "schemaVersion": "pc-crop.post-registration.dod-baseline.v1",
   "issue": 4997,
   "observedAt": "2026-09-05",
-  "exactMainBaseline": "3896a475f6407f7bf3ef1bab27b316789e0d2256",
+  "exactMainBaseline": "b2629858f1ee40d0738211fbbd267a164d918013",
   "specificationSha256": "1f85df31b83747741b415fe65c0027e3e0be754bb0caeca5d7b3db4eb6b1e99e",
   "statusVocabulary": [
     "PASS",
