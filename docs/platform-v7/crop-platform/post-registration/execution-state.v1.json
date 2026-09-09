@@ -2,7 +2,7 @@
   "schemaVersion": "pc-crop.post-registration.execution-state.v1",
   "programme": "pc-crop-post-registration-operating-system",
   "issue": 4997,
-  "updatedAt": "2026-09-08T20:37:00Z",
+  "updatedAt": "2026-09-09T12:09:00Z",
   "specification": {
     "sha256": "1f85df31b83747741b415fe65c0027e3e0be754bb0caeca5d7b3db4eb6b1e99e",
     "dodListSha256": "091acfafbde256b0028e7dbfb2afe7c97a05c6b899ba1fc9b0ccbfc4b40a93a2",
@@ -10,13 +10,13 @@
     "sections": 111,
     "dodCriteria": 126
   },
-  "observedMainSha": "3896a475f6407f7bf3ef1bab27b316789e0d2256",
+  "observedMainSha": "b2629858f1ee40d0738211fbbd267a164d918013",
   "auditLineage": {
     "fullAuditSha": "c4dfc4112599f2a4ff21e1a5cf35345509abad41",
     "deltaReviewedToObservedMain": true,
     "postRegistrationFindingsChanged": true,
-    "previousObservedMainSha": "3928fa44d7145879e3739eff7df954592ad3012f",
-    "reviewKind": "Bounded revenue-first reconciliation: live GitHub W1/W2 merge evidence, unchanged W1/Inventory/Auction/Deal source delta since accepted W2-B, exact REG.RU read-only migration observation. Other historical findings are not a fresh whole-repository audit.",
+    "previousObservedMainSha": "3896a475f6407f7bf3ef1bab27b316789e0d2256",
+    "reviewKind": "Bounded W1 operations reconciliation: accepted image/ledger diagnostics, dependency repair and prior immutable correction scope; current REG.RU read-only lineage evidence. Product findings and terminal DoD counts are not a fresh whole-repository audit.",
     "w0Delta": {
       "deltaCommits": [
         "db2b0d61ac6206e3b1fc25d54692a7747dbf7365",
@@ -39,11 +39,19 @@
       5029,
       5040
     ],
-    "executionOrderAuthority": "Explicit owner instruction 2026-09-08: finish W1, then Revenue Slice v1, then remaining original DoD. Specification and all 126 DoD criteria unchanged."
+    "executionOrderAuthority": "Explicit owner instruction 2026-09-08: finish W1, then Revenue Slice v1, then remaining original DoD. Specification and all 126 DoD criteria unchanged.",
+    "reviewedW1OperationsPullRequests": [
+      5194,
+      5195,
+      5197,
+      5198,
+      5199,
+      5201
+    ]
   },
   "observedProductionSha": "d401f2678070eae3362d22d09b60aadf3a8e042d",
-  "observedProductionShaReason": "Fresh API-only OCI revision observed by READ ONLY preflight run 34262474799 on exact current main. No claim about the current web revision or completed W1 production acceptance.",
-  "status": "W1_CODE_MERGED_PRODUCTION_SEVEN_MIGRATIONS_PENDING_REVENUE_FIRST",
+  "observedProductionShaReason": "Historical full API OCI revision from read-only run 34262474799. Run34343879829 emitted the current validated API revision, but GitHub masked part of that value; the public result cannot independently refresh the full SHA. No web revision or W1 production completion is inferred.",
+  "status": "W1_CODE_MERGED_HISTORICAL_DATABASE_LINEAGE_BLOCKED_REVENUE_FIRST",
   "overallProgressPercent": 3.1,
   "overallProgressBasis": "Strict terminal DoD: floor(4 PASS / 126 total * 1000) / 10. PARTIAL, FAIL, EXTERNAL_BLOCKER and NOT_EVIDENCED receive zero credit.",
   "dodStatusCounts": {
@@ -120,13 +128,13 @@
     "id": "W1-REG_RU",
     "name": "Complete already-merged W1 on REG.RU before Revenue Slice implementation",
     "sourceAudit": "docs/platform-v7/crop-platform/post-registration/execution-state.v1.json#w1Completion",
-    "status": "PREFLIGHT_IMPLEMENTATION_FIX_UNDER_REVIEW",
+    "status": "HISTORICAL_LINEAGE_CORRECTION_REVIEW_AND_CI_PENDING",
     "registrationCodeChanged": false,
     "registrationBehaviorChanged": false,
     "roleEligibilityEnforcementChanged": false,
     "newRecurringCostRub": 0,
     "acceptance": [
-      "Exact target main and seven expected pending migrations rechecked immediately before mutation",
+      "Exact target main and its explicitly accepted migration set rechecked immediately before mutation; #5203 proposes seven foundation migrations plus one pinned correction",
       "Current DNS and pinned host identity",
       "API/migration database identity equality without credentials in evidence",
       "Backup and forward-compatible rollback authority",
@@ -377,7 +385,7 @@
   },
   "w1Completion": {
     "codeStatus": "MERGED",
-    "productionStatus": "BLOCKED_IMAGE_MANIFEST_VALIDATION",
+    "productionStatus": "BLOCKED_HISTORICAL_DATABASE_LINEAGE",
     "terminalCredit": 0,
     "mergedPrs": [
       5001,
@@ -417,9 +425,9 @@
       ],
       "closedEvidence": "https://github.com/pachaninm-lab/pachanin-demo/issues/5013#issuecomment-5591278238"
     },
-    "requiredNext": "Accept exact-head CI and independent review of #5191, repeat current-main read-only preflight, then run the mandatory isolated exact-image PostgreSQL rehearsal before the bounded migration/API release. Full authenticated W1 acceptance remains separate and unevidenced.",
+    "requiredNext": "Complete exact-head CI and independent review for #5203 current head. After merge, observe current-main again, then require actual isolated clean and historical PostgreSQL convergence/backup/restore before bounded migration/API release. Require full authenticated W1 acceptance separately; no terminal credit from deployment alone.",
     "requiredEvidence": [
-      "Exact target main and seven expected pending migrations rechecked immediately before mutation",
+      "Exact target main and its explicitly accepted migration set rechecked immediately before mutation; #5203 proposes the seven foundation migrations plus one pinned forward correction",
       "Current DNS and pinned host identity",
       "API/migration database identity equality without credentials in evidence",
       "Backup and forward-compatible rollback authority",
@@ -434,20 +442,58 @@
       "status": "MERGED_NOT_DEPLOYED"
     },
     "latestPreflight": {
-      "run": 34273770028,
-      "targetMainSha": "3896a475f6407f7bf3ef1bab27b316789e0d2256",
-      "evidence": "https://github.com/pachaninm-lab/pachanin-demo/issues/4997#issuecomment-5591343155",
+      "run": 34343879829,
+      "targetMainSha": "2309f6aafa1ca6478626d572be18f8e24f1ca72a",
+      "evidence": "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34343879829",
       "result": "BLOCKED",
-      "error": "IMAGE_MIGRATION_CONTENT_MISMATCH",
+      "error": "UNRECOGNIZED_APPLIED_MIGRATION",
       "databaseMutation": "NONE",
       "dns": "PASS",
       "sshPin": "PASS",
       "registrationBlobsUnchanged": true,
       "apiAndMigrationImages": "MATERIALIZED",
-      "databaseStateReobserved": false,
-      "fixPr": 5191
+      "databaseStateReobserved": true,
+      "ledger": {
+        "rows": 197,
+        "matched": 192,
+        "drifted": 1,
+        "unknown": 4,
+        "duplicates": 1,
+        "unfinished": 0,
+        "rolledBack": 0,
+        "legacyInitialMarkers": 1,
+        "sha256": "c69b2514e5537da20c1ccd9874c880ba857381e0af361e90655ceed6146c6a9c"
+      },
+      "historicalLedger": "EXACT_FOUR_SOURCE_CHECKSUMS",
+      "historicalCatalog": "OBSERVED",
+      "historicalPolicies": 6,
+      "historicalCatalogSha256": "54af20d712d2009ec28e05708cd14d99020542e273b4ef60ef4cedca6cf1b814",
+      "historicalFunctionBodies": "ALL_FOUR_HISTORICAL",
+      "fixPr": 5203
     },
-    "historicalDatabaseObservationNote": "The seven pending migrations, zero unfinished migrations and absent capability tables were observed only in run 34262474799. Run 34273770028 stopped at immutable image manifest verification before the database probe; it does not refresh those database facts."
+    "historicalDatabaseObservationNote": "Run34343879829 refreshed the complete read-only ledger and bounded historical function/policy observation. The counted drift/duplicate include the separately recognized redundant initial source marker. Four exact non-main SQL sources remain unrecognized by that deployed controller; no migration was executed. The seven pending migrations and absent W1 tables remain attributed to run34262474799, not re-proven after the latest classifier stopped.",
+    "pendingMigrationsObservationRun": 34262474799,
+    "capabilityTablesObservationRun": 34262474799,
+    "forwardCorrectionCandidate": {
+      "pr": 5203,
+      "headSha": "9f8e7fb87147f06f3c2a7a3a0c5104358dd71823",
+      "treeSha": "5e1ac4fcbc1267f2bbab2bb6adf0244aeebb0aa2",
+      "status": "EXACT_HEAD_REVIEW_AND_CI_PENDING",
+      "priorScopePr": 5201,
+      "migration": "20260909120000_reconcile_historical_auction_authority",
+      "migrationSha256": "f3ed347bbc85d56a697d4aeafdb43ab5f351ff5c5da6a78671b88310f432c0bc",
+      "cleanPostgresqlCi": "PENDING",
+      "historicalCorrectionRehearsal": "NOT_EXECUTED",
+      "productionMutation": "NONE",
+      "boundary": "Retain all historical ledger rows. Match current catalog and source compatibility against real isolated references; execute only the new forward correction, never replay archived SQL in production.",
+      "previousHeadEvidence": {
+        "headSha": "f3faa20b6bbdde9bd84ad001da006447134c2546",
+        "reviewEvidence": "https://github.com/pachaninm-lab/pachanin-demo/pull/5203#issuecomment-5601317797",
+        "cleanPostgresqlCi": "PASS",
+        "supersededBeforeKubernetesCompletion": true
+      },
+      "additionalBoundary": "Exact audited auction command/controller Git blobs and unchanged trusted RLS context; deployed GET-only W1 route/authentication denial probe. No business acceptance inferred."
+    }
   },
   "nextAfterW1": {
     "id": "W2-C",

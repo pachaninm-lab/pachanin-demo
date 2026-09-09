@@ -848,11 +848,9 @@ export function checkSources(root) {
     assert.ok(script.includes(`\${${key}:-}`),'Mutation must require both rehearsal references');
   }
   const workflow=fs.readFileSync(path.join(root,'.github/workflows/pc-crop-w1-production-acceptance.yml'),'utf8');
-  const routeProbe=workflow.indexOf('-- --runtime-routes');
-  const deployedDigest=workflow.indexOf('PC_W1_BLOCKER=RUNNING_API_DIGEST_MISMATCH');
-  const unchanged=workflow.indexOf('PC_W1_BLOCKER=API_ENV_CHANGED');
-  assert.ok(deployedDigest>=0 && routeProbe>deployedDigest && routeProbe<unchanged,
-    'Route probe must execute inside the verified deployed API before completion');
+  assert.ok(workflow.includes('if ! PC_ROLE_ELIGIBILITY_W1_ROUTES=1 "$remote/production-role-eligibility-api-release.sh" deploy "$target"; then'),
+    'W1 route acceptance must stay inside the existing API rollback boundary');
+  assert.ok(!workflow.includes('-- --runtime-routes'),'The controller cannot run a post-release route probe without rollback');
   for(const field of ['PC_W1_API_ROUTE_BOUNDARY=PASS','PC_W1_API_ROUTES=5']) {
     assert.ok(workflow.includes(`[[ "$OPERATION" != migrate ]] || grep -Fxq ${field} "$EVIDENCE_DIR/stage.log"`),
       'Successful migration release requires bounded route evidence');
