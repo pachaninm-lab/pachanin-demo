@@ -7,6 +7,9 @@ c5077eebcc9bbc47e3d650795e11b55f265428e8:.github/workflows/tai-model-source-acqu
 # False positive: deterministic commodity-profile idempotency test fixture, not a credential.
 ec4b80ce1ee4fa7cf18361f1ff536c34b5030948:apps/api/src/modules/commodity-profiles/commodity-profile-command.contract.spec.ts:generic-api-key:11
 
+# False positive: deterministic service-marketplace idempotency test fixture, not a credential.
+8c08a3d3764b616f919a1e73828643dff95db5d4:apps/api/src/modules/service-marketplace/service-marketplace.contract.spec.ts:generic-api-key:11
+
 # False positive: public immutable GitHub Actions artifact SHA-256, not a credential.
 d4f147c04c64b7565f11288b3b545c97340d7899:apps/tai/model-artifacts/model-conversion-authority.v1.json:generic-api-key:91
 
@@ -38,3 +41,11 @@ ecdc1130ca1bc424f3ccecb072115e304722c971:apps/tai/tai/cpu_benchmark_execution.py
 # False positive: the same deterministic SDIZ idempotency test fixture at its original
 # location inside the workflow block scalar, surfaced when a wider push range was scanned.
 72c83adf77d1c7a42f190e1960bcf4d22674f740:.github/workflows/pc-crop-08f-sync-main.yml:generic-api-key:126
+
+# False positive: SHA-256 of public GektaAccessGate.tsx, asserted for source immutability; not a credential.
+bcc5ba620f5e8cfec4e540c4b9fab4e236393c63:apps/web/tests/unit/platformV7RootWorkEntry.test.ts:generic-api-key:227
+
+# False positive: static PC_W1_API_DIGEST_VERIFIED output field name in W1 controller history.
+# Exact commit/path/rule/line only; these strings never contained a credential.
+25f4fa23451d9b2fd58ff60ba9badfc063055796:.github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:391
+ba4e7b26a34f95ebc5636c6a18785a6a2d63b0b1:.github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:395

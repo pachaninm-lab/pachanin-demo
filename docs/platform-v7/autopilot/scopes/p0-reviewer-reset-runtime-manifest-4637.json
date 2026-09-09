@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-reviewer-reset-manifest-8f380-4637",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_RESET_RUNTIME_MANIFEST_READ_ONLY",
+  "issue": 4637,
+  "releaseIssue": 4637,
+  "reviewedResetSha": "9310d7ae231b4d3b4904fe04712af05fbbea7a9c",
+  "deployedRuntimeShaAtReview": "8f380b5d2a3dba14d279679ddaf873ee6c522f85",
+  "title": "Bind the continuation reviewer-reset preflight to the complete immutable runtime manifest",
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-reset-drift-tolerant-preflight.yml",
+    "docs/platform-v7/autopilot/scopes/p0-reviewer-reset-runtime-manifest-4637.json",
+    "scripts/production-p0-reviewer-reset-continuation-patch.py"
+  ],
+  "boundaries": {
+    "productionMutation": false,
+    "databaseMutation": false,
+    "passwordResetRequest": false,
+    "mailSend": false,
+    "reviewerIdentityOutput": false,
+    "credentialOutput": false,
+    "deploymentMutation": false,
+    "containerLifecycleMutation": false,
+    "canonical3072AuthorityChanged": false,
+    "ownerOnly": true,
+    "failClosed": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "pull-request execution is contract-only and cannot inspect or mutate production",
+    "the canonical hash-pinned preflight script and its issue 3072 behavior remain unchanged",
+    "issue 4637 executes only a RUNNER_TEMP copy under the shared pc-crop-registration-lifecycle lock",
+    "the continuation copy is bound to reviewed reset closure 9310d7ae231b4d3b4904fe04712af05fbbea7a9c, the last merged change to that closure",
+    "the continuation manifest contains exactly 23 unique fixed files, including password-hashing.ts and strong-password.validator.ts",
+    "the hash-pinned continuation patcher is shared by contract and runtime execution and its negative fixtures reject missing, duplicate and unlisted manifest entries",
+    "all four continuation substitutions require exact single-anchor cardinality and fail closed on missing or duplicate anchors",
+    "the reviewed reset closure must be an ancestor of the current source revision and every manifest blob must equal the deployed runtime blob",
+    "the preflight can emit RESET_AUTHORIZED=YES only together with PRODUCTION_MUTATION=NONE",
+    "a terminal issue 4637 PASS uploads a one-day sanitized JSON authorization artifact bound to run id, attempt 1, comment, exact source SHA, runtime SHA, reviewed reset SHA and manifest size",
+    "the artifact contains no reviewer identity, mail address, reset bearer, credential, host credential or raw production output",
+    "no reset challenge, email, identifier, password, MFA secret, token, cookie or raw identity is created or published",
+    "a separate fresh one-shot workflow must consume terminal preflight evidence before any reset mutation",
+    "new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

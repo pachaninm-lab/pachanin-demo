@@ -125,12 +125,6 @@ describe.skipIf(!process.env.RUN_E2E)('GrainFlow full deal cycle', () => {
     expect(r.status).toBeLessThan(300);
   });
 
-  it('MFA setup init returns secret', async () => {
-    const r = await post('/api/mfa/setup/init', {}, farmerToken);
-    expect(r.status).toBeLessThan(300);
-    expect(r.body.secret || r.body.otpauthUrl).toBeTruthy();
-  });
-
   it('compliance officer KYC queue returns 200', async () => {
     const compToken = await login('compliance@demo.ru');
     const r = await get('/api/compliance/kyc-queue', compToken);

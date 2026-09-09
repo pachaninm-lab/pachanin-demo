@@ -70,6 +70,10 @@ jobs:
     if: github.event_name == 'push' || github.actor == github.repository_owner
     runs-on: ubuntu-24.04
     timeout-minutes: 50
+    concurrency:
+      group: pc-crop-production-release-candidate
+      cancel-in-progress: false
+      queue: max
 
     steps:
       - uses: actions/checkout@v4

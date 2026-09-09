@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { ServiceUnavailableException } from '@nestjs/common';
-import { HealthController } from './health.controller';
+import { HealthController, READINESS_DATABASE_DEADLINE_MS } from './health.controller';
 import { OutboxService } from './common/outbox/outbox.service';
 
 function makeOutbox(stats: Partial<Awaited<ReturnType<OutboxService['queueStats']>>> = {}) {
@@ -33,9 +35,20 @@ function fixHeapUsedMb(megabytes: number): void {
   jest.spyOn(process, 'memoryUsage').mockReturnValue({ ...actual, heapUsed: megabytes * MEGABYTE });
 }
 
+/**
+ * Пул, у которого удаляют реплику, соединение не разрывает: под уходит, пакеты
+ * перестают доходить, и запрос просто не отвечает. Промис, который никогда не
+ * settle-ится, — это ровно та форма отказа, и она отличается от отвергнутого
+ * промиса тем, что без внешней границы обработчик из неё не выходит вовсе.
+ */
+function stalledForever(): Promise<never> {
+  return new Promise<never>(() => {});
+}
+
 describe('HealthController — durable outbox projections', () => {
   afterEach(() => {
     jest.restoreAllMocks();
+    jest.useRealTimers();
   });
 
   it('reports readiness from PostgreSQL queue statistics', async () => {
@@ -81,6 +94,143 @@ describe('HealthController — durable outbox projections', () => {
       }),
     );
     expect(outbox.queueStats).toHaveBeenCalledTimes(2);
+  });
+
+  it('preserves readiness when the database stalls instead of failing', async () => {
+    // Grace-окно писалось под отказ пула, но ловило только отвергнутый промис.
+    // Здесь база не отвечает вовсе — и до этой границы обработчик висел бы
+    // дольше probe-таймаута kubelet, под ушёл бы из endpoints, а ingress отдал
+    // бы 503: ровно то, что grace-окно должно было предотвратить.
+    fixHeapUsedMb(64);
+    const outbox = makeOutbox({ pending: 4, processing: 2, deadLetter: 0 });
+    const controller = new HealthController(outbox);
+
+    jest.useFakeTimers();
+    jest.setSystemTime(1_000);
+    await controller.ready();
+
+    outbox.queueStats.mockReturnValueOnce(stalledForever());
+    jest.setSystemTime(6_000);
+
+    const pending = controller.ready();
+    await jest.advanceTimersByTimeAsync(READINESS_DATABASE_DEADLINE_MS);
+
+    await expect(pending).resolves.toEqual(
+      expect.objectContaining({
+        status: 'ready',
+        checks: expect.objectContaining({
+          // 5000 мс простоя плюс сам дедлайн: граница тратит часть окна, а не
+          // добавляет к нему.
+          database: 'transient-grace (cached_age_ms=6500)',
+          outbox: expect.stringContaining('pending=6'),
+        }),
+      }),
+    );
+  });
+
+  it('keeps one database read in flight however often the probe fires', async () => {
+    // Дедлайн отпускает обработчик, но запрос продолжает занимать соединение
+    // пула. Проба приходит каждые пять секунд; если каждая начнёт свой запрос,
+    // стояние базы исчерпает пул Prisma за минуту и остановит уже не
+    // готовность, а весь трафик API. Найдено ревью на #4830.
+    fixHeapUsedMb(64);
+    const outbox = makeOutbox();
+    const controller = new HealthController(outbox);
+
+    jest.useFakeTimers();
+    jest.setSystemTime(1_000);
+    await controller.ready();
+    expect(outbox.queueStats).toHaveBeenCalledTimes(1);
+
+    outbox.queueStats.mockReturnValue(stalledForever());
+
+    for (let probe = 0; probe < 3; probe += 1) {
+      const pending = controller.ready();
+      await jest.advanceTimersByTimeAsync(READINESS_DATABASE_DEADLINE_MS);
+      await expect(pending).resolves.toEqual(
+        expect.objectContaining({ status: 'ready' }),
+      );
+    }
+
+    // Один успешный в начале и один зависший на все три пробы.
+    expect(outbox.queueStats).toHaveBeenCalledTimes(2);
+  });
+
+  it('starts a fresh read once the stalled one settles', async () => {
+    // Разделяется незавершённый запрос, а не результат: иначе готовность
+    // отвечала бы из одного чтения вечно.
+    fixHeapUsedMb(64);
+    const outbox = makeOutbox();
+    const controller = new HealthController(outbox);
+
+    jest.useFakeTimers();
+    jest.setSystemTime(1_000);
+    await controller.ready();
+    await controller.ready();
+
+    expect(outbox.queueStats).toHaveBeenCalledTimes(2);
+  });
+
+  it('fails closed when the database stalls before any successful readiness read', async () => {
+    // Дедлайн переводит зависание в отказ — но не выдаёт готовность за него.
+    const outbox = makeOutbox();
+    outbox.queueStats.mockReturnValueOnce(stalledForever());
+    const controller = new HealthController(outbox);
+
+    jest.useFakeTimers();
+    jest.setSystemTime(1_000);
+
+    const settled = controller.ready().catch((caught: unknown) => caught);
+    await jest.advanceTimersByTimeAsync(READINESS_DATABASE_DEADLINE_MS);
+
+    const error = await settled;
+    expect(error).toBeInstanceOf(ServiceUnavailableException);
+    expect((error as ServiceUnavailableException).getResponse()).toEqual(
+      expect.objectContaining({
+        code: 'READINESS_DATABASE_UNAVAILABLE',
+        checks: { api: 'ok', database: 'down' },
+      }),
+    );
+  });
+
+  it('fails closed when the database stalls past the grace period', async () => {
+    // Дедлайн не расширяет окно: после 15 секунд без успешного чтения
+    // готовность падает независимо от формы отказа.
+    fixHeapUsedMb(64);
+    const outbox = makeOutbox();
+    const controller = new HealthController(outbox);
+
+    jest.useFakeTimers();
+    jest.setSystemTime(1_000);
+    await controller.ready();
+
+    outbox.queueStats.mockReturnValueOnce(stalledForever());
+    jest.setSystemTime(16_001);
+
+    const settled = controller.ready().catch((caught: unknown) => caught);
+    await jest.advanceTimersByTimeAsync(READINESS_DATABASE_DEADLINE_MS);
+
+    expect(await settled).toBeInstanceOf(ServiceUnavailableException);
+  });
+
+  it('keeps the readiness deadline below the Kubernetes probe timeout', () => {
+    // Граница ниже probe-таймаута — это и есть всё её содержание. Поднять
+    // константу выше него можно только уронив этот тест: иначе kubelet
+    // отсчитает свой таймаут раньше, чем обработчик вернёт кэш, и дедлайн
+    // снова перестанет что-либо значить.
+    const values = readFileSync(
+      join(__dirname, '..', '..', '..', 'infra', 'helm', 'grainflow', 'values.yaml'),
+      'utf8',
+    );
+    const apiSection = values.slice(values.indexOf('\napi:'), values.indexOf('\noutboxWorker:'));
+    expect(apiSection).toContain('path: /ready');
+
+    const probeTimeout = /path: \/ready[\s\S]*?timeoutSeconds:\s*(\d+)/u.exec(apiSection);
+    expect(probeTimeout).not.toBeNull();
+
+    const probeTimeoutMs = Number(probeTimeout?.[1]) * 1_000;
+    expect(probeTimeoutMs).toBeGreaterThan(0);
+    expect(READINESS_DATABASE_DEADLINE_MS).toBeLessThan(probeTimeoutMs);
   });
 
   it('fails closed when the database is unavailable before any successful readiness read', async () => {

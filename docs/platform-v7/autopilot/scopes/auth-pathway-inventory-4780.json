@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4780,
+  "branch": "security/auth-pathway-inventory-4780",
+  "status": "active",
+  "purpose": "Write down every authentication pathway in the tree, with the controls and the authentication strength behind each, as ASVS 5.0 V6.1.3 requires, and hold the list to the code with a test so it cannot go stale. Documentation and a test only. No runtime behaviour changes, no route is added, removed or re-gated, and no production deploy.",
+  "authorityBaseExactMain": "15651628fe9c08b9b4c7f013790c1cb2893612a1",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/auth-pathway-inventory-4780.json",
+    "docs/security/THREAT_MODEL.md",
+    "docs/security/asvs-applicability-decisions.json",
+    "scripts/security/verify-authentication-pathways.test.mjs",
+    ".github/workflows/sbom-scan.yml"
+  ],
+  "requiredInvariants": [
+    "No runtime code changes at all. Not one file under apps/ is touched: no route is added, removed, re-gated or re-scoped, and no control is loosened. The pass establishes what is there, it does not change it.",
+    "The inventory was built by measuring the tree, not by reading the previous record. Every file that signs a session token or writes a session cookie was enumerated; the survey found twelve, of which the previous evidence named one - and that one, the gov-id bridge, mints nothing.",
+    "No pathway found is claimed to be a defect. All twelve are controlled and no open door was found; the finding is that the security record did not know five of them existed, which is precisely what V6.1.3 governs.",
+    "The workflow edit only widens when an existing gate runs. Two path entries are added to sbom-scan.yml so an edit to THREAT_MODEL.md or to the new test triggers the job that runs it. No gate is weakened, no check is removed, and no step is skipped.",
+    "V6.1.3 moves to PASS on a document only because the document is enforced. The test enumerates every minting surface and fails when one is unaccounted for, and fails again when a named pathway leaves the document; the ASVS condition is PRESENT_ALL_AT_PATH over the pathway names, so dropping one from the document revokes the decision rather than leaving a stale PASS.",
+    "V6.3.4 deliberately stays FAIL. Its first half - no undocumented pathways - is now met, but the second half asks that controls and strength be enforced CONSISTENTLY across all twelve surfaces, which needs per-surface evidence about what the middleware trusts a cabinet cookie to assert. That is not proven and is not claimed.",
+    "No production, REG.RU, DNS, database or credential mutation. The 1C, marketing and presentation contours are not touched."
+  ],
+  "acceptance": [
+    "The pathway test passes 5 of 5 and both mutations are caught: an undocumented minting surface added to apps/ fails it, and removing a documented pathway from THREAT_MODEL.md fails it.",
+    "The matrix rebuilds at applied 332 / rejected 0: PASS 102 to 103, FAIL 117 to 116, NOT_ASSESSED unchanged at 38.",
+    "Removing one pathway name from THREAT_MODEL.md revokes V6.1.3 at the matrix level - applied 331 / rejected 1, PASS back to 102 - so the PASS is held by the condition rather than asserted.",
+    "node --test scripts/security 75/75 and scripts/ip 41/41.",
+    "guard=0 with the workflow file inside the declared scope."
+  ]
+}

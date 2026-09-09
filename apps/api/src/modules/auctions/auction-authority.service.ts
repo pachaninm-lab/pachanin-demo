@@ -10,6 +10,7 @@ import {
   type TrustedRlsContext,
 } from '../../common/prisma/rls-transaction.service';
 import { Role, type RequestUser } from '../../common/types/request-user';
+import type { AuctionInventoryBinding } from './auction-inventory.contract';
 
 const LOT_ID_PATTERN = /^[^\u0000-\u001F\u007F]{1,200}$/;
 const MAX_SAFE_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
@@ -45,6 +46,17 @@ type AuctionLotRow = Readonly<{
   auto_extend_minutes: number;
   version: bigint;
   updated_at: Date;
+  inventory_binding_id: string | null;
+  binding_id: string | null;
+  inventory_position_id: string | null;
+  reservation_id: string | null;
+  profile_version_id: string | null;
+  profile_content_hash: string | null;
+  canonical_code: string | null;
+  quantity_atoms: string | null;
+  base_unit_code: string | null;
+  base_unit_precision: number | null;
+  inventory_state_version: string | null;
 }>;
 
 type AuctionBidRow = Readonly<{
@@ -123,8 +135,20 @@ export class AuctionAuthorityService {
           l.auto_extend_window_minutes,
           l.auto_extend_minutes,
           l.version,
-          l.updated_at
+          l.updated_at,
+          l.inventory_binding_id,
+          b.id AS binding_id,
+          b.inventory_position_id,
+          b.reservation_id,
+          b.profile_version_id,
+          b.profile_content_hash,
+          b.canonical_code,
+          b.quantity_atoms::text AS quantity_atoms,
+          b.base_unit_code,
+          b.base_unit_precision,
+          b.inventory_state_version::text AS inventory_state_version
         FROM auction.lots l
+        LEFT JOIN auction.inventory_bindings b ON b.id = l.inventory_binding_id AND b.tenant_id = l.tenant_id
         WHERE l.tenant_id = ${context.tenantId}
           AND (${scope})
         ORDER BY l.updated_at DESC, l.id ASC
@@ -204,8 +228,20 @@ export class AuctionAuthorityService {
           l.auto_extend_window_minutes,
           l.auto_extend_minutes,
           l.version,
-          l.updated_at
+          l.updated_at,
+          l.inventory_binding_id,
+          b.id AS binding_id,
+          b.inventory_position_id,
+          b.reservation_id,
+          b.profile_version_id,
+          b.profile_content_hash,
+          b.canonical_code,
+          b.quantity_atoms::text AS quantity_atoms,
+          b.base_unit_code,
+          b.base_unit_precision,
+          b.inventory_state_version::text AS inventory_state_version
         FROM auction.lots l
+        LEFT JOIN auction.inventory_bindings b ON b.id = l.inventory_binding_id AND b.tenant_id = l.tenant_id
         WHERE l.tenant_id = ${context.tenantId}
           AND l.id = ${lotId}
           AND (${scope})
@@ -319,12 +355,13 @@ export class AuctionAuthorityService {
           lotId: lot.id,
           title: lot.title,
           lotStatus: lot.status,
+          ...inventoryProjection(lot),
           originMode: {
             id: lot.source_type,
             title: lot.source_type,
-            description: lot.source_verified_at
-              ? 'Source verified and persisted by the server'
-              : 'Source verification is required',
+            description: lot.inventory_binding_id
+              ? 'Наличие товара пока не подтверждено независимым источником.'
+              : 'Для этого товара запас и резерв ещё не связаны.',
             nextStep: originNextStep(lot),
           },
           readiness: {
@@ -444,7 +481,48 @@ function toAccessibleLot(row: AuctionLotRow) {
     status: row.status,
     auctionEndsAt: row.auction_ends_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
+    ...inventoryProjection(row),
   };
+}
+
+function inventoryProjection(lot: AuctionLotRow) {
+  const binding = inventoryBinding(lot);
+  return {
+    bindingState: binding ? 'INVENTORY_BOUND' as const : 'LEGACY_UNBOUND' as const,
+    binding,
+    verificationStatus: binding ? 'DECLARED' as const : null,
+    tradePermission: binding
+      ? (lot.admission_status === 'ADMITTED' && !['DRAFT', 'CANCELLED'].includes(lot.status) ? 'PUBLIC_ALLOWED' as const : 'BLOCKED' as const)
+      : null,
+    independentVerification: null,
+    sourceVerifiedAt: lot.source_verified_at?.toISOString() ?? null,
+    exactVolumeTons: lot.volume_tons,
+  };
+}
+
+function inventoryBinding(lot: AuctionLotRow): AuctionInventoryBinding | null {
+  if (!lot.inventory_binding_id) {
+    if (lot.binding_id) throw new InternalServerErrorException({ code: 'AUCTION_INVENTORY_BINDING_AUTHORITY_MISSING' });
+    return null;
+  }
+  if (lot.binding_id !== lot.inventory_binding_id || !lot.inventory_position_id || !lot.reservation_id
+    || !lot.profile_version_id || !lot.profile_content_hash || !lot.canonical_code || !lot.quantity_atoms
+    || !lot.base_unit_code || lot.base_unit_precision === null || !lot.inventory_state_version
+    || lot.canonical_code !== lot.culture || lot.source_verified_at || lot.source_type !== 'OTHER') {
+    throw new InternalServerErrorException({ code: 'AUCTION_INVENTORY_BINDING_AUTHORITY_MISSING' });
+  }
+  return {
+    id: lot.binding_id, positionId: lot.inventory_position_id, reservationId: lot.reservation_id,
+    profileVersionId: lot.profile_version_id, profileContentHash: lot.profile_content_hash,
+    canonicalCode: lot.canonical_code, quantityAtoms: lot.quantity_atoms,
+    baseUnitCode: lot.base_unit_code, baseUnitPrecision: lot.base_unit_precision,
+    inventoryStateVersion: lot.inventory_state_version,
+  };
+}
+
+function sourceRequirementPending(lot: AuctionLotRow): boolean {
+  if (inventoryBinding(lot)) return false;
+  return !lot.source_external_id?.trim() || !lot.source_verified_at;
 }
 
 function workspaceBlockers(
@@ -454,8 +532,10 @@ function workspaceBlockers(
   observedAt: Date,
 ): string[] {
   const blockers: string[] = [];
-  if (!lot.source_external_id?.trim()) blockers.push('source_external_id_required');
-  if (!lot.source_verified_at) blockers.push('source_verification_required');
+  if (!inventoryBinding(lot)) {
+    if (!lot.source_external_id?.trim()) blockers.push('source_external_id_required');
+    if (!lot.source_verified_at) blockers.push('source_verification_required');
+  }
   if (lot.admission_status !== 'ADMITTED') {
     blockers.push(`admission_${lot.admission_status.toLowerCase()}`);
   }
@@ -482,7 +562,7 @@ function requiredMilestones(
   dealCreated: boolean,
 ): string[] {
   const milestones: string[] = [];
-  if (!lot.source_external_id?.trim() || !lot.source_verified_at) milestones.push('verify_lot_source');
+  if (sourceRequirementPending(lot)) milestones.push('verify_lot_source');
   if (lot.admission_status !== 'ADMITTED') milestones.push('complete_admission');
   if (bidCount === 0) milestones.push('receive_server_bid');
   if (bidCount > 0 && !award) milestones.push('issue_server_award');
@@ -491,7 +571,7 @@ function requiredMilestones(
 }
 
 function originNextStep(lot: AuctionLotRow): string | null {
-  if (!lot.source_external_id?.trim() || !lot.source_verified_at) return 'VERIFY_SOURCE';
+  if (sourceRequirementPending(lot)) return 'VERIFY_SOURCE';
   if (lot.admission_status !== 'ADMITTED') return 'COMPLETE_ADMISSION';
   return null;
 }
@@ -502,7 +582,7 @@ function nextAction(
   award: AuctionAwardRow | null,
   dealCreated: boolean,
 ): string {
-  if (!lot.source_external_id?.trim() || !lot.source_verified_at) return 'VERIFY_SOURCE';
+  if (sourceRequirementPending(lot)) return 'VERIFY_SOURCE';
   if (lot.admission_status !== 'ADMITTED') return 'COMPLETE_ADMISSION';
   if (dealCreated) return 'OPEN_CANONICAL_DEAL';
   if (award) return 'CREATE_CANONICAL_DEAL_SERVER_SIDE';

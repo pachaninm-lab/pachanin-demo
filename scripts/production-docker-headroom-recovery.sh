@@ -6,6 +6,7 @@ TARGET_SHA="${1:-}"
 RUN_ID="${2:-}"
 REQUIRED_KB=$((5 * 1024 * 1024))
 TARGET_KB=$((6 * 1024 * 1024))
+CONTAINERD_SNAPSHOT_ROOT='/var/lib/containerd/io.containerd.snapshotter.v1.overlayfs'
 
 fail() {
   printf 'ERROR_CODE=%s\n' "$1" >&2
@@ -18,15 +19,21 @@ fail() {
 command -v docker >/dev/null 2>&1 || fail DOCKER_UNAVAILABLE 5
 command -v python3 >/dev/null 2>&1 || fail PYTHON_UNAVAILABLE 6
 command -v df >/dev/null 2>&1 || fail DF_UNAVAILABLE 7
-docker version >/dev/null 2>&1 || fail DOCKER_DAEMON_UNAVAILABLE 8
-[[ "$(docker info --format '{{.DockerRootDir}}')" == '/var/lib/docker' ]] || fail DOCKER_STORAGE_ROOT_MISMATCH 9
-[[ -d /var/lib/docker && ! -L /var/lib/docker ]] || fail DOCKER_STORAGE_ROOT_INVALID 10
+command -v stat >/dev/null 2>&1 || fail STAT_UNAVAILABLE 8
+docker version >/dev/null 2>&1 || fail DOCKER_DAEMON_UNAVAILABLE 9
+[[ "$(docker info --format '{{.DockerRootDir}}')" == '/var/lib/docker' ]] || fail DOCKER_STORAGE_ROOT_MISMATCH 10
+[[ -d /var/lib/docker && ! -L /var/lib/docker ]] || fail DOCKER_STORAGE_ROOT_INVALID 11
+[[ -d /var/lib/containerd && ! -L /var/lib/containerd ]] || fail CONTAINERD_STORAGE_ROOT_INVALID 12
+[[ -d "$CONTAINERD_SNAPSHOT_ROOT" && ! -L "$CONTAINERD_SNAPSHOT_ROOT" ]] || fail CONTAINERD_SNAPSHOT_ROOT_INVALID 13
+[[ "$(stat -c '%d' /var/lib/docker)" == "$(stat -c '%d' /var/lib/containerd)" ]] || fail CONTAINERD_STORAGE_FILESYSTEM_MISMATCH 14
+[[ "$(stat -c '%d' /var/lib/docker)" == "$(stat -c '%d' /var/lib/containerd/io.containerd.snapshotter.v1.overlayfs)" ]] || fail CONTAINERD_SNAPSHOT_FILESYSTEM_MISMATCH 15
+printf 'CONTAINERD_STORAGE_FILESYSTEM_SHARED=1\n'
 
 report="$(mktemp)"
 trap 'rm -f "$report"' EXIT
 
 set +e
-python3 - "$TARGET_SHA" "$RUN_ID" "$report" "$REQUIRED_KB" "$TARGET_KB" <<'PY_RECLAIM'
+python3 - "$TARGET_SHA" "$RUN_ID" "$report" "$REQUIRED_KB" "$TARGET_KB" "$CONTAINERD_SNAPSHOT_ROOT" <<'PY_RECLAIM'
 import json
 import os
 import re
@@ -35,7 +42,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-target_sha, run_id, report_path, required_raw, target_raw = sys.argv[1:]
+target_sha, run_id, report_path, required_raw, target_raw, snapshot_root = sys.argv[1:]
 required_kb = int(required_raw)
 target_kb = int(target_raw)
 canonical_tag = re.compile(r'^ghcr[.]io/pachaninm-lab/grainflow-(api|web|migration|tai):[A-Za-z0-9_.-]+$')
@@ -53,10 +60,10 @@ def command(argv, check=True):
 
 
 def available_kb():
-    result = command(['df', '-Pk', '--', '/var/lib/docker'])
+    result = command(['df', '-Pk', '--', snapshot_root])
     lines = [line.split() for line in result.stdout.splitlines() if line.strip()]
     if len(lines) != 2 or len(lines[1]) < 4 or not lines[1][3].isdigit():
-        raise RuntimeError('docker_df_invalid')
+        raise RuntimeError('containerd_snapshot_df_invalid')
     return int(lines[1][3])
 
 
@@ -335,7 +342,7 @@ PY_RECLAIM
 rc=$?
 set -e
 
-[[ -s "$report" && ! -L "$report" ]] || fail DOCKER_HEADROOM_EVIDENCE_MISSING 11
+[[ -s "$report" && ! -L "$report" ]] || fail DOCKER_HEADROOM_EVIDENCE_MISSING 16
 python3 - "$report" "$TARGET_SHA" "$RUN_ID" "$REQUIRED_KB" "$TARGET_KB" <<'PY_VALIDATE'
 import json
 import sys
@@ -397,4 +404,4 @@ print(f"DOCKER_HEADROOM_TARGET_REACHED={str(value['targetReached']).lower()}")
 print(f"DOCKER_HEADROOM_RECOVERY={'PASS' if value['passed'] else 'FAIL'}")
 PY_EMIT
 
-(( rc == 0 )) || fail DOCKER_HEADROOM_INSUFFICIENT_SAFE_RECLAIM 12
+(( rc == 0 )) || fail DOCKER_HEADROOM_INSUFFICIENT_SAFE_RECLAIM 17

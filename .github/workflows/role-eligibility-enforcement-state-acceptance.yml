@@ -1,0 +1,93 @@
+name: Role Eligibility Enforcement State Acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/prisma/migrations/20260903170000_role_eligibility_enforcement_state/**'
+      - 'scripts/role-eligibility-enforcement-state-smoke.sh'
+      - '.github/workflows/role-eligibility-enforcement-state-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: role-eligibility-enforcement-state-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: Enforcement state static boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Validate bounded state authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/role-eligibility-enforcement-state-smoke.sh
+          migration='apps/api/prisma/migrations/20260903170000_role_eligibility_enforcement_state/migration.sql'
+          grep -Fq 'enabled BOOLEAN NOT NULL DEFAULT FALSE' "$migration"
+          grep -Fq 'pc_role_eligibility_control' "$migration"
+          grep -Fq 'ROLE_ELIGIBILITY_ENFORCEMENT_DISABLED' "$migration"
+          grep -Fq 'role-eligibility:enforcement:' "$migration"
+          if grep -Eq '(INSERT INTO|UPDATE|DELETE FROM)[[:space:]]+auth\.registration_applications' "$migration"; then
+            echo ROLE_ELIGIBILITY_ENFORCEMENT_REGISTRATION_MUTATION_PRESENT >&2
+            exit 31
+          fi
+          echo 'REGISTRATION_CODE_CHANGED=0'
+          echo 'ROLE_ELIGIBILITY_ENFORCEMENT_DEFAULT=false'
+
+  postgres:
+    name: PostgreSQL state, idempotency and rollback
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: ghcr.io/pachaninm-lab/ci-postgres@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: role_eligibility_enforcement
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d role_eligibility_enforcement"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: Establish proven shadow PostgreSQL authority
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/role_eligibility_enforcement
+        run: bash scripts/role-eligibility-postgres-smoke.sh
+      - name: Establish existing production runtime principal boundary
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/role_eligibility_enforcement
+        run: bash scripts/role-eligibility-runtime-principal-smoke.sh
+      - name: Prove enforcement state authority and rollback
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/role_eligibility_enforcement
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/role-eligibility-enforcement
+          bash scripts/role-eligibility-enforcement-state-smoke.sh \
+            | tee artifacts/role-eligibility-enforcement/postgres-state.txt
+          grep -Fxq ENFORCEMENT_POSTGRES_STATE=PASS artifacts/role-eligibility-enforcement/postgres-state.txt
+          grep -Fxq ENFORCEMENT_DEFAULT=false artifacts/role-eligibility-enforcement/postgres-state.txt
+          grep -Fxq CONTROL_ROLE_BOUNDARY=PASS artifacts/role-eligibility-enforcement/postgres-state.txt
+          grep -Fxq ROLLBACK_ACCEPTANCE=PASS artifacts/role-eligibility-enforcement/postgres-state.txt
+          grep -Fxq REGISTRATION_ENFORCEMENT_BOUNDARY=PASS artifacts/role-eligibility-enforcement/postgres-state.txt
+      - name: Upload immutable bounded acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: role-eligibility-enforcement-state-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/role-eligibility-enforcement
+          if-no-files-found: warn
+          retention-days: 90
+          compression-level: 0

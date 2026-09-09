@@ -1,215 +1,126 @@
 #!/usr/bin/env node
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-const paths = {
-  workflow: '.github/workflows/production-p0-all-role-registration.yml',
-  runner: 'scripts/production-p0-all-role-registration.sh',
-  checker: 'scripts/check-production-p0-all-role-registration.mjs',
-  runbook: 'docs/ops/production-p0-all-role-registration.md',
-  scope: 'docs/platform-v7/autopilot/scopes/production-p0-all-role-registration-3785.json',
-};
+const PREVIOUS_CHECKER_BLOB = '6cf81bdb7f598eb7f45792b4169bf480611083b7';
+const DECISION_BFF = 'apps/web/app/api/auth/organization-join-requests/[applicationId]/decision/route.ts';
+const RUNNER = 'scripts/production-p0-all-role-registration.sh';
+const EMPLOYEE_REPLAY_OVERLAY = 'scripts/p0-employee-join-replay-contract-overlay.py';
 
-const EXPECTED_BASE_WRAPPER_BLOB = '718fa79314369361c9e5947dfee1dc1aafd7cb32';
-const runner = readFileSync(paths.runner, 'utf8');
-const workflow = readFileSync(paths.workflow, 'utf8');
-const runbook = readFileSync(paths.runbook, 'utf8');
-const scope = JSON.parse(readFileSync(paths.scope, 'utf8'));
-const failures = [];
-
-function gitBlob(sha) {
-  const result = spawnSync('git', ['cat-file', 'blob', sha], { encoding: 'utf8' });
-  if (result.status !== 0 || !result.stdout) {
-    throw new Error(`immutable blob unavailable: ${sha}`);
-  }
-  return result.stdout;
-}
-
-function replaceOne(source, oldValue, newValue, label) {
-  const count = source.split(oldValue).length - 1;
-  if (count !== 1) throw new Error(`patch cardinality ${label}=${count}`);
-  return source.replace(oldValue, newValue);
-}
-
-function requireAll(name, source, fragments) {
-  for (const fragment of fragments) {
-    if (!source.includes(fragment)) failures.push(`${name}: missing ${JSON.stringify(fragment)}`);
-  }
-}
-
-function forbid(name, source, pattern, message) {
-  if (pattern.test(source)) failures.push(`${name}: ${message}`);
-}
-
-requireAll(paths.workflow, workflow, [
-  'name: Production P0 All-Role Registration',
-  "github.event.issue.number == 4637",
-  "github.event.comment.body == '/production p0-all-role-registration current-main'",
-  'actions/workflows/production-p0-first-customer-acceptance.yml/runs',
-  'production.p0.first-customer.acceptance.v1',
-  'PC_P0_APPROVAL_WINDOW_NOT_BEFORE_EPOCH',
-  "require.resolve('@playwright/test')",
-  "typeof chromium.launch !== 'function'",
-  'PC_P0_PLAYWRIGHT_MODULE',
-  'PC_PROD_P0_MAILBOX_EMAIL_TEMPLATE',
-  'PC_PROD_P0_MAILBOX_IMAP_PASSWORD',
-  'PC_PROD_SSH_HOST_FINGERPRINT',
-  'StrictHostKeyChecking=yes',
-  'bash scripts/production-p0-all-role-registration.sh',
-  'P0_ALL_ROLE_REGISTRATION=PASS',
-  'name: Scan bounded redacted 9-role evidence',
-  'name: Enforce terminal PASS in bounded 9-role evidence',
-  'actions/upload-artifact@v4',
-  'Remove protected runner credentials',
-  'RELEASE_ISSUE_NUMBER: ${{ github.event.issue.number }}',
-]);
-
-requireAll(paths.runner, runner, [
-  `BASE_WRAPPER_BLOB='${EXPECTED_BASE_WRAPPER_BLOB}'`,
-  'CHROMIUM_NONROOT_PATH_FILTER_REMOVAL',
-  'CHROMIUM_EXACT_PATH_PRESERVATION',
-  'CHROMIUM_SERVER_PATH_AUTHORITY',
-  'CHROMIUM_NONROOT_PATH_FILTER_REMAINS',
-  'CHROMIUM_EXACT_PATH_NOT_PRESERVED',
-  'CHROMIUM_ROOT_PATH_ASSERTION_REMAINS',
-  'CHROMIUM_ACCESS_SERVER_AUTHORITY_MISSING',
-  'CHROMIUM_CABINET_SERVER_AUTHORITY_MISSING',
-  'CHROMIUM_HOST_ONLY_SCOPE_GUARD_MISSING',
-  'CHROMIUM_REQUIRED_JAR_COOKIE_GUARD_MISSING',
-  'P0_ALL_ROLE_CHROMIUM_EXACT_PATH_PRESERVATION=PASS',
-  'P0_ALL_ROLE_CHROMIUM_SERVER_PATH_AUTHORITY=PASS',
-]);
-
-requireAll(paths.runbook, runbook, [
-  '/production p0-all-role-registration current-main',
-  'Production P0 First-Customer Acceptance',
-  'ORGANIZATION_ADMIN_DECISION_REQUIRED',
-  'eight distinct organizations and tenants',
-  'live desktop Chromium',
-  'live mobile Chromium',
-  'P0_ALL_ROLE_REGISTRATION_COUNT=9/9',
-]);
-
-forbid(paths.workflow, workflow, /PC_(?:P0|PROD_P0)_REVIEWER_(?:EMAIL|PASSWORD|TOTP_SECRET)/u,
-  'reviewer credential input is forbidden');
-forbid(paths.workflow, workflow, /pull_request_target:/u, 'pull_request_target is forbidden');
-forbid(paths.workflow, workflow, /continue-on-error:\s*true/u, 'continue-on-error is forbidden');
-forbid(paths.workflow, workflow, /StrictHostKeyChecking=(?:no|accept-new)/u, 'unpinned SSH host acceptance is forbidden');
-forbid(paths.workflow, workflow, /\bDEFAULT_HOST\b/u,
-  'historical production host fallback is forbidden');
-forbid(paths.workflow, workflow, /\b195[.]19[.]12[.]120\b/u,
-  'hard-coded production IPv4 is forbidden; protected host must match current DNS');
-forbid(paths.workflow, workflow, /(?:netlify|vercel|railway)/iu,
-  'non-canonical production hosting is forbidden');
-forbid(paths.runner, runner, /set\s+-[^\n]*x/u, 'shell tracing is forbidden');
-forbid(paths.runner, runner, /normalizedDomain/u,
-  'broad Domain normalization is forbidden');
-
-let effective;
-try {
-  effective = gitBlob(EXPECTED_BASE_WRAPPER_BLOB);
-  effective = replaceOne(
-    effective,
-    "    if ((pathValue || '/') !== '/') continue;\n",
-    '',
-    'nonroot-path-filter-removal',
-  );
-  effective = replaceOne(
-    effective,
-    "      path: '/',\n      secure,\n      httpOnly,\n      sameSite: 'Lax',\n",
-    "      path: pathValue || '/',\n      secure,\n      httpOnly,\n      sameSite: 'Lax',\n",
-    'exact-path-preservation',
-  );
-  effective = replaceOne(
-    effective,
-    "      if (cookie.domain !== browserHost\n        || cookie.path !== '/'\n        || cookie.secure !== true\n        || cookie.httpOnly !== true) {\n",
-    "      if (cookie.domain !== browserHost\n        || cookie.secure !== true\n        || cookie.httpOnly !== true) {\n",
-    'server-path-authority',
-  );
-} catch (error) {
-  failures.push(`${paths.runner}: ${error instanceof Error ? error.message : String(error)}`);
-  effective = '';
-}
-
-requireAll('effective Chromium wrapper', effective, [
-  "path: pathValue || '/'",
-  'domain: target.hostname',
-  "includeSubdomainsValue.toUpperCase() !== 'FALSE'",
-  'P0_CHROMIUM_COOKIE_SCOPE_INVALID',
-  'P0_CHROMIUM_JAR_ACCESS_COOKIE_MISSING',
-  'P0_CHROMIUM_JAR_CABINET_COOKIE_MISSING',
-  'P0_CHROMIUM_ACCESS_COOKIE_IMPORT_MISSING',
-  'P0_CHROMIUM_CABINET_COOKIE_IMPORT_MISSING',
-  'P0_CHROMIUM_IMPORTED_COOKIE_SCOPE_INVALID',
-  "context.request.get(origin + '/api/auth/me'",
-  'const cabinetResponse = await context.request.get(origin + route',
-  'maxRedirects: 0',
-  'P0_CHROMIUM_IMPORTED_SESSION_CONTEXT_INVALID',
-  'P0_CHROMIUM_SERVER_SESSION_REJECTED',
-  'P0_CHROMIUM_SERVER_ROLE_REDIRECT',
-  'P0_CHROMIUM_CLIENT_REDIRECTED',
-  'PC_P0_BROWSER_BLOCKER_FILE',
-  'fail "$browser_blocker" 69',
-]);
-if (effective.includes("if ((pathValue || '/') !== '/') continue;")) {
-  failures.push('effective Chromium wrapper: non-root cookie filter remains');
-}
-if (effective.includes("cookie.path !== '/'")) {
-  failures.push('effective Chromium wrapper: root-only imported-cookie assertion remains');
-}
-forbid('effective Chromium wrapper', effective, /\burl:\s*target[.]origin\s*,/u,
-  'URL-based cookie import must remain absent');
-forbid('effective Chromium wrapper', effective, /P0_CHROMIUM_(?:SERVER|CLIENT)_REDIRECT_PATH=/u,
-  'raw redirect paths are forbidden in production evidence');
-forbid('effective Chromium wrapper', effective, /\b(?:INSERT|UPDATE|DELETE|TRUNCATE|ALTER|DROP|CREATE)\s+(?:INTO\s+)?auth\./iu,
-  'direct production auth SQL mutation is forbidden');
-forbid('effective Chromium wrapper', effective, /\/api\/staff\/registration\/applications\//u,
-  'CI must not call the staff decision endpoint');
-
-const expectedPaths = [paths.workflow, paths.runner, paths.checker, paths.runbook, paths.scope];
-if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') failures.push(`${paths.scope}: schema mismatch`);
-if (scope.branch !== 'p0/production-all-role-registration-3785') failures.push(`${paths.scope}: branch mismatch`);
-if (scope.status !== 'active') failures.push(`${paths.scope}: scope is not active`);
-if (!/^[0-9a-f]{40}$/.test(scope.authorityBaseExactMain || '')) failures.push(`${paths.scope}: exact authority base missing`);
-if (scope.productionHosting !== 'REG_RU_VPS_ONLY') failures.push(`${paths.scope}: hosting mismatch`);
-if (scope.newRecurringCostRub !== 0) failures.push(`${paths.scope}: recurring cost must remain zero`);
-if (JSON.stringify(scope.allowedPaths) !== JSON.stringify(expectedPaths)) failures.push(`${paths.scope}: exact path allowlist mismatch`);
-
-const syntax = spawnSync('bash', ['-n', paths.runner], { encoding: 'utf8' });
-if (syntax.status !== 0) failures.push(`${paths.runner}: bash syntax failed: ${syntax.stderr.trim()}`);
-
-const wrapperValidation = spawnSync('bash', [paths.runner], {
-  encoding: 'utf8',
-  env: { ...process.env, PC_P0_ALL_ROLE_IDNA_VALIDATE_ONLY: '1' },
-});
-const wrapperMarkers = [
-  'P0_ALL_ROLE_CORE_BLOB=PASS',
-  'P0_ALL_ROLE_IMAP_LOGIN_IDNA_PATCH=PASS',
-  'P0_ALL_ROLE_IMAP_RECIPIENT_IDNA_PATCH=PASS',
-  'P0_ALL_ROLE_APPROVAL_WINDOW_NAMESPACE=PASS',
-  'P0_ALL_ROLE_HUMAN_REVIEW_ISSUE_ROUTING=PASS',
-  'P0_ALL_ROLE_REGISTRATION_RATE_LIMIT_RETRY=PASS',
-  'P0_ALL_ROLE_CHROMIUM_COOKIE_HANDOFF=PASS',
-  'P0_ALL_ROLE_REVIEWER_CREDENTIAL_BAN=PASS',
-  'P0_ALL_ROLE_CHROMIUM_EXACT_PATH_PRESERVATION=PASS',
-  'P0_ALL_ROLE_CHROMIUM_SERVER_PATH_AUTHORITY=PASS',
-];
-if (wrapperValidation.status !== 0) {
-  failures.push(`${paths.runner}: immutable wrapper validation failed: ${wrapperValidation.stderr.trim()}`);
-} else {
-  for (const marker of wrapperMarkers) {
-    if (!wrapperValidation.stdout.includes(marker)) failures.push(`${paths.runner}: validation missing ${marker}`);
-  }
-}
-
-if (!/name: Upload bounded production 9-role evidence[\s\S]*?steps[.]redaction[.]outcome == 'success'[\s\S]*?uses: actions\/upload-artifact@v4/u.test(workflow)) {
-  failures.push(`${paths.workflow}: redacted failure evidence must remain uploadable`);
-}
-
-if (failures.length) {
-  console.error('Production P0 all-role registration contract failed:');
-  for (const failure of failures) console.error(`- ${failure}`);
+function fail(message) {
+  console.error(`P0_ALL_ROLE_CHECKER_OVERLAY_ERROR=${String(message)
+    .toUpperCase()
+    .replace(/[^A-Z0-9_=|:-]/g, '_')
+    .slice(0, 300)}`);
   process.exit(1);
 }
 
-console.log('Production P0 all-role registration contract PASS: exact-main deep prerequisite, eight visible reviewer decisions, exact host-only cookie domain with source-preserved cookie paths, server-authoritative access/cabinet proof, nine roles, protected read and logout/relogin.');
+const bff = readFileSync(DECISION_BFF, 'utf8');
+for (const marker of [
+  "const notificationDelivered = notification?.status === 'SENT';",
+  "code: 'REGISTRATION_DECISION_NOTIFICATION_PENDING'",
+  "if (payload.replayed === true) return json({ ...payload, correlationId }, 200);",
+  "return json({ ...payload, notificationDelivered, correlationId }, 200);",
+]) {
+  if (!bff.includes(marker)) fail(`durable decision BFF marker missing: ${marker}`);
+}
+if (bff.includes('let notificationDelivered = false;')) {
+  fail('legacy synchronous decision notification marker remains');
+}
+
+const runner = readFileSync(RUNNER, 'utf8');
+const replayOverlay = readFileSync(EMPLOYEE_REPLAY_OVERLAY, 'utf8');
+for (const marker of [
+  'python3 scripts/p0-employee-join-replay-contract-overlay.py "$tmp"',
+  'P0_ALL_ROLE_EMPLOYEE_JOIN_REPLAY_PUBLIC_CONTRACT=PASS',
+]) {
+  if (!runner.includes(marker)) fail(`employee replay runner marker missing: ${marker}`);
+}
+for (const marker of [
+  "p.get('nextAction') != 'LOGIN'",
+  "p.get('replayed') is not True",
+  "or 'notificationDelivered' in p",
+  "p.get('notificationDelivered') is not True",
+  'P0_ALL_ROLE_EMPLOYEE_JOIN_REPLAY_PUBLIC_CONTRACT=PASS',
+]) {
+  if (!replayOverlay.includes(marker)) fail(`employee replay overlay marker missing: ${marker}`);
+}
+
+const replayDir = mkdtempSync(path.join(tmpdir(), 'pc-p0-employee-replay-overlay-'));
+const replayFixture = path.join(replayDir, 'executor.sh');
+const freshDecisionAssertion = `if p.get('status') != 'ACTIVATED' or p.get('nextAction') != 'LOGIN' or p.get('replayed') is not False or p.get('notificationDelivered') is not True:\n    raise SystemExit(1)\n`;
+const staleReplayAssertion = `if p.get('status') != 'ACTIVATED' or p.get('replayed') is not True or p.get('notificationDelivered') is not False:\n    raise SystemExit(1)\n`;
+try {
+  writeFileSync(replayFixture, `${freshDecisionAssertion}${staleReplayAssertion}`, {
+    encoding: 'utf8',
+    mode: 0o700,
+  });
+  const overlayResult = spawnSync('python3', [EMPLOYEE_REPLAY_OVERLAY, replayFixture], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+  });
+  if (overlayResult.status !== 0) {
+    fail(`employee replay overlay execution failed: ${overlayResult.stderr.trim()}`);
+  }
+  if (!overlayResult.stdout.includes('P0_ALL_ROLE_EMPLOYEE_JOIN_REPLAY_PUBLIC_CONTRACT=PASS')) {
+    fail('employee replay overlay success marker missing');
+  }
+  const replayPatched = readFileSync(replayFixture, 'utf8');
+  if (replayPatched.includes(staleReplayAssertion)) {
+    fail('stale employee replay assertion remains');
+  }
+  for (const marker of [
+    "p.get('status') != 'ACTIVATED'",
+    "p.get('nextAction') != 'LOGIN'",
+    "p.get('replayed') is not True",
+    "or 'notificationDelivered' in p",
+  ]) {
+    if (!replayPatched.includes(marker)) fail(`patched employee replay assertion missing: ${marker}`);
+  }
+  if (!replayPatched.includes(freshDecisionAssertion)) {
+    fail('fresh employee join delivery assertion was not preserved');
+  }
+} finally {
+  rmSync(replayDir, { recursive: true, force: true });
+}
+
+const blob = spawnSync('git', ['cat-file', 'blob', PREVIOUS_CHECKER_BLOB], {
+  encoding: 'utf8',
+});
+if (blob.status !== 0 || !blob.stdout) {
+  fail('previous checker blob unavailable');
+}
+const actualBlob = spawnSync('git', ['hash-object', '--stdin'], {
+  input: blob.stdout,
+  encoding: 'utf8',
+});
+if (actualBlob.status !== 0 || actualBlob.stdout.trim() !== PREVIOUS_CHECKER_BLOB) {
+  fail('previous checker blob mismatch');
+}
+
+const oldLine =
+  "const decisionNotification = decisionBff.indexOf('let notificationDelivered = false;', decisionErrorPassthrough);";
+const newLine =
+  "const decisionNotification = decisionBff.indexOf(\"const notificationDelivered = notification?.status === 'SENT';\", decisionErrorPassthrough);";
+const count = blob.stdout.split(oldLine).length - 1;
+if (count !== 1) fail(`checker patch cardinality=${count}`);
+
+const patched = blob.stdout.replace(oldLine, newLine);
+const dir = mkdtempSync(path.join(tmpdir(), 'pc-p0-all-role-checker-overlay-'));
+const target = path.join(dir, 'checker.mjs');
+try {
+  writeFileSync(target, patched, { encoding: 'utf8', mode: 0o700 });
+  const result = spawnSync(process.execPath, [target], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+  });
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  if (result.status !== 0) process.exit(result.status ?? 1);
+  console.log('P0_ALL_ROLE_DURABLE_DECISION_CHECKER_COMPATIBILITY=PASS');
+  console.log('P0_ALL_ROLE_EMPLOYEE_JOIN_REPLAY_CHECKER=PASS');
+} finally {
+  rmSync(dir, { recursive: true, force: true });
+}

@@ -1,0 +1,57 @@
+name: Role Eligibility Enforcement Migration Image Exact-SHA
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/role-eligibility-enforcement-migration-image.yml'
+      - '.github/workflows/docker-publish.yml'
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: role-eligibility-enforcement-migration-image
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    name: Validate migration-image authority
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event.issue.number == 4922 &&
+       github.event.comment.body == '/role-eligibility enforcement migrate current-main' &&
+       github.event.comment.user.login == github.repository_owner &&
+       github.event.comment.author_association == 'OWNER' &&
+       github.actor == github.repository_owner &&
+       github.triggering_actor == github.repository_owner)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Prove bounded canonical image contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'workflow_call:' .github/workflows/docker-publish.yml
+          grep -Fq 'services:' .github/workflows/docker-publish.yml
+          grep -Fq 'build-migration:' .github/workflows/docker-publish.yml
+          grep -Fq 'infra/docker/Dockerfile.migrations' .github/workflows/docker-publish.yml
+
+  build-migration-image:
+    name: Build exact canonical migration image only
+    needs: contract
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 4922 &&
+      github.event.comment.body == '/role-eligibility enforcement migrate current-main' &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner
+    uses: ./.github/workflows/docker-publish.yml
+    with:
+      services: migration
+    secrets: inherit

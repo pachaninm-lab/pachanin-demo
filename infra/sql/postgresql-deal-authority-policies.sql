@@ -150,6 +150,15 @@ $function$;
 REVOKE ALL ON FUNCTION public.app_deal_basis_deal_visible(jsonb) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.app_deal_basis_participant_allowed(text, text, text, text, text) FROM PUBLIC;
 
+-- 20260831180000 replaced deals_app_access with two narrowly named permissive
+-- policies for the migration-only database, where the uncontexted read and the
+-- two contextless system writers still need them. This artifact installs the
+-- strict set instead, and permissive policies combine with OR - so leaving
+-- those two in place here would OR away the very policies below. They are
+-- dropped rather than kept: an environment that applies this file never had a
+-- permissive fallback on deals, and must not gain one.
+DROP POLICY IF EXISTS deals_uncontexted_read ON public."deals";
+DROP POLICY IF EXISTS deals_uncontexted_update ON public."deals";
 DROP POLICY IF EXISTS deals_select ON public."deals";
 CREATE POLICY deals_select ON public."deals" FOR SELECT USING (
   public.app_rls_context_ready()

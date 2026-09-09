@@ -3,6 +3,7 @@ import { getLocale } from 'next-intl/server';
 import { cookies, headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { PublicLinkedSurfaceShell } from '@/components/platform-v7/PublicLinkedSurfaceShell';
 import { HydrationSafeChatSupport } from '@/components/platform-v7/HydrationSafeChatSupport';
 import { getAuthProfile } from '@/lib/auth-profile-server';
 import { canRoleAccessCabinet } from '@/lib/platform-v7/cabinet-access-policy';
@@ -14,20 +15,19 @@ import {
   readVerifiedCabinetSessionContext,
   type VerifiedCabinetRole,
 } from '@/lib/platform-v7/verified-session';
-import presentationStyles from './PresentationDownload.module.css';
 
 export const metadata: Metadata = {
   title: { default: 'Прозрачная Цена', template: '%s · Прозрачная Цена' },
-  description: 'Цифровой контур исполнения зерновой сделки: допуск, логистика, приёмка, качество, документы, расчёты, спор и доказательства.',
-  keywords: ['зерно', 'агроторговля', 'элеватор', 'логистика зерна', 'сделка', 'документы', 'расчёты'],
+  description: 'Управление агросделкой в растениеводстве: товар, контрагент, логистика, качество, документы, расчёт и исключения.',
+  keywords: ['растениеводство', 'агроторговля', 'хранение', 'агрологистика', 'сделка', 'документы', 'расчёты'],
   creator: 'Прозрачная Цена',
   robots: { index: false, follow: false },
   openGraph: {
     type: 'website',
     locale: 'ru_RU',
     siteName: 'Прозрачная Цена',
-    title: 'Прозрачная Цена — контур исполнения зерновой сделки',
-    description: 'Логистика, приёмка, качество, документы, расчёты, спор и доказательства в одном проверяемом процессе.',
+    title: 'Прозрачная Цена — управление агросделкой',
+    description: 'Товар, контрагент, логистика, качество, документы, расчёт и исключения в одной связной Сделке.',
   },
   metadataBase: new URL('https://xn----8sbjf4befbjgs9b.xn--p1ai'),
 };
@@ -266,48 +266,13 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
   // The contact dock is mounted at the route boundary so supporting pages that
   // do not render PublicSiteHeader still expose the same AI/support/call entry.
   if (isPublicPath(pathname)) {
-    const isLandingPage = pathname === LANDING_PATH;
-    const locale = isLandingPage ? await getLocale() : null;
-    const presentationTitle = locale === 'en'
-      ? 'Platform presentation'
-      : locale === 'zh'
-        ? '平台演示文稿'
-        : 'Презентация платформы';
-    const presentationHint = locale === 'en'
-      ? 'Final PDF · available for repeated download at any time.'
-      : locale === 'zh'
-        ? '最终 PDF · 可随时重复下载。'
-        : 'Финальная версия PDF · доступна для повторного скачивания в любое время.';
-    const presentationButton = locale === 'en'
-      ? 'Download presentation (PDF)'
-      : locale === 'zh'
-        ? '下载演示文稿（PDF）'
-        : 'Скачать презентацию (PDF)';
-
+    const publicContent = pathname === '/platform-v7/terms' || pathname === '/platform-v7/privacy'
+      || pathname === '/platform-v7/oferta' || pathname === '/platform-v7/docs'
+      ? <PublicLinkedSurfaceShell pathname={pathname} locale={await getLocale()}>{children}</PublicLinkedSurfaceShell>
+      : children;
     return (
       <>
-        {children}
-        {isLandingPage ? (
-          <aside
-            aria-label={presentationTitle}
-            data-testid='platform-v7-presentation-download'
-            className={presentationStyles.panel}
-          >
-            <div className={presentationStyles.inner}>
-              <div className={presentationStyles.copy}>
-                <strong>{presentationTitle}</strong>
-                <span>{presentationHint}</span>
-              </div>
-              <a
-                href='/downloads/prozrachnaya-tsena-presentation.pdf'
-                download='Прозрачная_Цена_и_ГЕКТА.pdf'
-                className={presentationStyles.button}
-              >
-                {presentationButton}
-              </a>
-            </div>
-          </aside>
-        ) : null}
+        {publicContent}
         <HydrationSafeChatSupport />
       </>
     );

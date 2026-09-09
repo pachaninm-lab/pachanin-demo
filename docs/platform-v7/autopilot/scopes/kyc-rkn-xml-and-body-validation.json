@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/kyc-rkn-xml-and-body-validation",
+  "status": "active",
+  "purpose": "Two requirements in one module. V1.2.1: the Roskomnadzor personal-data incident notification was assembled with a plain template literal and no output encoding, in a tree that already carries xml-escape.ts - so the content of that regulator notification could be forged through a request field. V2.2.1/V2.2.2: all five KYC/AML handlers declared their body as an inline type, which erases to Object, so the global ValidationPipe checked nothing on values that reach the FNS registry, AML screening and that same XML.",
+  "authorityBaseExactMain": "d5c0f2b08a6a86f1330aa381d475ac1d29bbb310",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/kyc-rkn-xml-and-body-validation.json",
+    "apps/api/src/modules/kyc/kyc.service.ts",
+    "apps/api/src/modules/kyc/kyc.controller.ts",
+    "apps/api/src/modules/kyc/rkn-incident-xml.spec.ts",
+    "apps/api/src/modules/kyc/dto/kyc.dto.ts",
+    "apps/api/src/modules/kyc/dto/kyc.dto.spec.ts",
+    "docs/security/request-validation-baseline.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+  ],
+  "requiredInvariants": [
+    "Escaping lives in the service, at the one place the document is built. The DTO bounds the form; it does not censor content, and a description containing angle brackets remains legal free text.",
+    "The shared xml-escape.ts helper is used rather than a fourth private copy. Its docstring already names this defect class; the failure here was that two builders of three used it.",
+    "V1.2.1 stays PASS but is no longer anchored to exports.service.ts alone. Its PASS was granted on a denominator of one builder while a second existed unescaped - that is stated in the decision note, not quietly repaired.",
+    "V2.2.1 and V2.2.2 stay FAIL and are re-pointed in the same pass at gekta.controller.ts and support.controller.ts, which still carry the defect.",
+    "INN is checked for shape only. The checksum is deliberately NOT computed here: that belongs next to the FNS call, and asserting it at the boundary would pass a form check off as proof of existence.",
+    "No schema change, no migration, no RLS policy edit, no dependency. Nothing outside apps/api/src/modules/kyc plus the four governance files named above. No production, REG.RU, DNS, database or credential mutation. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "The forgery was measured before the fix, not argued: a description carrying a closing tag inserted a SECOND <КоличествоСубъектов>0</КоличествоСубъектов> element BEFORE the real one, so a parser reading the first occurrence reports zero affected subjects instead of fifty thousand. Two further measured defects in the same builder: detectedAt 'не дата' raised RangeError: Invalid time value and reached the client as 500; affectedSubjectsCount as a string injected a foreign element and left an orphan closing tag.",
+    "The new V1.2.1 condition is proved revocable, not decorative: removing the escaping on the description alone drops V1.2.1 to NOT_ASSESSED (128 PASS) and restoring it returns 129.",
+    "Twelve mutations applied, each verified present on disk first; eleven caught by assertions. The twelfth - removing @IsInt from affectedSubjectsCount - was NOT caught, because the existing test fed a string that @Min already rejected via NaN. That is recorded rather than papered over, and a fractional-value test was added; the mutation is caught now.",
+    "detectedAt is emitted normalised (parsed, then re-serialised) rather than echoed as the caller sent it. Stated because it is a behavioural change: the document can no longer carry text alongside the date.",
+    "Reverse direction tested: an ordinary notification still builds and reads, the 72-hour deadline is unchanged, legitimate INN/BIK/account values pass, a zero kopeck amount passes, and free text with angle brackets and an ampersand survives as text.",
+    "api typecheck exit 0, full @pc/api suite green, scripts/security 130/130 re-run AFTER the commit, ratchet 89 -> 84 unvalidated and 103 -> 108 DTO-typed with the baseline tightened, matrix unchanged at 129 PASS / 90 FAIL."
+  ]
+}

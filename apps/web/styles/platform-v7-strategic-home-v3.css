@@ -85,15 +85,15 @@
 .pc-v6-page .pc-site-mobile-menu > summary,
 .pc-v6-page .pc-site-locale-switch,
 .pc-v6-page .entry-login {
-  min-height: 42px;
-  height: 42px;
+  min-height: 44px;
+  height: 44px;
   border: 1px solid #cbd8d0;
   border-radius: 11px;
   background: #ffffff;
   color: #0d251a;
   box-shadow: none;
 }
-.pc-v6-page .pc-site-mobile-menu > summary { width: 42px; }
+.pc-v6-page .pc-site-mobile-menu > summary { width: 44px; }
 .pc-v6-page .pc-site-locale-switch { min-width: 56px; gap: 6px; padding: 0 9px; }
 .pc-v6-page .pc-site-locale-switch svg,
 .pc-v6-page .entry-login svg { width: 18px; height: 18px; flex: 0 0 18px; }
@@ -110,7 +110,7 @@
   white-space: nowrap;
 }
 .pc-v6-header-cta {
-  min-height: 42px;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -435,10 +435,10 @@
   .pc-v6-page .pc-site-actions { gap: 4px; }
   .pc-v6-page .pc-site-mobile-menu > summary,
   .pc-v6-page .pc-site-locale-switch,
-  .pc-v6-page .entry-login { min-height: 40px; height: 40px; border-radius: 10px; }
-  .pc-v6-page .pc-site-mobile-menu > summary { width: 40px; }
+  .pc-v6-page .entry-login { min-height: 44px; height: 44px; border-radius: 10px; }
+  .pc-v6-page .pc-site-mobile-menu > summary { width: 44px; }
   .pc-v6-page .pc-site-locale-switch { min-width: 50px; padding-inline: 7px; }
-  .pc-v6-page .entry-login { width: 40px; padding: 0; }
+  .pc-v6-page .entry-login { width: 44px; padding: 0; }
   .pc-v6-page .entry-login span { display: none; }
   .pc-v6-header-cta { display: none; }
 }
@@ -446,10 +446,10 @@
 @media (max-width: 359px) {
   .pc-v6-shell { width: calc(100% - 24px); }
   .pc-v6-page .pc-site-header { padding-inline: 10px !important; }
-  .pc-v6-page .pc-site-brand-text strong { max-width: 112px !important; font-size: 15px; }
+  .pc-v6-page .pc-site-brand-text strong { max-width: 72px !important; font-size: 15px; }
   .pc-v6-page .pc-site-brand-mark,
   .pc-v6-page .pc-site-brand-mark[data-brand-mark='transparent-price-canonical'] { width: 32px; height: 32px; flex-basis: 32px; }
-  .pc-v6-page .pc-site-locale-switch { min-width: 47px; }
+  .pc-v6-page .pc-site-locale-switch { min-width: 48px; }
   .pc-v6-ct-actions { grid-template-columns: 1fr; }
   .pc-v6-crop-grid article,
   .pc-v6-integration-grid article { display: grid; gap: 6px; }

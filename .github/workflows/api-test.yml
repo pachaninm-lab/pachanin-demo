@@ -114,6 +114,15 @@ jobs:
             -X --set ON_ERROR_STOP=1 \
             --file scripts/sql/identity-rls-no-inert-policies.sql \
             2>&1 | tee -a /tmp/platform-v7-rls-integration.log
+      - name: Prove the API database principal confinement gate
+        shell: bash
+        env:
+          CONFINEMENT_ADMIN_URL: "postgresql://rls_admin:ephemeral_rls_admin_only@127.0.0.1:${{ job.services.postgres.ports[5432] }}/rls_integration"
+        run: |
+          set -o pipefail
+          node scripts/check-api-database-principal-confinement.mjs \
+            2>&1 | tee -a /tmp/platform-v7-rls-integration.log
+
       - name: Upload RLS gate log
         if: always()
         uses: actions/upload-artifact@v4

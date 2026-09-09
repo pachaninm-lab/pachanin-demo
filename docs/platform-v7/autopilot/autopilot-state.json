@@ -200,6 +200,88 @@
     ".github/workflows/ci.yml"
   ],
   "approvedConcurrentScopes": {
+    "feat/pc-crop-auction-inventory-authority-4997": [
+      "apps/api/prisma/migrations/20260905100000_auction_inventory_binding/migration.sql",
+      "apps/api/src/modules/auctions/auction-command.service.ts",
+      "apps/api/src/modules/auctions/auction-authority.service.ts",
+      "apps/api/src/modules/auctions/auctions.controller.ts",
+      "apps/api/src/modules/auctions/auction-command.service.spec.ts",
+      "apps/api/src/modules/auctions/auction-postgresql-authority.spec.ts",
+      "apps/api/src/modules/auctions/auction-fgis-self-verification.spec.ts",
+      "apps/api/src/modules/auctions/dto/auction-inventory.dto.ts",
+      "apps/api/src/modules/auctions/auction-inventory.contract.ts",
+      "apps/api/src/modules/auctions/auction-inventory.contract.spec.ts",
+      "apps/api/test/industrial/auction-inventory-authority.e2e-spec.ts",
+      "apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts",
+      "apps/api/test/industrial/auction-atomic-execution.e2e-spec.ts",
+      "scripts/verify-pc-crop-auction-inventory-scope.test.mjs",
+      ".github/workflows/auction-atomic-acceptance.yml",
+      "scripts/auction-atomic-acceptance.mjs",
+      "scripts/platform-v7-one-deal-e2e.sh",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/cryptographic-inventory.json"
+    ],
+    "ops/pc-crop-w1-production-acceptance-4997": [
+      ".github/workflows/pc-crop-w1-production-acceptance.yml",
+      "scripts/production-pc-crop-w1-migrations.sh",
+      "scripts/check-production-pc-crop-w1-acceptance.mjs",
+      "scripts/check-production-pc-crop-w1-acceptance.test.mjs",
+      "scripts/production-role-eligibility-api-release.sh",
+      "scripts/check-role-eligibility-api-release.mjs",
+      ".github/workflows/production-web-exact-sha.yml",
+      ".gitleaksignore",
+      "apps/api/prisma/migrations/20260909120000_reconcile_historical_auction_authority/migration.sql",
+      "scripts/fixtures/pc-crop-w1-lineage/20260716130000_market_open_lots_showcase.sql",
+      "scripts/fixtures/pc-crop-w1-lineage/20260716150000_auction_cross_tenant_participation.sql",
+      "scripts/fixtures/pc-crop-w1-lineage/20260716160000_auction_participant_workspace.sql",
+      "scripts/fixtures/pc-crop-w1-lineage/20260717170000_deal_cross_tenant_participation.sql"
+    ],
+    "governance/pc-crop-post-registration-progress-scope-4997": [
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs",
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      ".github/workflows/pc-crop-w1-production-acceptance.yml"
+    ],
+    "governance/extend-role-eligibility-fns-registry-hardening-5064-v2": [
+      "docs/platform-v7/autopilot/scopes/role-eligibility-fns-registry-coverage-authority-5064.json"
+    ],
+    "governance/role-eligibility-fns-egrul-file-import-5016": [
+      "docs/platform-v7/autopilot/scopes/role-eligibility-fns-egrul-file-import-5016.json"
+    ],
+    "docs/pc-crop-post-registration-progress-4997": [
+      "docs/platform-v7/crop-platform/post-registration/README.md",
+      "docs/platform-v7/crop-platform/post-registration/dod-baseline.v1.json",
+      "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json",
+      "docs/platform-v7/crop-platform/post-registration/execution-state.v1.json",
+      "docs/platform-v7/crop-platform/post-registration/verify-w0.mjs",
+      "docs/platform-v7/crop-platform/post-registration/w2-a-inventory-reservation-plan.v1.json",
+      "docs/platform-v7/crop-platform/post-registration/verify-w0.test.mjs"
+    ],
+    "fix/static-presentation-download-buildtime-20260830": [
+      "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",
+      "apps/web/package.json",
+      "apps/web/scripts/materialize-presentation-pdf.mjs",
+      "apps/web/scripts/presentation-pdf-contract.mjs",
+      "apps/web/lib/presentation-pdf/part-00.ts",
+      "apps/web/lib/presentation-pdf/part-01.ts",
+      "apps/web/lib/presentation-pdf/part-02.ts",
+      "apps/web/lib/presentation-pdf/part-03.ts",
+      "apps/web/lib/presentation-pdf/part-04.ts",
+      "apps/web/lib/presentation-pdf/part-05.ts",
+      "apps/web/lib/presentation-pdf/part-06.ts",
+      "apps/web/lib/presentation-pdf/part-07.ts",
+      "apps/web/lib/presentation-pdf/part-08.ts",
+      "apps/web/lib/presentation-pdf/part-09.ts",
+      "apps/web/lib/presentation-pdf/part-10.ts",
+      "apps/web/lib/presentation-pdf/part-11.ts",
+      "apps/web/lib/presentation-pdf/part-12.ts",
+      "apps/web/lib/presentation-pdf/part-13.ts",
+      "apps/web/tests/unit/platformV7PresentationDownload.test.ts",
+      "docs/platform-v7/autopilot/scopes/static-presentation-buildtime-download-20260830.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/cryptographic-inventory.json"
+    ],
     "claude/autonomous-execution-contract-oc7ds7": [
       "apps/api/prisma/schema.prisma",
       "apps/api/prisma/migrations/*_pc_crop_job_profile_capabilities/**",
@@ -310,6 +392,13 @@
       "scripts/pc-crop-10a/verify.mjs",
       "docs/platform-v7/autopilot/autopilot-state.json",
       "docs/platform-v7/autopilot/scopes/tai-reg-ru-release-chain-gate-20260801.json"
+    ],
+    "fix/tai-owner-deployment-command-20260803": [
+      ".github/workflows/tai-owner-reg-ru-deployment-command.yml",
+      "scripts/select-tai-restricted-qwen-activation-status.mjs",
+      "scripts/check-tai-owner-deployment-status-selection.mjs",
+      "scripts/check-tai-owner-deployment-command.mjs",
+      "docs/platform-v7/autopilot/scopes/tai-owner-deployment-command-20260803.json"
     ],
     "fix/public-ai-generic-platform-routing-3438": [
       "docs/platform-v7/autopilot/scopes/fix-public-ai-generic-platform-routing-3438.json",
@@ -1233,6 +1322,11 @@
       ".github/workflows/production-p0-reviewer-inspect.yml",
       ".github/workflows/production-p0-first-customer-acceptance.yml",
       ".github/workflows/production-p0-all-role-registration.yml",
+      ".github/workflows/production-p0-runtime-revision-parity-diagnostic.yml",
+      "apps/web/app/api/auth/organization-join-requests/[applicationId]/decision/route.ts",
+      "apps/web/app/platform-v7/profile/team/OrganizationTeamAdminClient.tsx",
+      "apps/web/tests/unit/p0FirstCustomerCompletion.test.ts",
+      "scripts/production-p0-all-role-registration.sh",
       "scripts/production-p0-reviewer-inspect.sh",
       "scripts/check-production-full-stack-release.mjs",
       "scripts/check-production-auth-mail-outbox-cutover.mjs",
@@ -1251,6 +1345,59 @@
       ".github/workflows/platform-v7-autopilot-guard.yml",
       "scripts/p7-autopilot-guard.sh",
       "scripts/p7-autopilot-guard.test.mjs"
+    ],
+    "fgis/xml-escape-convergence-4806": [
+      "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.ts",
+      "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.spec.ts"
+    ],
+    "feat/pc-crop-inventory-reservation-authority-4997": [
+      "packages/domain-core/src/inventory.ts",
+      "packages/domain-core/src/inventory.test.ts",
+      "packages/domain-core/src/index.ts",
+      "apps/api/prisma/schema.prisma",
+      "apps/api/prisma/migrations/20260905040000_inventory_reservation_authority/migration.sql",
+      "apps/api/src/modules/inventory/inventory.contract.ts",
+      "apps/api/src/modules/inventory/inventory.contract.spec.ts",
+      "apps/api/src/modules/inventory/inventory.repository.ts",
+      "apps/api/src/modules/inventory/inventory.controller.ts",
+      "apps/api/src/modules/inventory/inventory.module.ts",
+      "apps/api/src/modules/inventory/dto/inventory-api.dto.ts",
+      "apps/api/src/app.module.ts",
+      "apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts",
+      "scripts/platform-v7-one-deal-e2e.sh",
+      "scripts/verify-pc-crop-inventory-scope.test.mjs",
+      ".github/workflows/pc-crop-inventory.yml",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/cryptographic-inventory.json"
+    ],
+    "security/pc-crop-next-15-5-24-4997": [
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      ".github/workflows/sbom-scan.yml",
+      "apps/web/package.json",
+      "package.json",
+      "pnpm-lock.yaml",
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs"
+    ],
+    "governance/pc-crop-inventory-reservation-scope-4997": [
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs",
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "docs/platform-v7/autopilot/scopes/pc-crop-inventory-reservation-authority-4997.json"
+    ],
+    "fix/owner-handoff-product-host-20260908": [
+      "apps/web/app/platform-v7/staff/open-cabinet/route.ts",
+      "apps/web/lib/platform-v7/control-host.ts",
+      "apps/web/middleware.ts",
+      "apps/web/tests/unit/companyOsControlHostBoundary.test.ts",
+      "apps/web/tests/unit/companyOsOwnerCabinetControlHost.test.ts",
+      "apps/web/tests/unit/platformV7OwnerRealCabinets.test.ts",
+      ".github/workflows/ci.yml",
+      ".github/workflows/web-unit.yml",
+      "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+      "docs/platform-v7/qa/web-unit-coverage-registry.json"
     ]
   },
   "currentAcceptance": [

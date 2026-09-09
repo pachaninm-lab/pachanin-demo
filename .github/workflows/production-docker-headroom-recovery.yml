@@ -14,13 +14,14 @@ permissions:
   issues: write
 
 concurrency:
-  group: production-docker-headroom-recovery
+  # Serialize this storage mutation with the exact-SHA production rollout.
+  group: production-full-stack-exact-sha
   cancel-in-progress: false
 
 env:
   LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
   DEFAULT_HOST: 195.19.12.120
-  RECOVERY_ISSUE_NUMBER: 3072
+  RECOVERY_ISSUE_NUMBER: 4637
   EVIDENCE_DIR: artifacts/production-docker-headroom-recovery
   SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
   SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
@@ -36,7 +37,7 @@ jobs:
     if: >-
       github.event_name == 'pull_request' ||
       (github.event_name == 'issue_comment' &&
-       github.event.issue.number == 3072 &&
+       github.event.issue.number == 4637 &&
        github.event.comment.body == '/production reclaim-docker current-main')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -59,7 +60,7 @@ jobs:
           script = pathlib.Path('scripts/production-docker-headroom-recovery.sh').read_text(encoding='utf-8')
           scope = json.loads(pathlib.Path('docs/platform-v7/autopilot/scopes/pc-crop-hosted-docker-headroom-recovery-3785.json').read_text(encoding='utf-8'))
           required_workflow = [
-              "github.event.issue.number == 3072",
+              "github.event.issue.number == 4637",
               "github.event.comment.body == '/production reclaim-docker current-main'",
               'github.event.comment.user.login',
               'github.repository_owner',
@@ -67,6 +68,7 @@ jobs:
               'StrictHostKeyChecking=yes',
               'BatchMode=yes',
               'scripts/production-docker-headroom-recovery.sh',
+              'CONTAINERD_STORAGE_FILESYSTEM_SHARED=1',
               'RUNTIME_CONTAINER_IDENTITY_UNCHANGED=1',
               'DOCKER_OBJECT_COUNTS_UNCHANGED=1',
               'echo "TARGET_SHA=$target_sha" >> "$GITHUB_ENV"',
@@ -76,6 +78,7 @@ jobs:
               'REQUIRED_KB=$((5 * 1024 * 1024))',
               'TARGET_KB=$((6 * 1024 * 1024))',
               "docker info --format '{{.DockerRootDir}}'",
+              "stat -c '%d' /var/lib/containerd",
               "docker', 'ps', '-aq', '--no-trunc'",
               "grainflow-(api|web|migration|tai)",
               "revision == target_sha",
@@ -107,8 +110,12 @@ jobs:
           for pattern in forbidden:
               if re.search(pattern, combined, re.I):
                   raise SystemExit(f'forbidden recovery capability: {pattern}')
-          if scope.get('branch') != 'fix/pc-crop-hosted-docker-headroom-recovery-3785':
+          if scope.get('branch') != 'fix/pc-crop-docker-headroom-rollover-4637':
               raise SystemExit('scope branch mismatch')
+          if scope.get('issue') != 3785 or scope.get('evidenceIssue') != 3072:
+              raise SystemExit('historical authority binding mismatch')
+          if scope.get('authorityContinuationIssue') != 4637 or scope.get('registrationMatrixIssue') != 3785:
+              raise SystemExit('continuation authority mismatch')
           if scope.get('newRecurringCostRub') != 0:
               raise SystemExit('scope recurring cost mismatch')
           print('PASS: bounded hosted recovery preserves running/stopped container images, exact-main images, two newest canonical rollback images, and forbids broad prune/delete capabilities.')
@@ -118,7 +125,7 @@ jobs:
     name: Resolve owner-authorized exact current main
     if: >-
       github.event_name == 'issue_comment' &&
-      github.event.issue.number == 3072 &&
+      github.event.issue.number == 4637 &&
       github.event.comment.body == '/production reclaim-docker current-main'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -310,6 +317,7 @@ jobs:
           cat "$EVIDENCE_DIR/recovery.log"
           (( rc == 0 )) || exit "$rc"
           grep -Fxq 'DOCKER_HEADROOM_RECOVERY=PASS' "$EVIDENCE_DIR/recovery.log"
+          grep -Fxq 'CONTAINERD_STORAGE_FILESYSTEM_SHARED=1' "$EVIDENCE_DIR/recovery.log"
           grep -Fxq 'RUNTIME_CONTAINER_IDENTITY_UNCHANGED=1' "$EVIDENCE_DIR/recovery.log"
           grep -Fxq 'RUNTIME_REVISIONS_UNCHANGED=1' "$EVIDENCE_DIR/recovery.log"
           grep -Fxq 'DOCKER_OBJECT_COUNTS_UNCHANGED=1' "$EVIDENCE_DIR/recovery.log"

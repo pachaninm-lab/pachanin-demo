@@ -8,7 +8,12 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 15;
 
 const COPY = {
-  ru: { subject: 'Прозрачная Цена — подтвердите email', intro: 'Получен повторный запрос подтверждения email.', action: 'Открой одноразовую ссылку:', expiry: 'Ссылка действует 30 минут.' },
+  ru: {
+    subject: 'Прозрачная Цена — подтвердите адрес электронной почты',
+    intro: 'Получен повторный запрос на подтверждение адреса электронной почты.',
+    action: 'Для подтверждения адреса откройте одноразовую ссылку:',
+    expiry: 'Ссылка действует 30 минут.',
+  },
   en: { subject: 'Transparent Price — confirm your email', intro: 'A new email-confirmation request was received.', action: 'Open the single-use link:', expiry: 'The link is valid for 30 minutes.' },
   zh: { subject: '透明价格 — 确认电子邮箱', intro: '收到了新的电子邮箱确认请求。', action: '请打开一次性链接：', expiry: '链接有效期为30分钟。' },
 } as const;

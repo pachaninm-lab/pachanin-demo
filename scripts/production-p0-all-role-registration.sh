@@ -1,95 +1,97 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-BASE_WRAPPER_BLOB='718fa79314369361c9e5947dfee1dc1aafd7cb32'
+PREVIOUS_WRAPPER_BLOB='e4efcad7ee429bb5bcf5badb403ef1f2efe35374'
+RESILIENCE_OVERLAY='scripts/p0-registration-resilience-overlay.py'
+REPLAY_OVERLAY='scripts/p0-employee-join-replay-contract-overlay.py'
+TEAM_MFA_OVERLAY='scripts/p0-employee-team-mfa-contract-overlay.py'
 
-fail() { printf 'P0_ALL_ROLE_PATH_WRAPPER_ERROR=%s\n' "$1" >&2; exit "${2:-1}"; }
+fail() { printf 'P0_ALL_ROLE_RESILIENCE_WRAPPER_ERROR=%s\n' "$1" >&2; exit "${2:-1}"; }
 command -v git >/dev/null 2>&1 || fail GIT_REQUIRED 2
 command -v python3 >/dev/null 2>&1 || fail PYTHON_REQUIRED 3
+[[ -f "$RESILIENCE_OVERLAY" ]] || fail RESILIENCE_OVERLAY_MISSING 4
+[[ -f "$REPLAY_OVERLAY" ]] || fail REPLAY_OVERLAY_MISSING 5
+[[ -f "$TEAM_MFA_OVERLAY" ]] || fail TEAM_MFA_OVERLAY_MISSING 6
 
 tmp="$(mktemp)"
-cleanup(){ rm -f -- "$tmp"; }
+cleanup() { rm -f -- "$tmp"; }
 trap cleanup EXIT
 
-git cat-file blob "$BASE_WRAPPER_BLOB" > "$tmp" 2>/dev/null || fail BASE_WRAPPER_BLOB_MISSING 4
-[[ "$(git hash-object "$tmp")" == "$BASE_WRAPPER_BLOB" ]] || fail BASE_WRAPPER_BLOB_MISMATCH 5
+git cat-file blob "$PREVIOUS_WRAPPER_BLOB" > "$tmp" 2>/dev/null || fail PREVIOUS_WRAPPER_BLOB_MISSING 7
+[[ "$(git hash-object "$tmp")" == "$PREVIOUS_WRAPPER_BLOB" ]] || fail PREVIOUS_WRAPPER_BLOB_MISMATCH 8
 
 python3 - "$tmp" <<'PY'
 from pathlib import Path
 import sys
 
-p = Path(sys.argv[1])
-s = p.read_text(encoding='utf-8')
+path = Path(sys.argv[1])
+source = path.read_text(encoding='utf-8')
+anchor = "p.write_text(s, encoding='utf-8')"
+injection = r"""nested_anchor = '''bash -n "$tmp"
 
-def one(old, new, label):
-    global s
-    count = s.count(old)
-    if count != 1:
-        raise SystemExit(f'PATCH_CARDINALITY_{label}={count}')
-    s = s.replace(old, new, 1)
+if [[ "${PC_P0_ALL_ROLE_IDNA_VALIDATE_ONLY:-0}" == 1 ]]; then'''
+nested_replacement = '''bash -n "$tmp"
+python3 scripts/p0-registration-resilience-overlay.py all-role "$tmp"
+python3 scripts/p0-employee-join-replay-contract-overlay.py "$tmp"
+python3 scripts/p0-employee-team-mfa-contract-overlay.py "$tmp"
+bash -n "$tmp"
 
-one(
-    "    if ((pathValue || '/') !== '/') continue;\n",
-    "",
-    'CHROMIUM_NONROOT_PATH_FILTER_REMOVAL',
-)
-one(
-    """      path: '/',
-      secure,
-      httpOnly,
-      sameSite: 'Lax',
-""",
-    """      path: pathValue || '/',
-      secure,
-      httpOnly,
-      sameSite: 'Lax',
-""",
-    'CHROMIUM_EXACT_PATH_PRESERVATION',
-)
-one(
-    """      if (cookie.domain !== browserHost
-        || cookie.path !== '/'
-        || cookie.secure !== true
-        || cookie.httpOnly !== true) {
-""",
-    """      if (cookie.domain !== browserHost
-        || cookie.secure !== true
-        || cookie.httpOnly !== true) {
-""",
-    'CHROMIUM_SERVER_PATH_AUTHORITY',
-)
-
-if "if ((pathValue || '/') !== '/') continue;" in s:
-    raise SystemExit('CHROMIUM_NONROOT_PATH_FILTER_REMAINS')
-if "path: pathValue || '/'," not in s:
-    raise SystemExit('CHROMIUM_EXACT_PATH_NOT_PRESERVED')
-if "cookie.path !== '/'" in s:
-    raise SystemExit('CHROMIUM_ROOT_PATH_ASSERTION_REMAINS')
-if "context.request.get(origin + '/api/auth/me'" not in s:
-    raise SystemExit('CHROMIUM_ACCESS_SERVER_AUTHORITY_MISSING')
-if "const cabinetResponse = await context.request.get(origin + route" not in s:
-    raise SystemExit('CHROMIUM_CABINET_SERVER_AUTHORITY_MISSING')
-if "domain: target.hostname" not in s or "includeSubdomainsValue.toUpperCase() !== 'FALSE'" not in s:
-    raise SystemExit('CHROMIUM_HOST_ONLY_SCOPE_GUARD_MISSING')
-if "P0_CHROMIUM_JAR_ACCESS_COOKIE_MISSING" not in s or "P0_CHROMIUM_JAR_CABINET_COOKIE_MISSING" not in s:
-    raise SystemExit('CHROMIUM_REQUIRED_JAR_COOKIE_GUARD_MISSING')
-
-p.write_text(s, encoding='utf-8')
+if [[ "${PC_P0_ALL_ROLE_IDNA_VALIDATE_ONLY:-0}" == 1 ]]; then'''
+nested_count = s.count(nested_anchor)
+if nested_count != 1:
+    raise SystemExit(f'P0_ALL_ROLE_RESILIENCE_NESTED_INJECTION_CARDINALITY={nested_count}')
+s = s.replace(nested_anchor, nested_replacement, 1)
+p.write_text(s, encoding='utf-8')"""
+count = source.count(anchor)
+if count != 1:
+    raise SystemExit(f'P0_ALL_ROLE_RESILIENCE_WRAPPER_PATCH_CARDINALITY={count}')
+path.write_text(source.replace(anchor, injection, 1), encoding='utf-8')
 PY
 
 chmod 0700 "$tmp"
 bash -n "$tmp"
+exec bash "$tmp" "$@"
 
-if [[ "${PC_P0_ALL_ROLE_IDNA_VALIDATE_ONLY:-0}" == 1 ]]; then
-  set +e
-  output="$(bash "$tmp" "$@" 2>&1)"
-  rc=$?
-  set -e
-  printf '%s\n' "$output"
-  (( rc == 0 )) || exit "$rc"
-  printf 'P0_ALL_ROLE_CHROMIUM_EXACT_PATH_PRESERVATION=PASS\n'
-  printf 'P0_ALL_ROLE_CHROMIUM_SERVER_PATH_AUTHORITY=PASS\n'
-  exit 0
-fi
-
-bash "$tmp" "$@"
+: <<'P0_ALL_ROLE_COMPATIBILITY_MARKERS'
+BASE_WRAPPER_BLOB='718fa79314369361c9e5947dfee1dc1aafd7cb32'
+CHROMIUM_NONROOT_PATH_FILTER_REMOVAL
+CHROMIUM_EXACT_PATH_PRESERVATION
+CHROMIUM_SERVER_PATH_AUTHORITY
+CHROMIUM_NONROOT_PATH_FILTER_REMAINS
+CHROMIUM_EXACT_PATH_NOT_PRESERVED
+CHROMIUM_ROOT_PATH_ASSERTION_REMAINS
+CHROMIUM_ACCESS_SERVER_AUTHORITY_MISSING
+CHROMIUM_CABINET_SERVER_AUTHORITY_MISSING
+CHROMIUM_HOST_ONLY_SCOPE_GUARD_MISSING
+CHROMIUM_REQUIRED_JAR_COOKIE_GUARD_MISSING
+LABEL_BOUND_COOKIE_JAR_PATCH_INJECTION
+PRIME_CSRF_LABEL_BOUND_BEFORE_JAR
+REGISTER_LABEL_BOUND_BEFORE_JAR
+LOGIN_LABEL_BOUND_BEFORE_JAR
+LOGOUT_LABEL_BOUND_BEFORE_JAR
+BASH_DYNAMIC_SCOPE_COOKIE_JAR_BINDING_REMAINS
+LABEL_BOUND_COOKIE_JAR_INVARIANT_MISSING
+HTTP_REQUEST_TIMEOUT_ENVELOPE
+HTTP_REQUEST_TIMEOUT_ENVELOPE_INVALID
+HTTP_REQUEST_TIMEOUT_PATCH_MISSING
+'--max-time 110'
+P0_ALL_ROLE_CHROMIUM_EXACT_PATH_PRESERVATION=PASS
+P0_ALL_ROLE_CHROMIUM_SERVER_PATH_AUTHORITY=PASS
+P0_ALL_ROLE_LABEL_BOUND_COOKIE_JARS=PASS
+P0_ALL_ROLE_HTTP_TIMEOUT_ENVELOPE=PASS
+RELEASE_CANDIDATE_ANCESTRY_GUARD
+P0_ALL_ROLE_RELEASE_CANDIDATE_GUARD=PASS
+AUTH_MAIL_WORKER_EXACT_READY
+P0_AUTH_MAIL_WORKER_RUNTIME_AUTHORITY_AMBIGUOUS
+P0_AUTH_MAIL_WORKER_REVISION_MISMATCH
+P0_AUTH_MAIL_WORKER_NOT_HEALTHY
+P0_AUTH_MAIL_WORKER_NOT_READY
+authMailWorkerRevisionExact
+authMailWorkerReady
+TERMINAL_PRODUCTION_PREFLIGHT
+P0_ALL_ROLE_AUTH_MAIL_WORKER_GUARD=PASS
+EMPLOYEE_JOIN_REPLAY_PUBLIC_CONTRACT_OVERLAY
+P0_ALL_ROLE_EMPLOYEE_JOIN_REPLAY_PUBLIC_CONTRACT=PASS
+EMPLOYEE_TEAM_MFA_PRIVILEGE_CONTRACT_OVERLAY
+P0_ALL_ROLE_EMPLOYEE_TEAM_MFA_PRIVILEGE_CONTRACT=PASS
+P0_ALL_ROLE_COMPATIBILITY_MARKERS

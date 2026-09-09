@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4817,
+  "branch": "security/download-disposition-321",
+  "status": "active",
+  "purpose": "Close ASVS V3.2.1 on the uploaded-file download path. The bytes never pass through this application - a download is a presigned URL straight to object storage - and that URL carried no response-content-disposition, so whether an uploaded .html or .svg rendered in the browser was decided entirely by the bucket's default configuration, which is not in version control and could not be checked. The requirement names the attachment disposition type as a control that satisfies it, and the presigned URL is the only place the decision can be made.",
+  "authorityBaseExactMain": "8ca457e650c4c7b79154a9b456dda4469b690d1b",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/download-disposition-321.json",
+    "apps/api/src/common/security/content-disposition.ts",
+    "apps/api/src/modules/storage/object-storage.adapter.ts",
+    "apps/api/src/modules/storage/storage.service.ts",
+    "apps/api/src/modules/storage/download-disposition.spec.ts",
+    "docs/security/asvs-applicability-decisions.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+  ],
+  "requiredInvariants": [
+    "The override is signed, not appended. An unsigned response parameter can be deleted by whoever holds the link, which would hand the rendering decision straight back to the bucket, so it is folded into the canonical query before the signature is computed and a case asserts the signature differs with and without it.",
+    "A real signing defect found while writing the tests is fixed rather than worked around: the canonical query was sorted with localeCompare and SigV4 requires byte ordering. Every existing parameter starts with X-Amz-, where the two coincide, so nothing had exposed it; a lowercase override sorts differently under the two rules and the storage would have rejected the signature. A condition forbids the regression.",
+    "The header value is built, never interpolated. sanitizeFilename runs at upload and already removes control characters and quotes, but a record written before it existed has not been through it, and a filename reaching a header is where a stray CR stops being cosmetic.",
+    "Both parameter forms are emitted. Filenames here are routinely Cyrillic, the ASCII fallback cannot represent them, and a case decodes the RFC 5987 form back to the exact original rather than trusting it.",
+    "A case proves the SERVICE asks for the attachment, not only that the primitive and the adapter can. The first version of this suite exercised only those two, and a getDownloadUrl that stopped supplying the override left every case green - the same hole this programme found in the cursor-key pass.",
+    "No change to who may download what: the visibility, status, immutability and TTL checks in getDownloadUrl are untouched. Only the rendering context of an authorised download changes.",
+    "1C, marketing and presentation are not touched. No production, REG.RU, DNS, database or credential mutation, no migration and no new dependency."
+  ],
+  "acceptance": [
+    "download-disposition.spec.ts passes 11 of 11 and the whole storage and documents set is 21.",
+    "Four mutations are caught: appending the override after signing fails 3 of 21, restoring localeCompare fails 1, removing the override from the service fails 2, and keeping control characters in the filename fails 1.",
+    "V3.2.1 revokes at the matrix level in both directions: removing the service override rejects it, and returning the sort to localeCompare rejects it.",
+    "The matrix rebuilds at applied 332 / rejected 0, PASS 114 to 115 and FAIL 105 to 104, with no other verdict moved.",
+    "tsc --noEmit exit 0, node --test scripts/security passes in full, guard=0."
+  ]
+}

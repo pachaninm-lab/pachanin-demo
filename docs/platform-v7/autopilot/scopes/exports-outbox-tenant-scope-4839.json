@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4839,
+  "branch": "security/exports-outbox-tenant-scope-8-2-2",
+  "status": "active",
+  "purpose": "exportOutboxStatus was the only one of six exports with neither assertTenantScope nor a tenant predicate: it read outbox_entries across the whole table and returned full rows, payload and leaseToken included. The same pass removes the four .catch handlers that turned a failed query into a clean-looking artifact - an empty ledger CSV, a zero-operation regulatory filing, a deal report asserting chainIntegrity.valid on a database it never reached.",
+  "authorityBaseExactMain": "b515d5c5e85250dcea68b41f659279e4e226c271",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/exports-outbox-tenant-scope-4839.json",
+    "apps/api/src/modules/exports/exports.service.ts",
+    "apps/api/src/modules/exports/exports-tenant-scope.spec.ts",
+    "apps/api/src/modules/exports/exports-failure-visibility.spec.ts"
+  ],
+  "requiredInvariants": [
+    "Role check stays first on every export, before the tenant check and before any read. The order is already asserted by the existing suite and must not move.",
+    "The tenant predicate is in the query, not in a comment and not delegated to RLS. Policy outbox_entries_worker_select is USING (current_user IN ('app_service','app_outbox')) and PostgreSQL ORs permissive policies, so under the service principal the database returns the table whole.",
+    "An outbox entry with no deal belongs to no tenant and is excluded. This is what the strict policy outbox_entries_select already does with \"dealId\" IS NOT NULL; no new semantics are invented.",
+    "No schema change, no migration, no RLS policy edit, no FORCE ROW LEVEL SECURITY. deals_uncontexted_read and the move into RlsTransactionService are later steps of the chain and are not started here.",
+    "Nothing outside apps/api/src/modules/exports is touched. No production, REG.RU, DNS, database or credential mutation. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "exportOutboxStatus refuses a caller with no tenant, like the other five, and the refusal happens before any read.",
+    "Entries are filtered by the deal ids of the caller's tenant; an entry whose deal belongs to another tenant, and an entry with dealId null, are both absent from counts and from the returned list.",
+    "payload and leaseToken are not selected. The returned shape is the explicit status field list already used by staff-workspace diagnostics.",
+    "Each of the four removed catch handlers has a test that fails if it is restored: a rejecting query must propagate, not yield an empty ledger CSV, a zero-operation regulatory report, a zero-count outbox status, or a deal report asserting chain integrity over a database it never read.",
+    "api typecheck exit 0 and the full @pc/api suite green."
+  ]
+}

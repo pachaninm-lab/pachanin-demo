@@ -6,11 +6,26 @@ HEAD_REF="${HEAD_REF:-HEAD}"
 STATE_FILE="docs/platform-v7/autopilot/autopilot-state.json"
 REGISTRATION_ROLLOVER_BRANCH="fix/p0-registration-authority-rollover-4637"
 OWNER_AUDIT_LOCK_BRANCH="fix/p0-owner-control-plane-audit-lock-4698"
+POST_REGISTRATION_PROGRESS_BRANCH="docs/pc-crop-post-registration-progress-4997"
+INVENTORY_RESERVATION_BRANCH="feat/pc-crop-inventory-reservation-authority-4997"
+AUCTION_INVENTORY_BRANCH="feat/pc-crop-auction-inventory-authority-4997"
+W1_PRODUCTION_ACCEPTANCE_BRANCH="ops/pc-crop-w1-production-acceptance-4997"
+SCOPE_GOVERNANCE_BRANCH="governance/pc-crop-post-registration-progress-scope-4997"
+INVENTORY_SCOPE_GOVERNANCE_BRANCH="governance/pc-crop-inventory-reservation-scope-4997"
+PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH="governance/public-home-role-clarity-scope-20260905"
+PUBLIC_HOME_IMPLEMENTATION_BRANCH="feat/public-home-role-clarity-20260905"
+PUBLIC_HOME_GOVERNANCE_MANIFEST="docs/platform-v7/autopilot/scopes/governance-public-home-role-clarity-scope-20260905.json"
+PUBLIC_HOME_IMPLEMENTATION_MANIFEST="docs/platform-v7/autopilot/scopes/public-home-role-clarity-20260905.json"
+POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH="governance/production-like-outbox-poison-isolation-scope-3793"
+POISON_ISOLATION_IMPLEMENTATION_BRANCH="fix/production-like-outbox-poison-isolation-3793"
+OWNER_HANDOFF_IMPLEMENTATION_BRANCH="fix/owner-handoff-product-host-20260908"
+POISON_ISOLATION_MANIFEST="docs/platform-v7/autopilot/scopes/production-like-outbox-poison-isolation-3793.json"
+NEXT_SECURITY_PATCH_BRANCH="security/pc-crop-next-15-5-24-4997"
 CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
 
 is_immutable_scope_branch() {
   case "$1" in
-    "$REGISTRATION_ROLLOVER_BRANCH"|"$OWNER_AUDIT_LOCK_BRANCH") return 0 ;;
+    "$REGISTRATION_ROLLOVER_BRANCH"|"$OWNER_AUDIT_LOCK_BRANCH"|"$POST_REGISTRATION_PROGRESS_BRANCH"|"$INVENTORY_RESERVATION_BRANCH"|"$AUCTION_INVENTORY_BRANCH"|"$W1_PRODUCTION_ACCEPTANCE_BRANCH"|"$SCOPE_GOVERNANCE_BRANCH"|"$INVENTORY_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_IMPLEMENTATION_BRANCH"|"$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH"|"$POISON_ISOLATION_IMPLEMENTATION_BRANCH"|"$OWNER_HANDOFF_IMPLEMENTATION_BRANCH") return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -47,9 +62,7 @@ if [ ! -f "$STATE_FILE" ]; then
 fi
 
 if is_immutable_scope_branch "$CURRENT_BRANCH"; then
-  # The scope for these production-capable repairs is resolved exclusively
-  # from the immutable base commit below, never from the
-  # pull request's working tree or the globally active implementation scope.
+  # Protected branches resolve scope exclusively from the immutable base.
   ALLOWED_CURRENT=''
 else
   ALLOWED_CURRENT=$(node - <<'JS'
@@ -261,8 +274,29 @@ scripts/security/capture-base-security-jobs.mjs
 scripts/write-deploy-evidence.mjs
 scripts/p7-autopilot-guard.sh'
 
+PUBLIC_REGISTRATION_FINAL_COPY_SCOPE='apps/api/src/modules/auth/consent-policy.spec.ts
+apps/api/src/modules/auth/consent-policy.ts
+apps/api/src/modules/auth/gekta-registration.spec.ts
+apps/api/src/modules/auth/organization-invitation.service.spec.ts
+apps/web/app/platform-v7/invitation/InvitationAcceptClient.tsx
+apps/web/app/platform-v7/mfa-recovery/MfaRecoveryClient.tsx
+apps/web/app/platform-v7/mfa-recovery/page.tsx
+apps/web/app/platform-v7/oferta/page.tsx
+apps/web/app/platform-v7/privacy/page.tsx
+apps/web/app/platform-v7/register/RegisterFormClient.tsx
+apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx
+apps/web/app/platform-v7/terms/page.tsx
+apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts
+apps/web/tests/unit/platformV7PublicLegalRecoveryCopy.test.ts
+docs/platform-v7/autopilot/scopes/public-registration-final-copy-4916.json
+scripts/p7-autopilot-guard.sh'
+
 if [ "${GITHUB_HEAD_REF:-}" = "agent/harden-platform-v7-public-entry" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/public-entry-human-copy" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/landing-hero-support" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/login-human-grade-ui" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/exact-approved-header-logo" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_ENTRY_SCOPE")
+fi
+
+if [ "${GITHUB_HEAD_REF:-}" = "fix/public-registration-final-copy-4916" ]; then
+  ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$PUBLIC_REGISTRATION_FINAL_COPY_SCOPE")
 fi
 
 if [ "${GITHUB_HEAD_REF:-}" = "agent/public-home-typography" ]; then
@@ -301,6 +335,20 @@ if [ "${GITHUB_HEAD_REF:-}" = "agent/industrial-readiness-v1-security-gates-v2" 
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$INDUSTRIAL_SECURITY_GATE_SCOPE")
 fi
 
+# The W1 release may append only the two reviewed static-label findings. The
+# trusted-base guard, not the implementation branch, owns this exception bound.
+if [ "$CURRENT_BRANCH" = "$W1_PRODUCTION_ACCEPTANCE_BRANCH" ] && printf '%s\n' "$DIFF_FILES" | grep -Fxq '.gitleaksignore'; then
+  P7_EXCEPTION_BASE="$BASE_REF" P7_EXCEPTION_HEAD="$HEAD_REF" node - <<'JS'
+const assert = require('node:assert/strict');
+const { execFileSync } = require('node:child_process');
+const read = ref => execFileSync('git', ['show', `${ref}:.gitleaksignore`], { encoding: 'utf8' });
+const baseline = read(process.env.P7_EXCEPTION_BASE);
+const head = read(process.env.P7_EXCEPTION_HEAD);
+const approvedAppend = "\n# False positive: static PC_W1_API_DIGEST_VERIFIED output field name in W1 controller history.\n# Exact commit/path/rule/line only; these strings never contained a credential.\n25f4fa23451d9b2fd58ff60ba9badfc063055796:.github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:391\nba4e7b26a34f95ebc5636c6a18785a6a2d63b0b1:.github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:395\n";
+assert.equal(head, baseline + approvedAppend, 'W1 historical scan exceptions must be the exact approved append; existing entries and all other findings remain protected');
+JS
+fi
+
 if [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-transitive-runtime-remediation" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$TRANSITIVE_RUNTIME_REMEDIATION_SCOPE")
 fi
@@ -334,26 +382,66 @@ if [ "${GITHUB_HEAD_REF:-}" = "fix/exact-main-live-evidence-2659" ]; then
 fi
 
 if is_immutable_scope_branch "$CURRENT_BRANCH"; then
-  APPROVED_BRANCH_SCOPE=$(BASE_REF="$BASE_REF" STATE_FILE="$STATE_FILE" GITHUB_HEAD_REF="$CURRENT_BRANCH" node - <<'JS'
+  APPROVED_BRANCH_SCOPE=$(BASE_REF="$BASE_REF" STATE_FILE="$STATE_FILE" GITHUB_HEAD_REF="$CURRENT_BRANCH" PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH="$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" PUBLIC_HOME_IMPLEMENTATION_BRANCH="$PUBLIC_HOME_IMPLEMENTATION_BRANCH" PUBLIC_HOME_GOVERNANCE_MANIFEST="$PUBLIC_HOME_GOVERNANCE_MANIFEST" PUBLIC_HOME_IMPLEMENTATION_MANIFEST="$PUBLIC_HOME_IMPLEMENTATION_MANIFEST" POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH="$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" POISON_ISOLATION_IMPLEMENTATION_BRANCH="$POISON_ISOLATION_IMPLEMENTATION_BRANCH" POISON_ISOLATION_MANIFEST="$POISON_ISOLATION_MANIFEST" node - <<'JS'
 const { execFileSync } = require('node:child_process');
 
 const baseRef = String(process.env.BASE_REF || '').trim();
 const stateFile = String(process.env.STATE_FILE || '').trim();
 const branch = String(process.env.GITHUB_HEAD_REF || '').trim();
+const publicHomeGovernanceBranch = String(process.env.PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH || '').trim();
+const publicHomeImplementationBranch = String(process.env.PUBLIC_HOME_IMPLEMENTATION_BRANCH || '').trim();
+const publicHomeGovernanceManifest = String(process.env.PUBLIC_HOME_GOVERNANCE_MANIFEST || '').trim();
+const publicHomeImplementationManifest = String(process.env.PUBLIC_HOME_IMPLEMENTATION_MANIFEST || '').trim();
+const poisonIsolationScopeGovernanceBranch = String(process.env.POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH || '').trim();
+const poisonIsolationImplementationBranch = String(process.env.POISON_ISOLATION_IMPLEMENTATION_BRANCH || '').trim();
+const poisonIsolationManifest = String(process.env.POISON_ISOLATION_MANIFEST || '').trim();
 if (!baseRef || !stateFile || !branch) {
   throw new Error('P7_IMMUTABLE_SCOPE: immutable scope inputs are required');
 }
 
-let state;
-try {
-  const raw = execFileSync('git', ['show', `${baseRef}:${stateFile}`], { encoding: 'utf8' });
-  state = JSON.parse(raw);
-} catch (error) {
-  const message = error instanceof Error ? error.message : String(error);
-  throw new Error(`P7_IMMUTABLE_SCOPE: cannot load ${baseRef}:${stateFile}: ${message}`);
+let scopes;
+if (branch === publicHomeGovernanceBranch) {
+  scopes = [publicHomeGovernanceManifest, publicHomeImplementationManifest];
+} else if (branch === publicHomeImplementationBranch) {
+  let manifest;
+  try {
+    const raw = execFileSync('git', ['show', `${baseRef}:${publicHomeImplementationManifest}`], { encoding: 'utf8' });
+    manifest = JSON.parse(raw);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`P7_IMMUTABLE_SCOPE: cannot load accepted public-home manifest: ${message}`);
+  }
+  if (manifest.schemaVersion !== 'platform-v7.concurrent-scope.v1' || manifest.status !== 'active' || manifest.branch !== publicHomeImplementationBranch) {
+    throw new Error('P7_IMMUTABLE_SCOPE: accepted public-home manifest identity is invalid');
+  }
+  scopes = manifest.allowedPaths;
+} else if (branch === poisonIsolationScopeGovernanceBranch) {
+  scopes = [poisonIsolationManifest, 'scripts/p7-autopilot-guard.sh', 'scripts/p7-autopilot-guard.test.mjs'];
+} else if (branch === poisonIsolationImplementationBranch) {
+  let manifest;
+  try {
+    const raw = execFileSync('git', ['show', `${baseRef}:${poisonIsolationManifest}`], { encoding: 'utf8' });
+    manifest = JSON.parse(raw);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`P7_IMMUTABLE_SCOPE: cannot load accepted poison-isolation manifest: ${message}`);
+  }
+  if (manifest.schemaVersion !== 'platform-v7.concurrent-scope.v1' || manifest.status !== 'active' || manifest.branch !== poisonIsolationImplementationBranch) {
+    throw new Error('P7_IMMUTABLE_SCOPE: accepted poison-isolation manifest identity is invalid');
+  }
+  scopes = manifest.allowedPaths;
+} else {
+  let state;
+  try {
+    const raw = execFileSync('git', ['show', `${baseRef}:${stateFile}`], { encoding: 'utf8' });
+    state = JSON.parse(raw);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`P7_IMMUTABLE_SCOPE: cannot load ${baseRef}:${stateFile}: ${message}`);
+  }
+  scopes = state.approvedConcurrentScopes?.[branch];
 }
 
-const scopes = state.approvedConcurrentScopes?.[branch];
 if (!Array.isArray(scopes) || scopes.length === 0) {
   throw new Error(`P7_IMMUTABLE_SCOPE: no immutable approved scope for ${branch}`);
 }
@@ -375,11 +463,45 @@ process.stdout.write(`${normalized.join('\n')}\n`);
 JS
   )
 else
-  APPROVED_BRANCH_SCOPE=$(GITHUB_HEAD_REF="$CURRENT_BRANCH" node - <<'JS'
+  APPROVED_BRANCH_SCOPE=$(GITHUB_HEAD_REF="$CURRENT_BRANCH" P7_SCOPE_BASE_REF="$BASE_REF" P7_SCOPE_HEAD_REF="$HEAD_REF" node - <<'JS'
 const fs = require('fs');
-const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+const { execFileSync } = require('node:child_process');
+const { isDeepStrictEqual } = require('node:util');
 const branch = String(process.env.GITHUB_HEAD_REF || '').trim();
-const scopes = branch ? state.approvedConcurrentScopes?.[branch] : undefined;
+const state = JSON.parse(branch === 'security/pc-crop-next-15-5-24-4997'
+  ? execFileSync('git', ['show', `${process.env.P7_SCOPE_HEAD_REF}:docs/platform-v7/autopilot/autopilot-state.json`], { encoding: 'utf8' })
+  : fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+let scopes = branch ? state.approvedConcurrentScopes?.[branch] : undefined;
+if (branch === 'security/pc-crop-next-15-5-24-4997') {
+  const expected = ['.github/workflows/platform-v7-autopilot-guard.yml', '.github/workflows/sbom-scan.yml', 'apps/web/package.json', 'package.json', 'pnpm-lock.yaml',
+    'docs/platform-v7/autopilot/autopilot-state.json',
+    'scripts/p7-autopilot-guard.sh', 'scripts/p7-autopilot-guard.test.mjs'];
+  // The owner authorized this combined governance/security repair on 2026-09-09
+  // after separate governance #5196 was blocked by the vulnerable base itself.
+  // Bootstrap is bound to that exact base state; it is not a generic fallback.
+  let accepted;
+  try {
+    accepted = JSON.parse(execFileSync('git', ['show', `${process.env.P7_SCOPE_BASE_REF}:docs/platform-v7/autopilot/autopilot-state.json`], { encoding: 'utf8' }));
+  } catch {
+    throw new Error('NEXT_SECURITY_PATCH_ACCEPTED_SCOPE_MISSING');
+  }
+  const acceptedScope = accepted.approvedConcurrentScopes?.[branch];
+  if (!Array.isArray(acceptedScope)) {
+    const blob = execFileSync('git', ['rev-parse', `${process.env.P7_SCOPE_BASE_REF}:docs/platform-v7/autopilot/autopilot-state.json`], { encoding: 'utf8' }).trim();
+    if (blob !== '571d2821ac3c371d548e51e747ea8111a436dab8') {
+      throw new Error('NEXT_SECURITY_PATCH_ACCEPTED_SCOPE_MISSING');
+    }
+    accepted.approvedConcurrentScopes[branch] = [...expected];
+  } else if (JSON.stringify([...acceptedScope].sort()) !== JSON.stringify([...expected].sort())) {
+    throw new Error('NEXT_SECURITY_PATCH_ACCEPTED_SCOPE_MISSING');
+  }
+  if (!Array.isArray(scopes) || JSON.stringify([...scopes].sort()) !== JSON.stringify(expected.sort())) {
+    throw new Error('NEXT_SECURITY_PATCH_SCOPE_MISMATCH');
+  }
+  // No modification of other branches, global scope or state is authorized.
+  if (!isDeepStrictEqual(state, accepted)) throw new Error('NEXT_SECURITY_PATCH_STATE_MUTATION');
+  scopes = expected;
+}
 if (Array.isArray(scopes)) {
   for (const file of scopes) console.log(file);
 }
@@ -389,14 +511,15 @@ fi
 
 if is_immutable_scope_branch "$CURRENT_BRANCH"; then
   # Discard every legacy hardcoded or diff-triggered scope expansion above.
-  # This branch receives exactly the immutable base-approved entries and no
-  # union with global, legacy, or branch-local authorities.
+  ALLOWED_CURRENT="$APPROVED_BRANCH_SCOPE"
+elif [ "$CURRENT_BRANCH" = "$NEXT_SECURITY_PATCH_BRANCH" ]; then
+  # Owner-authorized 2026-09-09 dependency repair uses only its explicit paths.
   ALLOWED_CURRENT="$APPROVED_BRANCH_SCOPE"
 elif [ -n "$APPROVED_BRANCH_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$APPROVED_BRANCH_SCOPE")
 fi
 
-if is_immutable_scope_branch "$CURRENT_BRANCH"; then
+if is_immutable_scope_branch "$CURRENT_BRANCH" || [ "$CURRENT_BRANCH" = "$NEXT_SECURITY_PATCH_BRANCH" ]; then
   SOURCE_CONTROLLED_SCOPE=''
 else
   SOURCE_CONTROLLED_SCOPE=$(GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-}" node scripts/p7-source-controlled-scope.mjs)
@@ -406,8 +529,8 @@ if [ -n "$SOURCE_CONTROLLED_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$SOURCE_CONTROLLED_SCOPE")
 fi
 
-if is_immutable_scope_branch "$CURRENT_BRANCH"; then
-  MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$DIFF_FILES" | grep -E '^(AGENTS\.md|docs/platform-v7/autopilot/|scripts/p7-autopilot-guard\.sh$|scripts/p7-source-controlled-scope\.mjs$|\.github/workflows/platform-v7-autopilot-guard\.yml$)' || true)
+if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INVENTORY_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" ]; then
+  MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$DIFF_FILES" | grep -E '^(AGENTS\.md|docs/platform-v7/autopilot/|scripts/p7-autopilot-guard\.sh$|scripts/p7-autopilot-guard\.test\.mjs$|scripts/p7-source-controlled-scope\.mjs$|\.github/workflows/platform-v7-autopilot-guard\.yml$|\.github/workflows/automerge\.yml$)' || true)
   if [ -n "$MUTABLE_SCOPE_AUTHORITIES" ]; then
     echo "Mutable scope authority changed on a PC-CROP immutable-scope implementation branch:"
     printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES"
@@ -415,20 +538,7 @@ if is_immutable_scope_branch "$CURRENT_BRANCH"; then
   fi
 fi
 
-if [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-transitive-runtime-remediation" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-opentelemetry-220" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-next-15-5-16-final" ] || [ "${GITHUB_HEAD_REF:-}" = "claude/tai-production-attestation-gizgzh" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/security-brace-expansion-5-0-8" ] || [ "${GITHUB_HEAD_REF:-}" = "identity-rls-3670" ]; then
-  # Lockfile exemptions are granted per branch by the owner, never self-issued.
-  # identity-rls-3670: owner-directed P0 registration/RLS closure requires the
-  # actual nanoid HIGH-advisory remediation; package.json and pnpm-lock.yaml
-  # remain bounded by the source-controlled branch scope below.
-  # fix/security-brace-expansion-5-0-8: owner instruction of 2026-08-03 to raise
-  # brace-expansion to 5.0.9 and socket.io-parser to 4.2.7, both HIGH advisories
-  # against the production tree. A resolution bump cannot be expressed without
-  # pnpm-lock.yaml, and the owner declined a formal exception in favour of the
-  # fix. Scoped below to package.json and pnpm-lock.yaml only.
-  # claude/tai-production-attestation-gizgzh: owner instruction of 2026-07-26 to
-  # remove Netlify in full, which requires dropping @netlify/plugin-nextjs from
-  # package.json and pnpm-lock.yaml together — package.json alone would break
-  # `pnpm install --frozen-lockfile`.
+if [ "$CURRENT_BRANCH" = "$NEXT_SECURITY_PATCH_BRANCH" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-transitive-runtime-remediation" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-opentelemetry-220" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-next-15-5-16-final" ] || [ "${GITHUB_HEAD_REF:-}" = "claude/tai-production-attestation-gizgzh" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/security-brace-expansion-5-0-8" ] || [ "${GITHUB_HEAD_REF:-}" = "identity-rls-3670" ]; then
   FORBIDDEN_ALWAYS='^(apps/landing/|package-lock\.json$|\.env|.*\.pem$|.*\.key$)'
 else
   FORBIDDEN_ALWAYS='^(apps/landing/|package-lock\.json$|pnpm-lock\.yaml$|\.env|.*\.pem$|.*\.key$)'
@@ -465,7 +575,7 @@ if [ -n "$FORBIDDEN_FILES" ]; then
   exit 1
 fi
 
-if is_immutable_scope_branch "$CURRENT_BRANCH"; then
+if is_immutable_scope_branch "$CURRENT_BRANCH" || [ "$CURRENT_BRANCH" = "$NEXT_SECURITY_PATCH_BRANCH" ]; then
   P7_EXACT_APPROVED_SCOPE=1
 else
   P7_EXACT_APPROVED_SCOPE=0

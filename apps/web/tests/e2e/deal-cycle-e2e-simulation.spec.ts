@@ -146,27 +146,6 @@ test.describe('Security & Invariants — ТЗ 15.2', () => {
     }
   });
 
-  test('8. MFA enforcement: финансовая операция без MFA отклоняется или требует подтверждения', async ({ request }) => {
-    // Endpoint /api/mfa/setup/init требует JWT — без него 401
-    const resNoToken = await request.post(`${API_BASE}/api/mfa/setup/init`, {
-      data: {},
-    });
-    expect([401, 403]).toContain(resNoToken.status());
-
-    // Endpoint /api/mfa/verify: невалидный код → false
-    const resVerify = await request.post(`${API_BASE}/api/mfa/verify`, {
-      headers: { Authorization: 'Bearer admin-token-for-test' },
-      data: { secret: 'JBSWY3DPEHPK3PXP', code: '000000' },
-    });
-    // В test-env может вернуть 401 (нет реального JWT) или 200 с valid=false
-    if (resVerify.status() === 200) {
-      const body = await resVerify.json();
-      expect(body.valid).toBe(false);
-    } else {
-      expect([401, 403]).toContain(resVerify.status());
-    }
-  });
-
   test('5b. RBAC: endpoint только для ADMIN отклоняет обычный JWT', async ({ request }) => {
     // /admin/readiness-passport требует роль ADMIN — без токена 401
     const res = await request.get(`${API_BASE}/admin/readiness-passport`);

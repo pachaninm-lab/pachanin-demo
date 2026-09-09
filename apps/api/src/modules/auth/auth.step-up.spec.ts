@@ -23,6 +23,9 @@ function session(): SessionContextRow {
     session_status: 'ACTIVE', refresh_family_id: 'family-1', session_credential_version: 1,
     mfa_level: 'TOTP', mfa_verified_at: new Date(Date.now() - 60 * 60_000),
     session_expires_at: new Date(Date.now() + 60_000), revoked_at: null, revocation_reason: null,
+    // Fresh by default: these fixtures exercise other reasons a session can be
+    // invalid, and an idle one would mask them.
+    session_last_seen_at: new Date(),
     current_credential_version: 1, current_mfa_enabled: true,
   };
 }
