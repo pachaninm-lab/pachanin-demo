@@ -1383,6 +1383,16 @@
       "scripts/p7-autopilot-guard.test.mjs",
       ".github/workflows/platform-v7-autopilot-guard.yml",
       "docs/platform-v7/autopilot/scopes/pc-crop-inventory-reservation-authority-4997.json"
+    ],
+    "fix/owner-handoff-product-host-20260908": [
+      "apps/web/app/platform-v7/staff/open-cabinet/route.ts",
+      "apps/web/lib/platform-v7/control-host.ts",
+      "apps/web/middleware.ts",
+      "apps/web/tests/unit/companyOsControlHostBoundary.test.ts",
+      "apps/web/tests/unit/companyOsOwnerCabinetControlHost.test.ts",
+      "apps/web/tests/unit/platformV7OwnerRealCabinets.test.ts",
+      ".github/workflows/ci.yml",
+      ".github/workflows/web-unit.yml"
     ]
   },
   "currentAcceptance": [
