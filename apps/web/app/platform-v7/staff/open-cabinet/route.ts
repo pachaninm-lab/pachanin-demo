@@ -9,6 +9,7 @@ import {
 import { parseStaffCapabilitiesContract } from '@/lib/platform-v7/staff-capabilities';
 import { signCabinetSession, verifyHs256Jwt } from '@/lib/platform-v7/verified-session';
 import { FIXTURE_AUDIENCE, fixtureTokenIsForService } from '@/lib/platform-v7/fixture-token';
+import { OWNER_CONTROLLED_CABINET_TARGETS } from '@/lib/platform-v7/control-host';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -17,21 +18,7 @@ export const maxDuration = 12;
 const MAX_CONTROLLED_TTL_SECONDS = 8 * 60 * 60;
 const MAX_API_OWNER_TTL_SECONDS = 60 * 60;
 
-const OWNER_CABINETS = {
-  operator: '/platform-v7/control-tower',
-  buyer: '/platform-v7/buyer',
-  seller: '/platform-v7/seller',
-  logistics: '/platform-v7/logistics',
-  driver: '/platform-v7/driver/field',
-  surveyor: '/platform-v7/surveyor',
-  elevator: '/platform-v7/elevator',
-  lab: '/platform-v7/lab',
-  bank: '/platform-v7/bank',
-  organization: '/platform-v7/profile',
-  arbitrator: '/platform-v7/arbitrator',
-  compliance: '/platform-v7/compliance',
-  executive: '/platform-v7/executive',
-} as const;
+const OWNER_CABINETS = OWNER_CONTROLLED_CABINET_TARGETS;
 
 type OwnerCabinetRole = keyof typeof OWNER_CABINETS;
 type OwnerAuthority = {

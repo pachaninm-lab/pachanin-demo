@@ -9,6 +9,8 @@ import {
   isControlHostRequest,
   isControlRealmPathAllowed,
   normalizeAuthorityHost,
+  OWNER_CONTROLLED_CABINET_TARGETS,
+  ownerControlledCabinetRole,
   requestAuthorityHost,
   requiresCanonicalControlHost,
 } from '@/lib/platform-v7/control-host';
@@ -108,6 +110,16 @@ describe('Company OS F2A control host boundary', () => {
     ]) {
       expect(isControlRealmPathAllowed(denied), denied).toBe(false);
     }
+  });
+
+  it('keeps owner cabinet roots separate from the narrow unauthenticated realm allowlist', () => {
+    expect(Object.keys(OWNER_CONTROLLED_CABINET_TARGETS)).toHaveLength(13);
+    expect(OWNER_CONTROLLED_CABINET_TARGETS.operator).toBe('/platform-v7/operator');
+    expect(OWNER_CONTROLLED_CABINET_TARGETS.executive).toBe('/platform-v7/executive');
+    expect(ownerControlledCabinetRole('/platform-v7/operator')).toBe('operator');
+    expect(ownerControlledCabinetRole('/platform-v7/control-tower')).toBeNull();
+    expect(isControlRealmPathAllowed('/platform-v7/operator')).toBe(false);
+    expect(controlHelper).toContain('ownerCabinetSessionMatchesRoot');
   });
 
   it('builds only HTTPS canonical control URLs', () => {

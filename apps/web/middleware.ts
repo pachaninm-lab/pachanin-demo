@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { LOCALE_COOKIE } from '@/i18n/locale';
+import { controlledCabinetContext } from '@/lib/platform-v7/controlled-test-organizations';
 import {
   controlHostEnabled,
   controlHostUrl,
   isControlHostRequest,
   isControlRealmPathAllowed,
   isPrimaryPlatformHostRequest,
+  ownerCabinetSessionMatchesRoot,
+  ownerControlledCabinetRole,
   primaryPlatformUrl,
 } from '@/lib/platform-v7/control-host';
 import { observeServerCabinetAccess } from '@/lib/platform-v7/server-cabinet-access';
@@ -348,6 +351,22 @@ function markPlatformV7Entry(response: NextResponse) {
   response.cookies.set(PLATFORM_V7_ENTRY_COOKIE, 'true', { path: '/', maxAge: 60 * 60 * 4, sameSite: 'lax', secure: true });
 }
 
+async function ownerControlledRootAllowed(req: NextRequest): Promise<boolean> {
+  const role = ownerControlledCabinetRole(req.nextUrl.pathname);
+  if (!role) return true;
+
+  const secret = String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
+  const session = secret
+    ? await readVerifiedCabinetSessionContext(
+      req.cookies.get(CABINET_SESSION_COOKIE)?.value ?? null,
+      secret,
+      Math.floor(Date.now() / 1000),
+    )
+    : null;
+  const expected = controlledCabinetContext(role);
+  return ownerCabinetSessionMatchesRoot(req.nextUrl.pathname, session, expected);
+}
+
 function controlRealmResponse(req: NextRequest) {
   const requestHeaders = new Headers(req.headers);
   requestHeaders.delete('x-pc-role');
@@ -403,6 +422,7 @@ export async function middleware(req: NextRequest) {
       if (p === '/platform-v7/register') {
         return applySecurityHeaders(NextResponse.redirect(primaryPlatformUrl(p, req.nextUrl.search), 308), true, false);
       }
+      if (!(await ownerControlledRootAllowed(req))) return controlRealmDenied(req);
       if (!isControlRealmPathAllowed(p)) return controlRealmDenied(req);
       return controlRealmResponse(req);
     }

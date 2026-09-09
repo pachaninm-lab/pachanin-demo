@@ -29,6 +29,28 @@ export function ownerControlledCabinetRole(pathname: string): OwnerControlledCab
   return OWNER_CONTROLLED_CABINET_ROLE_BY_PATH.get(pathname) ?? null;
 }
 
+export type OwnerControlledCabinetSession = {
+  readonly role: string | null | undefined;
+  readonly ownerAccess: boolean;
+  readonly organizationId: string | null | undefined;
+  readonly tenantId: string | null | undefined;
+};
+
+export function ownerCabinetSessionMatchesRoot(
+  pathname: string,
+  session: OwnerControlledCabinetSession | null | undefined,
+  expected: { readonly organizationId: string; readonly tenantId: string } | null | undefined,
+): boolean {
+  const role = ownerControlledCabinetRole(pathname);
+  return role !== null
+    && session?.ownerAccess === true
+    && session.role === role
+    && expected !== null
+    && expected !== undefined
+    && session.organizationId === expected.organizationId
+    && session.tenantId === expected.tenantId;
+}
+
 const CONTROL_PAGE_EXACT = new Set([
   '/platform-v7/login',
   '/platform-v7/forgot-password',
