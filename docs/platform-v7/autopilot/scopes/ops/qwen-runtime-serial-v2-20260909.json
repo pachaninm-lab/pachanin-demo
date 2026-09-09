@@ -2,8 +2,8 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "ops/qwen-runtime-serial-v2-20260909",
   "status": "active",
-  "purpose": "Serialize the shared Local Qwen exact-head review provider inference after repeated bounded timeouts under concurrent llama processes, preserving complete diff coverage, immutable pins, fail-closed publication and the review gate.",
-  "authorityBaseExactMain": "c78e6539e9c133e84960d0483a892a45b4813caf",
+  "purpose": "Restore the already-reviewed two-thread Local Qwen CPU bound after the later #5227 provider snapshot regressed the workflow to four threads and exact-head #5127 run 34415336724 failed closed with exit 124 on chunk 1, preserving complete diff coverage, immutable pins, fail-closed publication and the review gate.",
+  "authorityBaseExactMain": "0678b7b0bdcb6b222d8befc9f7109f94f8f77c6c",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
