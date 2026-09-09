@@ -742,6 +742,8 @@ test('security scope routing binds bootstrap to its base and otherwise loads the
   const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
   const step = workflow.split('- name: Validate bounded security repair with trusted base authority')[1].split('- name: Validate post-registration DoD register')[0];
   assert.match(step, /BASE_STATE.*571d2821ac3c371d548e51e747ea8111a436dab8/u);
+  assert.match(step, /git show bcfc63c01d6a0195cea8d2b55978d47e3dbe7964:scripts\/p7-autopilot-guard.sh > "\$TRUSTED_GUARD"/u);
+  assert.doesNotMatch(step, /git show "\$HEAD_SHA:scripts\/p7-autopilot-guard.sh"/u);
   assert.match(step, /git show "\$BASE_SHA:scripts\/p7-autopilot-guard.sh" > "\$TRUSTED_GUARD"/u);
   assert.match(step, /BASE_REF="\$BASE_SHA" HEAD_REF="\$HEAD_SHA"/u);
   const standard = workflow.split('- name: Validate standard branch scope on PR head')[1].split('standard_validation:')[0];

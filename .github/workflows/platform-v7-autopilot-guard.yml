@@ -438,9 +438,9 @@ jobs:
           TRUSTED_GUARD=$(mktemp)
           if [[ "$BASE_STATE" == 571d2821ac3c371d548e51e747ea8111a436dab8 ]]; then
             # Owner-authorized combined repair: #5196 cannot land first because
-            # its unchanged base has CRITICAL dependencies. Independent exact-
-            # head review and all security checks must approve this bootstrap.
-            git show "$HEAD_SHA:scripts/p7-autopilot-guard.sh" > "$TRUSTED_GUARD"
+            # its unchanged base has CRITICAL dependencies. Freeze the already
+            # reviewed guard revision; synchronizations cannot replace it.
+            git show bcfc63c01d6a0195cea8d2b55978d47e3dbe7964:scripts/p7-autopilot-guard.sh > "$TRUSTED_GUARD"
           else
             # Every subsequent push uses the accepted guard, never a mutable
             # implementation script which could authorize its own scope.
