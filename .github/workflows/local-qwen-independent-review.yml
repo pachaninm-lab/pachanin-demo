@@ -43,7 +43,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           MAX_DIFF_BYTES=400000
-          MAX_CHUNK_DIFF_BYTES=24000
+          MAX_CHUNK_DIFF_BYTES=8000
           MAX_CHUNKS=64
           live_head="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.head.sha')"
           [[ "$live_head" == "$EXPECTED_HEAD" ]] || {
@@ -427,8 +427,8 @@ jobs:
               --offline \
               --model "$MODEL_FILE" \
               --file "$prompt_file" \
-              --ctx-size 16384 \
-              --n-predict 64 \
+              --ctx-size 8192 \
+              --n-predict 32 \
               --threads 4 \
               --threads-batch 4 \
               --seed 424242 \
