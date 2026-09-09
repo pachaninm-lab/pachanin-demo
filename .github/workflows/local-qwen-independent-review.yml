@@ -423,12 +423,12 @@ jobs:
               echo "Missing prompt for review chunk $chunk_index" >&2
               return 40
             }
-            timeout 420 "$LLAMA_CLI" \
+            timeout 240 "$LLAMA_CLI" \
               --offline \
               --model "$MODEL_FILE" \
               --file "$prompt_file" \
               --ctx-size 32768 \
-              --n-predict 256 \
+              --n-predict 128 \
               --threads 2 \
               --threads-batch 2 \
               --seed 424242 \
