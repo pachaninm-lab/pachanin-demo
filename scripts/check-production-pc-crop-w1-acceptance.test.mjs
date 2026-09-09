@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { checkManifests } from './check-ci-postgres-image-authority.mjs';
 import { TARGET_MIGRATIONS, TARGET_TABLES, readMigrationManifest, validateManifest, decodeManifest, validateImageManifest,
-  classifyLedger, HISTORICAL_MIGRATIONS, HISTORICAL_FUNCTIONS, attachHistoricalDiagnostics, validateApiEnvironment, validateSnapshot, snapshotSql, parseEvidence,
+  classifyLedger, HISTORICAL_MIGRATIONS, HISTORICAL_FUNCTIONS, attachHistoricalDiagnostics, observeLineageCatalog, verifyLineageSourceCompatibility, validateApiEnvironment, validateSnapshot, snapshotSql, parseEvidence,
   validateMigrationImage, validateCompose, runtimeFingerprint, errorCode, probeErrorPayload, probeDiagnostics, ledgerDiagnostics, checkSources } from './check-production-pc-crop-w1-acceptance.mjs';
 
 const baseName='20260902204500_role_eligibility_app_deal_api_boundary';
@@ -18,7 +18,8 @@ const target='a'.repeat(40),digest=`ghcr.io/pachaninm-lab/grainflow-migration@sh
 const clone=value=>structuredClone(value);
 const rejects=(fn,code)=>assert.throws(fn,error=>error.message===code);
 const pre=()=>({ snapshot:'00000003-000001AB-1',nonce:`pc_w1_${'c'.repeat(32)}`,pid:12,databaseOid:42,roleOid:16384,
-  decision:'READY_EXACT_SEVEN',pendingCount:7,legacyInitialMarker:'ABSENT',tables:0,structuralChecks:'NOT_APPLIED',environmentHash:'d'.repeat(64) });
+  decision:'READY_EXACT_EIGHT',pendingCount:8,legacyInitialMarker:'ABSENT',tables:0,structuralChecks:'NOT_APPLIED',environmentHash:'d'.repeat(64),
+  historicalLineage:'ABSENT',lineageProfile:'CANONICAL',lineageCatalogHash:'e'.repeat(64),lineageChecks:'PASS' });
 const environment=()=>({ NODE_ENV:'production', ...Object.fromEntries(['DEAL','DOCUMENT','SHIPMENT','LAB','PAYMENT'].map(name=>[`PLATFORM_V7_${name}_REPOSITORY`,'prisma'])) });
 const image=()=>({ Id:`sha256:${'e'.repeat(64)}`,RepoDigests:[digest],Config:{User:'nonroot',WorkingDir:'/app',Entrypoint:['/nodejs/bin/node'],
   Cmd:['node_modules/prisma/build/index.js','migrate','deploy','--schema','prisma/schema.prisma'],Labels:{'org.opencontainers.image.revision':target}} });
@@ -26,25 +27,83 @@ const compose=()=>({ services:{api:{image:'api'},migration:{image:digest,environ
 const container=(id='f')=>({ Id:id.repeat(64),Image:`sha256:${'a'.repeat(64)}`,State:{Running:true,StartedAt:'2026-09-08T00:00:00Z'},
   Config:{Env:['NODE_ENV=production'],Cmd:['worker'],Labels:{'com.docker.compose.service':'worker'}},HostConfig:{},Mounts:[],NetworkSettings:{Networks:{isolated:{NetworkID:'n',EndpointID:'e',IPAddress:'172.25.0.2'}}} });
 const readyEvidence=()=>({PC_W1_LEGACY_INITIAL_MARKER:'ABSENT',PC_W1_TARGET_SHA:target,PC_W1_BASELINE_API_SHA:'b'.repeat(40),PC_W1_DATABASE_IDENTITY:'PASS',
-  PC_W1_PENDING_MIGRATIONS:'7',PC_W1_SCHEMA_TABLES:'0',PC_W1_SCHEMA_STRUCTURAL_CHECKS:'NOT_APPLIED',
+  PC_W1_PENDING_MIGRATIONS:'8',PC_W1_SCHEMA_TABLES:'0',PC_W1_SCHEMA_STRUCTURAL_CHECKS:'NOT_APPLIED',
+  PC_W1_ARCHIVED_LEDGER:'ABSENT',PC_W1_LINEAGE_PROFILE:'CANONICAL',PC_W1_LINEAGE_CHECKS:'PASS',PC_W1_LINEAGE_CATALOG_SHA256:'e'.repeat(64),
   PC_W1_API_ENVIRONMENT_SHA256:'c'.repeat(64),PC_W1_NON_API_RUNTIME_SHA256:'d'.repeat(64),PC_W1_RUNTIME_UNCHANGED:'PASS',
   PC_W1_DATABASE_ROLLBACK:'NOT_REHEARSED',PC_W1_DATABASE_MUTATION:'NONE',PC_W1_AUTHENTICATED_ACCEPTANCE:'NOT_EVIDENCED',
-  PC_W1_FULL_ACCEPTANCE:'NOT_EVIDENCED',PC_W1_LEGACY_LOT_ROLLBACK:'DEGRADED_FAIL_CLOSED',PC_W1_RESULT:'READY_EXACT_SEVEN'});
+  PC_W1_FULL_ACCEPTANCE:'NOT_EVIDENCED',PC_W1_LEGACY_LOT_ROLLBACK:'DEGRADED_FAIL_CLOSED',PC_W1_RESULT:'READY_EXACT_EIGHT'});
 const lines=value=>Object.entries(value).map(([key,value])=>`${key}=${value}`).join('\n');
 
-test('only the observed seven accepted checksums may be pending',()=>{
-  assert.equal(Object.keys(TARGET_MIGRATIONS).length,7);
+test('lineage compatibility uses actual baseline Git blobs and blocks legacy consumers or changed callers',t=>{
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'w1-lineage-source-'));
+  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+  const git=args=>{const r=spawnSync('git',args,{cwd:root,encoding:'utf8'});assert.equal(r.status,0,r.stderr);return r.stdout.trim();};
+  const write=(file,content)=>{fs.mkdirSync(path.dirname(path.join(root,file)),{recursive:true});fs.writeFileSync(path.join(root,file),content);};
+  git(['init','--initial-branch=main']);git(['config','user.name','Isolated Source Test']);git(['config','user.email','test@example.invalid']);
+  const caller='apps/api/src/modules/deals/industrial-deal-command.gateway.ts';
+  for(const file of [caller,'apps/api/src/modules/auctions/auctions.module.ts','apps/api/src/modules/deals/prisma-deal.repository.ts']) write(file,'export const caller = true;\n');
+  git(['add','.']);git(['commit','-m','isolated baseline']);const baseline=git(['rev-parse','HEAD']);
+  write('README.md','Unrelated change\n');git(['add','.']);git(['commit','-m','isolated target']);const target=git(['rev-parse','HEAD']);
+  assert.equal(verifyLineageSourceCompatibility(root,baseline,target),'PASS');
+  rejects(()=>verifyLineageSourceCompatibility(root,target,baseline),'LINEAGE_BASELINE_NOT_ANCESTOR');
+  write(caller,'export const caller = false;\n');git(['add','.']);git(['commit','-m','changed caller']);
+  rejects(()=>verifyLineageSourceCompatibility(root,baseline,git(['rev-parse','HEAD'])),'LINEAGE_CALLER_COMPATIBILITY_UNPROVEN');
+  write('apps/api/src/legacy.ts','export const query = "SELECT dealx.participant_tenant()";\n');git(['add','.']);git(['commit','-m','legacy consumer']);
+  const legacy=git(['rev-parse','HEAD']);
+  rejects(()=>verifyLineageSourceCompatibility(root,baseline,legacy),'LEGACY_SQL_HELPER_CONSUMER_PRESENT');
+  fs.unlinkSync(path.join(root,'apps/api/src/legacy.ts'));git(['add','.']);git(['commit','-m','remove target consumer']);
+  rejects(()=>verifyLineageSourceCompatibility(root,legacy,git(['rev-parse','HEAD'])),'LEGACY_SQL_HELPER_CONSUMER_PRESENT');
+});
+
+function canonicalLineageRows() {
+  const sql=fs.readFileSync(new URL('../apps/api/prisma/migrations/20260715013100_auction_atomic_execution/migration.sql',import.meta.url),'utf8');
+  const functions=['record_admission','place_bid'].map(name=>{
+    const declaration=sql.slice(sql.indexOf(`CREATE OR REPLACE FUNCTION auction.${name}(`));
+    const body=declaration.split('AS $function$')[1].split('$function$;')[0];
+    return {name:`auction.${name}`,body,owner:'MIGRATION_OWNER',definer:true,config:['search_path=pg_catalog, public, auction'],
+      grants:[{grantee:'app_deal',privilege:'EXECUTE',grantable:false}]};
+  });
+  return [functions,[{relation:'auction.lots',policyname:'tenant_policy',qual:'tenant_id = current_tenant',roles:['public']}],
+    ['admissions','awards','bids','lots'].map(name=>({name:`auction.${name}`,rls:true,force:true,active:true,owner:'MIGRATION_OWNER'})),[]];
+}
+const readLineage=rows=>{let index=0;return observeLineageCatalog({$queryRawUnsafe:async()=>clone(rows[index++])});};
+test('lineage catalog fingerprints policy predicates and grants independently of function-body labels',async()=>{
+  const rows=canonicalLineageRows(),expected=await readLineage(rows);
+  assert.equal(expected.profile,'CANONICAL');
+  assert.match(expected.catalogHash,/^[0-9a-f]{64}$/);
+  for(const mutate of [r=>{r[1][0].qual='true';},r=>{r[0][0].grants.push({grantee:'PUBLIC',privilege:'EXECUTE',grantable:false});}]) {
+    const changed=clone(rows);mutate(changed);
+    const observed=await readLineage(changed);
+    assert.equal(observed.profile,'CANONICAL');
+    assert.notEqual(observed.catalogHash,expected.catalogHash,'Body equality cannot hide altered policy or grant authority');
+  }
+});
+test('lineage observation rejects overloads, unrecognized bodies, incomplete tables and non-forced RLS',async()=>{
+  for(const [mutate,code] of [
+    [r=>r[0].push(clone(r[0][0])),'LINEAGE_FUNCTION_OVERLOAD_UNEXPECTED'],
+    [r=>{r[0][0].body='BEGIN RETURN NULL; END';},'LINEAGE_PROFILE_UNRECOGNIZED'],
+    [r=>r[2].pop(),'LINEAGE_CATALOG_INVALID'],
+    [r=>{r[2][0].force=false;},'LINEAGE_CATALOG_INVALID'],
+    [r=>{r[1]=Array.from({length:65},()=>r[1][0]);},'LINEAGE_CATALOG_INVALID'],
+  ]) {
+    const rows=canonicalLineageRows();mutate(rows);
+    await assert.rejects(readLineage(rows),error=>error.message===code);
+  }
+});
+
+test('only seven foundation migrations and the pinned correction may be pending',()=>{
+  assert.equal(Object.keys(TARGET_MIGRATIONS).length,8);
   assert.equal(TARGET_TABLES.length,24);
-  assert.deepEqual(classifyLedger(manifest,[finished(baseName)]),{decision:'READY_EXACT_SEVEN',pendingCount:7,legacyInitialMarker:'ABSENT'});
+  assert.deepEqual(classifyLedger(manifest,[finished(baseName)]),{decision:'READY_EXACT_EIGHT',pendingCount:8,legacyInitialMarker:'ABSENT'});
   assert.deepEqual(classifyLedger(manifest,Object.keys(manifest).map(finished)),{decision:'VERIFIED_ALREADY_APPLIED',pendingCount:0,legacyInitialMarker:'ABSENT'});
 });
 for(const name of Object.keys(TARGET_MIGRATIONS)) test(`partial applied set blocks: ${name}`,()=>{
-  rejects(()=>classifyLedger(manifest,[finished(baseName),finished(name)]),'PENDING_SET_NOT_EXACT_SEVEN');
+  rejects(()=>classifyLedger(manifest,[finished(baseName),finished(name)]),'PENDING_SET_NOT_EXACT_EIGHT');
 });
-test('an extra pending migration cannot ride along with accepted seven',()=>{
-  rejects(()=>classifyLedger({...manifest,'20260909000000_unaccepted_change':'1'.repeat(64)},[finished(baseName)]),'PENDING_SET_NOT_EXACT_SEVEN');
+test('an extra pending migration cannot ride along with the accepted eight',()=>{
+  rejects(()=>classifyLedger({...manifest,'20260909000000_unaccepted_change':'1'.repeat(64)},[finished(baseName)]),'PENDING_SET_NOT_EXACT_EIGHT');
 });
-test('older missing migration blocks too',()=>rejects(()=>classifyLedger(manifest,[]),'PENDING_SET_NOT_EXACT_SEVEN'));
+test('older missing migration blocks too',()=>rejects(()=>classifyLedger(manifest,[]),'PENDING_SET_NOT_EXACT_EIGHT'));
 test('the exact historical auxiliary marker requires a separate canonical execution row in either order',()=>{
   const actual=readMigrationManifest(fileURLToPath(new URL('../apps/api/prisma/migrations',import.meta.url)));
   const initial='0001_postgresql_initial';
@@ -52,7 +111,7 @@ test('the exact historical auxiliary marker requires a separate canonical execut
   const marker={migration_name:initial,checksum:'grainflow_v3_initial_postgresql',finished_at:'2026-09-08',rolled_back_at:null};
   const before=clone(rows);
   for(const ledger of [[marker,...rows],[...rows,marker]]) assert.deepEqual(classifyLedger(actual,ledger),{
-    decision:'READY_EXACT_SEVEN',pendingCount:7,legacyInitialMarker:'REDUNDANT_SOURCE_MARKER'});
+    decision:'READY_EXACT_EIGHT',pendingCount:8,legacyInitialMarker:'REDUNDANT_SOURCE_MARKER'});
   assert.deepEqual(rows,before);
   const full=[...Object.entries(actual).map(([migration_name,checksum])=>({migration_name,checksum,finished_at:'2026-09-08',rolled_back_at:null})),marker];
   assert.deepEqual(classifyLedger(actual,full),{decision:'VERIFIED_ALREADY_APPLIED',pendingCount:0,legacyInitialMarker:'REDUNDANT_SOURCE_MARKER'});
@@ -140,8 +199,8 @@ test('ledger diagnostics reject partial, contradictory and unbounded output and 
     rejects(()=>parseEvidence(output.replace(`PC_W1_LEDGER_${key}=${value}\n`,'')+end),'CONTRADICTORY_LEDGER_DIAGNOSTICS');
   }
   rejects(()=>parseEvidence(output.replace('PC_W1_LEDGER_ROWS=1','PC_W1_LEDGER_ROWS=2')+end),'CONTRADICTORY_LEDGER_DIAGNOSTICS');
-  rejects(()=>parseEvidence(output+end.replace('MUTATION=NONE','MUTATION=BOUNDED_SEVEN_MIGRATIONS')),'CONTRADICTORY_LEDGER_DIAGNOSTICS');
-  rejects(()=>parseEvidence(output+'PC_W1_RESULT=READY_EXACT_SEVEN\n'),'CONTRADICTORY_CHECKSUM_DIAGNOSTICS');
+  rejects(()=>parseEvidence(output+end.replace('MUTATION=NONE','MUTATION=BOUNDED_EIGHT_MIGRATIONS')),'CONTRADICTORY_LEDGER_DIAGNOSTICS');
+  rejects(()=>parseEvidence(output+'PC_W1_RESULT=READY_EXACT_EIGHT\n'),'CONTRADICTORY_CHECKSUM_DIAGNOSTICS');
   const changed=structuredClone(payload);changed.checksumDrift.appliedValueSha256='private-value';
   assert.doesNotMatch(probeDiagnostics(changed),/private-value/);
 });
@@ -151,7 +210,7 @@ test('all ledger blockers transport complete diagnostics regardless of first ano
     ['UNFINISHED_MIGRATION',[wrong,{...finished(baseName),finished_at:null}]],
     ['DUPLICATE_APPLIED_MIGRATION',[finished(baseName),finished(baseName),wrong]],
     ['UNRECOGNIZED_APPLIED_MIGRATION',[{...finished(baseName),migration_name:'private-unknown'},wrong]],
-    ['PENDING_SET_NOT_EXACT_SEVEN',[]],
+    ['PENDING_SET_NOT_EXACT_EIGHT',[]],
     ['APPLIED_MIGRATION_CHECKSUM_DRIFT',[wrong,finished(baseName),finished(baseName)]],
   ]) {
     let error;try {classifyLedger(manifest,ledger);}catch(e){error=e;}
@@ -201,6 +260,37 @@ test('unknown detail output is bounded and cannot claim complete coverage beyond
 });
 const historicalLedger = () => HISTORICAL_MIGRATIONS.map(([migration_name,checksum]) =>
   ({migration_name,checksum,finished_at:'2026-07-18T00:00:00Z',rolled_back_at:null}));
+test('explicit historical classification retains all four exact archival rows and the exact eight pending set',()=>{
+  const rows=[finished(baseName),...historicalLedger()],before=JSON.stringify(rows);
+  const result=classifyLedger(manifest,rows,{recognizeArchivedHistory:true});
+  assert.deepEqual(result,{decision:'READY_EXACT_EIGHT',pendingCount:8,legacyInitialMarker:'ABSENT',historicalLineage:'EXACT_ARCHIVE'});
+  assert.equal(JSON.stringify(rows),before);
+  const applied=classifyLedger(manifest,[...Object.keys(manifest).map(finished),...historicalLedger()],{recognizeArchivedHistory:true});
+  assert.equal(applied.decision,'VERIFIED_ALREADY_APPLIED');assert.equal(applied.historicalLineage,'EXACT_ARCHIVE');
+  for(const mutate of [r=>r.pop(),r=>r.push(clone(r[1])),r=>{r[1].checksum='f'.repeat(64);},
+    r=>{r[1].rolled_back_at='2026-09-09';}]) {
+    const invalid=clone(rows);mutate(invalid);
+    rejects(()=>classifyLedger(manifest,invalid,{recognizeArchivedHistory:true}),'ARCHIVED_MIGRATION_SET_INVALID');
+  }
+  rejects(()=>classifyLedger(manifest,[...rows,{migration_name:'20260909000100_unknown',checksum:'f'.repeat(64),finished_at:'2026-09-09',rolled_back_at:null}],
+    {recognizeArchivedHistory:true}),'UNRECOGNIZED_APPLIED_MIGRATION');
+  rejects(()=>classifyLedger(manifest,[...rows,finished(Object.keys(TARGET_MIGRATIONS)[0])],{recognizeArchivedHistory:true}),'PENDING_SET_NOT_EXACT_EIGHT');
+  const missing={...manifest};delete missing['20260909120000_reconcile_historical_auction_authority'];
+  rejects(()=>classifyLedger(missing,rows,{recognizeArchivedHistory:true}),'ACCEPTED_MIGRATION_CHECKSUM_MISMATCH');
+});
+test('archived source can never be inserted into the deployable migration manifest',()=>{
+  for(const [name,checksum] of HISTORICAL_MIGRATIONS) rejects(()=>validateManifest({...manifest,[name]:checksum}),'ARCHIVED_SQL_IN_MIGRATION_DIRECTORY');
+});
+test('complete lineage evidence is required and catalog-only observation is not mutation admission',()=>{
+  const ready=readyEvidence();
+  for(const key of ['PC_W1_ARCHIVED_LEDGER','PC_W1_LINEAGE_PROFILE','PC_W1_LINEAGE_CHECKS','PC_W1_LINEAGE_CATALOG_SHA256']) {
+    const missing=clone(ready);delete missing[key];rejects(()=>parseEvidence(lines(missing)),'INCOMPLETE_REMOTE_EVIDENCE');
+  }
+  rejects(()=>parseEvidence(lines({...ready,PC_W1_ARCHIVED_LEDGER:'EXACT_ARCHIVE'})),'CONTRADICTORY_LINEAGE_EVIDENCE');
+  const observed={...ready,PC_W1_ARCHIVED_LEDGER:'EXACT_ARCHIVE',PC_W1_LINEAGE_PROFILE:'HISTORICAL',PC_W1_LINEAGE_CHECKS:'OBSERVED_NOT_MATCHED'};
+  assert.equal(parseEvidence(lines(observed)).PC_W1_FULL_ACCEPTANCE,'NOT_EVIDENCED');
+  rejects(()=>parseEvidence(lines({...observed,PC_W1_LINEAGE_PROFILE:'CANONICAL',PC_W1_RESULT:'MIGRATIONS_APPLIED_PENDING_API_ACCEPTANCE'})),'LINEAGE_REFERENCE_REQUIRED');
+});
 const unknownError = ledger => { try { classifyLedger(manifest,ledger); } catch(error) { return error; } assert.fail('Expected ledger blocker'); };
 const historicalTerminal = 'PC_W1_ERROR=UNRECOGNIZED_APPLIED_MIGRATION\nPC_W1_DATABASE_MUTATION=NONE\nPC_W1_RESULT=BLOCKED\n';
 test('known non-main history remains blocked, and catalog bodies are classified without disclosure',async()=>{
@@ -251,7 +341,7 @@ test('known non-main history remains blocked, and catalog bodies are classified 
   const withoutObservation=probeErrorPayload(unknownError(ledger));
   assert.equal(withoutObservation.historicalDiagnostics.PC_W1_HISTORY_CATALOG,'NOT_OBSERVED');
   assert.equal(parseEvidence(probeDiagnostics(withoutObservation)+historicalTerminal).PC_W1_HISTORY_CATALOG,'NOT_OBSERVED');
-  rejects(()=>parseEvidence(output+historicalTerminal.replace('MUTATION=NONE','MUTATION=BOUNDED_SEVEN_MIGRATIONS')),'CONTRADICTORY_LEDGER_DIAGNOSTICS');
+  rejects(()=>parseEvidence(output+historicalTerminal.replace('MUTATION=NONE','MUTATION=BOUNDED_EIGHT_MIGRATIONS')),'CONTRADICTORY_LEDGER_DIAGNOSTICS');
   rejects(()=>parseEvidence(output.replace('HISTORY_CATALOG=OBSERVED','HISTORY_CATALOG=UNAVAILABLE')+historicalTerminal),'CONTRADICTORY_HISTORY_DIAGNOSTICS');
   const checker=fs.readFileSync(new URL('./check-production-pc-crop-w1-acceptance.mjs',import.meta.url),'utf8');
   const transport=spawnSync(process.execPath,['--input-type=module','-e',checker,'--','--runtime-tool','probe-diagnostics'],{input:JSON.stringify(payload),encoding:'utf8'});
@@ -299,7 +389,7 @@ test('invalid ledger checksum and untrusted error properties cannot leak raw tex
   assert.equal(probeDiagnostics({error:'OTHER_FAILURE',checksumDrift:probeErrorPayload(failure).checksumDrift}),'');
 });
 test('rolled-back records are not counted as successful applications',()=>{
-  assert.equal(classifyLedger(manifest,[finished(baseName),{...finished(Object.keys(TARGET_MIGRATIONS)[0]),rolled_back_at:'2026-09-08'}]).pendingCount,7);
+  assert.equal(classifyLedger(manifest,[finished(baseName),{...finished(Object.keys(TARGET_MIGRATIONS)[0]),rolled_back_at:'2026-09-08'}]).pendingCount,8);
 });
 test('accepted SQL cannot be substituted by target manifest or image',()=>{
   const changed={...manifest,[Object.keys(TARGET_MIGRATIONS)[0]]:'0'.repeat(64)};
@@ -311,14 +401,14 @@ test('image SQL set must exactly equal entire repository, regardless of key orde
   rejects(()=>validateImageManifest(manifest,TARGET_MIGRATIONS),'IMAGE_MIGRATION_SET_MISMATCH');
   rejects(()=>validateImageManifest(manifest,{...manifest,'20260909000000_added_in_image':'0'.repeat(64)}),'IMAGE_MIGRATION_SET_MISMATCH');
 });
-test('actual repository history including the legacy initial migration admits only the exact seven pending',()=>{
+test('actual repository history including the legacy initial migration admits only the exact eight pending',()=>{
   const root=fileURLToPath(new URL('../apps/api/prisma/migrations/',import.meta.url));
   const actual=readMigrationManifest(root);
   assert.ok(Object.keys(actual).length>Object.keys(TARGET_MIGRATIONS).length);
   assert.equal(actual['0001_postgresql_initial'],crypto.createHash('sha256').update(fs.readFileSync(path.join(root,'0001_postgresql_initial/migration.sql'))).digest('hex'));
   validateImageManifest(actual,decodeManifest(Buffer.from(JSON.stringify(actual)).toString('base64')));
   const ledger=Object.entries(actual).filter(([name])=>!Object.hasOwn(TARGET_MIGRATIONS,name)).map(([migration_name,checksum])=>({migration_name,checksum,finished_at:'2026-09-08',rolled_back_at:null}));
-  assert.deepEqual(classifyLedger(actual,ledger),{decision:'READY_EXACT_SEVEN',pendingCount:7,legacyInitialMarker:'ABSENT'});
+  assert.deepEqual(classifyLedger(actual,ledger),{decision:'READY_EXACT_EIGHT',pendingCount:8,legacyInitialMarker:'ABSENT'});
   const changed={...actual,'0001_postgresql_initial':'0'.repeat(64)};
   rejects(()=>validateImageManifest(actual,changed),'IMAGE_MIGRATION_SET_MISMATCH');
   rejects(()=>classifyLedger(actual,ledger.map(row=>row.migration_name==='0001_postgresql_initial'?{...row,checksum:'0'.repeat(64)}:row)),'APPLIED_MIGRATION_CHECKSUM_DRIFT');
@@ -432,11 +522,11 @@ test('strict evidence accepts only bounded ready or verification claims',()=>{
 });
 test('completed migrations require nonempty readable-archive evidence and remain functionally unaccepted',()=>{
   const value={...readyEvidence(),PC_W1_PENDING_MIGRATIONS:'0',PC_W1_SCHEMA_TABLES:'24',PC_W1_SCHEMA_STRUCTURAL_CHECKS:'PASS',
-    PC_W1_SCHEMA_CATALOG_SHA256:'f'.repeat(64),PC_W1_RESULT:'MIGRATIONS_APPLIED_PENDING_API_ACCEPTANCE',PC_W1_DATABASE_MUTATION:'BOUNDED_SEVEN_MIGRATIONS'};
+    PC_W1_SCHEMA_CATALOG_SHA256:'f'.repeat(64),PC_W1_RESULT:'MIGRATIONS_APPLIED_PENDING_API_ACCEPTANCE',PC_W1_DATABASE_MUTATION:'BOUNDED_EIGHT_MIGRATIONS'};
   rejects(()=>parseEvidence(lines(value)),'MISSING_MUTATION_BACKUP_EVIDENCE');
   parseEvidence(lines({...value,PC_W1_BACKUP_SHA256:'a'.repeat(64),PC_W1_BACKUP_BYTES:'1024',PC_W1_BACKUP_VERIFICATION:'ARCHIVE_LIST_ONLY'}));
 });
-for(const suffix of ['\n/protected/server/path','\nDATABASE_URL=postgresql://private','\nPC_W1_FULL_ACCEPTANCE=PASS','\nPC_W1_UNKNOWN=PASS','\nPC_W1_RESULT=READY_EXACT_SEVEN']) test(`unsafe or duplicate remote output rejected ${suffix}`,()=>{
+for(const suffix of ['\n/protected/server/path','\nDATABASE_URL=postgresql://private','\nPC_W1_FULL_ACCEPTANCE=PASS','\nPC_W1_UNKNOWN=PASS','\nPC_W1_RESULT=READY_EXACT_EIGHT']) test(`unsafe or duplicate remote output rejected ${suffix}`,()=>{
   assert.throws(()=>parseEvidence(lines(readyEvidence())+suffix));
 });
 test('contradictory ready, mutation and error claims cannot pass',()=>{
@@ -533,7 +623,7 @@ test('exact-image PostgreSQL transport, migration, restore and rejection rehears
   }
   const backupBefore=new Set(fs.readdirSync('/root').filter(name=>name.startsWith('pc-w1-backup.')));
   const createdBackups=[];
-  let pgId,databaseImage,expectedHash;
+  let pgId,databaseImage,expectedHash,expectedBaselineHash,expectedHistoricalHash;
   const dc=(...args)=>run('docker',['compose','--project-directory',fixture,'--project-name',project,'-f',composeFile,...args],{label:'COMPOSE'});
   const sql=(statement,database='grainflow')=>run('docker',['exec','-i',pgId,'psql','-X','--set','ON_ERROR_STOP=1','-U','postgres','-d',database],{input:statement,label:'ISOLATED_SQL'});
   const configFor=(database='grainflow',migrationDatabase=database,mode='disabled')=>({
@@ -558,6 +648,8 @@ test('exact-image PostgreSQL transport, migration, restore and rejection rehears
       PC_W1_BASELINE_API_SHA:sha,PC_PROD_DIR_B64:Buffer.from(fixture).toString('base64'),
       PC_PROD_COMPOSE_B64:Buffer.from(composeFile).toString('base64'),PC_PROD_PROJECT_B64:Buffer.from(project).toString('base64')};
     if(expected) env.PC_W1_EXPECTED_CATALOG_SHA256=expected;
+    if(expectedBaselineHash) env.PC_W1_EXPECTED_BASELINE_CATALOG_SHA256=expectedBaselineHash;
+    if(expectedHistoricalHash) env.PC_W1_EXPECTED_HISTORICAL_CATALOG_SHA256=expectedHistoricalHash;
     const result=run('bash',[fileURLToPath(new URL('./production-pc-crop-w1-migrations.sh',import.meta.url)),action,sha,String(++sequence)],
       {env,allowFailure:true,timeout:300_000,label:'ACTUAL_EXECUTOR'});
     assert.equal(result.stderr,'','REHEARSAL_EXECUTOR_RAW_STDERR');
@@ -589,7 +681,44 @@ test('exact-image PostgreSQL transport, migration, restore and rejection rehears
     sql(`CREATE ROLE app_deal_api LOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE PASSWORD '${password}';`);
     imageDeploy('grainflow',bootstrap);
     sql('GRANT SELECT ON public._prisma_migrations TO app_deal_api;');
-    for(const database of ['reference','wrong','partial']) sql(`CREATE DATABASE ${database} TEMPLATE grainflow;`);
+    sql("CREATE TABLE public.pc_w1_rehearsal_sentinel(id integer PRIMARY KEY,value text NOT NULL); INSERT INTO public.pc_w1_rehearsal_sentinel VALUES(1,'isolated-preservation-proof');");
+    for(const database of ['reference','wrong','partial','historical','historical_partial']) sql(`CREATE DATABASE ${database} TEMPLATE grainflow;`);
+    moveApi('grainflow');
+    const baselineReference=executor();
+    assert.equal(baselineReference.PC_W1_LINEAGE_PROFILE,'CANONICAL');
+    expectedBaselineHash=baselineReference.PC_W1_LINEAGE_CATALOG_SHA256;
+    const historyBootstrap=path.join(fixture,'historical-bootstrap');
+    fs.cpSync(bootstrap,historyBootstrap,{recursive:true});
+    for(const [index,[name,checksum]] of HISTORICAL_MIGRATIONS.entries()) {
+      const bytes=fs.readFileSync(path.join(root,'scripts/fixtures/pc-crop-w1-lineage',`${name}.sql`));
+      assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'),checksum,'REHEARSAL_HISTORICAL_SOURCE_MISMATCH');
+      fs.mkdirSync(path.join(historyBootstrap,'migrations',name),{recursive:true});
+      fs.writeFileSync(path.join(historyBootstrap,'migrations',name,'migration.sql'),bytes);
+      if(index===2) imageDeploy('historical_partial',historyBootstrap);
+    }
+    imageDeploy('historical',historyBootstrap);
+    moveApi('historical_partial');executor('preflight',{error:'ARCHIVED_MIGRATION_SET_INVALID'});
+    moveApi('historical');
+    const historicalReference=executor();
+    assert.equal(historicalReference.PC_W1_ARCHIVED_LEDGER,'EXACT_ARCHIVE');
+    assert.equal(historicalReference.PC_W1_LINEAGE_PROFILE,'HISTORICAL');
+    expectedHistoricalHash=historicalReference.PC_W1_LINEAGE_CATALOG_SHA256;
+    assert.notEqual(expectedHistoricalHash,expectedBaselineHash);
+    assert.equal(executor().PC_W1_LINEAGE_CHECKS,'PASS');
+    const archiveSql=`SELECT jsonb_agg(to_jsonb(m) ORDER BY migration_name)::text FROM public._prisma_migrations m WHERE migration_name IN (${HISTORICAL_MIGRATIONS.map(([name])=>`'${name}'`).join(',')});`;
+    const historyBefore=sql(archiveSql,'historical').stdout;
+    sql('CREATE DATABASE historical_guard TEMPLATE historical;');
+    sql('ALTER POLICY auction_bids_market_showcase_select ON auction.bids USING (true);','historical_guard');
+    moveApi('historical_guard');executor('preflight',{error:'LINEAGE_CATALOG_REFERENCE_MISMATCH'});
+    const correction=fs.readFileSync(path.join(migrationRoot,'20260909120000_reconcile_historical_auction_authority/migration.sql'),'utf8');
+    const guardFailure=run('docker',['exec','-i',pgId,'psql','-X','--set','ON_ERROR_STOP=1','-U','postgres','-d','historical_guard'],
+      {input:correction,allowFailure:true,label:'ISOLATED_CORRECTION_POLICY_GUARD'});
+    assert.notEqual(guardFailure.status,0);assert.match(guardFailure.stderr,/W1_LINEAGE_POLICY_DRIFT/);
+    assert.equal(sql(archiveSql,'historical_guard').stdout,historyBefore,'REHEARSAL_FAILED_CORRECTION_CHANGED_LEDGER');
+    sql('GRANT EXECUTE ON FUNCTION auction.place_bid(text,bigint,numeric,bigint,text,text) TO PUBLIC;','historical');
+    moveApi('historical');executor('preflight',{error:'LINEAGE_CATALOG_REFERENCE_MISMATCH'});
+    sql('REVOKE EXECUTE ON FUNCTION auction.place_bid(text,bigint,numeric,bigint,text,text) FROM PUBLIC;','historical');
+    assert.equal(executor().PC_W1_LINEAGE_CHECKS,'PASS');
 
     // The reference comes from the exact accepted image executing SQL in a
     // clean isolated database, never from a caller-supplied expected PASS file.
@@ -621,11 +750,11 @@ test('exact-image PostgreSQL transport, migration, restore and rejection rehears
     const first=Object.keys(TARGET_MIGRATIONS)[0];
     fs.cpSync(path.join(migrationRoot,first),path.join(bootstrap,'migrations',first),{recursive:true});
     imageDeploy('partial',bootstrap);
-    moveApi('partial');executor('preflight',{error:'PENDING_SET_NOT_EXACT_SEVEN'});
+    moveApi('partial');executor('preflight',{error:'PENDING_SET_NOT_EXACT_EIGHT'});
 
     moveApi('grainflow');
     const beforeMigration=executor();
-    assert.equal(beforeMigration.PC_W1_RESULT,'READY_EXACT_SEVEN');
+    assert.equal(beforeMigration.PC_W1_RESULT,'READY_EXACT_EIGHT');
     assert.equal(beforeMigration.PC_W1_LEGACY_INITIAL_MARKER,'REDUNDANT_SOURCE_MARKER');
     const applied=executor('migrate');
     assert.equal(applied.PC_W1_RESULT,'MIGRATIONS_APPLIED_PENDING_API_ACCEPTANCE');
@@ -641,16 +770,45 @@ test('exact-image PostgreSQL transport, migration, restore and rejection rehears
     assert.equal(fs.statSync(archive).mode&0o777,0o600);
     sql('CREATE DATABASE restored;');
     run('docker',['exec','-i',pgId,'pg_restore','--exit-on-error','--username=postgres','--dbname=restored'],{input:bytes,label:'ARCHIVE_RESTORE'});
-    moveApi('restored');assert.equal(executor().PC_W1_RESULT,'READY_EXACT_SEVEN');
+    moveApi('restored');assert.equal(executor().PC_W1_RESULT,'READY_EXACT_EIGHT');
     imageDeploy('restored');
     const restored=executor();assert.equal(restored.PC_W1_RESULT,'VERIFIED_ALREADY_APPLIED');
     assert.equal(restored.PC_W1_SCHEMA_CATALOG_SHA256,expectedHash);
     // No farmer, buyer, session, deal or payment fixtures were introduced.
     // The intentional old API lot-registration degradation stays explicit.
     assert.equal(restored.PC_W1_LEGACY_LOT_ROLLBACK,'DEGRADED_FAIL_CLOSED');
+    moveApi('historical');
+    const historyApplied=executor('migrate');
+    assert.equal(historyApplied.PC_W1_ARCHIVED_LEDGER,'EXACT_ARCHIVE');
+    assert.equal(historyApplied.PC_W1_LINEAGE_PROFILE,'CANONICAL');
+    assert.equal(historyApplied.PC_W1_LINEAGE_CHECKS,'PASS');
+    assert.equal(historyApplied.PC_W1_SCHEMA_CATALOG_SHA256,expectedHash,'REHEARSAL_HISTORICAL_CONVERGENCE_FAILED');
+    assert.equal(sql(archiveSql,'historical').stdout,historyBefore,'REHEARSAL_CORRECTION_REWROTE_LEDGER');
+    assert.match(sql('SELECT value FROM public.pc_w1_rehearsal_sentinel WHERE id=1;','historical').stdout,/isolated-preservation-proof/);
+    const historyRepeated=executor('migrate');
+    assert.equal(historyRepeated.PC_W1_RESULT,'VERIFIED_ALREADY_APPLIED');
+    assert.equal(historyRepeated.PC_W1_DATABASE_MUTATION,'NONE');
+    for(const name of fs.readdirSync('/root')) {
+      const directory=path.join('/root',name);
+      if(name.startsWith('pc-w1-backup.') && !backupBefore.has(name) && !createdBackups.includes(directory)) createdBackups.push(directory);
+    }
+    assert.equal(createdBackups.length,2,'REHEARSAL_HISTORICAL_BACKUP_COUNT');
+    const historicalArchive=createdBackups.find(directory=>path.join(directory,'database.dump')!==archive);
+    const historicalBytes=fs.readFileSync(path.join(historicalArchive,'database.dump'));
+    assert.equal(crypto.createHash('sha256').update(historicalBytes).digest('hex'),historyApplied.PC_W1_BACKUP_SHA256);
+    sql('CREATE DATABASE historical_restored;');
+    run('docker',['exec','-i',pgId,'pg_restore','--exit-on-error','--username=postgres','--dbname=historical_restored'],{input:historicalBytes,label:'HISTORICAL_ARCHIVE_RESTORE'});
+    assert.equal(sql(archiveSql,'historical_restored').stdout,historyBefore);
+    moveApi('historical_restored');
+    assert.equal(executor().PC_W1_LINEAGE_PROFILE,'HISTORICAL');
+    imageDeploy('historical_restored');
+    assert.equal(executor().PC_W1_SCHEMA_CATALOG_SHA256,expectedHash);
     fs.mkdirSync(path.dirname(report),{recursive:true});
     fs.writeFileSync(report,JSON.stringify({status:'PASS',scope:'ISOLATED_DATABASE_ONLY',targetSha:sha,apiDigest,migrationDigest,postgresDigest:databaseImage,
-      expectedCatalogSha256:expectedHash,restoreRehearsal:'PASS',negativeCases:{wrongDatabase:'PASS',partialMigration:'PASS',productionMockMode:'PASS',policyDrift:'PASS',grantDrift:'PASS'},
+      expectedCatalogSha256:expectedHash,expectedBaselineCatalogSha256:expectedBaselineHash,expectedHistoricalCatalogSha256:expectedHistoricalHash,
+      restoreRehearsal:'PASS',historicalRestoreRehearsal:'PASS',historicalConvergence:'PASS',historicalLedgerPreserved:'PASS',
+      negativeCases:{wrongDatabase:'PASS',partialMigration:'PASS',productionMockMode:'PASS',policyDrift:'PASS',grantDrift:'PASS',
+        historicalPartial:'PASS',historicalPolicyDrift:'PASS',historicalGrantDrift:'PASS',correctionPolicyGuard:'PASS'},
       fullAcceptance:'NOT_EVIDENCED'},null,2)+'\n',{flag:'wx',mode:0o644});
   } finally {
     if(fs.existsSync(composeFile)) run('docker',['compose','--project-directory',fixture,'--project-name',project,'-f',composeFile,'down','--volumes','--remove-orphans'],{allowFailure:true,label:'DISPOSABLE_CLEANUP'});

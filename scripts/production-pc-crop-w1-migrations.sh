@@ -50,6 +50,8 @@ trap 'fail UNCLASSIFIED_REMOTE_FAILURE' ERR
 [[ -n "${PC_W1_EXPECTED_MIGRATIONS_B64:-}" ]] || fail REPOSITORY_MANIFEST_REQUIRED
 [[ "$action" != migrate || "$expected_baseline" =~ ^[0-9a-f]{40}$ ]] || fail PREFLIGHT_BASELINE_REQUIRED
 [[ "$action" != migrate || "${PC_W1_EXPECTED_CATALOG_SHA256:-}" =~ ^[0-9a-f]{64}$ ]] || fail EXACT_IMAGE_REHEARSAL_CATALOG_REQUIRED
+[[ "$action" != migrate || "${PC_W1_EXPECTED_BASELINE_CATALOG_SHA256:-}" =~ ^[0-9a-f]{64}$ ]] || fail EXACT_BASELINE_REHEARSAL_REQUIRED
+[[ "$action" != migrate || "${PC_W1_EXPECTED_HISTORICAL_CATALOG_SHA256:-}" =~ ^[0-9a-f]{64}$ ]] || fail EXACT_HISTORICAL_REHEARSAL_REQUIRED
 (( EUID == 0 )) || fail ROOT_BACKUP_AUTHORITY_REQUIRED
 for command in docker python3 timeout sha256sum base64 flock stat; do command -v "$command" >/dev/null || fail REMOTE_PREREQUISITE_MISSING; done
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -150,7 +152,8 @@ done < <(docker ps -q --no-trunc)
 # No URL-string equality or a successful command on another database suffices.
 probe_open(){
   local phase="$1" probe_error
-  coproc W1_PROBE { timeout 230s docker exec -i -e PC_W1_EXPECTED_MIGRATIONS_B64 -e PC_W1_EXPECTED_CATALOG_SHA256 "$api_id" \
+  coproc W1_PROBE { timeout 230s docker exec -i -e PC_W1_EXPECTED_MIGRATIONS_B64 -e PC_W1_EXPECTED_CATALOG_SHA256 \
+    -e PC_W1_EXPECTED_BASELINE_CATALOG_SHA256 -e PC_W1_EXPECTED_HISTORICAL_CATALOG_SHA256 "$api_id" \
     /nodejs/bin/node --input-type=module -e "$checker_source" -- --runtime-probe "$phase"; }
   probe_pid="$W1_PROBE_PID"
   exec {probe_read}<&"${W1_PROBE[0]}"
@@ -179,7 +182,8 @@ probe_close(){
 probe_open pre
 decision="$(probe_field decision)"
 environment_hash="$(probe_field environmentHash)"
-if [[ "$action" == migrate && "$decision" == READY_EXACT_SEVEN ]]; then
+if [[ "$action" == migrate && "$decision" == READY_EXACT_EIGHT ]]; then
+  [[ "$(probe_field lineageChecks)" == PASS ]] || fail EXACT_LINEAGE_REFERENCE_REQUIRED
   # An external database requires a separately reviewed, snapshot-bound backup
   # path. A free-form STATUS=PASS evidence file is never accepted here.
   postgres_inventory="$(docker ps -q --no-trunc --filter "label=com.docker.compose.project=$prod_project" --filter label=com.docker.compose.service=postgres)"
@@ -203,17 +207,18 @@ if [[ "$action" == migrate && "$decision" == READY_EXACT_SEVEN ]]; then
   # does not establish functional rollback of the legacy lot registration API.
   probe_close
   assert_runtime_unchanged
-  # A fresh exact-seven read closes the time spent creating the backup. Keep
+  # A fresh exact-eight read closes the time spent creating the backup. Keep
   # this exporting session open through the bounded Prisma deployment.
   probe_open pre
-  [[ "$(probe_field decision)" == READY_EXACT_SEVEN ]] || fail PENDING_SET_CHANGED_AFTER_BACKUP
+  [[ "$(probe_field decision)" == READY_EXACT_EIGHT ]] || fail PENDING_SET_CHANGED_AFTER_BACKUP
+  [[ "$(probe_field lineageChecks)" == PASS ]] || fail EXACT_LINEAGE_REFERENCE_REQUIRED
   [[ "$(probe_field environmentHash)" == "$environment_hash" ]] || fail API_ENVIRONMENT_CHANGED
   mutation=MAY_HAVE_PARTIALLY_APPLIED
   timeout 120s "${dc_migration[@]}" run --rm --no-deps --pull never -T "$migration_service" >/dev/null || fail BOUNDED_MIGRATION_FAILED
   probe_close
   probe_open post
   [[ "$(probe_field environmentHash)" == "$environment_hash" ]] || fail API_ENVIRONMENT_CHANGED
-  mutation=BOUNDED_SEVEN_MIGRATIONS
+  mutation=BOUNDED_EIGHT_MIGRATIONS
   decision=MIGRATIONS_APPLIED_PENDING_API_ACCEPTANCE
 fi
 pending="$(probe_field pendingCount)"
@@ -221,10 +226,18 @@ legacy_initial_marker="$(probe_field legacyInitialMarker)"
 tables="$(probe_field tables)"
 structural="$(probe_field structuralChecks)"
 catalog_hash="$(probe_field catalogHash)"
+archived_ledger="$(probe_field historicalLineage)"
+lineage_profile="$(probe_field lineageProfile)"
+lineage_hash="$(probe_field lineageCatalogHash)"
+lineage_checks="$(probe_field lineageChecks)"
 probe_close
 assert_runtime_unchanged
 
 emit PC_W1_DATABASE_IDENTITY PASS
+emit PC_W1_ARCHIVED_LEDGER "$archived_ledger"
+emit PC_W1_LINEAGE_PROFILE "$lineage_profile"
+emit PC_W1_LINEAGE_CATALOG_SHA256 "$lineage_hash"
+emit PC_W1_LINEAGE_CHECKS "$lineage_checks"
 emit PC_W1_PENDING_MIGRATIONS "$pending"
 emit PC_W1_LEGACY_INITIAL_MARKER "$legacy_initial_marker"
 emit PC_W1_SCHEMA_TABLES "$tables"
@@ -233,7 +246,7 @@ emit PC_W1_SCHEMA_STRUCTURAL_CHECKS "$structural"
 emit PC_W1_API_ENVIRONMENT_SHA256 "$environment_hash"
 emit PC_W1_NON_API_RUNTIME_SHA256 "$baseline_non_api"
 emit PC_W1_RUNTIME_UNCHANGED PASS
-if [[ "$mutation" == BOUNDED_SEVEN_MIGRATIONS ]]; then
+if [[ "$mutation" == BOUNDED_EIGHT_MIGRATIONS ]]; then
   emit PC_W1_BACKUP_SHA256 "$backup_sha"
   emit PC_W1_BACKUP_BYTES "$backup_bytes"
   emit PC_W1_BACKUP_VERIFICATION ARCHIVE_LIST_ONLY

@@ -130,6 +130,8 @@ jobs:
     timeout-minutes: 45
     outputs:
       catalog_sha256: ${{ steps.rehearsal.outputs.catalog_sha256 }}
+      baseline_catalog_sha256: ${{ steps.rehearsal.outputs.baseline_catalog_sha256 }}
+      historical_catalog_sha256: ${{ steps.rehearsal.outputs.historical_catalog_sha256 }}
     env:
       PC_W1_REHEARSAL: '1'
       PC_W1_TARGET_SHA: ${{ needs.images.outputs.target }}
@@ -168,10 +170,17 @@ jobs:
           assert.equal(r.apiDigest,process.env.PC_W1_API_DIGEST);
           assert.equal(r.migrationDigest,process.env.PC_W1_MIGRATION_DIGEST);
           assert.equal(r.restoreRehearsal,'PASS');
+          for(const key of ['historicalRestoreRehearsal','historicalConvergence','historicalLedgerPreserved']) assert.equal(r[key],'PASS');
           assert.equal(r.fullAcceptance,'NOT_EVIDENCED');
-          for(const key of ['wrongDatabase','partialMigration','productionMockMode','policyDrift','grantDrift']) assert.equal(r.negativeCases[key],'PASS');
+          for(const key of ['wrongDatabase','partialMigration','productionMockMode','policyDrift','grantDrift',
+            'historicalPartial','historicalPolicyDrift','historicalGrantDrift','correctionPolicyGuard']) assert.equal(r.negativeCases[key],'PASS');
           assert.match(r.expectedCatalogSha256,/^[0-9a-f]{64}$/);
+          assert.match(r.expectedBaselineCatalogSha256,/^[0-9a-f]{64}$/);
+          assert.match(r.expectedHistoricalCatalogSha256,/^[0-9a-f]{64}$/);
+          assert.notEqual(r.expectedBaselineCatalogSha256,r.expectedHistoricalCatalogSha256);
           console.log(`catalog_sha256=${r.expectedCatalogSha256}`);
+          console.log(`baseline_catalog_sha256=${r.expectedBaselineCatalogSha256}`);
+          console.log(`historical_catalog_sha256=${r.expectedHistoricalCatalogSha256}`);
           NODE
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
@@ -211,6 +220,8 @@ jobs:
       MIGRATION_DIGEST: ${{ needs.images.outputs.migration_digest }}
       API_DIGEST: ${{ needs.images.outputs.api_digest }}
       EXPECTED_CATALOG_SHA256: ${{ needs.rehearsal.outputs.catalog_sha256 }}
+      EXPECTED_BASELINE_CATALOG_SHA256: ${{ needs.rehearsal.outputs.baseline_catalog_sha256 }}
+      EXPECTED_HISTORICAL_CATALOG_SHA256: ${{ needs.rehearsal.outputs.historical_catalog_sha256 }}
       OPERATION: ${{ github.event.comment.body == '/pc-crop w1 deploy current-main' && 'migrate' || 'preflight' }}
       EVIDENCE_DIR: artifacts/pc-crop-w1-production-acceptance
       SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
@@ -310,6 +321,7 @@ jobs:
           }
           NODE
           echo "baseline=$baseline" >> "$GITHUB_OUTPUT"
+          BASELINE_SHA="$baseline" node scripts/check-production-pc-crop-w1-acceptance.mjs lineage-source-compatibility
           node --input-type=module - <<'NODE' > "$RUNNER_TEMP/w1-migration-manifest.b64"
           import {readMigrationManifest} from './scripts/check-production-pc-crop-w1-acceptance.mjs';
           process.stdout.write(Buffer.from(JSON.stringify(readMigrationManifest('apps/api/prisma/migrations'))).toString('base64'));
@@ -334,6 +346,8 @@ jobs:
           [[ "$MIGRATION_DIGEST" =~ ^ghcr.io/pachaninm-lab/grainflow-migration@sha256:[0-9a-f]{64}$ ]]
           [[ "$API_DIGEST" =~ ^ghcr.io/pachaninm-lab/grainflow-api@sha256:[0-9a-f]{64}$ ]]
           [[ "$OPERATION" != migrate || "$EXPECTED_CATALOG_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$OPERATION" != migrate || "$EXPECTED_BASELINE_CATALOG_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$OPERATION" != migrate || "$EXPECTED_HISTORICAL_CATALOG_SHA256" =~ ^[0-9a-f]{64}$ ]]
           encode(){ printf '%s' "$1" | base64 -w0; }
           dir_b64=$(encode "$PROD_DIR_SECRET"); compose_b64=$(encode "$PROD_COMPOSE_SECRET"); project_b64=$(encode "$PROD_PROJECT_SECRET")
           manifest_b64=$(cat "$RUNNER_TEMP/w1-migration-manifest.b64")
@@ -342,7 +356,7 @@ jobs:
           set +e
           ssh -i "$HOME/.ssh/id_pc_w1" -p "$SSH_PORT_SECRET" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
             "$SSH_USER_SECRET@195.19.12.120" \
-            "PC_PROD_DIR_B64='$dir_b64' PC_PROD_COMPOSE_B64='$compose_b64' PC_PROD_PROJECT_B64='$project_b64' PC_W1_EXPECTED_MIGRATIONS_B64='$manifest_b64' PC_W1_BASELINE_API_SHA='$BASELINE_SHA' PC_W1_EXPECTED_CATALOG_SHA256='$EXPECTED_CATALOG_SHA256' PC_W1_MIGRATION_IMAGE='ghcr.io/pachaninm-lab/grainflow-migration:sha-${TARGET_SHA:0:7}' PC_W1_MIGRATION_DIGEST='$MIGRATION_DIGEST' PC_ROLE_ELIGIBILITY_API_IMAGE='ghcr.io/pachaninm-lab/grainflow-api:sha-${TARGET_SHA:0:7}' PC_W1_API_DIGEST='$API_DIGEST' PC_ROLE_ELIGIBILITY_API_DIGEST='$API_DIGEST' bash -s -- '$OPERATION' '$TARGET_SHA' '$GITHUB_RUN_ID' '$REMOTE_DIR' '$BASELINE_SHA'" \
+            "PC_PROD_DIR_B64='$dir_b64' PC_PROD_COMPOSE_B64='$compose_b64' PC_PROD_PROJECT_B64='$project_b64' PC_W1_EXPECTED_MIGRATIONS_B64='$manifest_b64' PC_W1_BASELINE_API_SHA='$BASELINE_SHA' PC_W1_EXPECTED_CATALOG_SHA256='$EXPECTED_CATALOG_SHA256' PC_W1_EXPECTED_BASELINE_CATALOG_SHA256='$EXPECTED_BASELINE_CATALOG_SHA256' PC_W1_EXPECTED_HISTORICAL_CATALOG_SHA256='$EXPECTED_HISTORICAL_CATALOG_SHA256' PC_W1_MIGRATION_IMAGE='ghcr.io/pachaninm-lab/grainflow-migration:sha-${TARGET_SHA:0:7}' PC_W1_MIGRATION_DIGEST='$MIGRATION_DIGEST' PC_ROLE_ELIGIBILITY_API_IMAGE='ghcr.io/pachaninm-lab/grainflow-api:sha-${TARGET_SHA:0:7}' PC_W1_API_DIGEST='$API_DIGEST' PC_ROLE_ELIGIBILITY_API_DIGEST='$API_DIGEST' bash -s -- '$OPERATION' '$TARGET_SHA' '$GITHUB_RUN_ID' '$REMOTE_DIR' '$BASELINE_SHA'" \
             > "$raw" 2>&1 <<'REMOTE'
           set -Eeuo pipefail
           set +x

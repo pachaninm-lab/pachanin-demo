@@ -5,6 +5,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { createInterface } from 'node:readline';
 import { pathToFileURL } from 'node:url';
+import { spawnSync } from 'node:child_process';
 
 export const TARGET_MIGRATIONS = Object.freeze({
   '20260904120000_organization_capability_authority': '76ed191c53692f735bda03dfe27fae36d7f13f76837b6b21f5ea185e65c885ef',
@@ -14,6 +15,7 @@ export const TARGET_MIGRATIONS = Object.freeze({
   '20260905030000_service_marketplace_authority': 'cb936ef015f11aecf1e1f750807cd0af712284874ab8e5fcb99801507561c8e3',
   '20260905040000_inventory_reservation_authority': 'f10e5d8abb3247087f8b97c01b063700f7ba29f5cbcf30d209c5a6fa587b4ff4',
   '20260905100000_auction_inventory_binding': '3659a16fe4e5e5a2a755ab9510835239efa641d0c6a1991ab21f7b1f904174dd',
+  '20260909120000_reconcile_historical_auction_authority': '3354dea63ae07c7849448d2fe4d44413383a9115f2e21daf08f8d21258bd8612',
 });
 export const TARGET_TABLES = Object.freeze([
   ...['organization_capability_assignments', 'organization_capability_events', 'providers', 'provider_capabilities',
@@ -29,9 +31,10 @@ export function blocked(code) { throw new Error(code); }
 export function errorCode(error) { return SAFE_ERROR.test(error?.message ?? '') ? error.message : 'UNCLASSIFIED_PROBE_FAILURE'; }
 export function sha256(value) { return crypto.createHash('sha256').update(value).digest('hex'); }
 const LEDGER_COUNTS = ['ROWS', 'MATCHED', 'DRIFTED', 'UNKNOWN', 'DUPLICATES', 'UNFINISHED', 'ROLLED_BACK', 'LEGACY_INITIAL_MARKERS'];
-const LEDGER_BLOCKERS = ['APPLIED_MIGRATION_CHECKSUM_DRIFT', 'UNFINISHED_MIGRATION', 'UNRECOGNIZED_APPLIED_MIGRATION', 'DUPLICATE_APPLIED_MIGRATION', 'PENDING_SET_NOT_EXACT_SEVEN'];
-// Read-only provenance from non-main Git history. These records are NEVER an
-// admission allow-list and their SQL must not be replayed by the W1 executor.
+const LEDGER_BLOCKERS = ['APPLIED_MIGRATION_CHECKSUM_DRIFT', 'UNFINISHED_MIGRATION', 'UNRECOGNIZED_APPLIED_MIGRATION', 'DUPLICATE_APPLIED_MIGRATION', 'PENDING_SET_NOT_EXACT_EIGHT'];
+// Source provenance is only one part of historical reconciliation. Production
+// also requires catalog reference equality and a forward corrective migration;
+// this SQL must never be replayed by the production W1 executor.
 export const HISTORICAL_MIGRATIONS = Object.freeze([
   ['20260716130000_market_open_lots_showcase', '7fd0342e097c57a7a2832a7099ae973e875a5ccbddeb4cf6722d15aac983e08c', '95a762ea116607abd1c91498620ff6e6f3a13cc9'],
   ['20260716150000_auction_cross_tenant_participation', 'bc8ac2be7aad0d45e742d5669a5ae2fed4938caba0c2e11abc5962974c5c775b', 'cf9a70eb9135b2a5a6f7fd54db9fc8124540dcb1'],
@@ -188,6 +191,85 @@ export function probeDiagnostics(value) {
     + Object.entries(safe.historicalDiagnostics ?? {}).map(([key,value]) => `${key}=${value}\n`).join('');
 }
 function sortedObject(value) { return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))); }
+
+export function verifyLineageSourceCompatibility(root, baseline, target) {
+  if (![baseline,target].every(sha=>/^[0-9a-f]{40}$/.test(sha))) blocked('LINEAGE_SOURCE_REVISION_INVALID');
+  const git=args=>spawnSync('git',args,{cwd:root,encoding:'utf8',timeout:120_000,maxBuffer:1024*1024});
+  if (git(['merge-base','--is-ancestor',baseline,target]).status!==0) blocked('LINEAGE_BASELINE_NOT_ANCESTOR');
+  for(const revision of [baseline,target]) {
+    const scan=git(['grep','-I','-l','-E','list_open_lots|participant_tenant|market_showcase',revision,'--','apps/api/src']);
+    if(scan.status!==1) blocked(scan.status===0 ? 'LEGACY_SQL_HELPER_CONSUMER_PRESENT' : 'LINEAGE_SOURCE_INSPECTION_FAILED');
+  }
+  const callers=[
+    'apps/api/src/modules/auctions/auctions.module.ts',
+    'apps/api/src/modules/deals/industrial-deal-command.gateway.ts',
+    'apps/api/src/modules/deals/prisma-deal.repository.ts',
+  ];
+  for(const file of callers) {
+    const values=[baseline,target].map(revision=>git(['rev-parse',`${revision}:${file}`]));
+    if(values.some(result=>result.status!==0 || !/^[0-9a-f]{40}\n$/.test(result.stdout))) blocked('LINEAGE_CALLER_SOURCE_UNAVAILABLE');
+    if(values[0].stdout!==values[1].stdout) blocked('LINEAGE_CALLER_COMPATIBILITY_UNPROVEN');
+  }
+  return 'PASS';
+}
+
+// A source checksum identifies historical execution, not the current database
+// authority. Rehearsal compares this catalog independently, including policies
+// and grants, before a corrective migration may consume that history.
+export async function observeLineageCatalog(tx) {
+  const functions = await tx.$queryRawUnsafe(`SELECT n.nspname||'.'||p.proname AS name,
+    pg_get_function_identity_arguments(p.oid) AS arguments,pg_get_function_result(p.oid) AS result,
+    l.lanname AS language,p.prosecdef AS definer,p.proleakproof AS leakproof,
+    p.provolatile::text AS volatility,p.proisstrict AS strict,p.proparallel::text AS parallel,
+    p.proconfig AS config,p.prosrc AS body,
+    CASE WHEN p.proowner=(SELECT relowner FROM pg_class WHERE oid='public._prisma_migrations'::regclass)
+      THEN 'MIGRATION_OWNER' ELSE pg_get_userbyid(p.proowner) END AS owner,
+    (SELECT jsonb_agg(jsonb_build_object('grantee',CASE WHEN a.grantee=0 THEN 'PUBLIC'
+      WHEN a.grantee=(SELECT relowner FROM pg_class WHERE oid='public._prisma_migrations'::regclass) THEN 'MIGRATION_OWNER'
+      ELSE pg_get_userbyid(a.grantee) END,'privilege',a.privilege_type,'grantable',a.is_grantable) ORDER BY
+      CASE WHEN a.grantee=0 THEN 'PUBLIC' WHEN a.grantee=(SELECT relowner FROM pg_class WHERE oid='public._prisma_migrations'::regclass)
+      THEN 'MIGRATION_OWNER' ELSE pg_get_userbyid(a.grantee) END,a.privilege_type,a.is_grantable)
+      FROM aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a) AS grants
+    FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace JOIN pg_language l ON l.oid=p.prolang
+    WHERE p.prokind='f' AND n.nspname||'.'||p.proname IN
+      ('market.list_open_lots','auction.record_admission','auction.place_bid','dealx.participant_tenant')
+    ORDER BY 1,2 LIMIT 17`);
+  const policies = await tx.$queryRawUnsafe(`SELECT schemaname||'.'||tablename AS relation,
+    policyname::text,permissive,roles::text[],cmd,qual,with_check
+    FROM pg_policies WHERE schemaname='auction' AND tablename IN ('lots','bids','admissions','awards')
+    ORDER BY 1,2 LIMIT 65`);
+  const tables = await tx.$queryRawUnsafe(`SELECT n.nspname||'.'||c.relname AS name,
+    c.relrowsecurity AS rls,c.relforcerowsecurity AS force,row_security_active(c.oid) AS active,
+    CASE WHEN c.relowner=(SELECT relowner FROM pg_class WHERE oid='public._prisma_migrations'::regclass)
+      THEN 'MIGRATION_OWNER' ELSE pg_get_userbyid(c.relowner) END AS owner
+    FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='auction' AND c.relname IN ('lots','bids','admissions','awards') AND c.relkind='r'
+    ORDER BY 1 LIMIT 5`);
+  const indexes = await tx.$queryRawUnsafe(`SELECT n.nspname||'.'||c.relname AS name,
+    i.indisvalid,i.indisready,pg_get_indexdef(c.oid) AS definition
+    FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_index i ON i.indexrelid=c.oid
+    WHERE n.nspname='auction' AND c.relname='lots_market_showcase_idx' ORDER BY 1 LIMIT 2`);
+  if (!Array.isArray(functions) || functions.length > 16 || !Array.isArray(policies) || policies.length > 64
+    || !Array.isArray(tables) || tables.length !== 4 || !Array.isArray(indexes) || indexes.length > 1
+    || tables.some(row => !row.rls || !row.force || !row.active)
+    || functions.some(row => typeof row.body !== 'string')) blocked('LINEAGE_CATALOG_INVALID');
+  const bodyStates = HISTORICAL_FUNCTIONS.map(([name,historical,canonical]) => {
+    const rows=functions.filter(row=>row.name===name);
+    if (rows.length>1) blocked('LINEAGE_FUNCTION_OVERLOAD_UNEXPECTED');
+    if (!rows.length) return 'ABSENT';
+    const hash=sha256(rows[0].body);
+    return hash===historical ? 'HISTORICAL' : hash===canonical ? 'CANONICAL' : 'OTHER';
+  });
+  const historicalPolicies = ['auction_lots_market_showcase_select','auction_bids_market_showcase_select',
+    'auction_admissions_participant_select','auction_lots_participant_select','auction_bids_participant_select','auction_awards_participant_select'];
+  const historicalCount=policies.filter(row=>historicalPolicies.includes(row.policyname)).length;
+  let profile;
+  if (bodyStates.every(state=>state==='HISTORICAL') && historicalCount===6 && indexes.length===1) profile='HISTORICAL';
+  else if (JSON.stringify(bodyStates)===JSON.stringify(['ABSENT','CANONICAL','CANONICAL','ABSENT'])
+    && historicalCount===0 && indexes.length===0) profile='CANONICAL';
+  else blocked('LINEAGE_PROFILE_UNRECOGNIZED');
+  return {profile,catalogHash:sha256(JSON.stringify({functions,policies,tables,indexes}))};
+}
 const MIGRATION_NAME = /^(?:0001_postgresql_initial|[0-9]{14}_[a-z0-9_]+)$/;
 
 export function readMigrationManifest(root) {
@@ -210,6 +292,7 @@ export function validateManifest(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || !Object.keys(value).length) blocked('REPOSITORY_MANIFEST_INVALID');
   for (const [name, checksum] of Object.entries(value)) {
     if (!MIGRATION_NAME.test(name) || !/^[0-9a-f]{64}$/.test(checksum)) blocked('REPOSITORY_MANIFEST_INVALID');
+    if (HISTORICAL_MIGRATIONS.some(([archived])=>archived===name)) blocked('ARCHIVED_SQL_IN_MIGRATION_DIRECTORY');
   }
   for (const [name, checksum] of Object.entries(TARGET_MIGRATIONS)) {
     if (value[name] !== checksum) blocked('ACCEPTED_MIGRATION_CHECKSUM_MISMATCH');
@@ -236,7 +319,7 @@ export function redundantInitialMarker(manifest, ledger) {
   const markers = rows.filter(row => row.checksum === 'grainflow_v3_initial_postgresql');
   return canonical.length === 1 && markers.length === 1 ? markers[0] : undefined;
 }
-export function classifyLedger(manifestInput, ledger) {
+export function classifyLedger(manifestInput, ledger, { recognizeArchivedHistory = false } = {}) {
   const manifest = validateManifest(manifestInput);
   if (!Array.isArray(ledger)) blocked('MIGRATION_LEDGER_INVALID');
   const diagnostics = ledgerDiagnostics(manifest, ledger);
@@ -244,9 +327,17 @@ export function classifyLedger(manifestInput, ledger) {
   if (ledger.some(row => row.finished_at == null && row.rolled_back_at == null)) blocked('UNFINISHED_MIGRATION');
   const marker = redundantInitialMarker(manifest, ledger);
   const legacyInitialMarker = marker ? 'REDUNDANT_SOURCE_MARKER' : 'ABSENT';
+  const archiveNames=new Set(HISTORICAL_MIGRATIONS.map(([name])=>name));
+  const archivedRows=ledger.filter(row=>archiveNames.has(row.migration_name));
+  const exactArchive=recognizeArchivedHistory && archivedRows.length===4 && HISTORICAL_MIGRATIONS.every(([name,checksum])=>{
+    const rows=archivedRows.filter(row=>row.migration_name===name);
+    return rows.length===1 && rows[0].checksum===checksum && rows[0].finished_at!=null && rows[0].rolled_back_at==null;
+  });
+  if(recognizeArchivedHistory && archivedRows.length && !exactArchive) blocked('ARCHIVED_MIGRATION_SET_INVALID');
   const applied = new Map();
   for (const row of ledger) {
     if (row === marker) continue;
+    if (exactArchive && archiveNames.has(row.migration_name)) continue;
     if (row.rolled_back_at != null || row.finished_at == null) continue;
     if (!Object.hasOwn(manifest, row.migration_name)) blocked('UNRECOGNIZED_APPLIED_MIGRATION');
     if (applied.has(row.migration_name)) blocked('DUPLICATE_APPLIED_MIGRATION');
@@ -260,9 +351,10 @@ export function classifyLedger(manifestInput, ledger) {
     applied.set(row.migration_name, row);
   }
   const pending = Object.keys(manifest).filter(name => !applied.has(name));
-  if (pending.length === 0) return { decision: 'VERIFIED_ALREADY_APPLIED', pendingCount: 0, legacyInitialMarker };
-  if (JSON.stringify(pending) !== JSON.stringify(Object.keys(TARGET_MIGRATIONS))) blocked('PENDING_SET_NOT_EXACT_SEVEN');
-  return { decision: 'READY_EXACT_SEVEN', pendingCount: 7, legacyInitialMarker };
+  const lineage=exactArchive ? {historicalLineage:'EXACT_ARCHIVE'} : {};
+  if (pending.length === 0) return { decision: 'VERIFIED_ALREADY_APPLIED', pendingCount: 0, legacyInitialMarker, ...lineage };
+  if (JSON.stringify(pending) !== JSON.stringify(Object.keys(TARGET_MIGRATIONS))) blocked('PENDING_SET_NOT_EXACT_EIGHT');
+  return { decision: 'READY_EXACT_EIGHT', pendingCount: 8, legacyInitialMarker, ...lineage };
   } catch (error) {
     if (LEDGER_BLOCKERS.includes(errorCode(error))) error.ledgerDiagnostics = diagnostics;
     throw error;
@@ -291,13 +383,16 @@ export function validateSnapshot(value) {
   if (!/^[0-9A-F]{8}-[0-9A-F]{8}-[1-9][0-9]*$/.test(value.snapshot ?? '')) blocked('SNAPSHOT_TOKEN_INVALID');
   if (!/^pc_w1_[0-9a-f]{32}$/.test(value.nonce ?? '')) blocked('SNAPSHOT_NONCE_INVALID');
   for (const key of ['pid', 'databaseOid', 'roleOid']) if (!Number.isSafeInteger(value[key]) || value[key] <= 0) blocked('SNAPSHOT_IDENTITY_INVALID');
-  if (!['READY_EXACT_SEVEN', 'VERIFIED_ALREADY_APPLIED'].includes(value.decision)) blocked('SNAPSHOT_DECISION_INVALID');
+  if (!['READY_EXACT_EIGHT', 'VERIFIED_ALREADY_APPLIED'].includes(value.decision)) blocked('SNAPSHOT_DECISION_INVALID');
   if (!['ABSENT','REDUNDANT_SOURCE_MARKER'].includes(value.legacyInitialMarker)) blocked('INITIAL_MARKER_EVIDENCE_MISSING');
-  if (value.pendingCount !== (value.decision === 'READY_EXACT_SEVEN' ? 7 : 0)) blocked('SNAPSHOT_PENDING_COUNT_INVALID');
+  if (value.pendingCount !== (value.decision === 'READY_EXACT_EIGHT' ? 8 : 0)) blocked('SNAPSHOT_PENDING_COUNT_INVALID');
   if (!/^[0-9a-f]{64}$/.test(value.environmentHash ?? '')) blocked('API_ENVIRONMENT_HASH_INVALID');
-  if (value.tables !== (value.pendingCount === 7 ? 0 : 24)
-    || !(value.pendingCount === 7 ? ['NOT_APPLIED'] : ['PASS','OBSERVED_NOT_MATCHED']).includes(value.structuralChecks)) blocked('SNAPSHOT_SCHEMA_INVALID');
+  if (value.tables !== (value.pendingCount === 8 ? 0 : 24)
+    || !(value.pendingCount === 8 ? ['NOT_APPLIED'] : ['PASS','OBSERVED_NOT_MATCHED']).includes(value.structuralChecks)) blocked('SNAPSHOT_SCHEMA_INVALID');
   if (value.pendingCount === 0 && !/^[0-9a-f]{64}$/.test(value.catalogHash ?? '')) blocked('SNAPSHOT_CATALOG_HASH_INVALID');
+  if(!['ABSENT','EXACT_ARCHIVE'].includes(value.historicalLineage) || !['PASS','OBSERVED_NOT_MATCHED'].includes(value.lineageChecks)
+    || !/^[0-9a-f]{64}$/.test(value.lineageCatalogHash ?? '')
+    || value.lineageProfile!==(value.pendingCount===8 && value.historicalLineage==='EXACT_ARCHIVE' ? 'HISTORICAL' : 'CANONICAL')) blocked('SNAPSHOT_LINEAGE_INVALID');
   return value;
 }
 export function snapshotSql(input) {
@@ -367,7 +462,7 @@ export function runtimeFingerprint(containers, excludedApi) {
 
 export const EVIDENCE_VALUES = Object.freeze({
   ...HISTORY_EVIDENCE,
-  PC_W1_RESULT: /^(READY_EXACT_SEVEN|VERIFIED_ALREADY_APPLIED|MIGRATIONS_APPLIED_PENDING_API_ACCEPTANCE|BLOCKED)$/,
+  PC_W1_RESULT: /^(READY_EXACT_EIGHT|VERIFIED_ALREADY_APPLIED|MIGRATIONS_APPLIED_PENDING_API_ACCEPTANCE|BLOCKED)$/,
   PC_W1_ERROR: SAFE_ERROR,
   PC_W1_LEGACY_INITIAL_MARKER: /^(ABSENT|REDUNDANT_SOURCE_MARKER)$/,
   PC_W1_CHECKSUM_DRIFT_MIGRATION_SHA256: /^[0-9a-f]{64}$/,
@@ -381,8 +476,12 @@ export const EVIDENCE_VALUES = Object.freeze({
     [`PC_W1_UNKNOWN_${String(index).padStart(2,'0')}_${field}_SHA256`,field==='CHECKSUM'?/^(?:[0-9a-f]{64}|INVALID)$/:/^[0-9a-f]{64}$/])).flat()),
   PC_W1_TARGET_SHA: /^[0-9a-f]{40}$/,
   PC_W1_BASELINE_API_SHA: /^[0-9a-f]{40}$/,
+  PC_W1_ARCHIVED_LEDGER: /^(ABSENT|EXACT_ARCHIVE)$/,
+  PC_W1_LINEAGE_PROFILE: /^(CANONICAL|HISTORICAL)$/,
+  PC_W1_LINEAGE_CHECKS: /^(PASS|OBSERVED_NOT_MATCHED)$/,
+  PC_W1_LINEAGE_CATALOG_SHA256: /^[0-9a-f]{64}$/,
   PC_W1_DATABASE_IDENTITY: /^PASS$/,
-  PC_W1_PENDING_MIGRATIONS: /^(0|7)$/,
+  PC_W1_PENDING_MIGRATIONS: /^(0|8)$/,
   PC_W1_SCHEMA_TABLES: /^(0|24)$/,
   PC_W1_SCHEMA_STRUCTURAL_CHECKS: /^(PASS|NOT_APPLIED|OBSERVED_NOT_MATCHED)$/,
   PC_W1_SCHEMA_CATALOG_SHA256: /^[0-9a-f]{64}$/,
@@ -393,7 +492,7 @@ export const EVIDENCE_VALUES = Object.freeze({
   PC_W1_BACKUP_BYTES: /^[1-9][0-9]{0,19}$/,
   PC_W1_BACKUP_VERIFICATION: /^ARCHIVE_LIST_ONLY$/,
   PC_W1_DATABASE_ROLLBACK: /^NOT_REHEARSED$/,
-  PC_W1_DATABASE_MUTATION: /^(NONE|BOUNDED_SEVEN_MIGRATIONS|MAY_HAVE_PARTIALLY_APPLIED)$/,
+  PC_W1_DATABASE_MUTATION: /^(NONE|BOUNDED_EIGHT_MIGRATIONS|MAY_HAVE_PARTIALLY_APPLIED)$/,
   PC_W1_AUTHENTICATED_ACCEPTANCE: /^NOT_EVIDENCED$/,
   PC_W1_FULL_ACCEPTANCE: /^NOT_EVIDENCED$/,
   PC_W1_LEGACY_LOT_ROLLBACK: /^DEGRADED_FAIL_CLOSED$/,
@@ -449,26 +548,29 @@ export function parseEvidence(raw, { requireTerminal = true } = {}) {
     for (const key of ['PC_W1_LEGACY_INITIAL_MARKER', 'PC_W1_TARGET_SHA', 'PC_W1_BASELINE_API_SHA', 'PC_W1_DATABASE_IDENTITY', 'PC_W1_PENDING_MIGRATIONS',
       'PC_W1_SCHEMA_TABLES', 'PC_W1_SCHEMA_STRUCTURAL_CHECKS', 'PC_W1_RUNTIME_UNCHANGED', 'PC_W1_DATABASE_MUTATION',
       'PC_W1_AUTHENTICATED_ACCEPTANCE', 'PC_W1_FULL_ACCEPTANCE', 'PC_W1_LEGACY_LOT_ROLLBACK',
-      'PC_W1_API_ENVIRONMENT_SHA256', 'PC_W1_NON_API_RUNTIME_SHA256', 'PC_W1_DATABASE_ROLLBACK']) {
+      'PC_W1_API_ENVIRONMENT_SHA256', 'PC_W1_NON_API_RUNTIME_SHA256', 'PC_W1_DATABASE_ROLLBACK',
+      'PC_W1_ARCHIVED_LEDGER','PC_W1_LINEAGE_PROFILE','PC_W1_LINEAGE_CHECKS','PC_W1_LINEAGE_CATALOG_SHA256']) {
       if (!result[key]) blocked('INCOMPLETE_REMOTE_EVIDENCE');
     }
     if (result.PC_W1_FULL_ACCEPTANCE !== 'NOT_EVIDENCED' || result.PC_W1_AUTHENTICATED_ACCEPTANCE !== 'NOT_EVIDENCED') blocked('FALSE_FUNCTIONAL_ACCEPTANCE');
+    if(result.PC_W1_LINEAGE_PROFILE!==(result.PC_W1_RESULT==='READY_EXACT_EIGHT' && result.PC_W1_ARCHIVED_LEDGER==='EXACT_ARCHIVE' ? 'HISTORICAL' : 'CANONICAL')) blocked('CONTRADICTORY_LINEAGE_EVIDENCE');
     if (result.PC_W1_RESULT === 'MIGRATIONS_APPLIED_PENDING_API_ACCEPTANCE') {
-      if (!result.PC_W1_BACKUP_SHA256 || !result.PC_W1_BACKUP_BYTES || !result.PC_W1_BACKUP_VERIFICATION || result.PC_W1_DATABASE_MUTATION !== 'BOUNDED_SEVEN_MIGRATIONS') blocked('MISSING_MUTATION_BACKUP_EVIDENCE');
+      if(result.PC_W1_LINEAGE_CHECKS!=='PASS') blocked('LINEAGE_REFERENCE_REQUIRED');
+      if (!result.PC_W1_BACKUP_SHA256 || !result.PC_W1_BACKUP_BYTES || !result.PC_W1_BACKUP_VERIFICATION || result.PC_W1_DATABASE_MUTATION !== 'BOUNDED_EIGHT_MIGRATIONS') blocked('MISSING_MUTATION_BACKUP_EVIDENCE');
     } else if (result.PC_W1_DATABASE_MUTATION !== 'NONE') blocked('UNEXPECTED_MUTATION_EVIDENCE');
-    if (result.PC_W1_RESULT === 'READY_EXACT_SEVEN') {
-      if (result.PC_W1_PENDING_MIGRATIONS !== '7' || result.PC_W1_SCHEMA_TABLES !== '0' || result.PC_W1_SCHEMA_STRUCTURAL_CHECKS !== 'NOT_APPLIED') blocked('PRE_MIGRATION_EVIDENCE_INVALID');
+    if (result.PC_W1_RESULT === 'READY_EXACT_EIGHT') {
+      if (result.PC_W1_PENDING_MIGRATIONS !== '8' || result.PC_W1_SCHEMA_TABLES !== '0' || result.PC_W1_SCHEMA_STRUCTURAL_CHECKS !== 'NOT_APPLIED') blocked('PRE_MIGRATION_EVIDENCE_INVALID');
     } else if (!result.PC_W1_SCHEMA_CATALOG_SHA256) {
       blocked('MISSING_SCHEMA_CATALOG_EVIDENCE');
     }
-    if (result.PC_W1_RESULT !== 'READY_EXACT_SEVEN' && (result.PC_W1_PENDING_MIGRATIONS !== '0' || result.PC_W1_SCHEMA_TABLES !== '24'
+    if (result.PC_W1_RESULT !== 'READY_EXACT_EIGHT' && (result.PC_W1_PENDING_MIGRATIONS !== '0' || result.PC_W1_SCHEMA_TABLES !== '24'
       || !['PASS','OBSERVED_NOT_MATCHED'].includes(result.PC_W1_SCHEMA_STRUCTURAL_CHECKS))) blocked('POST_MIGRATION_EVIDENCE_INVALID');
     if (result.PC_W1_RESULT === 'MIGRATIONS_APPLIED_PENDING_API_ACCEPTANCE' && result.PC_W1_SCHEMA_STRUCTURAL_CHECKS !== 'PASS') blocked('CATALOG_REFERENCE_REQUIRED');
   }
   return result;
 }
 
-async function observeSchema(tx, applied) {
+async function observeSchema(tx, applied, lineage) {
   const rows = await tx.$queryRawUnsafe(`SELECT n.nspname||'.'||c.relname AS name,c.relrowsecurity AS rls,c.relforcerowsecurity AS force,
     row_security_active(c.oid) AS active,CASE WHEN c.relowner=(SELECT relowner FROM pg_class WHERE oid='public._prisma_migrations'::regclass) THEN 'MIGRATION_OWNER' ELSE r.rolname END AS owner
     FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
@@ -574,7 +676,7 @@ async function observeSchema(tx, applied) {
       (n.nspname='inventory' OR (n.nspname='auction' AND (p.proname LIKE '%inventory%' OR p.proname='register_verified_lot'))
       OR (n.nspname='public' AND p.proname SIMILAR TO 'app_(organization_capability|provider_registry|integration_binding|integration_capability|commercial|service_marketplace)%'))
     ORDER BY 1,2`);
-  const catalogHash=sha256(JSON.stringify({ rows, functions, triggers, policies, constraints, policy, columns, indexes, grants, guardFunctions }));
+  const catalogHash=sha256(JSON.stringify({ rows, functions, triggers, policies, constraints, policy, columns, indexes, grants, guardFunctions, lineage }));
   const expected=process.env.PC_W1_EXPECTED_CATALOG_SHA256 ?? '';
   if (expected && (!/^[0-9a-f]{64}$/.test(expected) || expected !== catalogHash)) blocked('SCHEMA_CATALOG_MISMATCH');
   return { tables:24,structuralChecks:expected ? 'PASS' : 'OBSERVED_NOT_MATCHED',catalogHash };
@@ -604,17 +706,25 @@ export async function runtimeProbe(phase) {
       if (principal.length !== 1 || ['rolsuper','rolbypassrls','rolcreatedb','rolcreaterole','privileged_membership'].some(key => principal[0][key] !== false)) blocked('API_DATABASE_PRINCIPAL_NOT_CONFINED');
       const ledger = await tx.$queryRawUnsafe('SELECT migration_name,checksum,finished_at,rolled_back_at FROM public."_prisma_migrations" ORDER BY migration_name');
       let classification;
-      try { classification = classifyLedger(manifest, ledger); }
+      try { classification = classifyLedger(manifest, ledger, {recognizeArchivedHistory:true}); }
       catch (error) { await attachHistoricalDiagnostics(tx, error, ledger); throw error; }
       if (phase === 'post' && classification.decision !== 'VERIFIED_ALREADY_APPLIED') blocked('POST_MIGRATION_LEDGER_INCOMPLETE');
-      const schema = await observeSchema(tx, classification.pendingCount === 0);
+      const lineage = await observeLineageCatalog(tx);
+      const pending=classification.pendingCount!==0;
+      const historical=classification.historicalLineage==='EXACT_ARCHIVE';
+      if(lineage.profile!==(pending && historical ? 'HISTORICAL' : 'CANONICAL')) blocked('LINEAGE_LEDGER_CATALOG_DISAGREEMENT');
+      const reference=pending ? process.env[historical ? 'PC_W1_EXPECTED_HISTORICAL_CATALOG_SHA256' : 'PC_W1_EXPECTED_BASELINE_CATALOG_SHA256'] : '';
+      if(reference && (!/^[0-9a-f]{64}$/.test(reference) || reference!==lineage.catalogHash)) blocked('LINEAGE_CATALOG_REFERENCE_MISMATCH');
+      const schema = await observeSchema(tx, !pending, lineage);
+      const lineageChecks=(pending ? reference : process.env.PC_W1_EXPECTED_CATALOG_SHA256) ? 'PASS' : 'OBSERVED_NOT_MATCHED';
       const nonce = `pc_w1_${crypto.randomBytes(16).toString('hex')}`;
       await tx.$queryRawUnsafe("SELECT set_config('application_name',$1,true)", nonce);
       const identity = await tx.$queryRawUnsafe(`SELECT pg_backend_pid() AS pid,(SELECT oid::integer FROM pg_catalog.pg_database WHERE datname=current_database()) AS "databaseOid",
         pg_export_snapshot() AS snapshot,current_setting('transaction_read_only') AS mode,pg_is_in_recovery() AS recovery`);
       if (identity[0]?.mode !== 'on' || identity[0]?.recovery !== false) blocked('READ_ONLY_PRIMARY_REQUIRED');
       const environmentHash = sha256(JSON.stringify(sortedObject(Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('PC_W1_'))))));
-      process.stdout.write(JSON.stringify({ ...identity[0], roleOid: principal[0].oid, nonce, ...classification, ...schema, environmentHash }) + '\n');
+      process.stdout.write(JSON.stringify({ ...identity[0], roleOid: principal[0].oid, nonce, ...classification, ...schema, environmentHash,
+        historicalLineage:classification.historicalLineage ?? 'ABSENT',lineageProfile:lineage.profile,lineageCatalogHash:lineage.catalogHash,lineageChecks }) + '\n');
       const timer = setTimeout(() => releaseReject(new Error('PROBE_CONTROL_TIMEOUT')), 180_000);
       try { await released; } finally { clearTimeout(timer); }
     }, { isolationLevel: 'RepeatableRead', timeout: 200_000, maxWait: 10_000 });
@@ -637,6 +747,22 @@ export function checkSources(root) {
   assert.ok(script.indexOf(identity) > script.indexOf('|| fail BASELINE_API_REVISION_INVALID')
     && script.indexOf(identity) < script.indexOf('\nprobe_open pre\n'),
   'Validated OCI revision must survive a rejected ledger probe');
+  for(const [name,checksum] of HISTORICAL_MIGRATIONS) {
+    assert.equal(sha256(fs.readFileSync(path.join(root,'scripts/fixtures/pc-crop-w1-lineage',`${name}.sql`))),checksum,'Archived rehearsal SQL must retain exact source bytes');
+  }
+  const migration=fs.readFileSync(path.join(root,'apps/api/prisma/migrations/20260909120000_reconcile_historical_auction_authority/migration.sql'),'utf8');
+  assert.equal(sha256(migration),TARGET_MIGRATIONS['20260909120000_reconcile_historical_auction_authority'],'Correction must retain its reviewed checksum');
+  const canonical=fs.readFileSync(path.join(root,'apps/api/prisma/migrations/20260715013100_auction_atomic_execution/migration.sql'),'utf8');
+  for(const name of ['record_admission','place_bid']) {
+    const declaration=canonical.slice(canonical.indexOf(`CREATE OR REPLACE FUNCTION auction.${name}(`));
+    const exact=declaration.slice(0,declaration.indexOf('$function$;')+'$function$;'.length);
+    assert.ok(migration.includes(exact),'Correction must preserve canonical function declarations byte for byte');
+  }
+  assert.doesNotMatch(migration,/\b(?:DROP|TRUNCATE)\s+(?:TABLE|SCHEMA)|\b(?:UPDATE|DELETE\s+FROM|INSERT\s+INTO)\s+(?:public\.)?"?_prisma_migrations\b/i);
+  for(const key of ['PC_W1_EXPECTED_BASELINE_CATALOG_SHA256','PC_W1_EXPECTED_HISTORICAL_CATALOG_SHA256']) {
+    assert.ok(script.includes(`-e ${key}`),'API probe must receive the exact rehearsal reference');
+    assert.ok(script.includes(`\${${key}:-}`),'Mutation must require both rehearsal references');
+  }
 }
 
 const args = process.argv.slice(2);
@@ -656,9 +782,14 @@ if (process.argv[1] === '--runtime-probe') {
     }
     else if (args[0] === 'probe-diagnostics') process.stdout.write(probeDiagnostics(JSON.parse(fs.readFileSync(0,'utf8'))));
     else if (args[0] === 'evidence') { parseEvidence(fs.readFileSync(0, 'utf8')); console.log('PC_W1_EVIDENCE_CONTRACT=PASS'); }
+    else if (args[0] === 'lineage-source-compatibility') {
+      verifyLineageSourceCompatibility(process.cwd(),process.env.BASELINE_SHA,process.env.TARGET_SHA);
+      console.log('PC_W1_LINEAGE_SOURCE_COMPATIBILITY=PASS');
+    }
     else if (args[0] === 'probe-field') {
       const value = validateSnapshot(JSON.parse(fs.readFileSync(0, 'utf8')));
-      if (!['snapshot','decision','pendingCount','tables','structuralChecks','catalogHash','environmentHash','legacyInitialMarker'].includes(args[1])) blocked('PROBE_FIELD_INVALID');
+      if (!['snapshot','decision','pendingCount','tables','structuralChecks','catalogHash','environmentHash','legacyInitialMarker',
+        'historicalLineage','lineageProfile','lineageCatalogHash','lineageChecks'].includes(args[1])) blocked('PROBE_FIELD_INVALID');
       process.stdout.write(String(value[args[1]] ?? ''));
     } else { checkSources(args[0] ?? process.cwd()); console.log('PC_W1_SOURCE_CONTRACT=PASS'); }
   } catch (error) { console.error(errorCode(error)); process.exitCode = 1; }
