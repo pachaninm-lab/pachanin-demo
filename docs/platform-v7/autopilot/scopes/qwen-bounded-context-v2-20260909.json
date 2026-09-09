@@ -3,7 +3,7 @@
   "branch": "ops/qwen-bounded-context-v2",
   "status": "active",
   "purpose": "Bound the shared Local Qwen exact-head review provider runtime after the observed 240-second model contention timeout, preserving complete diff coverage, immutable pins, fail-closed publication and the review gate.",
-  "authorityBaseExactMain": "83cd5c1069cb92d8e5f05bad2be769a1a6b62175",
+  "authorityBaseExactMain": "eb2bcf000969730b8fb2aacd999d2b82495f1a23",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
