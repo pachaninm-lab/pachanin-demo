@@ -684,9 +684,9 @@ test('Local Qwen workflow is bounded, chunk-complete, pinned and fail-closed', (
   assert.match(workflow, /source_sha256/u);
   assert.match(workflow, /prompt_bundle_sha256/u);
   assert.match(workflow, /--ctx-size 32768/u);
-  assert.match(workflow, /--n-predict 256/u);
+  assert.match(workflow, /--n-predict 128/u);
   assert.match(workflow, /INFERENCE_WORKERS=4/u);
-  assert.match(workflow, /timeout 900/u);
+  assert.match(workflow, /timeout 240/u);
   assert.match(workflow, /--seed 424242/u);
   assert.match(workflow, /--temperature 0/u);
   assert.match(workflow, /review-provider\/local-qwen/u);

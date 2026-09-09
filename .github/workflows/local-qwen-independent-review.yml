@@ -22,7 +22,7 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository &&
       contains(github.event.pull_request.body, '<!-- independent-review:local-qwen -->')
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 55
     env:
       MODEL_REVISION: aebf6a0f72261b12fb8199bc580fe172fe86c901
       MODEL_SHA256: 724fb256bec1ff062b2f65e4569e871ad2e95ab2a3989723d1769c54294730b7
@@ -423,12 +423,12 @@ jobs:
               echo "Missing prompt for review chunk $chunk_index" >&2
               return 40
             }
-            timeout 900 "$LLAMA_CLI" \
+            timeout 240 "$LLAMA_CLI" \
               --offline \
               --model "$MODEL_FILE" \
               --file "$prompt_file" \
               --ctx-size 32768 \
-              --n-predict 256 \
+              --n-predict 128 \
               --threads 2 \
               --threads-batch 2 \
               --seed 424242 \
