@@ -686,7 +686,16 @@ test('Local Qwen workflow is bounded, chunk-complete, pinned and fail-closed', (
   assert.match(workflow, /--ctx-size 8192/u);
   assert.match(workflow, /--n-predict 64/u);
   assert.match(workflow, /INFERENCE_WORKERS=1/u);
-  assert.match(workflow, /timeout --kill-after=10 120/u);
+  assert.match(workflow, /timeout --kill-after=10 180/u);
+  assert.match(workflow, /LLAMA_SERVER/u);
+  assert.match(workflow, /llama-server/u);
+  assert.match(workflow, /--host 127\\.0\\.0\\.1/u);
+  assert.match(workflow, /--port 8080/u);
+  assert.match(workflow, /\\/health/u);
+  assert.match(workflow, /\\/completion/u);
+  assert.match(workflow, /--rawfile grammar/u);
+  assert.match(workflow, /--data-binary "@\\$request_file"/u);
+  assert.doesNotMatch(workflow, /timeout --kill-after=10 120 "\\$LLAMA_CLI"/u);
   assert.match(workflow, /--seed 424242/u);
   assert.match(workflow, /--temperature 0/u);
   assert.match(workflow, /review-provider\/local-qwen/u);
