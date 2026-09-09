@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { CONTROLLED_CABINET_CONTEXTS } from '../../lib/platform-v7/controlled-test-organizations';
+import { OWNER_CONTROLLED_CABINET_TARGETS } from '../../lib/platform-v7/control-host';
 
 const cwd = process.cwd();
 const root = [cwd, path.resolve(cwd, '../..')]
@@ -14,7 +15,7 @@ function read(relativePath: string) {
 }
 
 const ownerCabinetMatrix = [
-  { role: 'operator', route: '/platform-v7/control-tower', page: 'apps/web/app/platform-v7/control-tower/page.tsx' },
+  { role: 'operator', route: '/platform-v7/operator', page: 'apps/web/app/platform-v7/operator/page.tsx' },
   { role: 'buyer', route: '/platform-v7/buyer', page: 'apps/web/app/platform-v7/buyer/page.tsx' },
   { role: 'seller', route: '/platform-v7/seller', page: 'apps/web/app/platform-v7/seller/page.tsx' },
   { role: 'logistics', route: '/platform-v7/logistics', page: 'apps/web/app/platform-v7/logistics/page.tsx' },
@@ -84,13 +85,15 @@ describe('platform-v7 role intent dashboard', () => {
 
   it('keeps all twelve owner cabinet routes, organizations and page implementations connected', () => {
     const openCabinet = read('apps/web/app/platform-v7/staff/open-cabinet/route.ts');
+    const controlHost = read('apps/web/lib/platform-v7/control-host.ts');
 
+    expect(openCabinet).toContain('OWNER_CONTROLLED_CABINET_TARGETS');
     expect(ownerCabinetMatrix).toHaveLength(12);
     expect(new Set(ownerCabinetMatrix.map((item) => item.role)).size).toBe(12);
     expect(new Set(ownerCabinetMatrix.map((item) => item.route)).size).toBe(12);
 
     for (const item of ownerCabinetMatrix) {
-      expect(openCabinet).toContain(`${item.role}: '${item.route}'`);
+      expect(controlHost).toContain(`${item.role}: '${item.route}'`);
       expect(CONTROLLED_CABINET_CONTEXTS[item.role].role).toBe(item.role);
       expect(CONTROLLED_CABINET_CONTEXTS[item.role].organizationId).toBeTruthy();
       expect(fs.existsSync(path.join(root, item.page))).toBe(true);

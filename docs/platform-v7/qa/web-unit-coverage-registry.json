@@ -151,8 +151,8 @@
     },
     {
       "file": "apps/web/tests/unit/companyOsControlHostBoundary.test.ts",
-      "status": "failed",
-      "reason": "Red when measured on the inventory run for #4786. Must be classified first - whether the security contract still holds and the source drifted, or the test pins cancelled behaviour - before it can run."
+      "status": "passed",
+      "reason": "Green owner/control-host boundary contract; enabled with the owner-handoff scope."
     },
     {
       "file": "apps/web/tests/unit/components.test.tsx",
@@ -2692,7 +2692,7 @@
     {
       "file": "apps/web/tests/unit/platformV7OwnerRealCabinets.test.ts",
       "status": "passed",
-      "reason": "Green when measured on the inventory run for #4786, but never named in the web-unit step. Staged enablement rather than a bulk switch-on, so CI runtime and flake surface change in reviewable steps."
+      "reason": "Green owner-cabinet source contract; enabled with the owner-handoff scope."
     },
     {
       "file": "apps/web/tests/unit/platformV7OwnerShowroom.test.ts",
