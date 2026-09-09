@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/v142-live-instance-4459",
+  "status": "active",
+  "purpose": "STACKED on security/transport-body-validation-4459 and must merge after it: it corrects the V1.4.2 anchor that branch introduced, so allowedPaths carries the cumulative diff. V1.4.2's condition pointed at three saga handlers, and they do nothing. executeFgisRegister, confirmShipment and confirmAcceptance each consist of a single call to denyLegacyFgisActionOnBehalfOfClient with no statement before it - registering a lot in ФГИС «Зерно» on a client's behalf was retired as a legally significant act of the participant organization - so their volumeTons, loadedTons and acceptedTons reach nothing. A FAIL anchored there would have revoked on a change that secured nothing, and validating those bodies would have moved a ratchet counter without closing an exposure. This re-anchors the decision to what is actually live and spends money, and records the measurement so the same mistake is not made again. No code is touched and no verdict moves.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/v142-live-instance-4459.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "docs/platform-v7/autopilot/scopes/transport-body-validation-4459.json",
+    "apps/api/src/modules/route-planner/route-planner.controller.ts",
+    "apps/api/src/modules/route-planner/dto/route-planner-api.dto.ts",
+    "apps/api/src/modules/route-planner/dto/transport-api.dto.spec.ts",
+    "apps/api/src/modules/railway/railway.controller.ts",
+    "apps/api/src/modules/railway/dto/railway-api.dto.ts",
+    "apps/api/src/modules/export-trade/export-trade.controller.ts",
+    "apps/api/src/modules/export-trade/dto/export-trade-api.dto.ts",
+    "docs/security/request-validation-baseline.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+  ],
+  "requiredInvariants": [
+    "Nothing from the branch below is re-edited here. The cumulative diff is listed because the guard measures a stacked branch against main, not against its base; this commit changes two files.",
+    "No code is touched. The escrow split, the factoring amount and the saga stubs are exactly as they were; this is the decision record and its conditions.",
+    "The anchor is a live instance that spends money, not a counter. arbitrator.service.ts computes an escrow share as `(holdAmount * BigInt(Math.trunc(resolution.splitPct)) + 50n) / 100n` with no range check anywhere before it, and arbitrator.controller.ts supplies splitPct as an undecorated number.",
+    "An inert surface is recorded as inert rather than quietly skipped. The note says which saga handlers refuse, why they refuse, and that validating them would close nothing - and it records the mirror-image mistake too: storage's sizeBytes looks unvalidated in the controller but assertAllowedSize refuses it in the service.",
+    "Work already in flight is not duplicated. Both live instances are being closed in the owner's open pull request #5119, which carries resolve-dispute.dto.ts, arbitrator.service.ts and the factoring DTO; nothing here touches those files, and the condition names them because that is what the tree has today.",
+    "Revocation on that pull request landing is the intended outcome, not a regression: the decision is rejected and V1.4.2 returns to assessment rather than becoming a silent PASS."
+  ],
+  "acceptance": [
+    "The saga surfaces are measured, not assumed: all three FGIS handlers in fgis-step.service.ts contain a single denyLegacyFgisActionOnBehalfOfClient call and no statement before it.",
+    "The live defect is measured on the service's own expression. On a hold of 1 000 000 kopecks, splitPct 150 gives the buyer 1 500 000 and the seller -500 000, and because only a share greater than zero is paid out the buyer is refunded 150% of the escrow while the seller receives nothing; splitPct -50 does the same in the seller's favour; splitPct NaN throws RangeError out of BigInt and answers a 500.",
+    "All four mutations revoke the decision: adding a range check to the arithmetic; converting every inline body in arbitrator.controller.ts; converting factoring.controller.ts; emptying the ratchet's per-file map.",
+    "A partially applied mutation is caught rather than trusted. The first M2 run replaced only the first of two inline bodies in arbitrator.controller.ts and the decision stayed standing; the pattern count is now asserted to reach zero before the verdict is read.",
+    "No verdict moves: 39 NOT_ASSESSED / 129 PASS / 88 NOT_APPLICABLE / 89 FAIL against main, V8.2.4 the only rejected decision, and every mutated file restored byte-identically.",
+    "node --test scripts/security passes in full; guard=0."
+  ],
+  "stackedOn": "security/transport-body-validation-4459"
+}

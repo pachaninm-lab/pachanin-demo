@@ -840,16 +840,30 @@
       "applicability": "APPLICABLE",
       "status": "FAIL",
       "evidence": [
+        "live-instance:apps/api/src/modules/arbitrator/arbitrator.controller.ts",
+        "unchecked-arithmetic:apps/api/src/modules/arbitrator/arbitrator.service.ts",
+        "live-instance:apps/api/src/modules/factoring/factoring.controller.ts",
         "closed-instance:apps/api/src/modules/route-planner/dto/route-planner-api.dto.ts",
-        "live-instance:apps/api/src/modules/saga/saga.controller.ts",
+        "inert-surface:apps/api/src/modules/saga/fgis-step.service.ts",
         "measured-debt:docs/security/request-validation-baseline.json"
       ],
       "conditions": [
         {
-          "condition": "a tonnage still reaches the saga command path as an undecorated number",
+          "condition": "an escrow split percentage still reaches BigInt arithmetic with no range check",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/arbitrator/arbitrator.service.ts"
+          ],
+          "patterns": [
+            "bigint(math.trunc(resolution.splitpct))"
+          ]
+        },
+        {
+          "condition": "the endpoints that supply those numbers still declare an inline body the pipe cannot validate",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/api/src/modules/saga/saga.controller.ts"
+            "apps/api/src/modules/arbitrator/arbitrator.controller.ts",
+            "apps/api/src/modules/factoring/factoring.controller.ts"
           ],
           "patterns": [
             "@body() body: {"
@@ -866,7 +880,7 @@
           ]
         }
       ],
-      "note": "Corrected on review: the original version of this decision reasoned that JavaScript numbers do not wrap around the way fixed-width C integers do, and concluded the requirement does not apply to this runtime at all. That is too broad - the requirement is about sign, range and input validation preventing unsafe arithmetic results, and this codebase has a concrete, live instance of exactly that being skipped. POST tariff in route-planner.controller.ts declares its body as a plain type literal, { distanceKm: number; weightTons: number; vehicleType?: ... }, not a class-validator DTO class - the application does have a global ValidationPipe (main.ts), but class-validator only enforces decorators on an actual class, and there is none here, so nothing validates these two numbers before they reach the service. estimateLogisticsTariff() in route-planner.service.ts multiplies them directly - Math.round(distanceKm * weightTons * ratePerTonKmKopecks) - with no sign or range check first. A caller can submit a negative, non-numeric-after-coercion, or extremely large distanceKm/weightTons and get a nonsensical, negative, NaN or Infinity tariff back with no rejection. The BigInt usage this decision originally cited (deal version numbers, money in kopecks in the settlement path) is real and still a good pattern, but it does not cover this endpoint, so it cannot support a blanket NOT_APPLICABLE for the requirement as a whole.\n\nUpdate: the instance this decision named is closed. POST tariff now declares EstimateTariffDto, so distanceKm and weightTons are refused unless they are finite numbers at or above zero and vehicleType is one of the three keys of the service's own rate table - the sign and range check the note said was missing now runs before Math.round(distanceKm * weightTons * ratePerTonKmKopecks). Measured before the fix: a vehicleType outside the table made the whole quote NaN, and a negative distance returned a negative tariff.\n\nThe requirement is not met, and the decision is re-anchored rather than closed. Seven endpoints still take a number in an inline body type the pipe cannot see, and several of them are money or quantity: requestedAmountKopecks in factoring, splitPct in arbitrator, sizeBytes in storage, and volumeTons, loadedTons and acceptedTons across three saga handlers. Factoring, arbitrator and storage are being closed in the owner's open pull requests; saga is not, and it is what this condition now names. Anchoring to one endpoint was the flaw the first time: the FAIL revoked the moment that endpoint was fixed, while the defect it stood for was still live in six other places."
+      "note": "Corrected on review: the original version of this decision reasoned that JavaScript numbers do not wrap around the way fixed-width C integers do, and concluded the requirement does not apply to this runtime at all. That is too broad - the requirement is about sign, range and input validation preventing unsafe arithmetic results, and this codebase has live instances of exactly that being skipped.\n\nThe instance this decision first named is closed on this branch. POST tariff in route-planner declared its body as a plain type literal, so nothing validated distanceKm and weightTons before Math.round(distanceKm * weightTons * ratePerTonKmKopecks); it now declares EstimateTariffDto, and the sign and range check runs at the door. Measured before that fix: a vehicleType outside the rate table made the whole quote NaN, and a negative distance returned a negative tariff.\n\nCorrected a second time, and this correction is the point. The condition was re-pointed at three saga handlers that take volumeTons, loadedTons and acceptedTons as undecorated numbers - and that was wrong, because all three refuse before they do anything. executeFgisRegister, confirmShipment and confirmAcceptance in fgis-step.service.ts each consist of a single call to denyLegacyFgisActionOnBehalfOfClient with no statement before it: registering a lot in ФГИС «Зерно» on a client's behalf was retired as a legally significant act of the participant organization. Their bodies reach nothing. Validating them would move a ratchet counter without closing an exposure, and anchoring a FAIL to them would let the FAIL revoke on a change that secured nothing. Storage is the same mistake in the other direction: sizeBytes looks unvalidated in the controller but assertAllowedSize refuses it in the service.\n\nWhat is live is money. arbitrator.controller.ts takes splitPct as an undecorated number and arbitrator.service.ts spends it directly: `(holdAmount * BigInt(Math.trunc(resolution.splitPct)) + 50n) / 100n`, with no range check anywhere before it. Measured on a hold of 1 000 000 kopecks: splitPct 150 pays the buyer 1 500 000 and leaves the seller -500 000, and because the code only pays out a share greater than zero, the buyer is refunded 150% of the escrow and the seller receives nothing; splitPct -50 does the same in the seller's favour; splitPct NaN throws RangeError out of BigInt and answers a 500. factoring.controller.ts is the second: requestedAmountKopecks arrives undecorated and becomes `Math.round(params.requestedAmountKopecks * approvedPct)`, an approved financing amount.\n\nBoth are being closed in the owner's open pull request #5119, so neither is touched here; the condition names them because they are what the tree has today, and when that lands the decision is rejected and the requirement returns to assessment - which is the correct outcome, not a silent PASS."
     },
     {
       "requirementId": "V1.4.3",
