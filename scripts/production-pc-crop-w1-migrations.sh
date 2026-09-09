@@ -81,6 +81,10 @@ api_image_id="$(docker inspect --format '{{.Image}}' "$api_id")"
 baseline_sha="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$api_image_id")"
 [[ "$baseline_sha" =~ ^[0-9a-f]{40}$ ]] || fail BASELINE_API_REVISION_INVALID
 [[ -z "$expected_baseline" || "$baseline_sha" == "$expected_baseline" ]] || fail PREFLIGHT_BASELINE_CHANGED
+# Preserve source identity even when the later read-only ledger probe blocks.
+# This is an observed OCI revision, not runtime compatibility or acceptance.
+emit PC_W1_TARGET_SHA "$target_sha"
+emit PC_W1_BASELINE_API_SHA "$baseline_sha"
 
 decode(){ [[ -z "$1" ]] || printf '%s' "$1" | base64 -d; }
 prod_dir="$(decode "${PC_PROD_DIR_B64:-}")"
@@ -220,8 +224,6 @@ catalog_hash="$(probe_field catalogHash)"
 probe_close
 assert_runtime_unchanged
 
-emit PC_W1_TARGET_SHA "$target_sha"
-emit PC_W1_BASELINE_API_SHA "$baseline_sha"
 emit PC_W1_DATABASE_IDENTITY PASS
 emit PC_W1_PENDING_MIGRATIONS "$pending"
 emit PC_W1_LEGACY_INITIAL_MARKER "$legacy_initial_marker"
