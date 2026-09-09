@@ -78,16 +78,27 @@ function evidenceGate(records: readonly FounderControlRecordDto[], gate: keyof t
 
 function clientContractGate(payload: Payload): FounderControlGate {
   const pkg = text(payload.package);
-  const mrr = number(payload.mrrRub);
-  const launchFee = number(payload.launchFeeRub);
-  const supportHours = number(payload.supportHours);
-  const engineerHours = number(payload.engineerHours);
-  const otherDirect = number(payload.otherDirectCostRub);
-  const benefit = number(payload.benefitRubPerMonth);
+  const mrr = nullableNumber(payload.mrrRub);
+  const launchFee = nullableNumber(payload.launchFeeRub);
+  const supportHours = nullableNumber(payload.supportHours);
+  const engineerHours = nullableNumber(payload.engineerHours);
+  const otherDirect = nullableNumber(payload.otherDirectCostRub);
+  const benefit = nullableNumber(payload.benefitRubPerMonth);
   const actualLaunchCost = nullableNumber(payload.actualLaunchCostRub);
   const expectedLaunchCost = pkg === 'Assisted' ? A.assistedExpectedLaunchCostRub : A.selfExpectedLaunchCostRub;
   const launchCost = actualLaunchCost ?? expectedLaunchCost;
-  if (!mrr || !launchFee || !benefit || !['Assisted', 'Self'].includes(pkg)) return 'EVIDENCE';
+  if (
+    mrr === null
+    || launchFee === null
+    || supportHours === null
+    || engineerHours === null
+    || otherDirect === null
+    || benefit === null
+    || mrr <= 0
+    || launchFee <= 0
+    || benefit <= 0
+    || !['Assisted', 'Self'].includes(pkg)
+  ) return 'EVIDENCE';
   const recurringCost = mrr * A.creditsReservePct
     + (mrr - mrr * A.creditsReservePct) * A.channelCommissionPct
     + supportHours * A.supportPlanningRateRub
@@ -329,8 +340,10 @@ export function calculateFounderControlOverview(records: readonly FounderControl
   const openArAgeDays = openArRub > 0 ? openAgeWeight / openArRub : null;
 
   const cashOnBankRub = inputValue(records, 'cashOnBankRub');
-  const committedFundingRub = inputValue(records, 'committedFundingRub') ?? 0;
-  const coreRunwayMonths = cashOnBankRub === null ? null : (cashOnBankRub + committedFundingRub) / A.coreMonthlyRub;
+  const committedFundingRub = inputValue(records, 'committedFundingRub');
+  const coreRunwayMonths = cashOnBankRub === null || committedFundingRub === null
+    ? null
+    : (cashOnBankRub + committedFundingRub) / A.coreMonthlyRub;
   const founderHours = inputValue(records, 'founderHours'); const engineerHours = inputValue(records, 'engineerHours'); const supportHours = inputValue(records, 'supportHours'); const infraMonthlyRub = inputValue(records, 'infraMonthlyRub');
   const cashProjection = cash13w(records, cashOnBankRub);
 
