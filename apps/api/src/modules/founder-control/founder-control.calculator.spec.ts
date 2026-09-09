@@ -46,6 +46,18 @@ describe('Founder Control calculator',()=>{
     expect(out.workbookParity.length).toBeGreaterThan(35);
   });
 
+  it('keeps missing committed funding as unknown instead of zero',()=>{
+    const out=calculateFounderControlOverview([record('CEO_INPUT','cashOnBankRub',{value:2_000_000})],now);
+    expect(out.metrics.committedFundingRub).toBeNull();
+    expect(out.metrics.coreRunwayMonths).toBeNull();
+    expect(out.gates.runway).toBe('EVIDENCE');
+  });
+
+  it('fails closed when required client cost input is unknown',()=>{
+    const out=calculateFounderControlOverview([client('a','G1','Assisted',false,{supportHours:undefined})],now);
+    expect(out.metrics.proofGroups).toBe(0);
+  });
+
   it('counts one proof for two clients under the same control group',()=>{
     const out=calculateFounderControlOverview([client('a','GROUP-1','Assisted',true),client('b','GROUP-1','Assisted',true)],now);
     expect(out.metrics.proofGroups).toBe(1);
