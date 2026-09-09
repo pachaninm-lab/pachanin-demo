@@ -46,7 +46,7 @@
       "fast-uri": ">=3.1.1",
       "glob": ">=10.5.0",
       "lodash": ">=4.18.0",
-      "multer": ">=2.2.0",
+      "multer": "2.3.0",
       "picomatch": ">=4.0.4",
       "ws": ">=8.21.0",
       "brace-expansion@<2.1.2": "2.1.2",
@@ -54,7 +54,7 @@
       "archiver@5.3.2>readdir-glob": "3.0.0",
       "engine.io@<6.6.7": "6.6.7",
       "socket.io-parser@>=4.0.0 <4.2.7": "4.2.7",
-      "sharp": "0.35.3",
+      "sharp": "0.35.4",
       "postcss": "8.5.18",
       "nanoid@<3.3.18": "3.3.18"
     }

@@ -651,3 +651,150 @@ for (const mutation of ['approved append', 'extra fingerprint', 'remove prior en
     }
   });
 }
+
+const nextSecurityPatchBranch = 'security/pc-crop-next-15-5-24-4997';
+const nextSecurityPaths = ['.github/workflows/platform-v7-autopilot-guard.yml', '.github/workflows/sbom-scan.yml', 'apps/web/package.json', 'package.json', 'pnpm-lock.yaml', 'docs/platform-v7/autopilot/autopilot-state.json', 'scripts/p7-autopilot-guard.sh', 'scripts/p7-autopilot-guard.test.mjs'];
+function nextSecurityFixture(t) {
+  const context = fixture(t, nextSecurityPatchBranch);
+  write(context.root, 'docs/platform-v7/autopilot/autopilot-state.json', JSON.stringify({
+    allowedCurrentScope: ['README.md'],
+    approvedConcurrentScopes: { [nextSecurityPatchBranch]: nextSecurityPaths },
+  }));
+  commit(context.root, 'owner-authorized exact dependency scope');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  return context;
+}
+test('Next security patch admits the manifests and lockfile after prior governance', (t) => {
+  const context = nextSecurityFixture(t);
+  write(context.root, 'apps/web/package.json', '{"dependencies":{"next":"15.5.24"}}');
+  write(context.root, 'package.json', '{"pnpm":{"overrides":{"multer":"2.3.0","sharp":"0.35.4"}}}');
+  write(context.root, 'pnpm-lock.yaml', 'lockfileVersion: 9.0\n');
+  commit(context.root, 'bounded patch');
+  const result = runGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
+for (const forbidden of ['README.md', 'apps/web/app/platform-v7/register/page.tsx', 'apps/api/src/app.module.ts', 'pnpm-lock.yaml/child', 'package.json/child', 'package-lock.json']) {
+  test(`Next security patch rejects unrelated path ${forbidden}`, (t) => {
+    const context = nextSecurityFixture(t);
+    write(context.root, forbidden, 'unapproved change\n');
+    commit(context.root, 'out-of-scope change');
+    const result = runGuard(context);
+    assert.notEqual(result.status, 0);
+    assert.match(output(result), /Files outside current autopilot scope|Forbidden path changed/u);
+  });
+}
+
+test('Next security patch rejects expansion of its declared scope', (t) => {
+  const context = nextSecurityFixture(t);
+  const statePath = path.join(context.root, 'docs/platform-v7/autopilot/autopilot-state.json');
+  const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+  state.approvedConcurrentScopes[nextSecurityPatchBranch].push('apps/web/**');
+  fs.writeFileSync(statePath, JSON.stringify(state));
+  commit(context.root, 'attempt mutable scope expansion');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0);
+  assert.match(output(result), /NEXT_SECURITY_PATCH_SCOPE_MISMATCH/u);
+});
+
+test('Next security patch rejects same-PR self-authorization against an unapproved base', (t) => {
+  const context = nextSecurityFixture(t);
+  context.baseline = git(context.root, ['rev-parse', 'HEAD~1']);
+  write(context.root, 'apps/web/package.json', '{"dependencies":{"next":"15.5.24"}}');
+  commit(context.root, 'implementation bundled with candidate scope');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0);
+  assert.match(output(result), /NEXT_SECURITY_PATCH_ACCEPTED_SCOPE_MISSING/u);
+});
+
+for (const mutation of ['approved append', 'alter global scope', 'alter other branch', 'unrelated base']) {
+  test(`owner-authorized combined security repair: ${mutation}`, (t) => {
+    const context = fixture(t, nextSecurityPatchBranch);
+    const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+    const baselineRead = spawnSync('git', ['show', `2d55077c90adc6e0c5dd8aba217d323dbac327fd:${statePath}`], { encoding: 'utf8' });
+    assert.equal(baselineRead.status, 0, baselineRead.stderr);
+    const baselineText = baselineRead.stdout;
+    const baselineState = JSON.parse(baselineText);
+    // Preserve exact bytes: authority binds the real Git blob.
+    write(context.root, statePath, baselineText);
+    if (mutation === 'unrelated base') {
+      baselineState.allowedCurrentScope.push('unrelated.txt');
+      write(context.root, statePath, JSON.stringify(baselineState));
+    }
+    commit(context.root, 'accepted base before combined owner authorization');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+    const candidate = structuredClone(baselineState);
+    candidate.approvedConcurrentScopes[nextSecurityPatchBranch] = nextSecurityPaths;
+    if (mutation === 'alter global scope') candidate.allowedCurrentScope.push('unapproved.txt');
+    if (mutation === 'alter other branch') candidate.approvedConcurrentScopes['unrelated'] = ['**'];
+    write(context.root, statePath, JSON.stringify(candidate));
+    write(context.root, 'package.json', '{}');
+    commit(context.root, 'candidate combined repair');
+    const result = runGuard(context);
+    if (mutation === 'approved append') assert.equal(result.status, 0, output(result));
+    else {
+      assert.notEqual(result.status, 0, output(result));
+      assert.match(output(result), /NEXT_SECURITY_PATCH_(STATE_MUTATION|ACCEPTED_SCOPE_MISSING)/u);
+    }
+  });
+}
+
+test('security scope routing binds bootstrap to its base and otherwise loads the base guard', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const step = workflow.split('- name: Validate bounded security repair with trusted base authority')[1].split('- name: Validate post-registration DoD register')[0];
+  assert.match(step, /BASE_STATE.*571d2821ac3c371d548e51e747ea8111a436dab8/u);
+  assert.match(step, /git show bcfc63c01d6a0195cea8d2b55978d47e3dbe7964:scripts\/p7-autopilot-guard.sh > "\$TRUSTED_GUARD"/u);
+  assert.doesNotMatch(step, /git show "\$HEAD_SHA:scripts\/p7-autopilot-guard.sh"/u);
+  assert.match(step, /git show "\$BASE_SHA:scripts\/p7-autopilot-guard.sh" > "\$TRUSTED_GUARD"/u);
+  assert.match(step, /BASE_REF="\$BASE_SHA" HEAD_REF="\$HEAD_SHA"/u);
+  const standard = workflow.split('- name: Validate standard branch scope on PR head')[1].split('standard_validation:')[0];
+  assert.match(standard, /github.head_ref != 'security\/pc-crop-next-15-5-24-4997'/u);
+  const trusted = workflow.split('name: PC-CROP implementation immutable scope · trusted base')[1].split('  guard:')[0];
+  assert.match(trusted, /github.event.pull_request.head.ref == 'security\/pc-crop-next-15-5-24-4997'/u);
+  assert.match(trusted, /ref: \$\{\{ github.event.pull_request.base.sha \}\}/u);
+  assert.match(trusted, /HEAD_REF="\$HEAD_SHA"/u);
+});
+
+for (const mutation of ['unapproved file', 'candidate global scope']) {
+  test(`trusted security guard ignores a poisoned head script: ${mutation}`, (t) => {
+    const context = nextSecurityFixture(t);
+    write(context.root, 'scripts/p7-autopilot-guard.sh', '#!/usr/bin/env bash\nexit 0\n', 0o755);
+    if (mutation === 'unapproved file') write(context.root, 'apps/api/src/unauthorized.ts', 'export {};');
+    else {
+      const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+      const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+      state.allowedCurrentScope.push('unapproved.txt');
+      write(context.root, statePath, JSON.stringify(state));
+    }
+    commit(context.root, 'poison untrusted guard and candidate');
+    const candidateHead = git(context.root, ['rev-parse', 'HEAD']);
+    git(context.root, ['checkout', '--detach', context.baseline]);
+    const result = spawnSync('bash', ['scripts/p7-autopilot-guard.sh'], {
+      cwd: context.root,
+      env: { ...process.env, BASE_REF: context.baseline, HEAD_REF: candidateHead, GITHUB_HEAD_REF: nextSecurityPatchBranch },
+      encoding: 'utf8',
+    });
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /Files outside current autopilot scope|NEXT_SECURITY_PATCH_STATE_MUTATION/u);
+  });
+}
+
+test('security remediation pins the three affected dependency families', () => {
+  const root = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+  const web = JSON.parse(fs.readFileSync('apps/web/package.json', 'utf8'));
+  assert.equal(root.pnpm.overrides.multer, '2.3.0');
+  assert.equal(root.pnpm.overrides.sharp, '0.35.4');
+  assert.equal(web.dependencies.next, '15.5.24');
+});
+
+test('SBOM isolated pnpm commands preserve the setup-node cache store root', () => {
+  const workflow = fs.readFileSync('.github/workflows/sbom-scan.yml', 'utf8');
+  const commands = workflow.split('\n').filter(line => line.includes('env -i ') && /pnpm (install|dlx)/u.test(line));
+  assert.equal(commands.length, 5);
+  for (const command of commands) {
+    assert.match(command, /env -i PATH="\$PATH" HOME="\$HOME" PNPM_HOME="\$PNPM_HOME" CI=true/u);
+  }
+  assert.equal((workflow.match(/cache: pnpm/gu) ?? []).length, 2);
+  assert.equal((workflow.match(/install --frozen-lockfile --ignore-scripts/gu) ?? []).length, 2);
+  assert.equal((workflow.match(/--validate/gu) ?? []).length, 3);
+  assert.equal((workflow.match(/if-no-files-found: error/gu) ?? []).length, 2);
+});

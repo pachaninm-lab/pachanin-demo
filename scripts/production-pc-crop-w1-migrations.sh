@@ -213,6 +213,7 @@ if [[ "$action" == migrate && "$decision" == READY_EXACT_SEVEN ]]; then
   decision=MIGRATIONS_APPLIED_PENDING_API_ACCEPTANCE
 fi
 pending="$(probe_field pendingCount)"
+legacy_initial_marker="$(probe_field legacyInitialMarker)"
 tables="$(probe_field tables)"
 structural="$(probe_field structuralChecks)"
 catalog_hash="$(probe_field catalogHash)"
@@ -223,6 +224,7 @@ emit PC_W1_TARGET_SHA "$target_sha"
 emit PC_W1_BASELINE_API_SHA "$baseline_sha"
 emit PC_W1_DATABASE_IDENTITY PASS
 emit PC_W1_PENDING_MIGRATIONS "$pending"
+emit PC_W1_LEGACY_INITIAL_MARKER "$legacy_initial_marker"
 emit PC_W1_SCHEMA_TABLES "$tables"
 emit PC_W1_SCHEMA_STRUCTURAL_CHECKS "$structural"
 [[ -z "$catalog_hash" ]] || emit PC_W1_SCHEMA_CATALOG_SHA256 "$catalog_hash"
