@@ -227,7 +227,12 @@ test('known non-main history remains blocked, and catalog bodies are classified 
   for(const [key,value] of Object.entries(payload.historicalDiagnostics)) {
     rejects(()=>parseEvidence(output.replace(`${key}=${value}\n`,'')+historicalTerminal),'CONTRADICTORY_HISTORY_DIAGNOSTICS');
   }
-  rejects(()=>parseEvidence(output+historicalTerminal.replace('MUTATION=NONE','MUTATION=BOUNDED_SEVEN_MIGRATIONS')),'CONTRADICTORY_HISTORY_DIAGNOSTICS');
+  const withoutHistory=output.split('\n').filter(line=>!line.startsWith('PC_W1_HISTORY_')).join('\n');
+  rejects(()=>parseEvidence(withoutHistory+historicalTerminal),'CONTRADICTORY_HISTORY_DIAGNOSTICS');
+  const withoutObservation=probeErrorPayload(unknownError(ledger));
+  assert.equal(withoutObservation.historicalDiagnostics.PC_W1_HISTORY_CATALOG,'NOT_OBSERVED');
+  assert.equal(parseEvidence(probeDiagnostics(withoutObservation)+historicalTerminal).PC_W1_HISTORY_CATALOG,'NOT_OBSERVED');
+  rejects(()=>parseEvidence(output+historicalTerminal.replace('MUTATION=NONE','MUTATION=BOUNDED_SEVEN_MIGRATIONS')),'CONTRADICTORY_LEDGER_DIAGNOSTICS');
   rejects(()=>parseEvidence(output.replace('HISTORY_CATALOG=OBSERVED','HISTORY_CATALOG=UNAVAILABLE')+historicalTerminal),'CONTRADICTORY_HISTORY_DIAGNOSTICS');
   const checker=fs.readFileSync(new URL('./check-production-pc-crop-w1-acceptance.mjs',import.meta.url),'utf8');
   const transport=spawnSync(process.execPath,['--input-type=module','-e',checker,'--','--runtime-tool','probe-diagnostics'],{input:JSON.stringify(payload),encoding:'utf8'});

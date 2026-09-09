@@ -46,7 +46,7 @@ export const HISTORICAL_FUNCTIONS = Object.freeze([
 ].map(row => Object.freeze(row)));
 const HISTORY_EVIDENCE = Object.freeze({
   PC_W1_HISTORY_LEDGER: /^(EXACT_FOUR_SOURCE_CHECKSUMS|UNRECONCILED)$/,
-  PC_W1_HISTORY_CATALOG: /^(OBSERVED|UNAVAILABLE)$/,
+  PC_W1_HISTORY_CATALOG: /^(OBSERVED|UNAVAILABLE|NOT_OBSERVED)$/,
   PC_W1_HISTORY_CATALOG_SHA256: /^(?:[0-9a-f]{64}|NONE)$/,
   PC_W1_HISTORY_POLICIES: /^(?:[0-6]|UNKNOWN)$/,
   ...Object.fromEntries(HISTORICAL_FUNCTIONS.map((_, index) => [`PC_W1_HISTORY_FUNCTION_0${index}`,
@@ -151,8 +151,12 @@ export function probeErrorPayload(error) {
     payload.ledgerDiagnostics = Object.fromEntries([...LEDGER_COUNTS, 'SHA256'].map(key => [key, ledger[key]]));
     payload.ledgerDiagnostics.unknownMigrations = ledger.unknownMigrations.map(row=>({nameSha256:row.nameSha256,checksumSha256:row.checksumSha256,valueSha256:row.valueSha256}));
   }
-  if (payload.error === 'UNRECOGNIZED_APPLIED_MIGRATION' && payload.ledgerDiagnostics && validHistoryEvidence(error?.historicalDiagnostics)) {
-    payload.historicalDiagnostics = { ...error.historicalDiagnostics };
+  if (payload.error === 'UNRECOGNIZED_APPLIED_MIGRATION' && payload.ledgerDiagnostics) {
+    payload.historicalDiagnostics = validHistoryEvidence(error?.historicalDiagnostics) ? { ...error.historicalDiagnostics } : {
+      PC_W1_HISTORY_LEDGER: 'UNRECONCILED', PC_W1_HISTORY_CATALOG: 'NOT_OBSERVED',
+      PC_W1_HISTORY_CATALOG_SHA256: 'NONE', PC_W1_HISTORY_POLICIES: 'UNKNOWN',
+      ...Object.fromEntries(HISTORICAL_FUNCTIONS.map((_, index) => [`PC_W1_HISTORY_FUNCTION_0${index}`, 'NOT_OBSERVED'])),
+    };
   }
   return payload;
 }
@@ -389,12 +393,6 @@ export function parseEvidence(raw, { requireTerminal = true } = {}) {
   }
   if (requireTerminal && !result.PC_W1_RESULT) blocked('MISSING_TERMINAL_EVIDENCE');
   if (result.PC_W1_RESULT === 'BLOCKED' && !result.PC_W1_ERROR) blocked('MISSING_BLOCKER_CODE');
-  const history = Object.fromEntries(Object.entries(result).filter(([key]) => key.startsWith('PC_W1_HISTORY_')));
-  if (Object.keys(history).length && (!validHistoryEvidence(history) || result.PC_W1_RESULT !== 'BLOCKED'
-    || result.PC_W1_ERROR !== 'UNRECOGNIZED_APPLIED_MIGRATION' || result.PC_W1_DATABASE_MUTATION !== 'NONE'
-    || (history.PC_W1_HISTORY_LEDGER === 'EXACT_FOUR_SOURCE_CHECKSUMS' && result.PC_W1_LEDGER_UNKNOWN !== '4'))) {
-    blocked('CONTRADICTORY_HISTORY_DIAGNOSTICS');
-  }
   const driftKeys = Object.keys(result).filter(key => key.startsWith('PC_W1_CHECKSUM_DRIFT_'));
   if (driftKeys.length && (![3,4].includes(driftKeys.length) || !result.PC_W1_CHECKSUM_DRIFT_MIGRATION_SHA256
     || !result.PC_W1_CHECKSUM_DRIFT_EXPECTED_SHA256 || !result.PC_W1_CHECKSUM_DRIFT_APPLIED_SHA256 || result.PC_W1_RESULT !== 'BLOCKED'
@@ -417,6 +415,12 @@ export function parseEvidence(raw, { requireTerminal = true } = {}) {
     for(let index=0;index<detailCount;index++) for(const field of ['NAME','CHECKSUM','VALUE']) {
       if (!result[`PC_W1_UNKNOWN_${String(index).padStart(2,'0')}_${field}_SHA256`]) blocked('INCOMPLETE_UNKNOWN_MIGRATION_DIAGNOSTICS');
     }
+  }
+  const history = Object.fromEntries(Object.entries(result).filter(([key]) => key.startsWith('PC_W1_HISTORY_')));
+  if ((Object.keys(history).length || result.PC_W1_ERROR === 'UNRECOGNIZED_APPLIED_MIGRATION') && (!validHistoryEvidence(history) || result.PC_W1_RESULT !== 'BLOCKED'
+    || result.PC_W1_ERROR !== 'UNRECOGNIZED_APPLIED_MIGRATION' || result.PC_W1_DATABASE_MUTATION !== 'NONE'
+    || (history.PC_W1_HISTORY_LEDGER === 'EXACT_FOUR_SOURCE_CHECKSUMS' && result.PC_W1_LEDGER_UNKNOWN !== '4'))) {
+    blocked('CONTRADICTORY_HISTORY_DIAGNOSTICS');
   }
   if (result.PC_W1_RESULT && result.PC_W1_RESULT !== 'BLOCKED') {
     if (result.PC_W1_ERROR) blocked('CONTRADICTORY_REMOTE_EVIDENCE');
