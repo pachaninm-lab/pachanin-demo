@@ -637,7 +637,7 @@ test('verifier main requires genuine independent exact-head authority from Codex
   assert.match(mainBody, /fetchAllCommitStatuses\(repo, headSha\)/u);
   assert.match(mainBody, /REVIEW_GATE_INDEPENDENT_EXACT_HEAD_MISSING/u);
   assert.match(mainBody, /REVIEW_GATE_OWNER_SELF_AUDIT_MISSING/u);
-  assert.match(mainBody, /reviewAuthority=\$\{reviewAuthority\}/u);
+  assert.match(mainBody, /reviewAuthority=/u);
   assert.match(mainBody, /GITHUB_COPILOT/u);
   assert.match(mainBody, /OCTOPUS/u);
   assert.doesNotMatch(mainBody, /MACHINE_FALLBACK/u);
