@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "ops/qwen-bounded-context-v2",
+  "status": "active",
+  "purpose": "Bound the shared Local Qwen exact-head review provider runtime after the observed 240-second model contention timeout, preserving complete diff coverage, immutable pins, fail-closed publication and the review gate.",
+  "authorityBaseExactMain": "83cd5c1069cb92d8e5f05bad2be769a1a6b62175",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/local-qwen-independent-review.yml",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.mjs",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs",
+    "docs/platform-v7/autopilot/scopes/qwen-bounded-context-v2-20260909.json"
+  ],
+  "boundaries": {
+    "productBehaviorChange": false,
+    "securityGateWeakening": false,
+    "reviewGateWeakening": false,
+    "diffCoverageReduced": false,
+    "providerPinsChanged": false,
+    "failClosedPublicationPreserved": true
+  }
+}
