@@ -530,7 +530,7 @@ test('Auction head validation triggers for every immutable state-approved path',
 });
 
 
-test('W1 release scope authorizes seven operational paths and bounded historical scanner exceptions', () => {
+test('W1 release scope binds operational, correction and isolated lineage fixture paths to validation', () => {
   const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
   const approved = state.approvedConcurrentScopes['ops/pc-crop-w1-production-acceptance-4997'];
   const expected = [
@@ -542,6 +542,11 @@ test('W1 release scope authorizes seven operational paths and bounded historical
     'scripts/check-role-eligibility-api-release.mjs',
     '.github/workflows/production-web-exact-sha.yml',
     '.gitleaksignore',
+    'apps/api/prisma/migrations/20260909120000_reconcile_historical_auction_authority/migration.sql',
+    'scripts/fixtures/pc-crop-w1-lineage/20260716130000_market_open_lots_showcase.sql',
+    'scripts/fixtures/pc-crop-w1-lineage/20260716150000_auction_cross_tenant_participation.sql',
+    'scripts/fixtures/pc-crop-w1-lineage/20260716160000_auction_participant_workspace.sql',
+    'scripts/fixtures/pc-crop-w1-lineage/20260717170000_deal_cross_tenant_participation.sql',
   ];
   assert.deepEqual(approved, expected);
   const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
@@ -550,6 +555,28 @@ test('W1 release scope authorizes seven operational paths and bounded historical
   assert.ok(first >= 0 && last > first);
   const paths = [...workflow.slice(first, last).matchAll(/^      - '([^']+)'$/gmu)].map((match) => match[1]);
   for (const file of approved) assert.equal(paths.filter((entry) => entry === file).length, 1, `Missing W1 head-validation trigger: ${file}`);
+  const contract = fs.readFileSync('.github/workflows/pc-crop-w1-production-acceptance.yml', 'utf8');
+  const contractTrigger = contract.slice(contract.indexOf('\n  pull_request:\n'), contract.indexOf('\n  issue_comment:\n'));
+  const contractPaths = [...contractTrigger.matchAll(/^      - '([^']+)'$/gmu)].map((match) => match[1]);
+  for (const file of approved.filter(file => file.startsWith('apps/api/prisma/migrations/') || file.startsWith('scripts/fixtures/pc-crop-w1-lineage/'))) {
+    assert.equal(contractPaths.filter(entry => entry === file).length, 1, `Missing W1 contract trigger: ${file}`);
+  }
+});
+
+test('W1 cannot execute a newly appended lineage path against an older immutable base', (t) => {
+  const branch = 'ops/pc-crop-w1-production-acceptance-4997';
+  const context = fixture(t, branch);
+  const stateFile = 'docs/platform-v7/autopilot/autopilot-state.json';
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, stateFile), 'utf8'));
+  const migration = 'apps/api/prisma/migrations/20260909120000_reconcile_historical_auction_authority/migration.sql';
+  state.approvedConcurrentScopes[branch].push(migration);
+  write(context.root, stateFile, JSON.stringify(state));
+  write(context.root, migration, 'SELECT 1;\n');
+  commit(context.root, 'attempt premature lineage path self-approval');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /Mutable scope authority changed/u);
+  assert.ok(output(result).includes(migration));
 });
 
 test('W1 implementation cannot authorize itself when the immutable base lacks its scope', (t) => {
