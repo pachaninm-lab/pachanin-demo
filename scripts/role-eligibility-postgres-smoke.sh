@@ -51,7 +51,58 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_BASE"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_SUPERSEDED"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_RUNTIME"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_APP_DEAL_API"
+
+# A committed pre-coverage STAGING import must remain resumable across the forward migration.
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+INSERT INTO eligibility.registry_generations(
+  id,source,generation,published_at,downloaded_at,content_sha256,record_count,
+  parser_version,schema_version,status,fresh_until,created_at,validated_at
+) VALUES (
+  'elg_precoverage_staging','FNS','egrul-precoverage-staging',clock_timestamp()-interval '5 minutes',clock_timestamp(),
+  repeat('e',64),1,'fns-egrul-v1','EGRUL_408','STAGING',clock_timestamp()+interval '1 day',clock_timestamp(),NULL
+);
+INSERT INTO eligibility.registry_records(
+  id,generation_id,source,source_record_id,subject_inn,subject_ogrn,record_type,
+  normalized_payload,source_published_at,payload_sha256,created_at
+) VALUES (
+  'elr_precoverage_staging_1','elg_precoverage_staging','FNS','1027700132195','7707083893','1027700132195',
+  'EGRUL_LEGAL_ENTITY','{"active":true}'::jsonb,clock_timestamp(),repeat('e',64),clock_timestamp()
+);
+SQL
+
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$MIGRATION_COVERAGE"
+
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+DO $precoverage_staging_unsealed$
+BEGIN
+  IF EXISTS (SELECT 1 FROM eligibility.registry_generation_authority WHERE generation_id='elg_precoverage_staging') THEN
+    RAISE EXCEPTION 'PRE_COVERAGE_STAGING_WAS_BACKFILLED_WITH_AUTHORITY';
+  END IF;
+  IF (SELECT status FROM eligibility.registry_generations WHERE id='elg_precoverage_staging') <> 'STAGING' THEN
+    RAISE EXCEPTION 'PRE_COVERAGE_STAGING_STATUS_CHANGED';
+  END IF;
+END
+$precoverage_staging_unsealed$;
+
+SET ROLE app_runtime;
+INSERT INTO eligibility.registry_records(
+  id,generation_id,source,source_record_id,subject_inn,subject_ogrn,record_type,
+  normalized_payload,source_published_at,payload_sha256,created_at
+) VALUES (
+  'elr_precoverage_staging_2','elg_precoverage_staging','FNS','1047796045770','7812345675','1047796045770',
+  'EGRUL_LEGAL_ENTITY','{"active":true}'::jsonb,clock_timestamp(),repeat('f',64),clock_timestamp()
+);
+RESET ROLE;
+UPDATE eligibility.registry_generations SET record_count=2 WHERE id='elg_precoverage_staging';
+DO $precoverage_staging_resume$
+BEGIN
+  IF (SELECT record_count FROM eligibility.registry_generations WHERE id='elg_precoverage_staging') <> 2
+     OR (SELECT count(*) FROM eligibility.registry_records WHERE generation_id='elg_precoverage_staging') <> 2 THEN
+    RAISE EXCEPTION 'PRE_COVERAGE_STAGING_RESUME_FAILED';
+  END IF;
+END
+$precoverage_staging_resume$;
+SQL
 
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
 -- #5064 domain/coverage/finality authority proof.
@@ -61,7 +112,8 @@ INSERT INTO eligibility.registry_generations(
 ) VALUES
   ('elg_egrul_a','FNS','egrul-a',clock_timestamp(),clock_timestamp(),repeat('1',64),1,'fns-egrul-v1','EGRUL_408','STAGING',clock_timestamp()+interval '1 day',clock_timestamp(),NULL),
   ('elg_egrip_a','FNS','egrip-a',clock_timestamp(),clock_timestamp(),repeat('2',64),1,'fns-egrip-v1','EGRIP_407','STAGING',clock_timestamp()+interval '1 day',clock_timestamp(),NULL),
-  ('elg_egrul_b','FNS','egrul-b',clock_timestamp()+interval '1 minute',clock_timestamp(),repeat('3',64),1,'fns-egrul-v1','EGRUL_408','STAGING',clock_timestamp()+interval '1 day',clock_timestamp(),NULL);
+  ('elg_egrul_b','FNS','egrul-b',clock_timestamp()+interval '1 minute',clock_timestamp(),repeat('3',64),1,'fns-egrul-v1','EGRUL_408','STAGING',clock_timestamp()+interval '1 day',clock_timestamp(),NULL),
+  ('elg_egrul_c','FNS','egrul-c',clock_timestamp()+interval '2 minutes',clock_timestamp(),repeat('4',64),1,'fns-egrul-v1','EGRUL_408','STAGING',clock_timestamp()+interval '1 day',clock_timestamp(),NULL);
 
 INSERT INTO eligibility.registry_records(
   id,generation_id,source,source_record_id,subject_inn,subject_ogrn,record_type,
@@ -70,7 +122,9 @@ INSERT INTO eligibility.registry_records(
   ('elr_egrul_a_present','elg_egrul_a','FNS','1027700132195','7707083893','1027700132195',
    'EGRUL_LEGAL_ENTITY','{"active":true}'::jsonb,clock_timestamp(),repeat('a',64),clock_timestamp()),
   ('elr_egrul_b_present','elg_egrul_b','FNS','1027700132195','7707083893','1027700132195',
-   'EGRUL_LEGAL_ENTITY','{"active":true}'::jsonb,clock_timestamp(),repeat('b',64),clock_timestamp());
+   'EGRUL_LEGAL_ENTITY','{"active":true}'::jsonb,clock_timestamp(),repeat('b',64),clock_timestamp()),
+  ('elr_egrul_c_present','elg_egrul_c','FNS','1027700132195','7707083893','1027700132195',
+   'EGRUL_LEGAL_ENTITY','{"active":true}'::jsonb,clock_timestamp(),repeat('c',64),clock_timestamp());
 
 DO $domain_backfill$
 BEGIN
@@ -108,6 +162,7 @@ $simultaneous_domains$;
 -- derived from the exact predecessor/effective record sets and atomically closes
 -- further record mutation before validation or authority materialization.
 SELECT eligibility.record_fns_egrul_predecessor('elg_egrul_b','elg_egrul_a');
+SELECT eligibility.record_fns_egrul_predecessor('elg_egrul_c','elg_egrul_a');
 
 DO $composition_manifest_proof$
 DECLARE l RECORD;
@@ -172,8 +227,24 @@ RESET ROLE;
 
 UPDATE eligibility.registry_generations
 SET status='VALIDATED',validated_at=clock_timestamp()
-WHERE id='elg_egrul_b' AND status='STAGING';
+WHERE id IN ('elg_egrul_b','elg_egrul_c') AND status='STAGING';
 SELECT eligibility.activate_registry_generation('FNS','EGRUL','egrul-b');
+
+DO $stale_lineage_activation_guard$
+BEGIN
+  BEGIN
+    PERFORM eligibility.activate_registry_generation('FNS','EGRUL','egrul-c');
+    RAISE EXCEPTION 'STALE_LINEAGE_ACTIVATION_UNEXPECTEDLY_ALLOWED';
+  EXCEPTION WHEN object_not_in_prerequisite_state THEN NULL;
+  END;
+  IF (SELECT status FROM eligibility.registry_generations WHERE id='elg_egrul_b') <> 'ACTIVE' THEN
+    RAISE EXCEPTION 'STALE_LINEAGE_ACTIVATION_DISPLACED_CURRENT_ACTIVE';
+  END IF;
+  IF (SELECT status FROM eligibility.registry_generations WHERE id='elg_egrul_c') <> 'VALIDATED' THEN
+    RAISE EXCEPTION 'STALE_LINEAGE_TARGET_STATE_CHANGED';
+  END IF;
+END
+$stale_lineage_activation_guard$;
 
 DO $domain_monotonicity$
 BEGIN
@@ -208,16 +279,20 @@ BEGIN
 END
 $health_domains$;
 
--- External coverage facts enter only as immutable content-addressed evidence.
--- Booleans, policy identities, lineage and authority_token are not parameters.
-SET ROLE pc_role_eligibility_authority;
-SELECT eligibility.record_fns_egrul_authority_evidence(
-  'elg_egrul_b','ACQUISITION_COMPLETE','sha256:' || repeat('1',64),repeat('1',64),NULL
+-- Synthetic external facts represent already-verified fixtures and are persisted only
+-- by the database owner. The production authority role is materializer-only.
+SELECT eligibility.persist_registry_authority_evidence(
+  'elg_egrul_b','FNS','EGRUL','ACQUISITION_COMPLETE','fixture://verified/elg_egrul_b/acquisition',repeat('1',64),
+  (SELECT content_sha256 FROM eligibility.registry_generations WHERE id='elg_egrul_b'),
+  (SELECT record_count FROM eligibility.registry_generations WHERE id='elg_egrul_b'),NULL
 );
-SELECT eligibility.record_fns_egrul_authority_evidence(
-  'elg_egrul_b','BASELINE_COVERAGE','sha256:' || repeat('2',64),repeat('2',64),
+SELECT eligibility.persist_registry_authority_evidence(
+  'elg_egrul_b','FNS','EGRUL','BASELINE_COVERAGE','fixture://verified/elg_egrul_b/baseline',repeat('2',64),
+  (SELECT content_sha256 FROM eligibility.registry_generations WHERE id='elg_egrul_b'),
+  (SELECT record_count FROM eligibility.registry_generations WHERE id='elg_egrul_b'),
   (SELECT published_at FROM eligibility.registry_generations WHERE id='elg_egrul_b')
 );
+SET ROLE pc_role_eligibility_authority;
 SELECT eligibility.materialize_fns_egrul_registry_authority('elg_egrul_b');
 RESET ROLE;
 
@@ -341,10 +416,11 @@ BEGIN
   EXCEPTION WHEN insufficient_privilege THEN NULL;
   END;
   BEGIN
-    PERFORM eligibility.record_fns_egrul_authority_evidence(
-      'elg_egrul_b','SOURCE_FINALITY','sha256:' || repeat('3',64),repeat('3',64),clock_timestamp()
+    PERFORM eligibility.persist_registry_authority_evidence(
+      'elg_egrul_b','FNS','EGRUL','SOURCE_FINALITY','fixture://untrusted/runtime',repeat('3',64),
+      repeat('3',64),1,clock_timestamp()
     );
-    RAISE EXCEPTION 'RUNTIME_EVIDENCE_WRITER_UNEXPECTEDLY_ALLOWED';
+    RAISE EXCEPTION 'RUNTIME_EVIDENCE_PERSIST_UNEXPECTEDLY_ALLOWED';
   EXCEPTION WHEN insufficient_privilege THEN NULL;
   END;
   BEGIN
@@ -404,18 +480,24 @@ UPDATE eligibility.registry_generations
 SET status='VALIDATED',validated_at=clock_timestamp()
 WHERE id='elg_egrul_final' AND status='STAGING';
 
+SELECT eligibility.persist_registry_authority_evidence(
+  'elg_egrul_final','FNS','EGRUL','ACQUISITION_COMPLETE','fixture://verified/elg_egrul_final/acquisition',repeat('4',64),
+  (SELECT content_sha256 FROM eligibility.registry_generations WHERE id='elg_egrul_final'),
+  (SELECT record_count FROM eligibility.registry_generations WHERE id='elg_egrul_final'),NULL
+);
+SELECT eligibility.persist_registry_authority_evidence(
+  'elg_egrul_final','FNS','EGRUL','BASELINE_COVERAGE','fixture://verified/elg_egrul_final/baseline',repeat('5',64),
+  (SELECT content_sha256 FROM eligibility.registry_generations WHERE id='elg_egrul_final'),
+  (SELECT record_count FROM eligibility.registry_generations WHERE id='elg_egrul_final'),
+  (SELECT published_at FROM eligibility.registry_generations WHERE id='elg_egrul_final')
+);
+SELECT eligibility.persist_registry_authority_evidence(
+  'elg_egrul_final','FNS','EGRUL','SOURCE_FINALITY','fixture://verified/elg_egrul_final/finality',repeat('6',64),
+  (SELECT content_sha256 FROM eligibility.registry_generations WHERE id='elg_egrul_final'),
+  (SELECT record_count FROM eligibility.registry_generations WHERE id='elg_egrul_final'),
+  (SELECT published_at FROM eligibility.registry_generations WHERE id='elg_egrul_final')
+);
 SET ROLE pc_role_eligibility_authority;
-SELECT eligibility.record_fns_egrul_authority_evidence(
-  'elg_egrul_final','ACQUISITION_COMPLETE','sha256:' || repeat('4',64),repeat('4',64),NULL
-);
-SELECT eligibility.record_fns_egrul_authority_evidence(
-  'elg_egrul_final','BASELINE_COVERAGE','sha256:' || repeat('5',64),repeat('5',64),
-  (SELECT published_at FROM eligibility.registry_generations WHERE id='elg_egrul_final')
-);
-SELECT eligibility.record_fns_egrul_authority_evidence(
-  'elg_egrul_final','SOURCE_FINALITY','sha256:' || repeat('6',64),repeat('6',64),
-  (SELECT published_at FROM eligibility.registry_generations WHERE id='elg_egrul_final')
-);
 SELECT eligibility.materialize_fns_egrul_registry_authority('elg_egrul_final');
 RESET ROLE;
 
@@ -515,11 +597,24 @@ BEGIN
      OR has_table_privilege('pc_role_eligibility_authority','eligibility.registry_authority_policy_catalog','INSERT') THEN
     RAISE EXCEPTION 'AUTHORITY_ROLE_RAW_TABLE_WRITE_PRESENT';
   END IF;
-  IF NOT has_function_privilege('pc_role_eligibility_authority','eligibility.record_fns_egrul_authority_evidence(text,text,text,character,timestamp with time zone)','EXECUTE')
-     OR NOT has_function_privilege('pc_role_eligibility_authority','eligibility.materialize_fns_egrul_registry_authority(text)','EXECUTE') THEN
-    RAISE EXCEPTION 'AUTHORITY_ROLE_BOUNDED_FUNCTION_MISSING';
+  IF to_regprocedure('eligibility.record_fns_egrul_authority_evidence(text,text,text,character,timestamp with time zone)') IS NOT NULL THEN
+    RAISE EXCEPTION 'OPAQUE_EXTERNAL_EVIDENCE_WRITER_PRESENT';
   END IF;
-  IF has_function_privilege('pc_role_eligibility_runtime','eligibility.record_fns_egrul_authority_evidence(text,text,text,character,timestamp with time zone)','EXECUTE')
+  IF has_function_privilege(
+       'pc_role_eligibility_authority',
+       'eligibility.persist_registry_authority_evidence(text,text,text,text,text,character,character,bigint,timestamp with time zone)',
+       'EXECUTE'
+     ) THEN
+    RAISE EXCEPTION 'AUTHORITY_ROLE_EXTERNAL_EVIDENCE_PERSIST_PRESENT';
+  END IF;
+  IF NOT has_function_privilege('pc_role_eligibility_authority','eligibility.materialize_fns_egrul_registry_authority(text)','EXECUTE') THEN
+    RAISE EXCEPTION 'AUTHORITY_ROLE_MATERIALIZER_MISSING';
+  END IF;
+  IF has_function_privilege(
+       'pc_role_eligibility_runtime',
+       'eligibility.persist_registry_authority_evidence(text,text,text,text,text,character,character,bigint,timestamp with time zone)',
+       'EXECUTE'
+     )
      OR has_function_privilege('pc_role_eligibility_runtime','eligibility.materialize_fns_egrul_registry_authority(text)','EXECUTE') THEN
     RAISE EXCEPTION 'RUNTIME_ROLE_AUTHORITY_PROMOTION_EXECUTE_PRESENT';
   END IF;
@@ -788,7 +883,7 @@ BEGIN
        OR has_table_privilege(runtime_role,'eligibility.registry_authority_policy_catalog','DELETE') THEN
       RAISE EXCEPTION 'RESOLVER_APPLICATION_EVIDENCE_POLICY_WRITE_PRESENT role=%',runtime_role;
     END IF;
-    IF has_function_privilege(runtime_role,'eligibility.record_fns_egrul_authority_evidence(text,text,text,character,timestamp with time zone)','EXECUTE')
+    IF has_function_privilege(runtime_role,'eligibility.persist_registry_authority_evidence(text,text,text,text,text,character,character,bigint,timestamp with time zone)','EXECUTE')
        OR has_function_privilege(runtime_role,'eligibility.materialize_fns_egrul_registry_authority(text)','EXECUTE') THEN
       RAISE EXCEPTION 'RESOLVER_APPLICATION_PROMOTION_EXECUTE_PRESENT role=%',runtime_role;
     END IF;
@@ -836,4 +931,7 @@ printf '%s\n' \
   'FNS_COMPOSITION_MANIFEST=PASS' \
   'FNS_RECORDSET_IMMUTABILITY=PASS' \
   'FNS_AUTHORITY_SERIALIZATION=PASS' \
+  'FNS_STAGING_RESUME_AFTER_COVERAGE_MIGRATION=PASS' \
+  'FNS_STALE_LINEAGE_ACTIVATION=PASS' \
+  'FNS_EXTERNAL_EVIDENCE_WRITER_PRODUCTION_GRANT=0' \
   'FNS_RUNTIME_RESOLVER_EXECUTION=PASS'

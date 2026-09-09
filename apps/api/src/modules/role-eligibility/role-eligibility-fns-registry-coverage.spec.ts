@@ -121,7 +121,8 @@ describe('RoleEligibilityFnsRegistryCoverageService', () => {
 
   it('derives complete coverage/finality only from immutable evidence through the bounded verifier', () => {
     expect(coverageMigration).toContain('CREATE TABLE eligibility.registry_generation_authority_evidence');
-    expect(coverageMigration).toContain('CREATE OR REPLACE FUNCTION eligibility.record_fns_egrul_authority_evidence');
+    expect(coverageMigration).toContain('CREATE OR REPLACE FUNCTION eligibility.persist_registry_authority_evidence');
+    expect(coverageMigration).not.toContain('CREATE OR REPLACE FUNCTION eligibility.record_fns_egrul_authority_evidence');
     expect(coverageMigration).toContain('CREATE OR REPLACE FUNCTION eligibility.materialize_fns_egrul_registry_authority');
     expect(coverageMigration).toContain('NEW.acquisition_complete := FALSE;');
     expect(coverageMigration).toContain('NEW.source_finality := FALSE;');
@@ -130,6 +131,11 @@ describe('RoleEligibilityFnsRegistryCoverageService', () => {
     expect(coverageMigration).toContain('s.acquisition_evidence_valid IS DISTINCT FROM TRUE');
     expect(coverageMigration).toContain('s.source_finality_evidence_valid IS DISTINCT FROM TRUE');
     expect(coverageMigration).toContain('s.authority_token_valid IS DISTINCT FROM TRUE');
+    expect(coverageMigration).toContain(
+      'REVOKE EXECUTE ON FUNCTION eligibility.persist_registry_authority_evidence(TEXT,TEXT,TEXT,TEXT,TEXT,CHAR(64),CHAR(64),BIGINT,TIMESTAMPTZ) FROM pc_role_eligibility_authority;',
+    );
+    expect(postgresSmoke).toContain('OPAQUE_EXTERNAL_EVIDENCE_WRITER_PRESENT');
+    expect(postgresSmoke).toContain('AUTHORITY_ROLE_EXTERNAL_EVIDENCE_PERSIST_PRESENT');
     expect(postgresSmoke).toContain('SET ROLE pc_role_eligibility_authority;');
     expect(postgresSmoke).toContain("SELECT eligibility.materialize_fns_egrul_registry_authority('elg_egrul_final');");
   });
@@ -186,6 +192,24 @@ describe('RoleEligibilityFnsRegistryCoverageService', () => {
     expect(coverageMigration).toContain('SELECT c.predecessor_generation_id INTO baseline_generation_id');
     expect(coverageMigration).toContain('FROM chain AS c ORDER BY c.depth DESC LIMIT 1;');
     expect(postgresSmoke).toContain("SELECT eligibility.record_fns_egrul_predecessor('elg_egrul_b','elg_egrul_a');");
+  });
+
+  it('keeps pre-migration STAGING imports authority-free and resumable', () => {
+    expect(coverageMigration).toMatch(
+      /FROM eligibility\.registry_generations\s+WHERE status <> 'STAGING'\s+ON CONFLICT \(generation_id\) DO NOTHING;/,
+    );
+    expect(postgresSmoke).toContain('elg_precoverage_staging');
+    expect(postgresSmoke).toContain('PRE_COVERAGE_STAGING_WAS_BACKFILLED_WITH_AUTHORITY');
+    expect(postgresSmoke).toContain('PRE_COVERAGE_STAGING_RESUME_FAILED');
+    expect(postgresSmoke).toContain('FNS_STAGING_RESUME_AFTER_COVERAGE_MIGRATION=PASS');
+  });
+
+  it('rejects daily activation when the persisted predecessor is no longer current ACTIVE EGRUL', () => {
+    expect(coverageMigration).toContain("MESSAGE = 'stale EGRUL lineage predecessor; rebase required'");
+    expect(coverageMigration).toContain('target_predecessor_id IS DISTINCT FROM current_active_id');
+    expect(postgresSmoke).toContain("SELECT eligibility.record_fns_egrul_predecessor('elg_egrul_c','elg_egrul_a');");
+    expect(postgresSmoke).toContain('STALE_LINEAGE_ACTIVATION_UNEXPECTEDLY_ALLOWED');
+    expect(postgresSmoke).toContain('FNS_STALE_LINEAGE_ACTIVATION=PASS');
   });
 
 });

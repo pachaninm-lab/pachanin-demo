@@ -464,9 +464,9 @@ INSERT INTO eligibility.registry_authority_policy_catalog(
     encode(public.digest(convert_to('role-eligibility/fns/egrul/finality/v1','UTF8'),'sha256'),'hex')
   );
 
--- Immutable generation-level evidence. External facts are content-addressed
--- attestations written only through the authority role; DB-derivable facts are
--- materialized by the verifier from registry rows/lineage and cannot be asserted.
+-- Immutable generation-level evidence. External facts are accepted only from a
+-- separately reviewed verifier or migration-owner fixture; no production role may
+-- persist them. DB-derivable facts are materialized from registry rows/lineage.
 CREATE TABLE eligibility.registry_generation_authority_evidence (
   id CHAR(64) PRIMARY KEY CHECK (id ~ '^[0-9a-f]{64}$'),
   generation_id TEXT NOT NULL,
@@ -564,67 +564,6 @@ BEGIN
 END
 $function$;
 REVOKE ALL ON FUNCTION eligibility.persist_registry_authority_evidence(TEXT,TEXT,TEXT,TEXT,TEXT,CHAR(64),CHAR(64),BIGINT,TIMESTAMPTZ) FROM PUBLIC;
-
--- Only content-addressed external attestations enter through this writer. It
--- accepts no coverage/finality booleans and no policy identity.
-CREATE OR REPLACE FUNCTION eligibility.record_fns_egrul_authority_evidence(
-  p_generation_id TEXT,
-  p_evidence_kind TEXT,
-  p_evidence_reference TEXT,
-  p_evidence_sha256 CHAR(64),
-  p_effective_cutoff TIMESTAMPTZ DEFAULT NULL
-)
-RETURNS CHAR(64)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = pg_catalog, eligibility
-AS $function$
-DECLARE
-  target RECORD;
-BEGIN
-  IF p_evidence_kind NOT IN ('ACQUISITION_COMPLETE','BASELINE_COVERAGE','SOURCE_FINALITY') THEN
-    RAISE EXCEPTION 'external evidence kind is not authority-writable';
-  END IF;
-  IF p_evidence_sha256 IS NULL OR p_evidence_sha256 !~ '^[0-9a-f]{64}$'
-     OR p_evidence_reference IS DISTINCT FROM ('sha256:' || p_evidence_sha256::text) THEN
-    RAISE EXCEPTION 'external authority evidence must be content-addressed';
-  END IF;
-
-  SELECT id,source,registry_domain,status,published_at,fresh_until,content_sha256,record_count,
-         parser_version,schema_version
-  INTO target
-  FROM eligibility.registry_generations
-  WHERE id=p_generation_id
-  FOR SHARE;
-  IF NOT FOUND
-     OR target.source <> 'FNS'
-     OR target.registry_domain <> 'EGRUL'
-     OR target.status NOT IN ('VALIDATED','ACTIVE')
-     OR target.parser_version <> 'fns-egrul-v1'
-     OR target.schema_version NOT IN ('EGRUL_408','EGRUL_407')
-     OR target.record_count <= 0 THEN
-    RAISE EXCEPTION 'external authority evidence target is not accepted EGRUL generation';
-  END IF;
-
-  IF p_evidence_kind='ACQUISITION_COMPLETE' THEN
-    IF p_effective_cutoff IS NOT NULL THEN
-      RAISE EXCEPTION 'acquisition evidence cannot set effective cutoff';
-    END IF;
-  ELSE
-    IF p_effective_cutoff IS NULL OR NOT isfinite(p_effective_cutoff)
-       OR p_effective_cutoff < target.published_at
-       OR p_effective_cutoff >= target.fresh_until THEN
-      RAISE EXCEPTION 'coverage/finality evidence cutoff is outside generation authority window';
-    END IF;
-  END IF;
-
-  RETURN eligibility.persist_registry_authority_evidence(
-    target.id,target.source,target.registry_domain,p_evidence_kind,p_evidence_reference,p_evidence_sha256,
-    target.content_sha256,target.record_count,p_effective_cutoff
-  );
-END
-$function$;
-REVOKE ALL ON FUNCTION eligibility.record_fns_egrul_authority_evidence(TEXT,TEXT,TEXT,CHAR(64),TIMESTAMPTZ) FROM PUBLIC;
 
 CREATE TABLE eligibility.registry_generation_authority (
   generation_id TEXT PRIMARY KEY,
@@ -1320,7 +1259,8 @@ CREATE TRIGGER registry_generation_authority_append_only
 BEFORE UPDATE OR DELETE ON eligibility.registry_generation_authority
 FOR EACH ROW EXECUTE FUNCTION eligibility.reject_append_only_mutation();
 
--- Every pre-existing generation receives only conservative, immutable authority facts.
+-- Every non-STAGING pre-existing generation receives only conservative, immutable
+-- authority facts. Mutable STAGING imports remain authority-free and resumable.
 INSERT INTO eligibility.registry_generation_authority (
   generation_id, source, registry_domain, coverage_kind, generation_mode,
   acquisition_complete, local_import_integrity, baseline_coverage, update_continuity, source_finality,
@@ -1328,6 +1268,7 @@ INSERT INTO eligibility.registry_generation_authority (
 )
 SELECT id, source, registry_domain, 'UNKNOWN', 'UNKNOWN', FALSE, FALSE, FALSE, FALSE, FALSE, content_sha256, created_at
 FROM eligibility.registry_generations
+WHERE status <> 'STAGING'
 ON CONFLICT (generation_id) DO NOTHING;
 
 CREATE OR REPLACE FUNCTION eligibility.activate_registry_generation(
@@ -1341,6 +1282,9 @@ AS $function$
 DECLARE
   target_id TEXT;
   target_status TEXT;
+  target_predecessor_id TEXT;
+  current_active_id TEXT;
+  target_has_lineage BOOLEAN := FALSE;
 BEGIN
   PERFORM pg_advisory_xact_lock(hashtextextended(p_source || ':' || p_registry_domain, 0));
   SELECT id, status INTO target_id, target_status
@@ -1351,6 +1295,30 @@ BEGIN
   IF target_status NOT IN ('VALIDATED','ACTIVE') THEN
     RAISE EXCEPTION 'generation must be validated before activation';
   END IF;
+
+  -- A daily EGRUL composition is sealed against one exact ACTIVE predecessor.
+  -- Activation is domain-serialized, so immediately before the pointer switch the
+  -- persisted predecessor must still be the current ACTIVE generation. Otherwise
+  -- a sibling daily generation could supersede data that this target never inherited.
+  IF p_source = 'FNS' AND p_registry_domain = 'EGRUL' AND target_status <> 'ACTIVE' THEN
+    SELECT predecessor_generation_id INTO target_predecessor_id
+    FROM eligibility.registry_generation_lineage
+    WHERE generation_id = target_id;
+    target_has_lineage := FOUND;
+
+    IF target_has_lineage THEN
+      SELECT id INTO current_active_id
+      FROM eligibility.registry_generations
+      WHERE source = p_source AND registry_domain = p_registry_domain AND status = 'ACTIVE'
+      FOR UPDATE;
+      IF NOT FOUND OR target_predecessor_id IS DISTINCT FROM current_active_id THEN
+        RAISE EXCEPTION USING
+          ERRCODE = '55000',
+          MESSAGE = 'stale EGRUL lineage predecessor; rebase required';
+      END IF;
+    END IF;
+  END IF;
+
   UPDATE eligibility.registry_generations
   SET status = CASE
     WHEN p_source = 'FNS' AND p_registry_domain IN ('EGRUL','EGRIP') THEN 'SUPERSEDED'
@@ -1628,7 +1596,7 @@ REVOKE INSERT, UPDATE, DELETE ON TABLE eligibility.registry_generation_authority
 GRANT SELECT ON TABLE eligibility.registry_authority_policy_catalog TO pc_role_eligibility_runtime;
 GRANT SELECT ON TABLE eligibility.registry_generation_authority_evidence TO pc_role_eligibility_runtime;
 GRANT SELECT ON TABLE eligibility.registry_generation_authority TO pc_role_eligibility_runtime;
-REVOKE EXECUTE ON FUNCTION eligibility.record_fns_egrul_authority_evidence(TEXT,TEXT,TEXT,CHAR(64),TIMESTAMPTZ) FROM pc_role_eligibility_runtime;
+REVOKE EXECUTE ON FUNCTION eligibility.persist_registry_authority_evidence(TEXT,TEXT,TEXT,TEXT,TEXT,CHAR(64),CHAR(64),BIGINT,TIMESTAMPTZ) FROM pc_role_eligibility_runtime;
 REVOKE EXECUTE ON FUNCTION eligibility.materialize_fns_egrul_registry_authority(TEXT) FROM pc_role_eligibility_runtime;
 GRANT EXECUTE ON FUNCTION eligibility.activate_registry_generation(TEXT, TEXT, TEXT) TO pc_role_eligibility_runtime;
 
@@ -1643,7 +1611,7 @@ REVOKE INSERT, UPDATE, DELETE ON TABLE eligibility.registry_generation_lineage F
 REVOKE INSERT, UPDATE, DELETE ON TABLE eligibility.registry_authority_policy_catalog FROM pc_role_eligibility_authority;
 REVOKE INSERT, UPDATE, DELETE ON TABLE eligibility.registry_generation_authority_evidence FROM pc_role_eligibility_authority;
 REVOKE INSERT, UPDATE, DELETE ON TABLE eligibility.registry_generation_authority FROM pc_role_eligibility_authority;
-GRANT EXECUTE ON FUNCTION eligibility.record_fns_egrul_authority_evidence(TEXT,TEXT,TEXT,CHAR(64),TIMESTAMPTZ) TO pc_role_eligibility_authority;
+REVOKE EXECUTE ON FUNCTION eligibility.persist_registry_authority_evidence(TEXT,TEXT,TEXT,TEXT,TEXT,CHAR(64),CHAR(64),BIGINT,TIMESTAMPTZ) FROM pc_role_eligibility_authority;
 GRANT EXECUTE ON FUNCTION eligibility.materialize_fns_egrul_registry_authority(TEXT) TO pc_role_eligibility_authority;
 
 DO $bounded_domain_grants$
@@ -1660,7 +1628,7 @@ BEGIN
       EXECUTE format('GRANT SELECT ON eligibility.registry_authority_policy_catalog TO %I', role_name);
       EXECUTE format('GRANT SELECT ON eligibility.registry_generation_authority_evidence TO %I', role_name);
       EXECUTE format('GRANT SELECT ON eligibility.registry_generation_authority TO %I', role_name);
-      EXECUTE format('REVOKE EXECUTE ON FUNCTION eligibility.record_fns_egrul_authority_evidence(TEXT,TEXT,TEXT,CHAR(64),TIMESTAMPTZ) FROM %I', role_name);
+      EXECUTE format('REVOKE EXECUTE ON FUNCTION eligibility.persist_registry_authority_evidence(TEXT,TEXT,TEXT,TEXT,TEXT,CHAR(64),CHAR(64),BIGINT,TIMESTAMPTZ) FROM %I', role_name);
       EXECUTE format('REVOKE EXECUTE ON FUNCTION eligibility.materialize_fns_egrul_registry_authority(TEXT) FROM %I', role_name);
       EXECUTE format('GRANT EXECUTE ON FUNCTION eligibility.activate_registry_generation(TEXT, TEXT, TEXT) TO %I', role_name);
       EXECUTE format('GRANT EXECUTE ON FUNCTION eligibility.resolve_fns_egrul_inn(TEXT, TIMESTAMPTZ) TO %I', role_name);
