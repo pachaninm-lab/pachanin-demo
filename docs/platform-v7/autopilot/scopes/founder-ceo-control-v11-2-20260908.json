@@ -16,6 +16,7 @@
     "apps/api/src/app.module.ts",
     "infra/kind/production-like/postgresql-runtime-grants.sql",
     "apps/api/src/modules/founder-control/**",
+    "apps/api/src/modules/auth/codeqlPasswordHashModel.spec.ts",
     "apps/api/src/modules/staff-access/staff-access.types.ts",
     "apps/web/app/api/staff/founder-control/**",
     "apps/web/app/platform-v7/staff/page.tsx",
