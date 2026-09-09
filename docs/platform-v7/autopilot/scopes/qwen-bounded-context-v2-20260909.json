@@ -2,8 +2,8 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "ops/qwen-bounded-context-v2",
   "status": "active",
-  "purpose": "Bound the shared Local Qwen exact-head review provider runtime after the observed 240-second model contention timeout, preserving complete diff coverage, immutable pins, fail-closed publication and the review gate.",
-  "authorityBaseExactMain": "eb2bcf000969730b8fb2aacd999d2b82495f1a23",
+  "purpose": "Tighten the shared Local Qwen exact-head review provider runtime to 8 KiB diff chunks, 8 KiB model context and 32 output tokens after repeated bounded inference timeouts, while preserving complete diff coverage, immutable pins, fail-closed publication and the review gate.",
+  "authorityBaseExactMain": "6a807882f51150170dc477e82d0e2fbb7053bc73",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
