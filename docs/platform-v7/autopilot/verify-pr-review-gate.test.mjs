@@ -686,8 +686,6 @@ test('Local Qwen workflow is bounded, chunk-complete, pinned and fail-closed', (
   assert.match(workflow, /--ctx-size 32768/u);
   assert.match(workflow, /--n-predict 128/u);
   assert.match(workflow, /CPU_COUNT="\\$\\(nproc\\)"/u);
-  assert.match(workflow, /INFERENCE_WORKERS=4/u);
-  assert.match(workflow, /CHUNK_COUNT == 1/u);
   assert.match(workflow, /INFERENCE_WORKERS=1/u);
   assert.match(workflow, /INFERENCE_THREADS="\\$CPU_COUNT"/u);
   assert.match(workflow, /--threads "\\$INFERENCE_THREADS"/u);

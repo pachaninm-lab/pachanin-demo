@@ -419,23 +419,11 @@ jobs:
             echo "nproc returned invalid CPU count: $CPU_COUNT" >&2
             exit 42
           }
-          MAX_INFERENCE_WORKERS=4
-          INFERENCE_WORKERS=4
-          INFERENCE_THREADS=2
-          if (( CHUNK_COUNT == 1 )); then
-            # A single chunk cannot benefit from process fan-out. Give the pinned
-            # model all available runner CPUs; multi-chunk reviews retain the
-            # bounded worker pool below.
-            INFERENCE_WORKERS=1
-            INFERENCE_THREADS="$CPU_COUNT"
-          else
-            INFERENCE_WORKERS=$((CPU_COUNT / 2))
-            (( INFERENCE_WORKERS < 1 )) && INFERENCE_WORKERS=1
-            (( INFERENCE_WORKERS > MAX_INFERENCE_WORKERS )) && INFERENCE_WORKERS="$MAX_INFERENCE_WORKERS"
-            (( INFERENCE_WORKERS > CHUNK_COUNT )) && INFERENCE_WORKERS="$CHUNK_COUNT"
-            INFERENCE_THREADS=$((CPU_COUNT / INFERENCE_WORKERS))
-            (( INFERENCE_THREADS < 1 )) && INFERENCE_THREADS=1
-          fi
+          # The pinned model is CPU-bound. Serialize the bounded chunks so each
+          # invocation receives the full runner capacity and no model processes
+          # contend for the same CPU or memory bandwidth.
+          INFERENCE_WORKERS=1
+          INFERENCE_THREADS="$CPU_COUNT"
           run_chunk() {
             local chunk_index="$1"
             local prompt_file="$RUNNER_TEMP/qwen-prompts/prompt-$(printf '%04d' "$chunk_index").txt"
