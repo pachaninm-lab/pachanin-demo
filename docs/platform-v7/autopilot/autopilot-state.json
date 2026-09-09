@@ -235,7 +235,8 @@
       "docs/platform-v7/autopilot/autopilot-state.json",
       "scripts/p7-autopilot-guard.sh",
       "scripts/p7-autopilot-guard.test.mjs",
-      ".github/workflows/platform-v7-autopilot-guard.yml"
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      ".github/workflows/pc-crop-w1-production-acceptance.yml"
     ],
     "governance/role-eligibility-fns-egrul-file-import-5016": [
       "docs/platform-v7/autopilot/scopes/role-eligibility-fns-egrul-file-import-5016.json"
