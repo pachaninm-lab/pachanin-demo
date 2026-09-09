@@ -211,7 +211,7 @@ jobs:
             --model "$MODEL_FILE" \
             --file "$RUNNER_TEMP/review-prompt.txt" \
             --ctx-size 32768 \
-            --n-predict 1400 \
+            --n-predict 512 \
             --threads 4 \
             --threads-batch 4 \
             --seed 424242 \
