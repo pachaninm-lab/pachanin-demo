@@ -447,7 +447,6 @@ jobs:
 
       - name: Validate and canonicalize independent review
         id: result
-        id: result
         env:
           DIFF_SHA256: ${{ steps.input.outputs.diff_sha256 }}
           MANIFEST_SHA256: ${{ steps.input.outputs.manifest_sha256 }}
