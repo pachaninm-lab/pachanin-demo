@@ -578,7 +578,7 @@ for(const modify of [value=>value.State.StartedAt='2026-09-08T00:00:01Z',value=>
   assert.notEqual(runtimeFingerprint([before]),runtimeFingerprint([after]));
 });
 test('runtime diff classifies a Compose one-off addition without exposing identity',()=>{
-  const before=[container('e')], after=[...before,clone(container('g'))];
+  const before=[container('e')], after=[...before,clone(container('1'))];
   after[1].Config.Labels['com.docker.compose.oneoff']='True';
   const diff=runtimeDiff(before,after);
   assert.deepEqual(diff.fields,['ADDED_ONEOFF_CONTAINER']);
