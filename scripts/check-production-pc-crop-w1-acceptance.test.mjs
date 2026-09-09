@@ -451,6 +451,17 @@ test('failure after migration begins cannot be confused with zero mutation',()=>
   assert.equal(value.PC_W1_DATABASE_MUTATION,'MAY_HAVE_PARTIALLY_APPLIED');
   rejects(()=>parseEvidence('PC_W1_RESULT=BLOCKED'),'MISSING_BLOCKER_CODE');
 });
+test('observed source revisions survive a blocked probe without implying acceptance',()=>{
+  const raw=lines({PC_W1_TARGET_SHA:target,PC_W1_BASELINE_API_SHA:'b'.repeat(40),
+    PC_W1_ERROR:'API_DATABASE_PRINCIPAL_NOT_CONFINED',PC_W1_DATABASE_MUTATION:'NONE',PC_W1_RESULT:'BLOCKED'});
+  const evidence=parseEvidence(raw);
+  assert.equal(evidence.PC_W1_BASELINE_API_SHA,'b'.repeat(40));
+  assert.equal(evidence.PC_W1_RESULT,'BLOCKED');
+  assert.equal(evidence.PC_W1_RUNTIME_UNCHANGED,undefined);
+  assert.equal(evidence.PC_W1_FULL_ACCEPTANCE,undefined);
+  rejects(()=>parseEvidence(raw.replace('b'.repeat(40),'/private/source')),'UNSAFE_REMOTE_OUTPUT');
+  rejects(()=>parseEvidence(raw+'\nPC_W1_BASELINE_API_SHA='+target),'DUPLICATE_REMOTE_EVIDENCE');
+});
 test('untrusted error text is redacted to a bounded code',()=>{
   assert.equal(errorCode(new Error('SQL failed at /private/config with secret=value')),'UNCLASSIFIED_PROBE_FAILURE');
   assert.equal(errorCode(new Error('API_DATABASE_PRINCIPAL_NOT_CONFINED')),'API_DATABASE_PRINCIPAL_NOT_CONFINED');

@@ -632,6 +632,11 @@ export function checkSources(root) {
   assert.doesNotMatch(script, /\b(?:DROP|TRUNCATE)\s+(?:TABLE|SCHEMA)|migrate\s+resolve|production-full-stack|AUTH_MAIL_PROVISION|ROLE_ELIGIBILITY_ENFORCEMENT=true/);
   assert.doesNotMatch(script, /--no-acl|--disable-triggers|--enable-row-security/);
   assert.ok(script.includes('exec 2>/dev/null'), 'Raw remote diagnostics must not become public evidence');
+  const identity = 'emit PC_W1_BASELINE_API_SHA "$baseline_sha"';
+  assert.equal(script.split(identity).length, 2, 'Baseline revision must be emitted exactly once');
+  assert.ok(script.indexOf(identity) > script.indexOf('|| fail BASELINE_API_REVISION_INVALID')
+    && script.indexOf(identity) < script.indexOf('\nprobe_open pre\n'),
+  'Validated OCI revision must survive a rejected ledger probe');
 }
 
 const args = process.argv.slice(2);
