@@ -243,6 +243,9 @@
       ".github/workflows/platform-v7-autopilot-guard.yml",
       ".github/workflows/pc-crop-w1-production-acceptance.yml"
     ],
+    "governance/extend-role-eligibility-fns-registry-hardening-5064-v2": [
+      "docs/platform-v7/autopilot/scopes/role-eligibility-fns-registry-coverage-authority-5064.json"
+    ],
     "governance/role-eligibility-fns-egrul-file-import-5016": [
       "docs/platform-v7/autopilot/scopes/role-eligibility-fns-egrul-file-import-5016.json"
     ],
@@ -1392,7 +1395,9 @@
       "apps/web/tests/unit/companyOsOwnerCabinetControlHost.test.ts",
       "apps/web/tests/unit/platformV7OwnerRealCabinets.test.ts",
       ".github/workflows/ci.yml",
-      ".github/workflows/web-unit.yml"
+      ".github/workflows/web-unit.yml",
+      "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+      "docs/platform-v7/qa/web-unit-coverage-registry.json"
     ]
   },
   "currentAcceptance": [
