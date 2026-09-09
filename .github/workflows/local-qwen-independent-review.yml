@@ -22,7 +22,7 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository &&
       contains(github.event.pull_request.body, '<!-- independent-review:local-qwen -->')
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 90
     env:
       MODEL_REVISION: aebf6a0f72261b12fb8199bc580fe172fe86c901
       MODEL_SHA256: 724fb256bec1ff062b2f65e4569e871ad2e95ab2a3989723d1769c54294730b7
@@ -43,8 +43,8 @@ jobs:
         run: |
           set -Eeuo pipefail
           MAX_DIFF_BYTES=400000
-          MAX_CHUNK_DIFF_BYTES=24000
-          MAX_CHUNKS=32
+          MAX_CHUNK_DIFF_BYTES=8000
+          MAX_CHUNKS=64
           live_head="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.head.sha')"
           [[ "$live_head" == "$EXPECTED_HEAD" ]] || {
             echo "PR head moved before review: expected=$EXPECTED_HEAD current=$live_head" >&2
@@ -427,7 +427,7 @@ jobs:
               --offline \
               --model "$MODEL_FILE" \
               --file "$prompt_file" \
-              --ctx-size 16384 \
+              --ctx-size 8192 \
               --n-predict 64 \
               --threads 4 \
               --threads-batch 4 \
