@@ -84,13 +84,12 @@ BEGIN
     RETURN;
   END IF;
 
+  -- The caller passes a de-duplicated array. ANY() cannot multiply generation
+  -- rows, so this locking SELECT touches each matching generation once and does
+  -- not combine FOR SHARE with DISTINCT/GROUP BY (unsupported by PostgreSQL).
   PERFORM g.id
   FROM eligibility.registry_generations AS g
-  JOIN (
-    SELECT DISTINCT generation_id
-    FROM unnest(p_generation_ids) AS u(generation_id)
-    WHERE generation_id IS NOT NULL
-  ) AS requested ON requested.generation_id=g.id
+  WHERE g.id=ANY(p_generation_ids)
   ORDER BY g.id
   FOR SHARE;
   GET DIAGNOSTICS locked_count = ROW_COUNT;
