@@ -9,6 +9,7 @@
   "allowedPaths": [
     ".github/workflows/ci.yml",
     "codeql/insufficient-password-hash-corrected/upstream.lock.json",
+    "codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql",
     "docs/security/cryptographic-inventory.json",
     "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
     "docs/platform-v7/autopilot/scopes/founder-ceo-control-v11-2-20260908.json",
