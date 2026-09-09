@@ -651,3 +651,45 @@ for (const mutation of ['approved append', 'extra fingerprint', 'remove prior en
     }
   });
 }
+
+const nextSecurityPatchBranch = 'security/pc-crop-next-15-5-24-4997';
+function nextSecurityFixture(t) {
+  const context = fixture(t, nextSecurityPatchBranch);
+  write(context.root, 'docs/platform-v7/autopilot/autopilot-state.json', JSON.stringify({
+    allowedCurrentScope: ['README.md'],
+    approvedConcurrentScopes: { [nextSecurityPatchBranch]: ['apps/web/package.json', 'pnpm-lock.yaml', 'docs/platform-v7/autopilot/autopilot-state.json', 'scripts/p7-autopilot-guard.sh', 'scripts/p7-autopilot-guard.test.mjs'] },
+  }));
+  commit(context.root, 'owner-authorized exact dependency scope');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  return context;
+}
+test('Next security patch admits the approved manifest and lockfile pair', (t) => {
+  const context = nextSecurityFixture(t);
+  write(context.root, 'apps/web/package.json', '{"dependencies":{"next":"15.5.24"}}');
+  write(context.root, 'pnpm-lock.yaml', 'lockfileVersion: 9.0\n');
+  commit(context.root, 'bounded patch');
+  const result = runGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
+for (const forbidden of ['README.md', 'apps/web/app/platform-v7/register/page.tsx', 'apps/api/src/app.module.ts', 'pnpm-lock.yaml/child', 'package-lock.json']) {
+  test(`Next security patch rejects unrelated path ${forbidden}`, (t) => {
+    const context = nextSecurityFixture(t);
+    write(context.root, forbidden, 'unapproved change\n');
+    commit(context.root, 'out-of-scope change');
+    const result = runGuard(context);
+    assert.notEqual(result.status, 0);
+    assert.match(output(result), /Files outside current autopilot scope|Forbidden path changed/u);
+  });
+}
+
+test('Next security patch rejects expansion of its declared scope', (t) => {
+  const context = nextSecurityFixture(t);
+  const statePath = path.join(context.root, 'docs/platform-v7/autopilot/autopilot-state.json');
+  const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+  state.approvedConcurrentScopes[nextSecurityPatchBranch].push('apps/web/**');
+  fs.writeFileSync(statePath, JSON.stringify(state));
+  commit(context.root, 'attempt mutable scope expansion');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0);
+  assert.match(output(result), /NEXT_SECURITY_PATCH_SCOPE_MISMATCH/u);
+});
