@@ -30,6 +30,80 @@ export function errorCode(error) { return SAFE_ERROR.test(error?.message ?? '') 
 export function sha256(value) { return crypto.createHash('sha256').update(value).digest('hex'); }
 const LEDGER_COUNTS = ['ROWS', 'MATCHED', 'DRIFTED', 'UNKNOWN', 'DUPLICATES', 'UNFINISHED', 'ROLLED_BACK', 'LEGACY_INITIAL_MARKERS'];
 const LEDGER_BLOCKERS = ['APPLIED_MIGRATION_CHECKSUM_DRIFT', 'UNFINISHED_MIGRATION', 'UNRECOGNIZED_APPLIED_MIGRATION', 'DUPLICATE_APPLIED_MIGRATION', 'PENDING_SET_NOT_EXACT_SEVEN'];
+// Read-only provenance from non-main Git history. These records are NEVER an
+// admission allow-list and their SQL must not be replayed by the W1 executor.
+export const HISTORICAL_MIGRATIONS = Object.freeze([
+  ['20260716130000_market_open_lots_showcase', '7fd0342e097c57a7a2832a7099ae973e875a5ccbddeb4cf6722d15aac983e08c', '95a762ea116607abd1c91498620ff6e6f3a13cc9'],
+  ['20260716150000_auction_cross_tenant_participation', 'bc8ac2be7aad0d45e742d5669a5ae2fed4938caba0c2e11abc5962974c5c775b', 'cf9a70eb9135b2a5a6f7fd54db9fc8124540dcb1'],
+  ['20260716160000_auction_participant_workspace', 'cf9d849fd6504443aac60fa7bffa0eb06b69f45b0aaf02524530f99092b1abd4', 'aa88bb9838a5846ad23cca5e239431c3e795d18e'],
+  ['20260717170000_deal_cross_tenant_participation', 'e78fc2adb8332da2b242c1335d7082416f9fe4f901fbb872c186926969892598', '1bad269b02e5c50e8f9535725429d95b685020fb'],
+].map(row => Object.freeze(row)));
+export const HISTORICAL_FUNCTIONS = Object.freeze([
+  ['market.list_open_lots', 'c7082b888eabd00420bb7f3007425290c08d32891330601e3d2f90821ddd931f', null],
+  ['auction.record_admission', '9a650b0d744fe12453525dc810ac14fe0ddf6959dde7f70341f16f882b79073a', 'ee7af2664b44e3189d48ff8ce60641069a27dd4b2eebb2f23eae55dc561f6f1a'],
+  ['auction.place_bid', '68cb115eb01829e921f4d06867f1f17cdcaa999c5e6207a9e97fec7b62a25e0e', '9f61cb01e25f93e9a6044c0fd59e3db96b5cedcc121ffadcfea23007917b1a0b'],
+  ['dealx.participant_tenant', 'a1b0ff9212bb21b9d025804af49f0fe286adf3ea16b1d9e91682f9574a9af3b9', null],
+].map(row => Object.freeze(row)));
+const HISTORY_EVIDENCE = Object.freeze({
+  PC_W1_HISTORY_LEDGER: /^(EXACT_FOUR_SOURCE_CHECKSUMS|UNRECONCILED)$/,
+  PC_W1_HISTORY_CATALOG: /^(OBSERVED|UNAVAILABLE)$/,
+  PC_W1_HISTORY_CATALOG_SHA256: /^(?:[0-9a-f]{64}|NONE)$/,
+  PC_W1_HISTORY_POLICIES: /^(?:[0-6]|UNKNOWN)$/,
+  ...Object.fromEntries(HISTORICAL_FUNCTIONS.map((_, index) => [`PC_W1_HISTORY_FUNCTION_0${index}`,
+    /^(HISTORICAL_BODY|CANONICAL_BODY|OTHER_BODY|ABSENT|AMBIGUOUS|NOT_OBSERVED)$/])),
+});
+function validHistoryEvidence(value) {
+  if (!value || Object.keys(value).length !== Object.keys(HISTORY_EVIDENCE).length
+    || !Object.entries(HISTORY_EVIDENCE).every(([key, pattern]) => typeof value[key] === 'string' && pattern.test(value[key]))) return false;
+  const observed = value.PC_W1_HISTORY_CATALOG === 'OBSERVED';
+  return (value.PC_W1_HISTORY_CATALOG_SHA256 !== 'NONE') === observed
+    && (value.PC_W1_HISTORY_POLICIES !== 'UNKNOWN') === observed
+    && HISTORICAL_FUNCTIONS.every((_, index) => (value[`PC_W1_HISTORY_FUNCTION_0${index}`] !== 'NOT_OBSERVED') === observed);
+}
+export async function attachHistoricalDiagnostics(tx, error, ledger) {
+  if (errorCode(error) !== 'UNRECOGNIZED_APPLIED_MIGRATION') return;
+  const exact = HISTORICAL_MIGRATIONS.every(([name, checksum]) => {
+    const rows = ledger.filter(row => row.migration_name === name);
+    return rows.length === 1 && rows[0].checksum === checksum && rows[0].finished_at != null && rows[0].rolled_back_at == null;
+  }) && error.ledgerDiagnostics?.UNKNOWN === 4 && error.ledgerDiagnostics.unknownMigrations?.length === 4
+    && error.ledgerDiagnostics.unknownMigrations.every(row => HISTORICAL_MIGRATIONS.some(([name, checksum]) =>
+      row.nameSha256 === sha256(name) && row.checksumSha256 === checksum));
+  const report = { PC_W1_HISTORY_LEDGER: exact ? 'EXACT_FOUR_SOURCE_CHECKSUMS' : 'UNRECONCILED',
+    PC_W1_HISTORY_CATALOG: 'UNAVAILABLE', PC_W1_HISTORY_CATALOG_SHA256: 'NONE', PC_W1_HISTORY_POLICIES: 'UNKNOWN',
+    ...Object.fromEntries(HISTORICAL_FUNCTIONS.map((_, index) => [`PC_W1_HISTORY_FUNCTION_0${index}`, 'NOT_OBSERVED'])) };
+  try {
+    // Fixed catalog identifiers only; no application rows or caller SQL. The
+    // caller has already established a confined READ ONLY transaction.
+    const functions = await tx.$queryRawUnsafe(`SELECT n.nspname || '.' || p.proname AS name,
+      pg_get_function_identity_arguments(p.oid) AS arguments, p.prosrc AS body,
+      p.prosecdef AS definer, p.proconfig AS config, p.proacl::text AS grants,
+      pg_get_userbyid(p.proowner) AS owner
+      FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+      WHERE p.prokind='f' AND n.nspname || '.' || p.proname IN
+        ('market.list_open_lots','auction.record_admission','auction.place_bid','dealx.participant_tenant')
+      ORDER BY 1,2 LIMIT 17`);
+    const policies = await tx.$queryRawUnsafe(`SELECT schemaname,tablename,policyname,permissive,roles::text,cmd,qual,with_check
+      FROM pg_catalog.pg_policies WHERE schemaname='auction' AND (tablename,policyname) IN
+        (('lots','auction_lots_market_showcase_select'),('bids','auction_bids_market_showcase_select'),
+         ('admissions','auction_admissions_participant_select'),('lots','auction_lots_participant_select'),
+         ('bids','auction_bids_participant_select'),('awards','auction_awards_participant_select'))
+      ORDER BY tablename,policyname LIMIT 7`);
+    if (!Array.isArray(functions) || functions.length > 16 || !Array.isArray(policies) || policies.length > 6
+      || functions.some(row => typeof row.body !== 'string')) throw new Error('CATALOG_BOUNDS_INVALID');
+    report.PC_W1_HISTORY_CATALOG_SHA256 = sha256(JSON.stringify({ functions, policies }));
+    report.PC_W1_HISTORY_POLICIES = String(policies.length);
+    HISTORICAL_FUNCTIONS.forEach(([name, historical, canonical], index) => {
+      const rows = functions.filter(row => row.name === name);
+      const hash = rows.length === 1 ? sha256(rows[0].body) : null;
+      report[`PC_W1_HISTORY_FUNCTION_0${index}`] = !rows.length ? 'ABSENT' : rows.length > 1 ? 'AMBIGUOUS'
+        : hash === historical ? 'HISTORICAL_BODY' : hash === canonical ? 'CANONICAL_BODY' : 'OTHER_BODY';
+    });
+    report.PC_W1_HISTORY_CATALOG = 'OBSERVED';
+  } catch {
+    // Catalog failure cannot erase the original ledger blocker or emit raw SQL.
+  }
+  error.historicalDiagnostics = report;
+}
 // Diagnostic only: this observation is never consulted by migration admission.
 export function ledgerDiagnostics(manifest, ledger) {
   const counts = Object.fromEntries(LEDGER_COUNTS.map(key => [key, 0]));
@@ -77,16 +151,21 @@ export function probeErrorPayload(error) {
     payload.ledgerDiagnostics = Object.fromEntries([...LEDGER_COUNTS, 'SHA256'].map(key => [key, ledger[key]]));
     payload.ledgerDiagnostics.unknownMigrations = ledger.unknownMigrations.map(row=>({nameSha256:row.nameSha256,checksumSha256:row.checksumSha256,valueSha256:row.valueSha256}));
   }
+  if (payload.error === 'UNRECOGNIZED_APPLIED_MIGRATION' && payload.ledgerDiagnostics && validHistoryEvidence(error?.historicalDiagnostics)) {
+    payload.historicalDiagnostics = { ...error.historicalDiagnostics };
+  }
   return payload;
 }
 export function probeDiagnostics(value) {
-  const safe = probeErrorPayload({ message: value?.error, checksumDrift: value?.checksumDrift, ledgerDiagnostics: value?.ledgerDiagnostics });
+  const safe = probeErrorPayload({ message: value?.error, checksumDrift: value?.checksumDrift, ledgerDiagnostics: value?.ledgerDiagnostics,
+    historicalDiagnostics: value?.historicalDiagnostics });
   return Object.entries(safe.checksumDrift ?? {}).map(([key, hash]) =>
     `PC_W1_CHECKSUM_DRIFT_${{migrationSha256:'MIGRATION',expectedSha256:'EXPECTED',appliedSha256:'APPLIED',appliedValueSha256:'APPLIED_VALUE'}[key]}_SHA256=${hash}\n`).join('')
     + (safe.ledgerDiagnostics ? Object.entries(safe.ledgerDiagnostics).filter(([key])=>key!=='unknownMigrations').map(([key, value]) => `PC_W1_LEDGER_${key}=${value}\n`).join('')
       + `PC_W1_UNKNOWN_DETAILS_COUNT=${safe.ledgerDiagnostics.unknownMigrations.length}\n`
       + safe.ledgerDiagnostics.unknownMigrations.map((row,index)=>Object.entries(row).map(([key,value])=>
-        `PC_W1_UNKNOWN_${String(index).padStart(2,'0')}_${{nameSha256:'NAME',checksumSha256:'CHECKSUM',valueSha256:'VALUE'}[key]}_SHA256=${value}\n`).join('')).join('') : '');
+        `PC_W1_UNKNOWN_${String(index).padStart(2,'0')}_${{nameSha256:'NAME',checksumSha256:'CHECKSUM',valueSha256:'VALUE'}[key]}_SHA256=${value}\n`).join('')).join('') : '')
+    + Object.entries(safe.historicalDiagnostics ?? {}).map(([key,value]) => `${key}=${value}\n`).join('');
 }
 function sortedObject(value) { return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))); }
 const MIGRATION_NAME = /^(?:0001_postgresql_initial|[0-9]{14}_[a-z0-9_]+)$/;
@@ -267,6 +346,7 @@ export function runtimeFingerprint(containers, excludedApi) {
 }
 
 export const EVIDENCE_VALUES = Object.freeze({
+  ...HISTORY_EVIDENCE,
   PC_W1_RESULT: /^(READY_EXACT_SEVEN|VERIFIED_ALREADY_APPLIED|MIGRATIONS_APPLIED_PENDING_API_ACCEPTANCE|BLOCKED)$/,
   PC_W1_ERROR: SAFE_ERROR,
   PC_W1_LEGACY_INITIAL_MARKER: /^(ABSENT|REDUNDANT_SOURCE_MARKER)$/,
@@ -309,6 +389,12 @@ export function parseEvidence(raw, { requireTerminal = true } = {}) {
   }
   if (requireTerminal && !result.PC_W1_RESULT) blocked('MISSING_TERMINAL_EVIDENCE');
   if (result.PC_W1_RESULT === 'BLOCKED' && !result.PC_W1_ERROR) blocked('MISSING_BLOCKER_CODE');
+  const history = Object.fromEntries(Object.entries(result).filter(([key]) => key.startsWith('PC_W1_HISTORY_')));
+  if (Object.keys(history).length && (!validHistoryEvidence(history) || result.PC_W1_RESULT !== 'BLOCKED'
+    || result.PC_W1_ERROR !== 'UNRECOGNIZED_APPLIED_MIGRATION' || result.PC_W1_DATABASE_MUTATION !== 'NONE'
+    || (history.PC_W1_HISTORY_LEDGER === 'EXACT_FOUR_SOURCE_CHECKSUMS' && result.PC_W1_LEDGER_UNKNOWN !== '4'))) {
+    blocked('CONTRADICTORY_HISTORY_DIAGNOSTICS');
+  }
   const driftKeys = Object.keys(result).filter(key => key.startsWith('PC_W1_CHECKSUM_DRIFT_'));
   if (driftKeys.length && (![3,4].includes(driftKeys.length) || !result.PC_W1_CHECKSUM_DRIFT_MIGRATION_SHA256
     || !result.PC_W1_CHECKSUM_DRIFT_EXPECTED_SHA256 || !result.PC_W1_CHECKSUM_DRIFT_APPLIED_SHA256 || result.PC_W1_RESULT !== 'BLOCKED'
@@ -491,7 +577,9 @@ export async function runtimeProbe(phase) {
         FROM pg_catalog.pg_roles r WHERE r.rolname=current_user`);
       if (principal.length !== 1 || ['rolsuper','rolbypassrls','rolcreatedb','rolcreaterole','privileged_membership'].some(key => principal[0][key] !== false)) blocked('API_DATABASE_PRINCIPAL_NOT_CONFINED');
       const ledger = await tx.$queryRawUnsafe('SELECT migration_name,checksum,finished_at,rolled_back_at FROM public."_prisma_migrations" ORDER BY migration_name');
-      const classification = classifyLedger(manifest, ledger);
+      let classification;
+      try { classification = classifyLedger(manifest, ledger); }
+      catch (error) { await attachHistoricalDiagnostics(tx, error, ledger); throw error; }
       if (phase === 'post' && classification.decision !== 'VERIFIED_ALREADY_APPLIED') blocked('POST_MIGRATION_LEDGER_INCOMPLETE');
       const schema = await observeSchema(tx, classification.pendingCount === 0);
       const nonce = `pc_w1_${crypto.randomBytes(16).toString('hex')}`;

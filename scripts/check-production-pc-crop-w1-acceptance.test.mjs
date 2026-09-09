@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { checkManifests } from './check-ci-postgres-image-authority.mjs';
 import { TARGET_MIGRATIONS, TARGET_TABLES, readMigrationManifest, validateManifest, decodeManifest, validateImageManifest,
-  classifyLedger, validateApiEnvironment, validateSnapshot, snapshotSql, parseEvidence,
+  classifyLedger, HISTORICAL_MIGRATIONS, HISTORICAL_FUNCTIONS, attachHistoricalDiagnostics, validateApiEnvironment, validateSnapshot, snapshotSql, parseEvidence,
   validateMigrationImage, validateCompose, runtimeFingerprint, errorCode, probeErrorPayload, probeDiagnostics, ledgerDiagnostics, checkSources } from './check-production-pc-crop-w1-acceptance.mjs';
 
 const baseName='20260902204500_role_eligibility_app_deal_api_boundary';
@@ -198,6 +198,69 @@ test('unknown detail output is bounded and cannot claim complete coverage beyond
   assert.equal(evidence.PC_W1_LEDGER_UNKNOWN,'33');assert.equal(evidence.PC_W1_UNKNOWN_DETAILS_COUNT,'32');
   assert.equal(payload.ledgerDiagnostics.unknownMigrations.length,32);
   assert.ok(output.length<12000);
+});
+const historicalLedger = () => HISTORICAL_MIGRATIONS.map(([migration_name,checksum]) =>
+  ({migration_name,checksum,finished_at:'2026-07-18T00:00:00Z',rolled_back_at:null}));
+const unknownError = ledger => { try { classifyLedger(manifest,ledger); } catch(error) { return error; } assert.fail('Expected ledger blocker'); };
+const historicalTerminal = 'PC_W1_ERROR=UNRECOGNIZED_APPLIED_MIGRATION\nPC_W1_DATABASE_MUTATION=NONE\nPC_W1_RESULT=BLOCKED\n';
+test('known non-main history remains blocked, and catalog bodies are classified without disclosure',async()=>{
+  const source=fs.readFileSync(new URL('../apps/api/prisma/migrations/20260715013100_auction_atomic_execution/migration.sql',import.meta.url),'utf8');
+  const canonicalBody=name=>source.match(new RegExp('CREATE OR REPLACE FUNCTION '+name.replace('.','\\.')+'\\s*\\([\\s\\S]*?\\bAS\\s+(\\$[^$]*\\$)([\\s\\S]*?)\\1','i'))[2];
+  const functions=[{name:'auction.record_admission',body:canonicalBody('auction.record_admission'),owner:'private-owner'},
+    {name:'auction.place_bid',body:canonicalBody('auction.place_bid'),grants:'private-grants'},
+    {name:'dealx.participant_tenant',body:'private-function-body'}];
+  let calls=0;
+  const tx={$queryRawUnsafe:async sql=>{
+    assert.match(sql,/^SELECT /);assert.doesNotMatch(sql,/\b(?:INSERT|UPDATE|DELETE|ALTER|DROP|set_config)\b/i);
+    return calls++===0?functions:[{policyname:'auction_lots_market_showcase_select',qual:'private-policy-expression'}];
+  }};
+  const ledger=historicalLedger(),error=unknownError(ledger);
+  await attachHistoricalDiagnostics(tx,error,ledger);
+  assert.equal(calls,2);assert.equal(error.message,'UNRECOGNIZED_APPLIED_MIGRATION');
+  rejects(()=>classifyLedger(manifest,ledger),'UNRECOGNIZED_APPLIED_MIGRATION');
+  const payload=probeErrorPayload(error),output=probeDiagnostics(payload),evidence=parseEvidence(output+historicalTerminal);
+  assert.equal(evidence.PC_W1_HISTORY_LEDGER,'EXACT_FOUR_SOURCE_CHECKSUMS');
+  assert.equal(evidence.PC_W1_HISTORY_CATALOG,'OBSERVED');assert.equal(evidence.PC_W1_HISTORY_POLICIES,'1');
+  assert.equal(evidence.PC_W1_HISTORY_FUNCTION_00,'ABSENT');assert.equal(evidence.PC_W1_HISTORY_FUNCTION_01,'CANONICAL_BODY');
+  assert.equal(evidence.PC_W1_HISTORY_FUNCTION_02,'CANONICAL_BODY');assert.equal(evidence.PC_W1_HISTORY_FUNCTION_03,'OTHER_BODY');
+  assert.doesNotMatch(JSON.stringify(payload),/private-|participant_tenant|record_admission|policyname|qual/);
+  for(const [key,value] of Object.entries(payload.historicalDiagnostics)) {
+    rejects(()=>parseEvidence(output.replace(`${key}=${value}\n`,'')+historicalTerminal),'CONTRADICTORY_HISTORY_DIAGNOSTICS');
+  }
+  rejects(()=>parseEvidence(output+historicalTerminal.replace('MUTATION=NONE','MUTATION=BOUNDED_SEVEN_MIGRATIONS')),'CONTRADICTORY_HISTORY_DIAGNOSTICS');
+  rejects(()=>parseEvidence(output.replace('HISTORY_CATALOG=OBSERVED','HISTORY_CATALOG=UNAVAILABLE')+historicalTerminal),'CONTRADICTORY_HISTORY_DIAGNOSTICS');
+  const checker=fs.readFileSync(new URL('./check-production-pc-crop-w1-acceptance.mjs',import.meta.url),'utf8');
+  const transport=spawnSync(process.execPath,['--input-type=module','-e',checker,'--','--runtime-tool','probe-diagnostics'],{input:JSON.stringify(payload),encoding:'utf8'});
+  assert.equal(transport.status,0);assert.equal(transport.stdout,output);assert.equal(transport.stderr,'');
+});
+test('historical provenance rejects checksum changes, incomplete sets, duplicate rows and extra unknown rows',async()=>{
+  const mismatch=historicalLedger();mismatch[0].checksum='0'.repeat(64);
+  const duplicate=historicalLedger();duplicate.push({...duplicate[0]});
+  const extra=[...historicalLedger(),{...finished(baseName),migration_name:'private-extra'}];
+  for(const ledger of [mismatch,historicalLedger().slice(1),duplicate,extra]) {
+    const error=unknownError(ledger);await attachHistoricalDiagnostics({$queryRawUnsafe:async()=>[]},error,ledger);
+    assert.equal(error.historicalDiagnostics.PC_W1_HISTORY_LEDGER,'UNRECONCILED');
+    assert.equal(error.message,'UNRECOGNIZED_APPLIED_MIGRATION');
+  }
+  const error=new Error('UNFINISHED_MIGRATION');
+  await attachHistoricalDiagnostics({$queryRawUnsafe:()=>assert.fail('Unrelated blocker queried catalog')},error,historicalLedger());
+  assert.equal(error.historicalDiagnostics,undefined);
+});
+test('catalog failures, overloads and ambiguous functions preserve the original blocked result',async()=>{
+  for(const query of [async()=>{throw new Error('private-database-url');},async()=>Array.from({length:17},()=>({body:'secret'}))]) {
+    const ledger=historicalLedger(),error=unknownError(ledger);
+    await attachHistoricalDiagnostics({$queryRawUnsafe:query},error,ledger);
+    const payload=probeErrorPayload(error),output=probeDiagnostics(payload);
+    assert.doesNotMatch(output,/private-|secret/);
+    assert.equal(parseEvidence(output+historicalTerminal).PC_W1_HISTORY_CATALOG,'UNAVAILABLE');
+    assert.equal(error.message,'UNRECOGNIZED_APPLIED_MIGRATION');
+  }
+  let calls=0;const ledger=historicalLedger(),error=unknownError(ledger);
+  await attachHistoricalDiagnostics({$queryRawUnsafe:async()=>calls++===0?
+    [{name:HISTORICAL_FUNCTIONS[0][0],body:'one'},{name:HISTORICAL_FUNCTIONS[0][0],body:'two'}]:[]},error,ledger);
+  assert.equal(error.historicalDiagnostics.PC_W1_HISTORY_FUNCTION_00,'AMBIGUOUS');
+  const tampered=probeErrorPayload(error);tampered.historicalDiagnostics.PC_W1_HISTORY_CATALOG_SHA256='private-value';
+  assert.doesNotMatch(probeDiagnostics(tampered),/private-value/);
 });
 test('invalid ledger checksum and untrusted error properties cannot leak raw text',()=>{
   let failure;
