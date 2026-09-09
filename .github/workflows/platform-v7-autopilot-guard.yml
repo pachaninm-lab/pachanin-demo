@@ -285,7 +285,8 @@ jobs:
       github.event.pull_request.head.ref == 'governance/public-home-role-clarity-scope-20260905' ||
       github.event.pull_request.head.ref == 'feat/public-home-role-clarity-20260905' ||
       github.event.pull_request.head.ref == 'governance/production-like-outbox-poison-isolation-scope-3793' ||
-      github.event.pull_request.head.ref == 'fix/production-like-outbox-poison-isolation-3793')
+      github.event.pull_request.head.ref == 'fix/production-like-outbox-poison-isolation-3793' ||
+      github.event.pull_request.head.ref == 'security/pc-crop-next-15-5-24-4997')
     permissions:
       checks: write
       contents: read
@@ -313,7 +314,7 @@ jobs:
               exit 1
             fi
             case "$IMMUTABLE_SCOPE_BRANCH" in
-              fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|feat/pc-crop-auction-inventory-authority-4997|ops/pc-crop-w1-production-acceptance-4997|governance/pc-crop-post-registration-progress-scope-4997|governance/pc-crop-inventory-reservation-scope-4997|docs/pc-crop-post-registration-progress-4997|governance/public-home-role-clarity-scope-20260905|feat/public-home-role-clarity-20260905|governance/production-like-outbox-poison-isolation-scope-3793|fix/production-like-outbox-poison-isolation-3793) ;;
+              fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|feat/pc-crop-auction-inventory-authority-4997|ops/pc-crop-w1-production-acceptance-4997|governance/pc-crop-post-registration-progress-scope-4997|governance/pc-crop-inventory-reservation-scope-4997|docs/pc-crop-post-registration-progress-4997|governance/public-home-role-clarity-scope-20260905|feat/public-home-role-clarity-20260905|governance/production-like-outbox-poison-isolation-scope-3793|fix/production-like-outbox-poison-isolation-3793|security/pc-crop-next-15-5-24-4997) ;;
               *) echo 'Trusted immutable-scope guard received an unauthorized branch.' >&2; exit 1 ;;
             esac
             if ! [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || ! [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
@@ -425,6 +426,28 @@ jobs:
           chmod 0700 "$TRUSTED_GUARD"
           BASE_REF="$BASE_SHA" HEAD_REF="$HEAD_SHA" GITHUB_HEAD_REF="$IMMUTABLE_SCOPE_BRANCH" \
             bash "$TRUSTED_GUARD"
+      - name: Validate bounded security repair with trusted base authority
+        if: github.event_name == 'pull_request' && github.head_ref == 'security/pc-crop-next-15-5-24-4997'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ && "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
+          BASE_STATE=$(git rev-parse "$BASE_SHA:docs/platform-v7/autopilot/autopilot-state.json")
+          TRUSTED_GUARD=$(mktemp)
+          if [[ "$BASE_STATE" == 571d2821ac3c371d548e51e747ea8111a436dab8 ]]; then
+            # Owner-authorized combined repair: #5196 cannot land first because
+            # its unchanged base has CRITICAL dependencies. Independent exact-
+            # head review and all security checks must approve this bootstrap.
+            git show "$HEAD_SHA:scripts/p7-autopilot-guard.sh" > "$TRUSTED_GUARD"
+          else
+            # Every subsequent push uses the accepted guard, never a mutable
+            # implementation script which could authorize its own scope.
+            git show "$BASE_SHA:scripts/p7-autopilot-guard.sh" > "$TRUSTED_GUARD"
+          fi
+          BASE_REF="$BASE_SHA" HEAD_REF="$HEAD_SHA" GITHUB_HEAD_REF=security/pc-crop-next-15-5-24-4997 \
+            bash "$TRUSTED_GUARD"
       - name: Validate post-registration DoD register
         if: github.event_name == 'pull_request' && github.head_ref == 'docs/pc-crop-post-registration-progress-4997'
         run: node docs/platform-v7/crop-platform/post-registration/verify-w0.mjs
@@ -444,7 +467,8 @@ jobs:
           github.head_ref != 'governance/public-home-role-clarity-scope-20260905' &&
           github.head_ref != 'feat/public-home-role-clarity-20260905' &&
           github.head_ref != 'governance/production-like-outbox-poison-isolation-scope-3793' &&
-          github.head_ref != 'fix/production-like-outbox-poison-isolation-3793')
+          github.head_ref != 'fix/production-like-outbox-poison-isolation-3793' &&
+          github.head_ref != 'security/pc-crop-next-15-5-24-4997')
         run: bash scripts/p7-autopilot-guard.sh
 
   standard_validation:
