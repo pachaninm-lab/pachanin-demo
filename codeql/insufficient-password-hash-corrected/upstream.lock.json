@@ -1,7 +1,8 @@
 {
-  "note": "Pinned upstream provenance for the one-for-one replacement of js/insufficient-password-hash. Drift protection compares the live analysis against these values and fails the job when they move. CodeQL CLI 2.27.0 was re-reviewed against 2.26.4: the inherited InsufficientPasswordHash query, flow configuration and customizations are byte-identical at the pinned upstream tags; only the bundled pack versions advanced.",
+  "note": "Pinned upstream provenance for the one-for-one replacement of js/insufficient-password-hash. The local replacement remains derived from CodeQL 2.26.4; CodeQL CLI 2.27.0 was independently re-reviewed against that derivation and the inherited InsufficientPasswordHash query, flow configuration and customizations remain byte-identical. Only the bundled pack versions advanced.",
   "codeqlCli": "2.27.0",
   "codeqlActionMajor": "v4",
+  "derivedFromTag": "codeql-cli/v2.26.4",
   "upstreamTag": "codeql-cli/v2.27.0",
   "queriesPack": {
     "name": "codeql/javascript-queries",
