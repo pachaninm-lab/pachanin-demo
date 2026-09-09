@@ -229,12 +229,12 @@
       "scripts/production-role-eligibility-api-release.sh",
       "scripts/check-role-eligibility-api-release.mjs",
       ".github/workflows/production-web-exact-sha.yml",
-      ".gitleaksignore",
-      "apps/api/prisma/migrations/20260909120000_reconcile_historical_auction_authority/migration.sql",
-      "scripts/fixtures/pc-crop-w1-lineage/20260716130000_market_open_lots_showcase.sql",
-      "scripts/fixtures/pc-crop-w1-lineage/20260716150000_auction_cross_tenant_participation.sql",
-      "scripts/fixtures/pc-crop-w1-lineage/20260716160000_auction_participant_workspace.sql",
-      "scripts/fixtures/pc-crop-w1-lineage/20260717170000_deal_cross_tenant_participation.sql"
+      ".gitleaksignore"
+    ],
+    "governance/pc-crop-w1-lineage-scope-4997": [
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "scripts/p7-autopilot-guard.test.mjs",
+      ".github/workflows/platform-v7-autopilot-guard.yml"
     ],
     "governance/pc-crop-post-registration-progress-scope-4997": [
       "docs/platform-v7/autopilot/autopilot-state.json",
