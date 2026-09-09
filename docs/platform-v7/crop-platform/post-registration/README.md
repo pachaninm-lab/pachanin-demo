@@ -58,8 +58,8 @@ transaction/finality/revenue links. Its synthetic fixtures provide no production
 
 The exact current main, PR head, workflow evidence and next step are recorded
 in `execution-state.v1.json`. No W1/W2 production update has been verified. The
-last known W1-A read-only preflight is historical evidence, not a current
-runtime claim.
+latest W1 read-only run is recorded below; it does not imply completed
+runtime or business acceptance.
 
 ## Historical W0 conclusion
 
@@ -102,13 +102,30 @@ The bounded controller #5188 is merged at
 materialized exact API/migration images and verified DNS, pinned SSH identity and
 unchanged registration blobs, then stopped with `IMAGE_MIGRATION_CONTENT_MISMATCH`
 and `DATABASE_MUTATION=NONE`. It did not reach the database probe or refresh the
-historical database facts above. Fix #5191 admits the existing historical
-`0001_postgresql_initial` name while preserving complete source/image checksum
-equality; it is under exact-head review. After that fix is accepted, repeat the
-read-only preflight, then require the isolated exact-image PostgreSQL rehearsal
-before the bounded migration stage and existing API-only executor. Authenticated
-W1 acceptance remains unevidenced. The full-stack chain also changes auth-mail
-and web and is not a W1-only operation.
+historical database facts above. This image-name blocker is historical and has
+been superseded by the accepted image and ledger fixes.
+
+Read-only run [34343879829](https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34343879829)
+on main `2309f6aafa1ca6478626d572be18f8e24f1ca72a` reached PostgreSQL and found
+197 ledger rows, zero unfinished rows, the recognized redundant initial source
+marker and four additional executed migrations outside main. All four source
+checksums and historical function bodies matched the bounded archive; six
+historical policies were observed. The run stopped with
+`UNRECOGNIZED_APPLIED_MIGRATION` and `DATABASE_MUTATION=NONE`. The emitted API
+revision was partly masked by GitHub, so the historical full revision above
+is not presented as freshly re-observed public evidence.
+
+PR [#5203](https://github.com/pachaninm-lab/pachanin-demo/pull/5203), under prior
+immutable scope approval #5201, adds one pinned forward correction to the seven
+foundation migrations. It preserves the historical ledger, compares complete
+catalog metadata and source compatibility, and requires actual isolated clean
+and historical convergence plus backup/restore before any production mutation.
+Exact head `f3faa20b6bbdde9bd84ad001da006447134c2546` has passed the PostgreSQL
+CI suites and [independent review](https://github.com/pachaninm-lab/pachanin-demo/pull/5203#issuecomment-5601317797);
+Kubernetes/outbox CI remains pending at this observation. Historical rehearsal
+and production application have not run. Archived SQL must never be replayed
+as production migrations. Authentic W1 business acceptance remains separate.
+The full-stack chain also changes auth-mail and web and is not a W1-only operation.
 
 After W1, Revenue Slice v1 follows one real seller and buyer through stock,
 market/offer, agreement, canonical Deal, required documents/signature, applicable
