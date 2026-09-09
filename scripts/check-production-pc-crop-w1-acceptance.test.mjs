@@ -10,7 +10,7 @@ import { createServer } from 'node:http';
 import { checkManifests } from './check-ci-postgres-image-authority.mjs';
 import { TARGET_MIGRATIONS, TARGET_TABLES, readMigrationManifest, validateManifest, decodeManifest, validateImageManifest,
   classifyLedger, HISTORICAL_MIGRATIONS, HISTORICAL_FUNCTIONS, attachHistoricalDiagnostics, observeLineageCatalog, verifyLineageSourceCompatibility, validateApiEnvironment, validateSnapshot, snapshotSql, parseEvidence,
-  validateMigrationImage, validateCompose, runtimeFingerprint, errorCode, probeErrorPayload, probeDiagnostics, ledgerDiagnostics, checkSources,
+  validateMigrationImage, validateCompose, runtimeFingerprint, runtimeDiff, errorCode, probeErrorPayload, probeDiagnostics, ledgerDiagnostics, checkSources,
   verifyW1RouteBoundary, AUCTION_LINEAGE_API_BLOBS, validateAuctionLineageApiBlobs } from './check-production-pc-crop-w1-acceptance.mjs';
 
 const baseName='20260902204500_role_eligibility_app_deal_api_boundary';
@@ -577,6 +577,24 @@ for(const modify of [value=>value.State.StartedAt='2026-09-08T00:00:01Z',value=>
   const before=container(),after=clone(before); modify(after);
   assert.notEqual(runtimeFingerprint([before]),runtimeFingerprint([after]));
 });
+test('runtime diff classifies a Compose one-off addition without exposing identity',()=>{
+  const before=[container('e')], after=[...before,clone(container('g'))];
+  after[1].Config.Labels['com.docker.compose.oneoff']='True';
+  const diff=runtimeDiff(before,after);
+  assert.deepEqual(diff.fields,['ADDED_ONEOFF_CONTAINER']);
+  assert.equal(diff.count,1);
+  assert.equal(diff.oneoffAdded,1);
+  assert.equal(diff.oneoffRemoved,0);
+});
+test('runtime diff records bounded state and network changes',()=>{
+  const before=[container()], after=clone(before);
+  after[0].State.StartedAt='2026-09-09T00:00:01Z';
+  after[0].NetworkSettings.Networks.isolated.EndpointID='changed';
+  const diff=runtimeDiff(before,after);
+  assert.deepEqual(diff.fields,['NETWORK_CHANGED','STATE_CHANGED']);
+  assert.equal(diff.count,1);
+});
+
 test('worker shadow contract cannot be silently disabled',()=>{
   const value=container();value.Config.Labels['com.docker.compose.service']='role-eligibility-worker';
   rejects(()=>runtimeFingerprint([value]),'ELIGIBILITY_WORKER_NOT_SHADOW');
