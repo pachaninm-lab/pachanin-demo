@@ -120,10 +120,13 @@ immutable scope approval #5201, adds one pinned forward correction to the seven
 foundation migrations. It preserves the historical ledger, compares complete
 catalog metadata and source compatibility, and requires actual isolated clean
 and historical convergence plus backup/restore before any production mutation.
-Exact head `f3faa20b6bbdde9bd84ad001da006447134c2546` has passed the PostgreSQL
-CI suites and [independent review](https://github.com/pachaninm-lab/pachanin-demo/pull/5203#issuecomment-5601317797);
-Kubernetes/outbox CI remains pending at this observation. Historical rehearsal
-and production application have not run. Archived SQL must never be replayed
+Earlier head `f3faa20b6bbdde9bd84ad001da006447134c2546` passed the PostgreSQL
+CI suites and [independent review](https://github.com/pachaninm-lab/pachanin-demo/pull/5203#issuecomment-5601317797).
+Current head `9f8e7fb87147f06f3c2a7a3a0c5104358dd71823` additionally pins the
+actual auction API consumers, checks trusted RLS plumbing and probes deployed
+W1 routes without credentials. Its review and CI must pass anew; previous
+results do not admit this changed head. Historical rehearsal and production
+application have not run. Archived SQL must never be replayed
 as production migrations. Authentic W1 business acceptance remains separate.
 The full-stack chain also changes auth-mail and web and is not a W1-only operation.
 

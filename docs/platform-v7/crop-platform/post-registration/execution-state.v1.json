@@ -2,7 +2,7 @@
   "schemaVersion": "pc-crop.post-registration.execution-state.v1",
   "programme": "pc-crop-post-registration-operating-system",
   "issue": 4997,
-  "updatedAt": "2026-09-09T11:55:00Z",
+  "updatedAt": "2026-09-09T12:09:00Z",
   "specification": {
     "sha256": "1f85df31b83747741b415fe65c0027e3e0be754bb0caeca5d7b3db4eb6b1e99e",
     "dodListSha256": "091acfafbde256b0028e7dbfb2afe7c97a05c6b899ba1fc9b0ccbfc4b40a93a2",
@@ -128,7 +128,7 @@
     "id": "W1-REG_RU",
     "name": "Complete already-merged W1 on REG.RU before Revenue Slice implementation",
     "sourceAudit": "docs/platform-v7/crop-platform/post-registration/execution-state.v1.json#w1Completion",
-    "status": "HISTORICAL_LINEAGE_CORRECTION_CI_PENDING",
+    "status": "HISTORICAL_LINEAGE_CORRECTION_REVIEW_AND_CI_PENDING",
     "registrationCodeChanged": false,
     "registrationBehaviorChanged": false,
     "roleEligibilityEnforcementChanged": false,
@@ -425,7 +425,7 @@
       ],
       "closedEvidence": "https://github.com/pachaninm-lab/pachanin-demo/issues/5013#issuecomment-5591278238"
     },
-    "requiredNext": "Complete exact-head CI for independently reviewed #5203. After merge, observe current-main again, then require actual isolated clean and historical PostgreSQL convergence/backup/restore before bounded migration/API release. Require full authenticated W1 acceptance separately; no terminal credit from deployment alone.",
+    "requiredNext": "Complete exact-head CI and independent review for #5203 current head. After merge, observe current-main again, then require actual isolated clean and historical PostgreSQL convergence/backup/restore before bounded migration/API release. Require full authenticated W1 acceptance separately; no terminal credit from deployment alone.",
     "requiredEvidence": [
       "Exact target main and its explicitly accepted migration set rechecked immediately before mutation; #5203 proposes the seven foundation migrations plus one pinned forward correction",
       "Current DNS and pinned host identity",
@@ -476,17 +476,23 @@
     "capabilityTablesObservationRun": 34262474799,
     "forwardCorrectionCandidate": {
       "pr": 5203,
-      "headSha": "f3faa20b6bbdde9bd84ad001da006447134c2546",
-      "treeSha": "a3463041b9d4a52e2855f26d6f97696c419c3ba6",
-      "status": "INDEPENDENT_REVIEW_CLEAN_CI_PENDING",
-      "reviewEvidence": "https://github.com/pachaninm-lab/pachanin-demo/pull/5203#issuecomment-5601317797",
+      "headSha": "9f8e7fb87147f06f3c2a7a3a0c5104358dd71823",
+      "treeSha": "5e1ac4fcbc1267f2bbab2bb6adf0244aeebb0aa2",
+      "status": "EXACT_HEAD_REVIEW_AND_CI_PENDING",
       "priorScopePr": 5201,
       "migration": "20260909120000_reconcile_historical_auction_authority",
       "migrationSha256": "f3ed347bbc85d56a697d4aeafdb43ab5f351ff5c5da6a78671b88310f432c0bc",
-      "cleanPostgresqlCi": "PASS",
+      "cleanPostgresqlCi": "PENDING",
       "historicalCorrectionRehearsal": "NOT_EXECUTED",
       "productionMutation": "NONE",
-      "boundary": "Retain all historical ledger rows. Match current catalog and source compatibility against real isolated references; execute only the new forward correction, never replay archived SQL in production."
+      "boundary": "Retain all historical ledger rows. Match current catalog and source compatibility against real isolated references; execute only the new forward correction, never replay archived SQL in production.",
+      "previousHeadEvidence": {
+        "headSha": "f3faa20b6bbdde9bd84ad001da006447134c2546",
+        "reviewEvidence": "https://github.com/pachaninm-lab/pachanin-demo/pull/5203#issuecomment-5601317797",
+        "cleanPostgresqlCi": "PASS",
+        "supersededBeforeKubernetesCompletion": true
+      },
+      "additionalBoundary": "Exact audited auction command/controller Git blobs and unchanged trusted RLS context; deployed GET-only W1 route/authentication denial probe. No business acceptance inferred."
     }
   },
   "nextAfterW1": {
