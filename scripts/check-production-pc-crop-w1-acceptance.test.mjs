@@ -6,10 +6,12 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { createServer } from 'node:http';
 import { checkManifests } from './check-ci-postgres-image-authority.mjs';
 import { TARGET_MIGRATIONS, TARGET_TABLES, readMigrationManifest, validateManifest, decodeManifest, validateImageManifest,
   classifyLedger, HISTORICAL_MIGRATIONS, HISTORICAL_FUNCTIONS, attachHistoricalDiagnostics, observeLineageCatalog, verifyLineageSourceCompatibility, validateApiEnvironment, validateSnapshot, snapshotSql, parseEvidence,
-  validateMigrationImage, validateCompose, runtimeFingerprint, errorCode, probeErrorPayload, probeDiagnostics, ledgerDiagnostics, checkSources } from './check-production-pc-crop-w1-acceptance.mjs';
+  validateMigrationImage, validateCompose, runtimeFingerprint, errorCode, probeErrorPayload, probeDiagnostics, ledgerDiagnostics, checkSources,
+  verifyW1RouteBoundary, AUCTION_LINEAGE_API_BLOBS, validateAuctionLineageApiBlobs } from './check-production-pc-crop-w1-acceptance.mjs';
 
 const baseName='20260902204500_role_eligibility_app_deal_api_boundary';
 const manifest={ [baseName]:'a'.repeat(64), ...TARGET_MIGRATIONS };
@@ -34,6 +36,51 @@ const readyEvidence=()=>({PC_W1_LEGACY_INITIAL_MARKER:'ABSENT',PC_W1_TARGET_SHA:
   PC_W1_FULL_ACCEPTANCE:'NOT_EVIDENCED',PC_W1_LEGACY_LOT_ROLLBACK:'DEGRADED_FAIL_CLOSED',PC_W1_RESULT:'READY_EXACT_EIGHT'});
 const lines=value=>Object.entries(value).map(([key,value])=>`${key}=${value}`).join('\n');
 
+test('W1 route probe uses real HTTP, tests absent and malformed credentials, and never claims business acceptance',async t=>{
+  const requests=[];
+  let fault;
+  const server=createServer((req,res)=>{
+    requests.push({path:req.url,method:req.method,authorization:req.headers.authorization});
+    const status=req.url==='/ready' ? 200 : req.url.startsWith('/api/pc-crop-w1-absent-') ? 404 : 401;
+    if(fault==='redirect') {res.writeHead(302,{location:'/ready'});res.end();return;}
+    res.writeHead(fault==='blanket401' ? 401 : fault==='missingRoute' && req.url==='/api/commercial-rules/me' ? 404
+      : fault==='publicRoute' && req.url==='/api/service-marketplace/me' ? 200
+      : fault==='acceptInvalid' && req.headers.authorization ? 200 : status);
+    res.end('This local test response must not enter evidence.');
+  });
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  t.after(()=>new Promise(resolve=>{server.close(resolve);server.closeAllConnections();}));
+  const request=(url,options)=>{
+    assert.equal(new URL(url).origin,'http://127.0.0.1:3001','Runtime target cannot be caller supplied');
+    return fetch(`http://127.0.0.1:${server.address().port}${new URL(url).pathname}`,options);
+  };
+  assert.deepEqual(await verifyW1RouteBoundary(request),{routes:5,boundary:'PASS',authenticatedAcceptance:'NOT_EVIDENCED'});
+  assert.equal(requests.length,12);
+  assert.ok(requests.every(req=>req.method==='GET'));
+  const protectedRequests=requests.slice(2);
+  assert.equal(new Set(protectedRequests.map(req=>req.path)).size,5);
+  assert.equal(protectedRequests.filter(req=>req.authorization===undefined).length,5);
+  assert.equal(protectedRequests.filter(req=>req.authorization==='Bearer pc-w1-invalid-credentials').length,5);
+  for(fault of ['blanket401','missingRoute','publicRoute','acceptInvalid']) {
+    await assert.rejects(verifyW1RouteBoundary(request),{message:'API_ROUTE_BOUNDARY_FAILED'});
+  }
+  fault='redirect';
+  await assert.rejects(verifyW1RouteBoundary(request),{message:'API_ROUTE_TRANSPORT_FAILED'});
+  await assert.rejects(verifyW1RouteBoundary(async()=>{throw Error('private connection details');}),{message:'API_ROUTE_TRANSPORT_FAILED'});
+});
+
+test('W1 route probe cancels response bodies without reading tenant data',async()=>{
+  let count=0;
+  const request=async(url,options)=>{
+    assert.equal(options.redirect,'error');assert.ok(options.signal instanceof AbortSignal);
+    const route=new URL(url).pathname;
+    return {status:route==='/ready'?200:route.startsWith('/api/pc-crop-w1-absent-')?404:401,
+      body:{cancel:async()=>{count++;}},text:()=>assert.fail('Response body must not be read')};
+  };
+  await verifyW1RouteBoundary(request);
+  assert.equal(count,12);
+});
+
 test('lineage compatibility uses actual baseline Git blobs and blocks legacy consumers or changed callers',t=>{
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'w1-lineage-source-'));
   t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
@@ -41,11 +88,22 @@ test('lineage compatibility uses actual baseline Git blobs and blocks legacy con
   const write=(file,content)=>{fs.mkdirSync(path.dirname(path.join(root,file)),{recursive:true});fs.writeFileSync(path.join(root,file),content);};
   git(['init','--initial-branch=main']);git(['config','user.name','Isolated Source Test']);git(['config','user.email','test@example.invalid']);
   const caller='apps/api/src/modules/deals/industrial-deal-command.gateway.ts';
-  for(const file of [caller,'apps/api/src/modules/auctions/auctions.module.ts','apps/api/src/modules/deals/prisma-deal.repository.ts']) write(file,'export const caller = true;\n');
+  for(const file of [caller,'apps/api/src/modules/auctions/auctions.module.ts','apps/api/src/modules/deals/prisma-deal.repository.ts',
+    'apps/api/src/common/prisma/rls-transaction.service.ts']) write(file,'export const caller = true;\n');
+  for(const file of Object.keys(AUCTION_LINEAGE_API_BLOBS)) write(file,fs.readFileSync(new URL(`../${file}`,import.meta.url),'utf8'));
   git(['add','.']);git(['commit','-m','isolated baseline']);const baseline=git(['rev-parse','HEAD']);
   write('README.md','Unrelated change\n');git(['add','.']);git(['commit','-m','isolated target']);const target=git(['rev-parse','HEAD']);
   assert.equal(verifyLineageSourceCompatibility(root,baseline,target),'PASS');
   rejects(()=>verifyLineageSourceCompatibility(root,target,baseline),'LINEAGE_BASELINE_NOT_ANCESTOR');
+  const commands='apps/api/src/modules/auctions/auction-command.service.ts';
+  write(commands,fs.readFileSync(new URL(`../${commands}`,import.meta.url),'utf8')+'\n// Changed caller\n');
+  git(['add','.']);git(['commit','-m','unreviewed direct SQL caller']);
+  rejects(()=>verifyLineageSourceCompatibility(root,baseline,git(['rev-parse','HEAD'])),'AUCTION_LINEAGE_API_COMPATIBILITY_UNPROVEN');
+  write(commands,fs.readFileSync(new URL(`../${commands}`,import.meta.url),'utf8'));
+  write('apps/api/src/extra-caller.ts','export const query = "SELECT auction.place_bid()";\n');
+  git(['add','.']);git(['commit','-m','additional SQL consumer']);
+  rejects(()=>verifyLineageSourceCompatibility(root,baseline,git(['rev-parse','HEAD'])),'AUCTION_LINEAGE_SQL_CONSUMERS_UNEXPECTED');
+  fs.unlinkSync(path.join(root,'apps/api/src/extra-caller.ts'));
   write(caller,'export const caller = false;\n');git(['add','.']);git(['commit','-m','changed caller']);
   rejects(()=>verifyLineageSourceCompatibility(root,baseline,git(['rev-parse','HEAD'])),'LINEAGE_CALLER_COMPATIBILITY_UNPROVEN');
   write('apps/api/src/legacy.ts','export const query = "SELECT dealx.participant_tenant()";\n');git(['add','.']);git(['commit','-m','legacy consumer']);
@@ -53,6 +111,17 @@ test('lineage compatibility uses actual baseline Git blobs and blocks legacy con
   rejects(()=>verifyLineageSourceCompatibility(root,baseline,legacy),'LEGACY_SQL_HELPER_CONSUMER_PRESENT');
   fs.unlinkSync(path.join(root,'apps/api/src/legacy.ts'));git(['add','.']);git(['commit','-m','remove target consumer']);
   rejects(()=>verifyLineageSourceCompatibility(root,legacy,git(['rev-parse','HEAD'])),'LEGACY_SQL_HELPER_CONSUMER_PRESENT');
+});
+
+test('auction source compatibility admits only audited old or current callers toward the current API',()=>{
+  const old=Object.fromEntries(Object.entries(AUCTION_LINEAGE_API_BLOBS).map(([file,pins])=>[file,pins.historical]));
+  const current=Object.fromEntries(Object.entries(AUCTION_LINEAGE_API_BLOBS).map(([file,pins])=>[file,pins.canonical]));
+  validateAuctionLineageApiBlobs(old,current);
+  validateAuctionLineageApiBlobs(current,current);
+  rejects(()=>validateAuctionLineageApiBlobs(current,old),'AUCTION_LINEAGE_API_COMPATIBILITY_UNPROVEN');
+  rejects(()=>validateAuctionLineageApiBlobs({},current),'AUCTION_LINEAGE_API_SOURCE_UNAVAILABLE');
+  const file=Object.keys(current)[0];
+  rejects(()=>validateAuctionLineageApiBlobs({...old,[file]:'a'.repeat(40)},current),'AUCTION_LINEAGE_API_COMPATIBILITY_UNPROVEN');
 });
 
 function canonicalLineageRows() {

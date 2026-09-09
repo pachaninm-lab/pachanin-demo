@@ -392,6 +392,8 @@ jobs:
             [[ "$(revision)" == "$target" ]]
             [[ "$(docker inspect --format '{{.Image}}' "$(api_id)")" == "$(docker image inspect --format '{{.Id}}' "$PC_W1_API_DIGEST")" ]] || { echo PC_W1_BLOCKER=RUNNING_API_DIGEST_MISMATCH; exit 45; }
             PC_W1_BASELINE_API_SHA="$target" "$remote/production-pc-crop-w1-migrations.sh" preflight "$target" "$run"
+            docker exec "$(api_id)" /nodejs/bin/node --input-type=module \
+              -e "$(cat "$remote/check-production-pc-crop-w1-acceptance.mjs")" -- --runtime-routes
           fi
           [[ "$(env_hash)" == "$before_env" ]] || { echo PC_W1_BLOCKER=API_ENV_CHANGED; exit 43; }
           [[ "$(sibling_hash)" == "$before_siblings" ]] || { echo PC_W1_BLOCKER=NON_API_WORKLOAD_CHANGED; exit 44; }
@@ -427,6 +429,8 @@ jobs:
           (( status == 0 )) || exit "$status"
           grep -Fxq PC_W1_CONTROLLER_STAGE=COMPLETED "$EVIDENCE_DIR/stage.log"
           [[ "$OPERATION" != migrate ]] || grep -Fxq PC_W1_API_DIGEST_VERIFIED=PASS "$EVIDENCE_DIR/stage.log"
+          [[ "$OPERATION" != migrate ]] || grep -Fxq PC_W1_API_ROUTE_BOUNDARY=PASS "$EVIDENCE_DIR/stage.log"
+          [[ "$OPERATION" != migrate ]] || grep -Fxq PC_W1_API_ROUTES=5 "$EVIDENCE_DIR/stage.log"
 
       - name: Verify public REG.RU route without a registration mutation
         id: public

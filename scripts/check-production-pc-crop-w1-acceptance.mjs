@@ -30,6 +30,41 @@ const SAFE_ERROR = /^[A-Z][A-Z0-9_]{2,95}$/;
 export function blocked(code) { throw new Error(code); }
 export function errorCode(error) { return SAFE_ERROR.test(error?.message ?? '') ? error.message : 'UNCLASSIFIED_PROBE_FAILURE'; }
 export function sha256(value) { return crypto.createHash('sha256').update(value).digest('hex'); }
+
+// This proves route presence and unauthenticated denial only. It never creates
+// a session or a business record and cannot attest an authenticated W1 command.
+export async function verifyW1RouteBoundary(request = globalThis.fetch) {
+  const origin = 'http://127.0.0.1:3001';
+  const routes = [
+    '/api/platform-v7/organization-capabilities',
+    '/api/service-providers/me',
+    '/api/service-providers/integration-bindings/me',
+    '/api/commercial-rules/me',
+    '/api/service-marketplace/me',
+  ];
+  const expectStatus = async (route, status, authorization) => {
+    let response;
+    try {
+      response = await request(`${origin}${route}`, {
+        method: 'GET', redirect: 'error', cache: 'no-store',
+        headers: { Accept: 'application/json', ...(authorization ? { Authorization: authorization } : {}) },
+        signal: AbortSignal.timeout(4000),
+      });
+      // Never read or publish a response body, including an unexpectedly public
+      // response that could contain tenant data.
+      await response.body?.cancel();
+    } catch { blocked('API_ROUTE_TRANSPORT_FAILED'); }
+    if (response.status !== status) blocked('API_ROUTE_BOUNDARY_FAILED');
+  };
+  await expectStatus('/ready', 200);
+  // A blanket proxy/auth error must not masquerade as five registered routes.
+  await expectStatus(`/api/pc-crop-w1-absent-${crypto.randomBytes(12).toString('hex')}`, 404);
+  for (const route of routes) {
+    await expectStatus(route, 401);
+    await expectStatus(route, 401, 'Bearer pc-w1-invalid-credentials');
+  }
+  return { routes: routes.length, boundary: 'PASS', authenticatedAcceptance: 'NOT_EVIDENCED' };
+}
 const LEDGER_COUNTS = ['ROWS', 'MATCHED', 'DRIFTED', 'UNKNOWN', 'DUPLICATES', 'UNFINISHED', 'ROLLED_BACK', 'LEGACY_INITIAL_MARKERS'];
 const LEDGER_BLOCKERS = ['APPLIED_MIGRATION_CHECKSUM_DRIFT', 'UNFINISHED_MIGRATION', 'UNRECOGNIZED_APPLIED_MIGRATION', 'DUPLICATE_APPLIED_MIGRATION', 'PENDING_SET_NOT_EXACT_EIGHT'];
 // Source provenance is only one part of historical reconciliation. Production
@@ -192,6 +227,33 @@ export function probeDiagnostics(value) {
 }
 function sortedObject(value) { return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))); }
 
+// Exact source objects audited from the historical API d401f26 and accepted
+// main b262985. Both versions call record_admission/place_bid identically;
+// their changed registration path is covered by the explicit old-API rollback
+// degradation. Unknown source changes require a new compatibility review.
+export const AUCTION_LINEAGE_API_BLOBS = Object.freeze({
+  'apps/api/src/modules/auctions/auction-command.service.ts': Object.freeze({
+    historical: 'bd4ea7163c37f66b7c1a9d8138012380d5819dca',
+    canonical: '017d44b3532319d55d4b095355250cc6f6240ab8',
+  }),
+  'apps/api/src/modules/auctions/auctions.controller.ts': Object.freeze({
+    historical: '4b23d4de40e6914f8376e7f1c081e1dc1bfd3ded',
+    canonical: '2fc9dc262ba60bfe9850d67fa820e93c0611680b',
+  }),
+});
+export function validateAuctionLineageApiBlobs(baseline, target) {
+  const files=Object.keys(AUCTION_LINEAGE_API_BLOBS);
+  for(const value of [baseline,target]) {
+    if(!value || Object.keys(value).length!==files.length || files.some(file=>!Object.hasOwn(value,file))) {
+      blocked('AUCTION_LINEAGE_API_SOURCE_UNAVAILABLE');
+    }
+  }
+  for(const [file,pins] of Object.entries(AUCTION_LINEAGE_API_BLOBS)) {
+    if(![pins.historical,pins.canonical].includes(baseline[file]) || target[file]!==pins.canonical) {
+      blocked('AUCTION_LINEAGE_API_COMPATIBILITY_UNPROVEN');
+    }
+  }
+}
 export function verifyLineageSourceCompatibility(root, baseline, target) {
   if (![baseline,target].every(sha=>/^[0-9a-f]{40}$/.test(sha))) blocked('LINEAGE_SOURCE_REVISION_INVALID');
   const git=args=>spawnSync('git',args,{cwd:root,encoding:'utf8',timeout:120_000,maxBuffer:1024*1024});
@@ -200,10 +262,27 @@ export function verifyLineageSourceCompatibility(root, baseline, target) {
     const scan=git(['grep','-I','-l','-E','list_open_lots|participant_tenant|market_showcase',revision,'--','apps/api/src']);
     if(scan.status!==1) blocked(scan.status===0 ? 'LEGACY_SQL_HELPER_CONSUMER_PRESENT' : 'LINEAGE_SOURCE_INSPECTION_FAILED');
   }
+  const sourceObjects=[];
+  for(const revision of [baseline,target]) {
+    const scan=git(['grep','-I','-l','-F','-e','auction.record_admission','-e','auction.place_bid',revision,
+      '--','apps/api/src',':(exclude)*.spec.ts']);
+    if(scan.status!==0 || scan.stdout!==`${revision}:apps/api/src/modules/auctions/auction-command.service.ts\n`) {
+      blocked('AUCTION_LINEAGE_SQL_CONSUMERS_UNEXPECTED');
+    }
+    const sources={};
+    for(const file of Object.keys(AUCTION_LINEAGE_API_BLOBS)) {
+      const blob=git(['rev-parse',`${revision}:${file}`]);
+      if(blob.status!==0 || !/^[0-9a-f]{40}\n$/.test(blob.stdout)) blocked('AUCTION_LINEAGE_API_SOURCE_UNAVAILABLE');
+      sources[file]=blob.stdout.trim();
+    }
+    sourceObjects.push(sources);
+  }
+  validateAuctionLineageApiBlobs(...sourceObjects);
   const callers=[
     'apps/api/src/modules/auctions/auctions.module.ts',
     'apps/api/src/modules/deals/industrial-deal-command.gateway.ts',
     'apps/api/src/modules/deals/prisma-deal.repository.ts',
+    'apps/api/src/common/prisma/rls-transaction.service.ts',
   ];
   for(const file of callers) {
     const values=[baseline,target].map(revision=>git(['rev-parse',`${revision}:${file}`]));
@@ -733,6 +812,11 @@ export async function runtimeProbe(phase) {
 }
 
 export function checkSources(root) {
+  for(const [file,pins] of Object.entries(AUCTION_LINEAGE_API_BLOBS)) {
+    const bytes=fs.readFileSync(path.join(root,file));
+    const blob=crypto.createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
+    assert.equal(blob,pins.canonical,'Current auction API source requires an exact compatibility review');
+  }
   const script = fs.readFileSync(path.join(root, 'scripts/production-pc-crop-w1-migrations.sh'), 'utf8');
   for (const marker of ['PC_W1_MIGRATION_DIGEST', 'snapshot-sql', 'READ_ONLY', '--snapshot=', '--format=custom',
     'PC_W1_LEGACY_LOT_ROLLBACK DEGRADED_FAIL_CLOSED', 'PC_W1_FULL_ACCEPTANCE NOT_EVIDENCED',
@@ -763,10 +847,26 @@ export function checkSources(root) {
     assert.ok(script.includes(`-e ${key}`),'API probe must receive the exact rehearsal reference');
     assert.ok(script.includes(`\${${key}:-}`),'Mutation must require both rehearsal references');
   }
+  const workflow=fs.readFileSync(path.join(root,'.github/workflows/pc-crop-w1-production-acceptance.yml'),'utf8');
+  const routeProbe=workflow.indexOf('-- --runtime-routes');
+  const deployedDigest=workflow.indexOf('PC_W1_BLOCKER=RUNNING_API_DIGEST_MISMATCH');
+  const unchanged=workflow.indexOf('PC_W1_BLOCKER=API_ENV_CHANGED');
+  assert.ok(deployedDigest>=0 && routeProbe>deployedDigest && routeProbe<unchanged,
+    'Route probe must execute inside the verified deployed API before completion');
+  for(const field of ['PC_W1_API_ROUTE_BOUNDARY=PASS','PC_W1_API_ROUTES=5']) {
+    assert.ok(workflow.includes(`[[ "$OPERATION" != migrate ]] || grep -Fxq ${field} "$EVIDENCE_DIR/stage.log"`),
+      'Successful migration release requires bounded route evidence');
+  }
 }
 
 const args = process.argv.slice(2);
-if (process.argv[1] === '--runtime-probe') {
+if (process.argv[1] === '--runtime-routes') {
+  verifyW1RouteBoundary().then(result => {
+    console.log(`PC_W1_API_ROUTE_BOUNDARY=${result.boundary}`);
+    console.log(`PC_W1_API_ROUTES=${result.routes}`);
+    console.log(`PC_W1_AUTHENTICATED_ACCEPTANCE=${result.authenticatedAcceptance}`);
+  }).catch(error => { console.log(`PC_W1_BLOCKER=${errorCode(error)}`); process.exitCode = 1; });
+} else if (process.argv[1] === '--runtime-probe') {
   runtimeProbe(process.argv[2]).catch(error => { process.stdout.write(JSON.stringify(probeErrorPayload(error)) + '\n'); process.exitCode = 1; });
 } else if (process.argv[1] === '--runtime-tool' || (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href)) {
   try {
