@@ -44,7 +44,7 @@ jobs:
           set -Eeuo pipefail
           MAX_DIFF_BYTES=400000
           MAX_CHUNK_DIFF_BYTES=8000
-          MAX_CHUNKS=64
+          MAX_CHUNKS=96
           live_head="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.head.sha')"
           [[ "$live_head" == "$EXPECTED_HEAD" ]] || {
             echo "PR head moved before review: expected=$EXPECTED_HEAD current=$live_head" >&2
