@@ -1361,19 +1361,20 @@
       "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
       "docs/security/cryptographic-inventory.json"
     ],
+    "security/pc-crop-next-15-5-24-4997": [
+      ".github/workflows/sbom-scan.yml",
+      "apps/web/package.json",
+      "package.json",
+      "pnpm-lock.yaml",
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs"
+    ],
     "governance/pc-crop-inventory-reservation-scope-4997": [
       "docs/platform-v7/autopilot/autopilot-state.json",
       "scripts/p7-autopilot-guard.sh",
       "scripts/p7-autopilot-guard.test.mjs",
       ".github/workflows/platform-v7-autopilot-guard.yml",
       "docs/platform-v7/autopilot/scopes/pc-crop-inventory-reservation-authority-4997.json"
-    ],
-    "security/pc-crop-next-15-5-24-4997": [
-      "apps/web/package.json",
-      "pnpm-lock.yaml",
-      "docs/platform-v7/autopilot/autopilot-state.json",
-      "scripts/p7-autopilot-guard.sh",
-      "scripts/p7-autopilot-guard.test.mjs"
     ]
   },
   "currentAcceptance": [

@@ -657,21 +657,22 @@ function nextSecurityFixture(t) {
   const context = fixture(t, nextSecurityPatchBranch);
   write(context.root, 'docs/platform-v7/autopilot/autopilot-state.json', JSON.stringify({
     allowedCurrentScope: ['README.md'],
-    approvedConcurrentScopes: { [nextSecurityPatchBranch]: ['apps/web/package.json', 'pnpm-lock.yaml', 'docs/platform-v7/autopilot/autopilot-state.json', 'scripts/p7-autopilot-guard.sh', 'scripts/p7-autopilot-guard.test.mjs'] },
+    approvedConcurrentScopes: { [nextSecurityPatchBranch]: ['.github/workflows/sbom-scan.yml', 'apps/web/package.json', 'package.json', 'pnpm-lock.yaml', 'scripts/p7-autopilot-guard.sh', 'scripts/p7-autopilot-guard.test.mjs'] },
   }));
   commit(context.root, 'owner-authorized exact dependency scope');
   context.baseline = git(context.root, ['rev-parse', 'HEAD']);
   return context;
 }
-test('Next security patch admits the approved manifest and lockfile pair', (t) => {
+test('Next security patch admits the manifests and lockfile after prior governance', (t) => {
   const context = nextSecurityFixture(t);
   write(context.root, 'apps/web/package.json', '{"dependencies":{"next":"15.5.24"}}');
+  write(context.root, 'package.json', '{"pnpm":{"overrides":{"multer":"2.3.0","sharp":"0.35.4"}}}');
   write(context.root, 'pnpm-lock.yaml', 'lockfileVersion: 9.0\n');
   commit(context.root, 'bounded patch');
   const result = runGuard(context);
   assert.equal(result.status, 0, output(result));
 });
-for (const forbidden of ['README.md', 'apps/web/app/platform-v7/register/page.tsx', 'apps/api/src/app.module.ts', 'pnpm-lock.yaml/child', 'package-lock.json']) {
+for (const forbidden of ['README.md', 'apps/web/app/platform-v7/register/page.tsx', 'apps/api/src/app.module.ts', 'pnpm-lock.yaml/child', 'package.json/child', 'package-lock.json']) {
   test(`Next security patch rejects unrelated path ${forbidden}`, (t) => {
     const context = nextSecurityFixture(t);
     write(context.root, forbidden, 'unapproved change\n');
@@ -692,4 +693,35 @@ test('Next security patch rejects expansion of its declared scope', (t) => {
   const result = runGuard(context);
   assert.notEqual(result.status, 0);
   assert.match(output(result), /NEXT_SECURITY_PATCH_SCOPE_MISMATCH/u);
+});
+
+test('Next security patch rejects same-PR self-authorization against an unapproved base', (t) => {
+  const context = nextSecurityFixture(t);
+  context.baseline = git(context.root, ['rev-parse', 'HEAD~1']);
+  write(context.root, 'apps/web/package.json', '{"dependencies":{"next":"15.5.24"}}');
+  commit(context.root, 'implementation bundled with candidate scope');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0);
+  assert.match(output(result), /NEXT_SECURITY_PATCH_ACCEPTED_SCOPE_MISSING/u);
+});
+
+test('security remediation pins the three affected dependency families', () => {
+  const root = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+  const web = JSON.parse(fs.readFileSync('apps/web/package.json', 'utf8'));
+  assert.equal(root.pnpm.overrides.multer, '2.3.0');
+  assert.equal(root.pnpm.overrides.sharp, '0.35.4');
+  assert.equal(web.dependencies.next, '15.5.24');
+});
+
+test('SBOM isolated pnpm commands preserve the setup-node cache store root', () => {
+  const workflow = fs.readFileSync('.github/workflows/sbom-scan.yml', 'utf8');
+  const commands = workflow.split('\n').filter(line => line.includes('env -i ') && /pnpm (install|dlx)/u.test(line));
+  assert.equal(commands.length, 5);
+  for (const command of commands) {
+    assert.match(command, /env -i PATH="\$PATH" HOME="\$HOME" PNPM_HOME="\$PNPM_HOME" CI=true/u);
+  }
+  assert.equal((workflow.match(/cache: pnpm/gu) ?? []).length, 2);
+  assert.equal((workflow.match(/install --frozen-lockfile --ignore-scripts/gu) ?? []).length, 2);
+  assert.equal((workflow.match(/--validate/gu) ?? []).length, 3);
+  assert.equal((workflow.match(/if-no-files-found: error/gu) ?? []).length, 2);
 });

@@ -462,18 +462,30 @@ process.stdout.write(`${normalized.join('\n')}\n`);
 JS
   )
 else
-  APPROVED_BRANCH_SCOPE=$(GITHUB_HEAD_REF="$CURRENT_BRANCH" node - <<'JS'
+  APPROVED_BRANCH_SCOPE=$(GITHUB_HEAD_REF="$CURRENT_BRANCH" P7_SCOPE_BASE_REF="$BASE_REF" node - <<'JS'
 const fs = require('fs');
+const { execFileSync } = require('node:child_process');
 const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
 const branch = String(process.env.GITHUB_HEAD_REF || '').trim();
-const scopes = branch ? state.approvedConcurrentScopes?.[branch] : undefined;
+let scopes = branch ? state.approvedConcurrentScopes?.[branch] : undefined;
 if (branch === 'security/pc-crop-next-15-5-24-4997') {
-  const expected = ['apps/web/package.json', 'pnpm-lock.yaml',
-    'docs/platform-v7/autopilot/autopilot-state.json',
+  const expected = ['.github/workflows/sbom-scan.yml', 'apps/web/package.json', 'package.json', 'pnpm-lock.yaml',
     'scripts/p7-autopilot-guard.sh', 'scripts/p7-autopilot-guard.test.mjs'];
+  // The dependency patch cannot authorize itself: authority must predate it.
+  let accepted;
+  try {
+    accepted = JSON.parse(execFileSync('git', ['show', `${process.env.P7_SCOPE_BASE_REF}:docs/platform-v7/autopilot/autopilot-state.json`], { encoding: 'utf8' }));
+  } catch {
+    throw new Error('NEXT_SECURITY_PATCH_ACCEPTED_SCOPE_MISSING');
+  }
+  const acceptedScope = accepted.approvedConcurrentScopes?.[branch];
+  if (!Array.isArray(acceptedScope) || JSON.stringify([...acceptedScope].sort()) !== JSON.stringify([...expected].sort())) {
+    throw new Error('NEXT_SECURITY_PATCH_ACCEPTED_SCOPE_MISSING');
+  }
   if (!Array.isArray(scopes) || JSON.stringify([...scopes].sort()) !== JSON.stringify(expected.sort())) {
     throw new Error('NEXT_SECURITY_PATCH_SCOPE_MISMATCH');
   }
+  scopes = acceptedScope;
 }
 if (Array.isArray(scopes)) {
   for (const file of scopes) console.log(file);
