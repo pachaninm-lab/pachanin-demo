@@ -3,6 +3,7 @@ import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { RequestUser } from '../../common/types/request-user';
 import { FounderControlService } from './founder-control.service';
+import { FounderControlUpsertDto } from './founder-control.dto';
 
 @Controller('founder-control')
 export class FounderControlController {
@@ -37,7 +38,7 @@ export class FounderControlController {
   upsert(
     @Param('recordType') recordType: string,
     @Param('recordKey') recordKey: string,
-    @Body() body: unknown,
+    @Body() body: FounderControlUpsertDto,
     @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Headers('x-correlation-id') correlationId: string | undefined,
     @CurrentUser() user: RequestUser,
