@@ -223,6 +223,25 @@ test('known non-main history remains blocked, and catalog bodies are classified 
   assert.equal(evidence.PC_W1_HISTORY_CATALOG,'OBSERVED');assert.equal(evidence.PC_W1_HISTORY_POLICIES,'1');
   assert.equal(evidence.PC_W1_HISTORY_FUNCTION_00,'ABSENT');assert.equal(evidence.PC_W1_HISTORY_FUNCTION_01,'CANONICAL_BODY');
   assert.equal(evidence.PC_W1_HISTORY_FUNCTION_02,'CANONICAL_BODY');assert.equal(evidence.PC_W1_HISTORY_FUNCTION_03,'OTHER_BODY');
+  for(let index=0;index<4;index++) {
+    const key=`PC_W1_HISTORY_FUNCTION_0${index}_SHA256`;
+    const wrong=index===3?HISTORICAL_FUNCTIONS[3][1]:'0'.repeat(64);
+    rejects(()=>parseEvidence(output.replace(`${key}=${evidence[key]}`,`${key}=${wrong}`)+historicalTerminal),'CONTRADICTORY_HISTORY_DIAGNOSTICS');
+  }
+  rejects(()=>parseEvidence(output.replace('HISTORY_FUNCTION_01=CANONICAL_BODY','HISTORY_FUNCTION_01=HISTORICAL_BODY')+historicalTerminal),'CONTRADICTORY_HISTORY_DIAGNOSTICS');
+  for(let index=0;index<4;index++) for(const field of ['NAME','CHECKSUM','VALUE']) {
+    const key=`PC_W1_UNKNOWN_0${index}_${field}_SHA256`;
+    rejects(()=>parseEvidence(output.replace(`${key}=${evidence[key]}`,`${key}=${'0'.repeat(64)}`)+historicalTerminal),'CONTRADICTORY_HISTORY_DIAGNOSTICS');
+  }
+  let duplicate=output,permuted=output;
+  for(const field of ['NAME','CHECKSUM','VALUE']) {
+    const first=`PC_W1_UNKNOWN_00_${field}_SHA256`,second=`PC_W1_UNKNOWN_01_${field}_SHA256`;
+    duplicate=duplicate.replace(`${second}=${evidence[second]}`,`${second}=${evidence[first]}`);
+    permuted=permuted.replace(`${first}=${evidence[first]}`,`${first}=${evidence[second]}`)
+      .replace(`${second}=${evidence[second]}`,`${second}=${evidence[first]}`);
+  }
+  rejects(()=>parseEvidence(duplicate+historicalTerminal),'CONTRADICTORY_HISTORY_DIAGNOSTICS');
+  assert.equal(parseEvidence(permuted+historicalTerminal).PC_W1_HISTORY_LEDGER,'EXACT_FOUR_SOURCE_CHECKSUMS');
   assert.doesNotMatch(JSON.stringify(payload),/private-|participant_tenant|record_admission|policyname|qual/);
   for(const [key,value] of Object.entries(payload.historicalDiagnostics)) {
     rejects(()=>parseEvidence(output.replace(`${key}=${value}\n`,'')+historicalTerminal),'CONTRADICTORY_HISTORY_DIAGNOSTICS');

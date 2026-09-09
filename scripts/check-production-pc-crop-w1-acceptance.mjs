@@ -51,6 +51,7 @@ const HISTORY_EVIDENCE = Object.freeze({
   PC_W1_HISTORY_POLICIES: /^(?:[0-6]|UNKNOWN)$/,
   ...Object.fromEntries(HISTORICAL_FUNCTIONS.map((_, index) => [`PC_W1_HISTORY_FUNCTION_0${index}`,
     /^(HISTORICAL_BODY|CANONICAL_BODY|OTHER_BODY|ABSENT|AMBIGUOUS|NOT_OBSERVED)$/])),
+  ...Object.fromEntries(HISTORICAL_FUNCTIONS.map((_, index) => [`PC_W1_HISTORY_FUNCTION_0${index}_SHA256`, /^(?:[0-9a-f]{64}|NONE)$/])),
 });
 function validHistoryEvidence(value) {
   if (!value || Object.keys(value).length !== Object.keys(HISTORY_EVIDENCE).length
@@ -58,19 +59,32 @@ function validHistoryEvidence(value) {
   const observed = value.PC_W1_HISTORY_CATALOG === 'OBSERVED';
   return (value.PC_W1_HISTORY_CATALOG_SHA256 !== 'NONE') === observed
     && (value.PC_W1_HISTORY_POLICIES !== 'UNKNOWN') === observed
-    && HISTORICAL_FUNCTIONS.every((_, index) => (value[`PC_W1_HISTORY_FUNCTION_0${index}`] !== 'NOT_OBSERVED') === observed);
+    && HISTORICAL_FUNCTIONS.every(([, historical, canonical], index) => {
+      const state = value[`PC_W1_HISTORY_FUNCTION_0${index}`], hash = value[`PC_W1_HISTORY_FUNCTION_0${index}_SHA256`];
+      if ((state !== 'NOT_OBSERVED') !== observed) return false;
+      if (['NOT_OBSERVED','ABSENT','AMBIGUOUS'].includes(state)) return hash === 'NONE';
+      if (state === 'HISTORICAL_BODY') return hash === historical;
+      if (state === 'CANONICAL_BODY') return canonical !== null && hash === canonical;
+      return hash !== 'NONE' && hash !== historical && hash !== canonical;
+    });
+}
+function exactHistoricalFingerprints(rows) {
+  if (!Array.isArray(rows) || rows.length !== HISTORICAL_MIGRATIONS.length) return false;
+  const expected = HISTORICAL_MIGRATIONS.map(([name, checksum]) =>
+    [sha256(name), checksum, sha256(JSON.stringify(checksum))].join(':')).sort();
+  const observed = rows.map(row => [row?.nameSha256, row?.checksumSha256, row?.valueSha256].join(':')).sort();
+  return JSON.stringify(observed) === JSON.stringify(expected);
 }
 export async function attachHistoricalDiagnostics(tx, error, ledger) {
   if (errorCode(error) !== 'UNRECOGNIZED_APPLIED_MIGRATION') return;
   const exact = HISTORICAL_MIGRATIONS.every(([name, checksum]) => {
     const rows = ledger.filter(row => row.migration_name === name);
     return rows.length === 1 && rows[0].checksum === checksum && rows[0].finished_at != null && rows[0].rolled_back_at == null;
-  }) && error.ledgerDiagnostics?.UNKNOWN === 4 && error.ledgerDiagnostics.unknownMigrations?.length === 4
-    && error.ledgerDiagnostics.unknownMigrations.every(row => HISTORICAL_MIGRATIONS.some(([name, checksum]) =>
-      row.nameSha256 === sha256(name) && row.checksumSha256 === checksum));
+  }) && error.ledgerDiagnostics?.UNKNOWN === 4 && exactHistoricalFingerprints(error.ledgerDiagnostics.unknownMigrations);
   const report = { PC_W1_HISTORY_LEDGER: exact ? 'EXACT_FOUR_SOURCE_CHECKSUMS' : 'UNRECONCILED',
     PC_W1_HISTORY_CATALOG: 'UNAVAILABLE', PC_W1_HISTORY_CATALOG_SHA256: 'NONE', PC_W1_HISTORY_POLICIES: 'UNKNOWN',
-    ...Object.fromEntries(HISTORICAL_FUNCTIONS.map((_, index) => [`PC_W1_HISTORY_FUNCTION_0${index}`, 'NOT_OBSERVED'])) };
+    ...Object.fromEntries(HISTORICAL_FUNCTIONS.flatMap((_, index) => [[`PC_W1_HISTORY_FUNCTION_0${index}`, 'NOT_OBSERVED'],
+      [`PC_W1_HISTORY_FUNCTION_0${index}_SHA256`, 'NONE']])) };
   try {
     // Fixed catalog identifiers only; no application rows or caller SQL. The
     // caller has already established a confined READ ONLY transaction.
@@ -95,6 +109,7 @@ export async function attachHistoricalDiagnostics(tx, error, ledger) {
     HISTORICAL_FUNCTIONS.forEach(([name, historical, canonical], index) => {
       const rows = functions.filter(row => row.name === name);
       const hash = rows.length === 1 ? sha256(rows[0].body) : null;
+      report[`PC_W1_HISTORY_FUNCTION_0${index}_SHA256`] = hash ?? 'NONE';
       report[`PC_W1_HISTORY_FUNCTION_0${index}`] = !rows.length ? 'ABSENT' : rows.length > 1 ? 'AMBIGUOUS'
         : hash === historical ? 'HISTORICAL_BODY' : hash === canonical ? 'CANONICAL_BODY' : 'OTHER_BODY';
     });
@@ -155,7 +170,8 @@ export function probeErrorPayload(error) {
     payload.historicalDiagnostics = validHistoryEvidence(error?.historicalDiagnostics) ? { ...error.historicalDiagnostics } : {
       PC_W1_HISTORY_LEDGER: 'UNRECONCILED', PC_W1_HISTORY_CATALOG: 'NOT_OBSERVED',
       PC_W1_HISTORY_CATALOG_SHA256: 'NONE', PC_W1_HISTORY_POLICIES: 'UNKNOWN',
-      ...Object.fromEntries(HISTORICAL_FUNCTIONS.map((_, index) => [`PC_W1_HISTORY_FUNCTION_0${index}`, 'NOT_OBSERVED'])),
+      ...Object.fromEntries(HISTORICAL_FUNCTIONS.flatMap((_, index) => [[`PC_W1_HISTORY_FUNCTION_0${index}`, 'NOT_OBSERVED'],
+        [`PC_W1_HISTORY_FUNCTION_0${index}_SHA256`, 'NONE']])),
     };
   }
   return payload;
@@ -417,9 +433,15 @@ export function parseEvidence(raw, { requireTerminal = true } = {}) {
     }
   }
   const history = Object.fromEntries(Object.entries(result).filter(([key]) => key.startsWith('PC_W1_HISTORY_')));
+  const historyRows = Array.from({length:4}, (_, index) => ({
+    nameSha256: result[`PC_W1_UNKNOWN_0${index}_NAME_SHA256`],
+    checksumSha256: result[`PC_W1_UNKNOWN_0${index}_CHECKSUM_SHA256`],
+    valueSha256: result[`PC_W1_UNKNOWN_0${index}_VALUE_SHA256`],
+  }));
   if ((Object.keys(history).length || result.PC_W1_ERROR === 'UNRECOGNIZED_APPLIED_MIGRATION') && (!validHistoryEvidence(history) || result.PC_W1_RESULT !== 'BLOCKED'
     || result.PC_W1_ERROR !== 'UNRECOGNIZED_APPLIED_MIGRATION' || result.PC_W1_DATABASE_MUTATION !== 'NONE'
-    || (history.PC_W1_HISTORY_LEDGER === 'EXACT_FOUR_SOURCE_CHECKSUMS' && result.PC_W1_LEDGER_UNKNOWN !== '4'))) {
+    || (history.PC_W1_HISTORY_LEDGER === 'EXACT_FOUR_SOURCE_CHECKSUMS'
+      && (result.PC_W1_LEDGER_UNKNOWN !== '4' || !exactHistoricalFingerprints(historyRows))))) {
     blocked('CONTRADICTORY_HISTORY_DIAGNOSTICS');
   }
   if (result.PC_W1_RESULT && result.PC_W1_RESULT !== 'BLOCKED') {
