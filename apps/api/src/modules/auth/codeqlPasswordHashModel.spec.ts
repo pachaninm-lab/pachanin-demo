@@ -152,8 +152,9 @@ describe('CodeQL password-hash model correction', () => {
 
     expect(lock.codeqlCli).toBe('2.27.0');
     expect(lock.queriesPack).toEqual({ name: 'codeql/javascript-queries', version: '2.4.5' });
+    expect(lock.derivedFromTag).toBe('codeql-cli/v2.26.4');
     expect(lock.upstreamTag).toBe('codeql-cli/v2.27.0');
-    expect(query).toContain(`Derived from the upstream query at ${lock.upstreamTag},`);
+    expect(query).toContain(`Derived from the upstream query at ${lock.derivedFromTag},`);
     expect(lock.upstream.query).toContain('CWE-916/InsufficientPasswordHash.ql');
     expect(lock.replacedRuleId).toBe('js/insufficient-password-hash');
     expect(lock.semanticDiff.length).toBeGreaterThan(0);
