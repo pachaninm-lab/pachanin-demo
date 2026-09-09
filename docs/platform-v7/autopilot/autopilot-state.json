@@ -234,7 +234,8 @@
     "governance/pc-crop-w1-lineage-scope-4997": [
       "docs/platform-v7/autopilot/autopilot-state.json",
       "scripts/p7-autopilot-guard.test.mjs",
-      ".github/workflows/platform-v7-autopilot-guard.yml"
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      ".github/workflows/pc-crop-w1-production-acceptance.yml"
     ],
     "governance/pc-crop-post-registration-progress-scope-4997": [
       "docs/platform-v7/autopilot/autopilot-state.json",
