@@ -44,7 +44,7 @@ jobs:
           set -Eeuo pipefail
           MAX_DIFF_BYTES=400000
           MAX_CHUNK_DIFF_BYTES=8000
-          MAX_CHUNKS=64
+          MAX_CHUNKS=96
           live_head="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.head.sha')"
           [[ "$live_head" == "$EXPECTED_HEAD" ]] || {
             echo "PR head moved before review: expected=$EXPECTED_HEAD current=$live_head" >&2
@@ -425,7 +425,7 @@ jobs:
             --offline \
             --model "$MODEL_FILE" \
             --ctx-size 8192 \
-            --n-predict 64 \
+            --n-predict 256 \
             --threads 4 \
             --threads-batch 4 \
             --seed 424242 \
@@ -476,7 +476,7 @@ jobs:
             jq -n \
               --rawfile prompt "$prompt_file" \
               --rawfile grammar "$RUNNER_TEMP/review.gbnf" \
-              '{prompt:$prompt, grammar:$grammar, n_predict:64, seed:424242, temperature:0, top_k:1, top_p:1, min_p:0, repeat_penalty:1}' \
+              '{prompt:$prompt, grammar:$grammar, n_predict:256, seed:424242, temperature:0, top_k:1, top_p:1, min_p:0, repeat_penalty:1}' \
               >"$request_file"
             timeout --kill-after=10 180 curl --fail --silent --show-error --max-time 170 \
               --header "Content-Type: application/json" \
