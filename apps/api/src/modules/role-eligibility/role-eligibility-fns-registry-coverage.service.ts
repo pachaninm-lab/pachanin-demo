@@ -32,9 +32,14 @@ type ResolutionRow = {
 };
 
 /**
- * The only corpus-level FNS/EGRUL absence resolver introduced by #5064.
+ * Bounded FNS/EGRUL corpus-resolution substrate introduced by #5064.
  * One SQL statement binds the row lookup, ACTIVE generation, health, coverage,
  * continuity and finality facts to one PostgreSQL MVCC snapshot.
+ *
+ * This service is intentionally NOT an admission/enforcement path while
+ * ROLE_ELIGIBILITY_ENFORCEMENT=false. Consuming AUTHORITATIVE_NOT_FOUND in an
+ * admission decision requires a separately governed enforcement activation;
+ * #5064 does not change registration or admission behavior.
  */
 @Injectable()
 export class RoleEligibilityFnsRegistryCoverageService {

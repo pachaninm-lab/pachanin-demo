@@ -184,6 +184,32 @@ describe('RoleEligibilityRegistrySyncService retry contract', () => {
     expect(health.failure).not.toHaveBeenCalled();
   });
 
+  it('rejects a staged domain mismatch before activation can supersede another domain', async () => {
+    const fetchGeneration = jest.fn().mockResolvedValue(payload());
+    const { instance, registry, health } = service(fetchGeneration);
+    registry.stage.mockResolvedValue({ ...generation('STAGING'), registryDomain: 'EGRUL' });
+
+    await expect(instance.sync('CBR')).rejects.toMatchObject({
+      code: 'CBR_REGISTRY_DOMAIN_MISMATCH',
+      health: 'SCHEMA_CHANGED',
+    });
+
+    expect(registry.validateAndActivate).not.toHaveBeenCalled();
+    expect(registry.reject).toHaveBeenCalledWith('gen-1');
+    expect(health.success).not.toHaveBeenCalled();
+    expect(health.failure).toHaveBeenCalledWith('CBR', 'SCHEMA_CHANGED', 'CBR_REGISTRY_DOMAIN_MISMATCH', 'CBR');
+    expect(registry.auditSourceEvent).toHaveBeenLastCalledWith(
+      'ROLE_ELIGIBILITY_SOURCE_FETCH_FAILED',
+      'CBR',
+      expect.stringContaining('registry-sync:CBR:CBR:'),
+      expect.objectContaining({
+        registryDomain: 'CBR',
+        errorCode: 'CBR_REGISTRY_DOMAIN_MISMATCH',
+        stagedGenerationId: 'gen-1',
+      }),
+    );
+  });
+
   it('does not retry schema drift', async () => {
     const fetchGeneration = jest.fn().mockRejectedValue(
       new EligibilitySourceError('CBR', 'CBR_EXPECTED_SCHEMA_HEADERS_CHANGED', 'SCHEMA_CHANGED'),

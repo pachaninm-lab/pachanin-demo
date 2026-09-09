@@ -145,6 +145,10 @@ export class RoleEligibilityRegistrySyncService {
       }
       const staged = await this.registry.stage(fetched, freshUntil);
       stagedId = staged.id;
+      const stagedDomain = staged.registryDomain || registryDomainForGeneration(source, staged.schemaVersion);
+      if (stagedDomain !== requestedDomain) {
+        throw new EligibilitySourceError(source, `${source}_REGISTRY_DOMAIN_MISMATCH`, 'SCHEMA_CHANGED');
+      }
       const active = await this.registry.validateAndActivate(staged.id);
       const registryDomain = active.registryDomain || registryDomainForGeneration(source, active.schemaVersion);
       if (registryDomain !== requestedDomain) {
