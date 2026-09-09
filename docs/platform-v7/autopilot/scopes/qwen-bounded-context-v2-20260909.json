@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "ops/qwen-bounded-context-v2",
+  "status": "active",
+  "purpose": "Tighten the shared Local Qwen exact-head review provider runtime to 8 KiB diff chunks, 8 KiB model context and 32 output tokens after repeated bounded inference timeouts, while preserving complete diff coverage, immutable pins, fail-closed publication and the review gate.",
+  "authorityBaseExactMain": "6a807882f51150170dc477e82d0e2fbb7053bc73",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/local-qwen-independent-review.yml",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.mjs",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs",
+    "docs/platform-v7/autopilot/scopes/qwen-bounded-context-v2-20260909.json"
+  ],
+  "boundaries": {
+    "productBehaviorChange": false,
+    "securityGateWeakening": false,
+    "reviewGateWeakening": false,
+    "diffCoverageReduced": false,
+    "providerPinsChanged": false,
+    "failClosedPublicationPreserved": true
+  }
+}
