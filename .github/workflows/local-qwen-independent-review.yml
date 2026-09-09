@@ -414,7 +414,7 @@ jobs:
           set -Eeuo pipefail
           raw_dir="$RUNNER_TEMP/qwen-raw"
           mkdir -p "$raw_dir"
-          INFERENCE_WORKERS=2
+          INFERENCE_WORKERS=1
           run_chunk() {
             local chunk_index="$1"
             local prompt_file="$RUNNER_TEMP/qwen-prompts/prompt-$(printf '%04d' "$chunk_index").txt"
@@ -429,8 +429,8 @@ jobs:
               --file "$prompt_file" \
               --ctx-size 8192 \
               --n-predict 32 \
-              --threads 4 \
-              --threads-batch 4 \
+              --threads 2 \
+              --threads-batch 2 \
               --seed 424242 \
               --temperature 0 \
               --top-k 1 \
