@@ -1,6 +1,6 @@
 {
   "schemaVersion": "pc-crop.cryptographic-inventory.v1",
-  "scannedFiles": 2258,
+  "scannedFiles": 2269,
   "operations": [
     {
       "operation": "encryption",
@@ -285,11 +285,11 @@
     {
       "operation": "uuid",
       "label": "UUID generation",
-      "sites": 240,
+      "sites": 246,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 240,
+          "sites": 246,
           "files": [
             "apps/api/src/modules/accounting/connection-attestation.repository.ts",
             "apps/api/src/modules/ai-insights/ai-assistant.controller.ts",
@@ -316,6 +316,7 @@
             "apps/api/src/modules/deals/prisma-deal.repository.ts",
             "apps/api/src/modules/disputes/postgresql-dispute.repository.ts",
             "apps/api/src/modules/documents/prisma-document.repository.ts",
+            "apps/api/src/modules/founder-control/founder-control.service.ts",
             "apps/api/src/modules/labs/lab-authority.service.ts",
             "apps/api/src/modules/labs/lab-evidence-upload.service.ts",
             "apps/api/src/modules/labs/prisma-lab.repository.ts",
@@ -387,6 +388,7 @@
             "apps/web/app/api/staff/capabilities/me/route.ts",
             "apps/web/app/api/staff/commodity-profile-registry/[[...path]]/route.ts",
             "apps/web/app/api/staff/commodity-profiles/[profileId]/commands/[actionId]/route.ts",
+            "apps/web/app/api/staff/founder-control/[[...path]]/route.ts",
             "apps/web/app/api/staff/integration-control-tower/[[...path]]/route.ts",
             "apps/web/app/api/staff/integrations/_command-proxy.ts",
             "apps/web/app/api/staff/registration/applications/[applicationId]/cancel/route.ts",
@@ -401,6 +403,7 @@
             "apps/web/components/platform-v7/OrganizationConnectForm.tsx",
             "apps/web/components/platform-v7/staff/RegistrationReviewQueue.tsx",
             "apps/web/components/platform-v7/staff/StaffSupportCaseWorkspace.tsx",
+            "apps/web/components/platform-v7/staff/founder-control/FounderControlCenter.tsx",
             "apps/web/lib/commercial-workspace-repository.ts",
             "apps/web/lib/offline.ts",
             "apps/web/lib/server/transactional-mail.ts",

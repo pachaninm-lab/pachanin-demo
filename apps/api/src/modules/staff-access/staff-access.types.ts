@@ -69,6 +69,8 @@ export const StaffPermission = {
   CRITICAL_ACTION_REQUEST: 'critical-action:request',
   CRITICAL_ACTION_APPROVE: 'critical-action:approve',
   COMMODITY_PROFILE_LIFECYCLE_MANAGE: 'commodity-profile:lifecycle:manage',
+  FOUNDER_CONTROL_READ: 'founder-control:read',
+  FOUNDER_CONTROL_WRITE: 'founder-control:write',
 } as const;
 
 export type StaffPermission = typeof StaffPermission[keyof typeof StaffPermission];
