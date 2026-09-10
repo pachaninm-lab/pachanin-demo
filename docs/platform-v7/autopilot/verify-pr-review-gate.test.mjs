@@ -106,7 +106,7 @@ test('Octopus authority is additionally bound to one successful trusted workflow
   const repo = 'pachaninm-lab/pachanin-demo';
   const repositoryId = 1203022077;
   const prNumber = 5167;
-  const runId = '34180354026';
+  const runId = '123456789';
   const attestation = { runId };
   const run = {
     id: Number(runId), name: 'Independent Octopus Review', path: '.github/workflows/octopus-independent-review.yml',
@@ -411,6 +411,12 @@ test('Local Qwen workflow uses canonical Qwen3 model-host, remains bounded and f
   assert.match(workflow, /LOCAL QWEN INDEPENDENT REVIEW: PASS/u);
   assert.match(workflow, /Review manifest SHA-256/u);
   assert.match(workflow, /Prompt bundle SHA-256/u);
+  assert.match(workflow, /"required":\["findings"\]/u);
+  assert.match(workflow, /set\(value\)!=\{'findings'\}/u);
+  assert.match(workflow, /verdict='PASS' if not all_findings else 'BLOCK'/u);
+  assert.match(workflow, /Do not author verdict or summary/u);
+  assert.doesNotMatch(workflow, /"required":\["verdict","findings","summary"\]/u);
+  assert.doesNotMatch(workflow, /Inconsistent BLOCK in chunk/u);
   assert.match(workflow, /Pinned canonical Qwen3 review failed closed/u);
   assert.doesNotMatch(workflow, /Qwen2\.5-Coder-3B/u);
   assert.doesNotMatch(workflow, /huggingface\.co\/Qwen\/Qwen2\.5/u);
