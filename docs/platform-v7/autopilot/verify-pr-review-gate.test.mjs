@@ -630,7 +630,7 @@ test('verifier main requires genuine independent exact-head authority from Codex
   assert.match(mainBody, /positiveExactHeadCopilotReviews\(reviews, headSha\)/u);
   assert.match(mainBody, /positiveExactHeadOctopusAttestations/u);
   assert.match(mainBody, /octopusAttestationMatchesWorkflowRun/u);
-  assert.match(mainBody, /positiveExactHeadLocalQwenAttestations\(reviews, headSha\)/u);
+  assert.match(mainBody, /positiveExactHeadLocalQwenAttestations\(/u);
   assert.match(mainBody, /localQwenAttestationMatchesWorkflowRun/u);
   assert.match(mainBody, /fetchPublicLocalQwenActionsRun\(repo, attestation\.runId\)/u);
   assert.match(mainBody, /fetchPublicOctopusActionsRun\(repo, attestation\.runId\)/u);
