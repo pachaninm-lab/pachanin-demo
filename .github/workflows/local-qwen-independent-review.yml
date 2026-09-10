@@ -29,7 +29,7 @@ jobs:
       LLAMA_BUILD: b10809
       LLAMA_SOURCE_COMMIT: 5266f24da75dc449bd56cbed7addb9c8e4a6a73e
       LLAMA_ARCHIVE_SHA256: 5e34434ddc6d03cd1584f403201aff0d4bd1a5793a72ff7e286532dfd1e4b941
-      POLICY_SHA256: 5e849bdc71ab93e5431904d8a31fc01262145517ea2d070ebd590b0da240d010
+      POLICY_SHA256: e083823ced2f5b63ecfaca345e59274c5f194e36c0cdd20b2cae9cee3b4f9ed3
       PROVIDER_CONTEXT: review-provider/local-qwen
     steps:
       - name: Resolve exact PR review input
@@ -254,6 +254,9 @@ jobs:
           2. fail-open behavior, stale-head/evidence mistakes, authority confusion, race conditions and idempotency problems;
           3. correctness regressions, runtime errors, broken contracts, missing validation and incompatible assumptions;
           4. test gaps only when they expose a concrete defect.
+          Report a finding only when the supplied diff chunk itself contains direct evidence that an added or modified behavior introduces a concrete reproducible defect. If essential context is absent, do not speculate; return no finding for that chunk.
+          Never classify route names, path strings, workflow references, test names, test-only code, or ordinary constants as secrets, PII, or authorization bypasses merely because they exist. Test-only code does not itself grant production authorization.
+          Do not report unchanged context lines as defects introduced by the diff. A finding reason must state the concrete mechanism visible in the changed behavior; words such as could, may, might, likely, or potentially do not establish a defect.
           Do not report style, naming, formatting, speculative improvements, or issues not caused by the diff.
           Every finding must cite a changed file path and a line number from the new side of the diff when available.
           Use P0 for exploitable/catastrophic issues, P1 for merge-blocking correctness/security issues, and P2 only for concrete non-blocking defects.
@@ -344,7 +347,7 @@ jobs:
               raise SystemExit('Review manifest is not bound to the exact full diff.')
           policy_file = pathlib.Path(policy_path)
           policy = policy_file.read_text(encoding='utf-8')
-          if hashlib.sha256(policy_file.read_bytes()).hexdigest() != '5e849bdc71ab93e5431904d8a31fc01262145517ea2d070ebd590b0da240d010':
+          if hashlib.sha256(policy_file.read_bytes()).hexdigest() != 'e083823ced2f5b63ecfaca345e59274c5f194e36c0cdd20b2cae9cee3b4f9ed3':
               raise SystemExit('Trusted review policy hash mismatch.')
           chunks = manifest.get('chunks')
           if not isinstance(chunks, list) or not chunks:
