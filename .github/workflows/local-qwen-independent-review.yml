@@ -304,8 +304,7 @@ jobs:
           findings-kv ::= "\"findings\"" ws ":" ws findings
           summary-kv ::= "\"summary\"" ws ":" ws summary
           verdict ::= "\"PASS\"" | "\"BLOCK\""
-          findings ::= "[" ws "]" ws | "[" ws finding findings-tail "]" ws
-          findings-tail ::= ws | "," ws finding ws | "," ws finding "," ws finding ws
+          findings ::= "[" ws "]" ws | "[" ws finding "]" ws
           finding ::= "{" ws severity-kv "," ws path-kv "," ws line-kv "," ws title-kv "," ws reason-kv "}" ws
           severity-kv ::= "\"severity\"" ws ":" ws severity
           path-kv ::= "\"path\"" ws ":" ws path-string
@@ -315,9 +314,9 @@ jobs:
           severity ::= "\"P0\"" | "\"P1\"" | "\"P2\""
           integer ::= [1-9] [0-9]*
           summary ::= "\"PASS\"" | "\"BLOCK\""
-          path-string ::= "\"" char chars255 "\""
-          title-string ::= "\"" char chars127 "\""
-          reason-string ::= "\"" char chars319 "\""
+          path-string ::= "\"" char chars159 "\""
+          title-string ::= "\"" char chars79 "\""
+          reason-string ::= "\"" char chars191 "\""
           chars1 ::= char?
           chars2 ::= chars1 chars1
           chars4 ::= chars2 chars2
@@ -326,10 +325,9 @@ jobs:
           chars32 ::= chars16 chars16
           chars64 ::= chars32 chars32
           chars128 ::= chars64 chars64
-          chars256 ::= chars128 chars128
-          chars127 ::= chars64 chars32 chars16 chars8 chars4 chars2 chars1
-          chars255 ::= chars128 chars64 chars32 chars16 chars8 chars4 chars2 chars1
-          chars319 ::= chars256 chars32 chars16 chars8 chars4 chars2 chars1
+          chars79 ::= chars64 chars8 chars4 chars2 chars1
+          chars159 ::= chars128 chars16 chars8 chars4 chars2 chars1
+          chars191 ::= chars128 chars32 chars16 chars8 chars4 chars2 chars1
           char ::= [^"\\\x7F\x00-\x1F] | "\\" escape
           escape ::= ["\\/bfnrt] | "u" hex hex hex hex
           hex ::= [0-9a-fA-F]
@@ -495,7 +493,7 @@ jobs:
               --rawfile grammar "$RUNNER_TEMP/review.gbnf" \
               '{prompt:$prompt, grammar:$grammar, n_predict:1024, seed:424242, temperature:0, top_k:1, top_p:1, min_p:0, repeat_penalty:1}' \
               >"$request_file"
-            timeout --kill-after=10 180 curl --fail --silent --show-error --max-time 170 \
+            timeout --kill-after=10 300 curl --fail --silent --show-error --max-time 290 \
               --header "Content-Type: application/json" \
               --data-binary "@$request_file" \
               http://127.0.0.1:8080/completion \
