@@ -1,0 +1,2 @@
+Local Qwen linear bounded grammar smoke target.
+No production or application behavior.
