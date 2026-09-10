@@ -317,7 +317,7 @@ jobs:
           char ::= [^"\\\x7F\x00-\x1F] | "\\" escape
           escape ::= ["\\/bfnrt] | "u" hex hex hex hex
           hex ::= [0-9a-fA-F]
-          ws ::= [ \t\n\r]*
+          ws ::= [ \t\n\r]?
           GBNF
 
           prompt_bundle_sha256="$(python3 - "$RUNNER_TEMP/review-manifest.json" "$RUNNER_TEMP/qwen-chunks" "$RUNNER_TEMP/review-policy.txt" "$RUNNER_TEMP/qwen-prompts" "$REPO" "$PR_NUMBER" "$HEAD_SHA" "$DIFF_SHA256" "$MANIFEST_SHA256" <<'PY'
