@@ -221,11 +221,30 @@
       "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
       "docs/security/cryptographic-inventory.json"
     ],
+    "ops/pc-crop-w1-production-acceptance-4997": [
+      ".github/workflows/pc-crop-w1-production-acceptance.yml",
+      "scripts/production-pc-crop-w1-migrations.sh",
+      "scripts/check-production-pc-crop-w1-acceptance.mjs",
+      "scripts/check-production-pc-crop-w1-acceptance.test.mjs",
+      "scripts/production-role-eligibility-api-release.sh",
+      "scripts/check-role-eligibility-api-release.mjs",
+      ".github/workflows/production-web-exact-sha.yml",
+      ".gitleaksignore",
+      "apps/api/prisma/migrations/20260909120000_reconcile_historical_auction_authority/migration.sql",
+      "scripts/fixtures/pc-crop-w1-lineage/20260716130000_market_open_lots_showcase.sql",
+      "scripts/fixtures/pc-crop-w1-lineage/20260716150000_auction_cross_tenant_participation.sql",
+      "scripts/fixtures/pc-crop-w1-lineage/20260716160000_auction_participant_workspace.sql",
+      "scripts/fixtures/pc-crop-w1-lineage/20260717170000_deal_cross_tenant_participation.sql"
+    ],
     "governance/pc-crop-post-registration-progress-scope-4997": [
       "docs/platform-v7/autopilot/autopilot-state.json",
       "scripts/p7-autopilot-guard.sh",
       "scripts/p7-autopilot-guard.test.mjs",
-      ".github/workflows/platform-v7-autopilot-guard.yml"
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      ".github/workflows/pc-crop-w1-production-acceptance.yml"
+    ],
+    "governance/extend-role-eligibility-fns-registry-hardening-5064-v2": [
+      "docs/platform-v7/autopilot/scopes/role-eligibility-fns-registry-coverage-authority-5064.json"
     ],
     "governance/role-eligibility-fns-egrul-file-import-5016": [
       "docs/platform-v7/autopilot/scopes/role-eligibility-fns-egrul-file-import-5016.json"
@@ -236,7 +255,8 @@
       "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json",
       "docs/platform-v7/crop-platform/post-registration/execution-state.v1.json",
       "docs/platform-v7/crop-platform/post-registration/verify-w0.mjs",
-      "docs/platform-v7/crop-platform/post-registration/w2-a-inventory-reservation-plan.v1.json"
+      "docs/platform-v7/crop-platform/post-registration/w2-a-inventory-reservation-plan.v1.json",
+      "docs/platform-v7/crop-platform/post-registration/verify-w0.test.mjs"
     ],
     "fix/static-presentation-download-buildtime-20260830": [
       "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",
@@ -1350,12 +1370,35 @@
       "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
       "docs/security/cryptographic-inventory.json"
     ],
+    "security/pc-crop-next-15-5-24-4997": [
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      ".github/workflows/sbom-scan.yml",
+      "apps/web/package.json",
+      "package.json",
+      "pnpm-lock.yaml",
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs"
+    ],
     "governance/pc-crop-inventory-reservation-scope-4997": [
       "docs/platform-v7/autopilot/autopilot-state.json",
       "scripts/p7-autopilot-guard.sh",
       "scripts/p7-autopilot-guard.test.mjs",
       ".github/workflows/platform-v7-autopilot-guard.yml",
       "docs/platform-v7/autopilot/scopes/pc-crop-inventory-reservation-authority-4997.json"
+    ],
+    "fix/owner-handoff-product-host-20260908": [
+      "apps/web/app/platform-v7/staff/open-cabinet/route.ts",
+      "apps/web/lib/platform-v7/control-host.ts",
+      "apps/web/middleware.ts",
+      "apps/web/tests/unit/companyOsControlHostBoundary.test.ts",
+      "apps/web/tests/unit/companyOsOwnerCabinetControlHost.test.ts",
+      "apps/web/tests/unit/platformV7OwnerRealCabinets.test.ts",
+      ".github/workflows/ci.yml",
+      ".github/workflows/web-unit.yml",
+      "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+      "docs/platform-v7/qa/web-unit-coverage-registry.json",
+      "apps/web/app/platform-v7/staff/cabinet-handoff/page.tsx"
     ]
   },
   "currentAcceptance": [
