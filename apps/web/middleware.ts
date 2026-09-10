@@ -422,7 +422,11 @@ export async function middleware(req: NextRequest) {
       if (p === '/platform-v7/register') {
         return applySecurityHeaders(NextResponse.redirect(primaryPlatformUrl(p, req.nextUrl.search), 308), true, false);
       }
-      if (!(await ownerControlledRootAllowed(req))) return controlRealmDenied(req);
+      const ownerRoot = ownerControlledCabinetRole(p) !== null;
+      if (ownerRoot) {
+        if (!(await ownerControlledRootAllowed(req))) return controlRealmDenied(req);
+        return controlRealmResponse(req);
+      }
       if (!isControlRealmPathAllowed(p)) return controlRealmDenied(req);
       return controlRealmResponse(req);
     }
