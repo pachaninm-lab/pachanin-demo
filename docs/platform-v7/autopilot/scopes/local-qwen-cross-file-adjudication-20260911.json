@@ -18,10 +18,10 @@
   "allowedPaths": [
     ".github/workflows/local-qwen-independent-review.yml",
     "docs/platform-v7/autopilot/verify-pr-review-gate.mjs",
-    "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
+    "docs/platform-v7/autopilot/verify-local-qwen-provider-parity.test.mjs"
   ],
   "requiredChange": {
-    "summary": "For bounded small diffs, review the complete pull-request diff in one deterministic chunk so authorization changes and their guards/tests are visible together; synchronize verifier policy-hash authority with the workflow; add regression coverage for pin parity and bounded whole-diff behavior.",
+    "summary": "For bounded small diffs, review the complete pull-request diff in one deterministic chunk so authorization changes and their guards/tests are visible together; synchronize verifier policy-hash authority with the workflow; add focused regression coverage for pin parity and bounded whole-diff behavior.",
     "wholeDiffThresholdBytes": 30000,
     "reviewContextTokens": 12288
   },
@@ -33,11 +33,11 @@
     "No finding is silently deleted or mechanically converted to PASS; the same pinned independent model evaluates the complete bounded diff with the trusted policy.",
     "No product, API, database, RBAC, registration, cabinet, customer-data, dependency, lockfile or production runtime behavior change is included.",
     "No independent-provider PASS is claimed for this provider self-maintenance change. After merge, PR #5184 must synchronize forward-only and obtain a fresh exact-head independent review.",
-    "Production hosting remains REG.RU only and new recurring cost remains 0 RUB."
+    "Production hosting remains REG_RU_VPS_ONLY and new recurring cost remains 0 RUB."
   ],
   "admission": [
     "Authority PR changes exactly this manifest path.",
-    "Implementation PR changes only the three allowed provider/verifier paths.",
+    "Implementation PR changes only the three allowed provider/verifier/regression paths.",
     "Applicable ordinary exact-head CI/security/runtime gates are terminal green before each merge.",
     "Unresolved review findings and CHANGES_REQUESTED are zero for the provider-maintenance PRs.",
     "Owner exact-head self-audit may establish bounded provider-maintenance scope evidence but does not substitute for independent semantic review of #5184.",
