@@ -424,6 +424,7 @@ jobs:
           "$LLAMA_SERVER" \
             --offline \
             --model "$MODEL_FILE" \
+            --no-warmup \
             --ctx-size 8192 \
             --n-predict 256 \
             --threads 4 \
