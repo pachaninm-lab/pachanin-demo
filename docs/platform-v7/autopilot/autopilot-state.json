@@ -1397,7 +1397,8 @@
       ".github/workflows/ci.yml",
       ".github/workflows/web-unit.yml",
       "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
-      "docs/platform-v7/qa/web-unit-coverage-registry.json"
+      "docs/platform-v7/qa/web-unit-coverage-registry.json",
+      "apps/web/app/platform-v7/staff/cabinet-handoff/page.tsx"
     ]
   },
   "currentAcceptance": [
