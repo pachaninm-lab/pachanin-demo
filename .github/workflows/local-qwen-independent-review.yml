@@ -426,7 +426,7 @@ jobs:
             --model "$MODEL_FILE" \
             --no-warmup \
             --ctx-size 8192 \
-            --n-predict 256 \
+            --n-predict 128 \
             --threads 4 \
             --threads-batch 4 \
             --seed 424242 \
@@ -477,7 +477,7 @@ jobs:
             jq -n \
               --rawfile prompt "$prompt_file" \
               --rawfile grammar "$RUNNER_TEMP/review.gbnf" \
-              '{prompt:$prompt, grammar:$grammar, n_predict:256, seed:424242, temperature:0, top_k:1, top_p:1, min_p:0, repeat_penalty:1}' \
+              '{prompt:$prompt, grammar:$grammar, n_predict:128, seed:424242, temperature:0, top_k:1, top_p:1, min_p:0, repeat_penalty:1}' \
               >"$request_file"
             timeout --kill-after=10 180 curl --fail --silent --show-error --max-time 170 \
               --header "Content-Type: application/json" \
