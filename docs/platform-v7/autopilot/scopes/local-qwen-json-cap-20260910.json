@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/review-gate-local-qwen-regex-20260909",
+  "status": "active",
+  "purpose": "Provider-only Local Qwen JSON generation cap repair after exact-head model output was truncated; preserve immutable pins, complete diff coverage, strict validation, fail-closed publication and the review gate.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/local-qwen-independent-review.yml",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
+  ],
+  "boundaries": {
+    "productBehaviorChange": false,
+    "registrationChange": false,
+    "databaseChange": false,
+    "productionMutation": false,
+    "securityGateWeakening": false,
+    "reviewAuthorityChange": false,
+    "diffCoverageReduced": false,
+    "providerPinsChanged": false,
+    "failClosedPublicationPreserved": true
+  }
+}
