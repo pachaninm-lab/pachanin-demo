@@ -411,6 +411,12 @@ test('Local Qwen workflow uses canonical Qwen3 model-host, remains bounded and f
   assert.match(workflow, /LOCAL QWEN INDEPENDENT REVIEW: PASS/u);
   assert.match(workflow, /Review manifest SHA-256/u);
   assert.match(workflow, /Prompt bundle SHA-256/u);
+  assert.match(workflow, /"required":\["findings"\]/u);
+  assert.match(workflow, /set\(value\)!=\{'findings'\}/u);
+  assert.match(workflow, /verdict='PASS' if not all_findings else 'BLOCK'/u);
+  assert.match(workflow, /Do not author verdict or summary/u);
+  assert.doesNotMatch(workflow, /"required":\["verdict","findings","summary"\]/u);
+  assert.doesNotMatch(workflow, /Inconsistent BLOCK in chunk/u);
   assert.match(workflow, /Pinned canonical Qwen3 review failed closed/u);
   assert.doesNotMatch(workflow, /Qwen2\.5-Coder-3B/u);
   assert.doesNotMatch(workflow, /huggingface\.co\/Qwen\/Qwen2\.5/u);
