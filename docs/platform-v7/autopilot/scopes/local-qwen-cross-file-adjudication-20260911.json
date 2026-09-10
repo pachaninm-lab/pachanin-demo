@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/local-qwen-cross-file-adjudication-20260911",
+  "status": "active",
+  "purpose": "Bounded reviewer-quality repair after exact-head owner-cabinet review 34538117230 still emitted generic per-file false positives despite the direct-evidence policy. Restore cross-file context for small pull requests and keep the exact-head verifier policy pin synchronized with the trusted workflow.",
+  "authorityBaseExactMain": "243e0b242a3d0e9995a5b850bf026cbe18d87c86",
+  "evidence": {
+    "substantivePullRequest": 5184,
+    "reviewRunId": 34538117230,
+    "reviewedExactHead": "3e6f8854891cf4f1b2dde6fe8f6a982d02dde693",
+    "diffSha256": "ad7b1e4c5f27ca8c8c97a3e3ca0acba39faf69a8711863724ff7a2b64c7d06c5",
+    "diffBytes": 23460,
+    "findingCount": 11,
+    "responseSha256": "64d8e7293b23f0576bf0e3ee8597686276894e81de2cc9838d0fd3d31c0a8306",
+    "workflowPolicySha256": "e083823ced2f5b63ecfaca345e59274c5f194e36c0cdd20b2cae9cee3b4f9ed3",
+    "verifierStalePolicySha256": "5e849bdc71ab93e5431904d8a31fc01262145517ea2d070ebd590b0da240d010"
+  },
+  "allowedPaths": [
+    ".github/workflows/local-qwen-independent-review.yml",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.mjs",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
+  ],
+  "requiredChange": {
+    "summary": "For bounded small diffs, review the complete pull-request diff in one deterministic chunk so authorization changes and their guards/tests are visible together; synchronize verifier policy-hash authority with the workflow; add regression coverage for pin parity and bounded whole-diff behavior.",
+    "wholeDiffThresholdBytes": 30000,
+    "reviewContextTokens": 12288
+  },
+  "requiredInvariants": [
+    "Whole-diff mode applies only when the exact full diff is at most 30000 bytes; larger diffs remain deterministically split and all bytes remain covered.",
+    "The complete-diff SHA-256, manifest SHA-256, prompt-bundle SHA-256 and exact-head revalidation remain authoritative.",
+    "The model revision/hash, llama.cpp build/source/archive hash, direct-evidence policy text/hash, output grammar/cardinality, JSON schema, post-generation validator, n_predict=1024, deterministic seed/sampling, transport timeout and fail-closed publication are unchanged except for the context-size bound required to safely hold the bounded whole diff.",
+    "The verifier must use the same trusted policy SHA-256 as the workflow and must reject stale or mismatched Local Qwen attestations.",
+    "No finding is silently deleted or mechanically converted to PASS; the same pinned independent model evaluates the complete bounded diff with the trusted policy.",
+    "No product, API, database, RBAC, registration, cabinet, customer-data, dependency, lockfile or production runtime behavior change is included.",
+    "No independent-provider PASS is claimed for this provider self-maintenance change. After merge, PR #5184 must synchronize forward-only and obtain a fresh exact-head independent review.",
+    "Production hosting remains REG.RU only and new recurring cost remains 0 RUB."
+  ],
+  "admission": [
+    "Authority PR changes exactly this manifest path.",
+    "Implementation PR changes only the three allowed provider/verifier paths.",
+    "Applicable ordinary exact-head CI/security/runtime gates are terminal green before each merge.",
+    "Unresolved review findings and CHANGES_REQUESTED are zero for the provider-maintenance PRs.",
+    "Owner exact-head self-audit may establish bounded provider-maintenance scope evidence but does not substitute for independent semantic review of #5184.",
+    "Live main must match each repair PR base before merge."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
