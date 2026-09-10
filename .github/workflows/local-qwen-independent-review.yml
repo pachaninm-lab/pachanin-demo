@@ -317,7 +317,7 @@ jobs:
           char ::= [^"\\\x7F\x00-\x1F] | "\\" escape
           escape ::= ["\\/bfnrt] | "u" hex hex hex hex
           hex ::= [0-9a-fA-F]
-          ws ::= [ \t\n\r]*
+          ws ::= [ \t\n\r]?
           GBNF
 
           prompt_bundle_sha256="$(python3 - "$RUNNER_TEMP/review-manifest.json" "$RUNNER_TEMP/qwen-chunks" "$RUNNER_TEMP/review-policy.txt" "$RUNNER_TEMP/qwen-prompts" "$REPO" "$PR_NUMBER" "$HEAD_SHA" "$DIFF_SHA256" "$MANIFEST_SHA256" <<'PY'
@@ -402,7 +402,7 @@ jobs:
           print(bundle_sha256)
           PY
           )"
-          printf 'prompt_bundle_sha256=%s\n' "$prompt_bundle_sha256"
+          printf 'prompt_bundle_sha256=%s\n' "$prompt_bundle_sha256" >> "$GITHUB_OUTPUT"
 
       - name: Run deterministic local Qwen semantic review
         id: inference
@@ -477,7 +477,7 @@ jobs:
             jq -n \
               --rawfile prompt "$prompt_file" \
               --rawfile grammar "$RUNNER_TEMP/review.gbnf" \
-              '{prompt:$prompt, grammar:$grammar, n_predict:384, seed:424242, temperature:0, top_k:1, top_p:1, min_p:0, repeat_penalty:1}' \
+              '{prompt:$prompt, grammar:$grammar, n_predict:768, seed:424242, temperature:0, top_k:1, top_p:1, min_p:0, repeat_penalty:1}' \
               >"$request_file"
             timeout --kill-after=10 180 curl --fail --silent --show-error --max-time 170 \
               --header "Content-Type: application/json" \
