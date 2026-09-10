@@ -18,10 +18,10 @@
   "allowedPaths": [
     ".github/workflows/local-qwen-independent-review.yml",
     "docs/platform-v7/autopilot/verify-pr-review-gate.mjs",
-    "docs/platform-v7/autopilot/verify-local-qwen-provider-parity.test.mjs"
+    "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
   ],
   "requiredChange": {
-    "summary": "For bounded small diffs, review the complete pull-request diff in one deterministic chunk so authorization changes and their guards/tests are visible together; synchronize verifier policy-hash authority with the workflow; add focused regression coverage for pin parity and bounded whole-diff behavior.",
+    "summary": "For bounded small diffs, review the complete pull-request diff in one deterministic chunk so authorization changes and their guards/tests are visible together; synchronize verifier policy-hash authority with the workflow; extend the existing verifier regression suite for policy-pin parity and bounded whole-diff behavior.",
     "wholeDiffThresholdBytes": 30000,
     "reviewContextTokens": 12288
   },
