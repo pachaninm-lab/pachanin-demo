@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "governance/local-qwen-finite-json-20260910",
+  "status": "active",
+  "purpose": "Authorize one bounded Local Qwen provider-maintenance repair after exact-head owner-access review run 34521638860 proved all 11 deterministic inference chunks complete at n_predict=1024 but chunk 1 still exhausts the unbounded string grammar and fails strict JSON parsing.",
+  "authorityEvidence": {
+    "substantivePr": 5184,
+    "exactHead": "f830d76e0b37c715b9a6ae9c7256ebb1cfa28b3a",
+    "reviewRun": 34521638860,
+    "reviewJob": 103020477991,
+    "failureStep": "Validate and canonicalize independent review",
+    "failure": "Invalid model JSON in chunk 1: Unterminated string starting at: line 9 column 11 (char 159)",
+    "inferenceStep": "SUCCESS",
+    "chunkCount": 11,
+    "requestNPredict": 1024
+  },
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "authorizedRepair": {
+    "allowedPaths": [
+      ".github/workflows/local-qwen-independent-review.yml"
+    ],
+    "intent": "Replace only the unbounded generated-output grammar with a finite deterministic grammar whose path/title/reason/summary strings and per-chunk finding count are explicitly bounded, so every grammar-valid response has a finite maximum size that fits within the existing 1024-token request budget.",
+    "requiredBounds": {
+      "findingsPerChunkMax": 2,
+      "pathCharsMax": 320,
+      "titleCharsMax": 160,
+      "reasonCharsMax": 480,
+      "summaryCharsMax": 240,
+      "integerDigitsMax": 7
+    }
+  },
+  "requiredInvariants": [
+    "Request n_predict remains 1024 and server --n-predict remains 128.",
+    "Immutable model revision/SHA, llama.cpp build/source/archive pins and trusted policy hash/content remain unchanged.",
+    "Full exact-diff acquisition, 400000-byte total bound, 8000-byte chunk bound, 96-chunk bound, chunk hashing, prompt hashing and complete changed-path coverage remain unchanged.",
+    "The strict post-generation JSON validator remains fail-closed and continues validating exact keys, verdict/findings consistency, changed paths, positive integer lines and bounded text fields.",
+    "Exact-head revalidation and provider status publication semantics remain unchanged.",
+    "The repair must not synthesize, recover, truncate or auto-correct invalid model JSON; invalid output remains provider failure.",
+    "No product, API, database, RBAC, registration, cabinet implementation or production behavior is changed.",
+    "No independent-provider PASS is claimed for the provider self-repair PR.",
+    "Substantive PR #5184 must be resynchronized to exact main after repair and receive a genuine new exact-head Local Qwen PASS before merge."
+  ],
+  "acceptance": [
+    "Provider repair PR final diff is restricted to .github/workflows/local-qwen-independent-review.yml plus, only if required by repository governance automation, its branch-local scope manifest.",
+    "Generated grammar is finite by construction and has no unbounded char* or findings repetition.",
+    "Workflow syntax and all applicable ordinary exact-head CI/security/runtime gates are terminal green before provider repair merge.",
+    "Owner exact-head self-audit records the exact provider diff; review findings and CHANGES_REQUESTED are zero.",
+    "Live main is checked immediately before merge and no stale-head merge is permitted."
+  ]
+}
