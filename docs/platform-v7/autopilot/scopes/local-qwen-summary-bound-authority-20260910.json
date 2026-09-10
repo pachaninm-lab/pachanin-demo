@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "governance/local-qwen-summary-bound-authority-20260910",
+  "status": "active",
+  "purpose": "Authorize one bounded Local Qwen provider repair after exact-head owner-access run 34521638860 proved deterministic inference completes at request n_predict=1024 but strict canonical validation fails because the non-authoritative summary field uses unbounded GBNF string production and chunk 1 ends with an unterminated summary string.",
+  "evidence": {
+    "substantivePr": 5184,
+    "headSha": "f830d76e0b37c715b9a6ae9c7256ebb1cfa28b3a",
+    "reviewRun": 34521638860,
+    "reviewJob": 103020477991,
+    "failure": "Invalid model JSON in chunk 1: Unterminated string starting at: line 9 column 11 (char 159)",
+    "chunkCount": 11
+  },
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "authorizedRepair": {
+    "path": ".github/workflows/local-qwen-independent-review.yml",
+    "change": "Constrain only the non-authoritative per-chunk summary grammar to a deterministic short literal that remains valid under the existing JSON Schema and post-generation validator. Do not change verdict, findings, severity, path, line, title or reason productions. Keep request n_predict=1024 and server --n-predict 128 unchanged."
+  },
+  "requiredInvariants": [
+    "Immutable model revision/SHA and llama.cpp build/source/archive pins remain unchanged.",
+    "Trusted review policy text/hash remains unchanged.",
+    "Complete exact-diff coverage, 8 KiB chunking, 96-chunk bound, prompt bundle hashing and exact-head revalidation remain unchanged.",
+    "Strict JSON parsing, finding validation, PASS/BLOCK consistency and fail-closed publication remain unchanged.",
+    "No product, API, database, RBAC, registration, cabinet or production runtime behavior changes.",
+    "No independent-review PASS is claimed for the provider self-repair itself.",
+    "Substantive PR #5184 requires a new exact-head Local Qwen run after repair merge."
+  ],
+  "acceptance": [
+    "Governance authority PR is ordinary-gate green before merge.",
+    "Provider repair PR final diff is limited to the authorized workflow grammar change plus any branch-only scope evidence automatically removed before merge.",
+    "Provider repair PR passes all applicable ordinary exact-head gates with zero review findings/CHANGES_REQUESTED and owner exact-head self-audit.",
+    "After provider repair merge, #5184 is synchronized to exact main and receives a genuine fresh exact-head Local Qwen PASS before merge."
+  ]
+}
