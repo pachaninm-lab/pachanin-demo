@@ -23,19 +23,22 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Publish bounded prompt-hash repair branch
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -Eeuo pipefail
-          live_main="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          live_main="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq '.commit.sha')"
           [[ "$live_main" == "$GITHUB_SHA" ]] || {
             echo "main moved before provider repair: event=$GITHUB_SHA live=$live_main" >&2
             exit 10
           }
 
           repair_branch='fix/local-qwen-prompt-bundle-output-20260910'
-          if git ls-remote --exit-code origin "refs/heads/$repair_branch" >/dev/null 2>&1; then
+          if gh api "repos/$GITHUB_REPOSITORY/branches/$repair_branch" >/dev/null 2>&1; then
             echo "Repair branch already exists; refusing to overwrite it." >&2
             exit 11
           fi
@@ -77,4 +80,5 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
           git commit -m 'fix(review): bind Local Qwen prompt bundle hash output'
+          gh auth setup-git
           git push origin "HEAD:refs/heads/$repair_branch"
