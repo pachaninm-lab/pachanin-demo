@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { OwnerCabinetHandoff } from '@/components/platform-v7/staff/OwnerCabinetHandoff';
+import { OWNER_CONTROLLED_CABINET_TARGETS } from '@/lib/platform-v7/control-host';
 import { controlledOrganizationById } from '@/lib/platform-v7/controlled-test-organizations';
 import { CABINET_SESSION_COOKIE } from '@/lib/server/auth-session-response';
 import { readVerifiedCabinetSessionContext } from '@/lib/platform-v7/verified-session';
@@ -15,20 +16,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
 };
 
-const TARGETS: Readonly<Record<PlatformRole, string>> = {
-  operator: '/platform-v7/control-tower',
-  buyer: '/platform-v7/buyer',
-  seller: '/platform-v7/seller',
-  logistics: '/platform-v7/logistics',
-  driver: '/platform-v7/driver/field',
-  surveyor: '/platform-v7/surveyor',
-  elevator: '/platform-v7/elevator',
-  lab: '/platform-v7/lab',
-  bank: '/platform-v7/bank',
-  arbitrator: '/platform-v7/arbitrator',
-  compliance: '/platform-v7/compliance',
-  executive: '/platform-v7/executive',
-};
+const TARGETS = OWNER_CONTROLLED_CABINET_TARGETS;
 
 const LABELS: Readonly<Record<PlatformRole, string>> = {
   operator: 'Оператор',

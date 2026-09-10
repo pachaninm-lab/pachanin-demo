@@ -16,6 +16,20 @@ export const OCTOPUS_ACTION_SHA = 'c7156c0dc465c20e8b06da84b92b64f9ae8c7c36';
 export const OCTOPUS_REVIEW_LOGIN = 'github-actions[bot]';
 export const OCTOPUS_STATUS_CONTEXT = 'review-provider/octopus';
 export const OCTOPUS_WORKFLOW_PATH = '.github/workflows/octopus-independent-review.yml';
+export const LOCAL_QWEN_REVIEW_LOGIN = 'github-actions[bot]';
+export const LOCAL_QWEN_STATUS_CONTEXT = 'review-provider/local-qwen';
+export const LOCAL_QWEN_WORKFLOW_NAME = 'Local Qwen Independent Review';
+export const LOCAL_QWEN_WORKFLOW_PATH = '.github/workflows/local-qwen-independent-review.yml';
+export const LOCAL_QWEN_MODEL_REVISION = 'aebf6a0f72261b12fb8199bc580fe172fe86c901';
+export const LOCAL_QWEN_MODEL_SHA256 = '724fb256bec1ff062b2f65e4569e871ad2e95ab2a3989723d1769c54294730b7';
+export const LOCAL_QWEN_LLAMA_BUILD = 'b10809';
+export const LOCAL_QWEN_LLAMA_SOURCE_COMMIT = '5266f24da75dc449bd56cbed7addb9c8e4a6a73e';
+export const LOCAL_QWEN_LLAMA_ARCHIVE_SHA256 = '5e34434ddc6d03cd1584f403201aff0d4bd1a5793a72ff7e286532dfd1e4b941';
+export const LOCAL_QWEN_POLICY_SHA256 = '5e849bdc71ab93e5431904d8a31fc01262145517ea2d070ebd590b0da240d010';
+export const LOCAL_QWEN_MAX_DIFF_BYTES = 400000;
+export const LOCAL_QWEN_MAX_CHUNK_DIFF_BYTES = 72000;
+export const LOCAL_QWEN_MAX_CHUNKS = 96;
+
 
 const COMPLETED_REVIEW_STATES = new Set([
   'APPROVED',
@@ -33,6 +47,11 @@ const POSITIVE_COPILOT_REVIEW_STATES = new Set([
 ]);
 
 const POSITIVE_OCTOPUS_REVIEW_STATES = new Set([
+  'APPROVED',
+  'COMMENTED',
+]);
+
+const POSITIVE_LOCAL_QWEN_REVIEW_STATES = new Set([
   'APPROVED',
   'COMMENTED',
 ]);
@@ -120,6 +139,146 @@ function parseOctopusAttestation(review, headSha) {
     summarySha256: match[4],
     runId: match[5],
   };
+}
+
+
+function parseLocalQwenAttestation(review, headSha) {
+  const expected = String(headSha || '').trim();
+  if (!/^[0-9a-f]{40}$/u.test(expected)) return null;
+  if (normalizeLogin(review) !== LOCAL_QWEN_REVIEW_LOGIN) return null;
+  const commitId = String(review?.commit_id || review?.commitId || '').trim();
+  if (commitId !== expected) return null;
+  const state = String(review?.state || '').toUpperCase();
+  if (!POSITIVE_LOCAL_QWEN_REVIEW_STATES.has(state)) return null;
+
+  const lines = String(review?.body || '').trim().split('\n');
+  if (lines.length !== 18 || lines[0] !== 'LOCAL QWEN INDEPENDENT REVIEW: PASS') return null;
+  const capture = (index, pattern) => lines[index].match(pattern)?.[1] || '';
+  const attestedHead = capture(1, /^Exact head: \x60([0-9a-f]{40})\x60$/u);
+  const workflowPath = capture(2, /^Provider workflow: \x60([^\x60]+)\x60$/u);
+  const modelRevision = capture(3, /^Model revision: \x60([0-9a-f]{40})\x60$/u);
+  const modelSha256 = capture(4, /^Model SHA-256: \x60([0-9a-f]{64})\x60$/u);
+  const llamaBuild = capture(5, /^Runtime build: \x60([^\x60]+)\x60$/u);
+  const llamaSourceCommit = capture(6, /^Runtime source commit: \x60([0-9a-f]{40})\x60$/u);
+  const llamaArchiveSha256 = capture(7, /^Runtime archive SHA-256: \x60([0-9a-f]{64})\x60$/u);
+  const policySha256 = capture(8, /^Policy SHA-256: \x60([0-9a-f]{64})\x60$/u);
+  const diffSha256 = capture(9, /^Full diff SHA-256: \x60([0-9a-f]{64})\x60$/u);
+  const diffBytesText = capture(10, /^Diff bytes: \x60([1-9][0-9]{0,8})\x60$/u);
+  const chunkCountText = capture(11, /^Chunk count: \x60([1-9][0-9]{0,2})\x60$/u);
+  const manifestSha256 = capture(12, /^Review manifest SHA-256: \x60([0-9a-f]{64})\x60$/u);
+  const promptBundleSha256 = capture(13, /^Prompt bundle SHA-256: \x60([0-9a-f]{64})\x60$/u);
+  const responseSha256 = capture(14, /^Response SHA-256: \x60([0-9a-f]{64})\x60$/u);
+  const runId = capture(15, /^Workflow run: \x60([1-9][0-9]{0,19})\x60$/u);
+  if (
+    !attestedHead
+    || !workflowPath
+    || !modelRevision
+    || !modelSha256
+    || !llamaBuild
+    || !llamaSourceCommit
+    || !llamaArchiveSha256
+    || !policySha256
+    || !diffSha256
+    || !diffBytesText
+    || !chunkCountText
+    || !manifestSha256
+    || !promptBundleSha256
+    || !responseSha256
+    || !runId
+  ) return null;
+  if (
+    attestedHead !== expected
+    || workflowPath !== LOCAL_QWEN_WORKFLOW_PATH
+    || modelRevision !== LOCAL_QWEN_MODEL_REVISION
+    || modelSha256 !== LOCAL_QWEN_MODEL_SHA256
+    || llamaBuild !== LOCAL_QWEN_LLAMA_BUILD
+    || llamaSourceCommit !== LOCAL_QWEN_LLAMA_SOURCE_COMMIT
+    || llamaArchiveSha256 !== LOCAL_QWEN_LLAMA_ARCHIVE_SHA256
+    || policySha256 !== LOCAL_QWEN_POLICY_SHA256
+    || lines[16] !== 'Verdict: \x60PASS\x60'
+    || lines[17] !== 'Findings: \x600\x60'
+  ) return null;
+  const diffBytes = Number(diffBytesText);
+  const chunkCount = Number(chunkCountText);
+  if (
+    !Number.isSafeInteger(diffBytes)
+    || diffBytes < 1
+    || diffBytes > LOCAL_QWEN_MAX_DIFF_BYTES
+    || !Number.isSafeInteger(chunkCount)
+    || chunkCount < 1
+    || chunkCount > LOCAL_QWEN_MAX_CHUNKS
+  ) return null;
+
+  return {
+    review,
+    runId,
+    diffSha256,
+    diffBytes,
+    chunkCount,
+    manifestSha256,
+    promptBundleSha256,
+    responseSha256,
+  };
+}
+
+export function positiveExactHeadLocalQwenAttestations(reviews, statuses, headSha, repo) {
+  const repository = String(repo || '').trim();
+  if (!isGitHubRepositorySlug(repository)) return [];
+  const latestProviderStatus = (statuses || []).find((status) => (
+    String(status?.context || '').trim() === LOCAL_QWEN_STATUS_CONTEXT
+  ));
+  if (!latestProviderStatus) return [];
+  if (String(latestProviderStatus?.state || '').toLowerCase() !== 'success') return [];
+  if (String(latestProviderStatus?.creator?.login || '').trim() !== LOCAL_QWEN_REVIEW_LOGIN) return [];
+
+  const candidates = (reviews || [])
+    .map((review) => parseLocalQwenAttestation(review, headSha))
+    .filter(Boolean);
+  return candidates.filter((candidate) => {
+    const expectedDescription = [
+      'Qwen clean model=',
+      LOCAL_QWEN_MODEL_SHA256.slice(0, 8),
+      ' response=',
+      candidate.responseSha256.slice(0, 16),
+      ' chunks=',
+      String(candidate.chunkCount),
+      ' manifest=',
+      candidate.manifestSha256.slice(0, 16),
+    ].join('');
+    const expectedTarget = 'https://github.com/'
+      + repository
+      + '/actions/runs/'
+      + candidate.runId;
+    return String(latestProviderStatus?.description || '').trim() === expectedDescription
+      && String(latestProviderStatus?.target_url || latestProviderStatus?.targetUrl || '').trim() === expectedTarget;
+  });
+}
+
+export function localQwenAttestationMatchesWorkflowRun(attestation, run, repo, prNumber, headSha) {
+  const repository = String(repo || '').trim();
+  const expectedHead = String(headSha || '').trim();
+  const expectedPr = Number(prNumber || 0);
+  if (!attestation || !run) return false;
+  if (!isGitHubRepositorySlug(repository)) return false;
+  if (!/^[0-9a-f]{40}$/u.test(expectedHead)) return false;
+  if (!Number.isInteger(expectedPr) || expectedPr <= 0) return false;
+  const attestedRunId = String(attestation?.runId || '').trim();
+  if (!/^[1-9][0-9]{0,19}$/u.test(attestedRunId)) return false;
+  if (String(run?.id ?? '').trim() !== attestedRunId) return false;
+  if (String(run?.name || '').trim() !== LOCAL_QWEN_WORKFLOW_NAME) return false;
+  if (String(run?.path || '').trim() !== LOCAL_QWEN_WORKFLOW_PATH) return false;
+  if (String(run?.event || '').trim() !== 'pull_request_target') return false;
+  if (String(run?.status || '').trim() !== 'completed') return false;
+  if (String(run?.conclusion || '').trim() !== 'success') return false;
+  if (String(run?.repository?.full_name || '').trim() !== repository) return false;
+  if (String(run?.head_sha || '').trim() !== expectedHead) return false;
+
+  const runPrs = Array.isArray(run?.pull_requests) ? run.pull_requests : [];
+  return runPrs.some((runPr) => (
+    Number(runPr?.number) === expectedPr
+    && String(runPr?.head?.sha || '').trim() === expectedHead
+    && Number(runPr?.head?.repo?.id || 0) === Number(run?.repository?.id || 0)
+  ));
 }
 
 export function positiveExactHeadOctopusAttestations(reviews, statuses, headSha, repo) {
@@ -308,7 +467,7 @@ export function octopusActionsRunUrl(repo, runId) {
   return `https://api.github.com/repos/${repository}/actions/runs/${id}`;
 }
 
-function fetchPublicOctopusActionsRun(repo, runId) {
+function fetchPublicActionsRun(repo, runId) {
   const url = octopusActionsRunUrl(repo, runId);
   if (!url) throw new Error('Invalid Octopus Actions run identity.');
 
@@ -343,6 +502,14 @@ function fetchPublicOctopusActionsRun(repo, runId) {
     stdio: ['ignore', 'pipe', 'pipe'],
   }).trim();
   return raw ? JSON.parse(raw) : null;
+}
+
+function fetchPublicOctopusActionsRun(repo, runId) {
+  return fetchPublicActionsRun(repo, runId);
+}
+
+function fetchPublicLocalQwenActionsRun(repo, runId) {
+  return fetchPublicActionsRun(repo, runId);
 }
 
 function fetchAllReviews(repo, prNumber) {
@@ -523,12 +690,33 @@ function main() {
       return false;
     }
   });
+
   const octopusAuthority = workflowBoundOctopusAttestations.length > 0;
 
-  if (!codexAuthority && !copilotAuthority && !octopusAuthority) {
+  const positiveLocalQwenAttestations = positiveExactHeadLocalQwenAttestations(
+    reviews,
+    commitStatuses,
+    headSha,
+    repo,
+  );
+  const workflowBoundLocalQwenAttestations = positiveLocalQwenAttestations.filter((attestation) => {
+    try {
+      const run = fetchPublicLocalQwenActionsRun(repo, attestation.runId);
+      return localQwenAttestationMatchesWorkflowRun(attestation, run, repo, prNumber, headSha);
+    } catch {
+      // Local-Qwen evidence is fail-closed when its immutable Actions run cannot
+      // be resolved or does not match the exact trusted workflow identity.
+      return false;
+    }
+  });
+  const localQwenAuthority = workflowBoundLocalQwenAttestations.length > 0;
+
+  if (!codexAuthority && !copilotAuthority && !octopusAuthority && !localQwenAuthority) {
     fail(
       'REVIEW_GATE_INDEPENDENT_EXACT_HEAD_MISSING',
-      `No genuine independent review authority is bound to exact head ${headSha}; accepted providers are Codex clean/approved review, GitHub Copilot exact-head code review, or Octopus exact-head clean attestation plus matching provider status.`,
+      'No genuine independent review authority is bound to exact head '
+        + headSha
+        + '; accepted providers are Codex clean/approved review, GitHub Copilot exact-head code review, Octopus exact-head clean attestation plus matching provider status, or Local Qwen exact-head clean attestation plus matching provider status and trusted Actions run.',
     );
   }
 
@@ -594,12 +782,28 @@ function main() {
     );
   }
 
+
   const reviewAuthority = codexAuthority
     ? 'CODEX'
     : copilotAuthority
       ? 'GITHUB_COPILOT'
-      : 'OCTOPUS';
-  console.log(`PR_REVIEW_GATE=PASS pr=${prNumber} head=${headSha} reviewAuthority=${reviewAuthority} codexApprovals=${positiveCodexReviews.length} codexExactHeadCleanComments=${exactCleanCodexComments} copilotExactHeadReviews=${positiveCopilotReviews.length} octopusExactHeadAttestations=${workflowBoundOctopusAttestations.length} ownerSelfAuditAttestations=${ownerSelfAudits.length} unresolvedCurrentThreads=0 ciChecks=${checkedCi}`);
+      : octopusAuthority
+        ? 'OCTOPUS'
+        : 'LOCAL_QWEN';
+  console.log(
+    'PR_REVIEW_GATE=PASS pr=' + prNumber
+      + ' head=' + headSha
+      + ' reviewAuthority=' + reviewAuthority
+      + ' codexApprovals=' + positiveCodexReviews.length
+      + ' codexExactHeadCleanComments=' + exactCleanCodexComments
+      + ' copilotExactHeadReviews=' + positiveCopilotReviews.length
+      + ' octopusExactHeadAttestations=' + workflowBoundOctopusAttestations.length
+      + ' localQwenExactHeadAttestations=' + workflowBoundLocalQwenAttestations.length
+      + ' ownerSelfAuditAttestations=' + ownerSelfAudits.length
+      + ' unresolvedCurrentThreads=0'
+      + ' ciChecks=' + checkedCi,
+  );
+
 }
 
 const invokedPath = process.argv[1] || '';

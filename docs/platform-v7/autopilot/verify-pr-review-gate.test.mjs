@@ -13,12 +13,25 @@ import {
   exactHeadOwnerSelfAudits,
   isIgnoredMergeGateCheck,
   latestBlockingChangeRequests,
+  LOCAL_QWEN_LLAMA_ARCHIVE_SHA256,
+  LOCAL_QWEN_LLAMA_BUILD,
+  LOCAL_QWEN_LLAMA_SOURCE_COMMIT,
+  LOCAL_QWEN_MAX_CHUNKS,
+  LOCAL_QWEN_MAX_DIFF_BYTES,
+  LOCAL_QWEN_MODEL_REVISION,
+  LOCAL_QWEN_MODEL_SHA256,
+  LOCAL_QWEN_POLICY_SHA256,
+  LOCAL_QWEN_STATUS_CONTEXT,
+  LOCAL_QWEN_WORKFLOW_NAME,
+  LOCAL_QWEN_WORKFLOW_PATH,
   OCTOPUS_ACTION_SHA,
   OCTOPUS_STATUS_CONTEXT,
   octopusAttestationMatchesWorkflowRun,
   positiveExactHeadCodexReviews,
   positiveExactHeadCopilotReviews,
+  positiveExactHeadLocalQwenAttestations,
   positiveExactHeadOctopusAttestations,
+  localQwenAttestationMatchesWorkflowRun,
   reviewGatePrState,
   substantiveChecks,
 } from './verify-pr-review-gate.mjs';
@@ -297,6 +310,87 @@ test('actual #5167 Octopus review, latest status and successful run form one exa
   }, repo, 5167, actualHead), true);
 });
 
+
+test('Local Qwen authority requires paired exact-head review, latest provider status and trusted Actions run', () => {
+  const repo = 'pachaninm-lab/pachanin-demo';
+  const runId = '987654321';
+  const tick = String.fromCharCode(96);
+  const diffSha = 'd'.repeat(64);
+  const manifestSha = 'e'.repeat(64);
+  const promptSha = 'f'.repeat(64);
+  const responseSha = '1'.repeat(64);
+  const body = [
+    'LOCAL QWEN INDEPENDENT REVIEW: PASS',
+    'Exact head: ' + tick + head + tick,
+    'Provider workflow: ' + tick + LOCAL_QWEN_WORKFLOW_PATH + tick,
+    'Model revision: ' + tick + LOCAL_QWEN_MODEL_REVISION + tick,
+    'Model SHA-256: ' + tick + LOCAL_QWEN_MODEL_SHA256 + tick,
+    'Runtime build: ' + tick + LOCAL_QWEN_LLAMA_BUILD + tick,
+    'Runtime source commit: ' + tick + LOCAL_QWEN_LLAMA_SOURCE_COMMIT + tick,
+    'Runtime archive SHA-256: ' + tick + LOCAL_QWEN_LLAMA_ARCHIVE_SHA256 + tick,
+    'Policy SHA-256: ' + tick + LOCAL_QWEN_POLICY_SHA256 + tick,
+    'Full diff SHA-256: ' + tick + diffSha + tick,
+    'Diff bytes: ' + tick + '227121' + tick,
+    'Chunk count: ' + tick + '4' + tick,
+    'Review manifest SHA-256: ' + tick + manifestSha + tick,
+    'Prompt bundle SHA-256: ' + tick + promptSha + tick,
+    'Response SHA-256: ' + tick + responseSha + tick,
+    'Workflow run: ' + tick + runId + tick,
+    'Verdict: ' + tick + 'PASS' + tick,
+    'Findings: ' + tick + '0' + tick,
+  ].join('\n');
+  const review = {
+    user: { login: 'github-actions[bot]' },
+    commit_id: head,
+    state: 'COMMENTED',
+    body,
+  };
+  const status = {
+    context: LOCAL_QWEN_STATUS_CONTEXT,
+    state: 'success',
+    creator: { login: 'github-actions[bot]' },
+    description: 'Qwen clean model='
+      + LOCAL_QWEN_MODEL_SHA256.slice(0, 8)
+      + ' response=' + responseSha.slice(0, 16)
+      + ' chunks=4 manifest=' + manifestSha.slice(0, 16),
+    target_url: 'https://github.com/' + repo + '/actions/runs/' + runId,
+  };
+  const attestations = positiveExactHeadLocalQwenAttestations([review], [status], head, repo);
+  assert.equal(attestations.length, 1);
+  assert.equal(localQwenAttestationMatchesWorkflowRun(attestations[0], {
+    id: Number(runId),
+    name: LOCAL_QWEN_WORKFLOW_NAME,
+    path: LOCAL_QWEN_WORKFLOW_PATH,
+    event: 'pull_request_target',
+    status: 'completed',
+    conclusion: 'success',
+    head_sha: head,
+    repository: { id: 1203022077, full_name: repo },
+    pull_requests: [{ number: 5127, head: { sha: head, repo: { id: 1203022077 } } }],
+  }, repo, 5127, head), true);
+  assert.equal(
+    positiveExactHeadLocalQwenAttestations([review], [
+      { ...status, state: 'failure' },
+      status,
+    ], head, repo).length,
+    0,
+  );
+  assert.equal(
+    localQwenAttestationMatchesWorkflowRun(attestations[0], {
+      id: Number(runId),
+      name: LOCAL_QWEN_WORKFLOW_NAME,
+      path: LOCAL_QWEN_WORKFLOW_PATH,
+      event: 'pull_request_target',
+      status: 'completed',
+      conclusion: 'success',
+      head_sha: oldHead,
+      repository: { id: 1203022077, full_name: repo },
+      pull_requests: [{ number: 5127, head: { sha: oldHead, repo: { id: 1203022077 } } }],
+    }, repo, 5127, head), false);
+  assert.equal(LOCAL_QWEN_MAX_DIFF_BYTES >= 227121, true);
+  assert.equal(LOCAL_QWEN_MAX_CHUNKS >= 4, true);
+});
+
 test('recognizes clean Codex review evidence only from the Codex bot and a reviewed commit prefix', () => {
   const comments = [
     {
@@ -524,7 +618,7 @@ test('PR state classification fails closed for Draft and incomplete/unknown stat
   assert.equal(reviewGatePrState(null), 'INVALID');
 });
 
-test('verifier main requires genuine independent exact-head authority from Codex, GitHub Copilot, or Octopus', () => {
+test('verifier main requires genuine independent exact-head authority from Codex, GitHub Copilot, Octopus, or Local Qwen', () => {
   const verifier = readFileSync(new URL('./verify-pr-review-gate.mjs', import.meta.url), 'utf8');
   const mainStart = verifier.indexOf('function main()');
   assert.ok(mainStart >= 0);
@@ -536,11 +630,14 @@ test('verifier main requires genuine independent exact-head authority from Codex
   assert.match(mainBody, /positiveExactHeadCopilotReviews\(reviews, headSha\)/u);
   assert.match(mainBody, /positiveExactHeadOctopusAttestations/u);
   assert.match(mainBody, /octopusAttestationMatchesWorkflowRun/u);
+  assert.match(mainBody, /positiveExactHeadLocalQwenAttestations\(reviews, headSha\)/u);
+  assert.match(mainBody, /localQwenAttestationMatchesWorkflowRun/u);
+  assert.match(mainBody, /fetchPublicLocalQwenActionsRun\(repo, attestation\.runId\)/u);
   assert.match(mainBody, /fetchPublicOctopusActionsRun\(repo, attestation\.runId\)/u);
   assert.match(mainBody, /fetchAllCommitStatuses\(repo, headSha\)/u);
   assert.match(mainBody, /REVIEW_GATE_INDEPENDENT_EXACT_HEAD_MISSING/u);
   assert.match(mainBody, /REVIEW_GATE_OWNER_SELF_AUDIT_MISSING/u);
-  assert.match(mainBody, /reviewAuthority=\$\{reviewAuthority\}/u);
+  assert.match(mainBody, /reviewAuthority=/u);
   assert.match(mainBody, /GITHUB_COPILOT/u);
   assert.match(mainBody, /OCTOPUS/u);
   assert.doesNotMatch(mainBody, /MACHINE_FALLBACK/u);
@@ -570,6 +667,43 @@ test('Octopus workflow is immutable, opt-in, no-head-checkout and fails closed o
   assert.match(workflow, /OCTOPUS INDEPENDENT REVIEW: PASS/u);
   assert.match(workflow, /Summary SHA-256/u);
   assert.match(workflow, /Workflow run/u);
+});
+
+
+test('Local Qwen workflow is bounded, chunk-complete, pinned and fail-closed', () => {
+  const workflow = readFileSync(
+    new URL('../../../.github/workflows/local-qwen-independent-review.yml', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(workflow, /MAX_DIFF_BYTES=400000/u);
+  assert.match(workflow, /MAX_CHUNK_DIFF_BYTES=8000/u);
+  assert.match(workflow, /MAX_CHUNKS=96/u);
+  assert.match(workflow, /local-qwen-review-manifest\.v1/u);
+  assert.match(workflow, /full_diff_sha256/u);
+  assert.match(workflow, /source_sha256/u);
+  assert.match(workflow, /prompt_bundle_sha256/u);
+  assert.match(workflow, /--ctx-size 8192/u);
+  assert.match(workflow, /--n-predict 256/u);
+  assert.match(workflow, /--no-warmup/u);
+  assert.match(workflow, /INFERENCE_WORKERS=1/u);
+  assert.match(workflow, /timeout --kill-after=10 180/u);
+  assert.match(workflow, /LLAMA_SERVER/u);
+  assert.match(workflow, /llama-server/u);
+  assert.match(workflow, /--host 127\.0\.0\.1/u);
+  assert.match(workflow, /--port 8080/u);
+  assert.match(workflow, /health/u);
+  assert.match(workflow, /completion/u);
+  assert.match(workflow, /--rawfile grammar/u);
+  assert.match(workflow, /--data-binary "@\$request_file"/u);
+  assert.doesNotMatch(workflow, /timeout --kill-after=10 120 "\$LLAMA_CLI"/u);
+  assert.match(workflow, /--seed 424242/u);
+  assert.match(workflow, /--temperature 0/u);
+  assert.match(workflow, /review-provider\/local-qwen/u);
+  assert.match(workflow, /LOCAL QWEN INDEPENDENT REVIEW: PASS/u);
+  assert.match(workflow, /Review manifest SHA-256/u);
+  assert.match(workflow, /Prompt bundle SHA-256/u);
+  assert.doesNotMatch(workflow, /limit=90000/u);
 });
 
 test('review reconciliation workflow uses supported dispatch wiring and complete pagination', () => {

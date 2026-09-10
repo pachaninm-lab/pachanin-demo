@@ -60,7 +60,6 @@ describe('Company OS owner cabinet control-host gate', () => {
     expect(middleware).toContain('if (!(await ownerControlledRootAllowed(req))) return controlRealmDenied(req);');
     expect(middleware).toContain("const ownerRoot = ownerControlledCabinetRole(p) !== null;");
     expect(middleware).toContain("return controlRealmResponse(req);");
-    expect(middleware).toContain("if (!isControlRealmPathAllowed(p)) return controlRealmDenied(req);");
     expect(middleware).toContain('if (!isControlRealmPathAllowed(p)) return controlRealmDenied(req);');
   });
 });
