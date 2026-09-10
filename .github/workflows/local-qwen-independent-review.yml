@@ -302,7 +302,7 @@ jobs:
           root ::= "{" ws verdict-kv "," ws findings-kv "," ws summary-kv "}" ws
           verdict-kv ::= "\"verdict\"" ws ":" ws verdict
           findings-kv ::= "\"findings\"" ws ":" ws findings
-          summary-kv ::= "\"summary\"" ws ":" ws string
+          summary-kv ::= "\"summary\"" ws ":" ws "\"reviewed\""
           verdict ::= "\"PASS\"" | "\"BLOCK\""
           findings ::= "[" ws "]" ws | "[" ws finding ("," ws finding)* "]" ws
           finding ::= "{" ws severity-kv "," ws path-kv "," ws line-kv "," ws title-kv "," ws reason-kv "}" ws
