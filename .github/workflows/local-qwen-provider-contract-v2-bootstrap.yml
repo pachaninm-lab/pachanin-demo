@@ -1,0 +1,57 @@
+name: Local Qwen Provider Contract v2 Bootstrap
+
+on:
+  push:
+    branches:
+      - fix/local-qwen-provider-contract-v2-20260910
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.event.head_commit.message == 'chore(review): bootstrap Local Qwen provider contract v2 repair'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout provider repair branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/local-qwen-provider-contract-v2-20260910
+          fetch-depth: 0
+
+      - name: Apply evidence-backed bounded provider repair
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/local-qwen-independent-review.yml')
+          text = path.read_text(encoding='utf-8')
+
+          old_budget = 'n_predict:384'
+          if text.count(old_budget) != 1:
+              raise SystemExit(f'Expected exactly one {old_budget!r}, found {text.count(old_budget)}')
+          text = text.replace(old_budget, 'n_predict:1024', 1)
+
+          old_output = "printf 'prompt_bundle_sha256=%s\\n' \"$prompt_bundle_sha256\""
+          if text.count(old_output) != 1:
+              raise SystemExit(f'Expected exactly one prompt bundle output line, found {text.count(old_output)}')
+          text = text.replace(old_output, old_output + ' >> "$GITHUB_OUTPUT"', 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+          git rm .github/workflows/local-qwen-provider-contract-v2-bootstrap.yml
+          git diff --check
+          test "$(git diff --name-only | sort)" = ".github/workflows/local-qwen-independent-review.yml
+.github/workflows/local-qwen-provider-contract-v2-bootstrap.yml"
+          grep -F "n_predict:1024" .github/workflows/local-qwen-independent-review.yml
+          grep -F "printf 'prompt_bundle_sha256=%s\\n' \"$prompt_bundle_sha256\" >> \"$GITHUB_OUTPUT\"" .github/workflows/local-qwen-independent-review.yml
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/local-qwen-independent-review.yml
+          git commit -m 'fix(review): harden Local Qwen completion and prompt hash contract'
+          git push origin HEAD:refs/heads/fix/local-qwen-provider-contract-v2-20260910
