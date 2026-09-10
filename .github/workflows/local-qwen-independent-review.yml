@@ -426,7 +426,7 @@ jobs:
             --model "$MODEL_FILE" \
             --no-warmup \
             --ctx-size 8192 \
-            --n-predict 128 \
+            --n-predict 1024 \
             --threads 4 \
             --threads-batch 4 \
             --seed 424242 \
