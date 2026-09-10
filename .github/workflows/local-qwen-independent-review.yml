@@ -281,6 +281,7 @@ jobs:
           set -Eeuo pipefail
           remote_dir="/tmp/pc-local-qwen-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           ssh_opts=(-i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes)
+          scp_opts=(-i "$HOME/.ssh/id_tai_model" -P "$MODEL_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes)
           cleanup(){ ssh "${ssh_opts[@]}" "$MODEL_USER@$MODEL_HOST" "rm -rf '$remote_dir'" >/dev/null 2>&1 || true; }
           trap cleanup EXIT
           ssh "${ssh_opts[@]}" "$MODEL_USER@$MODEL_HOST" "umask 077; mkdir '$remote_dir'"
@@ -405,10 +406,10 @@ jobs:
           print(f'QWEN3_REMOTE_REVIEW_OK={len(requests)}')
           PY
           chmod 600 "$RUNNER_TEMP/remote-review.py" "$RUNNER_TEMP/review-requests.jsonl" "$RUNNER_TEMP/review-schema.json"
-          scp "${ssh_opts[@]}" "$RUNNER_TEMP/remote-review.py" "$RUNNER_TEMP/review-requests.jsonl" "$RUNNER_TEMP/review-schema.json" "$MODEL_USER@$MODEL_HOST:$remote_dir/"
+          scp "${scp_opts[@]}" "$RUNNER_TEMP/remote-review.py" "$RUNNER_TEMP/review-requests.jsonl" "$RUNNER_TEMP/review-schema.json" "$MODEL_USER@$MODEL_HOST:$remote_dir/"
           ssh "${ssh_opts[@]}" "$MODEL_USER@$MODEL_HOST" \
             "python3 '$remote_dir/remote-review.py' '$MODEL_IDENTITY' '$MODEL_SHA256' '$MODEL_SIZE_BYTES' '$LLAMA_SOURCE_COMMIT' '$remote_dir/review-requests.jsonl' '$remote_dir/review-schema.json' '$remote_dir/review-responses.jsonl'"
-          scp "${ssh_opts[@]}" "$MODEL_USER@$MODEL_HOST:$remote_dir/review-responses.jsonl" "$RUNNER_TEMP/review-responses.jsonl"
+          scp "${scp_opts[@]}" "$MODEL_USER@$MODEL_HOST:$remote_dir/review-responses.jsonl" "$RUNNER_TEMP/review-responses.jsonl"
           [[ -s "$RUNNER_TEMP/review-responses.jsonl" ]]
           raw_dir="$RUNNER_TEMP/qwen-raw"; mkdir -p "$raw_dir"
           python3 - "$RUNNER_TEMP/review-responses.jsonl" "$raw_dir" "${{ steps.input.outputs.chunk_count }}" <<'PY'
