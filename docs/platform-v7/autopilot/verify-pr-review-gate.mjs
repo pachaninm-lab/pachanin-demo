@@ -20,16 +20,15 @@ export const LOCAL_QWEN_REVIEW_LOGIN = 'github-actions[bot]';
 export const LOCAL_QWEN_STATUS_CONTEXT = 'review-provider/local-qwen';
 export const LOCAL_QWEN_WORKFLOW_NAME = 'Local Qwen Independent Review';
 export const LOCAL_QWEN_WORKFLOW_PATH = '.github/workflows/local-qwen-independent-review.yml';
-export const LOCAL_QWEN_MODEL_REVISION = 'aebf6a0f72261b12fb8199bc580fe172fe86c901';
-export const LOCAL_QWEN_MODEL_SHA256 = '724fb256bec1ff062b2f65e4569e871ad2e95ab2a3989723d1769c54294730b7';
-export const LOCAL_QWEN_LLAMA_BUILD = 'b10809';
-export const LOCAL_QWEN_LLAMA_SOURCE_COMMIT = '5266f24da75dc449bd56cbed7addb9c8e4a6a73e';
-export const LOCAL_QWEN_LLAMA_ARCHIVE_SHA256 = '5e34434ddc6d03cd1584f403201aff0d4bd1a5793a72ff7e286532dfd1e4b941';
-export const LOCAL_QWEN_POLICY_SHA256 = '5e849bdc71ab93e5431904d8a31fc01262145517ea2d070ebd590b0da240d010';
+export const LOCAL_QWEN_MODEL_REVISION = '895c8d171bc03c30e113cd7a28c02494b5e068b7';
+export const LOCAL_QWEN_MODEL_SHA256 = '107afd988cdbdcced3b8e76ebc3a8e83b5a18a5c796fca20778410cb9c47a814';
+export const LOCAL_QWEN_LLAMA_BUILD = 'b9637';
+export const LOCAL_QWEN_LLAMA_SOURCE_COMMIT = 'aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3';
+export const LOCAL_QWEN_LLAMA_ARCHIVE_SHA256 = '3857876e4a2461f7041166bd74b5d39e3db51b8639353d55f87d6f904b3b75bd';
+export const LOCAL_QWEN_POLICY_SHA256 = 'e083823ced2f5b63ecfaca345e59274c5f194e36c0cdd20b2cae9cee3b4f9ed3';
 export const LOCAL_QWEN_MAX_DIFF_BYTES = 400000;
-export const LOCAL_QWEN_MAX_CHUNK_DIFF_BYTES = 72000;
+export const LOCAL_QWEN_MAX_CHUNK_DIFF_BYTES = 8000;
 export const LOCAL_QWEN_MAX_CHUNKS = 96;
-
 
 const COMPLETED_REVIEW_STATES = new Set([
   'APPROVED',
@@ -140,7 +139,6 @@ function parseOctopusAttestation(review, headSha) {
     runId: match[5],
   };
 }
-
 
 function parseLocalQwenAttestation(review, headSha) {
   const expected = String(headSha || '').trim();
@@ -782,7 +780,6 @@ function main() {
     );
   }
 
-
   const reviewAuthority = codexAuthority
     ? 'CODEX'
     : copilotAuthority
@@ -803,7 +800,6 @@ function main() {
       + ' unresolvedCurrentThreads=0'
       + ' ciChecks=' + checkedCi,
   );
-
 }
 
 const invokedPath = process.argv[1] || '';
