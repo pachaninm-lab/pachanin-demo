@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/local-qwen-direct-evidence-policy-20260911",
+  "status": "active",
+  "purpose": "Bounded reviewer-quality hardening after exact-head owner-cabinet review 34535436314 completed successfully but emitted speculative findings unsupported by changed runtime behavior. Tighten the trusted review policy so findings require direct evidence in added or modified code and speculative possibility claims are not reportable defects.",
+  "authorityBaseExactMain": "e3c34ad662c05b64128c67cbae9e0c23071f89a0",
+  "evidence": {
+    "substantivePullRequest": 5184,
+    "reviewRunId": 34535436314,
+    "reviewedExactHead": "c6757fdb7c699dc644d895517a72d685b3ad72d3",
+    "diffSha256": "ad7b1e4c5f27ca8c8c97a3e3ca0acba39faf69a8711863724ff7a2b64c7d06c5",
+    "findingCount": 11,
+    "responseSha256": "3db522a11f6e5ea534733dd13fea4f17ca7106e707c49ffbdb46562879dbad70"
+  },
+  "allowedPaths": [
+    ".github/workflows/local-qwen-independent-review.yml"
+  ],
+  "requiredChange": {
+    "summary": "Strengthen only the immutable trusted policy text and its pinned SHA-256 so the reviewer reports concrete introduced defects, not generic possibility statements.",
+    "semanticPaths": [
+      "trusted review policy text",
+      "POLICY_SHA256 pin"
+    ]
+  },
+  "requiredInvariants": [
+    "A finding must be supported by direct evidence in added or modified behavior visible in the supplied diff chunk; absence of enough evidence is not grounds for a speculative finding.",
+    "The policy must explicitly reject generic claims that route/path/test/workflow names or constants are secrets, PII, or authorization bypasses merely because they exist.",
+    "The policy must explicitly state that test-only code does not itself grant production authorization and unchanged context must not be reported as an introduced defect.",
+    "Speculative possibility wording such as could, may, might, likely, or potentially cannot substitute for a concrete defect mechanism.",
+    "No generated-output grammar, finding cardinality, schema, validator, model/runtime pin, request/server n_predict, chunking, diff coverage, prompt hashing, exact-head revalidation, provider status, or fail-closed behavior may be weakened or changed.",
+    "No product, API, database, RBAC, registration, cabinet, customer-data, dependency, lockfile, or production runtime behavior change is included.",
+    "No independent-provider PASS is claimed for this provider self-maintenance change. After merge, PR #5184 must synchronize forward-only and obtain a fresh exact-head independent review.",
+    "Production hosting remains REG.RU only and new recurring cost remains 0 RUB."
+  ],
+  "admission": [
+    "Authority PR changes exactly this manifest path.",
+    "Implementation PR changes exactly .github/workflows/local-qwen-independent-review.yml.",
+    "All applicable ordinary exact-head CI/security/runtime gates are terminal green before each merge.",
+    "Unresolved review findings and CHANGES_REQUESTED are zero.",
+    "Owner exact-head self-audit may establish provider-maintenance scope evidence but does not substitute for independent semantic review.",
+    "Live main must match each repair PR base before merge."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
