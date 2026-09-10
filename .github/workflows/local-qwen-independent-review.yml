@@ -293,29 +293,41 @@ jobs:
           }
           SCHEMA
 
-          # llama.cpp b10809's JSON-Schema-to-GBNF converter emits bounded numeric
-          # quantifiers for integer fields that its grammar sampler cannot initialize.
-          # Keep the strict JSON Schema above as the semantic contract and use an
-          # equivalent hand-written GBNF for generation. The post-generation validator
-          # below remains the final fail-closed authority for types, paths and line >= 1.
+          # Keep the strict JSON Schema and post-generation validator authoritative.
+          # The generated GBNF is deliberately bounded and linear: PASS cannot hide
+          # findings, BLOCK carries exactly one highest-priority finding, and string
+          # tails have finite non-ambiguous state depth.
           cat > "$RUNNER_TEMP/review.gbnf" <<'GBNF'
           root ::= pass-object | block-object
           pass-object ::= "{" ws "\"verdict\"" ws ":" ws "\"PASS\"" "," ws "\"findings\"" ws ":" ws "[" ws "]" ws "," ws "\"summary\"" ws ":" ws "\"PASS\"" "}" ws
-          block-object ::= "{" ws "\"verdict\"" ws ":" ws "\"BLOCK\"" "," ws "\"findings\"" ws ":" ws "[" ws finding findings-tail "]" ws "," ws "\"summary\"" ws ":" ws "\"BLOCK\"" "}" ws
-          findings-tail ::= ws | "," ws finding ws | "," ws finding "," ws finding ws
+          block-object ::= "{" ws "\"verdict\"" ws ":" ws "\"BLOCK\"" "," ws "\"findings\"" ws ":" ws "[" ws finding ws "]" ws "," ws "\"summary\"" ws ":" ws "\"BLOCK\"" "}" ws
           finding ::= "{" ws "\"severity\"" ws ":" ws severity "," ws "\"path\"" ws ":" ws path-string "," ws "\"line\"" ws ":" ws integer "," ws "\"title\"" ws ":" ws title-string "," ws "\"reason\"" ws ":" ws reason-string "}" ws
           severity ::= "\"P0\"" | "\"P1\"" | "\"P2\""
           integer ::= [1-9] [0-9]*
-          path-string ::= "\"" path-char path-tail "\""
-          title-string ::= "\"" text-char title-tail "\""
-          reason-string ::= "\"" text-char reason-tail "\""
+          path-string ::= "\"" path-char path-tail-159 "\""
+          title-string ::= "\"" text-char title-tail-79 "\""
+          reason-string ::= "\"" text-char reason-tail-191 "\""
           path-char ::= [A-Za-z0-9_./-]
           text-char ::= [A-Za-z0-9_./,:;()' =+!?-]
-          path-tail ::= path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char?
-          title-tail ::= text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char?
-          reason-tail ::= text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char?
           ws ::= [ \t\n\r]?
           GBNF
+          python3 - "$RUNNER_TEMP/review.gbnf" <<'PY'
+          import pathlib
+          import sys
+
+          grammar = pathlib.Path(sys.argv[1])
+          lines = []
+          for prefix, symbol, limit in (
+              ('path-tail', 'path-char', 159),
+              ('title-tail', 'text-char', 79),
+              ('reason-tail', 'text-char', 191),
+          ):
+              lines.append(f'{prefix}-0 ::= ""')
+              for size in range(1, limit + 1):
+                  lines.append(f'{prefix}-{size} ::= "" | {symbol} {prefix}-{size - 1}')
+          with grammar.open('a', encoding='utf-8', newline='\n') as handle:
+              handle.write('\n'.join(lines) + '\n')
+          PY
 
           prompt_bundle_sha256="$(python3 - "$RUNNER_TEMP/review-manifest.json" "$RUNNER_TEMP/qwen-chunks" "$RUNNER_TEMP/review-policy.txt" "$RUNNER_TEMP/qwen-prompts" "$REPO" "$PR_NUMBER" "$HEAD_SHA" "$DIFF_SHA256" "$MANIFEST_SHA256" <<'PY'
           import hashlib
@@ -476,7 +488,7 @@ jobs:
               --rawfile grammar "$RUNNER_TEMP/review.gbnf" \
               '{prompt:$prompt, grammar:$grammar, n_predict:1024, seed:424242, temperature:0, top_k:1, top_p:1, min_p:0, repeat_penalty:1}' \
               >"$request_file"
-            timeout --kill-after=10 180 curl --fail --silent --show-error --max-time 170 \
+            timeout --kill-after=10 300 curl --fail --silent --show-error --max-time 290 \
               --header "Content-Type: application/json" \
               --data-binary "@$request_file" \
               http://127.0.0.1:8080/completion \
