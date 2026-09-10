@@ -299,40 +299,21 @@ jobs:
           # equivalent hand-written GBNF for generation. The post-generation validator
           # below remains the final fail-closed authority for types, paths and line >= 1.
           cat > "$RUNNER_TEMP/review.gbnf" <<'GBNF'
-          root ::= "{" ws verdict-kv "," ws findings-kv "," ws summary-kv "}" ws
-          verdict-kv ::= "\"verdict\"" ws ":" ws verdict
-          findings-kv ::= "\"findings\"" ws ":" ws findings
-          summary-kv ::= "\"summary\"" ws ":" ws summary
-          verdict ::= "\"PASS\"" | "\"BLOCK\""
-          findings ::= "[" ws "]" ws | "[" ws finding findings-tail "]" ws
+          root ::= pass-object | block-object
+          pass-object ::= "{" ws "\"verdict\"" ws ":" ws "\"PASS\"" "," ws "\"findings\"" ws ":" ws "[" ws "]" ws "," ws "\"summary\"" ws ":" ws "\"PASS\"" "}" ws
+          block-object ::= "{" ws "\"verdict\"" ws ":" ws "\"BLOCK\"" "," ws "\"findings\"" ws ":" ws "[" ws finding findings-tail "]" ws "," ws "\"summary\"" ws ":" ws "\"BLOCK\"" "}" ws
           findings-tail ::= ws | "," ws finding ws | "," ws finding "," ws finding ws
-          finding ::= "{" ws severity-kv "," ws path-kv "," ws line-kv "," ws title-kv "," ws reason-kv "}" ws
-          severity-kv ::= "\"severity\"" ws ":" ws severity
-          path-kv ::= "\"path\"" ws ":" ws path-string
-          line-kv ::= "\"line\"" ws ":" ws integer
-          title-kv ::= "\"title\"" ws ":" ws title-string
-          reason-kv ::= "\"reason\"" ws ":" ws reason-string
+          finding ::= "{" ws "\"severity\"" ws ":" ws severity "," ws "\"path\"" ws ":" ws path-string "," ws "\"line\"" ws ":" ws integer "," ws "\"title\"" ws ":" ws title-string "," ws "\"reason\"" ws ":" ws reason-string "}" ws
           severity ::= "\"P0\"" | "\"P1\"" | "\"P2\""
           integer ::= [1-9] [0-9]*
-          summary ::= "\"PASS\"" | "\"BLOCK\""
-          path-string ::= "\"" char chars255 "\""
-          title-string ::= "\"" char chars127 "\""
-          reason-string ::= "\"" char chars319 "\""
-          chars1 ::= char?
-          chars2 ::= chars1 chars1
-          chars4 ::= chars2 chars2
-          chars8 ::= chars4 chars4
-          chars16 ::= chars8 chars8
-          chars32 ::= chars16 chars16
-          chars64 ::= chars32 chars32
-          chars128 ::= chars64 chars64
-          chars256 ::= chars128 chars128
-          chars127 ::= chars64 chars32 chars16 chars8 chars4 chars2 chars1
-          chars255 ::= chars128 chars64 chars32 chars16 chars8 chars4 chars2 chars1
-          chars319 ::= chars256 chars32 chars16 chars8 chars4 chars2 chars1
-          char ::= [^"\\\x7F\x00-\x1F] | "\\" escape
-          escape ::= ["\\/bfnrt] | "u" hex hex hex hex
-          hex ::= [0-9a-fA-F]
+          path-string ::= "\"" path-char path-tail "\""
+          title-string ::= "\"" text-char title-tail "\""
+          reason-string ::= "\"" text-char reason-tail "\""
+          path-char ::= [A-Za-z0-9_./-]
+          text-char ::= [A-Za-z0-9_./,:;()' =+!?-]
+          path-tail ::= path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char? path-char?
+          title-tail ::= text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char?
+          reason-tail ::= text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char? text-char?
           ws ::= [ \t\n\r]?
           GBNF
 
