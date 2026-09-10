@@ -155,7 +155,7 @@ describe('Company OS F2A control host boundary', () => {
   it('binds every session-producing auth route to the control realm and staff landing', () => {
     for (const route of [loginRoute, mfaRoute, membershipRoute]) {
       expect(route).toContain('isControlHostRequest(request)');
-      expect(route).toMatch(/controlPlane\\s*\\?\\s*['"]\\/platform-v7\\/staff['"]/);
+      expect(route).toMatch(/controlPlane\s*\?\s*['"]\/platform-v7\/staff['"]/);
       expect(route).toContain('{ controlPlane }');
     }
     expect(refreshRoute).toContain('isControlHostRequest(request)');
