@@ -402,7 +402,7 @@ jobs:
           print(bundle_sha256)
           PY
           )"
-          printf 'prompt_bundle_sha256=%s\n' "$prompt_bundle_sha256"
+          printf 'prompt_bundle_sha256=%s\n' "$prompt_bundle_sha256" >> "$GITHUB_OUTPUT"
 
       - name: Run deterministic local Qwen semantic review
         id: inference
