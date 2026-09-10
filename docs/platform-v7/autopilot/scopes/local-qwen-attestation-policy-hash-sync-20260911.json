@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/local-qwen-attestation-policy-hash-sync-20260911",
+  "status": "active",
+  "purpose": "Repair an exact, fail-closed verifier mismatch introduced when PR #5266 updated the trusted Local Qwen policy hash in the provider workflow to e083823ced2f5b63ecfaca345e59274c5f194e36c0cdd20b2cae9cee3b4f9ed3 while the exact-head review verifier still pins the superseded 5e849bdc71ab93e5431904d8a31fc01262145517ea2d070ebd590b0da240d010. Without this synchronization, even a genuine future Local Qwen PASS attestation cannot be accepted by the gate.",
+  "authorityBaseExactMain": "243e0b242a3d0e9995a5b850bf026cbe18d87c86",
+  "evidence": {
+    "providerRepairPullRequest": 5266,
+    "providerWorkflowPolicySha256": "e083823ced2f5b63ecfaca345e59274c5f194e36c0cdd20b2cae9cee3b4f9ed3",
+    "verifierCurrentPolicySha256": "5e849bdc71ab93e5431904d8a31fc01262145517ea2d070ebd590b0da240d010",
+    "substantivePullRequest": 5184,
+    "latestBlockedReviewRun": 34538117230
+  },
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/verify-pr-review-gate.mjs",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
+  ],
+  "requiredChange": {
+    "summary": "Synchronize only the verifier/test Local Qwen policy SHA-256 expectation with the already-merged trusted workflow policy hash from PR #5266.",
+    "oldPolicySha256": "5e849bdc71ab93e5431904d8a31fc01262145517ea2d070ebd590b0da240d010",
+    "newPolicySha256": "e083823ced2f5b63ecfaca345e59274c5f194e36c0cdd20b2cae9cee3b4f9ed3"
+  },
+  "requiredInvariants": [
+    "No accepted reviewer login/provider set changes.",
+    "No exact-head, workflow-run, provider-status, response-hash, manifest-hash, diff-hash or fail-closed binding is weakened.",
+    "No Local Qwen model/runtime/chunking/prompt/schema/validator/inference behavior changes in this repair.",
+    "No product, API, database, RBAC, registration, cabinet, customer-data, dependency, lockfile or production runtime behavior changes.",
+    "No independent-provider PASS is claimed for this governance or verifier-maintenance change.",
+    "After merge, substantive PR #5184 still requires a fresh genuine exact-head independent review and terminal-green admission before merge.",
+    "Production hosting remains REG_RU_VPS_ONLY and new recurring cost remains 0 RUB."
+  ],
+  "admission": [
+    "Authority PR changes exactly this manifest path.",
+    "Implementation PR changes only the two allowed verifier/test paths.",
+    "Verifier test proves the policy hash matches the trusted provider workflow.",
+    "All applicable ordinary exact-head checks are terminal green before merge.",
+    "Unresolved review findings and CHANGES_REQUESTED are zero.",
+    "Owner exact-head self-audit may establish bounded maintenance evidence but does not substitute for independent review on substantive product PRs.",
+    "Live main must match each repair PR base before merge."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
