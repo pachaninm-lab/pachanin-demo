@@ -391,6 +391,11 @@ test('Local Qwen workflow uses canonical Qwen3 model-host, remains bounded and f
   assert.match(workflow, /full_diff_sha256/u);
   assert.match(workflow, /source_sha256/u);
   assert.match(workflow, /prompt_bundle_sha256/u);
+  assert.ok(workflow.includes('"required":["findings"]'));
+  assert.ok(!workflow.includes('"required":["verdict","findings","summary"]'));
+  assert.ok(workflow.includes("set(value) != {'findings'}"));
+  assert.ok(workflow.includes("verdict = 'PASS' if not all_findings else 'BLOCK'"));
+  assert.ok(workflow.includes('never filters a finding'));
   assert.match(workflow, /MODEL_REVISION: 895c8d171bc03c30e113cd7a28c02494b5e068b7/u);
   assert.match(workflow, /MODEL_SHA256: 107afd988cdbdcced3b8e76ebc3a8e83b5a18a5c796fca20778410cb9c47a814/u);
   assert.match(workflow, /MODEL_IDENTITY: tai-qwen3-8b-q4km/u);
@@ -405,8 +410,8 @@ test('Local Qwen workflow uses canonical Qwen3 model-host, remains bounded and f
   assert.match(workflow, /MODEL_IDENTITY_NOT_SERVED/u);
   assert.match(workflow, /enable_thinking/u);
   assert.match(workflow, /response_format/u);
-  assert.match(workflow, /temperature':0/u);
-  assert.match(workflow, /max_tokens':512/u);
+  assert.match(workflow, /temperature': 0/u);
+  assert.match(workflow, /max_tokens': 512/u);
   assert.match(workflow, /review-provider\/local-qwen/u);
   assert.match(workflow, /LOCAL QWEN INDEPENDENT REVIEW: PASS/u);
   assert.match(workflow, /Review manifest SHA-256/u);
