@@ -49,19 +49,40 @@ jobs:
 
           path = Path('.github/workflows/local-qwen-independent-review.yml')
           text = path.read_text(encoding='utf-8')
+          had_final_newline = text.endswith('\n')
+          lines = text.splitlines()
 
-          old_output = "printf 'prompt_bundle_sha256=%s\\n' \"$prompt_bundle_sha256\""
-          new_output = old_output + ' >> "$GITHUB_OUTPUT"'
-          if text.count(old_output) != 1:
-              raise SystemExit(f'Expected exactly one prompt bundle output line, found {text.count(old_output)}')
-          if new_output in text:
+          step_name = '      - name: Build trusted review prompt and strict JSON schema'
+          step_indexes = [i for i, line in enumerate(lines) if line == step_name]
+          if len(step_indexes) != 1:
+              raise SystemExit(f'Expected exactly one trusted prompt step, found {len(step_indexes)}')
+          step_start = step_indexes[0]
+          step_end = next(
+              (i for i in range(step_start + 1, len(lines)) if lines[i].startswith('      - name: ')),
+              len(lines),
+          )
+
+          expected = r'''printf 'prompt_bundle_sha256=%s\n' "$prompt_bundle_sha256"'''
+          candidates = [
+              i for i in range(step_start, step_end)
+              if lines[i].strip() == expected
+          ]
+          if len(candidates) != 1:
+              raise SystemExit(
+                  f'Expected exactly one prompt bundle output line inside trusted prompt step, found {len(candidates)}'
+              )
+          target_index = candidates[0]
+          if 'GITHUB_OUTPUT' in lines[target_index]:
               raise SystemExit('Prompt bundle hash is already exported; refusing duplicate repair.')
-          text = text.replace(old_output, new_output, 1)
+          lines[target_index] = lines[target_index] + ' >> "$GITHUB_OUTPUT"'
 
+          text = '\n'.join(lines) + ('\n' if had_final_newline else '')
           if text.count(r'ws ::= [ \t\n\r]?') != 1:
               raise SystemExit('Expected the already-admitted bounded whitespace grammar exactly once.')
           if text.count('n_predict:1536') != 1:
               raise SystemExit('Expected the admitted n_predict:1536 request budget exactly once.')
+          if text.count('prompt_bundle_sha256=%s') != 1:
+              raise SystemExit('Prompt bundle output identity is not unique after structural repair.')
 
           path.write_text(text, encoding='utf-8')
           PY
