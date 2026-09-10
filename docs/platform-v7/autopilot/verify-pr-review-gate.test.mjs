@@ -106,7 +106,7 @@ test('Octopus authority is additionally bound to one successful trusted workflow
   const repo = 'pachaninm-lab/pachanin-demo';
   const repositoryId = 1203022077;
   const prNumber = 5167;
-  const runId = '123456789';
+  const runId = '34180354026';
   const attestation = { runId };
   const run = {
     id: Number(runId), name: 'Independent Octopus Review', path: '.github/workflows/octopus-independent-review.yml',
