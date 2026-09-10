@@ -1,14 +1,16 @@
 name: One-shot patch Local Qwen canonical summary
 
 on:
-  push:
-    branches: [ops/patch-local-qwen-summary-20260910]
+  pull_request:
+    types: [opened, reopened, synchronize]
 
 permissions:
   contents: write
+  pull-requests: read
 
 jobs:
   patch-provider-branch:
+    if: github.head_ref == 'ops/patch-local-qwen-summary-20260910'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -23,7 +25,6 @@ jobs:
           set -Eeuo pipefail
           python3 - <<'PY'
           from pathlib import Path
-
           path = Path('.github/workflows/local-qwen-independent-review.yml')
           text = path.read_text(encoding='utf-8')
           old = '''          root ::= "{" ws verdict-kv "," ws findings-kv "," ws summary-kv "}" ws
@@ -43,8 +44,7 @@ jobs:
           path.write_text(text.replace(old, new, 1), encoding='utf-8')
           PY
           git diff --check
-          changed="$(git diff --name-only)"
-          test "$changed" = '.github/workflows/local-qwen-independent-review.yml'
+          test "$(git diff --name-only)" = '.github/workflows/local-qwen-independent-review.yml'
           grep -F 'root ::= pass-object | block-object' .github/workflows/local-qwen-independent-review.yml
           grep -F '"\\\"reviewed\\\""' .github/workflows/local-qwen-independent-review.yml
           grep -F -- '--n-predict 128' .github/workflows/local-qwen-independent-review.yml
