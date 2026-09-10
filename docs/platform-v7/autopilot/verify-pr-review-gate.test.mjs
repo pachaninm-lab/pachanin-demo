@@ -677,14 +677,14 @@ test('Local Qwen workflow is bounded, chunk-complete, pinned and fail-closed', (
   );
 
   assert.match(workflow, /MAX_DIFF_BYTES=400000/u);
-  assert.match(workflow, /MAX_CHUNK_DIFF_BYTES=72000/u);
-  assert.match(workflow, /MAX_CHUNKS=32/u);
+  assert.match(workflow, /MAX_CHUNK_DIFF_BYTES=16000/u);
+  assert.match(workflow, /MAX_CHUNKS=48/u);
   assert.match(workflow, /local-qwen-review-manifest\.v1/u);
   assert.match(workflow, /full_diff_sha256/u);
   assert.match(workflow, /source_sha256/u);
   assert.match(workflow, /prompt_bundle_sha256/u);
-  assert.match(workflow, /--ctx-size 32768/u);
-  assert.match(workflow, /--n-predict 128/u);
+  assert.match(workflow, /--ctx-size 16384/u);
+  assert.match(workflow, /--n-predict 96/u);
   assert.match(workflow, /CPU_COUNT="\$\(nproc\)"/u);
   assert.match(workflow, /INFERENCE_WORKERS=1/u);
   assert.match(workflow, /INFERENCE_THREADS="\$CPU_COUNT"/u);

@@ -43,8 +43,8 @@ jobs:
         run: |
           set -Eeuo pipefail
           MAX_DIFF_BYTES=400000
-          MAX_CHUNK_DIFF_BYTES=72000
-          MAX_CHUNKS=32
+          MAX_CHUNK_DIFF_BYTES=16000
+          MAX_CHUNKS=48
           live_head="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.head.sha')"
           [[ "$live_head" == "$EXPECTED_HEAD" ]] || {
             echo "PR head moved before review: expected=$EXPECTED_HEAD current=$live_head" >&2
@@ -436,8 +436,8 @@ jobs:
               --offline \
               --model "$MODEL_FILE" \
               --file "$prompt_file" \
-              --ctx-size 32768 \
-              --n-predict 128 \
+              --ctx-size 16384 \
+              --n-predict 96 \
               --threads "$INFERENCE_THREADS" \
               --threads-batch "$INFERENCE_THREADS" \
               --seed 424242 \
