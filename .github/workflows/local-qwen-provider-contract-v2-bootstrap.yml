@@ -1,16 +1,17 @@
 name: Local Qwen Provider Contract v2 Bootstrap
 
 on:
-  push:
-    branches:
-      - fix/local-qwen-provider-contract-v2-20260910
+  pull_request:
+    types: [opened, reopened, synchronize]
 
 permissions:
   contents: write
 
 jobs:
   repair:
-    if: github.event.head_commit.message == 'chore(review): bootstrap Local Qwen provider contract v2 repair'
+    if: >-
+      github.event.pull_request.head.ref == 'fix/local-qwen-provider-contract-v2-20260910' &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
