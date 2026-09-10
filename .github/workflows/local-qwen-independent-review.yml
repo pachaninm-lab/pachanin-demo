@@ -189,20 +189,34 @@ jobs:
           }
           cat > "$RUNNER_TEMP/review-schema.json" <<'SCHEMA'
           {
-            "type":"object",
-            "properties":{
-              "verdict":{"type":"string","enum":["PASS","BLOCK"]},
-              "findings":{"type":"array","maxItems":1,"items":{"type":"object","properties":{
-                "severity":{"type":"string","enum":["P0","P1","P2"]},
-                "path":{"type":"string","minLength":1,"maxLength":160},
-                "line":{"type":"integer","minimum":1},
-                "title":{"type":"string","minLength":1,"maxLength":80},
-                "reason":{"type":"string","minLength":1,"maxLength":192}
-              },"required":["severity","path","line","title","reason"],"additionalProperties":false}},
-              "summary":{"type":"string","enum":["PASS","BLOCK"]}
-            },
-            "required":["verdict","findings","summary"],
-            "additionalProperties":false
+            "oneOf":[
+              {
+                "type":"object",
+                "properties":{
+                  "verdict":{"type":"string","enum":["PASS"]},
+                  "findings":{"type":"array","maxItems":0},
+                  "summary":{"type":"string","enum":["PASS"]}
+                },
+                "required":["verdict","findings","summary"],
+                "additionalProperties":false
+              },
+              {
+                "type":"object",
+                "properties":{
+                  "verdict":{"type":"string","enum":["BLOCK"]},
+                  "findings":{"type":"array","minItems":1,"maxItems":1,"items":{"type":"object","properties":{
+                    "severity":{"type":"string","enum":["P0","P1","P2"]},
+                    "path":{"type":"string","minLength":1,"maxLength":160},
+                    "line":{"type":"integer","minimum":1},
+                    "title":{"type":"string","minLength":1,"maxLength":80},
+                    "reason":{"type":"string","minLength":1,"maxLength":192}
+                  },"required":["severity","path","line","title","reason"],"additionalProperties":false}},
+                  "summary":{"type":"string","enum":["BLOCK"]}
+                },
+                "required":["verdict","findings","summary"],
+                "additionalProperties":false
+              }
+            ]
           }
           SCHEMA
           python3 - "$RUNNER_TEMP/review-manifest.json" "$RUNNER_TEMP/qwen-chunks" "$RUNNER_TEMP/review-policy.txt" "$RUNNER_TEMP/review-requests.jsonl" "$REPO" "$PR_NUMBER" "$HEAD_SHA" "$DIFF_SHA256" "$MANIFEST_SHA256" <<'PY' > "$RUNNER_TEMP/prompt-bundle.sha"
