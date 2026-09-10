@@ -1,48 +1,30 @@
 name: Local Qwen Provider Contract v2 Bootstrap
 
 on:
-  issue_comment:
-    types: [created]
+  pull_request:
+    types: [opened, reopened, synchronize]
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
-  create-provider-repair-pr:
+  repair:
     if: >-
-      github.event.issue.number == 5240 &&
-      github.event.comment.body == '/review repair-local-qwen-contract-v2 current-main' &&
-      github.event.comment.user.login == github.repository_owner &&
-      github.actor == github.repository_owner &&
-      github.triggering_actor == github.repository_owner
+      github.event.pull_request.head.ref == 'fix/local-qwen-provider-contract-v2-20260910' &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    env:
-      GH_TOKEN: ${{ github.token }}
-      REPO: ${{ github.repository }}
-      REPAIR_BRANCH: fix/local-qwen-provider-contract-v2-actual-20260910
     steps:
-      - name: Checkout exact current main
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Checkout provider repair branch
+        uses: actions/checkout@v4
         with:
-          ref: main
+          ref: fix/local-qwen-provider-contract-v2-20260910
           fetch-depth: 0
 
-      - name: Build exact provider-only repair PR
+      - name: Apply evidence-backed bounded provider repair
         shell: bash
         run: |
           set -Eeuo pipefail
-          git fetch origin main
-          current_main="$(git rev-parse origin/main)"
-          local_main="$(git rev-parse HEAD)"
-          [[ "$local_main" == "$current_main" ]] || {
-            echo "Current-main drift: checkout=$local_main remote=$current_main" >&2
-            exit 10
-          }
-
-          git checkout -B "$REPAIR_BRANCH" "$current_main"
-
           python3 - <<'PY'
           from pathlib import Path
 
@@ -68,7 +50,7 @@ jobs:
 
           git rm .github/workflows/local-qwen-provider-contract-v2-bootstrap.yml
           git diff --check
-          mapfile -t changed < <(git diff --name-only | sort)
+          mapfile -t changed < <({ git diff --name-only; git diff --cached --name-only; } | sort -u)
           test "${#changed[@]}" -eq 2
           test "${changed[0]}" = ".github/workflows/local-qwen-independent-review.yml"
           test "${changed[1]}" = ".github/workflows/local-qwen-provider-contract-v2-bootstrap.yml"
@@ -78,26 +60,6 @@ jobs:
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .github/workflows/local-qwen-independent-review.yml .github/workflows/local-qwen-provider-contract-v2-bootstrap.yml
+          git add -A
           git commit -m 'fix(review): align Local Qwen server cap and prompt hash contract'
-          git push origin "$REPAIR_BRANCH"
-
-          cat > "$RUNNER_TEMP/pr-body.md" <<'BODY'
-          Provider-only Local Qwen contract repair generated from exact current main by the owner-bound bootstrap admitted in #5240.
-
-          Evidence-backed changes only:
-          - align llama-server default `--n-predict` with the already-admitted per-request `n_predict:1536` bound from #5239;
-          - export the already-computed `prompt_bundle_sha256` into `$GITHUB_OUTPUT`, because downstream exact-head evidence consumes `steps.prompt.outputs.prompt_bundle_sha256`;
-          - remove the temporary #5240 bootstrap workflow in the same PR.
-
-          Preserved unchanged: immutable model/runtime/policy pins, 400000-byte full-diff cap, 8000-byte chunk cap, 96-chunk bound, complete chunk coverage, deterministic inference settings, 170/180-second per-request wall-clock limits, strict GBNF/schema/post-generation validation, exact-head revalidation, provider status semantics, fail-closed behavior, product/API/DB/RBAC/registration/production behavior, REG.RU-only hosting policy, and recurring cost = 0 RUB.
-
-          This provider-maintenance PR is not independent review evidence for substantive PR #5184. After merge, #5184 must synchronize current main and obtain a genuine Local Qwen exact-head PASS before merge.
-          BODY
-
-          gh pr create \
-            --repo "$REPO" \
-            --base main \
-            --head "$REPAIR_BRANCH" \
-            --title 'fix(review): export Local Qwen prompt hash and align server cap' \
-            --body-file "$RUNNER_TEMP/pr-body.md"
+          git push origin HEAD:refs/heads/fix/local-qwen-provider-contract-v2-20260910
