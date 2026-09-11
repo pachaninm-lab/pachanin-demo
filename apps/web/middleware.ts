@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { LOCALE_COOKIE } from '@/i18n/locale';
+import { controlledCabinetContext } from '@/lib/platform-v7/controlled-test-organizations';
 import {
   controlHostEnabled,
   controlHostUrl,
   isControlHostRequest,
   isControlRealmPathAllowed,
   isPrimaryPlatformHostRequest,
+  ownerCabinetSessionMatchesRoot,
+  ownerControlledCabinetRole,
   primaryPlatformUrl,
 } from '@/lib/platform-v7/control-host';
 import { observeServerCabinetAccess } from '@/lib/platform-v7/server-cabinet-access';
@@ -403,8 +406,15 @@ export async function middleware(req: NextRequest) {
       if (p === '/platform-v7/register') {
         return applySecurityHeaders(NextResponse.redirect(primaryPlatformUrl(p, req.nextUrl.search), 308), true, false);
       }
-      if (!isControlRealmPathAllowed(p)) return controlRealmDenied(req);
-      return controlRealmResponse(req);
+
+      const ownerRole = ownerControlledCabinetRole(p);
+      if (ownerRole !== null) {
+        // Exact owner roots continue below to signed-session validation.
+      } else if (isControlRealmPathAllowed(p)) {
+        return controlRealmResponse(req);
+      } else {
+        return controlRealmDenied(req);
+      }
     }
 
     const staffPage = isPlatformV7StaffPath(p);
@@ -494,9 +504,30 @@ export async function middleware(req: NextRequest) {
     }
 
     const secret = String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
-    const context = secret
-      ? await readVerifiedCabinetSessionContext(req.cookies.get(CABINET_SESSION_COOKIE)?.value ?? null, secret, Math.floor(Date.now() / 1000))
+    const cabinetToken = req.cookies.get(CABINET_SESSION_COOKIE)?.value ?? '';
+    const context = secret.length >= 32 && secret.length <= 4096 && cabinetToken.length > 0 && cabinetToken.length <= 8192
+      ? await readVerifiedCabinetSessionContext(cabinetToken, secret, Math.floor(Date.now() / 1000))
       : null;
+
+    if (controlHostEnabled() && isControlHostRequest(req)) {
+      const ownerRole = ownerControlledCabinetRole(p);
+      const expected = ownerRole === null ? null : controlledCabinetContext(ownerRole);
+      if (
+        ownerRole === null
+        || !context
+        || !expected
+        || context.ownerAccess !== true
+        || typeof context.userId !== 'string'
+        || context.userId.trim().length === 0
+        || context.role !== ownerRole
+        || expected.role !== ownerRole
+        || context.organizationId !== expected.organizationId
+        || context.tenantId !== expected.tenantId
+        || !ownerCabinetSessionMatchesRoot(p, context, expected)
+      ) return controlRealmDenied(req);
+      return controlRealmResponse(req);
+    }
+
     if (context?.role === 'organization') {
       if (!isOrganizationCabinetPath(p)) {
         const target = req.nextUrl.clone();

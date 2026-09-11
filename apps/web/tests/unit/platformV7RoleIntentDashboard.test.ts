@@ -2,31 +2,111 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { CONTROLLED_CABINET_CONTEXTS } from '../../lib/platform-v7/controlled-test-organizations';
+import {
+  OWNER_CONTROLLED_CABINET_TARGETS,
+  ownerCabinetSessionMatchesRoot,
+  ownerControlledCabinetRole,
+} from '../../lib/platform-v7/control-host';
 
 const cwd = process.cwd();
 const root = [cwd, path.resolve(cwd, '../..')]
   .find((candidate) => fs.existsSync(path.join(candidate, 'design-governance-v8.json')));
 
-if (!root) throw new Error(`Cannot resolve repository root from ${cwd}`);
+if (!root) throw new Error('Cannot resolve repository root');
 
 function read(relativePath: string) {
   return fs.readFileSync(path.join(root, relativePath), 'utf8');
 }
 
-const ownerCabinetMatrix = [
-  { role: 'operator', route: '/platform-v7/control-tower', page: 'apps/web/app/platform-v7/control-tower/page.tsx' },
-  { role: 'buyer', route: '/platform-v7/buyer', page: 'apps/web/app/platform-v7/buyer/page.tsx' },
-  { role: 'seller', route: '/platform-v7/seller', page: 'apps/web/app/platform-v7/seller/page.tsx' },
-  { role: 'logistics', route: '/platform-v7/logistics', page: 'apps/web/app/platform-v7/logistics/page.tsx' },
-  { role: 'driver', route: '/platform-v7/driver/field', page: 'apps/web/app/platform-v7/driver/field/page.tsx' },
-  { role: 'surveyor', route: '/platform-v7/surveyor', page: 'apps/web/app/platform-v7/surveyor/page.tsx' },
-  { role: 'elevator', route: '/platform-v7/elevator', page: 'apps/web/app/platform-v7/elevator/page.tsx' },
-  { role: 'lab', route: '/platform-v7/lab', page: 'apps/web/app/platform-v7/lab/page.tsx' },
-  { role: 'bank', route: '/platform-v7/bank', page: 'apps/web/app/platform-v7/bank/page.tsx' },
-  { role: 'arbitrator', route: '/platform-v7/arbitrator', page: 'apps/web/app/platform-v7/arbitrator/page.tsx' },
-  { role: 'compliance', route: '/platform-v7/compliance', page: 'apps/web/app/platform-v7/compliance/page.tsx' },
-  { role: 'executive', route: '/platform-v7/executive', page: 'apps/web/app/platform-v7/executive/page.tsx' },
+const expectedOwnerCabinetRoles = [
+  'operator',
+  'buyer',
+  'seller',
+  'logistics',
+  'driver',
+  'surveyor',
+  'elevator',
+  'lab',
+  'bank',
+  'organization',
+  'arbitrator',
+  'compliance',
+  'executive',
 ] as const;
+
+const ownerCabinetMatrix = [
+  {
+    role: 'operator',
+    route: '/platform-v7/operator',
+    page: 'apps/web/app/platform-v7/operator/page.tsx',
+  },
+  {
+    role: 'buyer',
+    route: '/platform-v7/buyer',
+    page: 'apps/web/app/platform-v7/buyer/page.tsx',
+  },
+  {
+    role: 'seller',
+    route: '/platform-v7/seller',
+    page: 'apps/web/app/platform-v7/seller/page.tsx',
+  },
+  {
+    role: 'logistics',
+    route: '/platform-v7/logistics',
+    page: 'apps/web/app/platform-v7/logistics/page.tsx',
+  },
+  {
+    role: 'driver',
+    route: '/platform-v7/driver/field',
+    page: 'apps/web/app/platform-v7/driver/field/page.tsx',
+  },
+  {
+    role: 'surveyor',
+    route: '/platform-v7/surveyor',
+    page: 'apps/web/app/platform-v7/surveyor/page.tsx',
+  },
+  {
+    role: 'elevator',
+    route: '/platform-v7/elevator',
+    page: 'apps/web/app/platform-v7/elevator/page.tsx',
+  },
+  {
+    role: 'lab',
+    route: '/platform-v7/lab',
+    page: 'apps/web/app/platform-v7/lab/page.tsx',
+  },
+  {
+    role: 'bank',
+    route: '/platform-v7/bank',
+    page: 'apps/web/app/platform-v7/bank/page.tsx',
+  },
+  {
+    role: 'organization',
+    route: '/platform-v7/profile',
+    page: 'apps/web/app/platform-v7/profile/page.tsx',
+  },
+  {
+    role: 'arbitrator',
+    route: '/platform-v7/arbitrator',
+    page: 'apps/web/app/platform-v7/arbitrator/page.tsx',
+  },
+  {
+    role: 'compliance',
+    route: '/platform-v7/compliance',
+    page: 'apps/web/app/platform-v7/compliance/page.tsx',
+  },
+  {
+    role: 'executive',
+    route: '/platform-v7/executive',
+    page: 'apps/web/app/platform-v7/executive/page.tsx',
+  },
+] as const;
+
+for (const item of ownerCabinetMatrix) {
+  if (!fs.existsSync(path.join(root, item.page))) {
+    throw new Error('Owner cabinet matrix references a missing page');
+  }
+}
 
 describe('platform-v7 role intent dashboard', () => {
   it('opens only participant-scoped real deals and exposes honest Today states', () => {
@@ -82,18 +162,39 @@ describe('platform-v7 role intent dashboard', () => {
     expect(dashboardStyles).toContain('overscroll-behavior: contain');
   });
 
-  it('keeps all twelve owner cabinet routes, organizations and page implementations connected', () => {
-    const openCabinet = read('apps/web/app/platform-v7/staff/open-cabinet/route.ts');
-
-    expect(ownerCabinetMatrix).toHaveLength(12);
-    expect(new Set(ownerCabinetMatrix.map((item) => item.role)).size).toBe(12);
-    expect(new Set(ownerCabinetMatrix.map((item) => item.route)).size).toBe(12);
+  it('keeps all thirteen owner cabinet roots exact and role-bound', () => {
+    expect(ownerCabinetMatrix).toHaveLength(13);
+    expect(ownerCabinetMatrix.map((item) => item.role)).toEqual(expectedOwnerCabinetRoles);
+    expect(new Set(ownerCabinetMatrix.map((item) => item.role)).size).toBe(13);
+    expect(new Set(ownerCabinetMatrix.map((item) => item.route)).size).toBe(13);
+    expect(ownerCabinetMatrix.some((item) => item.route === '/platform-v7/control-tower')).toBe(false);
+    expect(ownerControlledCabinetRole('/platform-v7/control-tower')).toBeNull();
 
     for (const item of ownerCabinetMatrix) {
-      expect(openCabinet).toContain(`${item.role}: '${item.route}'`);
-      expect(CONTROLLED_CABINET_CONTEXTS[item.role].role).toBe(item.role);
-      expect(CONTROLLED_CABINET_CONTEXTS[item.role].organizationId).toBeTruthy();
-      expect(fs.existsSync(path.join(root, item.page))).toBe(true);
+      const expected = CONTROLLED_CABINET_CONTEXTS[item.role];
+      expect(OWNER_CONTROLLED_CABINET_TARGETS[item.role], item.role).toBe(item.route);
+      expect(ownerControlledCabinetRole(item.route), item.role).toBe(item.role);
+      expect(ownerControlledCabinetRole(`${item.route}/deep`), `${item.role}: deep`).toBeNull();
+      expect(expected.role, `${item.role}: context role`).toBe(item.role);
+      expect(expected.organizationId, `${item.role}: organization`).toBeTruthy();
+      expect(expected.tenantId, `${item.role}: tenant`).toBeTruthy();
+
+      const valid = {
+        role: item.role,
+        userId: item.route,
+        ownerAccess: true,
+        organizationId: expected.organizationId,
+        tenantId: expected.tenantId,
+      };
+      expect(ownerCabinetSessionMatchesRoot(item.route, valid, expected), `${item.role}: valid`).toBe(true);
+      expect(ownerCabinetSessionMatchesRoot(item.route, { ...valid, userId: '' }, expected), `${item.role}: empty user`).toBe(false);
+      expect(ownerCabinetSessionMatchesRoot(item.route, { ...valid, ownerAccess: false }, expected), `${item.role}: non-owner`).toBe(false);
+      expect(ownerCabinetSessionMatchesRoot(item.route, { ...valid, role: 'wrong-role' }, expected), `${item.role}: wrong role`).toBe(false);
+      expect(ownerCabinetSessionMatchesRoot(item.route, { ...valid, organizationId: 'wrong-org' }, expected), `${item.role}: wrong org`).toBe(false);
+      expect(ownerCabinetSessionMatchesRoot(item.route, { ...valid, tenantId: 'wrong-tenant' }, expected), `${item.role}: wrong tenant`).toBe(false);
+      expect(ownerCabinetSessionMatchesRoot(`${item.route}/deep`, valid, expected), `${item.role}: deep root`).toBe(false);
+
+      expect(fs.existsSync(path.join(root, item.page)), `${item.role}: page`).toBe(true);
       const page = read(item.page);
       expect(page).toMatch(/export default/);
       expect(page.length).toBeGreaterThan(200);
