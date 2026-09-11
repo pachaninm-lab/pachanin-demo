@@ -2,6 +2,7 @@ import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE, CSRF_COOKIE, SESSION_COOKIE, sessionMarkerCookie } from '@/lib/auth-cookies';
 import { CABINET_SESSION_COOKIE } from '@/lib/server/auth-session-response';
+import { ownerControlledCabinetRole } from '@/lib/platform-v7/control-host';
 import {
   controlledCabinetContext,
   type ControlledCabinetContext,
@@ -325,6 +326,11 @@ export async function POST(request: NextRequest) {
   if (!parsed.csrfOk) return fail('CSRF_REJECTED', 'Сессия формы устарела. Обнови страницу.', 403);
   if (!isOwnerCabinetRole(parsed.role)) return fail('INVALID_CABINET_ROLE', 'Неизвестный кабинет.', 400);
 
+  const target = OWNER_CABINETS[parsed.role];
+  if (ownerControlledCabinetRole(target) !== parsed.role) {
+    return fail('OWNER_CABINET_ROUTE_MISMATCH', 'Маршрут кабинета не прошёл серверную проверку.', 503);
+  }
+
   const secret = signingSecret();
   const accessToken = request.cookies.get(ACCESS_COOKIE)?.value || '';
   if (!secret || !accessToken) {
@@ -358,11 +364,11 @@ export async function POST(request: NextRequest) {
 
   const expiresAt = nowSeconds + authority.ttlSeconds;
   const response = parsed.formSubmission
-    ? NextResponse.redirect(new URL(OWNER_CABINETS[parsed.role], request.url), 303)
+    ? NextResponse.redirect(new URL(target, request.url), 303)
     : json({
       ok: true,
       role: parsed.role,
-      redirectTo: OWNER_CABINETS[parsed.role],
+      redirectTo: target,
       organization: {
         id: organization.organizationId,
         name: organization.organizationName,
