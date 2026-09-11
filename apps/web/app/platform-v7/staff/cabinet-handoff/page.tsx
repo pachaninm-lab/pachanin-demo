@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { OwnerCabinetHandoff } from '@/components/platform-v7/staff/OwnerCabinetHandoff';
 import { controlledOrganizationById } from '@/lib/platform-v7/controlled-test-organizations';
+import { ownerControlledCabinetTarget } from '@/lib/platform-v7/control-host';
 import { CABINET_SESSION_COOKIE } from '@/lib/server/auth-session-response';
 import { readVerifiedCabinetSessionContext } from '@/lib/platform-v7/verified-session';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
@@ -13,21 +14,6 @@ export const revalidate = 0;
 export const metadata: Metadata = {
   title: 'Открываем кабинет — Прозрачная Цена',
   robots: { index: false, follow: false, nocache: true },
-};
-
-const TARGETS: Readonly<Record<PlatformRole, string>> = {
-  operator: '/platform-v7/operator',
-  buyer: '/platform-v7/buyer',
-  seller: '/platform-v7/seller',
-  logistics: '/platform-v7/logistics',
-  driver: '/platform-v7/driver/field',
-  surveyor: '/platform-v7/surveyor',
-  elevator: '/platform-v7/elevator',
-  lab: '/platform-v7/lab',
-  bank: '/platform-v7/bank',
-  arbitrator: '/platform-v7/arbitrator',
-  compliance: '/platform-v7/compliance',
-  executive: '/platform-v7/executive',
 };
 
 const LABELS: Readonly<Record<PlatformRole, string>> = {
@@ -52,22 +38,29 @@ function signingSecret(): string {
 export default async function OwnerCabinetHandoffPage() {
   const secret = signingSecret();
   const token = (await cookies()).get(CABINET_SESSION_COOKIE)?.value ?? '';
-  const secretLengthValid = secret.length >= 32 && secret.length <= 4096;
-  const tokenLengthValid = token.length > 0 && token.length <= 8192;
-  const context = secretLengthValid && tokenLengthValid
-    ? await readVerifiedCabinetSessionContext(token, secret, Math.floor(Date.now() / 1000))
-    : null;
+  if (
+    secret.length < 32
+    || secret.length > 4096
+    || token.length === 0
+    || token.length > 8192
+  ) {
+    redirect('/platform-v7/staff?cabinetError=CABINET_SESSION_UNAVAILABLE');
+  }
 
+  const context = await readVerifiedCabinetSessionContext(token, secret, Math.floor(Date.now() / 1000));
   if (!context) redirect('/platform-v7/staff?cabinetError=CABINET_SESSION_UNAVAILABLE');
   if (context.role === 'organization') {
     redirect('/platform-v7/staff?cabinetError=ORGANIZATION_CABINET_NOT_CONTROLLED');
   }
 
+  const target = ownerControlledCabinetTarget(context.role);
+  if (!target) redirect('/platform-v7/staff?cabinetError=INVALID_CABINET_ROLE');
+
   const organization = controlledOrganizationById(context.organizationId);
   return (
     <OwnerCabinetHandoff
       role={context.role}
-      target={TARGETS[context.role]}
+      target={target}
       label={LABELS[context.role]}
       organizationName={organization?.name || null}
       testData={organization?.testData === true}

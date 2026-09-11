@@ -18,20 +18,88 @@ function read(relativePath: string) {
   return fs.readFileSync(path.join(root, relativePath), 'utf8');
 }
 
+const expectedOwnerCabinetRoles = [
+  'operator',
+  'buyer',
+  'seller',
+  'logistics',
+  'driver',
+  'surveyor',
+  'elevator',
+  'lab',
+  'bank',
+  'organization',
+  'arbitrator',
+  'compliance',
+  'executive',
+] as const;
+
 const ownerCabinetMatrix = [
-  { role: 'operator', route: '/platform-v7/operator', page: 'apps/web/app/platform-v7/operator/page.tsx' },
-  { role: 'buyer', route: '/platform-v7/buyer', page: 'apps/web/app/platform-v7/buyer/page.tsx' },
-  { role: 'seller', route: '/platform-v7/seller', page: 'apps/web/app/platform-v7/seller/page.tsx' },
-  { role: 'logistics', route: '/platform-v7/logistics', page: 'apps/web/app/platform-v7/logistics/page.tsx' },
-  { role: 'driver', route: '/platform-v7/driver/field', page: 'apps/web/app/platform-v7/driver/field/page.tsx' },
-  { role: 'surveyor', route: '/platform-v7/surveyor', page: 'apps/web/app/platform-v7/surveyor/page.tsx' },
-  { role: 'elevator', route: '/platform-v7/elevator', page: 'apps/web/app/platform-v7/elevator/page.tsx' },
-  { role: 'lab', route: '/platform-v7/lab', page: 'apps/web/app/platform-v7/lab/page.tsx' },
-  { role: 'bank', route: '/platform-v7/bank', page: 'apps/web/app/platform-v7/bank/page.tsx' },
-  { role: 'organization', route: '/platform-v7/profile', page: 'apps/web/app/platform-v7/profile/page.tsx' },
-  { role: 'arbitrator', route: '/platform-v7/arbitrator', page: 'apps/web/app/platform-v7/arbitrator/page.tsx' },
-  { role: 'compliance', route: '/platform-v7/compliance', page: 'apps/web/app/platform-v7/compliance/page.tsx' },
-  { role: 'executive', route: '/platform-v7/executive', page: 'apps/web/app/platform-v7/executive/page.tsx' },
+  {
+    role: 'operator',
+    route: '/platform-v7/operator',
+    page: 'apps/web/app/platform-v7/operator/page.tsx',
+  },
+  {
+    role: 'buyer',
+    route: '/platform-v7/buyer',
+    page: 'apps/web/app/platform-v7/buyer/page.tsx',
+  },
+  {
+    role: 'seller',
+    route: '/platform-v7/seller',
+    page: 'apps/web/app/platform-v7/seller/page.tsx',
+  },
+  {
+    role: 'logistics',
+    route: '/platform-v7/logistics',
+    page: 'apps/web/app/platform-v7/logistics/page.tsx',
+  },
+  {
+    role: 'driver',
+    route: '/platform-v7/driver/field',
+    page: 'apps/web/app/platform-v7/driver/field/page.tsx',
+  },
+  {
+    role: 'surveyor',
+    route: '/platform-v7/surveyor',
+    page: 'apps/web/app/platform-v7/surveyor/page.tsx',
+  },
+  {
+    role: 'elevator',
+    route: '/platform-v7/elevator',
+    page: 'apps/web/app/platform-v7/elevator/page.tsx',
+  },
+  {
+    role: 'lab',
+    route: '/platform-v7/lab',
+    page: 'apps/web/app/platform-v7/lab/page.tsx',
+  },
+  {
+    role: 'bank',
+    route: '/platform-v7/bank',
+    page: 'apps/web/app/platform-v7/bank/page.tsx',
+  },
+  {
+    role: 'organization',
+    route: '/platform-v7/profile',
+    page: 'apps/web/app/platform-v7/profile/page.tsx',
+  },
+  {
+    role: 'arbitrator',
+    route: '/platform-v7/arbitrator',
+    page: 'apps/web/app/platform-v7/arbitrator/page.tsx',
+  },
+  {
+    role: 'compliance',
+    route: '/platform-v7/compliance',
+    page: 'apps/web/app/platform-v7/compliance/page.tsx',
+  },
+  {
+    role: 'executive',
+    route: '/platform-v7/executive',
+    page: 'apps/web/app/platform-v7/executive/page.tsx',
+  },
 ] as const;
 
 for (const item of ownerCabinetMatrix) {
@@ -96,6 +164,7 @@ describe('platform-v7 role intent dashboard', () => {
 
   it('keeps all thirteen owner cabinet roots exact and role-bound', () => {
     expect(ownerCabinetMatrix).toHaveLength(13);
+    expect(ownerCabinetMatrix.map((item) => item.role)).toEqual(expectedOwnerCabinetRoles);
     expect(new Set(ownerCabinetMatrix.map((item) => item.role)).size).toBe(13);
     expect(new Set(ownerCabinetMatrix.map((item) => item.route)).size).toBe(13);
     expect(ownerCabinetMatrix.some((item) => item.route === '/platform-v7/control-tower')).toBe(false);
