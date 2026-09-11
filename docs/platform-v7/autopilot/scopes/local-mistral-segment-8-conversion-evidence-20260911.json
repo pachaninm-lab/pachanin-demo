@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/local-mistral-segment-8-conversion-evidence-20260911",
+  "status": "active",
+  "purpose": "Stage and independently review the inert Local Mistral restored conversion-evidence verifier before any provider workflow activation.",
+  "authorityBaseExactMain": "476781906951d4021b771c769ad8b285d3bcbda0",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/bootstrap/local-mistral-conversion-evidence.py.inert",
+    "docs/platform-v7/autopilot/scopes/local-mistral-segment-8-conversion-evidence-20260911.json"
+  ],
+  "requiredInvariants": [
+    "The verifier remains inert and is not referenced by any workflow or product path in this PR.",
+    "Conversion root and report/model/server paths come only from the already-admitted immutable Local Mistral authority; caller path overrides are not accepted.",
+    "The conversion root and every bound file must resolve to their literal authority paths; symlink redirection is rejected and bound file descriptors use O_NOFOLLOW.",
+    "Conversion report raw SHA-256 and canonical embedded report SHA-256 are both verified before report fields are trusted.",
+    "Report exact main SHA, workflow run id, workflow run attempt, toolchain restored status, source-verification schema/status, model revision/source digests and unique model output identity are bound to authority.",
+    "The restored Mistral GGUF and llama-server must match authority size and SHA-256 using regular file descriptors; concurrent in-place file mutation fails closed.",
+    "Boolean values never satisfy integer identity fields; malformed JSON/UTF-8/collection shapes, duplicate bindings, path resolution, stat/open/read/digest failures fail closed with fixed codes.",
+    "No review, attestation, provider status, exact-head verifier authority, product, API, database, RBAC, registration, cabinet, customer-data or production-routing behavior is activated.",
+    "Local Qwen is the independent reviewer because this changes future Local Mistral authority only.",
+    "REG.RU remains the production authority; mandatory SaaS/API keys are none and new recurring cost remains 0 RUB."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
