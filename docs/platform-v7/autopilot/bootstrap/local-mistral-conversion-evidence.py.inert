@@ -10,6 +10,20 @@ REPORT_PARTS = ("evidence", "conversion-report.json")
 MODEL_PARTS = ("artifacts", "mistral-7b-instruct-v0.3-q4-k-m.gguf")
 SERVER_PARTS = ("toolchain", "bin", "llama-server")
 ALLOWED_FIXED_PARTS = frozenset((REPORT_PARTS, MODEL_PARTS, SERVER_PARTS))
+FIXED_DIRECTORY_NAMES = frozenset((
+    "srv",
+    "tai-models",
+    "conversion-runs",
+    "evidence",
+    "artifacts",
+    "toolchain",
+    "bin",
+))
+ALLOWED_BOUND_IDENTITIES = frozenset((
+    ("conversion-report.json", "evidence/conversion-report.json"),
+    ("mistral-7b-instruct-v0.3-q4-k-m.gguf", "artifacts/mistral-7b-instruct-v0.3-q4-k-m.gguf"),
+    ("llama-server", "toolchain/bin/llama-server"),
+))
 GIT_SHA_PATTERN = re.compile(r"[0-9a-f]{40}\Z")
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}\Z")
 READ_CHUNK_BYTES = 8 * 1024 * 1024
@@ -106,22 +120,48 @@ def _secure_flags(directory=False):
     return flags
 
 
-def _validate_part(part, code):
-    if (
-        not isinstance(part, str)
-        or not part
-        or part in {".", ".."}
-        or "/" in part
-        or "\x00" in part
-    ):
+def _open_fixed_directory_at(parent_fd, part, code):
+    if not isinstance(part, str) or part not in FIXED_DIRECTORY_NAMES:
         reject(code)
-    return part
-
-
-def _open_directory_at(parent_fd, part, code):
-    _validate_part(part, code)
     try:
         fd = os.open(part, _secure_flags(directory=True), dir_fd=parent_fd)
+    except OSError:
+        reject(code)
+    try:
+        info = os.fstat(fd)
+    except OSError:
+        os.close(fd)
+        reject(code)
+    if not stat.S_ISDIR(info.st_mode):
+        os.close(fd)
+        reject(code)
+    return fd
+
+
+def _open_exact_main_directory_at(parent_fd, exact_main, code):
+    if not isinstance(exact_main, str) or not GIT_SHA_PATTERN.fullmatch(exact_main):
+        reject(code)
+    try:
+        fd = os.open(exact_main, _secure_flags(directory=True), dir_fd=parent_fd)
+    except OSError:
+        reject(code)
+    try:
+        info = os.fstat(fd)
+    except OSError:
+        os.close(fd)
+        reject(code)
+    if not stat.S_ISDIR(info.st_mode):
+        os.close(fd)
+        reject(code)
+    return fd
+
+
+def _open_run_attempt_directory_at(parent_fd, run_id, run_attempt, code):
+    if type(run_id) is not int or run_id <= 0 or type(run_attempt) is not int or run_attempt <= 0:
+        reject(code)
+    execution_part = f"{run_id}-{run_attempt}"
+    try:
+        fd = os.open(execution_part, _secure_flags(directory=True), dir_fd=parent_fd)
     except OSError:
         reject(code)
     try:
@@ -147,8 +187,7 @@ def validated_conversion_root(authority):
     if type(run_id) is not int or run_id <= 0 or type(run_attempt) is not int or run_attempt <= 0:
         reject("CONVERSION_EXECUTION_AUTHORITY_INVALID")
     execution_part = f"{run_id}-{run_attempt}"
-    root_parts = (*ROOT_PREFIX_PARTS, exact_main, execution_part)
-    expected_root = "/" + "/".join(root_parts)
+    expected_root = f"/srv/tai-models/conversion-runs/{exact_main}/{execution_part}"
     if not isinstance(root_value, str) or root_value != expected_root:
         reject("CONVERSION_ROOT_INVALID")
 
@@ -157,10 +196,25 @@ def validated_conversion_root(authority):
     except OSError:
         reject("CONVERSION_ROOT_OPEN_FAILED")
     try:
-        for part in root_parts:
-            next_fd = _open_directory_at(current_fd, part, "CONVERSION_ROOT_NOT_TRUSTED")
+        for part in ROOT_PREFIX_PARTS:
+            next_fd = _open_fixed_directory_at(current_fd, part, "CONVERSION_ROOT_NOT_TRUSTED")
             os.close(current_fd)
             current_fd = next_fd
+        next_fd = _open_exact_main_directory_at(
+            current_fd,
+            exact_main,
+            "CONVERSION_ROOT_NOT_TRUSTED",
+        )
+        os.close(current_fd)
+        current_fd = next_fd
+        next_fd = _open_run_attempt_directory_at(
+            current_fd,
+            run_id,
+            run_attempt,
+            "CONVERSION_ROOT_NOT_TRUSTED",
+        )
+        os.close(current_fd)
+        current_fd = next_fd
         return ValidatedRoot(current_fd, expected_root)
     except Exception:
         try:
@@ -186,8 +240,6 @@ def bound_fixed_file(root, authority_value, fixed_parts, code):
     root = _validate_root_handle(root)
     if not isinstance(fixed_parts, tuple) or fixed_parts not in ALLOWED_FIXED_PARTS:
         reject("FIXED_PATH_NOT_ALLOWED")
-    for part in fixed_parts:
-        _validate_part(part, "FIXED_PATH_PARTS_INVALID")
     expected_relative = "/".join(fixed_parts)
     if not isinstance(authority_value, str) or authority_value != expected_relative:
         reject(code)
@@ -198,10 +250,14 @@ def bound_fixed_file(root, authority_value, fixed_parts, code):
         reject(code)
     try:
         for part in fixed_parts[:-1]:
-            next_fd = _open_directory_at(current_fd, part, code)
+            next_fd = _open_fixed_directory_at(current_fd, part, code)
             os.close(current_fd)
             current_fd = next_fd
-        return BoundFile(current_fd, fixed_parts[-1], expected_relative)
+        name = fixed_parts[-1]
+        identity = (name, expected_relative)
+        if identity not in ALLOWED_BOUND_IDENTITIES:
+            reject("BOUND_FILE_IDENTITY_NOT_ALLOWED")
+        return BoundFile(current_fd, name, expected_relative)
     except Exception:
         try:
             os.close(current_fd)
@@ -213,7 +269,8 @@ def bound_fixed_file(root, authority_value, fixed_parts, code):
 def _validate_bound_file(bound, code):
     if not isinstance(bound, BoundFile) or bound.parent_fd is None:
         reject(code)
-    _validate_part(bound.name, code)
+    if (bound.name, bound.relative) not in ALLOWED_BOUND_IDENTITIES:
+        reject(code)
     try:
         info = os.fstat(bound.parent_fd)
     except OSError:
