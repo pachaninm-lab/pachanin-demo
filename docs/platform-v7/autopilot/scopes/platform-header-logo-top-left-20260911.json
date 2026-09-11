@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/platform-header-logo-top-left-20260911",
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction-2026-09-11-restore-platform-logo-top-left",
+  "purpose": "Restore the already approved platform brand mark to the far upper-left of the protected Platform V7 header on desktop and mobile. Keep the mobile menu immediately after the brand and keep header actions right-aligned. This is presentation-only and does not authorize changes to logo artwork, authentication, tenant/RBAC, API, database, middleware authority, dependencies, release topology or production credentials.",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/SupportHeaderIcon.tsx",
+    "docs/platform-v7/autopilot/scopes/platform-header-logo-top-left-20260911.json"
+  ],
+  "requiredInvariants": [
+    "BrandMark, ApprovedHeaderLogo and the canonical logo asset remain unchanged.",
+    "The brand/logo is the first visual header element at the far upper-left on protected platform routes on desktop and mobile.",
+    "The menu control follows the logo and header actions remain right-aligned without clipping or overlap.",
+    "Support link routing, role resolution, authentication, tenant, RBAC, API and persistence semantics remain unchanged.",
+    "No other platform or governance source is modified."
+  ],
+  "forbiddenChanges": [
+    ".github/workflows/**",
+    "apps/api/**",
+    "apps/web/app/**",
+    "apps/web/lib/**",
+    "apps/web/middleware.ts",
+    "apps/web/components/v7r/ApprovedHeaderLogo.tsx",
+    "apps/web/components/v7r/BrandMark.tsx",
+    "apps/web/components/v7r/brand-logo-asset.ts",
+    "packages/**",
+    "scripts/**",
+    "pnpm-lock.yaml",
+    "package.json",
+    "production credentials or server configuration"
+  ],
+  "acceptance": [
+    "Diff is exactly the scope manifest plus SupportHeaderIcon.tsx.",
+    "platform-v7 autopilot guard passes on the exact implementation head.",
+    "Applicable exact-head web, security and Design System checks are terminal green before merge.",
+    "No unresolved review findings remain on the exact implementation head.",
+    "After merge, REG.RU exact-SHA release and live desktop/mobile header verification confirm the logo is visible in the far upper-left without overlap."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
