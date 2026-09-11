@@ -222,15 +222,13 @@ async function controlledOwnerAuthority(accessToken: string, secret: string): Pr
 }
 
 async function apiOwnerAuthority(accessToken: string, correlationId: string): Promise<AuthorityResult> {
-  const apiBaseUrl = resolveServerApiBaseUrl();
+  // Owner authority is stricter than generic server API traffic: production
+  // never consults configurable origins and always targets the exact internal
+  // Compose service. Non-production keeps the shared validated resolver.
+  const apiBaseUrl = process.env.NODE_ENV === 'production'
+    ? CANONICAL_COMPOSE_API_BASE_URL
+    : resolveServerApiBaseUrl();
   if (!apiBaseUrl) return { status: 'unavailable' };
-  // Production owner authority is allowed to call only the canonical Compose
-  // service endpoint. This second fail-closed assertion makes the trust boundary
-  // explicit at the privileged call site even though the shared resolver also
-  // validates configured origins.
-  if (process.env.NODE_ENV === 'production' && apiBaseUrl !== CANONICAL_COMPOSE_API_BASE_URL) {
-    return { status: 'unavailable' };
-  }
 
   try {
     const response = await fetch(`${apiBaseUrl}/staff/capabilities/me`, {
