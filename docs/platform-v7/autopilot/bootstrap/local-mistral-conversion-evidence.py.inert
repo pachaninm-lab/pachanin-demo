@@ -5,24 +5,20 @@ import stat
 REPORT_RELATIVE = "evidence/conversion-report.json"
 MODEL_RELATIVE = "artifacts/mistral-7b-instruct-v0.3-q4-k-m.gguf"
 SERVER_RELATIVE = "toolchain/bin/llama-server"
-UNTRUSTED_WRITE_BITS = stat.S_IWGRP | stat.S_IWOTH
 
 
 class ConversionEvidenceError(Exception):
     pass
 
 
-class PinnedRegularFile:
-    __slots__ = ("fd", "relative", "size", "dev", "ino", "uid", "mode")
+class PinnedRegularFileIdentity:
+    __slots__ = ("fd", "relative", "dev", "ino")
 
     def __init__(self, fd, relative, info):
         self.fd = fd
         self.relative = relative
-        self.size = info.st_size
         self.dev = info.st_dev
         self.ino = info.st_ino
-        self.uid = info.st_uid
-        self.mode = stat.S_IMODE(info.st_mode)
 
     def close(self):
         if self.fd is not None:
@@ -40,22 +36,18 @@ def reject(code):
     raise ConversionEvidenceError(code) from None
 
 
-def _directory_flags():
-    required = ("O_CLOEXEC", "O_NOFOLLOW", "O_DIRECTORY")
+def _directory_identity_flags():
+    required = ("O_PATH", "O_CLOEXEC", "O_NOFOLLOW", "O_DIRECTORY")
     if any(not hasattr(os, name) for name in required):
-        reject("SECURE_DIRECTORY_OPEN_UNAVAILABLE")
-    return os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_DIRECTORY
+        reject("PINNED_DIRECTORY_OPEN_UNAVAILABLE")
+    return os.O_PATH | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_DIRECTORY
 
 
-def _file_flags():
-    required = ("O_CLOEXEC", "O_NOFOLLOW")
+def _file_identity_flags():
+    required = ("O_PATH", "O_CLOEXEC", "O_NOFOLLOW")
     if any(not hasattr(os, name) for name in required):
-        reject("SECURE_FILE_OPEN_UNAVAILABLE")
-    return os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW
-
-
-def _trusted_owner_and_mode(info):
-    return info.st_uid in {0, os.geteuid()} and (info.st_mode & UNTRUSTED_WRITE_BITS) == 0
+        reject("PINNED_FILE_OPEN_UNAVAILABLE")
+    return os.O_PATH | os.O_CLOEXEC | os.O_NOFOLLOW
 
 
 def _require_pinned_root_fd(root_fd):
@@ -65,16 +57,16 @@ def _require_pinned_root_fd(root_fd):
         info = os.fstat(root_fd)
     except OSError:
         reject("CONVERSION_ROOT_FD_INVALID")
-    if not stat.S_ISDIR(info.st_mode) or not _trusted_owner_and_mode(info):
-        reject("CONVERSION_ROOT_FD_NOT_TRUSTED")
+    if not stat.S_ISDIR(info.st_mode):
+        reject("CONVERSION_ROOT_FD_NOT_DIRECTORY")
     return root_fd
 
 
-def _open_trusted_directory(parent_fd, literal_name, code):
+def _open_literal_directory(parent_fd, literal_name, code):
     if literal_name not in {"evidence", "artifacts", "toolchain", "bin"}:
         reject(code)
     try:
-        fd = os.open(literal_name, _directory_flags(), dir_fd=parent_fd)
+        fd = os.open(literal_name, _directory_identity_flags(), dir_fd=parent_fd)
     except OSError:
         reject(code)
     try:
@@ -82,38 +74,47 @@ def _open_trusted_directory(parent_fd, literal_name, code):
     except OSError:
         os.close(fd)
         reject(code)
-    if not stat.S_ISDIR(info.st_mode) or not _trusted_owner_and_mode(info):
+    if not stat.S_ISDIR(info.st_mode):
         os.close(fd)
         reject(code)
     return fd
 
 
-def open_conversion_report(root_fd, authority_relative):
+def _pin_literal_regular_file(parent_fd, literal_name, relative, code):
+    allowed = {
+        ("conversion-report.json", REPORT_RELATIVE),
+        ("mistral-7b-instruct-v0.3-q4-k-m.gguf", MODEL_RELATIVE),
+        ("llama-server", SERVER_RELATIVE),
+    }
+    if (literal_name, relative) not in allowed:
+        reject(code)
+    try:
+        fd = os.open(literal_name, _file_identity_flags(), dir_fd=parent_fd)
+    except OSError:
+        reject(code)
+    try:
+        info = os.fstat(fd)
+    except OSError:
+        os.close(fd)
+        reject(code)
+    if not stat.S_ISREG(info.st_mode):
+        os.close(fd)
+        reject(code)
+    return PinnedRegularFileIdentity(fd, relative, info)
+
+
+def pin_conversion_report_identity(root_fd, authority_relative):
     _require_pinned_root_fd(root_fd)
     if authority_relative != REPORT_RELATIVE:
         reject("CONVERSION_REPORT_PATH_INVALID")
-
-    evidence_fd = _open_trusted_directory(root_fd, "evidence", "CONVERSION_REPORT_PARENT_INVALID")
+    evidence_fd = _open_literal_directory(root_fd, "evidence", "CONVERSION_REPORT_PARENT_INVALID")
     try:
-        try:
-            file_fd = os.open("conversion-report.json", _file_flags(), dir_fd=evidence_fd)
-        except OSError:
-            reject("CONVERSION_REPORT_OPEN_FAILED")
-        try:
-            info = os.fstat(file_fd)
-        except OSError:
-            os.close(file_fd)
-            reject("CONVERSION_REPORT_NOT_TRUSTED")
-        if not stat.S_ISREG(info.st_mode):
-            os.close(file_fd)
-            reject("CONVERSION_REPORT_NOT_TRUSTED")
-        if info.st_uid not in {0, os.geteuid()}:
-            os.close(file_fd)
-            reject("CONVERSION_REPORT_NOT_TRUSTED")
-        if info.st_mode & UNTRUSTED_WRITE_BITS:
-            os.close(file_fd)
-            reject("CONVERSION_REPORT_NOT_TRUSTED")
-        return PinnedRegularFile(file_fd, REPORT_RELATIVE, info)
+        return _pin_literal_regular_file(
+            evidence_fd,
+            "conversion-report.json",
+            REPORT_RELATIVE,
+            "CONVERSION_REPORT_IDENTITY_INVALID",
+        )
     finally:
         try:
             os.close(evidence_fd)
@@ -121,36 +122,18 @@ def open_conversion_report(root_fd, authority_relative):
             pass
 
 
-def open_mistral_model(root_fd, authority_relative):
+def pin_mistral_model_identity(root_fd, authority_relative):
     _require_pinned_root_fd(root_fd)
     if authority_relative != MODEL_RELATIVE:
         reject("CONVERSION_MODEL_PATH_INVALID")
-
-    artifacts_fd = _open_trusted_directory(root_fd, "artifacts", "CONVERSION_MODEL_PARENT_INVALID")
+    artifacts_fd = _open_literal_directory(root_fd, "artifacts", "CONVERSION_MODEL_PARENT_INVALID")
     try:
-        try:
-            file_fd = os.open(
-                "mistral-7b-instruct-v0.3-q4-k-m.gguf",
-                _file_flags(),
-                dir_fd=artifacts_fd,
-            )
-        except OSError:
-            reject("CONVERSION_MODEL_OPEN_FAILED")
-        try:
-            info = os.fstat(file_fd)
-        except OSError:
-            os.close(file_fd)
-            reject("CONVERSION_MODEL_NOT_TRUSTED")
-        if not stat.S_ISREG(info.st_mode):
-            os.close(file_fd)
-            reject("CONVERSION_MODEL_NOT_TRUSTED")
-        if info.st_uid not in {0, os.geteuid()}:
-            os.close(file_fd)
-            reject("CONVERSION_MODEL_NOT_TRUSTED")
-        if info.st_mode & UNTRUSTED_WRITE_BITS:
-            os.close(file_fd)
-            reject("CONVERSION_MODEL_NOT_TRUSTED")
-        return PinnedRegularFile(file_fd, MODEL_RELATIVE, info)
+        return _pin_literal_regular_file(
+            artifacts_fd,
+            "mistral-7b-instruct-v0.3-q4-k-m.gguf",
+            MODEL_RELATIVE,
+            "CONVERSION_MODEL_IDENTITY_INVALID",
+        )
     finally:
         try:
             os.close(artifacts_fd)
@@ -158,34 +141,20 @@ def open_mistral_model(root_fd, authority_relative):
             pass
 
 
-def open_llama_server(root_fd, authority_relative):
+def pin_llama_server_identity(root_fd, authority_relative):
     _require_pinned_root_fd(root_fd)
     if authority_relative != SERVER_RELATIVE:
         reject("CONVERSION_SERVER_PATH_INVALID")
-
-    toolchain_fd = _open_trusted_directory(root_fd, "toolchain", "CONVERSION_SERVER_PARENT_INVALID")
+    toolchain_fd = _open_literal_directory(root_fd, "toolchain", "CONVERSION_SERVER_PARENT_INVALID")
     bin_fd = None
     try:
-        bin_fd = _open_trusted_directory(toolchain_fd, "bin", "CONVERSION_SERVER_PARENT_INVALID")
-        try:
-            file_fd = os.open("llama-server", _file_flags(), dir_fd=bin_fd)
-        except OSError:
-            reject("CONVERSION_SERVER_OPEN_FAILED")
-        try:
-            info = os.fstat(file_fd)
-        except OSError:
-            os.close(file_fd)
-            reject("CONVERSION_SERVER_NOT_TRUSTED")
-        if not stat.S_ISREG(info.st_mode):
-            os.close(file_fd)
-            reject("CONVERSION_SERVER_NOT_TRUSTED")
-        if info.st_uid not in {0, os.geteuid()}:
-            os.close(file_fd)
-            reject("CONVERSION_SERVER_NOT_TRUSTED")
-        if info.st_mode & UNTRUSTED_WRITE_BITS:
-            os.close(file_fd)
-            reject("CONVERSION_SERVER_NOT_TRUSTED")
-        return PinnedRegularFile(file_fd, SERVER_RELATIVE, info)
+        bin_fd = _open_literal_directory(toolchain_fd, "bin", "CONVERSION_SERVER_PARENT_INVALID")
+        return _pin_literal_regular_file(
+            bin_fd,
+            "llama-server",
+            SERVER_RELATIVE,
+            "CONVERSION_SERVER_IDENTITY_INVALID",
+        )
     finally:
         if bin_fd is not None:
             try:
