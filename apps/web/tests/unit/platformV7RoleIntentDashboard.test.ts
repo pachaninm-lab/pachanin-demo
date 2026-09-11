@@ -93,6 +93,7 @@ describe('platform-v7 role intent dashboard', () => {
     expect(ownerCabinetMatrix).toHaveLength(13);
     expect(new Set(ownerCabinetMatrix.map((item) => item.role)).size).toBe(13);
     expect(new Set(ownerCabinetMatrix.map((item) => item.route)).size).toBe(13);
+    expect(ownerCabinetMatrix.some((item) => item.route === '/platform-v7/control-tower')).toBe(false);
     expect(ownerControlledCabinetRole('/platform-v7/control-tower')).toBeNull();
 
     for (const item of ownerCabinetMatrix) {
