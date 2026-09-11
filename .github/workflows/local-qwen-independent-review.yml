@@ -278,7 +278,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           remote_dir="/tmp/pc-local-qwen-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          ssh_opts=(-i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes)
+          ssh_opts=(-i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes)
           scp_opts=(-i "$HOME/.ssh/id_tai_model" -P "$MODEL_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes)
           cleanup(){ ssh "${ssh_opts[@]}" "$MODEL_USER@$MODEL_HOST" "rm -rf '$remote_dir'" >/dev/null 2>&1 || true; }
           trap cleanup EXIT
