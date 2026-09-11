@@ -123,17 +123,20 @@ def _assert_metadata_stable(read_fd, baseline, code):
         reject(code)
 
 
-def _hash_exact_fd(read_fd, expected_size, baseline, code):
+def _hash_exact_fd(read_fd, expected_size, baseline, expected_sha256, code):
+    _require_sha256(expected_sha256, code)
     digest = hashlib.sha256()
     total = 0
     try:
         while total < expected_size:
+            _assert_metadata_stable(read_fd, baseline, code)
             chunk = os.read(read_fd, min(READ_CHUNK_BYTES, expected_size - total))
             if not chunk:
                 reject(code)
+            _assert_metadata_stable(read_fd, baseline, code)
             digest.update(chunk)
             total += len(chunk)
-            _assert_metadata_stable(read_fd, baseline, code)
+        _assert_metadata_stable(read_fd, baseline, code)
         if os.read(read_fd, 1):
             reject(code)
         _assert_metadata_stable(read_fd, baseline, code)
@@ -143,7 +146,10 @@ def _hash_exact_fd(read_fd, expected_size, baseline, code):
         reject(code)
     if total != expected_size:
         reject(code)
-    return digest.hexdigest()
+    actual_sha256 = digest.hexdigest()
+    if actual_sha256 != expected_sha256:
+        reject(code)
+    return actual_sha256
 
 
 def _verify(identity_fd, expected_dev, expected_ino, expected_sha256, exact_size, maximum, code):
@@ -156,15 +162,19 @@ def _verify(identity_fd, expected_dev, expected_ino, expected_sha256, exact_size
     try:
         _trusted_readonly_metadata(before, maximum, exact_size, code)
         before_tuple = _metadata_tuple(before)
-        actual_sha256 = _hash_exact_fd(read_fd, before.st_size, before_tuple, code)
+        actual_sha256 = _hash_exact_fd(
+            read_fd,
+            before.st_size,
+            before_tuple,
+            expected_sha256,
+            code,
+        )
         try:
             after = os.fstat(read_fd)
         except OSError:
             reject(code)
         _trusted_readonly_metadata(after, maximum, exact_size, code)
         if _metadata_tuple(after) != before_tuple:
-            reject(code)
-        if actual_sha256 != expected_sha256:
             reject(code)
         try:
             os.lseek(read_fd, 0, os.SEEK_SET)
