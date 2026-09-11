@@ -8,6 +8,7 @@ ROOT_PREFIX_PARTS = ("srv", "tai-models", "conversion-runs")
 REPORT_PARTS = ("evidence", "conversion-report.json")
 MODEL_PARTS = ("artifacts", "mistral-7b-instruct-v0.3-q4-k-m.gguf")
 SERVER_PARTS = ("toolchain", "bin", "llama-server")
+ALLOWED_FIXED_PARTS = frozenset((REPORT_PARTS, MODEL_PARTS, SERVER_PARTS))
 GIT_SHA_PATTERN = re.compile(r"[0-9a-f]{40}\Z")
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}\Z")
 
@@ -155,8 +156,8 @@ def _validate_root_handle(root):
 
 def bound_fixed_file(root, authority_value, fixed_parts, code):
     root = _validate_root_handle(root)
-    if not isinstance(fixed_parts, tuple) or not fixed_parts:
-        reject("FIXED_PATH_PARTS_INVALID")
+    if not isinstance(fixed_parts, tuple) or fixed_parts not in ALLOWED_FIXED_PARTS:
+        reject("FIXED_PATH_NOT_ALLOWED")
     for part in fixed_parts:
         _validate_part(part, "FIXED_PATH_PARTS_INVALID")
     expected_relative = "/".join(fixed_parts)
