@@ -7,6 +7,7 @@ REPORT_RELATIVE = "evidence/conversion-report.json"
 MODEL_RELATIVE = "artifacts/mistral-7b-instruct-v0.3-q4-k-m.gguf"
 SERVER_RELATIVE = "toolchain/bin/llama-server"
 GIT_SHA_PATTERN = re.compile(r"[0-9a-f]{40}\Z")
+UNTRUSTED_WRITE_BITS = stat.S_IWGRP | stat.S_IWOTH
 
 
 class ConversionEvidenceError(Exception):
@@ -14,7 +15,7 @@ class ConversionEvidenceError(Exception):
 
 
 class PinnedRegularFile:
-    __slots__ = ("fd", "relative", "size", "dev", "ino")
+    __slots__ = ("fd", "relative", "size", "dev", "ino", "uid", "mode")
 
     def __init__(self, fd, relative, info):
         self.fd = fd
@@ -22,6 +23,8 @@ class PinnedRegularFile:
         self.size = info.st_size
         self.dev = info.st_dev
         self.ino = info.st_ino
+        self.uid = info.st_uid
+        self.mode = stat.S_IMODE(info.st_mode)
 
     def close(self):
         if self.fd is not None:
@@ -59,13 +62,18 @@ def _file_flags():
     return os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW
 
 
+def _trusted_owner_and_mode(info):
+    trusted_uids = {0, os.geteuid()}
+    return info.st_uid in trusted_uids and (info.st_mode & UNTRUSTED_WRITE_BITS) == 0
+
+
 def _checked_directory(fd, code):
     try:
         info = os.fstat(fd)
     except OSError:
         os.close(fd)
         reject(code)
-    if not stat.S_ISDIR(info.st_mode):
+    if not stat.S_ISDIR(info.st_mode) or not _trusted_owner_and_mode(info):
         os.close(fd)
         reject(code)
     return fd
@@ -135,6 +143,7 @@ def _open_validated_root(authority):
         current_fd = os.open("/", _directory_flags())
     except OSError:
         reject("CONVERSION_ROOT_OPEN_FAILED")
+    current_fd = _checked_directory(current_fd, "CONVERSION_ROOT_NOT_TRUSTED")
     try:
         next_fd = _open_srv(current_fd, "CONVERSION_ROOT_NOT_TRUSTED")
         os.close(current_fd)
@@ -165,7 +174,7 @@ def _checked_regular(fd, relative, code):
     except OSError:
         os.close(fd)
         reject(code)
-    if not stat.S_ISREG(info.st_mode):
+    if not stat.S_ISREG(info.st_mode) or not _trusted_owner_and_mode(info):
         os.close(fd)
         reject(code)
     return PinnedRegularFile(fd, relative, info)
@@ -186,7 +195,7 @@ def open_conversion_report(authority, authority_relative):
             file_fd = os.open("conversion-report.json", _file_flags(), dir_fd=evidence_fd)
         except OSError:
             reject("CONVERSION_REPORT_OPEN_FAILED")
-        return _checked_regular(file_fd, REPORT_RELATIVE, "CONVERSION_REPORT_NOT_REGULAR")
+        return _checked_regular(file_fd, REPORT_RELATIVE, "CONVERSION_REPORT_NOT_TRUSTED")
     finally:
         if evidence_fd is not None:
             try:
@@ -218,7 +227,7 @@ def open_mistral_model(authority, authority_relative):
             )
         except OSError:
             reject("CONVERSION_MODEL_OPEN_FAILED")
-        return _checked_regular(file_fd, MODEL_RELATIVE, "CONVERSION_MODEL_NOT_REGULAR")
+        return _checked_regular(file_fd, MODEL_RELATIVE, "CONVERSION_MODEL_NOT_TRUSTED")
     finally:
         if artifacts_fd is not None:
             try:
@@ -252,7 +261,7 @@ def open_llama_server(authority, authority_relative):
             file_fd = os.open("llama-server", _file_flags(), dir_fd=bin_fd)
         except OSError:
             reject("CONVERSION_SERVER_OPEN_FAILED")
-        return _checked_regular(file_fd, SERVER_RELATIVE, "CONVERSION_SERVER_NOT_REGULAR")
+        return _checked_regular(file_fd, SERVER_RELATIVE, "CONVERSION_SERVER_NOT_TRUSTED")
     finally:
         if bin_fd is not None:
             try:
