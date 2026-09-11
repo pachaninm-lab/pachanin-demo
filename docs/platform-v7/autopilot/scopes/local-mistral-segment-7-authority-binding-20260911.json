@@ -3,24 +3,20 @@
   "branch": "feat/local-mistral-segment-7-authority-binding-20260911",
   "status": "active",
   "purpose": "Stage and independently review the inert Local Mistral authority-binding verifier that makes immutable repository authority stronger than all supplied runtime identity arguments and validates conversion evidence fail closed.",
-  "authorityBaseExactMain": "2b3e96c033f84fb0f4e85414d910fe2da23f740c",
-  "stackedPrerequisite": {
-    "pullRequest": 5317,
-    "exactHead": "00205f99ed45ea62c7e93942911dd5cc12d27929"
-  },
+  "authorityBaseExactMain": "761d3954ea1b2691d7a0c2d627d89c4f2b5c8b8d",
   "allowedPaths": [
     "docs/platform-v7/autopilot/bootstrap/local-mistral-authority-binding.py.inert",
     "docs/platform-v7/autopilot/scopes/local-mistral-segment-7-authority-binding-20260911.json"
   ],
   "requiredInvariants": [
-    "This PR is stacked on PR #5317 only to avoid idle time; it must not merge before #5317 and must be retargeted to exact-current-main with fresh exact-head review after #5317 merges.",
+    "PR #5317 is already merged into authority base 761d3954ea1b2691d7a0c2d627d89c4f2b5c8b8d; no review or self-audit from the former stacked head may be reused for this segment.",
     "The staged authority-binding verifier is not executed or referenced by any workflow or product path in this PR.",
     "The Local Mistral authority manifest is loaded only from the bootstrap directory, must be a bounded regular non-symlink JSON file and must match the strict v1 schema and authority rules.",
     "Git commit identities are validated as 40-hex Git object ids; content and artifact digests are validated as 64-hex SHA-256 values.",
     "Conversion root and artifact paths are derived from and constrained by immutable authority; relative paths cannot be replaced by arbitrary caller paths.",
     "Supplied legacy runtime identity arguments must have exactly the expected key set, exact Python types and exact values from immutable authority; mismatch fails closed.",
-    "Conversion report raw SHA-256 and canonical self-digest are both verified; exact main, run id, run attempt, toolchain status, Mistral revision, model artifact SHA/size and llama-server SHA/size are bound to authority.",
-    "Malformed report collections fail closed with fixed error codes instead of escaping validation through uncaught shape errors.",
+    "Conversion report raw SHA-256 and canonical self-digest are both verified; report/source-verification schema, exact main, run id, run attempt, toolchain status, Mistral revision, source-files digest, source-manifest digest, model artifact SHA/size and llama-server SHA/size are bound to authority.",
+    "Duplicate or malformed source/output collections and file digest/stat I/O failures fail closed with fixed error codes.",
     "No evidence, review, attestation, provider status or workflow publication is activated by this segment.",
     "Local Qwen remains the independent reviewer for this Mistral-only authority change.",
     "No product, API, database, RBAC, registration, cabinet, customer-data or production-routing behavior changes.",
