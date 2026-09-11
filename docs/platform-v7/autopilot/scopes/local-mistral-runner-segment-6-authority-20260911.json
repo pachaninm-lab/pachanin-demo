@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/local-mistral-runner-segment-6-authority-20260911",
+  "status": "active",
+  "purpose": "Stage the immutable model, conversion and llama-server authority for the future Local Mistral independent reviewer without binding it to any workflow or executable review path.",
+  "authorityBaseExactMain": "336ea16c4d8b149b4e542f5aa527f69076efc913",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/bootstrap/local-mistral-authority.v1.json",
+    "docs/platform-v7/autopilot/scopes/local-mistral-runner-segment-6-authority-20260911.json"
+  ],
+  "requiredInvariants": [
+    "The staged Local Mistral authority manifest is not referenced or consumed by any workflow in this PR.",
+    "Conversion authority is pinned to exact main 8bd494dc4954baaf699cffa243951392ff451ebb, workflow run 29810648430 attempt 1, the exact conversion root, raw conversion-report SHA-256 and the report self-digest.",
+    "Mistral authority is pinned to model id mistralai/Mistral-7B-Instruct-v0.3, revision c170c708c41dac9275d15a8fff4eca08d52bab71, source evidence digests, Q4_K_M artifact SHA-256 and exact artifact byte size.",
+    "Runtime authority is pinned to llama.cpp release b9637, source commit aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3, source archive digest, accepted authority digest and the exact llama-server SHA-256 plus byte size.",
+    "The provider model alias is fixed as tai-mistral-7b-instruct-v03-q4km; future runtime arguments may only equal this authority and may never replace it.",
+    "This PR does not modify the admitted Local Mistral runner, Local Qwen workflow, exact-head verifier, product code, API, database, RBAC, registration, cabinet, customer data or production routing.",
+    "Local Qwen remains the independent reviewer for this Mistral-authority-only change.",
+    "Exact-head binding and stale-PASS rejection remain mandatory; Local Mistral self-review remains forbidden.",
+    "Production authority remains REG_RU_VPS_ONLY and new recurring cost remains 0 RUB."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
