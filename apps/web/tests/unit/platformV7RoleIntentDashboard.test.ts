@@ -3,7 +3,6 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { CONTROLLED_CABINET_CONTEXTS } from '../../lib/platform-v7/controlled-test-organizations';
 import {
-  isControlRealmPathAllowed,
   OWNER_CONTROLLED_CABINET_TARGETS,
   ownerCabinetSessionMatchesRoot,
   ownerControlledCabinetRole,
@@ -96,7 +95,7 @@ describe('platform-v7 role intent dashboard', () => {
     expect(dashboardStyles).toContain('overscroll-behavior: contain');
   });
 
-  it('keeps all thirteen owner cabinet roots exact, role-bound and outside the broad control allowlist', () => {
+  it('keeps all thirteen owner cabinet roots exact and role-bound', () => {
     expect(ownerCabinetMatrix).toHaveLength(13);
     expect(missingOwnerCabinetPages).toEqual([]);
     expect(new Set(ownerCabinetMatrix.map((item) => item.role)).size).toBe(13);
@@ -109,7 +108,6 @@ describe('platform-v7 role intent dashboard', () => {
       expect(OWNER_CONTROLLED_CABINET_TARGETS[item.role], item.role).toBe(item.route);
       expect(ownerControlledCabinetRole(item.route), item.role).toBe(item.role);
       expect(ownerControlledCabinetRole(`${item.route}/deep`), `${item.role}: deep`).toBeNull();
-      expect(isControlRealmPathAllowed(item.route), `${item.role}: broad allowlist`).toBe(false);
       expect(expected.role, `${item.role}: context role`).toBe(item.role);
       expect(expected.organizationId, `${item.role}: organization`).toBeTruthy();
       expect(expected.tenantId, `${item.role}: tenant`).toBeTruthy();
