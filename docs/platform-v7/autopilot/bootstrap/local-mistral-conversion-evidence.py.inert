@@ -1,21 +1,14 @@
 #!/usr/bin/env python3
 import hashlib
-import json
 import os
 from pathlib import Path
 import re
 import stat
 
-MAX_REPORT_BYTES = 2_000_000
-REPORT_SCHEMA = "tai.model-conversion-report.v1"
-SOURCE_SCHEMA = "tai.model-conversion-source-verification.v1"
-EXPECTED_TOOLCHAIN_STATUS = "VERIFIED_RESTORED"
-EXPECTED_SOURCE_STATUS = "VERIFIED"
 REPORT_PARTS = ("evidence", "conversion-report.json")
 MODEL_PARTS = ("artifacts", "mistral-7b-instruct-v0.3-q4-k-m.gguf")
 SERVER_PARTS = ("toolchain", "bin", "llama-server")
 GIT_SHA_PATTERN = re.compile(r"[0-9a-f]{40}\Z")
-SHA256_PATTERN = re.compile(r"[0-9a-f]{64}\Z")
 
 
 class ConversionEvidenceError(Exception):
@@ -32,37 +25,8 @@ def _require_dict(value, code):
     return value
 
 
-def _require_list(value, code):
-    if not isinstance(value, list):
-        reject(code)
-    return value
-
-
-def _require_exact_int(value, expected, code):
-    if type(value) is not int or type(expected) is not int or value != expected:
-        reject(code)
-    return value
-
-
-def _require_exact_string(value, expected, code):
-    if not isinstance(value, str) or not isinstance(expected, str) or value != expected:
-        reject(code)
-    return value
-
-
-def _require_sha256(value, expected, code):
-    if (
-        not isinstance(value, str)
-        or not isinstance(expected, str)
-        or not SHA256_PATTERN.fullmatch(value)
-        or not SHA256_PATTERN.fullmatch(expected)
-        or value != expected
-    ):
-        reject(code)
-    return value
-
-
-def _validated_root(authority):
+def validated_conversion_root(authority):
+    authority = _require_dict(authority, "AUTHORITY_INVALID")
     conversion = _require_dict(authority.get("conversion"), "AUTHORITY_CONVERSION_INVALID")
     exact_main = conversion.get("exactMainSha")
     run_id = conversion.get("workflowRunId")
@@ -86,7 +50,14 @@ def _validated_root(authority):
     return root
 
 
-def _bound_fixed_file(root, authority_value, fixed_parts, code):
+def bound_fixed_file(root, authority_value, fixed_parts, code):
+    if not isinstance(root, Path) or not root.is_absolute():
+        reject("CONVERSION_ROOT_HANDLE_INVALID")
+    if not isinstance(fixed_parts, tuple) or not fixed_parts or any(
+        not isinstance(part, str) or not part or "/" in part or part in {".", ".."}
+        for part in fixed_parts
+    ):
+        reject("FIXED_PATH_PARTS_INVALID")
     expected_relative = "/".join(fixed_parts)
     if not isinstance(authority_value, str) or authority_value != expected_relative:
         reject(code)
@@ -100,7 +71,9 @@ def _bound_fixed_file(root, authority_value, fixed_parts, code):
     return path
 
 
-def _open_regular(path, code):
+def open_regular_nofollow(path, code):
+    if not isinstance(path, Path) or not path.is_absolute():
+        reject(code)
     if not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_CLOEXEC"):
         reject("NOFOLLOW_UNAVAILABLE")
     try:
@@ -118,8 +91,8 @@ def _open_regular(path, code):
         reject(code)
 
 
-def _digest_regular(path, expected_size, open_code, size_code):
-    fd, before = _open_regular(path, open_code)
+def digest_regular_exact(path, expected_size, open_code, size_code):
+    fd, before = open_regular_nofollow(path, open_code)
     if type(expected_size) is not int or expected_size <= 0 or before.st_size != expected_size:
         os.close(fd)
         reject(size_code)
@@ -143,119 +116,3 @@ def _digest_regular(path, expected_size, open_code, size_code):
     ):
         reject("BOUND_FILE_CHANGED_DURING_READ")
     return digest.hexdigest()
-
-
-def _read_report(path, expected_raw_sha256):
-    if not isinstance(expected_raw_sha256, str) or not SHA256_PATTERN.fullmatch(expected_raw_sha256):
-        reject("AUTHORITY_REPORT_RAW_SHA_INVALID")
-    fd, before = _open_regular(path, "CONVERSION_REPORT_OPEN_FAILED")
-    if before.st_size <= 0 or before.st_size > MAX_REPORT_BYTES:
-        os.close(fd)
-        reject("CONVERSION_REPORT_SIZE_INVALID")
-    chunks = []
-    total = 0
-    digest = hashlib.sha256()
-    try:
-        while True:
-            block = os.read(fd, 256 * 1024)
-            if not block:
-                break
-            total += len(block)
-            if total > MAX_REPORT_BYTES:
-                reject("CONVERSION_REPORT_SIZE_INVALID")
-            chunks.append(block)
-            digest.update(block)
-        after = os.fstat(fd)
-    except ConversionEvidenceError:
-        os.close(fd)
-        raise
-    except OSError:
-        os.close(fd)
-        reject("CONVERSION_REPORT_READ_FAILED")
-    os.close(fd)
-    if (
-        before.st_dev != after.st_dev
-        or before.st_ino != after.st_ino
-        or before.st_size != after.st_size
-        or before.st_mtime_ns != after.st_mtime_ns
-        or total != before.st_size
-    ):
-        reject("CONVERSION_REPORT_CHANGED_DURING_READ")
-    if digest.hexdigest() != expected_raw_sha256:
-        reject("CONVERSION_REPORT_RAW_SHA_MISMATCH")
-    raw = b"".join(chunks)
-    try:
-        report = json.loads(raw.decode("utf-8", errors="strict"))
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        reject("CONVERSION_REPORT_JSON_INVALID")
-    return _require_dict(report, "CONVERSION_REPORT_SHAPE_INVALID")
-
-
-def verify_conversion_evidence(authority):
-    authority = _require_dict(authority, "AUTHORITY_INVALID")
-    conversion = _require_dict(authority.get("conversion"), "AUTHORITY_CONVERSION_INVALID")
-    model = _require_dict(authority.get("model"), "AUTHORITY_MODEL_INVALID")
-    runtime = _require_dict(authority.get("runtime"), "AUTHORITY_RUNTIME_INVALID")
-    root = _validated_root(authority)
-
-    report_path = _bound_fixed_file(root, conversion.get("reportRelativePath"), REPORT_PARTS, "CONVERSION_REPORT_PATH_INVALID")
-    model_path = _bound_fixed_file(root, model.get("artifactRelativePath"), MODEL_PARTS, "MODEL_ARTIFACT_PATH_INVALID")
-    server_path = _bound_fixed_file(root, runtime.get("serverRelativePath"), SERVER_PARTS, "LLAMA_SERVER_PATH_INVALID")
-
-    expected_report_raw_sha = conversion.get("reportRawSha256")
-    expected_report_self_sha = conversion.get("reportSelfSha256")
-    if not isinstance(expected_report_self_sha, str) or not SHA256_PATTERN.fullmatch(expected_report_self_sha):
-        reject("AUTHORITY_REPORT_SELF_SHA_INVALID")
-    report = _read_report(report_path, expected_report_raw_sha)
-
-    _require_exact_string(report.get("schema_version"), REPORT_SCHEMA, "CONVERSION_REPORT_SCHEMA_INVALID")
-    _require_sha256(report.get("report_sha256"), expected_report_self_sha, "CONVERSION_REPORT_SELF_SHA_MISMATCH")
-    canonical_report = dict(report)
-    canonical_report.pop("report_sha256", None)
-    try:
-        canonical_bytes = json.dumps(canonical_report, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
-    except (TypeError, ValueError, UnicodeEncodeError):
-        reject("CONVERSION_REPORT_CANONICALIZATION_FAILED")
-    if hashlib.sha256(canonical_bytes).hexdigest() != expected_report_self_sha:
-        reject("CONVERSION_REPORT_SELF_DIGEST_INVALID")
-
-    _require_exact_string(report.get("exact_main_sha"), conversion.get("exactMainSha"), "CONVERSION_MAIN_MISMATCH")
-    _require_exact_int(report.get("workflow_run_id"), conversion.get("workflowRunId"), "CONVERSION_RUN_ID_MISMATCH")
-    _require_exact_int(report.get("workflow_run_attempt"), conversion.get("workflowRunAttempt"), "CONVERSION_RUN_ATTEMPT_MISMATCH")
-    _require_exact_string(report.get("toolchain_status"), EXPECTED_TOOLCHAIN_STATUS, "TOOLCHAIN_STATUS_INVALID")
-
-    source_verification = _require_dict(report.get("source_verification"), "SOURCE_VERIFICATION_SHAPE_INVALID")
-    _require_exact_string(source_verification.get("schema_version"), SOURCE_SCHEMA, "SOURCE_VERIFICATION_SCHEMA_INVALID")
-    _require_exact_string(source_verification.get("status"), EXPECTED_SOURCE_STATUS, "SOURCE_VERIFICATION_STATUS_INVALID")
-    source_models = _require_list(source_verification.get("models"), "SOURCE_MODELS_SHAPE_INVALID")
-    model_id = model.get("id")
-    if not isinstance(model_id, str) or model_id != "mistralai/Mistral-7B-Instruct-v0.3":
-        reject("AUTHORITY_MODEL_ID_INVALID")
-    source_matches = [item for item in source_models if isinstance(item, dict) and item.get("model_id") == model_id]
-    if len(source_matches) != 1:
-        reject("MODEL_SOURCE_BINDING_INVALID")
-    source = source_matches[0]
-    _require_exact_string(source.get("revision"), model.get("revision"), "MODEL_REVISION_MISMATCH")
-    _require_sha256(source.get("source_files_sha256"), model.get("sourceFilesSha256"), "MODEL_SOURCE_FILES_SHA_MISMATCH")
-    _require_sha256(source.get("source_manifest_sha256"), model.get("sourceManifestSha256"), "MODEL_SOURCE_MANIFEST_SHA_MISMATCH")
-
-    outputs = _require_list(report.get("outputs"), "MODEL_OUTPUTS_SHAPE_INVALID")
-    output_matches = [item for item in outputs if isinstance(item, dict) and item.get("path") == "/".join(MODEL_PARTS)]
-    if len(output_matches) != 1:
-        reject("MODEL_REPORT_BINDING_INVALID")
-    output = output_matches[0]
-    _require_sha256(output.get("sha256"), model.get("artifactSha256"), "MODEL_REPORT_SHA_MISMATCH")
-    _require_exact_int(output.get("size_bytes"), model.get("artifactSizeBytes"), "MODEL_REPORT_SIZE_MISMATCH")
-
-    model_digest = _digest_regular(model_path, model.get("artifactSizeBytes"), "MODEL_FILE_OPEN_FAILED", "MODEL_FILE_SIZE_INVALID")
-    _require_sha256(model_digest, model.get("artifactSha256"), "MODEL_FILE_SHA_MISMATCH")
-    server_digest = _digest_regular(server_path, runtime.get("serverSizeBytes"), "LLAMA_SERVER_OPEN_FAILED", "LLAMA_SERVER_SIZE_INVALID")
-    _require_sha256(server_digest, runtime.get("serverSha256"), "LLAMA_SERVER_SHA_MISMATCH")
-
-    return {
-        "verified": True,
-        "report_raw_sha256": expected_report_raw_sha,
-        "report_self_sha256": expected_report_self_sha,
-        "model_sha256": model_digest,
-        "server_sha256": server_digest,
-    }
