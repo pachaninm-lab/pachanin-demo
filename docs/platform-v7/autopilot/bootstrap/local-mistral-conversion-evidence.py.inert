@@ -27,6 +27,7 @@ ALLOWED_BOUND_IDENTITIES = frozenset((
 GIT_SHA_PATTERN = re.compile(r"[0-9a-f]{40}\Z")
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}\Z")
 READ_CHUNK_BYTES = 8 * 1024 * 1024
+SNAPSHOT_NAME = "pc-mistral-conversion-evidence"
 
 
 class ConversionEvidenceError(Exception):
@@ -73,23 +74,20 @@ class BoundFile:
 
 
 class VerifiedRegularFile:
-    __slots__ = ("fd", "sha256", "size", "dev", "ino", "relative")
+    __slots__ = ("fd", "sha256", "size", "source_dev", "source_ino", "relative")
 
-    def __init__(self, fd, sha256, size, dev, ino, relative):
+    def __init__(self, fd, sha256, size, source_dev, source_ino, relative):
         self.fd = fd
         self.sha256 = sha256
         self.size = size
-        self.dev = dev
-        self.ino = ino
+        self.source_dev = source_dev
+        self.source_ino = source_ino
         self.relative = relative
 
     def close(self):
         if self.fd is not None:
-            try:
-                fcntl.flock(self.fd, fcntl.LOCK_UN)
-            finally:
-                os.close(self.fd)
-                self.fd = None
+            os.close(self.fd)
+            self.fd = None
 
     def __enter__(self):
         return self
@@ -307,18 +305,91 @@ def _same_identity(left, right):
     )
 
 
-def _hash_exact_pass(fd, expected_size, size_code):
+def _snapshot_seal_contract():
+    os_required = ("memfd_create", "MFD_CLOEXEC", "MFD_ALLOW_SEALING")
+    fcntl_required = (
+        "F_ADD_SEALS",
+        "F_GET_SEALS",
+        "F_SEAL_SEAL",
+        "F_SEAL_SHRINK",
+        "F_SEAL_GROW",
+        "F_SEAL_WRITE",
+    )
+    if any(not hasattr(os, name) for name in os_required):
+        reject("SEALED_SNAPSHOT_UNAVAILABLE")
+    if any(not hasattr(fcntl, name) for name in fcntl_required):
+        reject("SEALED_SNAPSHOT_UNAVAILABLE")
+    flags = os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING
+    seals = (
+        fcntl.F_SEAL_SEAL
+        | fcntl.F_SEAL_SHRINK
+        | fcntl.F_SEAL_GROW
+        | fcntl.F_SEAL_WRITE
+    )
+    return flags, seals
+
+
+def _stable_source_stat(fd, baseline):
+    try:
+        current = os.fstat(fd)
+    except OSError:
+        reject("BOUND_FILE_STAT_FAILED")
+    if not _same_identity(baseline, current):
+        reject("BOUND_FILE_CHANGED_DURING_READ")
+    return current
+
+
+def _write_all(fd, data):
+    offset = 0
+    while offset < len(data):
+        try:
+            written = os.write(fd, data[offset:])
+        except OSError:
+            reject("SEALED_SNAPSHOT_WRITE_FAILED")
+        if written <= 0:
+            reject("SEALED_SNAPSHOT_WRITE_FAILED")
+        offset += written
+
+
+def _copy_source_to_snapshot(source_fd, snapshot_fd, baseline, expected_size, size_code):
+    try:
+        os.lseek(source_fd, 0, os.SEEK_SET)
+    except OSError:
+        reject("BOUND_FILE_SEEK_FAILED")
+    digest = hashlib.sha256()
+    bytes_read = 0
+    while True:
+        _stable_source_stat(source_fd, baseline)
+        try:
+            block = os.read(source_fd, READ_CHUNK_BYTES)
+        except OSError:
+            reject("BOUND_FILE_DIGEST_FAILED")
+        _stable_source_stat(source_fd, baseline)
+        if not block:
+            break
+        bytes_read += len(block)
+        if bytes_read > expected_size:
+            reject(size_code)
+        digest.update(block)
+        _write_all(snapshot_fd, block)
+    if bytes_read != expected_size:
+        reject(size_code)
+    _stable_source_stat(source_fd, baseline)
+    return digest.hexdigest()
+
+
+def _hash_snapshot_exact(fd, expected_size, size_code):
     try:
         os.lseek(fd, 0, os.SEEK_SET)
     except OSError:
-        reject("BOUND_FILE_SEEK_FAILED")
+        reject("SEALED_SNAPSHOT_SEEK_FAILED")
     digest = hashlib.sha256()
     bytes_read = 0
     while True:
         try:
             block = os.read(fd, READ_CHUNK_BYTES)
         except OSError:
-            reject("BOUND_FILE_DIGEST_FAILED")
+            reject("SEALED_SNAPSHOT_READ_FAILED")
         if not block:
             break
         bytes_read += len(block)
@@ -328,19 +399,6 @@ def _hash_exact_pass(fd, expected_size, size_code):
     if bytes_read != expected_size:
         reject(size_code)
     return digest.hexdigest()
-
-
-def _unlock_close(fd):
-    if fd is None:
-        return
-    try:
-        fcntl.flock(fd, fcntl.LOCK_UN)
-    except OSError:
-        pass
-    try:
-        os.close(fd)
-    except OSError:
-        pass
 
 
 def verify_regular_exact(
@@ -356,55 +414,72 @@ def verify_regular_exact(
     if not isinstance(expected_sha256, str) or not SHA256_PATTERN.fullmatch(expected_sha256):
         reject(sha_code)
 
-    fd, opened = open_regular_nofollow(bound, open_code)
-    locked = False
+    source_fd, opened = open_regular_nofollow(bound, open_code)
+    snapshot_fd = None
     try:
         try:
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            locked = True
-        except OSError:
-            reject("BOUND_FILE_EXCLUSIVE_LOCK_FAILED")
-
-        try:
-            before = os.fstat(fd)
+            baseline = os.fstat(source_fd)
         except OSError:
             reject("BOUND_FILE_STAT_FAILED")
-        if not _same_identity(opened, before) or before.st_size != expected_size:
+        if not _same_identity(opened, baseline) or baseline.st_size != expected_size:
             reject(size_code)
 
-        actual_sha256 = _hash_exact_pass(fd, expected_size, size_code)
-
+        memfd_flags, required_seals = _snapshot_seal_contract()
         try:
-            after = os.fstat(fd)
+            snapshot_fd = os.memfd_create(SNAPSHOT_NAME, memfd_flags)
         except OSError:
-            reject("BOUND_FILE_STAT_FAILED")
-        if not _same_identity(before, after):
-            reject("BOUND_FILE_CHANGED_DURING_READ")
+            reject("SEALED_SNAPSHOT_CREATE_FAILED")
+
+        actual_sha256 = _copy_source_to_snapshot(
+            source_fd,
+            snapshot_fd,
+            baseline,
+            expected_size,
+            size_code,
+        )
         if actual_sha256 != expected_sha256:
             reject(sha_code)
 
         try:
-            os.lseek(fd, 0, os.SEEK_SET)
+            snapshot_info = os.fstat(snapshot_fd)
         except OSError:
-            reject("BOUND_FILE_SEEK_FAILED")
+            reject("SEALED_SNAPSHOT_STAT_FAILED")
+        if not stat.S_ISREG(snapshot_info.st_mode) or snapshot_info.st_size != expected_size:
+            reject(size_code)
+
+        try:
+            fcntl.fcntl(snapshot_fd, fcntl.F_ADD_SEALS, required_seals)
+            observed_seals = fcntl.fcntl(snapshot_fd, fcntl.F_GET_SEALS)
+        except OSError:
+            reject("SEALED_SNAPSHOT_SEAL_FAILED")
+        if observed_seals & required_seals != required_seals:
+            reject("SEALED_SNAPSHOT_SEAL_FAILED")
+
+        sealed_sha256 = _hash_snapshot_exact(snapshot_fd, expected_size, size_code)
+        if sealed_sha256 != expected_sha256 or sealed_sha256 != actual_sha256:
+            reject(sha_code)
+        try:
+            os.lseek(snapshot_fd, 0, os.SEEK_SET)
+        except OSError:
+            reject("SEALED_SNAPSHOT_SEEK_FAILED")
 
         verified = VerifiedRegularFile(
-            fd=fd,
-            sha256=actual_sha256,
+            fd=snapshot_fd,
+            sha256=sealed_sha256,
             size=expected_size,
-            dev=after.st_dev,
-            ino=after.st_ino,
+            source_dev=baseline.st_dev,
+            source_ino=baseline.st_ino,
             relative=bound.relative,
         )
-        fd = None
-        locked = False
+        snapshot_fd = None
         return verified
     finally:
-        if fd is not None:
-            if locked:
-                _unlock_close(fd)
-            else:
-                try:
-                    os.close(fd)
-                except OSError:
-                    pass
+        try:
+            os.close(source_fd)
+        except OSError:
+            pass
+        if snapshot_fd is not None:
+            try:
+                os.close(snapshot_fd)
+            except OSError:
+                pass
