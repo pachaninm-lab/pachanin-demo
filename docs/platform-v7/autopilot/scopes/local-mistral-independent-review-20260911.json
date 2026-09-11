@@ -2,7 +2,7 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "feat/local-mistral-independent-review-20260911",
   "status": "active",
-  "purpose": "Remove mandatory external SaaS review dependence by adding an owned, pinned Mistral-7B exact-head review authority for maintenance of the Local Qwen reviewer, while preserving fail-closed admission and preventing local providers from approving changes to their own workflow.",
+  "purpose": "Bootstrap the owned Local Mistral exact-head review provider under the unchanged Local Qwen authority, without changing the exact-head admission verifier in the same pull request.",
   "authorityBaseExactMain": "2f45e16446e46a93fad211b866475d7b33610af7",
   "evidence": {
     "blockedPullRequest": 5291,
@@ -17,35 +17,31 @@
   },
   "allowedPaths": [
     ".github/workflows/local-mistral-independent-review.yml",
-    "docs/platform-v7/autopilot/verify-pr-review-gate.mjs",
-    "docs/platform-v7/autopilot/scopes/local-mistral-independent-review-20260911.json",
-    "docs/ops/local-dual-model-review-authority.md"
+    "docs/platform-v7/autopilot/scopes/local-mistral-independent-review-20260911.json"
   ],
   "requiredChange": {
-    "summary": "Add an owned Local Mistral provider using the already-governed model artifact and existing pinned model-host transport; admit its exact-head evidence in the provider-neutral review gate; make both Local Qwen and Local Mistral ineligible to approve PRs that change their own workflow.",
+    "summary": "Add the first-party Local Mistral workflow only. Admission-verifier integration follows in a separate PR after this provider workflow is independently admitted by unchanged Local Qwen.",
     "semanticPaths": [
       "Local Mistral exact-head review workflow",
-      "provider-neutral exact-head authority verifier",
-      "dual-model bootstrap and self-review exclusion policy"
+      "bootstrap scope authority"
     ]
   },
   "requiredInvariants": [
-    "No local model provider may establish independent authority for a PR that changes that provider's own workflow.",
-    "A PR that changes both Local Qwen and Local Mistral provider workflows cannot be admitted by either local provider and therefore requires a separately accepted independent authority.",
+    "This PR does not modify the Local Qwen provider workflow or exact-head admission verifier.",
+    "Local Qwen is the independent exact-head bootstrap authority for this PR.",
     "Mistral identity is pinned by source revision, exact Q4_K_M SHA-256 and byte size before inference.",
     "Inference runs only on the existing dedicated tai-model host and uses a loopback-only ephemeral llama-server with a generated per-run API key.",
-    "The SSH host key, SSH user and credentials remain bound to protected TAI model-host secrets and StrictHostKeyChecking=yes.",
+    "SSH host key, SSH user and credentials remain bound to protected TAI model-host secrets and StrictHostKeyChecking=yes.",
     "Review input, output, repair attempts and attestations are bounded and cryptographically bound to the exact PR head, full diff, manifest and workflow run.",
     "Policy violation repair is finite and fails closed after at most three attempts.",
     "No product, API, database, RBAC, registration, cabinet, customer-data or production routing behavior changes.",
-    "Octopus may remain an optional provider during migration but is not required once a genuine Local Mistral authority is admitted.",
     "Production hosting remains REG.RU only and new recurring cost remains 0 RUB."
   ],
   "admission": [
-    "This bootstrap PR is independently reviewed by Local Qwen because it does not change the Local Qwen provider workflow.",
-    "All applicable exact-head CI/security/runtime gates are terminal green before merge.",
-    "Owner exact-head self-audit is present and unresolved review findings are zero.",
-    "After merge, PR #5291 synchronizes forward-only to current main and is reviewed by Local Mistral on its new exact head before merge."
+    "Local Qwen exact-head independent review PASS on the final head.",
+    "All applicable exact-head CI/security/runtime gates terminal green before merge.",
+    "Owner exact-head self-audit present and unresolved review findings zero.",
+    "After merge, verifier integration is performed in a separate PR and exercised through the newly trusted Local Mistral workflow before PR #5291 uses it."
   ],
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0
