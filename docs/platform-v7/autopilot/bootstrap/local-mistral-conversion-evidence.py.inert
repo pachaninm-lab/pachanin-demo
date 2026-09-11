@@ -33,33 +33,46 @@ def _require_list(value, code):
 
 
 def _require_exact_int(value, expected, code):
-    if type(value) is not int or value != expected:
+    if type(value) is not int or type(expected) is not int or value != expected:
         reject(code)
     return value
 
 
 def _require_exact_string(value, expected, code):
-    if not isinstance(value, str) or value != expected:
+    if not isinstance(value, str) or not isinstance(expected, str) or value != expected:
         reject(code)
     return value
 
 
 def _require_sha256(value, expected, code):
-    if not isinstance(value, str) or len(value) != 64:
+    if not isinstance(value, str) or not isinstance(expected, str) or len(value) != 64 or len(expected) != 64:
         reject(code)
     try:
         int(value, 16)
+        int(expected, 16)
     except ValueError:
         reject(code)
-    if value != value.lower() or value != expected:
+    if value != value.lower() or expected != expected.lower() or value != expected:
         reject(code)
     return value
 
 
 def _validated_root(authority):
     conversion = _require_dict(authority.get("conversion"), "AUTHORITY_CONVERSION_INVALID")
+    exact_main = conversion.get("exactMainSha")
+    run_id = conversion.get("workflowRunId")
+    run_attempt = conversion.get("workflowRunAttempt")
     root_value = conversion.get("conversionRoot")
-    if not isinstance(root_value, str) or not root_value.startswith("/srv/tai-models/conversion-runs/"):
+    if not isinstance(exact_main, str) or len(exact_main) != 40:
+        reject("CONVERSION_MAIN_AUTHORITY_INVALID")
+    try:
+        int(exact_main, 16)
+    except ValueError:
+        reject("CONVERSION_MAIN_AUTHORITY_INVALID")
+    if exact_main != exact_main.lower() or type(run_id) is not int or run_id <= 0 or type(run_attempt) is not int or run_attempt <= 0:
+        reject("CONVERSION_EXECUTION_AUTHORITY_INVALID")
+    expected_root = f"/srv/tai-models/conversion-runs/{exact_main}/{run_id}-{run_attempt}"
+    if not isinstance(root_value, str) or root_value != expected_root:
         reject("CONVERSION_ROOT_INVALID")
     root = Path(root_value)
     if not root.is_absolute() or ".." in root.parts or "." in root.parts:
@@ -74,8 +87,8 @@ def _validated_root(authority):
     return root
 
 
-def _bound_file(root, relative_value, code):
-    if not isinstance(relative_value, str):
+def _bound_file(root, relative_value, expected_relative, code):
+    if not isinstance(relative_value, str) or relative_value != expected_relative:
         reject(code)
     relative = PurePosixPath(relative_value)
     if relative.is_absolute() or not relative.parts or "." in relative.parts or ".." in relative.parts:
@@ -91,7 +104,7 @@ def _bound_file(root, relative_value, code):
 
 
 def _open_regular(path, code):
-    if not hasattr(os, "O_NOFOLLOW"):
+    if not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_CLOEXEC"):
         reject("NOFOLLOW_UNAVAILABLE")
     try:
         fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
@@ -136,6 +149,14 @@ def _digest_regular(path, expected_size, open_code, size_code):
 
 
 def _read_report(path, expected_raw_sha256):
+    if not isinstance(expected_raw_sha256, str) or len(expected_raw_sha256) != 64:
+        reject("AUTHORITY_REPORT_RAW_SHA_INVALID")
+    try:
+        int(expected_raw_sha256, 16)
+    except ValueError:
+        reject("AUTHORITY_REPORT_RAW_SHA_INVALID")
+    if expected_raw_sha256 != expected_raw_sha256.lower():
+        reject("AUTHORITY_REPORT_RAW_SHA_INVALID")
     fd, before = _open_regular(path, "CONVERSION_REPORT_OPEN_FAILED")
     if before.st_size <= 0 or before.st_size > MAX_REPORT_BYTES:
         os.close(fd)
@@ -186,14 +207,35 @@ def verify_conversion_evidence(authority):
     runtime = _require_dict(authority.get("runtime"), "AUTHORITY_RUNTIME_INVALID")
     root = _validated_root(authority)
 
-    report_path = _bound_file(root, conversion.get("reportRelativePath"), "CONVERSION_REPORT_PATH_INVALID")
-    model_path = _bound_file(root, model.get("artifactRelativePath"), "MODEL_ARTIFACT_PATH_INVALID")
-    server_path = _bound_file(root, runtime.get("serverRelativePath"), "LLAMA_SERVER_PATH_INVALID")
+    report_path = _bound_file(
+        root,
+        conversion.get("reportRelativePath"),
+        "evidence/conversion-report.json",
+        "CONVERSION_REPORT_PATH_INVALID",
+    )
+    model_path = _bound_file(
+        root,
+        model.get("artifactRelativePath"),
+        "artifacts/mistral-7b-instruct-v0.3-q4-k-m.gguf",
+        "MODEL_ARTIFACT_PATH_INVALID",
+    )
+    server_path = _bound_file(
+        root,
+        runtime.get("serverRelativePath"),
+        "toolchain/bin/llama-server",
+        "LLAMA_SERVER_PATH_INVALID",
+    )
 
     expected_report_raw_sha = conversion.get("reportRawSha256")
     expected_report_self_sha = conversion.get("reportSelfSha256")
-    if not isinstance(expected_report_raw_sha, str) or not isinstance(expected_report_self_sha, str):
-        reject("AUTHORITY_REPORT_SHA_INVALID")
+    if not isinstance(expected_report_self_sha, str) or len(expected_report_self_sha) != 64:
+        reject("AUTHORITY_REPORT_SELF_SHA_INVALID")
+    try:
+        int(expected_report_self_sha, 16)
+    except ValueError:
+        reject("AUTHORITY_REPORT_SELF_SHA_INVALID")
+    if expected_report_self_sha != expected_report_self_sha.lower():
+        reject("AUTHORITY_REPORT_SELF_SHA_INVALID")
     report = _read_report(report_path, expected_report_raw_sha)
 
     _require_exact_string(report.get("schema_version"), REPORT_SCHEMA, "CONVERSION_REPORT_SCHEMA_INVALID")
@@ -221,10 +263,13 @@ def verify_conversion_evidence(authority):
     _require_exact_string(source_verification.get("schema_version"), SOURCE_SCHEMA, "SOURCE_VERIFICATION_SCHEMA_INVALID")
     _require_exact_string(source_verification.get("status"), EXPECTED_SOURCE_STATUS, "SOURCE_VERIFICATION_STATUS_INVALID")
     source_models = _require_list(source_verification.get("models"), "SOURCE_MODELS_SHAPE_INVALID")
+    model_id = model.get("id")
+    if not isinstance(model_id, str) or model_id != "mistralai/Mistral-7B-Instruct-v0.3":
+        reject("AUTHORITY_MODEL_ID_INVALID")
     source_matches = [
         item
         for item in source_models
-        if isinstance(item, dict) and item.get("model_id") == model.get("id")
+        if isinstance(item, dict) and item.get("model_id") == model_id
     ]
     if len(source_matches) != 1:
         reject("MODEL_SOURCE_BINDING_INVALID")
@@ -251,22 +296,17 @@ def verify_conversion_evidence(authority):
         "MODEL_FILE_OPEN_FAILED",
         "MODEL_FILE_SIZE_INVALID",
     )
-    if model_digest != model.get("artifactSha256"):
-        reject("MODEL_FILE_SHA_MISMATCH")
+    _require_sha256(model_digest, model.get("artifactSha256"), "MODEL_FILE_SHA_MISMATCH")
     server_digest = _digest_regular(
         server_path,
         runtime.get("serverSizeBytes"),
         "LLAMA_SERVER_OPEN_FAILED",
         "LLAMA_SERVER_SIZE_INVALID",
     )
-    if server_digest != runtime.get("serverSha256"):
-        reject("LLAMA_SERVER_SHA_MISMATCH")
+    _require_sha256(server_digest, runtime.get("serverSha256"), "LLAMA_SERVER_SHA_MISMATCH")
 
     return {
-        "conversion_root": str(root),
-        "report_path": str(report_path),
-        "model_path": str(model_path),
-        "server_path": str(server_path),
+        "verified": True,
         "report_raw_sha256": expected_report_raw_sha,
         "report_self_sha256": expected_report_self_sha,
         "model_sha256": model_digest,
