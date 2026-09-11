@@ -7,32 +7,44 @@
   "evidence": {
     "blockedPullRequest": 5291,
     "externalQuotaBlockedRun": 34620222782,
+    "conversionExactMain": "846963821cf990c226eaead8b32f4bc9148311a0",
+    "conversionWorkflowRun": 30333755510,
+    "conversionWorkflowAttempt": 1,
+    "conversionReportSha256": "f9022405fd7b59fe721e53a76adfebb974667328ff1416fa0afb4e55f9d63b7d",
     "mistralModelId": "mistralai/Mistral-7B-Instruct-v0.3",
     "mistralRevision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
     "mistralQ4KmSha256": "62f36c339b80c8849814f8a0fd4b04f94c7a758658f71d6aa86478e633d5764e",
     "mistralQ4KmSizeBytes": 4372815936,
     "llamaBuild": "b9637",
     "llamaSourceCommit": "aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3",
-    "trustedPolicySha256": "e083823ced2f5b63ecfaca345e59274c5f194e36c0cdd20b2cae9cee3b4f9ed3"
+    "llamaServerSha256": "1b26384ad90d9ae8fe65b2a3e2dfd08c70d92663b2127d5f479f34774b4a6dbf",
+    "llamaServerSizeBytes": 12940416,
+    "trustedPolicySha256": "e083823ced2f5b63ecfaca345e59274c5f194e36c0cdd20b2cae9cee3b4f9ed3",
+    "trustedRunnerSha256": "ba30e6199f33f18b28a3c99726104470629831301cdc20ab174b30a9868e8fab"
   },
   "allowedPaths": [
     ".github/workflows/local-mistral-independent-review.yml",
+    "scripts/local-mistral-independent-review.py",
     "docs/platform-v7/autopilot/scopes/local-mistral-independent-review-20260911.json"
   ],
   "requiredChange": {
-    "summary": "Add the first-party Local Mistral workflow only. Admission-verifier integration follows in a separate PR after this provider workflow is independently admitted by unchanged Local Qwen.",
+    "summary": "Add the first-party Local Mistral workflow plus its hash-pinned companion runner. Admission-verifier integration follows in a separate PR after this provider is independently admitted by unchanged Local Qwen.",
     "semanticPaths": [
       "Local Mistral exact-head review workflow",
+      "hash-pinned Local Mistral review runner",
       "bootstrap scope authority"
     ]
   },
   "requiredInvariants": [
     "This PR does not modify the Local Qwen provider workflow or exact-head admission verifier.",
     "Local Qwen is the independent exact-head bootstrap authority for this PR.",
+    "Local Mistral fails closed if a reviewed pull request changes either its workflow or its companion runner, preventing self-approval.",
     "Mistral identity is pinned by source revision, exact Q4_K_M SHA-256 and byte size before inference.",
+    "The conversion report, exact historical conversion run and exact llama-server binary are hash-bound before inference.",
+    "The companion review runner is loaded only from the trusted pull_request_target base SHA and must match its pinned SHA-256 before execution.",
     "Inference runs only on the existing dedicated tai-model host and uses a loopback-only ephemeral llama-server with a generated per-run API key.",
     "SSH host key, SSH user and credentials remain bound to protected TAI model-host secrets and StrictHostKeyChecking=yes.",
-    "Review input, output, repair attempts and attestations are bounded and cryptographically bound to the exact PR head, full diff, manifest and workflow run.",
+    "Review input, output, bounded repair attempts and attestations are bound to the exact PR head, full diff, prompt bundle and immutable workflow run.",
     "Policy violation repair is finite and fails closed after at most three attempts.",
     "No product, API, database, RBAC, registration, cabinet, customer-data or production routing behavior changes.",
     "Production hosting remains REG.RU only and new recurring cost remains 0 RUB."
@@ -40,7 +52,7 @@
   "admission": [
     "Local Qwen exact-head independent review PASS on the final head.",
     "All applicable exact-head CI/security/runtime gates terminal green before merge.",
-    "Owner exact-head self-audit present and unresolved review findings zero.",
+    "Owner exact-head self-audit present on the final head and unresolved review findings zero.",
     "After merge, verifier integration is performed in a separate PR and exercised through the newly trusted Local Mistral workflow before PR #5291 uses it."
   ],
   "productionHosting": "REG_RU_VPS_ONLY",
