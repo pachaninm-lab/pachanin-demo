@@ -353,7 +353,7 @@ function markPlatformV7Entry(response: NextResponse) {
 
 async function ownerControlledRootAllowed(req: NextRequest): Promise<boolean> {
   const role = ownerControlledCabinetRole(req.nextUrl.pathname);
-  if (!role) return true;
+  if (!role) return false;
 
   const secret = String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
   const session = secret
