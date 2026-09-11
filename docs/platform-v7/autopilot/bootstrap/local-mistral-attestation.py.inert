@@ -49,37 +49,60 @@ def _require_int(value, minimum, maximum, code):
 def canonical_clean_evidence(record):
     if not isinstance(record, dict) or set(record) != EVIDENCE_FIELDS:
         raise AttestationError("EVIDENCE_SCHEMA_INVALID")
-    _require_sha40(record["exact_head"], "EXACT_HEAD_INVALID")
-    _require_sha256(record["authority_sha256"], "AUTHORITY_SHA256_INVALID")
-    _require_sha40(record["model_revision"], "MODEL_REVISION_INVALID")
-    _require_sha256(record["model_sha256"], "MODEL_SHA256_INVALID")
-    _require_sha40(record["runtime_source_commit"], "RUNTIME_SOURCE_COMMIT_INVALID")
-    _require_sha256(record["runtime_server_sha256"], "RUNTIME_SERVER_SHA256_INVALID")
-    _require_sha256(record["diff_sha256"], "DIFF_SHA256_INVALID")
-    _require_sha256(record["manifest_sha256"], "MANIFEST_SHA256_INVALID")
-    _require_sha256(record["prompt_bundle_sha256"], "PROMPT_BUNDLE_SHA256_INVALID")
-    _require_sha256(record["response_sha256"], "RESPONSE_SHA256_INVALID")
-    _require_int(record["diff_bytes"], 1, MAX_DIFF_BYTES, "DIFF_BYTES_INVALID")
-    _require_int(record["chunk_count"], 1, MAX_CHUNKS, "CHUNK_COUNT_INVALID")
-    _require_int(record["workflow_run_id"], 1, 9_223_372_036_854_775_807, "WORKFLOW_RUN_ID_INVALID")
+
+    exact_head = _require_sha40(record["exact_head"], "EXACT_HEAD_INVALID")
+    authority_sha256 = _require_sha256(record["authority_sha256"], "AUTHORITY_SHA256_INVALID")
+    model_revision = _require_sha40(record["model_revision"], "MODEL_REVISION_INVALID")
+    model_sha256 = _require_sha256(record["model_sha256"], "MODEL_SHA256_INVALID")
+    runtime_source_commit = _require_sha40(record["runtime_source_commit"], "RUNTIME_SOURCE_COMMIT_INVALID")
+    runtime_server_sha256 = _require_sha256(record["runtime_server_sha256"], "RUNTIME_SERVER_SHA256_INVALID")
+    diff_sha256 = _require_sha256(record["diff_sha256"], "DIFF_SHA256_INVALID")
+    diff_bytes = _require_int(record["diff_bytes"], 1, MAX_DIFF_BYTES, "DIFF_BYTES_INVALID")
+    chunk_count = _require_int(record["chunk_count"], 1, MAX_CHUNKS, "CHUNK_COUNT_INVALID")
+    manifest_sha256 = _require_sha256(record["manifest_sha256"], "MANIFEST_SHA256_INVALID")
+    prompt_bundle_sha256 = _require_sha256(record["prompt_bundle_sha256"], "PROMPT_BUNDLE_SHA256_INVALID")
+    response_sha256 = _require_sha256(record["response_sha256"], "RESPONSE_SHA256_INVALID")
+    workflow_run_id = _require_int(record["workflow_run_id"], 1, 9_223_372_036_854_775_807, "WORKFLOW_RUN_ID_INVALID")
+    findings_count = _require_int(record["findings_count"], 0, 0, "FINDINGS_COUNT_INVALID")
+
     if record["provider_workflow"] != PROVIDER_WORKFLOW:
         raise AttestationError("PROVIDER_WORKFLOW_INVALID")
     if record["verdict"] != "PASS":
         raise AttestationError("CLEAN_VERDICT_INVALID")
-    _require_int(record["findings_count"], 0, 0, "FINDINGS_COUNT_INVALID")
-    canonical = json.dumps(record, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
+
+    validated = {
+        "exact_head": exact_head,
+        "authority_sha256": authority_sha256,
+        "model_revision": model_revision,
+        "model_sha256": model_sha256,
+        "runtime_source_commit": runtime_source_commit,
+        "runtime_server_sha256": runtime_server_sha256,
+        "diff_sha256": diff_sha256,
+        "diff_bytes": diff_bytes,
+        "chunk_count": chunk_count,
+        "manifest_sha256": manifest_sha256,
+        "prompt_bundle_sha256": prompt_bundle_sha256,
+        "response_sha256": response_sha256,
+        "workflow_run_id": workflow_run_id,
+        "provider_workflow": PROVIDER_WORKFLOW,
+        "verdict": "PASS",
+        "findings_count": findings_count,
+    }
+    canonical = json.dumps(validated, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
     digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     return canonical, digest
 
 def render_clean_review(record):
     _, evidence_sha256 = canonical_clean_evidence(record)
+    exact_head = _require_sha40(record["exact_head"], "EXACT_HEAD_INVALID")
+    workflow_run_id = _require_int(record["workflow_run_id"], 1, 9_223_372_036_854_775_807, "WORKFLOW_RUN_ID_INVALID")
     tick = "`"
     return "\n".join([
         "LOCAL MISTRAL INDEPENDENT REVIEW: PASS",
-        f"Exact head: {tick}{record['exact_head']}{tick}",
-        f"Provider workflow: {tick}{record['provider_workflow']}{tick}",
+        f"Exact head: {tick}{exact_head}{tick}",
+        f"Provider workflow: {tick}{PROVIDER_WORKFLOW}{tick}",
         f"Evidence SHA-256: {tick}{evidence_sha256}{tick}",
-        f"Workflow run: {tick}{record['workflow_run_id']}{tick}",
+        f"Workflow run: {tick}{workflow_run_id}{tick}",
         "Verdict: `PASS`",
         "Findings: `0`",
     ])
