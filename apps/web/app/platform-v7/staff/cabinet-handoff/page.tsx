@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { OwnerCabinetHandoff } from '@/components/platform-v7/staff/OwnerCabinetHandoff';
+import { ownerControlledCabinetRole } from '@/lib/platform-v7/control-host';
 import { controlledOrganizationById } from '@/lib/platform-v7/controlled-test-organizations';
 import { CABINET_SESSION_COOKIE } from '@/lib/server/auth-session-response';
 import { readVerifiedCabinetSessionContext } from '@/lib/platform-v7/verified-session';
@@ -61,11 +62,16 @@ export default async function OwnerCabinetHandoffPage() {
     redirect('/platform-v7/staff?cabinetError=ORGANIZATION_CABINET_NOT_CONTROLLED');
   }
 
+  const target = TARGETS[context.role];
+  if (ownerControlledCabinetRole(target) !== context.role) {
+    redirect('/platform-v7/staff?cabinetError=CABINET_ROUTE_CONFIG_INVALID');
+  }
+
   const organization = controlledOrganizationById(context.organizationId);
   return (
     <OwnerCabinetHandoff
       role={context.role}
-      target={TARGETS[context.role]}
+      target={target}
       label={LABELS[context.role]}
       organizationName={organization?.name || null}
       testData={organization?.testData === true}
