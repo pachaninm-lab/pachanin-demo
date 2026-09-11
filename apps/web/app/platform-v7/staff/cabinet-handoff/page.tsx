@@ -30,9 +30,8 @@ const LABELS: Readonly<Record<PlatformRole, string>> = {
   executive: 'Руководитель',
 };
 
-function signingSecret(): string | null {
-  const candidate = String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
-  return candidate.length >= 32 && candidate.length <= 4096 ? candidate : null;
+function signingSecret(): string {
+  return String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
 }
 
 function handoffTarget(role: PlatformRole): string {
