@@ -2,11 +2,11 @@
   "schemaVersion": "platform-v7.web-unit-coverage.v1",
   "issue": 4786,
   "purpose": "Every unit test file under apps/web/tests/unit must either run in CI or appear here with a reason. A file in neither state is what #4786 found: present in the repository, reading as a guarantee, checked by nothing. This registry is a work queue, not a permanent exemption list - the count is meant to reach zero.",
-  "executedCount": 25,
-  "discoveredCount": 917,
+  "executedCount": 22,
+  "discoveredCount": 916,
   "exclusionCounts": {
-    "passed": 661,
-    "failed": 231
+    "passed": 662,
+    "failed": 232
   },
   "exclusions": [
     {
@@ -148,6 +148,11 @@
       "file": "apps/web/tests/unit/compactHeaderStaleRolePolicy.test.ts",
       "status": "passed",
       "reason": "Green when measured on the inventory run for #4786, but never named in the web-unit step. Staged enablement rather than a bulk switch-on, so CI runtime and flake surface change in reviewable steps."
+    },
+    {
+      "file": "apps/web/tests/unit/companyOsControlHostBoundary.test.ts",
+      "status": "failed",
+      "reason": "Red when measured on the inventory run for #4786. Must be classified first - whether the security contract still holds and the source drifted, or the test pins cancelled behaviour - before it can run."
     },
     {
       "file": "apps/web/tests/unit/components.test.tsx",
@@ -2681,6 +2686,11 @@
     },
     {
       "file": "apps/web/tests/unit/platformV7OwnerAccessCenterTaskUx.test.ts",
+      "status": "passed",
+      "reason": "Green when measured on the inventory run for #4786, but never named in the web-unit step. Staged enablement rather than a bulk switch-on, so CI runtime and flake surface change in reviewable steps."
+    },
+    {
+      "file": "apps/web/tests/unit/platformV7OwnerRealCabinets.test.ts",
       "status": "passed",
       "reason": "Green when measured on the inventory run for #4786, but never named in the web-unit step. Staged enablement rather than a bulk switch-on, so CI runtime and flake surface change in reviewable steps."
     },

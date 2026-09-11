@@ -351,22 +351,6 @@ function markPlatformV7Entry(response: NextResponse) {
   response.cookies.set(PLATFORM_V7_ENTRY_COOKIE, 'true', { path: '/', maxAge: 60 * 60 * 4, sameSite: 'lax', secure: true });
 }
 
-async function ownerControlledRootAllowed(req: NextRequest): Promise<boolean> {
-  const role = ownerControlledCabinetRole(req.nextUrl.pathname);
-  if (!role) return false;
-
-  const secret = String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
-  const session = secret
-    ? await readVerifiedCabinetSessionContext(
-      req.cookies.get(CABINET_SESSION_COOKIE)?.value ?? null,
-      secret,
-      Math.floor(Date.now() / 1000),
-    )
-    : null;
-  const expected = controlledCabinetContext(role);
-  return ownerCabinetSessionMatchesRoot(req.nextUrl.pathname, session, expected);
-}
-
 function controlRealmResponse(req: NextRequest) {
   const requestHeaders = new Headers(req.headers);
   requestHeaders.delete('x-pc-role');
@@ -423,12 +407,13 @@ export async function middleware(req: NextRequest) {
         return applySecurityHeaders(NextResponse.redirect(primaryPlatformUrl(p, req.nextUrl.search), 308), true, false);
       }
       const ownerRoot = ownerControlledCabinetRole(p) !== null;
-      if (ownerRoot) {
-        if (!(await ownerControlledRootAllowed(req))) return controlRealmDenied(req);
+      if (!ownerRoot) {
+        if (!isControlRealmPathAllowed(p)) return controlRealmDenied(req);
         return controlRealmResponse(req);
       }
-      if (!isControlRealmPathAllowed(p)) return controlRealmDenied(req);
-      return controlRealmResponse(req);
+      // Exact owner roots deliberately fall through to the ordinary signed
+      // cabinet-session verifier below. They are never widened into the broad
+      // control-realm allowlist.
     }
 
     const staffPage = isPlatformV7StaffPath(p);
@@ -521,6 +506,16 @@ export async function middleware(req: NextRequest) {
     const context = secret
       ? await readVerifiedCabinetSessionContext(req.cookies.get(CABINET_SESSION_COOKIE)?.value ?? null, secret, Math.floor(Date.now() / 1000))
       : null;
+
+    if (isControlHostRequest(req)) {
+      const ownerRole = ownerControlledCabinetRole(p);
+      if (ownerRole) {
+        const expected = controlledCabinetContext(ownerRole);
+        if (!ownerCabinetSessionMatchesRoot(p, context, expected)) return controlRealmDenied(req);
+        return controlRealmResponse(req);
+      }
+    }
+
     if (context?.role === 'organization') {
       if (!isOrganizationCabinetPath(p)) {
         const target = req.nextUrl.clone();

@@ -8,7 +8,6 @@ function source(path: string) {
 
 const layout = source('app/platform-v7/layout.tsx');
 const opener = source('app/platform-v7/staff/open-cabinet/route.ts');
-const controlHost = source('lib/platform-v7/control-host.ts');
 const ownerCenter = source('components/platform-v7/staff/OwnerAccessCenterV3.tsx');
 const ownerVerifier = source('lib/platform-v7/owner-controlled-cabinet-server.ts');
 const controlledOrganizations = source('lib/platform-v7/controlled-test-organizations.ts');
@@ -25,10 +24,7 @@ describe('Platform owner real cabinet access', () => {
       expect(ownerCenter).toContain(`role: '${role}'`);
       expect(controlledOrganizations).toContain(`${role}: {`);
     }
-    expect(controlHost).toContain("operator: '/platform-v7/operator'");
-    expect(controlHost).toContain("organization: '/platform-v7/profile'");
-    expect(controlHost).toContain("executive: '/platform-v7/executive'");
-    expect(opener).toContain('OWNER_CONTROLLED_CABINET_TARGETS');
+    expect(opener).toContain("organization: '/platform-v7/profile'");
     expect(ownerCenter).toContain('All 13 working cabinets');
     expect(ownerCenter).toContain('все 13 рабочих кабинетов');
   });

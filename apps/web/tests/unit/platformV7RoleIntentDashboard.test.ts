@@ -2,7 +2,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { CONTROLLED_CABINET_CONTEXTS } from '../../lib/platform-v7/controlled-test-organizations';
-import { OWNER_CONTROLLED_CABINET_TARGETS } from '../../lib/platform-v7/control-host';
+import {
+  isControlRealmPathAllowed,
+  OWNER_CONTROLLED_CABINET_TARGETS,
+  ownerCabinetSessionMatchesRoot,
+  ownerControlledCabinetRole,
+} from '../../lib/platform-v7/control-host';
 
 const cwd = process.cwd();
 const root = [cwd, path.resolve(cwd, '../..')]
@@ -84,20 +89,38 @@ describe('platform-v7 role intent dashboard', () => {
     expect(dashboardStyles).toContain('overscroll-behavior: contain');
   });
 
-  it('keeps all thirteen owner cabinet routes, organizations and page implementations connected', () => {
-    const openCabinet = read('apps/web/app/platform-v7/staff/open-cabinet/route.ts');
-    const controlHost = read('apps/web/lib/platform-v7/control-host.ts');
-
-    expect(openCabinet).toContain('OWNER_CONTROLLED_CABINET_TARGETS');
+  it('keeps all thirteen owner cabinet roots exact, role-bound and outside the broad control allowlist', () => {
     expect(ownerCabinetMatrix).toHaveLength(13);
     expect(new Set(ownerCabinetMatrix.map((item) => item.role)).size).toBe(13);
     expect(new Set(ownerCabinetMatrix.map((item) => item.route)).size).toBe(13);
+    expect(ownerControlledCabinetRole('/platform-v7/control-tower')).toBeNull();
 
     for (const item of ownerCabinetMatrix) {
-      expect(controlHost).toContain(`${item.role}: '${item.route}'`);
-      expect(CONTROLLED_CABINET_CONTEXTS[item.role].role).toBe(item.role);
-      expect(CONTROLLED_CABINET_CONTEXTS[item.role].organizationId).toBeTruthy();
-      expect(fs.existsSync(path.join(root, item.page))).toBe(true);
+      const expected = CONTROLLED_CABINET_CONTEXTS[item.role];
+      expect(OWNER_CONTROLLED_CABINET_TARGETS[item.role], item.role).toBe(item.route);
+      expect(ownerControlledCabinetRole(item.route), item.role).toBe(item.role);
+      expect(ownerControlledCabinetRole(`${item.route}/deep`), `${item.role}: deep`).toBeNull();
+      expect(isControlRealmPathAllowed(item.route), `${item.role}: broad allowlist`).toBe(false);
+      expect(expected.role, `${item.role}: context role`).toBe(item.role);
+      expect(expected.organizationId, `${item.role}: organization`).toBeTruthy();
+      expect(expected.tenantId, `${item.role}: tenant`).toBeTruthy();
+
+      const valid = {
+        role: item.role,
+        userId: 'owner-user',
+        ownerAccess: true,
+        organizationId: expected.organizationId,
+        tenantId: expected.tenantId,
+      };
+      expect(ownerCabinetSessionMatchesRoot(item.route, valid, expected), `${item.role}: valid`).toBe(true);
+      expect(ownerCabinetSessionMatchesRoot(item.route, { ...valid, userId: '' }, expected), `${item.role}: empty user`).toBe(false);
+      expect(ownerCabinetSessionMatchesRoot(item.route, { ...valid, ownerAccess: false }, expected), `${item.role}: non-owner`).toBe(false);
+      expect(ownerCabinetSessionMatchesRoot(item.route, { ...valid, role: 'wrong-role' }, expected), `${item.role}: wrong role`).toBe(false);
+      expect(ownerCabinetSessionMatchesRoot(item.route, { ...valid, organizationId: 'wrong-org' }, expected), `${item.role}: wrong org`).toBe(false);
+      expect(ownerCabinetSessionMatchesRoot(item.route, { ...valid, tenantId: 'wrong-tenant' }, expected), `${item.role}: wrong tenant`).toBe(false);
+      expect(ownerCabinetSessionMatchesRoot(`${item.route}/deep`, valid, expected), `${item.role}: deep root`).toBe(false);
+
+      expect(fs.existsSync(path.join(root, item.page)), `${item.role}: page`).toBe(true);
       const page = read(item.page);
       expect(page).toMatch(/export default/);
       expect(page.length).toBeGreaterThan(200);
