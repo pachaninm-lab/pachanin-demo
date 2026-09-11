@@ -1,0 +1,82 @@
+#!/usr/bin/env python3
+import hashlib
+import http.client
+import json
+import os
+from pathlib import Path
+import re
+import secrets
+import socket
+import subprocess
+import sys
+import time
+
+(
+    model_revision,
+    model_sha256,
+    model_size_raw,
+    model_identity,
+    conversion_root_raw,
+    conversion_report_sha256,
+    server_sha256,
+    server_size_raw,
+    llama_commit,
+    diff_path_raw,
+    policy_path_raw,
+    schema_path_raw,
+    changed_paths_raw,
+    output_path_raw,
+) = sys.argv[1:]
+
+model_size = int(model_size_raw)
+server_size = int(server_size_raw)
+conversion_root = Path(conversion_root_raw)
+diff_path = Path(diff_path_raw)
+policy_path = Path(policy_path_raw)
+schema_path = Path(schema_path_raw)
+changed_paths_path = Path(changed_paths_raw)
+output_path = Path(output_path_raw)
+speculative = re.compile(r"\b(?:could|may|might|likely|potentially)\b", re.I)
+
+def fail(code):
+    raise SystemExit("REMOTE_REVIEW_ERROR=" + code)
+
+def digest(path):
+    value = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(8 * 1024 * 1024), b""):
+            value.update(block)
+    return value.hexdigest()
+
+report_path = conversion_root / "evidence/conversion-report.json"
+model_path = conversion_root / "artifacts/mistral-7b-instruct-v0.3-q4-k-m.gguf"
+server_path = conversion_root / "toolchain/bin/llama-server"
+
+for path in (report_path, model_path, server_path):
+    if not path.is_file() or path.is_symlink():
+        fail("BOUND_FILE_INVALID")
+
+if digest(report_path) != conversion_report_sha256:
+    fail("CONVERSION_REPORT_SHA256_MISMATCH")
+
+report = json.loads(report_path.read_text(encoding="utf-8"))
+if report.get("exact_main_sha") != "846963821cf990c226eaead8b32f4bc9148311a0":
+    fail("CONVERSION_MAIN_MISMATCH")
+if report.get("workflow_run_id") != 30333755510 or report.get("workflow_run_attempt") != 1:
+    fail("CONVERSION_RUN_MISMATCH")
+if report.get("toolchain_status") != "VERIFIED_RESTORED":
+    fail("TOOLCHAIN_STATUS_INVALID")
+
+source_models = report.get("source_verification", {}).get("models", [])
+source = next((item for item in source_models if item.get("model_id") == "mistralai/Mistral-7B-Instruct-v0.3"), None)
+if not source or source.get("revision") != model_revision:
+    fail("MODEL_REVISION_MISMATCH")
+
+relative_model_path = "artifacts/mistral-7b-instruct-v0.3-q4-k-m.gguf"
+output = next((item for item in report.get("outputs", []) if item.get("path") == relative_model_path), None)
+if not output or output.get("sha256") != model_sha256 or output.get("size_bytes") != model_size:
+    fail("MODEL_REPORT_BINDING_INVALID")
+if model_path.stat().st_size != model_size or digest(model_path) != model_sha256:
+    fail("MODEL_FILE_IDENTITY_INVALID")
+if server_path.stat().st_size != server_size or digest(server_path) != server_sha256:
+    fail("LLAMA_SERVER_IDENTITY_INVALID")
