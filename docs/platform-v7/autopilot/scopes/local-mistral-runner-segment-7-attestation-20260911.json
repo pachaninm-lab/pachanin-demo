@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/local-mistral-runner-segment-7-attestation-20260911",
+  "status": "active",
+  "purpose": "Stage and independently review the seventh inert Local Mistral reviewer segment: canonical clean-review evidence and exact-head attestation rendering without provider-status or workflow publication.",
+  "authorityBaseExactMain": "68d6af04e38bab7bdae7ce74d83189d7faf58e3e",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/bootstrap/local-mistral-attestation.py.inert",
+    "docs/platform-v7/autopilot/scopes/local-mistral-runner-segment-7-attestation-20260911.json"
+  ],
+  "requiredInvariants": [
+    "The staged .inert module is not executed or referenced by any workflow.",
+    "Attestation input accepts only exact trusted metadata fields and contains no raw pull-request diff, model candidate, secret or PII bytes.",
+    "Exact-head, model revision, runtime source commit, all SHA-256 evidence digests, strictly typed bounded integer evidence, workflow run id and exact provider workflow are validated fail closed; Python booleans are never accepted as integers.",
+    "Only verdict PASS with integer findings_count=0 can produce a clean attestation.",
+    "Canonical evidence uses deterministic sorted compact JSON and binds its own SHA-256 into a minimized rendered review body.",
+    "The public review body contains only exact head, provider workflow, canonical evidence SHA-256, workflow run id, verdict and finding count; internal model/runtime/diff evidence digests are not rendered individually.",
+    "This segment does not publish a review, commit status, workflow result or exact-head gate authority.",
+    "Local Qwen workflow and exact-head verifier remain unchanged and are the independent authority for this PR.",
+    "No product, API, database, RBAC, registration, cabinet, customer-data or production-routing behavior changes.",
+    "Production hosting remains REG_RU_VPS_ONLY and new recurring cost remains 0 RUB."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
