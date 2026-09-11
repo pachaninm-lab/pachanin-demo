@@ -351,6 +351,13 @@ function markPlatformV7Entry(response: NextResponse) {
   response.cookies.set(PLATFORM_V7_ENTRY_COOKIE, 'true', { path: '/', maxAge: 60 * 60 * 4, sameSite: 'lax', secure: true });
 }
 
+async function verifiedCabinetContext(req: NextRequest) {
+  const secret = String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
+  const token = req.cookies.get(CABINET_SESSION_COOKIE)?.value ?? '';
+  if (!secret || !token) return null;
+  return readVerifiedCabinetSessionContext(token, secret, Math.floor(Date.now() / 1000));
+}
+
 function controlRealmResponse(req: NextRequest) {
   const requestHeaders = new Headers(req.headers);
   requestHeaders.delete('x-pc-role');
@@ -406,14 +413,17 @@ export async function middleware(req: NextRequest) {
       if (p === '/platform-v7/register') {
         return applySecurityHeaders(NextResponse.redirect(primaryPlatformUrl(p, req.nextUrl.search), 308), true, false);
       }
-      const ownerRoot = ownerControlledCabinetRole(p) !== null;
-      if (!ownerRoot) {
-        if (!isControlRealmPathAllowed(p)) return controlRealmDenied(req);
+
+      const ownerRole = ownerControlledCabinetRole(p);
+      if (ownerRole !== null) {
+        const context = await verifiedCabinetContext(req);
+        const expected = controlledCabinetContext(ownerRole);
+        if (!ownerCabinetSessionMatchesRoot(p, context, expected)) return controlRealmDenied(req);
         return controlRealmResponse(req);
       }
-      // Exact owner roots deliberately fall through to the ordinary signed
-      // cabinet-session verifier below. They are never widened into the broad
-      // control-realm allowlist.
+
+      if (!isControlRealmPathAllowed(p)) return controlRealmDenied(req);
+      return controlRealmResponse(req);
     }
 
     const staffPage = isPlatformV7StaffPath(p);
@@ -502,19 +512,7 @@ export async function middleware(req: NextRequest) {
       return response;
     }
 
-    const secret = String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
-    const context = secret
-      ? await readVerifiedCabinetSessionContext(req.cookies.get(CABINET_SESSION_COOKIE)?.value ?? null, secret, Math.floor(Date.now() / 1000))
-      : null;
-
-    if (isControlHostRequest(req)) {
-      const ownerRole = ownerControlledCabinetRole(p);
-      if (ownerRole) {
-        const expected = controlledCabinetContext(ownerRole);
-        if (!ownerCabinetSessionMatchesRoot(p, context, expected)) return controlRealmDenied(req);
-        return controlRealmResponse(req);
-      }
-    }
+    const context = await verifiedCabinetContext(req);
 
     if (context?.role === 'organization') {
       if (!isOrganizationCabinetPath(p)) {
