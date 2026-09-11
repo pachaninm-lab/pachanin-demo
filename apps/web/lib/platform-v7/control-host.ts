@@ -47,16 +47,13 @@ export function ownerCabinetSessionMatchesRoot(
   } | null | undefined,
 ): boolean {
   const role = ownerControlledCabinetRole(pathname);
-  return role !== null
-    && session?.ownerAccess === true
-    && typeof session.userId === 'string'
-    && session.userId.trim().length > 0
-    && session.role === role
-    && expected !== null
-    && expected !== undefined
-    && expected.role === role
-    && session.organizationId === expected.organizationId
-    && session.tenantId === expected.tenantId;
+  if (role === null || session == null || expected == null) return false;
+  if (session.ownerAccess !== true) return false;
+  if (typeof session.userId !== 'string' || session.userId.trim().length === 0) return false;
+  if (session.role !== role || expected.role !== role) return false;
+  if (session.organizationId !== expected.organizationId) return false;
+  if (session.tenantId !== expected.tenantId) return false;
+  return true;
 }
 
 const CONTROL_PAGE_EXACT = new Set([
