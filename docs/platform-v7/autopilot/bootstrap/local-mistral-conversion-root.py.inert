@@ -1,0 +1,160 @@
+#!/usr/bin/env python3
+import os
+import re
+import stat
+
+GIT_SHA = re.compile(r"[0-9a-f]{40}\Z")
+NON_ROOT_WRITE_BITS = stat.S_IWGRP | stat.S_IWOTH
+
+
+class ConversionRootAuthorityError(Exception):
+    pass
+
+
+class PinnedConversionRoot:
+    __slots__ = ("fd", "dev", "ino", "authority_root")
+
+    def __init__(self, fd, info, authority_root):
+        self.fd = fd
+        self.dev = info.st_dev
+        self.ino = info.st_ino
+        self.authority_root = authority_root
+
+    def close(self):
+        if self.fd is not None:
+            os.close(self.fd)
+            self.fd = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+
+
+def reject(code):
+    raise ConversionRootAuthorityError(code) from None
+
+
+def _directory_flags():
+    required = ("O_PATH", "O_CLOEXEC", "O_NOFOLLOW", "O_DIRECTORY")
+    if any(not hasattr(os, name) for name in required):
+        reject("CONVERSION_ROOT_OPEN_UNAVAILABLE")
+    return os.O_PATH | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_DIRECTORY
+
+
+def _root_anchor_flags():
+    required = ("O_PATH", "O_CLOEXEC", "O_DIRECTORY")
+    if any(not hasattr(os, name) for name in required):
+        reject("CONVERSION_ROOT_OPEN_UNAVAILABLE")
+    return os.O_PATH | os.O_CLOEXEC | os.O_DIRECTORY
+
+
+def _require_positive_int(value, code):
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        reject(code)
+
+
+def _require_trusted_directory(info, code):
+    if not stat.S_ISDIR(info.st_mode):
+        reject(code)
+    if info.st_uid != 0:
+        reject(code)
+    if info.st_mode & NON_ROOT_WRITE_BITS:
+        reject(code)
+
+
+def _safe_component(value, code):
+    if not isinstance(value, str) or not value or value in {".", ".."}:
+        reject(code)
+    if "/" in value or "\x00" in value:
+        reject(code)
+    return value
+
+
+def _open_root_anchor():
+    try:
+        fd = os.open("/", _root_anchor_flags())
+    except OSError:
+        reject("ROOT_ANCHOR_INVALID")
+    try:
+        info = os.fstat(fd)
+        _require_trusted_directory(info, "ROOT_ANCHOR_INVALID")
+        return fd
+    except Exception:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        raise
+
+
+def _open_child_directory(parent_fd, component, code):
+    component = _safe_component(component, code)
+    try:
+        fd = os.open(component, _directory_flags(), dir_fd=parent_fd)
+    except OSError:
+        reject(code)
+    try:
+        info = os.fstat(fd)
+        _require_trusted_directory(info, code)
+        return fd, info
+    except Exception:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        raise
+
+
+def pin_conversion_root(exact_main_sha, workflow_run_id, workflow_run_attempt, authority_root):
+    if not isinstance(exact_main_sha, str) or not GIT_SHA.fullmatch(exact_main_sha):
+        reject("CONVERSION_ROOT_MAIN_INVALID")
+    _require_positive_int(workflow_run_id, "CONVERSION_ROOT_RUN_INVALID")
+    _require_positive_int(workflow_run_attempt, "CONVERSION_ROOT_ATTEMPT_INVALID")
+
+    run_component = f"{workflow_run_id}-{workflow_run_attempt}"
+    expected_root = (
+        "/srv/tai-models/conversion-runs/"
+        + exact_main_sha
+        + "/"
+        + run_component
+    )
+    if not isinstance(authority_root, str) or authority_root != expected_root:
+        reject("CONVERSION_ROOT_AUTHORITY_MISMATCH")
+
+    root_fd = _open_root_anchor()
+    opened = [root_fd]
+    run_fd = None
+    try:
+        srv_fd, _ = _open_child_directory(root_fd, "srv", "CONVERSION_ROOT_SRV_INVALID")
+        opened.append(srv_fd)
+        models_fd, _ = _open_child_directory(srv_fd, "tai-models", "CONVERSION_ROOT_MODELS_INVALID")
+        opened.append(models_fd)
+        runs_fd, _ = _open_child_directory(models_fd, "conversion-runs", "CONVERSION_ROOT_RUNS_INVALID")
+        opened.append(runs_fd)
+        main_fd, _ = _open_child_directory(runs_fd, exact_main_sha, "CONVERSION_ROOT_MAIN_DIRECTORY_INVALID")
+        opened.append(main_fd)
+        run_fd, run_info = _open_child_directory(main_fd, run_component, "CONVERSION_ROOT_RUN_DIRECTORY_INVALID")
+
+        current = os.fstat(run_fd)
+        _require_trusted_directory(current, "CONVERSION_ROOT_RUN_DIRECTORY_INVALID")
+        if (current.st_dev, current.st_ino) != (run_info.st_dev, run_info.st_ino):
+            reject("CONVERSION_ROOT_RUN_DIRECTORY_INVALID")
+
+        result = PinnedConversionRoot(run_fd, current, expected_root)
+        run_fd = None
+        return result
+    except OSError:
+        reject("CONVERSION_ROOT_REVALIDATION_INVALID")
+    finally:
+        if run_fd is not None:
+            try:
+                os.close(run_fd)
+            except OSError:
+                pass
+        for fd in reversed(opened):
+            try:
+                os.close(fd)
+            except OSError:
+                pass
