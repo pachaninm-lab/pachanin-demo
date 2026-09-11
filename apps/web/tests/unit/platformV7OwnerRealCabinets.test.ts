@@ -48,8 +48,10 @@ describe('Platform owner real cabinet access', () => {
   });
 
   it('uses the canonical production server API base for owner authority checks', () => {
-    expect(opener).toContain("import { resolveServerApiBaseUrl } from '@/lib/server/server-api-origin';");
+    expect(opener).toContain('CANONICAL_COMPOSE_API_BASE_URL');
+    expect(opener).toContain('resolveServerApiBaseUrl');
     expect(opener).toContain('const apiBaseUrl = resolveServerApiBaseUrl();');
+    expect(opener).toContain("process.env.NODE_ENV === 'production' && apiBaseUrl !== CANONICAL_COMPOSE_API_BASE_URL");
     expect(opener).toContain('fetch(`${apiBaseUrl}/staff/capabilities/me`');
     expect(opener).not.toContain('function apiOrigin()');
     expect(opener).not.toContain("url.protocol !== 'https:'");
