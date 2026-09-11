@@ -114,7 +114,7 @@ describe('platform-v7 role intent dashboard', () => {
 
       const valid = {
         role: item.role,
-        userId: 'owner-user',
+        userId: item.route,
         ownerAccess: true,
         organizationId: expected.organizationId,
         tenantId: expected.tenantId,
