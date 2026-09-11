@@ -2,7 +2,10 @@ import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE, CSRF_COOKIE, SESSION_COOKIE, sessionMarkerCookie } from '@/lib/auth-cookies';
 import { CABINET_SESSION_COOKIE } from '@/lib/server/auth-session-response';
-import { resolveServerApiBaseUrl } from '@/lib/server/server-api-origin';
+import {
+  CANONICAL_COMPOSE_API_BASE_URL,
+  resolveServerApiBaseUrl,
+} from '@/lib/server/server-api-origin';
 import {
   controlledCabinetContext,
   type ControlledCabinetContext,
@@ -221,6 +224,13 @@ async function controlledOwnerAuthority(accessToken: string, secret: string): Pr
 async function apiOwnerAuthority(accessToken: string, correlationId: string): Promise<AuthorityResult> {
   const apiBaseUrl = resolveServerApiBaseUrl();
   if (!apiBaseUrl) return { status: 'unavailable' };
+  // Production owner authority is allowed to call only the canonical Compose
+  // service endpoint. This second fail-closed assertion makes the trust boundary
+  // explicit at the privileged call site even though the shared resolver also
+  // validates configured origins.
+  if (process.env.NODE_ENV === 'production' && apiBaseUrl !== CANONICAL_COMPOSE_API_BASE_URL) {
+    return { status: 'unavailable' };
+  }
 
   try {
     const response = await fetch(`${apiBaseUrl}/staff/capabilities/me`, {
