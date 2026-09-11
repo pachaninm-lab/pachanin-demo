@@ -53,6 +53,7 @@ describe('Platform owner real cabinet access', () => {
     expect(opener).toContain('fetch(`${apiBaseUrl}/staff/capabilities/me`');
     expect(opener).not.toContain('function apiOrigin()');
     expect(opener).not.toContain("url.protocol !== 'https:'");
+    expect(opener).not.toContain('NEXT_PUBLIC_API_URL');
   });
 
   it('keeps ordinary business cabinet verification unchanged and adds only an owner-controlled branch', () => {
