@@ -125,8 +125,7 @@ if (
     or any(not isinstance(path, str) or not path or len(path) > 240 for path in changed_paths)
 ):
     fail("CHANGED_PATHS_INVALID")
-changed_path_set = set(changed_paths)
-validator_changed_path_set = frozenset(changed_paths)
+changed_path_set = frozenset(changed_paths)
 
 credential_pattern = re.compile(
     r"(?is)(-----BEGIN [A-Z ]*PRIVATE KEY-----|\b(?:github_pat_|gh[pousr]_|AKIA|ASIA|xox[baprs]-|sk-(?:proj-)?)[A-Za-z0-9_\-]{12,}|\b(?:password|passwd|secret|api[_-]?key|access[_-]?token|authorization)\s*[:=]\s*[\"'][^\"'\r\n]{8,}[\"'])"
@@ -164,7 +163,7 @@ prompt_bundle_sha256 = hashlib.sha256(
     json.dumps(prompt_bundle, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
 ).hexdigest()
 
-# Segment 4 consumes only the already validated changed-path authority frozen above.
+# Segment 4 consumes only the validated changed-path authority frozen above.
 candidate_limit_bytes = 65_536
 finding_fields = {"severity", "path", "line", "title", "reason"}
 
@@ -192,7 +191,7 @@ def validate_candidate(text):
     if finding.get("severity") not in {"P0", "P1", "P2"}:
         return "SEVERITY_INVALID", None
     path = finding.get("path")
-    if not isinstance(path, str) or path not in validator_changed_path_set:
+    if not isinstance(path, str) or path not in changed_path_set:
         return "PATH_AUTHORITY_INVALID", None
     line = finding.get("line")
     if isinstance(line, bool) or not isinstance(line, int) or line < 1:
