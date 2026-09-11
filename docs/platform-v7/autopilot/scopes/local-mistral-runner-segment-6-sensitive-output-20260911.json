@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/local-mistral-runner-segment-6-sensitive-output-20260911",
+  "status": "active",
+  "purpose": "Stage and independently review the sixth inert Local Mistral reviewer segment: fail-closed sensitive-output rejection before any evidence, review comment or provider status can be produced.",
+  "authorityBaseExactMain": "336ea16c4d8b149b4e542f5aa527f69076efc913",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/bootstrap/local-mistral-sensitive-output.py.inert",
+    "docs/platform-v7/autopilot/scopes/local-mistral-runner-segment-6-sensitive-output-20260911.json"
+  ],
+  "requiredInvariants": [
+    "The staged .inert module is not executed or referenced by any workflow.",
+    "Candidate bytes are bounded before scanning and malformed or empty candidate data fails closed.",
+    "Private-key markers, common credential/token forms, e-mail addresses and phone-like PII are rejected before downstream canonicalization or publication.",
+    "Sensitive material is never embedded in an exception message; only fixed error codes are exposed.",
+    "A candidate digest is computed only after the candidate passes sensitive-output rejection.",
+    "No candidate, digest, review, attestation, status or workflow publication is activated by this segment.",
+    "Local Qwen workflow and exact-head verifier remain unchanged and are the independent authority for this PR.",
+    "No product, API, database, RBAC, registration, cabinet, customer-data or production-routing behavior changes.",
+    "Production hosting remains REG_RU_VPS_ONLY and new recurring cost remains 0 RUB."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
