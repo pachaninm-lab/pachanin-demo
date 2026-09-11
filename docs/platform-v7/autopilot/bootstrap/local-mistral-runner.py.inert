@@ -165,9 +165,6 @@ prompt_bundle_sha256 = hashlib.sha256(
 
 candidate_limit_bytes = 65_536
 finding_fields = {"severity", "path", "line", "title", "reason"}
-output_token_pattern = re.compile(
-    r"(?is)(-----BEGIN [A-Z ]*PRIVATE KEY-----|\b(?:github_pat_|gh[pousr]_|AKIA|ASIA|xox[baprs]-|sk-(?:proj-)?)[A-Za-z0-9_\-]{12,})"
-)
 
 def validate_candidate(text):
     if not isinstance(text, str) or not text.strip():
@@ -207,6 +204,6 @@ def validate_candidate(text):
     if speculative.search(reason):
         return "SPECULATIVE_REASON"
     rendered = title + "\n" + reason
-    if output_token_pattern.search(rendered) or email_pattern.search(rendered) or phone_pattern.search(rendered):
-        return "OUTPUT_SENSITIVE_DATA_INVALID"
+    if credential_pattern.search(rendered) or email_pattern.search(rendered) or phone_pattern.search(rendered):
+        fail("OUTPUT_SENSITIVE_DATA_BLOCKED")
     return None
