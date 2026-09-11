@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/local-mistral-segment-9-content-verification-20260912",
+  "status": "active",
+  "purpose": "Stage and independently review only inert content verification of already-pinned Local Mistral conversion identities.",
+  "authorityBaseExactMain": "5009aa43d3e4faf5e20dc4bcebcb257b87c2ac93",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/bootstrap/local-mistral-content-verification.py.inert",
+    "docs/platform-v7/autopilot/scopes/local-mistral-segment-9-content-verification-20260912.json"
+  ],
+  "requiredInvariants": [
+    "This PR is inert and verifies bytes only for a caller-supplied already-pinned regular-file identity; it does not discover conversion roots, parse authority JSON, invoke Mistral, publish reviews/status, change verifier routing or activate a workflow.",
+    "The caller supplies the O_PATH identity FD plus the dev/inode identity captured by the admitted segment-8 primitive. This segment first revalidates that the supplied FD still refers to that exact regular-file identity.",
+    "Readable access is obtained only through the kernel-controlled /proc/self/fd/<integer-fd> handle and is accepted only when fstat proves the reopened descriptor has the exact same device and inode as the pinned identity.",
+    "A content source must be root-owned, have no owner/group/world write bits, and stay within the fixed per-artifact byte bound before any content authority is granted.",
+    "Mistral GGUF and llama-server require exact authority-provided byte sizes; conversion-report is bounded to 4 MiB and its exact content identity is the authority SHA-256.",
+    "Content is streamed through the already-bound readable descriptor; total bytes must equal the validated source size, early EOF and trailing bytes fail closed, and SHA-256 must exactly equal the supplied authority digest.",
+    "Device, inode, uid, mode, size, mtime_ns and ctime_ns are captured before reading and must be byte-for-byte identical after hashing. Any mutation observed during verification fails closed.",
+    "The returned readable FD is the same verified descriptor, rewound to offset zero; callers must consume that FD (or /proc/self/fd for that inherited FD) rather than reopen the original pathname.",
+    "Because the accepted source is root-owned and has no write permission bits, non-root reviewer/runtime processes cannot mutate the verified inode after acceptance; root is outside the untrusted review-input boundary.",
+    "All operating-system errors are translated to fixed ContentVerificationError codes with suppressed exception chaining; raw OS/path details are not emitted by this primitive.",
+    "Root discovery/authorization, authority-field binding, semantic validation, invocation, sensitive-output handling, attestation publication, provider status, exact-head routing and self-review prevention remain separately governed.",
+    "No product, API, database, RBAC, registration, cabinet, customer-data or production-routing behavior is activated.",
+    "Local Qwen is the independent reviewer because this changes future Local Mistral authority only.",
+    "REG.RU remains production authority and new recurring cost remains 0 RUB."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

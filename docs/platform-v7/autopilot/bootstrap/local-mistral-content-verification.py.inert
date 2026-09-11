@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+import hashlib
+import os
+import re
+import stat
+
+SHA256 = re.compile(r"[0-9a-f]{64}\Z")
+READ_CHUNK_BYTES = 4 * 1024 * 1024
+REPORT_MAX_BYTES = 4 * 1024 * 1024
+MODEL_MAX_BYTES = 8 * 1024 * 1024 * 1024
+SERVER_MAX_BYTES = 256 * 1024 * 1024
+ALL_WRITE_BITS = stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH
+
+
+class ContentVerificationError(Exception):
+    pass
+
+
+class VerifiedReadableFile:
+    __slots__ = ("fd", "sha256", "size", "dev", "ino")
+
+    def __init__(self, fd, sha256, size, dev, ino):
+        self.fd = fd
+        self.sha256 = sha256
+        self.size = size
+        self.dev = dev
+        self.ino = ino
+
+    def close(self):
+        if self.fd is not None:
+            os.close(self.fd)
+            self.fd = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+
+
+def reject(code):
+    raise ContentVerificationError(code) from None
+
+
+def _require_identity(identity_fd, expected_dev, expected_ino, code):
+    if type(identity_fd) is not int or identity_fd < 0:
+        reject(code)
+    if type(expected_dev) is not int or expected_dev < 0:
+        reject(code)
+    if type(expected_ino) is not int or expected_ino <= 0:
+        reject(code)
+    try:
+        info = os.fstat(identity_fd)
+    except OSError:
+        reject(code)
+    if not stat.S_ISREG(info.st_mode):
+        reject(code)
+    if info.st_dev != expected_dev or info.st_ino != expected_ino:
+        reject(code)
+
+
+def _require_sha256(value, code):
+    if not isinstance(value, str) or not SHA256.fullmatch(value):
+        reject(code)
+
+
+def _require_exact_size(value, maximum, code):
+    if type(value) is not int or value <= 0 or value > maximum:
+        reject(code)
+
+
+def _open_same_inode_readonly(identity_fd, expected_dev, expected_ino, code):
+    proc_path = f"/proc/self/fd/{identity_fd}"
+    try:
+        read_fd = os.open(proc_path, os.O_RDONLY | os.O_CLOEXEC)
+    except OSError:
+        reject(code)
+    try:
+        info = os.fstat(read_fd)
+    except OSError:
+        os.close(read_fd)
+        reject(code)
+    if not stat.S_ISREG(info.st_mode):
+        os.close(read_fd)
+        reject(code)
+    if info.st_dev != expected_dev or info.st_ino != expected_ino:
+        os.close(read_fd)
+        reject(code)
+    return read_fd, info
+
+
+def _trusted_readonly_metadata(info, maximum, exact_size, code):
+    if not stat.S_ISREG(info.st_mode):
+        reject(code)
+    if info.st_uid != 0:
+        reject(code)
+    if info.st_mode & ALL_WRITE_BITS:
+        reject(code)
+    if info.st_size <= 0 or info.st_size > maximum:
+        reject(code)
+    if exact_size is not None and info.st_size != exact_size:
+        reject(code)
+
+
+def _metadata_tuple(info):
+    return (
+        info.st_dev,
+        info.st_ino,
+        info.st_uid,
+        stat.S_IMODE(info.st_mode),
+        info.st_size,
+        info.st_mtime_ns,
+        info.st_ctime_ns,
+    )
+
+
+def _hash_exact_fd(read_fd, expected_size, code):
+    digest = hashlib.sha256()
+    total = 0
+    try:
+        while total < expected_size:
+            chunk = os.read(read_fd, min(READ_CHUNK_BYTES, expected_size - total))
+            if not chunk:
+                reject(code)
+            digest.update(chunk)
+            total += len(chunk)
+        if os.read(read_fd, 1):
+            reject(code)
+    except ContentVerificationError:
+        raise
+    except OSError:
+        reject(code)
+    if total != expected_size:
+        reject(code)
+    return digest.hexdigest()
+
+
+def _verify(identity_fd, expected_dev, expected_ino, expected_sha256, exact_size, maximum, code):
+    _require_identity(identity_fd, expected_dev, expected_ino, code)
+    _require_sha256(expected_sha256, code)
+    if exact_size is not None:
+        _require_exact_size(exact_size, maximum, code)
+
+    read_fd, before = _open_same_inode_readonly(identity_fd, expected_dev, expected_ino, code)
+    try:
+        _trusted_readonly_metadata(before, maximum, exact_size, code)
+        before_tuple = _metadata_tuple(before)
+        actual_sha256 = _hash_exact_fd(read_fd, before.st_size, code)
+        try:
+            after = os.fstat(read_fd)
+        except OSError:
+            reject(code)
+        _trusted_readonly_metadata(after, maximum, exact_size, code)
+        if _metadata_tuple(after) != before_tuple:
+            reject(code)
+        if actual_sha256 != expected_sha256:
+            reject(code)
+        try:
+            os.lseek(read_fd, 0, os.SEEK_SET)
+        except OSError:
+            reject(code)
+        return VerifiedReadableFile(read_fd, actual_sha256, before.st_size, before.st_dev, before.st_ino)
+    except Exception:
+        try:
+            os.close(read_fd)
+        except OSError:
+            pass
+        raise
+
+
+def verify_conversion_report(identity_fd, expected_dev, expected_ino, expected_sha256):
+    return _verify(
+        identity_fd,
+        expected_dev,
+        expected_ino,
+        expected_sha256,
+        None,
+        REPORT_MAX_BYTES,
+        "CONVERSION_REPORT_CONTENT_INVALID",
+    )
+
+
+def verify_mistral_model(identity_fd, expected_dev, expected_ino, expected_sha256, expected_size):
+    return _verify(
+        identity_fd,
+        expected_dev,
+        expected_ino,
+        expected_sha256,
+        expected_size,
+        MODEL_MAX_BYTES,
+        "CONVERSION_MODEL_CONTENT_INVALID",
+    )
+
+
+def verify_llama_server(identity_fd, expected_dev, expected_ino, expected_sha256, expected_size):
+    return _verify(
+        identity_fd,
+        expected_dev,
+        expected_ino,
+        expected_sha256,
+        expected_size,
+        SERVER_MAX_BYTES,
+        "CONVERSION_SERVER_CONTENT_INVALID",
+    )
