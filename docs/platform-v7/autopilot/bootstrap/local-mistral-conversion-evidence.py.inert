@@ -1,0 +1,274 @@
+#!/usr/bin/env python3
+import hashlib
+import json
+import os
+from pathlib import Path, PurePosixPath
+import stat
+
+MAX_REPORT_BYTES = 2_000_000
+REPORT_SCHEMA = "tai.model-conversion-report.v1"
+SOURCE_SCHEMA = "tai.model-conversion-source-verification.v1"
+EXPECTED_TOOLCHAIN_STATUS = "VERIFIED_RESTORED"
+EXPECTED_SOURCE_STATUS = "VERIFIED"
+
+
+class ConversionEvidenceError(Exception):
+    pass
+
+
+def reject(code):
+    raise ConversionEvidenceError(code)
+
+
+def _require_dict(value, code):
+    if not isinstance(value, dict):
+        reject(code)
+    return value
+
+
+def _require_list(value, code):
+    if not isinstance(value, list):
+        reject(code)
+    return value
+
+
+def _require_exact_int(value, expected, code):
+    if type(value) is not int or value != expected:
+        reject(code)
+    return value
+
+
+def _require_exact_string(value, expected, code):
+    if not isinstance(value, str) or value != expected:
+        reject(code)
+    return value
+
+
+def _require_sha256(value, expected, code):
+    if not isinstance(value, str) or len(value) != 64:
+        reject(code)
+    try:
+        int(value, 16)
+    except ValueError:
+        reject(code)
+    if value != value.lower() or value != expected:
+        reject(code)
+    return value
+
+
+def _validated_root(authority):
+    conversion = _require_dict(authority.get("conversion"), "AUTHORITY_CONVERSION_INVALID")
+    root_value = conversion.get("conversionRoot")
+    if not isinstance(root_value, str) or not root_value.startswith("/srv/tai-models/conversion-runs/"):
+        reject("CONVERSION_ROOT_INVALID")
+    root = Path(root_value)
+    if not root.is_absolute() or ".." in root.parts or "." in root.parts:
+        reject("CONVERSION_ROOT_INVALID")
+    try:
+        resolved = root.resolve(strict=True)
+        root_stat = root.stat(follow_symlinks=False)
+    except (OSError, RuntimeError):
+        reject("CONVERSION_ROOT_UNAVAILABLE")
+    if resolved != root or not stat.S_ISDIR(root_stat.st_mode):
+        reject("CONVERSION_ROOT_NOT_TRUSTED")
+    return root
+
+
+def _bound_file(root, relative_value, code):
+    if not isinstance(relative_value, str):
+        reject(code)
+    relative = PurePosixPath(relative_value)
+    if relative.is_absolute() or not relative.parts or "." in relative.parts or ".." in relative.parts:
+        reject(code)
+    path = root.joinpath(*relative.parts)
+    try:
+        resolved = path.resolve(strict=True)
+    except (OSError, RuntimeError):
+        reject(code)
+    if resolved != path or root not in path.parents:
+        reject(code)
+    return path
+
+
+def _open_regular(path, code):
+    if not hasattr(os, "O_NOFOLLOW"):
+        reject("NOFOLLOW_UNAVAILABLE")
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+    except OSError:
+        reject(code)
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode):
+            os.close(fd)
+            reject(code)
+        return fd, info
+    except OSError:
+        os.close(fd)
+        reject(code)
+
+
+def _digest_regular(path, expected_size, open_code, size_code):
+    fd, before = _open_regular(path, open_code)
+    if type(expected_size) is not int or expected_size <= 0 or before.st_size != expected_size:
+        os.close(fd)
+        reject(size_code)
+    digest = hashlib.sha256()
+    try:
+        while True:
+            block = os.read(fd, 8 * 1024 * 1024)
+            if not block:
+                break
+            digest.update(block)
+        after = os.fstat(fd)
+    except OSError:
+        os.close(fd)
+        reject("BOUND_FILE_DIGEST_FAILED")
+    os.close(fd)
+    if (
+        before.st_dev != after.st_dev
+        or before.st_ino != after.st_ino
+        or before.st_size != after.st_size
+        or before.st_mtime_ns != after.st_mtime_ns
+    ):
+        reject("BOUND_FILE_CHANGED_DURING_READ")
+    return digest.hexdigest()
+
+
+def _read_report(path, expected_raw_sha256):
+    fd, before = _open_regular(path, "CONVERSION_REPORT_OPEN_FAILED")
+    if before.st_size <= 0 or before.st_size > MAX_REPORT_BYTES:
+        os.close(fd)
+        reject("CONVERSION_REPORT_SIZE_INVALID")
+    chunks = []
+    total = 0
+    digest = hashlib.sha256()
+    try:
+        while True:
+            block = os.read(fd, 256 * 1024)
+            if not block:
+                break
+            total += len(block)
+            if total > MAX_REPORT_BYTES:
+                reject("CONVERSION_REPORT_SIZE_INVALID")
+            chunks.append(block)
+            digest.update(block)
+        after = os.fstat(fd)
+    except ConversionEvidenceError:
+        os.close(fd)
+        raise
+    except OSError:
+        os.close(fd)
+        reject("CONVERSION_REPORT_READ_FAILED")
+    os.close(fd)
+    if (
+        before.st_dev != after.st_dev
+        or before.st_ino != after.st_ino
+        or before.st_size != after.st_size
+        or before.st_mtime_ns != after.st_mtime_ns
+        or total != before.st_size
+    ):
+        reject("CONVERSION_REPORT_CHANGED_DURING_READ")
+    if digest.hexdigest() != expected_raw_sha256:
+        reject("CONVERSION_REPORT_RAW_SHA_MISMATCH")
+    raw = b"".join(chunks)
+    try:
+        report = json.loads(raw.decode("utf-8", errors="strict"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        reject("CONVERSION_REPORT_JSON_INVALID")
+    return _require_dict(report, "CONVERSION_REPORT_SHAPE_INVALID")
+
+
+def verify_conversion_evidence(authority):
+    authority = _require_dict(authority, "AUTHORITY_INVALID")
+    conversion = _require_dict(authority.get("conversion"), "AUTHORITY_CONVERSION_INVALID")
+    model = _require_dict(authority.get("model"), "AUTHORITY_MODEL_INVALID")
+    runtime = _require_dict(authority.get("runtime"), "AUTHORITY_RUNTIME_INVALID")
+    root = _validated_root(authority)
+
+    report_path = _bound_file(root, conversion.get("reportRelativePath"), "CONVERSION_REPORT_PATH_INVALID")
+    model_path = _bound_file(root, model.get("artifactRelativePath"), "MODEL_ARTIFACT_PATH_INVALID")
+    server_path = _bound_file(root, runtime.get("serverRelativePath"), "LLAMA_SERVER_PATH_INVALID")
+
+    expected_report_raw_sha = conversion.get("reportRawSha256")
+    expected_report_self_sha = conversion.get("reportSelfSha256")
+    if not isinstance(expected_report_raw_sha, str) or not isinstance(expected_report_self_sha, str):
+        reject("AUTHORITY_REPORT_SHA_INVALID")
+    report = _read_report(report_path, expected_report_raw_sha)
+
+    _require_exact_string(report.get("schema_version"), REPORT_SCHEMA, "CONVERSION_REPORT_SCHEMA_INVALID")
+    _require_sha256(report.get("report_sha256"), expected_report_self_sha, "CONVERSION_REPORT_SELF_SHA_MISMATCH")
+    canonical_report = dict(report)
+    canonical_report.pop("report_sha256", None)
+    try:
+        canonical_bytes = json.dumps(
+            canonical_report,
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+    except (TypeError, ValueError, UnicodeEncodeError):
+        reject("CONVERSION_REPORT_CANONICALIZATION_FAILED")
+    if hashlib.sha256(canonical_bytes).hexdigest() != expected_report_self_sha:
+        reject("CONVERSION_REPORT_SELF_DIGEST_INVALID")
+
+    _require_exact_string(report.get("exact_main_sha"), conversion.get("exactMainSha"), "CONVERSION_MAIN_MISMATCH")
+    _require_exact_int(report.get("workflow_run_id"), conversion.get("workflowRunId"), "CONVERSION_RUN_ID_MISMATCH")
+    _require_exact_int(report.get("workflow_run_attempt"), conversion.get("workflowRunAttempt"), "CONVERSION_RUN_ATTEMPT_MISMATCH")
+    _require_exact_string(report.get("toolchain_status"), EXPECTED_TOOLCHAIN_STATUS, "TOOLCHAIN_STATUS_INVALID")
+
+    source_verification = _require_dict(report.get("source_verification"), "SOURCE_VERIFICATION_SHAPE_INVALID")
+    _require_exact_string(source_verification.get("schema_version"), SOURCE_SCHEMA, "SOURCE_VERIFICATION_SCHEMA_INVALID")
+    _require_exact_string(source_verification.get("status"), EXPECTED_SOURCE_STATUS, "SOURCE_VERIFICATION_STATUS_INVALID")
+    source_models = _require_list(source_verification.get("models"), "SOURCE_MODELS_SHAPE_INVALID")
+    source_matches = [
+        item
+        for item in source_models
+        if isinstance(item, dict) and item.get("model_id") == model.get("id")
+    ]
+    if len(source_matches) != 1:
+        reject("MODEL_SOURCE_BINDING_INVALID")
+    source = source_matches[0]
+    _require_exact_string(source.get("revision"), model.get("revision"), "MODEL_REVISION_MISMATCH")
+    _require_sha256(source.get("source_files_sha256"), model.get("sourceFilesSha256"), "MODEL_SOURCE_FILES_SHA_MISMATCH")
+    _require_sha256(source.get("source_manifest_sha256"), model.get("sourceManifestSha256"), "MODEL_SOURCE_MANIFEST_SHA_MISMATCH")
+
+    outputs = _require_list(report.get("outputs"), "MODEL_OUTPUTS_SHAPE_INVALID")
+    output_matches = [
+        item
+        for item in outputs
+        if isinstance(item, dict) and item.get("path") == model.get("artifactRelativePath")
+    ]
+    if len(output_matches) != 1:
+        reject("MODEL_REPORT_BINDING_INVALID")
+    output = output_matches[0]
+    _require_sha256(output.get("sha256"), model.get("artifactSha256"), "MODEL_REPORT_SHA_MISMATCH")
+    _require_exact_int(output.get("size_bytes"), model.get("artifactSizeBytes"), "MODEL_REPORT_SIZE_MISMATCH")
+
+    model_digest = _digest_regular(
+        model_path,
+        model.get("artifactSizeBytes"),
+        "MODEL_FILE_OPEN_FAILED",
+        "MODEL_FILE_SIZE_INVALID",
+    )
+    if model_digest != model.get("artifactSha256"):
+        reject("MODEL_FILE_SHA_MISMATCH")
+    server_digest = _digest_regular(
+        server_path,
+        runtime.get("serverSizeBytes"),
+        "LLAMA_SERVER_OPEN_FAILED",
+        "LLAMA_SERVER_SIZE_INVALID",
+    )
+    if server_digest != runtime.get("serverSha256"):
+        reject("LLAMA_SERVER_SHA_MISMATCH")
+
+    return {
+        "conversion_root": str(root),
+        "report_path": str(report_path),
+        "model_path": str(model_path),
+        "server_path": str(server_path),
+        "report_raw_sha256": expected_report_raw_sha,
+        "report_self_sha256": expected_report_self_sha,
+        "model_sha256": model_digest,
+        "server_sha256": server_digest,
+    }
