@@ -33,6 +33,7 @@ jobs:
       LLAMA_ARCHIVE_SHA256: 3857876e4a2461f7041166bd74b5d39e3db51b8639353d55f87d6f904b3b75bd
       POLICY_SHA256: e083823ced2f5b63ecfaca345e59274c5f194e36c0cdd20b2cae9cee3b4f9ed3
       PROVIDER_CONTEXT: review-provider/local-qwen
+      MAX_POLICY_REPAIRS: 3
       MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
       MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
       MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
@@ -286,7 +287,9 @@ jobs:
           cat > "$RUNNER_TEMP/remote-review.py" <<'PY'
           import hashlib, http.client, json, os, pathlib, re, socket, subprocess, sys, time
           MODEL_IDENTITY, MODEL_SHA, MODEL_SIZE, LLAMA_COMMIT = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4]
-          requests_path, schema_path, output_path = map(pathlib.Path, sys.argv[5:8])
+          max_policy_repairs = int(sys.argv[5])
+          requests_path, schema_path, output_path = map(pathlib.Path, sys.argv[6:9])
+          if max_policy_repairs < 1: fail('MAX_POLICY_REPAIRS_INVALID')
           SPECULATIVE_REASON = re.compile(r'\b(?:could|may|might|likely|potentially)\b', re.IGNORECASE)
           SECURITY_CLASSIFICATION = re.compile(r'\b(?:secret|pii|leak(?:age)?|authorization bypass|security boundary bypass)\b', re.IGNORECASE)
           ROUTE_TEST_REFERENCE = re.compile(r'\b(?:route|path|test(?:-only)?|workflow|constant)\b', re.IGNORECASE)
@@ -429,22 +432,36 @@ jobs:
                   + f'The prior candidate was rejected as policy-inadmissible: {violation}. '
                   + 'Re-review the exact same chunk under the unchanged trusted system policy. Do not merely rephrase a hypothetical claim. '
                   + 'Return findings=[] if the changed bytes do not directly demonstrate a concrete reproducible defect. '
-                  + 'If a concrete defect is directly demonstrated, return exactly one finding whose reason states the concrete mechanism without speculative hedge language and whose path is this chunk path.\n'
+                  + 'If a concrete defect is directly demonstrated, return exactly one finding whose reason states the concrete mechanism without speculative hedge language and whose path is this chunk path. '
+                  + 'Do not use the words could, may, might, likely, or potentially anywhere in the finding reason.\n'
                   + 'BEGIN_UNTRUSTED_PRIOR_CANDIDATE\n' + safe_candidate + '\nEND_UNTRUSTED_PRIOR_CANDIDATE\n'
               )
-          repairs=0
+          repaired_items=0
+          repair_attempts=0
           with output_path.open('w',encoding='utf-8') as out:
               for item in requests:
                   initial=completion(item['system'],item['user'])
                   content=initial
                   violation=policy_violation(item,initial)
-                  repaired=False; repair_prompt_sha256=None
+                  repaired=False
+                  repair_candidate_sha256_chain=[]
+                  repair_prompt_sha256_chain=[]
+                  repair_success_attempt=None
                   if violation is not None:
-                      repaired=True; repairs+=1
-                      repaired_user=repair_user(item,initial,violation)
-                      repair_prompt_sha256=hashlib.sha256(repaired_user.encode('utf-8')).hexdigest()
-                      content=completion(item['system'],repaired_user)
-                      repaired_violation=policy_violation(item,content)
+                      repaired=True
+                      repaired_items+=1
+                      repaired_violation=violation
+                      for _repair_attempt in range(max_policy_repairs):
+                          repair_attempts+=1
+                          repair_candidate_sha256_chain.append(hashlib.sha256(content.encode('utf-8')).hexdigest())
+                          repaired_user=repair_user(item,content,repaired_violation)
+                          repair_prompt_sha256=hashlib.sha256(repaired_user.encode('utf-8')).hexdigest()
+                          repair_prompt_sha256_chain.append(repair_prompt_sha256)
+                          content=completion(item['system'],repaired_user)
+                          repaired_violation=policy_violation(item,content)
+                          if repaired_violation is None:
+                              repair_success_attempt=_repair_attempt + 1
+                              break
                       if repaired_violation is not None:
                           fail('POLICY_REPAIR_INVALID_' + re.sub(r'[^A-Z0-9_]', '_', repaired_violation.upper()))
                   out.write(json.dumps({
@@ -452,36 +469,51 @@ jobs:
                       'content':content,
                       'repaired':repaired,
                       'initial_sha256':hashlib.sha256(initial.encode('utf-8')).hexdigest(),
-                      'repair_prompt_sha256':repair_prompt_sha256,
+                      'repair_candidate_sha256_chain':repair_candidate_sha256_chain,
+                      'repair_prompt_sha256_chain':repair_prompt_sha256_chain,
+                      'repair_success_attempt':repair_success_attempt,
                       'final_sha256':hashlib.sha256(content.encode('utf-8')).hexdigest(),
                   },ensure_ascii=False,separators=(',',':'))+'\n')
           print(f'QWEN3_REMOTE_REVIEW_OK={len(requests)}')
-          print(f'QWEN3_POLICY_REPAIR_OK={repairs}')
+          print(f'QWEN3_POLICY_REPAIR_OK={repaired_items}')
+          print(f'QWEN3_POLICY_REPAIR_ATTEMPTS_OK={repair_attempts}')
           PY
           chmod 600 "$RUNNER_TEMP/remote-review.py" "$RUNNER_TEMP/review-requests.jsonl" "$RUNNER_TEMP/review-schema.json"
           scp "${scp_opts[@]}" "$RUNNER_TEMP/remote-review.py" "$RUNNER_TEMP/review-requests.jsonl" "$RUNNER_TEMP/review-schema.json" "$MODEL_USER@$MODEL_HOST:$remote_dir/"
           ssh "${ssh_opts[@]}" "$MODEL_USER@$MODEL_HOST" \
-            "python3 '$remote_dir/remote-review.py' '$MODEL_IDENTITY' '$MODEL_SHA256' '$MODEL_SIZE_BYTES' '$LLAMA_SOURCE_COMMIT' '$remote_dir/review-requests.jsonl' '$remote_dir/review-schema.json' '$remote_dir/review-responses.jsonl'"
+            "python3 '$remote_dir/remote-review.py' '$MODEL_IDENTITY' '$MODEL_SHA256' '$MODEL_SIZE_BYTES' '$LLAMA_SOURCE_COMMIT' '$MAX_POLICY_REPAIRS' '$remote_dir/review-requests.jsonl' '$remote_dir/review-schema.json' '$remote_dir/review-responses.jsonl'"
           scp "${scp_opts[@]}" "$MODEL_USER@$MODEL_HOST:$remote_dir/review-responses.jsonl" "$RUNNER_TEMP/review-responses.jsonl"
           [[ -s "$RUNNER_TEMP/review-responses.jsonl" ]]
           raw_dir="$RUNNER_TEMP/qwen-raw"; mkdir -p "$raw_dir"
-          python3 - "$RUNNER_TEMP/review-responses.jsonl" "$raw_dir" "$RUNNER_TEMP/review-repair-metadata.json" "${{ steps.input.outputs.chunk_count }}" <<'PY'
-          import json, pathlib, sys
-          src, out_dir, metadata_path, count = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]), pathlib.Path(sys.argv[3]), int(sys.argv[4])
+          python3 - "$RUNNER_TEMP/review-responses.jsonl" "$raw_dir" "$RUNNER_TEMP/review-repair-metadata.json" "${{ steps.input.outputs.chunk_count }}" "$MAX_POLICY_REPAIRS" <<'PY'
+          import json, pathlib, re, sys
+          src, out_dir, metadata_path, count_arg, max_policy_repairs_arg = sys.argv[1:]
+          src, out_dir, metadata_path = pathlib.Path(src), pathlib.Path(out_dir), pathlib.Path(metadata_path)
+          count, max_policy_repairs = int(count_arg), int(max_policy_repairs_arg)
+          if max_policy_repairs < 1: raise SystemExit('Invalid max policy repairs.')
           rows=[json.loads(line) for line in src.read_text(encoding='utf-8').splitlines() if line]
           if [row.get('index') for row in rows] != list(range(1,count+1)): raise SystemExit('Response indexes are not exact/contiguous.')
           metadata=[]
+          sha256_pattern=re.compile(r'^[0-9a-f]{64}$')
           for row in rows:
               content=row.get('content')
               if not isinstance(content,str) or not content.strip(): raise SystemExit('Empty model response.')
               repaired=row.get('repaired')
-              initial_sha=row.get('initial_sha256'); final_sha=row.get('final_sha256'); repair_prompt_sha=row.get('repair_prompt_sha256')
+              initial_sha=row.get('initial_sha256'); final_sha=row.get('final_sha256')
+              candidate_chain=row.get('repair_candidate_sha256_chain'); prompt_chain=row.get('repair_prompt_sha256_chain')
+              success_attempt=row.get('repair_success_attempt')
               if not isinstance(repaired,bool): raise SystemExit('Invalid repair marker.')
-              if not isinstance(initial_sha,str) or len(initial_sha)!=64 or not isinstance(final_sha,str) or len(final_sha)!=64: raise SystemExit('Invalid response evidence hash.')
-              if repaired and (not isinstance(repair_prompt_sha,str) or len(repair_prompt_sha)!=64): raise SystemExit('Missing repair prompt evidence hash.')
-              if not repaired and repair_prompt_sha is not None: raise SystemExit('Unexpected repair prompt evidence hash.')
+              if not isinstance(initial_sha,str) or not sha256_pattern.fullmatch(initial_sha) or not isinstance(final_sha,str) or not sha256_pattern.fullmatch(final_sha): raise SystemExit('Invalid response evidence hash.')
+              if not isinstance(candidate_chain,list) or not isinstance(prompt_chain,list) or len(candidate_chain)!=len(prompt_chain): raise SystemExit('Invalid repair evidence chain shape.')
+              if any(not isinstance(value,str) or not sha256_pattern.fullmatch(value) for value in candidate_chain + prompt_chain): raise SystemExit('Invalid repair evidence chain hash.')
+              if repaired:
+                  if not 1 <= len(prompt_chain) <= max_policy_repairs: raise SystemExit('Missing bounded repair evidence chain.')
+                  if isinstance(success_attempt,bool) or not isinstance(success_attempt,int) or success_attempt != len(prompt_chain): raise SystemExit('Invalid repair success attempt evidence.')
+              else:
+                  if candidate_chain or prompt_chain: raise SystemExit('Unexpected repair evidence chain.')
+                  if success_attempt is not None: raise SystemExit('Unexpected repair success attempt evidence.')
               (out_dir/f'result-{row["index"]:04d}.json').write_text(content.strip()+'\n',encoding='utf-8')
-              metadata.append({'index':row['index'],'repaired':repaired,'initial_sha256':initial_sha,'repair_prompt_sha256':repair_prompt_sha,'final_sha256':final_sha})
+              metadata.append({'index':row['index'],'repaired':repaired,'initial_sha256':initial_sha,'repair_candidate_sha256_chain':candidate_chain,'repair_prompt_sha256_chain':prompt_chain,'repair_success_attempt':success_attempt,'final_sha256':final_sha})
           metadata_path.write_text(json.dumps(metadata,ensure_ascii=True,sort_keys=True,separators=(',',':'))+'\n',encoding='utf-8')
           PY
 
@@ -490,9 +522,11 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          python3 - "$RUNNER_TEMP/review-manifest.json" "$RUNNER_TEMP/qwen-chunks" "$RUNNER_TEMP/qwen-raw" "$RUNNER_TEMP/review-repair-metadata.json" "$RUNNER_TEMP/review.canonical.json" <<'PY'
+          python3 - "$RUNNER_TEMP/review-manifest.json" "$RUNNER_TEMP/qwen-chunks" "$RUNNER_TEMP/qwen-raw" "$RUNNER_TEMP/review-repair-metadata.json" "$RUNNER_TEMP/review.canonical.json" "$MAX_POLICY_REPAIRS" <<'PY'
           import hashlib, json, pathlib, re, sys
-          manifest_path, chunks_path, raw_path, repair_metadata_path, canonical_path = sys.argv[1:]
+          manifest_path, chunks_path, raw_path, repair_metadata_path, canonical_path, max_policy_repairs_arg = sys.argv[1:]
+          max_policy_repairs=int(max_policy_repairs_arg)
+          if max_policy_repairs < 1: raise SystemExit('Invalid max policy repairs.')
           manifest_file=pathlib.Path(manifest_path); manifest=json.loads(manifest_file.read_text())
           if hashlib.sha256(manifest_file.read_bytes()).hexdigest() != '${{ steps.input.outputs.manifest_sha256 }}': raise SystemExit('Manifest hash changed.')
           if manifest.get('full_diff_sha256') != '${{ steps.input.outputs.diff_sha256 }}': raise SystemExit('Manifest diff hash mismatch.')
@@ -502,6 +536,7 @@ jobs:
               raise SystemExit('Repair evidence indexes are not exact/contiguous.')
           repair_by_index={row['index']:row for row in repair_metadata}
           speculative=re.compile(r'\b(?:could|may|might|likely|potentially)\b', re.IGNORECASE)
+          sha256_pattern=re.compile(r'^[0-9a-f]{64}$')
           all_findings=[]; seen=[]
           for chunk in chunks:
               index=chunk['index']; seen.append(index)
@@ -522,6 +557,16 @@ jobs:
                   if not isinstance(finding['reason'],str) or not 1<=len(finding['reason'].strip())<=192: raise SystemExit(f'Invalid reason in chunk {index}.')
                   if speculative.search(finding['reason']): raise SystemExit(f'Policy-inadmissible speculative finding survived repair in chunk {index}.')
               evidence=repair_by_index[index]
+              expected_evidence_keys={'index','repaired','initial_sha256','repair_candidate_sha256_chain','repair_prompt_sha256_chain','repair_success_attempt','final_sha256'}
+              if set(evidence)!=expected_evidence_keys: raise SystemExit(f'Invalid repair evidence schema in chunk {index}.')
+              candidate_chain=evidence['repair_candidate_sha256_chain']; prompt_chain=evidence['repair_prompt_sha256_chain']; success_attempt=evidence['repair_success_attempt']
+              if not isinstance(evidence['repaired'],bool) or not isinstance(candidate_chain,list) or not isinstance(prompt_chain,list) or len(candidate_chain)!=len(prompt_chain): raise SystemExit(f'Invalid repair evidence chain in chunk {index}.')
+              if any(not isinstance(value,str) or not sha256_pattern.fullmatch(value) for value in candidate_chain + prompt_chain): raise SystemExit(f'Invalid repair evidence hash in chunk {index}.')
+              if evidence['repaired']:
+                  if not 1 <= len(prompt_chain) <= max_policy_repairs: raise SystemExit(f'Invalid bounded repair attempt count in chunk {index}.')
+                  if isinstance(success_attempt,bool) or not isinstance(success_attempt,int) or success_attempt != len(prompt_chain): raise SystemExit(f'Invalid repair success attempt in chunk {index}.')
+              elif candidate_chain or prompt_chain or success_attempt is not None:
+                  raise SystemExit(f'Unexpected repair evidence for clean chunk {index}.')
               if hashlib.sha256(raw.encode('utf-8')).hexdigest() != evidence['final_sha256']:
                   raise SystemExit(f'Final response evidence hash mismatch in chunk {index}.')
               all_findings.extend(findings)
