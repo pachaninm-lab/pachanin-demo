@@ -50,10 +50,10 @@ export function SupportHeaderIcon() {
         .p7-role-support{display:inline-flex!important;flex:0 0 auto!important}
         .pc-v4-header{display:block!important;visibility:visible!important;opacity:1!important;position:fixed!important;inset:0 0 auto 0!important;z-index:320!important;pointer-events:auto!important}
         .pc-v4-header-inner,.pc-v4-top,.pc-v4-brand,.pc-v4-actions{visibility:visible!important;opacity:1!important}
-        .pc-v4-top{grid-template-columns:minmax(0,1fr) auto auto!important}
+        .pc-v4-top{grid-template-columns:auto auto minmax(0,1fr)!important}
         .pc-v4-top > .pc-v4-brand{grid-column:1!important;grid-row:1!important;justify-self:start!important}
         .pc-v4-top > button[aria-label='Открыть меню']{grid-column:2!important;grid-row:1!important;justify-self:start!important}
-        .pc-v4-top > .pc-v4-actions{grid-column:3!important;grid-row:1!important}
+        .pc-v4-top > .pc-v4-actions{grid-column:3!important;grid-row:1!important;justify-self:end!important}
         .pc-v4-bottomnav{display:none!important}
         .pc-v7-role-dock{display:block!important;visibility:visible!important;opacity:1!important;position:fixed!important;left:0!important;right:0!important;bottom:0!important;z-index:300!important;pointer-events:auto!important}
         .pc-v4-main{padding-bottom:calc(env(safe-area-inset-bottom) + 98px)!important}
@@ -63,7 +63,7 @@ export function SupportHeaderIcon() {
           .pc-v4-top > button[aria-label='Открыть меню']{grid-column:2!important;justify-self:start!important;display:inline-flex!important;visibility:visible!important;opacity:1!important}
           .pc-v4-brand{grid-column:1!important;max-width:48px!important;overflow:hidden!important;justify-self:start!important;display:flex!important;visibility:visible!important;opacity:1!important}
           .pc-v4-brand .pc-v4-title,.pc-v4-brand .pc-v4-subtitle{display:none!important}
-          .pc-v4-actions{grid-column:3!important;position:static!important;width:100%!important;margin:0!important;gap:4px!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;max-width:100%!important;z-index:3!important;visibility:visible!important;opacity:1!important;overflow:visible!important}
+          .pc-v4-actions{grid-column:3!important;position:static!important;width:100%!important;margin:0!important;gap:4px!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;justify-self:end!important;max-width:100%!important;z-index:3!important;visibility:visible!important;opacity:1!important;overflow:visible!important}
           .pc-v4-actions > *{flex:0 0 auto!important}
           .pc-v4-actions button[aria-label='Открыть уведомления']{display:none!important}
           .pc-v4-actions button[aria-label='Идентификация и настройки']{width:35px!important;min-width:35px!important;max-width:35px!important;height:35px!important;min-height:35px!important;padding:4px!important;border-radius:12px!important;overflow:hidden!important;justify-content:center!important}
