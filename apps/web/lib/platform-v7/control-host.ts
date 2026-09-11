@@ -29,6 +29,13 @@ export function ownerControlledCabinetRole(pathname: string): OwnerControlledCab
   return OWNER_CONTROLLED_CABINET_ROLE_BY_PATH.get(pathname) ?? null;
 }
 
+export function ownerControlledCabinetTarget(role: string | null | undefined): string | null {
+  if (!role || !Object.prototype.hasOwnProperty.call(OWNER_CONTROLLED_CABINET_TARGETS, role)) return null;
+  const exactRole = role as OwnerControlledCabinetRole;
+  const target = OWNER_CONTROLLED_CABINET_TARGETS[exactRole];
+  return ownerControlledCabinetRole(target) === exactRole ? target : null;
+}
+
 export type OwnerControlledCabinetSession = {
   readonly role: string | null | undefined;
   readonly userId: string | null | undefined;
@@ -48,6 +55,8 @@ export function ownerCabinetSessionMatchesRoot(
 ): boolean {
   const role = ownerControlledCabinetRole(pathname);
   if (role === null || session == null || expected == null) return false;
+  const canonicalResourcePath = ownerControlledCabinetTarget(role);
+  if (canonicalResourcePath === null || pathname !== canonicalResourcePath) return false;
   if (session.ownerAccess !== true) return false;
   if (typeof session.userId !== 'string' || session.userId.trim().length === 0) return false;
   if (session.role !== role || expected.role !== role) return false;
