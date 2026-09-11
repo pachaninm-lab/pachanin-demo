@@ -86,9 +86,8 @@ function controlledFixtureEnabled(): boolean {
   return Number.isFinite(expiry) && expiry > Date.now();
 }
 
-function signingSecret(): string | null {
-  const candidate = readEnv('JWT_SECRET') || readEnv('PC_CABINET_SESSION_SECRET');
-  return candidate.length >= 32 && candidate.length <= 4096 ? candidate : null;
+function signingSecret(): string {
+  return readEnv('JWT_SECRET') || readEnv('PC_CABINET_SESSION_SECRET');
 }
 
 function apiOrigin(): string {
