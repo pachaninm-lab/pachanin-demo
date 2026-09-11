@@ -195,7 +195,21 @@ def open_conversion_report(authority, authority_relative):
             file_fd = os.open("conversion-report.json", _file_flags(), dir_fd=evidence_fd)
         except OSError:
             reject("CONVERSION_REPORT_OPEN_FAILED")
-        return _checked_regular(file_fd, REPORT_RELATIVE, "CONVERSION_REPORT_NOT_TRUSTED")
+        try:
+            report_info = os.fstat(file_fd)
+        except OSError:
+            os.close(file_fd)
+            reject("CONVERSION_REPORT_NOT_TRUSTED")
+        if not stat.S_ISREG(report_info.st_mode):
+            os.close(file_fd)
+            reject("CONVERSION_REPORT_NOT_TRUSTED")
+        if report_info.st_uid not in {0, os.geteuid()}:
+            os.close(file_fd)
+            reject("CONVERSION_REPORT_NOT_TRUSTED")
+        if report_info.st_mode & UNTRUSTED_WRITE_BITS:
+            os.close(file_fd)
+            reject("CONVERSION_REPORT_NOT_TRUSTED")
+        return PinnedRegularFile(file_fd, REPORT_RELATIVE, report_info)
     finally:
         if evidence_fd is not None:
             try:
@@ -227,7 +241,21 @@ def open_mistral_model(authority, authority_relative):
             )
         except OSError:
             reject("CONVERSION_MODEL_OPEN_FAILED")
-        return _checked_regular(file_fd, MODEL_RELATIVE, "CONVERSION_MODEL_NOT_TRUSTED")
+        try:
+            model_info = os.fstat(file_fd)
+        except OSError:
+            os.close(file_fd)
+            reject("CONVERSION_MODEL_NOT_TRUSTED")
+        if not stat.S_ISREG(model_info.st_mode):
+            os.close(file_fd)
+            reject("CONVERSION_MODEL_NOT_TRUSTED")
+        if model_info.st_uid not in {0, os.geteuid()}:
+            os.close(file_fd)
+            reject("CONVERSION_MODEL_NOT_TRUSTED")
+        if model_info.st_mode & UNTRUSTED_WRITE_BITS:
+            os.close(file_fd)
+            reject("CONVERSION_MODEL_NOT_TRUSTED")
+        return PinnedRegularFile(file_fd, MODEL_RELATIVE, model_info)
     finally:
         if artifacts_fd is not None:
             try:
@@ -261,7 +289,21 @@ def open_llama_server(authority, authority_relative):
             file_fd = os.open("llama-server", _file_flags(), dir_fd=bin_fd)
         except OSError:
             reject("CONVERSION_SERVER_OPEN_FAILED")
-        return _checked_regular(file_fd, SERVER_RELATIVE, "CONVERSION_SERVER_NOT_TRUSTED")
+        try:
+            server_info = os.fstat(file_fd)
+        except OSError:
+            os.close(file_fd)
+            reject("CONVERSION_SERVER_NOT_TRUSTED")
+        if not stat.S_ISREG(server_info.st_mode):
+            os.close(file_fd)
+            reject("CONVERSION_SERVER_NOT_TRUSTED")
+        if server_info.st_uid not in {0, os.geteuid()}:
+            os.close(file_fd)
+            reject("CONVERSION_SERVER_NOT_TRUSTED")
+        if server_info.st_mode & UNTRUSTED_WRITE_BITS:
+            os.close(file_fd)
+            reject("CONVERSION_SERVER_NOT_TRUSTED")
+        return PinnedRegularFile(file_fd, SERVER_RELATIVE, server_info)
     finally:
         if bin_fd is not None:
             try:
