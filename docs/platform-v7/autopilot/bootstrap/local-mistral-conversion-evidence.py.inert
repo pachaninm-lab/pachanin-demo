@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import stat
 
 MAX_REPORT_BYTES = 2_000_000
@@ -13,6 +14,8 @@ EXPECTED_SOURCE_STATUS = "VERIFIED"
 REPORT_PARTS = ("evidence", "conversion-report.json")
 MODEL_PARTS = ("artifacts", "mistral-7b-instruct-v0.3-q4-k-m.gguf")
 SERVER_PARTS = ("toolchain", "bin", "llama-server")
+GIT_SHA_PATTERN = re.compile(r"[0-9a-f]{40}\Z")
+SHA256_PATTERN = re.compile(r"[0-9a-f]{64}\Z")
 
 
 class ConversionEvidenceError(Exception):
@@ -48,14 +51,13 @@ def _require_exact_string(value, expected, code):
 
 
 def _require_sha256(value, expected, code):
-    if not isinstance(value, str) or not isinstance(expected, str) or len(value) != 64 or len(expected) != 64:
-        reject(code)
-    try:
-        int(value, 16)
-        int(expected, 16)
-    except ValueError:
-        reject(code)
-    if value != value.lower() or expected != expected.lower() or value != expected:
+    if (
+        not isinstance(value, str)
+        or not isinstance(expected, str)
+        or not SHA256_PATTERN.fullmatch(value)
+        or not SHA256_PATTERN.fullmatch(expected)
+        or value != expected
+    ):
         reject(code)
     return value
 
@@ -66,13 +68,9 @@ def _validated_root(authority):
     run_id = conversion.get("workflowRunId")
     run_attempt = conversion.get("workflowRunAttempt")
     root_value = conversion.get("conversionRoot")
-    if not isinstance(exact_main, str) or len(exact_main) != 40:
+    if not isinstance(exact_main, str) or not GIT_SHA_PATTERN.fullmatch(exact_main):
         reject("CONVERSION_MAIN_AUTHORITY_INVALID")
-    try:
-        int(exact_main, 16)
-    except ValueError:
-        reject("CONVERSION_MAIN_AUTHORITY_INVALID")
-    if exact_main != exact_main.lower() or type(run_id) is not int or run_id <= 0 or type(run_attempt) is not int or run_attempt <= 0:
+    if type(run_id) is not int or run_id <= 0 or type(run_attempt) is not int or run_attempt <= 0:
         reject("CONVERSION_EXECUTION_AUTHORITY_INVALID")
     expected_root = f"/srv/tai-models/conversion-runs/{exact_main}/{run_id}-{run_attempt}"
     if not isinstance(root_value, str) or root_value != expected_root:
@@ -148,13 +146,7 @@ def _digest_regular(path, expected_size, open_code, size_code):
 
 
 def _read_report(path, expected_raw_sha256):
-    if not isinstance(expected_raw_sha256, str) or len(expected_raw_sha256) != 64:
-        reject("AUTHORITY_REPORT_RAW_SHA_INVALID")
-    try:
-        int(expected_raw_sha256, 16)
-    except ValueError:
-        reject("AUTHORITY_REPORT_RAW_SHA_INVALID")
-    if expected_raw_sha256 != expected_raw_sha256.lower():
+    if not isinstance(expected_raw_sha256, str) or not SHA256_PATTERN.fullmatch(expected_raw_sha256):
         reject("AUTHORITY_REPORT_RAW_SHA_INVALID")
     fd, before = _open_regular(path, "CONVERSION_REPORT_OPEN_FAILED")
     if before.st_size <= 0 or before.st_size > MAX_REPORT_BYTES:
@@ -212,13 +204,7 @@ def verify_conversion_evidence(authority):
 
     expected_report_raw_sha = conversion.get("reportRawSha256")
     expected_report_self_sha = conversion.get("reportSelfSha256")
-    if not isinstance(expected_report_self_sha, str) or len(expected_report_self_sha) != 64:
-        reject("AUTHORITY_REPORT_SELF_SHA_INVALID")
-    try:
-        int(expected_report_self_sha, 16)
-    except ValueError:
-        reject("AUTHORITY_REPORT_SELF_SHA_INVALID")
-    if expected_report_self_sha != expected_report_self_sha.lower():
+    if not isinstance(expected_report_self_sha, str) or not SHA256_PATTERN.fullmatch(expected_report_self_sha):
         reject("AUTHORITY_REPORT_SELF_SHA_INVALID")
     report = _read_report(report_path, expected_report_raw_sha)
 
