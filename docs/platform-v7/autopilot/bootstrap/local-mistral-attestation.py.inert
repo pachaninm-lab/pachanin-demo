@@ -1,0 +1,96 @@
+#!/usr/bin/env python3
+import hashlib
+import json
+import re
+
+SHA40 = re.compile(r"[0-9a-f]{40}\Z")
+SHA256 = re.compile(r"[0-9a-f]{64}\Z")
+PROVIDER_WORKFLOW = ".github/workflows/local-mistral-independent-review.yml"
+MAX_DIFF_BYTES = 400_000
+MAX_CHUNKS = 96
+
+EVIDENCE_FIELDS = frozenset({
+    "exact_head",
+    "authority_sha256",
+    "model_revision",
+    "model_sha256",
+    "runtime_source_commit",
+    "runtime_server_sha256",
+    "diff_sha256",
+    "diff_bytes",
+    "chunk_count",
+    "manifest_sha256",
+    "prompt_bundle_sha256",
+    "response_sha256",
+    "workflow_run_id",
+    "provider_workflow",
+    "verdict",
+    "findings_count",
+})
+
+class AttestationError(Exception):
+    pass
+
+def _require_sha40(value, code):
+    if not isinstance(value, str) or not SHA40.fullmatch(value):
+        raise AttestationError(code)
+    return value
+
+def _require_sha256(value, code):
+    if not isinstance(value, str) or not SHA256.fullmatch(value):
+        raise AttestationError(code)
+    return value
+
+def canonical_clean_evidence(record):
+    if not isinstance(record, dict) or set(record) != EVIDENCE_FIELDS:
+        raise AttestationError("EVIDENCE_SCHEMA_INVALID")
+    _require_sha40(record["exact_head"], "EXACT_HEAD_INVALID")
+    _require_sha256(record["authority_sha256"], "AUTHORITY_SHA256_INVALID")
+    _require_sha40(record["model_revision"], "MODEL_REVISION_INVALID")
+    _require_sha256(record["model_sha256"], "MODEL_SHA256_INVALID")
+    _require_sha40(record["runtime_source_commit"], "RUNTIME_SOURCE_COMMIT_INVALID")
+    _require_sha256(record["runtime_server_sha256"], "RUNTIME_SERVER_SHA256_INVALID")
+    _require_sha256(record["diff_sha256"], "DIFF_SHA256_INVALID")
+    _require_sha256(record["manifest_sha256"], "MANIFEST_SHA256_INVALID")
+    _require_sha256(record["prompt_bundle_sha256"], "PROMPT_BUNDLE_SHA256_INVALID")
+    _require_sha256(record["response_sha256"], "RESPONSE_SHA256_INVALID")
+    diff_bytes = record["diff_bytes"]
+    chunk_count = record["chunk_count"]
+    run_id = record["workflow_run_id"]
+    if isinstance(diff_bytes, bool) or not isinstance(diff_bytes, int) or not 1 <= diff_bytes <= MAX_DIFF_BYTES:
+        raise AttestationError("DIFF_BYTES_INVALID")
+    if isinstance(chunk_count, bool) or not isinstance(chunk_count, int) or not 1 <= chunk_count <= MAX_CHUNKS:
+        raise AttestationError("CHUNK_COUNT_INVALID")
+    if isinstance(run_id, bool) or not isinstance(run_id, int) or run_id <= 0:
+        raise AttestationError("WORKFLOW_RUN_ID_INVALID")
+    if record["provider_workflow"] != PROVIDER_WORKFLOW:
+        raise AttestationError("PROVIDER_WORKFLOW_INVALID")
+    if record["verdict"] != "PASS" or record["findings_count"] != 0:
+        raise AttestationError("CLEAN_VERDICT_INVALID")
+    canonical = json.dumps(record, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
+    digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return canonical, digest
+
+def render_clean_review(record):
+    _, evidence_sha256 = canonical_clean_evidence(record)
+    tick = "`"
+    return "\n".join([
+        "LOCAL MISTRAL INDEPENDENT REVIEW: PASS",
+        f"Exact head: {tick}{record['exact_head']}{tick}",
+        f"Provider workflow: {tick}{record['provider_workflow']}{tick}",
+        f"Authority SHA-256: {tick}{record['authority_sha256']}{tick}",
+        f"Model revision: {tick}{record['model_revision']}{tick}",
+        f"Model SHA-256: {tick}{record['model_sha256']}{tick}",
+        f"Runtime source commit: {tick}{record['runtime_source_commit']}{tick}",
+        f"Runtime server SHA-256: {tick}{record['runtime_server_sha256']}{tick}",
+        f"Full diff SHA-256: {tick}{record['diff_sha256']}{tick}",
+        f"Diff bytes: {tick}{record['diff_bytes']}{tick}",
+        f"Chunk count: {tick}{record['chunk_count']}{tick}",
+        f"Review manifest SHA-256: {tick}{record['manifest_sha256']}{tick}",
+        f"Prompt bundle SHA-256: {tick}{record['prompt_bundle_sha256']}{tick}",
+        f"Response SHA-256: {tick}{record['response_sha256']}{tick}",
+        f"Evidence SHA-256: {tick}{evidence_sha256}{tick}",
+        f"Workflow run: {tick}{record['workflow_run_id']}{tick}",
+        "Verdict: `PASS`",
+        "Findings: `0`",
+    ])
