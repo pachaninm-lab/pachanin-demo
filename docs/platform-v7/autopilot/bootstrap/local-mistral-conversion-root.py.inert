@@ -4,7 +4,7 @@ import re
 import stat
 
 GIT_SHA = re.compile(r"[0-9a-f]{40}\Z")
-NON_ROOT_WRITE_BITS = stat.S_IWGRP | stat.S_IWOTH
+SHARED_WRITE_BITS = stat.S_IWGRP | stat.S_IWOTH
 
 
 class ConversionRootAuthorityError(Exception):
@@ -63,9 +63,10 @@ def _require_positive_int(value, code):
 def _require_trusted_directory(info, code):
     if not stat.S_ISDIR(info.st_mode):
         reject(code)
-    if info.st_uid != 0:
+    trusted_uids = {0, os.geteuid()}
+    if info.st_uid not in trusted_uids:
         reject(code)
-    if info.st_mode & NON_ROOT_WRITE_BITS:
+    if info.st_mode & SHARED_WRITE_BITS:
         reject(code)
 
 
