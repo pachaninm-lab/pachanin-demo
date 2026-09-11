@@ -16,6 +16,7 @@ export const OCTOPUS_ACTION_SHA = 'c7156c0dc465c20e8b06da84b92b64f9ae8c7c36';
 export const OCTOPUS_REVIEW_LOGIN = 'github-actions[bot]';
 export const OCTOPUS_STATUS_CONTEXT = 'review-provider/octopus';
 export const OCTOPUS_WORKFLOW_PATH = '.github/workflows/octopus-independent-review.yml';
+
 export const LOCAL_QWEN_REVIEW_LOGIN = 'github-actions[bot]';
 export const LOCAL_QWEN_STATUS_CONTEXT = 'review-provider/local-qwen';
 export const LOCAL_QWEN_WORKFLOW_NAME = 'Local Qwen Independent Review';
@@ -29,6 +30,20 @@ export const LOCAL_QWEN_POLICY_SHA256 = 'e083823ced2f5b63ecfaca345e59274c5f194e3
 export const LOCAL_QWEN_MAX_DIFF_BYTES = 400000;
 export const LOCAL_QWEN_MAX_CHUNK_DIFF_BYTES = 8000;
 export const LOCAL_QWEN_MAX_CHUNKS = 96;
+
+export const LOCAL_MISTRAL_REVIEW_LOGIN = 'github-actions[bot]';
+export const LOCAL_MISTRAL_STATUS_CONTEXT = 'review-provider/local-mistral';
+export const LOCAL_MISTRAL_WORKFLOW_NAME = 'Local Mistral Independent Review';
+export const LOCAL_MISTRAL_WORKFLOW_PATH = '.github/workflows/local-mistral-independent-review.yml';
+export const LOCAL_MISTRAL_MODEL_REVISION = 'c170c708c41dac9275d15a8fff4eca08d52bab71';
+export const LOCAL_MISTRAL_MODEL_SHA256 = '62f36c339b80c8849814f8a0fd4b04f94c7a758658f71d6aa86478e633d5764e';
+export const LOCAL_MISTRAL_LLAMA_BUILD = 'b9637';
+export const LOCAL_MISTRAL_LLAMA_SOURCE_COMMIT = 'aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3';
+export const LOCAL_MISTRAL_LLAMA_ARCHIVE_SHA256 = '3857876e4a2461f7041166bd74b5d39e3db51b8639353d55f87d6f904b3b75bd';
+export const LOCAL_MISTRAL_POLICY_SHA256 = 'e083823ced2f5b63ecfaca345e59274c5f194e36c0cdd20b2cae9cee3b4f9ed3';
+export const LOCAL_MISTRAL_MAX_DIFF_BYTES = 400000;
+export const LOCAL_MISTRAL_MAX_CHUNK_DIFF_BYTES = 12000;
+export const LOCAL_MISTRAL_MAX_CHUNKS = 64;
 
 const COMPLETED_REVIEW_STATES = new Set([
   'APPROVED',
@@ -51,6 +66,11 @@ const POSITIVE_OCTOPUS_REVIEW_STATES = new Set([
 ]);
 
 const POSITIVE_LOCAL_QWEN_REVIEW_STATES = new Set([
+  'APPROVED',
+  'COMMENTED',
+]);
+
+const POSITIVE_LOCAL_MISTRAL_REVIEW_STATES = new Set([
   'APPROVED',
   'COMMENTED',
 ]);
@@ -140,17 +160,17 @@ function parseOctopusAttestation(review, headSha) {
   };
 }
 
-function parseLocalQwenAttestation(review, headSha) {
+function parseLocalModelAttestation(review, headSha, config) {
   const expected = String(headSha || '').trim();
   if (!/^[0-9a-f]{40}$/u.test(expected)) return null;
-  if (normalizeLogin(review) !== LOCAL_QWEN_REVIEW_LOGIN) return null;
+  if (normalizeLogin(review) !== config.login) return null;
   const commitId = String(review?.commit_id || review?.commitId || '').trim();
   if (commitId !== expected) return null;
   const state = String(review?.state || '').toUpperCase();
-  if (!POSITIVE_LOCAL_QWEN_REVIEW_STATES.has(state)) return null;
+  if (!config.positiveStates.has(state)) return null;
 
   const lines = String(review?.body || '').trim().split('\n');
-  if (lines.length !== 18 || lines[0] !== 'LOCAL QWEN INDEPENDENT REVIEW: PASS') return null;
+  if (lines.length !== 18 || lines[0] !== config.header) return null;
   const capture = (index, pattern) => lines[index].match(pattern)?.[1] || '';
   const attestedHead = capture(1, /^Exact head: \x60([0-9a-f]{40})\x60$/u);
   const workflowPath = capture(2, /^Provider workflow: \x60([^\x60]+)\x60$/u);
@@ -186,13 +206,13 @@ function parseLocalQwenAttestation(review, headSha) {
   ) return null;
   if (
     attestedHead !== expected
-    || workflowPath !== LOCAL_QWEN_WORKFLOW_PATH
-    || modelRevision !== LOCAL_QWEN_MODEL_REVISION
-    || modelSha256 !== LOCAL_QWEN_MODEL_SHA256
-    || llamaBuild !== LOCAL_QWEN_LLAMA_BUILD
-    || llamaSourceCommit !== LOCAL_QWEN_LLAMA_SOURCE_COMMIT
-    || llamaArchiveSha256 !== LOCAL_QWEN_LLAMA_ARCHIVE_SHA256
-    || policySha256 !== LOCAL_QWEN_POLICY_SHA256
+    || workflowPath !== config.workflowPath
+    || modelRevision !== config.modelRevision
+    || modelSha256 !== config.modelSha256
+    || llamaBuild !== config.llamaBuild
+    || llamaSourceCommit !== config.llamaSourceCommit
+    || llamaArchiveSha256 !== config.llamaArchiveSha256
+    || policySha256 !== config.policySha256
     || lines[16] !== 'Verdict: \x60PASS\x60'
     || lines[17] !== 'Findings: \x600\x60'
   ) return null;
@@ -201,10 +221,10 @@ function parseLocalQwenAttestation(review, headSha) {
   if (
     !Number.isSafeInteger(diffBytes)
     || diffBytes < 1
-    || diffBytes > LOCAL_QWEN_MAX_DIFF_BYTES
+    || diffBytes > config.maxDiffBytes
     || !Number.isSafeInteger(chunkCount)
     || chunkCount < 1
-    || chunkCount > LOCAL_QWEN_MAX_CHUNKS
+    || chunkCount > config.maxChunks
   ) return null;
 
   return {
@@ -219,23 +239,61 @@ function parseLocalQwenAttestation(review, headSha) {
   };
 }
 
-export function positiveExactHeadLocalQwenAttestations(reviews, statuses, headSha, repo) {
+const LOCAL_QWEN_CONFIG = {
+  login: LOCAL_QWEN_REVIEW_LOGIN,
+  positiveStates: POSITIVE_LOCAL_QWEN_REVIEW_STATES,
+  header: 'LOCAL QWEN INDEPENDENT REVIEW: PASS',
+  workflowPath: LOCAL_QWEN_WORKFLOW_PATH,
+  modelRevision: LOCAL_QWEN_MODEL_REVISION,
+  modelSha256: LOCAL_QWEN_MODEL_SHA256,
+  llamaBuild: LOCAL_QWEN_LLAMA_BUILD,
+  llamaSourceCommit: LOCAL_QWEN_LLAMA_SOURCE_COMMIT,
+  llamaArchiveSha256: LOCAL_QWEN_LLAMA_ARCHIVE_SHA256,
+  policySha256: LOCAL_QWEN_POLICY_SHA256,
+  maxDiffBytes: LOCAL_QWEN_MAX_DIFF_BYTES,
+  maxChunks: LOCAL_QWEN_MAX_CHUNKS,
+};
+
+const LOCAL_MISTRAL_CONFIG = {
+  login: LOCAL_MISTRAL_REVIEW_LOGIN,
+  positiveStates: POSITIVE_LOCAL_MISTRAL_REVIEW_STATES,
+  header: 'LOCAL MISTRAL INDEPENDENT REVIEW: PASS',
+  workflowPath: LOCAL_MISTRAL_WORKFLOW_PATH,
+  modelRevision: LOCAL_MISTRAL_MODEL_REVISION,
+  modelSha256: LOCAL_MISTRAL_MODEL_SHA256,
+  llamaBuild: LOCAL_MISTRAL_LLAMA_BUILD,
+  llamaSourceCommit: LOCAL_MISTRAL_LLAMA_SOURCE_COMMIT,
+  llamaArchiveSha256: LOCAL_MISTRAL_LLAMA_ARCHIVE_SHA256,
+  policySha256: LOCAL_MISTRAL_POLICY_SHA256,
+  maxDiffBytes: LOCAL_MISTRAL_MAX_DIFF_BYTES,
+  maxChunks: LOCAL_MISTRAL_MAX_CHUNKS,
+};
+
+function parseLocalQwenAttestation(review, headSha) {
+  return parseLocalModelAttestation(review, headSha, LOCAL_QWEN_CONFIG);
+}
+
+function parseLocalMistralAttestation(review, headSha) {
+  return parseLocalModelAttestation(review, headSha, LOCAL_MISTRAL_CONFIG);
+}
+
+function positiveExactHeadLocalModelAttestations(reviews, statuses, headSha, repo, config) {
   const repository = String(repo || '').trim();
   if (!isGitHubRepositorySlug(repository)) return [];
   const latestProviderStatus = (statuses || []).find((status) => (
-    String(status?.context || '').trim() === LOCAL_QWEN_STATUS_CONTEXT
+    String(status?.context || '').trim() === config.statusContext
   ));
   if (!latestProviderStatus) return [];
   if (String(latestProviderStatus?.state || '').toLowerCase() !== 'success') return [];
-  if (String(latestProviderStatus?.creator?.login || '').trim() !== LOCAL_QWEN_REVIEW_LOGIN) return [];
+  if (String(latestProviderStatus?.creator?.login || '').trim() !== config.login) return [];
 
   const candidates = (reviews || [])
-    .map((review) => parseLocalQwenAttestation(review, headSha))
+    .map((review) => config.parse(review, headSha))
     .filter(Boolean);
   return candidates.filter((candidate) => {
     const expectedDescription = [
-      'Qwen clean model=',
-      LOCAL_QWEN_MODEL_SHA256.slice(0, 8),
+      config.descriptionPrefix,
+      config.modelSha256.slice(0, 8),
       ' response=',
       candidate.responseSha256.slice(0, 16),
       ' chunks=',
@@ -252,7 +310,25 @@ export function positiveExactHeadLocalQwenAttestations(reviews, statuses, headSh
   });
 }
 
-export function localQwenAttestationMatchesWorkflowRun(attestation, run, repo, prNumber, headSha) {
+export function positiveExactHeadLocalQwenAttestations(reviews, statuses, headSha, repo) {
+  return positiveExactHeadLocalModelAttestations(reviews, statuses, headSha, repo, {
+    ...LOCAL_QWEN_CONFIG,
+    statusContext: LOCAL_QWEN_STATUS_CONTEXT,
+    parse: parseLocalQwenAttestation,
+    descriptionPrefix: 'Qwen clean model=',
+  });
+}
+
+export function positiveExactHeadLocalMistralAttestations(reviews, statuses, headSha, repo) {
+  return positiveExactHeadLocalModelAttestations(reviews, statuses, headSha, repo, {
+    ...LOCAL_MISTRAL_CONFIG,
+    statusContext: LOCAL_MISTRAL_STATUS_CONTEXT,
+    parse: parseLocalMistralAttestation,
+    descriptionPrefix: 'Mistral clean model=',
+  });
+}
+
+function localModelAttestationMatchesWorkflowRun(attestation, run, repo, prNumber, headSha, workflowName, workflowPath) {
   const repository = String(repo || '').trim();
   const expectedHead = String(headSha || '').trim();
   const expectedPr = Number(prNumber || 0);
@@ -263,8 +339,8 @@ export function localQwenAttestationMatchesWorkflowRun(attestation, run, repo, p
   const attestedRunId = String(attestation?.runId || '').trim();
   if (!/^[1-9][0-9]{0,19}$/u.test(attestedRunId)) return false;
   if (String(run?.id ?? '').trim() !== attestedRunId) return false;
-  if (String(run?.name || '').trim() !== LOCAL_QWEN_WORKFLOW_NAME) return false;
-  if (String(run?.path || '').trim() !== LOCAL_QWEN_WORKFLOW_PATH) return false;
+  if (String(run?.name || '').trim() !== workflowName) return false;
+  if (String(run?.path || '').trim() !== workflowPath) return false;
   if (String(run?.event || '').trim() !== 'pull_request_target') return false;
   if (String(run?.status || '').trim() !== 'completed') return false;
   if (String(run?.conclusion || '').trim() !== 'success') return false;
@@ -279,13 +355,34 @@ export function localQwenAttestationMatchesWorkflowRun(attestation, run, repo, p
   ));
 }
 
+export function localQwenAttestationMatchesWorkflowRun(attestation, run, repo, prNumber, headSha) {
+  return localModelAttestationMatchesWorkflowRun(
+    attestation,
+    run,
+    repo,
+    prNumber,
+    headSha,
+    LOCAL_QWEN_WORKFLOW_NAME,
+    LOCAL_QWEN_WORKFLOW_PATH,
+  );
+}
+
+export function localMistralAttestationMatchesWorkflowRun(attestation, run, repo, prNumber, headSha) {
+  return localModelAttestationMatchesWorkflowRun(
+    attestation,
+    run,
+    repo,
+    prNumber,
+    headSha,
+    LOCAL_MISTRAL_WORKFLOW_NAME,
+    LOCAL_MISTRAL_WORKFLOW_PATH,
+  );
+}
+
 export function positiveExactHeadOctopusAttestations(reviews, statuses, headSha, repo) {
   const repository = String(repo || '').trim();
   if (!isGitHubRepositorySlug(repository)) return [];
 
-  // GitHub's commit-status endpoint is reverse chronological. Authority is
-  // deliberately bound to the newest provider status: a later failure/pending
-  // state invalidates an older clean review instead of being shadowed by it.
   const latestProviderStatus = (statuses || []).find((status) => (
     String(status?.context || '').trim() === OCTOPUS_STATUS_CONTEXT
   ));
@@ -383,8 +480,6 @@ export function latestBlockingChangeRequests(reviews) {
     if (state === 'APPROVED' || state === 'DISMISSED') {
       blockedByReviewer.delete(login);
     }
-
-    // COMMENTED does not clear an earlier CHANGES_REQUESTED review.
   }
 
   return [...blockedByReviewer.entries()]
@@ -467,13 +562,8 @@ export function octopusActionsRunUrl(repo, runId) {
 
 function fetchPublicActionsRun(repo, runId) {
   const url = octopusActionsRunUrl(repo, runId);
-  if (!url) throw new Error('Invalid Octopus Actions run identity.');
+  if (!url) throw new Error('Invalid Actions run identity.');
 
-  // Merge-controller GITHUB_TOKEN permissions deliberately remain minimal and
-  // do not need `actions: read`. This repository is public, so resolve only the
-  // fixed GitHub Actions run endpoint anonymously. Strip GitHub credentials and
-  // ignore user curl configuration; any network/rate-limit/JSON failure is
-  // caught by the caller and therefore fails closed rather than granting review.
   const env = { ...process.env };
   delete env.GH_TOKEN;
   delete env.GITHUB_TOKEN;
@@ -510,6 +600,10 @@ function fetchPublicLocalQwenActionsRun(repo, runId) {
   return fetchPublicActionsRun(repo, runId);
 }
 
+function fetchPublicLocalMistralActionsRun(repo, runId) {
+  return fetchPublicActionsRun(repo, runId);
+}
+
 function fetchAllReviews(repo, prNumber) {
   const pages = ghJson([
     'api',
@@ -538,6 +632,19 @@ function fetchAllCommitStatuses(repo, headSha) {
     `repos/${repo}/commits/${headSha}/statuses?per_page=100`,
   ]) || [];
   return pages.flatMap((page) => Array.isArray(page) ? page : []);
+}
+
+function fetchAllChangedPaths(repo, prNumber) {
+  const pages = ghJson([
+    'api',
+    '--paginate',
+    '--slurp',
+    `repos/${repo}/pulls/${prNumber}/files?per_page=100`,
+  ]) || [];
+  return pages
+    .flatMap((page) => Array.isArray(page) ? page : [])
+    .map((file) => String(file?.filename || '').trim())
+    .filter(Boolean);
 }
 
 function resolveCommitSha(repo, ref) {
@@ -656,6 +763,9 @@ function main() {
   const reviews = fetchAllReviews(repo, prNumber);
   const comments = fetchAllIssueComments(repo, prNumber);
   const commitStatuses = fetchAllCommitStatuses(repo, headSha);
+  const changedPaths = fetchAllChangedPaths(repo, prNumber);
+  const localQwenSelfChanged = changedPaths.includes(LOCAL_QWEN_WORKFLOW_PATH);
+  const localMistralSelfChanged = changedPaths.includes(LOCAL_MISTRAL_WORKFLOW_PATH);
 
   const positiveCodexReviews = positiveExactHeadCodexReviews(reviews, headSha);
   const cleanPrefixes = cleanCodexReviewPrefixes(comments);
@@ -683,12 +793,9 @@ function main() {
       const run = fetchPublicOctopusActionsRun(repo, attestation.runId);
       return octopusAttestationMatchesWorkflowRun(attestation, run, repo, prNumber, headSha);
     } catch {
-      // Provider evidence is fail-closed when its immutable Actions run cannot
-      // be resolved or does not match the exact trusted workflow identity.
       return false;
     }
   });
-
   const octopusAuthority = workflowBoundOctopusAttestations.length > 0;
 
   const positiveLocalQwenAttestations = positiveExactHeadLocalQwenAttestations(
@@ -702,19 +809,33 @@ function main() {
       const run = fetchPublicLocalQwenActionsRun(repo, attestation.runId);
       return localQwenAttestationMatchesWorkflowRun(attestation, run, repo, prNumber, headSha);
     } catch {
-      // Local-Qwen evidence is fail-closed when its immutable Actions run cannot
-      // be resolved or does not match the exact trusted workflow identity.
       return false;
     }
   });
-  const localQwenAuthority = workflowBoundLocalQwenAttestations.length > 0;
+  const localQwenAuthority = !localQwenSelfChanged && workflowBoundLocalQwenAttestations.length > 0;
 
-  if (!codexAuthority && !copilotAuthority && !octopusAuthority && !localQwenAuthority) {
+  const positiveLocalMistralAttestations = positiveExactHeadLocalMistralAttestations(
+    reviews,
+    commitStatuses,
+    headSha,
+    repo,
+  );
+  const workflowBoundLocalMistralAttestations = positiveLocalMistralAttestations.filter((attestation) => {
+    try {
+      const run = fetchPublicLocalMistralActionsRun(repo, attestation.runId);
+      return localMistralAttestationMatchesWorkflowRun(attestation, run, repo, prNumber, headSha);
+    } catch {
+      return false;
+    }
+  });
+  const localMistralAuthority = !localMistralSelfChanged && workflowBoundLocalMistralAttestations.length > 0;
+
+  if (!codexAuthority && !copilotAuthority && !octopusAuthority && !localQwenAuthority && !localMistralAuthority) {
     fail(
       'REVIEW_GATE_INDEPENDENT_EXACT_HEAD_MISSING',
       'No genuine independent review authority is bound to exact head '
         + headSha
-        + '; accepted providers are Codex clean/approved review, GitHub Copilot exact-head code review, Octopus exact-head clean attestation plus matching provider status, or Local Qwen exact-head clean attestation plus matching provider status and trusted Actions run.',
+        + '; accepted providers are Codex clean/approved review, GitHub Copilot exact-head code review, Local Qwen exact-head attestation when its own workflow is unchanged, Local Mistral exact-head attestation when its own workflow is unchanged, or Octopus exact-head clean attestation. Local providers cannot approve a PR that changes their own provider workflow.',
     );
   }
 
@@ -784,9 +905,11 @@ function main() {
     ? 'CODEX'
     : copilotAuthority
       ? 'GITHUB_COPILOT'
-      : octopusAuthority
-        ? 'OCTOPUS'
-        : 'LOCAL_QWEN';
+      : localQwenAuthority
+        ? 'LOCAL_QWEN'
+        : localMistralAuthority
+          ? 'LOCAL_MISTRAL'
+          : 'OCTOPUS';
   console.log(
     'PR_REVIEW_GATE=PASS pr=' + prNumber
       + ' head=' + headSha
@@ -796,6 +919,9 @@ function main() {
       + ' copilotExactHeadReviews=' + positiveCopilotReviews.length
       + ' octopusExactHeadAttestations=' + workflowBoundOctopusAttestations.length
       + ' localQwenExactHeadAttestations=' + workflowBoundLocalQwenAttestations.length
+      + ' localMistralExactHeadAttestations=' + workflowBoundLocalMistralAttestations.length
+      + ' localQwenSelfChanged=' + String(localQwenSelfChanged)
+      + ' localMistralSelfChanged=' + String(localMistralSelfChanged)
       + ' ownerSelfAuditAttestations=' + ownerSelfAudits.length
       + ' unresolvedCurrentThreads=0'
       + ' ciChecks=' + checkedCi,
