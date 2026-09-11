@@ -88,7 +88,7 @@ class VerifiedRegularFile:
 
 
 def reject(code):
-    raise ConversionEvidenceError(code)
+    raise ConversionEvidenceError(code) from None
 
 
 def _require_dict(value, code):
