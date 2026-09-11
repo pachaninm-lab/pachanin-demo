@@ -2,7 +2,10 @@ import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE, CSRF_COOKIE, SESSION_COOKIE, sessionMarkerCookie } from '@/lib/auth-cookies';
 import { CABINET_SESSION_COOKIE } from '@/lib/server/auth-session-response';
-import { ownerControlledCabinetRole } from '@/lib/platform-v7/control-host';
+import {
+  ownerControlledCabinetTarget,
+  type OwnerControlledCabinetRole,
+} from '@/lib/platform-v7/control-host';
 import {
   controlledCabinetContext,
   type ControlledCabinetContext,
@@ -18,23 +21,7 @@ export const maxDuration = 12;
 const MAX_CONTROLLED_TTL_SECONDS = 8 * 60 * 60;
 const MAX_API_OWNER_TTL_SECONDS = 60 * 60;
 
-const OWNER_CABINETS = {
-  operator: '/platform-v7/operator',
-  buyer: '/platform-v7/buyer',
-  seller: '/platform-v7/seller',
-  logistics: '/platform-v7/logistics',
-  driver: '/platform-v7/driver/field',
-  surveyor: '/platform-v7/surveyor',
-  elevator: '/platform-v7/elevator',
-  lab: '/platform-v7/lab',
-  bank: '/platform-v7/bank',
-  organization: '/platform-v7/profile',
-  arbitrator: '/platform-v7/arbitrator',
-  compliance: '/platform-v7/compliance',
-  executive: '/platform-v7/executive',
-} as const;
-
-type OwnerCabinetRole = keyof typeof OWNER_CABINETS;
+type OwnerCabinetRole = OwnerControlledCabinetRole;
 type OwnerAuthority = {
   actorId: string;
   email: string;
@@ -100,7 +87,7 @@ function redirectBack(request: NextRequest, code: string) {
 }
 
 function isOwnerCabinetRole(value: unknown): value is OwnerCabinetRole {
-  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(OWNER_CABINETS, value);
+  return typeof value === 'string' && ownerControlledCabinetTarget(value) !== null;
 }
 
 function constantTimeEqual(a: string, b: string): boolean {
@@ -326,10 +313,8 @@ export async function POST(request: NextRequest) {
   if (!parsed.csrfOk) return fail('CSRF_REJECTED', 'Сессия формы устарела. Обнови страницу.', 403);
   if (!isOwnerCabinetRole(parsed.role)) return fail('INVALID_CABINET_ROLE', 'Неизвестный кабинет.', 400);
 
-  const target = OWNER_CABINETS[parsed.role];
-  if (ownerControlledCabinetRole(target) !== parsed.role) {
-    return fail('OWNER_CABINET_ROUTE_MISMATCH', 'Маршрут кабинета не прошёл серверную проверку.', 503);
-  }
+  const target = ownerControlledCabinetTarget(parsed.role);
+  if (!target) return fail('OWNER_CABINET_ROUTE_MISMATCH', 'Маршрут кабинета не прошёл серверную проверку.', 503);
 
   const secret = signingSecret();
   const accessToken = request.cookies.get(ACCESS_COOKIE)?.value || '';
