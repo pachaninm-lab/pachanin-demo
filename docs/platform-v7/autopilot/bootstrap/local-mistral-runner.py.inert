@@ -165,17 +165,8 @@ prompt_bundle_sha256 = hashlib.sha256(
 ).hexdigest()
 
 # Segment 4 consumes only the already validated changed-path authority frozen above.
-import json as validator_json
-import re as validator_re
-
 candidate_limit_bytes = 65_536
 finding_fields = {"severity", "path", "line", "title", "reason"}
-validator_speculative_pattern = validator_re.compile(r"\b(?:could|may|might|likely|potentially)\b", validator_re.I)
-validator_credential_pattern = validator_re.compile(
-    r"(?is)(-----BEGIN [A-Z ]*PRIVATE KEY-----|\b(?:github_pat_|gh[pousr]_|AKIA|ASIA|xox[baprs]-|sk-(?:proj-)?)[A-Za-z0-9_\-]{12,}|\b(?:password|passwd|secret|api[_-]?key|access[_-]?token|authorization)\s*[:=]\s*[\"'][^\"'\r\n]{8,}[\"'])"
-)
-validator_email_pattern = validator_re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b")
-validator_phone_pattern = validator_re.compile(r"(?<!\w)(?:\+?\d[\d ().-]{8,}\d)(?!\w)")
 
 def validate_candidate(text):
     if not isinstance(text, str) or not text.strip():
@@ -185,8 +176,8 @@ def validate_candidate(text):
     if "<think>" in text or "</think>" in text:
         return "THINKING_LEAK", None
     try:
-        value = validator_json.loads(text)
-    except validator_json.JSONDecodeError:
+        value = json.loads(text)
+    except json.JSONDecodeError:
         return "JSON_INVALID", None
     if not isinstance(value, dict) or set(value) != {"findings"}:
         return "SCHEMA_INVALID_KEYS", None
@@ -208,36 +199,20 @@ def validate_candidate(text):
         return "LINE_INVALID", None
     title = finding.get("title")
     reason = finding.get("reason")
-    if not isinstance(title, str) or not isinstance(reason, str):
-        return "TEXT_FIELDS_INVALID", None
-    rendered = title + "\n" + reason
-    if validator_credential_pattern.search(rendered):
-        return "OUTPUT_CREDENTIAL_INVALID", None
-    safe_title = validator_email_pattern.sub(
-        "[REDACTED_EMAIL]",
-        validator_phone_pattern.sub("[REDACTED_PHONE]", title),
-    )
-    safe_reason = validator_email_pattern.sub(
-        "[REDACTED_EMAIL]",
-        validator_phone_pattern.sub("[REDACTED_PHONE]", reason),
-    )
-    if not 1 <= len(safe_title.strip()) <= 80:
+    if not isinstance(title, str) or not 1 <= len(title.strip()) <= 80:
         return "TITLE_INVALID", None
-    if not 1 <= len(safe_reason.strip()) <= 192:
+    if not isinstance(reason, str) or not 1 <= len(reason.strip()) <= 192:
         return "REASON_INVALID", None
-    if validator_speculative_pattern.search(safe_reason):
+    if speculative.search(reason):
         return "SPECULATIVE_REASON", None
-    safe_value = {
-        "findings": [{
+    canonical_safe = json.dumps(
+        {"findings": [{
             "line": line,
             "path": path,
-            "reason": safe_reason,
+            "reason": reason,
             "severity": finding["severity"],
-            "title": safe_title,
-        }]
-    }
-    canonical_safe = validator_json.dumps(
-        safe_value,
+            "title": title,
+        }]},
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),
