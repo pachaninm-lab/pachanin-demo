@@ -2,6 +2,7 @@ import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE, CSRF_COOKIE, SESSION_COOKIE, sessionMarkerCookie } from '@/lib/auth-cookies';
 import { CABINET_SESSION_COOKIE } from '@/lib/server/auth-session-response';
+import { resolveServerApiBaseUrl } from '@/lib/server/server-api-origin';
 import {
   controlledCabinetContext,
   type ControlledCabinetContext,
@@ -66,18 +67,6 @@ function controlledFixtureEnabled(): boolean {
 
 function signingSecret(): string {
   return readEnv('JWT_SECRET') || readEnv('PC_CABINET_SESSION_SECRET');
-}
-
-function apiOrigin(): string {
-  const configured = String(process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '').trim();
-  if (!configured) return '';
-  try {
-    const url = new URL(configured);
-    if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:') return '';
-    return url.toString().replace(/\/$/, '');
-  } catch {
-    return '';
-  }
 }
 
 function json(body: Record<string, unknown>, status = 200) {
@@ -230,11 +219,11 @@ async function controlledOwnerAuthority(accessToken: string, secret: string): Pr
 }
 
 async function apiOwnerAuthority(accessToken: string, correlationId: string): Promise<AuthorityResult> {
-  const origin = apiOrigin();
-  if (!origin) return { status: 'unavailable' };
+  const apiBaseUrl = resolveServerApiBaseUrl();
+  if (!apiBaseUrl) return { status: 'unavailable' };
 
   try {
-    const response = await fetch(`${origin}/staff/capabilities/me`, {
+    const response = await fetch(`${apiBaseUrl}/staff/capabilities/me`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
         Accept: 'application/json',
