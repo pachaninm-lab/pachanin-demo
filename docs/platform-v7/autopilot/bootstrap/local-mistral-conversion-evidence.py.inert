@@ -9,6 +9,7 @@ REPORT_PARTS = ("evidence", "conversion-report.json")
 MODEL_PARTS = ("artifacts", "mistral-7b-instruct-v0.3-q4-k-m.gguf")
 SERVER_PARTS = ("toolchain", "bin", "llama-server")
 GIT_SHA_PATTERN = re.compile(r"[0-9a-f]{40}\Z")
+SHA256_PATTERN = re.compile(r"[0-9a-f]{64}\Z")
 
 
 class ConversionEvidenceError(Exception):
@@ -210,23 +211,41 @@ def open_regular_nofollow(bound, code):
     return fd, info
 
 
-def digest_regular_exact(bound, expected_size, open_code, size_code):
+def digest_regular_exact(
+    bound,
+    expected_size,
+    expected_sha256,
+    open_code,
+    size_code,
+    sha_code,
+):
+    if not isinstance(expected_sha256, str) or not SHA256_PATTERN.fullmatch(expected_sha256):
+        reject(sha_code)
     fd, before = open_regular_nofollow(bound, open_code)
     if type(expected_size) is not int or expected_size <= 0 or before.st_size != expected_size:
         os.close(fd)
         reject(size_code)
     digest = hashlib.sha256()
+    bytes_read = 0
     try:
         while True:
             block = os.read(fd, 8 * 1024 * 1024)
             if not block:
                 break
+            bytes_read += len(block)
+            if bytes_read > expected_size:
+                os.close(fd)
+                reject(size_code)
             digest.update(block)
         after = os.fstat(fd)
+    except ConversionEvidenceError:
+        raise
     except OSError:
         os.close(fd)
         reject("BOUND_FILE_DIGEST_FAILED")
     os.close(fd)
+    if bytes_read != expected_size:
+        reject(size_code)
     if (
         before.st_dev != after.st_dev
         or before.st_ino != after.st_ino
@@ -235,4 +254,7 @@ def digest_regular_exact(bound, expected_size, open_code, size_code):
         or before.st_ctime_ns != after.st_ctime_ns
     ):
         reject("BOUND_FILE_CHANGED_DURING_READ")
-    return digest.hexdigest()
+    actual_sha256 = digest.hexdigest()
+    if actual_sha256 != expected_sha256:
+        reject(sha_code)
+    return actual_sha256
