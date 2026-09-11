@@ -57,6 +57,7 @@ def canonical_clean_evidence(record):
     diff_bytes = record["diff_bytes"]
     chunk_count = record["chunk_count"]
     run_id = record["workflow_run_id"]
+    findings_count = record["findings_count"]
     if isinstance(diff_bytes, bool) or not isinstance(diff_bytes, int) or not 1 <= diff_bytes <= MAX_DIFF_BYTES:
         raise AttestationError("DIFF_BYTES_INVALID")
     if isinstance(chunk_count, bool) or not isinstance(chunk_count, int) or not 1 <= chunk_count <= MAX_CHUNKS:
@@ -65,8 +66,10 @@ def canonical_clean_evidence(record):
         raise AttestationError("WORKFLOW_RUN_ID_INVALID")
     if record["provider_workflow"] != PROVIDER_WORKFLOW:
         raise AttestationError("PROVIDER_WORKFLOW_INVALID")
-    if record["verdict"] != "PASS" or record["findings_count"] != 0:
+    if record["verdict"] != "PASS":
         raise AttestationError("CLEAN_VERDICT_INVALID")
+    if isinstance(findings_count, bool) or not isinstance(findings_count, int) or findings_count != 0:
+        raise AttestationError("FINDINGS_COUNT_INVALID")
     canonical = json.dumps(record, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
     digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     return canonical, digest
