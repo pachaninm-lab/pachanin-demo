@@ -16,8 +16,6 @@ import time
     conversion_run_id_raw,
     conversion_run_attempt_raw,
     model_revision,
-    model_sha256,
-    model_size_raw,
     model_identity,
     conversion_root_raw,
     conversion_report_sha256,
@@ -33,7 +31,6 @@ import time
 
 conversion_run_id = int(conversion_run_id_raw)
 conversion_run_attempt = int(conversion_run_attempt_raw)
-model_size = int(model_size_raw)
 server_size = int(server_size_raw)
 conversion_root = Path(conversion_root_raw)
 diff_path = Path(diff_path_raw)
@@ -79,8 +76,14 @@ if not source or source.get("revision") != model_revision:
 
 relative_model_path = "artifacts/mistral-7b-instruct-v0.3-q4-k-m.gguf"
 output = next((item for item in report.get("outputs", []) if item.get("path") == relative_model_path), None)
-if not output or output.get("sha256") != model_sha256 or output.get("size_bytes") != model_size:
+if not output:
     fail("MODEL_REPORT_BINDING_INVALID")
+model_sha256 = output.get("sha256")
+model_size = output.get("size_bytes")
+if not isinstance(model_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", model_sha256):
+    fail("MODEL_REPORT_SHA256_INVALID")
+if isinstance(model_size, bool) or not isinstance(model_size, int) or model_size <= 0:
+    fail("MODEL_REPORT_SIZE_INVALID")
 if model_path.stat().st_size != model_size or digest(model_path) != model_sha256:
     fail("MODEL_FILE_IDENTITY_INVALID")
 if server_path.stat().st_size != server_size or digest(server_path) != server_sha256:
