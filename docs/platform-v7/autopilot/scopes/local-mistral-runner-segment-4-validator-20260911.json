@@ -12,7 +12,7 @@
     "The staged .inert file is not executed or referenced by any workflow.",
     "Candidate content is bounded to 65536 UTF-8 bytes and must contain no thinking tags.",
     "Candidate JSON is fail-closed: exact findings-only top-level shape, at most one finding, exact finding field set, P0/P1/P2 severity allowlist, exact changed-path authority, positive integer line, bounded title and reason, and speculative-reason rejection.",
-    "Candidate title/reason is rejected if it contains token-like credential material or common e-mail/phone PII patterns.",
+    "Candidate title/reason containing credential-like material or common e-mail/phone PII hard-stops the review process through fail(), rather than returning a publishable candidate.",
     "An empty findings array is the only clean result; malformed or ambiguous output never becomes PASS.",
     "Local Qwen workflow and exact-head verifier remain unchanged and are the independent authority for this PR.",
     "No product, API, database, RBAC, registration, cabinet, customer-data or production routing behavior changes.",
