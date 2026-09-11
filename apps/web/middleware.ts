@@ -351,10 +351,16 @@ function markPlatformV7Entry(response: NextResponse) {
   response.cookies.set(PLATFORM_V7_ENTRY_COOKIE, 'true', { path: '/', maxAge: 60 * 60 * 4, sameSite: 'lax', secure: true });
 }
 
+function cabinetSessionSecret(): string | null {
+  const candidate = String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
+  if (candidate.length < 32 || candidate.length > 4096) return null;
+  return candidate;
+}
+
 async function verifiedCabinetContext(req: NextRequest) {
-  const secret = String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
+  const secret = cabinetSessionSecret();
   const token = req.cookies.get(CABINET_SESSION_COOKIE)?.value ?? '';
-  if (!secret || !token) return null;
+  if (!secret || !token || token.length > 8192) return null;
   return readVerifiedCabinetSessionContext(token, secret, Math.floor(Date.now() / 1000));
 }
 
