@@ -30,10 +30,22 @@ export function ownerControlledCabinetRole(pathname: string): OwnerControlledCab
 }
 
 export function ownerControlledCabinetTarget(role: string | null | undefined): string | null {
-  if (!role || !Object.prototype.hasOwnProperty.call(OWNER_CONTROLLED_CABINET_TARGETS, role)) return null;
-  const exactRole = role as OwnerControlledCabinetRole;
-  const target = OWNER_CONTROLLED_CABINET_TARGETS[exactRole];
-  return ownerControlledCabinetRole(target) === exactRole ? target : null;
+  switch (role) {
+    case 'operator': return OWNER_CONTROLLED_CABINET_TARGETS.operator;
+    case 'buyer': return OWNER_CONTROLLED_CABINET_TARGETS.buyer;
+    case 'seller': return OWNER_CONTROLLED_CABINET_TARGETS.seller;
+    case 'logistics': return OWNER_CONTROLLED_CABINET_TARGETS.logistics;
+    case 'driver': return OWNER_CONTROLLED_CABINET_TARGETS.driver;
+    case 'surveyor': return OWNER_CONTROLLED_CABINET_TARGETS.surveyor;
+    case 'elevator': return OWNER_CONTROLLED_CABINET_TARGETS.elevator;
+    case 'lab': return OWNER_CONTROLLED_CABINET_TARGETS.lab;
+    case 'bank': return OWNER_CONTROLLED_CABINET_TARGETS.bank;
+    case 'organization': return OWNER_CONTROLLED_CABINET_TARGETS.organization;
+    case 'arbitrator': return OWNER_CONTROLLED_CABINET_TARGETS.arbitrator;
+    case 'compliance': return OWNER_CONTROLLED_CABINET_TARGETS.compliance;
+    case 'executive': return OWNER_CONTROLLED_CABINET_TARGETS.executive;
+    default: return null;
+  }
 }
 
 export type OwnerControlledCabinetSession = {
