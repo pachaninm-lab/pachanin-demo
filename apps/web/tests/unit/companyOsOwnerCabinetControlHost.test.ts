@@ -31,7 +31,7 @@ describe('Company OS owner cabinet control-host gate', () => {
     expect(isControlRealmPathAllowed('/platform-v7/control-tower')).toBe(false);
   });
 
-  it('accepts only a signed owner session bound to the exact root role and fixed organization/tenant', () => {
+  it('accepts only a signed owner session bound to the exact root role, user and fixed organization/tenant', () => {
     for (const role of Object.keys(OWNER_CONTROLLED_CABINET_TARGETS) as Role[]) {
       const pathname = OWNER_CONTROLLED_CABINET_TARGETS[role];
       const expected = controlledCabinetContext(role);
@@ -39,16 +39,23 @@ describe('Company OS owner cabinet control-host gate', () => {
 
       const valid = {
         role,
+        userId: 'owner-user',
         ownerAccess: true,
         organizationId: expected.organizationId,
         tenantId: expected.tenantId,
       };
       expect(ownerCabinetSessionMatchesRoot(pathname, valid, expected), role).toBe(true);
       expect(ownerCabinetSessionMatchesRoot(pathname, null, expected), `${role}: missing`).toBe(false);
+      expect(ownerCabinetSessionMatchesRoot(pathname, { ...valid, userId: null }, expected), `${role}: missing user`).toBe(false);
       expect(ownerCabinetSessionMatchesRoot(pathname, { ...valid, ownerAccess: false }, expected), `${role}: non-owner`).toBe(false);
       expect(ownerCabinetSessionMatchesRoot(pathname, { ...valid, role: role === 'buyer' ? 'seller' : 'buyer' }, expected), `${role}: mismatched role`).toBe(false);
       expect(ownerCabinetSessionMatchesRoot(pathname, { ...valid, organizationId: 'org-wrong' }, expected), `${role}: wrong org`).toBe(false);
       expect(ownerCabinetSessionMatchesRoot(pathname, { ...valid, tenantId: 'tenant-wrong' }, expected), `${role}: wrong tenant`).toBe(false);
+      expect(ownerCabinetSessionMatchesRoot(
+        pathname,
+        valid,
+        { ...expected, role: role === 'buyer' ? 'seller' : 'buyer' },
+      ), `${role}: wrong context role`).toBe(false);
       expect(ownerCabinetSessionMatchesRoot(`${pathname}/deep`, valid, expected), `${role}: deep route`).toBe(false);
     }
   });
