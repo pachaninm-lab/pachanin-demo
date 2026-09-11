@@ -57,12 +57,16 @@ export function ownerCabinetSessionMatchesRoot(
   if (role === null || session == null || expected == null) return false;
   const canonicalResourcePath = ownerControlledCabinetTarget(role);
   if (canonicalResourcePath === null || pathname !== canonicalResourcePath) return false;
-  if (session.ownerAccess !== true) return false;
-  if (typeof session.userId !== 'string' || session.userId.trim().length === 0) return false;
-  if (session.role !== role || expected.role !== role) return false;
-  if (session.organizationId !== expected.organizationId) return false;
-  if (session.tenantId !== expected.tenantId) return false;
-  return true;
+
+  return (
+    session.ownerAccess === true
+    && typeof session.userId === 'string'
+    && session.userId.trim().length > 0
+    && session.role === role
+    && expected.role === role
+    && session.organizationId === expected.organizationId
+    && session.tenantId === expected.tenantId
+  );
 }
 
 const CONTROL_PAGE_EXACT = new Set([
