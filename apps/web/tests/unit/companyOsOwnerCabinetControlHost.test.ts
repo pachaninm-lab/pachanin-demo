@@ -1,4 +1,5 @@
 // Exact-head admission refresh after provider-maintenance #5238; test semantics unchanged.
+// Temporary pull_request paths trigger; removed in the immediately following commit.
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
