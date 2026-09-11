@@ -24,6 +24,7 @@ const ownerCabinetMatrix = [
   { role: 'elevator', route: '/platform-v7/elevator', page: 'apps/web/app/platform-v7/elevator/page.tsx' },
   { role: 'lab', route: '/platform-v7/lab', page: 'apps/web/app/platform-v7/lab/page.tsx' },
   { role: 'bank', route: '/platform-v7/bank', page: 'apps/web/app/platform-v7/bank/page.tsx' },
+  { role: 'organization', route: '/platform-v7/profile', page: 'apps/web/app/platform-v7/profile/page.tsx' },
   { role: 'arbitrator', route: '/platform-v7/arbitrator', page: 'apps/web/app/platform-v7/arbitrator/page.tsx' },
   { role: 'compliance', route: '/platform-v7/compliance', page: 'apps/web/app/platform-v7/compliance/page.tsx' },
   { role: 'executive', route: '/platform-v7/executive', page: 'apps/web/app/platform-v7/executive/page.tsx' },
@@ -83,14 +84,14 @@ describe('platform-v7 role intent dashboard', () => {
     expect(dashboardStyles).toContain('overscroll-behavior: contain');
   });
 
-  it('keeps all twelve owner cabinet routes, organizations and page implementations connected', () => {
+  it('keeps all thirteen owner cabinet routes, organizations and page implementations connected', () => {
     const openCabinet = read('apps/web/app/platform-v7/staff/open-cabinet/route.ts');
     const controlHost = read('apps/web/lib/platform-v7/control-host.ts');
 
     expect(openCabinet).toContain('OWNER_CONTROLLED_CABINET_TARGETS');
-    expect(ownerCabinetMatrix).toHaveLength(12);
-    expect(new Set(ownerCabinetMatrix.map((item) => item.role)).size).toBe(12);
-    expect(new Set(ownerCabinetMatrix.map((item) => item.route)).size).toBe(12);
+    expect(ownerCabinetMatrix).toHaveLength(13);
+    expect(new Set(ownerCabinetMatrix.map((item) => item.role)).size).toBe(13);
+    expect(new Set(ownerCabinetMatrix.map((item) => item.route)).size).toBe(13);
 
     for (const item of ownerCabinetMatrix) {
       expect(controlHost).toContain(`${item.role}: '${item.route}'`);
