@@ -88,3 +88,51 @@ if model_path.stat().st_size != model_size or digest(model_path) != model_sha256
     fail("MODEL_FILE_IDENTITY_INVALID")
 if server_path.stat().st_size != server_size or digest(server_path) != server_sha256:
     fail("LLAMA_SERVER_IDENTITY_INVALID")
+
+version = subprocess.run(
+    [str(server_path), "--version"],
+    stdin=subprocess.DEVNULL,
+    stdout=subprocess.PIPE,
+    stderr=subprocess.STDOUT,
+    text=True,
+    timeout=15,
+    check=False,
+).stdout
+if llama_commit[:7] not in version:
+    fail("LLAMA_COMMIT_MISMATCH")
+
+input_limits = {
+    diff_path: 400_000,
+    policy_path: 65_536,
+    schema_path: 65_536,
+    changed_paths_path: 32_768,
+}
+for path, limit in input_limits.items():
+    if not path.is_file() or path.is_symlink() or path.stat().st_size <= 0 or path.stat().st_size > limit:
+        fail("REVIEW_INPUT_INVALID")
+
+policy = policy_path.read_text(encoding="utf-8")
+schema = json.loads(schema_path.read_text(encoding="utf-8"))
+diff = diff_path.read_text(encoding="utf-8")
+changed_paths = json.loads(changed_paths_path.read_text(encoding="utf-8"))
+if not isinstance(schema, dict):
+    fail("REVIEW_SCHEMA_INVALID")
+if (
+    not isinstance(changed_paths, list)
+    or not changed_paths
+    or len(changed_paths) > 96
+    or len(set(changed_paths)) != len(changed_paths)
+    or any(not isinstance(path, str) or not path or len(path) > 240 for path in changed_paths)
+):
+    fail("CHANGED_PATHS_INVALID")
+changed_path_set = set(changed_paths)
+
+credential_pattern = re.compile(
+    r"(?is)(-----BEGIN [A-Z ]*PRIVATE KEY-----|\b(?:github_pat_|gh[pousr]_|AKIA|ASIA|xox[baprs]-|sk-(?:proj-)?)[A-Za-z0-9_\-]{12,}|\b(?:password|passwd|secret|api[_-]?key|access[_-]?token|authorization)\s*[:=]\s*[\"'][^\"'\r\n]{8,}[\"'])"
+)
+email_pattern = re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b")
+phone_pattern = re.compile(r"(?<!\w)(?:\+?\d[\d ().-]{8,}\d)(?!\w)")
+if credential_pattern.search(diff):
+    fail("REVIEW_INPUT_SECRET_BLOCKED")
+safe_diff = email_pattern.sub("[REDACTED_EMAIL]", diff)
+safe_diff = phone_pattern.sub("[REDACTED_PHONE]", safe_diff)
