@@ -12,6 +12,9 @@ import sys
 import time
 
 (
+    conversion_exact_main,
+    conversion_run_id_raw,
+    conversion_run_attempt_raw,
     model_revision,
     model_sha256,
     model_size_raw,
@@ -28,6 +31,8 @@ import time
     output_path_raw,
 ) = sys.argv[1:]
 
+conversion_run_id = int(conversion_run_id_raw)
+conversion_run_attempt = int(conversion_run_attempt_raw)
 model_size = int(model_size_raw)
 server_size = int(server_size_raw)
 conversion_root = Path(conversion_root_raw)
@@ -60,9 +65,9 @@ if digest(report_path) != conversion_report_sha256:
     fail("CONVERSION_REPORT_SHA256_MISMATCH")
 
 report = json.loads(report_path.read_text(encoding="utf-8"))
-if report.get("exact_main_sha") != "846963821cf990c226eaead8b32f4bc9148311a0":
+if report.get("exact_main_sha") != conversion_exact_main:
     fail("CONVERSION_MAIN_MISMATCH")
-if report.get("workflow_run_id") != 30333755510 or report.get("workflow_run_attempt") != 1:
+if report.get("workflow_run_id") != conversion_run_id or report.get("workflow_run_attempt") != conversion_run_attempt:
     fail("CONVERSION_RUN_MISMATCH")
 if report.get("toolchain_status") != "VERIFIED_RESTORED":
     fail("TOOLCHAIN_STATUS_INVALID")
