@@ -114,7 +114,16 @@ def _metadata_tuple(info):
     )
 
 
-def _hash_exact_fd(read_fd, expected_size, code):
+def _assert_metadata_stable(read_fd, baseline, code):
+    try:
+        current = os.fstat(read_fd)
+    except OSError:
+        reject(code)
+    if _metadata_tuple(current) != baseline:
+        reject(code)
+
+
+def _hash_exact_fd(read_fd, expected_size, baseline, code):
     digest = hashlib.sha256()
     total = 0
     try:
@@ -124,8 +133,10 @@ def _hash_exact_fd(read_fd, expected_size, code):
                 reject(code)
             digest.update(chunk)
             total += len(chunk)
+            _assert_metadata_stable(read_fd, baseline, code)
         if os.read(read_fd, 1):
             reject(code)
+        _assert_metadata_stable(read_fd, baseline, code)
     except ContentVerificationError:
         raise
     except OSError:
@@ -145,7 +156,7 @@ def _verify(identity_fd, expected_dev, expected_ino, expected_sha256, exact_size
     try:
         _trusted_readonly_metadata(before, maximum, exact_size, code)
         before_tuple = _metadata_tuple(before)
-        actual_sha256 = _hash_exact_fd(read_fd, before.st_size, code)
+        actual_sha256 = _hash_exact_fd(read_fd, before.st_size, before_tuple, code)
         try:
             after = os.fstat(read_fd)
         except OSError:
