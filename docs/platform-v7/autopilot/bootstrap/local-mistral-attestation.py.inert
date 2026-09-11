@@ -41,6 +41,11 @@ def _require_sha256(value, code):
         raise AttestationError(code)
     return value
 
+def _require_int(value, minimum, maximum, code):
+    if type(value) is not int or value < minimum or value > maximum:
+        raise AttestationError(code)
+    return value
+
 def canonical_clean_evidence(record):
     if not isinstance(record, dict) or set(record) != EVIDENCE_FIELDS:
         raise AttestationError("EVIDENCE_SCHEMA_INVALID")
@@ -54,22 +59,14 @@ def canonical_clean_evidence(record):
     _require_sha256(record["manifest_sha256"], "MANIFEST_SHA256_INVALID")
     _require_sha256(record["prompt_bundle_sha256"], "PROMPT_BUNDLE_SHA256_INVALID")
     _require_sha256(record["response_sha256"], "RESPONSE_SHA256_INVALID")
-    diff_bytes = record["diff_bytes"]
-    chunk_count = record["chunk_count"]
-    run_id = record["workflow_run_id"]
-    findings_count = record["findings_count"]
-    if isinstance(diff_bytes, bool) or not isinstance(diff_bytes, int) or not 1 <= diff_bytes <= MAX_DIFF_BYTES:
-        raise AttestationError("DIFF_BYTES_INVALID")
-    if isinstance(chunk_count, bool) or not isinstance(chunk_count, int) or not 1 <= chunk_count <= MAX_CHUNKS:
-        raise AttestationError("CHUNK_COUNT_INVALID")
-    if isinstance(run_id, bool) or not isinstance(run_id, int) or run_id <= 0:
-        raise AttestationError("WORKFLOW_RUN_ID_INVALID")
+    _require_int(record["diff_bytes"], 1, MAX_DIFF_BYTES, "DIFF_BYTES_INVALID")
+    _require_int(record["chunk_count"], 1, MAX_CHUNKS, "CHUNK_COUNT_INVALID")
+    _require_int(record["workflow_run_id"], 1, 9_223_372_036_854_775_807, "WORKFLOW_RUN_ID_INVALID")
     if record["provider_workflow"] != PROVIDER_WORKFLOW:
         raise AttestationError("PROVIDER_WORKFLOW_INVALID")
     if record["verdict"] != "PASS":
         raise AttestationError("CLEAN_VERDICT_INVALID")
-    if isinstance(findings_count, bool) or not isinstance(findings_count, int) or findings_count != 0:
-        raise AttestationError("FINDINGS_COUNT_INVALID")
+    _require_int(record["findings_count"], 0, 0, "FINDINGS_COUNT_INVALID")
     canonical = json.dumps(record, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
     digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     return canonical, digest
