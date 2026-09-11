@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { OwnerCabinetHandoff } from '@/components/platform-v7/staff/OwnerCabinetHandoff';
-import { ownerControlledCabinetTarget } from '@/lib/platform-v7/control-host';
 import { controlledOrganizationById } from '@/lib/platform-v7/controlled-test-organizations';
 import { CABINET_SESSION_COOKIE } from '@/lib/server/auth-session-response';
 import { readVerifiedCabinetSessionContext } from '@/lib/platform-v7/verified-session';
@@ -14,21 +13,6 @@ export const revalidate = 0;
 export const metadata: Metadata = {
   title: 'Открываем кабинет — Прозрачная Цена',
   robots: { index: false, follow: false, nocache: true },
-};
-
-const HANDOFF_TARGETS: Readonly<Record<PlatformRole, string>> = {
-  operator: '/platform-v7/operator',
-  buyer: '/platform-v7/buyer',
-  seller: '/platform-v7/seller',
-  logistics: '/platform-v7/logistics',
-  driver: '/platform-v7/driver/field',
-  surveyor: '/platform-v7/surveyor',
-  elevator: '/platform-v7/elevator',
-  lab: '/platform-v7/lab',
-  bank: '/platform-v7/bank',
-  arbitrator: '/platform-v7/arbitrator',
-  compliance: '/platform-v7/compliance',
-  executive: '/platform-v7/executive',
 };
 
 const LABELS: Readonly<Record<PlatformRole, string>> = {
@@ -51,6 +35,23 @@ function signingSecret(): string | null {
   return candidate.length >= 32 && candidate.length <= 4096 ? candidate : null;
 }
 
+function handoffTarget(role: PlatformRole): string {
+  switch (role) {
+    case 'operator': return '/platform-v7/operator';
+    case 'buyer': return '/platform-v7/buyer';
+    case 'seller': return '/platform-v7/seller';
+    case 'logistics': return '/platform-v7/logistics';
+    case 'driver': return '/platform-v7/driver/field';
+    case 'surveyor': return '/platform-v7/surveyor';
+    case 'elevator': return '/platform-v7/elevator';
+    case 'lab': return '/platform-v7/lab';
+    case 'bank': return '/platform-v7/bank';
+    case 'arbitrator': return '/platform-v7/arbitrator';
+    case 'compliance': return '/platform-v7/compliance';
+    case 'executive': return '/platform-v7/executive';
+  }
+}
+
 export default async function OwnerCabinetHandoffPage() {
   const secret = signingSecret();
   const token = (await cookies()).get(CABINET_SESSION_COOKIE)?.value ?? '';
@@ -63,12 +64,7 @@ export default async function OwnerCabinetHandoffPage() {
     redirect('/platform-v7/staff?cabinetError=ORGANIZATION_CABINET_NOT_CONTROLLED');
   }
 
-  const expectedTarget = HANDOFF_TARGETS[context.role];
-  const target = ownerControlledCabinetTarget(context.role);
-  if (!target || target !== expectedTarget) {
-    redirect('/platform-v7/staff?cabinetError=CABINET_ROUTE_CONFIG_INVALID');
-  }
-
+  const target = handoffTarget(context.role);
   const organization = controlledOrganizationById(context.organizationId);
   return (
     <OwnerCabinetHandoff
