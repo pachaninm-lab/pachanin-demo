@@ -93,9 +93,12 @@ def require_relative_path(value, expected, code):
 
 def digest(path):
     value = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(8 * 1024 * 1024), b""):
-            value.update(block)
+    try:
+        with path.open("rb") as handle:
+            for block in iter(lambda: handle.read(8 * 1024 * 1024), b""):
+                value.update(block)
+    except OSError:
+        reject("BOUND_FILE_DIGEST_FAILED")
     return value.hexdigest()
 
 def load_authority():
@@ -234,6 +237,8 @@ def verify_conversion_evidence(authority):
         reject("CONVERSION_REPORT_JSON_INVALID")
     if not isinstance(report, dict):
         reject("CONVERSION_REPORT_SHAPE_INVALID")
+    if report.get("schema_version") != "tai.model-conversion-report.v1":
+        reject("CONVERSION_REPORT_SCHEMA_INVALID")
     report_self_sha = report.get("report_sha256")
     if report_self_sha != conversion["reportSelfSha256"]:
         reject("CONVERSION_REPORT_SELF_SHA_MISMATCH")
@@ -257,33 +262,37 @@ def verify_conversion_evidence(authority):
     source_verification = report.get("source_verification")
     if not isinstance(source_verification, dict):
         reject("SOURCE_VERIFICATION_SHAPE_INVALID")
+    if source_verification.get("schema_version") != "tai.model-conversion-source-verification.v1" or source_verification.get("status") != "VERIFIED":
+        reject("SOURCE_VERIFICATION_STATUS_INVALID")
     source_models = source_verification.get("models")
     if not isinstance(source_models, list):
         reject("SOURCE_MODELS_SHAPE_INVALID")
-    source = next(
-        (
-            item
-            for item in source_models
-            if isinstance(item, dict) and item.get("model_id") == model["id"]
-        ),
-        None,
-    )
-    if not source or source.get("revision") != model["revision"]:
+    source_matches = [
+        item
+        for item in source_models
+        if isinstance(item, dict) and item.get("model_id") == model["id"]
+    ]
+    if len(source_matches) != 1:
+        reject("MODEL_SOURCE_BINDING_INVALID")
+    source = source_matches[0]
+    if source.get("revision") != model["revision"]:
         reject("MODEL_REVISION_MISMATCH")
+    if source.get("source_files_sha256") != model["sourceFilesSha256"]:
+        reject("MODEL_SOURCE_FILES_SHA_MISMATCH")
+    if source.get("source_manifest_sha256") != model["sourceManifestSha256"]:
+        reject("MODEL_SOURCE_MANIFEST_SHA_MISMATCH")
 
     outputs = report.get("outputs")
     if not isinstance(outputs, list):
         reject("MODEL_OUTPUTS_SHAPE_INVALID")
-    output = next(
-        (
-            item
-            for item in outputs
-            if isinstance(item, dict) and item.get("path") == model["artifactRelativePath"]
-        ),
-        None,
-    )
-    if not output:
+    output_matches = [
+        item
+        for item in outputs
+        if isinstance(item, dict) and item.get("path") == model["artifactRelativePath"]
+    ]
+    if len(output_matches) != 1:
         reject("MODEL_REPORT_BINDING_INVALID")
+    output = output_matches[0]
     if output.get("sha256") != model["artifactSha256"] or output.get("size_bytes") != model["artifactSizeBytes"]:
         reject("MODEL_REPORT_IDENTITY_INVALID")
     try:
