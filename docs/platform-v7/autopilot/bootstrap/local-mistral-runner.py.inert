@@ -126,6 +126,7 @@ if (
 ):
     fail("CHANGED_PATHS_INVALID")
 changed_path_set = set(changed_paths)
+validator_changed_path_set = frozenset(changed_paths)
 
 credential_pattern = re.compile(
     r"(?is)(-----BEGIN [A-Z ]*PRIVATE KEY-----|\b(?:github_pat_|gh[pousr]_|AKIA|ASIA|xox[baprs]-|sk-(?:proj-)?)[A-Za-z0-9_\-]{12,}|\b(?:password|passwd|secret|api[_-]?key|access[_-]?token|authorization)\s*[:=]\s*[\"'][^\"'\r\n]{8,}[\"'])"
@@ -163,7 +164,7 @@ prompt_bundle_sha256 = hashlib.sha256(
     json.dumps(prompt_bundle, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
 ).hexdigest()
 
-# Segment 4 is intentionally self-contained so its security authority is explicit in this diff.
+# Segment 4 consumes only the already validated changed-path authority frozen above.
 import json as validator_json
 import re as validator_re
 
@@ -176,16 +177,7 @@ validator_credential_pattern = validator_re.compile(
 validator_email_pattern = validator_re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b")
 validator_phone_pattern = validator_re.compile(r"(?<!\w)(?:\+?\d[\d ().-]{8,}\d)(?!\w)")
 
-def validate_candidate(text, allowed_paths):
-    if (
-        not isinstance(allowed_paths, list)
-        or not allowed_paths
-        or len(allowed_paths) > 96
-        or len(set(allowed_paths)) != len(allowed_paths)
-        or any(not isinstance(path, str) or not path or len(path) > 240 for path in allowed_paths)
-    ):
-        return "PATH_AUTHORITY_INPUT_INVALID", None
-    allowed_path_set = set(allowed_paths)
+def validate_candidate(text):
     if not isinstance(text, str) or not text.strip():
         return "CONTENT_INVALID", None
     if len(text.encode("utf-8")) > candidate_limit_bytes:
@@ -209,7 +201,7 @@ def validate_candidate(text, allowed_paths):
     if finding.get("severity") not in {"P0", "P1", "P2"}:
         return "SEVERITY_INVALID", None
     path = finding.get("path")
-    if not isinstance(path, str) or path not in allowed_path_set:
+    if not isinstance(path, str) or path not in validator_changed_path_set:
         return "PATH_AUTHORITY_INVALID", None
     line = finding.get("line")
     if isinstance(line, bool) or not isinstance(line, int) or line < 1:
