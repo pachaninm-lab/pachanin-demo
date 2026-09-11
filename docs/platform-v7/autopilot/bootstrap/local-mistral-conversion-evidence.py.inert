@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 import hashlib
 import os
-from pathlib import Path
 import re
 import stat
 
+ROOT_PREFIX_PARTS = ("srv", "tai-models", "conversion-runs")
 REPORT_PARTS = ("evidence", "conversion-report.json")
 MODEL_PARTS = ("artifacts", "mistral-7b-instruct-v0.3-q4-k-m.gguf")
 SERVER_PARTS = ("toolchain", "bin", "llama-server")
@@ -15,6 +15,45 @@ class ConversionEvidenceError(Exception):
     pass
 
 
+class ValidatedRoot:
+    __slots__ = ("fd", "literal")
+
+    def __init__(self, fd, literal):
+        self.fd = fd
+        self.literal = literal
+
+    def close(self):
+        if self.fd is not None:
+            os.close(self.fd)
+            self.fd = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+
+
+class BoundFile:
+    __slots__ = ("parent_fd", "name", "relative")
+
+    def __init__(self, parent_fd, name, relative):
+        self.parent_fd = parent_fd
+        self.name = name
+        self.relative = relative
+
+    def close(self):
+        if self.parent_fd is not None:
+            os.close(self.parent_fd)
+            self.parent_fd = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+
+
 def reject(code):
     raise ConversionEvidenceError(code)
 
@@ -23,6 +62,47 @@ def _require_dict(value, code):
     if not isinstance(value, dict):
         reject(code)
     return value
+
+
+def _secure_flags(directory=False):
+    required = ("O_CLOEXEC", "O_NOFOLLOW")
+    if directory:
+        required += ("O_DIRECTORY",)
+    if any(not hasattr(os, name) for name in required):
+        reject("SECURE_OPEN_FLAGS_UNAVAILABLE")
+    flags = os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW
+    if directory:
+        flags |= os.O_DIRECTORY
+    return flags
+
+
+def _validate_part(part, code):
+    if (
+        not isinstance(part, str)
+        or not part
+        or part in {".", ".."}
+        or "/" in part
+        or "\x00" in part
+    ):
+        reject(code)
+    return part
+
+
+def _open_directory_at(parent_fd, part, code):
+    _validate_part(part, code)
+    try:
+        fd = os.open(part, _secure_flags(directory=True), dir_fd=parent_fd)
+    except OSError:
+        reject(code)
+    try:
+        info = os.fstat(fd)
+    except OSError:
+        os.close(fd)
+        reject(code)
+    if not stat.S_ISDIR(info.st_mode):
+        os.close(fd)
+        reject(code)
+    return fd
 
 
 def validated_conversion_root(authority):
@@ -36,63 +116,102 @@ def validated_conversion_root(authority):
         reject("CONVERSION_MAIN_AUTHORITY_INVALID")
     if type(run_id) is not int or run_id <= 0 or type(run_attempt) is not int or run_attempt <= 0:
         reject("CONVERSION_EXECUTION_AUTHORITY_INVALID")
-    expected_root = f"/srv/tai-models/conversion-runs/{exact_main}/{run_id}-{run_attempt}"
+    execution_part = f"{run_id}-{run_attempt}"
+    root_parts = (*ROOT_PREFIX_PARTS, exact_main, execution_part)
+    expected_root = "/" + "/".join(root_parts)
     if not isinstance(root_value, str) or root_value != expected_root:
         reject("CONVERSION_ROOT_INVALID")
-    root = Path(expected_root)
+
     try:
-        resolved = root.resolve(strict=True)
-        root_stat = root.stat(follow_symlinks=False)
-    except (OSError, RuntimeError):
-        reject("CONVERSION_ROOT_UNAVAILABLE")
-    if resolved != root or not stat.S_ISDIR(root_stat.st_mode):
-        reject("CONVERSION_ROOT_NOT_TRUSTED")
+        current_fd = os.open("/", _secure_flags(directory=True))
+    except OSError:
+        reject("CONVERSION_ROOT_OPEN_FAILED")
+    try:
+        for part in root_parts:
+            next_fd = _open_directory_at(current_fd, part, "CONVERSION_ROOT_NOT_TRUSTED")
+            os.close(current_fd)
+            current_fd = next_fd
+        return ValidatedRoot(current_fd, expected_root)
+    except Exception:
+        try:
+            os.close(current_fd)
+        except OSError:
+            pass
+        raise
+
+
+def _validate_root_handle(root):
+    if not isinstance(root, ValidatedRoot) or root.fd is None:
+        reject("CONVERSION_ROOT_HANDLE_INVALID")
+    try:
+        info = os.fstat(root.fd)
+    except OSError:
+        reject("CONVERSION_ROOT_HANDLE_INVALID")
+    if not stat.S_ISDIR(info.st_mode):
+        reject("CONVERSION_ROOT_HANDLE_INVALID")
     return root
 
 
 def bound_fixed_file(root, authority_value, fixed_parts, code):
-    if not isinstance(root, Path) or not root.is_absolute():
-        reject("CONVERSION_ROOT_HANDLE_INVALID")
-    if not isinstance(fixed_parts, tuple) or not fixed_parts or any(
-        not isinstance(part, str) or not part or "/" in part or part in {".", ".."}
-        for part in fixed_parts
-    ):
+    root = _validate_root_handle(root)
+    if not isinstance(fixed_parts, tuple) or not fixed_parts:
         reject("FIXED_PATH_PARTS_INVALID")
+    for part in fixed_parts:
+        _validate_part(part, "FIXED_PATH_PARTS_INVALID")
     expected_relative = "/".join(fixed_parts)
     if not isinstance(authority_value, str) or authority_value != expected_relative:
         reject(code)
-    path = root.joinpath(*fixed_parts)
+
     try:
-        resolved = path.resolve(strict=True)
-    except (OSError, RuntimeError):
+        current_fd = os.dup(root.fd)
+    except OSError:
         reject(code)
-    if resolved != path or root not in path.parents:
-        reject(code)
-    return path
+    try:
+        for part in fixed_parts[:-1]:
+            next_fd = _open_directory_at(current_fd, part, code)
+            os.close(current_fd)
+            current_fd = next_fd
+        return BoundFile(current_fd, fixed_parts[-1], expected_relative)
+    except Exception:
+        try:
+            os.close(current_fd)
+        except OSError:
+            pass
+        raise
 
 
-def open_regular_nofollow(path, code):
-    if not isinstance(path, Path) or not path.is_absolute():
+def _validate_bound_file(bound, code):
+    if not isinstance(bound, BoundFile) or bound.parent_fd is None:
         reject(code)
-    if not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_CLOEXEC"):
-        reject("NOFOLLOW_UNAVAILABLE")
+    _validate_part(bound.name, code)
     try:
-        fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+        info = os.fstat(bound.parent_fd)
+    except OSError:
+        reject(code)
+    if not stat.S_ISDIR(info.st_mode):
+        reject(code)
+    return bound
+
+
+def open_regular_nofollow(bound, code):
+    bound = _validate_bound_file(bound, code)
+    try:
+        fd = os.open(bound.name, _secure_flags(directory=False), dir_fd=bound.parent_fd)
     except OSError:
         reject(code)
     try:
         info = os.fstat(fd)
-        if not stat.S_ISREG(info.st_mode):
-            os.close(fd)
-            reject(code)
-        return fd, info
     except OSError:
         os.close(fd)
         reject(code)
+    if not stat.S_ISREG(info.st_mode):
+        os.close(fd)
+        reject(code)
+    return fd, info
 
 
-def digest_regular_exact(path, expected_size, open_code, size_code):
-    fd, before = open_regular_nofollow(path, open_code)
+def digest_regular_exact(bound, expected_size, open_code, size_code):
+    fd, before = open_regular_nofollow(bound, open_code)
     if type(expected_size) is not int or expected_size <= 0 or before.st_size != expected_size:
         os.close(fd)
         reject(size_code)
@@ -113,6 +232,7 @@ def digest_regular_exact(path, expected_size, open_code, size_code):
         or before.st_ino != after.st_ino
         or before.st_size != after.st_size
         or before.st_mtime_ns != after.st_mtime_ns
+        or before.st_ctime_ns != after.st_ctime_ns
     ):
         reject("BOUND_FILE_CHANGED_DURING_READ")
     return digest.hexdigest()
