@@ -11,10 +11,10 @@
   "requiredInvariants": [
     "This PR stages only inert path/file primitives; it does not parse conversion-report JSON, authorize model/server identity, invoke a model, publish evidence or activate a workflow.",
     "The conversion root is reconstructed only from exact lower-hex main SHA plus exact positive integer run id and attempt; the authority root must exactly equal the reconstructed literal.",
-    "Authority relative-path strings are used only for exact equality against fixed path-part tuples; they never construct filesystem paths.",
-    "Bound paths are built only from fixed path-part tuples under the validated literal conversion root and must resolve to themselves, rejecting symlink redirection.",
-    "Bound files open with O_NOFOLLOW and O_CLOEXEC and must be regular files.",
-    "Exact-size SHA-256 reads compare fd device, inode, size and mtime_ns before and after hashing; in-place replacement or mutation fails closed.",
+    "The absolute conversion root is opened component-by-component from filesystem root using directory FDs with O_DIRECTORY, O_NOFOLLOW and O_CLOEXEC; authority path text is never used as an os.open path.",
+    "Authority relative-path strings are used only for exact equality against fixed path-part tuples; each fixed parent component is opened relative to an already anchored directory FD and held open through final-file binding.",
+    "The final bound file opens by name relative to the anchored parent directory FD with O_NOFOLLOW and O_CLOEXEC and must be a regular file.",
+    "Exact-size SHA-256 reads compare fd device, inode, size, mtime_ns and ctime_ns before and after hashing; in-place replacement or mutation fails closed.",
     "No review, attestation, provider status, exact-head verifier authority, product, API, database, RBAC, registration, cabinet, customer-data or production-routing behavior is activated.",
     "Local Qwen is the independent reviewer because this changes future Local Mistral authority only.",
     "REG.RU remains production authority and new recurring cost remains 0 RUB."
