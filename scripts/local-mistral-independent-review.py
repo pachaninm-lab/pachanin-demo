@@ -23,8 +23,9 @@ def check(text):
  return None
 
 sock=socket.socket(); sock.bind(('127.0.0.1',0)); port=sock.getsockname()[1]; sock.close(); key=secrets.token_urlsafe(32)
+key_file=out_path.with_suffix('.api-key'); key_file.write_text(key+'\n','ascii'); key_file.chmod(0o600)
 log=out_path.with_suffix('.log').open('wb')
-proc=subprocess.Popen([str(server),'--model',str(model),'--alias','tai-mistral-review','--host','127.0.0.1','--port',str(port),'--api-key',key,'--ctx-size','12288','--parallel','1'],stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+proc=subprocess.Popen([str(server),'--model',str(model),'--alias','tai-mistral-review','--host','127.0.0.1','--port',str(port),'--api-key-file',str(key_file),'--ctx-size','12288','--parallel','1'],stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
 
 def call(path,payload=None,timeout=300):
  data=None if payload is None else json.dumps(payload,separators=(',',':')).encode()
@@ -59,4 +60,5 @@ finally:
  except Exception:
   try: proc.kill()
   except Exception: pass
+ key_file.unlink(missing_ok=True)
  log.close()
