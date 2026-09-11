@@ -287,6 +287,9 @@ jobs:
           import hashlib, http.client, json, os, pathlib, re, socket, subprocess, sys, time
           MODEL_IDENTITY, MODEL_SHA, MODEL_SIZE, LLAMA_COMMIT = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4]
           requests_path, schema_path, output_path = map(pathlib.Path, sys.argv[5:8])
+          SPECULATIVE_REASON = re.compile(r'\b(?:could|may|might|likely|potentially)\b', re.IGNORECASE)
+          SECURITY_CLASSIFICATION = re.compile(r'\b(?:secret|pii|leak(?:age)?|authorization bypass|security boundary bypass)\b', re.IGNORECASE)
+          ROUTE_TEST_REFERENCE = re.compile(r'\b(?:route|path|test(?:-only)?|workflow|constant)\b', re.IGNORECASE)
           def fail(code): raise SystemExit('REMOTE_REVIEW_ERROR=' + code)
           def clean_key(value):
               value = value.strip()
@@ -379,29 +382,81 @@ jobs:
           schema=json.loads(schema_path.read_text(encoding='utf-8'))
           requests=[json.loads(line) for line in requests_path.read_text(encoding='utf-8').splitlines() if line]
           if not requests: fail('REQUESTS_EMPTY')
+          def completion(system, user):
+              payload={
+                  'model':MODEL_IDENTITY,
+                  'messages':[{'role':'system','content':system},{'role':'user','content':user}],
+                  'temperature':0,
+                  'top_p':1,
+                  'seed':424242,
+                  'max_tokens':512,
+                  'stream':False,
+                  'chat_template_kwargs':{'enable_thinking':False},
+                  'response_format':{'type':'json_schema','json_schema':{'name':'review','strict':True,'schema':schema}},
+              }
+              response=request('POST','/v1/chat/completions',payload,timeout=240)
+              choices=response.get('choices')
+              if not isinstance(choices,list) or len(choices)!=1: fail('CHOICES_INVALID')
+              choice=choices[0]
+              if choice.get('finish_reason') not in ('stop','eos_token'): fail('FINISH_REASON_INVALID')
+              message=choice.get('message') or {}; content=message.get('content')
+              if not isinstance(content,str) or not content.strip(): fail('CONTENT_INVALID')
+              if '<think>' in content or '</think>' in content: fail('THINKING_LEAK')
+              return content.strip()
+          def policy_violation(item, content):
+              try: value=json.loads(content)
+              except json.JSONDecodeError: return 'SCHEMA_INVALID_JSON'
+              if not isinstance(value,dict) or set(value)!={'findings'}: return 'SCHEMA_INVALID_KEYS'
+              findings=value.get('findings')
+              if not isinstance(findings,list) or len(findings)>1: return 'SCHEMA_INVALID_FINDINGS'
+              if not findings: return None
+              finding=findings[0]
+              if not isinstance(finding,dict): return 'SCHEMA_INVALID_FINDING'
+              reason=finding.get('reason'); title=finding.get('title'); path=finding.get('path')
+              if not isinstance(reason,str) or not isinstance(title,str) or not isinstance(path,str): return 'SCHEMA_INVALID_FINDING_FIELDS'
+              if path != item.get('path'): return 'WRONG_CHUNK_PATH'
+              if SPECULATIVE_REASON.search(reason): return 'SPECULATIVE_REASON'
+              combined=f'{title} {reason}'
+              is_test_path='/tests/' in path or '.test.' in path or '.spec.' in path
+              if is_test_path and SECURITY_CLASSIFICATION.search(combined) and ROUTE_TEST_REFERENCE.search(combined):
+                  return 'TEST_ROUTE_SECURITY_CLASSIFICATION'
+              return None
+          def repair_user(item, candidate, violation):
+              safe_candidate=candidate.replace('<|','< |').replace('|>','| >')
+              return (
+                  item['user']
+                  + '\nTRUSTED_POLICY_REPAIR_NOTICE\n'
+                  + f'The prior candidate was rejected as policy-inadmissible: {violation}. '
+                  + 'Re-review the exact same chunk under the unchanged trusted system policy. Do not merely rephrase a hypothetical claim. '
+                  + 'Return findings=[] if the changed bytes do not directly demonstrate a concrete reproducible defect. '
+                  + 'If a concrete defect is directly demonstrated, return exactly one finding whose reason states the concrete mechanism without speculative hedge language and whose path is this chunk path.\n'
+                  + 'BEGIN_UNTRUSTED_PRIOR_CANDIDATE\n' + safe_candidate + '\nEND_UNTRUSTED_PRIOR_CANDIDATE\n'
+              )
+          repairs=0
           with output_path.open('w',encoding='utf-8') as out:
               for item in requests:
-                  payload={
-                      'model':MODEL_IDENTITY,
-                      'messages':[{'role':'system','content':item['system']},{'role':'user','content':item['user']}],
-                      'temperature':0,
-                      'top_p':1,
-                      'seed':424242,
-                      'max_tokens':512,
-                      'stream':False,
-                      'chat_template_kwargs':{'enable_thinking':False},
-                      'response_format':{'type':'json_schema','json_schema':{'name':'review','strict':True,'schema':schema}},
-                  }
-                  response=request('POST','/v1/chat/completions',payload,timeout=240)
-                  choices=response.get('choices')
-                  if not isinstance(choices,list) or len(choices)!=1: fail('CHOICES_INVALID')
-                  choice=choices[0]
-                  if choice.get('finish_reason') not in ('stop','eos_token'): fail('FINISH_REASON_INVALID')
-                  message=choice.get('message') or {}; content=message.get('content')
-                  if not isinstance(content,str) or not content.strip(): fail('CONTENT_INVALID')
-                  if '<think>' in content or '</think>' in content: fail('THINKING_LEAK')
-                  out.write(json.dumps({'index':item['index'],'content':content},ensure_ascii=False,separators=(',',':'))+'\n')
+                  initial=completion(item['system'],item['user'])
+                  content=initial
+                  violation=policy_violation(item,initial)
+                  repaired=False; repair_prompt_sha256=None
+                  if violation is not None:
+                      repaired=True; repairs+=1
+                      repaired_user=repair_user(item,initial,violation)
+                      repair_prompt_sha256=hashlib.sha256(repaired_user.encode('utf-8')).hexdigest()
+                      content=completion(item['system'],repaired_user)
+                      repaired_violation=policy_violation(item,content)
+                      if repaired_violation is not None:
+                          fail('POLICY_REPAIR_INVALID_' + re.sub(r'[^A-Z0-9_]', '_', repaired_violation.upper()))
+                  out.write(json.dumps({
+                      'index':item['index'],
+                      'content':content,
+                      'repaired':repaired,
+                      'initial_sha256':hashlib.sha256(initial.encode('utf-8')).hexdigest(),
+                      'repair_prompt_sha256':repair_prompt_sha256,
+                      'final_sha256':hashlib.sha256(content.encode('utf-8')).hexdigest(),
+                  },ensure_ascii=False,separators=(',',':'))+'\n')
           print(f'QWEN3_REMOTE_REVIEW_OK={len(requests)}')
+          print(f'QWEN3_POLICY_REPAIR_OK={repairs}')
           PY
           chmod 600 "$RUNNER_TEMP/remote-review.py" "$RUNNER_TEMP/review-requests.jsonl" "$RUNNER_TEMP/review-schema.json"
           scp "${scp_opts[@]}" "$RUNNER_TEMP/remote-review.py" "$RUNNER_TEMP/review-requests.jsonl" "$RUNNER_TEMP/review-schema.json" "$MODEL_USER@$MODEL_HOST:$remote_dir/"
@@ -410,15 +465,24 @@ jobs:
           scp "${scp_opts[@]}" "$MODEL_USER@$MODEL_HOST:$remote_dir/review-responses.jsonl" "$RUNNER_TEMP/review-responses.jsonl"
           [[ -s "$RUNNER_TEMP/review-responses.jsonl" ]]
           raw_dir="$RUNNER_TEMP/qwen-raw"; mkdir -p "$raw_dir"
-          python3 - "$RUNNER_TEMP/review-responses.jsonl" "$raw_dir" "${{ steps.input.outputs.chunk_count }}" <<'PY'
+          python3 - "$RUNNER_TEMP/review-responses.jsonl" "$raw_dir" "$RUNNER_TEMP/review-repair-metadata.json" "${{ steps.input.outputs.chunk_count }}" <<'PY'
           import json, pathlib, sys
-          src, out_dir, count = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]), int(sys.argv[3])
+          src, out_dir, metadata_path, count = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]), pathlib.Path(sys.argv[3]), int(sys.argv[4])
           rows=[json.loads(line) for line in src.read_text(encoding='utf-8').splitlines() if line]
           if [row.get('index') for row in rows] != list(range(1,count+1)): raise SystemExit('Response indexes are not exact/contiguous.')
+          metadata=[]
           for row in rows:
               content=row.get('content')
               if not isinstance(content,str) or not content.strip(): raise SystemExit('Empty model response.')
+              repaired=row.get('repaired')
+              initial_sha=row.get('initial_sha256'); final_sha=row.get('final_sha256'); repair_prompt_sha=row.get('repair_prompt_sha256')
+              if not isinstance(repaired,bool): raise SystemExit('Invalid repair marker.')
+              if not isinstance(initial_sha,str) or len(initial_sha)!=64 or not isinstance(final_sha,str) or len(final_sha)!=64: raise SystemExit('Invalid response evidence hash.')
+              if repaired and (not isinstance(repair_prompt_sha,str) or len(repair_prompt_sha)!=64): raise SystemExit('Missing repair prompt evidence hash.')
+              if not repaired and repair_prompt_sha is not None: raise SystemExit('Unexpected repair prompt evidence hash.')
               (out_dir/f'result-{row["index"]:04d}.json').write_text(content.strip()+'\n',encoding='utf-8')
+              metadata.append({'index':row['index'],'repaired':repaired,'initial_sha256':initial_sha,'repair_prompt_sha256':repair_prompt_sha,'final_sha256':final_sha})
+          metadata_path.write_text(json.dumps(metadata,ensure_ascii=True,sort_keys=True,separators=(',',':'))+'\n',encoding='utf-8')
           PY
 
       - name: Validate and canonicalize independent review
@@ -426,13 +490,18 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          python3 - "$RUNNER_TEMP/review-manifest.json" "$RUNNER_TEMP/qwen-chunks" "$RUNNER_TEMP/qwen-raw" "$RUNNER_TEMP/review.canonical.json" <<'PY'
-          import hashlib, json, pathlib, sys
-          manifest_path, chunks_path, raw_path, canonical_path = sys.argv[1:]
+          python3 - "$RUNNER_TEMP/review-manifest.json" "$RUNNER_TEMP/qwen-chunks" "$RUNNER_TEMP/qwen-raw" "$RUNNER_TEMP/review-repair-metadata.json" "$RUNNER_TEMP/review.canonical.json" <<'PY'
+          import hashlib, json, pathlib, re, sys
+          manifest_path, chunks_path, raw_path, repair_metadata_path, canonical_path = sys.argv[1:]
           manifest_file=pathlib.Path(manifest_path); manifest=json.loads(manifest_file.read_text())
           if hashlib.sha256(manifest_file.read_bytes()).hexdigest() != '${{ steps.input.outputs.manifest_sha256 }}': raise SystemExit('Manifest hash changed.')
           if manifest.get('full_diff_sha256') != '${{ steps.input.outputs.diff_sha256 }}': raise SystemExit('Manifest diff hash mismatch.')
           changed_paths=set(manifest.get('changed_paths',[])); chunks=manifest.get('chunks',[])
+          repair_metadata=json.loads(pathlib.Path(repair_metadata_path).read_text(encoding='utf-8'))
+          if not isinstance(repair_metadata,list) or [row.get('index') for row in repair_metadata] != list(range(1,len(chunks)+1)):
+              raise SystemExit('Repair evidence indexes are not exact/contiguous.')
+          repair_by_index={row['index']:row for row in repair_metadata}
+          speculative=re.compile(r'\b(?:could|may|might|likely|potentially)\b', re.IGNORECASE)
           all_findings=[]; seen=[]
           for chunk in chunks:
               index=chunk['index']; seen.append(index)
@@ -447,14 +516,18 @@ jobs:
               if len(findings)>1: raise SystemExit(f'Too many findings in chunk {index}.')
               for finding in findings:
                   if not isinstance(finding,dict) or set(finding)!={'severity','path','line','title','reason'}: raise SystemExit(f'Invalid finding schema in chunk {index}.')
-                  if finding['severity'] not in {'P0','P1','P2'} or finding['path'] not in changed_paths: raise SystemExit(f'Invalid finding identity in chunk {index}.')
+                  if finding['severity'] not in {'P0','P1','P2'} or finding['path'] not in changed_paths or finding['path'] != chunk['path']: raise SystemExit(f'Invalid finding identity in chunk {index}.')
                   if isinstance(finding['line'],bool) or not isinstance(finding['line'],int) or finding['line']<1: raise SystemExit(f'Invalid finding line in chunk {index}.')
                   if not isinstance(finding['title'],str) or not 1<=len(finding['title'].strip())<=80: raise SystemExit(f'Invalid title in chunk {index}.')
                   if not isinstance(finding['reason'],str) or not 1<=len(finding['reason'].strip())<=192: raise SystemExit(f'Invalid reason in chunk {index}.')
+                  if speculative.search(finding['reason']): raise SystemExit(f'Policy-inadmissible speculative finding survived repair in chunk {index}.')
+              evidence=repair_by_index[index]
+              if hashlib.sha256(raw.encode('utf-8')).hexdigest() != evidence['final_sha256']:
+                  raise SystemExit(f'Final response evidence hash mismatch in chunk {index}.')
               all_findings.extend(findings)
           if seen != list(range(1,len(chunks)+1)): raise SystemExit('Chunk indexes are not contiguous.')
           verdict='PASS' if not all_findings else 'BLOCK'
-          value={'verdict':verdict,'findings':all_findings,'summary':('PASS' if verdict=='PASS' else 'BLOCK')}
+          value={'verdict':verdict,'findings':all_findings,'summary':('PASS' if verdict=='PASS' else 'BLOCK'),'repairs':repair_metadata}
           pathlib.Path(canonical_path).write_text(json.dumps(value,ensure_ascii=True,sort_keys=True,separators=(',',':'))+'\n',encoding='utf-8')
           PY
           response_sha256="$(sha256sum "$RUNNER_TEMP/review.canonical.json" | awk '{print $1}')"
