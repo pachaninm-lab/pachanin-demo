@@ -424,7 +424,18 @@ export async function middleware(req: NextRequest) {
       if (ownerRole !== null) {
         const context = await verifiedCabinetContext(req);
         const expected = controlledCabinetContext(ownerRole);
-        if (!ownerCabinetSessionMatchesRoot(p, context, expected)) return controlRealmDenied(req);
+        if (
+          !context
+          || !expected
+          || context.ownerAccess !== true
+          || typeof context.userId !== 'string'
+          || context.userId.trim().length === 0
+          || context.role !== ownerRole
+          || expected.role !== ownerRole
+          || context.organizationId !== expected.organizationId
+          || context.tenantId !== expected.tenantId
+          || !ownerCabinetSessionMatchesRoot(p, context, expected)
+        ) return controlRealmDenied(req);
         return controlRealmResponse(req);
       }
 
