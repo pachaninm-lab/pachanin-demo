@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/local-mistral-segment-10-root-authority-20260912",
+  "status": "active",
+  "purpose": "Stage and independently review only inert conversion-root discovery and inode pinning for already-bound Local Mistral conversion authority.",
+  "authorityBaseExactMain": "024147387e2c5728843f1b22fa18d6ec709e5d31",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/bootstrap/local-mistral-conversion-root.py.inert",
+    "docs/platform-v7/autopilot/scopes/local-mistral-segment-10-root-authority-20260912.json"
+  ],
+  "requiredInvariants": [
+    "This PR is inert and only pins the exact conversion-run directory identity. It does not read conversion-report bytes, model bytes or llama-server bytes; does not invoke Mistral; does not publish review/status; does not change verifier routing; and does not activate any workflow.",
+    "The caller must supply the exact-main SHA, workflow run id, workflow run attempt and conversion-root string already validated and bound by the admitted Local Mistral authority-binding segment; this primitive independently validates their canonical shape and exact derived-root equality but does not parse authority JSON itself.",
+    "Discovery starts from an O_PATH directory descriptor for / and descends only through the fixed literal components srv, tai-models and conversion-runs plus the strictly validated 40-hex exact-main component and positive-integer run-attempt component.",
+    "Every descendant directory is opened relative to its already-open parent descriptor with O_PATH, O_DIRECTORY, O_NOFOLLOW and O_CLOEXEC; no absolute authority pathname is passed to os.open and symlink final components fail closed.",
+    "Every accepted directory in the chain must be root-owned and must not be group- or world-writable, so the non-root reviewer/runtime identity cannot redirect the trusted directory chain after acceptance; root remains outside the untrusted review-input boundary.",
+    "The returned conversion-root descriptor remains open and pins the exact device/inode identity. All ancestor descriptors are closed before return. Downstream segment-8 must consume this descriptor directly rather than reopen the authority pathname.",
+    "The final conversion-root descriptor is re-fstat before return and its device/inode identity must match the identity observed at open time.",
+    "All operating-system failures are translated to fixed ConversionRootAuthorityError codes with suppressed exception chaining; raw filesystem details are not emitted by this primitive.",
+    "Literal child evidence/artifacts/toolchain/bin traversal and final report/model/server inode pinning remain segment-8 authority; byte/permission/size/digest verification remains segment-9 authority.",
+    "Report semantics, model/runtime semantic binding, execution from verified descriptors, sensitive-output handling, attestation publication, provider status, exact-head routing and self-review prevention remain separately governed.",
+    "No product, API, database, RBAC, registration, cabinet, customer-data or production-routing behavior is activated.",
+    "Local Qwen is the independent reviewer because this changes future Local Mistral authority only.",
+    "REG.RU remains production authority and new recurring cost remains 0 RUB."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
