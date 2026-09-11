@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 import os
-import re
 import stat
 
 REPORT_RELATIVE = "evidence/conversion-report.json"
 MODEL_RELATIVE = "artifacts/mistral-7b-instruct-v0.3-q4-k-m.gguf"
 SERVER_RELATIVE = "toolchain/bin/llama-server"
-GIT_SHA_PATTERN = re.compile(r"[0-9a-f]{40}\Z")
 UNTRUSTED_WRITE_BITS = stat.S_IWGRP | stat.S_IWOTH
 
 
@@ -42,12 +40,6 @@ def reject(code):
     raise ConversionEvidenceError(code) from None
 
 
-def _require_dict(value, code):
-    if not isinstance(value, dict):
-        reject(code)
-    return value
-
-
 def _directory_flags():
     required = ("O_CLOEXEC", "O_NOFOLLOW", "O_DIRECTORY")
     if any(not hasattr(os, name) for name in required):
@@ -63,11 +55,28 @@ def _file_flags():
 
 
 def _trusted_owner_and_mode(info):
-    trusted_uids = {0, os.geteuid()}
-    return info.st_uid in trusted_uids and (info.st_mode & UNTRUSTED_WRITE_BITS) == 0
+    return info.st_uid in {0, os.geteuid()} and (info.st_mode & UNTRUSTED_WRITE_BITS) == 0
 
 
-def _checked_directory(fd, code):
+def _require_pinned_root_fd(root_fd):
+    if type(root_fd) is not int or root_fd < 0:
+        reject("CONVERSION_ROOT_FD_INVALID")
+    try:
+        info = os.fstat(root_fd)
+    except OSError:
+        reject("CONVERSION_ROOT_FD_INVALID")
+    if not stat.S_ISDIR(info.st_mode) or not _trusted_owner_and_mode(info):
+        reject("CONVERSION_ROOT_FD_NOT_TRUSTED")
+    return root_fd
+
+
+def _open_trusted_directory(parent_fd, literal_name, code):
+    if literal_name not in {"evidence", "artifacts", "toolchain", "bin"}:
+        reject(code)
+    try:
+        fd = os.open(literal_name, _directory_flags(), dir_fd=parent_fd)
+    except OSError:
+        reject(code)
     try:
         info = os.fstat(fd)
     except OSError:
@@ -79,160 +88,46 @@ def _checked_directory(fd, code):
     return fd
 
 
-def _open_srv(parent_fd, code):
-    try:
-        fd = os.open("srv", _directory_flags(), dir_fd=parent_fd)
-    except OSError:
-        reject(code)
-    return _checked_directory(fd, code)
-
-
-def _open_tai_models(parent_fd, code):
-    try:
-        fd = os.open("tai-models", _directory_flags(), dir_fd=parent_fd)
-    except OSError:
-        reject(code)
-    return _checked_directory(fd, code)
-
-
-def _open_conversion_runs(parent_fd, code):
-    try:
-        fd = os.open("conversion-runs", _directory_flags(), dir_fd=parent_fd)
-    except OSError:
-        reject(code)
-    return _checked_directory(fd, code)
-
-
-def _open_exact_main(parent_fd, exact_main, code):
-    if not isinstance(exact_main, str) or not GIT_SHA_PATTERN.fullmatch(exact_main):
-        reject(code)
-    try:
-        fd = os.open(exact_main, _directory_flags(), dir_fd=parent_fd)
-    except OSError:
-        reject(code)
-    return _checked_directory(fd, code)
-
-
-def _open_run_attempt(parent_fd, run_id, run_attempt, code):
-    if type(run_id) is not int or run_id <= 0 or type(run_attempt) is not int or run_attempt <= 0:
-        reject(code)
-    execution_part = f"{run_id}-{run_attempt}"
-    try:
-        fd = os.open(execution_part, _directory_flags(), dir_fd=parent_fd)
-    except OSError:
-        reject(code)
-    return _checked_directory(fd, code)
-
-
-def _open_validated_root(authority):
-    authority = _require_dict(authority, "AUTHORITY_INVALID")
-    conversion = _require_dict(authority.get("conversion"), "AUTHORITY_CONVERSION_INVALID")
-    exact_main = conversion.get("exactMainSha")
-    run_id = conversion.get("workflowRunId")
-    run_attempt = conversion.get("workflowRunAttempt")
-    root_value = conversion.get("conversionRoot")
-    if not isinstance(exact_main, str) or not GIT_SHA_PATTERN.fullmatch(exact_main):
-        reject("CONVERSION_MAIN_AUTHORITY_INVALID")
-    if type(run_id) is not int or run_id <= 0 or type(run_attempt) is not int or run_attempt <= 0:
-        reject("CONVERSION_EXECUTION_AUTHORITY_INVALID")
-    expected_root = f"/srv/tai-models/conversion-runs/{exact_main}/{run_id}-{run_attempt}"
-    if not isinstance(root_value, str) or root_value != expected_root:
-        reject("CONVERSION_ROOT_INVALID")
-
-    try:
-        current_fd = os.open("/", _directory_flags())
-    except OSError:
-        reject("CONVERSION_ROOT_OPEN_FAILED")
-    current_fd = _checked_directory(current_fd, "CONVERSION_ROOT_NOT_TRUSTED")
-    try:
-        next_fd = _open_srv(current_fd, "CONVERSION_ROOT_NOT_TRUSTED")
-        os.close(current_fd)
-        current_fd = next_fd
-        next_fd = _open_tai_models(current_fd, "CONVERSION_ROOT_NOT_TRUSTED")
-        os.close(current_fd)
-        current_fd = next_fd
-        next_fd = _open_conversion_runs(current_fd, "CONVERSION_ROOT_NOT_TRUSTED")
-        os.close(current_fd)
-        current_fd = next_fd
-        next_fd = _open_exact_main(current_fd, exact_main, "CONVERSION_ROOT_NOT_TRUSTED")
-        os.close(current_fd)
-        current_fd = next_fd
-        next_fd = _open_run_attempt(current_fd, run_id, run_attempt, "CONVERSION_ROOT_NOT_TRUSTED")
-        os.close(current_fd)
-        return next_fd
-    except Exception:
-        try:
-            os.close(current_fd)
-        except OSError:
-            pass
-        raise
-
-
-def _checked_regular(fd, relative, code):
-    try:
-        info = os.fstat(fd)
-    except OSError:
-        os.close(fd)
-        reject(code)
-    if not stat.S_ISREG(info.st_mode) or not _trusted_owner_and_mode(info):
-        os.close(fd)
-        reject(code)
-    return PinnedRegularFile(fd, relative, info)
-
-
-def open_conversion_report(authority, authority_relative):
+def open_conversion_report(root_fd, authority_relative):
+    _require_pinned_root_fd(root_fd)
     if authority_relative != REPORT_RELATIVE:
         reject("CONVERSION_REPORT_PATH_INVALID")
-    root_fd = _open_validated_root(authority)
-    evidence_fd = None
+
+    evidence_fd = _open_trusted_directory(root_fd, "evidence", "CONVERSION_REPORT_PARENT_INVALID")
     try:
-        try:
-            evidence_fd = os.open("evidence", _directory_flags(), dir_fd=root_fd)
-        except OSError:
-            reject("CONVERSION_REPORT_PARENT_INVALID")
-        evidence_fd = _checked_directory(evidence_fd, "CONVERSION_REPORT_PARENT_INVALID")
         try:
             file_fd = os.open("conversion-report.json", _file_flags(), dir_fd=evidence_fd)
         except OSError:
             reject("CONVERSION_REPORT_OPEN_FAILED")
         try:
-            report_info = os.fstat(file_fd)
+            info = os.fstat(file_fd)
         except OSError:
             os.close(file_fd)
             reject("CONVERSION_REPORT_NOT_TRUSTED")
-        if not stat.S_ISREG(report_info.st_mode):
+        if not stat.S_ISREG(info.st_mode):
             os.close(file_fd)
             reject("CONVERSION_REPORT_NOT_TRUSTED")
-        if report_info.st_uid not in {0, os.geteuid()}:
+        if info.st_uid not in {0, os.geteuid()}:
             os.close(file_fd)
             reject("CONVERSION_REPORT_NOT_TRUSTED")
-        if report_info.st_mode & UNTRUSTED_WRITE_BITS:
+        if info.st_mode & UNTRUSTED_WRITE_BITS:
             os.close(file_fd)
             reject("CONVERSION_REPORT_NOT_TRUSTED")
-        return PinnedRegularFile(file_fd, REPORT_RELATIVE, report_info)
+        return PinnedRegularFile(file_fd, REPORT_RELATIVE, info)
     finally:
-        if evidence_fd is not None:
-            try:
-                os.close(evidence_fd)
-            except OSError:
-                pass
         try:
-            os.close(root_fd)
+            os.close(evidence_fd)
         except OSError:
             pass
 
 
-def open_mistral_model(authority, authority_relative):
+def open_mistral_model(root_fd, authority_relative):
+    _require_pinned_root_fd(root_fd)
     if authority_relative != MODEL_RELATIVE:
         reject("CONVERSION_MODEL_PATH_INVALID")
-    root_fd = _open_validated_root(authority)
-    artifacts_fd = None
+
+    artifacts_fd = _open_trusted_directory(root_fd, "artifacts", "CONVERSION_MODEL_PARENT_INVALID")
     try:
-        try:
-            artifacts_fd = os.open("artifacts", _directory_flags(), dir_fd=root_fd)
-        except OSError:
-            reject("CONVERSION_MODEL_PARENT_INVALID")
-        artifacts_fd = _checked_directory(artifacts_fd, "CONVERSION_MODEL_PARENT_INVALID")
         try:
             file_fd = os.open(
                 "mistral-7b-instruct-v0.3-q4-k-m.gguf",
@@ -242,80 +137,62 @@ def open_mistral_model(authority, authority_relative):
         except OSError:
             reject("CONVERSION_MODEL_OPEN_FAILED")
         try:
-            model_info = os.fstat(file_fd)
+            info = os.fstat(file_fd)
         except OSError:
             os.close(file_fd)
             reject("CONVERSION_MODEL_NOT_TRUSTED")
-        if not stat.S_ISREG(model_info.st_mode):
+        if not stat.S_ISREG(info.st_mode):
             os.close(file_fd)
             reject("CONVERSION_MODEL_NOT_TRUSTED")
-        if model_info.st_uid not in {0, os.geteuid()}:
+        if info.st_uid not in {0, os.geteuid()}:
             os.close(file_fd)
             reject("CONVERSION_MODEL_NOT_TRUSTED")
-        if model_info.st_mode & UNTRUSTED_WRITE_BITS:
+        if info.st_mode & UNTRUSTED_WRITE_BITS:
             os.close(file_fd)
             reject("CONVERSION_MODEL_NOT_TRUSTED")
-        return PinnedRegularFile(file_fd, MODEL_RELATIVE, model_info)
+        return PinnedRegularFile(file_fd, MODEL_RELATIVE, info)
     finally:
-        if artifacts_fd is not None:
-            try:
-                os.close(artifacts_fd)
-            except OSError:
-                pass
         try:
-            os.close(root_fd)
+            os.close(artifacts_fd)
         except OSError:
             pass
 
 
-def open_llama_server(authority, authority_relative):
+def open_llama_server(root_fd, authority_relative):
+    _require_pinned_root_fd(root_fd)
     if authority_relative != SERVER_RELATIVE:
         reject("CONVERSION_SERVER_PATH_INVALID")
-    root_fd = _open_validated_root(authority)
-    toolchain_fd = None
+
+    toolchain_fd = _open_trusted_directory(root_fd, "toolchain", "CONVERSION_SERVER_PARENT_INVALID")
     bin_fd = None
     try:
-        try:
-            toolchain_fd = os.open("toolchain", _directory_flags(), dir_fd=root_fd)
-        except OSError:
-            reject("CONVERSION_SERVER_PARENT_INVALID")
-        toolchain_fd = _checked_directory(toolchain_fd, "CONVERSION_SERVER_PARENT_INVALID")
-        try:
-            bin_fd = os.open("bin", _directory_flags(), dir_fd=toolchain_fd)
-        except OSError:
-            reject("CONVERSION_SERVER_PARENT_INVALID")
-        bin_fd = _checked_directory(bin_fd, "CONVERSION_SERVER_PARENT_INVALID")
+        bin_fd = _open_trusted_directory(toolchain_fd, "bin", "CONVERSION_SERVER_PARENT_INVALID")
         try:
             file_fd = os.open("llama-server", _file_flags(), dir_fd=bin_fd)
         except OSError:
             reject("CONVERSION_SERVER_OPEN_FAILED")
         try:
-            server_info = os.fstat(file_fd)
+            info = os.fstat(file_fd)
         except OSError:
             os.close(file_fd)
             reject("CONVERSION_SERVER_NOT_TRUSTED")
-        if not stat.S_ISREG(server_info.st_mode):
+        if not stat.S_ISREG(info.st_mode):
             os.close(file_fd)
             reject("CONVERSION_SERVER_NOT_TRUSTED")
-        if server_info.st_uid not in {0, os.geteuid()}:
+        if info.st_uid not in {0, os.geteuid()}:
             os.close(file_fd)
             reject("CONVERSION_SERVER_NOT_TRUSTED")
-        if server_info.st_mode & UNTRUSTED_WRITE_BITS:
+        if info.st_mode & UNTRUSTED_WRITE_BITS:
             os.close(file_fd)
             reject("CONVERSION_SERVER_NOT_TRUSTED")
-        return PinnedRegularFile(file_fd, SERVER_RELATIVE, server_info)
+        return PinnedRegularFile(file_fd, SERVER_RELATIVE, info)
     finally:
         if bin_fd is not None:
             try:
                 os.close(bin_fd)
             except OSError:
                 pass
-        if toolchain_fd is not None:
-            try:
-                os.close(toolchain_fd)
-            except OSError:
-                pass
         try:
-            os.close(root_fd)
+            os.close(toolchain_fd)
         except OSError:
             pass
