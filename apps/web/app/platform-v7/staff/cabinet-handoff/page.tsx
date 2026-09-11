@@ -16,6 +16,21 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
 };
 
+const HANDOFF_TARGETS: Readonly<Record<PlatformRole, string>> = {
+  operator: '/platform-v7/operator',
+  buyer: '/platform-v7/buyer',
+  seller: '/platform-v7/seller',
+  logistics: '/platform-v7/logistics',
+  driver: '/platform-v7/driver/field',
+  surveyor: '/platform-v7/surveyor',
+  elevator: '/platform-v7/elevator',
+  lab: '/platform-v7/lab',
+  bank: '/platform-v7/bank',
+  arbitrator: '/platform-v7/arbitrator',
+  compliance: '/platform-v7/compliance',
+  executive: '/platform-v7/executive',
+};
+
 const LABELS: Readonly<Record<PlatformRole, string>> = {
   operator: 'Оператор',
   buyer: 'Покупатель',
@@ -31,14 +46,15 @@ const LABELS: Readonly<Record<PlatformRole, string>> = {
   executive: 'Руководитель',
 };
 
-function signingSecret(): string {
-  return String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
+function signingSecret(): string | null {
+  const candidate = String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
+  return candidate.length >= 32 && candidate.length <= 4096 ? candidate : null;
 }
 
 export default async function OwnerCabinetHandoffPage() {
   const secret = signingSecret();
-  const token = (await cookies()).get(CABINET_SESSION_COOKIE)?.value;
-  const context = secret
+  const token = (await cookies()).get(CABINET_SESSION_COOKIE)?.value ?? '';
+  const context = secret && token && token.length <= 8192
     ? await readVerifiedCabinetSessionContext(token, secret, Math.floor(Date.now() / 1000))
     : null;
 
@@ -47,8 +63,11 @@ export default async function OwnerCabinetHandoffPage() {
     redirect('/platform-v7/staff?cabinetError=ORGANIZATION_CABINET_NOT_CONTROLLED');
   }
 
+  const expectedTarget = HANDOFF_TARGETS[context.role];
   const target = ownerControlledCabinetTarget(context.role);
-  if (!target) redirect('/platform-v7/staff?cabinetError=CABINET_ROUTE_CONFIG_INVALID');
+  if (!target || target !== expectedTarget) {
+    redirect('/platform-v7/staff?cabinetError=CABINET_ROUTE_CONFIG_INVALID');
+  }
 
   const organization = controlledOrganizationById(context.organizationId);
   return (
