@@ -134,5 +134,6 @@ email_pattern = re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b")
 phone_pattern = re.compile(r"(?<!\w)(?:\+?\d[\d ().-]{8,}\d)(?!\w)")
 if credential_pattern.search(diff):
     fail("REVIEW_INPUT_SECRET_BLOCKED")
-safe_diff = email_pattern.sub("[REDACTED_EMAIL]", diff)
-safe_diff = phone_pattern.sub("[REDACTED_PHONE]", safe_diff)
+if email_pattern.search(diff) or phone_pattern.search(diff):
+    fail("REVIEW_INPUT_PII_BLOCKED")
+safe_diff = diff
