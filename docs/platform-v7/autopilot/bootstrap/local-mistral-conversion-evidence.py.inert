@@ -2,7 +2,7 @@
 import hashlib
 import json
 import os
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 import stat
 
 MAX_REPORT_BYTES = 2_000_000
@@ -10,6 +10,9 @@ REPORT_SCHEMA = "tai.model-conversion-report.v1"
 SOURCE_SCHEMA = "tai.model-conversion-source-verification.v1"
 EXPECTED_TOOLCHAIN_STATUS = "VERIFIED_RESTORED"
 EXPECTED_SOURCE_STATUS = "VERIFIED"
+REPORT_PARTS = ("evidence", "conversion-report.json")
+MODEL_PARTS = ("artifacts", "mistral-7b-instruct-v0.3-q4-k-m.gguf")
+SERVER_PARTS = ("toolchain", "bin", "llama-server")
 
 
 class ConversionEvidenceError(Exception):
@@ -74,9 +77,7 @@ def _validated_root(authority):
     expected_root = f"/srv/tai-models/conversion-runs/{exact_main}/{run_id}-{run_attempt}"
     if not isinstance(root_value, str) or root_value != expected_root:
         reject("CONVERSION_ROOT_INVALID")
-    root = Path(root_value)
-    if not root.is_absolute() or ".." in root.parts or "." in root.parts:
-        reject("CONVERSION_ROOT_INVALID")
+    root = Path(expected_root)
     try:
         resolved = root.resolve(strict=True)
         root_stat = root.stat(follow_symlinks=False)
@@ -87,13 +88,11 @@ def _validated_root(authority):
     return root
 
 
-def _bound_file(root, relative_value, expected_relative, code):
-    if not isinstance(relative_value, str) or relative_value != expected_relative:
+def _bound_fixed_file(root, authority_value, fixed_parts, code):
+    expected_relative = "/".join(fixed_parts)
+    if not isinstance(authority_value, str) or authority_value != expected_relative:
         reject(code)
-    relative = PurePosixPath(relative_value)
-    if relative.is_absolute() or not relative.parts or "." in relative.parts or ".." in relative.parts:
-        reject(code)
-    path = root.joinpath(*relative.parts)
+    path = root.joinpath(*fixed_parts)
     try:
         resolved = path.resolve(strict=True)
     except (OSError, RuntimeError):
@@ -207,24 +206,9 @@ def verify_conversion_evidence(authority):
     runtime = _require_dict(authority.get("runtime"), "AUTHORITY_RUNTIME_INVALID")
     root = _validated_root(authority)
 
-    report_path = _bound_file(
-        root,
-        conversion.get("reportRelativePath"),
-        "evidence/conversion-report.json",
-        "CONVERSION_REPORT_PATH_INVALID",
-    )
-    model_path = _bound_file(
-        root,
-        model.get("artifactRelativePath"),
-        "artifacts/mistral-7b-instruct-v0.3-q4-k-m.gguf",
-        "MODEL_ARTIFACT_PATH_INVALID",
-    )
-    server_path = _bound_file(
-        root,
-        runtime.get("serverRelativePath"),
-        "toolchain/bin/llama-server",
-        "LLAMA_SERVER_PATH_INVALID",
-    )
+    report_path = _bound_fixed_file(root, conversion.get("reportRelativePath"), REPORT_PARTS, "CONVERSION_REPORT_PATH_INVALID")
+    model_path = _bound_fixed_file(root, model.get("artifactRelativePath"), MODEL_PARTS, "MODEL_ARTIFACT_PATH_INVALID")
+    server_path = _bound_fixed_file(root, runtime.get("serverRelativePath"), SERVER_PARTS, "LLAMA_SERVER_PATH_INVALID")
 
     expected_report_raw_sha = conversion.get("reportRawSha256")
     expected_report_self_sha = conversion.get("reportSelfSha256")
@@ -243,12 +227,7 @@ def verify_conversion_evidence(authority):
     canonical_report = dict(report)
     canonical_report.pop("report_sha256", None)
     try:
-        canonical_bytes = json.dumps(
-            canonical_report,
-            ensure_ascii=False,
-            separators=(",", ":"),
-            sort_keys=True,
-        ).encode("utf-8")
+        canonical_bytes = json.dumps(canonical_report, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
     except (TypeError, ValueError, UnicodeEncodeError):
         reject("CONVERSION_REPORT_CANONICALIZATION_FAILED")
     if hashlib.sha256(canonical_bytes).hexdigest() != expected_report_self_sha:
@@ -266,11 +245,7 @@ def verify_conversion_evidence(authority):
     model_id = model.get("id")
     if not isinstance(model_id, str) or model_id != "mistralai/Mistral-7B-Instruct-v0.3":
         reject("AUTHORITY_MODEL_ID_INVALID")
-    source_matches = [
-        item
-        for item in source_models
-        if isinstance(item, dict) and item.get("model_id") == model_id
-    ]
+    source_matches = [item for item in source_models if isinstance(item, dict) and item.get("model_id") == model_id]
     if len(source_matches) != 1:
         reject("MODEL_SOURCE_BINDING_INVALID")
     source = source_matches[0]
@@ -279,30 +254,16 @@ def verify_conversion_evidence(authority):
     _require_sha256(source.get("source_manifest_sha256"), model.get("sourceManifestSha256"), "MODEL_SOURCE_MANIFEST_SHA_MISMATCH")
 
     outputs = _require_list(report.get("outputs"), "MODEL_OUTPUTS_SHAPE_INVALID")
-    output_matches = [
-        item
-        for item in outputs
-        if isinstance(item, dict) and item.get("path") == model.get("artifactRelativePath")
-    ]
+    output_matches = [item for item in outputs if isinstance(item, dict) and item.get("path") == "/".join(MODEL_PARTS)]
     if len(output_matches) != 1:
         reject("MODEL_REPORT_BINDING_INVALID")
     output = output_matches[0]
     _require_sha256(output.get("sha256"), model.get("artifactSha256"), "MODEL_REPORT_SHA_MISMATCH")
     _require_exact_int(output.get("size_bytes"), model.get("artifactSizeBytes"), "MODEL_REPORT_SIZE_MISMATCH")
 
-    model_digest = _digest_regular(
-        model_path,
-        model.get("artifactSizeBytes"),
-        "MODEL_FILE_OPEN_FAILED",
-        "MODEL_FILE_SIZE_INVALID",
-    )
+    model_digest = _digest_regular(model_path, model.get("artifactSizeBytes"), "MODEL_FILE_OPEN_FAILED", "MODEL_FILE_SIZE_INVALID")
     _require_sha256(model_digest, model.get("artifactSha256"), "MODEL_FILE_SHA_MISMATCH")
-    server_digest = _digest_regular(
-        server_path,
-        runtime.get("serverSizeBytes"),
-        "LLAMA_SERVER_OPEN_FAILED",
-        "LLAMA_SERVER_SIZE_INVALID",
-    )
+    server_digest = _digest_regular(server_path, runtime.get("serverSizeBytes"), "LLAMA_SERVER_OPEN_FAILED", "LLAMA_SERVER_SIZE_INVALID")
     _require_sha256(server_digest, runtime.get("serverSha256"), "LLAMA_SERVER_SHA_MISMATCH")
 
     return {
