@@ -7,6 +7,7 @@ import re
 AUTHORITY_FILE_NAME = "local-mistral-authority.v1.json"
 AUTHORITY_MAX_BYTES = 32_768
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}\Z")
+GIT_SHA_PATTERN = re.compile(r"[0-9a-f]{40}\Z")
 IDENTITY_PATTERN = re.compile(r"[A-Za-z0-9._-]{1,96}\Z")
 MODEL_ID_PATTERN = re.compile(r"[A-Za-z0-9._/-]{1,160}\Z")
 
@@ -79,6 +80,10 @@ def require_sha256(value, code):
     if not isinstance(value, str) or not SHA256_PATTERN.fullmatch(value):
         reject(code)
 
+def require_git_sha(value, code):
+    if not isinstance(value, str) or not GIT_SHA_PATTERN.fullmatch(value):
+        reject(code)
+
 def require_relative_path(value, expected, code):
     if not isinstance(value, str) or value != expected:
         reject(code)
@@ -97,7 +102,10 @@ def load_authority():
     authority_path = Path(__file__).with_name(AUTHORITY_FILE_NAME)
     if not authority_path.is_file() or authority_path.is_symlink():
         reject("AUTHORITY_FILE_INVALID")
-    size = authority_path.stat().st_size
+    try:
+        size = authority_path.stat().st_size
+    except OSError:
+        reject("AUTHORITY_FILE_STAT_FAILED")
     if size <= 0 or size > AUTHORITY_MAX_BYTES:
         reject("AUTHORITY_FILE_SIZE_INVALID")
     try:
@@ -123,7 +131,7 @@ def load_authority():
     require_exact_keys(rules, RULE_KEYS, "AUTHORITY_RULES_SCHEMA_INVALID")
     require_exact_keys(conversion["githubArtifact"], ARTIFACT_KEYS, "AUTHORITY_GITHUB_ARTIFACT_SCHEMA_INVALID")
 
-    require_sha256(conversion["exactMainSha"], "AUTHORITY_CONVERSION_MAIN_INVALID")
+    require_git_sha(conversion["exactMainSha"], "AUTHORITY_CONVERSION_MAIN_INVALID")
     require_positive_int(conversion["workflowRunId"], "AUTHORITY_CONVERSION_RUN_INVALID")
     require_positive_int(conversion["workflowRunAttempt"], "AUTHORITY_CONVERSION_ATTEMPT_INVALID")
     expected_root = (
@@ -146,7 +154,7 @@ def load_authority():
 
     if not isinstance(model["id"], str) or not MODEL_ID_PATTERN.fullmatch(model["id"]):
         reject("AUTHORITY_MODEL_ID_INVALID")
-    require_sha256(model["revision"], "AUTHORITY_MODEL_REVISION_INVALID")
+    require_git_sha(model["revision"], "AUTHORITY_MODEL_REVISION_INVALID")
     require_sha256(model["sourceFilesSha256"], "AUTHORITY_SOURCE_FILES_SHA_INVALID")
     require_sha256(model["sourceManifestSha256"], "AUTHORITY_SOURCE_MANIFEST_SHA_INVALID")
     require_relative_path(
@@ -161,7 +169,7 @@ def load_authority():
 
     if runtime.get("toolchain") != "ggml-org/llama.cpp" or runtime.get("release") != "b9637":
         reject("AUTHORITY_RUNTIME_TOOLCHAIN_INVALID")
-    require_sha256(runtime["sourceCommit"], "AUTHORITY_RUNTIME_COMMIT_INVALID")
+    require_git_sha(runtime["sourceCommit"], "AUTHORITY_RUNTIME_COMMIT_INVALID")
     require_sha256(runtime["sourceArchiveSha256"], "AUTHORITY_RUNTIME_ARCHIVE_SHA_INVALID")
     require_sha256(runtime["acceptanceAuthoritySha256"], "AUTHORITY_RUNTIME_ACCEPTANCE_SHA_INVALID")
     require_relative_path(runtime["serverRelativePath"], "toolchain/bin/llama-server", "AUTHORITY_SERVER_PATH_INVALID")
@@ -246,7 +254,12 @@ def verify_conversion_evidence(authority):
     if report.get("toolchain_status") != "VERIFIED_RESTORED":
         reject("TOOLCHAIN_STATUS_INVALID")
 
-    source_models = report.get("source_verification", {}).get("models", [])
+    source_verification = report.get("source_verification")
+    if not isinstance(source_verification, dict):
+        reject("SOURCE_VERIFICATION_SHAPE_INVALID")
+    source_models = source_verification.get("models")
+    if not isinstance(source_models, list):
+        reject("SOURCE_MODELS_SHAPE_INVALID")
     source = next(
         (
             item
@@ -258,10 +271,13 @@ def verify_conversion_evidence(authority):
     if not source or source.get("revision") != model["revision"]:
         reject("MODEL_REVISION_MISMATCH")
 
+    outputs = report.get("outputs")
+    if not isinstance(outputs, list):
+        reject("MODEL_OUTPUTS_SHAPE_INVALID")
     output = next(
         (
             item
-            for item in report.get("outputs", [])
+            for item in outputs
             if isinstance(item, dict) and item.get("path") == model["artifactRelativePath"]
         ),
         None,
@@ -270,9 +286,14 @@ def verify_conversion_evidence(authority):
         reject("MODEL_REPORT_BINDING_INVALID")
     if output.get("sha256") != model["artifactSha256"] or output.get("size_bytes") != model["artifactSizeBytes"]:
         reject("MODEL_REPORT_IDENTITY_INVALID")
-    if model_path.stat().st_size != model["artifactSizeBytes"] or digest(model_path) != model["artifactSha256"]:
+    try:
+        model_size = model_path.stat().st_size
+        server_size = server_path.stat().st_size
+    except OSError:
+        reject("BOUND_FILE_STAT_FAILED")
+    if model_size != model["artifactSizeBytes"] or digest(model_path) != model["artifactSha256"]:
         reject("MODEL_FILE_IDENTITY_INVALID")
-    if server_path.stat().st_size != runtime["serverSizeBytes"] or digest(server_path) != runtime["serverSha256"]:
+    if server_size != runtime["serverSizeBytes"] or digest(server_path) != runtime["serverSha256"]:
         reject("LLAMA_SERVER_IDENTITY_INVALID")
     return {
         "authority": authority,
