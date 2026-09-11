@@ -52,7 +52,9 @@ function signingSecret(): string {
 export default async function OwnerCabinetHandoffPage() {
   const secret = signingSecret();
   const token = (await cookies()).get(CABINET_SESSION_COOKIE)?.value ?? '';
-  const context = secret && token && token.length <= 8192
+  const secretLengthValid = secret.length >= 32 && secret.length <= 4096;
+  const tokenLengthValid = token.length > 0 && token.length <= 8192;
+  const context = secretLengthValid && tokenLengthValid
     ? await readVerifiedCabinetSessionContext(token, secret, Math.floor(Date.now() / 1000))
     : null;
 

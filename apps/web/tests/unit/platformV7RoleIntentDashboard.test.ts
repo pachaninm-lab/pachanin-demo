@@ -34,11 +34,10 @@ const ownerCabinetMatrix = [
   { role: 'executive', route: '/platform-v7/executive', page: 'apps/web/app/platform-v7/executive/page.tsx' },
 ] as const;
 
-const missingOwnerCabinetPages = ownerCabinetMatrix
-  .filter((item) => !fs.existsSync(path.join(root, item.page)))
-  .map((item) => item.role);
-if (missingOwnerCabinetPages.length > 0) {
-  throw new Error('Owner cabinet matrix references a missing page');
+for (const item of ownerCabinetMatrix) {
+  if (!fs.existsSync(path.join(root, item.page))) {
+    throw new Error('Owner cabinet matrix references a missing page');
+  }
 }
 
 describe('platform-v7 role intent dashboard', () => {
@@ -97,7 +96,6 @@ describe('platform-v7 role intent dashboard', () => {
 
   it('keeps all thirteen owner cabinet roots exact and role-bound', () => {
     expect(ownerCabinetMatrix).toHaveLength(13);
-    expect(missingOwnerCabinetPages).toEqual([]);
     expect(new Set(ownerCabinetMatrix.map((item) => item.role)).size).toBe(13);
     expect(new Set(ownerCabinetMatrix.map((item) => item.route)).size).toBe(13);
     expect(ownerCabinetMatrix.some((item) => item.route === '/platform-v7/control-tower')).toBe(false);

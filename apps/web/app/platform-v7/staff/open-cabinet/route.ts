@@ -102,6 +102,24 @@ function isOwnerCabinetRole(value: unknown): value is OwnerCabinetRole {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(OWNER_CABINETS, value);
 }
 
+function ownerCabinetTarget(role: OwnerCabinetRole): string {
+  switch (role) {
+    case 'operator': return OWNER_CABINETS.operator;
+    case 'buyer': return OWNER_CABINETS.buyer;
+    case 'seller': return OWNER_CABINETS.seller;
+    case 'logistics': return OWNER_CABINETS.logistics;
+    case 'driver': return OWNER_CABINETS.driver;
+    case 'surveyor': return OWNER_CABINETS.surveyor;
+    case 'elevator': return OWNER_CABINETS.elevator;
+    case 'lab': return OWNER_CABINETS.lab;
+    case 'bank': return OWNER_CABINETS.bank;
+    case 'organization': return OWNER_CABINETS.organization;
+    case 'arbitrator': return OWNER_CABINETS.arbitrator;
+    case 'compliance': return OWNER_CABINETS.compliance;
+    case 'executive': return OWNER_CABINETS.executive;
+  }
+}
+
 function constantTimeEqual(a: string, b: string): boolean {
   if (!a || !b) return false;
   const left = Buffer.from(a);
@@ -324,8 +342,8 @@ export async function POST(request: NextRequest) {
 
   if (!parsed.csrfOk) return fail('CSRF_REJECTED', 'Сессия формы устарела. Обнови страницу.', 403);
   if (!isOwnerCabinetRole(parsed.role)) return fail('INVALID_CABINET_ROLE', 'Неизвестный кабинет.', 400);
-  const role = parsed.role;
-  const target = OWNER_CABINETS[role];
+  const role: OwnerCabinetRole = parsed.role;
+  const target = ownerCabinetTarget(role);
 
   const secret = signingSecret();
   const rawAccessToken = request.cookies.get(ACCESS_COOKIE)?.value || '';

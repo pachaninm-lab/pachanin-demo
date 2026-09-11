@@ -408,12 +408,13 @@ export async function middleware(req: NextRequest) {
       }
 
       const ownerRole = ownerControlledCabinetRole(p);
-      if (ownerRole === null) {
-        if (!isControlRealmPathAllowed(p)) return controlRealmDenied(req);
+      if (ownerRole !== null) {
+        // Exact owner roots continue below to signed-session validation.
+      } else if (isControlRealmPathAllowed(p)) {
         return controlRealmResponse(req);
+      } else {
+        return controlRealmDenied(req);
       }
-      // Exact owner roots continue below to the canonical signed-session check.
-      // Nothing is served for an owner root before that fail-closed validation.
     }
 
     const staffPage = isPlatformV7StaffPath(p);
