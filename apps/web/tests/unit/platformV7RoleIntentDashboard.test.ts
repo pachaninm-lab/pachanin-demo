@@ -35,6 +35,13 @@ const ownerCabinetMatrix = [
   { role: 'executive', route: '/platform-v7/executive', page: 'apps/web/app/platform-v7/executive/page.tsx' },
 ] as const;
 
+const missingOwnerCabinetPages = ownerCabinetMatrix
+  .filter((item) => !fs.existsSync(path.join(root, item.page)))
+  .map((item) => `${item.role}:${item.page}`);
+if (missingOwnerCabinetPages.length > 0) {
+  throw new Error(`Owner cabinet matrix references missing pages: ${missingOwnerCabinetPages.join(', ')}`);
+}
+
 describe('platform-v7 role intent dashboard', () => {
   it('opens only participant-scoped real deals and exposes honest Today states', () => {
     const model = read('apps/web/lib/platform-v7/roleIntentActions.ts');
@@ -91,6 +98,7 @@ describe('platform-v7 role intent dashboard', () => {
 
   it('keeps all thirteen owner cabinet roots exact, role-bound and outside the broad control allowlist', () => {
     expect(ownerCabinetMatrix).toHaveLength(13);
+    expect(missingOwnerCabinetPages).toEqual([]);
     expect(new Set(ownerCabinetMatrix.map((item) => item.role)).size).toBe(13);
     expect(new Set(ownerCabinetMatrix.map((item) => item.route)).size).toBe(13);
     expect(ownerCabinetMatrix.some((item) => item.route === '/platform-v7/control-tower')).toBe(false);
