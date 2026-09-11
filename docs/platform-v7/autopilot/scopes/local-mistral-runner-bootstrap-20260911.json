@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/local-mistral-runner-bootstrap-20260911",
+  "status": "active",
+  "purpose": "Bootstrap only the first-party Local Mistral review runner under unchanged Local Qwen authority.",
+  "authorityBaseExactMain": "2f45e16446e46a93fad211b866475d7b33610af7",
+  "allowedPaths": [
+    "scripts/local-mistral-independent-review.py",
+    "docs/platform-v7/autopilot/scopes/local-mistral-runner-bootstrap-20260911.json"
+  ],
+  "requiredInvariants": [
+    "Local Qwen workflow and exact-head verifier are unchanged in this PR.",
+    "Mistral model revision, Q4_K_M SHA-256 and size are verified before inference.",
+    "Exact historical conversion report and llama-server binary are hash-bound before inference.",
+    "Inference is loopback-only with a per-run API key and bounded deterministic output.",
+    "Policy repair is finite and fails closed after at most three attempts.",
+    "No product, API, database, RBAC, registration, cabinet or production routing behavior changes.",
+    "Production hosting remains REG.RU only and new recurring cost is 0 RUB."
+  ],
+  "admission": [
+    "Local Qwen exact-head independent review PASS on the final head.",
+    "Owner exact-head self-audit PASS and zero unresolved review threads.",
+    "Applicable exact-head CI/security checks terminal green before merge."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
