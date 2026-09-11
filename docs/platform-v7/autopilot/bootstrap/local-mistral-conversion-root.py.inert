@@ -21,9 +21,14 @@ class PinnedConversionRoot:
         self.authority_root = authority_root
 
     def close(self):
-        if self.fd is not None:
-            os.close(self.fd)
-            self.fd = None
+        if self.fd is None:
+            return
+        fd = self.fd
+        self.fd = None
+        try:
+            os.close(fd)
+        except OSError:
+            reject("CONVERSION_ROOT_CLOSE_INVALID")
 
     def __enter__(self):
         return self
