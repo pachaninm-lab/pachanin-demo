@@ -2,7 +2,7 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "feat/local-mistral-segment-8-conversion-evidence-20260911",
   "status": "active",
-  "purpose": "Stage and independently review only the inert trusted-path and sealed verified-snapshot primitives for future Local Mistral conversion evidence verification.",
+  "purpose": "Stage and independently review only the inert literal trusted-path and sealed verified-snapshot primitives for future Local Mistral conversion evidence verification.",
   "authorityBaseExactMain": "476781906951d4021b771c769ad8b285d3bcbda0",
   "allowedPaths": [
     "docs/platform-v7/autopilot/bootstrap/local-mistral-conversion-evidence.py.inert",
@@ -11,10 +11,11 @@
   "requiredInvariants": [
     "This PR stages only inert path/file primitives; it does not parse conversion-report JSON, authorize model/server identity, invoke a model, publish evidence or activate a workflow.",
     "The conversion root is reconstructed only from exact lower-hex main SHA plus exact positive integer run id and attempt; the authority root must exactly equal the reconstructed literal.",
-    "There is no generic directory-open primitive: fixed directory names are accepted only from a compile-time allowlist, the exact-main directory has a dedicated strict SHA-40 opener, and the run-attempt directory name is constructed only inside a dedicated opener from exact positive integers.",
+    "There is no generic fixed-directory open primitive and no fixed directory-name argument reaches os.open: srv, tai-models, conversion-runs, evidence, artifacts, toolchain and bin are each opened only as compile-time string literals in dedicated functions.",
+    "The only dynamic directory names are exact-main and run-attempt: exact-main has a dedicated strict lower-hex SHA-40 opener, and run-attempt is constructed only from exact positive integer run id and attempt inside its dedicated opener; neither accepts slash-bearing path text.",
     "The absolute conversion root is opened component-by-component from filesystem root using directory FDs with O_DIRECTORY, O_NOFOLLOW and O_CLOEXEC; authority path text is never passed to os.open.",
-    "Only the three canonical fixed path tuples for conversion report, Mistral GGUF and llama-server are admissible; each fixed parent component is opened from the compile-time fixed-directory allowlist relative to an already anchored directory FD.",
-    "Bound-file name plus relative-path identity must exactly match one of the three canonical file identities before final open; the final source file opens relative to its anchored parent FD with O_NOFOLLOW and O_CLOEXEC and must be a regular file.",
+    "Only the three canonical fixed path tuples for conversion report, Mistral GGUF and llama-server are admissible; traversal branches explicitly select dedicated literal directory openers rather than iterating caller-provided path components.",
+    "The final source filename is also never caller supplied to os.open: conversion-report.json, mistral-7b-instruct-v0.3-q4-k-m.gguf and llama-server are opened only as compile-time literals selected from a validated internal bound-file kind and relative identity.",
     "Exact verification requires exact positive size and strict lower-hex expected SHA-256, captures one source-FD identity baseline, and checks device, inode, size, mtime_ns and ctime_ns immediately before and immediately after every source read while copying exactly expected bytes into an anonymous memfd snapshot.",
     "The source bytes copied into the snapshot must hash exactly to authority SHA-256; any source metadata change, truncation, extension, read error or digest mismatch fails closed. The source FD is never returned to a consumer.",
     "The memfd snapshot is created only when MFD_ALLOW_SEALING and the required sealing constants exist, must have the exact expected size, and is sealed with F_SEAL_WRITE, F_SEAL_GROW, F_SEAL_SHRINK and F_SEAL_SEAL; F_GET_SEALS must confirm every required seal.",
