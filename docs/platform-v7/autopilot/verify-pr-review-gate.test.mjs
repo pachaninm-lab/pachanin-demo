@@ -97,7 +97,7 @@ test('Octopus authority requires paired exact-head structured review and latest 
   };
   assert.equal(positiveExactHeadOctopusAttestations([goodReview], [goodStatus], head, repo).length, 1);
   assert.equal(positiveExactHeadOctopusAttestations([{ ...goodReview, commit_id: oldHead }], [goodStatus], head, repo).length, 0);
-  assert.equal(positiveExactHeadOctopusAttestations([{ ...goodReview, user: { login: 'pachaninm-lab' } }], [goodStatus], head, repo).length, 0);
+  assert.equal(positiveExactHeadLocalQwenAttestations([{ ...goodReview, user: { login: 'pachaninm-lab' } }], [goodStatus], head, repo).length, 0);
   assert.equal(positiveExactHeadOctopusAttestations([goodReview], [{ ...goodStatus, description: 'Octopus clean mismatched evidence' }], head, repo).length, 0);
   assert.equal(positiveExactHeadOctopusAttestations([goodReview], [{ ...goodStatus, state: 'failure' }, goodStatus], head, repo).length, 0);
 });
@@ -419,6 +419,14 @@ test('Local Qwen workflow uses canonical Qwen3 model-host, remains bounded and f
   assert.doesNotMatch(workflow, /json\.dumps\(value,ensure_ascii=False,sort_keys=True,separators=/u);
   assert.doesNotMatch(workflow, /"required":\["verdict","findings","summary"\]/u);
   assert.doesNotMatch(workflow, /Inconsistent BLOCK in chunk/u);
+  assert.match(workflow, /SPECULATIVE_REASON/u);
+  assert.match(workflow, /TRUSTED_POLICY_REPAIR_NOTICE/u);
+  assert.match(workflow, /POLICY_REPAIR_INVALID_/u);
+  assert.match(workflow, /QWEN3_POLICY_REPAIR_OK=/u);
+  assert.match(workflow, /repair_prompt_sha256/u);
+  assert.match(workflow, /finding\['path'\] != chunk\['path'\]/u);
+  assert.match(workflow, /Policy-inadmissible speculative finding survived repair/u);
+  assert.match(workflow, /'repairs':repair_metadata/u);
   assert.match(workflow, /Pinned canonical Qwen3 review failed closed/u);
   assert.doesNotMatch(workflow, /Qwen2\.5-Coder-3B/u);
   assert.doesNotMatch(workflow, /huggingface\.co\/Qwen\/Qwen2\.5/u);
