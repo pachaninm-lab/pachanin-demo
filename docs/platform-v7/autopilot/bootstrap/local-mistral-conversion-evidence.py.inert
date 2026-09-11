@@ -1,79 +1,27 @@
 #!/usr/bin/env python3
-import fcntl
-import hashlib
 import os
 import re
 import stat
 
-ROOT_PREFIX_PARTS = ("srv", "tai-models", "conversion-runs")
-REPORT_PARTS = ("evidence", "conversion-report.json")
-MODEL_PARTS = ("artifacts", "mistral-7b-instruct-v0.3-q4-k-m.gguf")
-SERVER_PARTS = ("toolchain", "bin", "llama-server")
 REPORT_RELATIVE = "evidence/conversion-report.json"
 MODEL_RELATIVE = "artifacts/mistral-7b-instruct-v0.3-q4-k-m.gguf"
 SERVER_RELATIVE = "toolchain/bin/llama-server"
-BOUND_REPORT = "report"
-BOUND_MODEL = "model"
-BOUND_SERVER = "server"
 GIT_SHA_PATTERN = re.compile(r"[0-9a-f]{40}\Z")
-SHA256_PATTERN = re.compile(r"[0-9a-f]{64}\Z")
-READ_CHUNK_BYTES = 8 * 1024 * 1024
-SNAPSHOT_NAME = "pc-mistral-conversion-evidence"
 
 
 class ConversionEvidenceError(Exception):
     pass
 
 
-class ValidatedRoot:
-    __slots__ = ("fd", "literal")
+class PinnedRegularFile:
+    __slots__ = ("fd", "relative", "size", "dev", "ino")
 
-    def __init__(self, fd, literal):
+    def __init__(self, fd, relative, info):
         self.fd = fd
-        self.literal = literal
-
-    def close(self):
-        if self.fd is not None:
-            os.close(self.fd)
-            self.fd = None
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        self.close()
-
-
-class BoundFile:
-    __slots__ = ("parent_fd", "kind", "relative")
-
-    def __init__(self, parent_fd, kind, relative):
-        self.parent_fd = parent_fd
-        self.kind = kind
         self.relative = relative
-
-    def close(self):
-        if self.parent_fd is not None:
-            os.close(self.parent_fd)
-            self.parent_fd = None
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        self.close()
-
-
-class VerifiedRegularFile:
-    __slots__ = ("fd", "sha256", "size", "source_dev", "source_ino", "relative")
-
-    def __init__(self, fd, sha256, size, source_dev, source_ino, relative):
-        self.fd = fd
-        self.sha256 = sha256
-        self.size = size
-        self.source_dev = source_dev
-        self.source_ino = source_ino
-        self.relative = relative
+        self.size = info.st_size
+        self.dev = info.st_dev
+        self.ino = info.st_ino
 
     def close(self):
         if self.fd is not None:
@@ -97,19 +45,21 @@ def _require_dict(value, code):
     return value
 
 
-def _secure_flags(directory=False):
-    required = ("O_CLOEXEC", "O_NOFOLLOW")
-    if directory:
-        required += ("O_DIRECTORY",)
+def _directory_flags():
+    required = ("O_CLOEXEC", "O_NOFOLLOW", "O_DIRECTORY")
     if any(not hasattr(os, name) for name in required):
-        reject("SECURE_OPEN_FLAGS_UNAVAILABLE")
-    flags = os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW
-    if directory:
-        flags |= os.O_DIRECTORY
-    return flags
+        reject("SECURE_DIRECTORY_OPEN_UNAVAILABLE")
+    return os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_DIRECTORY
 
 
-def _checked_directory_fd(fd, code):
+def _file_flags():
+    required = ("O_CLOEXEC", "O_NOFOLLOW")
+    if any(not hasattr(os, name) for name in required):
+        reject("SECURE_FILE_OPEN_UNAVAILABLE")
+    return os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW
+
+
+def _checked_directory(fd, code):
     try:
         info = os.fstat(fd)
     except OSError:
@@ -121,84 +71,52 @@ def _checked_directory_fd(fd, code):
     return fd
 
 
-def _open_srv_directory_at(parent_fd, code):
+def _open_srv(parent_fd, code):
     try:
-        fd = os.open("srv", _secure_flags(directory=True), dir_fd=parent_fd)
+        fd = os.open("srv", _directory_flags(), dir_fd=parent_fd)
     except OSError:
         reject(code)
-    return _checked_directory_fd(fd, code)
+    return _checked_directory(fd, code)
 
 
-def _open_tai_models_directory_at(parent_fd, code):
+def _open_tai_models(parent_fd, code):
     try:
-        fd = os.open("tai-models", _secure_flags(directory=True), dir_fd=parent_fd)
+        fd = os.open("tai-models", _directory_flags(), dir_fd=parent_fd)
     except OSError:
         reject(code)
-    return _checked_directory_fd(fd, code)
+    return _checked_directory(fd, code)
 
 
-def _open_conversion_runs_directory_at(parent_fd, code):
+def _open_conversion_runs(parent_fd, code):
     try:
-        fd = os.open("conversion-runs", _secure_flags(directory=True), dir_fd=parent_fd)
+        fd = os.open("conversion-runs", _directory_flags(), dir_fd=parent_fd)
     except OSError:
         reject(code)
-    return _checked_directory_fd(fd, code)
+    return _checked_directory(fd, code)
 
 
-def _open_evidence_directory_at(parent_fd, code):
-    try:
-        fd = os.open("evidence", _secure_flags(directory=True), dir_fd=parent_fd)
-    except OSError:
-        reject(code)
-    return _checked_directory_fd(fd, code)
-
-
-def _open_artifacts_directory_at(parent_fd, code):
-    try:
-        fd = os.open("artifacts", _secure_flags(directory=True), dir_fd=parent_fd)
-    except OSError:
-        reject(code)
-    return _checked_directory_fd(fd, code)
-
-
-def _open_toolchain_directory_at(parent_fd, code):
-    try:
-        fd = os.open("toolchain", _secure_flags(directory=True), dir_fd=parent_fd)
-    except OSError:
-        reject(code)
-    return _checked_directory_fd(fd, code)
-
-
-def _open_bin_directory_at(parent_fd, code):
-    try:
-        fd = os.open("bin", _secure_flags(directory=True), dir_fd=parent_fd)
-    except OSError:
-        reject(code)
-    return _checked_directory_fd(fd, code)
-
-
-def _open_exact_main_directory_at(parent_fd, exact_main, code):
+def _open_exact_main(parent_fd, exact_main, code):
     if not isinstance(exact_main, str) or not GIT_SHA_PATTERN.fullmatch(exact_main):
         reject(code)
     try:
-        fd = os.open(exact_main, _secure_flags(directory=True), dir_fd=parent_fd)
+        fd = os.open(exact_main, _directory_flags(), dir_fd=parent_fd)
     except OSError:
         reject(code)
-    return _checked_directory_fd(fd, code)
+    return _checked_directory(fd, code)
 
 
-def _open_run_attempt_directory_at(parent_fd, run_id, run_attempt, code):
+def _open_run_attempt(parent_fd, run_id, run_attempt, code):
     if type(run_id) is not int or run_id <= 0 or type(run_attempt) is not int or run_attempt <= 0:
         reject(code)
     execution_part = f"{run_id}-{run_attempt}"
     try:
-        fd = os.open(execution_part, _secure_flags(directory=True), dir_fd=parent_fd)
+        fd = os.open(execution_part, _directory_flags(), dir_fd=parent_fd)
     except OSError:
         reject(code)
-    return _checked_directory_fd(fd, code)
+    return _checked_directory(fd, code)
 
 
-def validated_conversion_root(authority):
+def _open_validated_root(authority):
     authority = _require_dict(authority, "AUTHORITY_INVALID")
     conversion = _require_dict(authority.get("conversion"), "AUTHORITY_CONVERSION_INVALID")
     exact_main = conversion.get("exactMainSha")
@@ -209,41 +127,30 @@ def validated_conversion_root(authority):
         reject("CONVERSION_MAIN_AUTHORITY_INVALID")
     if type(run_id) is not int or run_id <= 0 or type(run_attempt) is not int or run_attempt <= 0:
         reject("CONVERSION_EXECUTION_AUTHORITY_INVALID")
-    execution_part = f"{run_id}-{run_attempt}"
-    expected_root = f"/srv/tai-models/conversion-runs/{exact_main}/{execution_part}"
+    expected_root = f"/srv/tai-models/conversion-runs/{exact_main}/{run_id}-{run_attempt}"
     if not isinstance(root_value, str) or root_value != expected_root:
         reject("CONVERSION_ROOT_INVALID")
 
     try:
-        current_fd = os.open("/", _secure_flags(directory=True))
+        current_fd = os.open("/", _directory_flags())
     except OSError:
         reject("CONVERSION_ROOT_OPEN_FAILED")
     try:
-        next_fd = _open_srv_directory_at(current_fd, "CONVERSION_ROOT_NOT_TRUSTED")
+        next_fd = _open_srv(current_fd, "CONVERSION_ROOT_NOT_TRUSTED")
         os.close(current_fd)
         current_fd = next_fd
-        next_fd = _open_tai_models_directory_at(current_fd, "CONVERSION_ROOT_NOT_TRUSTED")
+        next_fd = _open_tai_models(current_fd, "CONVERSION_ROOT_NOT_TRUSTED")
         os.close(current_fd)
         current_fd = next_fd
-        next_fd = _open_conversion_runs_directory_at(current_fd, "CONVERSION_ROOT_NOT_TRUSTED")
+        next_fd = _open_conversion_runs(current_fd, "CONVERSION_ROOT_NOT_TRUSTED")
         os.close(current_fd)
         current_fd = next_fd
-        next_fd = _open_exact_main_directory_at(
-            current_fd,
-            exact_main,
-            "CONVERSION_ROOT_NOT_TRUSTED",
-        )
+        next_fd = _open_exact_main(current_fd, exact_main, "CONVERSION_ROOT_NOT_TRUSTED")
         os.close(current_fd)
         current_fd = next_fd
-        next_fd = _open_run_attempt_directory_at(
-            current_fd,
-            run_id,
-            run_attempt,
-            "CONVERSION_ROOT_NOT_TRUSTED",
-        )
+        next_fd = _open_run_attempt(current_fd, run_id, run_attempt, "CONVERSION_ROOT_NOT_TRUSTED")
         os.close(current_fd)
-        current_fd = next_fd
-        return ValidatedRoot(current_fd, expected_root)
+        return next_fd
     except Exception:
         try:
             os.close(current_fd)
@@ -252,101 +159,7 @@ def validated_conversion_root(authority):
         raise
 
 
-def _validate_root_handle(root):
-    if not isinstance(root, ValidatedRoot) or root.fd is None:
-        reject("CONVERSION_ROOT_HANDLE_INVALID")
-    try:
-        info = os.fstat(root.fd)
-    except OSError:
-        reject("CONVERSION_ROOT_HANDLE_INVALID")
-    if not stat.S_ISDIR(info.st_mode):
-        reject("CONVERSION_ROOT_HANDLE_INVALID")
-    return root
-
-
-def bound_fixed_file(root, authority_value, fixed_parts, code):
-    root = _validate_root_handle(root)
-    if fixed_parts == REPORT_PARTS:
-        expected_relative = REPORT_RELATIVE
-        kind = BOUND_REPORT
-    elif fixed_parts == MODEL_PARTS:
-        expected_relative = MODEL_RELATIVE
-        kind = BOUND_MODEL
-    elif fixed_parts == SERVER_PARTS:
-        expected_relative = SERVER_RELATIVE
-        kind = BOUND_SERVER
-    else:
-        reject("FIXED_PATH_NOT_ALLOWED")
-    if not isinstance(authority_value, str) or authority_value != expected_relative:
-        reject(code)
-
-    try:
-        current_fd = os.dup(root.fd)
-    except OSError:
-        reject(code)
-    try:
-        if kind == BOUND_REPORT:
-            next_fd = _open_evidence_directory_at(current_fd, code)
-            os.close(current_fd)
-            current_fd = next_fd
-        elif kind == BOUND_MODEL:
-            next_fd = _open_artifacts_directory_at(current_fd, code)
-            os.close(current_fd)
-            current_fd = next_fd
-        elif kind == BOUND_SERVER:
-            next_fd = _open_toolchain_directory_at(current_fd, code)
-            os.close(current_fd)
-            current_fd = next_fd
-            next_fd = _open_bin_directory_at(current_fd, code)
-            os.close(current_fd)
-            current_fd = next_fd
-        else:
-            reject("FIXED_PATH_NOT_ALLOWED")
-        return BoundFile(current_fd, kind, expected_relative)
-    except Exception:
-        try:
-            os.close(current_fd)
-        except OSError:
-            pass
-        raise
-
-
-def _validate_bound_file(bound, code):
-    if not isinstance(bound, BoundFile) or bound.parent_fd is None:
-        reject(code)
-    identity_valid = (
-        (bound.kind == BOUND_REPORT and bound.relative == REPORT_RELATIVE)
-        or (bound.kind == BOUND_MODEL and bound.relative == MODEL_RELATIVE)
-        or (bound.kind == BOUND_SERVER and bound.relative == SERVER_RELATIVE)
-    )
-    if not identity_valid:
-        reject(code)
-    try:
-        info = os.fstat(bound.parent_fd)
-    except OSError:
-        reject(code)
-    if not stat.S_ISDIR(info.st_mode):
-        reject(code)
-    return bound
-
-
-def open_regular_nofollow(bound, code):
-    bound = _validate_bound_file(bound, code)
-    try:
-        if bound.kind == BOUND_REPORT:
-            fd = os.open("conversion-report.json", _secure_flags(directory=False), dir_fd=bound.parent_fd)
-        elif bound.kind == BOUND_MODEL:
-            fd = os.open(
-                "mistral-7b-instruct-v0.3-q4-k-m.gguf",
-                _secure_flags(directory=False),
-                dir_fd=bound.parent_fd,
-            )
-        elif bound.kind == BOUND_SERVER:
-            fd = os.open("llama-server", _secure_flags(directory=False), dir_fd=bound.parent_fd)
-        else:
-            reject(code)
-    except OSError:
-        reject(code)
+def _checked_regular(fd, relative, code):
     try:
         info = os.fstat(fd)
     except OSError:
@@ -355,194 +168,103 @@ def open_regular_nofollow(bound, code):
     if not stat.S_ISREG(info.st_mode):
         os.close(fd)
         reject(code)
-    return fd, info
+    return PinnedRegularFile(fd, relative, info)
 
 
-def _same_identity(left, right):
-    return (
-        left.st_dev == right.st_dev
-        and left.st_ino == right.st_ino
-        and left.st_size == right.st_size
-        and left.st_mtime_ns == right.st_mtime_ns
-        and left.st_ctime_ns == right.st_ctime_ns
-    )
-
-
-def _snapshot_seal_contract():
-    os_required = ("memfd_create", "MFD_CLOEXEC", "MFD_ALLOW_SEALING")
-    fcntl_required = (
-        "F_ADD_SEALS",
-        "F_GET_SEALS",
-        "F_SEAL_SEAL",
-        "F_SEAL_SHRINK",
-        "F_SEAL_GROW",
-        "F_SEAL_WRITE",
-    )
-    if any(not hasattr(os, name) for name in os_required):
-        reject("SEALED_SNAPSHOT_UNAVAILABLE")
-    if any(not hasattr(fcntl, name) for name in fcntl_required):
-        reject("SEALED_SNAPSHOT_UNAVAILABLE")
-    flags = os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING
-    seals = (
-        fcntl.F_SEAL_SEAL
-        | fcntl.F_SEAL_SHRINK
-        | fcntl.F_SEAL_GROW
-        | fcntl.F_SEAL_WRITE
-    )
-    return flags, seals
-
-
-def _stable_source_stat(fd, baseline):
-    try:
-        current = os.fstat(fd)
-    except OSError:
-        reject("BOUND_FILE_STAT_FAILED")
-    if not _same_identity(baseline, current):
-        reject("BOUND_FILE_CHANGED_DURING_READ")
-    return current
-
-
-def _write_all(fd, data):
-    offset = 0
-    while offset < len(data):
-        try:
-            written = os.write(fd, data[offset:])
-        except OSError:
-            reject("SEALED_SNAPSHOT_WRITE_FAILED")
-        if written <= 0:
-            reject("SEALED_SNAPSHOT_WRITE_FAILED")
-        offset += written
-
-
-def _copy_source_to_snapshot(source_fd, snapshot_fd, baseline, expected_size, size_code):
-    try:
-        os.lseek(source_fd, 0, os.SEEK_SET)
-    except OSError:
-        reject("BOUND_FILE_SEEK_FAILED")
-    digest = hashlib.sha256()
-    bytes_read = 0
-    while True:
-        _stable_source_stat(source_fd, baseline)
-        try:
-            block = os.read(source_fd, READ_CHUNK_BYTES)
-        except OSError:
-            reject("BOUND_FILE_DIGEST_FAILED")
-        _stable_source_stat(source_fd, baseline)
-        if not block:
-            break
-        bytes_read += len(block)
-        if bytes_read > expected_size:
-            reject(size_code)
-        digest.update(block)
-        _write_all(snapshot_fd, block)
-    if bytes_read != expected_size:
-        reject(size_code)
-    _stable_source_stat(source_fd, baseline)
-    return digest.hexdigest()
-
-
-def _hash_snapshot_exact(fd, expected_size, size_code):
-    try:
-        os.lseek(fd, 0, os.SEEK_SET)
-    except OSError:
-        reject("SEALED_SNAPSHOT_SEEK_FAILED")
-    digest = hashlib.sha256()
-    bytes_read = 0
-    while True:
-        try:
-            block = os.read(fd, READ_CHUNK_BYTES)
-        except OSError:
-            reject("SEALED_SNAPSHOT_READ_FAILED")
-        if not block:
-            break
-        bytes_read += len(block)
-        if bytes_read > expected_size:
-            reject(size_code)
-        digest.update(block)
-    if bytes_read != expected_size:
-        reject(size_code)
-    return digest.hexdigest()
-
-
-def verify_regular_exact(
-    bound,
-    expected_size,
-    expected_sha256,
-    open_code,
-    size_code,
-    sha_code,
-):
-    if type(expected_size) is not int or expected_size <= 0:
-        reject(size_code)
-    if not isinstance(expected_sha256, str) or not SHA256_PATTERN.fullmatch(expected_sha256):
-        reject(sha_code)
-
-    source_fd, opened = open_regular_nofollow(bound, open_code)
-    snapshot_fd = None
+def open_conversion_report(authority, authority_relative):
+    if authority_relative != REPORT_RELATIVE:
+        reject("CONVERSION_REPORT_PATH_INVALID")
+    root_fd = _open_validated_root(authority)
+    evidence_fd = None
     try:
         try:
-            baseline = os.fstat(source_fd)
+            evidence_fd = os.open("evidence", _directory_flags(), dir_fd=root_fd)
         except OSError:
-            reject("BOUND_FILE_STAT_FAILED")
-        if not _same_identity(opened, baseline) or baseline.st_size != expected_size:
-            reject(size_code)
-
-        memfd_flags, required_seals = _snapshot_seal_contract()
+            reject("CONVERSION_REPORT_PARENT_INVALID")
+        evidence_fd = _checked_directory(evidence_fd, "CONVERSION_REPORT_PARENT_INVALID")
         try:
-            snapshot_fd = os.memfd_create(SNAPSHOT_NAME, memfd_flags)
+            file_fd = os.open("conversion-report.json", _file_flags(), dir_fd=evidence_fd)
         except OSError:
-            reject("SEALED_SNAPSHOT_CREATE_FAILED")
-
-        actual_sha256 = _copy_source_to_snapshot(
-            source_fd,
-            snapshot_fd,
-            baseline,
-            expected_size,
-            size_code,
-        )
-        if actual_sha256 != expected_sha256:
-            reject(sha_code)
-
-        try:
-            snapshot_info = os.fstat(snapshot_fd)
-        except OSError:
-            reject("SEALED_SNAPSHOT_STAT_FAILED")
-        if not stat.S_ISREG(snapshot_info.st_mode) or snapshot_info.st_size != expected_size:
-            reject(size_code)
-
-        try:
-            fcntl.fcntl(snapshot_fd, fcntl.F_ADD_SEALS, required_seals)
-            observed_seals = fcntl.fcntl(snapshot_fd, fcntl.F_GET_SEALS)
-        except OSError:
-            reject("SEALED_SNAPSHOT_SEAL_FAILED")
-        if (observed_seals & required_seals) != required_seals:
-            reject("SEALED_SNAPSHOT_SEAL_FAILED")
-
-        sealed_sha256 = _hash_snapshot_exact(snapshot_fd, expected_size, size_code)
-        if sealed_sha256 != expected_sha256 or sealed_sha256 != actual_sha256:
-            reject(sha_code)
-        try:
-            os.lseek(snapshot_fd, 0, os.SEEK_SET)
-        except OSError:
-            reject("SEALED_SNAPSHOT_SEEK_FAILED")
-
-        verified = VerifiedRegularFile(
-            fd=snapshot_fd,
-            sha256=sealed_sha256,
-            size=expected_size,
-            source_dev=baseline.st_dev,
-            source_ino=baseline.st_ino,
-            relative=bound.relative,
-        )
-        snapshot_fd = None
-        return verified
+            reject("CONVERSION_REPORT_OPEN_FAILED")
+        return _checked_regular(file_fd, REPORT_RELATIVE, "CONVERSION_REPORT_NOT_REGULAR")
     finally:
-        try:
-            os.close(source_fd)
-        except OSError:
-            pass
-        if snapshot_fd is not None:
+        if evidence_fd is not None:
             try:
-                os.close(snapshot_fd)
+                os.close(evidence_fd)
             except OSError:
                 pass
+        try:
+            os.close(root_fd)
+        except OSError:
+            pass
+
+
+def open_mistral_model(authority, authority_relative):
+    if authority_relative != MODEL_RELATIVE:
+        reject("CONVERSION_MODEL_PATH_INVALID")
+    root_fd = _open_validated_root(authority)
+    artifacts_fd = None
+    try:
+        try:
+            artifacts_fd = os.open("artifacts", _directory_flags(), dir_fd=root_fd)
+        except OSError:
+            reject("CONVERSION_MODEL_PARENT_INVALID")
+        artifacts_fd = _checked_directory(artifacts_fd, "CONVERSION_MODEL_PARENT_INVALID")
+        try:
+            file_fd = os.open(
+                "mistral-7b-instruct-v0.3-q4-k-m.gguf",
+                _file_flags(),
+                dir_fd=artifacts_fd,
+            )
+        except OSError:
+            reject("CONVERSION_MODEL_OPEN_FAILED")
+        return _checked_regular(file_fd, MODEL_RELATIVE, "CONVERSION_MODEL_NOT_REGULAR")
+    finally:
+        if artifacts_fd is not None:
+            try:
+                os.close(artifacts_fd)
+            except OSError:
+                pass
+        try:
+            os.close(root_fd)
+        except OSError:
+            pass
+
+
+def open_llama_server(authority, authority_relative):
+    if authority_relative != SERVER_RELATIVE:
+        reject("CONVERSION_SERVER_PATH_INVALID")
+    root_fd = _open_validated_root(authority)
+    toolchain_fd = None
+    bin_fd = None
+    try:
+        try:
+            toolchain_fd = os.open("toolchain", _directory_flags(), dir_fd=root_fd)
+        except OSError:
+            reject("CONVERSION_SERVER_PARENT_INVALID")
+        toolchain_fd = _checked_directory(toolchain_fd, "CONVERSION_SERVER_PARENT_INVALID")
+        try:
+            bin_fd = os.open("bin", _directory_flags(), dir_fd=toolchain_fd)
+        except OSError:
+            reject("CONVERSION_SERVER_PARENT_INVALID")
+        bin_fd = _checked_directory(bin_fd, "CONVERSION_SERVER_PARENT_INVALID")
+        try:
+            file_fd = os.open("llama-server", _file_flags(), dir_fd=bin_fd)
+        except OSError:
+            reject("CONVERSION_SERVER_OPEN_FAILED")
+        return _checked_regular(file_fd, SERVER_RELATIVE, "CONVERSION_SERVER_NOT_REGULAR")
+    finally:
+        if bin_fd is not None:
+            try:
+                os.close(bin_fd)
+            except OSError:
+                pass
+        if toolchain_fd is not None:
+            try:
+                os.close(toolchain_fd)
+            except OSError:
+                pass
+        try:
+            os.close(root_fd)
+        except OSError:
+            pass
