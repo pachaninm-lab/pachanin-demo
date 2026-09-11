@@ -2,7 +2,7 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "feat/local-mistral-segment-8-conversion-evidence-20260911",
   "status": "active",
-  "purpose": "Stage and independently review only the inert trusted-path and regular-file binding primitives for future Local Mistral conversion evidence verification.",
+  "purpose": "Stage and independently review only the inert trusted-path and locked verified-file primitives for future Local Mistral conversion evidence verification.",
   "authorityBaseExactMain": "476781906951d4021b771c769ad8b285d3bcbda0",
   "allowedPaths": [
     "docs/platform-v7/autopilot/bootstrap/local-mistral-conversion-evidence.py.inert",
@@ -13,9 +13,10 @@
     "The conversion root is reconstructed only from exact lower-hex main SHA plus exact positive integer run id and attempt; the authority root must exactly equal the reconstructed literal.",
     "The absolute conversion root is opened component-by-component from filesystem root using directory FDs with O_DIRECTORY, O_NOFOLLOW and O_CLOEXEC; authority path text is never used as an os.open path.",
     "Only the three canonical fixed path tuples for conversion report, Mistral GGUF and llama-server are admissible; arbitrary caller-supplied descendant path tuples are rejected before traversal.",
-    "Authority relative-path strings are used only for exact equality against those allowlisted fixed path-part tuples; each fixed parent component is opened relative to an already anchored directory FD and held open through final-file binding.",
+    "Authority relative-path strings are used only for exact equality against those allowlisted fixed path tuples; each fixed parent component is opened relative to an already anchored directory FD and held open through final-file binding.",
     "The final bound file opens by name relative to the anchored parent directory FD with O_NOFOLLOW and O_CLOEXEC and must be a regular file.",
-    "Exact-size hashing requires a strict lower-hex expected SHA-256, counts exactly expected bytes, compares fd device, inode, size, mtime_ns and ctime_ns before and after reading, and returns only after the computed SHA-256 exactly equals authority; truncation, extension, replacement, mutation or digest mismatch fails closed.",
+    "Exact verification acquires a nonblocking shared flock before hashing, requires exact positive size and strict lower-hex expected SHA-256, hashes the same open FD twice from offset zero, requires both passes to read exactly expected bytes and equal the authority digest, and requires stable device, inode, size, mtime_ns and ctime_ns from open through both passes.",
+    "Successful verification returns the same still-open locked VerifiedRegularFile handle positioned at offset zero; callers must consume that verified handle and must not reopen the pathname between verification and use. The shared lock is released only when the verified handle closes.",
     "No review, attestation, provider status, exact-head verifier authority, product, API, database, RBAC, registration, cabinet, customer-data or production-routing behavior is activated.",
     "Local Qwen is the independent reviewer because this changes future Local Mistral authority only.",
     "REG.RU remains production authority and new recurring cost remains 0 RUB."

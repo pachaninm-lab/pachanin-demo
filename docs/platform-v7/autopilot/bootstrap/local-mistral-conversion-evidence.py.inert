@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import fcntl
 import hashlib
 import os
 import re
@@ -11,6 +12,7 @@ SERVER_PARTS = ("toolchain", "bin", "llama-server")
 ALLOWED_FIXED_PARTS = frozenset((REPORT_PARTS, MODEL_PARTS, SERVER_PARTS))
 GIT_SHA_PATTERN = re.compile(r"[0-9a-f]{40}\Z")
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}\Z")
+READ_CHUNK_BYTES = 8 * 1024 * 1024
 
 
 class ConversionEvidenceError(Exception):
@@ -48,6 +50,32 @@ class BoundFile:
         if self.parent_fd is not None:
             os.close(self.parent_fd)
             self.parent_fd = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+
+
+class VerifiedRegularFile:
+    __slots__ = ("fd", "sha256", "size", "dev", "ino", "relative")
+
+    def __init__(self, fd, sha256, size, dev, ino, relative):
+        self.fd = fd
+        self.sha256 = sha256
+        self.size = size
+        self.dev = dev
+        self.ino = ino
+        self.relative = relative
+
+    def close(self):
+        if self.fd is not None:
+            try:
+                fcntl.flock(self.fd, fcntl.LOCK_UN)
+            finally:
+                os.close(self.fd)
+                self.fd = None
 
     def __enter__(self):
         return self
@@ -212,7 +240,53 @@ def open_regular_nofollow(bound, code):
     return fd, info
 
 
-def digest_regular_exact(
+def _same_identity(left, right):
+    return (
+        left.st_dev == right.st_dev
+        and left.st_ino == right.st_ino
+        and left.st_size == right.st_size
+        and left.st_mtime_ns == right.st_mtime_ns
+        and left.st_ctime_ns == right.st_ctime_ns
+    )
+
+
+def _hash_exact_pass(fd, expected_size, size_code):
+    try:
+        os.lseek(fd, 0, os.SEEK_SET)
+    except OSError:
+        reject("BOUND_FILE_SEEK_FAILED")
+    digest = hashlib.sha256()
+    bytes_read = 0
+    while True:
+        try:
+            block = os.read(fd, READ_CHUNK_BYTES)
+        except OSError:
+            reject("BOUND_FILE_DIGEST_FAILED")
+        if not block:
+            break
+        bytes_read += len(block)
+        if bytes_read > expected_size:
+            reject(size_code)
+        digest.update(block)
+    if bytes_read != expected_size:
+        reject(size_code)
+    return digest.hexdigest()
+
+
+def _unlock_close(fd):
+    if fd is None:
+        return
+    try:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+    except OSError:
+        pass
+    try:
+        os.close(fd)
+    except OSError:
+        pass
+
+
+def verify_regular_exact(
     bound,
     expected_size,
     expected_sha256,
@@ -220,42 +294,69 @@ def digest_regular_exact(
     size_code,
     sha_code,
 ):
+    if type(expected_size) is not int or expected_size <= 0:
+        reject(size_code)
     if not isinstance(expected_sha256, str) or not SHA256_PATTERN.fullmatch(expected_sha256):
         reject(sha_code)
-    fd, before = open_regular_nofollow(bound, open_code)
-    if type(expected_size) is not int or expected_size <= 0 or before.st_size != expected_size:
-        os.close(fd)
-        reject(size_code)
-    digest = hashlib.sha256()
-    bytes_read = 0
+
+    fd, opened = open_regular_nofollow(bound, open_code)
+    locked = False
     try:
-        while True:
-            block = os.read(fd, 8 * 1024 * 1024)
-            if not block:
-                break
-            bytes_read += len(block)
-            if bytes_read > expected_size:
-                os.close(fd)
-                reject(size_code)
-            digest.update(block)
-        after = os.fstat(fd)
-    except ConversionEvidenceError:
-        raise
-    except OSError:
-        os.close(fd)
-        reject("BOUND_FILE_DIGEST_FAILED")
-    os.close(fd)
-    if bytes_read != expected_size:
-        reject(size_code)
-    if (
-        before.st_dev != after.st_dev
-        or before.st_ino != after.st_ino
-        or before.st_size != after.st_size
-        or before.st_mtime_ns != after.st_mtime_ns
-        or before.st_ctime_ns != after.st_ctime_ns
-    ):
-        reject("BOUND_FILE_CHANGED_DURING_READ")
-    actual_sha256 = digest.hexdigest()
-    if actual_sha256 != expected_sha256:
-        reject(sha_code)
-    return actual_sha256
+        try:
+            fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+            locked = True
+        except OSError:
+            reject("BOUND_FILE_SHARED_LOCK_FAILED")
+
+        try:
+            before = os.fstat(fd)
+        except OSError:
+            reject("BOUND_FILE_STAT_FAILED")
+        if not _same_identity(opened, before) or before.st_size != expected_size:
+            reject(size_code)
+
+        first_sha256 = _hash_exact_pass(fd, expected_size, size_code)
+        try:
+            middle = os.fstat(fd)
+        except OSError:
+            reject("BOUND_FILE_STAT_FAILED")
+        if not _same_identity(before, middle):
+            reject("BOUND_FILE_CHANGED_DURING_READ")
+        if first_sha256 != expected_sha256:
+            reject(sha_code)
+
+        second_sha256 = _hash_exact_pass(fd, expected_size, size_code)
+        try:
+            after = os.fstat(fd)
+        except OSError:
+            reject("BOUND_FILE_STAT_FAILED")
+        if not _same_identity(middle, after):
+            reject("BOUND_FILE_CHANGED_DURING_READ")
+        if second_sha256 != first_sha256 or second_sha256 != expected_sha256:
+            reject(sha_code)
+
+        try:
+            os.lseek(fd, 0, os.SEEK_SET)
+        except OSError:
+            reject("BOUND_FILE_SEEK_FAILED")
+
+        verified = VerifiedRegularFile(
+            fd=fd,
+            sha256=second_sha256,
+            size=expected_size,
+            dev=after.st_dev,
+            ino=after.st_ino,
+            relative=bound.relative,
+        )
+        fd = None
+        locked = False
+        return verified
+    finally:
+        if fd is not None:
+            if locked:
+                _unlock_close(fd)
+            else:
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
