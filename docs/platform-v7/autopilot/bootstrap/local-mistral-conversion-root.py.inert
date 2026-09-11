@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+import ctypes
+import os
+import re
+import stat
+
+GIT_SHA = re.compile(r"[0-9a-f]{40}\Z")
+UNTRUSTED_WRITE_BITS = stat.S_IWGRP | stat.S_IWOTH
+RESOLVE_NO_MAGICLINKS = 0x02
+RESOLVE_NO_SYMLINKS = 0x04
+RESOLVE_BENEATH = 0x08
+SYS_OPENAT2 = 437
+
+
+class ConversionRootError(Exception):
+    pass
+
+
+class PinnedConversionRoot:
+    __slots__ = ("fd", "exact_main", "run_id", "run_attempt", "dev", "ino")
+
+    def __init__(self, fd, exact_main, run_id, run_attempt, info):
+        self.fd = fd
+        self.exact_main = exact_main
+        self.run_id = run_id
+        self.run_attempt = run_attempt
+        self.dev = info.st_dev
+        self.ino = info.st_ino
+
+    def close(self):
+        if self.fd is not None:
+            os.close(self.fd)
+            self.fd = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+
+
+def reject(code):
+    raise ConversionRootError(code) from None
+
+
+def _positive_int(value, code):
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        reject(code)
+
+
+def _directory_flags():
+    required = ("O_PATH", "O_CLOEXEC", "O_DIRECTORY", "O_NOFOLLOW")
+    if any(not hasattr(os, name) for name in required):
+        reject("CONVERSION_ROOT_OPEN_UNAVAILABLE")
+    return os.O_PATH | os.O_CLOEXEC | os.O_DIRECTORY | os.O_NOFOLLOW
+
+
+def _trusted_directory(fd, code):
+    try:
+        info = os.fstat(fd)
+    except OSError:
+        reject(code)
+    if not stat.S_ISDIR(info.st_mode):
+        reject(code)
+    if info.st_uid != 0:
+        reject(code)
+    if info.st_mode & UNTRUSTED_WRITE_BITS:
+        reject(code)
+    return info
+
+
+class _OpenHow(ctypes.Structure):
+    _fields_ = [
+        ("flags", ctypes.c_uint64),
+        ("mode", ctypes.c_uint64),
+        ("resolve", ctypes.c_uint64),
+    ]
+
+
+_libc = ctypes.CDLL(None, use_errno=True)
+_libc.syscall.restype = ctypes.c_long
+
+
+def _open_component(parent_fd, component):
+    if (
+        not isinstance(component, str)
+        or not component
+        or component in {".", ".."}
+        or "/" in component
+        or "\x00" in component
+    ):
+        reject("CONVERSION_ROOT_COMPONENT_INVALID")
+    try:
+        encoded = component.encode("ascii", errors="strict")
+    except UnicodeEncodeError:
+        reject("CONVERSION_ROOT_COMPONENT_INVALID")
+    how = _OpenHow(
+        flags=_directory_flags(),
+        mode=0,
+        resolve=RESOLVE_BENEATH | RESOLVE_NO_MAGICLINKS | RESOLVE_NO_SYMLINKS,
+    )
+    ctypes.set_errno(0)
+    fd = _libc.syscall(
+        ctypes.c_long(SYS_OPENAT2),
+        ctypes.c_int(parent_fd),
+        ctypes.c_char_p(encoded),
+        ctypes.byref(how),
+        ctypes.c_size_t(ctypes.sizeof(how)),
+    )
+    if fd < 0:
+        reject("CONVERSION_ROOT_COMPONENT_OPEN_INVALID")
+    fd = int(fd)
+    try:
+        _trusted_directory(fd, "CONVERSION_ROOT_COMPONENT_TRUST_INVALID")
+        return fd
+    except BaseException:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        raise
+
+
+def open_conversion_root(authority):
+    if not isinstance(authority, dict) or set(authority) != {
+        "exactMainSha",
+        "workflowRunId",
+        "workflowRunAttempt",
+        "conversionRoot",
+    }:
+        reject("CONVERSION_ROOT_AUTHORITY_INVALID")
+
+    exact_main = authority["exactMainSha"]
+    run_id = authority["workflowRunId"]
+    run_attempt = authority["workflowRunAttempt"]
+    conversion_root = authority["conversionRoot"]
+
+    if not isinstance(exact_main, str) or not GIT_SHA.fullmatch(exact_main):
+        reject("CONVERSION_ROOT_MAIN_INVALID")
+    _positive_int(run_id, "CONVERSION_ROOT_RUN_INVALID")
+    _positive_int(run_attempt, "CONVERSION_ROOT_ATTEMPT_INVALID")
+
+    expected = (
+        "/srv/tai-models/conversion-runs/"
+        + exact_main
+        + "/"
+        + str(run_id)
+        + "-"
+        + str(run_attempt)
+    )
+    if conversion_root != expected:
+        reject("CONVERSION_ROOT_PATH_INVALID")
+
+    components = (
+        "srv",
+        "tai-models",
+        "conversion-runs",
+        exact_main,
+        f"{run_id}-{run_attempt}",
+    )
+    try:
+        anchor_fd = os.open("/", _directory_flags())
+    except OSError:
+        reject("CONVERSION_ROOT_ANCHOR_OPEN_INVALID")
+
+    opened = [anchor_fd]
+    try:
+        _trusted_directory(anchor_fd, "CONVERSION_ROOT_ANCHOR_TRUST_INVALID")
+        for component in components:
+            opened.append(_open_component(opened[-1], component))
+        final_fd = opened.pop()
+        info = _trusted_directory(final_fd, "CONVERSION_ROOT_FINAL_TRUST_INVALID")
+        return PinnedConversionRoot(
+            final_fd,
+            exact_main,
+            run_id,
+            run_attempt,
+            info,
+        )
+    finally:
+        for fd in reversed(opened):
+            try:
+                os.close(fd)
+            except OSError:
+                pass
