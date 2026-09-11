@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/local-mistral-runner-foundation-20260911",
+  "status": "active",
+  "purpose": "Stage the inert, hash-addressable Local Mistral review runner before activating any workflow or admission authority.",
+  "authorityBaseExactMain": "2f45e16446e46a93fad211b866475d7b33610af7",
+  "allowedPaths": [
+    "scripts/local-mistral-independent-review.py",
+    "docs/platform-v7/autopilot/scopes/local-mistral-runner-foundation-20260911.json"
+  ],
+  "requiredInvariants": [
+    "The staged runner is not invoked by any workflow in this pull request.",
+    "No admission verifier, Local Qwen provider, product, API, database, RBAC, registration, cabinet, customer-data or production routing behavior changes.",
+    "The runner fails closed, binds the governed Mistral conversion evidence and uses loopback-only ephemeral inference when invoked by a later admitted workflow.",
+    "Local Qwen remains the independent exact-head reviewer for this pull request.",
+    "Production hosting remains REG.RU only and new recurring cost remains 0 RUB."
+  ],
+  "evidence": {
+    "runnerSha256": "ba30e6199f33f18b28a3c99726104470629831301cdc20ab174b30a9868e8fab",
+    "mistralRevision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
+    "mistralQ4KmSha256": "62f36c339b80c8849814f8a0fd4b04f94c7a758658f71d6aa86478e633d5764e",
+    "conversionReportSha256": "f9022405fd7b59fe721e53a76adfebb974667328ff1416fa0afb4e55f9d63b7d",
+    "llamaServerSha256": "1b26384ad90d9ae8fe65b2a3e2dfd08c70d92663b2127d5f479f34774b4a6dbf"
+  },
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
