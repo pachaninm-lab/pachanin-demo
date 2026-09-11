@@ -88,6 +88,9 @@ try:
 finally:
     sys.argv = original_argv
 
+if runner.get("model_sha256") != model["artifactSha256"] or runner.get("model_size") != model["artifactSizeBytes"]:
+    fail("AUTHORITY_MODEL_ARTIFACT_MISMATCH")
+
 sensitive = runpy.run_path(str(sensitive_path))
 runtime_handle = None
 try:
