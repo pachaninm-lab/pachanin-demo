@@ -97,7 +97,7 @@ test('Octopus authority requires paired exact-head structured review and latest 
   };
   assert.equal(positiveExactHeadOctopusAttestations([goodReview], [goodStatus], head, repo).length, 1);
   assert.equal(positiveExactHeadOctopusAttestations([{ ...goodReview, commit_id: oldHead }], [goodStatus], head, repo).length, 0);
-  assert.equal(positiveExactHeadLocalQwenAttestations([{ ...goodReview, user: { login: 'pachaninm-lab' } }], [goodStatus], head, repo).length, 0);
+  assert.equal(positiveExactHeadOctopusAttestations([{ ...goodReview, user: { login: 'pachaninm-lab' } }], [goodStatus], head, repo).length, 0);
   assert.equal(positiveExactHeadOctopusAttestations([goodReview], [{ ...goodStatus, description: 'Octopus clean mismatched evidence' }], head, repo).length, 0);
   assert.equal(positiveExactHeadOctopusAttestations([goodReview], [{ ...goodStatus, state: 'failure' }, goodStatus], head, repo).length, 0);
 });
