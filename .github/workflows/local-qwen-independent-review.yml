@@ -455,7 +455,7 @@ jobs:
           if seen != list(range(1,len(chunks)+1)): raise SystemExit('Chunk indexes are not contiguous.')
           verdict='PASS' if not all_findings else 'BLOCK'
           value={'verdict':verdict,'findings':all_findings,'summary':('PASS' if verdict=='PASS' else 'BLOCK')}
-          pathlib.Path(canonical_path).write_text(json.dumps(value,ensure_ascii=False,sort_keys=True,separators=(',',':'))+'\n',encoding='utf-8')
+          pathlib.Path(canonical_path).write_text(json.dumps(value,ensure_ascii=True,sort_keys=True,separators=(',',':'))+'\n',encoding='utf-8')
           PY
           response_sha256="$(sha256sum "$RUNNER_TEMP/review.canonical.json" | awk '{print $1}')"
           verdict="$(jq -r '.verdict' "$RUNNER_TEMP/review.canonical.json")"; findings_count="$(jq '.findings|length' "$RUNNER_TEMP/review.canonical.json")"
