@@ -151,7 +151,6 @@ jobs:
         env:
           HEAD_SHA: ${{ steps.input.outputs.head_sha }}
           WORKFLOW_RUN_ID: ${{ github.run_id }}
-          GITHUB_OUTPUT_FILE: ${{ github.output }}
         shell: bash
         run: |
           set -Eeuo pipefail
