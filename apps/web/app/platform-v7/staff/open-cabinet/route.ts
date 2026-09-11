@@ -2,7 +2,6 @@ import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE, CSRF_COOKIE, SESSION_COOKIE, sessionMarkerCookie } from '@/lib/auth-cookies';
 import { CABINET_SESSION_COOKIE } from '@/lib/server/auth-session-response';
-import { ownerControlledCabinetTarget } from '@/lib/platform-v7/control-host';
 import {
   controlledCabinetContext,
   type ControlledCabinetContext,
@@ -18,23 +17,26 @@ export const maxDuration = 12;
 const MAX_CONTROLLED_TTL_SECONDS = 8 * 60 * 60;
 const MAX_API_OWNER_TTL_SECONDS = 60 * 60;
 
-const OWNER_CABINET_TARGETS = {
-  operator: '/platform-v7/operator',
-  buyer: '/platform-v7/buyer',
-  seller: '/platform-v7/seller',
-  logistics: '/platform-v7/logistics',
-  driver: '/platform-v7/driver/field',
-  surveyor: '/platform-v7/surveyor',
-  elevator: '/platform-v7/elevator',
-  lab: '/platform-v7/lab',
-  bank: '/platform-v7/bank',
-  organization: '/platform-v7/profile',
-  arbitrator: '/platform-v7/arbitrator',
-  compliance: '/platform-v7/compliance',
-  executive: '/platform-v7/executive',
-} as const;
+type OwnerCabinetRole =
+  | 'operator'
+  | 'buyer'
+  | 'seller'
+  | 'logistics'
+  | 'driver'
+  | 'surveyor'
+  | 'elevator'
+  | 'lab'
+  | 'bank'
+  | 'organization'
+  | 'arbitrator'
+  | 'compliance'
+  | 'executive';
 
-type OwnerCabinetRole = keyof typeof OWNER_CABINET_TARGETS;
+type OwnerCabinetTarget = {
+  readonly role: OwnerCabinetRole;
+  readonly path: string;
+};
+
 type OwnerAuthority = {
   actorId: string;
   email: string;
@@ -52,6 +54,25 @@ type ParsedRequest = {
   csrfOk: boolean;
 };
 
+function ownerCabinetTarget(value: unknown): OwnerCabinetTarget | null {
+  switch (value) {
+    case 'operator': return { role: 'operator', path: '/platform-v7/operator' };
+    case 'buyer': return { role: 'buyer', path: '/platform-v7/buyer' };
+    case 'seller': return { role: 'seller', path: '/platform-v7/seller' };
+    case 'logistics': return { role: 'logistics', path: '/platform-v7/logistics' };
+    case 'driver': return { role: 'driver', path: '/platform-v7/driver/field' };
+    case 'surveyor': return { role: 'surveyor', path: '/platform-v7/surveyor' };
+    case 'elevator': return { role: 'elevator', path: '/platform-v7/elevator' };
+    case 'lab': return { role: 'lab', path: '/platform-v7/lab' };
+    case 'bank': return { role: 'bank', path: '/platform-v7/bank' };
+    case 'organization': return { role: 'organization', path: '/platform-v7/profile' };
+    case 'arbitrator': return { role: 'arbitrator', path: '/platform-v7/arbitrator' };
+    case 'compliance': return { role: 'compliance', path: '/platform-v7/compliance' };
+    case 'executive': return { role: 'executive', path: '/platform-v7/executive' };
+    default: return null;
+  }
+}
+
 function readEnv(name: string): string {
   return String(process.env[name] || '').trim();
 }
@@ -65,8 +86,9 @@ function controlledFixtureEnabled(): boolean {
   return Number.isFinite(expiry) && expiry > Date.now();
 }
 
-function signingSecret(): string {
-  return readEnv('JWT_SECRET') || readEnv('PC_CABINET_SESSION_SECRET');
+function signingSecret(): string | null {
+  const candidate = readEnv('JWT_SECRET') || readEnv('PC_CABINET_SESSION_SECRET');
+  return candidate.length >= 32 && candidate.length <= 4096 ? candidate : null;
 }
 
 function apiOrigin(): string {
@@ -97,10 +119,6 @@ function redirectBack(request: NextRequest, code: string) {
   const url = new URL('/platform-v7/staff', request.url);
   url.searchParams.set('cabinetError', code);
   return NextResponse.redirect(url, 303);
-}
-
-function isOwnerCabinetRole(value: unknown): value is OwnerCabinetRole {
-  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(OWNER_CABINET_TARGETS, value);
 }
 
 function constantTimeEqual(a: string, b: string): boolean {
@@ -324,17 +342,13 @@ export async function POST(request: NextRequest) {
     : json({ ok: false, code, message, correlationId }, status);
 
   if (!parsed.csrfOk) return fail('CSRF_REJECTED', 'Сессия формы устарела. Обнови страницу.', 403);
-  if (!isOwnerCabinetRole(parsed.role)) return fail('INVALID_CABINET_ROLE', 'Неизвестный кабинет.', 400);
-
-  const expectedTarget = OWNER_CABINET_TARGETS[parsed.role];
-  const target = ownerControlledCabinetTarget(parsed.role);
-  if (!target || target !== expectedTarget) {
-    return fail('OWNER_CABINET_ROUTE_MISMATCH', 'Маршрут кабинета не прошёл серверную проверку.', 503);
-  }
+  const cabinet = ownerCabinetTarget(parsed.role);
+  if (!cabinet) return fail('INVALID_CABINET_ROLE', 'Неизвестный кабинет.', 400);
+  const { role, path: target } = cabinet;
 
   const secret = signingSecret();
   const accessToken = request.cookies.get(ACCESS_COOKIE)?.value || '';
-  if (!secret || !accessToken) {
+  if (!secret || !accessToken || accessToken.length > 8192) {
     return fail('OWNER_ACCESS_UNAVAILABLE', 'Требуется активный вход владельца платформы.', 401);
   }
 
@@ -347,13 +361,13 @@ export async function POST(request: NextRequest) {
   }
 
   const { authority } = authorityResult;
-  const organization = resolveControlledOrganization(parsed.role, parsed.organizationId, authority);
+  const organization = resolveControlledOrganization(role, parsed.organizationId, authority);
   if (organization === 'invalid') {
     return fail('INVALID_TEST_ORGANIZATION', 'Тестовая организация не соответствует выбранному кабинету.', 400);
   }
 
   const nowSeconds = Math.floor(Date.now() / 1000);
-  const cabinetToken = await signCabinetSession(parsed.role, secret, {
+  const cabinetToken = await signCabinetSession(role, secret, {
     nowSeconds,
     ttlSeconds: authority.ttlSeconds,
     userId: authority.actorId,
@@ -368,7 +382,7 @@ export async function POST(request: NextRequest) {
     ? NextResponse.redirect(new URL(target, request.url), 303)
     : json({
       ok: true,
-      role: parsed.role,
+      role,
       redirectTo: target,
       organization: {
         id: organization.organizationId,
@@ -381,12 +395,12 @@ export async function POST(request: NextRequest) {
     });
 
   response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-  setCabinetCookies(response, cabinetToken, parsed.role, authority, expiresAt, organization);
+  setCabinetCookies(response, cabinetToken, role, authority, expiresAt, organization);
 
   console.info('owner_direct_cabinet_open', JSON.stringify({
     actor: authority.actorId,
     authoritySource: authority.source,
-    role: parsed.role,
+    role,
     organizationId: organization.organizationId,
     correlationId,
     transport: parsed.formSubmission ? 'native-form' : 'json-fetch',
