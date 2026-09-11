@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import hashlib,json,pathlib,re,secrets,socket,subprocess,sys,time,urllib.request
+import hashlib,json,pathlib,re,socket,subprocess,sys,time,urllib.request
 
 model,server,policy_path,schema_path,diff_path,paths_path,out_path=map(pathlib.Path,sys.argv[1:8])
 policy=policy_path.read_text('utf-8'); schema=json.loads(schema_path.read_text('utf-8'))
@@ -22,14 +22,13 @@ def check(text):
  if not isinstance(f['reason'],str) or not 1<=len(f['reason'].strip())<=192 or hedge.search(f['reason']): return 'REASON_INVALID'
  return None
 
-sock=socket.socket(); sock.bind(('127.0.0.1',0)); port=sock.getsockname()[1]; sock.close(); key=secrets.token_urlsafe(32)
-key_file=out_path.with_suffix('.api-key'); key_file.write_text(key+'\n','ascii'); key_file.chmod(0o600)
+sock=socket.socket(); sock.bind(('127.0.0.1',0)); port=sock.getsockname()[1]; sock.close()
 log=out_path.with_suffix('.log').open('wb')
-proc=subprocess.Popen([str(server),'--model',str(model),'--alias','tai-mistral-review','--host','127.0.0.1','--port',str(port),'--api-key-file',str(key_file),'--ctx-size','12288','--parallel','1'],stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+proc=subprocess.Popen([str(server),'--model',str(model),'--alias','tai-mistral-review','--host','127.0.0.1','--port',str(port),'--ctx-size','12288','--parallel','1'],stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
 
 def call(path,payload=None,timeout=300):
  data=None if payload is None else json.dumps(payload,separators=(',',':')).encode()
- req=urllib.request.Request('http://127.0.0.1:'+str(port)+path,data=data,headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'},method='GET' if payload is None else 'POST')
+ req=urllib.request.Request('http://127.0.0.1:'+str(port)+path,data=data,headers={'Content-Type':'application/json'},method='GET' if payload is None else 'POST')
  with urllib.request.urlopen(req,timeout=timeout) as r: return json.loads(r.read(2_000_000).decode())
 
 def complete(text):
@@ -60,5 +59,4 @@ finally:
  except Exception:
   try: proc.kill()
   except Exception: pass
- key_file.unlink(missing_ok=True)
  log.close()
