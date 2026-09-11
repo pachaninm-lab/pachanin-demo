@@ -415,6 +415,8 @@ test('Local Qwen workflow uses canonical Qwen3 model-host, remains bounded and f
   assert.match(workflow, /set\(value\)!=\{'findings'\}/u);
   assert.match(workflow, /verdict='PASS' if not all_findings else 'BLOCK'/u);
   assert.match(workflow, /Do not author verdict or summary/u);
+  assert.match(workflow, /json\.dumps\(value,ensure_ascii=True,sort_keys=True,separators=/u);
+  assert.doesNotMatch(workflow, /json\.dumps\(value,ensure_ascii=False,sort_keys=True,separators=/u);
   assert.doesNotMatch(workflow, /"required":\["verdict","findings","summary"\]/u);
   assert.doesNotMatch(workflow, /Inconsistent BLOCK in chunk/u);
   assert.match(workflow, /Pinned canonical Qwen3 review failed closed/u);
