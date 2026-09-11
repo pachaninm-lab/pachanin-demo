@@ -360,10 +360,10 @@ def verify_regular_exact(
     locked = False
     try:
         try:
-            fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             locked = True
         except OSError:
-            reject("BOUND_FILE_SHARED_LOCK_FAILED")
+            reject("BOUND_FILE_EXCLUSIVE_LOCK_FAILED")
 
         try:
             before = os.fstat(fd)
@@ -372,24 +372,15 @@ def verify_regular_exact(
         if not _same_identity(opened, before) or before.st_size != expected_size:
             reject(size_code)
 
-        first_sha256 = _hash_exact_pass(fd, expected_size, size_code)
-        try:
-            middle = os.fstat(fd)
-        except OSError:
-            reject("BOUND_FILE_STAT_FAILED")
-        if not _same_identity(before, middle):
-            reject("BOUND_FILE_CHANGED_DURING_READ")
-        if first_sha256 != expected_sha256:
-            reject(sha_code)
+        actual_sha256 = _hash_exact_pass(fd, expected_size, size_code)
 
-        second_sha256 = _hash_exact_pass(fd, expected_size, size_code)
         try:
             after = os.fstat(fd)
         except OSError:
             reject("BOUND_FILE_STAT_FAILED")
-        if not _same_identity(middle, after):
+        if not _same_identity(before, after):
             reject("BOUND_FILE_CHANGED_DURING_READ")
-        if second_sha256 != first_sha256 or second_sha256 != expected_sha256:
+        if actual_sha256 != expected_sha256:
             reject(sha_code)
 
         try:
@@ -399,7 +390,7 @@ def verify_regular_exact(
 
         verified = VerifiedRegularFile(
             fd=fd,
-            sha256=second_sha256,
+            sha256=actual_sha256,
             size=expected_size,
             dev=after.st_dev,
             ino=after.st_ino,

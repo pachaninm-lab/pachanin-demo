@@ -2,7 +2,7 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "feat/local-mistral-segment-8-conversion-evidence-20260911",
   "status": "active",
-  "purpose": "Stage and independently review only the inert trusted-path and locked verified-file primitives for future Local Mistral conversion evidence verification.",
+  "purpose": "Stage and independently review only the inert trusted-path and exclusive locked verified-file primitives for future Local Mistral conversion evidence verification.",
   "authorityBaseExactMain": "476781906951d4021b771c769ad8b285d3bcbda0",
   "allowedPaths": [
     "docs/platform-v7/autopilot/bootstrap/local-mistral-conversion-evidence.py.inert",
@@ -15,8 +15,8 @@
     "The absolute conversion root is opened component-by-component from filesystem root using directory FDs with O_DIRECTORY, O_NOFOLLOW and O_CLOEXEC; authority path text is never passed to os.open.",
     "Only the three canonical fixed path tuples for conversion report, Mistral GGUF and llama-server are admissible; each fixed parent component is opened from the compile-time fixed-directory allowlist relative to an already anchored directory FD.",
     "Bound-file name plus relative-path identity must exactly match one of the three canonical file identities before final open; the final file opens relative to its anchored parent FD with O_NOFOLLOW and O_CLOEXEC and must be a regular file.",
-    "Exact verification acquires a nonblocking shared flock before hashing, requires exact positive size and strict lower-hex expected SHA-256, hashes the same open FD twice from offset zero, requires both passes to read exactly expected bytes and equal the authority digest, and requires stable device, inode, size, mtime_ns and ctime_ns from open through both passes.",
-    "Successful verification returns the same still-open locked VerifiedRegularFile handle positioned at offset zero; callers must consume that verified handle and must not reopen the pathname between verification and use. The shared lock is released only when the verified handle closes.",
+    "Exact verification acquires a nonblocking exclusive flock before hashing, requires exact positive size and strict lower-hex expected SHA-256, performs one exact hash pass on the same open FD, requires exactly expected bytes, requires stable device, inode, size, mtime_ns and ctime_ns before and after the pass, and requires the computed SHA-256 to equal authority.",
+    "Successful verification returns the same still-open exclusively locked VerifiedRegularFile handle positioned at offset zero; callers must consume that verified handle and must not reopen the pathname between verification and use. The exclusive lock is released only when the verified handle closes.",
     "No review, attestation, provider status, exact-head verifier authority, product, API, database, RBAC, registration, cabinet, customer-data or production-routing behavior is activated.",
     "Local Qwen is the independent reviewer because this changes future Local Mistral authority only.",
     "REG.RU remains production authority and new recurring cost remains 0 RUB."
