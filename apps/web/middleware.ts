@@ -351,13 +351,6 @@ function markPlatformV7Entry(response: NextResponse) {
   response.cookies.set(PLATFORM_V7_ENTRY_COOKIE, 'true', { path: '/', maxAge: 60 * 60 * 4, sameSite: 'lax', secure: true });
 }
 
-async function verifiedCabinetContext(req: NextRequest) {
-  const secret = readEnv('JWT_SECRET') || readEnv('PC_CABINET_SESSION_SECRET');
-  const token = req.cookies.get(CABINET_SESSION_COOKIE)?.value ?? '';
-  if (secret.length < 32 || secret.length > 4096 || !token || token.length > 8192) return null;
-  return readVerifiedCabinetSessionContext(token, secret, Math.floor(Date.now() / 1000));
-}
-
 function controlRealmResponse(req: NextRequest) {
   const requestHeaders = new Headers(req.headers);
   requestHeaders.delete('x-pc-role');
@@ -415,26 +408,12 @@ export async function middleware(req: NextRequest) {
       }
 
       const ownerRole = ownerControlledCabinetRole(p);
-      if (ownerRole !== null) {
-        const context = await verifiedCabinetContext(req);
-        const expected = controlledCabinetContext(ownerRole);
-        if (
-          !context
-          || !expected
-          || context.ownerAccess !== true
-          || typeof context.userId !== 'string'
-          || context.userId.trim().length === 0
-          || context.role !== ownerRole
-          || expected.role !== ownerRole
-          || context.organizationId !== expected.organizationId
-          || context.tenantId !== expected.tenantId
-          || !ownerCabinetSessionMatchesRoot(p, context, expected)
-        ) return controlRealmDenied(req);
+      if (ownerRole === null) {
+        if (!isControlRealmPathAllowed(p)) return controlRealmDenied(req);
         return controlRealmResponse(req);
       }
-
-      if (!isControlRealmPathAllowed(p)) return controlRealmDenied(req);
-      return controlRealmResponse(req);
+      // Exact owner roots continue below to the canonical signed-session check.
+      // Nothing is served for an owner root before that fail-closed validation.
     }
 
     const staffPage = isPlatformV7StaffPath(p);
@@ -523,7 +502,30 @@ export async function middleware(req: NextRequest) {
       return response;
     }
 
-    const context = await verifiedCabinetContext(req);
+    const secret = String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
+    const cabinetToken = req.cookies.get(CABINET_SESSION_COOKIE)?.value ?? '';
+    const context = secret.length >= 32 && secret.length <= 4096 && cabinetToken.length > 0 && cabinetToken.length <= 8192
+      ? await readVerifiedCabinetSessionContext(cabinetToken, secret, Math.floor(Date.now() / 1000))
+      : null;
+
+    if (controlHostEnabled() && isControlHostRequest(req)) {
+      const ownerRole = ownerControlledCabinetRole(p);
+      const expected = ownerRole === null ? null : controlledCabinetContext(ownerRole);
+      if (
+        ownerRole === null
+        || !context
+        || !expected
+        || context.ownerAccess !== true
+        || typeof context.userId !== 'string'
+        || context.userId.trim().length === 0
+        || context.role !== ownerRole
+        || expected.role !== ownerRole
+        || context.organizationId !== expected.organizationId
+        || context.tenantId !== expected.tenantId
+        || !ownerCabinetSessionMatchesRoot(p, context, expected)
+      ) return controlRealmDenied(req);
+      return controlRealmResponse(req);
+    }
 
     if (context?.role === 'organization') {
       if (!isOrganizationCabinetPath(p)) {

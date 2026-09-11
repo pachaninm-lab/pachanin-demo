@@ -12,7 +12,7 @@ const cwd = process.cwd();
 const root = [cwd, path.resolve(cwd, '../..')]
   .find((candidate) => fs.existsSync(path.join(candidate, 'design-governance-v8.json')));
 
-if (!root) throw new Error(`Cannot resolve repository root from ${cwd}`);
+if (!root) throw new Error('Cannot resolve repository root');
 
 function read(relativePath: string) {
   return fs.readFileSync(path.join(root, relativePath), 'utf8');
@@ -36,9 +36,9 @@ const ownerCabinetMatrix = [
 
 const missingOwnerCabinetPages = ownerCabinetMatrix
   .filter((item) => !fs.existsSync(path.join(root, item.page)))
-  .map((item) => `${item.role}:${item.page}`);
+  .map((item) => item.role);
 if (missingOwnerCabinetPages.length > 0) {
-  throw new Error(`Owner cabinet matrix references missing pages: ${missingOwnerCabinetPages.join(', ')}`);
+  throw new Error('Owner cabinet matrix references a missing page');
 }
 
 describe('platform-v7 role intent dashboard', () => {

@@ -15,6 +15,21 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false, nocache: true },
 };
 
+const TARGETS: Readonly<Record<PlatformRole, string>> = {
+  operator: '/platform-v7/operator',
+  buyer: '/platform-v7/buyer',
+  seller: '/platform-v7/seller',
+  logistics: '/platform-v7/logistics',
+  driver: '/platform-v7/driver/field',
+  surveyor: '/platform-v7/surveyor',
+  elevator: '/platform-v7/elevator',
+  lab: '/platform-v7/lab',
+  bank: '/platform-v7/bank',
+  arbitrator: '/platform-v7/arbitrator',
+  compliance: '/platform-v7/compliance',
+  executive: '/platform-v7/executive',
+};
+
 const LABELS: Readonly<Record<PlatformRole, string>> = {
   operator: 'Оператор',
   buyer: 'Покупатель',
@@ -34,23 +49,6 @@ function signingSecret(): string {
   return String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
 }
 
-function handoffTarget(role: PlatformRole): string {
-  switch (role) {
-    case 'operator': return '/platform-v7/operator';
-    case 'buyer': return '/platform-v7/buyer';
-    case 'seller': return '/platform-v7/seller';
-    case 'logistics': return '/platform-v7/logistics';
-    case 'driver': return '/platform-v7/driver/field';
-    case 'surveyor': return '/platform-v7/surveyor';
-    case 'elevator': return '/platform-v7/elevator';
-    case 'lab': return '/platform-v7/lab';
-    case 'bank': return '/platform-v7/bank';
-    case 'arbitrator': return '/platform-v7/arbitrator';
-    case 'compliance': return '/platform-v7/compliance';
-    case 'executive': return '/platform-v7/executive';
-  }
-}
-
 export default async function OwnerCabinetHandoffPage() {
   const secret = signingSecret();
   const token = (await cookies()).get(CABINET_SESSION_COOKIE)?.value ?? '';
@@ -63,12 +61,11 @@ export default async function OwnerCabinetHandoffPage() {
     redirect('/platform-v7/staff?cabinetError=ORGANIZATION_CABINET_NOT_CONTROLLED');
   }
 
-  const target = handoffTarget(context.role);
   const organization = controlledOrganizationById(context.organizationId);
   return (
     <OwnerCabinetHandoff
       role={context.role}
-      target={target}
+      target={TARGETS[context.role]}
       label={LABELS[context.role]}
       organizationName={organization?.name || null}
       testData={organization?.testData === true}
