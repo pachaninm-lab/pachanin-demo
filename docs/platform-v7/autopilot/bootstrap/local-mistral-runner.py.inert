@@ -9,6 +9,7 @@ import secrets
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 
 (
@@ -223,8 +224,10 @@ def validate_candidate(text):
 # Segment 5 stages bounded local model invocation only. It is not called here.
 runtime_host = "127.0.0.1"
 runtime_startup_timeout_seconds = 60
+runtime_request_limit_bytes = 600_000
 runtime_http_limit_bytes = 2_000_000
 runtime_model_identity_pattern = re.compile(r"[A-Za-z0-9._-]{1,96}\Z")
+runtime_bearer_pattern = re.compile(r"[A-Za-z0-9_-]{32,128}\Z")
 
 class RuntimeCallError(Exception):
     pass
@@ -235,7 +238,17 @@ def reserve_runtime_port():
         return listener.getsockname()[1]
 
 def request_runtime_json(host, port, bearer, method, endpoint, payload=None, timeout=20):
+    if host != runtime_host:
+        raise RuntimeCallError("HOST_NOT_LOOPBACK")
+    if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+        raise RuntimeCallError("PORT_INVALID")
+    if not isinstance(bearer, str) or not runtime_bearer_pattern.fullmatch(bearer):
+        raise RuntimeCallError("BEARER_INVALID")
+    if method not in {"GET", "POST"} or endpoint not in {"/v1/models", "/v1/chat/completions"}:
+        raise RuntimeCallError("ENDPOINT_INVALID")
     body = None if payload is None else json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    if body is not None and len(body) > runtime_request_limit_bytes:
+        raise RuntimeCallError("REQUEST_TOO_LARGE")
     headers = {
         "Accept": "application/json",
         "Authorization": "Bearer " + bearer,
@@ -262,57 +275,91 @@ def request_runtime_json(host, port, bearer, method, endpoint, payload=None, tim
     finally:
         connection.close()
 
+def remove_runtime_key(runtime):
+    key_path = runtime.get("api_key_path") if isinstance(runtime, dict) else None
+    if isinstance(key_path, Path):
+        try:
+            key_path.unlink(missing_ok=True)
+        except OSError:
+            return False
+    return True
+
 def stop_local_runtime(runtime):
     process = runtime.get("process") if isinstance(runtime, dict) else None
-    if not isinstance(process, subprocess.Popen):
-        return False
-    if process.poll() is not None:
-        return True
-    process.terminate()
-    try:
-        process.wait(timeout=10)
-        return True
-    except subprocess.TimeoutExpired:
-        process.kill()
-        try:
-            process.wait(timeout=5)
-            return True
-        except subprocess.TimeoutExpired:
-            return False
+    stopped = False
+    if isinstance(process, subprocess.Popen):
+        if process.poll() is not None:
+            stopped = True
+        else:
+            process.terminate()
+            try:
+                process.wait(timeout=10)
+                stopped = True
+            except subprocess.TimeoutExpired:
+                process.kill()
+                try:
+                    process.wait(timeout=5)
+                    stopped = True
+                except subprocess.TimeoutExpired:
+                    stopped = False
+    return stopped and remove_runtime_key(runtime)
 
 def start_local_runtime():
     if not isinstance(model_identity, str) or not runtime_model_identity_pattern.fullmatch(model_identity):
         fail("MODEL_IDENTITY_INVALID")
     port = reserve_runtime_port()
     bearer = secrets.token_urlsafe(32)
-    runtime_env = os.environ.copy()
-    for key in tuple(runtime_env):
-        if key.startswith("LLAMA_ARG_") or key in {"LLAMA_API_KEY", "LLAMA_PORT"}:
-            runtime_env.pop(key, None)
-    command = [
-        str(server_path),
-        "--model", str(model_path),
-        "--alias", model_identity,
-        "--host", runtime_host,
-        "--port", str(port),
-        "--api-key", bearer,
-        "--jinja",
-        "--no-webui",
-    ]
-    process = subprocess.Popen(
-        command,
-        cwd=str(conversion_root),
-        env=runtime_env,
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        close_fds=True,
-        start_new_session=True,
-    )
-    runtime = {"process": process, "host": runtime_host, "port": port, "bearer": bearer}
+    key_fd, key_name = tempfile.mkstemp(prefix="pc-local-mistral-api-", text=True)
+    api_key_path = Path(key_name)
+    try:
+        os.fchmod(key_fd, 0o600)
+        with os.fdopen(key_fd, "w", encoding="ascii", closefd=True) as handle:
+            handle.write(bearer + "\n")
+        runtime_env = os.environ.copy()
+        for key in tuple(runtime_env):
+            if key.startswith("LLAMA_ARG_") or key in {"LLAMA_API_KEY", "LLAMA_PORT"}:
+                runtime_env.pop(key, None)
+        command = [
+            str(server_path),
+            "--model", str(model_path),
+            "--alias", model_identity,
+            "--host", runtime_host,
+            "--port", str(port),
+            "--api-key-file", str(api_key_path),
+            "--jinja",
+            "--no-webui",
+        ]
+        process = subprocess.Popen(
+            command,
+            cwd=str(conversion_root),
+            env=runtime_env,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            close_fds=True,
+            start_new_session=True,
+        )
+    except (OSError, ValueError):
+        try:
+            os.close(key_fd)
+        except OSError:
+            pass
+        try:
+            api_key_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        fail("MODEL_RUNTIME_LAUNCH_FAILED")
+    runtime = {
+        "process": process,
+        "host": runtime_host,
+        "port": port,
+        "bearer": bearer,
+        "api_key_path": api_key_path,
+    }
     deadline = time.monotonic() + runtime_startup_timeout_seconds
     while time.monotonic() < deadline:
         if process.poll() is not None:
+            remove_runtime_key(runtime)
             fail("MODEL_RUNTIME_EXITED")
         try:
             models = request_runtime_json(runtime_host, port, bearer, "GET", "/v1/models", timeout=3)
@@ -336,6 +383,14 @@ def invoke_model_candidate(runtime):
     process = runtime.get("process")
     if not isinstance(process, subprocess.Popen) or process.poll() is not None:
         fail("MODEL_RUNTIME_NOT_RUNNING")
+    if runtime.get("host") != runtime_host:
+        fail("MODEL_RUNTIME_HOST_INVALID")
+    port = runtime.get("port")
+    bearer = runtime.get("bearer")
+    if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+        fail("MODEL_RUNTIME_PORT_INVALID")
+    if not isinstance(bearer, str) or not runtime_bearer_pattern.fullmatch(bearer):
+        fail("MODEL_RUNTIME_BEARER_INVALID")
     payload = {
         "model": model_identity,
         "messages": [
@@ -354,9 +409,9 @@ def invoke_model_candidate(runtime):
     }
     try:
         response = request_runtime_json(
-            runtime.get("host"),
-            runtime.get("port"),
-            runtime.get("bearer"),
+            runtime_host,
+            port,
+            bearer,
             "POST",
             "/v1/chat/completions",
             payload=payload,
