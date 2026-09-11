@@ -2,23 +2,22 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "feat/local-mistral-segment-8-conversion-evidence-20260911",
   "status": "active",
-  "purpose": "Stage and independently review the inert Local Mistral restored conversion-evidence verifier before any provider workflow activation.",
+  "purpose": "Stage and independently review only the inert trusted-path and regular-file binding primitives for future Local Mistral conversion evidence verification.",
   "authorityBaseExactMain": "476781906951d4021b771c769ad8b285d3bcbda0",
   "allowedPaths": [
     "docs/platform-v7/autopilot/bootstrap/local-mistral-conversion-evidence.py.inert",
     "docs/platform-v7/autopilot/scopes/local-mistral-segment-8-conversion-evidence-20260911.json"
   ],
   "requiredInvariants": [
-    "The verifier remains inert and is not referenced by any workflow or product path in this PR.",
-    "Conversion root and report/model/server paths come only from the already-admitted immutable Local Mistral authority; caller path overrides are not accepted.",
-    "The conversion root and every bound file must resolve to their literal authority paths; symlink redirection is rejected and bound file descriptors use O_NOFOLLOW.",
-    "Conversion report raw SHA-256 and canonical embedded report SHA-256 are both verified before report fields are trusted.",
-    "Report exact main SHA, workflow run id, workflow run attempt, toolchain restored status, source-verification schema/status, model revision/source digests and unique model output identity are bound to authority.",
-    "The restored Mistral GGUF and llama-server must match authority size and SHA-256 using regular file descriptors; concurrent in-place file mutation fails closed.",
-    "Boolean values never satisfy integer identity fields; malformed JSON/UTF-8/collection shapes, duplicate bindings, path resolution, stat/open/read/digest failures fail closed with fixed codes.",
+    "This PR stages only inert path/file primitives; it does not parse conversion-report JSON, authorize model/server identity, invoke a model, publish evidence or activate a workflow.",
+    "The conversion root is reconstructed only from exact lower-hex main SHA plus exact positive integer run id and attempt; the authority root must exactly equal the reconstructed literal.",
+    "Authority relative-path strings are used only for exact equality against fixed path-part tuples; they never construct filesystem paths.",
+    "Bound paths are built only from fixed path-part tuples under the validated literal conversion root and must resolve to themselves, rejecting symlink redirection.",
+    "Bound files open with O_NOFOLLOW and O_CLOEXEC and must be regular files.",
+    "Exact-size SHA-256 reads compare fd device, inode, size and mtime_ns before and after hashing; in-place replacement or mutation fails closed.",
     "No review, attestation, provider status, exact-head verifier authority, product, API, database, RBAC, registration, cabinet, customer-data or production-routing behavior is activated.",
     "Local Qwen is the independent reviewer because this changes future Local Mistral authority only.",
-    "REG.RU remains the production authority; mandatory SaaS/API keys are none and new recurring cost remains 0 RUB."
+    "REG.RU remains production authority and new recurring cost remains 0 RUB."
   ],
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0
