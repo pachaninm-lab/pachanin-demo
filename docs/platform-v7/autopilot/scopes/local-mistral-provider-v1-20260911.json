@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/local-mistral-provider-v1-20260911",
+  "status": "active",
+  "purpose": "Activate the independently admitted Local Mistral reviewer as an exact-head provider without changing the shared review-gate verifier in this PR.",
+  "authorityBaseExactMain": "476781906951d4021b771c769ad8b285d3bcbda0",
+  "allowedPaths": [
+    ".github/workflows/local-mistral-independent-review.yml",
+    "scripts/local-mistral-independent-review.py",
+    "docs/platform-v7/autopilot/scopes/local-mistral-provider-v1-20260911.json"
+  ],
+  "requiredInvariants": [
+    "Local Qwen is the independent reviewer for this Local Mistral provider activation PR.",
+    "The active provider loads the already admitted Local Mistral authority, binding, runtime, sensitive-output and attestation modules only from trusted main under pull_request_target.",
+    "A PR changing Local Mistral provider or bootstrap authority paths cannot be reviewed by Local Mistral.",
+    "A PR changing both Local Qwen and Local Mistral authority paths fails closed.",
+    "The PR head is checked before review input capture and again before any review or provider status publication.",
+    "The reviewed diff is bounded to 64000 bytes and changed paths to 96; oversized input fails closed.",
+    "No raw model candidate leaves the model host; only a sensitive-output-filtered canonical result and evidence hashes return to GitHub Actions.",
+    "Clean review publication uses the admitted canonical attestation renderer; blocking findings are published only after sensitive-output filtering and structural validation.",
+    "The provider publishes review-provider/local-mistral and no Octopus or paid SaaS/API authority is required.",
+    "The shared provider-neutral exact-head verifier is deliberately unchanged here and will be extended in a separately reviewed PR after provider activation.",
+    "Production hosting remains REG_RU_VPS_ONLY and new recurring cost remains 0 RUB."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
