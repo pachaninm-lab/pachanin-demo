@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/repository-copy-screening-4459",
+  "status": "active",
+  "purpose": "Both existing screenings cover the 688-file protected core. The repository tracks 4747 files in the same languages, so roughly four thousand files - the application shell, the web routes, the scripts, the ML service, the migrations - had never been compared against anything, while the chain-of-title register carries all 6175 of them as files with an origin. That asymmetry runs the wrong way: third-party code pasted into a file nobody calls a crown jewel is exactly as much of a rights problem and rather more likely, because nobody reviews the shell. This branch screens the whole tree by digest, which finds whole-file copies in one pass and says plainly that it does not find partial derivatives.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/repository-copy-screening-4459.json",
+    "scripts/ip/build-repository-copy-screening.mjs",
+    "scripts/ip/build-repository-copy-screening.test.mjs",
+    "docs/ip/REPOSITORY_COPY_SCREENING.md",
+    "docs/ip/repository-copy-screening.json"
+  ],
+  "requiredInvariants": [
+    "classify() in scripts/ip/build-ip-clean-room.mjs is NOT touched. The screening proves that one tracked file is third-party, and the register still records it as origin UNKNOWN. Adding a path pattern to close that gap would turn a measurement into a hard-coded assertion, which is the fabricated PASS the register exists to prevent; how tool-vendored files are declared is an owner decision about the register's schema. The measurement is recorded and the register is unchanged.",
+    "Neither existing screening tool is modified, so their published records stay reproducible.",
+    "The normaliser and the tokeniser are character-identical to the ones in build-offline-similarity-evidence.mjs, asserted by comparing the two function texts. Two normalisers that drift apart are two different meanings of the word clean, and one of the two records would then be quietly answering a different question than it says.",
+    "The reach of each digest is pinned by test in both directions, including where it stops: the normalized digest survives comment removal, reindenting and reflowing and does NOT survive respacing around an operator, which is why the token digest exists. That limit was found by a test written on the wrong premise and the test was kept for the right one.",
+    "Our own tree is screened whole. Excluding our own directories by name - tests, fixtures, generated - is how a screening reports on a subset it never names; a copy pasted into a fixture is still a copy. Only the corpus side is filtered.",
+    "Structural emptiness is measured, not judged: a file counts as empty when every word outside export, from, import, as and default and outside a string or number placeholder is gone. 1636 of 1641 findings are on 21 such files, and they are counted rather than dropped, because dropping them silently is how a dirty result looks clean.",
+    "What the enumeration cannot read is reported, not passed over: 14 tracked symlinks are listed and the single absolute one is raised as a blocker.",
+    "The record states which files got which method. Partial derivatives are covered for the protected core by the winnowing and shape screenings and are not covered for the rest of the repository, and the record says so rather than letting one number stand for the whole tree."
+  ],
+  "acceptance": [
+    "6829 tracked entries, 4747 screened against 25 478 corpus files in one pass; 1641 findings; 5 of substance across 2 files.",
+    "apps/web/public/mockServiceWorker.js is identified as msw@2.13.2's own service worker (MIT, 349 lines, placed by npx msw init). The register records it as origin UNKNOWN / CHAIN_OF_TITLE_REQUIRED; the record states the discrepancy and does not resolve it in code.",
+    "apps/api/prisma/schema.prisma is identified inside @prisma/client@5.22.0 - our file travelling outward, generated, and the only crossing in that direction found anywhere. This answers the reverse-direction question the IP programme had open.",
+    "1636 findings are on 21 structurally empty files - empty __init__.py, next-env.d.ts, barrels - classified by measurement.",
+    "One tracked absolute symlink is raised: apps/web/apps/web/web -> /home/user/pachanin-demo/apps/web, which dangles on any other checkout and descends without bound where it resolves. Nothing references it. Reported, not removed.",
+    "Four groups of byte-identical files inside our own tree are listed, including route.full.ts duplicating route.ts.",
+    "build-repository-copy-screening.test.mjs passes 8 of 8. Three mutations were verified to fail: drifting the normaliser from its original, unflagging absolute symlinks, and changing what counts as structurally empty.",
+    "No ASVS decision, no verdict, no application code, no register and no existing screening tool is touched."
+  ]
+}
