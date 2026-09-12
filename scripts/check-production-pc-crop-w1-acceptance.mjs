@@ -537,10 +537,11 @@ function runtimeOneoff(item) {
 }
 function runtimeMountInventory(mounts) {
   // Moby GetMountPoints iterates a Go map: inspect order is not mount identity.
-  // Preserve every field and duplicate; normalize only top-level enumeration.
+  // Preserve every field, duplicate and nested array order. Object key order
+  // must not affect either the sort key or the serialized mount identity.
   // https://github.com/moby/moby/blob/v28.3.0/container/container_unix.go#L422
   if (!Array.isArray(mounts)) return mounts;
-  return mounts.map(mount => ({ mount, key: JSON.stringify(mount) }))
+  return mounts.map(stableRuntimeValue).map(mount => ({ mount, key: JSON.stringify(mount) }))
     .sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0).map(item => item.mount);
 }
 function runtimeInventory(containers, excludedApi) {

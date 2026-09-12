@@ -616,6 +616,20 @@ test('outer workflow sibling guard preserves mount identity while ignoring enume
   }
 });
 
+test('mount inventory canonicalizes object fields but preserves nested array order',()=>{
+  const before=container();
+  before.Mounts=[{Source:'/z',Destination:'/a',Options:{second:2,first:1},Sequence:['ro','bind']},
+    {Source:'/a',Destination:'/z',RW:true}];
+  const after=clone(before);
+  after.Mounts=after.Mounts.reverse().map(m=>Object.fromEntries(Object.entries(m).reverse()));
+  after.Mounts[1].Options={first:1,second:2};
+  assert.equal(runtimeFingerprint([before]),runtimeFingerprint([after]));
+  assert.equal(runtimeDiff([before],[after]).count,0);
+  after.Mounts[1].Sequence.reverse();
+  assert.notEqual(runtimeFingerprint([before]),runtimeFingerprint([after]));
+  assert.deepEqual(runtimeDiff([before],[after]).fields,['MOUNTS_CHANGED']);
+});
+
 test('runtime diff classifies a Compose one-off addition without exposing identity',()=>{
   const before=[container('e')], after=[...before,clone(container('1'))];
   after[1].Config.Labels['com.docker.compose.oneoff']='True';
