@@ -28,9 +28,14 @@ class PinnedConversionRoot:
         self.ino = info.st_ino
 
     def close(self):
-        if self.fd is not None:
-            os.close(self.fd)
-            self.fd = None
+        if self.fd is None:
+            return
+        fd = self.fd
+        self.fd = None
+        try:
+            os.close(fd)
+        except OSError:
+            reject("CONVERSION_ROOT_CLOSE_INVALID")
 
     def __enter__(self):
         return self
@@ -62,7 +67,13 @@ def _trusted_directory(fd, code):
         reject(code)
     if not stat.S_ISDIR(info.st_mode):
         reject(code)
-    if info.st_uid != 0:
+    # The canonical conversion transport runs as the dedicated tai-model
+    # identity and creates the per-run directory tree itself. Directory
+    # identity authority therefore accepts either the host root owner or the
+    # exact effective reviewer identity, but never another uid. This does not
+    # establish file-content authority; later file/content stages remain
+    # responsible for immutable bytes and execution authority.
+    if info.st_uid not in {0, os.geteuid()}:
         reject(code)
     if info.st_mode & UNTRUSTED_WRITE_BITS:
         reject(code)
