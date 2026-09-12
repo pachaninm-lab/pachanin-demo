@@ -1,13 +1,26 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  ForbiddenException,
+  Get,
+  Optional,
+  Param,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser, Role } from '../../common/types/request-user';
 import { IntegrationEventsService } from './integration-events.service';
-import { ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { Optional } from '@nestjs/common';
+import { toSafeIntegrationEventView } from './integration-event-redaction.policy';
 
-const ALLOWED_ROLES: Role[] = [Role.ADMIN, Role.SUPPORT_MANAGER, Role.COMPLIANCE_OFFICER, Role.EXECUTIVE];
+const ALLOWED_ROLES: Role[] = [
+  Role.ADMIN,
+  Role.SUPPORT_MANAGER,
+  Role.COMPLIANCE_OFFICER,
+  Role.EXECUTIVE,
+];
 
 @Controller('api/integration-events')
 @UseGuards(JwtAuthGuard)
@@ -28,10 +41,18 @@ export class IntegrationEventsController {
     @Query('to') to?: string,
     @Query('take') take?: string,
   ) {
-    if (!ALLOWED_ROLES.includes(user.role as Role)) throw new ForbiddenException('Доступ запрещён');
+    if (!ALLOWED_ROLES.includes(user.role as Role)) {
+      throw new ForbiddenException('Доступ запрещён');
+    }
 
     if (!this.prisma) {
       return { items: [], total: 0, note: 'Database not available' };
+    }
+
+    const fromInstant = optionalInstant(from, 'from');
+    const toInstant = optionalInstant(to, 'to');
+    if (fromInstant && toInstant && fromInstant.getTime() > toInstant.getTime()) {
+      throw new BadRequestException('from must be before or equal to to');
     }
 
     const entries = await this.prisma.integrationEvent.findMany({
@@ -40,40 +61,61 @@ export class IntegrationEventsController {
         ...(direction && { direction }),
         ...(status && { status }),
         ...(dealId && { dealId }),
-        ...(from || to ? { createdAt: { ...(from && { gte: new Date(from) }), ...(to && { lte: new Date(to) }) } } : {}),
+        ...(fromInstant || toInstant
+          ? {
+              createdAt: {
+                ...(fromInstant && { gte: fromInstant }),
+                ...(toInstant && { lte: toInstant }),
+              },
+            }
+          : {}),
       },
       orderBy: { createdAt: 'desc' },
-      take: Math.min(Number(take ?? 100), 500),
+      take: boundedTake(take),
     }).catch(() => []);
 
-    return { items: entries, total: entries.length };
+    const items = entries.map(toSafeIntegrationEventView);
+    return { items, total: items.length };
   }
 
   @Get('stats')
   async stats(@CurrentUser() user: RequestUser) {
-    if (!ALLOWED_ROLES.includes(user.role as Role)) throw new ForbiddenException();
+    if (!ALLOWED_ROLES.includes(user.role as Role)) {
+      throw new ForbiddenException();
+    }
     if (!this.prisma) return {};
 
-    const [total, byAdapter, byStatus] = await Promise.all([
-      this.prisma.integrationEvent.count().catch(() => 0),
-      this.prisma.integrationEvent.groupBy({ by: ['adapterName'], _count: true }).catch(() => []),
-      this.prisma.integrationEvent.groupBy({ by: ['status'], _count: true }).catch(() => []),
-    ]);
-
-    return {
-      total,
-      byAdapter: Object.fromEntries(byAdapter.map(r => [r.adapterName, r._count])),
-      byStatus: Object.fromEntries(byStatus.map(r => [r.status, r._count])),
-    };
+    // Aggregate-only service result: no request/response/error body can escape.
+    return this.events.getStats();
   }
 
   @Get(':id')
   async getOne(@Param('id') id: string, @CurrentUser() user: RequestUser) {
-    if (!ALLOWED_ROLES.includes(user.role as Role)) throw new ForbiddenException();
+    if (!ALLOWED_ROLES.includes(user.role as Role)) {
+      throw new ForbiddenException();
+    }
     if (!this.prisma) throw new ForbiddenException('Database not available');
 
     const event = await this.prisma.integrationEvent.findUnique({ where: { id } });
     if (!event) throw new ForbiddenException(`Event ${id} not found`);
-    return event;
+    return toSafeIntegrationEventView(event);
   }
+}
+
+function boundedTake(value: string | undefined): number {
+  if (value === undefined || value.trim() === '') return 100;
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > 500) {
+    throw new BadRequestException('take must be an integer from 1 to 500');
+  }
+  return parsed;
+}
+
+function optionalInstant(value: string | undefined, field: string): Date | undefined {
+  if (value === undefined || value.trim() === '') return undefined;
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) {
+    throw new BadRequestException(`${field} must be a valid timestamp`);
+  }
+  return parsed;
 }
