@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { repoRoot } from '../helpers/repo-root';
 
-const source = fs.readFileSync(path.join(process.cwd(), 'apps/web/public/sw.js'), 'utf8');
+const source = fs.readFileSync(path.join(repoRoot(), 'apps/web/public/sw.js'), 'utf8');
 
 describe('platform-v7 service worker stability', () => {
   it('does not navigate clients during activate and does not intercept fetches', () => {

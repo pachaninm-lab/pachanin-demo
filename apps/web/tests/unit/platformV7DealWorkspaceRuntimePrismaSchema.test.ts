@@ -1,9 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { repoRoot } from '../helpers/repo-root';
 
 const repoFile = (relativePath: string) =>
-  fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
+  fs.readFileSync(path.join(repoRoot(), relativePath), 'utf8');
 
 const schema = repoFile('apps/api/prisma/schema.prisma');
 const contract = repoFile('apps/api/prisma/contracts/deal_workspace_runtime_snapshots.sql');

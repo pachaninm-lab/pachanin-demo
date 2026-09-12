@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { repoRoot } from '../helpers/repo-root';
 
-const read = (relativePath: string) => fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
+const read = (relativePath: string) => fs.readFileSync(path.join(repoRoot(), relativePath), 'utf8');
 
 const landing = read('apps/web/app/platform-v7/page.tsx');
 const explorerPage = read('apps/web/app/platform-v7/how-it-works/page.tsx');

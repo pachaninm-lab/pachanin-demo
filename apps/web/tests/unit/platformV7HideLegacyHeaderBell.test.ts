@@ -1,9 +1,10 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { repoRoot } from '../helpers/repo-root';
 
 function readRepoFile(relativePath: string): string {
-  const candidates = [join(process.cwd(), relativePath), join(process.cwd(), 'apps/web', relativePath)];
+  const candidates = [join(repoRoot(), relativePath), join(repoRoot(), 'apps/web', relativePath)];
   const path = candidates.find((candidate) => existsSync(candidate));
 
   if (!path) {
