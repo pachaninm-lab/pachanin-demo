@@ -1,6 +1,6 @@
 # platform-v7 Industrial Integration Readiness queue
 
-CURRENT: IR-10.4 Settlement PostgreSQL Authority
+CURRENT: IR-10.5 Disputes PostgreSQL Authority
 
 GOVERNING SPECIFICATION:
 - `docs/platform-v7/autopilot/industrial-integration-readiness-v1.0.md`
@@ -15,19 +15,18 @@ BASELINE PROVEN:
 - Documents PostgreSQL Authority is merged (#2410);
 - Logistics PostgreSQL Authority is merged (#2412);
 - Labs PostgreSQL Authority is merged (#2426, merge `576d813c2d305efb645c9d26fa81a38fb6e4abbe`, verified head `73149bb4fba09a33875311faea313bb2ad272503`);
-- bank callback reconciliation and key rotation/revocation mechanics exist (#2379), but exclusive Settlement authority remains open;
+- Settlement PostgreSQL Authority is merged (#5338, merge `9dbff1a67225a006ec5f33ebe7fa8b483a368718`, verified head `686c89f6cf2438baebb01f6bf4abcafb3eb85963`) with production-like Kubernetes evidence only; no live bank or REG.RU deployment is claimed;
+- bank callback reconciliation and key rotation/revocation mechanics exist (#2379), but live bank and nominal-account integration remain open;
 - CI-scale correctness and isolated backup/restore remain evidence only and do not prove production capacity, HA or provider DR.
 
 CURRENT GOAL:
-- make settlement PostgreSQL-authoritative by construction;
-- remove RuntimeCore, optional Prisma, repository factory, ActionExecutor memory authority and process-memory OutboxService from the production settlement graph;
-- normalize versioned payment terms, beneficiaries, reserve/release/refund basis, holds, partial payouts, bank operations and reconciliation facts;
-- store and calculate money only in integer kopecks;
-- enforce participant, tenant and financial role scope through trusted RLS;
-- commit payment state, bank operation, audit and PENDING outbox atomically;
-- confirm reserve/release/refund only through verified callback authority;
-- prove restart, multi-instance, command/callback replay, races, RLS denials and reconciliation mismatch handling;
-- keep live SberAPI, nominal account, credit and money movement outside this PR.
+- make disputes PostgreSQL-authoritative by construction;
+- remove RuntimeCore and implicit process-memory authority from the production Disputes graph;
+- persist claims, holds, evidence, decisions and linked financial consequences as tenant-scoped immutable facts;
+- enforce participant, tenant and dispute-role scope through trusted RLS;
+- commit dispute state, audit and required outbox effects atomically;
+- prove restart, multi-instance, replay, optimistic-concurrency races and outsider/cross-tenant denial;
+- keep live dispute providers, bank integration and production deployment outside this PR.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
@@ -44,76 +43,58 @@ CURRENT ALLOWED:
 - apps/api/src/modules/deals/industrial-deal-command.gateway.ts
 - apps/api/src/modules/deals/postgresql-deal-command.service.ts
 - apps/api/src/modules/deals/postgresql-deal-command.service.spec.ts
-- apps/api/src/modules/settlement-engine/**
+- apps/api/src/modules/disputes/**
 - apps/api/prisma/schema.prisma
-- apps/api/prisma/migrations/20260713*_settlement_postgresql_authority/**
+- apps/api/prisma/migrations/20260912*_disputes_postgresql_authority/**
 - apps/api/test/industrial/harness.ts
-- apps/api/test/industrial/settlement-postgresql-authority.e2e-spec.ts
+- apps/api/test/industrial/disputes-postgresql-authority.e2e-spec.ts
 - apps/api/test/industrial/industrial-core.e2e-spec.ts
-- apps/api/test/industrial/reconciliation.e2e-spec.ts
-- apps/api/test/industrial/durable-outbox.e2e-spec.ts
 - apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts
 - apps/api/test/one-deal/restored-database-acceptance.ts
 - apps/api/test/one-deal/seed.ts
-- infra/sql/postgresql-settlement-authority-policies.sql
+- infra/sql/postgresql-disputes-authority-policies.sql
 - scripts/platform-v7-forward-only-migration-check.mjs
 - scripts/platform-v7-one-deal-e2e.sh
 - .github/workflows/ci.yml
 
 CURRENT CRITERIA:
-- production startup fails before traffic when payment repository mode is missing, memory or unknown;
-- production `SettlementEngineModule` has no RuntimeCore, optional Prisma, repository factory or process-memory money/outbox authority;
-- payment, bank operation, beneficiary, ledger, hold, refund and reconciliation facts are PostgreSQL-authoritative under trusted RLS;
-- money authority uses integer minor units only;
-- payment terms and release basis are versioned Deal-linked facts;
-- requests remain pending until verified callback confirmation;
-- partial payouts, beneficiary allocations, holds and refunds cannot exceed confirmed reserve or become negative;
-- every confirmed financial effect is append-only, balanced, idempotent and atomic with audit/outbox;
-- reconciliation mismatch fails closed into manual review;
-- restart, multi-instance, outsider/cross-tenant, replay and race tests pass;
+- production Disputes module binds complete PostgreSQL repositories with no RuntimeCore or implicit memory path;
+- claims, holds, evidence, decisions and financial consequences are tenant-scoped, immutable and atomic under trusted RLS;
+- restart, multi-instance, durable idempotency, optimistic concurrency, outsider/cross-tenant denial and race tests pass;
 - empty/baseline migrations, zero drift and exact-head CI pass.
 
 LOCKED:
-- IR-10.5 Disputes PostgreSQL Authority;
 - IR-20 Canonical Durable Outbox;
 - IR-21 Durable Integration Inbox;
 - IR-22 Persistent Partner API and Outbound Webhooks;
 - IR-30 through IR-90 in dependency order.
 
 NEXT:
-- Layer: IR-10.5 Disputes PostgreSQL Authority
+- Layer: IR-20 Canonical Durable Outbox
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/autopilot/progress.json
   - docs/platform-v7/autopilot/prompts/current-codex-task.md
   - docs/platform-v7/autopilot/prompts/current-review-task.md
   - docs/platform-v7/execution-queue.md
-  - apps/api/src/common/config/industrial-mode.ts
-  - apps/api/src/common/command-execution.context.ts
-  - apps/api/src/common/prisma/rls-transaction.service.ts
-  - apps/api/src/modules/deals/deal-command-payload.ts
-  - apps/api/src/modules/deals/deal-command.service.ts
-  - apps/api/src/modules/deals/deals.module.ts
-  - apps/api/src/modules/deals/industrial-deal-command.gateway.ts
-  - apps/api/src/modules/deals/postgresql-deal-command.service.ts
-  - apps/api/src/modules/deals/postgresql-deal-command.service.spec.ts
-  - apps/api/src/modules/disputes/**
+  - apps/api/src/common/outbox/**
+  - apps/api/src/common/prisma/outbox-*
+  - apps/api/src/outbox-worker.ts
+  - apps/api/src/outbox-worker.module.ts
   - apps/api/prisma/schema.prisma
-  - apps/api/prisma/migrations/20260713*_disputes_postgresql_authority/**
+  - apps/api/prisma/migrations/*_outbox_*/**
   - apps/api/test/industrial/harness.ts
-  - apps/api/test/industrial/disputes-postgresql-authority.e2e-spec.ts
-  - apps/api/test/industrial/industrial-core.e2e-spec.ts
-  - apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts
-  - apps/api/test/one-deal/restored-database-acceptance.ts
-  - apps/api/test/one-deal/seed.ts
-  - infra/sql/postgresql-disputes-authority-policies.sql
+  - apps/api/test/industrial/durable-outbox.e2e-spec.ts
+  - apps/api/test/industrial/outbox-worker-process.e2e-spec.ts
+  - infra/sql/postgresql-outbox-worker-policies.sql
   - scripts/platform-v7-forward-only-migration-check.mjs
   - scripts/platform-v7-one-deal-e2e.sh
   - .github/workflows/ci.yml
 - Success criteria:
-  - production Disputes module binds complete PostgreSQL repositories with no RuntimeCore path;
-  - claims, holds, evidence, decisions and financial consequences are tenant-scoped, immutable and atomic;
-  - restart, multi-instance, idempotency, optimistic concurrency, RLS and exact-head CI pass.
+  - one dedicated durable outbox owner replaces the legacy relay and process-memory production paths;
+  - DB-time leases, `SKIP LOCKED`, attempts, classified failures, retries, DEAD state and audited redrive are PostgreSQL-authoritative;
+  - concurrent workers, crash windows, provider ambiguity, timeout/429/4xx/5xx, expired leases, duplicate enqueue, restart and double-owner startup fail safely;
+  - exact-head CI passes without claiming production deployment or provider delivery.
 - Readiness remains NO-GO.
 
 TRANSITION RULE:
@@ -123,6 +104,12 @@ TRANSITION RULE:
 - advance only after exact-head checks and diff review;
 - update state, queue, progress and prompts after merge before opening the next work package;
 - mock, simulator and CI-scale evidence remain explicitly labelled and cannot be used as live or production acceptance.
+
+RF REGULATED-CONTOUR BOUNDARY:
+- preserve replaceable infrastructure boundaries and a deployment profile capable of using software from the Russian software register where the customer or system classification requires it;
+- public foreign images, including MinIO images from Quay, are dependency sources for the disposable production-like acceptance contour only and are not evidence of Russian-software-register status;
+- 44-FZ/223-FZ procurement, significant CII, regulated financial activity and a concrete FGIS require separate legal classification and verified domestic/certified software, protection and cryptography controls before any compliance claim;
+- no current repository, CI or production-like result proves certification, Russian cryptography activation or regulated-contour acceptance.
 
 READINESS:
 Industrial Integration-Ready remains NO-GO until every mandatory gate through IR-90 has commit-, deployment- and operations-linked evidence.
@@ -154,66 +141,11 @@ merge/review gates. Diagnostic artifacts are not accepted review evidence.
 Proceed only when that prior authority and base-scope match are independently
 verified; otherwise keep this implementation blocked.
 
-## Execution transition — 2026-09-12 settlement input validation
+## Paused concurrent W1 acceptance — 2026-09-12
 
 W1 PR #5332 at `ff03424d073e97d52f1a8cf38dad3de74345ed08` remains
 blocked by current Qwen policy-validation failure and Octopus community quota.
 Its successful native review and code/security checks do not override those
-provider failures. W1 is safely paused without production completion.
-
-Under master specification sections 7.1 and 10, the active independent slice is
-`fix/settlement-terms-input-validation-20260912`, within the existing primary
-IR-10.4 scope. Reject malformed beneficiary objects and priorities outside the
-existing PostgreSQL INTEGER domain before opening a settlement transaction.
-This uses existing settlement tables and requires no W1 migrations, registration
-change, financial-policy change, provider activation or new scope authority.
-
-Exact change boundary: `settlement-postgresql.repository.ts` and its focused
-input-validation spec under `apps/api/src/modules/settlement-engine/`, plus
-this execution record. Require malformed-input denial before database access,
-valid boundary preservation, independent exact-head review, applicable CI and
-the existing authorized release/live-acceptance process. Return to W1 when its
-provider blockers are legitimately resolved; do not retry merely to obtain PASS.
-Overall new-master confirmed production acceptance remains 0/100.
-
-## Conditional kind MinIO image-source prerequisite — 2026-09-12
-
-The owner authorized resolving prerequisites while preserving required acceptance.
-PR #5338 is blocked by production-like Kubernetes run `34712647635`, job
-`103604095938`: the disposable cluster cannot pull
-`docker.io/minio/minio:RELEASE.2024-05-10T01-41-38Z` (`insufficient_scope`,
-`ErrImagePull` / `ImagePullBackOff`), before application acceptance starts.
-This is dependency-source failure evidence, not a settlement acceptance result.
-
-After this governance proposal is independently reviewed and merged into `main`,
-branch `fix/kind-minio-image-source-20260912` may change exactly:
-
-- `infra/kind/production-like/dependencies.yaml`
-- `infra/kind/production-like/minio-tls-check.yaml`
-- `scripts/release/production-like-kubernetes-cluster.sh`
-
-The prerequisite is limited to replacing the unavailable MinIO server image
-reference in the dependency manifest with the official same-release Quay source
-`quay.io/minio/minio:RELEASE.2024-05-10T01-41-38Z@sha256:420663b8685c5396f06405ad516d611db4465939a141cc7d40266342d0f2632d`.
-
-Separately, registry preflight of the subsequent `minio-init` client image
-`docker.io/minio/mc:RELEASE.2024-05-09T17-04-24Z` returned HTTP 401
-UNAUTHORIZED for the exact tag after official token acquisition. The failed CI
-run did not reach this client step. The official same-release Quay manifest
-returned HTTP 200 with verified digest. The TLS-check manifest and cluster
-script may change only their two executable client image scalars to
-`quay.io/minio/mc:RELEASE.2024-05-09T17-04-24Z@sha256:3e9666a093d0a8fcbbac606346c415ae9277a0ca96989a6bdddd3d03e90a21b4`.
-
-Reverify the server and client registry identities and digests before implementation. Preserve releases,
-commands, environment, probes, resources, storage, security and network policy.
-Do not change application code, migrations, workflows, credentials, other images,
-timeouts, required tests, review gates or production configuration. Do not use
-this proposal itself as implementation authority before accepted-main scope is
-verified. No scope expansion on the implementation branch is permitted.
-
-The serialized primary task and its allowedCurrentScope remain unchanged. This
-is a prerequisite to resume the blocked acceptance, not a new product task or
-permission to merge PR #5338 with failing checks. Require exact-head independent
-review and all required Kubernetes acceptance before implementation merge.
-W1 remains unaccepted; production deployment is not required for this disposable
-CI dependency change. Confirmed master production acceptance remains 0/100 (0%).
+provider failures. W1 is safely paused without production completion, must not
+be retried merely to obtain PASS, and does not alter the serialized IR-10.5 scope.
+Confirmed master production acceptance remains 0/100 (0%).

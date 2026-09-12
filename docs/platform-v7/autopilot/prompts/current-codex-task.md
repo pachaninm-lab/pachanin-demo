@@ -1,112 +1,187 @@
-# Codex current task — IR-10.4 Settlement PostgreSQL Authority
+# Codex current task — IR-10.5 Disputes PostgreSQL Authority
 
-Maturity: pre-integration / isolated PostgreSQL evidence only.
-Do not imply live bank, nominal-account, credit, reserve or payout integration.
-Do not change `apps/landing`, `apps/web`, lockfiles, packages or production credentials except within an explicitly approved concurrent scope below.
-Do not auto-merge, create self-modifying workflows or push directly to `main`.
+Maturity: controlled-pilot / pre-integration.
+Do not overstate maturity or imply live external integrations.
+Do not change apps/landing, production UI, visual/theme/onboarding, adapters, server actions, AI gateway runtime, DB/migrations or lockfiles unless the current step explicitly allows it.
+Do not auto-merge. Human review and green checks are required.
 
 ## Source of truth
 
 - State: `docs/platform-v7/autopilot/autopilot-state.json`
 - Queue: `docs/platform-v7/execution-queue.md`
 - Progress: `docs/platform-v7/autopilot/progress.json`
-- Governing specification: `docs/platform-v7/autopilot/industrial-integration-readiness-v1.0.md`
 
 ## Current step
 
-IR-10.4 Settlement PostgreSQL Authority
+IR-10.5 Disputes PostgreSQL Authority
 
-## Last completed
+## Next candidate
 
-IR-10.3 Labs PostgreSQL Authority — PR #2426, merge `576d813c2d305efb645c9d26fa81a38fb6e4abbe`, verified head `73149bb4fba09a33875311faea313bb2ad272503`.
+IR-20 Canonical Durable Outbox
 
-## Current objective
+## Transition guard
 
-1. Bind production `SettlementEngineModule` directly to a complete PostgreSQL settlement repository.
-2. Remove RuntimeCore, optional Prisma, repository factory, ActionExecutor memory authority and process-memory OutboxService from the production settlement graph.
-3. Normalize versioned payment terms, beneficiaries, reserve/release/refund basis, holds, partial payouts, bank operations and reconciliation facts.
-4. Store and calculate money only in integer minor units.
-5. Enforce Deal participation, tenant and money-role authority through trusted RLS.
-6. Make reserve/release/refund requests atomic with payment state, bank operation, audit and `PENDING` outbox.
-7. Confirm money movement only through a verified bank callback; human/operator paths cannot self-confirm reserve or release.
-8. Prove idempotency, optimistic concurrency, restart, multi-instance, callback races, reconciliation and restricted-principal denial.
-9. Keep live SberAPI, nominal account, credit and money movement disabled until separately accepted.
-
-## Non-negotiable invariants
-
-- No `amountRub`, floating-point or decimal money authority. Canonical persisted amounts are integer kopecks.
-- No negative balances, over-release, double release, reserve inflation or beneficiary allocation above confirmed reserve.
-- A request is not confirmation. Reserve/release/refund stay pending until verified callback authority commits.
-- Callback identity, partner, key version, operation ID, event ID and payload fingerprint are server-verified and durably replay-safe.
-- Payment, bank operation, ledger, audit and outbox effects commit together or roll back together.
-- Ledger facts are append-only and balanced for every confirmed money event.
-- Holds and disputes block the affected release amount without corrupting the undisputed portion.
-- Reconciliation mismatch fails closed into manual review; it never silently repairs financial authority.
-- No test may disable RLS/triggers or mutate confirmed financial facts directly.
+- BLOCKED: IR-10.5 Disputes PostgreSQL Authority is not green/closed/mergeable. Dispatcher will not advance to IR-20 Canonical Durable Outbox.
 
 ## Allowed current scope
 
-Use the exact scope from `autopilot-state.json`, centred on:
-
-- `apps/api/src/modules/settlement-engine/**`
-- canonical Deal command/gateway files listed in state
-- `apps/api/prisma/schema.prisma`
-- `apps/api/prisma/migrations/20260713*_settlement_postgresql_authority/**`
-- settlement/reconciliation/outbox industrial tests listed in state
-- `infra/sql/postgresql-settlement-authority-policies.sql`
-- migration and one-deal scripts listed in state
-- Source of Truth documents
-
-## Approved concurrent premium homepage completion — PR #3191
-
-The user explicitly authorized branch `agent/platform-v7-home-10of10-v1` to complete the public `/platform-v7` homepage without changing Deal/domain architecture. The implementation is bound to `docs/platform-v7/autopilot/scopes/platform-v7-home-10of10-v1.json` and the exact allow-list recorded in `current-review-task.md`.
-
-Allowed outcomes are limited to public UX/UI hierarchy, responsive CSS, RU/EN/ZH copy, public role simulation, progressive organization-intake presentation, contact-dock behavior, SEO metadata and their bound unit/E2E tests. Preserve the existing durable intake endpoint and idempotency/replay/rate-limit/no-JavaScript boundaries. Do not change API code, database schema or migrations, RBAC, protected routes, bank or TAI authority, external adapters, packages, lockfiles, production workflows or REG.RU deployment topology. No fake-live or unverified external-connectivity claim is permitted.
-
-## Approved concurrent TAI model-capacity scope — issue #3317
-
-The user explicitly authorized a narrow current-hardware protection slice on branch
-`agent/tai-ap-19a-model-capacity-gate-3317`. The implementation is bound to the exact
-allow-list in `autopilot-state.json`.
-
-The slice may add a fail-closed local-model invocation capacity gate, parse and validate
-`TAI_MODEL_MAX_INFLIGHT`, preserve one capacity claim across primary/fallback attempts,
-surface immediate retryable overload as HTTP 429 with `Retry-After`, and add focused
-tests. The default must remain `1`; the accepted configuration range is `1..4`.
-Values above `1` do not constitute measured admission and may be used only after
-separate benchmark evidence.
-
-It must not activate a model, weaken admission or local-only transport, add an internal
-request queue, change retrieval authority, enable write tools, change production
-topology, or claim benchmark/deployment/operational acceptance.
+- docs/platform-v7/autopilot/autopilot-state.json
+- docs/platform-v7/autopilot/progress.json
+- docs/platform-v7/autopilot/prompts/current-codex-task.md
+- docs/platform-v7/autopilot/prompts/current-review-task.md
+- docs/platform-v7/execution-queue.md
+- apps/api/src/common/config/industrial-mode.ts
+- apps/api/src/common/command-execution.context.ts
+- apps/api/src/common/prisma/rls-transaction.service.ts
+- apps/api/src/modules/deals/deal-command-payload.ts
+- apps/api/src/modules/deals/deal-command.service.ts
+- apps/api/src/modules/deals/deals.module.ts
+- apps/api/src/modules/deals/industrial-deal-command.gateway.ts
+- apps/api/src/modules/deals/postgresql-deal-command.service.ts
+- apps/api/src/modules/deals/postgresql-deal-command.service.spec.ts
+- apps/api/src/modules/disputes/**
+- apps/api/prisma/schema.prisma
+- apps/api/prisma/migrations/20260912*_disputes_postgresql_authority/**
+- apps/api/test/industrial/harness.ts
+- apps/api/test/industrial/disputes-postgresql-authority.e2e-spec.ts
+- apps/api/test/industrial/industrial-core.e2e-spec.ts
+- apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts
+- apps/api/test/one-deal/restored-database-acceptance.ts
+- apps/api/test/one-deal/seed.ts
+- infra/sql/postgresql-disputes-authority-policies.sql
+- scripts/platform-v7-forward-only-migration-check.mjs
+- scripts/platform-v7-one-deal-e2e.sh
+- .github/workflows/ci.yml
 
 ## Forbidden zones
 
 - apps/landing
-- apps/web outside the exact approved concurrent homepage allow-list
-- package and lock files
+- apps/web
+- package.json
+- package-lock.json
+- pnpm-lock.yaml
+- packages
 - live integration activation
 - production migration execution
-- production secrets
-- temporary or self-modifying workflows
-- direct pushes from GitHub Actions
+- production credentials and secret material
 
-## Acceptance
+## Active queue
 
-- production startup rejects missing, memory and unknown payment repository modes;
-- production settlement graph contains no RuntimeCore, optional Prisma, repository factory or process-memory money/outbox authority;
-- reads and mutations are PostgreSQL-authoritative under trusted RLS;
-- same-tenant outsiders and cross-tenant users are denied;
-- payment terms and release basis are versioned and Deal-linked;
-- reserve/release/refund requests are atomic and callback-only for confirmation;
-- partial payout, holds, beneficiary allocation and refunds satisfy money invariants;
-- callback replay, conflicting replay, multi-instance races and reconciliation mismatch are proven;
-- migrations pass on empty and baseline databases with zero drift;
-- exact-head CI and manual review pass without fake-live claims.
+# platform-v7 Industrial Integration Readiness queue
 
-## Next candidate
+CURRENT: IR-10.5 Disputes PostgreSQL Authority
 
-IR-10.5 Disputes PostgreSQL Authority remains locked until IR-10.4 is merged and Source of Truth is synchronized.
+GOVERNING SPECIFICATION:
+- `docs/platform-v7/autopilot/industrial-integration-readiness-v1.0.md`
+- target gate: Industrial Integration-Ready;
+- current gate: NO-GO;
+- exact baseline: `576d813c2d305efb645c9d26fa81a38fb6e4abbe` on `main`.
+
+BASELINE PROVEN:
+- persistent identity, session rotation/revocation, MFA and one-time backup codes are merged with isolated PostgreSQL evidence (#2276, #2280, #2282, #2283);
+- separate restricted auth and deal PostgreSQL principals are merged (#2287);
+- canonical Deal command execution, idempotency, optimistic concurrency, callback authority, transactional audit/outbox creation and isolated recovery evidence are merged (#2260, #2270, #2274, #2378, #2406, #2407);
+- Documents PostgreSQL Authority is merged (#2410);
+- Logistics PostgreSQL Authority is merged (#2412);
+- Labs PostgreSQL Authority is merged (#2426, merge `576d813c2d305efb645c9d26fa81a38fb6e4abbe`, verified head `73149bb4fba09a33875311faea313bb2ad272503`);
+- Settlement PostgreSQL Authority is merged (#5338, merge `9dbff1a67225a006ec5f33ebe7fa8b483a368718`, verified head `686c89f6cf2438baebb01f6bf4abcafb3eb85963`) with production-like Kubernetes evidence only; no live bank or REG.RU deployment is claimed;
+- bank callback reconciliation and key rotation/revocation mechanics exist (#2379), but live bank and nominal-account integration remain open;
+- CI-scale correctness and isolated backup/restore remain evidence only and do not prove production capacity, HA or provider DR.
+
+CURRENT GOAL:
+- make disputes PostgreSQL-authoritative by construction;
+- remove RuntimeCore and implicit process-memory authority from the production Disputes graph;
+- persist claims, holds, evidence, decisions and linked financial consequences as tenant-scoped immutable facts;
+- enforce participant, tenant and dispute-role scope through trusted RLS;
+- commit dispute state, audit and required outbox effects atomically;
+- prove restart, multi-instance, replay, optimistic-concurrency races and outsider/cross-tenant denial;
+- keep live dispute providers, bank integration and production deployment outside this PR.
+
+CURRENT ALLOWED:
+- docs/platform-v7/autopilot/autopilot-state.json
+- docs/platform-v7/autopilot/progress.json
+- docs/platform-v7/autopilot/prompts/current-codex-task.md
+- docs/platform-v7/autopilot/prompts/current-review-task.md
+- docs/platform-v7/execution-queue.md
+- apps/api/src/common/config/industrial-mode.ts
+- apps/api/src/common/command-execution.context.ts
+- apps/api/src/common/prisma/rls-transaction.service.ts
+- apps/api/src/modules/deals/deal-command-payload.ts
+- apps/api/src/modules/deals/deal-command.service.ts
+- apps/api/src/modules/deals/deals.module.ts
+- apps/api/src/modules/deals/industrial-deal-command.gateway.ts
+- apps/api/src/modules/deals/postgresql-deal-command.service.ts
+- apps/api/src/modules/deals/postgresql-deal-command.service.spec.ts
+- apps/api/src/modules/disputes/**
+- apps/api/prisma/schema.prisma
+- apps/api/prisma/migrations/20260912*_disputes_postgresql_authority/**
+- apps/api/test/industrial/harness.ts
+- apps/api/test/industrial/disputes-postgresql-authority.e2e-spec.ts
+- apps/api/test/industrial/industrial-core.e2e-spec.ts
+- apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts
+- apps/api/test/one-deal/restored-database-acceptance.ts
+- apps/api/test/one-deal/seed.ts
+- infra/sql/postgresql-disputes-authority-policies.sql
+- scripts/platform-v7-forward-only-migration-check.mjs
+- scripts/platform-v7-one-deal-e2e.sh
+- .github/workflows/ci.yml
+
+CURRENT CRITERIA:
+- production Disputes module binds complete PostgreSQL repositories with no RuntimeCore or implicit memory path;
+- claims, holds, evidence, decisions and financial consequences are tenant-scoped, immutable and atomic under trusted RLS;
+- restart, multi-instance, durable idempotency, optimistic concurrency, outsider/cross-tenant denial and race tests pass;
+- empty/baseline migrations, zero drift and exact-head CI pass.
+
+LOCKED:
+- IR-20 Canonical Durable Outbox;
+- IR-21 Durable Integration Inbox;
+- IR-22 Persistent Partner API and Outbound Webhooks;
+- IR-30 through IR-90 in dependency order.
+
+NEXT:
+- Layer: IR-20 Canonical Durable Outbox
+- Allowed files:
+  - docs/platform-v7/autopilot/autopilot-state.json
+  - docs/platform-v7/autopilot/progress.json
+  - docs/platform-v7/autopilot/prompts/current-codex-task.md
+  - docs/platform-v7/autopilot/prompts/current-review-task.md
+  - docs/platform-v7/execution-queue.md
+  - apps/api/src/common/outbox/**
+  - apps/api/src/common/prisma/outbox-*
+  - apps/api/src/outbox-worker.ts
+  - apps/api/src/outbox-worker.module.ts
+  - apps/api/prisma/schema.prisma
+  - apps/api/prisma/migrations/*_outbox_*/**
+  - apps/api/test/industrial/harness.ts
+  - apps/api/test/industrial/durable-outbox.e2e-spec.ts
+  - apps/api/test/industrial/outbox-worker-process.e2e-spec.ts
+  - infra/sql/postgresql-outbox-worker-policies.sql
+  - scripts/platform-v7-forward-only-migration-check.mjs
+  - scripts/platform-v7-one-deal-e2e.sh
+  - .github/workflows/ci.yml
+- Success criteria:
+  - one dedicated durable outbox owner replaces the legacy relay and process-memory production paths;
+  - DB-time leases, `SKIP LOCKED`, attempts, classified failures, retries, DEAD state and audited redrive are PostgreSQL-authoritative;
+  - concurrent workers, crash windows, provider ambiguity, timeout/429/4xx/5xx, expired leases, duplicate enqueue, restart and double-owner startup fail safely;
+  - exact-head CI passes without claiming production deployment or provider delivery.
+- Readiness remains NO-GO.
+
+TRANSITION RULE:
+- one narrow PR at a time in dependency order;
+- no auto-merge;
+- no self-modifying workflow or direct push to `main`;
+- advance only after exact-head checks and diff review;
+- update state, queue, progress and prompts after merge before opening the next work package;
+- mock, simulator and CI-scale evidence remain explicitly labelled and cannot be used as live or production acceptance.
+
+RF REGULATED-CONTOUR BOUNDARY:
+- preserve replaceable infrastructure boundaries and a deployment profile capable of using software from the Russian software register where the customer or system classification requires it;
+- public foreign images, including MinIO images from Quay, are dependency sources for the disposable production-like acceptance contour only and are not evidence of Russian-software-register status;
+- 44-FZ/223-FZ procurement, significant CII, regulated financial activity and a concrete FGIS require separate legal classification and verified domestic/certified software, protection and cryptography controls before any compliance claim;
+- no current repository, CI or production-like result proves certification, Russian cryptography activation or regulated-contour acceptance.
+
+READINESS:
+Industrial Integration-Ready remains NO-GO until every mandatory gate through IR-90 has commit-, deployment- and operations-linked evidence.
 
 ## Conditional future Qwen rejected-review diagnostics — 2026-09-12
 
@@ -135,44 +210,16 @@ merge/review gates. Diagnostic artifacts are not accepted review evidence.
 Proceed only when that prior authority and base-scope match are independently
 verified; otherwise keep this implementation blocked.
 
-## Conditional kind MinIO image-source prerequisite — 2026-09-12
+## Paused concurrent W1 acceptance — 2026-09-12
 
-The owner authorized resolving prerequisites while preserving required acceptance.
-PR #5338 is blocked by production-like Kubernetes run `34712647635`, job
-`103604095938`: the disposable cluster cannot pull
-`docker.io/minio/minio:RELEASE.2024-05-10T01-41-38Z` (`insufficient_scope`,
-`ErrImagePull` / `ImagePullBackOff`), before application acceptance starts.
-This is dependency-source failure evidence, not a settlement acceptance result.
+W1 PR #5332 at `ff03424d073e97d52f1a8cf38dad3de74345ed08` remains
+blocked by current Qwen policy-validation failure and Octopus community quota.
+Its successful native review and code/security checks do not override those
+provider failures. W1 is safely paused without production completion, must not
+be retried merely to obtain PASS, and does not alter the serialized IR-10.5 scope.
+Confirmed master production acceptance remains 0/100 (0%).
 
-After this governance proposal is independently reviewed and merged into `main`,
-branch `fix/kind-minio-image-source-20260912` may change exactly:
 
-- `infra/kind/production-like/dependencies.yaml`
-- `infra/kind/production-like/minio-tls-check.yaml`
-- `scripts/release/production-like-kubernetes-cluster.sh`
+## Implementation brief
 
-The prerequisite is limited to replacing the unavailable MinIO server image
-reference in the dependency manifest with the official same-release Quay source
-`quay.io/minio/minio:RELEASE.2024-05-10T01-41-38Z@sha256:420663b8685c5396f06405ad516d611db4465939a141cc7d40266342d0f2632d`.
-
-Separately, registry preflight of the subsequent `minio-init` client image
-`docker.io/minio/mc:RELEASE.2024-05-09T17-04-24Z` returned HTTP 401
-UNAUTHORIZED for the exact tag after official token acquisition. The failed CI
-run did not reach this client step. The official same-release Quay manifest
-returned HTTP 200 with verified digest. The TLS-check manifest and cluster
-script may change only their two executable client image scalars to
-`quay.io/minio/mc:RELEASE.2024-05-09T17-04-24Z@sha256:3e9666a093d0a8fcbbac606346c415ae9277a0ca96989a6bdddd3d03e90a21b4`.
-
-Reverify the server and client registry identities and digests before implementation. Preserve releases,
-commands, environment, probes, resources, storage, security and network policy.
-Do not change application code, migrations, workflows, credentials, other images,
-timeouts, required tests, review gates or production configuration. Do not use
-this proposal itself as implementation authority before accepted-main scope is
-verified. No scope expansion on the implementation branch is permitted.
-
-The serialized primary task and its allowedCurrentScope remain unchanged. This
-is a prerequisite to resume the blocked acceptance, not a new product task or
-permission to merge PR #5338 with failing checks. Require exact-head independent
-review and all required Kubernetes acceptance before implementation merge.
-W1 remains unaccepted; production deployment is not required for this disposable
-CI dependency change. Confirmed master production acceptance remains 0/100 (0%).
+Implement IR-10.5 Disputes PostgreSQL Authority strictly inside the state allowed scope.
