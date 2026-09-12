@@ -1,4 +1,4 @@
-# Review current task — IR-10.5 Disputes PostgreSQL Authority
+# Review current task — IR-20 Canonical Durable Outbox
 
 Maturity: controlled-pilot / pre-integration.
 Do not overstate maturity or imply live external integrations.
@@ -22,38 +22,33 @@ Review the diff, not the agent report.
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
 - docs/platform-v7/autopilot/prompts/current-review-task.md
 - docs/platform-v7/execution-queue.md
-- apps/api/src/common/config/industrial-mode.ts
-- apps/api/src/common/command-execution.context.ts
-- apps/api/src/common/prisma/rls-transaction.service.ts
-- apps/api/src/modules/deals/deal-command-payload.ts
-- apps/api/src/modules/deals/deal-command.service.ts
-- apps/api/src/modules/deals/deals.module.ts
-- apps/api/src/modules/deals/industrial-deal-command.gateway.ts
-- apps/api/src/modules/deals/postgresql-deal-command.service.ts
-- apps/api/src/modules/deals/postgresql-deal-command.service.spec.ts
-- apps/api/src/modules/disputes/**
+- apps/api/src/common/outbox/**
+- apps/api/src/common/prisma/outbox-*
+- apps/api/src/outbox-worker.ts
+- apps/api/src/outbox-worker.module.ts
+- apps/api/src/modules/integration-events/durable-outbox.runner.ts
+- apps/api/src/modules/integration-events/durable-outbox.runner.spec.ts
+- apps/api/src/modules/integration-events/durable-outbox.worker.ts
+- apps/api/src/modules/integration-events/integration-events.module.ts
 - apps/api/prisma/schema.prisma
-- apps/api/prisma/migrations/20260912*_disputes_postgresql_authority/**
+- apps/api/prisma/migrations/20260912*_canonical_durable_outbox/**
 - apps/api/test/industrial/harness.ts
-- apps/api/test/industrial/disputes-postgresql-authority.e2e-spec.ts
-- apps/api/test/industrial/industrial-core.e2e-spec.ts
-- apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts
-- apps/api/test/one-deal/restored-database-acceptance.ts
-- apps/api/test/one-deal/seed.ts
-- infra/sql/postgresql-disputes-authority-policies.sql
+- apps/api/test/industrial/durable-outbox.e2e-spec.ts
+- apps/api/test/industrial/outbox-worker-process.e2e-spec.ts
+- infra/sql/postgresql-outbox-worker-policies.sql
 - scripts/platform-v7-forward-only-migration-check.mjs
 - scripts/platform-v7-one-deal-e2e.sh
 - .github/workflows/ci.yml
 
 ## Transition guard
 
-- BLOCKED: IR-10.5 Disputes PostgreSQL Authority is not green/closed/mergeable. Dispatcher will not advance to IR-20 Canonical Durable Outbox.
+- BLOCKED: IR-20 Canonical Durable Outbox is not green/closed/mergeable. Dispatcher will not advance to IR-21 Durable Integration Inbox.
 
 ## Queue snapshot
 
 # platform-v7 Industrial Integration Readiness queue
 
-CURRENT: IR-10.5 Disputes PostgreSQL Authority
+CURRENT: IR-20 Canonical Durable Outbox
 
 GOVERNING SPECIFICATION:
 - `docs/platform-v7/autopilot/industrial-integration-readiness-v1.0.md`
@@ -69,17 +64,18 @@ BASELINE PROVEN:
 - Logistics PostgreSQL Authority is merged (#2412);
 - Labs PostgreSQL Authority is merged (#2426, merge `576d813c2d305efb645c9d26fa81a38fb6e4abbe`, verified head `73149bb4fba09a33875311faea313bb2ad272503`);
 - Settlement PostgreSQL Authority is merged (#5338, merge `9dbff1a67225a006ec5f33ebe7fa8b483a368718`, verified head `686c89f6cf2438baebb01f6bf4abcafb3eb85963`) with production-like Kubernetes evidence only; no live bank or REG.RU deployment is claimed;
+- Disputes PostgreSQL Authority is exact-main revalidated at `397e98955d9f98704c40befd0088a1390556e0fa` by workflow run `34726015616` and artifact digest `sha256:01c713e0487c3ad040aca44e7d6631063a0788e60be4cc77a5de1097f12bdc60`; this is PostgreSQL 16 CI evidence only, not production acceptance;
 - bank callback reconciliation and key rotation/revocation mechanics exist (#2379), but live bank and nominal-account integration remain open;
 - CI-scale correctness and isolated backup/restore remain evidence only and do not prove production capacity, HA or provider DR.
 
 CURRENT GOAL:
-- make disputes PostgreSQL-authoritative by construction;
-- remove RuntimeCore and implicit process-memory authority from the production Disputes graph;
-- persist claims, holds, evidence, decisions and linked financial consequences as tenant-scoped immutable facts;
-- enforce participant, tenant and dispute-role scope through trusted RLS;
-- commit dispute state, audit and required outbox effects atomically;
-- prove restart, multi-instance, replay, optimistic-concurrency races and outsider/cross-tenant denial;
-- keep live dispute providers, bank integration and production deployment outside this PR.
+- remove the legacy relay and process-memory outbox from the production graph;
+- enforce one dedicated durable outbox owner;
+- make PENDING, PROCESSING, RETRY, SENT or CONFIRMED, and DEAD transitions PostgreSQL-authoritative using DB time, bounded leases and `SKIP LOCKED`;
+- persist attempts, classified failures and retry timing;
+- support audited redrive, backpressure and graceful shutdown;
+- prove concurrent-worker, crash-window, provider-ambiguity, retry, expired-lease, replay, restart and double-owner behavior;
+- keep live provider delivery and production deployment outside this PR.
 
 CURRENT ALLOWED:
 - docs/platform-v7/autopilot/autopilot-state.json
@@ -87,67 +83,56 @@ CURRENT ALLOWED:
 - docs/platform-v7/autopilot/prompts/current-codex-task.md
 - docs/platform-v7/autopilot/prompts/current-review-task.md
 - docs/platform-v7/execution-queue.md
-- apps/api/src/common/config/industrial-mode.ts
-- apps/api/src/common/command-execution.context.ts
-- apps/api/src/common/prisma/rls-transaction.service.ts
-- apps/api/src/modules/deals/deal-command-payload.ts
-- apps/api/src/modules/deals/deal-command.service.ts
-- apps/api/src/modules/deals/deals.module.ts
-- apps/api/src/modules/deals/industrial-deal-command.gateway.ts
-- apps/api/src/modules/deals/postgresql-deal-command.service.ts
-- apps/api/src/modules/deals/postgresql-deal-command.service.spec.ts
-- apps/api/src/modules/disputes/**
+- apps/api/src/common/outbox/**
+- apps/api/src/common/prisma/outbox-*
+- apps/api/src/outbox-worker.ts
+- apps/api/src/outbox-worker.module.ts
+- apps/api/src/modules/integration-events/durable-outbox.runner.ts
+- apps/api/src/modules/integration-events/durable-outbox.runner.spec.ts
+- apps/api/src/modules/integration-events/durable-outbox.worker.ts
+- apps/api/src/modules/integration-events/integration-events.module.ts
 - apps/api/prisma/schema.prisma
-- apps/api/prisma/migrations/20260912*_disputes_postgresql_authority/**
+- apps/api/prisma/migrations/20260912*_canonical_durable_outbox/**
 - apps/api/test/industrial/harness.ts
-- apps/api/test/industrial/disputes-postgresql-authority.e2e-spec.ts
-- apps/api/test/industrial/industrial-core.e2e-spec.ts
-- apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts
-- apps/api/test/one-deal/restored-database-acceptance.ts
-- apps/api/test/one-deal/seed.ts
-- infra/sql/postgresql-disputes-authority-policies.sql
+- apps/api/test/industrial/durable-outbox.e2e-spec.ts
+- apps/api/test/industrial/outbox-worker-process.e2e-spec.ts
+- infra/sql/postgresql-outbox-worker-policies.sql
 - scripts/platform-v7-forward-only-migration-check.mjs
 - scripts/platform-v7-one-deal-e2e.sh
 - .github/workflows/ci.yml
 
 CURRENT CRITERIA:
-- production Disputes module binds complete PostgreSQL repositories with no RuntimeCore or implicit memory path;
-- claims, holds, evidence, decisions and financial consequences are tenant-scoped, immutable and atomic under trusted RLS;
-- restart, multi-instance, durable idempotency, optimistic concurrency, outsider/cross-tenant denial and race tests pass;
-- empty/baseline migrations, zero drift and exact-head CI pass.
+- one dedicated durable outbox owner replaces the legacy relay and process-memory production paths;
+- DB-time leases, `SKIP LOCKED`, attempts, classified failures, retries, DEAD state and audited redrive are PostgreSQL-authoritative;
+- concurrent workers, crash windows, provider ambiguity, timeout/429/4xx/5xx, expired leases, duplicate enqueue, restart and double-owner startup fail safely;
+- exact-head CI passes without claiming production deployment or provider delivery.
 
 LOCKED:
-- IR-20 Canonical Durable Outbox;
 - IR-21 Durable Integration Inbox;
 - IR-22 Persistent Partner API and Outbound Webhooks;
 - IR-30 through IR-90 in dependency order.
 
 NEXT:
-- Layer: IR-20 Canonical Durable Outbox
+- Layer: IR-21 Durable Integration Inbox
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/autopilot/progress.json
   - docs/platform-v7/autopilot/prompts/current-codex-task.md
   - docs/platform-v7/autopilot/prompts/current-review-task.md
   - docs/platform-v7/execution-queue.md
-  - apps/api/src/common/outbox/**
-  - apps/api/src/common/prisma/outbox-*
-  - apps/api/src/outbox-worker.ts
-  - apps/api/src/outbox-worker.module.ts
+  - apps/api/src/modules/regulatory-integration/**
+  - apps/api/src/modules/integration-events/integration-events.module.ts
   - apps/api/prisma/schema.prisma
-  - apps/api/prisma/migrations/*_outbox_*/**
-  - apps/api/test/industrial/harness.ts
-  - apps/api/test/industrial/durable-outbox.e2e-spec.ts
-  - apps/api/test/industrial/outbox-worker-process.e2e-spec.ts
-  - infra/sql/postgresql-outbox-worker-policies.sql
-  - scripts/platform-v7-forward-only-migration-check.mjs
-  - scripts/platform-v7-one-deal-e2e.sh
-  - .github/workflows/ci.yml
+  - apps/api/prisma/migrations/*_regulatory_integration_inbox/**
+  - apps/api/test/industrial/regulatory-integration-inbox.e2e-spec.ts
+  - infra/sql/postgresql-regulatory-integration-inbox-policies.sql
+  - scripts/verify-pc-crop-07a.mjs
+  - .github/workflows/pc-crop-07a.yml
 - Success criteria:
-  - one dedicated durable outbox owner replaces the legacy relay and process-memory production paths;
-  - DB-time leases, `SKIP LOCKED`, attempts, classified failures, retries, DEAD state and audited redrive are PostgreSQL-authoritative;
-  - concurrent workers, crash windows, provider ambiguity, timeout/429/4xx/5xx, expired leases, duplicate enqueue, restart and double-owner startup fail safely;
-  - exact-head CI passes without claiming production deployment or provider delivery.
+  - provider identity, provider event ID, tenant mapping, raw-body hash, schema/mapping/key versions, DB receive time, verification, attempts, correlation and linked operation are durable facts;
+  - signatures are verified over raw bytes, replay windows and key lifecycle fail closed, and HTTP acknowledgement is separated from domain processing;
+  - unknown schemas quarantine safely and audited redrive cannot bypass verification or tenant authority;
+  - exact-head CI passes without claiming live FGIS/provider activation or production delivery.
 - Readiness remains NO-GO.
 
 TRANSITION RULE:
@@ -206,6 +191,6 @@ Confirmed master production acceptance remains 0/100 (0%).
 
 ## Review brief
 
-Review IR-10.5 Disputes PostgreSQL Authority strictly against the state allowed scope and queue.
+Review IR-20 Canonical Durable Outbox strictly against the state allowed scope and queue.
 
 Return PASS or BLOCKED. If BLOCKED, include blocker, file, why risk and exact fix.
