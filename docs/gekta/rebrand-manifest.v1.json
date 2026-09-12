@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "brand": {
+    "canonical": {
+      "ru": "Гекта",
+      "ruUppercase": "ГЕКТА",
+      "latin": "Gekta",
+      "latinUppercase": "GEKTA",
+      "technical": "gekta"
+    },
+    "grammarRu": {
+      "nominative": "Гекта",
+      "genitive": "Гекты",
+      "dative": "Гекте",
+      "accusative": "Гекту",
+      "instrumental": "Гектой",
+      "prepositional": "Гекте"
+    },
+    "publicCopy": {
+      "descriptorRu": "Аграрный интеллект для земли, урожая и решений",
+      "primaryCtaRu": "Спросить Гекту",
+      "openRu": "Открыть Гекту",
+      "processingRu": "Гекта анализирует…",
+      "recommendationRu": "Рекомендация Гекты",
+      "primaryCtaEn": "Ask Gekta",
+      "descriptorEn": "Agricultural intelligence for land, crops and decisions"
+    }
+  },
+  "replacementPolicy": {
+    "publicProductName": {
+      "from": ["TAI", "Tai", "AI Assistant", "ИИ-помощник"],
+      "toRu": "Гекта",
+      "toLatin": "Gekta",
+      "rule": "Replace only when the source refers to the named product. Do not replace generic artificial-intelligence terminology."
+    },
+    "technicalIdentifiers": {
+      "uppercase": { "from": "TAI", "to": "GEKTA" },
+      "pascalCase": { "from": "Tai", "to": "Gekta" },
+      "lowercase": { "from": "tai", "to": "gekta" },
+      "rule": "Token-aware replacement only. Never replace arbitrary tai substrings inside unrelated words or external immutable identifiers."
+    }
+  },
+  "compatibility": {
+    "environment": "GEKTA_* is authoritative; TAI_* may be read temporarily as a deprecated fallback with telemetry and a removal owner.",
+    "http": "New /gekta and /api/gekta routes become authoritative; /tai aliases remain temporarily where external consumers exist.",
+    "clientStorage": "Read the new Gekta key first, fall back once to the legacy TAI/assistant key, write only the Gekta key, and remove the legacy key after successful migration.",
+    "analytics": "Emit gekta_* events and map historical tai_* events into one reporting series without rewriting raw history.",
+    "artifacts": "Historical OCI, object-storage, release-evidence and signed artifact identities are immutable and remain allowlisted history."
+  },
+  "forbidden": [
+    "Гекто",
+    "Gekto",
+    "Hekta",
+    "Gecta",
+    "TAI Гекта",
+    "blind global replacement",
+    "rewriting Git history",
+    "rewriting immutable migrations",
+    "claiming production deployment without REG.RU exact-SHA evidence"
+  ],
+  "migrationPhases": [
+    "R0_governance_inventory",
+    "R1_public_brand",
+    "R2_api_sdk_contracts",
+    "R3_application_packages",
+    "R4_infrastructure_operations",
+    "R5_analytics_seo_commercial_legal",
+    "R6_legacy_removal"
+  ],
+  "sourceIssue": 3824
+}
