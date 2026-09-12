@@ -602,13 +602,18 @@ test('outer workflow sibling guard preserves mount identity while ignoring enume
   const source=workflow.match(/API_EXCLUDED="\$api" python3 -c '([^']+)'/);
   assert.ok(source,'execute the actual outer sibling guard');
   const hash=value=>{
-    const result=spawnSync('python3',['-c',source[1]],{input:JSON.stringify(value),encoding:'utf8',env:{...process.env,API_EXCLUDED:'a'.repeat(64)}});
-    assert.equal(result.status,0,result.stderr); assert.match(result.stdout.trim(),/^[0-9a-f]{64}$/);
+    const result=spawnSync('python3',['-c','import sys, textwrap; exec(compile(textwrap.dedent(sys.argv[1]), "<sibling_hash>", "exec"))',source[1]],{input:JSON.stringify(value),encoding:'utf8',env:{...process.env,API_EXCLUDED:'a'.repeat(64)}});
+    assert.equal(result.status,0,result.stderr);
+    assert.equal(result.stderr,''); assert.match(result.stdout,/^[0-9a-f]{64}\n$/);
     return result.stdout.trim();
   };
   const before=container(); before.Mounts=[{Source:'/fixture/a',Destination:'/a',RW:false},{Source:'/fixture/b',Destination:'/b',RW:true}];
   const permuted=clone(before); permuted.Mounts.reverse();
   assert.equal(hash([before]),hash([permuted]));
+  const privateFixture=clone(before);
+  privateFixture.Config.Env.push('PRIVATE_FIXTURE=must-remain-inside-hash');
+  privateFixture.Mounts[0].Source='/private-fixture/must-remain-inside-hash';
+  assert.notEqual(hash([before]),hash([privateFixture]));
   for(const mutate of [x=>x.Mounts[0].Source='/fixture/changed',x=>x.Mounts[0].RW=false,
     x=>x.Mounts[0].FutureOption='changed',x=>x.Mounts.push(clone(x.Mounts[0])),x=>x.Mounts.pop(),
     x=>x.Config.Env.push('CHANGED=true'),x=>x.State.StartedAt='2026-09-09T00:00:01Z']) {
