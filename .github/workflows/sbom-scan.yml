@@ -32,6 +32,8 @@ on:
       - 'docs/security/asvs-applicability-decisions.json'
       - 'scripts/security/verify-decision-evidence.mjs'
       - 'scripts/security/verify-decision-evidence.test.mjs'
+      - 'scripts/security/verify-condition-falsifiability.mjs'
+      - 'scripts/security/verify-condition-falsifiability.test.mjs'
       - 'docs/ip/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -77,6 +79,8 @@ on:
       - 'docs/security/asvs-applicability-decisions.json'
       - 'scripts/security/verify-decision-evidence.mjs'
       - 'scripts/security/verify-decision-evidence.test.mjs'
+      - 'scripts/security/verify-condition-falsifiability.mjs'
+      - 'scripts/security/verify-condition-falsifiability.test.mjs'
       - 'docs/ip/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -225,6 +229,13 @@ jobs:
 
       - name: Verify no decision cites something that is gone
         run: node scripts/security/verify-decision-evidence.mjs
+
+      # A condition that cannot be broken is not evidence. Every condition in
+      # the matrix has the evidence it names destroyed in memory, and has to
+      # stop holding. Doing this by hand found thirteen shapes of condition
+      # that could not revoke - each one by accident, while working nearby.
+      - name: Verify every ASVS condition can actually revoke
+        run: node scripts/security/verify-condition-falsifiability.mjs
 
       - name: Verify every algorithm has a migration path
         run: node scripts/security/verify-crypto-migration-plan.mjs

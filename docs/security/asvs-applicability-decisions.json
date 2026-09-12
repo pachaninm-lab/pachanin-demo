@@ -8406,7 +8406,7 @@
       "conditions": [
         {
           "condition": "one internal hop is authenticated by a signed request",
-          "check": "PRESENT_AT_PATH",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/web/lib/platform-v7/tai-internal-stream.ts"
           ],
@@ -10110,7 +10110,7 @@
       "conditions": [
         {
           "condition": "the audit channel carries who, where and what",
-          "check": "PRESENT_AT_PATH",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/auth/auth-audit.ts"
           ],
@@ -10124,7 +10124,7 @@
         },
         {
           "condition": "the HTTP channel carries method, path, status, actor and address",
-          "check": "PRESENT_AT_PATH",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/common/middleware/log-masking.middleware.ts"
           ],

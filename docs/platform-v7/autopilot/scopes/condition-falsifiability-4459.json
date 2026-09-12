@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/condition-falsifiability-4459",
+  "status": "active",
+  "purpose": "The whole matrix rests on one property: if the fact a decision stands on stops being true, its condition stops holding and the decision is rejected. Nothing checked that property. It was checked by hand, one requirement at a time, whenever somebody happened to be working nearby - and doing it that way found thirteen distinct shapes of condition that could not revoke, every one of them by accident. This checks it on purpose: for each of the 627 conditions, the evidence it names is destroyed in memory and the condition has to notice. All 627 do. The run also surfaces a class the by-hand work kept hitting - a multi-pattern PRESENT_AT_PATH where no single pattern is load-bearing, because PRESENT_AT_PATH matches with .some() - and three of those turned out to be conjunctions written with the wrong check. No verdict moves.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/condition-falsifiability-4459.json",
+    "scripts/security/verify-condition-falsifiability.mjs",
+    "scripts/security/verify-condition-falsifiability.test.mjs",
+    "docs/security/asvs-applicability-decisions.json",
+    ".github/workflows/sbom-scan.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+  ],
+  "requiredInvariants": [
+    "Mutations are applied to the text the evaluator reads, never to the working tree. A run cannot leave anything behind and cannot be interrupted into a half-mutated state, which matters because it runs 1436 of them.",
+    "The harness declares what it cannot see, in its own output. A pattern that matches unrelated text in the file still flips when stripped, and a condition anchored to a file that in practice never changes still flips when stripped; neither is detectable this way, and claiming otherwise would make the gate a stronger promise than it is.",
+    "A condition the harness cannot destroy is reported as unaudited, not counted as passing. ABSENT_IN_TREE with no root and an unrecognised check kind both yield no mutation, and main() reports NO_MUTATION for them.",
+    "The alternatives-only finding is reported, not failed, because it is legal: several patterns are alternatives, which is right when they spell one control - a function name and the error code it throws, or useGlobalPipes and ValidationPipe for the same pipe. It is wrong when the condition's own sentence names several facts, and the suite pins the set so a new one has to be read rather than absorbed.",
+    "Each of the twelve was judged by its own sentence rather than by a rule. «at least one» and two spellings of one control stay as they are; «the audit channel carries who, where and what» with five field names does not, because it held while four of the five were missing.",
+    "Converting a conjunction to PRESENT_ALL_AT_PATH must not move a verdict, and does not: all patterns are present today, so the stricter check holds exactly where the looser one did.",
+    "No code outside scripts/security is touched, no decision's status or applicability changes, and no new dependency is added.",
+    "The cryptographic inventory is regenerated because two scripts were added under a scanned root; it records a file count and nothing else changes in it."
+  ],
+  "acceptance": [
+    "627 conditions, 1436 mutations applied in memory, and every condition stopped holding when the evidence it names was destroyed.",
+    "The harness is itself mutation-checked before its result is believed: a deliberately weak condition - two alternative patterns on one path - and a vacuous one were both run through it and both came back clean, which is how its two blind spots were found and why they are printed on every run rather than left implied.",
+    "Twelve multi-pattern PRESENT_AT_PATH conditions had no single load-bearing pattern. None was a PASS, so none was a fabricated PASS; the suite asserts that separately so it stays true.",
+    "Three were conjunctions written with the wrong check and are converted to PRESENT_ALL_AT_PATH: V12.3.5 (the call site and the HMAC that makes it signed) and both V16.2.1 conditions (five audit fields, and the two HTTP fields). Mutations rise from 1430 to 1436 because each pattern is now tested on its own.",
+    "The remaining nine are justified individually and pinned by the suite; a tenth has to be looked at.",
+    "No verdict moves: 39 NOT_ASSESSED / 129 PASS / 88 NOT_APPLICABLE / 89 FAIL against main, V8.2.4 the only rejected decision.",
+    "verify-condition-falsifiability.test.mjs passes 7 of 7; node --test scripts/security passes 151 of 151; the workflow parses as YAML; guard=0."
+  ]
+}
