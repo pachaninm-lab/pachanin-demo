@@ -1,0 +1,192 @@
+name: Finalize TAI live document OCR PR
+
+on:
+  push:
+    branches:
+      - feat/tai-live-document-ocr-acceptance-20260802
+    paths:
+      - .github/workflows/finalize-tai-live-document-ocr-pr.yml
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  checks: read
+  contents: write
+  pull-requests: write
+  statuses: read
+
+concurrency:
+  group: finalize-tai-live-document-ocr-pr
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/tai-live-document-ocr-acceptance-20260802
+          fetch-depth: 0
+      - name: Capture exact branch and main authority
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main feat/tai-live-document-ocr-acceptance-20260802
+          echo "EXPECTED_HEAD=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "EXPECTED_MAIN=$(git rev-parse origin/main)" >> "$GITHUB_ENV"
+          test "$(git merge-base HEAD origin/main)" = "$(git rev-parse origin/main)"
+      - name: Clean temporary materializers and validate final source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          rm -f .github/workflows/finalize-tai-live-document-ocr-pr.yml
+          rm -f .github/workflows/apply-tai-live-acceptance-contract-fix.yml
+          rm -f .github/workflows/apply-tai-live-document-ocr-acceptance.yml
+          rm -f .github/workflows/apply-tai-live-document-ocr-acceptance-v2.yml
+          rm -f scripts/apply-tai-live-acceptance-contract-fix.py
+          rm -f scripts/apply-tai-live-document-ocr-acceptance.py
+          python3 -m py_compile scripts/create-live-public-assistant-attachment-fixtures.py
+          node --check scripts/check-live-public-assistant-attachments.mjs
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends python3-pil fonts-dejavu-core >/dev/null
+          fixtures="$RUNNER_TEMP/tai-live-attachment-fixtures"
+          python3 scripts/create-live-public-assistant-attachment-fixtures.py "$fixtures"
+          python3 - "$fixtures/manifest.json" <<'PY'
+          import json,pathlib,sys
+          value=json.load(open(sys.argv[1],encoding='utf-8'))
+          assert value.get('schemaVersion')=='tai.live-attachment-fixtures.v1'
+          assert len(value.get('files') or [])==7
+          root=pathlib.Path(sys.argv[1]).parent
+          assert all((root/item['name']).is_file() and (root/item['name']).stat().st_size > 0 for item in value['files'])
+          PY
+          grep -Fq 'name: TAI Live Document OCR Acceptance' .github/workflows/tai-live-document-ocr-acceptance.yml
+          grep -Fq '".github/workflows/tai-live-document-ocr-acceptance.yml"' .github/workflows/docker-publish.yml
+          ! grep -Eq 'continue-on-error:[[:space:]]*true' .github/workflows/tai-live-document-ocr-acceptance.yml
+          git diff --check
+          git add -A
+          git diff --cached --name-only | sort > "$RUNNER_TEMP/cleanup-files.txt"
+          if grep -Ev '^([.]github/workflows/(apply-tai-live-acceptance-contract-fix|apply-tai-live-document-ocr-acceptance(-v2)?|finalize-tai-live-document-ocr-pr)[.]yml|[.]github/workflows/docker-publish[.]yml|[.]github/workflows/tai-live-document-ocr-acceptance[.]yml|docs/platform-v7/autopilot/scopes/tai-live-document-ocr-acceptance-20260802[.]json|scripts/apply-tai-live-(acceptance-contract-fix|document-ocr-acceptance)[.]py|scripts/check-live-public-assistant-attachments[.]mjs|scripts/create-live-public-assistant-attachment-fixtures[.]py)$' "$RUNNER_TEMP/cleanup-files.txt"; then
+            echo 'Cleanup diff exceeds registered scope.' >&2
+            exit 31
+          fi
+      - name: Publish exact clean PR head
+        id: publish
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main feat/tai-live-document-ocr-acceptance-20260802
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          test "$(git rev-parse origin/feat/tai-live-document-ocr-acceptance-20260802)" = "$EXPECTED_HEAD"
+          if ! git diff --cached --quiet; then
+            git config user.name github-actions[bot]
+            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+            git commit -m 'chore(tai): finalize live document OCR acceptance source'
+            git push --force-with-lease="refs/heads/feat/tai-live-document-ocr-acceptance-20260802:${EXPECTED_HEAD}" origin HEAD:refs/heads/feat/tai-live-document-ocr-acceptance-20260802
+          fi
+          head_sha="$(git rev-parse HEAD)"
+          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
+          echo "head_short=${head_sha:0:7}" >> "$GITHUB_OUTPUT"
+      - name: Verify exact permanent PR diff
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ steps.publish.outputs.head_sha }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for _ in $(seq 1 30); do
+            actual="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/3598" --jq .head.sha)"
+            [[ "$actual" == "$HEAD_SHA" ]] && break
+            sleep 2
+          done
+          [[ "$(gh api "repos/${GITHUB_REPOSITORY}/pulls/3598" --jq .head.sha)" == "$HEAD_SHA" ]]
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/3598/files?per_page=100" --jq '.[].filename' | sort > "$RUNNER_TEMP/pr-files.txt"
+          cat > "$RUNNER_TEMP/expected-files.txt" <<'EOF'
+          .github/workflows/docker-publish.yml
+          .github/workflows/tai-live-document-ocr-acceptance.yml
+          docs/platform-v7/autopilot/scopes/tai-live-document-ocr-acceptance-20260802.json
+          scripts/check-live-public-assistant-attachments.mjs
+          scripts/create-live-public-assistant-attachment-fixtures.py
+          EOF
+          diff -u "$RUNNER_TEMP/expected-files.txt" "$RUNNER_TEMP/pr-files.txt"
+      - name: Wait for all required PR workflow gates
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ steps.publish.outputs.head_sha }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - "$GITHUB_REPOSITORY" "$HEAD_SHA" <<'PY'
+          import json, os, subprocess, sys, time
+          repo, sha = sys.argv[1:]
+          required = {
+              'Workflow Syntax Guard',
+              'Production Hosting Authority',
+              'platform-v7 autopilot guard',
+              'Design System v8 Gate',
+              'web-unit',
+              'Node CI',
+              'Security Scan',
+              'Runtime Context Security Gate',
+              'Immutable Release Authority Acceptance',
+              'CI',
+              'Platform V7 Design System v8 Acceptance',
+              'Production-like Kubernetes Acceptance',
+              'TAI Live Document OCR Acceptance',
+              'Security Quality Gate',
+              'Dependency Review',
+              'CodeQL platform-v7 report',
+          }
+          accepted = {'success', 'skipped', 'neutral'}
+          terminal_bad = {'failure', 'cancelled', 'timed_out', 'action_required', 'stale'}
+          deadline = time.time() + 3000
+          while time.time() < deadline:
+              raw = subprocess.check_output([
+                  'gh','api','-X','GET',f'repos/{repo}/actions/runs',
+                  '-f',f'head_sha={sha}','-f','per_page=100'
+              ], text=True)
+              values = json.loads(raw).get('workflow_runs') or []
+              latest = {}
+              for item in values:
+                  name = item.get('name')
+                  if not name: continue
+                  if name not in latest or int(item.get('id',0)) > int(latest[name].get('id',0)):
+                      latest[name] = item
+              bad = {name: item.get('conclusion') for name,item in latest.items() if item.get('status')=='completed' and item.get('conclusion') in terminal_bad}
+              relevant_bad = {name:value for name,value in bad.items() if name in required}
+              if relevant_bad:
+                  print('TAI_LIVE_ACCEPTANCE_REQUIRED_GATE_FAILED='+json.dumps(relevant_bad,sort_keys=True), file=sys.stderr)
+                  raise SystemExit(41)
+              present = required.intersection(latest)
+              pending = {name for name in required if name not in latest or latest[name].get('status')!='completed'}
+              invalid = {name: latest[name].get('conclusion') for name in required if name in latest and latest[name].get('status')=='completed' and latest[name].get('conclusion') not in accepted}
+              if not pending and not invalid:
+                  print('TAI_LIVE_ACCEPTANCE_REQUIRED_GATES=PASS')
+                  break
+              time.sleep(20)
+          else:
+              print('TAI_LIVE_ACCEPTANCE_REQUIRED_GATES_TIMEOUT', file=sys.stderr)
+              raise SystemExit(42)
+          PY
+      - name: Verify review threads and merge exact head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ steps.publish.outputs.head_sha }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          gh api graphql -f owner="$GITHUB_REPOSITORY_OWNER" -f name="${GITHUB_REPOSITORY#*/}" -F number=3598 -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){headRefOid baseRefName isDraft reviewThreads(first:100){totalCount nodes{isResolved}}}}}' > "$RUNNER_TEMP/review.json"
+          python3 - "$RUNNER_TEMP/review.json" "$HEAD_SHA" <<'PY'
+          import json,sys
+          value=json.load(open(sys.argv[1],encoding='utf-8'))['data']['repository']['pullRequest']
+          assert value['headRefOid']==sys.argv[2]
+          assert value['baseRefName']=='main'
+          assert value['isDraft'] is False
+          threads=value['reviewThreads']
+          assert threads['totalCount'] <= 100
+          assert all(item['isResolved'] for item in threads['nodes'])
+          PY
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse origin/main)" == "$EXPECTED_MAIN" ]]
+          response="$(gh api --method PUT "repos/${GITHUB_REPOSITORY}/pulls/3598/merge" -f merge_method=merge -f sha="$HEAD_SHA" -f commit_title='ci(tai): enforce exact-main live document and OCR acceptance')"
+          python3 -c 'import json,sys; value=json.load(sys.stdin); assert value.get("merged") is True; print("TAI_LIVE_DOCUMENT_OCR_PR_MERGED="+value["sha"])' <<< "$response"
