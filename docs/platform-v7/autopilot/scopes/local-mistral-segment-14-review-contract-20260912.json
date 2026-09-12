@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/local-mistral-segment-14-review-contract-20260912",
+  "status": "active",
+  "purpose": "Stage and independently review only inert Local Mistral review-input, prompt-bundle, inference-payload and candidate-validation contract logic.",
+  "authorityBaseExactHead": "43f83df52ae0723d28c8111dff3012fdecdd4a1c",
+  "baseDependencies": [
+    "PR #5324/#5326/#5327/#5328 remain stacked prerequisites before final activation."
+  ],
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/bootstrap/local-mistral-review-contract.py.inert",
+    "docs/platform-v7/autopilot/scopes/local-mistral-segment-14-review-contract-20260912.json"
+  ],
+  "requiredInvariants": [
+    "This PR remains inert: it performs no filesystem artifact authority, process launch, network request, model invocation, attestation/status publication or product/API/database/RBAC/registration/cabinet behavior.",
+    "Diff, policy, schema and changed-path inputs must be regular non-symlink files with fixed byte bounds and strict UTF-8/JSON parsing where applicable.",
+    "Changed paths must be a non-empty unique bounded list and become the exact finding-path authority for candidate validation.",
+    "Review diff is fail-closed screened for credential-like material, e-mail addresses and phone-like PII before prompt construction.",
+    "Untrusted diff bytes escape model control delimiters and are embedded only inside canonical review-input JSON under a fixed user instruction that preserves the trusted system policy boundary.",
+    "Prompt-bundle SHA-256 binds trusted system policy, user prompt and response schema; manifest SHA-256 binds full diff SHA/size and sorted changed paths.",
+    "Inference payload fixes model identity, deterministic temperature/top-p/seed/max-token settings, non-streaming mode and strict JSON-schema response format.",
+    "Response extraction requires the exact model identity, exactly one choice, accepted stop reason, bounded non-empty content and no <think> leakage.",
+    "Candidate validation accepts only findings=[] or exactly one strict P0/P1/P2 finding with an authorized changed path, positive line, bounded title/reason and no speculative-reason wording.",
+    "Canonical candidate output is deterministic JSON and bounded before publication.",
+    "Sensitive-output screening remains an additional separately admitted layer and is not weakened by this contract.",
+    "Local Qwen remains the independent reviewer for this future Local Mistral authority change.",
+    "REG.RU remains production authority, mandatory SaaS/API keys remain none and new recurring cost remains 0 RUB."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
