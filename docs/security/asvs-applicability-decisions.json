@@ -9857,6 +9857,55 @@
       "note": "Corrected on review: distroless solves a different problem than the one this requirement is about. It removes the shell and package manager an attacker could use post-compromise; it says nothing about which files were copied into the image in the first place, and this build copies compiled test code into it. apps/api/tsconfig.json includes both src/**/*.ts and test/**/*.ts, so pnpm --filter @pc/api build compiles both into the same dist tree (dist/apps/api/src/... and dist/apps/api/test/... side by side). The Dockerfile's cleanup step (rm -rf /prod/api/src /prod/api/test /prod/api/prisma /prod/api/dist) removes the pnpm-deployed source test/ directory, then immediately does cp -R /workspace/apps/api/dist /prod/api/dist - copying the whole compiled dist tree wholesale, compiled test output included, since that copy happens from the build stage's dist, not the just-cleaned /prod/api/dist. The runtime stage then does COPY --from=build ... /prod/api/ ./, so the compiled test files ship in the production image. This is exactly the extraneous functionality (test code) this requirement asks to be verified absent from production, and it is not."
     },
     {
+      "requirementId": "V15.2.4",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "scripts/security/verify-dependency-confusion.mjs",
+        "pnpm-lock.yaml",
+        "apps/web/tsconfig.json"
+      ],
+      "conditions": [
+        {
+          "condition": "the guard still tests all four properties that keep an internal name off the public registry, rather than one of them",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-dependency-confusion.mjs"
+          ],
+          "patterns": [
+            "declaredInternalDependencies",
+            "lockfileInternalResolutions",
+            "unresolvableInternalImports",
+            "registryOverrides"
+          ]
+        },
+        {
+          "condition": "no internal name has ever been resolved from a registry, so no integrity hash exists that an impostor package could satisfy",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "pnpm-lock.yaml"
+          ],
+          "patterns": [
+            "@pc/",
+            "@pachanin/"
+          ]
+        },
+        {
+          "condition": "the path aliases that keep the internal names imported by source resolving to local files are still declared; without them a clean install reaches the public registry for those names",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/tsconfig.json"
+          ],
+          "patterns": [
+            "\"@pc/design-system-v8\"",
+            "\"@pc/ai-assistant-stream-contract\"",
+            "\"@pc/ai-assistant-admission-manifest\""
+          ]
+        }
+      ],
+      "note": "PASS on a working control, measured rather than argued. This repository is exposed to dependency confusion in a specific way: pnpm-workspace.yaml deliberately EXCLUDES packages/design-system-v8 and packages/design-tokens from the workspace, yet 62 source files import @pc/design-system-v8. A name that is imported but is not a workspace member is the exact shape the attack needs - remove whatever resolves it locally and the installer falls through to the public registry. What holds today, all four measured: no manifest declares any internal name at all, let alone by a version range; pnpm-lock.yaml contains zero occurrences of @pc/ or @pachanin/, so nothing has ever been fetched under an internal name; all three internal specifiers imported from source resolve through explicit tsconfig path mappings; and no .npmrc override points an owned scope anywhere. scripts/security/verify-dependency-confusion.mjs enforces each as a separate rule so that losing one is a separate failure, and each rule was proven load-bearing by injecting the violation into the real tree - a version range in apps/web/package.json, an internal entry in the lockfile, an import of @pc/not-a-real-package from a tracked file, and an http registry override - all four caught. NOT established, and not implied: whether the @pc and @pachanin scopes are registered to us on npmjs.com. That is a fact about the public registry, not about this repository, and neither the guard nor this decision reaches the network. If those scopes are unclaimed, the controls above are what stands between the build and an impostor; they are necessary either way."
+    },
+    {
       "requirementId": "V15.2.5",
       "applicability": "APPLICABLE",
       "status": "FAIL",
