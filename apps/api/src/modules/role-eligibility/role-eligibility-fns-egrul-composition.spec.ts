@@ -12,6 +12,7 @@ const targetPublishedAt = new Date('2026-09-05T00:00:00.000Z');
 const base = {
   id: BASE_ID,
   source: 'FNS',
+  registry_domain: 'EGRUL',
   status: 'ACTIVE',
   published_at: basePublishedAt,
   content_sha256: 'a'.repeat(64),
@@ -66,8 +67,14 @@ function createRepository(queryResponses: unknown[][], executeResults: number[] 
   return { repository, queryRaw, executeRaw, transaction };
 }
 
+function expectPersistedPredecessor(query: unknown): void {
+  const text = sqlText(query);
+  expect(text).toContain('eligibility.record_fns_egrul_predecessor');
+  expect((query as { values?: unknown[] }).values).toEqual([TARGET_ID, BASE_ID]);
+}
+
 describe('FNS EGRUL baseline plus daily-delta composition', () => {
-  it('inherits the full active FNS generation into an empty newer staging generation', async () => {
+  it('inherits the full active FNS/EGRUL generation without sealing lineage before the delta', async () => {
     const { repository, queryRaw, executeRaw } = createRepository([[target], [base]], [2, 1]);
 
     await expect(repository.inheritActiveBase(TARGET_ID)).resolves.toEqual({
@@ -77,15 +84,17 @@ describe('FNS EGRUL baseline plus daily-delta composition', () => {
     });
 
     expect(sqlText(queryRaw.mock.calls[0][0])).toContain('FOR UPDATE');
-    expect(sqlText(queryRaw.mock.calls[1][0])).toContain("source='FNS' AND status='ACTIVE'");
+    expect(sqlText(queryRaw.mock.calls[1][0])).toContain("source='FNS' AND registry_domain=");
+    expect(sqlText(queryRaw.mock.calls[1][0])).toContain("AND status='ACTIVE'");
     expect(sqlText(executeRaw.mock.calls[0][0])).toContain('INSERT INTO eligibility.registry_records');
     expect(sqlText(executeRaw.mock.calls[0][0])).toContain('FROM eligibility.registry_records AS r');
     expect(sqlText(executeRaw.mock.calls[1][0])).toContain('SET record_count=?');
+    expect(queryRaw.mock.calls.some(([query]) => sqlText(query).includes('eligibility.record_fns_egrul_predecessor'))).toBe(false);
   });
 
-  it('treats an exact inherited baseline replay as idempotent without copying records twice', async () => {
+  it('treats an exact inherited baseline replay as idempotent without prematurely sealing lineage', async () => {
     const initialized = { ...target, record_count: 2n };
-    const { repository, executeRaw } = createRepository([
+    const { repository, queryRaw, executeRaw } = createRepository([
       [initialized],
       [base],
       [{ count: 2n, unmatched: 0n }],
@@ -97,6 +106,7 @@ describe('FNS EGRUL baseline plus daily-delta composition', () => {
       replayed: true,
     });
     expect(executeRaw).not.toHaveBeenCalled();
+    expect(queryRaw.mock.calls.some(([query]) => sqlText(query).includes('eligibility.record_fns_egrul_predecessor'))).toBe(false);
   });
 
   it('fails closed when there is no active base or the delta is not newer', async () => {
@@ -110,7 +120,14 @@ describe('FNS EGRUL baseline plus daily-delta composition', () => {
       .rejects.toThrow('FNS_EGRUL_DELTA_NOT_NEWER_THAN_BASE');
   });
 
-  it('replaces only matching OGRNs inside the staging target and keeps cardinality atomic', async () => {
+  it('rejects cross-domain FNS generations before composition', async () => {
+    const wrongDomain = { ...target, registry_domain: 'EGRIP' };
+    const { repository, executeRaw } = createRepository([[wrongDomain]]);
+    await expect(repository.inheritActiveBase(TARGET_ID)).rejects.toThrow('FNS_EGRUL_GENERATION_NOT_FOUND');
+    expect(executeRaw).not.toHaveBeenCalled();
+  });
+
+  it('replaces only matching OGRNs and keeps cardinality atomic without prematurely sealing a batch', async () => {
     const inherited = { ...target, record_count: 2n };
     const changed = {
       ...record,
@@ -119,7 +136,7 @@ describe('FNS EGRUL baseline plus daily-delta composition', () => {
         primaryOkved: '46.21',
       },
     };
-    const { repository, executeRaw } = createRepository([[inherited], [base]], [1, 1, 1]);
+    const { repository, queryRaw, executeRaw } = createRepository([[inherited], [base]], [1, 1, 1]);
 
     await expect(repository.applyDailyDelta(TARGET_ID, [changed])).resolves.toEqual({
       replaced: 1,
@@ -134,9 +151,10 @@ describe('FNS EGRUL baseline plus daily-delta composition', () => {
     expect(sqlText(executeRaw.mock.calls[1][0])).toContain('INSERT INTO eligibility.registry_records');
     expect(sqlText(executeRaw.mock.calls[2][0])).toContain('SET record_count=?');
     expect((executeRaw.mock.calls[2][0] as { values?: unknown[] }).values).toContain(2n);
+    expect(queryRaw.mock.calls.some(([query]) => sqlText(query).includes('eligibility.record_fns_egrul_predecessor'))).toBe(false);
   });
 
-  it('allows a genuinely new OGRN in a daily delta and increments effective snapshot cardinality', async () => {
+  it('allows a genuinely new OGRN and increments cardinality without prematurely sealing a batch', async () => {
     const inherited = { ...target, record_count: 2n };
     const newRecord = {
       ...record,
@@ -150,13 +168,14 @@ describe('FNS EGRUL baseline plus daily-delta composition', () => {
         legalName: 'ООО НОВОЕ',
       },
     };
-    const { repository, executeRaw } = createRepository([[inherited], [base]], [0, 1, 1]);
+    const { repository, queryRaw, executeRaw } = createRepository([[inherited], [base]], [0, 1, 1]);
 
     await expect(repository.applyDailyDelta(TARGET_ID, [newRecord])).resolves.toEqual({
       replaced: 0,
       inserted: 1,
     });
     expect((executeRaw.mock.calls[2][0] as { values?: unknown[] }).values).toContain(3n);
+    expect(queryRaw.mock.calls.some(([query]) => sqlText(query).includes('eligibility.record_fns_egrul_predecessor'))).toBe(false);
   });
 
   it('refuses delta application before the active baseline has been inherited', async () => {
@@ -168,7 +187,17 @@ describe('FNS EGRUL baseline plus daily-delta composition', () => {
     expect(executeRaw).not.toHaveBeenCalled();
   });
 
-  it('keeps all composition mutations transaction-bound', async () => {
+  it('seals daily composition explicitly only after all delta batches are complete', async () => {
+    const inherited = { ...target, record_count: 2n };
+    const { repository, queryRaw, executeRaw, transaction } = createRepository([[inherited], [base], [{ record_fns_egrul_predecessor: TARGET_ID }]]);
+
+    await expect(repository.sealDailyComposition(TARGET_ID)).resolves.toEqual({ baseGenerationId: BASE_ID });
+    expect(executeRaw).not.toHaveBeenCalled();
+    expectPersistedPredecessor(queryRaw.mock.calls[2][0]);
+    expect(transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps baseline and delta mutations transaction-bound', async () => {
     const { repository, transaction } = createRepository([[target], [base]], [2, 1]);
     await repository.inheritActiveBase(TARGET_ID);
     expect(transaction).toHaveBeenCalledTimes(1);
