@@ -107,13 +107,40 @@ export const SELF_REFERENTIAL = new Set([
   'docs/ip/CHAIN_OF_TITLE_REGISTER.md',
 ]);
 
+/**
+ * Fields that the act of recording necessarily advances.
+ *
+ * Committing the record is itself a commit, and it touches files. Their
+ * material_contributors and evidence absorb that commit, CONTRIBUTORS.csv gains a
+ * commit for whoever authored it, and last_seen moves to now. A record generated
+ * before the commit cannot contain the commit that carries it, at any ordering.
+ *
+ * So these are compared for structure, not value, and everything else is compared
+ * exactly. What the register actually asserts still fails the gate: a file
+ * appearing or vanishing, an origin changing, a classification changing, a new
+ * identity, a rights status moving. What is excluded is arithmetic that advances
+ * whatever anybody does.
+ */
+export const COMMIT_ADVANCING_FIELDS = new Set(['material_contributors', 'evidence']);
+export const CONTRIBUTOR_ADVANCING_FIELDS = new Set(['commit_count', 'last_seen']);
+
+/** Drops the advancing columns so two rows are compared on what does not move. */
+export function stableRow(header, line, advancing) {
+  const cells = line.split(',');
+  return header.map((name, index) => (advancing.has(name) ? '' : cells[index] ?? '')).join(',');
+}
+
 /** A row-level account of the drift, because "the file differs" is not a finding
  *  anybody can act on. */
-export function csvDrift(committed, regenerated) {
+export function csvDrift(committed, regenerated, advancing = new Set()) {
   const key = (line) => line.split(',', 1)[0];
-  const rows = (text) => new Map(text.trim().split('\n').slice(1).filter(Boolean)
-    .map((line) => [key(line), line])
-    .filter(([path]) => !SELF_REFERENTIAL.has(path)));
+  const rows = (text) => {
+    const lines = text.trim().split('\n').filter(Boolean);
+    const header = lines[0].split(',');
+    return new Map(lines.slice(1)
+      .map((line) => [key(line), stableRow(header, line, advancing)])
+      .filter(([path]) => !SELF_REFERENTIAL.has(path)));
+  };
   const before = rows(committed);
   const after = rows(regenerated);
   const added = [...after.keys()].filter((path) => !before.has(path));
@@ -130,7 +157,11 @@ export function jsonDrift(committed, regenerated) {
     const records = Array.isArray(parsed) ? parsed : (parsed.files ?? parsed.records ?? []);
     return new Map(records
       .filter((record) => !SELF_REFERENTIAL.has(record.path))
-      .map((record) => [record.path, JSON.stringify(record)]));
+      .map((record) => {
+        const stable = { ...record };
+        for (const field of COMMIT_ADVANCING_FIELDS) delete stable[field];
+        return [record.path, JSON.stringify(stable)];
+      }));
   };
   const before = index(committed);
   const after = index(regenerated);
@@ -180,7 +211,8 @@ function main() {
       const committed = readFileSync(committedPath, 'utf8');
       if (sha256(committed) === sha256(regenerated)) continue;
       if (name.endsWith('.csv')) {
-        const drift = csvDrift(committed, regenerated);
+        const advancing = name === 'CONTRIBUTORS.csv' ? CONTRIBUTOR_ADVANCING_FIELDS : COMMIT_ADVANCING_FIELDS;
+        const drift = csvDrift(committed, regenerated, advancing);
         if (drift.added.length || drift.removed.length || drift.changed.length) {
           problems.push(`${name}: ${drift.added.length} row(s) added, ${drift.removed.length} removed, ${drift.changed.length} changed`);
         }
