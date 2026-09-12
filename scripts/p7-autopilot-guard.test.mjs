@@ -39,26 +39,39 @@ const sourceGuard = path.resolve('scripts/p7-autopilot-guard.sh');
 const sourceResolver = path.resolve('scripts/p7-source-controlled-scope.mjs');
 const sourceWorkflow = path.resolve('.github/workflows/platform-v7-autopilot-guard.yml');
 const sourceGitleaksReleaseAttestation = path.resolve(gitleaksReleaseAttestationPath);
+const gitleaksCommodityAnchor =
+  '        "ec4b80ce1ee4fa7cf18361f1ff536c34b5030948:"\n' +
+  '        "apps/api/src/modules/commodity-profiles/commodity-profile-command.contract.spec.ts:"\n' +
+  '        "generic-api-key:11",\n';
+const gitleaksServiceMarketplace =
+  '        "8c08a3d3764b616f919a1e73828643dff95db5d4:"\n' +
+  '        "apps/api/src/modules/service-marketplace/service-marketplace.contract.spec.ts:"\n' +
+  '        "generic-api-key:11",\n';
+const gitleaksSdizAnchor = '        ".github/workflows/pc-crop-08f-sync-main.yml:generic-api-key:126",\n';
+const gitleaksFinalReviewedEntries =
+  '        "bcc5ba620f5e8cfec4e540c4b9fab4e236393c63:"\n' +
+  '        "apps/web/tests/unit/platformV7RootWorkEntry.test.ts:generic-api-key:227",\n' +
+  '        "25f4fa23451d9b2fd58ff60ba9badfc063055796:"\n' +
+  '        ".github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:391",\n' +
+  '        "ba4e7b26a34f95ebc5636c6a18785a6a2d63b0b1:"\n' +
+  '        ".github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:395",\n';
+
+function baselineGitleaksReleaseAttestation(source) {
+  const serviceCount = source.split(gitleaksServiceMarketplace).length - 1;
+  const finalCount = source.split(gitleaksFinalReviewedEntries).length - 1;
+  assert.ok(serviceCount === 0 || serviceCount === 1);
+  assert.equal(finalCount, serviceCount, 'reviewed fingerprint groups must be both absent or both present');
+  return source
+    .replace(gitleaksServiceMarketplace, '')
+    .replace(gitleaksFinalReviewedEntries, '');
+}
 
 function synchronizeGitleaksReleaseAttestation(baseline) {
-  const commodityAnchor = '        "generic-api-key:11",\n';
-  const serviceMarketplace =
-    '        "8c08a3d3764b616f919a1e73828643dff95db5d4:"\n' +
-    '        "apps/api/src/modules/service-marketplace/service-marketplace.contract.spec.ts:"\n' +
-    '        "generic-api-key:11",\n';
-  const sdizAnchor = '        ".github/workflows/pc-crop-08f-sync-main.yml:generic-api-key:126",\n';
-  const finalReviewedEntries =
-    '        "bcc5ba620f5e8cfec4e540c4b9fab4e236393c63:"\n' +
-    '        "apps/web/tests/unit/platformV7RootWorkEntry.test.ts:generic-api-key:227",\n' +
-    '        "25f4fa23451d9b2fd58ff60ba9badfc063055796:"\n' +
-    '        ".github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:391",\n' +
-    '        "ba4e7b26a34f95ebc5636c6a18785a6a2d63b0b1:"\n' +
-    '        ".github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:395",\n';
-  assert.equal(baseline.split(commodityAnchor).length - 1, 1);
-  assert.equal(baseline.split(sdizAnchor).length - 1, 1);
+  assert.equal(baseline.split(gitleaksCommodityAnchor).length - 1, 1);
+  assert.equal(baseline.split(gitleaksSdizAnchor).length - 1, 1);
   return baseline
-    .replace(commodityAnchor, commodityAnchor + serviceMarketplace)
-    .replace(sdizAnchor, sdizAnchor + finalReviewedEntries);
+    .replace(gitleaksCommodityAnchor, gitleaksCommodityAnchor + gitleaksServiceMarketplace)
+    .replace(gitleaksSdizAnchor, gitleaksSdizAnchor + gitleaksFinalReviewedEntries);
 }
 
 function write(root, file, content, mode) {
@@ -227,7 +240,8 @@ function kindMinioImageSourceFixture(t) {
 
 function gitleaksReleaseAttestationFixture(t) {
   const context = fixture(t, gitleaksReleaseAttestationBranch);
-  write(context.root, gitleaksReleaseAttestationPath, fs.readFileSync(sourceGitleaksReleaseAttestation, 'utf8'));
+  const source = fs.readFileSync(sourceGitleaksReleaseAttestation, 'utf8');
+  write(context.root, gitleaksReleaseAttestationPath, baselineGitleaksReleaseAttestation(source));
   const state = JSON.parse(fs.readFileSync(path.join(context.root, 'docs/platform-v7/autopilot/autopilot-state.json'), 'utf8'));
   state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch] = [gitleaksReleaseAttestationPath];
   write(context.root, 'docs/platform-v7/autopilot/autopilot-state.json', `${JSON.stringify(state, null, 2)}\n`);
@@ -241,6 +255,10 @@ test('gitleaks release attestation scope accepts exactly four reviewed fingerpri
   assert.deepEqual(state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch], [gitleaksReleaseAttestationPath]);
   const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
   assert.ok(workflow.includes(`- '${gitleaksReleaseAttestationPath}'`), 'missing Gitleaks attestation PR-head trigger');
+  const source = fs.readFileSync(sourceGitleaksReleaseAttestation, 'utf8');
+  const normalizedBaseline = baselineGitleaksReleaseAttestation(source);
+  const synchronized = synchronizeGitleaksReleaseAttestation(normalizedBaseline);
+  assert.equal(baselineGitleaksReleaseAttestation(synchronized), normalizedBaseline);
 
   const allowed = gitleaksReleaseAttestationFixture(t);
   const baseline = fs.readFileSync(path.join(allowed.root, gitleaksReleaseAttestationPath), 'utf8');
