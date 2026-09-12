@@ -217,6 +217,8 @@ function gitleaksReleaseAttestationFixture(t) {
 test('gitleaks release attestation scope accepts exactly its regression test', (t) => {
   const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
   assert.deepEqual(state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch], [gitleaksReleaseAttestationPath]);
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  assert.ok(workflow.includes(`- '${gitleaksReleaseAttestationPath}'`), 'missing Gitleaks attestation PR-head trigger');
 
   const allowed = gitleaksReleaseAttestationFixture(t);
   write(allowed.root, gitleaksReleaseAttestationPath, 'synchronized exact fingerprints\n');
