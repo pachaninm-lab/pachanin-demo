@@ -108,6 +108,156 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  trusted-kind-minio-governance-bootstrap:
+    name: Kind MinIO governance bootstrap · trusted base
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      github.event.pull_request.head.ref == 'governance/kind-minio-image-source-20260912'
+    permissions:
+      checks: write
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout trusted base revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate MinIO governance bootstrap from trusted base
+        id: trusted_validation
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+        run: |
+          set +e
+          (
+            set -Eeuo pipefail
+            if [ "$HEAD_REPOSITORY" != "$GITHUB_REPOSITORY" ]; then
+              echo 'Kind MinIO governance bootstrap rejects same-name branches from forks.' >&2
+              exit 1
+            fi
+            if ! [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || ! [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+              echo 'Kind MinIO governance bootstrap received an invalid commit SHA.' >&2
+              exit 1
+            fi
+            test "$(git rev-parse HEAD)" = "$BASE_SHA"
+            git fetch --no-tags origin "$HEAD_SHA"
+            test "$(git rev-parse FETCH_HEAD)" = "$HEAD_SHA"
+            git merge-base --is-ancestor "$BASE_SHA" "$HEAD_SHA"
+            node <<'NODE'
+          const { isDeepStrictEqual } = require('node:util');
+          const { execFileSync } = require('node:child_process');
+
+          const baseSha = String(process.env.BASE_SHA || '').trim();
+          const headSha = String(process.env.HEAD_SHA || '').trim();
+          const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+          const expectedBaseStateBlob = '1cdd0fbaa8b21533790d46d5ad941be5311bcf76';
+          const governanceBranch = 'governance/kind-minio-image-source-20260912';
+          const implementationBranch = 'fix/kind-minio-image-source-20260912';
+          const governancePaths = [
+            '.github/workflows/platform-v7-autopilot-guard.yml',
+            'docs/platform-v7/autopilot/autopilot-state.json',
+            'docs/platform-v7/autopilot/prompts/current-codex-task.md',
+            'docs/platform-v7/autopilot/prompts/current-review-task.md',
+            'docs/platform-v7/execution-queue.md',
+            'scripts/p7-autopilot-guard.sh',
+            'scripts/p7-autopilot-guard.test.mjs',
+          ];
+          const implementationPaths = [
+            'infra/kind/production-like/dependencies.yaml',
+            'infra/kind/production-like/minio-tls-check.yaml',
+            'scripts/release/production-like-kubernetes-cluster.sh',
+          ];
+          const ensureSafeUniqueExactPaths = (label, actual, expected) => {
+            if (!Array.isArray(actual)) throw new Error(`${label}_NOT_ARRAY`);
+            const normalized = actual.map((value, index) => {
+              if (typeof value !== 'string' || value !== value.trim()) {
+                throw new Error(`${label}_${index}_INVALID`);
+              }
+              if (!value || value.includes('\\') || value.includes('*') || value === '..' || value.startsWith('../') || value.includes('/../') || value.startsWith('/')) {
+                throw new Error(`${label}_${index}_UNSAFE`);
+              }
+              return value;
+            });
+            if (new Set(normalized).size !== normalized.length) throw new Error(`${label}_DUPLICATE`);
+            if (!isDeepStrictEqual(normalized, expected)) throw new Error(`${label}_IDENTITY_MISMATCH`);
+          };
+
+          const baseStateBlob = execFileSync('git', ['rev-parse', `${baseSha}:${statePath}`], { encoding: 'utf8' }).trim();
+          if (baseStateBlob !== expectedBaseStateBlob) throw new Error('KIND_MINIO_BOOTSTRAP_BASE_STATE_MISMATCH');
+
+          const diff = execFileSync(
+            'git', ['diff', '--no-renames', '--name-status', `${baseSha}...${headSha}`], { encoding: 'utf8' },
+          ).trim().split(/\r?\n/u).filter(Boolean).map((line) => {
+            const [status, file, extra] = line.split('\t');
+            if (extra || !file || status !== 'M') throw new Error(`KIND_MINIO_BOOTSTRAP_DIFF_STATUS:${line}`);
+            return file;
+          });
+          if (new Set(diff).size !== diff.length || !isDeepStrictEqual([...diff].sort(), [...governancePaths].sort())) {
+            throw new Error(`KIND_MINIO_BOOTSTRAP_SCOPE_VIOLATION:${diff.join(',')}`);
+          }
+
+          const baseState = JSON.parse(execFileSync('git', ['show', `${baseSha}:${statePath}`], { encoding: 'utf8' }));
+          const headState = JSON.parse(execFileSync('git', ['show', `${headSha}:${statePath}`], { encoding: 'utf8' }));
+          if (!baseState.approvedConcurrentScopes || typeof baseState.approvedConcurrentScopes !== 'object') {
+            throw new Error('KIND_MINIO_BOOTSTRAP_BASE_SCOPES_INVALID');
+          }
+          if (Object.hasOwn(baseState.approvedConcurrentScopes, governanceBranch) || Object.hasOwn(baseState.approvedConcurrentScopes, implementationBranch)) {
+            throw new Error('KIND_MINIO_BOOTSTRAP_IDENTITY_ALREADY_EXISTS');
+          }
+          const expectedHeadState = structuredClone(baseState);
+          expectedHeadState.approvedConcurrentScopes[governanceBranch] = governancePaths;
+          expectedHeadState.approvedConcurrentScopes[implementationBranch] = implementationPaths;
+          if (!isDeepStrictEqual(headState, expectedHeadState)) throw new Error('KIND_MINIO_BOOTSTRAP_STATE_MUTATION');
+          ensureSafeUniqueExactPaths('KIND_MINIO_GOVERNANCE_PATHS', headState.approvedConcurrentScopes[governanceBranch], governancePaths);
+          ensureSafeUniqueExactPaths('KIND_MINIO_IMPLEMENTATION_PATHS', headState.approvedConcurrentScopes[implementationBranch], implementationPaths);
+          console.log(`PASS: exact head ${headSha} is the bounded seven-file Kind MinIO governance bootstrap.`);
+          NODE
+          ) > "$RUNNER_TEMP/trusted-kind-minio-bootstrap.log" 2>&1
+          rc=$?
+          set -e
+          cat "$RUNNER_TEMP/trusted-kind-minio-bootstrap.log"
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+      - name: Emit required guard context on the exact PR head
+        id: trusted_context
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          VALIDATION_RC: ${{ steps.trusted_validation.outputs.rc }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
+          conclusion=failure
+          title='Kind MinIO governance bootstrap rejected'
+          summary="The trusted-base bootstrap validation failed for exact head $HEAD_SHA."
+          if [[ "$VALIDATION_RC" == 0 ]]; then
+            conclusion=success
+            title='Kind MinIO governance bootstrap accepted'
+            summary="The exact PR head $HEAD_SHA adds only the bounded governance and implementation identities authorized by the accepted base state."
+          fi
+          gh api --method POST \
+            -H 'Accept: application/vnd.github+json' \
+            "repos/$GITHUB_REPOSITORY/check-runs" \
+            -f name='guard' \
+            -f head_sha="$HEAD_SHA" \
+            -f status='completed' \
+            -f conclusion="$conclusion" \
+            -f "output[title]=$title" \
+            -f "output[summary]=$summary" >/dev/null
+      - name: Enforce trusted Kind MinIO bootstrap result
+        if: always()
+        env:
+          VALIDATION_RC: ${{ steps.trusted_validation.outputs.rc }}
+          CONTEXT_OUTCOME: ${{ steps.trusted_context.outcome }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$VALIDATION_RC" == 0 ]]
+          [[ "$CONTEXT_OUTCOME" == success ]]
+
   trusted-egrul-scope:
     name: FNS EGRUL immutable scope · trusted base
     if: >-
@@ -293,6 +443,7 @@ jobs:
       github.event.pull_request.head.ref == 'governance/production-like-outbox-poison-isolation-scope-3793' ||
       github.event.pull_request.head.ref == 'fix/production-like-outbox-poison-isolation-3793' ||
       github.event.pull_request.head.ref == 'fix/local-qwen-failed-review-evidence-20260912' ||
+      github.event.pull_request.head.ref == 'fix/kind-minio-image-source-20260912' ||
       github.event.pull_request.head.ref == 'fix/owner-handoff-product-host-20260908' ||
       github.event.pull_request.head.ref == 'security/pc-crop-next-15-5-24-4997')
     permissions:
@@ -322,7 +473,7 @@ jobs:
               exit 1
             fi
             case "$IMMUTABLE_SCOPE_BRANCH" in
-              fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|feat/pc-crop-auction-inventory-authority-4997|ops/pc-crop-w1-production-acceptance-4997|governance/pc-crop-post-registration-progress-scope-4997|governance/pc-crop-inventory-reservation-scope-4997|docs/pc-crop-post-registration-progress-4997|governance/public-home-role-clarity-scope-20260905|feat/public-home-role-clarity-20260905|governance/production-like-outbox-poison-isolation-scope-3793|fix/production-like-outbox-poison-isolation-3793|fix/local-qwen-failed-review-evidence-20260912|fix/owner-handoff-product-host-20260908|security/pc-crop-next-15-5-24-4997) ;;
+              fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|feat/pc-crop-auction-inventory-authority-4997|ops/pc-crop-w1-production-acceptance-4997|governance/pc-crop-post-registration-progress-scope-4997|governance/pc-crop-inventory-reservation-scope-4997|docs/pc-crop-post-registration-progress-4997|governance/public-home-role-clarity-scope-20260905|feat/public-home-role-clarity-20260905|governance/production-like-outbox-poison-isolation-scope-3793|fix/production-like-outbox-poison-isolation-3793|fix/local-qwen-failed-review-evidence-20260912|fix/kind-minio-image-source-20260912|fix/owner-handoff-product-host-20260908|security/pc-crop-next-15-5-24-4997) ;;
               *) echo 'Trusted immutable-scope guard received an unauthorized branch.' >&2; exit 1 ;;
             esac
             if ! [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || ! [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
@@ -377,7 +528,7 @@ jobs:
           [[ "$CONTEXT_OUTCOME" == success ]]
 
   guard:
-    name: ${{ github.event_name == 'pull_request' && (github.head_ref == 'fix/p0-registration-authority-rollover-4637' || github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698' || github.head_ref == 'feat/pc-crop-auction-inventory-authority-4997' || github.head_ref == 'ops/pc-crop-w1-production-acceptance-4997' || github.head_ref == 'governance/pc-crop-post-registration-progress-scope-4997' || github.head_ref == 'governance/pc-crop-inventory-reservation-scope-4997' || github.head_ref == 'docs/pc-crop-post-registration-progress-4997' || github.head_ref == 'governance/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'feat/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'governance/public-home-role-clarity-scope-20260905' || github.head_ref == 'feat/public-home-role-clarity-20260905' || github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' || github.head_ref == 'fix/production-like-outbox-poison-isolation-3793' || github.head_ref == 'fix/local-qwen-failed-review-evidence-20260912' || github.head_ref == 'fix/owner-handoff-product-host-20260908') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}
+    name: ${{ github.event_name == 'pull_request' && (github.head_ref == 'fix/p0-registration-authority-rollover-4637' || github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698' || github.head_ref == 'feat/pc-crop-auction-inventory-authority-4997' || github.head_ref == 'ops/pc-crop-w1-production-acceptance-4997' || github.head_ref == 'governance/pc-crop-post-registration-progress-scope-4997' || github.head_ref == 'governance/pc-crop-inventory-reservation-scope-4997' || github.head_ref == 'docs/pc-crop-post-registration-progress-4997' || github.head_ref == 'governance/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'feat/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'governance/public-home-role-clarity-scope-20260905' || github.head_ref == 'feat/public-home-role-clarity-20260905' || github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' || github.head_ref == 'fix/production-like-outbox-poison-isolation-3793' || github.head_ref == 'fix/local-qwen-failed-review-evidence-20260912' || github.head_ref == 'fix/kind-minio-image-source-20260912' || github.head_ref == 'fix/owner-handoff-product-host-20260908') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}
     needs: standard_validation
     if: always() && github.event_name != 'pull_request_target'
     permissions:
@@ -415,6 +566,7 @@ jobs:
           github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' ||
           github.head_ref == 'fix/production-like-outbox-poison-isolation-3793' ||
           github.head_ref == 'fix/local-qwen-failed-review-evidence-20260912' ||
+          github.head_ref == 'fix/kind-minio-image-source-20260912' ||
           github.head_ref == 'fix/owner-handoff-product-host-20260908')
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -422,7 +574,7 @@ jobs:
           IMMUTABLE_SCOPE_BRANCH: ${{ github.head_ref }}
         run: |
           case "$IMMUTABLE_SCOPE_BRANCH" in
-            fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|feat/pc-crop-auction-inventory-authority-4997|ops/pc-crop-w1-production-acceptance-4997|governance/pc-crop-post-registration-progress-scope-4997|governance/pc-crop-inventory-reservation-scope-4997|docs/pc-crop-post-registration-progress-4997|governance/public-home-role-clarity-scope-20260905|feat/public-home-role-clarity-20260905|governance/production-like-outbox-poison-isolation-scope-3793|fix/production-like-outbox-poison-isolation-3793|fix/local-qwen-failed-review-evidence-20260912|fix/owner-handoff-product-host-20260908) ;;
+            fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|feat/pc-crop-auction-inventory-authority-4997|ops/pc-crop-w1-production-acceptance-4997|governance/pc-crop-post-registration-progress-scope-4997|governance/pc-crop-inventory-reservation-scope-4997|docs/pc-crop-post-registration-progress-4997|governance/public-home-role-clarity-scope-20260905|feat/public-home-role-clarity-20260905|governance/production-like-outbox-poison-isolation-scope-3793|fix/production-like-outbox-poison-isolation-3793|fix/local-qwen-failed-review-evidence-20260912|fix/kind-minio-image-source-20260912|fix/owner-handoff-product-host-20260908) ;;
             *) echo 'PR-head immutable-scope guard received an unauthorized branch.' >&2; exit 1 ;;
           esac
           if ! [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || ! [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
@@ -479,6 +631,7 @@ jobs:
           github.head_ref != 'governance/production-like-outbox-poison-isolation-scope-3793' &&
           github.head_ref != 'fix/production-like-outbox-poison-isolation-3793' &&
           github.head_ref != 'fix/local-qwen-failed-review-evidence-20260912' &&
+          github.head_ref != 'fix/kind-minio-image-source-20260912' &&
           github.head_ref != 'fix/owner-handoff-product-host-20260908' &&
           github.head_ref != 'security/pc-crop-next-15-5-24-4997')
         run: bash scripts/p7-autopilot-guard.sh
