@@ -200,6 +200,15 @@
     ".github/workflows/ci.yml"
   ],
   "approvedConcurrentScopes": {
+    "governance/kind-minio-image-source-20260912": [
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "docs/platform-v7/autopilot/prompts/current-codex-task.md",
+      "docs/platform-v7/autopilot/prompts/current-review-task.md",
+      "docs/platform-v7/execution-queue.md",
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs"
+    ],
     "fix/local-qwen-failed-review-evidence-20260912": [
       ".github/workflows/local-qwen-independent-review.yml",
       "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
@@ -1403,6 +1412,11 @@
       "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
       "docs/platform-v7/qa/web-unit-coverage-registry.json",
       "apps/web/app/platform-v7/staff/cabinet-handoff/page.tsx"
+    ],
+    "fix/kind-minio-image-source-20260912": [
+      "infra/kind/production-like/dependencies.yaml",
+      "infra/kind/production-like/minio-tls-check.yaml",
+      "scripts/release/production-like-kubernetes-cluster.sh"
     ]
   },
   "currentAcceptance": [

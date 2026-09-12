@@ -23,6 +23,12 @@ const poisonIsolationImplementationBranch = 'fix/production-like-outbox-poison-i
 const poisonIsolationManifest = 'docs/platform-v7/autopilot/scopes/production-like-outbox-poison-isolation-3793.json';
 const poisonIsolationScript = 'scripts/release/production-like-kubernetes-outbox-runtime.sh';
 const qwenFailedEvidenceBranch = 'fix/local-qwen-failed-review-evidence-20260912';
+const kindMinioImageSourceBranch = 'fix/kind-minio-image-source-20260912';
+const kindMinioImageSourcePaths = [
+  'infra/kind/production-like/dependencies.yaml',
+  'infra/kind/production-like/minio-tls-check.yaml',
+  'scripts/release/production-like-kubernetes-cluster.sh',
+];
 const qwenFailedEvidencePaths = [
   '.github/workflows/local-qwen-independent-review.yml',
   'docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs',
@@ -181,6 +187,37 @@ function qwenFailedEvidenceFixture(t) {
   context.baseline = git(context.root, ['rev-parse', 'HEAD']);
   return context;
 }
+
+function kindMinioImageSourceFixture(t) {
+  const context = fixture(t, kindMinioImageSourceBranch);
+  write(context.root, 'infra/kind/production-like/dependencies.yaml', 'baseline dependencies\n');
+  write(context.root, 'infra/kind/production-like/minio-tls-check.yaml', 'baseline TLS check\n');
+  write(context.root, 'scripts/release/production-like-kubernetes-cluster.sh', '#!/usr/bin/env bash\n', 0o755);
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, 'docs/platform-v7/autopilot/autopilot-state.json'), 'utf8'));
+  state.approvedConcurrentScopes[kindMinioImageSourceBranch] = kindMinioImageSourcePaths;
+  write(context.root, 'docs/platform-v7/autopilot/autopilot-state.json', `${JSON.stringify(state, null, 2)}\n`);
+  commit(context.root, 'accepted bounded kind MinIO image-source scope');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  return context;
+}
+
+test('kind MinIO image-source scope accepts exactly three paths and rejects ci.yml', (t) => {
+  const allowed = kindMinioImageSourceFixture(t);
+  write(allowed.root, kindMinioImageSourcePaths[0], 'pinned server image\n');
+  write(allowed.root, kindMinioImageSourcePaths[1], 'pinned TLS client image\n');
+  write(allowed.root, kindMinioImageSourcePaths[2], '#!/usr/bin/env bash\n# pinned initializer client image\n', 0o755);
+  commit(allowed.root, 'change all three accepted MinIO image references');
+  const acceptedResult = runGuard(allowed);
+  assert.equal(acceptedResult.status, 0, output(acceptedResult));
+
+  const rejected = kindMinioImageSourceFixture(t);
+  write(rejected.root, '.github/workflows/ci.yml', 'name: unauthorized widening\n');
+  commit(rejected.root, 'attempt unrelated CI workflow change');
+  const result = runGuard(rejected);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /\.github\/workflows\/ci\.yml/u);
+  assert.match(output(result), /Files outside current autopilot scope/u);
+});
 
 test('Qwen failed-evidence scope accepts exactly the two previously approved diagnostic paths', (t) => {
   const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
@@ -460,6 +497,7 @@ test('runs immutable authority checks from a read-only trusted-base workflow', (
     `github.event.pull_request.head.ref == '${publicHomeImplementationBranch}'`,
     "github.event.pull_request.head.ref == 'governance/production-like-outbox-poison-isolation-scope-3793'",
     "github.event.pull_request.head.ref == 'fix/production-like-outbox-poison-isolation-3793'",
+    `github.event.pull_request.head.ref == '${kindMinioImageSourceBranch}'`,
     "github.event.pull_request.head.ref == 'fix/owner-handoff-product-host-20260908'",
     "const manifestPath = 'docs/platform-v7/autopilot/scopes/role-eligibility-fns-egrul-file-import-5016.json';",
     "'apps/api/src/fns-egrul-import.ts'",
@@ -481,7 +519,7 @@ test('runs immutable authority checks from a read-only trusted-base workflow', (
     "-f name='guard'",
     '-f head_sha="$HEAD_SHA"',
     "-f status='completed'",
-    `github.head_ref == '${publicHomeImplementationBranch}' || github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' || github.head_ref == 'fix/production-like-outbox-poison-isolation-3793' || github.head_ref == '${qwenFailedEvidenceBranch}' || github.head_ref == 'fix/owner-handoff-product-host-20260908') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}`,
+    `github.head_ref == '${publicHomeImplementationBranch}' || github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' || github.head_ref == 'fix/production-like-outbox-poison-isolation-3793' || github.head_ref == '${qwenFailedEvidenceBranch}' || github.head_ref == '${kindMinioImageSourceBranch}' || github.head_ref == 'fix/owner-handoff-product-host-20260908') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}`,
     'needs: standard_validation',
     "if: always() && github.event_name != 'pull_request_target'",
     'git show "$BASE_SHA:scripts/p7-autopilot-guard.sh" > "$TRUSTED_GUARD"',
@@ -535,7 +573,7 @@ test('governance branches retain unprivileged head regression validation', () =>
   assert.ok(workflow.includes('run: node --test scripts/p7-autopilot-guard.test.mjs'));
 });
 
-for (const branch of ['feat/pc-crop-auction-inventory-authority-4997', 'ops/pc-crop-w1-production-acceptance-4997', qwenFailedEvidenceBranch]) {
+for (const branch of ['feat/pc-crop-auction-inventory-authority-4997', 'ops/pc-crop-w1-production-acceptance-4997', qwenFailedEvidenceBranch, kindMinioImageSourceBranch]) {
 test(`${branch}: trusted scope routing retains substantive head validation`, () => {
   const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
   const section = (start, end) => {
