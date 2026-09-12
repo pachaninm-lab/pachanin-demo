@@ -36,13 +36,32 @@ import { WorkTaskStatus } from './work-task.policy';
 import { WorkTaskRepository } from './work-task.repository';
 
 /**
+ * Exact HTTP-level exception for organization bookkeepers.
+ *
+ * GUEST is not authority. It is the compatibility market-role label used with
+ * organization job profiles such as ACCOUNTANT/EXTERNAL_ACCOUNTANT. Only the
+ * handlers below that resolve durable membership capabilities may override the
+ * class fence with this list. All document, money, period-close and other
+ * accounting handlers keep the class-level roles until their own capability
+ * migration is reviewed.
+ */
+const ORGANIZATION_ACCOUNTING_MEMBER_ROLES = [
+  'ADMIN',
+  'FARMER',
+  'BUYER',
+  'SUPPORT_MANAGER',
+  'COMPLIANCE_OFFICER',
+  'GUEST',
+] as const;
+
+/**
  * The minimum surface the accounting contour needs to be reachable.
  *
  * Two routes, both taking the actor from the request rather than the body.
  * Nothing here re-checks tenancy or membership: the repositories run inside
- * `withTrustedContext`, and the row policies already refuse what this actor
- * must not see. A second check in the controller would be the weaker copy that
- * drifts — the mistake the whole contour was built to avoid.
+ * their reviewed RLS transaction context, and the row policies already refuse
+ * what this actor must not see. A second check in the controller would be the
+ * weaker copy that drifts — the mistake the whole contour was built to avoid.
  *
  * `documentDate` is not accepted from the caller. A date chosen by the client
  * selects which tax profile, contract version and regulatory rule govern the
@@ -102,6 +121,7 @@ export class AccountingController {
    * the first task ever listed.
    */
   @Get('tasks')
+  @Roles(...ORGANIZATION_ACCOUNTING_MEMBER_ROLES)
   async listTasks(@CurrentUser() user: RequestUser) {
     const tasks = await this.tasks.listOpen(user);
     return tasks.map((task) => ({ ...task, version: task.version.toString() }));
@@ -115,6 +135,7 @@ export class AccountingController {
    * silently discards the earlier decision.
    */
   @Post('tasks/:taskId/transition')
+  @Roles(...ORGANIZATION_ACCOUNTING_MEMBER_ROLES)
   transition(
     @Param('taskId') taskId: string,
     @CurrentUser() user: RequestUser,
@@ -147,6 +168,7 @@ export class AccountingController {
    * note. Who wrote it is resolved by the database, not named in the call.
    */
   @Post('tasks')
+  @Roles(...ORGANIZATION_ACCOUNTING_MEMBER_ROLES)
   createTask(
     @CurrentUser() user: RequestUser,
     @Body()
@@ -185,6 +207,7 @@ export class AccountingController {
    * filters over one table: three different questions.
    */
   @Get('tasks/projection')
+  @Roles(...ORGANIZATION_ACCOUNTING_MEMBER_ROLES)
   async projection(
     @CurrentUser() user: RequestUser,
     @Query('view') view?: string,
@@ -698,6 +721,7 @@ export class AccountingController {
    * its prerequisites named, which is the honest form of "not yet".
    */
   @Get('connections')
+  @Roles(...ORGANIZATION_ACCOUNTING_MEMBER_ROLES)
   listConnections(@CurrentUser() user: RequestUser) {
     return this.connections.describe(user);
   }
@@ -707,6 +731,7 @@ export class AccountingController {
    * has got.
    */
   @Get('connections/attestations')
+  @Roles(...ORGANIZATION_ACCOUNTING_MEMBER_ROLES)
   listConnectionAttestations(@CurrentUser() user: RequestUser) {
     return this.attestations.list(user);
   }
@@ -717,6 +742,7 @@ export class AccountingController {
    * code is normalized so one operator cannot become two approval histories.
    */
   @Post('connections/attestations/subjects')
+  @Roles(...ORGANIZATION_ACCOUNTING_MEMBER_ROLES)
   registerConnectionSubject(
     @CurrentUser() user: RequestUser,
     @Body() body: { connectionKind: string; providerCode: string; environment: string },
@@ -737,6 +763,7 @@ export class AccountingController {
    * decision too — that is the rule that makes four gates mean four people.
    */
   @Post('connections/attestations/:subjectId')
+  @Roles(...ORGANIZATION_ACCOUNTING_MEMBER_ROLES)
   attestConnection(
     @Param('subjectId') subjectId: string,
     @CurrentUser() user: RequestUser,

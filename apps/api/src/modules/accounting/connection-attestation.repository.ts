@@ -82,7 +82,7 @@ export class ConnectionAttestationRepository {
 
   /** Every subject this organization has registered, with what it adds up to. */
   async list(user: RequestUser | undefined): Promise<readonly SubjectView[]> {
-    return this.transactions.withTrustedContext(user, async (tx, context) => {
+    return this.transactions.withOrganizationMemberContext(user, async (tx, context) => {
       const capabilities = await this.tasks.capabilitiesWithin(tx);
       if (capabilities.includes(READ_CAPABILITY) === false) {
         return [];
@@ -143,7 +143,7 @@ export class ConnectionAttestationRepository {
       environment: string;
     },
   ): Promise<{ outcome: SubjectOutcome; subjectId?: string; refusal?: string }> {
-    return this.transactions.withTrustedContext(user, async (tx, context) => {
+    return this.transactions.withOrganizationMemberContext(user, async (tx, context) => {
       const capabilities = await this.tasks.capabilitiesWithin(tx);
       const membership = await this.tasks.membershipWithin(tx);
       if (membership === null || capabilities.includes(CONFIGURE_CAPABILITY) === false) {
@@ -202,7 +202,7 @@ export class ConnectionAttestationRepository {
       correlationId: string;
     },
   ): Promise<{ outcome: AttestationOutcome; attestationId?: string; refusal?: string }> {
-    return this.transactions.withTrustedContext(user, async (tx) => {
+    return this.transactions.withOrganizationMemberContext(user, async (tx) => {
       const capabilities = await this.tasks.capabilitiesWithin(tx);
       const membership = await this.tasks.membershipWithin(tx);
       if (membership === null || capabilities.includes(CONFIGURE_CAPABILITY) === false) {
