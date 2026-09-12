@@ -372,7 +372,22 @@ jobs:
             api=$(docker inspect --format '{{.Id}}' "$(api_id)")
             project=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' "$api")
             docker ps -aq --no-trunc --filter "label=com.docker.compose.project=$project" | sort | xargs -r docker inspect | \
-              API_EXCLUDED="$api" python3 -c 'import os,hashlib,json,sys; a=json.load(sys.stdin); a=[{k:x.get(k) for k in ("Id","Image","Config","HostConfig","Mounts")} | {"StartedAt":x.get("State",{}).get("StartedAt"),"Running":x.get("State",{}).get("Running")} for x in a if x["Id"]!=os.environ["API_EXCLUDED"]]; print(hashlib.sha256(json.dumps(a,sort_keys=True,separators=(",",":")).encode()).hexdigest())'
+              API_EXCLUDED="$api" python3 -c '
+          import hashlib, json, os, sys
+          inventory = []
+          for container in json.load(sys.stdin):
+              if container["Id"] == os.environ["API_EXCLUDED"]:
+                  continue
+              record = {key: container.get(key) for key in ("Id", "Image", "Config", "HostConfig", "Mounts")}
+              mounts = record["Mounts"]
+              if isinstance(mounts, list):
+                  record["Mounts"] = sorted(mounts, key=lambda mount: json.dumps(mount, sort_keys=True, separators=(",", ":")))
+              record["StartedAt"] = container.get("State", {}).get("StartedAt")
+              record["Running"] = container.get("State", {}).get("Running")
+              inventory.append(record)
+          encoded = json.dumps(inventory, sort_keys=True, separators=(",", ":")).encode()
+          print(hashlib.sha256(encoded).hexdigest())
+          '
           }
           before_env=$(env_hash); before_siblings=$(sibling_hash)
           chmod 0700 "$remote"/*.sh
