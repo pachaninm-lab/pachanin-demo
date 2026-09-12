@@ -387,21 +387,28 @@
     "currentOperationalCheckpoint": {
       "recordedAt": "2026-09-12T14:24:00Z",
       "scope": "W1_OPERATIONS_ONLY_NO_AUDIT_REASSESSMENT",
-      "observedMainSha": "c39b600d111f0bc5440423f565e142386ceb276c",
+      "observedMainSha": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
       "findingsResolved": true,
-      "addressedFindingIDs": [3996417166, 3996447418],
+      "addressedFindingIDs": [
+        3996417166,
+        3996447418
+      ],
       "freshCurrentHeadReviews": "BLOCKED",
       "nativeCurrentHeadReview": "CLEAN_COMMENT_OBSERVED",
       "implementation": {
         "pr": 5332,
-        "headSha": "2b62e9b3c8e0d875b64dc36dd87be6f15a29f466",
-        "treeSha": "6f670f7f6ce2624e35cf433c6f4872e06ac1d966",
-        "status": "OPEN_PROVIDER_REVIEWS_BLOCKED",
+        "headSha": "ff03424d073e97d52f1a8cf38dad3de74345ed08",
+        "treeSha": "56713a7082855d49acd96452a2c4a7e1d2a7e1d8",
+        "baseSha": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+        "status": "OPEN_PROVIDER_REVIEWS_BLOCKED_SUBSTANTIVE_CI_TERMINAL",
         "localValidation": {
-          "passed": 155,
+          "passed": 161,
+          "w1Tests": 127,
+          "reviewTests": 34,
           "skipped": 1,
           "skipReason": "Exact-image Docker/PostgreSQL rehearsal unavailable locally; remote rehearsal remains required."
         },
+        "exactBaseGuard": "PASS",
         "merged": false,
         "released": false
       },
@@ -449,38 +456,256 @@
         }
       },
       "currentHeadReviewEvidence": {
+        "reviewedHeadSha": "ff03424d073e97d52f1a8cf38dad3de74345ed08",
         "nativeCodex": {
-          "reviewComment": 5646467131,
-          "evidenceUrl": "https://github.com/pachaninm-lab/pachanin-demo/pull/5332#issuecomment-5646467131",
-          "reviewedHeadSha": "2b62e9b3c8e0d875b64dc36dd87be6f15a29f466",
-          "conclusion": "CLEAN_COMMENT",
-          "mergeAdmission": "BLOCKED_BY_OTHER_PROVIDER_FAILURES"
+          "conclusion": "CLEAN_EXACT_HEAD",
+          "reviewComment": 5646983209,
+          "evidenceUrl": "https://github.com/pachaninm-lab/pachanin-demo/pull/5332#issuecomment-5646983209",
+          "exactHeadReviewGate": "SUCCESS",
+          "gateObservedTimeUtc": "15:57:40",
+          "mergeAdmission": "BLOCKED_BY_PROVIDER_FAILURES"
         },
         "localQwen": {
-          "run": 34698950403,
-          "job": 103567194838,
-          "evidenceUrl": "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34698950403/job/103567194838",
-          "reviewedHeadSha": "2b62e9b3c8e0d875b64dc36dd87be6f15a29f466",
+          "run": 34703519981,
+          "job": 103579332561,
+          "evidenceUrl": "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34703519981/job/103579332561",
           "conclusion": "FAILURE",
           "error": "POLICY_REPAIR_INVALID_SPECULATIVE_REASON",
           "acceptedReview": false
         },
         "octopus": {
-          "run": 34698950330,
-          "job": 103567194804,
-          "evidenceUrl": "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34698950330/job/103567194804",
-          "reviewedHeadSha": "2b62e9b3c8e0d875b64dc36dd87be6f15a29f466",
+          "run": 34703519988,
+          "job": 103579332693,
+          "evidenceUrl": "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34703519988/job/103579332693",
           "conclusion": "FAILURE",
-          "reason": "Daily review limit reached (community tier).",
+          "reason": "Daily community review quota reached.",
+          "exitCode": 20,
           "acceptedReview": false
+        },
+        "substantiveCi": {
+          "status": "TERMINAL",
+          "success": 41,
+          "skipped": 16,
+          "neutral": 2,
+          "applicationOrSecurityPending": false
         }
+      },
+      "ownerAudit": {
+        "comment": 5646961188,
+        "evidenceUrl": "https://github.com/pachaninm-lab/pachanin-demo/pull/5332#issuecomment-5646961188",
+        "implementationHeadSha": "ff03424d073e97d52f1a8cf38dad3de74345ed08"
+      },
+      "reviewInfrastructureFollowup": {
+        "status": "DIAGNOSTICS_VALIDATED_W1_PROVIDER_REVIEWS_BLOCKED",
+        "diagnosis": "Qwen rejects the candidate before out.write/SCP, so rejected-candidate evidence is lost.",
+        "localDiagnostics": {
+          "status": "LOCAL_ONLY_UNPUBLISHED_PENDING_PRIOR_AUTHORITY",
+          "changedPathCount": 2,
+          "scope": [
+            "Qwen review workflow",
+            "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
+          ],
+          "diff": {
+            "added": 236,
+            "deleted": 3
+          },
+          "localTests": {
+            "passed": 34,
+            "total": 34
+          },
+          "independentQaFindings": 0,
+          "observationBoundary": "Historical local-only candidate before prior-authority merge; current published implementation is diagnosticsImplementation."
+        },
+        "supersededPriorAuthority": {
+          "pr": 5334,
+          "headSha": "8ecffb65e90a64002604898f6073abddb90c9d4e",
+          "status": "CLOSED_SUPERSEDED_BY_5335",
+          "nativeP1Finding": 3996550441,
+          "findingUrl": "https://github.com/pachaninm-lab/pachanin-demo/pull/5334#discussion_r3996550441",
+          "reason": "State-only scope was not immutable."
+        },
+        "priorAuthorityCorrection": {
+          "pr": 5335,
+          "evidenceUrl": "https://github.com/pachaninm-lab/pachanin-demo/pull/5335",
+          "headSha": "079466224b140c919639d60687d493d1a649b0aa",
+          "status": "OPEN_NATIVE_P1_FIXES_PENDING_VERIFICATION",
+          "reviewFollowup": {
+            "nativeP1FindingCount": 2,
+            "promptAgreement": "CONDITIONAL_INSTRUCTIONS_MERGED_IN_5336_REQUIRES_BASE_SYNCHRONIZATION",
+            "unprivilegedTestExecution": "FIX_VERIFICATION_IN_PROGRESS",
+            "realDispatcherRegression": "VERIFICATION_IN_PROGRESS",
+            "priorLocalValidationBoundary": "127 guard and 28 review tests and zero QA findings describe the published 0794662 candidate before these native P1 follow-ups; they do not accept the pending fixes."
+          },
+          "scope": "Four paths on the existing trusted governance branch.",
+          "changedPathCount": 4,
+          "localGuardTests": {
+            "passed": 127,
+            "total": 127
+          },
+          "localReviewTests": {
+            "passed": 28,
+            "total": 28
+          },
+          "scopeEscapes": {
+            "reproducedBefore": 3,
+            "blockedAfter": 3
+          },
+          "independentQaFindings": 0,
+          "merged": false,
+          "accepted": false,
+          "observationBoundary": "Historical 0794662 head and pending-fix observation; superseded by acceptedPriorAuthority below."
+        },
+        "promptAgreement": {
+          "pr": 5336,
+          "evidenceUrl": "https://github.com/pachaninm-lab/pachanin-demo/pull/5336",
+          "status": "MERGED",
+          "mergeSha": "f93a30cba9c9ebf42a799f4da79e955f4035f10d",
+          "nativeReview": "CLEAN_EXACT_HEAD",
+          "reviewedHeadShaPrefix": "002240f",
+          "requiredGates": "PASSED",
+          "boundary": "Conditional instructions and durable execution-queue input only. This does not authorize the local diagnostics; accepted immutable prior authority from merged #5335 and matching base scope remain required."
+        },
+        "nextDependencySequence": [
+          "Substantive CI for #5332 exact head ff03424d073e97d52f1a8cf38dad3de74345ed08 is terminal (41 SUCCESS, 16 SKIPPED, 2 NEUTRAL), with no application/security CI pending. Native exact-head review is clean; merge is blocked exactly by the failed Qwen and Octopus provider reviews.",
+          "Use the validated bounded rejected-candidate evidence to determine a justified Qwen remediation within accepted scope; no product change is justified by the unproven sorting-identity allegation alone. Keep Octopus quota as an external blocker and use only an available authorized review route; do not assume a quota-reset time or blindly retry unchanged failures.",
+          "Obtain accepted required current-head provider reviews and terminal substantive CI before #5332 merge. Diagnostic validation and native gate success do not override failed providers.",
+          "After admitted merge, re-observe main and run fresh read-only REG.RU preflight, required isolated rehearsal and the existing bounded release.",
+          "Require separate authenticated W1, full W1 and R6 evidence before Revenue Slice v1; production and all progress credit remain unchanged."
+        ],
+        "productionMutation": "NONE",
+        "newTerminalCredit": 0,
+        "acceptedPriorAuthority": {
+          "pr": 5335,
+          "status": "MERGED",
+          "mergeSha": "d1040e3f953e37fb6b16942b580122b88b691f40",
+          "reviewedHeadShaPrefix": "493e145",
+          "nativeReview": "CLEAN_EXACT_HEAD",
+          "nativeReviewEvidence": "https://github.com/pachaninm-lab/pachanin-demo/pull/5335#issuecomment-5646850473",
+          "ownerAuditEvidence": "https://github.com/pachaninm-lab/pachanin-demo/pull/5335#issuecomment-5646868814",
+          "reviewGate": "SUCCESS"
+        },
+        "currentObservedMainSha": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+        "diagnosticsImplementation": {
+          "pr": 5337,
+          "evidenceUrl": "https://github.com/pachaninm-lab/pachanin-demo/pull/5337",
+          "status": "MERGED",
+          "headSha": "9a1f538c0a897984fb0229ec56b2795de868bfb9",
+          "baseSha": "d1040e3f953e37fb6b16942b580122b88b691f40",
+          "treeSha": "7e4bcbe532dc60afa5757059d10ab17f86799bb7",
+          "localValidation": {
+            "passed": 163,
+            "guardTests": 129,
+            "reviewTests": 34
+          },
+          "exactBaseGuard": "PASS",
+          "ownerAuditEvidence": "https://github.com/pachaninm-lab/pachanin-demo/pull/5337#issuecomment-5646904070",
+          "merged": true,
+          "acceptedReview": true,
+          "productionMutation": "NONE",
+          "previousReviewStatus": "OPEN_NATIVE_REVIEW_AND_CI_PENDING",
+          "mergeSha": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+          "nativeReviewEvidence": "https://github.com/pachaninm-lab/pachanin-demo/pull/5337#issuecomment-5646922548",
+          "nativeReview": "CLEAN_EXACT_HEAD",
+          "substantiveCi": "ALL_GREEN"
+        },
+        "previousNextDependencySequence": [
+          "Complete fresh native review and terminal substantive CI for #5337 exact head 9a1f538c0a897984fb0229ec56b2795de868bfb9; resolve findings before merge. Prior immutable authority #5335 is merged and the exact-base guard passed; local tests and self-audit do not replace independent review.",
+          "Use retained rejected-candidate evidence to resolve the Qwen blocker and obtain accepted current-head provider reviews and terminal substantive CI for #5332; Octopus daily quota remains a separate blocker.",
+          "Only after #5332 admission and merge, re-observe current main and run fresh read-only REG.RU preflight, required isolated rehearsal and the existing bounded release.",
+          "Require separate authenticated W1, full W1 and R6 acceptance evidence; then execute Revenue Slice v1. No progress credit follows from review repairs, local tests or deployment alone."
+        ],
+        "previousPendingW1NextDependencySequence": [
+          "Complete fresh provider/native reviews and terminal substantive CI for #5332 head ff03424d073e97d52f1a8cf38dad3de74345ed08. Use merged #5337 diagnostics for any new Qwen rejection; the 2b62e9b results are historical and do not admit or reject this head.",
+          "Resolve current-head findings or provider failures and merge #5332 only after exact-head admission.",
+          "After merge re-observe main, run fresh read-only REG.RU preflight and required isolated rehearsal, then the existing bounded release.",
+          "Require separate authenticated W1, full W1 and R6 acceptance before Revenue Slice v1; no terminal credit from review repairs or deployment alone."
+        ]
       },
       "authenticatedW1Acceptance": "NOT_EVIDENCED",
       "fullW1Acceptance": "NOT_EVIDENCED",
       "r6Acceptance": "NOT_EVIDENCED",
       "newTerminalCredit": 0,
-      "nextAction": "Obtain fresh accepted independent review and terminal substantive CI for implementation.headSha before merge; then run fresh current-main preflight and the existing bounded deploy with isolated rehearsal. Prior-head review failures and local test results are not final-head admission or production acceptance.",
-      "auditBoundary": "This checkpoint records operational evidence only. Top-level observedMainSha/observedProductionSha, historical W1 observations, original findings and all progress assessments remain unchanged."
+      "nextAction": "Resolve current-head Qwen and Octopus provider blockers through justified, authorized remediation using the validated diagnostic evidence; substantive CI is terminal with no application/security CI pending. Native clean review and retained diagnostics do not override provider failures; do not merge, assume quota-reset timing or blindly retry unchanged failures.",
+      "auditBoundary": "This checkpoint records operational evidence only. Top-level observedMainSha/observedProductionSha, historical W1 observations, original findings and all progress assessments remain unchanged.",
+      "previousImplementationCheckpoint": {
+        "recordedAt": "2026-09-12T14:24:00Z",
+        "observedMainSha": "c39b600d111f0bc5440423f565e142386ceb276c",
+        "findingsResolved": true,
+        "addressedFindingIDs": [
+          3996417166,
+          3996447418
+        ],
+        "freshCurrentHeadReviews": "BLOCKED",
+        "nativeCurrentHeadReview": "CLEAN_COMMENT_OBSERVED",
+        "implementation": {
+          "pr": 5332,
+          "headSha": "2b62e9b3c8e0d875b64dc36dd87be6f15a29f466",
+          "treeSha": "6f670f7f6ce2624e35cf433c6f4872e06ac1d966",
+          "status": "OPEN_PROVIDER_REVIEWS_BLOCKED",
+          "localValidation": {
+            "passed": 155,
+            "skipped": 1,
+            "skipReason": "Exact-image Docker/PostgreSQL rehearsal unavailable locally; remote rehearsal remains required."
+          },
+          "merged": false,
+          "released": false
+        },
+        "currentHeadReviewEvidence": {
+          "nativeCodex": {
+            "reviewComment": 5646467131,
+            "evidenceUrl": "https://github.com/pachaninm-lab/pachanin-demo/pull/5332#issuecomment-5646467131",
+            "reviewedHeadSha": "2b62e9b3c8e0d875b64dc36dd87be6f15a29f466",
+            "conclusion": "CLEAN_COMMENT",
+            "mergeAdmission": "BLOCKED_BY_OTHER_PROVIDER_FAILURES"
+          },
+          "localQwen": {
+            "run": 34698950403,
+            "job": 103567194838,
+            "evidenceUrl": "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34698950403/job/103567194838",
+            "reviewedHeadSha": "2b62e9b3c8e0d875b64dc36dd87be6f15a29f466",
+            "conclusion": "FAILURE",
+            "error": "POLICY_REPAIR_INVALID_SPECULATIVE_REASON",
+            "acceptedReview": false
+          },
+          "octopus": {
+            "run": 34698950330,
+            "job": 103567194804,
+            "evidenceUrl": "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34698950330/job/103567194804",
+            "reviewedHeadSha": "2b62e9b3c8e0d875b64dc36dd87be6f15a29f466",
+            "conclusion": "FAILURE",
+            "reason": "Daily review limit reached (community tier).",
+            "acceptedReview": false
+          }
+        },
+        "ownerAudit": {
+          "comment": 5646525734,
+          "evidenceUrl": "https://github.com/pachaninm-lab/pachanin-demo/pull/5332#issuecomment-5646525734",
+          "implementationHeadSha": "2b62e9b3c8e0d875b64dc36dd87be6f15a29f466"
+        }
+      },
+      "previousCurrentHeadPendingReviewEvidence": {
+        "reviewedHeadSha": "ff03424d073e97d52f1a8cf38dad3de74345ed08",
+        "nativeCodex": "PENDING",
+        "localQwen": "PENDING",
+        "octopus": "PENDING",
+        "substantiveCi": "PENDING"
+      },
+      "rejectedCandidateDiagnosticEvidence": {
+        "artifactId": 10301670788,
+        "artifactName": "qwen-rejected-ff03424d073e97d52f1a8cf38dad3de74345ed08-34703519981-1",
+        "artifactUrl": "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34703519981/artifacts/10301670788",
+        "zipBytes": 953,
+        "zipSha256": "3f1549f7d094f924efc794b9e476055485877383125e94b04d2179105c27bc72",
+        "retrieval": "AUTHORIZED_FILE_MATERIALIZATION",
+        "identityAndCandidateHashes": "VALIDATED_HEAD_RUN_ATTEMPT_AND_CANDIDATE_HASHES",
+        "reviewedHeadSha": "ff03424d073e97d52f1a8cf38dad3de74345ed08",
+        "run": 34703519981,
+        "attempt": 1,
+        "boundedAssessment": "Qwen alleged sorting identity loss in chunk 2 at acceptance.mjs line 554. Actual canonicalization and full-record sorting preserve fields, duplicate records and nested-array order. No product defect was proven by this rejected candidate.",
+        "acceptedReview": false,
+        "rawCandidateIncluded": false,
+        "boundary": "Retained diagnostics establish evidence availability and permit bounded investigation; they do not turn the failed provider review into acceptance."
+      }
     },
     "codeStatus": "MERGED",
     "productionStatus": "BLOCKED_HISTORICAL_DATABASE_LINEAGE",
