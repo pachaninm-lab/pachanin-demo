@@ -121,17 +121,43 @@ for (const rawLine of history.split(/\r?\n/u)) {
   }
 }
 
+/**
+ * A file squash-merged into the mainline is added by no ordinary commit.
+ *
+ * `git log` does not diff merge commits unless told to, so a path that first
+ * appears in one matches nothing under --diff-filter=ACMR and its row falls
+ * through to UNKNOWN - an origin the register then reports as unknowable and no
+ * signature can resolve, when git knows perfectly well when it arrived and who
+ * merged it. 21 files sat in that state, four of them CROWN_JEWEL in the auth
+ * module.
+ *
+ * The merge is recorded as what it is. Attribution to the merge commit says when
+ * the file entered the mainline and who put it there - not who typed it, which
+ * for a squashed branch no longer exists in this history. The origin_source
+ * carries MERGE_INTRODUCED so the row is never read as an ordinary first commit.
+ */
+function firstCommitForPath(path, mergeAware) {
+  const args = mergeAware
+    ? ['log', 'HEAD', '--reverse', '--diff-merges=first-parent', '--diff-filter=ACMR', '-s', '--format=%H\t%aN\t%aE\t%aI', '--', path]
+    : ['log', 'HEAD', '--reverse', '--follow', '--diff-filter=ACMR', '--format=%H\t%aN\t%aE\t%aI', '--', path];
+  const line = git(args, 16 * 1024 * 1024).trim().split(/\r?\n/u).find((entry) => /^[0-9a-f]{40}\t/u.test(entry));
+  if (!line) return null;
+  const [sha, authorName, authorEmail, authoredAt] = line.split('\t');
+  return { sha, authorName, authorEmail, authoredAt };
+}
+
 for (const path of tracked) {
   if (firstByPath.has(path)) continue;
   try {
-    const fallback = git([
-      'log', 'HEAD', '--reverse', '--follow', '--diff-filter=ACMR',
-      '--format=%H\t%aN\t%aE\t%aI', '--', path,
-    ], 16 * 1024 * 1024).trim().split(/\r?\n/u).find(Boolean);
-    if (!fallback) continue;
-    const [sha, authorName, authorEmail, authoredAt] = fallback.split('\t');
-    firstByPath.set(path, { path, sha, authorName, authorEmail, authoredAt, originPath: path });
-    rememberContributor(path, { sha, authorName, authorEmail, authoredAt });
+    let origin = firstCommitForPath(path, false);
+    let introducedByMerge = false;
+    if (!origin) {
+      origin = firstCommitForPath(path, true);
+      introducedByMerge = Boolean(origin);
+    }
+    if (!origin) continue;
+    firstByPath.set(path, { path, ...origin, originPath: path, introducedByMerge });
+    rememberContributor(path, origin);
   } catch {
     // The row remains explicitly UNKNOWN; final mode fails on it.
   }
@@ -240,7 +266,7 @@ for (const path of tracked) {
     original_contributor: contributorId(origin.authorName, origin.authorEmail),
     material_contributors: `ALL_RECORDED_NOT_MATERIALITY_ADJUDICATED:${contributors.join(';')}`,
     origin_class: classification.originClass,
-    origin_source: `${classification.originSource};origin_path=${origin.originPath ?? path}`,
+    origin_source: `${classification.originSource};origin_path=${origin.originPath ?? path}${origin.introducedByMerge ? `;MERGE_INTRODUCED=${origin.sha}` : ''}`,
     license: classification.license,
     copyright: markers.copyright || 'NOT_DETECTED',
     rights_basis: classification.rightsBasis,
