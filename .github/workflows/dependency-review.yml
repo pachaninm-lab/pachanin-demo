@@ -43,7 +43,9 @@ jobs:
       - uses: actions/dependency-review-action@v4
         if: steps.graph.outputs.enabled == 'true'
         with:
-          fail-on-severity: critical
+          # Согласовано с политикой из scripts/validate-pnpm-audit.mjs: блокируют
+          # critical и high. Замер перед ужесточением — 0 critical, 0 high.
+          fail-on-severity: high
 
   exact-main-dependency-audit:
     if: github.event_name != 'pull_request'
@@ -164,10 +166,11 @@ jobs:
           node_policy = json.loads(Path('pnpm-audit-policy.json').read_text())
           if node_policy.get('accepted') is not True:
               raise SystemExit('Node dependency policy result is not accepted')
-          if node_policy.get('policy') != 'critical-only':
+          if node_policy.get('policy') != 'critical-and-high':
               raise SystemExit('Node dependency policy identifier mismatch')
-          if node_policy.get('vulnerabilities', {}).get('critical') != 0:
-              raise SystemExit('Critical Node vulnerability count is not zero')
+          for severity in ('critical', 'high'):
+              if node_policy.get('vulnerabilities', {}).get(severity) != 0:
+                  raise SystemExit(f'{severity.capitalize()} Node vulnerability count is not zero')
 
           if python_audit_status != 0:
               raise SystemExit(
