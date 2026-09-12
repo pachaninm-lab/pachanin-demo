@@ -1417,6 +1417,9 @@
       "infra/kind/production-like/dependencies.yaml",
       "infra/kind/production-like/minio-tls-check.yaml",
       "scripts/release/production-like-kubernetes-cluster.sh"
+    ],
+    "fix/gitleaks-release-authority-attestation-20260912": [
+      "apps/tai/tests/test_gitleaks_release_authority.py"
     ]
   },
   "currentAcceptance": [

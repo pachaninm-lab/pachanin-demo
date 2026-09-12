@@ -15,6 +15,7 @@ on:
       - main
     paths:
       - '.gitleaksignore'
+      - 'apps/tai/tests/test_gitleaks_release_authority.py'
       - '.github/workflows/local-qwen-independent-review.yml'
       - '.github/workflows/pc-crop-w1-production-acceptance.yml'
       - 'scripts/production-pc-crop-w1-migrations.sh'
@@ -444,6 +445,7 @@ jobs:
       github.event.pull_request.head.ref == 'fix/production-like-outbox-poison-isolation-3793' ||
       github.event.pull_request.head.ref == 'fix/local-qwen-failed-review-evidence-20260912' ||
       github.event.pull_request.head.ref == 'fix/kind-minio-image-source-20260912' ||
+      github.event.pull_request.head.ref == 'fix/gitleaks-release-authority-attestation-20260912' ||
       github.event.pull_request.head.ref == 'fix/owner-handoff-product-host-20260908' ||
       github.event.pull_request.head.ref == 'security/pc-crop-next-15-5-24-4997')
     permissions:
@@ -473,7 +475,7 @@ jobs:
               exit 1
             fi
             case "$IMMUTABLE_SCOPE_BRANCH" in
-              fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|feat/pc-crop-auction-inventory-authority-4997|ops/pc-crop-w1-production-acceptance-4997|governance/pc-crop-post-registration-progress-scope-4997|governance/pc-crop-inventory-reservation-scope-4997|docs/pc-crop-post-registration-progress-4997|governance/public-home-role-clarity-scope-20260905|feat/public-home-role-clarity-20260905|governance/production-like-outbox-poison-isolation-scope-3793|fix/production-like-outbox-poison-isolation-3793|fix/local-qwen-failed-review-evidence-20260912|fix/kind-minio-image-source-20260912|fix/owner-handoff-product-host-20260908|security/pc-crop-next-15-5-24-4997) ;;
+              fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|feat/pc-crop-auction-inventory-authority-4997|ops/pc-crop-w1-production-acceptance-4997|governance/pc-crop-post-registration-progress-scope-4997|governance/pc-crop-inventory-reservation-scope-4997|docs/pc-crop-post-registration-progress-4997|governance/public-home-role-clarity-scope-20260905|feat/public-home-role-clarity-20260905|governance/production-like-outbox-poison-isolation-scope-3793|fix/production-like-outbox-poison-isolation-3793|fix/local-qwen-failed-review-evidence-20260912|fix/kind-minio-image-source-20260912|fix/gitleaks-release-authority-attestation-20260912|fix/owner-handoff-product-host-20260908|security/pc-crop-next-15-5-24-4997) ;;
               *) echo 'Trusted immutable-scope guard received an unauthorized branch.' >&2; exit 1 ;;
             esac
             if ! [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || ! [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
@@ -528,7 +530,7 @@ jobs:
           [[ "$CONTEXT_OUTCOME" == success ]]
 
   guard:
-    name: ${{ github.event_name == 'pull_request' && (github.head_ref == 'fix/p0-registration-authority-rollover-4637' || github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698' || github.head_ref == 'feat/pc-crop-auction-inventory-authority-4997' || github.head_ref == 'ops/pc-crop-w1-production-acceptance-4997' || github.head_ref == 'governance/pc-crop-post-registration-progress-scope-4997' || github.head_ref == 'governance/pc-crop-inventory-reservation-scope-4997' || github.head_ref == 'docs/pc-crop-post-registration-progress-4997' || github.head_ref == 'governance/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'feat/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'governance/public-home-role-clarity-scope-20260905' || github.head_ref == 'feat/public-home-role-clarity-20260905' || github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' || github.head_ref == 'fix/production-like-outbox-poison-isolation-3793' || github.head_ref == 'fix/local-qwen-failed-review-evidence-20260912' || github.head_ref == 'fix/kind-minio-image-source-20260912' || github.head_ref == 'fix/owner-handoff-product-host-20260908') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}
+    name: ${{ github.event_name == 'pull_request' && (github.head_ref == 'fix/p0-registration-authority-rollover-4637' || github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698' || github.head_ref == 'feat/pc-crop-auction-inventory-authority-4997' || github.head_ref == 'ops/pc-crop-w1-production-acceptance-4997' || github.head_ref == 'governance/pc-crop-post-registration-progress-scope-4997' || github.head_ref == 'governance/pc-crop-inventory-reservation-scope-4997' || github.head_ref == 'docs/pc-crop-post-registration-progress-4997' || github.head_ref == 'governance/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'feat/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'governance/public-home-role-clarity-scope-20260905' || github.head_ref == 'feat/public-home-role-clarity-20260905' || github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' || github.head_ref == 'fix/production-like-outbox-poison-isolation-3793' || github.head_ref == 'fix/local-qwen-failed-review-evidence-20260912' || github.head_ref == 'fix/kind-minio-image-source-20260912' || github.head_ref == 'fix/gitleaks-release-authority-attestation-20260912' || github.head_ref == 'fix/owner-handoff-product-host-20260908') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}
     needs: standard_validation
     if: always() && github.event_name != 'pull_request_target'
     permissions:
@@ -567,6 +569,7 @@ jobs:
           github.head_ref == 'fix/production-like-outbox-poison-isolation-3793' ||
           github.head_ref == 'fix/local-qwen-failed-review-evidence-20260912' ||
           github.head_ref == 'fix/kind-minio-image-source-20260912' ||
+          github.head_ref == 'fix/gitleaks-release-authority-attestation-20260912' ||
           github.head_ref == 'fix/owner-handoff-product-host-20260908')
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -574,7 +577,7 @@ jobs:
           IMMUTABLE_SCOPE_BRANCH: ${{ github.head_ref }}
         run: |
           case "$IMMUTABLE_SCOPE_BRANCH" in
-            fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|feat/pc-crop-auction-inventory-authority-4997|ops/pc-crop-w1-production-acceptance-4997|governance/pc-crop-post-registration-progress-scope-4997|governance/pc-crop-inventory-reservation-scope-4997|docs/pc-crop-post-registration-progress-4997|governance/public-home-role-clarity-scope-20260905|feat/public-home-role-clarity-20260905|governance/production-like-outbox-poison-isolation-scope-3793|fix/production-like-outbox-poison-isolation-3793|fix/local-qwen-failed-review-evidence-20260912|fix/kind-minio-image-source-20260912|fix/owner-handoff-product-host-20260908) ;;
+            fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|feat/pc-crop-auction-inventory-authority-4997|ops/pc-crop-w1-production-acceptance-4997|governance/pc-crop-post-registration-progress-scope-4997|governance/pc-crop-inventory-reservation-scope-4997|docs/pc-crop-post-registration-progress-4997|governance/public-home-role-clarity-scope-20260905|feat/public-home-role-clarity-20260905|governance/production-like-outbox-poison-isolation-scope-3793|fix/production-like-outbox-poison-isolation-3793|fix/local-qwen-failed-review-evidence-20260912|fix/kind-minio-image-source-20260912|fix/gitleaks-release-authority-attestation-20260912|fix/owner-handoff-product-host-20260908) ;;
             *) echo 'PR-head immutable-scope guard received an unauthorized branch.' >&2; exit 1 ;;
           esac
           if ! [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || ! [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
@@ -632,6 +635,7 @@ jobs:
           github.head_ref != 'fix/production-like-outbox-poison-isolation-3793' &&
           github.head_ref != 'fix/local-qwen-failed-review-evidence-20260912' &&
           github.head_ref != 'fix/kind-minio-image-source-20260912' &&
+          github.head_ref != 'fix/gitleaks-release-authority-attestation-20260912' &&
           github.head_ref != 'fix/owner-handoff-product-host-20260908' &&
           github.head_ref != 'security/pc-crop-next-15-5-24-4997')
         run: bash scripts/p7-autopilot-guard.sh
