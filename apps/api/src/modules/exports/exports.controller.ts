@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Query, Param, Body, UseGuards, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { ExportsService } from './exports.service';
+import { ExportRegulatoryReportDto } from './dto/regulatory-report.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser } from '../../common/types/request-user';
@@ -54,7 +55,7 @@ export class ExportsController {
 
   @Post('regulatory')
   async regulatoryReport(
-    @Body() body: { type: 'msh' | 'rosstat' | 'fns' | 'rosfinmonitoring'; from?: string; to?: string },
+    @Body() body: ExportRegulatoryReportDto,
     @CurrentUser() user: RequestUser,
     @Res() res: Response,
   ) {

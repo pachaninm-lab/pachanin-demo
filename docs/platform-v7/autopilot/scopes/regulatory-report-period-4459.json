@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/regulatory-report-period-4459",
+  "status": "active",
+  "purpose": "exportRegulatoryReport is the only export that leaves the platform - to МСХ, Росстат, ФНС and Росфинмониторинг - and its handler declared the body as an inline type, which erases to Object, so the pipe validated neither the fields nor their consistency. Three consequences, measured on the service's own expressions: an unparseable date becomes Invalid Date and buildRosstatCsv prints the period with from.toISOString(), which throws RangeError, answering a malformed request with a 500; nothing compares the two ends, so a period whose start is after its end matches no rows and every builder reports zero deals, zero tonnage and zero roubles - a well-formed filing stating that nothing happened, with the swapped period printed in its own header; and an unknown type reaches a bare `throw new Error`, which Nest answers as 500 rather than as the malformed request it is. The service already refuses that empty filing when it arrives by another route - the comment above the query says a swallowed query failure was «не пустой отчёт, а ложное донесение регулятору» - and the input path to the same filing was left open. No verdict is claimed.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/regulatory-report-period-4459.json",
+    "apps/api/src/modules/exports/exports.controller.ts",
+    "apps/api/src/modules/exports/dto/regulatory-report.dto.ts",
+    "apps/api/src/modules/exports/dto/regulatory-report.dto.spec.ts",
+    "docs/security/request-validation-baseline.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+  ],
+  "requiredInvariants": [
+    "exports.service.ts is not touched. The natural place for the ordering refusal is beside the query, and the owner's open pull request #5135 already modifies that file for the Form 29-SKh culture tally; the rule lives in the DTO instead so the two changes cannot collide. The service's arithmetic, its default window and its builders are exactly as they were.",
+    "The ordering rule is a rule, not a convention about argument order: the period is what the filing claims to cover. An equal pair is refused too, because gte/lte make it a single instant rather than a day and it reports empty for the same reason a swapped pair does.",
+    "One defect is answered with one complaint. An unparseable date is @IsISO8601's finding, so the ordering constraint returns true on NaN rather than adding a second message about a period it cannot compare; the suite asserts this by reading the exception's response messages, not its .message - BadRequestException from the pipe says only «Bad Request Exception», and a check against that would have passed on any refusal whatsoever.",
+    "No unreachable guard is left reading as a protection. An earlier version guarded `from === undefined || to === undefined` separately; @IsOptional skips the constraint entirely when `to` is absent and an absent `from` parses to NaN, so that guard could not fire. A mutation run removed it and failed nothing, so it is gone - and removing it made the NaN check load-bearing for both cases, which the same mutation run now shows.",
+    "The four report types are the switch's own cases in exportRegulatoryReport, not a copy chosen here; both optional ends stay optional, so the service's own thirty-day default window is unchanged.",
+    "No service logic, no query, no builder, no migration. Request boundary only. No production, REG.RU, DNS, database or credential mutation, no new dependency - class-validator and the global pipe are both already in use."
+  ],
+  "acceptance": [
+    "All three consequences are reproduced on the service's own expressions before anything is asserted about the fix: periodHeader throws RangeError on an unparseable end; an empty selection reports zero deals, zero tonnage and zero roubles; and the swapped period still prints as the filing's own header, '2026-06-30 - 2026-01-01'.",
+    "Seven mutations were run and six are caught: type @IsIn, from @IsISO8601, to @IsISO8601, the ordering @Validate, strict < relaxed to <=, and the NaN short-circuit. The seventh - removing the undefined guard - caught nothing, which is why that guard is deleted rather than kept.",
+    "After the deletion the NaN check fails two cases instead of one, so it now carries both the absent end and the unparseable one.",
+    "regulatory-report.dto.spec.ts passes 15 of 15, including that an unparseable date raises the ISO complaint and not the ordering one, and that a swapped period raises the ordering one.",
+    "The ratchet moves and is tightened: 66 unvalidated @Body() parameters across 23 files becomes 65 across 22, DTO-typed parameters rise from 134 to 135.",
+    "No verdict moves: 39 NOT_ASSESSED / 129 PASS / 88 NOT_APPLICABLE / 89 FAIL against main, V8.2.4 the only rejected decision - main's standing drift, repaired on security/login-lockout-finding-4459.",
+    "tsc --noEmit on apps/api exits 0; the cryptographic inventory is regenerated after staging and its test passes 8 of 8; node --test scripts/security passes 144 of 144; guard=0."
+  ]
+}
