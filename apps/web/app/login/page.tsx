@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { sameOriginDestination } from '../../lib/safe-redirect';
 
 const DEMO_ROLES = [
   { label: 'Фермер', email: 'farmer@demo.ru', to: '/canon/market' },
@@ -15,9 +16,17 @@ const DEMO_ROLES = [
 ] as const;
 
 function normalizeReturnTo(value: string | string[] | undefined) {
+  // This used to be `raw.startsWith('/')`, the same weak test the demo routes
+  // had. Not exploitable from this page today - the value only survives an exact
+  // match against a known internal path - but a normaliser is what the next
+  // caller reaches for, and this one returned an attacker's string unchanged.
+  //
+  // A server component has no request URL, and it does not need one: the helper
+  // returns path, query and fragment only, never an origin. Resolving against a
+  // fixed base therefore discards any authority the candidate carried, whatever
+  // that base is.
   const raw = Array.isArray(value) ? value[0] : value;
-  if (!raw || !raw.startsWith('/')) return '/';
-  return raw;
+  return sameOriginDestination(raw, 'https://same-origin.invalid/') ?? '/';
 }
 
 function matchDemoRole(returnTo: string) {

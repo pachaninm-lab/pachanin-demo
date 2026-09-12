@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE, REFRESH_COOKIE, SESSION_COOKIE, CSRF_COOKIE, cookieSecurity, sessionMarkerCookie, csrfCookieSecurity } from '../../../../lib/auth-cookies';
 import { generateCsrfToken } from '../../../../lib/server-request-security';
 import { demoLoginAllowed } from '../../../../lib/platform-v7/demo-login-policy';
+import { safeRedirectDestination } from '../../../../lib/safe-redirect';
 
 function detectDemoRole(email: string): string {
   const local = email.toLowerCase().split('@')[0] ?? '';
@@ -30,7 +31,9 @@ export async function GET(request: NextRequest) {
   const email = searchParams.get('email') || 'farmer@demo.ru';
   const to = searchParams.get('to') || '/';
 
-  const destination = to.startsWith('/') ? to : '/';
+  // startsWith('/') reads like an origin check and is a first-character check:
+  // '//evil.example' passes it and new URL(...) resolves it off-site.
+  const destination = safeRedirectDestination(to, request.url);
 
   const role = detectDemoRole(email);
   const exp = Math.floor(Date.now() / 1000) + 8 * 3600;
