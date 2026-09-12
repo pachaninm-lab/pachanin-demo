@@ -1,0 +1,213 @@
+#!/usr/bin/env python3
+import os
+import re
+import stat
+
+SHA256 = re.compile(r"[0-9a-f]{64}\Z")
+ALL_WRITE_BITS = stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH
+
+
+class RuntimeFdBindingError(Exception):
+    pass
+
+
+class BoundRuntimeFiles:
+    __slots__ = (
+        "server_fd",
+        "model_fd",
+        "server_path",
+        "model_path",
+        "server_dev",
+        "server_ino",
+        "model_dev",
+        "model_ino",
+    )
+
+    def __init__(self, server_fd, model_fd, server_info, model_info):
+        self.server_fd = server_fd
+        self.model_fd = model_fd
+        self.server_path = f"/proc/self/fd/{server_fd}"
+        self.model_path = f"/proc/self/fd/{model_fd}"
+        self.server_dev = server_info.st_dev
+        self.server_ino = server_info.st_ino
+        self.model_dev = model_info.st_dev
+        self.model_ino = model_info.st_ino
+
+    @property
+    def pass_fds(self):
+        if self.server_fd is None or self.model_fd is None:
+            reject("RUNTIME_FD_BINDING_CLOSED")
+        return (self.server_fd, self.model_fd)
+
+    def close(self):
+        failures = []
+        for name in ("server_fd", "model_fd"):
+            fd = getattr(self, name)
+            if fd is None:
+                continue
+            setattr(self, name, None)
+            try:
+                os.close(fd)
+            except OSError:
+                failures.append(name)
+        if failures:
+            reject("RUNTIME_FD_CLOSE_INVALID")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+
+
+def reject(code):
+    raise RuntimeFdBindingError(code) from None
+
+
+def _require_sha256(value, code):
+    if not isinstance(value, str) or not SHA256.fullmatch(value):
+        reject(code)
+
+
+def _require_size(value, code):
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        reject(code)
+
+
+def _source_fields(verified, expected_sha256, expected_size, code):
+    _require_sha256(expected_sha256, code)
+    _require_size(expected_size, code)
+    try:
+        fd = verified.fd
+        verified_sha256 = verified.sha256
+        verified_size = verified.size
+        verified_dev = verified.dev
+        verified_ino = verified.ino
+    except AttributeError:
+        reject(code)
+    if type(fd) is not int or fd < 0:
+        reject(code)
+    if verified_sha256 != expected_sha256 or verified_size != expected_size:
+        reject(code)
+    if type(verified_dev) is not int or verified_dev < 0:
+        reject(code)
+    if type(verified_ino) is not int or verified_ino <= 0:
+        reject(code)
+    return fd, verified_dev, verified_ino
+
+
+def _trusted_verified_info(fd, expected_dev, expected_ino, expected_size, executable, code):
+    try:
+        info = os.fstat(fd)
+    except OSError:
+        reject(code)
+    if not stat.S_ISREG(info.st_mode):
+        reject(code)
+    if info.st_uid != 0:
+        reject(code)
+    if info.st_mode & ALL_WRITE_BITS:
+        reject(code)
+    if info.st_dev != expected_dev or info.st_ino != expected_ino:
+        reject(code)
+    if info.st_size != expected_size:
+        reject(code)
+    if executable and not (stat.S_IMODE(info.st_mode) & 0o111):
+        reject(code)
+    return info
+
+
+def _duplicate_verified(verified, expected_sha256, expected_size, executable, code):
+    fd, expected_dev, expected_ino = _source_fields(
+        verified, expected_sha256, expected_size, code
+    )
+    source_info = _trusted_verified_info(
+        fd, expected_dev, expected_ino, expected_size, executable, code
+    )
+    try:
+        duplicate = os.dup(fd)
+        os.set_inheritable(duplicate, False)
+    except OSError:
+        reject(code)
+    try:
+        duplicate_info = _trusted_verified_info(
+            duplicate,
+            expected_dev,
+            expected_ino,
+            expected_size,
+            executable,
+            code,
+        )
+        source_again = _trusted_verified_info(
+            fd,
+            expected_dev,
+            expected_ino,
+            expected_size,
+            executable,
+            code,
+        )
+        source_tuple = (
+            source_info.st_dev,
+            source_info.st_ino,
+            source_info.st_uid,
+            stat.S_IMODE(source_info.st_mode),
+            source_info.st_size,
+        )
+        if source_tuple != (
+            source_again.st_dev,
+            source_again.st_ino,
+            source_again.st_uid,
+            stat.S_IMODE(source_again.st_mode),
+            source_again.st_size,
+        ):
+            reject(code)
+        if source_tuple != (
+            duplicate_info.st_dev,
+            duplicate_info.st_ino,
+            duplicate_info.st_uid,
+            stat.S_IMODE(duplicate_info.st_mode),
+            duplicate_info.st_size,
+        ):
+            reject(code)
+        return duplicate, duplicate_info
+    except Exception:
+        try:
+            os.close(duplicate)
+        except OSError:
+            pass
+        raise
+
+
+def bind_verified_runtime_files(
+    server_verified,
+    model_verified,
+    expected_server_sha256,
+    expected_server_size,
+    expected_model_sha256,
+    expected_model_size,
+):
+    server_fd = None
+    model_fd = None
+    try:
+        server_fd, server_info = _duplicate_verified(
+            server_verified,
+            expected_server_sha256,
+            expected_server_size,
+            True,
+            "RUNTIME_SERVER_FD_INVALID",
+        )
+        model_fd, model_info = _duplicate_verified(
+            model_verified,
+            expected_model_sha256,
+            expected_model_size,
+            False,
+            "RUNTIME_MODEL_FD_INVALID",
+        )
+        return BoundRuntimeFiles(server_fd, model_fd, server_info, model_info)
+    except Exception:
+        for fd in (model_fd, server_fd):
+            if fd is not None:
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
+        raise
