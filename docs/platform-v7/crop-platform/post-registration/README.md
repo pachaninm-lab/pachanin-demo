@@ -31,6 +31,67 @@ accepted end-to-end behavior.
 The current percentage and status counts live in `execution-state.v1.json`.
 The one-row-per-criterion evidence is in `dod-baseline.v1.json`.
 
+## W1 operational checkpoint — 2026-09-12
+
+This bounded checkpoint updates operational evidence only. The audited
+`observedMainSha`, original findings, DoD assessments and historical W1
+observations remain unchanged. Its machine-readable fields are in
+`w1Completion.currentOperationalCheckpoint`.
+
+Observed main is `c39b600d111f0bc5440423f565e142386ceb276c`.
+[PR #5332](https://github.com/pachaninm-lab/pachanin-demo/pull/5332), exact head
+`2b62e9b3c8e0d875b64dc36dd87be6f15a29f466`, remains open with current-head
+provider reviews blocked; the PR has not been
+merged or released. Its published tree is
+`6f670f7f6ce2624e35cf433c6f4872e06ac1d966`. Local validation: 155 tests passed,
+one exact-image Docker/PostgreSQL rehearsal skipped because Docker is unavailable
+locally. Remote rehearsal remains required.
+
+The latest read-only REG.RU [run 34697032312](https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34697032312)
+observed API `79c9817f0d86f91346f13054325a078abaa0c16a` and stopped with
+`API_OR_NON_API_RUNTIME_CHANGED`: `MOUNTS_CHANGED` on one container, no one-off
+containers added or removed, `DATABASE_MUTATION=NONE`; public-route verification
+was skipped. The proposed fix has no production acceptance yet.
+
+The following review failures belong to the previous head
+`49615e882eec35e35eeef0e7d6bc0b0820983f31`; they are not results for the current
+implementation head:
+
+- [Local Qwen run 34698535355, job 103566096477](https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34698535355/job/103566096477)
+  failed with `POLICY_REPAIR_INVALID_SPECULATIVE_REASON`.
+- [Octopus run 34698535314, job 103566096625](https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34698535314/job/103566096625)
+  failed because the community daily review limit was reached.
+
+Neither result supplies accepted independent review. Native Codex raised
+[P2 finding 3996447418](https://github.com/pachaninm-lab/pachanin-demo/pull/5332#discussion_r3996447418)
+on that previous head: Python 3.14 automatically dedents `-c` input, so the
+regression must validate decoded top-level indentation directly. That finding
+and [Octopus finding 3996417166](https://github.com/pachaninm-lab/pachanin-demo/pull/5332#discussion_r3996417166)
+are fixed and their threads resolved. Native Codex then published a
+[clean review for the current head](https://github.com/pachaninm-lab/pachanin-demo/pull/5332#issuecomment-5646467131).
+This is not a full provider or production acceptance.
+
+Current-head [Qwen run 34698950403, job 103567194838](https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34698950403/job/103567194838)
+also failed with `POLICY_REPAIR_INVALID_SPECULATIVE_REASON`;
+[Octopus run 34698950330, job 103567194804](https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34698950330/job/103567194804)
+failed at the community daily review limit. `freshCurrentHeadReviews=BLOCKED`;
+native Codex has a current-head clean comment. Neither provider failure grants admission.
+Obtain accepted exact-head review and terminal substantive CI before merge, then
+run fresh current-main preflight and the existing bounded deploy with isolated
+rehearsal. Authenticated W1, full W1 and R6 acceptance remain `NOT_EVIDENCED`.
+
+The three progress scales remain separate; this checkpoint adds no credit:
+
+| Scale | Confirmed acceptance | Basis |
+|---|---|---|
+| Original 2026-09-04 specification | 4/126 PASS = 3.1% | Existing terminal DoD criteria and rounding rule, unchanged |
+| Revenue Slice v1 | 0/15 = 0% | Production-accepted components with deployment and live task evidence |
+| Codex master v2.1, 2026-09-12 | 0/100 points = 0% | Fully accepted R0-R12 blocks; no automatic transfer of older percentages |
+
+The master metric above records the unaccepted new baseline, not a new machine
+verifier or a reassessment of existing code. A successful future W1 deployment
+alone cannot close authenticated W1, R6, or a revenue component.
+
 ## Current reconciliation
 
 The inherited chat report of 4.0% did not identify a fifth terminally accepted

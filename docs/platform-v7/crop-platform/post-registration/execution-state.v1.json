@@ -384,6 +384,104 @@
     "parallelChanges": "Before each slice re-read main, open PR exact heads, CI, active locks and allowed paths. Integrate by forward changes without overwriting concurrent work."
   },
   "w1Completion": {
+    "currentOperationalCheckpoint": {
+      "recordedAt": "2026-09-12T14:24:00Z",
+      "scope": "W1_OPERATIONS_ONLY_NO_AUDIT_REASSESSMENT",
+      "observedMainSha": "c39b600d111f0bc5440423f565e142386ceb276c",
+      "findingsResolved": true,
+      "addressedFindingIDs": [3996417166, 3996447418],
+      "freshCurrentHeadReviews": "BLOCKED",
+      "nativeCurrentHeadReview": "CLEAN_COMMENT_OBSERVED",
+      "implementation": {
+        "pr": 5332,
+        "headSha": "2b62e9b3c8e0d875b64dc36dd87be6f15a29f466",
+        "treeSha": "6f670f7f6ce2624e35cf433c6f4872e06ac1d966",
+        "status": "OPEN_PROVIDER_REVIEWS_BLOCKED",
+        "localValidation": {
+          "passed": 155,
+          "skipped": 1,
+          "skipReason": "Exact-image Docker/PostgreSQL rehearsal unavailable locally; remote rehearsal remains required."
+        },
+        "merged": false,
+        "released": false
+      },
+      "latestReadOnlyProductionObservation": {
+        "run": 34697032312,
+        "evidenceUrl": "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34697032312",
+        "targetMainSha": "c39b600d111f0bc5440423f565e142386ceb276c",
+        "observedApiSha": "79c9817f0d86f91346f13054325a078abaa0c16a",
+        "result": "BLOCKED",
+        "error": "API_OR_NON_API_RUNTIME_CHANGED",
+        "runtimeDiffFields": "MOUNTS_CHANGED",
+        "runtimeDiffCount": 1,
+        "runtimeDiffOneoffAdded": 0,
+        "runtimeDiffOneoffRemoved": 0,
+        "databaseMutation": "NONE",
+        "publicRoute": "SKIPPED"
+      },
+      "priorHeadReviewEvidence": {
+        "nativeCodex": {
+          "reviewComment": 3996447418,
+          "evidenceUrl": "https://github.com/pachaninm-lab/pachanin-demo/pull/5332#discussion_r3996447418",
+          "reviewedHeadSha": "49615e882eec35e35eeef0e7d6bc0b0820983f31",
+          "severity": "P2",
+          "finding": "Python 3.14 automatically dedents -c input; validate decoded top-level indentation directly.",
+          "status": "ADDRESSED_FRESH_NATIVE_CLEAN_COMMENT",
+          "acceptedReview": false
+        },
+        "localQwen": {
+          "run": 34698535355,
+          "job": 103566096477,
+          "evidenceUrl": "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34698535355/job/103566096477",
+          "reviewedHeadSha": "49615e882eec35e35eeef0e7d6bc0b0820983f31",
+          "conclusion": "FAILURE",
+          "error": "POLICY_REPAIR_INVALID_SPECULATIVE_REASON",
+          "acceptedReview": false
+        },
+        "octopus": {
+          "run": 34698535314,
+          "job": 103566096625,
+          "evidenceUrl": "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34698535314/job/103566096625",
+          "reviewedHeadSha": "49615e882eec35e35eeef0e7d6bc0b0820983f31",
+          "conclusion": "FAILURE",
+          "reason": "Daily review limit reached (community tier).",
+          "acceptedReview": false
+        }
+      },
+      "currentHeadReviewEvidence": {
+        "nativeCodex": {
+          "reviewComment": 5646467131,
+          "evidenceUrl": "https://github.com/pachaninm-lab/pachanin-demo/pull/5332#issuecomment-5646467131",
+          "reviewedHeadSha": "2b62e9b3c8e0d875b64dc36dd87be6f15a29f466",
+          "conclusion": "CLEAN_COMMENT",
+          "mergeAdmission": "BLOCKED_BY_OTHER_PROVIDER_FAILURES"
+        },
+        "localQwen": {
+          "run": 34698950403,
+          "job": 103567194838,
+          "evidenceUrl": "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34698950403/job/103567194838",
+          "reviewedHeadSha": "2b62e9b3c8e0d875b64dc36dd87be6f15a29f466",
+          "conclusion": "FAILURE",
+          "error": "POLICY_REPAIR_INVALID_SPECULATIVE_REASON",
+          "acceptedReview": false
+        },
+        "octopus": {
+          "run": 34698950330,
+          "job": 103567194804,
+          "evidenceUrl": "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34698950330/job/103567194804",
+          "reviewedHeadSha": "2b62e9b3c8e0d875b64dc36dd87be6f15a29f466",
+          "conclusion": "FAILURE",
+          "reason": "Daily review limit reached (community tier).",
+          "acceptedReview": false
+        }
+      },
+      "authenticatedW1Acceptance": "NOT_EVIDENCED",
+      "fullW1Acceptance": "NOT_EVIDENCED",
+      "r6Acceptance": "NOT_EVIDENCED",
+      "newTerminalCredit": 0,
+      "nextAction": "Obtain fresh accepted independent review and terminal substantive CI for implementation.headSha before merge; then run fresh current-main preflight and the existing bounded deploy with isolated rehearsal. Prior-head review failures and local test results are not final-head admission or production acceptance.",
+      "auditBoundary": "This checkpoint records operational evidence only. Top-level observedMainSha/observedProductionSha, historical W1 observations, original findings and all progress assessments remain unchanged."
+    },
     "codeStatus": "MERGED",
     "productionStatus": "BLOCKED_HISTORICAL_DATABASE_LINEAGE",
     "terminalCredit": 0,
