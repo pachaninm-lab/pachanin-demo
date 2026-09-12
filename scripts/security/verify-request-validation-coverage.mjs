@@ -25,7 +25,16 @@
 //      deletion somewhere else, which a single global ceiling would allow;
 //   2. the number of DTO-typed parameters may never fall, so an existing DTO
 //      cannot be downgraded back to an inline type while some unrelated
-//      unvalidated endpoint is deleted to keep the ceiling intact.
+//      unvalidated endpoint is deleted to keep the ceiling intact;
+//   3. no DTO field may carry zero class-validator decorators, because a DTO
+//      class satisfies rule 1 whether or not anything inside it is checked.
+//      That was not hypothetical: TransitionShipmentDto.nextState and
+//      TransitionDealDto.nextState were declared as TypeScript unions of
+//      shipment and deal states and carried no decorator at all, so both
+//      counted as validated while constraining nothing. Neither was live - one
+//      DTO has no consumer and the other's service is a retired stub - which is
+//      exactly why it went unnoticed, and exactly why the next live handler
+//      would have inherited the shape.
 //
 // It does NOT claim the API validates its input. Run with --update-baseline
 // after a slice that genuinely converts endpoints.
@@ -245,6 +254,60 @@ export function scanSources(files, read = (file) => readFileSync(file, 'utf8')) 
   return { unvalidatedByFile, validated };
 }
 
+/**
+ * Поля DTO, у которых нет ни одного декоратора class-validator.
+ *
+ * Разбор идёт по объявлениям полей, а декораторы собираются НАЗАД от поля до
+ * предыдущей точки с запятой или открывающей скобки класса, потому что они
+ * бывают многострочными: `@IsIn([` с массивом на три строки — обычное дело в
+ * этом репозитории. Первая версия этого счётчика читала только строку перед
+ * полем и объявила payerMode непроверяемым, хотя у него есть @IsIn на три
+ * строки выше. Ложное срабатывание в гейте — это красная сборка на ровном
+ * месте, поэтому разбор здесь именно такой.
+ */
+const VALIDATOR_DECORATOR = /@(?:Is[A-Z][\w]*|Matches|Min|Max|Length|MinLength|MaxLength|ArrayNotEmpty|ArrayMinSize|ArrayMaxSize|ArrayUnique|ValidateNested|ValidateIf|ValidatePromise|Contains|NotContains|Equals|NotEquals|Allow|IsIn|IsNotIn)\b/u;
+
+export function scanDtoFields(files, read = (file) => readFileSync(file, 'utf8')) {
+  const bare = [];
+  let fields = 0;
+
+  for (const file of files) {
+    if (!/(?:^|\/)dto\//u.test(file)) continue;
+    const text = stripComments(read(file));
+
+    for (const classMatch of text.matchAll(/export class (\w+)[^{]*\{/gu)) {
+      // Тело класса — по балансу скобок, а не до первой закрывающей.
+      const open = text.indexOf('{', classMatch.index + classMatch[0].length - 1);
+      let depth = 0;
+      let close = open;
+      for (let i = open; i < text.length; i += 1) {
+        if (text[i] === '{') depth += 1;
+        else if (text[i] === '}') {
+          depth -= 1;
+          if (depth === 0) { close = i; break; }
+        }
+      }
+      const body = text.slice(open + 1, close);
+
+      // Поля отделяются точкой с запятой; декораторы поля — всё, что стоит
+      // между предыдущим разделителем и объявлением.
+      let cursor = 0;
+      for (const decl of body.matchAll(/(?:readonly\s+)?([A-Za-z_$][\w$]*)\s*[!?]?\s*:\s*[^;{}]*;/gu)) {
+        const preceding = body.slice(cursor, decl.index);
+        cursor = decl.index + decl[0].length;
+        // Методы и геттеры полями не считаются.
+        if (/\)\s*$/u.test(decl[0].trim().replace(/;$/u, ''))) continue;
+        fields += 1;
+        if (!VALIDATOR_DECORATOR.test(preceding)) {
+          bare.push(`${file}: ${classMatch[1]}.${decl[1]}`);
+        }
+      }
+    }
+  }
+
+  return { fields, bare: bare.sort() };
+}
+
 function totalUnvalidated(unvalidatedByFile) {
   let total = 0;
   for (const count of unvalidatedByFile.values()) total += count;
@@ -254,6 +317,7 @@ function totalUnvalidated(unvalidatedByFile) {
 function main() {
   const files = trackedSources(SOURCE_ROOT);
   const scan = scanSources(files);
+  const dto = scanDtoFields(files);
   const unvalidated = totalUnvalidated(scan.unvalidatedByFile);
 
   if (UPDATE) {
@@ -264,6 +328,10 @@ function main() {
       unvalidatedBodyParametersByFile: Object.fromEntries(
         [...scan.unvalidatedByFile.entries()].sort(([a], [b]) => (a < b ? -1 : 1)),
       ),
+      // Записывается, но порогом не служит: допускается ноль и только ноль.
+      // Иначе поле без декоратора можно было бы «забаселайнить», а смысл
+      // правила в том, что у поля DTO декоратор есть всегда.
+      dtoFieldsScanned: dto.fields,
     };
     writeFileSync(BASELINE_PATH, `${JSON.stringify(baseline, null, 2)}\n`);
     console.log(`REQUEST_VALIDATION: baseline written - ${unvalidated} unvalidated across ${scan.unvalidatedByFile.size} files, ${scan.validated} validated`);
@@ -308,8 +376,16 @@ function main() {
     failures.push(`DTO-typed @Body() parameters fell from ${requiredValidated} to ${scan.validated}; a parameter already validated must not be downgraded to an inline type`);
   }
 
+  // Порога нет намеренно: поле DTO без декоратора — это класс, который
+  // удовлетворяет правилу 1, ничего не проверяя, и «баселайнить» такое поле
+  // значило бы разрешить именно тот обход, против которого правило написано.
+  for (const field of dto.bare) {
+    failures.push(`${field}: DTO field carries no class-validator decorator, so the class validates nothing here`);
+  }
+
   const total = unvalidated;
   console.log(`REQUEST_VALIDATION: ${total} unvalidated @Body() parameters across ${scan.unvalidatedByFile.size} files; ${scan.validated} validated by a DTO class`);
+  console.log(`  ${dto.fields} DTO fields scanned; ${dto.bare.length} carry no class-validator decorator.`);
   console.log('  This is not a claim that the API validates its input. The debt is tracked in the ASVS matrix under V2.2.1 and V2.2.2.');
 
   if (failures.length > 0) {

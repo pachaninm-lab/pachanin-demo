@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/live-surface-body-validation-4459",
+  "status": "active",
+  "purpose": "Two things, both found by measuring rather than counting. First, a DTO class satisfies the request-validation ratchet whether or not anything inside it is checked: TransitionShipmentDto.nextState and TransitionDealDto.nextState were TypeScript unions of shipment and deal states with no decorator at all, so both counted as validated while constraining nothing. Neither is live - one DTO has no consumer anywhere in apps/api/src and the other's service is a retired stub - which is why it went unnoticed and why the next live handler would have inherited the shape. The ratchet now refuses a DTO field with no class-validator decorator, and that rule cannot be baselined away. Second, six admin and anti-fraud handlers declared their body inline; two are inert and four are live, and one of the live ones was silent: checkOffPlatformSettlement scores `switch (params.indicator)` with no default case, so an indicator outside the four scored 0, fell below the flagging threshold of 50, never reached persistFlag, and answered 200 with flagged:false - a report of suspected platform bypass recorded as nothing suspicious. A misspelling was enough. No verdict is claimed.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/live-surface-body-validation-4459.json",
+    "apps/api/src/modules/admin/admin.controller.ts",
+    "apps/api/src/modules/admin/dto/admin-api.dto.ts",
+    "apps/api/src/modules/admin/dto/live-surface-api.dto.spec.ts",
+    "apps/api/src/modules/anti-fraud/anti-fraud.controller.ts",
+    "apps/api/src/modules/anti-fraud/dto/anti-fraud-api.dto.ts",
+    "apps/api/src/modules/deals/dto/transition-deal.dto.ts",
+    "apps/api/src/modules/logistics/dto/transition-shipment.dto.ts",
+    "scripts/security/verify-request-validation-coverage.mjs",
+    "docs/security/request-validation-baseline.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+  ],
+  "requiredInvariants": [
+    "The new ratchet rule has no threshold and cannot be baselined. A bare DTO field is a class that satisfies rule 1 while checking nothing, so allowing it to be recorded as an accepted count would permit exactly the bypass the rule exists to refuse; --update-baseline records the field total but never the bare ones, and running it does not make a bare field pass.",
+    "Its parser reads decorators backwards to the previous field boundary, because they are routinely multi-line. The first version read only the line above a field and reported ServiceMarketplaceCommandDto.payerMode as bare when it carries a three-line @IsIn - a false positive in a gate is a red build for nothing, so the parser is proven in both directions: it catches a stripped single-line decorator, catches a stripped multi-line one, and does not flag the multi-line one that is present.",
+    "An inert surface is typed but never claimed as a fix. updateRole and updateOrg reach functions that legacy-admin-identity-boundary.ts replaces with a ServiceUnavailableException, and the DTO and the record both say so; the same is true of the two nextState fields, whose decorators close the shape of the hole, not an exposure.",
+    "Every constraint is read off the code it protects: the four indicator names are the switch's own cases; the role list is Object.values(Role); user and resource stay open objects because PolicyInput is open by design and only the non-shapes - a string, a number, an array, null - are refused.",
+    "No behaviour that worked stops working. Each refusal case is paired with the same body made valid, and the open shape inside the policy subject and resource is asserted to survive the pipe unchanged.",
+    "No service logic, no policy engine, no repository, no migration. Request boundary and the ratchet only. No production, REG.RU, DNS, database or credential mutation, no new dependency."
+  ],
+  "acceptance": [
+    "The silent-report defect is reproduced on the switch's own arithmetic before anything is asserted about the fix: 'external_payment_mentionned' - one letter wrong - scores 0 and flags nothing, while 'external_payment_mentioned' scores 85 and flags.",
+    "All eleven constraints are bound individually, each by exactly one case, and all eleven mutations are caught: indicator @IsIn, dealId required, evidence length, blocked @IsBoolean, user @IsObject, resource @IsObject, action length, role @IsIn, orgId @IsString, reason length, idempotencyKey required.",
+    "A mutation that fails to compile is not counted as a caught mutation. Five of the first eleven replaced a decorator with @Allow(), which is not imported, so the suite never ran and reported 0 tests; they were redone as decorator deletions that compile, and only then did they fail the suite. One genuine gap surfaced that way - evidence had no length case - and it is now covered.",
+    "The bare-field rule is falsifiable end to end: stripping @IsIn from TransitionShipmentDto.nextState fails the gate by name, and running --update-baseline afterwards does not make it pass.",
+    "The ratchet moves and is tightened: 66 unvalidated @Body() parameters across 23 files becomes 60 across 21, DTO-typed parameters rise from 134 to 140, and 472 DTO fields are scanned with 0 bare.",
+    "No verdict moves: 39 NOT_ASSESSED / 129 PASS / 88 NOT_APPLICABLE / 89 FAIL against main, V8.2.4 the only rejected decision - main's standing drift, repaired on security/login-lockout-finding-4459.",
+    "live-surface-api.dto.spec.ts passes 16 of 16; tsc --noEmit on apps/api exits 0; the cryptographic inventory is regenerated after staging (it counts git-tracked files, so running it before `git add` leaves it stale) and discover-cryptography.test.mjs passes 8 of 8; node --test scripts/security passes 144 of 144; guard=0."
+  ]
+}

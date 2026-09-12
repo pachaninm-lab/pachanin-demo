@@ -13,6 +13,13 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser, Role } from '../../common/types/request-user';
+import {
+  BlockUserDto,
+  EvaluatePolicyDto,
+  RequeueOutboxEntryDto,
+  UpdateUserOrgDto,
+  UpdateUserRoleDto,
+} from './dto/admin-api.dto';
 import { AuthService } from '../auth/auth.service';
 import { OutboxService } from '../../common/outbox/outbox.service';
 
@@ -31,7 +38,7 @@ export class AdminController {
   }
 
   @Patch('users/:id/role')
-  updateRole(@Param('id') id: string, @Body() body: { role: Role }) {
+  updateRole(@Param('id') id: string, @Body() body: UpdateUserRoleDto) {
     try {
       return this.auth.updateUserRole(id, body.role);
     } catch {
@@ -40,7 +47,7 @@ export class AdminController {
   }
 
   @Patch('users/:id/org')
-  updateOrg(@Param('id') id: string, @Body() body: { orgId: string }) {
+  updateOrg(@Param('id') id: string, @Body() body: UpdateUserOrgDto) {
     try {
       return this.auth.updateUserOrg(id, body.orgId);
     } catch {
@@ -71,7 +78,7 @@ export class AdminController {
   @Post('outbox/:id/requeue')
   async requeueOutbox(
     @Param('id') id: string,
-    @Body() body: { reason: string; idempotencyKey: string },
+    @Body() body: RequeueOutboxEntryDto,
     @CurrentUser() user: RequestUser,
   ) {
     try {
@@ -89,7 +96,7 @@ export class AdminController {
   }
 
   @Patch('users/:id/block')
-  blockUser(@Param('id') id: string, @Body() body: { blocked: boolean }) {
+  blockUser(@Param('id') id: string, @Body() body: BlockUserDto) {
     const users = this.auth.listUsers();
     const user = users.find((candidate) => candidate.id === id);
     if (!user) throw new NotFoundException(`User ${id} not found`);
@@ -352,11 +359,7 @@ export class AdminController {
 
   @Post('policy-engine/evaluate')
   evaluatePolicy(
-    @Body() body: {
-      action: string;
-      user: Record<string, unknown>;
-      resource: Record<string, unknown>;
-    },
+    @Body() body: EvaluatePolicyDto,
   ) {
     const { PolicyEngineService } = require('../../common/security/policy-engine.service');
     const engine = new PolicyEngineService();
