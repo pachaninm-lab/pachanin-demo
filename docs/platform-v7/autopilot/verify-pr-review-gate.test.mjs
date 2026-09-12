@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
 import {
@@ -432,6 +433,154 @@ test('Local Qwen workflow uses canonical Qwen3 model-host, remains bounded and f
   assert.doesNotMatch(workflow, /huggingface\.co\/Qwen\/Qwen2\.5/u);
   assert.doesNotMatch(workflow, /actions\/checkout/u);
 });
+
+function qwenLiteralSource(value) {
+  // Decode only the fixed ten-space prefix of these checked-in run literals.
+  return value.split('\n').map(line=>{
+    if(!line.length) return line;
+    assert.ok(line.startsWith('          '),'unexpected workflow literal indentation');
+    return line.slice(10);
+  }).join('\n');
+}
+
+const rejectedEvidenceHarness=String.raw`
+import ast, hashlib, json, os, pathlib, re, subprocess, sys, tempfile
+remote, validator, transport, cleanup, scenario = sys.argv[1:]
+tree=ast.parse(remote)
+constants={'SPECULATIVE_REASON','SECURITY_CLASSIFICATION','ROUTE_TEST_REFERENCE'}
+functions={'fail','policy_violation','repair_user','save_rejected'}
+definitions=[node for node in tree.body if isinstance(node,ast.FunctionDef) and node.name in functions or isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id in constants for t in node.targets)]
+loop=[node for node in tree.body if isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='repairs' for t in node.targets) or isinstance(node,ast.With) and any(isinstance(i.context_expr,ast.Call) and isinstance(i.context_expr.func,ast.Attribute) and isinstance(i.context_expr.func.value,ast.Name) and i.context_expr.func.value.id=='output_path' for i in node.items)]
+with tempfile.TemporaryDirectory() as directory:
+    root=pathlib.Path(directory)
+    manifest={'full_diff_sha256':'d'*64,'chunks':[{'index':1,'path':'src/changed.mjs','sha256':'c'*64}]}
+    manifest_path=root/'review-manifest.json'
+    manifest_path.write_text(json.dumps(manifest))
+    manifest_sha=hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    namespace={'json':json,'re':re,'hashlib':hashlib,'review_head':'a'*40,'run_id':'123','run_attempt':'2','diff_sha':'d'*64,'manifest_sha':manifest_sha,'bearer':'PRIVATE_TOKEN_CANARY','host':'PRIVATE_HOST_CANARY'}
+    exec(compile(ast.Module(body=definitions,type_ignores=[]),'<actual-qwen-functions>','exec'),namespace)
+    original_save=namespace['save_rejected']
+    item={'index':1,'path':'src/changed.mjs','chunk_sha256':'c'*64,'system':'trusted fixture policy','user':'public fixture diff'}
+    def response(reason):
+        return json.dumps({'findings':[{'severity':'P1','path':item['path'],'line':1,'title':'Concrete fixture','reason':reason}]},ensure_ascii=False)
+    initial=response('This change could fail for the public fixture.')
+    final=response('This change may fail for the public fixture.')
+    def review(responses, save=None, request=None):
+        folder=root/('review-'+str(len(list(root.glob('review-*')))))
+        folder.mkdir()
+        output=folder/'review-responses.jsonl'
+        calls=[]
+        def completion(system,user):
+            calls.append((system,user))
+            return responses[len(calls)-1]
+        namespace.update(output_path=output,requests=[request or item],completion=completion,save_rejected=save or original_save)
+        failure=None
+        try: exec(compile(ast.Module(body=loop,type_ignores=[]),'<actual-qwen-loop>','exec'),namespace)
+        except SystemExit as error: failure=str(error)
+        return output,folder/'review-rejected.json',calls,failure
+    def validate(raw, expected=True):
+        source=root/'untrusted-rejected.json'; destination=root/'validated-rejected.json'
+        destination.unlink(missing_ok=True)
+        source.write_bytes(raw)
+        args=[str(source),str(manifest_path),str(destination),'a'*40,'123','2','d'*64,manifest_sha]
+        result=subprocess.run([sys.executable,'-c',validator,*args],capture_output=True,text=True)
+        assert (result.returncode==0)==expected,(result.returncode,result.stderr)
+        assert result.stdout==''
+        assert 'PRIVATE_' not in result.stderr
+        assert destination.exists()==expected
+        if expected:
+            assert destination.read_bytes()==raw
+            assert destination.stat().st_mode & 0o777 == 0o600
+    if scenario=='failed-repair':
+        output,rejected,calls,failure=review([initial,final])
+        assert failure=='REMOTE_REVIEW_ERROR=POLICY_REPAIR_INVALID_SPECULATIVE_REASON'
+        assert len(calls)==2 and output.read_text()==''
+        raw=rejected.read_bytes(); value=json.loads(raw)
+        assert len(raw)<=65536 and rejected.stat().st_mode & 0o777 == 0o600
+        assert value['initial']['content']==initial and value['final']['content']==final
+        assert value['repair_prompt_sha256']==hashlib.sha256(calls[1][1].encode()).hexdigest()
+        assert b'PRIVATE_TOKEN_CANARY' not in raw and b'PRIVATE_HOST_CANARY' not in raw
+        validate(raw)
+    elif scenario=='unchanged-review':
+        for responses in [['{"findings":[]}'],[initial,'{"findings":[]}'],[response('The changed branch returns the wrong value for input zero.')]]:
+            output,rejected,calls,failure=review(responses)
+            assert failure is None and len(calls)==len(responses) and not rejected.exists()
+            assert json.loads(output.read_text())['content']==responses[-1]
+    elif scenario=='diagnostic-write-failure':
+        for error in (OSError('fixture disk error'),KeyError('fixture metadata')):
+            def broken(*args): raise error
+            output,rejected,calls,failure=review([initial,final],broken)
+            assert failure=='REMOTE_REVIEW_ERROR=POLICY_REPAIR_INVALID_SPECULATIVE_REASON'
+            assert len(calls)==2 and output.read_text()=='' and not rejected.exists()
+    elif scenario=='utf8-and-bounds':
+        output,rejected,calls,failure=review([response('could: я中🌾'),response('may: я中🌾')])
+        raw=rejected.read_bytes(); value=json.loads(raw)
+        for key in ('initial','final'):
+            content=value[key]['content'].encode('utf-8')
+            assert value[key]['utf8_bytes']==len(content) and value[key]['sha256']==hashlib.sha256(content).hexdigest()
+        validate(raw)
+        validate(raw+b' '*(65536-len(raw)))
+        validate(raw+b' '*(65537-len(raw)),False)
+        validate(raw.decode().encode('utf-16'),False)
+        output,rejected,calls,failure=review([response('could '+'\x00'*20000),final])
+        assert failure=='REMOTE_REVIEW_ERROR=POLICY_REPAIR_INVALID_SPECULATIVE_REASON' and not rejected.exists()
+    elif scenario=='binding-and-schema':
+        _,rejected,_,_=review([initial,final]); original=json.loads(rejected.read_bytes())
+        mutations=[lambda v:v.update(head='b'*40),lambda v:v.update(run_id='124'),lambda v:v.update(run_attempt='3'),
+            lambda v:v.update(full_diff_sha256='e'*64),lambda v:v.update(manifest_sha256='f'*64),
+            lambda v:v['chunk'].update(index=2),lambda v:v['chunk'].update(path='src/other.mjs'),lambda v:v['chunk'].update(sha256='e'*64),
+            lambda v:v['initial'].update(content='changed'),lambda v:v['final'].update(sha256='e'*64),lambda v:v['final'].update(utf8_bytes=True),
+            lambda v:v.update(private_host='PRIVATE_HOST_CANARY')]
+        for mutate in mutations:
+            value=json.loads(json.dumps(original)); mutate(value); validate(json.dumps(value).encode(),False)
+    elif scenario=='failed-transport':
+        _,rejected,_,_=review([initial,final])
+        for mode in ('valid','invalid','unavailable'):
+            runner=root/mode; runner.mkdir()
+            (runner/'review-manifest.json').write_bytes(manifest_path.read_bytes())
+            fixture=root/('fixture-'+mode+'.json')
+            fixture.write_bytes(rejected.read_bytes() if mode=='valid' else b'{"private_host":"PRIVATE_HOST_CANARY"}')
+            env={'PATH':os.environ['PATH'],'RUNNER_TEMP':str(runner),'FIXTURE_REJECTED':str(fixture),'COPY_MODE':mode,
+                'REVIEW_HEAD':'a'*40,'GITHUB_RUN_ID':'123','GITHUB_RUN_ATTEMPT':'2','REVIEW_DIFF_SHA256':'d'*64,'REVIEW_MANIFEST_SHA256':manifest_sha}
+            setup='''set -Eeuo pipefail
+umask 077
+ssh_opts=(); scp_opts=()
+MODEL_USER=fixture; MODEL_HOST=fixture; MODEL_IDENTITY=fixture; MODEL_SHA256=fixture; MODEL_SIZE_BYTES=1; LLAMA_SOURCE_COMMIT=fixture; remote_dir=fixture
+ssh(){ return 23; }
+scp(){ if [[ "$COPY_MODE" == unavailable ]]; then return 27; fi; local destination; for destination; do :; done; cp "$FIXTURE_REJECTED" "$destination"; }
+'''
+            script=setup+cleanup+'\ntrap cleanup EXIT\n'+transport
+            result=subprocess.run(['bash'],input=script,env=env,capture_output=True,text=True)
+            assert result.returncode==23,(mode,result.returncode,result.stderr)
+            assert 'PRIVATE_' not in result.stdout+result.stderr
+            assert not (runner/'review-rejected.raw.json').exists()
+            assert not (runner/'review-rejected.tmp').exists()
+            assert (runner/'review-rejected.json').exists()==(mode=='valid')
+    else: raise AssertionError('unknown scenario')
+`;
+
+for(const scenario of ['failed-repair','unchanged-review','diagnostic-write-failure','utf8-and-bounds','binding-and-schema','failed-transport']) {
+  test(`Qwen rejected evidence executes the actual workflow: ${scenario}`,()=>{
+    const workflow=readFileSync(new URL('../../../.github/workflows/local-qwen-independent-review.yml',import.meta.url),'utf8');
+    const block=marker=>{
+      const index=workflow.indexOf(marker); assert.ok(index>=0,'expected actual Python block');
+      const match=workflow.slice(index).match(/<<'PY'\n([\s\S]*?)\n          PY\n/);
+      assert.ok(match,'expected fixed literal heredoc'); return qwenLiteralSource(match[1]);
+    };
+    const start=workflow.indexOf('          inference_status=0\n');
+    const end=workflow.indexOf('          scp "${scp_opts[@]}" "$MODEL_USER@$MODEL_HOST:$remote_dir/review-responses.jsonl"',start);
+    assert.ok(start>=0 && end>start,'expected actual failure transport');
+    const cleanup=workflow.match(/          (cleanup\(\)\{[^\n]+)\n/); assert.ok(cleanup);
+    const result=spawnSync('python3',['-c',rejectedEvidenceHarness,
+      block('cat > "$RUNNER_TEMP/remote-review.py"'),block('if python3 - "$RUNNER_TEMP/review-rejected.raw.json"'),
+      qwenLiteralSource(workflow.slice(start,end)),cleanup[1],scenario],{encoding:'utf8'});
+    assert.equal(result.status,0,result.stderr); assert.equal(result.stdout,'');
+    assert.match(workflow,/if: always\(\) && steps\.inference\.outcome == 'failure'/);
+    assert.match(workflow,/path: \$\{\{ runner\.temp \}\}\/review-rejected\.json/);
+    const canonicalizer=workflow.slice(workflow.indexOf('- name: Validate and canonicalize independent review'));
+    assert.doesNotMatch(canonicalizer,/review-rejected/,'diagnostics cannot become review authority');
+  });
+}
 
 test('review reconciliation workflow uses supported dispatch wiring and complete pagination', () => {
   const workflow = readFileSync(new URL('../../../.github/workflows/automerge.yml', import.meta.url), 'utf8');
