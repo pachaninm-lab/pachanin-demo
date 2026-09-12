@@ -1,0 +1,323 @@
+#!/usr/bin/env python3
+import http.client
+import json
+import os
+import re
+import secrets
+import socket
+import stat
+import subprocess
+import tempfile
+import time
+from pathlib import Path
+
+RUNTIME_HOST = "127.0.0.1"
+STARTUP_TIMEOUT_SECONDS = 60
+REQUEST_LIMIT_BYTES = 600_000
+RESPONSE_LIMIT_BYTES = 2_000_000
+MODEL_IDENTITY = re.compile(r"[A-Za-z0-9._-]{1,96}\Z")
+BEARER = re.compile(r"[A-Za-z0-9_-]{32,128}\Z")
+ALL_WRITE_BITS = stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH
+
+
+class RuntimeLaunchError(Exception):
+    pass
+
+
+class LocalRuntimeHandle:
+    __slots__ = ("process", "bound_files", "host", "port", "bearer", "key_path")
+
+    def __init__(self, process, bound_files, port, bearer, key_path):
+        self.process = process
+        self.bound_files = bound_files
+        self.host = RUNTIME_HOST
+        self.port = port
+        self.bearer = bearer
+        self.key_path = key_path
+
+    def close(self):
+        stop_runtime(self)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+
+
+def reject(code):
+    raise RuntimeLaunchError(code) from None
+
+
+def _require_fd(fd, expected_dev, expected_ino, executable, code):
+    if type(fd) is not int or fd < 0:
+        reject(code)
+    if type(expected_dev) is not int or expected_dev < 0:
+        reject(code)
+    if type(expected_ino) is not int or expected_ino <= 0:
+        reject(code)
+    try:
+        info = os.fstat(fd)
+        inheritable = os.get_inheritable(fd)
+    except OSError:
+        reject(code)
+    if inheritable:
+        reject(code)
+    if not stat.S_ISREG(info.st_mode):
+        reject(code)
+    if info.st_uid != 0 or info.st_mode & ALL_WRITE_BITS:
+        reject(code)
+    if info.st_dev != expected_dev or info.st_ino != expected_ino:
+        reject(code)
+    if executable and not (stat.S_IMODE(info.st_mode) & 0o111):
+        reject(code)
+
+
+def _validate_bound_files(bound_files):
+    try:
+        server_fd = bound_files.server_fd
+        model_fd = bound_files.model_fd
+        server_path = bound_files.server_path
+        model_path = bound_files.model_path
+        server_dev = bound_files.server_dev
+        server_ino = bound_files.server_ino
+        model_dev = bound_files.model_dev
+        model_ino = bound_files.model_ino
+        pass_fds = bound_files.pass_fds
+    except (AttributeError, RuntimeError):
+        reject("RUNTIME_BOUND_FILES_INVALID")
+    if pass_fds != (server_fd, model_fd):
+        reject("RUNTIME_PASS_FDS_INVALID")
+    if server_path != f"/proc/self/fd/{server_fd}":
+        reject("RUNTIME_SERVER_PATH_INVALID")
+    if model_path != f"/proc/self/fd/{model_fd}":
+        reject("RUNTIME_MODEL_PATH_INVALID")
+    _require_fd(server_fd, server_dev, server_ino, True, "RUNTIME_SERVER_FD_INVALID")
+    _require_fd(model_fd, model_dev, model_ino, False, "RUNTIME_MODEL_FD_INVALID")
+    return server_fd, model_fd, server_path, model_path
+
+
+def _reserve_port():
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+            listener.bind((RUNTIME_HOST, 0))
+            port = listener.getsockname()[1]
+    except OSError:
+        reject("RUNTIME_PORT_RESERVATION_INVALID")
+    if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+        reject("RUNTIME_PORT_INVALID")
+    return port
+
+
+def _create_api_key():
+    bearer = secrets.token_urlsafe(32)
+    if not BEARER.fullmatch(bearer):
+        reject("RUNTIME_BEARER_INVALID")
+    try:
+        key_fd, key_name = tempfile.mkstemp(prefix="pc-local-mistral-api-", text=True)
+    except OSError:
+        reject("RUNTIME_API_KEY_CREATE_INVALID")
+    key_path = Path(key_name)
+    try:
+        os.fchmod(key_fd, 0o600)
+        with os.fdopen(key_fd, "w", encoding="ascii", closefd=True) as handle:
+            handle.write(bearer + "\n")
+    except (OSError, UnicodeError):
+        try:
+            os.close(key_fd)
+        except OSError:
+            pass
+        try:
+            key_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        reject("RUNTIME_API_KEY_WRITE_INVALID")
+    return bearer, key_path
+
+
+def _clean_environment():
+    environment = os.environ.copy()
+    for key in tuple(environment):
+        if key.startswith("LLAMA_ARG_") or key in {"LLAMA_API_KEY", "LLAMA_PORT"}:
+            environment.pop(key, None)
+    return environment
+
+
+def _validate_handle(handle):
+    if not isinstance(handle, LocalRuntimeHandle):
+        reject("RUNTIME_HANDLE_INVALID")
+    if handle.host != RUNTIME_HOST:
+        reject("RUNTIME_HOST_INVALID")
+    if isinstance(handle.port, bool) or not isinstance(handle.port, int) or not 1 <= handle.port <= 65535:
+        reject("RUNTIME_PORT_INVALID")
+    if not isinstance(handle.bearer, str) or not BEARER.fullmatch(handle.bearer):
+        reject("RUNTIME_BEARER_INVALID")
+    if not isinstance(handle.process, subprocess.Popen) or handle.process.poll() is not None:
+        reject("RUNTIME_NOT_RUNNING")
+
+
+def request_runtime_json(handle, method, endpoint, payload=None, timeout=20):
+    _validate_handle(handle)
+    if method not in {"GET", "POST"}:
+        reject("RUNTIME_METHOD_INVALID")
+    if endpoint not in {"/v1/models", "/v1/chat/completions"}:
+        reject("RUNTIME_ENDPOINT_INVALID")
+    body = None
+    if payload is not None:
+        if not isinstance(payload, dict):
+            reject("RUNTIME_REQUEST_INVALID")
+        try:
+            body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        except (TypeError, ValueError, UnicodeError):
+            reject("RUNTIME_REQUEST_INVALID")
+        if len(body) > REQUEST_LIMIT_BYTES:
+            reject("RUNTIME_REQUEST_TOO_LARGE")
+    headers = {
+        "Accept": "application/json",
+        "Authorization": "Bearer " + handle.bearer,
+        "Content-Type": "application/json",
+    }
+    connection = http.client.HTTPConnection(RUNTIME_HOST, handle.port, timeout=timeout)
+    try:
+        connection.request(method, endpoint, body=body, headers=headers)
+        response = connection.getresponse()
+        raw = response.read(RESPONSE_LIMIT_BYTES + 1)
+    except (OSError, TimeoutError, http.client.HTTPException):
+        reject("RUNTIME_TRANSPORT_INVALID")
+    finally:
+        connection.close()
+    if len(raw) > RESPONSE_LIMIT_BYTES:
+        reject("RUNTIME_RESPONSE_TOO_LARGE")
+    if response.status != 200:
+        reject("RUNTIME_HTTP_STATUS_INVALID")
+    try:
+        value = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        reject("RUNTIME_RESPONSE_JSON_INVALID")
+    if not isinstance(value, dict):
+        reject("RUNTIME_RESPONSE_SHAPE_INVALID")
+    if handle.process.poll() is not None:
+        reject("RUNTIME_EXITED_DURING_REQUEST")
+    return value
+
+
+def _remove_key(path):
+    if path is None:
+        return
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:
+        reject("RUNTIME_API_KEY_REMOVE_INVALID")
+
+
+def _close_bound_files(bound_files):
+    if bound_files is None:
+        return
+    try:
+        bound_files.close()
+    except Exception:
+        reject("RUNTIME_BOUND_FILES_CLOSE_INVALID")
+
+
+def stop_runtime(handle):
+    if not isinstance(handle, LocalRuntimeHandle):
+        reject("RUNTIME_HANDLE_INVALID")
+    process = handle.process
+    handle.process = None
+    failure = None
+    if isinstance(process, subprocess.Popen) and process.poll() is None:
+        try:
+            process.terminate()
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            try:
+                process.kill()
+                process.wait(timeout=5)
+            except (OSError, subprocess.SubprocessError):
+                failure = "RUNTIME_STOP_INVALID"
+        except (OSError, subprocess.SubprocessError):
+            failure = "RUNTIME_STOP_INVALID"
+    try:
+        _remove_key(handle.key_path)
+    except RuntimeLaunchError:
+        failure = failure or "RUNTIME_API_KEY_REMOVE_INVALID"
+    handle.key_path = None
+    try:
+        _close_bound_files(handle.bound_files)
+    except RuntimeLaunchError:
+        failure = failure or "RUNTIME_BOUND_FILES_CLOSE_INVALID"
+    handle.bound_files = None
+    if failure:
+        reject(failure)
+
+
+def start_runtime(bound_files, model_identity):
+    if not isinstance(model_identity, str) or not MODEL_IDENTITY.fullmatch(model_identity):
+        reject("RUNTIME_MODEL_IDENTITY_INVALID")
+    server_fd, model_fd, server_path, model_path = _validate_bound_files(bound_files)
+    port = _reserve_port()
+    bearer, key_path = _create_api_key()
+    command = [
+        server_path,
+        "--model",
+        model_path,
+        "--alias",
+        model_identity,
+        "--host",
+        RUNTIME_HOST,
+        "--port",
+        str(port),
+        "--api-key-file",
+        str(key_path),
+        "--jinja",
+        "--no-webui",
+    ]
+    try:
+        process = subprocess.Popen(
+            command,
+            cwd="/",
+            env=_clean_environment(),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            close_fds=True,
+            pass_fds=(server_fd, model_fd),
+            start_new_session=True,
+        )
+    except (OSError, ValueError):
+        try:
+            _remove_key(key_path)
+        finally:
+            _close_bound_files(bound_files)
+        reject("RUNTIME_LAUNCH_INVALID")
+
+    handle = LocalRuntimeHandle(process, bound_files, port, bearer, key_path)
+    deadline = time.monotonic() + STARTUP_TIMEOUT_SECONDS
+    try:
+        while time.monotonic() < deadline:
+            if process.poll() is not None:
+                reject("RUNTIME_EXITED_DURING_STARTUP")
+            try:
+                models = request_runtime_json(handle, "GET", "/v1/models", timeout=3)
+            except RuntimeLaunchError as exc:
+                if str(exc) not in {"RUNTIME_TRANSPORT_INVALID", "RUNTIME_HTTP_STATUS_INVALID"}:
+                    raise
+                time.sleep(0.25)
+                continue
+            served = {
+                item.get("id")
+                for item in models.get("data", [])
+                if isinstance(item, dict) and isinstance(item.get("id"), str)
+            }
+            if process.poll() is not None:
+                reject("RUNTIME_EXITED_DURING_STARTUP")
+            if model_identity in served:
+                return handle
+            time.sleep(0.25)
+        reject("RUNTIME_START_TIMEOUT")
+    except Exception:
+        try:
+            stop_runtime(handle)
+        except RuntimeLaunchError:
+            pass
+        raise
