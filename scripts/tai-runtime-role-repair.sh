@@ -287,15 +287,31 @@ WITH role_row AS (
          rolreplication, rolbypassrls, rolconnlimit
   FROM pg_catalog.pg_roles
   WHERE rolname='${ROLE_NAME}'
-), non_tai AS (
-  SELECT COUNT(*)::int AS count
+), non_tai_relations AS (
+  SELECT relation.oid, relation.relowner, relation.relacl,
+         has_table_privilege(
+           '${ROLE_NAME}',
+           format('%I.%I', namespace.nspname, relation.relname),
+           'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'
+         ) AS effective
   FROM pg_catalog.pg_class AS relation
   JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid=relation.relnamespace
   WHERE namespace.nspname='public'
     AND relation.relname NOT LIKE 'tai\\_%' ESCAPE '\\'
     AND relation.relkind IN ('r','v','m','p','f')
-    AND has_table_privilege('${ROLE_NAME}', format('%I.%I',namespace.nspname,relation.relname),
-      'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+), direct_acl_relations AS (
+  SELECT DISTINCT relation.oid
+  FROM non_tai_relations AS relation
+  CROSS JOIN role_row
+  CROSS JOIN LATERAL pg_catalog.aclexplode(relation.relacl) AS acl
+  WHERE relation.relacl IS NOT NULL
+    AND acl.grantee=role_row.oid
+), public_acl_relations AS (
+  SELECT DISTINCT relation.oid
+  FROM non_tai_relations AS relation
+  CROSS JOIN LATERAL pg_catalog.aclexplode(relation.relacl) AS acl
+  WHERE relation.relacl IS NOT NULL
+    AND acl.grantee=0
 )
 SELECT role_row.rolcanlogin, role_row.rolsuper, role_row.rolcreatedb,
        role_row.rolcreaterole, role_row.rolinherit, role_row.rolreplication,
@@ -303,18 +319,21 @@ SELECT role_row.rolcanlogin, role_row.rolsuper, role_row.rolcreatedb,
        (SELECT COUNT(*) FROM pg_catalog.pg_auth_members WHERE member=role_row.oid),
        (SELECT COUNT(*) FROM pg_catalog.pg_auth_members WHERE roleid=role_row.oid),
        (SELECT COUNT(*) FROM pg_catalog.pg_stat_activity WHERE usename='${ROLE_NAME}'),
-       non_tai.count
-FROM role_row, non_tai;
+       (SELECT COUNT(*) FROM non_tai_relations WHERE effective),
+       (SELECT COUNT(*) FROM direct_acl_relations),
+       (SELECT COUNT(*) FROM public_acl_relations),
+       (SELECT COUNT(*) FROM non_tai_relations WHERE relowner=role_row.oid)
+FROM role_row;
 SQL
 )"
   [[ "$(printf '%s\n' "$boundary" | grep -c .)" == 1 ]]
-  IFS=$'\t' read -r can_login super createdb createrole inherit replication bypass connlimit memberships grants_to_others sessions non_tai <<< "$boundary"
+  IFS=$'\t' read -r can_login super createdb createrole inherit replication bypass connlimit memberships grants_to_others sessions non_tai direct_non_tai public_non_tai owned_non_tai <<< "$boundary"
   [[ "$can_login" == t && "$super" == f && "$createdb" == f && "$createrole" == f ]]
   [[ "$inherit" == f && "$replication" == f && "$bypass" == f && "$connlimit" == 20 ]]
 
-  role_boundary_json="$(python3 - "$can_login" "$super" "$createdb" "$createrole" "$inherit" "$replication" "$bypass" "$connlimit" "$memberships" "$grants_to_others" "$sessions" "$non_tai" <<'PY_BOUNDARY'
+  role_boundary_json="$(python3 - "$can_login" "$super" "$createdb" "$createrole" "$inherit" "$replication" "$bypass" "$connlimit" "$memberships" "$grants_to_others" "$sessions" "$non_tai" "$direct_non_tai" "$public_non_tai" "$owned_non_tai" <<'PY_BOUNDARY'
 import json,sys
-keys=['canLogin','superuser','createdb','createrole','inherit','replication','bypassRls','connectionLimit','membershipCount','memberGrantCount','activeSessionCount','nonTaiTableGrantCount']
+keys=['canLogin','superuser','createdb','createrole','inherit','replication','bypassRls','connectionLimit','membershipCount','memberGrantCount','activeSessionCount','nonTaiTableGrantCount','directNonTaiAclRelationCount','publicNonTaiAclRelationCount','ownedNonTaiRelationCount']
 values=sys.argv[1:]
 parsed=[]
 for index,value in enumerate(values):
@@ -326,7 +345,15 @@ print(json.dumps(dict(zip(keys,parsed)),sort_keys=True,separators=(',',':')))
 PY_BOUNDARY
 )"
 
-  if [[ "$memberships" != 0 || "$grants_to_others" != 0 || "$sessions" != 0 || "$non_tai" != 0 ]]; then
+  boundary_safe=1
+  [[ "$memberships" == 0 ]] || boundary_safe=0
+  [[ "$grants_to_others" == 0 ]] || boundary_safe=0
+  [[ "$sessions" == 0 ]] || boundary_safe=0
+  [[ "$owned_non_tai" == 0 ]] || boundary_safe=0
+  [[ "$public_non_tai" == 0 ]] || boundary_safe=0
+  [[ "$direct_non_tai" == "$non_tai" ]] || boundary_safe=0
+
+  if (( boundary_safe == 0 )); then
     python3 - "$OUTPUT_FILE" "$TARGET_SHA" "$RUN_ID" "$prod_project" "$DB_SERVICE" "$DB_NAME" "$role_boundary_json" <<'PY_BLOCKED_EVIDENCE'
 import grp,json,os,sys
 path,sha,run_id,project,db_service,db_name,boundary=sys.argv[1:]
@@ -347,6 +374,7 @@ report={
   'databaseName':db_name,
   'boundaryBefore':json.loads(boundary),
   'mutationPerformed':False,
+  'directNonTaiAclRevoked':False,
   'dropOwnedUsed':False,
   'reassignOwnedUsed':False,
   'passed':False,
@@ -370,6 +398,40 @@ BEGIN
   END IF;
 END
 \$repair\$;
+SELECT format('REVOKE ALL PRIVILEGES ON TABLE %I.%I FROM %I;',namespace.nspname,relation.relname,'${ROLE_NAME}')
+FROM pg_catalog.pg_class AS relation
+JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid=relation.relnamespace
+WHERE namespace.nspname='public'
+  AND relation.relname NOT LIKE 'tai\\_%' ESCAPE '\\'
+  AND relation.relkind IN ('r','v','m','p','f')
+  AND EXISTS (
+    SELECT 1
+    FROM pg_catalog.aclexplode(relation.relacl) AS acl
+    WHERE relation.relacl IS NOT NULL
+      AND acl.grantee=(SELECT oid FROM pg_catalog.pg_roles WHERE rolname='${ROLE_NAME}')
+  )
+ORDER BY relation.relname
+\gexec
+DO \$repair_non_tai\$
+DECLARE
+  remaining INTEGER;
+BEGIN
+  SELECT COUNT(*)::INTEGER INTO remaining
+  FROM pg_catalog.pg_class AS relation
+  JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid=relation.relnamespace
+  WHERE namespace.nspname='public'
+    AND relation.relname NOT LIKE 'tai\\_%' ESCAPE '\\'
+    AND relation.relkind IN ('r','v','m','p','f')
+    AND has_table_privilege(
+      '${ROLE_NAME}',
+      format('%I.%I',namespace.nspname,relation.relname),
+      'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'
+    );
+  IF remaining <> 0 THEN
+    RAISE EXCEPTION 'tai_runtime retains non-TAI relation authority after bounded direct ACL revocation';
+  END IF;
+END
+\$repair_non_tai\$;
 REVOKE CONNECT ON DATABASE ${DB_NAME} FROM ${ROLE_NAME};
 REVOKE USAGE ON SCHEMA public FROM ${ROLE_NAME};
 SELECT format('REVOKE ALL PRIVILEGES ON TABLE %I.%I FROM %I;',namespace.nspname,relation.relname,'${ROLE_NAME}')
@@ -506,6 +568,8 @@ report={
   'latestDeploymentErrorCode':error_code,
   'latestDeploymentRollbackConfirmed':rollback == 'true',
   'mutationPerformed': status == 'REMOVED_SAFE_ORPHAN',
+  'directNonTaiAclRevoked': status == 'REMOVED_SAFE_ORPHAN' and json.loads(boundary).get('directNonTaiAclRelationCount',0) > 0,
+  'nonTaiTableGrantCountAfter':0,
   'dropOwnedUsed':False,
   'reassignOwnedUsed':False,
   'passed':True,
