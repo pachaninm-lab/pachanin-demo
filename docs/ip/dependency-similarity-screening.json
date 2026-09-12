@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "note": "Screening of the protected core against the dependency store. Reproduce with scripts/ip/build-dependency-corpus.mjs then build-offline-similarity-evidence.mjs.",
+  "protectedFiles": 688,
+  "packagesLinked": 1146,
+  "corpusFiles": 23084,
+  "corpusDigestSha256": "9c93ed98c38efa77faa0ba026400022e6cc755fad8f2e4d0bab68f4fa97e5bea",
+  "findings": 78,
+  "sourceFilesAffected": 2,
+  "substantiveFindings": 0,
+  "affected": [
+    {
+      "path": "packages/domain-core/src/execution-simulation/index.ts",
+      "lines": 7,
+      "nonReExportCharacters": 0
+    },
+    {
+      "path": "packages/integration-sdk/src/index.ts",
+      "lines": 45,
+      "nonReExportCharacters": 0
+    }
+  ],
+  "falsification": [
+    {
+      "planted": "verbatim copy of zod/src/v3/types.ts (5138 lines)",
+      "detectedAs": "EXACT_SHA256"
+    },
+    {
+      "planted": "same file with comments stripped",
+      "detectedAs": "NORMALIZED_TOKENS"
+    }
+  ],
+  "establishes": "No protected-core file is copied from a package this repository depends on.",
+  "doesNotEstablish": "Originality against any corpus outside the dependency store, and authorship of any kind."
+}
