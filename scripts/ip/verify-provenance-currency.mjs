@@ -25,6 +25,26 @@ import { fileURLToPath } from 'node:url';
  * SHA, its commit count and its CROWN_JEWEL position in its own text, and a
  * generated CSV that is current under a prose summary that is not is worse than
  * either alone: the numbers a reader quotes come from the prose.
+ *
+ * Two things it deliberately does not demand, both found by this gate failing on
+ * its own first run against a real commit:
+ *
+ *   - Exact equality including the record's own rows. FILE_PROVENANCE.csv carries
+ *     a blob hash for every tracked file, itself included, so it would have to
+ *     contain its own hash. That is not strict, it is unsatisfiable, and a gate
+ *     that can never pass is a gate that gets disabled. Rows for the record files
+ *     are excluded and named, not quietly skipped.
+ *   - Source SHA equal to HEAD. A record committed into the repository it
+ *     describes cannot describe the commit that contains it: it is generated
+ *     against the parent. The SHA must be an ancestor of HEAD, and how far HEAD
+ *     has moved since is reported rather than failed on, because the content
+ *     comparison is what actually detects drift.
+ *
+ * The stated commit total is checked for internal consistency instead of against
+ * the builder, because the builder counts `rev-list --all` - every ref that
+ * happens to exist when it runs. Creating a branch changes that number without
+ * changing a single fact about the history, so it is context, not an invariant.
+ * What must hold is that the identity table sums to the total the page states.
  */
 
 const GENERATED = ['FILE_PROVENANCE.csv', 'FILE_PROVENANCE.json', 'CONTRIBUTORS.csv'];
@@ -55,13 +75,15 @@ export function registerClaims(markdown) {
   return { sourceSha, commits, crownJewels, crownJewelTotal, identities };
 }
 
-export function compareClaims(claims, summary, head) {
+export function compareClaims(claims, summary, sourceShaIsAncestor, identityTable) {
   const problems = [];
-  if (claims.sourceSha !== head) {
-    problems.push(`register Source SHA is ${claims.sourceSha ?? 'absent'}, repository head is ${head}`);
+  if (!claims.sourceSha) {
+    problems.push('register states no Source SHA');
+  } else if (!sourceShaIsAncestor) {
+    problems.push(`register Source SHA ${claims.sourceSha} is not an ancestor of HEAD; the record describes a history this branch is not on`);
   }
-  if (claims.commits !== summary.repositoryHistoryCommits) {
-    problems.push(`register says ${claims.commits ?? 'nothing'} commits analysed, the builder counts ${summary.repositoryHistoryCommits}`);
+  if (claims.commits !== identityTable.sum) {
+    problems.push(`register says ${claims.commits ?? 'nothing'} commits analysed, its own identity table sums to ${identityTable.sum}`);
   }
   if (claims.crownJewelTotal !== summary.crownJewelFiles) {
     problems.push(`register says ${claims.crownJewelTotal ?? 'nothing'} CROWN_JEWEL files, the builder counts ${summary.crownJewelFiles}`);
@@ -75,16 +97,62 @@ export function compareClaims(claims, summary, head) {
   return problems;
 }
 
+/** The record's own rows. FILE_PROVENANCE.csv records a blob hash per tracked file
+ *  and is itself tracked, so its row for itself is always one generation behind;
+ *  the prose register's row moves whenever its prose is edited to match. */
+export const SELF_REFERENTIAL = new Set([
+  'docs/ip/FILE_PROVENANCE.csv',
+  'docs/ip/FILE_PROVENANCE.json',
+  'docs/ip/CONTRIBUTORS.csv',
+  'docs/ip/CHAIN_OF_TITLE_REGISTER.md',
+]);
+
 /** A row-level account of the drift, because "the file differs" is not a finding
  *  anybody can act on. */
 export function csvDrift(committed, regenerated) {
   const key = (line) => line.split(',', 1)[0];
-  const before = new Map(committed.trim().split('\n').slice(1).filter(Boolean).map((line) => [key(line), line]));
-  const after = new Map(regenerated.trim().split('\n').slice(1).filter(Boolean).map((line) => [key(line), line]));
+  const rows = (text) => new Map(text.trim().split('\n').slice(1).filter(Boolean)
+    .map((line) => [key(line), line])
+    .filter(([path]) => !SELF_REFERENTIAL.has(path)));
+  const before = rows(committed);
+  const after = rows(regenerated);
   const added = [...after.keys()].filter((path) => !before.has(path));
   const removed = [...before.keys()].filter((path) => !after.has(path));
   const changed = [...after.keys()].filter((path) => before.has(path) && before.get(path) !== after.get(path));
   return { added, removed, changed };
+}
+
+/** The same exclusion for the JSON twin, which carries the identical records in a
+ *  different shape. */
+export function jsonDrift(committed, regenerated) {
+  const index = (text) => {
+    const parsed = JSON.parse(text);
+    const records = Array.isArray(parsed) ? parsed : (parsed.files ?? parsed.records ?? []);
+    return new Map(records
+      .filter((record) => !SELF_REFERENTIAL.has(record.path))
+      .map((record) => [record.path, JSON.stringify(record)]));
+  };
+  const before = index(committed);
+  const after = index(regenerated);
+  const differing = [];
+  for (const [path, value] of after) if (before.get(path) !== value) differing.push(path);
+  for (const path of before.keys()) if (!after.has(path)) differing.push(path);
+  return differing;
+}
+
+/** The identity table must sum to the total the page states. Unlike the builder's
+ *  own count this holds whatever refs exist, because both sides come from the
+ *  page. */
+export function identityTableSum(markdown) {
+  let sum = 0;
+  let rows = 0;
+  for (const match of markdown.matchAll(/^\|\s*`[^`]+`\s*\|\s*([\d\s]+?)\s*\|/gmu)) {
+    const value = readNumber(match[1]);
+    if (value === null) continue;
+    sum += value;
+    rows += 1;
+  }
+  return { sum, rows };
 }
 
 function main() {
@@ -113,19 +181,33 @@ function main() {
       if (sha256(committed) === sha256(regenerated)) continue;
       if (name.endsWith('.csv')) {
         const drift = csvDrift(committed, regenerated);
-        problems.push(`${name}: ${drift.added.length} row(s) added, ${drift.removed.length} removed, ${drift.changed.length} changed`);
+        if (drift.added.length || drift.removed.length || drift.changed.length) {
+          problems.push(`${name}: ${drift.added.length} row(s) added, ${drift.removed.length} removed, ${drift.changed.length} changed`);
+        }
       } else {
-        problems.push(`${name}: content differs from a fresh build`);
+        const drift = jsonDrift(committed, regenerated);
+        if (drift.length) problems.push(`${name}: ${drift.length} record(s) differ from a fresh build`);
       }
       if (write) writeFileSync(committedPath, regenerated);
     }
 
-    const claims = registerClaims(readFileSync(REGISTER, 'utf8'));
-    problems.push(...compareClaims(claims, summary, head));
+    const markdown = readFileSync(REGISTER, 'utf8');
+    const claims = registerClaims(markdown);
+    let ancestor = false;
+    let behind = 0;
+    if (claims.sourceSha) {
+      try {
+        execFileSync('git', ['merge-base', '--is-ancestor', claims.sourceSha, 'HEAD'], { stdio: 'ignore' });
+        ancestor = true;
+        behind = Number(git(['rev-list', '--count', `${claims.sourceSha}..HEAD`]).trim());
+      } catch { ancestor = false; }
+    }
+    problems.push(...compareClaims(claims, summary, ancestor, identityTableSum(markdown)));
 
     if (!problems.length) {
-      console.log(`provenance currency: committed record matches a fresh build at ${head.slice(0, 12)}`);
-      console.log(`  ${summary.trackedFiles} files, ${summary.repositoryHistoryCommits} commits, ${summary.crownJewelFiles} CROWN_JEWEL, ${summary.distinctContributors} identities`);
+      console.log(`provenance currency: committed record matches a fresh build of the tree at ${head.slice(0, 12)}`);
+      console.log(`  ${summary.trackedFiles} files, ${summary.crownJewelFiles} CROWN_JEWEL, ${summary.distinctContributors} identities`);
+      console.log(`  generated against ${claims.sourceSha.slice(0, 12)}, ${behind} commit(s) behind HEAD; ${SELF_REFERENTIAL.size} self-referential row(s) excluded`);
       return 0;
     }
     console.error('provenance currency: the committed record no longer describes this repository');
