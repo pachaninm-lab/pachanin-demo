@@ -589,6 +589,12 @@ export function runtimeDiff(containersBefore, containersAfter, excludedApi) {
         itemChanged = true;
       }
     }
+    // Keep the admission fingerprint unchanged. A serialization-only mismatch
+    // must be explained rather than reported as no runtime change.
+    if (!itemChanged && JSON.stringify(left) !== JSON.stringify(right)) {
+      fields.add('SERIALIZATION_ORDER_CHANGED');
+      itemChanged = true;
+    }
     if (itemChanged) changed++;
   }
   return { scope: excludedApi ? 'NON_API' : 'ALL', count: Math.min(changed, 10000),
@@ -596,16 +602,22 @@ export function runtimeDiff(containersBefore, containersAfter, excludedApi) {
 }
 export function runtimeDiffEvidence(containersBefore, containersAfter, excludedApi) {
   const diff = runtimeDiff(containersBefore, containersAfter, excludedApi);
-  const fields = diff.fields.length ? diff.fields.slice(0, 8) : ['NONE'];
-  if (diff.fields.length > fields.length) fields.push('MULTIPLE');
+  const fields = diff.fields.length ? [...diff.fields] : ['NONE'];
+  // The accepted workflow transports one uppercase token, not CSV. Reserve
+  // space for an explicit overflow marker without changing that sanitizer.
+  if (fields.join('__').length > 100) {
+    do { fields.pop(); } while ([...fields, 'MULTIPLE'].join('__').length > 100);
+    fields.push('MULTIPLE');
+  }
   return [
     'PC_W1_RUNTIME_DIFF_SCOPE=' + diff.scope,
-    'PC_W1_RUNTIME_DIFF_FIELDS=' + fields.join(','),
+    'PC_W1_RUNTIME_DIFF_FIELDS=' + fields.join('__'),
     'PC_W1_RUNTIME_DIFF_COUNT=' + diff.count,
     'PC_W1_RUNTIME_DIFF_ONEOFF_ADDED=' + diff.oneoffAdded,
     'PC_W1_RUNTIME_DIFF_ONEOFF_REMOVED=' + diff.oneoffRemoved,
   ].join('\n');
 }
+const runtimeDiffFieldPattern = '(?:ADDED_CONTAINER|ADDED_ONEOFF_CONTAINER|REMOVED_CONTAINER|REMOVED_ONEOFF_CONTAINER|IMAGE_CHANGED|STATE_CHANGED|CONFIG_CHANGED|HOST_CHANGED|MOUNTS_CHANGED|NETWORK_CHANGED|SERIALIZATION_ORDER_CHANGED)';
 export const EVIDENCE_VALUES = Object.freeze({
   ...HISTORY_EVIDENCE,
   PC_W1_RESULT: /^(READY_EXACT_EIGHT|VERIFIED_ALREADY_APPLIED|MIGRATIONS_APPLIED_PENDING_API_ACCEPTANCE|BLOCKED)$/,
@@ -635,7 +647,7 @@ export const EVIDENCE_VALUES = Object.freeze({
   PC_W1_NON_API_RUNTIME_SHA256: /^[0-9a-f]{64}$/,
   PC_W1_RUNTIME_UNCHANGED: /^PASS$/,
   PC_W1_RUNTIME_DIFF_SCOPE: /^(ALL|NON_API)$/,
-  PC_W1_RUNTIME_DIFF_FIELDS: /^(NONE|MULTIPLE|[A-Z_]+(?:,[A-Z_]+){0,8})$/,
+  PC_W1_RUNTIME_DIFF_FIELDS: new RegExp(`^(?=.{1,100}$)(?:NONE|${runtimeDiffFieldPattern}(?:__${runtimeDiffFieldPattern})*(?:__MULTIPLE)?)$`),
   PC_W1_RUNTIME_DIFF_COUNT: /^(?:0|[1-9][0-9]{0,3}|10000)$/,
   PC_W1_RUNTIME_DIFF_ONEOFF_ADDED: /^(?:0|[1-9][0-9]{0,3}|10000)$/,
   PC_W1_RUNTIME_DIFF_ONEOFF_REMOVED: /^(?:0|[1-9][0-9]{0,3}|10000)$/,

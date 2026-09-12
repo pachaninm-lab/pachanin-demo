@@ -1,6 +1,86 @@
 export const PRIMARY_PLATFORM_HOST = 'xn----8sbjf4befbjgs9b.xn--p1ai';
 export const CONTROL_PLATFORM_HOST = `control.${PRIMARY_PLATFORM_HOST}`;
 
+export const OWNER_CONTROLLED_CABINET_TARGETS = {
+  operator: '/platform-v7/operator',
+  buyer: '/platform-v7/buyer',
+  seller: '/platform-v7/seller',
+  logistics: '/platform-v7/logistics',
+  driver: '/platform-v7/driver/field',
+  surveyor: '/platform-v7/surveyor',
+  elevator: '/platform-v7/elevator',
+  lab: '/platform-v7/lab',
+  bank: '/platform-v7/bank',
+  organization: '/platform-v7/profile',
+  arbitrator: '/platform-v7/arbitrator',
+  compliance: '/platform-v7/compliance',
+  executive: '/platform-v7/executive',
+} as const;
+
+export type OwnerControlledCabinetRole = keyof typeof OWNER_CONTROLLED_CABINET_TARGETS;
+
+const OWNER_CONTROLLED_CABINET_ROLE_BY_PATH = new Map<string, OwnerControlledCabinetRole>(
+  Object.entries(OWNER_CONTROLLED_CABINET_TARGETS).map(([role, pathname]) => (
+    [pathname, role as OwnerControlledCabinetRole]
+  )),
+);
+
+export function ownerControlledCabinetRole(pathname: string): OwnerControlledCabinetRole | null {
+  return OWNER_CONTROLLED_CABINET_ROLE_BY_PATH.get(pathname) ?? null;
+}
+
+export function ownerControlledCabinetTarget(role: string | null | undefined): string | null {
+  switch (role) {
+    case 'operator': return OWNER_CONTROLLED_CABINET_TARGETS.operator;
+    case 'buyer': return OWNER_CONTROLLED_CABINET_TARGETS.buyer;
+    case 'seller': return OWNER_CONTROLLED_CABINET_TARGETS.seller;
+    case 'logistics': return OWNER_CONTROLLED_CABINET_TARGETS.logistics;
+    case 'driver': return OWNER_CONTROLLED_CABINET_TARGETS.driver;
+    case 'surveyor': return OWNER_CONTROLLED_CABINET_TARGETS.surveyor;
+    case 'elevator': return OWNER_CONTROLLED_CABINET_TARGETS.elevator;
+    case 'lab': return OWNER_CONTROLLED_CABINET_TARGETS.lab;
+    case 'bank': return OWNER_CONTROLLED_CABINET_TARGETS.bank;
+    case 'organization': return OWNER_CONTROLLED_CABINET_TARGETS.organization;
+    case 'arbitrator': return OWNER_CONTROLLED_CABINET_TARGETS.arbitrator;
+    case 'compliance': return OWNER_CONTROLLED_CABINET_TARGETS.compliance;
+    case 'executive': return OWNER_CONTROLLED_CABINET_TARGETS.executive;
+    default: return null;
+  }
+}
+
+export type OwnerControlledCabinetSession = {
+  readonly role: string | null | undefined;
+  readonly userId: string | null | undefined;
+  readonly ownerAccess: boolean;
+  readonly organizationId: string | null | undefined;
+  readonly tenantId: string | null | undefined;
+};
+
+export function ownerCabinetSessionMatchesRoot(
+  pathname: string,
+  session: OwnerControlledCabinetSession | null | undefined,
+  expected: {
+    readonly role: string;
+    readonly organizationId: string;
+    readonly tenantId: string;
+  } | null | undefined,
+): boolean {
+  const role = ownerControlledCabinetRole(pathname);
+  if (role === null || session == null || expected == null) return false;
+  const canonicalResourcePath = ownerControlledCabinetTarget(role);
+  if (canonicalResourcePath === null || pathname !== canonicalResourcePath) return false;
+
+  return (
+    session.ownerAccess === true
+    && typeof session.userId === 'string'
+    && session.userId.trim().length > 0
+    && session.role === role
+    && expected.role === role
+    && session.organizationId === expected.organizationId
+    && session.tenantId === expected.tenantId
+  );
+}
+
 const CONTROL_PAGE_EXACT = new Set([
   '/platform-v7/login',
   '/platform-v7/forgot-password',

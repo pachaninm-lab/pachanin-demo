@@ -10,7 +10,7 @@ import { createServer } from 'node:http';
 import { checkManifests } from './check-ci-postgres-image-authority.mjs';
 import { TARGET_MIGRATIONS, TARGET_TABLES, readMigrationManifest, validateManifest, decodeManifest, validateImageManifest,
   classifyLedger, HISTORICAL_MIGRATIONS, HISTORICAL_FUNCTIONS, attachHistoricalDiagnostics, observeLineageCatalog, verifyLineageSourceCompatibility, validateApiEnvironment, validateSnapshot, snapshotSql, parseEvidence,
-  validateMigrationImage, validateCompose, runtimeFingerprint, runtimeDiff, errorCode, probeErrorPayload, probeDiagnostics, ledgerDiagnostics, checkSources,
+  validateMigrationImage, validateCompose, runtimeFingerprint, runtimeDiff, runtimeDiffEvidence, errorCode, probeErrorPayload, probeDiagnostics, ledgerDiagnostics, checkSources,
   verifyW1RouteBoundary, AUCTION_LINEAGE_API_BLOBS, validateAuctionLineageApiBlobs } from './check-production-pc-crop-w1-acceptance.mjs';
 
 const baseName='20260902204500_role_eligibility_app_deal_api_boundary';
@@ -593,6 +593,54 @@ test('runtime diff records bounded state and network changes',()=>{
   const diff=runtimeDiff(before,after);
   assert.deepEqual(diff.fields,['NETWORK_CHANGED','STATE_CHANGED']);
   assert.equal(diff.count,1);
+});
+
+function transportedRuntimeEvidence(before,after) {
+  const workflow=fs.readFileSync(new URL('../.github/workflows/pc-crop-w1-production-acceptance.yml',import.meta.url),'utf8');
+  const transport=workflow.match(/RAW_FILE="\$raw" node - <<'NODE'[^\n]*\n([\s\S]*?)\n\s*NODE\n/);
+  assert.ok(transport,'accepted workflow output sanitizer must be exercised');
+  const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'w1-runtime-evidence-'));
+  try {
+    const raw=path.join(temporary,'raw');
+    const evidence=runtimeDiffEvidence(before,after)+'\nPC_W1_ERROR=API_OR_NON_API_RUNTIME_CHANGED\nPC_W1_DATABASE_MUTATION=NONE\nPC_W1_RESULT=BLOCKED\n';
+    fs.writeFileSync(raw,evidence+'private-path=/not-for-publication\n');
+    const result=spawnSync(process.execPath,['-e',transport[1]],{encoding:'utf8',env:{...process.env,RAW_FILE:raw}});
+    assert.equal(result.status,0,result.stderr);
+    assert.equal(result.stdout,evidence,'all typed diagnostic lines must survive the real workflow sanitizer');
+    return parseEvidence(result.stdout);
+  } finally {fs.rmSync(temporary,{recursive:true,force:true});}
+}
+test('multi-field runtime diagnostics survive the accepted workflow transport',()=>{
+  const before=[container()],after=clone(before);
+  after[0].State.StartedAt='2026-09-09T00:00:01Z';
+  after[0].NetworkSettings.Networks.isolated.EndpointID='changed';
+  const evidence=transportedRuntimeEvidence(before,after);
+  assert.equal(evidence.PC_W1_RUNTIME_DIFF_FIELDS,'NETWORK_CHANGED__STATE_CHANGED');
+  assert.equal(evidence.PC_W1_RUNTIME_DIFF_COUNT,'1');
+});
+test('serialization order remains a blocker and is explicitly diagnosed',()=>{
+  const before=[container()],after=clone(before);
+  after[0].Config=Object.fromEntries(Object.entries(after[0].Config).reverse());
+  assert.notEqual(runtimeFingerprint(before),runtimeFingerprint(after));
+  const evidence=transportedRuntimeEvidence(before,after);
+  assert.equal(evidence.PC_W1_RUNTIME_DIFF_FIELDS,'SERIALIZATION_ORDER_CHANGED');
+  assert.equal(evidence.PC_W1_RUNTIME_DIFF_COUNT,'1');
+});
+test('runtime diagnostic overflow stays transport-safe and explicitly marked',()=>{
+  const before=[container('1'),container('2'),container('3')],after=[clone(before[0]),container('4'),container('5')];
+  before[2].Config.Labels['com.docker.compose.oneoff']='True';
+  after[2].Config.Labels['com.docker.compose.oneoff']='True';
+  Object.assign(after[0],{Image:`sha256:${'b'.repeat(64)}`,State:{Running:false,StartedAt:'changed'},
+    HostConfig:{ReadonlyRootfs:true},Mounts:[{Source:'/private',Destination:'/other'}]});
+  after[0].Config.Env.push('PRIVATE_VALUE=not-for-publication');
+  after[0].NetworkSettings.Networks.isolated.EndpointID='changed';
+  const evidence=transportedRuntimeEvidence(before,after);
+  assert.ok(evidence.PC_W1_RUNTIME_DIFF_FIELDS.length<=100);
+  assert.match(evidence.PC_W1_RUNTIME_DIFF_FIELDS,/__MULTIPLE$/);
+  assert.equal(evidence.PC_W1_RUNTIME_DIFF_COUNT,'5');
+  assert.equal(evidence.PC_W1_RUNTIME_DIFF_ONEOFF_ADDED,'1');
+  assert.equal(evidence.PC_W1_RUNTIME_DIFF_ONEOFF_REMOVED,'1');
+  rejects(()=>parseEvidence(`PC_W1_RUNTIME_DIFF_FIELDS=SECRET_VALUE\n`,{requireTerminal:false}),'UNSAFE_REMOTE_OUTPUT');
 });
 
 test('worker shadow contract cannot be silently disabled',()=>{
