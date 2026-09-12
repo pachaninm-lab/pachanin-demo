@@ -352,6 +352,52 @@ assert.equal(head, baseline + approvedAppend, 'W1 historical scan exceptions mus
 JS
 fi
 
+# This repair may only synchronize the release-authority assertion with four
+# already-reviewed entries in .gitleaksignore. Bind the trusted scope to the
+# exact textual transformation so the implementation cannot weaken the test.
+if [ "$CURRENT_BRANCH" = "$GITLEAKS_RELEASE_ATTESTATION_BRANCH" ] && printf '%s\n' "$DIFF_FILES" | grep -Fxq 'apps/tai/tests/test_gitleaks_release_authority.py'; then
+  P7_ATTESTATION_BASE="$BASE_REF" P7_ATTESTATION_HEAD="$HEAD_REF" node - <<'JS'
+const assert = require('node:assert/strict');
+const { execFileSync } = require('node:child_process');
+const path = 'apps/tai/tests/test_gitleaks_release_authority.py';
+const read = ref => execFileSync('git', ['show', `${ref}:${path}`], { encoding: 'utf8' });
+const baseline = read(process.env.P7_ATTESTATION_BASE);
+const head = read(process.env.P7_ATTESTATION_HEAD);
+const insertAfterCommodity =
+  '        "generic-api-key:11",\n';
+const serviceMarketplace =
+  '        "8c08a3d3764b616f919a1e73828643dff95db5d4:"\n' +
+  '        "apps/api/src/modules/service-marketplace/service-marketplace.contract.spec.ts:"\n' +
+  '        "generic-api-key:11",\n';
+const insertAfterSdiz =
+  '        ".github/workflows/pc-crop-08f-sync-main.yml:generic-api-key:126",\n';
+const finalReviewedEntries =
+  '        "bcc5ba620f5e8cfec4e540c4b9fab4e236393c63:"\n' +
+  '        "apps/web/tests/unit/platformV7RootWorkEntry.test.ts:generic-api-key:227",\n' +
+  '        "25f4fa23451d9b2fd58ff60ba9badfc063055796:"\n' +
+  '        ".github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:391",\n' +
+  '        "ba4e7b26a34f95ebc5636c6a18785a6a2d63b0b1:"\n' +
+  '        ".github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:395",\n';
+const replaceExactlyOnce = (value, anchor, replacement, label) => {
+  assert.equal(value.split(anchor).length - 1, 1, `Gitleaks release attestation ${label} anchor must occur exactly once`);
+  return value.replace(anchor, replacement);
+};
+let expected = replaceExactlyOnce(
+  baseline,
+  insertAfterCommodity,
+  insertAfterCommodity + serviceMarketplace,
+  'commodity-profile',
+);
+expected = replaceExactlyOnce(
+  expected,
+  insertAfterSdiz,
+  insertAfterSdiz + finalReviewedEntries,
+  'SDIZ',
+);
+assert.equal(head, expected, 'Gitleaks release attestation repair must add exactly four reviewed fingerprints and preserve every existing assertion');
+JS
+fi
+
 if [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-transitive-runtime-remediation" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$TRANSITIVE_RUNTIME_REMEDIATION_SCOPE")
 fi

@@ -38,6 +38,28 @@ const qwenFailedEvidencePaths = [
 const sourceGuard = path.resolve('scripts/p7-autopilot-guard.sh');
 const sourceResolver = path.resolve('scripts/p7-source-controlled-scope.mjs');
 const sourceWorkflow = path.resolve('.github/workflows/platform-v7-autopilot-guard.yml');
+const sourceGitleaksReleaseAttestation = path.resolve(gitleaksReleaseAttestationPath);
+
+function synchronizeGitleaksReleaseAttestation(baseline) {
+  const commodityAnchor = '        "generic-api-key:11",\n';
+  const serviceMarketplace =
+    '        "8c08a3d3764b616f919a1e73828643dff95db5d4:"\n' +
+    '        "apps/api/src/modules/service-marketplace/service-marketplace.contract.spec.ts:"\n' +
+    '        "generic-api-key:11",\n';
+  const sdizAnchor = '        ".github/workflows/pc-crop-08f-sync-main.yml:generic-api-key:126",\n';
+  const finalReviewedEntries =
+    '        "bcc5ba620f5e8cfec4e540c4b9fab4e236393c63:"\n' +
+    '        "apps/web/tests/unit/platformV7RootWorkEntry.test.ts:generic-api-key:227",\n' +
+    '        "25f4fa23451d9b2fd58ff60ba9badfc063055796:"\n' +
+    '        ".github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:391",\n' +
+    '        "ba4e7b26a34f95ebc5636c6a18785a6a2d63b0b1:"\n' +
+    '        ".github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:395",\n';
+  assert.equal(baseline.split(commodityAnchor).length - 1, 1);
+  assert.equal(baseline.split(sdizAnchor).length - 1, 1);
+  return baseline
+    .replace(commodityAnchor, commodityAnchor + serviceMarketplace)
+    .replace(sdizAnchor, sdizAnchor + finalReviewedEntries);
+}
 
 function write(root, file, content, mode) {
   const target = path.join(root, file);
@@ -205,7 +227,7 @@ function kindMinioImageSourceFixture(t) {
 
 function gitleaksReleaseAttestationFixture(t) {
   const context = fixture(t, gitleaksReleaseAttestationBranch);
-  write(context.root, gitleaksReleaseAttestationPath, 'baseline attestation\n');
+  write(context.root, gitleaksReleaseAttestationPath, fs.readFileSync(sourceGitleaksReleaseAttestation, 'utf8'));
   const state = JSON.parse(fs.readFileSync(path.join(context.root, 'docs/platform-v7/autopilot/autopilot-state.json'), 'utf8'));
   state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch] = [gitleaksReleaseAttestationPath];
   write(context.root, 'docs/platform-v7/autopilot/autopilot-state.json', `${JSON.stringify(state, null, 2)}\n`);
@@ -214,14 +236,15 @@ function gitleaksReleaseAttestationFixture(t) {
   return context;
 }
 
-test('gitleaks release attestation scope accepts exactly its regression test', (t) => {
+test('gitleaks release attestation scope accepts exactly four reviewed fingerprints', (t) => {
   const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
   assert.deepEqual(state.approvedConcurrentScopes[gitleaksReleaseAttestationBranch], [gitleaksReleaseAttestationPath]);
   const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
   assert.ok(workflow.includes(`- '${gitleaksReleaseAttestationPath}'`), 'missing Gitleaks attestation PR-head trigger');
 
   const allowed = gitleaksReleaseAttestationFixture(t);
-  write(allowed.root, gitleaksReleaseAttestationPath, 'synchronized exact fingerprints\n');
+  const baseline = fs.readFileSync(path.join(allowed.root, gitleaksReleaseAttestationPath), 'utf8');
+  write(allowed.root, gitleaksReleaseAttestationPath, synchronizeGitleaksReleaseAttestation(baseline));
   commit(allowed.root, 'synchronize exact fingerprint attestation');
   const acceptedResult = runGuard(allowed);
   assert.equal(acceptedResult.status, 0, output(acceptedResult));
@@ -234,6 +257,26 @@ test('gitleaks release attestation scope accepts exactly its regression test', (
   assert.match(output(rejectedResult), /\.gitleaksignore/u);
   assert.match(output(rejectedResult), /Files outside current autopilot scope/u);
 });
+
+for (const mutation of ['remove existing assertion', 'add fifth fingerprint', 'alter reviewed fingerprint']) {
+  test(`gitleaks release attestation rejects content mutation: ${mutation}`, (t) => {
+    const context = gitleaksReleaseAttestationFixture(t);
+    const baseline = fs.readFileSync(path.join(context.root, gitleaksReleaseAttestationPath), 'utf8');
+    let candidate = synchronizeGitleaksReleaseAttestation(baseline);
+    if (mutation === 'remove existing assertion') {
+      candidate = candidate.replace('    assert ".gitleaksignore" in manifest["files"]\n', '');
+    } else if (mutation === 'add fifth fingerprint') {
+      candidate = candidate.replace('    ]\n', '        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:extra.py:generic-api-key:1",\n    ]\n');
+    } else {
+      candidate = candidate.replace(':generic-api-key:395",', ':generic-api-key:396",');
+    }
+    write(context.root, gitleaksReleaseAttestationPath, candidate);
+    commit(context.root, `attempt ${mutation}`);
+    const result = runGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /must add exactly four reviewed fingerprints/u);
+  });
+}
 
 test('kind MinIO image-source scope accepts exactly three paths and rejects ci.yml', (t) => {
   const allowed = kindMinioImageSourceFixture(t);
