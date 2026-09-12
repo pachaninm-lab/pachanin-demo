@@ -15,6 +15,13 @@ RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
   pnpm install --frozen-lockfile
 RUN pnpm --filter @pc/api build:outbox-worker
 RUN pnpm --filter @pc/api --prod deploy --legacy /prod/outbox-worker
+
+# Отказ по умолчанию на копилефт в поставляемом дереве. Гейт читает то, что
+# физически уезжает в образ, а не то, что объявляет рабочее пространство:
+# SBOM включает dev, optional и чужие архитектуры, юридическое значение
+# имеют только эти файлы. Решения по обязательствам записаны с основанием
+# в docs/ip/third-party-license-overrides.json и ссылаются на этот гейт.
+RUN node scripts/ip/verify-shipped-licenses.mjs /prod/outbox-worker
 RUN rm -rf /prod/outbox-worker/src /prod/outbox-worker/test /prod/outbox-worker/prisma /prod/outbox-worker/dist-outbox-worker \
   && cp -R /workspace/apps/api/dist-outbox-worker /prod/outbox-worker/dist-outbox-worker \
   && node scripts/release/materialize-prisma-client.mjs /workspace/apps/api /prod/outbox-worker \
