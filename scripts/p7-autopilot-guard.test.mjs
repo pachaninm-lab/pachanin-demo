@@ -22,6 +22,11 @@ const publicHomeImplementationManifest = 'docs/platform-v7/autopilot/scopes/publ
 const poisonIsolationImplementationBranch = 'fix/production-like-outbox-poison-isolation-3793';
 const poisonIsolationManifest = 'docs/platform-v7/autopilot/scopes/production-like-outbox-poison-isolation-3793.json';
 const poisonIsolationScript = 'scripts/release/production-like-kubernetes-outbox-runtime.sh';
+const qwenFailedEvidenceBranch = 'fix/local-qwen-failed-review-evidence-20260912';
+const qwenFailedEvidencePaths = [
+  '.github/workflows/local-qwen-independent-review.yml',
+  'docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs',
+];
 const sourceGuard = path.resolve('scripts/p7-autopilot-guard.sh');
 const sourceResolver = path.resolve('scripts/p7-source-controlled-scope.mjs');
 const sourceWorkflow = path.resolve('.github/workflows/platform-v7-autopilot-guard.yml');
@@ -163,6 +168,52 @@ function runGuard({ root, baseline, implementationBranch }) {
 
 function output(result) {
   return `${result.stdout}\n${result.stderr}`;
+}
+
+function qwenFailedEvidenceFixture(t) {
+  const context = fixture(t, qwenFailedEvidenceBranch);
+  fs.mkdirSync(path.join(context.root, 'docs/platform-v7/autopilot/scopes'), { recursive: true });
+  write(context.root, 'docs/platform-v7/autopilot/autopilot-state.json', JSON.stringify({
+    allowedCurrentScope: ['README.md'],
+    approvedConcurrentScopes: { [qwenFailedEvidenceBranch]: qwenFailedEvidencePaths },
+  }));
+  commit(context.root, 'accepted bounded Qwen diagnostic scope');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  return context;
+}
+
+test('Qwen failed-evidence scope accepts exactly the two previously approved diagnostic paths', (t) => {
+  const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+  assert.deepEqual(state.approvedConcurrentScopes[qwenFailedEvidenceBranch], qwenFailedEvidencePaths);
+  const context = qwenFailedEvidenceFixture(t);
+  for (const file of qwenFailedEvidencePaths) write(context.root, file, 'bounded diagnostic change\n');
+  commit(context.root, 'diagnostics and regression only');
+  const result = runGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
+
+test('Qwen failed-evidence scope rejects head-state expansion', (t) => {
+  const context = qwenFailedEvidenceFixture(t);
+  const stateFile = 'docs/platform-v7/autopilot/autopilot-state.json';
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, stateFile), 'utf8'));
+  state.approvedConcurrentScopes[qwenFailedEvidenceBranch].push('apps/api/src/app.module.ts');
+  write(context.root, stateFile, JSON.stringify(state));
+  write(context.root, 'apps/api/src/app.module.ts', 'self-authorized application change\n');
+  commit(context.root, 'attempt head-state scope expansion');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /Mutable scope authority changed/u);
+});
+
+for (const forbidden of ['README.md', '.github/workflows/ci.yml']) {
+  test(`Qwen failed-evidence scope rejects global/infra fallback: ${forbidden}`, (t) => {
+    const context = qwenFailedEvidenceFixture(t);
+    write(context.root, forbidden, 'unapproved change\n');
+    commit(context.root, 'attempt global or generic infrastructure scope');
+    const result = runGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /Files outside current autopilot scope/u);
+  });
 }
 
 for (const implementationBranch of implementationBranches) {
@@ -430,7 +481,7 @@ test('runs immutable authority checks from a read-only trusted-base workflow', (
     "-f name='guard'",
     '-f head_sha="$HEAD_SHA"',
     "-f status='completed'",
-    `github.head_ref == '${publicHomeImplementationBranch}' || github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' || github.head_ref == 'fix/production-like-outbox-poison-isolation-3793' || github.head_ref == 'fix/owner-handoff-product-host-20260908') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}`,
+    `github.head_ref == '${publicHomeImplementationBranch}' || github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' || github.head_ref == 'fix/production-like-outbox-poison-isolation-3793' || github.head_ref == '${qwenFailedEvidenceBranch}' || github.head_ref == 'fix/owner-handoff-product-host-20260908') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}`,
     'needs: standard_validation',
     "if: always() && github.event_name != 'pull_request_target'",
     'git show "$BASE_SHA:scripts/p7-autopilot-guard.sh" > "$TRUSTED_GUARD"',
@@ -484,7 +535,7 @@ test('governance branches retain unprivileged head regression validation', () =>
   assert.ok(workflow.includes('run: node --test scripts/p7-autopilot-guard.test.mjs'));
 });
 
-for (const branch of ['feat/pc-crop-auction-inventory-authority-4997', 'ops/pc-crop-w1-production-acceptance-4997']) {
+for (const branch of ['feat/pc-crop-auction-inventory-authority-4997', 'ops/pc-crop-w1-production-acceptance-4997', qwenFailedEvidenceBranch]) {
 test(`${branch}: trusted scope routing retains substantive head validation`, () => {
   const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
   const section = (start, end) => {
