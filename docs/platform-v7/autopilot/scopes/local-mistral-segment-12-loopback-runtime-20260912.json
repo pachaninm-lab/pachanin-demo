@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/local-mistral-segment-12-loopback-runtime-20260912",
+  "status": "active",
+  "purpose": "Stage and independently review only inert loopback llama-server process/API lifecycle on top of already-bound Local Mistral runtime file descriptors.",
+  "authorityBaseExactHead": "a2a07aba35f41357387be7f35893f6830bba9f7a",
+  "baseDependencies": [
+    "PR #5324 conversion-root authority must be admitted first.",
+    "PR #5326 runtime FD binding must be admitted before this stacked segment is eligible to merge."
+  ],
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/bootstrap/local-mistral-loopback-runtime.py.inert",
+    "docs/platform-v7/autopilot/scopes/local-mistral-segment-12-loopback-runtime-20260912.json"
+  ],
+  "requiredInvariants": [
+    "This PR remains inert: it is not wired into a GitHub workflow and does not itself publish review/provider authority or change product/API/database/RBAC/registration/cabinet behavior.",
+    "The launcher accepts only the already-bound runtime file object from segment 11; server/model paths must exactly equal internally derived /proc/self/fd/<fd> paths and pass_fds must exactly match those two descriptors.",
+    "Before process launch, both descriptors must remain non-inheritable in the parent, regular root-owned files with zero write bits and the admitted device/inode identity; llama-server must retain an execute bit.",
+    "Only the explicit server/model descriptors are inherited by llama-server via pass_fds with close_fds=true; no original conversion-root artifact pathname is passed to the process.",
+    "Runtime host is fixed to 127.0.0.1. The chosen port is a local ephemeral port and startup fails closed if the launched process exits or the authenticated model endpoint does not expose the exact admitted model alias.",
+    "A fresh high-entropy bearer is written to a mode-0600 temporary API-key file and every HTTP request uses that bearer. The launcher does not put the bearer itself in the process argv.",
+    "Ambient LLAMA_ARG_* overrides plus LLAMA_API_KEY and LLAMA_PORT are removed from the inherited environment before launch.",
+    "HTTP methods/endpoints are restricted to GET/POST and /v1/models or /v1/chat/completions, with fixed request/response byte bounds and JSON-only successful responses.",
+    "Runtime shutdown terminates or kills the owned process, removes the API-key file and closes the owned bound descriptors; cleanup failures fail closed.",
+    "Prompt construction, semantic review schema, output screening, attestation and provider-status publication remain separately governed.",
+    "Local Qwen remains the independent reviewer for this future Local Mistral authority change.",
+    "REG.RU remains production authority, mandatory SaaS/API keys remain none and new recurring cost remains 0 RUB."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
