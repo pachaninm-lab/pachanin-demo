@@ -1403,6 +1403,9 @@
       "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
       "docs/platform-v7/qa/web-unit-coverage-registry.json",
       "apps/web/app/platform-v7/staff/cabinet-handoff/page.tsx"
+    ],
+    "fix/kind-minio-image-source-20260912": [
+      "infra/kind/production-like/dependencies.yaml"
     ]
   },
   "currentAcceptance": [

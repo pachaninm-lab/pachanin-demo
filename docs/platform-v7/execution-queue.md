@@ -153,3 +153,34 @@ merge/review gates. Diagnostic artifacts are not accepted review evidence.
 
 Proceed only when that prior authority and base-scope match are independently
 verified; otherwise keep this implementation blocked.
+
+## Conditional kind MinIO image-source prerequisite — 2026-09-12
+
+The owner authorized resolving prerequisites while preserving required acceptance.
+PR #5338 is blocked by production-like Kubernetes run `34712647635`, job
+`103604095938`: the disposable cluster cannot pull
+`docker.io/minio/minio:RELEASE.2024-05-10T01-41-38Z` (`insufficient_scope`,
+`ErrImagePull` / `ImagePullBackOff`), before application acceptance starts.
+This is dependency-source failure evidence, not a settlement acceptance result.
+
+After this governance proposal is independently reviewed and merged into `main`,
+branch `fix/kind-minio-image-source-20260912` may change exactly:
+
+- `infra/kind/production-like/dependencies.yaml`
+
+The prerequisite is limited to replacing the unavailable MinIO image reference
+with the official same-release Quay source
+`quay.io/minio/minio:RELEASE.2024-05-10T01-41-38Z@sha256:420663b8685c5396f06405ad516d611db4465939a141cc7d40266342d0f2632d`.
+Reverify registry identity and digest before implementation. Preserve the release,
+commands, environment, probes, resources, storage, security and network policy.
+Do not change application code, migrations, workflows, credentials, other images,
+timeouts, required tests, review gates or production configuration. Do not use
+this proposal itself as implementation authority before accepted-main scope is
+verified. No scope expansion on the implementation branch is permitted.
+
+The serialized primary task and its allowedCurrentScope remain unchanged. This
+is a prerequisite to resume the blocked acceptance, not a new product task or
+permission to merge PR #5338 with failing checks. Require exact-head independent
+review and all required Kubernetes acceptance before implementation merge.
+W1 remains unaccepted; production deployment is not required for this disposable
+CI dependency change. Confirmed master production acceptance remains 0/100 (0%).
