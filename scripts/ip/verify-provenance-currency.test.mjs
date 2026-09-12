@@ -1,7 +1,17 @@
 import { strict as assert } from 'node:assert';
 import test from 'node:test';
 
-import { SELF_REFERENTIAL, compareClaims, csvDrift, identityTableSum, jsonDrift, readNumber, registerClaims } from './verify-provenance-currency.mjs';
+import {
+  COMMIT_ADVANCING_FIELDS,
+  CONTRIBUTOR_ADVANCING_FIELDS,
+  SELF_REFERENTIAL,
+  compareClaims,
+  csvDrift,
+  identityTableSum,
+  jsonDrift,
+  readNumber,
+  registerClaims,
+} from './verify-provenance-currency.mjs';
 
 const REGISTER = `# Chain of Title Register
 
@@ -158,4 +168,37 @@ test('the JSON twin excludes the same records', () => {
   assert.deepEqual(jsonDrift(before, after), []);
   const changed = JSON.stringify({ records: [{ path: 'docs/ip/FILE_PROVENANCE.csv', blob: 'b' }, { path: 'app/a.ts', blob: 'two' }] });
   assert.deepEqual(jsonDrift(before, changed), ['app/a.ts']);
+});
+
+/**
+ * Committing the record is itself a commit, and it touches files. A record
+ * generated before that commit cannot contain it, at any ordering, so the fields
+ * that absorb it are compared for structure and everything else exactly.
+ */
+test('a field that the act of recording advances does not count as drift', () => {
+  const before = 'path,origin_class,material_contributors\napp/a.ts,UNKNOWN,x;y\n';
+  const after = 'path,origin_class,material_contributors\napp/a.ts,UNKNOWN,x;y;Claude#1\n';
+  assert.deepEqual(csvDrift(before, after, COMMIT_ADVANCING_FIELDS).changed, []);
+});
+
+test('a field the register actually asserts still counts as drift', () => {
+  const before = 'path,origin_class,material_contributors\napp/a.ts,UNKNOWN,x\n';
+  const after = 'path,origin_class,material_contributors\napp/a.ts,VENDORED_THIRD_PARTY,x;Claude#1\n';
+  assert.deepEqual(csvDrift(before, after, COMMIT_ADVANCING_FIELDS).changed, ['app/a.ts'],
+    'a classification change must never be hidden by an advancing field next to it');
+});
+
+test('a contributor whose commit count advanced is not drift; a new identity is', () => {
+  const before = 'contributor_id,commit_count,last_seen,rights_evidence_status\na#1,10,t0,UNRESOLVED\n';
+  const after = 'contributor_id,commit_count,last_seen,rights_evidence_status\na#1,11,t1,UNRESOLVED\nb#2,1,t1,UNRESOLVED\n';
+  const drift = csvDrift(before, after, CONTRIBUTOR_ADVANCING_FIELDS);
+  assert.deepEqual(drift.changed, []);
+  assert.deepEqual(drift.added, ['b#2']);
+});
+
+test('a contributor whose rights status moved is drift', () => {
+  const before = 'contributor_id,commit_count,last_seen,rights_evidence_status\na#1,10,t0,UNRESOLVED\n';
+  const after = 'contributor_id,commit_count,last_seen,rights_evidence_status\na#1,11,t1,RESOLVED\n';
+  assert.deepEqual(csvDrift(before, after, CONTRIBUTOR_ADVANCING_FIELDS).changed, ['a#1'],
+    'a status moving to RESOLVED is the single most important thing this gate can catch');
 });
