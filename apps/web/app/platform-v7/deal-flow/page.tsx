@@ -1,104 +1,220 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { getLocale } from 'next-intl/server';
 import { ArrowLeft, ArrowRight, Banknote, Building2, ClipboardCheck, FileCheck2, FlaskConical, Landmark, MessageCircleQuestion, Scale, ShieldCheck, Truck, Wheat, type LucideIcon } from 'lucide-react';
 import { BrandMark } from '@/components/v7r/BrandMark';
 
-export const metadata: Metadata = {
-  title: 'Контур сделки — Прозрачная Цена',
-  description: 'Рабочая карта исполнения зерновой сделки: цена, рейс, приёмка, качество, документы, расчёт, спор и доказательства.',
-  alternates: { canonical: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow' },
-};
+type LocaleKey = 'ru' | 'en' | 'zh';
+type StageState = 'done' | 'active' | 'pending';
+type StageCopy = { title: string; owner: string; status: string; text: string };
+type RoleCopy = { role: string; access: string; responsibility: string };
 
-type Stage = { title: string; owner: string; status: string; text: string; Icon: LucideIcon; state: 'done' | 'active' | 'pending' };
-type RoleLayer = { role: string; access: string; responsibility: string; Icon: LucideIcon };
+const STAGE_ICONS = [Wheat, Truck, Building2, FlaskConical, FileCheck2, Landmark] as const;
+const STAGE_STATES: readonly StageState[] = ['done', 'active', 'pending', 'pending', 'pending', 'pending'];
+const ROLE_ICONS = [Wheat, ClipboardCheck, Building2, FlaskConical, Banknote, Scale] as const;
 
-const deal = {
-  id: 'DL-9102',
-  crop: 'Пшеница 4 класс',
-  volume: '240 т',
-  amount: '2 964 000 ₽',
-  route: 'Хозяйство → элеватор → покупатель',
-  current: 'На контроле качество, документы и основание для расчёта',
-};
+const COPY = {
+  ru: {
+    metaTitle: 'Контур сделки — Прозрачная Цена',
+    metaDescription: 'Рабочая карта исполнения сделки: цена, рейс, приёмка, качество, документы, расчёт, спор и доказательства.',
+    brand: 'Прозрачная Цена', brandSub: 'Рабочий контур исполнения сделки', brandHome: 'Прозрачная Цена — на главную',
+    pageNav: 'Навигация страницы контура сделки', pageActions: 'Действия страницы', back: 'Назад на главную', question: 'Задать вопрос',
+    heroKicker: 'Карта исполнения сделки', heroTitle: 'После цены начинается контроль исполнения',
+    heroText: 'Платформа связывает рейс, приёмку, качество, документы, расчёт, спор и доказательства в одном рабочем процессе. Каждое действие имеет ответственного, статус и основание.',
+    register: 'Подключить организацию', contact: 'Обсудить подключение', statusLabel: 'Текущий статус',
+    deal: { id: 'DL-9102', crop: 'Пшеница 4 класс', volume: '240 т', amount: '2 964 000 ₽', route: 'Хозяйство → элеватор → покупатель', current: 'На контроле качество, документы и основание для расчёта' },
+    stagesTitle: 'Этапы исполнения', stagesText: 'Каждый этап показывает статус, ответственного участника и основание перехода к следующему действию.',
+    stages: [
+      { title: 'Условия сделки', owner: 'Продавец · покупатель', status: 'Зафиксировано', text: 'Цена, объём, базис поставки и допустимые показатели качества фиксируются до рейса.' },
+      { title: 'Рейс', owner: 'Логистика', status: 'В работе', text: 'Маршрут, транспорт, водитель и контрольные точки исполнения находятся в едином контуре.' },
+      { title: 'Приёмка', owner: 'Элеватор', status: 'Ожидает факт', text: 'Вес, факт поставки, расхождения и связь партии с документами фиксируются до расчёта.' },
+      { title: 'Качество', owner: 'Лаборатория', status: 'На проверке', text: 'Показатели качества учитываются до формирования окончательного основания для оплаты.' },
+      { title: 'Документы', owner: 'Стороны сделки', status: 'На сверке', text: 'СДИЗ, ЭДО, транспортные документы и акты сверяются с событиями исполнения.' },
+      { title: 'Расчёт', owner: 'Банк / финконтур', status: 'После оснований', text: 'Платформа показывает основание для расчёта, но не заявляет автоматический выпуск денег без банковского подтверждения.' },
+    ],
+    moneyKicker: 'Основание для расчёта', moneyTitle: 'Оплата привязана к подтверждённым событиям',
+    moneyText: 'Платформа показывает, какие условия закрыты и какие документы или данные требуются до расчёта. Финансовое действие выполняется только при подтверждённых основаниях и банковских правилах.',
+    moneyStatus: 'Ожидается подтверждение качества и комплекта документов.', bankAction: 'Подключить банк к платформе',
+    rolesTitle: 'Ролевые слои', rolesText: 'Участник получает только тот объём информации и действий, который относится к его зоне ответственности.',
+    roles: [
+      { role: 'Продавец', access: 'партия, рейс, приёмка, документы и основание для оплаты', responsibility: 'закрывает документы и устраняет расхождения' },
+      { role: 'Покупатель', access: 'факт поставки, качество, документы и финансовые условия', responsibility: 'подтверждает исполнение или инициирует разбор' },
+      { role: 'Элеватор', access: 'приёмка, вес, статус партии и связанные документы', responsibility: 'фиксирует фактические данные по партии' },
+      { role: 'Лаборатория', access: 'пробы, показатели качества и протокол исследования', responsibility: 'подтверждает показатели качества' },
+      { role: 'Банк', access: 'подтверждённые основания для расчёта', responsibility: 'проверяет условия для финансового шага' },
+      { role: 'Арбитр', access: 'доказательства, документы, события и журнал действий', responsibility: 'рассматривает спор на основании фактов' },
+    ],
+    proofKicker: 'Доказательная база', proofTitle: 'Спор разбирается по следу сделки', proofText: 'Если возникают расхождения, участники работают не с разрозненной перепиской, а со связанным пакетом фактов.',
+    evidence: ['маршрут и контрольные точки рейса', 'данные приёмки и веса', 'протокол качества', 'СДИЗ, ЭДО, транспортные документы и акты', 'журнал действий участников'],
+    home: 'На главную', footerQuestion: 'Задать вопрос',
+  },
+  en: {
+    metaTitle: 'Deal execution — Transparent Price',
+    metaDescription: 'Execution map for one Deal: price, transport, acceptance, quality, documents, settlement, dispute and evidence.',
+    brand: 'Transparent Price', brandSub: 'Deal execution workspace', brandHome: 'Transparent Price — home',
+    pageNav: 'Deal execution page navigation', pageActions: 'Page actions', back: 'Back to home', question: 'Ask a question',
+    heroKicker: 'Deal execution map', heroTitle: 'Execution control starts after the price is agreed',
+    heroText: 'The platform connects transport, acceptance, quality, documents, settlement, disputes and evidence in one working process. Every action has an owner, a state and a basis.',
+    register: 'Connect an organisation', contact: 'Discuss connection', statusLabel: 'Current Deal state',
+    deal: { id: 'DL-9102', crop: 'Grade 4 wheat', volume: '240 t', amount: '2 964 000 ₽', route: 'Farm → elevator → buyer', current: 'Quality, documents and the settlement basis are under control' },
+    stagesTitle: 'Execution stages', stagesText: 'Each stage shows the responsible participant, the current state and the basis for moving to the next action.',
+    stages: [
+      { title: 'Deal terms', owner: 'Seller · buyer', status: 'Recorded', text: 'Price, volume, delivery basis and permitted quality values are recorded before transport starts.' },
+      { title: 'Transport', owner: 'Logistics', status: 'In progress', text: 'Route, vehicle, driver and execution checkpoints stay in one Deal context.' },
+      { title: 'Acceptance', owner: 'Elevator', status: 'Awaiting facts', text: 'Weight, delivery fact, discrepancies and the link between the lot and documents are recorded before settlement.' },
+      { title: 'Quality', owner: 'Laboratory', status: 'Under review', text: 'Quality indicators are considered before the final payment basis is formed.' },
+      { title: 'Documents', owner: 'Deal parties', status: 'Being reconciled', text: 'Regulatory, EDI, transport documents and acts are reconciled with execution events.' },
+      { title: 'Settlement', owner: 'Bank / finance', status: 'After grounds are confirmed', text: 'The platform shows the settlement basis but does not claim that money is released automatically without bank confirmation.' },
+    ],
+    moneyKicker: 'Settlement basis', moneyTitle: 'Payment is tied to confirmed events',
+    moneyText: 'The platform shows which conditions are complete and which documents or facts are still required before settlement. A financial action occurs only on confirmed grounds and under bank rules.',
+    moneyStatus: 'Quality and the document set still require confirmation.', bankAction: 'Connect a bank to the platform',
+    rolesTitle: 'Role layers', rolesText: 'Each participant receives only the information and actions that belong to that participant’s responsibility.',
+    roles: [
+      { role: 'Seller', access: 'lot, transport, acceptance, documents and payment basis', responsibility: 'closes document gaps and resolves discrepancies' },
+      { role: 'Buyer', access: 'delivery fact, quality, documents and financial terms', responsibility: 'confirms execution or starts a review' },
+      { role: 'Elevator', access: 'acceptance, weight, lot state and related documents', responsibility: 'records factual lot data' },
+      { role: 'Laboratory', access: 'samples, quality indicators and test protocol', responsibility: 'confirms quality indicators' },
+      { role: 'Bank', access: 'confirmed settlement grounds', responsibility: 'checks conditions for the financial step' },
+      { role: 'Arbitrator', access: 'evidence, documents, events and the action log', responsibility: 'reviews a dispute against recorded facts' },
+    ],
+    proofKicker: 'Evidence layer', proofTitle: 'Disputes are reviewed against the Deal trail', proofText: 'When discrepancies arise, participants work with a linked package of facts rather than fragmented correspondence.',
+    evidence: ['route and transport checkpoints', 'acceptance and weight data', 'quality protocol', 'regulatory, EDI, transport documents and acts', 'participant action log'],
+    home: 'Home', footerQuestion: 'Ask a question',
+  },
+  zh: {
+    metaTitle: '交易执行 — 透明价格',
+    metaDescription: '一笔交易的执行地图：价格、运输、验收、质量、文件、结算、争议与证据。',
+    brand: '透明价格', brandSub: '交易执行工作区', brandHome: '透明价格 — 返回首页',
+    pageNav: '交易执行页面导航', pageActions: '页面操作', back: '返回首页', question: '提问',
+    heroKicker: '交易执行地图', heroTitle: '价格确定后，执行控制才真正开始',
+    heroText: '平台把运输、验收、质量、文件、结算、争议和证据连接在一个工作流程中。每个动作都有责任方、状态和依据。',
+    register: '接入机构', contact: '沟通接入', statusLabel: '当前交易状态',
+    deal: { id: 'DL-9102', crop: '四级小麦', volume: '240 吨', amount: '2 964 000 ₽', route: '农场 → 粮库 → 买方', current: '正在控制质量、文件和结算依据' },
+    stagesTitle: '执行阶段', stagesText: '每个阶段都显示责任参与方、当前状态以及进入下一步的依据。',
+    stages: [
+      { title: '交易条件', owner: '卖方 · 买方', status: '已记录', text: '价格、数量、交付基础和允许的质量指标在运输前记录。' },
+      { title: '运输', owner: '物流', status: '执行中', text: '路线、车辆、司机和执行检查点统一保留在同一交易上下文中。' },
+      { title: '验收', owner: '粮库', status: '等待事实', text: '重量、到货事实、差异以及批次与文件之间的关联在结算前记录。' },
+      { title: '质量', owner: '实验室', status: '审核中', text: '质量指标在形成最终付款依据之前纳入判断。' },
+      { title: '文件', owner: '交易双方', status: '核对中', text: '监管、电子单据、运输文件和验收文件与执行事件进行核对。' },
+      { title: '结算', owner: '银行 / 金融', status: '依据确认后', text: '平台展示结算依据，但不会在没有银行确认的情况下声称资金会自动释放。' },
+    ],
+    moneyKicker: '结算依据', moneyTitle: '付款与已确认事件绑定',
+    moneyText: '平台展示哪些条件已经完成，以及结算前仍需要哪些文件或事实。金融动作只有在依据确认并符合银行规则后才执行。',
+    moneyStatus: '质量和文件组合仍需要确认。', bankAction: '接入银行机构',
+    rolesTitle: '角色层', rolesText: '每个参与方只获得属于其责任范围的信息和操作。',
+    roles: [
+      { role: '卖方', access: '批次、运输、验收、文件和付款依据', responsibility: '补齐文件并处理差异' },
+      { role: '买方', access: '到货事实、质量、文件和金融条件', responsibility: '确认执行或发起复核' },
+      { role: '粮库', access: '验收、重量、批次状态和相关文件', responsibility: '记录批次事实数据' },
+      { role: '实验室', access: '样本、质量指标和检测报告', responsibility: '确认质量指标' },
+      { role: '银行', access: '已确认的结算依据', responsibility: '检查金融步骤的条件' },
+      { role: '仲裁方', access: '证据、文件、事件和操作日志', responsibility: '依据记录事实审查争议' },
+    ],
+    proofKicker: '证据层', proofTitle: '争议沿交易轨迹审查', proofText: '出现差异时，参与方使用相互关联的事实包，而不是零散的通信记录。',
+    evidence: ['路线和运输检查点', '验收与重量数据', '质量报告', '监管、电子单据、运输文件和验收文件', '参与方操作日志'],
+    home: '首页', footerQuestion: '提问',
+  },
+} as const;
 
-const stages: Stage[] = [
-  { title: 'Условия сделки', owner: 'Продавец · покупатель', status: 'Зафиксировано', text: 'Цена, объём, базис поставки и допустимые показатели качества фиксируются до рейса.', Icon: Wheat, state: 'done' },
-  { title: 'Рейс', owner: 'Логистика', status: 'В работе', text: 'Маршрут, транспорт, водитель и контрольные точки исполнения находятся в едином контуре.', Icon: Truck, state: 'active' },
-  { title: 'Приёмка', owner: 'Элеватор', status: 'Ожидает факт', text: 'Вес, факт поставки, расхождения и связь партии с документами фиксируются до расчёта.', Icon: Building2, state: 'pending' },
-  { title: 'Качество', owner: 'Лаборатория', status: 'На проверке', text: 'Показатели качества учитываются до формирования окончательного основания для оплаты.', Icon: FlaskConical, state: 'pending' },
-  { title: 'Документы', owner: 'Стороны сделки', status: 'На сверке', text: 'СДИЗ, ЭДО, транспортные документы и акты сверяются с событиями исполнения.', Icon: FileCheck2, state: 'pending' },
-  { title: 'Расчёт', owner: 'Банк / финконтур', status: 'После оснований', text: 'Платформа показывает основание для расчёта, но не заявляет автоматический выпуск денег без банковского подтверждения.', Icon: Landmark, state: 'pending' },
-];
+function localeKey(locale: string): LocaleKey {
+  return locale === 'en' || locale === 'zh' ? locale : 'ru';
+}
 
-const roles: RoleLayer[] = [
-  { role: 'Продавец', access: 'партия, рейс, приёмка, документы и основание для оплаты', responsibility: 'закрывает документы и устраняет расхождения', Icon: Wheat },
-  { role: 'Покупатель', access: 'факт поставки, качество, документы и финансовые условия', responsibility: 'подтверждает исполнение или инициирует разбор', Icon: ClipboardCheck },
-  { role: 'Элеватор', access: 'приёмка, вес, статус партии и связанные документы', responsibility: 'фиксирует фактические данные по партии', Icon: Building2 },
-  { role: 'Лаборатория', access: 'пробы, показатели качества и протокол исследования', responsibility: 'подтверждает показатели качества', Icon: FlaskConical },
-  { role: 'Банк', access: 'подтверждённые основания для расчёта', responsibility: 'проверяет условия для финансового шага', Icon: Banknote },
-  { role: 'Арбитр', access: 'доказательства, документы, события и журнал действий', responsibility: 'рассматривает спор на основании фактов', Icon: Scale },
-];
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = localeKey(await getLocale());
+  const t = COPY[lang];
+  const canonical = `https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow?lang=${lang}`;
+  const openGraphLocale = lang === 'en' ? 'en_US' : lang === 'zh' ? 'zh_CN' : 'ru_RU';
+  return {
+    title: { absolute: t.metaTitle },
+    description: t.metaDescription,
+    alternates: {
+      canonical,
+      languages: {
+        'ru-RU': 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow?lang=ru',
+        en: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow?lang=en',
+        'zh-CN': 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow?lang=zh',
+      },
+    },
+    openGraph: {
+      type: 'website',
+      locale: openGraphLocale,
+      siteName: t.brand,
+      title: t.metaTitle,
+      description: t.metaDescription,
+      url: canonical,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: t.metaTitle,
+      description: t.metaDescription,
+    },
+  };
+}
 
-const evidence = ['маршрут и контрольные точки рейса', 'данные приёмки и веса', 'протокол качества', 'СДИЗ, ЭДО, транспортные документы и акты', 'журнал действий участников'];
-
-export default function PlatformV7DealFlowPage() {
+export default async function PlatformV7DealFlowPage() {
+  const lang = localeKey(await getLocale());
+  const t = COPY[lang];
+  const href = (pathname: string) => `${pathname}?lang=${lang}`;
   return (
-    <main className='p7-deal-flow-page' data-testid='platform-v7-deal-flow-page'>
+    <main className='p7-deal-flow-page' data-testid='platform-v7-deal-flow-page' data-lang={lang} data-p7-no-translate='true'>
       <style>{css}</style>
-      <header className='p7-flow-header' aria-label='Навигация страницы контура сделки'>
-        <Link href='/platform-v7' className='p7-flow-brand' aria-label='Прозрачная Цена — на главную'>
+      <header className='p7-flow-header' aria-label={t.pageNav}>
+        <Link href={href('/platform-v7')} className='p7-flow-brand' aria-label={t.brandHome}>
           <BrandMark size={40} />
-          <span><strong>Прозрачная Цена</strong><small>Рабочий контур исполнения сделки</small></span>
+          <span><strong>{t.brand}</strong><small>{t.brandSub}</small></span>
         </Link>
-        <nav className='p7-flow-actions' aria-label='Действия страницы'>
-          <Link href='/platform-v7' aria-label='Назад на главную'><ArrowLeft size={21} /></Link>
-          <Link href='/platform-v7/contact' aria-label='Задать вопрос'><MessageCircleQuestion size={21} /></Link>
+        <nav className='p7-flow-actions' aria-label={t.pageActions}>
+          <Link href={href('/platform-v7')} aria-label={t.back}><ArrowLeft size={21} /></Link>
+          <Link href={href('/platform-v7/contact')} aria-label={t.question}><MessageCircleQuestion size={21} /></Link>
         </nav>
       </header>
 
       <section className='p7-flow-hero' aria-labelledby='flow-title'>
         <div className='p7-flow-hero-copy'>
-          <span className='p7-flow-kicker'>Карта исполнения сделки</span>
-          <h1 id='flow-title'>После цены начинается контроль исполнения</h1>
-          <p>Платформа связывает рейс, приёмку, качество, документы, расчёт, спор и доказательства в одном рабочем процессе. Каждое действие имеет ответственного, статус и основание.</p>
-          <div className='p7-flow-hero-actions'><Link href='/platform-v7/register'>Подключить организацию<ArrowRight size={18} /></Link><Link href='/platform-v7/contact'>Обсудить подключение</Link></div>
+          <span className='p7-flow-kicker'>{t.heroKicker}</span>
+          <h1 id='flow-title'>{t.heroTitle}</h1>
+          <p>{t.heroText}</p>
+          <div className='p7-flow-hero-actions'><Link href={href('/platform-v7/register')}>{t.register}<ArrowRight size={18} /></Link><Link href={href('/platform-v7/contact')}>{t.contact}</Link></div>
         </div>
-        <aside className='p7-flow-status' aria-label='Состояние сделки'>
-          <span>Текущий статус</span>
-          <strong>{deal.current}</strong>
-          <p>{deal.id} · {deal.crop} · {deal.volume} · {deal.amount}</p>
-          <small>{deal.route}</small>
+        <aside className='p7-flow-status' aria-label={t.statusLabel}>
+          <span>{t.statusLabel}</span>
+          <strong>{t.deal.current}</strong>
+          <p>{t.deal.id} · {t.deal.crop} · {t.deal.volume} · {t.deal.amount}</p>
+          <small>{t.deal.route}</small>
         </aside>
       </section>
 
       <section className='p7-flow-section' aria-labelledby='stages-title'>
-        <SectionHead n='01' title='Этапы исполнения' text='Каждый этап показывает статус, ответственного участника и основание перехода к следующему действию.' id='stages-title' />
-        <div className='p7-stage-grid'>{stages.map((stage, index) => <StageCard key={stage.title} stage={stage} index={index} />)}</div>
+        <SectionHead n='01' title={t.stagesTitle} text={t.stagesText} id='stages-title' />
+        <div className='p7-stage-grid'>{t.stages.map((stage, index) => <StageCard key={stage.title} stage={stage} index={index} Icon={STAGE_ICONS[index]!} state={STAGE_STATES[index]!} />)}</div>
       </section>
 
       <section className='p7-money-section' aria-labelledby='money-title'>
-        <div><span className='p7-flow-kicker'>Основание для расчёта</span><h2 id='money-title'>Оплата привязана к подтверждённым событиям</h2><p>Платформа показывает, какие условия закрыты и какие документы или данные требуются до расчёта. Финансовое действие выполняется только при подтверждённых основаниях и банковских правилах.</p></div>
-        <div className='p7-money-card'><Banknote size={28} /><strong>{deal.amount}</strong><p>Ожидается подтверждение качества и комплекта документов.</p><Link href='/platform-v7/bank'>Открыть банковский контур</Link></div>
+        <div><span className='p7-flow-kicker'>{t.moneyKicker}</span><h2 id='money-title'>{t.moneyTitle}</h2><p>{t.moneyText}</p></div>
+        <div className='p7-money-card'><Banknote size={28} /><strong>{t.deal.amount}</strong><p>{t.moneyStatus}</p><Link href={href('/platform-v7/register')}>{t.bankAction}</Link></div>
       </section>
 
       <section className='p7-flow-section' aria-labelledby='roles-title'>
-        <SectionHead n='02' title='Ролевые слои' text='Участник получает только тот объём информации и действий, который относится к его зоне ответственности.' id='roles-title' />
-        <div className='p7-role-grid'>{roles.map((role) => <RoleCard key={role.role} role={role} />)}</div>
+        <SectionHead n='02' title={t.rolesTitle} text={t.rolesText} id='roles-title' />
+        <div className='p7-role-grid'>{t.roles.map((role, index) => <RoleCard key={role.role} role={role} Icon={ROLE_ICONS[index]!} />)}</div>
       </section>
 
       <section className='p7-proof-section' aria-labelledby='proof-title'>
-        <div><span className='p7-flow-kicker'>Доказательная база</span><h2 id='proof-title'>Спор разбирается по следу сделки</h2><p>Если возникают расхождения, участники работают не с разрозненной перепиской, а со связанным пакетом фактов.</p></div>
-        <ul>{evidence.map((item) => <li key={item}><ShieldCheck size={18} />{item}</li>)}</ul>
+        <div><span className='p7-flow-kicker'>{t.proofKicker}</span><h2 id='proof-title'>{t.proofTitle}</h2><p>{t.proofText}</p></div>
+        <ul>{t.evidence.map((item) => <li key={item}><ShieldCheck size={18} />{item}</li>)}</ul>
       </section>
 
-      <footer className='p7-flow-footer'><Link href='/platform-v7'>На главную</Link><Link href='/platform-v7/contact'>Задать вопрос</Link></footer>
+      <footer className='p7-flow-footer'><Link href={href('/platform-v7')}>{t.home}</Link><Link href={href('/platform-v7/contact')}>{t.footerQuestion}</Link></footer>
     </main>
   );
 }
 
 function SectionHead({ n, title, text, id }: { n: string; title: string; text: string; id: string }) { return <div className='p7-section-head'><span>{n}</span><h2 id={id}>{title}</h2><p>{text}</p></div>; }
-function StageCard({ stage, index }: { stage: Stage; index: number }) { const Icon = stage.Icon; return <article className={`p7-stage-card ${stage.state}`}><span className='p7-stage-num'>{String(index + 1).padStart(2, '0')}</span><Icon size={24} /><strong>{stage.title}</strong><em>{stage.owner}</em><p>{stage.text}</p><small>{stage.status}</small></article>; }
-function RoleCard({ role }: { role: RoleLayer }) { const Icon = role.Icon; return <article className='p7-role-layer'><Icon size={24} /><strong>{role.role}</strong><p>{role.access}</p><small>{role.responsibility}</small></article>; }
+function StageCard({ stage, index, Icon, state }: { stage: StageCopy; index: number; Icon: LucideIcon; state: StageState }) { return <article className={`p7-stage-card ${state}`}><span className='p7-stage-num'>{String(index + 1).padStart(2, '0')}</span><Icon size={24} /><strong>{stage.title}</strong><em>{stage.owner}</em><p>{stage.text}</p><small>{stage.status}</small></article>; }
+function RoleCard({ role, Icon }: { role: RoleCopy; Icon: LucideIcon }) { return <article className='p7-role-layer'><Icon size={24} /><strong>{role.role}</strong><p>{role.access}</p><small>{role.responsibility}</small></article>; }
 
 const css = `
 .pc-shell-root-v4:has(.p7-deal-flow-page){--pc-header-offset:0px!important;background:#f6faf4!important}

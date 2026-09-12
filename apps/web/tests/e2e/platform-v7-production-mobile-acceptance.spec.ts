@@ -18,6 +18,12 @@ const linkedPageViewports = [
 const linkedLocales = ['ru', 'en', 'zh'] as const;
 type LinkedLocale = (typeof linkedLocales)[number];
 
+const dealFlowMetadataLanguage = {
+  ru: { htmlLang: 'ru', openGraphLocale: 'ru_RU', expectedScript: /\p{Script=Cyrillic}/u },
+  en: { htmlLang: 'en', openGraphLocale: 'en_US', expectedScript: /[A-Za-z]/u },
+  zh: { htmlLang: 'zh-CN', openGraphLocale: 'zh_CN', expectedScript: /\p{Script=Han}/u },
+} as const;
+
 const linkedPublicPages = [
   { name: 'about', path: '/platform-v7/about', ready: 'main h1' },
   { name: 'how-it-works', path: '/platform-v7/how-it-works', ready: '#pc-ppe-explorer-title' },
@@ -47,6 +53,100 @@ async function expectNoHorizontalOverflow(page: Page) {
     document.body.scrollWidth - document.body.clientWidth,
   ));
   expect(overflow).toBeLessThanOrEqual(1);
+}
+
+async function captureContentCoverageWithoutOccluders(page: Page, path: string) {
+  const marker = 'data-p7-evidence-occluder';
+  const styleId = 'p7-evidence-occluder-style';
+  await page.evaluate(({ markerName, injectedStyleId }) => {
+    document.getElementById(injectedStyleId)?.remove();
+    for (const node of Array.from(document.querySelectorAll<HTMLElement>('body *'))) {
+      const position = window.getComputedStyle(node).position;
+      if (position === 'fixed' || position === 'sticky') node.setAttribute(markerName, 'true');
+    }
+    const style = document.createElement('style');
+    style.id = injectedStyleId;
+    style.textContent = `html body [${markerName}="true"][${markerName}="true"][${markerName}="true"][${markerName}="true"]{opacity:0!important}`;
+    document.head.append(style);
+    if (Array.from(document.querySelectorAll<HTMLElement>(`[${markerName}]`)).some((node) => Number.parseFloat(window.getComputedStyle(node).opacity) !== 0)) throw new Error("coverage occluders must be fully transparent");
+  }, { markerName: marker, injectedStyleId: styleId });
+
+  try {
+    await page.screenshot({ path, fullPage: false, animations: 'disabled', scale: 'css' });
+  } finally {
+    await page.evaluate(({ markerName, injectedStyleId }) => {
+      document.getElementById(injectedStyleId)?.remove();
+      document.querySelectorAll(`[${markerName}]`).forEach((node) => node.removeAttribute(markerName));
+    }, { markerName: marker, injectedStyleId: styleId });
+  }
+}
+
+async function captureFullDocumentEvidence(page: Page, path: string) {
+  const geometry = await page.evaluate(() => ({
+    documentHeight: Math.max(document.documentElement.scrollHeight, document.body.scrollHeight),
+    viewportHeight: window.innerHeight,
+    scrollX: window.scrollX,
+    scrollY: window.scrollY,
+  }));
+  const maxCssImageDimension = 30_000;
+
+  if (geometry.documentHeight <= maxCssImageDimension) {
+    await page.screenshot({ path, fullPage: true, animations: 'disabled', scale: 'css' });
+    return;
+  }
+
+  const overlapMargin = 24;
+  expect(geometry.viewportHeight, 'segmented evidence viewport must exceed overlap margin').toBeGreaterThan(overlapMargin);
+  const maxScrollY = Math.max(0, geometry.documentHeight - geometry.viewportHeight);
+  const basePath = path.replace(/\.png$/u, '');
+  let y = 0;
+  let index = 0;
+  let previousCoverageEnd = 0;
+
+  while (true) {
+    await page.evaluate((scrollY) => window.scrollTo(0, scrollY), y);
+    await page.waitForTimeout(50);
+    const coverageStart = y;
+    const coverageEnd = Math.min(geometry.documentHeight, y + geometry.viewportHeight);
+
+    if (index > 0) {
+      expect(
+        coverageStart,
+        `segment ${index + 1} content coverage must overlap the previous segment`,
+      ).toBeLessThanOrEqual(previousCoverageEnd - overlapMargin);
+    }
+
+    const part = String(index + 1).padStart(2, '0');
+    await page.screenshot({
+      path: `${basePath}-part-${part}.png`,
+      fullPage: false,
+      animations: 'disabled',
+      scale: 'css',
+    });
+    await captureContentCoverageWithoutOccluders(
+      page,
+      `${basePath}-part-${part}-content-coverage.png`,
+    );
+
+    previousCoverageEnd = Math.max(previousCoverageEnd, coverageEnd);
+    if (y >= maxScrollY) break;
+
+    const nextY = Math.min(maxScrollY, Math.floor(coverageEnd - overlapMargin));
+    expect(nextY, 'segmented evidence capture must advance').toBeGreaterThan(y);
+    y = nextY;
+    index += 1;
+  }
+
+  expect(previousCoverageEnd, 'segmented content coverage must reach the full document height').toBeGreaterThanOrEqual(geometry.documentHeight);
+  await page.evaluate(({ x, y: scrollY }) => window.scrollTo(x, scrollY), { x: geometry.scrollX, y: geometry.scrollY });
+}
+
+async function expectRenderedMeta(page: Page, selector: string) {
+  const meta = page.locator(`head ${selector}`);
+  await expect(meta).toHaveCount(1);
+  const content = await meta.getAttribute('content');
+  expect(content, `${selector} must have content`).toBeTruthy();
+  return content as string;
 }
 
 async function expectVisibleTargetsAtLeast(page: Page, selector: string, minimum: number) {
@@ -141,7 +241,7 @@ async function expectStageAwareDealWorkspace(page: Page) {
   const workspace = page.locator('section[aria-label="Упрощённый экран рабочего кабинета"]');
   await expect(workspace).toBeVisible();
 
-  const stageRail = workspace.locator('[aria-label="Семь этапов одной Сделки"]');
+  const stageRail = workspace.getByRole('group', { name: 'Семь этапов одной Сделки' });
   const stageButtons = stageRail.getByRole('button');
   await expect(stageButtons).toHaveCount(7);
   await expect(stageButtons.first()).toHaveAttribute('aria-current', 'step');
@@ -274,7 +374,7 @@ test.describe('Platform V7 exact responsive public acceptance', () => {
       expect(headings.every((heading) => heading.ratio <= 1.2), JSON.stringify(headings, null, 2)).toBe(true);
 
       await expect(page.getByRole('region', { name: 'Упрощённый экран рабочего кабинета' })).toBeVisible();
-      await expect(page.locator('[aria-label="Семь этапов одной Сделки"]')).toBeVisible();
+      await expect(page.getByRole('group', { name: 'Семь этапов одной Сделки' })).toBeVisible();
       await expect(page.getByRole('tab', { name: 'Банк / финансы', exact: true })).toBeVisible();
       await expect(page.locator('#maturity, #integrations, #role-entry')).toHaveCount(0);
 
@@ -293,13 +393,56 @@ test.describe('Platform V7 exact responsive public acceptance', () => {
         history.replaceState(null, '', `${location.pathname}${location.search}`);
         window.scrollTo(0, 0);
       });
-      await page.screenshot({
-        path: testInfo.outputPath(`platform-v7-production-${viewport.name}.png`),
-        fullPage: true,
-        animations: 'disabled',
-      });
+      await captureFullDocumentEvidence(
+        page,
+        testInfo.outputPath(`platform-v7-production-${viewport.name}.png`),
+      );
     });
   }
+});
+
+test.describe('Platform V7 Deal-flow rendered metadata acceptance', () => {
+  test('renders one locale-native RU EN ZH metadata set without inherited Russian head copy', async ({ page }) => {
+    for (const locale of linkedLocales) {
+      const expected = dealFlowMetadataLanguage[locale];
+      const response = await page.goto(`/platform-v7/deal-flow?lang=${locale}`, { waitUntil: 'load' });
+      expect(response?.ok(), `/platform-v7/deal-flow?lang=${locale} should return 2xx`).toBe(true);
+      await expect(page.locator('[data-testid="platform-v7-deal-flow-page"]')).toHaveAttribute('data-lang', locale);
+      await expect(page.locator('html')).toHaveAttribute('lang', expected.htmlLang);
+
+      const title = await page.title();
+      const description = await expectRenderedMeta(page, 'meta[name="description"]');
+      const openGraphTitle = await expectRenderedMeta(page, 'meta[property="og:title"]');
+      const openGraphDescription = await expectRenderedMeta(page, 'meta[property="og:description"]');
+      const openGraphSiteName = await expectRenderedMeta(page, 'meta[property="og:site_name"]');
+      const openGraphLocale = await expectRenderedMeta(page, 'meta[property="og:locale"]');
+      const twitterTitle = await expectRenderedMeta(page, 'meta[name="twitter:title"]');
+      const twitterDescription = await expectRenderedMeta(page, 'meta[name="twitter:description"]');
+      const visibleBrand = (await page.locator('.p7-flow-brand strong').innerText()).trim();
+
+      expect(title).toMatch(expected.expectedScript);
+      expect(description).toMatch(expected.expectedScript);
+      expect(openGraphSiteName).toMatch(expected.expectedScript);
+      expect(openGraphLocale).toBe(expected.openGraphLocale);
+      expect(openGraphTitle).toBe(title);
+      expect(twitterTitle).toBe(title);
+      expect(openGraphDescription).toBe(description);
+      expect(twitterDescription).toBe(description);
+      expect(openGraphSiteName).toBe(visibleBrand);
+
+      const canonical = `https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow?lang=${locale}`;
+      await expect(page.locator('head link[rel="canonical"]')).toHaveCount(1);
+      await expect(page.locator('head link[rel="canonical"]')).toHaveAttribute('href', canonical);
+      await expect(page.locator('head link[rel="alternate"][hreflang="ru-RU"]')).toHaveAttribute('href', 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow?lang=ru');
+      await expect(page.locator('head link[rel="alternate"][hreflang="en"]')).toHaveAttribute('href', 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow?lang=en');
+      await expect(page.locator('head link[rel="alternate"][hreflang="zh-CN"]')).toHaveAttribute('href', 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow?lang=zh');
+
+      if (locale !== 'ru') {
+        const localizedHead = [title, description, openGraphTitle, openGraphDescription, openGraphSiteName, twitterTitle, twitterDescription].join('\n');
+        expect(localizedHead, `${locale} rendered head must contain no residual Cyrillic`).not.toMatch(/\p{Script=Cyrillic}/u);
+      }
+    }
+  });
 });
 
 test.describe('Platform V7 live linked-page acceptance', () => {
@@ -326,11 +469,10 @@ test.describe('Platform V7 live linked-page acceptance', () => {
             await expectNoHorizontalOverflow(targetPage);
             expect(runtimeFailures, `${target.path}?lang=${locale} runtime failures`).toEqual([]);
 
-            await targetPage.screenshot({
-              path: testInfo.outputPath(`platform-v7-linked-${target.name}-${locale}-${viewport.name}.png`),
-              fullPage: true,
-              animations: 'disabled',
-            });
+            await captureFullDocumentEvidence(
+              targetPage,
+              testInfo.outputPath(`platform-v7-linked-${target.name}-${locale}-${viewport.name}.png`),
+            );
           } finally {
             await targetPage.close();
           }

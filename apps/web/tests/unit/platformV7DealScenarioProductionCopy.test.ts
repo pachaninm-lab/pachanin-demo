@@ -22,4 +22,45 @@ describe('platform-v7 deal scenario production copy', () => {
     expect(source).toContain('<p>{t.volume}</p>');
     expect(source).not.toContain('<p>240 т</p>');
   });
+
+  it('keeps the Deal execution route source-native in RU EN and ZH', () => {
+    const source = read('apps/web/app/platform-v7/deal-flow/page.tsx');
+    const enStart = source.indexOf('  en: {');
+    const zhStart = source.indexOf('  zh: {');
+    const end = source.indexOf('} as const;', zhStart);
+
+    expect(enStart).toBeGreaterThan(0);
+    expect(zhStart).toBeGreaterThan(enStart);
+    expect(end).toBeGreaterThan(zhStart);
+    expect(source).toContain("import { getLocale } from 'next-intl/server'");
+    expect(source).toContain("data-p7-no-translate='true'");
+    expect(source).toContain("pageNav: 'Deal execution page navigation'");
+    expect(source).toContain("pageActions: 'Page actions'");
+    expect(source).toContain("back: 'Back to home'");
+    expect(source).toContain("access: 'acceptance, weight, lot state and related documents'");
+    expect(source).toContain("access: 'confirmed settlement grounds'");
+    expect(source).toContain("title: { absolute: t.metaTitle }");
+    expect(source).toContain("const openGraphLocale = lang === 'en' ? 'en_US' : lang === 'zh' ? 'zh_CN' : 'ru_RU';");
+    expect(source).toContain("siteName: t.brand");
+    expect(source).toContain("url: canonical");
+    expect(source).toContain("twitter: {");
+    expect(source).toContain("title: t.metaTitle");
+    expect(source).toContain("description: t.metaDescription");
+    const rootLayout = read('apps/web/app/layout.tsx');
+    expect(rootLayout).toContain("pathname === '/platform-v7/deal-flow' ? null : <meta name='description' content={pageDescription} />");
+    expect(source).toContain("'ru-RU': 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow?lang=ru'");
+    expect(source).toContain("en: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow?lang=en'");
+    expect(source).toContain("'zh-CN': 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow?lang=zh'");
+    expect(source).toContain("const href = (pathname: string) => `${pathname}?lang=${lang}`;");
+    expect(source).toContain("href={href('/platform-v7/register')}");
+    expect(source).toContain("href={href('/platform-v7/contact')}");
+    expect(source).toContain("bankAction: 'Connect a bank to the platform'");
+    expect(source).toContain("bankAction: '接入银行机构'");
+    expect(source).toContain("<Link href={href('/platform-v7/register')}>{t.bankAction}</Link>");
+    expect(source).not.toContain("/platform-v7/bank");
+    expect(source).not.toContain("protectedHref");
+    expect(source.slice(enStart, zhStart)).not.toMatch(/[А-Яа-яЁё]/u);
+    expect(source.slice(zhStart, end)).not.toMatch(/[А-Яа-яЁё]/u);
+  });
+
 });
