@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-12T20:59:56.669Z",
-  "gitHead": "d0135e604bfe6ad630623b80fdaef19cdc9e6367",
+  "generatedAt": "2026-09-12T21:01:10.379Z",
+  "gitHead": "d37bb6ddd967c8d25e17e79827bec38c2857f009",
   "trackedFiles": 6832,
   "records": [
     {
@@ -89196,7 +89196,7 @@
     },
     {
       "path": "docs/ip/CONTRIBUTORS.csv",
-      "blob_sha": "d5a0c53158ec50b87dece6c8b3c5390ed02ded62",
+      "blob_sha": "2e2c935ec272139c3f598fee883ce2be1be0dd11",
       "first_commit": "9827be4ea4681d702a50b4111a734ec4c4464b81",
       "first_date": "2026-08-22T19:48:10+00:00",
       "original_contributor": "Claude#cd29c5ac348a026a",
@@ -89209,7 +89209,7 @@
       "ai_involvement": "DECLARED_AI_ASSISTED",
       "criticality": "STANDARD",
       "decision": "KEEP_FIRST_PARTY_CONTROL",
-      "evidence": "git:first=9827be4ea4681d702a50b4111a734ec4c4464b81;blob=d5a0c53158ec50b87dece6c8b3c5390ed02ded62;contributors=1",
+      "evidence": "git:first=9827be4ea4681d702a50b4111a734ec4c4464b81;blob=2e2c935ec272139c3f598fee883ce2be1be0dd11;contributors=1",
       "status": "TECHNICAL_ORIGIN_RECORDED"
     },
     {
@@ -89232,7 +89232,7 @@
     },
     {
       "path": "docs/ip/FILE_PROVENANCE.csv",
-      "blob_sha": "1ebbe9a63530ad4f8d0fa603792b590c666ba603",
+      "blob_sha": "68cfe2e44edc4f33a3b3e1df1f6a9a2994c08d6a",
       "first_commit": "c4058c9ccbad3dd8dce0e83ba57b854d127b42b8",
       "first_date": "2026-08-22T19:16:16+00:00",
       "original_contributor": "Claude#cd29c5ac348a026a",
@@ -89245,12 +89245,12 @@
       "ai_involvement": "DECLARED_AI_ASSISTED",
       "criticality": "STANDARD",
       "decision": "KEEP_FIRST_PARTY_CONTROL",
-      "evidence": "git:first=c4058c9ccbad3dd8dce0e83ba57b854d127b42b8;blob=1ebbe9a63530ad4f8d0fa603792b590c666ba603;contributors=1",
+      "evidence": "git:first=c4058c9ccbad3dd8dce0e83ba57b854d127b42b8;blob=68cfe2e44edc4f33a3b3e1df1f6a9a2994c08d6a;contributors=1",
       "status": "TECHNICAL_ORIGIN_RECORDED"
     },
     {
       "path": "docs/ip/FILE_PROVENANCE.json",
-      "blob_sha": "d3210409f3d87e78b1361bb9b2f399c6e586bcac",
+      "blob_sha": "ad8865eb2b536a346b5ba1402b0a9d396b9966b8",
       "first_commit": "c4058c9ccbad3dd8dce0e83ba57b854d127b42b8",
       "first_date": "2026-08-22T19:16:16+00:00",
       "original_contributor": "Claude#cd29c5ac348a026a",
@@ -89263,7 +89263,7 @@
       "ai_involvement": "DECLARED_AI_ASSISTED",
       "criticality": "STANDARD",
       "decision": "KEEP_FIRST_PARTY_CONTROL",
-      "evidence": "git:first=c4058c9ccbad3dd8dce0e83ba57b854d127b42b8;blob=d3210409f3d87e78b1361bb9b2f399c6e586bcac;contributors=1",
+      "evidence": "git:first=c4058c9ccbad3dd8dce0e83ba57b854d127b42b8;blob=ad8865eb2b536a346b5ba1402b0a9d396b9966b8;contributors=1",
       "status": "TECHNICAL_ORIGIN_RECORDED"
     },
     {
@@ -103308,7 +103308,7 @@
     },
     {
       "path": "docs/platform-v7/autopilot/scopes/provenance-register-currency-4459.json",
-      "blob_sha": "6c67339cd9114bc6ee4ad659e1cad753792d7817",
+      "blob_sha": "a5db59ea88a638cf3995934c02d72eecb7463e37",
       "first_commit": "ff3dbd8b071537a615043ad0b19bd13ea06304d8",
       "first_date": "2026-09-12T20:50:35+00:00",
       "original_contributor": "Claude#cd29c5ac348a026a",
@@ -103321,7 +103321,7 @@
       "ai_involvement": "UNKNOWN",
       "criticality": "STANDARD",
       "decision": "ORIGIN_REVIEW_REQUIRED",
-      "evidence": "git:first=ff3dbd8b071537a615043ad0b19bd13ea06304d8;blob=6c67339cd9114bc6ee4ad659e1cad753792d7817;contributors=1",
+      "evidence": "git:first=ff3dbd8b071537a615043ad0b19bd13ea06304d8;blob=a5db59ea88a638cf3995934c02d72eecb7463e37;contributors=1",
       "status": "UNRESOLVED"
     },
     {
