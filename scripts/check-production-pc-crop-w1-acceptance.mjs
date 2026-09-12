@@ -521,9 +521,23 @@ export function validateCompose(config) {
   return name;
 }
 
-export function runtimeFingerprint(containers, excludedApi) {
+function stableRuntimeValue(value) {
+  if (Array.isArray(value)) return value.map(stableRuntimeValue);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, nested]) => [key, stableRuntimeValue(nested)]));
+  }
+  return value;
+}
+function runtimeValueEqual(left, right) {
+  return JSON.stringify(stableRuntimeValue(left)) === JSON.stringify(stableRuntimeValue(right));
+}
+function runtimeOneoff(item) {
+  return String(item?.config?.Labels?.['com.docker.compose.oneoff'] ?? '').trim().toLowerCase() === 'true';
+}
+function runtimeInventory(containers, excludedApi) {
   if (!Array.isArray(containers) || !containers.length) blocked('RUNTIME_CONTAINER_INVENTORY_EMPTY');
-  const inventory = containers.filter(item => item.Id !== excludedApi).map(item => {
+  return containers.filter(item => item.Id !== excludedApi).map(item => {
     if (!/^[0-9a-f]{64}$/.test(item.Id ?? '') || !item.State?.StartedAt || !/^sha256:[0-9a-f]{64}$/.test(item.Image ?? '')) blocked('RUNTIME_CONTAINER_IDENTITY_INVALID');
     if (item.State.Running && (String(item.Config?.Labels?.['com.docker.compose.service'] ?? '').includes('role-eligibility')
       || JSON.stringify(item.Config?.Cmd ?? []).includes('role-eligibility-worker'))) {
@@ -536,9 +550,74 @@ export function runtimeFingerprint(containers, excludedApi) {
         NetworkID: network.NetworkID, EndpointID: network.EndpointID, IPAddress: network.IPAddress,
       }]).sort(([a],[b]) => a.localeCompare(b))) };
   }).sort((a,b) => a.id.localeCompare(b.id));
-  return sha256(JSON.stringify(inventory));
 }
-
+export function runtimeFingerprint(containers, excludedApi) {
+  return sha256(JSON.stringify(runtimeInventory(containers, excludedApi)));
+}
+// Diagnostic only: report categories and bounded counts; never emit IDs, env, paths,
+// image digests, network addresses, or other container identity.
+export function runtimeDiff(containersBefore, containersAfter, excludedApi) {
+  const before = runtimeInventory(containersBefore, excludedApi);
+  const after = runtimeInventory(containersAfter, excludedApi);
+  const beforeById = new Map(before.map(item => [item.id, item]));
+  const afterById = new Map(after.map(item => [item.id, item]));
+  const ids = new Set([...beforeById.keys(), ...afterById.keys()]);
+  const fields = new Set();
+  let changed = 0;
+  let oneoffAdded = 0;
+  let oneoffRemoved = 0;
+  for (const id of [...ids].sort()) {
+    const left = beforeById.get(id);
+    const right = afterById.get(id);
+    if (!left) {
+      changed++;
+      fields.add(runtimeOneoff(right) ? 'ADDED_ONEOFF_CONTAINER' : 'ADDED_CONTAINER');
+      if (runtimeOneoff(right)) oneoffAdded++;
+      continue;
+    }
+    if (!right) {
+      changed++;
+      fields.add(runtimeOneoff(left) ? 'REMOVED_ONEOFF_CONTAINER' : 'REMOVED_CONTAINER');
+      if (runtimeOneoff(left)) oneoffRemoved++;
+      continue;
+    }
+    let itemChanged = false;
+    for (const [key, label] of [['image','IMAGE_CHANGED'],['state','STATE_CHANGED'],['config','CONFIG_CHANGED'],
+      ['host','HOST_CHANGED'],['mounts','MOUNTS_CHANGED'],['networks','NETWORK_CHANGED']]) {
+      if (!runtimeValueEqual(left[key], right[key])) {
+        fields.add(label);
+        itemChanged = true;
+      }
+    }
+    // Keep the admission fingerprint unchanged. A serialization-only mismatch
+    // must be explained rather than reported as no runtime change.
+    if (!itemChanged && JSON.stringify(left) !== JSON.stringify(right)) {
+      fields.add('SERIALIZATION_ORDER_CHANGED');
+      itemChanged = true;
+    }
+    if (itemChanged) changed++;
+  }
+  return { scope: excludedApi ? 'NON_API' : 'ALL', count: Math.min(changed, 10000),
+    fields: [...fields].sort(), oneoffAdded: Math.min(oneoffAdded, 10000), oneoffRemoved: Math.min(oneoffRemoved, 10000) };
+}
+export function runtimeDiffEvidence(containersBefore, containersAfter, excludedApi) {
+  const diff = runtimeDiff(containersBefore, containersAfter, excludedApi);
+  const fields = diff.fields.length ? [...diff.fields] : ['NONE'];
+  // The accepted workflow transports one uppercase token, not CSV. Reserve
+  // space for an explicit overflow marker without changing that sanitizer.
+  if (fields.join('__').length > 100) {
+    do { fields.pop(); } while ([...fields, 'MULTIPLE'].join('__').length > 100);
+    fields.push('MULTIPLE');
+  }
+  return [
+    'PC_W1_RUNTIME_DIFF_SCOPE=' + diff.scope,
+    'PC_W1_RUNTIME_DIFF_FIELDS=' + fields.join('__'),
+    'PC_W1_RUNTIME_DIFF_COUNT=' + diff.count,
+    'PC_W1_RUNTIME_DIFF_ONEOFF_ADDED=' + diff.oneoffAdded,
+    'PC_W1_RUNTIME_DIFF_ONEOFF_REMOVED=' + diff.oneoffRemoved,
+  ].join('\n');
+}
+const runtimeDiffFieldPattern = '(?:ADDED_CONTAINER|ADDED_ONEOFF_CONTAINER|REMOVED_CONTAINER|REMOVED_ONEOFF_CONTAINER|IMAGE_CHANGED|STATE_CHANGED|CONFIG_CHANGED|HOST_CHANGED|MOUNTS_CHANGED|NETWORK_CHANGED|SERIALIZATION_ORDER_CHANGED)';
 export const EVIDENCE_VALUES = Object.freeze({
   ...HISTORY_EVIDENCE,
   PC_W1_RESULT: /^(READY_EXACT_EIGHT|VERIFIED_ALREADY_APPLIED|MIGRATIONS_APPLIED_PENDING_API_ACCEPTANCE|BLOCKED)$/,
@@ -567,6 +646,11 @@ export const EVIDENCE_VALUES = Object.freeze({
   PC_W1_API_ENVIRONMENT_SHA256: /^[0-9a-f]{64}$/,
   PC_W1_NON_API_RUNTIME_SHA256: /^[0-9a-f]{64}$/,
   PC_W1_RUNTIME_UNCHANGED: /^PASS$/,
+  PC_W1_RUNTIME_DIFF_SCOPE: /^(ALL|NON_API)$/,
+  PC_W1_RUNTIME_DIFF_FIELDS: new RegExp(`^(?=.{1,100}$)(?:NONE|${runtimeDiffFieldPattern}(?:__${runtimeDiffFieldPattern})*(?:__MULTIPLE)?)$`),
+  PC_W1_RUNTIME_DIFF_COUNT: /^(?:0|[1-9][0-9]{0,3}|10000)$/,
+  PC_W1_RUNTIME_DIFF_ONEOFF_ADDED: /^(?:0|[1-9][0-9]{0,3}|10000)$/,
+  PC_W1_RUNTIME_DIFF_ONEOFF_REMOVED: /^(?:0|[1-9][0-9]{0,3}|10000)$/,
   PC_W1_BACKUP_SHA256: /^[0-9a-f]{64}$/,
   PC_W1_BACKUP_BYTES: /^[1-9][0-9]{0,19}$/,
   PC_W1_BACKUP_VERIFICATION: /^ARCHIVE_LIST_ONLY$/,
@@ -874,6 +958,10 @@ if (process.argv[1] === '--runtime-routes') {
     else if (args[0] === 'image') validateMigrationImage(JSON.parse(fs.readFileSync(0, 'utf8'))[0], args[1], args[2]);
     else if (args[0] === 'compose') process.stdout.write(validateCompose(JSON.parse(fs.readFileSync(0, 'utf8'))));
     else if (args[0] === 'runtime-fingerprint') process.stdout.write(runtimeFingerprint(JSON.parse(fs.readFileSync(0, 'utf8')), args[1]));
+    else if (args[0] === 'runtime-diff') {
+      const value = JSON.parse(fs.readFileSync(0, 'utf8'));
+      process.stdout.write(runtimeDiffEvidence(value.before, value.after, args[1]) + '\n');
+    }
     else if (args[0] === 'probe-error') {
       const value=JSON.parse(fs.readFileSync(0,'utf8'));
       if(value.error) process.stdout.write(SAFE_ERROR.test(value.error) ? value.error : 'UNCLASSIFIED_PROBE_FAILURE');

@@ -126,21 +126,52 @@ baseline['services'][name]=expected
 assert baseline==target
 PY
 
-runtime_snapshot(){
+runtime_snapshot_json(){
   local inventory
   inventory="$(docker ps -aq --no-trunc --filter "label=com.docker.compose.project=$prod_project")"
   [[ -n "$inventory" ]] || return 1
   mapfile -t runtime_ids <<< "$inventory"
-  docker inspect "${runtime_ids[@]}" | node_tool runtime-fingerprint "${1:-}"
+  docker inspect "${runtime_ids[@]}"
 }
-baseline_runtime="$(runtime_snapshot)" || fail RUNTIME_SNAPSHOT_FAILED
-baseline_non_api="$(runtime_snapshot "$api_id")" || fail NON_API_SNAPSHOT_FAILED
+runtime_snapshot(){
+  runtime_snapshot_json | node_tool runtime-fingerprint "${1:-}"
+}
+runtime_diff_output(){
+  local before="$1" after="$2" excluded="${3:-}" bundle="$temporary/runtime-diff.json"
+  python3 - "$before" "$after" > "$bundle" <<'PY'
+import json,sys
+with open(sys.argv[1],encoding='utf-8') as left, open(sys.argv[2],encoding='utf-8') as right:
+    json.dump({"before":json.load(left),"after":json.load(right)},sys.stdout,separators=(",",":"))
+PY
+  if [[ -n "$excluded" ]]; then
+    node_tool runtime-diff "$excluded" < "$bundle"
+  else
+    node_tool runtime-diff < "$bundle"
+  fi
+}
+baseline_runtime_json="$temporary/runtime-before.json"
+runtime_snapshot_json > "$baseline_runtime_json" || fail RUNTIME_SNAPSHOT_FAILED
+baseline_runtime="$(node_tool runtime-fingerprint < "$baseline_runtime_json")" || fail RUNTIME_SNAPSHOT_FAILED
+baseline_non_api="$(node_tool runtime-fingerprint "$api_id" < "$baseline_runtime_json")" || fail NON_API_SNAPSHOT_FAILED
 assert_runtime_unchanged(){
-  [[ "$(runtime_snapshot)" == "$baseline_runtime" ]] || fail API_OR_NON_API_RUNTIME_CHANGED
-  [[ "$(runtime_snapshot "$api_id")" == "$baseline_non_api" ]] || fail NON_API_RUNTIME_CHANGED
+  local current_json="$temporary/runtime-after.json" current_runtime current_non_api diff
+  runtime_snapshot_json > "$current_json" || fail RUNTIME_SNAPSHOT_FAILED
+  current_runtime="$(node_tool runtime-fingerprint < "$current_json")" || fail RUNTIME_SNAPSHOT_FAILED
+  if [[ "$current_runtime" != "$baseline_runtime" ]]; then
+    diff="$(runtime_diff_output "$baseline_runtime_json" "$current_json" || true)"
+    [[ -z "$diff" ]] || printf '%s\n' "$diff"
+    fail API_OR_NON_API_RUNTIME_CHANGED
+  fi
+  current_non_api="$(node_tool runtime-fingerprint "$api_id" < "$current_json")" || fail NON_API_SNAPSHOT_FAILED
+  if [[ "$current_non_api" != "$baseline_non_api" ]]; then
+    diff="$(runtime_diff_output "$baseline_runtime_json" "$current_json" "$api_id" || true)"
+    [[ -z "$diff" ]] || printf '%s\n' "$diff"
+    fail NON_API_RUNTIME_CHANGED
+  fi
   "${dc[@]}" config --format json >"$temporary/current-compose.json" || fail COMPOSE_CONFIG_UNAVAILABLE
   [[ "$(sha256sum "$temporary/current-compose.json" | cut -d' ' -f1)" == "$baseline_config" ]] || fail COMPOSE_CONFIGURATION_CHANGED
 }
+
 while IFS= read -r id; do
   [[ -n "$id" ]] || continue
   image="$(docker inspect --format '{{.Config.Image}}' "$id")"
