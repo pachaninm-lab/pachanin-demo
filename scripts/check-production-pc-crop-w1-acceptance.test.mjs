@@ -614,11 +614,15 @@ function outerSiblingPython(workflow) {
   for(const line of preceding.slice(runIndex+1,-1)) {
     assert.ok(!line.length || line.startsWith(indent),'sibling guard escaped its run block');
   }
-  return source[1].split('\n').map(line=>{
+  const decoded=source[1].split('\n').map(line=>{
     if(!line.length) return line;
     assert.ok(line.startsWith(indent),'Python line escaped its run block');
     return line.slice(indent.length);
   }).join('\n');
+  // Python 3.14+ dedents -c input; check the decoded source before execution.
+  const firstStatement=decoded.split('\n').find(line=>line.trim() && !line.trimStart().startsWith('#'));
+  assert.ok(firstStatement && /^\S/.test(firstStatement),'Python top-level statement must start in column zero');
+  return decoded;
 }
 
 test('outer workflow sibling guard preserves mount identity while ignoring enumeration order',()=>{
@@ -644,18 +648,13 @@ test('outer workflow sibling guard preserves mount identity while ignoring enume
   }
 });
 
-test('outer workflow sibling guard preserves erroneous extra Python indentation',()=>{
+test('outer workflow sibling guard rejects extra Python indentation before execution',()=>{
   const workflow=fs.readFileSync(new URL('../.github/workflows/pc-crop-w1-production-acceptance.yml',import.meta.url),'utf8');
   const source=workflow.match(/API_EXCLUDED="\$api" python3 -c '([^']+)'/);
   assert.ok(source,'mutate the actual checked-in Python body');
   const overIndented=source[1].split('\n').map(line=>line.trim()?'  '+line:line).join('\n');
   const malformed=workflow.replace(source[0],source[0].replace(source[1],overIndented));
-  const result=spawnSync('python3',['-c',outerSiblingPython(malformed)],{
-    input:'[]',encoding:'utf8',env:{...process.env,API_EXCLUDED:'a'.repeat(64)},
-  });
-  assert.equal(result.status,1);
-  assert.equal(result.stdout,'');
-  assert.match(result.stderr,/IndentationError: unexpected indent/);
+  assert.throws(()=>outerSiblingPython(malformed),/Python top-level statement must start in column zero/);
 });
 
 test('mount inventory canonicalizes object fields but preserves nested array order',()=>{
