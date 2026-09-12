@@ -1,0 +1,115 @@
+name: Production P0 Reviewer Reset 31926992587 Sanitized Stack Classifier
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reviewer-reset-stack-classifier-31926992587.yml'
+      - 'scripts/production-p0-reviewer-reset-stack-classifier-31926992587.sh'
+      - 'scripts/production-p0-reviewer-reset-stack-classifier-31901032491.sh'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-reviewer-reset-stack-classifier-31926992587
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    name: Validate sanitized current reset stack classifier contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        (
+          (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+          github.event.comment.performed_via_github_app.id == 1144995
+        ) &&
+        github.event.comment.body == '/production p0-reviewer-reset-stack-classify 31926992587 current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate wrapper and inherited read-only boundary
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          wrapper='scripts/production-p0-reviewer-reset-stack-classifier-31926992587.sh'
+          source='scripts/production-p0-reviewer-reset-stack-classifier-31901032491.sh'
+          bash -n "$wrapper"
+          bash -n "$source"
+          [[ "$(git hash-object "$source")" == '58c689c246d1380efca2af7b62dc9af7403c2faa' ]]
+          python3 - <<'PY'
+          from pathlib import Path
+          w=Path('scripts/production-p0-reviewer-reset-stack-classifier-31926992587.sh').read_text(encoding='utf-8')
+          s=Path('scripts/production-p0-reviewer-reset-stack-classifier-31901032491.sh').read_text(encoding='utf-8')
+          required=[
+            "NEW_RUN='31926992587'",
+            "NEW_REV='2c3256ffb996172d69528cb19871bcd13f0d0723'",
+            "NEW_SINCE='2026-08-16T04:35:52Z'",
+            "NEW_UNTIL='2026-08-16T04:37:44Z'",
+            "SOURCE_BLOB_SHA='58c689c246d1380efca2af7b62dc9af7403c2faa'",
+            'Password reset challenge/outbox transaction failed',
+            'PRODUCTION_MUTATION=NONE',
+            'raw logs / PII / credentials',
+            'NOT_PUBLISHED',
+            'reset replay / mail send',
+            'StrictHostKeyChecking=yes',
+          ]
+          merged=w+'\n'+s
+          missing=[x for x in required if x not in merged]
+          if missing: raise SystemExit('missing classifier invariant: '+' | '.join(missing))
+          forbidden=['docker restart','docker compose','docker service','--request POST','-X POST','--data-binary','INSERT INTO','UPDATE auth.','DELETE FROM','TRUNCATE ','ALTER ROLE','StrictHostKeyChecking=no','UserKnownHostsFile=/dev/null']
+          bad=[x for x in forbidden if x in merged]
+          if bad: raise SystemExit('mutation/bypass surface forbidden: '+' | '.join(bad))
+          PY
+
+  classify:
+    name: Read-only REG.RU sanitized current stack classifier
+    needs: contract
+    if: >-
+      needs.contract.result == 'success' &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      (
+        (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+        github.event.comment.performed_via_github_app.id == 1144995
+      ) &&
+      github.event.comment.body == '/production p0-reviewer-reset-stack-classify 31926992587 current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PC_REVIEWER_RESET_STACK_COMMAND: ${{ github.event.comment.body }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Classify current reset sanitized stack without replay or mutation
+        shell: bash
+        run: bash scripts/production-p0-reviewer-reset-stack-classifier-31926992587.sh
