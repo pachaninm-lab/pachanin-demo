@@ -101,7 +101,7 @@ async function requestPublicSse({ locale, question, history = [] }) {
 const UI_COPY = {
   ru: {
     title: 'Гекта',
-    subtitle: 'Аграрный интеллект для земли, урожая и решений.',
+    subtitle: 'ИИ для сельского хозяйства и агробизнеса от «Прозрачной Цены»',
     composer: 'Спроси Гекту о земле, урожае или агробизнесе',
     send: 'Отправить',
     stop: 'Остановить ответ',
@@ -110,7 +110,7 @@ const UI_COPY = {
   },
   en: {
     title: 'Gekta',
-    subtitle: 'Agricultural intelligence for land, crops and decisions.',
+    subtitle: 'AI for farming and agribusiness by Prozrachnaya Tsena',
     composer: 'Ask Gekta about land, crops or agribusiness',
     send: 'Send',
     stop: 'Stop answer',
@@ -119,7 +119,7 @@ const UI_COPY = {
   },
   zh: {
     title: 'Gekta',
-    subtitle: '服务于土地、作物与决策的农业智能。',
+    subtitle: '“透明价格”推出的农业与农业经营 AI',
     composer: '向 Gekta 咨询土地、作物或农业经营',
     send: '发送',
     stop: '停止回答',
