@@ -1,35 +1,65 @@
 {
-  "schemaVersion": 1,
-  "note": "Screening of the protected core against the dependency store. Reproduce with scripts/ip/build-dependency-corpus.mjs then build-offline-similarity-evidence.mjs.",
+  "schemaVersion": 2,
+  "note": "Screening of the protected core against the dependencies this repository already has, in both of the languages it is written in. Reproduce with scripts/ip/build-dependency-corpus.mjs then build-offline-similarity-evidence.mjs.",
+  "supersedes": {
+    "schemaVersion": 1,
+    "corpusDigestSha256": "9c93ed98c38efa77faa0ba026400022e6cc755fad8f2e4d0bab68f4fa97e5bea",
+    "reason": "The corpus was npm only. 151 of the 688 protected files are Python and it held exactly 1 .py file, so 22% of the protected core was reported clean against an effectively empty set. The finding is the screening tool's own: it came out of the run's numbers, not out of review.",
+    "whatWasOverstated": "Coverage, not the verdict. The 2 files it reported are still the only 2 non-Python files with findings, and both still measure zero characters of code."
+  },
+  "corpus": {
+    "npmPackages": 1146,
+    "pythonRoots": 6,
+    "pythonRootDiscovery": "python3 reports sys.path, site.getsitepackages() and site.getusersitepackages(); every directory among them is linked.",
+    "declaredPythonDependencies": "apps/tai/pyproject.toml declares fastapi>=0.115,<1. Its closure - fastapi, starlette, pydantic, pydantic_core, anyio, idna, typing_inspection, annotated_types, annotated_doc, typing_extensions - was installed to a target directory and passed through IP_CORPUS_PYTHON_ROOTS.",
+    "regularFilesLinked": 75778,
+    "nonRegularEntriesDropped": 4,
+    "filesAfterScreeningFilter": 25478,
+    "digestSha256": "360ca182428c88bef3a4b312589a7a0bf3518ee417933da2525d527d8d91e041",
+    "diskCost": "none; hard links share inodes with the store and the interpreter"
+  },
   "protectedFiles": 688,
-  "packagesLinked": 1146,
-  "corpusFiles": 23084,
-  "corpusDigestSha256": "9c93ed98c38efa77faa0ba026400022e6cc755fad8f2e4d0bab68f4fa97e5bea",
-  "findings": 78,
-  "sourceFilesAffected": 2,
+  "findings": 87,
+  "sourceFilesAffected": 3,
   "substantiveFindings": 0,
   "affected": [
     {
       "path": "packages/domain-core/src/execution-simulation/index.ts",
       "lines": 7,
-      "nonReExportCharacters": 0
+      "measure": "characters of code after removing re-export lines and comments",
+      "value": 0
     },
     {
       "path": "packages/integration-sdk/src/index.ts",
       "lines": 45,
-      "nonReExportCharacters": 0
-    }
-  ],
-  "falsification": [
-    {
-      "planted": "verbatim copy of zod/src/v3/types.ts (5138 lines)",
-      "detectedAs": "EXACT_SHA256"
+      "measure": "characters of code after removing re-export lines and comments",
+      "value": 0
     },
     {
-      "planted": "same file with comments stripped",
-      "detectedAs": "NORMALIZED_TOKENS"
+      "path": "apps/tai/tai/__init__.py",
+      "lines": 1,
+      "measure": "executable statements in the module body, counted with ast.parse",
+      "value": 0,
+      "detail": "The file is one docstring. It normalises to three <STRING> placeholders and so matches every other docstring-only __init__.py, of which the Python corpus contains many."
     }
   ],
-  "establishes": "No protected-core file is copied from a package this repository depends on.",
-  "doesNotEstablish": "Originality against any corpus outside the dependency store, and authorship of any kind."
+  "coverageByLanguage": [
+    { "extension": ".ts", "protectedFiles": 456, "corpusFiles": 7919, "covered": true },
+    { "extension": ".py", "protectedFiles": 151, "corpusFiles": 2393, "covered": true },
+    { "extension": ".tsx", "protectedFiles": 53, "corpusFiles": 10, "covered": true, "detail": "Comparison is cross-extension, and 1061 corpus files in .js/.ts/.mjs import react, call React.createElement or use a jsx runtime, including 57 React-family packages. The .tsx count understates what these 53 files were compared against." },
+    { "extension": ".sql", "protectedFiles": 24, "corpusFiles": 0, "covered": false, "detail": "The corpus contains no SQL at all, and SQL is not token-comparable to JavaScript or Python. These 24 migrations under apps/tai/tai/migrations were screened against nothing. This run says nothing about them." },
+    { "extension": ".css", "protectedFiles": 4, "corpusFiles": 26, "covered": false, "detail": "26 stylesheets is too small a set to call a screening. Treat these 4 files as unscreened." }
+  ],
+  "filesActuallyScreened": 660,
+  "filesNotScreened": 28,
+  "falsification": [
+    { "stage": 1, "planted": "verbatim copy of npm/zod@4.3.6/src/v3/types.ts (5138 lines) into packages/domain-core", "detectedAs": "EXACT_SHA256" },
+    { "stage": 1, "planted": "verbatim copy of pydantic/main.py (1838 lines) into apps/tai/tai", "detectedAs": "EXACT_SHA256" },
+    { "stage": 2, "planted": "the same TypeScript file with comments and blank lines stripped", "detectedAs": "NORMALIZED_TOKENS" },
+    { "stage": 2, "planted": "the same Python file with comments and blank lines stripped", "detectedAs": "NORMALIZED_TOKENS" },
+    { "stage": 3, "planted": "the same two files with every non-keyword identifier renamed", "detectedAs": "NOT DETECTED" }
+  ],
+  "knownBlindSpot": "Stage 3 is a negative result and is recorded as one. A wholesale identifier rename of a verbatim 1838-line copy defeats all three methods: normalisation replaces strings, numbers, comments and whitespace but not identifiers, and the winnowing fingerprint is computed over tokens that include them. A copy laundered that way would pass this screening. Anyone reading 'no findings' as 'nothing was copied' is reading more than the run measured.",
+  "establishes": "No file among the 660 screened is copied from a package this repository depends on, and none is a comment-stripped or reformatted derivative of one.",
+  "doesNotEstablish": "Anything about the 28 unscreened files; anything about a corpus outside our own dependencies; anything about a copy whose identifiers were renamed; and authorship of any kind, which is a separate claim with separate evidence."
 }

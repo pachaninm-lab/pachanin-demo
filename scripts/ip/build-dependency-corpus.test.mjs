@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import { corpusEntryName, packageDirectories } from './build-dependency-corpus.mjs';
+import { corpusEntryName, discoverPythonRoots, packageDirectories, pythonEntryName } from './build-dependency-corpus.mjs';
 
 /**
  * The invariant that decides whether the corpus exists at all.
@@ -71,4 +71,38 @@ test('a symlinked package directory is not mistaken for a package', () => {
 
 test('a store that is not installed yields nothing rather than throwing', () => {
   assert.deepEqual(packageDirectories(join(tmpdir(), 'no-such-store-ecb1')), []);
+});
+
+/**
+ * The invariant the first published run broke.
+ *
+ * 151 of the 688 protected files are Python and the npm store holds one .py file
+ * in total, so those 151 were screened against nothing and reported clean. The
+ * Python roots must therefore be flattened into names the screening tool will
+ * read: it drops any path carrying a dist, build, test or fixture segment, and
+ * /usr/lib/python3.11/distutils/tests is all three at once.
+ */
+test('a Python root becomes one path segment, so no segment of it can be filtered out', () => {
+  for (const root of [
+    '/usr/lib/python3.11',
+    '/usr/lib/python3/dist-packages',
+    '/root/.local/lib/python3.11/site-packages',
+  ]) {
+    const entry = pythonEntryName(root);
+    assert.equal(entry.includes('/'), false, `${entry} must be a single path segment`);
+    assert.equal(/(^|\/)(dist|build|tests?|fixtures?|node_modules)(\/|$)/u.test(entry), false);
+  }
+});
+
+test('two Python roots that differ only deep in the path do not collide', () => {
+  assert.notEqual(
+    pythonEntryName('/usr/lib/python3.11/site-packages'),
+    pythonEntryName('/usr/lib/python3.12/site-packages'),
+  );
+});
+
+test('an interpreter that cannot be probed yields nothing rather than throwing', () => {
+  assert.deepEqual(discoverPythonRoots(() => { throw new Error('no python3'); }), []);
+  assert.deepEqual(discoverPythonRoots(() => 'not json'), []);
+  assert.deepEqual(discoverPythonRoots(() => JSON.stringify(['/a', '', 7, null])), ['/a']);
 });
