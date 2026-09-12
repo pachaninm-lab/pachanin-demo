@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-obligation-settlement-authority-4997",
+  "status": "proposed",
+  "purpose": "W5-A: extend the existing settlement PostgreSQL authority with one canonical FinancialObligation view and explicit multi-scheme SettlementPlan router while retiring competing mutation semantics instead of creating a second ledger.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue the supplied PC-CROP post-registration specification with existing push/PR/merge authorization. Implementation remains blocked until this finite scope is independently accepted and promoted into immutable base-state authority.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "specificationSections": [24, 25, 37],
+  "terminalCriteria": ["FINANCIAL_LEDGER=PASS", "SETTLEMENT_PLAN=PASS"],
+  "allowedPaths": [
+    "packages/domain-core/src/financial-obligation.ts",
+    "packages/domain-core/src/financial-obligation.test.ts",
+    "apps/api/prisma/migrations/20260906030000_obligation_settlement_authority/migration.sql",
+    "apps/api/src/modules/settlement-engine/financial-obligation.contract.ts",
+    "apps/api/src/modules/settlement-engine/financial-obligation.contract.spec.ts",
+    "apps/api/src/modules/settlement-engine/financial-obligation.repository.ts",
+    "apps/api/src/modules/settlement-engine/financial-obligation.repository.spec.ts",
+    "apps/api/src/modules/settlement-engine/settlement-plan.policy.ts",
+    "apps/api/src/modules/settlement-engine/settlement-plan.policy.spec.ts",
+    "apps/api/test/industrial/financial-obligation-settlement.e2e-spec.ts",
+    "scripts/verify-pc-crop-obligation-settlement-scope.test.mjs",
+    ".github/workflows/pc-crop-obligation-settlement.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "excludedAfterSourceAudit": [
+    {"path":"apps/api/src/modules/settlement-engine/settlement-engine.service.ts","reason":"The first W5-A foundation builds obligation/plan authority beside existing settlement facts without changing production command routing; consumer wiring is a later accepted slice."},
+    {"path":"apps/api/src/modules/settlement-engine/settlement-engine.controller.ts","reason":"Mounted HTTP behavior remains unchanged in the foundation."},
+    {"path":"apps/api/src/modules/accounting/**","reason":"Federal Accounting lock #4321 and accounting authority are read-only source evidence for W5-A; this programme does not mutate that locked scope."},
+    {"path":"apps/api/prisma/schema.prisma","reason":"Authoritative money remains in the private settlement schema. No new public Prisma ledger model is introduced."},
+    {"path":".github/workflows/ci.yml","reason":"Global CI remains an independent gate."},
+    {"path":"scripts/platform-v7-forward-only-migration-check.mjs","reason":"Generic additive migration checker remains unchanged."}
+  ],
+  "sourceEvidence": [
+    "apps/api/prisma/migrations/20260713140000_settlement_postgresql_authority/migration.sql",
+    "apps/api/src/modules/settlement-engine/settlement-engine.module.ts",
+    "apps/api/src/modules/settlement-engine/settlement-calculation.ts",
+    "apps/api/src/modules/accounting/accounting-source-snapshot.repository.ts",
+    "apps/api/src/modules/service-marketplace/service-marketplace.repository.ts",
+    "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json"
+  ],
+  "requiredInvariants": [
+    "Extend the existing settlement schema/payment_terms/beneficiaries/payments/holds/bank_operations/hash-chain ledger authority; do not create LedgerV2 or another money source of truth.",
+    "FinancialObligation is a canonical immutable/versioned statement of who owes whom, amount/currency, basis, payer, payee, due conditions, source revisions and lifecycle state. It is not inferred from UI labels or environment defaults.",
+    "Obligations may represent commodity consideration, logistics/service charges, platform fees, taxes/withholding or adjustments only when backed by accepted Commercial Rules, Deal/service facts and explicit payer authority.",
+    "Service provider selection or payer assignment alone does not create an obligation; payer confirmation and the applicable rule/contract basis are distinct required evidence.",
+    "SettlementPlan is versioned and routes exact obligations through one or more settlement schemes, including direct bank payment, safe-deal/escrow-like reserve-release, offset/netting, advance/prepayment, post-payment or manual external settlement reference when policy allows.",
+    "Every plan pins scheme policy version, obligations, beneficiaries, exact amounts, release/hold conditions and provider-independent capability requirements. A bank/provider name is never core settlement semantics.",
+    "Plan totals and obligation allocations conserve exact minor units. No Float money, hidden fees, unversioned defaults or browser totals become authority.",
+    "A plan revision creates a new immutable version. Confirmed bank operations/hash-chain ledger entries and historical obligations are never rewritten.",
+    "Current tenant, Deal participant, organization, membership, payer and required authority are revalidated before mutation and replay; revoked authority cannot replay an old obligation/plan receipt as current authorization.",
+    "Same-tenant outsiders and cross-tenant actors cannot read private obligation/plan details outside explicit Deal/accounting/bank authority.",
+    "Every accepted obligation/plan mutation commits version, immutable event, audit and outbox atomically with payload-bound idempotency and optimistic concurrency.",
+    "Legacy/global-memory ledger mutation paths must not receive new authority; later consumer migration must route all new monetary truth through settlement before retirement.",
+    "Registration, Role Eligibility, Federal Accounting lock #4321, Commercial Rules, Service Marketplace, W2/W3 work, packages/lockfiles and production topology remain unchanged."
+  ],
+  "acceptance": [
+    "Restricted PostgreSQL tests prove creation/versioning of multiple obligation types and a SettlementPlan whose exact allocations sum to the exact obligation set.",
+    "Payer assignment without explicit confirmation/rule basis cannot create a payable obligation; conflicting payer/rule evidence fails closed.",
+    "Multi-scheme plans preserve provider-neutral semantics and can map the same obligation model to at least two policy schemes without core schema changes.",
+    "Changed source facts/rules produce a new obligation/plan version while preserving the previous immutable version and ledger/bank history.",
+    "Cross-tenant/same-tenant outsider access, revoked payer/member authority, stale version and changed-payload replay are denied.",
+    "Audit/outbox/event failure rolls back all obligation/plan rows and receipts.",
+    "No public Float-money or process-memory ledger path is introduced or used as authority in W5-A tests.",
+    "Forward migrations, zero public-schema drift, restore, cryptographic freshness, global CI and exact-head review pass while accounting lock #4321 remains untouched."
+  ],
+  "remainingTerminalBoundary": [
+    "Mounted Settlement API and migration of every current payment/service/Deal consumer to the canonical obligation/plan authority remain later work.",
+    "Actual multi-bank/Sber adapters and provider receipts remain EXT-01 and do not receive terminal credit here.",
+    "Accounting document generation/reconciliation must consume the obligation view without duplicating money authority.",
+    "Verified REG.RU runtime and real financial-flow acceptance remain required before FINANCIAL_LEDGER/SETTLEMENT_PLAN terminal PASS."
+  ],
+  "terminalCredit": 0
+}
