@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "note": "Whole-repository copy screening. The two earlier screenings cover the 688-file protected core; this one covers every tracked file in a comparable language, which is where third-party code is likelier to land because nobody reviews the shell.",
+  "method": "Three digests per file - exact bytes, normalized text, token sequence - against every corpus file. No pairwise comparison. Finds whole-file copies however reformatted; does not find partial derivatives, which only the protected core is screened for.",
+  "normalizedDigestLimit": "Normalisation collapses runs of whitespace rather than removing them, so the normalized digest does not survive respacing around an operator. The token digest does, and exists for that reason. Found by a unit test written on the wrong premise and kept for the right one.",
+  "trackedEntries": 6829,
+  "screenedFiles": 4747,
+  "previouslyScreenedByAnyRun": 688,
+  "corpusFiles": 25478,
+  "findings": 1641,
+  "substantiveFindings": 5,
+  "structurallyEmptyFiles": 21,
+  "substantive": [
+    {
+      "path": "apps/web/public/mockServiceWorker.js",
+      "lines": 349,
+      "matches": "msw@2.13.2 mockServiceWorker.js (src and lib, two resolutions)",
+      "method": "NORMALIZED_SHA256",
+      "license": "MIT",
+      "explanation": "msw requires its service worker to be copied into the public directory; npx msw init public/ puts it there.",
+      "registerSays": {
+        "origin_class": "UNKNOWN",
+        "origin_source": "REPOSITORY_HISTORY_ONLY",
+        "rights_basis": "CHAIN_OF_TITLE_REQUIRED",
+        "status": "UNRESOLVED"
+      },
+      "registerShouldSay": "third-party, MIT, installed by the dependency's own tooling - its origin is now proven by measurement rather than awaiting chain of title",
+      "notChanged": "classify() in scripts/ip/build-ip-clean-room.mjs decides origin by path pattern. Adding a pattern for this file would turn a measurement into a hard-coded assertion, which is the fabricated PASS the register exists to prevent. How tool-vendored files are declared is an owner decision about the register's schema. The measurement is recorded; the register is untouched."
+    },
+    {
+      "path": "apps/api/prisma/schema.prisma",
+      "matches": "@prisma/client@5.22.0 .prisma/client/schema.prisma",
+      "method": "NORMALIZED_SHA256",
+      "direction": "OUTWARD",
+      "explanation": "Prisma's generator copies our schema into the generated client. This is our file inside a dependency, not a dependency's file inside our tree - the reverse direction, and the only crossing of it found anywhere."
+    }
+  ],
+  "trackedSymlinks": 14,
+  "trackedAbsoluteSymlinks": [
+    {
+      "path": "apps/web/apps/web/web",
+      "target": "/home/user/pachanin-demo/apps/web",
+      "absolute": true
+    }
+  ],
+  "absoluteSymlinkFinding": "apps/web/apps/web/web points at /home/user/pachanin-demo/apps/web - a committed absolute path to one machine's layout. It dangles on any other checkout, and where it resolves it points at its own grandparent, so the directory descends without bound. Nothing in the repository references it. Reported rather than removed: removal belongs in a change whose evidence is the web test suite passing.",
+  "duplicatesInsideRepository": [
+    [
+      "apps/landing/postcss.config.js",
+      "apps/web/postcss.config.js"
+    ],
+    [
+      "apps/ml/routers/__init__.py",
+      "apps/ml/training/__init__.py"
+    ],
+    [
+      "apps/web/app/api/commercial/expansion/route.full.ts",
+      "apps/web/app/api/commercial/expansion/route.ts"
+    ],
+    [
+      "apps/web/app/platform-v7/arbitrator/loading.tsx",
+      "apps/web/app/platform-v7/compliance/loading.tsx",
+      "apps/web/app/platform-v7/lab/loading.tsx",
+      "apps/web/app/platform-v7/support/loading.tsx",
+      "apps/web/app/platform-v7/surveyor/loading.tsx"
+    ]
+  ],
+  "duplicatesNote": "Not a rights question. The register counts every path as a file with an origin, so a duplicated file is counted twice and reads as twice the first-party work. route.full.ts looks like a leftover.",
+  "establishes": "Of 4747 tracked files in comparable languages, exactly one is a copy of a third-party dependency - a tool-installed MIT service worker, identified. No other file in the repository is a whole-file copy of anything we depend on, however reformatted.",
+  "doesNotEstablish": "Anything about partial derivatives outside the protected core, anything about a corpus beyond our own dependencies, and anything at all about authorship."
+}
