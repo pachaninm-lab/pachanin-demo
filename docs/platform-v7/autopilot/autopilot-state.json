@@ -200,6 +200,10 @@
     ".github/workflows/ci.yml"
   ],
   "approvedConcurrentScopes": {
+    "fix/local-qwen-failed-review-evidence-20260912": [
+      ".github/workflows/local-qwen-independent-review.yml",
+      "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
+    ],
     "feat/pc-crop-auction-inventory-authority-4997": [
       "apps/api/prisma/migrations/20260905100000_auction_inventory_binding/migration.sql",
       "apps/api/src/modules/auctions/auction-command.service.ts",
