@@ -1228,17 +1228,25 @@ export class SettlementPostgresqlRepository {
       throw new BadRequestException({ code: 'SETTLEMENT_BENEFICIARIES_REQUIRED' });
     }
     const reserveAmountMinor = minorUnits(input.reserveAmountKopecks, 'reserveAmountKopecks');
-    const beneficiaries = input.beneficiaries.map((item, index) => ({
-      organizationId: identifier(item.organizationId, `beneficiaries[${index}].organizationId`),
-      role: String(item.role ?? '').toUpperCase() as SettlementBeneficiaryInput['role'],
-      allocationMinor: minorUnits(item.allocationKopecks, `beneficiaries[${index}].allocationKopecks`),
-      priority: Number.isInteger(item.priority ?? 0) && Number(item.priority ?? 0) >= 0
-        ? Number(item.priority ?? 0)
-        : (() => { throw new BadRequestException({ code: 'INVALID_BENEFICIARY_PRIORITY', index }); })(),
-      destinationRef: item.destinationRef
-        ? identifier(item.destinationRef, `beneficiaries[${index}].destinationRef`)
-        : `organization:${identifier(item.organizationId, `beneficiaries[${index}].organizationId`)}`,
-    }));
+    const beneficiaries = input.beneficiaries.map((item, index) => {
+      if (item === null || typeof item !== 'object' || Array.isArray(item)) {
+        throw new BadRequestException({ code: 'INVALID_SETTLEMENT_BENEFICIARY', index });
+      }
+      const priority = item.priority ?? 0;
+      // Match the existing PostgreSQL INTEGER column before opening a transaction.
+      if (!Number.isInteger(priority) || priority < 0 || priority > 2_147_483_647) {
+        throw new BadRequestException({ code: 'INVALID_BENEFICIARY_PRIORITY', index });
+      }
+      return {
+        organizationId: identifier(item.organizationId, `beneficiaries[${index}].organizationId`),
+        role: String(item.role ?? '').toUpperCase() as SettlementBeneficiaryInput['role'],
+        allocationMinor: minorUnits(item.allocationKopecks, `beneficiaries[${index}].allocationKopecks`),
+        priority,
+        destinationRef: item.destinationRef
+          ? identifier(item.destinationRef, `beneficiaries[${index}].destinationRef`)
+          : `organization:${identifier(item.organizationId, `beneficiaries[${index}].organizationId`)}`,
+      };
+    });
     for (const [index, item] of beneficiaries.entries()) {
       if (!['SELLER', 'CARRIER', 'PLATFORM', 'TAX', 'OTHER'].includes(item.role)) {
         throw new BadRequestException({ code: 'INVALID_BENEFICIARY_ROLE', index });
