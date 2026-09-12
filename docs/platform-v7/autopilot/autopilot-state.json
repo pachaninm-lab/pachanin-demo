@@ -144,7 +144,7 @@
     }
   },
   "openBlockers": [
-    "Legacy OutboxRelayService and process-memory OutboxService still coexist with DurableOutboxWorker.",
+    "The API process still instantiates a second DurableOutboxRunner, delivery failures are not durably classified, and ambiguous post-send outcomes are not isolated from automatic retry.",
     "Inbound webhook idempotency is process-memory outside the accepted bank callback slice and no general durable integration inbox exists.",
     "Partner API credentials and webhook subscriptions are process-memory.",
     "Canonical Auction/Deal Basis and versioned Payment Terms remain incomplete.",

@@ -8,7 +8,7 @@
     "IR-20 Canonical Durable Outbox is not green/closed/mergeable. Dispatcher will not advance to IR-21 Durable Integration Inbox."
   ],
   "nextStep": "IR-20 Canonical Durable Outbox",
-  "updatedAt": "2026-09-12T23:47:17.675Z",
+  "updatedAt": "2026-09-12T23:49:51.776Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,

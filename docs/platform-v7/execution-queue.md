@@ -21,10 +21,11 @@ BASELINE PROVEN:
 - CI-scale correctness and isolated backup/restore remain evidence only and do not prove production capacity, HA or provider DR.
 
 CURRENT GOAL:
-- remove the legacy relay and process-memory outbox from the production graph;
-- enforce one dedicated durable outbox owner;
+- preserve the already PostgreSQL-authoritative enqueue service and absent legacy relay/memory store;
+- remove the second DurableOutboxRunner from the API process and enforce the dedicated worker as the only delivery owner;
 - make PENDING, PROCESSING, RETRY, SENT or CONFIRMED, and DEAD transitions PostgreSQL-authoritative using DB time, bounded leases and `SKIP LOCKED`;
-- persist attempts, classified failures and retry timing;
+- persist attempts, classified failure code/category and retry timing;
+- isolate ambiguous post-send outcomes from automatic retry and require governed reconciliation or redrive;
 - support audited redrive, backpressure and graceful shutdown;
 - prove concurrent-worker, crash-window, provider-ambiguity, retry, expired-lease, replay, restart and double-owner behavior;
 - keep live provider delivery and production deployment outside this PR.
