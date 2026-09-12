@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/structural-similarity-screening-4459",
+  "status": "active",
+  "purpose": "The token screening measured a blind spot on itself and published it: a verbatim 1838-line copy with every non-keyword identifier renamed is detected by none of its three methods, because normalisation replaces strings, numbers, comments and whitespace but not identifiers. Renaming is the cheapest laundering there is - one editor command - so the originality claim rested on a gap anyone could walk through. This branch closes it by comparing shape rather than text: every file is reduced to the pre-order sequence of its syntax node kinds, which is identical for a renamed copy and different for different code. No verdict is claimed, no ASVS decision is touched, and the existing screening tool is not modified.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/structural-similarity-screening-4459.json",
+    "scripts/ip/build-structural-similarity-evidence.mjs",
+    "scripts/ip/build-structural-similarity-evidence.test.mjs",
+    "scripts/ip/structural-python-shape.py",
+    "docs/ip/STRUCTURAL_SIMILARITY_SCREENING.md",
+    "docs/ip/structural-similarity-screening.json"
+  ],
+  "requiredInvariants": [
+    "The token screening tool is not modified. This is a second, independent screening that answers the question the first one cannot, and the first one's record keeps stating its own limit.",
+    "Shape carries no names. The walk reads node.kind and never the text the node carries, so identifiers, strings, numbers, comments and formatting are discarded by construction rather than by a rule that could be got around. The suite proves both directions: renaming every identifier does not change the shape, and changing the code does.",
+    "A file that cannot be parsed is reported, never skipped. Silently dropping unparseable files is how a screening reports a clean result for files it never looked at, which this programme has already done once and corrected. The suite asserts that parse errors reach the caller.",
+    "The Python interpreter is chosen rather than assumed. apps/tai declares requires-python >= 3.12 and Python 3.11 rejects two of its files as syntax errors; the tool tries the newest first and keeps the one that parses the whole protected core, and records which one it used.",
+    "Python node ids are offset past the whole TypeScript SyntaxKind enum, so a cross-language match cannot occur even by accident. The suite asserts the offset clears the enum rather than only the kinds one sample file happens to use.",
+    "The reporting threshold is published with the scores it cleared. A threshold is worth nothing on its own, so every protected file's best score is recorded whatever it is, and the record states the highest score reached by any real file next to the score a planted copy reaches.",
+    "A clean result is not reported until the run is shown capable of a dirty one, on exactly the copies the previous screening let through.",
+    "The limits are stated in the record's own text: fragments are not detected, files below the size floor are not compared, .sql and .css have no parser, a shape match is evidence of structure rather than proof of copying, and nothing here says anything about authorship."
+  ],
+  "acceptance": [
+    "660 protected files with a parser, all 660 fingerprinted, 0 unparsed; 532 comparable above a 200-node floor; 10 350 comparable corpus files; 0 findings.",
+    "Calibration published: the highest shape similarity any real protected file reaches is 0.0667 and the median is 0.0039, against a reporting threshold of 0.75 and a planted renamed copy at 1.0. Nothing lies between 0.067 and 0.93, so the threshold is not tuned.",
+    "Falsification: pydantic/main.py with every identifier renamed and zod/src/v3/types.ts with all 8813 identifiers renamed - the two copies the token screening did not detect - are both caught as IDENTICAL_SHAPE at 1.0. A partial derivative of the first, 7 of 38 top-level statements removed plus new code, is caught at SHAPE_JACCARD 0.933. The planted files were removed and the tree restored.",
+    "The fragment limit is measured rather than asserted: the renamed copy cut to 853 of its 6879 nodes scores 0.096 and is correctly not reported, and the record says so.",
+    "The Python interpreter used is recorded (Python 3.13.12), chosen because 3.11 fails on two protected files that use PEP 695 syntax.",
+    "build-structural-similarity-evidence.test.mjs passes 9 of 9. Four mutations were verified to fail exactly one test each: leaking identifier length into the shape, swallowing parse errors, removing the Python id offset, and turning Jaccard into containment.",
+    "No ASVS decision, no verdict, no application code and no existing screening tool is touched."
+  ]
+}

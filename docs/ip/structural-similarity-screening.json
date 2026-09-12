@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "note": "Shape screening of the protected core. Closes the identifier-rename blind spot that docs/ip/dependency-similarity-screening.json measured on itself and published.",
+  "closes": {
+    "record": "docs/ip/dependency-similarity-screening.json",
+    "blindSpot": "A verbatim 1838-line copy with every non-keyword identifier renamed is detected by none of the token screening's three methods, because normalisation replaces strings, numbers, comments and whitespace but not identifiers.",
+    "howClosed": "Shape is compared instead of text: each file is reduced to the pre-order sequence of its syntax node kinds, so a renamed copy is identical."
+  },
+  "parsers": {
+    "typescript": "the workspace's own typescript 5.9.3, for .ts .tsx .js .jsx .mjs .cjs",
+    "python": "ast, on the newest interpreter that parses the whole protected core; apps/tai declares requires-python >= 3.12 and Python 3.11 rejects two of its files",
+    "pythonInterpreterUsed": "Python 3.13.12",
+    "crossLanguage": "Python node ids are offset past the whole TypeScript SyntaxKind enum, so a cross-language match cannot occur even by accident."
+  },
+  "protectedFiles": 660,
+  "protectedFingerprinted": 660,
+  "protectedNotParsed": 0,
+  "protectedComparable": 532,
+  "protectedBelowFloor": 128,
+  "corpusComparable": 10350,
+  "corpusNotParsed": 1,
+  "minShapeNodes": 200,
+  "gramSize": 30,
+  "windowSize": 12,
+  "jaccardReportAt": 0.75,
+  "findings": 0,
+  "calibration": {
+    "principle": "A reporting threshold is worth nothing unless the scores it cleared are published beside it.",
+    "highestScoreAmongRealProtectedFiles": 0.066667,
+    "highestScoringFile": "apps/web/components/gekta/GektaProductShell.tsx",
+    "medianTopScore": 0.0039,
+    "filesWithAnyOverlap": 361,
+    "comparableFiles": 532,
+    "renamedVerbatimCopyScores": 1.0,
+    "renamedPartialDerivativeScores": 0.932673,
+    "conclusion": "Nothing lies between 0.067 and 0.93. The threshold could be moved anywhere in that range without changing a single result."
+  },
+  "falsification": [
+    { "planted": "pydantic/main.py (1838 lines) with every non-keyword identifier renamed", "detectedAs": "IDENTICAL_SHAPE", "score": 1.0, "note": "the exact copy the token screening did not detect" },
+    { "planted": "zod/src/v3/types.ts (5138 lines) with all 8813 identifiers renamed", "detectedAs": "IDENTICAL_SHAPE", "score": 1.0, "note": "the exact copy the token screening did not detect" },
+    { "planted": "the renamed Python copy with 7 of 38 top-level statements deleted and a new class and function added", "detectedAs": "SHAPE_JACCARD", "score": 0.932673 },
+    { "planted": "an earlier TypeScript probe whose rename produced invalid TypeScript", "detectedAs": "PROTECTED_FILES_NOT_PARSED:1", "note": "reported rather than scored; the no-silent-skip rule catching a real case on its first outing" }
+  ],
+  "knownBlindSpots": [
+    "Fragments. Similarity is Jaccard over the whole file, so a small piece lifted from a large one scores low. Measured: the renamed pydantic/main.py cut to 853 of its 6879 nodes scores 0.096. Both screenings detect whole-file derivatives; neither detects a copied function inside an otherwise original file.",
+    "128 protected files have fewer than 200 shape nodes and are not compared, because a shape that small is shared by every codebase.",
+    ".sql and .css have no parser here and remain the unscreened 28 named in the token record.",
+    "A shape match is evidence of structure, not proof of copying: two independent implementations of the same small pattern can share a shape. Nothing reached that point in this run."
+  ],
+  "establishes": "No file among the 532 compared is a copy of a dependency of this repository, including a copy whose identifiers were renamed, and none is a partial derivative of one above 0.75 shape similarity.",
+  "doesNotEstablish": "Anything about fragments, about the 128 files below the floor, about the 28 files with no parser, about a corpus outside our own dependencies, or about authorship, which is a separate claim with separate evidence."
+}
