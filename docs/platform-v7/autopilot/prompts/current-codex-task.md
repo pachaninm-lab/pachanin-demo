@@ -148,11 +148,21 @@ After this governance proposal is independently reviewed and merged into `main`,
 branch `fix/kind-minio-image-source-20260912` may change exactly:
 
 - `infra/kind/production-like/dependencies.yaml`
+- `scripts/release/production-like-kubernetes-cluster.sh`
 
-The prerequisite is limited to replacing the unavailable MinIO image reference
-with the official same-release Quay source
+The prerequisite is limited to replacing the unavailable MinIO server image
+reference in the dependency manifest with the official same-release Quay source
 `quay.io/minio/minio:RELEASE.2024-05-10T01-41-38Z@sha256:420663b8685c5396f06405ad516d611db4465939a141cc7d40266342d0f2632d`.
-Reverify registry identity and digest before implementation. Preserve the release,
+
+Separately, registry preflight of the subsequent `minio-init` client image
+`docker.io/minio/mc:RELEASE.2024-05-09T17-04-24Z` returned HTTP 401
+UNAUTHORIZED for the exact tag after official token acquisition. The failed CI
+run did not reach this client step. The official same-release Quay manifest
+returned HTTP 200 with verified digest. The cluster script may change only that
+client image scalar to
+`quay.io/minio/mc:RELEASE.2024-05-09T17-04-24Z@sha256:3e9666a093d0a8fcbbac606346c415ae9277a0ca96989a6bdddd3d03e90a21b4`.
+
+Reverify both registry identities and digests before implementation. Preserve releases,
 commands, environment, probes, resources, storage, security and network policy.
 Do not change application code, migrations, workflows, credentials, other images,
 timeouts, required tests, review gates or production configuration. Do not use

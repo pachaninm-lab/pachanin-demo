@@ -1405,7 +1405,8 @@
       "apps/web/app/platform-v7/staff/cabinet-handoff/page.tsx"
     ],
     "fix/kind-minio-image-source-20260912": [
-      "infra/kind/production-like/dependencies.yaml"
+      "infra/kind/production-like/dependencies.yaml",
+      "scripts/release/production-like-kubernetes-cluster.sh"
     ]
   },
   "currentAcceptance": [
