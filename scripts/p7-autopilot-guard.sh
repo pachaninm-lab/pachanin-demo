@@ -19,13 +19,14 @@ PUBLIC_HOME_IMPLEMENTATION_MANIFEST="docs/platform-v7/autopilot/scopes/public-ho
 POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH="governance/production-like-outbox-poison-isolation-scope-3793"
 POISON_ISOLATION_IMPLEMENTATION_BRANCH="fix/production-like-outbox-poison-isolation-3793"
 OWNER_HANDOFF_IMPLEMENTATION_BRANCH="fix/owner-handoff-product-host-20260908"
+QWEN_FAILED_EVIDENCE_BRANCH="fix/local-qwen-failed-review-evidence-20260912"
 POISON_ISOLATION_MANIFEST="docs/platform-v7/autopilot/scopes/production-like-outbox-poison-isolation-3793.json"
 NEXT_SECURITY_PATCH_BRANCH="security/pc-crop-next-15-5-24-4997"
 CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
 
 is_immutable_scope_branch() {
   case "$1" in
-    "$REGISTRATION_ROLLOVER_BRANCH"|"$OWNER_AUDIT_LOCK_BRANCH"|"$POST_REGISTRATION_PROGRESS_BRANCH"|"$INVENTORY_RESERVATION_BRANCH"|"$AUCTION_INVENTORY_BRANCH"|"$W1_PRODUCTION_ACCEPTANCE_BRANCH"|"$SCOPE_GOVERNANCE_BRANCH"|"$INVENTORY_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_IMPLEMENTATION_BRANCH"|"$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH"|"$POISON_ISOLATION_IMPLEMENTATION_BRANCH"|"$OWNER_HANDOFF_IMPLEMENTATION_BRANCH") return 0 ;;
+    "$REGISTRATION_ROLLOVER_BRANCH"|"$OWNER_AUDIT_LOCK_BRANCH"|"$POST_REGISTRATION_PROGRESS_BRANCH"|"$INVENTORY_RESERVATION_BRANCH"|"$AUCTION_INVENTORY_BRANCH"|"$W1_PRODUCTION_ACCEPTANCE_BRANCH"|"$SCOPE_GOVERNANCE_BRANCH"|"$INVENTORY_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_IMPLEMENTATION_BRANCH"|"$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH"|"$POISON_ISOLATION_IMPLEMENTATION_BRANCH"|"$OWNER_HANDOFF_IMPLEMENTATION_BRANCH"|"$QWEN_FAILED_EVIDENCE_BRANCH") return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -531,6 +532,10 @@ fi
 
 if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INVENTORY_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" ]; then
   MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$DIFF_FILES" | grep -E '^(AGENTS\.md|docs/platform-v7/autopilot/|scripts/p7-autopilot-guard\.sh$|scripts/p7-autopilot-guard\.test\.mjs$|scripts/p7-source-controlled-scope\.mjs$|\.github/workflows/platform-v7-autopilot-guard\.yml$|\.github/workflows/automerge\.yml$)' || true)
+  if [ "$CURRENT_BRANCH" = "$QWEN_FAILED_EVIDENCE_BRANCH" ]; then
+    # This diagnostic regression file is still subject to exact base-approved scope.
+    MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES" | grep -Fxv 'docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs' || true)
+  fi
   if [ -n "$MUTABLE_SCOPE_AUTHORITIES" ]; then
     echo "Mutable scope authority changed on a PC-CROP immutable-scope implementation branch:"
     printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES"
