@@ -153,3 +153,25 @@ merge/review gates. Diagnostic artifacts are not accepted review evidence.
 
 Proceed only when that prior authority and base-scope match are independently
 verified; otherwise keep this implementation blocked.
+
+## Execution transition — 2026-09-12 settlement input validation
+
+W1 PR #5332 at `ff03424d073e97d52f1a8cf38dad3de74345ed08` remains
+blocked by current Qwen policy-validation failure and Octopus community quota.
+Its successful native review and code/security checks do not override those
+provider failures. W1 is safely paused without production completion.
+
+Under master specification sections 7.1 and 10, the active independent slice is
+`fix/settlement-terms-input-validation-20260912`, within the existing primary
+IR-10.4 scope. Reject malformed beneficiary objects and priorities outside the
+existing PostgreSQL INTEGER domain before opening a settlement transaction.
+This uses existing settlement tables and requires no W1 migrations, registration
+change, financial-policy change, provider activation or new scope authority.
+
+Exact change boundary: `settlement-postgresql.repository.ts` and its focused
+input-validation spec under `apps/api/src/modules/settlement-engine/`, plus
+this execution record. Require malformed-input denial before database access,
+valid boundary preservation, independent exact-head review, applicable CI and
+the existing authorized release/live-acceptance process. Return to W1 when its
+provider blockers are legitimately resolved; do not retry merely to obtain PASS.
+Overall new-master confirmed production acceptance remains 0/100.
