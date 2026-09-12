@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/local-mistral-segment-11-runtime-fd-binding-20260912",
+  "status": "active",
+  "purpose": "Stage and independently review only inert binding of already-verified Local Mistral model/server descriptors to inherited /proc/self/fd runtime identities.",
+  "authorityBaseExactHead": "2205246d77129d046e359c7a162e02cbf6fdeae6",
+  "baseDependency": "PR #5324 conversion-root authority must be admitted before this stacked segment is eligible to merge.",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/bootstrap/local-mistral-runtime-fd-binding.py.inert",
+    "docs/platform-v7/autopilot/scopes/local-mistral-segment-11-runtime-fd-binding-20260912.json"
+  ],
+  "requiredInvariants": [
+    "This PR remains inert: it does not launch llama-server, invoke Mistral, publish provider status, change workflow routing, or change product/API/database/RBAC/registration/cabinet behavior.",
+    "Inputs must already be VerifiedReadableFile-like authorities from the admitted content-verification layer and must expose fd, sha256, size, dev and ino fields.",
+    "The caller-supplied expected SHA-256 and exact sizes must exactly equal the previously verified object values before any runtime binding is created.",
+    "The source descriptors and their duplicates must fstat as regular files owned by uid 0, have zero user/group/world write bits, and retain the admitted device/inode/size identity.",
+    "The llama-server descriptor must have at least one execute bit; the GGUF model descriptor is not required to be executable.",
+    "Runtime-owned descriptors are created only with os.dup from the already-verified readable descriptors; no original filesystem pathname is opened or reconstructed.",
+    "Derived runtime paths are exactly /proc/self/fd/<integer-fd> for those owned duplicate descriptors and are never accepted from caller input.",
+    "Returned runtime descriptors are non-inheritable by default; a later separately reviewed launcher may inherit only the explicit pass_fds tuple.",
+    "The helper exposes no process-launch, network, token, prompt, model-response or attestation behavior.",
+    "Local Qwen remains the independent reviewer for this future Local Mistral authority change.",
+    "REG.RU remains production authority, mandatory SaaS/API keys remain none and new recurring cost remains 0 RUB."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
