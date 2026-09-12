@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/asvs-v1524-dependency-confusion-4459",
+  "status": "active",
+  "purpose": "V15.2.4 had no decision at all - not a reasoned NOT_ASSESSED, an absence. Of the 39 unassessed requirements, 25 carry deliberate notes blocking on evidence the repository cannot show (the production terminator is Caddy on the REG.RU virtual server and infra/nginx/nginx.conf is explicitly not it), and those stay untouched. This one was assessable and nobody had looked. The repository turns out to be exposed to dependency confusion in a specific and unusual way: pnpm-workspace.yaml deliberately EXCLUDES packages/design-system-v8 and packages/design-tokens from the workspace, and 62 source files import @pc/design-system-v8 anyway. A name that is imported but is not a workspace member is the exact shape the attack needs. What actually holds was measured, a guard now enforces each part separately, and each part was proven load-bearing by injecting the violation into the real tree.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/asvs-v1524-dependency-confusion-4459.json",
+    "scripts/security/verify-dependency-confusion.mjs",
+    "scripts/security/verify-dependency-confusion.test.mjs",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "PASS rests on a working control, not on a document. scripts/security/verify-dependency-confusion.mjs runs against the real tree and fails on a real violation; the decision cites it and two facts it depends on.",
+    "The PASS is revocable, proven three times rather than claimed. Removing one rule name from the guard, adding one internal entry to pnpm-lock.yaml, and deleting the tsconfig alias that keeps 62 imports local each drop V15.2.4 from PASS to NOT_ASSESSED, and restoring each brings it back. Every mutation was checked to have actually reached zero occurrences before the verdict was read.",
+    "The conjunction is PRESENT_ALL_AT_PATH, so losing any single rule is a failure rather than being covered by its neighbours.",
+    "Each of the four guard rules is separately load-bearing against the real tree, verified by injection: a version range for an internal name in apps/web/package.json, an internal entry in pnpm-lock.yaml, an import of @pc/not-a-real-package from a TRACKED file, and an http registry override in .npmrc. The import probe had to be tracked - the first attempt wrote an untracked file, the guard reads git ls-files, and the mutation proved nothing until it was redone.",
+    "Owned scopes are derived from the repository's own manifests rather than hardcoded, and the whole scope is defended rather than only the names that exist today, because the attack needs a name nobody has created yet.",
+    "The limit is in the decision's own text: whether @pc and @pachanin are registered to us on npmjs.com is a fact about the public registry, not about this repository, and neither the guard nor the decision reaches the network. The record says that rather than letting PASS imply it.",
+    "No other requirement moves. The 25 deliberately-blocked NOT_ASSESSED decisions are untouched, and infra/nginx/nginx.conf is not cited as evidence about anything - the threat model and the V12 scope both record that it is not the production edge."
+  ],
+  "acceptance": [
+    "V15.2.4: PENDING_APPLICABILITY_REVIEW/NOT_ASSESSED -> APPLICABLE/PASS. Matrix totals 129 -> 130 PASS and 39 -> 38 NOT_ASSESSED, with exactly one requirement changed and no other cell moved.",
+    "Measured state: 8 internal names across 2 owned scopes; zero internal names declared in any manifest; zero occurrences of @pc/ or @pachanin/ anywhere in pnpm-lock.yaml; all three internal specifiers imported from source resolve through explicit tsconfig path mappings.",
+    "verify-dependency-confusion.test.mjs passes 12 of 12, and five mutations each fail it: ignoring scope membership, allowing version ranges, dropping the alias check, dropping the https check, and disabling the lockfile scan.",
+    "The whole security script suite passes 156 of 156, so nothing else moved.",
+    "verify-decision-evidence.mjs passes 333 of 333 - the new decision's cited files and condition paths all exist and are tracked. It refused the decision first, when the guard was written but not yet staged, which is the ordering this programme has now hit three times."
+  ]
+}
