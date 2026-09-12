@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/local-mistral-segment-13-runtime-authority-composition-20260912",
+  "status": "active",
+  "purpose": "Stage and independently review only inert composition of admitted Local Mistral root, identity, content and runtime-FD authorities into one prepared runtime object.",
+  "authorityBaseExactHead": "6e7dc68600621228b746cd9a05a276defe768bcb",
+  "baseDependencies": [
+    "PR #5324 conversion-root authority must be admitted first.",
+    "PR #5326 runtime FD binding must be admitted first.",
+    "PR #5327 loopback runtime must be admitted before final activation, although this composition helper itself does not start the loopback server."
+  ],
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/bootstrap/local-mistral-runtime-authority.py.inert",
+    "docs/platform-v7/autopilot/scopes/local-mistral-segment-13-runtime-authority-composition-20260912.json"
+  ],
+  "requiredInvariants": [
+    "This PR remains inert: it is not wired into a workflow, does not start the review API server, invoke Mistral, publish provider status/attestation, or change product/API/database/RBAC/registration/cabinet behavior.",
+    "Authority is supplied only as the already-validated Local Mistral authority object; the helper does not accept caller-selected filesystem paths or independent SHA/size replacements.",
+    "The helper loads only fixed sibling inert helpers for conversion-root authority, literal O_PATH file identity, content verification and runtime-FD binding; symlink helper files are rejected.",
+    "The conversion root is opened from exact authority main/run/attempt, and report/model/server identities are pinned only relative to that directory FD using the admitted literal identities.",
+    "The conversion report is accepted only after exact authority SHA-256 verification; its exact-main/run/attempt, VERIFIED_RESTORED toolchain state, Mistral source revision and model output SHA/size must agree with the canonical authority object.",
+    "The model and llama-server are accepted only after the admitted content verifier proves exact authority SHA/size and root-owned zero-write metadata on the pinned inode.",
+    "Runtime descriptors are produced only by the admitted runtime-FD binding layer; all original identity/readable descriptors and the conversion-root descriptor are closed after ownership transfer.",
+    "llama-server --version is executed only through the internally derived /proc/self/fd/<server-fd> identity with explicit pass_fds and a minimal fixed environment, and must contain the canonical llama source commit prefix.",
+    "The prepared result owns only the final bound server/model descriptors plus immutable authority metadata and provides explicit ownership transfer/close semantics.",
+    "Loopback process startup, prompts, response schema, sensitive-output screening, attestation and provider-status publication remain separately governed.",
+    "Local Qwen remains the independent reviewer for this future Local Mistral authority change.",
+    "REG.RU remains production authority, mandatory SaaS/API keys remain none and new recurring cost remains 0 RUB."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
