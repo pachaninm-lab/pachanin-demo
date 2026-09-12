@@ -45,7 +45,7 @@ CURRENT ALLOWED:
 - apps/api/src/modules/deals/postgresql-deal-command.service.spec.ts
 - apps/api/src/modules/disputes/**
 - apps/api/prisma/schema.prisma
-- apps/api/prisma/migrations/20260713*_disputes_postgresql_authority/**
+- apps/api/prisma/migrations/20260912*_disputes_postgresql_authority/**
 - apps/api/test/industrial/harness.ts
 - apps/api/test/industrial/disputes-postgresql-authority.e2e-spec.ts
 - apps/api/test/industrial/industrial-core.e2e-spec.ts
@@ -141,66 +141,11 @@ merge/review gates. Diagnostic artifacts are not accepted review evidence.
 Proceed only when that prior authority and base-scope match are independently
 verified; otherwise keep this implementation blocked.
 
-## Execution transition — 2026-09-12 settlement input validation
+## Paused concurrent W1 acceptance — 2026-09-12
 
 W1 PR #5332 at `ff03424d073e97d52f1a8cf38dad3de74345ed08` remains
 blocked by current Qwen policy-validation failure and Octopus community quota.
 Its successful native review and code/security checks do not override those
-provider failures. W1 is safely paused without production completion.
-
-Under master specification sections 7.1 and 10, the active independent slice is
-`fix/settlement-terms-input-validation-20260912`, within the existing primary
-IR-10.4 scope. Reject malformed beneficiary objects and priorities outside the
-existing PostgreSQL INTEGER domain before opening a settlement transaction.
-This uses existing settlement tables and requires no W1 migrations, registration
-change, financial-policy change, provider activation or new scope authority.
-
-Exact change boundary: `settlement-postgresql.repository.ts` and its focused
-input-validation spec under `apps/api/src/modules/settlement-engine/`, plus
-this execution record. Require malformed-input denial before database access,
-valid boundary preservation, independent exact-head review, applicable CI and
-the existing authorized release/live-acceptance process. Return to W1 when its
-provider blockers are legitimately resolved; do not retry merely to obtain PASS.
-Overall new-master confirmed production acceptance remains 0/100.
-
-## Conditional kind MinIO image-source prerequisite — 2026-09-12
-
-The owner authorized resolving prerequisites while preserving required acceptance.
-PR #5338 is blocked by production-like Kubernetes run `34712647635`, job
-`103604095938`: the disposable cluster cannot pull
-`docker.io/minio/minio:RELEASE.2024-05-10T01-41-38Z` (`insufficient_scope`,
-`ErrImagePull` / `ImagePullBackOff`), before application acceptance starts.
-This is dependency-source failure evidence, not a settlement acceptance result.
-
-After this governance proposal is independently reviewed and merged into `main`,
-branch `fix/kind-minio-image-source-20260912` may change exactly:
-
-- `infra/kind/production-like/dependencies.yaml`
-- `infra/kind/production-like/minio-tls-check.yaml`
-- `scripts/release/production-like-kubernetes-cluster.sh`
-
-The prerequisite is limited to replacing the unavailable MinIO server image
-reference in the dependency manifest with the official same-release Quay source
-`quay.io/minio/minio:RELEASE.2024-05-10T01-41-38Z@sha256:420663b8685c5396f06405ad516d611db4465939a141cc7d40266342d0f2632d`.
-
-Separately, registry preflight of the subsequent `minio-init` client image
-`docker.io/minio/mc:RELEASE.2024-05-09T17-04-24Z` returned HTTP 401
-UNAUTHORIZED for the exact tag after official token acquisition. The failed CI
-run did not reach this client step. The official same-release Quay manifest
-returned HTTP 200 with verified digest. The TLS-check manifest and cluster
-script may change only their two executable client image scalars to
-`quay.io/minio/mc:RELEASE.2024-05-09T17-04-24Z@sha256:3e9666a093d0a8fcbbac606346c415ae9277a0ca96989a6bdddd3d03e90a21b4`.
-
-Reverify the server and client registry identities and digests before implementation. Preserve releases,
-commands, environment, probes, resources, storage, security and network policy.
-Do not change application code, migrations, workflows, credentials, other images,
-timeouts, required tests, review gates or production configuration. Do not use
-this proposal itself as implementation authority before accepted-main scope is
-verified. No scope expansion on the implementation branch is permitted.
-
-The serialized primary task and its allowedCurrentScope remain unchanged. This
-is a prerequisite to resume the blocked acceptance, not a new product task or
-permission to merge PR #5338 with failing checks. Require exact-head independent
-review and all required Kubernetes acceptance before implementation merge.
-W1 remains unaccepted; production deployment is not required for this disposable
-CI dependency change. Confirmed master production acceptance remains 0/100 (0%).
+provider failures. W1 is safely paused without production completion, must not
+be retried merely to obtain PASS, and does not alter the serialized IR-10.5 scope.
+Confirmed master production acceptance remains 0/100 (0%).

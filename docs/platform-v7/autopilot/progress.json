@@ -8,7 +8,7 @@
     "IR-10.5 Disputes PostgreSQL Authority is not green/closed/mergeable. Dispatcher will not advance to IR-20 Canonical Durable Outbox."
   ],
   "nextStep": "IR-10.5 Disputes PostgreSQL Authority",
-  "updatedAt": "2026-09-12T23:25:16.893Z",
+  "updatedAt": "2026-09-12T23:32:00.220Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
