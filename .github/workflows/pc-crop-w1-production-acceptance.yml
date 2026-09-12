@@ -372,7 +372,7 @@ jobs:
             api=$(docker inspect --format '{{.Id}}' "$(api_id)")
             project=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' "$api")
             docker ps -aq --no-trunc --filter "label=com.docker.compose.project=$project" | sort | xargs -r docker inspect | \
-              API_EXCLUDED="$api" python3 -c 'import os,hashlib,json,sys; a=json.load(sys.stdin); a=[{k:x.get(k) for k in ("Id","Image","Config","HostConfig","Mounts")} | {"StartedAt":x.get("State",{}).get("StartedAt"),"Running":x.get("State",{}).get("Running")} for x in a if x["Id"]!=os.environ["API_EXCLUDED"]]; print(hashlib.sha256(json.dumps(a,sort_keys=True,separators=(",",":")).encode()).hexdigest())'
+              API_EXCLUDED="$api" python3 -c 'import os,hashlib,json,sys; a=json.load(sys.stdin); a=[x | {"Mounts":sorted(x["Mounts"],key=lambda m:json.dumps(m,sort_keys=True,separators=(",",":")))} if isinstance(x.get("Mounts"),list) else x for x in a]; a=[{k:x.get(k) for k in ("Id","Image","Config","HostConfig","Mounts")} | {"StartedAt":x.get("State",{}).get("StartedAt"),"Running":x.get("State",{}).get("Running")} for x in a if x["Id"]!=os.environ["API_EXCLUDED"]]; print(hashlib.sha256(json.dumps(a,sort_keys=True,separators=(",",":")).encode()).hexdigest())'
           }
           before_env=$(env_hash); before_siblings=$(sibling_hash)
           chmod 0700 "$remote"/*.sh

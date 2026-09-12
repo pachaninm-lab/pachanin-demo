@@ -577,6 +577,45 @@ for(const modify of [value=>value.State.StartedAt='2026-09-08T00:00:01Z',value=>
   const before=container(),after=clone(before); modify(after);
   assert.notEqual(runtimeFingerprint([before]),runtimeFingerprint([after]));
 });
+test('runtime fingerprint treats Docker inspect mounts as an unordered inventory without dropping entries',()=>{
+  const before=container();
+  before.Mounts=[{Type:'bind',Source:'/fixture/a',Destination:'/a',RW:false},
+    {Type:'volume',Name:'fixture-volume',Source:'/fixture/b',Destination:'/b',Driver:'local',Mode:'rw',RW:true,Propagation:'rprivate'}];
+  const after=structuredClone(before); after.Mounts.reverse();
+  assert.equal(runtimeFingerprint([before]),runtimeFingerprint([after]));
+  assert.equal(runtimeDiff([before],[after]).count,0);
+  assert.deepEqual(before.Mounts.map(m=>m.Destination),['/a','/b']);
+  for(const mutate of [m=>m.Type='tmpfs',m=>m.Name='other',m=>m.Source='/fixture/other',m=>m.Destination='/other',
+    m=>m.Driver='other',m=>m.Mode='ro',m=>m.RW=false,m=>m.Propagation='shared',m=>m.FutureOption={enabled:true}]) {
+    const changed=structuredClone(after); mutate(changed.Mounts[0]);
+    assert.notEqual(runtimeFingerprint([before]),runtimeFingerprint([changed]));
+    assert.deepEqual(runtimeDiff([before],[changed]).fields,['MOUNTS_CHANGED']);
+  }
+  for(const mounts of [[before.Mounts[0]],[...before.Mounts,before.Mounts[0]],[]]) {
+    const changed=structuredClone(before); changed.Mounts=mounts;
+    assert.notEqual(runtimeFingerprint([before]),runtimeFingerprint([changed]));
+  }
+});
+
+test('outer workflow sibling guard preserves mount identity while ignoring enumeration order',()=>{
+  const workflow=fs.readFileSync(new URL('../.github/workflows/pc-crop-w1-production-acceptance.yml',import.meta.url),'utf8');
+  const source=workflow.match(/API_EXCLUDED="\$api" python3 -c '([^']+)'/);
+  assert.ok(source,'execute the actual outer sibling guard');
+  const hash=value=>{
+    const result=spawnSync('python3',['-c',source[1]],{input:JSON.stringify(value),encoding:'utf8',env:{...process.env,API_EXCLUDED:'a'.repeat(64)}});
+    assert.equal(result.status,0,result.stderr); assert.match(result.stdout.trim(),/^[0-9a-f]{64}$/);
+    return result.stdout.trim();
+  };
+  const before=container(); before.Mounts=[{Source:'/fixture/a',Destination:'/a',RW:false},{Source:'/fixture/b',Destination:'/b',RW:true}];
+  const permuted=clone(before); permuted.Mounts.reverse();
+  assert.equal(hash([before]),hash([permuted]));
+  for(const mutate of [x=>x.Mounts[0].Source='/fixture/changed',x=>x.Mounts[0].RW=false,
+    x=>x.Mounts[0].FutureOption='changed',x=>x.Mounts.push(clone(x.Mounts[0])),x=>x.Mounts.pop(),
+    x=>x.Config.Env.push('CHANGED=true'),x=>x.State.StartedAt='2026-09-09T00:00:01Z']) {
+    const changed=clone(permuted); mutate(changed); assert.notEqual(hash([before]),hash([changed]));
+  }
+});
+
 test('runtime diff classifies a Compose one-off addition without exposing identity',()=>{
   const before=[container('e')], after=[...before,clone(container('1'))];
   after[1].Config.Labels['com.docker.compose.oneoff']='True';
