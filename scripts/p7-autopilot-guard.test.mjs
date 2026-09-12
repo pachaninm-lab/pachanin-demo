@@ -26,6 +26,7 @@ const qwenFailedEvidenceBranch = 'fix/local-qwen-failed-review-evidence-20260912
 const kindMinioImageSourceBranch = 'fix/kind-minio-image-source-20260912';
 const kindMinioImageSourcePaths = [
   'infra/kind/production-like/dependencies.yaml',
+  'infra/kind/production-like/minio-tls-check.yaml',
   'scripts/release/production-like-kubernetes-cluster.sh',
 ];
 const qwenFailedEvidencePaths = [
@@ -190,6 +191,7 @@ function qwenFailedEvidenceFixture(t) {
 function kindMinioImageSourceFixture(t) {
   const context = fixture(t, kindMinioImageSourceBranch);
   write(context.root, 'infra/kind/production-like/dependencies.yaml', 'baseline dependencies\n');
+  write(context.root, 'infra/kind/production-like/minio-tls-check.yaml', 'baseline TLS check\n');
   write(context.root, 'scripts/release/production-like-kubernetes-cluster.sh', '#!/usr/bin/env bash\n', 0o755);
   const state = JSON.parse(fs.readFileSync(path.join(context.root, 'docs/platform-v7/autopilot/autopilot-state.json'), 'utf8'));
   state.approvedConcurrentScopes[kindMinioImageSourceBranch] = kindMinioImageSourcePaths;
@@ -199,11 +201,12 @@ function kindMinioImageSourceFixture(t) {
   return context;
 }
 
-test('kind MinIO image-source scope accepts exactly two paths and rejects ci.yml', (t) => {
+test('kind MinIO image-source scope accepts exactly three paths and rejects ci.yml', (t) => {
   const allowed = kindMinioImageSourceFixture(t);
   write(allowed.root, kindMinioImageSourcePaths[0], 'pinned server image\n');
-  write(allowed.root, kindMinioImageSourcePaths[1], '#!/usr/bin/env bash\n# pinned client image\n', 0o755);
-  commit(allowed.root, 'change both accepted MinIO image sources');
+  write(allowed.root, kindMinioImageSourcePaths[1], 'pinned TLS client image\n');
+  write(allowed.root, kindMinioImageSourcePaths[2], '#!/usr/bin/env bash\n# pinned initializer client image\n', 0o755);
+  commit(allowed.root, 'change all three accepted MinIO image references');
   const acceptedResult = runGuard(allowed);
   assert.equal(acceptedResult.status, 0, output(acceptedResult));
 

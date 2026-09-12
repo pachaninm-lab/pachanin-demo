@@ -1415,6 +1415,7 @@
     ],
     "fix/kind-minio-image-source-20260912": [
       "infra/kind/production-like/dependencies.yaml",
+      "infra/kind/production-like/minio-tls-check.yaml",
       "scripts/release/production-like-kubernetes-cluster.sh"
     ]
   },
