@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { type KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import {
@@ -16,6 +17,7 @@ import {
   Scale,
   ShieldCheck,
   Truck,
+  Wheat,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -81,6 +83,7 @@ export function PublicEntryInteractiveTour() {
   const [activeIndex, setActiveIndex] = useState(0);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const isPublicEntry = pathname === '/platform-v7' || pathname === '/platform-v7/';
+  const isContactPage = pathname === '/platform-v7/contact' || pathname === '/platform-v7/contact/';
 
   const activeStep = tourSteps[activeIndex];
   const ActiveIcon = activeStep.Icon;
@@ -99,6 +102,14 @@ export function PublicEntryInteractiveTour() {
   const goToRoles = useCallback(() => {
     setOpen(false);
     window.setTimeout(() => document.getElementById('roles')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30);
+  }, []);
+
+  const goBackFromContact = useCallback(() => {
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    window.location.assign('/platform-v7');
   }, []);
 
   useEffect(() => {
@@ -135,6 +146,116 @@ export function PublicEntryInteractiveTour() {
       first.focus();
     }
   }, []);
+
+  if (isContactPage) {
+    return (
+      <>
+        <header className='p7-contact-fixed-header' aria-label='Навигация страницы обращения'>
+          <button type='button' className='p7-contact-fixed-back' onClick={goBackFromContact} aria-label='Назад'>
+            <ChevronLeft size={19} strokeWidth={2.5} />
+            <span>Назад</span>
+          </button>
+          <Link href='/platform-v7' className='p7-contact-fixed-brand' aria-label='На главную Прозрачная Цена'>
+            <span className='p7-contact-fixed-logo'><Wheat size={22} strokeWidth={2.45} /></span>
+            <span className='p7-contact-fixed-title'>Прозрачная Цена</span>
+          </Link>
+          <Link href='/platform-v7/demo' className='p7-contact-fixed-demo'>Демо</Link>
+        </header>
+        <style>{`
+          .pc-shell-root-v4:has(.p7-contact-page) .p7-contact-header { display: none !important; }
+          .pc-shell-root-v4:has(.p7-contact-page) .pc-v4-main { padding-top: 0 !important; }
+          .pc-shell-root-v4:has(.p7-contact-page) .p7-contact-page {
+            padding-top: 78px !important;
+          }
+          .p7-contact-fixed-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 2800;
+            min-height: 62px;
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 10px;
+            padding: max(8px, env(safe-area-inset-top)) clamp(12px, 3vw, 22px) 8px;
+            border-bottom: 1px solid rgba(7, 22, 17, .08);
+            background: rgba(255,255,255,.97);
+            box-shadow: 0 12px 30px rgba(7,22,17,.08);
+            -webkit-backdrop-filter: blur(18px);
+            backdrop-filter: blur(18px);
+            color: #071611;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+          }
+          .p7-contact-fixed-header a { color: inherit; text-decoration: none; }
+          .p7-contact-fixed-back,
+          .p7-contact-fixed-demo {
+            min-height: 42px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            border-radius: 14px;
+            border: 1px solid rgba(7,22,17,.10);
+            background: rgba(255,255,255,.88);
+            color: #14241d;
+            font: 900 13px/1 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            box-shadow: 0 8px 20px rgba(7,22,17,.05);
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+          }
+          .p7-contact-fixed-back { padding: 0 11px 0 9px; }
+          .p7-contact-fixed-demo { padding: 0 13px; color: #087a3b; background: rgba(0,122,47,.07); }
+          .p7-contact-fixed-brand {
+            min-width: 0;
+            justify-self: center;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 950;
+            letter-spacing: -.035em;
+            white-space: nowrap;
+          }
+          .p7-contact-fixed-logo {
+            display: grid;
+            place-items: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 14px;
+            color: #087a3b;
+            background: rgba(0,122,47,.08);
+          }
+          .p7-contact-fixed-title {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 17px;
+          }
+          @media (max-width: 760px) {
+            .pc-shell-root-v4:has(.p7-contact-page) .p7-contact-page { padding-top: 66px !important; }
+            .p7-contact-fixed-header {
+              min-height: 58px;
+              grid-template-columns: auto minmax(0, 1fr) auto;
+              gap: 7px;
+              padding: max(7px, env(safe-area-inset-top)) 10px 7px;
+            }
+            .p7-contact-fixed-back,
+            .p7-contact-fixed-demo { min-height: 40px; border-radius: 13px; font-size: 12.5px; }
+            .p7-contact-fixed-back { padding: 0 10px 0 8px; }
+            .p7-contact-fixed-demo { padding: 0 11px; }
+            .p7-contact-fixed-logo { width: 38px; height: 38px; border-radius: 13px; }
+            .p7-contact-fixed-title { font-size: 16px; }
+          }
+          @media (max-width: 390px) {
+            .p7-contact-fixed-back span { display: none; }
+            .p7-contact-fixed-back { width: 40px; padding: 0; }
+            .p7-contact-fixed-title { font-size: 15px; }
+            .p7-contact-fixed-demo { font-size: 12px; padding: 0 9px; }
+          }
+        `}</style>
+      </>
+    );
+  }
 
   if (!isPublicEntry) return null;
 
