@@ -485,6 +485,8 @@ jobs:
 
   standard_validation:
     name: Standard platform-v7 guard validations
+    permissions:
+      contents: read
     if: >-
       github.event_name != 'pull_request_target' &&
       (github.event_name != 'pull_request' ||
@@ -496,8 +498,12 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Validate PC-CROP immutable-scope guard regression
         run: node --test scripts/p7-autopilot-guard.test.mjs
+      - name: Validate Local Qwen failed-review evidence regression
+        if: github.event_name == 'pull_request' && github.head_ref == 'fix/local-qwen-failed-review-evidence-20260912'
+        run: node --test docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs
       - name: Validate production-like Kubernetes timeout contract
         if: >-
           github.event_name == 'pull_request' &&

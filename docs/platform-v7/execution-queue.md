@@ -126,3 +126,30 @@ TRANSITION RULE:
 
 READINESS:
 Industrial Integration-Ready remains NO-GO until every mandatory gate through IR-90 has commit-, deployment- and operations-linked evidence.
+
+## Conditional future Qwen rejected-review diagnostics — 2026-09-12
+
+This is preliminary instruction alignment for future branch
+`fix/local-qwen-failed-review-evidence-20260912`, not current implementation
+permission. Implementation is permitted only after the immutable prior authority
+proposed in PR #5335 is accepted and merged into `main`, and the implementation
+base's trusted scope authorizes that exact branch and both paths below. This
+paragraph does not change state or expand any permission; primary tasks and all
+other scope boundaries remain unchanged.
+
+The future implementation is limited to exactly:
+
+- `.github/workflows/local-qwen-independent-review.yml`
+- `docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs`
+
+Preserve bounded rejected-candidate diagnostics before policy-validation failure
+can discard them, including evidence transfer before the final failure exit.
+Bind evidence to the exact head/run/attempt/diff/manifest/chunk identity and
+verify content hashes. Reject invalid UTF-8 and envelopes exceeding 64 KiB.
+Preserve the original failure result, fail-closed behavior and cleanup of remote
+and unvalidated temporary files. Add no
+model calls and change no review semantics, model selection, policy, status or
+merge/review gates. Diagnostic artifacts are not accepted review evidence.
+
+Proceed only when that prior authority and base-scope match are independently
+verified; otherwise keep this implementation blocked.

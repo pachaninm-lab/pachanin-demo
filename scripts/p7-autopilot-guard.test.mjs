@@ -582,6 +582,75 @@ test('Auction head validation triggers for every immutable state-approved path',
   for (const file of approved) assert.equal(paths.filter((entry) => entry === file).length, 1, `Each approved Auction path must trigger head validation exactly once: ${file}`);
 });
 
+test('Qwen failed-evidence candidate regressions run unprivileged and block the required guard on failure', (t) => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const standard = workflow.split('\n  standard_validation:\n')[1];
+  const step = standard.match(/      - name: Validate Local Qwen failed-review evidence regression\n([\s\S]*?)(?=\n      - (?:name:|uses:)|$)/u)?.[1];
+  assert.ok(step, 'The candidate review-gate regression file must run in standard_validation');
+  assert.ok(step.includes(`if: github.event_name == 'pull_request' && github.head_ref == '${qwenFailedEvidenceBranch}'`));
+  const command = step.match(/^        run: (.+)$/mu)?.[1];
+  assert.equal(command, 'node --test docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs');
+  assert.match(standard.split('    steps:')[0], /permissions:\n      contents: read/u);
+  assert.match(standard.split('      - name:')[0], /persist-credentials: false/u);
+  assert.doesNotMatch(standard, /continue-on-error:|secrets\.|(?:checks|contents|pull-requests): write/u);
+  const guard = workflow.split('\n  guard:\n')[1].split('\n  standard_validation:\n')[0];
+  assert.match(guard, /needs: standard_validation/u);
+  const required = guard.split('      - name: Require standard validations in the required guard context\n')[1]
+    .split('      - name: Validate immutable scope with trusted base guard on PR head')[0];
+  assert.ok(required.includes('STANDARD_VALIDATION_RESULT: ${{ needs.standard_validation.result }}'));
+  const enforce = required.split('        run: |\n')[1].split('\n').map(line => line.replace(/^          /u, '')).join('\n');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-qwen-candidate-validation-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const candidateEnv = { ...process.env };
+  delete candidateEnv.NODE_TEST_CONTEXT;
+  for (const fails of [false, true]) {
+    write(root, 'docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs', fails
+      ? "throw new Error('candidate regression sentinel');\n" : 'export {};\n');
+    const candidate = spawnSync('bash', ['-e', '-o', 'pipefail', '-c', command], { cwd: root, env: candidateEnv, encoding: 'utf8' });
+    assert.equal(candidate.status === 0, !fails, output(candidate));
+    if (fails) assert.match(output(candidate), /candidate regression sentinel/u);
+    const result = spawnSync('bash', ['-e', '-o', 'pipefail', '-c', enforce], {
+      cwd: root,
+      env: { ...process.env, STANDARD_VALIDATION_RESULT: candidate.status === 0 ? 'success' : 'failure' },
+      encoding: 'utf8',
+    });
+    assert.equal(result.status === 0, !fails, output(result));
+  }
+});
+
+test('Qwen conditional authority survives actual dispatcher regeneration without duplication', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-qwen-dispatcher-regression-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  for (const file of ['docs/platform-v7/autopilot/autopilot-state.json', 'docs/platform-v7/execution-queue.md']) {
+    write(root, file, fs.readFileSync(file, 'utf8'));
+  }
+  const promptPaths = ['docs/platform-v7/autopilot/prompts/current-codex-task.md', 'docs/platform-v7/autopilot/prompts/current-review-task.md'];
+  for (const file of promptPaths) write(root, file, 'Stale generated prompt must be replaced.\n');
+  const heading = '## Conditional future Qwen rejected-review diagnostics — 2026-09-12';
+  const queue = fs.readFileSync('docs/platform-v7/execution-queue.md', 'utf8');
+  const conditionalBlock = heading + (queue.split(heading)[1]?.split('\n## ')[0] ?? '');
+  const required = [
+    qwenFailedEvidenceBranch, ...qwenFailedEvidencePaths,
+    'Implementation is permitted only after the immutable prior authority proposed in PR #5335 is accepted and merged into `main`',
+    "base's trusted scope authorizes that exact branch and both paths below.",
+    'otherwise keep this implementation blocked.',
+  ];
+  const firstPass = [];
+  for (let run = 0; run < 2; run += 1) {
+    const result = spawnSync(process.execPath, [path.resolve('scripts/p7-autopilot-dispatcher.mjs')], { cwd: root, encoding: 'utf8' });
+    assert.equal(result.status, 0, output(result));
+    for (const [index, file] of promptPaths.entries()) {
+      const prompt = fs.readFileSync(path.join(root, file), 'utf8');
+      assert.equal(prompt.split(heading).length - 1, 1, `${file}: conditional authority must survive exactly once`);
+      assert.ok(prompt.includes(conditionalBlock), `${file}: preserve the entire queue authority block`);
+      const normalized = prompt.replace(/\s+/gu, ' ');
+      for (const marker of required) assert.ok(normalized.includes(marker), `${file}: missing ${marker}`);
+      if (run === 0) firstPass[index] = prompt;
+      else assert.equal(prompt, firstPass[index], `${file}: repeated regeneration must be stable`);
+    }
+  }
+});
+
 
 test('W1 release scope binds operational, correction and isolated lineage fixture paths to validation', () => {
   const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
