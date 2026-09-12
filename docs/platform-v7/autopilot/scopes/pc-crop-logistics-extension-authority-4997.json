@@ -1,0 +1,74 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-logistics-extension-authority-4997",
+  "status": "proposed",
+  "purpose": "W4-A: extend the existing durable Shipment authority with logistics request/quote, provider-or-own-fleet selection, multi-shipment allocation, correction events and durable offline driver queue consumption without creating ShipmentV2.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue the supplied PC-CROP post-registration specification with existing push/PR/merge authorization. Implementation remains blocked until this finite scope is independently accepted and promoted into immutable base-state authority.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "specificationSections": [28, 30],
+  "terminalCriteria": ["LOGISTICS=PASS", "OWN_TRANSPORT=PASS"],
+  "allowedPaths": [
+    "apps/api/prisma/migrations/20260906000000_logistics_extension_authority/migration.sql",
+    "apps/api/src/modules/logistics/prisma-shipment.repository.ts",
+    "apps/api/src/modules/logistics/shipment.repository.ts",
+    "apps/api/src/modules/logistics/logistics.service.ts",
+    "apps/api/src/modules/logistics/logistics.service.spec.ts",
+    "apps/api/src/modules/logistics/logistics.controller.ts",
+    "apps/api/src/modules/logistics/dto/create-shipment.dto.ts",
+    "apps/api/src/modules/logistics/dto/shipment-fact-command.dto.ts",
+    "apps/api/src/modules/logistics/dto/transition-shipment.dto.ts",
+    "apps/api/test/industrial/logistics-postgresql-authority.e2e-spec.ts",
+    "apps/api/test/industrial/logistics-extension-authority.e2e-spec.ts",
+    "scripts/verify-pc-crop-logistics-extension-scope.test.mjs",
+    ".github/workflows/pc-crop-logistics-extension.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "excludedAfterSourceAudit": [
+    {"path":"apps/api/src/modules/deals/deal-command.service.ts","reason":"Deal authority remains a source reference; W4-A must not broaden Deal command semantics."},
+    {"path":"apps/api/src/app.module.ts","reason":"Existing LogisticsModule is already mounted; no global module mutation is required."},
+    {"path":"apps/web/**","reason":"Driver/logistics UX and offline-queue consumption are separate acceptance after server authority is complete; this foundation must not hide missing authority with client behavior."},
+    {"path":".github/workflows/ci.yml","reason":"Global CI remains an independent gate."},
+    {"path":"scripts/platform-v7-forward-only-migration-check.mjs","reason":"Generic additive migration checker remains unchanged."}
+  ],
+  "sourceEvidence": [
+    "apps/api/src/modules/logistics/prisma-shipment.repository.ts",
+    "apps/api/src/modules/deals/deal-command.service.ts",
+    "apps/web/lib/platform-v7/logistics-chain.ts",
+    "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json"
+  ],
+  "requiredInvariants": [
+    "Reuse the current Shipment, checkpoint, GPS, PIN, admission and immutable assignment authorities; do not create ShipmentV2 or a second logistics engine.",
+    "One Deal may have multiple explicitly allocated shipments whose exact quantity sum cannot exceed the authoritative Deal/inventory allocation quantity.",
+    "Logistics request, provider quote, provider selection and transport mode selection are separate immutable facts. OWN_FLEET is a first-class mode gated by current organization capability OWN_TRANSPORT, not a fake provider record.",
+    "Selecting a provider or own fleet does not itself create a payment obligation; commercial payer/price remains governed by Commercial Rules and later Settlement authority.",
+    "Shipment correction never rewrites accepted history. Route, vehicle, driver, quantity or schedule correction creates a new immutable correction/event version with reason and actor authority.",
+    "Current user, membership, organization, tenant and required capability are revalidated before mutation and replay. Revocation cannot replay an old logistics receipt as current authority.",
+    "Split/merge shipment operations conserve exact pinned-unit quantity and cannot detach a shipment from its canonical Deal/inventory basis.",
+    "Driver fact ingestion remains append-only and idempotent. Offline delivery may be delayed/retried but cannot reorder a state transition into an invalid lifecycle or manufacture GPS/admission evidence.",
+    "Same-tenant outsiders and cross-tenant callers cannot read private shipment assignments, quotes, driver facts or corrections.",
+    "Every mutation commits state, immutable event, audit and outbox atomically; missing evidence rolls the whole command back.",
+    "ATI and other external carriers remain provider adapters only. No external success is claimed by W4-A and no ATI-specific field becomes core Shipment authority.",
+    "Registration, Role Eligibility, Federal Accounting lock #4321, W2 Inventory/Auction/Deal work, packages/lockfiles and production topology remain unchanged."
+  ],
+  "acceptance": [
+    "Restricted PostgreSQL tests prove request -> quote -> provider or OWN_FLEET selection -> one or multiple shipments without exceeding exact quantity.",
+    "OWN_FLEET is denied without current OWN_TRANSPORT capability and accepted with it, with no synthetic external provider success.",
+    "Concurrent split/assignment/correction commands serialize deterministically and preserve quantity conservation.",
+    "Revoked membership/capability/user/organization authority fails before mutation and before idempotent replay response.",
+    "Cross-tenant and same-tenant outsider reads/writes are denied; assigned driver/provider/requester access remains explicitly scoped.",
+    "Changed-payload replay, stale version and correction of already superseded facts fail closed.",
+    "Audit/outbox/event failure leaves no partial logistics state or acknowledged command.",
+    "Existing checkpoint/GPS/PIN/admission tests remain green; global CI, forward migrations, no public schema drift, restore, cryptographic freshness and exact-head review pass unchanged."
+  ],
+  "remainingTerminalBoundary": [
+    "User-facing logistics marketplace/provider comparison and real own-fleet workflows remain later UX acceptance.",
+    "Durable offline queue must be wired into the live driver screen and tested under reconnect/out-of-order conditions before terminal LOGISTICS credit.",
+    "ATI board/auction/order/webhook/tracking/docs remain separate adapter criteria and are not claimed by W4-A.",
+    "Verified REG.RU runtime and real logistics/driver acceptance remain required before LOGISTICS/OWN_TRANSPORT terminal credit."
+  ],
+  "terminalCredit": 0
+}
