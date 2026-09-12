@@ -3,6 +3,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser, Role } from '../../common/types/request-user';
 import { AntiFraudService, DealContext } from './anti-fraud.service';
+import { ReportOffPlatformSettlementDto } from './dto/anti-fraud-api.dto';
 import { ForbiddenException } from '@nestjs/common';
 
 const FRAUD_ADMIN_ROLES: Role[] = [Role.ADMIN, Role.COMPLIANCE_OFFICER, Role.SUPPORT_MANAGER];
@@ -21,13 +22,7 @@ export class AntiFraudController {
 
   @Post('off-platform')
   async reportOffPlatform(
-    @Body() body: {
-      dealId: string;
-      buyerOrgId: string;
-      sellerOrgId: string;
-      indicator: 'external_payment_mentioned' | 'deal_cancelled_after_delivery' | 'reputation_drop_post_cancel' | 'counterparty_comment_flag';
-      evidence?: string;
-    },
+    @Body() body: ReportOffPlatformSettlementDto,
     @CurrentUser() user: RequestUser,
   ) {
     return this.antiFraud.checkOffPlatformSettlement({ ...body, actorId: user.id });
