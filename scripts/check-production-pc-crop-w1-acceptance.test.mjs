@@ -597,12 +597,35 @@ test('runtime fingerprint treats Docker inspect mounts as an unordered inventory
   }
 });
 
+function outerSiblingPython(workflow) {
+  // Decode only the checked-in plain run: | form, not arbitrary YAML. Reject
+  // syntax/layout drift and strip the run scalar's fixed indent, never Python's.
+  const sources=[...workflow.matchAll(/API_EXCLUDED="\$api" python3 -c '([^']+)'/g)];
+  assert.equal(sources.length,1,'expected exactly one outer sibling guard');
+  const source=sources[0], preceding=workflow.slice(0,source.index).split('\n');
+  const runIndex=preceding.findLastIndex(line=>/^ +run:/.test(line));
+  assert.ok(runIndex>=0,'sibling guard must belong to a run block');
+  const header=preceding[runIndex].match(/^( +)run: \|$/);
+  assert.ok(header,'only a plain literal run block is supported');
+  const firstShell=preceding[runIndex+1]?.match(/^( +)\S/);
+  assert.ok(firstShell,'run block must begin with a nonempty shell line');
+  const indent=firstShell[1];
+  assert.equal(indent.length,header[1].length+2,'unexpected run block indentation');
+  for(const line of preceding.slice(runIndex+1,-1)) {
+    assert.ok(!line.length || line.startsWith(indent),'sibling guard escaped its run block');
+  }
+  return source[1].split('\n').map(line=>{
+    if(!line.length) return line;
+    assert.ok(line.startsWith(indent),'Python line escaped its run block');
+    return line.slice(indent.length);
+  }).join('\n');
+}
+
 test('outer workflow sibling guard preserves mount identity while ignoring enumeration order',()=>{
   const workflow=fs.readFileSync(new URL('../.github/workflows/pc-crop-w1-production-acceptance.yml',import.meta.url),'utf8');
-  const source=workflow.match(/API_EXCLUDED="\$api" python3 -c '([^']+)'/);
-  assert.ok(source,'execute the actual outer sibling guard');
+  const source=outerSiblingPython(workflow);
   const hash=value=>{
-    const result=spawnSync('python3',['-c','import sys, textwrap; exec(compile(textwrap.dedent(sys.argv[1]), "<sibling_hash>", "exec"))',source[1]],{input:JSON.stringify(value),encoding:'utf8',env:{...process.env,API_EXCLUDED:'a'.repeat(64)}});
+    const result=spawnSync('python3',['-c',source],{input:JSON.stringify(value),encoding:'utf8',env:{...process.env,API_EXCLUDED:'a'.repeat(64)}});
     assert.equal(result.status,0,result.stderr);
     assert.equal(result.stderr,''); assert.match(result.stdout,/^[0-9a-f]{64}\n$/);
     return result.stdout.trim();
@@ -619,6 +642,20 @@ test('outer workflow sibling guard preserves mount identity while ignoring enume
     x=>x.Config.Env.push('CHANGED=true'),x=>x.State.StartedAt='2026-09-09T00:00:01Z']) {
     const changed=clone(permuted); mutate(changed); assert.notEqual(hash([before]),hash([changed]));
   }
+});
+
+test('outer workflow sibling guard preserves erroneous extra Python indentation',()=>{
+  const workflow=fs.readFileSync(new URL('../.github/workflows/pc-crop-w1-production-acceptance.yml',import.meta.url),'utf8');
+  const source=workflow.match(/API_EXCLUDED="\$api" python3 -c '([^']+)'/);
+  assert.ok(source,'mutate the actual checked-in Python body');
+  const overIndented=source[1].split('\n').map(line=>line.trim()?'  '+line:line).join('\n');
+  const malformed=workflow.replace(source[0],source[0].replace(source[1],overIndented));
+  const result=spawnSync('python3',['-c',outerSiblingPython(malformed)],{
+    input:'[]',encoding:'utf8',env:{...process.env,API_EXCLUDED:'a'.repeat(64)},
+  });
+  assert.equal(result.status,1);
+  assert.equal(result.stdout,'');
+  assert.match(result.stderr,/IndentationError: unexpected indent/);
 });
 
 test('mount inventory canonicalizes object fields but preserves nested array order',()=>{
