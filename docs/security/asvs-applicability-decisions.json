@@ -1496,7 +1496,9 @@
       "applicability": "APPLICABLE",
       "status": "FAIL",
       "evidence": [
-        "tsconfig.base.json"
+        "tsconfig.base.json",
+        "measured-override:apps/web/tsconfig.json",
+        "read-side-prototype-lookup:apps/web/lib/platform-v7/adapters/real-adapter-shell.ts"
       ],
       "conditions": [
         {
@@ -1508,9 +1510,19 @@
           "patterns": [
             "\"strict\": false"
           ]
+        },
+        {
+          "condition": "and the web app does not enable it for itself either",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/tsconfig.json"
+          ],
+          "patterns": [
+            "\"strict\": true"
+          ]
         }
       ],
-      "note": "Two of the four mitigations this requirement names are genuinely in place: the codebase is ES modules throughout (import/export, no global <script>-tag variable pollution), which is real namespace isolation, and the one document.* assignment pattern found anywhere in apps/web/lib and apps/web/app is document.cookie (a legitimate browser API), not a global variable stored on the document object. The other named mitigation, strict type checking, is explicitly absent: tsconfig.base.json sets \"strict\": false, and neither apps/web/tsconfig.json nor apps/api/tsconfig.json overrides it back to true - both inherit the relaxed setting. Strict mode is exactly the check that would catch a DOM-clobbering-shaped bug at compile time (an implicit any where a clobbered element silently satisfies a type that expected a primitive or a real global); without it, that class of bug has no compiler backstop."
+      "note": "Two of the four mitigations this requirement names are genuinely in place: the codebase is ES modules throughout (import/export, no global <script>-tag variable pollution), which is real namespace isolation, and the one document.* assignment pattern found anywhere in apps/web/lib and apps/web/app is document.cookie (a legitimate browser API), not a global variable stored on the document object. The other named mitigation, strict type checking, is absent: tsconfig.base.json sets \"strict\": false and neither apps/web/tsconfig.json nor apps/api/tsconfig.json overrides it back to true.\n\nThe cost of turning it on is now measured rather than assumed, because the assumption was wrong. Enabling \"strict\": true in apps/web/tsconfig.json and compiling produces 21 errors across 16 files - not the sweeping migration the absence of the flag suggests. They fall into five kinds: nine are Recharts Formatter signature friction in chart tooltips and carry no latent defect; four are genuine possibly-null dereferences (receiving-slot-console.tsx, LotDetailRuntime.tsx three times); three pass string|undefined or boolean|undefined where a required value is expected; two assign null to a required ExcelJS CellValue; two are implicit-any index reads; and one is in a generated .next/types file rather than source.\n\nSo cost is not what blocks this. Thirteen of the sixteen files are under apps/web/components or apps/web/app - presentation, which the repository owner excluded from this programme's change scope - and a fourteenth is the registration verify route, which is registration business logic, also excluded. Turning strict on without fixing those files would leave the web build red, so the flag cannot be flipped from inside this contour. That is an owner decision with a known price, and the price is 21 errors, of which about nine are real latent defects.\n\nOne of the two implicit-any index reads is worth naming on its own, because it is the read-side twin of a class this repository already gates on the write side. apps/web/lib/platform-v7/adapters/real-adapter-shell.ts line 80 resolves an outbound path as `paths[operation] ?? operation`, where operation arrives through a cast from the request. Measured on the same lookup: an operation of `__proto__` yields the path `[object Object]`, `constructor` yields `function Object() { [native code] }`, and `toString` yields its own source - the `?? operation` fallback, which exists precisely to handle an unknown operation, never fires for an inherited property name. A gate for the write side of this class - accumulation into a computed key - is being added in the owner's open pull request #5135 and is not in the tree yet; it looks at writes rather than reads, so it would not cover this site even once it lands. Recorded as a finding rather than changed here: the file is under apps/web, and this contour does not edit it.\n\nThe condition is also corrected. It watched tsconfig.base.json alone, so a local \"strict\": true in apps/web would have left the FAIL standing while the surface this requirement is about had become strict. It now requires both: the base still disabling strict and the web config not enabling it."
     },
     {
       "requirementId": "V3.3.1",

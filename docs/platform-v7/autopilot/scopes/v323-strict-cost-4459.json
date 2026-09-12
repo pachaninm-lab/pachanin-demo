@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/v323-strict-cost-4459",
+  "status": "active",
+  "purpose": "V3.2.3 rested on `\"strict\": false` in tsconfig.base.json with no measurement of what turning it on would cost, and its condition watched that one file. Both are fixed. Enabling strict for apps/web produces 21 errors across 16 files - not the sweeping migration the absence of the flag suggests - and the real blocker is not cost but scope: thirteen of the sixteen files are under apps/web/components or apps/web/app, which the owner excluded from this programme, and a fourteenth is the registration verify route, also excluded. The condition now also refuses a local override, because a `\"strict\": true` in apps/web alone would have left the FAIL standing while the surface this requirement is about had become strict. No code is changed and no verdict moves.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/v323-strict-cost-4459.json",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "No code is touched, and tsconfig is restored byte-identically after every measurement. The strict flag is compiled with, counted, and put back; nothing in apps/web or apps/api changes.",
+    "The cost is counted and classified rather than described. Nine Recharts Formatter signatures carry no latent defect; four are genuine possibly-null dereferences; three pass an optional where a required value is expected; two assign null to a required CellValue; two are implicit-any index reads; one is in a generated .next/types file rather than source.",
+    "The blocker is named as scope, not effort, because that is what it is. Fourteen of the sixteen files are in areas the owner excluded - presentation and registration - so flipping the flag from inside this contour would leave the web build red. That makes it an owner decision with a known price, which is exactly what a FAIL record should hand over.",
+    "The condition covers the chain, not one file of it. It requires both that the base still disables strict and that apps/web does not enable it locally, so closing the gap either way revokes the decision rather than leaving a stale FAIL.",
+    "A finding outside the change scope is recorded, not fixed. real-adapter-shell.ts resolves an outbound path as `paths[operation] ?? operation`, and the fallback never fires for an inherited property name; the file is under apps/web, so it is written down for the owner instead of edited.",
+    "Nothing cites a file the tree does not have. The write-side gate for that class lives in the owner's open pull request #5135 and is referred to as such, after the decision-evidence gate refused an earlier version that listed it as evidence."
+  ],
+  "acceptance": [
+    "The cost is measured, not estimated: `\"strict\": true` in apps/web/tsconfig.json compiles to 21 errors across 16 files, and tsconfig is restored byte-identically afterwards.",
+    "The read-side prototype lookup is measured on the same expression: operation `__proto__` gives the path `[object Object]`, `constructor` gives `function Object() { [native code] }`, and `toString` gives its own source, while an ordinary unknown operation correctly falls back to its own name.",
+    "Both halves of the new condition revoke independently: enabling strict in the base rejects the decision, and enabling it only in apps/web rejects it too.",
+    "The old condition is falsified rather than argued against: with it restored and apps/web set to strict, the matrix still reports V3.2.3 as FAIL - the FAIL would have stood after the surface it is about became strict.",
+    "Enabling strict in the base also rejects V15.3.5, which is anchored to the same flag; that is correct and is not a side effect to be suppressed.",
+    "No verdict moves: 39 NOT_ASSESSED / 129 PASS / 88 NOT_APPLICABLE / 89 FAIL against main, V8.2.4 the only rejected decision.",
+    "node --test scripts/security passes 144 of 144, including the decision-evidence gate; guard=0."
+  ]
+}
