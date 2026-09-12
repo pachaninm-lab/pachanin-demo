@@ -1,8 +1,8 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
-  "branch": "diag/p0-reviewer-reset-enqueue-db-state-3785",
+  "branch": "fix/p0-reviewer-reset-enqueue-db-state-remote-script-3785",
   "status": "active",
-  "operationalStatus": "P0_REVIEWER_RESET_ENQUEUE_DB_STATE_READ_ONLY",
+  "operationalStatus": "P0_REVIEWER_RESET_ENQUEUE_DB_STATE_READ_ONLY_REMOTE_SCRIPT_V2",
   "issue": 3785,
   "releaseIssue": 3072,
   "title": "Read-only production DB state for auth.enqueue_mail_outbox after reviewer reset SQLSTATE 42883",
@@ -11,6 +11,7 @@
   "allowedPaths": [
     ".github/workflows/production-p0-reviewer-reset-enqueue-db-state.yml",
     "scripts/production-p0-reviewer-reset-enqueue-db-state.sh",
+    "scripts/production-p0-reviewer-reset-enqueue-db-state-remote.sh",
     "scripts/check-production-p0-reviewer-reset-enqueue-db-state.mjs",
     "docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-enqueue-db-state-3785.json"
   ],
@@ -28,6 +29,7 @@
     "mailSend": false,
     "deploymentMutation": false,
     "containerLifecycleMutation": false,
+    "productionFilesystemMutation": false,
     "piiOutput": false,
     "credentialOutput": false,
     "rawDbErrorOutput": false,
@@ -36,6 +38,7 @@
     "exactMainGuard": true,
     "activeApiPrincipalProbe": true,
     "migrationAuthorityProbe": true,
+    "remotePayloadSyntaxChecked": true,
     "newRecurringCostRub": 0
   },
   "acceptance": [
@@ -44,8 +47,9 @@
     "resolve the existing Compose migration datasource in memory and query only the named _prisma_migrations row",
     "prove migration datasource target parity with the active API database without publishing any DSN, hostname, database name or credential",
     "read PostgreSQL catalog and migration metadata only; read no customer or user rows",
+    "remote payload is a separate versioned shell script syntax-checked by CI before any production SSH execution",
     "publish only bounded PASS/FAIL/state classes plus active OCI revision",
-    "do not replay password reset, send mail, modify database grants/schema/rows, restart containers or deploy",
+    "do not replay password reset, send mail, modify database grants/schema/rows, write production files, restart containers or deploy",
     "new recurring cost remains 0 RUB"
   ],
   "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
