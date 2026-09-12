@@ -25,11 +25,13 @@ const API_URL = String(process.env.API_URL || process.env.NEXT_PUBLIC_API_URL ||
 
 const ID = '[A-Za-z0-9][A-Za-z0-9:_.@-]{0,239}';
 
-/** Reads the dashboard needs. */
+/** Reads the dashboard and Connection Center need. */
 const READ_PATHS: readonly RegExp[] = [
   new RegExp('^tasks$'),
   new RegExp('^tasks/projection$'),
   new RegExp('^periods$'),
+  new RegExp('^connections$'),
+  new RegExp('^connections/attestations$'),
   new RegExp(`^deals/${ID}/source-snapshot$`),
   new RegExp(`^documents/versions/${ID}/transmission-readiness$`),
 ];
