@@ -1,11 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { repoRoot } from '../helpers/repo-root';
 
-const registerSrc = readFileSync(resolve(process.cwd(), 'apps/web/app/platform-v7/register/page.tsx'), 'utf8');
-const loginPage = readFileSync(resolve(process.cwd(), 'apps/web/app/platform-v7/login/page.tsx'), 'utf8');
-const loginClient = readFileSync(resolve(process.cwd(), 'apps/web/app/platform-v7/login/LoginFormClient.tsx'), 'utf8');
-const loginCopy = readFileSync(resolve(process.cwd(), 'apps/web/i18n/public-login-copy.ts'), 'utf8');
+const registerSrc = readFileSync(resolve(repoRoot(), 'apps/web/app/platform-v7/register/page.tsx'), 'utf8');
+const loginPage = readFileSync(resolve(repoRoot(), 'apps/web/app/platform-v7/login/page.tsx'), 'utf8');
+const loginClient = readFileSync(resolve(repoRoot(), 'apps/web/app/platform-v7/login/LoginFormClient.tsx'), 'utf8');
+const loginCopy = readFileSync(resolve(repoRoot(), 'apps/web/i18n/public-login-copy.ts'), 'utf8');
 
 describe('platform-v7 product entry', () => {
   it('keeps register source with required application states', () => {

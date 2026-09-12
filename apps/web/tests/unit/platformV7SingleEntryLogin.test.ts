@@ -1,12 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { repoRoot } from '../helpers/repo-root';
 
-const page = readFileSync(resolve(process.cwd(), 'apps/web/app/platform-v7/login/page.tsx'), 'utf8');
-const layout = readFileSync(resolve(process.cwd(), 'apps/web/app/platform-v7/login/layout.tsx'), 'utf8');
-const rewrittenPage = readFileSync(resolve(process.cwd(), 'apps/web/app/pc-public-entry/platform-v7/login/page.tsx'), 'utf8');
-const client = readFileSync(resolve(process.cwd(), 'apps/web/app/platform-v7/login/LoginFormClient.tsx'), 'utf8');
-const copy = readFileSync(resolve(process.cwd(), 'apps/web/i18n/public-login-copy.ts'), 'utf8');
+const page = readFileSync(resolve(repoRoot(), 'apps/web/app/platform-v7/login/page.tsx'), 'utf8');
+const layout = readFileSync(resolve(repoRoot(), 'apps/web/app/platform-v7/login/layout.tsx'), 'utf8');
+const rewrittenPage = readFileSync(resolve(repoRoot(), 'apps/web/app/pc-public-entry/platform-v7/login/page.tsx'), 'utf8');
+const client = readFileSync(resolve(repoRoot(), 'apps/web/app/platform-v7/login/LoginFormClient.tsx'), 'utf8');
+const copy = readFileSync(resolve(repoRoot(), 'apps/web/i18n/public-login-copy.ts'), 'utf8');
 
 describe('platform-v7 single-entry login', () => {
   it('contains one server-rendered credential entry without a role selector', () => {

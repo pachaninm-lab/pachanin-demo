@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "fix/web-guard-tests-repo-root-4459",
+  "status": "active",
+  "purpose": "21 guard tests in apps/web read source files by repo-root-relative path while vitest runs with cwd at apps/web, so every read asked for apps/web/apps/web/... Eight of those names resolve, because apps/web/apps/web holds committed symlinks back to apps/web, which is why most tests of this shape pass by accident; for everything the mirror does not cover the read threw ENOENT before a single assertion ran. A guard test that never reaches its assertions is not guarding anything, and it fails loudly enough to look like part of a known-red suite and quietly enough that nobody notices the file it was protecting is unprotected. Resolving from the .git directory instead makes 36 assertions execute where zero did, and what they then report is the point of this branch.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/web-guard-tests-repo-root-4459.json",
+    "apps/web/tests/helpers/repo-root.ts",
+    "apps/web/tests/unit/platformV7DealWorkspaceRuntimePrismaSchema.test.ts",
+    "apps/web/tests/unit/platformV7FinalShellStaticGate.test.ts",
+    "apps/web/tests/unit/platformV7HeaderNotificationsPortal.test.ts",
+    "apps/web/tests/unit/platformV7HideLegacyHeaderBell.test.ts",
+    "apps/web/tests/unit/platformV7I18nRequestLocaleGuard.test.ts",
+    "apps/web/tests/unit/platformV7MobileHeaderRuntimeStyle.test.ts",
+    "apps/web/tests/unit/platformV7MobileShellHardening.test.ts",
+    "apps/web/tests/unit/platformV7MobileViewportGuard.test.ts",
+    "apps/web/tests/unit/platformV7ProtectedGridAndRoleScope.test.ts",
+    "apps/web/tests/unit/platformV7PublicDealExplorerMobileUx.test.ts",
+    "apps/web/tests/unit/platformV7PublicRegisterRoleSelection.test.ts",
+    "apps/web/tests/unit/platformV7PublicWorldClassGate.test.ts",
+    "apps/web/tests/unit/platformV7RoleAssistantWidget.test.ts",
+    "apps/web/tests/unit/platformV7RoleScopedAiAssistant.test.ts",
+    "apps/web/tests/unit/platformV7RuntimeCopyGuard.test.ts",
+    "apps/web/tests/unit/platformV7SellerMobileViewportGuard.test.ts",
+    "apps/web/tests/unit/platformV7ServiceWorkerNoReloadLoop.test.ts",
+    "apps/web/tests/unit/platformV7SingleEntryLogin.test.ts",
+    "apps/web/tests/unit/platformV7StableShell.test.ts",
+    "apps/web/tests/unit/platformV7SupportChatMobileViewport.test.ts",
+    "apps/web/tests/unit/productEntryM31.test.tsx"
+  ],
+  "requiredInvariants": [
+    "No test is deleted, skipped, quarantined or weakened, and no assertion is relaxed. The only change to a test file is which directory its paths resolve against. Every failure this exposes is left failing and visible, because a guard that fails where anyone can see it is strictly better than one that was never reaching its assertions.",
+    "No product source is touched. Not a component, not a stylesheet, not a route, not a line of copy. Whether each surviving assertion is still the right requirement is a product decision that was never taken, and taking it silently here would be the same mistake in the other direction.",
+    "The symlink mirror at apps/web/apps/web is not removed. It is what makes the other ~288 tests of this shape pass, and removing it to fix 21 would break them.",
+    "The helper resolves from its own file to the .git directory, not from the cwd, so it depends on no symlink existing. It is the pattern four tests in this repository already use; this branch shares it rather than copying it a fifth time.",
+    "Only the 21 files that actually failed are repointed. The other tests using process.cwd() pass today, some of them because their paths genuinely are apps/web-relative, and a blanket sweep would change files nobody has evidence about."
+  ],
+  "acceptance": [
+    "Before: 21 test files, every one failing with ENOENT on apps/web/apps/web/..., zero assertions executed across all of them.",
+    "After: 36 assertions execute. 20 pass, 16 fail, and 2 of the 21 files are fully green.",
+    "The failures are classified and none is a path problem any more. Nine files assert on source that was deliberately deleted in e91c5a644 'Remove final legacy shell patches and unused styles' - MobileHeaderActionRail.tsx, PublicRegistrationEntryPatch.tsx, SellerMobileFix.tsx and five platform-v7 stylesheets - so those guards have outlived their subject and say so out loud instead of silently. Ten files assert on source that still exists but no longer contains what they require, including UI copy such as 'Войти' and 'Кто вы в сделке?', class names such as pc-skip-link, and the locale header read headers().get('x-pc-locale').",
+    "The full web suite moves from 224 failing files to 222 on the same commit, with no file newly failing.",
+    "No file outside apps/web/tests is modified."
+  ]
+}

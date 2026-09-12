@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { repoRoot } from '../helpers/repo-root';
 
-const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), 'utf8');
+const read = (file: string) => fs.readFileSync(path.join(repoRoot(), file), 'utf8');
 
 const appLayout = read('apps/web/app/platform-v7/layout.tsx');
 const template = read('apps/web/app/platform-v7/template.tsx');

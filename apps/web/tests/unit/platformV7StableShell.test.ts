@@ -1,9 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { repoRoot } from '../helpers/repo-root';
 
-const template = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/template.tsx'), 'utf8');
-const css = fs.readFileSync(path.join(process.cwd(), 'apps/web/styles/platform-v7-stable-shell.css'), 'utf8');
+const template = fs.readFileSync(path.join(repoRoot(), 'apps/web/app/platform-v7/template.tsx'), 'utf8');
+const css = fs.readFileSync(path.join(repoRoot(), 'apps/web/styles/platform-v7-stable-shell.css'), 'utf8');
 
 describe('platform-v7 stable shell', () => {
   it('loads the stable shell stylesheet through the platform template', () => {

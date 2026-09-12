@@ -1,9 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { repoRoot } from '../helpers/repo-root';
 
-const patch = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/PublicRegistrationEntryPatch.tsx'), 'utf8');
-const registerPage = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/register/page.tsx'), 'utf8');
+const patch = fs.readFileSync(path.join(repoRoot(), 'apps/web/components/platform-v7/PublicRegistrationEntryPatch.tsx'), 'utf8');
+const registerPage = fs.readFileSync(path.join(repoRoot(), 'apps/web/app/platform-v7/register/page.tsx'), 'utf8');
 
 describe('platform-v7 public registration role selection', () => {
   it('routes public role cards into registration without opening cabinets', () => {

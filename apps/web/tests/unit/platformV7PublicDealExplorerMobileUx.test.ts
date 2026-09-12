@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { repoRoot } from '../helpers/repo-root';
 
-const root = process.cwd();
+const root = repoRoot();
 const source = fs.readFileSync(
   path.join(root, 'apps/web/components/platform-v7/PublicDealExplorerV4.tsx'),
   'utf8',

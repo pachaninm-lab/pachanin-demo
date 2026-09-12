@@ -1,9 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { repoRoot } from '../helpers/repo-root';
 
-const layout = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/layout.tsx'), 'utf8');
-const css = fs.readFileSync(path.join(process.cwd(), 'apps/web/styles/platform-v7-mobile-screenshot-fixes.css'), 'utf8');
+const layout = fs.readFileSync(path.join(repoRoot(), 'apps/web/app/platform-v7/layout.tsx'), 'utf8');
+const css = fs.readFileSync(path.join(repoRoot(), 'apps/web/styles/platform-v7-mobile-screenshot-fixes.css'), 'utf8');
 
 describe('platform-v7 mobile viewport guard', () => {
   it('loads the final mobile viewport guard in the platform-v7 layout', () => {
