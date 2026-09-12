@@ -274,19 +274,24 @@ jobs:
           MODEL_HOST: ${{ steps.ssh.outputs.host }}
           MODEL_USER: ${{ steps.ssh.outputs.user }}
           MODEL_SSH_PORT: ${{ steps.ssh.outputs.port }}
+          REVIEW_HEAD: ${{ steps.input.outputs.head_sha }}
+          REVIEW_DIFF_SHA256: ${{ steps.input.outputs.diff_sha256 }}
+          REVIEW_MANIFEST_SHA256: ${{ steps.input.outputs.manifest_sha256 }}
         shell: bash
         run: |
           set -Eeuo pipefail
+          umask 077
           remote_dir="/tmp/pc-local-qwen-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           ssh_opts=(-i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes)
           scp_opts=(-i "$HOME/.ssh/id_tai_model" -P "$MODEL_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes)
-          cleanup(){ ssh "${ssh_opts[@]}" "$MODEL_USER@$MODEL_HOST" "rm -rf '$remote_dir'" >/dev/null 2>&1 || true; }
+          cleanup(){ ssh "${ssh_opts[@]}" "$MODEL_USER@$MODEL_HOST" "rm -rf '$remote_dir'" >/dev/null 2>&1 || true; rm -f "$RUNNER_TEMP/review-rejected.raw.json" "$RUNNER_TEMP/review-rejected.tmp" >/dev/null 2>&1 || true; }
           trap cleanup EXIT
           ssh "${ssh_opts[@]}" "$MODEL_USER@$MODEL_HOST" "umask 077; mkdir '$remote_dir'"
           cat > "$RUNNER_TEMP/remote-review.py" <<'PY'
           import hashlib, http.client, json, os, pathlib, re, socket, subprocess, sys, time
           MODEL_IDENTITY, MODEL_SHA, MODEL_SIZE, LLAMA_COMMIT = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4]
           requests_path, schema_path, output_path = map(pathlib.Path, sys.argv[5:8])
+          review_head, run_id, run_attempt, diff_sha, manifest_sha = sys.argv[8:13]
           SPECULATIVE_REASON = re.compile(r'\b(?:could|may|might|likely|potentially)\b', re.IGNORECASE)
           SECURITY_CLASSIFICATION = re.compile(r'\b(?:secret|pii|leak(?:age)?|authorization bypass|security boundary bypass)\b', re.IGNORECASE)
           ROUTE_TEST_REFERENCE = re.compile(r'\b(?:route|path|test(?:-only)?|workflow|constant)\b', re.IGNORECASE)
@@ -432,6 +437,27 @@ jobs:
                   + 'If a concrete defect is directly demonstrated, return exactly one finding whose reason states the concrete mechanism without speculative hedge language and whose path is this chunk path.\n'
                   + 'BEGIN_UNTRUSTED_PRIOR_CANDIDATE\n' + safe_candidate + '\nEND_UNTRUSTED_PRIOR_CANDIDATE\n'
               )
+          def save_rejected(item, initial, final, initial_violation, final_violation, repair_sha):
+              # Diagnostics contain only model responses to the public code diff.
+              # They are never review authority or input to the canonicalizer.
+              def candidate(content):
+                  raw=content.encode('utf-8')
+                  return {'content':content,'sha256':hashlib.sha256(raw).hexdigest(),'utf8_bytes':len(raw)}
+              value={
+                  'schema':'local-qwen-rejected-review.v1',
+                  'head':review_head,'run_id':run_id,'run_attempt':run_attempt,
+                  'full_diff_sha256':diff_sha,'manifest_sha256':manifest_sha,
+                  'chunk':{'index':item['index'],'path':item['path'],'sha256':item['chunk_sha256']},
+                  'initial':candidate(initial),'final':candidate(final),
+                  'initial_violation':initial_violation,'final_violation':final_violation,
+                  'repair_prompt_sha256':repair_sha,
+              }
+              encoded=(json.dumps(value,ensure_ascii=True,sort_keys=True,separators=(',',':'))+'\n').encode('utf-8')
+              if len(encoded)>65536: return
+              temporary=output_path.with_name('review-rejected.tmp')
+              with temporary.open('xb') as handle: handle.write(encoded)
+              temporary.chmod(0o600)
+              temporary.replace(output_path.with_name('review-rejected.json'))
           repairs=0
           with output_path.open('w',encoding='utf-8') as out:
               for item in requests:
@@ -446,6 +472,8 @@ jobs:
                       content=completion(item['system'],repaired_user)
                       repaired_violation=policy_violation(item,content)
                       if repaired_violation is not None:
+                          try: save_rejected(item,initial,content,violation,repaired_violation,repair_prompt_sha256)
+                          except (OSError,ValueError,TypeError,KeyError): pass
                           fail('POLICY_REPAIR_INVALID_' + re.sub(r'[^A-Z0-9_]', '_', repaired_violation.upper()))
                   out.write(json.dumps({
                       'index':item['index'],
@@ -460,8 +488,55 @@ jobs:
           PY
           chmod 600 "$RUNNER_TEMP/remote-review.py" "$RUNNER_TEMP/review-requests.jsonl" "$RUNNER_TEMP/review-schema.json"
           scp "${scp_opts[@]}" "$RUNNER_TEMP/remote-review.py" "$RUNNER_TEMP/review-requests.jsonl" "$RUNNER_TEMP/review-schema.json" "$MODEL_USER@$MODEL_HOST:$remote_dir/"
+          inference_status=0
           ssh "${ssh_opts[@]}" "$MODEL_USER@$MODEL_HOST" \
-            "python3 '$remote_dir/remote-review.py' '$MODEL_IDENTITY' '$MODEL_SHA256' '$MODEL_SIZE_BYTES' '$LLAMA_SOURCE_COMMIT' '$remote_dir/review-requests.jsonl' '$remote_dir/review-schema.json' '$remote_dir/review-responses.jsonl'"
+            "python3 '$remote_dir/remote-review.py' '$MODEL_IDENTITY' '$MODEL_SHA256' '$MODEL_SIZE_BYTES' '$LLAMA_SOURCE_COMMIT' '$remote_dir/review-requests.jsonl' '$remote_dir/review-schema.json' '$remote_dir/review-responses.jsonl' '$REVIEW_HEAD' '$GITHUB_RUN_ID' '$GITHUB_RUN_ATTEMPT' '$REVIEW_DIFF_SHA256' '$REVIEW_MANIFEST_SHA256'" || inference_status=$?
+          if (( inference_status != 0 )); then
+            if scp "${scp_opts[@]}" "$MODEL_USER@$MODEL_HOST:$remote_dir/review-rejected.json" "$RUNNER_TEMP/review-rejected.raw.json" >/dev/null 2>&1; then
+              if python3 - "$RUNNER_TEMP/review-rejected.raw.json" "$RUNNER_TEMP/review-manifest.json" "$RUNNER_TEMP/review-rejected.json" "$REVIEW_HEAD" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$REVIEW_DIFF_SHA256" "$REVIEW_MANIFEST_SHA256" <<'PY'
+          import hashlib, json, pathlib, re, sys
+          def validate_rejected():
+              raw_path, manifest_path, output_path = map(pathlib.Path,sys.argv[1:4])
+              head, run, attempt, diff_sha, manifest_sha = sys.argv[4:9]
+              with raw_path.open('rb') as handle: raw=handle.read(65537)
+              if not 0<len(raw)<=65536: raise ValueError('bounds')
+              value=json.loads(raw.decode('utf-8',errors='strict'))
+              expected={'schema','head','run_id','run_attempt','full_diff_sha256','manifest_sha256','chunk','initial','final','initial_violation','final_violation','repair_prompt_sha256'}
+              if not isinstance(value,dict) or set(value)!=expected: raise ValueError('schema')
+              if value['schema']!='local-qwen-rejected-review.v1': raise ValueError('version')
+              for key,wanted in [('head',head),('run_id',run),('run_attempt',attempt),('full_diff_sha256',diff_sha),('manifest_sha256',manifest_sha)]:
+                  if value[key]!=wanted: raise ValueError('binding')
+              manifest_raw=manifest_path.read_bytes()
+              if hashlib.sha256(manifest_raw).hexdigest()!=manifest_sha: raise ValueError('manifest hash')
+              manifest=json.loads(manifest_raw)
+              if manifest['full_diff_sha256']!=diff_sha: raise ValueError('diff hash')
+              chunk=value['chunk']
+              if not isinstance(chunk,dict) or set(chunk)!={'index','path','sha256'} or type(chunk['index']) is not int: raise ValueError('chunk schema')
+              matches=[item for item in manifest['chunks'] if item['index']==chunk['index']]
+              if len(matches)!=1 or any(chunk[key]!=matches[0][key] for key in ('path','sha256')): raise ValueError('chunk binding')
+              for key in ('initial','final'):
+                  candidate=value[key]
+                  if not isinstance(candidate,dict) or set(candidate)!={'content','sha256','utf8_bytes'} or not isinstance(candidate['content'],str): raise ValueError('candidate schema')
+                  content=candidate['content'].encode('utf-8')
+                  if type(candidate['utf8_bytes']) is not int or candidate['utf8_bytes']!=len(content) or hashlib.sha256(content).hexdigest()!=candidate['sha256']: raise ValueError('candidate hash')
+              for key in ('initial_violation','final_violation'):
+                  if not isinstance(value[key],str) or not re.fullmatch(r'[A-Z][A-Z0-9_]{0,95}',value[key]): raise ValueError('violation')
+              if not isinstance(value['repair_prompt_sha256'],str) or not re.fullmatch(r'[0-9a-f]{64}',value['repair_prompt_sha256']): raise ValueError('repair hash')
+              temporary=output_path.with_name('review-rejected.tmp')
+              temporary.write_bytes(raw)
+              temporary.chmod(0o600)
+              temporary.replace(output_path)
+          try: validate_rejected()
+          except (OSError,ValueError,TypeError,KeyError,UnicodeError):
+              raise SystemExit('Rejected review evidence failed validation.')
+          PY
+              then echo QWEN3_REJECTED_EVIDENCE=VALIDATED
+              else echo QWEN3_REJECTED_EVIDENCE=INVALID
+              fi
+            else echo QWEN3_REJECTED_EVIDENCE=UNAVAILABLE
+            fi
+            exit "$inference_status"
+          fi
           scp "${scp_opts[@]}" "$MODEL_USER@$MODEL_HOST:$remote_dir/review-responses.jsonl" "$RUNNER_TEMP/review-responses.jsonl"
           [[ -s "$RUNNER_TEMP/review-responses.jsonl" ]]
           raw_dir="$RUNNER_TEMP/qwen-raw"; mkdir -p "$raw_dir"
@@ -484,6 +559,15 @@ jobs:
               metadata.append({'index':row['index'],'repaired':repaired,'initial_sha256':initial_sha,'repair_prompt_sha256':repair_prompt_sha,'final_sha256':final_sha})
           metadata_path.write_text(json.dumps(metadata,ensure_ascii=True,sort_keys=True,separators=(',',':'))+'\n',encoding='utf-8')
           PY
+
+      - name: Preserve rejected candidate diagnostics
+        if: always() && steps.inference.outcome == 'failure'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: qwen-rejected-${{ steps.input.outputs.head_sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/review-rejected.json
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Validate and canonicalize independent review
         id: result
