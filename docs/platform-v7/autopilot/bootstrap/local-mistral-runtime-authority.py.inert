@@ -1,0 +1,342 @@
+#!/usr/bin/env python3
+import json
+import os
+from pathlib import Path
+import runpy
+import subprocess
+
+
+class RuntimeAuthorityError(Exception):
+    pass
+
+
+class PreparedRuntime:
+    __slots__ = (
+        "bound_files",
+        "model_identity",
+        "model_sha256",
+        "model_size",
+        "server_sha256",
+        "server_size",
+        "report_sha256",
+    )
+
+    def __init__(
+        self,
+        bound_files,
+        model_identity,
+        model_sha256,
+        model_size,
+        server_sha256,
+        server_size,
+        report_sha256,
+    ):
+        self.bound_files = bound_files
+        self.model_identity = model_identity
+        self.model_sha256 = model_sha256
+        self.model_size = model_size
+        self.server_sha256 = server_sha256
+        self.server_size = server_size
+        self.report_sha256 = report_sha256
+
+    def detach_bound_files(self):
+        if self.bound_files is None:
+            reject("RUNTIME_AUTHORITY_ALREADY_DETACHED")
+        value = self.bound_files
+        self.bound_files = None
+        return value
+
+    def close(self):
+        if self.bound_files is None:
+            return
+        value = self.bound_files
+        self.bound_files = None
+        try:
+            value.close()
+        except Exception:
+            reject("RUNTIME_AUTHORITY_CLOSE_INVALID")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+
+
+def reject(code):
+    raise RuntimeAuthorityError(code) from None
+
+
+def _load_helper(name):
+    path = Path(__file__).with_name(name)
+    if not path.is_file() or path.is_symlink():
+        reject("RUNTIME_AUTHORITY_HELPER_INVALID")
+    try:
+        return runpy.run_path(str(path))
+    except Exception:
+        reject("RUNTIME_AUTHORITY_HELPER_LOAD_INVALID")
+
+
+def _close(value):
+    if value is None:
+        return
+    try:
+        value.close()
+    except Exception:
+        reject("RUNTIME_AUTHORITY_CLOSE_INVALID")
+
+
+def _read_report(verified):
+    try:
+        fd = verified.fd
+        size = verified.size
+    except AttributeError:
+        reject("RUNTIME_REPORT_VERIFIED_INVALID")
+    if type(fd) is not int or fd < 0:
+        reject("RUNTIME_REPORT_VERIFIED_INVALID")
+    if type(size) is not int or size <= 0 or size > 4 * 1024 * 1024:
+        reject("RUNTIME_REPORT_SIZE_INVALID")
+    try:
+        os.lseek(fd, 0, os.SEEK_SET)
+        raw = bytearray()
+        while len(raw) < size:
+            chunk = os.read(fd, min(1024 * 1024, size - len(raw)))
+            if not chunk:
+                reject("RUNTIME_REPORT_READ_INVALID")
+            raw.extend(chunk)
+        if os.read(fd, 1):
+            reject("RUNTIME_REPORT_TRAILING_BYTES")
+        os.lseek(fd, 0, os.SEEK_SET)
+        report = json.loads(bytes(raw).decode("utf-8"))
+    except RuntimeAuthorityError:
+        raise
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        reject("RUNTIME_REPORT_READ_INVALID")
+    if not isinstance(report, dict):
+        reject("RUNTIME_REPORT_SCHEMA_INVALID")
+    return report
+
+
+def _validate_report(report, authority, identity):
+    conversion = authority["conversion"]
+    model = authority["model"]
+    if report.get("exact_main_sha") != conversion["exactMainSha"]:
+        reject("RUNTIME_REPORT_MAIN_MISMATCH")
+    if report.get("workflow_run_id") != conversion["workflowRunId"]:
+        reject("RUNTIME_REPORT_RUN_MISMATCH")
+    if report.get("workflow_run_attempt") != conversion["workflowRunAttempt"]:
+        reject("RUNTIME_REPORT_ATTEMPT_MISMATCH")
+    if report.get("toolchain_status") != "VERIFIED_RESTORED":
+        reject("RUNTIME_REPORT_TOOLCHAIN_INVALID")
+
+    source_verification = report.get("source_verification")
+    if not isinstance(source_verification, dict):
+        reject("RUNTIME_REPORT_SOURCE_INVALID")
+    source_models = source_verification.get("models")
+    if not isinstance(source_models, list):
+        reject("RUNTIME_REPORT_SOURCE_INVALID")
+    source = next(
+        (
+            item
+            for item in source_models
+            if isinstance(item, dict) and item.get("model_id") == model["id"]
+        ),
+        None,
+    )
+    if source is None or source.get("revision") != model["revision"]:
+        reject("RUNTIME_REPORT_MODEL_REVISION_INVALID")
+
+    outputs = report.get("outputs")
+    if not isinstance(outputs, list):
+        reject("RUNTIME_REPORT_OUTPUT_INVALID")
+    output = next(
+        (
+            item
+            for item in outputs
+            if isinstance(item, dict)
+            and item.get("path") == identity["MODEL_RELATIVE"]
+        ),
+        None,
+    )
+    if output is None:
+        reject("RUNTIME_REPORT_OUTPUT_INVALID")
+    if output.get("sha256") != model["artifactSha256"]:
+        reject("RUNTIME_REPORT_MODEL_SHA_INVALID")
+    if output.get("size_bytes") != model["artifactSizeBytes"]:
+        reject("RUNTIME_REPORT_MODEL_SIZE_INVALID")
+
+
+def _version_environment():
+    return {
+        "LANG": "C",
+        "LC_ALL": "C",
+        "PATH": "/usr/bin:/bin",
+    }
+
+
+def _verify_server_version(bound_files, source_commit):
+    if not isinstance(source_commit, str) or len(source_commit) != 40:
+        reject("RUNTIME_LLAMA_COMMIT_INVALID")
+    try:
+        server_fd = bound_files.server_fd
+        server_path = bound_files.server_path
+        pass_fds = bound_files.pass_fds
+    except (AttributeError, RuntimeError):
+        reject("RUNTIME_SERVER_BINDING_INVALID")
+    if pass_fds[0] != server_fd or server_path != f"/proc/self/fd/{server_fd}":
+        reject("RUNTIME_SERVER_BINDING_INVALID")
+    try:
+        completed = subprocess.run(
+            [server_path, "--version"],
+            cwd="/",
+            env=_version_environment(),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=15,
+            check=False,
+            close_fds=True,
+            pass_fds=(server_fd,),
+        )
+    except (OSError, subprocess.SubprocessError):
+        reject("RUNTIME_LLAMA_VERSION_EXEC_INVALID")
+    if completed.returncode != 0:
+        reject("RUNTIME_LLAMA_VERSION_STATUS_INVALID")
+    if len(completed.stdout.encode("utf-8", errors="replace")) > 64 * 1024:
+        reject("RUNTIME_LLAMA_VERSION_OUTPUT_INVALID")
+    if source_commit[:7] not in completed.stdout:
+        reject("RUNTIME_LLAMA_VERSION_COMMIT_MISMATCH")
+
+
+def prepare_runtime(authority):
+    if not isinstance(authority, dict):
+        reject("RUNTIME_AUTHORITY_INVALID")
+    required_top = {"modelIdentity", "conversion", "model", "runtime"}
+    if not required_top.issubset(authority):
+        reject("RUNTIME_AUTHORITY_INVALID")
+    conversion = authority["conversion"]
+    model = authority["model"]
+    runtime = authority["runtime"]
+    if not all(isinstance(value, dict) for value in (conversion, model, runtime)):
+        reject("RUNTIME_AUTHORITY_INVALID")
+
+    root_helper = _load_helper("local-mistral-conversion-root.py.inert")
+    identity = _load_helper("local-mistral-conversion-evidence.py.inert")
+    content = _load_helper("local-mistral-content-verification.py.inert")
+    fd_binding = _load_helper("local-mistral-runtime-fd-binding.py.inert")
+
+    if conversion.get("reportRelativePath") != identity["REPORT_RELATIVE"]:
+        reject("RUNTIME_REPORT_PATH_INVALID")
+    if model.get("artifactRelativePath") != identity["MODEL_RELATIVE"]:
+        reject("RUNTIME_MODEL_PATH_INVALID")
+    if runtime.get("serverRelativePath") != identity["SERVER_RELATIVE"]:
+        reject("RUNTIME_SERVER_PATH_INVALID")
+
+    root = None
+    report_identity = None
+    model_identity = None
+    server_identity = None
+    report_verified = None
+    model_verified = None
+    server_verified = None
+    bound_files = None
+    try:
+        root = root_helper["open_conversion_root"](
+            {
+                "exactMainSha": conversion["exactMainSha"],
+                "workflowRunId": conversion["workflowRunId"],
+                "workflowRunAttempt": conversion["workflowRunAttempt"],
+                "conversionRoot": conversion["conversionRoot"],
+            }
+        )
+        report_identity = identity["pin_conversion_report_identity"](
+            root.fd, conversion["reportRelativePath"]
+        )
+        model_identity = identity["pin_mistral_model_identity"](
+            root.fd, model["artifactRelativePath"]
+        )
+        server_identity = identity["pin_llama_server_identity"](
+            root.fd, runtime["serverRelativePath"]
+        )
+        _close(root)
+        root = None
+
+        report_verified = content["verify_conversion_report"](
+            report_identity.fd,
+            report_identity.dev,
+            report_identity.ino,
+            conversion["reportRawSha256"],
+        )
+        _close(report_identity)
+        report_identity = None
+        report = _read_report(report_verified)
+        _validate_report(report, authority, identity)
+        _close(report_verified)
+        report_verified = None
+
+        model_verified = content["verify_mistral_model"](
+            model_identity.fd,
+            model_identity.dev,
+            model_identity.ino,
+            model["artifactSha256"],
+            model["artifactSizeBytes"],
+        )
+        _close(model_identity)
+        model_identity = None
+
+        server_verified = content["verify_llama_server"](
+            server_identity.fd,
+            server_identity.dev,
+            server_identity.ino,
+            runtime["serverSha256"],
+            runtime["serverSizeBytes"],
+        )
+        _close(server_identity)
+        server_identity = None
+
+        bound_files = fd_binding["bind_verified_runtime_files"](
+            server_verified,
+            model_verified,
+            runtime["serverSha256"],
+            runtime["serverSizeBytes"],
+            model["artifactSha256"],
+            model["artifactSizeBytes"],
+        )
+        _close(server_verified)
+        server_verified = None
+        _close(model_verified)
+        model_verified = None
+        _verify_server_version(bound_files, runtime["sourceCommit"])
+
+        result = PreparedRuntime(
+            bound_files,
+            authority["modelIdentity"],
+            model["artifactSha256"],
+            model["artifactSizeBytes"],
+            runtime["serverSha256"],
+            runtime["serverSizeBytes"],
+            conversion["reportRawSha256"],
+        )
+        bound_files = None
+        return result
+    except RuntimeAuthorityError:
+        raise
+    except Exception:
+        reject("RUNTIME_AUTHORITY_PREPARATION_INVALID")
+    finally:
+        for value in (
+            bound_files,
+            server_verified,
+            model_verified,
+            report_verified,
+            server_identity,
+            model_identity,
+            report_identity,
+            root,
+        ):
+            if value is not None:
+                try:
+                    value.close()
+                except Exception:
+                    pass
