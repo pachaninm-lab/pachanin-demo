@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "fix/tracked-absolute-symlink-4459",
+  "status": "active",
+  "purpose": "One tracked symlink of fourteen is absolute: apps/web/apps/web/web -> /home/user/pachanin-demo/apps/web, a committed path to one machine's directory layout. On any checkout not at that exact path it is a dangling link, and where it does resolve it points at its own grandparent, so apps/web/apps/web/web/apps/web/apps/web/... descends without bound - verified by walking it, not supposed. Any tool that follows symlinks - a backup, a docker build context, a find, a file scanner - either breaks on the dangling case or never terminates on the resolving one. It was found by the repository-wide copy screening enumerating what it could not read.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/tracked-absolute-symlink-4459.json",
+    "apps/web/apps/web/web"
+  ],
+  "requiredInvariants": [
+    "The eight relative mirror entries are NOT removed. They are documented as deliberate in AUDIT_maturity-runtime_2026-07-03.md and they are load-bearing: the suite output shows tests resolving through apps/web/apps/web/styles, .../components and .../lib because they build repo-root-relative paths against process.cwd(), which vitest sets to apps/web. Removing those would break passing tests to fix a different problem.",
+    "Only the one absolute entry goes. It is the only tracked symlink whose target begins with a slash, the only one that creates a cycle, and the only one no test touches.",
+    "The claim that nothing needs it is evidence, not inspection. The full web suite was run twice on the same commit, once with the link present and once with it deleted from disk, and the sets of failing test files are identical - 224 files, 373 tests, byte-for-byte the same set. The path apps/web/apps/web/web appears zero times in either run's output."
+  ],
+  "acceptance": [
+    "Tracked absolute symlinks: 1 -> 0. Tracked symlinks overall: 14 -> 13, the thirteen remaining all relative.",
+    "Web suite before: 224 failed files, 373 failed tests, 5199 passed. After: identical, and the sets of failing files diff clean. Those 224 failures are pre-existing on main in this environment and are not touched by this change in either direction.",
+    "Nothing in the repository references apps/web/apps/web/web; the only mentions of apps/web/apps in the suite output are ENOENT errors on paths the mirror does not cover, which is a separate defect and not addressed here.",
+    "build-repository-copy-screening.mjs no longer raises TRACKED_ABSOLUTE_SYMLINKS once this branch is in."
+  ]
+}
