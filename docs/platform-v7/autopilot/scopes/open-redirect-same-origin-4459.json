@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/open-redirect-same-origin-4459",
+  "status": "active",
+  "purpose": "Three demo-login routes guarded their redirect destination with `to.startsWith('/')` and then built `new URL(to, request.url)`. That reads like an origin check and is a first-character check: '//evil.example/pwn' passes it and resolves off-site, and so do '/\\\\evil.example', '///evil.example' and anything with a tab or newline the URL parser strips. Seven of thirteen vectors defeat it. A fourth copy of the same weak normaliser sat in apps/web/app/login/page.tsx, which is not gated by anything. Found while assessing ASVS V3.7.2, which asks that an automatic redirect leave the origin only to an allowlisted destination.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/open-redirect-same-origin-4459.json",
+    "apps/web/lib/safe-redirect.ts",
+    "apps/web/tests/unit/safeRedirect.test.ts",
+    "apps/web/app/api/auth/demo/route.ts",
+    "apps/web/app/api/auth/demo/role/[role]/route.ts",
+    "apps/web/app/api/auth/demo/instant/[role]/route.ts",
+    "apps/web/app/login/page.tsx"
+  ],
+  "requiredInvariants": [
+    "The severity is stated accurately in both directions rather than inflated or waved away. All three routes gate on demoLoginAllowed(), which returns false whenever NODE_ENV is production - hard-coded, not merely a flag - so the open redirect was never reachable in production. The code was still wrong, the same normaliser sat in a page that is not gated, and a first-character check one copy-paste from a production route is a defect whether or not it has been reached.",
+    "The fix compares the resolved origin, which is the only comparison that cannot be spelled around. Resolving the candidate the way the browser will and then comparing origins subsumes every spelling of the authority - protocol-relative, backslash, repeated slash, userinfo, lookalike host.",
+    "The helper returns path, query and fragment only, never an origin, so a caller cannot hand the result back to new URL and reintroduce what it prevents.",
+    "Characters a parser strips are refused, not normalised - and that rule is load-bearing, not decoration. Node's URL parser silently removes tab, newline and carriage return from a path and returns a SAME-ORIGIN result that has been rewritten: new URL('/foo<TAB>bar', base).pathname is '/foobar'. The origin check is satisfied and the caller redirects somewhere nobody asked for. A browser may strip a different set, which is why these are refused here rather than guessed at. Removing that check fails a test.",
+    "The fallback is resolved by the same rule, so a mistake in a caller's fallback cannot reintroduce the hole.",
+    "No ASVS verdict is claimed. V3.7.2 is not moved to PASS by this branch, because the requirement is about every automatic redirect and the sweep is not complete: apps/web/middleware.ts deliberately redirects BETWEEN the application's own hostnames via controlHostUrl and primaryPlatformUrl, and apps/platform-v7/gov-id/start deliberately redirects to an external identity provider. Both are legitimate cross-hostname redirects that V3.7.2 requires to be allowlisted, and an allowlist does not exist yet. Claiming PASS on the strength of three fixed routes would be policy presented as implementation."
+  ],
+  "acceptance": [
+    "Three real open redirects fixed: apps/web/app/api/auth/demo/route.ts, .../demo/role/[role]/route.ts and .../demo/instant/[role]/route.ts. The fourth weak normaliser, normalizeReturnTo in apps/web/app/login/page.tsx, is replaced by the same helper.",
+    "13 off-origin vectors are rejected and 4 legitimate destinations survive with query and fragment intact. The old guard let 7 of the 13 resolve to another origin, including the tab and newline spellings.",
+    "safeRedirect.test.ts passes 32 of 32, and three mutations each fail it: removing the origin comparison (11 tests), removing the stripped-character rejection (1 test), and returning the absolute href instead of a root-relative path (3 tests).",
+    "apps/web typecheck passes. The full web suite is unchanged against the pre-change baseline on the same commit - no file newly failing.",
+    "The remaining V3.7.2 surface is named rather than left implied: 74 redirect calls take a non-literal target, of which all but the middleware cross-host redirects and the gov-id external bridge build a fixed internal path from encoded parameters. Those two are what a V3.7.2 assessment still has to answer."
+  ]
+}

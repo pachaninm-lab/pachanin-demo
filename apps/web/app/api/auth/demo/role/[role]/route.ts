@@ -10,6 +10,7 @@ import {
 } from '../../../../../../lib/auth-cookies';
 import { generateCsrfToken } from '../../../../../../lib/server-request-security';
 import { demoLoginAllowed } from '../../../../../../lib/platform-v7/demo-login-policy';
+import { safeRedirectDestination } from '../../../../../../lib/safe-redirect';
 
 type DemoTarget = {
   role: string;
@@ -37,9 +38,12 @@ const ROLE_TARGETS: Record<string, DemoTarget> = {
   admin: { role: 'ADMIN', email: 'admin@demo.ru', firstPage: '/cabinet' },
 };
 
-function sanitizeDestination(raw: string | null | undefined, fallback: string): string {
-  if (!raw) return fallback;
-  return raw.startsWith('/') ? raw : fallback;
+/**
+ * startsWith('/') reads like an origin check and is a first-character check:
+ * '//evil.example' passes it and new URL(...) resolves it off-site.
+ */
+function sanitizeDestination(raw: string | null | undefined, fallback: string, base: string): string {
+  return safeRedirectDestination(raw, base, fallback);
 }
 
 export async function GET(
@@ -54,7 +58,7 @@ export async function GET(
   }
   const slug = ((await context.params).role || 'farmer').toLowerCase();
   const target = ROLE_TARGETS[slug] ?? ROLE_TARGETS.farmer;
-  const to = sanitizeDestination(request.nextUrl.searchParams.get('to'), target.firstPage);
+  const to = sanitizeDestination(request.nextUrl.searchParams.get('to'), target.firstPage, request.url);
 
   const exp = Math.floor(Date.now() / 1000) + 8 * 3600;
   const sessionValue = encodeURIComponent(
