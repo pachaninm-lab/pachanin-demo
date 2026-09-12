@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "ip/provenance-register-currency-4459",
+  "status": "active",
+  "purpose": "The committed provenance record had stopped describing the repository, in two independent ways, and nothing checked either. It was generated at 0e5fbc799 and the tree had moved on by 2976 commits and 654 files, so every downstream number - how many files a signature would unblock, how many crown jewels remain unproven - was read off a snapshot of a different tree: the record said 6175 files and 605 CROWN_JEWEL where the repository holds 6829 and 636. Separately, 21 files had no recorded origin at all, four of them CROWN_JEWEL in the auth module, because they entered the mainline through squash merges and git log does not diff a merge unless told to. A file with no identity attached cannot be closed by any signature, so the owner's four documents were not sufficient and nothing said so. This branch fixes the lookup, refreshes the record, states what each document actually unblocks, and adds the gate that fails when the record drifts again.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/provenance-register-currency-4459.json",
+    "scripts/ip/build-ip-clean-room.mjs",
+    "scripts/ip/verify-provenance-currency.mjs",
+    "scripts/ip/verify-provenance-currency.test.mjs",
+    "docs/ip/CHAIN_OF_TITLE_REGISTER.md",
+    "docs/ip/FILE_PROVENANCE.csv",
+    "docs/ip/FILE_PROVENANCE.json",
+    "docs/ip/CONTRIBUTORS.csv"
+  ],
+  "requiredInvariants": [
+    "classify() in build-ip-clean-room.mjs is NOT touched. The change is to the first-commit lookup, which recovers a git fact the previous query could not see; it does not decide what anything is. origin_class counts are identical before and after: unknownOriginFiles stays 6788 and crownJewelUnknownOrigin stays 636, because nothing about classification moved.",
+    "A merge attribution is labelled as one. origin_source carries MERGE_INTRODUCED=<sha>, because attributing a file to a merge says when it entered the mainline and who put it there, not who typed it - which for a squashed branch no longer exists in this history. A row that said otherwise would be a stronger claim than the evidence.",
+    "No status moves toward RESOLVED. Every identity remains UNRESOLVED and the CROWN_JEWEL requirement remains FAIL. The record gets more accurate, not more favourable: the crown jewel count rises from 605 to 636 because the tree grew.",
+    "The gate covers the prose as well as the data. The register states its source SHA, commit count, identity count and CROWN_JEWEL position in its own text, and those are the numbers a reader quotes; a generated CSV that is current under a prose summary that is not is worse than either alone.",
+    "Untracked files do not make the comparison refuse. The builder reads git ls-files, so a file it cannot see cannot move its output, and a gate that cries dirty at a scratch file is a gate people stop running.",
+    "Drift is reported per row, not as 'the file differs'. The refresh was 659 rows added, 5 removed, 380 changed, 3 contributor rows changed, and a reviewer can see which.",
+    "The per-document impact is measured against FILE_PROVENANCE.csv rather than estimated, and published both as overlapping totals and as the disjoint view, because only the disjoint view says whether a single signature is worth anything on its own."
+  ],
+  "acceptance": [
+    "The committed record matches a fresh build at fd895e061: 6829 files, 26 211 commits, 636 CROWN_JEWEL, 21 identities. Before: 6175 files, 23 235 commits, 605 CROWN_JEWEL, generated at 0e5fbc799.",
+    "original_contributor = UNKNOWN falls from 21 files to 0. All 21 are attributed through their introducing merge to pachaninm-lab#97bdb9e06bb3722c and carry MERGE_INTRODUCED=<sha>; four of them are CROWN_JEWEL in apps/api/src/modules/auth and apps/api/src/modules/staff-access.",
+    "Per-document impact published: owner identity consolidation unblocks 6093 files and 501 crown jewels; the AI position 2249 and 326; the third-party assignment 293 and 26; identifying root#ce3eaa797da1a69f 2 files and 0 crown jewels. Disjointly, 4388 files (302 crown) need the owner consolidation alone.",
+    "After all four documents, zero files and zero crown jewels remain unresolvable. Before the lookup fix, 21 files and 4 crown jewels could not have been closed by any signature, because they had no identity to attach one to.",
+    "verify-provenance-currency.test.mjs passes 8 of 8, including that no file in the committed record is left without an origin and that every merge attribution names a 40-character commit. Three mutations were verified to fail: not normalising digit-grouping whitespace, not comparing the source SHA, and not detecting changed rows.",
+    "verify-provenance-currency.mjs exits 0 on the committed tree.",
+    "No ASVS decision, no verdict and no application code is touched."
+  ]
+}
