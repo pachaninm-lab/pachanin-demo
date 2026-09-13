@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "ip/structural-screening-whole-repo-4459",
+  "stackedOn": "security/structural-similarity-screening-4459",
+  "status": "active",
+  "purpose": "The shape screening covered the protected boundary: 660 files with a parser, 532 large enough to compare. The repository tracks 3082 files in languages it can parse. The core is where the crown jewels are, but it is not where borrowed code is likeliest to land - nobody reviews the application shell - and screening the boundary while reporting 'the code is original' is the same coverage overstatement this programme already made once, with Python. This widens the run to every tracked file and records what came back.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/structural-similarity-screening-4459.json",
+    "docs/platform-v7/autopilot/scopes/structural-screening-whole-repo-4459.json",
+    "scripts/ip/build-structural-similarity-evidence.mjs",
+    "scripts/ip/build-structural-similarity-evidence.test.mjs",
+    "scripts/ip/structural-python-shape.py",
+    "docs/ip/STRUCTURAL_SIMILARITY_SCREENING.md",
+    "docs/ip/structural-similarity-screening.json"
+  ],
+  "requiredInvariants": [
+    "Stacked on security/structural-similarity-screening-4459; allowedPaths are cumulative, because this branch edits that branch's tool and record.",
+    "The scope switch is refused rather than silently defaulted. A typo in IP_STRUCTURAL_SCOPE that fell back to 'core' would produce a clean run over the boundary under a record claiming the whole repository - the same overstatement in a new costume. Both the refusal and the widening are asserted by test, and each fails under mutation.",
+    "Nothing about the method changes. Same parsers, same 200-node floor, same gram and window, same 0.75 reporting threshold, same per-file top score recorded whatever it is. Only which of our files are read is different, so the two runs are comparable.",
+    "The single finding is not re-classified, it is corroborated. apps/web/public/mockServiceWorker.js was already identified by the repository-wide token screening as msw 2.13.2, MIT, placed by npx msw init. Two methods sharing no code reach the same answer, and the record says that rather than counting it twice.",
+    "The weaker calibration is published as the useful result, not buried. Outside the core the highest first-party score is 0.391 rather than 0.067, and every file above 0.2 is named with its explanation - message dictionaries and lexicons against happy-dom's CSS property table, barrels against rxjs operators. A dictionary and a property table are both one large nested object literal; that is structural convergence seen rather than assumed, and it makes the threshold defensible instead of arbitrary."
+  ],
+  "acceptance": [
+    "3082 files with a parser, all 3082 parsed, 0 failures; 2310 comparable above the 200-node floor; against 10 350 corpus files.",
+    "4 findings, all of them one file: apps/web/public/mockServiceWorker.js at IDENTICAL_SHAPE 1.0 against msw's own service worker in four package resolutions. No other first-party file in the repository matches anything.",
+    "Calibration: highest first-party score 0.391 (apps/web/lib/platform-v7/lexicon.ts), median 0.0041, 8 files above 0.2, every one explained. The reporting threshold sits in an empty band from 0.39 to 0.93 measured against real structural coincidence.",
+    "build-structural-similarity-evidence.test.mjs passes 11 of 11. Two mutations fail it: removing the scope validation, and making all-tracked resolve to the core pathspec anyway.",
+    "The run takes 71 seconds, so widening it costs nothing anybody will notice.",
+    "No ASVS decision, no verdict and no application code is touched."
+  ]
+}

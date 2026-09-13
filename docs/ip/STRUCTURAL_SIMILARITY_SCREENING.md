@@ -90,6 +90,52 @@ An earlier attempt at the TypeScript probe produced invalid TypeScript, and the
 run reported it as `PROTECTED_FILES_NOT_PARSED:1` rather than scoring it — the
 no-silent-skip rule catching a real case on its first outing.
 
+## The whole repository, not only the core
+
+The run above covers `docs/ip/proprietary-core-boundary.json`: 660 files with a
+parser. The repository tracks **3 082** files in languages this tool can parse.
+Screening only the boundary and reporting "the code is original" is the same
+coverage overstatement this programme already made once, with Python.
+
+`IP_STRUCTURAL_SCOPE=all-tracked` screens all of them.
+
+| | core | whole repository |
+|---|---:|---:|
+| Files with a parser | 660 | **3 082** |
+| Failed to parse | 0 | **0** |
+| Comparable (≥ 200 nodes) | 532 | **2 310** |
+| Findings | 0 | **4** |
+| Distinct files in those findings | — | **1** |
+
+The four findings are one file — `apps/web/public/mockServiceWorker.js` — matching
+msw's own service worker at `IDENTICAL_SHAPE` 1.0 across four package
+resolutions. That is the file the repository-wide token screening independently
+identified as msw 2.13.2, MIT, placed there by `npx msw init public/`. Two
+methods that share no code arrived at the same single answer, and it is the only
+third-party file either of them finds.
+
+### The calibration is weaker here, and that is the useful part
+
+Outside the core the highest score a first-party file reaches is **0.391**, not
+0.067. Eight files clear 0.2. Every one of them is explainable, and the
+explanations are the same two shapes:
+
+| Score | File | Matches |
+|---:|---|---|
+| 0.391 | `apps/web/lib/platform-v7/lexicon.ts` | happy-dom's CSS property config |
+| 0.290 | `apps/web/i18n/staff-control-center-messages.ts` | the same |
+| 0.257 | `apps/web/components/platform-v7/PublicRoleIntelligenceSummary.tsx` | the same |
+| 0.211 | `apps/web/components/platform-v7/visual/index.ts` | `rxjs/src/operators/index.ts` |
+
+A message dictionary and a CSS property table are both one large nested object
+literal, so they have the same shape for a reason that has nothing to do with
+either of them. Two barrels of re-exports likewise. This is the convergence the
+methodology note predicts, seen rather than assumed — and it is why the threshold
+is worth more now than it was at 0.067: the empty band it sits in is 0.39 to
+0.93, measured against real structural coincidence rather than against nothing.
+
+Median top score across 2 309 first-party comparable files: **0.0041**.
+
 ## What this does not close
 
 **Fragments.** Similarity is Jaccard over the whole file, so a small piece lifted

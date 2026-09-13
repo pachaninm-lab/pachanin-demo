@@ -36,10 +36,28 @@
     "conclusion": "Nothing lies between 0.067 and 0.93. The threshold could be moved anywhere in that range without changing a single result."
   },
   "falsification": [
-    { "planted": "pydantic/main.py (1838 lines) with every non-keyword identifier renamed", "detectedAs": "IDENTICAL_SHAPE", "score": 1.0, "note": "the exact copy the token screening did not detect" },
-    { "planted": "zod/src/v3/types.ts (5138 lines) with all 8813 identifiers renamed", "detectedAs": "IDENTICAL_SHAPE", "score": 1.0, "note": "the exact copy the token screening did not detect" },
-    { "planted": "the renamed Python copy with 7 of 38 top-level statements deleted and a new class and function added", "detectedAs": "SHAPE_JACCARD", "score": 0.932673 },
-    { "planted": "an earlier TypeScript probe whose rename produced invalid TypeScript", "detectedAs": "PROTECTED_FILES_NOT_PARSED:1", "note": "reported rather than scored; the no-silent-skip rule catching a real case on its first outing" }
+    {
+      "planted": "pydantic/main.py (1838 lines) with every non-keyword identifier renamed",
+      "detectedAs": "IDENTICAL_SHAPE",
+      "score": 1.0,
+      "note": "the exact copy the token screening did not detect"
+    },
+    {
+      "planted": "zod/src/v3/types.ts (5138 lines) with all 8813 identifiers renamed",
+      "detectedAs": "IDENTICAL_SHAPE",
+      "score": 1.0,
+      "note": "the exact copy the token screening did not detect"
+    },
+    {
+      "planted": "the renamed Python copy with 7 of 38 top-level statements deleted and a new class and function added",
+      "detectedAs": "SHAPE_JACCARD",
+      "score": 0.932673
+    },
+    {
+      "planted": "an earlier TypeScript probe whose rename produced invalid TypeScript",
+      "detectedAs": "PROTECTED_FILES_NOT_PARSED:1",
+      "note": "reported rather than scored; the no-silent-skip rule catching a real case on its first outing"
+    }
   ],
   "knownBlindSpots": [
     "Fragments. Similarity is Jaccard over the whole file, so a small piece lifted from a large one scores low. Measured: the renamed pydantic/main.py cut to 853 of its 6879 nodes scores 0.096. Both screenings detect whole-file derivatives; neither detects a copied function inside an otherwise original file.",
@@ -48,5 +66,30 @@
     "A shape match is evidence of structure, not proof of copying: two independent implementations of the same small pattern can share a shape. Nothing reached that point in this run."
   ],
   "establishes": "No file among the 532 compared is a copy of a dependency of this repository, including a copy whose identifiers were renamed, and none is a partial derivative of one above 0.75 shape similarity.",
-  "doesNotEstablish": "Anything about fragments, about the 128 files below the floor, about the 28 files with no parser, about a corpus outside our own dependencies, or about authorship, which is a separate claim with separate evidence."
+  "doesNotEstablish": "Anything about fragments, about the 128 files below the floor, about the 28 files with no parser, about a corpus outside our own dependencies, or about authorship, which is a separate claim with separate evidence.",
+  "wholeRepository": {
+    "why": "The core is where the crown jewels are, but it is not where borrowed code is likeliest to land: nobody reviews the application shell. Screening only the boundary and reporting the result as originality is the same coverage overstatement this programme already made once, with Python.",
+    "howToRun": "IP_STRUCTURAL_SCOPE=all-tracked",
+    "filesWithAParser": 3082,
+    "failedToParse": 0,
+    "comparable": 2310,
+    "belowFloor": 772,
+    "findings": 4,
+    "distinctFilesInFindings": 1,
+    "finding": {
+      "path": "apps/web/public/mockServiceWorker.js",
+      "method": "IDENTICAL_SHAPE",
+      "score": 1.0,
+      "matches": "msw@2.13.2 mockServiceWorker.js across four package resolutions",
+      "note": "The same file the repository-wide token screening independently identified. Two methods sharing no code, one answer, and it is the only third-party file either finds."
+    },
+    "calibration": {
+      "highestScoreAmongFirstPartyFiles": 0.391304,
+      "highestScoringFile": "apps/web/lib/platform-v7/lexicon.ts",
+      "medianTopScore": 0.0041,
+      "filesAbove0_2": 8,
+      "explanation": "Every file above 0.2 is a message dictionary, a lexicon or a barrel of re-exports. A dictionary and happy-dom's CSS property table are both one large nested object literal, so they share a shape for a reason that has nothing to do with either of them. This is the convergence the methodology predicts, seen rather than assumed.",
+      "conclusion": "The threshold is worth more here than in the core run: the empty band it sits in is 0.39 to 0.93, measured against real structural coincidence rather than against nothing."
+    }
+  }
 }
