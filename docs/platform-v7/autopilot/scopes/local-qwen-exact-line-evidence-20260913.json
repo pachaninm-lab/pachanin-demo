@@ -2,7 +2,7 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/local-qwen-evidence-binding-20260913",
   "status": "active",
-  "purpose": "Authorize a bounded Local Qwen provider hardening after exact-head semantic reviews of substantive PR #5349 produced blocking candidates that violated the already-pinned direct-evidence policy through unsupported external assumptions and speculative classifications. Strengthen deterministic admissibility so every non-empty finding is bound to an exact added new-side line and verbatim evidence from that line, while preserving model/runtime identity, review scope, fail-closed behavior and exact-head authority. Also authorize one narrowly-scoped fail-closed provider-maintenance bootstrap so the review provider can be repaired without fabricating an independent provider PASS for its own implementation, including the trusted review controller changes required to publish that bootstrap under a distinct non-provider classification.",
+  "purpose": "Authorize a bounded Local Qwen provider hardening after exact-head semantic reviews of substantive PR #5349 produced blocking candidates that violated the already-pinned direct-evidence policy through unsupported external assumptions and speculative classifications. Strengthen deterministic admissibility so every non-empty finding is bound to an exact added new-side line and verbatim evidence from that line, while preserving model/runtime identity, review scope, fail-closed behavior and exact-head authority. Also authorize one narrowly-scoped fail-closed provider-maintenance bootstrap so the review provider can be repaired without fabricating an independent provider PASS for its own implementation.",
   "authorityBaseExactMain": "b462ecf0be90fa630440217961fb850b29076303",
   "evidence": {
     "substantivePullRequest": 5349,
@@ -16,8 +16,7 @@
       "A blocking web finding classified bounded scalar normalization as potential information leakage without identifying any concrete leakage sink while the exact changed parser returns an explicit allowlisted public object.",
       "The deterministic validator rejected only a narrow hedge-word set in the reason field, so equivalent speculation in titles, noun/adjective forms and unsupported external-context assumptions could survive into blocking authority.",
       "The existing output contract did not require a finding to carry a verbatim evidence fragment that is mechanically bound to an exact added new-side line in the reviewed chunk.",
-      "The current exact-head verifier requires positive independent review authority for every PR, while the Local Qwen provider-maintenance PR cannot safely use the Local Qwen provider under repair as independent authority for itself; Octopus quota and Copilot availability are not an acceptable safety dependency or a reason to fabricate PASS.",
-      "The trusted review controller currently publishes a success description that names Codex whenever the verifier exits successfully. A provider-maintenance bootstrap must therefore update the controller together with the verifier so bootstrap success remains explicitly non-provider and cannot impersonate Codex, Qwen, Octopus or Copilot authority."
+      "The current exact-head verifier requires positive independent review authority for every PR, while the Local Qwen provider-maintenance PR cannot safely use the Local Qwen provider under repair as independent authority for itself; Octopus quota and Copilot availability are not an acceptable safety dependency or a reason to fabricate PASS."
     ]
   },
   "allowedPaths": [
@@ -27,7 +26,7 @@
     "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
   ],
   "requiredChange": {
-    "summary": "Strengthen deterministic Local Qwen finding admission without weakening review coverage. Build an exact new-side added-line index for every bounded review chunk; require every non-empty finding to cite path, exact new-side line and a verbatim evidence fragment from that line; reject line/evidence mismatches, speculative language in title or reason and unsupported deployment/topology assumptions; retain exactly one same-chunk repair pass and independently revalidate all evidence bindings during canonicalization. Add only the source-controlled provider-maintenance bootstrap defined below so this exact provider repair can pass the review gate without inventing an independent provider attestation for itself. The trusted review controller may be changed only as required to consume the explicit bootstrap classification and publish a non-provider review-gate result that does not claim any independent reviewer PASS.",
+    "summary": "Strengthen deterministic Local Qwen finding admission without weakening review coverage. Build an exact new-side added-line index for every bounded review chunk; require every non-empty finding to cite path, exact new-side line and a verbatim evidence fragment from that line; reject line/evidence mismatches, speculative language in title or reason and unsupported deployment/topology assumptions; retain exactly one same-chunk repair pass and independently revalidate all evidence bindings during canonicalization. Add only the source-controlled provider-maintenance bootstrap defined below so this exact provider repair can pass the review gate without inventing an independent provider attestation for itself.",
     "findingEvidenceContract": {
       "exactChangedPathRequired": true,
       "exactAddedNewSideLineRequired": true,
@@ -61,8 +60,7 @@
       "model response schema may add an evidence field required for exact-line binding",
       "deterministic validator and canonicalizer may be strengthened to enforce exact-line evidence and reject unsupported assumptions",
       "deterministic validator regression probes may be added",
-      "the exact-head verifier and its tests may add only the providerMaintenanceBootstrap contract below",
-      "the trusted review controller may be changed only to consume the verifier's explicit provider-maintenance classification and publish a distinct non-provider bootstrap result without naming any independent provider as having passed"
+      "the exact-head verifier and its tests may add only the providerMaintenanceBootstrap contract below"
     ]
   },
   "providerMaintenanceBootstrap": {
@@ -93,12 +91,10 @@
     "generatedProviderSuccessStatusForbidden": true,
     "productPullRequestsEligible": false,
     "authorityManifestSelfModificationByImplementationForbidden": true,
+    "reviewControllerBootstrapMustPrecedeProviderHardening": true,
+    "reviewControllerBootstrapMustUsePreBootstrapIndependentReview": true,
+    "reviewControllerBootstrapMayUseProviderMaintenanceBootstrap": false,
     "bootstrapStatusDescriptionMustNotNameIndependentProvider": true,
-    "orderedImplementationSlicesAllowed": [
-      "review-controller-bootstrap-support",
-      "provider-hardening"
-    ],
-    "eachSliceMustUseExactImplementationBranch": true,
     "onAnyMismatch": "FAIL_CLOSED",
     "resultClassification": "SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW"
   },
@@ -112,9 +108,7 @@
     "A clean findings=[] result remains model-authored; deterministic admission logic may reject invalid findings but cannot synthesize PASS from a rejected second candidate.",
     "Exact full-diff SHA-256, chunk SHA-256 values, review manifest hash, prompt bundle hash, canonical response hash, exact-head revalidation, provider status and the existing 18-line PASS attestation contract remain bound to the exact run.",
     "The provider-maintenance bootstrap is not independent review authority and must never publish, synthesize or impersonate a Local Qwen, Octopus, Codex or Copilot PASS. It is a distinct source-controlled governance classification usable only for the exact implementation branch named by a scope already merged on live main.",
-    "The review controller must publish bootstrap success only under the existing generic review-gate context with an explicitly non-provider description; it must not describe bootstrap success as Codex, Qwen, Octopus or Copilot review PASS and must not create a provider success status.",
     "The provider-maintenance bootstrap is ineligible for substantive or product PRs, including #5349, and is fail-closed unless the implementation changes only the exact allowed paths, is forward-synchronized to live main containing this authority, has exact-head owner self-audit, has all other required checks terminal green, has zero unresolved review threads and zero active CHANGES_REQUESTED, and live main equals the implementation base immediately before merge.",
-    "The implementation may be delivered only as the ordered narrow slices review-controller-bootstrap-support followed by provider-hardening, both on the exact authorized implementation branch; the first slice must receive genuine independent exact-head review under the pre-existing verifier and cannot use the bootstrap it introduces.",
     "After the provider repair merges, substantive PR #5349 must synchronize forward-only to exact current main and obtain a completely fresh Local Qwen exact-head review under the strengthened provider; no pre-repair review evidence transfers and the bootstrap cannot authorize #5349.",
     "No product, API, database, RBAC, registration, cabinet, customer-data, dependency, lockfile or production runtime behavior change is authorized by this scope.",
     "No merge gate, CI threshold, provider identity or fail-closed condition may be weakened or bypassed outside the exact providerMaintenanceBootstrap contract.",
@@ -123,9 +117,8 @@
   "admission": [
     "Authority PR changes exactly this manifest path.",
     "Authority PR itself receives genuine independent exact-head review authority under the pre-existing verifier and cannot use providerMaintenanceBootstrap.",
-    "The first implementation slice review-controller-bootstrap-support changes only the trusted review controller, verifier and verifier tests from providerMaintenanceBootstrap.allowedImplementationPaths, receives genuine independent exact-head review under the pre-existing verifier, and cannot use providerMaintenanceBootstrap.",
-    "The second implementation slice provider-hardening changes only providerMaintenanceBootstrap.allowedImplementationPaths and cannot modify its own authority manifest.",
-    "Each implementation slice is forward-synchronized to live main containing this authority manifest and therefore proves the authority came from merged live main rather than its own branch.",
+    "Implementation PR changes only providerMaintenanceBootstrap.allowedImplementationPaths and cannot modify its own authority manifest.",
+    "Implementation PR is forward-synchronized to live main after this authority manifest is merged and therefore proves the authority came from merged live main rather than its own branch.",
     "Applicable ordinary exact-head CI/security/runtime gates are terminal green before each merge.",
     "Owner exact-head self-audit is present on each authority/provider-maintenance exact head and does not substitute for the fresh #5349 Local Qwen review after provider repair.",
     "Unresolved review threads and active CHANGES_REQUESTED are zero.",
