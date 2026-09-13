@@ -33,6 +33,7 @@ export const LOCAL_QWEN_MAX_CHUNKS = 96;
 export const INDEPENDENT_REVIEW_CLASSIFICATION = 'INDEPENDENT_EXACT_HEAD_REVIEW';
 export const PROVIDER_MAINTENANCE_BOOTSTRAP_CLASSIFICATION = 'SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW';
 export const PROVIDER_MAINTENANCE_BOOTSTRAP_MANIFEST_PATH = 'docs/platform-v7/autopilot/scopes/local-qwen-exact-line-evidence-20260913.json';
+export const REVIEW_GATE_RESULT_SCHEMA = 'platform-v7.review-gate-result.v1';
 
 const PROVIDER_MAINTENANCE_VERIFIER_PATH = 'docs/platform-v7/autopilot/verify-pr-review-gate.mjs';
 const PROVIDER_MAINTENANCE_VERIFIER_TEST_PATH = 'docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs';
@@ -41,6 +42,37 @@ const PROVIDER_MAINTENANCE_ALLOWED_PATHS = [
   PROVIDER_MAINTENANCE_VERIFIER_PATH,
   PROVIDER_MAINTENANCE_VERIFIER_TEST_PATH,
 ];
+const PROVIDER_MAINTENANCE_AUTHORITY_MAX_BYTES = 65536;
+const PROVIDER_MAINTENANCE_BOOTSTRAP_KEYS = [
+  'activeChangesRequestedRequired',
+  'allOtherRequiredChecksTerminalGreen',
+  'allowedImplementationPaths',
+  'authorityManifestPath',
+  'authorityManifestSelfModificationByImplementationForbidden',
+  'authorityMustBeAncestorOfImplementationHead',
+  'authoritySource',
+  'enabled',
+  'generatedIndependentProviderPassForbidden',
+  'generatedProviderSuccessStatusForbidden',
+  'implementationBranch',
+  'implementationMustBeForwardSynchronizedToLiveMain',
+  'liveMainMustEqualImplementationBaseBeforeMerge',
+  'onAnyMismatch',
+  'ownerExactHeadSelfAuditRequired',
+  'productPullRequestsEligible',
+  'providerStatusContext',
+  'providerWorkflowPath',
+  'resultClassification',
+  'unresolvedReviewThreadsRequired',
+  'verifierPath',
+  'verifierTestPath',
+];
+const INDEPENDENT_REVIEW_AUTHORITIES = new Set([
+  'CODEX',
+  'GITHUB_COPILOT',
+  'OCTOPUS',
+  'LOCAL_QWEN',
+]);
 
 const COMPLETED_REVIEW_STATES = new Set([
   'APPROVED',
@@ -105,6 +137,11 @@ function normalizeLogin(review) {
   return String(review?.user?.login || review?.author?.login || '').trim();
 }
 
+export function canonicalSha40(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return /^[0-9a-f]{40}$/u.test(normalized) ? normalized : '';
+}
+
 export function isGitHubRepositorySlug(repo) {
   const repository = String(repo || '').trim();
   const match = repository.match(/^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/u);
@@ -113,10 +150,11 @@ export function isGitHubRepositorySlug(repo) {
 }
 
 function exactHeadReviewsByLogins(reviews, headSha, allowedLogins) {
-  const expected = String(headSha || '').trim();
+  const expected = canonicalSha40(headSha);
+  if (!expected) return [];
   return (reviews || []).filter((review) => {
     const login = normalizeLogin(review);
-    const commitId = String(review?.commit_id || review?.commitId || '').trim();
+    const commitId = canonicalSha40(review?.commit_id || review?.commitId);
     const state = String(review?.state || '').toUpperCase();
     return allowedLogins.has(login) && commitId === expected && COMPLETED_REVIEW_STATES.has(state);
   });
@@ -143,10 +181,10 @@ export function positiveExactHeadCopilotReviews(reviews, headSha) {
 }
 
 function parseOctopusAttestation(review, headSha) {
-  const expected = String(headSha || '').trim();
-  if (!/^[0-9a-f]{40}$/u.test(expected)) return null;
+  const expected = canonicalSha40(headSha);
+  if (!expected) return null;
   if (normalizeLogin(review) !== OCTOPUS_REVIEW_LOGIN) return null;
-  const commitId = String(review?.commit_id || review?.commitId || '').trim();
+  const commitId = canonicalSha40(review?.commit_id || review?.commitId);
   if (commitId !== expected) return null;
   const state = String(review?.state || '').toUpperCase();
   if (!POSITIVE_OCTOPUS_REVIEW_STATES.has(state)) return null;
@@ -166,10 +204,10 @@ function parseOctopusAttestation(review, headSha) {
 }
 
 function parseLocalQwenAttestation(review, headSha) {
-  const expected = String(headSha || '').trim();
-  if (!/^[0-9a-f]{40}$/u.test(expected)) return null;
+  const expected = canonicalSha40(headSha);
+  if (!expected) return null;
   if (normalizeLogin(review) !== LOCAL_QWEN_REVIEW_LOGIN) return null;
-  const commitId = String(review?.commit_id || review?.commitId || '').trim();
+  const commitId = canonicalSha40(review?.commit_id || review?.commitId);
   if (commitId !== expected) return null;
   const state = String(review?.state || '').toUpperCase();
   if (!POSITIVE_LOCAL_QWEN_REVIEW_STATES.has(state)) return null;
@@ -279,11 +317,11 @@ export function positiveExactHeadLocalQwenAttestations(reviews, statuses, headSh
 
 export function localQwenAttestationMatchesWorkflowRun(attestation, run, repo, prNumber, headSha) {
   const repository = String(repo || '').trim();
-  const expectedHead = String(headSha || '').trim();
+  const expectedHead = canonicalSha40(headSha);
   const expectedPr = Number(prNumber || 0);
   if (!attestation || !run) return false;
   if (!isGitHubRepositorySlug(repository)) return false;
-  if (!/^[0-9a-f]{40}$/u.test(expectedHead)) return false;
+  if (!expectedHead) return false;
   if (!Number.isInteger(expectedPr) || expectedPr <= 0) return false;
   const attestedRunId = String(attestation?.runId || '').trim();
   if (!/^[1-9][0-9]{0,19}$/u.test(attestedRunId)) return false;
@@ -294,12 +332,12 @@ export function localQwenAttestationMatchesWorkflowRun(attestation, run, repo, p
   if (String(run?.status || '').trim() !== 'completed') return false;
   if (String(run?.conclusion || '').trim() !== 'success') return false;
   if (String(run?.repository?.full_name || '').trim() !== repository) return false;
-  if (String(run?.head_sha || '').trim() !== expectedHead) return false;
+  if (canonicalSha40(run?.head_sha) !== expectedHead) return false;
 
   const runPrs = Array.isArray(run?.pull_requests) ? run.pull_requests : [];
   return runPrs.some((runPr) => (
     Number(runPr?.number) === expectedPr
-    && String(runPr?.head?.sha || '').trim() === expectedHead
+    && canonicalSha40(runPr?.head?.sha) === expectedHead
     && Number(runPr?.head?.repo?.id || 0) === Number(run?.repository?.id || 0)
   ));
 }
@@ -329,11 +367,11 @@ export function positiveExactHeadOctopusAttestations(reviews, statuses, headSha,
 
 export function octopusAttestationMatchesWorkflowRun(attestation, run, repo, prNumber, headSha) {
   const repository = String(repo || '').trim();
-  const expectedHead = String(headSha || '').trim();
+  const expectedHead = canonicalSha40(headSha);
   const expectedPr = Number(prNumber || 0);
   if (!attestation || !run) return false;
   if (!isGitHubRepositorySlug(repository)) return false;
-  if (!/^[0-9a-f]{40}$/u.test(expectedHead)) return false;
+  if (!expectedHead) return false;
   if (!Number.isInteger(expectedPr) || expectedPr <= 0) return false;
   const attestedRunId = String(attestation?.runId || '').trim();
   if (!/^[1-9][0-9]{0,19}$/u.test(attestedRunId)) return false;
@@ -344,12 +382,12 @@ export function octopusAttestationMatchesWorkflowRun(attestation, run, repo, prN
   if (String(run?.status || '').trim() !== 'completed') return false;
   if (String(run?.conclusion || '').trim() !== 'success') return false;
   if (String(run?.repository?.full_name || '').trim() !== repository) return false;
-  if (String(run?.head_sha || '').trim() !== expectedHead) return false;
+  if (canonicalSha40(run?.head_sha) !== expectedHead) return false;
 
   const runPrs = Array.isArray(run?.pull_requests) ? run.pull_requests : [];
   return runPrs.some((runPr) => (
     Number(runPr?.number) === expectedPr
-    && String(runPr?.head?.sha || '').trim() === expectedHead
+    && canonicalSha40(runPr?.head?.sha) === expectedHead
     && Number(runPr?.head?.repo?.id || 0) === Number(run?.repository?.id || 0)
   ));
 }
@@ -369,8 +407,8 @@ export function cleanCodexReviewPrefixes(comments) {
 
 export function exactHeadOwnerSelfAudits(comments, ownerLogin, headSha) {
   const owner = String(ownerLogin || '').trim();
-  const expected = String(headSha || '').trim();
-  if (!owner || !/^[0-9a-f]{40}$/u.test(expected)) return [];
+  const expected = canonicalSha40(headSha);
+  if (!owner || !expected) return [];
 
   return (comments || []).filter((comment) => {
     if (normalizeLogin(comment) !== owner) return false;
@@ -412,10 +450,10 @@ export function latestBlockingChangeRequests(reviews) {
 }
 
 export function exactHeadProviderBlockingEvidence(reviews, headSha) {
-  const expected = String(headSha || '').trim();
-  if (!/^[0-9a-f]{40}$/u.test(expected)) return [];
+  const expected = canonicalSha40(headSha);
+  if (!expected) return [];
   return (reviews || []).filter((review) => {
-    const commitId = String(review?.commit_id || review?.commitId || '').trim();
+    const commitId = canonicalSha40(review?.commit_id || review?.commitId);
     if (commitId !== expected) return false;
     const body = String(review?.body || '').trim();
     return /^LOCAL QWEN INDEPENDENT REVIEW: BLOCK(?:\n|$)/u.test(body)
@@ -437,18 +475,19 @@ export function isIgnoredMergeGateCheck(check) {
   return IGNORED_CHECK_NAMES.has(name) || IGNORED_CHECK_WORKFLOWS.has(workflow);
 }
 
-export function substantiveChecks(checks) {
-  return (checks || []).filter((check) => !isIgnoredMergeGateCheck(check));
-}
-
-function isProviderReviewCheck(check) {
+export function isProviderReviewCheck(check) {
   const name = checkName(check);
   const workflow = checkWorkflow(check);
   return PROVIDER_REVIEW_CHECK_NAMES.has(name) || PROVIDER_REVIEW_WORKFLOWS.has(workflow);
 }
 
+export function substantiveChecks(checks) {
+  return (checks || []).filter((check) => !isIgnoredMergeGateCheck(check));
+}
+
 export function providerMaintenanceBootstrapSubstantiveChecks(checks) {
-  return substantiveChecks(checks).filter((check) => !isProviderReviewCheck(check));
+  const observed = substantiveChecks(checks);
+  return observed.filter((check) => !isProviderReviewCheck(check));
 }
 
 function blockersForChecks(checks) {
@@ -480,9 +519,9 @@ export function providerMaintenanceBootstrapCheckRollupBlockers(checks) {
 }
 
 export function ciSnapshotMatchesHead(snapshotHeadSha, expectedHeadSha) {
-  const snapshot = String(snapshotHeadSha || '').trim();
-  const expected = String(expectedHeadSha || '').trim();
-  return /^[0-9a-f]{40}$/u.test(snapshot) && snapshot === expected;
+  const snapshot = canonicalSha40(snapshotHeadSha);
+  const expected = canonicalSha40(expectedHeadSha);
+  return Boolean(snapshot && expected && snapshot === expected);
 }
 
 export function reviewGatePrState(pr) {
@@ -502,6 +541,7 @@ export function validateProviderMaintenanceBootstrapAuthority(manifest) {
   if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) return null;
   const bootstrap = manifest.providerMaintenanceBootstrap;
   if (!bootstrap || typeof bootstrap !== 'object' || Array.isArray(bootstrap)) return null;
+  if (!sameStringSet(Object.keys(bootstrap), PROVIDER_MAINTENANCE_BOOTSTRAP_KEYS)) return null;
   if (manifest.schemaVersion !== 'platform-v7.concurrent-scope.v1') return null;
   if (manifest.status !== 'active') return null;
   if (manifest.branch !== 'fix/local-qwen-evidence-binding-20260913') return null;
@@ -527,16 +567,74 @@ export function validateProviderMaintenanceBootstrapAuthority(manifest) {
   if (bootstrap.authorityManifestSelfModificationByImplementationForbidden !== true) return null;
   if (bootstrap.onAnyMismatch !== 'FAIL_CLOSED') return null;
   if (bootstrap.resultClassification !== PROVIDER_MAINTENANCE_BOOTSTRAP_CLASSIFICATION) return null;
-  return bootstrap;
+
+  return Object.freeze({
+    implementationBranch: bootstrap.implementationBranch,
+    allowedImplementationPaths: Object.freeze([...bootstrap.allowedImplementationPaths]),
+    resultClassification: bootstrap.resultClassification,
+  });
+}
+
+export function parseProviderMaintenanceBootstrapAuthority(raw) {
+  if (typeof raw !== 'string') return null;
+  if (raw.includes('\u0000')) return null;
+  if (Buffer.byteLength(raw, 'utf8') > PROVIDER_MAINTENANCE_AUTHORITY_MAX_BYTES) return null;
+  try {
+    return validateProviderMaintenanceBootstrapAuthority(JSON.parse(raw));
+  } catch {
+    return null;
+  }
 }
 
 function loadProviderMaintenanceBootstrapAuthority() {
   try {
     const raw = readFileSync(resolve(PROVIDER_MAINTENANCE_BOOTSTRAP_MANIFEST_PATH), 'utf8');
-    return validateProviderMaintenanceBootstrapAuthority(JSON.parse(raw));
+    return parseProviderMaintenanceBootstrapAuthority(raw);
   } catch {
     return null;
   }
+}
+
+export function selectReviewGateDecision(authorities, bootstrapEligible = false) {
+  const ordered = [
+    ['CODEX', Boolean(authorities?.codex)],
+    ['GITHUB_COPILOT', Boolean(authorities?.copilot)],
+    ['OCTOPUS', Boolean(authorities?.octopus)],
+    ['LOCAL_QWEN', Boolean(authorities?.localQwen)],
+  ];
+  const provider = ordered.find(([, present]) => present)?.[0] || '';
+  if (provider) {
+    return Object.freeze({
+      classification: INDEPENDENT_REVIEW_CLASSIFICATION,
+      reviewAuthority: provider,
+    });
+  }
+  if (bootstrapEligible === true) {
+    return Object.freeze({
+      classification: PROVIDER_MAINTENANCE_BOOTSTRAP_CLASSIFICATION,
+      reviewAuthority: 'NONE',
+    });
+  }
+  return null;
+}
+
+export function reviewGateResultContract(headSha, decision) {
+  const head = canonicalSha40(headSha);
+  if (!head || !decision || typeof decision !== 'object' || Array.isArray(decision)) return null;
+  const classification = String(decision.classification || '');
+  const reviewAuthority = String(decision.reviewAuthority || '');
+  const bootstrapPair = classification === PROVIDER_MAINTENANCE_BOOTSTRAP_CLASSIFICATION
+    && reviewAuthority === 'NONE';
+  const independentPair = classification === INDEPENDENT_REVIEW_CLASSIFICATION
+    && INDEPENDENT_REVIEW_AUTHORITIES.has(reviewAuthority);
+  if (!bootstrapPair && !independentPair) return null;
+  return Object.freeze({
+    schemaVersion: REVIEW_GATE_RESULT_SCHEMA,
+    status: 'PASS',
+    head,
+    classification,
+    reviewAuthority,
+  });
 }
 
 function runGh(args) {
@@ -634,8 +732,8 @@ function resolveCommitSha(repo, ref) {
   const prefix = String(ref || '').trim();
   if (!/^[0-9a-f]{10,40}$/u.test(prefix)) return '';
   const commit = ghJson(['api', `repos/${repo}/commits/${prefix}`]);
-  const sha = String(commit?.sha || '').trim();
-  return /^[0-9a-f]{40}$/u.test(sha) && sha.startsWith(prefix) ? sha : '';
+  const sha = canonicalSha40(commit?.sha);
+  return sha && sha.startsWith(prefix) ? sha : '';
 }
 
 function fetchAllReviewThreads(repo, prNumber) {
@@ -695,20 +793,19 @@ function fetchCheckSnapshot(repo, prNumber) {
   ]);
 
   return {
-    headSha: String(value?.headRefOid || '').trim(),
+    headSha: canonicalSha40(value?.headRefOid),
     checks: Array.isArray(value?.statusCheckRollup) ? value.statusCheckRollup : [],
   };
 }
 
 function fetchLivePrHead(repo, prNumber) {
   const pr = ghJson(['api', `repos/${repo}/pulls/${prNumber}`]);
-  return String(pr?.head?.sha || '').trim();
+  return canonicalSha40(pr?.head?.sha);
 }
 
 function fetchLiveMainSha(repo) {
   const branch = ghJson(['api', `repos/${repo}/branches/main`]);
-  const sha = String(branch?.commit?.sha || '').trim();
-  return /^[0-9a-f]{40}$/u.test(sha) ? sha : '';
+  return canonicalSha40(branch?.commit?.sha);
 }
 
 function trustedCheckoutSha() {
@@ -717,13 +814,19 @@ function trustedCheckoutSha() {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     }).trim();
-    return /^[0-9a-f]{40}$/u.test(sha) ? sha : '';
+    return canonicalSha40(sha);
   } catch {
     return '';
   }
 }
 
 function providerMaintenanceBootstrapDecision(repo, pr, headSha, reviews) {
+  const liveMainSha = fetchLiveMainSha(repo);
+  if (!liveMainSha) return { eligible: false, reason: 'live-main-unavailable' };
+  if (trustedCheckoutSha() !== liveMainSha) {
+    return { eligible: false, reason: 'trusted-main-moved' };
+  }
+
   const bootstrap = loadProviderMaintenanceBootstrapAuthority();
   if (!bootstrap) return { eligible: false, reason: 'authority-invalid' };
   if (String(pr?.head?.ref || '') !== bootstrap.implementationBranch) {
@@ -739,12 +842,6 @@ function providerMaintenanceBootstrapDecision(repo, pr, headSha, reviews) {
     return { eligible: false, reason: 'explicit-provider-block' };
   }
 
-  const liveMainSha = fetchLiveMainSha(repo);
-  if (!liveMainSha) return { eligible: false, reason: 'live-main-unavailable' };
-  if (trustedCheckoutSha() !== liveMainSha) {
-    return { eligible: false, reason: 'trusted-main-moved' };
-  }
-
   let comparison;
   try {
     comparison = ghJson(['api', `repos/${repo}/compare/${liveMainSha}...${headSha}`]);
@@ -757,7 +854,7 @@ function providerMaintenanceBootstrapDecision(repo, pr, headSha, reviews) {
   if (Number(comparison.behind_by) !== 0 || Number(comparison.ahead_by) < 1) {
     return { eligible: false, reason: 'main-synchronization-mismatch' };
   }
-  if (String(comparison?.merge_base_commit?.sha || '') !== liveMainSha) {
+  if (canonicalSha40(comparison?.merge_base_commit?.sha) !== liveMainSha) {
     return { eligible: false, reason: 'authority-not-live-main-ancestor' };
   }
   const files = Array.isArray(comparison.files) ? comparison.files : [];
@@ -810,7 +907,7 @@ function fail(code, message) {
 function main() {
   const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || '';
   const prNumber = Number(process.env.PR_NUMBER || 0);
-  const expectedHead = String(process.env.HEAD_SHA || '').trim();
+  const expectedHead = canonicalSha40(process.env.HEAD_SHA || '');
   const requireGreenCi = process.env.REQUIRE_GREEN_CI === '1';
 
   if (!repo) fail('REVIEW_GATE_REPO_MISSING', 'REPO/GITHUB_REPOSITORY is required.');
@@ -834,8 +931,11 @@ function main() {
     fail('REVIEW_GATE_DRAFT', `Draft PR #${prNumber} cannot satisfy exact-head review authority.`);
   }
 
-  const headSha = String(pr?.head?.sha || '').trim();
-  if (!/^[0-9a-f]{40}$/u.test(headSha)) fail('REVIEW_GATE_HEAD_INVALID', `Invalid PR head SHA for #${prNumber}.`);
+  const headSha = canonicalSha40(pr?.head?.sha);
+  if (!headSha) fail('REVIEW_GATE_HEAD_INVALID', `Invalid PR head SHA for #${prNumber}.`);
+  if (process.env.HEAD_SHA && !expectedHead) {
+    fail('REVIEW_GATE_EXPECTED_HEAD_INVALID', 'HEAD_SHA must be a 40-character hexadecimal commit ID.');
+  }
   if (expectedHead && expectedHead !== headSha) {
     fail('REVIEW_GATE_HEAD_MOVED', `Expected ${expectedHead}, current head is ${headSha}.`);
   }
@@ -890,10 +990,16 @@ function main() {
     }
   });
   const localQwenAuthority = workflowBoundLocalQwenAttestations.length > 0;
-  const independentAuthority = codexAuthority || copilotAuthority || octopusAuthority || localQwenAuthority;
+  const authorities = {
+    codex: codexAuthority,
+    copilot: copilotAuthority,
+    octopus: octopusAuthority,
+    localQwen: localQwenAuthority,
+  };
 
+  let authorityDecision = selectReviewGateDecision(authorities, false);
   let bootstrap = { eligible: false, reason: 'independent-authority-present', ciChecks: 0 };
-  if (!independentAuthority) {
+  if (!authorityDecision) {
     bootstrap = providerMaintenanceBootstrapDecision(repo, pr, headSha, reviews);
     if (!bootstrap.eligible) {
       fail(
@@ -906,6 +1012,10 @@ function main() {
           + '.',
       );
     }
+    authorityDecision = selectReviewGateDecision(authorities, true);
+  }
+  if (!authorityDecision) {
+    fail('REVIEW_GATE_AUTHORITY_DECISION_INVALID', 'Unable to produce a fail-closed review authority decision.');
   }
 
   const ownerSelfAudits = exactHeadOwnerSelfAudits(comments, ownerLogin, headSha);
@@ -970,23 +1080,16 @@ function main() {
     );
   }
 
-  const reviewAuthority = bootstrap.eligible
-    ? 'NONE'
-    : codexAuthority
-      ? 'CODEX'
-      : copilotAuthority
-        ? 'GITHUB_COPILOT'
-        : octopusAuthority
-          ? 'OCTOPUS'
-          : 'LOCAL_QWEN';
-  const reviewClassification = bootstrap.eligible
-    ? PROVIDER_MAINTENANCE_BOOTSTRAP_CLASSIFICATION
-    : INDEPENDENT_REVIEW_CLASSIFICATION;
+  const resultContract = reviewGateResultContract(headSha, authorityDecision);
+  if (!resultContract) {
+    fail('REVIEW_GATE_RESULT_INVALID', 'Review authority/classification pair is inconsistent.');
+  }
+  console.log(`PR_REVIEW_GATE_RESULT=${JSON.stringify(resultContract)}`);
   console.log(
     'PR_REVIEW_GATE=PASS pr=' + prNumber
       + ' head=' + headSha
-      + ' reviewClassification=' + reviewClassification
-      + ' reviewAuthority=' + reviewAuthority
+      + ' reviewClassification=' + resultContract.classification
+      + ' reviewAuthority=' + resultContract.reviewAuthority
       + ' codexApprovals=' + positiveCodexReviews.length
       + ' codexExactHeadCleanComments=' + exactCleanCodexComments
       + ' copilotExactHeadReviews=' + positiveCopilotReviews.length
