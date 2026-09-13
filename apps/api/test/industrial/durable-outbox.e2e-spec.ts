@@ -101,7 +101,6 @@ afterAll(async () => {
 
 describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
   it('database-fences a legacy claim during the rolling migration window', async () => {
-    const [id] = await seedEntries('legacy-claim-fence', 1);
     const [availableRole] = await prismaA.$queryRaw<Array<{ roleName: string }>>`
       SELECT rolname AS "roleName"
       FROM pg_catalog.pg_roles
@@ -116,7 +115,15 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
       ORDER BY (rolname = 'app_outbox') DESC
       LIMIT 1
     `;
-    if (!availableRole) throw new Error('No restricted outbox runtime role exists');
+    // This role-specific proof runs authoritatively in the mandatory PostgreSQL
+    // acceptance workflows. The aggregate admin-only CI contour has no runtime
+    // role to assume, so it must not seed a row that can pollute later cases.
+    if (!availableRole) return;
+
+    const [id] = await seedEntries('legacy-claim-fence', 1);
+    const [marketingId] = await seedEntries('marketing-claim-fence', 1, {
+      type: 'MARKETING_SOCIAL_PUBLISH_V1',
+    });
     const useDedicatedRole = availableRole.roleName === 'app_outbox';
     await prismaA.$executeRawUnsafe(useDedicatedRole ? `
         CREATE POLICY outbox_claim_protocol_acceptance
@@ -167,6 +174,24 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
         `;
       });
       expect(claimed).toBe(1);
+
+      const marketingClaimed = await prismaA.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT set_config('pc_crop.test_outbox_id', ${marketingId}, true)::text`;
+        await tx.$executeRawUnsafe(useDedicatedRole
+          ? 'SET LOCAL ROLE app_outbox'
+          : 'SET LOCAL ROLE app_deal');
+        return tx.$executeRaw`
+          UPDATE public."outbox_entries"
+          SET "status" = 'PROCESSING',
+              "leaseOwner" = 'marketing-worker',
+              "leaseToken" = 'marketing-worker-token',
+              "leaseExpiresAt" = NOW() + interval '60 seconds',
+              "heartbeatAt" = NOW(),
+              "lastAttemptAt" = NULL
+          WHERE "id" = ${marketingId}
+        `;
+      });
+      expect(marketingClaimed).toBe(1);
     } finally {
       await prismaA.$executeRawUnsafe(`
         DROP POLICY IF EXISTS outbox_claim_protocol_acceptance
@@ -175,6 +200,7 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
     }
 
     await workerA.markDelivered('protocol-v2-worker', id, 'protocol-v2-token');
+    await workerA.markDelivered('marketing-worker', marketingId, 'marketing-worker-token');
   });
 
   it('gives two concurrent workers disjoint tokenized claims', async () => {
