@@ -104,7 +104,7 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
     const [id] = await seedEntries('legacy-claim-fence', 1);
 
     await expect(prismaA.$transaction(async (tx) => {
-      await tx.$executeRawUnsafe('SET LOCAL ROLE app_outbox');
+      await tx.$executeRawUnsafe('SET LOCAL ROLE app_deal');
       await tx.$executeRaw`
         UPDATE public."outbox_entries"
         SET "status" = 'PROCESSING',
@@ -117,7 +117,7 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
     })).rejects.toThrow(/legacy outbox claim protocol is fenced/);
 
     const claimed = await prismaA.$transaction(async (tx) => {
-      await tx.$executeRawUnsafe('SET LOCAL ROLE app_outbox');
+      await tx.$executeRawUnsafe('SET LOCAL ROLE app_deal');
       await tx.$executeRawUnsafe("SET LOCAL pc_crop.outbox_claim_protocol = '2'");
       return tx.$executeRaw`
         UPDATE public."outbox_entries"
