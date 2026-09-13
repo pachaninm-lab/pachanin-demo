@@ -28,22 +28,23 @@ describe('public market PostgreSQL authority', () => {
     ]) expect(migration).toContain(predicate);
   });
 
-  it('keeps identity and contact-bearing fields outside the return contract', () => {
+  it('keeps canonical identifiers, identity and contact-bearing fields outside the return contract', () => {
     const returns = migration.slice(
       migration.indexOf('RETURNS TABLE ('),
       migration.indexOf('LANGUAGE sql'),
     );
-    expect(returns).not.toMatch(/tenant|seller|address|contact|source_external|certificate|user_id|organization/i);
-    expect(returns).toContain('lot_id text');
+    expect(returns).not.toMatch(/lot_id|\bid\b|tenant|seller|address|contact|source_external|certificate|user_id|organization/i);
     expect(returns).toContain('culture text');
     expect(returns).toContain('region text');
-    expect(migration).toContain("lot.culture !~* '(@|https?://");
-    expect(migration).toContain("lot.region !~* '(@|https?://");
+    expect(migration).toContain("lot.culture !~* '(@|https?://|www[.]|t[.]me|");
+    expect(migration).toContain("lot.region !~* '(@|https?://|www[.]|t[.]me|");
+    expect(migration).not.toMatch(/GRANT SELECT \(\s*id,/u);
   });
 
   it('exposes the projection through a dedicated public service rather than reviving legacy LotsService', () => {
     expect(service).toContain('FROM market.list_public_lots(12)');
     expect(service).toContain("visibility: 'ANONYMIZED'");
+    expect(service).not.toContain('lotId');
     expect(service).not.toContain('LotsService');
     expect(controller).toMatch(/@Public\(\)\s+@Get\('market'\)/);
     expect(controller).toContain('return this.publicMarket.list();');
