@@ -7,6 +7,7 @@ import { Public } from '../../common/decorators/public.decorator';
 import type { RequestUser } from '../../common/types/request-user';
 import { AuctionAuthorityService } from '../auctions/auction-authority.service';
 import { LotsService } from './lots.service';
+import { PublicMarketService } from './public-market.service';
 import { CreateLotDto } from './dto/create-lot.dto';
 
 @UseGuards(RolesGuard)
@@ -16,12 +17,19 @@ export class LotsController {
   constructor(
     private readonly lots: LotsService,
     private readonly auctionAuthority: AuctionAuthorityService,
+    private readonly publicMarket: PublicMarketService,
   ) {}
 
   @Public()
   @Get()
   list(@CurrentUser() user?: any) {
     return this.lots.list(user);
+  }
+
+  @Public()
+  @Get('market')
+  market() {
+    return this.publicMarket.list();
   }
 
   @Public({ envFlag: 'ENABLE_PUBLIC_LOT_REPORTS' })
