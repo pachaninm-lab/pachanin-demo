@@ -117,3 +117,27 @@ test('the Python shape emitter reports a file it cannot parse instead of droppin
   assert.equal(record.path, '/definitely/not/here.py');
   assert.equal(record.error, 'FileNotFoundError');
 });
+
+/**
+ * The scope switch is refused rather than silently defaulted.
+ *
+ * A typo in IP_STRUCTURAL_SCOPE that fell back to 'core' would produce a clean
+ * run over the boundary and a record claiming the whole repository - the
+ * coverage overstatement this programme already made once, in a new costume.
+ */
+test('an unrecognised scope is refused, not silently narrowed', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { fileURLToPath: toPath } = await import('node:url');
+  const script = toPath(new URL('./build-structural-similarity-evidence.mjs', import.meta.url));
+  assert.throws(
+    () => execFileSync('node', [script], { env: { ...process.env, IP_STRUCTURAL_SCOPE: 'everything' }, stdio: 'pipe' }),
+    (error) => String(error.stderr).includes("IP_STRUCTURAL_SCOPE must be 'core' or 'all-tracked'"),
+  );
+});
+
+test('the two valid scopes are accepted', async () => {
+  const source = await import('node:fs').then((fs) => fs.readFileSync(fileURLToPath(new URL('./build-structural-similarity-evidence.mjs', import.meta.url)), 'utf8'));
+  assert.match(source, /\['core', 'all-tracked'\]\.includes\(scope\)/u);
+  assert.match(source, /scope === 'all-tracked' \? \[\] : protectedRoots/u,
+    'all-tracked must widen the pathspec to everything, not merely rename the core run');
+});

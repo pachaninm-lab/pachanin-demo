@@ -41,6 +41,20 @@ const corpusInput = String(process.env.IP_SIMILARITY_CORPUS ?? '').trim();
  *  requires-python >= 3.12 and an older interpreter rejects its files as syntax
  *  errors rather than reading them. */
 const pythonOverride = String(process.env.IP_PYTHON ?? '').trim();
+/**
+ * Which of our files to screen. 'core' is the protected boundary - 660 files with
+ * a parser, of which 532 are large enough to compare. 'all-tracked' is every
+ * tracked file in a language we can parse, which is roughly seven times as many.
+ *
+ * The core is where the crown jewels are, but it is not where borrowed code is
+ * likeliest to land: nobody reviews the application shell. Screening only the
+ * boundary and reporting the result as "the code is original" is the same
+ * coverage overstatement this programme already made once with Python.
+ */
+const scope = String(process.env.IP_STRUCTURAL_SCOPE ?? 'core').trim().toLowerCase();
+if (!['core', 'all-tracked'].includes(scope)) {
+  throw new Error(`IP_STRUCTURAL_SCOPE must be 'core' or 'all-tracked', got ${JSON.stringify(scope)}`);
+}
 
 /**
  * A shape below this many nodes is not evidence of anything. The number is not
@@ -195,8 +209,9 @@ function main() {
   mkdirSync(outDir, { recursive: true });
   const boundary = JSON.parse(readFileSync('docs/ip/proprietary-core-boundary.json', 'utf8'));
   const protectedRoots = (boundary.protectedRoots ?? []).map((entry) => entry.path);
+  const pathspec = scope === 'all-tracked' ? [] : protectedRoots;
 
-  const protectedPaths = git(['ls-files', '-z', '--', ...protectedRoots])
+  const protectedPaths = git(['ls-files', '-z', '--', ...pathspec])
     .split('\0')
     .filter(Boolean)
     .filter((path) => !excludedPath.test(path))
@@ -367,6 +382,7 @@ function main() {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
     status,
+    scope,
     networkUsed: false,
     pythonInterpreter: interpreterVersion,
     protectedFiles: protectedPaths.length,
@@ -390,7 +406,7 @@ function main() {
   };
   writeFileSync(join(outDir, 'structural-summary.json'), `${JSON.stringify(summary, null, 2)}\n`);
   console.log(JSON.stringify({
-    status, protectedFiles: summary.protectedFiles, protectedComparable: summary.protectedComparable,
+    status, scope, protectedFiles: summary.protectedFiles, protectedComparable: summary.protectedComparable,
     protectedNotParsed: unparseable.length, corpusComparable, findings: findings.length, blockers,
   }, null, 2));
   return blockers.length ? 1 : 0;
