@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/absence-scope-justification-4459",
+  "status": "active",
+  "purpose": "ABSENT_IN_TREE says a pattern does not occur under a list of roots. A reader takes that as 'this repository does not do that'. Sometimes it means 'this repository does that somewhere else'. V1.1.2 and V3.2.2 pass on dangerouslySetInnerHTML being absent from apps/web/lib while 23 render-layer files use it, three of them in layout.tsx; V1.2.4 passes on queryRawUnsafe being absent from apps/api/src while two scripts under apps/api/scripts call $executeRawUnsafe with template-literal SQL. Both scopes are arguable and neither was stated. This makes stating it compulsory wherever an absence carries a PASS.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/absence-scope-justification-4459.json",
+    "scripts/security/verify-absence-scope.mjs",
+    "scripts/security/verify-absence-scope.test.mjs",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "The rule is not 'widen the roots'. Widening would flip verdicts on an argument nobody has had. It is that a scope a reader would not guess must be written down where they will see it, in a scopedAbsence field, and that an unexplained one fails.",
+    "Only a PASS blocks. On a FAIL or a NOT_ASSESSED the absence is not what anybody is relying on; those are printed as advisory so the 23 of them are on the record rather than silently dropped.",
+    "Three kinds of occurrence are not counted, and each for a stated reason: the register, the scope manifests and these scripts carry every pattern as data and would make every condition look violated; tests name a hazard in order to prove it is refused; files under the condition's own roots are what ABSENT_IN_TREE already checks.",
+    "A root matches a path segment, not a string prefix - apps/api/srcfoo is not inside apps/api/src - and matching is case-insensitive because that is how build-asvs-matrix.mjs matches. Both are asserted by test and both fail under mutation.",
+    "Every justification is written from a checked occurrence, not from the shape of the pattern. Where the honest answer is that the condition proves less than the requirement asks, it says so: the dangerouslySetInnerHTML entry enumerates all 23 render-layer uses and states that what the condition establishes is narrower than the requirement.",
+    "No verdict moves. 129 PASS, 89 FAIL, 88 NOT_APPLICABLE, 39 NOT_ASSESSED before and after, zero requirements changed. The evidence gets more honest, not more favourable."
+  ],
+  "acceptance": [
+    "12 PASS-carrying absences occur outside their roots; all 12 now carry a scopedAbsence written from a checked occurrence, and the gate exits 0.",
+    "The two material ones are named rather than smoothed over: dangerouslySetInnerHTML is absent from apps/web/lib while 23 files under apps/web/app and apps/web/components use it - every one enumerated as a <script>, <style> or JSON-LD block fed at the call site by a module constant, a static CSS template literal, JSON.stringify of a server-built object, or safeJsonLd() - and queryRawUnsafe/executeRawUnsafe are absent from apps/api/src while role-eligibility-load-acceptance.mjs and seed-design-system-v8-identities.mjs call them, operator-run and not request-reachable.",
+    "Two findings are the pattern matching unrelated text rather than a scoping question, and are recorded as such: password: 'password' matches the i18n label password: 'Password' case-insensitively, and jsonp matches jsonPath in commercial-workspace-repository.ts.",
+    "Six of the twelve turn out to be denylists and documentation naming a hazard in order to forbid or describe it - activex in a forbidden list, applet in _ACTIVE_HTML_TAGS, createSign( in two guards asserting its absence, rejectUnauthorized and NODE_TLS_REJECT_UNAUTHORIZED in THREAT_MODEL.md.",
+    "23 more on FAIL, NOT_APPLICABLE and NOT_ASSESSED decisions are printed as advisory and not blocking.",
+    "verify-absence-scope.test.mjs passes 6 of 6 and four mutations each fail it.",
+    "The matrix is unchanged against main and verify-decision-evidence.mjs passes 332 of 332."
+  ]
+}

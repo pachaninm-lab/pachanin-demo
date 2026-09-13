@@ -21,7 +21,8 @@
           ],
           "patterns": [
             "dangerouslysetinnerhtml"
-          ]
+          ],
+          "scopedAbsence": "The root is the shared library layer, where the interpolation helpers live. The pattern occurs in 23 render-layer files under apps/web/app and apps/web/components, three of them in layout.tsx, and that is not hidden: every one of the 23 is a <script>, <style> or JSON-LD block whose argument at the call site is a module constant (themeScript, serviceWorkerRecoveryScript, brandUrlAuthorityScript, mobileTouchContract), a static template literal of CSS, JSON.stringify of a server-built object, or safeJsonLd(). Enumerated, not sampled. None interpolates a request value at the call site. What this condition establishes is therefore narrower than the requirement: the library layer contains no such call at all, and the render layer's calls are the deliberate, auditable exception the note describes."
         },
         {
           "condition": "raw SQL access still goes through Prisma tagged templates rather than a string-built query",
@@ -236,7 +237,8 @@
           "patterns": [
             "queryrawunsafe",
             "executerawunsafe"
-          ]
+          ],
+          "scopedAbsence": "The root is the runtime service. The occurrences outside it are of two kinds and neither is the service building SQL from a request: guards that name the string in order to forbid it (.github/workflows preflights, semgrep rules), and two operator-run scripts under apps/api/scripts that do call it - role-eligibility-load-acceptance.mjs and seed-design-system-v8-identities.mjs. Those scripts are run by hand against a database, not reached by an HTTP request, which is why the root stops at apps/api/src. They are named here rather than left for a reader to discover. Same as queryRawUnsafe above: guards naming the string to forbid it, plus role-eligibility-load-acceptance.mjs and seed-design-system-v8-identities.mjs under apps/api/scripts, which call $executeRawUnsafe with template-literal SQL. Operator-run, not request-reachable, which is the reason the root is apps/api/src and not apps/api."
         },
         {
           "condition": "no call site still uses Prisma.raw() to interpolate an unparameterized identifier or fragment into a tagged-template query",
@@ -246,7 +248,8 @@
           ],
           "patterns": [
             "prisma.raw("
-          ]
+          ],
+          "scopedAbsence": "Occurs once outside the root, in apps/api/test/industrial/commercial-rules-authority.e2e-spec.ts - a test exercising the behaviour, not the service performing it."
         },
         {
           "condition": "raw SQL access is still expressed through Prisma tagged templates, which parameterize every interpolated value",
@@ -520,7 +523,8 @@
           "patterns": [
             "eval(",
             "new function("
-          ]
+          ],
+          "scopedAbsence": "Outside the roots the string appears only in prose and in a rule that hunts for it: docs/platform-v7/audit/COMPREHENSIVE_AUDIT.md, an autopilot prompt, and docs/platform-v7/autopilot/semgrep-security.yml, which names eval( in order to detect it. No file outside the roots calls it. Same two places: the audit document and the semgrep rule that names the construct in order to detect it."
         }
       ],
       "note": "The application never dynamically executes code from a string. A scan for eval( and new Function( across apps/api/src, apps/web/lib and apps/web/app returns zero matches."
@@ -1486,7 +1490,8 @@
           ],
           "patterns": [
             "dangerouslysetinnerhtml"
-          ]
+          ],
+          "scopedAbsence": "Same scope and same enumeration as V1.1.2: the root is the shared library layer, and the 23 render-layer occurrences are <script>, <style> and JSON-LD blocks fed at the call site by module constants, static CSS template literals, JSON.stringify of server-built objects, or safeJsonLd(). None takes a request value at the call site."
         }
       ],
       "note": "JSX child interpolation ({value} inside markup) is React's default safe-rendering path - functionally equivalent to textContent, not innerHTML - and never parses the interpolated value as HTML or executes it as script. The deliberate exception, dangerouslySetInnerHTML, was catalogued exhaustively under ASVS V1 (23 call sites, all either static literals or passed through a correct escaping helper); nothing renders untrusted text as HTML by omission."
@@ -1965,7 +1970,8 @@
             "silverlight",
             "nsapi",
             "applet"
-          ]
+          ],
+          "scopedAbsence": "One occurrence outside the roots, in scripts/pc-crop-08d/generate_signing_policy.py, where 'activex' is an entry in a list of forbidden things. A denylist naming a hazard is the opposite of using it. One occurrence outside the roots, in apps/tai/tai/public_official_acquisition.py, inside _ACTIVE_HTML_TAGS - the set of tags stripped from acquired HTML. Again a denylist, not a use."
         }
       ],
       "note": "The application is built entirely on React/Next.js/TypeScript. A scan for every legacy plugin technology this requirement names (ActiveX, Shockwave, Silverlight, NSAPI/NPAPI, Java applets) across the web app returns zero matches."
@@ -7898,7 +7904,8 @@
             "createsign(",
             "createverify(",
             "generatekeypair"
-          ]
+          ],
+          "scopedAbsence": "Both occurrences outside the roots are guards checking for its absence: .github/workflows/pc-crop-08b.yml iterates a 'forbidden' tuple containing 'createSign(', and scripts/pc-crop-08e/verify.mjs asserts !runtime.includes('createSign(')."
         },
         {
           "condition": "the one declared signature scheme is still marked unimplemented",
@@ -8323,7 +8330,8 @@
             "apps",
             "packages",
             "scripts"
-          ]
+          ],
+          "scopedAbsence": "The single occurrence outside the roots is docs/security/THREAT_MODEL.md, which documents the setting as a hazard. Prose naming a danger is not code enabling it. The single occurrence outside the roots is docs/security/THREAT_MODEL.md, documenting the variable as a hazard."
         }
       ],
       "note": "Where the application opens a TLS socket itself it sets rejectUnauthorized: true rather than relying on a default. Everywhere else it uses fetch, which verifies by default, and nothing anywhere turns verification off: the tree contains no rejectUnauthorized: false and no NODE_TLS_REJECT_UNAUTHORIZED. The control is both asserted and not undone."
@@ -8659,7 +8667,8 @@
             "password: 'postgres'",
             "password: 'changeme'",
             "password: 'password'"
-          ]
+          ],
+          "scopedAbsence": "The five occurrences outside the roots are i18n label dictionaries - RegisterFormClient.tsx, InvitationAcceptClient.tsx, GektaRegistrationClient.tsx and siblings - where the entry reads password: 'Password', the English field label. Matching is case-insensitive substring, so a UI label matches a pattern written to catch a default credential. This is the pattern matching unrelated text rather than the roots being drawn narrowly, and it is recorded as such."
         },
         {
           "condition": "the central secret resolver still refuses a literal fallback in production",
