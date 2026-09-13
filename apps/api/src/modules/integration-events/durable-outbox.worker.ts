@@ -35,26 +35,6 @@ export class OutboxDeliveryError extends Error {
   }
 }
 
-export function classifyFgisPersistenceFailure(
-  error: unknown,
-  phase: 'PRE_DISPATCH' | 'POST_ACCEPTANCE',
-): unknown {
-  const record = typeof error === 'object' && error !== null
-    ? error as Record<string, unknown>
-    : {};
-  const message = boundedFailureMessage(error);
-  if (phase === 'POST_ACCEPTANCE') {
-    return new OutboxDeliveryError(
-      'AMBIGUOUS',
-      boundedFailureCode(record.code, 'FGIS_POST_ACCEPTANCE_PERSISTENCE_FAILED'),
-      message,
-    );
-  }
-  return record.code === 'TRANSPORT_RECEIPT_PERSISTENCE_FAILED'
-    ? new OutboxDeliveryError('TRANSIENT', 'FGIS_PRE_DISPATCH_INSPECTION_FAILED', message)
-    : error;
-}
-
 export interface OutboxDrainReport {
   workerId: string;
   claimed: number;
@@ -79,6 +59,15 @@ const MAX_FAILURE_MESSAGE_LENGTH = 4_000;
 const FAILURE_CODE_PATTERN = /^[A-Z0-9][A-Z0-9_.:-]{0,63}$/u;
 const MARKETING_SOCIAL_PUBLISH_EVENT_TYPE = 'MARKETING_SOCIAL_PUBLISH_V1';
 const MARKETING_WORKER_ID_PREFIX = 'marketing-social-';
+const PHASE_UNCERTAIN_FGIS_PERSISTENCE_CODES = new Set([
+  'TRANSPORT_RECEIPT_PERSISTENCE_FAILED',
+  'TRANSPORT_RECEIPT_INVALID',
+  'OUTBOX_LEASE_INVALID',
+  'RECONCILIATION_REQUIRED',
+  'DATABASE_RESULT_INVALID',
+  'EXCHANGE_AUTHORITY_MISMATCH',
+  'EXCHANGE_AUTHORITY_MISSING',
+]);
 
 function boundedFailureCode(value: unknown, fallback = 'PROVIDER_FAILURE'): string {
   if (typeof value !== 'string') return fallback;
@@ -113,6 +102,14 @@ export function classifyOutboxDeliveryFailure(error: unknown): OutboxDeliveryFai
 
   if (record.deliveryAmbiguous === true || code === 'PROVIDER_DELIVERY_AMBIGUOUS') {
     return { category: 'AMBIGUOUS', code: 'PROVIDER_DELIVERY_AMBIGUOUS', message };
+  }
+  // The existing FGIS receipt repository uses the same authority error codes
+  // before dispatch and after provider acceptance. Until that FGIS-owned
+  // contract exposes the delivery phase without crossing slice ownership, the
+  // shared outbox must fail closed: these errors may have happened after an
+  // external side effect, so they are never eligible for automatic replay.
+  if (PHASE_UNCERTAIN_FGIS_PERSISTENCE_CODES.has(code)) {
+    return { category: 'AMBIGUOUS', code, message };
   }
   if (record.retryable === true) {
     return { category: 'TRANSIENT', code: code || 'PROVIDER_RETRYABLE_FAILURE', message };
@@ -281,7 +278,7 @@ export class DurableOutboxWorker {
       if (!handler) {
         try {
           const outcome = await this.markFailed(
-            workerId,
+            claimWorkerId,
             entry,
             {
               category: 'PERMANENT',

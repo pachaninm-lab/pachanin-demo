@@ -2,7 +2,6 @@ import { ServiceUnavailableException } from '@nestjs/common';
 import { KafkaProducerService } from '../../common/kafka/kafka-producer.service';
 import { DurableOutboxRunner } from './durable-outbox.runner';
 import {
-  classifyFgisPersistenceFailure,
   classifyOutboxDeliveryFailure,
   DurableOutboxWorker,
 } from './durable-outbox.worker';
@@ -205,42 +204,27 @@ describe('outbox provider failure classification', () => {
       });
   });
 
-  it('distinguishes FGIS pre-dispatch and post-acceptance persistence failures', () => {
-    const failure = Object.assign(new Error('receipt write failed after acceptance'), {
-      code: 'TRANSPORT_RECEIPT_PERSISTENCE_FAILED',
-      retryable: true,
-    });
-    expect(classifyOutboxDeliveryFailure(
-      classifyFgisPersistenceFailure(failure, 'PRE_DISPATCH'),
-    )).toMatchObject({
-      category: 'TRANSIENT',
-      code: 'FGIS_PRE_DISPATCH_INSPECTION_FAILED',
-    });
-    expect(classifyOutboxDeliveryFailure(
-      classifyFgisPersistenceFailure(failure, 'POST_ACCEPTANCE'),
-    )).toMatchObject({
-      category: 'AMBIGUOUS',
-      code: 'TRANSPORT_RECEIPT_PERSISTENCE_FAILED',
-    });
-
-    const reconciliationFailure = Object.assign(new Error('receipt identity mismatch'), {
-      code: 'RECONCILIATION_REQUIRED',
-      retryable: true,
-    });
-    expect(classifyOutboxDeliveryFailure(
-      classifyFgisPersistenceFailure(reconciliationFailure, 'POST_ACCEPTANCE'),
-    )).toMatchObject({
-      category: 'AMBIGUOUS',
-      code: 'RECONCILIATION_REQUIRED',
-    });
-
-    expect(classifyOutboxDeliveryFailure(
-      classifyFgisPersistenceFailure(new Error('untyped database failure'), 'POST_ACCEPTANCE'),
-    )).toMatchObject({
-      category: 'AMBIGUOUS',
-      code: 'FGIS_POST_ACCEPTANCE_PERSISTENCE_FAILED',
-    });
-  });
+  it.each([
+    ['TRANSPORT_RECEIPT_PERSISTENCE_FAILED', true],
+    ['TRANSPORT_RECEIPT_INVALID', false],
+    ['OUTBOX_LEASE_INVALID', true],
+    ['RECONCILIATION_REQUIRED', false],
+    ['DATABASE_RESULT_INVALID', false],
+    ['EXCHANGE_AUTHORITY_MISMATCH', false],
+    ['EXCHANGE_AUTHORITY_MISSING', false],
+  ] as const)(
+    'quarantines phase-uncertain FGIS persistence code %s',
+    (code, retryable) => {
+      const failure = Object.assign(new Error('FGIS receipt authority failure'), {
+        code,
+        retryable,
+      });
+      expect(classifyOutboxDeliveryFailure(failure)).toMatchObject({
+        category: 'AMBIGUOUS',
+        code,
+      });
+    },
+  );
 });
 
 describe('DurableOutboxWorker delivery acknowledgement boundary', () => {
@@ -261,6 +245,36 @@ describe('DurableOutboxWorker delivery acknowledgement boundary', () => {
     expect(executeRaw).toHaveBeenCalledTimes(2);
     expect(executeRaw.mock.invocationCallOrder[1]).toBeLessThan(
       claim.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('uses the normalized claim identity when dead-lettering a missing handler', async () => {
+    const executeRaw = jest.fn().mockResolvedValue(0);
+    const prisma = {
+      $transaction: jest.fn(async (
+        callback: (tx: { $executeRaw: typeof executeRaw }) => Promise<number>,
+      ) => callback({ $executeRaw: executeRaw })),
+    };
+    const worker = new DurableOutboxWorker(prisma as never);
+    const claim = jest.spyOn(worker, 'claimBatch').mockResolvedValue([
+      { ...claimedEntry, type: 'UNREGISTERED_MARKETING_EVENT' },
+    ]);
+    const markFailed = jest.spyOn(worker, 'markFailed').mockResolvedValue('DEAD_LETTER');
+    worker.registerHandler('MARKETING_SOCIAL_PUBLISH_V1', async () => undefined);
+
+    await expect(worker.drainOnce('custom-worker-id', 1)).resolves.toMatchObject({
+      claimed: 1,
+      deadLettered: 1,
+      leaseLost: 0,
+    });
+    expect(claim).toHaveBeenCalledWith('marketing-social-custom-worker-id', 1);
+    expect(markFailed).toHaveBeenCalledWith(
+      'marketing-social-custom-worker-id',
+      expect.objectContaining({ id: claimedEntry.id }),
+      expect.objectContaining({
+        category: 'PERMANENT',
+        code: 'TRANSPORT_HANDLER_MISSING',
+      }),
     );
   });
 

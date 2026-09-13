@@ -57,8 +57,8 @@ describe('IR-OUTBOX production graph', () => {
     expect(apiModule).not.toContain('DurableOutboxWorker');
     expect(workerModule).toContain('DurableOutboxRunner');
     expect(workerModule).toContain('DurableOutboxWorker');
-    expect(workerModule).toContain("classifyFgisPersistenceFailure(error, 'PRE_DISPATCH')");
-    expect(workerModule).toContain("classifyFgisPersistenceFailure(error, 'POST_ACCEPTANCE')");
+    expect(workerModule).toContain('FgisGrainExchangeReceiptRepository,');
+    expect(workerModule).not.toContain('classifyFgisPersistenceFailure');
   });
 
   it('uses tokenized SKIP LOCKED claims, bounded quarantine and CAS acknowledgements', () => {
@@ -73,10 +73,11 @@ describe('IR-OUTBOX production graph', () => {
     expect(worker).toContain('AND "leaseToken" = ${leaseToken}');
     expect(worker).toContain('OutboxLeaseLostError');
     expect(worker).toContain('POST_DELIVERY_PERSISTENCE_FAILED');
+    expect(worker).toContain('PHASE_UNCERTAIN_FGIS_PERSISTENCE_CODES');
     expect(worker).toContain('TRANSPORT_RECEIPT_PERSISTENCE_FAILED');
+    expect(worker).toContain('RECONCILIATION_REQUIRED');
     expect(worker).toContain('MARKETING_WORKER_ID_PREFIX');
     expect(worker).toContain('quarantineDedicatedMarketingStaleAttempts');
-    expect(worker).toContain('FGIS_POST_ACCEPTANCE_PERSISTENCE_FAILED');
   });
 
   it('quarantines pre-migration in-flight rows and binds audit timestamps', () => {
