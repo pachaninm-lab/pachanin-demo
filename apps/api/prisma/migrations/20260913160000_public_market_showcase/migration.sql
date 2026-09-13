@@ -30,7 +30,6 @@ REVOKE ALL ON SCHEMA auction FROM pc_market_showcase_authority;
 GRANT USAGE ON SCHEMA auction TO pc_market_showcase_authority;
 REVOKE ALL PRIVILEGES ON TABLE auction.lots FROM pc_market_showcase_authority;
 GRANT SELECT (
-  id,
   culture,
   grade,
   volume_tons,
@@ -47,7 +46,6 @@ GRANT SELECT (
 DROP FUNCTION IF EXISTS market.list_public_lots(integer);
 CREATE FUNCTION market.list_public_lots(p_limit integer DEFAULT 12)
 RETURNS TABLE (
-  lot_id text,
   culture text,
   grade text,
   volume_tons numeric,
@@ -62,7 +60,6 @@ SECURITY DEFINER
 SET search_path = pg_catalog, auction
 AS $function$
   SELECT
-    lot.id AS lot_id,
     lot.culture,
     lot.grade,
     lot.volume_tons,
@@ -82,13 +79,13 @@ AS $function$
     AND lot.culture !~ '[[:cntrl:]]'
     AND lot.region !~ '[[:cntrl:]]'
     AND (lot.grade IS NULL OR (char_length(lot.grade) <= 80 AND lot.grade !~ '[[:cntrl:]]'))
-    AND lot.culture !~* '(@|https?://|www\\.|t\\.me|telegram|whatsapp|контакт|телефон|phone)'
-    AND lot.region !~* '(@|https?://|www\\.|t\\.me|telegram|whatsapp|контакт|телефон|phone)'
-    AND (lot.grade IS NULL OR lot.grade !~* '(@|https?://|www\\.|t\\.me|telegram|whatsapp|контакт|телефон|phone)')
+    AND lot.culture !~* '(@|https?://|www[.]|t[.]me|telegram|whatsapp|контакт|телефон|phone)'
+    AND lot.region !~* '(@|https?://|www[.]|t[.]me|telegram|whatsapp|контакт|телефон|phone)'
+    AND (lot.grade IS NULL OR lot.grade !~* '(@|https?://|www[.]|t[.]me|telegram|whatsapp|контакт|телефон|phone)')
     AND lot.culture !~ '[0-9]{6,}'
     AND lot.region !~ '[0-9]{6,}'
     AND (lot.grade IS NULL OR lot.grade !~ '[0-9]{6,}')
-  ORDER BY lot.created_at DESC, lot.id DESC
+  ORDER BY lot.created_at DESC, lot.culture ASC, lot.region ASC
   LIMIT LEAST(GREATEST(COALESCE(p_limit, 12), 1), 24)
 $function$;
 
@@ -110,6 +107,6 @@ END
 $runtime_grants$;
 
 COMMENT ON FUNCTION market.list_public_lots(integer) IS
-  'Bounded anonymous public market projection. Exposes no tenant, seller, address, contacts, source identifiers or certificates.';
+  'Bounded anonymous public market projection. Exposes no canonical lot id, tenant, seller, address, contacts, source identifiers or certificates.';
 
 COMMIT;
