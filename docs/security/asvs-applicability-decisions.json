@@ -22,7 +22,7 @@
           "patterns": [
             "dangerouslysetinnerhtml"
           ],
-          "scopedAbsence": "The root is the shared library layer, where the interpolation helpers live. The pattern occurs in 23 render-layer files under apps/web/app and apps/web/components, three of them in layout.tsx, and that is not hidden: every one of the 23 is a <script>, <style> or JSON-LD block whose argument at the call site is a module constant (themeScript, serviceWorkerRecoveryScript, brandUrlAuthorityScript, mobileTouchContract), a static template literal of CSS, JSON.stringify of a server-built object, or safeJsonLd(). Enumerated, not sampled. None interpolates a request value at the call site. What this condition establishes is therefore narrower than the requirement: the library layer contains no such call at all, and the render layer's calls are the deliberate, auditable exception the note describes."
+          "scopedAbsence": "The root is the shared library layer, where the interpolation helpers live. The pattern occurs in 23 render-layer files under apps/web/app and apps/web/components, three of them in layout.tsx, and that is not hidden: every one of the 23 is a <script>, <style> or JSON-LD block whose argument at the call site is a module constant (themeScript, serviceWorkerRecoveryScript, brandUrlAuthorityScript, mobileTouchContract), a static template literal of CSS, JSON.stringify of a server-built object, or safeJsonLd(). Enumerated, not sampled. None interpolates a request value at the call site. The library layer contains no such call at all, and the render layer's calls are the deliberate, auditable exception the note describes. Closed rather than left as a scope statement: scripts/security/verify-dangerous-html-provenance.mjs parses every call site in the repository - 27 of them across 23 files - and requires the __html expression to be a static literal or template, JSON.stringify, an allowlisted sanitiser, or a const declared in the same file whose initialiser is itself one of those. An expression that reads a function parameter, or props, params or searchParams, fails; so does one the check cannot classify."
         },
         {
           "condition": "raw SQL access still goes through Prisma tagged templates rather than a string-built query",
@@ -32,6 +32,19 @@
           ],
           "patterns": [
             "prisma.sql`"
+          ]
+        },
+        {
+          "condition": "every dangerouslySetInnerHTML in the repository is still checked for where its HTML came from, and a call site that could carry a request value still fails",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-dangerous-html-provenance.mjs"
+          ],
+          "patterns": [
+            "REQUEST_SHAPED",
+            "is the function parameter",
+            "an analyser that shrugs is an analyser that approves",
+            "ALLOWED_SANITISERS"
           ]
         }
       ],
@@ -1491,7 +1504,20 @@
           "patterns": [
             "dangerouslysetinnerhtml"
           ],
-          "scopedAbsence": "Same scope and same enumeration as V1.1.2: the root is the shared library layer, and the 23 render-layer occurrences are <script>, <style> and JSON-LD blocks fed at the call site by module constants, static CSS template literals, JSON.stringify of server-built objects, or safeJsonLd(). None takes a request value at the call site."
+          "scopedAbsence": "Same scope and same enumeration as V1.1.2: the root is the shared library layer, and the 23 render-layer occurrences are <script>, <style> and JSON-LD blocks fed at the call site by module constants, static CSS template literals, JSON.stringify of server-built objects, or safeJsonLd(). None takes a request value at the call site. Closed rather than left as a scope statement: scripts/security/verify-dangerous-html-provenance.mjs parses every call site in the repository - 27 of them across 23 files - and requires the __html expression to be a static literal or template, JSON.stringify, an allowlisted sanitiser, or a const declared in the same file whose initialiser is itself one of those. An expression that reads a function parameter, or props, params or searchParams, fails; so does one the check cannot classify."
+        },
+        {
+          "condition": "every dangerouslySetInnerHTML in the repository is still checked for where its HTML came from, and a call site that could carry a request value still fails",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-dangerous-html-provenance.mjs"
+          ],
+          "patterns": [
+            "REQUEST_SHAPED",
+            "is the function parameter",
+            "an analyser that shrugs is an analyser that approves",
+            "ALLOWED_SANITISERS"
+          ]
         }
       ],
       "note": "JSX child interpolation ({value} inside markup) is React's default safe-rendering path - functionally equivalent to textContent, not innerHTML - and never parses the interpolated value as HTML or executes it as script. The deliberate exception, dangerouslySetInnerHTML, was catalogued exhaustively under ASVS V1 (23 call sites, all either static literals or passed through a correct escaping helper); nothing renders untrusted text as HTML by omission."

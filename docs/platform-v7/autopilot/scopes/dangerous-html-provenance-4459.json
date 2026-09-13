@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/dangerous-html-provenance-4459",
+  "stackedOn": "security/absence-scope-justification-4459",
+  "status": "active",
+  "purpose": "The branch below made V1.1.2 and V3.2.2 state honestly that their dangerouslySetInnerHTML absence covers apps/web/lib while 23 render-layer files use it, and that what the condition established was narrower than the requirement asked. Saying so is better than not saying so, and it is not a control - reading 27 call sites once is not a control either. This closes it: every call site in the repository is parsed and its HTML has to come from somewhere this repository has decided is acceptable.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/absence-scope-justification-4459.json",
+    "docs/platform-v7/autopilot/scopes/dangerous-html-provenance-4459.json",
+    "scripts/security/verify-absence-scope.mjs",
+    "scripts/security/verify-absence-scope.test.mjs",
+    "scripts/security/verify-dangerous-html-provenance.mjs",
+    "scripts/security/verify-dangerous-html-provenance.test.mjs",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "An analyser that shrugs is an analyser that approves. A call site whose shape the check cannot classify is a failure, not a pass, and the suite asserts that with a ternary it does not understand.",
+    "The question answered is 'could this expression be a request value', from the file it is written in - not 'is this string safe', which no static rule can answer. The record says which of the two it is.",
+    "No product source is touched. The 27 call sites were already in shapes this check accepts; nothing was rewritten to make a gate pass, and the matrix is identical against main.",
+    "The analyser was widened by evidence rather than by convenience. Its first version rejected PlatformV7StrategicHome.tsx because it only recognised module-level constants, and the code there is a local const holding JSON.stringify of a static object with < escaped - idiomatic and safe. Recognising local consts and literal-argument string chains is a correction to the check, and both are bounded: the recursion stops at depth 3, and a .replace() with a non-literal argument is refused because an argument can introduce content.",
+    "Reason text is asserted, not only verdicts. Every tainted name would be caught by the catch-all branch anyway, so tests checking only the verdict passed with the parameter and request-shape branches deleted - and the tool would then have told a reader 'not a module-level constant' about a value that came straight off the request. Two mutations went uncaught until the tests asserted the diagnostic."
+  ],
+  "acceptance": [
+    "27 call sites across 23 files, every one classified: 15 static literals, 5 module constants, 3 allowlisted sanitiser calls, 2 JSON.stringify, 1 static template, 1 local constant. None reads a function parameter, props, params or searchParams; none is unclassifiable.",
+    "V1.1.2 and V3.2.2 gain a condition citing the analyser, and their scopedAbsence no longer ends in an admission. Both remain PASS and the matrix is unchanged against main: 129/89/88/39, zero requirements changed.",
+    "The new condition is revocable: renaming REQUEST_SHAPED in the analyser drops both V1.1.2 and V3.2.2 to NOT_ASSESSED, and restoring it brings them back. The pattern count was checked to zero before the verdict was read.",
+    "verify-dangerous-html-provenance.test.mjs passes 11 of 11, with negative controls for a function parameter, for props and searchParams, for a local const bound to a parameter, for a template interpolating a parameter, for a non-literal replace argument, and for a shape the check cannot classify. Five mutations each fail it.",
+    "verify-decision-evidence.mjs passes 332 of 332 and verify-absence-scope.mjs still exits 0."
+  ]
+}
