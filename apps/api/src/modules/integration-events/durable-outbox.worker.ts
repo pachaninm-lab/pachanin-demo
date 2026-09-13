@@ -175,33 +175,6 @@ export class DurableOutboxWorker {
         SET LOCAL pc_crop.outbox_claim_protocol = '2'
       `);
 
-      await tx.$executeRaw(Prisma.sql`
-        WITH stale_attempts AS (
-          SELECT "id"
-          FROM "outbox_entries"
-          WHERE "status" = 'PROCESSING'
-            AND "leaseExpiresAt" < NOW()
-            AND "lastAttemptAt" IS NOT NULL
-          ORDER BY "leaseExpiresAt", "id"
-          LIMIT ${limit}
-          FOR UPDATE SKIP LOCKED
-        )
-        UPDATE "outbox_entries" AS entries
-        SET "status" = 'MANUAL_REVIEW',
-            "retryCount" = entries."retryCount" + 1,
-            "lastError" = 'Worker lease expired after an external delivery attempt started',
-            "lastErrorCode" = 'WORKER_CRASH_OUTCOME_UNKNOWN',
-            "lastErrorCategory" = 'AMBIGUOUS',
-            "manualReviewAt" = NOW(),
-            "failedAt" = NOW(),
-            "leaseOwner" = NULL,
-            "leaseToken" = NULL,
-            "leaseExpiresAt" = NULL,
-            "heartbeatAt" = NULL
-        FROM stale_attempts
-        WHERE entries."id" = stale_attempts."id"
-      `);
-
       return tx.$queryRaw<ClaimedOutboxEntry[]>(Prisma.sql`
         UPDATE "outbox_entries"
         SET "status" = 'PROCESSING',
@@ -253,14 +226,16 @@ export class DurableOutboxWorker {
 
   async drainOnce(workerId: string, limit = 25): Promise<OutboxDrainReport> {
     const claimWorkerId = this.claimIdentity(workerId);
-    const quarantined = this.isDedicatedMarketingWorker()
+    const dedicatedMarketingWorker = this.isDedicatedMarketingWorker();
+    const quarantined = dedicatedMarketingWorker
       ? await this.quarantineDedicatedMarketingStaleAttempts(limit)
-      : 0;
+      : await this.quarantineStaleAttempts(limit);
     // The legacy marketing-specific claimant can still see expired PROCESSING
     // rows. If this bounded cleanup found any attempted leases, finish this
     // drain after quarantine so the next drain cannot return an unprocessed
-    // attempted row to that legacy claim path.
-    const claimed = quarantined > 0
+    // attempted row to that legacy claim path. Canonical claims already exclude
+    // attempted stale leases and may continue after reporting the quarantine.
+    const claimed = dedicatedMarketingWorker && quarantined > 0
       ? []
       : await this.claimBatch(claimWorkerId, limit);
     const report: OutboxDrainReport = {
@@ -336,6 +311,43 @@ export class DurableOutboxWorker {
     return !this.fallbackHandler
       && this.handlers.size === 1
       && this.handlers.has(MARKETING_SOCIAL_PUBLISH_EVENT_TYPE);
+  }
+
+  private async quarantineStaleAttempts(limit: number): Promise<number> {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 500) {
+      throw new Error('limit must be between 1 and 500');
+    }
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw(Prisma.sql`
+        SET LOCAL pc_crop.outbox_claim_protocol = '2'
+      `);
+      return tx.$executeRaw(Prisma.sql`
+        WITH stale_attempts AS (
+          SELECT "id"
+          FROM "outbox_entries"
+          WHERE "status" = 'PROCESSING'
+            AND "leaseExpiresAt" < NOW()
+            AND "lastAttemptAt" IS NOT NULL
+          ORDER BY "leaseExpiresAt", "id"
+          LIMIT ${limit}
+          FOR UPDATE SKIP LOCKED
+        )
+        UPDATE "outbox_entries" AS entries
+        SET "status" = 'MANUAL_REVIEW',
+            "retryCount" = entries."retryCount" + 1,
+            "lastError" = 'Worker lease expired after an external delivery attempt started',
+            "lastErrorCode" = 'WORKER_CRASH_OUTCOME_UNKNOWN',
+            "lastErrorCategory" = 'AMBIGUOUS',
+            "manualReviewAt" = NOW(),
+            "failedAt" = NOW(),
+            "leaseOwner" = NULL,
+            "leaseToken" = NULL,
+            "leaseExpiresAt" = NULL,
+            "heartbeatAt" = NULL
+        FROM stale_attempts
+        WHERE entries."id" = stale_attempts."id"
+      `);
+    });
   }
 
   private async quarantineDedicatedMarketingStaleAttempts(limit: number): Promise<number> {
