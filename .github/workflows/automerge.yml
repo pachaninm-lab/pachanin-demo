@@ -136,7 +136,7 @@ jobs:
           elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ]; then
             state=success
             description='Scoped provider-maintenance bootstrap passed; no independent provider PASS asserted'
-            gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
           elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = INDEPENDENT ]; then
             state=success
             description='Exact-head independent review passed; no current unresolved findings'
@@ -295,7 +295,7 @@ jobs:
           elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ]; then
             state=success
             description='Scoped provider-maintenance bootstrap passed; no independent provider PASS asserted'
-            gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
           elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = INDEPENDENT ]; then
             state=success
             description='Exact-head independent review passed; no current unresolved findings'
@@ -458,7 +458,7 @@ jobs:
           elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ]; then
             state=success
             description='Scoped provider-maintenance bootstrap passed; no independent provider PASS asserted'
-            gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
           elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = INDEPENDENT ]; then
             state=success
             description='Exact-head independent review passed; no current unresolved findings'
