@@ -1,0 +1,88 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/local-qwen-evidence-binding-20260913",
+  "status": "active",
+  "purpose": "Authorize a bounded Local Qwen provider hardening after exact-head semantic reviews of substantive PR #5349 produced blocking candidates that violated the already-pinned direct-evidence policy through unsupported external assumptions and speculative classifications. Strengthen deterministic admissibility so every non-empty finding is bound to an exact added new-side line and verbatim evidence from that line, while preserving model/runtime identity, review scope, fail-closed behavior and exact-head authority.",
+  "authorityBaseExactMain": "f4c898e913ac57eec4e8588e8debcbbf3a93381f",
+  "evidence": {
+    "substantivePullRequest": 5349,
+    "reviewedExactHead": "e7611e495bdd25406a7116327a66779bdd1c2f37",
+    "reviewRunId": 34773886077,
+    "reviewJobId": 103768358821,
+    "freshReviewRunId": 34774757384,
+    "freshReviewJobId": 103770721520,
+    "observedViolations": [
+      "A blocking database-timing finding depended on an external assumption about unsynchronized database nodes although the exact reviewed chunk contains no multi-node, replication or distributed-database topology.",
+      "A blocking web finding classified bounded scalar normalization as potential information leakage without identifying any concrete leakage sink while the exact changed parser returns an explicit allowlisted public object.",
+      "The deterministic validator rejected only a narrow hedge-word set in the reason field, so equivalent speculation in titles, noun/adjective forms and unsupported external-context assumptions could survive into blocking authority.",
+      "The existing output contract did not require a finding to carry a verbatim evidence fragment that is mechanically bound to an exact added new-side line in the reviewed chunk."
+    ]
+  },
+  "allowedPaths": [
+    ".github/workflows/local-qwen-independent-review.yml",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
+  ],
+  "requiredChange": {
+    "summary": "Strengthen deterministic Local Qwen finding admission without weakening review coverage. Build an exact new-side added-line index for every bounded review chunk; require every non-empty finding to cite path, exact new-side line and a verbatim evidence fragment from that line; reject line/evidence mismatches, speculative language in title or reason and unsupported deployment/topology assumptions; retain exactly one same-chunk repair pass and independently revalidate all evidence bindings during canonicalization.",
+    "findingEvidenceContract": {
+      "exactChangedPathRequired": true,
+      "exactAddedNewSideLineRequired": true,
+      "verbatimEvidenceSubstringRequired": true,
+      "evidenceBindingRevalidatedDuringCanonicalization": true,
+      "acceptedEvidenceDigestRequired": true
+    },
+    "policyAdmissibility": {
+      "forbiddenSpeculationWordsWholeWordCaseInsensitive": [
+        "could",
+        "may",
+        "might",
+        "likely",
+        "potential",
+        "potentially",
+        "possible",
+        "possibility",
+        "perhaps",
+        "maybe",
+        "speculate",
+        "speculative",
+        "speculatively"
+      ],
+      "unsupportedExternalDeploymentOrTopologyAssumption": "inadmissible",
+      "routePathTestOnlySecretClassificationWithoutConcreteMechanism": "inadmissible",
+      "repairAttemptsPerChunk": 1,
+      "invalidAfterRepair": "FAIL_CLOSED"
+    },
+    "authorizedStrengtheningBeyond20260911PolicyOnlyScope": [
+      "review manifest may be upgraded only to carry exact added-line evidence metadata",
+      "model response schema may add an evidence field required for exact-line binding",
+      "deterministic validator and canonicalizer may be strengthened to enforce exact-line evidence and reject unsupported assumptions",
+      "deterministic validator regression probes may be added"
+    ]
+  },
+  "requiredInvariants": [
+    "Trusted review policy text and POLICY_SHA256 e083823ced2f5b63ecfaca345e59274c5f194e36c0cdd20b2cae9cee3b4f9ed3 remain unchanged.",
+    "Canonical Qwen3-8B revision 895c8d171bc03c30e113cd7a28c02494b5e068b7, model SHA-256 107afd988cdbdcced3b8e76ebc3a8e83b5a18a5c796fca20778410cb9c47a814, served identity tai-qwen3-8b-q4km, llama build b9637, source commit aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3 and runtime archive SHA-256 3857876e4a2461f7041166bd74b5d39e3db51b8639353d55f87d6f904b3b75bd remain unchanged.",
+    "Pinned SSH/SCP host-key transport, service-user verification, model file size/hash verification, protected API-key discovery, thinking disabled, temperature 0, top_p 1, deterministic seed and bounded inference remain unchanged.",
+    "The full-diff bound remains 400000 bytes, chunk bound remains 8000 bytes and maximum chunk count remains 96; no changed path, review category, severity or concrete admissible defect is exempted from review.",
+    "A concrete schema-valid policy-admissible finding remains blocking. Its path, line, evidence, severity, title and reason are preserved into canonical authority, with an additional deterministic evidence digest only.",
+    "An inadmissible first candidate is never silently deleted into PASS. It triggers one fresh deterministic repair inference over the same exact chunk under the same trusted policy and model; if repaired output remains inadmissible, the provider fails closed and publishes no clean authority.",
+    "A clean findings=[] result remains model-authored; deterministic admission logic may reject invalid findings but cannot synthesize PASS from a rejected second candidate.",
+    "Exact full-diff SHA-256, chunk SHA-256 values, review manifest hash, prompt bundle hash, canonical response hash, exact-head revalidation, provider status and the existing 18-line PASS attestation contract remain bound to the exact run.",
+    "The Local Qwen provider-maintenance implementation does not claim independent Local Qwen semantic-review PASS for itself; ordinary exact-head CI plus owner exact-head self-audit, zero unresolved review threads or active CHANGES_REQUESTED, and live-main drift control govern its merge.",
+    "After the provider repair merges, substantive PR #5349 must synchronize forward-only to exact current main and obtain a completely fresh Local Qwen exact-head review under the strengthened provider; no pre-repair review evidence transfers.",
+    "No product, API, database, RBAC, registration, cabinet, customer-data, dependency, lockfile or production runtime behavior change is authorized by this scope.",
+    "No merge gate, CI threshold, provider identity or fail-closed condition may be weakened or bypassed.",
+    "Production hosting remains REG_RU_VPS_ONLY and new recurring cost remains 0 RUB."
+  ],
+  "admission": [
+    "Authority PR changes exactly this manifest path.",
+    "Implementation PR changes only the two allowed provider/test paths.",
+    "Applicable ordinary exact-head CI/security/runtime gates are terminal green before each merge.",
+    "Owner exact-head self-audit is present on each provider-maintenance/authority head and does not substitute for the fresh #5349 Local Qwen review after provider repair.",
+    "Unresolved review threads and active CHANGES_REQUESTED are zero.",
+    "Live main equals each PR base immediately before merge.",
+    "No stale provider result or owner classification is converted into independent PASS."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
