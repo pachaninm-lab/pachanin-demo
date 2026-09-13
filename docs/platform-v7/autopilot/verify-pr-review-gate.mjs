@@ -907,7 +907,8 @@ function fail(code, message) {
 function main() {
   const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || '';
   const prNumber = Number(process.env.PR_NUMBER || 0);
-  const expectedHead = canonicalSha40(process.env.HEAD_SHA || '');
+  const expectedHeadInput = String(process.env.HEAD_SHA || '').trim();
+  const expectedHead = canonicalSha40(expectedHeadInput);
   const requireGreenCi = process.env.REQUIRE_GREEN_CI === '1';
 
   if (!repo) fail('REVIEW_GATE_REPO_MISSING', 'REPO/GITHUB_REPOSITORY is required.');
@@ -931,10 +932,16 @@ function main() {
     fail('REVIEW_GATE_DRAFT', `Draft PR #${prNumber} cannot satisfy exact-head review authority.`);
   }
 
-  const headSha = canonicalSha40(pr?.head?.sha);
-  if (!headSha) fail('REVIEW_GATE_HEAD_INVALID', `Invalid PR head SHA for #${prNumber}.`);
-  if (process.env.HEAD_SHA && !expectedHead) {
-    fail('REVIEW_GATE_EXPECTED_HEAD_INVALID', 'HEAD_SHA must be a 40-character hexadecimal commit ID.');
+  const headShaInput = String(pr?.head?.sha || '').trim();
+  if (!/^[0-9a-f]{40}$/u.test(headShaInput)) {
+    fail('REVIEW_GATE_HEAD_INVALID', `Invalid PR head SHA for #${prNumber}.`);
+  }
+  const headSha = headShaInput;
+  if (expectedHeadInput && !/^[0-9a-fA-F]{40}$/u.test(expectedHeadInput)) {
+    fail('REVIEW_GATE_EXPECTED_HEAD_INVALID', 'HEAD_SHA must be exactly 40 hexadecimal characters.');
+  }
+  if (expectedHeadInput && !expectedHead) {
+    fail('REVIEW_GATE_EXPECTED_HEAD_INVALID', 'HEAD_SHA normalization failed.');
   }
   if (expectedHead && expectedHead !== headSha) {
     fail('REVIEW_GATE_HEAD_MOVED', `Expected ${expectedHead}, current head is ${headSha}.`);
