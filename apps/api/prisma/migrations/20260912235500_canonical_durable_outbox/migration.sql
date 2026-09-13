@@ -72,11 +72,11 @@ BEGIN
        'app_service', 'one_deal_app'
      ])
      -- Marketing delivery remains owned by its dedicated worker during this
-     -- rollout. Its established default identity is marketing-social-*, while
-     -- the legacy canonical deployment uses the outbox-worker pod name. Bind
-     -- the compatibility bypass to both that identity and its sole event type;
-     -- a legacy canonical claimant therefore cannot pass merely by selecting a
-     -- marketing row.
+     -- rollout. The current shared worker normalizes even a configured custom
+     -- marketing identity to marketing-social-*, while the legacy canonical
+     -- deployment uses the outbox-worker pod name. Bind the compatibility
+     -- bypass to both that identity and its sole event type; a legacy canonical
+     -- claimant therefore cannot pass merely by selecting a marketing row.
      AND NOT (
        current_user = 'app_outbox'
        AND OLD."type" = 'MARKETING_SOCIAL_PUBLISH_V1'

@@ -174,9 +174,30 @@ describe('outbox provider failure classification', () => {
         code: 'PROVIDER_DELIVERY_AMBIGUOUS',
       });
   });
+
+  it('quarantines an FGIS receipt persistence failure despite retryable=true', () => {
+    const failure = Object.assign(new Error('receipt write failed after acceptance'), {
+      code: 'TRANSPORT_RECEIPT_PERSISTENCE_FAILED',
+      retryable: true,
+    });
+    expect(classifyOutboxDeliveryFailure(failure)).toMatchObject({
+      category: 'AMBIGUOUS',
+      code: 'TRANSPORT_RECEIPT_PERSISTENCE_FAILED',
+    });
+  });
 });
 
 describe('DurableOutboxWorker delivery acknowledgement boundary', () => {
+  it('normalizes a configured dedicated marketing identity before claiming', async () => {
+    const worker = new DurableOutboxWorker({} as never);
+    const claim = jest.spyOn(worker, 'claimBatch').mockResolvedValue([]);
+    worker.registerHandler('MARKETING_SOCIAL_PUBLISH_V1', async () => undefined);
+
+    await worker.drainOnce('custom-worker-id', 1);
+
+    expect(claim).toHaveBeenCalledWith('marketing-social-custom-worker-id', 1);
+  });
+
   it('quarantines a persistence failure after the handler completes', async () => {
     const prisma = {
       $transaction: jest.fn().mockResolvedValue([claimedEntry]),

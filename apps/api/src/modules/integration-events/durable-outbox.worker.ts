@@ -57,6 +57,8 @@ const BASE_BACKOFF_SECONDS = 5;
 const MAX_BACKOFF_SECONDS = 3600;
 const MAX_FAILURE_MESSAGE_LENGTH = 4_000;
 const FAILURE_CODE_PATTERN = /^[A-Z0-9][A-Z0-9_.:-]{0,63}$/u;
+const MARKETING_SOCIAL_PUBLISH_EVENT_TYPE = 'MARKETING_SOCIAL_PUBLISH_V1';
+const MARKETING_WORKER_ID_PREFIX = 'marketing-social-';
 
 function boundedFailureCode(value: unknown, fallback = 'PROVIDER_FAILURE'): string {
   if (typeof value !== 'string') return fallback;
@@ -91,6 +93,9 @@ export function classifyOutboxDeliveryFailure(error: unknown): OutboxDeliveryFai
 
   if (record.deliveryAmbiguous === true || code === 'PROVIDER_DELIVERY_AMBIGUOUS') {
     return { category: 'AMBIGUOUS', code: 'PROVIDER_DELIVERY_AMBIGUOUS', message };
+  }
+  if (code === 'TRANSPORT_RECEIPT_PERSISTENCE_FAILED') {
+    return { category: 'AMBIGUOUS', code, message };
   }
   if (record.retryable === true) {
     return { category: 'TRANSIENT', code: code || 'PROVIDER_RETRYABLE_FAILURE', message };
@@ -216,7 +221,8 @@ export class DurableOutboxWorker {
   }
 
   async drainOnce(workerId: string, limit = 25): Promise<OutboxDrainReport> {
-    const claimed = await this.claimBatch(workerId, limit);
+    const claimWorkerId = this.claimIdentity(workerId);
+    const claimed = await this.claimBatch(claimWorkerId, limit);
     const report: OutboxDrainReport = {
       workerId,
       claimed: claimed.length,
@@ -250,10 +256,10 @@ export class DurableOutboxWorker {
 
       let handlerCompleted = false;
       try {
-        await this.markAttemptStarted(workerId, entry.id, entry.leaseToken);
+        await this.markAttemptStarted(claimWorkerId, entry.id, entry.leaseToken);
         await handler(entry);
         handlerCompleted = true;
-        await this.markDelivered(workerId, entry.id, entry.leaseToken);
+        await this.markDelivered(claimWorkerId, entry.id, entry.leaseToken);
         report.delivered++;
       } catch (error) {
         if (error instanceof OutboxLeaseLostError) {
@@ -268,7 +274,7 @@ export class DurableOutboxWorker {
               message: `External delivery completed but acknowledgement persistence failed: ${boundedFailureMessage(error)}`,
             }
             : classifyOutboxDeliveryFailure(error);
-          const outcome = await this.markFailed(workerId, entry, failure);
+          const outcome = await this.markFailed(claimWorkerId, entry, failure);
           this.recordFailureOutcome(report, outcome);
         } catch (markError) {
           if (markError instanceof OutboxLeaseLostError) report.leaseLost++;
@@ -277,6 +283,16 @@ export class DurableOutboxWorker {
       }
     }
     return report;
+  }
+
+  private claimIdentity(workerId: string): string {
+    const isDedicatedMarketingWorker = !this.fallbackHandler
+      && this.handlers.size === 1
+      && this.handlers.has(MARKETING_SOCIAL_PUBLISH_EVENT_TYPE);
+    if (!isDedicatedMarketingWorker || workerId.startsWith(MARKETING_WORKER_ID_PREFIX)) {
+      return workerId;
+    }
+    return `${MARKETING_WORKER_ID_PREFIX}${workerId}`;
   }
 
   async markDelivered(workerId: string, entryId: string, leaseToken: string): Promise<void> {
