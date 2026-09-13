@@ -77,15 +77,23 @@ jobs:
           node --test docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs
           gate_output="$(node docs/platform-v7/autopilot/verify-pr-review-gate.mjs)"
           printf '%s\n' "$gate_output"
-          classification="$(printf '%s\n' "$gate_output" | sed -n 's/.*reviewClassification=\([^ ]*\).*/\1/p' | tail -n 1)"
-          case "$classification" in
-            INDEPENDENT_EXACT_HEAD_REVIEW|SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW) ;;
-            *)
-              echo "Unexpected review classification: ${classification:-missing}" >&2
-              exit 31
-              ;;
-          esac
+          result_line="$(printf '%s\n' "$gate_output" | grep '^PR_REVIEW_GATE_RESULT=' | tail -n 1 || true)"
+          [ -n "$result_line" ] || { echo 'Missing review gate result contract.' >&2; exit 31; }
+          result_json="${result_line#PR_REVIEW_GATE_RESULT=}"
+          printf '%s' "$result_json" | jq -e --arg head "$HEAD_SHA" '
+            .schemaVersion == "platform-v7.review-gate-result.v1"
+            and .status == "PASS"
+            and .head == $head
+            and (
+              (.classification == "SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW" and .reviewAuthority == "NONE")
+              or
+              (.classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN"))
+            )
+          ' >/dev/null || { echo 'Invalid review gate result contract.' >&2; exit 31; }
+          classification="$(printf '%s' "$result_json" | jq -r '.classification')"
+          authority="$(printf '%s' "$result_json" | jq -r '.reviewAuthority')"
           echo "classification=$classification" >> "$GITHUB_OUTPUT"
+          echo "authority=$authority" >> "$GITHUB_OUTPUT"
 
       - name: Publish exact-head review status and visible label
         if: always()
@@ -96,6 +104,7 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           GATE_OUTCOME: ${{ steps.gate.outcome }}
           GATE_CLASSIFICATION: ${{ steps.gate.outputs.classification }}
+          GATE_AUTHORITY: ${{ steps.gate.outputs.authority }}
         shell: bash
         run: |
           set -euo pipefail
@@ -109,6 +118,10 @@ jobs:
           current_head=$(printf '%s' "$live" | jq -r '.headRefOid')
           current_draft=$(printf '%s' "$live" | jq -r '.isDraft')
           current_state=$(printf '%s' "$live" | jq -r '.state')
+          independent_authority=false
+          case "$GATE_AUTHORITY" in
+            CODEX|GITHUB_COPILOT|OCTOPUS|LOCAL_QWEN) independent_authority=true ;;
+          esac
           if ! printf '%s' "$current_head" | grep -Eq '^[0-9a-f]{40}$'; then
             state=failure
             description='Exact-head review authority invalidated by incomplete live PR state'
@@ -120,11 +133,11 @@ jobs:
             state=failure
             description='Exact-head review authority invalidated by current PR state'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
-          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_CLASSIFICATION" = SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW ]; then
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_CLASSIFICATION" = SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW ] && [ "$GATE_AUTHORITY" = NONE ]; then
             state=success
             description='Scoped provider-maintenance bootstrap passed; no independent provider PASS asserted'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
-          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_CLASSIFICATION" = INDEPENDENT_EXACT_HEAD_REVIEW ]; then
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_CLASSIFICATION" = INDEPENDENT_EXACT_HEAD_REVIEW ] && [ "$independent_authority" = true ]; then
             state=success
             description='Exact-head independent review passed; no current unresolved findings'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
@@ -223,15 +236,23 @@ jobs:
           node --test docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs
           gate_output="$(node docs/platform-v7/autopilot/verify-pr-review-gate.mjs)"
           printf '%s\n' "$gate_output"
-          classification="$(printf '%s\n' "$gate_output" | sed -n 's/.*reviewClassification=\([^ ]*\).*/\1/p' | tail -n 1)"
-          case "$classification" in
-            INDEPENDENT_EXACT_HEAD_REVIEW|SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW) ;;
-            *)
-              echo "Unexpected review classification: ${classification:-missing}" >&2
-              exit 31
-              ;;
-          esac
+          result_line="$(printf '%s\n' "$gate_output" | grep '^PR_REVIEW_GATE_RESULT=' | tail -n 1 || true)"
+          [ -n "$result_line" ] || { echo 'Missing review gate result contract.' >&2; exit 31; }
+          result_json="${result_line#PR_REVIEW_GATE_RESULT=}"
+          printf '%s' "$result_json" | jq -e --arg head "$HEAD_SHA" '
+            .schemaVersion == "platform-v7.review-gate-result.v1"
+            and .status == "PASS"
+            and .head == $head
+            and (
+              (.classification == "SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW" and .reviewAuthority == "NONE")
+              or
+              (.classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN"))
+            )
+          ' >/dev/null || { echo 'Invalid review gate result contract.' >&2; exit 31; }
+          classification="$(printf '%s' "$result_json" | jq -r '.classification')"
+          authority="$(printf '%s' "$result_json" | jq -r '.reviewAuthority')"
           echo "classification=$classification" >> "$GITHUB_OUTPUT"
+          echo "authority=$authority" >> "$GITHUB_OUTPUT"
 
       - name: Publish exact-head clean-review status and visible label
         if: always() && steps.live.outputs.active == 'true'
@@ -242,6 +263,7 @@ jobs:
           HEAD_SHA: ${{ steps.live.outputs.head_sha }}
           GATE_OUTCOME: ${{ steps.clean_gate.outcome }}
           GATE_CLASSIFICATION: ${{ steps.clean_gate.outputs.classification }}
+          GATE_AUTHORITY: ${{ steps.clean_gate.outputs.authority }}
         shell: bash
         run: |
           set -euo pipefail
@@ -255,6 +277,10 @@ jobs:
           current_head=$(printf '%s' "$live" | jq -r '.headRefOid')
           current_draft=$(printf '%s' "$live" | jq -r '.isDraft')
           current_state=$(printf '%s' "$live" | jq -r '.state')
+          independent_authority=false
+          case "$GATE_AUTHORITY" in
+            CODEX|GITHUB_COPILOT|OCTOPUS|LOCAL_QWEN) independent_authority=true ;;
+          esac
           if ! printf '%s' "$current_head" | grep -Eq '^[0-9a-f]{40}$'; then
             state=failure
             description='Exact-head review authority invalidated by incomplete live PR state'
@@ -266,11 +292,11 @@ jobs:
             state=failure
             description='Exact-head review authority invalidated by current PR state'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
-          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_CLASSIFICATION" = SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW ]; then
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_CLASSIFICATION" = SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW ] && [ "$GATE_AUTHORITY" = NONE ]; then
             state=success
             description='Scoped provider-maintenance bootstrap passed; no independent provider PASS asserted'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
-          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_CLASSIFICATION" = INDEPENDENT_EXACT_HEAD_REVIEW ]; then
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_CLASSIFICATION" = INDEPENDENT_EXACT_HEAD_REVIEW ] && [ "$independent_authority" = true ]; then
             state=success
             description='Exact-head independent review passed; no current unresolved findings'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
@@ -373,15 +399,23 @@ jobs:
           node --test docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs
           gate_output="$(node docs/platform-v7/autopilot/verify-pr-review-gate.mjs)"
           printf '%s\n' "$gate_output"
-          classification="$(printf '%s\n' "$gate_output" | sed -n 's/.*reviewClassification=\([^ ]*\).*/\1/p' | tail -n 1)"
-          case "$classification" in
-            INDEPENDENT_EXACT_HEAD_REVIEW|SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW) ;;
-            *)
-              echo "Unexpected review classification: ${classification:-missing}" >&2
-              exit 31
-              ;;
-          esac
+          result_line="$(printf '%s\n' "$gate_output" | grep '^PR_REVIEW_GATE_RESULT=' | tail -n 1 || true)"
+          [ -n "$result_line" ] || { echo 'Missing review gate result contract.' >&2; exit 31; }
+          result_json="${result_line#PR_REVIEW_GATE_RESULT=}"
+          printf '%s' "$result_json" | jq -e --arg head "$HEAD_SHA" '
+            .schemaVersion == "platform-v7.review-gate-result.v1"
+            and .status == "PASS"
+            and .head == $head
+            and (
+              (.classification == "SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW" and .reviewAuthority == "NONE")
+              or
+              (.classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN"))
+            )
+          ' >/dev/null || { echo 'Invalid review gate result contract.' >&2; exit 31; }
+          classification="$(printf '%s' "$result_json" | jq -r '.classification')"
+          authority="$(printf '%s' "$result_json" | jq -r '.reviewAuthority')"
           echo "classification=$classification" >> "$GITHUB_OUTPUT"
+          echo "authority=$authority" >> "$GITHUB_OUTPUT"
 
       - name: Publish scheduled review status and visible label
         if: always() && steps.live.outputs.active == 'true'
@@ -392,6 +426,7 @@ jobs:
           HEAD_SHA: ${{ steps.live.outputs.head_sha }}
           GATE_OUTCOME: ${{ steps.dispatched_gate.outcome }}
           GATE_CLASSIFICATION: ${{ steps.dispatched_gate.outputs.classification }}
+          GATE_AUTHORITY: ${{ steps.dispatched_gate.outputs.authority }}
         shell: bash
         run: |
           set -euo pipefail
@@ -405,6 +440,10 @@ jobs:
           current_head=$(printf '%s' "$live" | jq -r '.headRefOid')
           current_draft=$(printf '%s' "$live" | jq -r '.isDraft')
           current_state=$(printf '%s' "$live" | jq -r '.state')
+          independent_authority=false
+          case "$GATE_AUTHORITY" in
+            CODEX|GITHUB_COPILOT|OCTOPUS|LOCAL_QWEN) independent_authority=true ;;
+          esac
           if ! printf '%s' "$current_head" | grep -Eq '^[0-9a-f]{40}$'; then
             state=failure
             description='Exact-head review authority invalidated by incomplete live PR state'
@@ -416,11 +455,11 @@ jobs:
             state=failure
             description='Exact-head review authority invalidated by current PR state'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
-          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_CLASSIFICATION" = SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW ]; then
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_CLASSIFICATION" = SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW ] && [ "$GATE_AUTHORITY" = NONE ]; then
             state=success
             description='Scoped provider-maintenance bootstrap passed; no independent provider PASS asserted'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
-          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_CLASSIFICATION" = INDEPENDENT_EXACT_HEAD_REVIEW ]; then
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_CLASSIFICATION" = INDEPENDENT_EXACT_HEAD_REVIEW ] && [ "$independent_authority" = true ]; then
             state=success
             description='Exact-head independent review passed; no current unresolved findings'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
