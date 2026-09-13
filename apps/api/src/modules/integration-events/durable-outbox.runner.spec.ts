@@ -105,7 +105,7 @@ describe('DurableOutboxRunner', () => {
     await runner.onModuleDestroy();
   });
 
-  it('keeps a boolean Kafka unavailability failure retryable instead of acknowledging SENT', async () => {
+  it('quarantines a boolean Kafka failure after a connected delivery attempt', async () => {
     process.env.OUTBOX_WORKER_ENABLED = 'true';
     process.env.OUTBOX_WORKER_INTERVAL_MS = '60000';
     const worker = makeWorker();
@@ -116,9 +116,9 @@ describe('DurableOutboxRunner', () => {
     const handler = worker.registerFallbackHandler.mock.calls[0][0];
 
     await expect(handler(claimedEntry)).rejects.toMatchObject({
-      category: 'TRANSIENT',
-      code: 'KAFKA_TRANSPORT_UNAVAILABLE',
-      message: 'Kafka transport is disabled or unavailable before durable acknowledgement',
+      category: 'AMBIGUOUS',
+      code: 'TRANSPORT_OUTCOME_UNKNOWN',
+      message: 'Kafka send returned without durable acknowledgement; delivery outcome is unknown',
     });
     expect(kafka.send).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -126,6 +126,26 @@ describe('DurableOutboxRunner', () => {
         key: 'reserve-1',
       }),
     );
+    await runner.onModuleDestroy();
+  });
+
+  it('keeps a known transport loss before the delivery attempt retryable', async () => {
+    process.env.OUTBOX_WORKER_ENABLED = 'true';
+    process.env.OUTBOX_WORKER_INTERVAL_MS = '60000';
+    const worker = makeWorker();
+    const kafka = makeKafka(true);
+    kafka.isConnected.mockReturnValueOnce(true).mockReturnValue(false);
+    const runner = new DurableOutboxRunner(worker, kafka);
+
+    runner.onModuleInit();
+    const handler = worker.registerFallbackHandler.mock.calls[0][0];
+
+    await expect(handler(claimedEntry)).rejects.toMatchObject({
+      category: 'TRANSIENT',
+      code: 'KAFKA_TRANSPORT_UNAVAILABLE',
+      message: 'Kafka transport became unavailable before delivery attempt',
+    });
+    expect(kafka.send).not.toHaveBeenCalled();
     await runner.onModuleDestroy();
   });
 
