@@ -245,7 +245,7 @@ export class OutboxService {
           throw new Error(`Outbox entry ${params.entryId} cannot be redriven from status ${current.status}`);
         }
 
-        await tx.$queryRaw(Prisma.sql`
+        await tx.$executeRaw(Prisma.sql`
           SELECT pg_advisory_xact_lock(hashtext('outbox_redrive_events_hash_chain'))
         `);
         const previous = await tx.outboxRedriveEvent.findFirst({
