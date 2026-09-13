@@ -10,7 +10,6 @@ const POSITIVE_INTEGER = /^[1-9][0-9]{0,18}$/;
 
 type PublicMarketClockRow = Readonly<{
   observed_at: Date;
-  tx_id: bigint;
 }>;
 
 type PublicMarketLotRow = Readonly<{
@@ -35,13 +34,13 @@ export class PublicAuctionMarketService {
   async listLots() {
     return this.prisma.$transaction(async (tx) => {
       const clocks = await tx.$queryRaw<PublicMarketClockRow[]>(Prisma.sql`
-        SELECT transaction_timestamp() AS observed_at, txid_current() AS tx_id
+        SELECT transaction_timestamp() AS observed_at
       `);
       const rows = await tx.$queryRaw<PublicMarketLotRow[]>(Prisma.sql`
         SELECT * FROM auction.list_public_market_lot_cards(${PUBLIC_MARKET_LIMIT})
       `);
       const clock = clocks[0];
-      if (!clock?.observed_at || typeof clock.tx_id !== 'bigint') {
+      if (!(clock?.observed_at instanceof Date) || !Number.isFinite(clock.observed_at.getTime())) {
         throw invalidProjection('PUBLIC_MARKET_POSTGRESQL_CLOCK_UNAVAILABLE');
       }
 
@@ -58,7 +57,6 @@ export class PublicAuctionMarketService {
           projection: 'ANONYMIZED_PUBLIC_MARKET' as const,
           sellerIdentity: 'REDACTED' as const,
           observedAt: clock.observed_at.toISOString(),
-          transactionId: clock.tx_id.toString(),
           version: version.toString(),
         }),
         items,
