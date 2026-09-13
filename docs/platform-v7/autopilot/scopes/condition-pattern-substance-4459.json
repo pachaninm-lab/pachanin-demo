@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/condition-pattern-substance-4459",
+  "status": "active",
+  "purpose": "The falsifiability verifier proves every ASVS condition stops holding when its evidence is destroyed. That is a different question from whether the evidence is a control. A condition whose pattern appears in the cited file only inside a comment is perfectly falsifiable - delete the comment and it fails - and proves nothing, because it is anchored to a description of a control rather than the control. This programme's standing rule is that policy is not implementation; this makes that rule mechanical for all 684 pattern-at-path pairs.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/condition-pattern-substance-4459.json",
+    "scripts/security/verify-condition-pattern-substance.mjs",
+    "scripts/security/verify-condition-pattern-substance.test.mjs",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "The check is narrow on purpose. A pattern inside a STRING literal is not flagged: 'aes-256-gcm', 'denied' and '__Host-' are code doing its job, and treating a string as prose would condemn most of the honest conditions in the file. Only a comment is prose by definition, and the scanner knows the difference - a stripper that erased '// not a comment' inside a string would report working controls as descriptions.",
+    "Matching mirrors build-asvs-matrix.mjs exactly - case-insensitive substring - because a check that matched differently from the thing it audits would report on conditions nobody has.",
+    "The one legitimate exception is declared, not inferred. V13.4.5 records that a health endpoint is labelled internal-only in its own source comment while being publicly reachable: the finding IS that contradiction. It carries proseEvidence: true, which a reader can see. Inferring the exception from a condition's wording would let any condition claim it by accident.",
+    "No verdict moves. Both affected decisions were already FAIL and both remain FAIL; the matrix is identical against main, 129/89/88/39 before and after. The evidence got better without any conclusion changing - which is the only honest shape for this kind of correction.",
+    "A prose-anchored FAIL is treated as exactly as dangerous as a prose-anchored PASS. V12.3.3 asserted that the web tier reaches the API over plaintext while pointing at a doc comment that mentions the address; deleting that comment would have silently cleared the finding. It now points at apps/web/lib/server/server-api-origin.ts, where the constant actually is."
+  ],
+  "acceptance": [
+    "684 pattern-at-path pairs across 332 decisions checked; 2 were matched only inside a comment, both on decisions already recorded FAIL, so no PASS was ever resting on prose.",
+    "V12.3.3 re-anchored from a doc comment in tai-internal-stream.ts to the real constant COMPOSE_INTERNAL_API_BASE_URL = 'http://api:3001/api' in apps/web/lib/server/server-api-origin.ts. Same claim, real evidence, still FAIL.",
+    "V13.4.5 marked proseEvidence: true, because its finding is the comment's claim contradicting the code's behaviour.",
+    "The matrix is unchanged against main: 129 PASS, 89 FAIL, 88 NOT_APPLICABLE, 39 NOT_ASSESSED, zero requirements changed.",
+    "verify-condition-pattern-substance.test.mjs passes 10 of 10 and five mutations each fail it: removing string awareness, making matching case-sensitive, not stripping block comments, dropping escape handling, and never reporting prose-only. The suite carries a positive control, because a check that finds nothing proves nothing.",
+    "verify-decision-evidence.mjs passes 332 of 332."
+  ]
+}
