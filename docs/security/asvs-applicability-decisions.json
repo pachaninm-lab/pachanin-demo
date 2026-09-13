@@ -9880,6 +9880,40 @@
       "note": "Additional protections (sandboxing, encapsulation, containerization, network isolation) around parts of the application documented as risky or dangerous cannot be verified when no such documentation exists (V15.1.4, V15.1.5). This fails as a direct consequence, not an independent finding."
     },
     {
+      "requirementId": "V15.3.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/api/src/main.ts",
+        "apps/api/src/common/interceptors/response-field-guard.interceptor.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the API still returns hand-built objects with no serialisation layer deciding which fields leave, so nothing enforces that an endpoint returns only what it needs",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts"
+          ],
+          "patterns": [
+            "ClassSerializerInterceptor"
+          ]
+        },
+        {
+          "condition": "the boundary still refuses a response carrying a field that may never leave this API, which is the part of the gap that can be closed centrally",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/interceptors/response-field-guard.interceptor.ts"
+          ],
+          "patterns": [
+            "FORBIDDEN_RESPONSE_FIELDS",
+            "may never leave this API",
+            "outcome: 'unbounded'"
+          ]
+        }
+      ],
+      "note": "FAIL, and the reason is structural rather than a single defect. Responses are hand-built objects; there is no ClassSerializerInterceptor, no response DTO layer and no @Exclude discipline, so nothing decides which fields leave an endpoint. A column added to a row later rides out with whatever returns that row, and no mechanism would notice. That is what this requirement asks for and it does not exist here. Measured rather than assumed: the User model carries passwordHash and mfaSecret; there are only 4 prisma.user.* calls in the API and the single one without an explicit select is a seed file, not an endpoint; auth reads its rows through raw SQL with explicit column lists (persistent-auth.repository.ts selects user_id, email, password_hash and hands it to the password check, not to a client); and no controller in the API names any of those fields. So nothing is known to leak today - which is not the same as a control, and this decision does not record it as one. What was added is defence in depth for the case that cannot be argued about: ResponseFieldGuardInterceptor refuses any response containing passwordHash, mfa_secret_ciphertext and the like, wherever in the body it appears. It refuses rather than strips, because a stripped body looks right while the leak sits unreported; it names the field and the path and never the value; and the walk is bounded in depth and node count because a response is attacker-influenced in size, with either cap reported rather than treated as clean. It does not make this requirement PASS and is not cited as if it did: minimisation is a property of each endpoint and cannot be retrofitted at the boundary."
+    },
+    {
       "requirementId": "V15.3.2",
       "applicability": "APPLICABLE",
       "status": "FAIL",

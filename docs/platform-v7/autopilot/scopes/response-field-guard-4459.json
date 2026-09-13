@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/response-field-guard-4459",
+  "status": "active",
+  "purpose": "V15.3.1 had no decision at all. Assessing it gives a FAIL, and the reason is structural rather than a single defect: responses are hand-built objects, there is no ClassSerializerInterceptor, no response DTO layer and no @Exclude discipline, so nothing decides which fields leave an endpoint. A column added to a row later rides out with whatever returns that row and no mechanism would notice. Minimisation is a property of each endpoint and cannot be retrofitted at the boundary, so this branch does not pretend to close it - it closes the part that can be closed centrally and records the rest as failing.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/response-field-guard-4459.json",
+    "apps/api/src/common/interceptors/response-field-guard.interceptor.ts",
+    "apps/api/src/common/interceptors/response-field-guard.interceptor.spec.ts",
+    "apps/api/src/main.ts",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "The new control is not cited as satisfying the requirement. V15.3.1 is recorded FAIL and the interceptor is recorded as defence in depth, in the decision's own words. A guard against the worst case is not minimisation, and calling it that would be the substitution this programme forbids.",
+    "It refuses rather than strips. A stripped body looks right to the client while the leak sits unreported in production; a 500 is noticed. The message names the field and the path and never the value, because a guard against disclosure that logs the disclosure is not a guard.",
+    "The walk is bounded and a body that could not be finished is reported, not cleared. A response is attacker-influenced in size and shape, so an unbounded traversal would be a denial of service the guard brought with it: depth and node count are capped, cycles are survived, and hitting either cap is an error rather than a clean result.",
+    "Field names match exactly, not by substring. passwordHashAlgorithm is a legitimate field name and flagging it would teach people to disable the guard.",
+    "Nothing is claimed about today's responses beyond what was measured: the User model carries passwordHash and mfaSecret, there are 4 prisma.user.* calls of which the only one without an explicit select is a seed file, auth reads its rows through raw SQL with explicit column lists, and no controller names any of those fields. Nothing is known to leak - which is not a control, and the decision says so."
+  ],
+  "acceptance": [
+    "V15.3.1: PENDING_APPLICABILITY_REVIEW/NOT_ASSESSED -> APPLICABLE/FAIL. 89 -> 90 FAIL, 39 -> 38 NOT_ASSESSED, exactly one requirement changed. Assessing a requirement honestly can move it away from PASS, and that is what happened here.",
+    "response-field-guard.interceptor.spec.ts passes 9 of 9, covering snake_case and mixed-case keys, a field inside an array, a cycle, a body too deep to finish, and a name that merely contains a forbidden one.",
+    "Five mutations each fail the suite: dropping case normalisation of the given list, not walking arrays, removing the depth cap, matching by substring, and removing cycle protection. Two of them had to be rewritten first - one was a no-op because the built-in list is already lowercase, and one did not compile - and neither counted until it actually changed behaviour.",
+    "The full API suite is unaffected by the global interceptor: 236 suites and 2879 tests on clean main, 237 and 2888 here, the difference being this branch's own spec, and zero failures either way.",
+    "apps/api typecheck passes and verify-decision-evidence.mjs passes 333 of 333."
+  ]
+}

@@ -12,6 +12,7 @@ import { configureRequestBodyLimits } from './common/security/request-body-limit
 import { assertIndustrialProductionStartup, INDUSTRIAL_CORE_MIGRATION } from './common/config/industrial-mode';
 import { PrismaService } from './common/prisma/prisma.service';
 import { installLastResortHandlers } from './common/process/last-resort-handlers';
+import { ResponseFieldGuardInterceptor } from './common/interceptors/response-field-guard.interceptor';
 
 // Prometheus metrics setup
 collectDefaultMetrics({ prefix: 'grainflow_' });
@@ -92,6 +93,12 @@ async function bootstrap() {
       transform: true,
     }),
   );
+
+  // Defence in depth, not minimisation: V15.3.1 remains FAIL because nothing
+  // here enforces that an endpoint returns only the fields it needs. This
+  // catches the case that cannot be argued about - a field that may never leave
+  // this API riding out on a row somebody returned whole.
+  app.useGlobalInterceptors(new ResponseFieldGuardInterceptor());
 
   app.setGlobalPrefix('api', { exclude: ['health', 'ready', 'version', 'metrics'] });
 
