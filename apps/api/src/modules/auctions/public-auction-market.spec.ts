@@ -45,13 +45,16 @@ describe('anonymous public Auction market projection', () => {
     expect(migration).not.toMatch(/GRANT\s+SELECT\s+ON\s+(?:TABLE\s+)?auction\.public_market_lot_cards\s+TO\s+(?:app_|pc_deal|one_deal)/i);
   });
 
-  it('updates the projection transactionally with the canonical lot state', () => {
+  it('updates the projection transactionally and preserves forward-only history when a lot stops being public', () => {
     const migration = read(migrationPath);
     expect(migration).toContain('CREATE CONSTRAINT TRIGGER auction_public_market_lot_sync');
     expect(migration).toContain('DEFERRABLE INITIALLY DEFERRED');
     expect(migration).toContain('EXECUTE FUNCTION auction.sync_public_market_lot_card()');
     expect(migration).toContain('ON CONFLICT (lot_id) DO UPDATE');
-    expect(migration).toContain('DELETE FROM auction.public_market_lot_cards WHERE lot_id = NEW.id');
+    expect(migration).toContain("status text NOT NULL CHECK (status IN ('BIDDING', 'HIDDEN'))");
+    expect(migration).toContain("SET status = 'HIDDEN'");
+    expect(migration).toContain("WHERE c.status = 'BIDDING'");
+    expect(migration).not.toMatch(/\bDELETE\s+FROM\b/i);
   });
 
   it('serves a bounded PostgreSQL authority envelope without tenant or seller identifiers', () => {

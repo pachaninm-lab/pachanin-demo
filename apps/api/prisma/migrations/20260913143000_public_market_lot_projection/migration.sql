@@ -33,7 +33,7 @@ CREATE TABLE auction.public_market_lot_cards (
   start_price_kopecks_per_ton bigint NOT NULL CHECK (start_price_kopecks_per_ton >= 0),
   region text NOT NULL,
   auction_ends_at timestamptz NOT NULL,
-  status text NOT NULL CHECK (status = 'BIDDING'),
+  status text NOT NULL CHECK (status IN ('BIDDING', 'HIDDEN')),
   verification_status text NOT NULL CHECK (verification_status = 'DECLARED'),
   trade_permission text NOT NULL CHECK (trade_permission = 'PUBLIC_ALLOWED'),
   lot_version bigint NOT NULL CHECK (lot_version > 0),
@@ -99,7 +99,11 @@ SET row_security = on
 AS $function$
 BEGIN
   IF TG_OP = 'DELETE' THEN
-    DELETE FROM auction.public_market_lot_cards WHERE lot_id = OLD.id;
+    UPDATE auction.public_market_lot_cards
+    SET status = 'HIDDEN',
+        lot_version = OLD.version,
+        projected_at = transaction_timestamp()
+    WHERE lot_id = OLD.id;
     RETURN OLD;
   END IF;
 
@@ -138,7 +142,11 @@ BEGIN
       lot_version = EXCLUDED.lot_version,
       projected_at = EXCLUDED.projected_at;
   ELSE
-    DELETE FROM auction.public_market_lot_cards WHERE lot_id = NEW.id;
+    UPDATE auction.public_market_lot_cards
+    SET status = 'HIDDEN',
+        lot_version = NEW.version,
+        projected_at = transaction_timestamp()
+    WHERE lot_id = NEW.id;
   END IF;
 
   RETURN NEW;
