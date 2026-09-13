@@ -164,9 +164,9 @@ export class DurableOutboxRunner implements OnModuleInit, OnModuleDestroy {
       if (heartbeatFailure) throw heartbeatFailure;
       if (!delivered) {
         throw new OutboxDeliveryError(
-          'TRANSIENT',
-          'TRANSPORT_NOT_DELIVERED',
-          'Kafka transport is disabled or delivery failed',
+          'AMBIGUOUS',
+          'TRANSPORT_OUTCOME_UNKNOWN',
+          'Kafka transport is disabled or delivery outcome is unknown',
         );
       }
     } finally {

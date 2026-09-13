@@ -113,9 +113,11 @@ describe('DurableOutboxRunner', () => {
     runner.onModuleInit();
     const handler = worker.registerFallbackHandler.mock.calls[0][0];
 
-    await expect(handler(claimedEntry)).rejects.toThrow(
-      'Kafka transport is disabled or delivery failed',
-    );
+    await expect(handler(claimedEntry)).rejects.toMatchObject({
+      category: 'AMBIGUOUS',
+      code: 'TRANSPORT_OUTCOME_UNKNOWN',
+      message: 'Kafka transport is disabled or delivery outcome is unknown',
+    });
     expect(kafka.send).toHaveBeenCalledWith(
       expect.objectContaining({
         topic: 'grainflow.bank.events',

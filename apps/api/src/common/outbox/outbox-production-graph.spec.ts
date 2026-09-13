@@ -46,7 +46,7 @@ describe('IR-OUTBOX production graph', () => {
     const runner = source('apps/api/src/modules/integration-events/durable-outbox.runner.ts');
     expect(runner).toContain("process.env.OUTBOX_WORKER_ENABLED === 'true'");
     expect(runner).toContain('if (!delivered)');
-    expect(runner).toContain('Kafka transport is disabled or delivery failed');
+    expect(runner).toContain('TRANSPORT_OUTCOME_UNKNOWN');
     expect(runner).not.toContain('KAFKA_BROKERS not set — Kafka producer disabled (dev mode)');
   });
 
