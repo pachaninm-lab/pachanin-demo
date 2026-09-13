@@ -453,7 +453,11 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
     const type = `${RUN_ID}.audited-redrive`;
     const [id] = await seedEntries('audited-redrive', 1, { maxRetries: 1 });
     workerA.registerHandler(type, async () => {
-      throw new Error('temporary provider failure');
+      throw new OutboxDeliveryError(
+        'TRANSIENT',
+        'PROVIDER_UNAVAILABLE',
+        'temporary provider failure',
+      );
     });
     await workerA.drainOnce('worker-redrive-fail', 1);
 
