@@ -231,7 +231,8 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
           `;
         })).rejects.toThrow(/legacy outbox claim protocol is fenced/);
 
-        await workerA.claimBatch('protocol-v2-quarantine', 1);
+        const marketingQuarantine = await workerA.drainOnce('protocol-v2-quarantine', 1);
+        expect(marketingQuarantine).toMatchObject({ manualReview: 1, claimed: 0 });
         const quarantinedMarketing = await prismaA.outboxEntry.findUniqueOrThrow({
           where: { id: marketingId },
         });
@@ -311,7 +312,8 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
     await workerA.markAttemptStarted('worker-crash-after-attempt', id, claim.leaseToken);
     await new Promise((resolve) => setTimeout(resolve, 1_300));
 
-    expect(await workerB.claimBatch('worker-safe-recovery', 1)).toHaveLength(0);
+    const recoveryReport = await workerB.drainOnce('worker-safe-recovery', 1);
+    expect(recoveryReport).toMatchObject({ manualReview: 1, claimed: 0 });
     const row = await prismaA.outboxEntry.findUniqueOrThrow({ where: { id } });
     expect(row.status).toBe('MANUAL_REVIEW');
     expect(row.lastErrorCategory).toBe('AMBIGUOUS');
@@ -331,7 +333,8 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
       message: 'late transport failure',
     })).rejects.toBeInstanceOf(OutboxLeaseLostError);
 
-    expect(await workerB.claimBatch('worker-stale-failure-recovery', 1)).toHaveLength(0);
+    const staleRecoveryReport = await workerB.drainOnce('worker-stale-failure-recovery', 1);
+    expect(staleRecoveryReport).toMatchObject({ manualReview: 1, claimed: 0 });
     const row = await prismaA.outboxEntry.findUniqueOrThrow({ where: { id } });
     expect(row.status).toBe('MANUAL_REVIEW');
     expect(row.lastErrorCode).toBe('WORKER_CRASH_OUTCOME_UNKNOWN');
