@@ -13,6 +13,7 @@ type PublicMarketClockRow = Readonly<{
 }>;
 
 type PublicMarketLotRow = Readonly<{
+  observed_at: Date;
   public_ref: string;
   culture: string;
   grade: string | null;
@@ -33,18 +34,38 @@ export class PublicAuctionMarketService {
 
   async listLots() {
     return this.prisma.$transaction(async (tx) => {
-      const clocks = await tx.$queryRaw<PublicMarketClockRow[]>(Prisma.sql`
-        SELECT transaction_timestamp() AS observed_at
-      `);
+      // The PostgreSQL clock and every returned card are observed by the same
+      // SQL statement. There is no application-clock comparison and therefore
+      // no cross-statement expiry window for any non-empty market result.
       const rows = await tx.$queryRaw<PublicMarketLotRow[]>(Prisma.sql`
-        SELECT * FROM auction.list_public_market_lot_cards(${PUBLIC_MARKET_LIMIT})
+        SELECT transaction_timestamp() AS observed_at, c.*
+        FROM auction.list_public_market_lot_cards(${PUBLIC_MARKET_LIMIT}) AS c
       `);
-      const clock = clocks[0];
-      if (!(clock?.observed_at instanceof Date) || !Number.isFinite(clock.observed_at.getTime())) {
+
+      let observedAt = rows[0]?.observed_at;
+      if (rows.length === 0) {
+        // Preserve a truthful PostgreSQL observation timestamp for the empty
+        // state. No lot/auction timestamp is compared in this branch.
+        const clocks = await tx.$queryRaw<PublicMarketClockRow[]>(Prisma.sql`
+          SELECT transaction_timestamp() AS observed_at
+        `);
+        observedAt = clocks[0]?.observed_at;
+      }
+
+      if (!(observedAt instanceof Date) || !Number.isFinite(observedAt.getTime())) {
         throw invalidProjection('PUBLIC_MARKET_POSTGRESQL_CLOCK_UNAVAILABLE');
       }
 
-      const items = rows.map((row) => parsePublicMarketLot(row, clock.observed_at));
+      const items = rows.map((row) => {
+        if (
+          !(row.observed_at instanceof Date)
+          || !Number.isFinite(row.observed_at.getTime())
+          || row.observed_at.getTime() !== observedAt.getTime()
+        ) {
+          throw invalidProjection('PUBLIC_MARKET_POSTGRESQL_CLOCK_DRIFT');
+        }
+        return parsePublicMarketLot(row, observedAt);
+      });
       const version = rows.reduce((current, row) => {
         const candidate = parsePositiveBigInt(row.lot_version, 'lot_version');
         return candidate > current ? candidate : current;
@@ -56,7 +77,7 @@ export class PublicAuctionMarketService {
           scope: 'PUBLIC_MARKET' as const,
           projection: 'ANONYMIZED_PUBLIC_MARKET' as const,
           sellerIdentity: 'REDACTED' as const,
-          observedAt: clock.observed_at.toISOString(),
+          observedAt: observedAt.toISOString(),
           version: version.toString(),
         }),
         items,
