@@ -188,6 +188,16 @@ SET search_path = pg_catalog, auction
 SET row_security = on
 AS $function$
 BEGIN
+  IF NOT pg_catalog.has_function_privilege(
+       session_user,
+       'auction.list_public_market_lot_cards(integer)'::regprocedure,
+       'EXECUTE'
+     )
+  THEN
+    RAISE EXCEPTION 'PUBLIC_MARKET_READER_DENIED'
+      USING ERRCODE = '42501';
+  END IF;
+
   IF p_limit IS NULL OR p_limit < 1 OR p_limit > 24 THEN
     RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'PUBLIC_MARKET_LIMIT_INVALID';
   END IF;
