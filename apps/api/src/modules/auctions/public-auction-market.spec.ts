@@ -61,7 +61,7 @@ describe('anonymous public Auction market projection', () => {
     expect(migration).not.toMatch(/\bDELETE\s+FROM\b/i);
   });
 
-  it('serves a bounded PostgreSQL authority envelope without tenant or seller identifiers', () => {
+  it('serves a bounded PostgreSQL authority envelope without tenant, seller or database activity identifiers', () => {
     const service = read(servicePath);
     expect(service).toContain('auction.list_public_market_lot_cards(${PUBLIC_MARKET_LIMIT})');
     expect(service).toContain("source: 'POSTGRESQL'");
@@ -73,6 +73,8 @@ describe('anonymous public Auction market projection', () => {
     expect(service).not.toContain('sellerOrgId');
     expect(service).not.toContain('sellerUserId');
     expect(service).not.toContain('address:');
+    expect(service).not.toContain('txid_current');
+    expect(service).not.toContain('transactionId');
   });
 
   it('mounts a rate-limited public read route without weakening the authenticated auction controller', () => {
@@ -87,7 +89,7 @@ describe('anonymous public Auction market projection', () => {
     expect(module).toContain('PublicAuctionMarketService');
   });
 
-  it('keeps the public web read unauthenticated, PostgreSQL-bound and fail-closed', () => {
+  it('keeps the public web read unauthenticated, PostgreSQL-bound, metadata-minimal and fail-closed', () => {
     const helper = read(webHelperPath);
     expect(helper).toContain("serverApiUrl('/market/lots')");
     expect(helper).toContain("cache: 'no-store'");
@@ -96,6 +98,7 @@ describe('anonymous public Auction market projection', () => {
     expect(helper).toContain("scope: 'PUBLIC_MARKET'");
     expect(helper).toContain("projection: 'ANONYMIZED_PUBLIC_MARKET'");
     expect(helper).toContain("sellerIdentity: 'REDACTED'");
+    expect(helper).not.toContain('transactionId');
     expect(helper).toContain('available: false');
     expect(helper).toContain('items: Object.freeze([])');
   });
