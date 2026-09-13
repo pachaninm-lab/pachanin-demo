@@ -198,6 +198,25 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
+  -- SECURITY DEFINER must remain bound to the memberless inventory authority,
+  -- and FORCE RLS must remain enabled on the protected projection. Fail closed
+  -- if either database invariant is altered by later operational drift.
+  IF current_user <> 'pc_inventory_authority'
+     OR NOT EXISTS (
+       SELECT 1
+       FROM pg_catalog.pg_class c
+       JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+       WHERE n.nspname = 'auction'
+         AND c.relname = 'public_market_lot_cards'
+         AND c.relkind IN ('r', 'p')
+         AND c.relrowsecurity
+         AND c.relforcerowsecurity
+     )
+  THEN
+    RAISE EXCEPTION 'PUBLIC_MARKET_RLS_AUTHORITY_INVALID'
+      USING ERRCODE = '42501';
+  END IF;
+
   IF p_limit IS NULL OR p_limit < 1 OR p_limit > 24 THEN
     RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'PUBLIC_MARKET_LIMIT_INVALID';
   END IF;
