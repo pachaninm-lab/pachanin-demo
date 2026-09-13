@@ -3,7 +3,7 @@
   "branch": "fix/local-qwen-evidence-binding-20260913",
   "status": "active",
   "purpose": "Authorize a bounded Local Qwen provider hardening after exact-head semantic reviews of substantive PR #5349 produced blocking candidates that violated the already-pinned direct-evidence policy through unsupported external assumptions and speculative classifications. Strengthen deterministic admissibility so every non-empty finding is bound to an exact added new-side line and verbatim evidence from that line, while preserving model/runtime identity, review scope, fail-closed behavior and exact-head authority. Also authorize one narrowly-scoped fail-closed provider-maintenance bootstrap so the review provider can be repaired without fabricating an independent provider PASS for its own implementation.",
-  "authorityBaseExactMain": "b462ecf0be90fa630440217961fb850b29076303",
+  "authorityBaseExactMain": "f4c898e913ac57eec4e8588e8debcbbf3a93381f",
   "evidence": {
     "substantivePullRequest": 5349,
     "reviewedExactHead": "e7611e495bdd25406a7116327a66779bdd1c2f37",
@@ -21,7 +21,6 @@
   },
   "allowedPaths": [
     ".github/workflows/local-qwen-independent-review.yml",
-    ".github/workflows/automerge.yml",
     "docs/platform-v7/autopilot/verify-pr-review-gate.mjs",
     "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
   ],
@@ -69,13 +68,10 @@
     "implementationBranch": "fix/local-qwen-evidence-binding-20260913",
     "providerWorkflowPath": ".github/workflows/local-qwen-independent-review.yml",
     "providerStatusContext": "review-provider/local-qwen",
-    "reviewControllerWorkflowPath": ".github/workflows/automerge.yml",
-    "reviewGateStatusContext": "review-gate/exact-head",
     "verifierPath": "docs/platform-v7/autopilot/verify-pr-review-gate.mjs",
     "verifierTestPath": "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs",
     "allowedImplementationPaths": [
       ".github/workflows/local-qwen-independent-review.yml",
-      ".github/workflows/automerge.yml",
       "docs/platform-v7/autopilot/verify-pr-review-gate.mjs",
       "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
     ],
@@ -91,10 +87,6 @@
     "generatedProviderSuccessStatusForbidden": true,
     "productPullRequestsEligible": false,
     "authorityManifestSelfModificationByImplementationForbidden": true,
-    "reviewControllerBootstrapMustPrecedeProviderHardening": true,
-    "reviewControllerBootstrapMustUsePreBootstrapIndependentReview": true,
-    "reviewControllerBootstrapMayUseProviderMaintenanceBootstrap": false,
-    "bootstrapStatusDescriptionMustNotNameIndependentProvider": true,
     "onAnyMismatch": "FAIL_CLOSED",
     "resultClassification": "SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW"
   },
