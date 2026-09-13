@@ -81,12 +81,15 @@ describe('anonymous public Auction market projection', () => {
     expect(migration).not.toMatch(/\bDELETE\s+FROM\b/i);
   });
 
-  it('binds every non-empty public lot to one PostgreSQL observation clock', () => {
+  it('binds every non-empty public lot to one PostgreSQL observation clock and fails closed on expiry', () => {
     const service = read(servicePath);
     expect(service).toContain('SELECT transaction_timestamp() AS observed_at, c.*');
     expect(service).toContain('FROM auction.list_public_market_lot_cards(${PUBLIC_MARKET_LIMIT}) AS c');
+    expect(service).toContain('WHERE c.auction_ends_at > transaction_timestamp()');
     expect(service).toContain('row.observed_at.getTime() !== observedAt.getTime()');
+    expect(service).toContain('row.auction_ends_at.getTime() <= observedAt.getTime()');
     expect(service).toContain("PUBLIC_MARKET_POSTGRESQL_CLOCK_DRIFT");
+    expect(service).toContain("PUBLIC_MARKET_AUCTION_NOT_LIVE");
   });
 
   it('serves a bounded PostgreSQL authority envelope without tenant, seller or database activity identifiers', () => {
