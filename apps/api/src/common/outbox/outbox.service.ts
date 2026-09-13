@@ -83,6 +83,27 @@ function redriveRequestFingerprint(params: {
   return createHash('sha256').update(stableJson(params)).digest('hex');
 }
 
+function isMatchingRedriveReplay(
+  replay: {
+    requestFingerprint: string | null;
+    outboxEntryId: string;
+    actorUserId: string;
+    reason: string;
+  },
+  request: { entryId: string; actorUserId: string; reason: string },
+  requestFingerprint: string,
+): boolean {
+  if (replay.requestFingerprint !== null) {
+    return replay.requestFingerprint === requestFingerprint;
+  }
+
+  // Rows written before IR-20 have no fingerprint. Preserve their original
+  // replay contract without weakening it: all stored command fields must match.
+  return replay.outboxEntryId === request.entryId
+    && replay.actorUserId === request.actorUserId
+    && replay.reason === request.reason;
+}
+
 @Injectable()
 export class OutboxService {
   constructor(private readonly prisma: PrismaService) {}
@@ -233,7 +254,7 @@ export class OutboxService {
           where: { idempotencyKey: params.idempotencyKey },
         });
         if (replay) {
-          if (replay.requestFingerprint !== requestFingerprint) {
+          if (!isMatchingRedriveReplay(replay, params, requestFingerprint)) {
             throw new Error('Redrive idempotency conflict');
           }
           const entry = await tx.outboxEntry.findUnique({ where: { id: replay.outboxEntryId } });
@@ -317,7 +338,7 @@ export class OutboxService {
           where: { idempotencyKey: params.idempotencyKey },
         });
         if (replay) {
-          if (replay.requestFingerprint !== requestFingerprint) {
+          if (!isMatchingRedriveReplay(replay, params, requestFingerprint)) {
             throw new Error('Redrive idempotency conflict');
           }
           const entry = await this.prisma.outboxEntry.findUnique({ where: { id: replay.outboxEntryId } });
