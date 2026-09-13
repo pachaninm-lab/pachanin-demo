@@ -68,7 +68,10 @@ describe('IR-OUTBOX production graph', () => {
     expect(worker).toContain('WITH stale_attempts AS');
     expect(worker).toContain('WITH stale_marketing_attempts AS');
     expect(worker).toContain(`"type" <> ${'${MARKETING_SOCIAL_PUBLISH_EVENT_TYPE}'}`);
-    expect(worker).toContain('const claimed = quarantined > 0');
+    expect(worker).toContain('const dedicatedMarketingWorker = this.isDedicatedMarketingWorker()');
+    expect(worker).toContain(': await this.quarantineStaleAttempts(limit)');
+    expect(worker).toContain('const claimed = dedicatedMarketingWorker && quarantined > 0');
+    expect(worker).toContain('manualReview: quarantined');
     expect(worker).toContain('"leaseToken"');
     expect(worker).toContain('AND "leaseToken" = ${leaseToken}');
     expect(worker).toContain('OutboxLeaseLostError');
@@ -77,6 +80,7 @@ describe('IR-OUTBOX production graph', () => {
     expect(worker).toContain('TRANSPORT_RECEIPT_PERSISTENCE_FAILED');
     expect(worker).toContain('RECONCILIATION_REQUIRED');
     expect(worker).toContain('MARKETING_WORKER_ID_PREFIX');
+    expect(worker).toContain('quarantineStaleAttempts');
     expect(worker).toContain('quarantineDedicatedMarketingStaleAttempts');
   });
 
