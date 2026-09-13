@@ -49,6 +49,16 @@ describe('anonymous public Auction market projection', () => {
     expect(migration).not.toMatch(/GRANT\s+SELECT\s+ON\s+(?:TABLE\s+)?auction\.public_market_lot_cards\s+TO\s+(?:app_|pc_deal|one_deal)/i);
   });
 
+  it('fail-closes the SECURITY DEFINER reader unless the database session has EXECUTE authority', () => {
+    const migration = read(migrationPath);
+    expect(migration).toContain('pg_catalog.has_function_privilege(');
+    expect(migration).toContain('session_user,');
+    expect(migration).toContain("'auction.list_public_market_lot_cards(integer)'::regprocedure");
+    expect(migration).toContain("'EXECUTE'");
+    expect(migration).toContain("RAISE EXCEPTION 'PUBLIC_MARKET_READER_DENIED'");
+    expect(migration).toContain("USING ERRCODE = '42501'");
+  });
+
   it('updates the projection transactionally and preserves forward-only history when a lot stops being public', () => {
     const migration = read(migrationPath);
     expect(migration).toContain('CREATE CONSTRAINT TRIGGER auction_public_market_lot_sync');
