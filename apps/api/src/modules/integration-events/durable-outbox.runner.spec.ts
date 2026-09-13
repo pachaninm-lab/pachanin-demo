@@ -322,6 +322,37 @@ describe('DurableOutboxWorker delivery acknowledgement boundary', () => {
     expect(executeRaw).toHaveBeenCalledTimes(2);
   });
 
+  it('retries an attempt-marker persistence failure before invoking the handler', async () => {
+    const prisma = {
+      $transaction: jest.fn()
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce([claimedEntry]),
+      $executeRaw: jest.fn()
+        .mockRejectedValueOnce(new Error('attempt marker database unavailable'))
+        .mockResolvedValueOnce(1),
+    };
+    const worker = new DurableOutboxWorker(prisma as never);
+    const handler = jest.fn(async () => undefined);
+    worker.registerHandler(claimedEntry.type, handler);
+    const markFailed = jest.spyOn(worker, 'markFailed');
+
+    await expect(worker.drainOnce('test-worker', 1)).resolves.toMatchObject({
+      claimed: 1,
+      delivered: 0,
+      retried: 1,
+      manualReview: 0,
+    });
+    expect(handler).not.toHaveBeenCalled();
+    expect(markFailed).toHaveBeenCalledWith(
+      'test-worker',
+      expect.objectContaining({ id: claimedEntry.id }),
+      expect.objectContaining({
+        category: 'TRANSIENT',
+        code: 'ATTEMPT_START_PERSISTENCE_FAILED',
+      }),
+    );
+  });
+
   it('quarantines a persistence failure after the handler completes', async () => {
     const prisma = {
       $transaction: jest.fn()
