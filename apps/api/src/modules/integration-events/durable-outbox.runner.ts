@@ -142,6 +142,14 @@ export class DurableOutboxRunner implements OnModuleInit, OnModuleDestroy {
     heartbeat.unref?.();
 
     try {
+      if (!this.kafka.isConnected()) {
+        throw new OutboxDeliveryError(
+          'TRANSIENT',
+          'KAFKA_TRANSPORT_UNAVAILABLE',
+          'Kafka transport became unavailable before delivery attempt',
+        );
+      }
+
       let delivered: boolean;
       try {
         delivered = await this.kafka.send({
@@ -163,14 +171,14 @@ export class DurableOutboxRunner implements OnModuleInit, OnModuleDestroy {
       }
       if (heartbeatFailure) throw heartbeatFailure;
       if (!delivered) {
-        // KafkaProducerService's boolean contract reports disabled/unavailable
-        // transport as false. That is a pre-ack internal-bus failure and remains
-        // retryable; truly unknown post-send outcomes must arrive as a thrown
-        // error/explicit OutboxDeliveryError and are quarantined above.
+        // KafkaProducerService currently collapses producer.send() failures into
+        // false. Once the transport was connected and delivery was attempted,
+        // false therefore cannot prove that Kafka did not accept the record.
+        // Quarantine rather than retrying an outcome that may already exist.
         throw new OutboxDeliveryError(
-          'TRANSIENT',
-          'KAFKA_TRANSPORT_UNAVAILABLE',
-          'Kafka transport is disabled or unavailable before durable acknowledgement',
+          'AMBIGUOUS',
+          'TRANSPORT_OUTCOME_UNKNOWN',
+          'Kafka send returned without durable acknowledgement; delivery outcome is unknown',
         );
       }
     } finally {
