@@ -11,6 +11,7 @@ function makeWorker() {
       delivered: 0,
       retried: 0,
       deadLettered: 0,
+      manualReview: 0,
       leaseLost: 0,
     }),
     heartbeat: jest.fn().mockResolvedValue(true),
@@ -118,6 +119,23 @@ describe('DurableOutboxRunner', () => {
         key: 'reserve-1',
       }),
     );
+    await runner.onModuleDestroy();
+  });
+
+  it('classifies a thrown post-send outcome as ambiguous', async () => {
+    process.env.OUTBOX_WORKER_ENABLED = 'true';
+    const worker = makeWorker();
+    const kafka = makeKafka(true);
+    kafka.send.mockRejectedValueOnce(new Error('ack timeout'));
+    const runner = new DurableOutboxRunner(worker, kafka);
+
+    runner.onModuleInit();
+    const handler = worker.registerFallbackHandler.mock.calls[0][0];
+
+    await expect(handler(claimedEntry)).rejects.toMatchObject({
+      category: 'AMBIGUOUS',
+      code: 'TRANSPORT_OUTCOME_UNKNOWN',
+    });
     await runner.onModuleDestroy();
   });
 });

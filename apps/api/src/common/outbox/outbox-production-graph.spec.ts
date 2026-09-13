@@ -50,6 +50,15 @@ describe('IR-OUTBOX production graph', () => {
     expect(runner).not.toContain('KAFKA_BROKERS not set — Kafka producer disabled (dev mode)');
   });
 
+  it('instantiates the delivery runner only in the dedicated worker process', () => {
+    const apiModule = source('apps/api/src/modules/integration-events/integration-events.module.ts');
+    const workerModule = source('apps/api/src/outbox-worker.module.ts');
+    expect(apiModule).not.toContain('DurableOutboxRunner');
+    expect(apiModule).not.toContain('DurableOutboxWorker');
+    expect(workerModule).toContain('DurableOutboxRunner');
+    expect(workerModule).toContain('DurableOutboxWorker');
+  });
+
   it('uses tokenized SKIP LOCKED claims and CAS acknowledgements', () => {
     const worker = source('apps/api/src/modules/integration-events/durable-outbox.worker.ts');
     expect(worker).toContain('FOR UPDATE SKIP LOCKED');

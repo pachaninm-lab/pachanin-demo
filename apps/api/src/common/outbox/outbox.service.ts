@@ -28,6 +28,10 @@ export interface OutboxEntry {
   deadLetterAt?: string;
   retryCount: number;
   lastError?: string;
+  lastErrorCode?: string;
+  lastErrorCategory?: string;
+  lastAttemptAt?: string;
+  manualReviewAt?: string;
   correlationId?: string;
   leaseOwner?: string;
   leaseToken?: string;
@@ -227,7 +231,7 @@ export class OutboxService {
         `);
         const current = locked[0];
         if (!current) throw new Error(`Outbox entry ${params.entryId} not found`);
-        if (current.status !== 'DEAD_LETTER') {
+        if (!['DEAD_LETTER', 'MANUAL_REVIEW'].includes(current.status)) {
           throw new Error(`Outbox entry ${params.entryId} cannot be redriven from status ${current.status}`);
         }
 
@@ -250,12 +254,16 @@ export class OutboxService {
           data: { ...eventMaterial, hash },
         });
         const changed = await tx.outboxEntry.updateMany({
-          where: { id: params.entryId, status: 'DEAD_LETTER' },
+          where: { id: params.entryId, status: current.status },
           data: {
             status: 'PENDING',
             retryCount: 0,
             nextRetryAt: new Date(),
             lastError: null,
+            lastErrorCode: null,
+            lastErrorCategory: null,
+            lastAttemptAt: null,
+            manualReviewAt: null,
             failedAt: null,
             deadLetterAt: null,
             leaseOwner: null,
@@ -302,6 +310,10 @@ export class OutboxService {
     retryCount: number;
     nextRetryAt: Date;
     lastError: string | null;
+    lastErrorCode: string | null;
+    lastErrorCategory: string | null;
+    lastAttemptAt: Date | null;
+    manualReviewAt: Date | null;
     correlationId: string | null;
     leaseOwner: string | null;
     leaseToken: string | null;
@@ -325,6 +337,10 @@ export class OutboxService {
       retryCount: row.retryCount,
       nextRetryAt: asIso(row.nextRetryAt),
       lastError: row.lastError ?? undefined,
+      lastErrorCode: row.lastErrorCode ?? undefined,
+      lastErrorCategory: row.lastErrorCategory ?? undefined,
+      lastAttemptAt: asIso(row.lastAttemptAt),
+      manualReviewAt: asIso(row.manualReviewAt),
       correlationId: row.correlationId ?? undefined,
       leaseOwner: row.leaseOwner ?? undefined,
       leaseToken: row.leaseToken ?? undefined,

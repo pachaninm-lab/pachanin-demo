@@ -2,6 +2,7 @@ import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { OutboxService } from '../../src/common/outbox/outbox.service';
 import {
   DurableOutboxWorker,
+  OutboxDeliveryError,
   OutboxLeaseLostError,
 } from '../../src/modules/integration-events/durable-outbox.worker';
 
@@ -195,6 +196,69 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
     expect(row.status).toBe('DEAD_LETTER');
     expect(row.sentAt).toBeNull();
     expect(row.lastError).toContain('no transport handler');
+    expect(row.lastErrorCategory).toBe('PERMANENT');
+    expect(row.lastErrorCode).toBe('TRANSPORT_HANDLER_MISSING');
+  });
+
+  it.each([
+    ['timeout', Object.assign(new Error('provider timeout'), { code: 'ETIMEDOUT' }), 'TRANSIENT', 'PROVIDER_TIMEOUT', 'PENDING'],
+    ['429', Object.assign(new Error('rate limited'), { status: 429 }), 'TRANSIENT', 'PROVIDER_RATE_LIMITED', 'PENDING'],
+    ['400', Object.assign(new Error('invalid request'), { statusCode: 400 }), 'PERMANENT', 'PROVIDER_HTTP_400', 'DEAD_LETTER'],
+    ['503', Object.assign(new Error('provider unavailable'), { statusCode: 503 }), 'TRANSIENT', 'PROVIDER_HTTP_503', 'PENDING'],
+  ])('durably classifies provider %s failures', async (
+    testName,
+    failure,
+    expectedCategory,
+    expectedCode,
+    expectedStatus,
+  ) => {
+    const type = `${RUN_ID}.classified-${testName}`;
+    const [id] = await seedEntries(`classified-${testName}`, 1);
+    workerA.registerHandler(type, async () => { throw failure; });
+
+    await workerA.drainOnce(`worker-classified-${testName}`, 1);
+    const row = await prismaA.outboxEntry.findUniqueOrThrow({ where: { id } });
+    expect(row.status).toBe(expectedStatus);
+    expect(row.lastErrorCategory).toBe(expectedCategory);
+    expect(row.lastErrorCode).toBe(expectedCode);
+    expect(row.lastAttemptAt).not.toBeNull();
+  });
+
+  it('parks an ambiguous outcome without retry and permits only audited redrive', async () => {
+    const type = `${RUN_ID}.ambiguous-delivery`;
+    const [id] = await seedEntries('ambiguous-delivery', 1);
+    workerA.registerHandler(type, async () => {
+      throw new OutboxDeliveryError(
+        'AMBIGUOUS',
+        'PROVIDER_DELIVERY_AMBIGUOUS',
+        'request sent but acknowledgement was lost',
+      );
+    });
+
+    const report = await workerA.drainOnce('worker-ambiguous', 1);
+    expect(report).toMatchObject({ manualReview: 1, retried: 0, deadLettered: 0 });
+    let row = await prismaA.outboxEntry.findUniqueOrThrow({ where: { id } });
+    expect(row.status).toBe('MANUAL_REVIEW');
+    expect(row.lastErrorCategory).toBe('AMBIGUOUS');
+    expect(row.manualReviewAt).not.toBeNull();
+    expect(await workerB.claimBatch('worker-no-ambiguous-retry', 10)).toHaveLength(0);
+
+    const redrive = await outbox.redrive({
+      entryId: id,
+      actorUserId: 'admin-outbox-e2e',
+      reason: 'provider reconciliation proved no delivery',
+      idempotencyKey: `${RUN_ID}.ambiguous-redrive`,
+    });
+    expect(redrive.replayed).toBe(false);
+    const [event] = await prismaA.outboxRedriveEvent.findMany({ where: { outboxEntryId: id } });
+    expect(event.previousStatus).toBe('MANUAL_REVIEW');
+
+    workerA.registerHandler(type, async () => undefined);
+    expect((await workerA.drainOnce('worker-reconciled', 1)).delivered).toBe(1);
+    row = await prismaA.outboxEntry.findUniqueOrThrow({ where: { id } });
+    expect(row.status).toBe('SENT');
+    expect(row.lastErrorCategory).toBeNull();
+    expect(row.manualReviewAt).toBeNull();
   });
 
   it('redrives exactly once with an append-only hash-chain audit and never mutates terminal receipts', async () => {
