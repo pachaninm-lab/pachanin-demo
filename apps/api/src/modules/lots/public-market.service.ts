@@ -3,7 +3,6 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
 type PublicMarketRow = Readonly<{
-  lot_id: string;
   culture: string;
   grade: string | null;
   volume_tons: Prisma.Decimal;
@@ -14,7 +13,6 @@ type PublicMarketRow = Readonly<{
 }>;
 
 export type PublicMarketLot = Readonly<{
-  lotId: string;
   culture: string;
   grade: string | null;
   volumeTons: string;
@@ -38,7 +36,6 @@ export class PublicMarketService {
     try {
       const rows = await this.prisma.$queryRaw<PublicMarketRow[]>(Prisma.sql`
         SELECT
-          lot_id,
           culture,
           grade,
           volume_tons,
@@ -53,7 +50,6 @@ export class PublicMarketService {
         source: 'POSTGRESQL',
         visibility: 'ANONYMIZED',
         items: rows.map((row) => ({
-          lotId: row.lot_id,
           culture: row.culture,
           grade: row.grade,
           volumeTons: row.volume_tons.toString(),
