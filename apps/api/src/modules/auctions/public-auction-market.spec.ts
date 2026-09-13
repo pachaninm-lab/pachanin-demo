@@ -49,14 +49,20 @@ describe('anonymous public Auction market projection', () => {
     expect(migration).not.toMatch(/GRANT\s+SELECT\s+ON\s+(?:TABLE\s+)?auction\.public_market_lot_cards\s+TO\s+(?:app_|pc_deal|one_deal)/i);
   });
 
-  it('fail-closes the SECURITY DEFINER reader unless caller, owner and FORCE RLS authority remain valid', () => {
+  it('fail-closes the SECURITY DEFINER reader unless caller, function owner and FORCE RLS authority remain valid', () => {
     const migration = read(migrationPath);
-    expect(migration).toContain('pg_catalog.has_function_privilege(');
+    const authorityGuard = migration.indexOf("current_user <> 'pc_inventory_authority'");
+    const callerPrivilegeGuard = migration.indexOf('pg_catalog.has_function_privilege(');
+    expect(authorityGuard).toBeGreaterThan(-1);
+    expect(callerPrivilegeGuard).toBeGreaterThan(authorityGuard);
+    expect(migration).toContain("session_user = 'pc_inventory_authority'");
+    expect(migration).toContain('session_user = current_user');
+    expect(migration).toContain('p.prosecdef');
+    expect(migration).toContain("pg_catalog.pg_get_userbyid(p.proowner) = 'pc_inventory_authority'");
     expect(migration).toContain('session_user,');
     expect(migration).toContain("'auction.list_public_market_lot_cards(integer)'::regprocedure");
     expect(migration).toContain("'EXECUTE'");
     expect(migration).toContain("RAISE EXCEPTION 'PUBLIC_MARKET_READER_DENIED'");
-    expect(migration).toContain("current_user <> 'pc_inventory_authority'");
     expect(migration).toContain('c.relrowsecurity');
     expect(migration).toContain('c.relforcerowsecurity');
     expect(migration).toContain("RAISE EXCEPTION 'PUBLIC_MARKET_RLS_AUTHORITY_INVALID'");
@@ -73,6 +79,14 @@ describe('anonymous public Auction market projection', () => {
     expect(migration).toContain("SET status = 'HIDDEN'");
     expect(migration).toContain("WHERE c.status = 'BIDDING'");
     expect(migration).not.toMatch(/\bDELETE\s+FROM\b/i);
+  });
+
+  it('binds every non-empty public lot to one PostgreSQL observation clock', () => {
+    const service = read(servicePath);
+    expect(service).toContain('SELECT transaction_timestamp() AS observed_at, c.*');
+    expect(service).toContain('FROM auction.list_public_market_lot_cards(${PUBLIC_MARKET_LIMIT}) AS c');
+    expect(service).toContain('row.observed_at.getTime() !== observedAt.getTime()');
+    expect(service).toContain("PUBLIC_MARKET_POSTGRESQL_CLOCK_DRIFT");
   });
 
   it('serves a bounded PostgreSQL authority envelope without tenant, seller or database activity identifiers', () => {
@@ -140,6 +154,9 @@ describe('anonymous public Auction market projection', () => {
     expect(teaser).toContain('/platform-v7/register?lang=');
     expect(teaser).toContain('/platform-v7/login?lang=');
     expect(home).toContain("import { PublicMarketTeaser } from './PublicMarketTeaser';");
+    expect(home).toContain("const MARKET_NAV_LABEL: Record<Locale, string> = {");
+    expect(home).toContain('const marketNavLabel = MARKET_NAV_LABEL[normalizedLocale];');
+    expect(home).not.toContain("const marketNavLabel = normalizedLocale ===");
     expect(home).toContain("<a href='#market'>{marketNavLabel}</a>");
     expect(home).toContain('<PublicMarketTeaser locale={locale} />');
     expect(teaser).toContain("id='market'");
