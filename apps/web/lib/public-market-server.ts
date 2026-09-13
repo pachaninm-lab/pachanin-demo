@@ -24,7 +24,6 @@ export type PublicMarketReadResult = Readonly<{
     projection: 'ANONYMIZED_PUBLIC_MARKET';
     sellerIdentity: 'REDACTED';
     observedAt: string;
-    transactionId: string;
     version: string;
   }>;
   items: readonly PublicMarketLot[];
@@ -78,7 +77,6 @@ function parseAuthority(value: unknown): PublicMarketReadResult['authority'] {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const row = value as Record<string, unknown>;
   const observedAt = text(row.observedAt, 80);
-  const transactionId = text(row.transactionId, 80);
   const version = text(row.version, 80);
   if (
     row.source !== 'POSTGRESQL'
@@ -86,7 +84,6 @@ function parseAuthority(value: unknown): PublicMarketReadResult['authority'] {
     || row.projection !== 'ANONYMIZED_PUBLIC_MARKET'
     || row.sellerIdentity !== 'REDACTED'
     || !observedAt || !validIso(observedAt)
-    || !transactionId || !POSITIVE_INTEGER.test(transactionId)
     || !version || !/^(?:0|[1-9][0-9]{0,18})$/.test(version)
   ) return null;
 
@@ -96,7 +93,6 @@ function parseAuthority(value: unknown): PublicMarketReadResult['authority'] {
     projection: 'ANONYMIZED_PUBLIC_MARKET',
     sellerIdentity: 'REDACTED',
     observedAt,
-    transactionId,
     version,
   });
 }
