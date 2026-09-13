@@ -7,7 +7,6 @@ describe('PublicMarketService', () => {
   it('returns only the bounded anonymized projection with JSON-safe numeric values', async () => {
     const queryRaw = jest.fn().mockResolvedValue([
       {
-        lot_id: 'lot-public-1',
         culture: 'Пшеница',
         grade: '3 класс',
         volume_tons: new Prisma.Decimal('240.500000'),
@@ -27,7 +26,6 @@ describe('PublicMarketService', () => {
       visibility: 'ANONYMIZED',
       items: [
         {
-          lotId: 'lot-public-1',
           culture: 'Пшеница',
           grade: '3 класс',
           volumeTons: '240.5',
@@ -38,7 +36,7 @@ describe('PublicMarketService', () => {
         },
       ],
     });
-    expect(JSON.stringify(result)).not.toMatch(/seller|tenant|address|contact|certificate|externalId/i);
+    expect(JSON.stringify(result)).not.toMatch(/lotId|lot_id|seller|tenant|address|contact|certificate|externalId/i);
     expect(queryRaw).toHaveBeenCalledTimes(1);
   });
 
