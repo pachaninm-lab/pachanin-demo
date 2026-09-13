@@ -103,19 +103,35 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
   it('database-fences a legacy claim during the rolling migration window', async () => {
     const [id] = await seedEntries('legacy-claim-fence', 1);
 
-    await expect(prismaA.$executeRaw`
-      UPDATE public."outbox_entries"
-      SET "status" = 'PROCESSING',
-          "leaseOwner" = 'legacy-worker',
-          "leaseToken" = md5(random()::text),
-          "leaseExpiresAt" = NOW() + interval '60 seconds',
-          "heartbeatAt" = NOW()
-      WHERE "id" = ${id}
-    `).rejects.toThrow(/legacy outbox claim protocol is fenced/);
+    await expect(prismaA.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe('SET LOCAL ROLE app_outbox');
+      await tx.$executeRaw`
+        UPDATE public."outbox_entries"
+        SET "status" = 'PROCESSING',
+            "leaseOwner" = 'legacy-worker',
+            "leaseToken" = md5(random()::text),
+            "leaseExpiresAt" = NOW() + interval '60 seconds',
+            "heartbeatAt" = NOW()
+        WHERE "id" = ${id}
+      `;
+    })).rejects.toThrow(/legacy outbox claim protocol is fenced/);
 
-    const [claim] = await workerA.claimBatch('protocol-v2-worker', 1);
-    expect(claim.id).toBe(id);
-    await workerA.markDelivered('protocol-v2-worker', id, claim.leaseToken);
+    const claimed = await prismaA.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe('SET LOCAL ROLE app_outbox');
+      await tx.$executeRawUnsafe("SET LOCAL pc_crop.outbox_claim_protocol = '2'");
+      return tx.$executeRaw`
+        UPDATE public."outbox_entries"
+        SET "status" = 'PROCESSING',
+            "leaseOwner" = 'protocol-v2-worker',
+            "leaseToken" = 'protocol-v2-token',
+            "leaseExpiresAt" = NOW() + interval '60 seconds',
+            "heartbeatAt" = NOW(),
+            "lastAttemptAt" = NULL
+        WHERE "id" = ${id}
+      `;
+    });
+    expect(claimed).toBe(1);
+    await workerA.markDelivered('protocol-v2-worker', id, 'protocol-v2-token');
   });
 
   it('gives two concurrent workers disjoint tokenized claims', async () => {
