@@ -163,10 +163,14 @@ export class DurableOutboxRunner implements OnModuleInit, OnModuleDestroy {
       }
       if (heartbeatFailure) throw heartbeatFailure;
       if (!delivered) {
+        // KafkaProducerService's boolean contract reports disabled/unavailable
+        // transport as false. That is a pre-ack internal-bus failure and remains
+        // retryable; truly unknown post-send outcomes must arrive as a thrown
+        // error/explicit OutboxDeliveryError and are quarantined above.
         throw new OutboxDeliveryError(
-          'AMBIGUOUS',
-          'TRANSPORT_OUTCOME_UNKNOWN',
-          'Kafka transport is disabled or delivery outcome is unknown',
+          'TRANSIENT',
+          'KAFKA_TRANSPORT_UNAVAILABLE',
+          'Kafka transport is disabled or unavailable before durable acknowledgement',
         );
       }
     } finally {

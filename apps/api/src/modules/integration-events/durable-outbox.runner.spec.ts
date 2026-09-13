@@ -105,7 +105,7 @@ describe('DurableOutboxRunner', () => {
     await runner.onModuleDestroy();
   });
 
-  it('treats disabled Kafka as delivery failure instead of a successful SENT acknowledgement', async () => {
+  it('keeps a boolean Kafka unavailability failure retryable instead of acknowledging SENT', async () => {
     process.env.OUTBOX_WORKER_ENABLED = 'true';
     process.env.OUTBOX_WORKER_INTERVAL_MS = '60000';
     const worker = makeWorker();
@@ -116,9 +116,9 @@ describe('DurableOutboxRunner', () => {
     const handler = worker.registerFallbackHandler.mock.calls[0][0];
 
     await expect(handler(claimedEntry)).rejects.toMatchObject({
-      category: 'AMBIGUOUS',
-      code: 'TRANSPORT_OUTCOME_UNKNOWN',
-      message: 'Kafka transport is disabled or delivery outcome is unknown',
+      category: 'TRANSIENT',
+      code: 'KAFKA_TRANSPORT_UNAVAILABLE',
+      message: 'Kafka transport is disabled or unavailable before durable acknowledgement',
     });
     expect(kafka.send).toHaveBeenCalledWith(
       expect.objectContaining({
