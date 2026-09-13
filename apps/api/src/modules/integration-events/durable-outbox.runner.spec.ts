@@ -1,6 +1,9 @@
 import { KafkaProducerService } from '../../common/kafka/kafka-producer.service';
 import { DurableOutboxRunner } from './durable-outbox.runner';
-import { DurableOutboxWorker } from './durable-outbox.worker';
+import {
+  classifyOutboxDeliveryFailure,
+  DurableOutboxWorker,
+} from './durable-outbox.worker';
 
 function makeWorker() {
   return {
@@ -137,5 +140,28 @@ describe('DurableOutboxRunner', () => {
       code: 'TRANSPORT_OUTCOME_UNKNOWN',
     });
     await runner.onModuleDestroy();
+  });
+});
+
+describe('outbox provider failure classification', () => {
+  it.each([
+    [true, 'TRANSIENT'],
+    [false, 'PERMANENT'],
+  ] as const)('honours a provider retryable=%s contract', (retryable, category) => {
+    const failure = Object.assign(new Error('FGIS provider result'), {
+      code: 'TRANSPORT_REJECTED',
+      retryable,
+    });
+    expect(classifyOutboxDeliveryFailure(failure)).toMatchObject({
+      category,
+      code: 'TRANSPORT_REJECTED',
+    });
+  });
+
+  it('bounds provider-controlled failure codes and messages', () => {
+    const failure = Object.assign(new Error('x'.repeat(5_000)), { code: 'x'.repeat(100) });
+    const classified = classifyOutboxDeliveryFailure(failure);
+    expect(classified.code).toBe('PROVIDER_FAILURE');
+    expect(classified.message).toHaveLength(4_000);
   });
 });

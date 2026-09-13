@@ -62,6 +62,7 @@ describe('IR-OUTBOX production graph', () => {
   it('uses tokenized SKIP LOCKED claims and CAS acknowledgements', () => {
     const worker = source('apps/api/src/modules/integration-events/durable-outbox.worker.ts');
     expect(worker).toContain('FOR UPDATE SKIP LOCKED');
+    expect(worker).toContain(`"type" <> 'MARKETING_SOCIAL_PUBLISH_V1'`);
     expect(worker).toContain('"leaseToken"');
     expect(worker).toContain('AND "leaseToken" = ${leaseToken}');
     expect(worker).toContain('OutboxLeaseLostError');

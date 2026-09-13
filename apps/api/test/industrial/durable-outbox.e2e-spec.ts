@@ -157,6 +157,20 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
     await workerA.markDelivered('worker-heartbeat', id, claim.leaseToken);
   });
 
+  it('parks an expired lease after attempt start instead of risking duplicate delivery', async () => {
+    const [id] = await seedEntries('crash-after-attempt', 1);
+    const [claim] = await workerA.claimBatch('worker-crash-after-attempt', 1, 1);
+    await workerA.markAttemptStarted('worker-crash-after-attempt', id, claim.leaseToken);
+    await new Promise((resolve) => setTimeout(resolve, 1_300));
+
+    expect(await workerB.claimBatch('worker-safe-recovery', 1)).toHaveLength(0);
+    const row = await prismaA.outboxEntry.findUniqueOrThrow({ where: { id } });
+    expect(row.status).toBe('MANUAL_REVIEW');
+    expect(row.lastErrorCategory).toBe('AMBIGUOUS');
+    expect(row.lastErrorCode).toBe('WORKER_CRASH_OUTCOME_UNKNOWN');
+    expect(row.manualReviewAt).not.toBeNull();
+  });
+
   it('retries with deterministic exponential backoff and parks at DEAD_LETTER', async () => {
     const type = `${RUN_ID}.retry-dead-letter`;
     const [id] = await seedEntries('retry-dead-letter', 1);
@@ -252,6 +266,10 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
     expect(redrive.replayed).toBe(false);
     const [event] = await prismaA.outboxRedriveEvent.findMany({ where: { outboxEntryId: id } });
     expect(event.previousStatus).toBe('MANUAL_REVIEW');
+    expect(event.previousErrorCode).toBe('PROVIDER_DELIVERY_AMBIGUOUS');
+    expect(event.previousErrorCategory).toBe('AMBIGUOUS');
+    expect(event.previousLastAttemptAt).not.toBeNull();
+    expect(event.previousManualReviewAt).not.toBeNull();
 
     workerA.registerHandler(type, async () => undefined);
     expect((await workerA.drainOnce('worker-reconciled', 1)).delivered).toBe(1);

@@ -55,6 +55,19 @@ export class OutboxLeaseLostError extends Error {
 const DEFAULT_LEASE_SECONDS = 60;
 const BASE_BACKOFF_SECONDS = 5;
 const MAX_BACKOFF_SECONDS = 3600;
+const MAX_FAILURE_MESSAGE_LENGTH = 4_000;
+const FAILURE_CODE_PATTERN = /^[A-Z0-9][A-Z0-9_.:-]{0,63}$/u;
+
+function boundedFailureCode(value: unknown, fallback = 'PROVIDER_FAILURE'): string {
+  if (typeof value !== 'string') return fallback;
+  const normalized = value.trim().toUpperCase();
+  return FAILURE_CODE_PATTERN.test(normalized) ? normalized : fallback;
+}
+
+function boundedFailureMessage(value: unknown): string {
+  const message = value instanceof Error ? value.message : String(value);
+  return message.slice(0, MAX_FAILURE_MESSAGE_LENGTH);
+}
 
 function numericStatus(error: Record<string, unknown>): number | undefined {
   const value = error.statusCode ?? error.status;
@@ -63,17 +76,27 @@ function numericStatus(error: Record<string, unknown>): number | undefined {
 
 export function classifyOutboxDeliveryFailure(error: unknown): OutboxDeliveryFailure {
   if (error instanceof OutboxDeliveryError) {
-    return { category: error.category, code: error.code, message: error.message };
+    return {
+      category: error.category,
+      code: boundedFailureCode(error.code),
+      message: boundedFailureMessage(error),
+    };
   }
   const record = typeof error === 'object' && error !== null
     ? error as Record<string, unknown>
     : {};
-  const message = error instanceof Error ? error.message : String(error);
-  const code = typeof record.code === 'string' ? record.code.toUpperCase() : '';
+  const message = boundedFailureMessage(error);
+  const code = boundedFailureCode(record.code, '');
   const status = numericStatus(record);
 
   if (record.deliveryAmbiguous === true || code === 'PROVIDER_DELIVERY_AMBIGUOUS') {
     return { category: 'AMBIGUOUS', code: 'PROVIDER_DELIVERY_AMBIGUOUS', message };
+  }
+  if (record.retryable === true) {
+    return { category: 'TRANSIENT', code: code || 'PROVIDER_RETRYABLE_FAILURE', message };
+  }
+  if (record.retryable === false) {
+    return { category: 'PERMANENT', code: code || 'PROVIDER_PERMANENT_FAILURE', message };
   }
   if (status === 429) return { category: 'TRANSIENT', code: 'PROVIDER_RATE_LIMITED', message };
   if (status !== undefined && status >= 400 && status < 500) {
@@ -117,27 +140,53 @@ export class DurableOutboxWorker {
       throw new Error('leaseSeconds must be between 1 and 3600');
     }
 
-    return this.prisma.$queryRaw<ClaimedOutboxEntry[]>(Prisma.sql`
-      UPDATE "outbox_entries"
-      SET "status" = 'PROCESSING',
-          "leaseOwner" = ${workerId},
-          "leaseToken" = md5(random()::text || clock_timestamp()::text || "id" || ${workerId}),
-          "leaseExpiresAt" = NOW() + make_interval(secs => ${leaseSeconds}),
-          "heartbeatAt" = NOW()
-      WHERE "id" IN (
-        SELECT "id"
-        FROM "outbox_entries"
-        WHERE (
-            ("status" = 'PENDING' AND "nextRetryAt" <= NOW())
-            OR ("status" = 'PROCESSING' AND "leaseExpiresAt" < NOW())
-          )
-        ORDER BY "createdAt", "id"
-        LIMIT ${limit}
-        FOR UPDATE SKIP LOCKED
-      )
-      RETURNING "id", "type", "dealId", "payload", "retryCount", "maxRetries",
-                "correlationId", "idempotencyKey", "leaseToken"
-    `);
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw(Prisma.sql`
+        UPDATE "outbox_entries"
+        SET "status" = 'MANUAL_REVIEW',
+            "retryCount" = "retryCount" + 1,
+            "lastError" = 'Worker lease expired after an external delivery attempt started',
+            "lastErrorCode" = 'WORKER_CRASH_OUTCOME_UNKNOWN',
+            "lastErrorCategory" = 'AMBIGUOUS',
+            "manualReviewAt" = NOW(),
+            "failedAt" = NOW(),
+            "leaseOwner" = NULL,
+            "leaseToken" = NULL,
+            "leaseExpiresAt" = NULL,
+            "heartbeatAt" = NULL
+        WHERE "status" = 'PROCESSING'
+          AND "leaseExpiresAt" < NOW()
+          AND "lastAttemptAt" IS NOT NULL
+      `);
+
+      return tx.$queryRaw<ClaimedOutboxEntry[]>(Prisma.sql`
+        UPDATE "outbox_entries"
+        SET "status" = 'PROCESSING',
+            "leaseOwner" = ${workerId},
+            "leaseToken" = md5(random()::text || clock_timestamp()::text || "id" || ${workerId}),
+            "leaseExpiresAt" = NOW() + make_interval(secs => ${leaseSeconds}),
+            "heartbeatAt" = NOW(),
+            "lastAttemptAt" = NULL
+        WHERE "id" IN (
+          SELECT "id"
+          FROM "outbox_entries"
+          WHERE "type" <> 'MARKETING_SOCIAL_PUBLISH_V1'
+            AND (
+              ("status" = 'PENDING' AND "nextRetryAt" <= NOW())
+              OR (
+                "status" = 'PROCESSING'
+                AND "leaseExpiresAt" < NOW()
+                AND "lastAttemptAt" IS NULL
+              )
+            )
+          ORDER BY "createdAt", "id"
+          LIMIT ${limit}
+          FOR UPDATE SKIP LOCKED
+        )
+        RETURNING "id", "type", "dealId", "payload", "retryCount", "maxRetries",
+                  "correlationId", "idempotencyKey", "leaseToken"
+      `);
+    });
   }
 
   async heartbeat(
@@ -193,6 +242,7 @@ export class DurableOutboxWorker {
       }
 
       try {
+        await this.markAttemptStarted(workerId, entry.id, entry.leaseToken);
         await handler(entry);
         await this.markDelivered(workerId, entry.id, entry.leaseToken);
         report.delivered++;
@@ -235,11 +285,29 @@ export class DurableOutboxWorker {
     if (count !== 1) throw new OutboxLeaseLostError(entryId, workerId);
   }
 
+  async markAttemptStarted(workerId: string, entryId: string, leaseToken: string): Promise<void> {
+    const count = await this.prisma.$executeRaw(Prisma.sql`
+      UPDATE "outbox_entries"
+      SET "lastAttemptAt" = NOW()
+      WHERE "id" = ${entryId}
+        AND "leaseOwner" = ${workerId}
+        AND "leaseToken" = ${leaseToken}
+        AND "status" = 'PROCESSING'
+        AND "leaseExpiresAt" >= NOW()
+    `);
+    if (count !== 1) throw new OutboxLeaseLostError(entryId, workerId);
+  }
+
   async markFailed(
     workerId: string,
     entry: Pick<ClaimedOutboxEntry, 'id' | 'retryCount' | 'maxRetries' | 'leaseToken'>,
     failure: OutboxDeliveryFailure,
   ): Promise<'RETRY' | 'DEAD_LETTER' | 'MANUAL_REVIEW'> {
+    failure = {
+      category: failure.category,
+      code: boundedFailureCode(failure.code),
+      message: boundedFailureMessage(failure.message),
+    };
     const nextRetryCount = entry.retryCount + 1;
     if (failure.category === 'AMBIGUOUS') {
       const count = await this.prisma.$executeRaw(Prisma.sql`

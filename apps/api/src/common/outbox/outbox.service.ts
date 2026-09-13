@@ -223,8 +223,17 @@ export class OutboxService {
           return { entry: this.toEntry(entry), redriveEventId: replay.id, replayed: true };
         }
 
-        const locked = await tx.$queryRaw<Array<{ id: string; status: string; retryCount: number }>>(Prisma.sql`
-          SELECT "id", "status", "retryCount"
+        const locked = await tx.$queryRaw<Array<{
+          id: string;
+          status: string;
+          retryCount: number;
+          lastErrorCode: string | null;
+          lastErrorCategory: string | null;
+          lastAttemptAt: Date | null;
+          manualReviewAt: Date | null;
+        }>>(Prisma.sql`
+          SELECT "id", "status", "retryCount", "lastErrorCode", "lastErrorCategory",
+                 "lastAttemptAt", "manualReviewAt"
           FROM "outbox_entries"
           WHERE "id" = ${params.entryId}
           FOR UPDATE
@@ -235,6 +244,9 @@ export class OutboxService {
           throw new Error(`Outbox entry ${params.entryId} cannot be redriven from status ${current.status}`);
         }
 
+        await tx.$queryRaw(Prisma.sql`
+          SELECT pg_advisory_xact_lock(hashtext('outbox_redrive_events_hash_chain'))
+        `);
         const previous = await tx.outboxRedriveEvent.findFirst({
           orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
           select: { hash: true },
@@ -246,6 +258,10 @@ export class OutboxService {
           reason: params.reason,
           previousStatus: current.status,
           previousRetryCount: current.retryCount,
+          previousErrorCode: current.lastErrorCode,
+          previousErrorCategory: current.lastErrorCategory,
+          previousLastAttemptAt: current.lastAttemptAt,
+          previousManualReviewAt: current.manualReviewAt,
           prevHash: previous?.hash ?? null,
         };
         const hash = createHash('sha256').update(stableJson(eventMaterial)).digest('hex');
