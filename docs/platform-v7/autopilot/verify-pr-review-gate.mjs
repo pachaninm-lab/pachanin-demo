@@ -733,7 +733,7 @@ function resolveCommitSha(repo, ref) {
   if (!/^[0-9a-f]{10,40}$/u.test(prefix)) return '';
   const commit = ghJson(['api', `repos/${repo}/commits/${prefix}`]);
   const sha = canonicalSha40(commit?.sha);
-  return sha && sha.startsWith(prefix) ? sha : '';
+  return /^[0-9a-f]{40}$/u.test(sha) && sha.startsWith(prefix) ? sha : '';
 }
 
 function fetchAllReviewThreads(repo, prNumber) {

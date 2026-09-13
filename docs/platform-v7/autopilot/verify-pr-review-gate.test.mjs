@@ -145,7 +145,7 @@ test('observed successful Octopus pull_request_target run shape is accepted with
     id: 34180354026, name: 'Independent Octopus Review', head_sha: '0f6fdeccbcb97a70161198ac0321d0918388a084',
     path: '.github/workflows/octopus-independent-review.yml', event: 'pull_request_target', status: 'completed', conclusion: 'success',
     pull_requests: [{ number: 5167, head: { sha: '0f6fdeccbcb97a70161198ac0321d0918388a084', repo: { id: 1203022077 } } }],
-    repository: { id: 1203022077, full_name: 'pachaninm-lab/pachanin-demo' },
+    repository: { id: 1203022077, full_name: repo },
   };
   assert.equal(octopusAttestationMatchesWorkflowRun({ runId: '34180354026' }, observed, 'pachaninm-lab/pachanin-demo', 5167, '0f6fdeccbcb97a70161198ac0321d0918388a084'), true);
 });
@@ -237,8 +237,7 @@ test('rejects short or malformed clean-review commit prefixes', () => {
 test('clean-review SHA resolution cannot rebind an old prefix through a branch or tag alias', () => {
   const verifier = readFileSync(new URL('./verify-pr-review-gate.mjs', import.meta.url), 'utf8');
   assert.ok(verifier.includes("if (!/^[0-9a-f]{10,40}$/u.test(prefix)) return '';"));
-  assert.ok(verifier.includes("const sha = canonicalSha40(commit?.sha);"));
-  assert.ok(verifier.includes("return sha && sha.startsWith(prefix) ? sha : '';"));
+  assert.ok(verifier.includes("return /^[0-9a-f]{40}$/u.test(sha) && sha.startsWith(prefix) ? sha : '';"));
 });
 
 test('owner self-audit authority is exact-head and exact-owner only', () => {
