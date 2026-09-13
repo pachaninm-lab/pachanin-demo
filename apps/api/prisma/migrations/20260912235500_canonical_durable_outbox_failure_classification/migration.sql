@@ -45,6 +45,23 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $guard$
 BEGIN
+  -- The migration runs before the rolling worker update. Reject claim writes
+  -- from an old application binary, which does not set the transaction-local
+  -- protocol marker, so it cannot create a post-migration ambiguous lease.
+  IF (
+       (OLD."status" <> 'PROCESSING' AND NEW."status" = 'PROCESSING')
+       OR (
+         OLD."status" = 'PROCESSING'
+         AND NEW."status" = 'PROCESSING'
+         AND NEW."leaseToken" IS DISTINCT FROM OLD."leaseToken"
+       )
+     )
+     AND current_user = ANY (ARRAY['app_outbox', 'app_deal', 'app_runtime'])
+     AND current_setting('pc_crop.outbox_claim_protocol', true) IS DISTINCT FROM '2' THEN
+    RAISE EXCEPTION 'legacy outbox claim protocol is fenced'
+      USING ERRCODE = '42501';
+  END IF;
+
   IF OLD."status" = 'PROCESSING'
      AND OLD."leaseExpiresAt" < statement_timestamp()
      AND OLD."lastAttemptAt" IS NOT NULL
