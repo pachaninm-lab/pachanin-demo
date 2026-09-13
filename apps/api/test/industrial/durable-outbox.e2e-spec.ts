@@ -100,6 +100,24 @@ afterAll(async () => {
 });
 
 describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
+  it('database-fences a legacy claim during the rolling migration window', async () => {
+    const [id] = await seedEntries('legacy-claim-fence', 1);
+
+    await expect(prismaA.$executeRaw`
+      UPDATE public."outbox_entries"
+      SET "status" = 'PROCESSING',
+          "leaseOwner" = 'legacy-worker',
+          "leaseToken" = md5(random()::text),
+          "leaseExpiresAt" = NOW() + interval '60 seconds',
+          "heartbeatAt" = NOW()
+      WHERE "id" = ${id}
+    `).rejects.toThrow(/legacy outbox claim protocol is fenced/);
+
+    const [claim] = await workerA.claimBatch('protocol-v2-worker', 1);
+    expect(claim.id).toBe(id);
+    await workerA.markDelivered('protocol-v2-worker', id, claim.leaseToken);
+  });
+
   it('gives two concurrent workers disjoint tokenized claims', async () => {
     const ids = await seedEntries('two-workers', 20);
 
