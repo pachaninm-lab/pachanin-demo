@@ -37,9 +37,13 @@ export class PublicAuctionMarketService {
       // The PostgreSQL clock and every returned card are observed by the same
       // SQL statement. There is no application-clock comparison and therefore
       // no cross-statement expiry window for any non-empty market result.
+      // The outer predicate intentionally repeats the protected function's
+      // live-auction predicate so an expired row fails closed even if the
+      // function contract ever regresses.
       const rows = await tx.$queryRaw<PublicMarketLotRow[]>(Prisma.sql`
         SELECT transaction_timestamp() AS observed_at, c.*
         FROM auction.list_public_market_lot_cards(${PUBLIC_MARKET_LIMIT}) AS c
+        WHERE c.auction_ends_at > transaction_timestamp()
       `);
 
       let observedAt = rows[0]?.observed_at;
@@ -63,6 +67,13 @@ export class PublicAuctionMarketService {
           || row.observed_at.getTime() !== observedAt.getTime()
         ) {
           throw invalidProjection('PUBLIC_MARKET_POSTGRESQL_CLOCK_DRIFT');
+        }
+        if (
+          !(row.auction_ends_at instanceof Date)
+          || !Number.isFinite(row.auction_ends_at.getTime())
+          || row.auction_ends_at.getTime() <= observedAt.getTime()
+        ) {
+          throw invalidProjection('PUBLIC_MARKET_AUCTION_NOT_LIVE');
         }
         return parsePublicMarketLot(row, observedAt);
       });
