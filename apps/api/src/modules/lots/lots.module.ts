@@ -7,11 +7,12 @@ import { SearchModule } from '../search/search.module';
 import { FgisLegacyQuarantineModule } from '../regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.module';
 import { LotsController } from './lots.controller';
 import { LotsService } from './lots.service';
+import { PublicMarketService } from './public-market.service';
 
 @Module({
   imports: [AuditModule, SearchModule, AuctionsModule, FgisLegacyQuarantineModule],
   controllers: [LotsController],
-  providers: [LotsService, AccessScopeService, ObjectPolicyService],
+  providers: [LotsService, PublicMarketService, AccessScopeService, ObjectPolicyService],
   exports: [LotsService]
 })
 export class LotsModule {}

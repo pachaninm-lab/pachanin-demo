@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/farmer-public-market-teaser-20260913",
+  "status": "active",
+  "purpose": "Master TZ farmer-first slice: publish the existing PostgreSQL-authoritative admitted auction lots as a bounded anonymized public homepage market teaser, while keeping full lot/deal actions behind registration.",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/farmer-public-market-teaser-20260913.json",
+    "apps/api/prisma/migrations/20260913160000_public_market_showcase/migration.sql",
+    "apps/api/src/modules/lots/lots.controller.ts",
+    "apps/api/src/modules/lots/lots.module.ts",
+    "apps/api/src/modules/lots/public-market.service.ts",
+    "apps/api/src/modules/lots/public-market.service.spec.ts",
+    "apps/api/src/modules/lots/public-market-postgresql-authority.spec.ts",
+    "apps/web/lib/public-market-server.ts",
+    "apps/web/components/platform-v7/PublicMarketTeaser.tsx",
+    "apps/web/components/platform-v7/PublicMarketTeaser.module.css",
+    "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
+    "apps/web/tests/unit/platformV7PublicMarketTeaser.test.ts"
+  ],
+  "boundaries": {
+    "reuseCanonicalAuction": true,
+    "legacyLotsServiceProductionPath": "forbidden",
+    "publicPayload": "anonymized safe projection only",
+    "guestFullLotDetails": "forbidden",
+    "guestBidOrOffer": "forbidden",
+    "registrationRequiredForAction": true,
+    "unverifiedPublicationSemantics": "separate next slice; do not weaken current BIDDING verification guards",
+    "productionRelease": "exact-SHA only after all required gates"
+  },
+  "forbiddenChanges": [
+    "Do not weaken auction RLS, tenant isolation, admission or source-verification guards.",
+    "Do not expose seller organization, tenant id, seller user, address, contacts, source external identifiers or certificates in the public projection.",
+    "Do not reactivate the retired in-memory production LotsService path.",
+    "Do not merge or release without fresh exact-head evidence."
+  ]
+}

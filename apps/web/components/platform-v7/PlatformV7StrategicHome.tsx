@@ -21,6 +21,7 @@ import { PublicExperienceLink, PublicExperiencePageView } from './PublicExperien
 import { PublicDealRoleScenario } from './PublicDealRoleScenario';
 import { OrganizationConnectForm } from './OrganizationConnectForm';
 import { PlatformV7AccountingClosureValue } from './PlatformV7AccountingClosureValue';
+import { PublicMarketTeaser } from './PublicMarketTeaser';
 import { getPlatformV7HomeCopy } from '@/i18n/platform-v7-home-v3';
 import { getPlatformV7HeroMessage } from '@/i18n/platform-v7-hero-message';
 import { getPlatformV7HomeStoryCopy } from '@/i18n/platform-v7-home-story';
@@ -291,6 +292,8 @@ export async function PlatformV7StrategicHome() {
             })}
           </section>
 
+          <PublicMarketTeaser locale={normalizedLocale} registerHref={registerHref} loginHref={loginHref} />
+
           <section id='participants' className={`pc-v6-section ${styles.section}`} aria-labelledby='participants-title'>
             <SectionHeader id='participants-title' eyebrow={story.roles.eyebrow} title={story.roles.title} lead={story.roles.lead} />
             <div className={styles.benefitGrid}>
@@ -347,8 +350,7 @@ export async function PlatformV7StrategicHome() {
               <div id='phases-more-cards' className={styles.morePhaseGrid}>
                 {story.process.phases.slice(3).map((phase) => (
                   <article key={phase.index} className={styles.phaseCard}>
-                    <span>{phase.index}</span><h3>{phase.title}</h3><p>{phase.text}</p>
-                    <small><b>{story.process.resultLabel}:</b> {phase.result}</small>
+                    <span>{phase.index}</span><h3>{phase.title}</h3><p>{phase.text}</p><small><b>{story.process.resultLabel}:</b> {phase.result}</small>
                   </article>
                 ))}
               </div>
@@ -517,7 +519,6 @@ export async function PlatformV7StrategicHome() {
               </PublicExperienceLink>
             </div>
           </section>
-
           <OrganizationConnectForm locale={locale} />
         </div>
       </main>
