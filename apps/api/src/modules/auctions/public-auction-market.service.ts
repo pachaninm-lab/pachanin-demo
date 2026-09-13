@@ -8,24 +8,20 @@ const POSITIVE_DECIMAL = /^(?:0|[1-9][0-9]{0,19})(?:\.[0-9]{1,6})?$/;
 const NON_NEGATIVE_INTEGER = /^(?:0|[1-9][0-9]{0,18})$/;
 const POSITIVE_INTEGER = /^[1-9][0-9]{0,18}$/;
 
-type PublicMarketClockRow = Readonly<{
-  observed_at: Date;
-}>;
-
 type PublicMarketLotRow = Readonly<{
   observed_at: Date;
-  public_ref: string;
-  culture: string;
+  public_ref: string | null;
+  culture: string | null;
   grade: string | null;
-  volume_tons: string;
-  start_price_kopecks_per_ton: string;
-  region: string;
-  auction_ends_at: Date;
-  status: string;
-  verification_status: string;
-  trade_permission: string;
-  lot_version: string;
-  projected_at: Date;
+  volume_tons: string | null;
+  start_price_kopecks_per_ton: string | null;
+  region: string | null;
+  auction_ends_at: Date | null;
+  status: string | null;
+  verification_status: string | null;
+  trade_permission: string | null;
+  lot_version: string | null;
+  projected_at: Date | null;
 }>;
 
 @Injectable()
@@ -33,114 +29,149 @@ export class PublicAuctionMarketService {
   constructor(private readonly prisma: PrismaService) {}
 
   async listLots() {
-    return this.prisma.$transaction(async (tx) => {
-      // The PostgreSQL clock and every returned card are observed by the same
-      // SQL statement. There is no application-clock comparison and therefore
-      // no cross-statement expiry window for any non-empty market result.
-      // The outer predicate intentionally repeats the protected function's
-      // live-auction predicate so an expired row fails closed even if the
-      // function contract ever regresses.
-      const rows = await tx.$queryRaw<PublicMarketLotRow[]>(Prisma.sql`
-        SELECT transaction_timestamp() AS observed_at, c.*
-        FROM auction.list_public_market_lot_cards(${PUBLIC_MARKET_LIMIT}) AS c
-        WHERE c.auction_ends_at > transaction_timestamp()
-      `);
+    // One read-only PostgreSQL statement is the complete concurrency boundary.
+    // Its MVCC statement snapshot and transaction_timestamp() are fixed for the
+    // entire statement, so rows never need application-side locking merely to
+    // keep the public projection and its observation clock internally coherent.
+    // LEFT JOIN LATERAL preserves that same database clock for the empty state.
+    const rows = await this.prisma.$queryRaw<PublicMarketLotRow[]>(Prisma.sql`
+      WITH observation AS MATERIALIZED (
+        SELECT transaction_timestamp() AS observed_at
+      )
+      SELECT observation.observed_at, c.*
+      FROM observation
+      LEFT JOIN LATERAL auction.list_public_market_lot_cards(${PUBLIC_MARKET_LIMIT}) AS c
+        ON c.auction_ends_at > observation.observed_at
+      ORDER BY c.projected_at DESC NULLS LAST,
+               c.auction_ends_at ASC NULLS LAST,
+               c.public_ref ASC NULLS LAST
+    `);
 
-      let observedAt = rows[0]?.observed_at;
-      if (rows.length === 0) {
-        // Preserve a truthful PostgreSQL observation timestamp for the empty
-        // state. No lot/auction timestamp is compared in this branch.
-        const clocks = await tx.$queryRaw<PublicMarketClockRow[]>(Prisma.sql`
-          SELECT transaction_timestamp() AS observed_at
-        `);
-        observedAt = clocks[0]?.observed_at;
+    const observedAt = rows[0]?.observed_at;
+    if (!(observedAt instanceof Date) || !Number.isFinite(observedAt.getTime())) {
+      throw invalidProjection('PUBLIC_MARKET_POSTGRESQL_CLOCK_UNAVAILABLE');
+    }
+
+    const items = rows.flatMap((row) => {
+      if (
+        !(row.observed_at instanceof Date)
+        || !Number.isFinite(row.observed_at.getTime())
+        || row.observed_at.getTime() !== observedAt.getTime()
+      ) {
+        throw invalidProjection('PUBLIC_MARKET_POSTGRESQL_CLOCK_DRIFT');
       }
 
-      if (!(observedAt instanceof Date) || !Number.isFinite(observedAt.getTime())) {
-        throw invalidProjection('PUBLIC_MARKET_POSTGRESQL_CLOCK_UNAVAILABLE');
+      if (row.public_ref === null) {
+        if (rows.length !== 1 || !isEmptyProjectionRow(row)) {
+          throw invalidProjection('PUBLIC_MARKET_EMPTY_ROW_INVALID');
+        }
+        return [];
       }
 
-      const items = rows.map((row) => {
-        if (
-          !(row.observed_at instanceof Date)
-          || !Number.isFinite(row.observed_at.getTime())
-          || row.observed_at.getTime() !== observedAt.getTime()
-        ) {
-          throw invalidProjection('PUBLIC_MARKET_POSTGRESQL_CLOCK_DRIFT');
-        }
-        if (
-          !(row.auction_ends_at instanceof Date)
-          || !Number.isFinite(row.auction_ends_at.getTime())
-          || row.auction_ends_at.getTime() <= observedAt.getTime()
-        ) {
-          throw invalidProjection('PUBLIC_MARKET_AUCTION_NOT_LIVE');
-        }
-        return parsePublicMarketLot(row, observedAt);
-      });
-      const version = rows.reduce((current, row) => {
-        const candidate = parsePositiveBigInt(row.lot_version, 'lot_version');
-        return candidate > current ? candidate : current;
-      }, 0n);
+      if (
+        !(row.auction_ends_at instanceof Date)
+        || !Number.isFinite(row.auction_ends_at.getTime())
+        || row.auction_ends_at.getTime() <= observedAt.getTime()
+      ) {
+        throw invalidProjection('PUBLIC_MARKET_AUCTION_NOT_LIVE');
+      }
 
-      return Object.freeze({
-        authority: Object.freeze({
-          source: 'POSTGRESQL' as const,
-          scope: 'PUBLIC_MARKET' as const,
-          projection: 'ANONYMIZED_PUBLIC_MARKET' as const,
-          sellerIdentity: 'REDACTED' as const,
-          observedAt: observedAt.toISOString(),
-          version: version.toString(),
-        }),
-        items,
-        pageInfo: Object.freeze({
-          limit: PUBLIC_MARKET_LIMIT,
-          returned: items.length,
-          hasMore: items.length === PUBLIC_MARKET_LIMIT,
-        }),
-      });
-    }, {
-      isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
-      timeout: 5_000,
+      return [parsePublicMarketLot(row, observedAt)];
+    });
+
+    const version = rows.reduce((current, row) => {
+      if (row.lot_version === null) return current;
+      const candidate = parsePositiveBigInt(row.lot_version, 'lot_version');
+      return candidate > current ? candidate : current;
+    }, 0n);
+
+    return Object.freeze({
+      authority: Object.freeze({
+        source: 'POSTGRESQL' as const,
+        scope: 'PUBLIC_MARKET' as const,
+        projection: 'ANONYMIZED_PUBLIC_MARKET' as const,
+        sellerIdentity: 'REDACTED' as const,
+        observedAt: observedAt.toISOString(),
+        version: version.toString(),
+      }),
+      items,
+      pageInfo: Object.freeze({
+        limit: PUBLIC_MARKET_LIMIT,
+        returned: items.length,
+        hasMore: items.length === PUBLIC_MARKET_LIMIT,
+      }),
     });
   }
 }
 
+function isEmptyProjectionRow(row: PublicMarketLotRow): boolean {
+  return row.public_ref === null
+    && row.culture === null
+    && row.grade === null
+    && row.volume_tons === null
+    && row.start_price_kopecks_per_ton === null
+    && row.region === null
+    && row.auction_ends_at === null
+    && row.status === null
+    && row.verification_status === null
+    && row.trade_permission === null
+    && row.lot_version === null
+    && row.projected_at === null;
+}
+
 function parsePublicMarketLot(row: PublicMarketLotRow, observedAt: Date) {
+  const publicRef = row.public_ref;
+  const culture = row.culture;
+  const grade = row.grade;
+  const volumeTons = row.volume_tons;
+  const startPriceKopecksPerTon = row.start_price_kopecks_per_ton;
+  const region = row.region;
+  const auctionEndsAt = row.auction_ends_at;
+  const status = row.status;
+  const verificationStatus = row.verification_status;
+  const tradePermission = row.trade_permission;
+  const lotVersion = row.lot_version;
+  const projectedAt = row.projected_at;
+
   if (
-    !PUBLIC_REF.test(row.public_ref)
-    || !boundedText(row.culture, 200)
-    || (row.grade !== null && !boundedText(row.grade, 200))
-    || !POSITIVE_DECIMAL.test(row.volume_tons)
-    || Number(row.volume_tons) <= 0
-    || !NON_NEGATIVE_INTEGER.test(row.start_price_kopecks_per_ton)
-    || !boundedText(row.region, 500)
-    || !(row.auction_ends_at instanceof Date)
-    || !Number.isFinite(row.auction_ends_at.getTime())
-    || row.auction_ends_at.getTime() <= observedAt.getTime()
-    || row.status !== 'BIDDING'
-    || row.verification_status !== 'DECLARED'
-    || row.trade_permission !== 'PUBLIC_ALLOWED'
-    || !POSITIVE_INTEGER.test(row.lot_version)
-    || !(row.projected_at instanceof Date)
-    || !Number.isFinite(row.projected_at.getTime())
+    typeof publicRef !== 'string'
+    || !PUBLIC_REF.test(publicRef)
+    || !boundedText(culture, 200)
+    || (grade !== null && !boundedText(grade, 200))
+    || typeof volumeTons !== 'string'
+    || !POSITIVE_DECIMAL.test(volumeTons)
+    || Number(volumeTons) <= 0
+    || typeof startPriceKopecksPerTon !== 'string'
+    || !NON_NEGATIVE_INTEGER.test(startPriceKopecksPerTon)
+    || !boundedText(region, 500)
+    || !(auctionEndsAt instanceof Date)
+    || !Number.isFinite(auctionEndsAt.getTime())
+    || auctionEndsAt.getTime() <= observedAt.getTime()
+    || status !== 'BIDDING'
+    || verificationStatus !== 'DECLARED'
+    || tradePermission !== 'PUBLIC_ALLOWED'
+    || typeof lotVersion !== 'string'
+    || !POSITIVE_INTEGER.test(lotVersion)
+    || !(projectedAt instanceof Date)
+    || !Number.isFinite(projectedAt.getTime())
   ) {
     throw invalidProjection('PUBLIC_MARKET_PROJECTION_INVALID');
   }
 
   return Object.freeze({
-    publicRef: row.public_ref,
-    culture: row.culture,
-    grade: row.grade,
-    volumeTons: normalizeDecimal(row.volume_tons),
-    startPriceKopecksPerTon: row.start_price_kopecks_per_ton,
-    region: row.region,
-    auctionEndsAt: row.auction_ends_at.toISOString(),
+    publicRef,
+    culture,
+    grade,
+    volumeTons: normalizeDecimal(volumeTons),
+    startPriceKopecksPerTon,
+    region,
+    auctionEndsAt: auctionEndsAt.toISOString(),
     status: 'BIDDING' as const,
     verificationStatus: 'DECLARED' as const,
     tradePermission: 'PUBLIC_ALLOWED' as const,
     independentVerification: null,
     disclosureCode: 'SELLER_DECLARED_NOT_INDEPENDENTLY_VERIFIED' as const,
-    version: row.lot_version,
+    version: lotVersion,
   });
 }
 
