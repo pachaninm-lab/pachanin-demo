@@ -75,12 +75,16 @@ function stableJson(value: unknown): string {
     .join(',')}}`;
 }
 
+function sha256Hex(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
 function redriveRequestFingerprint(params: {
   entryId: string;
   actorUserId: string;
   reason: string;
 }): string {
-  return createHash('sha256').update(stableJson(params)).digest('hex');
+  return sha256Hex(stableJson(params));
 }
 
 function isMatchingRedriveReplay(
@@ -304,7 +308,7 @@ export class OutboxService {
           previousManualReviewAt: current.manualReviewAt,
           prevHash: previous?.hash ?? null,
         };
-        const hash = createHash('sha256').update(stableJson(eventMaterial)).digest('hex');
+        const hash = sha256Hex(stableJson(eventMaterial));
 
         const event = await tx.outboxRedriveEvent.create({
           data: { ...eventMaterial, hash },
