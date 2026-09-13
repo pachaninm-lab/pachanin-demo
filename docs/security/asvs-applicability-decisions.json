@@ -8359,13 +8359,13 @@
           ]
         },
         {
-          "condition": "the web tier still reaches the API over a plaintext base",
+          "condition": "the web tier still hard-codes a plaintext base for its server-side calls to the API",
           "check": "PRESENT_AT_PATH",
           "paths": [
-            "apps/web/lib/platform-v7/tai-internal-stream.ts"
+            "apps/web/lib/server/server-api-origin.ts"
           ],
           "patterns": [
-            "http://api:3001"
+            "const COMPOSE_INTERNAL_API_BASE_URL = 'http://api:3001/api'"
           ]
         }
       ],
@@ -9038,7 +9038,8 @@
           ],
           "patterns": [
             "for internal monitoring only"
-          ]
+          ],
+          "proseEvidence": true
         },
         {
           "condition": "that endpoint still carries no access restriction beyond the blanket @Public() decorator",
