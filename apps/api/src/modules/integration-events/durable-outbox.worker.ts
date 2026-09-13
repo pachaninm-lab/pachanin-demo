@@ -142,6 +142,10 @@ export class DurableOutboxWorker {
 
     return this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw(Prisma.sql`
+        SET LOCAL pc_crop.outbox_claim_protocol = '2'
+      `);
+
+      await tx.$executeRaw(Prisma.sql`
         UPDATE "outbox_entries"
         SET "status" = 'MANUAL_REVIEW',
             "retryCount" = "retryCount" + 1,
