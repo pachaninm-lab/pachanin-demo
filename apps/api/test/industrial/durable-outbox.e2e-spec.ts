@@ -212,6 +212,31 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
           where: { id: marketingId },
         });
         expect(marketingLease.lastAttemptAt).not.toBeNull();
+
+        await prismaA.outboxEntry.update({
+          where: { id: marketingId },
+          data: { leaseExpiresAt: new Date(Date.now() - 1_000) },
+        });
+        await expect(prismaA.$transaction(async (tx) => {
+          await tx.$queryRaw`SELECT set_config('pc_crop.test_outbox_id', ${marketingId}, true)::text`;
+          await tx.$executeRawUnsafe('SET LOCAL ROLE app_outbox');
+          return tx.$executeRaw`
+            UPDATE public."outbox_entries"
+            SET "status" = 'PROCESSING',
+                "leaseOwner" = 'marketing-social-reclaimer',
+                "leaseToken" = 'marketing-reclaim-token',
+                "leaseExpiresAt" = NOW() + interval '60 seconds',
+                "heartbeatAt" = NOW()
+            WHERE "id" = ${marketingId}
+          `;
+        })).rejects.toThrow(/legacy outbox claim protocol is fenced/);
+
+        await workerA.claimBatch('protocol-v2-quarantine', 1);
+        const quarantinedMarketing = await prismaA.outboxEntry.findUniqueOrThrow({
+          where: { id: marketingId },
+        });
+        expect(quarantinedMarketing.status).toBe('MANUAL_REVIEW');
+        expect(quarantinedMarketing.lastErrorCode).toBe('WORKER_CRASH_OUTCOME_UNKNOWN');
       }
     } finally {
       await prismaA.$executeRawUnsafe(`
@@ -221,9 +246,6 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
     }
 
     await workerA.markDelivered('protocol-v2-worker', id, 'protocol-v2-token');
-    if (useDedicatedRole) {
-      await workerA.markDelivered('marketing-social-acceptance', marketingId, 'marketing-worker-token');
-    }
   });
 
   it('gives two concurrent workers disjoint tokenized claims', async () => {

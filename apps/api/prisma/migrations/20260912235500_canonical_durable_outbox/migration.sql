@@ -81,6 +81,7 @@ BEGIN
        current_user = 'app_outbox'
        AND OLD."type" = 'MARKETING_SOCIAL_PUBLISH_V1'
        AND NEW."leaseOwner" LIKE 'marketing-social-%'
+       AND (OLD."status" <> 'PROCESSING' OR OLD."lastAttemptAt" IS NULL)
      )
      AND current_setting('pc_crop.outbox_claim_protocol', true) IS DISTINCT FROM '2' THEN
     RAISE EXCEPTION 'legacy outbox claim protocol is fenced'

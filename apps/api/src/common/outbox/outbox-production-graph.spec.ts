@@ -79,6 +79,7 @@ describe('IR-OUTBOX production graph', () => {
     expect(migration).toContain(`current_user = 'app_outbox'`);
     expect(migration).toContain(`OLD."type" = 'MARKETING_SOCIAL_PUBLISH_V1'`);
     expect(migration).toContain(`NEW."leaseOwner" LIKE 'marketing-social-%'`);
+    expect(migration).toContain(`OLD."lastAttemptAt" IS NULL`);
     expect(migration).toContain(`NEW."lastAttemptAt" := statement_timestamp()`);
     expect(outbox).toContain('value instanceof Date');
     expect(outbox).toContain('value.toISOString()');
