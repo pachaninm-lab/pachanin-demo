@@ -70,7 +70,7 @@ describe('IR-OUTBOX production graph', () => {
 
   it('quarantines pre-migration in-flight rows and binds audit timestamps', () => {
     const migration = source(
-      'apps/api/prisma/migrations/20260912235500_canonical_durable_outbox_failure_classification/migration.sql',
+      'apps/api/prisma/migrations/20260912235500_canonical_durable_outbox/migration.sql',
     );
     const outbox = source('apps/api/src/common/outbox/outbox.service.ts');
     expect(migration).toContain(`WHERE "status" = 'PROCESSING'`);

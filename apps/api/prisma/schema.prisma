@@ -1954,6 +1954,7 @@ model OutboxRedriveEvent {
   id                 String   @id @default(cuid())
   outboxEntryId      String
   idempotencyKey     String   @unique
+  requestFingerprint String?  @db.VarChar(64)
   actorUserId        String
   reason             String
   previousStatus     String

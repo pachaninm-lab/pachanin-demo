@@ -332,6 +332,7 @@ export class DurableOutboxWorker {
           AND "leaseOwner" = ${workerId}
           AND "leaseToken" = ${entry.leaseToken}
           AND "status" = 'PROCESSING'
+          AND "leaseExpiresAt" >= NOW()
       `);
       if (count !== 1) throw new OutboxLeaseLostError(entry.id, workerId);
       return 'MANUAL_REVIEW';
@@ -356,6 +357,7 @@ export class DurableOutboxWorker {
           AND "leaseOwner" = ${workerId}
           AND "leaseToken" = ${entry.leaseToken}
           AND "status" = 'PROCESSING'
+          AND "leaseExpiresAt" >= NOW()
       `);
       if (count !== 1) throw new OutboxLeaseLostError(entry.id, workerId);
       return 'DEAD_LETTER';
@@ -383,6 +385,7 @@ export class DurableOutboxWorker {
         AND "leaseOwner" = ${workerId}
         AND "leaseToken" = ${entry.leaseToken}
         AND "status" = 'PROCESSING'
+        AND "leaseExpiresAt" >= NOW()
     `);
     if (count !== 1) throw new OutboxLeaseLostError(entry.id, workerId);
     return 'RETRY';

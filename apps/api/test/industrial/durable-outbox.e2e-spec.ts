@@ -274,6 +274,24 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
     expect(row.manualReviewAt).not.toBeNull();
   });
 
+  it('rejects a stale failure acknowledgement after the delivery lease expires', async () => {
+    const [id] = await seedEntries('stale-failure-acknowledgement', 1);
+    const [claim] = await workerA.claimBatch('worker-stale-failure', 1, 1);
+    await workerA.markAttemptStarted('worker-stale-failure', id, claim.leaseToken);
+    await new Promise((resolve) => setTimeout(resolve, 1_300));
+
+    await expect(workerA.markFailed('worker-stale-failure', claim, {
+      category: 'TRANSIENT',
+      code: 'PROVIDER_TIMEOUT',
+      message: 'late transport failure',
+    })).rejects.toBeInstanceOf(OutboxLeaseLostError);
+
+    expect(await workerB.claimBatch('worker-stale-failure-recovery', 1)).toHaveLength(0);
+    const row = await prismaA.outboxEntry.findUniqueOrThrow({ where: { id } });
+    expect(row.status).toBe('MANUAL_REVIEW');
+    expect(row.lastErrorCode).toBe('WORKER_CRASH_OUTCOME_UNKNOWN');
+  });
+
   it('retries with deterministic exponential backoff and parks at DEAD_LETTER', async () => {
     const type = `${RUN_ID}.retry-dead-letter`;
     const [id] = await seedEntries('retry-dead-letter', 1);
@@ -407,8 +425,16 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
     expect(replay.replayed).toBe(true);
     expect(replay.redriveEventId).toBe(first.redriveEventId);
 
+    await expect(outbox.redrive({
+      entryId: id,
+      actorUserId: 'admin-outbox-e2e',
+      reason: 'different command under a reused key',
+      idempotencyKey,
+    })).rejects.toThrow('Redrive idempotency conflict');
+
     const events = await prismaA.outboxRedriveEvent.findMany({ where: { outboxEntryId: id } });
     expect(events).toHaveLength(1);
+    expect(events[0].requestFingerprint).toMatch(/^[a-f0-9]{64}$/);
     expect(events[0].hash).toMatch(/^[a-f0-9]{64}$/);
     expect(events[0].previousStatus).toBe('DEAD_LETTER');
 

@@ -43,6 +43,7 @@ function makePrisma() {
       findUnique: jest.fn(),
     },
     $queryRaw: jest.fn(),
+    $executeRaw: jest.fn(),
     $transaction: jest.fn(),
   };
 }
@@ -106,7 +107,7 @@ describe('OutboxService — PostgreSQL authority', () => {
 
   it('confirms only a SENT row and treats a repeated confirmation as idempotent', async () => {
     const prisma = makePrisma();
-    prisma.outboxEntry.updateMany.mockResolvedValueOnce({ count: 1 });
+    prisma.$executeRaw.mockResolvedValueOnce(1);
     prisma.outboxEntry.findUnique.mockResolvedValueOnce(
       makeRow({ status: 'CONFIRMED', confirmedAt: new Date('2026-07-15T12:01:00.000Z') }),
     );
@@ -115,7 +116,7 @@ describe('OutboxService — PostgreSQL authority', () => {
     const confirmed = await outbox.confirm('outbox-1');
     expect(confirmed.status).toBe('CONFIRMED');
 
-    prisma.outboxEntry.updateMany.mockResolvedValueOnce({ count: 0 });
+    prisma.$executeRaw.mockResolvedValueOnce(0);
     prisma.outboxEntry.findUnique.mockResolvedValueOnce(
       makeRow({ status: 'CONFIRMED', confirmedAt: new Date('2026-07-15T12:01:00.000Z') }),
     );
@@ -124,7 +125,7 @@ describe('OutboxService — PostgreSQL authority', () => {
 
   it('rejects confirmation from a non-terminal-delivery state', async () => {
     const prisma = makePrisma();
-    prisma.outboxEntry.updateMany.mockResolvedValue({ count: 0 });
+    prisma.$executeRaw.mockResolvedValue(0);
     prisma.outboxEntry.findUnique.mockResolvedValue(makeRow({ status: 'PENDING' }));
     const outbox = new OutboxService(prisma as any);
 

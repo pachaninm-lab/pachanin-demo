@@ -75,6 +75,14 @@ function stableJson(value: unknown): string {
     .join(',')}}`;
 }
 
+function redriveRequestFingerprint(params: {
+  entryId: string;
+  actorUserId: string;
+  reason: string;
+}): string {
+  return createHash('sha256').update(stableJson(params)).digest('hex');
+}
+
 @Injectable()
 export class OutboxService {
   constructor(private readonly prisma: PrismaService) {}
@@ -106,7 +114,6 @@ export class OutboxService {
           idempotencyKey: params.idempotencyKey,
           correlationId: params.correlationId,
           maxRetries: params.maxRetries ?? DEFAULT_MAX_RETRIES,
-          nextRetryAt: new Date(),
         },
       });
       return this.toEntry(created);
@@ -122,11 +129,12 @@ export class OutboxService {
   }
 
   async confirm(id: string): Promise<OutboxEntry> {
-    const updated = await this.prisma.outboxEntry.updateMany({
-      where: { id, status: 'SENT' },
-      data: { status: 'CONFIRMED', confirmedAt: new Date() },
-    });
-    if (updated.count !== 1) {
+    const updated = await this.prisma.$executeRaw(Prisma.sql`
+      UPDATE "outbox_entries"
+      SET "status" = 'CONFIRMED', "confirmedAt" = NOW()
+      WHERE "id" = ${id} AND "status" = 'SENT'
+    `);
+    if (updated !== 1) {
       const current = await this.prisma.outboxEntry.findUnique({ where: { id } });
       if (!current) throw new Error(`Outbox entry ${id} not found`);
       if (current.status === 'CONFIRMED') return this.toEntry(current);
@@ -212,6 +220,12 @@ export class OutboxService {
   }): Promise<OutboxRedriveResult> {
     if (!params.idempotencyKey.trim()) throw new Error('Redrive idempotencyKey is required');
     if (!params.reason.trim()) throw new Error('Redrive reason is required');
+    if (!params.actorUserId.trim()) throw new Error('Redrive actorUserId is required');
+    const requestFingerprint = redriveRequestFingerprint({
+      entryId: params.entryId,
+      actorUserId: params.actorUserId,
+      reason: params.reason,
+    });
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -219,6 +233,9 @@ export class OutboxService {
           where: { idempotencyKey: params.idempotencyKey },
         });
         if (replay) {
+          if (replay.requestFingerprint !== requestFingerprint) {
+            throw new Error('Redrive idempotency conflict');
+          }
           const entry = await tx.outboxEntry.findUnique({ where: { id: replay.outboxEntryId } });
           if (!entry) throw new Error(`Outbox entry ${replay.outboxEntryId} not found`);
           return { entry: this.toEntry(entry), redriveEventId: replay.id, replayed: true };
@@ -255,6 +272,7 @@ export class OutboxService {
         const eventMaterial = {
           outboxEntryId: params.entryId,
           idempotencyKey: params.idempotencyKey,
+          requestFingerprint,
           actorUserId: params.actorUserId,
           reason: params.reason,
           previousStatus: current.status,
@@ -270,26 +288,25 @@ export class OutboxService {
         const event = await tx.outboxRedriveEvent.create({
           data: { ...eventMaterial, hash },
         });
-        const changed = await tx.outboxEntry.updateMany({
-          where: { id: params.entryId, status: current.status },
-          data: {
-            status: 'PENDING',
-            retryCount: 0,
-            nextRetryAt: new Date(),
-            lastError: null,
-            lastErrorCode: null,
-            lastErrorCategory: null,
-            lastAttemptAt: null,
-            manualReviewAt: null,
-            failedAt: null,
-            deadLetterAt: null,
-            leaseOwner: null,
-            leaseToken: null,
-            leaseExpiresAt: null,
-            heartbeatAt: null,
-          },
-        });
-        if (changed.count !== 1) throw new Error(`Outbox entry ${params.entryId} redrive lost its lock`);
+        const changed = await tx.$executeRaw(Prisma.sql`
+          UPDATE "outbox_entries"
+          SET "status" = 'PENDING',
+              "retryCount" = 0,
+              "nextRetryAt" = NOW(),
+              "lastError" = NULL,
+              "lastErrorCode" = NULL,
+              "lastErrorCategory" = NULL,
+              "lastAttemptAt" = NULL,
+              "manualReviewAt" = NULL,
+              "failedAt" = NULL,
+              "deadLetterAt" = NULL,
+              "leaseOwner" = NULL,
+              "leaseToken" = NULL,
+              "leaseExpiresAt" = NULL,
+              "heartbeatAt" = NULL
+          WHERE "id" = ${params.entryId} AND "status" = ${current.status}
+        `);
+        if (changed !== 1) throw new Error(`Outbox entry ${params.entryId} redrive lost its lock`);
         const entry = await tx.outboxEntry.findUnique({ where: { id: params.entryId } });
         if (!entry) throw new Error(`Outbox entry ${params.entryId} not found after redrive`);
         return { entry: this.toEntry(entry), redriveEventId: event.id, replayed: false };
@@ -300,6 +317,9 @@ export class OutboxService {
           where: { idempotencyKey: params.idempotencyKey },
         });
         if (replay) {
+          if (replay.requestFingerprint !== requestFingerprint) {
+            throw new Error('Redrive idempotency conflict');
+          }
           const entry = await this.prisma.outboxEntry.findUnique({ where: { id: replay.outboxEntryId } });
           if (!entry) throw new Error(`Outbox entry ${replay.outboxEntryId} not found`);
           return { entry: this.toEntry(entry), redriveEventId: replay.id, replayed: true };

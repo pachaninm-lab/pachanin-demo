@@ -1,4 +1,4 @@
--- IR-20: durable failure taxonomy for the canonical PostgreSQL outbox.
+-- IR-20: canonical PostgreSQL outbox ownership and durable failure taxonomy.
 -- Ambiguous post-send outcomes are parked for governed reconciliation and are
 -- never eligible for an automatic retry.
 
@@ -9,10 +9,21 @@ ALTER TABLE public."outbox_entries"
   ADD COLUMN IF NOT EXISTS "manualReviewAt" TIMESTAMP(3);
 
 ALTER TABLE public."outbox_redrive_events"
+  ADD COLUMN IF NOT EXISTS "requestFingerprint" VARCHAR(64),
   ADD COLUMN IF NOT EXISTS "previousErrorCode" VARCHAR(64),
   ADD COLUMN IF NOT EXISTS "previousErrorCategory" TEXT,
   ADD COLUMN IF NOT EXISTS "previousLastAttemptAt" TIMESTAMP(3),
   ADD COLUMN IF NOT EXISTS "previousManualReviewAt" TIMESTAMP(3);
+
+ALTER TABLE public."outbox_redrive_events"
+  DROP CONSTRAINT IF EXISTS outbox_redrive_events_request_fingerprint_check;
+
+ALTER TABLE public."outbox_redrive_events"
+  ADD CONSTRAINT outbox_redrive_events_request_fingerprint_check
+  CHECK (
+    "requestFingerprint" IS NULL
+    OR "requestFingerprint" ~ '^[0-9a-f]{64}$'
+  );
 
 -- A legacy PROCESSING lease predates durable attempt-start evidence. Its
 -- external outcome is unknowable, so migration must never make it retryable.
