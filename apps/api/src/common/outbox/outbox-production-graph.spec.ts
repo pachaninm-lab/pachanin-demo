@@ -61,10 +61,14 @@ describe('IR-OUTBOX production graph', () => {
     expect(workerModule).toContain("classifyFgisPersistenceFailure(error, 'POST_ACCEPTANCE')");
   });
 
-  it('uses tokenized SKIP LOCKED claims and CAS acknowledgements', () => {
+  it('uses tokenized SKIP LOCKED claims, bounded quarantine and CAS acknowledgements', () => {
     const worker = source('apps/api/src/modules/integration-events/durable-outbox.worker.ts');
-    expect(worker).toContain('FOR UPDATE SKIP LOCKED');
-    expect(worker).toContain(`"type" <> 'MARKETING_SOCIAL_PUBLISH_V1'`);
+    expect(worker.match(/FOR UPDATE SKIP LOCKED/gu)).toHaveLength(3);
+    expect(worker.match(/LIMIT \$\{limit\}/gu)).toHaveLength(3);
+    expect(worker).toContain('WITH stale_attempts AS');
+    expect(worker).toContain('WITH stale_marketing_attempts AS');
+    expect(worker).toContain(`"type" <> ${'${MARKETING_SOCIAL_PUBLISH_EVENT_TYPE}'}`);
+    expect(worker).toContain('const claimed = quarantined > 0');
     expect(worker).toContain('"leaseToken"');
     expect(worker).toContain('AND "leaseToken" = ${leaseToken}');
     expect(worker).toContain('OutboxLeaseLostError');

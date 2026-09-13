@@ -120,6 +120,14 @@ export function classifyOutboxDeliveryFailure(error: unknown): OutboxDeliveryFai
   if (record.retryable === false) {
     return { category: 'PERMANENT', code: code || 'PROVIDER_PERMANENT_FAILURE', message };
   }
+  // Nest ServiceUnavailableException is also used by connectors to hide a
+  // transport exception whose external outcome is unknowable (for example a
+  // Telegram fetch timeout after sendMessage may already have been accepted).
+  // Without an explicit provider retryability contract, a synthetic 503 must
+  // therefore be quarantined rather than automatically replayed.
+  if (record.name === 'ServiceUnavailableException' && status === 503) {
+    return { category: 'AMBIGUOUS', code: code || 'TRANSPORT_OUTCOME_UNKNOWN', message };
+  }
   if (status === 429) return { category: 'TRANSIENT', code: 'PROVIDER_RATE_LIMITED', message };
   if (status !== undefined && status >= 400 && status < 500) {
     return { category: 'PERMANENT', code: `PROVIDER_HTTP_${status}`, message };
@@ -171,9 +179,20 @@ export class DurableOutboxWorker {
       `);
 
       await tx.$executeRaw(Prisma.sql`
-        UPDATE "outbox_entries"
+        WITH stale_attempts AS (
+          SELECT "id"
+          FROM "outbox_entries"
+          WHERE "type" <> ${MARKETING_SOCIAL_PUBLISH_EVENT_TYPE}
+            AND "status" = 'PROCESSING'
+            AND "leaseExpiresAt" < NOW()
+            AND "lastAttemptAt" IS NOT NULL
+          ORDER BY "leaseExpiresAt", "id"
+          LIMIT ${limit}
+          FOR UPDATE SKIP LOCKED
+        )
+        UPDATE "outbox_entries" AS entries
         SET "status" = 'MANUAL_REVIEW',
-            "retryCount" = "retryCount" + 1,
+            "retryCount" = entries."retryCount" + 1,
             "lastError" = 'Worker lease expired after an external delivery attempt started',
             "lastErrorCode" = 'WORKER_CRASH_OUTCOME_UNKNOWN',
             "lastErrorCategory" = 'AMBIGUOUS',
@@ -183,9 +202,8 @@ export class DurableOutboxWorker {
             "leaseToken" = NULL,
             "leaseExpiresAt" = NULL,
             "heartbeatAt" = NULL
-        WHERE "status" = 'PROCESSING'
-          AND "leaseExpiresAt" < NOW()
-          AND "lastAttemptAt" IS NOT NULL
+        FROM stale_attempts
+        WHERE entries."id" = stale_attempts."id"
       `);
 
       return tx.$queryRaw<ClaimedOutboxEntry[]>(Prisma.sql`
@@ -199,7 +217,7 @@ export class DurableOutboxWorker {
         WHERE "id" IN (
           SELECT "id"
           FROM "outbox_entries"
-          WHERE "type" <> 'MARKETING_SOCIAL_PUBLISH_V1'
+          WHERE "type" <> ${MARKETING_SOCIAL_PUBLISH_EVENT_TYPE}
             AND (
               ("status" = 'PENDING' AND "nextRetryAt" <= NOW())
               OR (
@@ -239,17 +257,23 @@ export class DurableOutboxWorker {
 
   async drainOnce(workerId: string, limit = 25): Promise<OutboxDrainReport> {
     const claimWorkerId = this.claimIdentity(workerId);
-    if (this.isDedicatedMarketingWorker()) {
-      await this.quarantineDedicatedMarketingStaleAttempts();
-    }
-    const claimed = await this.claimBatch(claimWorkerId, limit);
+    const quarantined = this.isDedicatedMarketingWorker()
+      ? await this.quarantineDedicatedMarketingStaleAttempts(limit)
+      : 0;
+    // The legacy marketing-specific claimant can still see expired PROCESSING
+    // rows. If this bounded cleanup found any attempted leases, finish this
+    // drain after quarantine so the next drain cannot return an unprocessed
+    // attempted row to that legacy claim path.
+    const claimed = quarantined > 0
+      ? []
+      : await this.claimBatch(claimWorkerId, limit);
     const report: OutboxDrainReport = {
       workerId,
       claimed: claimed.length,
       delivered: 0,
       retried: 0,
       deadLettered: 0,
-      manualReview: 0,
+      manualReview: quarantined,
       leaseLost: 0,
     };
 
@@ -318,15 +342,29 @@ export class DurableOutboxWorker {
       && this.handlers.has(MARKETING_SOCIAL_PUBLISH_EVENT_TYPE);
   }
 
-  private async quarantineDedicatedMarketingStaleAttempts(): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
+  private async quarantineDedicatedMarketingStaleAttempts(limit: number): Promise<number> {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 500) {
+      throw new Error('limit must be between 1 and 500');
+    }
+    return this.prisma.$transaction(async (tx) => {
       await tx.$executeRaw(Prisma.sql`
         SET LOCAL pc_crop.outbox_claim_protocol = '2'
       `);
-      await tx.$executeRaw(Prisma.sql`
-        UPDATE "outbox_entries"
+      return tx.$executeRaw(Prisma.sql`
+        WITH stale_marketing_attempts AS (
+          SELECT "id"
+          FROM "outbox_entries"
+          WHERE "type" = ${MARKETING_SOCIAL_PUBLISH_EVENT_TYPE}
+            AND "status" = 'PROCESSING'
+            AND "leaseExpiresAt" < NOW()
+            AND "lastAttemptAt" IS NOT NULL
+          ORDER BY "leaseExpiresAt", "id"
+          LIMIT ${limit}
+          FOR UPDATE SKIP LOCKED
+        )
+        UPDATE "outbox_entries" AS entries
         SET "status" = 'MANUAL_REVIEW',
-            "retryCount" = "retryCount" + 1,
+            "retryCount" = entries."retryCount" + 1,
             "lastError" = 'Marketing worker lease expired after an external delivery attempt started',
             "lastErrorCode" = 'WORKER_CRASH_OUTCOME_UNKNOWN',
             "lastErrorCategory" = 'AMBIGUOUS',
@@ -336,10 +374,8 @@ export class DurableOutboxWorker {
             "leaseToken" = NULL,
             "leaseExpiresAt" = NULL,
             "heartbeatAt" = NULL
-        WHERE "type" = ${MARKETING_SOCIAL_PUBLISH_EVENT_TYPE}
-          AND "status" = 'PROCESSING'
-          AND "leaseExpiresAt" < NOW()
-          AND "lastAttemptAt" IS NOT NULL
+        FROM stale_marketing_attempts
+        WHERE entries."id" = stale_marketing_attempts."id"
       `);
     });
   }

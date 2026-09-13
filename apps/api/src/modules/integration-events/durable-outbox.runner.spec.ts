@@ -1,3 +1,4 @@
+import { ServiceUnavailableException } from '@nestjs/common';
 import { KafkaProducerService } from '../../common/kafka/kafka-producer.service';
 import { DurableOutboxRunner } from './durable-outbox.runner';
 import {
@@ -161,6 +162,14 @@ describe('outbox provider failure classification', () => {
     });
   });
 
+  it('quarantines an untyped synthetic 503 transport failure', () => {
+    const failure = new ServiceUnavailableException('Telegram publish transport failed.');
+    expect(classifyOutboxDeliveryFailure(failure)).toMatchObject({
+      category: 'AMBIGUOUS',
+      code: 'TRANSPORT_OUTCOME_UNKNOWN',
+    });
+  });
+
   it('bounds provider-controlled failure codes and messages', () => {
     const failure = Object.assign(new Error('x'.repeat(5_000)), { code: 'x'.repeat(100) });
     const classified = classifyOutboxDeliveryFailure(failure);
@@ -219,7 +228,7 @@ describe('DurableOutboxWorker delivery acknowledgement boundary', () => {
     const executeRaw = jest.fn().mockResolvedValue(0);
     const prisma = {
       $transaction: jest.fn(async (
-        callback: (tx: { $executeRaw: typeof executeRaw }) => Promise<void>,
+        callback: (tx: { $executeRaw: typeof executeRaw }) => Promise<number>,
       ) => callback({ $executeRaw: executeRaw })),
     };
     const worker = new DurableOutboxWorker(prisma as never);
@@ -233,6 +242,26 @@ describe('DurableOutboxWorker delivery acknowledgement boundary', () => {
     expect(executeRaw.mock.invocationCallOrder[1]).toBeLessThan(
       claim.mock.invocationCallOrder[0],
     );
+  });
+
+  it('finishes a bounded dedicated marketing quarantine before claiming more work', async () => {
+    const executeRaw = jest.fn()
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(1);
+    const prisma = {
+      $transaction: jest.fn(async (
+        callback: (tx: { $executeRaw: typeof executeRaw }) => Promise<number>,
+      ) => callback({ $executeRaw: executeRaw })),
+    };
+    const worker = new DurableOutboxWorker(prisma as never);
+    const claim = jest.spyOn(worker, 'claimBatch').mockResolvedValue([]);
+    worker.registerHandler('MARKETING_SOCIAL_PUBLISH_V1', async () => undefined);
+
+    await expect(worker.drainOnce('custom-worker-id', 1)).resolves.toMatchObject({
+      claimed: 0,
+      manualReview: 1,
+    });
+    expect(claim).not.toHaveBeenCalled();
   });
 
   it('quarantines a persistence failure after the handler completes', async () => {
