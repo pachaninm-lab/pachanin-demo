@@ -29,7 +29,7 @@ concurrency:
 
 jobs:
   exact-head-review-gate:
-    name: Exact-head Codex review gate
+    name: Exact-head review gate
     if: >-
       (github.event_name == 'pull_request_target' ||
        github.event_name == 'pull_request_review' ||
@@ -60,7 +60,7 @@ jobs:
           gh api --method POST "repos/$REPO/statuses/$HEAD_SHA" \
             -f state=pending \
             -f context=review-gate/exact-head \
-            -f description='Exact-head Codex review is being reconciled' \
+            -f description='Exact-head review gate is being reconciled' \
             >/dev/null
 
       - name: Verify review gate implementation and exact PR head
@@ -75,7 +75,17 @@ jobs:
         run: |
           set -euo pipefail
           node --test docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs
-          node docs/platform-v7/autopilot/verify-pr-review-gate.mjs
+          gate_output="$(node docs/platform-v7/autopilot/verify-pr-review-gate.mjs)"
+          printf '%s\n' "$gate_output"
+          classification="$(printf '%s\n' "$gate_output" | sed -n 's/.*reviewClassification=\([^ ]*\).*/\1/p' | tail -n 1)"
+          case "$classification" in
+            INDEPENDENT_EXACT_HEAD_REVIEW|SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW) ;;
+            *)
+              echo "Unexpected review classification: ${classification:-missing}" >&2
+              exit 31
+              ;;
+          esac
+          echo "classification=$classification" >> "$GITHUB_OUTPUT"
 
       - name: Publish exact-head review status and visible label
         if: always()
@@ -85,13 +95,14 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           GATE_OUTCOME: ${{ steps.gate.outcome }}
+          GATE_CLASSIFICATION: ${{ steps.gate.outputs.classification }}
         shell: bash
         run: |
           set -euo pipefail
           gh label create review-gate-passed \
             --repo "$REPO" \
             --color 0E8A16 \
-            --description 'Exact-head Codex review complete; no active unresolved review findings' \
+            --description 'Exact-head review gate complete; no active unresolved review findings' \
             >/dev/null 2>&1 || true
 
           live=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid,isDraft,state)
@@ -109,13 +120,17 @@ jobs:
             state=failure
             description='Exact-head review authority invalidated by current PR state'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
-          elif [ "$GATE_OUTCOME" = success ]; then
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_CLASSIFICATION" = SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW ]; then
             state=success
-            description='Exact-head Codex review passed with no current unresolved findings'
+            description='Scoped provider-maintenance bootstrap passed; no independent provider PASS asserted'
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_CLASSIFICATION" = INDEPENDENT_EXACT_HEAD_REVIEW ]; then
+            state=success
+            description='Exact-head independent review passed; no current unresolved findings'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
           else
             state=failure
-            description='Exact-head Codex review is missing or has blocking findings'
+            description='Exact-head review gate is missing, invalid, or has blocking findings'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
           fi
 
@@ -136,7 +151,7 @@ jobs:
           exit 1
 
   exact-head-clean-comment-gate:
-    name: Exact-head Codex clean-comment gate
+    name: Exact-head clean-comment gate
     if: >-
       github.event_name == 'issue_comment' &&
       github.event.issue.pull_request &&
@@ -190,7 +205,7 @@ jobs:
           gh api --method POST "repos/$REPO/statuses/$HEAD_SHA" \
             -f state=pending \
             -f context=review-gate/exact-head \
-            -f description='Exact-head Codex clean-review evidence is being reconciled' \
+            -f description='Exact-head clean-review evidence is being reconciled' \
             >/dev/null
 
       - name: Verify exact-head clean-review evidence
@@ -206,7 +221,17 @@ jobs:
         run: |
           set -euo pipefail
           node --test docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs
-          node docs/platform-v7/autopilot/verify-pr-review-gate.mjs
+          gate_output="$(node docs/platform-v7/autopilot/verify-pr-review-gate.mjs)"
+          printf '%s\n' "$gate_output"
+          classification="$(printf '%s\n' "$gate_output" | sed -n 's/.*reviewClassification=\([^ ]*\).*/\1/p' | tail -n 1)"
+          case "$classification" in
+            INDEPENDENT_EXACT_HEAD_REVIEW|SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW) ;;
+            *)
+              echo "Unexpected review classification: ${classification:-missing}" >&2
+              exit 31
+              ;;
+          esac
+          echo "classification=$classification" >> "$GITHUB_OUTPUT"
 
       - name: Publish exact-head clean-review status and visible label
         if: always() && steps.live.outputs.active == 'true'
@@ -216,13 +241,14 @@ jobs:
           PR_NUMBER: ${{ github.event.issue.number }}
           HEAD_SHA: ${{ steps.live.outputs.head_sha }}
           GATE_OUTCOME: ${{ steps.clean_gate.outcome }}
+          GATE_CLASSIFICATION: ${{ steps.clean_gate.outputs.classification }}
         shell: bash
         run: |
           set -euo pipefail
           gh label create review-gate-passed \
             --repo "$REPO" \
             --color 0E8A16 \
-            --description 'Exact-head Codex review complete; no active unresolved review findings' \
+            --description 'Exact-head review gate complete; no active unresolved review findings' \
             >/dev/null 2>&1 || true
 
           live=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid,isDraft,state)
@@ -240,13 +266,17 @@ jobs:
             state=failure
             description='Exact-head review authority invalidated by current PR state'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
-          elif [ "$GATE_OUTCOME" = success ]; then
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_CLASSIFICATION" = SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW ]; then
             state=success
-            description='Exact-head Codex review passed with no current unresolved findings'
+            description='Scoped provider-maintenance bootstrap passed; no independent provider PASS asserted'
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_CLASSIFICATION" = INDEPENDENT_EXACT_HEAD_REVIEW ]; then
+            state=success
+            description='Exact-head independent review passed; no current unresolved findings'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
           else
             state=failure
-            description='Exact-head Codex clean-review evidence is missing or blocking findings remain'
+            description='Exact-head clean-review evidence is missing, invalid, or blocking findings remain'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
           fi
 
@@ -263,7 +293,7 @@ jobs:
       - name: Enforce clean-comment gate result
         if: steps.live.outputs.active == 'true' && steps.clean_gate.outcome != 'success'
         run: |
-          echo 'Exact-head Codex clean-comment gate is not satisfied.' >&2
+          echo 'Exact-head clean-comment gate is not satisfied.' >&2
           exit 1
 
   exact-head-dispatched-gate:
@@ -341,7 +371,17 @@ jobs:
         run: |
           set -euo pipefail
           node --test docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs
-          node docs/platform-v7/autopilot/verify-pr-review-gate.mjs
+          gate_output="$(node docs/platform-v7/autopilot/verify-pr-review-gate.mjs)"
+          printf '%s\n' "$gate_output"
+          classification="$(printf '%s\n' "$gate_output" | sed -n 's/.*reviewClassification=\([^ ]*\).*/\1/p' | tail -n 1)"
+          case "$classification" in
+            INDEPENDENT_EXACT_HEAD_REVIEW|SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW) ;;
+            *)
+              echo "Unexpected review classification: ${classification:-missing}" >&2
+              exit 31
+              ;;
+          esac
+          echo "classification=$classification" >> "$GITHUB_OUTPUT"
 
       - name: Publish scheduled review status and visible label
         if: always() && steps.live.outputs.active == 'true'
@@ -351,13 +391,14 @@ jobs:
           PR_NUMBER: ${{ github.event.client_payload.pr_number }}
           HEAD_SHA: ${{ steps.live.outputs.head_sha }}
           GATE_OUTCOME: ${{ steps.dispatched_gate.outcome }}
+          GATE_CLASSIFICATION: ${{ steps.dispatched_gate.outputs.classification }}
         shell: bash
         run: |
           set -euo pipefail
           gh label create review-gate-passed \
             --repo "$REPO" \
             --color 0E8A16 \
-            --description 'Exact-head Codex review complete; no active unresolved review findings' \
+            --description 'Exact-head review gate complete; no active unresolved review findings' \
             >/dev/null 2>&1 || true
 
           live=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid,isDraft,state)
@@ -375,13 +416,17 @@ jobs:
             state=failure
             description='Exact-head review authority invalidated by current PR state'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
-          elif [ "$GATE_OUTCOME" = success ]; then
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_CLASSIFICATION" = SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW ]; then
             state=success
-            description='Exact-head Codex review passed with no current unresolved findings'
+            description='Scoped provider-maintenance bootstrap passed; no independent provider PASS asserted'
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_CLASSIFICATION" = INDEPENDENT_EXACT_HEAD_REVIEW ]; then
+            state=success
+            description='Exact-head independent review passed; no current unresolved findings'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
           else
             state=failure
-            description='Exact-head Codex review is missing or has blocking findings'
+            description='Exact-head review gate is missing, invalid, or has blocking findings'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
           fi
 
