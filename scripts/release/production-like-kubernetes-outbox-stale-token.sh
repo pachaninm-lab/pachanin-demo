@@ -42,6 +42,14 @@ outbox_sql() {
     psql -v ON_ERROR_STOP=1 -U app_outbox -d grainflow -qAtc "$1"
 }
 
+# Claim/re-claim writes must exercise the same v2 protocol fence as the
+# production DurableOutboxWorker. The migration intentionally rejects a claim
+# from app_outbox when this transaction-local marker is absent, so a raw UPDATE
+# here would only prove that the legacy-protocol fence works.
+outbox_claim_sql() {
+  outbox_sql "BEGIN; SET LOCAL pc_crop.outbox_claim_protocol = '2'; $1; COMMIT;"
+}
+
 write_report() {
   local exit_status="$1"
   EXACT_HEAD="$EXACT_HEAD" \
@@ -142,7 +150,7 @@ admin_sql "
 test "$(admin_sql "SELECT count(*) FROM \"outbox_entries\" WHERE \"id\"='${entry_id}';")" = "1"
 
 FAILURE_REASON="initial restricted-principal claim failed"
-first_claim="$(outbox_sql "
+first_claim="$(outbox_claim_sql "
   UPDATE \"outbox_entries\"
   SET \"status\"='PROCESSING',
       \"leaseOwner\"='${RUN_ID}.old-owner',
@@ -151,7 +159,7 @@ first_claim="$(outbox_sql "
       \"heartbeatAt\"=NOW()
   WHERE \"id\"='${entry_id}'
     AND \"status\"='PENDING'
-  RETURNING \"leaseOwner\" || '|' || \"leaseToken\";
+  RETURNING \"leaseOwner\" || '|' || \"leaseToken\"
 ")"
 IFS='|' read -r old_owner old_token <<< "$first_claim"
 test -n "$old_owner"
@@ -159,7 +167,7 @@ test -n "$old_token"
 sleep 3
 
 FAILURE_REASON="expired lease was not re-claimed with a rotated owner and token"
-second_claim="$(outbox_sql "
+second_claim="$(outbox_claim_sql "
   UPDATE \"outbox_entries\"
   SET \"status\"='PROCESSING',
       \"leaseOwner\"='${RUN_ID}.new-owner',
@@ -169,7 +177,7 @@ second_claim="$(outbox_sql "
   WHERE \"id\"='${entry_id}'
     AND \"status\"='PROCESSING'
     AND \"leaseExpiresAt\"<NOW()
-  RETURNING \"leaseOwner\" || '|' || \"leaseToken\";
+  RETURNING \"leaseOwner\" || '|' || \"leaseToken\"
 ")"
 IFS='|' read -r new_owner new_token <<< "$second_claim"
 test -n "$new_owner"
