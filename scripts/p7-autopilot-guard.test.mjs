@@ -94,7 +94,7 @@ function commit(root, message) {
 
 function fixture(t, implementationBranch) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-immutable-scope-guard-'));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }));
 
   write(root, 'scripts/p7-autopilot-guard.sh', fs.readFileSync(sourceGuard, 'utf8'), 0o755);
   write(root, 'scripts/p7-source-controlled-scope.mjs', fs.readFileSync(sourceResolver, 'utf8'), 0o755);
@@ -121,7 +121,7 @@ function fixture(t, implementationBranch) {
 
 function publicHomeImplementationFixture(t, { withManifest = true } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-public-home-immutable-scope-'));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }));
   write(root, 'scripts/p7-autopilot-guard.sh', fs.readFileSync(sourceGuard, 'utf8'), 0o755);
   write(root, 'scripts/p7-source-controlled-scope.mjs', fs.readFileSync(sourceResolver, 'utf8'), 0o755);
   write(root, '.github/workflows/platform-v7-autopilot-guard.yml', 'name: fixture\n');
@@ -149,7 +149,7 @@ function publicHomeImplementationFixture(t, { withManifest = true } = {}) {
 
 function poisonIsolationFixture(t, { manifest = 'valid' } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-poison-isolation-immutable-scope-'));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }));
   write(root, 'scripts/p7-autopilot-guard.sh', fs.readFileSync(sourceGuard, 'utf8'), 0o755);
   write(root, 'scripts/p7-source-controlled-scope.mjs', fs.readFileSync(sourceResolver, 'utf8'), 0o755);
   write(root, '.github/workflows/platform-v7-autopilot-guard.yml', 'name: fixture\n');
@@ -181,7 +181,7 @@ function poisonIsolationFixture(t, { manifest = 'valid' } = {}) {
 
 function publicHomeGovernanceFixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-public-home-governance-scope-'));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }));
   write(root, 'scripts/p7-autopilot-guard.sh', fs.readFileSync(sourceGuard, 'utf8'), 0o755);
   write(root, 'scripts/p7-source-controlled-scope.mjs', fs.readFileSync(sourceResolver, 'utf8'), 0o755);
   write(root, '.github/workflows/platform-v7-autopilot-guard.yml', 'name: fixture\n');
@@ -734,7 +734,7 @@ test('Qwen failed-evidence candidate regressions run unprivileged and block the 
   assert.ok(required.includes('STANDARD_VALIDATION_RESULT: ${{ needs.standard_validation.result }}'));
   const enforce = required.split('        run: |\n')[1].split('\n').map(line => line.replace(/^          /u, '')).join('\n');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-qwen-candidate-validation-'));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }));
   const candidateEnv = { ...process.env };
   delete candidateEnv.NODE_TEST_CONTEXT;
   for (const fails of [false, true]) {
@@ -754,7 +754,7 @@ test('Qwen failed-evidence candidate regressions run unprivileged and block the 
 
 test('Qwen conditional authority survives actual dispatcher regeneration without duplication', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-qwen-dispatcher-regression-'));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }));
   for (const file of ['docs/platform-v7/autopilot/autopilot-state.json', 'docs/platform-v7/execution-queue.md']) {
     write(root, file, fs.readFileSync(file, 'utf8'));
   }
