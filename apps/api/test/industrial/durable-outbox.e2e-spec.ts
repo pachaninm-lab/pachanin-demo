@@ -208,6 +208,10 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
           `;
         });
         expect(marketingClaimed).toBe(1);
+        const marketingLease = await prismaA.outboxEntry.findUniqueOrThrow({
+          where: { id: marketingId },
+        });
+        expect(marketingLease.lastAttemptAt).not.toBeNull();
       }
     } finally {
       await prismaA.$executeRawUnsafe(`

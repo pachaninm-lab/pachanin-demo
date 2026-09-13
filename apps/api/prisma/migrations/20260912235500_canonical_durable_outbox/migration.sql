@@ -87,6 +87,26 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
+  -- The pre-v2 dedicated marketing worker does not record attempt start before
+  -- invoking its external handler. Its narrowly identified compatibility
+  -- claim must therefore record that evidence atomically with the lease. If it
+  -- crashes before acknowledgement, expiry is ambiguous and is quarantined by
+  -- the guard below instead of being published again automatically.
+  IF (
+       (OLD."status" <> 'PROCESSING' AND NEW."status" = 'PROCESSING')
+       OR (
+         OLD."status" = 'PROCESSING'
+         AND NEW."status" = 'PROCESSING'
+         AND NEW."leaseToken" IS DISTINCT FROM OLD."leaseToken"
+       )
+     )
+     AND current_user = 'app_outbox'
+     AND OLD."type" = 'MARKETING_SOCIAL_PUBLISH_V1'
+     AND NEW."leaseOwner" LIKE 'marketing-social-%'
+     AND current_setting('pc_crop.outbox_claim_protocol', true) IS DISTINCT FROM '2' THEN
+    NEW."lastAttemptAt" := statement_timestamp();
+  END IF;
+
   IF OLD."status" = 'PROCESSING'
      AND OLD."leaseExpiresAt" < statement_timestamp()
      AND OLD."lastAttemptAt" IS NOT NULL
