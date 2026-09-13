@@ -237,6 +237,7 @@ test('rejects short or malformed clean-review commit prefixes', () => {
 test('clean-review SHA resolution cannot rebind an old prefix through a branch or tag alias', () => {
   const verifier = readFileSync(new URL('./verify-pr-review-gate.mjs', import.meta.url), 'utf8');
   assert.ok(verifier.includes("if (!/^[0-9a-f]{10,40}$/u.test(prefix)) return '';"));
+  assert.ok(verifier.includes("const sha = canonicalSha40(commit?.sha);"));
   assert.ok(verifier.includes("return sha && sha.startsWith(prefix) ? sha : '';"));
 });
 
@@ -708,10 +709,16 @@ test('review reconciliation workflow uses supported dispatch wiring and complete
   assert.ok(resultContracts.length >= 3);
   const resultSchemaChecks = workflow.match(/platform-v7\.review-gate-result\.v1/gu) || [];
   assert.ok(resultSchemaChecks.length >= 3);
-  const authorityOutputs = workflow.match(/echo "authority=\$authority" >> "\$GITHUB_OUTPUT"/gu) || [];
-  assert.ok(authorityOutputs.length >= 3);
-  const bootstrapAuthorityChecks = workflow.match(/\[ "\$GATE_AUTHORITY" = NONE \]/gu) || [];
-  assert.ok(bootstrapAuthorityChecks.length >= 3);
+  const bootstrapPairs = workflow.match(/\.classification == "SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW" and \.reviewAuthority == "NONE"/gu) || [];
+  assert.ok(bootstrapPairs.length >= 3);
+  const independentPairs = workflow.match(/\.classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and \(\.reviewAuthority == "CODEX" or \.reviewAuthority == "GITHUB_COPILOT" or \.reviewAuthority == "OCTOPUS" or \.reviewAuthority == "LOCAL_QWEN"\)/gu) || [];
+  assert.ok(independentPairs.length >= 3);
+  const bootstrapModeOutputs = workflow.match(/echo 'mode=BOOTSTRAP' >> "\$GITHUB_OUTPUT"/gu) || [];
+  assert.ok(bootstrapModeOutputs.length >= 3);
+  const independentModeOutputs = workflow.match(/echo 'mode=INDEPENDENT' >> "\$GITHUB_OUTPUT"/gu) || [];
+  assert.ok(independentModeOutputs.length >= 3);
+  assert.doesNotMatch(workflow, /GATE_AUTHORITY/u);
+  assert.doesNotMatch(workflow, /echo "authority=\$authority" >> "\$GITHUB_OUTPUT"/u);
   assert.doesNotMatch(workflow, /sed -n 's\/\.\*reviewClassification=/u);
   assert.match(workflow, /^\s*exact-head-dispatched-gate:\s*$/mu);
   assert.match(workflow, /github\.event_name == 'repository_dispatch' && github\.event\.action == 'review-gate-reconcile'/u);
