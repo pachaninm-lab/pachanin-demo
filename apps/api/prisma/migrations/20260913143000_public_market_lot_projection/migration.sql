@@ -188,20 +188,23 @@ SET search_path = pg_catalog, auction
 SET row_security = on
 AS $function$
 BEGIN
-  IF NOT pg_catalog.has_function_privilege(
-       session_user,
-       'auction.list_public_market_lot_cards(integer)'::regprocedure,
-       'EXECUTE'
-     )
-  THEN
-    RAISE EXCEPTION 'PUBLIC_MARKET_READER_DENIED'
-      USING ERRCODE = '42501';
-  END IF;
-
-  -- SECURITY DEFINER must remain bound to the memberless inventory authority,
-  -- and FORCE RLS must remain enabled on the protected projection. Fail closed
-  -- if either database invariant is altered by later operational drift.
+  -- pc_inventory_authority is deliberately NOLOGIN and memberless. A runtime
+  -- session must never become that role; SECURITY DEFINER changes current_user
+  -- to the function owner while session_user remains the authenticated DB caller.
+  -- Validate the function metadata, effective authority and protected table RLS
+  -- before accepting any caller privilege.
   IF current_user <> 'pc_inventory_authority'
+     OR session_user = 'pc_inventory_authority'
+     OR session_user = current_user
+     OR NOT EXISTS (
+       SELECT 1
+       FROM pg_catalog.pg_proc p
+       JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+       WHERE p.oid = 'auction.list_public_market_lot_cards(integer)'::regprocedure
+         AND n.nspname = 'auction'
+         AND p.prosecdef
+         AND pg_catalog.pg_get_userbyid(p.proowner) = 'pc_inventory_authority'
+     )
      OR NOT EXISTS (
        SELECT 1
        FROM pg_catalog.pg_class c
@@ -214,6 +217,16 @@ BEGIN
      )
   THEN
     RAISE EXCEPTION 'PUBLIC_MARKET_RLS_AUTHORITY_INVALID'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF NOT pg_catalog.has_function_privilege(
+       session_user,
+       'auction.list_public_market_lot_cards(integer)'::regprocedure,
+       'EXECUTE'
+     )
+  THEN
+    RAISE EXCEPTION 'PUBLIC_MARKET_READER_DENIED'
       USING ERRCODE = '42501';
   END IF;
 
