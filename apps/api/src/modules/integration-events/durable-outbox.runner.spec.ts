@@ -298,9 +298,35 @@ describe('DurableOutboxWorker delivery acknowledgement boundary', () => {
     expect(claim).not.toHaveBeenCalled();
   });
 
+  it('reports a generic stale-attempt quarantine without redelivering it', async () => {
+    const executeRaw = jest.fn()
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(1);
+    const prisma = {
+      $transaction: jest.fn(async (
+        callback: (tx: { $executeRaw: typeof executeRaw }) => Promise<number>,
+      ) => callback({ $executeRaw: executeRaw })),
+    };
+    const worker = new DurableOutboxWorker(prisma as never);
+    const claim = jest.spyOn(worker, 'claimBatch').mockResolvedValue([]);
+    const handler = jest.fn(async () => undefined);
+    worker.registerFallbackHandler(handler);
+
+    await expect(worker.drainOnce('test-worker', 1)).resolves.toMatchObject({
+      claimed: 0,
+      delivered: 0,
+      manualReview: 1,
+    });
+    expect(claim).toHaveBeenCalledWith('test-worker', 1);
+    expect(handler).not.toHaveBeenCalled();
+    expect(executeRaw).toHaveBeenCalledTimes(2);
+  });
+
   it('quarantines a persistence failure after the handler completes', async () => {
     const prisma = {
-      $transaction: jest.fn().mockResolvedValue([claimedEntry]),
+      $transaction: jest.fn()
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce([claimedEntry]),
       $executeRaw: jest.fn()
         .mockResolvedValueOnce(1)
         .mockRejectedValueOnce(new Error('database unavailable'))
