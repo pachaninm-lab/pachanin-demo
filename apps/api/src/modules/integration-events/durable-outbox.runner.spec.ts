@@ -163,7 +163,36 @@ describe('outbox provider failure classification', () => {
   it('bounds provider-controlled failure codes and messages', () => {
     const failure = Object.assign(new Error('x'.repeat(5_000)), { code: 'x'.repeat(100) });
     const classified = classifyOutboxDeliveryFailure(failure);
-    expect(classified.code).toBe('PROVIDER_FAILURE');
+    expect(classified.code).toBe('PROVIDER_DELIVERY_AMBIGUOUS');
     expect(classified.message).toHaveLength(4_000);
+  });
+
+  it('treats an untyped phase failure as ambiguous instead of retryable', () => {
+    expect(classifyOutboxDeliveryFailure(new Error('database failed after provider acceptance')))
+      .toMatchObject({
+        category: 'AMBIGUOUS',
+        code: 'PROVIDER_DELIVERY_AMBIGUOUS',
+      });
+  });
+});
+
+describe('DurableOutboxWorker delivery acknowledgement boundary', () => {
+  it('quarantines a persistence failure after the handler completes', async () => {
+    const prisma = {
+      $transaction: jest.fn().mockResolvedValue([claimedEntry]),
+      $executeRaw: jest.fn()
+        .mockResolvedValueOnce(1)
+        .mockRejectedValueOnce(new Error('database unavailable'))
+        .mockResolvedValueOnce(1),
+    };
+    const worker = new DurableOutboxWorker(prisma as never);
+    worker.registerHandler(claimedEntry.type, async () => undefined);
+
+    await expect(worker.drainOnce('test-worker', 1)).resolves.toMatchObject({
+      claimed: 1,
+      delivered: 0,
+      retried: 0,
+      manualReview: 1,
+    });
   });
 });

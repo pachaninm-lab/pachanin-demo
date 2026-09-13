@@ -66,6 +66,7 @@ describe('IR-OUTBOX production graph', () => {
     expect(worker).toContain('"leaseToken"');
     expect(worker).toContain('AND "leaseToken" = ${leaseToken}');
     expect(worker).toContain('OutboxLeaseLostError');
+    expect(worker).toContain('POST_DELIVERY_PERSISTENCE_FAILED');
   });
 
   it('quarantines pre-migration in-flight rows and binds audit timestamps', () => {

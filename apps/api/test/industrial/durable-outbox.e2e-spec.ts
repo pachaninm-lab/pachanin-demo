@@ -341,7 +341,11 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
     const type = `${RUN_ID}.retry-dead-letter`;
     const [id] = await seedEntries('retry-dead-letter', 1);
     workerA.registerHandler(type, async () => {
-      throw new Error('provider unavailable');
+      throw new OutboxDeliveryError(
+        'TRANSIENT',
+        'PROVIDER_UNAVAILABLE',
+        'provider unavailable',
+      );
     });
 
     const beforeFirst = Date.now();

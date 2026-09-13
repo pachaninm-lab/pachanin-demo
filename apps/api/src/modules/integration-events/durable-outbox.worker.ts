@@ -111,7 +111,10 @@ export function classifyOutboxDeliveryFailure(error: unknown): OutboxDeliveryFai
   ) {
     return { category: 'TRANSIENT', code: 'PROVIDER_TIMEOUT', message };
   }
-  return { category: 'TRANSIENT', code: code || 'PROVIDER_FAILURE', message };
+  // An untyped exception does not prove whether external delivery happened.
+  // Providers must opt into retry with an explicit retryable/status/timeout
+  // contract; unknown phase failures are quarantined to prevent duplicates.
+  return { category: 'AMBIGUOUS', code: code || 'PROVIDER_DELIVERY_AMBIGUOUS', message };
 }
 
 @Injectable()
@@ -245,9 +248,11 @@ export class DurableOutboxWorker {
         continue;
       }
 
+      let handlerCompleted = false;
       try {
         await this.markAttemptStarted(workerId, entry.id, entry.leaseToken);
         await handler(entry);
+        handlerCompleted = true;
         await this.markDelivered(workerId, entry.id, entry.leaseToken);
         report.delivered++;
       } catch (error) {
@@ -256,7 +261,14 @@ export class DurableOutboxWorker {
           continue;
         }
         try {
-          const outcome = await this.markFailed(workerId, entry, classifyOutboxDeliveryFailure(error));
+          const failure = handlerCompleted
+            ? {
+              category: 'AMBIGUOUS' as const,
+              code: 'POST_DELIVERY_PERSISTENCE_FAILED',
+              message: `External delivery completed but acknowledgement persistence failed: ${boundedFailureMessage(error)}`,
+            }
+            : classifyOutboxDeliveryFailure(error);
+          const outcome = await this.markFailed(workerId, entry, failure);
           this.recordFailureOutcome(report, outcome);
         } catch (markError) {
           if (markError instanceof OutboxLeaseLostError) report.leaseLost++;
