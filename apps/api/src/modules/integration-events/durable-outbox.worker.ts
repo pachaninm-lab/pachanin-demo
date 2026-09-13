@@ -271,7 +271,16 @@ export class DurableOutboxWorker {
 
       let handlerCompleted = false;
       try {
-        await this.markAttemptStarted(claimWorkerId, entry.id, entry.leaseToken);
+        try {
+          await this.markAttemptStarted(claimWorkerId, entry.id, entry.leaseToken);
+        } catch (attemptError) {
+          if (attemptError instanceof OutboxLeaseLostError) throw attemptError;
+          throw new OutboxDeliveryError(
+            'TRANSIENT',
+            'ATTEMPT_START_PERSISTENCE_FAILED',
+            `Delivery attempt was not started because attempt persistence failed: ${boundedFailureMessage(attemptError)}`,
+          );
+        }
         await handler(entry);
         handlerCompleted = true;
         await this.markDelivered(claimWorkerId, entry.id, entry.leaseToken);
