@@ -182,8 +182,7 @@ export class DurableOutboxWorker {
         WITH stale_attempts AS (
           SELECT "id"
           FROM "outbox_entries"
-          WHERE "type" <> ${MARKETING_SOCIAL_PUBLISH_EVENT_TYPE}
-            AND "status" = 'PROCESSING'
+          WHERE "status" = 'PROCESSING'
             AND "leaseExpiresAt" < NOW()
             AND "lastAttemptAt" IS NOT NULL
           ORDER BY "leaseExpiresAt", "id"
