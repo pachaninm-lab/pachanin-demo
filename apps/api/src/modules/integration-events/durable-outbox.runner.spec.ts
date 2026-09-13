@@ -193,18 +193,46 @@ describe('outbox provider failure classification', () => {
       category: 'AMBIGUOUS',
       code: 'TRANSPORT_RECEIPT_PERSISTENCE_FAILED',
     });
+
+    const reconciliationFailure = Object.assign(new Error('receipt identity mismatch'), {
+      code: 'RECONCILIATION_REQUIRED',
+      retryable: true,
+    });
+    expect(classifyOutboxDeliveryFailure(
+      classifyFgisPersistenceFailure(reconciliationFailure, 'POST_ACCEPTANCE'),
+    )).toMatchObject({
+      category: 'AMBIGUOUS',
+      code: 'RECONCILIATION_REQUIRED',
+    });
+
+    expect(classifyOutboxDeliveryFailure(
+      classifyFgisPersistenceFailure(new Error('untyped database failure'), 'POST_ACCEPTANCE'),
+    )).toMatchObject({
+      category: 'AMBIGUOUS',
+      code: 'FGIS_POST_ACCEPTANCE_PERSISTENCE_FAILED',
+    });
   });
 });
 
 describe('DurableOutboxWorker delivery acknowledgement boundary', () => {
   it('normalizes a configured dedicated marketing identity before claiming', async () => {
-    const worker = new DurableOutboxWorker({} as never);
+    const executeRaw = jest.fn().mockResolvedValue(0);
+    const prisma = {
+      $transaction: jest.fn(async (
+        callback: (tx: { $executeRaw: typeof executeRaw }) => Promise<void>,
+      ) => callback({ $executeRaw: executeRaw })),
+    };
+    const worker = new DurableOutboxWorker(prisma as never);
     const claim = jest.spyOn(worker, 'claimBatch').mockResolvedValue([]);
     worker.registerHandler('MARKETING_SOCIAL_PUBLISH_V1', async () => undefined);
 
     await worker.drainOnce('custom-worker-id', 1);
 
     expect(claim).toHaveBeenCalledWith('marketing-social-custom-worker-id', 1);
+    expect(executeRaw).toHaveBeenCalledTimes(2);
+    expect(executeRaw.mock.invocationCallOrder[1]).toBeLessThan(
+      claim.mock.invocationCallOrder[0],
+    );
   });
 
   it('quarantines a persistence failure after the handler completes', async () => {

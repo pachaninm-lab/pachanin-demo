@@ -71,6 +71,8 @@ describe('IR-OUTBOX production graph', () => {
     expect(worker).toContain('POST_DELIVERY_PERSISTENCE_FAILED');
     expect(worker).toContain('TRANSPORT_RECEIPT_PERSISTENCE_FAILED');
     expect(worker).toContain('MARKETING_WORKER_ID_PREFIX');
+    expect(worker).toContain('quarantineDedicatedMarketingStaleAttempts');
+    expect(worker).toContain('FGIS_POST_ACCEPTANCE_PERSISTENCE_FAILED');
   });
 
   it('quarantines pre-migration in-flight rows and binds audit timestamps', () => {

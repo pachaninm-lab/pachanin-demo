@@ -42,11 +42,17 @@ export function classifyFgisPersistenceFailure(
   const record = typeof error === 'object' && error !== null
     ? error as Record<string, unknown>
     : {};
-  if (record.code !== 'TRANSPORT_RECEIPT_PERSISTENCE_FAILED') return error;
   const message = boundedFailureMessage(error);
-  return phase === 'POST_ACCEPTANCE'
-    ? new OutboxDeliveryError('AMBIGUOUS', 'TRANSPORT_RECEIPT_PERSISTENCE_FAILED', message)
-    : new OutboxDeliveryError('TRANSIENT', 'FGIS_PRE_DISPATCH_INSPECTION_FAILED', message);
+  if (phase === 'POST_ACCEPTANCE') {
+    return new OutboxDeliveryError(
+      'AMBIGUOUS',
+      boundedFailureCode(record.code, 'FGIS_POST_ACCEPTANCE_PERSISTENCE_FAILED'),
+      message,
+    );
+  }
+  return record.code === 'TRANSPORT_RECEIPT_PERSISTENCE_FAILED'
+    ? new OutboxDeliveryError('TRANSIENT', 'FGIS_PRE_DISPATCH_INSPECTION_FAILED', message)
+    : error;
 }
 
 export interface OutboxDrainReport {
@@ -233,6 +239,9 @@ export class DurableOutboxWorker {
 
   async drainOnce(workerId: string, limit = 25): Promise<OutboxDrainReport> {
     const claimWorkerId = this.claimIdentity(workerId);
+    if (this.isDedicatedMarketingWorker()) {
+      await this.quarantineDedicatedMarketingStaleAttempts();
+    }
     const claimed = await this.claimBatch(claimWorkerId, limit);
     const report: OutboxDrainReport = {
       workerId,
@@ -297,13 +306,42 @@ export class DurableOutboxWorker {
   }
 
   private claimIdentity(workerId: string): string {
-    const isDedicatedMarketingWorker = !this.fallbackHandler
-      && this.handlers.size === 1
-      && this.handlers.has(MARKETING_SOCIAL_PUBLISH_EVENT_TYPE);
-    if (!isDedicatedMarketingWorker || workerId.startsWith(MARKETING_WORKER_ID_PREFIX)) {
+    if (!this.isDedicatedMarketingWorker() || workerId.startsWith(MARKETING_WORKER_ID_PREFIX)) {
       return workerId;
     }
     return `${MARKETING_WORKER_ID_PREFIX}${workerId}`;
+  }
+
+  private isDedicatedMarketingWorker(): boolean {
+    return !this.fallbackHandler
+      && this.handlers.size === 1
+      && this.handlers.has(MARKETING_SOCIAL_PUBLISH_EVENT_TYPE);
+  }
+
+  private async quarantineDedicatedMarketingStaleAttempts(): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw(Prisma.sql`
+        SET LOCAL pc_crop.outbox_claim_protocol = '2'
+      `);
+      await tx.$executeRaw(Prisma.sql`
+        UPDATE "outbox_entries"
+        SET "status" = 'MANUAL_REVIEW',
+            "retryCount" = "retryCount" + 1,
+            "lastError" = 'Marketing worker lease expired after an external delivery attempt started',
+            "lastErrorCode" = 'WORKER_CRASH_OUTCOME_UNKNOWN',
+            "lastErrorCategory" = 'AMBIGUOUS',
+            "manualReviewAt" = NOW(),
+            "failedAt" = NOW(),
+            "leaseOwner" = NULL,
+            "leaseToken" = NULL,
+            "leaseExpiresAt" = NULL,
+            "heartbeatAt" = NULL
+        WHERE "type" = ${MARKETING_SOCIAL_PUBLISH_EVENT_TYPE}
+          AND "status" = 'PROCESSING'
+          AND "leaseExpiresAt" < NOW()
+          AND "lastAttemptAt" IS NOT NULL
+      `);
+    });
   }
 
   async markDelivered(workerId: string, entryId: string, leaseToken: string): Promise<void> {
