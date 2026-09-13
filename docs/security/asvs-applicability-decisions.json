@@ -1971,6 +1971,79 @@
       "note": "The application is built entirely on React/Next.js/TypeScript. A scan for every legacy plugin technology this requirement names (ActiveX, Shockwave, Silverlight, NSAPI/NPAPI, Java applets) across the web app returns zero matches."
     },
     {
+      "requirementId": "V3.7.2",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/web/lib/safe-redirect.ts",
+        "apps/web/lib/platform-v7/govIdentityBridge.ts",
+        "apps/web/lib/platform-v7/control-host.ts",
+        "apps/web/app/api/auth/demo/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "a destination taken from the request is still resolved and compared by origin, and a spelling a parser would rewrite is still refused rather than normalised",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/safe-redirect.ts"
+          ],
+          "patterns": [
+            "resolved.origin !== origin.origin",
+            "STRIPPED_BY_BROWSERS.test(candidate)",
+            "resolved.pathname}${resolved.search}${resolved.hash}"
+          ]
+        },
+        {
+          "condition": "every route that redirects to a request-supplied destination still routes it through the same-origin helper",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/auth/demo/route.ts",
+            "apps/web/app/api/auth/demo/role/[role]/route.ts",
+            "apps/web/app/api/auth/demo/instant/[role]/route.ts"
+          ],
+          "patterns": [
+            "safeRedirectDestination"
+          ]
+        },
+        {
+          "condition": "the first-character check that let a protocol-relative URL through has not come back in any of those routes",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/auth/demo/route.ts",
+            "apps/web/app/api/auth/demo/role/[role]/route.ts",
+            "apps/web/app/api/auth/demo/instant/[role]/route.ts"
+          ],
+          "patterns": [
+            "startswith('/') ?"
+          ]
+        },
+        {
+          "condition": "the only redirect to a hostname this application does not control still requires https and an exactly matching allowlisted host, so an unlisted destination produces no external redirect at all",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/govIdentityBridge.ts"
+          ],
+          "patterns": [
+            "isAllowedGovIdentityDestination",
+            "url.protocol !== 'https:'",
+            "allowedHosts.includes(url.hostname.toLowerCase())"
+          ]
+        },
+        {
+          "condition": "the cross-hostname redirects between this application's own hosts are still built from constants rather than from anything in the request",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/control-host.ts"
+          ],
+          "patterns": [
+            "export const PRIMARY_PLATFORM_HOST = '",
+            "export const CONTROL_PLATFORM_HOST = `control."
+          ]
+        }
+      ],
+      "note": "PASS on working controls, after finding and fixing three real open redirects while assessing this requirement. The requirement has three surfaces in this application and each is answered separately. (1) Destinations taken from the request: three demo-login routes guarded with to.startsWith('/') and then built new URL(to, request.url) - a first-character check that '//evil.example/pwn' passes and that resolves off-site, along with six other spellings out of thirteen tested. They now resolve the candidate and compare the resulting origin, and return path, query and fragment only, never an origin. A fourth copy of the weak normaliser in apps/web/app/login/page.tsx is replaced by the same helper. (2) Cross-hostname redirects between the application's own hosts: built from the constants PRIMARY_PLATFORM_HOST and CONTROL_PLATFORM_HOST, never from request input - an allowlist by construction, and V3.7.2 exempts hostnames the application controls in any case. (3) The one redirect to a hostname this application does not control, the gov-identity bridge: its authorization endpoint is read from the environment and used to be handed straight to NextResponse.redirect, whatever it said and whatever its scheme. It now requires https and an exactly matching host on PLATFORM_V7_GOV_ID_ALLOWED_HOSTS; host comparison is exact because a suffix match would accept id.example.gov.evil.example. The allowlist is configuration rather than a hard-coded provider because this repository does not name the intended one and guessing would be worse than asking - but it is enforced, not advisory: with no allowlist there is no external destination, so the requirement holds by construction whatever the environment says. That is a refusal into the route's existing fallback page, reported as 'destination-not-allowlisted' so an operator can tell it from 'not-configured', not a crash. NOT established, and not implied by this PASS: whether the edge pins the Host header. Several middleware redirects clone req.nextUrl, which carries the request's authority, and resolveRequestTargetOrigin prefers a configured PC_PUBLIC_ORIGIN but falls back to the Host header when none is set. Both turn on production configuration this repository cannot show, the same wall recorded under V12, and both are host-header injection rather than the destination-choice this requirement governs."
+    },
+    {
       "requirementId": "V4.1.1",
       "applicability": "APPLICABLE",
       "status": "PASS",

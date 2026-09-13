@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/asvs-v372-redirect-allowlist-4459",
+  "stackedOn": "security/open-redirect-same-origin-4459",
+  "status": "active",
+  "purpose": "Completes the V3.7.2 assessment the open-redirect branch deliberately stopped short of. That branch fixed three real open redirects and refused to claim a verdict, because the requirement is about every automatic redirect and two surfaces were still unanswered: the cross-hostname redirects in middleware, and the gov-identity bridge, which is the one place this application hands a user to a hostname it does not control. The first turned out to need nothing - those hosts are constants, and V3.7.2 exempts hostnames the application controls anyway. The second had no allowlist at all: the authorization endpoint was read from the environment and handed straight to NextResponse.redirect, whatever it said and whatever its scheme. This branch adds the allowlist, then records the verdict.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/open-redirect-same-origin-4459.json",
+    "docs/platform-v7/autopilot/scopes/asvs-v372-redirect-allowlist-4459.json",
+    "apps/web/lib/safe-redirect.ts",
+    "apps/web/tests/unit/safeRedirect.test.ts",
+    "apps/web/app/api/auth/demo/route.ts",
+    "apps/web/app/api/auth/demo/role/[role]/route.ts",
+    "apps/web/app/api/auth/demo/instant/[role]/route.ts",
+    "apps/web/app/login/page.tsx",
+    "apps/web/lib/platform-v7/govIdentityBridge.ts",
+    "apps/web/app/api/platform-v7/gov-id/start/route.ts",
+    "apps/web/tests/unit/govIdentityDestinationAllowlist.test.ts",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "This branch is stacked on security/open-redirect-same-origin-4459 and its allowedPaths are cumulative, because the verdict depends on evidence from both. Recording V3.7.2 on a branch off main would cite apps/web/lib/safe-redirect.ts, which does not exist there - verify-decision-evidence.mjs would refuse it, and rightly.",
+    "The allowlist is enforced rather than advisory. With no allowlist configured there is no external destination at all, so the requirement holds by construction whatever the environment says. Failing open when the variable is unset would make the control a suggestion.",
+    "The refusal lands in a path that already existed. The route falls back to the same internal page it already used for an unusable bridge, reported as 'destination-not-allowlisted' rather than 'not-configured' so an operator can tell the two apart. This is not a crash and not a new failure mode.",
+    "The allowlist is configuration, not a hard-coded provider. This repository does not name the intended gov-identity host anywhere, and inventing one would either break a working bridge or bless the wrong destination.",
+    "Host comparison is exact. A suffix match would accept id.example.gov.evil.example, which is the whole point of an allowlist.",
+    "Each of the five conditions is separately load-bearing, proven by mutation with the pattern count checked to zero before the verdict was read: removing the origin comparison, making one route stop using the helper, removing the https requirement, removing the allowlist check, and making the host constant something else each drop V3.7.2 from PASS to NOT_ASSESSED.",
+    "The limit is in the decision's own text rather than implied away: whether the edge pins the Host header is not established. Several middleware redirects clone req.nextUrl, which carries the request's authority, and resolveRequestTargetOrigin prefers a configured PC_PUBLIC_ORIGIN but falls back to the Host header when none is set. Both turn on production configuration this repository cannot show - the same wall recorded under V12 - and both are host-header injection rather than the destination-choice this requirement governs."
+  ],
+  "acceptance": [
+    "V3.7.2: PENDING_APPLICABILITY_REVIEW/NOT_ASSESSED -> APPLICABLE/PASS, exactly one requirement changed against main.",
+    "The three surfaces are answered separately and each is cited: request-supplied destinations resolved and compared by origin; cross-hostname redirects built from PRIMARY_PLATFORM_HOST and CONTROL_PLATFORM_HOST constants; the gov-identity bridge requiring https and an exact allowlisted host.",
+    "govIdentityDestinationAllowlist.test.ts passes 9 of 9, and four mutations each fail it: removing the https requirement (2 tests), turning the exact host match into a suffix match, not enforcing the allowlist in the builder, and treating an empty allowlist as permitting everything.",
+    "safeRedirect.test.ts still passes 32 of 32 from the branch below.",
+    "apps/web typecheck passes. platformV7GovIdentityBridge.test.ts fails 1 of 3 both before and after this change on a clean checkout - a pre-existing failure of the repo-root-path class, untouched here.",
+    "verify-decision-evidence.mjs passes 333 of 333."
+  ]
+}
