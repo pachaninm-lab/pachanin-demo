@@ -56,7 +56,10 @@ BEGIN
          AND NEW."leaseToken" IS DISTINCT FROM OLD."leaseToken"
        )
      )
-     AND current_user = ANY (ARRAY['app_outbox', 'app_deal', 'app_runtime'])
+     AND current_user = ANY (ARRAY[
+       'app_outbox', 'app_outbox_worker', 'app_deal', 'app_runtime',
+       'app_service', 'one_deal_app'
+     ])
      AND current_setting('pc_crop.outbox_claim_protocol', true) IS DISTINCT FROM '2' THEN
     RAISE EXCEPTION 'legacy outbox claim protocol is fenced'
       USING ERRCODE = '42501';
