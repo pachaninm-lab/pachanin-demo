@@ -121,10 +121,12 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
     if (!availableRole) return;
 
     const [id] = await seedEntries('legacy-claim-fence', 1);
-    const [marketingId] = await seedEntries('marketing-claim-fence', 1, {
-      type: 'MARKETING_SOCIAL_PUBLISH_V1',
-    });
     const useDedicatedRole = availableRole.roleName === 'app_outbox';
+    const marketingId = useDedicatedRole
+      ? (await seedEntries('marketing-claim-fence', 1, {
+        type: 'MARKETING_SOCIAL_PUBLISH_V1',
+      }))[0]
+      : null;
     await prismaA.$executeRawUnsafe(useDedicatedRole ? `
         CREATE POLICY outbox_claim_protocol_acceptance
         ON public."outbox_entries"
@@ -175,23 +177,38 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
       });
       expect(claimed).toBe(1);
 
-      const marketingClaimed = await prismaA.$transaction(async (tx) => {
-        await tx.$queryRaw`SELECT set_config('pc_crop.test_outbox_id', ${marketingId}, true)::text`;
-        await tx.$executeRawUnsafe(useDedicatedRole
-          ? 'SET LOCAL ROLE app_outbox'
-          : 'SET LOCAL ROLE app_deal');
-        return tx.$executeRaw`
-          UPDATE public."outbox_entries"
-          SET "status" = 'PROCESSING',
-              "leaseOwner" = 'marketing-worker',
-              "leaseToken" = 'marketing-worker-token',
-              "leaseExpiresAt" = NOW() + interval '60 seconds',
-              "heartbeatAt" = NOW(),
-              "lastAttemptAt" = NULL
-          WHERE "id" = ${marketingId}
-        `;
-      });
-      expect(marketingClaimed).toBe(1);
+      if (useDedicatedRole) {
+        await expect(prismaA.$transaction(async (tx) => {
+          await tx.$queryRaw`SELECT set_config('pc_crop.test_outbox_id', ${marketingId}, true)::text`;
+          await tx.$executeRawUnsafe('SET LOCAL ROLE app_outbox');
+          return tx.$executeRaw`
+            UPDATE public."outbox_entries"
+            SET "status" = 'PROCESSING',
+                "leaseOwner" = 'legacy-worker',
+                "leaseToken" = 'legacy-marketing-token',
+                "leaseExpiresAt" = NOW() + interval '60 seconds',
+                "heartbeatAt" = NOW(),
+                "lastAttemptAt" = NULL
+            WHERE "id" = ${marketingId}
+          `;
+        })).rejects.toThrow(/legacy outbox claim protocol is fenced/);
+
+        const marketingClaimed = await prismaA.$transaction(async (tx) => {
+          await tx.$queryRaw`SELECT set_config('pc_crop.test_outbox_id', ${marketingId}, true)::text`;
+          await tx.$executeRawUnsafe('SET LOCAL ROLE app_outbox');
+          return tx.$executeRaw`
+            UPDATE public."outbox_entries"
+            SET "status" = 'PROCESSING',
+                "leaseOwner" = 'marketing-social-acceptance',
+                "leaseToken" = 'marketing-worker-token',
+                "leaseExpiresAt" = NOW() + interval '60 seconds',
+                "heartbeatAt" = NOW(),
+                "lastAttemptAt" = NULL
+            WHERE "id" = ${marketingId}
+          `;
+        });
+        expect(marketingClaimed).toBe(1);
+      }
     } finally {
       await prismaA.$executeRawUnsafe(`
         DROP POLICY IF EXISTS outbox_claim_protocol_acceptance
@@ -200,7 +217,9 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
     }
 
     await workerA.markDelivered('protocol-v2-worker', id, 'protocol-v2-token');
-    await workerA.markDelivered('marketing-worker', marketingId, 'marketing-worker-token');
+    if (useDedicatedRole) {
+      await workerA.markDelivered('marketing-social-acceptance', marketingId, 'marketing-worker-token');
+    }
   });
 
   it('gives two concurrent workers disjoint tokenized claims', async () => {

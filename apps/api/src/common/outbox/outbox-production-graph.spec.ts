@@ -76,6 +76,9 @@ describe('IR-OUTBOX production graph', () => {
     expect(migration).toContain(`WHERE "status" = 'PROCESSING'`);
     expect(migration).toContain('MIGRATION_IN_FLIGHT_OUTCOME_UNKNOWN');
     expect(migration).toContain(`"status" = 'MANUAL_REVIEW'`);
+    expect(migration).toContain(`current_user = 'app_outbox'`);
+    expect(migration).toContain(`OLD."type" = 'MARKETING_SOCIAL_PUBLISH_V1'`);
+    expect(migration).toContain(`NEW."leaseOwner" LIKE 'marketing-social-%'`);
     expect(outbox).toContain('value instanceof Date');
     expect(outbox).toContain('value.toISOString()');
   });

@@ -72,8 +72,16 @@ BEGIN
        'app_service', 'one_deal_app'
      ])
      -- Marketing delivery remains owned by its dedicated worker during this
-     -- rollout; the canonical v2 worker deliberately does not claim it.
-     AND OLD."type" <> 'MARKETING_SOCIAL_PUBLISH_V1'
+     -- rollout. Its established default identity is marketing-social-*, while
+     -- the legacy canonical deployment uses the outbox-worker pod name. Bind
+     -- the compatibility bypass to both that identity and its sole event type;
+     -- a legacy canonical claimant therefore cannot pass merely by selecting a
+     -- marketing row.
+     AND NOT (
+       current_user = 'app_outbox'
+       AND OLD."type" = 'MARKETING_SOCIAL_PUBLISH_V1'
+       AND NEW."leaseOwner" LIKE 'marketing-social-%'
+     )
      AND current_setting('pc_crop.outbox_claim_protocol', true) IS DISTINCT FROM '2' THEN
     RAISE EXCEPTION 'legacy outbox claim protocol is fenced'
       USING ERRCODE = '42501';
