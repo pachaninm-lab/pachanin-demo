@@ -106,6 +106,13 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
       SELECT rolname AS "roleName"
       FROM pg_catalog.pg_roles
       WHERE rolname IN ('app_outbox', 'app_deal')
+        AND has_table_privilege(rolname, 'public.outbox_entries', 'SELECT')
+        AND has_column_privilege(rolname, 'public.outbox_entries', 'status', 'UPDATE')
+        AND has_column_privilege(rolname, 'public.outbox_entries', 'leaseOwner', 'UPDATE')
+        AND has_column_privilege(rolname, 'public.outbox_entries', 'leaseToken', 'UPDATE')
+        AND has_column_privilege(rolname, 'public.outbox_entries', 'leaseExpiresAt', 'UPDATE')
+        AND has_column_privilege(rolname, 'public.outbox_entries', 'heartbeatAt', 'UPDATE')
+        AND has_column_privilege(rolname, 'public.outbox_entries', 'lastAttemptAt', 'UPDATE')
       ORDER BY (rolname = 'app_outbox') DESC
       LIMIT 1
     `;
