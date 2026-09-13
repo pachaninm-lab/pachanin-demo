@@ -46,163 +46,254 @@ DEFAULT_INSTALLED=1
 BASE_SCRIPT="$BASE_SCRIPT" GENERATED_SCRIPT="$GENERATED_SCRIPT" node <<'NODE'
 const fs = require('node:fs');
 const source = fs.readFileSync(process.env.BASE_SCRIPT, 'utf8');
+const shell = (value) => value.replaceAll('\\${', '${');
+const raw = (strings) => shell(String.raw({ raw: strings.raw }));
+
+const gracefulAttemptBefore = raw`test -n "$graceful_owner"
+kubectl logs -f -n "$NAMESPACE" "pod/\${graceful_owner}" > "$RUNTIME_DIR/graceful-worker.log" 2>&1 &`;
+const gracefulAttemptAfter = raw`test -n "$graceful_owner"
+wait_for_sql "graceful external attempt start" "ATTEMPTED" 45 \
+  "SELECT CASE WHEN \"lastAttemptAt\" IS NOT NULL THEN 'ATTEMPTED' ELSE COALESCE(\"status\"::text,'MISSING') END FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${graceful_suffix}' LIMIT 1;" \
+  >/dev/null
+kubectl logs -f -n "$NAMESPACE" "pod/\${graceful_owner}" > "$RUNTIME_DIR/graceful-worker.log" 2>&1 &`;
 
 const gracefulBefore = '[[ "$graceful_row" == PENDING:::unsent || "$graceful_row" == DEAD_LETTER:::unsent ]]';
-const gracefulAfter = [
-  'IFS=\':\' read -r graceful_status graceful_current_owner graceful_current_token graceful_delivery <<< "$graceful_row"',
-  'test "$graceful_delivery" = "unsent"',
-  'if [[ "$graceful_status" = "PROCESSING" ]]; then',
-  '  test -n "$graceful_current_owner"',
-  '  test -n "$graceful_current_token"',
-  '  test "$graceful_current_owner" != "$graceful_owner"',
-  'else',
-  '  [[ "$graceful_status" = "PENDING" || "$graceful_status" = "DEAD_LETTER" ]]',
-  '  test -z "$graceful_current_owner"',
-  '  test -z "$graceful_current_token"',
-  'fi',
-].join('\n');
+const gracefulAfter = raw`IFS=':' read -r graceful_status graceful_current_owner graceful_current_token graceful_delivery <<< "$graceful_row"
+test "$graceful_delivery" = "unsent"
+if [[ "$graceful_status" = "PROCESSING" ]]; then
+  test -n "$graceful_current_owner"
+  test -n "$graceful_current_token"
+elif [[ "$graceful_status" = "MANUAL_REVIEW" ]]; then
+  test -z "$graceful_current_owner"
+  test -z "$graceful_current_token"
+else
+  echo "Graceful attempted delivery escaped fail-closed ambiguity state: $graceful_row" >&2
+  exit 1
+fi
+graceful_attempt_evidence="$(admin_sql "SELECT CASE WHEN \"lastAttemptAt\" IS NOT NULL THEN 'ATTEMPTED' ELSE 'NOT_ATTEMPTED' END FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${graceful_suffix}' LIMIT 1;")"
+test "$graceful_attempt_evidence" = "ATTEMPTED"`;
 
+const gracefulRecoveryBefore = raw`kubectl scale deployment kafka -n "$NAMESPACE" --replicas=1
+wait_for_deployment_ready kafka 1
+kubectl rollout status -n "$NAMESPACE" deployment/grainflow-outbox-worker --timeout=360s
+admin_sql "
+  UPDATE \"outbox_entries\"
+  SET \"nextRetryAt\"=NOW()-INTERVAL '1 second'
+  WHERE \"correlationId\"='\${RUN_ID}.\${graceful_suffix}' AND \"status\"='PENDING';
+" >/dev/null
+wait_for_sql "graceful entry post-recovery delivery" "1" 60 \
+  "SELECT count(*) FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${graceful_suffix}' AND \"status\"='SENT';" \
+  >/dev/null`;
+const gracefulRecoveryAfter = raw`kubectl scale deployment kafka -n "$NAMESPACE" --replicas=1
+wait_for_deployment_ready kafka 1
+kubectl rollout status -n "$NAMESPACE" deployment/grainflow-outbox-worker --timeout=360s
+wait_for_sql "graceful attempted delivery ambiguity quarantine" "MANUAL_REVIEW" 90 \
+  "SELECT \"status\" FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${graceful_suffix}' LIMIT 1;" \
+  >/dev/null
+sleep 8
+graceful_ambiguity="$(admin_sql "
+  SELECT concat_ws('|', \"status\"::text, COALESCE(\"lastErrorCategory\",''), COALESCE(\"lastErrorCode\",''),
+    CASE WHEN \"lastAttemptAt\" IS NOT NULL THEN 'attempted' ELSE 'not-attempted' END,
+    CASE WHEN \"manualReviewAt\" IS NOT NULL THEN 'reviewed' ELSE 'not-reviewed' END,
+    CASE WHEN \"leaseOwner\" IS NULL AND \"leaseToken\" IS NULL AND \"leaseExpiresAt\" IS NULL THEN 'no-lease' ELSE 'leased' END,
+    CASE WHEN \"sentAt\" IS NULL THEN 'unsent' ELSE 'sent' END)
+  FROM \"outbox_entries\"
+  WHERE \"correlationId\"='\${RUN_ID}.\${graceful_suffix}'
+  LIMIT 1;
+")"
+printf '%s\n' "$graceful_ambiguity" > "$RUNTIME_DIR/graceful-ambiguity-evidence.txt"
+IFS='|' read -r graceful_final_status graceful_category graceful_code graceful_attempted graceful_reviewed graceful_lease_state graceful_sent_state <<< "$graceful_ambiguity"
+test "$graceful_final_status" = "MANUAL_REVIEW"
+test "$graceful_category" = "AMBIGUOUS"
+[[ "$graceful_code" = "TRANSPORT_OUTCOME_UNKNOWN" || "$graceful_code" = "WORKER_CRASH_OUTCOME_UNKNOWN" ]]
+test "$graceful_attempted" = "attempted"
+test "$graceful_reviewed" = "reviewed"
+test "$graceful_lease_state" = "no-lease"
+test "$graceful_sent_state" = "unsent"`;
 
-const poisonBefore = [
-  'test "$(seed_small_entries "$healthy_suffix" 20 10)" = "20"',
-  'wait_for_sql "healthy entries beside poison" "20" 60 \\',
-  '  "SELECT count(*) FROM \\"outbox_entries\\" WHERE \\"correlationId\\"=\'${RUN_ID}.${healthy_suffix}\' AND \\"status\\"=\'SENT\';" \\',
-  '  >/dev/null',
-  'admin_sql "',
-  '  UPDATE \\"outbox_entries\\"',
-  '  SET \\"nextRetryAt\\"=NOW()-INTERVAL \'1 second\'',
-  '  WHERE \\"correlationId\\"=\'${RUN_ID}.${poison_suffix}\' AND \\"status\\"=\'PENDING\';',
-  '" >/dev/null',
-  'wait_for_sql "poison dead letter" "1" 60 \\',
-  '  "SELECT count(*) FROM \\"outbox_entries\\" WHERE \\"correlationId\\"=\'${RUN_ID}.${poison_suffix}\' AND \\"status\\"=\'DEAD_LETTER\';" \\',
-  '  >/dev/null',
-].join('\n');
+const killClaimBefore = raw`wait_for_sql "kill scenario claim" "PROCESSING" 45 \
+  "SELECT \"status\" FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${kill_suffix}' LIMIT 1;" \
+  >/dev/null`;
+const killClaimAfter = raw`wait_for_sql "kill scenario claim" "PROCESSING" 45 \
+  "SELECT \"status\" FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${kill_suffix}' LIMIT 1;" \
+  >/dev/null
+wait_for_sql "kill scenario external attempt start" "ATTEMPTED" 45 \
+  "SELECT CASE WHEN \"status\"='PROCESSING' AND \"lastAttemptAt\" IS NOT NULL THEN 'ATTEMPTED' ELSE COALESCE(\"status\"::text,'MISSING') END FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${kill_suffix}' LIMIT 1;" \
+  >/dev/null`;
 
-const poisonAfter = [
-  '# Observe a durable first retry before healthy work is introduced. The prior',
-  '# PROCESSING probe sampled once per second, but an oversized Kafka rejection',
-  '# can leave PROCESSING in milliseconds; missing that transient state made the',
-  '# acceptance timing-dependent even though the real worker path had executed.',
-  'wait_for_sql "poison first retry backoff before healthy seed" "FIRST_RETRY_BACKOFF" 60 \\',
-  '  "SELECT CASE WHEN \\"status\\"=\'PENDING\' AND \\"retryCount\\"=1 AND \\"nextRetryAt\\">NOW() AND \\"leaseOwner\\" IS NULL AND \\"leaseToken\\" IS NULL THEN \'FIRST_RETRY_BACKOFF\' ELSE COALESCE(\\"status\\",\'MISSING\') END FROM \\"outbox_entries\\" WHERE \\"correlationId\\"=\'${RUN_ID}.${poison_suffix}\' LIMIT 1;" \\',
-  '  >/dev/null',
-  'poison_first_retry="$(admin_sql "SELECT concat_ws(\'|\', \\"status\\"::text, \\"retryCount\\"::text, COALESCE(\\"nextRetryAt\\"::text,\'\')) FROM \\"outbox_entries\\" WHERE \\"correlationId\\"=\'${RUN_ID}.${poison_suffix}\' LIMIT 1;")"',
-  'test -n "$poison_first_retry"',
-  'printf \'%s\\n\' "$poison_first_retry" > "$RUNTIME_DIR/poison-first-retry.txt"',
-  '# Atomically extend the proven first-retry backoff before introducing healthy',
-  '# work. If a worker wins the race and reclaims the poison first, fail closed',
-  '# rather than allowing healthy delivery to be credited after dead-lettering.',
-  'poison_hold_count="$(admin_sql "WITH held AS (UPDATE \\"outbox_entries\\" SET \\"nextRetryAt\\"=NOW()+INTERVAL \'5 minutes\' WHERE \\"correlationId\\"=\'${RUN_ID}.${poison_suffix}\' AND \\"status\\"=\'PENDING\' AND \\"retryCount\\"=1 AND \\"leaseOwner\\" IS NULL AND \\"leaseToken\\" IS NULL RETURNING 1) SELECT count(*) FROM held;")"',
-  'test "$poison_hold_count" = "1"',
-  'test "$(seed_small_entries "$healthy_suffix" 20 10)" = "20"',
-  'wait_for_sql "healthy entries beside a poison held in retry backoff" "20" 60 \\',
-  '  "SELECT count(*) FROM \\"outbox_entries\\" WHERE \\"correlationId\\"=\'${RUN_ID}.${healthy_suffix}\' AND \\"status\\"=\'SENT\';" \\',
-  '  >/dev/null',
-  '# Prove the poison remained active throughout healthy delivery, then release',
-  '# only that exact first-retry row for its real final worker attempt.',
-  'wait_for_sql "poison remains active through healthy delivery" "HELD_FIRST_RETRY" 5 \\',
-  '  "SELECT CASE WHEN \\"status\\"=\'PENDING\' AND \\"retryCount\\"=1 AND \\"nextRetryAt\\">NOW() AND \\"leaseOwner\\" IS NULL AND \\"leaseToken\\" IS NULL THEN \'HELD_FIRST_RETRY\' ELSE COALESCE(\\"status\\",\'MISSING\') END FROM \\"outbox_entries\\" WHERE \\"correlationId\\"=\'${RUN_ID}.${poison_suffix}\' LIMIT 1;" \\',
-  '  >/dev/null',
-  'poison_release_count="$(admin_sql "WITH released AS (UPDATE \\"outbox_entries\\" SET \\"nextRetryAt\\"=NOW()-INTERVAL \'1 second\' WHERE \\"correlationId\\"=\'${RUN_ID}.${poison_suffix}\' AND \\"status\\"=\'PENDING\' AND \\"retryCount\\"=1 AND \\"leaseOwner\\" IS NULL AND \\"leaseToken\\" IS NULL RETURNING 1) SELECT count(*) FROM released;")"',
-  'test "$poison_release_count" = "1"',
-  'wait_for_sql "poison dead letter" "1" 120 \\',
-  '  "SELECT count(*) FROM \\"outbox_entries\\" WHERE \\"correlationId\\"=\'${RUN_ID}.${poison_suffix}\' AND \\"status\\"=\'DEAD_LETTER\';" \\',
-  '  >/dev/null',
-].join('\n');
+const killRecoveryBefore = raw`lease_recovery_started="$(date +%s)"
+wait_for_sql "lease-expired entry recovery" "SENT" 90 \
+  "SELECT \"status\" FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${kill_suffix}' LIMIT 1;" \
+  >/dev/null
+lease_recovery_seconds=$(( $(date +%s) - lease_recovery_started ))
+printf '%s\n' "$lease_recovery_seconds" > "$RUNTIME_DIR/lease-recovery-seconds.txt"
+sent_epoch="$(admin_sql "
+  SELECT extract(epoch FROM \"sentAt\")::bigint
+  FROM \"outbox_entries\"
+  WHERE \"correlationId\"='\${RUN_ID}.\${kill_suffix}'
+  LIMIT 1;
+")"
+test "$sent_epoch" -ge "$lease_expiry_epoch"
+printf '1\n' > "$RUNTIME_DIR/recovered-after-lease-expiry.txt"
+printf 'killedOwner=%s leaseExpiryEpoch=%s sentEpoch=%s recoverySeconds=%s\n' \
+  "$killed_owner" "$lease_expiry_epoch" "$sent_epoch" "$lease_recovery_seconds" \
+  > "$RUNTIME_DIR/lease-recovery-summary.txt"`;
+const killRecoveryAfter = raw`lease_recovery_started="$(date +%s)"
+wait_for_sql "lease-expired attempted entry quarantine" "MANUAL_REVIEW" 90 \
+  "SELECT \"status\" FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${kill_suffix}' LIMIT 1;" \
+  >/dev/null
+lease_recovery_seconds=$(( $(date +%s) - lease_recovery_started ))
+printf '%s\n' "$lease_recovery_seconds" > "$RUNTIME_DIR/lease-recovery-seconds.txt"
+kill_ambiguity="$(admin_sql "
+  SELECT concat_ws('|', \"status\"::text, COALESCE(\"lastErrorCategory\",''), COALESCE(\"lastErrorCode\",''),
+    COALESCE(extract(epoch FROM \"manualReviewAt\")::bigint::text,''),
+    CASE WHEN \"leaseOwner\" IS NULL AND \"leaseToken\" IS NULL AND \"leaseExpiresAt\" IS NULL THEN 'no-lease' ELSE 'leased' END,
+    CASE WHEN \"sentAt\" IS NULL THEN 'unsent' ELSE 'sent' END)
+  FROM \"outbox_entries\"
+  WHERE \"correlationId\"='\${RUN_ID}.\${kill_suffix}'
+  LIMIT 1;
+")"
+printf '%s\n' "$kill_ambiguity" > "$RUNTIME_DIR/lease-recovery-ambiguity.txt"
+IFS='|' read -r kill_final_status kill_category kill_code quarantine_epoch kill_lease_state kill_sent_state <<< "$kill_ambiguity"
+test "$kill_final_status" = "MANUAL_REVIEW"
+test "$kill_category" = "AMBIGUOUS"
+test "$kill_code" = "WORKER_CRASH_OUTCOME_UNKNOWN"
+test -n "$quarantine_epoch"
+test "$quarantine_epoch" -ge "$lease_expiry_epoch"
+test "$kill_lease_state" = "no-lease"
+test "$kill_sent_state" = "unsent"
+sleep 8
+test "$(admin_sql "SELECT concat_ws('|', \"status\"::text, CASE WHEN \"sentAt\" IS NULL THEN 'unsent' ELSE 'sent' END) FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${kill_suffix}' LIMIT 1;")" = "MANUAL_REVIEW|unsent"
+printf '1\n' > "$RUNTIME_DIR/recovered-after-lease-expiry.txt"
+printf 'killedOwner=%s leaseExpiryEpoch=%s quarantineEpoch=%s recoverySeconds=%s state=MANUAL_REVIEW code=WORKER_CRASH_OUTCOME_UNKNOWN delivery=unsent\n' \
+  "$killed_owner" "$lease_expiry_epoch" "$quarantine_epoch" "$lease_recovery_seconds" \
+  > "$RUNTIME_DIR/lease-recovery-summary.txt"`;
 
-const consumerBefore = [
-  'kafka_pod="$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=kafka -o jsonpath=\'{.items[0].metadata.name}\')"',
-  'set +e',
-  'kubectl exec -n "$NAMESPACE" "pod/${kafka_pod}" -- \\',
-  '  kafka-console-consumer \\',
-  '    --bootstrap-server localhost:9092 \\',
-  '    --topic grainflow.domain.events \\',
-  '    --from-beginning \\',
-  '    --timeout-ms 30000 \\',
-  '    --property print.headers=true \\',
-  '    --property print.value=false \\',
-  '  > "$RUNTIME_DIR/kafka-backlog-consumer.log" 2> "$RUNTIME_DIR/kafka-backlog-consumer.stderr"',
-  'consumer_status=$?',
-  'set -e',
-  '# Kafka console consumer exits non-zero on timeout after draining available records.',
-  'test "$consumer_status" = "0" || test "$consumer_status" = "1"',
-].join('\n');
+const poisonBefore = raw`test "$(seed_small_entries "$healthy_suffix" 20 10)" = "20"
+wait_for_sql "healthy entries beside poison" "20" 60 \
+  "SELECT count(*) FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${healthy_suffix}' AND \"status\"='SENT';" \
+  >/dev/null
+admin_sql "
+  UPDATE \"outbox_entries\"
+  SET \"nextRetryAt\"=NOW()-INTERVAL '1 second'
+  WHERE \"correlationId\"='\${RUN_ID}.\${poison_suffix}' AND \"status\"='PENDING';
+" >/dev/null
+wait_for_sql "poison dead letter" "1" 60 \
+  "SELECT count(*) FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${poison_suffix}' AND \"status\"='DEAD_LETTER';" \
+  >/dev/null`;
+const poisonAfter = raw`# Observe a durable first retry before healthy work is introduced. The prior
+# PROCESSING probe sampled once per second, but an oversized Kafka rejection
+# can leave PROCESSING in milliseconds; missing that transient state made the
+# acceptance timing-dependent even though the real worker path had executed.
+wait_for_sql "poison first retry backoff before healthy seed" "FIRST_RETRY_BACKOFF" 60 \
+  "SELECT CASE WHEN \"status\"='PENDING' AND \"retryCount\"=1 AND \"nextRetryAt\">NOW() AND \"leaseOwner\" IS NULL AND \"leaseToken\" IS NULL THEN 'FIRST_RETRY_BACKOFF' ELSE COALESCE(\"status\",'MISSING') END FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${poison_suffix}' LIMIT 1;" \
+  >/dev/null
+poison_first_retry="$(admin_sql "SELECT concat_ws('|', \"status\"::text, \"retryCount\"::text, COALESCE(\"nextRetryAt\"::text,'')) FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${poison_suffix}' LIMIT 1;")"
+test -n "$poison_first_retry"
+printf '%s\n' "$poison_first_retry" > "$RUNTIME_DIR/poison-first-retry.txt"
+# Atomically extend the proven first-retry backoff before introducing healthy
+# work. If a worker wins the race and reclaims the poison first, fail closed
+# rather than allowing healthy delivery to be credited after dead-lettering.
+poison_hold_count="$(admin_sql "WITH held AS (UPDATE \"outbox_entries\" SET \"nextRetryAt\"=NOW()+INTERVAL '5 minutes' WHERE \"correlationId\"='\${RUN_ID}.\${poison_suffix}' AND \"status\"='PENDING' AND \"retryCount\"=1 AND \"leaseOwner\" IS NULL AND \"leaseToken\" IS NULL RETURNING 1) SELECT count(*) FROM held;")"
+test "$poison_hold_count" = "1"
+test "$(seed_small_entries "$healthy_suffix" 20 10)" = "20"
+wait_for_sql "healthy entries beside a poison held in retry backoff" "20" 60 \
+  "SELECT count(*) FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${healthy_suffix}' AND \"status\"='SENT';" \
+  >/dev/null
+# Prove the poison remained active throughout healthy delivery, then release
+# only that exact first-retry row for its real final worker attempt.
+wait_for_sql "poison remains active through healthy delivery" "HELD_FIRST_RETRY" 5 \
+  "SELECT CASE WHEN \"status\"='PENDING' AND \"retryCount\"=1 AND \"nextRetryAt\">NOW() AND \"leaseOwner\" IS NULL AND \"leaseToken\" IS NULL THEN 'HELD_FIRST_RETRY' ELSE COALESCE(\"status\",'MISSING') END FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${poison_suffix}' LIMIT 1;" \
+  >/dev/null
+poison_release_count="$(admin_sql "WITH released AS (UPDATE \"outbox_entries\" SET \"nextRetryAt\"=NOW()-INTERVAL '1 second' WHERE \"correlationId\"='\${RUN_ID}.\${poison_suffix}' AND \"status\"='PENDING' AND \"retryCount\"=1 AND \"leaseOwner\" IS NULL AND \"leaseToken\" IS NULL RETURNING 1) SELECT count(*) FROM released;")"
+test "$poison_release_count" = "1"
+wait_for_sql "poison dead letter" "1" 120 \
+  "SELECT count(*) FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${poison_suffix}' AND \"status\"='DEAD_LETTER';" \
+  >/dev/null`;
 
-const consumerAfter = [
-  '# The hardened Kafka deployment exposes a loopback-only PROBE listener for broker-local evidence.',
-  '# Using it avoids widening NetworkPolicy and avoids creating an additional network identity.',
-  'kafka_pod="$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=kafka -o jsonpath=\'{.items[0].metadata.name}\')"',
-  'set +e',
-  'kubectl exec -n "$NAMESPACE" "pod/${kafka_pod}" -- \\',
-  '  kafka-console-consumer \\',
-  '    --bootstrap-server 127.0.0.1:19092 \\',
-  '    --topic grainflow.domain.events \\',
-  '    --from-beginning \\',
-  '    --timeout-ms 30000 \\',
-  '    --property print.headers=true \\',
-  '    --property print.value=false \\',
-  '  > "$RUNTIME_DIR/kafka-backlog-consumer.log" 2> "$RUNTIME_DIR/kafka-backlog-consumer.stderr"',
-  'consumer_status=$?',
-  'set -e',
-  '# Kafka console consumer exits non-zero on timeout after draining available records.',
-  'test "$consumer_status" = "0" || test "$consumer_status" = "1"',
-].join('\n');
+const consumerBefore = raw`kafka_pod="$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=kafka -o jsonpath='{.items[0].metadata.name}')"
+set +e
+kubectl exec -n "$NAMESPACE" "pod/\${kafka_pod}" -- \
+  kafka-console-consumer \
+    --bootstrap-server localhost:9092 \
+    --topic grainflow.domain.events \
+    --from-beginning \
+    --timeout-ms 30000 \
+    --property print.headers=true \
+    --property print.value=false \
+  > "$RUNTIME_DIR/kafka-backlog-consumer.log" 2> "$RUNTIME_DIR/kafka-backlog-consumer.stderr"
+consumer_status=$?
+set -e
+# Kafka console consumer exits non-zero on timeout after draining available records.
+test "$consumer_status" = "0" || test "$consumer_status" = "1"`;
+const consumerAfter = raw`# The hardened Kafka deployment exposes a loopback-only PROBE listener for broker-local evidence.
+# Using it avoids widening NetworkPolicy and avoids creating an additional network identity.
+kafka_pod="$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=kafka -o jsonpath='{.items[0].metadata.name}')"
+set +e
+kubectl exec -n "$NAMESPACE" "pod/\${kafka_pod}" -- \
+  kafka-console-consumer \
+    --bootstrap-server 127.0.0.1:19092 \
+    --topic grainflow.domain.events \
+    --from-beginning \
+    --timeout-ms 30000 \
+    --property print.headers=true \
+    --property print.value=false \
+  > "$RUNTIME_DIR/kafka-backlog-consumer.log" 2> "$RUNTIME_DIR/kafka-backlog-consumer.stderr"
+consumer_status=$?
+set -e
+# Kafka console consumer exits non-zero on timeout after draining available records.
+test "$consumer_status" = "0" || test "$consumer_status" = "1"`;
 
-const finalLogsBefore = [
-  'kubectl logs -n "$NAMESPACE" -l "$WORKER_SELECTOR" --all-containers=true --prefix=true --tail=1000 \\',
-  '  > "$RUNTIME_DIR/final-worker-logs.txt" 2>&1',
-].join('\n');
+const finalLogsBefore = raw`kubectl logs -n "$NAMESPACE" -l "$WORKER_SELECTOR" --all-containers=true --prefix=true --tail=1000 \
+  > "$RUNTIME_DIR/final-worker-logs.txt" 2>&1`;
+const finalLogsAfter = raw`# Snapshot exactly the two current Ready workers after scale-down.
+# A selector-based log read can include the terminating third pod and fail with NotFound.
+final_worker_pods_file="$RUNTIME_DIR/final-worker-pods.txt"
+for _ in $(seq 1 30); do
+  : > "$final_worker_pods_file"
+  while IFS= read -r final_worker_pod; do
+    test -n "$final_worker_pod"
+    final_worker_deleting="$(kubectl get -n "$NAMESPACE" "$final_worker_pod" -o jsonpath='{.metadata.deletionTimestamp}' 2>/dev/null || true)"
+    final_worker_ready="$(kubectl get -n "$NAMESPACE" "$final_worker_pod" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)"
+    if [[ -z "$final_worker_deleting" && "$final_worker_ready" = "True" ]]; then
+      printf '%s\n' "$final_worker_pod" >> "$final_worker_pods_file"
+    fi
+  done < <(kubectl get pods -n "$NAMESPACE" -l "$WORKER_SELECTOR" -o name | sort)
+  final_worker_pod_count="$(wc -l < "$final_worker_pods_file" | tr -d ' ')"
+  [[ "$final_worker_pod_count" = "2" ]] && break
+  sleep 1
+done
+test "\${final_worker_pod_count:-0}" = "2"
+: > "$RUNTIME_DIR/final-worker-logs.txt"
+while IFS= read -r final_worker_pod; do
+  test -n "$final_worker_pod"
+  kubectl logs -n "$NAMESPACE" "$final_worker_pod" --all-containers=true --prefix=true --tail=1000 \
+    >> "$RUNTIME_DIR/final-worker-logs.txt" 2>&1
+done < "$final_worker_pods_file"`;
 
-const finalLogsAfter = [
-  '# Snapshot exactly the two current Ready workers after scale-down.',
-  '# A selector-based log read can include the terminating third pod and fail with NotFound.',
-  'final_worker_pods_file="$RUNTIME_DIR/final-worker-pods.txt"',
-  'for _ in $(seq 1 30); do',
-  '  : > "$final_worker_pods_file"',
-  '  while IFS= read -r final_worker_pod; do',
-  '    test -n "$final_worker_pod"',
-  '    final_worker_deleting="$(kubectl get -n "$NAMESPACE" "$final_worker_pod" -o jsonpath=\'{.metadata.deletionTimestamp}\' 2>/dev/null || true)"',
-  '    final_worker_ready="$(kubectl get -n "$NAMESPACE" "$final_worker_pod" -o jsonpath=\'{.status.conditions[?(@.type=="Ready")].status}\' 2>/dev/null || true)"',
-  '    if [[ -z "$final_worker_deleting" && "$final_worker_ready" = "True" ]]; then',
-  '      printf \'%s\\n\' "$final_worker_pod" >> "$final_worker_pods_file"',
-  '    fi',
-  '  done < <(kubectl get pods -n "$NAMESPACE" -l "$WORKER_SELECTOR" -o name | sort)',
-  '  final_worker_pod_count="$(wc -l < "$final_worker_pods_file" | tr -d \' \')"',
-  '  [[ "$final_worker_pod_count" = "2" ]] && break',
-  '  sleep 1',
-  'done',
-  'test "${final_worker_pod_count:-0}" = "2"',
-  ': > "$RUNTIME_DIR/final-worker-logs.txt"',
-  'while IFS= read -r final_worker_pod; do',
-  '  test -n "$final_worker_pod"',
-  '  kubectl logs -n "$NAMESPACE" "$final_worker_pod" --all-containers=true --prefix=true --tail=1000 \\',
-  '    >> "$RUNTIME_DIR/final-worker-logs.txt" 2>&1',
-  'done < "$final_worker_pods_file"',
-].join('\n');
+const replacements = [
+  [gracefulAttemptBefore, gracefulAttemptAfter, 'graceful attempt-start boundary'],
+  [gracefulBefore, gracefulAfter, 'graceful shutdown assertion boundary'],
+  [gracefulRecoveryBefore, gracefulRecoveryAfter, 'graceful post-recovery boundary'],
+  [killClaimBefore, killClaimAfter, 'forced-kill attempt-start boundary'],
+  [killRecoveryBefore, killRecoveryAfter, 'forced-kill ambiguity recovery boundary'],
+  [poisonBefore, poisonAfter, 'poison isolation scheduling boundary'],
+  [consumerBefore, consumerAfter, 'Kafka delivery probe boundary'],
+  [finalLogsBefore, finalLogsAfter, 'final worker log collection boundary'],
+];
 
-for (const [boundary, message] of [
-  [gracefulBefore, 'graceful shutdown assertion boundary'],
-  [poisonBefore, 'poison isolation scheduling boundary'],
-  [consumerBefore, 'Kafka delivery probe boundary'],
-  [finalLogsBefore, 'final worker log collection boundary'],
-]) {
-  if ((source.split(boundary).length - 1) !== 1) {
+let rendered = source;
+for (const [before, after, message] of replacements) {
+  if ((rendered.split(before).length - 1) !== 1) {
     throw new Error(`${message} must exist exactly once`);
   }
+  rendered = rendered.replace(before, after);
+  if (rendered.includes(before)) {
+    throw new Error(`${message} was not replaced exactly once`);
+  }
 }
-
-let rendered = source.replace(gracefulBefore, gracefulAfter);
-rendered = rendered.replace(poisonBefore, poisonAfter);
-rendered = rendered.replace(consumerBefore, consumerAfter);
-rendered = rendered.replace(finalLogsBefore, finalLogsAfter);
-if (
-  rendered === source ||
-  rendered.includes(gracefulBefore) ||
-  rendered.includes(poisonBefore) ||
-  rendered.includes(consumerBefore) ||
-  rendered.includes(finalLogsBefore)
-) {
-  throw new Error('acceptance boundaries were not replaced exactly once');
+if (rendered === source) {
+  throw new Error('acceptance boundaries were not replaced');
 }
 fs.writeFileSync(process.env.GENERATED_SCRIPT, rendered, { mode: 0o700 });
 NODE
