@@ -1,7 +1,6 @@
 import { serverApiUrl } from './server-api';
 
 export type PublicMarketTeaserLot = Readonly<{
-  lotId: string;
   culture: string;
   grade: string | null;
   volumeTons: string;
@@ -51,7 +50,6 @@ function parseSnapshot(value: unknown): PublicMarketTeaserLot[] | null {
 
 function parseLot(value: unknown): PublicMarketTeaserLot | null {
   if (!isRecord(value)) return null;
-  const lotId = boundedText(value.lotId, 240);
   const culture = boundedText(value.culture, 80);
   const region = boundedText(value.region, 120);
   const grade = value.grade === null ? null : boundedText(value.grade, 80);
@@ -61,11 +59,10 @@ function parseLot(value: unknown): PublicMarketTeaserLot | null {
     : null;
   const auctionEndsAt = isoDateText(value.auctionEndsAt);
 
-  if (!lotId || !culture || !region || grade === '' || !volumeTons || !startPriceKopecksPerTon || !auctionEndsAt) return null;
+  if (!culture || !region || grade === '' || !volumeTons || !startPriceKopecksPerTon || !auctionEndsAt) return null;
   if (value.verificationLevel !== 'VERIFIED') return null;
 
   return {
-    lotId,
     culture,
     grade,
     volumeTons,
