@@ -67,4 +67,16 @@ describe('IR-OUTBOX production graph', () => {
     expect(worker).toContain('AND "leaseToken" = ${leaseToken}');
     expect(worker).toContain('OutboxLeaseLostError');
   });
+
+  it('quarantines pre-migration in-flight rows and binds audit timestamps', () => {
+    const migration = source(
+      'apps/api/prisma/migrations/20260912235500_canonical_durable_outbox_failure_classification/migration.sql',
+    );
+    const outbox = source('apps/api/src/common/outbox/outbox.service.ts');
+    expect(migration).toContain(`WHERE "status" = 'PROCESSING'`);
+    expect(migration).toContain('MIGRATION_IN_FLIGHT_OUTCOME_UNKNOWN');
+    expect(migration).toContain(`"status" = 'MANUAL_REVIEW'`);
+    expect(outbox).toContain('value instanceof Date');
+    expect(outbox).toContain('value.toISOString()');
+  });
 });

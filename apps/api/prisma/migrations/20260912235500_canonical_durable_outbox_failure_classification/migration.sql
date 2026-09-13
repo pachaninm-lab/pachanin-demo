@@ -14,6 +14,22 @@ ALTER TABLE public."outbox_redrive_events"
   ADD COLUMN IF NOT EXISTS "previousLastAttemptAt" TIMESTAMP(3),
   ADD COLUMN IF NOT EXISTS "previousManualReviewAt" TIMESTAMP(3);
 
+-- A legacy PROCESSING lease predates durable attempt-start evidence. Its
+-- external outcome is unknowable, so migration must never make it retryable.
+UPDATE public."outbox_entries"
+SET "status" = 'MANUAL_REVIEW',
+    "retryCount" = "retryCount" + 1,
+    "lastError" = 'In-flight row predates durable attempt tracking; delivery outcome is unknown',
+    "lastErrorCode" = 'MIGRATION_IN_FLIGHT_OUTCOME_UNKNOWN',
+    "lastErrorCategory" = 'AMBIGUOUS',
+    "manualReviewAt" = statement_timestamp(),
+    "failedAt" = statement_timestamp(),
+    "leaseOwner" = NULL,
+    "leaseToken" = NULL,
+    "leaseExpiresAt" = NULL,
+    "heartbeatAt" = NULL
+WHERE "status" = 'PROCESSING';
+
 ALTER TABLE public."outbox_entries"
   DROP CONSTRAINT IF EXISTS outbox_entries_last_error_category_check;
 
