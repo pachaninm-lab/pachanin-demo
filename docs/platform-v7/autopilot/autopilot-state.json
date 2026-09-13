@@ -12,10 +12,10 @@
     "verifiedAt": "2026-07-13",
     "gitObjectDatabase": "exact-merge-baseline"
   },
-  "mode": "ir-10-disputes-postgresql-authority",
+  "mode": "ir-20-canonical-durable-outbox",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "IR-10.5 Disputes PostgreSQL Authority",
+  "current": "IR-20 Canonical Durable Outbox",
   "fullTzReadinessPercent": 0,
   "readinessScoring": "Binary GO completion only; 0 means the Industrial Integration-Ready gate is not yet accepted. It is not an implementation-progress estimate.",
   "openPr": null,
@@ -38,7 +38,8 @@
     "#2410 Documents PostgreSQL Authority",
     "#2412 Logistics PostgreSQL Authority",
     "#2426 Labs PostgreSQL Authority",
-    "#5338 Settlement PostgreSQL Authority"
+    "#5338 Settlement PostgreSQL Authority",
+    "IR-10.5 Disputes PostgreSQL Authority exact-main revalidation 397e98955d9f98704c40befd0088a1390556e0fa"
   ],
   "closedCapabilities": {
     "persistentIdentityAndMfa": {
@@ -110,6 +111,18 @@
         "IR-70 through IR-90 production, security and end-to-end acceptance"
       ]
     },
+    "disputesPostgresqlAuthority": {
+      "status": "merged-exact-head-postgresql-evidence",
+      "evidenceCommit": "397e98955d9f98704c40befd0088a1390556e0fa",
+      "workflowRun": "34726015616",
+      "artifactDigest": "sha256:01c713e0487c3ad040aca44e7d6631063a0788e60be4cc77a5de1097f12bdc60",
+      "remainingBoundaries": [
+        "production-like complete Deal dispute-cycle acceptance",
+        "target load and worker-failure operations",
+        "live external dispute providers",
+        "IR-70 through IR-90 production, security and end-to-end acceptance"
+      ]
+    },
     "durableOutboxWorkerImplementation": {
       "status": "merged-but-not-exclusive-production-owner",
       "pr": "#2378",
@@ -131,8 +144,7 @@
     }
   },
   "openBlockers": [
-    "Disputes can still bind process-memory authority.",
-    "Legacy OutboxRelayService and process-memory OutboxService still coexist with DurableOutboxWorker.",
+    "The API process still instantiates a second DurableOutboxRunner, delivery failures are not durably classified, and ambiguous post-send outcomes are not isolated from automatic retry.",
     "Inbound webhook idempotency is process-memory outside the accepted bank callback slice and no general durable integration inbox exists.",
     "Partner API credentials and webhook subscriptions are process-memory.",
     "Canonical Auction/Deal Basis and versioned Payment Terms remain incomplete.",
@@ -142,9 +154,8 @@
     "A regulated Russian procurement, significant-CII, financial-sector or FGIS contour is not yet accepted: domestic-software register status, certified protection means and Russian cryptography require a separately verified deployment profile.",
     "Production configuration, dedicated worker topology, SLO operations, HA, provider PITR/restore, production-scale load and external security acceptance are unproven."
   ],
-  "blockerNotes": "Merged Deal, identity, Documents, Logistics, Labs, Settlement, reconciliation and durable-worker slices are repository or production-like evidence only. No live bank or REG.RU settlement deployment is claimed. Industrial Integration-Ready remains NO-GO until every mandatory gate through IR-90 has accepted evidence.",
+  "blockerNotes": "Merged Deal, identity, Documents, Logistics, Labs, Settlement, Disputes, reconciliation and durable-worker slices are repository, CI or production-like evidence only. No live bank, external dispute provider or REG.RU deployment is claimed. Industrial Integration-Ready remains NO-GO until every mandatory gate through IR-90 has accepted evidence.",
   "lockedUntilCurrentGreen": [
-    "IR-20 Canonical Durable Outbox",
     "IR-21 Durable Integration Inbox",
     "IR-22 Persistent Partner API and Outbound Webhooks",
     "IR-30 through IR-90 in dependency order"
@@ -155,25 +166,20 @@
     "docs/platform-v7/autopilot/prompts/current-codex-task.md",
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
-    "apps/api/src/common/config/industrial-mode.ts",
-    "apps/api/src/common/command-execution.context.ts",
-    "apps/api/src/common/prisma/rls-transaction.service.ts",
-    "apps/api/src/modules/deals/deal-command-payload.ts",
-    "apps/api/src/modules/deals/deal-command.service.ts",
-    "apps/api/src/modules/deals/deals.module.ts",
-    "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
-    "apps/api/src/modules/deals/postgresql-deal-command.service.ts",
-    "apps/api/src/modules/deals/postgresql-deal-command.service.spec.ts",
-    "apps/api/src/modules/disputes/**",
+    "apps/api/src/common/outbox/**",
+    "apps/api/src/common/prisma/outbox-*",
+    "apps/api/src/outbox-worker.ts",
+    "apps/api/src/outbox-worker.module.ts",
+    "apps/api/src/modules/integration-events/durable-outbox.runner.ts",
+    "apps/api/src/modules/integration-events/durable-outbox.runner.spec.ts",
+    "apps/api/src/modules/integration-events/durable-outbox.worker.ts",
+    "apps/api/src/modules/integration-events/integration-events.module.ts",
     "apps/api/prisma/schema.prisma",
-    "apps/api/prisma/migrations/20260912*_disputes_postgresql_authority/**",
+    "apps/api/prisma/migrations/20260912*_canonical_durable_outbox/**",
     "apps/api/test/industrial/harness.ts",
-    "apps/api/test/industrial/disputes-postgresql-authority.e2e-spec.ts",
-    "apps/api/test/industrial/industrial-core.e2e-spec.ts",
-    "apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts",
-    "apps/api/test/one-deal/restored-database-acceptance.ts",
-    "apps/api/test/one-deal/seed.ts",
-    "infra/sql/postgresql-disputes-authority-policies.sql",
+    "apps/api/test/industrial/durable-outbox.e2e-spec.ts",
+    "apps/api/test/industrial/outbox-worker-process.e2e-spec.ts",
+    "infra/sql/postgresql-outbox-worker-policies.sql",
     "scripts/platform-v7-forward-only-migration-check.mjs",
     "scripts/platform-v7-one-deal-e2e.sh",
     ".github/workflows/ci.yml"
@@ -184,25 +190,20 @@
     "docs/platform-v7/autopilot/prompts/current-codex-task.md",
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
-    "apps/api/src/common/config/industrial-mode.ts",
-    "apps/api/src/common/command-execution.context.ts",
-    "apps/api/src/common/prisma/rls-transaction.service.ts",
-    "apps/api/src/modules/deals/deal-command-payload.ts",
-    "apps/api/src/modules/deals/deal-command.service.ts",
-    "apps/api/src/modules/deals/deals.module.ts",
-    "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
-    "apps/api/src/modules/deals/postgresql-deal-command.service.ts",
-    "apps/api/src/modules/deals/postgresql-deal-command.service.spec.ts",
-    "apps/api/src/modules/disputes/**",
+    "apps/api/src/common/outbox/**",
+    "apps/api/src/common/prisma/outbox-*",
+    "apps/api/src/outbox-worker.ts",
+    "apps/api/src/outbox-worker.module.ts",
+    "apps/api/src/modules/integration-events/durable-outbox.runner.ts",
+    "apps/api/src/modules/integration-events/durable-outbox.runner.spec.ts",
+    "apps/api/src/modules/integration-events/durable-outbox.worker.ts",
+    "apps/api/src/modules/integration-events/integration-events.module.ts",
     "apps/api/prisma/schema.prisma",
-    "apps/api/prisma/migrations/20260912*_disputes_postgresql_authority/**",
+    "apps/api/prisma/migrations/20260912*_canonical_durable_outbox/**",
     "apps/api/test/industrial/harness.ts",
-    "apps/api/test/industrial/disputes-postgresql-authority.e2e-spec.ts",
-    "apps/api/test/industrial/industrial-core.e2e-spec.ts",
-    "apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts",
-    "apps/api/test/one-deal/restored-database-acceptance.ts",
-    "apps/api/test/one-deal/seed.ts",
-    "infra/sql/postgresql-disputes-authority-policies.sql",
+    "apps/api/test/industrial/durable-outbox.e2e-spec.ts",
+    "apps/api/test/industrial/outbox-worker-process.e2e-spec.ts",
+    "infra/sql/postgresql-outbox-worker-policies.sql",
     "scripts/platform-v7-forward-only-migration-check.mjs",
     "scripts/platform-v7-one-deal-e2e.sh",
     ".github/workflows/ci.yml"
@@ -1431,13 +1432,12 @@
     ]
   },
   "currentAcceptance": [
-    "Production Disputes module binds complete PostgreSQL repositories directly and has no RuntimeCore or implicit process-memory authority path.",
-    "Claims, holds, evidence, decisions and financial consequences are tenant-scoped, immutable and atomic under trusted RLS transactions.",
-    "Restart, multiple API instances, durable idempotency, optimistic concurrency, outsider and cross-tenant denial, forward migration, zero drift and exact-head CI are proven.",
-    "No live bank, external dispute provider, production deployment or maturity completion claim is introduced."
+    "One dedicated durable outbox owner replaces the legacy relay and process-memory production paths.",
+    "DB-time leases, SKIP LOCKED, attempts, classified failures, retries, DEAD state and audited redrive are PostgreSQL-authoritative.",
+    "Concurrent workers, crash windows, provider ambiguity, timeout, 429, 4xx, 5xx, expired leases, duplicate enqueue, restart and double-owner startup fail safely.",
+    "Exact-head CI passes without claiming production deployment or provider delivery."
   ],
   "nextAfterCurrentGreen": [
-    "IR-20 Canonical Durable Outbox",
     "IR-21 Durable Integration Inbox",
     "IR-22 Persistent Partner API and Outbound Webhooks",
     "IR-30 Canonical Deal and Payment Basis",

@@ -1,14 +1,14 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 0,
-  "currentStep": "IR-10.5 Disputes PostgreSQL Authority",
-  "lastCompletedStep": "#5338 Settlement PostgreSQL Authority",
+  "currentStep": "IR-20 Canonical Durable Outbox",
+  "lastCompletedStep": "IR-10.5 Disputes PostgreSQL Authority exact-main revalidation 397e98955d9f98704c40befd0088a1390556e0fa",
   "openPr": null,
   "blockedBy": [
-    "IR-10.5 Disputes PostgreSQL Authority is not green/closed/mergeable. Dispatcher will not advance to IR-20 Canonical Durable Outbox."
+    "IR-20 Canonical Durable Outbox is not green/closed/mergeable. Dispatcher will not advance to IR-21 Durable Integration Inbox."
   ],
-  "nextStep": "IR-10.5 Disputes PostgreSQL Authority",
-  "updatedAt": "2026-09-12T23:32:00.220Z",
+  "nextStep": "IR-20 Canonical Durable Outbox",
+  "updatedAt": "2026-09-12T23:49:51.776Z",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
