@@ -1,5 +1,5 @@
 import { ArrowRight, BadgeCheck, Clock3, LockKeyhole, MapPin, Scale } from 'lucide-react';
-import { getPublicMarketTeaser, type PublicMarketTeaserLot } from '@/lib/public-market-server';
+import { getPublicMarketTeaser } from '@/lib/public-market-server';
 import styles from './PublicMarketTeaser.module.css';
 
 type Locale = 'ru' | 'en' | 'zh';
@@ -17,6 +17,7 @@ const COPY = {
     lead: 'Показываем только разрешённые к публикации лоты и только обезличенные данные. Продавец, документы, полная карточка и действие по лоту открываются после регистрации.',
     verified: 'Проверенный источник',
     anonymous: 'Продавец скрыт до регистрации',
+    lotLabel: 'Публичный лот',
     volume: 'Объём',
     region: 'Регион',
     startPrice: 'Стартовая цена',
@@ -39,6 +40,7 @@ const COPY = {
     lead: 'Only lots authorised for publication are shown, with anonymised data only. Seller identity, documents, the full lot card and lot actions require registration.',
     verified: 'Verified source',
     anonymous: 'Seller hidden until registration',
+    lotLabel: 'Public lot',
     volume: 'Volume',
     region: 'Region',
     startPrice: 'Starting price',
@@ -61,6 +63,7 @@ const COPY = {
     lead: '这里只展示获准发布且已匿名化的批次。卖方身份、文件、完整批次卡片以及出价等操作需注册后查看。',
     verified: '来源已核验',
     anonymous: '注册前隐藏卖方身份',
+    lotLabel: '公开批次',
     volume: '数量',
     region: '地区',
     startPrice: '起始价格',
@@ -100,11 +103,11 @@ export async function PublicMarketTeaser({ locale, registerHref, loginHref }: Pr
         <MarketState title={copy.emptyTitle} text={copy.emptyText} registerHref={registerHref} registerLabel={copy.register} />
       ) : (
         <div className={styles.grid}>
-          {snapshot.items.map((lot) => (
-            <article key={lot.lotId} className={styles.card}>
+          {snapshot.items.map((lot, index) => (
+            <article key={`${lot.culture}:${lot.region}:${lot.auctionEndsAt}:${index}`} className={styles.card}>
               <div className={styles.cardTop}>
                 <div>
-                  <span className={styles.lotLabel}>LOT · {shortLotId(lot.lotId)}</span>
+                  <span className={styles.lotLabel}>{copy.lotLabel}</span>
                   <h3>{lot.culture}{lot.grade ? <small>{lot.grade}</small> : null}</h3>
                 </div>
                 <span className={styles.verified}><BadgeCheck aria-hidden='true' size={16} />{copy.verified}</span>
@@ -136,11 +139,6 @@ function MarketState({ title, text, registerHref, registerLabel }: Readonly<{ ti
       <a href={registerHref}>{registerLabel}<ArrowRight aria-hidden='true' size={17} /></a>
     </div>
   );
-}
-
-function shortLotId(value: string): string {
-  const compact = value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-  return compact.slice(-8) || 'PUBLIC';
 }
 
 function formatDecimal(value: string): string {
