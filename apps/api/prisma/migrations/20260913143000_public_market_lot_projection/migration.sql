@@ -1,10 +1,12 @@
 -- P0 farmer/public-market slice: expose only an anonymous, seller-authorized
 -- teaser projection for canonical inventory-bound Auction lots.
 --
--- The public HTTP surface must never query tenant Auction rows directly.  This
+-- The public HTTP surface must never query tenant Auction rows directly. This
 -- projection is populated inside the same PostgreSQL transaction as the lot
--- state change and contains no tenant, seller, user, address, source id,
--- certificate id, inventory position, reservation or canonical lot id.
+-- state change. The protected table retains canonical lot_id only as an
+-- internal synchronization key; the bounded public function never returns it
+-- or any tenant, seller, user, address, source id, certificate id, inventory
+-- position or reservation identifier.
 BEGIN;
 
 DO $authority$
@@ -156,7 +158,7 @@ $function$;
 ALTER FUNCTION auction.sync_public_market_lot_card() OWNER TO pc_inventory_authority;
 REVOKE ALL ON FUNCTION auction.sync_public_market_lot_card() FROM PUBLIC;
 
--- The lot->inventory binding FK and W2-B evidence trigger are deferred.  Keep
+-- The lot->inventory binding FK and W2-B evidence trigger are deferred. Keep
 -- this projection trigger deferred as well: if any binding/evidence invariant
 -- fails, the whole transaction (including this projection write) rolls back.
 CREATE CONSTRAINT TRIGGER auction_public_market_lot_sync
