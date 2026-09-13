@@ -6,6 +6,10 @@ const migrationPath = 'apps/api/prisma/migrations/20260913143000_public_market_l
 const servicePath = 'apps/api/src/modules/auctions/public-auction-market.service.ts';
 const controllerPath = 'apps/api/src/modules/auctions/public-auction-market.controller.ts';
 const modulePath = 'apps/api/src/modules/auctions/auctions.module.ts';
+const webHelperPath = 'apps/web/lib/public-market-server.ts';
+const webTeaserPath = 'apps/web/components/platform-v7/PublicMarketTeaser.tsx';
+const webCssPath = 'apps/web/components/platform-v7/PublicMarketTeaser.module.css';
+const webHomePath = 'apps/web/components/platform-v7/PlatformV7StrategicHome.tsx';
 
 function read(path: string): string {
   return readFileSync(resolve(REPO_ROOT, path), 'utf8');
@@ -81,5 +85,49 @@ describe('anonymous public Auction market projection', () => {
     expect(controller).toContain("@Get('lots')");
     expect(module).toContain('PublicAuctionMarketController');
     expect(module).toContain('PublicAuctionMarketService');
+  });
+
+  it('keeps the public web read unauthenticated, PostgreSQL-bound and fail-closed', () => {
+    const helper = read(webHelperPath);
+    expect(helper).toContain("serverApiUrl('/market/lots')");
+    expect(helper).toContain("cache: 'no-store'");
+    expect(helper).toContain("headers: { accept: 'application/json' }");
+    expect(helper).not.toContain('serverAuthHeaders');
+    expect(helper).toContain("scope: 'PUBLIC_MARKET'");
+    expect(helper).toContain("projection: 'ANONYMIZED_PUBLIC_MARKET'");
+    expect(helper).toContain("sellerIdentity: 'REDACTED'");
+    expect(helper).toContain('available: false');
+    expect(helper).toContain('items: Object.freeze([])');
+  });
+
+  it('renders a truthful anonymized teaser without demo fallback or identity leakage', () => {
+    const teaser = read(webTeaserPath);
+    expect(teaser).toContain('Демо-лоты не подставляются');
+    expect(teaser).toContain('No demo lots are substituted');
+    expect(teaser).toContain('系统不会填充演示批次');
+    expect(teaser).not.toMatch(/LOT-001|BID-001|DL-2607-014/);
+    expect(teaser).toContain('Продавец скрыт');
+    expect(teaser).toContain('Наличие заявлено продавцом');
+    expect(teaser).toContain('Независимое подтверждение не получено');
+    expect(teaser).toContain('Полная карточка, контрагент, предложение и ставка доступны только после входа.');
+    expect(teaser).not.toContain('lot.seller');
+    expect(teaser).not.toContain('lot.address');
+    expect(teaser).not.toContain('lot.publicRef}</');
+    expect(teaser).not.toMatch(/href=.*publicRef/);
+  });
+
+  it('gates full market actions behind localized auth and keeps a mobile-safe home surface', () => {
+    const teaser = read(webTeaserPath);
+    const css = read(webCssPath);
+    const home = read(webHomePath);
+    expect(teaser).toContain('/platform-v7/register?lang=');
+    expect(teaser).toContain('/platform-v7/login?lang=');
+    expect(home).toContain("import { PublicMarketTeaser } from './PublicMarketTeaser';");
+    expect(home).toContain("<a href='#market'>{marketNavLabel}</a>");
+    expect(home).toContain('<PublicMarketTeaser locale={locale} />');
+    expect(teaser).toContain("id='market'");
+    expect(teaser).toContain("data-testid='public-market-teaser'");
+    expect(css).toContain('@media (max-width: 640px)');
+    expect(css).toContain('@media (max-width: 390px)');
   });
 });
