@@ -60,6 +60,9 @@ BEGIN
        'app_outbox', 'app_outbox_worker', 'app_deal', 'app_runtime',
        'app_service', 'one_deal_app'
      ])
+     -- Marketing delivery remains owned by its dedicated worker during this
+     -- rollout; the canonical v2 worker deliberately does not claim it.
+     AND OLD."type" <> 'MARKETING_SOCIAL_PUBLISH_V1'
      AND current_setting('pc_crop.outbox_claim_protocol', true) IS DISTINCT FROM '2' THEN
     RAISE EXCEPTION 'legacy outbox claim protocol is fenced'
       USING ERRCODE = '42501';
