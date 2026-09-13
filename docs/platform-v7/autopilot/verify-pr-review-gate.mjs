@@ -317,11 +317,11 @@ export function positiveExactHeadLocalQwenAttestations(reviews, statuses, headSh
 
 export function localQwenAttestationMatchesWorkflowRun(attestation, run, repo, prNumber, headSha) {
   const repository = String(repo || '').trim();
-  const expectedHead = canonicalSha40(headSha);
+  const expectedHead = String(headSha || '').trim();
   const expectedPr = Number(prNumber || 0);
   if (!attestation || !run) return false;
   if (!isGitHubRepositorySlug(repository)) return false;
-  if (!expectedHead) return false;
+  if (!/^[0-9a-f]{40}$/u.test(expectedHead)) return false;
   if (!Number.isInteger(expectedPr) || expectedPr <= 0) return false;
   const attestedRunId = String(attestation?.runId || '').trim();
   if (!/^[1-9][0-9]{0,19}$/u.test(attestedRunId)) return false;
@@ -332,12 +332,12 @@ export function localQwenAttestationMatchesWorkflowRun(attestation, run, repo, p
   if (String(run?.status || '').trim() !== 'completed') return false;
   if (String(run?.conclusion || '').trim() !== 'success') return false;
   if (String(run?.repository?.full_name || '').trim() !== repository) return false;
-  if (canonicalSha40(run?.head_sha) !== expectedHead) return false;
+  if (String(run?.head_sha || '').trim() !== expectedHead) return false;
 
   const runPrs = Array.isArray(run?.pull_requests) ? run.pull_requests : [];
   return runPrs.some((runPr) => (
     Number(runPr?.number) === expectedPr
-    && canonicalSha40(runPr?.head?.sha) === expectedHead
+    && String(runPr?.head?.sha || '').trim() === expectedHead
     && Number(runPr?.head?.repo?.id || 0) === Number(run?.repository?.id || 0)
   ));
 }
@@ -367,11 +367,11 @@ export function positiveExactHeadOctopusAttestations(reviews, statuses, headSha,
 
 export function octopusAttestationMatchesWorkflowRun(attestation, run, repo, prNumber, headSha) {
   const repository = String(repo || '').trim();
-  const expectedHead = canonicalSha40(headSha);
+  const expectedHead = String(headSha || '').trim();
   const expectedPr = Number(prNumber || 0);
   if (!attestation || !run) return false;
   if (!isGitHubRepositorySlug(repository)) return false;
-  if (!expectedHead) return false;
+  if (!/^[0-9a-f]{40}$/u.test(expectedHead)) return false;
   if (!Number.isInteger(expectedPr) || expectedPr <= 0) return false;
   const attestedRunId = String(attestation?.runId || '').trim();
   if (!/^[1-9][0-9]{0,19}$/u.test(attestedRunId)) return false;
@@ -382,12 +382,12 @@ export function octopusAttestationMatchesWorkflowRun(attestation, run, repo, prN
   if (String(run?.status || '').trim() !== 'completed') return false;
   if (String(run?.conclusion || '').trim() !== 'success') return false;
   if (String(run?.repository?.full_name || '').trim() !== repository) return false;
-  if (canonicalSha40(run?.head_sha) !== expectedHead) return false;
+  if (String(run?.head_sha || '').trim() !== expectedHead) return false;
 
   const runPrs = Array.isArray(run?.pull_requests) ? run.pull_requests : [];
   return runPrs.some((runPr) => (
     Number(runPr?.number) === expectedPr
-    && canonicalSha40(runPr?.head?.sha) === expectedHead
+    && String(runPr?.head?.sha || '').trim() === expectedHead
     && Number(runPr?.head?.repo?.id || 0) === Number(run?.repository?.id || 0)
   ));
 }
