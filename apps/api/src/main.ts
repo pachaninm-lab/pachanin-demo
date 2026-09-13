@@ -7,6 +7,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { register, collectDefaultMetrics, Counter, Histogram } from 'prom-client';
 import { MaskedLoggerService } from './common/logger/masked-logger.service';
+import { ScalarQueryPipe } from './common/pipes/scalar-query.pipe';
 import { createTrustedProxyPolicy } from './common/security/trusted-proxy';
 import { configureRequestBodyLimits } from './common/security/request-body-limit';
 import { assertIndustrialProductionStartup, INDUSTRIAL_CORE_MIGRATION } from './common/config/industrial-mode';
@@ -86,6 +87,11 @@ async function bootstrap() {
   });
 
   app.useGlobalPipes(
+    // Runs first: a repeated query parameter arrives as an array, and every
+    // named query parameter in this API is declared as a scalar. ValidationPipe
+    // already refuses that for the seven bound to a DTO; this extends the same
+    // answer to the rest instead of leaving them unchecked.
+    new ScalarQueryPipe(),
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: false,

@@ -9978,6 +9978,41 @@
       "note": "Same underlying fact as ASVS V3.2.3, assessed here against this requirement's specific text: tsconfig.base.json sets \"strict\": false, inherited by both apps/api/tsconfig.json and apps/web/tsconfig.json with no override. Strict mode is what would catch an implicit any or an unsound type assumption at compile time - exactly the class of bug this requirement is about (a variable silently being the wrong type, or a loose == comparison masking a type-confusion bug). Without it, the compiler gives no backstop for either."
     },
     {
+      "requirementId": "V15.3.7",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/common/pipes/scalar-query.pipe.ts",
+        "apps/api/src/main.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "a repeated named query parameter is still refused rather than handed to a handler as an array under a scalar annotation",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/pipes/scalar-query.pipe.ts"
+          ],
+          "patterns": [
+            "if (!Array.isArray(value)) return value;",
+            "must be sent once; the request repeated it",
+            "metadata.type !== 'query' || !metadata.data"
+          ]
+        },
+        {
+          "condition": "the pipe is still registered globally, ahead of the validation pipe, so it covers every controller rather than the ones that remembered it",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts"
+          ],
+          "patterns": [
+            "new ScalarQueryPipe()",
+            "whitelist: true"
+          ]
+        }
+      ],
+      "note": "PASS on a working control, after measuring that the surface was split in two. NestJS distinguishes the sources - @Query, @Body and @Param are separate decorators - and nothing in this repository merges them: a search for an object spread combining two request sources returns nothing, searchParams.getAll() is used nowhere in the web tier, and the single raw request.query read is an audit interceptor recording parameter NAMES for a log, not values. What was not defended was duplication. A query string may repeat a name, and '?region=a&region=b' reaches a handler declared @Query('region') region: string as the array ['a','b'] - the annotation says string, the runtime hands over an array, because a decorator is not a check. Measured on this repository's own ValidationPipe configuration and its own installed class-validator: the 7 query parameters bound to a DTO class already refused the array ('region must be a string'), and an undeclared parameter was already stripped by whitelist: true. The other 120 named query parameters - 116 string and 4 string | undefined, none declaring an array - took the raw value and nothing looked. ScalarQueryPipe now gives the whole surface the answer the validated part already gave. Refusing rather than silently taking the first value is deliberate: picking one would hide a request nobody meant to send and would still differ from what the DTO-bound parameters do. NOT established by this PASS, and named rather than implied away: 66 @Body() parameters are not bound to a DTO at all, so whitelisting does not reach them. That is the V2.2.1 and V2.2.2 debt already recorded in this register, not this requirement's subject - duplicate keys in a JSON body are resolved deterministically by the parser, not by the application."
+    },
+    {
       "requirementId": "V15.4.1",
       "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",

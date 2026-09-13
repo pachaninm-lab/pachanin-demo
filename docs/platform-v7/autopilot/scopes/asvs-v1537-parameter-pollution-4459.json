@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/asvs-v1537-parameter-pollution-4459",
+  "status": "active",
+  "purpose": "V15.3.7 had no decision. Assessing it found the query surface split in two: 7 parameters bound to a DTO class were already defended by the global ValidationPipe, and 120 named scalar parameters took the raw value with nothing looking. A query string may repeat a name, so '?region=a&region=b' reaches a handler declared @Query('region') region: string as the array ['a','b'] - the annotation says string, the runtime hands over an array, because a decorator is not a check. Downstream the value is compared or interpolated as though it were the scalar it claims to be, and which of the two wins is decided by whichever line touches it first.",
+  "authorityBaseExactMain": "fd895e061f0e27661a6e67f436f03108e35e5dd9",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/asvs-v1537-parameter-pollution-4459.json",
+    "apps/api/src/common/pipes/scalar-query.pipe.ts",
+    "apps/api/src/common/pipes/scalar-query.pipe.spec.ts",
+    "apps/api/src/main.ts",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "The control makes the whole surface behave the way the validated part already behaved, rather than inventing a new rule. The 7 DTO-bound parameters refused the array before this branch; the other 120 now refuse it too.",
+    "Refusing, not silently taking the first value. Picking one would hide a request nobody meant to send, and would still differ from what the DTO-bound parameters do. Nothing loses a behaviour it had: every named query parameter in this API is scalar-typed - 116 string and 4 string | undefined - and none declares an array.",
+    "The pipe is registered globally and ahead of ValidationPipe, so it covers every controller rather than the ones that remembered it. It touches nothing that is not a named query parameter: a DTO-bound @Query is left to ValidationPipe, which owns that case and reports against the field that caused it.",
+    "The claim about the other half of the requirement is measured, not assumed. NestJS distinguishes the sources, and nothing here merges them: no object spread combines two request sources, searchParams.getAll() appears nowhere in the web tier, and the single raw request.query read is an audit interceptor recording parameter names for a log, not values.",
+    "The limit is named rather than implied away: 66 @Body() parameters are bound to no DTO, so whitelisting does not reach them. That is the V2.2.1 and V2.2.2 debt already recorded, not this requirement's subject - duplicate keys in a JSON body are resolved deterministically by the parser.",
+    "A mutation that cannot compile is recorded as such rather than as a passing test. Inverting the Array.isArray check removes the narrowing that makes value.length legal, so TypeScript refuses the file - a stronger guarantee than a test, and it showed up first as 'Tests: 0 total', which reads like a mutation nobody caught."
+  ],
+  "acceptance": [
+    "V15.3.7: PENDING_APPLICABILITY_REVIEW/NOT_ASSESSED -> APPLICABLE/PASS, exactly one requirement changed against main. 129 -> 130 PASS, 39 -> 38 NOT_ASSESSED.",
+    "Measured on this repository's own ValidationPipe configuration and installed class-validator before writing anything: ?id=a&id=b against a DTO-bound scalar was already refused with 'id must be a string', ?page=1&page=2 with 'page must be an integer number', and an undeclared parameter was already stripped by whitelist: true.",
+    "scalar-query.pipe.spec.ts passes 4 of 4. Three mutations fail it - inverting the named-parameter guard, removing the query-type guard, and returning the first value instead of refusing - and a fourth cannot be expressed at all because it fails to typecheck.",
+    "The PASS is revocable: removing the pipe from main.ts drops V15.3.7 to NOT_ASSESSED, and restoring it brings it back. The occurrence count was checked to zero before the verdict was read.",
+    "The full API suite is unchanged by the global pipe: 236 suites and 2879 tests passing on clean main, 237 and 2883 with the pipe - the difference is exactly this branch's own spec - and zero failures either way.",
+    "apps/api typecheck passes."
+  ]
+}
