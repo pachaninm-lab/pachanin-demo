@@ -13,6 +13,8 @@ export type GovIdentityBridgeConfig = {
   clientId: string | null;
   redirectUri: string | null;
   scope: string;
+  /** Hosts this application may hand a user to. ASVS 5.0 V3.7.2. */
+  allowedHosts: readonly string[];
 };
 
 export function readGovIdentityBridgeConfig(): GovIdentityBridgeConfig {
@@ -22,7 +24,42 @@ export function readGovIdentityBridgeConfig(): GovIdentityBridgeConfig {
     clientId: process.env.PLATFORM_V7_GOV_ID_CLIENT_ID || null,
     redirectUri: process.env.PLATFORM_V7_GOV_ID_REDIRECT_URI || null,
     scope: process.env.PLATFORM_V7_GOV_ID_SCOPE || 'openid profile email',
+    allowedHosts: parseAllowedHosts(process.env.PLATFORM_V7_GOV_ID_ALLOWED_HOSTS),
   };
+}
+
+/**
+ * ASVS 5.0 V3.7.2: a redirect to a hostname this application does not control is
+ * permitted only to an allowlisted destination.
+ *
+ * The authorization endpoint is read from the environment and was handed straight
+ * to NextResponse.redirect - whatever it said, whatever its scheme. An operator
+ * typo, a mis-set variable or an environment-injection then sends a user leaving
+ * a login screen to an arbitrary host, which is the redirect this requirement is
+ * about.
+ *
+ * The allowlist is configuration rather than a hard-coded provider, because this
+ * repository does not name the intended one and guessing would be worse than
+ * asking. It is enforced rather than advisory: with no allowlist there is no
+ * external destination, so the requirement holds by construction whatever the
+ * environment says. That is a refusal, not a crash - the route already has a
+ * fallback for an unusable bridge and this reuses it.
+ */
+export function parseAllowedHosts(raw: string | undefined): readonly string[] {
+  return String(raw ?? '')
+    .split(',')
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+/**
+ * True when the URL is somewhere this application is permitted to send a user:
+ * https, and a host named on the allowlist. Host comparison is exact - a suffix
+ * match would accept `esia.gosuslugi.ru.evil.example`.
+ */
+export function isAllowedGovIdentityDestination(url: URL, allowedHosts: readonly string[]): boolean {
+  if (url.protocol !== 'https:') return false;
+  return allowedHosts.includes(url.hostname.toLowerCase());
 }
 
 export function isGovIdentityConfigured(config = readGovIdentityBridgeConfig()) {
@@ -40,7 +77,13 @@ export function normalizeGovIdentityFlow(value: string | null): GovIdentityFlow 
 
 export function buildGovIdentityStartUrl(config: GovIdentityBridgeConfig, state: string, nonce: string) {
   if (!isGovIdentityConfigured(config)) return null;
-  const url = new URL(config.authorizationUrl as string);
+  let url: URL;
+  try {
+    url = new URL(config.authorizationUrl as string);
+  } catch {
+    return null;
+  }
+  if (!isAllowedGovIdentityDestination(url, config.allowedHosts)) return null;
   url.searchParams.set('response_type', 'code');
   url.searchParams.set('client_id', config.clientId as string);
   url.searchParams.set('redirect_uri', config.redirectUri as string);
