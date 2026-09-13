@@ -43,6 +43,7 @@ function makePrisma() {
       findUnique: jest.fn(),
     },
     $queryRaw: jest.fn(),
+    $executeRaw: jest.fn(),
     $transaction: jest.fn(),
   };
 }
@@ -106,7 +107,7 @@ describe('OutboxService — PostgreSQL authority', () => {
 
   it('confirms only a SENT row and treats a repeated confirmation as idempotent', async () => {
     const prisma = makePrisma();
-    prisma.outboxEntry.updateMany.mockResolvedValueOnce({ count: 1 });
+    prisma.$executeRaw.mockResolvedValueOnce(1);
     prisma.outboxEntry.findUnique.mockResolvedValueOnce(
       makeRow({ status: 'CONFIRMED', confirmedAt: new Date('2026-07-15T12:01:00.000Z') }),
     );
@@ -115,7 +116,7 @@ describe('OutboxService — PostgreSQL authority', () => {
     const confirmed = await outbox.confirm('outbox-1');
     expect(confirmed.status).toBe('CONFIRMED');
 
-    prisma.outboxEntry.updateMany.mockResolvedValueOnce({ count: 0 });
+    prisma.$executeRaw.mockResolvedValueOnce(0);
     prisma.outboxEntry.findUnique.mockResolvedValueOnce(
       makeRow({ status: 'CONFIRMED', confirmedAt: new Date('2026-07-15T12:01:00.000Z') }),
     );
@@ -124,7 +125,7 @@ describe('OutboxService — PostgreSQL authority', () => {
 
   it('rejects confirmation from a non-terminal-delivery state', async () => {
     const prisma = makePrisma();
-    prisma.outboxEntry.updateMany.mockResolvedValue({ count: 0 });
+    prisma.$executeRaw.mockResolvedValue(0);
     prisma.outboxEntry.findUnique.mockResolvedValue(makeRow({ status: 'PENDING' }));
     const outbox = new OutboxService(prisma as any);
 
@@ -156,6 +157,40 @@ describe('OutboxService — PostgreSQL authority', () => {
       manualReview: 0,
       oldestDueAt: '2026-07-15T11:59:00.000Z',
     });
+  });
+
+  it('preserves exact replay for a legacy redrive record without a fingerprint', async () => {
+    const prisma = makePrisma();
+    const legacyReplay = {
+      id: 'redrive-legacy-1',
+      outboxEntryId: 'outbox-1',
+      idempotencyKey: 'redrive-key-1',
+      requestFingerprint: null,
+      actorUserId: 'admin-1',
+      reason: 'provider recovered',
+    };
+    const tx = {
+      outboxRedriveEvent: { findUnique: jest.fn().mockResolvedValue(legacyReplay) },
+      outboxEntry: { findUnique: jest.fn().mockResolvedValue(makeRow()) },
+    };
+    prisma.$transaction.mockImplementation(async (operation: (client: typeof tx) => unknown) => (
+      operation(tx)
+    ));
+    const outbox = new OutboxService(prisma as any);
+
+    await expect(outbox.redrive({
+      entryId: 'outbox-1',
+      actorUserId: 'admin-1',
+      reason: 'provider recovered',
+      idempotencyKey: 'redrive-key-1',
+    })).resolves.toMatchObject({ redriveEventId: 'redrive-legacy-1', replayed: true });
+
+    await expect(outbox.redrive({
+      entryId: 'outbox-1',
+      actorUserId: 'admin-1',
+      reason: 'different command',
+      idempotencyKey: 'redrive-key-1',
+    })).rejects.toThrow('Redrive idempotency conflict');
   });
 
   it('lists entries asynchronously from PostgreSQL', async () => {

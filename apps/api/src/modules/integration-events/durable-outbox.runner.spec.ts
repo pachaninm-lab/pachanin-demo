@@ -1,6 +1,10 @@
+import { ServiceUnavailableException } from '@nestjs/common';
 import { KafkaProducerService } from '../../common/kafka/kafka-producer.service';
 import { DurableOutboxRunner } from './durable-outbox.runner';
-import { DurableOutboxWorker } from './durable-outbox.worker';
+import {
+  classifyOutboxDeliveryFailure,
+  DurableOutboxWorker,
+} from './durable-outbox.worker';
 
 function makeWorker() {
   return {
@@ -11,6 +15,7 @@ function makeWorker() {
       delivered: 0,
       retried: 0,
       deadLettered: 0,
+      manualReview: 0,
       leaseLost: 0,
     }),
     heartbeat: jest.fn().mockResolvedValue(true),
@@ -99,7 +104,7 @@ describe('DurableOutboxRunner', () => {
     await runner.onModuleDestroy();
   });
 
-  it('treats disabled Kafka as delivery failure instead of a successful SENT acknowledgement', async () => {
+  it('quarantines a boolean Kafka failure after a connected delivery attempt', async () => {
     process.env.OUTBOX_WORKER_ENABLED = 'true';
     process.env.OUTBOX_WORKER_INTERVAL_MS = '60000';
     const worker = makeWorker();
@@ -109,9 +114,11 @@ describe('DurableOutboxRunner', () => {
     runner.onModuleInit();
     const handler = worker.registerFallbackHandler.mock.calls[0][0];
 
-    await expect(handler(claimedEntry)).rejects.toThrow(
-      'Kafka transport is disabled or delivery failed',
-    );
+    await expect(handler(claimedEntry)).rejects.toMatchObject({
+      category: 'AMBIGUOUS',
+      code: 'TRANSPORT_OUTCOME_UNKNOWN',
+      message: 'Kafka send returned without durable acknowledgement; delivery outcome is unknown',
+    });
     expect(kafka.send).toHaveBeenCalledWith(
       expect.objectContaining({
         topic: 'grainflow.bank.events',
@@ -119,5 +126,220 @@ describe('DurableOutboxRunner', () => {
       }),
     );
     await runner.onModuleDestroy();
+  });
+
+  it('keeps a known transport loss before the delivery attempt retryable', async () => {
+    process.env.OUTBOX_WORKER_ENABLED = 'true';
+    process.env.OUTBOX_WORKER_INTERVAL_MS = '60000';
+    const worker = makeWorker();
+    const kafka = makeKafka(true);
+    kafka.isConnected.mockReturnValueOnce(true).mockReturnValue(false);
+    const runner = new DurableOutboxRunner(worker, kafka);
+
+    runner.onModuleInit();
+    const handler = worker.registerFallbackHandler.mock.calls[0][0];
+
+    await expect(handler(claimedEntry)).rejects.toMatchObject({
+      category: 'TRANSIENT',
+      code: 'KAFKA_TRANSPORT_UNAVAILABLE',
+      message: 'Kafka transport became unavailable before delivery attempt',
+    });
+    expect(kafka.send).not.toHaveBeenCalled();
+    await runner.onModuleDestroy();
+  });
+
+  it('classifies a thrown post-send outcome as ambiguous', async () => {
+    process.env.OUTBOX_WORKER_ENABLED = 'true';
+    const worker = makeWorker();
+    const kafka = makeKafka(true);
+    kafka.send.mockRejectedValueOnce(new Error('ack timeout'));
+    const runner = new DurableOutboxRunner(worker, kafka);
+
+    runner.onModuleInit();
+    const handler = worker.registerFallbackHandler.mock.calls[0][0];
+
+    await expect(handler(claimedEntry)).rejects.toMatchObject({
+      category: 'AMBIGUOUS',
+      code: 'TRANSPORT_OUTCOME_UNKNOWN',
+    });
+    await runner.onModuleDestroy();
+  });
+});
+
+describe('outbox provider failure classification', () => {
+  it.each([
+    [true, 'TRANSIENT'],
+    [false, 'PERMANENT'],
+  ] as const)('honours a provider retryable=%s contract', (retryable, category) => {
+    const failure = Object.assign(new Error('FGIS provider result'), {
+      code: 'TRANSPORT_REJECTED',
+      retryable,
+    });
+    expect(classifyOutboxDeliveryFailure(failure)).toMatchObject({
+      category,
+      code: 'TRANSPORT_REJECTED',
+    });
+  });
+
+  it('quarantines an untyped synthetic 503 transport failure', () => {
+    const failure = new ServiceUnavailableException('Telegram publish transport failed.');
+    expect(classifyOutboxDeliveryFailure(failure)).toMatchObject({
+      category: 'AMBIGUOUS',
+      code: 'TRANSPORT_OUTCOME_UNKNOWN',
+    });
+  });
+
+  it('bounds provider-controlled failure codes and messages', () => {
+    const failure = Object.assign(new Error('x'.repeat(5_000)), { code: 'x'.repeat(100) });
+    const classified = classifyOutboxDeliveryFailure(failure);
+    expect(classified.code).toBe('PROVIDER_DELIVERY_AMBIGUOUS');
+    expect(classified.message).toHaveLength(4_000);
+  });
+
+  it('treats an untyped phase failure as ambiguous instead of retryable', () => {
+    expect(classifyOutboxDeliveryFailure(new Error('database failed after provider acceptance')))
+      .toMatchObject({
+        category: 'AMBIGUOUS',
+        code: 'PROVIDER_DELIVERY_AMBIGUOUS',
+      });
+  });
+
+  it.each([
+    ['TRANSPORT_RECEIPT_PERSISTENCE_FAILED', true],
+    ['TRANSPORT_RECEIPT_INVALID', false],
+    ['OUTBOX_LEASE_INVALID', true],
+    ['RECONCILIATION_REQUIRED', false],
+    ['DATABASE_RESULT_INVALID', false],
+    ['EXCHANGE_AUTHORITY_MISMATCH', false],
+    ['EXCHANGE_AUTHORITY_MISSING', false],
+  ] as const)(
+    'quarantines phase-uncertain FGIS persistence code %s',
+    (code, retryable) => {
+      const failure = Object.assign(new Error('FGIS receipt authority failure'), {
+        code,
+        retryable,
+      });
+      expect(classifyOutboxDeliveryFailure(failure)).toMatchObject({
+        category: 'AMBIGUOUS',
+        code,
+      });
+    },
+  );
+});
+
+describe('DurableOutboxWorker delivery acknowledgement boundary', () => {
+  it('normalizes a configured dedicated marketing identity before claiming', async () => {
+    const executeRaw = jest.fn().mockResolvedValue(0);
+    const prisma = {
+      $transaction: jest.fn(async (
+        callback: (tx: { $executeRaw: typeof executeRaw }) => Promise<number>,
+      ) => callback({ $executeRaw: executeRaw })),
+    };
+    const worker = new DurableOutboxWorker(prisma as never);
+    const claim = jest.spyOn(worker, 'claimBatch').mockResolvedValue([]);
+    worker.registerHandler('MARKETING_SOCIAL_PUBLISH_V1', async () => undefined);
+
+    await worker.drainOnce('custom-worker-id', 1);
+
+    expect(claim).toHaveBeenCalledWith('marketing-social-custom-worker-id', 1);
+    expect(executeRaw).toHaveBeenCalledTimes(2);
+    expect(executeRaw.mock.invocationCallOrder[1]).toBeLessThan(
+      claim.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('uses the normalized claim identity when dead-lettering a missing handler', async () => {
+    const executeRaw = jest.fn().mockResolvedValue(0);
+    const prisma = {
+      $transaction: jest.fn(async (
+        callback: (tx: { $executeRaw: typeof executeRaw }) => Promise<number>,
+      ) => callback({ $executeRaw: executeRaw })),
+    };
+    const worker = new DurableOutboxWorker(prisma as never);
+    const claim = jest.spyOn(worker, 'claimBatch').mockResolvedValue([
+      { ...claimedEntry, type: 'UNREGISTERED_MARKETING_EVENT' },
+    ]);
+    const markFailed = jest.spyOn(worker, 'markFailed').mockResolvedValue('DEAD_LETTER');
+    worker.registerHandler('MARKETING_SOCIAL_PUBLISH_V1', async () => undefined);
+
+    await expect(worker.drainOnce('custom-worker-id', 1)).resolves.toMatchObject({
+      claimed: 1,
+      deadLettered: 1,
+      leaseLost: 0,
+    });
+    expect(claim).toHaveBeenCalledWith('marketing-social-custom-worker-id', 1);
+    expect(markFailed).toHaveBeenCalledWith(
+      'marketing-social-custom-worker-id',
+      expect.objectContaining({ id: claimedEntry.id }),
+      expect.objectContaining({
+        category: 'PERMANENT',
+        code: 'TRANSPORT_HANDLER_MISSING',
+      }),
+    );
+  });
+
+  it('finishes a bounded dedicated marketing quarantine before claiming more work', async () => {
+    const executeRaw = jest.fn()
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(1);
+    const prisma = {
+      $transaction: jest.fn(async (
+        callback: (tx: { $executeRaw: typeof executeRaw }) => Promise<number>,
+      ) => callback({ $executeRaw: executeRaw })),
+    };
+    const worker = new DurableOutboxWorker(prisma as never);
+    const claim = jest.spyOn(worker, 'claimBatch').mockResolvedValue([]);
+    worker.registerHandler('MARKETING_SOCIAL_PUBLISH_V1', async () => undefined);
+
+    await expect(worker.drainOnce('custom-worker-id', 1)).resolves.toMatchObject({
+      claimed: 0,
+      manualReview: 1,
+    });
+    expect(claim).not.toHaveBeenCalled();
+  });
+
+  it('reports a generic stale-attempt quarantine without redelivering it', async () => {
+    const executeRaw = jest.fn()
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(1);
+    const prisma = {
+      $transaction: jest.fn(async (
+        callback: (tx: { $executeRaw: typeof executeRaw }) => Promise<number>,
+      ) => callback({ $executeRaw: executeRaw })),
+    };
+    const worker = new DurableOutboxWorker(prisma as never);
+    const claim = jest.spyOn(worker, 'claimBatch').mockResolvedValue([]);
+    const handler = jest.fn(async () => undefined);
+    worker.registerFallbackHandler(handler);
+
+    await expect(worker.drainOnce('test-worker', 1)).resolves.toMatchObject({
+      claimed: 0,
+      delivered: 0,
+      manualReview: 1,
+    });
+    expect(claim).toHaveBeenCalledWith('test-worker', 1);
+    expect(handler).not.toHaveBeenCalled();
+    expect(executeRaw).toHaveBeenCalledTimes(2);
+  });
+
+  it('quarantines a persistence failure after the handler completes', async () => {
+    const prisma = {
+      $transaction: jest.fn()
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce([claimedEntry]),
+      $executeRaw: jest.fn()
+        .mockResolvedValueOnce(1)
+        .mockRejectedValueOnce(new Error('database unavailable'))
+        .mockResolvedValueOnce(1),
+    };
+    const worker = new DurableOutboxWorker(prisma as never);
+    worker.registerHandler(claimedEntry.type, async () => undefined);
+
+    await expect(worker.drainOnce('test-worker', 1)).resolves.toMatchObject({
+      claimed: 1,
+      delivered: 0,
+      retried: 0,
+      manualReview: 1,
+    });
   });
 });
