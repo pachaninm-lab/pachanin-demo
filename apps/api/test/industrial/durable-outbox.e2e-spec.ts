@@ -102,18 +102,35 @@ afterAll(async () => {
 describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
   it('database-fences a legacy claim during the rolling migration window', async () => {
     const [id] = await seedEntries('legacy-claim-fence', 1);
-    await prismaA.$executeRawUnsafe(`
-      CREATE POLICY outbox_claim_protocol_acceptance
-      ON public."outbox_entries"
-      FOR ALL TO app_deal
-      USING ("id" = current_setting('pc_crop.test_outbox_id', true))
-      WITH CHECK ("id" = current_setting('pc_crop.test_outbox_id', true))
-    `);
+    const [availableRole] = await prismaA.$queryRaw<Array<{ roleName: string }>>`
+      SELECT rolname AS "roleName"
+      FROM pg_catalog.pg_roles
+      WHERE rolname IN ('app_outbox', 'app_deal')
+      ORDER BY (rolname = 'app_outbox') DESC
+      LIMIT 1
+    `;
+    if (!availableRole) throw new Error('No restricted outbox runtime role exists');
+    const useDedicatedRole = availableRole.roleName === 'app_outbox';
+    await prismaA.$executeRawUnsafe(useDedicatedRole ? `
+        CREATE POLICY outbox_claim_protocol_acceptance
+        ON public."outbox_entries"
+        FOR ALL TO app_outbox
+        USING ("id" = current_setting('pc_crop.test_outbox_id', true))
+        WITH CHECK ("id" = current_setting('pc_crop.test_outbox_id', true))
+      ` : `
+        CREATE POLICY outbox_claim_protocol_acceptance
+        ON public."outbox_entries"
+        FOR ALL TO app_deal
+        USING ("id" = current_setting('pc_crop.test_outbox_id', true))
+        WITH CHECK ("id" = current_setting('pc_crop.test_outbox_id', true))
+      `);
 
     try {
       await expect(prismaA.$transaction(async (tx) => {
         await tx.$queryRaw`SELECT set_config('pc_crop.test_outbox_id', ${id}, true)::text`;
-        await tx.$executeRawUnsafe('SET LOCAL ROLE app_deal');
+        await tx.$executeRawUnsafe(useDedicatedRole
+          ? 'SET LOCAL ROLE app_outbox'
+          : 'SET LOCAL ROLE app_deal');
         await tx.$executeRaw`
           UPDATE public."outbox_entries"
           SET "status" = 'PROCESSING',
@@ -127,7 +144,9 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
 
       const claimed = await prismaA.$transaction(async (tx) => {
         await tx.$queryRaw`SELECT set_config('pc_crop.test_outbox_id', ${id}, true)::text`;
-        await tx.$executeRawUnsafe('SET LOCAL ROLE app_deal');
+        await tx.$executeRawUnsafe(useDedicatedRole
+          ? 'SET LOCAL ROLE app_outbox'
+          : 'SET LOCAL ROLE app_deal');
         await tx.$executeRawUnsafe("SET LOCAL pc_crop.outbox_claim_protocol = '2'");
         return tx.$executeRaw`
           UPDATE public."outbox_entries"
