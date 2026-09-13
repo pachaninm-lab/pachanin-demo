@@ -1,8 +1,12 @@
 import { Module } from '@nestjs/common';
 import { KafkaProducerService } from './common/kafka/kafka-producer.service';
 import { OutboxPrismaModule } from './common/prisma/outbox-prisma.module';
+import { PrismaService } from './common/prisma/prisma.service';
 import { DurableOutboxRunner } from './modules/integration-events/durable-outbox.runner';
-import { DurableOutboxWorker } from './modules/integration-events/durable-outbox.worker';
+import {
+  classifyFgisPersistenceFailure,
+  DurableOutboxWorker,
+} from './modules/integration-events/durable-outbox.worker';
 import {
   FgisGrainCanonicalizationPort,
   FgisGrainImmutablePayloadStorePort,
@@ -21,6 +25,32 @@ import {
 } from './modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.dispatch.fail-closed';
 import { FgisGrainExchangeReceiptRepository } from './modules/regulatory-integration/fgis-grain/fgis-grain-exchange-receipt.repository';
 import { FgisGrainOutboxDispatchHandler } from './modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler';
+
+class PhaseAwareFgisGrainExchangeReceiptRepository extends FgisGrainExchangeReceiptRepository {
+  constructor(prisma: PrismaService) {
+    super(prisma);
+  }
+
+  override async inspectBeforeDispatch(
+    ...args: Parameters<FgisGrainExchangeReceiptRepository['inspectBeforeDispatch']>
+  ): ReturnType<FgisGrainExchangeReceiptRepository['inspectBeforeDispatch']> {
+    try {
+      return await super.inspectBeforeDispatch(...args);
+    } catch (error) {
+      throw classifyFgisPersistenceFailure(error, 'PRE_DISPATCH');
+    }
+  }
+
+  override async recordAccepted(
+    ...args: Parameters<FgisGrainExchangeReceiptRepository['recordAccepted']>
+  ): ReturnType<FgisGrainExchangeReceiptRepository['recordAccepted']> {
+    try {
+      return await super.recordAccepted(...args);
+    } catch (error) {
+      throw classifyFgisPersistenceFailure(error, 'POST_ACCEPTANCE');
+    }
+  }
+}
 
 /**
  * Minimal process graph for the durable outbox worker.
@@ -63,7 +93,13 @@ import { FgisGrainOutboxDispatchHandler } from './modules/regulatory-integration
       provide: FgisGrainSoapTransportPort,
       useClass: FailClosedFgisGrainSoapTransportPort,
     },
-    FgisGrainExchangeReceiptRepository,
+    {
+      provide: FgisGrainExchangeReceiptRepository,
+      useFactory: (prisma: PrismaService) => (
+        new PhaseAwareFgisGrainExchangeReceiptRepository(prisma)
+      ),
+      inject: [PrismaService],
+    },
     FgisGrainOutboxDispatchHandler,
     DurableOutboxRunner,
   ],

@@ -57,6 +57,8 @@ describe('IR-OUTBOX production graph', () => {
     expect(apiModule).not.toContain('DurableOutboxWorker');
     expect(workerModule).toContain('DurableOutboxRunner');
     expect(workerModule).toContain('DurableOutboxWorker');
+    expect(workerModule).toContain("classifyFgisPersistenceFailure(error, 'PRE_DISPATCH')");
+    expect(workerModule).toContain("classifyFgisPersistenceFailure(error, 'POST_ACCEPTANCE')");
   });
 
   it('uses tokenized SKIP LOCKED claims and CAS acknowledgements', () => {

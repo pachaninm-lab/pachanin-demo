@@ -1,6 +1,7 @@
 import { KafkaProducerService } from '../../common/kafka/kafka-producer.service';
 import { DurableOutboxRunner } from './durable-outbox.runner';
 import {
+  classifyFgisPersistenceFailure,
   classifyOutboxDeliveryFailure,
   DurableOutboxWorker,
 } from './durable-outbox.worker';
@@ -175,12 +176,20 @@ describe('outbox provider failure classification', () => {
       });
   });
 
-  it('quarantines an FGIS receipt persistence failure despite retryable=true', () => {
+  it('distinguishes FGIS pre-dispatch and post-acceptance persistence failures', () => {
     const failure = Object.assign(new Error('receipt write failed after acceptance'), {
       code: 'TRANSPORT_RECEIPT_PERSISTENCE_FAILED',
       retryable: true,
     });
-    expect(classifyOutboxDeliveryFailure(failure)).toMatchObject({
+    expect(classifyOutboxDeliveryFailure(
+      classifyFgisPersistenceFailure(failure, 'PRE_DISPATCH'),
+    )).toMatchObject({
+      category: 'TRANSIENT',
+      code: 'FGIS_PRE_DISPATCH_INSPECTION_FAILED',
+    });
+    expect(classifyOutboxDeliveryFailure(
+      classifyFgisPersistenceFailure(failure, 'POST_ACCEPTANCE'),
+    )).toMatchObject({
       category: 'AMBIGUOUS',
       code: 'TRANSPORT_RECEIPT_PERSISTENCE_FAILED',
     });

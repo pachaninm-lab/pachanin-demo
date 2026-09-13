@@ -35,6 +35,20 @@ export class OutboxDeliveryError extends Error {
   }
 }
 
+export function classifyFgisPersistenceFailure(
+  error: unknown,
+  phase: 'PRE_DISPATCH' | 'POST_ACCEPTANCE',
+): unknown {
+  const record = typeof error === 'object' && error !== null
+    ? error as Record<string, unknown>
+    : {};
+  if (record.code !== 'TRANSPORT_RECEIPT_PERSISTENCE_FAILED') return error;
+  const message = boundedFailureMessage(error);
+  return phase === 'POST_ACCEPTANCE'
+    ? new OutboxDeliveryError('AMBIGUOUS', 'TRANSPORT_RECEIPT_PERSISTENCE_FAILED', message)
+    : new OutboxDeliveryError('TRANSIENT', 'FGIS_PRE_DISPATCH_INSPECTION_FAILED', message);
+}
+
 export interface OutboxDrainReport {
   workerId: string;
   claimed: number;
@@ -93,9 +107,6 @@ export function classifyOutboxDeliveryFailure(error: unknown): OutboxDeliveryFai
 
   if (record.deliveryAmbiguous === true || code === 'PROVIDER_DELIVERY_AMBIGUOUS') {
     return { category: 'AMBIGUOUS', code: 'PROVIDER_DELIVERY_AMBIGUOUS', message };
-  }
-  if (code === 'TRANSPORT_RECEIPT_PERSISTENCE_FAILED') {
-    return { category: 'AMBIGUOUS', code, message };
   }
   if (record.retryable === true) {
     return { category: 'TRANSIENT', code: code || 'PROVIDER_RETRYABLE_FAILURE', message };
