@@ -92,13 +92,18 @@ jobs:
           ' >/dev/null || { echo 'Invalid review gate result contract.' >&2; exit 31; }
           classification="$(printf '%s' "$result_json" | jq -r '.classification')"
           if [ "$classification" = SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW ]; then
+            authority=NONE
             echo 'mode=BOOTSTRAP' >> "$GITHUB_OUTPUT"
           elif [ "$classification" = INDEPENDENT_EXACT_HEAD_REVIEW ]; then
+            authority=INDEPENDENT
             echo 'mode=INDEPENDENT' >> "$GITHUB_OUTPUT"
           else
             echo 'Invalid review gate classification.' >&2
             exit 31
           fi
+          # Export only a binary authority class. Concrete provider identity stays
+          # inside this step's validated result contract and is not propagated.
+          echo "authority=$authority" >> "$GITHUB_OUTPUT"
 
       - name: Publish exact-head review status and visible label
         if: always()
@@ -109,6 +114,7 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           GATE_OUTCOME: ${{ steps.gate.outcome }}
           GATE_MODE: ${{ steps.gate.outputs.mode }}
+          GATE_AUTHORITY: ${{ steps.gate.outputs.authority }}
         shell: bash
         run: |
           set -euo pipefail
@@ -133,11 +139,11 @@ jobs:
             state=failure
             description='Exact-head review authority invalidated by current PR state'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
-          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ]; then
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ] && [ "$GATE_AUTHORITY" = NONE ]; then
             state=success
             description='Scoped provider-maintenance bootstrap passed; no independent provider PASS asserted'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
-          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = INDEPENDENT ]; then
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = INDEPENDENT ] && [ "$GATE_AUTHORITY" = INDEPENDENT ]; then
             state=success
             description='Exact-head independent review passed; no current unresolved findings'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
@@ -251,13 +257,18 @@ jobs:
           ' >/dev/null || { echo 'Invalid review gate result contract.' >&2; exit 31; }
           classification="$(printf '%s' "$result_json" | jq -r '.classification')"
           if [ "$classification" = SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW ]; then
+            authority=NONE
             echo 'mode=BOOTSTRAP' >> "$GITHUB_OUTPUT"
           elif [ "$classification" = INDEPENDENT_EXACT_HEAD_REVIEW ]; then
+            authority=INDEPENDENT
             echo 'mode=INDEPENDENT' >> "$GITHUB_OUTPUT"
           else
             echo 'Invalid review gate classification.' >&2
             exit 31
           fi
+          # Export only a binary authority class. Concrete provider identity stays
+          # inside this step's validated result contract and is not propagated.
+          echo "authority=$authority" >> "$GITHUB_OUTPUT"
 
       - name: Publish exact-head clean-review status and visible label
         if: always() && steps.live.outputs.active == 'true'
@@ -268,6 +279,7 @@ jobs:
           HEAD_SHA: ${{ steps.live.outputs.head_sha }}
           GATE_OUTCOME: ${{ steps.clean_gate.outcome }}
           GATE_MODE: ${{ steps.clean_gate.outputs.mode }}
+          GATE_AUTHORITY: ${{ steps.clean_gate.outputs.authority }}
         shell: bash
         run: |
           set -euo pipefail
@@ -292,11 +304,11 @@ jobs:
             state=failure
             description='Exact-head review authority invalidated by current PR state'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
-          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ]; then
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ] && [ "$GATE_AUTHORITY" = NONE ]; then
             state=success
             description='Scoped provider-maintenance bootstrap passed; no independent provider PASS asserted'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
-          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = INDEPENDENT ]; then
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = INDEPENDENT ] && [ "$GATE_AUTHORITY" = INDEPENDENT ]; then
             state=success
             description='Exact-head independent review passed; no current unresolved findings'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
@@ -414,13 +426,18 @@ jobs:
           ' >/dev/null || { echo 'Invalid review gate result contract.' >&2; exit 31; }
           classification="$(printf '%s' "$result_json" | jq -r '.classification')"
           if [ "$classification" = SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW ]; then
+            authority=NONE
             echo 'mode=BOOTSTRAP' >> "$GITHUB_OUTPUT"
           elif [ "$classification" = INDEPENDENT_EXACT_HEAD_REVIEW ]; then
+            authority=INDEPENDENT
             echo 'mode=INDEPENDENT' >> "$GITHUB_OUTPUT"
           else
             echo 'Invalid review gate classification.' >&2
             exit 31
           fi
+          # Export only a binary authority class. Concrete provider identity stays
+          # inside this step's validated result contract and is not propagated.
+          echo "authority=$authority" >> "$GITHUB_OUTPUT"
 
       - name: Publish scheduled review status and visible label
         if: always() && steps.live.outputs.active == 'true'
@@ -431,6 +448,7 @@ jobs:
           HEAD_SHA: ${{ steps.live.outputs.head_sha }}
           GATE_OUTCOME: ${{ steps.dispatched_gate.outcome }}
           GATE_MODE: ${{ steps.dispatched_gate.outputs.mode }}
+          GATE_AUTHORITY: ${{ steps.dispatched_gate.outputs.authority }}
         shell: bash
         run: |
           set -euo pipefail
@@ -455,11 +473,11 @@ jobs:
             state=failure
             description='Exact-head review authority invalidated by current PR state'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
-          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ]; then
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ] && [ "$GATE_AUTHORITY" = NONE ]; then
             state=success
             description='Scoped provider-maintenance bootstrap passed; no independent provider PASS asserted'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
-          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = INDEPENDENT ]; then
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = INDEPENDENT ] && [ "$GATE_AUTHORITY" = INDEPENDENT ]; then
             state=success
             description='Exact-head independent review passed; no current unresolved findings'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
