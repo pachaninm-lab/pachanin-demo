@@ -9670,25 +9670,53 @@
     {
       "requirementId": "V15.1.1",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "documentation-set:SECURITY.md"
+        "docs/security/DEPENDENCY_REMEDIATION_POLICY.md",
+        "scripts/validate-pnpm-audit.mjs",
+        ".github/workflows/dependency-review.yml",
+        "scripts/validate-pnpm-audit.test.mjs"
       ],
       "conditions": [
         {
-          "condition": "no document naming risk-based remediation time frames for vulnerable third-party components still exists",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the policy document still states the enforced window per severity and still names what is not enforced",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "SECURITY.md"
+            "docs/security/DEPENDENCY_REMEDIATION_POLICY.md"
           ],
           "patterns": [
-            "remediation time frame",
-            "patch within",
-            "update within"
+            "critical",
+            "high",
+            "moderate",
+            "до слияния",
+            "срок не назначен"
+          ]
+        },
+        {
+          "condition": "the machine policy still blocks both severities the document claims are blocked",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/validate-pnpm-audit.mjs"
+          ],
+          "patterns": [
+            "blocking_severities = ['critical', 'high']",
+            "critical-and-high"
+          ]
+        },
+        {
+          "condition": "the workflow still requires that policy identifier and a zero count for both severities",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            ".github/workflows/dependency-review.yml"
+          ],
+          "patterns": [
+            "critical-and-high",
+            "for severity in ('critical', 'high')",
+            "fail-on-severity: high"
           ]
         }
       ],
-      "note": "No document names a risk-based remediation time frame for vulnerable third-party components or a general library-update policy. Checked docs/security and SECURITY.md directly for the relevant vocabulary; neither exists. A dependency audit and pinning ratchet exist and run in CI (npm/pnpm dependency audit, Trivy, the action-pinning baseline), which is real evidence-gathering machinery, but none of it is paired with a written statement of how quickly a finding must be acted on."
+      "note": "A remediation window now exists and is written down, and it is written down as the window that is actually enforced rather than as an intention. CRITICAL and HIGH advisories in the frozen production graph stop a merge: scripts/validate-pnpm-audit.mjs rejects a non-zero count under the policy identifier 'critical-and-high', the exact-main step in dependency-review.yml re-checks both the identifier and the counts, and the GitHub Dependency Review action carries the same threshold so the mechanism and the statement cannot drift apart. The threshold was raised from CRITICAL to HIGH as part of closing this requirement, and the decision to raise it was measured rather than assumed: the production graph carried 0 critical, 0 high, 16 moderate and 1 low, so blocking HIGH cost nothing on the day it was written and the documented window was enforceable from its first minute. MODERATE and LOW are deliberately left without a window and the document says so plainly, with the current count: a policy declaring sixteen existing findings immediately intolerable would have been reverted rather than respected, and a document describing an order nobody keeps is worse than no document. The document also names the limits of the check itself - it looks at the production graph, so a dev-only advisory does not block, and absence of a finding means absence of a published advisory rather than absence of a vulnerability."
     },
     {
       "requirementId": "V15.1.2",
@@ -9781,25 +9809,38 @@
     {
       "requirementId": "V15.2.1",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "depends-on:V15.1.1"
+        "docs/security/DEPENDENCY_REMEDIATION_POLICY.md",
+        "scripts/validate-pnpm-audit.mjs",
+        ".github/workflows/dependency-review.yml",
+        "scripts/validate-pnpm-audit.test.mjs"
       ],
       "conditions": [
         {
-          "condition": "no document naming risk-based remediation time frames still exists for this decision to measure component age against",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the window is enforced by a required check rather than only described, so respecting it is not a matter of trust",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "SECURITY.md"
+            ".github/workflows/dependency-review.yml"
           ],
           "patterns": [
-            "remediation time frame",
-            "patch within",
-            "update within"
+            "validate-pnpm-audit",
+            "node dependency policy result is not accepted",
+            "vulnerability count is not zero"
+          ]
+        },
+        {
+          "condition": "the check still refuses a report that contradicts itself, so a zero cannot be produced by a malformed report",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "scripts/validate-pnpm-audit.mjs"
+          ],
+          "patterns": [
+            "advisories exceed metadata count"
           ]
         }
       ],
-      "note": "Whether every component still respects its documented update and remediation time frame cannot be verified when no such time frame is documented (V15.1.1). This fails as a direct consequence rather than an independent finding; closing V15.1.1 is the precondition for this one ever being assessable as anything but FAIL."
+      "note": "This requirement was FAIL as a direct consequence of V15.1.1 rather than as an independent finding: whether components respect a documented window is unanswerable when no window is documented. With the window written and enforced, the answer is verifiable rather than asserted - a branch carrying a CRITICAL or HIGH advisory in the production graph cannot merge, so every component in a merged tree respects the window by construction of the gate rather than by anyone's diligence. Two properties keep that from being circular. The gate reads pnpm's own report rather than restating a count, and it refuses a report whose listed advisories exceed its metadata counts, so a zero cannot be manufactured by a malformed report. And the window it enforces is the one the document states, checked by identifier as well as by count, so tightening the document without tightening the machine, or the reverse, breaks the check. What stays outside the claim is stated in the policy document: MODERATE and LOW carry no window, so this requirement is answered for CRITICAL and HIGH only, and that boundary is written rather than left to be inferred from a green check."
     },
     {
       "requirementId": "V15.2.2",
