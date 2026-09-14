@@ -17,6 +17,7 @@ import {
   RestrictedPublicQwenService,
   type RestrictedPublicQwenResponse,
 } from './restricted-public-qwen.service';
+import { isPublicPlatformSource } from '../../common/security/public-source-path';
 
 // Re-exported so callers and tests keep one import site for the removal rule.
 export { stripInternalModelTrace };
@@ -25,7 +26,6 @@ const SIGNATURE_VERSION = 'tai-public-qwen.v1';
 const MAX_CLOCK_SKEW_SECONDS = 90;
 const INTERNAL_PATH = '/internal/tai/public-generate';
 export const INTERNAL_STREAM_PATH = '/internal/tai/public-generate-stream';
-const PRIVATE_PUBLIC_SOURCE = /^\/platform-v7\/(?:deals|staff|admin|operator|buyer|seller|bank|logistics|driver|elevator|laboratory|surveyor|compliance|arbitrator|executive)(?:\/|$)/u;
 
 type HeaderMap = Record<string, string | string[] | undefined>;
 
@@ -222,13 +222,7 @@ export function verifyPublicSourceBoundary(body: unknown): void {
   const sources = Array.isArray(grounding?.sources) ? grounding.sources : [];
   for (const source of sources) {
     const sourceRow = asRecord(source);
-    const href = typeof sourceRow?.href === 'string' ? sourceRow.href.trim() : '';
-    if (
-      !/^\/platform-v7(?:\/|$)/u.test(href)
-      || href.includes('..')
-      || href.includes('://')
-      || PRIVATE_PUBLIC_SOURCE.test(href)
-    ) {
+    if (!isPublicPlatformSource(sourceRow?.href)) {
       throw new BadRequestException('A source is outside the approved public platform contour.');
     }
   }

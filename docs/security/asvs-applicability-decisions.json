@@ -932,6 +932,56 @@
       "note": "The application deserializes untrusted input with JSON.parse and nothing else - no YAML loader, no node-serialize or unserialize-style library is a dependency. JSON.parse builds plain data objects and cannot itself instantiate arbitrary classes or execute code, which is the mechanism the deserialization attacks this requirement targets rely on; there is no unsafe deserialization surface here."
     },
     {
+      "requirementId": "V1.5.3",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/common/security/public-source-path.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+        "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts",
+        "scripts/security/verify-parser-consistency.mjs"
+      ],
+      "conditions": [
+        {
+          "condition": "the public source boundary is still decided by the WHATWG parser, on the resolved path, and returns the resolved form",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/public-source-path.ts"
+          ],
+          "patterns": [
+            "resolved = new URL(candidate, base);",
+            "if (resolved.origin !== base.origin) return null;",
+            "const path = resolved.pathname;",
+            "return `${path}${resolved.search}${resolved.hash}`;"
+          ]
+        },
+        {
+          "condition": "both grounding-source call sites still go through it rather than testing the string",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+            "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts"
+          ],
+          "patterns": [
+            "ublicPlatformSource"
+          ]
+        },
+        {
+          "condition": "the guard still forbids a second URL parser, hand-written or legacy",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-parser-consistency.mjs"
+          ],
+          "patterns": [
+            "['..', '://', '//']",
+            "LEGACY_URL_PARSERS = new Set(['parse', 'resolve', 'resolveObject', 'format'])",
+            "second parsers for a URL"
+          ]
+        }
+      ],
+      "note": "Assessed by finding a real divergence, not by inventory alone. A URL has one parser on this platform - the WHATWG one - and it is the parser the browser, undici and Node all use when a value is finally resolved. The public AI-grounding source boundary had a second, hand-written one: it tested an href with an anchored prefix regex, includes(..), includes(://) and a private-area regex, in two duplicated copies (restricted-public-qwen.controller.ts and .service.ts), while the value is rendered as <a href> in PublicPlatformAssistant.tsx. The WHATWG parser removes tab, line feed and carriage return before parsing, so a dot, a tab and a dot contain no literal .. for a string test and are exactly .. for the parser. Measured, with the real PRIVATE_PUBLIC_SOURCE pattern: /platform-v7/.<TAB>./staff passed every string check and resolves to /staff; the line-feed and carriage-return variants do the same; /platform-v7/.<TAB>./admin/users reaches /admin/users. Five variants in total. Reachability was checked rather than assumed - the href is rendered as an anchor on the public assistant surface, so the browser is the second parser. Honest bound on the impact: those destinations are themselves authenticated, so an anonymous visitor following such a link is refused; what fails is the contour boundary this check exists to enforce, which let a model-supplied citation present a link into the private contour as an approved public source. Closed by removing the second parser rather than by improving the string test: publicPlatformSourcePath resolves the href against an unreachable .invalid base with new URL, refuses anything that changes origin or carries credentials, applies the contour and private-area rules to resolved.pathname, and returns the resolved form so the characters the parser reinterprets do not go back into circulation. scripts/security/verify-parser-consistency.mjs keeps it true across 2155 files: zero hand-written URL tests and zero uses of the legacy node:url parser, whose splitting differs from new URL. Revocable: judging the raw string instead of the resolved path fails four tests, returning the raw href fails two, dropping the origin check fails one, and reintroducing the original includes() check into the service makes the guard exit 1 naming both idioms."
+    },
+    {
       "requirementId": "V2.1.1",
       "applicability": "APPLICABLE",
       "status": "FAIL",

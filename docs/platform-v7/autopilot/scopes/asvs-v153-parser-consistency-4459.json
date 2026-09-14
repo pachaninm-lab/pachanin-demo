@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/asvs-v153-parser-consistency-4459",
+  "status": "active",
+  "purpose": "ASVS V1.5.3 had no decision. It asks that different parsers used for the same data type parse consistently, naming URI parsing divergence as the way it is exploited. A URL has one parser on this platform - the WHATWG one - and it is what the browser, undici and Node use when a value is finally resolved. The public AI-grounding source boundary had a second, hand-written one, and the two did not agree.",
+  "authorityBaseExactMain": "b5a370f71be21eea55957bf4e936a80d19d0c602",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/api/src/common/security/public-source-path.spec.ts",
+    "apps/api/src/common/security/public-source-path.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "docs/platform-v7/autopilot/scopes/asvs-v153-parser-consistency-4459.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "scripts/security/verify-parser-consistency.mjs",
+    "scripts/security/verify-parser-consistency.test.mjs"
+  ],
+  "requiredInvariants": [
+    "The divergence is measured and reproducible, not argued. With the real PRIVATE_PUBLIC_SOURCE pattern, five hrefs passed every string check and resolve outside the public contour: a dot, a tab and a dot carry no literal .. for includes('..') and are exactly .. for the WHATWG parser, which strips tab, line feed and carriage return before parsing. /platform-v7/.<TAB>./staff resolves to /staff and /platform-v7/.<TAB>./admin/users to /admin/users.",
+    "I got it wrong first and the probe corrected me. My initial run showed the bypasses rejected, because I had approximated PRIVATE_PUBLIC_SOURCE with an unanchored pattern that caught them by accident. The real one is anchored at ^/platform-v7/, so a path beginning /platform-v7/. is not a private segment and passes. The result only holds with the pattern the code actually uses.",
+    "Reachability was checked, not assumed: the href is rendered as <a href={href}> in PublicPlatformAssistant.tsx, so the browser's URL parser is the second parser in the pair.",
+    "The impact is bounded honestly. The destinations reached this way are themselves authenticated, so an anonymous visitor following such a link is refused. What fails is the contour boundary this check exists to enforce - a model-supplied citation could present a link into the private contour as an approved public source.",
+    "Closed by removing the second parser, not by improving the string test. publicPlatformSourcePath resolves with new URL against an unreachable .invalid base - the same device apps/web/lib/safe-redirect.ts already uses - refuses a change of origin or any credentials, and applies the contour rules to resolved.pathname.",
+    "The resolved form is what is returned and stored. Keeping the raw string would put the characters the parser reinterprets back into circulation even after the check passed.",
+    "The rule was duplicated in two files with two copies of the same constant; there is now one definition. Both call sites were rewired and 188 ai-insights tests pass unchanged.",
+    "The guard was shown to catch the original defect, not just an invented one: reintroducing the includes() check into the real service file makes it exit 1 naming both idioms.",
+    "No production, REG.RU, DNS or database mutation. No registration business logic, 1C, marketing or presentation change."
+  ],
+  "acceptance": [
+    "node scripts/security/verify-parser-consistency.mjs exits 0 over 2155 files: zero hand-written URL tests, zero legacy node:url parsers.",
+    "node --test scripts/security/verify-parser-consistency.test.mjs: 9 passed, 0 failed.",
+    "jest src/common/security/public-source-path.spec.ts: 8 passed, 0 failed.",
+    "jest src/modules/ai-insights: 14 suites, 188 tests, all passing - unchanged by the rewiring.",
+    "apps/api tsc --noEmit exits 0.",
+    "ASVS V1.5.3 moves NOT_ASSESSED to PASS: PASS 129 to 130, NOT_ASSESSED 39 to 38, FAIL and NOT_APPLICABLE unchanged, rejected decisions back to the single pre-existing V8.2.4.",
+    "Revocable: judging the raw string instead of the resolved path rejects V1.5.3 and fails four unit tests.",
+    "Six negative mutations each fail a named test or make the guard exit 1."
+  ]
+}

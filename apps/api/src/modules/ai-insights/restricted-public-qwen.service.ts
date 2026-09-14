@@ -34,6 +34,7 @@ import {
   StreamingAnswerGate,
   type ProviderFinishReason,
 } from './restricted-public-qwen.stream-gate';
+import { publicPlatformSourcePath } from '../../common/security/public-source-path';
 
 const MAX_QUESTION_CHARS = 1_200;
 const MAX_GROUNDING_CHARS = 20_000;
@@ -97,7 +98,6 @@ export type RestrictedPublicQwenResponse = Readonly<{
 }>;
 
 const PRIVATE_KEY_PATTERN = /^(?:user|subject|tenant|org|organization|membership|role|staff|deal|document|payment|bank|laboratory|logistics|dispute|integration)(?:Id|Ids|Key|Keys|Secret|Token|Data|State)?$/i;
-const PRIVATE_PUBLIC_SOURCE = /^\/platform-v7\/(?:deals|staff|admin|operator|buyer|seller|bank|logistics|driver|elevator|laboratory|surveyor|compliance|arbitrator|executive)(?:\/|$)/u;
 
 @Injectable()
 export class RestrictedPublicQwenService {
@@ -555,8 +555,11 @@ function normalizeHistory(value: unknown): readonly PublicHistoryTurn[] {
 function normalizeSource(value: unknown): PublicSource {
   const row = asRecord(value);
   if (!row) throw new BadRequestException('Public source must be an object.');
-  const href = requiredText(row.href, 2_000, 'source.href');
-  if (!/^\/platform-v7(?:\/|$)/u.test(href) || href.includes('..') || href.includes('://') || PRIVATE_PUBLIC_SOURCE.test(href)) {
+  const raw = requiredText(row.href, 2_000, 'source.href');
+  // The resolved path is what is kept, not the string that was sent: the
+  // characters the URL parser reinterprets must not go back into circulation.
+  const href = publicPlatformSourcePath(raw);
+  if (href === null) {
     throw new BadRequestException('Public source path is outside the approved public platform contour.');
   }
   return Object.freeze({ label: requiredText(row.label, 500, 'source.label'), href });
