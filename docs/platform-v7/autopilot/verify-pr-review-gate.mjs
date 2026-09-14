@@ -1056,8 +1056,22 @@ function main() {
     );
   }
 
-  let checkedCi = bootstrap.eligible ? bootstrap.ciChecks : 0;
-  if (!bootstrap.eligible && requireGreenCi) {
+  const isBootstrapDecision = authorityDecision.classification === PROVIDER_MAINTENANCE_BOOTSTRAP_CLASSIFICATION;
+  if (isBootstrapDecision !== (bootstrap.eligible === true)) {
+    fail(
+      'REVIEW_GATE_BOOTSTRAP_DECISION_MISMATCH',
+      'Review authority classification and validated bootstrap eligibility disagree.',
+    );
+  }
+
+  let checkedCi = isBootstrapDecision ? bootstrap.ciChecks : 0;
+  if (isBootstrapDecision && (!Number.isInteger(checkedCi) || checkedCi < 1)) {
+    fail(
+      'REVIEW_GATE_BOOTSTRAP_CI_EVIDENCE_INVALID',
+      'Bootstrap review classification requires validated exact-head non-provider CI evidence.',
+    );
+  }
+  if (!isBootstrapDecision && requireGreenCi) {
     const snapshot = fetchCheckSnapshot(repo, prNumber);
     if (!ciSnapshotMatchesHead(snapshot.headSha, headSha)) {
       fail(
