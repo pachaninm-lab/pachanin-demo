@@ -359,7 +359,9 @@ export function positiveExactHeadLocalQwenAttestations(reviews, statuses, headSh
 
 export function localQwenAttestationMatchesWorkflowRun(attestation, run, repo, prNumber, headSha) {
   const repository = String(repo || '').trim();
-  const expectedHead = strictWorkflowRunSha40(headSha);
+  const rawHead = String(headSha || '').trim();
+  if (!/^[0-9a-f]{40}$/u.test(rawHead)) return false;
+  const expectedHead = strictWorkflowRunSha40(rawHead);
   const expectedPr = Number(prNumber || 0);
   if (!attestation || !run) return false;
   if (!isGitHubRepositorySlug(repository)) return false;
@@ -409,7 +411,9 @@ export function positiveExactHeadOctopusAttestations(reviews, statuses, headSha,
 
 export function octopusAttestationMatchesWorkflowRun(attestation, run, repo, prNumber, headSha) {
   const repository = String(repo || '').trim();
-  const expectedHead = strictWorkflowRunSha40(headSha);
+  const rawHead = String(headSha || '').trim();
+  if (!/^[0-9a-f]{40}$/u.test(rawHead)) return false;
+  const expectedHead = strictWorkflowRunSha40(rawHead);
   const expectedPr = Number(prNumber || 0);
   if (!attestation || !run) return false;
   if (!isGitHubRepositorySlug(repository)) return false;
