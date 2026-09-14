@@ -218,12 +218,22 @@ describe('anonymous public Auction market projection', () => {
     expect(teaser).not.toMatch(/href=.*publicRef/);
   });
 
-  it('gates full market actions behind localized auth and keeps a mobile-safe home surface', () => {
+  it('gates per-lot details and bidding plus section-level market actions behind localized auth without leaking lot identity', () => {
     const teaser = read(webTeaserPath);
     const css = read(webCssPath);
     const home = read(webHomePath);
     expect(teaser).toContain('/platform-v7/register?lang=');
     expect(teaser).toContain('/platform-v7/login?lang=');
+    expect(teaser).toContain("details: 'Подробнее после входа'");
+    expect(teaser).toContain("bid: 'Сделать ставку'");
+    expect(teaser).toContain("details: 'View details after sign-in'");
+    expect(teaser).toContain("bid: 'Place a bid'");
+    expect(teaser).toContain("details: '登录后查看详情'");
+    expect(teaser).toContain("bid: '参与竞价'");
+    expect(teaser).toContain("data-testid='public-market-lot-actions'");
+    expect(teaser).toContain('href={loginHref}>{copy.details}</a>');
+    expect(teaser).toContain('href={registerHref}>{copy.bid}');
+    expect(teaser).not.toMatch(/href=.*publicRef/);
     expect(home).toContain("import { PublicMarketTeaser } from './PublicMarketTeaser';");
     expect(home).toContain("const MARKET_NAV_LABEL: Record<Locale, string> = {");
     expect(home).toContain('const marketNavLabel = MARKET_NAV_LABEL[normalizedLocale];');
