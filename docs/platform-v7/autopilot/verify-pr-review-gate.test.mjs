@@ -506,7 +506,7 @@ test('Local Qwen workflow uses canonical Qwen3 model-host, remains bounded and f
   assert.match(workflow, /MAX_DIFF_BYTES=400000/u);
   assert.match(workflow, /MAX_CHUNK_DIFF_BYTES=8000/u);
   assert.match(workflow, /MAX_CHUNKS=96/u);
-  assert.match(workflow, /local-qwen-review-manifest\.v1/u);
+  assert.match(workflow, /local-qwen-review-manifest\.v2/u);
   assert.match(workflow, /full_diff_sha256/u);
   assert.match(workflow, /source_sha256/u);
   assert.match(workflow, /prompt_bundle_sha256/u);
@@ -688,10 +688,13 @@ for(const scenario of ['failed-repair','unchanged-review','diagnostic-write-fail
     const start=workflow.indexOf('          inference_status=0\n');
     const end=workflow.indexOf('          scp "${scp_opts[@]}" "$MODEL_USER@$MODEL_HOST:$remote_dir/review-responses.jsonl"',start);
     assert.ok(start>=0 && end>start,'expected actual failure transport');
-    const cleanup=workflow.match(/          (cleanup\(\)\{[^\n]+)\n/); assert.ok(cleanup);
+    const cleanupStart=workflow.indexOf('          cleanup(){\n');
+    const cleanupEnd=workflow.indexOf('          }\n',cleanupStart);
+    assert.ok(cleanupStart>=0 && cleanupEnd>cleanupStart,'expected actual cleanup function');
+    const cleanup=qwenLiteralSource(workflow.slice(cleanupStart,cleanupEnd+'          }\n'.length)).trimEnd();
     const result=spawnSync('python3',['-c',rejectedEvidenceHarness,
       block('cat > "$RUNNER_TEMP/remote-review.py"'),block('if python3 - "$RUNNER_TEMP/review-rejected.raw.json"'),
-      qwenLiteralSource(workflow.slice(start,end)),cleanup[1],scenario],{encoding:'utf8'});
+      qwenLiteralSource(workflow.slice(start,end)),cleanup,scenario],{encoding:'utf8'});
     assert.equal(result.status,0,result.stderr); assert.equal(result.stdout,'');
     assert.match(workflow,/if: always\(\) && steps\.inference\.outcome == 'failure'/);
     assert.match(workflow,/path: \$\{\{ runner\.temp \}\}\/review-rejected\.json/);
