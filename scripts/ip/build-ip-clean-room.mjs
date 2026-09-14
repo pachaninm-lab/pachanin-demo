@@ -3,6 +3,8 @@ import { createHash } from 'node:crypto';
 import { lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
 
+import { tallyBy } from './tally.mjs';
+
 const outDir = process.argv[2] ?? 'artifacts/ip-clean-room';
 mkdirSync(outDir, { recursive: true });
 
@@ -306,7 +308,6 @@ const refs = git(['for-each-ref', '--format=%(refname)\t%(objectname)', 'refs/he
     const [ref, object] = line.split('\t');
     return { ref, object };
   });
-const categoryCounts = {};
 function category(path, mode) {
   if (mode === '120000') return 'symlink';
   if (mode === '160000') return 'submodule';
@@ -323,19 +324,9 @@ function category(path, mode) {
   if (/\.(?:md|txt|rst)$/i.test(path)) return 'documentation';
   return 'configuration_or_other';
 }
-for (const entry of indexEntries) {
-  const value = category(entry.path, entry.mode);
-  categoryCounts[value] = (categoryCounts[value] ?? 0) + 1;
-}
-
-const originClassCounts = records.reduce((counts, item) => {
-  counts[item.origin_class] = (counts[item.origin_class] ?? 0) + 1;
-  return counts;
-}, {});
-const statusCounts = records.reduce((counts, item) => {
-  counts[item.status] = (counts[item.status] ?? 0) + 1;
-  return counts;
-}, {});
+const categoryCounts = tallyBy(indexEntries, (entry) => category(entry.path, entry.mode), 'REPOSITORY_INVENTORY.categories');
+const originClassCounts = tallyBy(records, (item) => item.origin_class, 'PROVENANCE_SUMMARY.originClassCounts');
+const statusCounts = tallyBy(records, (item) => item.status, 'PROVENANCE_SUMMARY.statusCounts');
 const summary = {
   schemaVersion: 1,
   generatedAt: new Date().toISOString(),
