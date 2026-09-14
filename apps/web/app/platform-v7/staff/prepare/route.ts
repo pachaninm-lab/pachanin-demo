@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE, CSRF_COOKIE, csrfCookieSecurity } from '@/lib/auth-cookies';
 import { generateCsrfToken } from '@/lib/server-request-security';
+import { boundedCookieValue } from '@/lib/server/bounded-cookie';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,7 +15,7 @@ function noStore(response: NextResponse): NextResponse {
 }
 
 function setCsrfCookie(response: NextResponse, token: string): NextResponse {
-  response.cookies.set(CSRF_COOKIE, token, {
+  response.cookies.set(CSRF_COOKIE, boundedCookieValue(CSRF_COOKIE, token), {
     ...csrfCookieSecurity(),
     maxAge: 8 * 60 * 60,
     priority: 'high',

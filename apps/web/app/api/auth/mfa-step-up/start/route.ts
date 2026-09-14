@@ -8,6 +8,7 @@ import {
   mfaStepUpCookieOptions,
 } from '../../../../../lib/server/mfa-step-up-cookie';
 import { assertCsrf } from '../../../../../lib/server-request-security';
+import { boundedCookieValue } from '@/lib/server/bounded-cookie';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
       expiresAt: typeof payload.expiresAt === 'string' ? payload.expiresAt : null,
       correlationId,
     });
-    response.cookies.set(MFA_STEP_UP_COOKIE, challengeToken, mfaStepUpCookieOptions());
+    response.cookies.set(MFA_STEP_UP_COOKIE, boundedCookieValue(MFA_STEP_UP_COOKIE, challengeToken), mfaStepUpCookieOptions());
     return response;
   } catch (error) {
     console.error('auth_mfa_step_up_start_transport_failure', JSON.stringify({

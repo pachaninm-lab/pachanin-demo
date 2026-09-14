@@ -10,6 +10,7 @@ import {
 } from '../auth-cookies';
 import { generateCsrfToken } from '../server-request-security';
 import { signCabinetSession } from '../platform-v7/verified-session';
+import { boundedCookieValue } from './bounded-cookie';
 
 export const CABINET_SESSION_COOKIE = 'pc_v7_cabinet';
 
@@ -133,15 +134,15 @@ export async function applyAuthenticatedSession(
   });
   if (!cabinetToken) return null;
 
-  response.cookies.set(ACCESS_COOKIE, payload.accessToken, sameSiteForSession(cookieSecurity(), controlPlane));
-  response.cookies.set(REFRESH_COOKIE, payload.refreshToken, sameSiteForSession(cookieSecurity(), controlPlane));
+  response.cookies.set(ACCESS_COOKIE, boundedCookieValue(ACCESS_COOKIE, payload.accessToken), sameSiteForSession(cookieSecurity(), controlPlane));
+  response.cookies.set(REFRESH_COOKIE, boundedCookieValue(REFRESH_COOKIE, payload.refreshToken), sameSiteForSession(cookieSecurity(), controlPlane));
   response.cookies.set(
     SESSION_COOKIE,
-    encodeURIComponent(JSON.stringify({ role, exp, email: payload.user.email })),
+    boundedCookieValue(SESSION_COOKIE, encodeURIComponent(JSON.stringify({ role, exp, email: payload.user.email }))),
     sameSiteForSession(sessionMarkerCookie(), controlPlane),
   );
-  response.cookies.set(CSRF_COOKIE, generateCsrfToken(), sameSiteForSession(csrfCookieSecurity(), controlPlane));
-  response.cookies.set(CABINET_SESSION_COOKIE, cabinetToken, {
+  response.cookies.set(CSRF_COOKIE, boundedCookieValue(CSRF_COOKIE, generateCsrfToken()), sameSiteForSession(csrfCookieSecurity(), controlPlane));
+  response.cookies.set(CABINET_SESSION_COOKIE, boundedCookieValue(CABINET_SESSION_COOKIE, cabinetToken), {
     path: '/',
     maxAge: expiresIn,
     httpOnly: true,
@@ -169,14 +170,14 @@ export function applyGektaAuthenticatedSession(
 
   const expiresIn = 15 * 60;
   const exp = Math.floor(Date.now() / 1_000) + expiresIn;
-  response.cookies.set(ACCESS_COOKIE, payload.accessToken, { ...cookieSecurity(), maxAge: expiresIn });
-  response.cookies.set(REFRESH_COOKIE, payload.refreshToken, { ...cookieSecurity(), maxAge: 30 * 24 * 60 * 60 });
+  response.cookies.set(ACCESS_COOKIE, boundedCookieValue(ACCESS_COOKIE, payload.accessToken), { ...cookieSecurity(), maxAge: expiresIn });
+  response.cookies.set(REFRESH_COOKIE, boundedCookieValue(REFRESH_COOKIE, payload.refreshToken), { ...cookieSecurity(), maxAge: 30 * 24 * 60 * 60 });
   response.cookies.set(
     SESSION_COOKIE,
-    encodeURIComponent(JSON.stringify({ role: 'gekta', exp, email: payload.user.email })),
+    boundedCookieValue(SESSION_COOKIE, encodeURIComponent(JSON.stringify({ role: 'gekta', exp, email: payload.user.email }))),
     { ...sessionMarkerCookie(), maxAge: expiresIn },
   );
-  response.cookies.set(CSRF_COOKIE, generateCsrfToken(), { ...csrfCookieSecurity(), maxAge: 8 * 60 * 60 });
+  response.cookies.set(CSRF_COOKIE, boundedCookieValue(CSRF_COOKIE, generateCsrfToken()), { ...csrfCookieSecurity(), maxAge: 8 * 60 * 60 });
 
   // A product session carries no organization. A stale cabinet presentation
   // must not survive after the shared auth cookies switch to that session.

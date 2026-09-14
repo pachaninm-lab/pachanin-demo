@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { ACCESS_COOKIE, CSRF_COOKIE, SESSION_COOKIE } from '@/lib/auth-cookies';
 import { signCabinetSession } from '@/lib/platform-v7/verified-session';
+import { boundedCookieValue } from '@/lib/server/bounded-cookie';
 
 const CABINET_SESSION_COOKIE = 'pc_v7_cabinet';
 const TTL_SECONDS = 8 * 3600;
@@ -172,13 +173,13 @@ export async function POST(request: Request) {
   }
 
   const cookieStore = await cookies();
-  cookieStore.set(CABINET_SESSION_COOKIE, token, secureCookie(true));
+  cookieStore.set(CABINET_SESSION_COOKIE, boundedCookieValue(CABINET_SESSION_COOKIE, token), secureCookie(true));
 
   if (accountType === 'owner_test' && testAccessEnabled) {
     const csrfToken = randomUUID();
-    cookieStore.set(ACCESS_COOKIE, token, secureCookie(true));
+    cookieStore.set(ACCESS_COOKIE, boundedCookieValue(ACCESS_COOKIE, token), secureCookie(true));
     cookieStore.set(SESSION_COOKIE, 'true', secureCookie(false));
-    cookieStore.set(CSRF_COOKIE, csrfToken, secureCookie(false));
+    cookieStore.set(CSRF_COOKIE, boundedCookieValue(CSRF_COOKIE, csrfToken), secureCookie(false));
   } else {
     for (const name of [ACCESS_COOKIE, SESSION_COOKIE, CSRF_COOKIE]) {
       cookieStore.set(name, '', {

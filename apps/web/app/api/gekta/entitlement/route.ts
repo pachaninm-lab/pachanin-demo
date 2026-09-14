@@ -15,6 +15,7 @@ import {
 import { GEKTA_LEGAL_VERSION } from '@/lib/gekta/legal';
 import { resolveAnonymousEntitlement } from '@/lib/gekta/entitlement';
 import { isBillingEnabled } from '@/lib/gekta/merchant';
+import { boundedCookieValue } from '@/lib/server/bounded-cookie';
 
 function registrationUrl(): string | null {
   const configured = process.env.GEKTA_REGISTRATION_URL?.trim();
@@ -36,7 +37,7 @@ function cookieOptions() {
 
 function respond(session: GektaAnonymousSession, body: Record<string, unknown>, now: Date) {
   const response = NextResponse.json(body, { headers: { 'Cache-Control': 'no-store' } });
-  response.cookies.set(GEKTA_ANONYMOUS_COOKIE, serializeAnonymousSession(session), cookieOptions());
+  response.cookies.set(GEKTA_ANONYMOUS_COOKIE, boundedCookieValue(GEKTA_ANONYMOUS_COOKIE, serializeAnonymousSession(session)), cookieOptions());
   void now;
   return response;
 }

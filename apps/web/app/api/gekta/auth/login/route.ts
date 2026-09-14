@@ -13,6 +13,7 @@ import {
   gektaMfaCookieOptions,
   sealGektaMfaTicket,
 } from '@/lib/server/gekta-mfa-ticket';
+import { boundedCookieValue } from '@/lib/server/bounded-cookie';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -90,7 +91,7 @@ export async function POST(request: Request) {
       expiresAt: payload.expiresAt || null,
       correlationId,
     });
-    result.cookies.set(GEKTA_MFA_PENDING_COOKIE, ticket, gektaMfaCookieOptions());
+    result.cookies.set(GEKTA_MFA_PENDING_COOKIE, boundedCookieValue(GEKTA_MFA_PENDING_COOKIE, ticket), gektaMfaCookieOptions());
     return result;
   } catch {
     return gektaAuthJson({ ok: false, code: 'AUTH_SERVICE_UNAVAILABLE', correlationId }, 503);

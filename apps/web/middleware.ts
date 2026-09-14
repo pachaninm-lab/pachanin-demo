@@ -14,6 +14,7 @@ import {
 import { observeServerCabinetAccess } from '@/lib/platform-v7/server-cabinet-access';
 import { readVerifiedCabinetSessionContext } from '@/lib/platform-v7/verified-session';
 import publicSeoRouteRegistry from '@/lib/platform-v7/public-seo-routes.json';
+import { boundedCookieValue } from '@/lib/server/bounded-cookie';
 
 // The signed cabinet session is the only middleware role authority. The platform
 // layout additionally revalidates its user, tenant and membership through /auth/me.
@@ -317,7 +318,7 @@ function ensureCsrfCookie(
   sameSite: 'lax' | 'strict' = 'lax',
 ) {
   if (req.cookies.get(CSRF_COOKIE)?.value) return;
-  response.cookies.set(CSRF_COOKIE, crypto.randomUUID().replaceAll('-', ''), {
+  response.cookies.set(CSRF_COOKIE, boundedCookieValue(CSRF_COOKIE, crypto.randomUUID().replaceAll('-', '')), {
     httpOnly: false,
     path: '/',
     maxAge: 60 * 60 * 8,
@@ -328,7 +329,7 @@ function ensureCsrfCookie(
 
 function persistRoleCookie(req: NextRequest, response: NextResponse, role: string) {
   if (req.cookies.get('pc-role')?.value !== role) {
-    response.cookies.set('pc-role', role, { path: '/', maxAge: 60 * 60 * 24 * 30, sameSite: 'lax', secure: true });
+    response.cookies.set('pc-role', boundedCookieValue('pc-role', role), { path: '/', maxAge: 60 * 60 * 24 * 30, sameSite: 'lax', secure: true });
   }
 }
 
@@ -339,7 +340,7 @@ function clearPresentationRoleCookie(response: NextResponse) {
 function persistLocaleCookie(req: NextRequest, response: NextResponse, locale: string) {
   if (!VALID_LOCALES.has(locale)) return;
   if (req.cookies.get(LOCALE_COOKIE)?.value !== locale) {
-    response.cookies.set(LOCALE_COOKIE, locale, { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax', secure: true });
+    response.cookies.set(LOCALE_COOKIE, boundedCookieValue(LOCALE_COOKIE, locale), { path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax', secure: true });
   }
   response.headers.set('x-pc-locale', locale);
   response.headers.set('cache-control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');

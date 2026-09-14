@@ -1600,6 +1600,68 @@
       "note": "Cookies that carry a value not meant to be readable by client-side script (the session token in auth-session-response.ts, the MFA ticket in gekta-mfa-ticket.ts, the membership-selection cookie) are all set with httpOnly: true, and those values are only ever transferred via the Set-Cookie response header, never echoed into a response body or script. The one cookie that is deliberately client-readable, the CSRF token, is exactly the case this requirement is not about - it exists to be read by client JavaScript so it can be echoed back as a header (assessed under V3.5.1)."
     },
     {
+      "requirementId": "V3.3.5",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/web/lib/server/bounded-cookie.ts",
+        "apps/web/lib/server/staff-access-metadata-cookie.ts",
+        "scripts/security/verify-cookie-size-bound.mjs",
+        "apps/web/app/api/staff/[...path]/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the 4096-byte name-and-value budget is still measured in UTF-8 bytes and still refuses an oversized write",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/server/bounded-cookie.ts"
+          ],
+          "patterns": [
+            "MAX_COOKIE_NAME_AND_VALUE_BYTES = 4096",
+            "encoder.encode(name).length + encoder.encode(value).length",
+            "if (byteLength > MAX_COOKIE_NAME_AND_VALUE_BYTES) {",
+            "throw new CookieBudgetExceededError(name, byteLength);"
+          ]
+        },
+        {
+          "condition": "the staff activation cookie is still built to fit rather than serialized whole",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/server/staff-access-metadata-cookie.ts"
+          ],
+          "patterns": [
+            "return serializeWithinCookieBudget(",
+            "STAFF_ACCESS_META_COOKIE,"
+          ]
+        },
+        {
+          "condition": "the oversized-record case still fails the activation instead of writing a cookie the browser discards",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/staff/[...path]/route.ts"
+          ],
+          "patterns": [
+            "const metaCookie = staffMetadataCookieValue(metadata);",
+            "if (metaCookie === null) {",
+            "code: 'STAFF_SESSION_METADATA_TOO_LARGE',"
+          ]
+        },
+        {
+          "condition": "the guard still requires every cookie write to be a literal or to pass through the budget helpers",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-cookie-size-bound.mjs"
+          ],
+          "patterns": [
+            "BUDGET_HELPERS = new Set(['boundedCookieValue', 'serializeWithinCookieBudget'])",
+            "return { verdict: 'UNBOUNDED', detail: value.getText() };",
+            "if (mode === '120000') continue;"
+          ]
+        }
+      ],
+      "note": "Measured, not assumed. scripts/security/verify-cookie-size-bound.mjs parses every tracked .ts/.tsx under apps/web and apps/api/src and finds 78 cookie writes; 35 carry a literal value and the remaining 43 now pass through apps/web/lib/server/bounded-cookie.ts, which counts name and value in UTF-8 bytes (what a browser counts, not what String.length reports) and throws rather than hand a browser a cookie it will silently discard. The API tier writes no cookies at all, which the same scan establishes. One write was genuinely over the limit before this change: pc_staff_access_meta carried encodeURIComponent(JSON.stringify(metadata)) where metadata.reason is operator free text the API accepts up to 2000 characters (staff-access.dto.ts). Percent-encoding costs six bytes per Cyrillic character, so a 526-character Russian reason - unremarkable in this product - produced a 4097-byte cookie, and a 2000-character one produced 12 946 bytes. The browser stores nothing in that case and sends nothing back, so the staff session was activated upstream and then failed every subsequent authorization read with no error anywhere. It is now built with serializeWithinCookieBudget, which shortens the reason and only the reason, cutting on a code point so a surrogate pair is never split. That is safe because nothing reads reason back from this cookie: verifiedSessionContext compares accessSessionId, staffRole, accessMode and expiresAt, the revoke path compares accessSessionId, and the activation response returns the untruncated reason straight from the database. If the remaining fields cannot fit on their own the activation is undone upstream and reported as STAFF_SESSION_METADATA_TOO_LARGE rather than answered with a cookie that will not be stored. Revocable: restoring the whole-record serialization fails four tests in apps/web/tests/unit/cookieSizeBound.spec.ts, and removing the budget check in bounded-cookie.ts fails five."
+    },
+    {
       "requirementId": "V3.4.1",
       "applicability": "APPLICABLE",
       "status": "PASS",
@@ -6126,7 +6188,7 @@
           ],
           "patterns": [
             "const state = randombridgevalue()",
-            "response.cookies.set(gov_id_state_cookie, state"
+            "response.cookies.set(gov_id_state_cookie, boundedcookievalue(gov_id_state_cookie, state)"
           ]
         },
         {

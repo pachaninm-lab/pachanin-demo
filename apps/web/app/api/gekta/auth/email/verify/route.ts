@@ -20,6 +20,7 @@ import {
   sealGektaEmailTicket,
   sealGektaMfaTicket,
 } from '@/lib/server/gekta-mfa-ticket';
+import { boundedCookieValue } from '@/lib/server/bounded-cookie';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -53,7 +54,7 @@ export function GET(request: Request) {
   response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   response.headers.set('Referrer-Policy', 'no-referrer');
   response.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
-  if (ticket) response.cookies.set(GEKTA_EMAIL_PENDING_COOKIE, ticket, gektaEmailCookieOptions());
+  if (ticket) response.cookies.set(GEKTA_EMAIL_PENDING_COOKIE, boundedCookieValue(GEKTA_EMAIL_PENDING_COOKIE, ticket), gektaEmailCookieOptions());
   return response;
 }
 
@@ -130,7 +131,7 @@ export async function POST(request: Request) {
       expiresAt: payload.expiresAt || null,
       correlationId,
     });
-    result.cookies.set(GEKTA_MFA_PENDING_COOKIE, ticket, gektaMfaCookieOptions());
+    result.cookies.set(GEKTA_MFA_PENDING_COOKIE, boundedCookieValue(GEKTA_MFA_PENDING_COOKIE, ticket), gektaMfaCookieOptions());
     result.cookies.set(GEKTA_EMAIL_PENDING_COOKIE, '', clearGektaEmailCookieOptions());
     return result;
   } catch {

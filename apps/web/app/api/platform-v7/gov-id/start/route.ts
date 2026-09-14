@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GOV_ID_FLOW_COOKIE, GOV_ID_NONCE_COOKIE, GOV_ID_STATE_COOKIE, bridgeCookieOptions, bridgeFallbackTarget, buildGovIdentityStartUrl, normalizeGovIdentityFlow, randomBridgeValue, readGovIdentityBridgeConfig } from '@/lib/platform-v7/govIdentityBridge';
+import { boundedCookieValue } from '@/lib/server/bounded-cookie';
 
 export async function GET(request: NextRequest) {
   const flow = normalizeGovIdentityFlow(request.nextUrl.searchParams.get('flow'));
@@ -15,9 +16,9 @@ export async function GET(request: NextRequest) {
   }
 
   const response = NextResponse.redirect(startUrl);
-  response.cookies.set(GOV_ID_STATE_COOKIE, state, bridgeCookieOptions(request));
-  response.cookies.set(GOV_ID_NONCE_COOKIE, nonce, bridgeCookieOptions(request));
-  response.cookies.set(GOV_ID_FLOW_COOKIE, flow, bridgeCookieOptions(request));
+  response.cookies.set(GOV_ID_STATE_COOKIE, boundedCookieValue(GOV_ID_STATE_COOKIE, state), bridgeCookieOptions(request));
+  response.cookies.set(GOV_ID_NONCE_COOKIE, boundedCookieValue(GOV_ID_NONCE_COOKIE, nonce), bridgeCookieOptions(request));
+  response.cookies.set(GOV_ID_FLOW_COOKIE, boundedCookieValue(GOV_ID_FLOW_COOKIE, flow), bridgeCookieOptions(request));
   response.headers.set('Cache-Control', 'no-store');
   return response;
 }

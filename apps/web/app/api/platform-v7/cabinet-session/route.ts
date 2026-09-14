@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { readVerifiedCabinetRole, signCabinetSession } from '@/lib/platform-v7/verified-session';
 import { assertCsrf } from '@/lib/server-request-security';
+import { boundedCookieValue } from '@/lib/server/bounded-cookie';
 
 /**
  * Phase 4D-pre — dedicated platform-v7 cabinet session issuance.
@@ -102,7 +103,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, issued: false });
   }
 
-  cookieStore.set(CABINET_SESSION_COOKIE, token, {
+  cookieStore.set(CABINET_SESSION_COOKIE, boundedCookieValue(CABINET_SESSION_COOKIE, token), {
     path: '/',
     maxAge: TTL_SECONDS,
     httpOnly: true,

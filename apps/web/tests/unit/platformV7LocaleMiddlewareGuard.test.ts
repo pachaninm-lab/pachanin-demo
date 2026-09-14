@@ -16,7 +16,7 @@ describe('platform-v7 locale middleware sync', () => {
     expect(source).toContain('resolveLocaleFromQuery');
     expect(source).toContain("req.nextUrl.searchParams.get('lang')");
     expect(source).toContain('persistLocaleCookie');
-    expect(source).toContain("response.cookies.set(LOCALE_COOKIE, locale");
+    expect(source).toContain("response.cookies.set(LOCALE_COOKIE, boundedCookieValue(LOCALE_COOKIE, locale)");
   });
 
   it('disables cache on language-switched platform responses', () => {

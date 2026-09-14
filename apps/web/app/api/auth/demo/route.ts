@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE, REFRESH_COOKIE, SESSION_COOKIE, CSRF_COOKIE, cookieSecurity, sessionMarkerCookie, csrfCookieSecurity } from '../../../../lib/auth-cookies';
 import { generateCsrfToken } from '../../../../lib/server-request-security';
 import { demoLoginAllowed } from '../../../../lib/platform-v7/demo-login-policy';
+import { boundedCookieValue } from '@/lib/server/bounded-cookie';
 
 function detectDemoRole(email: string): string {
   const local = email.toLowerCase().split('@')[0] ?? '';
@@ -39,10 +40,10 @@ export async function GET(request: NextRequest) {
   const url = new URL(destination, request.url);
   const res = NextResponse.redirect(url);
 
-  res.cookies.set(SESSION_COOKIE, sessionValue, sessionMarkerCookie());
-  res.cookies.set(ACCESS_COOKIE, `demo.${Buffer.from(JSON.stringify({ role, exp })).toString('base64')}`, cookieSecurity());
-  res.cookies.set(REFRESH_COOKIE, `demo-refresh.${role}`, cookieSecurity());
-  res.cookies.set(CSRF_COOKIE, generateCsrfToken(), csrfCookieSecurity());
+  res.cookies.set(SESSION_COOKIE, boundedCookieValue(SESSION_COOKIE, sessionValue), sessionMarkerCookie());
+  res.cookies.set(ACCESS_COOKIE, boundedCookieValue(ACCESS_COOKIE, `demo.${Buffer.from(JSON.stringify({ role, exp })).toString('base64')}`), cookieSecurity());
+  res.cookies.set(REFRESH_COOKIE, boundedCookieValue(REFRESH_COOKIE, `demo-refresh.${role}`), cookieSecurity());
+  res.cookies.set(CSRF_COOKIE, boundedCookieValue(CSRF_COOKIE, generateCsrfToken()), csrfCookieSecurity());
   res.headers.set('Cache-Control', 'no-store');
 
   return res;

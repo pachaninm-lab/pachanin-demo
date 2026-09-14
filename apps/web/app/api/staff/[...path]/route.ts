@@ -5,6 +5,8 @@ import { requiresCanonicalControlHost } from '@/lib/platform-v7/control-host';
 import { resolveServerApiBaseUrl } from '@/lib/server/server-api-origin';
 import { assertCsrf } from '@/lib/server-request-security';
 import { readBoundedBody } from '../../../../lib/uploads/bounded-body';
+import { boundedCookieValue } from '@/lib/server/bounded-cookie';
+import { STAFF_ACCESS_META_COOKIE, staffMetadataCookieValue } from '@/lib/server/staff-access-metadata-cookie';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -12,7 +14,6 @@ export const maxDuration = 75;
 
 const API_BASE_URL = resolveServerApiBaseUrl();
 const STAFF_ACCESS_COOKIE = 'pc_staff_access_token';
-const STAFF_ACCESS_META_COOKIE = 'pc_staff_access_meta';
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_STAFF_SESSION_SECONDS = 60 * 60;
 
@@ -469,11 +470,30 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
       safePayload.reason = metadata.reason;
       safePayload.ticketId = metadata.ticketId;
       safePayload.expiresAt = metadata.expiresAt;
+      const metaCookie = staffMetadataCookieValue(metadata);
+      if (metaCookie === null) {
+        // Even with the reason removed the fields this proxy reads do not fit.
+        // Handing the browser a cookie it will discard would leave an activated
+        // upstream session that no later request can present, so the activation
+        // is undone instead of reported as successful.
+        await cleanupActivatedSession(accessToken, sessionId, correlationId);
+        const oversized = json({
+          ok: false,
+          code: 'STAFF_SESSION_METADATA_TOO_LARGE',
+          message: 'Не удалось активировать защищённую сессию.',
+          correlationId,
+        }, 502);
+        clearStaffSession(oversized);
+        return oversized;
+      }
+
       response = json(safePayload, upstream.status);
-      response.cookies.set(STAFF_ACCESS_COOKIE, token, secureCookie(maxAge));
+      response.cookies.set(STAFF_ACCESS_COOKIE, boundedCookieValue(STAFF_ACCESS_COOKIE, token), secureCookie(maxAge));
+      // Built to fit above; asserted here so every cookie write in the tree is
+      // measured at the write, whatever produced the value.
       response.cookies.set(
         STAFF_ACCESS_META_COOKIE,
-        encodeURIComponent(JSON.stringify(metadata)),
+        boundedCookieValue(STAFF_ACCESS_META_COOKIE, metaCookie),
         secureCookie(maxAge),
       );
     }

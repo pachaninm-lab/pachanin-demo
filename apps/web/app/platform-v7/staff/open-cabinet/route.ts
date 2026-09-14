@@ -13,6 +13,7 @@ import {
 import { parseStaffCapabilitiesContract } from '@/lib/platform-v7/staff-capabilities';
 import { signCabinetSession, verifyHs256Jwt } from '@/lib/platform-v7/verified-session';
 import { FIXTURE_AUDIENCE, fixtureTokenIsForService } from '@/lib/platform-v7/fixture-token';
+import { boundedCookieValue } from '@/lib/server/bounded-cookie';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -301,7 +302,7 @@ function setCabinetCookies(
   expiresAt: number,
   organization: ControlledCabinetContext,
 ) {
-  response.cookies.set(CABINET_SESSION_COOKIE, cabinetToken, {
+  response.cookies.set(CABINET_SESSION_COOKIE, boundedCookieValue(CABINET_SESSION_COOKIE, cabinetToken), {
     path: '/',
     maxAge: authority.ttlSeconds,
     httpOnly: true,
@@ -311,17 +312,17 @@ function setCabinetCookies(
   });
   response.cookies.set(
     SESSION_COOKIE,
-    encodeURIComponent(JSON.stringify({
+    boundedCookieValue(SESSION_COOKIE, encodeURIComponent(JSON.stringify({
       role,
       exp: expiresAt,
       email: authority.email,
       organizationId: organization.organizationId,
       tenantId: organization.tenantId,
       ownerAccess: true,
-    })),
+    }))),
     { ...sessionMarkerCookie(), maxAge: authority.ttlSeconds, priority: 'high' },
   );
-  response.cookies.set('pc-role', role, {
+  response.cookies.set('pc-role', boundedCookieValue('pc-role', role), {
     path: '/',
     maxAge: authority.ttlSeconds,
     httpOnly: false,

@@ -10,6 +10,7 @@ import {
 } from '../../../../../../lib/auth-cookies';
 import { generateCsrfToken } from '../../../../../../lib/server-request-security';
 import { demoLoginAllowed } from '../../../../../../lib/platform-v7/demo-login-policy';
+import { boundedCookieValue } from '@/lib/server/bounded-cookie';
 
 type DemoTarget = {
   role: string;
@@ -64,14 +65,14 @@ export async function GET(
   const url = new URL(to, request.url);
   const res = NextResponse.redirect(url);
 
-  res.cookies.set(SESSION_COOKIE, sessionValue, sessionMarkerCookie());
+  res.cookies.set(SESSION_COOKIE, boundedCookieValue(SESSION_COOKIE, sessionValue), sessionMarkerCookie());
   res.cookies.set(
     ACCESS_COOKIE,
-    `demo.${Buffer.from(JSON.stringify({ role: target.role, exp })).toString('base64')}`,
+    boundedCookieValue(ACCESS_COOKIE, `demo.${Buffer.from(JSON.stringify({ role: target.role, exp })).toString('base64')}`),
     cookieSecurity(),
   );
-  res.cookies.set(REFRESH_COOKIE, `demo-refresh.${target.role}`, cookieSecurity());
-  res.cookies.set(CSRF_COOKIE, generateCsrfToken(), csrfCookieSecurity());
+  res.cookies.set(REFRESH_COOKIE, boundedCookieValue(REFRESH_COOKIE, `demo-refresh.${target.role}`), cookieSecurity());
+  res.cookies.set(CSRF_COOKIE, boundedCookieValue(CSRF_COOKIE, generateCsrfToken()), csrfCookieSecurity());
   res.headers.set('Cache-Control', 'no-store');
 
   return res;

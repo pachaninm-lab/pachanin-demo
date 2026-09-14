@@ -55,8 +55,11 @@ function filesMatching(pattern: RegExp): string[] {
 
 describe('session minting surface (#4690)', () => {
   it('mints a session from an upstream payload in exactly one place', () => {
-    expect(filesMatching(/set\(\s*ACCESS_COOKIE\s*,\s*payload/u)).toEqual([CANONICAL]);
-    expect(filesMatching(/set\(\s*REFRESH_COOKIE\s*,\s*payload/u)).toEqual([CANONICAL]);
+    // Every cookie write now passes the 4096-byte budget helper (ASVS V3.3.5),
+    // so the shape to look for is the wrapped one. Requiring the wrapper here
+    // narrows the match rather than widening it.
+    expect(filesMatching(/set\(\s*ACCESS_COOKIE\s*,\s*boundedCookieValue\(\s*ACCESS_COOKIE\s*,\s*payload/u)).toEqual([CANONICAL]);
+    expect(filesMatching(/set\(\s*REFRESH_COOKIE\s*,\s*boundedCookieValue\(\s*REFRESH_COOKIE\s*,\s*payload/u)).toEqual([CANONICAL]);
   });
 
   it('has no sber-business auth route left to mint one', () => {
@@ -66,7 +69,8 @@ describe('session minting surface (#4690)', () => {
   it('leaves no route writing the session marker as a bare truthy literal', () => {
     // The canonical marker carries role, exp and email. '1' is what the removed
     // callback wrote, and nothing downstream can read a role out of it.
-    expect(filesMatching(/set\(\s*SESSION_COOKIE\s*,\s*['"`]1['"`]/u)).toEqual([]);
+    // The budget wrapper must not become somewhere for such a literal to hide.
+    expect(filesMatching(/set\(\s*SESSION_COOKIE\s*,\s*(?:boundedCookieValue\(\s*SESSION_COOKIE\s*,\s*)?['"`]1['"`]/u)).toEqual([]);
   });
 
   it('still has the canonical helper, and it still fails closed on an incomplete identity', () => {

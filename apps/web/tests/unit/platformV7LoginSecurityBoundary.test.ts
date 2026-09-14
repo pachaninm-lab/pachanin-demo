@@ -62,7 +62,7 @@ describe('platform-v7 server-authoritative login boundary', () => {
 
   it('drops any previously authenticated browser identity before a password-proven pending flow', () => {
     expect(loginRoute).toContain('clearAuthenticatedSession(response, { controlPlane })');
-    expect(loginRoute).toContain('response.cookies.set(CSRF_COOKIE, generateCsrfToken()');
+    expect(loginRoute).toContain('response.cookies.set(CSRF_COOKIE, boundedCookieValue(CSRF_COOKIE, generateCsrfToken())');
     expect(loginRoute).toContain("sameSite: controlPlane ? 'strict' : 'lax'");
     const calls = loginRoute.match(/clearPreviousAuthenticatedBrowserSession\(response, controlPlane\);/g) ?? [];
     expect(calls).toHaveLength(2);

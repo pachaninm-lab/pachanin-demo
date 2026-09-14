@@ -21,6 +21,7 @@ import {
   clearMembershipSelectionCookieOptions,
   membershipSelectionCookieOptions,
 } from '../../../../lib/server/membership-selection-cookie';
+import { boundedCookieValue } from '@/lib/server/bounded-cookie';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -95,7 +96,7 @@ function clearPreviousAuthenticatedBrowserSession(
   controlPlane: boolean,
 ) {
   clearAuthenticatedSession(response, { controlPlane });
-  response.cookies.set(CSRF_COOKIE, generateCsrfToken(), {
+  response.cookies.set(CSRF_COOKIE, boundedCookieValue(CSRF_COOKIE, generateCsrfToken()), {
     ...csrfCookieSecurity(),
     sameSite: controlPlane ? 'strict' : 'lax',
   });
@@ -215,7 +216,7 @@ export async function POST(request: Request) {
         correlationId,
       });
       clearPreviousAuthenticatedBrowserSession(response, controlPlane);
-      response.cookies.set(MEMBERSHIP_SELECTION_COOKIE, payload.challengeToken, membershipSelectionCookieOptions());
+      response.cookies.set(MEMBERSHIP_SELECTION_COOKIE, boundedCookieValue(MEMBERSHIP_SELECTION_COOKIE, payload.challengeToken), membershipSelectionCookieOptions());
       response.cookies.set(MFA_PENDING_COOKIE, '', clearMfaPendingCookieOptions());
       return response;
     }
@@ -245,7 +246,7 @@ export async function POST(request: Request) {
         correlationId,
       });
       clearPreviousAuthenticatedBrowserSession(response, controlPlane);
-      response.cookies.set(MFA_PENDING_COOKIE, ticket, mfaPendingCookieOptions());
+      response.cookies.set(MFA_PENDING_COOKIE, boundedCookieValue(MFA_PENDING_COOKIE, ticket), mfaPendingCookieOptions());
       response.cookies.set(MEMBERSHIP_SELECTION_COOKIE, '', clearMembershipSelectionCookieOptions());
       return response;
     }

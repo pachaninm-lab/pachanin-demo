@@ -39,6 +39,7 @@ import {
   gektaForwardHeaders,
   registrationDeliveryKey,
 } from '@/lib/server/gekta-auth-route';
+import { boundedCookieValue } from '@/lib/server/bounded-cookie';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -329,7 +330,7 @@ function applyGektaAdmission(
   anonymousSession: GektaAnonymousSession | null,
 ): NextResponse {
   if (!anonymousSession) return response;
-  response.cookies.set(GEKTA_ANONYMOUS_COOKIE, serializeAnonymousSession(anonymousSession), {
+  response.cookies.set(GEKTA_ANONYMOUS_COOKIE, boundedCookieValue(GEKTA_ANONYMOUS_COOKIE, serializeAnonymousSession(anonymousSession)), {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',

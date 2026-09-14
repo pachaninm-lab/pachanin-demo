@@ -19,6 +19,7 @@ import {
   sealMfaLoginTicket,
 } from '../../../../lib/server/mfa-login-ticket';
 import { assertCsrf } from '../../../../lib/server-request-security';
+import { boundedCookieValue } from '@/lib/server/bounded-cookie';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -104,7 +105,7 @@ export async function POST(request: Request) {
         expiresAt: payload.challengeExpiresAt || null,
         correlationId,
       });
-      response.cookies.set(MFA_PENDING_COOKIE, ticket, mfaPendingCookieOptions());
+      response.cookies.set(MFA_PENDING_COOKIE, boundedCookieValue(MFA_PENDING_COOKIE, ticket), mfaPendingCookieOptions());
       clearSelection(response);
       return response;
     }
