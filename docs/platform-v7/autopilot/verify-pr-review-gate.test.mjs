@@ -141,13 +141,14 @@ test('Octopus authority is additionally bound to one successful trusted workflow
 });
 
 test('observed successful Octopus pull_request_target run shape is accepted without weakening exact-head binding', () => {
+  const repo = 'pachaninm-lab/pachanin-demo';
   const observed = {
     id: 34180354026, name: 'Independent Octopus Review', head_sha: '0f6fdeccbcb97a70161198ac0321d0918388a084',
     path: '.github/workflows/octopus-independent-review.yml', event: 'pull_request_target', status: 'completed', conclusion: 'success',
     pull_requests: [{ number: 5167, head: { sha: '0f6fdeccbcb97a70161198ac0321d0918388a084', repo: { id: 1203022077 } } }],
     repository: { id: 1203022077, full_name: repo },
   };
-  assert.equal(octopusAttestationMatchesWorkflowRun({ runId: '34180354026' }, observed, 'pachaninm-lab/pachanin-demo', 5167, '0f6fdeccbcb97a70161198ac0321d0918388a084'), true);
+  assert.equal(octopusAttestationMatchesWorkflowRun({ runId: '34180354026' }, observed, repo, 5167, '0f6fdeccbcb97a70161198ac0321d0918388a084'), true);
 });
 
 test('actual #5167 Octopus review, latest status and successful run form one exact-head authority tuple', () => {
@@ -475,8 +476,8 @@ test('verifier main requires genuine independent exact-head authority from Codex
   assert.match(mainBody, /REVIEW_GATE_OWNER_SELF_AUDIT_MISSING/u);
   assert.match(mainBody, /PR_REVIEW_GATE_RESULT=/u);
   assert.match(mainBody, /reviewAuthority=/u);
-  assert.match(mainBody, /GITHUB_COPILOT/u);
-  assert.match(mainBody, /OCTOPUS/u);
+  assert.match(mainBody, /selectReviewGateDecision\(authorities, false\)/u);
+  assert.match(mainBody, /selectReviewGateDecision\(authorities, true\)/u);
   assert.doesNotMatch(mainBody, /MACHINE_FALLBACK/u);
   assert.doesNotMatch(mainBody, /machineReviewAuthorities/u);
   assert.ok(mainBody.indexOf('REVIEW_GATE_INDEPENDENT_EXACT_HEAD_MISSING') < mainBody.indexOf('PR_REVIEW_GATE=PASS'));
@@ -727,10 +728,8 @@ test('review reconciliation workflow uses supported dispatch wiring and complete
   assert.ok(bootstrapPairs.length >= 3);
   const independentPairs = workflow.match(/\.classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and \(\.reviewAuthority == "CODEX" or \.reviewAuthority == "GITHUB_COPILOT" or \.reviewAuthority == "OCTOPUS" or \.reviewAuthority == "LOCAL_QWEN"\)/gu) || [];
   assert.ok(independentPairs.length >= 3);
-  const bootstrapModeOutputs = workflow.match(/echo 'mode=BOOTSTRAP' >> "\$GITHUB_OUTPUT"/gu) || [];
-  assert.ok(bootstrapModeOutputs.length >= 3);
-  const independentModeOutputs = workflow.match(/echo 'mode=INDEPENDENT' >> "\$GITHUB_OUTPUT"/gu) || [];
-  assert.ok(independentModeOutputs.length >= 3);
+  const validatedModeOutputs = workflow.match(/echo "mode=\$mode" >> "\$GITHUB_OUTPUT"/gu) || [];
+  assert.ok(validatedModeOutputs.length >= 3);
   assert.doesNotMatch(workflow, /GATE_AUTHORITY/u);
   assert.doesNotMatch(workflow, /echo "authority=\$authority" >> "\$GITHUB_OUTPUT"/u);
   assert.doesNotMatch(workflow, /sed -n 's\/\.\*reviewClassification=/u);
