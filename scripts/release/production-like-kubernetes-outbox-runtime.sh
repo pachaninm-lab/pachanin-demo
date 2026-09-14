@@ -284,12 +284,15 @@ const replacements = [
 
 let rendered = source;
 for (const [before, after, message] of replacements) {
-  if ((rendered.split(before).length - 1) !== 1) {
+  const beforeOccurrences = rendered.split(before).length - 1;
+  if (beforeOccurrences !== 1) {
     throw new Error(`${message} must exist exactly once`);
   }
+  const intentionalResidualOccurrences = after.split(before).length - 1;
   rendered = rendered.replace(before, after);
-  if (rendered.includes(before)) {
-    throw new Error(`${message} was not replaced exactly once`);
+  const residualOccurrences = rendered.split(before).length - 1;
+  if (residualOccurrences !== intentionalResidualOccurrences) {
+    throw new Error(`${message} replacement residual mismatch`);
   }
 }
 if (rendered === source) {
