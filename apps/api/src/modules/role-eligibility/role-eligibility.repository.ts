@@ -3,14 +3,15 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { sha256, stableJson } from './role-eligibility-security';
-import type {
-  EligibilityCheck,
-  EligibilityEvidence,
-  EligibilitySource,
-  EligibilityVerdict,
-  RoleEligibilityCandidate,
-  SourceHealthSnapshot,
-  SourceManifestEntry,
+import {
+  defaultRegistryDomainForSource,
+  type EligibilityCheck,
+  type EligibilityEvidence,
+  type EligibilitySource,
+  type EligibilityVerdict,
+  type RoleEligibilityCandidate,
+  type SourceHealthSnapshot,
+  type SourceManifestEntry,
 } from './role-eligibility.types';
 
 type SqlClient = Pick<PrismaClient, '$queryRaw' | '$executeRaw'>;
@@ -99,8 +100,8 @@ export class RoleEligibilityRepository {
 
   async activeGenerationFingerprint(): Promise<string> {
     const rows = await this.db((client) => client.$queryRaw<Array<Record<string, unknown>>>(Prisma.sql`
-      SELECT source, generation, content_sha256, parser_version, schema_version
-      FROM eligibility.registry_generations WHERE status = 'ACTIVE' ORDER BY source
+      SELECT source, registry_domain, generation, content_sha256, parser_version, schema_version
+      FROM eligibility.registry_generations WHERE status = 'ACTIVE' ORDER BY source,registry_domain
     `));
     return sha256(stableJson(rows));
   }
@@ -172,6 +173,7 @@ export class RoleEligibilityRepository {
     recordType: string; normalizedPayload: Record<string, unknown>; sourcePublishedAt: Date; validFrom: Date | null;
     validUntil: Date | null; payloadSha256: string; parserVersion: string; freshUntil: Date;
   }>> {
+    const registryDomain = defaultRegistryDomainForSource(source);
     // This is one MVCC statement: it observes either the old ACTIVE generation
     // or the new ACTIVE generation atomically. A wrapping transaction adds pool
     // queue/BEGIN-COMMIT overhead without strengthening the snapshot guarantee.
@@ -181,7 +183,7 @@ export class RoleEligibilityRepository {
              r.source_published_at AS "sourcePublishedAt", r.valid_from AS "validFrom", r.valid_until AS "validUntil",
              r.payload_sha256 AS "payloadSha256", g.parser_version AS "parserVersion", g.fresh_until AS "freshUntil"
       FROM eligibility.registry_records r JOIN eligibility.registry_generations g ON g.id=r.generation_id
-      WHERE g.status='ACTIVE' AND r.source=${source}
+      WHERE g.status='ACTIVE' AND g.source=${source} AND g.registry_domain=${registryDomain} AND r.source=${source}
         AND (r.subject_inn=${inn} OR (${ogrn}::text IS NOT NULL AND r.subject_ogrn=${ogrn}))
       ORDER BY r.source_record_id,r.id
     `);
@@ -247,12 +249,17 @@ export class RoleEligibilityRepository {
   }
 
   async sourceHealth(): Promise<SourceHealthSnapshot[]> {
+    // Existing role-evaluation policy is source-only and currently consumes FNS/EGRUL.
+    // Keep EGRIP/UNKNOWN health isolated so it cannot overwrite the FNS legal-entity state.
     return this.db((client) => client.$queryRaw<SourceHealthSnapshot[]>(Prisma.sql`
-      SELECT source,status,circuit_state AS "circuitState",active_generation AS "activeGeneration",
+      SELECT source,registry_domain AS "registryDomain",status,circuit_state AS "circuitState",active_generation AS "activeGeneration",
              parser_version AS "parserVersion",schema_version AS "schemaVersion",last_success_at AS "lastSuccessAt",
              last_failure_at AS "lastFailureAt",checked_at AS "checkedAt",fresh_until AS "freshUntil",
              consecutive_failures AS "consecutiveFailures",last_error_code AS "lastErrorCode"
-      FROM eligibility.source_health ORDER BY source
+      FROM eligibility.source_health
+      WHERE (source='FNS' AND registry_domain='EGRUL')
+         OR (source<>'FNS' AND registry_domain=source)
+      ORDER BY source
     `));
   }
 }

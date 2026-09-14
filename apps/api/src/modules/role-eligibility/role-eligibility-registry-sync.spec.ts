@@ -33,6 +33,7 @@ function generation(status: RegistryGeneration['status']): RegistryGeneration {
   return {
     id: 'gen-1',
     source: 'CBR',
+    registryDomain: 'CBR',
     generation: '2026:test',
     publishedAt: fetched.publishedAt,
     downloadedAt: fetched.checkedAt,
@@ -49,6 +50,7 @@ function fnsGeneration(overrides: Partial<RegistryGeneration> = {}): RegistryGen
   return {
     id: 'fns-egrul-generation-1',
     source: 'FNS',
+    registryDomain: 'EGRUL',
     generation: '2026-09-05T00:00:00.000Z:bbbbbbbbbbbbbbbb',
     publishedAt: new Date(Date.now() - 60 * 60 * 1000),
     downloadedAt: new Date(Date.now() - 30 * 60 * 1000),
@@ -65,6 +67,7 @@ function fnsGeneration(overrides: Partial<RegistryGeneration> = {}): RegistryGen
 function fnsHealth(active: RegistryGeneration, overrides: Partial<SourceHealthSnapshot> = {}): SourceHealthSnapshot {
   return {
     source: 'FNS',
+    registryDomain: 'EGRUL',
     status: 'HEALTHY',
     circuitState: 'CLOSED',
     activeGeneration: active.generation,
@@ -175,8 +178,36 @@ describe('RoleEligibilityRegistrySyncService retry contract', () => {
 
     expect(fetchGeneration).toHaveBeenCalledTimes(3);
     expect(result.fetchAttempts).toBe(3);
-    expect(health.success).toHaveBeenCalledTimes(1);
+    expect(result.registryDomain).toBe('CBR');
+    expect(health.assertFetchAllowed).toHaveBeenCalledWith('CBR', 'CBR');
+    expect(health.success).toHaveBeenCalledWith('CBR', expect.objectContaining({ registryDomain: 'CBR' }));
     expect(health.failure).not.toHaveBeenCalled();
+  });
+
+  it('rejects a staged domain mismatch before activation can supersede another domain', async () => {
+    const fetchGeneration = jest.fn().mockResolvedValue(payload());
+    const { instance, registry, health } = service(fetchGeneration);
+    registry.stage.mockResolvedValue({ ...generation('STAGING'), registryDomain: 'EGRUL' });
+
+    await expect(instance.sync('CBR')).rejects.toMatchObject({
+      code: 'CBR_REGISTRY_DOMAIN_MISMATCH',
+      health: 'SCHEMA_CHANGED',
+    });
+
+    expect(registry.validateAndActivate).not.toHaveBeenCalled();
+    expect(registry.reject).toHaveBeenCalledWith('gen-1');
+    expect(health.success).not.toHaveBeenCalled();
+    expect(health.failure).toHaveBeenCalledWith('CBR', 'SCHEMA_CHANGED', 'CBR_REGISTRY_DOMAIN_MISMATCH', 'CBR');
+    expect(registry.auditSourceEvent).toHaveBeenLastCalledWith(
+      'ROLE_ELIGIBILITY_SOURCE_FETCH_FAILED',
+      'CBR',
+      expect.stringContaining('registry-sync:CBR:CBR:'),
+      expect.objectContaining({
+        registryDomain: 'CBR',
+        errorCode: 'CBR_REGISTRY_DOMAIN_MISMATCH',
+        stagedGenerationId: 'gen-1',
+      }),
+    );
   });
 
   it('does not retry schema drift', async () => {
@@ -187,7 +218,7 @@ describe('RoleEligibilityRegistrySyncService retry contract', () => {
 
     await expect(instance.sync('CBR')).rejects.toMatchObject({ code: 'CBR_EXPECTED_SCHEMA_HEADERS_CHANGED' });
     expect(fetchGeneration).toHaveBeenCalledTimes(1);
-    expect(health.failure).toHaveBeenCalledWith('CBR', 'SCHEMA_CHANGED', 'CBR_EXPECTED_SCHEMA_HEADERS_CHANGED');
+    expect(health.failure).toHaveBeenCalledWith('CBR', 'SCHEMA_CHANGED', 'CBR_EXPECTED_SCHEMA_HEADERS_CHANGED', 'CBR');
   });
 
   it('does not retry an unproven machine contract', async () => {
@@ -211,10 +242,10 @@ describe('RoleEligibilityRegistrySyncService retry contract', () => {
     await jest.runAllTimersAsync();
     await rejection;
     expect(fetchGeneration).toHaveBeenCalledTimes(3);
-    expect(health.failure).toHaveBeenCalledTimes(1);
+    expect(health.failure).toHaveBeenCalledWith('CBR', 'UNAVAILABLE', 'CBR_TIMEOUT', 'CBR');
   });
 
-  it('preserves a fresh exact file-backed EGRUL authority when only the FNS machine contract is unproven', async () => {
+  it('preserves a fresh exact file-backed EGRUL authority only inside FNS/EGRUL', async () => {
     const active = fnsGeneration();
     const snapshot = fnsHealth(active);
     const fetchGeneration = jest.fn().mockRejectedValue(
@@ -225,15 +256,17 @@ describe('RoleEligibilityRegistrySyncService retry contract', () => {
     await expect(instance.sync('FNS')).rejects.toMatchObject({ code: 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN' });
 
     expect(fetchGeneration).toHaveBeenCalledTimes(1);
-    expect(registry.active).toHaveBeenCalledWith('FNS');
-    expect(health.get).toHaveBeenCalledWith('FNS');
+    expect(health.assertFetchAllowed).toHaveBeenCalledWith('FNS', 'EGRUL');
+    expect(registry.active).toHaveBeenCalledWith('FNS', 'EGRUL');
+    expect(health.get).toHaveBeenCalledWith('FNS', 'EGRUL');
     expect(health.success).not.toHaveBeenCalled();
     expect(health.failure).not.toHaveBeenCalled();
     expect(registry.auditSourceEvent).toHaveBeenLastCalledWith(
       'ROLE_ELIGIBILITY_SOURCE_FETCH_FAILED',
       'FNS',
-      expect.stringContaining('registry-sync:FNS:'),
+      expect.stringContaining('registry-sync:FNS:EGRUL:'),
       expect.objectContaining({
+        registryDomain: 'EGRUL',
         errorCode: 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN',
         healthPreserved: true,
         preservedGeneration: active.generation,
@@ -243,6 +276,18 @@ describe('RoleEligibilityRegistrySyncService retry contract', () => {
         preservedFreshUntil: active.freshUntil.toISOString(),
       }),
     );
+  });
+
+  it('does not preserve an EGRIP health row as file-backed EGRUL authority', async () => {
+    const active = fnsGeneration();
+    const snapshot = fnsHealth(active, { registryDomain: 'EGRIP', schemaVersion: 'EGRIP_407' });
+    const fetchGeneration = jest.fn().mockRejectedValue(
+      new EligibilitySourceError('FNS', 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN', 'UNAVAILABLE'),
+    );
+    const { instance, health } = fnsService(fetchGeneration, active, snapshot);
+
+    await expect(instance.sync('FNS')).rejects.toMatchObject({ code: 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN' });
+    expect(health.failure).toHaveBeenCalledWith('FNS', 'UNAVAILABLE', 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN', 'EGRUL');
   });
 
   it('does not preserve an untyped error that merely copies the FNS contract code', async () => {
@@ -255,7 +300,7 @@ describe('RoleEligibilityRegistrySyncService retry contract', () => {
 
     await expect(instance.sync('FNS')).rejects.toMatchObject({ code: 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN' });
     expect(registry.active).not.toHaveBeenCalled();
-    expect(health.failure).toHaveBeenCalledWith('FNS', 'UNAVAILABLE', 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN');
+    expect(health.failure).toHaveBeenCalledWith('FNS', 'UNAVAILABLE', 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN', 'EGRUL');
     expect(health.success).not.toHaveBeenCalled();
   });
 
@@ -269,7 +314,7 @@ describe('RoleEligibilityRegistrySyncService retry contract', () => {
 
     await expect(instance.sync('FNS')).rejects.toMatchObject({ code: 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN' });
     expect(registry.active).not.toHaveBeenCalled();
-    expect(health.failure).toHaveBeenCalledWith('FNS', 'UNAVAILABLE', 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN');
+    expect(health.failure).toHaveBeenCalledWith('FNS', 'UNAVAILABLE', 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN', 'EGRUL');
     expect(health.success).not.toHaveBeenCalled();
   });
 
@@ -290,11 +335,12 @@ describe('RoleEligibilityRegistrySyncService retry contract', () => {
       'FNS',
       'SCHEMA_CHANGED',
       'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN',
+      'EGRUL',
     );
     expect(health.success).not.toHaveBeenCalled();
   });
 
-  it('degrades FNS instead of preserving HEALTHY when the preservation audit cannot be persisted', async () => {
+  it('degrades FNS/EGRUL instead of preserving HEALTHY when the preservation audit cannot be persisted', async () => {
     const active = fnsGeneration();
     const snapshot = fnsHealth(active);
     const fetchGeneration = jest.fn().mockRejectedValue(
@@ -313,6 +359,7 @@ describe('RoleEligibilityRegistrySyncService retry contract', () => {
       'FNS',
       'UNAVAILABLE',
       'FNS_EGRUL_PRESERVATION_AUDIT_FAILED',
+      'EGRUL',
     );
     expect(health.success).not.toHaveBeenCalled();
   });
@@ -326,7 +373,7 @@ describe('RoleEligibilityRegistrySyncService retry contract', () => {
     const { instance, health } = fnsService(fetchGeneration, active, snapshot);
 
     await expect(instance.sync('FNS')).rejects.toMatchObject({ code: 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN' });
-    expect(health.failure).toHaveBeenCalledWith('FNS', 'UNAVAILABLE', 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN');
+    expect(health.failure).toHaveBeenCalledWith('FNS', 'UNAVAILABLE', 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN', 'EGRUL');
   });
 
   it('fails closed when no active FNS generation exists', async () => {
@@ -336,7 +383,7 @@ describe('RoleEligibilityRegistrySyncService retry contract', () => {
     const { instance, health } = fnsService(fetchGeneration, null, null);
 
     await expect(instance.sync('FNS')).rejects.toMatchObject({ code: 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN' });
-    expect(health.failure).toHaveBeenCalledWith('FNS', 'UNAVAILABLE', 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN');
+    expect(health.failure).toHaveBeenCalledWith('FNS', 'UNAVAILABLE', 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN', 'EGRUL');
   });
 
   it('fails closed when active generation and source-health provenance do not match', async () => {
@@ -348,19 +395,19 @@ describe('RoleEligibilityRegistrySyncService retry contract', () => {
     const { instance, health } = fnsService(fetchGeneration, active, snapshot);
 
     await expect(instance.sync('FNS')).rejects.toMatchObject({ code: 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN' });
-    expect(health.failure).toHaveBeenCalledWith('FNS', 'UNAVAILABLE', 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN');
+    expect(health.failure).toHaveBeenCalledWith('FNS', 'UNAVAILABLE', 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN', 'EGRUL');
   });
 
   it('never preserves a generic non-EGRUL FNS generation', async () => {
-    const active = fnsGeneration({ schemaVersion: 'FNS_GENERIC_V1' });
-    const snapshot = fnsHealth(active);
+    const active = fnsGeneration({ registryDomain: 'UNKNOWN', schemaVersion: 'FNS_GENERIC_V1' });
+    const snapshot = fnsHealth(active, { registryDomain: 'UNKNOWN', schemaVersion: 'FNS_GENERIC_V1' });
     const fetchGeneration = jest.fn().mockRejectedValue(
       new EligibilitySourceError('FNS', 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN', 'UNAVAILABLE'),
     );
     const { instance, health } = fnsService(fetchGeneration, active, snapshot);
 
     await expect(instance.sync('FNS')).rejects.toMatchObject({ code: 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN' });
-    expect(health.failure).toHaveBeenCalledWith('FNS', 'UNAVAILABLE', 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN');
+    expect(health.failure).toHaveBeenCalledWith('FNS', 'UNAVAILABLE', 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN', 'EGRUL');
   });
 
   it('never preserves an EGRUL-labelled generation from an untrusted parser', async () => {
@@ -372,7 +419,7 @@ describe('RoleEligibilityRegistrySyncService retry contract', () => {
     const { instance, health } = fnsService(fetchGeneration, active, snapshot);
 
     await expect(instance.sync('FNS')).rejects.toMatchObject({ code: 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN' });
-    expect(health.failure).toHaveBeenCalledWith('FNS', 'UNAVAILABLE', 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN');
+    expect(health.failure).toHaveBeenCalledWith('FNS', 'UNAVAILABLE', 'FNS_ZERO_COST_MACHINE_CONTRACT_NOT_PROVEN', 'EGRUL');
     expect(health.success).not.toHaveBeenCalled();
   });
 
@@ -385,6 +432,6 @@ describe('RoleEligibilityRegistrySyncService retry contract', () => {
     const { instance, health } = fnsService(fetchGeneration, active, snapshot);
 
     await expect(instance.sync('FNS')).rejects.toMatchObject({ code: 'FNS_EXPECTED_SCHEMA_HEADERS_CHANGED' });
-    expect(health.failure).toHaveBeenCalledWith('FNS', 'SCHEMA_CHANGED', 'FNS_EXPECTED_SCHEMA_HEADERS_CHANGED');
+    expect(health.failure).toHaveBeenCalledWith('FNS', 'SCHEMA_CHANGED', 'FNS_EXPECTED_SCHEMA_HEADERS_CHANGED', 'EGRUL');
   });
 });
