@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-gekta-composer-contract",
+  "status": "active",
+  "operationalStatus": "TAI_GEКTA_HOSTED_COMPOSER_CONTRACT_REPAIR",
+  "baseline": {
+    "branch": "main",
+    "commit": "7a9f0822498e57b90fb8c086545c41b7d3f06c4c"
+  },
+  "purpose": "Realign governed hosted Chromium acceptance with the current localized Gekta composer labels after protected activation and all RU/EN/ZH SSE checks passed but the browser reader waited for the removed pre-rebrand accessible name.",
+  "allowedPaths": [
+    ".github/workflows/tai-public-agro-semantic-live-acceptance.yml",
+    "apps/web/tests/unit/taiLiveBrowserMatrixContract.test.ts",
+    "docs/platform-v7/autopilot/scopes/tai-gekta-composer-contract.json",
+    "scripts/tai-live-public-ai-acceptance.mjs",
+    "scripts/tai-potato-mobile-live-acceptance.mjs"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "modelOrRoutingChange": false,
+    "databaseOrTenantChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "productionDeployment": false
+  },
+  "acceptance": [
+    "RU, EN and ZH browser drivers use the exact current composer accessible names published by PublicPlatformAssistant",
+    "the primary hosted matrix and the broad-agro mobile matrix no longer time out on the removed pre-rebrand label",
+    "the standalone serialized broad-agro live workflow uses the same Russian composer label",
+    "the contract test fails whenever component and governed live-reader labels diverge again",
+    "all existing streaming, context, correction, topic-shift, reset, stop, retry and mobile assertions remain unchanged"
+  ]
+}
