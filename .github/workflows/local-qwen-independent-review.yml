@@ -94,6 +94,17 @@ jobs:
           def line_text(raw_line):
               return raw_line[1:].rstrip('\r\n')
 
+          def hunk_line_kind(raw_line):
+              if raw_line.startswith('+'):
+                  return 'add'
+              if raw_line.startswith('-'):
+                  return 'delete'
+              if raw_line.startswith(' '):
+                  return 'context'
+              if raw_line.startswith('\\'):
+                  return 'metadata'
+              return 'invalid'
+
           def added_lines_for_hunk(header, body):
               match = hunk_re.match(header)
               if not match:
@@ -101,18 +112,26 @@ jobs:
               new_line = int(match.group(1))
               mapped = []
               for raw_line in body:
-                  if raw_line.startswith('+') and not raw_line.startswith('+++'):
+                  kind = hunk_line_kind(raw_line)
+                  if kind == 'add':
                       mapped.append({'line': new_line, 'text': line_text(raw_line)})
                       new_line += 1
-                  elif raw_line.startswith('-') and not raw_line.startswith('---'):
+                  elif kind == 'delete':
                       continue
-                  elif raw_line.startswith(' '):
+                  elif kind == 'context':
                       new_line += 1
-                  elif raw_line.startswith('\\'):
+                  elif kind == 'metadata':
                       continue
                   else:
                       raise SystemExit('Unexpected unified-diff hunk line.')
               return mapped
+
+          parser_probe = added_lines_for_hunk(
+              '@@ -10,1 +10,1 @@\n',
+              ['---value\n', '+++value\n'],
+          )
+          if parser_probe != [{'line': 10, 'text': '++value'}]:
+              raise SystemExit('Unified-diff marker regression: ++/-- source prefixes are not mapped exactly.')
 
           def add(text, start, end, source, path, added_lines):
               if not text or size(text) > max_chunk_bytes:
@@ -202,14 +221,15 @@ jobs:
 
                       part.append(raw_line)
                       used += line_bytes
-                      if raw_line.startswith('+') and not raw_line.startswith('+++'):
+                      kind = hunk_line_kind(raw_line)
+                      if kind == 'add':
                           part_added.append({'line': new_line, 'text': line_text(raw_line)})
                           new_line += 1
-                      elif raw_line.startswith('-') and not raw_line.startswith('---'):
+                      elif kind == 'delete':
                           pass
-                      elif raw_line.startswith(' '):
+                      elif kind == 'context':
                           new_line += 1
-                      elif raw_line.startswith('\\'):
+                      elif kind == 'metadata':
                           pass
                       else:
                           raise SystemExit(f'Unexpected hunk line: {path}')
@@ -509,7 +529,7 @@ jobs:
               exact_line = added.get(line)
               if exact_line is None:
                   return 'EVIDENCE_LINE_NOT_ADDED'
-              if evidence.strip() not in exact_line:
+              if evidence not in exact_line:
                   return 'EVIDENCE_NOT_ON_CITED_ADDED_LINE'
 
               combined = f'{title} {reason}'
@@ -609,6 +629,7 @@ jobs:
           }
           speculative_probe = dict(valid_probe, title='Potential information leakage')
           wrong_line_probe = dict(valid_probe, line=8)
+          padded_evidence_probe = dict(valid_probe, evidence='sanitize(input) ')
           external_probe = dict(
               valid_probe,
               title='Database nodes have divergent clocks',
@@ -620,6 +641,8 @@ jobs:
               fail('VALIDATOR_SELFTEST_SPECULATION_NOT_REJECTED')
           if finding_violation(probe_item, wrong_line_probe) != 'EVIDENCE_LINE_NOT_ADDED':
               fail('VALIDATOR_SELFTEST_LINE_BINDING_FAILED')
+          if finding_violation(probe_item, padded_evidence_probe) != 'EVIDENCE_NOT_ON_CITED_ADDED_LINE':
+              fail('VALIDATOR_SELFTEST_NON_VERBATIM_EVIDENCE_NOT_REJECTED')
           if finding_violation(probe_item, external_probe) != 'EXTERNAL_CONTEXT_ASSUMPTION':
               fail('VALIDATOR_SELFTEST_EXTERNAL_CONTEXT_FAILED')
 
@@ -1023,7 +1046,7 @@ jobs:
                   exact_line = added.get(line)
                   if exact_line is None:
                       raise SystemExit(f'Finding does not cite an added line in chunk {index}.')
-                  if evidence.strip() not in exact_line:
+                  if evidence not in exact_line:
                       raise SystemExit(f'Finding evidence is not on cited added line in chunk {index}.')
                   if not isinstance(title, str) or not 1 <= len(title.strip()) <= 80:
                       raise SystemExit(f'Invalid finding title in chunk {index}.')
@@ -1038,6 +1061,7 @@ jobs:
                   for term in external_terms:
                       if term in combined_lower and term not in chunk_lower:
                           raise SystemExit(f'External-context finding survived repair in chunk {index}.')
+
                   is_test_path = '/tests/' in finding['path'] or '.test.' in finding['path'] or '.spec.' in finding['path']
                   if is_test_path and security_classification.search(combined) and route_test_reference.search(combined):
                       raise SystemExit(f'Test-route security classification survived repair in chunk {index}.')
