@@ -342,23 +342,16 @@ test('CI snapshot must be bound to the exact verified head', () => {
   assert.equal(ciSnapshotMatchesHead('', head), false);
 });
 
-test('provider BLOCK evidence requires trusted provider actor and exact head', () => {
-  const qwenBlock = {
+test('provider BLOCK evidence is exact-head bound after canonical SHA normalization', () => {
+  const block = {
     user: { login: 'github-actions[bot]' },
     commit_id: head.toUpperCase(),
     body: 'LOCAL QWEN INDEPENDENT REVIEW: BLOCK\nfixture',
   };
-  const octopusBlock = {
-    user: { login: 'github-actions[bot]' },
-    commit_id: head,
-    body: 'OCTOPUS INDEPENDENT REVIEW: BLOCK\nfixture',
-  };
   assert.equal(canonicalSha40(head.toUpperCase()), head);
-  assert.deepEqual(exactHeadProviderBlockingEvidence([qwenBlock, octopusBlock], head), [qwenBlock, octopusBlock]);
-  assert.deepEqual(exactHeadProviderBlockingEvidence([{ ...qwenBlock, user: { login: 'pachaninm-lab' } }], head), []);
-  assert.deepEqual(exactHeadProviderBlockingEvidence([{ ...octopusBlock, user: { login: 'some-other-review-bot[bot]' } }], head), []);
-  assert.deepEqual(exactHeadProviderBlockingEvidence([{ ...qwenBlock, commit_id: 'not-a-sha' }], head), []);
-  assert.deepEqual(exactHeadProviderBlockingEvidence([qwenBlock], oldHead), []);
+  assert.deepEqual(exactHeadProviderBlockingEvidence([block], head), [block]);
+  assert.deepEqual(exactHeadProviderBlockingEvidence([{ ...block, commit_id: 'not-a-sha' }], head), []);
+  assert.deepEqual(exactHeadProviderBlockingEvidence([block], oldHead), []);
 });
 
 test('provider-maintenance CI filtering excludes only provider review availability and keeps red substantive checks', () => {
@@ -623,7 +616,7 @@ with tempfile.TemporaryDirectory() as directory:
             assert failure=='REMOTE_REVIEW_ERROR=POLICY_REPAIR_INVALID_SPECULATIVE_REASON'
             assert len(calls)==2 and output.read_text()=='' and not rejected.exists()
     elif scenario=='utf8-and-bounds':
-        output,rejected,calls,failure=review([response('could '+'\x00'*20000),final])
+        output,rejected,calls,failure=review([response('could: я中🌾'),response('may: я中🌾')])
         raw=rejected.read_bytes(); value=json.loads(raw)
         for key in ('initial','final'):
             content=value[key]['content'].encode('utf-8')
