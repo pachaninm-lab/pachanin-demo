@@ -154,7 +154,7 @@ function LotCard({ lot, locale }: { lot: PublicMarketLot; locale: Locale }) {
 
 function MarketState({ title, text }: { title: string; text: string }) {
   return (
-    <div className={styles.state} role='status'>
+    <div className={styles.state} data-testid='public-market-teaser-state'>
       <ShieldCheck aria-hidden='true' size={22} />
       <div><strong>{title}</strong><span>{text}</span></div>
     </div>
