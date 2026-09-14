@@ -79,19 +79,24 @@ jobs:
           printf '%s\n' "$gate_output"
           result_line="$(printf '%s\n' "$gate_output" | grep '^PR_REVIEW_GATE_RESULT=' | tail -n 1 || true)"
           [ -n "$result_line" ] || { echo 'Missing review gate result contract.' >&2; exit 31; }
-          result_json="${result_line#PR_REVIEW_GATE_RESULT=}"
-          printf '%s' "$result_json" | jq -e --arg head "$HEAD_SHA" '
-            type == "object"
-            and (keys | sort) == ["classification","head","reviewAuthority","schemaVersion","status"]
-            and .schemaVersion == "platform-v7.review-gate-result.v1"
-            and .status == "PASS"
-            and .head == $head
-            and (
-              (.classification == "SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW" and .reviewAuthority == "NONE")
-              or
-              (.classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN"))
-            )
-          ' >/dev/null || { echo 'Invalid review gate result contract.' >&2; exit 31; }
+          raw_result_json="${result_line#PR_REVIEW_GATE_RESULT=}"
+          if ! result_json="$(printf '%s' "$raw_result_json" | jq -ce --arg head "$HEAD_SHA" '
+            if (
+              type == "object"
+              and (keys | sort) == ["classification","head","reviewAuthority","schemaVersion","status"]
+              and .schemaVersion == "platform-v7.review-gate-result.v1"
+              and .status == "PASS"
+              and .head == $head
+              and (
+                (.classification == "SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW" and .reviewAuthority == "NONE")
+                or
+                (.classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN"))
+              )
+            ) then . else error("invalid review gate result contract") end
+          ')"; then
+            echo 'Invalid review gate result contract.' >&2
+            exit 31
+          fi
           mode="$(printf '%s' "$result_json" | jq -r '
             if .classification == "SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW" and .reviewAuthority == "NONE" then "BOOTSTRAP"
             elif .classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN") then "INDEPENDENT"
@@ -241,19 +246,24 @@ jobs:
           printf '%s\n' "$gate_output"
           result_line="$(printf '%s\n' "$gate_output" | grep '^PR_REVIEW_GATE_RESULT=' | tail -n 1 || true)"
           [ -n "$result_line" ] || { echo 'Missing review gate result contract.' >&2; exit 31; }
-          result_json="${result_line#PR_REVIEW_GATE_RESULT=}"
-          printf '%s' "$result_json" | jq -e --arg head "$HEAD_SHA" '
-            type == "object"
-            and (keys | sort) == ["classification","head","reviewAuthority","schemaVersion","status"]
-            and .schemaVersion == "platform-v7.review-gate-result.v1"
-            and .status == "PASS"
-            and .head == $head
-            and (
-              (.classification == "SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW" and .reviewAuthority == "NONE")
-              or
-              (.classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN"))
-            )
-          ' >/dev/null || { echo 'Invalid review gate result contract.' >&2; exit 31; }
+          raw_result_json="${result_line#PR_REVIEW_GATE_RESULT=}"
+          if ! result_json="$(printf '%s' "$raw_result_json" | jq -ce --arg head "$HEAD_SHA" '
+            if (
+              type == "object"
+              and (keys | sort) == ["classification","head","reviewAuthority","schemaVersion","status"]
+              and .schemaVersion == "platform-v7.review-gate-result.v1"
+              and .status == "PASS"
+              and .head == $head
+              and (
+                (.classification == "SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW" and .reviewAuthority == "NONE")
+                or
+                (.classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN"))
+              )
+            ) then . else error("invalid review gate result contract") end
+          ')"; then
+            echo 'Invalid review gate result contract.' >&2
+            exit 31
+          fi
           mode="$(printf '%s' "$result_json" | jq -r '
             if .classification == "SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW" and .reviewAuthority == "NONE" then "BOOTSTRAP"
             elif .classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN") then "INDEPENDENT"
@@ -407,19 +417,24 @@ jobs:
           printf '%s\n' "$gate_output"
           result_line="$(printf '%s\n' "$gate_output" | grep '^PR_REVIEW_GATE_RESULT=' | tail -n 1 || true)"
           [ -n "$result_line" ] || { echo 'Missing review gate result contract.' >&2; exit 31; }
-          result_json="${result_line#PR_REVIEW_GATE_RESULT=}"
-          printf '%s' "$result_json" | jq -e --arg head "$HEAD_SHA" '
-            type == "object"
-            and (keys | sort) == ["classification","head","reviewAuthority","schemaVersion","status"]
-            and .schemaVersion == "platform-v7.review-gate-result.v1"
-            and .status == "PASS"
-            and .head == $head
-            and (
-              (.classification == "SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW" and .reviewAuthority == "NONE")
-              or
-              (.classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN"))
-            )
-          ' >/dev/null || { echo 'Invalid review gate result contract.' >&2; exit 31; }
+          raw_result_json="${result_line#PR_REVIEW_GATE_RESULT=}"
+          if ! result_json="$(printf '%s' "$raw_result_json" | jq -ce --arg head "$HEAD_SHA" '
+            if (
+              type == "object"
+              and (keys | sort) == ["classification","head","reviewAuthority","schemaVersion","status"]
+              and .schemaVersion == "platform-v7.review-gate-result.v1"
+              and .status == "PASS"
+              and .head == $head
+              and (
+                (.classification == "SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW" and .reviewAuthority == "NONE")
+                or
+                (.classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN"))
+              )
+            ) then . else error("invalid review gate result contract") end
+          ')"; then
+            echo 'Invalid review gate result contract.' >&2
+            exit 31
+          fi
           mode="$(printf '%s' "$result_json" | jq -r '
             if .classification == "SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW" and .reviewAuthority == "NONE" then "BOOTSTRAP"
             elif .classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN") then "INDEPENDENT"
@@ -528,32 +543,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gate_output=''
-          if ! gate_output="$(node docs/platform-v7/autopilot/verify-pr-review-gate.mjs 2>&1)"; then
-            printf '%s\n' "$gate_output"
-            echo 'Automerge deferred: exact-head review/CI gate is not fully green yet.'
-            exit 0
-          fi
-          printf '%s\n' "$gate_output"
-          result_line="$(printf '%s\n' "$gate_output" | grep '^PR_REVIEW_GATE_RESULT=' | tail -n 1 || true)"
-          [ -n "$result_line" ] || {
-            echo 'Automerge deferred: verified review gate emitted no result contract.'
-            exit 0
-          }
-          result_json="${result_line#PR_REVIEW_GATE_RESULT=}"
-          if ! printf '%s' "$result_json" | jq -e --arg head "$HEAD_SHA" '
-            type == "object"
-            and (keys | sort) == ["classification","head","reviewAuthority","schemaVersion","status"]
-            and .schemaVersion == "platform-v7.review-gate-result.v1"
-            and .status == "PASS"
-            and .head == $head
-            and .classification == "INDEPENDENT_EXACT_HEAD_REVIEW"
-            and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN")
-          ' >/dev/null; then
-            echo 'Automerge deferred: genuine independent exact-head review authority is required.'
-            exit 0
-          fi
 
+          # Resolve live merge authorization before the final verifier pass. The verifier
+          # then re-reads review/thread/status/head state and is the last authority read
+          # before the SHA-preconditioned merge request.
           pr_state=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid,mergeable,isDraft,labels)
           current_head=$(printf '%s' "$pr_state" | jq -r '.headRefOid')
           mergeable=$(printf '%s' "$pr_state" | jq -r '.mergeable')
@@ -572,6 +565,38 @@ jobs:
             echo "Automerge deferred: mergeability=$mergeable"
             exit 0
           fi
+
+          gate_output=''
+          if ! gate_output="$(node docs/platform-v7/autopilot/verify-pr-review-gate.mjs 2>&1)"; then
+            printf '%s\n' "$gate_output"
+            echo 'Automerge deferred: exact-head review/CI gate is not fully green yet.'
+            exit 0
+          fi
+          printf '%s\n' "$gate_output"
+          result_line="$(printf '%s\n' "$gate_output" | grep '^PR_REVIEW_GATE_RESULT=' | tail -n 1 || true)"
+          [ -n "$result_line" ] || {
+            echo 'Automerge deferred: verified review gate emitted no result contract.'
+            exit 0
+          }
+          raw_result_json="${result_line#PR_REVIEW_GATE_RESULT=}"
+          if ! result_json="$(printf '%s' "$raw_result_json" | jq -ce --arg head "$HEAD_SHA" '
+            if (
+              type == "object"
+              and (keys | sort) == ["classification","head","reviewAuthority","schemaVersion","status"]
+              and .schemaVersion == "platform-v7.review-gate-result.v1"
+              and .status == "PASS"
+              and .head == $head
+              and .classification == "INDEPENDENT_EXACT_HEAD_REVIEW"
+              and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN")
+            ) then . else error("independent review authority required") end
+          ')"; then
+            echo 'Automerge deferred: genuine independent exact-head review authority is required.'
+            exit 0
+          fi
+          [ -n "$result_json" ] || {
+            echo 'Automerge deferred: validated review result contract is empty.'
+            exit 0
+          }
 
           result=$(gh api \
             --method PUT \
@@ -647,9 +672,27 @@ jobs:
               continue
             fi
 
-            # Scheduled reconciliation does not trust a label as merge authority. It
-            # requires the verifier's exact-head result contract to classify the
-            # authority as a genuine independent review on the same head.
+            # Resolve live merge authorization first. The verifier below is the final
+            # authority read immediately before the SHA-preconditioned merge request.
+            pr_state=$(gh pr view "$pr_number" --repo "$REPO" --json headRefOid,mergeable,isDraft,labels)
+            current_head=$(printf '%s' "$pr_state" | jq -r '.headRefOid')
+            mergeable=$(printf '%s' "$pr_state" | jq -r '.mergeable')
+            live_draft=$(printf '%s' "$pr_state" | jq -r '.isDraft')
+            live_automerge=$(printf '%s' "$pr_state" | jq -r '[.labels[].name] | index("automerge") != null')
+            live_generated=$(printf '%s' "$pr_state" | jq -r '[.labels[].name] | (index("platform-v7") != null and index("agent-generated") != null)')
+            if [ "$current_head" != "$head_sha" ]; then
+              echo "#$pr_number deferred: head moved before verification expected=$head_sha current=$current_head"
+              continue
+            fi
+            if [ "$live_draft" = true ] || [ "$live_automerge" != true ] || [ "$live_generated" = true ]; then
+              echo "#$pr_number deferred: live authorization changed draft=$live_draft automerge=$live_automerge generated=$live_generated"
+              continue
+            fi
+            if [ "$mergeable" != MERGEABLE ]; then
+              echo "#$pr_number deferred: mergeability=$mergeable"
+              continue
+            fi
+
             gate_output=''
             if ! gate_output="$(PR_NUMBER="$pr_number" HEAD_SHA="$head_sha" REQUIRE_GREEN_CI=1 node docs/platform-v7/autopilot/verify-pr-review-gate.mjs 2>&1)"; then
               printf '%s\n' "$gate_output"
@@ -662,36 +705,23 @@ jobs:
               echo "#$pr_number deferred: verified review gate emitted no result contract"
               continue
             fi
-            result_json="${result_line#PR_REVIEW_GATE_RESULT=}"
-            if ! printf '%s' "$result_json" | jq -e --arg head "$head_sha" '
-              type == "object"
-              and (keys | sort) == ["classification","head","reviewAuthority","schemaVersion","status"]
-              and .schemaVersion == "platform-v7.review-gate-result.v1"
-              and .status == "PASS"
-              and .head == $head
-              and .classification == "INDEPENDENT_EXACT_HEAD_REVIEW"
-              and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN")
-            ' >/dev/null; then
+            raw_result_json="${result_line#PR_REVIEW_GATE_RESULT=}"
+            if ! result_json="$(printf '%s' "$raw_result_json" | jq -ce --arg head "$head_sha" '
+              if (
+                type == "object"
+                and (keys | sort) == ["classification","head","reviewAuthority","schemaVersion","status"]
+                and .schemaVersion == "platform-v7.review-gate-result.v1"
+                and .status == "PASS"
+                and .head == $head
+                and .classification == "INDEPENDENT_EXACT_HEAD_REVIEW"
+                and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN")
+              ) then . else error("independent review authority required") end
+            ')"; then
               echo "#$pr_number deferred: genuine independent exact-head review authority is required"
               continue
             fi
-
-            pr_state=$(gh pr view "$pr_number" --repo "$REPO" --json headRefOid,mergeable,isDraft,labels)
-            current_head=$(printf '%s' "$pr_state" | jq -r '.headRefOid')
-            mergeable=$(printf '%s' "$pr_state" | jq -r '.mergeable')
-            live_draft=$(printf '%s' "$pr_state" | jq -r '.isDraft')
-            live_automerge=$(printf '%s' "$pr_state" | jq -r '[.labels[].name] | index("automerge") != null')
-            live_generated=$(printf '%s' "$pr_state" | jq -r '[.labels[].name] | (index("platform-v7") != null and index("agent-generated") != null)')
-            if [ "$current_head" != "$head_sha" ]; then
-              echo "#$pr_number deferred: head moved after verification expected=$head_sha current=$current_head"
-              continue
-            fi
-            if [ "$live_draft" = true ] || [ "$live_automerge" != true ] || [ "$live_generated" = true ]; then
-              echo "#$pr_number deferred: live authorization changed draft=$live_draft automerge=$live_automerge generated=$live_generated"
-              continue
-            fi
-            if [ "$mergeable" != MERGEABLE ]; then
-              echo "#$pr_number deferred: mergeability=$mergeable"
+            if [ -z "$result_json" ]; then
+              echo "#$pr_number deferred: validated review result contract is empty"
               continue
             fi
 

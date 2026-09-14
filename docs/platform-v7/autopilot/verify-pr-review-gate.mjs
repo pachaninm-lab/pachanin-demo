@@ -533,14 +533,17 @@ export function substantiveChecks(checks) {
   return (checks || []).filter((check) => !isIgnoredMergeGateCheck(check));
 }
 
+// Bootstrap CI evidence is intentionally narrower than ordinary merge CI:
+// remove self-deadlocking automation checks first, then remove provider-review availability checks only here.
 export function providerMaintenanceBootstrapSubstantiveChecks(checks) {
   const observed = substantiveChecks(checks);
   return observed.filter((check) => !isProviderReviewCheck(check));
 }
 
-function blockersForChecks(checks) {
+export function checkRollupBlockers(checks) {
   const blockers = [];
-  for (const check of checks) {
+
+  for (const check of substantiveChecks(checks)) {
     const name = checkName(check) || 'unnamed-check';
     const workflow = checkWorkflow(check);
     const status = String(check?.status || '').toUpperCase();
@@ -555,15 +558,30 @@ function blockersForChecks(checks) {
       blockers.push(`${workflow ? `${workflow} / ` : ''}${name}:${terminalState || 'UNKNOWN'}`);
     }
   }
+
   return blockers;
 }
 
-export function checkRollupBlockers(checks) {
-  return blockersForChecks(substantiveChecks(checks));
-}
-
 export function providerMaintenanceBootstrapCheckRollupBlockers(checks) {
-  return blockersForChecks(providerMaintenanceBootstrapSubstantiveChecks(checks));
+  const blockers = [];
+
+  for (const check of providerMaintenanceBootstrapSubstantiveChecks(checks)) {
+    const name = checkName(check) || 'unnamed-check';
+    const workflow = checkWorkflow(check);
+    const status = String(check?.status || '').toUpperCase();
+    const terminalState = String(check?.conclusion || check?.state || '').toUpperCase();
+
+    if (status && status !== 'COMPLETED') {
+      blockers.push(`${workflow ? `${workflow} / ` : ''}${name}:${status}`);
+      continue;
+    }
+
+    if (!terminalState || !GREEN_CHECK_STATES.has(terminalState)) {
+      blockers.push(`${workflow ? `${workflow} / ` : ''}${name}:${terminalState || 'UNKNOWN'}`);
+    }
+  }
+
+  return blockers;
 }
 
 export function ciSnapshotMatchesHead(snapshotHeadSha, expectedHeadSha) {
@@ -967,7 +985,7 @@ function main() {
   const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || '';
   const prNumber = Number(process.env.PR_NUMBER || 0);
   const expectedHeadInput = String(process.env.HEAD_SHA || '').trim();
-  const expectedHead = canonicalSha40(expectedHeadInput);
+  const expectedHead = expectedHeadInput;
   const requireGreenCi = process.env.REQUIRE_GREEN_CI === '1';
 
   if (!repo) fail('REVIEW_GATE_REPO_MISSING', 'REPO/GITHUB_REPOSITORY is required.');
@@ -996,11 +1014,8 @@ function main() {
     fail('REVIEW_GATE_HEAD_INVALID', `Invalid PR head SHA for #${prNumber}.`);
   }
   const headSha = headShaInput;
-  if (expectedHeadInput && !/^[0-9a-fA-F]{40}$/u.test(expectedHeadInput)) {
-    fail('REVIEW_GATE_EXPECTED_HEAD_INVALID', 'HEAD_SHA must be exactly 40 hexadecimal characters.');
-  }
-  if (expectedHeadInput && !expectedHead) {
-    fail('REVIEW_GATE_EXPECTED_HEAD_INVALID', 'HEAD_SHA normalization failed.');
+  if (expectedHeadInput && !/^[0-9a-f]{40}$/u.test(expectedHeadInput)) {
+    fail('REVIEW_GATE_EXPECTED_HEAD_INVALID', 'HEAD_SHA must be canonical lowercase SHA-40.');
   }
   if (expectedHead && expectedHead !== headSha) {
     fail('REVIEW_GATE_HEAD_MOVED', `Expected ${expectedHead}, current head is ${headSha}.`);
