@@ -9,6 +9,31 @@
 -- position or reservation identifier.
 BEGIN;
 
+-- Canonical Auction price authority moved to minor units in
+-- 20260715013100_auction_atomic_execution. The older *_rub_per_ton columns are
+-- retained only as compatibility mirrors for legacy reads; this projection
+-- deliberately consumes the canonical *_kopecks_per_ton column. Fail closed
+-- with a precise prerequisite error if migration history is ever incomplete.
+DO $minor_unit_contract$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_attribute a
+    JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
+    JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'auction'
+      AND c.relname = 'lots'
+      AND c.relkind IN ('r', 'p')
+      AND a.attname = 'start_price_kopecks_per_ton'
+      AND a.attnum > 0
+      AND NOT a.attisdropped
+      AND pg_catalog.format_type(a.atttypid, a.atttypmod) = 'bigint'
+  ) THEN
+    RAISE EXCEPTION 'PUBLIC_MARKET_REQUIRES_AUCTION_MINOR_UNIT_PRICE_AUTHORITY';
+  END IF;
+END
+$minor_unit_contract$;
+
 DO $authority$
 BEGIN
   IF NOT EXISTS (
@@ -161,6 +186,8 @@ REVOKE ALL ON FUNCTION auction.sync_public_market_lot_card() FROM PUBLIC;
 -- The lot->inventory binding FK and W2-B evidence trigger are deferred. Keep
 -- this projection trigger deferred as well: if any binding/evidence invariant
 -- fails, the whole transaction (including this projection write) rolls back.
+-- It intentionally observes every UPDATE because lot_version is part of the
+-- public freshness contract and canonical updates may advance that version.
 CREATE CONSTRAINT TRIGGER auction_public_market_lot_sync
 AFTER INSERT OR UPDATE OR DELETE ON auction.lots
 DEFERRABLE INITIALLY DEFERRED
