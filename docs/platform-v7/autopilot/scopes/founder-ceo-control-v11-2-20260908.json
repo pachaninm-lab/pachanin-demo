@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/founder-ceo-control-v11-2",
+  "status": "active",
+  "purpose": "Bound the PLATFORM_OWNER Founder/CEO Control Center migration from the audited v11.2 workbook to its explicit server-authoritative API, PostgreSQL authority, private staff UI, tests and documentation.",
+  "authorityBaseExactMain": "729132612c94746abb62a3102174b0a509b84046",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/ci.yml",
+    "codeql/insufficient-password-hash-corrected/upstream.lock.json",
+    "codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/platform-v7/autopilot/scopes/founder-ceo-control-v11-2-20260908.json",
+    "apps/api/prisma/migrations/20260908123000_founder_control_center/migration.sql",
+    "apps/api/src/app.module.ts",
+    "infra/kind/production-like/postgresql-runtime-grants.sql",
+    "apps/api/src/modules/founder-control/**",
+    "apps/api/src/modules/auth/codeqlPasswordHashModel.spec.ts",
+    "apps/api/src/modules/staff-access/staff-access.types.ts",
+    "apps/web/app/api/staff/founder-control/**",
+    "apps/web/app/platform-v7/staff/page.tsx",
+    "apps/web/components/platform-v7/staff/founder-control/**",
+    "apps/web/lib/platform-v7/founder-control-server.ts",
+    "apps/web/lib/platform-v7/founder-control-types.ts",
+    "apps/web/tests/unit/platformV7FounderControlCenter.test.ts",
+    "docs/platform-v7/founder-control-center.md",
+    ".github/workflows/local-qwen-independent-review.yml",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.mjs",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
+  ]
+}

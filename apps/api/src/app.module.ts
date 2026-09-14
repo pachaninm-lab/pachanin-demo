@@ -64,6 +64,7 @@ import { AccountingModule } from './modules/accounting/accounting.module';
 import { CommercialRulesModule } from './modules/commercial-rules/commercial-rules.module';
 import { ServiceMarketplaceModule } from './modules/service-marketplace/service-marketplace.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { FounderControlModule } from './modules/founder-control/founder-control.module';
 
 @Module({
   imports: [
@@ -126,6 +127,7 @@ import { InventoryModule } from './modules/inventory/inventory.module';
     CommercialRulesModule,
     ServiceMarketplaceModule,
     InventoryModule,
+    FounderControlModule,
   ],
   controllers: [HealthController],
   providers: [
