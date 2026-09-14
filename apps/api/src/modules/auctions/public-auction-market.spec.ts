@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const REPO_ROOT = resolve(__dirname, '../../../../..');
+const minorUnitMigrationPath = 'apps/api/prisma/migrations/20260715013100_auction_atomic_execution/migration.sql';
 const migrationPath = 'apps/api/prisma/migrations/20260913143000_public_market_lot_projection/migration.sql';
 const servicePath = 'apps/api/src/modules/auctions/public-auction-market.service.ts';
 const controllerPath = 'apps/api/src/modules/auctions/public-auction-market.controller.ts';
@@ -27,6 +28,18 @@ describe('anonymous public Auction market projection', () => {
     expect(migration).toContain("l.source_type = 'OTHER'");
     expect(migration).toContain('l.source_verified_at IS NULL');
     expect(migration).toContain('l.source_certificate_id IS NULL');
+  });
+
+  it('binds projected prices to the canonical minor-unit schema authority', () => {
+    const precursor = read(minorUnitMigrationPath);
+    const migration = read(migrationPath);
+    expect(precursor).toContain('ADD COLUMN IF NOT EXISTS start_price_kopecks_per_ton bigint');
+    expect(precursor).toContain('start_price_kopecks_per_ton = start_price_rub_per_ton * 100');
+    expect(migration).toContain("a.attname = 'start_price_kopecks_per_ton'");
+    expect(migration).toContain("pg_catalog.format_type(a.atttypid, a.atttypmod) = 'bigint'");
+    expect(migration).toContain('PUBLIC_MARKET_REQUIRES_AUCTION_MINOR_UNIT_PRICE_AUTHORITY');
+    expect(migration).toContain('l.start_price_kopecks_per_ton');
+    expect(migration).not.toContain('l.start_price_rub_per_ton');
   });
 
   it('keeps the public function anonymous and never returns the canonical lot or seller identity', () => {
@@ -125,11 +138,13 @@ describe('anonymous public Auction market projection', () => {
     expect(module).toContain('PublicAuctionMarketService');
   });
 
-  it('keeps the public web read unauthenticated, PostgreSQL-bound, metadata-minimal and fail-closed', () => {
+  it('keeps the public web read unauthenticated, bounded, PostgreSQL-bound, metadata-minimal and fail-closed', () => {
     const helper = read(webHelperPath);
     expect(helper).toContain("serverApiUrl('/market/lots')");
     expect(helper).toContain("cache: 'no-store'");
     expect(helper).toContain("headers: { accept: 'application/json' }");
+    expect(helper).toContain('PUBLIC_MARKET_FETCH_TIMEOUT_MS = 2_000');
+    expect(helper).toContain('signal: AbortSignal.timeout(PUBLIC_MARKET_FETCH_TIMEOUT_MS)');
     expect(helper).not.toContain('serverAuthHeaders');
     expect(helper).toContain("scope: 'PUBLIC_MARKET'");
     expect(helper).toContain("projection: 'ANONYMIZED_PUBLIC_MARKET'");
