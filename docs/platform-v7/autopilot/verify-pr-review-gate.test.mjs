@@ -342,16 +342,30 @@ test('CI snapshot must be bound to the exact verified head', () => {
   assert.equal(ciSnapshotMatchesHead('', head), false);
 });
 
-test('provider BLOCK evidence is exact-head bound after canonical SHA normalization', () => {
-  const block = {
+test('provider BLOCK evidence authenticates provider actor and exact head after canonical SHA normalization', () => {
+  const localQwenBlock = {
     user: { login: 'github-actions[bot]' },
     commit_id: head.toUpperCase(),
     body: 'LOCAL QWEN INDEPENDENT REVIEW: BLOCK\nfixture',
   };
+  const octopusBlock = {
+    user: { login: 'github-actions[bot]' },
+    commit_id: head,
+    body: 'OCTOPUS INDEPENDENT REVIEW: BLOCK\nfixture',
+  };
+  const forgedLocalQwen = { ...localQwenBlock, user: { login: 'untrusted-reviewer[bot]' } };
+  const forgedOctopus = { ...octopusBlock, user: { login: 'untrusted-reviewer[bot]' } };
+
   assert.equal(canonicalSha40(head.toUpperCase()), head);
-  assert.deepEqual(exactHeadProviderBlockingEvidence([block], head), [block]);
-  assert.deepEqual(exactHeadProviderBlockingEvidence([{ ...block, commit_id: 'not-a-sha' }], head), []);
-  assert.deepEqual(exactHeadProviderBlockingEvidence([block], oldHead), []);
+  assert.deepEqual(exactHeadProviderBlockingEvidence([localQwenBlock], head), [localQwenBlock]);
+  assert.deepEqual(exactHeadProviderBlockingEvidence([octopusBlock], head), [octopusBlock]);
+  assert.deepEqual(exactHeadProviderBlockingEvidence([forgedLocalQwen], head), []);
+  assert.deepEqual(exactHeadProviderBlockingEvidence([forgedOctopus], head), []);
+  assert.deepEqual(exactHeadProviderBlockingEvidence([{ ...localQwenBlock, commit_id: oldHead }], head), []);
+  assert.deepEqual(exactHeadProviderBlockingEvidence([{ ...octopusBlock, commit_id: oldHead }], head), []);
+  assert.deepEqual(exactHeadProviderBlockingEvidence([{ ...localQwenBlock, commit_id: 'not-a-sha' }], head), []);
+  assert.deepEqual(exactHeadProviderBlockingEvidence([{ ...octopusBlock, commit_id: 'g'.repeat(40) }], head), []);
+  assert.deepEqual(exactHeadProviderBlockingEvidence([localQwenBlock, octopusBlock], 'not-a-sha'), []);
 });
 
 test('provider-maintenance CI filtering excludes only provider review availability and keeps red substantive checks', () => {
