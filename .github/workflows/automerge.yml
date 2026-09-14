@@ -29,7 +29,7 @@ concurrency:
 
 jobs:
   exact-head-review-gate:
-    name: Exact-head Codex review gate
+    name: Exact-head review gate
     if: >-
       (github.event_name == 'pull_request_target' ||
        github.event_name == 'pull_request_review' ||
@@ -60,7 +60,7 @@ jobs:
           gh api --method POST "repos/$REPO/statuses/$HEAD_SHA" \
             -f state=pending \
             -f context=review-gate/exact-head \
-            -f description='Exact-head Codex review is being reconciled' \
+            -f description='Exact-head review gate is being reconciled' \
             >/dev/null
 
       - name: Verify review gate implementation and exact PR head
@@ -75,7 +75,35 @@ jobs:
         run: |
           set -euo pipefail
           node --test docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs
-          node docs/platform-v7/autopilot/verify-pr-review-gate.mjs
+          gate_output="$(node docs/platform-v7/autopilot/verify-pr-review-gate.mjs)"
+          printf '%s\n' "$gate_output"
+          result_line="$(printf '%s\n' "$gate_output" | grep '^PR_REVIEW_GATE_RESULT=' | tail -n 1 || true)"
+          [ -n "$result_line" ] || { echo 'Missing review gate result contract.' >&2; exit 31; }
+          raw_result_json="${result_line#PR_REVIEW_GATE_RESULT=}"
+          if ! result_json="$(printf '%s' "$raw_result_json" | jq -ce --arg head "$HEAD_SHA" '
+            if (
+              type == "object"
+              and (keys | sort) == ["classification","head","reviewAuthority","schemaVersion","status"]
+              and .schemaVersion == "platform-v7.review-gate-result.v1"
+              and .status == "PASS"
+              and .head == $head
+              and (
+                (.classification == "SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW" and .reviewAuthority == "NONE")
+                or
+                (.classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN"))
+              )
+            ) then . else error("invalid review gate result contract") end
+          ')"; then
+            echo 'Invalid review gate result contract.' >&2
+            exit 31
+          fi
+          mode="$(printf '%s' "$result_json" | jq -r '
+            if .classification == "SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW" and .reviewAuthority == "NONE" then "BOOTSTRAP"
+            elif .classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN") then "INDEPENDENT"
+            else empty end
+          ')"
+          [ -n "$mode" ] || { echo 'Invalid review gate classification/authority pair.' >&2; exit 31; }
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
 
       - name: Publish exact-head review status and visible label
         if: always()
@@ -85,13 +113,14 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           GATE_OUTCOME: ${{ steps.gate.outcome }}
+          GATE_MODE: ${{ steps.gate.outputs.mode }}
         shell: bash
         run: |
           set -euo pipefail
           gh label create review-gate-passed \
             --repo "$REPO" \
             --color 0E8A16 \
-            --description 'Exact-head Codex review complete; no active unresolved review findings' \
+            --description 'Exact-head review gate complete; no active unresolved review findings' \
             >/dev/null 2>&1 || true
 
           live=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid,isDraft,state)
@@ -109,13 +138,20 @@ jobs:
             state=failure
             description='Exact-head review authority invalidated by current PR state'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
-          elif [ "$GATE_OUTCOME" = success ]; then
+          # BOOTSTRAP is a provider-neutral governance classification only. The trusted
+          # verifier already proved merged source-controlled eligibility; this path
+          # never creates independent-review authority or the merge-authorizing label.
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ]; then
             state=success
-            description='Exact-head Codex review passed with no current unresolved findings'
+            description='Scoped provider-maintenance bootstrap eligibility verified; no independent provider PASS asserted'
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = INDEPENDENT ]; then
+            state=success
+            description='Exact-head independent review passed; no current unresolved findings'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
           else
             state=failure
-            description='Exact-head Codex review is missing or has blocking findings'
+            description='Exact-head review gate is missing, invalid, or has blocking findings'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
           fi
 
@@ -136,7 +172,7 @@ jobs:
           exit 1
 
   exact-head-clean-comment-gate:
-    name: Exact-head Codex clean-comment gate
+    name: Exact-head clean-comment gate
     if: >-
       github.event_name == 'issue_comment' &&
       github.event.issue.pull_request &&
@@ -190,7 +226,7 @@ jobs:
           gh api --method POST "repos/$REPO/statuses/$HEAD_SHA" \
             -f state=pending \
             -f context=review-gate/exact-head \
-            -f description='Exact-head Codex clean-review evidence is being reconciled' \
+            -f description='Exact-head clean-review evidence is being reconciled' \
             >/dev/null
 
       - name: Verify exact-head clean-review evidence
@@ -206,7 +242,35 @@ jobs:
         run: |
           set -euo pipefail
           node --test docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs
-          node docs/platform-v7/autopilot/verify-pr-review-gate.mjs
+          gate_output="$(node docs/platform-v7/autopilot/verify-pr-review-gate.mjs)"
+          printf '%s\n' "$gate_output"
+          result_line="$(printf '%s\n' "$gate_output" | grep '^PR_REVIEW_GATE_RESULT=' | tail -n 1 || true)"
+          [ -n "$result_line" ] || { echo 'Missing review gate result contract.' >&2; exit 31; }
+          raw_result_json="${result_line#PR_REVIEW_GATE_RESULT=}"
+          if ! result_json="$(printf '%s' "$raw_result_json" | jq -ce --arg head "$HEAD_SHA" '
+            if (
+              type == "object"
+              and (keys | sort) == ["classification","head","reviewAuthority","schemaVersion","status"]
+              and .schemaVersion == "platform-v7.review-gate-result.v1"
+              and .status == "PASS"
+              and .head == $head
+              and (
+                (.classification == "SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW" and .reviewAuthority == "NONE")
+                or
+                (.classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN"))
+              )
+            ) then . else error("invalid review gate result contract") end
+          ')"; then
+            echo 'Invalid review gate result contract.' >&2
+            exit 31
+          fi
+          mode="$(printf '%s' "$result_json" | jq -r '
+            if .classification == "SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW" and .reviewAuthority == "NONE" then "BOOTSTRAP"
+            elif .classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN") then "INDEPENDENT"
+            else empty end
+          ')"
+          [ -n "$mode" ] || { echo 'Invalid review gate classification/authority pair.' >&2; exit 31; }
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
 
       - name: Publish exact-head clean-review status and visible label
         if: always() && steps.live.outputs.active == 'true'
@@ -216,13 +280,14 @@ jobs:
           PR_NUMBER: ${{ github.event.issue.number }}
           HEAD_SHA: ${{ steps.live.outputs.head_sha }}
           GATE_OUTCOME: ${{ steps.clean_gate.outcome }}
+          GATE_MODE: ${{ steps.clean_gate.outputs.mode }}
         shell: bash
         run: |
           set -euo pipefail
           gh label create review-gate-passed \
             --repo "$REPO" \
             --color 0E8A16 \
-            --description 'Exact-head Codex review complete; no active unresolved review findings' \
+            --description 'Exact-head review gate complete; no active unresolved review findings' \
             >/dev/null 2>&1 || true
 
           live=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid,isDraft,state)
@@ -240,13 +305,20 @@ jobs:
             state=failure
             description='Exact-head review authority invalidated by current PR state'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
-          elif [ "$GATE_OUTCOME" = success ]; then
+          # BOOTSTRAP success is only a source-controlled maintenance classification.
+          # The verifier established eligibility; this publisher does not create an
+          # independent provider PASS and always removes the merge-authorizing label.
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ]; then
             state=success
-            description='Exact-head Codex review passed with no current unresolved findings'
+            description='Scoped provider-maintenance bootstrap eligibility verified; no independent provider PASS asserted'
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = INDEPENDENT ]; then
+            state=success
+            description='Exact-head independent review passed; no current unresolved findings'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
           else
             state=failure
-            description='Exact-head Codex clean-review evidence is missing or blocking findings remain'
+            description='Exact-head clean-review evidence is missing, invalid, or blocking findings remain'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
           fi
 
@@ -263,7 +335,7 @@ jobs:
       - name: Enforce clean-comment gate result
         if: steps.live.outputs.active == 'true' && steps.clean_gate.outcome != 'success'
         run: |
-          echo 'Exact-head Codex clean-comment gate is not satisfied.' >&2
+          echo 'Exact-head clean-comment gate is not satisfied.' >&2
           exit 1
 
   exact-head-dispatched-gate:
@@ -341,7 +413,35 @@ jobs:
         run: |
           set -euo pipefail
           node --test docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs
-          node docs/platform-v7/autopilot/verify-pr-review-gate.mjs
+          gate_output="$(node docs/platform-v7/autopilot/verify-pr-review-gate.mjs)"
+          printf '%s\n' "$gate_output"
+          result_line="$(printf '%s\n' "$gate_output" | grep '^PR_REVIEW_GATE_RESULT=' | tail -n 1 || true)"
+          [ -n "$result_line" ] || { echo 'Missing review gate result contract.' >&2; exit 31; }
+          raw_result_json="${result_line#PR_REVIEW_GATE_RESULT=}"
+          if ! result_json="$(printf '%s' "$raw_result_json" | jq -ce --arg head "$HEAD_SHA" '
+            if (
+              type == "object"
+              and (keys | sort) == ["classification","head","reviewAuthority","schemaVersion","status"]
+              and .schemaVersion == "platform-v7.review-gate-result.v1"
+              and .status == "PASS"
+              and .head == $head
+              and (
+                (.classification == "SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW" and .reviewAuthority == "NONE")
+                or
+                (.classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN"))
+              )
+            ) then . else error("invalid review gate result contract") end
+          ')"; then
+            echo 'Invalid review gate result contract.' >&2
+            exit 31
+          fi
+          mode="$(printf '%s' "$result_json" | jq -r '
+            if .classification == "SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW" and .reviewAuthority == "NONE" then "BOOTSTRAP"
+            elif .classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN") then "INDEPENDENT"
+            else empty end
+          ')"
+          [ -n "$mode" ] || { echo 'Invalid review gate classification/authority pair.' >&2; exit 31; }
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
 
       - name: Publish scheduled review status and visible label
         if: always() && steps.live.outputs.active == 'true'
@@ -351,13 +451,14 @@ jobs:
           PR_NUMBER: ${{ github.event.client_payload.pr_number }}
           HEAD_SHA: ${{ steps.live.outputs.head_sha }}
           GATE_OUTCOME: ${{ steps.dispatched_gate.outcome }}
+          GATE_MODE: ${{ steps.dispatched_gate.outputs.mode }}
         shell: bash
         run: |
           set -euo pipefail
           gh label create review-gate-passed \
             --repo "$REPO" \
             --color 0E8A16 \
-            --description 'Exact-head Codex review complete; no active unresolved review findings' \
+            --description 'Exact-head review gate complete; no active unresolved review findings' \
             >/dev/null 2>&1 || true
 
           live=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid,isDraft,state)
@@ -375,13 +476,20 @@ jobs:
             state=failure
             description='Exact-head review authority invalidated by current PR state'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
-          elif [ "$GATE_OUTCOME" = success ]; then
+          # Scheduled BOOTSTRAP publication is provider-neutral status only; the trusted
+          # verifier proved merged authority eligibility, and merge jobs still require
+          # a typed INDEPENDENT_EXACT_HEAD_REVIEW result directly from the verifier.
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ]; then
             state=success
-            description='Exact-head Codex review passed with no current unresolved findings'
+            description='Scoped provider-maintenance bootstrap eligibility verified; no independent provider PASS asserted'
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = INDEPENDENT ]; then
+            state=success
+            description='Exact-head independent review passed; no current unresolved findings'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label review-gate-passed >/dev/null
           else
             state=failure
-            description='Exact-head Codex review is missing or has blocking findings'
+            description='Exact-head review gate is missing, invalid, or has blocking findings'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
           fi
 
@@ -435,11 +543,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if ! node docs/platform-v7/autopilot/verify-pr-review-gate.mjs; then
-            echo 'Automerge deferred: exact-head review/CI gate is not fully green yet.'
-            exit 0
-          fi
 
+          # Resolve live merge authorization before the final verifier pass. The verifier
+          # then re-reads review/thread/status/head state and is the last authority read
+          # before the SHA-preconditioned merge request.
           pr_state=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid,mergeable,isDraft,labels)
           current_head=$(printf '%s' "$pr_state" | jq -r '.headRefOid')
           mergeable=$(printf '%s' "$pr_state" | jq -r '.mergeable')
@@ -458,6 +565,38 @@ jobs:
             echo "Automerge deferred: mergeability=$mergeable"
             exit 0
           fi
+
+          gate_output=''
+          if ! gate_output="$(node docs/platform-v7/autopilot/verify-pr-review-gate.mjs 2>&1)"; then
+            printf '%s\n' "$gate_output"
+            echo 'Automerge deferred: exact-head review/CI gate is not fully green yet.'
+            exit 0
+          fi
+          printf '%s\n' "$gate_output"
+          result_line="$(printf '%s\n' "$gate_output" | grep '^PR_REVIEW_GATE_RESULT=' | tail -n 1 || true)"
+          [ -n "$result_line" ] || {
+            echo 'Automerge deferred: verified review gate emitted no result contract.'
+            exit 0
+          }
+          raw_result_json="${result_line#PR_REVIEW_GATE_RESULT=}"
+          if ! result_json="$(printf '%s' "$raw_result_json" | jq -ce --arg head "$HEAD_SHA" '
+            if (
+              type == "object"
+              and (keys | sort) == ["classification","head","reviewAuthority","schemaVersion","status"]
+              and .schemaVersion == "platform-v7.review-gate-result.v1"
+              and .status == "PASS"
+              and .head == $head
+              and .classification == "INDEPENDENT_EXACT_HEAD_REVIEW"
+              and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN")
+            ) then . else error("independent review authority required") end
+          ')"; then
+            echo 'Automerge deferred: genuine independent exact-head review authority is required.'
+            exit 0
+          fi
+          [ -n "$result_json" ] || {
+            echo 'Automerge deferred: validated review result contract is empty.'
+            exit 0
+          }
 
           result=$(gh api \
             --method PUT \
@@ -533,14 +672,8 @@ jobs:
               continue
             fi
 
-            # Scheduled reconciliation never publishes or removes review-gate-passed.
-            # Per-PR event/repository-dispatch gates own the visible label/status. The
-            # scheduler is merge authority only after the exact-head verifier passes.
-            if ! PR_NUMBER="$pr_number" HEAD_SHA="$head_sha" REQUIRE_GREEN_CI=1 node docs/platform-v7/autopilot/verify-pr-review-gate.mjs; then
-              echo "#$pr_number deferred: exact-head review/CI gate not terminal green"
-              continue
-            fi
-
+            # Resolve live merge authorization first. The verifier below is the final
+            # authority read immediately before the SHA-preconditioned merge request.
             pr_state=$(gh pr view "$pr_number" --repo "$REPO" --json headRefOid,mergeable,isDraft,labels)
             current_head=$(printf '%s' "$pr_state" | jq -r '.headRefOid')
             mergeable=$(printf '%s' "$pr_state" | jq -r '.mergeable')
@@ -548,7 +681,7 @@ jobs:
             live_automerge=$(printf '%s' "$pr_state" | jq -r '[.labels[].name] | index("automerge") != null')
             live_generated=$(printf '%s' "$pr_state" | jq -r '[.labels[].name] | (index("platform-v7") != null and index("agent-generated") != null)')
             if [ "$current_head" != "$head_sha" ]; then
-              echo "#$pr_number deferred: head moved after verification expected=$head_sha current=$current_head"
+              echo "#$pr_number deferred: head moved before verification expected=$head_sha current=$current_head"
               continue
             fi
             if [ "$live_draft" = true ] || [ "$live_automerge" != true ] || [ "$live_generated" = true ]; then
@@ -557,6 +690,38 @@ jobs:
             fi
             if [ "$mergeable" != MERGEABLE ]; then
               echo "#$pr_number deferred: mergeability=$mergeable"
+              continue
+            fi
+
+            gate_output=''
+            if ! gate_output="$(PR_NUMBER="$pr_number" HEAD_SHA="$head_sha" REQUIRE_GREEN_CI=1 node docs/platform-v7/autopilot/verify-pr-review-gate.mjs 2>&1)"; then
+              printf '%s\n' "$gate_output"
+              echo "#$pr_number deferred: exact-head review/CI gate not terminal green"
+              continue
+            fi
+            printf '%s\n' "$gate_output"
+            result_line="$(printf '%s\n' "$gate_output" | grep '^PR_REVIEW_GATE_RESULT=' | tail -n 1 || true)"
+            if [ -z "$result_line" ]; then
+              echo "#$pr_number deferred: verified review gate emitted no result contract"
+              continue
+            fi
+            raw_result_json="${result_line#PR_REVIEW_GATE_RESULT=}"
+            if ! result_json="$(printf '%s' "$raw_result_json" | jq -ce --arg head "$head_sha" '
+              if (
+                type == "object"
+                and (keys | sort) == ["classification","head","reviewAuthority","schemaVersion","status"]
+                and .schemaVersion == "platform-v7.review-gate-result.v1"
+                and .status == "PASS"
+                and .head == $head
+                and .classification == "INDEPENDENT_EXACT_HEAD_REVIEW"
+                and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN")
+              ) then . else error("independent review authority required") end
+            ')"; then
+              echo "#$pr_number deferred: genuine independent exact-head review authority is required"
+              continue
+            fi
+            if [ -z "$result_json" ]; then
+              echo "#$pr_number deferred: validated review result contract is empty"
               continue
             fi
 
