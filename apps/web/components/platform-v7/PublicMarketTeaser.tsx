@@ -18,6 +18,8 @@ const COPY = {
     ends: 'Торги до',
     grade: 'Класс / сорт',
     fullAccess: 'Полная карточка, контрагент, предложение и ставка доступны только после входа.',
+    details: 'Подробнее после входа',
+    bid: 'Сделать ставку',
     register: 'Зарегистрироваться',
     login: 'Войти',
     source: 'Источник: PostgreSQL · обезличенная публичная проекция',
@@ -39,6 +41,8 @@ const COPY = {
     ends: 'Bidding until',
     grade: 'Grade',
     fullAccess: 'Full lot details, counterparty, offers and bidding require sign-in.',
+    details: 'View details after sign-in',
+    bid: 'Place a bid',
     register: 'Register',
     login: 'Sign in',
     source: 'Source: PostgreSQL · anonymized public projection',
@@ -60,6 +64,8 @@ const COPY = {
     ends: '竞价截止',
     grade: '等级',
     fullAccess: '完整批次、交易方、报价和竞价功能仅在登录后开放。',
+    details: '登录后查看详情',
+    bid: '参与竞价',
     register: '注册',
     login: '登录',
     source: '来源：PostgreSQL · 匿名公开投影',
@@ -138,6 +144,8 @@ async function PublicMarketLotResults({ locale }: { locale: Locale }) {
 function LotCard({ lot, locale }: { lot: PublicMarketLot; locale: Locale }) {
   const copy = COPY[locale];
   const culture = cultureLabel(lot.culture, locale);
+  const registerHref = `/platform-v7/register?lang=${encodeURIComponent(locale)}`;
+  const loginHref = `/platform-v7/login?lang=${encodeURIComponent(locale)}`;
   return (
     <article className={styles.card} data-testid='public-market-lot-card'>
       <div className={styles.cardTop}>
@@ -161,6 +169,13 @@ function LotCard({ lot, locale }: { lot: PublicMarketLot; locale: Locale }) {
       <div className={styles.disclosure}>
         <ShieldCheck aria-hidden='true' size={16} />
         <span><b>{copy.declared}</b><small>{copy.unverified}</small></span>
+      </div>
+
+      <div className={styles.meta} data-testid='public-market-lot-actions'>
+        <div className={styles.actions}>
+          <a className={styles.secondary} href={loginHref}>{copy.details}</a>
+          <a className={styles.primary} href={registerHref}>{copy.bid}<ArrowRight aria-hidden='true' size={16} /></a>
+        </div>
       </div>
     </article>
   );
