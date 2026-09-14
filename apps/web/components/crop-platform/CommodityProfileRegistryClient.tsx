@@ -15,6 +15,7 @@ import {
   type CommodityProfileLocale,
 } from './commodity-profile-live-adapter';
 import styles from './CommodityProfileRegistryClient.module.css';
+import { secureRandomId } from '@/lib/browser-security-capabilities';
 
 type StablePhase = 'loading' | 'ready' | 'empty' | 'error' | 'forbidden' | 'conflict';
 type LiveState = StablePhase | 'reconnecting';
@@ -158,7 +159,7 @@ async function staffAwareGet(path: string, signal: AbortSignal): Promise<Respons
 }
 
 function commandToken(prefix: string): string {
-  return `${prefix}-${crypto.randomUUID()}`;
+  return secureRandomId(prefix);
 }
 
 export function CommodityProfileRegistryClient({

@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "note": "Sites the browser-capability rule does not apply to, each with the reason a reviewer can check. An entry is not a way to defer work: it states why the value is not a security identifier, or why the file cannot be edited here.",
+  "exceptions": [
+    {
+      "path": "apps/web/components/gekta/GektaChatWorkspace.tsx",
+      "reason": "The id() helper builds local message and conversation ids used as React keys and list identity. They never travel to the server as an idempotency or command identifier and nothing authorizes on them. Some of those calls run while parsing a response, so refusing there would blank the chat rather than protect anything. The file is also frozen by the immutability register in tests/unit/platformV7RootWorkEntry.test.ts, which binds it to an accepted parent, so the marker cannot be written at the site.",
+      "immutableRegister": true
+    }
+  ]
+}

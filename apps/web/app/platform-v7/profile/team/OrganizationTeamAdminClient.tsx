@@ -4,6 +4,7 @@ import * as React from 'react';
 import { applyCsrfHeader } from '@/lib/csrf';
 import type { OrganizationTeamMember } from '@/lib/organization-team-server';
 import styles from './OrganizationTeamAdminClient.module.css';
+import { BROWSER_SECURITY_REFUSAL, secureRandomId } from '@/lib/browser-security-capabilities';
 
 type Locale = 'ru' | 'en' | 'zh';
 type Invitation = {
@@ -104,7 +105,7 @@ export function OrganizationTeamAdminClient({
   const [memberRoles, setMemberRoles] = React.useState<Record<string, string>>(
     () => Object.fromEntries(members.map((member) => [member.membershipId, member.role])),
   );
-  const inviteKey = React.useRef(globalThis.crypto?.randomUUID?.() || `invite-${Date.now()}`);
+  const inviteKey = React.useRef<string | null>(null);
 
   const refresh = React.useCallback(async () => {
     if (!freshMfa) return;
@@ -178,15 +179,18 @@ export function OrganizationTeamAdminClient({
     const role = String(form.get('role') || 'GUEST');
     setBusy('invite'); setError(''); setMessage('');
     try {
+      // The key has to survive a retry, so it is resolved once and kept; a
+      // browser that cannot produce one is reported, never given a weaker key.
+      inviteKey.current ??= secureRandomId('invite');
       const response = await fetch('/api/auth/organization-invitations', {
         method: 'POST',
-        headers: applyCsrfHeader({ 'Content-Type': 'application/json', 'idempotency-key': inviteKey.current }),
+        headers: applyCsrfHeader({ 'Content-Type': 'application/json', 'idempotency-key': inviteKey.current as string }),
         body: JSON.stringify({ email, role, locale }),
         cache: 'no-store', credentials: 'same-origin', signal: AbortSignal.timeout(15_000),
       });
       const payload = await readJson(response);
       if (!response.ok) throw new Error(String(payload.correlationId || ''));
-      inviteKey.current = globalThis.crypto?.randomUUID?.() || `invite-${Date.now()}`;
+      inviteKey.current = secureRandomId('invite');
       event.currentTarget.reset();
       setMessage(`${copy.success} ${copy.correlation}: ${String(payload.correlationId || '—')}`);
       await refresh();
@@ -206,7 +210,7 @@ export function OrganizationTeamAdminClient({
         : `/api/proxy/auth/organization-invitations/${encodeURIComponent(invitationId)}/revoke`;
       const response = await fetch(url, {
         method: 'POST',
-        headers: applyCsrfHeader({ 'Content-Type': 'application/json', 'idempotency-key': globalThis.crypto.randomUUID() }),
+        headers: applyCsrfHeader({ 'Content-Type': 'application/json', 'idempotency-key': secureRandomId('') }),
         body: JSON.stringify({ reason: command === 'resend' ? 'Resent by organization administrator' : 'Revoked by organization administrator', locale }),
         cache: 'no-store', credentials: 'same-origin', signal: AbortSignal.timeout(15_000),
       });
@@ -229,7 +233,7 @@ export function OrganizationTeamAdminClient({
       const application = joins.find((item) => item.applicationId === applicationId);
       if (!application) throw new Error('join_request_not_found');
       const idempotencyKey = stableJoinDecisionKey(applicationId, application.version, decision);
-      const correlationId = globalThis.crypto.randomUUID();
+      const correlationId = secureRandomId('');
       const response = await fetch(`/api/auth/organization-join-requests/${encodeURIComponent(applicationId)}/decision`, {
         method: 'POST',
         headers: applyCsrfHeader({
@@ -260,7 +264,7 @@ export function OrganizationTeamAdminClient({
         : `/api/proxy/auth/organization-memberships/${encodeURIComponent(member.membershipId)}/${command}`;
       const response = await fetch(url, {
         method: 'POST',
-        headers: applyCsrfHeader({ 'Content-Type': 'application/json', 'idempotency-key': globalThis.crypto.randomUUID() }),
+        headers: applyCsrfHeader({ 'Content-Type': 'application/json', 'idempotency-key': secureRandomId('') }),
         body: JSON.stringify({
           version: member.version,
           reason: command === 'role'

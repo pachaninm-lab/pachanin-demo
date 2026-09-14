@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import type { AppLocale } from '@/i18n/locale';
 import styles from './RegistrationReviewQueue.module.css';
+import { BrowserSecurityUnsupportedError, missingBrowserSecurityFeatures } from '@/lib/browser-security-capabilities';
 
 type ReviewDecision = 'APPROVE' | 'REJECT' | 'REQUEST_INFORMATION' | 'SUSPEND';
 
@@ -197,6 +198,8 @@ const COPY = {
 
 async function decisionMarker(value: string) {
   const bytes = new TextEncoder().encode(value);
+  const missing = missingBrowserSecurityFeatures(undefined, ['secureContext', 'subtleCrypto']);
+  if (missing.length > 0) throw new BrowserSecurityUnsupportedError(missing);
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(digest))
     .slice(0, 16)

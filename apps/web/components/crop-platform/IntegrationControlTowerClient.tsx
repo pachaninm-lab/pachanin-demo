@@ -20,6 +20,7 @@ import {
   type IntegrationHonestStatus,
 } from './integration-control-tower-live-adapter';
 import styles from './IntegrationControlTowerClient.module.css';
+import { secureRandomId } from '@/lib/browser-security-capabilities';
 
 type StablePhase = 'loading' | 'ready' | 'empty' | 'error' | 'forbidden' | 'conflict' | 'stale';
 type LiveState = StablePhase | 'reconnecting' | 'degraded';
@@ -235,7 +236,7 @@ async function staffAwareGet(path: string, signal: AbortSignal): Promise<Respons
 }
 
 function commandToken(prefix: string): string {
-  return `${prefix}-${crypto.randomUUID()}`;
+  return secureRandomId(prefix);
 }
 
 export function IntegrationControlTowerClient({

@@ -9,6 +9,7 @@ import {
   readMarketingAttributionToken,
 } from '@/lib/platform-v7/marketing-attribution';
 import styles from './OrganizationConnectForm.module.css';
+import { BROWSER_SECURITY_REFUSAL, isBrowserSecurityUnsupported, secureRandomId } from '@/lib/browser-security-capabilities';
 
 type IntakeResult = {
   requestNumber: string;
@@ -21,7 +22,7 @@ type FailureCode = 'RATE_LIMITED' | 'IDEMPOTENCY_CONFLICT' | 'INVALID_REQUEST' |
 type Step = 1 | 2;
 
 function newIdempotencyKey(): string {
-  return `public-org-connect:${globalThis.crypto.randomUUID()}`;
+  return secureRandomId('public-org-connect:');
 }
 
 export function OrganizationConnectForm({ locale }: { locale: string }) {
@@ -39,7 +40,13 @@ export function OrganizationConnectForm({ locale }: { locale: string }) {
   const organizationRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    idempotencyKey.current = newIdempotencyKey();
+    // A browser without Web Crypto is reported at submit, where there is
+    // somewhere to say it; throwing out of an effect would only blank the form.
+    try {
+      idempotencyKey.current = newIdempotencyKey();
+    } catch {
+      idempotencyKey.current = '';
+    }
 
     const search = globalThis.location?.search ?? '';
     // Public query parameters are UX hints only. The opaque `ma` token is
@@ -178,16 +185,30 @@ export function OrganizationConnectForm({ locale }: { locale: string }) {
       window.dispatchEvent(new CustomEvent('pc:public-product-analytics', {
         detail: { name: 'organization_request_accepted', locale, replay: accepted.replay },
       }));
-    } catch {
-      setErrorCode('INTAKE_UNAVAILABLE');
-      setError(copy.unavailable);
+    } catch (cause) {
+      if (isBrowserSecurityUnsupported(cause)) {
+        // Not a FailureCode: the intake never ran, so there is no server
+        // outcome to name. The message says what the browser could not do.
+        setErrorCode('');
+        setError(BROWSER_SECURITY_REFUSAL);
+      } else {
+        setErrorCode('INTAKE_UNAVAILABLE');
+        setError(copy.unavailable);
+      }
     } finally {
       setSubmitting(false);
     }
   }
 
   function retry() {
-    if (errorCode === 'IDEMPOTENCY_CONFLICT') idempotencyKey.current = newIdempotencyKey();
+    if (errorCode === 'IDEMPOTENCY_CONFLICT') {
+      try {
+        idempotencyKey.current = newIdempotencyKey();
+      } catch {
+        setError(BROWSER_SECURITY_REFUSAL);
+        return;
+      }
+    }
     setError('');
     setErrorCode('');
   }

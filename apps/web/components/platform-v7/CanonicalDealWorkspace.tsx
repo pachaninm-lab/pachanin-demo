@@ -19,6 +19,7 @@ import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import { DealCommandForm } from '@/components/platform-v7/DealCommandForm';
 import { applyCsrfHeader } from '@/lib/csrf';
 import styles from './CanonicalDealWorkspace.module.css';
+import { BROWSER_SECURITY_REFUSAL, secureRandomId } from '@/lib/browser-security-capabilities';
 
 type SpineState = 'done' | 'active' | 'pending';
 type ActionSource = 'USER' | 'BANK_CALLBACK';
@@ -246,7 +247,13 @@ export function CanonicalDealWorkspace({ role, dealId }: { role: PlatformRole; d
     const isSystemAction = action?.source === 'BANK_CALLBACK' || action?.waitingForRoles.includes('BANK_CALLBACK');
     if (!workspace || !action?.enabled || isSystemAction || submitting || workspace.blockers.length > 0) return;
 
-    const commandId = globalThis.crypto?.randomUUID?.() ?? `command-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    let commandId: string;
+    try {
+      commandId = secureRandomId('');
+    } catch {
+      setError(BROWSER_SECURITY_REFUSAL);
+      return;
+    }
     const idempotencyKey = `${workspace.deal.id}:${action.id}:${commandId}`;
     setSubmitting(true);
     setError('');

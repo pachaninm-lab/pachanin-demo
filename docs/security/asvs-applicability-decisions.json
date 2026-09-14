@@ -1835,6 +1835,40 @@
       "note": "Sensitive functionality is reached through POST/PUT/PATCH/DELETE handlers, not GET/HEAD/OPTIONS: every route file in apps/web/app that exports a mutating operation does so under one of the four unsafe method names, confirmed by direct enumeration (59 files), and no GET handler carrying a state-changing side effect was found. A subset of routes additionally validate the sec-fetch-site request header directly (agro-chat, restricted-public-platform-assistant, gekta/entitlement, public-platform-assistant and its attachments route all check for sec-fetch-site: cross-site) - named as a real, additional layer where it exists, not claimed as universal. This requirement is specifically about method choice (or Sec-Fetch validation as an alternative), which the codebase satisfies structurally; it is answered independently of the anti-forgery-token coverage gap recorded under V3.5.1, which is a different requirement about a different mechanism."
     },
     {
+      "requirementId": "V3.5.4",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "apps/web/lib/platform-v7/control-host.ts"
+      ],
+      "note": "Assessed as far as this repository allows, and blocked on a deployed fact rather than left untouched. The separation this requirement asks for is implemented: control-host.ts defines PRIMARY_PLATFORM_HOST and CONTROL_PLATFORM_HOST as separate hostnames, isControlRealmPathAllowed confines each realm to its own paths, the control-plane session cookies are set sameSite strict, and no cookie sets a domain attribute, so none is shared across the two hosts. What cannot be established here is whether the separation is in effect: every one of those checks is gated on controlHostEnabled(), which reads PC_CONTROL_HOST_ENABLED, and when that variable is absent requiresCanonicalControlHost returns false and the control plane is served on the primary host with no separation at all. The repository contains the machinery to turn it on - .github/workflows/company-os-control-host-cutover-authorized-20260818.yml flips the variable in the production compose, asserts the Caddy config carries the control domain, and rolls back to absent-or-false - which also shows the pre-cutover state is exactly the ungated one. Whether the cutover has run is a property of the deployed contour, which this programme does not read and must not mutate. Recorded separately, not changed: the gate is fail-open, and any value other than the literal true - including a typo - silently means off. OWNER ACTION: confirm whether PC_CONTROL_HOST_ENABLED is true in the REG.RU web container, or run the authorized cutover. KPI AFTER: V3.5.4 becomes assessable and, on the evidence above, PASS.",
+      "conditions": [
+        {
+          "condition": "the two hostnames and the per-realm path confinement still exist in code",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/control-host.ts"
+          ],
+          "patterns": [
+            "export const PRIMARY_PLATFORM_HOST = 'xn----8sbjf4befbjgs9b.xn--p1ai';",
+            "export const CONTROL_PLATFORM_HOST = `control.${PRIMARY_PLATFORM_HOST}`;",
+            "export function isControlRealmPathAllowed("
+          ]
+        },
+        {
+          "condition": "the separation is still gated on PC_CONTROL_HOST_ENABLED, which is why this is not yet assessable",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/control-host.ts"
+          ],
+          "patterns": [
+            "return String(env.PC_CONTROL_HOST_ENABLED || '').trim().toLowerCase() === 'true';",
+            "return controlHostEnabled(env) && !isCanonicalControlAuthority(request);"
+          ]
+        }
+      ]
+    },
+    {
       "requirementId": "V3.5.5",
       "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
@@ -1969,6 +2003,121 @@
         }
       ],
       "note": "The application is built entirely on React/Next.js/TypeScript. A scan for every legacy plugin technology this requirement names (ActiveX, Shockwave, Silverlight, NSAPI/NPAPI, Java applets) across the web app returns zero matches."
+    },
+    {
+      "requirementId": "V3.7.4",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "apps/api/src/main.ts",
+        "apps/web/middleware.ts",
+        "apps/web/next.config.js",
+        "infra/nginx/nginx.conf"
+      ],
+      "note": "Every prerequisite that lives in this repository is met, and the one that does not is named. All four layers that can emit the header do emit it with the directives the preload list requires: apps/api/src/main.ts and apps/web/next.config.js and infra/nginx/nginx.conf send max-age=63072000; includeSubDomains; preload, and apps/web/middleware.ts sends max-age=31536000; includeSubDomains; preload - both above the one-year minimum, though the inconsistency between 2 years and 1 year is noted rather than defended. What the requirement actually asks is that the apex be on the browsers preload list, which is a fact about a third-party list, not about this code. It could not be checked from here: hstspreload.org is refused by this environment egress proxy with a 403 on CONNECT, and the same refusal was reproduced against a domain known to be preloaded, so that is an environment limit and not an answer about this domain. Submission is also irreversible on a months-long timescale and is a production decision. OWNER ACTION: submit xn----8sbjf4befbjgs9b.xn--p1ai (процент-агро.рф) at hstspreload.org and confirm acceptance. KPI AFTER: V3.7.4 becomes PASS, with the four in-repo layers already satisfying the header requirement.",
+      "conditions": [
+        {
+          "condition": "all four layers still send the directives the preload list requires",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts",
+            "apps/web/middleware.ts",
+            "apps/web/next.config.js",
+            "infra/nginx/nginx.conf"
+          ],
+          "patterns": [
+            "includeSubDomains; preload"
+          ]
+        },
+        {
+          "condition": "the max-age at every layer is still at or above the one-year minimum the list requires",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts",
+            "apps/web/middleware.ts",
+            "apps/web/next.config.js",
+            "infra/nginx/nginx.conf"
+          ],
+          "patterns": [
+            "max-age=63072000",
+            "max-age=31536000"
+          ]
+        }
+      ]
+    },
+    {
+      "requirementId": "V3.7.5",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/web/lib/browser-security-capabilities.ts",
+        "apps/web/components/common/BrowserSecurityGate.tsx",
+        "docs/security/BROWSER_SECURITY_REQUIREMENTS.md",
+        "scripts/security/verify-browser-security-capabilities.mjs",
+        "docs/security/browser-security-exceptions.json"
+      ],
+      "conditions": [
+        {
+          "condition": "an unguessable identifier is still refused rather than substituted when Web Crypto is absent",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/browser-security-capabilities.ts"
+          ],
+          "patterns": [
+            "if (missing.length > 0) throw new BrowserSecurityUnsupportedError(missing);",
+            "if (feature === 'secureContext' && scope.isSecureContext !== true) missing.push(feature);",
+            "if (feature === 'randomUUID' && typeof scope.crypto?.randomUUID !== 'function') missing.push(feature);"
+          ]
+        },
+        {
+          "condition": "the gate still withholds the surface instead of rendering controls that cannot work",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/components/common/BrowserSecurityGate.tsx"
+          ],
+          "patterns": [
+            "if (missing === null || missing.length === 0) return <>{children}</>;",
+            "role='alert'",
+            "BROWSER_SECURITY_FEATURE_REASONS[feature]"
+          ]
+        },
+        {
+          "condition": "the guard still forbids a clock or Math.random substitute for Web Crypto",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-browser-security-capabilities.mjs"
+          ],
+          "patterns": [
+            "WEAK_SOURCE = /\\bMath\\.random\\b|\\bDate\\.now\\b/u",
+            "NON_SECURITY_MARKER = 'NOT-A-SECURITY-IDENTIFIER'",
+            "weak fallback"
+          ]
+        },
+        {
+          "condition": "the documented behaviour still exists and still says what happens",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "docs/security/BROWSER_SECURITY_REQUIREMENTS.md"
+          ],
+          "patterns": [
+            "The affected action is refused",
+            "No weaker",
+            "NOT-A-SECURITY-IDENTIFIER"
+          ]
+        },
+        {
+          "condition": "the exception register still carries a reason a reviewer can check",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "docs/security/browser-security-exceptions.json"
+          ],
+          "patterns": [
+            "apps/web/components/gekta/GektaChatWorkspace.tsx",
+            "immutableRegister"
+          ]
+        }
+      ],
+      "note": "FAIL, and the reason is one surface rather than the absence of a control. Web Crypto randomUUID and subtle are [SecureContext], so over plain HTTP or in an old enough browser they are absent, and the identifiers built from them are what the API deduplicates on. Two undocumented behaviours existed. Four sites substituted Date.now() and Math.random() - the registration idempotency key in RegisterFormClient, the deal command id in CanonicalDealWorkspace and again in TransactionDealWorkspace, the invite key in OrganizationTeamAdminClient - turning an identifier the design assumes is unguessable into a predictable one with nothing in the record to say it happened. Five more called the missing API directly and raised a TypeError inside an event handler, which reaches the user as a control that does nothing. There is now one documented behaviour, written down in docs/security/BROWSER_SECURITY_REQUIREMENTS.md and implemented at eight of those surfaces: the action is refused with a message naming the reason and no weaker substitute is produced. secureRandomId throws instead of returning, BrowserSecurityGate withholds a surface rather than rendering controls that cannot work, and the refusal is distinguishable from an ordinary failure. The weaker half of the defect - silent substitution of a predictable identifier - is closed everywhere. What keeps this at FAIL: apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx still calls globalThis.crypto.randomUUID() directly in a render-time ref, so in a non-secure context that public registration page fails to render instead of saying why. It is frozen by the immutability register in apps/web/tests/unit/platformV7RootWorkEntry.test.ts, which binds eight public surfaces to accepted parent 2100552142416743524f493954b6e6c86f0aa6e5 by SHA-256; editing it would rewrite owner-accepted evidence, which this programme does not do on its own authority. The same register is why the Gekta exception is recorded in docs/security/browser-security-exceptions.json rather than marked at the site. OWNER ACTION: authorize re-hashing the immutability register for RegisterFormClientPublic.tsx so the same lazy-ref-plus-refusal already applied in RegisterFormClient can be applied there. KPI AFTER: V3.7.5 becomes PASS. Revocable meanwhile: returning a weak id, accepting an insecure context, or rendering the gated surface anyway each fail named tests, and restoring the fallback in TransactionDealWorkspace makes the guard exit 1."
     },
     {
       "requirementId": "V4.1.1",

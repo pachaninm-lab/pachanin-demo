@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { CheckCircle2, Eye, EyeOff, RefreshCw, ShieldCheck } from 'lucide-react';
 import { applyCsrfHeader } from '@/lib/csrf';
+import { BROWSER_SECURITY_REFUSAL, secureRandomId } from '@/lib/browser-security-capabilities';
 
 type Locale = 'ru' | 'en' | 'zh';
 
@@ -396,7 +397,10 @@ export function RegisterFormClient({
   initialStatusToken?: string;
 }) {
   const copy = COPY[locale];
-  const idempotencyKey = React.useRef<string>(globalThis.crypto?.randomUUID?.() || `reg-${Date.now()}-${Math.random()}`);
+  // Resolved on first submit rather than at render: the key has to survive a
+  // retry, so it stays in a ref, but a browser that cannot produce one must
+  // be reported rather than crash the form or get a weaker key.
+  const idempotencyKey = React.useRef<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState('');
   const [correlationId, setCorrelationId] = React.useState('');
@@ -480,6 +484,15 @@ export function RegisterFormClient({
     setError('');
     setCorrelationId('');
     try {
+      // Resolved once and kept, so a retry reuses the same key; a browser that
+      // cannot produce an unguessable one is refused, never given a weak one.
+      idempotencyKey.current ??= secureRandomId('reg');
+    } catch {
+      setError(BROWSER_SECURITY_REFUSAL);
+      setSubmitting(false);
+      return;
+    }
+    try {
       const controller = new AbortController();
       const timer = window.setTimeout(() => controller.abort(), 15_000);
       let response: Response;
@@ -488,7 +501,7 @@ export function RegisterFormClient({
           method: 'POST',
           headers: applyCsrfHeader({
             'Content-Type': 'application/json',
-            'idempotency-key': idempotencyKey.current,
+            'idempotency-key': idempotencyKey.current as string,
           }),
           body: JSON.stringify(payload),
           cache: 'no-store',
