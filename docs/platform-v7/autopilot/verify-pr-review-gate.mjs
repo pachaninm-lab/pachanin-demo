@@ -503,9 +503,15 @@ export function exactHeadProviderBlockingEvidence(reviews, headSha) {
   return (reviews || []).filter((review) => {
     const commitId = canonicalSha40(review?.commit_id || review?.commitId);
     if (commitId !== expected) return false;
+    const login = normalizeLogin(review);
     const body = String(review?.body || '').trim();
-    return /^LOCAL QWEN INDEPENDENT REVIEW: BLOCK(?:\n|$)/u.test(body)
-      || /^OCTOPUS INDEPENDENT REVIEW: BLOCK(?:\n|$)/u.test(body);
+    if (/^LOCAL QWEN INDEPENDENT REVIEW: BLOCK(?:\n|$)/u.test(body)) {
+      return login === LOCAL_QWEN_REVIEW_LOGIN;
+    }
+    if (/^OCTOPUS INDEPENDENT REVIEW: BLOCK(?:\n|$)/u.test(body)) {
+      return login === OCTOPUS_REVIEW_LOGIN;
+    }
+    return false;
   });
 }
 
