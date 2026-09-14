@@ -14,6 +14,7 @@ const composer = read('components/gekta/GektaComposer.tsx');
 const attachments = read('components/gekta/GektaAttachments.tsx');
 const markdown = read('components/gekta/GektaMarkdown.tsx');
 const sources = read('components/gekta/GektaSourceList.tsx');
+const outbound = read('lib/gekta/outbound-destination.ts');
 const content = read('lib/gekta/content.ts');
 const seo = read('lib/gekta/seo.ts');
 const middleware = read('middleware.ts');
@@ -85,7 +86,12 @@ describe('Gekta standalone public experience', () => {
     expect(markdown).toContain("url.protocol === 'http:' || url.protocol === 'https:'");
     expect(markdown).toContain("className='my-4 max-w-full overflow-x-auto rounded-2xl border border-slate-200'");
     expect(markdown).not.toContain('dangerouslySetInnerHTML');
-    expect(sources).toContain("url.protocol === 'https:' || url.protocol === 'http:'");
+    // The scheme restriction moved into the shared destination helper when the
+    // outbound notice was added (ASVS V3.7.3); assert both halves so neither
+    // can drop it. A citation may still only be http(s).
+    expect(sources).toContain('outboundDestination(citation.uri, pageOrigin)');
+    expect(outbound).toContain("new Set(['https:', 'http:'])");
+    expect(outbound).toContain('if (!NAVIGABLE_PROTOCOLS.has(url.protocol)) return null;');
     expect(sources).toContain('<details');
     expect(composer).toContain('env(safe-area-inset-bottom)');
     expect(composer).toContain("id='gekta-composer-input'");

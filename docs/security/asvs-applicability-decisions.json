@@ -1971,6 +1971,70 @@
       "note": "The application is built entirely on React/Next.js/TypeScript. A scan for every legacy plugin technology this requirement names (ActiveX, Shockwave, Silverlight, NSAPI/NPAPI, Java applets) across the web app returns zero matches."
     },
     {
+      "requirementId": "V3.7.3",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/web/components/common/OutboundLink.tsx",
+        "apps/web/lib/gekta/outbound-destination.ts",
+        "apps/web/components/gekta/GektaSourceList.tsx",
+        "apps/web/components/platform-v7/AiAssistantPanel.tsx",
+        "scripts/security/verify-outbound-navigation-notice.mjs"
+      ],
+      "conditions": [
+        {
+          "condition": "the click is still held and the notice still offers both continuing and cancelling",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/components/common/OutboundLink.tsx"
+          ],
+          "patterns": [
+            "event.preventDefault();",
+            "setPending(destination);",
+            "role='alertdialog'",
+            "data-testid='gekta-outbound-continue'",
+            "data-testid='gekta-outbound-cancel'"
+          ]
+        },
+        {
+          "condition": "outbound is still decided against the page origin, and only http(s) is offered at all",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/gekta/outbound-destination.ts"
+          ],
+          "patterns": [
+            "new Set(['https:', 'http:'])",
+            "if (!NAVIGABLE_PROTOCOLS.has(url.protocol)) return null;",
+            "outbound: url.origin !== origin.origin,"
+          ]
+        },
+        {
+          "condition": "both assistant surfaces still render citations through the notice",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/components/gekta/GektaSourceList.tsx",
+            "apps/web/components/platform-v7/AiAssistantPanel.tsx"
+          ],
+          "patterns": [
+            "OutboundLink"
+          ]
+        },
+        {
+          "condition": "the guard still requires a notice for a new tab and for a contract-absolute uri",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-outbound-navigation-notice.mjs"
+          ],
+          "patterns": [
+            "CONFIRMED_COMPONENT = 'OutboundLink'",
+            "CONTRACT_ABSOLUTE_FIELDS = new Set(['uri'])",
+            "opensNewTab(attrs) || bindsAContractAbsoluteUri(attrs)"
+          ]
+        }
+      ],
+      "note": "The application does navigate people outside its control, so this is not NOT_APPLICABLE: the assistant cites sources it chose, and ai-assistant-stream.contract.ts requires a citation uri to match ^https?:// , so every one of them is absolute by construction. Two surfaces rendered them. GektaSourceList opened them in a new tab with target=_blank, and AiAssistantPanel opened them in the same tab; both navigated on the click with no notice and no way to decline. The hostname was displayed next to the Gekta link, which is not the same thing as being asked. Both now render through OutboundLink: the click is held with preventDefault, an alertdialog names the destination host, and navigation happens only on confirm. A citation that stays on this origin is followed normally - outbound is decided by comparing origins, which is the line the browser itself draws, not a host list that would drift from the deployment. Schemes other than http(s) are refused outright rather than confirmed and then opened. The host is shown as the browser resolved it, punycode included: a decoded homograph reads exactly like the site it imitates, so the ASCII form is the one that tells the truth. Checked and deliberately not changed: the same components also render citation.href, which comes from a fixed catalogue of /platform-v7 paths in prospect-assistant-knowledge.ts and is same-origin - the guard keys on the contract-absolute field name rather than on anything called a citation, so an internal link is not pushed through an external-link component for nothing. scripts/security/verify-outbound-navigation-notice.mjs holds the line across apps/web: 10 anchors need a notice, 8 carry a literal same-origin path, 2 go through the confirmed component, 0 are unannounced. Revocability was proven at the behaviour, not the source text: letting the click through, making cancel navigate anyway, treating every destination as same-origin, and admitting any scheme each fail a named test, and removing the marker from the real component makes the guard exit 1."
+    },
+    {
       "requirementId": "V4.1.1",
       "applicability": "APPLICABLE",
       "status": "PASS",

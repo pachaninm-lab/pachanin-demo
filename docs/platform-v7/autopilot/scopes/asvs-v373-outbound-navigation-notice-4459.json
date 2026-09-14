@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/asvs-v373-outbound-navigation-notice-4459",
+  "status": "active",
+  "purpose": "ASVS V3.7.3 had no decision. It asks that the application show a notice, with a way to cancel, before taking someone to a URL outside its control. The assistant cites sources it chose and ai-assistant-stream.contract.ts requires every citation uri to match ^https?:// , so each one is absolute by construction. Two surfaces rendered them and both navigated on the click: GektaSourceList in a new tab, AiAssistantPanel in the same tab. Neither asked.",
+  "authorityBaseExactMain": "b5a370f71be21eea55957bf4e936a80d19d0c602",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/components/common/OutboundLink.tsx",
+    "apps/web/components/gekta/GektaSourceList.tsx",
+    "apps/web/components/platform-v7/AiAssistantPanel.tsx",
+    "apps/web/lib/gekta/outbound-destination.ts",
+    "apps/web/tests/unit/gektaOutboundNavigation.spec.tsx",
+    "apps/web/tests/unit/gektaOutboundNotice.spec.ts",
+    "apps/web/tests/unit/gektaStandaloneExperience.test.ts",
+    "docs/platform-v7/autopilot/scopes/asvs-v373-outbound-navigation-notice-4459.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "scripts/security/verify-outbound-navigation-notice.mjs",
+    "scripts/security/verify-outbound-navigation-notice.test.mjs"
+  ],
+  "requiredInvariants": [
+    "It is applicable, and that was established rather than assumed. A survey found no hard-coded external href anywhere in the UI, which would have made this NOT_APPLICABLE; the outbound surface is the assistant's citations, whose absoluteness is guaranteed by the stream contract, not by chance.",
+    "The second surface was found before claiming PASS. AiAssistantPanel renders the same citations in the same tab without target=_blank; a guard written only around new tabs would have passed while that path stayed unannounced.",
+    "Outbound is decided by comparing origins, the line the browser itself draws, rather than against a list of hosts that would drift from the deployment.",
+    "Schemes other than http(s) are refused outright rather than confirmed and then opened, so javascript:, data: and blob: never reach a notice.",
+    "The host is shown exactly as the browser resolved it, punycode included. A decoded homograph reads like the site it imitates; the ASCII form is the one that tells a person something true. An earlier draft of that function pretended to decode and then returned the input unchanged - inert code dressed as a feature - and was replaced with what it actually does, said plainly.",
+    "Checked and deliberately not changed: the same components render citation.href, which comes from a fixed catalogue of /platform-v7 paths and is same-origin. The guard keys on the contract-absolute field name rather than on anything called a citation, so an internal Next Link is not pushed through an external-link component and does not lose client-side navigation for nothing.",
+    "The guard counts the confirmed component itself. An earlier version stopped seeing it once the notice moved into a shared component, so a regression would have read as clean; it now reports 2 confirmed and would report them as unannounced if the component were replaced by a raw anchor.",
+    "Revocability is proven at the behaviour, not at the source text: the component tests render, click, cancel and confirm, and assert that the click was defaultPrevented and that window.open was not called.",
+    "No production, REG.RU, DNS or database mutation. No registration business logic, 1C or marketing change; the presentation change is the security notice this requirement asks for and nothing else."
+  ],
+  "acceptance": [
+    "node scripts/security/verify-outbound-navigation-notice.mjs exits 0: 10 anchors needing a notice, 8 literal same-origin, 2 confirmed, 0 unannounced.",
+    "node --test scripts/security/verify-outbound-navigation-notice.test.mjs: 12 passed, 0 failed.",
+    "vitest run gektaOutboundNavigation.spec.tsx gektaOutboundNotice.spec.ts gektaStandaloneExperience.test.ts: 22 passed, 0 failed.",
+    "apps/web tsc --noEmit exits 0.",
+    "ASVS V3.7.3 moves NOT_ASSESSED to PASS: PASS 129 to 130, NOT_ASSESSED 39 to 38, FAIL and NOT_APPLICABLE unchanged, rejected decisions back to the single pre-existing V8.2.4.",
+    "Seven negative mutations each fail a named test or make the guard exit 1, including removing the marker from the real component.",
+    "Full apps/web vitest run: 224 failed files / 373 failed tests / 5211 passed, against a main baseline of 224 / 373 / 5199 - the baseline plus exactly the 12 new tests, with no failing file moved in either direction."
+  ]
+}

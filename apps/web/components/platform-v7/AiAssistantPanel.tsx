@@ -21,6 +21,7 @@ import {
 import { BrandMark } from '@/components/v7r/BrandMark';
 import { readGatewayStream, refusalCopy, type GatewayStreamStatus } from '@/lib/platform-v7/ai-gateway-stream';
 import type { GatewayRefusal } from '@pc/ai-assistant-stream-contract';
+import { OutboundLink } from '@/components/common/OutboundLink';
 
 type Locale = 'ru' | 'en' | 'zh';
 type ChatRole = 'user' | 'assistant';
@@ -749,9 +750,9 @@ export function AiAssistantPanel({ variant = 'floating' }: { variant?: Variant }
                   <summary>{ui.sources}</summary>
                   <div>
                     {message.stream.citations.map((citation) => (
-                      <a key={citation.uri} href={citation.uri}>
+                      <OutboundLink key={citation.uri} uri={citation.uri}>
                         {citation.title}<ExternalLink size={13} aria-hidden='true' />
-                      </a>
+                      </OutboundLink>
                     ))}
                   </div>
                 </details>
