@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { ArrowRight, Clock3, LockKeyhole, MapPin, ShieldCheck } from 'lucide-react';
 import { getPublicMarketLots, type PublicMarketLot } from '@/lib/public-market-server';
 import styles from './PublicMarketTeaser.module.css';
@@ -20,6 +21,7 @@ const COPY = {
     register: 'Зарегистрироваться',
     login: 'Войти',
     source: 'Источник: PostgreSQL · обезличенная публичная проекция',
+    loading: 'Загружаем актуальные лоты…',
     emptyTitle: 'Активных опубликованных лотов сейчас нет',
     emptyText: 'Демо-лоты не подставляются. После регистрации фермер может опубликовать лот из своей канонической партии.',
     degradedTitle: 'Рынок временно недоступен',
@@ -40,6 +42,7 @@ const COPY = {
     register: 'Register',
     login: 'Sign in',
     source: 'Source: PostgreSQL · anonymized public projection',
+    loading: 'Loading current lots…',
     emptyTitle: 'No active published lots right now',
     emptyText: 'No demo lots are substituted. After registration, a farmer can publish a lot from canonical inventory.',
     degradedTitle: 'Market is temporarily unavailable',
@@ -60,6 +63,7 @@ const COPY = {
     register: '注册',
     login: '登录',
     source: '来源：PostgreSQL · 匿名公开投影',
+    loading: '正在加载当前批次…',
     emptyTitle: '当前没有有效的公开批次',
     emptyText: '系统不会填充演示批次。注册后，农户可从规范库存中发布批次。',
     degradedTitle: '市场暂时不可用',
@@ -73,13 +77,11 @@ const CULTURES: Record<Locale, Record<string, string>> = {
   zh: { wheat: '小麦', barley: '大麦', corn: '玉米', maize: '玉米', sunflower: '向日葵', soybean: '大豆', soy: '大豆', rapeseed: '油菜籽', rye: '黑麦', oats: '燕麦' },
 };
 
-export async function PublicMarketTeaser({ locale }: { locale: string }) {
+export function PublicMarketTeaser({ locale }: { locale: string }) {
   const lang = localeOf(locale);
   const copy = COPY[lang];
-  const market = await getPublicMarketLots();
   const registerHref = `/platform-v7/register?lang=${encodeURIComponent(lang)}`;
   const loginHref = `/platform-v7/login?lang=${encodeURIComponent(lang)}`;
-  const items = market.items.slice(0, 6);
 
   return (
     <section id='market' className={styles.section} aria-labelledby='public-market-title' data-testid='public-market-teaser'>
@@ -95,17 +97,9 @@ export async function PublicMarketTeaser({ locale }: { locale: string }) {
         </div>
       </div>
 
-      {!market.available ? (
-        <MarketState title={copy.degradedTitle} text={copy.degradedText} />
-      ) : items.length === 0 ? (
-        <MarketState title={copy.emptyTitle} text={copy.emptyText} />
-      ) : (
-        <div className={styles.grid}>
-          {items.map((lot) => (
-            <LotCard key={lot.publicRef} lot={lot} locale={lang} />
-          ))}
-        </div>
-      )}
+      <Suspense fallback={<MarketLoading text={copy.loading} />}>
+        <PublicMarketLotResults locale={lang} />
+      </Suspense>
 
       <div className={styles.footer}>
         <div className={styles.source}>
@@ -118,6 +112,26 @@ export async function PublicMarketTeaser({ locale }: { locale: string }) {
         </div>
       </div>
     </section>
+  );
+}
+
+async function PublicMarketLotResults({ locale }: { locale: Locale }) {
+  const copy = COPY[locale];
+  const market = await getPublicMarketLots();
+  const items = market.items.slice(0, 6);
+
+  if (!market.available) {
+    return <MarketState title={copy.degradedTitle} text={copy.degradedText} />;
+  }
+  if (items.length === 0) {
+    return <MarketState title={copy.emptyTitle} text={copy.emptyText} />;
+  }
+  return (
+    <div className={styles.grid}>
+      {items.map((lot) => (
+        <LotCard key={lot.publicRef} lot={lot} locale={locale} />
+      ))}
+    </div>
   );
 }
 
@@ -149,6 +163,15 @@ function LotCard({ lot, locale }: { lot: PublicMarketLot; locale: Locale }) {
         <span><b>{copy.declared}</b><small>{copy.unverified}</small></span>
       </div>
     </article>
+  );
+}
+
+function MarketLoading({ text }: { text: string }) {
+  return (
+    <div className={styles.state} data-testid='public-market-teaser-loading' aria-busy='true'>
+      <ShieldCheck aria-hidden='true' size={22} />
+      <div><strong>{text}</strong></div>
+    </div>
   );
 }
 
