@@ -30,7 +30,14 @@ function secure(body: unknown, status = 200, correlationId?: string, etag?: stri
 
 function normalizePath(segments: string[]) {
   try {
-    const decoded = segments.map((part) => decodeURIComponent(part).trim()).filter(Boolean);
+    // Next has already percent-decoded every catch-all segment
+    // (route-matcher.js: params[key] = match.split('/').map(decode)), so
+    // decoding again here turned %252e%252e into '..' and %253f into '?'.
+    // The anchored allowlist below refuses both, which is why this was never
+    // reachable - but that is a second control compensating for the first being
+    // wrong. Decoding once is the requirement; relying on the next check to
+    // clean up after it is not.
+    const decoded = segments.map((part) => part.trim()).filter(Boolean);
     if (decoded.some((part) => part === '.' || part === '..' || part.includes('/') || part.includes('\\'))) return '';
     return decoded.join('/');
   } catch {

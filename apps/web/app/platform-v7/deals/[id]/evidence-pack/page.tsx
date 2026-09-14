@@ -5,7 +5,9 @@ import { getEvidencePack } from '@/lib/evidence-server';
 
 export default async function DealEvidencePackPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  const dealId = decodeURIComponent(params.id);
+  // Already decoded by the router; decoding again would turn an id containing
+  // a literal percent sequence into a different id.
+  const dealId = params.id;
   const { files, chainVerified } = await getEvidencePack(dealId);
 
   return (

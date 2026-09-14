@@ -87,7 +87,9 @@ async function ownerClaims(request: NextRequest): Promise<OwnerClaims | null> {
 }
 
 function normalizedPath(parts: string[] | undefined) {
-  return (parts || []).map((part) => decodeURIComponent(part)).join('/');
+  // Next already decoded each catch-all segment; decoding again would turn
+  // %252e%252e into '..'. Decode once.
+  return (parts || []).join('/');
 }
 
 function session(mode: 'CONTROL_PLANE' | 'VIEW_AS', claims: OwnerClaims) {

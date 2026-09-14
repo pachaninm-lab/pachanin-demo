@@ -32,7 +32,9 @@ function secure(body: unknown, status = 200, correlationId?: string, etag?: stri
 
 function normalizePath(segments: string[]) {
   try {
-    const decoded = segments.map((part) => decodeURIComponent(part).trim()).filter(Boolean);
+    // Next already decoded each catch-all segment; decoding again turns
+    // %252e%252e into '..' and %253f into '?'. Decode once.
+    const decoded = segments.map((part) => part.trim()).filter(Boolean);
     if (decoded.some((part) => part === '.' || part === '..' || part.includes('/') || part.includes('\\'))) return '';
     return decoded.join('/');
   } catch {

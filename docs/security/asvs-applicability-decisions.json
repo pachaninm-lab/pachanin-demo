@@ -5,6 +5,57 @@
   "policy": "A decision must name what was examined and carry conditions re-evaluated on every run. Having a control is not evidence that a requirement is met: no PASS may be inferred from the presence of MFA, RLS, CodeQL, an SBOM or a passing test. Anything without a valid, currently-holding decision stays PENDING and NOT_ASSESSED.",
   "decisions": [
     {
+      "requirementId": "V1.1.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "scripts/security/verify-decode-once.mjs",
+        "apps/web/app/api/platform-v7/accounting/[[...path]]/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the guard still follows a router value through a destructuring, a default expression, a map callback and a helper call, so a decode of an already-decoded value is still refused however it is spelled",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-decode-once.mjs"
+          ],
+          "patterns": [
+            "rootIdentifier",
+            "propagateThroughCalls",
+            "paramDerivedNames",
+            "BarBarToken"
+          ]
+        },
+        {
+          "condition": "no catch-all proxy decodes its path segments a second time",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/platform-v7/accounting/[[...path]]/route.ts",
+            "apps/web/app/api/platform-v7/commodity-profiles/[[...path]]/route.ts",
+            "apps/web/app/api/platform-v7/integrations/[[...path]]/route.ts",
+            "apps/web/app/api/staff/[...path]/route.ts",
+            "apps/web/app/api/staff/workspaces/[...path]/route.ts",
+            "apps/web/app/staff/[...path]/route.ts"
+          ],
+          "patterns": [
+            "decodeuricomponent(part)"
+          ]
+        },
+        {
+          "condition": "no page component decodes a route parameter the router already decoded",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/app/platform-v7/deals/[id]/evidence-pack/page.tsx",
+            "apps/web/app/platform-v7/logistics/[routeId]/page.tsx"
+          ],
+          "patterns": [
+            "decodeuricomponent(params."
+          ]
+        }
+      ],
+      "note": "PASS after finding and removing a second decode in nine places. Next percent-decodes every dynamic route segment before a handler sees it - route-matcher.js does params[key] = match.split('/').map(decode) for a catch-all, read from the installed Next 15.5.21 rather than assumed - and nine handlers decoded again. Measured consequence: '%252e%252e' became '..' and '%253f' became '?', which string-interpolated into an upstream URL carrying the caller's bearer token would put an attacker's query parameter ahead of the caller's own, and '%2523' became '#', whose fragment swallows the intended query string entirely. Checked before claiming anything: none of it was reachable. Each proxy runs the normalised path past an anchored allowlist whose character classes admit no ?, # or / - accounting uses [A-Za-z0-9][A-Za-z0-9:_.@-]{0,239} inside ^...$ patterns - so every vector was refused. That is a second control cleaning up after a wrong first one, and the requirement is about the first. scripts/security/verify-decode-once.mjs now refuses a decode applied to a value the router already decoded, following the value through a destructuring, a || default, a map callback and a helper call. Its first version found four sites a manual survey had missed and reported three others clean, because those put the decode inside a separate normalizePath(segments) and the taint arrived as a function parameter - a false negative in a guard written for exactly that shape, fixed by propagating through calls to a fixed point. NOT claimed: that every decode in the repository is necessary. The remaining twenty-one operate on values this application itself encoded - cookies it wrote, the percent-encoded userinfo of a URL, a regex capture from a cookie header - which is decoding where encoded data is expected, and the guard deliberately does not object to them."
+    },
+    {
       "requirementId": "V1.1.2",
       "applicability": "APPLICABLE",
       "status": "PASS",

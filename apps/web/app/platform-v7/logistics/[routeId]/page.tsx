@@ -132,7 +132,9 @@ export default async function RouteDetailPage(props: { params: Promise<{ routeId
   const params = await props.params;
   const locale = localeOf(await getLocale());
   const copy = COPY[locale];
-  const routeId = decodeURIComponent(params.routeId);
+  // Already decoded by the router; decoding again would turn an id containing
+  // a literal percent sequence into a different id.
+  const routeId = params.routeId;
   const workspace = await getShipmentWorkspace(routeId);
 
   if (!workspace) {
