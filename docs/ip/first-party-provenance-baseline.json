@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "pc-crop.first-party-provenance-baseline.v1",
+  "recordedAt": "2026-09-06T14:39:02.016Z",
+  "gitHead": "d9cacaa942d8bc96d729ce8ca1f285e4877b8768",
+  "rationale": "Предел для CI. Три закрытых показателя обязаны оставаться нулевыми. Четвёртый закрывается подписью, а не кодом, поэтому фиксируется как предел, который нельзя превысить.",
+  "maxUnresolvedFirstPartyProvenance": 133,
+  "pendingContributors": [
+    {
+      "contributor": "Platon",
+      "files": 133,
+      "lines": 8610,
+      "crownJewelFiles": 24,
+      "crownJewelLines": 721
+    }
+  ]
+}
