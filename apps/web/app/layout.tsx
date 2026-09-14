@@ -202,7 +202,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: brandUrlAuthorityScript }} />
         <script dangerouslySetInnerHTML={{ __html: serviceWorkerRecoveryScript }} />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-        <meta name='description' content={pageDescription} />
+        {pathname === '/platform-v7/deal-flow' ? null : <meta name='description' content={pageDescription} />}
         <meta name='google' content='notranslate' />
         <meta name='googlebot' content='notranslate' />
         <meta httpEquiv='Content-Language' content={HTML_LANG[locale] ?? 'ru'} />

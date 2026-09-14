@@ -472,7 +472,7 @@ export function PublicDealRoleScenario({ locale }: { locale: string }) {
           <span>{selectedStage.focus}</span>
         </div>
 
-        <div className={styles.stageRail} aria-label={copy.stageLabel}>
+        <div className={styles.stageRail} role='group' aria-label={copy.stageLabel}>
           {stageList.map((stage, index) => (
             <button
               key={stage.label}
