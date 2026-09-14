@@ -81,7 +81,9 @@ jobs:
           [ -n "$result_line" ] || { echo 'Missing review gate result contract.' >&2; exit 31; }
           result_json="${result_line#PR_REVIEW_GATE_RESULT=}"
           printf '%s' "$result_json" | jq -e --arg head "$HEAD_SHA" '
-            .schemaVersion == "platform-v7.review-gate-result.v1"
+            type == "object"
+            and (keys | sort) == ["classification","head","reviewAuthority","schemaVersion","status"]
+            and .schemaVersion == "platform-v7.review-gate-result.v1"
             and .status == "PASS"
             and .head == $head
             and (
@@ -90,15 +92,13 @@ jobs:
               (.classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN"))
             )
           ' >/dev/null || { echo 'Invalid review gate result contract.' >&2; exit 31; }
-          classification="$(printf '%s' "$result_json" | jq -r '.classification')"
-          if [ "$classification" = SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW ]; then
-            echo 'mode=BOOTSTRAP' >> "$GITHUB_OUTPUT"
-          elif [ "$classification" = INDEPENDENT_EXACT_HEAD_REVIEW ]; then
-            echo 'mode=INDEPENDENT' >> "$GITHUB_OUTPUT"
-          else
-            echo 'Invalid review gate classification.' >&2
-            exit 31
-          fi
+          mode="$(printf '%s' "$result_json" | jq -r '
+            if .classification == "SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW" and .reviewAuthority == "NONE" then "BOOTSTRAP"
+            elif .classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN") then "INDEPENDENT"
+            else empty end
+          ')"
+          [ -n "$mode" ] || { echo 'Invalid review gate classification/authority pair.' >&2; exit 31; }
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
 
       - name: Publish exact-head review status and visible label
         if: always()
@@ -243,7 +243,9 @@ jobs:
           [ -n "$result_line" ] || { echo 'Missing review gate result contract.' >&2; exit 31; }
           result_json="${result_line#PR_REVIEW_GATE_RESULT=}"
           printf '%s' "$result_json" | jq -e --arg head "$HEAD_SHA" '
-            .schemaVersion == "platform-v7.review-gate-result.v1"
+            type == "object"
+            and (keys | sort) == ["classification","head","reviewAuthority","schemaVersion","status"]
+            and .schemaVersion == "platform-v7.review-gate-result.v1"
             and .status == "PASS"
             and .head == $head
             and (
@@ -252,15 +254,13 @@ jobs:
               (.classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN"))
             )
           ' >/dev/null || { echo 'Invalid review gate result contract.' >&2; exit 31; }
-          classification="$(printf '%s' "$result_json" | jq -r '.classification')"
-          if [ "$classification" = SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW ]; then
-            echo 'mode=BOOTSTRAP' >> "$GITHUB_OUTPUT"
-          elif [ "$classification" = INDEPENDENT_EXACT_HEAD_REVIEW ]; then
-            echo 'mode=INDEPENDENT' >> "$GITHUB_OUTPUT"
-          else
-            echo 'Invalid review gate classification.' >&2
-            exit 31
-          fi
+          mode="$(printf '%s' "$result_json" | jq -r '
+            if .classification == "SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW" and .reviewAuthority == "NONE" then "BOOTSTRAP"
+            elif .classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN") then "INDEPENDENT"
+            else empty end
+          ')"
+          [ -n "$mode" ] || { echo 'Invalid review gate classification/authority pair.' >&2; exit 31; }
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
 
       - name: Publish exact-head clean-review status and visible label
         if: always() && steps.live.outputs.active == 'true'
@@ -409,7 +409,9 @@ jobs:
           [ -n "$result_line" ] || { echo 'Missing review gate result contract.' >&2; exit 31; }
           result_json="${result_line#PR_REVIEW_GATE_RESULT=}"
           printf '%s' "$result_json" | jq -e --arg head "$HEAD_SHA" '
-            .schemaVersion == "platform-v7.review-gate-result.v1"
+            type == "object"
+            and (keys | sort) == ["classification","head","reviewAuthority","schemaVersion","status"]
+            and .schemaVersion == "platform-v7.review-gate-result.v1"
             and .status == "PASS"
             and .head == $head
             and (
@@ -418,15 +420,13 @@ jobs:
               (.classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN"))
             )
           ' >/dev/null || { echo 'Invalid review gate result contract.' >&2; exit 31; }
-          classification="$(printf '%s' "$result_json" | jq -r '.classification')"
-          if [ "$classification" = SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW ]; then
-            echo 'mode=BOOTSTRAP' >> "$GITHUB_OUTPUT"
-          elif [ "$classification" = INDEPENDENT_EXACT_HEAD_REVIEW ]; then
-            echo 'mode=INDEPENDENT' >> "$GITHUB_OUTPUT"
-          else
-            echo 'Invalid review gate classification.' >&2
-            exit 31
-          fi
+          mode="$(printf '%s' "$result_json" | jq -r '
+            if .classification == "SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW" and .reviewAuthority == "NONE" then "BOOTSTRAP"
+            elif .classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN") then "INDEPENDENT"
+            else empty end
+          ')"
+          [ -n "$mode" ] || { echo 'Invalid review gate classification/authority pair.' >&2; exit 31; }
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
 
       - name: Publish scheduled review status and visible label
         if: always() && steps.live.outputs.active == 'true'
@@ -541,9 +541,12 @@ jobs:
             exit 0
           }
           result_json="${result_line#PR_REVIEW_GATE_RESULT=}"
-          if ! printf '%s' "$result_json" | jq -e '
-            .schemaVersion == "platform-v7.review-gate-result.v1"
+          if ! printf '%s' "$result_json" | jq -e --arg head "$HEAD_SHA" '
+            type == "object"
+            and (keys | sort) == ["classification","head","reviewAuthority","schemaVersion","status"]
+            and .schemaVersion == "platform-v7.review-gate-result.v1"
             and .status == "PASS"
+            and .head == $head
             and .classification == "INDEPENDENT_EXACT_HEAD_REVIEW"
             and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN")
           ' >/dev/null; then
@@ -660,9 +663,12 @@ jobs:
               continue
             fi
             result_json="${result_line#PR_REVIEW_GATE_RESULT=}"
-            if ! printf '%s' "$result_json" | jq -e '
-              .schemaVersion == "platform-v7.review-gate-result.v1"
+            if ! printf '%s' "$result_json" | jq -e --arg head "$head_sha" '
+              type == "object"
+              and (keys | sort) == ["classification","head","reviewAuthority","schemaVersion","status"]
+              and .schemaVersion == "platform-v7.review-gate-result.v1"
               and .status == "PASS"
+              and .head == $head
               and .classification == "INDEPENDENT_EXACT_HEAD_REVIEW"
               and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN")
             ' >/dev/null; then
