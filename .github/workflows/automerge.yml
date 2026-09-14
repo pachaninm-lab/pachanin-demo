@@ -133,13 +133,12 @@ jobs:
             state=failure
             description='Exact-head review authority invalidated by current PR state'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
-          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ] && [ "$PR_NUMBER" = 5353 ]; then
-            state=success
-            description='Scoped provider-maintenance bootstrap passed for one authorized PR; no independent provider PASS asserted'
-            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
+          # BOOTSTRAP is a provider-neutral governance classification only. The trusted
+          # verifier already proved merged source-controlled eligibility; this path
+          # never creates independent-review authority or the merge-authorizing label.
           elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ]; then
-            state=failure
-            description='Scoped provider-maintenance bootstrap is not authorized for this PR'
+            state=success
+            description='Scoped provider-maintenance bootstrap eligibility verified; no independent provider PASS asserted'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
           elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = INDEPENDENT ]; then
             state=success
@@ -296,13 +295,12 @@ jobs:
             state=failure
             description='Exact-head review authority invalidated by current PR state'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
-          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ] && [ "$PR_NUMBER" = 5353 ]; then
-            state=success
-            description='Scoped provider-maintenance bootstrap passed for one authorized PR; no independent provider PASS asserted'
-            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
+          # BOOTSTRAP success is only a source-controlled maintenance classification.
+          # The verifier established eligibility; this publisher does not create an
+          # independent provider PASS and always removes the merge-authorizing label.
           elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ]; then
-            state=failure
-            description='Scoped provider-maintenance bootstrap is not authorized for this PR'
+            state=success
+            description='Scoped provider-maintenance bootstrap eligibility verified; no independent provider PASS asserted'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
           elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = INDEPENDENT ]; then
             state=success
@@ -463,13 +461,12 @@ jobs:
             state=failure
             description='Exact-head review authority invalidated by current PR state'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
-          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ] && [ "$PR_NUMBER" = 5353 ]; then
-            state=success
-            description='Scoped provider-maintenance bootstrap passed for one authorized PR; no independent provider PASS asserted'
-            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
+          # Scheduled BOOTSTRAP publication is provider-neutral status only; the trusted
+          # verifier proved merged authority eligibility, and merge jobs still require
+          # a typed INDEPENDENT_EXACT_HEAD_REVIEW result directly from the verifier.
           elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ]; then
-            state=failure
-            description='Scoped provider-maintenance bootstrap is not authorized for this PR'
+            state=success
+            description='Scoped provider-maintenance bootstrap eligibility verified; no independent provider PASS asserted'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
           elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = INDEPENDENT ]; then
             state=success
