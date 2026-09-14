@@ -507,7 +507,6 @@ jobs:
       github.event.pull_request.state == 'open' &&
       !github.event.pull_request.draft &&
       contains(github.event.pull_request.labels.*.name, 'automerge') &&
-      contains(github.event.pull_request.labels.*.name, 'review-gate-passed') &&
       !(contains(github.event.pull_request.labels.*.name, 'platform-v7') &&
         contains(github.event.pull_request.labels.*.name, 'agent-generated'))
     steps:
@@ -532,8 +531,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if ! node docs/platform-v7/autopilot/verify-pr-review-gate.mjs; then
+          gate_output=''
+          if ! gate_output="$(node docs/platform-v7/autopilot/verify-pr-review-gate.mjs 2>&1)"; then
+            printf '%s\n' "$gate_output"
             echo 'Automerge deferred: exact-head review/CI gate is not fully green yet.'
+            exit 0
+          fi
+          printf '%s\n' "$gate_output"
+          result_line="$(printf '%s\n' "$gate_output" | grep '^PR_REVIEW_GATE_RESULT=' | tail -n 1 || true)"
+          [ -n "$result_line" ] || {
+            echo 'Automerge deferred: verified review gate emitted no result contract.'
+            exit 0
+          }
+          result_json="${result_line#PR_REVIEW_GATE_RESULT=}"
+          if ! printf '%s' "$result_json" | jq -e '
+            .schemaVersion == "platform-v7.review-gate-result.v1"
+            and .status == "PASS"
+            and .classification == "INDEPENDENT_EXACT_HEAD_REVIEW"
+            and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN")
+          ' >/dev/null; then
+            echo 'Automerge deferred: genuine independent exact-head review authority is required.'
             exit 0
           fi
 
@@ -542,14 +559,13 @@ jobs:
           mergeable=$(printf '%s' "$pr_state" | jq -r '.mergeable')
           draft=$(printf '%s' "$pr_state" | jq -r '.isDraft')
           live_automerge=$(printf '%s' "$pr_state" | jq -r '[.labels[].name] | index("automerge") != null')
-          live_review_passed=$(printf '%s' "$pr_state" | jq -r '[.labels[].name] | index("review-gate-passed") != null')
           generated=$(printf '%s' "$pr_state" | jq -r '[.labels[].name] | (index("platform-v7") != null and index("agent-generated") != null)')
           if [ "$current_head" != "$HEAD_SHA" ]; then
             echo "Automerge deferred: head moved expected=$HEAD_SHA current=$current_head"
             exit 0
           fi
-          if [ "$draft" = true ] || [ "$live_automerge" != true ] || [ "$live_review_passed" != true ] || [ "$generated" = true ]; then
-            echo "Automerge deferred: live authorization changed draft=$draft automerge=$live_automerge review_passed=$live_review_passed generated=$generated"
+          if [ "$draft" = true ] || [ "$live_automerge" != true ] || [ "$generated" = true ]; then
+            echo "Automerge deferred: live authorization changed draft=$draft automerge=$live_automerge generated=$generated"
             exit 0
           fi
           if [ "$mergeable" != MERGEABLE ]; then
@@ -631,11 +647,29 @@ jobs:
               continue
             fi
 
-            # Scheduled reconciliation never publishes or removes review-gate-passed.
-            # Per-PR event/repository-dispatch gates own the visible label/status. The
-            # scheduler is merge authority only after the exact-head verifier passes.
-            if ! PR_NUMBER="$pr_number" HEAD_SHA="$head_sha" REQUIRE_GREEN_CI=1 node docs/platform-v7/autopilot/verify-pr-review-gate.mjs; then
+            # Scheduled reconciliation does not trust a label as merge authority. It
+            # requires the verifier's exact-head result contract to classify the
+            # authority as a genuine independent review on the same head.
+            gate_output=''
+            if ! gate_output="$(PR_NUMBER="$pr_number" HEAD_SHA="$head_sha" REQUIRE_GREEN_CI=1 node docs/platform-v7/autopilot/verify-pr-review-gate.mjs 2>&1)"; then
+              printf '%s\n' "$gate_output"
               echo "#$pr_number deferred: exact-head review/CI gate not terminal green"
+              continue
+            fi
+            printf '%s\n' "$gate_output"
+            result_line="$(printf '%s\n' "$gate_output" | grep '^PR_REVIEW_GATE_RESULT=' | tail -n 1 || true)"
+            if [ -z "$result_line" ]; then
+              echo "#$pr_number deferred: verified review gate emitted no result contract"
+              continue
+            fi
+            result_json="${result_line#PR_REVIEW_GATE_RESULT=}"
+            if ! printf '%s' "$result_json" | jq -e '
+              .schemaVersion == "platform-v7.review-gate-result.v1"
+              and .status == "PASS"
+              and .classification == "INDEPENDENT_EXACT_HEAD_REVIEW"
+              and (.reviewAuthority == "CODEX" or .reviewAuthority == "GITHUB_COPILOT" or .reviewAuthority == "OCTOPUS" or .reviewAuthority == "LOCAL_QWEN")
+            ' >/dev/null; then
+              echo "#$pr_number deferred: genuine independent exact-head review authority is required"
               continue
             fi
 
@@ -644,14 +678,13 @@ jobs:
             mergeable=$(printf '%s' "$pr_state" | jq -r '.mergeable')
             live_draft=$(printf '%s' "$pr_state" | jq -r '.isDraft')
             live_automerge=$(printf '%s' "$pr_state" | jq -r '[.labels[].name] | index("automerge") != null')
-            live_review_passed=$(printf '%s' "$pr_state" | jq -r '[.labels[].name] | index("review-gate-passed") != null')
             live_generated=$(printf '%s' "$pr_state" | jq -r '[.labels[].name] | (index("platform-v7") != null and index("agent-generated") != null)')
             if [ "$current_head" != "$head_sha" ]; then
               echo "#$pr_number deferred: head moved after verification expected=$head_sha current=$current_head"
               continue
             fi
-            if [ "$live_draft" = true ] || [ "$live_automerge" != true ] || [ "$live_review_passed" != true ] || [ "$live_generated" = true ]; then
-              echo "#$pr_number deferred: live authorization changed draft=$live_draft automerge=$live_automerge review_passed=$live_review_passed generated=$live_generated"
+            if [ "$live_draft" = true ] || [ "$live_automerge" != true ] || [ "$live_generated" = true ]; then
+              echo "#$pr_number deferred: live authorization changed draft=$live_draft automerge=$live_automerge generated=$live_generated"
               continue
             fi
             if [ "$mergeable" != MERGEABLE ]; then
