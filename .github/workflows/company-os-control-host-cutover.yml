@@ -1,0 +1,798 @@
+name: Company OS Control Host Protected Cutover
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: company-os-control-host-protected-cutover
+  cancel-in-progress: false
+
+env:
+  TARGET_ISSUE: '4159'
+  EXPECTED_COMMAND: '/company-os control-host-cutover'
+  CONTROL_DOMAIN: 'control.xn----8sbjf4befbjgs9b.xn--p1ai'
+  PRIMARY_DOMAIN: 'xn----8sbjf4befbjgs9b.xn--p1ai'
+  CANONICAL_VPS: '195.19.12.120'
+  ACCEPTED_F2A_SHA: '7eca30a3c723e1950e5dd09a19f664eaaff0ed5f'
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+jobs:
+  cutover:
+    name: Protected REG.RU control-host cutover
+    if: >-
+      github.event.issue.number == 4159 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.body == '/company-os control-host-cutover' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Bind exact current main and accepted application boundary
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          main_sha="$(git rev-parse origin/main)"
+          [[ "$main_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$main_sha" ]]
+          git cat-file -e "$ACCEPTED_F2A_SHA^{commit}"
+          git merge-base --is-ancestor "$ACCEPTED_F2A_SHA" "$main_sha"
+          echo "main_sha=$main_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Require canonical public DNS before mutation
+        id: dns
+        shell: bash
+        run: |
+          set -euo pipefail
+          a_records="$(getent ahostsv4 "$CONTROL_DOMAIN" 2>/dev/null | awk '{print $1}' | sort -u || true)"
+          aaaa_records="$(getent ahostsv6 "$CONTROL_DOMAIN" 2>/dev/null | awk '{print $1}' | sort -u || true)"
+          [[ "$(grep -c . <<< "$a_records" || true)" == 1 ]]
+          grep -Fxq "$CANONICAL_VPS" <<< "$a_records"
+          [[ -z "$aaaa_records" ]]
+          echo "state=CANONICAL" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve pinned production SSH identity
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+
+          trim() {
+            local value="$1"
+            value="${value#"${value%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
+            printf '%s' "$value"
+          }
+
+          host="$(trim "${SSH_HOST_SECRET:-$CANONICAL_VPS}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+
+          [[ "$host" == "$CANONICAL_VPS" ]]
+          [[ "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ && "$port" -ge 1 && "$port" -le 65535 ]]
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+
+          validate_key() {
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"
+            chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || {
+              rm -f "$pub"
+              return 1
+            }
+            rm -f "$pub"
+          }
+
+          try_slot() {
+            local raw="$1" first second third
+            [[ -n "$raw" ]] || return 1
+            first="$(mktemp)"
+            second="$(mktemp)"
+            third="$(mktemp)"
+            printf '%s\n' "$raw" > "$first"
+            validate_key "$first" && { rm -f "$first" "$second" "$third"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$second"
+            validate_key "$second" && { rm -f "$first" "$second" "$third"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$third" 2>/dev/null && validate_key "$third" && {
+              rm -f "$first" "$second" "$third"
+              return 0
+            }
+            rm -f "$first" "$second" "$third"
+            return 1
+          }
+
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}"
+
+          scan="$(mktemp)"
+          match="$(mktemp)"
+          pinned=0
+          for attempt in 1 2 3; do
+            : > "$scan"
+            : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            if [[ -s "$scan" ]]; then
+              while IFS= read -r line; do
+                fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+                [[ "$fingerprint" == "$expected" ]] && printf '%s\n' "$line" >> "$match"
+              done < "$scan"
+              sort -u -o "$match" "$match"
+              if [[ "$(grep -c . "$match" || true)" == 1 ]]; then
+                pinned=1
+                break
+              fi
+            fi
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          rm -f "$scan"
+          [[ "$pinned" == 1 ]]
+          mv "$match" "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" \
+            'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; docker compose version >/dev/null; systemctl is-active --quiet caddy; echo READY' \
+            | grep -Fxq READY
+
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+
+      - name: Read-only topology and durable-gate preflight
+        id: preflight
+        shell: bash
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          USER: ${{ steps.ssh.outputs.user }}
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/company-os-control-cutover"
+          mkdir -p "$evidence"
+          remote="$evidence/preflight.env"
+
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" 'bash -s' <<'REMOTE' > "$remote"
+          set -euo pipefail
+          primary='xn----8sbjf4befbjgs9b.xn--p1ai'
+          control='control.xn----8sbjf4befbjgs9b.xn--p1ai'
+
+          command -v docker >/dev/null
+          command -v caddy >/dev/null
+          command -v jq >/dev/null
+          command -v python3 >/dev/null
+          systemctl is-active --quiet caddy
+          caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1
+          [[ -r /etc/caddy/Caddyfile ]]
+          ! grep -Fq "$control" /etc/caddy/Caddyfile
+
+          mapfile -t web_ids < <(docker ps --filter label=com.docker.compose.service=web --format '{{.ID}}')
+          [[ "${#web_ids[@]}" == 1 ]]
+          web_id="${web_ids[0]}"
+          project="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' "$web_id")"
+          working_dir="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' "$web_id")"
+          config_files="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}' "$web_id")"
+          image_id="$(docker inspect --format '{{.Image}}' "$web_id")"
+          revision="$(docker image inspect "$image_id" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
+          status="$(docker inspect --format '{{.State.Status}}' "$web_id")"
+          health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$web_id")"
+          gate="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$web_id" | grep -E '^PC_CONTROL_HOST_ENABLED=' | tail -1 || true)"
+
+          [[ "$project" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$ ]]
+          [[ "$working_dir" == /* && -d "$working_dir" ]]
+          [[ -n "$config_files" && "$config_files" != *$'\n'* ]]
+          [[ "$image_id" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "$revision" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$status" == running ]]
+          [[ "$health" == none || "$health" == healthy ]]
+          [[ -z "$gate" || "$gate" == 'PC_CONTROL_HOST_ENABLED=false' ]]
+
+          IFS=',' read -r -a config_array <<< "$config_files"
+          compose=(docker compose --project-name "$project")
+          for config_file in "${config_array[@]}"; do
+            [[ "$config_file" == /* && -f "$config_file" ]]
+            compose+=( -f "$config_file" )
+          done
+          [[ -f "$working_dir/.env" && ! -L "$working_dir/.env" ]]
+
+          temp_env="$(mktemp)"
+          temp_json="$(mktemp)"
+          trap 'rm -f "$temp_env" "$temp_json"' EXIT
+          cp "$working_dir/.env" "$temp_env"
+          python3 - "$temp_env" <<'PY'
+          from pathlib import Path
+          import sys
+          path = Path(sys.argv[1])
+          raw = path.read_text(encoding='utf-8')
+          if '\x00' in raw or len(raw.encode('utf-8')) > 1024 * 1024:
+              raise SystemExit(1)
+          lines = [line for line in raw.splitlines() if not line.startswith('PC_CONTROL_HOST_ENABLED=')]
+          lines.append('PC_CONTROL_HOST_ENABLED=true')
+          path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+          PY
+          (
+            cd "$working_dir"
+            "${compose[@]}" --env-file "$temp_env" config --format json > "$temp_json"
+          )
+          jq -e '.services.web.environment.PC_CONTROL_HOST_ENABLED == "true" or .services.web.environment.PC_CONTROL_HOST_ENABLED == true' "$temp_json" >/dev/null
+
+          upstream_file="$(mktemp)"
+          trap 'rm -f "$temp_env" "$temp_json" "$upstream_file"' EXIT
+          python3 - /etc/caddy/Caddyfile "$primary" "$upstream_file" <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+          source = Path(sys.argv[1]).read_text(encoding='utf-8')
+          domain = sys.argv[2]
+          out = Path(sys.argv[3])
+          lines = source.splitlines()
+          start = None
+          depth = 0
+          block = []
+          for idx, raw in enumerate(lines):
+              line = raw.split('#', 1)[0].strip()
+              if start is None:
+                  if domain in line and '{' in line:
+                      start = idx
+                      depth = line.count('{') - line.count('}')
+                      block.append(raw)
+                      if depth == 0:
+                          break
+              else:
+                  block.append(raw)
+                  clean = raw.split('#', 1)[0]
+                  depth += clean.count('{') - clean.count('}')
+                  if depth == 0:
+                      break
+          candidates = []
+          if block:
+              for raw in block:
+                  clean = raw.split('#', 1)[0].strip()
+                  match = re.fullmatch(r'reverse_proxy\s+([^\s{}]+)', clean)
+                  if match:
+                      candidates.append(match.group(1))
+          if len(candidates) == 1 and re.fullmatch(r'(127\.0\.0\.1|localhost):[1-9][0-9]{0,4}', candidates[0]):
+              out.write_text(candidates[0], encoding='utf-8')
+          PY
+          if [[ ! -s "$upstream_file" ]]; then
+            mapfile -t port_lines < <(docker port "$web_id" 3000/tcp 2>/dev/null || true)
+            [[ "${#port_lines[@]}" == 1 ]]
+            host_port="${port_lines[0]##*:}"
+            [[ "$host_port" =~ ^[1-9][0-9]{0,4}$ && "$host_port" -le 65535 ]]
+            printf '127.0.0.1:%s' "$host_port" > "$upstream_file"
+          fi
+          upstream="$(cat "$upstream_file")"
+          [[ "$upstream" =~ ^(127\.0\.0\.1|localhost):[1-9][0-9]{0,4}$ ]]
+          code="$(curl --silent --show-error --output /dev/null --connect-timeout 5 --max-time 10 --write-out '%{http_code}' -H "Host: $primary" "http://$upstream/api/health")"
+          [[ "$code" == 200 ]]
+
+          printf '%s\n' \
+            'CADDY=READY' \
+            'CONTROL_DECLARED=NO' \
+            'COMPOSE=READY' \
+            'ENV_GATE_MAPPING=READY' \
+            'UPSTREAM=READY' \
+            "WEB_IMAGE_ID=$image_id" \
+            "WEB_REVISION=$revision" \
+            'CURRENT_GATE=DISABLED'
+          REMOTE
+
+          for key in CADDY CONTROL_DECLARED COMPOSE ENV_GATE_MAPPING UPSTREAM WEB_IMAGE_ID WEB_REVISION CURRENT_GATE; do
+            value="$(grep -E "^${key}=" "$remote" | tail -1 | cut -d= -f2- || true)"
+            [[ -n "$value" ]]
+            echo "${key,,}=$value" >> "$GITHUB_OUTPUT"
+          done
+
+          [[ "${{ steps.preflight.outputs.caddy }}" != '' ]] || true
+
+      - name: Validate running revision and primary continuity
+        id: authority
+        shell: bash
+        env:
+          WEB_REVISION: ${{ steps.preflight.outputs.web_revision }}
+          MAIN_SHA: ${{ steps.target.outputs.main_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$WEB_REVISION" =~ ^[0-9a-f]{40}$ ]]
+          git cat-file -e "$WEB_REVISION^{commit}"
+          git merge-base --is-ancestor "$ACCEPTED_F2A_SHA" "$WEB_REVISION"
+          git merge-base --is-ancestor "$WEB_REVISION" "$MAIN_SHA"
+          primary_code="$(curl --silent --show-error --output /dev/null --connect-timeout 8 --max-time 15 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/api/health")"
+          [[ "$primary_code" == 200 ]]
+          echo "state=READY" >> "$GITHUB_OUTPUT"
+
+      - name: Apply bounded cutover, accept once, or roll back
+        id: execute
+        shell: bash
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          USER: ${{ steps.ssh.outputs.user }}
+          EXPECTED_IMAGE_ID: ${{ steps.preflight.outputs.web_image_id }}
+          EXPECTED_REVISION: ${{ steps.preflight.outputs.web_revision }}
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/company-os-control-cutover"
+          mkdir -p "$evidence"
+          summary="$evidence/summary.env"
+          : > "$summary"
+
+          remote_apply() {
+            ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" \
+              "RUN_ID='$GITHUB_RUN_ID' EXPECTED_IMAGE_ID='$EXPECTED_IMAGE_ID' EXPECTED_REVISION='$EXPECTED_REVISION' bash -s" <<'REMOTE'
+          set -euo pipefail
+          umask 077
+          primary='xn----8sbjf4befbjgs9b.xn--p1ai'
+          control='control.xn----8sbjf4befbjgs9b.xn--p1ai'
+          state_dir="/root/.company-os-control-cutover/${RUN_ID}"
+          mkdir -p "$state_dir"
+          chmod 700 "$state_dir"
+          env_changed=0
+          caddy_changed=0
+          rollback_done=0
+
+          discover() {
+            mapfile -t web_ids < <(docker ps --filter label=com.docker.compose.service=web --format '{{.ID}}')
+            [[ "${#web_ids[@]}" == 1 ]]
+            web_id="${web_ids[0]}"
+            project="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' "$web_id")"
+            working_dir="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.working_dir"}}' "$web_id")"
+            config_files="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}' "$web_id")"
+            image_id="$(docker inspect --format '{{.Image}}' "$web_id")"
+            revision="$(docker image inspect "$image_id" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
+            [[ "$project" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$ ]]
+            [[ "$working_dir" == /* && -d "$working_dir" ]]
+            [[ -n "$config_files" && "$config_files" != *$'\n'* ]]
+            [[ "$image_id" == "$EXPECTED_IMAGE_ID" ]]
+            [[ "$revision" == "$EXPECTED_REVISION" ]]
+            IFS=',' read -r -a config_array <<< "$config_files"
+            compose=(docker compose --project-name "$project")
+            for config_file in "${config_array[@]}"; do
+              [[ "$config_file" == /* && -f "$config_file" ]]
+              compose+=( -f "$config_file" )
+            done
+          }
+
+          rollback() {
+            local rc=0
+            set +e
+            if [[ "$caddy_changed" == 1 && -f "$state_dir/Caddyfile.before" ]]; then
+              cp -a "$state_dir/Caddyfile.before" /etc/caddy/Caddyfile || rc=1
+              caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1 || rc=1
+              systemctl reload caddy || rc=1
+            fi
+            if [[ "$env_changed" == 1 ]]; then
+              if [[ -f "$state_dir/env.was_missing" ]]; then
+                rm -f "$working_dir/.env" || rc=1
+              elif [[ -f "$state_dir/env.before" ]]; then
+                cp -a "$state_dir/env.before" "$working_dir/.env" || rc=1
+              else
+                rc=1
+              fi
+              (
+                cd "$working_dir" || exit 1
+                "${compose[@]}" up -d --no-deps --no-build --pull never web >/dev/null
+              ) || rc=1
+            fi
+            if [[ "$rc" == 0 ]]; then
+              mapfile -t rollback_ids < <(docker ps --filter label=com.docker.compose.service=web --format '{{.ID}}')
+              [[ "${#rollback_ids[@]}" == 1 ]] || rc=1
+              if [[ "$rc" == 0 ]]; then
+                rollback_gate="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "${rollback_ids[0]}" | grep -E '^PC_CONTROL_HOST_ENABLED=' | tail -1 || true)"
+                [[ -z "$rollback_gate" || "$rollback_gate" == 'PC_CONTROL_HOST_ENABLED=false' ]] || rc=1
+              fi
+              health_code="$(curl --silent --output /dev/null --connect-timeout 5 --max-time 15 --write-out '%{http_code}' -H "Host: $primary" 'http://127.0.0.1/api/health' 2>/dev/null || true)"
+              [[ "$health_code" == 200 ]] || health_code="$(curl --silent --output /dev/null --connect-timeout 5 --max-time 15 --write-out '%{http_code}' "https://$primary/api/health" 2>/dev/null || true)"
+              [[ "$health_code" == 200 ]] || rc=1
+            fi
+            rollback_done=1
+            if [[ "$rc" == 0 ]]; then
+              rm -rf "$state_dir"
+              echo 'ROLLBACK=PASS'
+            else
+              echo 'ROLLBACK=FAILED'
+            fi
+            set -e
+            return "$rc"
+          }
+
+          on_error() {
+            local original_rc=$?
+            if [[ "$rollback_done" == 0 ]]; then
+              rollback || exit 97
+            fi
+            exit "$original_rc"
+          }
+          trap on_error ERR
+
+          discover
+          current_gate="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$web_id" | grep -E '^PC_CONTROL_HOST_ENABLED=' | tail -1 || true)"
+          [[ -z "$current_gate" || "$current_gate" == 'PC_CONTROL_HOST_ENABLED=false' ]]
+          systemctl is-active --quiet caddy
+          caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1
+          ! grep -Fq "$control" /etc/caddy/Caddyfile
+          [[ -f "$working_dir/.env" && ! -L "$working_dir/.env" ]]
+
+          printf '%s' "$project" > "$state_dir/project"
+          printf '%s' "$working_dir" > "$state_dir/working_dir"
+          printf '%s' "$config_files" > "$state_dir/config_files"
+          printf '%s' "$EXPECTED_IMAGE_ID" > "$state_dir/image_id"
+          printf '%s' "$EXPECTED_REVISION" > "$state_dir/revision"
+          cp -a /etc/caddy/Caddyfile "$state_dir/Caddyfile.before"
+          cp -a "$working_dir/.env" "$state_dir/env.before"
+
+          upstream_file="$state_dir/upstream"
+          python3 - /etc/caddy/Caddyfile "$primary" "$upstream_file" <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+          source = Path(sys.argv[1]).read_text(encoding='utf-8')
+          domain = sys.argv[2]
+          out = Path(sys.argv[3])
+          lines = source.splitlines()
+          block = []
+          depth = 0
+          started = False
+          for raw in lines:
+              line = raw.split('#', 1)[0].strip()
+              if not started:
+                  if domain in line and '{' in line:
+                      started = True
+                      block.append(raw)
+                      depth = line.count('{') - line.count('}')
+                      if depth == 0:
+                          break
+              else:
+                  block.append(raw)
+                  clean = raw.split('#', 1)[0]
+                  depth += clean.count('{') - clean.count('}')
+                  if depth == 0:
+                      break
+          candidates = []
+          for raw in block:
+              clean = raw.split('#', 1)[0].strip()
+              match = re.fullmatch(r'reverse_proxy\s+([^\s{}]+)', clean)
+              if match:
+                  candidates.append(match.group(1))
+          if len(candidates) == 1 and re.fullmatch(r'(127\.0\.0\.1|localhost):[1-9][0-9]{0,4}', candidates[0]):
+              out.write_text(candidates[0], encoding='utf-8')
+          PY
+          if [[ ! -s "$upstream_file" ]]; then
+            mapfile -t port_lines < <(docker port "$web_id" 3000/tcp 2>/dev/null || true)
+            [[ "${#port_lines[@]}" == 1 ]]
+            host_port="${port_lines[0]##*:}"
+            [[ "$host_port" =~ ^[1-9][0-9]{0,4}$ && "$host_port" -le 65535 ]]
+            printf '127.0.0.1:%s' "$host_port" > "$upstream_file"
+          fi
+          upstream="$(cat "$upstream_file")"
+          [[ "$upstream" =~ ^(127\.0\.0\.1|localhost):[1-9][0-9]{0,4}$ ]]
+
+          caddy_candidate="$state_dir/Caddyfile.candidate"
+          cp -a /etc/caddy/Caddyfile "$caddy_candidate"
+          cat >> "$caddy_candidate" <<CADDY
+
+          $control {
+              reverse_proxy $upstream
+          }
+          CADDY
+          caddy validate --config "$caddy_candidate" >/dev/null 2>&1
+
+          python3 - "$working_dir/.env" <<'PY'
+          from pathlib import Path
+          import os
+          import stat
+          import sys
+          path = Path(sys.argv[1])
+          if not path.is_file() or path.is_symlink():
+              raise SystemExit(1)
+          raw = path.read_text(encoding='utf-8')
+          if '\x00' in raw or len(raw.encode('utf-8')) > 1024 * 1024:
+              raise SystemExit(1)
+          current = path.stat()
+          lines = [line for line in raw.splitlines() if not line.startswith('PC_CONTROL_HOST_ENABLED=')]
+          lines.append('PC_CONTROL_HOST_ENABLED=true')
+          temp = path.with_name(path.name + '.company-os.tmp')
+          temp.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+          os.chmod(temp, stat.S_IMODE(current.st_mode))
+          os.chown(temp, current.st_uid, current.st_gid)
+          os.replace(temp, path)
+          PY
+          env_changed=1
+
+          resolved="$state_dir/compose.json"
+          (
+            cd "$working_dir"
+            "${compose[@]}" config --format json > "$resolved"
+          )
+          jq -e '.services.web.environment.PC_CONTROL_HOST_ENABLED == "true" or .services.web.environment.PC_CONTROL_HOST_ENABLED == true' "$resolved" >/dev/null
+          rm -f "$resolved"
+
+          (
+            cd "$working_dir"
+            "${compose[@]}" up -d --no-deps --no-build --pull never web >/dev/null
+          )
+
+          ready=0
+          for attempt in $(seq 1 30); do
+            mapfile -t new_ids < <(docker ps --filter label=com.docker.compose.service=web --format '{{.ID}}')
+            if [[ "${#new_ids[@]}" == 1 ]]; then
+              new_id="${new_ids[0]}"
+              new_status="$(docker inspect --format '{{.State.Status}}' "$new_id" 2>/dev/null || true)"
+              new_health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$new_id" 2>/dev/null || true)"
+              new_image="$(docker inspect --format '{{.Image}}' "$new_id" 2>/dev/null || true)"
+              new_revision="$(docker image inspect "$new_image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' 2>/dev/null || true)"
+              new_gate="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$new_id" 2>/dev/null | grep -E '^PC_CONTROL_HOST_ENABLED=' | tail -1 || true)"
+              if [[ "$new_status" == running && ( "$new_health" == none || "$new_health" == healthy ) && "$new_image" == "$EXPECTED_IMAGE_ID" && "$new_revision" == "$EXPECTED_REVISION" && "$new_gate" == 'PC_CONTROL_HOST_ENABLED=true' ]]; then
+                ready=1
+                break
+              fi
+            fi
+            sleep 2
+          done
+          [[ "$ready" == 1 ]]
+
+          primary_code="$(curl --silent --show-error --output /dev/null --connect-timeout 5 --max-time 15 --write-out '%{http_code}' -H "Host: $primary" "http://$upstream/api/health")"
+          [[ "$primary_code" == 200 ]]
+
+          cp -a "$caddy_candidate" /etc/caddy/Caddyfile
+          caddy_changed=1
+          caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1
+          systemctl reload caddy
+          systemctl is-active --quiet caddy
+          echo 'APPLY=PASS'
+          trap - ERR
+          REMOTE
+          }
+
+          remote_rollback() {
+            ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" \
+              "RUN_ID='$GITHUB_RUN_ID' bash -s" <<'REMOTE'
+          set -euo pipefail
+          state_dir="/root/.company-os-control-cutover/${RUN_ID}"
+          primary='xn----8sbjf4befbjgs9b.xn--p1ai'
+          [[ -d "$state_dir" ]]
+          project="$(cat "$state_dir/project")"
+          working_dir="$(cat "$state_dir/working_dir")"
+          config_files="$(cat "$state_dir/config_files")"
+          [[ "$project" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$ ]]
+          [[ "$working_dir" == /* && -d "$working_dir" ]]
+          IFS=',' read -r -a config_array <<< "$config_files"
+          compose=(docker compose --project-name "$project")
+          for config_file in "${config_array[@]}"; do
+            [[ "$config_file" == /* && -f "$config_file" ]]
+            compose+=( -f "$config_file" )
+          done
+          cp -a "$state_dir/Caddyfile.before" /etc/caddy/Caddyfile
+          caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1
+          systemctl reload caddy
+          cp -a "$state_dir/env.before" "$working_dir/.env"
+          (
+            cd "$working_dir"
+            "${compose[@]}" up -d --no-deps --no-build --pull never web >/dev/null
+          )
+          ready=0
+          for attempt in $(seq 1 30); do
+            mapfile -t ids < <(docker ps --filter label=com.docker.compose.service=web --format '{{.ID}}')
+            if [[ "${#ids[@]}" == 1 ]]; then
+              gate="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "${ids[0]}" | grep -E '^PC_CONTROL_HOST_ENABLED=' | tail -1 || true)"
+              status="$(docker inspect --format '{{.State.Status}}' "${ids[0]}")"
+              health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "${ids[0]}")"
+              if [[ "$status" == running && ( "$health" == none || "$health" == healthy ) && ( -z "$gate" || "$gate" == 'PC_CONTROL_HOST_ENABLED=false' ) ]]; then
+                ready=1
+                break
+              fi
+            fi
+            sleep 2
+          done
+          [[ "$ready" == 1 ]]
+          code="$(curl --silent --show-error --output /dev/null --connect-timeout 5 --max-time 15 --write-out '%{http_code}' "https://$primary/api/health")"
+          [[ "$code" == 200 ]]
+          rm -rf "$state_dir"
+          echo 'ROLLBACK=PASS'
+          REMOTE
+          }
+
+          remote_finalize() {
+            ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" \
+              "RUN_ID='$GITHUB_RUN_ID' EXPECTED_IMAGE_ID='$EXPECTED_IMAGE_ID' EXPECTED_REVISION='$EXPECTED_REVISION' bash -s" <<'REMOTE'
+          set -euo pipefail
+          control='control.xn----8sbjf4befbjgs9b.xn--p1ai'
+          state_dir="/root/.company-os-control-cutover/${RUN_ID}"
+          systemctl is-active --quiet caddy
+          caddy validate --config /etc/caddy/Caddyfile >/dev/null 2>&1
+          [[ "$(grep -Fc "$control" /etc/caddy/Caddyfile)" == 1 ]]
+          mapfile -t ids < <(docker ps --filter label=com.docker.compose.service=web --format '{{.ID}}')
+          [[ "${#ids[@]}" == 1 ]]
+          image_id="$(docker inspect --format '{{.Image}}' "${ids[0]}")"
+          revision="$(docker image inspect "$image_id" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
+          gate="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "${ids[0]}" | grep -E '^PC_CONTROL_HOST_ENABLED=' | tail -1 || true)"
+          [[ "$image_id" == "$EXPECTED_IMAGE_ID" ]]
+          [[ "$revision" == "$EXPECTED_REVISION" ]]
+          [[ "$gate" == 'PC_CONTROL_HOST_ENABLED=true' ]]
+          rm -rf "$state_dir"
+          echo 'FINAL=PASS'
+          REMOTE
+          }
+
+          set +e
+          apply_output="$(remote_apply 2>/dev/null)"
+          apply_rc=$?
+          set -e
+          apply_state="$(grep -E '^APPLY=' <<< "$apply_output" | tail -1 | cut -d= -f2- || true)"
+          rollback_state="$(grep -E '^ROLLBACK=' <<< "$apply_output" | tail -1 | cut -d= -f2- || true)"
+
+          if [[ "$apply_rc" != 0 || "$apply_state" != PASS ]]; then
+            [[ -n "$rollback_state" ]] || rollback_state=NOT_CONFIRMED
+            printf '%s\n' 'FINAL_STATE=ROLLED_BACK_OR_BLOCKED' "APPLY=$apply_state" "ROLLBACK=$rollback_state" > "$summary"
+            echo "final_state=ROLLED_BACK_OR_BLOCKED" >> "$GITHUB_OUTPUT"
+            echo "rollback=$rollback_state" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          tls_ready=0
+          for attempt in $(seq 1 36); do
+            if timeout 12 bash -c "printf '' | openssl s_client -connect '$CONTROL_DOMAIN:443' -servername '$CONTROL_DOMAIN' -verify_return_error 2>/dev/null | openssl x509 -noout -checkend 0 -ext subjectAltName 2>/dev/null" > "$evidence/cert.txt" 2>/dev/null \
+              && grep -Fq "DNS:$CONTROL_DOMAIN" "$evidence/cert.txt"; then
+              tls_ready=1
+              break
+            fi
+            sleep 5
+          done
+
+          public_state=PASS
+          [[ "$tls_ready" == 1 ]] || public_state=TLS_NOT_READY
+
+          if [[ "$public_state" == PASS ]]; then
+            primary_code="$(curl --silent --show-error --output /dev/null --connect-timeout 8 --max-time 15 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/api/health" 2>/dev/null || true)"
+            [[ "$primary_code" == 200 ]] || public_state=PRIMARY_HEALTH_FAILED
+          fi
+
+          if [[ "$public_state" == PASS ]]; then
+            login_code="$(curl --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/login" 2>/dev/null || true)"
+            [[ "$login_code" =~ ^(200|302|303|307|308)$ ]] || public_state=LOGIN_BOUNDARY_FAILED
+          fi
+
+          if [[ "$public_state" == PASS ]]; then
+            staff_code="$(curl --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/platform-v7/staff" 2>/dev/null || true)"
+            [[ "$staff_code" =~ ^(302|303|307|308|401|403)$ ]] || public_state=STAFF_UNAUTH_BOUNDARY_FAILED
+          fi
+
+          if [[ "$public_state" == PASS ]]; then
+            forbidden_code="$(curl --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/seller" 2>/dev/null || true)"
+            [[ "$forbidden_code" =~ ^(301|302|303|307|308|401|403|404)$ ]] || public_state=FORBIDDEN_ROUTE_EXPOSED
+          fi
+
+          if [[ "$public_state" == PASS ]]; then
+            api_code="$(curl --silent --show-error --output /dev/null --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$CONTROL_DOMAIN/api/platform-v7/staff/capabilities" 2>/dev/null || true)"
+            [[ "$api_code" =~ ^(401|403|404)$ ]] || public_state=UNAUTH_API_EXPOSED
+          fi
+
+          if [[ "$public_state" == PASS ]]; then
+            normal_body="$evidence/primary-normal.body"
+            spoofed_body="$evidence/primary-spoofed.body"
+            normal_headers="$evidence/primary-normal.headers"
+            spoofed_headers="$evidence/primary-spoofed.headers"
+            normal_code="$(curl --silent --show-error --dump-header "$normal_headers" --output "$normal_body" --connect-timeout 8 --max-time 20 --write-out '%{http_code}' "https://$PRIMARY_DOMAIN/seller" 2>/dev/null || true)"
+            spoofed_code="$(curl --silent --show-error --dump-header "$spoofed_headers" --output "$spoofed_body" --connect-timeout 8 --max-time 20 --write-out '%{http_code}' -H "X-Forwarded-Host: $CONTROL_DOMAIN" "https://$PRIMARY_DOMAIN/seller" 2>/dev/null || true)"
+            normal_hash="$(sha256sum "$normal_body" | awk '{print $1}')"
+            spoofed_hash="$(sha256sum "$spoofed_body" | awk '{print $1}')"
+            [[ "$normal_code" == "$spoofed_code" && "$normal_hash" == "$spoofed_hash" ]] || public_state=FORWARDED_HOST_TRUSTED
+            rm -f "$normal_body" "$spoofed_body" "$normal_headers" "$spoofed_headers"
+          fi
+
+          if [[ "$public_state" == PASS ]]; then
+            control_headers="$evidence/control.headers"
+            curl --silent --show-error --dump-header "$control_headers" --output /dev/null --connect-timeout 8 --max-time 20 "https://$CONTROL_DOMAIN/login" 2>/dev/null || public_state=CONTROL_HEADER_FETCH_FAILED
+            if [[ "$public_state" == PASS ]]; then
+              ! grep -Eiq '^x-pc-(role|owner|tenant|workspace):' "$control_headers" || public_state=PRESENTATION_HEADER_LEAK
+              ! grep -Eiq '^set-cookie:.*[;[:space:]]domain=' "$control_headers" || public_state=DOMAIN_COOKIE_LEAK
+            fi
+            rm -f "$control_headers"
+          fi
+
+          if [[ "$public_state" != PASS ]]; then
+            set +e
+            rollback_output="$(remote_rollback 2>/dev/null)"
+            rollback_rc=$?
+            set -e
+            rollback_state="$(grep -E '^ROLLBACK=' <<< "$rollback_output" | tail -1 | cut -d= -f2- || true)"
+            if [[ "$rollback_rc" == 0 && "$rollback_state" == PASS ]]; then
+              final_state=ROLLED_BACK
+            else
+              final_state=INCIDENT_ROLLBACK_FAILED
+              rollback_state=FAILED
+            fi
+            printf '%s\n' "FINAL_STATE=$final_state" "PUBLIC_ACCEPTANCE=$public_state" "ROLLBACK=$rollback_state" > "$summary"
+            echo "final_state=$final_state" >> "$GITHUB_OUTPUT"
+            echo "rollback=$rollback_state" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          finalize_output="$(remote_finalize 2>/dev/null)"
+          grep -Fxq 'FINAL=PASS' <<< "$finalize_output"
+          printf '%s\n' \
+            'FINAL_STATE=PASS' \
+            'DNS=CANONICAL' \
+            'TLS=VALID' \
+            'CADDY=VALID' \
+            'PRIMARY_HEALTH=PASS' \
+            'CONTROL_LOGIN_BOUNDARY=PASS' \
+            'UNAUTH_STAFF_BOUNDARY=PASS' \
+            'FORBIDDEN_ROUTE_BOUNDARY=PASS' \
+            'FORWARDED_HOST_NEGATIVE=PASS' \
+            'PRESENTATION_HEADER_NEGATIVE=PASS' \
+            'DOMAIN_COOKIE_NEGATIVE=PASS' \
+            'WEB_IMAGE_UNCHANGED=PASS' \
+            'WEB_REVISION_UNCHANGED=PASS' \
+            'CONTROL_GATE=ENABLED' \
+            'ROLLBACK=NOT_REQUIRED' \
+            > "$summary"
+          echo "final_state=PASS" >> "$GITHUB_OUTPUT"
+          echo "rollback=NOT_REQUIRED" >> "$GITHUB_OUTPUT"
+
+      - name: Upload sanitized cutover evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: company-os-control-host-cutover-${{ github.run_id }}
+          path: ${{ runner.temp }}/company-os-control-cutover/summary.env
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish sanitized result to authority issue
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MAIN_SHA: ${{ steps.target.outputs.main_sha }}
+          FINAL_STATE: ${{ steps.execute.outputs.final_state }}
+          ROLLBACK: ${{ steps.execute.outputs.rollback }}
+        run: |
+          set -euo pipefail
+          [[ "$MAIN_SHA" =~ ^[0-9a-f]{40}$ ]] || MAIN_SHA=UNKNOWN
+          [[ -n "$FINAL_STATE" ]] || FINAL_STATE=BLOCK_PRECONDITION
+          [[ -n "$ROLLBACK" ]] || ROLLBACK=NOT_APPLICABLE
+          body="$(cat <<EOF
+          ### Company OS F2B protected control-host cutover
+
+          - Run: $GITHUB_RUN_ID
+          - Bound main: \`$MAIN_SHA\`
+          - Final state: **$FINAL_STATE**
+          - Rollback: **$ROLLBACK**
+          - Production database mutation: **NONE**
+          - Image build/pull: **NONE**
+          - New recurring cost: **0 ₽**
+
+          \`PASS\` advances only the edge boundary. Authenticated staff, revocation, cross-account and mobile browser acceptance remain separate gates.
+          EOF
+          )"
+          gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$TARGET_ISSUE/comments" -f body="$body" >/dev/null
+
+      - name: Enforce terminal PASS
+        shell: bash
+        env:
+          FINAL_STATE: ${{ steps.execute.outputs.final_state }}
+        run: |
+          set -euo pipefail
+          [[ "$FINAL_STATE" == PASS ]]
