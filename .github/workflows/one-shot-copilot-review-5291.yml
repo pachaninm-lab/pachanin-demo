@@ -1,0 +1,69 @@
+name: One-shot Copilot review request 5291
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: write
+
+jobs:
+  request-copilot-review:
+    if: github.head_ref == 'governance/request-copilot-review-5291-20260911'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Request genuine Copilot exact-head review
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TARGET_PR: '5291'
+          EXPECTED_HEAD: '053c48ecb971dce291565475cff7f03ad6169357'
+        run: |
+          set -euo pipefail
+
+          actual_head="$(gh api "repos/$REPO/pulls/$TARGET_PR" --jq '.head.sha')"
+          if [ "$actual_head" != "$EXPECTED_HEAD" ]; then
+            echo "TARGET_HEAD_MOVED expected=$EXPECTED_HEAD actual=$actual_head"
+            exit 1
+          fi
+
+          pr_node_id="$(gh api "repos/$REPO/pulls/$TARGET_PR" --jq '.node_id')"
+          if [ -z "$pr_node_id" ]; then
+            echo "TARGET_NODE_ID_MISSING"
+            exit 1
+          fi
+
+          before_id="$(gh api --paginate "repos/$REPO/issues/$TARGET_PR/events?per_page=100" --jq '.[] | select(.event == "copilot_work_started") | .id' | sort -n | tail -1 || true)"
+          before_id="${before_id:-0}"
+
+          gh api graphql \
+            -f query='mutation($p: ID!) { requestReviewsByLogin(input: { pullRequestId: $p, botLogins: ["copilot-pull-request-reviewer[bot]"], union: true }) { pullRequest { number } } }' \
+            -f p="$pr_node_id" \
+            --jq '.data.requestReviewsByLogin.pullRequest.number'
+
+          observed=''
+          for _ in $(seq 1 45); do
+            observed="$(gh api --paginate "repos/$REPO/issues/$TARGET_PR/events?per_page=100" --jq '.[] | select(.event == "copilot_work_started") | .id' | sort -n | tail -1 || true)"
+            observed="${observed:-0}"
+            if [ "$observed" -gt "$before_id" ]; then
+              break
+            fi
+            sleep 2
+          done
+
+          if [ "$observed" -le "$before_id" ]; then
+            echo "COPILOT_WORK_STARTED_NOT_OBSERVED before=$before_id after=$observed"
+            exit 1
+          fi
+
+          final_head="$(gh api "repos/$REPO/pulls/$TARGET_PR" --jq '.head.sha')"
+          if [ "$final_head" != "$EXPECTED_HEAD" ]; then
+            echo "TARGET_HEAD_MOVED_AFTER_REQUEST expected=$EXPECTED_HEAD actual=$final_head"
+            exit 1
+          fi
+
+          echo "COPILOT_REVIEW_REQUEST=PASS target_pr=$TARGET_PR exact_head=$EXPECTED_HEAD event_id=$observed"
