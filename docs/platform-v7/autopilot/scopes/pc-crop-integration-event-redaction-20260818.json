@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "claude/pc-crop-integration-event-redaction-20260818",
+  "status": "active",
+  "title": "PC-CROP Federal Accounting — integration event metadata-only exposure",
+  "priority": "P0",
+  "issue": 4321,
+  "projectLockId": "PC-CROP-FEDERAL-ACCOUNTING",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "authorityBaseExactMain": "aa237f085ddb9d1447a6625b586c15cc8d989ce5",
+  "purpose": "Close a concrete security gap against sections 43, 48, 53 and invariant secret_leakage_to_logs=0: integration event logging currently accepts arbitrary request/response payloads and the staff read endpoint returns them. Replace default event persistence/exposure with bounded metadata and safe machine error codes without inventing a second audit/event store.",
+  "allowedPaths": [
+    "apps/api/src/modules/integration-events/integration-event-redaction.policy.ts",
+    "apps/api/src/modules/integration-events/integration-event-redaction.policy.spec.ts",
+    "apps/api/src/modules/integration-events/integration-events.service.ts",
+    "apps/api/src/modules/integration-events/integration-events.controller.ts",
+    "docs/ops/pc-crop-federal-accounting/integration-event-redaction-20260818.md",
+    "docs/platform-v7/autopilot/scopes/pc-crop-integration-event-redaction-20260818.json"
+  ],
+  "boundaries": [
+    "Do not create a second IntegrationEvent/Audit/Outbox store; extend the existing IntegrationEvent path only.",
+    "Default persisted request/response event payloads become metadata summaries only, never original values.",
+    "Free-text thrown error messages are not persisted verbatim; only bounded machine-safe error codes may survive, otherwise a generic INTEGRATION_ERROR code is stored.",
+    "Staff list/get endpoints return metadata-only event projections and never requestPayload, responsePayload or raw errorMessage.",
+    "No universal admin exception exposes the redacted fields through this endpoint.",
+    "No Prisma schema/migration, apps/web, auth model, provider credential, banking, FGIS, hosting or production mutation.",
+    "Existing business execution must not depend on integration telemetry success; this slice does not turn telemetry storage into business authority.",
+    "Merge and green CI are not production acceptance.",
+    "New mandatory recurring cost: 0 RUB."
+  ],
+  "requiredInvariants": [
+    "A secret-looking value in request/response payload cannot appear in the persisted integration event payload field after this change.",
+    "A secret-looking value in Error.message cannot appear in the persisted event errorMessage after this change.",
+    "The staff event endpoint cannot return requestPayload, responsePayload or raw errorMessage.",
+    "Operational fields adapterName, direction, eventType, status, httpStatus, durationMs and createdAt remain available for fleet diagnostics.",
+    "Idempotency/external/deal identifiers may remain server-side but are not emitted by the metadata-only staff projection in this slice."
+  ],
+  "requiredChecks": [
+    "GITHUB_HEAD_REF=claude/pc-crop-integration-event-redaction-20260818 bash scripts/p7-autopilot-guard.sh",
+    "pnpm --filter @pc/api test -- integration-event-redaction.policy.spec.ts",
+    "pnpm --filter @pc/api typecheck",
+    "existing security and integration event gates"
+  ]
+}
