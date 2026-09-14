@@ -4,6 +4,7 @@ import { KafkaProducerService } from '../../common/kafka/kafka-producer.service'
 import {
   ClaimedOutboxEntry,
   DurableOutboxWorker,
+  OutboxDeliveryError,
   OutboxDrainReport,
   OutboxLeaseLostError,
 } from './durable-outbox.worker';
@@ -112,7 +113,7 @@ export class DurableOutboxRunner implements OnModuleInit, OnModuleDestroy {
         this.lastError = null;
         if (report.claimed > 0) {
           this.logger.log(
-            `Outbox drain claimed=${report.claimed} delivered=${report.delivered} retried=${report.retried} dead=${report.deadLettered} leaseLost=${report.leaseLost}`,
+            `Outbox drain claimed=${report.claimed} delivered=${report.delivered} retried=${report.retried} dead=${report.deadLettered} manualReview=${report.manualReview} leaseLost=${report.leaseLost}`,
           );
         }
       })
@@ -141,17 +142,45 @@ export class DurableOutboxRunner implements OnModuleInit, OnModuleDestroy {
     heartbeat.unref?.();
 
     try {
-      const delivered = await this.kafka.send({
-        topic: entry.type.startsWith('BANK_') ? 'grainflow.bank.events' : 'grainflow.domain.events',
-        key: entry.idempotencyKey ?? entry.id,
-        value: entry.payload as Record<string, unknown>,
-        headers: {
-          'x-outbox-id': entry.id,
-          ...(entry.correlationId ? { 'x-correlation-id': entry.correlationId } : {}),
-        },
-      });
+      if (!this.kafka.isConnected()) {
+        throw new OutboxDeliveryError(
+          'TRANSIENT',
+          'KAFKA_TRANSPORT_UNAVAILABLE',
+          'Kafka transport became unavailable before delivery attempt',
+        );
+      }
+
+      let delivered: boolean;
+      try {
+        delivered = await this.kafka.send({
+          topic: entry.type.startsWith('BANK_') ? 'grainflow.bank.events' : 'grainflow.domain.events',
+          key: entry.idempotencyKey ?? entry.id,
+          value: entry.payload as Record<string, unknown>,
+          headers: {
+            'x-outbox-id': entry.id,
+            ...(entry.correlationId ? { 'x-correlation-id': entry.correlationId } : {}),
+          },
+        });
+      } catch (error) {
+        if (error instanceof OutboxLeaseLostError || error instanceof OutboxDeliveryError) throw error;
+        throw new OutboxDeliveryError(
+          'AMBIGUOUS',
+          'TRANSPORT_OUTCOME_UNKNOWN',
+          `Kafka delivery outcome is unknown: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
       if (heartbeatFailure) throw heartbeatFailure;
-      if (!delivered) throw new Error('Kafka transport is disabled or delivery failed');
+      if (!delivered) {
+        // KafkaProducerService currently collapses producer.send() failures into
+        // false. Once the transport was connected and delivery was attempted,
+        // false therefore cannot prove that Kafka did not accept the record.
+        // Quarantine rather than retrying an outcome that may already exist.
+        throw new OutboxDeliveryError(
+          'AMBIGUOUS',
+          'TRANSPORT_OUTCOME_UNKNOWN',
+          'Kafka send returned without durable acknowledgement; delivery outcome is unknown',
+        );
+      }
     } finally {
       clearInterval(heartbeat);
     }
