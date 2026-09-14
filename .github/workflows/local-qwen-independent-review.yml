@@ -561,20 +561,17 @@ jobs:
                   return None
               return finding_violation(item, findings[0])
 
-          def repair_user(item, candidate, violation):
-              safe_candidate = candidate.replace('<|', '< |').replace('|>', '| >')
+          def repair_user(item, violation):
               return (
                   item['user']
                   + '\nTRUSTED_POLICY_REPAIR_NOTICE\n'
                   + f'The prior candidate was rejected as policy-inadmissible: {violation}. '
+                  + 'The rejected candidate content is intentionally omitted so the fresh deterministic repair is anchored only to the trusted added-line index and exact diff. '
                   + 'Re-review the exact same chunk under the unchanged trusted system policy. '
                   + 'Do not rephrase a hypothetical claim into definite wording. '
                   + 'A non-empty finding must cite one exact added line from BEGIN_TRUSTED_ADDED_LINE_INDEX and evidence must be a verbatim substring of that line. '
                   + 'Do not rely on any deployment, topology, data flow, or runtime assumption absent from the exact chunk. '
-                  + 'Return findings=[] when the changed bytes do not directly demonstrate a concrete reproducible defect.\n'
-                  + 'BEGIN_UNTRUSTED_PRIOR_CANDIDATE\n'
-                  + safe_candidate
-                  + '\nEND_UNTRUSTED_PRIOR_CANDIDATE\n'
+                  + 'Return findings=[] only when the changed bytes do not directly demonstrate a concrete reproducible defect.\n'
               )
 
           def save_rejected(item, initial, final, initial_violation, final_violation, repair_sha):
@@ -618,6 +615,7 @@ jobs:
               'path': 'probe.ts',
               'added_lines': [{'line': 7, 'text': 'const value = sanitize(input);'}],
               'chunk_text': '+const value = sanitize(input);',
+              'user': 'BEGIN_TRUSTED_ADDED_LINE_INDEX\nNEW_LINE_7: const value = sanitize(input);\nEND_TRUSTED_ADDED_LINE_INDEX\nBEGIN_UNTRUSTED_PULL_REQUEST_DIFF\n+const value = sanitize(input);\nEND_UNTRUSTED_PULL_REQUEST_DIFF\n',
           }
           valid_probe = {
               'severity': 'P1',
@@ -645,6 +643,13 @@ jobs:
               fail('VALIDATOR_SELFTEST_NON_VERBATIM_EVIDENCE_NOT_REJECTED')
           if finding_violation(probe_item, external_probe) != 'EXTERNAL_CONTEXT_ASSUMPTION':
               fail('VALIDATOR_SELFTEST_EXTERNAL_CONTEXT_FAILED')
+          repair_probe = repair_user(probe_item, 'EVIDENCE_NOT_ON_CITED_ADDED_LINE')
+          if 'TRUSTED_POLICY_REPAIR_NOTICE' not in repair_probe or 'EVIDENCE_NOT_ON_CITED_ADDED_LINE' not in repair_probe:
+              fail('VALIDATOR_SELFTEST_REPAIR_NOTICE_MISSING')
+          if 'BEGIN_TRUSTED_ADDED_LINE_INDEX' not in repair_probe or 'BEGIN_UNTRUSTED_PULL_REQUEST_DIFF' not in repair_probe:
+              fail('VALIDATOR_SELFTEST_REPAIR_CONTEXT_MISSING')
+          if 'BEGIN_UNTRUSTED_PRIOR_CANDIDATE' in repair_probe:
+              fail('VALIDATOR_SELFTEST_REPAIR_CANDIDATE_ANCHOR_PRESENT')
 
           service = 'tai-qwen3-8b.service'
           pid_text = subprocess.check_output(
@@ -847,7 +852,7 @@ jobs:
                   if violation is not None:
                       repaired = True
                       repairs += 1
-                      repaired_user = repair_user(item, initial, violation)
+                      repaired_user = repair_user(item, violation)
                       repair_prompt_sha256 = hashlib.sha256(repaired_user.encode('utf-8')).hexdigest()
                       content = completion(item['system'], repaired_user)
                       repaired_violation = policy_violation(item, content)
