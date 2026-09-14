@@ -221,6 +221,7 @@ FOR EACH ROW EXECUTE FUNCTION auction.sync_public_market_lot_card();
 
 CREATE FUNCTION auction.list_public_market_lot_cards(p_limit integer DEFAULT 12)
 RETURNS TABLE (
+  observed_at timestamptz,
   public_ref text,
   culture text,
   grade text,
@@ -240,6 +241,12 @@ STABLE
 SET search_path = pg_catalog, auction
 SET row_security = on
 AS $function$
+DECLARE
+  -- Capture the database statement clock once inside the same PostgreSQL
+  -- backend that reads the projection. The exact value used to filter expiry is
+  -- returned with every row (including the canonical empty row), so the API
+  -- never compares data against an application clock or a second DB statement.
+  v_observed_at timestamptz := statement_timestamp();
 BEGIN
   -- pc_inventory_authority is deliberately NOLOGIN and memberless. A runtime
   -- session must never become that role; SECURITY DEFINER changes current_user
@@ -288,25 +295,77 @@ BEGIN
   END IF;
 
   RETURN QUERY
+  WITH live_cards AS MATERIALIZED (
+    SELECT
+      c.public_ref,
+      c.culture,
+      c.grade,
+      c.volume_tons::text AS volume_tons,
+      c.start_price_kopecks_per_ton::text AS start_price_kopecks_per_ton,
+      c.region,
+      c.auction_ends_at,
+      c.status,
+      c.verification_status,
+      c.trade_permission,
+      c.lot_version::text AS lot_version,
+      c.projected_at
+    FROM auction.public_market_lot_cards c
+    WHERE c.status = 'BIDDING'
+      AND c.trade_permission = 'PUBLIC_ALLOWED'
+      AND c.auction_ends_at > v_observed_at
+    ORDER BY c.projected_at DESC, c.auction_ends_at ASC, c.public_ref ASC
+    LIMIT p_limit
+  ), result_rows AS (
+    SELECT
+      v_observed_at AS observed_at,
+      l.public_ref,
+      l.culture,
+      l.grade,
+      l.volume_tons,
+      l.start_price_kopecks_per_ton,
+      l.region,
+      l.auction_ends_at,
+      l.status,
+      l.verification_status,
+      l.trade_permission,
+      l.lot_version,
+      l.projected_at
+    FROM live_cards l
+    UNION ALL
+    SELECT
+      v_observed_at,
+      NULL::text,
+      NULL::text,
+      NULL::text,
+      NULL::text,
+      NULL::text,
+      NULL::text,
+      NULL::timestamptz,
+      NULL::text,
+      NULL::text,
+      NULL::text,
+      NULL::text,
+      NULL::timestamptz
+    WHERE NOT EXISTS (SELECT 1 FROM live_cards)
+  )
   SELECT
-    c.public_ref,
-    c.culture,
-    c.grade,
-    c.volume_tons::text,
-    c.start_price_kopecks_per_ton::text,
-    c.region,
-    c.auction_ends_at,
-    c.status,
-    c.verification_status,
-    c.trade_permission,
-    c.lot_version::text,
-    c.projected_at
-  FROM auction.public_market_lot_cards c
-  WHERE c.status = 'BIDDING'
-    AND c.trade_permission = 'PUBLIC_ALLOWED'
-    AND c.auction_ends_at > transaction_timestamp()
-  ORDER BY c.projected_at DESC, c.auction_ends_at ASC, c.public_ref ASC
-  LIMIT p_limit;
+    r.observed_at,
+    r.public_ref,
+    r.culture,
+    r.grade,
+    r.volume_tons,
+    r.start_price_kopecks_per_ton,
+    r.region,
+    r.auction_ends_at,
+    r.status,
+    r.verification_status,
+    r.trade_permission,
+    r.lot_version,
+    r.projected_at
+  FROM result_rows r
+  ORDER BY r.projected_at DESC NULLS LAST,
+           r.auction_ends_at ASC NULLS LAST,
+           r.public_ref ASC NULLS LAST;
 END
 $function$;
 
