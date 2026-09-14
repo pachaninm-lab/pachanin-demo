@@ -149,6 +149,8 @@ export function canonicalSha40(value) {
   return /^[0-9a-f]{40}$/u.test(normalized) ? normalized : '';
 }
 
+// Workflow-run payloads are GitHub authority inputs: require canonical lowercase SHA-40 as emitted.
+// Never normalize malformed or uppercase run identities into exact-head review authority.
 function strictWorkflowRunSha40(value) {
   const raw = String(value || '').trim();
   return /^[0-9a-f]{40}$/u.test(raw) ? raw : '';
@@ -610,6 +612,8 @@ export function validateProviderMaintenanceBootstrapAuthority(manifest) {
   if (bootstrap.onAnyMismatch !== 'FAIL_CLOSED') return null;
   if (bootstrap.resultClassification !== PROVIDER_MAINTENANCE_BOOTSTRAP_CLASSIFICATION) return null;
 
+  // The merged manifest is the validation envelope. Runtime bootstrap mutation is intentionally narrower:
+  // only the provider workflow may use NONE authority. Verifier/test remain independent-review trust boundaries.
   return Object.freeze({
     implementationBranch: bootstrap.implementationBranch,
     allowedImplementationPaths: Object.freeze([bootstrap.providerWorkflowPath]),
@@ -1009,6 +1013,7 @@ function main() {
     try {
       if (resolveCommitSha(repo, prefix) === headSha) exactCleanCodexComments += 1;
     } catch {
+      // Ignore stale or no-longer-resolvable reviewed-commit prefixes.
     }
   }
   const codexAuthority = positiveCodexReviews.length > 0 || exactCleanCodexComments > 0;
