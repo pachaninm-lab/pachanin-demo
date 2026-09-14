@@ -372,6 +372,7 @@ test('provider-maintenance authority parser is bounded, exact-key and returns on
   assert.ok(parsed);
   assert.deepEqual(Object.keys(parsed).sort(), ['allowedImplementationPaths', 'implementationBranch', 'resultClassification']);
   assert.equal(parsed.implementationBranch, 'fix/local-qwen-evidence-binding-20260913');
+  assert.deepEqual(parsed.allowedImplementationPaths, [LOCAL_QWEN_WORKFLOW_PATH]);
   assert.equal(Object.isFrozen(parsed), true);
   assert.equal(Object.isFrozen(parsed.allowedImplementationPaths), true);
 
