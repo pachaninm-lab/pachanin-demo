@@ -48,6 +48,7 @@ describe('anonymous public Auction market projection', () => {
     const migration = read(migrationPath);
     const publicFunction = migration.split('CREATE FUNCTION auction.list_public_market_lot_cards')[1] ?? '';
     const returns = publicFunction.split('AS $function$')[0] ?? '';
+    expect(returns).toContain('observed_at timestamptz');
     expect(returns).toContain('public_ref text');
     expect(returns).toContain('culture text');
     expect(returns).toContain('region text');
@@ -113,12 +114,20 @@ describe('anonymous public Auction market projection', () => {
     expect(deltaGuard).not.toContain('NEW.version');
   });
 
-  it('uses one PostgreSQL statement for live and empty public-market reads and fails closed on expiry', () => {
+  it('uses one PostgreSQL statement and one server-side statement clock for live and empty public-market reads', () => {
+    const migration = read(migrationPath);
     const service = read(servicePath);
-    expect(service).toContain('WITH observation AS MATERIALIZED');
-    expect(service).toContain('SELECT transaction_timestamp() AS observed_at');
-    expect(service).toContain('LEFT JOIN LATERAL auction.list_public_market_lot_cards(${PUBLIC_MARKET_LIMIT}) AS c');
-    expect(service).toContain('ON c.auction_ends_at > observation.observed_at');
+    const publicFunction = migration.split('CREATE FUNCTION auction.list_public_market_lot_cards')[1] ?? '';
+
+    expect(publicFunction).toContain('v_observed_at timestamptz := statement_timestamp();');
+    expect(publicFunction).toContain('AND c.auction_ends_at > v_observed_at');
+    expect(publicFunction).toContain('v_observed_at AS observed_at');
+    expect(publicFunction).toContain('WHERE NOT EXISTS (SELECT 1 FROM live_cards)');
+    expect(service).toContain('SELECT *');
+    expect(service).toContain('FROM auction.list_public_market_lot_cards(${PUBLIC_MARKET_LIMIT})');
+    expect(service).not.toContain('WITH observation AS MATERIALIZED');
+    expect(service).not.toContain('LEFT JOIN LATERAL');
+    expect(service).not.toContain('transaction_timestamp()');
     expect(service).toContain('row.observed_at.getTime() !== observedAt.getTime()');
     expect(service).toContain('row.auction_ends_at.getTime() <= observedAt.getTime()');
     expect(service).toContain('isEmptyProjectionRow(row)');
