@@ -130,8 +130,31 @@ BEGIN
     SET status = 'HIDDEN',
         lot_version = OLD.version,
         projected_at = transaction_timestamp()
-    WHERE lot_id = OLD.id;
+    WHERE lot_id = OLD.id
+      AND status <> 'HIDDEN';
     RETURN OLD;
+  END IF;
+
+  -- Canonical lot version can advance for fields that are irrelevant to the
+  -- anonymous teaser. Do not rewrite the projection (and its indexed
+  -- projected_at timestamp) unless a public-visible field or an eligibility
+  -- predicate actually changed. lot_version therefore identifies the
+  -- canonical version that last changed the public projection.
+  IF TG_OP = 'UPDATE'
+     AND NEW.culture IS NOT DISTINCT FROM OLD.culture
+     AND NEW.grade IS NOT DISTINCT FROM OLD.grade
+     AND NEW.volume_tons IS NOT DISTINCT FROM OLD.volume_tons
+     AND NEW.start_price_kopecks_per_ton IS NOT DISTINCT FROM OLD.start_price_kopecks_per_ton
+     AND NEW.region IS NOT DISTINCT FROM OLD.region
+     AND NEW.auction_ends_at IS NOT DISTINCT FROM OLD.auction_ends_at
+     AND NEW.status IS NOT DISTINCT FROM OLD.status
+     AND NEW.admission_status IS NOT DISTINCT FROM OLD.admission_status
+     AND NEW.inventory_binding_id IS NOT DISTINCT FROM OLD.inventory_binding_id
+     AND NEW.source_type IS NOT DISTINCT FROM OLD.source_type
+     AND NEW.source_verified_at IS NOT DISTINCT FROM OLD.source_verified_at
+     AND NEW.source_certificate_id IS NOT DISTINCT FROM OLD.source_certificate_id
+  THEN
+    RETURN NEW;
   END IF;
 
   -- register_inventory_lot is the only accepted writer of new bound lots. It
@@ -173,7 +196,8 @@ BEGIN
     SET status = 'HIDDEN',
         lot_version = NEW.version,
         projected_at = transaction_timestamp()
-    WHERE lot_id = NEW.id;
+    WHERE lot_id = NEW.id
+      AND status <> 'HIDDEN';
   END IF;
 
   RETURN NEW;
@@ -186,8 +210,9 @@ REVOKE ALL ON FUNCTION auction.sync_public_market_lot_card() FROM PUBLIC;
 -- The lot->inventory binding FK and W2-B evidence trigger are deferred. Keep
 -- this projection trigger deferred as well: if any binding/evidence invariant
 -- fails, the whole transaction (including this projection write) rolls back.
--- It intentionally observes every UPDATE because lot_version is part of the
--- public freshness contract and canonical updates may advance that version.
+-- The trigger observes UPDATE events for deferred correctness, while the
+-- function short-circuits version-only/unrelated updates before touching the
+-- public row or its indexed projected_at value.
 CREATE CONSTRAINT TRIGGER auction_public_market_lot_sync
 AFTER INSERT OR UPDATE OR DELETE ON auction.lots
 DEFERRABLE INITIALLY DEFERRED
