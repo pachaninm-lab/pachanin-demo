@@ -82,7 +82,7 @@ describe('anonymous public Auction market projection', () => {
     expect(migration).toContain("USING ERRCODE = '42501'");
   });
 
-  it('updates the projection transactionally and preserves forward-only history when a lot stops being public', () => {
+  it('updates the projection transactionally, skips unrelated lot updates and preserves forward-only hiding', () => {
     const migration = read(migrationPath);
     expect(migration).toContain('CREATE CONSTRAINT TRIGGER auction_public_market_lot_sync');
     expect(migration).toContain('DEFERRABLE INITIALLY DEFERRED');
@@ -90,8 +90,25 @@ describe('anonymous public Auction market projection', () => {
     expect(migration).toContain('ON CONFLICT (lot_id) DO UPDATE');
     expect(migration).toContain("status text NOT NULL CHECK (status IN ('BIDDING', 'HIDDEN'))");
     expect(migration).toContain("SET status = 'HIDDEN'");
+    expect(migration).toContain("AND status <> 'HIDDEN'");
     expect(migration).toContain("WHERE c.status = 'BIDDING'");
     expect(migration).not.toMatch(/\bDELETE\s+FROM\b/i);
+
+    const deltaGuardStart = migration.indexOf("IF TG_OP = 'UPDATE'");
+    const deltaGuardEnd = migration.indexOf('THEN\n    RETURN NEW;', deltaGuardStart);
+    const upsertStart = migration.indexOf('ON CONFLICT (lot_id) DO UPDATE');
+    expect(deltaGuardStart).toBeGreaterThan(-1);
+    expect(deltaGuardEnd).toBeGreaterThan(deltaGuardStart);
+    expect(upsertStart).toBeGreaterThan(deltaGuardEnd);
+    const deltaGuard = migration.slice(deltaGuardStart, deltaGuardEnd);
+    expect(deltaGuard).toContain('NEW.culture IS NOT DISTINCT FROM OLD.culture');
+    expect(deltaGuard).toContain('NEW.volume_tons IS NOT DISTINCT FROM OLD.volume_tons');
+    expect(deltaGuard).toContain('NEW.start_price_kopecks_per_ton IS NOT DISTINCT FROM OLD.start_price_kopecks_per_ton');
+    expect(deltaGuard).toContain('NEW.auction_ends_at IS NOT DISTINCT FROM OLD.auction_ends_at');
+    expect(deltaGuard).toContain('NEW.admission_status IS NOT DISTINCT FROM OLD.admission_status');
+    expect(deltaGuard).toContain('NEW.inventory_binding_id IS NOT DISTINCT FROM OLD.inventory_binding_id');
+    expect(deltaGuard).toContain('NEW.source_verified_at IS NOT DISTINCT FROM OLD.source_verified_at');
+    expect(deltaGuard).not.toContain('NEW.version');
   });
 
   it('uses one PostgreSQL statement for live and empty public-market reads and fails closed on expiry', () => {
@@ -152,6 +169,26 @@ describe('anonymous public Auction market projection', () => {
     expect(helper).not.toContain('transactionId');
     expect(helper).toContain('available: false');
     expect(helper).toContain('items: Object.freeze([])');
+  });
+
+  it('streams public market data behind Suspense so the home shell does not wait for market authority', () => {
+    const teaser = read(webTeaserPath);
+    expect(teaser).toContain("import { Suspense } from 'react';");
+    expect(teaser).toContain('export function PublicMarketTeaser');
+    expect(teaser).not.toContain('export async function PublicMarketTeaser');
+    expect(teaser).toContain("<Suspense fallback={<MarketLoading text={copy.loading} />}>");
+    expect(teaser).toContain('<PublicMarketLotResults locale={lang} />');
+    expect(teaser).toContain('async function PublicMarketLotResults');
+    expect(teaser).toContain("data-testid='public-market-teaser-loading'");
+    expect(teaser).toContain("aria-busy='true'");
+
+    const wrapperStart = teaser.indexOf('export function PublicMarketTeaser');
+    const suspenseStart = teaser.indexOf('<Suspense ', wrapperStart);
+    const asyncChildStart = teaser.indexOf('async function PublicMarketLotResults');
+    const authorityFetch = teaser.indexOf('getPublicMarketLots()', asyncChildStart);
+    expect(suspenseStart).toBeGreaterThan(wrapperStart);
+    expect(asyncChildStart).toBeGreaterThan(suspenseStart);
+    expect(authorityFetch).toBeGreaterThan(asyncChildStart);
   });
 
   it('renders a truthful anonymized teaser without demo fallback or identity leakage', () => {
