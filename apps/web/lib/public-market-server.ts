@@ -34,12 +34,14 @@ const PUBLIC_REF = /^market-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9
 const DECIMAL = /^(?:0|[1-9][0-9]{0,19})(?:\.[0-9]{1,6})?$/;
 const INTEGER = /^(?:0|[1-9][0-9]{0,18})$/;
 const POSITIVE_INTEGER = /^[1-9][0-9]{0,18}$/;
+const PUBLIC_MARKET_FETCH_TIMEOUT_MS = 2_000;
 
 export async function getPublicMarketLots(): Promise<PublicMarketReadResult> {
   try {
     const response = await fetch(serverApiUrl('/market/lots'), {
       cache: 'no-store',
       headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(PUBLIC_MARKET_FETCH_TIMEOUT_MS),
     });
     if (!response.ok) throw new Error(`public market ${response.status}`);
 
