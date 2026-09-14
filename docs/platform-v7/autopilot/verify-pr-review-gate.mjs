@@ -35,6 +35,13 @@ export const PROVIDER_MAINTENANCE_BOOTSTRAP_CLASSIFICATION = 'SCOPED_PROVIDER_MA
 export const PROVIDER_MAINTENANCE_BOOTSTRAP_MANIFEST_PATH = 'docs/platform-v7/autopilot/scopes/local-qwen-exact-line-evidence-20260913.json';
 export const REVIEW_GATE_RESULT_SCHEMA = 'platform-v7.review-gate-result.v1';
 
+const REVIEW_GATE_RESULT_KEYS = Object.freeze([
+  'classification',
+  'head',
+  'reviewAuthority',
+  'schemaVersion',
+  'status',
+]);
 const PROVIDER_MAINTENANCE_VERIFIER_PATH = 'docs/platform-v7/autopilot/verify-pr-review-gate.mjs';
 const PROVIDER_MAINTENANCE_VERIFIER_TEST_PATH = 'docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs';
 const PROVIDER_MAINTENANCE_ALLOWED_PATHS = [
@@ -282,12 +289,40 @@ function parseLocalQwenAttestation(review, headSha) {
   };
 }
 
+function providerStatusCreatedAt(status) {
+  const timestamp = Date.parse(String(status?.created_at || status?.createdAt || ''));
+  return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : 0;
+}
+
+export function latestProviderStatusForContext(statuses, context) {
+  const expectedContext = String(context || '').trim();
+  if (!expectedContext) return null;
+  const candidates = (statuses || []).filter((status) => (
+    String(status?.context || '').trim() === expectedContext
+  ));
+  if (candidates.length === 0) return null;
+  if (candidates.length === 1) return candidates[0];
+
+  const ranked = candidates.map((status) => {
+    const createdAt = providerStatusCreatedAt(status);
+    const id = Number(status?.id || 0);
+    if (!createdAt || !Number.isSafeInteger(id) || id <= 0) return null;
+    return { status, createdAt, id };
+  });
+  if (ranked.some((entry) => entry === null)) return null;
+  ranked.sort((left, right) => right.createdAt - left.createdAt || right.id - left.id);
+  if (
+    ranked.length > 1
+    && ranked[0].createdAt === ranked[1].createdAt
+    && ranked[0].id === ranked[1].id
+  ) return null;
+  return ranked[0].status;
+}
+
 export function positiveExactHeadLocalQwenAttestations(reviews, statuses, headSha, repo) {
   const repository = String(repo || '').trim();
   if (!isGitHubRepositorySlug(repository)) return [];
-  const latestProviderStatus = (statuses || []).find((status) => (
-    String(status?.context || '').trim() === LOCAL_QWEN_STATUS_CONTEXT
-  ));
+  const latestProviderStatus = latestProviderStatusForContext(statuses, LOCAL_QWEN_STATUS_CONTEXT);
   if (!latestProviderStatus) return [];
   if (String(latestProviderStatus?.state || '').toLowerCase() !== 'success') return [];
   if (String(latestProviderStatus?.creator?.login || '').trim() !== LOCAL_QWEN_REVIEW_LOGIN) return [];
@@ -317,11 +352,11 @@ export function positiveExactHeadLocalQwenAttestations(reviews, statuses, headSh
 
 export function localQwenAttestationMatchesWorkflowRun(attestation, run, repo, prNumber, headSha) {
   const repository = String(repo || '').trim();
-  const expectedHead = String(headSha || '').trim();
+  const expectedHead = canonicalSha40(headSha);
   const expectedPr = Number(prNumber || 0);
   if (!attestation || !run) return false;
   if (!isGitHubRepositorySlug(repository)) return false;
-  if (!/^[0-9a-f]{40}$/u.test(expectedHead)) return false;
+  if (!expectedHead) return false;
   if (!Number.isInteger(expectedPr) || expectedPr <= 0) return false;
   const attestedRunId = String(attestation?.runId || '').trim();
   if (!/^[1-9][0-9]{0,19}$/u.test(attestedRunId)) return false;
@@ -332,12 +367,12 @@ export function localQwenAttestationMatchesWorkflowRun(attestation, run, repo, p
   if (String(run?.status || '').trim() !== 'completed') return false;
   if (String(run?.conclusion || '').trim() !== 'success') return false;
   if (String(run?.repository?.full_name || '').trim() !== repository) return false;
-  if (String(run?.head_sha || '').trim() !== expectedHead) return false;
+  if (canonicalSha40(run?.head_sha) !== expectedHead) return false;
 
   const runPrs = Array.isArray(run?.pull_requests) ? run.pull_requests : [];
   return runPrs.some((runPr) => (
     Number(runPr?.number) === expectedPr
-    && String(runPr?.head?.sha || '').trim() === expectedHead
+    && canonicalSha40(runPr?.head?.sha) === expectedHead
     && Number(runPr?.head?.repo?.id || 0) === Number(run?.repository?.id || 0)
   ));
 }
@@ -346,9 +381,7 @@ export function positiveExactHeadOctopusAttestations(reviews, statuses, headSha,
   const repository = String(repo || '').trim();
   if (!isGitHubRepositorySlug(repository)) return [];
 
-  const latestProviderStatus = (statuses || []).find((status) => (
-    String(status?.context || '').trim() === OCTOPUS_STATUS_CONTEXT
-  ));
+  const latestProviderStatus = latestProviderStatusForContext(statuses, OCTOPUS_STATUS_CONTEXT);
   if (!latestProviderStatus) return [];
   if (String(latestProviderStatus?.state || '').toLowerCase() !== 'success') return [];
   if (String(latestProviderStatus?.creator?.login || '').trim() !== OCTOPUS_REVIEW_LOGIN) return [];
@@ -367,11 +400,11 @@ export function positiveExactHeadOctopusAttestations(reviews, statuses, headSha,
 
 export function octopusAttestationMatchesWorkflowRun(attestation, run, repo, prNumber, headSha) {
   const repository = String(repo || '').trim();
-  const expectedHead = String(headSha || '').trim();
+  const expectedHead = canonicalSha40(headSha);
   const expectedPr = Number(prNumber || 0);
   if (!attestation || !run) return false;
   if (!isGitHubRepositorySlug(repository)) return false;
-  if (!/^[0-9a-f]{40}$/u.test(expectedHead)) return false;
+  if (!expectedHead) return false;
   if (!Number.isInteger(expectedPr) || expectedPr <= 0) return false;
   const attestedRunId = String(attestation?.runId || '').trim();
   if (!/^[1-9][0-9]{0,19}$/u.test(attestedRunId)) return false;
@@ -382,12 +415,12 @@ export function octopusAttestationMatchesWorkflowRun(attestation, run, repo, prN
   if (String(run?.status || '').trim() !== 'completed') return false;
   if (String(run?.conclusion || '').trim() !== 'success') return false;
   if (String(run?.repository?.full_name || '').trim() !== repository) return false;
-  if (String(run?.head_sha || '').trim() !== expectedHead) return false;
+  if (canonicalSha40(run?.head_sha) !== expectedHead) return false;
 
   const runPrs = Array.isArray(run?.pull_requests) ? run.pull_requests : [];
   return runPrs.some((runPr) => (
     Number(runPr?.number) === expectedPr
-    && String(runPr?.head?.sha || '').trim() === expectedHead
+    && canonicalSha40(runPr?.head?.sha) === expectedHead
     && Number(runPr?.head?.repo?.id || 0) === Number(run?.repository?.id || 0)
   ));
 }
@@ -620,23 +653,32 @@ export function selectReviewGateDecision(authorities, bootstrapEligible = false)
   return null;
 }
 
+export function reviewGateResultMode(value, expectedHeadSha, independentOnly = false) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
+  if (!sameStringSet(Object.keys(value), REVIEW_GATE_RESULT_KEYS)) return '';
+  const expectedHead = canonicalSha40(expectedHeadSha);
+  if (!expectedHead || value.head !== expectedHead) return '';
+  if (value.schemaVersion !== REVIEW_GATE_RESULT_SCHEMA || value.status !== 'PASS') return '';
+  const bootstrapPair = value.classification === PROVIDER_MAINTENANCE_BOOTSTRAP_CLASSIFICATION
+    && value.reviewAuthority === 'NONE';
+  const independentPair = value.classification === INDEPENDENT_REVIEW_CLASSIFICATION
+    && INDEPENDENT_REVIEW_AUTHORITIES.has(value.reviewAuthority);
+  if (independentPair) return 'INDEPENDENT';
+  if (!independentOnly && bootstrapPair) return 'BOOTSTRAP';
+  return '';
+}
+
 export function reviewGateResultContract(headSha, decision) {
   const head = canonicalSha40(headSha);
   if (!head || !decision || typeof decision !== 'object' || Array.isArray(decision)) return null;
-  const classification = String(decision.classification || '');
-  const reviewAuthority = String(decision.reviewAuthority || '');
-  const bootstrapPair = classification === PROVIDER_MAINTENANCE_BOOTSTRAP_CLASSIFICATION
-    && reviewAuthority === 'NONE';
-  const independentPair = classification === INDEPENDENT_REVIEW_CLASSIFICATION
-    && INDEPENDENT_REVIEW_AUTHORITIES.has(reviewAuthority);
-  if (!bootstrapPair && !independentPair) return null;
-  return Object.freeze({
+  const contract = Object.freeze({
     schemaVersion: REVIEW_GATE_RESULT_SCHEMA,
     status: 'PASS',
     head,
-    classification,
-    reviewAuthority,
+    classification: String(decision.classification || ''),
+    reviewAuthority: String(decision.reviewAuthority || ''),
   });
+  return reviewGateResultMode(contract, head) ? contract : null;
 }
 
 function runGh(args) {
