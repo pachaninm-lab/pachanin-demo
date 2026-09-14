@@ -133,9 +133,13 @@ jobs:
             state=failure
             description='Exact-head review authority invalidated by current PR state'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
-          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ]; then
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ] && [ "$PR_NUMBER" = 5353 ]; then
             state=success
-            description='Scoped provider-maintenance bootstrap passed; no independent provider PASS asserted'
+            description='Scoped provider-maintenance bootstrap passed for one authorized PR; no independent provider PASS asserted'
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ]; then
+            state=failure
+            description='Scoped provider-maintenance bootstrap is not authorized for this PR'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
           elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = INDEPENDENT ]; then
             state=success
@@ -292,9 +296,13 @@ jobs:
             state=failure
             description='Exact-head review authority invalidated by current PR state'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
-          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ]; then
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ] && [ "$PR_NUMBER" = 5353 ]; then
             state=success
-            description='Scoped provider-maintenance bootstrap passed; no independent provider PASS asserted'
+            description='Scoped provider-maintenance bootstrap passed for one authorized PR; no independent provider PASS asserted'
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ]; then
+            state=failure
+            description='Scoped provider-maintenance bootstrap is not authorized for this PR'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
           elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = INDEPENDENT ]; then
             state=success
@@ -455,9 +463,13 @@ jobs:
             state=failure
             description='Exact-head review authority invalidated by current PR state'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
-          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ]; then
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ] && [ "$PR_NUMBER" = 5353 ]; then
             state=success
-            description='Scoped provider-maintenance bootstrap passed; no independent provider PASS asserted'
+            description='Scoped provider-maintenance bootstrap passed for one authorized PR; no independent provider PASS asserted'
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
+          elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = BOOTSTRAP ]; then
+            state=failure
+            description='Scoped provider-maintenance bootstrap is not authorized for this PR'
             gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label review-gate-passed >/dev/null 2>&1 || true
           elif [ "$GATE_OUTCOME" = success ] && [ "$GATE_MODE" = INDEPENDENT ]; then
             state=success
@@ -495,6 +507,7 @@ jobs:
       github.event.pull_request.state == 'open' &&
       !github.event.pull_request.draft &&
       contains(github.event.pull_request.labels.*.name, 'automerge') &&
+      contains(github.event.pull_request.labels.*.name, 'review-gate-passed') &&
       !(contains(github.event.pull_request.labels.*.name, 'platform-v7') &&
         contains(github.event.pull_request.labels.*.name, 'agent-generated'))
     steps:
@@ -529,13 +542,14 @@ jobs:
           mergeable=$(printf '%s' "$pr_state" | jq -r '.mergeable')
           draft=$(printf '%s' "$pr_state" | jq -r '.isDraft')
           live_automerge=$(printf '%s' "$pr_state" | jq -r '[.labels[].name] | index("automerge") != null')
+          live_review_passed=$(printf '%s' "$pr_state" | jq -r '[.labels[].name] | index("review-gate-passed") != null')
           generated=$(printf '%s' "$pr_state" | jq -r '[.labels[].name] | (index("platform-v7") != null and index("agent-generated") != null)')
           if [ "$current_head" != "$HEAD_SHA" ]; then
             echo "Automerge deferred: head moved expected=$HEAD_SHA current=$current_head"
             exit 0
           fi
-          if [ "$draft" = true ] || [ "$live_automerge" != true ] || [ "$generated" = true ]; then
-            echo "Automerge deferred: live authorization changed draft=$draft automerge=$live_automerge generated=$generated"
+          if [ "$draft" = true ] || [ "$live_automerge" != true ] || [ "$live_review_passed" != true ] || [ "$generated" = true ]; then
+            echo "Automerge deferred: live authorization changed draft=$draft automerge=$live_automerge review_passed=$live_review_passed generated=$generated"
             exit 0
           fi
           if [ "$mergeable" != MERGEABLE ]; then
@@ -630,13 +644,14 @@ jobs:
             mergeable=$(printf '%s' "$pr_state" | jq -r '.mergeable')
             live_draft=$(printf '%s' "$pr_state" | jq -r '.isDraft')
             live_automerge=$(printf '%s' "$pr_state" | jq -r '[.labels[].name] | index("automerge") != null')
+            live_review_passed=$(printf '%s' "$pr_state" | jq -r '[.labels[].name] | index("review-gate-passed") != null')
             live_generated=$(printf '%s' "$pr_state" | jq -r '[.labels[].name] | (index("platform-v7") != null and index("agent-generated") != null)')
             if [ "$current_head" != "$head_sha" ]; then
               echo "#$pr_number deferred: head moved after verification expected=$head_sha current=$current_head"
               continue
             fi
-            if [ "$live_draft" = true ] || [ "$live_automerge" != true ] || [ "$live_generated" = true ]; then
-              echo "#$pr_number deferred: live authorization changed draft=$live_draft automerge=$live_automerge generated=$live_generated"
+            if [ "$live_draft" = true ] || [ "$live_automerge" != true ] || [ "$live_review_passed" != true ] || [ "$live_generated" = true ]; then
+              echo "#$pr_number deferred: live authorization changed draft=$live_draft automerge=$live_automerge review_passed=$live_review_passed generated=$live_generated"
               continue
             fi
             if [ "$mergeable" != MERGEABLE ]; then
