@@ -149,6 +149,11 @@ export function canonicalSha40(value) {
   return /^[0-9a-f]{40}$/u.test(normalized) ? normalized : '';
 }
 
+function strictWorkflowRunSha40(value) {
+  const raw = String(value || '').trim();
+  return /^[0-9a-f]{40}$/u.test(raw) ? raw : '';
+}
+
 export function isGitHubRepositorySlug(repo) {
   const repository = String(repo || '').trim();
   const match = repository.match(/^([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/u);
@@ -352,7 +357,7 @@ export function positiveExactHeadLocalQwenAttestations(reviews, statuses, headSh
 
 export function localQwenAttestationMatchesWorkflowRun(attestation, run, repo, prNumber, headSha) {
   const repository = String(repo || '').trim();
-  const expectedHead = canonicalSha40(headSha);
+  const expectedHead = strictWorkflowRunSha40(headSha);
   const expectedPr = Number(prNumber || 0);
   if (!attestation || !run) return false;
   if (!isGitHubRepositorySlug(repository)) return false;
@@ -367,14 +372,16 @@ export function localQwenAttestationMatchesWorkflowRun(attestation, run, repo, p
   if (String(run?.status || '').trim() !== 'completed') return false;
   if (String(run?.conclusion || '').trim() !== 'success') return false;
   if (String(run?.repository?.full_name || '').trim() !== repository) return false;
-  if (canonicalSha40(run?.head_sha) !== expectedHead) return false;
+  const runHead = strictWorkflowRunSha40(run?.head_sha);
+  if (!runHead || runHead !== expectedHead) return false;
 
   const runPrs = Array.isArray(run?.pull_requests) ? run.pull_requests : [];
-  return runPrs.some((runPr) => (
-    Number(runPr?.number) === expectedPr
-    && canonicalSha40(runPr?.head?.sha) === expectedHead
-    && Number(runPr?.head?.repo?.id || 0) === Number(run?.repository?.id || 0)
-  ));
+  return runPrs.some((runPr) => {
+    const runPrHead = strictWorkflowRunSha40(runPr?.head?.sha);
+    return Number(runPr?.number) === expectedPr
+      && runPrHead === expectedHead
+      && Number(runPr?.head?.repo?.id || 0) === Number(run?.repository?.id || 0);
+  });
 }
 
 export function positiveExactHeadOctopusAttestations(reviews, statuses, headSha, repo) {
@@ -400,7 +407,7 @@ export function positiveExactHeadOctopusAttestations(reviews, statuses, headSha,
 
 export function octopusAttestationMatchesWorkflowRun(attestation, run, repo, prNumber, headSha) {
   const repository = String(repo || '').trim();
-  const expectedHead = canonicalSha40(headSha);
+  const expectedHead = strictWorkflowRunSha40(headSha);
   const expectedPr = Number(prNumber || 0);
   if (!attestation || !run) return false;
   if (!isGitHubRepositorySlug(repository)) return false;
@@ -415,14 +422,16 @@ export function octopusAttestationMatchesWorkflowRun(attestation, run, repo, prN
   if (String(run?.status || '').trim() !== 'completed') return false;
   if (String(run?.conclusion || '').trim() !== 'success') return false;
   if (String(run?.repository?.full_name || '').trim() !== repository) return false;
-  if (canonicalSha40(run?.head_sha) !== expectedHead) return false;
+  const runHead = strictWorkflowRunSha40(run?.head_sha);
+  if (!runHead || runHead !== expectedHead) return false;
 
   const runPrs = Array.isArray(run?.pull_requests) ? run.pull_requests : [];
-  return runPrs.some((runPr) => (
-    Number(runPr?.number) === expectedPr
-    && canonicalSha40(runPr?.head?.sha) === expectedHead
-    && Number(runPr?.head?.repo?.id || 0) === Number(run?.repository?.id || 0)
-  ));
+  return runPrs.some((runPr) => {
+    const runPrHead = strictWorkflowRunSha40(runPr?.head?.sha);
+    return Number(runPr?.number) === expectedPr
+      && runPrHead === expectedHead
+      && Number(runPr?.head?.repo?.id || 0) === Number(run?.repository?.id || 0);
+  });
 }
 
 export function cleanCodexReviewPrefixes(comments) {
@@ -601,8 +610,6 @@ export function validateProviderMaintenanceBootstrapAuthority(manifest) {
   if (bootstrap.onAnyMismatch !== 'FAIL_CLOSED') return null;
   if (bootstrap.resultClassification !== PROVIDER_MAINTENANCE_BOOTSTRAP_CLASSIFICATION) return null;
 
-  // The merged manifest is the validation envelope. Runtime bootstrap mutation is intentionally narrower:
-  // only the provider workflow may use NONE authority. Verifier/test remain independent-review trust boundaries.
   return Object.freeze({
     implementationBranch: bootstrap.implementationBranch,
     allowedImplementationPaths: Object.freeze([bootstrap.providerWorkflowPath]),
@@ -1002,7 +1009,6 @@ function main() {
     try {
       if (resolveCommitSha(repo, prefix) === headSha) exactCleanCodexComments += 1;
     } catch {
-      // Ignore stale or no-longer-resolvable reviewed-commit prefixes.
     }
   }
   const codexAuthority = positiveCodexReviews.length > 0 || exactCleanCodexComments > 0;
