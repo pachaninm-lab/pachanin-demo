@@ -568,9 +568,11 @@ export function validateProviderMaintenanceBootstrapAuthority(manifest) {
   if (bootstrap.onAnyMismatch !== 'FAIL_CLOSED') return null;
   if (bootstrap.resultClassification !== PROVIDER_MAINTENANCE_BOOTSTRAP_CLASSIFICATION) return null;
 
+  // The merged manifest is the validation envelope. Runtime bootstrap mutation is intentionally narrower:
+  // only the provider workflow may use NONE authority. Verifier/test remain independent-review trust boundaries.
   return Object.freeze({
     implementationBranch: bootstrap.implementationBranch,
-    allowedImplementationPaths: Object.freeze([...bootstrap.allowedImplementationPaths]),
+    allowedImplementationPaths: Object.freeze([bootstrap.providerWorkflowPath]),
     resultClassification: bootstrap.resultClassification,
   });
 }
