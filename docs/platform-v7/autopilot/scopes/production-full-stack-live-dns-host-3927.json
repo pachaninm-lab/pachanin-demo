@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/production-full-stack-live-dns-host-3927",
+  "status": "active",
+  "purpose": "Remove the stale historical production SSH host fallback from the full-stack exact-SHA release and align it with the already-merged protected PC_PROD_HOST plus live-domain DNS and pinned-host-key authority.",
+  "approvedBy": "issue #3927 created from fail-closed production evidence on 2026-08-12",
+  "issue": 3927,
+  "releaseIssue": 3072,
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-full-stack-exact-sha.yml",
+    "scripts/check-production-full-stack-release.mjs",
+    "docs/platform-v7/autopilot/scopes/production-full-stack-release-v1.json",
+    "docs/platform-v7/autopilot/scopes/production-full-stack-live-dns-host-3927.json"
+  ],
+  "requiredBehavior": [
+    "require a non-empty protected PC_PROD_HOST",
+    "require PC_PROD_HOST to be one of the live production domain current IPv4 DNS answers",
+    "require the scanned SSH host key to match the protected pinned fingerprint before connection",
+    "preserve exact-current-main image verification, forward-only migration, live acceptance, durable DB evidence and automatic image rollback"
+  ],
+  "forbiddenCapabilities": [
+    "historical hard-coded production IP fallback",
+    "accepting a host that is not a current live-domain IPv4 DNS answer",
+    "weakening pinned SSH host-key verification or StrictHostKeyChecking",
+    "changing application product behavior, database schema, credentials, Caddy, network topology or rollback semantics",
+    "new server paid API SaaS or recurring cost"
+  ],
+  "acceptance": [
+    "full-stack release contract fails if a historical DEFAULT_HOST fallback is reintroduced",
+    "full-stack release contract requires the protected host to be live-DNS-bound and pinned-key-verified",
+    "exact-head CI and security gates pass before merge",
+    "post-merge production release reaches terminal evidence or fails closed at a distinct factual blocker"
+  ]
+}
