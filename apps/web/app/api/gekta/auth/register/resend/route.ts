@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { sendTransactionalMail, isTransactionalMailConfigured } from '@/lib/server/transactional-mail';
 import { assertCsrf, resolveRequestTargetOrigin } from '@/lib/server-request-security';
 import {
@@ -12,6 +11,7 @@ import {
   safeLocale,
   validEmail,
 } from '@/lib/server/gekta-auth-route';
+import { correlationIdFromRequest } from '@/lib/server/forwarded-request-headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,7 +26,7 @@ const COPY = {
 type ApiPayload = { emailDelivery?: { email?: string; token?: string }; cooldownSeconds?: number };
 
 export async function POST(request: Request) {
-  const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const correlationId = correlationIdFromRequest(request);
   if (!assertCsrf(request).ok) return gektaAuthJson({ accepted: false, code: 'CSRF_REJECTED', correlationId }, 403);
   const body = await readGektaAuthJson(request);
   const email = String(body?.email || '').trim().toLowerCase();

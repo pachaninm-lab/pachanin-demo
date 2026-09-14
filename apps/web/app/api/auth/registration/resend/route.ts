@@ -1,7 +1,8 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { sendTransactionalMail } from '../../../../../lib/server/transactional-mail';
 import { assertCsrf } from '../../../../../lib/server-request-security';
+import { correlationIdFromRequest } from '@/lib/server/forwarded-request-headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,7 +33,7 @@ function mailConfigured() {
 }
 
 export async function POST(request: Request) {
-  const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const correlationId = correlationIdFromRequest(request);
   const csrf = assertCsrf(request);
   if (!csrf.ok) return json({ accepted: false, code: 'CSRF_REJECTED', correlationId }, 403);
   const body = await request.json().catch(() => ({} as Record<string, unknown>));

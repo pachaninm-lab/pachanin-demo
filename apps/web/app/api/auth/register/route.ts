@@ -1,7 +1,8 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { sendTransactionalMail } from '../../../../lib/server/transactional-mail';
 import { assertCsrf } from '../../../../lib/server-request-security';
+import { clientIpFromRequest, correlationIdFromRequest, idempotencyKeyFromRequest, userAgentFromRequest } from '@/lib/server/forwarded-request-headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -66,10 +67,7 @@ function json(body: Record<string, unknown>, status: number) {
 }
 
 function requestIp(request: Request) {
-  return request.headers.get('cf-connecting-ip')
-    || request.headers.get('x-real-ip')
-    || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-    || '';
+  return clientIpFromRequest(request) ?? '';
 }
 
 function normalizeOrigin(request: Request) {
@@ -111,10 +109,10 @@ async function deliverRegistrationMail(mail: Parameters<typeof sendTransactional
 }
 
 export async function POST(request: Request) {
-  const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const correlationId = correlationIdFromRequest(request);
   const csrf = assertCsrf(request);
   if (!csrf.ok) return json({ accepted: false, code: 'CSRF_REJECTED', correlationId }, 403);
-  const idempotencyKey = String(request.headers.get('idempotency-key') || '').trim();
+  const idempotencyKey = idempotencyKeyFromRequest(request);
   const body = await request.json().catch(() => ({} as Record<string, unknown>));
   const email = String(body.email || '').trim().toLowerCase();
   const workspace = String(body.workspace || '').trim();
@@ -155,7 +153,7 @@ export async function POST(request: Request) {
         'x-correlation-id': correlationId,
         'x-registration-delivery-key': deliveryKey,
         ...(ip ? { 'x-forwarded-for': ip } : {}),
-        ...(request.headers.get('user-agent') ? { 'user-agent': String(request.headers.get('user-agent')) } : {}),
+        ...(userAgentFromRequest(request) ? { 'user-agent': userAgentFromRequest(request) as string } : {}),
       },
       body: JSON.stringify({ ...body, email, workspace }),
       cache: 'no-store',

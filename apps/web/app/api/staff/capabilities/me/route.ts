@@ -1,10 +1,10 @@
-import { randomUUID } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
 import { requiresCanonicalControlHost } from '@/lib/platform-v7/control-host';
 import { parseStaffCapabilitiesContract } from '@/lib/platform-v7/staff-capabilities';
 import { resolveServerApiBaseUrl } from '@/lib/server/server-api-origin';
+import { correlationIdFromRequest } from '@/lib/server/forwarded-request-headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,7 +24,7 @@ function json(body: Record<string, unknown>, status = 200) {
 }
 
 export async function GET(request: Request) {
-  const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const correlationId = correlationIdFromRequest(request);
   if (requiresCanonicalControlHost(request)) {
     return json({ code: 'CONTROL_HOST_REQUIRED', correlationId }, 421);
   }

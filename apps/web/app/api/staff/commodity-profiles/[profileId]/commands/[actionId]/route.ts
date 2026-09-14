@@ -1,7 +1,7 @@
-import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
 import { assertCsrf } from '@/lib/server-request-security';
+import { correlationIdFromRequest } from '@/lib/server/forwarded-request-headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -52,7 +52,7 @@ function resolveApiOrigin(): string {
 type RouteContext = { params: Promise<{ profileId: string; actionId: string }> };
 
 export async function POST(request: NextRequest, context: RouteContext) {
-  const correlationId = request.headers.get('x-correlation-id')?.slice(0, 128) || randomUUID();
+  const correlationId = correlationIdFromRequest(request);
   const csrf = assertCsrf(request);
   if (!csrf.ok) return secure({ code: 'CSRF_REJECTED', correlationId }, 403, correlationId);
 

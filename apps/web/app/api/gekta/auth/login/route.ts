@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { assertCsrf } from '@/lib/server-request-security';
 import {
   GEKTA_AUTH_TIMEOUT_MS,
@@ -13,6 +12,7 @@ import {
   gektaMfaCookieOptions,
   sealGektaMfaTicket,
 } from '@/lib/server/gekta-mfa-ticket';
+import { correlationIdFromRequest } from '@/lib/server/forwarded-request-headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,7 +26,7 @@ type ApiPayload = {
 };
 
 export async function POST(request: Request) {
-  const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const correlationId = correlationIdFromRequest(request);
   if (!assertCsrf(request).ok) return gektaAuthJson({ ok: false, code: 'CSRF_REJECTED', correlationId }, 403);
   const body = await readGektaAuthJson(request);
   const email = String(body?.email || '').trim().toLowerCase();

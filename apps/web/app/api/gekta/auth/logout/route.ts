@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { REFRESH_COOKIE } from '@/lib/auth-cookies';
 import { assertCsrf } from '@/lib/server-request-security';
@@ -10,6 +9,7 @@ import {
 } from '@/lib/server/gekta-auth-route';
 import { clearAuthenticatedSession } from '@/lib/server/auth-session-response';
 import { GEKTA_MFA_PENDING_COOKIE, clearGektaMfaCookieOptions } from '@/lib/server/gekta-mfa-ticket';
+import { correlationIdFromRequest } from '@/lib/server/forwarded-request-headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -22,7 +22,7 @@ function cleared(body: Record<string, unknown>, status: number) {
 }
 
 export async function POST(request: Request) {
-  const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const correlationId = correlationIdFromRequest(request);
   if (!assertCsrf(request).ok) return gektaAuthJson({ ok: false, code: 'CSRF_REJECTED', correlationId }, 403);
   const refreshToken = (await cookies()).get(REFRESH_COOKIE)?.value || '';
   if (!refreshToken) return cleared({ ok: true, correlationId }, 200);

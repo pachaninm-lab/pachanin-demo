@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
-import { isIP } from 'node:net';
 import { NextResponse } from 'next/server';
 import { resolveServerApiBaseUrl } from '@/lib/server/server-api-origin';
+import { nearestProxyAddress, userAgentFromRequest } from './forwarded-request-headers';
 
 export const GEKTA_AUTH_TIMEOUT_MS = 7_000;
 const GEKTA_AUTH_MAX_JSON_BYTES = 16 * 1_024;
@@ -44,12 +44,7 @@ export function requestIp(request: Request): string {
   // REG.RU production has one trusted edge: Caddy. It appends/overwrites the
   // nearest hop in X-Forwarded-For; provider-specific headers are public input
   // here and must never choose an API rate-limit bucket.
-  const nearest = String(request.headers.get('x-forwarded-for') || '')
-    .split(',')
-    .map((value) => value.trim())
-    .filter(Boolean)
-    .at(-1) || '';
-  return isIP(nearest) ? nearest : '';
+  return nearestProxyAddress(request) ?? '';
 }
 
 export function gektaForwardHeaders(
@@ -58,7 +53,7 @@ export function gektaForwardHeaders(
   options: { deliveryKey?: string; accessToken?: string } = {},
 ): Record<string, string> {
   const ip = requestIp(request);
-  const userAgent = request.headers.get('user-agent');
+  const userAgent = userAgentFromRequest(request);
   return {
     'Content-Type': 'application/json',
     'x-correlation-id': correlationId,

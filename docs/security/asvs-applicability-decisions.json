@@ -526,6 +526,67 @@
       "note": "The application never dynamically executes code from a string. A scan for eval( and new Function( across apps/api/src, apps/web/lib and apps/web/app returns zero matches."
     },
     {
+      "requirementId": "V1.3.3",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/web/lib/server/forwarded-request-headers.ts",
+        "scripts/security/verify-forwarded-header-sanitization.mjs",
+        "apps/web/app/api/platform-v7/organization-connect/route.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the identifier allowlist and its length bound are still applied together",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/server/forwarded-request-headers.ts"
+          ],
+          "patterns": [
+            "const UNSAFE_IN_IDENTIFIER = /[^A-Za-z0-9._:-]/gu;",
+            "MAX_IDENTIFIER_LENGTH = 128",
+            "return raw.replace(UNSAFE_IN_IDENTIFIER, '').slice(0, maxLength);"
+          ]
+        },
+        {
+          "condition": "a client address is still admitted only as an address literal, and a user agent only as bounded printable text",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/server/forwarded-request-headers.ts"
+          ],
+          "patterns": [
+            "if (IPV4.test(candidate)) return candidate;",
+            "const UNSAFE_IN_FIELD_TEXT = /[^ -~]/gu;",
+            "MAX_USER_AGENT_LENGTH = 512"
+          ]
+        },
+        {
+          "condition": "the guard still requires every forwarded client header to reach a sanitizer or an anchored validation",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-forwarded-header-sanitization.mjs"
+          ],
+          "patterns": [
+            "'x-correlation-id',",
+            "'idempotency-key',",
+            "'x-forwarded-for',",
+            "return source.startsWith('^') && source.endsWith('$');"
+          ]
+        },
+        {
+          "condition": "the public organization-connect surface still validates rather than repairs, with the same character class",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/platform-v7/organization-connect/route.ts"
+          ],
+          "patterns": [
+            "const CORRELATION_PATTERN = /^[A-Za-z0-9._:-]{8,128}$/;",
+            "const IDEMPOTENCY_PATTERN = /^[A-Za-z0-9._:-]{16,128}$/;"
+          ]
+        }
+      ],
+      "note": "Four client-controlled header values were forwarded into outgoing request headers with no character restriction and, in 51 of 63 reads, no length bound: x-correlation-id (40 reads), idempotency-key (8), user-agent (13) and the client address chain (10 routes). An HTTP field value is a dangerous context. The runtime is not the control it is usually taken for, and this was measured rather than assumed: on Node 22 new Headers() refuses only NUL, CR, LF and code points above U+00FF, and header bytes off the wire are decoded as latin1 so they never reach that last case - every other C0 control character, DEL and the whole 0x80-0xFF range was forwarded exactly as sent, at any length. CR and LF cannot reach a handler at all, since the HTTP parser ends the field there, so there was no header injection to fix and none is claimed. What was missing is this requirement: a character allowlist and a length trim. Both are now applied in apps/web/lib/server/forwarded-request-headers.ts before the value reaches a header. The allowlist is not invented - [A-Za-z0-9._:-] with a 128 bound is the class this codebase already enforces on its strictest public surface (CORRELATION_PATTERN and IDEMPOTENCY_PATTERN in organization-connect/route.ts), and every identifier the product generates is inside it, including the SHA-256 hex markers the staff review queue builds and the p7 keys the platform-v7 helper builds for request bodies. scripts/security/verify-forwarded-header-sanitization.mjs keeps it true: it reports 2 remaining raw reads, one sanitized at the read and one validated by an anchored pattern, and 0 unaccounted for. Separately recorded, not fixed here: ten routes select the leftmost X-Forwarded-For entry, which the caller writes, while two routes deliberately select the nearest hop because REG.RU production terminates at one trusted edge; the API resolves the chain against trusted CIDRs. Which selection is correct depends on what terminates each surface, and choosing nearest-hop where a CDN is the edge would put every user in one rate-limit bucket, so the two policies are now named side by side in one module rather than being changed silently. Revocable: removing the allowlist fails four tests, removing the trim fails one, echoing an unvalidated address fails five."
+    },
+    {
       "requirementId": "V1.3.4",
       "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",

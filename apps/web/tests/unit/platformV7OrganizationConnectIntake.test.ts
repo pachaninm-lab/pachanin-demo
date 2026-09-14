@@ -11,6 +11,7 @@ const bff = read('app/api/platform-v7/organization-connect/route.ts');
 const apiService = read('../api/src/modules/organization-intake/organization-intake.service.ts');
 const migration = read('../api/prisma/migrations/20260723113000_public_organization_connection_intake/migration.sql');
 const prismaSchema = read('../api/prisma/schema.prisma');
+const forwardedHeaders = read('lib/server/forwarded-request-headers.ts');
 
 describe('platform-v7 durable organization connection intake', () => {
   it('submits through a same-origin BFF and displays a server-issued receipt', () => {
@@ -36,12 +37,18 @@ describe('platform-v7 durable organization connection intake', () => {
   });
 
   it('derives the anti-abuse key only from the nearest trusted proxy address', () => {
-    expect(bff).toContain("request.headers.get('x-forwarded-for')");
-    expect(bff).toContain('chain.at(-1)');
-    expect(bff).toContain('isIP(nearestProxyAddress)');
+    // The selection moved into a shared module when the forwarded headers were
+    // sanitized (ASVS V1.3.3), so the property is asserted across both halves:
+    // this surface must use the nearest-hop function, and that function must
+    // still take the nearest hop and validate it.
+    expect(bff).toContain('nearestProxyAddress(request)');
+    expect(forwardedHeaders).toContain("String(request.headers.get('x-forwarded-for') || '')");
+    expect(forwardedHeaders).toContain('return safeClientIp(chain.at(-1) ?? null);');
+    // The weaker chain must not come back here, in either half.
     expect(bff).not.toContain("request.headers.get('x-real-ip')");
     expect(bff).not.toContain("request.headers.get('cf-connecting-ip')");
     expect(bff).not.toContain("split(',')[0]");
+    expect(bff).not.toContain('clientIpFromRequest');
   });
 
   it('enforces body bounds and a server-validated honeypot', () => {

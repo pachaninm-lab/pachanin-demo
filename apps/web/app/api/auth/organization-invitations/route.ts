@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { ACCESS_COOKIE } from '../../../../lib/auth-cookies';
@@ -8,6 +8,7 @@ import {
   type OrganizationInvitationDelivery,
 } from '../../../../lib/server/organization-invitation-mail';
 import { assertCsrf } from '../../../../lib/server-request-security';
+import { correlationIdFromRequest, idempotencyKeyFromRequest } from '@/lib/server/forwarded-request-headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -48,7 +49,7 @@ function upstreamStatus(status: number) {
 }
 
 export async function POST(request: Request) {
-  const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const correlationId = correlationIdFromRequest(request);
   const csrf = assertCsrf(request);
   if (!csrf.ok) return json({ ok: false, code: 'CSRF_REJECTED', correlationId }, 403);
 
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
   const email = String(body.email || '').trim().toLowerCase();
   const role = String(body.role || '').trim();
   const locale = String(body.locale || 'ru');
-  const idempotencyKey = String(request.headers.get('idempotency-key') || '').trim();
+  const idempotencyKey = idempotencyKeyFromRequest(request);
   if (
     !/^\S+@\S+\.\S+$/.test(email)
     || email.length > 254

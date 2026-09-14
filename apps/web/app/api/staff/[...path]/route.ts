@@ -1,10 +1,10 @@
-import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
 import { requiresCanonicalControlHost } from '@/lib/platform-v7/control-host';
 import { resolveServerApiBaseUrl } from '@/lib/server/server-api-origin';
 import { assertCsrf } from '@/lib/server-request-security';
 import { readBoundedBody } from '../../../../lib/uploads/bounded-body';
+import { clientIpFromRequest, correlationIdFromRequest, idempotencyKeyFromRequest, userAgentFromRequest } from '@/lib/server/forwarded-request-headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -123,13 +123,7 @@ function isAllowed(method: string, path: string) {
 }
 
 function requestIp(request: NextRequest) {
-  return (
-    request.headers.get('x-nf-client-connection-ip')
-    || request.headers.get('cf-connecting-ip')
-    || request.headers.get('x-real-ip')
-    || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-    || ''
-  );
+  return clientIpFromRequest(request) ?? '';
 }
 
 function optionalString(value: unknown): string | null {
@@ -283,7 +277,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
   const method = request.method.toUpperCase();
   const { path: pathSegments = [] } = await context.params;
   const path = normalizePath(pathSegments);
-  const correlationId = request.headers.get('x-correlation-id')?.slice(0, 128) || randomUUID();
+  const correlationId = correlationIdFromRequest(request);
 
   if (requiresCanonicalControlHost(request)) {
     const response = json({ ok: false, code: 'CONTROL_HOST_REQUIRED', correlationId }, 421);
@@ -348,7 +342,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
     ? String(process.env.REGISTRATION_DELIVERY_KEY || '').trim()
     : '';
   const idempotencyKey = registrationDecision
-    ? String(request.headers.get('idempotency-key') || '').trim()
+    ? idempotencyKeyFromRequest(request)
     : '';
   if (registrationDecision && registrationDeliveryKey.length < 32) {
     return json({ ok: false, code: 'REGISTRATION_NOTIFICATION_UNAVAILABLE', correlationId }, 503);
@@ -360,7 +354,7 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
   const query = request.nextUrl.searchParams.toString();
   const targetUrl = `${API_BASE_URL}/staff/${path}${query ? `?${query}` : ''}`;
   const ip = requestIp(request);
-  const userAgent = request.headers.get('user-agent');
+  const userAgent = userAgentFromRequest(request);
 
   try {
     const upstream = await fetch(targetUrl, {

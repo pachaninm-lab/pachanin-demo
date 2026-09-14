@@ -1,7 +1,7 @@
-import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
 import { assertCsrf } from '@/lib/server-request-security';
+import { correlationIdFromRequest } from '@/lib/server/forwarded-request-headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -72,7 +72,7 @@ async function handler(request: NextRequest, context: StaffWorkspaceRouteContext
   const method = request.method.toUpperCase();
   const params = await context.params;
   const path = normalizePath(params.path || []);
-  const correlationId = request.headers.get('x-correlation-id')?.slice(0, 128) || randomUUID();
+  const correlationId = correlationIdFromRequest(request);
 
   if (!path || !allowed(method, path)) {
     return secure({ ok: false, code: 'STAFF_WORKSPACE_ROUTE_NOT_ALLOWED', correlationId }, 404, correlationId);

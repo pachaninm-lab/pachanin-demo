@@ -356,7 +356,9 @@ describe('P0 first-customer completion boundaries', () => {
     expect(decisions).toContain('this.requirePlatformReviewer(reviewer)');
     expect(decisions).toContain("'PLATFORM_OWNER', 'PLATFORM_ADMIN', 'COMPLIANCE_STAFF'");
     expect(proxy).toContain('/^registration\\/applications\\/[^/]+\\/decision$/');
-    expect(proxy).toContain("request.headers.get('idempotency-key')");
+    // Read through the sanitizing helper since ASVS V1.3.3 - the proxy must
+    // still take the caller's key, and now also bound and allowlist it.
+    expect(proxy).toContain('idempotencyKeyFromRequest(request)');
     expect(proxy).toContain("'idempotency-key': idempotencyKey");
     expect(proxy).toContain("code: 'IDEMPOTENCY_KEY_REQUIRED'");
   });

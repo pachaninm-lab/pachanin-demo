@@ -1,7 +1,7 @@
-import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
 import { assertCsrf } from '@/lib/server-request-security';
+import { correlationIdFromRequest, idempotencyKeyFromRequest } from '@/lib/server/forwarded-request-headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,7 +29,7 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ applicationId: string }> },
 ) {
-  const correlationId = request.headers.get('x-correlation-id')?.slice(0, 128) || randomUUID();
+  const correlationId = correlationIdFromRequest(request);
   const csrf = assertCsrf(request);
   if (!csrf.ok) return json({ ok: false, code: 'CSRF_REJECTED', correlationId }, 403);
   const accessToken = request.cookies.get(ACCESS_COOKIE)?.value;
@@ -45,7 +45,7 @@ export async function POST(
   if (!['APPROVE', 'REJECT'].includes(decision) || reason.length < 8 || reason.length > 1000) {
     return json({ ok: false, code: 'JOIN_REQUEST_INVALID', correlationId }, 400);
   }
-  const idempotencyKey = String(request.headers.get('idempotency-key') || '').trim();
+  const idempotencyKey = idempotencyKeyFromRequest(request);
   const upstream = String(process.env.API_URL || '').trim().replace(/\/$/, '');
   const deliveryKey = String(process.env.REGISTRATION_DELIVERY_KEY || '').trim();
   if (!upstream || deliveryKey.length < 32 || idempotencyKey.length < 16 || idempotencyKey.length > 128) {

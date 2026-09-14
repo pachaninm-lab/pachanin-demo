@@ -1,4 +1,4 @@
-import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE, CSRF_COOKIE, SESSION_COOKIE, sessionMarkerCookie } from '@/lib/auth-cookies';
 import { CABINET_SESSION_COOKIE } from '@/lib/server/auth-session-response';
@@ -13,6 +13,7 @@ import {
 import { parseStaffCapabilitiesContract } from '@/lib/platform-v7/staff-capabilities';
 import { signCabinetSession, verifyHs256Jwt } from '@/lib/platform-v7/verified-session';
 import { FIXTURE_AUDIENCE, fixtureTokenIsForService } from '@/lib/platform-v7/fixture-token';
+import { correlationIdFromRequest } from '@/lib/server/forwarded-request-headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -331,7 +332,7 @@ function setCabinetCookies(
 }
 
 export async function POST(request: NextRequest) {
-  const correlationId = request.headers.get('x-correlation-id')?.slice(0, 128) || randomUUID();
+  const correlationId = correlationIdFromRequest(request);
   const parsed = await parseRequest(request);
   const fail = (code: string, message: string, status: number) => parsed.formSubmission
     ? redirectBack(request, code)

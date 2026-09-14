@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import {
@@ -19,6 +18,7 @@ import {
   sealMfaLoginTicket,
 } from '../../../../lib/server/mfa-login-ticket';
 import { assertCsrf } from '../../../../lib/server-request-security';
+import { correlationIdFromRequest, userAgentFromRequest } from '@/lib/server/forwarded-request-headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -44,7 +44,7 @@ function clearSelection(response: NextResponse) {
 }
 
 export async function POST(request: Request) {
-  const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const correlationId = correlationIdFromRequest(request);
   const controlPlane = isControlHostRequest(request);
   const csrf = assertCsrf(request);
   if (!csrf.ok) {
@@ -66,7 +66,7 @@ export async function POST(request: Request) {
       headers: {
         'Content-Type': 'application/json',
         'x-correlation-id': correlationId,
-        ...(request.headers.get('user-agent') ? { 'user-agent': String(request.headers.get('user-agent')) } : {}),
+        ...(userAgentFromRequest(request) ? { 'user-agent': userAgentFromRequest(request) as string } : {}),
       },
       body: JSON.stringify({ challengeToken, membershipId }),
       cache: 'no-store',

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { userAgentFromRequest } from '@/lib/server/forwarded-request-headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -92,7 +93,7 @@ function normalizeLead(payload: LeadPayload, request: Request) {
     utmSource: compact(payload.utmSource, 120),
     utmMedium: compact(payload.utmMedium, 120),
     utmCampaign: compact(payload.utmCampaign, 160),
-    userAgent: compact(request.headers.get('user-agent'), 420),
+    userAgent: compact(userAgentFromRequest(request), 420),
   };
 }
 

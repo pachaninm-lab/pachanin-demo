@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { ACCESS_COOKIE } from '../../../../lib/auth-cookies';
@@ -6,6 +5,7 @@ import {
   clearAuthenticatedSession,
   normalizeSurfaceRole,
 } from '../../../../lib/server/auth-session-response';
+import { correlationIdFromRequest } from '@/lib/server/forwarded-request-headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -20,7 +20,7 @@ function json(body: Record<string, unknown>, status = 200) {
 }
 
 export async function GET(request: Request) {
-  const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const correlationId = correlationIdFromRequest(request);
   const accessToken = (await cookies()).get(ACCESS_COOKIE)?.value || '';
   if (!accessToken || accessToken.startsWith('demo.')) {
     const response = json({ authenticated: false, code: 'UNAUTHENTICATED', correlationId }, 401);

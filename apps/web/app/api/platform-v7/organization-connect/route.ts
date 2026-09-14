@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { isIP } from 'node:net';
 import { NextResponse } from 'next/server';
 import { verifiedMarketingCorrelationId } from '@/lib/platform-v7/marketing-attribution.server';
+import { idempotencyKeyFromRequest, nearestProxyAddress } from '@/lib/server/forwarded-request-headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -66,12 +66,7 @@ function json(body: Record<string, unknown>, status: number) {
 }
 
 function requestIp(request: Request): string {
-  const chain = String(request.headers.get('x-forwarded-for') || '')
-    .split(',')
-    .map((value) => value.trim())
-    .filter(Boolean);
-  const nearestProxyAddress = chain.at(-1) || '';
-  return isIP(nearestProxyAddress) ? nearestProxyAddress : '';
+  return nearestProxyAddress(request) ?? '';
 }
 
 function text(value: unknown, max: number): string {
@@ -121,7 +116,7 @@ function correlationIdFor(request: Request): string {
 
 export async function POST(request: Request) {
   const correlationId = correlationIdFor(request);
-  const idempotencyKey = String(request.headers.get('idempotency-key') || '').trim();
+  const idempotencyKey = idempotencyKeyFromRequest(request);
   if (!IDEMPOTENCY_PATTERN.test(idempotencyKey)) {
     return json({ ok: false, code: 'INVALID_IDEMPOTENCY_KEY', correlationId }, 400);
   }

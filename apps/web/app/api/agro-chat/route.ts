@@ -39,6 +39,7 @@ import {
   gektaForwardHeaders,
   registrationDeliveryKey,
 } from '@/lib/server/gekta-auth-route';
+import { correlationIdFromRequest } from '@/lib/server/forwarded-request-headers';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -305,7 +306,7 @@ async function consumeAnonymousReservation(
   const deliveryKey = registrationDeliveryKey();
   if (!upstream || deliveryKey.length < 32) return 'unavailable';
 
-  const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const correlationId = correlationIdFromRequest(request);
   try {
     const response = await fetch(`${upstream}/gekta/internal/anonymous-answer/admit`, {
       method: 'POST',

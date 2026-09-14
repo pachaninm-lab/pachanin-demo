@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { ACCESS_COOKIE } from '../../../../../lib/auth-cookies';
@@ -7,6 +6,7 @@ import {
   clearMfaStepUpCookieOptions,
 } from '../../../../../lib/server/mfa-step-up-cookie';
 import { assertCsrf } from '../../../../../lib/server-request-security';
+import { clientIpFromRequest, correlationIdFromRequest, userAgentFromRequest } from '@/lib/server/forwarded-request-headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -27,7 +27,7 @@ function clear(response: NextResponse) {
 }
 
 export async function POST(request: Request) {
-  const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const correlationId = correlationIdFromRequest(request);
   const csrf = assertCsrf(request);
   if (!csrf.ok) return json({ ok: false, code: 'CSRF_REJECTED', message: UNIVERSAL_ERROR, correlationId }, 403);
   const body = await request.json().catch(() => ({} as Record<string, unknown>));
@@ -43,8 +43,8 @@ export async function POST(request: Request) {
   if (!API_URL) return json({ ok: false, code: 'AUTH_SERVICE_UNAVAILABLE', message: UNIVERSAL_ERROR, correlationId }, 503);
 
   try {
-    const ip = request.headers.get('x-real-ip') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
-    const userAgent = request.headers.get('user-agent');
+    const ip = clientIpFromRequest(request);
+    const userAgent = userAgentFromRequest(request);
     const apiResponse = await fetch(`${API_URL}/auth/mfa/step-up/verify`, {
       method: 'POST',
       headers: {

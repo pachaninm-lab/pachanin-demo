@@ -1,10 +1,10 @@
-import { randomUUID } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { REFRESH_COOKIE } from '../../../../lib/auth-cookies';
 import { isControlHostRequest } from '../../../../lib/platform-v7/control-host';
 import { assertCsrf } from '../../../../lib/server-request-security';
 import { clearAuthenticatedSession } from '../../../../lib/server/auth-session-response';
+import { correlationIdFromRequest, userAgentFromRequest } from '@/lib/server/forwarded-request-headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -45,7 +45,7 @@ function response(
 }
 
 export async function POST(request: Request) {
-  const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const correlationId = correlationIdFromRequest(request);
   const controlPlane = isControlHostRequest(request);
   const csrf = assertCsrf(request);
   if (!csrf.ok) {
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
       headers: {
         'Content-Type': 'application/json',
         'x-correlation-id': correlationId,
-        ...(request.headers.get('user-agent') ? { 'user-agent': request.headers.get('user-agent') as string } : {}),
+        ...(userAgentFromRequest(request) ? { 'user-agent': userAgentFromRequest(request) as string } : {}),
       },
       body: JSON.stringify({ refreshToken }),
       cache: 'no-store',

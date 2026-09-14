@@ -1,6 +1,6 @@
-import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
+import { correlationIdFromRequest } from '@/lib/server/forwarded-request-headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -56,7 +56,7 @@ function resolveApiOrigin(): string {
 type RouteContext = { params: Promise<{ path?: string[] }> };
 
 export async function GET(request: NextRequest, context: RouteContext) {
-  const correlationId = request.headers.get('x-correlation-id')?.slice(0, 128) || randomUUID();
+  const correlationId = correlationIdFromRequest(request);
   const accessToken = request.cookies.get(ACCESS_COOKIE)?.value;
   if (!accessToken) {
     return secure({ code: 'UNAUTHENTICATED', correlationId }, 401, correlationId);

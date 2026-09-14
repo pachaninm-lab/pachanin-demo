@@ -1,5 +1,5 @@
-import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
+import { correlationIdFromRequest } from '@/lib/server/forwarded-request-headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -17,7 +17,7 @@ function json(body: Record<string, unknown>, status: number) {
 }
 
 export async function GET(request: Request) {
-  const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const correlationId = correlationIdFromRequest(request);
   const token = new URL(request.url).searchParams.get('token')?.trim() || '';
   if (!token.startsWith('rst_reg_') || token.length > 512) {
     return json({ ok: false, code: 'REGISTRATION_APPLICATION_NOT_FOUND', correlationId }, 404);

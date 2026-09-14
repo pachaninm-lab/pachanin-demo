@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { CSRF_COOKIE, csrfCookieSecurity } from '../../../../lib/auth-cookies';
 import {
@@ -21,6 +20,7 @@ import {
   clearMembershipSelectionCookieOptions,
   membershipSelectionCookieOptions,
 } from '../../../../lib/server/membership-selection-cookie';
+import { clientIpFromRequest, correlationIdFromRequest, userAgentFromRequest } from '@/lib/server/forwarded-request-headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -59,18 +59,12 @@ function json(body: Record<string, unknown>, status = 200) {
 }
 
 function requestIp(request: Request) {
-  return (
-    request.headers.get('x-nf-client-connection-ip') ||
-    request.headers.get('cf-connecting-ip') ||
-    request.headers.get('x-real-ip') ||
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    ''
-  );
+  return clientIpFromRequest(request) ?? '';
 }
 
 function forwardedHeaders(request: Request, correlationId: string) {
   const ip = requestIp(request);
-  const userAgent = request.headers.get('user-agent');
+  const userAgent = userAgentFromRequest(request);
   return {
     'Content-Type': 'application/json',
     'x-correlation-id': correlationId,
@@ -152,7 +146,7 @@ async function completeSession(
 }
 
 export async function POST(request: Request) {
-  const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const correlationId = correlationIdFromRequest(request);
   const controlPlane = isControlHostRequest(request);
   const csrf = assertCsrf(request);
   if (!csrf.ok) {

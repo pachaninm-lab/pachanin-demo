@@ -1,7 +1,7 @@
-import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
 import { assertCsrf } from '@/lib/server-request-security';
+import { correlationIdFromRequest } from '@/lib/server/forwarded-request-headers';
 
 const API_URL = String(process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '')
   .trim()
@@ -35,7 +35,7 @@ function apiOrigin(): string {
 }
 
 export async function proxyIntegrationCommand(request: NextRequest, upstreamPath: string) {
-  const correlationId = request.headers.get('x-correlation-id')?.slice(0, 128) || randomUUID();
+  const correlationId = correlationIdFromRequest(request);
   const csrf = assertCsrf(request);
   if (!csrf.ok) return secure({ code: 'CSRF_REJECTED', correlationId }, 403, correlationId);
 

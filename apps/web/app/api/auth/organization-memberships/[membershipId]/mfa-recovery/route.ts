@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
@@ -8,6 +7,7 @@ import {
   type MfaRecoveryDelivery,
 } from '@/lib/server/mfa-recovery-mail';
 import { assertCsrf } from '@/lib/server-request-security';
+import { correlationIdFromRequest, idempotencyKeyFromRequest } from '@/lib/server/forwarded-request-headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -45,7 +45,7 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ membershipId: string }> },
 ) {
-  const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const correlationId = correlationIdFromRequest(request);
   const csrf = assertCsrf(request);
   if (!csrf.ok) return json({ ok: false, code: 'CSRF_REJECTED', correlationId }, 403);
 
@@ -54,7 +54,7 @@ export async function POST(
   const version = String(body.version || '').trim();
   const reason = String(body.reason || '').trim();
   const locale = String(body.locale || 'ru');
-  const idempotencyKey = String(request.headers.get('idempotency-key') || '').trim();
+  const idempotencyKey = idempotencyKeyFromRequest(request);
   if (
     !membershipId
     || membershipId.length > 160

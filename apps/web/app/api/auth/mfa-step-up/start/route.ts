@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { ACCESS_COOKIE } from '../../../../../lib/auth-cookies';
@@ -8,6 +7,7 @@ import {
   mfaStepUpCookieOptions,
 } from '../../../../../lib/server/mfa-step-up-cookie';
 import { assertCsrf } from '../../../../../lib/server-request-security';
+import { clientIpFromRequest, correlationIdFromRequest, userAgentFromRequest } from '@/lib/server/forwarded-request-headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,8 +24,8 @@ function json(body: Record<string, unknown>, status = 200) {
 }
 
 function forwarded(request: Request, correlationId: string, token: string) {
-  const ip = request.headers.get('x-real-ip') || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
-  const userAgent = request.headers.get('user-agent');
+  const ip = clientIpFromRequest(request);
+  const userAgent = userAgentFromRequest(request);
   return {
     Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
@@ -36,7 +36,7 @@ function forwarded(request: Request, correlationId: string, token: string) {
 }
 
 export async function POST(request: Request) {
-  const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const correlationId = correlationIdFromRequest(request);
   const csrf = assertCsrf(request);
   if (!csrf.ok) return json({ ok: false, code: 'CSRF_REJECTED', message: UNIVERSAL_ERROR, correlationId }, 403);
 

@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import {
@@ -14,6 +13,7 @@ import {
   openMfaLoginTicket,
 } from '../../../../lib/server/mfa-login-ticket';
 import { assertCsrf } from '../../../../lib/server-request-security';
+import { clientIpFromRequest, correlationIdFromRequest, userAgentFromRequest } from '@/lib/server/forwarded-request-headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -34,17 +34,11 @@ function json(body: Record<string, unknown>, status = 200) {
 }
 
 function requestIp(request: Request) {
-  return (
-    request.headers.get('x-nf-client-connection-ip') ||
-    request.headers.get('cf-connecting-ip') ||
-    request.headers.get('x-real-ip') ||
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    ''
-  );
+  return clientIpFromRequest(request) ?? '';
 }
 
 export async function POST(request: Request) {
-  const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const correlationId = correlationIdFromRequest(request);
   const controlPlane = isControlHostRequest(request);
   const csrf = assertCsrf(request);
   if (!csrf.ok) {
@@ -73,7 +67,7 @@ export async function POST(request: Request) {
         'Content-Type': 'application/json',
         'x-correlation-id': correlationId,
         ...(ip ? { 'x-forwarded-for': ip } : {}),
-        ...(request.headers.get('user-agent') ? { 'user-agent': request.headers.get('user-agent') as string } : {}),
+        ...(userAgentFromRequest(request) ? { 'user-agent': userAgentFromRequest(request) as string } : {}),
       },
       body: JSON.stringify({ challengeToken: ticket.challengeToken, code }),
       cache: 'no-store',

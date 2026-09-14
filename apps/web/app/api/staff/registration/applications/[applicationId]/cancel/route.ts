@@ -4,6 +4,8 @@ import { ACCESS_COOKIE } from '@/lib/auth-cookies';
 import { requiresCanonicalControlHost } from '@/lib/platform-v7/control-host';
 import { resolveServerApiBaseUrl } from '@/lib/server/server-api-origin';
 import { assertCsrf } from '@/lib/server-request-security';
+import { idempotencyKeyFromRequest } from '@/lib/server/forwarded-request-headers';
+import { safeIdentifier } from '@/lib/server/forwarded-request-headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -55,11 +57,19 @@ export async function POST(
   context: { params: Promise<{ applicationId: string }> },
 ) {
   const providedCorrelationId = String(request.headers.get('x-correlation-id') || '').trim();
-  const correlationId = providedCorrelationId.slice(0, 128) || randomUUID();
+  // This route takes the caller's own correlation id as evidence of the
+  // ceremony, so an unusable one is rejected rather than quietly repaired -
+  // but the id echoed back in that rejection still has to be safe to forward.
+  const sanitizedCorrelationId = safeIdentifier(providedCorrelationId);
+  const correlationId = sanitizedCorrelationId || randomUUID();
   if (requiresCanonicalControlHost(request)) {
     return json({ ok: false, code: 'CONTROL_HOST_REQUIRED', correlationId }, 421);
   }
-  if (!providedCorrelationId || providedCorrelationId.length > 128) {
+  if (
+    !providedCorrelationId
+    || providedCorrelationId.length > 128
+    || sanitizedCorrelationId !== providedCorrelationId
+  ) {
     return json({ ok: false, code: 'CORRELATION_ID_REQUIRED', correlationId }, 400);
   }
 
@@ -80,7 +90,7 @@ export async function POST(
     return json({ ok: false, code: 'STAFF_SERVICE_UNAVAILABLE', correlationId }, 503);
   }
 
-  const idempotencyKey = String(request.headers.get('idempotency-key') || '').trim();
+  const idempotencyKey = idempotencyKeyFromRequest(request);
   if (idempotencyKey.length < 16 || idempotencyKey.length > 128) {
     return json({ ok: false, code: 'IDEMPOTENCY_KEY_REQUIRED', correlationId }, 400);
   }

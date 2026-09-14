@@ -1,9 +1,9 @@
-import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { clearAuthenticatedSession } from '../../../../lib/server/auth-session-response';
 import { MFA_PENDING_COOKIE, clearMfaPendingCookieOptions } from '../../../../lib/server/mfa-login-ticket';
 import { assertCsrf } from '../../../../lib/server-request-security';
 import { sendTransactionalMail } from '../../../../lib/server/transactional-mail';
+import { clientIpFromRequest, correlationIdFromRequest } from '@/lib/server/forwarded-request-headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -36,10 +36,7 @@ function json(body: Record<string, unknown>, status: number) {
 }
 
 function requestIp(request: Request) {
-  return request.headers.get('cf-connecting-ip')
-    || request.headers.get('x-real-ip')
-    || request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-    || '';
+  return clientIpFromRequest(request) ?? '';
 }
 
 function mailChannelConfigured() {
@@ -50,7 +47,7 @@ function mailChannelConfigured() {
 }
 
 export async function POST(request: Request) {
-  const correlationId = request.headers.get('x-correlation-id') || randomUUID();
+  const correlationId = correlationIdFromRequest(request);
   const csrf = assertCsrf(request);
   if (!csrf.ok) return json({ ok: false, code: 'CSRF_REJECTED', correlationId }, 403);
   const body = await request.json().catch(() => ({} as Record<string, unknown>));
