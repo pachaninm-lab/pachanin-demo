@@ -30,21 +30,17 @@ export class PublicAuctionMarketService {
 
   async listLots() {
     // One read-only PostgreSQL statement is the complete concurrency boundary.
-    // Its MVCC statement snapshot and transaction_timestamp() are fixed for the
-    // entire statement, so rows never need application-side locking merely to
-    // keep the public projection and its observation clock internally coherent.
-    // LEFT JOIN LATERAL preserves that same database clock for the empty state.
+    // The SECURITY DEFINER reader captures statement_timestamp() once inside the
+    // same PostgreSQL backend and returns that exact value with every result,
+    // including a single canonical empty row. The API therefore never compares
+    // projection data against an application clock, a second DB statement, or a
+    // timestamp obtained from another database node/connection.
     const rows = await this.prisma.$queryRaw<PublicMarketLotRow[]>(Prisma.sql`
-      WITH observation AS MATERIALIZED (
-        SELECT transaction_timestamp() AS observed_at
-      )
-      SELECT observation.observed_at, c.*
-      FROM observation
-      LEFT JOIN LATERAL auction.list_public_market_lot_cards(${PUBLIC_MARKET_LIMIT}) AS c
-        ON c.auction_ends_at > observation.observed_at
-      ORDER BY c.projected_at DESC NULLS LAST,
-               c.auction_ends_at ASC NULLS LAST,
-               c.public_ref ASC NULLS LAST
+      SELECT *
+      FROM auction.list_public_market_lot_cards(${PUBLIC_MARKET_LIMIT})
+      ORDER BY projected_at DESC NULLS LAST,
+               auction_ends_at ASC NULLS LAST,
+               public_ref ASC NULLS LAST
     `);
 
     const observedAt = rows[0]?.observed_at;
