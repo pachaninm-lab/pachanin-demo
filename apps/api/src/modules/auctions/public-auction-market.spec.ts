@@ -28,6 +28,8 @@ describe('anonymous public Auction market projection', () => {
     expect(migration).toContain("l.source_type = 'OTHER'");
     expect(migration).toContain('l.source_verified_at IS NULL');
     expect(migration).toContain('l.source_certificate_id IS NULL');
+    expect(migration).toContain('ON auction.public_market_lot_cards (projected_at DESC, auction_ends_at ASC, public_ref ASC)');
+    expect(migration).toContain("WHERE status = 'BIDDING' AND trade_permission = 'PUBLIC_ALLOWED'");
   });
 
   it('binds projected prices to the canonical minor-unit schema authority', () => {
