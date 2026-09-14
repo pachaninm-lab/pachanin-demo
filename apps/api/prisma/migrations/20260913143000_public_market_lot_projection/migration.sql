@@ -68,7 +68,8 @@ CREATE TABLE auction.public_market_lot_cards (
 );
 
 CREATE INDEX public_market_lot_cards_live_idx
-  ON auction.public_market_lot_cards (auction_ends_at ASC, projected_at DESC, public_ref);
+  ON auction.public_market_lot_cards (projected_at DESC, auction_ends_at ASC, public_ref ASC)
+  WHERE status = 'BIDDING' AND trade_permission = 'PUBLIC_ALLOWED';
 
 -- Existing W2-B lots were created only by the FARMER-authorized
 -- register_inventory_lot command. Backfill only the exact inventory-bound,
