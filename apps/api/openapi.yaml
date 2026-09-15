@@ -3179,9 +3179,13 @@ paths:
   /health/detailed:
     get:
       summary: Детальный health check (ТЗ 13.4)
-      description: Возвращает статус всех подсистем (DB, Kafka, Redis, интеграции).
+      description: >-
+        Возвращает статус всех подсистем (DB, Kafka, Redis, интеграции).
+        Только для внутреннего мониторинга: требуется сессия (V13.4.5).
       tags: [Health]
       responses:
+        "401":
+          description: Требуется аутентификация.
         "200":
           description: Детальный статус системы
           content:

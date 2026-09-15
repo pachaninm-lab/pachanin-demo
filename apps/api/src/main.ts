@@ -142,17 +142,11 @@ async function bootstrap() {
     res.send(metrics);
   });
 
-  app.getHttpAdapter().get('/health/detailed', async (_req: any, res: any) => {
-    const { integrationRegistry } = await import('../../../packages/integration-sdk/src/registry');
-    const adapterHealth = await integrationRegistry.healthCheckAll().catch(() => ({}));
-    const database = await prisma.$queryRaw`SELECT 1`.then(() => 'ok').catch(() => 'failed');
-    res.status(database === 'ok' ? 200 : 503).json({
-      status: database === 'ok' ? 'ok' : 'degraded',
-      database,
-      integrations: adapterHealth,
-      ts: new Date().toISOString(),
-    });
-  });
+  // V13.4.5: the adapter-level /health/detailed route is gone. Registered
+  // straight on Express it answered before Nest's router and so could not be
+  // reached by any guard, and it published database reachability and the health
+  // of every configured integration to anyone who asked. The controller route
+  // carries the same signal and now requires a session.
 
   // Сигналы забирает Nest: SIGTERM и SIGINT здесь не перехватываются.
   app.enableShutdownHooks();
