@@ -9025,33 +9025,71 @@
     {
       "requirementId": "V13.4.5",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "apps/api/src/health.controller.ts"
+        "apps/api/src/health.controller.ts",
+        "apps/api/src/health-detailed-exposure.spec.ts",
+        "apps/api/src/main.ts",
+        "apps/api/openapi.yaml"
       ],
       "conditions": [
         {
-          "condition": "the detailed-health endpoint is still labelled internal-only in its own source comment while being publicly reachable",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the detailed health route still requires a session, and the comment that always said so is still there",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/health.controller.ts"
           ],
           "patterns": [
-            "for internal monitoring only"
+            "V13.4.5: not @Public()",
+            "Detailed health per"
           ]
         },
         {
-          "condition": "that endpoint still carries no access restriction beyond the blanket @Public() decorator",
-          "check": "PRESENT_AT_PATH",
+          "condition": "no second detailed-health handler is registered on the adapter, where no guard could reach it",
+          "check": "ABSENT_AT_PATH",
           "paths": [
-            "apps/api/src/health.controller.ts"
+            "apps/api/src/main.ts"
           ],
           "patterns": [
-            "@public()\n  @get('health/detailed')"
+            "getHttpAdapter().get('/health/detailed'"
+          ]
+        },
+        {
+          "condition": "the liveness and readiness probes are still served without a session, because infrastructure holds none",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts"
+          ],
+          "patterns": [
+            "getHttpAdapter().get('/health'",
+            "getHttpAdapter().get('/ready'"
+          ]
+        },
+        {
+          "condition": "the published contract says a session is required rather than implying anyone may ask",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/openapi.yaml"
+          ],
+          "patterns": [
+            "Только для внутреннего мониторинга: требуется сессия (V13.4.5)."
+          ]
+        },
+        {
+          "condition": "both halves are still tested, and the probes are still held public so this cannot quietly widen into them",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/health-detailed-exposure.spec.ts"
+          ],
+          "patterns": [
+            "it('no longer answers without a session'",
+            "it('has no second, unguardable handler registered on the adapter'",
+            "it('leaves liveness and readiness public, which is what they are for'",
+            "it('still answers the operator who is authenticated, rather than being deleted'"
           ]
         }
       ],
-      "note": "Corrected on review: an earlier version of this decision read every @Public() decorator in this controller as proof of deliberate, requirement-satisfying public exposure. A review comment correctly pointed out that @Public() only proves authentication was bypassed on purpose; it does not by itself prove the operator intended public exposure, and the code’s own text contradicts that reading for one endpoint. The comment directly above health/detailed reads \"Detailed health per ТЗ 13.4 — for internal monitoring only,\" yet the route is decorated @Public() with no IP allowlist, network-boundary check, or authentication of any kind, and the response body discloses database status, configured integrations, outbox queue depth, and heap usage. That is the requirement’s literal case: technical information disclosure that is not protected, and the \"unless explicitly intended\" exception cannot be claimed for an endpoint whose own author’s comment says the opposite of \"intended for the public.\" No Swagger/OpenAPI UI is mounted (still true, still checked), and the plain health/ready/metrics/version endpoints are a separate question — metrics and version are each assessed on their own merits elsewhere (V13.4.6 covers version) — but health/detailed alone is enough to fail this requirement as written."
+      "note": "Closed. GET /health/detailed no longer answers an unauthenticated caller. The endpoint's own comment read \"Detailed health per ТЗ 13.4 - for internal monitoring only\" while the decorator directly beneath it read @Public(), and the decorator was the one being enforced. That is why the requirement's \"unless explicitly intended\" allowance could not be claimed: the author had written the opposite of intended public exposure. The comment stays and the decorator is gone. As with /version under V13.4.6, two handlers answered this path and the more revealing one was not the controller. main.ts registered a second straight onto Express through getHttpAdapter(), which ran before Nest's router and so could be reached by no guard at all; it queried the database and called integrationRegistry.healthCheckAll(), publishing database reachability and the health of every configured integration to anyone who asked. It is removed. Had only the decorator been changed, nothing observable would have changed. The signal is kept rather than deleted: an operator with a session still gets the full body - database, outbox depth, kafka, redis, per-integration status, uptime and heap - because withholding it from everyone would be the easy way to pass while removing a real diagnostic. /health and /ready stay public. They answer liveness and readiness for infrastructure that holds no session and disclose no topology, and two conditions plus a test hold them that way so this fix cannot quietly widen into them. Neither consumer breaks: the one e2e test guards on resp.ok() and the pre-auth rate-limit spec asserts that this path is rate-limited rather than bypassed, which authentication does not affect. Four mutations were confirmed to break it: making the route public again, reintroducing the adapter-level handler, taking the liveness probe private along with it, and removing the adapter liveness probe."
     },
     {
       "requirementId": "V13.4.6",

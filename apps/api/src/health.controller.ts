@@ -122,8 +122,20 @@ export class HealthController {
     };
   }
 
-  /** Detailed health per ТЗ 13.4 — for internal monitoring only */
-  @Public()
+  /**
+   * Detailed health per ТЗ 13.4 - for internal monitoring only.
+   *
+   * V13.4.5: not @Public(), because that comment and the decorator said
+   * opposite things and the decorator was the one being enforced. The body
+   * names database status, every configured integration, outbox queue depth
+   * and heap usage - the shape of the deployment and which of its dependencies
+   * are currently failing. The requirement's "unless explicitly intended"
+   * allowance cannot be claimed for an endpoint whose own author wrote
+   * "internal monitoring only" above it.
+   *
+   * /health and /ready stay public: they answer liveness and readiness for
+   * infrastructure that holds no session, and they disclose no topology.
+   */
   @Get('health/detailed')
   async healthDetailed(): Promise<DetailedHealthCheck> {
     const stats = await this.outbox.queueStats();
