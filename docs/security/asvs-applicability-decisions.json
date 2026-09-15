@@ -10383,37 +10383,174 @@
     {
       "requirementId": "V16.3.3",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "anti-automation-guard:apps/api/src/common/guards/rate-limit.guard.ts",
-        "entry-point:apps/api/src/main.ts",
-        "documentation-set:docs/security/THREAT_MODEL.md"
+        "apps/api/src/common/security/security-events.ts",
+        "apps/api/src/common/security/security-logging-validation.pipe.ts",
+        "apps/api/src/common/guards/rate-limit.guard.ts",
+        "apps/api/src/common/guards/roles.guard.ts",
+        "docs/security/SECURITY_EVENT_CATALOGUE.md",
+        "scripts/security/verify-security-event-catalogue.mjs",
+        "apps/api/src/common/security/security-event-logging.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "the anti-automation guard exists and can log",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the catalogue is still a frozen literal naming the three controls the requirement asks about, so the gate has something to check rather than an object it reads as empty",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/security-events.ts"
+          ],
+          "patterns": [
+            "export const SECURITY_EVENTS = Object.freeze({",
+            "ANTI_AUTOMATION_REJECTED: 'security.anti_automation.rejected',",
+            "INPUT_VALIDATION_REJECTED: 'security.input_validation.rejected',",
+            "AUTHORIZATION_REJECTED: 'security.authorization.rejected',"
+          ]
+        },
+        {
+          "condition": "an event still cannot carry the caller's own text: names are filtered and bounded, the route comes from the route table rather than the requested URL, and an unauthenticated caller is still named rather than omitted",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/security-events.ts"
+          ],
+          "patterns": [
+            "const SAFE_NAME = /^[A-Za-z_$][\\w$.-]*$/u;",
+            "if (!SAFE_NAME.test(name)) continue;",
+            "if (out.length >= MAX_FIELDS) break;",
+            "route: typeof req.route?.path === 'string' ? req.route.path : undefined,",
+            "subject: detail.subject ?? 'anonymous',"
+          ]
+        },
+        {
+          "condition": "events are still emitted at a level production keeps, so the record exists where it matters rather than only on a developer's machine",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/security-events.ts"
+          ],
+          "patterns": [
+            "logger.warn(formatSecurityEvent(event, detail));"
+          ]
+        },
+        {
+          "condition": "the anti-automation refusal is still recorded at the point the guard refuses",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/common/guards/rate-limit.guard.ts"
           ],
           "patterns": [
-            "new logger(ratelimitguard.name)"
+            "recordSecurityEvent(this.logger, SECURITY_EVENTS.ANTI_AUTOMATION_REJECTED, {",
+            "reason: 'RATE_LIMITED',"
           ]
         },
         {
-          "condition": "no document defines which security events must be logged",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the authorization refusal is still recorded at the point the guard refuses",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "docs/security/THREAT_MODEL.md",
-            "SECURITY.md"
+            "apps/api/src/common/guards/roles.guard.ts"
           ],
           "patterns": [
-            "security events",
-            "logging inventory"
+            "recordSecurityEvent(this.logger, SECURITY_EVENTS.AUTHORIZATION_REJECTED, {",
+            "reason: 'ROLE_NOT_PERMITTED',"
+          ]
+        },
+        {
+          "condition": "the input-validation refusal is still recorded, and the pipe still returns the exception Nest builds rather than one carrying the rejected payload back to the caller",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/security-logging-validation.pipe.ts"
+          ],
+          "patterns": [
+            "recordSecurityEvent(this.securityLogger, SECURITY_EVENTS.INPUT_VALIDATION_REJECTED, {",
+            "const base = super.createExceptionFactory();",
+            "return base(validationErrors);"
+          ]
+        },
+        {
+          "condition": "the application still installs the recording pipe rather than the stock one",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts"
+          ],
+          "patterns": [
+            "new SecurityLoggingValidationPipe({"
+          ]
+        },
+        {
+          "condition": "the document still defines the three events, and still says plainly that it does not claim the logging inventory",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "docs/security/SECURITY_EVENT_CATALOGUE.md"
+          ],
+          "patterns": [
+            "### `security.anti_automation.rejected`",
+            "### `security.input_validation.rejected`",
+            "### `security.authorization.rejected`",
+            "V16.1.1 remains FAIL"
+          ]
+        },
+        {
+          "condition": "the gate still refuses all three ways the document and the code can come apart, and still refuses an emitter that exists only in a test",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-security-event-catalogue.mjs"
+          ],
+          "patterns": [
+            "declared but not documented",
+            "documented but not declared",
+            "emitted nowhere",
+            "!isTest(f)",
+            "process.exit(1);"
+          ]
+        },
+        {
+          "condition": "the gate still runs on every change to the catalogue, the document or itself",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            ".github/workflows/sbom-scan.yml"
+          ],
+          "patterns": [
+            "run: node scripts/security/verify-security-event-catalogue.mjs",
+            "- 'docs/security/SECURITY_EVENT_CATALOGUE.md'"
+          ]
+        },
+        {
+          "condition": "the controls are still proven by running them and reading what they emit, including that the rejected payload does not come back in the response",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/security-event-logging.spec.ts"
+          ],
+          "patterns": [
+            "it('writes one parseable event naming the constraints that failed'",
+            "it('returns exactly the response the stock pipe returns'",
+            "it('keeps the caller out of the record'",
+            "it('is recorded, with the role read from the session'"
+          ]
+        },
+        {
+          "condition": "the anti-automation record is still proven by driving the guard to refuse, and the refusal itself is still unchanged",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/guards/rate-limit.guard.spec.ts"
+          ],
+          "patterns": [
+            "it('records the refusal as a parseable anti-automation event'",
+            "it('still refuses with the same 429 the caller always got'"
+          ]
+        },
+        {
+          "condition": "the gate's own behaviour is still held by a fixture repository, so a check that passes vacuously still fails",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-security-event-catalogue.test.mjs"
+          ],
+          "patterns": [
+            "test('an event that is documented and declared but emitted nowhere fails'",
+            "test('an emitter that exists only in a test does not count'",
+            "test('a catalogue that stopped being a frozen literal fails the gate itself'"
           ]
         }
       ],
-      "note": "The requirement has two halves and both fail, for different reasons. The first asks that the application log the security events DEFINED IN THE DOCUMENTATION - and no document defines any, the same missing artefact recorded under V16.1.1, so there is no defined set to log. The second asks that attempts to bypass security controls be logged, and they largely are not: the rate-limit guard logs only when its own enforcement fails, not when it rejects a caller, so an anti-automation trip leaves no record beyond the request line; and the validation pipe is installed without an exceptionFactory, so a rejected payload produces a 400 and no security event. Credited: authentication and authorization bypass attempts ARE recorded, as DENIED and FAILURE outcomes under V16.3.1 and V16.3.2. The gap is the input-validation and anti-automation controls named by this requirement, not the auth ones."
+      "note": "Closed. The requirement has two halves and the previous note had both right: no document defined any security event, and the controls that refuse a request largely did not say so. Both are addressed, and they are bound to each other rather than merely both present. docs/security/SECURITY_EVENT_CATALOGUE.md defines three events, and verify-security-event-catalogue.mjs fails the build on all three ways a document and an implementation come apart: an event declared in code but missing from the document, an event the document describes that the code no longer has, and - the one that matters here - an event that is documented, declared, and emitted nowhere. The third is what keeps this from being the policy-as-implementation substitution this register refuses: a catalogue whose entries nothing emits would otherwise read exactly like a catalogue whose entries all do. An emitter that exists only in a test does not count either, and a catalogue entry naming a control class that does not exist fails. The three controls, each recorded where it already refused rather than at a new choke point. Anti-automation: RateLimitGuard threw its 429 and logged only when its own enforcement failed, so a sustained probe was indistinguishable from traffic; it now records the refusal. Business logic: RolesGuard refused an authenticated caller reaching a route their role may not reach and said nothing; it now records it, with the role read from the session rather than the request. Input validation: the global pipe carried no exceptionFactory, so a rejected payload produced a 400 and no record. A global exception filter was considered for all three and rejected: there is no APP_FILTER in this application, and introducing one would put every error response in the blast radius of a logging change. The three existing guards are narrower and already sit exactly where the refusal happens. The input-validation change nearly shipped a regression, and it is the reason the pipe is a subclass rather than an options object. Writing exceptionFactory: (errors) => new BadRequestException(errors) is the obvious form, it typechecks, and it changes the 400 body: Nest's own factory calls flattenValidationErrors, which reduces each error to its message strings, while the raw ValidationError objects carry `value` and `target` - the rejected value and the whole object the caller submitted, reflected back in the response. SecurityLoggingValidationPipe wraps super.createExceptionFactory() and returns its result unchanged, and a test compares the response against the stock pipe's byte for byte and asserts the rejected value does not appear in it. Adding logging is not a reason to start echoing payloads. What an event may contain was decided by the same reasoning. A rejected request is interesting precisely because its contents are hostile, so nothing the caller sent is written: not the payload, not the framework's validation message, not the requested URL. The route is the template from the route table. Property names are the one caller-adjacent field - for an endpoint whose body is typed as a plain object the rejected property name IS the caller's - so names are filtered to [A-Za-z_$][\\w$.-]* and capped at twenty per event and sixty-four characters each. A name carrying a newline would forge a second log line, which is the log-injection version of the bypass being recorded, and a test drives exactly that string through. Written to the application log at warn rather than to AuditService, and the choice is deliberate. AuditService writes a hash-chained row needing an actor, a role and usually a deal; these requests are frequently unauthenticated, carry none of that, and arrive in volume when someone is probing, so routing them into the tamper-evident chain would hand an anonymous caller a way to grow it at will. warn rather than debug because production narrows the logger to fatal, error, warn and log (V13.4.2), and an event written below that floor exists only where it does not matter. Fourteen mutations were confirmed to break the tests: silencing each of the three records, echoing the raw validation errors, dropping the name filter, unbounding the name count, recording the requested URL instead of the route template, omitting an anonymous subject, emitting below the production floor, and five ways of loosening the gate. One of them initially passed everything - deleting the check that refuses an unfrozen catalogue - because that branch is unreachable while the catalogue is frozen, so no fixture ever reached it; a fixture with an unfrozen catalogue now does. A condition a mutation can walk past is not a condition. What this does not claim. It is not the logging inventory: V16.1.1 asks for what is logged at each layer, in what format, stored where, used how, access controlled how and kept how long, and none of that is established here - V16.1.1 remains FAIL, and the document says so in its own text rather than leaving a reader to infer it. Authentication successes and failures are logged separately and are credited under V16.3.1 and V16.3.2, not here. And three controls are not every control: this closes the input-validation, business-logic and anti-automation examples the requirement names, and a fourth control added later must be added to the catalogue or the gate fails."
     },
     {
       "requirementId": "V16.3.4",

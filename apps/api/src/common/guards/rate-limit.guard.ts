@@ -16,6 +16,7 @@ import {
 import type { RequestUser } from '../types/request-user';
 import { RateLimitService } from '../security/rate-limit.service';
 import { TrustedProxyService } from '../security/trusted-proxy';
+import { SECURITY_EVENTS, recordSecurityEvent, requestShape } from '../security/security-events';
 
 type RateLimitedRequest = Request & {
   user?: RequestUser;
@@ -69,6 +70,15 @@ export class RateLimitGuard implements CanActivate {
 
       if (!decision.allowed) {
         response.setHeader('Retry-After', String(retryAfterSeconds));
+        // The 429 reaches the caller, who already knows. Without this line it
+        // reaches nobody else: an anti-automation trip left no record beyond the
+        // request line, so a sustained probe was indistinguishable from traffic.
+        recordSecurityEvent(this.logger, SECURITY_EVENTS.ANTI_AUTOMATION_REJECTED, {
+          control: 'RateLimitGuard',
+          reason: 'RATE_LIMITED',
+          count: decision.limit,
+          ...requestShape(request),
+        });
         throw new HttpException(
           {
             code: 'RATE_LIMITED',

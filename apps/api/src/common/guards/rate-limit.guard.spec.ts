@@ -1,6 +1,7 @@
-import { HttpException, ServiceUnavailableException } from '@nestjs/common';
+import { HttpException, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { RateLimitGuard } from './rate-limit.guard';
+import { SECURITY_EVENTS } from '../security/security-events';
 
 function context(request: any, response: any, options: any): any {
   return {
@@ -131,5 +132,62 @@ describe('RateLimitGuard', () => {
     const guard = new RateLimitGuard(reflector, rateLimits as any, { resolveRequestIp: jest.fn() } as any);
     await expect(guard.canActivate(context({}, responseMock(), {}))).resolves.toBe(true);
     expect(rateLimits.consume).not.toHaveBeenCalled();
+  });
+});
+
+describe('what a refused request leaves behind', () => {
+  /**
+   * ASVS 5.0 V16.3.3. The 429 reaches the caller, who already knew they were
+   * being throttled. Before this, it reached nobody else: the guard logged only
+   * when its own enforcement failed, so a sustained probe was indistinguishable
+   * from ordinary traffic in the log.
+   */
+  function refusingGuard() {
+    const reflector = {
+      getAllAndOverride: jest.fn().mockReturnValue({
+        name: 'auth_login', scope: 'ip', limit: 8, windowSeconds: 60,
+      }),
+    } as unknown as Reflector;
+    const rateLimits = {
+      consume: jest.fn().mockResolvedValue({
+        allowed: false, count: 9, remaining: 0, limit: 8, resetAt: Date.now() + 30_000,
+      }),
+    };
+    return new RateLimitGuard(
+      reflector,
+      rateLimits as any,
+      { resolveRequestIp: jest.fn().mockReturnValue('198.51.100.8') } as any,
+    );
+  }
+
+  it('records the refusal as a parseable anti-automation event', async () => {
+    const lines: string[] = [];
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(((message: unknown) => {
+      lines.push(String(message));
+    }) as never);
+
+    const request = { params: {}, headers: {}, socket: {}, method: 'POST', route: { path: '/auth/login' } };
+    await expect(refusingGuard().canActivate(context(request, responseMock(), {})))
+      .rejects.toBeInstanceOf(HttpException);
+
+    expect(lines).toHaveLength(1);
+    const event = JSON.parse(lines[0]);
+    expect(event.event).toBe(SECURITY_EVENTS.ANTI_AUTOMATION_REJECTED);
+    expect(event.control).toBe('RateLimitGuard');
+    expect(event.reason).toBe('RATE_LIMITED');
+    expect(event.route).toBe('/auth/login');
+    // An unauthenticated probe is the ordinary case and must still be recorded.
+    expect(event.subject).toBe('anonymous');
+  });
+
+  it('still refuses with the same 429 the caller always got', async () => {
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation((() => undefined) as never);
+    const request = { params: {}, headers: {}, socket: {}, method: 'POST', route: { path: '/auth/login' } };
+    const response = responseMock();
+    await refusingGuard().canActivate(context(request, response, {})).catch((error: HttpException) => {
+      expect(error.getStatus()).toBe(429);
+      expect((error.getResponse() as { code: string }).code).toBe('RATE_LIMITED');
+    });
+    expect(response.headers.get('Retry-After')).toBeDefined();
   });
 });
