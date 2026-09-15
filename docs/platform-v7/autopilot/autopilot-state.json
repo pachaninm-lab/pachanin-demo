@@ -1429,6 +1429,16 @@
     ],
     "fix/gitleaks-release-authority-attestation-20260912": [
       "apps/tai/tests/test_gitleaks_release_authority.py"
+    ],
+    "security/asvs-v347-csp-reporting-4459": [
+      "apps/web/middleware.ts",
+      "apps/web/app/api/csp-report/route.ts",
+      "apps/web/tests/unit/cspViolationReporting.test.ts",
+      ".github/workflows/ci.yml",
+      "docs/security/cryptographic-inventory.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/asvs-applicability-decisions.json",
+      "docs/platform-v7/autopilot/autopilot-state.json"
     ]
   },
   "currentAcceptance": [
