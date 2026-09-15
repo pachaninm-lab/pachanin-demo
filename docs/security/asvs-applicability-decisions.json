@@ -5181,48 +5181,75 @@
     {
       "requirementId": "V7.5.3",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "money-command:apps/api/src/modules/deals/deal-command.policy.ts",
-        "authoritative-path:apps/api/src/modules/deals/postgresql-deal-command.service.ts",
-        "wired-gate-elsewhere:apps/api/src/modules/auth/registration-decision.service.ts"
+        "apps/api/src/common/guards/auth.guard.ts",
+        "apps/api/src/common/guards/financial-step-up.spec.ts",
+        "apps/api/src/modules/deals/deals.controller.ts",
+        "apps/api/src/modules/auth/auth.service.ts"
       ],
       "conditions": [
         {
-          "condition": "a highly sensitive money operation exists as a command",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the money commands are still named in the set the guard consults, and the guard still consults it before the request proceeds",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/api/src/modules/deals/deal-command.policy.ts"
+            "apps/api/src/common/guards/auth.guard.ts"
           ],
           "patterns": [
-            "bank_release_request"
+            "const FINANCIAL_COMMANDS_REQUIRING_RECENT_MFA = new Set([",
+            "'request_release',",
+            "'request_reserve',",
+            "if (FINANCIAL_COMMANDS_REQUIRING_RECENT_MFA.has(actionId)) {"
           ]
         },
         {
-          "condition": "the path that executes it still asks for no further authentication",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the gate still asks for the threshold itself rather than a declared amount, so a request naming no amount cannot walk past it",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/api/src/modules/deals/postgresql-deal-command.service.ts"
+            "apps/api/src/common/guards/auth.guard.ts"
           ],
           "patterns": [
-            "requirefreshmfa",
-            "mfaverifiedat",
-            "fresh_mfa",
-            "step-up"
+            "this.authService.assertRecentFinancialMfa(req.user, FINANCIAL_MFA_THRESHOLD_KOPECKS);",
+            "const actionId = String(req.params?.actionId ?? '');"
           ]
         },
         {
-          "condition": "a wired further-authentication gate exists elsewhere, so the capability is real",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the route still carries the command as the parameter the guard reads, without which the gate looks at an empty string",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/api/src/modules/auth/registration-decision.service.ts"
+            "apps/api/src/modules/deals/deals.controller.ts"
           ],
           "patterns": [
-            "requirefreshmfa"
+            "@Post(':id/commands/:actionId')",
+            "@Param('actionId')"
+          ]
+        },
+        {
+          "condition": "the freshness window is still bounded, and a second factor proven outside it is still refused",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.service.ts"
+          ],
+          "patterns": [
+            "const MFA_FRESHNESS_MS = 15 * 60 * 1000;",
+            "age > MFA_FRESHNESS_MS"
+          ]
+        },
+        {
+          "condition": "the gate is still proven by running the guard rather than by reading the files it is not in",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/guards/financial-step-up.spec.ts"
+          ],
+          "patterns": [
+            "it('refuses a session whose second factor was proven too long ago'",
+            "it('admits a session that proved one within the window'",
+            "it('reads the command id from the route parameter the route actually declares'",
+            "assertRecentFinancialMfa: AuthService.prototype.assertRecentFinancialMfa,"
           ]
         }
       ],
-      "note": "Releasing funds is the most sensitive operation this platform performs, and the path that executes it asks for nothing beyond an already-authenticated session. The session must carry a verified second factor to exist at all, which is a real baseline, but the requirement asks for further authentication at the point of the operation and there is none: no fresh-MFA check, no step-up, no secondary verification anywhere on the command path. The capability is not missing from the platform - registration-decision.service.ts refuses a decision unless MFA was verified within 15 minutes - it is simply not applied where the money moves. Read together with V2.3.5, the money-release command has neither a second approver nor a re-authentication step."
+      "note": "Corrected on review. The previous note's central claim was wrong, and the correction matters more than the verdict: it said there is \"no fresh-MFA check, no step-up, no secondary verification anywhere on the command path\". There is one, it is wired, and it predates that note - the gate went in on 2026-07-10 and the assessment was written on 2026-08-23. It was missed because of where it lives. The decision looked at deal-command.policy.ts and postgresql-deal-command.service.ts, and the gate is in neither: AppAuthGuard, the global guard every request passes through, carries FINANCIAL_COMMANDS_REQUIRING_RECENT_MFA = {request_reserve, request_release} and calls assertRecentFinancialMfa before the handler runs. Reading the command policy and the command service and concluding the check is absent is a sound method that gave the wrong answer here. Proven by running the real guard rather than by reading it: a session whose second factor was proven sixteen minutes ago is refused, a session that never proved one is refused, a session that proved one a minute ago proceeds, and an ordinary command with the same stale session proceeds - so this is a step-up on the money commands, not a blanket freshness rule that would have been credited by accident. The window is fifteen minutes, the same freshness the previous note itself credited registration-decision.service.ts for. Two couplings decide whether the gate keeps working, and both are now pinned. The guard keys off req.params.actionId, so a route that carried the command anywhere else would leave it reading an empty string and admitting silently; the test asserts the route still declares that parameter. And the gate passes FINANCIAL_MFA_THRESHOLD_KOPECKS rather than the body amount, so a release naming no amount - or a small one - is still gated; the test asserts that too. Five mutations were confirmed to break it: removing the command from the set, gating on the declared amount, blanking the parameter read, removing the gate, and moving the command out of the route parameter. What this does not claim: a second approver. The requirement here is further authentication by the same actor, and that is met. Multi-user approval for the same flow is V2.3.5, which remains FAIL - accounting-authority-command.policy.ts implements a complete second-approval policy that nothing calls. Read together, the money-release command now has re-authentication and still has no second approver, which is a narrower and more accurate statement than the two decisions made before."
     },
     {
       "requirementId": "V7.6.1",
