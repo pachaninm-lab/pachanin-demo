@@ -9598,38 +9598,122 @@
     {
       "requirementId": "V14.3.2",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "framework-scope:apps/web/next.config.js",
-        "uncovered-handler:apps/web/app/api/auth/platform-v7-cabinet-login/route.ts",
-        "uncovered-handler:apps/web/app/api/platform-v7/cabinet-session/route.ts",
-        "uncovered-handler:apps/web/app/api/commercial/finance/applications/route.ts"
+        "apps/web/middleware.ts",
+        "scripts/security/verify-response-cache-policy.mjs",
+        "scripts/security/verify-response-cache-policy.test.mjs",
+        "apps/web/tests/unit/apiResponseCachePolicy.test.ts",
+        ".github/workflows/sbom-scan.yml",
+        "apps/web/app/api/proxy/[...path]/route.ts"
       ],
       "conditions": [
         {
-          "condition": "the framework anti-caching header is still scoped to the entry paths rather than applied globally",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the policy is still applied at the one point every branch of the middleware returns through, so a route cannot be added without it, and it still says no-store rather than something weaker",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/web/next.config.js"
+            "apps/web/middleware.ts"
           ],
           "patterns": [
-            "publicentryfreshheaders"
+            "function applyApiCachePolicy(response: NextResponse, pathname: string) {",
+            "response.headers.set('cache-control', 'no-store');",
+            "return applyApiCachePolicy(await routeRequest(req), req.nextUrl.pathname);"
           ]
         },
         {
-          "condition": "the login, session and finance handlers still set no cache header of their own",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the policy is still bounded to the API surface and the exemptions are still matched exactly, so one route opting out does not carry its siblings out with it",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/web/app/api/auth/platform-v7-cabinet-login/route.ts",
-            "apps/web/app/api/platform-v7/cabinet-session/route.ts",
-            "apps/web/app/api/commercial/finance/applications/route.ts"
+            "apps/web/middleware.ts"
           ],
           "patterns": [
-            "cache-control"
+            "if (!pathname.startsWith('/api/')) return response;",
+            "if (SELF_MANAGED_CACHE_CONTROL.has(pathname)) return true;",
+            "const SELF_MANAGED_CACHE_CONTROL_SUBTREE = ['/api/proxy'];"
+          ]
+        },
+        {
+          "condition": "the streaming routes still keep the directive a bare no-store would drop, and still say no-store rather than the no-cache they used to",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/runtime-stream/route.ts"
+          ],
+          "patterns": [
+            "'Cache-Control': 'no-store, no-transform'"
+          ]
+        },
+        {
+          "condition": "the gateway's demo replies still go out through one place that sets the header, so a reply added beside them cannot miss it",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/proxy/[...path]/route.ts"
+          ],
+          "patterns": [
+            "function demoJson(body: unknown, init: ResponseInit = {}): Response {",
+            "headers: { 'Cache-Control': 'no-store', ...(init.headers as Record<string, string> | undefined) },"
+          ]
+        },
+        {
+          "condition": "the gate still refuses an exemption that has nothing to lose, an exemption that hides a response with no header, and an exempt path that matches no route",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-response-cache-policy.mjs"
+          ],
+          "patterns": [
+            "exempt from the central policy but has nothing to lose by it",
+            "an exempt route constructs a response with no no-store",
+            "exempt path matches no route",
+            "process.exit(1);"
+          ]
+        },
+        {
+          "condition": "the gate still refuses to read the outbound fetch cache option as a response header, and still skips a header named only in a comment",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-response-cache-policy.mjs"
+          ],
+          "patterns": [
+            "const CACHE_HEADER = /['\"]?cache-control['\"]?\\s*:\\s*['\"`]([^'\"`]*)['\"`]/giu;",
+            ".filter((m) => mask[m.index] !== COMMENT)"
+          ]
+        },
+        {
+          "condition": "the gate still runs on every change to the middleware or to itself",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            ".github/workflows/sbom-scan.yml"
+          ],
+          "patterns": [
+            "run: node scripts/security/verify-response-cache-policy.mjs",
+            "- 'apps/web/middleware.ts'"
+          ]
+        },
+        {
+          "condition": "the emitted headers are still proven by running the middleware rather than by reading it, including that an exemption does not leak to a sibling",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/tests/unit/apiResponseCachePolicy.test.ts"
+          ],
+          "patterns": [
+            "it('marks an API response no-store whatever branch produced it'",
+            "it('leaves the streaming routes to set their own, so no-transform survives'",
+            "it('does not let an exemption leak to a sibling route that shares its prefix'"
+          ]
+        },
+        {
+          "condition": "the gate's own behaviour is still held by a fixture, so a check that looks only at the first response in a file still fails",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-response-cache-policy.test.mjs"
+          ],
+          "patterns": [
+            "test('an exempt route whose LATER response has no header fails'",
+            "test('an exempt path matching no route is stale and fails'",
+            "test('unwiring the central policy fails even when every route looks fine'"
           ]
         }
       ],
-      "note": "Most handlers do this correctly and a minority do not, so both numbers are given. Of 118 route handlers under apps/web/app/api, 86 set Cache-Control no-store, 1 sets a different Cache-Control value for a streaming response, 4 set only a framework directive, and 27 set nothing at all. The 4 are called out separately because they look like coverage and are not: export const dynamic force-dynamic and revalidate 0 govern the Next.js cache, not the browser’s, and neither emits a response header. The framework configuration does not fill the gap either - its no-store block applies to exactly four entry paths, none of them under /api, while the global rule applies security headers that contain no Cache-Control. Among the 27 uncovered handlers are the cabinet login response, the cabinet session endpoint and the whole commercial surface: companies, insurance, finance applications, dispatch, provider assignments, queue, survey, market and expansion."
+      "note": "Closed centrally, and the central mechanism was chosen by measurement rather than by reading the framework's documentation. The obvious fix - one no-store for /api in the middleware - was tested before it was written, against a real Next 15.5.21 server with three routes: one setting no header, one setting private, max-age=60, and one streaming with no-cache, no-transform. A header set in middleware REPLACED the route handler's in all three cases, and so did one declared in next.config.js headers(). So the obvious fix is not free: applied blanket it would have stripped no-transform from every route that carries it. Seven routes carry it, not the one the earlier note implies - agro-chat, the /api/proxy gateway, the public and restricted public assistants, realtime, runtime-me-stream and runtime-stream. no-transform is what stops a proxy buffering or re-encoding an event stream, so dropping it would have broken streaming rather than caching, and it would have broken it silently. Those seven are exempt and keep their own header; everything else takes the central one. The denominator in the previous note does not reconcile with the tree and contained a trap worth naming. Measured now: 118 route files. 49 set a Cache-Control response header containing no-store; 3 set no-cache, no-transform; 33 set NOTHING; and 33 set only `cache: 'no-store'` on an outbound fetch. That last group is the trap. It is a RequestInit option governing the Next data cache for a request this server makes, and it says nothing about what the browser may store - it reads as coverage from a grep and is none. The gate refuses to count it, and a mutation that made it count was confirmed to break the tests. The three routes that said no-cache, no-transform now say no-store, no-transform. no-cache permits storing and revalidating; the requirement names no-store, and no-transform is kept because that is the half that was never about caching. The policy is applied at the single point every branch of the middleware returns through - the exported middleware now wraps routeRequest - rather than at each of its twenty-odd return sites, so a route added tomorrow is covered without anyone remembering to cover it. Route-level headers that already said no-store are left where they are and overwritten with the same intent; removing them would make each route depend on this one function. An exemption is where a central policy goes wrong, so both ends are checked. The exempt list may contain only routes that would actually lose something - a route whose header says no more than no-store may not opt out - and every response an exempt route CONSTRUCTS must set no-store, error paths included. That second check found a real hole in this change before it shipped: the gateway's demo branch built twenty-one replies through bare Response.json with no header at all, which manual review had missed while reading the route's main paths. They now go out through one demoJson helper that declares the header once, which is also what makes the property checkable rather than a matter of remembering. Twelve mutations were confirmed to break the tests: removing the choke point, treating every route as self-managed, treating none as self-managed, matching the exact exemptions as prefixes so one leaks to its siblings, widening the policy beyond /api, setting no-cache instead of no-store, dropping the other security headers, masking string bodies so no header is found anywhere, counting a header named in a comment, counting the fetch cache option, treating no-transform as implied by no-store, and checking only the first response in a file. The last of those initially passed every test, because the real tree contains no exempt file whose later response lacks a header; it is caught now by a fixture repository that contains exactly that. A condition a mutation can walk past is not a condition. What this does not claim. It covers the web application's /api surface, which is what the cited evidence named; pages are not in scope here and neither is the Nest API, whose responses are separate. It is about what the browser may store, not about what is in browser storage already - that is V14.3.3, which remains FAIL - and not about clearing storage on logout, which is V14.3.1."
     },
     {
       "requirementId": "V14.3.3",

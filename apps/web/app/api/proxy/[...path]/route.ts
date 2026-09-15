@@ -253,6 +253,25 @@ function demoDecision(
   };
 }
 
+/**
+ * Every demo reply goes out through here.
+ *
+ * The demo branch builds replies in twenty places, and a header repeated twenty
+ * times is a header that will be forgotten once. Declaring it where they all
+ * pass makes "no demo reply is cacheable" a property of the code rather than of
+ * remembering. An explicit Cache-Control in init still wins, because it is
+ * spread after this one.
+ *
+ * This route declares its own Cache-Control at all because the streaming
+ * passthrough below needs no-transform, which the central policy in
+ * middleware.ts would otherwise replace with a bare no-store.
+ */
+function demoJson(body: unknown, init: ResponseInit = {}): Response {
+  return Response.json(body, {
+    ...init,
+    headers: { 'Cache-Control': 'no-store', ...(init.headers as Record<string, string> | undefined) },
+  });
+}
 function demoAssistantResponse(
   method: string,
   path: string,
@@ -261,7 +280,7 @@ function demoAssistantResponse(
   body: any,
 ): Response | null {
   if (role === 'GUEST') {
-    return Response.json(
+    return demoJson(
       { ok: false, code: 'AUTH_REQUIRED', message: 'Требуется демонстрационная сессия.' },
       { status: 401, headers: { 'Cache-Control': 'no-store' } },
     );
@@ -269,7 +288,7 @@ function demoAssistantResponse(
   const deals = demoDealsFor(role, email);
 
   if (method === 'GET' && path === 'ai-assistant/catalog') {
-    return Response.json({
+    return demoJson({
       title: 'Помощник сделки',
       mode: 'synthetic_demo',
       presence: 'online',
@@ -291,7 +310,7 @@ function demoAssistantResponse(
   if (method === 'POST' && path === 'ai-assistant/chat') {
     const message = cleanText(body?.message, 4_000);
     if (!message) {
-      return Response.json(
+      return demoJson(
         { ok: false, code: 'AI_ASSISTANT_MESSAGE_REQUIRED', message: 'Введите вопрос.' },
         { status: 400, headers: { 'Cache-Control': 'no-store' } },
       );
@@ -300,13 +319,13 @@ function demoAssistantResponse(
     const requestedId = cleanText(body?.dealId, 120) || demoDealFromPath(body?.pagePath);
     const selected = requestedId ? deals.find((deal) => deal.id === requestedId) ?? null : null;
     if (requestedId && !selected) {
-      return Response.json(
+      return demoJson(
         { ok: false, code: 'AI_ASSISTANT_DEAL_NOT_AVAILABLE', message: 'Сделка недоступна этой демонстрационной роли.' },
         { status: 404, headers: { 'Cache-Control': 'no-store' } },
       );
     }
     const generatedAt = new Date().toISOString();
-    return Response.json({
+    return demoJson({
       requestId: `demo-ai-${Date.now()}`,
       answer: demoAssistantAnswer(message, locale, deals, selected, role),
       provider: 'local-deterministic',
@@ -333,44 +352,44 @@ function demoResponse(method: string, path: string, jar: CookieStore, body: any)
   const key = `${method.toUpperCase()} /${path}`;
 
   if (key === 'GET /auth/me') {
-    if (role === 'GUEST') return Response.json({ authenticated: false, role: 'GUEST' }, { status: 401 });
-    return Response.json({ authenticated: true, role, surfaceRole: role, email, orgName: 'Demo Org', fullName: email.split('@')[0] || role });
+    if (role === 'GUEST') return demoJson({ authenticated: false, role: 'GUEST' }, { status: 401 });
+    return demoJson({ authenticated: true, role, surfaceRole: role, email, orgName: 'Demo Org', fullName: email.split('@')[0] || role });
   }
   if (isAssistantPath(path)) return demoAssistantResponse(method.toUpperCase(), path, role, email, body);
 
-  if (key === 'GET /lots') return Response.json(demoLots);
+  if (key === 'GET /lots') return demoJson(demoLots);
   if (key === 'POST /lots') {
     const lot = { id: `LOT-${String(Date.now()).slice(-6)}`, status: 'AUCTION_OPEN', sellerId: email, ...body, createdAt: new Date().toISOString() };
     demoLots.push(lot as never);
-    return Response.json(lot, { status: 201 });
+    return demoJson(lot, { status: 201 });
   }
   if (path.startsWith('lots/') && method === 'GET') {
     const id = path.split('/')[1];
     const lot = demoLots.find((item) => item.id === id);
-    return lot ? Response.json(lot) : Response.json({ message: 'not found' }, { status: 404 });
+    return lot ? demoJson(lot) : demoJson({ message: 'not found' }, { status: 404 });
   }
 
-  if (key === 'GET /deals') return Response.json({ items: demoDeals, total: demoDeals.length });
+  if (key === 'GET /deals') return demoJson({ items: demoDeals, total: demoDeals.length });
   if (path.startsWith('deals/') && method === 'GET') {
     const id = path.split('/')[1];
     const deal = demoDeals.find((item) => item.id === id);
-    return deal ? Response.json(deal) : Response.json({ message: 'not found' }, { status: 404 });
+    return deal ? demoJson(deal) : demoJson({ message: 'not found' }, { status: 404 });
   }
 
-  if (key === 'GET /disputes') return Response.json({ items: demoDisputes, total: demoDisputes.length });
+  if (key === 'GET /disputes') return demoJson({ items: demoDisputes, total: demoDisputes.length });
   if (path.startsWith('disputes/') && method === 'GET') {
     const id = path.split('/')[1];
     const dispute = demoDisputes.find((item) => item.id === id);
-    return dispute ? Response.json(dispute) : Response.json({ message: 'not found' }, { status: 404 });
+    return dispute ? demoJson(dispute) : demoJson({ message: 'not found' }, { status: 404 });
   }
 
-  if (key === 'GET /payments') return Response.json({ items: demoPayments, total: demoPayments.length });
-  if (key === 'GET /notifications') return Response.json({ items: demoNotifications, unread: demoNotifications.filter((item) => !item.read).length });
-  if (key === 'POST /labs/complete') return Response.json({ ok: true, status: 'COMPLETED', nextRail: 'settlement' });
-  if (key === 'POST /labs/flag-quality-dispute') return Response.json({ ok: true, status: 'DISPUTED', disputeId: `DISPUTE-${String(Date.now()).slice(-6)}` });
-  if (path.includes('settlement') && path.includes('confirm') && method === 'POST') return Response.json({ ok: true, status: 'CONFIRMED' });
-  if (path.includes('settlement') && path.includes('release') && method === 'POST') return Response.json({ ok: true, status: 'RELEASED' });
-  if (key === 'POST /offline-sync') return Response.json({ ok: true, synced: true });
+  if (key === 'GET /payments') return demoJson({ items: demoPayments, total: demoPayments.length });
+  if (key === 'GET /notifications') return demoJson({ items: demoNotifications, unread: demoNotifications.filter((item) => !item.read).length });
+  if (key === 'POST /labs/complete') return demoJson({ ok: true, status: 'COMPLETED', nextRail: 'settlement' });
+  if (key === 'POST /labs/flag-quality-dispute') return demoJson({ ok: true, status: 'DISPUTED', disputeId: `DISPUTE-${String(Date.now()).slice(-6)}` });
+  if (path.includes('settlement') && path.includes('confirm') && method === 'POST') return demoJson({ ok: true, status: 'CONFIRMED' });
+  if (path.includes('settlement') && path.includes('release') && method === 'POST') return demoJson({ ok: true, status: 'RELEASED' });
+  if (key === 'POST /offline-sync') return demoJson({ ok: true, synced: true });
   return null;
 }
 

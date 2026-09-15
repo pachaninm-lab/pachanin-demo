@@ -12,7 +12,7 @@ export async function GET() {
       status: response.ok ? 200 : response.status,
       headers: {
         'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache, no-transform',
+        'Cache-Control': 'no-store, no-transform',
         Connection: 'keep-alive',
       },
     });
@@ -21,7 +21,7 @@ export async function GET() {
       status: 200,
       headers: {
         'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache, no-transform',
+        'Cache-Control': 'no-store, no-transform',
         Connection: 'keep-alive',
       },
     });
