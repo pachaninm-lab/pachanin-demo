@@ -32,6 +32,10 @@ on:
       - 'docs/security/asvs-applicability-decisions.json'
       - 'scripts/security/verify-decision-evidence.mjs'
       - 'scripts/security/verify-decision-evidence.test.mjs'
+      - 'scripts/security/verify-security-event-catalogue.mjs'
+      - 'scripts/security/verify-security-event-catalogue.test.mjs'
+      - 'docs/security/SECURITY_EVENT_CATALOGUE.md'
+      - 'apps/api/src/common/security/security-events.ts'
       - 'docs/ip/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -77,6 +81,10 @@ on:
       - 'docs/security/asvs-applicability-decisions.json'
       - 'scripts/security/verify-decision-evidence.mjs'
       - 'scripts/security/verify-decision-evidence.test.mjs'
+      - 'scripts/security/verify-security-event-catalogue.mjs'
+      - 'scripts/security/verify-security-event-catalogue.test.mjs'
+      - 'docs/security/SECURITY_EVENT_CATALOGUE.md'
+      - 'apps/api/src/common/security/security-events.ts'
       - 'docs/ip/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -225,6 +233,9 @@ jobs:
 
       - name: Verify no decision cites something that is gone
         run: node scripts/security/verify-decision-evidence.mjs
+
+      - name: Verify every documented security event is emitted
+        run: node scripts/security/verify-security-event-catalogue.mjs
 
       - name: Verify every algorithm has a migration path
         run: node scripts/security/verify-crypto-migration-plan.mjs

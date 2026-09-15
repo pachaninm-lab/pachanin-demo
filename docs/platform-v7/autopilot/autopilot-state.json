@@ -1429,6 +1429,23 @@
     ],
     "fix/gitleaks-release-authority-attestation-20260912": [
       "apps/tai/tests/test_gitleaks_release_authority.py"
+    ],
+    "security/asvs-v1633-security-event-logging-4459": [
+      ".github/workflows/sbom-scan.yml",
+      "apps/api/src/common/guards/rate-limit.guard.spec.ts",
+      "apps/api/src/common/guards/rate-limit.guard.ts",
+      "apps/api/src/common/guards/roles.guard.ts",
+      "apps/api/src/common/security/security-event-logging.spec.ts",
+      "apps/api/src/common/security/security-events.ts",
+      "apps/api/src/common/security/security-logging-validation.pipe.ts",
+      "apps/api/src/main.ts",
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/SECURITY_EVENT_CATALOGUE.md",
+      "docs/security/asvs-applicability-decisions.json",
+      "docs/security/cryptographic-inventory.json",
+      "scripts/security/verify-security-event-catalogue.mjs",
+      "scripts/security/verify-security-event-catalogue.test.mjs"
     ]
   },
   "currentAcceptance": [

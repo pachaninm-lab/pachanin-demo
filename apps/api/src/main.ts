@@ -2,11 +2,11 @@ import './tracing';
 import './sentry';
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { register, collectDefaultMetrics, Counter, Histogram } from 'prom-client';
 import { MaskedLoggerService } from './common/logger/masked-logger.service';
+import { SecurityLoggingValidationPipe } from './common/security/security-logging-validation.pipe';
 import { createTrustedProxyPolicy } from './common/security/trusted-proxy';
 import { configureRequestBodyLimits } from './common/security/request-body-limit';
 import { assertIndustrialProductionStartup, INDUSTRIAL_CORE_MIGRATION } from './common/config/industrial-mode';
@@ -85,8 +85,11 @@ async function bootstrap() {
     next();
   });
 
+  // A rejected payload used to produce a 400 and nothing else, so an attempt to
+  // push a value past a declared constraint left no trace. The subclass records
+  // the attempt and returns the exception Nest would have built, unchanged.
   app.useGlobalPipes(
-    new ValidationPipe({
+    new SecurityLoggingValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: false,
       transform: true,
