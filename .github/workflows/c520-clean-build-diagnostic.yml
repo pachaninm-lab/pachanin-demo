@@ -1,0 +1,79 @@
+name: c520 clean build diagnostic
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Remove all build caches
+        shell: bash
+        run: rm -rf apps/web/.next .netlify node_modules/.cache apps/web/node_modules/.cache
+
+      - name: Build exact source without Netlify cache
+        run: pnpm --filter @pc/web build
+
+      - name: Install Chromium
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Start production server and compare raw SSR with hydrated DOM
+        working-directory: apps/web
+        shell: bash
+        env:
+          DIAGNOSTIC_BASE_URL: http://127.0.0.1:3000
+          DIAGNOSTIC_OUT_DIR: ../../artifacts/c520-clean-build-diagnostic
+        run: |
+          set -euo pipefail
+          pnpm start > /tmp/c520-next-start.log 2>&1 &
+          SERVER_PID=$!
+          cleanup() { kill "$SERVER_PID" 2>/dev/null || true; }
+          trap cleanup EXIT
+          ready=0
+          for attempt in $(seq 1 90); do
+            if curl --silent --show-error --fail --max-time 5 'http://127.0.0.1:3000/platform-v7?lang=ru' >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            cat /tmp/c520-next-start.log
+            exit 1
+          fi
+          node scripts/c520-clean-build-diagnostic.mjs
+          cp /tmp/c520-next-start.log ../../artifacts/c520-clean-build-diagnostic/next-start.log
+          find .next/server/app/platform-v7 -maxdepth 4 -type f -printf '%p\n' | sort > ../../artifacts/c520-clean-build-diagnostic/next-route-files.txt
+
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c520-clean-build-diagnostic
+          path: artifacts/c520-clean-build-diagnostic
+          if-no-files-found: error
+          retention-days: 3
