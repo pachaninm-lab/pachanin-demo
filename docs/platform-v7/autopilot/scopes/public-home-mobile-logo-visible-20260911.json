@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-home-mobile-logo-visible-20260911",
+  "status": "active",
+  "operationalStatus": "PUBLIC_UI_REFINEMENT",
+  "authorizedBy": "explicit-user-screenshot-2026-09-11-logo-not-visible-on-platform-home-mobile",
+  "purpose": "Restore the already approved canonical brand mark on the public Platform V7 homepage at narrow mobile widths where the current shared-header CSS explicitly hides it. Preserve the approved artwork and visible textual brand, keep the logo as the far-left visual brand element, and keep menu/language/login/start controls usable without overlap or horizontal overflow.",
+  "allowedPaths": [
+    "apps/web/styles/platform-v7-home-mobile-brand.css",
+    "apps/web/tests/e2e/platform-v7-home-brand-visibility.spec.ts",
+    "docs/platform-v7/autopilot/scopes/public-home-mobile-logo-visible-20260911.json"
+  ],
+  "requiredInvariants": [
+    "BrandMark, ApprovedHeaderLogo and the canonical logo asset remain unchanged.",
+    "At mobile widths up to 430px the approved brand mark remains visibly rendered at the far-left of the public homepage header.",
+    "The visible textual brand Прозрачная Цена remains present at the existing fourteen-pixel minimum while the canonical logo is restored.",
+    "Menu, locale, login and primary start controls retain their existing routes and at least 44px touch targets without clipping, overlap or horizontal overflow.",
+    "RU, EN and ZH behavior remains unchanged apart from the shared visual logo visibility correction.",
+    "Authentication, tenant/RBAC, API, database, middleware, dependencies and release topology remain unchanged."
+  ],
+  "forbiddenChanges": [
+    ".github/workflows/**",
+    "apps/api/**",
+    "apps/web/app/**",
+    "apps/web/components/v7r/ApprovedHeaderLogo.tsx",
+    "apps/web/components/v7r/BrandMark.tsx",
+    "apps/web/components/v7r/brand-logo-asset.ts",
+    "apps/web/lib/**",
+    "apps/web/middleware.ts",
+    "packages/**",
+    "scripts/**",
+    "pnpm-lock.yaml",
+    "package.json",
+    "production credentials or server configuration"
+  ],
+  "acceptance": [
+    "Diff is exactly this scope manifest plus platform-v7-home-mobile-brand.css and platform-v7-home-brand-visibility.spec.ts.",
+    "The homepage mobile CSS overrides the <=430px shared-header hide rule and visibly renders the canonical brand mark.",
+    "320, 375, 390 and 430 CSS-pixel widths retain the visible logo, visible fourteen-pixel textual brand, 44px-or-larger interactive targets and no horizontal overflow.",
+    "The focused browser acceptance explicitly asserts the canonical brand mark is visible and non-zero-sized at all four mobile widths.",
+    "Applicable exact-head autopilot, web, accessibility/design-system and security checks are terminal green before merge.",
+    "No unresolved independent-review findings remain on the exact implementation head.",
+    "After merge, REG.RU exact-SHA release and live mobile verification confirm the logo is visible on the public platform homepage."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
