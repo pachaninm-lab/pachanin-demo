@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -842,6 +843,90 @@ export class AuthService {
       });
     });
     return { success: true, userId, reason };
+  }
+
+  /**
+   * V7.5.2: the sessions this user currently holds.
+   *
+   * The two BASELINE capabilities SECURITY_SESSION_READ_OWN and
+   * SECURITY_SESSION_REVOKE_OWN describe exactly this and are granted to every
+   * active membership, so they would deny nobody that authentication has not
+   * already denied. What is enforced instead is the thing that can actually go
+   * wrong: the rows are selected by the caller's own user id, so no session id
+   * from anywhere else can be read or ended.
+   */
+  async listOwnSessions(user: RequestUser) {
+    const rows = await this.repository.listActiveUserSessions(this.repository.prisma, user.id);
+    return {
+      sessions: rows.map((row) => ({
+        id: row.id,
+        createdAt: row.created_at.toISOString(),
+        lastSeenAt: row.last_seen_at.toISOString(),
+        expiresAt: row.expires_at.toISOString(),
+        mfaLevel: row.mfa_level,
+        current: row.id === user.sessionId,
+      })),
+    };
+  }
+
+  /**
+   * Ends one of the caller's sessions, or every one but the caller's own.
+   *
+   * The requirement asks for re-authentication with at least one factor, and
+   * the factor asked for is the password rather than a fresh MFA verification:
+   * mfa_level may be NONE for a member who has not enrolled, and gating on MFA
+   * freshness would leave exactly those accounts unable to end a session they
+   * have lost control of - which is the situation this endpoint exists for.
+   *
+   * The password is checked against the same three-field credential projection
+   * login uses, so a wrong password fails here the way it fails there. Failure
+   * is audited: an attempt to end somebody's sessions is worth seeing whether
+   * or not it worked.
+   */
+  async revokeOwnSessions(
+    user: RequestUser,
+    dto: { password: string; sessionId?: string; others?: boolean },
+  ) {
+    const credential = await this.repository.findLoginCredentialByEmail(
+      this.repository.prisma,
+      user.email.trim().toLowerCase(),
+    );
+    const validPassword = await verifyPassword(dto.password, credential?.password_hash);
+    if (!validPassword || credential?.user_id !== user.id) {
+      await this.repository.transaction(async (tx) => {
+        await this.audit(tx, {
+          userId: user.id,
+          action: 'auth.sessions.revoke_own',
+          outcome: 'DENIED',
+          reason: 'REAUTHENTICATION_FAILED',
+        });
+      });
+      throw new UnauthorizedException('Re-authentication is required to end a session.');
+    }
+
+    const reason = 'USER_SESSION_REVOKE';
+    return this.repository.transaction(async (tx) => {
+      let revoked = 0;
+      if (dto.others) {
+        revoked = await this.repository.revokeOtherUserSessions(
+          tx,
+          user.id,
+          user.sessionId ?? '',
+          reason,
+        );
+      } else if (dto.sessionId) {
+        revoked = await this.repository.revokeOwnSession(tx, user.id, dto.sessionId, reason);
+      } else {
+        throw new BadRequestException('Name a session to end, or ask for the others.');
+      }
+      await this.audit(tx, {
+        userId: user.id,
+        action: 'auth.sessions.revoke_own',
+        outcome: 'SUCCESS',
+        reason,
+      });
+      return { revoked };
+    });
   }
 
   assertRecentFinancialMfa(user: RequestUser, amountKopecks: number): void {

@@ -15,6 +15,7 @@ import { RegisterDto } from './dto/register.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { LogoutDto } from './dto/logout.dto';
 import { MfaVerifyDto } from './dto/mfa-verify.dto';
+import { RevokeOwnSessionsDto } from './dto/revoke-own-sessions.dto';
 import { RevokeUserSessionsDto } from './dto/revoke-user-sessions.dto';
 import { ConfirmPasswordResetDto, RequestPasswordResetDto } from './dto/password-reset.dto';
 import { RegistrationAdditionalInformationDto, ResendRegistrationEmailDto, VerifyRegistrationEmailDto } from './dto/registration-application.dto';
@@ -227,6 +228,25 @@ export class AuthController {
   @Roles(Role.ADMIN)
   revokeUserSessions(@Body() dto: RevokeUserSessionsDto) {
     return this.authService.revokeUserSessions(dto.userId, dto.reason || 'ADMIN_REVOKE');
+  }
+
+  /**
+   * V7.5.2. The route above ends somebody else's sessions and is ADMIN-only;
+   * these two are the user plane, and until now it did not exist - an ordinary
+   * member could see nothing and end nothing.
+   */
+  @Get('sessions')
+  @RateLimit({ name: 'auth_sessions_list_own', scope: 'user', limit: 60, windowSeconds: 60, limitEnv: 'RATE_LIMIT_AUTH_SESSIONS_LIST_OWN', windowEnv: 'RATE_LIMIT_AUTH_SESSIONS_LIST_OWN_WINDOW_SECONDS' })
+  listOwnSessions(@CurrentUser() user: RequestUser) {
+    return this.authService.listOwnSessions(user);
+  }
+
+  // Bounded per account rather than per address, and tightly: each call carries
+  // a password, so an unbounded endpoint would be somewhere to guess one.
+  @Post('sessions/revoke')
+  @RateLimit({ name: 'auth_sessions_revoke_own', scope: 'user', limit: 10, windowSeconds: 300, limitEnv: 'RATE_LIMIT_AUTH_SESSIONS_REVOKE_OWN', windowEnv: 'RATE_LIMIT_AUTH_SESSIONS_REVOKE_OWN_WINDOW_SECONDS' })
+  revokeOwnSessions(@Body() dto: RevokeOwnSessionsDto, @CurrentUser() user: RequestUser) {
+    return this.authService.revokeOwnSessions(user, dto);
   }
 
   @Get('me')

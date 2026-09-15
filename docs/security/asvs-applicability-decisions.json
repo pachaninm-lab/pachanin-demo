@@ -5146,37 +5146,79 @@
     {
       "requirementId": "V7.5.2",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "staff-plane:apps/api/src/modules/staff-access/staff-access.controller.ts",
-        "auth-controller:apps/api/src/modules/auth/auth.controller.ts"
+        "apps/api/src/modules/auth/auth.controller.ts",
+        "apps/api/src/modules/auth/auth.service.ts",
+        "apps/api/src/modules/auth/persistent-auth.repository.ts",
+        "apps/api/src/modules/auth/own-session-management.spec.ts",
+        "apps/api/src/modules/auth/dto/revoke-own-sessions.dto.ts"
       ],
       "conditions": [
         {
-          "condition": "the staff plane lets a caller view and terminate their own sessions",
-          "check": "PRESENT_AT_PATH",
-          "paths": [
-            "apps/api/src/modules/staff-access/staff-access.controller.ts"
-          ],
-          "patterns": [
-            "access/sessions",
-            "access/sessions/:id/revoke"
-          ]
-        },
-        {
-          "condition": "the user-facing auth surface offers no equivalent",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the user plane still has both routes, and neither is public",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/auth/auth.controller.ts"
           ],
           "patterns": [
-            "@get('sessions",
-            "listsessions",
-            "revokeownsessions"
+            "@Get('sessions')",
+            "@Post('sessions/revoke')",
+            "listOwnSessions(@CurrentUser() user: RequestUser)",
+            "revokeOwnSessions(@Body() dto: RevokeOwnSessionsDto, @CurrentUser() user: RequestUser)"
+          ]
+        },
+        {
+          "condition": "ending a session still requires re-authentication, and a password that belongs to somebody else still does not count",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.service.ts"
+          ],
+          "patterns": [
+            "if (!validPassword || credential?.user_id !== user.id) {",
+            "'REAUTHENTICATION_FAILED'",
+            "throw new UnauthorizedException('Re-authentication is required to end a session.');"
+          ]
+        },
+        {
+          "condition": "what a caller can end is still bounded by their own user id in the statement itself, not by the id they sent",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/persistent-auth.repository.ts"
+          ],
+          "patterns": [
+            "AND user_id = ${userId}",
+            "AND id <> ${keepSessionId}",
+            "AND scope = 'PLATFORM'"
+          ]
+        },
+        {
+          "condition": "the listing still returns no stored device or address fingerprint",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/dto/revoke-own-sessions.dto.ts"
+          ],
+          "patterns": [
+            "user_agent_hash",
+            "ip_hash"
+          ]
+        },
+        {
+          "condition": "the scoping is still read off the statements themselves rather than trusted from a mocked repository",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/own-session-management.spec.ts"
+          ],
+          "patterns": [
+            "it('bounds a single revoke by user_id and by platform scope'",
+            "it('never selects the stored user agent or address hashes'",
+            "it('refuses when the credential resolves to a different account'",
+            "it('ends every other session while keeping the one asking'",
+            "it('refuses a wrong password and ends nothing'"
           ]
         }
       ],
-      "note": "Staff can view their active sessions and revoke one. Ordinary platform users cannot: the only session-termination endpoint on the user-facing auth surface is ADMIN-only. The capability constant SECURITY_SESSION_REVOKE_OWN is defined in membership-capability.resolver.ts but is wired to no route, so it grants nothing. The staff plane is credited; the gap is the user plane."
+      "note": "Closed. The user plane now exists: GET /auth/sessions lists the caller's live platform sessions and POST /auth/sessions/revoke ends one of them or every one but the caller's own. The staff plane was already credited; what was missing was that an ordinary member could see nothing and end nothing, so the person who had lost control of a session was the one person who could not end it. The factor asked for on re-authentication is the password, not a fresh MFA verification. mfa_level may be NONE for a member who has not enrolled, and gating on MFA freshness would leave exactly those accounts unable to end a session - which is the situation the endpoint exists for. The password is checked against the same three-field credential projection login uses, and a correct password that resolves to a different account is refused too. A failed attempt is audited: an attempt on somebody's sessions is worth seeing whether or not it worked. The scoping that matters is in the statements rather than in the service. Both revokes carry AND user_id = the caller in the UPDATE itself, so naming a session id belonging to somebody else ends nothing and returns the same answer as naming one that has already ended - the endpoint is not a probe for which session ids exist. A read-then-write would have been both weaker and racier. The tests read the generated SQL rather than trusting a mocked repository, because the mock is exactly where that predicate would go missing unnoticed. Scope is PLATFORM only. A GEKTA session belongs to the product contour, whose credential lookup deliberately refuses to resolve a platform user, so those are a different subject rather than a session of this one being hidden. The listing returns when a session began, when it was last used, when it expires, its MFA level and whether it is the one asking. It does not return user_agent_hash or ip_hash: those are hashes, so they name no device a person would recognise, and handing them out would let one session's fingerprint be correlated with another's for nothing. On the capability constants: SECURITY_SESSION_READ_OWN and SECURITY_SESSION_REVOKE_OWN describe exactly these two routes, and the earlier note was right that they were wired to nothing. They are not used as a gate here, and deliberately so - both are in BASELINE, granted to every active membership, so a capability check would deny nobody that authentication has not already denied. What is enforced is ownership plus re-authentication, which is the thing that can actually go wrong. Eight mutations were confirmed to break it: removing user_id from the single revoke, removing the platform scope from the listing, returning the stored hashes, ending the caller's own session along with the others, accepting any password, accepting a correct password belonging to another account, making the revoke route public, and loosening its bound to something a password could be guessed against."
     },
     {
       "requirementId": "V7.5.3",
