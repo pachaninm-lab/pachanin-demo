@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/branch-verdict-reconciliation-4459",
+  "status": "active",
+  "purpose": "The FAIL count reported against main overstates what is outstanding, because assessments live on branches that have not merged. Worse, some branches would take an earned verdict away if merged. This makes both facts measurable instead of remembered, and records two places where two careful assessments of the same requirement disagree.",
+  "authorityBaseExactMain": "bb4134416",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/branch-verdict-reconciliation-4459.json",
+    "docs/security/BRANCH_VERDICT_RECONCILIATION.md",
+    "scripts/security/report-branch-verdicts.mjs",
+    "scripts/security/report-branch-verdicts.test.mjs"
+  ],
+  "requiredInvariants": [
+    "This started as an attempt to close V13.1.1, V15.1.1 and V8.1.1, and stopped when it turned out all three are already closed on unmerged branches. The finding is the reason the work was not duplicated.",
+    "The first measurement was wrong and was corrected before anything was reported. Comparing a branch's register contents against main credits a branch for every favourable verdict its file happens to contain, including ones it inherited. The tool now compares against each branch's own merge-base, so only its own commits count.",
+    "32 requirements are resolved on a branch while main still counts them against the programme. That number is the gap between what has been done and what can be seen.",
+    "38 verdicts would be taken away. All 13 sources are the early sec/asvs-v* chapter branches, and this was checked rather than assumed: sec/asvs-v16-logging-4553 is from 2026-08-23 12:09 and its work reached main the same day through PR #4554, while main's later PASS for V16.4.1 came from a fix branch on 2026-09-03. For nine of the thirteen, every non-register file they touch is byte-identical to main today. Four still differ in one to three files and are recorded as needing a per-file read rather than written off.",
+    "Two genuine disagreements are recorded with the specific fact each earlier note could not see, not with a claim that the later verdict wins because it is later. For V3.7.3 the earlier scan looked for absolute addresses written as literals and the citation hrefs are runtime values the stream contract requires to be absolute. For V3.5.4 the entire enforcement block sits inside if (controlHostEnabled()) at middleware.ts:399.",
+    "security/prototype-safe-aggregation is an open owner PR (#5102) and was read, not touched.",
+    "This is a report, not a gate. It exits 0 unless it cannot read the register, because a branch disagreeing with main is information for a merge decision, not a build failure.",
+    "No application code, no register edit, no production or REG.RU mutation."
+  ],
+  "acceptance": [
+    "node scripts/security/report-branch-verdicts.mjs exits 0 and prints both the resolve and the take-away lists.",
+    "node --test scripts/security/report-branch-verdicts.test.mjs: 8 passed, 0 failed, including that a verdict a branch merely inherits is not credited to it.",
+    "Against bb4134416 with 135 readable branches: 32 requirements a branch would resolve, 38 verdicts a branch would take away."
+  ]
+}
