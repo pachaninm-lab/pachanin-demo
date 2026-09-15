@@ -1309,34 +1309,76 @@
     {
       "requirementId": "V2.4.1",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "export-controller:apps/api/src/modules/exports/exports.controller.ts"
+        "apps/api/src/modules/exports/exports.controller.ts",
+        "apps/api/src/modules/exports/exports-anti-automation.spec.ts",
+        "apps/api/src/app.module.ts",
+        "apps/api/src/common/guards/rate-limit.guard.ts"
       ],
       "conditions": [
         {
-          "condition": "the export controller serves bulk data",
-          "check": "PRESENT_AT_PATH",
+          "condition": "every bulk export route still carries its own bound",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/exports/exports.controller.ts"
           ],
           "patterns": [
-            "content-disposition"
+            "name: 'exports_deals'",
+            "name: 'exports_evidence'",
+            "name: 'exports_ledger'",
+            "name: 'exports_outbox_status'",
+            "name: 'exports_deal_report'",
+            "name: 'exports_regulatory'"
           ]
         },
         {
-          "condition": "it still carries no anti-automation control",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the bounds are still counted per account, which is what an authenticated caller can actually be held to",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/exports/exports.controller.ts"
           ],
           "patterns": [
-            "@ratelimit",
-            "throttle"
+            "scope: 'user'",
+            "includeParams: ['dealId']"
+          ]
+        },
+        {
+          "condition": "the guard that reads those decorators is still registered for every route, without which they are inert metadata",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/app.module.ts"
+          ],
+          "patterns": [
+            "useClass: RateLimitGuard"
+          ]
+        },
+        {
+          "condition": "the limiter still fails closed rather than letting the request through when it cannot count",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/guards/rate-limit.guard.ts"
+          ],
+          "patterns": [
+            "RATE_LIMIT_UNAVAILABLE",
+            "HttpStatus.TOO_MANY_REQUESTS"
+          ]
+        },
+        {
+          "condition": "a route added to this controller later still has to be bounded, and the decorator is still proven to reach the guard rather than merely to be present",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/exports/exports-anti-automation.spec.ts"
+          ],
+          "patterns": [
+            "it('bounds every route, including any added later'",
+            "it('reaches the guard: the real decorator drives a real consume call'",
+            "new Reflector()",
+            "expect(rateLimits.consume).toHaveBeenCalledWith('exports_deals', 'user|user-1', 6, 300)"
           ]
         }
       ],
-      "note": "Rate limiting exists on authentication and a few deal endpoints, but the endpoints that return bulk data carry none - and those are the ones the requirement names, because they are the exfiltration surface. nginx declares limit_req zones, but that configuration is referenced by no deployment file in the repository, so it cannot be shown to apply."
+      "note": "Closed. Every route on the export controller now carries a per-route bound, which is where the requirement pointed: these answer with a whole dataset rather than one record, so repeated ordinary calls - each of them authorised - add up to the database. exports_deals 6 per 5 minutes, exports_regulatory 5 per hour because it is the heaviest report the service builds, and the four per-deal or status routes 20-30 per 5 minutes; each bound is overridable by its own environment variable, so an operator can tune it without a deploy. Counted per account rather than per address. The caller here is authenticated, so the account is the thing worth bounding, and one account working from many addresses would walk past an IP bound. The three per-deal routes additionally partition by dealId, so pulling one deal repeatedly cannot consume the budget for every other deal. The decorators are inert on their own - they are metadata, and the guard that reads them is registered as a global APP_GUARD, so a condition pins that registration too. The guard fails closed: if the distributed limiter cannot answer, the request is refused with RATE_LIMIT_UNAVAILABLE rather than allowed through. Tested against the real controller with a real Reflector, not a mocked one. The guard's own spec mocks the Reflector, which proves the guard but not that any decorator reaches it; these read the actual metadata off the actual handlers, so a decorator that is present but unreadable - wrong import, wrong key, applied to the class instead of the handler - fails. The route list is enumerated from the prototype rather than written out, so an export route added later arrives unbounded in the test rather than unbounded in production. Five mutations were confirmed to break it: removing a bound, switching a bound to ip scope, dropping the dealId partition, giving two routes the same counter, and setting a bound that can never be satisfied. The nginx limit_req zones the earlier note mentioned are still referenced by no deployment file in the repository and are still not the basis for this verdict; this control is in the application and does not depend on them."
     },
     {
       "requirementId": "V2.4.2",
