@@ -1,0 +1,127 @@
+FAILURE_REASON="bounded resource pressure broke API availability"
+export FAILURE_REASON
+pressure_node="$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=grainflow-api -o jsonpath='{.items[0].spec.nodeName}')"
+cat > "$RAW_DIR/pressure-pod.yaml" <<YAML
+apiVersion: v1
+kind: Pod
+metadata:
+  name: fault-pressure
+  namespace: ${NAMESPACE}
+  labels:
+    app.kubernetes.io/name: fault-pressure
+    app.kubernetes.io/component: acceptance-probe
+spec:
+  automountServiceAccountToken: false
+  nodeName: ${pressure_node}
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: pressure
+      image: alpine:3.20.2
+      command: ["/bin/sh","-ec"]
+      args:
+        - >-
+          head -c 100663296 /dev/zero > /memory/blob;
+          head -c 134217728 /dev/zero > /disk/blob;
+          end=\$((\$(date +%s)+45)); while [ "\$(date +%s)" -lt "\$end" ]; do :; done
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+          ephemeral-storage: 160Mi
+        limits:
+          cpu: 500m
+          memory: 256Mi
+          ephemeral-storage: 256Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]
+      volumeMounts:
+        - name: memory
+          mountPath: /memory
+        - name: disk
+          mountPath: /disk
+  volumes:
+    - name: memory
+      emptyDir:
+        medium: Memory
+        sizeLimit: 128Mi
+    - name: disk
+      emptyDir:
+        sizeLimit: 192Mi
+YAML
+kubectl apply -f "$RAW_DIR/pressure-pod.yaml"
+pressure_failures=0
+for _ in $(seq 1 75); do
+  curl -fsS --max-time 5 --resolve api.acceptance.grainflow.invalid:8080:127.0.0.1 \
+    http://api.acceptance.grainflow.invalid:8080/health >/dev/null || pressure_failures=$((pressure_failures+1))
+  phase="$(kubectl get pod fault-pressure -n "$NAMESPACE" -o jsonpath='{.status.phase}' 2>/dev/null || true)"
+  [[ "$phase" = Succeeded ]] && break
+  [[ "$phase" = Failed ]] && { kubectl logs -n "$NAMESPACE" fault-pressure; false; }
+  sleep 1
+done
+printf '%s\n' "$pressure_failures" > "$RAW_DIR/pressure-api-failures.txt"
+[[ "$pressure_failures" = 0 ]]
+[[ "$(kubectl get pod fault-pressure -n "$NAMESPACE" -o jsonpath='{.status.phase}')" = Succeeded ]]
+
+FAILURE_REASON="platform workload evacuation violated availability or worker quorum"
+export FAILURE_REASON
+postgres_node="$(kubectl get pod postgresql-0 -n "$NAMESPACE" -o jsonpath='{.spec.nodeName}')"
+drain_node="$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=grainflow-api -o json | jq -r --arg pg "$postgres_node" '[.items[].spec.nodeName | select(. != $pg)][0] // .items[0].spec.nodeName')"
+printf '%s\n' "$drain_node" > "$RAW_DIR/drained-node.txt"
+kubectl cordon "$drain_node"
+mapfile -t evicted_pods < <(kubectl get pods -n "$NAMESPACE" --field-selector "spec.nodeName=${drain_node}" -o json | jq -r '.items[] | select(.metadata.labels["app.kubernetes.io/name"] | IN("grainflow-api","grainflow-web","grainflow-outbox-worker","pgbouncer")) | .metadata.name')
+(
+  failures=0
+  min_workers=2
+  for _ in $(seq 1 160); do
+    curl -fsS --max-time 5 --resolve api.acceptance.grainflow.invalid:8080:127.0.0.1 \
+      http://api.acceptance.grainflow.invalid:8080/health >/dev/null || failures=$((failures+1))
+    ready="$(kubectl get deployment grainflow-outbox-worker -n "$NAMESPACE" -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo 0)"
+    ready="${ready:-0}"
+    (( ready < min_workers )) && min_workers="$ready"
+    printf '%s\n' "$failures" > "$RAW_DIR/node-evacuation-api-failures.txt"
+    printf '%s\n' "$min_workers" > "$RAW_DIR/node-evacuation-min-workers.txt"
+    sleep 0.5
+  done
+) &
+probe_pid=$!
+for pod in "${evicted_pods[@]}"; do
+  kubectl delete pod "$pod" -n "$NAMESPACE" --grace-period=30 --wait=false
+done
+wait "$probe_pid"
+wait_deployment grainflow-api
+wait_deployment grainflow-web
+wait_deployment grainflow-outbox-worker
+wait_deployment pgbouncer
+[[ "$(cat "$RAW_DIR/node-evacuation-api-failures.txt")" = 0 ]]
+[[ "$(cat "$RAW_DIR/node-evacuation-min-workers.txt")" -ge 1 ]]
+kubectl uncordon "$drain_node"
+
+FAILURE_REASON="transactional migration failure left schema residue or changed release authority"
+export FAILURE_REASON
+release_before="$(kubectl get configmap grainflow-release-authority -n "$NAMESPACE" -o json | jq -S '.data')"
+set +e
+kubectl exec -i -n "$NAMESPACE" statefulset/postgresql -- \
+  env PGPASSWORD="$POSTGRES_PASSWORD" psql -v ON_ERROR_STOP=1 -U postgres -d grainflow \
+  > "$RAW_DIR/migration-failure.log" 2>&1 <<'SQL'
+BEGIN;
+CREATE TABLE public.fault_migration_residue(id integer primary key);
+SELECT 1/0;
+COMMIT;
+SQL
+migration_rc=$?
+set -e
+[[ "$migration_rc" != 0 ]]
+migration_residue="$(admin_sql "SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relname='fault_migration_residue';")"
+printf '%s\n' "$migration_residue" > "$RAW_DIR/migration-residue-count.txt"
+[[ "$migration_residue" = 0 ]]
+release_after="$(kubectl get configmap grainflow-release-authority -n "$NAMESPACE" -o json | jq -S '.data')"
+[[ "$release_before" = "$release_after" ]]
+printf '0\n' > "$RAW_DIR/release-authority-mismatches.txt"
