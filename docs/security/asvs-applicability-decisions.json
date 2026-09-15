@@ -2074,34 +2074,63 @@
     {
       "requirementId": "V4.1.4",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "cors:apps/api/src/main.ts"
+        "apps/api/src/common/security/http-method-allowlist.ts",
+        "apps/api/src/common/security/http-method-allowlist.spec.ts",
+        "apps/api/src/main.ts"
       ],
       "conditions": [
         {
-          "condition": "CORS is configured",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the supported set is still stated in one place and everything outside it still refused with 405 and an Allow header",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/api/src/main.ts"
+            "apps/api/src/common/security/http-method-allowlist.ts"
           ],
           "patterns": [
-            "enablecors"
+            "export const SUPPORTED_HTTP_METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] as const;",
+            "export function httpMethodAllowlist",
+            "response.statusCode = 405;",
+            "response.setHeader('Allow', ALLOW_HEADER_VALUE);"
           ]
         },
         {
-          "condition": "no method allowlist constrains it",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the refusal still runs before routing, body parsing and metrics, and preflight is still told the same set",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/main.ts"
           ],
           "patterns": [
-            "methods:",
-            "allowedmethods"
+            "app.use(httpMethodAllowlist);",
+            "methods: [...SUPPORTED_HTTP_METHODS],"
+          ]
+        },
+        {
+          "condition": "the comparison is still exact, so a lowercase spelling cannot walk past a filter that folds case",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/http-method-allowlist.ts"
+          ],
+          "patterns": [
+            "return typeof method === 'string' && SUPPORTED.has(method);"
+          ]
+        },
+        {
+          "condition": "the refusals that matter are still tested, TRACE among them, and so is the tie between the blocked set and the advertised one",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/http-method-allowlist.spec.ts"
+          ],
+          "patterns": [
+            "it('refuses TRACE, which nothing declares and which reflects the request back'",
+            "it('refuses a lowercase spelling, because a method name is case-sensitive'",
+            "it('says what is allowed, as a 405 must, and returns no body'",
+            "it('is the same list that preflight is told about'",
+            "it('lets through the two the protocol requires alongside them'"
           ]
         }
       ],
-      "note": "No explicit HTTP method allowlist exists. enableCors is configured with an origin and credentials but no methods option, so preflight advertises the framework default rather than the methods this API supports. Credited: route binding means an undeclared method on a declared path does not execute a handler. That limits what runs; it is not the explicit allowlist the requirement asks for, and it says nothing about what preflight advertises."
+      "note": "Closed. The methods this API supports are now stated once, in common/security/http-method-allowlist.ts, and anything outside that set is refused with 405 and an Allow header by a middleware registered before routing, body parsing and metrics. The set is GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS: every method a controller declares - measured across apps/api/src as 224 @Get, 217 @Post, 31 @Patch, 7 @Delete and 1 @Put, with no @All anywhere - plus HEAD, which the framework answers from the GET route, and OPTIONS, which carries preflight. Route binding was credited before and is still not the thing asked for: it says nothing about paths no route claims, and nothing about what preflight advertises. Both are now answered. The same constant is handed to enableCors, so the advertised set and the honoured set cannot drift; measured against a real preflight, Access-Control-Allow-Methods changed from the library default GET,HEAD,PUT,PATCH,POST,DELETE to GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS. The default happened to list almost the same methods, so the gain is not that the list changed much but that the application now states it rather than inheriting whatever a dependency chooses. Verified by driving raw requests onto a socket against the middleware in a real Express pipeline, because no HTTP client will send TRACE or a lowercase method for you: TRACE was refused 405 with Allow: GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, both on a routed path and on a path nothing claims; PROPFIND the same; the seven supported methods passed through. Recorded precisely, because two of the refusals are not this middleware's doing: TRACK and a lowercase 'get' are rejected 400 by Node's HTTP parser before Express sees them, and CONNECT gets no response at all because Node routes it to a connect event rather than a request. The middleware still refuses all three if they ever reach it, and the case-sensitive comparison is kept for that reason rather than because Node currently needs it."
     },
     {
       "requirementId": "V4.1.5",

@@ -1429,6 +1429,15 @@
     ],
     "fix/gitleaks-release-authority-attestation-20260912": [
       "apps/tai/tests/test_gitleaks_release_authority.py"
+    ],
+    "security/asvs-v414-http-method-allowlist-4459": [
+      "apps/api/src/common/security/http-method-allowlist.ts",
+      "apps/api/src/common/security/http-method-allowlist.spec.ts",
+      "apps/api/src/main.ts",
+      "docs/security/cryptographic-inventory.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/asvs-applicability-decisions.json",
+      "docs/platform-v7/autopilot/autopilot-state.json"
     ]
   },
   "currentAcceptance": [
