@@ -1429,6 +1429,12 @@
     ],
     "fix/gitleaks-release-authority-attestation-20260912": [
       "apps/tai/tests/test_gitleaks_release_authority.py"
+    ],
+    "security/asvs-v1342-production-log-levels-4459": [
+      "apps/api/src/common/logger/masked-logger.service.ts",
+      "apps/api/src/common/logger/log-level-policy.spec.ts",
+      "docs/security/asvs-applicability-decisions.json",
+      "docs/platform-v7/autopilot/autopilot-state.json"
     ]
   },
   "currentAcceptance": [

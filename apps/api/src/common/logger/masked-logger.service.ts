@@ -1,4 +1,4 @@
-import { ConsoleLogger, Injectable } from '@nestjs/common';
+import { ConsoleLogger, Injectable, type LogLevel } from '@nestjs/common';
 import { REDACTED, isSensitiveFieldName, maskText } from '../security/sensitive-data';
 
 /**
@@ -77,8 +77,39 @@ function maskParams(params: any[]): string[] {
   return params.map((param) => maskSensitive(String(param)));
 }
 
+/**
+ * V13.4.2: masking and level suppression are different things, and only the
+ * first was true here. Every call through this logger was redacted, but the
+ * class extended ConsoleLogger without a logLevels option, so it inherited
+ * Nest's defaults - which include debug and verbose - and nothing anywhere
+ * narrowed them for production.
+ *
+ * Redaction removes what is recognised as sensitive. Debug and verbose lines
+ * are written to say what the code is doing, which is the one thing a
+ * classifier cannot recognise: an internal identifier, a query shape, a branch
+ * taken. Suppressing the levels and redacting the content answer different
+ * halves of the same problem and neither substitutes for the other.
+ *
+ * There is deliberately no environment variable that can put debug back in
+ * production. An override would be a documented way to undo the control, and
+ * the requirement asks that those levels not be emitted there at all.
+ */
+const PRODUCTION_LOG_LEVELS: LogLevel[] = ['fatal', 'error', 'warn', 'log'];
+const NON_PRODUCTION_LOG_LEVELS: LogLevel[] = [...PRODUCTION_LOG_LEVELS, 'debug', 'verbose'];
+
+export function logLevelsFor(nodeEnv: string | undefined): LogLevel[] {
+  return String(nodeEnv ?? '').trim().toLowerCase() === 'production'
+    ? PRODUCTION_LOG_LEVELS
+    : NON_PRODUCTION_LOG_LEVELS;
+}
+
 @Injectable()
 export class MaskedLoggerService extends ConsoleLogger {
+  constructor() {
+    super();
+    this.setLogLevels(logLevelsFor(process.env.NODE_ENV));
+  }
+
   log(message: any, ...optionalParams: any[]) {
     super.log(maskSensitive(String(message)), ...maskParams(optionalParams));
   }

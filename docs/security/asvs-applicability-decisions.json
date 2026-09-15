@@ -8929,45 +8929,61 @@
     {
       "requirementId": "V13.4.2",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "apps/api/src/main.ts",
         "apps/api/src/common/logger/masked-logger.service.ts",
-        "apps/api/src/common/kafka/kafka-producer.service.ts"
+        "apps/api/src/common/logger/log-level-policy.spec.ts",
+        "apps/api/src/main.ts"
       ],
       "conditions": [
         {
-          "condition": "the bootstrap logger still extends ConsoleLogger with no logLevels restriction, so Nest’s default level set stays active in production",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the logger still narrows its own levels rather than inheriting the framework default, and production still excludes debug and verbose",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/common/logger/masked-logger.service.ts"
           ],
           "patterns": [
-            "extends consolelogger"
+            "const PRODUCTION_LOG_LEVELS: LogLevel[] = ['fatal', 'error', 'warn', 'log'];",
+            "this.setLogLevels(logLevelsFor(process.env.NODE_ENV));",
+            "export function logLevelsFor(nodeEnv: string | undefined): LogLevel[] {"
           ]
         },
         {
-          "condition": "no logLevels restriction exists anywhere in the API source to narrow that default",
-          "check": "ABSENT_IN_TREE",
-          "roots": [
-            "apps/api/src"
-          ],
-          "patterns": [
-            "loglevels"
-          ]
-        },
-        {
-          "condition": "a runtime call site still logs at debug level with message content, proving the level is live rather than theoretical",
-          "check": "PRESENT_AT_PATH",
+          "condition": "redaction is still applied to what is emitted, because suppressing levels does not replace it",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/api/src/common/kafka/kafka-producer.service.ts"
+            "apps/api/src/common/logger/masked-logger.service.ts"
           ],
           "patterns": [
-            "logger.debug("
+            "super.log(maskSensitive(String(message)), ...maskParams(optionalParams));",
+            "super.error(maskSensitive(String(message)), ...maskParams(optionalParams));"
+          ]
+        },
+        {
+          "condition": "the application still installs this logger rather than the framework's own",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts"
+          ],
+          "patterns": [
+            "logger: new MaskedLoggerService(),"
+          ]
+        },
+        {
+          "condition": "the policy is still proven by asking the logger what it will emit in each environment, and the levels an operator needs are still held open",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/logger/log-level-policy.spec.ts"
+          ],
+          "patterns": [
+            "expect(logger.isLevelEnabled('debug')).toBe(false);",
+            "expect(logger.isLevelEnabled('verbose')).toBe(false);",
+            "it('keeps the levels an operator needs in production'",
+            "it('still masks what it does emit'"
           ]
         }
       ],
-      "note": "Corrected on review: an earlier version of this decision recorded PASS on the reasoning that MaskedLoggerService is not a \"verbose or debug\" logger, which conflated masking with level suppression — they are different things, and only the first is true here. main.ts does construct the Nest application with new MaskedLoggerService(), and that class does redact sensitive substrings from every log call. But MaskedLoggerService extends ConsoleLogger with no constructor and no logLevels option, so it inherits Nest’s default logger levels, which include debug and verbose; nothing anywhere in apps/api/src sets logLevels or LOG_LEVEL to narrow that default for any environment, including production. This is not a theoretical gap: kafka-producer.service.ts calls this.logger.debug() at two call sites with the Kafka topic and the serialized message value, so debug-level output does execute at runtime whenever the transport-unavailable path is hit, unmasked by anything other than MaskedLoggerService’s substring redaction. Debug/diagnostic log levels are enabled by default, which is exactly what this requirement asks to be verified false. Masking sensitive substrings within debug output is a separate, real control (V16 territory) and does not substitute for the level itself being disabled."
+      "note": "Closed. MaskedLoggerService now sets its own levels instead of inheriting Nest's, and production emits fatal, error, warn and log only. The previous note had the diagnosis exactly right and it is worth keeping: masking and level suppression are different things, and only the first was true. Every call through this logger was redacted, but the class extended ConsoleLogger with no logLevels option, so debug and verbose were enabled by inheritance and nothing anywhere narrowed them for any environment. That was confirmed by asking the logger rather than by reading it: before the change, isLevelEnabled('debug') returned true with NODE_ENV=production. Redaction is not a substitute and remains in place. It removes what is recognised as sensitive; a debug line is written to say what the code is doing, which is the one thing a classifier cannot recognise - an internal identifier, a query shape, a branch taken. Both halves are now held by conditions, and a mutation that stops masking while keeping the levels still fails. There is deliberately no environment variable that can put debug back in production. An override would be a documented way to undo the control, and the requirement asks that those levels not be emitted there at all. Away from production debug and verbose stay available, because that is where they earn their place; an unset NODE_ENV is treated as not production, which is a development shell far more often than a deployment, and a deployment that forgets to set it is caught by the startup assertion rather than by the logger. The levels an operator actually needs are held open by their own condition, so a later change cannot satisfy this requirement by silencing error and warn as well. Five mutations were confirmed to break it: removing the constructor, admitting debug in production, narrowing production to fatal only, treating every environment as production, and dropping the masking."
     },
     {
       "requirementId": "V13.4.3",
