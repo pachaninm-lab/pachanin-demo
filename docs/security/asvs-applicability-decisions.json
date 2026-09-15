@@ -1902,25 +1902,58 @@
     {
       "requirementId": "V3.5.8",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "apps/api/src/modules/storage/storage.service.ts",
-        "repository-scan:no-corp-header"
+        "apps/web/middleware.ts",
+        "apps/api/src/main.ts",
+        "apps/web/tests/unit/crossOriginResourcePolicy.test.ts",
+        "apps/api/src/modules/storage/storage.service.ts"
       ],
       "conditions": [
         {
-          "condition": "no Cross-Origin-Resource-Policy header is still set anywhere in the API or web app",
-          "check": "ABSENT_IN_TREE",
-          "roots": [
-            "apps/api/src",
-            "apps/web"
+          "condition": "every response the web middleware builds still refuses to be loaded as a subresource by a foreign origin",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/middleware.ts"
           ],
           "patterns": [
-            "cross-origin-resource-policy"
+            "response.headers.set('cross-origin-resource-policy', 'same-site');"
+          ]
+        },
+        {
+          "condition": "every API response still carries the same refusal",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts"
+          ],
+          "patterns": [
+            "res.setHeader('Cross-Origin-Resource-Policy', 'same-site');"
+          ]
+        },
+        {
+          "condition": "the header is still proven by running the middleware and reading the response, and still held to same-site rather than the permissive value",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/tests/unit/crossOriginResourcePolicy.test.ts"
+          ],
+          "patterns": [
+            "await middleware(new NextRequest(",
+            "expect(value).not.toBe('cross-origin')",
+            "it('keeps same-site rather than same-origin, because the platform is two origins'"
+          ]
+        },
+        {
+          "condition": "the download path still hands out a presigned URL with an attachment disposition, which is why this header does not and need not reach it",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/storage/storage.service.ts"
+          ],
+          "patterns": [
+            "'response-content-disposition': attachmentDisposition(record.name)"
           ]
         }
       ],
-      "note": "A handful of routes check sec-fetch-site (credited under V3.5.3), but that covers the chat/assistant endpoints specifically, not authenticated file access generally. The file-download path (storage.service.ts's getDownloadUrl, already assessed under V3.2.1) issues a presigned object-storage URL with a TTL - once issued, anyone holding that URL can load it directly against the storage origin for the life of the TTL, bypassing this application's request handling (and any Sec-Fetch check on it) entirely. No Cross-Origin-Resource-Policy header is set anywhere in the API or the web app - a scan returns zero matches - so there is no browser-side backstop instructing a cross-origin page not to embed a returned resource either. Corrected on review: the scan roots originally excluded apps/web/middleware.ts (which sits directly under apps/web, not under apps/web/lib or apps/web/app), even though this decision itself identifies that file as the effective location for served headers - so a future addition there would not have caused this FAIL to self-revoke. Roots now include apps/web directly."
+      "note": "Closed by the second of the two routes the requirement names. Sec-Fetch-* validation exists only on the chat and assistant routes (credited under V3.5.3) and was never going to cover authenticated resources generally, so the control here is the restrictive Cross-Origin-Resource-Policy the requirement offers instead: same-site, set on every response the web middleware builds and on every API response. Absent, the default is cross-origin - any page may load the response as a subresource - which is the gap this closes. same-site rather than same-origin, deliberately. The platform is served from two origins that share a registrable domain, the apex and control.<apex>, and they are one application; same-origin would refuse a subresource one of them loads from the other, while same-site still refuses every genuinely foreign origin, which is what 'an inappropriate cross-origin call' means here. The test pins that reasoning to the two host constants, so it fails if they stop being same-site. Verified against a running server: /platform-v7 and /platform-v7/login returned exactly one cross-origin-resource-policy: same-site. Build assets under /_next/static do not carry it, because the middleware matcher excludes them - they are public build output rather than authenticated resources, and leaving them alone is also why adding this header cannot break an asset load between the two hosts. The API side is pinned by source rather than by a live request: booting the API needs a database this environment does not have, and the header sits in the same inline middleware as X-Frame-Options and the rest, which are evidenced the same way. What this does not close, stated rather than glossed: the file-download path issues a presigned object-storage URL, and those bytes never pass through this application, so no header set here reaches them. That is not this requirement's threat. Cross-Origin-Resource-Policy and Sec-Fetch-* defend against a foreign page making the browser load a resource using the user's ambient credentials; a presigned URL carries its own authority in the URL and the browser sends no cookie of this application to the storage origin, so there is no ambient authority to abuse - and the disposition is attachment, so the browser will not render it as an image or a script in any case. The risk that remains on that path is the URL leaking, which is V3.2.1's subject and is assessed there, not here."
     },
     {
       "requirementId": "V3.6.1",

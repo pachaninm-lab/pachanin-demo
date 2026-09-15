@@ -216,6 +216,12 @@ function applySecurityHeaders(response: NextResponse, protectedResponse = false,
   response.headers.set('referrer-policy', 'no-referrer');
   response.headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=()');
   response.headers.set('strict-transport-security', 'max-age=31536000; includeSubDomains; preload');
+  // V3.5.8: x-frame-options stops this being framed; this stops a foreign page
+  // loading it as a subresource - an image, a script, a font - on the user's
+  // behalf. same-site rather than same-origin because the platform is served
+  // from the apex and from control., which share a registrable domain and are
+  // one application; every genuinely foreign origin is still refused.
+  response.headers.set('cross-origin-resource-policy', 'same-site');
   response.headers.set(
     'content-security-policy',
     "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"

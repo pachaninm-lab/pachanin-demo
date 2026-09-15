@@ -1429,6 +1429,14 @@
     ],
     "fix/gitleaks-release-authority-attestation-20260912": [
       "apps/tai/tests/test_gitleaks_release_authority.py"
+    ],
+    "security/asvs-v358-corp-header-4459": [
+      "apps/web/middleware.ts",
+      "apps/web/tests/unit/crossOriginResourcePolicy.test.ts",
+      "apps/api/src/main.ts",
+      ".github/workflows/ci.yml",
+      "docs/security/asvs-applicability-decisions.json",
+      "docs/platform-v7/autopilot/autopilot-state.json"
     ]
   },
   "currentAcceptance": [
