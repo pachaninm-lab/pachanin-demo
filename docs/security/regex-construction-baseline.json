@@ -1,0 +1,202 @@
+{
+  "purpose": "ASVS V1.3.12. A regular expression written down in the source can be parsed and checked for the shapes that cause exponential backtracking, and scripts/security/verify-regex-backtracking.mjs does that for every one of them. A regular expression built from a value cannot be: what it ends up being depends on what reaches the value at run time. Those sites are recorded here instead, each with what can reach the interpolated value and why that cannot introduce a quantifier the sweep would have rejected. The sweep fails on a site that is not recorded and on a recorded site that no longer exists, so this file cannot quietly fall behind the tree.",
+  "identity": "A site is identified by its file and the expression compiled, not by line number: moving code keeps the judgement, changing what gets compiled asks for it again.",
+  "note": "The instance this requirement grew out of was exactly this shape - a key taken from a request and compiled into a per-key RegExp, where a key of (.*)*x did not finish against an ordinary 1901-character contract in 120 seconds. The question each entry has to answer is therefore not 'is this pattern safe today' but 'can anything outside the repository decide what this pattern is'.",
+  "sites": [
+    {
+      "file": "apps/api/src/modules/ai-insights/restricted-public-qwen.internal-trace.ts",
+      "expression": "`<\\\\s*/\\\\s*${match[1]}\\\\s*>`",
+      "why": "match[1] is a capture from the literal alternation (think(?:ing)?|analysis|reasoning|scratchpad|tool(?:[_ -]?(?:call|calls|trace))?|debug) a few lines above, so it can only ever be one of those words. Model output decides which one, never the characters: no metacharacter can reach the closing-tag pattern."
+    },
+    {
+      "file": "apps/api/src/modules/auth/accounting-document-numbering.policy.ts",
+      "expression": "`^${prefixPart}${yearPart}(\\\\d{${scheme.padding}})$`",
+      "why": "prefixPart is scheme.prefix with every metacharacter escaped on the line above; yearPart is one of two literals chosen by the reset policy; scheme.padding is a stored integer that lands inside {n}, which is a bounded repetition however large it gets. Nothing here can become a quantifier over a group."
+    },
+    {
+      "file": "apps/api/src/modules/role-eligibility/adapters/fns-egrul-feed.parser.ts",
+      "expression": "`<${tag}(?=[\\\\s/>])([^>]*)\\\\/?>\\\\s*`",
+      "why": "tag comes from the six literal call sites in this file (СвНаимЮЛ, СвПрекрЮЛ, СвОКВЭДОтчОсн, СвОКВЭДОсн, СвОКВЭДОтчДоп, СвОКВЭДДоп). The XML being parsed supplies the text searched, never the pattern."
+    },
+    {
+      "file": "apps/api/src/modules/role-eligibility/adapters/fns-egrul-feed.parser.ts",
+      "expression": "`<${tag}(?=[\\\\s/>])([^>]*)\\\\/?>`",
+      "why": "Same tag argument as tagAttributes above, from the same six literal call sites. The feed decides what is matched, not what matches."
+    },
+    {
+      "file": "apps/web/app/platform-v7/deals/[id]/transport-documents/simulation/page.tsx",
+      "expression": "`${releaseWord} денег`",
+      "why": "releaseWord is ['вы', 'пуск'].join('') on line 14 - a literal split so that the assembled word does not appear in the source. Plain letters, no metacharacters, no repetition."
+    },
+    {
+      "file": "apps/web/app/platform-v7/deals/[id]/transport-documents/simulation/page.tsx",
+      "expression": "releaseWord",
+      "why": "The same literal array join on line 14, compiled on its own. A fixed word with no quantifier in it."
+    },
+    {
+      "file": "apps/web/app/platform-v7/deals/[id]/transport-documents/simulation/page.tsx",
+      "expression": "`${payoutRoot}ы`",
+      "why": "payoutRoot is ['вы', 'плат'].join('') on line 15, a literal split the same way. Plain letters."
+    },
+    {
+      "file": "apps/web/app/platform-v7/deals/[id]/transport-documents/simulation/page.tsx",
+      "expression": "`${payoutRoot}а`",
+      "why": "The same literal array join on line 15 with a different fixed suffix. Plain letters."
+    },
+    {
+      "file": "apps/web/components/v7r/LiveDealInvestorRuntime.tsx",
+      "expression": "`${legacyMove} денег`",
+      "why": "legacyMove is join(['вы', 'пуск']) on line 35 - a literal split so the assembled word does not appear in the source. Plain letters."
+    },
+    {
+      "file": "apps/web/components/v7r/LiveDealInvestorRuntime.tsx",
+      "expression": "legacyMove",
+      "why": "The same literal join on line 35, compiled on its own. A fixed word with no quantifier in it."
+    },
+    {
+      "file": "apps/web/components/v7r/LiveDealInvestorRuntime.tsx",
+      "expression": "`${legacyPay}ы`",
+      "why": "legacyPay is join(['вы', 'плат']) on line 36, a literal split the same way. Plain letters."
+    },
+    {
+      "file": "apps/web/components/v7r/LiveDealInvestorRuntime.tsx",
+      "expression": "`${legacyPay}а`",
+      "why": "The same literal join on line 36 with a different fixed suffix. Plain letters."
+    },
+    {
+      "file": "apps/web/lib/platform-v7/assistant-relevance-router.ts",
+      "expression": "pattern .replace(/\\\\w\\*/gu, W) .replace(/\\\\_\\?/gu, OPTIONAL_SPACE) .replace(/\\\\_/gu, SPACE)",
+      "why": "ru() expands three shorthands in a literal string argument: \\w* becomes [\\p{L}\\p{N}]*, \\_? becomes [\\s,]* and \\_ becomes [\\s,]+. Every argument is a literal in this module, so the eight resulting patterns are fixed. They matter more than most - they run on assistant chat input - so all eight were resolved and analysed: none carries an exponential shape, and each stays flat (about 1-3ms, falling as it warms) against runs of up to 1600 characters that do not match. What they do carry is the mild adjacency [\\p{L}\\p{N}]* followed by [\\s,]+, which the sweep reports as polynomial and does not fail on."
+    },
+    {
+      "file": "apps/web/lib/platform-v7/assistant-relevance-router.ts",
+      "expression": "`(?:^|[\\\\s-])${escapeRegExp(term)}${stem ? '[\\\\p{L}\\\\p{N}-]*' : ''}(?:$|[\\\\s-])`",
+      "why": "term is escaped at the call, and the only other variable part is a choice between one literal and the empty string. The surrounding shape has no quantifier over a group, so the one unbounded piece cannot be repeated."
+    },
+    {
+      "file": "apps/web/lib/platform-v7/i18n/translation-runtime.ts",
+      "expression": "`(?:^|;\\\\s*)${LOCALE_COOKIE}=([^;]+)`",
+      "why": "LOCALE_COOKIE is the exported constant 'pc-v7-locale' in apps/web/i18n/locale.ts - letters and a hyphen, fixed at build time. The cookie header supplies the text searched, never the pattern."
+    },
+    {
+      "file": "apps/web/lib/platform-v7/i18n/translation-runtime.ts",
+      "expression": "`(?<![А-Яа-яЁё])${escaped}(?![А-Яа-яЁё])`",
+      "why": "escaped is the fragment with every metacharacter escaped on the line above. The lookarounds are zero-width and there is no quantifier over a group."
+    },
+    {
+      "file": "docs/platform-v7/crop-platform/post-registration/verify-w0.mjs",
+      "expression": "`^[a-f0-9]{${size}}$`",
+      "why": "A post-registration verification script, not request-path. size is a number from the script's own expectations and lands inside {n}, a bounded repetition."
+    },
+    {
+      "file": "scripts/check-production-p0-password-reset-diagnostic.mjs",
+      "expression": "`read -r -d '' ${name} <<'PY_[A-Z]+' \\\\|\\\\| true\\\\n([\\\\s\\\\S]*?)\\\\nPY_[A-Z]+`",
+      "why": "A CI check, not request-path. name is one of the script's own literal heredoc names. The lazy [\\s\\S]*? is a single unbounded piece with nothing repeating it."
+    },
+    {
+      "file": "scripts/ip/build-ip-clean-room.mjs",
+      "expression": "`${headerPrefix.source}SPDX-License-Identifier\\\\s*:`",
+      "why": "A build script, not request-path. headerPrefix is the literal regex on line 171 and .source reproduces its own text, so the composed pattern is fixed at build time."
+    },
+    {
+      "file": "scripts/ip/build-ip-clean-room.mjs",
+      "expression": "`${headerPrefix.source}(?:GNU\\\\s+(?:Affero\\\\s+)?General\\\\s+Public\\\\s+License|MIT\\\\s+License|Apache\\\\s+License|Mozilla\\\\s+Public\\\\s+License|Eclipse\\\\s+Public\\\\s+License)`",
+      "why": "The same fixed headerPrefix.source joined to a literal alternation of licence names. Nothing varies at run time and the alternation is not quantified."
+    },
+    {
+      "file": "scripts/ip/build-ip-clean-room.mjs",
+      "expression": "`${headerPrefix.source}Copyright\\\\b`",
+      "why": "The same fixed headerPrefix.source joined to a literal. Fixed at build time."
+    },
+    {
+      "file": "scripts/ip/build-sbom-coverage.mjs",
+      "expression": "`(?:^|[\\\\s\"'=:(,/])${component.replace(/[.*+?^${}()|[\\]\\\\]/gu, '\\\\$&')}/`",
+      "why": "A build script, not request-path. component is escaped inline before it is interpolated, and the surrounding shape has no quantifier over a group."
+    },
+    {
+      "file": "scripts/ip/build-sbom-coverage.mjs",
+      "expression": "`(?:^|[\\\\s\"'=:(,])${component}/`",
+      "why": "A build script, not request-path. Unlike the site above, component is interpolated here without escaping - it is a package name read from the repository's own SBOM, so it is not attacker-supplied, and a package name carries no quantifier. Worth tightening for consistency rather than for exposure; it is recorded here so the inconsistency stays visible."
+    },
+    {
+      "file": "scripts/p7-autopilot-dispatcher.mjs",
+      "expression": "`(do not|no|not|forbidden|запрещ)[^\\\\n]*${escaped}`",
+      "why": "A CI script, not request-path. escaped is escaped at the call site. The one unbounded piece [^\\n]* is not repeated."
+    },
+    {
+      "file": "scripts/p7-autopilot-scope-cleaner.mjs",
+      "expression": "`^${pattern}$`",
+      "why": "A CI script, not request-path. pattern is assembled character by character from a glob, each literal character passed through escapeRegExp and each * turned into [^/]*, so only that one bounded translation can appear. No group is quantified."
+    },
+    {
+      "file": "scripts/p7-autopilot-state-validate.mjs",
+      "expression": "`^${pattern}$`",
+      "why": "A CI script, not request-path. The same glob translation as the scope cleaner: escaped literals plus [^/]* for each star."
+    },
+    {
+      "file": "scripts/pc-crop-08i/sync-prisma-schema.mjs",
+      "expression": "`^\\\\s*${escapeRegExp(fieldName)}\\\\s+`",
+      "why": "A schema-sync script, not request-path. fieldName is escaped at the call and the surrounding pieces are fixed."
+    },
+    {
+      "file": "scripts/pc-crop-08i/sync-prisma-schema.mjs",
+      "expression": "`^(\\\\s*${escapeRegExp(anchorField)}\\\\s+[^\\\\n]*\\\\n)`",
+      "why": "A schema-sync script, not request-path. anchorField is escaped at the call; the unbounded pieces sit in sequence and none is repeated."
+    },
+    {
+      "file": "scripts/pc-crop-10a/verify.mjs",
+      "expression": "schemaNode.pattern",
+      "why": "A verification script, not request-path. schemaNode.pattern comes from a JSON schema tracked in this repository, so it is reviewed as source rather than supplied at run time. This is the one shape that would be dangerous if the schema ever came from outside the repository."
+    },
+    {
+      "file": "scripts/platform-v7-forward-only-migration-check.mjs",
+      "expression": "`\\\\bADD\\\\s+COLUMN\\\\s+IF\\\\s+NOT\\\\s+EXISTS\\\\s+\"?${column}\"?`",
+      "why": "A migration check, not request-path. column is a column name read from the repository's own migration files, and the pattern has no quantifier over a group."
+    },
+    {
+      "file": "scripts/platform-v7-forward-only-migration-check.mjs",
+      "expression": "`\\\\bUPDATE\\\\s+${qualifiedTable}[\\\\s\\\\S]{0,500}?\\\\bSET\\\\s+\"?${column}\"?\\\\s*=`",
+      "why": "A migration check, not request-path. Both interpolations are identifiers from the repository's own migrations, and the one wide piece is bounded at 500 characters."
+    },
+    {
+      "file": "scripts/platform-v7-forward-only-migration-check.mjs",
+      "expression": "`\\\\bIF\\\\s+EXISTS\\\\s*\\\\([\\\\s\\\\S]{0,300}?\\\\bFROM\\\\s+${qualifiedTable}[\\\\s\\\\S]{0,200}?\"?${column}\"?\\\\s+IS\\\\s+NULL`",
+      "why": "A migration check, not request-path. Identifiers from the repository's own migrations, with both wide pieces explicitly bounded."
+    },
+    {
+      "file": "scripts/platform-v7-rls-validate.mjs",
+      "expression": "`ALTER\\\\s+TABLE\\\\s+public\\\\.\\\"${escaped}\\\"\\\\s+ENABLE\\\\s+ROW\\\\s+LEVEL\\\\s+SECURITY`",
+      "why": "A row-level-security check, not request-path. escaped is escaped before interpolation and nothing in the pattern is repeated."
+    },
+    {
+      "file": "scripts/platform-v7-rls-validate.mjs",
+      "expression": "`ALTER\\\\s+TABLE\\\\s+public\\\\.\\\"${escaped}\\\"\\\\s+FORCE\\\\s+ROW\\\\s+LEVEL\\\\s+SECURITY`",
+      "why": "The same escaped table name in a second fixed statement shape. Not request-path, nothing repeated."
+    },
+    {
+      "file": "scripts/platform-v7-rls-validate.mjs",
+      "expression": "`CREATE\\\\s+POLICY\\\\s+[a-z0-9_]+\\\\s+ON\\\\s+public\\\\.\\\"${escaped}\\\"\\\\s+FOR\\\\s+(?:UPDATE|DELETE|ALL)\\\\b`",
+      "why": "The same escaped table name; the alternation at the end is literal and not quantified. Not request-path."
+    },
+    {
+      "file": "scripts/platform-v7-rls-validate.mjs",
+      "expression": "`DROP\\\\s+POLICY\\\\s+IF\\\\s+EXISTS\\\\s+${policy}\\\\s+ON`",
+      "why": "A row-level-security check, not request-path. policy is a policy name read from the repository's own migrations; the surrounding pieces are fixed."
+    },
+    {
+      "file": "scripts/select-tai-owner-preflight-status.mjs",
+      "expression": "`^/${escapedRepository}/actions/runs/([1-9][0-9]*)/?$`",
+      "why": "A CI status selector, not request-path. The repository name is escaped before interpolation, and the single unbounded piece [0-9]* is not repeated."
+    },
+    {
+      "file": "scripts/select-tai-restricted-qwen-activation-status.mjs",
+      "expression": "`^/${escapedRepository}/actions/runs/([1-9][0-9]*)/?$`",
+      "why": "The same escaped-repository URL shape in the activation-status selector. Not request-path, nothing repeated."
+    },
+    {
+      "file": "scripts/tai-ap-14f0/verify.mjs",
+      "expression": "schemaNode.pattern",
+      "why": "A verification script, not request-path. As in pc-crop-10a/verify.mjs, the pattern comes from a JSON schema tracked in this repository and is reviewed as source rather than supplied at run time."
+    }
+  ]
+}

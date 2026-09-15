@@ -791,26 +791,89 @@
     {
       "requirementId": "V1.3.12",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
+        "scripts/security/verify-regex-backtracking.mjs",
+        "scripts/security/verify-regex-backtracking.test.mjs",
+        "docs/security/regex-construction-baseline.json",
+        ".github/workflows/sbom-scan.yml",
         "apps/api/src/modules/documents/document-template.service.ts",
-        "apps/api/src/modules/documents/document-template.service.spec.ts",
-        "no-repository-wide-backtracking-analysis"
+        "apps/api/src/modules/documents/document-template.service.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "no repository-wide backtracking or ReDoS analysis exists: no such tool is declared in any manifest, so the requirement’s general claim is unestablished whatever the traced instance does",
-          "check": "ABSENT_IN_MANIFESTS",
+          "condition": "the sweep still recognises the two shapes that make backtracking exponential, and still fails the build when it finds one",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-regex-backtracking.mjs"
+          ],
           "patterns": [
-            "safe-regex",
-            "recheck",
-            "redos",
-            "vuln-regex-detector",
-            "re2"
+            "export function ambiguousUnderRepetition",
+            "found.push({ kind: 'nested quantifier' })",
+            "found.push({ kind: 'quantified overlapping alternation' })",
+            "return failed ? 1 : 0;"
+          ]
+        },
+        {
+          "condition": "the detector is still held to the shapes it was measured against, including the (.*)*x of the instance this repository closed, so a sweep that reports nothing because it recognises nothing cannot pass",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-regex-backtracking.test.mjs"
+          ],
+          "patterns": [
+            "assert.equal(exponential('(.*)*x'), 1);",
+            "assert.equal(exponential('^(\\\\w+\\\\s?)*$'), 1);",
+            "assert.equal(exponential('(a+|b)*'), 1);",
+            "assert.equal(exponential('(a*b*)*'), 1);"
+          ]
+        },
+        {
+          "condition": "a negated class is still compared as the complement it is, which is what keeps the careful escaped-string idiom apart from the careless one instead of reporting every instance of it",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-regex-backtracking.test.mjs"
+          ],
+          "patterns": [
+            "test('the escaped-string idiom is judged by whether the class excludes the escape'",
+            "test('a negated class is a complement, not a wildcard'"
+          ]
+        },
+        {
+          "condition": "a regular expression built from a value still needs a recorded reason, and the sweep still fails both on a new site without one and on a recorded site that has gone",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-regex-backtracking.mjs"
+          ],
+          "patterns": [
+            "export function reconcileConstructions",
+            "with no recorded reason it is safe",
+            "records sites that are no longer there"
+          ]
+        },
+        {
+          "condition": "the recorded reasons for the value-built sites are still there to be read",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "docs/security/regex-construction-baseline.json"
+          ],
+          "patterns": [
+            "can anything outside the repository decide what this pattern is",
+            "restricted-public-qwen.internal-trace.ts",
+            "assistant-relevance-router.ts"
+          ]
+        },
+        {
+          "condition": "the sweep still runs in CI rather than only on request",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            ".github/workflows/sbom-scan.yml"
+          ],
+          "patterns": [
+            "run: node scripts/security/verify-regex-backtracking.mjs"
           ]
         }
       ],
-      "note": "The traced instance is closed in #4835 and this requirement still fails, which is the point of recording it separately. That instance was real and was proven by running it: a key of (.*)*x fed into a per-key RegExp did not finish against an ordinary 1901-character contract in 120 seconds, and Node being single-threaded that stops every request on the pod. The substitution now compiles nothing from input, so that path is gone. What is not established is the requirement's other half - that the application's regular expressions are free from elements causing exponential backtracking. Sixteen further new RegExp call sites exist under apps/api/src and apps/web/lib, none of them examined in this pass, and no backtracking-analysis tool is declared in any manifest, so there is no sweep to point at. Claiming PASS here on the strength of one closed instance would be exactly the substitution this programme forbids: a requirement answered with the evidence of a different, narrower one. The condition therefore watches for the sweep rather than for the instance - adding such a tool revokes this decision and forces the verdict to be taken again."
+      "note": "The traced instance was closed in #4835; this requirement stayed FAIL because its other half was unestablished - that the application's regular expressions are free of the elements that cause exponential backtracking - and the recorded gap was that sixteen further new RegExp call sites had never been examined and no sweep existed to point at. Both are now answered. scripts/security/verify-regex-backtracking.mjs parses every regular expression written down in the tree - 3488 of them across 2462 tracked source files - and fails on the shapes that let one input be split more than one way by a repeated group: a quantifier nested in a quantifier, a body that reduces to one when its optional parts match empty, a body whose parts are all optional around an unbounded one, and a quantified alternation whose branches can begin with the same character or one of whose branches is itself unbounded. None is found. The detector was built against measurement rather than intuition, and the first version of it was wrong in both directions. It missed ^(\\w+\\s?)*$, (a+|b)*, (a*b*)* , (a|.)* and (\\w|a)* - each of which was then measured quadrupling in runtime for every two characters added to a hostile input, exactly like the (.*)*x of the closed instance, while an anchored control stayed flat. Corrected, it reported seven findings that were all false: the escaped-string idiom (?:[^\"\\\\]|\\\\.)* is linear precisely because the class excludes the backslash the other branch begins with, and only the careless (?:[^\"]|\\\\.)* blows up - measured at 3.4x per two characters against the safe form's flat line. Treating a negated class as a wildcard collapses that distinction, so classes are compared as sets and negated ones as complements. The test holds the detector to all of it. The sweep is revocable by mutation rather than by assertion: injecting (.*)*x, ^(\\w+\\s?)*$, (a|ab)* or (?:[^\"]|\\\\.)* into a tracked source file makes it fail with the file, line and shape, and removing them makes it pass again. A pattern built from a value cannot be parsed, which is the shape the closed instance had, so those sites are held to a recorded judgement instead: docs/security/regex-construction-baseline.json names each of the 39 with what can reach the interpolated value, and the sweep fails on a new site without one and on a recorded site that has gone. Twenty sites that had been counted as unknowable turned out to be assembled from literals and module constants and are now read and analysed like any other. The eight assistant-relevance patterns mattered most, being the only ones compiled on a path that user chat input reaches; they were resolved through their substitution, analysed, and measured flat to 1600 characters. What this does not claim: the sweep finds the exponential constructs, not every super-linear regex. Polynomial backtracking - two adjacent unbounded quantifiers over overlapping classes - is reported and not failed on, and 47 such cases stand, all of them in fixed patterns over text the application already holds. The earlier condition watched the manifests for a third-party ReDoS tool and would still hold, since the sweep is first-party; it is replaced rather than satisfied, as the earlier note said it should be when a sweep arrived."
     },
     {
       "requirementId": "V1.4.1",
