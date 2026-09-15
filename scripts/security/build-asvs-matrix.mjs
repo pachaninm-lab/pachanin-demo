@@ -169,17 +169,39 @@ export function evaluateCondition(condition, { tracked, readFile }) {
       roots.some((root) => path.startsWith(`${root}/`))
       && /\.(?:ts|tsx|js|jsx|mjs|cjs)$/u.test(path)
     ));
-    const hits = candidates.filter((path) => {
+
+    // A named exception, so that one benign occurrence does not force the
+    // pattern itself to be blunted everywhere else. It costs more than it
+    // saves: the reason has to be written down, each excepted path has to
+    // still exist and still match, and what makes it benign has to be pinned
+    // by a separate condition - otherwise the exception is just a hole.
+    const excepted = condition.exceptPaths ?? [];
+    if (excepted.length > 0 && String(condition.exceptReason ?? '').trim().length < 20) {
+      return { condition: condition.condition, holds: false, evidence: 'exceptPaths declared without a reason' };
+    }
+
+    const matches = (path) => {
       const raw = readFile(path) ?? '';
       if (isOpaqueDataModule(raw)) return false;
       const text = raw.toLowerCase();
       return patterns.some((pattern) => text.includes(pattern));
-    });
+    };
+
+    const stale = excepted.filter((path) => !candidates.includes(path) || !matches(path));
+    if (stale.length > 0) {
+      return {
+        condition: condition.condition,
+        holds: false,
+        evidence: `exception no longer needed or no longer matches: ${stale.join(', ')}`,
+      };
+    }
+
+    const hits = candidates.filter((path) => !excepted.includes(path) && matches(path));
     return {
       condition: condition.condition,
       holds: hits.length === 0,
       evidence: hits.length === 0
-        ? `${candidates.length} source files scanned, no match`
+        ? `${candidates.length} source files scanned, no match${excepted.length > 0 ? ` outside ${excepted.length} named exception(s)` : ''}`
         : `matched in ${hits.slice(0, 3).join(', ')}`,
     };
   }

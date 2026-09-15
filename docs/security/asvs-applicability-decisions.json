@@ -5516,7 +5516,9 @@
       "applicability": "APPLICABLE",
       "status": "FAIL",
       "evidence": [
-        "repository-scan:no-adaptive-controls"
+        "repository-scan:no-adaptive-controls",
+        "apps/web/app/layout.tsx",
+        "apps/web/tests/unit/publicAnalyticsBoundary.test.ts"
       ],
       "conditions": [
         {
@@ -5526,15 +5528,43 @@
             "timeofday",
             "geoip",
             "devicefingerprint",
-            "adaptiveauth"
+            "adaptiveauth",
+            "impossibletravel",
+            "riskbasedauth",
+            "stepupauth"
           ],
           "roots": [
             "apps",
             "packages"
+          ],
+          "exceptPaths": [
+            "apps/web/app/layout.tsx",
+            "apps/web/tests/unit/publicAnalyticsBoundary.test.ts"
+          ],
+          "exceptReason": "the only geolocation references in the tree are the PostHog flag that turns geoip resolution off in analytics and the test asserting it is there; analytics is not an access input, and the next condition pins the flag to its disabling value"
+        },
+        {
+          "condition": "the one geolocation reference in the application still disables geolocation rather than reading it",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/layout.tsx"
+          ],
+          "patterns": [
+            "'$geoip_disable': true"
+          ]
+        },
+        {
+          "condition": "the test that holds the analytics payload to that flag is still there",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/tests/unit/publicAnalyticsBoundary.test.ts"
+          ],
+          "patterns": [
+            "'$geoip_disable': true"
           ]
         }
       ],
-      "note": "No adaptive or contextual security control exists. The only geolocation reference in the application is a Permissions-Policy header that disables it. The requirement is unmet, not inapplicable - an application making authorization decisions could use these inputs and this one does not."
+      "note": "No adaptive or contextual security control exists. The requirement is unmet, not inapplicable - an application making authorization decisions could use these inputs and this one does not. The condition behind that finding stopped holding when the PostHog analytics client landed on main: it scans for the substring geoip, and apps/web/app/layout.tsx now carries '$geoip_disable': true, the flag that turns geoip resolution off, with a unit test asserting it is there. The decision was therefore being rejected rather than applied, which left the register asserting an absence the tree contradicted. Blunting the pattern would have stopped it protecting anywhere, so the two analytics files are excepted by name instead and the pattern keeps full strength across apps and packages - with three indicators added that it did not have before (impossibletravel, riskbasedauth, stepupauth; geofence was considered and rejected, because this application ships GPS geofencing as a logistics feature and the word says nothing about access decisions). The exception costs what an exception should: the reason is written down, each excepted path has to still exist and still match or the condition fails, and the two conditions after it pin the flag to its disabling value, so changing it to read location rather than refuse it breaks the decision. apps/api and packages carry no occurrence of any of these patterns at all."
     },
     {
       "requirementId": "V8.3.1",

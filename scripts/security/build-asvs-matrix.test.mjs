@@ -419,3 +419,73 @@ test('a payload holding // inside its base64 is still recognised as data', () =>
 test('the detector reduces a documented, concatenated payload', () => {
   assert.equal(isOpaqueDataModule('/** doc */\nexport const P: string =\n  "AAAA" +\n  "BBBB";\n'), true);
 });
+
+/* An absence pattern that has to be blunted because of one benign occurrence
+   stops protecting everywhere else. A named exception keeps the pattern at full
+   strength, but it has to cost something, or it is just a hole. */
+
+const tree = (files) => ({
+  tracked: Object.keys(files),
+  readFile: (path) => files[path] ?? null,
+});
+
+const absence = (extra = {}) => ({
+  condition: 'no adaptive control reads location as an access input',
+  check: 'ABSENT_IN_TREE',
+  roots: ['apps'],
+  patterns: ['geoip'],
+  ...extra,
+});
+
+test('an excepted path lets the pattern keep full strength elsewhere', () => {
+  const files = {
+    'apps/web/layout.tsx': "const a = { '$geoip_disable': true };",
+    'apps/web/other.ts': 'const b = 1;',
+  };
+  const held = evaluateCondition(absence({
+    exceptPaths: ['apps/web/layout.tsx'],
+    exceptReason: 'the only occurrence is the flag that disables geoip in analytics',
+  }), tree(files));
+  assert.equal(held.holds, true);
+
+  // The same exception does not cover a second file that really uses it.
+  files['apps/api/access.ts'] = 'const c = geoipLookup(ip);';
+  const broken = evaluateCondition(absence({
+    exceptPaths: ['apps/web/layout.tsx'],
+    exceptReason: 'the only occurrence is the flag that disables geoip in analytics',
+  }), tree(files));
+  assert.equal(broken.holds, false);
+  assert.match(broken.evidence, /apps\/api\/access\.ts/u);
+});
+
+test('an exception without a written reason is refused', () => {
+  const result = evaluateCondition(absence({
+    exceptPaths: ['apps/web/layout.tsx'],
+    exceptReason: 'benign',
+  }), tree({ 'apps/web/layout.tsx': "'$geoip_disable': true" }));
+  assert.equal(result.holds, false);
+  assert.match(result.evidence, /without a reason/u);
+});
+
+test('an exception for a file that is gone fails rather than passing quietly', () => {
+  const result = evaluateCondition(absence({
+    exceptPaths: ['apps/web/deleted.tsx'],
+    exceptReason: 'the only occurrence is the flag that disables geoip in analytics',
+  }), tree({ 'apps/web/other.ts': 'const b = 1;' }));
+  assert.equal(result.holds, false);
+  assert.match(result.evidence, /no longer needed/u);
+});
+
+test('an exception for a file that no longer matches fails, so it cannot be left lying around', () => {
+  const result = evaluateCondition(absence({
+    exceptPaths: ['apps/web/layout.tsx'],
+    exceptReason: 'the only occurrence is the flag that disables geoip in analytics',
+  }), tree({ 'apps/web/layout.tsx': 'const a = 1;' }));
+  assert.equal(result.holds, false);
+  assert.match(result.evidence, /no longer matches/u);
+});
+
+test('an absence condition with no exceptions behaves exactly as before', () => {
+  assert.equal(evaluateCondition(absence(), tree({ 'apps/web/a.ts': 'const b = 1;' })).holds, true);
+  assert.equal(evaluateCondition(absence(), tree({ 'apps/web/a.ts': 'geoipLookup()' })).holds, false);
+});
