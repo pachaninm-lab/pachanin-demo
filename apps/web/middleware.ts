@@ -110,6 +110,9 @@ const PLATFORM_V7_PUBLIC_PREFIX = ['/platform-v7/role-preview'];
 
 const PUBLIC_API_EXACT = new Set([
   '/api/health/ready',
+  // A violation report is posted by the browser without credentials, and a
+  // report that arrives after the session has gone is one worth having.
+  '/api/csp-report',
   '/api/agro-chat',
   // A brand-new Gekta visitor has no platform session yet. The exact
   // entitlement route creates its signed anonymous quota cookie and remains
@@ -218,8 +221,12 @@ function applySecurityHeaders(response: NextResponse, protectedResponse = false,
   response.headers.set('strict-transport-security', 'max-age=31536000; includeSubDomains; preload');
   response.headers.set(
     'content-security-policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; report-uri /api/csp-report; report-to csp-endpoint"
   );
+  // report-to is the current mechanism and needs its group declared here;
+  // report-uri above is deprecated and still what actually gets sent by most
+  // browsers today, so both are named at the same route.
+  response.headers.set('reporting-endpoints', 'csp-endpoint="/api/csp-report"');
   if (protectedResponse) {
     response.headers.set('cache-control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
     response.headers.set('pragma', 'no-cache');

@@ -1728,24 +1728,65 @@
     {
       "requirementId": "V3.4.7",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "repository-scan:no-csp-report-endpoint"
+        "apps/web/middleware.ts",
+        "apps/web/app/api/csp-report/route.ts",
+        "apps/web/tests/unit/cspViolationReporting.test.ts"
       ],
       "conditions": [
         {
-          "condition": "the served CSP still specifies no report-uri or report-to directive anywhere",
-          "check": "ABSENT_IN_TREE",
-          "roots": [
-            "apps/web"
+          "condition": "the served policy still names where to send violations, and still declares the group report-to refers to",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/middleware.ts"
           ],
           "patterns": [
-            "report-uri",
-            "report-to"
+            "report-uri /api/csp-report",
+            "report-to csp-endpoint",
+            "response.headers.set('reporting-endpoints', 'csp-endpoint=\"/api/csp-report\"')"
+          ]
+        },
+        {
+          "condition": "the route the policy names is still reachable without a session, because a browser posts a report without credentials",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/middleware.ts"
+          ],
+          "patterns": [
+            "'/api/csp-report',"
+          ]
+        },
+        {
+          "condition": "the route still reads both report shapes and still bounds what an unauthenticated caller can make it do",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/csp-report/route.ts"
+          ],
+          "patterns": [
+            "export async function POST",
+            "MAX_BODY_BYTES",
+            "MAX_FIELD_LENGTH",
+            "export function normaliseCspReport",
+            "export function safeReportField"
+          ]
+        },
+        {
+          "condition": "the policy and the route are still tested together, so neither a policy pointing at nothing nor a route nothing points at can pass",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/tests/unit/cspViolationReporting.test.ts"
+          ],
+          "patterns": [
+            "expect(policy).toContain('report-uri /api/csp-report')",
+            "expect(headers.get('reporting-endpoints')).toBe('csp-endpoint=\"/api/csp-report\"')",
+            "it('reads the report-to shape into the same fields'",
+            "it('cannot forge a second log line'",
+            "it('drops a body larger than the cap without logging it'"
           ]
         }
       ],
-      "note": "The CSP names no location to report violations to - neither report-uri nor report-to appears anywhere in the policy or in apps/web/lib or apps/web/app. Violations that do occur (including ones caused by the unsafe-inline/unsafe-eval gap recorded under V3.4.3) are invisible to the operator; the browser silently blocks or allows per the policy with nothing recorded anywhere this application controls. Corrected on review: the scan roots originally excluded apps/web/middleware.ts (which sits directly under apps/web, not under apps/web/lib or apps/web/app), even though this decision itself identifies that file as the effective location for served headers - so a future addition there would not have caused this FAIL to self-revoke. Roots now include apps/web directly."
+      "note": "Closed. The served Content-Security-Policy now ends 'report-uri /api/csp-report; report-to csp-endpoint', and the response carries Reporting-Endpoints: csp-endpoint=\"/api/csp-report\" so that report-to names a group that exists. Both mechanisms are given because report-uri is deprecated and still what most browsers actually send, while report-to is the one that replaces it. The policy is set in middleware.ts, which is the CSP that is served: a running server was checked and the response carried exactly one content-security-policy header, the middleware one, with the different policy in next.config.js not appearing at all. A location to report to is only worth naming if something is there, so apps/web/app/api/csp-report receives them. It has to be unauthenticated, because a browser posts a violation report without credentials - which makes every byte attacker-chosen, so the handler does the least it can: it accepts only the content types browsers send for reports, caps the body at 16 KB (checking the body itself, not only the content-length claim), parses, keeps four fields, strips control characters from each and truncates it, logs one line, stores nothing and echoes nothing. Every case answers 204, so a prober learns nothing about what parsed. The route is added to PUBLIC_API_EXACT for that reason and no other. Verified against a running server: posting a genuine report-uri payload and a genuine report-to payload produced identical normalised log lines; a text/plain body, a non-JSON body and a 40 KB body were all answered 204 and logged nothing; a blocked-uri carrying a newline was logged as one line with the newline replaced, so it could not forge a second entry; GET returns 405 and POST returns an empty body. Not claimed: end-to-end delivery by a browser was not observed. Driving Chromium 141 against a local page that violates its own policy fired the securitypolicyviolation event (script-src-elem, disposition=enforce) but delivered nothing to the endpoint and surfaced nothing through a buffered ReportingObserver, with either a relative or an absolute endpoint - report delivery appears to be off in this headless build. What is established is what this requirement asks: the header specifies a location, that location exists, and it correctly handles the payloads browsers send to it."
     },
     {
       "requirementId": "V3.4.8",
