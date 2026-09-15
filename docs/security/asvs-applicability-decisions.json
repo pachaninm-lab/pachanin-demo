@@ -1750,23 +1750,47 @@
     {
       "requirementId": "V3.4.8",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "repository-scan:no-coop-header"
+        "apps/web/middleware.ts",
+        "apps/web/tests/unit/crossOriginOpenerPolicy.test.ts",
+        "apps/web/next.config.js"
       ],
       "conditions": [
         {
-          "condition": "no Cross-Origin-Opener-Policy header is still set anywhere in the web app",
-          "check": "ABSENT_IN_TREE",
-          "roots": [
-            "apps/web"
+          "condition": "every response the middleware builds still carries Cross-Origin-Opener-Policy: same-origin",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/middleware.ts"
+          ],
+          "patterns": [
+            "response.headers.set('cross-origin-opener-policy', 'same-origin')"
+          ]
+        },
+        {
+          "condition": "the header is still proven by running the middleware and reading the response, not by finding the string in the source",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/tests/unit/crossOriginOpenerPolicy.test.ts"
+          ],
+          "patterns": [
+            "await middleware(new NextRequest(",
+            "expect(headers.get(HEADER)).toBe('same-origin')",
+            "expect(headers.get(HEADER)).not.toBe('unsafe-none')"
+          ]
+        },
+        {
+          "condition": "next.config.js still does not set the header as well, because two different values on one response mean unsafe-none",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/next.config.js"
           ],
           "patterns": [
             "cross-origin-opener-policy"
           ]
         }
       ],
-      "note": "No response sets Cross-Origin-Opener-Policy - a scan of apps/web/lib and apps/web/app for the header name returns zero matches, and it is absent from applySecurityHeaders() alongside the headers that are set. Without it, a window this application opens (or is opened by) retains the default shared-window-object behaviour that enables tabnabbing and frame-counting-style attacks the header exists to close off. Corrected on review: the scan roots originally excluded apps/web/middleware.ts (which sits directly under apps/web, not under apps/web/lib or apps/web/app), even though this decision itself identifies that file as the effective location for served headers - so a future addition there would not have caused this FAIL to self-revoke. Roots now include apps/web directly."
+      "note": "Closed. applySecurityHeaders() in apps/web/middleware.ts now sets Cross-Origin-Opener-Policy: same-origin, and the middleware matcher '/((?!_next/static|_next/image|favicon.ico).*)' excludes only static assets and the favicon, so every response that renders a document passes through it. same-origin rather than same-origin-allow-popups: the application contains no window.open at all, and every target='_blank' link is a one-way navigation, so nothing depends on retaining an opener. The weaker value would be required only if a popup had to talk back. Set in the middleware and deliberately not in next.config.js. Both files are applied and they already disagree on X-Frame-Options (DENY against SAMEORIGIN), on Permissions-Policy and on the CSP; for this header a disagreement is not merely untidy, because a response carrying two different Cross-Origin-Opener-Policy values is treated as unsafe-none - the exact absence this requirement exists to correct. The third condition holds next.config.js to not setting it. Verified against a running server rather than asserted: a dev server was started and GET /platform-v7 returned Content-Type: text/html with exactly one cross-origin-opener-policy: same-origin header, and / (308) and /legal/politika-konfidencialnosti (307) carried it too. Counting header occurrences on that response showed one of each security header and no duplicate - X-DNS-Prefetch-Control from next.config.js was present while its X-Frame-Options: SAMEORIGIN was not, which is what one-place means here. The test runs the middleware and reads the response rather than searching the source text, so a change that leaves the line in place but stops it applying still fails; removing the header and weakening it to same-origin-allow-popups were both confirmed to break it."
     },
     {
       "requirementId": "V3.5.1",
