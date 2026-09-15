@@ -5,6 +5,7 @@ import { MarketingOutboxDispatchHandler } from './modules/marketing/marketing-ou
 import { MarketingOutboxRunner } from './modules/marketing/marketing-outbox.runner';
 import { MarketingPolicyService } from './modules/marketing/marketing-policy.service';
 import { MarketingPublisherService } from './modules/marketing/marketing-publisher.service';
+import { MarketingPublicationAdmissionService } from './modules/marketing/marketing-publication-admission';
 import { TelegramPublisher } from './modules/marketing/connectors/telegram.publisher';
 import { VkPublisher } from './modules/marketing/connectors/vk.publisher';
 
@@ -20,6 +21,7 @@ import { VkPublisher } from './modules/marketing/connectors/vk.publisher';
   providers: [
     MarketingDurableOutboxWorker,
     MarketingPolicyService,
+    MarketingPublicationAdmissionService,
     TelegramPublisher,
     VkPublisher,
     MarketingPublisherService,
