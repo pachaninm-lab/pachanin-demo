@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/asvs-v824-adaptive-signal-evidence-4459",
+  "status": "active",
+  "purpose": "V8.2.4 was reported as a rejected decision on every build of the ASVS matrix, and had been for as long as the matrix has been built here. A rejected decision is worse than a FAIL: it means the recorded basis no longer holds, so nobody can tell whether the verdict is still true. The cause was the condition, not the verdict, and the note was wrong about the facts it rested on.",
+  "authorityBaseExactMain": "bb4134416",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/asvs-v824-adaptive-signal-evidence-4459.json",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "The verdict is unchanged and unchallenged: no adaptive or contextual access control exists, so V8.2.4 remains FAIL. Only the basis was repaired.",
+    "The old condition searched all of apps and packages for the bare string geoip, and matched $geoip_disable in the analytics initialiser - a flag that turns location lookup off, which is evidence for this decision rather than against it. An absence check that trips on the control it is meant to confirm is not a check.",
+    "The note was wrong on two counts and both are corrected. The application does use navigator.geolocation.getCurrentPosition, in driver-actions.ts and DealCommandForm.tsx, to attach a position to a driver deal command - so location is collected, it is simply never an input to an authorization decision, which is what this requirement is about. And the Permissions-Policy header is not uniform across the four layers that send it.",
+    "A second pattern was tried and withdrawn for the same reason the first failed: riskscore matched deal.riskScore, a KPI about the commercial risk of a trade. Two generic words in a row turned out to be ordinary vocabulary in this product, which is exactly why the scopedAbsence text now names both rather than only the outcome.",
+    "The repaired conditions were falsified in both directions. Adding an adaptive control to apps/api/src/common/guards rejects the decision; removing every geolocation collection from the driver path rejects it too. The second mutation had to be redone - the first replaced one of two occurrences and proved nothing, which is the same weak-mutation mistake this programme has hit before.",
+    "An existing guard caught a mistake of mine before it landed: verify-decision-evidence.mjs refused evidence citing docs/security/authorization-rules.json, which exists only on an unmerged branch. The citation was removed rather than the guard worked around.",
+    "Recorded, deliberately not changed: the application emits two conflicting Permissions-Policy headers. Next writes the middleware value under the lowercase key and the next.config value under the capitalised one, so both reach the browser. Measured in Chromium 141 against a local server, the last header wins for a repeated feature - geolocation=(self) then geolocation=() denies it, the reverse order allows it. So the effective policy depends on emission order, which is fragile whichever way it currently resolves. Aligning the four layers needs the product answer to whether driver geolocation is intended; it is in the owner package, not changed on a guess.",
+    "No production, REG.RU, DNS or database mutation. No application code changed at all - this branch touches two documents."
+  ],
+  "acceptance": [
+    "The ASVS matrix builds with zero rejected decisions for the first time in this programme; previously V8.2.4 was rejected on every run.",
+    "V8.2.4 counts as a proper FAIL rather than a rejected decision: FAIL 89 to 90, NOT_ASSESSED 39 to 38, PASS unchanged at 129.",
+    "node scripts/security/verify-decision-evidence.mjs exits 0: every cited file and condition path exists.",
+    "Falsifiable both ways: an adaptive control in an authorization tree rejects it; removing the driver geolocation collection rejects it."
+  ]
+}

@@ -5516,25 +5516,42 @@
       "applicability": "APPLICABLE",
       "status": "FAIL",
       "evidence": [
-        "repository-scan:no-adaptive-controls"
+        "apps/web/components/platform-v7/DealCommandForm.tsx",
+        "apps/web/lib/driver-actions.ts",
+        "apps/web/app/layout.tsx"
       ],
       "conditions": [
         {
-          "condition": "no adaptive control reads time, location or device as an access input",
+          "condition": "no authorization path consults a time-of-day, geolocation or device-fingerprint signal",
           "check": "ABSENT_IN_TREE",
           "patterns": [
             "timeofday",
-            "geoip",
+            "geoipcountry",
+            "geoiplookup",
             "devicefingerprint",
             "adaptiveauth"
           ],
           "roots": [
-            "apps",
+            "apps/api/src/common/guards",
+            "apps/api/src/common/security",
+            "apps/web/lib/platform-v7",
             "packages"
+          ],
+          "scopedAbsence": "These are the trees that decide access: the API guards and security helpers, the web authorization helpers, and the shared domain packages. Two patterns were tried and withdrawn because they are ordinary vocabulary in this product rather than signals of adaptive authentication. A bare geoip over all of apps matched $geoip_disable in the analytics initialiser, a flag that turns location lookup off. riskscore matched deal.riskScore, a KPI about the commercial risk of a trade, which has nothing to do with an access decision. Both would have reported an adaptive control that does not exist."
+        },
+        {
+          "condition": "the one place location is collected is still business data on a driver command, not an access input",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/driver-actions.ts"
+          ],
+          "patterns": [
+            "navigator.geolocation",
+            "getCurrentPosition"
           ]
         }
       ],
-      "note": "No adaptive or contextual security control exists. The only geolocation reference in the application is a Permissions-Policy header that disables it. The requirement is unmet, not inapplicable - an application making authorization decisions could use these inputs and this one does not."
+      "note": "FAIL: no adaptive or contextual access control exists. The previous record said the only geolocation reference in the application is a Permissions-Policy header that disables it, and that was wrong in two ways. The application does use navigator.geolocation.getCurrentPosition - in driver-actions.ts and DealCommandForm.tsx, to attach a position to a driver deal command - so location is collected; it is simply never an input to an authorization decision, which is what this requirement asks about and is why the verdict is unchanged. And the header is not uniform: apps/api/src/main.ts, apps/web/middleware.ts and infra/nginx/nginx.conf send geolocation=(), while apps/web/next.config.js sends geolocation=(self). The condition was also wrong: ABSENT_IN_TREE on the bare pattern geoip over all of apps matched the analytics initialiser flag $geoip_disable: true, which disables location lookup and therefore supports this decision rather than contradicting it - the decision had been reported as rejected on every build because of it. The condition now looks for consumption patterns in the trees that actually decide access, and a second condition pins the one genuine collection site so that if location ever becomes an access input the decision is re-examined instead of quietly standing. Recorded separately and deliberately not changed: the two conflicting Permissions-Policy headers are both emitted - Next writes the middleware value under the lowercase key and the next.config value under the capitalised one - and measured in Chromium 141 the last header wins for a repeated feature, so the effective policy depends on emission order. Whichever wins today, that is fragile: a Next upgrade or a middleware edit would flip a security header silently. Deciding it needs the product answer to whether driver geolocation is intended, so it is in the owner package rather than changed here."
     },
     {
       "requirementId": "V8.3.1",
