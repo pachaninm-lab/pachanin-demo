@@ -228,6 +228,59 @@ function applySecurityHeaders(response: NextResponse, protectedResponse = false,
   return response;
 }
 
+/**
+ * Routes that set their own Cache-Control on every response they emit.
+ *
+ * The blanket policy below REPLACES whatever the handler set - measured against
+ * a real Next server, a header set in middleware overrides the route's, and so
+ * does one from next.config.js headers(). That is fine where the route only
+ * wanted no-store, and not fine where its value carries something no-store does
+ * not imply: `no-transform` is what stops a proxy buffering or re-encoding an
+ * event stream, and dropping it would break the stream rather than the caching.
+ *
+ * Each route named here already sets no-store on every path it returns, error
+ * paths included. That is not taken on trust: verify-response-cache-policy.mjs
+ * checks every response constructed in these files and fails if one is missing,
+ * so an exemption cannot become a hole.
+ *
+ * Matching is exact, because a sibling under the same prefix is a different
+ * route with different needs - /api/public-platform-assistant streams and
+ * manages its own, while /api/public-platform-assistant/attachments does not
+ * and takes the default. The proxy is the one prefix entry: it is a catch-all
+ * route ([...path]) and every path under it is the same handler.
+ */
+const SELF_MANAGED_CACHE_CONTROL = new Set([
+  '/api/agro-chat',
+  '/api/public-platform-assistant',
+  '/api/realtime',
+  '/api/restricted-public-platform-assistant',
+  '/api/runtime-me-stream',
+  '/api/runtime-stream',
+]);
+const SELF_MANAGED_CACHE_CONTROL_SUBTREE = ['/api/proxy'];
+
+function managesOwnCacheControl(pathname: string) {
+  if (SELF_MANAGED_CACHE_CONTROL.has(pathname)) return true;
+  return SELF_MANAGED_CACHE_CONTROL_SUBTREE.some(
+    (entry) => pathname === entry || pathname.startsWith(`${entry}/`)
+  );
+}
+
+/**
+ * ASVS 5.0 V14.3.2: an API response must not be stored by the browser.
+ *
+ * Applied at the one place every branch of this middleware passes through, so a
+ * route cannot be added without it. The route-level headers that already say
+ * no-store stay where they are and are simply overwritten with the same intent;
+ * removing them would make each route depend on this function alone.
+ */
+function applyApiCachePolicy(response: NextResponse, pathname: string) {
+  if (!pathname.startsWith('/api/')) return response;
+  if (managesOwnCacheControl(pathname)) return response;
+  response.headers.set('cache-control', 'no-store');
+  return response;
+}
+
 function privateLockedResponse() {
   return applySecurityHeaders(new NextResponse('Private deployment locked.', { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8' } }), true);
 }
@@ -393,7 +446,7 @@ function legacyGektaLocaleRedirect(req: NextRequest): NextResponse | null {
   return applySecurityHeaders(NextResponse.redirect(target, 301));
 }
 
-export async function middleware(req: NextRequest) {
+async function routeRequest(req: NextRequest) {
   const p = req.nextUrl.pathname;
 
   if (controlHostEnabled()) {
@@ -582,6 +635,10 @@ export async function middleware(req: NextRequest) {
   }
 
   return withRoleHeaders(req, presentationRole, privateModeEnabled && protectedPath);
+}
+
+export async function middleware(req: NextRequest) {
+  return applyApiCachePolicy(await routeRequest(req), req.nextUrl.pathname);
 }
 
 export const config = { matcher: ['/((?!_next/static|_next/image|favicon\.ico).*)'] };

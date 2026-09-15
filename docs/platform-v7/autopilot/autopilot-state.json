@@ -1429,6 +1429,20 @@
     ],
     "fix/gitleaks-release-authority-attestation-20260912": [
       "apps/tai/tests/test_gitleaks_release_authority.py"
+    ],
+    "security/asvs-v1432-response-cache-policy-4459": [
+      ".github/workflows/ci.yml",
+      ".github/workflows/sbom-scan.yml",
+      "apps/web/app/api/proxy/[...path]/route.ts",
+      "apps/web/app/api/realtime/route.ts",
+      "apps/web/app/api/runtime-me-stream/route.ts",
+      "apps/web/app/api/runtime-stream/route.ts",
+      "apps/web/middleware.ts",
+      "apps/web/tests/unit/apiResponseCachePolicy.test.ts",
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "docs/security/asvs-applicability-decisions.json",
+      "scripts/security/verify-response-cache-policy.mjs",
+      "scripts/security/verify-response-cache-policy.test.mjs"
     ]
   },
   "currentAcceptance": [
