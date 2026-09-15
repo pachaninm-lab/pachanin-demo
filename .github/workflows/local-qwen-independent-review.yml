@@ -427,31 +427,11 @@ jobs:
           echo "user=$user" >> "$GITHUB_OUTPUT"
           echo "port=$port" >> "$GITHUB_OUTPUT"
 
-      - name: Run canonical Qwen3-8B semantic review
-        id: inference
-        env:
-          MODEL_HOST: ${{ steps.ssh.outputs.host }}
-          MODEL_USER: ${{ steps.ssh.outputs.user }}
-          MODEL_SSH_PORT: ${{ steps.ssh.outputs.port }}
-          REVIEW_HEAD: ${{ steps.input.outputs.head_sha }}
-          REVIEW_DIFF_SHA256: ${{ steps.input.outputs.diff_sha256 }}
-          REVIEW_MANIFEST_SHA256: ${{ steps.input.outputs.manifest_sha256 }}
+      - name: Materialize canonical Qwen3 review program
         shell: bash
         run: |
           set -Eeuo pipefail
           umask 077
-
-          remote_dir="/tmp/pc-local-qwen-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          ssh_opts=(-i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes)
-          scp_opts=(-i "$HOME/.ssh/id_tai_model" -P "$MODEL_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes)
-
-          cleanup(){
-            ssh "${ssh_opts[@]}" "$MODEL_USER@$MODEL_HOST" "rm -rf '$remote_dir'" >/dev/null 2>&1 || true
-            rm -f "$RUNNER_TEMP/review-rejected.raw.json" "$RUNNER_TEMP/review-rejected.tmp" >/dev/null 2>&1 || true
-          }
-          trap cleanup EXIT
-
-          ssh "${ssh_opts[@]}" "$MODEL_USER@$MODEL_HOST" "umask 077; mkdir '$remote_dir'"
 
           cat > "$RUNNER_TEMP/remote-review.py" <<'PY'
           import hashlib, http.client, json, os, pathlib, re, subprocess, sys, time
@@ -905,6 +885,33 @@ jobs:
           print(f'QWEN3_REMOTE_REVIEW_OK={len(requests)}')
           print(f'QWEN3_POLICY_REPAIR_OK={repairs}')
           PY
+          python3 -m py_compile "$RUNNER_TEMP/remote-review.py"
+
+      - name: Run canonical Qwen3-8B semantic review
+        id: inference
+        env:
+          MODEL_HOST: ${{ steps.ssh.outputs.host }}
+          MODEL_USER: ${{ steps.ssh.outputs.user }}
+          MODEL_SSH_PORT: ${{ steps.ssh.outputs.port }}
+          REVIEW_HEAD: ${{ steps.input.outputs.head_sha }}
+          REVIEW_DIFF_SHA256: ${{ steps.input.outputs.diff_sha256 }}
+          REVIEW_MANIFEST_SHA256: ${{ steps.input.outputs.manifest_sha256 }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          umask 077
+
+          remote_dir="/tmp/pc-local-qwen-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          ssh_opts=(-i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes)
+          scp_opts=(-i "$HOME/.ssh/id_tai_model" -P "$MODEL_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes)
+
+          cleanup(){
+            ssh "${ssh_opts[@]}" "$MODEL_USER@$MODEL_HOST" "rm -rf '$remote_dir'" >/dev/null 2>&1 || true
+            rm -f "$RUNNER_TEMP/review-rejected.raw.json" "$RUNNER_TEMP/review-rejected.tmp" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          ssh "${ssh_opts[@]}" "$MODEL_USER@$MODEL_HOST" "umask 077; mkdir '$remote_dir'"
 
           chmod 600 "$RUNNER_TEMP/remote-review.py" "$RUNNER_TEMP/review-requests.jsonl" "$RUNNER_TEMP/review-schema.json"
           scp "${scp_opts[@]}" "$RUNNER_TEMP/remote-review.py" "$RUNNER_TEMP/review-requests.jsonl" "$RUNNER_TEMP/review-schema.json" "$MODEL_USER@$MODEL_HOST:$remote_dir/"
