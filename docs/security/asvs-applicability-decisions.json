@@ -2694,36 +2694,75 @@
     {
       "requirementId": "V5.2.4",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "upload-route:apps/web/app/api/public-platform-assistant/attachments/route.ts"
+        "apps/api/src/modules/storage/storage.service.ts",
+        "apps/api/src/modules/storage/storage-user-quota.spec.ts",
+        "apps/web/app/api/public-platform-assistant/attachments/route.ts"
       ],
       "conditions": [
         {
-          "condition": "only per-request caps exist",
-          "check": "PRESENT_AT_PATH",
+          "condition": "both per-account bounds still exist and are still refused on, not merely computed",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/web/app/api/public-platform-assistant/attachments/route.ts"
+            "apps/api/src/modules/storage/storage.service.ts"
           ],
           "patterns": [
-            "max_files"
+            "private assertWithinUserQuota(",
+            "if (heldFiles + 1 > this.maxFilesPerUser) {",
+            "if (heldBytes + incomingBytes > this.maxBytesPerUser) {",
+            "USER_FILE_COUNT_QUOTA_EXCEEDED",
+            "USER_STORAGE_QUOTA_EXCEEDED"
           ]
         },
         {
-          "condition": "no per-user quota or stored-file accounting exists",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the total is still taken per account across everything it holds, ignoring only what occupies nothing",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/storage/storage.service.ts"
+          ],
+          "patterns": [
+            "uploadedByUserId: context.userId,",
+            "status: { notIn: STATUSES_OCCUPYING_NOTHING },",
+            "const STATUSES_OCCUPYING_NOTHING = ['DELETED', 'UPLOAD_EXPIRED'];"
+          ]
+        },
+        {
+          "condition": "the read and the write still happen in one serializable transaction, without which two concurrent requests both pass",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/storage/storage.service.ts"
+          ],
+          "patterns": [
+            "{ isolationLevel: Prisma.TransactionIsolationLevel.Serializable },"
+          ]
+        },
+        {
+          "condition": "a refused request still mints no upload URL, which is the property the whole control rests on",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/storage/storage-user-quota.spec.ts"
+          ],
+          "patterns": [
+            "it('mints no upload URL for a refused request, because the URL is the capability'",
+            "expect(presign).not.toHaveBeenCalled();",
+            "it('reads and writes in one serializable transaction, or the bound holds only when nobody is trying'",
+            "it('counts a live reservation, which is a URL somebody can still upload through'"
+          ]
+        },
+        {
+          "condition": "the assistant attachment route still keeps nothing, which is why the quota does not belong there",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/web/app/api/public-platform-assistant/attachments/route.ts"
           ],
           "patterns": [
-            "quota",
-            "peruser",
-            "per_user",
-            "userid"
+            "mkdtemp",
+            "rm("
           ]
         }
       ],
-      "note": "The route enforces per-request limits only. There is no per-user file-count or storage quota, and no accounting that would let one be enforced."
+      "note": "Closed, on a different surface from the one this decision previously named, and the correction matters more than the verdict. The evidence pointed at the public assistant attachment route, which does enforce only per-request caps - but that route keeps nothing: it writes to a temporary directory, extracts text and removes it, so no quantity of uploads through it fills any storage. The requirement is about a single user filling the storage up, and the storage is the deal-document path in StorageService. The accounting the earlier note called absent was in fact already there: every reservation writes a dealDocument row carrying uploadedByUserId and sizeBytes, so the totals were available and simply never consulted. requestUpload now aggregates the account's held files and bytes and refuses a reservation that would take it past either bound - 500 files and 5 GiB by default, each overridable through its own environment variable. Two things decide whether this is a bound or only bookkeeping. First, order. Uploaded bytes never pass through this application, so the presigned URL is itself the write capability; the URL used to be minted before the transaction, which would have meant a refused request had already handed out a usable write. The URL is now minted only after the reservation commits, and a test asserts that a refused request produced none. Second, isolation. At the default read-committed level two concurrent requests read the same total and both pass, so the transaction runs at Serializable, where RlsTransactionService already carries a three-attempt retry for serialization failures. What counts and what does not: DELETED and UPLOAD_EXPIRED occupy nothing, so counting them would let abandoned attempts accumulate into a lockout of the user's own storage. UPLOAD_PENDING does count, because a live reservation is a URL somebody can still upload through, and excluding it would let one account reserve without limit and then upload all of it at once. Six mutations were confirmed to break it: minting the URL before the check, removing either bound, counting the deal instead of the account, excluding live reservations, and dropping back to read-committed. Not claimed: the assistant attachment route remains bounded per request and unbounded in repetition. That is real, but it is anti-automation rather than a storage quota - nothing accumulates there - and it belongs to V2.4.1's subject, not this one."
     },
     {
       "requirementId": "V5.2.5",
