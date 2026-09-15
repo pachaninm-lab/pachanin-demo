@@ -1,4 +1,6 @@
-import { serverApiUrl } from './server-api';
+import { isIP } from 'node:net';
+import { headers } from 'next/headers';
+import { CANONICAL_COMPOSE_API_BASE_URL, resolveServerApiBaseUrl } from './server/server-api-origin';
 
 export type PublicMarketLot = Readonly<{
   publicRef: string;
@@ -38,9 +40,31 @@ const PUBLIC_MARKET_FETCH_TIMEOUT_MS = 2_000;
 
 export async function getPublicMarketLots(): Promise<PublicMarketReadResult> {
   try {
-    const response = await fetch(serverApiUrl('/market/lots'), {
+    // The accepted path is Caddy -> private web -> private API. Do not send
+    // visitor metadata via a public edge (which would replace the client IP)
+    // or to a configured external origin. The API must trust the web hop via
+    // its existing explicit CIDR policy; direct/untrusted callers stay untrusted.
+    const apiBase = resolveServerApiBaseUrl();
+    if (apiBase !== CANONICAL_COMPOSE_API_BASE_URL) {
+      throw new Error('public market requires canonical internal API');
+    }
+    const requestHeaders = await headers();
+    const forwardedFor = requestHeaders.get('x-forwarded-for') || '';
+    if (!forwardedFor || forwardedFor.length > 4096) {
+      throw new Error('public market trusted client IP unavailable');
+    }
+    // Match the existing single-Caddy-hop contract: use only its last entry,
+    // never a user-supplied prefix, X-Real-IP, Forwarded or provider header.
+    const hops = forwardedFor.split(',');
+    const clientIp = (hops.at(-1) || '').trim();
+    if (hops.length > 20 || !isIP(clientIp) || clientIp.includes('%')) {
+      throw new Error('public market trusted client IP invalid');
+    }
+    const response = await fetch(`${apiBase}/market/lots`, {
       cache: 'no-store',
-      headers: { accept: 'application/json' },
+      credentials: 'omit',
+      redirect: 'error',
+      headers: { accept: 'application/json', 'x-forwarded-for': clientIp },
       signal: AbortSignal.timeout(PUBLIC_MARKET_FETCH_TIMEOUT_MS),
     });
     if (!response.ok) throw new Error(`public market ${response.status}`);

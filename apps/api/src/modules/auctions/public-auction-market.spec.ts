@@ -1,5 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { isIP } from 'node:net';
+import { runInNewContext } from 'node:vm';
+import { createSourceFile, isFunctionDeclaration, ModuleKind, ScriptKind, ScriptTarget, transpileModule } from 'typescript';
+import { HttpException } from '@nestjs/common';
+import { RateLimitGuard } from '../../common/guards/rate-limit.guard';
+import { createTrustedProxyPolicy } from '../../common/security/trusted-proxy';
 import { PublicAuctionMarketService } from './public-auction-market.service';
 
 const REPO_ROOT = resolve(__dirname, '../../../../..');
@@ -169,9 +175,12 @@ describe('anonymous public Auction market projection', () => {
 
   it('keeps the public web read unauthenticated, bounded, PostgreSQL-bound, metadata-minimal and fail-closed', () => {
     const helper = read(webHelperPath);
-    expect(helper).toContain("serverApiUrl('/market/lots')");
+    expect(helper).toContain("`${apiBase}/market/lots`");
+    expect(helper).toContain("apiBase !== CANONICAL_COMPOSE_API_BASE_URL");
     expect(helper).toContain("cache: 'no-store'");
-    expect(helper).toContain("headers: { accept: 'application/json' }");
+    expect(helper).toContain("headers: { accept: 'application/json', 'x-forwarded-for': clientIp }");
+    expect(helper).toContain("credentials: 'omit'");
+    expect(helper).toContain("redirect: 'error'");
     expect(helper).toContain('PUBLIC_MARKET_FETCH_TIMEOUT_MS = 2_000');
     expect(helper).toContain('signal: AbortSignal.timeout(PUBLIC_MARKET_FETCH_TIMEOUT_MS)');
     expect(helper).not.toContain('serverAuthHeaders');
@@ -341,5 +350,148 @@ describe('public market teaser page bounds', () => {
     expect(child).toContain('const items = market.items;');
     expect(child).toContain('{items.map((lot) => (');
     expect(child).not.toMatch(/\.slice\s*\(/);
+  });
+});
+
+// Execute the real web reader with only request context and network I/O replaced.
+// The real origin resolver, IP parser and API guard logic remain under test.
+function loadPublicMarketReader(incoming: Headers, env: NodeJS.ProcessEnv = { NODE_ENV: 'production' }) {
+  const compilerOptions = { target: ScriptTarget.ES2022, module: ModuleKind.CommonJS };
+  const originExports: Record<string, unknown> = {};
+  runInNewContext(transpileModule(read('apps/web/lib/server/server-api-origin.ts'), { compilerOptions }).outputText, {
+    exports: originExports, URL, process: { env },
+  });
+  const payload = {
+    authority: { source: 'POSTGRESQL', scope: 'PUBLIC_MARKET', projection: 'ANONYMIZED_PUBLIC_MARKET', sellerIdentity: 'REDACTED', observedAt: '2026-09-16T00:00:00.000Z', version: '0' },
+    items: [],
+  };
+  const fetcher = jest.fn(async (_url: string, _init: RequestInit) => new Response(JSON.stringify(payload)));
+  const exports: Record<string, unknown> = {};
+  runInNewContext(transpileModule(read(webHelperPath), { compilerOptions }).outputText, {
+    exports, Error, Date, AbortSignal, fetch: fetcher,
+    require: (id: string) => {
+      if (id === 'node:net') return { isIP };
+      if (id === 'next/headers') return { headers: async () => incoming };
+      if (id === './server/server-api-origin') return originExports;
+      throw new Error(`Unexpected reader dependency: ${id}`);
+    },
+  });
+  return {
+    read: exports.getPublicMarketLots as () => Promise<{ available: boolean; items: unknown[]; error: string | null }>,
+    fetcher, payload,
+  };
+}
+
+describe('public market trusted SSR transport', () => {
+  it.each(['198.51.100.10', '2001:db8::10'])('forwards only the nearest edge IP %s without session data', async (ip) => {
+    const reader = loadPublicMarketReader(new Headers({
+      'x-forwarded-for': `203.0.113.99, ${ip}`,
+      'x-real-ip': '203.0.113.98', 'cf-connecting-ip': '203.0.113.97',
+      cookie: 'session=untrusted-test', authorization: 'Bearer untrusted-test',
+    }));
+    expect((await reader.read()).available).toBe(true);
+    expect(reader.fetcher).toHaveBeenCalledTimes(1);
+    const [url, init] = reader.fetcher.mock.calls[0];
+    expect(url).toBe('http://api:3001/api/market/lots');
+    expect(init.headers).toEqual({ accept: 'application/json', 'x-forwarded-for': ip });
+    expect(init.cache).toBe('no-store');
+    expect(init.credentials).toBe('omit');
+    expect(init.redirect).toBe('error');
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it.each(['', 'garbage', '198.51.100.10,', '198.51.100.10, bad', 'fe80::1%eth0', 'x'.repeat(4097), Array(21).fill('198.51.100.10').join(',')])('rejects missing or invalid edge identity (%#) before sending any request', async (value) => {
+    const reader = loadPublicMarketReader(new Headers({ 'x-forwarded-for': value }));
+    const result = await reader.read();
+    expect(result.available).toBe(false);
+    expect(result.items).toEqual([]);
+    expect(reader.fetcher).not.toHaveBeenCalled();
+  });
+
+  it.each(['https://outside.example/api', 'https://процент-агро.рф/api', 'http://api:3001', 'http://user:secret@api:3001/api', 'http://api:3001/api?next=outside'])('does not export visitor metadata to noncanonical API origin (%#)', async (API_URL) => {
+    const reader = loadPublicMarketReader(new Headers({ 'x-forwarded-for': '198.51.100.10' }), { NODE_ENV: 'production', API_URL });
+    expect((await reader.read()).available).toBe(false);
+    expect(reader.fetcher).not.toHaveBeenCalled();
+  });
+
+  it('does not reuse a previous successful result when the source fails', async () => {
+    const reader = loadPublicMarketReader(new Headers({ 'x-forwarded-for': '198.51.100.10' }));
+    expect((await reader.read()).available).toBe(true);
+    reader.fetcher.mockResolvedValueOnce(new Response('{}', { status: 503 }));
+    expect(await reader.read()).toMatchObject({ available: false, items: [] });
+    expect(reader.fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps separate visitor budgets through one trusted web IP and still blocks the 61st request', async () => {
+    const webIp = '172.20.0.3';
+    const policy = createTrustedProxyPolicy({ NODE_ENV: 'production', TRUST_PROXY_MODE: 'cidr', TRUSTED_PROXY_CIDRS: `${webIp}/32` });
+    const counts = new Map<string, number>();
+    const consume = jest.fn(async (_name: string, key: string, limit: number) => {
+      const count = (counts.get(key) || 0) + 1;
+      counts.set(key, count);
+      return { allowed: count <= limit, limit, count, remaining: Math.max(0, limit - count), resetAt: Date.now() + 60000 };
+    });
+    const guard = new RateLimitGuard(
+      { getAllAndOverride: () => ({ name: 'public_market_lots', scope: 'ip', limit: 60, windowSeconds: 60 }) } as never,
+      { consume } as never,
+      { resolveRequestIp: (request: { socket: { remoteAddress: string }; headers: Record<string, string> }) => policy.resolve(request.socket.remoteAddress, request.headers['x-forwarded-for']) } as never,
+    );
+    const attach = (ip: string) => {
+      const reader = loadPublicMarketReader(new Headers({ 'x-forwarded-for': `203.0.113.99, ${ip}` }));
+      reader.fetcher.mockImplementation(async (_url, init) => {
+        const request = { socket: { remoteAddress: webIp }, headers: init.headers, params: {} };
+        const context = {
+          getHandler: () => function listLots() {}, getClass: () => class PublicMarket {},
+          switchToHttp: () => ({ getRequest: () => request, getResponse: () => ({ setHeader: jest.fn() }) }),
+        };
+        try {
+          await guard.canActivate(context as never);
+          return new Response(JSON.stringify(reader.payload));
+        } catch (error) {
+          if (!(error instanceof HttpException)) throw error;
+          return new Response('{}', { status: error.getStatus() });
+        }
+      });
+      return reader;
+    };
+    const first = attach('198.51.100.10');
+    const second = attach('198.51.100.11');
+    for (let i = 0; i < 60; i += 1) {
+      expect((await first.read()).available).toBe(true);
+      expect((await second.read()).available).toBe(true);
+    }
+    expect((await first.read()).available).toBe(false);
+    expect((await attach('2001:db8::12').read()).available).toBe(true);
+    expect(counts.get('ip|198.51.100.10')).toBe(61);
+    expect(counts.get('ip|198.51.100.11')).toBe(60);
+    expect(counts.has('ip|203.0.113.99')).toBe(false);
+    expect(counts.has(`ip|${webIp}`)).toBe(false);
+    expect(read(controllerPath)).toContain('limit: 60, windowSeconds: 60');
+  });
+
+  it('does not grant forwarded-header trust to direct API callers', () => {
+    const policy = createTrustedProxyPolicy({ NODE_ENV: 'production', TRUST_PROXY_MODE: 'cidr', TRUSTED_PROXY_CIDRS: '172.20.0.3/32' });
+    expect(policy.resolve('203.0.113.8', '198.51.100.10')).toBe('203.0.113.8');
+    expect(policy.resolve('203.0.113.8', '198.51.100.11')).toBe('203.0.113.8');
+  });
+});
+
+describe('public market deadline timezone', () => {
+  it.each(['ru', 'en', 'zh'])('shows an explicit Moscow-zone label in %s', (locale) => {
+    const source = createSourceFile(webTeaserPath, read(webTeaserPath), ScriptTarget.ES2022, true, ScriptKind.TSX);
+    const formatter = source.statements.find((node) => isFunctionDeclaration(node) && node.name?.text === 'formatDate');
+    if (!formatter) throw new Error('Missing actual deadline formatter');
+    const script = transpileModule(`${formatter.getText(source)}\nglobalThis.formatDeadline = formatDate;`, {
+      compilerOptions: { target: ScriptTarget.ES2022, module: ModuleKind.CommonJS },
+    }).outputText;
+    const context: { Intl: typeof Intl; Date: typeof Date; formatDeadline?: (value: string, locale: string) => string } = { Intl, Date };
+    runInNewContext(script, context);
+    const value = '2026-09-16T12:00:00.000Z';
+    const output = context.formatDeadline!(value, locale);
+    const language = locale === 'en' ? 'en-GB' : locale === 'zh' ? 'zh-CN' : 'ru-RU';
+    const zone = new Intl.DateTimeFormat(language, { timeZone: 'Europe/Moscow', timeZoneName: 'short' }).formatToParts(new Date(value)).find((part) => part.type === 'timeZoneName')?.value;
+    expect(zone).toBeTruthy();
+    expect(output).toContain(zone);
+    expect(output).toContain('15:00');
   });
 });
