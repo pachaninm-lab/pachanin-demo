@@ -1429,6 +1429,14 @@
     ],
     "fix/gitleaks-release-authority-attestation-20260912": [
       "apps/tai/tests/test_gitleaks_release_authority.py"
+    ],
+    "security/asvs-v1312-regex-backtracking-sweep-4459": [
+      "scripts/security/verify-regex-backtracking.mjs",
+      "scripts/security/verify-regex-backtracking.test.mjs",
+      "docs/security/regex-construction-baseline.json",
+      "docs/security/asvs-applicability-decisions.json",
+      ".github/workflows/sbom-scan.yml",
+      "docs/platform-v7/autopilot/autopilot-state.json"
     ]
   },
   "currentAcceptance": [
