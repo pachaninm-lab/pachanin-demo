@@ -5,6 +5,8 @@ import { OwnerAccessCenter } from '@/components/platform-v7/staff/OwnerAccessCen
 import { StaffOperationalWorkspacesDeferred } from '@/components/platform-v7/staff/StaffOperationalWorkspacesDeferred';
 import { StaffPlatformShell } from '@/components/platform-v7/staff/StaffPlatformShell';
 import { RegistrationReviewQueue } from '@/components/platform-v7/staff/RegistrationReviewQueue';
+import { FounderControlCenter } from '@/components/platform-v7/staff/founder-control/FounderControlCenter';
+import { loadFounderControlBundle } from '@/lib/platform-v7/founder-control-server';
 import { ACCESS_COOKIE, CSRF_COOKIE } from '@/lib/auth-cookies';
 import { parseStaffCapabilitiesContract } from '@/lib/platform-v7/staff-capabilities';
 import { verifyHs256Jwt } from '@/lib/platform-v7/verified-session';
@@ -197,8 +199,15 @@ export default async function StaffControlCenterPage() {
     redirect('/platform-v7/staff/prepare');
   }
 
+  const founderControl = verification.status === 'verified' && verification.identity.staffOwner === true
+    ? await loadFounderControlBundle()
+    : null;
+
   return (
     <StaffPlatformShell locale={locale}>
+      {founderControl ? (
+        <FounderControlCenter locale={locale} csrfToken={csrfToken} initialBundle={founderControl} />
+      ) : null}
       <OwnerAccessCenter
         locale={locale}
         copy={ownerAccessCenterMessages[locale]}
