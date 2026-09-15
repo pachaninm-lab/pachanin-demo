@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 async function safeFetch(url: string, headers: Headers) {
   try {
-    const res = await fetch(url, { cache: 'no-store', headers });
+    const res = await fetch(url, { cache: 'no-store', headers, redirect: 'error' });
     if (!res.ok) return null;
     return res.json();
   } catch {

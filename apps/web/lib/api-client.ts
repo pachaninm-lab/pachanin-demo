@@ -25,6 +25,7 @@ async function request<T>(path: string, init?: RequestInit, retries = 1): Promis
           ...(init?.headers || {}),
         },
         cache: 'no-store',
+        redirect: 'error',
       });
 
       // 401 — session expired

@@ -9882,35 +9882,127 @@
     {
       "requirementId": "V15.3.2",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "apps/api/src/modules/ml-client/ml-client.service.ts",
-        "redirect-guarded-counterexample:apps/api/src/modules/storage/object-storage.adapter.ts"
+        "scripts/security/verify-outbound-redirect-policy.mjs",
+        "scripts/security/verify-outbound-redirect-policy.test.mjs",
+        "docs/security/outbound-redirect-baseline.json",
+        ".github/workflows/sbom-scan.yml",
+        "apps/api/src/common/vault/vault-transit.service.ts",
+        "apps/api/src/common/security/safe-outbound-request.ts"
       ],
       "conditions": [
         {
-          "condition": "the ML client fetch call still sets no redirect option, leaving it on fetch's default follow behaviour",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the gate still runs on every change to the application rather than only on demand",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/api/src/modules/ml-client/ml-client.service.ts"
+            ".github/workflows/sbom-scan.yml"
           ],
           "patterns": [
-            "redirect: 'error'",
-            "redirect: 'manual'"
+            "run: node scripts/security/verify-outbound-redirect-policy.mjs",
+            "- 'docs/security/outbound-redirect-baseline.json'"
           ]
         },
         {
-          "condition": "the object-storage adapter still shows what the guarded version of this call looks like, for comparison",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the gate still fails the build rather than reporting, and following a redirect is still not one of the postures it accepts as decided",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/api/src/modules/storage/object-storage.adapter.ts"
+            "scripts/security/verify-outbound-redirect-policy.mjs"
+          ],
+          "patterns": [
+            "process.exit(1);",
+            "export const DECIDED_VALUES = new Set(['error', 'manual']);"
+          ]
+        },
+        {
+          "condition": "the gate still looks at every root that runs code on a server, so the count cannot be made to pass by narrowing what it counts",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-outbound-redirect-policy.mjs"
+          ],
+          "patterns": [
+            "'apps/api/src/',",
+            "'apps/web/app/',",
+            "'apps/web/lib/',",
+            "'apps/web/server/',",
+            "'apps/web/components/',"
+          ]
+        },
+        {
+          "condition": "browser code is still excluded by reading the directive out of the module, not by naming files in a list",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-outbound-redirect-policy.mjs"
+          ],
+          "patterns": [
+            "export function isClientModule(source) {",
+            "if (isClientModule(source)) { clientModules += 1; clientSites += found.length; continue; }"
+          ]
+        },
+        {
+          "condition": "a recorded exception is still checked rather than believed: its category is re-tested against the source, a reason too short to be one does not cover it, and an entry for a call that no longer exists fails instead of lingering",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-outbound-redirect-policy.mjs"
+          ],
+          "patterns": [
+            "export function categoryProblem(entry, site, source) {",
+            "if (isRelativeUrlLiteral(site.target)) return null;",
+            "entry.reason.trim().length < 20",
+            "const stale = (baseline.sites ?? []).filter((entry) => !used.has(entry.key));"
+          ]
+        },
+        {
+          "condition": "the calls that carry a credential the platform would not strip across a redirect still refuse one, on both of the vault operations and on the mail and gateway paths",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/vault/vault-transit.service.ts"
+          ],
+          "patterns": [
+            "body: JSON.stringify({ plaintext: b64 }),\n        redirect: 'error',",
+            "body: JSON.stringify({ ciphertext }),\n        redirect: 'error',"
+          ]
+        },
+        {
+          "condition": "the gateway that forwards a bearer token upstream, the mail sender that carries its provider key, and the model client that carries its own still refuse a redirect",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/proxy/[...path]/route.ts",
+            "apps/web/lib/server/transactional-mail.ts",
+            "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts"
           ],
           "patterns": [
             "redirect: 'error'"
           ]
+        },
+        {
+          "condition": "the one path that does follow redirects still re-checks every hop from the scheme onward and still stops, rather than following on trust",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/safe-outbound-request.ts"
+          ],
+          "patterns": [
+            "const MAX_REDIRECTS = 3;",
+            "for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {",
+            "const vetted = await vetDestination(target, options);",
+            "target = new URL(outcome.location, vetted.url).toString();"
+          ]
+        },
+        {
+          "condition": "the detector is still held by tests that can fail: a redirect written under a comment is still found, one written inside the request body is still not counted as an option, and a protocol-relative URL is still not read as a same-origin path",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "scripts/security/verify-outbound-redirect-policy.test.mjs"
+          ],
+          "patterns": [
+            "test('a comment between properties does not hide the property after it'",
+            "test('the property must belong to the init object, not to something nested in it'",
+            "test('a relative path proves browser context; a protocol-relative URL does not'",
+            "test('an entry whose category stops holding stops covering the site'"
+          ]
         }
       ],
-      "note": "Of the 11 outbound fetch() call sites in the API, only object-storage.adapter.ts (2 sites) explicitly sets redirect: 'error', which fails the request rather than silently following a redirect - the correct, safe configuration this requirement asks for. The other 9 - ml-client.service.ts, partner-api.controller.ts, webhook-dispatcher.service.ts, restricted-public-qwen.service.ts (x2), ai-assistant.service.ts (x2), and vault-transit.service.ts (x2) - set no redirect option at all, which means fetch's default (follow) applies: a 3xx response from any of those endpoints is followed automatically. This compounds the already-recorded SSRF-shaped gap in the partner webhook path (ASVS V13.2.4/V13.2.5, V1.2.2, V1.3.6): a partner-controlled webhook URL that responds with a redirect to an internal address would be followed, not rejected."
+      "note": "Closed, and the denominator is the correction that matters. The previous note counted 11 outbound fetch call sites \"in the API\" and named 9 as unguarded. The API is not the whole backend: the Next.js BFF makes far more outbound calls than the Nest service does, and route handlers, server components and server actions are backend code by every definition this requirement uses. Measured across every tracked file under apps/api/src, apps/web/app, apps/web/lib, apps/web/server and apps/web/components: 143 backend fetch call sites, not 11. This is the same wrong-denominator mistake already corrected in this register for V2.2.1, V3.5.1 and V8.2.2, and counting one application of two made it here too. Two of the sites the previous note named are no longer defects and the note would have been wrong about them on its own terms: partner-api.controller.ts and webhook-dispatcher.service.ts now go through safeOutboundRequest, which re-vets every hop. The control is not \"no redirect is ever followed\". It is that no backend call site leaves the decision to the default. fetch defaults to redirect: 'follow', so a 3xx moves a request to a destination that none of the checks made before it - the scheme check, the address rules, the operator allowlist, the configured base URL - ever saw. Of the 143 sites, 137 now state a posture: 104 were changed to redirect: 'error' in this pass, 5 already refused, and 28 BFF proxy routes already used redirect: 'manual', which hands the 3xx back to the browser instead of following it server-side and was already correct. Six are recorded exceptions. Why this is worth doing rather than assumed harmless, measured against a local pair of servers rather than argued from the specification: on a cross-origin redirect the platform strips authorization and cookie, and forwards everything else verbatim. A request carrying X-Vault-Token delivered that token to the redirect target in full, and so did one carrying X-TAI-Signature. Both header names are real here - vault-transit.service.ts authenticates to Vault with the first and tai-internal-stream.ts signs with the second - so for exactly the two call sites where a bespoke credential header is used, the protection people assume from the Authorization stripping does not apply. With redirect: 'error' the same request was refused with \"unexpected redirect\" and the second server received nothing. Refusing is safe here because the destinations do not redirect: the Nest API declares no @Redirect and returns no 3xx anywhere, so every call to the configured API base - which is most of the 104 - had no redirect to follow in the first place and a followed one would have been a destination nobody intended. The web middleware does issue 301 and 308 for host normalisation, which is precisely why the same-origin browser calls are excluded rather than changed. Browser call sites are out of scope and are recognised by reading the module, not by trusting a list: 109 sites in 54 modules carrying the \"use client\" directive are excluded by the gate reading that directive from the source on every run. Six modules run in the browser without carrying it, and those are the recorded exceptions. An exception states a category and the category is re-checked: \"browser\" holds only while the call names a relative URL - which Node cannot fetch at all, so the context is proven - or the module reaches for a global that exists only in a browser. A module refactored into server code stops satisfying that and the entry stops covering it. A reason under twenty characters does not cover a site, and an entry for a call that no longer exists fails rather than lingering to cover some future call in the same place. One exception was proposed and then withdrawn during this work because the check refused it: api-client.ts is browser code but calls the API host, which issues no redirects, so it took redirect: 'error' like every other call to that host instead of an excuse. The one place that does follow a redirect is safeOutboundRequest, and it is the reason the requirement says \"unless it is intended functionality\" rather than \"never\": a partner webhook may legitimately redirect, so each hop is put through the whole check again from the scheme onward, bounded at three. Following on trust and following after re-vetting are different things and only the second is here. The gate is scripts/security/verify-outbound-redirect-policy.mjs, wired into the supply-chain job so it runs on every change to the application, and it exits non-zero rather than reporting. Its own detector is held by 35 tests, and fourteen mutations of the detector were confirmed to break them: treating comments as literal text, reading object keys at any depth, accepting a protocol-relative URL as a same-origin path, dropping the stale-entry check, accepting a category claim unchecked, admitting 'follow' as a decision, matching an identifier merely ending in fetch, matching the use-client directive anywhere in a file, dropping template-literal masking, accepting any reason however short, reading a spread-only init as decided, matching browser globals as bare words, skipping a module's leading comments no longer, and restoring the exponential form of the directive check. Three of those are not hypothetical - they are bugs this work actually had. A comment sitting between two properties hid the property after it, which reported telegram.publisher.ts as unguarded when it already carried redirect: 'error'. Reading keys at any depth would have credited a redirect field inside a JSON request body as if it were a fetch option. And the gate's own check for the \"use client\" directive was itself exponentially backtrackable: it skipped the leading comments and whitespace with one quantified alternation whose branches both matched whitespace, so every run of whitespace after a comment could be claimed by either. Measured on a header of short block comments with no directive after it - the ordinary shape of a module here - it took 4ms at ten comments, 587ms at sixteen and 5.3 seconds at eighteen, about nine times worse per two comments. It was found by the repository's own ReDoS sweep rather than by review, and it is worth recording that a gate written for this requirement had the defect a different gate exists to catch. Rewritten to skip the trivia a piece at a time it answers the same input in 0.017ms, and a test holds the margin. What this does not claim. It is not an SSRF control: refusing a redirect does not decide whether the first destination was allowed, which is V1.3.6 and V13.2.4 and rests on safeOutboundRequest. It says nothing about the 109 browser call sites beyond excluding them. And redirect: 'manual' on the 28 proxy routes means the 3xx is handed to the browser rather than followed by the server, which is the correct posture for a gateway and is not the same statement as refusing."
     },
     {
       "requirementId": "V15.3.3",

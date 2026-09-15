@@ -73,6 +73,7 @@ export async function POST(request: Request) {
       }),
       cache: 'no-store',
       signal: AbortSignal.timeout(8_000),
+      redirect: 'error',
     });
     const payload = await response.json().catch(() => ({} as Record<string, unknown>));
     if (!response.ok || payload.ok !== true) {

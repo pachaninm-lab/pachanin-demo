@@ -15,6 +15,7 @@ export async function POST(request: Request) {
       headers: await runtimeAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(body),
       cache: 'no-store',
+      redirect: 'error',
     });
     const payload = await response.json().catch(() => ({}));
     return NextResponse.json(payload, { status: response.ok ? 200 : response.status });

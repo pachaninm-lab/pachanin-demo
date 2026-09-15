@@ -160,6 +160,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({ ...body, email, workspace }),
       cache: 'no-store',
       signal: AbortSignal.timeout(7_000),
+      redirect: 'error',
     });
     const payload = await apiResponse.json().catch(() => ({} as RegistrationApiPayload)) as RegistrationApiPayload;
 

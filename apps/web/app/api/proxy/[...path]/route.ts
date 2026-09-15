@@ -421,6 +421,7 @@ async function proxy(request: Request, params: { path: string[] }) {
         // generate, and the reader would see a truncation the gateway never
         // decided on. Every other path keeps the deadline it always had.
         signal: streamPath ? request.signal : AbortSignal.timeout(8_000),
+        redirect: 'error',
       });
 
       if (streamPath) {

@@ -39,6 +39,7 @@ export async function GET(request: Request) {
       },
       cache: 'no-store',
       signal: AbortSignal.timeout(5_000),
+      redirect: 'error',
     });
     const payload = await upstream.json().catch(() => ({})) as Record<string, unknown>;
     if (!upstream.ok) {

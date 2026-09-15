@@ -31,6 +31,7 @@ export async function getIntegrationDiagnostics(): Promise<IntegrationDiagnostic
     const response = await fetch(serverApiUrl('/integrations/health'), {
       cache: 'no-store',
       headers: await serverAuthHeaders(),
+      redirect: 'error',
     });
     if (!response.ok) return UNAVAILABLE;
     return parseSnapshot(await response.json());

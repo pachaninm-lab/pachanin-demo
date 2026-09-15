@@ -46,7 +46,7 @@ function unavailableWorksheet(dealId: string): Worksheet {
 
 export async function getSettlementWorksheet(dealId: string): Promise<Worksheet> {
   try {
-    const response = await fetch(serverApiUrl(`/settlement-runtime/deals/${dealId}`), { cache: 'no-store', headers: await serverAuthHeaders() });
+    const response = await fetch(serverApiUrl(`/settlement-runtime/deals/${dealId}`), { cache: 'no-store', headers: await serverAuthHeaders(), redirect: 'error' });
     if (!response.ok) throw new Error(`settlement worksheet ${response.status}`);
     return response.json();
   } catch {
@@ -56,7 +56,7 @@ export async function getSettlementWorksheet(dealId: string): Promise<Worksheet>
 
 export async function getSettlementPortfolio(): Promise<Portfolio> {
   try {
-    const response = await fetch(serverApiUrl('/settlement-runtime/portfolio'), { cache: 'no-store', headers: await serverAuthHeaders() });
+    const response = await fetch(serverApiUrl('/settlement-runtime/portfolio'), { cache: 'no-store', headers: await serverAuthHeaders(), redirect: 'error' });
     if (!response.ok) throw new Error(`settlement portfolio ${response.status}`);
     return response.json();
   } catch {

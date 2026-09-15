@@ -140,6 +140,7 @@ export async function* streamInternalModel(
       },
       body,
       signal: controller.signal,
+      redirect: 'error',
     });
 
     if (!response.ok) throw new Error(`restricted_runtime_http_${response.status}`);

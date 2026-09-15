@@ -390,6 +390,7 @@ async function* callProviderStream(
       chat_template_kwargs: { enable_thinking: false },
     }),
     signal,
+    redirect: 'error',
   });
 
   if (!response.ok) throw new ServiceUnavailableException(`Restricted public model returned HTTP ${response.status}.`);
@@ -444,6 +445,7 @@ async function callProvider(
       chat_template_kwargs: { enable_thinking: false },
     }),
     signal,
+    redirect: 'error',
   });
   const rawBody = await response.text();
   if (Buffer.byteLength(rawBody, 'utf8') > MAX_RESPONSE_BYTES) {

@@ -76,6 +76,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({ refreshToken }),
       cache: 'no-store',
       signal: AbortSignal.timeout(5_000),
+      redirect: 'error',
     });
     if (!upstream.ok) {
       if (controlPlane) console.warn('control_plane_logout_failed', JSON.stringify({ correlationId, reason: 'upstream' }));

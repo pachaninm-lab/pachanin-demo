@@ -63,6 +63,7 @@ export async function POST(
       body: JSON.stringify({ reason }),
       cache: 'no-store',
       signal: AbortSignal.timeout(7_000),
+      redirect: 'error',
     });
     const payload = await apiResponse.json().catch(() => ({} as ApiPayload)) as ApiPayload;
     if (!apiResponse.ok) {

@@ -35,6 +35,7 @@ export async function getAuthProfile(): Promise<AuthProfileSnapshot> {
     const response = await fetch(serverApiUrl('/auth/me'), {
       cache: 'no-store',
       headers: await serverAuthHeaders(),
+      redirect: 'error',
     });
     if (!response.ok) return UNAVAILABLE;
     return parseProfile(await response.json());

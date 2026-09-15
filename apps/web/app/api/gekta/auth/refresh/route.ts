@@ -36,6 +36,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({ refreshToken }),
       cache: 'no-store',
       signal: AbortSignal.timeout(GEKTA_AUTH_TIMEOUT_MS),
+      redirect: 'error',
     });
     const payload = await response.json().catch(() => ({})) as Partial<GektaAuthenticatedSessionPayload>;
     if (!response.ok || !payload.accessToken || !payload.refreshToken || !payload.user) {

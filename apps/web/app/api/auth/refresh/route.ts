@@ -57,6 +57,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({ refreshToken }),
       cache: 'no-store',
       signal: AbortSignal.timeout(5_000),
+      redirect: 'error',
     });
     const payload = await upstream.json().catch(() => ({})) as Partial<AuthenticatedSessionPayload>;
     if (!upstream.ok) {

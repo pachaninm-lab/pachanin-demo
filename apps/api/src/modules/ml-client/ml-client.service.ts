@@ -127,6 +127,7 @@ export class MlClientService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
         signal: controller.signal,
+        redirect: 'error',
       });
 
       clearTimeout(timeout);

@@ -216,6 +216,7 @@ export async function getCanonicalDealExecutionWorkspace(
     const response = await fetch(serverApiUrl(`/deals/${encodeURIComponent(dealId)}/workspace`), {
       cache: 'no-store',
       headers: await serverAuthHeaders(),
+      redirect: 'error',
     });
     if (!response.ok) return null;
     const workspace = parseWorkspace(await response.json());

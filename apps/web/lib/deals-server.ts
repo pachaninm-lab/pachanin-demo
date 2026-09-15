@@ -6,7 +6,8 @@ export async function getDealsSnapshot(): Promise<DealsSnapshot> {
   try {
     const response = await fetch(serverApiUrl('/deals'), {
       cache: 'no-store',
-      headers: await serverAuthHeaders()
+      headers: await serverAuthHeaders(),
+      redirect: 'error'
     });
     if (!response.ok) return { deals: [], isApiAvailable: false, isComplete: false };
     const raw: unknown = await response.json();
@@ -25,7 +26,8 @@ export async function getDealWorkspaceCanonical(dealId: string) {
   try {
     const response = await fetch(serverApiUrl(`/deals/${dealId}/workspace`), {
       cache: 'no-store',
-      headers: await serverAuthHeaders()
+      headers: await serverAuthHeaders(),
+      redirect: 'error'
     });
     if (!response.ok) throw new Error(`deal workspace ${response.status}`);
     return response.json();

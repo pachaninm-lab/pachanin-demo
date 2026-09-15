@@ -235,6 +235,7 @@ async function authorizeGektaAnswer(request: NextRequest): Promise<{
         headers: { authorization: `Bearer ${accessToken}` },
         cache: 'no-store',
         signal: AbortSignal.timeout(GEKTA_AUTH_TIMEOUT_MS),
+        redirect: 'error',
       });
       const payload = await entitlement.json().catch(() => null) as { entitlement?: { canAsk?: boolean } } | null;
       if (!entitlement.ok || payload?.entitlement?.canAsk !== true) {
