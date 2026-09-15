@@ -9,6 +9,7 @@ import { register, collectDefaultMetrics, Counter, Histogram } from 'prom-client
 import { MaskedLoggerService } from './common/logger/masked-logger.service';
 import { createTrustedProxyPolicy } from './common/security/trusted-proxy';
 import { configureRequestBodyLimits } from './common/security/request-body-limit';
+import { SUPPORTED_HTTP_METHODS, httpMethodAllowlist } from './common/security/http-method-allowlist';
 import { assertIndustrialProductionStartup, INDUSTRIAL_CORE_MIGRATION } from './common/config/industrial-mode';
 import { PrismaService } from './common/prisma/prisma.service';
 import { installLastResortHandlers } from './common/process/last-resort-handlers';
@@ -56,9 +57,17 @@ async function bootstrap() {
   configureRequestBodyLimits(app);
   app.getHttpAdapter().getInstance().set('trust proxy', trustedProxyPolicy.expressSetting);
 
+  // V4.1.4: refused before routing, body parsing or metrics, so a method this
+  // API does not support cannot reach any of them - and cannot be answered by
+  // the framework on its own either, as TRACE would be.
+  app.use(httpMethodAllowlist);
+
   app.enableCors({
     origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
     credentials: true,
+    // Preflight advertises exactly the set the allowlist above honours,
+    // instead of the framework default.
+    methods: [...SUPPORTED_HTTP_METHODS],
   });
 
   // HTTP metrics instrumentation
