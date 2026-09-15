@@ -1324,6 +1324,112 @@ export class PersistentAuthRepository {
     `);
   }
 
+  /**
+   * V7.5.2: the user's own live platform sessions.
+   *
+   * Only PLATFORM scope. A GEKTA session belongs to the product contour, whose
+   * credential lookup deliberately refuses to resolve a platform user, so those
+   * are a different subject rather than a session of this one being hidden.
+   *
+   * user_agent_hash and ip_hash are read but not returned. They are hashes, so
+   * they name no device a person would recognise, and handing them out would
+   * let one session's fingerprint be correlated with another's for nothing.
+   * What can be shown truthfully is when a session started, when it was last
+   * used, when it expires, and whether it is the one asking.
+   */
+  async listActiveUserSessions(
+    client: AuthSqlClient,
+    userId: string,
+  ): Promise<Array<{
+    id: string;
+    created_at: Date;
+    last_seen_at: Date;
+    expires_at: Date;
+    mfa_level: string;
+  }>> {
+    return client.$queryRaw(Prisma.sql`
+      SELECT id, created_at, last_seen_at, expires_at, mfa_level
+      FROM auth.sessions
+      WHERE user_id = ${userId}
+        AND scope = 'PLATFORM'
+        AND status = 'ACTIVE'
+        AND expires_at > NOW()
+      ORDER BY last_seen_at DESC
+    `);
+  }
+
+  /**
+   * Revokes one session the caller owns, and reports whether it did.
+   *
+   * The user_id is part of the UPDATE rather than checked beforehand: a
+   * read-then-write would let a session id belonging to somebody else be
+   * revoked if the row changed in between, and would make the endpoint a probe
+   * for which session ids exist. A caller naming a session that is not theirs
+   * gets the same answer as one naming a session that has already ended.
+   */
+  async revokeOwnSession(
+    client: AuthSqlClient,
+    userId: string,
+    sessionId: string,
+    reason: string,
+  ): Promise<number> {
+    const revoked = await client.$executeRaw(Prisma.sql`
+      UPDATE auth.sessions
+      SET status = 'REVOKED',
+          revoked_at = NOW(),
+          revocation_reason = ${reason},
+          updated_at = NOW()
+      WHERE id = ${sessionId}
+        AND user_id = ${userId}
+        AND scope = 'PLATFORM'
+        AND status IN ('ACTIVE', 'MFA_PENDING')
+    `);
+    await client.$executeRaw(Prisma.sql`
+      UPDATE auth.refresh_tokens rt
+      SET status = 'REVOKED',
+          revoked_at = NOW(),
+          revocation_reason = ${reason}
+      FROM auth.sessions s
+      WHERE s.id = rt.session_id
+        AND s.id = ${sessionId}
+        AND s.user_id = ${userId}
+        AND rt.status IN ('ACTIVE', 'ROTATED')
+    `);
+    return revoked;
+  }
+
+  /** Every live platform session the caller owns except the one they are using. */
+  async revokeOtherUserSessions(
+    client: AuthSqlClient,
+    userId: string,
+    keepSessionId: string,
+    reason: string,
+  ): Promise<number> {
+    const revoked = await client.$executeRaw(Prisma.sql`
+      UPDATE auth.sessions
+      SET status = 'REVOKED',
+          revoked_at = NOW(),
+          revocation_reason = ${reason},
+          updated_at = NOW()
+      WHERE user_id = ${userId}
+        AND scope = 'PLATFORM'
+        AND id <> ${keepSessionId}
+        AND status IN ('ACTIVE', 'MFA_PENDING')
+    `);
+    await client.$executeRaw(Prisma.sql`
+      UPDATE auth.refresh_tokens rt
+      SET status = 'REVOKED',
+          revoked_at = NOW(),
+          revocation_reason = ${reason}
+      FROM auth.sessions s
+      WHERE s.id = rt.session_id
+        AND s.user_id = ${userId}
+        AND s.id <> ${keepSessionId}
+        AND rt.status IN ('ACTIVE', 'ROTATED')
+    `);
+    return revoked;
+  }
+
   async activateMfaSession(
     client: AuthSqlClient,
     input: {
