@@ -127,14 +127,11 @@ async function bootstrap() {
     });
   });
 
-  app.getHttpAdapter().get('/version', (_req: any, res: any) => {
-    res.json({
-      version: process.env.APP_VERSION || '3.0.0',
-      commit: process.env.GIT_COMMIT || 'local',
-      buildDate: process.env.BUILD_DATE || new Date().toISOString().split('T')[0],
-      env: process.env.NODE_ENV || 'development',
-    });
-  });
+  // V13.4.6: the adapter-level /version route is gone. Registered straight on
+  // Express it answered before Nest's router and bypassed every guard, so it
+  // could not be authenticated at all - and it published the build commit, the
+  // build date and the deployment environment to anyone who asked. The
+  // controller route is now the only one, and it requires a session.
 
   app.getHttpAdapter().get('/metrics', async (_req: any, res: any) => {
     const metrics = await register.metrics();
