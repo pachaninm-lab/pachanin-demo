@@ -2660,7 +2660,7 @@ paths:
 
   /api/arbitrator/disputes/{id}/case:
     get:
-      summary: Полное дело спора: доказательства, переписка, история сделки
+      summary: 'Полное дело спора: доказательства, переписка, история сделки'
       tags: [Arbitrator]
       security: [{ BearerAuth: [] }]
       parameters:
