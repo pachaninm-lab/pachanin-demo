@@ -31,6 +31,23 @@ const QUARANTINED_PREFIX = 'QUARANTINED_';
 const DEFAULT_MAX_BYTES = 50 * 1024 * 1024;
 const HARD_MAX_BYTES = 200 * 1024 * 1024;
 const DEFAULT_UPLOAD_TTL_SECONDS = 900;
+
+// V5.2.4: a per-file cap bounds one upload; it does nothing about a thousand of
+// them. These bound what one account can hold at once.
+const DEFAULT_MAX_FILES_PER_USER = 500;
+const HARD_MAX_FILES_PER_USER = 100_000;
+const DEFAULT_MAX_BYTES_PER_USER = 5 * 1024 * 1024 * 1024;
+const HARD_MAX_BYTES_PER_USER = 1024 * 1024 * 1024 * 1024;
+
+/**
+ * Statuses that occupy nothing. An expired reservation was never uploaded and a
+ * deleted object is gone, so counting either against the account would let
+ * abandoned attempts accumulate into a lockout of the user's own storage.
+ * Everything else counts, UPLOAD_PENDING included: a reservation that is still
+ * live is a URL somebody can still upload through, and not counting it would
+ * let one account reserve without limit and then upload all of it at once.
+ */
+const STATUSES_OCCUPYING_NOTHING = ['DELETED', 'UPLOAD_EXPIRED'];
 const MAX_DOWNLOAD_TTL_SECONDS = 900;
 
 const ALLOWED_MIME_TYPES = new Set([
@@ -90,6 +107,18 @@ export class StorageService {
     DEFAULT_UPLOAD_TTL_SECONDS,
     DEFAULT_UPLOAD_TTL_SECONDS,
   );
+  private readonly maxFilesPerUser = boundedInteger(
+    Number(process.env.OBJECT_STORAGE_MAX_FILES_PER_USER ?? DEFAULT_MAX_FILES_PER_USER),
+    1,
+    HARD_MAX_FILES_PER_USER,
+    DEFAULT_MAX_FILES_PER_USER,
+  );
+  private readonly maxBytesPerUser = boundedInteger(
+    Number(process.env.OBJECT_STORAGE_MAX_BYTES_PER_USER ?? DEFAULT_MAX_BYTES_PER_USER),
+    1,
+    HARD_MAX_BYTES_PER_USER,
+    DEFAULT_MAX_BYTES_PER_USER,
+  );
 
   constructor(
     private readonly rls: RlsTransactionService,
@@ -114,36 +143,66 @@ export class StorageService {
     const sizeBytes = this.assertAllowedSize(params.sizeBytes);
     const fileId = `file_${randomUUID()}`;
     const objectKey = buildObjectKey(user.tenantId ?? '', dealId, fileId, filename);
+
+    // V5.2.4: the quota is checked and the reservation written in one
+    // serializable transaction, and the upload URL is minted only afterwards.
+    //
+    // Order matters more than it looks. The presigned URL used to be obtained
+    // first: a request refused after that point had still handed out a usable
+    // write capability, so an account over its quota could collect URLs and
+    // upload through them regardless - the check would have bounded the
+    // bookkeeping and nothing else.
+    //
+    // Serializable rather than the default read-committed, because two
+    // concurrent requests at read-committed both read the same total and both
+    // pass. RlsTransactionService retries a serialization failure three times
+    // at this level, which is what makes the bound hold under concurrency
+    // instead of holding only when nobody is trying.
+    await this.rls.withTrustedContext(
+      user,
+      async (tx, context) => {
+        const deal = await tx.deal.findUnique({
+          where: { id: dealId },
+          select: { id: true, tenantId: true },
+        });
+        if (!deal || deal.tenantId !== context.tenantId) {
+          throw new NotFoundException('Deal is not available in the authenticated scope.');
+        }
+
+        const held = await tx.dealDocument.aggregate({
+          where: {
+            uploadedByUserId: context.userId,
+            status: { notIn: STATUSES_OCCUPYING_NOTHING },
+          },
+          _count: { _all: true },
+          _sum: { sizeBytes: true },
+        });
+        this.assertWithinUserQuota(held._count._all, held._sum.sizeBytes ?? 0, sizeBytes);
+
+        await tx.dealDocument.create({
+          data: {
+            id: fileId,
+            dealId,
+            type: STORAGE_DOCUMENT_TYPE,
+            status: STATUS_PENDING,
+            name: filename,
+            mimeType,
+            s3Key: objectKey,
+            sizeBytes,
+            uploadedByUserId: context.userId,
+            version: 1,
+            isImmutable: false,
+          },
+        });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
+
     const presigned = await this.adapter.getPresignedUploadUrl(
       objectKey,
       mimeType,
       this.uploadTtlSeconds,
     );
-
-    await this.rls.withTrustedContext(user, async (tx, context) => {
-      const deal = await tx.deal.findUnique({
-        where: { id: dealId },
-        select: { id: true, tenantId: true },
-      });
-      if (!deal || deal.tenantId !== context.tenantId) {
-        throw new NotFoundException('Deal is not available in the authenticated scope.');
-      }
-      await tx.dealDocument.create({
-        data: {
-          id: fileId,
-          dealId,
-          type: STORAGE_DOCUMENT_TYPE,
-          status: STATUS_PENDING,
-          name: filename,
-          mimeType,
-          s3Key: objectKey,
-          sizeBytes,
-          uploadedByUserId: context.userId,
-          version: 1,
-          isImmutable: false,
-        },
-      });
-    });
 
     return {
       fileId,
@@ -335,6 +394,31 @@ export class StorageService {
       throw new BadRequestException({ code: 'MIME_NOT_ALLOWED', mimeType });
     }
     return mimeType;
+  }
+
+  /**
+   * Refuses the reservation when the account already holds its allowance, or
+   * when this file would take it past it. Both bounds are reported so a caller
+   * can tell "too many files" from "too many bytes" without guessing.
+   */
+  private assertWithinUserQuota(heldFiles: number, heldBytes: number, incomingBytes: number): void {
+    if (heldFiles + 1 > this.maxFilesPerUser) {
+      throw new BadRequestException({
+        code: 'USER_FILE_COUNT_QUOTA_EXCEEDED',
+        message: 'This account already holds the maximum number of stored files.',
+        heldFiles,
+        maxFiles: this.maxFilesPerUser,
+      });
+    }
+    if (heldBytes + incomingBytes > this.maxBytesPerUser) {
+      throw new BadRequestException({
+        code: 'USER_STORAGE_QUOTA_EXCEEDED',
+        message: 'This account already holds the maximum total size of stored files.',
+        heldBytes,
+        incomingBytes,
+        maxBytes: this.maxBytesPerUser,
+      });
+    }
   }
 
   private assertAllowedSize(value: number): number {

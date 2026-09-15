@@ -1429,6 +1429,12 @@
     ],
     "fix/gitleaks-release-authority-attestation-20260912": [
       "apps/tai/tests/test_gitleaks_release_authority.py"
+    ],
+    "security/asvs-v524-storage-quota-4459": [
+      "apps/api/src/modules/storage/storage.service.ts",
+      "apps/api/src/modules/storage/storage-user-quota.spec.ts",
+      "docs/security/asvs-applicability-decisions.json",
+      "docs/platform-v7/autopilot/autopilot-state.json"
     ]
   },
   "currentAcceptance": [
