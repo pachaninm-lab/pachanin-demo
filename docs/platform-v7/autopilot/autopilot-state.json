@@ -1429,6 +1429,18 @@
     ],
     "fix/gitleaks-release-authority-attestation-20260912": [
       "apps/tai/tests/test_gitleaks_release_authority.py"
+    ],
+    "security/asvs-v623-password-change-4459": [
+      "apps/api/prisma/migrations/20260915120000_password_change_authority/migration.sql",
+      "apps/api/src/modules/auth/auth.controller.ts",
+      "apps/api/src/modules/auth/auth.service.ts",
+      "apps/api/src/modules/auth/dto/change-password.dto.ts",
+      "apps/api/src/modules/auth/own-password-change.spec.ts",
+      "apps/api/src/modules/auth/persistent-auth.repository.ts",
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/asvs-applicability-decisions.json",
+      "docs/security/cryptographic-inventory.json"
     ]
   },
   "currentAcceptance": [

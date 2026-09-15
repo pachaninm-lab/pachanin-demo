@@ -3255,45 +3255,133 @@
       "status": "PASS",
       "evidence": [
         "apps/api/src/modules/auth/auth.controller.ts",
+        "apps/api/src/modules/auth/auth.service.ts",
         "apps/api/src/modules/auth/password-reset.service.ts"
       ],
       "conditions": [
         {
-          "condition": "auth.controller.ts still exposes a self-service password-reset/confirm route backed by password-reset.service.ts",
-          "check": "PRESENT_AT_PATH",
+          "condition": "a user can still reach a new password without anyone's help, by the route that asks for the current one and by the recovery route for when they cannot",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/modules/auth/auth.controller.ts"
           ],
           "patterns": [
+            "@Post('password/change')",
             "post('password-reset/confirm')"
           ]
         }
       ],
-      "note": "Users can end up with a new password through the self-service password-reset/request + password-reset/confirm pair (email-token driven, no support/admin action required). ASVS does not mandate a specific UX for \"can change password\"; a working self-service path satisfies it. Whether that path independently verifies the current password is a different, separate requirement — see V6.2.3, which fails."
+      "note": "Updated, because the reasoning recorded here was about a tree that no longer exists. It read: users can end up with a new password through the reset pair, and ASVS does not mandate a particular UX, so a working self-service path satisfies this. That was defensible and it was the only thing available - there was no change flow at all. It is no longer the whole answer. POST auth/password/change now exists and is the direct reading of this requirement: an authenticated user replaces their own password, having proved the current one. The emailed reset pair remains, for the case this requirement does not cover - a user who cannot supply the current password because they do not have it. Both are self-service and neither needs support or admin action. Recorded here rather than left alone because V6.2.3 was closed by building that flow, and a register in which V6.2.3 cites a change endpoint while V6.2.2 still explains why the absence of one is acceptable would be self-contradictory. See V6.2.3 for what the flow does and how it was verified."
     },
     {
       "requirementId": "V6.2.3",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "apps/api/src/modules/auth/password-reset.service.ts",
-        "depends-on:V6.2.2"
+        "apps/api/src/modules/auth/auth.service.ts",
+        "apps/api/src/modules/auth/auth.controller.ts",
+        "apps/api/src/modules/auth/dto/change-password.dto.ts",
+        "apps/api/src/modules/auth/persistent-auth.repository.ts",
+        "apps/api/prisma/migrations/20260915120000_password_change_authority/migration.sql",
+        "apps/api/src/modules/auth/own-password-change.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "no in-session \"change password\" route or DTO still exists anywhere in the API",
-          "check": "ABSENT_IN_TREE",
-          "roots": [
-            "apps/api/src"
+          "condition": "the route still exists, still requires a session, and is still bounded per account rather than per address, because the value being guessed through it is the current password",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.controller.ts"
           ],
           "patterns": [
-            "change-password",
-            "changepassworddto",
-            "requirecurrentpassword"
+            "@Post('password/change')",
+            "@RateLimit({ name: 'auth_password_change', scope: 'user', limit: 5,",
+            "@CurrentUser() user: RequestUser,"
+          ]
+        },
+        {
+          "condition": "the current password is still verified against the stored credential before anything is written, and the refusal is still recorded",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.service.ts"
+          ],
+          "patterns": [
+            "if (!await verifyPassword(dto.currentPassword, credential.password_hash)) {",
+            "reason: 'CURRENT_PASSWORD_INCORRECT',",
+            "action: 'auth.password.change',"
+          ]
+        },
+        {
+          "condition": "the session is still bound to the credential it changes, and the new password is still stored as a hash rather than as itself",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.service.ts"
+          ],
+          "patterns": [
+            "if (!credential || credential.user_id !== user.id) {",
+            "const nextHash = await hashPassword(dto.newPassword);"
+          ]
+        },
+        {
+          "condition": "the stored hash is still handed to the database as the value to compare against, so the check is not the service's alone, and every session is still revoked after the change",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.service.ts"
+          ],
+          "patterns": [
+            "credential.password_hash,\n        now,",
+            "await this.repository.revokeAllUserSessions(tx, user.id, 'PASSWORD_CHANGED');"
+          ]
+        },
+        {
+          "condition": "the write still goes through the narrow authority rather than the table, and still bumps the credential version that invalidates tokens minted against the old password",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/persistent-auth.repository.ts"
+          ],
+          "patterns": [
+            "FROM auth.change_own_password(${userId}, ${nextHash}, ${expectedHash}, ${now})",
+            "SET credential_version = auth.credential_states.credential_version + 1,"
+          ]
+        },
+        {
+          "condition": "the database still refuses a change that cannot name the stored credential, still refuses an unhashed value, and the authority is still revoked from PUBLIC",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/prisma/migrations/20260915120000_password_change_authority/migration.sql"
+          ],
+          "patterns": [
+            "AND subject.\"passwordHash\" = p_expected_hash",
+            "Password change credential must be pre-hashed",
+            "REVOKE ALL ON FUNCTION auth.change_own_password(text, text, text, timestamptz) FROM PUBLIC;",
+            "SECURITY DEFINER"
+          ]
+        },
+        {
+          "condition": "the new password still has to satisfy the shared strength policy while the current one deliberately does not, so an account whose password predates the policy can still leave it behind",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/dto/change-password.dto.ts"
+          ],
+          "patterns": [
+            "@IsStrongPassword()\n  newPassword!: string;",
+            "currentPassword!: string;"
+          ]
+        },
+        {
+          "condition": "the behaviour is still proven by running the service rather than by reading it, including that a wrong current password changes nothing and that what is stored verifies as the new password",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/own-password-change.spec.ts"
+          ],
+          "patterns": [
+            "it('refuses when the current password is wrong, and says so only to the audit trail'",
+            "expect(await verifyPassword(NEXT, written)).toBe(true);",
+            "it('refuses a session whose account is not the one the credential belongs to'",
+            "it('refuses when the stored credential moved between the check and the write'"
           ]
         }
       ],
-      "note": "The only path that changes a password is password-reset.service.ts's confirm(token, newPassword) — it verifies possession of an emailed, single-use reset token, never the user's current password. There is no separate \"I know my current password, let me set a new one\" self-service flow, route, or DTO anywhere in apps/api/src. The two live hits for the literal terms currentPassword/oldPassword are both unrelated: authCredentialBoundary.spec.ts lists currentPassword only inside a regex of credential-argument names a test asserts get redacted, and sensitive-data.ts lists oldpassword/currentpassword only as log-redaction field names to scrub — neither implements or calls a real change-password feature. The requirement's \"current AND new password\" is therefore not met by the one change mechanism that exists."
+      "note": "Closed by building the flow, because the alternative was not available honestly. The first question was whether this requirement applies at all: it is conditional - \"password CHANGE functionality requires the user's current and new password\" - and there was no change functionality. The only route to a new password was password-reset.service.ts confirm(token, newPassword), and apps/web/app/platform-v7/profile/page.tsx states the absence as a deliberate boundary: \"The browser profile does not manage password, MFA, sessions or roles.\" NOT_APPLICABLE was therefore the convenient reading. It is refused by V6.2.2, which is L1 and says plainly \"Verify that users can change their password\" - so the absence of the feature is not a reason the requirement does not apply, it is a second finding. V6.2.2 was moreover already recorded PASS on the reasoning that the reset pair counts as changing a password; if that reasoning stands then change functionality exists and V6.2.3 governs it, and if it does not stand then V6.2.2 was the failure. Either way the answer is the same flow, so it was built. A recovery flow cannot ask for the current password - not asking is what makes it recovery - so the gap was real and had a consequence beyond the checklist: a stolen session could not be undone from inside the session. The holder of a hijacked session could not be evicted by the real user without access to their mailbox. POST auth/password/change now takes currentPassword and newPassword, verifies the first against the stored credential with the same comparison login uses, and revokes every session on success. The current-password check is enforced twice, and the second place is the one that matters. public.\"users\" is under FORCE row level security and the runtime role cannot write it, so the change goes through auth.change_own_password, a new SECURITY DEFINER authority modelled on the reset one. That function compare-and-sets on the hash it was told to expect, so a service that stopped checking, or two requests racing, cannot overwrite a password nobody could prove they held. It is a separate function rather than a reuse: auth.replace_password_after_reset requires a PENDING challenge, and auth.upgrade_password_hash_format exists to rewrite a hash into the current format and is granted for that purpose - borrowing either would make this flow depend on a contract written for something else. Verified against a real PostgreSQL 16.13, not read: the correct current hash changes the password; a wrong one changes nothing; a soft-deleted, suspended or unknown user is refused; an unhashed value, an absent current credential, an unchanged password and an empty user id each raise. The privilege boundary was measured the same way - the runtime role can change a password THROUGH the authority and is refused a direct UPDATE on public.\"users\" with \"permission denied for table users\", and a role without the grant cannot execute the function at all. The database predicate was then removed and the wrong-hash case measured again: it succeeded. The binding is load-bearing, not decorative. What the response says is deliberately less than what the audit trail records. Past the point where the caller is already authenticated there is no account enumeration left to protect, so the uniform answer protects something else: the distinction between \"wrong password\" and \"this account is in a state that refuses\" is written to the audit chain as DENIED with a reason, and not handed back. Every session is revoked, including the calling one, exactly as the reset path does. Keeping the current session alive is friendlier and common, but it needs a second revocation semantics for the same credential event and a correct answer to \"which session is this one\"; signing everybody out is the conservative reading, is already established here, and is what removes a thief from a session the real user cannot otherwise reach. The credential version is bumped in the same transaction, which is what invalidates tokens minted against the old password. The current password carries no strength rule, on purpose. It is compared with what is stored, not with the policy: applying the policy to the value being replaced would lock exactly those accounts whose password predates the policy out of leaving it behind. It is still length-bounded. Eleven mutations were confirmed to break the tests, and one of them found a hole in these tests rather than in the code: storing `newPassword + padding` instead of a hash passed, because the assertion only required the stored value to differ from the plaintext and to be long enough. It now verifies the stored value AS a hash of the new password and as not a hash of the old one, and the mutation fails. A test that can be satisfied by something that is not the control is not a test. What this does not claim. There is no web UI for it; this is the API capability the requirement is about, and the profile page's stated boundary is unchanged until someone builds the screen. Nothing here asks for a second factor before a password change - that would be V7.5.x step-up, and this requirement asks for the current password, which it has. The migration is written and verified against a purpose-built schema on a real PostgreSQL 16; it has NOT been replayed against the full historical chain, because that chain does not apply cleanly in this environment - migration 20260627000000_v3_grainflow_production fails on a DATETIME column type, which is a pre-existing condition of the chain and not of this change."
     },
     {
       "requirementId": "V6.2.4",

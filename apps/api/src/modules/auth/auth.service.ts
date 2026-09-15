@@ -1,11 +1,12 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { upgradePasswordHashIfNeeded, verifyPassword } from './password-hashing';
+import { hashPassword, upgradePasswordHashIfNeeded, verifyPassword } from './password-hashing';
 import { randomUUID } from 'crypto';
 import {
   FINANCIAL_MFA_THRESHOLD_KOPECKS,
@@ -15,6 +16,7 @@ import {
 } from '../../common/types/request-user';
 import { AccessClaims, signAccessToken, verifyAccessClaims } from './access-token';
 import { appendAuthAudit } from './auth-audit';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import {
   buildOtpAuthUri,
@@ -829,6 +831,114 @@ export class AuthService {
       mfaVerified: Boolean(context.mfa_verified_at),
       mfaVerifiedAt: context.mfa_verified_at?.toISOString(),
     };
+  }
+
+  /**
+   * Replaces the caller's own password, having first made them prove the old one.
+   *
+   * OWASP ASVS 5.0 V6.2.3. Until this existed the only route to a new password
+   * was the emailed reset token, and a recovery flow cannot ask for the current
+   * password - not asking is what makes it recovery. The consequence was that a
+   * stolen session could not be undone from inside the session: the holder of a
+   * hijacked session could not be locked out by the real user without access to
+   * their mailbox.
+   *
+   * Three properties are deliberate:
+   *
+   * 1. The current password is verified against the stored hash with the same
+   *    comparison login uses, and the failure is audited. The check is repeated
+   *    inside auth.change_own_password as a compare-and-set, so the database
+   *    refuses too - a service that stopped checking would change nothing.
+   *
+   * 2. Every session is revoked, including this one, exactly as the reset path
+   *    does. Keeping the calling session alive is friendlier and is what many
+   *    applications do, but it needs a second revocation semantics for the same
+   *    credential event and a correct answer to "which session is this one".
+   *    Signing everybody out is the conservative reading and the one already
+   *    established here, and it is what removes a thief from a session the real
+   *    user cannot otherwise reach.
+   *
+   * 3. The answer is the same shape whether or not the password was right, past
+   *    the point where the caller is already authenticated. The caller holds a
+   *    session, so there is no account enumeration to protect here; what a
+   *    uniform answer protects is the useful distinction between "wrong password"
+   *    and "account in a state that refuses", which the audit trail records and
+   *    the response does not.
+   */
+  async changeOwnPassword(user: RequestUser, dto: ChangePasswordDto, ip?: string) {
+    const failure = () => new BadRequestException({
+      code: 'PASSWORD_CHANGE_REJECTED',
+      message: 'The current password is incorrect, or the new password cannot be used.',
+    });
+
+    if (dto.currentPassword === dto.newPassword) {
+      throw new BadRequestException({
+        code: 'PASSWORD_UNCHANGED',
+        message: 'The new password must differ from the current one.',
+      });
+    }
+
+    return this.repository.transaction(async (tx) => {
+      const credential = await this.repository.findLoginCredentialByEmail(tx, user.email);
+      // The session names the account; the lookup must land on the same one.
+      // Without this, an account whose email was reassigned would be changed by
+      // the wrong session.
+      if (!credential || credential.user_id !== user.id) {
+        await this.audit(tx, {
+          userId: user.id,
+          sessionId: user.sessionId,
+          action: 'auth.password.change',
+          outcome: 'DENIED',
+          reason: 'CREDENTIAL_NOT_RESOLVED',
+        });
+        throw failure();
+      }
+
+      if (!await verifyPassword(dto.currentPassword, credential.password_hash)) {
+        await this.audit(tx, {
+          userId: user.id,
+          sessionId: user.sessionId,
+          action: 'auth.password.change',
+          outcome: 'DENIED',
+          reason: 'CURRENT_PASSWORD_INCORRECT',
+        });
+        throw failure();
+      }
+
+      const now = new Date();
+      const nextHash = await hashPassword(dto.newPassword);
+      const notificationEmail = await this.repository.changeOwnPassword(
+        tx,
+        user.id,
+        nextHash,
+        credential.password_hash,
+        now,
+      );
+      if (!notificationEmail) {
+        // The compare-and-set refused: the stored hash moved between the check
+        // above and the write, or the account stopped being active.
+        await this.audit(tx, {
+          userId: user.id,
+          sessionId: user.sessionId,
+          action: 'auth.password.change',
+          outcome: 'DENIED',
+          reason: 'CREDENTIAL_CHANGED_CONCURRENTLY',
+        });
+        throw failure();
+      }
+
+      await this.repository.revokeAllUserSessions(tx, user.id, 'PASSWORD_CHANGED');
+      await this.audit(tx, {
+        userId: user.id,
+        sessionId: user.sessionId,
+        action: 'auth.password.change',
+        outcome: 'SUCCESS',
+        reason: 'PASSWORD_REPLACED_SESSIONS_REVOKED',
+        metadata: { ipHash: hashClientValue(ip) },
+      });
+
+      return { success: true, sessionsRevoked: true };
+    });
   }
 
   async revokeUserSessions(userId: string, reason = 'ADMIN_REVOKE') {

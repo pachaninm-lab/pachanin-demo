@@ -331,6 +331,48 @@ export class PersistentAuthRepository {
     return rows[0]?.upgraded === true;
   }
 
+  /**
+   * Replaces a password the caller proved they hold.
+   *
+   * public."users" is under FORCE row level security and the runtime role cannot
+   * write it, so this goes through auth.change_own_password exactly as the reset
+   * path goes through auth.replace_password_after_reset. The expected hash is
+   * passed down rather than checked only above: the function compare-and-sets on
+   * it, so two requests racing - or a caller that skipped the check - cannot
+   * overwrite a password nobody could prove they held.
+   */
+  async changeOwnPassword(
+    client: AuthSqlClient,
+    userId: string,
+    nextHash: string,
+    expectedHash: string,
+    now: Date,
+  ): Promise<string | null> {
+    const [result] = await client.$queryRaw<Array<{
+      updated: boolean;
+      notification_email: string | null;
+    }>>(Prisma.sql`
+      SELECT updated, notification_email
+      FROM auth.change_own_password(${userId}, ${nextHash}, ${expectedHash}, ${now})
+    `);
+    if (!result?.updated || !result.notification_email) return null;
+
+    // The same bookkeeping the reset path performs. The credential version is
+    // what invalidates tokens minted against the old password, so a change that
+    // skipped it would leave those tokens working.
+    await client.$executeRaw(Prisma.sql`
+      INSERT INTO auth.credential_states (user_id, password_changed_at)
+      VALUES (${userId}, ${now})
+      ON CONFLICT (user_id) DO UPDATE
+      SET credential_version = auth.credential_states.credential_version + 1,
+          password_changed_at = EXCLUDED.password_changed_at,
+          failed_login_count = 0,
+          locked_until = NULL,
+          updated_at = NOW()
+    `);
+    return result.notification_email;
+  }
+
   async findIdentitiesByUser(
     client: AuthSqlClient,
     userId: string,

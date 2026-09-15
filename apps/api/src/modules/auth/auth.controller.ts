@@ -10,6 +10,7 @@ import { AuthService } from './auth.service';
 import { PasswordResetService } from './password-reset.service';
 import { RegistrationApplicationService } from './registration-application.service';
 import { RegistrationDecisionService } from './registration-decision.service';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RefreshDto } from './dto/refresh.dto';
@@ -60,6 +61,26 @@ export class AuthController {
     @Ip() ip?: string,
   ) {
     return this.authService.selectMembership(dto, userAgent, ip);
+  }
+
+  /**
+   * OWASP ASVS 5.0 V6.2.2 and V6.2.3: the authenticated user changes their own
+   * password, proving the current one.
+   *
+   * Bounded per account rather than per address. The caller is authenticated, so
+   * the account is the thing worth bounding, and the value being guessed is the
+   * current password - an unbounded route here would be an oracle for it from
+   * inside a session that had already been stolen.
+   */
+  @HttpCode(200)
+  @RateLimit({ name: 'auth_password_change', scope: 'user', limit: 5, windowSeconds: 900, limitEnv: 'RATE_LIMIT_AUTH_PASSWORD_CHANGE', windowEnv: 'RATE_LIMIT_AUTH_PASSWORD_CHANGE_WINDOW_SECONDS' })
+  @Post('password/change')
+  changePassword(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: ChangePasswordDto,
+    @Ip() ip?: string,
+  ) {
+    return this.authService.changeOwnPassword(user, dto, ip);
   }
 
   @Public()
