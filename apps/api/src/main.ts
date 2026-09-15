@@ -75,6 +75,12 @@ async function bootstrap() {
   app.use((_req: any, res: any, next: () => void) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
+    // V3.5.8: stops a foreign page loading an authenticated response of this
+    // API as a subresource on the user's behalf. same-site rather than
+    // same-origin because the platform is served from two origins that share a
+    // registrable domain - the apex and control. - and they are one
+    // application, not an inappropriate cross-origin caller.
+    res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
     res.setHeader('X-XSS-Protection', '1; mode=block');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
