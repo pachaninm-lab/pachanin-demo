@@ -1429,6 +1429,12 @@
     ],
     "fix/gitleaks-release-authority-attestation-20260912": [
       "apps/tai/tests/test_gitleaks_release_authority.py"
+    ],
+    "security/asvs-v824-adaptive-absence-repair-4459": [
+      "scripts/security/build-asvs-matrix.mjs",
+      "scripts/security/build-asvs-matrix.test.mjs",
+      "docs/security/asvs-applicability-decisions.json",
+      "docs/platform-v7/autopilot/autopilot-state.json"
     ]
   },
   "currentAcceptance": [
