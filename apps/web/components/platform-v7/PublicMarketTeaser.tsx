@@ -124,7 +124,7 @@ export function PublicMarketTeaser({ locale }: { locale: string }) {
 async function PublicMarketLotResults({ locale }: { locale: Locale }) {
   const copy = COPY[locale];
   const market = await getPublicMarketLots();
-  const items = market.items.slice(0, 6);
+  const items = market.items;
 
   if (!market.available) {
     return <MarketState title={copy.degradedTitle} text={copy.degradedText} />;

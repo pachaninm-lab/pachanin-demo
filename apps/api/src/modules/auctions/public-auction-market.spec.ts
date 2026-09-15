@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { PublicAuctionMarketService } from './public-auction-market.service';
 
 const REPO_ROOT = resolve(__dirname, '../../../../..');
 const minorUnitMigrationPath = 'apps/api/prisma/migrations/20260715013100_auction_atomic_execution/migration.sql';
@@ -124,7 +125,7 @@ describe('anonymous public Auction market projection', () => {
     expect(publicFunction).toContain('v_observed_at AS observed_at');
     expect(publicFunction).toContain('WHERE NOT EXISTS (SELECT 1 FROM live_cards)');
     expect(service).toContain('SELECT *');
-    expect(service).toContain('FROM auction.list_public_market_lot_cards(${PUBLIC_MARKET_LIMIT})');
+    expect(service).toContain('FROM auction.list_public_market_lot_cards(${PUBLIC_MARKET_LIMIT + 1})');
     expect(service).not.toContain('WITH observation AS MATERIALIZED');
     expect(service).not.toContain('LEFT JOIN LATERAL');
     expect(service).not.toContain('transaction_timestamp()');
@@ -140,7 +141,7 @@ describe('anonymous public Auction market projection', () => {
 
   it('serves a bounded PostgreSQL authority envelope without tenant, seller or database activity identifiers', () => {
     const service = read(servicePath);
-    expect(service).toContain('auction.list_public_market_lot_cards(${PUBLIC_MARKET_LIMIT})');
+    expect(service).toContain('auction.list_public_market_lot_cards(${PUBLIC_MARKET_LIMIT + 1})');
     expect(service).toContain("source: 'POSTGRESQL'");
     expect(service).toContain("scope: 'PUBLIC_MARKET'");
     expect(service).toContain("projection: 'ANONYMIZED_PUBLIC_MARKET'");
@@ -244,5 +245,101 @@ describe('anonymous public Auction market projection', () => {
     expect(teaser).toContain("data-testid='public-market-teaser'");
     expect(css).toContain('@media (max-width: 640px)');
     expect(css).toContain('@media (max-width: 390px)');
+  });
+});
+
+describe('public market teaser page bounds', () => {
+  const observedAt = new Date('2026-09-15T12:00:00.000Z');
+  const lotRow = (index: number) => ({
+    observed_at: observedAt,
+    public_ref: `market-00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+    culture: 'wheat',
+    grade: '3',
+    volume_tons: '10.500000',
+    start_price_kopecks_per_ton: '9007199254740993',
+    region: 'Тамбовская область',
+    auction_ends_at: new Date('2026-09-16T12:00:00.000Z'),
+    status: 'BIDDING',
+    verification_status: 'DECLARED',
+    trade_permission: 'PUBLIC_ALLOWED',
+    lot_version: String(index + 1),
+    projected_at: observedAt,
+  });
+  const emptyRow = {
+    observed_at: observedAt,
+    public_ref: null,
+    culture: null,
+    grade: null,
+    volume_tons: null,
+    start_price_kopecks_per_ton: null,
+    region: null,
+    auction_ends_at: null,
+    status: null,
+    verification_status: null,
+    trade_permission: null,
+    lot_version: null,
+    projected_at: null,
+  };
+  const harness = (rows: unknown[]) => {
+    const query = jest.fn().mockResolvedValue(rows);
+    const prisma = { $queryRaw: query } as unknown as ConstructorParameters<typeof PublicAuctionMarketService>[0];
+    return { query, service: new PublicAuctionMarketService(prisma) };
+  };
+
+  it.each([0, 1, 6, 7])('returns one bounded six-card page for %i eligible rows', async (count) => {
+    const rows = count === 0 ? [emptyRow] : Array.from({ length: count }, (_, index) => lotRow(index));
+    const { query, service } = harness(rows);
+    const result = await service.listLots();
+    const returned = Math.min(count, 6);
+
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(query.mock.calls[0][0].values).toEqual([7]);
+    expect(result.items).toHaveLength(returned);
+    expect(result.items.map((item) => item.publicRef)).toEqual(rows.slice(0, returned).map((row) => row.public_ref));
+    expect(result.pageInfo).toEqual({ limit: 6, returned, hasMore: count > 6 });
+    expect(result.authority.observedAt).toBe(observedAt.toISOString());
+    expect(result.authority.version).toBe(String(returned));
+    for (const item of result.items) {
+      expect(item.startPriceKopecksPerTon).toBe('9007199254740993');
+      expect(item.volumeTons).toBe('10.5');
+      expect(item.verificationStatus).toBe('DECLARED');
+    }
+  });
+
+  it('rejects a result exceeding the requested page plus one-row lookahead', async () => {
+    const { service } = harness(Array.from({ length: 8 }, (_, index) => lotRow(index)));
+    await expect(service.listLots()).rejects.toMatchObject({
+      response: { code: 'PUBLIC_MARKET_PAGE_BOUND_EXCEEDED' },
+    });
+  });
+
+  it('validates the lookahead row before using it as evidence of more results', async () => {
+    const rows = Array.from({ length: 7 }, (_, index) => lotRow(index));
+    rows[6].auction_ends_at = observedAt;
+    const { service } = harness(rows);
+    await expect(service.listLots()).rejects.toMatchObject({
+      response: { code: 'PUBLIC_MARKET_AUCTION_NOT_LIVE' },
+    });
+  });
+
+  it('rejects clock drift in the lookahead row instead of publishing mixed snapshots', async () => {
+    const rows = Array.from({ length: 7 }, (_, index) => lotRow(index));
+    rows[6].observed_at = new Date(observedAt.getTime() + 1);
+    const { service } = harness(rows);
+    await expect(service.listLots()).rejects.toMatchObject({
+      response: { code: 'PUBLIC_MARKET_POSTGRESQL_CLOCK_DRIFT' },
+    });
+  });
+
+  it('renders the complete API page without discarding another subset in the web consumer', () => {
+    const teaser = read(webTeaserPath);
+    const childStart = teaser.indexOf('async function PublicMarketLotResults');
+    const childEnd = teaser.indexOf('\nfunction LotCard', childStart);
+    expect(childStart).toBeGreaterThan(-1);
+    expect(childEnd).toBeGreaterThan(childStart);
+    const child = teaser.slice(childStart, childEnd);
+    expect(child).toContain('const items = market.items;');
+    expect(child).toContain('{items.map((lot) => (');
+    expect(child).not.toMatch(/\.slice\s*\(/);
   });
 });

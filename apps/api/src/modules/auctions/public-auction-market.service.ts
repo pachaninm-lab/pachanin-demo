@@ -2,7 +2,7 @@ import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
-const PUBLIC_MARKET_LIMIT = 12;
+const PUBLIC_MARKET_LIMIT = 6;
 const PUBLIC_REF = /^market-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const POSITIVE_DECIMAL = /^(?:0|[1-9][0-9]{0,19})(?:\.[0-9]{1,6})?$/;
 const NON_NEGATIVE_INTEGER = /^(?:0|[1-9][0-9]{0,18})$/;
@@ -35,20 +35,25 @@ export class PublicAuctionMarketService {
     // including a single canonical empty row. The API therefore never compares
     // projection data against an application clock, a second DB statement, or a
     // timestamp obtained from another database node/connection.
+    // Read one extra eligible row in the same snapshot to prove hasMore.
     const rows = await this.prisma.$queryRaw<PublicMarketLotRow[]>(Prisma.sql`
       SELECT *
-      FROM auction.list_public_market_lot_cards(${PUBLIC_MARKET_LIMIT})
+      FROM auction.list_public_market_lot_cards(${PUBLIC_MARKET_LIMIT + 1})
       ORDER BY projected_at DESC NULLS LAST,
                auction_ends_at ASC NULLS LAST,
                public_ref ASC NULLS LAST
     `);
+
+    if (rows.length > PUBLIC_MARKET_LIMIT + 1) {
+      throw invalidProjection('PUBLIC_MARKET_PAGE_BOUND_EXCEEDED');
+    }
 
     const observedAt = rows[0]?.observed_at;
     if (!(observedAt instanceof Date) || !Number.isFinite(observedAt.getTime())) {
       throw invalidProjection('PUBLIC_MARKET_POSTGRESQL_CLOCK_UNAVAILABLE');
     }
 
-    const items = rows.flatMap((row) => {
+    const projectedItems = rows.flatMap((row) => {
       if (
         !(row.observed_at instanceof Date)
         || !Number.isFinite(row.observed_at.getTime())
@@ -75,9 +80,10 @@ export class PublicAuctionMarketService {
       return [parsePublicMarketLot(row, observedAt)];
     });
 
-    const version = rows.reduce((current, row) => {
-      if (row.lot_version === null) return current;
-      const candidate = parsePositiveBigInt(row.lot_version, 'lot_version');
+    const hasMore = projectedItems.length > PUBLIC_MARKET_LIMIT;
+    const items = projectedItems.slice(0, PUBLIC_MARKET_LIMIT);
+    const version = items.reduce((current, item) => {
+      const candidate = parsePositiveBigInt(item.version, 'lot_version');
       return candidate > current ? candidate : current;
     }, 0n);
 
@@ -94,7 +100,7 @@ export class PublicAuctionMarketService {
       pageInfo: Object.freeze({
         limit: PUBLIC_MARKET_LIMIT,
         returned: items.length,
-        hasMore: items.length === PUBLIC_MARKET_LIMIT,
+        hasMore,
       }),
     });
   }
