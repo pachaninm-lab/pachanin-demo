@@ -533,7 +533,7 @@ test('Local Qwen workflow uses canonical Qwen3 model-host, remains bounded and f
   assert.match(workflow, /"required":\["findings"\]/u);
   assert.match(workflow, /set\(value\)!=\{'findings'\}/u);
   assert.match(workflow, /verdict='PASS' if not all_findings else 'BLOCK'/u);
-  assert.match(workflow, /Do not author verdict or summary/u);
+  assert.match(workflow, /[Dd]o not author verdict or summary/u);
   assert.match(workflow, /json\.dumps\(value,ensure_ascii=True,sort_keys=True,separators=/u);
   assert.doesNotMatch(workflow, /json\.dumps\(value,ensure_ascii=False,sort_keys=True,separators=/u);
   assert.doesNotMatch(workflow, /"required":\["verdict","findings","summary"\]/u);
@@ -565,7 +565,7 @@ const rejectedEvidenceHarness=String.raw`
 import ast, hashlib, json, os, pathlib, re, subprocess, sys, tempfile
 remote, validator, transport, cleanup, scenario = sys.argv[1:]
 tree=ast.parse(remote)
-constants={'SPECULATIVE_REASON','SECURITY_CLASSIFICATION','ROUTE_TEST_REFERENCE'}
+constants={'SPECULATIVE','SPECULATIVE_REASON','SECURITY_CLASSIFICATION','ROUTE_TEST_REFERENCE'}
 functions={'fail','policy_violation','repair_user','save_rejected'}
 definitions=[node for node in tree.body if isinstance(node,ast.FunctionDef) and node.name in functions or isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id in constants for t in node.targets)]
 loop=[node for node in tree.body if isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='repairs' for t in node.targets) or isinstance(node,ast.With) and any(isinstance(i.context_expr,ast.Call) and isinstance(i.context_expr.func,ast.Attribute) and isinstance(i.context_expr.func.value,ast.Name) and i.context_expr.func.value.id=='output_path' for i in node.items)]
