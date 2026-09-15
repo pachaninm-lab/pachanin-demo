@@ -1,0 +1,191 @@
+name: Apply Next 15.5.21 security hotfix
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+    paths: [.github/workflows/apply-next-15-5-21-hotfix.yml]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: apply-next-15-5-21-hotfix
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: github.head_ref == 'security/next-15-5-21-hotfix'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: security/next-15-5-21-hotfix
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Build exact patch from current main
+        env:
+          TARGET_BRANCH: agent/ir-sec-next-15-5-16-final
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch --no-tags origin main "$TARGET_BRANCH"
+          expected_target="$(git rev-parse "origin/$TARGET_BRANCH" 2>/dev/null || true)"
+          printf '%s\n' "$expected_target" > "$RUNNER_TEMP/expected-target.txt"
+          git reset --hard origin/main
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          package_path = Path('apps/web/package.json')
+          package = json.loads(package_path.read_text())
+          current = package['dependencies'].get('next')
+          if current != '15.5.18':
+              raise SystemExit(f'unexpected Next.js baseline: {current!r}')
+          package['dependencies']['next'] = '15.5.21'
+          package_path.write_text(json.dumps(package, ensure_ascii=False, indent=2) + '\n')
+
+          contracts_path = Path('apps/web/tests/unit/next15RuntimeContracts.test.ts')
+          contracts = contracts_path.read_text()
+          replacements = {
+              'const ROOT = process.cwd();': "const ROOT = path.resolve(__dirname, '../../../..');",
+              "expect(webPackage.dependencies?.next).toBe('15.5.18');": "expect(webPackage.dependencies?.next).toBe('15.5.21');",
+              "for (const file of sourceFiles('apps/web/app/api')) {\n      if (hasUnawaitedCall(read(file), 'runtimeAuthHeaders')) unresolved.push(file);": "for (const file of sourceFiles('apps/web/app/api')) {\n      if (file.endsWith('/runtime-auth-helpers.ts')) continue;\n      if (hasUnawaitedCall(read(file), 'runtimeAuthHeaders')) unresolved.push(file);",
+          }
+          for needle, replacement in replacements.items():
+              if contracts.count(needle) != 1:
+                  raise SystemExit(f'Next.js runtime contracts baseline is missing or ambiguous: {needle}')
+              contracts = contracts.replace(needle, replacement)
+          contracts_path.write_text(contracts)
+
+          boundary_path = Path('apps/web/tests/unit/next15RuntimeBoundary.test.ts')
+          boundary = boundary_path.read_text()
+          boundary_needle = "expect(packageJson.dependencies?.next).toBe('15.5.16');"
+          if boundary.count(boundary_needle) != 1:
+              raise SystemExit('Next.js runtime boundary baseline is missing or ambiguous')
+          boundary_path.write_text(boundary.replace(boundary_needle, "expect(packageJson.dependencies?.next).toBe('15.5.21');"))
+          PY
+
+          pnpm install --lockfile-only
+          pnpm install --frozen-lockfile
+          node -e "const p=require('./apps/web/package.json'); if(p.dependencies.next!=='15.5.21'||p.dependencies.react!=='18.3.1'||p.dependencies['react-dom']!=='18.3.1') process.exit(1)"
+          grep -Fq "const ROOT = path.resolve(__dirname, '../../../..');" apps/web/tests/unit/next15RuntimeContracts.test.ts
+          grep -Fq "if (file.endsWith('/runtime-auth-helpers.ts')) continue;" apps/web/tests/unit/next15RuntimeContracts.test.ts
+          grep -Fq "expect(webPackage.dependencies?.next).toBe('15.5.21');" apps/web/tests/unit/next15RuntimeContracts.test.ts
+          grep -Fq "expect(packageJson.dependencies?.next).toBe('15.5.21');" apps/web/tests/unit/next15RuntimeBoundary.test.ts
+          git diff --check
+
+      - name: Run strict web typecheck
+        run: pnpm --filter @pc/web typecheck
+
+      - name: Run coupled Next.js runtime contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/security
+          set +e
+          pnpm --filter @pc/web exec vitest run \
+            tests/unit/next15RuntimeContracts.test.ts \
+            tests/unit/next15RuntimeBoundary.test.ts \
+            > artifacts/security/next-contract-tests.log 2>&1
+          test_rc=$?
+          set -e
+          if (( test_rc != 0 )); then
+            tail -n 260 artifacts/security/next-contract-tests.log > artifacts/security/next-contract-tests-failure.txt
+            exit "$test_rc"
+          fi
+          tail -n 120 artifacts/security/next-contract-tests.log > artifacts/security/next-contract-tests-pass.txt
+
+      - name: Run production web build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: pnpm --filter @pc/web build
+
+      - name: Collect canonical production dependency audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/security
+          pnpm -r list --prod --json --depth Infinity > artifacts/security/pnpm-production-dependencies.json
+          set +e
+          NPM_BULK_AUDIT_INPUT=artifacts/security/pnpm-production-dependencies.json \
+          PNPM_AUDIT_JSON=artifacts/security/pnpm-audit.json \
+          NPM_REGISTRY_URL=https://registry.npmjs.org \
+          node docs/platform-v7/autopilot/collect-npm-bulk-audit.mjs \
+            > artifacts/security/pnpm-audit.stdout.txt \
+            2> artifacts/security/pnpm-audit.stderr.txt
+          audit_exit=$?
+          set -e
+          echo "PNPM_AUDIT_EXIT=$audit_exit" >> "$GITHUB_ENV"
+
+      - name: Evaluate canonical audit fail closed
+        env:
+          SECURITY_EXACT_HEAD: ${{ github.event.pull_request.head.sha }}
+          PNPM_AUDIT_JSON: artifacts/security/pnpm-audit.json
+          PNPM_AUDIT_STDERR: artifacts/security/pnpm-audit.stderr.txt
+          PNPM_AUDIT_REPORT: artifacts/security/pnpm-audit-evaluation.json
+        run: node docs/platform-v7/autopilot/evaluate-pnpm-audit.mjs
+
+      - name: Validate bounded evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const report = JSON.parse(fs.readFileSync('artifacts/security/pnpm-audit-evaluation.json', 'utf8'));
+          if (report.passed !== true || report.blocked.length !== 0 || report.highOrCriticalFindings.length !== 0) process.exit(1);
+          NODE
+
+      - name: Publish verified four-file hotfix PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_BRANCH: agent/ir-sec-next-15-5-16-final
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add apps/web/package.json apps/web/tests/unit/next15RuntimeContracts.test.ts apps/web/tests/unit/next15RuntimeBoundary.test.ts pnpm-lock.yaml
+          git diff --cached --name-only | sort > /tmp/actual-files
+          printf '%s\n' apps/web/package.json apps/web/tests/unit/next15RuntimeContracts.test.ts apps/web/tests/unit/next15RuntimeBoundary.test.ts pnpm-lock.yaml | sort > /tmp/expected-files
+          diff -u /tmp/expected-files /tmp/actual-files
+          git commit -m 'fix(web): update Next.js to 15.5.21 for security advisories'
+          GITHUB_HEAD_REF="$TARGET_BRANCH" BASE_REF=origin/main HEAD_REF=HEAD bash scripts/p7-autopilot-guard.sh
+
+          expected_target="$(cat "$RUNNER_TEMP/expected-target.txt")"
+          if [[ -n "$expected_target" ]]; then
+            git push --force-with-lease="refs/heads/${TARGET_BRANCH}:${expected_target}" origin "HEAD:refs/heads/${TARGET_BRANCH}"
+          else
+            git push origin "HEAD:refs/heads/${TARGET_BRANCH}"
+          fi
+
+          pr_number="$(gh pr list --repo "$GITHUB_REPOSITORY" --base main --head "$TARGET_BRANCH" --state open --json number --jq '.[0].number // empty')"
+          body='Exact security hotfix for GHSA-89xv-2m56-2m9x, GHSA-m99w-x7hq-7vfj and GHSA-p9j2-gv94-2wf4. Changes only apps/web/package.json, pnpm-lock.yaml and two directly coupled Next.js runtime contracts. The contracts are anchored to repository paths and exclude helper definitions while checking every call site. No exception, React upgrade, product logic or production deployment change. Source acceptance includes focused contract tests, strict typecheck, production build and zero HIGH/CRITICAL audit. The independent full-web-suite baseline debt is tracked in issue #3099.'
+          if [[ -z "$pr_number" ]]; then
+            gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$TARGET_BRANCH" --title 'Patch Next.js 15.5.18 to 15.5.21' --body "$body"
+            pr_number="$(gh pr list --repo "$GITHUB_REPOSITORY" --base main --head "$TARGET_BRANCH" --state open --json number --jq '.[0].number')"
+          else
+            gh pr edit "$pr_number" --repo "$GITHUB_REPOSITORY" --body "$body"
+          fi
+          head_sha="$(git rev-parse HEAD)"
+          gh issue comment 3043 --repo "$GITHUB_REPOSITORY" --body "Next.js 15.5.21 hotfix PR refreshed: #${pr_number}; clean head \`${head_sha}\`; current-main lineage; focused contracts, build and source audit PASS."
+
+      - name: Upload audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-15-5-21-security-hotfix-${{ github.run_id }}
+          path: artifacts/security
+          if-no-files-found: warn
+          retention-days: 90
