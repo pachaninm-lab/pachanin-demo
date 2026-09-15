@@ -1429,6 +1429,10 @@
     ],
     "fix/gitleaks-release-authority-attestation-20260912": [
       "apps/tai/tests/test_gitleaks_release_authority.py"
+    ],
+    "fix/openapi-unparseable-dispute-summary-4459": [
+      "apps/api/openapi.yaml",
+      "docs/platform-v7/autopilot/autopilot-state.json"
     ]
   },
   "currentAcceptance": [
