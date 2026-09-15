@@ -9056,23 +9056,59 @@
     {
       "requirementId": "V13.4.6",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "apps/api/src/health.controller.ts"
+        "apps/api/src/health.controller.ts",
+        "apps/api/src/health-version-disclosure.spec.ts",
+        "apps/api/src/main.ts",
+        "apps/api/openapi.yaml"
       ],
       "conditions": [
         {
-          "condition": "the unauthenticated version endpoint still returns build date, commit and Node version alongside the version string",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the version route still requires a session and still does not name the Node runtime",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/api/src/health.controller.ts"
           ],
           "patterns": [
-            "nodeversion: process.version"
+            "version(): { version: string; buildDate: string; commit: string } {"
+          ]
+        },
+        {
+          "condition": "no second version handler is registered straight onto the adapter, where no guard could reach it",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts"
+          ],
+          "patterns": [
+            "getHttpAdapter().get('/version'"
+          ]
+        },
+        {
+          "condition": "the published contract no longer advertises the route as needing no credentials",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/openapi.yaml"
+          ],
+          "patterns": [
+            "summary: Application version\n      security: []"
+          ]
+        },
+        {
+          "condition": "both halves are still tested - the route that stopped being public, and the bootstrap that stopped registering an unguardable twin",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/health-version-disclosure.spec.ts"
+          ],
+          "patterns": [
+            "it('no longer answers without a session'",
+            "it('does not name the Node runtime any more'",
+            "it('has no second, unguardable handler registered on the adapter'",
+            "it('leaves the probes public, which is what they are for'"
           ]
         }
       ],
-      "note": "A dedicated, explicitly public endpoint returns detailed backend version information with no authentication: GET /version responds with the application version, build date, commit hash and Node.js runtime version. This is precisely what the requirement names - detailed version information of backend components, exposed rather than withheld. Unlike V13.4.5, this requirement carries no \"unless explicitly intended\" allowance; being deliberate does not satisfy it."
+      "note": "Closed. GET /version no longer answers an unauthenticated caller and no longer names the Node runtime. Two handlers answered that path, and the earlier decision pinned only one of them. Besides the controller route, main.ts registered a second handler straight onto Express through getHttpAdapter(). That one ran before Nest's router and bypassed every guard, so it could not have been authenticated by any decorator - and it published the build commit, the build date and NODE_ENV. It is removed; the controller route is now the only one and it is no longer @Public(). process.version is dropped outright rather than gated. The Node runtime is a backend component in its own right and its patch level is the single most useful thing to learn here, and no caller needed it from this endpoint. Build version, build date and commit are kept behind the session rather than deleted, because an operator has a real use for them and withholding them from everyone would be the easy way to pass while taking a diagnostic away. Nothing consumed the route unauthenticated: no script, workflow or compose file fetches it, and the three OpenAPI documents that declared it with an empty security list now declare the session requirement and a 401. The liveness and readiness probes stay public, which is what they are for, and a condition holds them that way so this fix cannot quietly widen into them. Four mutations were confirmed to break it: making the route public again, reintroducing the adapter-level handler, and deleting the adapter probes along with it all fail an assertion; putting process.version back fails to compile, because the declared return type no longer admits it, and widening that type as well then fails the assertion on the response keys."
     },
     {
       "requirementId": "V13.4.7",

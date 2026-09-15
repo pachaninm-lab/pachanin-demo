@@ -67,11 +67,11 @@ paths:
   /version:
     get:
       tags: [Runtime]
-      summary: Runtime version and build identity
+      summary: Build version and build identity
       operationId: getVersion
-      security: []
       responses:
-        '200': { description: Version, commit, build date and environment identity. }
+        '200': { description: Version, commit and build date. Requires a session (V13.4.6). }
+        '401': { description: Unauthenticated. }
   /api/auth/me:
     get:
       tags: [Identity]

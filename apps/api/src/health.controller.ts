@@ -198,14 +198,22 @@ export class HealthController {
     ].join('\n');
   }
 
-  @Public()
+  /**
+   * V13.4.6: not @Public(). Build version, build date and commit identify the
+   * backend precisely enough to look up which published advisories apply to it,
+   * which is what the requirement is about; an operator still needs them, so
+   * they are kept behind a session rather than removed.
+   *
+   * process.version is gone outright. The Node runtime is a backend component
+   * in its own right and its patch level is the single most useful thing an
+   * attacker can learn here, and no caller needs it from this endpoint.
+   */
   @Get('version')
-  version(): { version: string; buildDate: string; commit: string; nodeVersion: string } {
+  version(): { version: string; buildDate: string; commit: string } {
     return {
       version: APP_VERSION,
       buildDate: BUILD_DATE,
       commit: GIT_COMMIT,
-      nodeVersion: process.version,
     };
   }
 

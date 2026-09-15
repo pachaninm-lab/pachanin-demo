@@ -208,11 +208,12 @@ paths:
   /version:
     get:
       summary: Application version
-      security: []
       tags: [System]
       responses:
         "200":
-          description: Version info
+          description: Build version, build date and commit. Requires a session (V13.4.6).
+        "401":
+          description: Unauthenticated.
 
   /api/auth/register:
     post:
