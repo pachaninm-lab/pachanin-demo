@@ -137,6 +137,7 @@ export async function getFirstCustomerWorkspace(
     const response = await fetch(serverApiUrl(QUEUE_ENDPOINT[surface]), {
       cache: 'no-store',
       headers: await serverAuthHeaders(),
+      redirect: 'error',
     });
     const correlationId = response.headers.get('x-correlation-id');
     if (!response.ok) {

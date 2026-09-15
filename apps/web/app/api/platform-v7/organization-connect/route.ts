@@ -157,6 +157,7 @@ export async function POST(request: Request) {
       body: JSON.stringify(payload),
       cache: 'no-store',
       signal: AbortSignal.timeout(7_000),
+      redirect: 'error',
     });
     const result = await upstream.json().catch(() => ({})) as Record<string, unknown>;
     if (!upstream.ok) {

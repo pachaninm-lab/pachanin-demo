@@ -450,6 +450,7 @@ export class AiAssistantService {
           chat_template_kwargs: { enable_thinking: false },
         }),
         signal: controller.signal,
+        redirect: 'error',
       });
       if (!response.ok) throw new Error(`provider_http_${response.status}`);
       if (!response.body) throw new Error('provider_missing_stream');
@@ -521,6 +522,7 @@ export class AiAssistantService {
           chat_template_kwargs: { enable_thinking: false },
         }),
         signal: controller.signal,
+        redirect: 'error',
       });
       if (!response.ok) throw new Error(`provider_http_${response.status}`);
       const payload = await response.json() as {

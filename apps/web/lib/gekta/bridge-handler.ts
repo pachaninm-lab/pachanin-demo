@@ -54,6 +54,7 @@ export async function forwardToGekta(
       ...(body ? { body } : {}),
       signal: controller.signal,
       cache: 'no-store',
+      redirect: 'error',
     });
     const text = await upstream.text();
     return new NextResponse(text, {

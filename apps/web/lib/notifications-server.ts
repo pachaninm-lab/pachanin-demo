@@ -4,7 +4,8 @@ export async function getNotifications() {
   try {
     const response = await fetch(serverApiUrl('/notifications'), {
       cache: 'no-store',
-      headers: await serverAuthHeaders()
+      headers: await serverAuthHeaders(),
+      redirect: 'error'
     });
     if (!response.ok) throw new Error(`notifications ${response.status}`);
     return response.json();

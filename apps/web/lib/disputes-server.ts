@@ -39,6 +39,7 @@ export async function getDisputesSnapshot(): Promise<DisputesSnapshot> {
     const res = await fetch(serverApiUrl('/disputes'), {
       cache: 'no-store',
       headers: await serverAuthHeaders(),
+      redirect: 'error',
     });
     if (!res.ok) return { disputes: [], isApiAvailable: false };
     const data: unknown = await res.json();
@@ -62,6 +63,7 @@ export async function getDispute(id: string): Promise<DisputeServerItem | null> 
     const res = await fetch(serverApiUrl(`/disputes/${encodeURIComponent(normalizedId)}`), {
       cache: 'no-store',
       headers: await serverAuthHeaders(),
+      redirect: 'error',
     });
     if (!res.ok) return null;
     const dispute = parseDispute(await res.json());

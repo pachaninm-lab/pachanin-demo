@@ -70,6 +70,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({ token, password }),
       cache: 'no-store',
       signal: AbortSignal.timeout(7_000),
+      redirect: 'error',
     });
     const payload = await apiResponse.json().catch(() => ({} as Record<string, unknown>));
     if (!apiResponse.ok || payload.ok !== true || payload.mfaReenrollmentRequired !== true) {

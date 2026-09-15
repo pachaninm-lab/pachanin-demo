@@ -7,6 +7,7 @@ export async function GET() {
     const response = await fetch(runtimeApiUrl('/runtime/me/stream'), {
       cache: 'no-store',
       headers: await runtimeAuthHeaders({ Accept: 'text/event-stream' }),
+      redirect: 'error',
     });
     return new Response(response.body, {
       status: response.ok ? 200 : response.status,

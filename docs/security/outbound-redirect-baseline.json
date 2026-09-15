@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "standard": "OWASP ASVS 5.0.0",
+  "requirement": "V15.3.2",
+  "policy": "Every fetch call site in backend code must state what it does with a redirect. A site is listed here only when the default cannot be replaced, and each entry says why. The key is the file, the call's first argument and the ordinal of that argument within the file, so an entry survives edits elsewhere in the file but stops matching when the call itself changes. The category is re-checked on every run; the reason is for the reader.",
+  "categories": {
+    "browser": "Runs in the browser, where the fetch specification and the origin model govern redirects. Re-checked: the call must name a relative URL, which Node cannot fetch, or the module must reach for a browser-only global.",
+    "intended-redirect": "The backend deliberately follows a redirect because the protocol requires it. Nothing about this is machine-checkable, so it rests on the reason alone."
+  },
+  "sites": [
+    {
+      "key": "apps/web/lib/driver-actions.ts::'/api/proxy/evidence/upload'::0",
+      "file": "apps/web/lib/driver-actions.ts",
+      "category": "browser",
+      "reason": "Runs in the driver's browser: it uploads a File through FormData and posts to the relative path /api/proxy/evidence/upload, which Node cannot fetch at all because it has no origin to resolve it against. The redirect posture here is the browser's, not the backend's."
+    },
+    {
+      "key": "apps/web/lib/gekta/server-workspace.ts::'/api/gekta/auth/refresh'::0",
+      "file": "apps/web/lib/gekta/server-workspace.ts",
+      "category": "browser",
+      "reason": "Despite the file name this function is browser code: it reads document.cookie for the CSRF token, coordinates through navigator.locks, and posts to the relative path /api/gekta/auth/refresh. The module is named for the workspace being server-authoritative, not for where this code runs."
+    },
+    {
+      "key": "apps/web/lib/gekta/server-workspace.ts::`/api/gekta/account/${path}`::0",
+      "file": "apps/web/lib/gekta/server-workspace.ts",
+      "category": "browser",
+      "reason": "Browser code for the same reason as the refresh call above: a relative /api/gekta/account path, credentials: 'same-origin', and a CSRF token read out of document.cookie. Node has no origin against which the path would resolve."
+    },
+    {
+      "key": "apps/web/lib/gekta/server-workspace.ts::'/api/gekta/auth/logout'::0",
+      "file": "apps/web/lib/gekta/server-workspace.ts",
+      "category": "browser",
+      "reason": "Browser code: posts to the relative path /api/gekta/auth/logout with a CSRF token from document.cookie and then clears window.localStorage, none of which exists on the server."
+    },
+    {
+      "key": "apps/web/lib/offline.ts::endpoint::0",
+      "file": "apps/web/lib/offline.ts",
+      "category": "browser",
+      "reason": "The offline replay queue, which lives in window.localStorage and drains from the browser when connectivity returns. Its endpoint defaults to the relative /api/offline-sync and it sends credentials: 'same-origin'; there is no server context in which this runs."
+    },
+    {
+      "key": "apps/web/lib/platform-v7/i18n/translation-runtime.ts::url.toString()::0",
+      "file": "apps/web/lib/platform-v7/i18n/translation-runtime.ts",
+      "category": "browser",
+      "reason": "Guarded by an explicit typeof window === 'undefined' early return two lines above the call, and it builds its URL against window.location.origin and refuses any other origin. The function cannot execute on the server at all."
+    }
+  ]
+}

@@ -94,6 +94,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({ email, role }),
       cache: 'no-store',
       signal: AbortSignal.timeout(7_000),
+      redirect: 'error',
     });
     const payload = await apiResponse.json().catch(() => ({} as ApiPayload)) as ApiPayload;
     if (!apiResponse.ok) {

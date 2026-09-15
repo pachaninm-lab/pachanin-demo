@@ -4,7 +4,8 @@ export async function getMarketAnalyticsOverview() {
   try {
     const response = await fetch(serverApiUrl('/market-analytics/overview'), {
       cache: 'no-store',
-      headers: await serverAuthHeaders()
+      headers: await serverAuthHeaders(),
+      redirect: 'error'
     });
     if (!response.ok) throw new Error(`market analytics ${response.status}`);
     return response.json();

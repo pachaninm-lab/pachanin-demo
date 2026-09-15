@@ -243,6 +243,7 @@ export async function getAccessibleAuctionLotsCanonical(): Promise<AuctionReadRe
     const response = await fetch(serverApiUrl('/lots/my'), {
       cache: 'no-store',
       headers: await serverAuthHeaders(),
+      redirect: 'error',
     });
     if (!response.ok) throw new Error(`auction lots ${response.status}`);
     const payload: unknown = await response.json();
@@ -271,6 +272,7 @@ export async function getAuctionWorkspaceCanonical(lotId: string): Promise<Aucti
     const response = await fetch(serverApiUrl(`/auctions/lots/${safeLotId}/workspace`), {
       cache: 'no-store',
       headers: await serverAuthHeaders(),
+      redirect: 'error',
     });
     if (!response.ok) throw new Error(`auction workspace ${response.status}`);
     const payload: unknown = await response.json();
@@ -291,6 +293,7 @@ export async function getTradingOriginModesCanonical(): Promise<AuctionReadResul
     const response = await fetch(serverApiUrl('/auctions/origin-modes'), {
       cache: 'no-store',
       headers: await serverAuthHeaders(),
+      redirect: 'error',
     });
     if (!response.ok) throw new Error(`origin modes ${response.status}`);
     const payload: unknown = await response.json();

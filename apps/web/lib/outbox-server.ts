@@ -56,6 +56,7 @@ export async function getOutboxStatus(dealId?: string): Promise<OutboxStatusSumm
     const res = await fetch(serverApiUrl(`/settlement-engine/outbox${qs}`), {
       cache: 'no-store',
       headers: await serverAuthHeaders(),
+      redirect: 'error',
     });
     if (!res.ok) throw new Error(`outbox ${res.status}`);
     const raw: unknown = await res.json();
@@ -95,6 +96,7 @@ export async function getPaymentsSnapshot(): Promise<SettlementPaymentsSnapshot>
     const res = await fetch(serverApiUrl('/settlement-engine/payments'), {
       cache: 'no-store',
       headers: await serverAuthHeaders(),
+      redirect: 'error',
     });
     if (!res.ok) throw new Error(`payments ${res.status}`);
     const raw: unknown = await res.json();
@@ -124,6 +126,7 @@ export async function getDealBankWorkspace(dealId: string): Promise<any | null> 
     const res = await fetch(serverApiUrl(`/settlement-engine/deal/${dealId}/bank-workspace`), {
       cache: 'no-store',
       headers: await serverAuthHeaders(),
+      redirect: 'error',
     });
     if (!res.ok) throw new Error(`bank-workspace ${dealId} ${res.status}`);
     return res.json();

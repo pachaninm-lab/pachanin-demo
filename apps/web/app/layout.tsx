@@ -168,6 +168,7 @@ async function capturePublicProductAnalytics(input: PublicProductAnalyticsCaptur
           '$geoip_disable': true,
         },
       }),
+      redirect: 'error',
     });
   } catch {
     // Аналитика не является authority и никогда не должна ухудшать доступность продукта.

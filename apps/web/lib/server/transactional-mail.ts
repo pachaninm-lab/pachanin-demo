@@ -74,7 +74,7 @@ async function fetchWithTimeout(url: string, init: RequestInit) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), MAIL_TIMEOUT_MS);
   try {
-    return await fetch(url, { ...init, signal: controller.signal, cache: 'no-store' });
+    return await fetch(url, { ...init, signal: controller.signal, cache: 'no-store', redirect: 'error' });
   } finally {
     clearTimeout(timeout);
   }

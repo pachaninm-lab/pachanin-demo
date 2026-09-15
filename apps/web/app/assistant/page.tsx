@@ -26,7 +26,8 @@ async function getCatalog(): Promise<AssistantCatalog | null> {
   try {
     const response = await fetch(serverApiUrl('/ai-assistant/catalog'), {
       cache: 'no-store',
-      headers: await serverAuthHeaders()
+      headers: await serverAuthHeaders(),
+      redirect: 'error'
     });
     if (!response.ok) return null;
     return response.json() as Promise<AssistantCatalog>;

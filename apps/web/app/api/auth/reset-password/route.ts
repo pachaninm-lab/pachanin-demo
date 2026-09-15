@@ -88,6 +88,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({ token, newPassword }),
       cache: 'no-store',
       signal: AbortSignal.timeout(5_000),
+      redirect: 'error',
     });
     const payload = await apiResponse.json().catch(() => ({} as Record<string, unknown>));
 

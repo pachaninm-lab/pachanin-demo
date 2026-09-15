@@ -34,6 +34,7 @@ export async function GET(request: Request) {
       headers: { 'x-correlation-id': correlationId },
       cache: 'no-store',
       signal: AbortSignal.timeout(5_000),
+      redirect: 'error',
     });
     const payload = await response.json().catch(() => ({} as Record<string, unknown>));
     if (!response.ok) {

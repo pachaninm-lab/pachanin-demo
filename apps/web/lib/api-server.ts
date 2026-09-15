@@ -16,6 +16,7 @@ export async function apiServer<T = any>(
     headers,
     body: options?.body ? JSON.stringify(options.body) : undefined,
     cache: 'no-store',
+    redirect: 'error',
   });
 
   if (!res.ok) {

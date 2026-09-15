@@ -78,6 +78,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({ challengeToken: ticket.challengeToken, code }),
       cache: 'no-store',
       signal: AbortSignal.timeout(5_000),
+      redirect: 'error',
     });
     const payload = await apiResponse.json().catch(() => ({} as AuthenticatedSessionPayload)) as AuthenticatedSessionPayload & {
       backupCodes?: string[];

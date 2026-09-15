@@ -51,6 +51,7 @@ export async function getAuditServerState(): Promise<AuditServerState> {
     const response = await fetch(serverApiUrl('/audit'), {
       cache: 'no-store',
       headers: await serverAuthHeaders(),
+      redirect: 'error',
     });
     if (!response.ok) return { available: false, entries: [] };
 

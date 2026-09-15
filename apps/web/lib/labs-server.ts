@@ -38,6 +38,7 @@ export async function getLabSamples(): Promise<LabSampleServerItem[]> {
     const res = await fetch(serverApiUrl('/labs/samples'), {
       cache: 'no-store',
       headers: await serverAuthHeaders(),
+      redirect: 'error',
     });
     if (!res.ok) throw new Error(`lab samples ${res.status}`);
     const data = await res.json();
@@ -52,6 +53,7 @@ export async function getLabSample(id: string): Promise<LabSampleServerItem | nu
     const res = await fetch(serverApiUrl(`/labs/samples/${id}`), {
       cache: 'no-store',
       headers: await serverAuthHeaders(),
+      redirect: 'error',
     });
     if (!res.ok) throw new Error(`lab sample ${id} ${res.status}`);
     return res.json();

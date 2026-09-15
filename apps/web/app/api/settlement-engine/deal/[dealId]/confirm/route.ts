@@ -24,6 +24,7 @@ export async function POST(request: Request, props: { params: Promise<{ dealId: 
       method: 'POST',
       cache: 'no-store',
       headers: await runtimeAuthHeaders({ 'content-type': 'application/json' }),
+      redirect: 'error',
     });
     const payload = await response.json().catch(() => ({ ok: false }));
     return NextResponse.json(payload, { status: response.status });

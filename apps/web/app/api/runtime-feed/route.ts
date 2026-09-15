@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const response = await fetch(runtimeApiUrl('/runtime/feed'), { cache: 'no-store', headers: await runtimeAuthHeaders() });
+    const response = await fetch(runtimeApiUrl('/runtime/feed'), { cache: 'no-store', headers: await runtimeAuthHeaders(), redirect: 'error' });
     const payload = await response.json().catch(() => ({}));
     return NextResponse.json(payload, { status: response.ok ? 200 : response.status });
   } catch {

@@ -28,6 +28,7 @@ export class VaultTransitService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ plaintext: b64 }),
+        redirect: 'error',
       });
       if (!resp.ok) throw new Error(`Vault encrypt failed: ${resp.status}`);
       const data = await resp.json();
@@ -50,6 +51,7 @@ export class VaultTransitService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ ciphertext }),
+        redirect: 'error',
       });
       if (!resp.ok) throw new Error(`Vault decrypt failed: ${resp.status}`);
       const data = await resp.json();
