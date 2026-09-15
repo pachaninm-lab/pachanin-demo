@@ -213,6 +213,19 @@ function applySecurityHeaders(response: NextResponse, protectedResponse = false,
   );
   response.headers.set('x-content-type-options', 'nosniff');
   response.headers.set('x-frame-options', 'DENY');
+  // Severs the opener relationship, which is what closes off tabnabbing and
+  // frame counting. same-origin rather than same-origin-allow-popups because
+  // nothing here opens a window it then talks to: there is no window.open in
+  // the application at all, and every target='_blank' link is a one-way
+  // navigation. A popup that needed window.opener would need the weaker value.
+  //
+  // Set here and deliberately not in next.config.js. Both files are applied and
+  // they already disagree on X-Frame-Options, Permissions-Policy and the CSP;
+  // for this header disagreement is not merely untidy, because a response
+  // carrying two different Cross-Origin-Opener-Policy values is treated as
+  // unsafe-none, which is the absence this header exists to correct. The
+  // matcher below covers every document response, so one place is enough.
+  response.headers.set('cross-origin-opener-policy', 'same-origin');
   response.headers.set('referrer-policy', 'no-referrer');
   response.headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=()');
   response.headers.set('strict-transport-security', 'max-age=31536000; includeSubDomains; preload');
