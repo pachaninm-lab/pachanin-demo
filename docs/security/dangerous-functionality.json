@@ -1,7 +1,7 @@
 {
   "schemaVersion": "pc-crop.dangerous-functionality.v1",
-  "sourceSha": "1eb81f4dea95625ba79410af4046c457aa897c10",
-  "scannedFiles": 1283,
+  "sourceSha": "3e661251d75fb60055b2ba1ce496ff10bb39d108",
+  "scannedFiles": 1286,
   "categories": [
     {
       "id": "raw_sql_execution",
@@ -9,7 +9,7 @@
       "pattern": "\\$queryRaw|\\$executeRaw",
       "why": "Запрос, собранный строкой, обходит параметризацию ORM. Здесь используются теговые шаблоны Prisma, но охват — место, где такая ошибка вообще возможна.",
       "limit": "Считаются файлы с вызовом, а не сами вызовы; безопасность конкретного запроса отсюда не следует.",
-      "fileCount": 95,
+      "fileCount": 96,
       "files": [
         "apps/api/src/auth-mail-worker.ts",
         "apps/api/src/common/outbox/outbox.service.ts",
@@ -35,6 +35,7 @@
         "apps/api/src/modules/accounting/work-task.repository.ts",
         "apps/api/src/modules/auctions/auction-authority.service.ts",
         "apps/api/src/modules/auctions/auction-command.service.ts",
+        "apps/api/src/modules/auctions/public-auction-market.service.ts",
         "apps/api/src/modules/auth-mail/auth-mail-outbox.service.ts",
         "apps/api/src/modules/auth/accounting-document-issuing.repository.ts",
         "apps/api/src/modules/auth/organization-invitation.service.ts",
@@ -114,7 +115,7 @@
       "pattern": "\\bawait fetch\\(",
       "why": "Исходящий запрос уносит учётные данные и может быть уведён редиректом; см. V15.3.2.",
       "limit": "Только прямые вызовы fetch. Вызовы через клиентские библиотеки сюда не попадают.",
-      "fileCount": 120,
+      "fileCount": 121,
       "files": [
         "apps/api/src/common/vault/vault-transit.service.ts",
         "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
@@ -229,6 +230,7 @@
         "apps/web/lib/platform-v7/i18n/translation-runtime.ts",
         "apps/web/lib/platform-v7/owner-controlled-cabinet-server.ts",
         "apps/web/lib/platform-v7/tai-internal-stream.ts",
+        "apps/web/lib/public-market-server.ts",
         "apps/web/lib/reporting-server.ts",
         "apps/web/lib/role-home-server.ts",
         "apps/web/lib/runtime-client.ts",

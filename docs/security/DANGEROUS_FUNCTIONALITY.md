@@ -7,15 +7,15 @@
 Правка вручную бессмысленна — следующий прогон её сотрёт, а тест на устаревание
 уронит сборку.
 
-Source SHA: `1eb81f4dea95625ba79410af4046c457aa897c10`
-Файлов просмотрено: 1283
+Source SHA: `3e661251d75fb60055b2ba1ce496ff10bb39d108`
+Файлов просмотрено: 1286
 
 ## Сводка
 
 | категория | файлов |
 | --- | ---: |
-| Прямое выполнение SQL | 95 |
-| Исходящие сетевые вызовы | 120 |
+| Прямое выполнение SQL | 96 |
+| Исходящие сетевые вызовы | 121 |
 | Разбор JSON | 60 |
 | Обращение к файловой системе | 6 |
 | Предподписанные ссылки объектного хранилища | 3 |
@@ -30,7 +30,7 @@ Source SHA: `1eb81f4dea95625ba79410af4046c457aa897c10`
 
 **Граница проверки.** Считаются файлы с вызовом, а не сами вызовы; безопасность конкретного запроса отсюда не следует.
 
-**Найдено файлов: 95.**
+**Найдено файлов: 96.**
 
 - `apps/api/src/auth-mail-worker.ts`
 - `apps/api/src/common/outbox/outbox.service.ts`
@@ -56,6 +56,7 @@ Source SHA: `1eb81f4dea95625ba79410af4046c457aa897c10`
 - `apps/api/src/modules/accounting/work-task.repository.ts`
 - `apps/api/src/modules/auctions/auction-authority.service.ts`
 - `apps/api/src/modules/auctions/auction-command.service.ts`
+- `apps/api/src/modules/auctions/public-auction-market.service.ts`
 - `apps/api/src/modules/auth-mail/auth-mail-outbox.service.ts`
 - `apps/api/src/modules/auth/accounting-document-issuing.repository.ts`
 - `apps/api/src/modules/auth/organization-invitation.service.ts`
@@ -134,7 +135,7 @@ Source SHA: `1eb81f4dea95625ba79410af4046c457aa897c10`
 
 **Граница проверки.** Только прямые вызовы fetch. Вызовы через клиентские библиотеки сюда не попадают.
 
-**Найдено файлов: 120.**
+**Найдено файлов: 121.**
 
 - `apps/api/src/common/vault/vault-transit.service.ts`
 - `apps/api/src/modules/ai-insights/ai-assistant.service.ts`
@@ -249,6 +250,7 @@ Source SHA: `1eb81f4dea95625ba79410af4046c457aa897c10`
 - `apps/web/lib/platform-v7/i18n/translation-runtime.ts`
 - `apps/web/lib/platform-v7/owner-controlled-cabinet-server.ts`
 - `apps/web/lib/platform-v7/tai-internal-stream.ts`
+- `apps/web/lib/public-market-server.ts`
 - `apps/web/lib/reporting-server.ts`
 - `apps/web/lib/role-home-server.ts`
 - `apps/web/lib/runtime-client.ts`
