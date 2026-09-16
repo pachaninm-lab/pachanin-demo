@@ -504,6 +504,9 @@ jobs:
                   return 'SCHEMA_INVALID_REASON'
 
               combined = f'{title} {reason}'
+              is_test_path = '/tests/' in path or '.test.' in path or '.spec.' in path
+              if is_test_path and SECURITY_CLASSIFICATION.search(combined) and ROUTE_TEST_REFERENCE.search(combined):
+                  return 'TEST_ROUTE_SECURITY_CLASSIFICATION'
               if SPECULATIVE.search(combined):
                   return 'SPECULATIVE_CLAIM'
 
@@ -512,10 +515,6 @@ jobs:
               for term in EXTERNAL_TERMS:
                   if term in combined_lower and term not in chunk_lower:
                       return 'EXTERNAL_CONTEXT_ASSUMPTION'
-
-              is_test_path = '/tests/' in path or '.test.' in path or '.spec.' in path
-              if is_test_path and SECURITY_CLASSIFICATION.search(combined) and ROUTE_TEST_REFERENCE.search(combined):
-                  return 'TEST_ROUTE_SECURITY_CLASSIFICATION'
 
               added = {
                   int(entry['line']): str(entry['text'])
@@ -553,12 +552,12 @@ jobs:
                       return 'WRONG_CHUNK_PATH'
                   if not isinstance(title, str) or not isinstance(reason, str):
                       return 'SCHEMA_INVALID_FINDING_FIELDS'
-                  if SPECULATIVE_REASON.search(reason):
-                      return 'SPECULATIVE_REASON'
                   combined = f'{title} {reason}'
                   is_test_path = '/tests/' in path or '.test.' in path or '.spec.' in path
                   if is_test_path and SECURITY_CLASSIFICATION.search(combined) and ROUTE_TEST_REFERENCE.search(combined):
                       return 'TEST_ROUTE_SECURITY_CLASSIFICATION'
+                  if SPECULATIVE_REASON.search(reason):
+                      return 'SPECULATIVE_REASON'
                   return None
               return finding_violation(item, findings[0])
 
@@ -662,6 +661,12 @@ jobs:
                           'If the pinned tuple is not itself an admissible added-line/verbatim-evidence tuple, or if it does not directly establish a concrete reproducible defect under the unchanged policy, author findings=[]. '
                           'When the original evidence was already valid, this preserves the same verbatim evidence substring; otherwise the deterministic anchor uses only the original cited trusted line and never permits a replacement line. '
                       )
+              elif violation == 'TEST_ROUTE_SECURITY_CLASSIFICATION':
+                  violation_guidance = (
+                      'For TEST_ROUTE_SECURITY_CLASSIFICATION, a test-only assertion, mock, expectation, route name, or test fixture does not by itself implement or prove a production security/privacy boundary bypass. '
+                      'Do not convert the rejected test-only security classification into differently worded production behavior. '
+                      'A non-empty repaired finding must identify a concrete defect directly implemented by the changed bytes in this exact chunk; otherwise author findings=[]. '
+                  )
               return (
                   item['user']
                   + '\nTRUSTED_POLICY_REPAIR_NOTICE\n'
@@ -736,12 +741,21 @@ jobs:
               title='Database nodes have divergent clocks',
               reason='The added assignment reads inconsistent values across database nodes.',
           )
+          test_probe_item = dict(probe_item, path='service.spec.ts')
+          test_security_speculative_probe = dict(
+              valid_probe,
+              path='service.spec.ts',
+              title='Potential security boundary bypass in test',
+              reason='The test may treat the service as ready without proving production authorization.',
+          )
           if finding_violation(probe_item, valid_probe) is not None:
               fail('VALIDATOR_SELFTEST_VALID_REJECTED')
           if finding_violation(probe_item, speculative_probe) != 'SPECULATIVE_CLAIM':
               fail('VALIDATOR_SELFTEST_SPECULATION_NOT_REJECTED')
           if finding_violation(probe_item, speculative_wrong_line_probe) != 'SPECULATIVE_CLAIM':
               fail('VALIDATOR_SELFTEST_SPECULATION_PRECEDENCE_FAILED')
+          if finding_violation(test_probe_item, test_security_speculative_probe) != 'TEST_ROUTE_SECURITY_CLASSIFICATION':
+              fail('VALIDATOR_SELFTEST_TEST_SECURITY_PRECEDENCE_FAILED')
           if finding_violation(probe_item, wrong_line_probe) != 'EVIDENCE_LINE_NOT_ADDED':
               fail('VALIDATOR_SELFTEST_LINE_BINDING_FAILED')
           if finding_violation(probe_item, padded_evidence_probe) != 'EVIDENCE_NOT_ON_CITED_ADDED_LINE':
@@ -812,6 +826,14 @@ jobs:
               fail('VALIDATOR_SELFTEST_REPAIR_CONTEXT_MISSING')
           if 'BEGIN_UNTRUSTED_PRIOR_CANDIDATE' in repair_probe:
               fail('VALIDATOR_SELFTEST_REPAIR_CANDIDATE_ANCHOR_PRESENT')
+          test_security_candidate = json.dumps({'findings': [test_security_speculative_probe]}, separators=(',', ':'))
+          test_security_repair_probe = repair_user(
+              test_probe_item,
+              'TEST_ROUTE_SECURITY_CLASSIFICATION',
+              test_security_candidate,
+          )
+          if 'test-only assertion' not in test_security_repair_probe or 'otherwise author findings=[]' not in test_security_repair_probe:
+              fail('VALIDATOR_SELFTEST_TEST_SECURITY_REPAIR_GUIDANCE_MISSING')
           speculative_repair_probe = repair_user(scoped_probe_item, 'SPECULATIVE_CLAIM', speculative_candidate, 2, MAX_SPECULATIVE_REPAIR_ATTEMPTS)
           if 'does not by itself prove downstream retry' not in speculative_repair_probe:
               fail('VALIDATOR_SELFTEST_SPECULATION_REPAIR_GROUNDING_MISSING')
