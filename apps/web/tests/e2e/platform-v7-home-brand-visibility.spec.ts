@@ -3,6 +3,13 @@ import { expect, test, type Page } from '@playwright/test';
 const TARGET_SIZE_EPSILON = 0.001;
 
 async function expectBrandFullyVisible(page: Page) {
+  const brandMark = page.locator("[data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-mark[data-brand-mark='transparent-price-canonical']");
+  await expect(brandMark).toBeVisible();
+  const markBox = await brandMark.boundingBox();
+  expect(markBox, 'canonical brand mark bounding box').not.toBeNull();
+  expect(markBox!.width, 'canonical brand mark width').toBeGreaterThanOrEqual(30);
+  expect(markBox!.height, 'canonical brand mark height').toBeGreaterThanOrEqual(30);
+
   const brand = page.locator("[data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-text strong");
   await expect(brand).toBeVisible();
   await expect(brand).toHaveText('Прозрачная Цена');

@@ -34,6 +34,9 @@ def test_gitleaks_exceptions_are_exact_and_release_attested() -> None:
         "ec4b80ce1ee4fa7cf18361f1ff536c34b5030948:"
         "apps/api/src/modules/commodity-profiles/commodity-profile-command.contract.spec.ts:"
         "generic-api-key:11",
+        "8c08a3d3764b616f919a1e73828643dff95db5d4:"
+        "apps/api/src/modules/service-marketplace/service-marketplace.contract.spec.ts:"
+        "generic-api-key:11",
         "d4f147c04c64b7565f11288b3b545c97340d7899:"
         "apps/tai/model-artifacts/model-conversion-authority.v1.json:generic-api-key:91",
         "387c77b28f89b467080371c3e55cbf376acdd28e:"
@@ -57,5 +60,11 @@ def test_gitleaks_exceptions_are_exact_and_release_attested() -> None:
         ".github/scripts/pc-crop-08f-sdiz-remediation.py:generic-api-key:59",
         "72c83adf77d1c7a42f190e1960bcf4d22674f740:"
         ".github/workflows/pc-crop-08f-sync-main.yml:generic-api-key:126",
+        "bcc5ba620f5e8cfec4e540c4b9fab4e236393c63:"
+        "apps/web/tests/unit/platformV7RootWorkEntry.test.ts:generic-api-key:227",
+        "25f4fa23451d9b2fd58ff60ba9badfc063055796:"
+        ".github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:391",
+        "ba4e7b26a34f95ebc5636c6a18785a6a2d63b0b1:"
+        ".github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:395",
     ]
     assert all(_FINGERPRINT.fullmatch(entry) is not None for entry in entries)

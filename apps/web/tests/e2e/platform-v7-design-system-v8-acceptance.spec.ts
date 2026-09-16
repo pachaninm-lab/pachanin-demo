@@ -323,3 +323,128 @@ test.describe('Design System v8 final browser acceptance', () => {
     expect(runtimeFailures).toEqual([]);
   });
 });
+const LINKED_SHELL_ROUTES = ['terms', 'privacy', 'docs', 'oferta', 'register', 'trust', 'about', 'gekta'] as const;
+for (const locale of ['ru', 'en', 'zh'] as const) {
+  for (const route of LINKED_SHELL_ROUTES) {
+    test(`public linked shell ${route} ${locale} preserves canonical chrome and content`, async ({ page }, testInfo) => {
+      test.setTimeout(180_000);
+      const failures = collectRuntimeFailures(page);
+      // Full seven-width public Cartesian evidence in Chromium; representative
+      // narrow/desktop checks in every other existing browser project.
+      const widths = testInfo.project.name === 'desktop-chromium' ? [320, 375, 390, 430, 768, 1280, 1440] : [320, 1280];
+      for (const width of widths) {
+        await page.setViewportSize({ width, height: 900 });
+        const path = route === 'gekta' ? (locale === 'ru' ? '/gekta' : `/gekta/${locale}`) : `/platform-v7/${route}?lang=${locale}`;
+        const response = await page.goto(path, { waitUntil: 'load' });
+        expect(response?.ok(), path).toBe(true);
+        const header = page.locator('[data-public-site-header="canonical"]');
+        await expect(header).toHaveCount(1);
+        await expect(header).toBeVisible();
+        await expect(header.locator('.pc-site-brand')).toHaveAttribute('href', `/platform-v7?lang=${locale}`);
+        const controls = header.locator('a:visible, summary:visible');
+        for (const control of await controls.all()) {
+          const box = await control.boundingBox();
+          expect(box, `${path} ${width}px header control`).not.toBeNull();
+          expect(box!.width).toBeGreaterThanOrEqual(44);
+          expect(box!.height).toBeGreaterThanOrEqual(44);
+          expect(box!.x).toBeGreaterThanOrEqual(-1);
+          expect(box!.x + box!.width).toBeLessThanOrEqual(width + 1);
+        }
+        if (route !== 'register' && route !== 'gekta') {
+          await expect(header.locator('a[href*="/platform-v7/register"]')).toHaveAttribute('href', `/platform-v7/register?lang=${locale}`);
+        }
+        if (route === 'terms' || route === 'privacy') {
+          const legal = page.locator('.pc-linked-policy');
+          await expect(legal).toBeVisible();
+          await expect(legal).toHaveAttribute('lang', 'ru');
+          await expect(legal).toContainText(route === 'terms' ? 'Условия использования' : 'Политика конфиденциальности');
+          await expect(legal.locator('a[href="/platform-v7/auth"]:visible,a[href="/platform-v7/bank"]:visible,a[href="/platform-v7/profile"]:visible,a[href="/platform-v7/security"]:visible,a[href="/platform-v7/status"]:visible')).toHaveCount(0);
+          if (locale !== 'ru') await expect(page.locator('.pc-linked-notice')).toBeVisible();
+          const policyTitles = route === 'privacy'
+            ? ['Какие данные используются', 'Для чего используются данные', 'Ограничение доступа', 'Хранение и удаление', 'Передача внешним участникам', 'Реквизиты оператора данных', 'Принцип минимизации', 'Права субъекта персональных данных · 152-ФЗ']
+            : ['Назначение платформы', 'Регистрация и доступ', 'Учётная запись и безопасность', 'Сделки, документы и решения сторон', 'Внешние сервисы', 'Принцип работы'];
+          for (const title of policyTitles) await expect(legal.getByText(title, { exact: true })).toBeVisible();
+          await expect(legal).not.toContainText('Состояние сервисов', { useInnerText: true });
+          if (route === 'privacy') await expect(legal).toContainText('не показывает вымышленные персональные записи', { useInnerText: true });
+        }
+        // Do not mutate server-rendered details before the existing client
+        // boundary mounts; this test exercises hydrated keyboard interaction.
+        if (route === 'gekta') {
+          await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue('--gekta-visual-viewport-height'))).not.toBe('');
+        } else {
+          await expect(page.locator('.pc-public-contact-dock')).toBeVisible();
+        }
+        const toggle = header.locator('summary');
+        if (await toggle.isVisible()) {
+          await toggle.focus(); await toggle.press('Enter');
+          await expect(header.locator('details')).toHaveAttribute('open', '');
+          await expect(header.locator('.pc-site-mobile-nav')).toBeVisible();
+          await toggle.press('Enter');
+          await expect(header.locator('details')).not.toHaveAttribute('open', '');
+        }
+        await expectNoHorizontalOverflow(page);
+        if (width === widths[0]) {
+          const scan = new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']);
+          const result = await (route === 'gekta' ? scan.include('[data-gekta-public-header]') : scan).analyze();
+          const blocking = result.violations.filter(item => item.impact === 'serious' || item.impact === 'critical');
+          expect(blocking, JSON.stringify(blocking, null, 2)).toEqual([]);
+        }
+        if (testInfo.project.name === 'desktop-chromium') await page.screenshot({ path: testInfo.outputPath(`linked-${route}-${locale}-${width}.png`), fullPage: true, animations: 'disabled', caret: 'initial' });
+      }
+      expect(failures).toEqual([]);
+    });
+  }
+}
+
+for (const locale of ['ru', 'en', 'zh'] as const) {
+  test(`Gekta public discovery ${locale} preserves drawer isolation and opens the existing chat route`, async ({ page }) => {
+    const failures = collectRuntimeFailures(page);
+    const aiCommands: string[] = [];
+    page.on('request', request => {
+      if (request.method() === 'POST' && /\/api\/(public-platform-assistant|restricted-public-platform-assistant|agro-chat)(?:\?|$)/.test(new URL(request.url()).pathname)) aiCommands.push(request.url());
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    const path = locale === 'ru' ? '/gekta' : `/gekta/${locale}`;
+    await page.goto(path, { waitUntil: 'load' });
+    await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue('--gekta-visual-viewport-height'))).not.toBe('');
+    const publicHeader = page.locator('[data-gekta-public-header]');
+    await expect(publicHeader).toBeVisible();
+    const menu = page.locator('[data-gekta-chat-workspace] > div > main > header > button').first();
+    await menu.click();
+    const dialog = page.locator('[role="dialog"][aria-labelledby="gekta-mobile-drawer-title"]');
+    await expect(dialog).toBeVisible();
+    await expect(publicHeader).toHaveAttribute('inert', '');
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(publicHeader).not.toHaveAttribute('inert', '');
+    await expect(menu).toBeFocused();
+    await publicHeader.locator('a[href$="?chat=new"]').click();
+    await expect(page).toHaveURL(new RegExp(`${path.replaceAll('/', '\\/')}\\?chat=new$`));
+    await expect(page.locator('[data-gekta-experience]')).toHaveAttribute('data-gekta-experience', 'chat');
+    await expect(page.locator('[data-gekta-public-header]')).toHaveCount(0);
+    await expect(page.locator('[data-gekta-chat-workspace]')).toBeVisible();
+    expect(aiCommands).toEqual([]);
+    expect(failures).toEqual([]);
+  });
+}
+
+test('public registration locale cycle preserves both existing query tokens', async ({ page }) => {
+  // Synthetic, non-authorizing values; this checks navigation only, not verification.
+  const verify = 'homepage-5111-synthetic-verify+/=_';
+  const status = 'homepage-5111-synthetic-status+/=_';
+  await page.route('**/api/auth/registration/status**', route => route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ ok: false, code: 'INVALID_TOKEN' }) }));
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.goto(`/platform-v7/register?${new URLSearchParams({ lang: 'ru', verify, statusToken: status })}`, { waitUntil: 'load' });
+  for (const next of ['en', 'zh', 'ru'] as const) {
+    const language = page.locator('[data-public-site-header] .pc-site-locale-switch');
+    const href = await language.getAttribute('href');
+    expect(href).not.toBeNull();
+    const target = new URL(href!, page.url());
+    expect(target.pathname).toBe('/platform-v7/register');
+    expect(target.searchParams.get('lang')).toBe(next);
+    expect(target.searchParams.get('verify')).toBe(verify);
+    expect(target.searchParams.get('statusToken')).toBe(status);
+    await language.click();
+    await expect(page).toHaveURL(target.href);
+  }
+});

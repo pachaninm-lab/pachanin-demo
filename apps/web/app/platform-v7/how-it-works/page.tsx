@@ -36,6 +36,7 @@ const PAGE_COPY: Record<Locale, Readonly<{
   exampleNotice: string;
   register: string;
   back: string;
+  trust: string;
 }>> = {
   ru: {
     title: 'Как проходит агросделка — Прозрачная Цена',
@@ -46,6 +47,7 @@ const PAGE_COPY: Record<Locale, Readonly<{
     exampleNotice: 'Ниже используется вымышленный пример. Он объясняет механику платформы и не содержит реальных сделок, организаций или банковских операций.',
     register: 'Зарегистрироваться',
     back: 'На главную',
+    trust: 'Доверие',
   },
   en: {
     title: 'How an agricultural Deal works — Transparent Price',
@@ -56,6 +58,7 @@ const PAGE_COPY: Record<Locale, Readonly<{
     exampleNotice: 'The flow below uses fictional data to explain platform mechanics. It contains no real deals, organisations or banking operations.',
     register: 'Register',
     back: 'Back to home',
+    trust: 'Trust',
   },
   zh: {
     title: '农业交易如何运行 — 透明价格',
@@ -66,13 +69,70 @@ const PAGE_COPY: Record<Locale, Readonly<{
     exampleNotice: '下方使用虚构数据说明平台机制，不包含真实交易、机构或银行操作。',
     register: '注册',
     back: '返回首页',
+    trust: '信任',
   },
 };
+
+const HOW_IT_WORKS_PUBLIC_CSS = `
+.pc-ppe-page[data-testid='platform-v7-deal-from-inside'] .pc-ppe-stage-nav > .pc-ppe-icon-button {
+  flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
+  min-height: 44px;
+}
+/* Public exploration focuses on context, action and grounds instead of status
+ * fields. Underlying route/state authority remains unchanged for navigation. */
+.pc-ppe-page[data-testid='platform-v7-deal-from-inside'] .pc-ppe-deal-state > div[data-tone='action'],
+.pc-ppe-page[data-testid='platform-v7-deal-from-inside'] .pc-ppe-v5-stage-main > p,
+.pc-ppe-page[data-testid='platform-v7-deal-from-inside'] .pc-ppe-document-card summary small {
+  display: none !important;
+}
+`;
 
 function localeOf(value: string): Locale {
   if (value.startsWith('en')) return 'en';
   if (value.startsWith('zh')) return 'zh';
   return 'ru';
+}
+
+function sanitizeVisibleDealCopy<T>(value: T, locale: Locale): T {
+  const replacements: Record<Locale, readonly (readonly [string, string])[]> = {
+    ru: [
+      ['готовность расчёта', 'основание расчёта'],
+      ['Готовность расчёта', 'Основание расчёта'],
+      ['расчётный статус', 'расчётный контекст'],
+      ['статус партии', 'события партии'],
+      ['Активного блокера нет', 'Критического блокера нет'],
+      ['Полная готовность расчёта', 'Полное основание расчёта'],
+      ['Готовность финансового действия', 'Основание финансового действия'],
+    ],
+    en: [
+      ['settlement readiness', 'settlement basis'],
+      ['Settlement readiness', 'Settlement basis'],
+      ['settlement status', 'settlement context'],
+      ['lot status', 'lot events'],
+      ['No active blocker', 'No critical blocker'],
+      ['Full settlement readiness', 'Complete settlement basis'],
+    ],
+    zh: [
+      ['结算准备状态', '结算依据'],
+      ['完整结算准备', '完整结算依据'],
+      ['批次状态', '批次事件'],
+    ],
+  };
+
+  const transform = (node: unknown): unknown => {
+    if (typeof node === 'string') {
+      return replacements[locale].reduce((text, [from, to]) => text.replaceAll(from, to), node);
+    }
+    if (Array.isArray(node)) return node.map(transform);
+    if (node && typeof node === 'object') {
+      return Object.fromEntries(Object.entries(node).map(([key, child]) => [key, transform(child)]));
+    }
+    return node;
+  };
+
+  return transform(value) as T;
 }
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -101,7 +161,7 @@ export default async function PublicDealFromInsidePage({
   const locale = await getLocale();
   const normalizedLocale = localeOf(locale);
   const pageCopy = PAGE_COPY[normalizedLocale];
-  const copy = getPublicProductExperienceCopy(locale);
+  const copy = sanitizeVisibleDealCopy(getPublicProductExperienceCopy(locale), normalizedLocale);
   const ui = getPublicProductExperienceV4Copy(locale);
   const journeyUi = getPublicDealJourneyV5Copy(locale);
   const entryCopy = getPublicProductEntryVariantsCopy(locale);
@@ -116,6 +176,7 @@ export default async function PublicDealFromInsidePage({
   const registerHref = localizedHref('/platform-v7/register');
   const loginHref = localizedHref('/platform-v7/login');
   const homeHref = localizedHref('/platform-v7');
+  void journeyUi;
   const nav = (
     <>
       <a href={`${homeHref}#deal-path`}>{ui.header.howItWorks}</a>
@@ -126,7 +187,7 @@ export default async function PublicDealFromInsidePage({
 
   return (
     <main id='main-content' className='pc-ppe-page' data-testid='platform-v7-deal-from-inside'>
-      <style>{`.pc-ppe-stage-nav > .pc-ppe-icon-button { flex: 0 0 44px; width: 44px; min-width: 44px; min-height: 44px; }`}</style>
+      <style>{HOW_IT_WORKS_PUBLIC_CSS}</style>
       <a className='pc-skip-link' href='#pc-ppe-explorer-title'>{chrome('skipToContent')}</a>
       <PublicExperienceScrollCoordinator />
       <PublicSiteHeader
@@ -181,7 +242,7 @@ export default async function PublicDealFromInsidePage({
           </div>
           <nav aria-label={copy.header.aria}>
             <a href={localizedHref('/platform-v7/about')}>{ui.footer.about}</a>
-            <a href={localizedHref('/platform-v7/status')}>{ui.footer.status}</a>
+            <a href={localizedHref('/platform-v7/trust')}>{pageCopy.trust}</a>
             <a href={localizedHref('/platform-v7/privacy')}>{ui.footer.privacy}</a>
             <a href={localizedHref('/platform-v7/terms')}>{ui.footer.terms}</a>
             <a href={localizedHref('/platform-v7/contact')}>{ui.footer.contact}</a>
