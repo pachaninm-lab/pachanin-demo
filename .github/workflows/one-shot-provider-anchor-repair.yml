@@ -1,9 +1,11 @@
 name: One-shot provider anchor repair
 
 on:
-  push:
+  pull_request:
     branches:
-      - fix/local-qwen-evidence-binding-20260913
+      - main
+    types:
+      - synchronize
     paths:
       - .github/workflows/one-shot-provider-anchor-repair.yml
 
@@ -12,7 +14,7 @@ permissions:
 
 jobs:
   repair:
-    if: github.repository == 'pachaninm-lab/pachanin-demo' && github.ref_name == 'fix/local-qwen-evidence-binding-20260913'
+    if: github.repository == 'pachaninm-lab/pachanin-demo' && github.event.pull_request.number == 5380 && github.head_ref == 'fix/local-qwen-evidence-binding-20260913'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -26,7 +28,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          expected_parent='fbb7a52cb2188357242acd240614533d12e96c8f'
+          expected_parent='14ef2cdf4fee0b7d1096085169dfaf0982e61082'
           expected_blob='8a13960d5a6db5f74075505d1cc99391f25e777f'
           [[ "$(git rev-parse HEAD^)" == "$expected_parent" ]]
           [[ "$(git hash-object .github/workflows/local-qwen-independent-review.yml)" == "$expected_blob" ]]
@@ -96,7 +98,7 @@ jobs:
                       )
               return (
                   item['user']
-                  + '\\nTRUSTED_POLICY_REPAIR_NOTICE\\n'
+                  + '\nTRUSTED_POLICY_REPAIR_NOTICE\n'
                   + f'The prior candidate was rejected as policy-inadmissible: {violation}. '
                   + 'The rejected candidate title and reason are intentionally omitted so the fresh deterministic repair is anchored only to trusted evidence and the exact diff. '
                   + 'Re-review the exact same chunk under the unchanged trusted system policy. '
@@ -104,7 +106,7 @@ jobs:
                   + 'Do not rephrase a hypothetical claim into definite wording. '
                   + 'A non-empty finding must cite one exact added line from BEGIN_TRUSTED_ADDED_LINE_INDEX and evidence must be a verbatim substring of that line. '
                   + 'Do not rely on any deployment, topology, data flow, or runtime assumption absent from the exact chunk. '
-                  + 'Return findings=[] only when the changed bytes do not directly demonstrate a concrete reproducible defect.\\n'
+                  + 'Return findings=[] only when the changed bytes do not directly demonstrate a concrete reproducible defect.\n'
               )
 
 '''
