@@ -1,10 +1,11 @@
 /**
  * Kafka Producer used by the durable PostgreSQL outbox transport.
  *
- * Kafka availability never changes business authority: when the transport is
- * disabled or unavailable, send() returns false and the outbox entry remains
- * retryable. A dedicated worker can additionally set KAFKA_REQUIRED=true to
- * fail startup instead of entering a misleading healthy no-op mode.
+ * Kafka availability never changes business authority. The durable worker uses
+ * a protocol-level readiness probe before claiming work; once a delivery has
+ * been attempted, a missing acknowledgement remains an ambiguous outcome.
+ * A dedicated worker can additionally set KAFKA_REQUIRED=true to fail startup
+ * instead of entering a misleading healthy no-op mode.
  */
 
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
@@ -33,6 +34,7 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
     process.env.KAFKA_CLIENT_ID?.trim() ||
     `grainflow-${this.component}-${hostname()}-${process.pid}`;
   private producer: import('kafkajs').Producer | null = null;
+  private admin: import('kafkajs').Admin | null = null;
   private connected = false;
 
   async onModuleInit(): Promise<void> {
@@ -59,16 +61,28 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
       // The outbox provides durable idempotency and KafkaJS enables idempotent
       // producer semantics. No transactionalId is configured: sharing a fixed
       // transactional identity across replicas would fence healthy producers.
-      this.producer = kafka.producer({
+      const producer = kafka.producer({
         idempotent: true,
         maxInFlightRequests: 1,
       });
-      await this.producer.connect();
+      const admin = kafka.admin();
+
+      await producer.connect();
+      try {
+        await admin.connect();
+      } catch (error) {
+        await producer.disconnect().catch(() => undefined);
+        throw error;
+      }
+
+      this.producer = producer;
+      this.admin = admin;
       this.connected = true;
       this.logger.log(`Kafka producer connected clientId=${this.clientId}`);
     } catch (error) {
       this.connected = false;
       this.producer = null;
+      this.admin = null;
       const message = error instanceof Error ? error.message : String(error);
       if (this.required) throw new Error(`Kafka producer startup failed: ${message}`);
       this.logger.warn(`Kafka producer init failed: ${message} — delivery remains fail closed`);
@@ -77,8 +91,16 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleDestroy(): Promise<void> {
     const producer = this.producer;
+    const admin = this.admin;
     this.producer = null;
+    this.admin = null;
     this.connected = false;
+
+    if (admin) {
+      await admin.disconnect().catch((error) => {
+        this.logger.warn(`Kafka admin disconnect failed: ${error instanceof Error ? error.message : String(error)}`);
+      });
+    }
     if (producer) {
       await producer.disconnect().catch((error) => {
         this.logger.warn(`Kafka producer disconnect failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -97,6 +119,22 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
 
   isConnected(): boolean {
     return this.connected && this.producer !== null;
+  }
+
+  async isReady(): Promise<boolean> {
+    if (!this.connected || !this.producer || !this.admin) return false;
+
+    try {
+      // A lifecycle flag only proves that startup once succeeded. This broker
+      // request detects a Kafka outage before the durable worker claims rows.
+      await this.admin.describeCluster();
+      return true;
+    } catch (error) {
+      this.logger.debug(
+        `Kafka readiness probe failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return false;
+    }
   }
 
   async send(message: KafkaMessage): Promise<boolean> {

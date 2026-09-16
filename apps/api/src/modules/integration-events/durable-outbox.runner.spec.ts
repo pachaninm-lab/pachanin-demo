@@ -22,9 +22,10 @@ function makeWorker() {
   } as unknown as jest.Mocked<DurableOutboxWorker>;
 }
 
-function makeKafka(delivered: boolean, connected = true) {
+function makeKafka(delivered: boolean, connected = true, ready = connected) {
   return {
     isConnected: jest.fn().mockReturnValue(connected),
+    isReady: jest.fn().mockResolvedValue(ready),
     send: jest.fn().mockResolvedValue(delivered),
   } as unknown as jest.Mocked<KafkaProducerService>;
 }
@@ -89,18 +90,20 @@ describe('DurableOutboxRunner', () => {
     expect(runner.health().stopped).toBe(true);
   });
 
-  it('does not claim entries while Kafka is disconnected', async () => {
+  it('does not claim entries when the live Kafka probe fails after startup', async () => {
     process.env.OUTBOX_WORKER_ENABLED = 'true';
     process.env.OUTBOX_WORKER_INTERVAL_MS = '60000';
     const worker = makeWorker();
-    const runner = new DurableOutboxRunner(worker, makeKafka(false, false));
+    const kafka = makeKafka(false, true, false);
+    const runner = new DurableOutboxRunner(worker, kafka);
 
     runner.onModuleInit();
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(worker.registerFallbackHandler).toHaveBeenCalledTimes(1);
+    expect(kafka.isReady).toHaveBeenCalledTimes(1);
     expect(worker.drainOnce).not.toHaveBeenCalled();
-    expect(runner.health().lastError).toBe('Kafka transport is not connected');
+    expect(runner.health().lastError).toBe('Kafka transport is not ready');
     await runner.onModuleDestroy();
   });
 
@@ -132,8 +135,7 @@ describe('DurableOutboxRunner', () => {
     process.env.OUTBOX_WORKER_ENABLED = 'true';
     process.env.OUTBOX_WORKER_INTERVAL_MS = '60000';
     const worker = makeWorker();
-    const kafka = makeKafka(true);
-    kafka.isConnected.mockReturnValueOnce(true).mockReturnValue(false);
+    const kafka = makeKafka(true, false, true);
     const runner = new DurableOutboxRunner(worker, kafka);
 
     runner.onModuleInit();

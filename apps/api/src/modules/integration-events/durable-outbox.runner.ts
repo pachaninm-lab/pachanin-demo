@@ -96,35 +96,47 @@ export class DurableOutboxRunner implements OnModuleInit, OnModuleDestroy {
   private scheduleDrain(): void {
     if (this.stopped || this.running) return;
 
-    // Do not claim durable work while the only configured transport is known to
-    // be unavailable. This avoids converting a platform-wide outage into a
-    // retry/dead-letter storm. A transport failure after claim is still handled
-    // by the lease and retry state machine below.
-    if (!this.kafka.isConnected()) {
-      this.lastError = 'Kafka transport is not connected';
+    // Readiness probing is part of the serialized drain cycle so a slow broker
+    // probe cannot overlap with another claim attempt.
+    this.running = this.drainWhenReady().finally(() => {
+      this.running = undefined;
+    });
+  }
+
+  private async drainWhenReady(): Promise<void> {
+    // A process-local connection flag is insufficient here: Kafka may disappear
+    // after startup. Probe the broker before claiming durable rows so a known
+    // platform-wide outage cannot turn into ambiguous post-send outcomes.
+    let ready = false;
+    try {
+      ready = await this.kafka.isReady();
+    } catch (error) {
+      this.lastError = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Kafka readiness probe failed: ${this.lastError}`);
+      return;
+    }
+
+    if (!ready) {
+      this.lastError = 'Kafka transport is not ready';
       return;
     }
 
     this.lastDrainStartedAt = new Date();
-    this.running = this.worker
-      .drainOnce(this.workerId, this.batchSize)
-      .then((report) => {
-        this.lastReport = report;
-        this.lastError = null;
-        if (report.claimed > 0) {
-          this.logger.log(
-            `Outbox drain claimed=${report.claimed} delivered=${report.delivered} retried=${report.retried} dead=${report.deadLettered} manualReview=${report.manualReview} leaseLost=${report.leaseLost}`,
-          );
-        }
-      })
-      .catch((error) => {
-        this.lastError = error instanceof Error ? error.message : String(error);
-        this.logger.error(`Outbox drain failed: ${this.lastError}`);
-      })
-      .finally(() => {
-        this.lastDrainCompletedAt = new Date();
-        this.running = undefined;
-      });
+    try {
+      const report = await this.worker.drainOnce(this.workerId, this.batchSize);
+      this.lastReport = report;
+      this.lastError = null;
+      if (report.claimed > 0) {
+        this.logger.log(
+          `Outbox drain claimed=${report.claimed} delivered=${report.delivered} retried=${report.retried} dead=${report.deadLettered} manualReview=${report.manualReview} leaseLost=${report.leaseLost}`,
+        );
+      }
+    } catch (error) {
+      this.lastError = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Outbox drain failed: ${this.lastError}`);
+    } finally {
+      this.lastDrainCompletedAt = new Date();
+    }
   }
 
   private async deliver(entry: ClaimedOutboxEntry): Promise<void> {

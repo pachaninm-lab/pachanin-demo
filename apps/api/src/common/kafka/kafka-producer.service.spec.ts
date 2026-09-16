@@ -32,6 +32,7 @@ describe('KafkaProducerService topology contract', () => {
       configured: false,
       connected: false,
     }));
+    await expect(service.isReady()).resolves.toBe(false);
     await expect(service.send({ topic: 'domain', value: { ok: true } })).resolves.toBe(false);
   });
 
@@ -57,5 +58,42 @@ describe('KafkaProducerService topology contract', () => {
       connected: false,
       clientId: 'grainflow-outbox-worker-7d9f6',
     });
+  });
+
+  it('probes broker readiness instead of trusting the startup connection flag', async () => {
+    const service = new KafkaProducerService();
+    const describeCluster = jest.fn().mockResolvedValue({
+      brokers: [],
+      controller: null,
+      clusterId: 'test-cluster',
+    });
+    const state = service as unknown as {
+      connected: boolean;
+      producer: object | null;
+      admin: { describeCluster: typeof describeCluster } | null;
+    };
+    state.connected = true;
+    state.producer = {};
+    state.admin = { describeCluster };
+
+    await expect(service.isReady()).resolves.toBe(true);
+    expect(describeCluster).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports not-ready when a live broker probe fails after startup', async () => {
+    const service = new KafkaProducerService();
+    const describeCluster = jest.fn().mockRejectedValue(new Error('broker unavailable'));
+    const state = service as unknown as {
+      connected: boolean;
+      producer: object | null;
+      admin: { describeCluster: typeof describeCluster } | null;
+    };
+    state.connected = true;
+    state.producer = {};
+    state.admin = { describeCluster };
+
+    await expect(service.isReady()).resolves.toBe(false);
+    expect(service.isConnected()).toBe(true);
+    expect(describeCluster).toHaveBeenCalledTimes(1);
   });
 });
