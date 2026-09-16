@@ -1429,6 +1429,13 @@
     ],
     "fix/gitleaks-release-authority-attestation-20260912": [
       "apps/tai/tests/test_gitleaks_release_authority.py"
+    ],
+    "security/asvs-v1433-support-profile-storage-4459": [
+      "apps/web/components/platform-v7/ChatSupportWidget.tsx",
+      "apps/web/tests/unit/supportProfileBrowserStorage.test.tsx",
+      ".github/workflows/ci.yml",
+      "docs/security/asvs-applicability-decisions.json",
+      "docs/platform-v7/autopilot/autopilot-state.json"
     ]
   },
   "currentAcceptance": [

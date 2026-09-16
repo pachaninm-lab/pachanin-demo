@@ -8,8 +8,37 @@ type Topic = 'platform' | 'pilot' | 'bank_partner' | 'region' | 'technical' | 'o
 type SupportLocale = 'ru' | 'en' | 'zh';
 type SupportProfile = { name: string; contact: string; organization: string };
 
-const SUPPORT_PROFILE_PRIMARY_KEY = 'pc_v7_support_profile';
-const SUPPORT_PROFILE_KEYS = [SUPPORT_PROFILE_PRIMARY_KEY, 'pc_v7_registration_profile', 'pc_v7_profile'];
+/**
+ * Keys this widget used to persist a support profile under.
+ *
+ * ASVS 5.0 V14.3.3: browser storage must not hold sensitive data, and the only
+ * exception the requirement allows is session tokens. This held a name, a phone
+ * number or email address, and an organization - and it held them in
+ * localStorage, which outlives the session, the tab and the logout.
+ *
+ * It was also collected more broadly than "the support form": a capture-phase
+ * submit listener reads labelled fields out of the login, registration and
+ * contact surfaces, so what the user typed into one of those ended up here even
+ * though they never opened support.
+ *
+ * The convenience it bought - opening support after filling something in and
+ * finding the name and contact already there - is kept, in memory, for the life
+ * of the page. That is the span the behaviour actually needs; persisting it
+ * across days was never what made the prefill useful.
+ *
+ * The list is retained only so the values already sitting in people's browsers
+ * are removed. Two of the three names are legacy: nothing in this codebase has
+ * written pc_v7_registration_profile or pc_v7_profile for some time, and they
+ * are purged for the same reason.
+ */
+const SUPPORT_PROFILE_KEYS = ['pc_v7_support_profile', 'pc_v7_registration_profile', 'pc_v7_profile'];
+
+/**
+ * The profile for this page's lifetime. Deliberately module state rather than
+ * component state: the submit listener that captures it and the panel that
+ * reads it are not in the same React lifetime.
+ */
+let rememberedSupportProfile: SupportProfile | null = null;
 
 const SUPPORT_COPY = {
   ru: {
@@ -51,56 +80,38 @@ function clean(value: string, limit: number) {
   return value.trim().replace(/\s+/g, ' ').slice(0, limit);
 }
 
-function pickText(source: Record<string, unknown>, keys: string[]) {
-  for (const key of keys) {
-    const value = source[key];
-    if (typeof value === 'string') {
-      const cleaned = clean(value, 160);
-      if (cleaned) return cleaned;
+/**
+ * Removes what earlier versions of this widget persisted.
+ *
+ * Stopping the writes is only half of it. Without this, every browser that ever
+ * used the cabinet keeps the name, contact and organization it captured, for as
+ * long as that profile lives - a fix that leaves the data in place has not
+ * removed it from browser storage, it has only stopped adding to it.
+ */
+function purgePersistedSupportProfile() {
+  if (typeof window === 'undefined') return;
+  for (const storage of [window.sessionStorage, window.localStorage]) {
+    for (const key of SUPPORT_PROFILE_KEYS) {
+      try { storage.removeItem(key); } catch {}
     }
-  }
-  return '';
-}
-
-function parseProfile(raw: string | null): SupportProfile | null {
-  if (!raw) return null;
-  try {
-    const source = JSON.parse(raw) as Record<string, unknown>;
-    const name = pickText(source, ['name', 'fullName', 'fio', 'responsibleName', 'contactName']);
-    const email = pickText(source, ['email', 'login']);
-    const phone = pickText(source, ['phone', 'tel']);
-    const contact = pickText(source, ['contact']) || email || phone;
-    const organization = pickText(source, ['organization', 'company', 'orgName']);
-    if (!name && !contact && !organization) return null;
-    return { name, contact, organization };
-  } catch {
-    return null;
   }
 }
 
 function readCabinetSupportProfile(): SupportProfile | null {
   if (typeof window === 'undefined') return null;
-  for (const storage of [window.sessionStorage, window.localStorage]) {
-    for (const key of SUPPORT_PROFILE_KEYS) {
-      const profile = parseProfile(storage.getItem(key));
-      if (profile) return profile;
-    }
-  }
-  return null;
+  return rememberedSupportProfile;
 }
 
 function storeSupportProfile(profile: Partial<SupportProfile>) {
   if (typeof window === 'undefined') return;
-  const existing = readCabinetSupportProfile();
+  const existing = rememberedSupportProfile;
   const next: SupportProfile = {
     name: clean(profile.name || existing?.name || '', 80),
     contact: clean(profile.contact || existing?.contact || '', 120),
     organization: clean(profile.organization || existing?.organization || '', 120),
   };
   if (!next.name && !next.contact && !next.organization) return;
-  const value = JSON.stringify(next);
-  try { window.sessionStorage.setItem(SUPPORT_PROFILE_PRIMARY_KEY, value); } catch {}
-  try { window.localStorage.setItem(SUPPORT_PROFILE_PRIMARY_KEY, value); } catch {}
+  rememberedSupportProfile = next;
 }
 
 function labelledFieldValue(root: ParentNode, labels: string[]) {
@@ -157,6 +168,11 @@ export function ChatSupportWidget() {
   const ui = SUPPORT_COPY[locale];
 
   React.useEffect(() => setLocale(resolveLocale()), []);
+
+  // ASVS 5.0 V14.3.3. Earlier versions of this widget persisted the captured
+  // profile; stopping the writes leaves what was already written, so it is
+  // removed on mount from every browser that still holds it.
+  React.useEffect(() => { purgePersistedSupportProfile(); }, []);
 
   React.useEffect(() => {
     const rememberFromTarget = (target: EventTarget | null) => {

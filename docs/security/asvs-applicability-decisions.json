@@ -9636,19 +9636,77 @@
       "applicability": "APPLICABLE",
       "status": "FAIL",
       "evidence": [
-        "personal-data-in-storage:apps/web/components/platform-v7/ChatSupportWidget.tsx",
+        "no-write:apps/web/components/platform-v7/ChatSupportWidget.tsx",
+        "purge-on-mount:apps/web/components/platform-v7/ChatSupportWidget.tsx",
+        "executable-assertions:apps/web/tests/unit/supportProfileBrowserStorage.test.tsx",
+        "business-data-in-storage:apps/web/components/gekta/GektaChatWorkspace.tsx",
         "business-data-in-storage:apps/web/components/v7r/DocumentsDropzone.tsx",
-        "business-data-in-storage:apps/web/components/gekta/GektaChatWorkspace.tsx"
+        "business-data-in-storage:apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
+        "business-data-in-storage:apps/web/lib/platform-v7/support-client-store.ts"
       ],
       "conditions": [
         {
-          "condition": "a personal-data profile is still written to browser storage",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the support widget writes no profile into browser storage at all",
+          "check": "ABSENT_AT_PATH",
           "paths": [
             "apps/web/components/platform-v7/ChatSupportWidget.tsx"
           ],
           "patterns": [
-            "support_profile_primary_key"
+            "sessionstorage.setitem",
+            "localstorage.setitem",
+            "storage.setitem"
+          ]
+        },
+        {
+          "condition": "the widget removes, on mount, the three keys earlier versions persisted under",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/components/platform-v7/ChatSupportWidget.tsx"
+          ],
+          "patterns": [
+            "function purgepersistedsupportprofile()",
+            "storage.removeitem(key)",
+            "react.useeffect(() => { purgepersistedsupportprofile(); }, []);",
+            "'pc_v7_support_profile', 'pc_v7_registration_profile', 'pc_v7_profile'"
+          ]
+        },
+        {
+          "condition": "both halves - no write, and removal of what was written - are held by executable assertions",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/tests/unit/supportProfileBrowserStorage.test.tsx"
+          ],
+          "patterns": [
+            "writes nothing to sessionstorage or localstorage when it captures a profile",
+            "removes a profile an earlier version persisted, on mount",
+            "does not read a persisted profile back before purging it",
+            "carries the captured profile no further than the page that captured it"
+          ]
+        },
+        {
+          "condition": "those assertions are executed by CI rather than only present in the tree",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            ".github/workflows/ci.yml"
+          ],
+          "patterns": [
+            "tests/unit/supportprofilebrowserstorage.test.tsx"
+          ]
+        },
+        {
+          "condition": "conversations, documents and support case notes are still persisted client-side, which is why this stays FAIL",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/components/gekta/GektaChatWorkspace.tsx",
+            "apps/web/components/v7r/DocumentsDropzone.tsx",
+            "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
+            "apps/web/lib/platform-v7/support-client-store.ts"
+          ],
+          "patterns": [
+            "window.localstorage.setitem(history_storage",
+            "window.localstorage.setitem(storagekey(dealid)",
+            "window.sessionstorage.setitem(sessionkey(locale)",
+            "window.localstorage.setitem(\n    storage_key,\n    json.stringify({\n      cases:"
           ]
         },
         {
@@ -9665,7 +9723,7 @@
           ]
         }
       ],
-      "note": "The exception this requirement allows is session tokens, and the data stored is not that. The support widget writes a profile containing the user’s name, their phone number or email address, and their organization into sessionStorage and localStorage both, under three key names. The Gekta assistant persists whole conversations and project lists, and the documents dropzone persists per-deal document lists and checklists - commercial content about identifiable counterparties, on the client, indefinitely. What the platform does get right is credited and machine-checked: no token, JWT or password is written to browser storage anywhere in 2576 web source files, so the classic version of this failure is absent. Without a data classification (V14.1.1) there is no rule that would have told a component author the support profile was not theirs to persist."
+      "note": "The exception this requirement allows is session tokens, and none of what is stored is that. One of the three findings is now closed and two remain, which is why this stays FAIL.\n\nClosed: the support widget. It wrote a profile - the user’s name, their phone number or email address, and their organization - into sessionStorage and localStorage both. It did not collect that from its own form: a capture-phase input and submit listener reads labelled fields out of the login, registration and contact surfaces, so what somebody typed to register was persisted by a support widget they never opened, and localStorage outlives the session, the tab and the logout. The prefill it bought is a real convenience and is kept, in module state, for the life of the page - which is the span the behaviour actually needs. Stopping the writes was only half of it: every browser that already used the cabinet still held the data, so the widget now removes all three keys from both storages on mount. Two of the three names are legacy and nothing has written them for some time; they are purged for the same reason. Six mutations were run against the assertions, including reverting the file to its persisted original and reading the profile back out of storage before the purge - each was caught. The last of those was not caught at first: a profile read back from storage reaches the user as the value of the name and contact inputs, which textContent does not see, so the assertions were widened to read field values too.\n\nOpen, and an owner decision rather than a defect to fix here: the conversational and document surfaces. The Gekta workspace persists whole conversations and project lists, the public assistant persists its message history, the documents dropzone persists per-deal document lists and checklists, and the support case store persists cases, messages and internal notes - commercial content about identifiable counterparties, on the client, indefinitely. Unlike the support profile, persistence there IS the feature: removing it removes the product behaviour, so the choice between keeping the history and keeping it off the device is not one this programme can make for the owner. Also measured and left alone as benign: theme, density, locale, tour completion, cache version, dictionary cache, feature-flag overrides, voice consent, the active-role key and the analytics session id. apps/web/lib/platform-v7/recently-viewed.ts persists deal and dispute labels but has no importer, so it is dead rather than live.\n\nWhat the platform gets right is credited and machine-checked: no token, JWT or password is written to browser storage anywhere in the web tree, so the classic version of this failure is absent. Without a data classification (V14.1.1) there is still no rule that would have told a component author which of these were theirs to persist."
     },
     {
       "requirementId": "V15.1.1",
