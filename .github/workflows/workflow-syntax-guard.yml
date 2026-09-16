@@ -47,7 +47,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          expected_parent='747349161b443105d79531207e16b866f1701ab9'
+          expected_parent='76d1df346d955e9cbe9cec7b782ed4c7e523fa70'
           expected_main='841c34aac10745924456d3b6ee1f9c5c06db6566'
           expected_target_blob='8a13960d5a6db5f74075505d1cc99391f25e777f'
           [[ "$(git rev-parse HEAD^)" == "$expected_parent" ]]
