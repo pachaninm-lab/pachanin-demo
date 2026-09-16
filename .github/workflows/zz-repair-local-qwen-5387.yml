@@ -1,0 +1,65 @@
+name: Temporary Local Qwen identifier repair
+
+on:
+  push:
+    branches:
+      - fix/local-qwen-evidence-binding-20260913
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: fix/local-qwen-evidence-binding-20260913
+          fetch-depth: 0
+      - name: Apply deterministic identifier-only repair
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/local-qwen-independent-review.yml')
+          text = path.read_text(encoding='utf-8')
+          replacements = (
+              ('TEST_ROUTE_SECURITY_CLASSIFICATION', 'TEST_ONLY_SECURITY_FINDING_REJECTED'),
+              ('SECURITY_CLASSIFICATION', 'SECURITY_FINDING_TERMS'),
+              ('security_classification', 'security_finding_terms'),
+              ('rejected test-only security classification', 'rejected test-only security finding'),
+          )
+
+          original = text
+          for old, new in replacements:
+              text = text.replace(old, new)
+
+          if text == original:
+              print('Identifier repair already applied.')
+              raise SystemExit(0)
+
+          legacy = ('TEST_ROUTE_SECURITY_CLASSIFICATION', 'SECURITY_CLASSIFICATION', 'security_classification')
+          remaining = [token for token in legacy if token in text]
+          if remaining:
+              raise SystemExit('Legacy identifier remains: ' + ','.join(remaining))
+
+          required = ('TEST_ONLY_SECURITY_FINDING_REJECTED', 'SECURITY_FINDING_TERMS', 'security_finding_terms')
+          missing = [token for token in required if token not in text]
+          if missing:
+              raise SystemExit('Expected replacement missing: ' + ','.join(missing))
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+          if git diff --quiet -- .github/workflows/local-qwen-independent-review.yml; then
+            exit 0
+          fi
+
+          git diff --check -- .github/workflows/local-qwen-independent-review.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/local-qwen-independent-review.yml
+          git commit -m 'fix(review): make test-only rejection semantics explicit'
+          git push origin HEAD:fix/local-qwen-evidence-binding-20260913
