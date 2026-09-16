@@ -562,12 +562,20 @@ jobs:
               return finding_violation(item, findings[0])
 
           def repair_user(item, violation):
+              violation_guidance = ''
+              if violation == 'SPECULATIVE_CLAIM':
+                  violation_guidance = (
+                      'For SPECULATIVE_CLAIM, do not repeat the rejected inference with different certainty wording. '
+                      'A label, category, constant, enum member, or stored historical value does not by itself prove downstream retry, authorization, security, or control-flow behavior. '
+                      'A non-empty finding requires the exact changed bytes in this same chunk to directly implement the claimed behavior or concrete failure mechanism; otherwise author findings=[]. '
+                  )
               return (
                   item['user']
                   + '\nTRUSTED_POLICY_REPAIR_NOTICE\n'
                   + f'The prior candidate was rejected as policy-inadmissible: {violation}. '
                   + 'The rejected candidate content is intentionally omitted so the fresh deterministic repair is anchored only to the trusted added-line index and exact diff. '
                   + 'Re-review the exact same chunk under the unchanged trusted system policy. '
+                  + violation_guidance
                   + 'Do not rephrase a hypothetical claim into definite wording. '
                   + 'A non-empty finding must cite one exact added line from BEGIN_TRUSTED_ADDED_LINE_INDEX and evidence must be a verbatim substring of that line. '
                   + 'Do not rely on any deployment, topology, data flow, or runtime assumption absent from the exact chunk. '
@@ -653,6 +661,11 @@ jobs:
               fail('VALIDATOR_SELFTEST_REPAIR_CONTEXT_MISSING')
           if 'BEGIN_UNTRUSTED_PRIOR_CANDIDATE' in repair_probe:
               fail('VALIDATOR_SELFTEST_REPAIR_CANDIDATE_ANCHOR_PRESENT')
+          speculative_repair_probe = repair_user(probe_item, 'SPECULATIVE_CLAIM')
+          if 'does not by itself prove downstream retry' not in speculative_repair_probe:
+              fail('VALIDATOR_SELFTEST_SPECULATION_REPAIR_GROUNDING_MISSING')
+          if 'otherwise author findings=[]' not in speculative_repair_probe:
+              fail('VALIDATOR_SELFTEST_SPECULATION_REPAIR_EMPTY_RESULT_GUIDANCE_MISSING')
 
           service = 'tai-qwen3-8b.service'
           pid_text = subprocess.check_output(
