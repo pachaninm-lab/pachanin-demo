@@ -49,67 +49,45 @@ const source = fs.readFileSync(process.env.BASE_SCRIPT, 'utf8');
 const shell = (value) => value.replaceAll('\\${', '${');
 const raw = (strings) => shell(String.raw({ raw: strings.raw }));
 
-const gracefulAttemptBefore = raw`test -n "$graceful_owner"
-kubectl logs -f -n "$NAMESPACE" "pod/\${graceful_owner}" > "$RUNTIME_DIR/graceful-worker.log" 2>&1 &`;
-const gracefulAttemptAfter = raw`test -n "$graceful_owner"
-wait_for_sql "graceful external attempt start" "ATTEMPTED" 45 \
-  "SELECT CASE WHEN \"lastAttemptAt\" IS NOT NULL THEN 'ATTEMPTED' ELSE COALESCE(\"status\"::text,'MISSING') END FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${graceful_suffix}' LIMIT 1;" \
-  >/dev/null
-kubectl logs -f -n "$NAMESPACE" "pod/\${graceful_owner}" > "$RUNTIME_DIR/graceful-worker.log" 2>&1 &`;
-
-const gracefulBefore = '[[ "$graceful_row" == PENDING:::unsent || "$graceful_row" == DEAD_LETTER:::unsent ]]';
-const gracefulAfter = raw`IFS=':' read -r graceful_status graceful_current_owner graceful_current_token graceful_delivery <<< "$graceful_row"
-test "$graceful_delivery" = "unsent"
-if [[ "$graceful_status" = "PROCESSING" ]]; then
-  test -n "$graceful_current_owner"
-  test -n "$graceful_current_token"
-elif [[ "$graceful_status" = "MANUAL_REVIEW" ]]; then
-  test -z "$graceful_current_owner"
-  test -z "$graceful_current_token"
-else
-  echo "Graceful attempted delivery escaped fail-closed ambiguity state: $graceful_row" >&2
-  exit 1
-fi
-graceful_attempt_evidence="$(admin_sql "SELECT CASE WHEN \"lastAttemptAt\" IS NOT NULL THEN 'ATTEMPTED' ELSE 'NOT_ATTEMPTED' END FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${graceful_suffix}' LIMIT 1;")"
-test "$graceful_attempt_evidence" = "ATTEMPTED"`;
-
-const gracefulRecoveryBefore = raw`kubectl scale deployment kafka -n "$NAMESPACE" --replicas=1
-wait_for_deployment_ready kafka 1
-kubectl rollout status -n "$NAMESPACE" deployment/grainflow-outbox-worker --timeout=360s
-admin_sql "
-  UPDATE \"outbox_entries\"
-  SET \"nextRetryAt\"=NOW()-INTERVAL '1 second'
-  WHERE \"correlationId\"='\${RUN_ID}.\${graceful_suffix}' AND \"status\"='PENDING';
-" >/dev/null
-wait_for_sql "graceful entry post-recovery delivery" "1" 60 \
-  "SELECT count(*) FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${graceful_suffix}' AND \"status\"='SENT';" \
-  >/dev/null`;
-const gracefulRecoveryAfter = raw`kubectl scale deployment kafka -n "$NAMESPACE" --replicas=1
-wait_for_deployment_ready kafka 1
-kubectl rollout status -n "$NAMESPACE" deployment/grainflow-outbox-worker --timeout=360s
-wait_for_sql "graceful attempted delivery ambiguity quarantine" "MANUAL_REVIEW" 90 \
+const gracefulClaimBefore = raw`FAILURE_REASON="graceful shutdown did not stop claims and safely finish the active drain"
+kubectl scale deployment kafka -n "$NAMESPACE" --replicas=0
+kubectl wait --for=delete pod -n "$NAMESPACE" -l app.kubernetes.io/name=kafka --timeout=180s
+graceful_suffix="graceful"
+test "$(seed_small_entries "$graceful_suffix" 1 20)" = "1"
+wait_for_sql "graceful entry claim" "PROCESSING" 45 \
   "SELECT \"status\" FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${graceful_suffix}' LIMIT 1;" \
   >/dev/null
+graceful_owner="$(admin_sql "SELECT \"leaseOwner\" FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${graceful_suffix}' LIMIT 1;")"`;
+const gracefulClaimAfter = raw`FAILURE_REASON="graceful shutdown during Kafka unavailability claimed durable work or failed to terminate cleanly"
+kubectl scale deployment kafka -n "$NAMESPACE" --replicas=0
+kubectl wait --for=delete pod -n "$NAMESPACE" -l app.kubernetes.io/name=kafka --timeout=180s
+graceful_suffix="graceful"
+test "$(seed_small_entries "$graceful_suffix" 1 20)" = "1"
+# Live Kafka readiness is now the claim boundary. Keep the broker absent long
+# enough for several worker intervals and prove the durable row remains wholly
+# unclaimed before exercising SIGTERM on one idle worker.
 sleep 8
-graceful_ambiguity="$(admin_sql "
-  SELECT concat_ws('|', \"status\"::text, COALESCE(\"lastErrorCategory\",''), COALESCE(\"lastErrorCode\",''),
-    CASE WHEN \"lastAttemptAt\" IS NOT NULL THEN 'attempted' ELSE 'not-attempted' END,
-    CASE WHEN \"manualReviewAt\" IS NOT NULL THEN 'reviewed' ELSE 'not-reviewed' END,
+graceful_pre_shutdown="$(admin_sql "
+  SELECT concat_ws('|', \"status\"::text,
     CASE WHEN \"leaseOwner\" IS NULL AND \"leaseToken\" IS NULL AND \"leaseExpiresAt\" IS NULL THEN 'no-lease' ELSE 'leased' END,
+    CASE WHEN \"lastAttemptAt\" IS NULL THEN 'not-attempted' ELSE 'attempted' END,
     CASE WHEN \"sentAt\" IS NULL THEN 'unsent' ELSE 'sent' END)
   FROM \"outbox_entries\"
   WHERE \"correlationId\"='\${RUN_ID}.\${graceful_suffix}'
   LIMIT 1;
 ")"
-printf '%s\n' "$graceful_ambiguity" > "$RUNTIME_DIR/graceful-ambiguity-evidence.txt"
-IFS='|' read -r graceful_final_status graceful_category graceful_code graceful_attempted graceful_reviewed graceful_lease_state graceful_sent_state <<< "$graceful_ambiguity"
-test "$graceful_final_status" = "MANUAL_REVIEW"
-test "$graceful_category" = "AMBIGUOUS"
-[[ "$graceful_code" = "TRANSPORT_OUTCOME_UNKNOWN" || "$graceful_code" = "WORKER_CRASH_OUTCOME_UNKNOWN" ]]
-test "$graceful_attempted" = "attempted"
-test "$graceful_reviewed" = "reviewed"
-test "$graceful_lease_state" = "no-lease"
-test "$graceful_sent_state" = "unsent"`;
+printf '%s\n' "$graceful_pre_shutdown" > "$RUNTIME_DIR/graceful-pre-shutdown.txt"
+test "$graceful_pre_shutdown" = "PENDING|no-lease|not-attempted|unsent"
+graceful_owner="$(kubectl get pods -n "$NAMESPACE" -l "$WORKER_SELECTOR" -o jsonpath='{.items[0].metadata.name}')"`;
+
+const gracefulBefore = '[[ "$graceful_row" == PENDING:::unsent || "$graceful_row" == DEAD_LETTER:::unsent ]]';
+const gracefulAfter = raw`IFS=':' read -r graceful_status graceful_current_owner graceful_current_token graceful_delivery <<< "$graceful_row"
+test "$graceful_status" = "PENDING"
+test -z "$graceful_current_owner"
+test -z "$graceful_current_token"
+test "$graceful_delivery" = "unsent"
+graceful_attempt_evidence="$(admin_sql "SELECT CASE WHEN \"lastAttemptAt\" IS NULL THEN 'NOT_ATTEMPTED' ELSE 'ATTEMPTED' END FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${graceful_suffix}' LIMIT 1;")"
+test "$graceful_attempt_evidence" = "NOT_ATTEMPTED"`;
 
 const killClaimBefore = raw`wait_for_sql "kill scenario claim" "PROCESSING" 45 \
   "SELECT \"status\" FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${kill_suffix}' LIMIT 1;" \
@@ -272,9 +250,8 @@ while IFS= read -r final_worker_pod; do
 done < "$final_worker_pods_file"`;
 
 const replacements = [
-  [gracefulAttemptBefore, gracefulAttemptAfter, 'graceful attempt-start boundary'],
+  [gracefulClaimBefore, gracefulClaimAfter, 'graceful readiness-gated claim boundary'],
   [gracefulBefore, gracefulAfter, 'graceful shutdown assertion boundary'],
-  [gracefulRecoveryBefore, gracefulRecoveryAfter, 'graceful post-recovery boundary'],
   [killClaimBefore, killClaimAfter, 'forced-kill attempt-start boundary'],
   [killRecoveryBefore, killRecoveryAfter, 'forced-kill ambiguity recovery boundary'],
   [poisonBefore, poisonAfter, 'poison isolation scheduling boundary'],
