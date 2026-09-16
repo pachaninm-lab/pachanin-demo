@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/production-p0-runtime-revision-parity-diagnostic.yml'
+      - 'scripts/production-market-release-preflight.py'
+      - 'scripts/test-production-market-release-preflight.py'
   issue_comment:
     types: [created]
 
@@ -96,6 +98,12 @@ jobs:
               raise SystemExit('forbidden mutation surface: ' + ' | '.join(bad))
           PY
 
+      - name: Test bounded market preflight without production access
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 -B scripts/test-production-market-release-preflight.py
+
       - name: Verify exact owner-issued provenance
         if: github.event_name == 'issue_comment'
         shell: bash
@@ -175,7 +183,9 @@ jobs:
           raw="$RUNNER_TEMP/p0-runtime-parity.raw"
           scan="$RUNNER_TEMP/p0-runtime-parity.scan"
           match="$RUNNER_TEMP/p0-runtime-parity.match"
-          trap 'rm -f -- "$key" "$known" "$raw" "$scan" "$match"' EXIT
+          preflight_raw="$RUNNER_TEMP/market-preflight.untrusted.json"
+          umask 077
+          trap 'rm -f -- "$key" "$known" "$raw" "$scan" "$match" "$preflight_raw"' EXIT
 
           git fetch --no-tags origin main >/dev/null
           [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
@@ -395,3 +405,61 @@ jobs:
           echo "REVIEWER_READINESS_CLASS=$readiness_class"
           echo "NEXT=$next"
           echo 'PRODUCTION_MUTATION=NONE'
+
+          # Extend this SAME pinned owner-command session; never check out PR code here.
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          timeout 180s ssh -i "$key" -p "$port" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$known" -o ConnectTimeout=15 \
+            "$user@$host" "python3 - '$TARGET_SHA'" \
+            < scripts/production-market-release-preflight.py > "$preflight_raw" 2>/dev/null
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          python3 -B - "$TARGET_SHA" "$preflight_raw" "$RUNNER_TEMP/market-preflight.json" "$GITHUB_STEP_SUMMARY" <<'PYMARKET'
+          import hashlib, importlib.util, json, pathlib, sys
+          source = pathlib.Path('scripts/production-market-release-preflight.py')
+          spec = importlib.util.spec_from_file_location('market_preflight', source)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          try:
+              raw_path = pathlib.Path(sys.argv[2])
+              with raw_path.open('rb') as handle:
+                  raw = handle.read(module.MAX_BYTES + 1)
+              if not 0 < len(raw) <= module.MAX_BYTES:
+                  raise ValueError('BOUNDS')
+              report = module.validate_report(json.loads(raw.decode('utf-8', errors='strict')), sys.argv[1])
+              report['transported_source_sha256'] = hashlib.sha256(source.read_bytes()).hexdigest()
+              report['source_migration_comparison'] = module.source_lineage(report['migration_inventory'], pathlib.Path('apps/api/prisma/migrations'))
+              payload = json.dumps(report, sort_keys=True, ensure_ascii=True, separators=(',', ':')) + '\n'
+              if len(payload.encode()) > module.MAX_BYTES:
+                  raise ValueError('BOUNDS')
+              destination = pathlib.Path(sys.argv[3])
+              destination.write_text(payload, encoding='utf-8')
+              destination.chmod(0o600)
+              lines = ['## Read-only market release preflight', '', 'Collection is NOT deployment approval.', '', 'Target: `' + sys.argv[1] + '`']
+              lines += ['- ' + key + ': `' + value + '`' for key, value in report['checks'].items()]
+              lines += ['- migration metadata: `' + report['migration_inventory']['status'] + '`', '- backup: `' + report['backup']['artifact'] + '`', '- restore verification: `NOT_PROVEN`', '- production mutation: `NONE`', '- deployment authorized: `false`']
+              with pathlib.Path(sys.argv[4]).open('a', encoding='utf-8') as summary:
+                  summary.write('\n'.join(lines) + '\n')
+              print('MARKET_PREFLIGHT_COLLECTION=VALIDATED_READ_ONLY')
+              print('MARKET_PREFLIGHT_DEPLOYMENT_AUTHORIZED=false')
+          except Exception:
+              pathlib.Path(sys.argv[3]).unlink(missing_ok=True)
+              raise SystemExit('MARKET_PREFLIGHT_EVIDENCE_NOT_ADMITTED')
+          PYMARKET
+
+      - name: Preserve validated read-only market observations
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        env:
+          GH_TOKEN: ''
+          PC_PROD_HOST: ''
+          PC_PROD_SSH_USER: ''
+          PC_PROD_SSH_PORT: ''
+          PC_PROD_SSH_KEY: ''
+          PC_PROD_SSH_PRIVATE_KEY: ''
+          VPS_SSH_KEY: ''
+          PC_PROD_SSH_HOST_FINGERPRINT: ''
+        with:
+          name: market-release-preflight-${{ needs.contract.outputs.target_sha }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/market-preflight.json
+          if-no-files-found: error
+          retention-days: 14
