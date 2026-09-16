@@ -23,8 +23,16 @@ describe('заголовки кросс-доменной изоляции', () =
     expect((await headersFor('/')).get('cross-origin-opener-policy')).toBe('same-origin');
   });
 
-  it('ответ несёт Cross-Origin-Resource-Policy: same-origin', async () => {
-    expect((await headersFor('/')).get('cross-origin-resource-policy')).toBe('same-origin');
+  it('ответ несёт Cross-Origin-Resource-Policy: same-site, а не same-origin', async () => {
+    // Измерено, а не выбрано «построже»: платформа живёт на апексе и на
+    // control.<апекс>, это два origin'а одного registrable domain, и
+    // same-origin отказал бы в подресурсе между ними, сломав контур
+    // управления. same-site отказывает любому постороннему origin'у.
+    const { CONTROL_PLATFORM_HOST, PRIMARY_PLATFORM_HOST } = await import('../../lib/platform-v7/control-host');
+    expect(CONTROL_PLATFORM_HOST.endsWith(PRIMARY_PLATFORM_HOST)).toBe(true);
+    expect(CONTROL_PLATFORM_HOST).not.toBe(PRIMARY_PLATFORM_HOST);
+    expect((await headersFor('/')).get('cross-origin-resource-policy')).toBe('same-site');
+    expect((await headersFor('/')).get('cross-origin-resource-policy')).not.toBe('cross-origin');
   });
 
   it('CSP называет адрес отчётов обоими механизмами', async () => {

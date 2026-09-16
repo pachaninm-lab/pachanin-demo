@@ -234,8 +234,17 @@ function applySecurityHeaders(response: NextResponse, protectedResponse = false,
   response.headers.set('cross-origin-opener-policy', 'same-origin');
   // Ресурсы приложения не встраиваются чужими сайтами. Это согласовано с уже
   // стоящим frame-ancestors 'none', и Access-Control-Allow-Origin в apps/web
-  // не выставляется нигде, то есть кросс-доменных потребителей нет.
-  response.headers.set('cross-origin-resource-policy', 'same-origin');
+  // не выставляется нигде.
+  //
+  // Значение — same-site, а не same-origin, и это измерено, а не выбрано по
+  // принципу «строже значит лучше». Платформа отдаётся с апекса И с
+  // control.<апекс> (control-host.ts: PRIMARY_PLATFORM_HOST и
+  // CONTROL_PLATFORM_HOST) — это два origin'а и один registrable domain, то
+  // есть одно приложение. same-origin отказал бы в подресурсе, который один из
+  // них загружает у другого, и сломал бы контур управления. same-site
+  // по-прежнему отказывает любому действительно постороннему origin'у — а
+  // требование именно об этом.
+  response.headers.set('cross-origin-resource-policy', 'same-site');
   if (protectedResponse) {
     response.headers.set('cache-control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
     response.headers.set('pragma', 'no-cache');
