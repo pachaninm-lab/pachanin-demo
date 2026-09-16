@@ -1,211 +1,197 @@
-# Review current task — IR-10.4 Settlement PostgreSQL Authority
+# Review current task — IR-20 Canonical Durable Outbox
 
-Maturity: pre-integration / isolated PostgreSQL evidence only.
-Do not imply live bank, nominal-account, credit, reserve or payout integration.
-Do not auto-merge. Review exact diff, exact-head evidence and repository scope.
+Maturity: controlled-pilot / pre-integration.
+Do not overstate maturity or imply live external integrations.
+Do not change apps/landing, production UI, visual/theme/onboarding, adapters, server actions, AI gateway runtime, DB/migrations or lockfiles unless the current step explicitly allows it.
+Do not auto-merge. Human review and green checks are required.
+
+Review the diff, not the agent report.
 
 ## Required scope checks
 
-- `apps/landing`, `apps/web`, lockfiles and packages diff must be 0 for the serialized IR-10.4 branch, except for the explicitly approved concurrent scopes below;
-- no live provider activation, credentials or fake-live claims;
-- no RuntimeCore, optional Prisma, repository factory, ActionExecutor memory authority or process-memory OutboxService in the production settlement graph;
-- no float/`amountRub` financial authority;
-- no human/operator confirmation of reserve or release;
-- no trigger/RLS/idempotency/ledger bypass in fixtures;
-- no temporary/self-modifying workflow and no direct push from Actions;
-- state, task prompt and actual diff must agree.
+- `apps/landing` diff must be 0.
+- UI/visual/theme/onboarding diff must be 0 unless explicitly allowed by the current step.
+- adapters/server-actions/AI gateway diff must be 0 unless explicitly allowed by the current step.
+- no auto-merge behavior.
+- no fake-live or maturity overclaim.
 
-## Approved concurrent infrastructure scope — IR-K8S #2659 / PR #2660
+## Current allowed scope
 
-The serialized primary task remains IR-10.4. A separate, isolated infrastructure acceptance slice is authorized for branch `ir/k8s-production-like-2659` under:
+- docs/platform-v7/autopilot/autopilot-state.json
+- docs/platform-v7/autopilot/progress.json
+- docs/platform-v7/autopilot/prompts/current-codex-task.md
+- docs/platform-v7/autopilot/prompts/current-review-task.md
+- docs/platform-v7/execution-queue.md
+- apps/api/src/common/outbox/**
+- apps/api/src/common/prisma/outbox-*
+- apps/api/src/outbox-worker.ts
+- apps/api/src/outbox-worker.module.ts
+- apps/api/src/modules/integration-events/durable-outbox.runner.ts
+- apps/api/src/modules/integration-events/durable-outbox.runner.spec.ts
+- apps/api/src/modules/integration-events/durable-outbox.worker.ts
+- apps/api/src/modules/integration-events/integration-events.module.ts
+- apps/api/prisma/schema.prisma
+- apps/api/prisma/migrations/20260912*_canonical_durable_outbox/**
+- apps/api/test/industrial/harness.ts
+- apps/api/test/industrial/durable-outbox.e2e-spec.ts
+- apps/api/test/industrial/outbox-worker-process.e2e-spec.ts
+- infra/sql/postgresql-outbox-worker-policies.sql
+- scripts/platform-v7-forward-only-migration-check.mjs
+- scripts/platform-v7-one-deal-e2e.sh
+- .github/workflows/ci.yml
 
-`docs/platform-v7/autopilot/scopes/ir-k8s-production-like-2659.json`
+## Transition guard
 
-Review this branch only against that exact allow-list. It may add the production-like Kubernetes workflow, disposable kind topology, runtime dependencies, hardening manifests, PgBouncer configuration and `scripts/release/production-like-kubernetes-*` acceptance/evidence tooling. It must not change application/domain code, Prisma schema or migrations, web code, packages or lockfiles.
+- BLOCKED: IR-20 Canonical Durable Outbox is not green/closed/mergeable. Dispatcher will not advance to IR-21 Durable Integration Inbox.
 
-This concurrent scope proves only a disposable multi-node production-like deployment, immutable rollout and same-schema rollback. It does not advance the global maturity status, does not prove provider HA/PITR or production capacity, and does not authorize any live external integration.
+## Queue snapshot
 
-## Approved concurrent public homepage scope — PR #3046
+# platform-v7 Industrial Integration Readiness queue
 
-The user explicitly authorized a narrow public-copy completion slice on branch `agent/platform-v7-strategic-rebuild-v3` under:
+CURRENT: IR-20 Canonical Durable Outbox
 
-`docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json`
+GOVERNING SPECIFICATION:
+- `docs/platform-v7/autopilot/industrial-integration-readiness-v1.0.md`
+- target gate: Industrial Integration-Ready;
+- current gate: NO-GO;
+- exact baseline: `576d813c2d305efb645c9d26fa81a38fb6e4abbe` on `main`.
 
-Review this branch only against its exact allow-list. It may change the RU/EN/ZH public homepage copy, the dedicated public-copy test and the bound scope manifest. It must not change API, database, RBAC, protected routes, TAI runtime, intake persistence, deployment topology, lockfiles or packages.
+BASELINE PROVEN:
+- persistent identity, session rotation/revocation, MFA and one-time backup codes are merged with isolated PostgreSQL evidence (#2276, #2280, #2282, #2283);
+- separate restricted auth and deal PostgreSQL principals are merged (#2287);
+- canonical Deal command execution, idempotency, optimistic concurrency, callback authority, transactional audit/outbox creation and isolated recovery evidence are merged (#2260, #2270, #2274, #2378, #2406, #2407);
+- Documents PostgreSQL Authority is merged (#2410);
+- Logistics PostgreSQL Authority is merged (#2412);
+- Labs PostgreSQL Authority is merged (#2426, merge `576d813c2d305efb645c9d26fa81a38fb6e4abbe`, verified head `73149bb4fba09a33875311faea313bb2ad272503`);
+- Settlement PostgreSQL Authority is merged (#5338, merge `9dbff1a67225a006ec5f33ebe7fa8b483a368718`, verified head `686c89f6cf2438baebb01f6bf4abcafb3eb85963`) with production-like Kubernetes evidence only; no live bank or REG.RU deployment is claimed;
+- Disputes PostgreSQL Authority is exact-main revalidated at `397e98955d9f98704c40befd0088a1390556e0fa` by workflow run `34726015616` and artifact digest `sha256:01c713e0487c3ad040aca44e7d6631063a0788e60be4cc77a5de1097f12bdc60`; this is PostgreSQL 16 CI evidence only, not production acceptance;
+- bank callback reconciliation and key rotation/revocation mechanics exist (#2379), but live bank and nominal-account integration remain open;
+- CI-scale correctness and isolated backup/restore remain evidence only and do not prove production capacity, HA or provider DR.
 
-The public text must present the platform through capabilities and user outcomes, must not contain development-stage or maturity-status language, and must not claim that bank, FGIS, EDI or another external system is connected without separate runtime evidence.
+CURRENT GOAL:
+- preserve the already PostgreSQL-authoritative enqueue service and absent legacy relay/memory store;
+- remove the second DurableOutboxRunner from the API process and enforce the dedicated worker as the only delivery owner;
+- make PENDING, PROCESSING, RETRY, SENT or CONFIRMED, and DEAD transitions PostgreSQL-authoritative using DB time, bounded leases and `SKIP LOCKED`;
+- persist attempts, classified failure code/category and retry timing;
+- isolate ambiguous post-send outcomes from automatic retry and require governed reconciliation or redrive;
+- support audited redrive, backpressure and graceful shutdown;
+- prove concurrent-worker, crash-window, provider-ambiguity, retry, expired-lease, replay, restart and double-owner behavior;
+- keep live provider delivery and production deployment outside this PR.
 
-## Approved concurrent premium homepage completion — PR #3191
+CURRENT ALLOWED:
+- docs/platform-v7/autopilot/autopilot-state.json
+- docs/platform-v7/autopilot/progress.json
+- docs/platform-v7/autopilot/prompts/current-codex-task.md
+- docs/platform-v7/autopilot/prompts/current-review-task.md
+- docs/platform-v7/execution-queue.md
+- apps/api/src/common/outbox/**
+- apps/api/src/common/prisma/outbox-*
+- apps/api/src/outbox-worker.ts
+- apps/api/src/outbox-worker.module.ts
+- apps/api/src/modules/integration-events/durable-outbox.runner.ts
+- apps/api/src/modules/integration-events/durable-outbox.runner.spec.ts
+- apps/api/src/modules/integration-events/durable-outbox.worker.ts
+- apps/api/src/modules/integration-events/integration-events.module.ts
+- apps/api/prisma/schema.prisma
+- apps/api/prisma/migrations/20260912*_canonical_durable_outbox/**
+- apps/api/test/industrial/harness.ts
+- apps/api/test/industrial/durable-outbox.e2e-spec.ts
+- apps/api/test/industrial/outbox-worker-process.e2e-spec.ts
+- infra/sql/postgresql-outbox-worker-policies.sql
+- scripts/platform-v7-forward-only-migration-check.mjs
+- scripts/platform-v7-one-deal-e2e.sh
+- .github/workflows/ci.yml
 
-The user explicitly authorized a finite UX/UI completion of the public `/platform-v7` homepage on branch `agent/platform-v7-home-10of10-v1`. This authority is independent of the implementation branch and is effective only after the governance PR that adds this section is merged to `main`.
+CURRENT CRITERIA:
+- one dedicated durable outbox owner replaces the legacy relay and process-memory production paths;
+- DB-time leases, `SKIP LOCKED`, attempts, classified failures, retries, DEAD state and audited redrive are PostgreSQL-authoritative;
+- concurrent workers, crash windows, provider ambiguity, timeout/429/4xx/5xx, expired leases, duplicate enqueue, restart and double-owner startup fail safely;
+- exact-head CI passes without claiming production deployment or provider delivery.
 
-The branch is bound to `docs/platform-v7/autopilot/scopes/platform-v7-home-10of10-v1.json` and may change only these paths:
+LOCKED:
+- IR-21 Durable Integration Inbox;
+- IR-22 Persistent Partner API and Outbound Webhooks;
+- IR-30 through IR-90 in dependency order.
 
-- `apps/web/app/platform-v7/page.tsx`;
-- `apps/web/components/platform-v7/OrganizationConnectForm.module.css`;
-- `apps/web/components/platform-v7/OrganizationConnectForm.tsx`;
-- `apps/web/components/platform-v7/PlatformV7StrategicHome.tsx`;
-- `apps/web/components/platform-v7/PublicContactDock.tsx`;
-- `apps/web/components/platform-v7/PublicDealRoleScenario.module.css`;
-- `apps/web/components/platform-v7/PublicDealRoleScenario.tsx`;
-- `apps/web/i18n/platform-v7-hero-message.ts`;
-- `apps/web/i18n/platform-v7-home-v3.ts`;
-- `apps/web/i18n/platform-v7-organization-connect.ts`;
-- `apps/web/styles/platform-v7-hero-infrastructure-message.css`;
-- `apps/web/styles/platform-v7-strategic-home-v3.css`;
-- `apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts`;
-- `apps/web/tests/unit/platformV7HeroInfrastructureMessage.test.ts`;
-- `apps/web/tests/unit/platformV7PublicIndustrialCopy.test.ts`;
-- `apps/web/tests/unit/platformV7PublicTypography.test.ts`;
-- `apps/web/tests/unit/platformV7RootWorkEntry.test.ts`;
-- `apps/web/tests/unit/platformV7StrategicHomeSafety.test.ts`;
-- `docs/platform-v7/autopilot/scopes/platform-v7-home-10of10-v1.json`.
+NEXT:
+- Layer: IR-21 Durable Integration Inbox
+- Allowed files:
+  - docs/platform-v7/autopilot/autopilot-state.json
+  - docs/platform-v7/autopilot/progress.json
+  - docs/platform-v7/autopilot/prompts/current-codex-task.md
+  - docs/platform-v7/autopilot/prompts/current-review-task.md
+  - docs/platform-v7/execution-queue.md
+  - apps/api/src/modules/regulatory-integration/**
+  - apps/api/src/modules/integration-events/integration-events.module.ts
+  - apps/api/prisma/schema.prisma
+  - apps/api/prisma/migrations/*_regulatory_integration_inbox/**
+  - apps/api/test/industrial/regulatory-integration-inbox.e2e-spec.ts
+  - infra/sql/postgresql-regulatory-integration-inbox-policies.sql
+  - scripts/verify-pc-crop-07a.mjs
+  - .github/workflows/pc-crop-07a.yml
+- Success criteria:
+  - provider identity, provider event ID, tenant mapping, raw-body hash, schema/mapping/key versions, DB receive time, verification, attempts, correlation and linked operation are durable facts;
+  - signatures are verified over raw bytes, replay windows and key lifecycle fail closed, and HTTP acknowledgement is separated from domain processing;
+  - unknown schemas quarantine safely and audited redrive cannot bypass verification or tenant authority;
+  - exact-head CI passes without claiming live FGIS/provider activation or production delivery.
+- Readiness remains NO-GO.
 
-This slice may improve visual hierarchy, page density, hero and Control Tower presentation, responsive layout, RU/EN/ZH copy, public role simulation, progressive organization-intake UX, contact-dock behavior, SEO metadata and their bound tests. It must preserve the existing Deal/domain architecture, durable intake endpoint and idempotency contract, server-authoritative RBAC, TAI action boundaries, bank authority, government adapters and REG.RU production topology. It must not change API code, database schema or migrations, protected routes, packages, lockfiles, production workflows, secrets or deployment topology.
+TRANSITION RULE:
+- one narrow PR at a time in dependency order;
+- no auto-merge;
+- no self-modifying workflow or direct push to `main`;
+- advance only after exact-head checks and diff review;
+- update state, queue, progress and prompts after merge before opening the next work package;
+- mock, simulator and CI-scale evidence remain explicitly labelled and cannot be used as live or production acceptance.
 
-Return BLOCKED if the diff exceeds the exact allow-list; if public copy claims verified connectivity without runtime evidence; if the scenario is presented as a real live Deal; if the progressive form weakens consent, durable idempotency, replay conflict, rate limiting or no-JavaScript fail-closed behavior; if RU/EN/ZH is incomplete; or if mobile accessibility, 44×44 targets, no-overflow, browser matrix or Lighthouse thresholds fail.
+RF REGULATED-CONTOUR BOUNDARY:
+- preserve replaceable infrastructure boundaries and a deployment profile capable of using software from the Russian software register where the customer or system classification requires it;
+- public foreign images, including MinIO images from Quay, are dependency sources for the disposable production-like acceptance contour only and are not evidence of Russian-software-register status;
+- 44-FZ/223-FZ procurement, significant CII, regulated financial activity and a concrete FGIS require separate legal classification and verified domestic/certified software, protection and cryptography controls before any compliance claim;
+- no current repository, CI or production-like result proves certification, Russian cryptography activation or regulated-contour acceptance.
 
-## Approved concurrent public organization intake scope
+READINESS:
+Industrial Integration-Ready remains NO-GO until every mandatory gate through IR-90 has commit-, deployment- and operations-linked evidence.
 
-The user explicitly authorized a durable organization-connection intake on branch `agent/platform-v7-organization-intake-v1` under:
+## Conditional future Qwen rejected-review diagnostics — 2026-09-12
 
-`docs/platform-v7/autopilot/scopes/platform-v7-organization-intake-v1.json`
+This is preliminary instruction alignment for future branch
+`fix/local-qwen-failed-review-evidence-20260912`, not current implementation
+permission. Implementation is permitted only after the immutable prior authority
+proposed in PR #5335 is accepted and merged into `main`, and the implementation
+base's trusted scope authorizes that exact branch and both paths below. This
+paragraph does not change state or expand any permission; primary tasks and all
+other scope boundaries remain unchanged.
 
-Review this branch only against its exact allow-list. It may add one pre-tenant PostgreSQL request model and forward-only migration, a public API intake module, a same-origin web BFF, the existing RU/EN/ZH form wiring and targeted API/web tests. It must not create organizations, users, memberships, roles or tenants; it must not change Deal, money, bank, FGIS, EDI, TAI or deployment authority.
+The future implementation is limited to exactly:
 
-The request, audit event and outbox event must commit atomically. Raw IP and user-agent values must never be stored. Personal data must not enter logs, analytics, audit metadata, outbox payloads or URLs. Exact idempotency replay must return the original request; conflicting replay and rate-limit violations must fail closed.
+- `.github/workflows/local-qwen-independent-review.yml`
+- `docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs`
 
-## Approved concurrent production web hardening scope — PR #3044
+Preserve bounded rejected-candidate diagnostics before policy-validation failure
+can discard them, including evidence transfer before the final failure exit.
+Bind evidence to the exact head/run/attempt/diff/manifest/chunk identity and
+verify content hashes. Reject invalid UTF-8 and envelopes exceeding 64 KiB.
+Preserve the original failure result, fail-closed behavior and cleanup of remote
+and unvalidated temporary files. Add no
+model calls and change no review semantics, model selection, policy, status or
+merge/review gates. Diagnostic artifacts are not accepted review evidence.
 
-The user explicitly authorized a narrow REG.RU web-only operational slice on branch `ops/production-web-hardening-v1`. Review only these paths:
+Proceed only when that prior authority and base-scope match are independently
+verified; otherwise keep this implementation blocked.
 
-- `.github/workflows/production-hosting-authority.yml`;
-- `.github/workflows/production-web-exact-sha.yml`;
-- `.github/workflows/production-web-key-normalization-retry.yml`;
-- `apps/web/app/api/health/ready/route.ts`;
-- `docs/ops/active-hosting-contour.md`;
-- `docs/ops/production-web-hardening.md`;
-- `docs/ops/virtual-server-production-runbook.md`;
-- `docs/ops/vps-post-deploy-checklist.md`;
-- `infra/compose/production-web-hardening.override.yml`;
-- `infra/docker/Dockerfile.web`;
-- `scripts/check-production-hosting-authority.mjs`;
-- `scripts/check-production-web-hardening.mjs`;
-- `scripts/production-web-exact-sha.sh`;
-- `scripts/production-web-live-acceptance.sh`;
-- `scripts/production-web-remote-entrypoint.sh`.
+## Paused concurrent W1 acceptance — 2026-09-12
 
-This slice may add exact-SHA web deployment, readiness healthcheck, immutable rollback, Compose metadata recovery, Watchtower retirement and a one-shot fail-closed SSH private-key normalization retry against the already published immutable target. It must not change API, PostgreSQL, migrations, Caddy, production environment values, volumes, networks, domain logic, money logic, external integrations, packages or lockfiles. Production claims require running OCI revision and live-domain evidence.
+W1 PR #5332 at `ff03424d073e97d52f1a8cf38dad3de74345ed08` remains
+blocked by current Qwen policy-validation failure and Octopus community quota.
+Its successful native review and code/security checks do not override those
+provider failures. W1 is safely paused without production completion, must not
+be retried merely to obtain PASS, and does not alter the serialized IR-10.5 scope.
+Confirmed master production acceptance remains 0/100 (0%).
 
-## Approved concurrent TAI model-capacity scope — issue #3317
 
-Review branch `agent/tai-ap-19a-model-capacity-gate-3317` only against the exact
-allow-list in `autopilot-state.json`.
+## Review brief
 
-The branch may introduce a bounded non-blocking local-model capacity gate, production
-configuration `TAI_MODEL_MAX_INFLIGHT` with default `1` and allowed range `1..4`,
-overload propagation to HTTP 429 plus `Retry-After`, and focused tests. Primary and
-fallback attempts for one request must share one admitted slot, and the slot must be
-released after success, empty output, and every exception.
+Review IR-20 Canonical Durable Outbox strictly against the state allowed scope and queue.
 
-Return BLOCKED if the diff adds a queue, raises the default above `1`, treats overload as
-an ordinary RAG abstention, acquires another slot for fallback, bypasses model admission
-or local-only transport, changes production topology, enables a write tool, or claims
-measured performance, model admission, deployment, or operational acceptance.
-
-## Automatic hard blockers
-
-Return BLOCKED immediately for any of the following:
-
-1. Settlement mutation still calls RuntimeCore or process-memory OutboxService.
-2. Money authority is persisted or calculated in floating-point units.
-3. `confirmWorksheet`, `releasePayment` or another human endpoint can confirm bank money movement.
-4. Callback validation omits partner/key version/event/operation/fingerprint binding.
-5. Exact callback replay creates a second financial effect, while conflicting replay is accepted.
-6. Reserve, release, refund, beneficiary allocation or partial payout can exceed confirmed funds or become negative.
-7. Payment/bank-operation/ledger/audit/outbox writes can partially commit.
-8. Confirmed ledger or callback facts can be updated or deleted.
-9. Reconciliation mismatch silently changes authority instead of entering manual review.
-10. Same-tenant outsider or cross-tenant access passes under restricted principals.
-11. CI is made green by disabling RLS, triggers, constraints or required tests.
-
-For the approved IR-K8S concurrent scope, also return BLOCKED if:
-
-12. The actual diff exceeds the allow-list in the IR-K8S scope manifest.
-13. A chart or acceptance overlay creates additive broad egress that weakens destination-scoped NetworkPolicy.
-14. A probe/helper pod impersonates a monitored workload selector or gains unnecessary network authority.
-15. Images are mutable, mixed-commit, not registry-digest addressed or not bound to the exact head.
-16. API or worker runs schema migrations, or application principals gain DDL authority.
-17. Evidence is not machine-readable, exact-head bound or contains violated thresholds.
-
-For the public homepage concurrent scope, return BLOCKED if:
-
-18. The diff exceeds the bound homepage scope.
-19. Public copy includes implementation-stage, pilot, pre-live or maturity-status language.
-20. Public copy states that an external system is connected without verified runtime evidence.
-21. RU, EN or ZH is incomplete or semantically inconsistent.
-
-For the public organization intake concurrent scope, return BLOCKED if:
-
-22. The diff exceeds the bound organization-intake scope.
-23. Request persistence is in-memory, client-authoritative or non-transactional.
-24. Personal data, raw IP or raw user-agent values enter logs, URLs, analytics, audit metadata or outbox payloads.
-25. Consent version/timestamp, payload hash, idempotency key or database-backed rate limits are missing.
-26. Exact replay creates a second request, conflicting replay is accepted, or request/audit/outbox can partially commit.
-27. The public endpoint creates an organization, user, membership, role, tenant or privileged session.
-
-For the production web hardening concurrent scope, return BLOCKED if:
-
-28. The diff exceeds the 15-path hardening allow-list.
-29. SSH identity or protected server paths are committed, printed or defaulted to an unprotected principal.
-30. Deployment uses `latest`, mutable-image acceptance or Watchtower polling as release evidence.
-31. A non-web service, Caddy, environment, volume, network, API or database is mutated.
-32. The image lacks exact manifest/revision binding, readiness healthcheck or an immutable rollback path.
-33. The retry workflow accepts a public key, encrypted key, unknown key material or secret disclosure instead of failing closed before SSH.
-
-## Review questions
-
-1. Does production bootstrap fail closed for missing, memory and unknown payment repository modes?
-2. Is PostgreSQL the only production settlement authority?
-3. Are tenant, actor, Deal participation and financial role derived server-side?
-4. Are all amounts integer kopecks with explicit overflow and boundary checks?
-5. Are payment terms and release basis versioned Deal-linked facts?
-6. Do reserve/release/refund requests atomically create payment state, bank operation, audit and PENDING outbox?
-7. Can only a verified callback confirm money movement?
-8. Are callbacks durably idempotent across restart and multiple instances?
-9. Are holds, partial releases, beneficiary allocations and refunds bounded by confirmed reserve?
-10. Are ledger entries append-only, balanced and linked to audit/correlation IDs?
-11. Does reconciliation mismatch fail closed without mutating confirmed authority?
-12. Are same-tenant outsiders and cross-tenant users denied by PostgreSQL RLS?
-13. Do empty/baseline migrations, drift, typecheck, tests, build, one-deal, DR and exact-head security gates pass?
-
-For IR-K8S #2659 additionally verify:
-
-14. Does default Helm rendering remain fail-closed with zero executable workloads?
-15. Are API, web, worker and migration images a complete immutable exact-head digest set?
-16. Does one separate migration Job complete before API/web/worker rollout?
-17. Are two replicas of API, web and outbox worker ready on separate worker nodes?
-18. Do PDB, anti-affinity, non-root, read-only filesystem, dropped capabilities, seccomp and disabled service-account tokens hold at runtime?
-19. Are NetworkPolicies destination-scoped without additive broad chart policies?
-20. Do single-pod deletion, rolling update and same-schema rollback meet all declared thresholds?
-21. Does the evidence artifact identify the exact commit, commands, actuals, thresholds, violations and maturity boundary?
-
-## Mandatory exact PostgreSQL proof matrix
-
-- reserve request and verified callback confirmation;
-- release request and verified callback confirmation;
-- exact replay and conflicting replay;
-- two-instance callback and command races;
-- restart persistence;
-- same-tenant outsider and cross-tenant denial;
-- hold/dispute blocking;
-- partial payout and multiple beneficiaries;
-- over-release, negative amount and overflow denial;
-- refund bounds;
-- reconciliation match and mismatch/manual review;
-- full rollback with no partial payment/bank operation/ledger/audit/outbox effects;
-- append-only denial for confirmed financial facts.
-
-## Decision format
-
-Return PASS or BLOCKED. If BLOCKED, state severity, exact file/line or migration object, financial or operational risk and exact fix. Industrial Integration-Ready remains NO-GO regardless of this slice until IR-90 acceptance.
+Return PASS or BLOCKED. If BLOCKED, include blocker, file, why risk and exact fix.

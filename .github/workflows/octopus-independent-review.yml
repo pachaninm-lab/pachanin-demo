@@ -1,0 +1,128 @@
+name: Independent Octopus Review
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+
+concurrency:
+  group: octopus-independent-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Octopus exact-head independent review
+    if: >-
+      github.event.pull_request.state == 'open' &&
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(github.event.pull_request.body, '<!-- independent-review:octopus -->')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Mark exact-head provider pending
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api --method POST "repos/$REPO/statuses/$HEAD_SHA" \
+            -f state=pending \
+            -f context=review-provider/octopus \
+            -f description='Octopus exact-head review is running' \
+            -f target_url="https://github.com/$REPO/actions/runs/$GITHUB_RUN_ID" \
+            >/dev/null
+
+      - name: Run pinned independent review
+        id: octopus
+        uses: octopusreview/action@c7156c0dc465c20e8b06da84b92b64f9ae8c7c36
+        with:
+          github-token: ${{ github.token }}
+
+      - name: Validate completed clean review
+        id: clean
+        env:
+          FINDINGS: ${{ steps.octopus.outputs.findings-count }}
+          SUMMARY: ${{ steps.octopus.outputs.summary }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$FINDINGS" == 0 ]] || {
+            echo "Independent review found $FINDINGS finding(s)." >&2
+            exit 20
+          }
+          [[ -n "${SUMMARY//[[:space:]]/}" ]] || {
+            echo 'Independent review returned an empty summary.' >&2
+            exit 21
+          }
+          summary_lower="$(printf '%s' "$SUMMARY" | tr '[:upper:]' '[:lower:]')"
+          if [[ "$summary_lower" == *'indexing in progress'* || "$summary_lower" == *'review pending'* ]]; then
+            echo 'Independent review is not complete yet.' >&2
+            exit 22
+          fi
+          summary_sha256="$(printf '%s' "$SUMMARY" | sha256sum | awk '{print $1}')"
+          [[ "$summary_sha256" =~ ^[0-9a-f]{64}$ ]] || exit 23
+          printf 'summary_sha256=%s\n' "$summary_sha256" >> "$GITHUB_OUTPUT"
+
+      - name: Publish structured exact-head attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          SUMMARY_SHA256: ${{ steps.clean.outputs.summary_sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          live_head="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.head.sha')"
+          [[ "$live_head" == "$HEAD_SHA" ]] || {
+            echo "PR head moved: expected=$HEAD_SHA current=$live_head" >&2
+            exit 30
+          }
+
+          body="$(cat <<EOF
+          OCTOPUS INDEPENDENT REVIEW: PASS
+          Exact head: \`$HEAD_SHA\`
+          Provider workflow: \`.github/workflows/octopus-independent-review.yml\`
+          Provider action: \`c7156c0dc465c20e8b06da84b92b64f9ae8c7c36\`
+          Findings: \`0\`
+          Summary SHA-256: \`$SUMMARY_SHA256\`
+          Workflow run: \`$GITHUB_RUN_ID\`
+          EOF
+          )"
+
+          jq -n \
+            --arg body "$body" \
+            --arg commit_id "$HEAD_SHA" \
+            '{body:$body,event:"COMMENT",commit_id:$commit_id}' \
+            | gh api --method POST "repos/$REPO/pulls/$PR_NUMBER/reviews" --input - \
+            >/dev/null
+
+          gh api --method POST "repos/$REPO/statuses/$HEAD_SHA" \
+            -f state=success \
+            -f context=review-provider/octopus \
+            -f description="Octopus clean c7156c0d summary=${SUMMARY_SHA256:0:16}" \
+            -f target_url="https://github.com/$REPO/actions/runs/$GITHUB_RUN_ID" \
+            >/dev/null
+
+      - name: Publish exact-head provider failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api --method POST "repos/$REPO/statuses/$HEAD_SHA" \
+            -f state=failure \
+            -f context=review-provider/octopus \
+            -f description='Octopus exact-head review is incomplete or has findings' \
+            -f target_url="https://github.com/$REPO/actions/runs/$GITHUB_RUN_ID" \
+            >/dev/null
