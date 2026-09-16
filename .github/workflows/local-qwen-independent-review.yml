@@ -502,17 +502,6 @@ jobs:
               if not isinstance(reason, str) or not 1 <= len(reason.strip()) <= 192:
                   return 'SCHEMA_INVALID_REASON'
 
-              added = {
-                  int(entry['line']): str(entry['text'])
-                  for entry in item.get('added_lines', [])
-                  if type(entry.get('line')) is int and isinstance(entry.get('text'), str)
-              }
-              exact_line = added.get(line)
-              if exact_line is None:
-                  return 'EVIDENCE_LINE_NOT_ADDED'
-              if evidence not in exact_line:
-                  return 'EVIDENCE_NOT_ON_CITED_ADDED_LINE'
-
               combined = f'{title} {reason}'
               if SPECULATIVE.search(combined):
                   return 'SPECULATIVE_CLAIM'
@@ -526,6 +515,17 @@ jobs:
               is_test_path = '/tests/' in path or '.test.' in path or '.spec.' in path
               if is_test_path and SECURITY_CLASSIFICATION.search(combined) and ROUTE_TEST_REFERENCE.search(combined):
                   return 'TEST_ROUTE_SECURITY_CLASSIFICATION'
+
+              added = {
+                  int(entry['line']): str(entry['text'])
+                  for entry in item.get('added_lines', [])
+                  if type(entry.get('line')) is int and isinstance(entry.get('text'), str)
+              }
+              exact_line = added.get(line)
+              if exact_line is None:
+                  return 'EVIDENCE_LINE_NOT_ADDED'
+              if evidence not in exact_line:
+                  return 'EVIDENCE_NOT_ON_CITED_ADDED_LINE'
               return None
 
           def policy_violation(item, content):
@@ -626,6 +626,7 @@ jobs:
               'reason': 'The added assignment is overwritten immediately before use, so the sanitizer result is never consumed.',
           }
           speculative_probe = dict(valid_probe, title='Potential information leakage')
+          speculative_wrong_line_probe = dict(speculative_probe, line=8)
           wrong_line_probe = dict(valid_probe, line=8)
           padded_evidence_probe = dict(valid_probe, evidence='sanitize(input) ')
           external_probe = dict(
@@ -637,6 +638,8 @@ jobs:
               fail('VALIDATOR_SELFTEST_VALID_REJECTED')
           if finding_violation(probe_item, speculative_probe) != 'SPECULATIVE_CLAIM':
               fail('VALIDATOR_SELFTEST_SPECULATION_NOT_REJECTED')
+          if finding_violation(probe_item, speculative_wrong_line_probe) != 'SPECULATIVE_CLAIM':
+              fail('VALIDATOR_SELFTEST_SPECULATION_PRECEDENCE_FAILED')
           if finding_violation(probe_item, wrong_line_probe) != 'EVIDENCE_LINE_NOT_ADDED':
               fail('VALIDATOR_SELFTEST_LINE_BINDING_FAILED')
           if finding_violation(probe_item, padded_evidence_probe) != 'EVIDENCE_NOT_ON_CITED_ADDED_LINE':
