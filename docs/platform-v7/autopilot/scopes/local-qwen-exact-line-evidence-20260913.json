@@ -59,9 +59,7 @@
       "repairAttemptsMaximum": 3,
       "repairAttemptsEligibility": "INITIAL_REPAIRABLE_VIOLATION_WITH_MECHANICALLY_VALID_EXACT_ANCHOR_ONLY",
       "retryCondition": "PREVIOUS_REPAIR_VIOLATION_REMAINS_IN_REPAIRABLE_VIOLATION_SET_ON_SAME_ANCHOR",
-      "replacementLineSearch": "FORBIDDEN",
-      "invalidNonRepairableViolation": "FAIL_CLOSED_IMMEDIATELY",
-      "invalidAfterRepairExhaustion": "FAIL_CLOSED"
+      "replacementLineSearch": "FORBIDDEN"
     },
     "authorizedChangesOnly": [
       "replace the single repair with a finite maximum-three-attempt same-anchor sequence for the fixed repairable violation set",
