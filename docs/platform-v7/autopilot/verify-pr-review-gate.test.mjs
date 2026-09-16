@@ -5,6 +5,7 @@ import test from 'node:test';
 
 import {
   activeUnresolvedThreads,
+  canonicalSha40,
   checkRollupBlockers,
   ciSnapshotMatchesHead,
   cleanCodexReviewPrefixes,
@@ -12,7 +13,10 @@ import {
   exactHeadCodexReviews,
   exactHeadCopilotReviews,
   exactHeadOwnerSelfAudits,
+  exactHeadProviderBlockingEvidence,
+  INDEPENDENT_REVIEW_CLASSIFICATION,
   isIgnoredMergeGateCheck,
+  isProviderReviewCheck,
   latestBlockingChangeRequests,
   LOCAL_QWEN_LLAMA_ARCHIVE_SHA256,
   LOCAL_QWEN_LLAMA_BUILD,
@@ -28,13 +32,21 @@ import {
   OCTOPUS_ACTION_SHA,
   OCTOPUS_STATUS_CONTEXT,
   octopusAttestationMatchesWorkflowRun,
+  parseProviderMaintenanceBootstrapAuthority,
   positiveExactHeadCodexReviews,
   positiveExactHeadCopilotReviews,
   positiveExactHeadLocalQwenAttestations,
   positiveExactHeadOctopusAttestations,
+  PROVIDER_MAINTENANCE_BOOTSTRAP_CLASSIFICATION,
+  providerMaintenanceBootstrapCheckRollupBlockers,
+  providerMaintenanceBootstrapSubstantiveChecks,
   localQwenAttestationMatchesWorkflowRun,
+  REVIEW_GATE_RESULT_SCHEMA,
   reviewGatePrState,
+  reviewGateResultContract,
+  selectReviewGateDecision,
   substantiveChecks,
+  validateProviderMaintenanceBootstrapAuthority,
 } from './verify-pr-review-gate.mjs';
 
 const head = 'a'.repeat(40);
@@ -129,13 +141,14 @@ test('Octopus authority is additionally bound to one successful trusted workflow
 });
 
 test('observed successful Octopus pull_request_target run shape is accepted without weakening exact-head binding', () => {
+  const repo = 'pachaninm-lab/pachanin-demo';
   const observed = {
     id: 34180354026, name: 'Independent Octopus Review', head_sha: '0f6fdeccbcb97a70161198ac0321d0918388a084',
     path: '.github/workflows/octopus-independent-review.yml', event: 'pull_request_target', status: 'completed', conclusion: 'success',
     pull_requests: [{ number: 5167, head: { sha: '0f6fdeccbcb97a70161198ac0321d0918388a084', repo: { id: 1203022077 } } }],
-    repository: { id: 1203022077, full_name: 'pachaninm-lab/pachanin-demo' },
+    repository: { id: 1203022077, full_name: repo },
   };
-  assert.equal(octopusAttestationMatchesWorkflowRun({ runId: '34180354026' }, observed, 'pachaninm-lab/pachanin-demo', 5167, '0f6fdeccbcb97a70161198ac0321d0918388a084'), true);
+  assert.equal(octopusAttestationMatchesWorkflowRun({ runId: '34180354026' }, observed, repo, 5167, '0f6fdeccbcb97a70161198ac0321d0918388a084'), true);
 });
 
 test('actual #5167 Octopus review, latest status and successful run form one exact-head authority tuple', () => {
@@ -324,9 +337,113 @@ test('legacy status contexts are evaluated by state', () => {
 
 test('CI snapshot must be bound to the exact verified head', () => {
   assert.equal(ciSnapshotMatchesHead(head, head), true);
+  assert.equal(ciSnapshotMatchesHead(head.toUpperCase(), head), true);
   assert.equal(ciSnapshotMatchesHead(oldHead, head), false);
   assert.equal(ciSnapshotMatchesHead('not-a-sha', head), false);
   assert.equal(ciSnapshotMatchesHead('', head), false);
+});
+
+test('provider BLOCK evidence authenticates provider actor and exact head after canonical SHA normalization', () => {
+  const localQwenBlock = {
+    user: { login: 'github-actions[bot]' },
+    commit_id: head.toUpperCase(),
+    body: 'LOCAL QWEN INDEPENDENT REVIEW: BLOCK\nfixture',
+  };
+  const octopusBlock = {
+    user: { login: 'github-actions[bot]' },
+    commit_id: head,
+    body: 'OCTOPUS INDEPENDENT REVIEW: BLOCK\nfixture',
+  };
+  const forgedLocalQwen = { ...localQwenBlock, user: { login: 'untrusted-reviewer[bot]' } };
+  const forgedOctopus = { ...octopusBlock, user: { login: 'untrusted-reviewer[bot]' } };
+
+  assert.equal(canonicalSha40(head.toUpperCase()), head);
+  assert.deepEqual(exactHeadProviderBlockingEvidence([localQwenBlock], head), [localQwenBlock]);
+  assert.deepEqual(exactHeadProviderBlockingEvidence([octopusBlock], head), [octopusBlock]);
+  assert.deepEqual(exactHeadProviderBlockingEvidence([forgedLocalQwen], head), []);
+  assert.deepEqual(exactHeadProviderBlockingEvidence([forgedOctopus], head), []);
+  assert.deepEqual(exactHeadProviderBlockingEvidence([{ ...localQwenBlock, commit_id: oldHead }], head), []);
+  assert.deepEqual(exactHeadProviderBlockingEvidence([{ ...octopusBlock, commit_id: oldHead }], head), []);
+  assert.deepEqual(exactHeadProviderBlockingEvidence([{ ...localQwenBlock, commit_id: 'not-a-sha' }], head), []);
+  assert.deepEqual(exactHeadProviderBlockingEvidence([{ ...octopusBlock, commit_id: 'g'.repeat(40) }], head), []);
+  assert.deepEqual(exactHeadProviderBlockingEvidence([localQwenBlock, octopusBlock], 'not-a-sha'), []);
+});
+
+test('provider-maintenance CI filtering excludes only provider review availability and keeps red substantive checks', () => {
+  const providerOctopus = { workflowName: 'Independent Octopus Review', name: 'Octopus exact-head independent review', status: 'COMPLETED', conclusion: 'FAILURE' };
+  const providerQwen = { context: LOCAL_QWEN_STATUS_CONTEXT, state: 'FAILURE' };
+  const unit = { workflowName: 'CI', name: 'unit', status: 'COMPLETED', conclusion: 'SUCCESS' };
+  const security = { workflowName: 'Security', name: 'security', status: 'COMPLETED', conclusion: 'FAILURE' };
+  assert.equal(isProviderReviewCheck(providerOctopus), true);
+  assert.equal(isProviderReviewCheck(providerQwen), true);
+  assert.equal(isProviderReviewCheck(unit), false);
+  assert.deepEqual(providerMaintenanceBootstrapSubstantiveChecks([providerOctopus, providerQwen, unit, security]), [unit, security]);
+  assert.deepEqual(providerMaintenanceBootstrapCheckRollupBlockers([providerOctopus, providerQwen, unit, security]), ['Security / security:FAILURE']);
+});
+
+test('provider-maintenance authority parser is bounded, exact-key and returns only a safe projection', () => {
+  const raw = readFileSync(new URL('./scopes/local-qwen-exact-line-evidence-20260913.json', import.meta.url), 'utf8');
+  const parsed = parseProviderMaintenanceBootstrapAuthority(raw);
+  assert.ok(parsed);
+  assert.deepEqual(Object.keys(parsed).sort(), ['allowedImplementationPaths', 'implementationBranch', 'resultClassification']);
+  assert.equal(parsed.implementationBranch, 'fix/local-qwen-evidence-binding-20260913');
+  assert.deepEqual(parsed.allowedImplementationPaths, [LOCAL_QWEN_WORKFLOW_PATH]);
+  assert.equal(Object.isFrozen(parsed), true);
+  assert.equal(Object.isFrozen(parsed.allowedImplementationPaths), true);
+
+  const tampered = JSON.parse(raw);
+  tampered.providerMaintenanceBootstrap.untrustedExtraAuthority = true;
+  assert.equal(validateProviderMaintenanceBootstrapAuthority(tampered), null);
+  assert.equal(parseProviderMaintenanceBootstrapAuthority(`\u0000${raw}`), null);
+  assert.equal(parseProviderMaintenanceBootstrapAuthority(' '.repeat(65537)), null);
+  assert.equal(parseProviderMaintenanceBootstrapAuthority('{'), null);
+});
+
+test('independent review authority always wins and bootstrap can never impersonate a provider', () => {
+  assert.deepEqual(selectReviewGateDecision({ codex: true }, true), {
+    classification: INDEPENDENT_REVIEW_CLASSIFICATION,
+    reviewAuthority: 'CODEX',
+  });
+  assert.deepEqual(selectReviewGateDecision({ copilot: true, localQwen: true }, true), {
+    classification: INDEPENDENT_REVIEW_CLASSIFICATION,
+    reviewAuthority: 'GITHUB_COPILOT',
+  });
+  assert.deepEqual(selectReviewGateDecision({}, true), {
+    classification: PROVIDER_MAINTENANCE_BOOTSTRAP_CLASSIFICATION,
+    reviewAuthority: 'NONE',
+  });
+  assert.equal(selectReviewGateDecision({}, false), null);
+});
+
+test('review gate result contract rejects authority/classification mismatches', () => {
+  const independent = reviewGateResultContract(head, {
+    classification: INDEPENDENT_REVIEW_CLASSIFICATION,
+    reviewAuthority: 'LOCAL_QWEN',
+  });
+  assert.deepEqual(independent, {
+    schemaVersion: REVIEW_GATE_RESULT_SCHEMA,
+    status: 'PASS',
+    head,
+    classification: INDEPENDENT_REVIEW_CLASSIFICATION,
+    reviewAuthority: 'LOCAL_QWEN',
+  });
+  const bootstrap = reviewGateResultContract(head.toUpperCase(), {
+    classification: PROVIDER_MAINTENANCE_BOOTSTRAP_CLASSIFICATION,
+    reviewAuthority: 'NONE',
+  });
+  assert.equal(bootstrap?.head, head);
+  assert.equal(reviewGateResultContract(head, {
+    classification: PROVIDER_MAINTENANCE_BOOTSTRAP_CLASSIFICATION,
+    reviewAuthority: 'OCTOPUS',
+  }), null);
+  assert.equal(reviewGateResultContract(head, {
+    classification: INDEPENDENT_REVIEW_CLASSIFICATION,
+    reviewAuthority: 'NONE',
+  }), null);
+  assert.equal(reviewGateResultContract('not-a-sha', {
+    classification: INDEPENDENT_REVIEW_CLASSIFICATION,
+    reviewAuthority: 'CODEX',
+  }), null);
 });
 
 test('PR state classification fails closed for Draft and incomplete/unknown state', () => {
@@ -357,9 +474,10 @@ test('verifier main requires genuine independent exact-head authority from Codex
   assert.match(mainBody, /fetchAllCommitStatuses\(repo, headSha\)/u);
   assert.match(mainBody, /REVIEW_GATE_INDEPENDENT_EXACT_HEAD_MISSING/u);
   assert.match(mainBody, /REVIEW_GATE_OWNER_SELF_AUDIT_MISSING/u);
+  assert.match(mainBody, /PR_REVIEW_GATE_RESULT=/u);
   assert.match(mainBody, /reviewAuthority=/u);
-  assert.match(mainBody, /GITHUB_COPILOT/u);
-  assert.match(mainBody, /OCTOPUS/u);
+  assert.match(mainBody, /selectReviewGateDecision\(authorities, false\)/u);
+  assert.match(mainBody, /selectReviewGateDecision\(authorities, true\)/u);
   assert.doesNotMatch(mainBody, /MACHINE_FALLBACK/u);
   assert.doesNotMatch(mainBody, /machineReviewAuthorities/u);
   assert.ok(mainBody.indexOf('REVIEW_GATE_INDEPENDENT_EXACT_HEAD_MISSING') < mainBody.indexOf('PR_REVIEW_GATE=PASS'));
@@ -388,7 +506,7 @@ test('Local Qwen workflow uses canonical Qwen3 model-host, remains bounded and f
   assert.match(workflow, /MAX_DIFF_BYTES=400000/u);
   assert.match(workflow, /MAX_CHUNK_DIFF_BYTES=8000/u);
   assert.match(workflow, /MAX_CHUNKS=96/u);
-  assert.match(workflow, /local-qwen-review-manifest\.v1/u);
+  assert.match(workflow, /local-qwen-review-manifest\.v2/u);
   assert.match(workflow, /full_diff_sha256/u);
   assert.match(workflow, /source_sha256/u);
   assert.match(workflow, /prompt_bundle_sha256/u);
@@ -415,7 +533,7 @@ test('Local Qwen workflow uses canonical Qwen3 model-host, remains bounded and f
   assert.match(workflow, /"required":\["findings"\]/u);
   assert.match(workflow, /set\(value\)!=\{'findings'\}/u);
   assert.match(workflow, /verdict='PASS' if not all_findings else 'BLOCK'/u);
-  assert.match(workflow, /Do not author verdict or summary/u);
+  assert.match(workflow, /[Dd]o not author verdict or summary/u);
   assert.match(workflow, /json\.dumps\(value,ensure_ascii=True,sort_keys=True,separators=/u);
   assert.doesNotMatch(workflow, /json\.dumps\(value,ensure_ascii=False,sort_keys=True,separators=/u);
   assert.doesNotMatch(workflow, /"required":\["verdict","findings","summary"\]/u);
@@ -447,7 +565,7 @@ const rejectedEvidenceHarness=String.raw`
 import ast, hashlib, json, os, pathlib, re, subprocess, sys, tempfile
 remote, validator, transport, cleanup, scenario = sys.argv[1:]
 tree=ast.parse(remote)
-constants={'SPECULATIVE_REASON','SECURITY_CLASSIFICATION','ROUTE_TEST_REFERENCE'}
+constants={'SPECULATIVE','SPECULATIVE_REASON','SECURITY_CLASSIFICATION','ROUTE_TEST_REFERENCE'}
 functions={'fail','policy_violation','repair_user','save_rejected'}
 definitions=[node for node in tree.body if isinstance(node,ast.FunctionDef) and node.name in functions or isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id in constants for t in node.targets)]
 loop=[node for node in tree.body if isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='repairs' for t in node.targets) or isinstance(node,ast.With) and any(isinstance(i.context_expr,ast.Call) and isinstance(i.context_expr.func,ast.Attribute) and isinstance(i.context_expr.func.value,ast.Name) and i.context_expr.func.value.id=='output_path' for i in node.items)]
@@ -570,10 +688,13 @@ for(const scenario of ['failed-repair','unchanged-review','diagnostic-write-fail
     const start=workflow.indexOf('          inference_status=0\n');
     const end=workflow.indexOf('          scp "${scp_opts[@]}" "$MODEL_USER@$MODEL_HOST:$remote_dir/review-responses.jsonl"',start);
     assert.ok(start>=0 && end>start,'expected actual failure transport');
-    const cleanup=workflow.match(/          (cleanup\(\)\{[^\n]+)\n/); assert.ok(cleanup);
+    const cleanupStart=workflow.indexOf('          cleanup(){\n');
+    const cleanupEnd=workflow.indexOf('          }\n',cleanupStart);
+    assert.ok(cleanupStart>=0 && cleanupEnd>cleanupStart,'expected actual cleanup function');
+    const cleanup=qwenLiteralSource(workflow.slice(cleanupStart,cleanupEnd+'          }\n'.length)).trimEnd();
     const result=spawnSync('python3',['-c',rejectedEvidenceHarness,
       block('cat > "$RUNNER_TEMP/remote-review.py"'),block('if python3 - "$RUNNER_TEMP/review-rejected.raw.json"'),
-      qwenLiteralSource(workflow.slice(start,end)),cleanup[1],scenario],{encoding:'utf8'});
+      qwenLiteralSource(workflow.slice(start,end)),cleanup,scenario],{encoding:'utf8'});
     assert.equal(result.status,0,result.stderr); assert.equal(result.stdout,'');
     assert.match(workflow,/if: always\(\) && steps\.inference\.outcome == 'failure'/);
     assert.match(workflow,/path: \$\{\{ runner\.temp \}\}\/review-rejected\.json/);
@@ -602,6 +723,19 @@ test('review reconciliation workflow uses supported dispatch wiring and complete
   assert.ok(incompleteStateInvalidations.length >= 3);
   const publisherAuthorityFailures = workflow.match(/if \[ "\$state" != success \]; then\s+exit 1\s+fi/gu) || [];
   assert.ok(publisherAuthorityFailures.length >= 3);
+  const resultContracts = workflow.match(/PR_REVIEW_GATE_RESULT=/gu) || [];
+  assert.ok(resultContracts.length >= 3);
+  const resultSchemaChecks = workflow.match(/platform-v7\.review-gate-result\.v1/gu) || [];
+  assert.ok(resultSchemaChecks.length >= 3);
+  const bootstrapPairs = workflow.match(/\.classification == "SCOPED_PROVIDER_MAINTENANCE_BOOTSTRAP_NOT_INDEPENDENT_REVIEW" and \.reviewAuthority == "NONE"/gu) || [];
+  assert.ok(bootstrapPairs.length >= 3);
+  const independentPairs = workflow.match(/\.classification == "INDEPENDENT_EXACT_HEAD_REVIEW" and \(\.reviewAuthority == "CODEX" or \.reviewAuthority == "GITHUB_COPILOT" or \.reviewAuthority == "OCTOPUS" or \.reviewAuthority == "LOCAL_QWEN"\)/gu) || [];
+  assert.ok(independentPairs.length >= 3);
+  const validatedModeOutputs = workflow.match(/echo "mode=\$mode" >> "\$GITHUB_OUTPUT"/gu) || [];
+  assert.ok(validatedModeOutputs.length >= 3);
+  assert.doesNotMatch(workflow, /GATE_AUTHORITY/u);
+  assert.doesNotMatch(workflow, /echo "authority=\$authority" >> "\$GITHUB_OUTPUT"/u);
+  assert.doesNotMatch(workflow, /sed -n 's\/\.\*reviewClassification=/u);
   assert.match(workflow, /^\s*exact-head-dispatched-gate:\s*$/mu);
   assert.match(workflow, /github\.event_name == 'repository_dispatch' && github\.event\.action == 'review-gate-reconcile'/u);
   assert.match(workflow, /PR_NUMBER:\s*\$\{\{ github\.event\.client_payload\.pr_number \}\}/u);

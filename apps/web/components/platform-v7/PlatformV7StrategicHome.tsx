@@ -19,6 +19,7 @@ import { PublicSiteHeader } from './PublicSiteHeader';
 import { PublicLocaleLink } from './PublicLocaleLink';
 import { PublicExperienceLink, PublicExperiencePageView } from './PublicExperienceAnalytics';
 import { PublicDealRoleScenario } from './PublicDealRoleScenario';
+import { PublicMarketTeaser } from './PublicMarketTeaser';
 import { OrganizationConnectForm } from './OrganizationConnectForm';
 import { PlatformV7AccountingClosureValue } from './PlatformV7AccountingClosureValue';
 import { getPlatformV7HomeCopy } from '@/i18n/platform-v7-home-v3';
@@ -60,6 +61,11 @@ const proofIcons = [Link2, ShieldCheck, FileCheck2, Sparkles] as const;
 const stateInputClasses = [styles.stateNormal, styles.stateDeviation, styles.stateDispute] as const;
 const stateTabClasses = [styles.tabNormal, styles.tabDeviation, styles.tabDispute] as const;
 const statePanelClasses = [styles.panelNormal, styles.panelDeviation, styles.panelDispute] as const;
+const MARKET_NAV_LABEL: Record<Locale, string> = {
+  ru: 'Рынок',
+  en: 'Market',
+  zh: '市场',
+};
 
 const TRUST_COPY = {
   ru: {
@@ -112,6 +118,7 @@ export async function PlatformV7StrategicHome() {
   const story = getPlatformV7HomeStoryCopy(locale);
   const chrome = await getTranslations('publicEntry.chrome');
   const trustCopy = TRUST_COPY[normalizedLocale];
+  const marketNavLabel = MARKET_NAV_LABEL[normalizedLocale];
   const presentationDownloadLabel = normalizedLocale === 'en'
     ? 'Download presentation (PDF)'
     : normalizedLocale === 'zh'
@@ -130,6 +137,7 @@ export async function PlatformV7StrategicHome() {
 
   const nav = (
     <>
+      <a href='#market'>{marketNavLabel}</a>
       <a href='#participants'>{story.nav.roles}</a>
       <a href='#deal-path'>{story.nav.deal}</a>
       <a href='#functions'>{story.nav.functions}</a>
@@ -290,6 +298,8 @@ export async function PlatformV7StrategicHome() {
               );
             })}
           </section>
+
+          <PublicMarketTeaser locale={locale} />
 
           <section id='participants' className={`pc-v6-section ${styles.section}`} aria-labelledby='participants-title'>
             <SectionHeader id='participants-title' eyebrow={story.roles.eyebrow} title={story.roles.title} lead={story.roles.lead} />
