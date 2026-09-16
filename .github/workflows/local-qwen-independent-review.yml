@@ -561,19 +561,53 @@ jobs:
                   return None
               return finding_violation(item, findings[0])
 
-          def repair_user(item, violation):
+          def candidate_anchor(item, content):
+              try:
+                  value = json.loads(content)
+              except json.JSONDecodeError:
+                  return None
+              if not isinstance(value, dict) or set(value) != {'findings'}:
+                  return None
+              findings = value.get('findings')
+              if not isinstance(findings, list) or len(findings) != 1 or not isinstance(findings[0], dict):
+                  return None
+              finding = findings[0]
+              line = finding.get('line')
+              evidence = finding.get('evidence')
+              if isinstance(line, bool) or not isinstance(line, int) or not isinstance(evidence, str) or not evidence:
+                  return None
+              added = {
+                  int(entry['line']): str(entry['text'])
+                  for entry in item.get('added_lines', [])
+                  if type(entry.get('line')) is int and isinstance(entry.get('text'), str)
+              }
+              exact_line = added.get(line)
+              if exact_line is None or evidence not in exact_line:
+                  return None
+              return (line, evidence)
+
+          def repair_user(item, violation, rejected_content):
               violation_guidance = ''
+              anchor = candidate_anchor(item, rejected_content)
               if violation == 'SPECULATIVE_CLAIM':
                   violation_guidance = (
                       'For SPECULATIVE_CLAIM, do not repeat the rejected inference with different certainty wording. '
                       'A label, category, constant, enum member, or stored historical value does not by itself prove downstream retry, authorization, security, or control-flow behavior. '
                       'A non-empty finding requires the exact changed bytes in this same chunk to directly implement the claimed behavior or concrete failure mechanism; otherwise author findings=[]. '
                   )
+                  if anchor is not None:
+                      line, evidence = anchor
+                      violation_guidance += (
+                          f'The rejected candidate was mechanically bound to trusted NEW_LINE_{line}. '
+                          'This repair is not a new search for a replacement issue: if it returns a non-empty finding, it must stay on that same trusted line and use the same verbatim evidence substring. '
+                          f'The preserved evidence substring is {json.dumps(evidence, ensure_ascii=True)}. '
+                          'If that exact evidence does not itself directly establish a concrete reproducible defect under the unchanged policy, author findings=[]. '
+                      )
               return (
                   item['user']
                   + '\nTRUSTED_POLICY_REPAIR_NOTICE\n'
                   + f'The prior candidate was rejected as policy-inadmissible: {violation}. '
-                  + 'The rejected candidate content is intentionally omitted so the fresh deterministic repair is anchored only to the trusted added-line index and exact diff. '
+                  + 'The rejected candidate title and reason are intentionally omitted so the fresh deterministic repair is anchored only to trusted evidence and the exact diff. '
                   + 'Re-review the exact same chunk under the unchanged trusted system policy. '
                   + violation_guidance
                   + 'Do not rephrase a hypothetical claim into definite wording. '
@@ -654,18 +688,25 @@ jobs:
               fail('VALIDATOR_SELFTEST_NON_VERBATIM_EVIDENCE_NOT_REJECTED')
           if finding_violation(probe_item, external_probe) != 'EXTERNAL_CONTEXT_ASSUMPTION':
               fail('VALIDATOR_SELFTEST_EXTERNAL_CONTEXT_FAILED')
-          repair_probe = repair_user(probe_item, 'EVIDENCE_NOT_ON_CITED_ADDED_LINE')
+          speculative_candidate = json.dumps({'findings': [speculative_probe]}, separators=(',', ':'))
+          if candidate_anchor(probe_item, speculative_candidate) != (7, 'sanitize(input)'):
+              fail('VALIDATOR_SELFTEST_REPAIR_ANCHOR_MISSING')
+          repair_probe = repair_user(probe_item, 'EVIDENCE_NOT_ON_CITED_ADDED_LINE', speculative_candidate)
           if 'TRUSTED_POLICY_REPAIR_NOTICE' not in repair_probe or 'EVIDENCE_NOT_ON_CITED_ADDED_LINE' not in repair_probe:
               fail('VALIDATOR_SELFTEST_REPAIR_NOTICE_MISSING')
           if 'BEGIN_TRUSTED_ADDED_LINE_INDEX' not in repair_probe or 'BEGIN_UNTRUSTED_PULL_REQUEST_DIFF' not in repair_probe:
               fail('VALIDATOR_SELFTEST_REPAIR_CONTEXT_MISSING')
           if 'BEGIN_UNTRUSTED_PRIOR_CANDIDATE' in repair_probe:
               fail('VALIDATOR_SELFTEST_REPAIR_CANDIDATE_ANCHOR_PRESENT')
-          speculative_repair_probe = repair_user(probe_item, 'SPECULATIVE_CLAIM')
+          speculative_repair_probe = repair_user(probe_item, 'SPECULATIVE_CLAIM', speculative_candidate)
           if 'does not by itself prove downstream retry' not in speculative_repair_probe:
               fail('VALIDATOR_SELFTEST_SPECULATION_REPAIR_GROUNDING_MISSING')
           if 'otherwise author findings=[]' not in speculative_repair_probe:
               fail('VALIDATOR_SELFTEST_SPECULATION_REPAIR_EMPTY_RESULT_GUIDANCE_MISSING')
+          if 'trusted NEW_LINE_7' not in speculative_repair_probe or 'same verbatim evidence substring' not in speculative_repair_probe:
+              fail('VALIDATOR_SELFTEST_SPECULATION_REPAIR_SCOPE_MISSING')
+          if json.dumps('sanitize(input)', ensure_ascii=True) not in speculative_repair_probe:
+              fail('VALIDATOR_SELFTEST_SPECULATION_REPAIR_EVIDENCE_MISSING')
 
           service = 'tai-qwen3-8b.service'
           pid_text = subprocess.check_output(
@@ -871,10 +912,15 @@ jobs:
                   if violation is not None:
                       repaired = True
                       repairs += 1
-                      repaired_user = repair_user(item, violation)
+                      anchor = candidate_anchor(item, initial) if violation == 'SPECULATIVE_CLAIM' else None
+                      repaired_user = repair_user(item, violation, initial)
                       repair_prompt_sha256 = hashlib.sha256(repaired_user.encode('utf-8')).hexdigest()
                       content = completion(item['system'], repaired_user)
                       repaired_violation = policy_violation(item, content)
+                      if repaired_violation is None and anchor is not None:
+                          final_anchor = candidate_anchor(item, content)
+                          if final_anchor is not None and final_anchor != anchor:
+                              repaired_violation = 'REPAIR_ANCHOR_CHANGED'
                       if repaired_violation is not None:
                           try:
                               save_rejected(
