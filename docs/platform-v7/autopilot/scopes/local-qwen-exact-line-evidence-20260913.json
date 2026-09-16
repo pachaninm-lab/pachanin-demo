@@ -11,7 +11,6 @@
     "reviewJobId": 104953468152,
     "rejectedArtifactId": 10465449549,
     "rejectedArtifactSha256": "eddb6da03c1a2e6a565a92afffaae9dc1c8a4ca03be39d9d46e951c83b53191c",
-    "providerError": "RUN_CANONICAL_QWEN3_SEMANTIC_REVIEW_FAILED_CLOSED",
     "reviewChunk": {
       "path": "apps/api/src/common/kafka/kafka-producer.service.spec.ts",
       "line": 35,
@@ -19,8 +18,7 @@
     },
     "initialViolation": "SPECULATIVE_CLAIM",
     "finalViolation": "TEST_ONLY_SECURITY_FINDING_REJECTED",
-    "admittedProductFindingCount": 0,
-    "failureDisposition": "PROVIDER_REPAIR_REQUIRED_NO_PRODUCT_CHANGE"
+    "admittedProductFindingCount": 0
   },
   "allowedPaths": [
     ".github/workflows/local-qwen-independent-review.yml",
