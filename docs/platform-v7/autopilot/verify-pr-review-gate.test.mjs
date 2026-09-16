@@ -566,7 +566,7 @@ import ast, hashlib, json, os, pathlib, re, subprocess, sys, tempfile
 remote, validator, transport, cleanup, scenario = sys.argv[1:]
 tree=ast.parse(remote)
 constants={'SPECULATIVE','SPECULATIVE_REASON','SECURITY_CLASSIFICATION','ROUTE_TEST_REFERENCE'}
-functions={'fail','policy_violation','repair_user','save_rejected'}
+functions={'fail','policy_violation','candidate_anchor','anchored_repair_schema','repair_user','save_rejected'}
 definitions=[node for node in tree.body if isinstance(node,ast.FunctionDef) and node.name in functions or isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id in constants for t in node.targets)]
 loop=[node for node in tree.body if isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='repairs' for t in node.targets) or isinstance(node,ast.With) and any(isinstance(i.context_expr,ast.Call) and isinstance(i.context_expr.func,ast.Attribute) and isinstance(i.context_expr.func.value,ast.Name) and i.context_expr.func.value.id=='output_path' for i in node.items)]
 with tempfile.TemporaryDirectory() as directory:
@@ -575,7 +575,7 @@ with tempfile.TemporaryDirectory() as directory:
     manifest_path=root/'review-manifest.json'
     manifest_path.write_text(json.dumps(manifest))
     manifest_sha=hashlib.sha256(manifest_path.read_bytes()).hexdigest()
-    namespace={'json':json,'re':re,'hashlib':hashlib,'review_head':'a'*40,'run_id':'123','run_attempt':'2','diff_sha':'d'*64,'manifest_sha':manifest_sha,'bearer':'PRIVATE_TOKEN_CANARY','host':'PRIVATE_HOST_CANARY'}
+    namespace={'json':json,'re':re,'hashlib':hashlib,'schema':{},'review_head':'a'*40,'run_id':'123','run_attempt':'2','diff_sha':'d'*64,'manifest_sha':manifest_sha,'bearer':'PRIVATE_TOKEN_CANARY','host':'PRIVATE_HOST_CANARY'}
     exec(compile(ast.Module(body=definitions,type_ignores=[]),'<actual-qwen-functions>','exec'),namespace)
     original_save=namespace['save_rejected']
     item={'index':1,'path':'src/changed.mjs','chunk_sha256':'c'*64,'system':'trusted fixture policy','user':'public fixture diff'}
@@ -588,7 +588,7 @@ with tempfile.TemporaryDirectory() as directory:
         folder.mkdir()
         output=folder/'review-responses.jsonl'
         calls=[]
-        def completion(system,user):
+        def completion(system,user,response_schema=None):
             calls.append((system,user))
             return responses[len(calls)-1]
         namespace.update(output_path=output,requests=[request or item],completion=completion,save_rejected=save or original_save)
