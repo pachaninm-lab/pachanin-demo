@@ -21,17 +21,30 @@ jobs:
       - name: Apply bounded repair-scope hardening
         run: python3 scripts/tmp-scope-local-qwen-speculative-repair.py
 
-      - name: Validate and commit bounded provider repair
+      - name: Validate generated workflow
         shell: bash
         run: |
           set -Eeuo pipefail
           git diff --check
           grep -F "def scoped_speculative_repair_item" .github/workflows/local-qwen-independent-review.yml >/dev/null
           grep -F "repair_item = scoped_speculative_repair_item" .github/workflows/local-qwen-independent-review.yml >/dev/null
+
+      - name: Stage self cleanup
+        shell: bash
+        run: |
+          set -Eeuo pipefail
           git rm .github/workflows/temporary-local-qwen-speculative-repair-scope.yml scripts/tmp-scope-local-qwen-speculative-repair.py
-          git config user.name 'pachaninm-lab'
-          git config user.email 'pachaninm@gmail.com'
           git add .github/workflows/local-qwen-independent-review.yml
           git diff --cached --check
+
+      - name: Commit bounded provider repair
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git config user.name 'pachaninm-lab'
+          git config user.email 'pachaninm@gmail.com'
           git commit -m 'fix(local-qwen): scope speculative repair to original anchor'
-          git push origin HEAD:fix/local-qwen-speculative-repair-scope-20260916
+
+      - name: Push bounded provider repair
+        shell: bash
+        run: git push origin HEAD:fix/local-qwen-speculative-repair-scope-20260916
