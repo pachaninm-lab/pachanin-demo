@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   patch:
-    if: github.actor == 'pachaninm-lab' || github.actor == 'openai-chatgpt-connector'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
