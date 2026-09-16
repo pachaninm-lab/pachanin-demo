@@ -6,7 +6,7 @@ on:
       - fix/local-qwen-speculative-repair-scope-20260916
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   patch:
@@ -29,22 +29,10 @@ jobs:
           grep -F "def scoped_speculative_repair_item" .github/workflows/local-qwen-independent-review.yml >/dev/null
           grep -F "repair_item = scoped_speculative_repair_item" .github/workflows/local-qwen-independent-review.yml >/dev/null
 
-      - name: Stage self cleanup
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          git rm .github/workflows/temporary-local-qwen-speculative-repair-scope.yml scripts/tmp-scope-local-qwen-speculative-repair.py
-          git add .github/workflows/local-qwen-independent-review.yml
-          git diff --cached --check
-
-      - name: Commit bounded provider repair
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          git config user.name 'pachaninm-lab'
-          git config user.email 'pachaninm@gmail.com'
-          git commit -m 'fix(local-qwen): scope speculative repair to original anchor'
-
-      - name: Push bounded provider repair
-        shell: bash
-        run: git push origin HEAD:fix/local-qwen-speculative-repair-scope-20260916
+      - name: Preserve generated target workflow
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: bounded-local-qwen-provider-patch-${{ github.sha }}
+          path: .github/workflows/local-qwen-independent-review.yml
+          if-no-files-found: error
+          retention-days: 1
