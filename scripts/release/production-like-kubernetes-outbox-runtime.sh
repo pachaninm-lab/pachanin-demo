@@ -100,8 +100,7 @@ const killClaimAfter = raw`# Kafka is intentionally absent in this scenario. The
 # persists lastAttemptAt before invoking the external handler. This runtime
 # scenario then proves that a killed owner cannot cause that ambiguous state to
 # be replayed automatically after lease expiry.
-kill_fixture_owner="$(kubectl get pods -n "$NAMESPACE" -l "$WORKER_SELECTOR" \
-  -o jsonpath='{range .items[*]}{.metadata.name}{"\\n"}{end}' | sort | head -1)"
+kill_fixture_owner="$(kubectl get pods -n "$NAMESPACE" -l "$WORKER_SELECTOR" -o name | sort | sed -n '1{s#^pod/##;p;}')"
 test -n "$kill_fixture_owner"
 escaped_kill_fixture_owner="$(sql_literal "$kill_fixture_owner")"
 kill_fixture_count="$(admin_sql "
