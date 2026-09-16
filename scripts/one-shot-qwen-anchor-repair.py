@@ -41,7 +41,7 @@ text = text[:start] + candidate_anchor + text[end:]
 
 start = text.index('          def repair_user(item, violation, rejected_content):\n')
 end = text.index('          def save_rejected(item, initial, final, initial_violation, final_violation, repair_sha):\n', start)
-repair_user = '''          def repair_user(item, violation, rejected_content):
+repair_user = r'''          def repair_user(item, violation, rejected_content):
               violation_guidance = ''
               anchor = candidate_anchor(item, rejected_content)
               if violation == 'SPECULATIVE_CLAIM':
