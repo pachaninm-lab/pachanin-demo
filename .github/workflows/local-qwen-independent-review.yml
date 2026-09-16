@@ -451,7 +451,7 @@ jobs:
               'replication', 'shard', 'shards', 'topology', 'clock skew', 'distributed database',
           )
           SECURITY_CLASSIFICATION = re.compile(
-              r'\b(?:secret|pii|leak(?:age)?|authorization bypass|security boundary bypass)\b',
+              r'\b(?:secret|pii|leak(?:age)?|authorization bypass|security boundary bypass|security/privacy boundar(?:y|ies)(?: bypass)?)\b',
               re.IGNORECASE,
           )
           ROUTE_TEST_REFERENCE = re.compile(
@@ -745,7 +745,7 @@ jobs:
           test_security_speculative_probe = dict(
               valid_probe,
               path='service.spec.ts',
-              title='Potential security boundary bypass in test',
+              title='Potential Security/Privacy Boundary Bypass in test',
               reason='The test may treat the service as ready without proving production authorization.',
           )
           if finding_violation(probe_item, valid_probe) is not None:
@@ -1343,7 +1343,7 @@ jobs:
               'replication', 'shard', 'shards', 'topology', 'clock skew', 'distributed database',
           )
           security_classification = re.compile(
-              r'\b(?:secret|pii|leak(?:age)?|authorization bypass|security boundary bypass)\b',
+              r'\b(?:secret|pii|leak(?:age)?|authorization bypass|security boundary bypass|security/privacy boundar(?:y|ies)(?: bypass)?)\b',
               re.IGNORECASE,
           )
           route_test_reference = re.compile(
