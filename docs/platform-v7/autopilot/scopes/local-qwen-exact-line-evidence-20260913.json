@@ -2,34 +2,25 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/local-qwen-evidence-binding-20260913",
   "status": "active",
-  "purpose": "Authorize continuation of bounded Local Qwen provider hardening after substantive PR #5347 exact-head review on 4a861416075a17bc173b20f06b531b8b77a270d8 failed closed because a mechanically anchored policy-inadmissible candidate changed rejection class from SPECULATIVE_CLAIM to TEST_ONLY_SECURITY_FINDING_REJECTED on the first same-anchor repair. Permit a finite maximum of three repair attempts only for the fixed repairable rejection set defined below, with every repair locked to the original exact path/new-side-line/verbatim-evidence tuple and independently revalidated. Preserve fail-closed behavior, exact-head authority and all model/runtime/policy/transport pins. This authority does not authorize product changes and never converts provider maintenance into independent review.",
-  "authorityBaseExactMain": "2265006c5002c25e89c93cb1cb0fb01502188731",
+  "purpose": "Authorize bounded same-anchor Local Qwen repair continuation for substantive PR #5347. The provider may make a finite maximum of three repair inferences only for the fixed repairable violation set below, only after the initial candidate has a mechanically valid exact path/new-side-line/verbatim-evidence anchor. All repairs retain that tuple and are independently revalidated. Fail-closed behavior, exact-head authority and all model/runtime/policy/transport pins remain unchanged. This authority does not authorize product changes and does not create independent review authority.",
+  "authorityBaseExactMain": "5ff2ccaac7e30e7f5400e4751603531f04f683ea",
   "evidence": {
     "substantivePullRequest": 5347,
-    "reviewedExactHead": "4a861416075a17bc173b20f06b531b8b77a270d8",
-    "reviewRunId": 35139215879,
-    "reviewJobId": 104939456407,
-    "rejectedArtifactId": 10464158922,
-    "rejectedArtifactSha256": "cc77bacda6f360e11a40d5f3462c71cf76c3247956521ca29868ede653ab6b24",
+    "reviewedExactHead": "e47fe9ade69cb5ff98e08a19a2c84642ee016152",
+    "reviewRunId": 35143463739,
+    "reviewJobId": 104953468152,
+    "rejectedArtifactId": 10465449549,
+    "rejectedArtifactSha256": "eddb6da03c1a2e6a565a92afffaae9dc1c8a4ca03be39d9d46e951c83b53191c",
     "providerError": "RUN_CANONICAL_QWEN3_SEMANTIC_REVIEW_FAILED_CLOSED",
     "reviewChunk": {
-      "index": 3,
-      "path": "apps/api/src/common/kafka/kafka-producer.service.spec.ts",
-      "sha256": "c71a60c24874b3f7ce028e7a716f22fd378f686942fee780ae520c1e80d042fb"
-    },
-    "trustedAnchor": {
       "path": "apps/api/src/common/kafka/kafka-producer.service.spec.ts",
       "line": 35,
       "evidence": "await expect(service.isReady()).resolves.toBe(false);"
     },
     "initialViolation": "SPECULATIVE_CLAIM",
     "finalViolation": "TEST_ONLY_SECURITY_FINDING_REJECTED",
-    "observedViolations": [
-      "The initial Qwen candidate was mechanically bound to the exact added-line anchor but rejected as SPECULATIVE_CLAIM.",
-      "The first same-anchor repair preserved the same path, line and verbatim evidence but changed into a test-only security/privacy-boundary claim and was rejected as TEST_ONLY_SECURITY_FINDING_REJECTED.",
-      "No admitted Outbox/product defect exists from this failed review; changing product code to satisfy either rejected claim is forbidden by this authority.",
-      "A single repair attempt is insufficient for this observed deterministic provider failure mode, while unbounded retries, replacement-line search and synthetic findings=[] would weaken review authority."
-    ]
+    "admittedProductFindingCount": 0,
+    "failureDisposition": "PROVIDER_REPAIR_REQUIRED_NO_PRODUCT_CHANGE"
   },
   "allowedPaths": [
     ".github/workflows/local-qwen-independent-review.yml",
@@ -37,7 +28,7 @@
     "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
   ],
   "requiredChange": {
-    "summary": "Keep the initial full-chunk semantic review unchanged. Only after a first candidate is rejected with a mechanically valid exact path/line/verbatim-evidence anchor as either SPECULATIVE_CLAIM or TEST_ONLY_SECURITY_FINDING_REJECTED, allow at most three deterministic repair attempts. Every repair must retain that original anchor, keep the full exact chunk only as untrusted context, mechanically restrict any non-empty response to the preserved path/line/evidence tuple, and independently run the unchanged policy validator. A repair may continue only while its violation remains inside the fixed repairable rejection set; every other violation fails closed immediately. Exhaustion fails closed with rejected diagnostics. Workflow code may never delete or rewrite a finding into PASS; findings=[] must remain model-authored.",
+    "summary": "Keep the initial full-chunk semantic review unchanged. When the initial candidate is rejected as a member of the fixed repairable violation set and has a valid exact anchor, allow at most three deterministic same-anchor repair attempts. Continue only while the immediately preceding repair remains in that set on the same anchor. Any other violation fails closed immediately. Exhaustion fails closed. Replacement-line search is forbidden. The workflow may reject inadmissible output but must never synthesize PASS; findings=[] remains model-authored.",
     "findingEvidenceContract": {
       "exactChangedPathRequired": true,
       "exactAddedNewSideLineRequired": true,
@@ -79,7 +70,7 @@
       "replace the single repair with a finite maximum-three-attempt same-anchor sequence for the fixed repairable violation set",
       "scope repair-time trusted eligibility to the preserved exact anchor while keeping the full exact chunk as untrusted context",
       "mechanically pin every repair response to the preserved path, line and evidence",
-      "preserve violation-specific repair guidance for SPECULATIVE_CLAIM and TEST_ONLY_SECURITY_FINDING_REJECTED without changing trusted policy text",
+      "preserve violation-specific repair guidance without changing trusted policy text",
       "add deterministic regression probes for class transition, second/third repair, exhaustion, same-anchor enforcement, replacement-line denial and immediate fail-closed handling of any non-repairable violation"
     ]
   },
@@ -116,15 +107,15 @@
     "Canonical Qwen3-8B revision 895c8d171bc03c30e113cd7a28c02494b5e068b7, model SHA-256 107afd988cdbdcced3b8e76ebc3a8e83b5a18a5c796fca20778410cb9c47a814, served identity tai-qwen3-8b-q4km, llama build b9637, source commit aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3 and runtime archive SHA-256 3857876e4a2461f7041166bd74b5d39e3db51b8639353d55f87d6f904b3b75bd remain unchanged.",
     "Pinned SSH/SCP host-key transport, service-user verification, model file size/hash verification, protected API-key discovery, thinking disabled, temperature 0, top_p 1, deterministic seed and bounded inference remain unchanged.",
     "The full-diff bound remains 400000 bytes, chunk bound remains 8000 bytes and maximum chunk count remains 96; no changed path, review category, severity or concrete admissible defect is exempted from initial review.",
-    "A concrete schema-valid policy-admissible finding remains blocking. Its path, line, evidence, severity, title and reason are preserved into canonical authority.",
-    "Only a candidate rejected as SPECULATIVE_CLAIM or TEST_ONLY_SECURITY_FINDING_REJECTED with a mechanically valid exact anchor is eligible for the bounded repair sequence. The trusted eligible line and response path/line/evidence tuple cannot change across attempts.",
-    "A subsequent repair is allowed only while the immediately preceding repaired candidate remains in the fixed repairable violation set on the same anchor; any other violation fails closed immediately.",
-    "After the third repair attempt, any remaining violation fails closed and preserves rejected diagnostics. There is no unbounded retry.",
-    "A clean findings=[] result remains model-authored; deterministic admission logic may reject invalid findings but cannot synthesize PASS from a rejected candidate.",
-    "Exact full-diff SHA-256, chunk SHA-256 values, review manifest hash, prompt bundle hash, canonical response hash, exact-head revalidation, provider status and the existing PASS attestation contract remain bound to the exact run.",
-    "The provider-maintenance bootstrap is not independent review authority and must never publish, synthesize or impersonate a Local Qwen, Octopus, Codex or Copilot PASS.",
-    "The provider-maintenance bootstrap is ineligible for substantive or product PRs, including #5347, and is fail-closed unless the implementation changes only the exact allowed paths, is forward-synchronized to live main containing this authority, has exact-head owner self-audit, has all other required checks terminal green, has zero unresolved review threads and zero active CHANGES_REQUESTED, and live main equals the implementation base immediately before merge.",
-    "After the provider repair merges, substantive PR #5347 must synchronize forward-only to exact current main and obtain a completely fresh Local Qwen exact-head review under the repaired provider; no pre-repair review evidence transfers and the bootstrap cannot authorize #5347.",
+    "A concrete schema-valid policy-admissible finding remains blocking and is preserved into canonical authority.",
+    "Only an initial candidate in the fixed repairable violation set with a mechanically valid exact anchor is eligible for the bounded repair sequence; trusted path, line and evidence cannot change across attempts.",
+    "A subsequent repair is allowed only while the preceding repaired candidate remains in the fixed repairable violation set on the same anchor; any other violation fails closed immediately.",
+    "After the third repair attempt, any remaining violation fails closed and preserves rejected diagnostics.",
+    "A clean findings=[] result remains model-authored; deterministic admission logic cannot synthesize PASS from rejected output.",
+    "Exact full-diff, chunk, manifest, prompt-bundle and canonical-response digests remain bound to the exact review run and head.",
+    "The provider-maintenance bootstrap is not independent review authority and cannot publish, synthesize or impersonate a provider PASS.",
+    "The provider-maintenance bootstrap is ineligible for substantive or product PRs, including #5347, and is fail-closed unless its exact implementation contract is satisfied.",
+    "After the provider repair merges, substantive PR #5347 must forward-synchronize to exact current main and obtain a completely fresh Local Qwen exact-head review; no pre-repair evidence transfers.",
     "No product, API, database, RBAC, registration, cabinet, customer-data, dependency, lockfile or production runtime behavior change is authorized by this scope.",
     "No merge gate, CI threshold, provider identity, finding-admission threshold or fail-closed condition may be weakened or bypassed.",
     "Production hosting remains REG_RU_VPS_ONLY and new recurring cost remains 0 RUB."
@@ -133,7 +124,7 @@
     "Authority PR changes exactly this manifest path.",
     "Authority PR itself receives genuine independent exact-head review authority under the pre-existing verifier and cannot use providerMaintenanceBootstrap.",
     "Implementation PR changes only providerMaintenanceBootstrap.allowedImplementationPaths and cannot modify its own authority manifest.",
-    "Implementation PR is forward-synchronized to live main after this authority manifest is merged and therefore proves the authority came from merged live main rather than its own branch.",
+    "Implementation PR is forward-synchronized to live main after this authority manifest is merged and proves the authority came from merged live main.",
     "Applicable ordinary exact-head CI/security/runtime gates are terminal green before each merge.",
     "Owner exact-head self-audit is present on each authority/provider-maintenance exact head and does not substitute for the fresh #5347 Local Qwen review after provider repair.",
     "Unresolved review threads and active CHANGES_REQUESTED are zero.",
