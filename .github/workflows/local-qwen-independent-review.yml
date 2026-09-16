@@ -450,7 +450,7 @@ jobs:
               'database node', 'database nodes', 'cluster', 'replica', 'replicas',
               'replication', 'shard', 'shards', 'topology', 'clock skew', 'distributed database',
           )
-          SECURITY_CLASSIFICATION = re.compile(
+          SECURITY_FINDING_TERMS = re.compile(
               r'\b(?:secret|pii|leak(?:age)?|authorization bypass|security boundary bypass|security/privacy boundar(?:y|ies)(?: bypass)?)\b',
               re.IGNORECASE,
           )
@@ -505,8 +505,8 @@ jobs:
 
               combined = f'{title} {reason}'
               is_test_path = '/tests/' in path or '.test.' in path or '.spec.' in path
-              if is_test_path and SECURITY_CLASSIFICATION.search(combined) and ROUTE_TEST_REFERENCE.search(combined):
-                  return 'TEST_ROUTE_SECURITY_CLASSIFICATION'
+              if is_test_path and SECURITY_FINDING_TERMS.search(combined) and ROUTE_TEST_REFERENCE.search(combined):
+                  return 'TEST_ONLY_SECURITY_FINDING_REJECTED'
               if SPECULATIVE.search(combined):
                   return 'SPECULATIVE_CLAIM'
 
@@ -554,8 +554,8 @@ jobs:
                       return 'SCHEMA_INVALID_FINDING_FIELDS'
                   combined = f'{title} {reason}'
                   is_test_path = '/tests/' in path or '.test.' in path or '.spec.' in path
-                  if is_test_path and SECURITY_CLASSIFICATION.search(combined) and ROUTE_TEST_REFERENCE.search(combined):
-                      return 'TEST_ROUTE_SECURITY_CLASSIFICATION'
+                  if is_test_path and SECURITY_FINDING_TERMS.search(combined) and ROUTE_TEST_REFERENCE.search(combined):
+                      return 'TEST_ONLY_SECURITY_FINDING_REJECTED'
                   if SPECULATIVE_REASON.search(reason):
                       return 'SPECULATIVE_REASON'
                   return None
@@ -661,10 +661,10 @@ jobs:
                           'If the pinned tuple is not itself an admissible added-line/verbatim-evidence tuple, or if it does not directly establish a concrete reproducible defect under the unchanged policy, author findings=[]. '
                           'When the original evidence was already valid, this preserves the same verbatim evidence substring; otherwise the deterministic anchor uses only the original cited trusted line and never permits a replacement line. '
                       )
-              elif violation == 'TEST_ROUTE_SECURITY_CLASSIFICATION':
+              elif violation == 'TEST_ONLY_SECURITY_FINDING_REJECTED':
                   violation_guidance = (
-                      'For TEST_ROUTE_SECURITY_CLASSIFICATION, a test-only assertion, mock, expectation, route name, or test fixture does not by itself implement or prove a production security/privacy boundary bypass. '
-                      'Do not convert the rejected test-only security classification into differently worded production behavior. '
+                      'For TEST_ONLY_SECURITY_FINDING_REJECTED, a test-only assertion, mock, expectation, route name, or test fixture does not by itself implement or prove a production security/privacy boundary bypass. '
+                      'Do not convert the rejected test-only security finding into differently worded production behavior. '
                       'A non-empty repaired finding must identify a concrete defect directly implemented by the changed bytes in this exact chunk; otherwise author findings=[]. '
                   )
               return (
@@ -754,7 +754,7 @@ jobs:
               fail('VALIDATOR_SELFTEST_SPECULATION_NOT_REJECTED')
           if finding_violation(probe_item, speculative_wrong_line_probe) != 'SPECULATIVE_CLAIM':
               fail('VALIDATOR_SELFTEST_SPECULATION_PRECEDENCE_FAILED')
-          if finding_violation(test_probe_item, test_security_speculative_probe) != 'TEST_ROUTE_SECURITY_CLASSIFICATION':
+          if finding_violation(test_probe_item, test_security_speculative_probe) != 'TEST_ONLY_SECURITY_FINDING_REJECTED':
               fail('VALIDATOR_SELFTEST_TEST_SECURITY_PRECEDENCE_FAILED')
           if finding_violation(probe_item, wrong_line_probe) != 'EVIDENCE_LINE_NOT_ADDED':
               fail('VALIDATOR_SELFTEST_LINE_BINDING_FAILED')
@@ -829,7 +829,7 @@ jobs:
           test_security_candidate = json.dumps({'findings': [test_security_speculative_probe]}, separators=(',', ':'))
           test_security_repair_probe = repair_user(
               test_probe_item,
-              'TEST_ROUTE_SECURITY_CLASSIFICATION',
+              'TEST_ONLY_SECURITY_FINDING_REJECTED',
               test_security_candidate,
           )
           if 'test-only assertion' not in test_security_repair_probe or 'otherwise author findings=[]' not in test_security_repair_probe:
@@ -1342,7 +1342,7 @@ jobs:
               'database node', 'database nodes', 'cluster', 'replica', 'replicas',
               'replication', 'shard', 'shards', 'topology', 'clock skew', 'distributed database',
           )
-          security_classification = re.compile(
+          security_finding_terms = re.compile(
               r'\b(?:secret|pii|leak(?:age)?|authorization bypass|security boundary bypass|security/privacy boundar(?:y|ies)(?: bypass)?)\b',
               re.IGNORECASE,
           )
@@ -1412,7 +1412,7 @@ jobs:
                           raise SystemExit(f'External-context finding survived repair in chunk {index}.')
 
                   is_test_path = '/tests/' in finding['path'] or '.test.' in finding['path'] or '.spec.' in finding['path']
-                  if is_test_path and security_classification.search(combined) and route_test_reference.search(combined):
+                  if is_test_path and security_finding_terms.search(combined) and route_test_reference.search(combined):
                       raise SystemExit(f'Test-route security classification survived repair in chunk {index}.')
 
                   finding = dict(finding)
