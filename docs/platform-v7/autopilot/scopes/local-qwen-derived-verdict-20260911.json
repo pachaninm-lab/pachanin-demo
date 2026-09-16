@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/local-qwen-derived-verdict-20260911",
+  "status": "active",
+  "purpose": "Bounded reviewer-contract repair after canonical Qwen3-8B exact-head review run 34541333229 completed all 11 remote inference requests successfully but failed closed during canonical validation because the model returned a schema-valid yet semantically contradictory verdict/findings/summary tuple. Remove redundant model-authored verdict/summary fields so the independent semantic signal is only the bounded findings array and canonical verdict is deterministically derived from its emptiness.",
+  "authorityBaseExactMain": "42ad6fc5635dbce8cbfaed340cfdeb2db1cd6c0f",
+  "evidence": {
+    "substantivePullRequest": 5184,
+    "reviewRunId": 34541333229,
+    "reviewJobId": 103084414807,
+    "reviewedExactHead": "abfb70bd5dfa251a9f9557ade7d8225e6b11ad45",
+    "diffSha256": "ad7b1e4c5f27ca8c8c97a3e3ca0acba39faf69a8711863724ff7a2b64c7d06c5",
+    "manifestSha256": "436507096ee642f27eb887c5c66501ed7699ba86cc4decc6f1601b1b897c890d",
+    "inferenceResult": "QWEN3_REMOTE_REVIEW_OK=11",
+    "validatorResult": "FAIL_CLOSED",
+    "validatorError": "Inconsistent BLOCK in chunk 5."
+  },
+  "allowedPaths": [
+    ".github/workflows/local-qwen-independent-review.yml",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
+  ],
+  "requiredChange": {
+    "summary": "Make the strict model response contract contain exactly one semantic field, findings. findings=[] means no concrete introduced defect; findings=[one finding] means one concrete introduced defect. The trusted validator must validate that exact structure and derive the existing canonical verdict/summary fields from findings without dropping or rewriting any finding.",
+    "modelResponseShape": {
+      "requiredKeys": ["findings"],
+      "maxFindings": 1,
+      "verdictAuthoredByModel": false,
+      "summaryAuthoredByModel": false
+    }
+  },
+  "requiredInvariants": [
+    "The model's complete semantic decision is preserved: zero findings derives canonical PASS and one finding derives canonical BLOCK; no finding may be filtered, suppressed, downgraded or mechanically converted to PASS.",
+    "The strict JSON schema must require exactly the findings key, maxItems=1, the existing bounded finding object, and additionalProperties=false.",
+    "The trusted prompt must explicitly instruct the model to return findings=[] only when no concrete introduced defect is directly demonstrated and otherwise return exactly one highest-priority concrete finding.",
+    "The canonical published attestation format remains unchanged: verdict PASS/BLOCK, findings count, response hash, exact head, exact diff, manifest, prompt bundle, model/runtime/policy identity and workflow run remain bound exactly as before.",
+    "Canonical Qwen3-8B revision 895c8d171bc03c30e113cd7a28c02494b5e068b7, model SHA-256 107afd988cdbdcced3b8e76ebc3a8e83b5a18a5c796fca20778410cb9c47a814, served identity tai-qwen3-8b-q4km, llama source commit aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3 and direct-evidence policy SHA-256 e083823ced2f5b63ecfaca345e59274c5f194e36c0cdd20b2cae9cee3b4f9ed3 remain unchanged.",
+    "SSH/SCP pinned-host transport, model file size/hash verification, service/user verification, protected API-key discovery without logging, thinking disabled, temperature 0, seed 424242, max_tokens 512, 400000-byte full-diff bound, 8000-byte chunk bound, 96-chunk bound, complete-diff hashing, exact-head revalidation and fail-closed publication remain unchanged.",
+    "The exact-head verifier implementation and its model/runtime/policy identity constants are unchanged; only its regression test may be extended to prove the provider response contract and deterministic verdict derivation.",
+    "The provider-maintenance implementation itself does not claim independent semantic-review PASS. After merge, PR #5184 must synchronize forward-only to then-current main and obtain a new genuine exact-head canonical Qwen3-8B review.",
+    "No product, API, database, RBAC, registration, cabinet, customer-data, dependency, lockfile or production runtime behavior change is included.",
+    "Production hosting remains REG_RU_VPS_ONLY and new recurring cost remains 0 RUB."
+  ],
+  "admission": [
+    "Authority PR changes exactly this manifest path.",
+    "Implementation PR changes only the two allowed provider/test paths.",
+    "Applicable ordinary exact-head CI/security/runtime gates are terminal green before each merge.",
+    "Unresolved review findings and active CHANGES_REQUESTED are zero.",
+    "Owner exact-head self-audit may establish bounded provider-maintenance scope evidence but does not substitute for independent semantic review of #5184.",
+    "Live main must match each PR base immediately before merge."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

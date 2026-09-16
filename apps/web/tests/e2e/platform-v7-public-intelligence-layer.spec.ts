@@ -83,7 +83,7 @@ test.describe('Public Deal and Gekta intelligence layer', () => {
     await expect(heroPrimary).toHaveCount(1);
     await expect(heroPrimary).toHaveAttribute('href', '/platform-v7/register?lang=ru');
     await expect(page.locator('[data-testid="platform-v7-deal-card"]')).toContainText('Вымышленный пример Сделки');
-    await expect(page.locator('[data-testid="platform-v7-deal-card"]')).toContainText('Поставка принята по условиям Сделки');
+    await expect(page.locator('[data-testid="platform-v7-deal-card"]')).toContainText('Поставка соответствует условиям примера');
     await expect(page.locator('[data-testid="platform-v7-deal-card"]')).toContainText('Следующий шаг — документы');
     await expect(page.locator('[data-testid="platform-v7-deal-card"] [role="progressbar"]')).toHaveAttribute('aria-valuenow', '5');
     await expect(page.locator('[data-testid="platform-v7-deal-card"] [role="progressbar"]')).toHaveAttribute('aria-valuemax', '7');
@@ -104,11 +104,11 @@ test.describe('Public Deal and Gekta intelligence layer', () => {
     if ((page.viewportSize()?.width ?? 1440) < 768) {
       const disclosures = [
         { id: '#difference-more-toggle', controls: 'difference-comparison-rows' },
-        { id: '#phases-more-toggle', controls: 'phases-more-cards' },
         { id: '#functions-more-toggle', controls: 'functions-more-cards' },
       ] as const;
       await expect(page.locator('#difference').getByRole('rowheader')).toHaveCount(2);
-      await expect(page.locator('#deal-path article').nth(6)).toBeHidden();
+      await expect(page.locator('#deal-path article').nth(6)).toBeVisible();
+      await expect(page.locator('#phases-more-toggle')).toBeHidden();
       await expect(page.locator('#functions article').nth(5)).toBeHidden();
       for (const disclosure of disclosures) {
         const toggle = page.locator(disclosure.id);
@@ -144,7 +144,7 @@ test.describe('Public Deal and Gekta intelligence layer', () => {
     await expect(perspectives.getByRole('tab')).toHaveCount(9);
     const employee = perspectives.getByRole('tab', { name: 'Сотрудник платформы', exact: true });
     await employee.click();
-    await expect(page.getByRole('tabpanel')).toContainText('Сделка остановилась');
+    await expect(page.getByRole('tabpanel')).toContainText('Причина исключения');
     await expect(page.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', 'public-role-tab-employee');
 
     const taiProductLink = page.getByRole('link', { name: 'Посмотреть Гекту в работе' }).first();
@@ -158,7 +158,7 @@ test.describe('Public Deal and Gekta intelligence layer', () => {
     await expectMinimumTargets(page, '.pc-public-contact-dock-action');
     await expectMinimumTargets(
       page,
-      '.pc-site-brand, .pc-skip-link, .pc-site-mobile-menu > summary, .pc-site-locale-switch, .entry-login, .pc-v6-header-cta, label[for="difference-more-toggle"], label[for="phases-more-toggle"], label[for="functions-more-toggle"]',
+      '.pc-site-brand, .pc-skip-link, .pc-site-mobile-menu > summary, .pc-site-locale-switch, .entry-login, .pc-v6-header-cta, label[for="difference-more-toggle"], label[for="functions-more-toggle"]',
     );
     await expectNoHorizontalOverflow(page);
     await expectNoSeriousAxeViolations(page);
@@ -247,7 +247,7 @@ test.describe('Public Deal and Gekta intelligence layer', () => {
     const government = page.locator('#government-data');
     await expect(government.locator('[data-status="CONNECTED"]')).toHaveCount(0);
     await expect(government).toContainText('Текущая проверка не выполнялась');
-    await expect(page.locator('#limitations')).toContainText('Неподключённая внешняя система не отображается как подключённая');
+    await expect(page.locator('#limitations')).toContainText('Гекта не придумывает данные внешней системы, если не получила их из разрешённого источника');
     await expect(page.locator('#limitations')).toContainText('Гекта не назначает роль и не меняет права доступа');
     await settleContactDock(page);
     await expect(page.locator('.pc-public-contact-dock-action')).toHaveCount(3);

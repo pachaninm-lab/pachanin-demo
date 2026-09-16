@@ -12,10 +12,10 @@
     "verifiedAt": "2026-07-13",
     "gitObjectDatabase": "exact-merge-baseline"
   },
-  "mode": "ir-10-settlement-postgresql-authority",
+  "mode": "ir-20-canonical-durable-outbox",
   "status": "active",
   "currentStatus": "in_progress",
-  "current": "IR-10.4 Settlement PostgreSQL Authority",
+  "current": "IR-20 Canonical Durable Outbox",
   "fullTzReadinessPercent": 0,
   "readinessScoring": "Binary GO completion only; 0 means the Industrial Integration-Ready gate is not yet accepted. It is not an implementation-progress estimate.",
   "openPr": null,
@@ -37,7 +37,9 @@
     "#2407 PostgreSQL-authoritative Deal routes",
     "#2410 Documents PostgreSQL Authority",
     "#2412 Logistics PostgreSQL Authority",
-    "#2426 Labs PostgreSQL Authority"
+    "#2426 Labs PostgreSQL Authority",
+    "#5338 Settlement PostgreSQL Authority",
+    "IR-10.5 Disputes PostgreSQL Authority exact-main revalidation 397e98955d9f98704c40befd0088a1390556e0fa"
   ],
   "closedCapabilities": {
     "persistentIdentityAndMfa": {
@@ -97,6 +99,30 @@
         "IR-50 external adapter conformance"
       ]
     },
+    "settlementPostgresqlAuthority": {
+      "status": "merged-production-like-kubernetes-evidence",
+      "pr": "#5338",
+      "mergeCommit": "9dbff1a67225a006ec5f33ebe7fa8b483a368718",
+      "verifiedHead": "686c89f6cf2438baebb01f6bf4abcafb3eb85963",
+      "remainingBoundaries": [
+        "live bank and nominal-account integration",
+        "REG.RU deployment acceptance",
+        "IR-20 canonical durable outbox",
+        "IR-70 through IR-90 production, security and end-to-end acceptance"
+      ]
+    },
+    "disputesPostgresqlAuthority": {
+      "status": "merged-exact-head-postgresql-evidence",
+      "evidenceCommit": "397e98955d9f98704c40befd0088a1390556e0fa",
+      "workflowRun": "34726015616",
+      "artifactDigest": "sha256:01c713e0487c3ad040aca44e7d6631063a0788e60be4cc77a5de1097f12bdc60",
+      "remainingBoundaries": [
+        "production-like complete Deal dispute-cycle acceptance",
+        "target load and worker-failure operations",
+        "live external dispute providers",
+        "IR-70 through IR-90 production, security and end-to-end acceptance"
+      ]
+    },
     "durableOutboxWorkerImplementation": {
       "status": "merged-but-not-exclusive-production-owner",
       "pr": "#2378",
@@ -118,21 +144,18 @@
     }
   },
   "openBlockers": [
-    "Settlement reads and mutations can still bind RuntimeCore, process-memory OutboxService, optional Prisma and repository selection.",
-    "Disputes can still bind process-memory authority.",
-    "Legacy OutboxRelayService and process-memory OutboxService still coexist with DurableOutboxWorker.",
+    "The API process still instantiates a second DurableOutboxRunner, delivery failures are not durably classified, and ambiguous post-send outcomes are not isolated from automatic retry.",
     "Inbound webhook idempotency is process-memory outside the accepted bank callback slice and no general durable integration inbox exists.",
     "Partner API credentials and webhook subscriptions are process-memory.",
     "Canonical Auction/Deal Basis and versioned Payment Terms remain incomplete.",
     "Evidence retention, malware quarantine and repeatable signature verification are not accepted platform-wide.",
     "Adapter conformance, vendor mappings and fail-closed live configuration are incomplete.",
     "Role cabinets and offline acknowledgement are not fully proven against authoritative server state.",
+    "A regulated Russian procurement, significant-CII, financial-sector or FGIS contour is not yet accepted: domestic-software register status, certified protection means and Russian cryptography require a separately verified deployment profile.",
     "Production configuration, dedicated worker topology, SLO operations, HA, provider PITR/restore, production-scale load and external security acceptance are unproven."
   ],
-  "blockerNotes": "Merged Deal, identity, Documents, Logistics, Labs, reconciliation and durable-worker slices are exact-commit evidence only. Industrial Integration-Ready remains NO-GO until every mandatory gate through IR-90 has accepted evidence.",
+  "blockerNotes": "Merged Deal, identity, Documents, Logistics, Labs, Settlement, Disputes, reconciliation and durable-worker slices are repository, CI or production-like evidence only. No live bank, external dispute provider or REG.RU deployment is claimed. Industrial Integration-Ready remains NO-GO until every mandatory gate through IR-90 has accepted evidence.",
   "lockedUntilCurrentGreen": [
-    "IR-10.5 Disputes PostgreSQL Authority",
-    "IR-20 Canonical Durable Outbox",
     "IR-21 Durable Integration Inbox",
     "IR-22 Persistent Partner API and Outbound Webhooks",
     "IR-30 through IR-90 in dependency order"
@@ -143,27 +166,20 @@
     "docs/platform-v7/autopilot/prompts/current-codex-task.md",
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
-    "apps/api/src/common/config/industrial-mode.ts",
-    "apps/api/src/common/command-execution.context.ts",
-    "apps/api/src/common/prisma/rls-transaction.service.ts",
-    "apps/api/src/modules/deals/deal-command-payload.ts",
-    "apps/api/src/modules/deals/deal-command.service.ts",
-    "apps/api/src/modules/deals/deals.module.ts",
-    "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
-    "apps/api/src/modules/deals/postgresql-deal-command.service.ts",
-    "apps/api/src/modules/deals/postgresql-deal-command.service.spec.ts",
-    "apps/api/src/modules/settlement-engine/**",
+    "apps/api/src/common/outbox/**",
+    "apps/api/src/common/prisma/outbox-*",
+    "apps/api/src/outbox-worker.ts",
+    "apps/api/src/outbox-worker.module.ts",
+    "apps/api/src/modules/integration-events/durable-outbox.runner.ts",
+    "apps/api/src/modules/integration-events/durable-outbox.runner.spec.ts",
+    "apps/api/src/modules/integration-events/durable-outbox.worker.ts",
+    "apps/api/src/modules/integration-events/integration-events.module.ts",
     "apps/api/prisma/schema.prisma",
-    "apps/api/prisma/migrations/20260713*_settlement_postgresql_authority/**",
+    "apps/api/prisma/migrations/20260912*_canonical_durable_outbox/**",
     "apps/api/test/industrial/harness.ts",
-    "apps/api/test/industrial/settlement-postgresql-authority.e2e-spec.ts",
-    "apps/api/test/industrial/industrial-core.e2e-spec.ts",
-    "apps/api/test/industrial/reconciliation.e2e-spec.ts",
     "apps/api/test/industrial/durable-outbox.e2e-spec.ts",
-    "apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts",
-    "apps/api/test/one-deal/restored-database-acceptance.ts",
-    "apps/api/test/one-deal/seed.ts",
-    "infra/sql/postgresql-settlement-authority-policies.sql",
+    "apps/api/test/industrial/outbox-worker-process.e2e-spec.ts",
+    "infra/sql/postgresql-outbox-worker-policies.sql",
     "scripts/platform-v7-forward-only-migration-check.mjs",
     "scripts/platform-v7-one-deal-e2e.sh",
     ".github/workflows/ci.yml"
@@ -174,32 +190,38 @@
     "docs/platform-v7/autopilot/prompts/current-codex-task.md",
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
-    "apps/api/src/common/config/industrial-mode.ts",
-    "apps/api/src/common/command-execution.context.ts",
-    "apps/api/src/common/prisma/rls-transaction.service.ts",
-    "apps/api/src/modules/deals/deal-command-payload.ts",
-    "apps/api/src/modules/deals/deal-command.service.ts",
-    "apps/api/src/modules/deals/deals.module.ts",
-    "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
-    "apps/api/src/modules/deals/postgresql-deal-command.service.ts",
-    "apps/api/src/modules/deals/postgresql-deal-command.service.spec.ts",
-    "apps/api/src/modules/settlement-engine/**",
+    "apps/api/src/common/outbox/**",
+    "apps/api/src/common/prisma/outbox-*",
+    "apps/api/src/outbox-worker.ts",
+    "apps/api/src/outbox-worker.module.ts",
+    "apps/api/src/modules/integration-events/durable-outbox.runner.ts",
+    "apps/api/src/modules/integration-events/durable-outbox.runner.spec.ts",
+    "apps/api/src/modules/integration-events/durable-outbox.worker.ts",
+    "apps/api/src/modules/integration-events/integration-events.module.ts",
     "apps/api/prisma/schema.prisma",
-    "apps/api/prisma/migrations/20260713*_settlement_postgresql_authority/**",
+    "apps/api/prisma/migrations/20260912*_canonical_durable_outbox/**",
     "apps/api/test/industrial/harness.ts",
-    "apps/api/test/industrial/settlement-postgresql-authority.e2e-spec.ts",
-    "apps/api/test/industrial/industrial-core.e2e-spec.ts",
-    "apps/api/test/industrial/reconciliation.e2e-spec.ts",
     "apps/api/test/industrial/durable-outbox.e2e-spec.ts",
-    "apps/api/test/one-deal/industrial-one-deal.e2e-spec.ts",
-    "apps/api/test/one-deal/restored-database-acceptance.ts",
-    "apps/api/test/one-deal/seed.ts",
-    "infra/sql/postgresql-settlement-authority-policies.sql",
+    "apps/api/test/industrial/outbox-worker-process.e2e-spec.ts",
+    "infra/sql/postgresql-outbox-worker-policies.sql",
     "scripts/platform-v7-forward-only-migration-check.mjs",
     "scripts/platform-v7-one-deal-e2e.sh",
     ".github/workflows/ci.yml"
   ],
   "approvedConcurrentScopes": {
+    "governance/kind-minio-image-source-20260912": [
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "docs/platform-v7/autopilot/prompts/current-codex-task.md",
+      "docs/platform-v7/autopilot/prompts/current-review-task.md",
+      "docs/platform-v7/execution-queue.md",
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs"
+    ],
+    "fix/local-qwen-failed-review-evidence-20260912": [
+      ".github/workflows/local-qwen-independent-review.yml",
+      "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
+    ],
     "feat/pc-crop-auction-inventory-authority-4997": [
       "apps/api/prisma/migrations/20260905100000_auction_inventory_binding/migration.sql",
       "apps/api/src/modules/auctions/auction-command.service.ts",
@@ -221,11 +243,30 @@
       "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
       "docs/security/cryptographic-inventory.json"
     ],
+    "ops/pc-crop-w1-production-acceptance-4997": [
+      ".github/workflows/pc-crop-w1-production-acceptance.yml",
+      "scripts/production-pc-crop-w1-migrations.sh",
+      "scripts/check-production-pc-crop-w1-acceptance.mjs",
+      "scripts/check-production-pc-crop-w1-acceptance.test.mjs",
+      "scripts/production-role-eligibility-api-release.sh",
+      "scripts/check-role-eligibility-api-release.mjs",
+      ".github/workflows/production-web-exact-sha.yml",
+      ".gitleaksignore",
+      "apps/api/prisma/migrations/20260909120000_reconcile_historical_auction_authority/migration.sql",
+      "scripts/fixtures/pc-crop-w1-lineage/20260716130000_market_open_lots_showcase.sql",
+      "scripts/fixtures/pc-crop-w1-lineage/20260716150000_auction_cross_tenant_participation.sql",
+      "scripts/fixtures/pc-crop-w1-lineage/20260716160000_auction_participant_workspace.sql",
+      "scripts/fixtures/pc-crop-w1-lineage/20260717170000_deal_cross_tenant_participation.sql"
+    ],
     "governance/pc-crop-post-registration-progress-scope-4997": [
       "docs/platform-v7/autopilot/autopilot-state.json",
       "scripts/p7-autopilot-guard.sh",
       "scripts/p7-autopilot-guard.test.mjs",
-      ".github/workflows/platform-v7-autopilot-guard.yml"
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      ".github/workflows/pc-crop-w1-production-acceptance.yml"
+    ],
+    "governance/extend-role-eligibility-fns-registry-hardening-5064-v2": [
+      "docs/platform-v7/autopilot/scopes/role-eligibility-fns-registry-coverage-authority-5064.json"
     ],
     "governance/role-eligibility-fns-egrul-file-import-5016": [
       "docs/platform-v7/autopilot/scopes/role-eligibility-fns-egrul-file-import-5016.json"
@@ -236,7 +277,8 @@
       "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json",
       "docs/platform-v7/crop-platform/post-registration/execution-state.v1.json",
       "docs/platform-v7/crop-platform/post-registration/verify-w0.mjs",
-      "docs/platform-v7/crop-platform/post-registration/w2-a-inventory-reservation-plan.v1.json"
+      "docs/platform-v7/crop-platform/post-registration/w2-a-inventory-reservation-plan.v1.json",
+      "docs/platform-v7/crop-platform/post-registration/verify-w0.test.mjs"
     ],
     "fix/static-presentation-download-buildtime-20260830": [
       "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",
@@ -1350,30 +1392,52 @@
       "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
       "docs/security/cryptographic-inventory.json"
     ],
+    "security/pc-crop-next-15-5-24-4997": [
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      ".github/workflows/sbom-scan.yml",
+      "apps/web/package.json",
+      "package.json",
+      "pnpm-lock.yaml",
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs"
+    ],
     "governance/pc-crop-inventory-reservation-scope-4997": [
       "docs/platform-v7/autopilot/autopilot-state.json",
       "scripts/p7-autopilot-guard.sh",
       "scripts/p7-autopilot-guard.test.mjs",
       ".github/workflows/platform-v7-autopilot-guard.yml",
       "docs/platform-v7/autopilot/scopes/pc-crop-inventory-reservation-authority-4997.json"
+    ],
+    "fix/owner-handoff-product-host-20260908": [
+      "apps/web/app/platform-v7/staff/open-cabinet/route.ts",
+      "apps/web/lib/platform-v7/control-host.ts",
+      "apps/web/middleware.ts",
+      "apps/web/tests/unit/companyOsControlHostBoundary.test.ts",
+      "apps/web/tests/unit/companyOsOwnerCabinetControlHost.test.ts",
+      "apps/web/tests/unit/platformV7OwnerRealCabinets.test.ts",
+      ".github/workflows/ci.yml",
+      ".github/workflows/web-unit.yml",
+      "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
+      "docs/platform-v7/qa/web-unit-coverage-registry.json",
+      "apps/web/app/platform-v7/staff/cabinet-handoff/page.tsx"
+    ],
+    "fix/kind-minio-image-source-20260912": [
+      "infra/kind/production-like/dependencies.yaml",
+      "infra/kind/production-like/minio-tls-check.yaml",
+      "scripts/release/production-like-kubernetes-cluster.sh"
+    ],
+    "fix/gitleaks-release-authority-attestation-20260912": [
+      "apps/tai/tests/test_gitleaks_release_authority.py"
     ]
   },
   "currentAcceptance": [
-    "Production SettlementEngineModule binds a complete PostgreSQL repository directly; RuntimeCore, optional Prisma, repository factory, ActionExecutor memory authority and process-memory OutboxService are absent from the production settlement graph.",
-    "Production startup fails closed when the payment repository mode is missing, memory or unknown.",
-    "All payment, beneficiary, bank-operation, hold, release, refund, reconciliation and ledger reads/mutations execute in trusted server-derived RLS transactions.",
-    "Money is stored and calculated only as integer minor units; no float or amountRub authority remains.",
-    "Payment terms and release basis are versioned PostgreSQL facts linked to the canonical Deal.",
-    "Reserve and release requests atomically commit payment state, bank operation, audit and PENDING outbox; only an authenticated verified bank callback can confirm money movement.",
-    "Partial payouts, holds, refunds and beneficiary allocations cannot over-release, become negative or exceed the confirmed reserve.",
-    "Callbacks, reconciliation and mutation commands are durably idempotent, optimistic-concurrency protected and safe across restart and multiple API instances.",
-    "Same-tenant outsiders and cross-tenant users are denied under restricted PostgreSQL principals.",
-    "No live bank, nominal-account or money-movement claim is introduced.",
-    "Forward migration succeeds on empty and baseline databases, drift is empty, restricted-principal RLS and exact-head CI are green."
+    "One dedicated durable outbox owner replaces the legacy relay and process-memory production paths.",
+    "DB-time leases, SKIP LOCKED, attempts, classified failures, retries, DEAD state and audited redrive are PostgreSQL-authoritative.",
+    "Concurrent workers, crash windows, provider ambiguity, timeout, 429, 4xx, 5xx, expired leases, duplicate enqueue, restart and double-owner startup fail safely.",
+    "Exact-head CI passes without claiming production deployment or provider delivery."
   ],
   "nextAfterCurrentGreen": [
-    "IR-10.5 Disputes PostgreSQL Authority",
-    "IR-20 Canonical Durable Outbox",
     "IR-21 Durable Integration Inbox",
     "IR-22 Persistent Partner API and Outbound Webhooks",
     "IR-30 Canonical Deal and Payment Basis",

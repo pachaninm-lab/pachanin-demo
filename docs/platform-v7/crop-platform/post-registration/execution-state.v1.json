@@ -2,7 +2,7 @@
   "schemaVersion": "pc-crop.post-registration.execution-state.v1",
   "programme": "pc-crop-post-registration-operating-system",
   "issue": 4997,
-  "updatedAt": "2026-09-05T09:47:33.017Z",
+  "updatedAt": "2026-09-09T12:09:00Z",
   "specification": {
     "sha256": "1f85df31b83747741b415fe65c0027e3e0be754bb0caeca5d7b3db4eb6b1e99e",
     "dodListSha256": "091acfafbde256b0028e7dbfb2afe7c97a05c6b899ba1fc9b0ccbfc4b40a93a2",
@@ -10,13 +10,13 @@
     "sections": 111,
     "dodCriteria": 126
   },
-  "observedMainSha": "824a073cad569532c2be21603a143e679508a301",
+  "observedMainSha": "b2629858f1ee40d0738211fbbd267a164d918013",
   "auditLineage": {
     "fullAuditSha": "c4dfc4112599f2a4ff21e1a5cf35345509abad41",
     "deltaReviewedToObservedMain": true,
     "postRegistrationFindingsChanged": true,
-    "previousObservedMainSha": "3b85c746e765e5f6d55c4878a6f24973f0e41f4e",
-    "reviewKind": "Bounded W1-E/W2-A acceptance reconciliation; historical findings outside service marketplace and inventory are retained.",
+    "previousObservedMainSha": "3896a475f6407f7bf3ef1bab27b316789e0d2256",
+    "reviewKind": "Bounded W1 operations reconciliation: accepted image/ledger diagnostics, dependency repair and prior immutable correction scope; current REG.RU read-only lineage evidence. Product findings and terminal DoD counts are not a fresh whole-repository audit.",
     "w0Delta": {
       "deltaCommits": [
         "db2b0d61ac6206e3b1fc25d54692a7747dbf7365",
@@ -36,18 +36,28 @@
     "governancePullRequest": 5021,
     "governanceMergeSha": "48dcbec2da506bd5fb27089ab0de4d6545fad9d2",
     "reviewedW2PullRequests": [
-      5029
+      5029,
+      5040
+    ],
+    "executionOrderAuthority": "Explicit owner instruction 2026-09-08: finish W1, then Revenue Slice v1, then remaining original DoD. Specification and all 126 DoD criteria unchanged.",
+    "reviewedW1OperationsPullRequests": [
+      5194,
+      5195,
+      5197,
+      5198,
+      5199,
+      5201
     ]
   },
-  "observedProductionSha": null,
-  "observedProductionShaReason": "No REG.RU update performed for these W1 slices. Historical read-only preflight 33924967425 observed API d401f2678070eae3362d22d09b60aadf3a8e042d with W1-A migration absent; this is not a fresh production observation.",
-  "status": "W2_INVENTORY_FOUNDATION_MERGED_AUCTION_CONSUMPTION_NEXT",
+  "observedProductionSha": "d401f2678070eae3362d22d09b60aadf3a8e042d",
+  "observedProductionShaReason": "Historical full API OCI revision from read-only run 34262474799. Run34343879829 emitted the current validated API revision, but GitHub masked part of that value; the public result cannot independently refresh the full SHA. No web revision or W1 production completion is inferred.",
+  "status": "W1_CODE_MERGED_HISTORICAL_DATABASE_LINEAGE_BLOCKED_REVENUE_FIRST",
   "overallProgressPercent": 3.1,
   "overallProgressBasis": "Strict terminal DoD: floor(4 PASS / 126 total * 1000) / 10. PARTIAL, FAIL, EXTERNAL_BLOCKER and NOT_EVIDENCED receive zero credit.",
   "dodStatusCounts": {
     "PASS": 4,
-    "PARTIAL": 55,
-    "FAIL": 65,
+    "PARTIAL": 57,
+    "FAIL": 63,
     "EXTERNAL_BLOCKER": 0,
     "NOT_EVIDENCED": 2
   },
@@ -115,26 +125,28 @@
     }
   ],
   "nextSlice": {
-    "id": "W2-B",
-    "name": "Inventory-bound declared auction lots through the existing Auction authority",
-    "sourceAudit": "docs/platform-v7/crop-platform/post-registration/w2-a-inventory-reservation-plan.v1.json",
-    "status": "BOUNDED_SOURCE_REVIEW_COMPLETE_IMPLEMENTATION_SCOPE_PENDING",
+    "id": "W1-REG_RU",
+    "name": "Complete already-merged W1 on REG.RU before Revenue Slice implementation",
+    "sourceAudit": "docs/platform-v7/crop-platform/post-registration/execution-state.v1.json#w1Completion",
+    "status": "HISTORICAL_LINEAGE_CORRECTION_REVIEW_AND_CI_PENDING",
     "registrationCodeChanged": false,
     "registrationBehaviorChanged": false,
     "roleEligibilityEnforcementChanged": false,
     "newRecurringCostRub": 0,
     "acceptance": [
-      "One existing Auction registration command creates a lot and binds a canonical inventory reservation atomically; no independent Lot/Deal engine.",
-      "Browser source labels never create independent verification. DECLARED supply can be PUBLIC_ALLOWED while FGIS self-verification stays quarantined.",
-      "Lot quantity is derived exactly from the pinned inventory commodity profile; no inconsistent culture/profile or quantity binding is accepted.",
-      "Cross-lot contention, same-tenant outsiders, revoked membership, stale versions, replay and missing audit/outbox roll back under restricted PostgreSQL principals.",
-      "Legacy registration SQL cannot bypass the inventory binding once the new command is active; existing lots require an explicit compatibility rule, not a fabricated backfill.",
-      "Bid/award/Deal consumption, complete trust/risk-acknowledgement UI and REG.RU runtime remain separately accepted continuation boundaries."
+      "Exact target main and its explicitly accepted migration set rechecked immediately before mutation; #5203 proposes seven foundation migrations plus one pinned correction",
+      "Current DNS and pinned host identity",
+      "API/migration database identity equality without credentials in evidence",
+      "Backup and forward-compatible rollback authority",
+      "Registration protected blob equality and runtime behavior regression evidence",
+      "All non-API workloads and their environment fingerprints unchanged",
+      "All W1 tables/constraints/roles and API routes proven on deployed exact revision",
+      "Tenant/RLS, revoked authority, idempotency and atomic audit/outbox acceptance"
     ]
   },
   "p0Risks": [
-    "Canonical inventory reservation is merged, but existing Lot/Offer/Deal writers do not yet require it; end-to-end double-sell protection is not accepted.",
-    "Client-supplied MANUAL_VERIFIED, ERP and OTHER sources can become admitted verified auction supply.",
+    "New Auction lots now require canonical inventory reservation, but canonical Deal and later Offer/RFQ writers do not yet allocate or consume that authority end to end.",
+    "W2-B admits DECLARED plus PUBLIC_ALLOWED without false independent verification, but fact-level trust, freshness/conflict handling and immutable TradeRiskAcknowledgement remain incomplete.",
     "Production-mounted elevator mutations are process-local and not tenant-authoritative.",
     "Production web surfaces expose static/sandbox Deal360 and unsupported privacy claims.",
     "Provider and binding authority are merged but not accepted on the REG.RU runtime; external provider access and receipts remain absent.",
@@ -159,7 +171,7 @@
   "progressReconciliation": {
     "lastReportedPercent": 4,
     "confirmedTerminalPercent": 3.1,
-    "reason": "The inherited 4.0% report has no fifth fully accepted terminal criterion. W1 foundations are recorded as PARTIAL until their remaining end-to-end and deployment boundaries are evidenced. No component-test or merged-PR credit is added.",
+    "reason": "The inherited 4.0% report has no fifth fully accepted terminal criterion. W2-B moves PROGRESSIVE_TRUST and UNVERIFIED_TRADING from FAIL to PARTIAL for the new Auction registration edge but leaves Deal/Offer consumption, risk acknowledgement, complete lifecycle/UX and REG.RU acceptance open. No additional terminal credit is added.",
     "policyUnchanged": true
   },
   "slices": [
@@ -299,17 +311,491 @@
       "restoreAuthority": "INVENTORY_RESTORE_AUTHORITY_PASS",
       "productionAccepted": false,
       "terminalCredit": 0
+    },
+    {
+      "id": "W2-B",
+      "name": "Inventory-bound declared Auction lots through the existing Auction authority",
+      "status": "MERGED",
+      "pr": 5040,
+      "mergeSha": "3928fa44d7145879e3739eff7df954592ad3012f",
+      "verifiedHead": "48000fde05c6a986d004e0597519c12dabd1ccc7",
+      "apiTests": {
+        "passed": 74,
+        "total": 74
+      },
+      "existingAuctionTests": {
+        "passed": 2,
+        "total": 2
+      },
+      "restrictedPostgresqlHttpTests": {
+        "passed": 17,
+        "total": 17
+      },
+      "restoreOwnerAclTests": {
+        "passed": 1,
+        "total": 1
+      },
+      "repositoryMigrations": 199,
+      "schemaDrift": false,
+      "industrialTests": {
+        "passed": 96,
+        "newAuctionTestsExecuted": 17,
+        "conditionalSkipsExpected": true
+      },
+      "workflowCounts": {
+        "success": 29,
+        "skipped": 1,
+        "failed": 0
+      },
+      "declaredPublicAllowed": true,
+      "fabricatesIndependentVerification": false,
+      "productionAccepted": false,
+      "terminalCredit": 0
     }
   ],
   "registerGovernance": {
     "pr": 5021,
     "mergeSha": "48dcbec2da506bd5fb27089ab0de4d6545fad9d2",
     "mode": "IMMUTABLE_BASE_SCOPE",
-    "allowedRegisterFiles": 6,
+    "allowedRegisterFiles": 7,
     "guardTests": {
       "passed": 28,
       "total": 28
     },
-    "workflowRun": 33940127251
-  }
+    "workflowRun": 33940127251,
+    "regressionSuiteAdmission": {
+      "pr": 5189,
+      "mergeSha": "49464cea6df9fe64146144b852ff83c5a2952222",
+      "requiredCommand": "node --test docs/platform-v7/crop-platform/post-registration/verify-w0.test.mjs"
+    }
+  },
+  "executionOrder": {
+    "mode": "REVENUE_FIRST",
+    "specificationChanged": false,
+    "definitionOfDoneChanged": false,
+    "order": [
+      "W1_CONFIG_FOUNDATION_COMPLETION",
+      "REVENUE_SLICE_V1",
+      "REMAINING_ORIGINAL_DOD"
+    ],
+    "rule": "Do not execute full W2 through W9 mechanically. Reuse completed slices; after W1 implement only necessary portions for the first real commercial end-to-end transaction, then finish every remaining original criterion.",
+    "externalScope": "FGIS Grain is the first government corridor. Banks, EDO/EPD, logistics and other adapters are bounded to actual transaction requirements. Core remains provider-neutral; no DealV2, SettlementV2 or IntegrationV2.",
+    "partnerMessagesRequireSeparateOwnerApproval": true,
+    "parallelChanges": "Before each slice re-read main, open PR exact heads, CI, active locks and allowed paths. Integrate by forward changes without overwriting concurrent work."
+  },
+  "w1Completion": {
+    "codeStatus": "MERGED",
+    "productionStatus": "BLOCKED_HISTORICAL_DATABASE_LINEAGE",
+    "terminalCredit": 0,
+    "mergedPrs": [
+      5001,
+      5010,
+      5015,
+      5019,
+      5026
+    ],
+    "dnsEvidence": "https://github.com/pachaninm-lab/pachanin-demo/issues/4445#issuecomment-5589820045",
+    "readOnlyPreflightRun": 34262474799,
+    "readOnlyPreflightEvidence": "https://github.com/pachaninm-lab/pachanin-demo/issues/4997#issuecomment-5589832194",
+    "readOnlyTransaction": true,
+    "productionMutation": 0,
+    "unfinishedMigrations": 0,
+    "pendingMigrations": [
+      "20260904120000_organization_capability_authority",
+      "20260904210000_provider_registry_authority",
+      "20260904230000_integration_binding_authority",
+      "20260905010000_commercial_rules_authority",
+      "20260905030000_service_marketplace_authority",
+      "20260905040000_inventory_reservation_authority",
+      "20260905100000_auction_inventory_binding"
+    ],
+    "capabilityTablesPresent": false,
+    "obsoleteController": {
+      "pr": 5013,
+      "head": "d372d418dd4af78d080c2668ea9b18bdb47d9c3f",
+      "status": "CLOSED_SUPERSEDED_BY_5188",
+      "ciRun": 33925429538,
+      "ciJob": 101192783682,
+      "firstCause": "Static negative grep for workflow_dispatch matches its own literal in workflow source; deterministic contract-test failure. No unchanged rerun is justified.",
+      "unresolvedReviewFindings": [
+        "Prior immutable scope authority",
+        "DNS verification before SSH",
+        "Same normalized database authority for API probe and migration service",
+        "Protected working directory and Compose path redaction"
+      ],
+      "closedEvidence": "https://github.com/pachaninm-lab/pachanin-demo/issues/5013#issuecomment-5591278238"
+    },
+    "requiredNext": "Complete exact-head CI and independent review for #5203 current head. After merge, observe current-main again, then require actual isolated clean and historical PostgreSQL convergence/backup/restore before bounded migration/API release. Require full authenticated W1 acceptance separately; no terminal credit from deployment alone.",
+    "requiredEvidence": [
+      "Exact target main and its explicitly accepted migration set rechecked immediately before mutation; #5203 proposes the seven foundation migrations plus one pinned forward correction",
+      "Current DNS and pinned host identity",
+      "API/migration database identity equality without credentials in evidence",
+      "Backup and forward-compatible rollback authority",
+      "Registration protected blob equality and runtime behavior regression evidence",
+      "All non-API workloads and their environment fingerprints unchanged",
+      "All W1 tables/constraints/roles and API routes proven on deployed exact revision",
+      "Tenant/RLS, revoked authority, idempotency and atomic audit/outbox acceptance"
+    ],
+    "releaseController": {
+      "pr": 5188,
+      "mergeSha": "3896a475f6407f7bf3ef1bab27b316789e0d2256",
+      "status": "MERGED_NOT_DEPLOYED"
+    },
+    "latestPreflight": {
+      "run": 34343879829,
+      "targetMainSha": "2309f6aafa1ca6478626d572be18f8e24f1ca72a",
+      "evidence": "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/34343879829",
+      "result": "BLOCKED",
+      "error": "UNRECOGNIZED_APPLIED_MIGRATION",
+      "databaseMutation": "NONE",
+      "dns": "PASS",
+      "sshPin": "PASS",
+      "registrationBlobsUnchanged": true,
+      "apiAndMigrationImages": "MATERIALIZED",
+      "databaseStateReobserved": true,
+      "ledger": {
+        "rows": 197,
+        "matched": 192,
+        "drifted": 1,
+        "unknown": 4,
+        "duplicates": 1,
+        "unfinished": 0,
+        "rolledBack": 0,
+        "legacyInitialMarkers": 1,
+        "sha256": "c69b2514e5537da20c1ccd9874c880ba857381e0af361e90655ceed6146c6a9c"
+      },
+      "historicalLedger": "EXACT_FOUR_SOURCE_CHECKSUMS",
+      "historicalCatalog": "OBSERVED",
+      "historicalPolicies": 6,
+      "historicalCatalogSha256": "54af20d712d2009ec28e05708cd14d99020542e273b4ef60ef4cedca6cf1b814",
+      "historicalFunctionBodies": "ALL_FOUR_HISTORICAL",
+      "fixPr": 5203
+    },
+    "historicalDatabaseObservationNote": "Run34343879829 refreshed the complete read-only ledger and bounded historical function/policy observation. The counted drift/duplicate include the separately recognized redundant initial source marker. Four exact non-main SQL sources remain unrecognized by that deployed controller; no migration was executed. The seven pending migrations and absent W1 tables remain attributed to run34262474799, not re-proven after the latest classifier stopped.",
+    "pendingMigrationsObservationRun": 34262474799,
+    "capabilityTablesObservationRun": 34262474799,
+    "forwardCorrectionCandidate": {
+      "pr": 5203,
+      "headSha": "9f8e7fb87147f06f3c2a7a3a0c5104358dd71823",
+      "treeSha": "5e1ac4fcbc1267f2bbab2bb6adf0244aeebb0aa2",
+      "status": "EXACT_HEAD_REVIEW_AND_CI_PENDING",
+      "priorScopePr": 5201,
+      "migration": "20260909120000_reconcile_historical_auction_authority",
+      "migrationSha256": "f3ed347bbc85d56a697d4aeafdb43ab5f351ff5c5da6a78671b88310f432c0bc",
+      "cleanPostgresqlCi": "PENDING",
+      "historicalCorrectionRehearsal": "NOT_EXECUTED",
+      "productionMutation": "NONE",
+      "boundary": "Retain all historical ledger rows. Match current catalog and source compatibility against real isolated references; execute only the new forward correction, never replay archived SQL in production.",
+      "previousHeadEvidence": {
+        "headSha": "f3faa20b6bbdde9bd84ad001da006447134c2546",
+        "reviewEvidence": "https://github.com/pachaninm-lab/pachanin-demo/pull/5203#issuecomment-5601317797",
+        "cleanPostgresqlCi": "PASS",
+        "supersededBeforeKubernetesCompletion": true
+      },
+      "additionalBoundary": "Exact audited auction command/controller Git blobs and unchanged trusted RLS context; deployed GET-only W1 route/authentication denial probe. No business acceptance inferred."
+    }
+  },
+  "nextAfterW1": {
+    "id": "W2-C",
+    "name": "Canonical Deal inventory allocation from the existing Auction award",
+    "sourceAudit": "docs/platform-v7/crop-platform/post-registration/w2-a-inventory-reservation-plan.v1.json",
+    "governancePr": 5055,
+    "implementationBranch": "feat/pc-crop-deal-inventory-allocation-4997",
+    "status": "FINITE_SCOPE_PR_OPEN_IMPLEMENTATION_BLOCKED_UNTIL_IMMUTABLE_BASE_APPROVAL",
+    "registrationCodeChanged": false,
+    "registrationBehaviorChanged": false,
+    "roleEligibilityEnforcementChanged": false,
+    "newRecurringCostRub": 0,
+    "acceptance": [
+      "One existing PrismaDealRepository transaction creates the canonical Deal and one exact inventory allocation linked to the same lot binding, winning bid and award; no parallel Deal or stock engine.",
+      "Winning quantity is server-derived from the awarded bid and pinned Inventory profile/unit identity; browser stock or verification fields are not accepted as authority.",
+      "Partial winning quantity allocates only the exact winning quantity and conserves the unallocated reservation remainder without falsely committing, shipping, accepting or selling it.",
+      "Revoked seller or buyer authority cannot receive a replayed success; missing allocation, audit, outbox, award or actor evidence rolls back Deal creation completely.",
+      "Application runtime, seed, SET ROLE and legacy definer paths cannot insert an application Deal without the required inventory allocation; privileged historical migration fixtures remain explicitly isolated.",
+      "RLS overlay, one-deal reset and DR restore preserve the bound-reservation guard and stock conservation."
+    ],
+    "revenueSliceComponent": "RS-05",
+    "dependsOn": "W1 completion plus accepted #5055 and separate immutable scope promotion; no mechanical full-wave dependency."
+  },
+  "revenueSliceV1": {
+    "status": "WAITING_FOR_W1_COMPLETION",
+    "progressPercent": 0,
+    "completionBasis": "floor(production-accepted component rows / 15 * 1000) / 10; grouping is reporting only and does not replace the original 126-criterion DoD. Merged code and component tests receive no production completion credit.",
+    "componentCount": 15,
+    "acceptedComponentCount": 0,
+    "sourceAuditSha": "0e72c72ae9caaa1f4415e9129318e46bb26c2421",
+    "newTerminalCredit": 0,
+    "requiredCrossCutting": [
+      "server-authoritative",
+      "PostgreSQL-authoritative",
+      "tenant isolation / RLS",
+      "idempotency",
+      "immutable audit",
+      "transactional outbox",
+      "security",
+      "observability",
+      "mobile",
+      "human UX",
+      "no production mocks",
+      "no false PASS",
+      "no false external success"
+    ],
+    "components": [
+      {
+        "id": "RS-01",
+        "name": "Inventory / Batch",
+        "classification": [
+          "KEEP",
+          "EXTEND_EXISTING"
+        ],
+        "status": "NOT_ACCEPTED",
+        "sourceEvidence": [
+          "apps/api/prisma/migrations/20260905040000_inventory_reservation_authority/migration.sql",
+          "apps/api/src/modules/inventory/inventory.repository.ts"
+        ],
+        "remainingAcceptance": "Existing exact-quantity stock authority is merged; complete first-transaction stock lifecycle and server-backed user entry.",
+        "productionEvidence": []
+      },
+      {
+        "id": "RS-02",
+        "name": "Reservation / double-sell protection",
+        "classification": [
+          "KEEP",
+          "EXTEND_EXISTING"
+        ],
+        "status": "NOT_ACCEPTED",
+        "sourceEvidence": [
+          "apps/api/prisma/migrations/20260905100000_auction_inventory_binding/migration.sql"
+        ],
+        "remainingAcceptance": "New Auction lots already require one known-position reservation. Add canonical Deal allocation and conservative execution/cancel/release lifecycle with concurrent quantity conservation.",
+        "productionEvidence": []
+      },
+      {
+        "id": "RS-03",
+        "name": "SupplyLot / DemandRequest / RFQ / Offer",
+        "classification": [
+          "KEEP",
+          "EXTEND_EXISTING",
+          "NEW_REQUIRED"
+        ],
+        "status": "NOT_ACCEPTED",
+        "sourceEvidence": [
+          "apps/api/src/modules/auctions/auction-command.service.ts",
+          "apps/web/app/platform-v7/buyer/rfq/page.tsx"
+        ],
+        "remainingAcceptance": "Reuse Auction supply authority; add normalized durable demand/RFQ/versioned offer and minimum two-sided entry. No second lot engine.",
+        "productionEvidence": []
+      },
+      {
+        "id": "RS-04",
+        "name": "Progressive Trust / risk acknowledgement",
+        "classification": [
+          "KEEP",
+          "EXTEND_EXISTING",
+          "NEW_REQUIRED"
+        ],
+        "status": "NOT_ACCEPTED",
+        "sourceEvidence": [
+          "apps/api/prisma/migrations/20260905100000_auction_inventory_binding/migration.sql"
+        ],
+        "remainingAcceptance": "Keep DECLARED + PUBLIC_ALLOWED. Add fact-specific evidence, freshness/conflict states and immutable warnings/acknowledgements; mandatory regulatory blockers cannot be waived.",
+        "productionEvidence": []
+      },
+      {
+        "id": "RS-05",
+        "name": "Canonical Deal",
+        "classification": [
+          "KEEP",
+          "EXTEND_EXISTING"
+        ],
+        "status": "NOT_ACCEPTED",
+        "sourceEvidence": [
+          "apps/api/src/modules/deals/prisma-deal.repository.ts"
+        ],
+        "remainingAcceptance": "Continue #5055: immutable DRAFT allocation from existing award, actor revalidation before replay, exact remainder conservation and atomic Deal/audit/outbox. Later lifecycle must remain separately evidenced.",
+        "productionEvidence": []
+      },
+      {
+        "id": "RS-06",
+        "name": "Negotiation / DealTermsVersion",
+        "classification": [
+          "EXTEND_EXISTING",
+          "NEW_REQUIRED"
+        ],
+        "status": "NOT_ACCEPTED",
+        "sourceEvidence": [
+          "apps/api/src/modules/deals/prisma-deal.repository.ts"
+        ],
+        "remainingAcceptance": "Add minimum normalized immutable negotiation/terms versions around existing canonical Deal; preserve the accepted 18-key sagaState.",
+        "productionEvidence": []
+      },
+      {
+        "id": "RS-07",
+        "name": "Contract / required documents / signature / authority",
+        "classification": [
+          "KEEP",
+          "EXTEND_EXISTING",
+          "EXTERNAL_BLOCKER"
+        ],
+        "status": "NOT_ACCEPTED",
+        "sourceEvidence": [
+          "apps/api/prisma/migrations/20260816040000_pc_crop_contract_versions/migration.sql",
+          "apps/api/src/modules/documents/prisma-document.repository.ts",
+          "apps/api/src/modules/auth/signing-authority.policy.ts"
+        ],
+        "remainingAcceptance": "Bind necessary immutable documents to agreed terms and server-held signer authority. Actual signature/authority receipts are required wherever applicable; do not change registration/auth source in this slice.",
+        "productionEvidence": []
+      },
+      {
+        "id": "RS-08",
+        "name": "FGIS Grain government corridor",
+        "classification": [
+          "KEEP",
+          "EXTEND_EXISTING",
+          "EXTERNAL_BLOCKER"
+        ],
+        "status": "NOT_ACCEPTED",
+        "sourceEvidence": [
+          "apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts",
+          "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.transport.ts"
+        ],
+        "remainingAcceptance": "Reuse existing corridor/inbox/receipt authority. Current binding uses DisabledFgisGrainTenantReadTransport. Access and authentic receipts are not established by local code.",
+        "productionEvidence": []
+      },
+      {
+        "id": "RS-09",
+        "name": "Degraded / retry / freshness",
+        "classification": [
+          "KEEP",
+          "EXTEND_EXISTING"
+        ],
+        "status": "NOT_ACCEPTED",
+        "sourceEvidence": [
+          "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-exchange-receipt.repository.ts",
+          "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.dispatch.fail-closed.ts"
+        ],
+        "remainingAcceptance": "Keep pending/unavailable/stale explicit, retry durably without duplicate effects, preserve applicable mandatory gates; no false external success.",
+        "productionEvidence": []
+      },
+      {
+        "id": "RS-10",
+        "name": "FinancialObligation",
+        "classification": [
+          "EXTEND_EXISTING",
+          "NEW_REQUIRED"
+        ],
+        "status": "NOT_ACCEPTED",
+        "sourceEvidence": [
+          "apps/api/src/modules/commercial-rules/commercial-rules.repository.ts",
+          "apps/api/src/modules/settlement-engine/settlement-postgresql.repository.ts"
+        ],
+        "remainingAcceptance": "Create obligations from agreed versioned terms/confirmed payer authority in existing finance boundary. A CommercialRules evaluation is not an obligation.",
+        "productionEvidence": []
+      },
+      {
+        "id": "RS-11",
+        "name": "SettlementPlan",
+        "classification": [
+          "EXTEND_EXISTING",
+          "NEW_REQUIRED"
+        ],
+        "status": "NOT_ACCEPTED",
+        "sourceEvidence": [
+          "apps/api/src/modules/settlement-engine/settlement-postgresql.repository.ts"
+        ],
+        "remainingAcceptance": "Reuse existing payment_terms/beneficiaries; persist a versioned plan bound to obligations and the chosen first-transaction route.",
+        "productionEvidence": []
+      },
+      {
+        "id": "RS-12",
+        "name": "Payment / funding / finality / release / refund",
+        "classification": [
+          "KEEP",
+          "EXTEND_EXISTING",
+          "EXTERNAL_BLOCKER"
+        ],
+        "status": "NOT_ACCEPTED",
+        "sourceEvidence": [
+          "apps/api/src/modules/settlement-engine/settlement-postgresql.repository.ts"
+        ],
+        "remainingAcceptance": "Reuse pending operations, authenticated verified callbacks and partial release/refund bounds. Real bank access and receipts must prove finality; reference provider is not core authority.",
+        "productionEvidence": []
+      },
+      {
+        "id": "RS-13",
+        "name": "Reconciliation",
+        "classification": [
+          "KEEP",
+          "EXTEND_EXISTING"
+        ],
+        "status": "NOT_ACCEPTED",
+        "sourceEvidence": [
+          "apps/api/src/modules/settlement-engine/settlement-postgresql.repository.ts",
+          "apps/api/src/modules/accounting/reconciliation.repository.ts"
+        ],
+        "remainingAcceptance": "Match verified external movements to obligations and Deal evidence. Preserve conflicts and Federal Accounting lock #4321; do not copy its ledger.",
+        "productionEvidence": []
+      },
+      {
+        "id": "RS-14",
+        "name": "Platform commission / revenue",
+        "classification": [
+          "EXTEND_EXISTING",
+          "NEW_REQUIRED",
+          "EXTERNAL_BLOCKER"
+        ],
+        "status": "NOT_ACCEPTED",
+        "sourceEvidence": [
+          "apps/api/src/modules/settlement-engine/settlement-postgresql.repository.ts",
+          "apps/api/src/modules/accounting/payment.repository.ts"
+        ],
+        "remainingAcceptance": "A PLATFORM beneficiary is not earned revenue. Require actual contractual commission basis, payer confirmation, accounting/tax treatment, immutable revenue evidence and verified receipt by the company; GMV and participant funds remain separate.",
+        "productionEvidence": []
+      },
+      {
+        "id": "RS-15",
+        "name": "Minimum seller / buyer mobile UX",
+        "classification": [
+          "EXTEND_EXISTING",
+          "REMOVE_OR_SUPERSEDE"
+        ],
+        "status": "NOT_ACCEPTED",
+        "sourceEvidence": [
+          "apps/web/app/platform-v7/seller/batches/new/page.tsx",
+          "apps/web/app/platform-v7/buyer/rfq/page.tsx",
+          "apps/web/app/platform-v7/deals/[id]/clean/page.tsx"
+        ],
+        "remainingAcceptance": "Replace dead-end redirects/fixture entry on the commercial route with real server-backed tasks. Prove seller and buyer complete the deal without developer assistance on mobile and desktop.",
+        "productionEvidence": []
+      }
+    ],
+    "realTransaction": {
+      "status": "NOT_EVIDENCED",
+      "realFarmerEvidence": null,
+      "realBuyerEvidence": null,
+      "canonicalDealEvidence": null,
+      "applicableRegulatoryReceipts": null,
+      "executionEvidence": null,
+      "bankFinalityEvidence": null,
+      "reconciliationEvidence": null,
+      "lawfulCommissionBasis": null,
+      "companyRevenueEvent": null,
+      "companyCashReceipt": null
+    },
+    "notRequiredNow": [
+      "Complete all W5/W6 corridors",
+      "Full ATI feature set if first transaction does not use it",
+      "Every bank reference adapter",
+      "Full EDO/EPD/1C expansion beyond applicable first-transaction requirements",
+      "All role workspaces and full company treasury forecasting"
+    ],
+    "afterSuccess": "After one evidenced real transaction and company revenue receipt, resume expansion to every remaining original Definition of Done criterion."
+  },
+  "reportingContract": [
+    "overallProgressPercent for all 126 original DoD criteria",
+    "revenueSliceV1.progressPercent with its disclosed acceptance basis",
+    "New actually accepted DoD criteria; otherwise explicitly none",
+    "Current blocker",
+    "Next executing step"
+  ]
 }
