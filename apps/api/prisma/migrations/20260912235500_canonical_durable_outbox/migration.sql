@@ -48,7 +48,12 @@ ALTER TABLE public."outbox_entries"
   ADD CONSTRAINT outbox_entries_last_error_category_check
   CHECK (
     "lastErrorCategory" IS NULL
-    OR "lastErrorCategory" IN ('TRANSIENT', 'PERMANENT', 'AMBIGUOUS')
+    OR "lastErrorCategory" IN ('TRANSIENT', 'PERMANENT')
+    OR (
+      "lastErrorCategory" = 'AMBIGUOUS'
+      AND "status" = 'MANUAL_REVIEW'
+      AND "manualReviewAt" IS NOT NULL
+    )
   );
 
 CREATE OR REPLACE FUNCTION public.outbox_expired_attempt_reclaim_guard()
@@ -143,7 +148,12 @@ ALTER TABLE public."outbox_redrive_events"
   ADD CONSTRAINT outbox_redrive_events_previous_error_category_check
   CHECK (
     "previousErrorCategory" IS NULL
-    OR "previousErrorCategory" IN ('TRANSIENT', 'PERMANENT', 'AMBIGUOUS')
+    OR "previousErrorCategory" IN ('TRANSIENT', 'PERMANENT')
+    OR (
+      "previousErrorCategory" = 'AMBIGUOUS'
+      AND "previousStatus" = 'MANUAL_REVIEW'
+      AND "previousManualReviewAt" IS NOT NULL
+    )
   );
 
 DO $outbox_failure_columns$
