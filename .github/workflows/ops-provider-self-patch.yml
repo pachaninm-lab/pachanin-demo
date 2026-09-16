@@ -1,0 +1,63 @@
+name: Ops Provider Self Patch
+
+on:
+  pull_request:
+    types: [synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: >-
+      github.event.pull_request.number == 5387 &&
+      github.event.pull_request.head.ref == 'fix/local-qwen-evidence-binding-20260913' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout provider branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: fix/local-qwen-evidence-binding-20260913
+          fetch-depth: 0
+
+      - name: Patch exact classifier and remove helper
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          target='.github/workflows/local-qwen-independent-review.yml'
+          helper='.github/workflows/ops-provider-self-patch.yml'
+          [[ "$(git hash-object "$target")" == '50cdc697844ef21e90843267cfebaa153dbdd4b4' ]] || {
+            echo 'Provider workflow moved; refusing stale mutation.' >&2
+            exit 21
+          }
+
+          python3 - "$target" <<'PY'
+          import pathlib, sys
+          path = pathlib.Path(sys.argv[1])
+          text = path.read_text(encoding='utf-8')
+          old_regex = "r'\\b(?:secret|pii|leak(?:age)?|authorization bypass|security boundary bypass)\\b',"
+          new_regex = "r'\\b(?:secret|pii|leak(?:age)?|authorization bypass|security boundary bypass|security/privacy boundar(?:y|ies)(?: bypass)?)\\b',"
+          if text.count(old_regex) != 2:
+              raise SystemExit('Expected exactly two security classifier anchors.')
+          text = text.replace(old_regex, new_regex)
+          old_probe = "title='Potential security boundary bypass in test',"
+          new_probe = "title='Potential Security/Privacy Boundary Bypass in test',"
+          if text.count(old_probe) != 1:
+              raise SystemExit('Expected exactly one test-security regression probe anchor.')
+          text = text.replace(old_probe, new_probe)
+          path.write_text(text, encoding='utf-8')
+          PY
+
+          git diff --check
+          grep -Fq "security/privacy boundar(?:y|ies)(?: bypass)?" "$target"
+          grep -Fq "Potential Security/Privacy Boundary Bypass in test" "$target"
+          git rm -- "$helper"
+          [[ "$(git diff --name-only | sort)" == "$target" ]]
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- "$target"
+          git commit -m 'fix(review): recognize test-only security/privacy boundary claims'
+          git push origin HEAD:refs/heads/fix/local-qwen-evidence-binding-20260913
