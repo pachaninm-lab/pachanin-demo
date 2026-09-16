@@ -586,6 +586,17 @@ jobs:
                   return None
               return (line, evidence)
 
+          def anchored_repair_schema(base_schema, item, anchor):
+              if anchor is None:
+                  return base_schema
+              line, evidence = anchor
+              scoped = json.loads(json.dumps(base_schema))
+              properties = scoped['properties']['findings']['items']['properties']
+              properties['path'] = {'type': 'string', 'enum': [item['path']]}
+              properties['line'] = {'type': 'integer', 'enum': [line]}
+              properties['evidence'] = {'type': 'string', 'enum': [evidence]}
+              return scoped
+
           def repair_user(item, violation, rejected_content):
               violation_guidance = ''
               anchor = candidate_anchor(item, rejected_content)
@@ -594,6 +605,7 @@ jobs:
                       'For SPECULATIVE_CLAIM, do not repeat the rejected inference with different certainty wording. '
                       'A label, category, constant, enum member, or stored historical value does not by itself prove downstream retry, authorization, security, or control-flow behavior. '
                       'A non-empty finding requires the exact changed bytes in this same chunk to directly implement the claimed behavior or concrete failure mechanism; otherwise author findings=[]. '
+                      'Do not use any of these policy-inadmissible words in a non-empty finding title or reason: could, may, might, likely, potential, potentially, possible, possibility, perhaps, maybe, speculate, speculative, speculatively. '
                   )
                   if anchor is not None:
                       line, evidence = anchor
@@ -601,6 +613,7 @@ jobs:
                           f'The rejected candidate was mechanically bound to trusted NEW_LINE_{line}. '
                           'This repair is not a new search for a replacement issue: if it returns a non-empty finding, it must stay on that same trusted line and use the same verbatim evidence substring. '
                           f'The preserved evidence substring is {json.dumps(evidence, ensure_ascii=True)}. '
+                          'The repair response schema mechanically restricts any non-empty finding to that preserved path, line, and evidence. Neighboring lines are context only and cannot become a replacement evidence anchor. '
                           'If that exact evidence does not itself directly establish a concrete reproducible defect under the unchanged policy, author findings=[]. '
                       )
               return (
@@ -691,6 +704,27 @@ jobs:
           speculative_candidate = json.dumps({'findings': [speculative_probe]}, separators=(',', ':'))
           if candidate_anchor(probe_item, speculative_candidate) != (7, 'sanitize(input)'):
               fail('VALIDATOR_SELFTEST_REPAIR_ANCHOR_MISSING')
+          schema_probe = {
+              'properties': {
+                  'findings': {
+                      'items': {
+                          'properties': {
+                              'path': {'type': 'string'},
+                              'line': {'type': 'integer'},
+                              'evidence': {'type': 'string'},
+                          }
+                      }
+                  }
+              }
+          }
+          anchored_probe = anchored_repair_schema(schema_probe, probe_item, (7, 'sanitize(input)'))
+          anchored_properties = anchored_probe['properties']['findings']['items']['properties']
+          if anchored_properties['path'] != {'type': 'string', 'enum': ['probe.ts']}:
+              fail('VALIDATOR_SELFTEST_REPAIR_SCHEMA_PATH_NOT_PINNED')
+          if anchored_properties['line'] != {'type': 'integer', 'enum': [7]}:
+              fail('VALIDATOR_SELFTEST_REPAIR_SCHEMA_LINE_NOT_PINNED')
+          if anchored_properties['evidence'] != {'type': 'string', 'enum': ['sanitize(input)']}:
+              fail('VALIDATOR_SELFTEST_REPAIR_SCHEMA_EVIDENCE_NOT_PINNED')
           repair_probe = repair_user(probe_item, 'EVIDENCE_NOT_ON_CITED_ADDED_LINE', speculative_candidate)
           if 'TRUSTED_POLICY_REPAIR_NOTICE' not in repair_probe or 'EVIDENCE_NOT_ON_CITED_ADDED_LINE' not in repair_probe:
               fail('VALIDATOR_SELFTEST_REPAIR_NOTICE_MISSING')
@@ -707,6 +741,10 @@ jobs:
               fail('VALIDATOR_SELFTEST_SPECULATION_REPAIR_SCOPE_MISSING')
           if json.dumps('sanitize(input)', ensure_ascii=True) not in speculative_repair_probe:
               fail('VALIDATOR_SELFTEST_SPECULATION_REPAIR_EVIDENCE_MISSING')
+          if 'mechanically restricts any non-empty finding' not in speculative_repair_probe:
+              fail('VALIDATOR_SELFTEST_SPECULATION_REPAIR_SCHEMA_GUIDANCE_MISSING')
+          if 'could, may, might, likely, potential' not in speculative_repair_probe:
+              fail('VALIDATOR_SELFTEST_SPECULATION_REPAIR_FORBIDDEN_WORDS_MISSING')
 
           service = 'tai-qwen3-8b.service'
           pid_text = subprocess.check_output(
@@ -864,7 +902,7 @@ jobs:
               if 'added_lines' not in item or not isinstance(item['added_lines'], list):
                   fail('REQUEST_EVIDENCE_MAP_INVALID')
 
-          def completion(system, user):
+          def completion(system, user, response_schema=None):
               payload = {
                   'model': MODEL_IDENTITY,
                   'messages': [
@@ -882,7 +920,7 @@ jobs:
                       'json_schema': {
                           'name': 'review',
                           'strict': True,
-                          'schema': schema,
+                          'schema': response_schema if response_schema is not None else schema,
                       },
                   },
               }
@@ -915,7 +953,8 @@ jobs:
                       anchor = candidate_anchor(item, initial) if violation == 'SPECULATIVE_CLAIM' else None
                       repaired_user = repair_user(item, violation, initial)
                       repair_prompt_sha256 = hashlib.sha256(repaired_user.encode('utf-8')).hexdigest()
-                      content = completion(item['system'], repaired_user)
+                      repair_response_schema = anchored_repair_schema(schema, item, anchor)
+                      content = completion(item['system'], repaired_user, repair_response_schema)
                       repaired_violation = policy_violation(item, content)
                       if repaired_violation is None and anchor is not None:
                           final_anchor = candidate_anchor(item, content)
