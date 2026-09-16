@@ -76,7 +76,9 @@
     "verifierPath": "docs/platform-v7/autopilot/verify-pr-review-gate.mjs",
     "verifierTestPath": "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs",
     "allowedImplementationPaths": [
-      ".github/workflows/local-qwen-independent-review.yml"
+      ".github/workflows/local-qwen-independent-review.yml",
+      "docs/platform-v7/autopilot/verify-pr-review-gate.mjs",
+      "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
     ],
     "authoritySource": "MERGED_LIVE_MAIN_ONLY",
     "authorityMustBeAncestorOfImplementationHead": true,
@@ -104,7 +106,7 @@
     "After the third repair attempt, any remaining violation fails closed and preserves rejected diagnostics. There is no unbounded retry.",
     "A clean findings=[] result remains model-authored; deterministic admission logic may reject invalid findings but cannot synthesize PASS from a rejected candidate.",
     "The provider-maintenance bootstrap is not independent review authority and must never publish, synthesize or impersonate a Local Qwen, Octopus, Codex or Copilot PASS.",
-    "The provider-maintenance implementation must change only .github/workflows/local-qwen-independent-review.yml and cannot modify this authority manifest.",
+    "The provider-maintenance implementation is authorized to touch only the existing bootstrap path set; PR #5381 currently changes only .github/workflows/local-qwen-independent-review.yml and cannot modify this authority manifest.",
     "After the provider repair merges, substantive PR #5347 must synchronize forward-only to exact current main and obtain a completely fresh Local Qwen exact-head review under the repaired provider; no pre-repair review evidence transfers.",
     "No product, API, database, RBAC, registration, cabinet, customer-data, dependency, lockfile or production runtime behavior change is authorized by this scope.",
     "No merge gate, CI threshold, provider identity, speculation check or fail-closed condition may be weakened or bypassed.",
@@ -113,7 +115,7 @@
   "admission": [
     "Authority PR changes exactly this manifest path.",
     "Authority PR itself receives genuine independent exact-head review authority and cannot use providerMaintenanceBootstrap.",
-    "Implementation PR #5381 changes only providerMaintenanceBootstrap.allowedImplementationPaths and cannot modify its own authority manifest.",
+    "Implementation PR #5381 cannot modify its own authority manifest and is admitted only if its exact changed paths remain within providerMaintenanceBootstrap.allowedImplementationPaths.",
     "Implementation PR is forward-synchronized to live main after this authority manifest is merged and therefore proves the authority came from merged live main rather than its own branch.",
     "Applicable ordinary exact-head CI/security/runtime gates are terminal green before each merge.",
     "Owner exact-head self-audit is present on each authority/provider-maintenance exact head and does not substitute for the fresh #5347 Local Qwen review after provider repair.",
