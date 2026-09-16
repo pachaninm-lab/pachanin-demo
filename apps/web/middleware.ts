@@ -216,9 +216,35 @@ function applySecurityHeaders(response: NextResponse, protectedResponse = false,
   response.headers.set('referrer-policy', 'no-referrer');
   response.headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=()');
   response.headers.set('strict-transport-security', 'max-age=31536000; includeSubDomains; preload');
+  // ASVS 5.0 V3.4.3 names three minimums. Two of them are here and the third is
+  // not, and the reason is measured rather than assumed - see CSP_POLICY.md.
+  //
+  // object-src 'none' stops plugin content outright. Falling back to default-src
+  // 'self', which is what the absence of the directive did, still permits an
+  // <object> loading from this origin.
+  //
+  // base-uri 'none' is the one that earns its place quietly. With base-uri
+  // 'self' an injected <base href="/whatever/"> silently re-points every
+  // RELATIVE script src on the page, so a single injected tag reroutes scripts
+  // the policy otherwise trusts. 'none' forbids the element from having any
+  // effect at all.
+  //
+  // 'unsafe-eval' is gone. Measured against a production build of this Next
+  // version in Chromium: with it removed, both a statically prerendered page and
+  // a dynamically rendered one render, hydrate and stay interactive with zero
+  // policy violations. It cost nothing and it removes eval() and new Function()
+  // as a payload sink.
+  //
+  // 'unsafe-inline' REMAINS, and this is the half that keeps V3.4.3 failing.
+  // Removing it requires a per-request nonce, Next applies a nonce only to a
+  // page it renders per request, and 249 of this application's pages are
+  // prerendered. Measured: the same strict policy that leaves a dynamic page
+  // fully interactive leaves a static one dead - the webpack chunk and the
+  // inline bootstrap are both refused and hydration never happens. That is an
+  // architecture decision about prerendering, not a header change.
   response.headers.set(
     'content-security-policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'none'; object-src 'none'; base-uri 'none'; form-action 'self'"
   );
   if (protectedResponse) {
     response.headers.set('cache-control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');

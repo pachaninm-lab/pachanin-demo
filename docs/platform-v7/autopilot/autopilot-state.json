@@ -1429,6 +1429,15 @@
     ],
     "fix/gitleaks-release-authority-attestation-20260912": [
       "apps/tai/tests/test_gitleaks_release_authority.py"
+    ],
+    "security/asvs-v343-csp-hardening-4459": [
+      ".github/workflows/ci.yml",
+      "apps/web/middleware.ts",
+      "apps/web/next.config.js",
+      "apps/web/tests/unit/contentSecurityPolicy.test.ts",
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "docs/security/CSP_POLICY.md",
+      "docs/security/asvs-applicability-decisions.json"
     ]
   },
   "currentAcceptance": [

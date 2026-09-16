@@ -1646,21 +1646,69 @@
       "applicability": "APPLICABLE",
       "status": "FAIL",
       "evidence": [
-        "apps/web/middleware.ts"
+        "apps/web/middleware.ts",
+        "apps/web/next.config.js",
+        "docs/security/CSP_POLICY.md",
+        "apps/web/tests/unit/contentSecurityPolicy.test.ts"
       ],
       "conditions": [
         {
-          "condition": "the served CSP still omits object-src 'none', still uses base-uri 'self' rather than 'none', and still permits 'unsafe-inline'/'unsafe-eval' in script-src rather than an allowlist, nonce or hash scheme",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the served policy still forbids plugin content and still forbids a <base> element from redirecting relative script sources",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/web/middleware.ts"
           ],
           "patterns": [
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+            "object-src 'none'; base-uri 'none';"
+          ]
+        },
+        {
+          "condition": "script-src still names exactly self and unsafe-inline, so eval cannot come back without this failing - checked as the exact directive rather than as the absence of a token, because the comment above it discusses the token by name",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/middleware.ts"
+          ],
+          "patterns": [
+            "script-src 'self' 'unsafe-inline'; style-src"
+          ]
+        },
+        {
+          "condition": "the policy governing the paths the middleware matcher skips still holds the same two minimums, so reading it does not give a weaker picture of what is enforced",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/next.config.js"
+          ],
+          "patterns": [
+            "\"object-src 'none'\",",
+            "\"base-uri 'none'\","
+          ]
+        },
+        {
+          "condition": "the policy is still read off a response the middleware produced rather than out of the source string, and the half that keeps this requirement failing is still asserted rather than left implicit",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/tests/unit/contentSecurityPolicy.test.ts"
+          ],
+          "patterns": [
+            "const response = await applyMiddleware(new NextRequest(`${ORIGIN}${path}`));",
+            "it(\"forbids plugin content outright rather than falling back to default-src\"",
+            "it(\"records honestly that 'unsafe-inline' is still present\""
+          ]
+        },
+        {
+          "condition": "the measurement that decides the remaining half is still written down, so the owner's decision rests on numbers rather than on recollection",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "docs/security/CSP_POLICY.md"
+          ],
+          "patterns": [
+            "249",
+            "V3.4.3 remains FAIL",
+            "dead page"
           ]
         }
       ],
-      "note": "The CSP actually served (set in middleware.ts, which - per the comment at the top of next.config.js - takes precedence over the different, now-vestigial policy still listed there) is: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'. This requirement's stated minimum is object-src 'none' and base-uri 'none', plus either an allowlist or a nonce/hash scheme for script-src. The served policy has no object-src directive at all (falls back to default-src 'self', which is not 'none'), sets base-uri 'self' rather than 'none', and permits both 'unsafe-inline' and 'unsafe-eval' in script-src - which is not an allowlist and specifically undermines the XSS-mitigation purpose the policy exists for, since either keyword lets an attacker who achieves any injection execute arbitrary inline or eval'd script regardless of origin. frame-ancestors 'none' is correctly present and is credited separately under V3.4.6."
+      "note": "Still FAIL, and the verdict is unchanged deliberately - but two of the three minimums this requirement names are now met, and the third is no longer an open question. It has a measured answer and a price, and the price is not mine to pay. Met: object-src 'none' and base-uri 'none'. Neither was a formality. The absence of object-src was not neutral - it fell back to default-src 'self', which still permits an <object> loading plugin content from this origin. And base-uri was 'self', under which an injected <base href=\"/x/\"> silently re-points every RELATIVE script src on the page: one injected tag reroutes the very scripts the rest of the policy is trusting. 'none' stops the element having any effect. Also removed, though the requirement does not name it: 'unsafe-eval'. Measured in Chromium against a production build of this Next version - with it gone, a statically prerendered page and a dynamically rendered one both render, hydrate and stay interactive, with zero policy violations. It cost nothing and it removes eval() and new Function() as a payload sink. Not met, and this is why the verdict stands: script-src still carries 'unsafe-inline', which permits arbitrary inline script - which is what an XSS payload is. While it is there, script-src 'self' is not meaningfully an allowlist and this requirement is not satisfied, whatever else the policy says. What it would take, measured rather than guessed. Next injects inline bootstrap scripts, and the supported way to permit them without 'unsafe-inline' is a per-request nonce, which Next applies only to a page it renders per request. On a production build with one policy and two pages: the dynamically rendered page hydrates with zero violations under a nonce policy; the statically prerendered page does not hydrate at all - the webpack chunk and the inline bootstrap are both refused, and the click handler never attaches. A prerendered page's HTML is produced at build time, so there is no per-request value to put in it. That is not a degradation, it is a dead page. The size of the decision: 249 page.tsx files, of which 12 opt into dynamic rendering explicitly and about 34 are dynamic by consequence of reading cookies, headers or search params. Removing 'unsafe-inline' means giving up prerendering across roughly two hundred pages, a cost paid on every request. That is an architecture decision about how this application renders, not a header change, and it goes to the owner rather than being taken on security grounds alone. One thing the previous note asserted has now been checked rather than inferred. It said the middleware policy takes precedence over the different one in next.config.js, citing a comment at the top of that file. Measured with a deliberately distinguishable policy in each: the middleware header is the one served, and exactly one CSP header comes back. The claim was right. next.config.js is not vestigial though - it governs the paths the middleware matcher skips - so it has been held to the same two minimums rather than left to read as a weaker parallel policy. Eight mutations were confirmed to break the tests, including each minimum being given back individually in either file. The conditions on this decision are deliberate even though it is a FAIL: they stop the ground that WAS gained being handed back quietly while the verdict goes on saying \"not done\" for an unrelated reason."
     },
     {
       "requirementId": "V3.4.4",

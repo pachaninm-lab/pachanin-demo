@@ -35,8 +35,15 @@ const securityHeaders = [
   {
     key: 'Content-Security-Policy',
     value: [
+      // Middleware sets the policy for every document (measured: where both are
+      // configured, the middleware header is the one served, and only one CSP
+      // header comes back). This list still governs the paths the middleware
+      // matcher skips - _next/static, _next/image, favicon.ico - so it is kept
+      // and held to the same minimums rather than left to contradict them.
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://api-maps.yandex.ru",
+      "object-src 'none'",
+      "base-uri 'none'",
+      "script-src 'self' 'unsafe-inline' https://api-maps.yandex.ru",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob: https:",
