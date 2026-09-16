@@ -29,9 +29,19 @@ export async function GET(request: Request) {
   }
 
   try {
-    const response = await fetch(`${upstream}/auth/registration/status?token=${encodeURIComponent(token)}`, {
+    // ASVS 5.0 V14.2.1. The token leaves this process in a header, never in the
+    // upstream URL. A credential in a server-to-server query string is still a
+    // credential in a URL: it is recorded by the API's own access log and by
+    // anything routing between the two, and neither of those is under this
+    // repository's control.
+    //
+    // The browser still sends it as a query parameter to THIS route, and that
+    // half is not fixed here - the client that would have to change is pinned
+    // by the immutability register in platformV7RootWorkEntry.test.ts. See the
+    // V14.2.1 decision.
+    const response = await fetch(`${upstream}/auth/registration/status`, {
       method: 'GET',
-      headers: { 'x-correlation-id': correlationId },
+      headers: { 'x-correlation-id': correlationId, 'x-registration-status-token': token },
       cache: 'no-store',
       signal: AbortSignal.timeout(5_000),
     });

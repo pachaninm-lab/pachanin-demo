@@ -9211,34 +9211,79 @@
       "applicability": "APPLICABLE",
       "status": "FAIL",
       "evidence": [
-        "query-token:apps/web/app/api/auth/registration/status/route.ts",
-        "query-token:apps/web/app/api/gekta/auth/email/verify/route.ts",
-        "oauth-code:apps/web/app/api/platform-v7/gov-id/callback/route.ts",
-        "request-log:apps/api/src/common/middleware/log-masking.middleware.ts"
+        "upstream-header:apps/web/app/api/auth/registration/status/route.ts",
+        "header-parameter:apps/api/src/modules/auth/auth.controller.ts",
+        "executable-assertions:apps/web/tests/unit/registrationStatusTokenTransport.test.ts",
+        "query-token-remains:apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
+        "blocked-by-pin:apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+        "oauth-code:apps/web/app/api/platform-v7/gov-id/callback/route.ts"
       ],
       "conditions": [
         {
-          "condition": "a verification token is still read from the query string",
-          "check": "PRESENT_AT_PATH",
+          "condition": "the upstream call carries the status token in a header",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
             "apps/web/app/api/auth/registration/status/route.ts"
           ],
           "patterns": [
-            "searchparams.get('token')"
+            "'x-registration-status-token': token",
+            "await fetch(`${upstream}/auth/registration/status`"
           ]
         },
         {
-          "condition": "the request log line still records the path rather than the full URL, so the token is not in this log",
-          "check": "PRESENT_AT_PATH",
+          "condition": "and no longer in the upstream URL",
+          "check": "ABSENT_AT_PATH",
           "paths": [
-            "apps/api/src/common/middleware/log-masking.middleware.ts"
+            "apps/web/app/api/auth/registration/status/route.ts"
           ],
           "patterns": [
-            "path: reqpath"
+            "/auth/registration/status?token="
+          ]
+        },
+        {
+          "condition": "the API endpoint reads the header rather than the query string",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.controller.ts"
+          ],
+          "patterns": [
+            "registrationstatus(@headers('x-registration-status-token')"
+          ]
+        },
+        {
+          "condition": "that hop is held by executable assertions",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/tests/unit/registrationStatusTokenTransport.test.ts"
+          ],
+          "patterns": [
+            "sends the token upstream as a header and not in the url",
+            "does not answer with the token in its own response"
+          ]
+        },
+        {
+          "condition": "the browser still sends the token in a query string, which is why this stays FAIL",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx"
+          ],
+          "patterns": [
+            "/api/auth/registration/status?token="
+          ]
+        },
+        {
+          "condition": "and the file that would have to change is pinned by SHA in the immutability register, so lifting the pin re-opens this decision",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/tests/unit/platformV7RootWorkEntry.test.ts"
+          ],
+          "patterns": [
+            "\"app/platform-v7/register/registerformclientpublic.tsx\"",
+            "\"registerqueryauthority\""
           ]
         }
       ],
-      "note": "Two query parameters carry a credential. The denominator is every query key the application reads, not a sample: lang 7, role 4, to 3, stream 3, limit 3, as 3, token 2, locale 2, format 2, state 1, next 1, flow 1, email 1, connection_limit 1, code 1. Of those, the two token reads are the finding - registration status and Gekta email verification both accept a verification token in the URL. The OAuth authorization code in the gov-id callback is deliberately not counted as the failure: a code in the query is the authorization code flow’s own design, and whether it is handled correctly is V10’s question. Correction to the reasoning first published with this decision: it said the log-masking middleware has no reference to the URL or query string, \"so nothing masks these values in the logs they reach\". The first half is true, but the inference was misleading - the middleware logs Express req.path, which excludes the query string, so the platform’s own request log never contains the token to begin with. The verdict does not change, because the defect this requirement names is the credential being in the URL at all: from there it reaches browser history, the Referer header on any outbound link, and whatever access log the Caddy edge keeps, which is not under version control and cannot be inspected from here. What would close it is moving the token out of the URL - a one-time link that is exchanged for a POST, or a token carried in a header - and that changes how verification emails work, so it is a product decision rather than a masking fix."
+      "note": "Two query parameters carry a credential. The denominator is every query key the application reads, not a sample: lang 7, role 4, to 3, stream 3, limit 3, as 3, token 2, locale 2, format 2, state 1, next 1, flow 1, email 1, connection_limit 1, code 1. Of those, the two token reads are the finding - registration status and Gekta email verification both accept a verification token in the URL. The OAuth authorization code in the gov-id callback is deliberately not counted: a code in the query is the authorization code flow’s own design, and whether it is handled correctly is V10’s question.\n\nThe registration status token appears in a URL at four points, and they are not equally fixable:\n  1. the emailed link puts it in the address bar;\n  2. the client writes it back there with history.replaceState after verification;\n  3. every status poll sends it as a query parameter;\n  4. the web route forwarded it upstream the same way.\n\nPoint 4 is now closed. apps/web/app/api/auth/registration/status/route.ts sends the token to the API in x-registration-status-token and the endpoint reads it with @Headers rather than @Query. This is worth separating from the rest: the upstream hop is where the credential reached the API’s own access log and anything routing between the two services, and none of that is under this repository’s control. Five mutations were run against the assertions, including sending the token in BOTH header and query, and each was caught.\n\nPoints 1-3 are measured, written and NOT applied, and the reason is not technical. The complete change - a route that exchanges the emailed token for an httpOnly, sameSite=strict cookie scoped to the status route, an AES-GCM ticket sealed under an existing HKDF purpose so no new secret is required, a redirect that leaves status=pending in the address bar instead of a token, and Referrer-Policy: no-referrer on the exchange - was built and its tests passed, then reverted. It cannot land because app/platform-v7/register/RegisterFormClientPublic.tsx is pinned by SHA-256 in the immutability register at apps/web/tests/unit/platformV7RootWorkEntry.test.ts, and the token handling in app/platform-v7/register/page.tsx is pinned by the registerQueryAuthority hash, under a test named “preserves registration tokens, locale cycling and the exact form props”. Changing those files turns that gate red; changing the register is not this programme’s to do. Lifting the pin on those two hashes is an owner decision, and the last condition on this decision is anchored on the pin so that lifting it re-opens this requirement rather than leaving it recorded as blocked forever.\n\nOne correction carried forward from the earlier version of this note: it said the log-masking middleware has no reference to the URL or query string, “so nothing masks these values in the logs they reach”. The first half is true and the inference was misleading - the middleware logs Express req.path, which excludes the query string, so the platform’s own request log never contained the token. The verdict did not change then and does not change now, because the defect this requirement names is the credential being in the URL at all: from there it reaches browser history, the Referer header on any outbound link, and whatever access log the edge keeps."
     },
     {
       "requirementId": "V14.2.2",

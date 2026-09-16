@@ -134,8 +134,12 @@ export class AuthController {
 
   @Public()
   @RateLimit({ name: 'auth_registration_status', scope: 'ip', limit: 30, windowSeconds: 60, limitEnv: 'RATE_LIMIT_AUTH_REGISTRATION_STATUS', windowEnv: 'RATE_LIMIT_AUTH_REGISTRATION_STATUS_WINDOW_SECONDS' })
+  // ASVS 5.0 V14.2.1: the status token arrives in a header, not the query
+  // string. A credential in a URL is recorded by every access log in front of
+  // this service, and the caller is the web app, which has no reason to put it
+  // there. The web side holds it in an httpOnly cookie and forwards it here.
   @Get('registration/status')
-  registrationStatus(@Query('token') token?: string) {
+  registrationStatus(@Headers('x-registration-status-token') token?: string) {
     return this.registrationApplications.status(String(token || ''));
   }
 
