@@ -32,7 +32,6 @@
       "exactAddedNewSideLineRequired": true,
       "verbatimEvidenceSubstringRequired": true,
       "evidenceBindingRevalidatedDuringCanonicalization": true,
-      "acceptedEvidenceDigestRequired": true,
       "repairAnchorImmutableAcrossAttempts": true
     },
     "policyAdmissibility": {
