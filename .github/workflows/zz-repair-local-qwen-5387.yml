@@ -1,0 +1,58 @@
+name: Temporary deterministic Local Qwen naming repair
+
+on:
+  push:
+    branches:
+      - fix/local-qwen-evidence-binding-20260913
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.actor != 'github-actions[bot]' || github.event.head_commit.message != 'fix(review): make test-only rejection semantics explicit'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/local-qwen-evidence-binding-20260913
+          fetch-depth: 0
+      - name: Apply bounded textual repair
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('.github/workflows/local-qwen-independent-review.yml')
+          text = p.read_text(encoding='utf-8')
+          replacements = [
+              ('TEST_ROUTE_SECURITY_CLASSIFICATION', 'TEST_ONLY_SECURITY_CLAIM_REJECTED'),
+              ('SECURITY_CLASSIFICATION', 'SECURITY_CLAIM'),
+              ('security_classification', 'security_claim'),
+              ('rejected test-only security classification', 'rejected test-only security claim'),
+          ]
+          changed = False
+          for old, new in replacements:
+              count = text.count(old)
+              if count:
+                  print(f'{old}: {count}')
+                  text = text.replace(old, new)
+                  changed = True
+          if not changed:
+              print('No changes required; repair already applied.')
+              raise SystemExit(0)
+          if 'TEST_ROUTE_SECURITY_CLASSIFICATION' in text or 'SECURITY_CLASSIFICATION' in text or 'security_classification' in text:
+              raise SystemExit('legacy classifier naming remains')
+          if 'TEST_ONLY_SECURITY_CLAIM_REJECTED' not in text or 'SECURITY_CLAIM' not in text or 'security_claim' not in text:
+              raise SystemExit('explicit rejection naming missing')
+          p.write_text(text, encoding='utf-8')
+          PY
+          if git diff --quiet -- .github/workflows/local-qwen-independent-review.yml; then
+            exit 0
+          fi
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/local-qwen-independent-review.yml
+          git commit -m 'fix(review): make test-only rejection semantics explicit'
+          git push origin HEAD:fix/local-qwen-evidence-binding-20260913
