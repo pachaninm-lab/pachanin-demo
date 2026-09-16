@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import textwrap
 import unittest
 from unittest.mock import patch
 
@@ -116,6 +117,9 @@ class Caddy(unittest.TestCase):
         c=caddy(); r=c['apps']['http']['servers']['edge']['routes'][0]; h=r['handle']
         r['handle']=[{'handler':'subroute','routes':[{'handle':h}]}]
         self.assertEqual(m.caddy_assessment(c,web()), 'CANONICAL_WEB_ROUTE_OBSERVED')
+    def test_header_delete_requires_review(self):
+        c=caddy(); c['apps']['http']['servers']['edge']['routes'][0]['handle'][0]['headers']={'request':{'delete':['X-Forwarded-For']}}
+        self.assertEqual(m.caddy_assessment(c,web()), 'HEADER_OR_PROXY_OVERRIDE_REQUIRES_REVIEW')
     def test_redirects_are_not_followed(self):
         self.assertIsNone(m.NoRedirect().redirect_request(None,None,302,'',{},'https://external.invalid'))
 
@@ -133,6 +137,9 @@ class Metadata(unittest.TestCase):
             with self.subTest(key=key):
                 v=migrations(); v[key]=value
                 self.assertEqual(m.migration_metadata(json.dumps(v)),{'status':'NOT_PROVEN'})
+    def test_numeric_checksum_rejected(self):
+        v=migrations(); v['rows'][0]['checksum']=int('1'*64)
+        self.assertEqual(m.migration_metadata(json.dumps(v)),{'status':'NOT_PROVEN'})
     def test_failed_and_rolled_back_separated(self):
         v=migrations(); v['rows'][0]['finished']=False
         self.assertEqual(m.migration_metadata(json.dumps(v))['failed_unresolved'],1)
@@ -212,6 +219,15 @@ class Evidence(unittest.TestCase):
     def test_valid_report(self):
         r=report(); self.assertEqual(m.validate_report(r,SHA),r)
         self.assertEqual(r['checks']['runtime_configuration_stability'],'UNCHANGED')
+    def test_unknown_cpu_is_omitted_not_fabricated(self):
+        with patch.object(m.os,'cpu_count',return_value=None) as cpu:
+            r=report()
+        cpu.assert_called_once()
+        self.assertNotIn('cpu_count',r['capacity'])
+        self.assertEqual(m.validate_report(r,SHA),r)
+    def test_invalid_cpu_is_omitted(self):
+        with patch.object(m.os,'cpu_count',return_value=True): r=report()
+        self.assertNotIn('cpu_count',r['capacity'])
     def test_unknown_top_level_rejected(self):
         r=report(); r['secret']='not-for-artifact'
         with self.assertRaises(ValueError): m.validate_report(r,SHA)
@@ -275,6 +291,45 @@ class Evidence(unittest.TestCase):
             self.assertEqual(m.source_lineage(inventory,root)['checksum_mismatch'],[d.name])
     def test_missing_inventory_no_source_claim(self):
         self.assertEqual(m.source_lineage({'status':'NOT_PROVEN'},Path('.')),{'status':'NOT_PROVEN'})
+
+
+
+class WorkflowContract(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.workflow_path=PATH.parents[1]/'.github/workflows/production-p0-runtime-revision-parity-diagnostic.yml'
+        cls.workflow=cls.workflow_path.read_text(encoding='utf-8')
+        cls.source=PATH.read_bytes()
+        cls.contract=textwrap.dedent(cls.workflow.split("python3 - <<'PY'\n",1)[1].split("\n          PY",1)[0])
+
+    def enforce(self, source, workflow=None):
+        wf=self.workflow if workflow is None else workflow
+        with patch.object(Path,'read_text',return_value=wf), patch.object(Path,'read_bytes',return_value=source):
+            exec(compile(self.contract,'read-only-contract','exec'),{})
+
+    def test_actual_transport_source_and_workflow_pass(self): self.enforce(self.source)
+    def test_script_only_mutations_fail_contract(self):
+        for mutation in (b"\nrun(['docker', 'stop', 'api'])\n", b"\n# changed script version\n", b"\n# INSERT INTO forbidden\n"):
+            with self.subTest(mutation=mutation[:20]):
+                with self.assertRaisesRegex(SystemExit,'TRANSPORTED_SCRIPT_DIGEST_MISMATCH'):
+                    self.enforce(self.source+mutation)
+    def test_removed_transport_path_rejected(self):
+        with self.assertRaisesRegex(SystemExit,'TRANSPORTED_SCRIPT_PATH_MISSING'):
+            self.enforce(self.source,self.workflow.replace(str(Path('scripts/production-market-release-preflight.py')),'other-script.py'))
+    def test_sql_read_only_change_rejected(self):
+        with self.assertRaisesRegex(SystemExit,'TRANSPORTED_SCRIPT_DIGEST_MISMATCH'):
+            self.enforce(self.source.replace(b'SET TRANSACTION READ ONLY',b'SET TRANSACTION READ WRITE'))
+    def test_sanitized_transport_error_keeps_original_exit(self):
+        start=self.workflow.index('          if (( preflight_status != 0 )); then')
+        end=self.workflow.index('          fi',start)+len('          fi')
+        block=textwrap.dedent(self.workflow[start:end])
+        classes={124:'TRANSPORT_DEADLINE',255:'SSH_TRANSPORT_OR_AUTHORITY',127:'REMOTE_INTERPRETER_UNAVAILABLE',1:'REMOTE_COLLECTION_NOT_PROVEN',23:'READ_ONLY_COLLECTION_FAILED'}
+        for code,classification in classes.items():
+            with self.subTest(code=code):
+                result=subprocess.run(['bash','-c','preflight_status="$1";\n'+block,'bounded-test',str(code)],capture_output=True,text=True,timeout=5)
+                self.assertEqual(result.returncode,code)
+                self.assertEqual(result.stdout,'')
+                self.assertEqual(result.stderr,'MARKET_PREFLIGHT_FAILURE='+classification+'\n')
 
 
 if __name__ == '__main__':

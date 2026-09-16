@@ -222,7 +222,7 @@ def caddy_assessment(config: dict[str, Any] | None, web: dict[str, Any]) -> str:
                         if node.get('dynamic_upstreams') or node.get('trusted_proxies'):
                             unsafe = True
                 for key, child in node.items():
-                    if str(key).lower() == 'x-forwarded-for':
+                    if str(key).lower() == 'x-forwarded-for' or (str(key).lower() == 'delete' and isinstance(child, list) and any(isinstance(item, str) and item.lower() == 'x-forwarded-for' for item in child)):
                         unsafe = True  # a custom overwrite/append needs explicit review
                     walk(child, canonical)
         servers = config.get('apps', {}).get('http', {}).get('servers', {})
@@ -248,7 +248,7 @@ def migration_metadata(raw: str | None) -> dict[str, Any]:
             raise ValueError()
         safe = []
         for r in rows:
-            if not isinstance(r, dict) or not NAME.fullmatch(str(r.get('migration_name', ''))) or not CHECKSUM.fullmatch(str(r.get('checksum', ''))):
+            if not isinstance(r, dict) or not isinstance(r.get('migration_name'), str) or not isinstance(r.get('checksum'), str) or not NAME.fullmatch(r['migration_name']) or not CHECKSUM.fullmatch(r['checksum']):
                 raise ValueError()
             if type(r.get('finished')) is not bool or type(r.get('rolled_back')) is not bool:
                 raise ValueError()
@@ -423,7 +423,10 @@ def collect(target: str) -> dict[str, Any]:
     api_id = api.get('Id', '')
     if isinstance(api_id, str) and re.fullmatch(r'[0-9a-f]{12,64}', api_id):
         db = migration_metadata(run(['docker', 'exec', '-i', api_id, '/nodejs/bin/node', '-'], DB_PROGRAM))
-    capacity = {'disk_free_bytes': shutil.disk_usage('/').free, 'cpu_count': os.cpu_count()}
+    capacity = {'disk_free_bytes': shutil.disk_usage('/').free}
+    cpu_count = os.cpu_count()
+    if type(cpu_count) is int and cpu_count > 0:
+        capacity['cpu_count'] = cpu_count
     try:
         mem = Path('/proc/meminfo').read_text()
         m = re.search(r'^MemAvailable:\s+(\d+) kB$', mem, re.M)

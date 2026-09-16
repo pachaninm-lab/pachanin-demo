@@ -53,9 +53,20 @@ jobs:
         run: |
           set -Eeuo pipefail
           python3 - <<'PY'
+          import hashlib
           from pathlib import Path
           path = Path('.github/workflows/production-p0-runtime-revision-parity-diagnostic.yml')
-          text = path.read_text(encoding='utf-8')
+          workflow_text = path.read_text(encoding='utf-8')
+          inspector_path = Path('scripts/production-market-release-preflight.py')
+          if str(inspector_path) not in workflow_text:
+              raise SystemExit('TRANSPORTED_SCRIPT_PATH_MISSING')
+          inspector_source = inspector_path.read_bytes()
+          if hashlib.sha256(inspector_source).hexdigest() != 'b6b141fd9fd53728acd2e3a05a674008e1e776a02fd218a459cc2f04bc9b0ba9':
+              raise SystemExit('TRANSPORTED_SCRIPT_DIGEST_MISMATCH')
+          text = workflow_text + '\n' + inspector_source.decode('utf-8', errors='strict')
+          for marker in ('SET TRANSACTION READ ONLY', 'statement_timeout', "'deployment_authorized': False", 'def validate_report('):
+              if marker not in text:
+                  raise SystemExit('TRANSPORTED_READ_ONLY_INVARIANT_MISSING')
           required = [
               'PRODUCTION_MUTATION: `NONE`',
               'StrictHostKeyChecking=yes',
@@ -408,11 +419,22 @@ jobs:
 
           # Extend this SAME pinned owner-command session; never check out PR code here.
           [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+          preflight_status=0
           timeout 180s ssh -i "$key" -p "$port" \
             -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile="$known" -o ConnectTimeout=15 \
             "$user@$host" "python3 - '$TARGET_SHA'" \
-            < scripts/production-market-release-preflight.py > "$preflight_raw" 2>/dev/null
+            < scripts/production-market-release-preflight.py > "$preflight_raw" 2>/dev/null || preflight_status=$?
+          if (( preflight_status != 0 )); then
+            case "$preflight_status" in
+              124) echo 'MARKET_PREFLIGHT_FAILURE=TRANSPORT_DEADLINE' >&2 ;;
+              255) echo 'MARKET_PREFLIGHT_FAILURE=SSH_TRANSPORT_OR_AUTHORITY' >&2 ;;
+              127) echo 'MARKET_PREFLIGHT_FAILURE=REMOTE_INTERPRETER_UNAVAILABLE' >&2 ;;
+              1) echo 'MARKET_PREFLIGHT_FAILURE=REMOTE_COLLECTION_NOT_PROVEN' >&2 ;;
+              *) echo 'MARKET_PREFLIGHT_FAILURE=READ_ONLY_COLLECTION_FAILED' >&2 ;;
+            esac
+            exit "$preflight_status"
+          fi
           [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
           python3 -B - "$TARGET_SHA" "$preflight_raw" "$RUNNER_TEMP/market-preflight.json" "$GITHUB_STEP_SUMMARY" <<'PYMARKET'
           import hashlib, importlib.util, json, pathlib, sys
