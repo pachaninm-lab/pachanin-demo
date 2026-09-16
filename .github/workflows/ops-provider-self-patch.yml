@@ -61,3 +61,5 @@ jobs:
           git add -- "$target"
           git commit -m 'fix(review): recognize test-only security/privacy boundary claims'
           git push origin HEAD:refs/heads/fix/local-qwen-evidence-binding-20260913
+
+# trigger: exact synchronize after helper exists in PR head
