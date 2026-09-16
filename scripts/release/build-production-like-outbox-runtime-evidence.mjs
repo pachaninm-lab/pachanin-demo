@@ -35,10 +35,12 @@ const outageRetries = number(outageSummary.match(/retries=(\d+)/)?.[1], 0);
 // Count semantics are explicit because the outbox schema stores retry transitions,
 // not an append-only claim audit. Distinct claimed rows, terminal outcomes and the
 // forced abandoned lease are exact. The retry value is a proven lower bound from
-// persisted outage retries plus the two poison attempts required for DEAD_LETTER.
+// persisted Kafka-outage retry transitions only. The poison fixture now proves a
+// definitive permanent broker rejection on its first failed attempt, so counting
+// that failure as a retry would overstate the evidence.
 const claimed = 343;
 const delivered = 342;
-const retried = outageRetries + 2;
+const retried = outageRetries;
 const dead = 1;
 const leaseLost = 1;
 
@@ -90,7 +92,7 @@ const report = {
   countSemantics: {
     claimed: 'Exact number of distinct deep-runtime acceptance rows presented to the worker topology.',
     delivered: 'Exact number of acceptance rows ending SENT after the measured scenarios.',
-    retried: 'Proven lower bound: persisted Kafka-outage retry transitions plus two poison attempts; claim attempts are not append-only in the current schema.',
+    retried: 'Proven lower bound from persisted Kafka-outage retry transitions; the definitive poison rejection is a failed first attempt, not a retry, and claim attempts are not append-only in the current schema.',
     dead: 'Exact number of poison acceptance rows ending DEAD_LETTER.',
     leaseLost: 'Exact number of force-killed worker leases intentionally abandoned in the pod-kill scenario.',
   },
