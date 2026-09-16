@@ -572,9 +572,14 @@ jobs:
               if not isinstance(findings, list) or len(findings) != 1 or not isinstance(findings[0], dict):
                   return None
               finding = findings[0]
+              path = finding.get('path')
               line = finding.get('line')
               evidence = finding.get('evidence')
-              if isinstance(line, bool) or not isinstance(line, int) or not isinstance(evidence, str) or not evidence:
+              if path != item.get('path'):
+                  return None
+              if isinstance(line, bool) or not isinstance(line, int) or line < 1:
+                  return None
+              if not isinstance(evidence, str) or not evidence:
                   return None
               added = {
                   int(entry['line']): str(entry['text'])
@@ -582,9 +587,9 @@ jobs:
                   if type(entry.get('line')) is int and isinstance(entry.get('text'), str)
               }
               exact_line = added.get(line)
-              if exact_line is None or evidence not in exact_line:
-                  return None
-              return (line, evidence)
+              if exact_line is None:
+                  return (line, evidence)
+              return (line, evidence if evidence in exact_line else exact_line)
 
           def anchored_repair_schema(base_schema, item, anchor):
               if anchor is None:
@@ -610,11 +615,12 @@ jobs:
                   if anchor is not None:
                       line, evidence = anchor
                       violation_guidance += (
-                          f'The rejected candidate was mechanically bound to trusted NEW_LINE_{line}. '
-                          'This repair is not a new search for a replacement issue: if it returns a non-empty finding, it must stay on that same trusted line and use the same verbatim evidence substring. '
-                          f'The preserved evidence substring is {json.dumps(evidence, ensure_ascii=True)}. '
+                          f'The rejected candidate is mechanically pinned to its original cited NEW_LINE_{line}. '
+                          'This repair is not a new search for a replacement issue: any non-empty finding must stay on that same cited line and use the mechanically pinned evidence value. '
+                          f'The pinned repair evidence is {json.dumps(evidence, ensure_ascii=True)}. '
                           'The repair response schema mechanically restricts any non-empty finding to that preserved path, line, and evidence. Neighboring lines are context only and cannot become a replacement evidence anchor. '
-                          'If that exact evidence does not itself directly establish a concrete reproducible defect under the unchanged policy, author findings=[]. '
+                          'If the pinned tuple is not itself an admissible added-line/verbatim-evidence tuple, or if it does not directly establish a concrete reproducible defect under the unchanged policy, author findings=[]. '
+                          'When the original evidence was already valid, this preserves the same verbatim evidence substring; otherwise the deterministic anchor uses only the original cited trusted line and never permits a replacement line. '
                       )
               return (
                   item['user']
@@ -704,6 +710,15 @@ jobs:
           speculative_candidate = json.dumps({'findings': [speculative_probe]}, separators=(',', ':'))
           if candidate_anchor(probe_item, speculative_candidate) != (7, 'sanitize(input)'):
               fail('VALIDATOR_SELFTEST_REPAIR_ANCHOR_MISSING')
+          speculative_bad_evidence_probe = dict(speculative_probe, evidence='sanitize(input)\nreplacement')
+          speculative_bad_evidence_candidate = json.dumps({'findings': [speculative_bad_evidence_probe]}, separators=(',', ':'))
+          if finding_violation(probe_item, speculative_bad_evidence_probe) != 'SPECULATIVE_CLAIM':
+              fail('VALIDATOR_SELFTEST_SPECULATION_BAD_EVIDENCE_PRECEDENCE_FAILED')
+          if candidate_anchor(probe_item, speculative_bad_evidence_candidate) != (7, 'const value = sanitize(input);'):
+              fail('VALIDATOR_SELFTEST_REPAIR_BAD_EVIDENCE_NOT_PINNED_TO_CITED_LINE')
+          speculative_wrong_line_candidate = json.dumps({'findings': [speculative_wrong_line_probe]}, separators=(',', ':'))
+          if candidate_anchor(probe_item, speculative_wrong_line_candidate) != (8, 'sanitize(input)'):
+              fail('VALIDATOR_SELFTEST_REPAIR_WRONG_LINE_NOT_PINNED')
           schema_probe = {
               'properties': {
                   'findings': {
@@ -725,6 +740,13 @@ jobs:
               fail('VALIDATOR_SELFTEST_REPAIR_SCHEMA_LINE_NOT_PINNED')
           if anchored_properties['evidence'] != {'type': 'string', 'enum': ['sanitize(input)']}:
               fail('VALIDATOR_SELFTEST_REPAIR_SCHEMA_EVIDENCE_NOT_PINNED')
+          bad_evidence_anchor = candidate_anchor(probe_item, speculative_bad_evidence_candidate)
+          bad_evidence_scoped = anchored_repair_schema(schema_probe, probe_item, bad_evidence_anchor)
+          bad_evidence_properties = bad_evidence_scoped['properties']['findings']['items']['properties']
+          if bad_evidence_properties['line'] != {'type': 'integer', 'enum': [7]}:
+              fail('VALIDATOR_SELFTEST_REPAIR_BAD_EVIDENCE_SCHEMA_LINE_NOT_PINNED')
+          if bad_evidence_properties['evidence'] != {'type': 'string', 'enum': ['const value = sanitize(input);']}:
+              fail('VALIDATOR_SELFTEST_REPAIR_BAD_EVIDENCE_SCHEMA_NOT_PINNED_TO_CITED_LINE')
           repair_probe = repair_user(probe_item, 'EVIDENCE_NOT_ON_CITED_ADDED_LINE', speculative_candidate)
           if 'TRUSTED_POLICY_REPAIR_NOTICE' not in repair_probe or 'EVIDENCE_NOT_ON_CITED_ADDED_LINE' not in repair_probe:
               fail('VALIDATOR_SELFTEST_REPAIR_NOTICE_MISSING')
@@ -737,7 +759,7 @@ jobs:
               fail('VALIDATOR_SELFTEST_SPECULATION_REPAIR_GROUNDING_MISSING')
           if 'otherwise author findings=[]' not in speculative_repair_probe:
               fail('VALIDATOR_SELFTEST_SPECULATION_REPAIR_EMPTY_RESULT_GUIDANCE_MISSING')
-          if 'trusted NEW_LINE_7' not in speculative_repair_probe or 'same verbatim evidence substring' not in speculative_repair_probe:
+          if 'original cited NEW_LINE_7' not in speculative_repair_probe or 'same verbatim evidence substring' not in speculative_repair_probe:
               fail('VALIDATOR_SELFTEST_SPECULATION_REPAIR_SCOPE_MISSING')
           if json.dumps('sanitize(input)', ensure_ascii=True) not in speculative_repair_probe:
               fail('VALIDATOR_SELFTEST_SPECULATION_REPAIR_EVIDENCE_MISSING')
@@ -745,6 +767,14 @@ jobs:
               fail('VALIDATOR_SELFTEST_SPECULATION_REPAIR_SCHEMA_GUIDANCE_MISSING')
           if 'could, may, might, likely, potential' not in speculative_repair_probe:
               fail('VALIDATOR_SELFTEST_SPECULATION_REPAIR_FORBIDDEN_WORDS_MISSING')
+          bad_evidence_repair_probe = repair_user(probe_item, 'SPECULATIVE_CLAIM', speculative_bad_evidence_candidate)
+          if 'original cited NEW_LINE_7' not in bad_evidence_repair_probe:
+              fail('VALIDATOR_SELFTEST_SPECULATION_BAD_EVIDENCE_REPAIR_LINE_MISSING')
+          if json.dumps('const value = sanitize(input);', ensure_ascii=True) not in bad_evidence_repair_probe:
+              fail('VALIDATOR_SELFTEST_SPECULATION_BAD_EVIDENCE_REPAIR_PIN_MISSING')
+          wrong_line_repair_probe = repair_user(probe_item, 'SPECULATIVE_CLAIM', speculative_wrong_line_candidate)
+          if 'NEW_LINE_8' not in wrong_line_repair_probe or json.dumps('sanitize(input)', ensure_ascii=True) not in wrong_line_repair_probe:
+              fail('VALIDATOR_SELFTEST_SPECULATION_WRONG_LINE_REPAIR_NOT_PINNED')
 
           service = 'tai-qwen3-8b.service'
           pid_text = subprocess.check_output(
