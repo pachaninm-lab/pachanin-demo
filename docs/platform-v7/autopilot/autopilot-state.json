@@ -1435,6 +1435,15 @@
       "scripts/security/build-asvs-matrix.test.mjs",
       "docs/security/asvs-applicability-decisions.json",
       "docs/platform-v7/autopilot/autopilot-state.json"
+    ],
+    "security/asvs-decision-rejection-gate-4459": [
+      ".github/workflows/sbom-scan.yml",
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "docs/security/asvs-applicability-decisions.json",
+      "scripts/security/build-asvs-matrix.mjs",
+      "scripts/security/build-asvs-matrix.test.mjs",
+      "scripts/security/verify-decision-conditions-hold.mjs",
+      "scripts/security/verify-decision-conditions-hold.test.mjs"
     ]
   },
   "currentAcceptance": [
