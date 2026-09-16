@@ -761,7 +761,9 @@ jobs:
               fail('VALIDATOR_SELFTEST_SPECULATION_PRECEDENCE_FAILED')
           if finding_violation(test_probe_item, test_security_speculative_probe) != 'TEST_ONLY_SECURITY_FINDING_REJECTED':
               fail('VALIDATOR_SELFTEST_TEST_SECURITY_PRECEDENCE_FAILED')
-          empty_test_security_schema = empty_findings_repair_schema(schema)
+          empty_test_security_schema = empty_findings_repair_schema({
+              'properties': {'findings': {}},
+          })
           if empty_test_security_schema['properties']['findings'].get('maxItems') != 0:
               fail('VALIDATOR_SELFTEST_TEST_SECURITY_EMPTY_SCHEMA_MISSING')
           if finding_violation(probe_item, wrong_line_probe) != 'EVIDENCE_LINE_NOT_ADDED':
