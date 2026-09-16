@@ -602,6 +602,11 @@ jobs:
               properties['evidence'] = {'type': 'string', 'enum': [evidence]}
               return scoped
 
+          def empty_findings_repair_schema(base_schema):
+              scoped = json.loads(json.dumps(base_schema))
+              scoped['properties']['findings']['maxItems'] = 0
+              return scoped
+
           def scoped_speculative_repair_item(item, anchor):
               if anchor is None:
                   return None
@@ -756,6 +761,9 @@ jobs:
               fail('VALIDATOR_SELFTEST_SPECULATION_PRECEDENCE_FAILED')
           if finding_violation(test_probe_item, test_security_speculative_probe) != 'TEST_ONLY_SECURITY_FINDING_REJECTED':
               fail('VALIDATOR_SELFTEST_TEST_SECURITY_PRECEDENCE_FAILED')
+          empty_test_security_schema = empty_findings_repair_schema(schema)
+          if empty_test_security_schema['properties']['findings'].get('maxItems') != 0:
+              fail('VALIDATOR_SELFTEST_TEST_SECURITY_EMPTY_SCHEMA_MISSING')
           if finding_violation(probe_item, wrong_line_probe) != 'EVIDENCE_LINE_NOT_ADDED':
               fail('VALIDATOR_SELFTEST_LINE_BINDING_FAILED')
           if finding_violation(probe_item, padded_evidence_probe) != 'EVIDENCE_NOT_ON_CITED_ADDED_LINE':
@@ -1097,7 +1105,11 @@ jobs:
                               max_repair_attempts,
                           )
                           repair_prompt_sha256 = hashlib.sha256(repaired_user.encode('utf-8')).hexdigest()
-                          repair_response_schema = anchored_repair_schema(schema, repair_item, anchor)
+                          repair_response_schema = (
+                              empty_findings_repair_schema(schema)
+                              if repaired_violation == 'TEST_ONLY_SECURITY_FINDING_REJECTED'
+                              else anchored_repair_schema(schema, repair_item, anchor)
+                          )
                           content = completion(item['system'], repaired_user, repair_response_schema)
                           repaired_violation = policy_violation(repair_item, content)
                           if repaired_violation is None and anchor is not None:
