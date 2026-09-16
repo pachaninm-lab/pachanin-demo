@@ -191,15 +191,21 @@ $no_public_blanket_all_policies$;
 -- table fails the gate. There are no silent exclusions.
 DO $tenant_tables_without_policy$
 DECLARE
-  excluded text[] := ARRAY[
-    -- Written by the regulatory integration ingest through raw SQL across six
-    -- repositories, and whether that path runs inside the RLS transaction has
-    -- not been established. Enabling row security on an ingest that carries no
-    -- tenant setting does not protect it, it stops it. Closing these needs that
-    -- path traced first. Tracked as #4828, and V8.4.1 stays FAIL until then.
-    'regulatory_integration_inbox_entries',
-    'regulatory_integration_inbox_conflicts'
-  ];
+  -- No exclusions remain. The two regulatory integration inbox tables were the
+  -- last entries here. The question they were excluded for - whether the ingest
+  -- runs inside the RLS transaction - was traced and answered yes: all six
+  -- repositories reach the database only through
+  -- RlsTransactionService.withTrustedContext, which sets every setting
+  -- app_rls_context_ready() requires and refuses a blank tenant. Migration
+  -- 20260916120000 gives both tables a tenant boundary, so no tenant-bearing
+  -- table is left without one.
+  --
+  -- ARRAY[]::text[] and not ARRAY[NULL]: `x = ANY(ARRAY[NULL])` is NULL rather
+  -- than false, NOT NULL is NULL, and the WHERE clause below would then drop
+  -- every candidate row - a gate that raises nothing whatever the database
+  -- looks like. This boundary's own history records that vacuous-check mistake
+  -- twice, so it is named here rather than left to be rediscovered.
+  excluded text[] := ARRAY[]::text[];
   uncovered text;
 BEGIN
   SELECT string_agg(DISTINCT relation.relname, ', ' ORDER BY relation.relname)
