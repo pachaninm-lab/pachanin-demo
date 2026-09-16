@@ -92,11 +92,38 @@ test "$graceful_attempt_evidence" = "NOT_ATTEMPTED"`;
 const killClaimBefore = raw`wait_for_sql "kill scenario claim" "PROCESSING" 45 \
   "SELECT \"status\" FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${kill_suffix}' LIMIT 1;" \
   >/dev/null`;
-const killClaimAfter = raw`wait_for_sql "kill scenario claim" "PROCESSING" 45 \
-  "SELECT \"status\" FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${kill_suffix}' LIMIT 1;" \
-  >/dev/null
-wait_for_sql "kill scenario external attempt start" "ATTEMPTED" 45 \
-  "SELECT CASE WHEN \"status\"='PROCESSING' AND \"lastAttemptAt\" IS NOT NULL THEN 'ATTEMPTED' ELSE COALESCE(\"status\"::text,'MISSING') END FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${kill_suffix}' LIMIT 1;" \
+const killClaimAfter = raw`# Kafka is intentionally absent in this scenario. The hardened worker must not
+# claim new durable work while broker readiness is false, so waiting for a
+# natural PROCESSING row here would contradict the production invariant. Seed
+# only the durable crash-window state under the identity of a real Ready worker;
+# the PostgreSQL exact-head acceptance separately proves that production code
+# persists lastAttemptAt before invoking the external handler. This runtime
+# scenario then proves that a killed owner cannot cause that ambiguous state to
+# be replayed automatically after lease expiry.
+kill_fixture_owner="$(kubectl get pods -n "$NAMESPACE" -l "$WORKER_SELECTOR" \
+  -o jsonpath='{range .items[*]}{.metadata.name}{"\\n"}{end}' | sort | head -1)"
+test -n "$kill_fixture_owner"
+escaped_kill_fixture_owner="$(sql_literal "$kill_fixture_owner")"
+kill_fixture_count="$(admin_sql "
+  WITH changed AS (
+    UPDATE \"outbox_entries\"
+    SET \"status\"='PROCESSING',
+        \"leaseOwner\"='\${escaped_kill_fixture_owner}',
+        \"leaseToken\"=md5('\${RUN_ID}.\${kill_suffix}.forced-kill'),
+        \"leaseExpiresAt\"=NOW()+INTERVAL '60 seconds',
+        \"heartbeatAt\"=NOW(),
+        \"lastAttemptAt\"=NOW()
+    WHERE \"correlationId\"='\${RUN_ID}.\${kill_suffix}'
+      AND \"status\"='PENDING'
+      AND \"leaseOwner\" IS NULL
+      AND \"leaseToken\" IS NULL
+    RETURNING 1
+  )
+  SELECT count(*) FROM changed;
+")"
+test "$kill_fixture_count" = "1"
+wait_for_sql "kill scenario durable attempted lease" "ATTEMPTED" 5 \
+  "SELECT CASE WHEN \"status\"='PROCESSING' AND \"lastAttemptAt\" IS NOT NULL AND \"leaseOwner\"='\${escaped_kill_fixture_owner}' THEN 'ATTEMPTED' ELSE COALESCE(\"status\"::text,'MISSING') END FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${kill_suffix}' LIMIT 1;" \
   >/dev/null`;
 
 const killRecoveryBefore = raw`lease_recovery_started="$(date +%s)"
@@ -252,7 +279,7 @@ done < "$final_worker_pods_file"`;
 const replacements = [
   [gracefulClaimBefore, gracefulClaimAfter, 'graceful readiness-gated claim boundary'],
   [gracefulBefore, gracefulAfter, 'graceful shutdown assertion boundary'],
-  [killClaimBefore, killClaimAfter, 'forced-kill attempt-start boundary'],
+  [killClaimBefore, killClaimAfter, 'forced-kill attempted-lease fixture boundary'],
   [killRecoveryBefore, killRecoveryAfter, 'forced-kill ambiguity recovery boundary'],
   [poisonBefore, poisonAfter, 'poison isolation scheduling boundary'],
   [consumerBefore, consumerAfter, 'Kafka delivery probe boundary'],
