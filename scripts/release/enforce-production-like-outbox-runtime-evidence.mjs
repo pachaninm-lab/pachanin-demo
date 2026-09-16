@@ -24,10 +24,26 @@ if (report.replicaCount !== 2 || report.scaleOutReplicaCount !== 3 || report.fin
 if (report.delivered !== 342 || report.dead !== 1 || report.leaseLost !== 1) {
   failures.push(`counts=${report.claimed}/${report.delivered}/${report.retried}/${report.dead}/${report.leaseLost}`);
 }
+if (!Number.isSafeInteger(report.retried) || report.retried < 0) {
+  failures.push(`retried=${report.retried}`);
+}
 if (report.actualMeasurements?.kafkaOutageFalseSent !== 0) failures.push('Kafka outage falsely acknowledged SENT');
 if (report.actualMeasurements?.missingKafkaDeliveries !== 0) failures.push('missing Kafka deliveries');
 if (report.actualMeasurements?.duplicateKafkaDeliveries !== 0) failures.push('duplicate Kafka deliveries');
 if (report.actualMeasurements?.poisonDeadLetters !== 1) failures.push('poison message did not dead-letter');
+
+const poison = report.poisonDefinitiveRejection;
+if (
+  poison?.status !== 'DEAD_LETTER'
+  || poison?.retryCount !== 1
+  || poison?.category !== 'PERMANENT'
+  || poison?.code !== 'KAFKA_MESSAGE_TOO_LARGE'
+  || poison?.leaseState !== 'no-lease'
+  || poison?.deliveryState !== 'unsent'
+) {
+  failures.push(`poisonDefinitiveRejection=${JSON.stringify(poison)}`);
+}
+
 if (report.staleTokenCas?.pass !== true) failures.push('stale-token CAS did not pass');
 if (report.productionOperationallyAccepted !== false) failures.push('maturity boundary was inflated');
 
@@ -38,5 +54,6 @@ if (failures.length > 0) {
 process.stdout.write(
   `Outbox runtime evidence accepted for exact head ${exactHead}: `
   + `replicas 2->3->2, delivered=${report.delivered}, dead=${report.dead}, `
+  + `poison=${poison.code}/${poison.category}/attempt=${poison.retryCount}, `
   + `leaseLost=${report.leaseLost}, recovery=${report.recoveryDurationSeconds}s\n`,
 );
