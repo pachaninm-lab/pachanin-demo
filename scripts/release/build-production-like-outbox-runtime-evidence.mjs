@@ -31,6 +31,18 @@ const runtime = readJson(runtimeReportPath);
 const stale = readJson(staleReportPath);
 const outageSummary = read('kafka-outage-summary.txt') || '';
 const outageRetries = number(outageSummary.match(/retries=(\d+)/)?.[1], 0);
+const poisonDefinitiveRaw = read('poison-definitive-rejection.txt') || '';
+const poisonDefinitiveParts = poisonDefinitiveRaw.split('|');
+const poisonDefinitiveRejection = {
+  status: poisonDefinitiveParts[0] || null,
+  retryCount: /^\d+$/u.test(poisonDefinitiveParts[1] || '')
+    ? Number(poisonDefinitiveParts[1])
+    : null,
+  category: poisonDefinitiveParts[2] || null,
+  code: poisonDefinitiveParts[3] || null,
+  leaseState: poisonDefinitiveParts[4] || null,
+  deliveryState: poisonDefinitiveParts[5] || null,
+};
 
 // Count semantics are explicit because the outbox schema stores retry transitions,
 // not an append-only claim audit. Distinct claimed rows, terminal outcomes and the
@@ -70,6 +82,12 @@ if (actual.poisonHealthyDelivered !== 20) violations.push('poisonIsolationDelive
 if (actual.backlogEntries !== 300) violations.push('backlogEntryCount');
 if (actual.missingKafkaDeliveries !== 0) violations.push('missingKafkaDeliveries');
 if (actual.duplicateKafkaDeliveries !== 0) violations.push('duplicateKafkaDeliveries');
+if (poisonDefinitiveRejection.status !== 'DEAD_LETTER') violations.push('poisonDefinitiveStatus');
+if (poisonDefinitiveRejection.retryCount !== 1) violations.push('poisonDefinitiveRetryCount');
+if (poisonDefinitiveRejection.category !== 'PERMANENT') violations.push('poisonDefinitiveCategory');
+if (poisonDefinitiveRejection.code !== 'KAFKA_MESSAGE_TOO_LARGE') violations.push('poisonDefinitiveCode');
+if (poisonDefinitiveRejection.leaseState !== 'no-lease') violations.push('poisonDefinitiveLeaseState');
+if (poisonDefinitiveRejection.deliveryState !== 'unsent') violations.push('poisonDefinitiveDeliveryState');
 
 const pass = violations.length === 0;
 const report = {
@@ -96,6 +114,7 @@ const report = {
     dead: 'Exact number of poison acceptance rows ending DEAD_LETTER.',
     leaseLost: 'Exact number of force-killed worker leases intentionally abandoned in the pod-kill scenario.',
   },
+  poisonDefinitiveRejection,
   recoveryDurationSeconds,
   recoveryDurations: {
     kafkaOutage: actual.outageRecoverySeconds ?? null,
@@ -114,6 +133,7 @@ const report = {
     'artifacts/industrial-readiness/kubernetes/outbox-runtime/graceful-worker.log',
     'artifacts/industrial-readiness/kubernetes/outbox-runtime/kafka-outage-summary.txt',
     'artifacts/industrial-readiness/kubernetes/outbox-runtime/lease-recovery-summary.txt',
+    'artifacts/industrial-readiness/kubernetes/outbox-runtime/poison-definitive-rejection.txt',
     'artifacts/industrial-readiness/kubernetes/outbox-runtime/poison-summary.txt',
     'artifacts/industrial-readiness/kubernetes/outbox-runtime/backlog-summary.txt',
     'artifacts/industrial-readiness/kubernetes/outbox-runtime/kafka-backlog-consumer.log',
