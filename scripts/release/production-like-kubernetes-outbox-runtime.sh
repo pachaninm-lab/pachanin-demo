@@ -185,35 +185,32 @@ admin_sql "
 wait_for_sql "poison dead letter" "1" 60 \
   "SELECT count(*) FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${poison_suffix}' AND \"status\"='DEAD_LETTER';" \
   >/dev/null`;
-const poisonAfter = raw`# Observe a durable first retry before healthy work is introduced. The prior
-# PROCESSING probe sampled once per second, but an oversized Kafka rejection
-# can leave PROCESSING in milliseconds; missing that transient state made the
-# acceptance timing-dependent even though the real worker path had executed.
-wait_for_sql "poison first retry backoff before healthy seed" "FIRST_RETRY_BACKOFF" 60 \
-  "SELECT CASE WHEN \"status\"='PENDING' AND \"retryCount\"=1 AND \"nextRetryAt\">NOW() AND \"leaseOwner\" IS NULL AND \"leaseToken\" IS NULL THEN 'FIRST_RETRY_BACKOFF' ELSE COALESCE(\"status\",'MISSING') END FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${poison_suffix}' LIMIT 1;" \
+const poisonAfter = raw`# The 2 MiB fixture is not a transient transport outage. Kafka protocol error
+# MESSAGE_TOO_LARGE (10) is an explicit broker rejection and KafkaJS marks it
+# non-retriable. Prove that the exact immutable payload is dead-lettered once,
+# with durable PERMANENT evidence, rather than retried or quarantined as an
+# unknown acknowledgement outcome.
+wait_for_sql "poison definitive broker rejection" "DEAD_LETTER" 60 \
+  "SELECT \"status\" FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${poison_suffix}' LIMIT 1;" \
   >/dev/null
-poison_first_retry="$(admin_sql "SELECT concat_ws('|', \"status\"::text, \"retryCount\"::text, COALESCE(\"nextRetryAt\"::text,'')) FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${poison_suffix}' LIMIT 1;")"
-test -n "$poison_first_retry"
-printf '%s\n' "$poison_first_retry" > "$RUNTIME_DIR/poison-first-retry.txt"
-# Atomically extend the proven first-retry backoff before introducing healthy
-# work. If a worker wins the race and reclaims the poison first, fail closed
-# rather than allowing healthy delivery to be credited after dead-lettering.
-poison_hold_count="$(admin_sql "WITH held AS (UPDATE \"outbox_entries\" SET \"nextRetryAt\"=NOW()+INTERVAL '5 minutes' WHERE \"correlationId\"='\${RUN_ID}.\${poison_suffix}' AND \"status\"='PENDING' AND \"retryCount\"=1 AND \"leaseOwner\" IS NULL AND \"leaseToken\" IS NULL RETURNING 1) SELECT count(*) FROM held;")"
-test "$poison_hold_count" = "1"
+poison_rejection="$(admin_sql "
+  SELECT concat_ws('|', \"status\"::text, \"retryCount\"::text,
+    COALESCE(\"lastErrorCategory\",''), COALESCE(\"lastErrorCode\",''),
+    CASE WHEN \"leaseOwner\" IS NULL AND \"leaseToken\" IS NULL AND \"leaseExpiresAt\" IS NULL THEN 'no-lease' ELSE 'leased' END,
+    CASE WHEN \"sentAt\" IS NULL THEN 'unsent' ELSE 'sent' END)
+  FROM \"outbox_entries\"
+  WHERE \"correlationId\"='\${RUN_ID}.\${poison_suffix}'
+  LIMIT 1;
+")"
+printf '%s\n' "$poison_rejection" > "$RUNTIME_DIR/poison-definitive-rejection.txt"
+test "$poison_rejection" = "DEAD_LETTER|1|PERMANENT|KAFKA_MESSAGE_TOO_LARGE|no-lease|unsent"
+# A permanently rejected poison entry must not block independent healthy work.
 test "$(seed_small_entries "$healthy_suffix" 20 10)" = "20"
-wait_for_sql "healthy entries beside a poison held in retry backoff" "20" 60 \
+wait_for_sql "healthy entries beside permanently rejected poison" "20" 60 \
   "SELECT count(*) FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${healthy_suffix}' AND \"status\"='SENT';" \
   >/dev/null
-# Prove the poison remained active throughout healthy delivery, then release
-# only that exact first-retry row for its real final worker attempt.
-wait_for_sql "poison remains active through healthy delivery" "HELD_FIRST_RETRY" 5 \
-  "SELECT CASE WHEN \"status\"='PENDING' AND \"retryCount\"=1 AND \"nextRetryAt\">NOW() AND \"leaseOwner\" IS NULL AND \"leaseToken\" IS NULL THEN 'HELD_FIRST_RETRY' ELSE COALESCE(\"status\",'MISSING') END FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${poison_suffix}' LIMIT 1;" \
-  >/dev/null
-poison_release_count="$(admin_sql "WITH released AS (UPDATE \"outbox_entries\" SET \"nextRetryAt\"=NOW()-INTERVAL '1 second' WHERE \"correlationId\"='\${RUN_ID}.\${poison_suffix}' AND \"status\"='PENDING' AND \"retryCount\"=1 AND \"leaseOwner\" IS NULL AND \"leaseToken\" IS NULL RETURNING 1) SELECT count(*) FROM released;")"
-test "$poison_release_count" = "1"
-wait_for_sql "poison dead letter" "1" 120 \
-  "SELECT count(*) FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${poison_suffix}' AND \"status\"='DEAD_LETTER';" \
-  >/dev/null`;
+sleep 3
+test "$(admin_sql "SELECT concat_ws('|', \"status\"::text, \"retryCount\"::text, CASE WHEN \"sentAt\" IS NULL THEN 'unsent' ELSE 'sent' END) FROM \"outbox_entries\" WHERE \"correlationId\"='\${RUN_ID}.\${poison_suffix}' LIMIT 1;")" = "DEAD_LETTER|1|unsent"`;
 
 const consumerBefore = raw`kafka_pod="$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=kafka -o jsonpath='{.items[0].metadata.name}')"
 set +e
@@ -280,7 +277,7 @@ const replacements = [
   [gracefulBefore, gracefulAfter, 'graceful shutdown assertion boundary'],
   [killClaimBefore, killClaimAfter, 'forced-kill attempted-lease fixture boundary'],
   [killRecoveryBefore, killRecoveryAfter, 'forced-kill ambiguity recovery boundary'],
-  [poisonBefore, poisonAfter, 'poison isolation scheduling boundary'],
+  [poisonBefore, poisonAfter, 'poison isolation permanent-rejection boundary'],
   [consumerBefore, consumerAfter, 'Kafka delivery probe boundary'],
   [finalLogsBefore, finalLogsAfter, 'final worker log collection boundary'],
 ];

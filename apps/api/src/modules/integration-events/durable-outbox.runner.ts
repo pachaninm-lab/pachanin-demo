@@ -1,6 +1,9 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { hostname } from 'node:os';
-import { KafkaProducerService } from '../../common/kafka/kafka-producer.service';
+import {
+  KafkaDefinitiveRejectionError,
+  KafkaProducerService,
+} from '../../common/kafka/kafka-producer.service';
 import {
   ClaimedOutboxEntry,
   DurableOutboxWorker,
@@ -175,6 +178,9 @@ export class DurableOutboxRunner implements OnModuleInit, OnModuleDestroy {
         });
       } catch (error) {
         if (error instanceof OutboxLeaseLostError || error instanceof OutboxDeliveryError) throw error;
+        if (error instanceof KafkaDefinitiveRejectionError) {
+          throw new OutboxDeliveryError('PERMANENT', error.code, error.message);
+        }
         throw new OutboxDeliveryError(
           'AMBIGUOUS',
           'TRANSPORT_OUTCOME_UNKNOWN',
@@ -183,10 +189,9 @@ export class DurableOutboxRunner implements OnModuleInit, OnModuleDestroy {
       }
       if (heartbeatFailure) throw heartbeatFailure;
       if (!delivered) {
-        // KafkaProducerService currently collapses producer.send() failures into
-        // false. Once the transport was connected and delivery was attempted,
-        // false therefore cannot prove that Kafka did not accept the record.
-        // Quarantine rather than retrying an outcome that may already exist.
+        // A false result after a connected delivery attempt carries no broker
+        // rejection evidence. Preserve the ambiguity rather than guessing that
+        // the record was not accepted and replaying a possible duplicate.
         throw new OutboxDeliveryError(
           'AMBIGUOUS',
           'TRANSPORT_OUTCOME_UNKNOWN',

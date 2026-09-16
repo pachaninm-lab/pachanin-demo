@@ -1,4 +1,7 @@
-import { KafkaProducerService } from './kafka-producer.service';
+import {
+  KafkaDefinitiveRejectionError,
+  KafkaProducerService,
+} from './kafka-producer.service';
 
 describe('KafkaProducerService topology contract', () => {
   const original = {
@@ -95,5 +98,55 @@ describe('KafkaProducerService topology contract', () => {
     await expect(service.isReady()).resolves.toBe(false);
     expect(service.isConnected()).toBe(true);
     expect(describeCluster).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['MESSAGE_TOO_LARGE', 10, 'KAFKA_MESSAGE_TOO_LARGE'],
+    ['RECORD_LIST_TOO_LARGE', 18, 'KAFKA_RECORD_LIST_TOO_LARGE'],
+  ] as const)(
+    'preserves definitive broker rejection %s instead of collapsing it to false',
+    async (type, code, expectedCode) => {
+      const service = new KafkaProducerService();
+      const send = jest.fn().mockRejectedValue(Object.assign(
+        new Error('broker rejected immutable payload'),
+        { name: 'KafkaJSProtocolError', type, code, retriable: false },
+      ));
+      const state = service as unknown as {
+        connected: boolean;
+        producer: { send: typeof send } | null;
+      };
+      state.connected = true;
+      state.producer = { send };
+
+      await expect(service.send({ topic: 'domain', value: { oversized: true } }))
+        .rejects.toEqual(expect.objectContaining({
+          name: 'KafkaDefinitiveRejectionError',
+          code: expectedCode,
+        }));
+    },
+  );
+
+  it('keeps an acknowledgement-window transport exception unclassified and fail-closed', async () => {
+    const service = new KafkaProducerService();
+    const send = jest.fn().mockRejectedValue(new Error('socket closed before acknowledgement'));
+    const state = service as unknown as {
+      connected: boolean;
+      producer: { send: typeof send } | null;
+    };
+    state.connected = true;
+    state.producer = { send };
+
+    await expect(service.send({ topic: 'domain', value: { uncertain: true } })).resolves.toBe(false);
+  });
+
+  it('exports a stable typed rejection contract for the outbox boundary', () => {
+    const error = new KafkaDefinitiveRejectionError(
+      'KAFKA_MESSAGE_TOO_LARGE',
+      'message cannot be accepted',
+    );
+    expect(error).toMatchObject({
+      name: 'KafkaDefinitiveRejectionError',
+      code: 'KAFKA_MESSAGE_TOO_LARGE',
+    });
   });
 });

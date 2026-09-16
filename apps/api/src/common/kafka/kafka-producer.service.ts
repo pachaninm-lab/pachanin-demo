@@ -4,6 +4,8 @@
  * Kafka availability never changes business authority. The durable worker uses
  * a protocol-level readiness probe before claiming work; once a delivery has
  * been attempted, a missing acknowledgement remains an ambiguous outcome.
+ * Broker protocol rejections that explicitly prove non-acceptance are preserved
+ * as typed failures instead of being collapsed into an unknown boolean result.
  * A dedicated worker can additionally set KAFKA_REQUIRED=true to fail startup
  * instead of entering a misleading healthy no-op mode.
  */
@@ -23,6 +25,61 @@ export interface KafkaProducerHealth {
   configured: boolean;
   connected: boolean;
   clientId: string;
+}
+
+export type KafkaDefinitiveRejectionCode =
+  | 'KAFKA_MESSAGE_TOO_LARGE'
+  | 'KAFKA_RECORD_LIST_TOO_LARGE';
+
+export class KafkaDefinitiveRejectionError extends Error {
+  constructor(
+    readonly code: KafkaDefinitiveRejectionCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'KafkaDefinitiveRejectionError';
+  }
+}
+
+type KafkaProtocolErrorShape = Readonly<{
+  name?: unknown;
+  type?: unknown;
+  code?: unknown;
+  originalError?: unknown;
+}>;
+
+function kafkaProtocolError(error: unknown): KafkaProtocolErrorShape | null {
+  const direct = typeof error === 'object' && error !== null
+    ? error as KafkaProtocolErrorShape
+    : null;
+  if (direct?.name === 'KafkaJSProtocolError') return direct;
+  const original = direct?.originalError;
+  if (typeof original === 'object' && original !== null) {
+    const nested = original as KafkaProtocolErrorShape;
+    if (nested.name === 'KafkaJSProtocolError') return nested;
+  }
+  return null;
+}
+
+function definitiveKafkaRejection(error: unknown): KafkaDefinitiveRejectionError | null {
+  const protocol = kafkaProtocolError(error);
+  if (!protocol) return null;
+
+  const type = typeof protocol.type === 'string' ? protocol.type : '';
+  const code = typeof protocol.code === 'number' ? protocol.code : Number.NaN;
+  const message = error instanceof Error ? error.message : String(error);
+
+  // Kafka protocol errors 10 and 18 are explicit broker rejections: the broker
+  // states that the record/request is too large to accept. Retrying the same
+  // immutable payload cannot make it valid and does not carry an unknown
+  // acknowledgement window, so preserve this as a permanent rejection.
+  if (type === 'MESSAGE_TOO_LARGE' || code === 10) {
+    return new KafkaDefinitiveRejectionError('KAFKA_MESSAGE_TOO_LARGE', message);
+  }
+  if (type === 'RECORD_LIST_TOO_LARGE' || code === 18) {
+    return new KafkaDefinitiveRejectionError('KAFKA_RECORD_LIST_TOO_LARGE', message);
+  }
+  return null;
 }
 
 @Injectable()
@@ -158,6 +215,11 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
       });
       return true;
     } catch (error) {
+      const rejection = definitiveKafkaRejection(error);
+      if (rejection) {
+        this.logger.warn(`Kafka rejected message [${message.topic}] code=${rejection.code}: ${rejection.message}`);
+        throw rejection;
+      }
       this.logger.error(`Kafka send failed [${message.topic}]: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
@@ -196,6 +258,11 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
       });
       return messages.length;
     } catch (error) {
+      const rejection = definitiveKafkaRejection(error);
+      if (rejection) {
+        this.logger.warn(`Kafka rejected batch code=${rejection.code}: ${rejection.message}`);
+        throw rejection;
+      }
       this.logger.error(`Kafka sendBatch failed: ${error instanceof Error ? error.message : String(error)}`);
       return 0;
     }
