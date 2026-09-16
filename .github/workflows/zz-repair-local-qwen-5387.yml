@@ -12,7 +12,7 @@ jobs:
   repair:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           ref: fix/local-qwen-evidence-binding-20260913
           fetch-depth: 0
