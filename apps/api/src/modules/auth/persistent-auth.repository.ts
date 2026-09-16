@@ -1324,6 +1324,65 @@ export class PersistentAuthRepository {
     `);
   }
 
+  /**
+   * Holds an account to a maximum number of live sessions by ending its oldest.
+   *
+   * OWASP ASVS 5.0 V7.1.2. Ordered by created_at rather than last_seen_at: the
+   * question is which session has existed longest, not which has been idle
+   * longest. Ordering by idleness would let an attacker keep a stolen session
+   * alive indefinitely by touching it, and evict the owner's real sessions
+   * instead - the precise inversion of the control.
+   *
+   * Scoped, because auth.sessions holds more than one kind. A Gekta product
+   * session and a platform session are different things with different budgets,
+   * and one must not evict the other.
+   *
+   * Returns how many were ended, so the caller can record it rather than guess.
+   */
+  async revokeSessionsBeyondLimit(
+    client: AuthSqlClient,
+    userId: string,
+    scope: string,
+    keep: number,
+    reason: string,
+  ): Promise<number> {
+    if (!Number.isInteger(keep) || keep < 1) {
+      throw new Error(`Session limit must be a positive integer, received ${keep}`);
+    }
+    const evicted = await client.$executeRaw(Prisma.sql`
+      UPDATE auth.sessions
+      SET status = 'REVOKED',
+          revoked_at = NOW(),
+          revocation_reason = ${reason},
+          updated_at = NOW()
+      WHERE id IN (
+        SELECT id
+        FROM auth.sessions
+        WHERE user_id = ${userId}
+          AND scope = ${scope}
+          AND status IN ('ACTIVE', 'MFA_PENDING')
+        ORDER BY created_at DESC, id DESC
+        OFFSET ${keep}
+      )
+    `);
+    if (evicted > 0) {
+      // A revoked session whose refresh token still works is not revoked.
+      await client.$executeRaw(Prisma.sql`
+        UPDATE auth.refresh_tokens rt
+        SET status = 'REVOKED',
+            revoked_at = NOW(),
+            revocation_reason = ${reason}
+        FROM auth.sessions s
+        WHERE s.id = rt.session_id
+          AND s.user_id = ${userId}
+          AND s.revocation_reason = ${reason}
+          AND s.status = 'REVOKED'
+          AND rt.status IN ('ACTIVE', 'ROTATED')
+      `);
+    }
+    return evicted;
+  }
+
   async activateMfaSession(
     client: AuthSqlClient,
     input: {

@@ -4670,38 +4670,98 @@
     {
       "requirementId": "V7.1.2",
       "applicability": "APPLICABLE",
-      "status": "FAIL",
+      "status": "PASS",
       "evidence": [
-        "session-service:apps/api/src/modules/auth/product-session.service.ts",
-        "documentation-set:docs/security/THREAT_MODEL.md"
+        "apps/api/src/modules/auth/auth.service.ts",
+        "apps/api/src/modules/auth/persistent-auth.repository.ts",
+        "docs/security/SESSION_POLICY.md",
+        "apps/api/src/modules/auth/concurrent-session-limit.spec.ts"
       ],
       "conditions": [
         {
-          "condition": "no concurrent-session limit is enforced in the session service",
-          "check": "ABSENT_AT_PATH",
+          "condition": "the documented number still exists as a number in the source, with the smaller tier still selected by the same authority that selects the shorter idle timeout rather than by a second list",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "apps/api/src/modules/auth/product-session.service.ts"
+            "apps/api/src/modules/auth/auth.service.ts"
           ],
           "patterns": [
-            "maxsessions",
-            "concurrentsession",
-            "sessionlimit"
+            "export const MAX_CONCURRENT_SESSIONS = 5;",
+            "export const MAX_CONCURRENT_SESSIONS_PRIVILEGED = 3;",
+            "const privileged = ROLES_REQUIRING_MFA.includes(role as Role);"
           ]
         },
         {
-          "condition": "no document defines how many parallel sessions an account may hold",
-          "check": "ABSENT_AT_PATH",
+          "condition": "a configured value that is not a usable limit is still ignored rather than obeyed, so a typo cannot remove the bound",
+          "check": "PRESENT_ALL_AT_PATH",
           "paths": [
-            "docs/security/THREAT_MODEL.md",
-            "SECURITY.md"
+            "apps/api/src/modules/auth/auth.service.ts"
           ],
           "patterns": [
-            "concurrent session",
-            "parallel session"
+            "if (Number.isInteger(configured) && configured >= 1) return configured;"
+          ]
+        },
+        {
+          "condition": "the limit is still applied on the login path itself, after the new session exists so the count includes it, and the eviction is still recorded",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.service.ts"
+          ],
+          "patterns": [
+            "const evicted = await this.repository.revokeSessionsBeyondLimit(",
+            "PLATFORM_SESSION_SCOPE,\n      limit,\n      'CONCURRENT_SESSION_LIMIT',",
+            "action: 'auth.session.evicted',"
+          ]
+        },
+        {
+          "condition": "the eviction still ends the OLDEST sessions by age rather than the newest or the most idle, and is still confined to one account and one session scope",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/persistent-auth.repository.ts"
+          ],
+          "patterns": [
+            "ORDER BY created_at DESC, id DESC",
+            "WHERE user_id = ${userId}\n          AND scope = ${scope}",
+            "AND status IN ('ACTIVE', 'MFA_PENDING')"
+          ]
+        },
+        {
+          "condition": "a session it ends still has its refresh token revoked, and a limit that is not a positive integer is still refused rather than run as an offset that would revoke everything",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/persistent-auth.repository.ts"
+          ],
+          "patterns": [
+            "if (!Number.isInteger(keep) || keep < 1) {",
+            "UPDATE auth.refresh_tokens rt"
+          ]
+        },
+        {
+          "condition": "the documentation still states the number and what happens when it is reached, which is the half of this requirement that is about writing it down",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "docs/security/SESSION_POLICY.md"
+          ],
+          "patterns": [
+            "| Concurrent platform sessions | **5** | `MAX_CONCURRENT_SESSIONS` |",
+            "## How many at once, and what happens at the limit",
+            "the oldest session ends and the new login succeeds"
+          ]
+        },
+        {
+          "condition": "the behaviour is still proven by driving the login path and the query rather than by reading them, including that the limit is applied at all and that it is not applied before the new session exists",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/concurrent-session-limit.spec.ts"
+          ],
+          "patterns": [
+            "it('applies the limit on every login, with this account, this scope and this role budget'",
+            "it('counts the new session against the limit, by applying it after the session exists'",
+            "it('keeps the NEWEST sessions and ends the oldest'",
+            "it('refuses a limit that is not a positive integer rather than running it'"
           ]
         }
       ],
-      "note": "Neither the limit nor its documentation exists. An account may hold unlimited parallel sessions; organization-team.service.ts surfaces an activeSessionCount for display, which counts sessions rather than bounding them."
+      "note": "Closed. The previous note was exactly right and is worth keeping as the statement of what was wrong: neither the limit nor its documentation existed, an account could hold unlimited parallel sessions, and organization-team.service.ts surfaced an activeSessionCount for display - counting sessions rather than bounding them. This requirement is one of the few that asks for a document, so it is the one most easily answered by writing prose. It is not answered that way here. SESSION_POLICY.md states the number and the behaviour, and the number is a constant the login path actually applies; the register's conditions hold both halves, and a mutation that leaves the constant in place while never calling it was confirmed to fail. That failure mode is not hypothetical in this codebase - V6.4.6 records a reset token that was issued and connected to nothing. Five concurrent platform sessions for an ordinary account, three for a privileged one. The tiering reuses ROLES_REQUIRING_MFA, which already decides the session idle timeout and is already this platform's definition of a privileged actor; a second, different notion of privileged is the inconsistency V6.3.4 is about. Both are overridable by environment so an operator can retune without a deploy, and a value that is not a positive integer is IGNORED rather than obeyed - 0 read literally is an OFFSET that revokes every session the account has, so the repository refuses it outright as well. The behaviour at the limit is the part worth arguing, and the argument runs the other way from the obvious choice. Refusing the new session is the intuitive reading of a maximum, and it is wrong here: if reaching the limit refused new logins, anyone able to open sessions against an account could fill its budget and lock the real owner out, turning a bound meant to contain an attacker into a denial of service against the account it protects. So the oldest session ends and the new login always succeeds. What was displaced is written to the audit trail as auth.session.evicted, because a session vanishing silently is indistinguishable, to its owner, from one being stolen and revoked. Four details decide whether this works, and each is pinned by a condition and broken by a mutation. Oldest by created_at, not last_seen_at: ordering by idleness would let an attacker keep a stolen session alive by touching it and have the owner's real sessions evicted instead, which is the precise inversion of the control. Applied AFTER the new session is created, so the count includes it and the newest is kept; applied before, the account sits one over the limit until the next login. Confined to the PLATFORM scope, because auth.sessions holds product sessions too and a platform login must not evict one. And the refresh tokens of evicted sessions are revoked in the same transaction, because a revoked session whose refresh token still works is not revoked. Verified against a real PostgreSQL 16.13 rather than reasoned about: seven platform sessions, one product session and a second account. After the cap, the five newest platform sessions are ACTIVE, the two oldest REVOKED, the product session untouched, the second account untouched at seven of seven, and exactly two refresh tokens revoked. OFFSET with a bound parameter behaves as intended. Eleven mutations were confirmed to break the tests, including each of the four details above individually. One of them initially passed and the reason was my own mutation rather than the test: it inserted a comment instead of actually moving the call, so nothing changed. Rewritten to genuinely swap the two blocks, it fails. A mutation that does not mutate proves as little as a test that cannot fail. What this does not claim. Product (Gekta) sessions are a separate scope with no limit of their own; if one is wanted that is a separate decision with a separate number, and SESSION_POLICY.md says so rather than leaving a reader to assume the coverage is total. Staff access grants are time-bound by the staff access control plane and are not counted here. The idle and absolute lifetime limits are separate controls and are not relaxed to compensate for this one."
     },
     {
       "requirementId": "V7.1.3",

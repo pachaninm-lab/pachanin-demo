@@ -54,6 +54,8 @@ function repository() {
     recordMembershipSelectionFailure: jest.fn(),
     consumeMembershipSelectionChallenge: jest.fn(),
     createSession: jest.fn(),
+    // ASVS V7.1.2: every login now applies the concurrent-session limit.
+    revokeSessionsBeyondLimit: jest.fn(async () => 0),
     createRefreshToken: jest.fn(),
     createMfaChallenge: jest.fn(),
     setMfaSecret: jest.fn(),

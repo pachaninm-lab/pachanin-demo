@@ -1429,6 +1429,17 @@
     ],
     "fix/gitleaks-release-authority-attestation-20260912": [
       "apps/tai/tests/test_gitleaks_release_authority.py"
+    ],
+    "security/asvs-v712-concurrent-session-limit-4459": [
+      "apps/api/src/modules/auth/auth-login-boundary.spec.ts",
+      "apps/api/src/modules/auth/auth.membership-selection.spec.ts",
+      "apps/api/src/modules/auth/auth.service.ts",
+      "apps/api/src/modules/auth/concurrent-session-limit.spec.ts",
+      "apps/api/src/modules/auth/persistent-auth.repository.ts",
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+      "docs/security/SESSION_POLICY.md",
+      "docs/security/asvs-applicability-decisions.json"
     ]
   },
   "currentAcceptance": [

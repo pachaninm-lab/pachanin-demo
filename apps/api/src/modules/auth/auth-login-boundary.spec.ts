@@ -65,6 +65,8 @@ function repositoryHarness() {
     markLoginSuccess: jest.fn(async () => undefined),
     createMembershipSelectionChallenge: jest.fn(async () => undefined),
     createSession: jest.fn(async () => undefined),
+    // ASVS V7.1.2: every login now applies the concurrent-session limit.
+    revokeSessionsBeyondLimit: jest.fn(async () => 0),
     createMfaChallenge: jest.fn(async () => undefined),
     setMfaSecret: jest.fn(async () => undefined),
     latestAuditChainPosition: jest.fn(async () => ({

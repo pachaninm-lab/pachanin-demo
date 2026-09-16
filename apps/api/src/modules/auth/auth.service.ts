@@ -103,6 +103,42 @@ export function idleTimeoutMsForRole(role: string | null | undefined): number {
     : SESSION_IDLE_TIMEOUT_MS;
 }
 
+/**
+ * How many platform sessions one account may hold at once (ASVS 5.0 V7.1.2).
+ *
+ * The requirement asks for a documented number and a documented behaviour at the
+ * limit. Both are choices, and both are made here rather than left implicit;
+ * docs/security/SESSION_POLICY.md carries the reasoning at length.
+ *
+ * Five for an ordinary account, three for a privileged one. The tiering is not
+ * invented for this control - it reuses ROLES_REQUIRING_MFA, which is already
+ * this platform's definition of a privileged actor and already decides the idle
+ * timeout. A second, different notion of "privileged" is exactly the
+ * inconsistency V6.3.4 is about.
+ *
+ * Five is deliberately generous against real use - a phone in a truck cab, a
+ * desktop, a tablet, a spare - and still far below what an account accumulates
+ * when sessions are never bounded. It is not a number that stops an attacker who
+ * has the password; it bounds how much simultaneous access any one credential
+ * can be spread across, and it makes the eviction visible in the audit trail.
+ *
+ * Overridable by environment, following the rate limits, so an operator can
+ * change it without a deploy. A value that is not a positive integer is ignored
+ * rather than obeyed: a typo must not silently remove the bound.
+ */
+export const MAX_CONCURRENT_SESSIONS = 5;
+export const MAX_CONCURRENT_SESSIONS_PRIVILEGED = 3;
+export const PLATFORM_SESSION_SCOPE = 'PLATFORM';
+
+export function concurrentSessionLimitForRole(role: string | null | undefined): number {
+  const privileged = ROLES_REQUIRING_MFA.includes(role as Role);
+  const configured = Number(
+    process.env[privileged ? 'MAX_CONCURRENT_SESSIONS_PRIVILEGED' : 'MAX_CONCURRENT_SESSIONS'],
+  );
+  if (Number.isInteger(configured) && configured >= 1) return configured;
+  return privileged ? MAX_CONCURRENT_SESSIONS_PRIVILEGED : MAX_CONCURRENT_SESSIONS;
+}
+
 const MFA_CHALLENGE_TTL_MS = 10 * 60 * 1000;
 const MEMBERSHIP_SELECTION_TTL_MS = 5 * 60 * 1000;
 const MFA_FRESHNESS_MS = 15 * 60 * 1000;
@@ -973,6 +1009,39 @@ export class AuthService {
       ipHash: hashClientValue(ip),
       expiresAt,
     });
+
+    // ASVS 5.0 V7.1.2. Applied AFTER the new session exists, so the count the
+    // limit is applied to includes it and the newest session is the one kept.
+    // Applying it before would leave the account one over the limit until the
+    // next login, which is the bound being off by one in the direction that
+    // matters.
+    //
+    // The behaviour at the limit is to end the oldest, not to refuse the new
+    // one. Refusing would let anyone who can open sessions lock the real owner
+    // out by filling their budget - a bound intended to contain an attacker
+    // turned into a denial of service against the account it protects. Ending
+    // the oldest cannot be used that way: the person logging in now always gets
+    // in, and what they displace is recorded.
+    const limit = concurrentSessionLimitForRole(identity.role);
+    const evicted = await this.repository.revokeSessionsBeyondLimit(
+      tx,
+      identity.user_id,
+      PLATFORM_SESSION_SCOPE,
+      limit,
+      'CONCURRENT_SESSION_LIMIT',
+    );
+    if (evicted > 0) {
+      // Silent eviction is indistinguishable from a session being stolen and
+      // revoked. The owner sees it in their own audit trail either way.
+      await this.audit(tx, {
+        userId: identity.user_id,
+        sessionId,
+        action: 'auth.session.evicted',
+        outcome: 'SUCCESS',
+        reason: 'CONCURRENT_SESSION_LIMIT',
+        metadata: { limit, evicted },
+      });
+    }
 
     if (mfaRequired) {
       const enrollment = !credential.mfa_enabled || !credential.mfa_secret_ciphertext;
