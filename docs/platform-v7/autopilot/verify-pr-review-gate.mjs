@@ -583,7 +583,7 @@ export function canonicalizeExactPrHeadActionsChecks(
 
   if (!expectedSha) return { checks: [], errors: ['exact-head-sha-invalid'] };
   if (!expectedRef) return { checks: [], errors: ['exact-head-ref-invalid'] };
-  if (!isGitHubRepositorySlug(repo)) return { checks: [], errors: ['repository-invalid'] };
+  if (!isGitHubRepositorySlug(repo)) return { checks: [], errors: ['actions-authority-input-invalid'] };
 
   const runsById = new Map();
   for (const run of sourceRuns) {
@@ -1062,7 +1062,7 @@ function fetchCheckSnapshot(repo, prNumber) {
       headSha: '',
       headRef: '',
       checks: [],
-      canonicalizationErrors: ['repository-invalid'],
+      canonicalizationErrors: ['actions-authority-input-invalid'],
     };
   }
 
@@ -1222,13 +1222,19 @@ function fail(code, message) {
 }
 
 function main() {
-  const repo = process.env.REPO || process.env.GITHUB_REPOSITORY || '';
+  const repoOverride = String(process.env.REPO || '').trim();
+  const workflowRepo = String(process.env.GITHUB_REPOSITORY || '').trim();
+  const repo = workflowRepo || repoOverride;
   const prNumber = Number(process.env.PR_NUMBER || 0);
   const expectedHeadInput = String(process.env.HEAD_SHA || '').trim();
   const expectedHead = expectedHeadInput;
   const requireGreenCi = process.env.REQUIRE_GREEN_CI === '1';
 
   if (!repo) fail('REVIEW_GATE_REPO_MISSING', 'REPO/GITHUB_REPOSITORY is required.');
+  if (!isGitHubRepositorySlug(repo)) fail('REVIEW_GATE_REPO_INVALID', 'Repository authority must be a valid owner/name slug.');
+  if (repoOverride && workflowRepo && repoOverride.toLowerCase() !== workflowRepo.toLowerCase()) {
+    fail('REVIEW_GATE_REPO_AUTHORITY_MISMATCH', 'REPO must match trusted GITHUB_REPOSITORY when both are present.');
+  }
   if (!Number.isInteger(prNumber) || prNumber <= 0) fail('REVIEW_GATE_PR_MISSING', 'PR_NUMBER must be a positive integer.');
 
   const [ownerLogin] = String(repo).split('/');

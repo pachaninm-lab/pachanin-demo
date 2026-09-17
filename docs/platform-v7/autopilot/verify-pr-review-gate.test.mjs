@@ -395,6 +395,18 @@ test('Actions check URL parsing is repository-bound and exact', () => {
   assert.equal(actionsRunIdFromCheck({ ...check, detailsUrl: 'https://example.com/actions/runs/35265106561' }, repo), '');
 });
 
+test('invalid repository identity fails closed with a generic Actions authority diagnostic', () => {
+  const result = canonicalizeExactPrHeadActionsChecks(
+    [actionsCheck({ runId: 42 })],
+    [actionsRun({ id: 42, runNumber: 10 })],
+    head,
+    exactHeadRef,
+    'owner/repo/extra',
+  );
+  assert.deepEqual(result.checks, []);
+  assert.deepEqual(result.errors, ['actions-authority-input-invalid']);
+});
+
 test('same-SHA Actions check from a foreign PR head ref is excluded only after valid run metadata proves the mismatch', () => {
   const foreignFailure = actionsCheck({ runId: 35264531109, conclusion: 'FAILURE' });
   const currentSuccess = actionsCheck({ runId: 35265106561, conclusion: 'SUCCESS' });
