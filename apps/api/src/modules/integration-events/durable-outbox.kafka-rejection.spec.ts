@@ -48,7 +48,7 @@ describe('DurableOutboxRunner Kafka broker rejection boundary', () => {
     const kafka = {
       isConnected: jest.fn().mockReturnValue(true),
       isReady: jest.fn().mockResolvedValue(true),
-      send: jest.fn().mockRejectedValue(new KafkaDefinitiveRejectionError(
+      sendOrThrow: jest.fn().mockRejectedValue(new KafkaDefinitiveRejectionError(
         'KAFKA_MESSAGE_TOO_LARGE',
         'The request included a message larger than the max message size the server will accept',
       )),
@@ -62,6 +62,7 @@ describe('DurableOutboxRunner Kafka broker rejection boundary', () => {
       category: 'PERMANENT',
       code: 'KAFKA_MESSAGE_TOO_LARGE',
     });
+    expect(kafka.sendOrThrow).toHaveBeenCalledTimes(1);
     await runner.onModuleDestroy();
   });
 });
