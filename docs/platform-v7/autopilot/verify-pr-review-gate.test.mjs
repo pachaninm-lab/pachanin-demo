@@ -196,7 +196,9 @@ test('Local Qwen authority requires exact canonical Qwen3 identity, policy, stat
   ].join('\n');
   const review = { user: { login: 'github-actions[bot]' }, commit_id: head, state: 'COMMENTED', body };
   const status = {
-    context: LOCAL_QWEN_STATUS_CONTEXT, state: 'success', creator: { login: 'github-actions[bot]' },
+    context: LOCAL_QWEN_STATUS_CONTEXT,
+    state: 'success',
+    creator: { login: 'github-actions[bot]' },
     description: 'Qwen clean model=' + LOCAL_QWEN_MODEL_SHA256.slice(0, 8) + ' response=' + responseSha.slice(0, 16) + ' chunks=4 manifest=' + manifestSha.slice(0, 16),
     target_url: 'https://github.com/' + repo + '/actions/runs/' + runId,
   };
@@ -565,7 +567,7 @@ const rejectedEvidenceHarness=String.raw`
 import ast, hashlib, json, os, pathlib, re, subprocess, sys, tempfile
 remote, validator, transport, cleanup, scenario = sys.argv[1:]
 tree=ast.parse(remote)
-constants={'MAX_SPECULATIVE_REPAIR_ATTEMPTS','SPECULATIVE','SPECULATIVE_REASON','SECURITY_CLASSIFICATION','ROUTE_TEST_REFERENCE'}
+constants={'MAX_SPECULATIVE_REPAIR_ATTEMPTS','SPECULATIVE','SPECULATIVE_REASON','SECURITY_CLASSIFICATION','SECURITY_FINDING_TERMS','ROUTE_TEST_REFERENCE','EXTERNAL_TERMS'}
 functions={'fail','finding_violation','policy_violation','candidate_anchor','anchored_repair_schema','scoped_speculative_repair_item','can_retry_speculative','repair_user','save_rejected'}
 definitions=[node for node in tree.body if isinstance(node,ast.FunctionDef) and node.name in functions or isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id in constants for t in node.targets)]
 loop=[node for node in tree.body if isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='repairs' for t in node.targets) or isinstance(node,ast.With) and any(isinstance(i.context_expr,ast.Call) and isinstance(i.context_expr.func,ast.Attribute) and isinstance(i.context_expr.func.value,ast.Name) and i.context_expr.func.value.id=='output_path' for i in node.items)]
@@ -575,14 +577,16 @@ with tempfile.TemporaryDirectory() as directory:
     manifest_path=root/'review-manifest.json'
     manifest_path.write_text(json.dumps(manifest))
     manifest_sha=hashlib.sha256(manifest_path.read_bytes()).hexdigest()
-    namespace={'json':json,'re':re,'hashlib':hashlib,'schema':{},'review_head':'a'*40,'run_id':'123','run_attempt':'2','diff_sha':'d'*64,'manifest_sha':manifest_sha,'bearer':'PRIVATE_TOKEN_CANARY','host':'PRIVATE_HOST_CANARY'}
+    namespace={'json':json,'re':re,'hashlib':hashlib,'schema':{'properties':{'findings':{'items':{'properties':{'path':{'type':'string'},'line':{'type':'integer'},'evidence':{'type':'string'}}}}}},'review_head':'a'*40,'run_id':'123','run_attempt':'2','diff_sha':'d'*64,'manifest_sha':manifest_sha,'bearer':'PRIVATE_TOKEN_CANARY','host':'PRIVATE_HOST_CANARY'}
     exec(compile(ast.Module(body=definitions,type_ignores=[]),'<actual-qwen-functions>','exec'),namespace)
     original_save=namespace['save_rejected']
-    item={'index':1,'path':'src/changed.mjs','chunk_sha256':'c'*64,'system':'trusted fixture policy','user':'public fixture diff'}
+    item={'index':1,'path':'src/changed.mjs','chunk_sha256':'c'*64,'system':'trusted fixture policy','user':'public fixture diff','added_lines':[{'line':1,'text':'const changed = true;'}],'chunk_text':'+const changed = true;'}
     def response(reason):
-        return json.dumps({'findings':[{'severity':'P1','path':item['path'],'line':1,'title':'Concrete fixture','reason':reason}]},ensure_ascii=False)
+        return json.dumps({'findings':[{'severity':'P1','path':item['path'],'line':1,'evidence':'const changed = true;','title':'Concrete fixture','reason':reason}]},ensure_ascii=False)
     initial=response('This change could fail for the public fixture.')
     final=response('This change may fail for the public fixture.')
+    def exhausted(first=initial, last=final):
+        return [first,last,last,last]
     def review(responses, save=None, request=None):
         folder=root/('review-'+str(len(list(root.glob('review-*')))))
         folder.mkdir()
@@ -610,13 +614,13 @@ with tempfile.TemporaryDirectory() as directory:
             assert destination.read_bytes()==raw
             assert destination.stat().st_mode & 0o777 == 0o600
     if scenario=='failed-repair':
-        output,rejected,calls,failure=review([initial,final])
-        assert failure=='REMOTE_REVIEW_ERROR=POLICY_REPAIR_INVALID_SPECULATIVE_REASON'
-        assert len(calls)==2 and output.read_text()==''
+        output,rejected,calls,failure=review(exhausted())
+        assert failure=='REMOTE_REVIEW_ERROR=POLICY_REPAIR_INVALID_SPECULATIVE_CLAIM'
+        assert len(calls)==4 and output.read_text()==''
         raw=rejected.read_bytes(); value=json.loads(raw)
         assert len(raw)<=65536 and rejected.stat().st_mode & 0o777 == 0o600
         assert value['initial']['content']==initial and value['final']['content']==final
-        assert value['repair_prompt_sha256']==hashlib.sha256(calls[1][1].encode()).hexdigest()
+        assert value['repair_prompt_sha256']==hashlib.sha256(calls[3][1].encode()).hexdigest()
         assert b'PRIVATE_TOKEN_CANARY' not in raw and b'PRIVATE_HOST_CANARY' not in raw
         validate(raw)
     elif scenario=='unchanged-review':
@@ -627,11 +631,13 @@ with tempfile.TemporaryDirectory() as directory:
     elif scenario=='diagnostic-write-failure':
         for error in (OSError('fixture disk error'),KeyError('fixture metadata')):
             def broken(*args): raise error
-            output,rejected,calls,failure=review([initial,final],broken)
-            assert failure=='REMOTE_REVIEW_ERROR=POLICY_REPAIR_INVALID_SPECULATIVE_REASON'
-            assert len(calls)==2 and output.read_text()=='' and not rejected.exists()
+            output,rejected,calls,failure=review(exhausted(),broken)
+            assert failure=='REMOTE_REVIEW_ERROR=POLICY_REPAIR_INVALID_SPECULATIVE_CLAIM'
+            assert len(calls)==4 and output.read_text()=='' and not rejected.exists()
     elif scenario=='utf8-and-bounds':
-        output,rejected,calls,failure=review([response('could: я中🌾'),response('may: я中🌾')])
+        first=response('could: я中🌾'); last=response('may: я中🌾')
+        output,rejected,calls,failure=review(exhausted(first,last))
+        assert failure=='REMOTE_REVIEW_ERROR=POLICY_REPAIR_INVALID_SPECULATIVE_CLAIM' and len(calls)==4
         raw=rejected.read_bytes(); value=json.loads(raw)
         for key in ('initial','final'):
             content=value[key]['content'].encode('utf-8')
@@ -641,9 +647,11 @@ with tempfile.TemporaryDirectory() as directory:
         validate(raw+b' '*(65537-len(raw)),False)
         validate(raw.decode().encode('utf-16'),False)
         output,rejected,calls,failure=review([response('could '+'\x00'*20000),final])
-        assert failure=='REMOTE_REVIEW_ERROR=POLICY_REPAIR_INVALID_SPECULATIVE_REASON' and not rejected.exists()
+        assert failure=='REMOTE_REVIEW_ERROR=POLICY_INVALID_SCHEMA_INVALID_REASON' and not rejected.exists()
     elif scenario=='binding-and-schema':
-        _,rejected,_,_=review([initial,final]); original=json.loads(rejected.read_bytes())
+        _,rejected,calls,failure=review(exhausted())
+        assert failure=='REMOTE_REVIEW_ERROR=POLICY_REPAIR_INVALID_SPECULATIVE_CLAIM' and len(calls)==4
+        original=json.loads(rejected.read_bytes())
         mutations=[lambda v:v.update(head='b'*40),lambda v:v.update(run_id='124'),lambda v:v.update(run_attempt='3'),
             lambda v:v.update(full_diff_sha256='e'*64),lambda v:v.update(manifest_sha256='f'*64),
             lambda v:v['chunk'].update(index=2),lambda v:v['chunk'].update(path='src/other.mjs'),lambda v:v['chunk'].update(sha256='e'*64),
@@ -652,7 +660,8 @@ with tempfile.TemporaryDirectory() as directory:
         for mutate in mutations:
             value=json.loads(json.dumps(original)); mutate(value); validate(json.dumps(value).encode(),False)
     elif scenario=='failed-transport':
-        _,rejected,_,_=review([initial,final])
+        _,rejected,calls,failure=review(exhausted())
+        assert failure=='REMOTE_REVIEW_ERROR=POLICY_REPAIR_INVALID_SPECULATIVE_CLAIM' and len(calls)==4
         for mode in ('valid','invalid','unavailable'):
             runner=root/mode; runner.mkdir()
             (runner/'review-manifest.json').write_bytes(manifest_path.read_bytes())
