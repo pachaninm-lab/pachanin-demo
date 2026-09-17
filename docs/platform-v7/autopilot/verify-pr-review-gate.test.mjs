@@ -577,7 +577,7 @@ with tempfile.TemporaryDirectory() as directory:
     manifest_path=root/'review-manifest.json'
     manifest_path.write_text(json.dumps(manifest))
     manifest_sha=hashlib.sha256(manifest_path.read_bytes()).hexdigest()
-    namespace={'json':json,'re':re,'hashlib':hashlib,'schema':{},'review_head':'a'*40,'run_id':'123','run_attempt':'2','diff_sha':'d'*64,'manifest_sha':manifest_sha,'bearer':'PRIVATE_TOKEN_CANARY','host':'PRIVATE_HOST_CANARY'}
+    namespace={'json':json,'re':re,'hashlib':hashlib,'schema':{'properties':{'findings':{'items':{'properties':{'path':{'type':'string'},'line':{'type':'integer'},'evidence':{'type':'string'}}}}}},'review_head':'a'*40,'run_id':'123','run_attempt':'2','diff_sha':'d'*64,'manifest_sha':manifest_sha,'bearer':'PRIVATE_TOKEN_CANARY','host':'PRIVATE_HOST_CANARY'}
     exec(compile(ast.Module(body=definitions,type_ignores=[]),'<actual-qwen-functions>','exec'),namespace)
     original_save=namespace['save_rejected']
     item={'index':1,'path':'src/changed.mjs','chunk_sha256':'c'*64,'system':'trusted fixture policy','user':'public fixture diff','added_lines':[{'line':1,'text':'const changed = true;'}],'chunk_text':'+const changed = true;'}
