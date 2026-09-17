@@ -70,10 +70,6 @@ BEGIN
          AND NEW."leaseToken" IS DISTINCT FROM OLD."leaseToken"
        )
      )
-     AND current_user = ANY (ARRAY[
-       'app_outbox', 'app_outbox_worker', 'app_deal', 'app_runtime',
-       'app_service', 'one_deal_app'
-     ])
      AND NOT (
        current_user = 'app_outbox'
        AND OLD."type" = 'MARKETING_SOCIAL_PUBLISH_V1'
@@ -124,15 +120,8 @@ $guard$;
 DROP TRIGGER IF EXISTS outbox_expired_attempt_reclaim_guard_trigger
   ON public."outbox_entries";
 CREATE TRIGGER outbox_expired_attempt_reclaim_guard_trigger
-  BEFORE UPDATE ON public."outbox_entries"
+  BEFORE UPDATE OF "status", "leaseToken" ON public."outbox_entries"
   FOR EACH ROW
-  WHEN (
-    NEW."status" = 'PROCESSING'
-    AND (
-      OLD."status" IS DISTINCT FROM NEW."status"
-      OR NEW."leaseToken" IS DISTINCT FROM OLD."leaseToken"
-    )
-  )
   EXECUTE FUNCTION public.outbox_expired_attempt_reclaim_guard();
 
 ALTER TABLE public."outbox_redrive_events"
