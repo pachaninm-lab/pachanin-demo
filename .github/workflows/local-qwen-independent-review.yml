@@ -607,6 +607,35 @@ jobs:
               scoped['properties']['findings']['maxItems'] = 0
               return scoped
 
+          def fresh_unanchored_review_schema(base_schema, item):
+              scoped = json.loads(json.dumps(base_schema))
+              added = item.get('added_lines')
+              if not isinstance(added, list):
+                  fail('REQUEST_EVIDENCE_MAP_INVALID')
+              path = item.get('path')
+              if not isinstance(path, str) or not path:
+                  fail('REQUEST_CHUNK_PATH_INVALID')
+              lines = []
+              seen = set()
+              for entry in added:
+                  if not isinstance(entry, dict):
+                      fail('REQUEST_EVIDENCE_MAP_INVALID')
+                  line = entry.get('line')
+                  line_text = entry.get('text')
+                  if isinstance(line, bool) or not isinstance(line, int) or line < 1 or not isinstance(line_text, str):
+                      fail('REQUEST_EVIDENCE_MAP_INVALID')
+                  if line not in seen:
+                      seen.add(line)
+                      lines.append(line)
+              findings = scoped['properties']['findings']
+              if not lines:
+                  findings['maxItems'] = 0
+                  return scoped
+              properties = findings['items']['properties']
+              properties['path'] = {'type': 'string', 'enum': [path]}
+              properties['line'] = {'type': 'integer', 'enum': lines}
+              return scoped
+
           def scoped_speculative_repair_item(item, anchor):
               if anchor is None:
                   return None
@@ -823,6 +852,30 @@ jobs:
               ],
               chunk_text='+const value = sanitize(input);\n+const unrelated = passthrough(input);',
           )
+          fresh_probe_schema = fresh_unanchored_review_schema(schema_probe, multi_probe_item)
+          fresh_probe_properties = fresh_probe_schema['properties']['findings']['items']['properties']
+          if fresh_probe_properties['path'] != {'type': 'string', 'enum': ['probe.ts']}:
+              fail('VALIDATOR_SELFTEST_FRESH_SCHEMA_PATH_NOT_PINNED')
+          if fresh_probe_properties['line'] != {'type': 'integer', 'enum': [7, 8]}:
+              fail('VALIDATOR_SELFTEST_FRESH_SCHEMA_LINES_NOT_PINNED')
+          if schema_probe['properties']['findings']['items']['properties']['line'] != {'type': 'integer'}:
+              fail('VALIDATOR_SELFTEST_FRESH_SCHEMA_MUTATED_BASE')
+          empty_fresh_probe = fresh_unanchored_review_schema(
+              schema_probe,
+              dict(probe_item, added_lines=[]),
+          )
+          if empty_fresh_probe['properties']['findings'].get('maxItems') != 0:
+              fail('VALIDATOR_SELFTEST_FRESH_SCHEMA_EMPTY_NOT_CLOSED')
+          try:
+              fresh_unanchored_review_schema(
+                  schema_probe,
+                  dict(probe_item, added_lines=[{'line': True, 'text': 'invalid'}]),
+              )
+          except SystemExit as error:
+              if str(error) != 'REMOTE_REVIEW_ERROR=REQUEST_EVIDENCE_MAP_INVALID':
+                  raise
+          else:
+              fail('VALIDATOR_SELFTEST_FRESH_SCHEMA_INVALID_LINE_ACCEPTED')
           scoped_probe_item = scoped_speculative_repair_item(multi_probe_item, (7, 'sanitize(input)'))
           if scoped_probe_item is None:
               fail('VALIDATOR_SELFTEST_REPAIR_SCOPE_MISSING')
@@ -1106,7 +1159,8 @@ jobs:
                           repairs += 1
                           fresh_user = repair_user(item, violation, initial, 1, 1)
                           repair_prompt_sha256 = hashlib.sha256(fresh_user.encode('utf-8')).hexdigest()
-                          content = completion(item['system'], fresh_user, schema)
+                          fresh_schema = fresh_unanchored_review_schema(schema, item)
+                          content = completion(item['system'], fresh_user, fresh_schema)
                           violation = policy_violation(item, content)
                           if violation is not None:
                               if violation not in repairable:
