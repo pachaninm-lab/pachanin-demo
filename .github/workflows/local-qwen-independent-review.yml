@@ -624,7 +624,7 @@ jobs:
                   line_text = entry.get('text')
                   if isinstance(line, bool) or not isinstance(line, int) or line < 1 or not isinstance(line_text, str):
                       fail('REQUEST_EVIDENCE_MAP_INVALID')
-                  if line not in seen:
+                  if line_text.strip() and line not in seen:
                       seen.add(line)
                       lines.append(line)
               findings = scoped['properties']['findings']
@@ -634,6 +634,85 @@ jobs:
               properties = findings['items']['properties']
               properties['path'] = {'type': 'string', 'enum': [path]}
               properties['line'] = {'type': 'integer', 'enum': lines}
+              return scoped
+
+          def selected_added_line(item, content):
+              try:
+                  value = json.loads(content)
+              except json.JSONDecodeError:
+                  return None
+              if not isinstance(value, dict) or set(value) != {'findings'}:
+                  return None
+              findings = value.get('findings')
+              if not isinstance(findings, list) or len(findings) != 1 or not isinstance(findings[0], dict):
+                  return None
+              finding = findings[0]
+              if finding.get('path') != item.get('path'):
+                  return None
+              line = finding.get('line')
+              if isinstance(line, bool) or not isinstance(line, int) or line < 1:
+                  return None
+              added = {
+                  int(entry['line']): str(entry['text'])
+                  for entry in item.get('added_lines', [])
+                  if type(entry.get('line')) is int and isinstance(entry.get('text'), str)
+              }
+              exact_line = added.get(line)
+              if exact_line is None or not exact_line.strip():
+                  return None
+              return (line, exact_line)
+
+          def bounded_line_evidence(line_text):
+              if not isinstance(line_text, str) or not line_text:
+                  return []
+              if len(line_text) <= 180:
+                  return [line_text]
+              starts = list(range(0, len(line_text), 160))
+              starts.append(max(0, len(line_text) - 180))
+              values = []
+              for start in starts:
+                  value = line_text[start:start + 180]
+                  if value and value not in values:
+                      values.append(value)
+              return values
+
+          def fresh_anchor_binding_schema(base_schema, item, selected):
+              scoped = json.loads(json.dumps(base_schema))
+              findings = scoped['properties']['findings']
+              if selected is None:
+                  findings['maxItems'] = 0
+                  return scoped
+              line, exact_line = selected
+              evidence = bounded_line_evidence(exact_line)
+              if not evidence:
+                  findings['maxItems'] = 0
+                  return scoped
+              properties = findings['items']['properties']
+              properties['path'] = {'type': 'string', 'enum': [item['path']]}
+              properties['line'] = {'type': 'integer', 'enum': [line]}
+              properties['evidence'] = {'type': 'string', 'enum': evidence}
+              return scoped
+
+          def fresh_anchor_binding_item(item, selected):
+              if selected is None:
+                  return None
+              line, exact_line = selected
+              scoped = dict(item)
+              scoped['added_lines'] = [{'line': line, 'text': exact_line}]
+              scoped['user'] = (
+                  f'Changed path: {item["path"]}\n'
+                  'This is one bounded evidence-binding repair of a fresh same-chunk candidate, not a new search for findings. '
+                  f'The fresh model candidate already selected trusted NEW_LINE_{line}; no replacement line is permitted. '
+                  'Any non-empty finding must remain on that exact line and must use one evidence value mechanically allowed by the response schema, each of which is a verbatim substring of that same trusted line. '
+                  'The prior candidate title, reason, and mismatched evidence are intentionally omitted. '
+                  'If this exact selected line plus the unchanged chunk does not directly demonstrate a concrete reproducible defect, author findings=[].\n'
+                  'BEGIN_TRUSTED_ADDED_LINE_INDEX\n'
+                  f'NEW_LINE_{line}: {exact_line}\n'
+                  'END_TRUSTED_ADDED_LINE_INDEX\n'
+                  'BEGIN_UNTRUSTED_PULL_REQUEST_DIFF\n'
+                  + str(item.get('chunk_text', ''))
+                  + '\nEND_UNTRUSTED_PULL_REQUEST_DIFF\n'
+              )
               return scoped
 
           def scoped_speculative_repair_item(item, anchor):
@@ -860,8 +939,42 @@ jobs:
               fail('VALIDATOR_SELFTEST_FRESH_SCHEMA_PATH_NOT_PINNED')
           if fresh_probe_properties['line'] != {'type': 'integer', 'enum': [7, 8]}:
               fail('VALIDATOR_SELFTEST_FRESH_SCHEMA_LINES_NOT_PINNED')
+          blank_filtered_probe = fresh_unanchored_review_schema(
+              schema_probe,
+              dict(multi_probe_item, added_lines=multi_probe_item['added_lines'] + [{'line': 9, 'text': '   '}]),
+          )
+          if blank_filtered_probe['properties']['findings']['items']['properties']['line'] != {'type': 'integer', 'enum': [7, 8]}:
+              fail('VALIDATOR_SELFTEST_FRESH_SCHEMA_BLANK_LINE_ACCEPTED')
+          mismatched_fresh_probe = dict(valid_probe, line=8, evidence='sanitize(input)')
+          mismatched_fresh_candidate = json.dumps({'findings': [mismatched_fresh_probe]}, separators=(',', ':'))
+          if candidate_anchor(multi_probe_item, mismatched_fresh_candidate) is not None:
+              fail('VALIDATOR_SELFTEST_FRESH_MISMATCHED_ANCHOR_ACCEPTED')
+          selected_probe = selected_added_line(multi_probe_item, mismatched_fresh_candidate)
+          if selected_probe != (8, 'const unrelated = passthrough(input);'):
+              fail('VALIDATOR_SELFTEST_FRESH_SELECTED_LINE_MISSING')
+          binding_probe_schema = fresh_anchor_binding_schema(schema_probe, multi_probe_item, selected_probe)
+          binding_probe_properties = binding_probe_schema['properties']['findings']['items']['properties']
+          if binding_probe_properties['path'] != {'type': 'string', 'enum': ['probe.ts']}:
+              fail('VALIDATOR_SELFTEST_FRESH_BINDING_PATH_NOT_PINNED')
+          if binding_probe_properties['line'] != {'type': 'integer', 'enum': [8]}:
+              fail('VALIDATOR_SELFTEST_FRESH_BINDING_LINE_NOT_PINNED')
+          if binding_probe_properties['evidence'] != {'type': 'string', 'enum': ['const unrelated = passthrough(input);']}:
+              fail('VALIDATOR_SELFTEST_FRESH_BINDING_EVIDENCE_NOT_PINNED')
+          binding_probe_item = fresh_anchor_binding_item(multi_probe_item, selected_probe)
+          if binding_probe_item is None or binding_probe_item['added_lines'] != [{'line': 8, 'text': 'const unrelated = passthrough(input);'}]:
+              fail('VALIDATOR_SELFTEST_FRESH_BINDING_SCOPE_MISSING')
+          if 'NEW_LINE_7:' in binding_probe_item['user'] or 'NEW_LINE_8:' not in binding_probe_item['user']:
+              fail('VALIDATOR_SELFTEST_FRESH_BINDING_TRUSTED_INDEX_FAILED')
+          if '+const value = sanitize(input);' not in binding_probe_item['user']:
+              fail('VALIDATOR_SELFTEST_FRESH_BINDING_CONTEXT_MISSING')
+          long_probe_text = 'x' * 401
+          long_probe_evidence = bounded_line_evidence(long_probe_text)
+          if not long_probe_evidence or any(not value or len(value) > 180 or value not in long_probe_text for value in long_probe_evidence):
+              fail('VALIDATOR_SELFTEST_FRESH_BINDING_LONG_EVIDENCE_INVALID')
           if schema_probe['properties']['findings']['items']['properties']['line'] != {'type': 'integer'}:
               fail('VALIDATOR_SELFTEST_FRESH_SCHEMA_MUTATED_BASE')
+          if schema_probe['properties']['findings']['items']['properties']['evidence'] != {'type': 'string'}:
+              fail('VALIDATOR_SELFTEST_FRESH_BINDING_MUTATED_BASE')
           empty_fresh_probe = fresh_unanchored_review_schema(
               schema_probe,
               dict(probe_item, added_lines=[]),
@@ -1167,33 +1280,46 @@ jobs:
                           content = completion(item['system'], fresh_user, fresh_schema)
                           violation = policy_violation(item, content)
                           if violation is not None:
-                              if violation not in repairable:
-                                  try:
-                                      save_rejected(
-                                          item,
-                                          initial,
-                                          content,
-                                          initial_violation,
-                                          violation,
-                                          repair_prompt_sha256,
-                                      )
-                                  except (OSError, ValueError, TypeError, KeyError):
-                                      pass
-                                  fail('POLICY_FRESH_REVIEW_INVALID_' + re.sub(r'[^A-Z0-9_]', '_', violation.upper()))
                               anchor = candidate_anchor(item, content)
-                              if anchor is None:
-                                  try:
-                                      save_rejected(
-                                          item,
-                                          initial,
-                                          content,
-                                          initial_violation,
-                                          violation,
-                                          repair_prompt_sha256,
-                                      )
-                                  except (OSError, ValueError, TypeError, KeyError):
-                                      pass
-                                  fail('POLICY_REPAIR_INVALID_FRESH_ANCHOR')
+                              binding_repairable = violation in repairable or violation == 'EVIDENCE_NOT_ON_CITED_ADDED_LINE'
+                              if anchor is None and binding_repairable:
+                                  selected = selected_added_line(item, content)
+                                  binding_item = fresh_anchor_binding_item(item, selected)
+                                  if binding_item is not None:
+                                      repairs += 1
+                                      binding_user = binding_item['user']
+                                      repair_prompt_sha256 = hashlib.sha256(binding_user.encode('utf-8')).hexdigest()
+                                      binding_schema = fresh_anchor_binding_schema(schema, item, selected)
+                                      content = completion(item['system'], binding_user, binding_schema)
+                                      violation = policy_violation(binding_item, content)
+                                      anchor = candidate_anchor(binding_item, content)
+                              if violation is not None:
+                                  if violation not in repairable:
+                                      try:
+                                          save_rejected(
+                                              item,
+                                              initial,
+                                              content,
+                                              initial_violation,
+                                              violation,
+                                              repair_prompt_sha256,
+                                          )
+                                      except (OSError, ValueError, TypeError, KeyError):
+                                          pass
+                                      fail('POLICY_FRESH_REVIEW_INVALID_' + re.sub(r'[^A-Z0-9_]', '_', violation.upper()))
+                                  if anchor is None:
+                                      try:
+                                          save_rejected(
+                                              item,
+                                              initial,
+                                              content,
+                                              initial_violation,
+                                              violation,
+                                              repair_prompt_sha256,
+                                          )
+                                      except (OSError, ValueError, TypeError, KeyError):
+                                          pass
+                                      fail('POLICY_REPAIR_INVALID_FRESH_ANCHOR')
                       if violation is not None:
                           scoped_item = scoped_speculative_repair_item(item, anchor)
                           if scoped_item is None:
