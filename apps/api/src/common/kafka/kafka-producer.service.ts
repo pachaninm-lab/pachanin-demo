@@ -4,8 +4,10 @@
  * Kafka availability never changes business authority. The durable worker uses
  * a protocol-level readiness probe before claiming work; once a delivery has
  * been attempted, a missing acknowledgement remains an ambiguous outcome.
- * Broker protocol rejections that explicitly prove non-acceptance are preserved
- * as typed failures instead of being collapsed into an unknown boolean result.
+ * The legacy send()/sendBatch() APIs remain boolean/count and never surface a
+ * definitive broker rejection as an exception. The durable outbox uses the
+ * explicit sendOrThrow()/sendBatchOrThrow() boundary when it needs rejection
+ * evidence for permanent-vs-ambiguous classification.
  * A dedicated worker can additionally set KAFKA_REQUIRED=true to fail startup
  * instead of entering a misleading healthy no-op mode.
  */
@@ -195,6 +197,15 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
   }
 
   async send(message: KafkaMessage): Promise<boolean> {
+    try {
+      return await this.sendOrThrow(message);
+    } catch (error) {
+      if (error instanceof KafkaDefinitiveRejectionError) return false;
+      throw error;
+    }
+  }
+
+  async sendOrThrow(message: KafkaMessage): Promise<boolean> {
     if (!this.producer || !this.connected) {
       this.logger.debug(`[transport-unavailable] Kafka → ${message.topic}: ${JSON.stringify(message.value)}`);
       return false;
@@ -226,6 +237,15 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
   }
 
   async sendBatch(messages: KafkaMessage[]): Promise<number> {
+    try {
+      return await this.sendBatchOrThrow(messages);
+    } catch (error) {
+      if (error instanceof KafkaDefinitiveRejectionError) return 0;
+      throw error;
+    }
+  }
+
+  async sendBatchOrThrow(messages: KafkaMessage[]): Promise<number> {
     if (!this.producer || !this.connected) {
       for (const message of messages) {
         this.logger.debug(`[transport-unavailable] Kafka → ${message.topic}`);
