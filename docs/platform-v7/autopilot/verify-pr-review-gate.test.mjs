@@ -48,6 +48,7 @@ import {
   reviewGateResultContract,
   selectReviewGateDecision,
   substantiveChecks,
+  strictGitHubHeadRef,
   validateProviderMaintenanceBootstrapAuthority,
 } from './verify-pr-review-gate.mjs';
 
@@ -395,6 +396,39 @@ test('Actions check URL parsing is repository-bound and exact', () => {
   assert.equal(actionsRunIdFromCheck({ ...check, detailsUrl: 'https://example.com/actions/runs/35265106561' }, repo), '');
 });
 
+test('PR head refs use strict Git ref syntax before becoming CI authority', () => {
+  for (const valid of [
+    exactHeadRef,
+    'feature/review.v2',
+    'release-2026_09',
+    'topic/ümlaut',
+  ]) {
+    assert.equal(strictGitHubHeadRef(valid), valid);
+  }
+
+  for (const invalid of [
+    '',
+    '@',
+    ' branch',
+    'branch ',
+    'branch name',
+    '/branch',
+    'branch/',
+    'branch.',
+    'a//b',
+    'a..b',
+    'a@{b',
+    '.hidden/topic',
+    'a/.hidden',
+    'a/b.lock',
+    'a?b',
+    'a\\b',
+    'a\nb',
+  ]) {
+    assert.equal(strictGitHubHeadRef(invalid), '');
+  }
+});
+
 test('invalid repository identity fails closed with a generic Actions authority diagnostic', () => {
   const result = canonicalizeExactPrHeadActionsChecks(
     [actionsCheck({ runId: 42 })],
@@ -427,7 +461,7 @@ test('same-SHA Actions check from a foreign PR head ref is excluded only after v
 
 test('missing or malformed Actions head-ref authority metadata fails closed instead of excluding the check', () => {
   const check = actionsCheck({ runId: 42 });
-  for (const headRef of ['', ' branch-with-space ']) {
+  for (const headRef of ['', ' branch-with-space ', 'branch with space', 'branch..name', 'branch@{name']) {
     const result = canonicalizeExactPrHeadActionsChecks(
       [check],
       [actionsRun({ id: 42, runNumber: 10, headRef })],

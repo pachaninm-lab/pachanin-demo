@@ -532,6 +532,37 @@ function strictNonEmptyString(value) {
   return typeof value === 'string' && value === value.trim() && value ? value : '';
 }
 
+export function strictGitHubHeadRef(value) {
+  if (typeof value !== 'string' || value !== value.trim() || !value) return '';
+  if (
+    value === '@'
+    || value.startsWith('/')
+    || value.endsWith('/')
+    || value.endsWith('.')
+    || value.includes('//')
+    || value.includes('..')
+    || value.includes('@{')
+  ) {
+    return '';
+  }
+
+  for (const character of value) {
+    const codePoint = character.codePointAt(0);
+    if (
+      codePoint <= 0x20
+      || codePoint === 0x7f
+      || '~^:?*['.includes(character)
+      || character === '\\'
+    ) {
+      return '';
+    }
+  }
+
+  const components = value.split('/');
+  if (components.some((component) => component.startsWith('.') || component.endsWith('.lock'))) return '';
+  return value;
+}
+
 function strictStartedAt(value) {
   if (typeof value !== 'string' || !value.trim()) return null;
   const timestamp = Date.parse(value);
@@ -576,7 +607,7 @@ export function canonicalizeExactPrHeadActionsChecks(
   repo,
 ) {
   const expectedSha = canonicalSha40(expectedHeadSha);
-  const expectedRef = strictNonEmptyString(expectedHeadRef);
+  const expectedRef = strictGitHubHeadRef(expectedHeadRef);
   const sourceChecks = Array.isArray(checks) ? checks : [];
   const sourceRuns = Array.isArray(actionsRuns) ? actionsRuns : [];
   const errors = [];
@@ -625,7 +656,7 @@ export function canonicalizeExactPrHeadActionsChecks(
     const runNumber = positiveIntegerString(run?.run_number);
     const runAttempt = positiveIntegerString(run?.run_attempt);
     const runHeadSha = canonicalSha40(run?.head_sha);
-    const runHeadRef = strictNonEmptyString(run?.head_branch);
+    const runHeadRef = strictGitHubHeadRef(run?.head_branch);
     const event = strictNonEmptyString(run?.event);
     if (!metadataId || !workflowId || !runNumber || !runAttempt || !runHeadSha || !runHeadRef || !event) {
       errors.push(`actions-run-authority-metadata-invalid:${runId}`);
@@ -1076,7 +1107,7 @@ function fetchCheckSnapshot(repo, prNumber) {
     'headRefName,headRefOid,statusCheckRollup',
   ]);
   const headSha = canonicalSha40(value?.headRefOid);
-  const headRef = strictNonEmptyString(value?.headRefName);
+  const headRef = strictGitHubHeadRef(value?.headRefName);
   const rawChecks = Array.isArray(value?.statusCheckRollup) ? value.statusCheckRollup : [];
   const runIds = new Set();
   for (const check of rawChecks) {
@@ -1185,11 +1216,16 @@ function providerMaintenanceBootstrapDecision(repo, pr, headSha, reviews) {
     return { eligible: false, reason: 'authority-self-modification' };
   }
 
+  const expectedHeadRef = strictGitHubHeadRef(pr?.head?.ref);
+  if (!expectedHeadRef) {
+    return { eligible: false, reason: 'pr-head-ref-invalid' };
+  }
+
   const snapshot = fetchCheckSnapshot(repo, Number(pr?.number || 0));
   if (!ciSnapshotMatchesHead(snapshot.headSha, headSha)) {
     return { eligible: false, reason: 'ci-head-mismatch' };
   }
-  if (snapshot.headRef !== String(pr?.head?.ref || '')) {
+  if (snapshot.headRef !== expectedHeadRef) {
     return { eligible: false, reason: 'ci-head-ref-mismatch' };
   }
   if (snapshot.canonicalizationErrors.length > 0) {
@@ -1260,6 +1296,10 @@ function main() {
     fail('REVIEW_GATE_HEAD_INVALID', `Invalid PR head SHA for #${prNumber}.`);
   }
   const headSha = headShaInput;
+  const headRef = strictGitHubHeadRef(pr?.head?.ref);
+  if (!headRef) {
+    fail('REVIEW_GATE_HEAD_REF_INVALID', `Invalid PR head ref for #${prNumber}.`);
+  }
   if (expectedHeadInput && !/^[0-9a-f]{40}$/u.test(expectedHeadInput)) {
     fail('REVIEW_GATE_EXPECTED_HEAD_INVALID', 'HEAD_SHA must be canonical lowercase SHA-40.');
   }
@@ -1397,10 +1437,10 @@ function main() {
         `CI snapshot head ${snapshot.headSha || 'missing'} does not match verified head ${headSha}.`,
       );
     }
-    if (snapshot.headRef !== String(pr?.head?.ref || '')) {
+    if (snapshot.headRef !== headRef) {
       fail(
         'REVIEW_GATE_CI_HEAD_REF_MISMATCH',
-        `CI snapshot head ref ${snapshot.headRef || 'missing'} does not match verified PR head ref ${String(pr?.head?.ref || '') || 'missing'}.`,
+        `CI snapshot head ref ${snapshot.headRef || 'missing'} does not match the validated PR head ref.`,
       );
     }
     if (snapshot.canonicalizationErrors.length > 0) {
