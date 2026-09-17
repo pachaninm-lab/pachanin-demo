@@ -167,7 +167,7 @@ export class DurableOutboxRunner implements OnModuleInit, OnModuleDestroy {
 
       let delivered: boolean;
       try {
-        delivered = await this.kafka.send({
+        delivered = await this.kafka.sendOrThrow({
           topic: entry.type.startsWith('BANK_') ? 'grainflow.bank.events' : 'grainflow.domain.events',
           key: entry.idempotencyKey ?? entry.id,
           value: entry.payload as Record<string, unknown>,
