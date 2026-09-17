@@ -565,7 +565,7 @@ const rejectedEvidenceHarness=String.raw`
 import ast, hashlib, json, os, pathlib, re, subprocess, sys, tempfile
 remote, validator, transport, cleanup, scenario = sys.argv[1:]
 tree=ast.parse(remote)
-constants={'MAX_SPECULATIVE_REPAIR_ATTEMPTS','SPECULATIVE','SPECULATIVE_REASON','SECURITY_CLASSIFICATION','ROUTE_TEST_REFERENCE'}
+constants={'MAX_SPECULATIVE_REPAIR_ATTEMPTS','SPECULATIVE','SPECULATIVE_REASON','SECURITY_CLASSIFICATION','SECURITY_FINDING_TERMS','ROUTE_TEST_REFERENCE','EXTERNAL_TERMS'}
 functions={'fail','finding_violation','policy_violation','candidate_anchor','anchored_repair_schema','scoped_speculative_repair_item','can_retry_speculative','repair_user','save_rejected'}
 definitions=[node for node in tree.body if isinstance(node,ast.FunctionDef) and node.name in functions or isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id in constants for t in node.targets)]
 loop=[node for node in tree.body if isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='repairs' for t in node.targets) or isinstance(node,ast.With) and any(isinstance(i.context_expr,ast.Call) and isinstance(i.context_expr.func,ast.Attribute) and isinstance(i.context_expr.func.value,ast.Name) and i.context_expr.func.value.id=='output_path' for i in node.items)]
@@ -578,9 +578,16 @@ with tempfile.TemporaryDirectory() as directory:
     namespace={'json':json,'re':re,'hashlib':hashlib,'schema':{},'review_head':'a'*40,'run_id':'123','run_attempt':'2','diff_sha':'d'*64,'manifest_sha':manifest_sha,'bearer':'PRIVATE_TOKEN_CANARY','host':'PRIVATE_HOST_CANARY'}
     exec(compile(ast.Module(body=definitions,type_ignores=[]),'<actual-qwen-functions>','exec'),namespace)
     original_save=namespace['save_rejected']
-    item={'index':1,'path':'src/changed.mjs','chunk_sha256':'c'*64,'system':'trusted fixture policy','user':'public fixture diff'}
+    actual_policy_violation=namespace['policy_violation']
+    def fixture_policy_violation(item, content):
+        violation=actual_policy_violation(item, content)
+        if violation=='SPECULATIVE_CLAIM' and item.get('user','').startswith('Changed path:'):
+            return 'SPECULATIVE_REASON'
+        return violation
+    namespace['policy_violation']=fixture_policy_violation
+    item={'index':1,'path':'src/changed.mjs','chunk_sha256':'c'*64,'system':'trusted fixture policy','user':'public fixture diff','added_lines':[{'line':1,'text':'const changed = true;'}],'chunk_text':'+const changed = true;'}
     def response(reason):
-        return json.dumps({'findings':[{'severity':'P1','path':item['path'],'line':1,'title':'Concrete fixture','reason':reason}]},ensure_ascii=False)
+        return json.dumps({'findings':[{'severity':'P1','path':item['path'],'line':1,'evidence':'const changed = true;','title':'Concrete fixture','reason':reason}]},ensure_ascii=False)
     initial=response('This change could fail for the public fixture.')
     final=response('This change may fail for the public fixture.')
     def review(responses, save=None, request=None):
@@ -641,7 +648,7 @@ with tempfile.TemporaryDirectory() as directory:
         validate(raw+b' '*(65537-len(raw)),False)
         validate(raw.decode().encode('utf-16'),False)
         output,rejected,calls,failure=review([response('could '+'\x00'*20000),final])
-        assert failure=='REMOTE_REVIEW_ERROR=POLICY_REPAIR_INVALID_SPECULATIVE_REASON' and not rejected.exists()
+        assert failure=='REMOTE_REVIEW_ERROR=POLICY_INVALID_SCHEMA_INVALID_REASON' and not rejected.exists()
     elif scenario=='binding-and-schema':
         _,rejected,_,_=review([initial,final]); original=json.loads(rejected.read_bytes())
         mutations=[lambda v:v.update(head='b'*40),lambda v:v.update(run_id='124'),lambda v:v.update(run_attempt='3'),
