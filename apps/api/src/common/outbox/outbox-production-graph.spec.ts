@@ -84,6 +84,17 @@ describe('IR-OUTBOX production graph', () => {
     expect(worker).toContain('quarantineDedicatedMarketingStaleAttempts');
   });
 
+  it('keeps dedicated marketing claims separate and on claim protocol v2', () => {
+    const marketingWorker = source(
+      'apps/api/src/modules/marketing/marketing-durable-outbox.worker.ts',
+    );
+    expect(marketingWorker).toContain('override async claimBatch');
+    expect(marketingWorker).toContain(`WHERE "type" = ${'${MARKETING_SOCIAL_PUBLISH_EVENT_TYPE}'}`);
+    expect(marketingWorker).toContain("SET LOCAL pc_crop.outbox_claim_protocol = '2'");
+    expect(marketingWorker).toContain('AND "lastAttemptAt" IS NULL');
+    expect(marketingWorker).toContain('"lastAttemptAt" = NULL');
+  });
+
   it('quarantines pre-migration in-flight rows and binds audit timestamps', () => {
     const migration = source(
       'apps/api/prisma/migrations/20260912235500_canonical_durable_outbox/migration.sql',
@@ -99,5 +110,20 @@ describe('IR-OUTBOX production graph', () => {
     expect(migration).toContain(`NEW."lastAttemptAt" := statement_timestamp()`);
     expect(outbox).toContain('value instanceof Date');
     expect(outbox).toContain('value.toISOString()');
+  });
+
+  it('validates new checks with reduced-lock migration semantics and privilege-preserving grants', () => {
+    const migration = source(
+      'apps/api/prisma/migrations/20260912235500_canonical_durable_outbox/migration.sql',
+    );
+    expect(migration.match(/\) NOT VALID;/gu)).toHaveLength(3);
+    expect(migration.match(/VALIDATE CONSTRAINT/gu)).toHaveLength(3);
+    expect(migration).toContain('has_table_privilege');
+    expect(migration).toContain('has_any_column_privilege');
+    expect(migration).toContain("'app_runtime'");
+    expect(migration).toContain("'app_service'");
+    expect(migration).toContain("'one_deal_app'");
+    expect(migration).toContain("'pc_deal_runtime'");
+    expect(migration).toContain("'pc_outbox_runtime'");
   });
 });

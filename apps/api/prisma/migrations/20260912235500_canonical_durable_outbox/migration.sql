@@ -23,7 +23,10 @@ ALTER TABLE public."outbox_redrive_events"
   CHECK (
     "requestFingerprint" IS NULL
     OR "requestFingerprint" ~ '^[0-9a-f]{64}$'
-  );
+  ) NOT VALID;
+
+ALTER TABLE public."outbox_redrive_events"
+  VALIDATE CONSTRAINT outbox_redrive_events_request_fingerprint_check;
 
 -- A legacy PROCESSING lease predates durable attempt-start evidence. Its
 -- external outcome is unknowable, so migration must never make it retryable.
@@ -54,7 +57,10 @@ ALTER TABLE public."outbox_entries"
       AND "status" = 'MANUAL_REVIEW'
       AND "manualReviewAt" IS NOT NULL
     )
-  );
+  ) NOT VALID;
+
+ALTER TABLE public."outbox_entries"
+  VALIDATE CONSTRAINT outbox_entries_last_error_category_check;
 
 CREATE OR REPLACE FUNCTION public.outbox_expired_attempt_reclaim_guard()
 RETURNS trigger
@@ -154,20 +160,35 @@ ALTER TABLE public."outbox_redrive_events"
       AND "previousStatus" = 'MANUAL_REVIEW'
       AND "previousManualReviewAt" IS NOT NULL
     )
-  );
+  ) NOT VALID;
 
+ALTER TABLE public."outbox_redrive_events"
+  VALIDATE CONSTRAINT outbox_redrive_events_previous_error_category_check;
+
+-- Extend the new failure-evidence columns only to principals that already have
+-- UPDATE authority on this table (table-level or column-level). This preserves
+-- the pre-existing least-privilege boundary while preventing redrive/runtime
+-- principals from failing when they clear or record the new evidence fields.
 DO $outbox_failure_columns$
+DECLARE
+  grant_role text;
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_deal') THEN
-    GRANT UPDATE (
-      "lastErrorCode", "lastErrorCategory", "lastAttemptAt", "manualReviewAt"
-    ) ON TABLE public."outbox_entries" TO app_deal;
-  END IF;
-
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_outbox') THEN
-    GRANT UPDATE (
-      "lastErrorCode", "lastErrorCategory", "lastAttemptAt", "manualReviewAt"
-    ) ON TABLE public."outbox_entries" TO app_outbox;
-  END IF;
+  FOREACH grant_role IN ARRAY ARRAY[
+    'app_deal', 'app_outbox', 'app_outbox_worker', 'app_runtime',
+    'app_service', 'one_deal_app', 'pc_deal_runtime', 'pc_outbox_runtime',
+    'app_deal_api'
+  ]
+  LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = grant_role)
+       AND (
+         has_table_privilege(grant_role, 'public.outbox_entries', 'UPDATE')
+         OR has_any_column_privilege(grant_role, 'public.outbox_entries', 'UPDATE')
+       ) THEN
+      EXECUTE format(
+        'GRANT UPDATE ("lastErrorCode", "lastErrorCategory", "lastAttemptAt", "manualReviewAt") ON TABLE public."outbox_entries" TO %I',
+        grant_role
+      );
+    END IF;
+  END LOOP;
 END
 $outbox_failure_columns$;
