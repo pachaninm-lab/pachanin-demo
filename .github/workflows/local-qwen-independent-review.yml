@@ -587,9 +587,9 @@ jobs:
                   if type(entry.get('line')) is int and isinstance(entry.get('text'), str)
               }
               exact_line = added.get(line)
-              if exact_line is None:
-                  return (line, evidence)
-              return (line, evidence if evidence in exact_line else exact_line)
+              if exact_line is None or evidence not in exact_line:
+                  return None
+              return (line, evidence)
 
           def anchored_repair_schema(base_schema, item, anchor):
               if anchor is None:
@@ -639,9 +639,13 @@ jobs:
               return scoped
 
           def can_retry_speculative(initial_violation, current_violation, anchor, attempts):
+              repairable = {
+                  'SPECULATIVE_CLAIM',
+                  'TEST_ONLY_SECURITY_FINDING_REJECTED',
+              }
               return (
-                  initial_violation == 'SPECULATIVE_CLAIM'
-                  and current_violation == 'SPECULATIVE_CLAIM'
+                  initial_violation in repairable
+                  and current_violation in repairable
                   and anchor is not None
                   and attempts < MAX_SPECULATIVE_REPAIR_ATTEMPTS
               )
@@ -664,7 +668,7 @@ jobs:
                           f'The pinned repair evidence is {json.dumps(evidence, ensure_ascii=True)}. '
                           'The repair response schema mechanically restricts any non-empty finding to that preserved path, line, and evidence. Neighboring lines are context only and cannot become a replacement evidence anchor. '
                           'If the pinned tuple is not itself an admissible added-line/verbatim-evidence tuple, or if it does not directly establish a concrete reproducible defect under the unchanged policy, author findings=[]. '
-                          'When the original evidence was already valid, this preserves the same verbatim evidence substring; otherwise the deterministic anchor uses only the original cited trusted line and never permits a replacement line. '
+                          'This preserves the same verbatim evidence substring and never permits a replacement line. '
                       )
               elif violation == 'TEST_ONLY_SECURITY_FINDING_REJECTED':
                   violation_guidance = (
@@ -779,11 +783,11 @@ jobs:
           speculative_bad_evidence_candidate = json.dumps({'findings': [speculative_bad_evidence_probe]}, separators=(',', ':'))
           if finding_violation(probe_item, speculative_bad_evidence_probe) != 'SPECULATIVE_CLAIM':
               fail('VALIDATOR_SELFTEST_SPECULATION_BAD_EVIDENCE_PRECEDENCE_FAILED')
-          if candidate_anchor(probe_item, speculative_bad_evidence_candidate) != (7, 'const value = sanitize(input);'):
-              fail('VALIDATOR_SELFTEST_REPAIR_BAD_EVIDENCE_NOT_PINNED_TO_CITED_LINE')
+          if candidate_anchor(probe_item, speculative_bad_evidence_candidate) is not None:
+              fail('VALIDATOR_SELFTEST_REPAIR_BAD_EVIDENCE_ANCHOR_ACCEPTED')
           speculative_wrong_line_candidate = json.dumps({'findings': [speculative_wrong_line_probe]}, separators=(',', ':'))
-          if candidate_anchor(probe_item, speculative_wrong_line_candidate) != (8, 'sanitize(input)'):
-              fail('VALIDATOR_SELFTEST_REPAIR_WRONG_LINE_NOT_PINNED')
+          if candidate_anchor(probe_item, speculative_wrong_line_candidate) is not None:
+              fail('VALIDATOR_SELFTEST_REPAIR_WRONG_LINE_ANCHOR_ACCEPTED')
           schema_probe = {
               'properties': {
                   'findings': {
@@ -806,12 +810,11 @@ jobs:
           if anchored_properties['evidence'] != {'type': 'string', 'enum': ['sanitize(input)']}:
               fail('VALIDATOR_SELFTEST_REPAIR_SCHEMA_EVIDENCE_NOT_PINNED')
           bad_evidence_anchor = candidate_anchor(probe_item, speculative_bad_evidence_candidate)
+          if bad_evidence_anchor is not None:
+              fail('VALIDATOR_SELFTEST_REPAIR_BAD_EVIDENCE_SCHEMA_ANCHOR_ACCEPTED')
           bad_evidence_scoped = anchored_repair_schema(schema_probe, probe_item, bad_evidence_anchor)
-          bad_evidence_properties = bad_evidence_scoped['properties']['findings']['items']['properties']
-          if bad_evidence_properties['line'] != {'type': 'integer', 'enum': [7]}:
-              fail('VALIDATOR_SELFTEST_REPAIR_BAD_EVIDENCE_SCHEMA_LINE_NOT_PINNED')
-          if bad_evidence_properties['evidence'] != {'type': 'string', 'enum': ['const value = sanitize(input);']}:
-              fail('VALIDATOR_SELFTEST_REPAIR_BAD_EVIDENCE_SCHEMA_NOT_PINNED_TO_CITED_LINE')
+          if bad_evidence_scoped != schema_probe:
+              fail('VALIDATOR_SELFTEST_REPAIR_BAD_EVIDENCE_SCHEMA_WAS_NARROWED')
           multi_probe_item = dict(
               probe_item,
               added_lines=[
@@ -860,19 +863,25 @@ jobs:
           if 'Repair attempt 2/3.' not in speculative_repair_probe:
               fail('VALIDATOR_SELFTEST_SPECULATION_REPAIR_ATTEMPT_MARKER_MISSING')
           bad_evidence_repair_probe = repair_user(probe_item, 'SPECULATIVE_CLAIM', speculative_bad_evidence_candidate)
-          if 'original cited NEW_LINE_7' not in bad_evidence_repair_probe:
-              fail('VALIDATOR_SELFTEST_SPECULATION_BAD_EVIDENCE_REPAIR_LINE_MISSING')
-          if json.dumps('const value = sanitize(input);', ensure_ascii=True) not in bad_evidence_repair_probe:
-              fail('VALIDATOR_SELFTEST_SPECULATION_BAD_EVIDENCE_REPAIR_PIN_MISSING')
+          if 'original cited NEW_LINE_' in bad_evidence_repair_probe or 'pinned repair evidence' in bad_evidence_repair_probe:
+              fail('VALIDATOR_SELFTEST_SPECULATION_BAD_EVIDENCE_REPAIR_WAS_ANCHORED')
           wrong_line_repair_probe = repair_user(probe_item, 'SPECULATIVE_CLAIM', speculative_wrong_line_candidate)
-          if 'NEW_LINE_8' not in wrong_line_repair_probe or json.dumps('sanitize(input)', ensure_ascii=True) not in wrong_line_repair_probe:
-              fail('VALIDATOR_SELFTEST_SPECULATION_WRONG_LINE_REPAIR_NOT_PINNED')
+          if 'original cited NEW_LINE_' in wrong_line_repair_probe or 'pinned repair evidence' in wrong_line_repair_probe:
+              fail('VALIDATOR_SELFTEST_SPECULATION_WRONG_LINE_REPAIR_WAS_ANCHORED')
           if not can_retry_speculative('SPECULATIVE_CLAIM', 'SPECULATIVE_CLAIM', (7, 'sanitize(input)'), 1):
               fail('VALIDATOR_SELFTEST_SPECULATION_SECOND_REPAIR_BLOCKED')
           if not can_retry_speculative('SPECULATIVE_CLAIM', 'SPECULATIVE_CLAIM', (7, 'sanitize(input)'), 2):
               fail('VALIDATOR_SELFTEST_SPECULATION_THIRD_REPAIR_BLOCKED')
+          if not can_retry_speculative('SPECULATIVE_CLAIM', 'TEST_ONLY_SECURITY_FINDING_REJECTED', (7, 'sanitize(input)'), 1):
+              fail('VALIDATOR_SELFTEST_SPECULATION_TO_TEST_SECURITY_REPAIR_BLOCKED')
+          if not can_retry_speculative('TEST_ONLY_SECURITY_FINDING_REJECTED', 'TEST_ONLY_SECURITY_FINDING_REJECTED', (7, 'sanitize(input)'), 1):
+              fail('VALIDATOR_SELFTEST_TEST_SECURITY_REPAIR_BLOCKED')
+          if not can_retry_speculative('TEST_ONLY_SECURITY_FINDING_REJECTED', 'SPECULATIVE_CLAIM', (7, 'sanitize(input)'), 1):
+              fail('VALIDATOR_SELFTEST_TEST_SECURITY_TO_SPECULATION_REPAIR_BLOCKED')
           if can_retry_speculative('SPECULATIVE_CLAIM', 'SPECULATIVE_CLAIM', (7, 'sanitize(input)'), 3):
               fail('VALIDATOR_SELFTEST_SPECULATION_REPAIR_EXHAUSTION_NOT_CLOSED')
+          if can_retry_speculative('TEST_ONLY_SECURITY_FINDING_REJECTED', 'TEST_ONLY_SECURITY_FINDING_REJECTED', (7, 'sanitize(input)'), 3):
+              fail('VALIDATOR_SELFTEST_TEST_SECURITY_REPAIR_EXHAUSTION_NOT_CLOSED')
           if can_retry_speculative('SPECULATIVE_CLAIM', 'EXTERNAL_CONTEXT_ASSUMPTION', (7, 'sanitize(input)'), 1):
               fail('VALIDATOR_SELFTEST_NON_SPECULATIVE_REPAIR_RETRIED')
           if can_retry_speculative('SPECULATIVE_CLAIM', 'SPECULATIVE_CLAIM', None, 1):
@@ -1086,14 +1095,20 @@ jobs:
                   if violation is not None:
                       repaired = True
                       initial_violation = violation
-                      anchor = candidate_anchor(item, initial) if violation == 'SPECULATIVE_CLAIM' else None
-                      scoped_item = scoped_speculative_repair_item(item, anchor) if anchor is not None else None
-                      repair_item = scoped_item if scoped_item is not None else item
-                      max_repair_attempts = (
-                          MAX_SPECULATIVE_REPAIR_ATTEMPTS
-                          if violation == 'SPECULATIVE_CLAIM' and anchor is not None and scoped_item is not None
-                          else 1
-                      )
+                      repairable = {
+                          'SPECULATIVE_CLAIM',
+                          'TEST_ONLY_SECURITY_FINDING_REJECTED',
+                      }
+                      if violation not in repairable:
+                          fail('POLICY_INVALID_' + re.sub(r'[^A-Z0-9_]', '_', violation.upper()))
+                      anchor = candidate_anchor(item, initial)
+                      if anchor is None:
+                          fail('POLICY_REPAIR_INVALID_ORIGINAL_ANCHOR')
+                      scoped_item = scoped_speculative_repair_item(item, anchor)
+                      if scoped_item is None:
+                          fail('POLICY_REPAIR_SCOPE_INVALID')
+                      repair_item = scoped_item
+                      max_repair_attempts = MAX_SPECULATIVE_REPAIR_ATTEMPTS
                       repaired_violation = violation
                       repair_attempt = 0
                       while repair_attempt < max_repair_attempts:
@@ -1114,10 +1129,12 @@ jobs:
                           )
                           content = completion(item['system'], repaired_user, repair_response_schema)
                           repaired_violation = policy_violation(repair_item, content)
-                          if repaired_violation is None and anchor is not None:
-                              final_anchor = candidate_anchor(repair_item, content)
+                          final_anchor = candidate_anchor(repair_item, content)
+                          if repaired_violation is None:
                               if final_anchor is not None and final_anchor != anchor:
                                   repaired_violation = 'REPAIR_ANCHOR_CHANGED'
+                          elif repaired_violation in repairable and final_anchor != anchor:
+                              repaired_violation = 'REPAIR_ANCHOR_CHANGED'
                           if repaired_violation is None:
                               break
                           if can_retry_speculative(initial_violation, repaired_violation, anchor, repair_attempt):
