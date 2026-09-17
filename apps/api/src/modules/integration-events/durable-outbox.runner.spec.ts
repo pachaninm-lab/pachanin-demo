@@ -26,7 +26,7 @@ function makeKafka(delivered: boolean, connected = true, ready = connected) {
   return {
     isConnected: jest.fn().mockReturnValue(connected),
     isReady: jest.fn().mockResolvedValue(ready),
-    send: jest.fn().mockResolvedValue(delivered),
+    sendOrThrow: jest.fn().mockResolvedValue(delivered),
   } as unknown as jest.Mocked<KafkaProducerService>;
 }
 
@@ -122,7 +122,7 @@ describe('DurableOutboxRunner', () => {
       code: 'TRANSPORT_OUTCOME_UNKNOWN',
       message: 'Kafka send returned without durable acknowledgement; delivery outcome is unknown',
     });
-    expect(kafka.send).toHaveBeenCalledWith(
+    expect(kafka.sendOrThrow).toHaveBeenCalledWith(
       expect.objectContaining({
         topic: 'grainflow.bank.events',
         key: 'reserve-1',
@@ -146,7 +146,7 @@ describe('DurableOutboxRunner', () => {
       code: 'KAFKA_TRANSPORT_UNAVAILABLE',
       message: 'Kafka transport became unavailable before delivery attempt',
     });
-    expect(kafka.send).not.toHaveBeenCalled();
+    expect(kafka.sendOrThrow).not.toHaveBeenCalled();
     await runner.onModuleDestroy();
   });
 
@@ -154,7 +154,7 @@ describe('DurableOutboxRunner', () => {
     process.env.OUTBOX_WORKER_ENABLED = 'true';
     const worker = makeWorker();
     const kafka = makeKafka(true);
-    kafka.send.mockRejectedValueOnce(new Error('ack timeout'));
+    kafka.sendOrThrow.mockRejectedValueOnce(new Error('ack timeout'));
     const runner = new DurableOutboxRunner(worker, kafka);
 
     runner.onModuleInit();
