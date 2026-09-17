@@ -145,6 +145,7 @@ DROP TRIGGER IF EXISTS outbox_expired_attempt_reclaim_guard_trigger
 CREATE TRIGGER outbox_expired_attempt_reclaim_guard_trigger
   BEFORE UPDATE ON public."outbox_entries"
   FOR EACH ROW
+  WHEN (NEW."status" = 'PROCESSING')
   EXECUTE FUNCTION public.outbox_expired_attempt_reclaim_guard();
 
 ALTER TABLE public."outbox_redrive_events"
