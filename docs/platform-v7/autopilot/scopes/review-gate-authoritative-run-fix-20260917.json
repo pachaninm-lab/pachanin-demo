@@ -1,1 +1,89 @@
-{"schemaVersion":"platform-v7.concurrent-scope.v1","status":"active","authorityBaseExactMain":"3e2d1a5e7cc10a9dbc079f0881b573f327a9bb34","purpose":"Authorize one bounded fail-closed repair of exact-head CI snapshot reduction in the trusted review gate after provider workflow maintenance #5402 merged.","observedFailure":{"pullRequest":5402,"historicalHead":"7952fd492cd8fb205607e4550c11086bd6e4131b","reviewGateRunId":35265105342,"reviewGateJobId":105354353598,"actionsWorkflowId":282418356,"olderRun":{"id":35264531109,"runNumber":11817,"runAttempt":2,"conclusion":"failure"},"newerRun":{"id":35265106561,"runNumber":11819,"runAttempt":1,"conclusion":"success"},"invariant":"For the same exact head and immutable workflow_id, the greatest workflow run_number is current authority; rerunning a lower historical run_number later in wall-clock time cannot supersede it."},"implementationBranch":"fix/review-gate-authoritative-workflow-run-20260917","allowedImplementationPaths":["docs/platform-v7/autopilot/verify-pr-review-gate.mjs","docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"],"requiredImplementation":{"actionsRunIdentity":"workflow_id","exactHeadOnly":true,"runAuthority":"MAX_RUN_NUMBER","olderRunRerunNonAuthoritative":true,"selectedRunDuplicateCheck":"LATEST_STRICTLY_ORDERED_PARSEABLE_STARTED_AT","malformedMissingConflictingOrAmbiguousMetadata":"FAIL_CLOSED","legacyStatusSemanticsUnchanged":true,"providerAvailabilityFilteringUnchanged":true,"reviewGateSelfDeadlockExclusionsUnchanged":true,"substantiveSelectedRunRedBlocking":true},"requiredTests":["OLDER_FAILURE_THEN_NEWER_SUCCESS_SELECTS_NEWER","OLDER_SUCCESS_THEN_NEWER_FAILURE_BLOCKS","LATER_WALL_CLOCK_RERUN_OF_OLDER_RUN_NUMBER_DOES_NOT_SUPERSEDE","SELECTED_RUN_DUPLICATE_CHECK_USES_STRICT_STARTED_AT_ORDER","MALFORMED_OR_AMBIGUOUS_METADATA_FAILS_CLOSED","EXACT_HEAD_MISMATCH_FAILS_CLOSED","LEGACY_NON_ACTIONS_STATUS_UNCHANGED"],"forbidden":["PROVIDER_MAINTENANCE_BOOTSTRAP_FOR_IMPLEMENTATION","SYNTHETIC_GREEN","SYNTHETIC_PROVIDER_PASS","PRODUCT_CHANGE","PROVIDER_IDENTITY_RELAXATION","CI_THRESHOLD_RELAXATION","CROSS_HEAD_REDUCTION","LOCAL_QWEN_WORKFLOW_CHANGE"],"admission":{"implementationMustBeBasedOnMainContainingThisAuthority":true,"implementationMustChangeOnlyAllowedPaths":true,"genuineIndependentExactHeadReviewRequired":true,"ownerExactHeadSelfAuditRequired":true,"allApplicableChecksTerminalGreen":true,"unresolvedReviewThreadsRequired":0,"activeChangesRequestedRequired":0,"liveMainMustEqualImplementationBaseBeforeMerge":true,"onAnyMismatch":"FAIL_CLOSED"},"productionHosting":"REG_RU_VPS_ONLY","newRecurringCostRub":0}
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "status": "active",
+  "authorityBaseExactMain": "3e2d1a5e7cc10a9dbc079f0881b573f327a9bb34",
+  "purpose": "Authorize one bounded fail-closed repair of exact-PR-head GitHub Actions snapshot selection in the trusted review gate after provider workflow maintenance #5402 merged.",
+  "observedFailure": {
+    "pullRequest": 5402,
+    "historicalExactHeadSha": "7952fd492cd8fb205607e4550c11086bd6e4131b",
+    "historicalExactHeadRef": "fix/local-qwen-evidence-binding-20260913",
+    "reviewGateRunId": 35265105342,
+    "reviewGateJobId": 105354353598,
+    "actionsWorkflowId": 282418356,
+    "staleRun": {
+      "id": 35264531109,
+      "runNumber": 11817,
+      "runAttempt": 2,
+      "event": "pull_request",
+      "headBranch": "transport/local-qwen-evidence-20260917",
+      "conclusion": "failure"
+    },
+    "currentRun": {
+      "id": 35265106561,
+      "runNumber": 11819,
+      "runAttempt": 1,
+      "event": "pull_request",
+      "headBranch": "fix/local-qwen-evidence-binding-20260913",
+      "conclusion": "success"
+    },
+    "causalFinding": "GitHub commit status rollups are commit-scoped and can include Actions checks created for another branch that points at the same SHA. The review gate must bind Actions authority to both the exact PR head SHA and exact PR head ref before reducing repeated executions."
+  },
+  "implementationBranch": "fix/review-gate-authoritative-workflow-run-20260917",
+  "allowedImplementationPaths": [
+    "docs/platform-v7/autopilot/verify-pr-review-gate.mjs",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
+  ],
+  "requiredImplementation": {
+    "prIdentityInputs": ["headRefOid", "headRefName"],
+    "actionsRunMustMatchExactHeadSha": true,
+    "actionsRunMustMatchExactHeadRef": true,
+    "foreignBranchSameShaCheck": "EXCLUDE_AS_NON_PR_AUTHORITY_ONLY_AFTER_VALID_RUN_METADATA_PROVES_HEAD_BRANCH_MISMATCH",
+    "logicalExecutionFamily": ["workflow_id", "event"],
+    "authoritativeRunWithinFamily": "GREATEST_RUN_NUMBER",
+    "olderRunNumberRerunCannotSupersedeNewerRunNumber": true,
+    "distinctEventFamiliesRemainIndependentlyEvaluated": true,
+    "selectedRunDuplicateSameNameCheck": "LATEST_STRICTLY_ORDERED_PARSEABLE_STARTED_AT",
+    "authorityMetadataErrorBehavior": "BLOCK_REVIEW_GATE_WITH_CI_SNAPSHOT_INVALID_AND_NEVER_OMIT_OR_MARK_GREEN",
+    "legacyNonActionsStatusSemanticsUnchanged": true,
+    "providerAvailabilityFilteringUnchanged": true,
+    "reviewGateSelfDeadlockExclusionsUnchanged": true,
+    "substantiveSelectedRunRedOrPendingRemainsBlocking": true
+  },
+  "requiredTests": [
+    "SAME_SHA_FOREIGN_HEAD_REF_CHECK_IS_EXCLUDED_ONLY_WITH_VALID_RUN_METADATA",
+    "MISSING_OR_MALFORMED_ACTIONS_RUN_HEAD_REF_FAILS_CLOSED",
+    "OLDER_FAILURE_THEN_NEWER_SUCCESS_IN_SAME_WORKFLOW_EVENT_FAMILY_SELECTS_NEWER",
+    "OLDER_SUCCESS_THEN_NEWER_FAILURE_IN_SAME_WORKFLOW_EVENT_FAMILY_BLOCKS",
+    "LATER_WALL_CLOCK_RERUN_OF_OLDER_RUN_NUMBER_DOES_NOT_SUPERSEDE_NEWER_RUN_NUMBER",
+    "DISTINCT_EVENT_FAMILIES_ON_SAME_WORKFLOW_AND_HEAD_REMAIN_SEPARATE",
+    "SELECTED_RUN_DUPLICATE_CHECK_USES_STRICT_STARTED_AT_ORDER",
+    "MALFORMED_MISSING_CONFLICTING_OR_AMBIGUOUS_AUTHORITY_METADATA_BLOCKS_WITH_CI_SNAPSHOT_INVALID",
+    "EXACT_HEAD_SHA_MISMATCH_FAILS_CLOSED",
+    "LEGACY_NON_ACTIONS_STATUS_UNCHANGED"
+  ],
+  "forbidden": [
+    "PROVIDER_MAINTENANCE_BOOTSTRAP_FOR_IMPLEMENTATION",
+    "SYNTHETIC_GREEN",
+    "SYNTHETIC_PROVIDER_PASS",
+    "PRODUCT_CHANGE",
+    "PROVIDER_IDENTITY_RELAXATION",
+    "CI_THRESHOLD_RELAXATION",
+    "CROSS_HEAD_SHA_REDUCTION",
+    "CROSS_PR_HEAD_REF_AUTHORITY",
+    "COLLAPSING_DISTINCT_ACTIONS_EVENT_FAMILIES",
+    "LOCAL_QWEN_WORKFLOW_CHANGE"
+  ],
+  "admission": {
+    "implementationMustBeBasedOnMainContainingThisAuthority": true,
+    "implementationMustChangeOnlyAllowedPaths": true,
+    "genuineIndependentExactHeadReviewRequired": true,
+    "ownerExactHeadSelfAuditRequired": true,
+    "allApplicableChecksTerminalGreen": true,
+    "unresolvedReviewThreadsRequired": 0,
+    "activeChangesRequestedRequired": 0,
+    "liveMainMustEqualImplementationBaseBeforeMerge": true,
+    "onAnyMismatch": "FAIL_CLOSED"
+  },
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
