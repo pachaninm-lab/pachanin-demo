@@ -108,8 +108,8 @@ describe('IR-OUTBOX production graph', () => {
     expect(migration).toContain(`NEW."leaseOwner" LIKE 'marketing-social-%'`);
     expect(migration).toContain(`OLD."lastAttemptAt" IS NULL`);
     expect(migration).toContain(`NEW."lastAttemptAt" := statement_timestamp()`);
-    expect(migration).toContain(`OLD."status" IS DISTINCT FROM NEW."status"`);
-    expect(migration).toContain(`NEW."leaseToken" IS DISTINCT FROM OLD."leaseToken"`);
+    expect(migration).toContain('BEFORE UPDATE OF "status", "leaseToken"');
+    expect(migration).not.toContain('current_user = ANY');
     expect(outbox).toContain('value instanceof Date');
     expect(outbox).toContain('value.toISOString()');
   });
