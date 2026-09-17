@@ -1103,54 +1103,87 @@ jobs:
                           fail('POLICY_INVALID_' + re.sub(r'[^A-Z0-9_]', '_', violation.upper()))
                       anchor = candidate_anchor(item, initial)
                       if anchor is None:
-                          fail('POLICY_REPAIR_INVALID_ORIGINAL_ANCHOR')
-                      scoped_item = scoped_speculative_repair_item(item, anchor)
-                      if scoped_item is None:
-                          fail('POLICY_REPAIR_SCOPE_INVALID')
-                      repair_item = scoped_item
-                      max_repair_attempts = MAX_SPECULATIVE_REPAIR_ATTEMPTS
-                      repaired_violation = violation
-                      repair_attempt = 0
-                      while repair_attempt < max_repair_attempts:
-                          repair_attempt += 1
                           repairs += 1
-                          repaired_user = repair_user(
-                              repair_item,
-                              repaired_violation,
-                              content,
-                              repair_attempt,
-                              max_repair_attempts,
-                          )
-                          repair_prompt_sha256 = hashlib.sha256(repaired_user.encode('utf-8')).hexdigest()
-                          repair_response_schema = (
-                              empty_findings_repair_schema(schema)
-                              if repaired_violation == 'TEST_ONLY_SECURITY_FINDING_REJECTED'
-                              else anchored_repair_schema(schema, repair_item, anchor)
-                          )
-                          content = completion(item['system'], repaired_user, repair_response_schema)
-                          repaired_violation = policy_violation(repair_item, content)
-                          final_anchor = candidate_anchor(repair_item, content)
-                          if repaired_violation is None:
-                              if final_anchor is not None and final_anchor != anchor:
-                                  repaired_violation = 'REPAIR_ANCHOR_CHANGED'
-                          elif repaired_violation in repairable and final_anchor != anchor:
-                              repaired_violation = 'REPAIR_ANCHOR_CHANGED'
-                          if repaired_violation is None:
-                              break
-                          if can_retry_speculative(initial_violation, repaired_violation, anchor, repair_attempt):
-                              continue
-                          try:
-                              save_rejected(
-                                  item,
-                                  initial,
-                                  content,
-                                  initial_violation,
+                          fresh_user = repair_user(item, violation, initial, 1, 1)
+                          repair_prompt_sha256 = hashlib.sha256(fresh_user.encode('utf-8')).hexdigest()
+                          content = completion(item['system'], fresh_user, schema)
+                          violation = policy_violation(item, content)
+                          if violation is not None:
+                              if violation not in repairable:
+                                  try:
+                                      save_rejected(
+                                          item,
+                                          initial,
+                                          content,
+                                          initial_violation,
+                                          violation,
+                                          repair_prompt_sha256,
+                                      )
+                                  except (OSError, ValueError, TypeError, KeyError):
+                                      pass
+                                  fail('POLICY_FRESH_REVIEW_INVALID_' + re.sub(r'[^A-Z0-9_]', '_', violation.upper()))
+                              anchor = candidate_anchor(item, content)
+                              if anchor is None:
+                                  try:
+                                      save_rejected(
+                                          item,
+                                          initial,
+                                          content,
+                                          initial_violation,
+                                          violation,
+                                          repair_prompt_sha256,
+                                      )
+                                  except (OSError, ValueError, TypeError, KeyError):
+                                      pass
+                                  fail('POLICY_REPAIR_INVALID_FRESH_ANCHOR')
+                      if violation is not None:
+                          scoped_item = scoped_speculative_repair_item(item, anchor)
+                          if scoped_item is None:
+                              fail('POLICY_REPAIR_SCOPE_INVALID')
+                          repair_item = scoped_item
+                          max_repair_attempts = MAX_SPECULATIVE_REPAIR_ATTEMPTS
+                          repaired_violation = violation
+                          repair_attempt = 0
+                          while repair_attempt < max_repair_attempts:
+                              repair_attempt += 1
+                              repairs += 1
+                              repaired_user = repair_user(
+                                  repair_item,
                                   repaired_violation,
-                                  repair_prompt_sha256,
+                                  content,
+                                  repair_attempt,
+                                  max_repair_attempts,
                               )
-                          except (OSError, ValueError, TypeError, KeyError):
-                              pass
-                          fail('POLICY_REPAIR_INVALID_' + re.sub(r'[^A-Z0-9_]', '_', repaired_violation.upper()))
+                              repair_prompt_sha256 = hashlib.sha256(repaired_user.encode('utf-8')).hexdigest()
+                              repair_response_schema = (
+                                  empty_findings_repair_schema(schema)
+                                  if repaired_violation == 'TEST_ONLY_SECURITY_FINDING_REJECTED'
+                                  else anchored_repair_schema(schema, repair_item, anchor)
+                              )
+                              content = completion(item['system'], repaired_user, repair_response_schema)
+                              repaired_violation = policy_violation(repair_item, content)
+                              final_anchor = candidate_anchor(repair_item, content)
+                              if repaired_violation is None:
+                                  if final_anchor is not None and final_anchor != anchor:
+                                      repaired_violation = 'REPAIR_ANCHOR_CHANGED'
+                              elif repaired_violation in repairable and final_anchor != anchor:
+                                  repaired_violation = 'REPAIR_ANCHOR_CHANGED'
+                              if repaired_violation is None:
+                                  break
+                              if can_retry_speculative(initial_violation, repaired_violation, anchor, repair_attempt):
+                                  continue
+                              try:
+                                  save_rejected(
+                                      item,
+                                      initial,
+                                      content,
+                                      initial_violation,
+                                      repaired_violation,
+                                      repair_prompt_sha256,
+                                  )
+                              except (OSError, ValueError, TypeError, KeyError):
+                                  pass
+                              fail('POLICY_REPAIR_INVALID_' + re.sub(r'[^A-Z0-9_]', '_', repaired_violation.upper()))
 
                   out.write(json.dumps({
                       'index': item['index'],
