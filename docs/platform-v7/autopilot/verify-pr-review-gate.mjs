@@ -523,6 +523,190 @@ function checkWorkflow(check) {
   return String(check?.workflowName || check?.workflow || '').trim();
 }
 
+function positiveIntegerString(value) {
+  const normalized = String(value ?? '').trim();
+  return /^[1-9][0-9]{0,19}$/u.test(normalized) ? normalized : '';
+}
+
+function strictNonEmptyString(value) {
+  return typeof value === 'string' && value === value.trim() && value ? value : '';
+}
+
+function strictStartedAt(value) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+export function actionsRunIdFromCheck(check, repo) {
+  if (!checkWorkflow(check)) return '';
+  const repository = String(repo || '').trim();
+  if (!isGitHubRepositorySlug(repository)) return '';
+  const detailsUrl = String(check?.detailsUrl || check?.details_url || '').trim();
+  if (!detailsUrl) return '';
+
+  let parsed;
+  try {
+    parsed = new URL(detailsUrl);
+  } catch {
+    return '';
+  }
+  if (parsed.protocol !== 'https:' || parsed.hostname !== 'github.com') return '';
+
+  const [owner, name] = repository.split('/');
+  const parts = parsed.pathname.split('/').filter(Boolean);
+  if (parts.length < 5) return '';
+  if (parts[0].toLowerCase() !== owner.toLowerCase() || parts[1].toLowerCase() !== name.toLowerCase()) return '';
+  if (parts[2] !== 'actions' || parts[3] !== 'runs') return '';
+  return positiveIntegerString(parts[4]);
+}
+
+export function canonicalizeExactPrHeadActionsChecks(
+  checks,
+  actionsRuns,
+  expectedHeadSha,
+  expectedHeadRef,
+  repo,
+) {
+  const expectedSha = canonicalSha40(expectedHeadSha);
+  const expectedRef = strictNonEmptyString(expectedHeadRef);
+  const sourceChecks = Array.isArray(checks) ? checks : [];
+  const sourceRuns = Array.isArray(actionsRuns) ? actionsRuns : [];
+  const errors = [];
+
+  if (!expectedSha) return { checks: [], errors: ['exact-head-sha-invalid'] };
+  if (!expectedRef) return { checks: [], errors: ['exact-head-ref-invalid'] };
+  if (!isGitHubRepositorySlug(repo)) return { checks: [], errors: ['repository-invalid'] };
+
+  const runsById = new Map();
+  for (const run of sourceRuns) {
+    const id = positiveIntegerString(run?.id);
+    if (!id) {
+      errors.push('actions-run-id-invalid');
+      continue;
+    }
+    if (runsById.has(id)) {
+      errors.push(`actions-run-duplicate:${id}`);
+      continue;
+    }
+    runsById.set(id, run);
+  }
+
+  const passthrough = [];
+  const currentPrActions = [];
+  for (let index = 0; index < sourceChecks.length; index += 1) {
+    const check = sourceChecks[index];
+    const workflow = checkWorkflow(check);
+    if (!workflow) {
+      passthrough.push({ index, check });
+      continue;
+    }
+
+    const runId = actionsRunIdFromCheck(check, repo);
+    if (!runId) {
+      errors.push(`actions-check-run-url-invalid:${workflow}:${checkName(check) || 'unnamed-check'}`);
+      continue;
+    }
+    const run = runsById.get(runId);
+    if (!run) {
+      errors.push(`actions-run-metadata-missing:${runId}`);
+      continue;
+    }
+
+    const metadataId = positiveIntegerString(run?.id);
+    const workflowId = positiveIntegerString(run?.workflow_id);
+    const runNumber = positiveIntegerString(run?.run_number);
+    const runAttempt = positiveIntegerString(run?.run_attempt);
+    const runHeadSha = canonicalSha40(run?.head_sha);
+    const runHeadRef = strictNonEmptyString(run?.head_branch);
+    const event = strictNonEmptyString(run?.event);
+    if (!metadataId || !workflowId || !runNumber || !runAttempt || !runHeadSha || !runHeadRef || !event) {
+      errors.push(`actions-run-authority-metadata-invalid:${runId}`);
+      continue;
+    }
+    if (metadataId !== runId) {
+      errors.push(`actions-run-id-mismatch:${runId}`);
+      continue;
+    }
+    if (runHeadSha !== expectedSha) {
+      errors.push(`actions-run-head-sha-mismatch:${runId}`);
+      continue;
+    }
+
+    // GitHub's commit-level rollup can contain checks from a different branch that points at
+    // the same SHA. Valid run metadata proving a foreign head ref makes that check non-PR authority.
+    if (runHeadRef !== expectedRef) continue;
+
+    currentPrActions.push({
+      check,
+      event,
+      index,
+      runId,
+      runNumber: BigInt(runNumber),
+      workflowId,
+    });
+  }
+
+  if (errors.length > 0) return { checks: [], errors: [...new Set(errors)] };
+
+  const authoritativeRunByFamily = new Map();
+  for (const entry of currentPrActions) {
+    const family = `${entry.workflowId}\u0000${entry.event}`;
+    const previous = authoritativeRunByFamily.get(family);
+    if (!previous || entry.runNumber > previous.runNumber) {
+      authoritativeRunByFamily.set(family, { runId: entry.runId, runNumber: entry.runNumber });
+      continue;
+    }
+    if (entry.runNumber === previous.runNumber && entry.runId !== previous.runId) {
+      errors.push(`actions-run-number-ambiguous:${entry.workflowId}:${entry.event}:${entry.runNumber}`);
+    }
+  }
+  if (errors.length > 0) return { checks: [], errors: [...new Set(errors)] };
+
+  const selected = currentPrActions.filter((entry) => {
+    const family = `${entry.workflowId}\u0000${entry.event}`;
+    return authoritativeRunByFamily.get(family)?.runId === entry.runId;
+  });
+
+  const selectedByLogicalCheck = new Map();
+  for (const entry of selected) {
+    const name = checkName(entry.check);
+    if (!name) {
+      errors.push(`actions-selected-check-name-missing:${entry.runId}`);
+      continue;
+    }
+    const key = `${entry.runId}\u0000${name}`;
+    const group = selectedByLogicalCheck.get(key) || [];
+    group.push(entry);
+    selectedByLogicalCheck.set(key, group);
+  }
+
+  const deduped = [];
+  for (const group of selectedByLogicalCheck.values()) {
+    if (group.length === 1) {
+      deduped.push(group[0]);
+      continue;
+    }
+    const ranked = group.map((entry) => ({ entry, startedAt: strictStartedAt(entry.check?.startedAt) }));
+    if (ranked.some((item) => item.startedAt === null)) {
+      errors.push(`actions-selected-check-started-at-invalid:${group[0].runId}:${checkName(group[0].check)}`);
+      continue;
+    }
+    ranked.sort((a, b) => b.startedAt - a.startedAt);
+    if (ranked.length > 1 && ranked[0].startedAt === ranked[1].startedAt) {
+      errors.push(`actions-selected-check-started-at-ambiguous:${group[0].runId}:${checkName(group[0].check)}`);
+      continue;
+    }
+    deduped.push(ranked[0].entry);
+  }
+
+  if (errors.length > 0) return { checks: [], errors: [...new Set(errors)] };
+  return {
+    checks: [...passthrough, ...deduped].sort((a, b) => a.index - b.index).map((entry) => entry.check),
+    errors: [],
+  };
+}
+
 export function isIgnoredMergeGateCheck(check) {
   const name = checkName(check);
   const workflow = checkWorkflow(check);
@@ -872,12 +1056,34 @@ function fetchCheckSnapshot(repo, prNumber) {
     '--repo',
     repo,
     '--json',
-    'headRefOid,statusCheckRollup',
+    'headRefName,headRefOid,statusCheckRollup',
   ]);
+  const headSha = canonicalSha40(value?.headRefOid);
+  const headRef = strictNonEmptyString(value?.headRefName);
+  const rawChecks = Array.isArray(value?.statusCheckRollup) ? value.statusCheckRollup : [];
+  const runIds = new Set();
+  for (const check of rawChecks) {
+    if (!checkWorkflow(check)) continue;
+    const runId = actionsRunIdFromCheck(check, repo);
+    if (runId) runIds.add(runId);
+  }
+
+  const actionsRuns = [];
+  for (const runId of runIds) {
+    try {
+      const run = ghJson(['api', `repos/${repo}/actions/runs/${runId}`]);
+      if (run) actionsRuns.push(run);
+    } catch {
+      // Missing run metadata is not ignored. Canonicalization below converts it to a blocking error.
+    }
+  }
+  const canonical = canonicalizeExactPrHeadActionsChecks(rawChecks, actionsRuns, headSha, headRef, repo);
 
   return {
-    headSha: canonicalSha40(value?.headRefOid),
-    checks: Array.isArray(value?.statusCheckRollup) ? value.statusCheckRollup : [],
+    headSha,
+    headRef,
+    checks: canonical.checks,
+    canonicalizationErrors: canonical.errors,
   };
 }
 
@@ -963,6 +1169,15 @@ function providerMaintenanceBootstrapDecision(repo, pr, headSha, reviews) {
   const snapshot = fetchCheckSnapshot(repo, Number(pr?.number || 0));
   if (!ciSnapshotMatchesHead(snapshot.headSha, headSha)) {
     return { eligible: false, reason: 'ci-head-mismatch' };
+  }
+  if (snapshot.headRef !== String(pr?.head?.ref || '')) {
+    return { eligible: false, reason: 'ci-head-ref-mismatch' };
+  }
+  if (snapshot.canonicalizationErrors.length > 0) {
+    return {
+      eligible: false,
+      reason: `ci-snapshot-invalid:${snapshot.canonicalizationErrors.slice(0, 10).join(',')}`,
+    };
   }
   const observed = providerMaintenanceBootstrapSubstantiveChecks(snapshot.checks);
   if (observed.length === 0) {
@@ -1155,6 +1370,18 @@ function main() {
       fail(
         'REVIEW_GATE_CI_HEAD_MISMATCH',
         `CI snapshot head ${snapshot.headSha || 'missing'} does not match verified head ${headSha}.`,
+      );
+    }
+    if (snapshot.headRef !== String(pr?.head?.ref || '')) {
+      fail(
+        'REVIEW_GATE_CI_HEAD_REF_MISMATCH',
+        `CI snapshot head ref ${snapshot.headRef || 'missing'} does not match verified PR head ref ${String(pr?.head?.ref || '') || 'missing'}.`,
+      );
+    }
+    if (snapshot.canonicalizationErrors.length > 0) {
+      fail(
+        'REVIEW_GATE_CI_SNAPSHOT_INVALID',
+        `Exact-PR-head CI authority metadata is malformed or ambiguous: ${snapshot.canonicalizationErrors.slice(0, 20).join(', ')}`,
       );
     }
 
