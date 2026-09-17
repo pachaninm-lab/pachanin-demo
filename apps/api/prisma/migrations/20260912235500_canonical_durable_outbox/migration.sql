@@ -126,7 +126,13 @@ DROP TRIGGER IF EXISTS outbox_expired_attempt_reclaim_guard_trigger
 CREATE TRIGGER outbox_expired_attempt_reclaim_guard_trigger
   BEFORE UPDATE ON public."outbox_entries"
   FOR EACH ROW
-  WHEN (NEW."status" = 'PROCESSING')
+  WHEN (
+    NEW."status" = 'PROCESSING'
+    AND (
+      OLD."status" IS DISTINCT FROM NEW."status"
+      OR NEW."leaseToken" IS DISTINCT FROM OLD."leaseToken"
+    )
+  )
   EXECUTE FUNCTION public.outbox_expired_attempt_reclaim_guard();
 
 ALTER TABLE public."outbox_redrive_events"
@@ -160,7 +166,12 @@ BEGIN
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = grant_role)
        AND (
          has_table_privilege(grant_role, 'public.outbox_entries', 'UPDATE')
-         OR has_any_column_privilege(grant_role, 'public.outbox_entries', 'UPDATE')
+         OR (
+           has_column_privilege(grant_role, 'public.outbox_entries', 'status', 'UPDATE')
+           AND has_column_privilege(grant_role, 'public.outbox_entries', 'retryCount', 'UPDATE')
+           AND has_column_privilege(grant_role, 'public.outbox_entries', 'lastError', 'UPDATE')
+           AND has_column_privilege(grant_role, 'public.outbox_entries', 'failedAt', 'UPDATE')
+         )
        ) THEN
       EXECUTE format(
         'GRANT UPDATE ("lastErrorCode", "lastErrorCategory", "lastAttemptAt", "manualReviewAt") ON TABLE public."outbox_entries" TO %I',
