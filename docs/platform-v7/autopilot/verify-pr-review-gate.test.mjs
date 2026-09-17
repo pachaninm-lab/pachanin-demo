@@ -5,6 +5,8 @@ import test from 'node:test';
 
 import {
   activeUnresolvedThreads,
+  actionsRunIdFromCheck,
+  canonicalizeExactPrHeadActionsChecks,
   canonicalSha40,
   checkRollupBlockers,
   ciSnapshotMatchesHead,
@@ -343,6 +345,224 @@ test('CI snapshot must be bound to the exact verified head', () => {
   assert.equal(ciSnapshotMatchesHead(oldHead, head), false);
   assert.equal(ciSnapshotMatchesHead('not-a-sha', head), false);
   assert.equal(ciSnapshotMatchesHead('', head), false);
+});
+
+const exactHeadRef = 'fix/review-gate-authoritative-workflow-run-20260917';
+const repo = 'pachaninm-lab/pachanin-demo';
+
+function actionsCheck({
+  runId,
+  name = 'guard',
+  conclusion = 'SUCCESS',
+  status = 'COMPLETED',
+  startedAt = '2026-09-17T19:30:00Z',
+  workflowName = 'platform-v7 autopilot guard',
+}) {
+  return {
+    workflowName,
+    name,
+    status,
+    conclusion,
+    startedAt,
+    detailsUrl: `https://github.com/${repo}/actions/runs/${runId}/job/${runId}01`,
+  };
+}
+
+function actionsRun({
+  id,
+  runNumber,
+  workflowId = 282418356,
+  event = 'pull_request',
+  headSha = head,
+  headRef = exactHeadRef,
+  runAttempt = 1,
+}) {
+  return {
+    id,
+    workflow_id: workflowId,
+    run_number: runNumber,
+    run_attempt: runAttempt,
+    event,
+    head_sha: headSha,
+    head_branch: headRef,
+  };
+}
+
+test('Actions check URL parsing is repository-bound and exact', () => {
+  const check = actionsCheck({ runId: 35265106561 });
+  assert.equal(actionsRunIdFromCheck(check, repo), '35265106561');
+  assert.equal(actionsRunIdFromCheck(check, 'other/repo'), '');
+  assert.equal(actionsRunIdFromCheck({ ...check, detailsUrl: 'https://example.com/actions/runs/35265106561' }, repo), '');
+});
+
+test('same-SHA Actions check from a foreign PR head ref is excluded only after valid run metadata proves the mismatch', () => {
+  const foreignFailure = actionsCheck({ runId: 35264531109, conclusion: 'FAILURE' });
+  const currentSuccess = actionsCheck({ runId: 35265106561, conclusion: 'SUCCESS' });
+  const result = canonicalizeExactPrHeadActionsChecks(
+    [foreignFailure, currentSuccess],
+    [
+      actionsRun({ id: 35264531109, runNumber: 11817, headRef: 'transport/local-qwen-evidence-20260917', runAttempt: 2 }),
+      actionsRun({ id: 35265106561, runNumber: 11819 }),
+    ],
+    head,
+    exactHeadRef,
+    repo,
+  );
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.checks, [currentSuccess]);
+  assert.deepEqual(checkRollupBlockers(result.checks), []);
+});
+
+test('missing or malformed Actions head-ref authority metadata fails closed instead of excluding the check', () => {
+  const check = actionsCheck({ runId: 42 });
+  for (const headRef of ['', ' branch-with-space ']) {
+    const result = canonicalizeExactPrHeadActionsChecks(
+      [check],
+      [actionsRun({ id: 42, runNumber: 10, headRef })],
+      head,
+      exactHeadRef,
+      repo,
+    );
+    assert.equal(result.checks.length, 0);
+    assert.match(result.errors.join(','), /authority-metadata-invalid/u);
+  }
+});
+
+test('older failure followed by newer success in the same workflow/event family selects the newer run_number', () => {
+  const olderFailure = actionsCheck({ runId: 101, conclusion: 'FAILURE', startedAt: '2026-09-17T19:20:00Z' });
+  const newerSuccess = actionsCheck({ runId: 102, conclusion: 'SUCCESS', startedAt: '2026-09-17T19:30:00Z' });
+  const result = canonicalizeExactPrHeadActionsChecks(
+    [olderFailure, newerSuccess],
+    [actionsRun({ id: 101, runNumber: 100 }), actionsRun({ id: 102, runNumber: 101 })],
+    head,
+    exactHeadRef,
+    repo,
+  );
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.checks, [newerSuccess]);
+  assert.deepEqual(checkRollupBlockers(result.checks), []);
+});
+
+test('newer failure in the same workflow/event family remains blocking', () => {
+  const olderSuccess = actionsCheck({ runId: 101, conclusion: 'SUCCESS' });
+  const newerFailure = actionsCheck({ runId: 102, conclusion: 'FAILURE' });
+  const result = canonicalizeExactPrHeadActionsChecks(
+    [olderSuccess, newerFailure],
+    [actionsRun({ id: 101, runNumber: 100 }), actionsRun({ id: 102, runNumber: 101 })],
+    head,
+    exactHeadRef,
+    repo,
+  );
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.checks, [newerFailure]);
+  assert.deepEqual(checkRollupBlockers(result.checks), ['platform-v7 autopilot guard / guard:FAILURE']);
+});
+
+test('later wall-clock rerun of an older run_number cannot supersede a newer run_number', () => {
+  const rerunOlderFailure = actionsCheck({ runId: 101, conclusion: 'FAILURE', startedAt: '2026-09-17T19:47:03Z' });
+  const newerSuccess = actionsCheck({ runId: 102, conclusion: 'SUCCESS', startedAt: '2026-09-17T19:29:13Z' });
+  const result = canonicalizeExactPrHeadActionsChecks(
+    [rerunOlderFailure, newerSuccess],
+    [actionsRun({ id: 101, runNumber: 100, runAttempt: 2 }), actionsRun({ id: 102, runNumber: 101 })],
+    head,
+    exactHeadRef,
+    repo,
+  );
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.checks, [newerSuccess]);
+});
+
+test('distinct Actions event families for the same workflow and exact PR head remain independently evaluated', () => {
+  const prSuccess = actionsCheck({ runId: 101, name: 'pull-request-guard', conclusion: 'SUCCESS' });
+  const dispatchFailure = actionsCheck({ runId: 202, name: 'dispatch-guard', conclusion: 'FAILURE' });
+  const result = canonicalizeExactPrHeadActionsChecks(
+    [prSuccess, dispatchFailure],
+    [
+      actionsRun({ id: 101, runNumber: 100, event: 'pull_request' }),
+      actionsRun({ id: 202, runNumber: 110, event: 'workflow_dispatch' }),
+    ],
+    head,
+    exactHeadRef,
+    repo,
+  );
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.checks, [prSuccess, dispatchFailure]);
+  assert.deepEqual(checkRollupBlockers(result.checks), ['platform-v7 autopilot guard / dispatch-guard:FAILURE']);
+});
+
+test('selected Actions run deduplicates the same logical check only by strictly newer parseable startedAt', () => {
+  const first = actionsCheck({ runId: 42, conclusion: 'FAILURE', startedAt: '2026-09-17T19:29:13Z' });
+  const retry = actionsCheck({ runId: 42, conclusion: 'SUCCESS', startedAt: '2026-09-17T19:31:13Z' });
+  const result = canonicalizeExactPrHeadActionsChecks(
+    [first, retry],
+    [actionsRun({ id: 42, runNumber: 10, runAttempt: 2 })],
+    head,
+    exactHeadRef,
+    repo,
+  );
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.checks, [retry]);
+});
+
+test('malformed or ambiguous selected-run duplicate ordering blocks snapshot canonicalization', () => {
+  const malformed = canonicalizeExactPrHeadActionsChecks(
+    [actionsCheck({ runId: 42, startedAt: 'not-a-date' }), actionsCheck({ runId: 42, startedAt: '2026-09-17T19:31:13Z' })],
+    [actionsRun({ id: 42, runNumber: 10, runAttempt: 2 })],
+    head,
+    exactHeadRef,
+    repo,
+  );
+  assert.equal(malformed.checks.length, 0);
+  assert.match(malformed.errors.join(','), /started-at-invalid/u);
+
+  const ambiguous = canonicalizeExactPrHeadActionsChecks(
+    [
+      actionsCheck({ runId: 42, conclusion: 'FAILURE', startedAt: '2026-09-17T19:31:13Z' }),
+      actionsCheck({ runId: 42, conclusion: 'SUCCESS', startedAt: '2026-09-17T19:31:13Z' }),
+    ],
+    [actionsRun({ id: 42, runNumber: 10, runAttempt: 2 })],
+    head,
+    exactHeadRef,
+    repo,
+  );
+  assert.equal(ambiguous.checks.length, 0);
+  assert.match(ambiguous.errors.join(','), /started-at-ambiguous/u);
+});
+
+test('Actions authority metadata conflicts and exact-head SHA mismatch fail closed', () => {
+  const wrongSha = canonicalizeExactPrHeadActionsChecks(
+    [actionsCheck({ runId: 42 })],
+    [actionsRun({ id: 42, runNumber: 10, headSha: oldHead })],
+    head,
+    exactHeadRef,
+    repo,
+  );
+  assert.equal(wrongSha.checks.length, 0);
+  assert.match(wrongSha.errors.join(','), /head-sha-mismatch/u);
+
+  const ambiguous = canonicalizeExactPrHeadActionsChecks(
+    [actionsCheck({ runId: 42 }), actionsCheck({ runId: 43, name: 'other' })],
+    [actionsRun({ id: 42, runNumber: 10 }), actionsRun({ id: 43, runNumber: 10 })],
+    head,
+    exactHeadRef,
+    repo,
+  );
+  assert.equal(ambiguous.checks.length, 0);
+  assert.match(ambiguous.errors.join(','), /run-number-ambiguous/u);
+});
+
+test('legacy non-Actions status contexts survive exact-PR-head Actions canonicalization unchanged', () => {
+  const legacy = { context: 'legacy-green', state: 'SUCCESS' };
+  const current = actionsCheck({ runId: 42, conclusion: 'SUCCESS' });
+  const result = canonicalizeExactPrHeadActionsChecks(
+    [legacy, current],
+    [actionsRun({ id: 42, runNumber: 10 })],
+    head,
+    exactHeadRef,
+    repo,
+  );
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.checks, [legacy, current]);
 });
 
 test('provider BLOCK evidence authenticates provider actor and exact head after canonical SHA normalization', () => {
