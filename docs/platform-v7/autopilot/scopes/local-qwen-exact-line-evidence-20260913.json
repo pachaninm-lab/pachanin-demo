@@ -2,7 +2,7 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/local-qwen-evidence-binding-20260913",
   "status": "active",
-  "purpose": "Authorize bounded same-anchor Local Qwen repair continuation for substantive PR #5347. The provider may make a finite maximum of three repair inferences only for the fixed repairable violation set below, only after the initial candidate has a mechanically valid exact path/new-side-line/verbatim-evidence anchor. All repairs retain that tuple and are independently revalidated. Fail-closed behavior, exact-head authority and all model/runtime/policy/transport pins remain unchanged. This authority does not authorize product changes and does not create independent review authority.",
+  "purpose": "Authorize bounded same-anchor Local Qwen repair continuation for substantive PR #5347. The provider may make a finite maximum of three repair inferences only for the two existing repairable validator classes, only after the initial candidate has a mechanically valid exact path/new-side-line/verbatim-evidence anchor. All repairs retain that tuple and are independently revalidated. Fail-closed behavior, exact-head authority and all model/runtime/policy/transport pins remain unchanged. This authority does not authorize product changes and does not create independent review authority.",
   "authorityBaseExactMain": "5ff2ccaac7e30e7f5400e4751603531f04f683ea",
   "evidence": {
     "substantivePullRequest": 5347,
@@ -15,10 +15,7 @@
       "path": "apps/api/src/common/kafka/kafka-producer.service.spec.ts",
       "line": 35,
       "evidence": "await expect(service.isReady()).resolves.toBe(false);"
-    },
-    "initialViolation": "SPECULATIVE_CLAIM",
-    "finalViolation": "TEST_ONLY_SECURITY_FINDING_REJECTED",
-    "admittedProductFindingCount": 0
+    }
   },
   "allowedPaths": [
     ".github/workflows/local-qwen-independent-review.yml",
@@ -26,7 +23,7 @@
     "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
   ],
   "requiredChange": {
-    "summary": "Keep the initial full-chunk semantic review unchanged. When the initial candidate is rejected as a member of the fixed repairable violation set and has a valid exact anchor, allow at most three deterministic same-anchor repair attempts. Continue only while the immediately preceding repair remains in that set on the same anchor. Any other violation fails closed immediately. Exhaustion fails closed. Replacement-line search is forbidden. The workflow may reject inadmissible output but must never synthesize PASS; findings=[] remains model-authored.",
+    "summary": "Keep the initial full-chunk semantic review unchanged. When the initial candidate is rejected by either of the two existing repairable validator classes and has a valid exact anchor, allow at most three deterministic same-anchor repair attempts. Continue only while the immediately preceding repair remains in those same two classes on the same anchor. Any other validator outcome fails closed immediately. Exhaustion fails closed. Replacement-line search is forbidden. The workflow may reject inadmissible output but must never synthesize PASS; findings=[] remains model-authored.",
     "findingEvidenceContract": {
       "exactChangedPathRequired": true,
       "exactAddedNewSideLineRequired": true,
@@ -52,17 +49,17 @@
       ],
       "unsupportedExternalDeploymentOrTopologyAssumption": "inadmissible",
       "routePathTestOnlySecretClassificationWithoutConcreteMechanism": "inadmissible",
-      "repairableViolationSet": [
-        "SPECULATIVE_CLAIM",
-        "TEST_ONLY_SECURITY_FINDING_REJECTED"
-      ],
       "repairAttemptsMaximum": 3,
       "repairAttemptsEligibility": "INITIAL_REPAIRABLE_VIOLATION_WITH_MECHANICALLY_VALID_EXACT_ANCHOR_ONLY",
       "retryCondition": "PREVIOUS_REPAIR_VIOLATION_REMAINS_IN_REPAIRABLE_VIOLATION_SET_ON_SAME_ANCHOR",
-      "replacementLineSearch": "FORBIDDEN"
+      "replacementLineSearch": "FORBIDDEN",
+      "repairableViolationClasses": [
+        "CURRENT_SPECULATION_REJECTION",
+        "CURRENT_TEST_ONLY_CLASSIFICATION_REJECTION"
+      ]
     },
     "authorizedChangesOnly": [
-      "replace the single repair with a finite maximum-three-attempt same-anchor sequence for the fixed repairable violation set",
+      "replace the single repair with a finite maximum-three-attempt same-anchor sequence for the two existing repairable validator classes",
       "scope repair-time trusted eligibility to the preserved exact anchor while keeping the full exact chunk as untrusted context",
       "mechanically pin every repair response to the preserved path, line and evidence",
       "preserve violation-specific repair guidance without changing trusted policy text",
@@ -103,8 +100,8 @@
     "Pinned SSH/SCP host-key transport, service-user verification, model file size/hash verification, protected API-key discovery, thinking disabled, temperature 0, top_p 1, deterministic seed and bounded inference remain unchanged.",
     "The full-diff bound remains 400000 bytes, chunk bound remains 8000 bytes and maximum chunk count remains 96; no changed path, review category, severity or concrete admissible defect is exempted from initial review.",
     "A concrete schema-valid policy-admissible finding remains blocking and is preserved into canonical authority.",
-    "Only an initial candidate in the fixed repairable violation set with a mechanically valid exact anchor is eligible for the bounded repair sequence; trusted path, line and evidence cannot change across attempts.",
-    "A subsequent repair is allowed only while the preceding repaired candidate remains in the fixed repairable violation set on the same anchor; any other violation fails closed immediately.",
+    "Only an initial candidate in the two existing repairable validator classes with a mechanically valid exact anchor is eligible for the bounded repair sequence; trusted path, line and evidence cannot change across attempts.",
+    "A subsequent repair is allowed only while the preceding repaired candidate remains in those two repairable validator classes on the same anchor; any other violation fails closed immediately.",
     "After the third repair attempt, any remaining violation fails closed and preserves rejected diagnostics.",
     "A clean findings=[] result remains model-authored; deterministic admission logic cannot synthesize PASS from rejected output.",
     "Exact full-diff, chunk, manifest, prompt-bundle and canonical-response digests remain bound to the exact review run and head.",
