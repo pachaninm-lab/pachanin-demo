@@ -686,6 +686,8 @@ jobs:
                   violation_guidance = (
                       'For SPECULATIVE_CLAIM, do not repeat the rejected inference with different certainty wording. '
                       'A label, category, constant, enum member, or stored historical value does not by itself prove downstream retry, authorization, security, or control-flow behavior. '
+                      'A structural construct opener or delimiter such as a bare DO block header, DECLARE, BEGIN, END, brace, function signature, or section header does not by itself prove behavior implemented by statements elsewhere in that construct. '
+                      'Neighboring lines may clarify syntax but cannot supply a missing defect mechanism for the pinned evidence line; when the pinned line is only structural, author findings=[] unless that exact line itself contains the concrete defect mechanism. '
                       'A non-empty finding requires the exact changed bytes in this same chunk to directly implement the claimed behavior or concrete failure mechanism; otherwise author findings=[]. '
                       'Do not use any of these policy-inadmissible words in a non-empty finding title or reason: could, may, might, likely, potential, potentially, possible, possibility, perhaps, maybe, speculate, speculative, speculatively. '
                   )
@@ -903,6 +905,8 @@ jobs:
           speculative_repair_probe = repair_user(scoped_probe_item, 'SPECULATIVE_CLAIM', speculative_candidate, 2, MAX_SPECULATIVE_REPAIR_ATTEMPTS)
           if 'does not by itself prove downstream retry' not in speculative_repair_probe:
               fail('VALIDATOR_SELFTEST_SPECULATION_REPAIR_GROUNDING_MISSING')
+          if 'structural construct opener or delimiter' not in speculative_repair_probe or 'cannot supply a missing defect mechanism for the pinned evidence line' not in speculative_repair_probe:
+              fail('VALIDATOR_SELFTEST_SPECULATION_STRUCTURAL_ANCHOR_GUIDANCE_MISSING')
           if 'otherwise author findings=[]' not in speculative_repair_probe:
               fail('VALIDATOR_SELFTEST_SPECULATION_REPAIR_EMPTY_RESULT_GUIDANCE_MISSING')
           if 'original cited NEW_LINE_7' not in speculative_repair_probe or 'same verbatim evidence substring' not in speculative_repair_probe:
