@@ -2,22 +2,20 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/local-qwen-evidence-binding-20260913",
   "status": "active",
-  "purpose": "Authorize a bounded Local Qwen provider hardening after exact-head semantic reviews of substantive PR #5349 produced blocking candidates that violated the already-pinned direct-evidence policy through unsupported external assumptions and speculative classifications. Strengthen deterministic admissibility so every non-empty finding is bound to an exact added new-side line and verbatim evidence from that line, while preserving model/runtime identity, review scope, fail-closed behavior and exact-head authority. Also authorize one narrowly-scoped fail-closed provider-maintenance bootstrap so the review provider can be repaired without fabricating an independent provider PASS for its own implementation.",
-  "authorityBaseExactMain": "f4c898e913ac57eec4e8588e8debcbbf3a93381f",
+  "purpose": "Authorize bounded same-anchor Local Qwen repair continuation for substantive PR #5347. The provider may make a finite maximum of three repair inferences only for the two existing repairable validator classes, only after the initial candidate has a mechanically valid exact path/new-side-line/verbatim-evidence anchor. All repairs retain that tuple and are independently revalidated. Fail-closed behavior, exact-head authority and all model/runtime/policy/transport pins remain unchanged. This authority does not authorize product changes and does not create independent review authority.",
+  "authorityBaseExactMain": "5ff2ccaac7e30e7f5400e4751603531f04f683ea",
   "evidence": {
-    "substantivePullRequest": 5349,
-    "reviewedExactHead": "e7611e495bdd25406a7116327a66779bdd1c2f37",
-    "reviewRunId": 34773886077,
-    "reviewJobId": 103768358821,
-    "freshReviewRunId": 34774757384,
-    "freshReviewJobId": 103770721520,
-    "observedViolations": [
-      "A blocking database-timing finding depended on an external assumption about unsynchronized database nodes although the exact reviewed chunk contains no multi-node, replication or distributed-database topology.",
-      "A blocking web finding classified bounded scalar normalization as potential information leakage without identifying any concrete leakage sink while the exact changed parser returns an explicit allowlisted public object.",
-      "The deterministic validator rejected only a narrow hedge-word set in the reason field, so equivalent speculation in titles, noun/adjective forms and unsupported external-context assumptions could survive into blocking authority.",
-      "The existing output contract did not require a finding to carry a verbatim evidence fragment that is mechanically bound to an exact added new-side line in the reviewed chunk.",
-      "The current exact-head verifier requires positive independent review authority for every PR, while the Local Qwen provider-maintenance PR cannot safely use the Local Qwen provider under repair as independent authority for itself; Octopus quota and Copilot availability are not an acceptable safety dependency or a reason to fabricate PASS."
-    ]
+    "substantivePullRequest": 5347,
+    "reviewedExactHead": "e47fe9ade69cb5ff98e08a19a2c84642ee016152",
+    "reviewRunId": 35143463739,
+    "reviewJobId": 104953468152,
+    "rejectedArtifactId": 10465449549,
+    "rejectedArtifactSha256": "eddb6da03c1a2e6a565a92afffaae9dc1c8a4ca03be39d9d46e951c83b53191c",
+    "reviewChunk": {
+      "path": "apps/api/src/common/kafka/kafka-producer.service.spec.ts",
+      "line": 35,
+      "evidence": "await expect(service.isReady()).resolves.toBe(false);"
+    }
   },
   "allowedPaths": [
     ".github/workflows/local-qwen-independent-review.yml",
@@ -25,13 +23,14 @@
     "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
   ],
   "requiredChange": {
-    "summary": "Strengthen deterministic Local Qwen finding admission without weakening review coverage. Build an exact new-side added-line index for every bounded review chunk; require every non-empty finding to cite path, exact new-side line and a verbatim evidence fragment from that line; reject line/evidence mismatches, speculative language in title or reason and unsupported deployment/topology assumptions; retain exactly one same-chunk repair pass and independently revalidate all evidence bindings during canonicalization. Add only the source-controlled provider-maintenance bootstrap defined below so this exact provider repair can pass the review gate without inventing an independent provider attestation for itself.",
+    "summary": "Keep the initial full-chunk semantic review unchanged. When the initial candidate is rejected by either of the two existing repairable validator classes and has a valid exact anchor, allow at most three deterministic same-anchor repair attempts. Continue only while the immediately preceding repair remains in those same two classes on the same anchor. Any other validator outcome fails closed immediately. Exhaustion fails closed. Replacement-line search is forbidden. The workflow may reject inadmissible output but must never synthesize PASS; findings=[] remains model-authored.",
     "findingEvidenceContract": {
       "exactChangedPathRequired": true,
       "exactAddedNewSideLineRequired": true,
       "verbatimEvidenceSubstringRequired": true,
       "evidenceBindingRevalidatedDuringCanonicalization": true,
-      "acceptedEvidenceDigestRequired": true
+      "acceptedEvidenceDigestRequired": true,
+      "repairAnchorImmutableAcrossAttempts": true
     },
     "policyAdmissibility": {
       "forbiddenSpeculationWordsWholeWordCaseInsensitive": [
@@ -51,15 +50,22 @@
       ],
       "unsupportedExternalDeploymentOrTopologyAssumption": "inadmissible",
       "routePathTestOnlySecretClassificationWithoutConcreteMechanism": "inadmissible",
-      "repairAttemptsPerChunk": 1,
-      "invalidAfterRepair": "FAIL_CLOSED"
+      "repairAttemptsMaximum": 3,
+      "invalidAfterRepairExhaustion": "FAIL_CLOSED",
+      "repairAttemptsEligibility": "INITIAL_REPAIRABLE_VIOLATION_WITH_MECHANICALLY_VALID_EXACT_ANCHOR_ONLY",
+      "retryCondition": "PREVIOUS_REPAIR_VIOLATION_REMAINS_IN_REPAIRABLE_VIOLATION_SET_ON_SAME_ANCHOR",
+      "replacementLineSearch": "FORBIDDEN",
+      "repairableViolationClasses": [
+        "CURRENT_SPECULATION_REJECTION",
+        "CURRENT_TEST_ONLY_CLASSIFICATION_REJECTION"
+      ]
     },
-    "authorizedStrengtheningBeyond20260911PolicyOnlyScope": [
-      "review manifest may be upgraded only to carry exact added-line evidence metadata",
-      "model response schema may add an evidence field required for exact-line binding",
-      "deterministic validator and canonicalizer may be strengthened to enforce exact-line evidence and reject unsupported assumptions",
-      "deterministic validator regression probes may be added",
-      "the exact-head verifier and its tests may add only the providerMaintenanceBootstrap contract below"
+    "authorizedChangesOnly": [
+      "replace the single repair with a finite maximum-three-attempt same-anchor sequence for the two existing repairable validator classes",
+      "scope repair-time trusted eligibility to the preserved exact anchor while keeping the full exact chunk as untrusted context",
+      "mechanically pin every repair response to the preserved path, line and evidence",
+      "preserve violation-specific repair guidance without changing trusted policy text",
+      "add deterministic regression probes for class transition, second/third repair, exhaustion, same-anchor enforcement, replacement-line denial and immediate fail-closed handling of any non-repairable violation"
     ]
   },
   "providerMaintenanceBootstrap": {
@@ -94,25 +100,27 @@
     "Trusted review policy text and POLICY_SHA256 e083823ced2f5b63ecfaca345e59274c5f194e36c0cdd20b2cae9cee3b4f9ed3 remain unchanged.",
     "Canonical Qwen3-8B revision 895c8d171bc03c30e113cd7a28c02494b5e068b7, model SHA-256 107afd988cdbdcced3b8e76ebc3a8e83b5a18a5c796fca20778410cb9c47a814, served identity tai-qwen3-8b-q4km, llama build b9637, source commit aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3 and runtime archive SHA-256 3857876e4a2461f7041166bd74b5d39e3db51b8639353d55f87d6f904b3b75bd remain unchanged.",
     "Pinned SSH/SCP host-key transport, service-user verification, model file size/hash verification, protected API-key discovery, thinking disabled, temperature 0, top_p 1, deterministic seed and bounded inference remain unchanged.",
-    "The full-diff bound remains 400000 bytes, chunk bound remains 8000 bytes and maximum chunk count remains 96; no changed path, review category, severity or concrete admissible defect is exempted from review.",
+    "The full-diff bound remains 400000 bytes, chunk bound remains 8000 bytes and maximum chunk count remains 96; no changed path, review category, severity or concrete admissible defect is exempted from initial review.",
     "A concrete schema-valid policy-admissible finding remains blocking. Its path, line, evidence, severity, title and reason are preserved into canonical authority, with an additional deterministic evidence digest only.",
-    "An inadmissible first candidate is never silently deleted into PASS. It triggers one fresh deterministic repair inference over the same exact chunk under the same trusted policy and model; if repaired output remains inadmissible, the provider fails closed and publishes no clean authority.",
-    "A clean findings=[] result remains model-authored; deterministic admission logic may reject invalid findings but cannot synthesize PASS from a rejected second candidate.",
+    "Only an initial candidate in the two existing repairable validator classes with a mechanically valid exact anchor is eligible for the bounded repair sequence; trusted path, line and evidence cannot change across attempts.",
+    "A subsequent repair is allowed only while the preceding repaired candidate remains in those two repairable validator classes on the same anchor; any other violation fails closed immediately.",
+    "After the third repair attempt, any remaining violation fails closed and preserves rejected diagnostics.",
+    "A clean findings=[] result remains model-authored; deterministic admission logic cannot synthesize PASS from rejected output.",
     "Exact full-diff SHA-256, chunk SHA-256 values, review manifest hash, prompt bundle hash, canonical response hash, exact-head revalidation, provider status and the existing 18-line PASS attestation contract remain bound to the exact run.",
     "The provider-maintenance bootstrap is not independent review authority and must never publish, synthesize or impersonate a Local Qwen, Octopus, Codex or Copilot PASS. It is a distinct source-controlled governance classification usable only for the exact implementation branch named by a scope already merged on live main.",
-    "The provider-maintenance bootstrap is ineligible for substantive or product PRs, including #5349, and is fail-closed unless the implementation changes only the exact allowed paths, is forward-synchronized to live main containing this authority, has exact-head owner self-audit, has all other required checks terminal green, has zero unresolved review threads and zero active CHANGES_REQUESTED, and live main equals the implementation base immediately before merge.",
-    "After the provider repair merges, substantive PR #5349 must synchronize forward-only to exact current main and obtain a completely fresh Local Qwen exact-head review under the strengthened provider; no pre-repair review evidence transfers and the bootstrap cannot authorize #5349.",
+    "The provider-maintenance bootstrap is ineligible for substantive or product PRs, including #5347, and is fail-closed unless the implementation changes only the exact allowed paths, is forward-synchronized to live main containing this authority, has exact-head owner self-audit, has all other required checks terminal green, has zero unresolved review threads and zero active CHANGES_REQUESTED, and live main equals the implementation base immediately before merge.",
+    "After the provider repair merges, substantive PR #5347 must forward-synchronize to exact current main and obtain a completely fresh Local Qwen exact-head review; no pre-repair evidence transfers.",
     "No product, API, database, RBAC, registration, cabinet, customer-data, dependency, lockfile or production runtime behavior change is authorized by this scope.",
-    "No merge gate, CI threshold, provider identity or fail-closed condition may be weakened or bypassed outside the exact providerMaintenanceBootstrap contract.",
+    "No merge gate, CI threshold, provider identity, finding-admission threshold or fail-closed condition may be weakened or bypassed outside the exact providerMaintenanceBootstrap contract.",
     "Production hosting remains REG_RU_VPS_ONLY and new recurring cost remains 0 RUB."
   ],
   "admission": [
     "Authority PR changes exactly this manifest path.",
     "Authority PR itself receives genuine independent exact-head review authority under the pre-existing verifier and cannot use providerMaintenanceBootstrap.",
     "Implementation PR changes only providerMaintenanceBootstrap.allowedImplementationPaths and cannot modify its own authority manifest.",
-    "Implementation PR is forward-synchronized to live main after this authority manifest is merged and therefore proves the authority came from merged live main rather than its own branch.",
+    "Implementation PR is forward-synchronized to live main after this authority manifest is merged and proves the authority came from merged live main.",
     "Applicable ordinary exact-head CI/security/runtime gates are terminal green before each merge.",
-    "Owner exact-head self-audit is present on each authority/provider-maintenance exact head and does not substitute for the fresh #5349 Local Qwen review after provider repair.",
+    "Owner exact-head self-audit is present on each authority/provider-maintenance exact head and does not substitute for the fresh #5347 Local Qwen review after provider repair.",
     "Unresolved review threads and active CHANGES_REQUESTED are zero.",
     "Live main equals each PR base immediately before merge.",
     "No stale provider result, owner classification or bootstrap classification is converted into independent PASS."
