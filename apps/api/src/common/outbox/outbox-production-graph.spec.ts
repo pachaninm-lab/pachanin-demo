@@ -108,6 +108,8 @@ describe('IR-OUTBOX production graph', () => {
     expect(migration).toContain(`NEW."leaseOwner" LIKE 'marketing-social-%'`);
     expect(migration).toContain(`OLD."lastAttemptAt" IS NULL`);
     expect(migration).toContain(`NEW."lastAttemptAt" := statement_timestamp()`);
+    expect(migration).toContain(`OLD."status" IS DISTINCT FROM NEW."status"`);
+    expect(migration).toContain(`NEW."leaseToken" IS DISTINCT FROM OLD."leaseToken"`);
     expect(outbox).toContain('value instanceof Date');
     expect(outbox).toContain('value.toISOString()');
   });
@@ -119,7 +121,12 @@ describe('IR-OUTBOX production graph', () => {
     expect(migration.match(/\) NOT VALID;/gu)).toHaveLength(3);
     expect(migration.match(/VALIDATE CONSTRAINT/gu)).toHaveLength(3);
     expect(migration).toContain('has_table_privilege');
-    expect(migration).toContain('has_any_column_privilege');
+    expect(migration).not.toContain('has_any_column_privilege');
+    expect(migration).toContain('has_column_privilege');
+    expect(migration).toContain("'status', 'UPDATE'");
+    expect(migration).toContain("'retryCount', 'UPDATE'");
+    expect(migration).toContain("'lastError', 'UPDATE'");
+    expect(migration).toContain("'failedAt', 'UPDATE'");
     expect(migration).toContain("'app_runtime'");
     expect(migration).toContain("'app_service'");
     expect(migration).toContain("'one_deal_app'");
