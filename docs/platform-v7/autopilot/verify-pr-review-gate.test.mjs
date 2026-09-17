@@ -399,6 +399,7 @@ test('Actions check URL parsing is repository-bound and exact', () => {
 test('PR head refs use strict Git ref syntax before becoming CI authority', () => {
   for (const valid of [
     exactHeadRef,
+    '@',
     'feature/review.v2',
     'release-2026_09',
     'topic/ümlaut',
@@ -408,7 +409,6 @@ test('PR head refs use strict Git ref syntax before becoming CI authority', () =
 
   for (const invalid of [
     '',
-    '@',
     ' branch',
     'branch ',
     'branch name',

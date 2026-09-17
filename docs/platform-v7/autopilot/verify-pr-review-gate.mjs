@@ -535,8 +535,7 @@ function strictNonEmptyString(value) {
 export function strictGitHubHeadRef(value) {
   if (typeof value !== 'string' || value !== value.trim() || !value) return '';
   if (
-    value === '@'
-    || value.startsWith('/')
+    value.startsWith('/')
     || value.endsWith('/')
     || value.endsWith('.')
     || value.includes('//')
