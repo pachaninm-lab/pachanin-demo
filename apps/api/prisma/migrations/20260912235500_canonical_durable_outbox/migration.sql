@@ -1,7 +1,4 @@
 -- IR-20: canonical PostgreSQL outbox ownership and durable failure taxonomy.
--- Ambiguous post-send outcomes are parked for governed reconciliation and are
--- never eligible for an automatic retry.
-
 ALTER TABLE public."outbox_entries"
   ADD COLUMN IF NOT EXISTS "lastErrorCode" VARCHAR(64),
   ADD COLUMN IF NOT EXISTS "lastErrorCategory" TEXT,
@@ -28,8 +25,6 @@ ALTER TABLE public."outbox_redrive_events"
 ALTER TABLE public."outbox_redrive_events"
   VALIDATE CONSTRAINT outbox_redrive_events_request_fingerprint_check;
 
--- A legacy PROCESSING lease predates durable attempt-start evidence. Its
--- external outcome is unknowable, so migration must never make it retryable.
 UPDATE public."outbox_entries"
 SET "status" = 'MANUAL_REVIEW',
     "retryCount" = "retryCount" + 1,
@@ -67,9 +62,6 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $guard$
 BEGIN
-  -- The migration runs before the rolling worker update. Reject claim writes
-  -- from an old application binary, which does not set the transaction-local
-  -- protocol marker, so it cannot create a post-migration ambiguous lease.
   IF (
        (OLD."status" <> 'PROCESSING' AND NEW."status" = 'PROCESSING')
        OR (
@@ -82,12 +74,6 @@ BEGIN
        'app_outbox', 'app_outbox_worker', 'app_deal', 'app_runtime',
        'app_service', 'one_deal_app'
      ])
-     -- Marketing delivery remains owned by its dedicated worker during this
-     -- rollout. The current shared worker normalizes even a configured custom
-     -- marketing identity to marketing-social-*, while the legacy canonical
-     -- deployment uses the outbox-worker pod name. Bind the compatibility
-     -- bypass to both that identity and its sole event type; a legacy canonical
-     -- claimant therefore cannot pass merely by selecting a marketing row.
      AND NOT (
        current_user = 'app_outbox'
        AND OLD."type" = 'MARKETING_SOCIAL_PUBLISH_V1'
@@ -99,11 +85,6 @@ BEGIN
       USING ERRCODE = '42501';
   END IF;
 
-  -- The pre-v2 dedicated marketing worker does not record attempt start before
-  -- invoking its external handler. Its narrowly identified compatibility
-  -- claim must therefore record that evidence atomically with the lease. If it
-  -- crashes before acknowledgement, expiry is ambiguous and is quarantined by
-  -- the guard below instead of being published again automatically.
   IF (
        (OLD."status" <> 'PROCESSING' AND NEW."status" = 'PROCESSING')
        OR (
@@ -166,10 +147,6 @@ ALTER TABLE public."outbox_redrive_events"
 ALTER TABLE public."outbox_redrive_events"
   VALIDATE CONSTRAINT outbox_redrive_events_previous_error_category_check;
 
--- Extend the new failure-evidence columns only to principals that already have
--- UPDATE authority on this table (table-level or column-level). This preserves
--- the pre-existing least-privilege boundary while preventing redrive/runtime
--- principals from failing when they clear or record the new evidence fields.
 DO $outbox_failure_columns$
 DECLARE
   grant_role text;
