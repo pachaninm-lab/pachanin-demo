@@ -104,7 +104,7 @@ describe('KafkaProducerService topology contract', () => {
     ['MESSAGE_TOO_LARGE', 10, 'KAFKA_MESSAGE_TOO_LARGE'],
     ['RECORD_LIST_TOO_LARGE', 18, 'KAFKA_RECORD_LIST_TOO_LARGE'],
   ] as const)(
-    'preserves definitive broker rejection %s instead of collapsing it to false',
+    'exposes definitive broker rejection %s only through the explicit outbox boundary',
     async (type, code, expectedCode) => {
       const service = new KafkaProducerService();
       const send = jest.fn().mockRejectedValue(Object.assign(
@@ -118,13 +118,35 @@ describe('KafkaProducerService topology contract', () => {
       state.connected = true;
       state.producer = { send };
 
-      await expect(service.send({ topic: 'domain', value: { oversized: true } }))
+      await expect(service.sendOrThrow({ topic: 'domain', value: { oversized: true } }))
         .rejects.toEqual(expect.objectContaining({
           name: 'KafkaDefinitiveRejectionError',
           code: expectedCode,
         }));
+      await expect(service.send({ topic: 'domain', value: { oversized: true } })).resolves.toBe(false);
     },
   );
+
+  it('keeps the legacy sendBatch count contract while exposing typed batch rejection explicitly', async () => {
+    const service = new KafkaProducerService();
+    const sendBatch = jest.fn().mockRejectedValue(Object.assign(
+      new Error('broker rejected immutable batch'),
+      { name: 'KafkaJSProtocolError', type: 'MESSAGE_TOO_LARGE', code: 10, retriable: false },
+    ));
+    const state = service as unknown as {
+      connected: boolean;
+      producer: { sendBatch: typeof sendBatch } | null;
+    };
+    state.connected = true;
+    state.producer = { sendBatch };
+    const messages = [{ topic: 'domain', value: { oversized: true } }];
+
+    await expect(service.sendBatchOrThrow(messages)).rejects.toEqual(expect.objectContaining({
+      name: 'KafkaDefinitiveRejectionError',
+      code: 'KAFKA_MESSAGE_TOO_LARGE',
+    }));
+    await expect(service.sendBatch(messages)).resolves.toBe(0);
+  });
 
   it('keeps an acknowledgement-window transport exception unclassified and fail-closed', async () => {
     const service = new KafkaProducerService();
@@ -137,6 +159,7 @@ describe('KafkaProducerService topology contract', () => {
     state.producer = { send };
 
     await expect(service.send({ topic: 'domain', value: { uncertain: true } })).resolves.toBe(false);
+    await expect(service.sendOrThrow({ topic: 'domain', value: { uncertain: true } })).resolves.toBe(false);
   });
 
   it('exports a stable typed rejection contract for the outbox boundary', () => {
