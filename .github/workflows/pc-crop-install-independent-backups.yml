@@ -171,7 +171,7 @@ jobs:
           bundle="$ROOT/git/pachanin-demo-${DAY}-${main_sha:0:12}.bundle"
           if [[ ! -e "$bundle" ]]; then
             git -C "$MIRROR" bundle create "$bundle" --all
-            git bundle verify "$bundle"
+            git -C "$MIRROR" bundle verify "$bundle"
             chown root:pcbackup "$bundle"
             chmod 0640 "$bundle"
             sha256sum "$bundle" > "$bundle.sha256"
@@ -291,7 +291,13 @@ jobs:
           systemctl daemon-reload
           systemctl enable --now pc-crop-backup-db.timer pc-crop-backup-full.timer
           systemctl start pc-crop-backup-db.service
-          systemctl start pc-crop-backup-full.service
+          if ! systemctl start pc-crop-backup-full.service; then
+            echo "[full-backup-status]" >&2
+            systemctl --no-pager --full status pc-crop-backup-full.service >&2 || true
+            echo "[full-backup-journal]" >&2
+            journalctl -u pc-crop-backup-full.service -n 120 --no-pager >&2 || true
+            exit 1
+          fi
 
           echo "SERVER_BACKUP_INSTALL=PASS"
           systemctl --no-pager --full status pc-crop-backup-db.timer | sed -n '1,12p'
