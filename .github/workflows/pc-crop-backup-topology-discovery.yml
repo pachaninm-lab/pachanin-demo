@@ -118,6 +118,26 @@ jobs:
           echo "[release_backups]"
           find /var/lib/pc-release-authority/backups -maxdepth 1 -type f -printf '%TY-%Tm-%TdT%TH:%TM:%TSZ %s %f\n' 2>/dev/null | sort -r | head -30 || true
           echo
+          echo "[pc_crop_backup_state]"
+          systemctl --no-pager --full status pc-crop-backup-db.timer pc-crop-backup-full.timer pc-crop-backup-db.service pc-crop-backup-full.service 2>&1 | tail -100 || true
+          echo
+          echo "[pc_crop_backup_files]"
+          find /var/backups/pc-crop -maxdepth 3 -type f -printf '%s %p\n' 2>/dev/null | sort -k2 | head -160 || true
+          echo
+          echo "[pc_crop_bundle_verify]"
+          bundle="$(find /var/backups/pc-crop/git -maxdepth 1 -type f -name '*.bundle' 2>/dev/null | sort | tail -1 || true)"
+          if [[ -n "$bundle" ]]; then
+            set +e
+            git -C /var/backups/pc-crop/git/pachanin-demo.git bundle verify "$bundle" >/tmp/pc-bundle-verify.txt 2>&1
+            rc=$?
+            set -e
+            echo "bundle_verify_rc=$rc"
+            tail -20 /tmp/pc-bundle-verify.txt || true
+          fi
+          echo
+          echo "[pc_crop_full_progress]"
+          cat /var/backups/pc-crop/manifests/full-progress.txt 2>/dev/null || true
+          echo
           echo "[backup_dirs]"
           for d in /var/backups /var/lib/pc-release-authority/backups /srv /opt; do
             [ -d "$d" ] && { echo "-- $d"; find "$d" -maxdepth 2 -type d -printf '%p\n' 2>/dev/null | head -80; }
