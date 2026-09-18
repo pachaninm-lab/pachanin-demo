@@ -795,6 +795,12 @@ jobs:
                               'An equality mismatch branch that rejects, skips, or continues the non-matching case excludes that mismatch from authority; it does not admit it. '
                               'If the rejected theory depends on inferring a leak or bypass from this static signal rather than a direct mechanism on the pinned line, author findings=[]. '
                           )
+                      if re.search(r'\b(?:canonical|strict|validate|verify|parse|normalize)[A-Za-z0-9_$]*\s*\(', compact_evidence, re.IGNORECASE):
+                          violation_guidance += (
+                              'The pinned evidence is mechanically a validator/normalizer/parser call. A function name containing SHA does not by itself mean the line performs cryptographic hashing, and assigning a validated repository identifier locally is not an observable sink. '
+                              'For a secret/PII finding, the same pinned line must itself disclose sensitive material outside the trust boundary. For a validation-bypass finding, the same pinned line must itself admit invalid input despite the validator. '
+                              'If the rejected theory merely treats validation/normalization as unsanitized use, hashing, disclosure, or bypass without that direct mechanism on the pinned line, author findings=[]. '
+                          )
               elif violation == 'TEST_ONLY_SECURITY_FINDING_REJECTED':
                   violation_guidance = (
                       'For TEST_ONLY_SECURITY_FINDING_REJECTED, a test-only assertion, mock, expectation, route name, or test fixture does not by itself implement or prove a production security/privacy boundary bypass. '
@@ -1063,6 +1069,21 @@ jobs:
           )
           if 'excludes that mismatch from authority; it does not admit it' not in mismatch_prompt:
               fail('VALIDATOR_SELFTEST_SPECULATION_EQUALITY_FILTER_GUIDANCE_MISSING')
+          validator_probe = dict(speculative_probe, evidence='const headSha = canonicalSha40(value?.headRefOid);')
+          validator_candidate = json.dumps({'findings': [validator_probe]}, separators=(',', ':'))
+          validator_prompt = repair_user(
+              dict(probe_item, added_lines=[{'line': 7, 'text': 'const headSha = canonicalSha40(value?.headRefOid);'}]),
+              'SPECULATIVE_CLAIM',
+              validator_candidate,
+              2,
+              MAX_SPECULATIVE_REPAIR_ATTEMPTS,
+          )
+          if 'mechanically a validator/normalizer/parser call' not in validator_prompt:
+              fail('VALIDATOR_SELFTEST_SPECULATION_VALIDATOR_CALL_CLASSIFICATION_MISSING')
+          if 'function name containing SHA does not by itself mean' not in validator_prompt:
+              fail('VALIDATOR_SELFTEST_SPECULATION_SHA_NAME_GUIDANCE_MISSING')
+          if 'assigning a validated repository identifier locally is not an observable sink' not in validator_prompt:
+              fail('VALIDATOR_SELFTEST_SPECULATION_VALIDATOR_SINK_GUIDANCE_MISSING')
           if 'otherwise author findings=[]' not in speculative_repair_probe:
               fail('VALIDATOR_SELFTEST_SPECULATION_REPAIR_EMPTY_RESULT_GUIDANCE_MISSING')
           if 'original cited NEW_LINE_7' not in speculative_repair_probe or 'same verbatim evidence substring' not in speculative_repair_probe:
