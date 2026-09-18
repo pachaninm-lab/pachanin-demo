@@ -119,6 +119,9 @@ export class DurableOutboxRunner implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    // Shutdown may start while the asynchronous readiness probe is pending.
+    if (this.stopped) return;
+
     if (!ready) {
       this.lastError = 'Kafka transport is not ready';
       return;

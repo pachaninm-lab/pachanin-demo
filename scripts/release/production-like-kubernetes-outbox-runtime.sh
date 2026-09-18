@@ -49,6 +49,29 @@ const source = fs.readFileSync(process.env.BASE_SCRIPT, 'utf8');
 const shell = (value) => value.replaceAll('\\${', '${');
 const raw = (strings) => shell(String.raw({ raw: strings.raw }));
 
+const outboxSqlBefore = raw`outbox_sql() {
+  local sql="$1"
+  kubectl exec -n "$NAMESPACE" statefulset/postgresql -- \
+    env PGPASSWORD="$outbox_password" \
+    psql -v ON_ERROR_STOP=1 -U app_outbox -d grainflow -Atc "$sql"
+}`;
+const outboxSqlAfter = raw`outbox_sql() {
+  local sql="$1"
+  kubectl exec -n "$NAMESPACE" statefulset/postgresql -- \
+    env PGPASSWORD="$outbox_password" \
+    psql -v ON_ERROR_STOP=1 -U app_outbox -d grainflow -Atc "$sql"
+}
+
+# Acceptance-only helper: exercise the same restricted principal and v2 claim
+# protocol fence as DurableOutboxWorker instead of bypassing the fence as admin.
+outbox_claim_sql() {
+  local sql="$1"
+  kubectl exec -n "$NAMESPACE" statefulset/postgresql -- \
+    env PGPASSWORD="$outbox_password" \
+    psql -q -v ON_ERROR_STOP=1 -U app_outbox -d grainflow -Atc \
+      "BEGIN; SET LOCAL pc_crop.outbox_claim_protocol = '2'; $sql; COMMIT;"
+}`;
+
 const gracefulClaimBefore = raw`FAILURE_REASON="graceful shutdown did not stop claims and safely finish the active drain"
 kubectl scale deployment kafka -n "$NAMESPACE" --replicas=0
 kubectl wait --for=delete pod -n "$NAMESPACE" -l app.kubernetes.io/name=kafka --timeout=180s
@@ -103,7 +126,7 @@ const killClaimAfter = raw`# Kafka is intentionally absent in this scenario. The
 kill_fixture_owner="$(kubectl get pods -n "$NAMESPACE" -l "$WORKER_SELECTOR" -o name | sort | sed -n '1{s#^pod/##;p;}')"
 test -n "$kill_fixture_owner"
 escaped_kill_fixture_owner="$(sql_literal "$kill_fixture_owner")"
-kill_fixture_count="$(admin_sql "
+kill_fixture_count="$(outbox_claim_sql "
   WITH changed AS (
     UPDATE \"outbox_entries\"
     SET \"status\"='PROCESSING',
@@ -272,7 +295,51 @@ while IFS= read -r final_worker_pod; do
     >> "$RUNTIME_DIR/final-worker-logs.txt" 2>&1
 done < "$final_worker_pods_file"`;
 
+const terminalCountsBefore = 'delete_run_rows\nRESULT="PASS"';
+const terminalCountsAfter = raw`# Capture measured terminal outcomes while the scenario rows still exist.
+# This read-only query does not claim, acknowledge, redrive or alter any row.
+admin_sql "
+  WITH observed AS (
+    SELECT * FROM \"outbox_entries\"
+    WHERE \"correlationId\" LIKE '\${RUN_ID}.%'
+  ), grouped AS (
+    SELECT substring(\"correlationId\" FROM char_length('\${RUN_ID}') + 2) AS scenario,
+      count(*) AS total,
+      count(*) FILTER (WHERE \"status\"='SENT') AS delivered,
+      count(*) FILTER (WHERE \"status\"='DEAD_LETTER') AS dead,
+      count(*) FILTER (WHERE \"status\"='MANUAL_REVIEW') AS quarantined,
+      count(*) FILTER (WHERE NOT COALESCE(
+        \"leaseOwner\" IS NULL AND \"leaseToken\" IS NULL AND \"leaseExpiresAt\" IS NULL
+        AND (
+          (\"status\"='SENT' AND \"sentAt\" IS NOT NULL)
+          OR (\"status\"='DEAD_LETTER' AND \"sentAt\" IS NULL AND \"retryCount\"=1
+            AND \"lastErrorCategory\"='PERMANENT' AND \"lastErrorCode\"='KAFKA_MESSAGE_TOO_LARGE')
+          OR (\"status\"='MANUAL_REVIEW' AND \"sentAt\" IS NULL AND \"lastAttemptAt\" IS NOT NULL
+            AND \"manualReviewAt\" IS NOT NULL AND \"lastErrorCategory\"='AMBIGUOUS'
+            AND \"lastErrorCode\"='WORKER_CRASH_OUTCOME_UNKNOWN')
+        ), false)) AS invalid
+    FROM observed GROUP BY \"correlationId\"
+  )
+  SELECT jsonb_build_object(
+    'schemaVersion', 1, 'commitSha', '\${EXACT_HEAD}', 'runId', '\${RUN_ID}',
+    'outcomes', (SELECT jsonb_agg(jsonb_build_object(
+      'scenario', scenario, 'total', total, 'delivered', delivered,
+      'dead', dead, 'quarantined', quarantined, 'invalid', invalid
+    ) ORDER BY scenario) FROM grouped),
+    'quarantineEvidence', (SELECT concat_ws('|', \"status\"::text,
+      COALESCE(\"lastErrorCategory\",''), COALESCE(\"lastErrorCode\",''),
+      COALESCE(extract(epoch FROM \"manualReviewAt\")::bigint::text,''),
+      CASE WHEN \"leaseOwner\" IS NULL AND \"leaseToken\" IS NULL AND \"leaseExpiresAt\" IS NULL THEN 'no-lease' ELSE 'leased' END,
+      CASE WHEN \"sentAt\" IS NULL THEN 'unsent' ELSE 'sent' END
+    ) FROM observed WHERE \"correlationId\"='\${RUN_ID}.\${kill_suffix}')
+  );
+" > "$RUNTIME_DIR/terminal-outcome-counts.json"
+test -s "$RUNTIME_DIR/terminal-outcome-counts.json"
+delete_run_rows
+RESULT="PASS"`;
+
 const replacements = [
+  [outboxSqlBefore, outboxSqlAfter, 'restricted outbox v2 claim helper boundary'],
   [gracefulClaimBefore, gracefulClaimAfter, 'graceful readiness-gated claim boundary'],
   [gracefulBefore, gracefulAfter, 'graceful shutdown assertion boundary'],
   [killClaimBefore, killClaimAfter, 'forced-kill attempted-lease fixture boundary'],
@@ -280,6 +347,7 @@ const replacements = [
   [poisonBefore, poisonAfter, 'poison isolation permanent-rejection boundary'],
   [consumerBefore, consumerAfter, 'Kafka delivery probe boundary'],
   [finalLogsBefore, finalLogsAfter, 'final worker log collection boundary'],
+  [terminalCountsBefore, terminalCountsAfter, 'final measured terminal outcome boundary'],
 ];
 
 let rendered = source;

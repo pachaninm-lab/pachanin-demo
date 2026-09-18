@@ -1,5 +1,6 @@
 import { PrismaService } from '../../src/common/prisma/prisma.service';
-import { OutboxService } from '../../src/common/outbox/outbox.service';
+import { Prisma } from '@prisma/client';
+import { OutboxService, OutboxRedriveResult } from '../../src/common/outbox/outbox.service';
 import {
   DurableOutboxWorker,
   OutboxDeliveryError,
@@ -533,5 +534,59 @@ describe('IR-OUTBOX exact-head PostgreSQL 16 acceptance', () => {
     expect(stats.total).toBeGreaterThan(0);
     expect(stats.confirmed).toBeGreaterThan(0);
     expect(stats.deadLetter).toBeGreaterThan(0);
+  });
+
+  it('appends after the latest redrive even when its transaction began before that predecessor', async () => {
+    const entryIds = await seedEntries('audit-append-order', 3, { status: 'DEAD_LETTER' });
+    try {
+      const appendedIds: string[] = [];
+      const request = (index: number) => ({
+        entryId: entryIds[index], actorUserId: 'admin-outbox-e2e',
+        reason: 'provider reconciliation proved no delivery',
+        idempotencyKey: `${RUN_ID}.audit-append-order.${index}`,
+      });
+      const otherOutbox = new OutboxService(prismaB);
+      const earlierTransaction = new OutboxService({
+        $transaction: (
+          operation: (tx: Prisma.TransactionClient) => Promise<OutboxRedriveResult>,
+          options: { isolationLevel: Prisma.TransactionIsolationLevel },
+        ) => prismaA.$transaction(async (tx) => {
+          // A has begun, but has taken no snapshot. B commits its complete redrive
+          // before A's first query; Serializable therefore legitimately sees B.
+          await prismaB.$queryRaw`SELECT 1 AS waited FROM pg_sleep(0.02)`;
+          const first = await otherOutbox.redrive(request(0));
+          appendedIds.push(first.redriveEventId);
+          const predecessor = await prismaB.outboxRedriveEvent.findUniqueOrThrow({
+            where: { id: first.redriveEventId },
+          });
+          const [transaction] = await tx.$queryRaw<Array<{ startedAt: Date }>>`
+            SELECT CURRENT_TIMESTAMP AS "startedAt"
+          `;
+          expect(transaction.startedAt.getTime()).toBeLessThan(predecessor.createdAt.getTime());
+          return operation(tx);
+        }, options),
+      } as unknown as PrismaService);
+
+      const second = await earlierTransaction.redrive(request(1));
+      appendedIds.push(second.redriveEventId);
+      const third = await otherOutbox.redrive(request(2));
+      appendedIds.push(third.redriveEventId);
+
+      const events = await prismaA.outboxRedriveEvent.findMany({
+        where: { id: { in: appendedIds } },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      });
+      expect(events.map((event) => event.id)).toEqual(appendedIds);
+      expect(events[1].prevHash).toBe(events[0].hash);
+      expect(events[2].prevHash).toBe(events[1].hash);
+      expect(events[1].createdAt.getTime()).toBeGreaterThan(events[0].createdAt.getTime());
+      expect(events[2].createdAt.getTime()).toBeGreaterThan(events[1].createdAt.getTime());
+    } finally {
+      // These rows exercise audit ordering only; keep later suites from claiming them.
+      await prismaA.outboxEntry.updateMany({
+        where: { id: { in: entryIds }, status: 'PENDING' },
+        data: { nextRetryAt: FOREIGN_DEFER_UNTIL },
+      });
+    }
   });
 });

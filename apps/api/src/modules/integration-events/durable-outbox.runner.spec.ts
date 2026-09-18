@@ -107,6 +107,25 @@ describe('DurableOutboxRunner', () => {
     await runner.onModuleDestroy();
   });
 
+  it('does not claim new work when shutdown starts during a readiness probe', async () => {
+    process.env.OUTBOX_WORKER_ENABLED = 'true';
+    process.env.OUTBOX_WORKER_INTERVAL_MS = '60000';
+    const worker = makeWorker();
+    const kafka = makeKafka(true);
+    let resolveReady!: (ready: boolean) => void;
+    kafka.isReady.mockReturnValueOnce(new Promise<boolean>((resolve) => { resolveReady = resolve; }));
+    const runner = new DurableOutboxRunner(worker, kafka);
+
+    runner.onModuleInit();
+    expect(kafka.isReady).toHaveBeenCalledTimes(1);
+    const shutdown = runner.onModuleDestroy();
+    resolveReady(true);
+    await shutdown;
+
+    expect(worker.drainOnce).not.toHaveBeenCalled();
+    expect(runner.health()).toMatchObject({ stopped: true, draining: false, lastDrainStartedAt: null });
+  });
+
   it('quarantines a boolean Kafka failure after a connected delivery attempt', async () => {
     process.env.OUTBOX_WORKER_ENABLED = 'true';
     process.env.OUTBOX_WORKER_INTERVAL_MS = '60000';

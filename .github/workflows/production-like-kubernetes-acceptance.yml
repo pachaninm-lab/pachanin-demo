@@ -10,6 +10,7 @@ on:
       - 'infra/kind/production-like/**'
       - 'infra/release/**'
       - 'scripts/release/**'
+      - 'scripts/test-production-like-outbox-runtime-evidence.mjs'
       - '.github/workflows/production-like-kubernetes-acceptance.yml'
   push:
     branches: [main]
@@ -21,6 +22,7 @@ on:
       - 'infra/kind/production-like/**'
       - 'infra/release/**'
       - 'scripts/release/**'
+      - 'scripts/test-production-like-outbox-runtime-evidence.mjs'
       - '.github/workflows/production-like-kubernetes-acceptance.yml'
   workflow_dispatch:
 
@@ -56,6 +58,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+
+      - name: Reject incorrect outbox runtime evidence
+        run: node --test scripts/test-production-like-outbox-runtime-evidence.mjs
 
       - uses: azure/setup-helm@v4
         with:

@@ -292,8 +292,18 @@ export class OutboxService {
         `);
         const previous = await tx.outboxRedriveEvent.findFirst({
           orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-          select: { hash: true },
+          select: { hash: true, createdAt: true },
         });
+        const [clock] = await tx.$queryRaw<Array<{ now: Date }>>(Prisma.sql`
+          SELECT date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC') AS "now"
+        `);
+        // CURRENT_TIMESTAMP is transaction-start time, which need not follow
+        // append order. Keep each append strictly after its predecessor at the
+        // table's millisecond precision, even if the database clock moves back.
+        const createdAt = new Date(Math.max(
+          clock.now.getTime(),
+          previous ? previous.createdAt.getTime() + 1 : Number.NEGATIVE_INFINITY,
+        ));
         const eventMaterial = {
           outboxEntryId: params.entryId,
           idempotencyKey: params.idempotencyKey,
@@ -311,7 +321,7 @@ export class OutboxService {
         const hash = sha256Hex(stableJson(eventMaterial));
 
         const event = await tx.outboxRedriveEvent.create({
-          data: { ...eventMaterial, hash },
+          data: { ...eventMaterial, hash, createdAt },
         });
         const changed = await tx.$executeRaw(Prisma.sql`
           UPDATE "outbox_entries"

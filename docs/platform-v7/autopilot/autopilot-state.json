@@ -209,6 +209,7 @@
     ".github/workflows/ci.yml"
   ],
   "approvedConcurrentScopes": {
+    "fix/provider-review-scope-guard-20260918": ["scripts/p7-autopilot-guard.sh", "scripts/p7-autopilot-guard.test.mjs", ".github/workflows/platform-v7-autopilot-guard.yml", "docs/platform-v7/autopilot/autopilot-state.json"],
     "governance/kind-minio-image-source-20260912": [
       ".github/workflows/platform-v7-autopilot-guard.yml",
       "docs/platform-v7/autopilot/autopilot-state.json",
