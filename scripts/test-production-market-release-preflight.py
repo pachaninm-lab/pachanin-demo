@@ -3,6 +3,7 @@
 import copy
 import importlib.util
 import json
+import os
 import sqlite3
 from pathlib import Path
 import subprocess
@@ -662,6 +663,118 @@ class InitialTransportPrivacy(unittest.TestCase):
             unsafe=command.replace(' 2>/dev/null','')
             negative=subprocess.run(['bash','-c',textwrap.dedent(script)+'\n'+unsafe,'test',str(Path(td)/'raw')],capture_output=True,text=True,timeout=5)
             self.assertIn('SYNTHETIC_PRIVATE_STDERR',negative.stderr)
+
+
+class PersistedReleaseInventory(unittest.TestCase):
+    def model(self):
+        return {'name':'private-project','services':{
+            'api':{'image':'api:old','environment':{'SECRET':'DO_NOT_PUBLISH','OUTBOX_WORKER_ENABLED':'true','KAFKA_BROKERS':'private:9092'}},
+            'web':{'image':'web:old'},
+            'bus':{'image':'registry.example/apache/kafka@sha256:'+'a'*64},
+            'state':{'image':'postgres:16'}}}
+
+    def test_compose_operation_is_derived_and_limited_to_render(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);f=root/'protected.yml';f.write_text('services: {}')
+            w=web();labels=w['Config']['Labels']
+            labels['com.docker.compose.project.working_dir']=str(root)
+            labels['com.docker.compose.project.config_files']='protected.yml'
+            command=m.compose_config_command(w,'private-project')
+            self.assertEqual(command,['docker','compose','--project-directory',str(root),'--project-name','private-project','-f',str(f),'config','--format','json'])
+            self.assertIsNone(m.compose_config_command(w,'other-project'))
+            labels['com.docker.compose.project.config_files']='protected.yml,protected.yml'
+            self.assertIsNone(m.compose_config_command(w,'private-project'))
+            link=root/'link.yml';link.symlink_to(f)
+            labels['com.docker.compose.project.config_files']='link.yml'
+            self.assertIsNone(m.compose_config_command(w,'private-project'))
+
+    def test_malformed_or_wrong_project_model_is_rejected(self):
+        for model in [None,[],{'name':'other','services':self.model()['services']},{'name':'private-project','services':{'api':{}}}]:
+            with patch.object(m,'compose_config_command',return_value=['docker','compose','config','--format','json']),patch.object(m,'run',return_value=json.dumps(model)):
+                self.assertIsNone(m.rendered_compose(web(),'private-project'))
+
+    def test_persisted_and_runtime_broker_inventory_does_not_require_worker(self):
+        a=api();w=web();a['Config']['Image']='api:old';w['Config']['Image']='web:old'
+        broker=api();broker['Config']['Image']='registry.example/apache/kafka@sha256:'+'a'*64
+        with patch.object(m,'rendered_compose',return_value=self.model()),patch.object(m,'project_containers',return_value=[broker]),patch.object(m,'database_probe',return_value={'status':'PERMISSION_DENIED'}):
+            result=m.release_inventory(w,a,'private-project')
+        m.validate_release_inventory(result)
+        self.assertEqual(result['compose']['worker_candidates'],0)
+        self.assertEqual(result['compose']['broker_candidates'],1)
+        self.assertEqual(result['runtime']['running_broker_candidates'],1)
+        self.assertTrue(result['compose']['api_image_matches_runtime_config'])
+        self.assertTrue(result['compose']['api_outbox_worker_enabled'])
+        self.assertNotIn('DO_NOT_PUBLISH',json.dumps(result));self.assertNotIn('private',json.dumps(result))
+
+    def test_changed_configuration_and_image_mismatch_are_not_accepted_as_stable(self):
+        changed=self.model();changed['services']['api']['environment']['SECRET']='CHANGED_SECRET'
+        with patch.object(m,'rendered_compose',side_effect=[self.model(),changed]),patch.object(m,'project_containers',return_value=None),patch.object(m,'database_probe',return_value={'status':'NOT_PROVEN'}):
+            result=m.release_inventory(web(),api(),'private-project')
+        self.assertEqual(result['compose']['configuration_stability'],'NOT_PROVEN')
+        self.assertFalse(result['compose']['api_image_matches_runtime_config'])
+        self.assertNotIn('CHANGED_SECRET',json.dumps(result))
+
+    def test_fixed_schema_rejects_raw_secrets_counts_and_boolean_coercion(self):
+        with patch.object(m,'rendered_compose',return_value=self.model()),patch.object(m,'project_containers',return_value=[]),patch.object(m,'database_probe',return_value={'status':'NOT_PROVEN'}):
+            result=m.release_inventory(web(),api(),'private-project')
+        for section,key,value in [('compose','raw','SECRET'),('compose','service_count',True),('compose','worker_candidates',65),('compose','api_brokers_configured',1),('runtime','running_broker_candidates',1),('database_probe','status','PRIVATE_ERROR')]:
+            candidate=copy.deepcopy(result);candidate[section][key]=value
+            with self.subTest(section=section,key=key),self.assertRaises(ValueError):m.validate_release_inventory(candidate)
+
+    def test_broker_metadata_is_strict_and_never_connectivity_evidence(self):
+        for image in ['apache/kafka:4','docker.io/bitnami/kafka:3','redpandadata/redpanda@sha256:'+'b'*64,'confluentinc/cp-kafka:7']:
+            self.assertTrue(m.broker_image(image),image)
+        for image in [None,'kafka-ui:latest','notkafka:3','apache/kafka malicious','apache/kafka@wrong','my-kafka-app:latest']:
+            self.assertFalse(m.broker_image(image),image)
+
+    def test_database_configuration_presence_is_not_connection_or_migration_authority(self):
+        model=self.model()
+        model['services']['api']['environment']['DATABASE_URL']='PRIVATE_API_URL'
+        model['services']['db-migrate']={'image':'ghcr.io/pachaninm-lab/grainflow-migration:sha-1234567','environment':{'DATABASE_URL':'PRIVATE_MIGRATION_URL'}}
+        for ambiguous in [False,True]:
+            if ambiguous:model['services']['other-migration']=copy.deepcopy(model['services']['db-migrate'])
+            with patch.object(m,'rendered_compose',return_value=model),patch.object(m,'project_containers',return_value=None),patch.object(m,'database_probe',return_value={'status':'CONNECTION_FAILED'}):
+                result=m.release_inventory(web(),api(),'private-project')
+            m.validate_release_inventory(result)
+            self.assertTrue(result['compose']['api_database_configured'])
+            self.assertEqual(result['compose']['migration_candidates'],2 if ambiguous else 1)
+            self.assertEqual(result['compose']['migration_database_configured'],not ambiguous)
+            self.assertEqual(result['database_probe']['status'],'CONNECTION_FAILED')
+            self.assertNotIn('PRIVATE_',json.dumps(result))
+            if ambiguous:
+                result['compose']['migration_database_configured']=True
+                with self.assertRaises(ValueError):m.validate_release_inventory(result)
+
+    def test_database_probe_transport_failure_and_untrusted_output_remain_unknown(self):
+        for raw in [None,'not-json',json.dumps({'status':'PERMISSION_DENIED','message':'PRIVATE'})]:
+            with patch.object(m,'run',return_value=raw):
+                self.assertEqual(m.database_probe(api()),{'status':'NOT_PROVEN'})
+
+    def test_database_probe_program_enforces_read_only_and_sanitizes_errors(self):
+        self.assertLessEqual(len(m.DB_PROBE_PROGRAM.encode()),4096)
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td);module=root/'node_modules/@prisma/client';module.mkdir(parents=True)
+            (module/'index.js').write_text('''
+              const fail=()=>{const e=Error('PRIVATE_DATABASE_URL');const x=process.env.PROBE_CASE;
+                if(x==='permission')e.meta={code:'42501'};if(x==='auth')e.code='P1000';throw e;};
+              exports.PrismaClient=class {
+                async $connect(){if(['connect','auth'].includes(process.env.PROBE_CASE))fail();}
+                async $transaction(fn){let stage=0;return fn({
+                  $executeRawUnsafe:async sql=>{if(stage++===0){if(sql!=='SET TRANSACTION READ ONLY')throw Error('NOT_READ_ONLY');if(process.env.PROBE_CASE==='readonly')fail();}},
+                  $queryRawUnsafe:async sql=>{if(stage!==2)throw Error('READ_BEFORE_READ_ONLY');
+                    if(sql.includes("current_setting('transaction_read_only')"))return [{value:'on'}];
+                    if(!sql.trim().startsWith('SELECT'))throw Error('MUTATION');
+                    if(['permission','unknown'].includes(process.env.PROBE_CASE))fail();
+                    return [{api_is_app_deal:true,row_security_on:true,outbox_role_exists:true,outbox_role_unsafe:false,outbox_table_present:true,fence_function_present:false}];}
+                });} async $disconnect(){}
+              };''')
+            for case,status in [('good','OBSERVED_READ_ONLY'),('connect','CONNECTION_FAILED'),('auth','AUTHENTICATION_FAILED'),('readonly','READ_ONLY_SETUP_FAILED'),('permission','PERMISSION_DENIED'),('unknown','QUERY_FAILED'),('missing','DEFAULT_DATABASE_URL_MISSING')]:
+                env=dict(os.environ,PROBE_CASE=case,DATABASE_URL='' if case=='missing' else 'PRIVATE_DATABASE_URL')
+                p=subprocess.run(['node','-'],input=m.DB_PROBE_PROGRAM,cwd=root,env=env,capture_output=True,text=True,timeout=5)
+                with self.subTest(case=case):
+                    self.assertEqual(p.returncode,0,p.stderr);self.assertEqual(p.stderr,'')
+                    self.assertNotIn('PRIVATE_DATABASE_URL',p.stdout)
+                    result=json.loads(p.stdout);m.validate_database_probe(result);self.assertEqual(result['status'],status)
 
 
 if __name__ == '__main__':

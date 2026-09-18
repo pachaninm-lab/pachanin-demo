@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Bounded, read-only REG.RU inventory. A collection result NEVER authorizes release.
 
-Only Docker inspection, a READ ONLY metadata transaction, local Caddy configuration
-GET and filesystem metadata are used. Raw configuration, stderr, credentials,
+Only Docker inspection, bounded Compose config rendering, READ ONLY metadata
+transactions, local Caddy configuration GET and filesystem metadata are used. Raw configuration, stderr, credentials,
 addresses, protected paths and customer records are never emitted.
 """
 from __future__ import annotations
@@ -313,7 +313,7 @@ def validate_report(value: Any, target: str) -> dict[str, Any]:
     """Hosted-side strict admission of remote diagnostic data, never release approval."""
     keys = {'schema', 'target_sha', 'observed_at_utc', 'running_web_revision', 'running_api_revision',
             'checks', 'migration_inventory', 'capacity', 'backup', 'production_mutation',
-            'deployment_authorized', 'live_acceptance', 'protected_values', 'outbox_topology'}
+            'deployment_authorized', 'live_acceptance', 'protected_values', 'outbox_topology', 'release_inventory'}
     if not isinstance(value, dict) or set(value) != keys or not SHA.fullmatch(target):
         raise ValueError('REPORT_SCHEMA')
     for key, expected in {'schema': 'pc-crop.market-release-preflight.v1', 'target_sha': target,
@@ -370,6 +370,7 @@ def validate_report(value: Any, target: str) -> dict[str, Any]:
         if rebuilt != inventory:
             raise ValueError('REPORT_DB_INTEGRITY')
     validate_outbox_topology(value['outbox_topology'])
+    validate_release_inventory(value['release_inventory'])
     # No unknown key, string, path, address, error or payload can pass to artifacts.
     return value
 
@@ -713,6 +714,187 @@ def outbox_source_comparison(topology: dict[str, Any], root: Path) -> dict[str, 
         return result
 
 
+DB_PROBE_FLAGS = {'api_is_app_deal', 'row_security_on', 'outbox_role_exists', 'outbox_role_unsafe',
+                  'outbox_table_present', 'fence_function_present'}
+DB_PROBE_ERRORS = {'NOT_PROVEN', 'DEFAULT_DATABASE_URL_MISSING', 'MODULE_OR_CLIENT_UNAVAILABLE',
+                   'AUTHENTICATION_FAILED', 'CONNECTION_FAILED', 'READ_ONLY_SETUP_FAILED',
+                   'PERMISSION_DENIED', 'OBJECT_MISSING', 'QUERY_FAILED', 'TRANSACTION_FAILED'}
+DB_PROBE_PROGRAM = r'''
+let p,stage='MODULE';
+const emit=x=>process.stdout.write(JSON.stringify(x));
+(async()=>{
+if(!String(process.env.DATABASE_URL||'').trim()){emit({status:'DEFAULT_DATABASE_URL_MISSING'});return;}
+const {PrismaClient}=require('@prisma/client');p=new PrismaClient();stage='CONNECT';
+await p.$connect();stage='READ_ONLY';
+const row=await p.$transaction(async t=>{
+await t.$executeRawUnsafe('SET TRANSACTION READ ONLY');
+await t.$executeRawUnsafe("SET LOCAL statement_timeout='8s'");
+const mode=await t.$queryRawUnsafe("SELECT current_setting('transaction_read_only') AS value");
+if(mode[0]?.value!=='on')throw Error('READ_ONLY_REQUIRED');stage='QUERY';
+const rows=await t.$queryRawUnsafe(`SELECT current_user='app_deal' AS api_is_app_deal,
+current_setting('row_security')='on' AS row_security_on,
+EXISTS(SELECT 1 FROM pg_catalog.pg_roles WHERE rolname='app_outbox') AS outbox_role_exists,
+EXISTS(SELECT 1 FROM pg_catalog.pg_roles r WHERE rolname='app_outbox' AND
+(rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole OR rolreplication OR rolinherit OR
+EXISTS(SELECT 1 FROM pg_catalog.pg_auth_members WHERE member=r.oid))) AS outbox_role_unsafe,
+to_regclass('public.outbox_entries') IS NOT NULL AS outbox_table_present,
+to_regprocedure('public.outbox_expired_attempt_reclaim_guard()') IS NOT NULL AS fence_function_present`);
+const keys=['api_is_app_deal','row_security_on','outbox_role_exists','outbox_role_unsafe','outbox_table_present','fence_function_present'];
+if(rows.length!==1||keys.some(k=>typeof rows[0][k]!=='boolean'))throw Error('INVALID_METADATA');
+return Object.fromEntries(keys.map(k=>[k,rows[0][k]]));
+},{timeout:12000,maxWait:3000});emit({status:'OBSERVED_READ_ONLY',...row});
+})().catch(e=>{
+const c=e?.code,s=e?.meta?.code;
+const status=c==='P1000'?'AUTHENTICATION_FAILED':c==='P1001'||c==='P1002'?'CONNECTION_FAILED':
+s==='42501'?'PERMISSION_DENIED':s==='42P01'||s==='42883'?'OBJECT_MISSING':
+c==='P2024'||c==='P2028'?'TRANSACTION_FAILED':stage==='MODULE'?'MODULE_OR_CLIENT_UNAVAILABLE':
+stage==='CONNECT'?'CONNECTION_FAILED':stage==='READ_ONLY'?'READ_ONLY_SETUP_FAILED':'QUERY_FAILED';
+emit({status});
+}).finally(async()=>{if(p)await p.$disconnect().catch(()=>{});});
+'''
+
+
+def database_probe(api: dict[str, Any]) -> dict[str, Any]:
+    cid = api.get('Id')
+    if not isinstance(cid, str) or not CONTAINER_ID.fullmatch(cid) or (api.get('State') or {}).get('Running') is not True:
+        return {'status': 'NOT_PROVEN'}
+    try:
+        result = json.loads(run(['docker', 'exec', '-i', cid, '/nodejs/bin/node', '-'], DB_PROBE_PROGRAM) or 'null')
+        validate_database_probe(result)
+        return result
+    except (ValueError, TypeError):
+        return {'status': 'NOT_PROVEN'}
+
+
+def validate_database_probe(value: Any) -> None:
+    if not isinstance(value, dict) or not isinstance(value.get('status'), str):
+        raise ValueError('DATABASE_PROBE_SCHEMA')
+    if value['status'] in DB_PROBE_ERRORS and set(value) == {'status'}:
+        return
+    if value['status'] != 'OBSERVED_READ_ONLY' or set(value) != DB_PROBE_FLAGS | {'status'} or any(type(value[k]) is not bool for k in DB_PROBE_FLAGS):
+        raise ValueError('DATABASE_PROBE_SCHEMA')
+    if value['outbox_role_unsafe'] and not value['outbox_role_exists']:
+        raise ValueError('DATABASE_PROBE_ROLE_CONTRADICTION')
+
+
+def broker_image(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    return re.fullmatch(r'(?:[a-z0-9.:-]+/)*(?:kafka|cp-kafka|cp-server|redpanda)(?::[^\s@]+|@sha256:[0-9a-f]{64})?', value) is not None
+
+
+def compose_config_command(web: dict[str, Any], project: str) -> list[str] | None:
+    """The only admitted Compose operation is config --format json."""
+    labels = (web.get('Config') or {}).get('Labels') or {}
+    if not isinstance(project, str) or not PROJECT.fullmatch(project) or labels.get('com.docker.compose.project') != project:
+        return None
+    directory, raw_files = labels.get('com.docker.compose.project.working_dir'), labels.get('com.docker.compose.project.config_files')
+    if not isinstance(directory, str) or not directory.startswith('/') or len(directory) > 4096 or not isinstance(raw_files, str) or len(raw_files) > 16384:
+        return None
+    files = raw_files.split(',')
+    if not 1 <= len(files) <= 16 or len(set(files)) != len(files) or any(not f.strip() for f in files):
+        return None
+    try:
+        root = Path(directory)
+        if not root.is_dir():
+            return None
+        command = ['docker', 'compose', '--project-directory', directory, '--project-name', project]
+        for value in files:
+            path = Path(value.strip())
+            path = path if path.is_absolute() else root / path
+            if path.is_symlink() or not path.is_file() or path.stat().st_size > MAX_BYTES:
+                return None
+            command += ['-f', str(path)]
+        return command + ['config', '--format', 'json']
+    except (OSError, ValueError):
+        return None
+
+
+def rendered_compose(web: dict[str, Any], project: str) -> dict[str, Any] | None:
+    command = compose_config_command(web, project)
+    if command is None:
+        return None
+    try:
+        model = json.loads(run(command) or 'null')
+        services = model.get('services') if isinstance(model, dict) else None
+        if model.get('name') != project or not isinstance(services, dict) or not 2 <= len(services) <= 64:
+            return None
+        if any(not isinstance(k, str) or not PROJECT.fullmatch(k) or not isinstance(v, dict) for k, v in services.items()) or not {'api', 'web'} <= set(services):
+            return None
+        return model
+    except (ValueError, TypeError, AttributeError):
+        return None
+
+
+COMPOSE_COUNTS = {'service_count', 'worker_candidates', 'broker_candidates', 'postgres_candidates', 'migration_candidates'}
+COMPOSE_FLAGS = {'api_image_matches_runtime_config', 'web_image_matches_runtime_config',
+                 'api_outbox_worker_enabled', 'api_brokers_configured',
+                 'api_database_configured', 'migration_database_configured'}
+
+
+def migration_candidate(name: str, service: dict[str, Any]) -> bool:
+    image = service.get('image')
+    command = service.get('command')
+    command = ' '.join(command) if isinstance(command, list) and all(isinstance(v, str) for v in command) else command
+    return (re.search(r'(^|[-_])(migrate|migration)([-_]|$)', name, re.I) is not None
+            or isinstance(image, str) and image.split('@')[0].split(':')[0] == 'ghcr.io/pachaninm-lab/grainflow-migration'
+            or isinstance(command, str) and 'prisma' in command and 'migrate' in command)
+
+
+def release_inventory(web: dict[str, Any], api: dict[str, Any], project: str) -> dict[str, Any]:
+    model = rendered_compose(web, project)
+    compose = {'status': 'NOT_PROVEN'}
+    if model is not None:
+        services = model['services']
+        migrations = [s for name, s in services.items() if migration_candidate(name, s)]
+        migration_env = migrations[0].get('environment') if len(migrations) == 1 else None
+        environment = services['api'].get('environment') or {}
+        if isinstance(environment, dict):
+            compose = {'status': 'OBSERVED_READ_ONLY', 'configuration_stability': 'NOT_PROVEN',
+                       'service_count': len(services),
+                       'worker_candidates': sum(isinstance(s.get('image'), str) and s['image'].split('@')[0].split(':')[0] == OUTBOX_REPOSITORY
+                           or isinstance(s.get('environment'), dict) and s['environment'].get('RUNTIME_COMPONENT') == 'outbox-worker' for s in services.values()),
+                       'broker_candidates': sum(broker_image(s.get('image')) for s in services.values()),
+                       'postgres_candidates': sum(isinstance(s.get('image'), str) and re.fullmatch(r'(?:[^\s@]+/)?postgres(?::[^\s@]+|@sha256:[0-9a-f]{64})?', s['image']) is not None for s in services.values()),
+                       'migration_candidates': len(migrations),
+                       'api_image_matches_runtime_config': isinstance(services['api'].get('image'), str) and services['api']['image'] == (api.get('Config') or {}).get('Image'),
+                       'web_image_matches_runtime_config': isinstance(services['web'].get('image'), str) and services['web']['image'] == (web.get('Config') or {}).get('Image'),
+                       'api_outbox_worker_enabled': environment.get('OUTBOX_WORKER_ENABLED') == 'true',
+                       'api_database_configured': isinstance(environment.get('DATABASE_URL'), str) and bool(environment['DATABASE_URL'].strip()),
+                       'migration_database_configured': isinstance(migration_env, dict) and isinstance(migration_env.get('DATABASE_URL'), str) and bool(migration_env['DATABASE_URL'].strip()),
+                       'api_brokers_configured': isinstance(environment.get('KAFKA_BROKERS'), str) and bool(environment['KAFKA_BROKERS'].strip())}
+            compose['configuration_stability'] = 'UNCHANGED' if model == rendered_compose(web, project) else 'NOT_PROVEN'
+    rows = project_containers(project)
+    runtime = {'status': 'NOT_PROVEN'}
+    if rows is not None:
+        brokers = [r for r in rows if broker_image((r.get('Config') or {}).get('Image'))]
+        runtime = {'status': 'OBSERVED_IMAGE_METADATA', 'broker_candidates': len(brokers),
+                   'running_broker_candidates': sum((r.get('State') or {}).get('Running') is True for r in brokers),
+                   'enabled_delivery_candidates': sum(env_of(r).get('OUTBOX_WORKER_ENABLED') == 'true' for r in rows)}
+    return {'compose': compose, 'runtime': runtime, 'database_probe': database_probe(api)}
+
+
+def validate_release_inventory(value: Any) -> None:
+    if not isinstance(value, dict) or set(value) != {'compose', 'runtime', 'database_probe'}:
+        raise ValueError('RELEASE_INVENTORY_SCHEMA')
+    validate_database_probe(value['database_probe'])
+    compose = value['compose']
+    if compose != {'status': 'NOT_PROVEN'}:
+        if not isinstance(compose, dict) or set(compose) != COMPOSE_COUNTS | COMPOSE_FLAGS | {'status', 'configuration_stability'} or compose['status'] != 'OBSERVED_READ_ONLY' or compose['configuration_stability'] not in ('UNCHANGED', 'NOT_PROVEN'):
+            raise ValueError('COMPOSE_INVENTORY_SCHEMA')
+        if any(type(compose[k]) is not int or not 0 <= compose[k] <= 64 for k in COMPOSE_COUNTS) or any(type(compose[k]) is not bool for k in COMPOSE_FLAGS):
+            raise ValueError('COMPOSE_INVENTORY_VALUE')
+        if compose['service_count'] < 2 or any(compose[k] > compose['service_count'] for k in COMPOSE_COUNTS - {'service_count'}):
+            raise ValueError('COMPOSE_INVENTORY_COUNT')
+        if compose['migration_database_configured'] and compose['migration_candidates'] != 1:
+            raise ValueError('COMPOSE_MIGRATION_AMBIGUOUS')
+    runtime = value['runtime']
+    if runtime != {'status': 'NOT_PROVEN'}:
+        keys = {'broker_candidates', 'running_broker_candidates', 'enabled_delivery_candidates'}
+        if not isinstance(runtime, dict) or set(runtime) != keys | {'status'} or runtime['status'] != 'OBSERVED_IMAGE_METADATA' or any(type(runtime[k]) is not int or not 0 <= runtime[k] <= 64 for k in keys) or runtime['running_broker_candidates'] > runtime['broker_candidates']:
+            raise ValueError('RUNTIME_INVENTORY_SCHEMA')
+
+
 def collect(target: str) -> dict[str, Any]:
     if not SHA.fullmatch(target):
         raise ValueError('INVALID_TARGET_SHA')
@@ -757,6 +939,7 @@ def collect(target: str) -> dict[str, Any]:
             'running_web_revision': revision(web), 'running_api_revision': revision(api),
             'checks': checks, 'migration_inventory': db, 'capacity': capacity,
             'backup': backup, 'outbox_topology': outbox_topology(api, project),
+            'release_inventory': release_inventory(web, api, project),
             'production_mutation': 'NONE', 'deployment_authorized': False,
             'live_acceptance': 'NOT_PERFORMED', 'protected_values': 'NOT_PUBLISHED'}
 

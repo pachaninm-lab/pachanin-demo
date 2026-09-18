@@ -61,7 +61,7 @@ jobs:
           if str(inspector_path) not in workflow_text:
               raise SystemExit('TRANSPORTED_SCRIPT_PATH_MISSING')
           inspector_source = inspector_path.read_bytes()
-          if hashlib.sha256(inspector_source).hexdigest() != 'aa16d94a7caaed421ea25afaa26bba019a90104001b0d22364b600ef86f74745':
+          if hashlib.sha256(inspector_source).hexdigest() != '0ae4f33050aa2cd885e6612346b70abcc091e8d2072e61e41b0fbf97b13d0ad6':
               raise SystemExit('TRANSPORTED_SCRIPT_DIGEST_MISMATCH')
           text = workflow_text + '\n' + inspector_source.decode('utf-8', errors='strict')
           for marker in ('SET TRANSACTION READ ONLY', 'statement_timeout', "'deployment_authorized': False", 'def validate_report('):
@@ -80,6 +80,8 @@ jobs:
               'pc-crop-registration-lifecycle',
               'queue: max',
               'RUNTIME_STABILITY',
+              'compose_config_command',
+              'validate_release_inventory',
               '/production p0-runtime-revision-parity-diagnostic current-runtime',
           ]
           missing = [item for item in required if item not in text]
@@ -94,7 +96,8 @@ jobs:
               raise SystemExit('non-exact continuation invariant: ' + ' | '.join(wrong_count))
           forbidden = [
               'docker ' + 'restart', 'docker ' + 'rm', 'docker ' + 'stop',
-              'docker ' + 'kill', 'docker ' + 'compose', 'docker ' + 'service',
+              'docker ' + 'kill', 'docker ' + 'compose up', 'docker ' + 'compose run',
+              'docker ' + 'compose down', 'docker ' + 'compose restart', 'docker ' + 'service',
               'INSERT ' + 'INTO', 'UPDATE ' + 'auth.', 'DELETE ' + 'FROM',
               'TRUNCATE ' + 'TABLE', 'ALTER ' + 'ROLE', 'MAIL ' + 'FROM',
               'RCPT ' + 'TO', '/api/auth/' + 'forgot-password',
