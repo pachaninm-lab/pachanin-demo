@@ -611,7 +611,7 @@ export function canonicalizeExactPrHeadActionsChecks(
   const sourceRuns = Array.isArray(actionsRuns) ? actionsRuns : [];
   let invalid = false;
 
-  if (!expectedSha || !expectedRef || !repository) return { checks: [], invalid: true };
+  if (!expectedSha || !expectedRef || !repository) return null;
 
   const indexedRuns = [];
   for (const run of sourceRuns) {
@@ -668,7 +668,7 @@ export function canonicalizeExactPrHeadActionsChecks(
     }
   }
 
-  if (invalid) return { checks: [], invalid: true };
+  if (invalid) return null;
 
   const authoritativeRuns = [];
   for (const entry of currentPrActions) {
@@ -697,7 +697,7 @@ export function canonicalizeExactPrHeadActionsChecks(
     }
     if (entry.runNumber === previous.runNumber && entry.runId !== previous.runId) invalid = true;
   }
-  if (invalid) return { checks: [], invalid: true };
+  if (invalid) return null;
 
   const selected = currentPrActions.filter((entry) => authoritativeRuns.some(
     (candidate) => candidate.workflowId === entry.workflowId
@@ -742,11 +742,8 @@ export function canonicalizeExactPrHeadActionsChecks(
     deduped.push(ranked[0].entry);
   }
 
-  if (invalid) return { checks: [], invalid: true };
-  return {
-    checks: [...passthrough, ...deduped].sort((a, b) => a.index - b.index).map((entry) => entry.check),
-    invalid: false,
-  };
+  if (invalid) return null;
+  return [...passthrough, ...deduped].sort((a, b) => a.index - b.index).map((entry) => entry.check);
 }
 
 export function isIgnoredMergeGateCheck(check) {
@@ -1092,14 +1089,7 @@ function fetchAllReviewThreads(repo, prNumber) {
 
 function fetchCheckSnapshot(repo, prNumber) {
   const repository = strictGitHubRepositorySlug(repo);
-  if (!repository) {
-    return {
-      headSha: '',
-      headRef: '',
-      checks: [],
-      canonicalizationInvalid: true,
-    };
-  }
+  if (!repository) return { headSha: '', headRef: '', checks: null };
 
   const value = ghJson([
     'pr',
@@ -1131,14 +1121,9 @@ function fetchCheckSnapshot(repo, prNumber) {
       // Missing run metadata is not ignored. Canonicalization below converts it to a blocking error.
     }
   }
-  const canonical = canonicalizeExactPrHeadActionsChecks(rawChecks, actionsRuns, headSha, headRef, repository);
+  const checks = canonicalizeExactPrHeadActionsChecks(rawChecks, actionsRuns, headSha, headRef, repository);
 
-  return {
-    headSha,
-    headRef,
-    checks: canonical.checks,
-    canonicalizationInvalid: canonical.invalid,
-  };
+  return { headSha, headRef, checks };
 }
 
 function fetchLivePrHead(repo, prNumber) {
@@ -1232,9 +1217,7 @@ function providerMaintenanceBootstrapDecision(repo, pr, headSha, reviews) {
   if (snapshot.headRef !== expectedHeadRef) {
     return { eligible: false, reason: 'ci-head-ref-mismatch' };
   }
-  if (snapshot.canonicalizationInvalid) {
-    return { eligible: false, reason: 'ci-snapshot-invalid' };
-  }
+  if (!Array.isArray(snapshot.checks)) return { eligible: false, reason: 'ci-snapshot-invalid' };
   const observed = providerMaintenanceBootstrapSubstantiveChecks(snapshot.checks);
   if (observed.length === 0) {
     return { eligible: false, reason: 'ci-evidence-missing' };
@@ -1444,7 +1427,7 @@ function main() {
         `CI snapshot head ref ${snapshot.headRef || 'missing'} does not match the validated PR head ref.`,
       );
     }
-    if (snapshot.canonicalizationInvalid) {
+    if (!Array.isArray(snapshot.checks)) {
       fail('REVIEW_GATE_CI_SNAPSHOT_INVALID', 'Exact-PR-head CI authority metadata is malformed or ambiguous.');
     }
 
