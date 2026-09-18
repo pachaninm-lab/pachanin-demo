@@ -1173,6 +1173,24 @@ jobs:
           wrong_line_repair_probe = repair_user(probe_item, 'SPECULATIVE_CLAIM', speculative_wrong_line_candidate)
           if 'original cited NEW_LINE_' in wrong_line_repair_probe or 'pinned repair evidence' in wrong_line_repair_probe:
               fail('VALIDATOR_SELFTEST_SPECULATION_WRONG_LINE_REPAIR_WAS_ANCHORED')
+          initial_evidence_probe = dict(valid_probe, evidence='sanitize(input) with non-verbatim suffix')
+          initial_evidence_candidate = json.dumps({'findings': [initial_evidence_probe]}, separators=(',', ':'))
+          if finding_violation(probe_item, initial_evidence_probe) != 'EVIDENCE_NOT_ON_CITED_ADDED_LINE':
+              fail('VALIDATOR_SELFTEST_INITIAL_EVIDENCE_MISMATCH_NOT_DETECTED')
+          initial_selected = selected_added_line(probe_item, initial_evidence_candidate)
+          if initial_selected != (7, 'const value = sanitize(input);'):
+              fail('VALIDATOR_SELFTEST_INITIAL_EVIDENCE_LINE_NOT_RECOVERED')
+          initial_binding_item = fresh_anchor_binding_item(probe_item, initial_selected)
+          if initial_binding_item is None or initial_binding_item['added_lines'] != [{'line': 7, 'text': 'const value = sanitize(input);'}]:
+              fail('VALIDATOR_SELFTEST_INITIAL_EVIDENCE_BINDING_ITEM_INVALID')
+          initial_binding_schema = fresh_anchor_binding_schema(schema_probe, probe_item, initial_selected)
+          initial_binding_properties = initial_binding_schema['properties']['findings']['items']['properties']
+          if initial_binding_properties['path'] != {'type': 'string', 'enum': ['probe.ts']}:
+              fail('VALIDATOR_SELFTEST_INITIAL_EVIDENCE_BINDING_PATH_NOT_PINNED')
+          if initial_binding_properties['line'] != {'type': 'integer', 'enum': [7]}:
+              fail('VALIDATOR_SELFTEST_INITIAL_EVIDENCE_BINDING_LINE_NOT_PINNED')
+          if 'const value = sanitize(input);' not in initial_binding_properties['evidence'].get('enum', []):
+              fail('VALIDATOR_SELFTEST_INITIAL_EVIDENCE_BINDING_EVIDENCE_NOT_PINNED')
           if not can_retry_speculative('SPECULATIVE_CLAIM', 'SPECULATIVE_CLAIM', (7, 'sanitize(input)'), 1):
               fail('VALIDATOR_SELFTEST_SPECULATION_SECOND_REPAIR_BLOCKED')
           if not can_retry_speculative('SPECULATIVE_CLAIM', 'SPECULATIVE_CLAIM', (7, 'sanitize(input)'), 2):
@@ -1404,10 +1422,39 @@ jobs:
                           'SPECULATIVE_CLAIM',
                           'TEST_ONLY_SECURITY_FINDING_REJECTED',
                       }
-                      if violation not in repairable:
+                      if violation == 'EVIDENCE_NOT_ON_CITED_ADDED_LINE':
+                          selected = selected_added_line(item, initial)
+                          binding_item = fresh_anchor_binding_item(item, selected)
+                          if binding_item is None:
+                              fail('POLICY_INITIAL_EVIDENCE_BINDING_SCOPE_INVALID')
+                          repairs += 1
+                          binding_user = binding_item['user']
+                          repair_prompt_sha256 = hashlib.sha256(binding_user.encode('utf-8')).hexdigest()
+                          binding_schema = fresh_anchor_binding_schema(schema, item, selected)
+                          content = completion(item['system'], binding_user, binding_schema)
+                          violation = policy_violation(binding_item, content)
+                          anchor = candidate_anchor(binding_item, content)
+                          item = binding_item
+                          if violation is not None:
+                              if violation not in repairable or anchor is None:
+                                  try:
+                                      save_rejected(
+                                          item,
+                                          initial,
+                                          content,
+                                          initial_violation,
+                                          violation,
+                                          repair_prompt_sha256,
+                                      )
+                                  except (OSError, ValueError, TypeError, KeyError):
+                                      pass
+                                  fail('POLICY_INITIAL_EVIDENCE_BINDING_INVALID_' + re.sub(r'[^A-Z0-9_]', '_', violation.upper()))
+                              initial_violation = violation
+                      elif violation not in repairable:
                           fail('POLICY_INVALID_' + re.sub(r'[^A-Z0-9_]', '_', violation.upper()))
-                      anchor = candidate_anchor(item, initial)
-                      if anchor is None:
+                      else:
+                          anchor = candidate_anchor(item, initial)
+                      if violation is not None and anchor is None:
                           repairs += 1
                           fresh_user = repair_user(item, violation, initial, 1, 1)
                           repair_prompt_sha256 = hashlib.sha256(fresh_user.encode('utf-8')).hexdigest()
