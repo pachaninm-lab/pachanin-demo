@@ -717,12 +717,14 @@ test('Auction head validation triggers for every immutable state-approved path',
   for (const file of approved) assert.equal(paths.filter((entry) => entry === file).length, 1, `Each approved Auction path must trigger head validation exactly once: ${file}`);
 });
 
-test('Qwen failed-evidence candidate regressions run unprivileged and block the required guard on failure', (t) => {
+test('candidate review-gate regressions run on exact unprivileged head and block required guard on failure', (t) => {
   const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
   const standard = workflow.split('\n  standard_validation:\n')[1];
-  const step = standard.match(/      - name: Validate Local Qwen failed-review evidence regression\n([\s\S]*?)(?=\n      - (?:name:|uses:)|$)/u)?.[1];
+  const step = standard.match(/      - name: Validate candidate review-gate regression\n([\s\S]*?)(?=\n      - (?:name:|uses:)|$)/u)?.[1];
   assert.ok(step, 'The candidate review-gate regression file must run in standard_validation');
-  assert.ok(step.includes(`if: github.event_name == 'pull_request' && github.head_ref == '${qwenFailedEvidenceBranch}'`));
+  const condition = step.split('        run:')[0].replace(/\s+/gu, ' ').trim();
+  assert.equal(condition, `if: >- github.event_name == 'pull_request' && (github.head_ref == '${qwenFailedEvidenceBranch}' || github.head_ref == 'fix/provider-neutral-review-admission-20260918')`);
+  assert.ok(standard.split('      - name:')[0].includes('ref: ${{ github.event.pull_request.head.sha || github.sha }}'), 'candidate tests must use the exact PR head, not trusted main or a merge ref');
   const command = step.match(/^        run: (.+)$/mu)?.[1];
   assert.equal(command, 'node --test docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs');
   assert.match(standard.split('    steps:')[0], /permissions:\n      contents: read/u);
@@ -1155,5 +1157,15 @@ test('provider review is routed through all trusted-base workflow selections', (
     } else {
       assert.ok(line.includes(providerNeutralBranch), `missing immutable routing: ${line}`);
     }
+  }
+});
+
+
+test('each provider review file triggers unprivileged candidate validation', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const trigger = workflow.split('\n  pull_request:\n')[1].split('\nconcurrency:')[0];
+  const paths = [...trigger.matchAll(/^      - '([^']+)'$/gmu)].map((match) => match[1]);
+  for (const file of providerNeutralPaths) {
+    assert.ok(paths.includes(file) || (file.startsWith('docs/platform-v7/') && paths.includes('docs/platform-v7/**')), `candidate validation would not trigger for ${file}`);
   }
 });
