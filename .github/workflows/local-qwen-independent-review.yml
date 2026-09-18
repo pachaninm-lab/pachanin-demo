@@ -458,49 +458,6 @@ jobs:
               r'\b(?:route|path|test(?:-only)?|workflow|constant)\b',
               re.IGNORECASE,
           )
-          BYPASS_CLAIM_TERMS = re.compile(
-              r'\b(?:authorization bypass|security boundary bypass|security/privacy boundar(?:y|ies)(?: bypass)?|validation bypass|admission bypass|authority bypass)\b',
-              re.IGNORECASE,
-          )
-
-          def direct_fail_closed_rejection(line_text):
-              compact = str(line_text or '').strip()
-              if not compact:
-                  return False
-              if re.match(r'^(?:fail|process\.exit|sys\.exit)\s*\(', compact):
-                  return True
-              if re.match(r'^(?:throw|raise)\b', compact):
-                  return True
-              return bool(re.match(
-                  r'^return\s+\{[^}]*\b(?:eligible|authorized|allowed|accepted)\s*:\s*false\b',
-                  compact,
-                  re.IGNORECASE,
-              ))
-
-          def fail_closed_rejection_bypass_contradiction(item, finding):
-              if not isinstance(finding, dict):
-                  return False
-              combined = f'{finding.get("title", "")} {finding.get("reason", "")}'
-              if not BYPASS_CLAIM_TERMS.search(combined):
-                  return False
-              line = finding.get('line')
-              if isinstance(line, bool) or not isinstance(line, int) or line < 1:
-                  return False
-              added = {
-                  int(entry['line']): str(entry['text'])
-                  for entry in item.get('added_lines', [])
-                  if type(entry.get('line')) is int and isinstance(entry.get('text'), str)
-              }
-              exact_line = added.get(line)
-              if exact_line is None:
-                  return False
-              if direct_fail_closed_rejection(exact_line):
-                  return True
-              compact = exact_line.strip()
-              if re.fullmatch(r'if\s*\([^\n]*(?:!==|!=)[^\n]*\)\s*\{?', compact):
-                  return direct_fail_closed_rejection(added.get(line + 1, ''))
-              return False
-
           def fail(code):
               raise SystemExit('REMOTE_REVIEW_ERROR=' + code)
 
@@ -522,6 +479,46 @@ jobs:
               return None
 
           def finding_violation(item, finding):
+              def direct_fail_closed_rejection(line_text):
+                  compact = str(line_text or '').strip()
+                  if not compact:
+                      return False
+                  if re.match(r'^(?:fail|process\.exit|sys\.exit)\s*\(', compact):
+                      return True
+                  if re.match(r'^(?:throw|raise)\b', compact):
+                      return True
+                  return bool(re.match(
+                      r'^return\s+\{[^}]*\b(?:eligible|authorized|allowed|accepted)\s*:\s*false\b',
+                      compact,
+                      re.IGNORECASE,
+                  ))
+
+              def fail_closed_rejection_bypass_contradiction(candidate):
+                  combined = f'{candidate.get("title", "")} {candidate.get("reason", "")}'
+                  bypass_claim_terms = re.compile(
+                      r'\b(?:authorization bypass|security boundary bypass|security/privacy boundar(?:y|ies)(?: bypass)?|validation bypass|admission bypass|authority bypass)\b',
+                      re.IGNORECASE,
+                  )
+                  if not bypass_claim_terms.search(combined):
+                      return False
+                  candidate_line = candidate.get('line')
+                  if isinstance(candidate_line, bool) or not isinstance(candidate_line, int) or candidate_line < 1:
+                      return False
+                  added_lines = {
+                      int(entry['line']): str(entry['text'])
+                      for entry in item.get('added_lines', [])
+                      if type(entry.get('line')) is int and isinstance(entry.get('text'), str)
+                  }
+                  candidate_text = added_lines.get(candidate_line)
+                  if candidate_text is None:
+                      return False
+                  if direct_fail_closed_rejection(candidate_text):
+                      return True
+                  compact = candidate_text.strip()
+                  if re.fullmatch(r'if\s*\([^\n]*(?:!==|!=)[^\n]*\)\s*\{?', compact):
+                      return direct_fail_closed_rejection(added_lines.get(candidate_line + 1, ''))
+                  return False
+
               if not isinstance(finding, dict):
                   return 'SCHEMA_INVALID_FINDING'
               expected = {'severity', 'path', 'line', 'evidence', 'title', 'reason'}
@@ -568,7 +565,7 @@ jobs:
                   return 'EVIDENCE_LINE_NOT_ADDED'
               if evidence not in exact_line:
                   return 'EVIDENCE_NOT_ON_CITED_ADDED_LINE'
-              if fail_closed_rejection_bypass_contradiction(item, finding):
+              if fail_closed_rejection_bypass_contradiction(finding):
                   return 'FAIL_CLOSED_REJECTION_BYPASS_CONTRADICTION'
               return None
 
