@@ -73,6 +73,7 @@ jobs:
           echo "host=$host" >> "$GITHUB_OUTPUT"
           echo "port=$port" >> "$GITHUB_OUTPUT"
           echo "user=$user" >> "$GITHUB_OUTPUT"
+          cp "$HOME/.ssh/known_hosts" artifacts/pc-prod-known-hosts
 
       - name: Discover backup topology without secret values
         shell: bash
@@ -148,6 +149,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: pc-crop-backup-topology
-          path: artifacts/topology.txt
+          path: artifacts/
           if-no-files-found: error
           retention-days: 7
