@@ -15,6 +15,13 @@ export const Role = {
   ARBITRATOR: 'ARBITRATOR',
   /** Server-derived actor used only after a verified bank callback. Never assign to a human membership. */
   BANK_CALLBACK: 'BANK_CALLBACK',
+  /**
+   * Server-derived actor used only by the canonical verified FGIS Grain
+   * response normalizer after durable provider evidence exists. Never expose
+   * this role through registration, membership, JWT claims, URL parameters,
+   * cookies or client storage.
+   */
+  FGIS_GRAIN_PROVIDER: 'FGIS_GRAIN_PROVIDER',
 } as const;
 
 export type Role = typeof Role[keyof typeof Role];
