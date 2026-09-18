@@ -1087,11 +1087,11 @@ function fetchAllReviewThreads(repo, prNumber) {
   return pages.flatMap((page) => page?.data?.repository?.pullRequest?.reviewThreads?.nodes || []);
 }
 
-function fetchCheckSnapshot(repo, prNumber) {
+export function fetchCheckSnapshot(repo, prNumber, readGitHubJson = ghJson) {
   const repository = strictGitHubRepositorySlug(repo);
   if (!repository) return { headSha: '', headRef: '', checks: null };
 
-  const value = ghJson([
+  const value = readGitHubJson([
     'pr',
     'view',
     String(prNumber),
@@ -1111,18 +1111,23 @@ function fetchCheckSnapshot(repo, prNumber) {
   }
 
   const actionsRuns = [];
+  const runFetchErrors = [];
   for (const runId of runIds) {
     const runApiPath = actionsRunApiPath(repository, runId);
     if (!runApiPath) continue;
     try {
-      const run = ghJson(['api', runApiPath]);
+      const run = readGitHubJson(['api', runApiPath]);
       if (run) actionsRuns.push(run);
     } catch {
+      // Do not expose raw CLI errors: they may contain operational values.
+      runFetchErrors.push({ runId, code: 'ACTIONS_RUN_FETCH_FAILED' });
     }
   }
-  const checks = canonicalizeExactPrHeadActionsChecks(rawChecks, actionsRuns, headSha, headRef, repository);
+  const checks = runFetchErrors.length > 0
+    ? null
+    : canonicalizeExactPrHeadActionsChecks(rawChecks, actionsRuns, headSha, headRef, repository);
 
-  return { headSha, headRef, checks };
+  return { headSha, headRef, checks, runFetchErrors };
 }
 
 function fetchLivePrHead(repo, prNumber) {
@@ -1216,6 +1221,7 @@ function providerMaintenanceBootstrapDecision(repo, pr, headSha, reviews) {
   if (snapshot.headRef !== expectedHeadRef) {
     return { eligible: false, reason: 'ci-head-ref-mismatch' };
   }
+  if (snapshot.runFetchErrors?.length > 0) return { eligible: false, reason: 'ci-actions-run-fetch-failed' };
   if (!Array.isArray(snapshot.checks)) return { eligible: false, reason: 'ci-snapshot-invalid' };
   const observed = providerMaintenanceBootstrapSubstantiveChecks(snapshot.checks);
   if (observed.length === 0) {
@@ -1424,6 +1430,12 @@ function main() {
       fail(
         'REVIEW_GATE_CI_HEAD_REF_MISMATCH',
         `CI snapshot head ref ${snapshot.headRef || 'missing'} does not match the validated PR head ref.`,
+      );
+    }
+    if (snapshot.runFetchErrors?.length > 0) {
+      fail(
+        'REVIEW_GATE_CI_ACTIONS_RUN_FETCH_FAILED',
+        `Actions run API/transport lookup failed for ${snapshot.runFetchErrors.length} run(s). Check GitHub API availability, authorization and run existence before retrying. No CI authority accepted.`,
       );
     }
     if (!Array.isArray(snapshot.checks)) {

@@ -13,6 +13,7 @@ import {
   cleanCodexReviewPrefixes,
   COPILOT_REVIEW_LOGINS,
   exactHeadCodexReviews,
+  fetchCheckSnapshot,
   exactHeadCopilotReviews,
   exactHeadOwnerSelfAudits,
   exactHeadProviderBlockingEvidence,
@@ -580,7 +581,6 @@ test('malformed or ambiguous selected-run duplicate ordering blocks snapshot can
     repo,
   );
   assert.equal(malformed, null);
-  assert.equal(malformed, null);
 
   const ambiguous = canonicalizeExactPrHeadActionsChecks(
     [
@@ -593,7 +593,6 @@ test('malformed or ambiguous selected-run duplicate ordering blocks snapshot can
     repo,
   );
   assert.equal(ambiguous, null);
-  assert.equal(ambiguous, null);
 });
 
 test('Actions authority metadata conflicts and exact-head SHA mismatch fail closed', () => {
@@ -605,7 +604,6 @@ test('Actions authority metadata conflicts and exact-head SHA mismatch fail clos
     repo,
   );
   assert.equal(wrongSha, null);
-  assert.equal(wrongSha, null);
 
   const ambiguous = canonicalizeExactPrHeadActionsChecks(
     [actionsCheck({ runId: 42 }), actionsCheck({ runId: 43, name: 'other' })],
@@ -614,7 +612,6 @@ test('Actions authority metadata conflicts and exact-head SHA mismatch fail clos
     exactHeadRef,
     repo,
   );
-  assert.equal(ambiguous, null);
   assert.equal(ambiguous, null);
 });
 
@@ -1042,4 +1039,41 @@ test('review reconciliation workflow uses supported dispatch wiring and complete
   assert.match(workflow, /event_type=review-gate-reconcile/u);
   assert.match(workflow, /client_payload\[pr_number\]=\$pr_number/u);
   assert.match(workflow, /client_payload\[head_sha\]=\$head_sha/u);
+});
+
+
+test('Actions run fetch failures remain fail-closed with a distinct sanitized diagnostic', () => {
+  const rawChecks = [actionsCheck({ runId: 42 }), actionsCheck({ runId: 43 })];
+  const calls = [];
+  const snapshot = fetchCheckSnapshot(repo, 5406, (args) => {
+    calls.push(args);
+    if (args[0] === 'pr') return { headRefOid: head, headRefName: exactHeadRef, statusCheckRollup: rawChecks };
+    if (args[1].endsWith('/42')) throw new Error('transport failure with private operational details');
+    return actionsRun({ id: 43, runNumber: 11 });
+  });
+  assert.equal(snapshot.headSha, head);
+  assert.equal(snapshot.headRef, exactHeadRef);
+  assert.equal(snapshot.checks, null);
+  assert.deepEqual(snapshot.runFetchErrors, [{ runId: '42', code: 'ACTIONS_RUN_FETCH_FAILED' }]);
+  assert.equal(calls.length, 3);
+  assert.equal(JSON.stringify(snapshot).includes('private operational details'), false);
+});
+
+test('successful fetch with missing or malformed Actions metadata is not a transport failure', () => {
+  for (const response of [null, {}, actionsRun({ id: 42, runNumber: 10, headSha: oldHead })]) {
+    const snapshot = fetchCheckSnapshot(repo, 5406, (args) => args[0] === 'pr'
+      ? { headRefOid: head, headRefName: exactHeadRef, statusCheckRollup: [actionsCheck({ runId: 42 })] }
+      : response);
+    assert.equal(snapshot.checks, null);
+    assert.deepEqual(snapshot.runFetchErrors, []);
+  }
+});
+
+test('successful exact-head Actions lookup preserves the selected checks', () => {
+  const check = actionsCheck({ runId: 42 });
+  const snapshot = fetchCheckSnapshot(repo, 5406, (args) => args[0] === 'pr'
+    ? { headRefOid: head, headRefName: exactHeadRef, statusCheckRollup: [check] }
+    : actionsRun({ id: 42, runNumber: 10 }));
+  assert.deepEqual(snapshot.checks, [check]);
+  assert.deepEqual(snapshot.runFetchErrors, []);
 });
