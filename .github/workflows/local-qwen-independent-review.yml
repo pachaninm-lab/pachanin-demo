@@ -591,11 +591,38 @@ jobs:
                   return None
               return (line, evidence)
 
-          def anchored_repair_schema(base_schema, item, anchor):
-              if anchor is None:
+          def anchored_repair_schema(base_schema, item, anchor, line_domain_only=False):
+              if anchor is None and not line_domain_only:
                   return base_schema
-              line, evidence = anchor
               scoped = json.loads(json.dumps(base_schema))
+              if line_domain_only:
+                  added = item.get('added_lines')
+                  if not isinstance(added, list):
+                      fail('REQUEST_EVIDENCE_MAP_INVALID')
+                  path = item.get('path')
+                  if not isinstance(path, str) or not path:
+                      fail('REQUEST_CHUNK_PATH_INVALID')
+                  lines = []
+                  seen = set()
+                  for entry in added:
+                      if not isinstance(entry, dict):
+                          fail('REQUEST_EVIDENCE_MAP_INVALID')
+                      line = entry.get('line')
+                      line_text = entry.get('text')
+                      if isinstance(line, bool) or not isinstance(line, int) or line < 1 or not isinstance(line_text, str):
+                          fail('REQUEST_EVIDENCE_MAP_INVALID')
+                      if line_text.strip() and line not in seen:
+                          seen.add(line)
+                          lines.append(line)
+                  findings = scoped['properties']['findings']
+                  if not lines:
+                      findings['maxItems'] = 0
+                      return scoped
+                  properties = findings['items']['properties']
+                  properties['path'] = {'type': 'string', 'enum': [path]}
+                  properties['line'] = {'type': 'integer', 'enum': lines}
+                  return scoped
+              line, evidence = anchor
               properties = scoped['properties']['findings']['items']['properties']
               properties['path'] = {'type': 'string', 'enum': [item['path']]}
               properties['line'] = {'type': 'integer', 'enum': [line]}
@@ -608,33 +635,7 @@ jobs:
               return scoped
 
           def fresh_unanchored_review_schema(base_schema, item):
-              scoped = json.loads(json.dumps(base_schema))
-              added = item.get('added_lines')
-              if not isinstance(added, list):
-                  fail('REQUEST_EVIDENCE_MAP_INVALID')
-              path = item.get('path')
-              if not isinstance(path, str) or not path:
-                  fail('REQUEST_CHUNK_PATH_INVALID')
-              lines = []
-              seen = set()
-              for entry in added:
-                  if not isinstance(entry, dict):
-                      fail('REQUEST_EVIDENCE_MAP_INVALID')
-                  line = entry.get('line')
-                  line_text = entry.get('text')
-                  if isinstance(line, bool) or not isinstance(line, int) or line < 1 or not isinstance(line_text, str):
-                      fail('REQUEST_EVIDENCE_MAP_INVALID')
-                  if line_text.strip() and line not in seen:
-                      seen.add(line)
-                      lines.append(line)
-              findings = scoped['properties']['findings']
-              if not lines:
-                  findings['maxItems'] = 0
-                  return scoped
-              properties = findings['items']['properties']
-              properties['path'] = {'type': 'string', 'enum': [path]}
-              properties['line'] = {'type': 'integer', 'enum': lines}
-              return scoped
+              return anchored_repair_schema(base_schema, item, None, line_domain_only=True)
 
           def selected_added_line(item, content):
               try:
@@ -1443,7 +1444,7 @@ jobs:
           repairs = 0
           with output_path.open('w', encoding='utf-8') as out:
               for item in requests:
-                  initial = completion(item['system'], item['user'])
+                  initial = completion(item['system'], item['user'], anchored_repair_schema(schema, item, None, line_domain_only=True))
                   content = initial
                   violation = policy_violation(item, initial)
                   repaired = False
