@@ -394,6 +394,7 @@ test('Actions check URL parsing is repository-bound and exact', () => {
   assert.equal(actionsRunIdFromCheck(check, repo), '35265106561');
   assert.equal(actionsRunIdFromCheck(check, 'other/repo'), '');
   assert.equal(actionsRunIdFromCheck({ ...check, detailsUrl: 'https://example.com/actions/runs/35265106561' }, repo), '');
+  assert.equal(actionsRunIdFromCheck(actionsCheck({ runId: '9007199254740992' }), repo), '');
 });
 
 test('PR head refs use strict Git ref syntax before becoming CI authority', () => {
@@ -472,6 +473,29 @@ test('missing or malformed Actions head-ref authority metadata fails closed inst
     assert.equal(result.checks.length, 0);
     assert.match(result.errors.join(','), /authority-metadata-invalid/u);
   }
+});
+
+test('Actions event authority is canonical lowercase metadata and fails closed otherwise', () => {
+  const check = actionsCheck({ runId: 42 });
+  const valid = canonicalizeExactPrHeadActionsChecks(
+    [check],
+    [actionsRun({ id: 42, runNumber: 10, event: 'workflow_dispatch' })],
+    head,
+    exactHeadRef,
+    repo,
+  );
+  assert.deepEqual(valid.errors, []);
+  assert.deepEqual(valid.checks, [check]);
+
+  const invalid = canonicalizeExactPrHeadActionsChecks(
+    [check],
+    [actionsRun({ id: 42, runNumber: 10, event: 'Pull_Request' })],
+    head,
+    exactHeadRef,
+    repo,
+  );
+  assert.deepEqual(invalid.checks, []);
+  assert.match(invalid.errors.join(','), /authority-metadata-invalid/u);
 });
 
 test('older failure followed by newer success in the same workflow/event family selects the newer run_number', () => {
