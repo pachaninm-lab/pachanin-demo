@@ -647,11 +647,9 @@ export function canonicalizeExactPrHeadActionsChecks(
     const runHeadSha = canonicalSha40(run?.head_sha);
     const runHeadRef = strictGitHubHeadRef(run?.head_branch);
     const event = strictGitHubActionsEvent(run?.event);
-    if (
-      !metadataId || !workflowId || !runNumber || !runAttempt || !runHeadSha || !runHeadRef || !event
-      || metadataId !== runId
-      || runHeadSha !== expectedSha
-    ) {
+    const metadataFieldsValid = Boolean(metadataId && workflowId && runNumber && runAttempt && runHeadSha && runHeadRef && event);
+    const exactRunBindingValid = metadataId === runId && runHeadSha === expectedSha;
+    if (!metadataFieldsValid || !exactRunBindingValid) {
       invalid = true;
       continue;
     }
