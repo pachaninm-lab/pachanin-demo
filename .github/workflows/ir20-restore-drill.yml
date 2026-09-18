@@ -75,6 +75,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
           persist-credentials: false
       - name: Record source-only guard failures without raw error disclosure
         shell: bash
@@ -100,6 +101,8 @@ jobs:
               'run_attempt': os.environ.get('GITHUB_RUN_ATTEMPT'),
               'node_version': subprocess.check_output(['node', '--version'], text=True).strip(),
               'test_exit_code': int(os.environ['TEST_RC']),
+              'shallow_checkout': subprocess.check_output(['git', 'rev-parse', '--is-shallow-repository'], text=True).strip() == 'true',
+              'historical_fixture_commit_present': subprocess.run(['git', 'cat-file', '-e', '2d55077c90adc6e0c5dd8aba217d323dbac327fd^{commit}'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0,
               'report_parse_ok': False,
               'test_count': 0,
               'failures': [],
