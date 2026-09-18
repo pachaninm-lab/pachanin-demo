@@ -75,18 +75,26 @@ cleanup() {
   if [[ $rc == 0 && "$RESULT" == VERIFIED ]]; then
     python3 -I - "$DIR" <<'PYSYNC' >/dev/null 2>&1 || { printf 'IR20_RESTORE_ERROR=BACKUP_DURABILITY\n' >&2; exit 1; }
 import os,pathlib,sys
-p=pathlib.Path(sys.argv[1]); final=p/'report.json'
+p=pathlib.Path(sys.argv[1]); pending=p/'report.pending.json'; final=p/'report.json'
 def sync(path):
     fd=os.open(path,os.O_RDONLY)
     try: os.fsync(fd)
     finally: os.close(fd)
 try:
-    for f in (p/'database.dump',p/'roles.sql',p/'report.pending.json',p):
+    # A durable run directory does not persist its entry in the parent directory.
+    # The protected hierarchy may also be newly created: sync up to the root.
+    for f in (p/'database.dump',p/'roles.sql',pending,p,*p.parents):
         sync(f)
-    os.replace(p/'report.pending.json',final)
+    os.replace(pending,final)
     sync(p)
 except OSError:
-    final.unlink(missing_ok=True)
+    # Fail closed even when the filesystem cannot persist marker removal.
+    # Attempt both removals; cleanup failure must never turn the original error green.
+    for marker in (pending,final):
+        try: marker.unlink(missing_ok=True)
+        except OSError: pass
+    try: sync(p)
+    except OSError: pass
     raise
 PYSYNC
     cat "$DIR/report.json"

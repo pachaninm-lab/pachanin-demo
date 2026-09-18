@@ -83,6 +83,17 @@ object recovery, all-domain application behavior, worker delivery recovery, or
 backward-compatible rollback. Physical preservation of irreversible intent is
 not inferred from a local archive or a database transaction.
 
+Report publication follows successful `fsync` of the archive, roles, pending
+report, run directory and every ancestor directory up to the filesystem root.
+Syncing only the run directory does not persist its name in its parent; the
+backup hierarchy may itself be newly created. The pending report is then renamed
+and its containing directory synchronized again before any success output.
+An I/O error keeps the operation failed, attempts removal of both report markers
+and preserves the backup files. If marker removal or its synchronization also
+fails, cleanup durability is not proven and the operation still cannot succeed.
+These barriers depend on the filesystem/storage honoring `fsync`; they do not
+establish power-loss, off-host or full disaster-recovery acceptance.
+
 The 64 MiB per-output and 512 MiB restored-data bounds are fail-closed limits for
 this narrow rehearsal, not claimed production capacity. Exceeding them requires a
 reviewed resource profile, not a larger arbitrary CLI override. Full production
@@ -95,6 +106,12 @@ Run `sudo /usr/bin/python3 -B scripts/release/test-ir20-restore-drill.py` for th
 mocked-Docker rejection matrix. The separate integration script creates only
 synthetic data, including UTF-8/newline payloads, ownership, grants, FORCE RLS,
 policy and trigger fixtures, then executes the actual restore executor.
+
+The same test command also executes the actual embedded report finalizer with
+real temporary files and injected `fsync`/rename errors. It checks ancestor-sync
+ordering, failure at each durability barrier, missing archives, report-marker
+removal and preservation of backup bytes. These are local fault-injection tests,
+not a physical power-loss experiment or independent review.
 
 The PR workflow uses the existing verified
 `.github/container-images/postgres-16.v1.json` image authority, not Docker Hub
@@ -111,3 +128,4 @@ and exported snapshots; Docker Engine resource/runtime isolation options.
 - https://docs.docker.com/reference/cli/docker/container/create/
 - https://docs.docker.com/reference/cli/docker/container/ls/
 - https://www.gnu.org/software/bash/manual/html_node/Signals.html
+- https://man7.org/linux/man-pages/man2/fsync.2.html

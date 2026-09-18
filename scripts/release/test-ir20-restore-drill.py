@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Exercise the actual shell executor with synthetic Docker, never production."""
+import errno
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 SCRIPT = Path(__file__).with_name('ir20-restore-drill.sh')
 SOURCE = 'a' * 64
@@ -234,6 +237,83 @@ class DrillTests(unittest.TestCase):
                 self.assertIn('IR20_RESTORE_ERROR='+code,result.stderr)
                 self.assertIn('IR20_RESTORE_RESULT=NOT_VERIFIED',result.stderr)
                 self.assertFalse(any(v[2]=='create' for v in calls))
+
+
+class DurabilityTests(unittest.TestCase):
+    def run_finalizer(self, fail_at=None, missing_archive=False):
+        # Execute the exact embedded finalizer, not a rewritten model of it.
+        matches = re.findall(r"<<'PYSYNC'[^\n]*\n(.*?)^PYSYNC$",
+                             SCRIPT.read_text(), re.MULTILINE | re.DOTALL)
+        self.assertEqual(len(matches), 1)
+        code = compile(matches[0], str(SCRIPT) + ':PYSYNC', 'exec')
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp) / 'backups' / 'ir20' / 'run'
+            directory.mkdir(parents=True)
+            archive = directory / 'database.dump'
+            roles = directory / 'roles.sql'
+            pending = directory / 'report.pending.json'
+            final = directory / 'report.json'
+            archive.write_bytes(b'synthetic archive')
+            roles.write_bytes(b'synthetic roles')
+            pending.write_text('{"synthetic":true}\n')
+            if missing_archive:
+                archive.unlink()
+            expected = [('fsync', str(path)) for path in
+                        (archive, roles, pending, directory, *directory.parents)]
+            expected += [('replace', str(pending), str(final)), ('fsync', str(directory))]
+            events = []
+            real_fsync, real_replace = os.fsync, os.replace
+
+            def observe(event):
+                events.append(event)
+                if fail_at == len(events) - 1:
+                    raise OSError(errno.EIO, 'synthetic durability failure')
+
+            def fsync(fd):
+                observe(('fsync', os.readlink('/proc/self/fd/' + str(fd))))
+                return real_fsync(fd)
+
+            def replace(source, target):
+                observe(('replace', str(source), str(target)))
+                return real_replace(source, target)
+
+            error = None
+            with mock.patch.object(sys, 'argv', ['-', str(directory)]), \
+                    mock.patch.object(os, 'fsync', fsync), \
+                    mock.patch.object(os, 'replace', replace):
+                try:
+                    exec(code, {'__name__': '__main__'})
+                except OSError as caught:
+                    error = caught
+            return {'events': events, 'expected': expected, 'error': error,
+                    'final': final.exists(), 'pending': pending.exists(),
+                    'archive': archive.read_bytes() if archive.exists() else None,
+                    'roles': roles.read_bytes()}
+
+    def test_archive_and_ancestor_entries_are_synced_before_report_publication(self):
+        result = self.run_finalizer()
+        self.assertIsNone(result['error'])
+        self.assertEqual(result['events'], result['expected'])
+        self.assertTrue(result['final'])
+        self.assertFalse(result['pending'])
+
+    def test_each_durability_failure_removes_report_markers_and_preserves_backup(self):
+        count = len(self.run_finalizer()['expected'])
+        for fail_at in range(count):
+            with self.subTest(fail_at=fail_at):
+                result = self.run_finalizer(fail_at=fail_at)
+                self.assertIsInstance(result['error'], OSError)
+                self.assertFalse(result['final'])
+                self.assertFalse(result['pending'])
+                self.assertEqual(result['archive'], b'synthetic archive')
+                self.assertEqual(result['roles'], b'synthetic roles')
+
+    def test_missing_archive_cannot_leave_success_or_pending_report(self):
+        result = self.run_finalizer(missing_archive=True)
+        self.assertIsInstance(result['error'], FileNotFoundError)
+        self.assertFalse(result['final'])
+        self.assertFalse(result['pending'])
+        self.assertEqual(result['roles'], b'synthetic roles')
 
 
 if __name__ == '__main__':
