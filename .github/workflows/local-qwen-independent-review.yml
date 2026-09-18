@@ -782,6 +782,18 @@ jobs:
                           'If the pinned tuple is not itself an admissible added-line/verbatim-evidence tuple, or if it does not directly establish a concrete reproducible defect under the unchanged policy, author findings=[]. '
                           'This preserves the same verbatim evidence substring and never permits a replacement line. '
                       )
+                      compact_evidence = evidence.strip()
+                      if (
+                          re.fullmatch(r'[A-Za-z_$][A-Za-z0-9_$]*\s*:\s*(?:true|false|null|[\'\"]{2})\s*,?', compact_evidence)
+                          or re.search(r'===|!==', compact_evidence)
+                          or compact_evidence in {') {', '{', '}', 'BEGIN', 'END'}
+                      ):
+                          violation_guidance += (
+                              'The pinned evidence is mechanically a static control/validation signal, equality filter, empty fallback, or structural delimiter; it contains no observable data sink by itself. '
+                              'Under the unchanged policy, do not label that evidence secret/PII disclosure, authorization bypass, or validation bypass unless the same pinned evidence string itself directly moves sensitive data to an observable sink or directly admits invalid input. '
+                              'An equality mismatch branch that rejects, skips, or continues the non-matching case excludes that mismatch from authority; it does not admit it. '
+                              'If the rejected theory depends on inferring a leak or bypass from this static signal rather than a direct mechanism on the pinned line, author findings=[]. '
+                          )
               elif violation == 'TEST_ONLY_SECURITY_FINDING_REJECTED':
                   violation_guidance = (
                       'For TEST_ONLY_SECURITY_FINDING_REJECTED, a test-only assertion, mock, expectation, route name, or test fixture does not by itself implement or prove a production security/privacy boundary bypass. '
@@ -1026,6 +1038,28 @@ jobs:
               fail('VALIDATOR_SELFTEST_SPECULATION_STATIC_SIGNAL_GUIDANCE_MISSING')
           if 'move sensitive data to an observable sink or directly admit invalid input' not in speculative_repair_probe:
               fail('VALIDATOR_SELFTEST_SPECULATION_CONCRETE_MECHANISM_GUIDANCE_MISSING')
+          static_signal_probe = dict(speculative_probe, evidence='canonicalizationInvalid: true')
+          static_signal_candidate = json.dumps({'findings': [static_signal_probe]}, separators=(',', ':'))
+          static_signal_prompt = repair_user(
+              dict(probe_item, added_lines=[{'line': 7, 'text': 'canonicalizationInvalid: true'}]),
+              'SPECULATIVE_CLAIM',
+              static_signal_candidate,
+              2,
+              MAX_SPECULATIVE_REPAIR_ATTEMPTS,
+          )
+          if 'mechanically a static control/validation signal' not in static_signal_prompt:
+              fail('VALIDATOR_SELFTEST_SPECULATION_STATIC_SIGNAL_CLASSIFICATION_MISSING')
+          mismatch_probe = dict(speculative_probe, evidence='if (runHeadRef !== expectedRef) continue;')
+          mismatch_candidate = json.dumps({'findings': [mismatch_probe]}, separators=(',', ':'))
+          mismatch_prompt = repair_user(
+              dict(probe_item, added_lines=[{'line': 7, 'text': 'if (runHeadRef !== expectedRef) continue;'}]),
+              'SPECULATIVE_CLAIM',
+              mismatch_candidate,
+              2,
+              MAX_SPECULATIVE_REPAIR_ATTEMPTS,
+          )
+          if 'excludes that mismatch from authority; it does not admit it' not in mismatch_prompt:
+              fail('VALIDATOR_SELFTEST_SPECULATION_EQUALITY_FILTER_GUIDANCE_MISSING')
           if 'otherwise author findings=[]' not in speculative_repair_probe:
               fail('VALIDATOR_SELFTEST_SPECULATION_REPAIR_EMPTY_RESULT_GUIDANCE_MISSING')
           if 'original cited NEW_LINE_7' not in speculative_repair_probe or 'same verbatim evidence substring' not in speculative_repair_probe:
