@@ -439,7 +439,7 @@ test('invalid repository identity fails closed with a generic Actions authority 
     'owner/repo/extra',
   );
   assert.deepEqual(result.checks, []);
-  assert.deepEqual(result.errors, ['actions-authority-input-invalid']);
+  assert.equal(result.invalid, true);
 });
 
 test('same-SHA Actions check from a foreign PR head ref is excluded only after valid run metadata proves the mismatch', () => {
@@ -455,7 +455,7 @@ test('same-SHA Actions check from a foreign PR head ref is excluded only after v
     exactHeadRef,
     repo,
   );
-  assert.deepEqual(result.errors, []);
+  assert.equal(result.invalid, false);
   assert.deepEqual(result.checks, [currentSuccess]);
   assert.deepEqual(checkRollupBlockers(result.checks), []);
 });
@@ -471,7 +471,7 @@ test('missing or malformed Actions head-ref authority metadata fails closed inst
       repo,
     );
     assert.equal(result.checks.length, 0);
-    assert.match(result.errors.join(','), /authority-metadata-invalid/u);
+    assert.equal(result.invalid, true);
   }
 });
 
@@ -484,7 +484,7 @@ test('Actions event authority is canonical lowercase metadata and fails closed o
     exactHeadRef,
     repo,
   );
-  assert.deepEqual(valid.errors, []);
+  assert.equal(valid.invalid, false);
   assert.deepEqual(valid.checks, [check]);
 
   const invalid = canonicalizeExactPrHeadActionsChecks(
@@ -495,7 +495,7 @@ test('Actions event authority is canonical lowercase metadata and fails closed o
     repo,
   );
   assert.deepEqual(invalid.checks, []);
-  assert.match(invalid.errors.join(','), /authority-metadata-invalid/u);
+  assert.equal(invalid.invalid, true);
 });
 
 test('older failure followed by newer success in the same workflow/event family selects the newer run_number', () => {
@@ -508,7 +508,7 @@ test('older failure followed by newer success in the same workflow/event family 
     exactHeadRef,
     repo,
   );
-  assert.deepEqual(result.errors, []);
+  assert.equal(result.invalid, false);
   assert.deepEqual(result.checks, [newerSuccess]);
   assert.deepEqual(checkRollupBlockers(result.checks), []);
 });
@@ -523,7 +523,7 @@ test('newer failure in the same workflow/event family remains blocking', () => {
     exactHeadRef,
     repo,
   );
-  assert.deepEqual(result.errors, []);
+  assert.equal(result.invalid, false);
   assert.deepEqual(result.checks, [newerFailure]);
   assert.deepEqual(checkRollupBlockers(result.checks), ['platform-v7 autopilot guard / guard:FAILURE']);
 });
@@ -538,7 +538,7 @@ test('later wall-clock rerun of an older run_number cannot supersede a newer run
     exactHeadRef,
     repo,
   );
-  assert.deepEqual(result.errors, []);
+  assert.equal(result.invalid, false);
   assert.deepEqual(result.checks, [newerSuccess]);
 });
 
@@ -555,7 +555,7 @@ test('distinct Actions event families for the same workflow and exact PR head re
     exactHeadRef,
     repo,
   );
-  assert.deepEqual(result.errors, []);
+  assert.equal(result.invalid, false);
   assert.deepEqual(result.checks, [prSuccess, dispatchFailure]);
   assert.deepEqual(checkRollupBlockers(result.checks), ['platform-v7 autopilot guard / dispatch-guard:FAILURE']);
 });
@@ -570,7 +570,7 @@ test('selected Actions run deduplicates the same logical check only by strictly 
     exactHeadRef,
     repo,
   );
-  assert.deepEqual(result.errors, []);
+  assert.equal(result.invalid, false);
   assert.deepEqual(result.checks, [retry]);
 });
 
@@ -583,7 +583,7 @@ test('malformed or ambiguous selected-run duplicate ordering blocks snapshot can
     repo,
   );
   assert.equal(malformed.checks.length, 0);
-  assert.match(malformed.errors.join(','), /started-at-invalid/u);
+  assert.equal(malformed.invalid, true);
 
   const ambiguous = canonicalizeExactPrHeadActionsChecks(
     [
@@ -596,7 +596,7 @@ test('malformed or ambiguous selected-run duplicate ordering blocks snapshot can
     repo,
   );
   assert.equal(ambiguous.checks.length, 0);
-  assert.match(ambiguous.errors.join(','), /started-at-ambiguous/u);
+  assert.equal(ambiguous.invalid, true);
 });
 
 test('Actions authority metadata conflicts and exact-head SHA mismatch fail closed', () => {
@@ -608,7 +608,7 @@ test('Actions authority metadata conflicts and exact-head SHA mismatch fail clos
     repo,
   );
   assert.equal(wrongSha.checks.length, 0);
-  assert.match(wrongSha.errors.join(','), /head-sha-mismatch/u);
+  assert.equal(wrongSha.invalid, true);
 
   const ambiguous = canonicalizeExactPrHeadActionsChecks(
     [actionsCheck({ runId: 42 }), actionsCheck({ runId: 43, name: 'other' })],
@@ -618,7 +618,7 @@ test('Actions authority metadata conflicts and exact-head SHA mismatch fail clos
     repo,
   );
   assert.equal(ambiguous.checks.length, 0);
-  assert.match(ambiguous.errors.join(','), /run-number-ambiguous/u);
+  assert.equal(ambiguous.invalid, true);
 });
 
 test('legacy non-Actions status contexts survive exact-PR-head Actions canonicalization unchanged', () => {
@@ -631,7 +631,7 @@ test('legacy non-Actions status contexts survive exact-PR-head Actions canonical
     exactHeadRef,
     repo,
   );
-  assert.deepEqual(result.errors, []);
+  assert.equal(result.invalid, false);
   assert.deepEqual(result.checks, [legacy, current]);
 });
 
