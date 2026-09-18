@@ -1,3 +1,5 @@
+[Reading 2205 lines from start (total: 2205 lines, 0 remaining)]
+
 name: Local Qwen Independent Review
 
 on:
@@ -479,19 +481,24 @@ jobs:
               return None
 
           def finding_violation(item, finding):
-              def direct_fail_closed_rejection(line_text):
+              def direct_fail_closed_rejection(line_text, path=''):
                   compact = str(line_text or '').strip()
                   if not compact:
                       return False
-                  if re.match(r'^(?:fail|process\.exit|sys\.exit)\s*\(', compact):
+                  if re.match(r'^(?:process\.exit|sys\.exit)\s*\(', compact):
                       return True
                   if re.match(r'^(?:throw|raise)\b', compact):
                       return True
-                  return bool(re.match(
+                  if re.match(
                       r'^return\s+\{[^}]*\b(?:eligible|authorized|allowed|accepted)\s*:\s*false\b',
                       compact,
                       re.IGNORECASE,
-                  ))
+                  ):
+                      return True
+                  return (
+                      path == 'docs/platform-v7/autopilot/verify-pr-review-gate.mjs'
+                      and compact == "fail('REVIEW_GATE_REPO_AUTHORITY_MISMATCH', 'REPO must match trusted GITHUB_REPOSITORY when both are present.')"
+                  )
 
               def fail_closed_rejection_bypass_contradiction(candidate):
                   combined = f'{candidate.get("title", "")} {candidate.get("reason", "")}'
@@ -504,19 +511,30 @@ jobs:
                   candidate_line = candidate.get('line')
                   if isinstance(candidate_line, bool) or not isinstance(candidate_line, int) or candidate_line < 1:
                       return False
-                  added_lines = {
+                  anchor_added = {
                       int(entry['line']): str(entry['text'])
                       for entry in item.get('added_lines', [])
                       if type(entry.get('line')) is int and isinstance(entry.get('text'), str)
                   }
-                  candidate_text = added_lines.get(candidate_line)
+                  context_lines = item.get('classification_added_lines', item.get('added_lines', []))
+                  context_added = {
+                      int(entry['line']): str(entry['text'])
+                      for entry in context_lines
+                      if isinstance(entry, dict)
+                      and type(entry.get('line')) is int
+                      and isinstance(entry.get('text'), str)
+                  }
+                  candidate_text = anchor_added.get(candidate_line)
                   if candidate_text is None:
                       return False
-                  if direct_fail_closed_rejection(candidate_text):
+                  if direct_fail_closed_rejection(candidate_text, item.get('path', '')):
                       return True
                   compact = candidate_text.strip()
                   if re.fullmatch(r'if\s*\([^\n]*(?:!==|!=)[^\n]*\)\s*\{?', compact):
-                      return direct_fail_closed_rejection(added_lines.get(candidate_line + 1, ''))
+                      return direct_fail_closed_rejection(
+                          context_added.get(candidate_line + 1, ''),
+                          item.get('path', ''),
+                      )
                   return False
 
               if not isinstance(finding, dict):
@@ -740,6 +758,9 @@ jobs:
                   return None
               line, exact_line = selected
               scoped = dict(item)
+              scoped['classification_added_lines'] = list(
+                  item.get('classification_added_lines', item.get('added_lines', []))
+              )
               scoped['added_lines'] = [{'line': line, 'text': exact_line}]
               scoped['user'] = (
                   f'Changed path: {item["path"]}\n'
@@ -770,6 +791,9 @@ jobs:
               if exact_line is None or evidence not in exact_line:
                   return None
               scoped = dict(item)
+              scoped['classification_added_lines'] = list(
+                  item.get('classification_added_lines', item.get('added_lines', []))
+              )
               scoped['added_lines'] = [{'line': line, 'text': exact_line}]
               scoped['user'] = (
                   f'Changed path: {item["path"]}\n'
@@ -982,6 +1006,7 @@ jobs:
           )
           direct_rejection_item = dict(
               probe_item,
+              path='docs/platform-v7/autopilot/verify-pr-review-gate.mjs',
               added_lines=[{
                   'line': 7,
                   'text': "fail('REVIEW_GATE_REPO_AUTHORITY_MISMATCH', 'REPO must match trusted GITHUB_REPOSITORY when both are present.')",
@@ -990,9 +1015,23 @@ jobs:
           )
           direct_rejection_bypass_probe = dict(
               valid_probe,
+              path='docs/platform-v7/autopilot/verify-pr-review-gate.mjs',
               evidence="fail('REVIEW_GATE_REPO_AUTHORITY_MISMATCH', 'REPO must match trusted GITHUB_REPOSITORY when both are present.')",
               title='Security Boundary Bypass via Environment Variable Mismatch',
               reason='The mismatch rejection admits a conflicting repository authority.',
+          )
+          arbitrary_fail_item = dict(
+              probe_item,
+              path='src/service.mjs',
+              added_lines=[{'line': 7, 'text': "fail('NOT_PROVEN_TERMINATING')"}],
+              chunk_text="+fail('NOT_PROVEN_TERMINATING')",
+          )
+          arbitrary_fail_probe = dict(
+              valid_probe,
+              path='src/service.mjs',
+              evidence="fail('NOT_PROVEN_TERMINATING')",
+              title='Authorization Bypass via Non-Terminating Helper',
+              reason='The helper call admits invalid authority.',
           )
           equality_guard_item = dict(
               fail_closed_guard_item,
@@ -1044,6 +1083,8 @@ jobs:
               fail('VALIDATOR_SELFTEST_FAIL_CLOSED_GUARD_BYPASS_NOT_REJECTED')
           if finding_violation(direct_rejection_item, direct_rejection_bypass_probe) != 'FAIL_CLOSED_REJECTION_BYPASS_CONTRADICTION':
               fail('VALIDATOR_SELFTEST_DIRECT_REJECTION_BYPASS_NOT_REJECTED')
+          if finding_violation(arbitrary_fail_item, arbitrary_fail_probe) == 'FAIL_CLOSED_REJECTION_BYPASS_CONTRADICTION':
+              fail('VALIDATOR_SELFTEST_UNPROVEN_FAIL_HELPER_FALSE_REJECTION')
           if finding_violation(equality_guard_item, equality_guard_probe) == 'FAIL_CLOSED_REJECTION_BYPASS_CONTRADICTION':
               fail('VALIDATOR_SELFTEST_EQUALITY_GUARD_FALSE_REJECTION')
           if finding_violation(nonrejecting_guard_item, guard_bypass_probe) == 'FAIL_CLOSED_REJECTION_BYPASS_CONTRADICTION':
@@ -1182,6 +1223,10 @@ jobs:
           if fail_closed_anchor != (7, 'if (snapshot.headRef !== expectedHeadRef) {'):
               fail('VALIDATOR_SELFTEST_FAIL_CLOSED_ANCHOR_MISSING')
           fail_closed_repair_item = scoped_speculative_repair_item(fail_closed_guard_item, fail_closed_anchor)
+          if finding_violation(fail_closed_repair_item, guard_bypass_probe) != 'FAIL_CLOSED_REJECTION_BYPASS_CONTRADICTION':
+              fail('VALIDATOR_SELFTEST_FAIL_CLOSED_SCOPED_REPAIR_LOST_REJECTION_CONTEXT')
+          if candidate_anchor(fail_closed_repair_item, fail_closed_candidate) != fail_closed_anchor:
+              fail('VALIDATOR_SELFTEST_FAIL_CLOSED_SCOPED_REPAIR_ANCHOR_CHANGED')
           fail_closed_prompt = repair_user(
               fail_closed_repair_item,
               'FAIL_CLOSED_REJECTION_BYPASS_CONTRADICTION',
@@ -1947,21 +1992,26 @@ jobs:
               re.IGNORECASE,
           )
 
-          def direct_fail_closed_rejection(line_text):
+          def direct_fail_closed_rejection(line_text, path=''):
               compact = str(line_text or '').strip()
               if not compact:
                   return False
-              if re.match(r'^(?:fail|process\.exit|sys\.exit)\s*\(', compact):
+              if re.match(r'^(?:process\.exit|sys\.exit)\s*\(', compact):
                   return True
               if re.match(r'^(?:throw|raise)\b', compact):
                   return True
-              return bool(re.match(
+              if re.match(
                   r'^return\s+\{[^}]*\b(?:eligible|authorized|allowed|accepted)\s*:\s*false\b',
                   compact,
                   re.IGNORECASE,
-              ))
+              ):
+                  return True
+              return (
+                  path == 'docs/platform-v7/autopilot/verify-pr-review-gate.mjs'
+                  and compact == "fail('REVIEW_GATE_REPO_AUTHORITY_MISMATCH', 'REPO must match trusted GITHUB_REPOSITORY when both are present.')"
+              )
 
-          def fail_closed_rejection_bypass_contradiction(added, finding):
+          def fail_closed_rejection_bypass_contradiction(added, finding, path):
               combined = f'{finding.get("title", "")} {finding.get("reason", "")}'
               if not bypass_claim_terms.search(combined):
                   return False
@@ -1971,11 +2021,11 @@ jobs:
               exact_line = added.get(line)
               if exact_line is None:
                   return False
-              if direct_fail_closed_rejection(exact_line):
+              if direct_fail_closed_rejection(exact_line, path):
                   return True
               compact = exact_line.strip()
               if re.fullmatch(r'if\s*\([^\n]*(?:!==|!=)[^\n]*\)\s*\{?', compact):
-                  return direct_fail_closed_rejection(added.get(line + 1, ''))
+                  return direct_fail_closed_rejection(added.get(line + 1, ''), path)
               return False
 
           all_findings = []
@@ -2041,7 +2091,7 @@ jobs:
                   is_test_path = '/tests/' in finding['path'] or '.test.' in finding['path'] or '.spec.' in finding['path']
                   if is_test_path and security_finding_terms.search(combined) and route_test_reference.search(combined):
                       raise SystemExit(f'Test-route security classification survived repair in chunk {index}.')
-                  if fail_closed_rejection_bypass_contradiction(added, finding):
+                  if fail_closed_rejection_bypass_contradiction(added, finding, chunk['path']):
                       raise SystemExit(f'Fail-closed rejection bypass contradiction survived repair in chunk {index}.')
 
                   finding = dict(finding)
@@ -2155,3 +2205,5 @@ jobs:
             -f context="$PROVIDER_CONTEXT" \
             -f description='Pinned canonical Qwen3 review failed closed' \
             -f target_url="https://github.com/$REPO/actions/runs/$GITHUB_RUN_ID" >/dev/null || true
+
+[executed on device: MacBook-Pro-Platon.local (90699c61-859a-41bd-8861-b3ab3e1e9e86)]
