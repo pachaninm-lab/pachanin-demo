@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-signature-authority-4997",
+  "status": "proposed",
+  "purpose": "W5-B: atomically enforce existing SigningAuthority/MFA/certificate/MChD policy in the canonical document signature writer and add provider-neutral signature/EDO ports plus immutable receipts without inventing external activation.",
+  "authorityBaseExactMain": "7f8326322dd15a46df8b63a3f4f14d72a177558d",
+  "authorization": "Owner instruction on 2026-09-05 to continue the supplied PC-CROP post-registration specification with existing push/PR/merge authorization. Implementation remains blocked until this finite scope is independently accepted and promoted into immutable base-state authority.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "specificationSections": [19, 31],
+  "terminalCriteria": ["SIGNATURE_PROVIDER_NEUTRAL=PASS", "KEP_SUPPORT=PASS", "MCHD_VALIDATION=PASS", "SIGNER_AUTHORITY=PASS", "MFA=PASS"],
+  "allowedPaths": [
+    "apps/api/prisma/migrations/20260906040000_signature_authority_enforcement/migration.sql",
+    "apps/api/src/modules/auth/signing-authority.policy.ts",
+    "apps/api/src/modules/auth/signing-authority.policy.spec.ts",
+    "apps/api/src/modules/documents/prisma-document.repository.ts",
+    "apps/api/src/modules/documents/documents.service.ts",
+    "apps/api/src/modules/documents/documents.service.spec.ts",
+    "apps/api/src/modules/signature/signature-provider.port.ts",
+    "apps/api/src/modules/signature/signature-receipt.contract.ts",
+    "apps/api/src/modules/signature/signature-receipt.contract.spec.ts",
+    "apps/api/src/modules/signature/signature-orchestration.service.ts",
+    "apps/api/src/modules/signature/signature-orchestration.service.spec.ts",
+    "apps/api/test/industrial/signature-authority-enforcement.e2e-spec.ts",
+    "scripts/verify-pc-crop-signature-authority-scope.test.mjs",
+    ".github/workflows/pc-crop-signature-authority.yml",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "excludedAfterSourceAudit": [
+    {"path":"apps/api/prisma/schema.prisma","reason":"Existing SigningAuthority/ContractVersion/DealDocument models remain canonical. Enforcement and provider-neutral receipts are added without a second public signature authority model."},
+    {"path":"apps/api/src/app.module.ts","reason":"Canonical Documents module is already mounted; provider ports are injected through existing module wiring in a later bounded consumer slice if needed."},
+    {"path":"apps/api/src/modules/accounting/**","reason":"Federal Accounting lock #4321 remains untouched; accounting document signing may consume the same authority only in a separately accepted locked-scope change."},
+    {"path":"apps/api/src/modules/integrations/**","reason":"No vendor-specific provider or EDO integration is activated by W5-B; only provider-neutral port/receipt contracts are established."},
+    {"path":".github/workflows/ci.yml","reason":"Global CI remains an independent gate."},
+    {"path":"scripts/platform-v7-forward-only-migration-check.mjs","reason":"Generic additive migration checker remains unchanged."}
+  ],
+  "sourceEvidence": [
+    "apps/api/src/modules/auth/signing-authority.policy.ts",
+    "apps/api/src/modules/documents/prisma-document.repository.ts",
+    "apps/api/src/modules/documents/documents.service.ts",
+    "docs/platform-v7/crop-platform/post-registration/exact-gap-map.v1.json"
+  ],
+  "requiredInvariants": [
+    "Reuse the existing deny-by-default SigningAuthority policy, current canonical DealDocument/ContractVersion immutability and current MFA/session authority. Do not create SignatureV2 or a parallel legal-authority engine.",
+    "Every production signature command evaluates current membership/user/tenant/organization authority, allowed document type, amount ceiling, document staleness, recent MFA, certificate fingerprint/status/validity, signing mode and security hold immediately before the immutable signature write.",
+    "MCHD_DELEGATED authority is invalid without a machine-readable power-of-attorney reference and a current validation result. A stale/unknown/revoked MChD fails closed for legally significant signing.",
+    "MChD validation evidence records source, request/response fingerprints, checkedAt, status, valid window and revocation/source freshness. Absence of a live revocation source remains EXTERNAL_BLOCKER and must not be rendered as valid.",
+    "SignatureProviderPort is provider-neutral. PROVIDER_UI, LOCAL_CSP and APPROVED_CLOUD_SIGNING remain signing modes; vendor names, credentials and vendor-specific receipt shapes never become core signature semantics.",
+    "A provider response is not a successful signature until an immutable receipt binds exact document version/hash, signer authority, certificate fingerprint, provider/mode, external receipt reference, signing timestamp and verification result.",
+    "External EDO/signature methods continue to fail as NOT_ACTIVATED unless an independently accepted configured adapter returns validated receipts. W5-B creates no external success claim.",
+    "Signed bytes/hash and prior signature evidence are immutable. Retry/re-sign/correction can append a new signature/document version only under explicit policy; historical proof is never overwritten.",
+    "Exact idempotent replay returns the original receipt only after current signer authority is revalidated; revoked membership/authority/MFA/certificate/MChD cannot replay an old successful receipt as current authorization.",
+    "Same-tenant outsiders and cross-tenant callers cannot request, read private provider receipts or mutate signature state outside canonical document/participant authority.",
+    "Signature state, immutable evidence, audit and outbox commit atomically; storage/provider/evidence/audit/outbox failure produces no acknowledged signature.",
+    "Registration, Role Eligibility, Federal Accounting lock #4321, W2/W3 foundations, packages/lockfiles, external provider credentials and production topology remain unchanged."
+  ],
+  "acceptance": [
+    "Industrial tests prove the canonical production document signature writer calls the existing SigningAuthority policy and cannot bypass MFA/certificate/document-staleness/authority checks.",
+    "ORGANIZATION_HEAD and MCHD_DELEGATED success/failure matrices are covered, including missing, expired, revoked, stale-source and organization/membership mismatch cases.",
+    "At least two provider-neutral signing modes produce the same canonical immutable receipt contract in tests without vendor-specific core fields.",
+    "Provider timeout/failure/invalid receipt/hash mismatch never marks the document signed and cannot leave partial signature/audit/outbox state.",
+    "Exact replay revalidates current authority; changed payload or changed document hash conflicts; stale MFA/certificate/MChD causes fail-closed replay.",
+    "Direct SQL/provider callback cannot mutate signed state without the canonical signature command/evidence path.",
+    "External adapters remain NOT_ACTIVATED unless separately configured and evidenced; no fake KEP/MChD/EDO success appears in acceptance fixtures.",
+    "Forward migrations, zero public-schema drift, restore, cryptographic freshness, global CI and exact-head independent review pass before implementation merge."
+  ],
+  "remainingTerminalBoundary": [
+    "Real MChD revocation validation requires an official/provider contract, credentials and freshness feed; until then MCHD_VALIDATION remains externally blocked in production.",
+    "Real KEP/EDO provider adapters and delivery receipts remain separate EXT-03 implementation/acceptance slices.",
+    "Federal Accounting writers require their own accepted lock-#4321 integration before shared signature authority is terminal across accounting documents.",
+    "Verified REG.RU runtime and real signer acceptance remain required before terminal SIGNATURE/KEP/SIGNER/MFA credit."
+  ],
+  "terminalCredit": 0
+}
