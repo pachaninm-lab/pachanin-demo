@@ -185,11 +185,21 @@ jobs:
 
           cfg="$ROOT/config/config-and-secret-authority-${DAY}.tar.zst"
           if [[ ! -e "$cfg" ]]; then
-            tar --ignore-failed-read --numeric-owner -C / \
-              opt/pachanin/infra/single-server \
-              var/lib/pc-release-authority \
-              var/lib/pc-secret-authority \
-              2>/dev/null | zstd -T0 -6 -q -o "$cfg"
+            tmp_cfg="$cfg.tmp"
+            rm -f "$tmp_cfg"
+            cfg_paths=()
+            for p in opt/pachanin/infra/single-server var/lib/pc-release-authority var/lib/pc-secret-authority; do
+              [[ -e "/$p" ]] && cfg_paths+=("$p")
+            done
+            (( ${#cfg_paths[@]} > 0 ))
+            set +e
+            tar --ignore-failed-read --warning=no-file-changed --numeric-owner -C / -cf - "${cfg_paths[@]}" 2>/dev/null | zstd -T0 -6 -q -o "$tmp_cfg"
+            pipe_status=("${PIPESTATUS[@]}")
+            set -e
+            (( pipe_status[1] == 0 ))
+            (( pipe_status[0] == 0 || pipe_status[0] == 1 ))
+            [[ -s "$tmp_cfg" ]]
+            mv "$tmp_cfg" "$cfg"
             chown root:pcbackup "$cfg"; chmod 0640 "$cfg"
             sha256sum "$cfg" > "$cfg.sha256"; chown root:pcbackup "$cfg.sha256"; chmod 0640 "$cfg.sha256"
           fi
@@ -200,7 +210,16 @@ jobs:
             used="$(du -sb "$minio" | awk '{print $1}')"
             obj="$ROOT/objects/minio-${DAY}.tar.zst"
             if [[ ! -e "$obj" && "$used" -lt $(( FREE / 3 )) ]]; then
-              tar --numeric-owner -C "$minio" . | zstd -T0 -4 -q -o "$obj"
+              tmp_obj="$obj.tmp"
+              rm -f "$tmp_obj"
+              set +e
+              tar --ignore-failed-read --warning=no-file-changed --numeric-owner -C "$minio" -cf - . 2>/dev/null | zstd -T0 -4 -q -o "$tmp_obj"
+              pipe_status=("${PIPESTATUS[@]}")
+              set -e
+              (( pipe_status[1] == 0 ))
+              (( pipe_status[0] == 0 || pipe_status[0] == 1 ))
+              [[ -s "$tmp_obj" ]]
+              mv "$tmp_obj" "$obj"
               chown root:pcbackup "$obj"; chmod 0640 "$obj"
               sha256sum "$obj" > "$obj.sha256"; chown root:pcbackup "$obj.sha256"; chmod 0640 "$obj.sha256"
             fi
