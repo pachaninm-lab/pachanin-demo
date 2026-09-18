@@ -1,0 +1,133 @@
+name: PC-CROP Backup Topology Discovery
+
+on:
+  push:
+    branches:
+      - ops/backup-topology-discovery-20260918
+
+permissions:
+  contents: read
+
+env:
+  DEFAULT_HOST: 195.19.12.120
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+jobs:
+  discover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve protected production SSH
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]]
+          [[ -n "$user" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port>=1 && port<=65535 ))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          mkdir -p "$HOME/.ssh" artifacts
+          chmod 700 "$HOME/.ssh"
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"
+            chmod 600 "$target"
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}"
+          scan="$(mktemp)"; match="$(mktemp)"
+          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          while IFS= read -r line; do
+            fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+            [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+          done < "$scan"
+          sort -u -o "$match" "$match"
+          [[ "$(grep -c . "$match" || true)" == 1 ]]
+          mv "$match" "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+
+      - name: Discover backup topology without secret values
+        shell: bash
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          USER: ${{ steps.ssh.outputs.user }}
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" 'bash -s' <<'REMOTE' > artifacts/topology.txt
+          set -euo pipefail
+          echo "HOSTNAME=$(hostname)"
+          echo "UID=$(id -u)"
+          echo "UTC=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo
+          echo "[disk]"
+          df -hT / /var /var/lib 2>/dev/null || true
+          echo
+          echo "[commands]"
+          for c in docker pg_dump pg_restore psql tar gzip zstd rsync rclone restic aws mc git systemctl; do
+            if command -v "$c" >/dev/null 2>&1; then echo "$c=YES"; else echo "$c=NO"; fi
+          done
+          echo
+          echo "[containers]"
+          docker ps --format '{{.Names}}|{{.Image}}|{{.Labels}}' | sed -E 's/(com\.docker\.compose\.project\.working_dir=)[^,]+/\1[PATH]/g'
+          echo
+          echo "[selected_env_names_by_container]"
+          for id in $(docker ps -q); do
+            name="$(docker inspect --format '{{.Name}}' "$id" | sed 's#^/##')"
+            echo "-- $name"
+            docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$id"               | sed 's/=.*//'               | grep -Ei 'DATABASE|POSTGRES|PGHOST|PGPORT|PGUSER|S3|AWS|MINIO|OBJECT|BUCKET|STORAGE|BACKUP|REGISTRY|GHCR'               | sort -u || true
+          done
+          echo
+          echo "[mounts]"
+          for id in $(docker ps -q); do
+            name="$(docker inspect --format '{{.Name}}' "$id" | sed 's#^/##')"
+            docker inspect --format '{{range .Mounts}}{{println .Type "|" .Name "|" .Source "|" .Destination}}{{end}}' "$id"               | sed "s#^#$name|#" || true
+          done
+          echo
+          echo "[docker_volumes]"
+          docker volume ls --format '{{.Name}}' | sort
+          echo
+          echo "[release_backups]"
+          find /var/lib/pc-release-authority/backups -maxdepth 1 -type f -printf '%TY-%Tm-%TdT%TH:%TM:%TSZ %s %f\n' 2>/dev/null | sort -r | head -30 || true
+          echo
+          echo "[backup_dirs]"
+          for d in /var/backups /var/lib/pc-release-authority/backups /srv /opt; do
+            [ -d "$d" ] && { echo "-- $d"; find "$d" -maxdepth 2 -type d -printf '%p\n' 2>/dev/null | head -80; }
+          done
+          REMOTE
+          sed -n '1,500p' artifacts/topology.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-backup-topology
+          path: artifacts/topology.txt
+          if-no-files-found: error
+          retention-days: 7
