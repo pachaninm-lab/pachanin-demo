@@ -438,8 +438,7 @@ test('invalid repository identity fails closed with a generic Actions authority 
     exactHeadRef,
     'owner/repo/extra',
   );
-  assert.deepEqual(result.checks, []);
-  assert.equal(result.invalid, true);
+  assert.equal(result, null);
 });
 
 test('same-SHA Actions check from a foreign PR head ref is excluded only after valid run metadata proves the mismatch', () => {
@@ -455,9 +454,9 @@ test('same-SHA Actions check from a foreign PR head ref is excluded only after v
     exactHeadRef,
     repo,
   );
-  assert.equal(result.invalid, false);
-  assert.deepEqual(result.checks, [currentSuccess]);
-  assert.deepEqual(checkRollupBlockers(result.checks), []);
+  assert.ok(Array.isArray(result));
+  assert.deepEqual(result, [currentSuccess]);
+  assert.deepEqual(checkRollupBlockers(result), []);
 });
 
 test('missing or malformed Actions head-ref authority metadata fails closed instead of excluding the check', () => {
@@ -470,8 +469,7 @@ test('missing or malformed Actions head-ref authority metadata fails closed inst
       exactHeadRef,
       repo,
     );
-    assert.equal(result.checks.length, 0);
-    assert.equal(result.invalid, true);
+    assert.equal(result, null);
   }
 });
 
@@ -484,8 +482,8 @@ test('Actions event authority is canonical lowercase metadata and fails closed o
     exactHeadRef,
     repo,
   );
-  assert.equal(valid.invalid, false);
-  assert.deepEqual(valid.checks, [check]);
+  assert.ok(Array.isArray(valid));
+  assert.deepEqual(valid, [check]);
 
   const invalid = canonicalizeExactPrHeadActionsChecks(
     [check],
@@ -494,8 +492,7 @@ test('Actions event authority is canonical lowercase metadata and fails closed o
     exactHeadRef,
     repo,
   );
-  assert.deepEqual(invalid.checks, []);
-  assert.equal(invalid.invalid, true);
+  assert.equal(invalid, null);
 });
 
 test('older failure followed by newer success in the same workflow/event family selects the newer run_number', () => {
@@ -508,9 +505,9 @@ test('older failure followed by newer success in the same workflow/event family 
     exactHeadRef,
     repo,
   );
-  assert.equal(result.invalid, false);
-  assert.deepEqual(result.checks, [newerSuccess]);
-  assert.deepEqual(checkRollupBlockers(result.checks), []);
+  assert.ok(Array.isArray(result));
+  assert.deepEqual(result, [newerSuccess]);
+  assert.deepEqual(checkRollupBlockers(result), []);
 });
 
 test('newer failure in the same workflow/event family remains blocking', () => {
@@ -523,9 +520,9 @@ test('newer failure in the same workflow/event family remains blocking', () => {
     exactHeadRef,
     repo,
   );
-  assert.equal(result.invalid, false);
-  assert.deepEqual(result.checks, [newerFailure]);
-  assert.deepEqual(checkRollupBlockers(result.checks), ['platform-v7 autopilot guard / guard:FAILURE']);
+  assert.ok(Array.isArray(result));
+  assert.deepEqual(result, [newerFailure]);
+  assert.deepEqual(checkRollupBlockers(result), ['platform-v7 autopilot guard / guard:FAILURE']);
 });
 
 test('later wall-clock rerun of an older run_number cannot supersede a newer run_number', () => {
@@ -538,8 +535,8 @@ test('later wall-clock rerun of an older run_number cannot supersede a newer run
     exactHeadRef,
     repo,
   );
-  assert.equal(result.invalid, false);
-  assert.deepEqual(result.checks, [newerSuccess]);
+  assert.ok(Array.isArray(result));
+  assert.deepEqual(result, [newerSuccess]);
 });
 
 test('distinct Actions event families for the same workflow and exact PR head remain independently evaluated', () => {
@@ -555,9 +552,9 @@ test('distinct Actions event families for the same workflow and exact PR head re
     exactHeadRef,
     repo,
   );
-  assert.equal(result.invalid, false);
-  assert.deepEqual(result.checks, [prSuccess, dispatchFailure]);
-  assert.deepEqual(checkRollupBlockers(result.checks), ['platform-v7 autopilot guard / dispatch-guard:FAILURE']);
+  assert.ok(Array.isArray(result));
+  assert.deepEqual(result, [prSuccess, dispatchFailure]);
+  assert.deepEqual(checkRollupBlockers(result), ['platform-v7 autopilot guard / dispatch-guard:FAILURE']);
 });
 
 test('selected Actions run deduplicates the same logical check only by strictly newer parseable startedAt', () => {
@@ -570,8 +567,8 @@ test('selected Actions run deduplicates the same logical check only by strictly 
     exactHeadRef,
     repo,
   );
-  assert.equal(result.invalid, false);
-  assert.deepEqual(result.checks, [retry]);
+  assert.ok(Array.isArray(result));
+  assert.deepEqual(result, [retry]);
 });
 
 test('malformed or ambiguous selected-run duplicate ordering blocks snapshot canonicalization', () => {
@@ -582,8 +579,8 @@ test('malformed or ambiguous selected-run duplicate ordering blocks snapshot can
     exactHeadRef,
     repo,
   );
-  assert.equal(malformed.checks.length, 0);
-  assert.equal(malformed.invalid, true);
+  assert.equal(malformed, null);
+  assert.equal(malformed, null);
 
   const ambiguous = canonicalizeExactPrHeadActionsChecks(
     [
@@ -595,8 +592,8 @@ test('malformed or ambiguous selected-run duplicate ordering blocks snapshot can
     exactHeadRef,
     repo,
   );
-  assert.equal(ambiguous.checks.length, 0);
-  assert.equal(ambiguous.invalid, true);
+  assert.equal(ambiguous, null);
+  assert.equal(ambiguous, null);
 });
 
 test('Actions authority metadata conflicts and exact-head SHA mismatch fail closed', () => {
@@ -607,8 +604,8 @@ test('Actions authority metadata conflicts and exact-head SHA mismatch fail clos
     exactHeadRef,
     repo,
   );
-  assert.equal(wrongSha.checks.length, 0);
-  assert.equal(wrongSha.invalid, true);
+  assert.equal(wrongSha, null);
+  assert.equal(wrongSha, null);
 
   const ambiguous = canonicalizeExactPrHeadActionsChecks(
     [actionsCheck({ runId: 42 }), actionsCheck({ runId: 43, name: 'other' })],
@@ -617,8 +614,8 @@ test('Actions authority metadata conflicts and exact-head SHA mismatch fail clos
     exactHeadRef,
     repo,
   );
-  assert.equal(ambiguous.checks.length, 0);
-  assert.equal(ambiguous.invalid, true);
+  assert.equal(ambiguous, null);
+  assert.equal(ambiguous, null);
 });
 
 test('legacy non-Actions status contexts survive exact-PR-head Actions canonicalization unchanged', () => {
@@ -631,8 +628,8 @@ test('legacy non-Actions status contexts survive exact-PR-head Actions canonical
     exactHeadRef,
     repo,
   );
-  assert.equal(result.invalid, false);
-  assert.deepEqual(result.checks, [legacy, current]);
+  assert.ok(Array.isArray(result));
+  assert.deepEqual(result, [legacy, current]);
 });
 
 test('provider BLOCK evidence authenticates provider actor and exact head after canonical SHA normalization', () => {
