@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "feat/pc-crop-post-registration-w1a-org-capability-4997",
+  "status": "active",
+  "purpose": "Implement W1-A Organization Capability Authority as an additive PostgreSQL-authoritative shadow contour without changing registration, Role Eligibility verdicting, Deal, Settlement or external-provider behavior.",
+  "authorityBaseExactMain": "7de3dcf6a7c90d76b7e5aff5c57a8df4b30c4d2a",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/pc-crop-post-registration-w1a-4997.json",
+    "apps/api/prisma/migrations/20260904193000_organization_capability_shadow_authority/migration.sql",
+    "apps/api/src/modules/organizations/organization-capability.registry.ts",
+    "apps/api/src/modules/organizations/organization-capability.types.ts",
+    "apps/api/src/modules/organizations/organization-capability.repository.ts",
+    "apps/api/src/modules/organizations/organization-capability.service.ts",
+    "apps/api/src/modules/organizations/organization-capability.controller.ts",
+    "apps/api/src/modules/organizations/organization-capability.spec.ts",
+    "apps/api/src/modules/organizations/organizations.module.ts",
+    "scripts/check-pc-crop-organization-capability-w1a.mjs"
+  ],
+  "requiredInvariants": [
+    "REGISTRATION_CODE_CHANGED=0 and REGISTRATION_BEHAVIOR_CHANGED=0.",
+    "ROLE_ELIGIBILITY_REGRESSION=0; W1-A may consume current server-held verdict evidence read-only but never changes Role Eligibility policy, state or enforcement.",
+    "Exactly the 13 canonical OrganizationCapability codes from the final post-registration specification are accepted; unknown codes fail closed.",
+    "No capability assignment is backfilled or inferred from registration role, UI state, client claims or provider configuration.",
+    "Organization capability authority is PostgreSQL-authoritative, tenant-scoped and FORCE-RLS protected.",
+    "Capability writes use expected-version CAS, payload-bound idempotency and one transaction for assignment, chained canonical audit and canonical outbox.",
+    "Evidence-required capabilities remain PENDING unless a current server-held eligible verdict can be resolved; declaration-only capabilities never masquerade as externally verified.",
+    "Canonical public audit_events and outbox_entries are extended rather than duplicated.",
+    "No provider hard-code, production mock, client-selected tenant, money authority or external success claim is introduced.",
+    "No external partner message is sent and no new paid dependency is introduced."
+  ],
+  "acceptance": [
+    "Closed registry contains SELL_CROP, BUY_CROP, OWN_TRANSPORT, PROVIDE_LOGISTICS, PROVIDE_EXPEDITION, STORE_CROP, PROVIDE_ELEVATOR_SERVICES, PROVIDE_LAB_TESTING, PROVIDE_SURVEYING, PROVIDE_FINANCING, PROVIDE_INSURANCE, ACCOUNTING_INTEGRATION and API_INTEGRATION exactly once.",
+    "Migration creates additive assignment and command-receipt authority without inserting any organization grant.",
+    "Assignments and receipts have ENABLE ROW LEVEL SECURITY plus FORCE ROW LEVEL SECURITY and current tenant/current organization policies.",
+    "Same idempotency key plus same payload replays the persisted result; same key plus different payload fails closed.",
+    "Concurrent or stale expectedVersion fails closed without a partial audit/outbox write.",
+    "Cross-tenant access fails closed under PostgreSQL RLS.",
+    "Every successful state mutation writes one chained canonical audit event and one canonical outbox entry in the same database transaction.",
+    "Evidence-required enable requests without server-held proof result in PENDING, not ACTIVE.",
+    "Registration and Role Eligibility regression guards remain green."
+  ]
+}
