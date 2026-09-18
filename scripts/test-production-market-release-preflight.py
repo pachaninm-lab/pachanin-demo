@@ -3,6 +3,7 @@
 import copy
 import importlib.util
 import json
+import sqlite3
 from pathlib import Path
 import subprocess
 import sys
@@ -330,6 +331,337 @@ class WorkflowContract(unittest.TestCase):
                 self.assertEqual(result.returncode,code)
                 self.assertEqual(result.stdout,'')
                 self.assertEqual(result.stderr,'MARKET_PREFLIGHT_FAILURE='+classification+'\n')
+
+
+def outbox_fixture():
+    a = api()
+    a['Config']['Labels']['com.docker.compose.service'] = 'api'
+    a['Config']['Image'] = 'ghcr.io/pachaninm-lab/grainflow-api@sha256:' + 'a'*64
+    a['NetworkSettings']['Networks']['private']['NetworkID'] = 'network-private'
+    w = copy.deepcopy(a)
+    w['Id'] = '3'*64; w['Image'] = 'sha256:'+'c'*64
+    w['Config'].update(Image=m.OUTBOX_REPOSITORY+'@sha256:'+'b'*64,
+                       Cmd=['dist-outbox-worker/outbox-worker.js'], Entrypoint=['/nodejs/bin/node'], WorkingDir='/app')
+    w['Config']['Env'] = ['NODE_ENV=production', 'RUNTIME_COMPONENT=outbox-worker', 'OUTBOX_WORKER_ENABLED=true',
+                         'KAFKA_REQUIRED=true', 'KAFKA_BROKERS=broker-private:9092', 'DATABASE_URL=SYNTHETIC_PRIVATE_DATABASE_URL']
+    w['Config']['Labels']['com.docker.compose.service'] = 'unexpected-service-name'
+    w['State']['Health'] = {'Status': 'healthy'}
+    broker = copy.deepcopy(a); broker['Id']='4'*64
+    broker['Config']['Labels']['com.docker.compose.service'] = 'unexpected-broker-name'
+    broker['NetworkSettings']['Networks']['private']['Aliases'] = ['broker-private']
+    broker['NetworkSettings']['Networks']['private']['IPAddress'] = '172.20.0.8'
+    identity = {'name': 'SYNTHETIC_PRIVATE_DB_NAME', 'address': '172.22.0.4', 'port': 5432}
+    principal = {'read_only': True, 'identity': identity, 'row': {key: True for key in m.PRINCIPAL_TRUE} | {key: False for key in m.PRINCIPAL_FALSE}}
+    catalog = {'read_only': True, 'identity': identity, 'row': {
+        'table_present': True, 'rls_enabled': True, 'rls_forced': True, 'durable_columns_present': True,
+        'fence_body': '\nBEGIN\n RETURN NEW;\nEND\n', 'fence_security_definer': False, 'fence_language': 'plpgsql',
+        'triggers': [{'enabled':'O','type':19,'function_matches':True,'no_when':True,'columns':['leaseToken','status']}],
+    }}
+    images = {
+        a['Image']: [{'Id': a['Image'], 'RepoDigests': [a['Config']['Image']], 'Config': {'Labels': {'org.opencontainers.image.revision': SHA}}}],
+        w['Image']: [{'Id': w['Image'], 'RepoDigests': [w['Config']['Image']], 'Config': {'Labels': {'org.opencontainers.image.revision': SHA}}}],
+    }
+    return a, w, broker, principal, catalog, images
+
+
+class OutboxTopology(unittest.TestCase):
+    def inspect(self, mutate=None):
+        a,w,b,p,c,images = outbox_fixture()
+        rows=[a,w,b]
+        if mutate: mutate(a,w,b,p,c,images,rows)
+        calls=[]
+        def command(argv, source=None):
+            calls.append((argv,source))
+            self.assertEqual(argv[0],'docker')
+            if argv[1:3] == ['ps','-aq']:
+                self.assertEqual(argv[3:5],['--no-trunc','--filter'])
+                return '\n'.join(row['Id'] for row in rows)
+            if argv[1]=='inspect': return json.dumps(rows)
+            if argv[1:3]==['image','inspect']: return json.dumps(images.get(argv[3],[]))
+            if argv[1:3]==['exec','-i']:
+                self.assertLessEqual(len(source.encode()),4096)
+                self.assertIn('SET TRANSACTION READ ONLY',source)
+                self.assertIn('statement_timeout',source)
+                return json.dumps(c if argv[3]==a['Id'] else p)
+            self.fail('unexpected mutation/command '+repr(argv))
+        with patch.object(m,'run',side_effect=command):
+            report=m.outbox_topology(a,'private-project')
+        m.validate_outbox_topology(report)
+        return report,calls
+
+    def test_actual_collector_scopes_inventory_and_strips_all_private_values(self):
+        value,calls=self.inspect()
+        self.assertEqual(value['worker_candidates'],1)
+        self.assertTrue(value['worker_configuration_matches'])
+        self.assertTrue(value['principal']['boundary_matches'])
+        self.assertTrue(value['principal']['same_database_as_api'])
+        self.assertTrue(value['catalog']['trigger_shape_matches'])
+        self.assertEqual(value['kafka']['same_project_peers'],1)
+        self.assertEqual(value['kafka']['running_peers'],1)
+        self.assertEqual(value['runtime_stability'],'UNCHANGED')
+        for component in ['api_image','worker_image']:
+            self.assertTrue(value[component]['container_image_binding'])
+            self.assertTrue(value[component]['immutable_config_ref'])
+            self.assertEqual(value[component]['revision'],SHA)
+        for marker in ['SYNTHETIC_PRIVATE','private-project','172.20.0','172.22.0','broker-private','unexpected-service','unexpected-broker','/app']:
+            self.assertNotIn(marker,json.dumps(value))
+        self.assertEqual(value['rollback_compatibility'],'NOT_PROVEN')
+        self.assertEqual(value['persisted_compose_model'],'NOT_INSPECTED')
+
+    def test_missing_worker_is_inventory_absence_not_claimed_readiness(self):
+        value,_=self.inspect(lambda a,w,b,p,c,i,r:r.remove(w))
+        self.assertEqual(value['worker_candidates'],0)
+        self.assertFalse(value['worker_configuration_matches'])
+        self.assertEqual(value['principal'],{'status':'NOT_PROVEN'})
+
+    def test_ambiguous_workers_do_not_select_first(self):
+        def duplicate(a,w,b,p,c,i,r):
+            other=copy.deepcopy(w);other['Id']='5'*64;r.append(other)
+        value,_=self.inspect(duplicate)
+        self.assertEqual(value['worker_candidates'],2)
+        self.assertFalse(value['worker_configuration_matches'])
+        self.assertEqual(value['principal'],{'status':'NOT_PROVEN'})
+
+    def test_foreign_project_inspection_rejected(self):
+        value,_=self.inspect(lambda a,w,b,p,c,i,r:w['Config']['Labels'].update({'com.docker.compose.project':'foreign-private'}))
+        self.assertEqual(value,{'status':'NOT_PROVEN'})
+
+    def test_override_entrypoint_workdir_and_duplicate_environment_not_canonical(self):
+        for change in [lambda w:w['Config'].update(Entrypoint=['/bin/sh']),
+                       lambda w:w['Config'].update(WorkingDir='/elsewhere'),
+                       lambda w:w['Config']['Env'].append('OUTBOX_WORKER_ENABLED=false')]:
+            value,_=self.inspect(lambda a,w,b,p,c,i,r:change(w))
+            self.assertFalse(value['worker_configuration_matches'])
+
+    def test_container_revision_label_does_not_override_image_revision(self):
+        def mismatch(a,w,b,p,c,i,r):i[w['Image']][0]['Config']['Labels']['org.opencontainers.image.revision']='b'*40
+        value,_=self.inspect(mismatch)
+        self.assertEqual(value['worker_image']['revision'],'b'*40)
+
+    def test_image_id_mismatch_and_foreign_repository_cannot_supply_digest(self):
+        def wrong_id(a,w,b,p,c,i,r):i[w['Image']][0]['Id']='sha256:'+'9'*64
+        value,_=self.inspect(wrong_id)
+        self.assertFalse(value['worker_image']['container_image_binding'])
+        def foreign(a,w,b,p,c,i,r):i[w['Image']][0]['RepoDigests']=['private.invalid/foreign@sha256:'+'b'*64]
+        value,_=self.inspect(foreign)
+        self.assertEqual(value['worker_image']['registry_digest'],'NOT_PROVEN')
+
+    def test_containerd_manifest_id_equal_to_digest_is_valid(self):
+        def equal(a,w,b,p,c,i,r):
+            old=w['Image'];w['Image']='sha256:'+'b'*64;i[w['Image']]=i.pop(old);i[w['Image']][0]['Id']=w['Image']
+        value,_=self.inspect(equal)
+        self.assertTrue(value['worker_image']['container_image_binding'])
+        self.assertTrue(value['worker_image']['immutable_config_ref'])
+
+    def test_actual_principal_each_least_privilege_violation_is_observed(self):
+        for key in m.PRINCIPAL_TRUE|m.PRINCIPAL_FALSE:
+            with self.subTest(key=key):
+                value,_=self.inspect(lambda a,w,b,p,c,i,r:p['row'].update({key:not p['row'][key]}))
+                self.assertFalse(value['principal']['boundary_matches'])
+
+    def test_pre_correction_principal_projection_is_not_sufficient(self):
+        def old_projection(a,w,b,p,c,i,r):
+            for key in ('session_is_app_outbox','createdb','createrole','replication','forbidden_updates','outbox_other_privileges'):p['row'].pop(key)
+        value,_=self.inspect(old_projection)
+        self.assertEqual(value['principal'],{'status':'NOT_PROVEN'})
+
+    def test_actual_forbidden_update_predicate_rejects_table_and_extra_column_grants(self):
+        # Execute the actual relational predicate with SQLite catalog/privilege
+        # fixtures. Only the PostgreSQL current_user keyword needs substitution;
+        # this is not a PostgreSQL server/integration test.
+        start=m.PRINCIPAL_SQL.index("has_table_privilege(current_user,c.oid,'UPDATE')")
+        predicate=m.PRINCIPAL_SQL[start:m.PRINCIPAL_SQL.index(' AS forbidden_updates',start)]
+        predicate=predicate.replace('current_user',"'app_outbox'")
+        allowed=('status','retryCount','nextRetryAt','lastError','lastErrorCode','lastErrorCategory',
+                 'lastAttemptAt','manualReviewAt','sentAt','confirmedAt','failedAt','deadLetterAt',
+                 'leaseOwner','leaseToken','leaseExpiresAt','heartbeatAt')
+        columns=allowed+('id','type','payload','dealId','futurePayloadField')
+        db=sqlite3.connect(':memory:')
+        self.addCleanup(db.close)
+        db.execute('CREATE TABLE pg_attribute(attrelid,attnum,attisdropped,attname)')
+        db.executemany('INSERT INTO pg_attribute VALUES(1,?,false,?)',enumerate(columns,1))
+        db.execute("INSERT INTO pg_attribute VALUES(1,99,true,'removedColumn')")
+        db.execute("INSERT INTO pg_attribute VALUES(1,-1,false,'systemColumn')")
+        db.execute("INSERT INTO pg_attribute VALUES(2,98,false,'foreignTableColumn')")
+        grants=set(allowed); table_grant=False
+        def table_privilege(role,oid,kind):
+            self.assertEqual((role,oid,kind),('app_outbox',1,'UPDATE'))
+            return table_grant
+        def column_privilege(role,oid,number,kind):
+            self.assertEqual((role,oid,kind),('app_outbox',1,'UPDATE'))
+            name=db.execute('SELECT attname FROM pg_attribute WHERE attrelid=? AND attnum=?',(oid,number)).fetchone()[0]
+            return table_grant or name in grants
+        db.create_function('has_table_privilege',3,table_privilege)
+        db.create_function('has_column_privilege',4,column_privilege)
+        evaluate=lambda:bool(db.execute('SELECT '+predicate+' FROM (SELECT 1 AS oid) c').fetchone()[0])
+        self.assertFalse(evaluate())
+        for column in ('id','type','payload','dealId','futurePayloadField'):
+            with self.subTest(column=column):
+                grants.add(column);self.assertTrue(evaluate());grants.remove(column)
+        table_grant=True;self.assertTrue(evaluate());table_grant=False
+        grants.update(('removedColumn','systemColumn','foreignTableColumn'))
+        self.assertFalse(evaluate())
+
+    def test_actual_role_projection_observes_authenticated_session_and_admin_attributes(self):
+        projection=m.PRINCIPAL_SQL.split('SELECT ',1)[1].split('EXISTS(',1)[0].strip().rstrip(',')
+        db=sqlite3.connect(':memory:');self.addCleanup(db.close)
+        db.row_factory=sqlite3.Row
+        db.execute('CREATE TABLE role_fixture(rolsuper,rolbypassrls,rolcreatedb,rolcreaterole,rolreplication,rolinherit)')
+        db.execute('INSERT INTO role_fixture VALUES(false,false,false,false,false,false)')
+        def project(session):
+            return dict(db.execute('SELECT '+projection.replace('current_user',"'app_outbox'").replace('session_user',"'"+session+"'")+' FROM role_fixture r').fetchone())
+        self.assertEqual(project('app_outbox'),{'is_app_outbox':1,'session_is_app_outbox':1,'superuser':0,'bypass_rls':0,'createdb':0,'createrole':0,'replication':0,'role_inherit':0})
+        self.assertEqual(project('privileged_session')['session_is_app_outbox'],0)
+        for attribute,flag in [('rolcreatedb','createdb'),('rolcreaterole','createrole'),('rolreplication','replication')]:
+            db.execute('UPDATE role_fixture SET '+attribute+'=true')
+            self.assertEqual(project('app_outbox')[flag],1)
+            db.execute('UPDATE role_fixture SET '+attribute+'=false')
+
+    def test_actual_other_privilege_predicates_observe_truncate_trigger_and_references(self):
+        db=sqlite3.connect(':memory:');self.addCleanup(db.close)
+        table_grants=set();column_grants=set()
+        db.create_function('has_table_privilege',3,lambda role,oid,kinds:bool(table_grants.intersection(kinds.split(','))))
+        db.create_function('has_any_column_privilege',3,lambda role,oid,kinds:bool(column_grants.intersection(kinds.split(','))))
+        fields=[("has_table_privilege(current_user,c.oid,'TRUNCATE,REFERENCES,TRIGGER')",'outbox_other_privileges'),
+                ("has_table_privilege(current_user,'public.deals'",'deal_privileges'),
+                ("has_table_privilege(current_user,'public.outbox_redrive_events'",'redrive_privileges')]
+        for start_text,name in fields:
+            start=m.PRINCIPAL_SQL.index(start_text)
+            predicate=m.PRINCIPAL_SQL[start:m.PRINCIPAL_SQL.index(' AS '+name,start)].replace('current_user',"'app_outbox'")
+            evaluate=lambda:bool(db.execute('SELECT '+predicate+' FROM (SELECT 1 AS oid) c').fetchone()[0])
+            with self.subTest(field=name):
+                self.assertFalse(evaluate())
+                for privilege in ('TRUNCATE','TRIGGER','REFERENCES'):
+                    table_grants.add(privilege);self.assertTrue(evaluate());table_grants.clear()
+                column_grants.add('REFERENCES');self.assertTrue(evaluate());column_grants.clear()
+
+    def test_worker_other_database_not_bound_to_api_fence(self):
+        def other(a,w,b,p,c,i,r):p['identity']=dict(p['identity'],name='OTHER_PRIVATE_DB')
+        value,_=self.inspect(other)
+        self.assertFalse(value['principal']['same_database_as_api'])
+        self.assertNotIn('OTHER_PRIVATE_DB',json.dumps(value))
+
+    def test_failed_read_only_transaction_cannot_supply_catalog_or_principal(self):
+        value,_=self.inspect(lambda a,w,b,p,c,i,r:(p.update(read_only=False),c.update(read_only=False)))
+        self.assertEqual(value['principal'],{'status':'NOT_PROVEN'})
+        self.assertEqual(value['catalog'],{'status':'NOT_PROVEN'})
+
+    def test_trigger_wrong_columns_when_function_or_type_not_accepted(self):
+        for changes in [{'columns':['status']},{'no_when':False},{'type':17},{'function_matches':False}]:
+            with self.subTest(changes=changes):
+                value,_=self.inspect(lambda a,w,b,p,c,i,r:c['row']['triggers'][0].update(changes))
+                self.assertFalse(value['catalog']['trigger_shape_matches'])
+
+    def test_disabled_trigger_not_enabled(self):
+        value,_=self.inspect(lambda a,w,b,p,c,i,r:c['row']['triggers'][0].update(enabled='D'))
+        self.assertFalse(value['catalog']['trigger_enabled'])
+
+    def test_kafka_external_or_ambiguous_alias_not_accepted_as_compose_peer(self):
+        value,_=self.inspect(lambda a,w,b,p,c,i,r:w['Config']['Env'].__setitem__(4,'KAFKA_BROKERS=external.invalid:9092'))
+        self.assertEqual(value['kafka']['status'],'NOT_PROVEN')
+        def duplicate(a,w,b,p,c,i,r):
+            duplicate=copy.deepcopy(b);duplicate['Id']='8'*64;r.append(duplicate)
+        value,_=self.inspect(duplicate)
+        self.assertEqual(value['kafka']['status'],'NOT_PROVEN')
+
+    def test_kafka_same_network_name_different_id_not_shared_network(self):
+        value,_=self.inspect(lambda a,w,b,p,c,i,r:b['NetworkSettings']['Networks']['private'].update(NetworkID='foreign-network'))
+        self.assertEqual(value['kafka']['status'],'NOT_PROVEN')
+
+    def test_stopped_kafka_peer_is_observed_but_not_running(self):
+        value,_=self.inspect(lambda a,w,b,p,c,i,r:b['State'].update(Running=False))
+        self.assertEqual(value['kafka']['same_project_peers'],1)
+        self.assertEqual(value['kafka']['running_peers'],0)
+        self.assertEqual(value['runtime_stability'],'UNCHANGED')
+
+    def test_topology_schema_rejects_secret_fields_and_rollback_pass(self):
+        value,_=self.inspect()
+        for section in ['', 'worker_image', 'principal', 'catalog', 'kafka']:
+            candidate=copy.deepcopy(value);target=candidate if not section else candidate[section];target['secret']='CANARY'
+            with self.subTest(section=section):
+                with self.assertRaises(ValueError):m.validate_outbox_topology(candidate)
+        candidate=copy.deepcopy(value);candidate['rollback_compatibility']='PASS'
+        with self.assertRaises(ValueError):m.validate_outbox_topology(candidate)
+
+    def test_worker_principal_contradiction_rejected(self):
+        value,_=self.inspect();value['principal']['superuser']=True
+        with self.assertRaisesRegex(ValueError,'OUTBOX_PRINCIPAL_CONTRADICTION'):m.validate_outbox_topology(value)
+
+    def test_trusted_source_fence_matching_and_rollback_boundaries(self):
+        value,_=self.inspect()
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            self.assertEqual(m.outbox_source_comparison(value,root)['fence_definition'],'NOT_PROVEN')
+            path=root/'20260912235500_canonical_durable_outbox';path.mkdir()
+            migration=path/'migration.sql'
+            migration.write_text('CREATE OR REPLACE FUNCTION public.outbox_expired_attempt_reclaim_guard()\nRETURNS trigger\nLANGUAGE plpgsql\nAS $guard$\nBEGIN\n RETURN NEW;\nEND\n$guard$;')
+            r=m.outbox_source_comparison(value,root)
+            self.assertEqual(r['fence_definition'],'MATCHES_TRUSTED_SOURCE')
+            # Matching an arbitrary function body does not prove protocol-2 semantics.
+            self.assertEqual(r['legacy_claim_rollback'],'NOT_PROVEN')
+            self.assertEqual(r['rollback_compatibility'],'NOT_PROVEN')
+            value['catalog']['trigger_enabled']=False
+            self.assertEqual(m.outbox_source_comparison(value,root)['legacy_claim_rollback'],'NOT_PROVEN')
+            migration.write_text(migration.read_text().replace('RETURN NEW','RETURN OLD'))
+            self.assertEqual(m.outbox_source_comparison(value,root)['fence_definition'],'NOT_PROVEN')
+
+    def test_malformed_duplicate_or_transport_failed_project_inventory_not_accepted(self):
+        for raw in [None,'','bad','1'*64+'\n'+'1'*64]:
+            with patch.object(m,'run',return_value=raw):self.assertIsNone(m.project_containers('private-project'))
+
+    def test_api_configuration_race_before_topology_inventory_rejected(self):
+        a,w,b,p,c,i=outbox_fixture();changed=copy.deepcopy(a);changed['Config']['Env'].append('SECRET=changed')
+        with patch.object(m,'project_containers',return_value=[changed,w,b]):
+            self.assertEqual(m.outbox_topology(a,'private-project'),{'status':'NOT_PROVEN'})
+
+    def test_worker_restart_during_catalog_queries_not_stable(self):
+        a,w,b,p,c,i=outbox_fixture();after=copy.deepcopy([a,w,b]);after[1]['State']['StartedAt']='2026-09-17T01:00:00Z'
+        with patch.object(m,'project_containers',side_effect=[[a,w,b],after]), patch.object(m,'run',return_value=None):
+            value=m.outbox_topology(a,'private-project')
+        self.assertEqual(value['runtime_stability'],'NOT_PROVEN')
+
+    def test_read_only_probe_actual_node_program_starts_read_only_and_has_bounded_sql(self):
+        for sql in [m.PRINCIPAL_SQL,m.CATALOG_SQL]:
+            program=m.read_only_program(sql)
+            self.assertLessEqual(len(program.encode()),4096)
+            with tempfile.TemporaryDirectory() as td:
+                root=Path(td);module=root/'node_modules/@prisma/client';module.mkdir(parents=True)
+                (module/'index.js').write_text('''exports.PrismaClient=class {
+                  async $transaction(fn){let stage=0;return fn({
+                    $executeRawUnsafe:async sql=>{if(stage++===0 && sql!=='SET TRANSACTION READ ONLY')throw Error('NOT_READ_ONLY');},
+                    $queryRawUnsafe:async sql=>{if(stage!==2)throw Error('READ_BEFORE_READ_ONLY');
+                      if(sql.includes("current_setting('transaction_read_only')"))return [{value:'on'}];
+                      if(sql.includes('current_database()'))return [{name:'PRIVATE_NAME',address:'127.0.0.1',port:5432}];
+                      if(!sql.trim().startsWith('SELECT'))throw Error('MUTATION');return [{observed:true}];}
+                  });} async $disconnect(){}
+                };''')
+                executed=subprocess.run(['node','-'],input=program,cwd=root,capture_output=True,text=True,timeout=5)
+                self.assertEqual(executed.returncode,0,executed.stderr)
+                self.assertTrue(json.loads(executed.stdout)['read_only'])
+
+
+class InitialTransportPrivacy(unittest.TestCase):
+    def test_actual_first_ssh_command_suppresses_raw_stderr_and_preserves_failure(self):
+        workflow=(PATH.parents[1]/'.github/workflows/production-p0-runtime-revision-parity-diagnostic.yml').read_text()
+        start=workflow.index('          ssh -i "$key"')
+        end=workflow.index('\n          REMOTE',start)+len('\n          REMOTE')
+        command=textwrap.dedent(workflow[start:end])
+        with tempfile.TemporaryDirectory() as td:
+            for status in [0,23,255]:
+                script='''set -Eeuo pipefail
+                key=fixture; port=22; known=fixture; user=fixture; host=fixture
+                raw="$1"
+                ssh(){ cat >/dev/null; printf '%s' SYNTHETIC_PRIVATE_STDOUT; printf '%s' SYNTHETIC_PRIVATE_STDERR >&2; return "$2"; }
+                '''
+                # Function receives original ssh arguments; use a separate fixed status value.
+                script=script.replace('return "$2"','return '+str(status))
+                result=subprocess.run(['bash','-c',textwrap.dedent(script)+'\n'+command,'test',str(Path(td)/'raw')],capture_output=True,text=True,timeout=5)
+                self.assertEqual(result.returncode,status)
+                self.assertEqual(result.stdout,'');self.assertEqual(result.stderr,'')
+                self.assertEqual((Path(td)/'raw').read_text(),'SYNTHETIC_PRIVATE_STDOUT')
+            unsafe=command.replace(' 2>/dev/null','')
+            negative=subprocess.run(['bash','-c',textwrap.dedent(script)+'\n'+unsafe,'test',str(Path(td)/'raw')],capture_output=True,text=True,timeout=5)
+            self.assertIn('SYNTHETIC_PRIVATE_STDERR',negative.stderr)
 
 
 if __name__ == '__main__':
