@@ -795,6 +795,12 @@ jobs:
                               'An equality mismatch branch that rejects, skips, or continues the non-matching case excludes that mismatch from authority; it does not admit it. '
                               'If the rejected theory depends on inferring a leak or bypass from this static signal rather than a direct mechanism on the pinned line, author findings=[]. '
                           )
+                      if re.fullmatch(r'if\s*\([^\n]*(?:===|!==)[^\n]*\)\s*\{?', compact_evidence):
+                          violation_guidance += (
+                              'The pinned evidence is only a comparison guard and opening control-flow boundary. By itself it performs no authorization grant, state mutation, network/time read, synchronization action, or data disclosure. '
+                              'Do not claim a race condition, TOCTOU, authorization bypass, or stale-state admission from this comparison line alone. Such a finding requires the pinned line itself to perform the unsafe admission/mutation or synchronization-sensitive operation. '
+                              'Because replacement-line search is forbidden in this repair sequence, if the concrete mechanism exists only in neighboring branch-body statements rather than this pinned guard, author findings=[]. '
+                          )
                       if re.search(r'\b(?:canonical|strict|validate|verify|parse|normalize)[A-Za-z0-9_$]*\s*\(', compact_evidence, re.IGNORECASE):
                           violation_guidance += (
                               'The pinned evidence is mechanically a validator/normalizer/parser call. A function name containing SHA does not by itself mean the line performs cryptographic hashing, and assigning a validated repository identifier locally is not an observable sink. '
@@ -815,6 +821,12 @@ jobs:
                                   'For this exact selector, do not repeat a secret/PII or internal-status exposure finding unless the same pinned literal itself contains sensitive material or an outbound sink; this selector contains neither. '
                                   'If the rejected theory depends only on retrieving head refs, commit ids, workflow/run ids, check/status metadata, or their selector names, author findings=[]. '
                               )
+                      if re.fullmatch(r'if\s*\([^\n]+(?:===|!==)[^\n]+\)\s*\{', compact_evidence):
+                          violation_guidance += (
+                              'The pinned evidence is only a guard condition comparing observed and expected values. A comparison line does not itself authorize, accept, reject, mutate, or publish anything; it only chooses a branch. '
+                              'When the comparison is a mismatch test, a finding cannot claim authorization bypass, race acceptance, or unvalidated expected authority unless the same pinned line itself admits the mismatching value. This guard line contains no admission operation. '
+                              'Do not move the defect mechanism to an unstated later statement or invent missing validation of the expected operand. If the claimed bypass depends on code outside the pinned comparison line, author findings=[]. '
+                          )
               elif violation == 'TEST_ONLY_SECURITY_FINDING_REJECTED':
                   violation_guidance = (
                       'For TEST_ONLY_SECURITY_FINDING_REJECTED, a test-only assertion, mock, expectation, route name, or test fixture does not by itself implement or prove a production security/privacy boundary bypass. '
@@ -1083,6 +1095,21 @@ jobs:
           )
           if 'excludes that mismatch from authority; it does not admit it' not in mismatch_prompt:
               fail('VALIDATOR_SELFTEST_SPECULATION_EQUALITY_FILTER_GUIDANCE_MISSING')
+          guard_probe = dict(speculative_probe, evidence='if (snapshot.headRef !== expectedHeadRef) {')
+          guard_candidate = json.dumps({'findings': [guard_probe]}, separators=(',', ':'))
+          guard_prompt = repair_user(
+              dict(probe_item, added_lines=[{'line': 7, 'text': 'if (snapshot.headRef !== expectedHeadRef) {'}]),
+              'SPECULATIVE_CLAIM',
+              guard_candidate,
+              2,
+              MAX_SPECULATIVE_REPAIR_ATTEMPTS,
+          )
+          if 'only a comparison guard and opening control-flow boundary' not in guard_prompt:
+              fail('VALIDATOR_SELFTEST_SPECULATION_COMPARISON_GUARD_CLASSIFICATION_MISSING')
+          if 'performs no authorization grant, state mutation, network/time read, synchronization action, or data disclosure' not in guard_prompt:
+              fail('VALIDATOR_SELFTEST_SPECULATION_COMPARISON_GUARD_EFFECT_GUIDANCE_MISSING')
+          if 'Do not claim a race condition, TOCTOU, authorization bypass, or stale-state admission' not in guard_prompt:
+              fail('VALIDATOR_SELFTEST_SPECULATION_COMPARISON_GUARD_RACE_GUIDANCE_MISSING')
           validator_probe = dict(speculative_probe, evidence='const headSha = canonicalSha40(value?.headRefOid);')
           validator_candidate = json.dumps({'findings': [validator_probe]}, separators=(',', ':'))
           validator_prompt = repair_user(
@@ -1113,6 +1140,21 @@ jobs:
               fail('VALIDATOR_SELFTEST_SPECULATION_GITHUB_FIELD_SELECTOR_SINK_GUIDANCE_MISSING')
           if 'this selector contains neither' not in selector_prompt:
               fail('VALIDATOR_SELFTEST_SPECULATION_GITHUB_FIELD_SELECTOR_SENSITIVE_MATERIAL_GUIDANCE_MISSING')
+          guard_probe = dict(speculative_probe, evidence='if (snapshot.headRef !== expectedHeadRef) {')
+          guard_candidate = json.dumps({'findings': [guard_probe]}, separators=(',', ':'))
+          guard_prompt = repair_user(
+              dict(probe_item, added_lines=[{'line': 7, 'text': 'if (snapshot.headRef !== expectedHeadRef) {'}]),
+              'SPECULATIVE_CLAIM',
+              guard_candidate,
+              2,
+              MAX_SPECULATIVE_REPAIR_ATTEMPTS,
+          )
+          if 'only a guard condition comparing observed and expected values' not in guard_prompt:
+              fail('VALIDATOR_SELFTEST_SPECULATION_GUARD_CONDITION_CLASSIFICATION_MISSING')
+          if 'comparison line does not itself authorize, accept, reject, mutate, or publish anything' not in guard_prompt:
+              fail('VALIDATOR_SELFTEST_SPECULATION_GUARD_CONDITION_MECHANISM_GUIDANCE_MISSING')
+          if 'This guard line contains no admission operation' not in guard_prompt:
+              fail('VALIDATOR_SELFTEST_SPECULATION_GUARD_CONDITION_ADMISSION_GUIDANCE_MISSING')
           if 'otherwise author findings=[]' not in speculative_repair_probe:
               fail('VALIDATOR_SELFTEST_SPECULATION_REPAIR_EMPTY_RESULT_GUIDANCE_MISSING')
           if 'original cited NEW_LINE_7' not in speculative_repair_probe or 'same verbatim evidence substring' not in speculative_repair_probe:
