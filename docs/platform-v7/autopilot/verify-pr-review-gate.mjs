@@ -1118,7 +1118,6 @@ function fetchCheckSnapshot(repo, prNumber) {
       const run = ghJson(['api', runApiPath]);
       if (run) actionsRuns.push(run);
     } catch {
-      // Missing run metadata is not ignored. Canonicalization below converts it to a blocking error.
     }
   }
   const checks = canonicalizeExactPrHeadActionsChecks(rawChecks, actionsRuns, headSha, headRef, repository);
