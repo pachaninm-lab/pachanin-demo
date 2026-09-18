@@ -105,7 +105,9 @@ RF REGULATED-CONTOUR BOUNDARY:
 READINESS:
 Industrial Integration-Ready remains NO-GO until every mandatory gate through IR-90 has commit-, deployment- and operations-linked evidence.
 
-## Conditional future Qwen rejected-review diagnostics — 2026-09-12
+## Historical conditional Qwen diagnostics — 2026-09-12
+
+Archived instruction only. The current provider-independent policy below retires this PR-review workflow; this record grants no current implementation authority.
 
 This is preliminary instruction alignment for future branch
 `fix/local-qwen-failed-review-evidence-20260912`, not current implementation
@@ -132,7 +134,9 @@ merge/review gates. Diagnostic artifacts are not accepted review evidence.
 Proceed only when that prior authority and base-scope match are independently
 verified; otherwise keep this implementation blocked.
 
-## Paused concurrent W1 acceptance — 2026-09-12
+## Historical paused concurrent W1 acceptance — 2026-09-12
+
+The following is the recorded state on 2026-09-12, not a fresh status or an active provider requirement.
 
 W1 PR #5332 at `ff03424d073e97d52f1a8cf38dad3de74345ed08` remains
 blocked by current Qwen policy-validation failure and Octopus community quota.
@@ -142,37 +146,23 @@ be retried merely to obtain PASS, and does not alter the serialized IR-10.5 scop
 Confirmed master production acceptance remains 0/100 (0%).
 
 
-## Owner-authorized review-provider simplification — 2026-09-18
+## Owner-authorized provider-independent review — 2026-09-18
 
-The owner prioritizes correct, timely completion of MASTER and delegates implementation-method selection. Qwen remains confined to Gekta. MASTER v2.1 R0.2 explicitly names Qwen/Mistral review providers; this provider-specific choice is superseded for development review by this owner-authorized decision, while independent review, exact-head authority and fail-closed admission remain mandatory. This does not assert Russian certification or localization of external development services.
+The owner's later explicit instruction removes the Codex blocking dependency and authorizes a durable provider-independent review policy. This supersedes the earlier same-day plan that required #5422 followed by a four-path `fix/provider-neutral-review-admission-20260918` PR while retaining native Codex/Copilot authority. That earlier plan and its observed provider failures are historical; they are not prerequisites for this owner-authorized migration. MASTER v2.1 R0.2 provider selection is superseded only for development review. Independent review, engineering quality, exact-SHA evidence and production acceptance remain required. Qwen remains confined to Gekta; Gekta inference, models, evaluation and production runtime are unchanged.
 
-This is prior governance authority only. It authorizes the scope-enforcement prerequisite, NOT provider retirement yet. The only newly approved branch is `fix/provider-review-scope-guard-20260918`, with four exact paths in state. Its implementation must:
+The newly authorized migration is one narrow PR on `fix/provider-independent-review-20260918`, limited to its exact scope manifest: review policy and prompts, the deterministic readiness verifier and its regressions, removal of mandatory PR-provider workflow entry points, retirement of automated merge behavior, and the scope enforcement needed for these exact paths. This grants no additional product, database, dependency, deployment or secret-access scope. The migration itself requires actual independent review of its current diff, fresh applicable CI/security and a manual SHA-bound merge under existing GitHub protections. It does not depend on a native AI provider producing a review event.
 
-1. Add the future provider-admission branch to both `is_immutable_scope_branch` and every trusted-base workflow branch list. The actual guard/resolver/state used for that future branch must come from immutable base, never PR-supplied authority.
-2. Only in the same reviewed enforcement change, add the future `fix/provider-neutral-review-admission-20260918` state entry for exactly the two provider workflow files and verifier/test files listed below. Its scope cannot be activated before enforcement ships.
-3. Reject mutation of state, queue, prompts, scope manifests, guard scripts or guard workflow by that future branch; allow exactly its four implementation paths, including the verifier and verifier regression test as explicit bounded exceptions to the generic autopilot-directory prohibition.
-4. Add adversarial fixture tests for PR-side scope inflation, authority-file edits, unapproved product edits, path-prefix/suffix tricks, missing base authorization and valid in-scope changes. Verify workflow selects trusted base guard/resolver/state.
-5. The guard-maintenance PR may change state ONLY by adding that exact future entry; it must not modify its own approved entry, current scope/status, or any other state fields. Its sole script/workflow changes implement this bounded enforcement; genuine independent exact-head review and ordinary CI remain mandatory.
+Current review contract:
 
-The future implementation allowlist is exactly:
+- No named AI provider, quota, account plan, model endpoint or hosted review service is a mandatory dependency. Optional AI review findings remain review findings and must be addressed when applicable.
+- An independent human or a separate session review agent must inspect the actual exact-head diff. The implementation author cannot supply their own independent review. Record the full head SHA, reviewer identity and independence, reviewed scope, checks, limitations and findings. Session review is recorded as session review, never forged as native GitHub bot or human approval.
+- The deterministic engineering-readiness check retains exact-head identity, complete applicable substantive CI/security checks, implementation-owner exact-head audit, active latest `CHANGES_REQUESTED` and unresolved current review-thread blocking. No provider failure can conceal a substantive failure or resolve a finding.
+- `--manual-readiness` can return `READY_FOR_MANUAL_REVIEW`; this is a readiness result, not independent-review PASS or merge permission. The default CLI returns `AUTOMATIC_MERGE_DISABLED`. Missing or stale independent review must be resolved through a real reviewer before a manual merge.
+- Automated merging and label-based merge authority are disabled. Immediately before a manual merge, the authorized operator verifies the independent review, reloads current head and readiness, and supplies the full expected head SHA. Existing GitHub branch protections apply; no force merge, fabricated checks or approval impersonation is permitted.
+- A head change invalidates previous review, owner audit and CI evidence. Provider retirement does not transfer historical PASS, dismiss findings or claim production acceptance.
 
-- `.github/workflows/local-qwen-independent-review.yml`
-- `.github/workflows/octopus-independent-review.yml`
-- `docs/platform-v7/autopilot/verify-pr-review-gate.mjs`
-- `docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs`
+Required regressions: absent, rate-limited and retired AI providers cannot block otherwise valid manual readiness; readiness never enables automatic merge; missing or stale owner audit, malformed or incomplete check metadata, red/pending substantive CI, active changes-requested and unresolved review threads still block. Preserve meaningful exact-head and workflow-run authority coverage, including the distinction between transport failure and malformed metadata. Negative evidence must not become PASS because a provider is retired.
 
-No provider workflow, admission policy or product code is changed by the scope-enforcement prerequisite. Only AFTER it is independently reviewed, merged and verified on live main may the future provider branch perform the following changes within its four immutable-base-approved paths:
+Execution sequence: independently review and manually merge this owner-authorized migration after fresh applicable CI; verify live main; reassess #5422 and #5406 against that main and preserve their still-needed scope-enforcement and check-run-authority fixes without reintroducing provider binding; then forward-sync #5347, reuse the saved app_outbox transaction-local claim-protocol fixture, and obtain full CI plus real Production-like Kubernetes Acceptance PASS before its independent review and manual SHA-bound merge. Every remaining change stays in a separately approved narrow scope.
 
-- retire the Qwen and Octopus PR-review workflow entry points; do not alter Gekta models, inference, evaluation or production runtime;
-- retire their authority for future admission while retaining historical evidence as historical evidence;
-- retain already-supported independent Codex and GitHub Copilot review authority; implementation self-audit is never independent review;
-- if the current native Codex clean-review format differs from the legacy parser, support it only with verified provider identity, explicit completed-clean evidence, full exact-head binding and protection against stale, ambiguous, finding-bearing or forged evidence; a completion notice, request, summary table or reaction by itself is insufficient;
-- retain every non-provider CI/security check, ordinary red/pending failure behavior, owner self-audit, active CHANGES_REQUESTED blocking and unresolved review-thread blocking;
-- preserve all genuine defect findings, including prior still-unresolved findings; provider retirement cannot resolve or dismiss them automatically;
-- never translate quota failure, provider outage, invalid model output or absent review into PASS; another genuine authorized independent review must exist;
-- preserve the old rule for any implementation/governance PR until its authority is merged. This is not a self-approval or provider-maintenance bootstrap;
-- no model output fabrication, status overrides, gate bypass, direct push to main, paid subscription, secret exposure or unrelated product change.
-
-Required regression coverage: genuine exact-head clean review accepted; actor spoof, stale SHA, ambiguous prefix, incomplete review, finding-bearing review and author self-audit rejected as independent approval; active changes-requested/unresolved findings block; red/pending substantive CI blocks; retired providers cannot confer new admission; modern review parsing does not reinterpret a mere completion or reaction as clean authority. Preserve the full existing meaningful regression suite.
-
-Sequence: authority PR → scope-enforcement prerequisite PR → isolated provider-admission implementation PR with fresh independent review and applicable CI → forward-sync #5406 and fresh exact-head admission/CI → #5406 merge → #5347 sync plus app_outbox transaction-local claim-protocol fixture → full CI and Production-like Kubernetes Acceptance PASS → #5347 merge → exact-current-main REG.RU release and live acceptance. No old review/CI PASS transfers to a new SHA. IR-20 stays active; no new product delivery slice opens until its required acceptance is complete.
+IR-20 remains active. Its final closure requires the exact-current-main REG.RU release, verified immutable running images and canonical production Compose topology, functional live acceptance for the touched outbox flow, and at least 30 minutes of observation required by MASTER. Worker publication, protected release and rollback work require their own reviewed scopes and operational evidence. Local patches, independent review, green CI, a Kubernetes PASS, image publication and a merge do not by themselves constitute `PRODUCTION_PASS`. No IR-21 or other product delivery slice opens before the required IR-20 acceptance is complete.
