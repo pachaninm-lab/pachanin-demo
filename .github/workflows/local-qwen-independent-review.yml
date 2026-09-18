@@ -768,6 +768,7 @@ jobs:
                       'A structural construct opener or delimiter such as a bare DO block header, DECLARE, BEGIN, END, brace, function signature, or section header does not by itself prove behavior implemented by statements elsewhere in that construct. '
                       'Neighboring lines may clarify syntax but cannot supply a missing defect mechanism for the pinned evidence line; when the pinned line is only structural, author findings=[] unless that exact line itself contains the concrete defect mechanism. '
                       'A boolean validation flag, empty fallback string, equality comparison, static diagnostic code, rejection marker, or validator call does not by itself prove secret/PII disclosure, authorization bypass, or unsafe data flow. '
+                      'A public repository identifier such as a commit SHA, branch/ref, workflow id, run id, check name, or event name is repository metadata and is not secret/PII by itself. '
                       'For a secret/PII or validation-bypass claim, the pinned line itself must directly move sensitive data to an observable sink or directly admit invalid input; otherwise author findings=[]. '
                       'A non-empty finding requires the exact changed bytes in this same chunk to directly implement the claimed behavior or concrete failure mechanism; otherwise author findings=[]. '
                       'Do not use any of these policy-inadmissible words in a non-empty finding title or reason: could, may, might, likely, potential, potentially, possible, possibility, perhaps, maybe, speculate, speculative, speculatively. '
@@ -1038,6 +1039,8 @@ jobs:
               fail('VALIDATOR_SELFTEST_SPECULATION_STATIC_SIGNAL_GUIDANCE_MISSING')
           if 'move sensitive data to an observable sink or directly admit invalid input' not in speculative_repair_probe:
               fail('VALIDATOR_SELFTEST_SPECULATION_CONCRETE_MECHANISM_GUIDANCE_MISSING')
+          if 'commit SHA, branch/ref, workflow id, run id, check name, or event name' not in speculative_repair_probe:
+              fail('VALIDATOR_SELFTEST_SPECULATION_PUBLIC_REPOSITORY_METADATA_GUIDANCE_MISSING')
           static_signal_probe = dict(speculative_probe, evidence='canonicalizationInvalid: true')
           static_signal_candidate = json.dumps({'findings': [static_signal_probe]}, separators=(',', ':'))
           static_signal_prompt = repair_user(
