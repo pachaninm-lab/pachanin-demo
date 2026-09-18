@@ -49,7 +49,6 @@ concurrency:
 env:
   LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
   LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
-  DEFAULT_HOST: 195.19.12.120
   EVIDENCE_DIR: artifacts/production-full-stack-release
   RELEASE_ISSUE_NUMBER: 3072
   CONTINUATION_ISSUE_NUMBER: 4637
@@ -101,6 +100,30 @@ jobs:
           [[ "$GITHUB_ACTOR" == "$REPOSITORY_OWNER" ]]
           [[ "$GITHUB_TRIGGERING_ACTOR" == "$REPOSITORY_OWNER" ]]
       - run: node scripts/check-production-full-stack-release.mjs
+      - name: Validate live-DNS production host authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const path = '.github/workflows/production-full-stack-exact-sha.yml';
+          const text = fs.readFileSync(path, 'utf8');
+          const start = text.lastIndexOf('      - name: Resolve protected key and pinned VPS identity');
+          const end = text.lastIndexOf('      - name: Copy bounded release assets');
+          if (start < 0 || end <= start) throw new Error('SSH authority step not found');
+          const ssh = text.slice(start, end);
+          if (ssh.includes('DEFAULT_HOST')) throw new Error('historical DEFAULT_HOST fallback is forbidden');
+          for (const required of [
+            'host="$(trim "${SSH_HOST_SECRET:-}")"',
+            '[[ -n "$host" && "$host" == "${SSH_HOST_SECRET:-}" ]]',
+            'domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN"',
+            'grep -Fxq "$host" <<< "$domain_ips"',
+            'SSH_HOST_FINGERPRINT_SECRET',
+            'StrictHostKeyChecking=yes',
+          ]) {
+            if (!ssh.includes(required)) throw new Error(`missing live-DNS host control: ${required}`);
+          }
+          NODE
 
   deploy:
     name: Migrate, deploy API and web, verify live intake
@@ -178,16 +201,16 @@ jobs:
         run: |
           set -euo pipefail
           trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
-          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          host="$(trim "${SSH_HOST_SECRET:-}")"
           user="$(trim "${SSH_USER_SECRET:-}")"
           port="$(trim "${SSH_PORT_SECRET:-22}")"
           expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
-          [[ "$host" == "$DEFAULT_HOST" ]] || { echo 'Canonical VPS mismatch.' >&2; exit 10; }
+          [[ -n "$host" && "$host" == "${SSH_HOST_SECRET:-}" ]] || { echo 'Protected production host is missing or invalid.' >&2; exit 10; }
           [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || { echo 'Protected production principal is missing or invalid.' >&2; exit 11; }
           [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 12
           [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || { echo 'Pinned host fingerprint is required.' >&2; exit 13; }
           domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
-          grep -Fxq "$DEFAULT_HOST" <<< "$domain_ips"
+          grep -Fxq "$host" <<< "$domain_ips" || { echo 'Protected production host is not a current live-domain IPv4 address.' >&2; exit 16; }
           mkdir -p "$HOME/.ssh" "$EVIDENCE_DIR"
           chmod 700 "$HOME/.ssh"
 
