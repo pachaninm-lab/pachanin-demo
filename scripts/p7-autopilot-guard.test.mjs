@@ -14,6 +14,7 @@ const implementationBranches = [
   'governance/pc-crop-post-registration-progress-scope-4997',
   'governance/pc-crop-inventory-reservation-scope-4997',
   'fix/owner-handoff-product-host-20260908',
+  'fix/provider-neutral-review-admission-20260918',
 ];
 const publicHomeGovernanceBranch = 'governance/public-home-role-clarity-scope-20260905';
 const publicHomeImplementationBranch = 'feat/public-home-role-clarity-20260905';
@@ -615,7 +616,7 @@ test('runs immutable authority checks from a read-only trusted-base workflow', (
     "-f name='guard'",
     '-f head_sha="$HEAD_SHA"',
     "-f status='completed'",
-    `github.head_ref == '${publicHomeImplementationBranch}' || github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' || github.head_ref == 'fix/production-like-outbox-poison-isolation-3793' || github.head_ref == '${qwenFailedEvidenceBranch}' || github.head_ref == '${kindMinioImageSourceBranch}' || github.head_ref == '${gitleaksReleaseAttestationBranch}' || github.head_ref == 'fix/owner-handoff-product-host-20260908') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}`,
+    `github.head_ref == '${publicHomeImplementationBranch}' || github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' || github.head_ref == 'fix/production-like-outbox-poison-isolation-3793' || github.head_ref == '${qwenFailedEvidenceBranch}' || github.head_ref == '${kindMinioImageSourceBranch}' || github.head_ref == '${gitleaksReleaseAttestationBranch}' || github.head_ref == 'fix/owner-handoff-product-host-20260908' || github.head_ref == 'fix/provider-neutral-review-admission-20260918') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}`,
     'needs: standard_validation',
     "if: always() && github.event_name != 'pull_request_target'",
     'git show "$BASE_SHA:scripts/p7-autopilot-guard.sh" > "$TRUSTED_GUARD"',
@@ -1080,4 +1081,79 @@ test('SBOM isolated pnpm commands preserve the setup-node cache store root', () 
   assert.equal((workflow.match(/install --frozen-lockfile --ignore-scripts/gu) ?? []).length, 2);
   assert.equal((workflow.match(/--validate/gu) ?? []).length, 3);
   assert.equal((workflow.match(/if-no-files-found: error/gu) ?? []).length, 2);
+});
+
+const providerNeutralBranch = 'fix/provider-neutral-review-admission-20260918';
+const providerNeutralPaths = [
+  '.github/workflows/local-qwen-independent-review.yml',
+  '.github/workflows/octopus-independent-review.yml',
+  'docs/platform-v7/autopilot/verify-pr-review-gate.mjs',
+  'docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs',
+];
+
+function providerNeutralFixture(t) {
+  const context = fixture(t, providerNeutralBranch);
+  write(context.root, 'docs/platform-v7/autopilot/autopilot-state.json', JSON.stringify({
+    allowedCurrentScope: ['README.md'],
+    approvedConcurrentScopes: { [providerNeutralBranch]: providerNeutralPaths },
+  }));
+  for (const file of providerNeutralPaths) write(context.root, file, 'baseline\n');
+  commit(context.root, 'accepted bounded provider review scope');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  return context;
+}
+
+test('provider review accepts workflow retirement and exactly the verifier pair', (t) => {
+  const context = providerNeutralFixture(t);
+  for (const file of providerNeutralPaths.slice(0, 2)) fs.rmSync(path.join(context.root, file));
+  for (const file of providerNeutralPaths.slice(2)) write(context.root, file, 'reviewed change\n');
+  commit(context.root, 'bounded provider retirement');
+  const result = runGuard(context);
+  assert.equal(result.status, 0, output(result));
+});
+
+for (const forbidden of [
+  'docs/platform-v7/autopilot/autopilot-state.json',
+  'docs/platform-v7/execution-queue.md',
+  'docs/platform-v7/autopilot/prompts/current-codex-task.md',
+  'docs/platform-v7/autopilot/scopes/provider-review.json',
+  'scripts/p7-autopilot-guard.sh',
+  'scripts/p7-source-controlled-scope.mjs',
+  '.github/workflows/platform-v7-autopilot-guard.yml',
+  '.github/workflows/automerge.yml',
+  'apps/api/src/app.module.ts',
+  '.github/workflows/local-qwen-independent-review.yml.extra',
+  '.github/workflows/octopus-independent-review.yml/child',
+  'docs/platform-v7/autopilot/verify-pr-review-gate.mjs.extra',
+  'docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs/child',
+]) {
+  test(`provider review rejects authority, product and lookalike paths: ${forbidden}`, (t) => {
+    const context = providerNeutralFixture(t);
+    for (const file of providerNeutralPaths) {
+      if (forbidden.startsWith(`${file}/`)) fs.rmSync(path.join(context.root, file));
+    }
+    if (forbidden === 'scripts/p7-autopilot-guard.sh') {
+      fs.appendFileSync(path.join(context.root, forbidden), '\n# unauthorized authority edit\n');
+    } else {
+      write(context.root, forbidden, 'unauthorized change\n');
+    }
+    commit(context.root, 'attempt out of scope change');
+    const result = runGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+  });
+}
+
+test('provider review is routed through all trusted-base workflow selections', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const occurrences = workflow.split('\n').filter((line) => line.includes('fix/owner-handoff-product-host-20260908'));
+  assert.equal(occurrences.length, 6);
+  for (const line of occurrences) {
+    if (line.includes('github.event.pull_request.head.ref')) {
+      assert.ok(workflow.includes(`${line}\n      github.event.pull_request.head.ref == '${providerNeutralBranch}' ||`));
+    } else if (line.includes('github.head_ref !=')) {
+      assert.ok(workflow.includes(`${line}\n          github.head_ref != '${providerNeutralBranch}' &&`));
+    } else {
+      assert.ok(line.includes(providerNeutralBranch), `missing immutable routing: ${line}`);
+    }
+  }
 });

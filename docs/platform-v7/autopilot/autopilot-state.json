@@ -1430,6 +1430,12 @@
     ],
     "fix/gitleaks-release-authority-attestation-20260912": [
       "apps/tai/tests/test_gitleaks_release_authority.py"
+    ],
+    "fix/provider-neutral-review-admission-20260918": [
+      ".github/workflows/local-qwen-independent-review.yml",
+      ".github/workflows/octopus-independent-review.yml",
+      "docs/platform-v7/autopilot/verify-pr-review-gate.mjs",
+      "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
     ]
   },
   "currentAcceptance": [
