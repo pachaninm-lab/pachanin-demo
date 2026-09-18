@@ -619,7 +619,7 @@ export function canonicalizeExactPrHeadActionsChecks(
       continue;
     }
     if (indexedRuns.some((entry) => entry.id === id)) {
-      errors.push(`actions-run-duplicate:${id}`);
+      errors.push('actions-run-duplicate');
       continue;
     }
     indexedRuns.push({ id, run });
@@ -637,12 +637,12 @@ export function canonicalizeExactPrHeadActionsChecks(
 
     const runId = actionsRunIdFromCheck(check, repo);
     if (!runId) {
-      errors.push(`actions-check-run-url-invalid:${workflow}:${checkName(check) || 'unnamed-check'}`);
+      errors.push('actions-check-run-url-invalid');
       continue;
     }
     const run = indexedRuns.find((entry) => entry.id === runId)?.run;
     if (!run) {
-      errors.push(`actions-run-metadata-missing:${runId}`);
+      errors.push('actions-run-metadata-missing');
       continue;
     }
 
@@ -654,15 +654,15 @@ export function canonicalizeExactPrHeadActionsChecks(
     const runHeadRef = strictGitHubHeadRef(run?.head_branch);
     const event = strictNonEmptyString(run?.event);
     if (!metadataId || !workflowId || !runNumber || !runAttempt || !runHeadSha || !runHeadRef || !event) {
-      errors.push(`actions-run-authority-metadata-invalid:${runId}`);
+      errors.push('actions-run-authority-metadata-invalid');
       continue;
     }
     if (metadataId !== runId) {
-      errors.push(`actions-run-id-mismatch:${runId}`);
+      errors.push('actions-run-id-mismatch');
       continue;
     }
     if (runHeadSha !== expectedSha) {
-      errors.push(`actions-run-head-sha-mismatch:${runId}`);
+      errors.push('actions-run-head-sha-mismatch');
       continue;
     }
 
@@ -708,7 +708,7 @@ export function canonicalizeExactPrHeadActionsChecks(
       continue;
     }
     if (entry.runNumber === previous.runNumber && entry.runId !== previous.runId) {
-      errors.push(`actions-run-number-ambiguous:${entry.workflowId}:${entry.event}:${entry.runNumber}`);
+      errors.push('actions-run-number-ambiguous');
     }
   }
   if (errors.length > 0) return { checks: [], errors: [...new Set(errors)] };
@@ -723,7 +723,7 @@ export function canonicalizeExactPrHeadActionsChecks(
   for (const entry of selected) {
     const name = checkName(entry.check);
     if (!name) {
-      errors.push(`actions-selected-check-name-missing:${entry.runId}`);
+      errors.push('actions-selected-check-name-missing');
       continue;
     }
 
@@ -745,12 +745,12 @@ export function canonicalizeExactPrHeadActionsChecks(
     }
     const ranked = group.map((entry) => ({ entry, startedAt: strictStartedAt(entry.check?.startedAt) }));
     if (ranked.some((item) => item.startedAt === null)) {
-      errors.push(`actions-selected-check-started-at-invalid:${group[0].runId}:${checkName(group[0].check)}`);
+      errors.push('actions-selected-check-started-at-invalid');
       continue;
     }
     ranked.sort((a, b) => b.startedAt - a.startedAt);
     if (ranked.length > 1 && ranked[0].startedAt === ranked[1].startedAt) {
-      errors.push(`actions-selected-check-started-at-ambiguous:${group[0].runId}:${checkName(group[0].check)}`);
+      errors.push('actions-selected-check-started-at-ambiguous');
       continue;
     }
     deduped.push(ranked[0].entry);
