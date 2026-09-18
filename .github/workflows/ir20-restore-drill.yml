@@ -64,3 +64,82 @@ jobs:
           path: artifacts/ir20-restore-drill/report.json
           if-no-files-found: error
           retention-days: 30
+
+  guard-diagnostic:
+    name: IR20 exact-head guard diagnostic
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      TARGET_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Record source-only guard failures without raw error disclosure
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          mkdir -p "$RUNNER_TEMP/ir20-guard-diagnostic"
+          set +e
+          node --test --test-reporter=junit scripts/p7-autopilot-guard.test.mjs \
+            > "$RUNNER_TEMP/ir20-guard-diagnostic/report.xml" \
+            2> "$RUNNER_TEMP/ir20-guard-diagnostic/stderr.txt"
+          rc=$?
+          set -e
+          TEST_RC="$rc" python3 -I - <<'PY_SUMMARY'
+          import hashlib, json, os, pathlib, re, subprocess, xml.etree.ElementTree as ET
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'ir20-guard-diagnostic'
+          report = root / 'report.xml'
+          stderr = root / 'stderr.txt'
+          result = {
+              'schema': 'ir20.source-only-guard-diagnostic.v1',
+              'source_sha': os.environ['TARGET_SHA'],
+              'run_id': os.environ.get('GITHUB_RUN_ID'),
+              'run_attempt': os.environ.get('GITHUB_RUN_ATTEMPT'),
+              'node_version': subprocess.check_output(['node', '--version'], text=True).strip(),
+              'test_exit_code': int(os.environ['TEST_RC']),
+              'report_parse_ok': False,
+              'test_count': 0,
+              'failures': [],
+              'independent_review': False,
+              'production_acceptance': False,
+          }
+          try:
+              raw = report.read_bytes()
+              result['report_sha256'] = hashlib.sha256(raw).hexdigest()
+              cases = ET.fromstring(raw).findall('.//testcase')
+              result['test_count'] = len(cases)
+              for case in cases:
+                  failure = case.find('failure')
+                  if failure is None:
+                      continue
+                  text = ''.join(failure.itertext())
+                  locations = sorted(set(re.findall(r'scripts/p7-autopilot-guard\.test\.mjs:(\d+):(\d+)', text)))
+                  result['failures'].append({
+                      'test': case.get('name', '')[:300],
+                      'type': failure.get('type', '')[:80],
+                      'assertion_locations': [{'line': int(line), 'column': int(column)} for line, column in locations],
+                      'error_codes': sorted(set(re.findall(r'\b(?:ERR_[A-Z_]+|ENOENT|EACCES)\b', text))),
+                  })
+              result['report_parse_ok'] = bool(cases)
+          except (OSError, ET.ParseError, ValueError):
+              pass
+          finally:
+              report.unlink(missing_ok=True)
+              stderr.unlink(missing_ok=True)
+          (root / 'summary.json').write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
+          print(json.dumps(result, indent=2))
+          if not result['report_parse_ok'] or (result['failures'] and result['test_exit_code'] == 0):
+              raise SystemExit(1)
+          PY_SUMMARY
+          exit "$rc"
+      - name: Retain bounded source-only diagnostics even on failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ir20-guard-diagnostic-${{ github.event.pull_request.head.sha }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/ir20-guard-diagnostic/summary.json
+          if-no-files-found: error
+          retention-days: 7
