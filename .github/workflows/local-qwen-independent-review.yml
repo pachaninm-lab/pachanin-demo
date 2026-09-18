@@ -2204,4 +2204,3 @@ jobs:
             -f description='Pinned canonical Qwen3 review failed closed' \
             -f target_url="https://github.com/$REPO/actions/runs/$GITHUB_RUN_ID" >/dev/null || true
 
-[executed on device: MacBook-Pro-Platon.local (90699c61-859a-41bd-8861-b3ab3e1e9e86)]
