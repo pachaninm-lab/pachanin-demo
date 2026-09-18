@@ -195,3 +195,24 @@ Confirmed master production acceptance remains 0/100 (0%).
 Review IR-20 Canonical Durable Outbox strictly against the state allowed scope and queue.
 
 Return PASS or BLOCKED. If BLOCKED, include blocker, file, why risk and exact fix.
+
+
+## Owner-authorized review-provider simplification — 2026-09-18
+
+The owner prioritizes correct, timely completion of MASTER and delegates implementation-method selection. Qwen remains confined to Gekta. MASTER v2.1 R0.2 explicitly names Qwen/Mistral review providers; this provider-specific choice is superseded for development review by this owner-authorized decision, while independent review, exact-head authority and fail-closed admission remain mandatory. This does not assert Russian certification or localization of external development services.
+
+This is prior governance authority only. Do not implement it in the governance PR. After this authority is independently reviewed and merged, branch `fix/provider-neutral-review-admission-20260918` may change only its exact `approvedConcurrentScopes` paths from merged main:
+
+- retire the Qwen and Octopus PR-review workflow entry points; do not alter Gekta models, inference, evaluation or production runtime;
+- retire their authority for future admission while retaining historical evidence as historical evidence;
+- retain already-supported independent Codex and GitHub Copilot review authority; implementation self-audit is never independent review;
+- if the current native Codex clean-review format differs from the legacy parser, support it only with verified provider identity, explicit completed-clean evidence, full exact-head binding and protection against stale, ambiguous, finding-bearing or forged evidence; a completion notice, request, summary table or reaction by itself is insufficient;
+- retain every non-provider CI/security check, ordinary red/pending failure behavior, owner self-audit, active CHANGES_REQUESTED blocking and unresolved review-thread blocking;
+- preserve all genuine defect findings, including prior still-unresolved findings; provider retirement cannot resolve or dismiss them automatically;
+- never translate quota failure, provider outage, invalid model output or absent review into PASS; another genuine authorized independent review must exist;
+- preserve the old rule for any implementation/governance PR until its authority is merged. This is not a self-approval or provider-maintenance bootstrap;
+- no model output fabrication, status overrides, gate bypass, direct push to main, paid subscription, secret exposure or unrelated product change.
+
+Required regression coverage: genuine exact-head clean review accepted; actor spoof, stale SHA, ambiguous prefix, incomplete review, finding-bearing review and author self-audit rejected as independent approval; active changes-requested/unresolved findings block; red/pending substantive CI blocks; retired providers cannot confer new admission; modern review parsing does not reinterpret a mere completion or reaction as clean authority. Preserve the full existing meaningful regression suite.
+
+Sequence: authority PR → isolated implementation PR with fresh independent review and applicable CI → forward-sync #5406 and fresh exact-head admission/CI → #5406 merge → #5347 sync plus app_outbox transaction-local claim-protocol fixture → full CI and Production-like Kubernetes Acceptance PASS → #5347 merge → exact-current-main REG.RU release and live acceptance. No old review/CI PASS transfers to a new SHA. IR-20 stays active; no new product delivery slice opens until its required acceptance is complete.
