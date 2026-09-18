@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
+import { nativeReadinessRunCandidates, nativeReadinessMatchesRun } from '../docs/platform-v7/autopilot/verify-pr-review-gate.mjs';
 
 const workflowUrl = new URL('../.github/workflows/automerge.yml', import.meta.url);
 const workflow = readFileSync(workflowUrl, 'utf8');
@@ -278,4 +279,28 @@ test('failed publication cannot complete required check as successful', async ()
   assert.ok(result.thrown);
   assert.equal(successfulChecks(result).length, 0);
   assert.equal(result.calls.find(call => call.name === 'createCheck').args.status, 'in_progress');
+});
+
+test('actual publisher pending check is recognized by native provenance verifier', async () => {
+  const result = await runFixture();
+  const published = result.calls.find(call => call.name === 'createCheck').args;
+  const pending = result.calls.find(call => call.name === 'createStatus').args;
+  const repo = repository.full_name;
+  const time = '2026-09-18T16:00:00Z';
+  const check = { ...published, id: 83, details_url: `https://github.com/${repo}/runs/83`,
+    conclusion: null, started_at: time, completed_at: null,
+    app: { id: 15368, slug: 'github-actions' },
+    output: { ...published.output, text: null, annotations_count: 0 } };
+  const status = { ...pending, created_at: time,
+    creator: { login: 'github-actions[bot]', id: 41898282, type: 'Bot' } };
+  const binding = nativeReadinessRunCandidates(check, [status], repo, 17, HEAD);
+  assert.equal(binding?.runId, '43');
+  const run = { id: 43, repository, head_repository: repository,
+    name: 'Repo automations', path: '.github/workflows/automerge.yml',
+    head_sha: HEAD, head_branch: 'main', event: 'workflow_run',
+    workflow_id: 7, run_number: 9, run_attempt: 1, status: 'in_progress',
+    created_at: time, updated_at: time };
+  assert.equal(nativeReadinessMatchesRun(binding, run, repo, 17, HEAD, 'fix/test'), true);
+  assert.equal(nativeReadinessRunCandidates({ ...check, external_id: '' }, [status], repo, 17, HEAD), null);
+  assert.equal(nativeReadinessMatchesRun(binding, { ...run, path: '.github/workflows/foreign.yml' }, repo, 17, HEAD, 'fix/test'), false);
 });

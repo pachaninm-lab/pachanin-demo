@@ -152,6 +152,85 @@ export function actionsRunIdFromCheck(check, repo) {
   return positiveIntegerString(parts[4]);
 }
 
+// GitHub rewrites checks.create details_url to /runs/<check-id>. The shared
+// github-actions app identity/name alone cannot establish which workflow posted it.
+// Correlate our exact output contract with same-head statuses and immutable run metadata.
+const READINESS_CHECK_NAME = 'Exact-head clean-comment gate';
+const READINESS_STATUS_CONTEXT = 'merge-readiness/exact-head';
+const READINESS_PENDING_DESCRIPTION = 'Engineering readiness is being evaluated; manual review remains required';
+const READINESS_SUCCESS_DESCRIPTION = 'Engineering checks ready; independent review and manual merge still required';
+const READINESS_BLOCKED_DESCRIPTION = 'Engineering readiness blocked; manual merge is not ready';
+
+function canonicalGitHubRecordUrl(value, repo, suffix) {
+  if (typeof value !== 'string') return false;
+  return value === `https://github.com/${repo}/${suffix}`;
+}
+
+export function nativeReadinessRunCandidates(check, statuses, repo, prNumber, headSha) {
+  if (check?.name !== READINESS_CHECK_NAME || check?.app?.id !== 15368 || check?.app?.slug !== 'github-actions'
+      || check?.head_sha !== headSha || !positiveIntegerString(check?.id)
+      || !canonicalGitHubRecordUrl(check?.details_url, repo, `runs/${check.id}`)
+      || check?.output?.annotations_count !== 0 || check?.output?.text != null) return null;
+  const started = strictStartedAt(check.started_at);
+  const completed = check.status === 'completed' ? strictStartedAt(check.completed_at) : null;
+  if (started === null || (check.status === 'completed' && (completed === null || completed < started))) return null;
+  let state, description;
+  if (check.status === 'in_progress' && check.conclusion === null
+      && check.output.title === 'Engineering readiness evaluation'
+      && check.output.summary === 'Independent review and a manual exact-SHA merge remain required.') {
+    state = 'pending'; description = READINESS_PENDING_DESCRIPTION;
+  } else if (check.status === 'completed' && ['success', 'failure'].includes(check.conclusion)) {
+    state = check.conclusion;
+    description = state === 'success' ? READINESS_SUCCESS_DESCRIPTION : READINESS_BLOCKED_DESCRIPTION;
+    const title = state === 'success' ? 'Ready for independent manual review' : 'Engineering readiness blocked';
+    const summary = `PR #${prNumber}; exact head ${headSha}. ${description}. No independent-review approval or merge authority is issued.`;
+    if (check.output.title !== title || check.output.summary !== summary) return null;
+  } else return null;
+  if (check.external_id != null && typeof check.external_id !== 'string') return null;
+  let declaredRunId = '';
+  if (check.external_id) {
+    const match = typeof check.external_id === 'string'
+      && check.external_id.match(/^platform-v7\.merge-readiness\.v1:pr:([1-9][0-9]*):head:([0-9a-f]{40}):run:([1-9][0-9]*)$/u);
+    if (!match || match[1] !== String(prNumber) || match[2] !== headSha || !positiveIntegerString(match[3])) return null;
+    declaredRunId = match[3];
+  } else {
+    // Only completed records emitted by the pre-external_id publisher can be
+    // recovered. Their exact PR/head output and status time window are required.
+    if (check.status !== 'completed') return null;
+  }
+  const candidates = new Set();
+  for (const status of statuses) {
+    if (status?.context !== READINESS_STATUS_CONTEXT || status?.state !== state || status?.description !== description
+        || status?.creator?.login !== 'github-actions[bot]' || status?.creator?.id !== 41898282 || status?.creator?.type !== 'Bot') continue;
+    const created = strictStartedAt(status.created_at);
+    if (created === null || created < started || (completed !== null && created > completed)) continue;
+    const id = actionsRunIdFromCheck({ details_url: status.target_url }, repo);
+    if (!id || !canonicalGitHubRecordUrl(status.target_url, repo, `actions/runs/${id}`)) continue;
+    if (declaredRunId && id !== declaredRunId) continue;
+    candidates.add(id);
+  }
+  return candidates.size === 1 ? { runId: [...candidates][0], started, completed } : null;
+}
+
+export function nativeReadinessMatchesRun(binding, run, repo, prNumber, headSha, headRef) {
+  if (!binding || String(run?.id) !== binding.runId || run?.repository?.full_name !== repo
+      || run?.head_repository?.full_name !== repo || run?.name !== 'Repo automations'
+      || run?.path !== '.github/workflows/automerge.yml' || !strictWorkflowRunSha40(run?.head_sha)
+      || !positiveIntegerString(run?.workflow_id) || !positiveIntegerString(run?.run_number)
+      || !positiveIntegerString(run?.run_attempt) || !['in_progress', 'completed'].includes(run?.status)) return false;
+  const created = strictStartedAt(run.created_at);
+  const updated = strictStartedAt(run.updated_at);
+  if (created === null || created > binding.started || updated === null || updated < created) return false;
+  if (run.status === 'completed' && (binding.completed ?? binding.started) > updated) return false;
+  if (run.event === 'pull_request_target') {
+    if (run.head_sha !== headSha || run.head_branch !== headRef || !Array.isArray(run.pull_requests)) return false;
+    const matches = run.pull_requests.filter(pr => pr?.number === prNumber && pr?.head?.sha === headSha
+      && pr?.head?.ref === headRef && pr?.base?.ref === 'main');
+    return matches.length === 1;
+  }
+  return ['issue_comment', 'workflow_dispatch', 'workflow_run'].includes(run.event) && run.head_branch === 'main';
+}
+
 export function actionsRunApiPath(repo, runId) {
   const repository = strictGitHubRepositorySlug(repo);
   const id = positiveIntegerString(runId);
@@ -411,14 +490,21 @@ export function fetchCheckSnapshot(repo, prNumber, readGitHubJson = ghJson) {
     if (!positiveIntegerString(check?.id) || ids.has(String(check.id)) || check.head_sha !== headSha || !checkName(check) || !check.app?.slug) return invalid;
     ids.add(String(check.id));
   }
-  const statuses = latestCommitStatuses(fetchAllList(`repos/${repository}/commits/${headSha}/statuses`, readGitHubJson));
+  const allStatuses = fetchAllList(`repos/${repository}/commits/${headSha}/statuses`, readGitHubJson);
+  const statuses = latestCommitStatuses(allStatuses);
   if (!statuses) return invalid;
   const rawChecks = raw.map((check) => ({ ...check, appSlug: check.app.slug, startedAt: check.started_at }));
   const runIds = new Set();
+  const nativeBindings = new Map();
   for (const check of rawChecks) {
     if (check.appSlug !== 'github-actions') continue;
-    const id = actionsRunIdFromCheck(check, repository);
-    if (!id) return invalid;
+    let id = actionsRunIdFromCheck(check, repository);
+    if (!id) {
+      const binding = nativeReadinessRunCandidates(check, allStatuses, repository, prNumber, headSha);
+      if (!binding) return { ...invalid, metadataError: 'NATIVE_CHECK_PROVENANCE_INVALID' };
+      nativeBindings.set(String(check.id), binding);
+      id = binding.runId;
+    }
     runIds.add(id);
   }
   const runPages = readGitHubJson(['api', '--paginate', '--slurp', `repos/${repository}/actions/runs?head_sha=${headSha}&per_page=100`]);
@@ -440,10 +526,12 @@ export function fetchCheckSnapshot(repo, prNumber, readGitHubJson = ghJson) {
   if (runFetchErrors.length) return { ...invalid, runFetchErrors };
   for (const check of rawChecks) {
     if (check.appSlug !== 'github-actions') continue;
-    const id = actionsRunIdFromCheck(check, repository);
+    const binding = nativeBindings.get(String(check.id));
+    const id = binding?.runId || actionsRunIdFromCheck(check, repository);
     const run = actionsRuns.find((value) => String(value?.id) === id);
     if (!run || typeof run.name !== 'string' || !run.name || typeof run.path !== 'string' || !run.path.startsWith('.github/workflows/')) return invalid;
     if (run.repository?.full_name?.toLowerCase() !== repository.toLowerCase()) return invalid;
+    if (binding && !nativeReadinessMatchesRun(binding, run, repository, prNumber, headSha, headRef)) return { ...invalid, metadataError: 'NATIVE_CHECK_PROVENANCE_INVALID' };
     check.workflowName = run.name;
     check.workflowPath = run.path;
   }
@@ -493,6 +581,7 @@ export function verifyManualReadiness({ argv = [], env = {}, readGitHubJson = gh
   const snapshot = fetchCheckSnapshot(repo, prNumber, readGitHubJson);
   if (snapshot.headSha !== headSha || snapshot.headRef !== headRef) reject('MERGE_READINESS_CI_HEAD_MISMATCH');
   if (snapshot.runFetchErrors.length) reject('MERGE_READINESS_CI_ACTIONS_RUN_FETCH_FAILED');
+  if (snapshot.metadataError === 'NATIVE_CHECK_PROVENANCE_INVALID') reject('MERGE_READINESS_CI_NATIVE_CHECK_PROVENANCE_INVALID');
   if (!Array.isArray(snapshot.checks)) reject('MERGE_READINESS_CI_SNAPSHOT_INVALID');
   if (!snapshot.checks.length) reject('MERGE_READINESS_CI_EVIDENCE_MISSING');
   if (checkRollupBlockers(snapshot.checks).length) reject('MERGE_READINESS_CI_NOT_GREEN');
