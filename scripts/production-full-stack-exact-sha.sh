@@ -9,6 +9,7 @@ INTAKE_CORRELATION_ID="${5:-}"
 API_IMAGE="${PC_API_IMAGE:-}"
 WEB_IMAGE="${PC_WEB_IMAGE:-}"
 MIGRATION_IMAGE="${PC_MIGRATION_IMAGE:-}"
+IMAGE_BINDING_VERIFIER="${PC_RELEASE_IMAGE_BINDING_VERIFIER:-${BASH_SOURCE[0]%/*}/release/verify-production-image-binding.py}"
 PROD_DIR_B64="${PC_PROD_DIR_B64:-}"
 PROD_COMPOSE_B64="${PC_PROD_COMPOSE_B64:-}"
 PROD_PROJECT_B64="${PC_PROD_PROJECT_B64:-}"
@@ -315,13 +316,119 @@ baseline_web_image="$(docker inspect --format '{{.Config.Image}}' "$web_id")"
 baseline_api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
 baseline_web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
 
-snapshot_unrelated() {
-  local output="$1"
-  docker ps --format '{{.ID}} {{.Labels}}' | awk '
-    $0 !~ /com.docker.compose.service=api(,|$)/ &&
-    $0 !~ /com.docker.compose.service=web(,|$)/ &&
-    $0 !~ /com.docker.compose.service=watchtower(,|$)/ {print $1}' | sort > "$output"
+# These helpers return failures to their caller. Only the outer release flow
+# may invoke fail/rollback; a command-substitution subshell must not roll back.
+runtime_isolation_error() {
+  printf 'ERROR_CODE=%s\n' "$1" >&2
+  return 1
 }
+
+validate_container_ids() {
+  local ids="$1" allow_empty="${2:-0}" id
+  local -A seen=()
+  if [[ -z "$ids" ]]; then
+    [[ "$allow_empty" == 1 ]] && return 0
+    runtime_isolation_error TARGET_CONTAINER_MISSING; return 1
+  fi
+  while IFS= read -r id; do
+    [[ "$id" =~ ^[0-9a-f]{64}$ ]] || { runtime_isolation_error CONTAINER_ID_INVALID; return 1; }
+    [[ ! -v "seen[$id]" ]] || { runtime_isolation_error CONTAINER_ID_DUPLICATED; return 1; }
+    seen[$id]=1
+  done <<< "$ids"
+}
+
+resolve_release_runtime_project() {
+  local api_project web_project
+  api_project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$api_id" 2>/dev/null)" || { runtime_isolation_error TARGET_PROJECT_UNREADABLE; return 1; }
+  web_project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id" 2>/dev/null)" || { runtime_isolation_error TARGET_PROJECT_UNREADABLE; return 1; }
+  [[ "$api_project" =~ ^[a-z0-9][a-z0-9_-]*$ && "$api_project" == "$web_project" ]] || { runtime_isolation_error TARGET_PROJECT_MISMATCH; return 1; }
+  [[ -z "$prod_project" || "$prod_project" == "$api_project" ]] || { runtime_isolation_error TARGET_PROJECT_MISMATCH; return 1; }
+  runtime_project="$api_project"
+}
+
+verify_release_container() {
+  local id="$1" service="$2" identity
+  identity="$(docker inspect --format '{{.Id}} {{ index .Config.Labels "com.docker.compose.project" }} {{ index .Config.Labels "com.docker.compose.service" }}' "$id" 2>/dev/null)" || { runtime_isolation_error TARGET_IDENTITY_UNREADABLE; return 1; }
+  [[ "$identity" == "$id $runtime_project $service" ]] || { runtime_isolation_error TARGET_IDENTITY_MISMATCH; return 1; }
+}
+
+release_service_id() {
+  local service="$1" id
+  id="$("${dc[@]}" ps -q "$service" 2>/dev/null)" || { runtime_isolation_error TARGET_DISCOVERY_FAILED; return 1; }
+  validate_container_ids "$id" || return 1
+  [[ "$id" != *$'\n'* ]] || { runtime_isolation_error TARGET_RUNTIME_AMBIGUOUS; return 1; }
+  verify_release_container "$id" "$service" || return 1
+  printf '%s\n' "$id"
+}
+
+release_watchtower_ids() {
+  local ids id
+  ids="$(docker ps -aq --no-trunc --filter "label=com.docker.compose.project=$runtime_project" --filter 'label=com.docker.compose.service=watchtower' 2>/dev/null)" || { runtime_isolation_error WATCHTOWER_DISCOVERY_FAILED; return 1; }
+  validate_container_ids "$ids" 1 || return 1
+  [[ -n "$ids" ]] || return 0
+  while IFS= read -r id; do
+    verify_release_container "$id" watchtower || return 1
+  done <<< "$ids"
+  printf '%s\n' "$ids" | LC_ALL=C sort
+}
+
+snapshot_unrelated() {
+  local output="$1" require_retired="${2:-0}" all_ids target_api target_web watchtower_ids id
+  local -A targets=() running=()
+  [[ "$require_retired" =~ ^[01]$ ]] || { runtime_isolation_error SNAPSHOT_MODE_INVALID; return 1; }
+  all_ids="$(docker ps -q --no-trunc 2>/dev/null)" || { runtime_isolation_error RUNTIME_SNAPSHOT_FAILED; return 1; }
+  validate_container_ids "$all_ids" || return 1
+  target_api="$(release_service_id api)" || return 1
+  target_web="$(release_service_id web)" || return 1
+  [[ "$target_api" != "$target_web" ]] || { runtime_isolation_error TARGET_IDENTITY_MISMATCH; return 1; }
+  while IFS= read -r id; do running[$id]=1; done <<< "$all_ids"
+  [[ -v "running[$target_api]" && -v "running[$target_web]" ]] || { runtime_isolation_error TARGET_SNAPSHOT_CHANGED; return 1; }
+  targets[$target_api]=1
+  targets[$target_web]=1
+  watchtower_ids="$(release_watchtower_ids)" || return 1
+  if [[ -n "$watchtower_ids" ]]; then
+    while IFS= read -r id; do
+      if [[ "$require_retired" == 1 && -v "running[$id]" ]]; then
+        runtime_isolation_error WATCHTOWER_RUNNING_AFTER_RETIREMENT; return 1
+      fi
+      targets[$id]=1
+    done <<< "$watchtower_ids"
+  fi
+  if [[ "$require_retired" == 1 ]]; then verify_watchtower_retirement "$watchtower_ids" || return 1; fi
+  # Include other Compose projects even when they use api/web/watchtower names.
+  # Worker remains protected until a separately admitted topology/rollout exists.
+  {
+    while IFS= read -r id; do
+      if [[ ! -v "targets[$id]" ]]; then printf '%s\n' "$id"; fi
+    done <<< "$all_ids"
+  } | LC_ALL=C sort > "$output"
+}
+
+verify_watchtower_retirement() {
+  local ids="$1" id state
+  [[ -n "$ids" ]] || return 0
+  while IFS= read -r id; do
+    state="$(docker inspect --format '{{.HostConfig.RestartPolicy.Name}} {{.State.Running}}' "$id" 2>/dev/null)" || { runtime_isolation_error WATCHTOWER_STATE_UNREADABLE; return 1; }
+    [[ "$state" == 'no false' ]] || { runtime_isolation_error WATCHTOWER_NOT_RETIRED; return 1; }
+  done <<< "$ids"
+}
+
+retire_release_watchtower() {
+  local ids after_ids id
+  ids="$(release_watchtower_ids)" || return 1
+  if [[ -n "$ids" ]]; then
+    while IFS= read -r id; do
+      docker update --restart=no "$id" >/dev/null 2>&1 || { runtime_isolation_error WATCHTOWER_UPDATE_FAILED; return 1; }
+      docker stop "$id" >/dev/null 2>&1 || { runtime_isolation_error WATCHTOWER_STOP_FAILED; return 1; }
+    done <<< "$ids"
+  fi
+  after_ids="$(release_watchtower_ids)" || return 1
+  [[ "$after_ids" == "$ids" ]] || { runtime_isolation_error WATCHTOWER_SET_CHANGED; return 1; }
+  verify_watchtower_retirement "$ids"
+}
+
+runtime_project=""
+resolve_release_runtime_project || fail RUNTIME_PROJECT_VALIDATION_FAILED 78
 
 write_override() {
   local api_image="$1" web_image="$2" migration_image="$3" destination="$4" include_password_reset_runtime="${5:-0}"
@@ -373,9 +480,15 @@ YAML
 dc_target=("${dc[@]}" -f "$full_override")
 
 verify_image() {
-  local image="$1"
-  docker pull "$image" >/dev/null
-  [[ "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")" == "$TARGET_SHA" ]] || fail IMAGE_REVISION_MISMATCH 20
+  local component="$1" image="$2"
+  [[ -f "$IMAGE_BINDING_VERIFIER" ]] || fail IMAGE_BINDING_VERIFIER_MISSING 81
+  python3 "$IMAGE_BINDING_VERIFIER" pull-verify "$component" "$TARGET_SHA" "$image" >/dev/null 2>&1 || fail IMAGE_BINDING_FAILED 20
+}
+
+verify_runtime_image() {
+  local component="$1" image="$2" container_id="$3"
+  [[ -f "$IMAGE_BINDING_VERIFIER" ]] || return 1
+  python3 "$IMAGE_BINDING_VERIFIER" runtime "$component" "$TARGET_SHA" "$image" "$container_id" 2>/dev/null
 }
 
 wait_api() {
@@ -684,9 +797,9 @@ if [[ "$ACTION" == audit ]]; then
 fi
 
 [[ -n "$API_IMAGE" && -n "$WEB_IMAGE" && -n "$MIGRATION_IMAGE" ]] || fail EXACT_IMAGES_REQUIRED 21
-verify_image "$API_IMAGE"
-verify_image "$WEB_IMAGE"
-verify_image "$MIGRATION_IMAGE"
+verify_image api "$API_IMAGE"
+verify_image web "$WEB_IMAGE"
+verify_image migration "$MIGRATION_IMAGE"
 
 # Shared release-authority root: traverse-only for the runner group. `chmod 0700`
 # here preserved the group and stripped its `--x`, which is exactly the state the
@@ -706,7 +819,7 @@ chmod 0600 "$STATE_FILE"
 
 before_ids="$(mktemp)"
 after_ids="$(mktemp)"
-snapshot_unrelated "$before_ids"
+snapshot_unrelated "$before_ids" || fail RUNTIME_ISOLATION_FAILED 79
 mutated=0
 on_error() {
   local rc=$?
@@ -761,20 +874,16 @@ verify_api_auth_hash_keys "$new_api_id" || fail API_AUTH_HASH_KEYS_INVALID 77
 "${dc_target[@]}" up -d --no-deps --pull never web
 wait_web || fail WEB_HEALTH_FAILED 31
 
-mapfile -t watchtower_ids < <(docker ps -aq --filter 'label=com.docker.compose.service=watchtower')
-for id in "${watchtower_ids[@]}"; do
-  docker update --restart=no "$id" >/dev/null || true
-  docker stop "$id" >/dev/null || true
-done
+retire_release_watchtower || fail WATCHTOWER_RETIREMENT_FAILED 80
 
-snapshot_unrelated "$after_ids"
+snapshot_unrelated "$after_ids" 1 || fail RUNTIME_ISOLATION_FAILED 79
 cmp -s "$before_ids" "$after_ids" || fail NON_TARGET_CONTAINER_CHANGED 32
 rm -f "$before_ids" "$after_ids"
 
 new_api_id="$("${dc_target[@]}" ps -q api | head -1)"
 new_web_id="$("${dc_target[@]}" ps -q web | head -1)"
-new_api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$new_api_id")"
-new_web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$new_web_id")"
+new_api_revision="$(verify_runtime_image api "$API_IMAGE" "$new_api_id")" || fail RUNNING_API_IMAGE_BINDING_FAILED 82
+new_web_revision="$(verify_runtime_image web "$WEB_IMAGE" "$new_web_id")" || fail RUNNING_WEB_IMAGE_BINDING_FAILED 83
 if [[ "$new_api_revision" != "$TARGET_SHA" || "$new_web_revision" != "$TARGET_SHA" ]]; then
   printf 'RUNNING_API_REVISION=%s\n' "${new_api_revision:-unknown}" >&2
   printf 'RUNNING_WEB_REVISION=%s\n' "${new_web_revision:-unknown}" >&2
