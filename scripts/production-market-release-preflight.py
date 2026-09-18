@@ -313,7 +313,7 @@ def validate_report(value: Any, target: str) -> dict[str, Any]:
     """Hosted-side strict admission of remote diagnostic data, never release approval."""
     keys = {'schema', 'target_sha', 'observed_at_utc', 'running_web_revision', 'running_api_revision',
             'checks', 'migration_inventory', 'capacity', 'backup', 'production_mutation',
-            'deployment_authorized', 'live_acceptance', 'protected_values'}
+            'deployment_authorized', 'live_acceptance', 'protected_values', 'outbox_topology'}
     if not isinstance(value, dict) or set(value) != keys or not SHA.fullmatch(target):
         raise ValueError('REPORT_SCHEMA')
     for key, expected in {'schema': 'pc-crop.market-release-preflight.v1', 'target_sha': target,
@@ -369,6 +369,7 @@ def validate_report(value: Any, target: str) -> dict[str, Any]:
         rebuilt = migration_metadata(json.dumps({'read_only': True, 'restricted_role': inventory['restricted_role'], 'rows': inventory['rows'], 'schema': {'projection_present': inventory['projection_present'], 'reader_present': inventory['reader_present']}}))
         if rebuilt != inventory:
             raise ValueError('REPORT_DB_INTEGRITY')
+    validate_outbox_topology(value['outbox_topology'])
     # No unknown key, string, path, address, error or payload can pass to artifacts.
     return value
 
@@ -402,6 +403,314 @@ def source_lineage(inventory: dict[str, Any], root: Path) -> dict[str, Any]:
                 'failed_unresolved': inventory['failed_unresolved']}
     except (OSError, ValueError, TypeError, KeyError):
         return {'status': 'NOT_PROVEN'}
+
+
+OUTBOX_REPOSITORY = 'ghcr.io/pachaninm-lab/grainflow-outbox-worker'
+# Reviewed protocol-2 body from the canonical IR-20 migration. Other source
+# versions remain observations and cannot establish legacy rollback semantics.
+CANONICAL_FENCE_PROTOCOL2_SHA256 = '6cf542446dd81c9f4efcf0b16d0633c6cc5bbf59d45b7fe5d34758358ab765ba'
+IMAGE_ID = re.compile(r'sha256:[0-9a-f]{64}\Z')
+CONTAINER_ID = re.compile(r'[0-9a-f]{64}\Z')
+PROJECT = re.compile(r'[a-z0-9][a-z0-9_-]{0,127}\Z')
+PRINCIPAL_TRUE = {'is_app_outbox', 'session_is_app_outbox', 'row_security_on', 'outbox_select', 'required_updates'}
+PRINCIPAL_FALSE = {'superuser', 'bypass_rls', 'createdb', 'createrole', 'replication',
+                   'role_inherit', 'role_memberships', 'owns_outbox', 'forbidden_updates', 'outbox_other_privileges',
+                   'outbox_insert', 'outbox_delete', 'deal_privileges', 'redrive_privileges', 'auth_usage'}
+PRINCIPAL_SQL = r'''
+SELECT current_user='app_outbox' AS is_app_outbox,session_user='app_outbox' AS session_is_app_outbox,
+r.rolsuper AS superuser,
+r.rolbypassrls AS bypass_rls,r.rolcreatedb AS createdb,r.rolcreaterole AS createrole,
+r.rolreplication AS replication,r.rolinherit AS role_inherit,
+EXISTS(SELECT 1 FROM pg_auth_members WHERE member=r.oid) AS role_memberships,
+c.relowner=r.oid AS owns_outbox,current_setting('row_security')='on' AS row_security_on,
+has_table_privilege(current_user,c.oid,'SELECT') AS outbox_select,
+(SELECT bool_and(has_column_privilege(current_user,c.oid,n,'UPDATE')) FROM unnest(ARRAY[
+'status','retryCount','nextRetryAt','lastError','lastErrorCode','lastErrorCategory','lastAttemptAt',
+'manualReviewAt','sentAt','confirmedAt','failedAt','deadLetterAt','leaseOwner','leaseToken',
+'leaseExpiresAt','heartbeatAt']) n) AS required_updates,
+has_table_privilege(current_user,c.oid,'UPDATE') OR EXISTS(
+SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped
+AND a.attname NOT IN ('status','retryCount','nextRetryAt','lastError','lastErrorCode','lastErrorCategory',
+'lastAttemptAt','manualReviewAt','sentAt','confirmedAt','failedAt','deadLetterAt','leaseOwner',
+'leaseToken','leaseExpiresAt','heartbeatAt')
+AND has_column_privilege(current_user,c.oid,a.attnum,'UPDATE')) AS forbidden_updates,
+has_table_privilege(current_user,c.oid,'INSERT') OR has_any_column_privilege(current_user,c.oid,'INSERT') AS outbox_insert,
+has_table_privilege(current_user,c.oid,'DELETE') AS outbox_delete,
+has_table_privilege(current_user,c.oid,'TRUNCATE,REFERENCES,TRIGGER') OR
+has_any_column_privilege(current_user,c.oid,'REFERENCES') AS outbox_other_privileges,
+has_table_privilege(current_user,'public.deals','SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR
+has_any_column_privilege(current_user,'public.deals','SELECT,INSERT,UPDATE,REFERENCES') AS deal_privileges,
+has_table_privilege(current_user,'public.outbox_redrive_events','SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR
+has_any_column_privilege(current_user,'public.outbox_redrive_events','SELECT,INSERT,UPDATE,REFERENCES') AS redrive_privileges,
+has_schema_privilege(current_user,'auth','USAGE') AS auth_usage
+FROM pg_roles r JOIN pg_class c ON c.oid=to_regclass('public.outbox_entries') WHERE r.rolname=current_user
+'''
+CATALOG_SQL = r'''
+SELECT to_regclass('public.outbox_entries') IS NOT NULL AS table_present,
+coalesce(c.relrowsecurity,false) AS rls_enabled,coalesce(c.relforcerowsecurity,false) AS rls_forced,
+coalesce((SELECT count(*)=4 FROM pg_attribute WHERE attrelid=c.oid AND NOT attisdropped
+AND attname IN ('lastErrorCode','lastErrorCategory','lastAttemptAt','manualReviewAt')),false) AS durable_columns_present,
+p.prosrc AS fence_body,p.prosecdef AS fence_security_definer,l.lanname AS fence_language,
+coalesce((SELECT json_agg(json_build_object('enabled',t.tgenabled,'type',t.tgtype,'function_matches',t.tgfoid=p.oid,
+'no_when',t.tgqual IS NULL,'columns',(SELECT array_agg(a.attname ORDER BY a.attname)
+FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum=ANY(t.tgattr))))
+FROM pg_trigger t WHERE t.tgrelid=c.oid AND NOT t.tgisinternal
+AND t.tgname='outbox_expired_attempt_reclaim_guard_trigger'),'[]'::json) AS triggers
+FROM (SELECT 1) seed LEFT JOIN pg_class c ON c.oid=to_regclass('public.outbox_entries')
+LEFT JOIN pg_proc p ON p.oid=to_regprocedure('public.outbox_expired_attempt_reclaim_guard()')
+LEFT JOIN pg_language l ON l.oid=p.prolang
+'''
+
+
+def read_only_program(sql: str) -> str:
+    # Return only catalog/privilege facts. The database identity stays inside the collector.
+    return r'''const {PrismaClient}=require('@prisma/client');const p=new PrismaClient();
+(async()=>{const x=await p.$transaction(async t=>{
+await t.$executeRawUnsafe('SET TRANSACTION READ ONLY');
+await t.$executeRawUnsafe("SET LOCAL statement_timeout='8s'");
+const mode=await t.$queryRawUnsafe("SELECT current_setting('transaction_read_only') AS value");
+if(mode[0]?.value!=='on')throw Error('READ_ONLY_REQUIRED');
+const identity=await t.$queryRawUnsafe("SELECT current_database() AS name,inet_server_addr()::text AS address,inet_server_port() AS port");
+const rows=await t.$queryRawUnsafe(''' + json.dumps(sql) + r''');
+if(rows.length!==1||identity.length!==1)throw Error('METADATA_NOT_PROVEN');
+return {read_only:true,identity:identity[0],row:rows[0]};
+},{timeout:12000,maxWait:3000});process.stdout.write(JSON.stringify(x));
+})().catch(()=>{process.exitCode=1}).finally(async()=>{await p.$disconnect()});'''
+
+
+def read_only_metadata(container: dict[str, Any], sql: str) -> dict[str, Any] | None:
+    cid = container.get('Id')
+    if not isinstance(cid, str) or not CONTAINER_ID.fullmatch(cid) or (container.get('State') or {}).get('Running') is not True:
+        return None
+    try:
+        value = json.loads(run(['docker', 'exec', '-i', cid, '/nodejs/bin/node', '-'], read_only_program(sql)) or 'null')
+        if not isinstance(value, dict) or set(value) != {'read_only', 'identity', 'row'} or value['read_only'] is not True:
+            return None
+        identity = value['identity']
+        if not isinstance(identity, dict) or set(identity) != {'name', 'address', 'port'} or not isinstance(identity['name'], str) or not identity['name']:
+            return None
+        if not isinstance(identity['address'], str) or type(identity['port']) is not int or not 1 <= identity['port'] <= 65535:
+            return None
+        ipaddress.ip_address(identity['address'])
+        return value if isinstance(value['row'], dict) else None
+    except (ValueError, TypeError, KeyError):
+        return None
+
+
+def project_containers(project: str) -> list[dict[str, Any]] | None:
+    if not isinstance(project, str) or not PROJECT.fullmatch(project):
+        return None
+    raw = run(['docker', 'ps', '-aq', '--no-trunc', '--filter', 'label=com.docker.compose.project=' + project])
+    if raw is None:
+        return None
+    ids = raw.split()
+    if not 1 <= len(ids) <= 64 or len(set(ids)) != len(ids) or any(not CONTAINER_ID.fullmatch(cid) for cid in ids):
+        return None
+    try:
+        rows = json.loads(run(['docker', 'inspect', *ids]) or 'null')
+        if not isinstance(rows, list) or len(rows) != len(ids) or any(not isinstance(row, dict) for row in rows):
+            return None
+        if {row.get('Id') for row in rows} != set(ids):
+            return None
+        if any(((row.get('Config') or {}).get('Labels') or {}).get('com.docker.compose.project') != project for row in rows):
+            return None
+        return rows
+    except (ValueError, TypeError, KeyError):
+        return None
+
+
+def bound_image(container: dict[str, Any], repository: str | None) -> dict[str, Any]:
+    result = {'revision': 'NOT_PROVEN', 'registry_digest': 'NOT_PROVEN', 'container_image_binding': False,
+              'immutable_config_ref': False, 'running': (container.get('State') or {}).get('Running') is True,
+              'health': 'NOT_PROVEN'}
+    health = ((container.get('State') or {}).get('Health') or {}).get('Status')
+    if health in ('healthy', 'unhealthy', 'starting'):
+        result['health'] = health
+    image_id = container.get('Image')
+    if not isinstance(image_id, str) or not IMAGE_ID.fullmatch(image_id):
+        return result
+    try:
+        images = json.loads(run(['docker', 'image', 'inspect', image_id]) or 'null')
+        if not isinstance(images, list) or len(images) != 1 or not isinstance(images[0], dict) or images[0].get('Id') != image_id:
+            return result
+        image = images[0]
+        result['container_image_binding'] = True
+        result['revision'] = revision(image)
+        digests = image.get('RepoDigests')
+        if isinstance(digests, list):
+            refs = [ref for ref in digests if isinstance(ref, str) and re.fullmatch(r'[^\s@]+@sha256:[0-9a-f]{64}', ref)
+                    and (repository is None or ref.startswith(repository + '@'))]
+            if len(refs) == 1:
+                result['registry_digest'] = refs[0].split('@')[1]
+                result['immutable_config_ref'] = (container.get('Config') or {}).get('Image') == refs[0]
+        return result
+    except (ValueError, TypeError, KeyError):
+        return result
+
+
+def canonical_worker_configuration(container: dict[str, Any]) -> bool:
+    config = container.get('Config') or {}
+    values = env_of(container)
+    return (config.get('Cmd') == ['dist-outbox-worker/outbox-worker.js']
+            and config.get('Entrypoint') == ['/nodejs/bin/node'] and config.get('WorkingDir') == '/app'
+            and all(values.get(key) == expected for key, expected in (
+                ('NODE_ENV', 'production'), ('RUNTIME_COMPONENT', 'outbox-worker'),
+                ('OUTBOX_WORKER_ENABLED', 'true'), ('KAFKA_REQUIRED', 'true'))))
+
+
+def project_runtime_identity(container: dict[str, Any]) -> str | None:
+    # A stopped one-shot migration container is legitimate inventory, not an
+    # unstable worker. Compare identity/configuration without health log text.
+    required = ('Id', 'Image', 'Config', 'HostConfig', 'NetworkSettings', 'State')
+    if any(key not in container for key in required):
+        return None
+    state = container['State']
+    if not isinstance(state, dict) or type(state.get('Running')) is not bool or not isinstance(state.get('StartedAt'), str):
+        return None
+    selected = {key: container[key] for key in required if key != 'State'}
+    selected['State'] = {key: state.get(key) for key in ('Running', 'Status', 'StartedAt', 'FinishedAt', 'Restarting')}
+    selected['RestartCount'] = container.get('RestartCount')
+    return hashlib.sha256(json.dumps(selected, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+
+
+def kafka_topology(worker: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, Any]:
+    result = {'status': 'NOT_PROVEN', 'configured_brokers': 0, 'same_project_peers': 0,
+              'running_peers': 0, 'broker_probe': 'NOT_PERFORMED'}
+    brokers = env_of(worker).get('KAFKA_BROKERS', '').split(',')
+    if not 1 <= len(brokers) <= 32 or not all(re.fullmatch(r'[A-Za-z0-9_.-]+:[0-9]{1,5}', item) for item in brokers):
+        return result
+    if any(not 1 <= int(item.rsplit(':', 1)[1]) <= 65535 for item in brokers):
+        return result
+    result['configured_brokers'] = len(brokers)
+    networks = (worker.get('NetworkSettings') or {}).get('Networks') or {}
+    mapped = []
+    for broker in brokers:
+        host = broker.rsplit(':', 1)[0]
+        peers = []
+        for row in rows:
+            if row.get('Id') == worker.get('Id'):
+                continue
+            for name, network in ((row.get('NetworkSettings') or {}).get('Networks') or {}).items():
+                own = networks.get(name) or {}
+                aliases = network.get('Aliases') or []
+                if (own.get('NetworkID') and own.get('NetworkID') == network.get('NetworkID')
+                        and (host == network.get('IPAddress') or host in aliases)):
+                    peers.append(row.get('Id'))
+                    break
+        if len(peers) != 1:
+            return result
+        mapped.append(peers[0])
+    result.update(status='COMPOSE_PEERS_OBSERVED_NOT_CONNECTIVITY', same_project_peers=len(set(mapped)),
+                  running_peers=sum((row.get('State') or {}).get('Running') is True for row in rows if row.get('Id') in mapped))
+    return result
+
+
+def outbox_topology(api: dict[str, Any], project: str | None) -> dict[str, Any]:
+    rows = project_containers(project)
+    if rows is None or api.get('Id') not in {row['Id'] for row in rows}:
+        return {'status': 'NOT_PROVEN'}
+    project_api = next(row for row in rows if row['Id'] == api.get('Id'))
+    if runtime_identity(api) is None or runtime_identity(api) != runtime_identity(project_api):
+        return {'status': 'NOT_PROVEN'}
+    candidates = [row for row in rows if env_of(row).get('RUNTIME_COMPONENT') == 'outbox-worker'
+                  or (row.get('Config') or {}).get('Cmd') == ['dist-outbox-worker/outbox-worker.js']
+                  or str((row.get('Config') or {}).get('Image', '')).startswith(OUTBOX_REPOSITORY + '@')]
+    worker = candidates[0] if len(candidates) == 1 else {}
+    catalog_raw = read_only_metadata(api, CATALOG_SQL)
+    catalog = {'status': 'NOT_PROVEN'}
+    if catalog_raw is not None:
+        row = catalog_raw['row']
+        flags = ('table_present', 'rls_enabled', 'rls_forced', 'durable_columns_present')
+        if all(type(row.get(key)) is bool for key in flags):
+            triggers = row.get('triggers')
+            trigger = triggers[0] if isinstance(triggers, list) and len(triggers) == 1 and isinstance(triggers[0], dict) else {}
+            body = row.get('fence_body')
+            catalog = {'status': 'OBSERVED_READ_ONLY', **{key: row[key] for key in flags},
+                       'fence_body_sha256': hashlib.sha256(body.encode()).hexdigest() if isinstance(body, str) and len(body.encode()) <= 65536 else 'NOT_PROVEN',
+                       'trigger_enabled': trigger.get('enabled') in ('O', 'A'),
+                       'trigger_shape_matches': trigger.get('type') == 19 and trigger.get('function_matches') is True
+                           and trigger.get('no_when') is True and trigger.get('columns') == ['leaseToken', 'status'],
+                       'fence_invoker_plpgsql': row.get('fence_security_definer') is False and row.get('fence_language') == 'plpgsql'}
+    principal_raw = read_only_metadata(worker, PRINCIPAL_SQL)
+    principal = {'status': 'NOT_PROVEN'}
+    if principal_raw is not None and set(principal_raw['row']) == PRINCIPAL_TRUE | PRINCIPAL_FALSE and all(type(v) is bool for v in principal_raw['row'].values()):
+        flags = principal_raw['row']
+        principal = {'status': 'OBSERVED_READ_ONLY', **flags,
+                     'boundary_matches': all(flags[key] for key in PRINCIPAL_TRUE) and not any(flags[key] for key in PRINCIPAL_FALSE),
+                     'same_database_as_api': catalog_raw is not None and principal_raw['identity'] == catalog_raw['identity']}
+    after = project_containers(project)
+    before_ids = {row['Id']: project_runtime_identity(row) for row in rows}
+    after_ids = {row['Id']: project_runtime_identity(row) for row in after} if after is not None else {}
+    return {'status': 'OBSERVED_COMPOSE_METADATA', 'api_image': bound_image(api, 'ghcr.io/pachaninm-lab/grainflow-api'),
+            'worker_candidates': len(candidates), 'worker_image': bound_image(worker, OUTBOX_REPOSITORY),
+            'worker_configuration_matches': len(candidates) == 1 and canonical_worker_configuration(worker),
+            'principal': principal, 'catalog': catalog, 'kafka': kafka_topology(worker, rows),
+            'runtime_stability': 'UNCHANGED' if None not in before_ids.values() and before_ids == after_ids else 'NOT_PROVEN',
+            'persisted_compose_model': 'NOT_INSPECTED', 'rollback_compatibility': 'NOT_PROVEN'}
+
+
+def validate_outbox_topology(value: Any) -> None:
+    if value == {'status': 'NOT_PROVEN'}:
+        return
+    expected = {'status', 'api_image', 'worker_candidates', 'worker_image', 'worker_configuration_matches', 'principal', 'catalog', 'kafka', 'runtime_stability', 'persisted_compose_model', 'rollback_compatibility'}
+    if not isinstance(value, dict) or set(value) != expected or value['status'] != 'OBSERVED_COMPOSE_METADATA':
+        raise ValueError('OUTBOX_SCHEMA')
+    if type(value['worker_candidates']) is not int or not 0 <= value['worker_candidates'] <= 64 or type(value['worker_configuration_matches']) is not bool:
+        raise ValueError('OUTBOX_CANDIDATES')
+    if value['worker_configuration_matches'] and value['worker_candidates'] != 1:
+        raise ValueError('OUTBOX_AMBIGUOUS_WORKER')
+    for key in ('api_image', 'worker_image'):
+        image = value[key]
+        if not isinstance(image, dict) or set(image) != {'revision', 'registry_digest', 'container_image_binding', 'immutable_config_ref', 'running', 'health'}:
+            raise ValueError('OUTBOX_IMAGE_SCHEMA')
+        if not isinstance(image['revision'], str) or (image['revision'] != 'NOT_PROVEN' and not SHA.fullmatch(image['revision'])):
+            raise ValueError('OUTBOX_IMAGE_REVISION')
+        if not isinstance(image['registry_digest'], str) or (image['registry_digest'] != 'NOT_PROVEN' and not IMAGE_ID.fullmatch(image['registry_digest'])):
+            raise ValueError('OUTBOX_IMAGE_DIGEST')
+        if any(type(image[k]) is not bool for k in ('container_image_binding', 'immutable_config_ref', 'running')) or image['health'] not in ('healthy', 'unhealthy', 'starting', 'NOT_PROVEN'):
+            raise ValueError('OUTBOX_IMAGE_STATE')
+    principal = value['principal']
+    if principal != {'status': 'NOT_PROVEN'}:
+        keys = PRINCIPAL_TRUE | PRINCIPAL_FALSE | {'boundary_matches', 'same_database_as_api'}
+        if not isinstance(principal, dict) or set(principal) != keys | {'status'} or principal['status'] != 'OBSERVED_READ_ONLY' or any(type(principal[k]) is not bool for k in keys):
+            raise ValueError('OUTBOX_PRINCIPAL_SCHEMA')
+        if principal['boundary_matches'] != (all(principal[k] for k in PRINCIPAL_TRUE) and not any(principal[k] for k in PRINCIPAL_FALSE)):
+            raise ValueError('OUTBOX_PRINCIPAL_CONTRADICTION')
+    catalog = value['catalog']
+    if catalog != {'status': 'NOT_PROVEN'}:
+        keys = {'table_present', 'rls_enabled', 'rls_forced', 'durable_columns_present', 'trigger_enabled', 'trigger_shape_matches', 'fence_invoker_plpgsql'}
+        if not isinstance(catalog, dict) or set(catalog) != keys | {'status', 'fence_body_sha256'} or catalog['status'] != 'OBSERVED_READ_ONLY' or any(type(catalog[k]) is not bool for k in keys):
+            raise ValueError('OUTBOX_CATALOG_SCHEMA')
+        if not isinstance(catalog['fence_body_sha256'], str) or (catalog['fence_body_sha256'] != 'NOT_PROVEN' and not CHECKSUM.fullmatch(catalog['fence_body_sha256'])):
+            raise ValueError('OUTBOX_FENCE_HASH')
+    kafka = value['kafka']
+    if not isinstance(kafka, dict) or set(kafka) != {'status', 'configured_brokers', 'same_project_peers', 'running_peers', 'broker_probe'} or kafka['status'] not in ('NOT_PROVEN', 'COMPOSE_PEERS_OBSERVED_NOT_CONNECTIVITY') or kafka['broker_probe'] != 'NOT_PERFORMED':
+        raise ValueError('OUTBOX_KAFKA_SCHEMA')
+    if any(type(kafka[k]) is not int or not 0 <= kafka[k] <= 32 for k in ('configured_brokers', 'same_project_peers', 'running_peers')):
+        raise ValueError('OUTBOX_KAFKA_COUNT')
+    if not kafka['running_peers'] <= kafka['same_project_peers'] <= kafka['configured_brokers']:
+        raise ValueError('OUTBOX_KAFKA_COUNT_CONTRADICTION')
+    if value['runtime_stability'] not in ('UNCHANGED', 'NOT_PROVEN') or value['persisted_compose_model'] != 'NOT_INSPECTED' or value['rollback_compatibility'] != 'NOT_PROVEN':
+        raise ValueError('OUTBOX_AUTHORITY')
+
+
+def outbox_source_comparison(topology: dict[str, Any], root: Path) -> dict[str, str]:
+    result = {'fence_definition': 'NOT_PROVEN', 'rollback_compatibility': 'NOT_PROVEN', 'legacy_claim_rollback': 'NOT_PROVEN'}
+    try:
+        paths = list(root.glob('*_canonical_durable_outbox/migration.sql'))
+        if len(paths) != 1 or paths[0].is_symlink() or not paths[0].is_file() or paths[0].stat().st_size > MAX_BYTES:
+            return result
+        source = paths[0].read_text()
+        body = re.findall(r'CREATE OR REPLACE FUNCTION public\.outbox_expired_attempt_reclaim_guard\(\)\s+RETURNS trigger\s+LANGUAGE plpgsql\s+AS \$guard\$(.*?)\$guard\$;', source, re.S)
+        catalog = topology.get('catalog', {})
+        if len(body) == 1 and catalog.get('fence_body_sha256') == hashlib.sha256(body[0].encode()).hexdigest():
+            result['fence_definition'] = 'MATCHES_TRUSTED_SOURCE'
+            if (catalog['fence_body_sha256'] == CANONICAL_FENCE_PROTOCOL2_SHA256
+                    and all(catalog.get(key) is True for key in ('trigger_enabled', 'trigger_shape_matches', 'fence_invoker_plpgsql'))):
+                result['legacy_claim_rollback'] = 'INCOMPATIBLE_WITH_OBSERVED_FENCE'
+        return result
+    except (OSError, ValueError, TypeError):
+        return result
 
 
 def collect(target: str) -> dict[str, Any]:
@@ -447,7 +756,7 @@ def collect(target: str) -> dict[str, Any]:
             'observed_at_utc': dt.datetime.now(dt.timezone.utc).isoformat(),
             'running_web_revision': revision(web), 'running_api_revision': revision(api),
             'checks': checks, 'migration_inventory': db, 'capacity': capacity,
-            'backup': backup,
+            'backup': backup, 'outbox_topology': outbox_topology(api, project),
             'production_mutation': 'NONE', 'deployment_authorized': False,
             'live_acceptance': 'NOT_PERFORMED', 'protected_values': 'NOT_PUBLISHED'}
 
