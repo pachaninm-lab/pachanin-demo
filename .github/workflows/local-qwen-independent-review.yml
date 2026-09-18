@@ -458,6 +458,48 @@ jobs:
               r'\b(?:route|path|test(?:-only)?|workflow|constant)\b',
               re.IGNORECASE,
           )
+          BYPASS_CLAIM_TERMS = re.compile(
+              r'\b(?:authorization bypass|security boundary bypass|security/privacy boundar(?:y|ies)(?: bypass)?|validation bypass|admission bypass|authority bypass)\b',
+              re.IGNORECASE,
+          )
+
+          def direct_fail_closed_rejection(line_text):
+              compact = str(line_text or '').strip()
+              if not compact:
+                  return False
+              if re.match(r'^(?:fail|process\.exit|sys\.exit)\s*\(', compact):
+                  return True
+              if re.match(r'^(?:throw|raise)\b', compact):
+                  return True
+              return bool(re.match(
+                  r'^return\s+\{[^}]*\b(?:eligible|authorized|allowed|accepted)\s*:\s*false\b',
+                  compact,
+                  re.IGNORECASE,
+              ))
+
+          def fail_closed_rejection_bypass_contradiction(item, finding):
+              if not isinstance(finding, dict):
+                  return False
+              combined = f'{finding.get("title", "")} {finding.get("reason", "")}'
+              if not BYPASS_CLAIM_TERMS.search(combined):
+                  return False
+              line = finding.get('line')
+              if isinstance(line, bool) or not isinstance(line, int) or line < 1:
+                  return False
+              added = {
+                  int(entry['line']): str(entry['text'])
+                  for entry in item.get('added_lines', [])
+                  if type(entry.get('line')) is int and isinstance(entry.get('text'), str)
+              }
+              exact_line = added.get(line)
+              if exact_line is None:
+                  return False
+              if direct_fail_closed_rejection(exact_line):
+                  return True
+              compact = exact_line.strip()
+              if re.fullmatch(r'if\s*\([^\n]*(?:!==|!=)[^\n]*\)\s*\{?', compact):
+                  return direct_fail_closed_rejection(added.get(line + 1, ''))
+              return False
 
           def fail(code):
               raise SystemExit('REMOTE_REVIEW_ERROR=' + code)
@@ -526,6 +568,8 @@ jobs:
                   return 'EVIDENCE_LINE_NOT_ADDED'
               if evidence not in exact_line:
                   return 'EVIDENCE_NOT_ON_CITED_ADDED_LINE'
+              if fail_closed_rejection_bypass_contradiction(item, finding):
+                  return 'FAIL_CLOSED_REJECTION_BYPASS_CONTRADICTION'
               return None
 
           def policy_violation(item, content):
@@ -751,6 +795,7 @@ jobs:
               repairable = {
                   'SPECULATIVE_CLAIM',
                   'TEST_ONLY_SECURITY_FINDING_REJECTED',
+                  'FAIL_CLOSED_REJECTION_BYPASS_CONTRADICTION',
               }
               return (
                   initial_violation in repairable
@@ -843,6 +888,13 @@ jobs:
                       'Do not convert the rejected test-only security finding into differently worded production behavior. '
                       'A non-empty repaired finding must identify a concrete defect directly implemented by the changed bytes in this exact chunk; otherwise author findings=[]. '
                   )
+              elif violation == 'FAIL_CLOSED_REJECTION_BYPASS_CONTRADICTION':
+                  violation_guidance = (
+                      'For FAIL_CLOSED_REJECTION_BYPASS_CONTRADICTION, the preserved trusted anchor is mechanically fail-closed: it is either a direct terminating rejection or a mismatch guard whose immediate added body rejects the mismatching value. '
+                      'Do not repeat an authorization, security-boundary, validation, admission, or authority-bypass claim merely by rewording it assertively. '
+                      'A non-empty repaired finding on this same anchor requires the exact preserved line itself to admit, authorize, continue, mutate, or disclose the mismatching/untrusted value despite the rejection semantics. '
+                      'Neighboring lines remain context only and cannot become replacement evidence. If the exact anchor does not directly implement that unsafe mechanism, author findings=[]. '
+                  )
               return (
                   item['user']
                   + '\nTRUSTED_POLICY_REPAIR_NOTICE\n'
@@ -917,6 +969,54 @@ jobs:
               title='Database nodes have divergent clocks',
               reason='The added assignment reads inconsistent values across database nodes.',
           )
+          fail_closed_guard_item = dict(
+              probe_item,
+              added_lines=[
+                  {'line': 7, 'text': 'if (snapshot.headRef !== expectedHeadRef) {'},
+                  {'line': 8, 'text': "return { eligible: false, reason: 'ci-head-ref-mismatch' };"},
+              ],
+              chunk_text="+if (snapshot.headRef !== expectedHeadRef) {\n+return { eligible: false, reason: 'ci-head-ref-mismatch' };",
+          )
+          guard_bypass_probe = dict(
+              valid_probe,
+              evidence='if (snapshot.headRef !== expectedHeadRef) {',
+              title='Authorization Bypass via Head Ref Mismatch',
+              reason='The mismatch guard admits an untrusted head ref as authority.',
+          )
+          direct_rejection_item = dict(
+              probe_item,
+              added_lines=[{
+                  'line': 7,
+                  'text': "fail('REVIEW_GATE_REPO_AUTHORITY_MISMATCH', 'REPO must match trusted GITHUB_REPOSITORY when both are present.')",
+              }],
+              chunk_text="+fail('REVIEW_GATE_REPO_AUTHORITY_MISMATCH', 'REPO must match trusted GITHUB_REPOSITORY when both are present.')",
+          )
+          direct_rejection_bypass_probe = dict(
+              valid_probe,
+              evidence="fail('REVIEW_GATE_REPO_AUTHORITY_MISMATCH', 'REPO must match trusted GITHUB_REPOSITORY when both are present.')",
+              title='Security Boundary Bypass via Environment Variable Mismatch',
+              reason='The mismatch rejection admits a conflicting repository authority.',
+          )
+          equality_guard_item = dict(
+              fail_closed_guard_item,
+              added_lines=[
+                  {'line': 7, 'text': 'if (snapshot.headRef === expectedHeadRef) {'},
+                  {'line': 8, 'text': "return { eligible: false, reason: 'ci-head-ref-mismatch' };"},
+              ],
+              chunk_text="+if (snapshot.headRef === expectedHeadRef) {\n+return { eligible: false, reason: 'ci-head-ref-mismatch' };",
+          )
+          equality_guard_probe = dict(
+              guard_bypass_probe,
+              evidence='if (snapshot.headRef === expectedHeadRef) {',
+          )
+          nonrejecting_guard_item = dict(
+              fail_closed_guard_item,
+              added_lines=[
+                  {'line': 7, 'text': 'if (snapshot.headRef !== expectedHeadRef) {'},
+                  {'line': 8, 'text': 'console.log(snapshot.headRef);'},
+              ],
+              chunk_text='+if (snapshot.headRef !== expectedHeadRef) {\n+console.log(snapshot.headRef);',
+          )
           test_probe_item = dict(probe_item, path='service.spec.ts')
           test_security_speculative_probe = dict(
               valid_probe,
@@ -943,6 +1043,14 @@ jobs:
               fail('VALIDATOR_SELFTEST_NON_VERBATIM_EVIDENCE_NOT_REJECTED')
           if finding_violation(probe_item, external_probe) != 'EXTERNAL_CONTEXT_ASSUMPTION':
               fail('VALIDATOR_SELFTEST_EXTERNAL_CONTEXT_FAILED')
+          if finding_violation(fail_closed_guard_item, guard_bypass_probe) != 'FAIL_CLOSED_REJECTION_BYPASS_CONTRADICTION':
+              fail('VALIDATOR_SELFTEST_FAIL_CLOSED_GUARD_BYPASS_NOT_REJECTED')
+          if finding_violation(direct_rejection_item, direct_rejection_bypass_probe) != 'FAIL_CLOSED_REJECTION_BYPASS_CONTRADICTION':
+              fail('VALIDATOR_SELFTEST_DIRECT_REJECTION_BYPASS_NOT_REJECTED')
+          if finding_violation(equality_guard_item, equality_guard_probe) == 'FAIL_CLOSED_REJECTION_BYPASS_CONTRADICTION':
+              fail('VALIDATOR_SELFTEST_EQUALITY_GUARD_FALSE_REJECTION')
+          if finding_violation(nonrejecting_guard_item, guard_bypass_probe) == 'FAIL_CLOSED_REJECTION_BYPASS_CONTRADICTION':
+              fail('VALIDATOR_SELFTEST_NONREJECTING_GUARD_FALSE_REJECTION')
           speculative_candidate = json.dumps({'findings': [speculative_probe]}, separators=(',', ':'))
           if candidate_anchor(probe_item, speculative_candidate) != (7, 'sanitize(input)'):
               fail('VALIDATOR_SELFTEST_REPAIR_ANCHOR_MISSING')
@@ -1072,6 +1180,27 @@ jobs:
           )
           if 'test-only assertion' not in test_security_repair_probe or 'otherwise author findings=[]' not in test_security_repair_probe:
               fail('VALIDATOR_SELFTEST_TEST_SECURITY_REPAIR_GUIDANCE_MISSING')
+          fail_closed_candidate = json.dumps({'findings': [guard_bypass_probe]}, separators=(',', ':'))
+          fail_closed_anchor = candidate_anchor(fail_closed_guard_item, fail_closed_candidate)
+          if fail_closed_anchor != (7, 'if (snapshot.headRef !== expectedHeadRef) {'):
+              fail('VALIDATOR_SELFTEST_FAIL_CLOSED_ANCHOR_MISSING')
+          fail_closed_repair_item = scoped_speculative_repair_item(fail_closed_guard_item, fail_closed_anchor)
+          fail_closed_prompt = repair_user(
+              fail_closed_repair_item,
+              'FAIL_CLOSED_REJECTION_BYPASS_CONTRADICTION',
+              fail_closed_candidate,
+              1,
+              MAX_SPECULATIVE_REPAIR_ATTEMPTS,
+          )
+          if 'mechanically fail-closed' not in fail_closed_prompt or 'cannot become replacement evidence' not in fail_closed_prompt:
+              fail('VALIDATOR_SELFTEST_FAIL_CLOSED_REPAIR_GUIDANCE_MISSING')
+          if not can_retry_speculative(
+              'FAIL_CLOSED_REJECTION_BYPASS_CONTRADICTION',
+              'FAIL_CLOSED_REJECTION_BYPASS_CONTRADICTION',
+              fail_closed_anchor,
+              1,
+          ):
+              fail('VALIDATOR_SELFTEST_FAIL_CLOSED_RETRY_NOT_ALLOWED')
           speculative_repair_probe = repair_user(scoped_probe_item, 'SPECULATIVE_CLAIM', speculative_candidate, 2, MAX_SPECULATIVE_REPAIR_ATTEMPTS)
           if 'does not by itself prove downstream retry' not in speculative_repair_probe:
               fail('VALIDATOR_SELFTEST_SPECULATION_REPAIR_GROUNDING_MISSING')
@@ -1455,6 +1584,7 @@ jobs:
                       repairable = {
                           'SPECULATIVE_CLAIM',
                           'TEST_ONLY_SECURITY_FINDING_REJECTED',
+                          'FAIL_CLOSED_REJECTION_BYPASS_CONTRADICTION',
                       }
                       if violation == 'EVIDENCE_NOT_ON_CITED_ADDED_LINE':
                           selected = selected_added_line(item, initial)
@@ -1815,6 +1945,41 @@ jobs:
               r'\b(?:route|path|test(?:-only)?|workflow|constant)\b',
               re.IGNORECASE,
           )
+          bypass_claim_terms = re.compile(
+              r'\b(?:authorization bypass|security boundary bypass|security/privacy boundar(?:y|ies)(?: bypass)?|validation bypass|admission bypass|authority bypass)\b',
+              re.IGNORECASE,
+          )
+
+          def direct_fail_closed_rejection(line_text):
+              compact = str(line_text or '').strip()
+              if not compact:
+                  return False
+              if re.match(r'^(?:fail|process\.exit|sys\.exit)\s*\(', compact):
+                  return True
+              if re.match(r'^(?:throw|raise)\b', compact):
+                  return True
+              return bool(re.match(
+                  r'^return\s+\{[^}]*\b(?:eligible|authorized|allowed|accepted)\s*:\s*false\b',
+                  compact,
+                  re.IGNORECASE,
+              ))
+
+          def fail_closed_rejection_bypass_contradiction(added, finding):
+              combined = f'{finding.get("title", "")} {finding.get("reason", "")}'
+              if not bypass_claim_terms.search(combined):
+                  return False
+              line = finding.get('line')
+              if isinstance(line, bool) or not isinstance(line, int) or line < 1:
+                  return False
+              exact_line = added.get(line)
+              if exact_line is None:
+                  return False
+              if direct_fail_closed_rejection(exact_line):
+                  return True
+              compact = exact_line.strip()
+              if re.fullmatch(r'if\s*\([^\n]*(?:!==|!=)[^\n]*\)\s*\{?', compact):
+                  return direct_fail_closed_rejection(added.get(line + 1, ''))
+              return False
 
           all_findings = []
           seen = []
@@ -1879,6 +2044,8 @@ jobs:
                   is_test_path = '/tests/' in finding['path'] or '.test.' in finding['path'] or '.spec.' in finding['path']
                   if is_test_path and security_finding_terms.search(combined) and route_test_reference.search(combined):
                       raise SystemExit(f'Test-route security classification survived repair in chunk {index}.')
+                  if fail_closed_rejection_bypass_contradiction(added, finding):
+                      raise SystemExit(f'Fail-closed rejection bypass contradiction survived repair in chunk {index}.')
 
                   finding = dict(finding)
                   finding['evidence_sha256'] = hashlib.sha256(
