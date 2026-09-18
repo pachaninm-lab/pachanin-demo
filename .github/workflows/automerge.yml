@@ -4,10 +4,6 @@ name: Repo automations
 on:
   pull_request_target:
     types: [opened, reopened, synchronize, ready_for_review, converted_to_draft, edited, labeled, unlabeled, closed]
-  pull_request_review:
-    types: [submitted, edited, dismissed]
-  pull_request_review_comment:
-    types: [created, edited, deleted]
   issue_comment:
     types: [created]
   workflow_dispatch:
@@ -135,7 +131,7 @@ jobs:
               const comment = context.payload.comment;
               if (!context.payload.issue?.pull_request || comment?.user?.login !== owner || comment?.author_association !== 'OWNER' || comment?.body !== '/merge-readiness') return;
               addCandidate(context.payload.issue.number);
-            } else if (['pull_request_target', 'pull_request_review', 'pull_request_review_comment'].includes(context.eventName)) {
+            } else if (context.eventName === 'pull_request_target') {
               addCandidate(context.payload.pull_request?.number, context.payload.pull_request?.head?.sha);
             } else {
               throw new Error('READINESS_EVENT_UNSUPPORTED');

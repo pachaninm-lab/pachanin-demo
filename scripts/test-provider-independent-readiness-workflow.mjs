@@ -107,9 +107,19 @@ test('workflow retires providers and has no schedule, merging or dispatch loop',
   assert.doesNotMatch(source, /\$\{\{/);
   assert.match(workflow, /group: repo-engineering-readiness\n\s*cancel-in-progress: false\n\s*queue: max/);
   const events = workflow.split('\npermissions:')[0];
+  assert.doesNotMatch(events, /^  pull_request(?:_review|_review_comment)?:/m);
   assert.match(events, /workflow_run:[\s\S]*types: \[completed\]/);
   assert.doesNotMatch(events, /- Repo automations|- Local Qwen Independent Review|- Independent Octopus Review/);
 });
+
+for (const event of ['pull_request_review', 'pull_request_review_comment', 'pull_request']) {
+  test(`PR-selectable workflow event cannot publish readiness: ${event}`, async () => {
+    const result = await runFixture({ event });
+    assert.match(result.thrown?.message || '', /READINESS_EVENT_UNSUPPORTED/);
+    assert.equal(mutations(result).length, 0);
+    assert.equal(result.calls.some(call => call.name === 'verifier'), false);
+  });
+}
 
 test('actual evaluator binds required native check and readiness status to exact head', async () => {
   const result = await runFixture();
