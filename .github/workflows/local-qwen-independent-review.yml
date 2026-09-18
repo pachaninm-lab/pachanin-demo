@@ -827,6 +827,15 @@ jobs:
                               'When the comparison is a mismatch test, a finding cannot claim authorization bypass, race acceptance, or unvalidated expected authority unless the same pinned line itself admits the mismatching value. This guard line contains no admission operation. '
                               'Do not move the defect mechanism to an unstated later statement or invent missing validation of the expected operand. If the claimed bypass depends on code outside the pinned comparison line, author findings=[]. '
                           )
+                      if (
+                          re.match(r'^(?:fail|process\.exit|sys\.exit)\s*\(', compact_evidence)
+                          or re.match(r'^(?:throw|raise)\b', compact_evidence)
+                      ):
+                          violation_guidance += (
+                              'The pinned evidence is an explicit rejection or termination action, not an admission path. Calling fail/exit/throw/raise on the cited line enforces rejection at that point; the line does not accept the mismatching repository, authorize it, or continue execution as trusted authority. '
+                              'A static error message that names environment-variable identifiers such as REPO or GITHUB_REPOSITORY does not disclose their runtime values and is not a secret/PII sink. '
+                              'Do not claim authorization bypass, secret disclosure, or validation bypass from this rejection line unless the same pinned line itself catches/suppresses the failure or directly emits sensitive runtime values. If the claimed defect requires behavior outside the pinned line, author findings=[]. '
+                          )
               elif violation == 'TEST_ONLY_SECURITY_FINDING_REJECTED':
                   violation_guidance = (
                       'For TEST_ONLY_SECURITY_FINDING_REJECTED, a test-only assertion, mock, expectation, route name, or test fixture does not by itself implement or prove a production security/privacy boundary bypass. '
@@ -1155,6 +1164,30 @@ jobs:
               fail('VALIDATOR_SELFTEST_SPECULATION_GUARD_CONDITION_MECHANISM_GUIDANCE_MISSING')
           if 'This guard line contains no admission operation' not in guard_prompt:
               fail('VALIDATOR_SELFTEST_SPECULATION_GUARD_CONDITION_ADMISSION_GUIDANCE_MISSING')
+          rejection_probe = dict(
+              speculative_probe,
+              evidence="fail('REVIEW_GATE_REPO_AUTHORITY_MISMATCH', 'REPO must match trusted GITHUB_REPOSITORY when both are present.')",
+          )
+          rejection_candidate = json.dumps({'findings': [rejection_probe]}, separators=(',', ':'))
+          rejection_prompt = repair_user(
+              dict(
+                  probe_item,
+                  added_lines=[{
+                      'line': 7,
+                      'text': "fail('REVIEW_GATE_REPO_AUTHORITY_MISMATCH', 'REPO must match trusted GITHUB_REPOSITORY when both are present.')",
+                  }],
+              ),
+              'SPECULATIVE_CLAIM',
+              rejection_candidate,
+              2,
+              MAX_SPECULATIVE_REPAIR_ATTEMPTS,
+          )
+          if 'explicit rejection or termination action, not an admission path' not in rejection_prompt:
+              fail('VALIDATOR_SELFTEST_SPECULATION_REJECTION_ACTION_CLASSIFICATION_MISSING')
+          if 'does not disclose their runtime values and is not a secret/PII sink' not in rejection_prompt:
+              fail('VALIDATOR_SELFTEST_SPECULATION_REJECTION_MESSAGE_SINK_GUIDANCE_MISSING')
+          if 'unless the same pinned line itself catches/suppresses the failure or directly emits sensitive runtime values' not in rejection_prompt:
+              fail('VALIDATOR_SELFTEST_SPECULATION_REJECTION_DIRECT_MECHANISM_GUIDANCE_MISSING')
           if 'otherwise author findings=[]' not in speculative_repair_probe:
               fail('VALIDATOR_SELFTEST_SPECULATION_REPAIR_EMPTY_RESULT_GUIDANCE_MISSING')
           if 'original cited NEW_LINE_7' not in speculative_repair_probe or 'same verbatim evidence substring' not in speculative_repair_probe:
