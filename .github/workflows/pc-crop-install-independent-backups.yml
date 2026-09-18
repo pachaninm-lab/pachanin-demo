@@ -185,7 +185,11 @@ jobs:
           find "$ROOT/git" -maxdepth 1 -type f -name '*.bundle*' -mtime +30 -delete
 
           cfg="$ROOT/config/config-and-secret-authority-${DAY}.tar.zst"
-          if [[ -e "$cfg" ]] && ! (zstd -dc "$cfg" 2>/dev/null | tar -tf - >/dev/null 2>&1); then rm -f "$cfg" "$cfg.sha256"; fi
+          if [[ -e "$cfg" ]]; then
+            if ! zstd -t -q "$cfg" || ! tar -I zstd -tf "$cfg" 2>/dev/null | grep -q .; then
+              rm -f "$cfg" "$cfg.sha256"
+            fi
+          fi
           if [[ ! -e "$cfg" ]]; then
             tmp_cfg="$cfg.tmp"
             rm -f "$tmp_cfg"
@@ -195,12 +199,13 @@ jobs:
             done
             (( ${#cfg_paths[@]} > 0 ))
             set +e
-            tar --ignore-failed-read --warning=no-file-changed --numeric-owner -C / -cf - "${cfg_paths[@]}" 2>/dev/null | zstd -T0 -6 -q -o "$tmp_cfg"
-            pipe_status=("${PIPESTATUS[@]}")
+            tar --ignore-failed-read --warning=no-file-changed --numeric-owner -I 'zstd -T0 -6 -q' -C / -cf "$tmp_cfg" "${cfg_paths[@]}" 2>/dev/null
+            tar_rc=$?
             set -e
-            (( pipe_status[1] == 0 ))
-            (( pipe_status[0] == 0 || pipe_status[0] == 1 ))
+            (( tar_rc == 0 || tar_rc == 1 ))
             [[ -s "$tmp_cfg" ]]
+            zstd -t -q "$tmp_cfg"
+            tar -I zstd -tf "$tmp_cfg" 2>/dev/null | grep -q .
             mv "$tmp_cfg" "$cfg"
             chown root:pcbackup "$cfg"; chmod 0640 "$cfg"
             sha256sum "$cfg" > "$cfg.sha256"; chown root:pcbackup "$cfg.sha256"; chmod 0640 "$cfg.sha256"
@@ -211,9 +216,11 @@ jobs:
           if [[ -d "$minio" ]]; then
             used="$(du -sb "$minio" | awk '{print $1}')"
             obj="$ROOT/objects/minio-${DAY}.tar.zst"
-            if [[ -e "$obj" ]] && ! (zstd -dc "$obj" 2>/dev/null | tar -tf - >/dev/null 2>&1); then rm -f "$obj" "$obj.sha256"; fi
-            if [[ -e "$obj" ]] && ! zstd -t -q "$obj"; then rm -f "$obj" "$obj.sha256"; fi
-            if [[ -e "$obj" ]] && ! tar -I zstd -tf "$obj" 2>/dev/null | grep -q .; then rm -f "$obj" "$obj.sha256"; fi
+            if [[ -e "$obj" ]]; then
+              if ! zstd -t -q "$obj" || ! tar -I zstd -tf "$obj" 2>/dev/null | grep -q .; then
+                rm -f "$obj" "$obj.sha256"
+              fi
+            fi
             if [[ ! -e "$obj" && "$used" -lt $(( FREE / 3 )) ]]; then
               tmp_obj="$obj.tmp"
               rm -f "$tmp_obj"
@@ -346,9 +353,33 @@ jobs:
           USER: ${{ steps.ssh.outputs.user }}
         run: |
           set -euo pipefail
-          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" \
-            'set -euo pipefail; test -f /var/backups/pc-crop/manifests/latest-db.txt; test -f /var/backups/pc-crop/manifests/latest-full.txt; latest_db=$(awk -F= "$1==\"file\"{print $2}" /var/backups/pc-crop/manifests/latest-db.txt); test -n "$latest_db"; pg_restore --list "/var/backups/pc-crop/db/recent/$latest_db" >/dev/null; zstd -t -q /var/backups/pc-crop/config/*.tar.zst; zstd -t -q /var/backups/pc-crop/images/*.tar.zst; zstd -t -q /var/backups/pc-crop/objects/*.tar.zst; id pcbackup; find /var/backups/pc-crop -maxdepth 3 -type f -printf "%m %g %s %p\n" | head -80' \
-            > artifacts/server-backup-verification.txt
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" 'bash -s' <<'REMOTE' > artifacts/server-backup-verification.txt
+          set -euo pipefail
+          ROOT=/var/backups/pc-crop
+          test -f "$ROOT/manifests/latest-db.txt"
+          test -f "$ROOT/manifests/latest-full.txt"
+          latest_db="$(grep '^file=' "$ROOT/manifests/latest-db.txt" | head -1 | cut -d= -f2-)"
+          test -n "$latest_db"
+          test -s "$ROOT/db/recent/$latest_db"
+          pg_restore --list "$ROOT/db/recent/$latest_db" >/dev/null
+          shopt -s nullglob
+          cfg=( "$ROOT"/config/*.tar.zst )
+          img=( "$ROOT"/images/*.tar.zst )
+          obj=( "$ROOT"/objects/*.tar.zst )
+          (( ${#cfg[@]} > 0 ))
+          (( ${#img[@]} > 0 ))
+          (( ${#obj[@]} > 0 ))
+          for f in "${cfg[@]}" "${img[@]}" "${obj[@]}"; do
+            zstd -t -q "$f"
+          done
+          for f in "${cfg[@]}" "${obj[@]}"; do
+            tar -I zstd -tf "$f" >/dev/null
+          done
+          id pcbackup
+          cat "$ROOT/manifests/latest-db.txt"
+          cat "$ROOT/manifests/latest-full.txt"
+          find "$ROOT" -maxdepth 3 -type f -printf '%m %g %s %p\n' | sort | head -120
+          REMOTE
           cat artifacts/server-backup-verification.txt
 
       - uses: actions/upload-artifact@v4
