@@ -655,17 +655,17 @@ export function canonicalizeExactPrHeadActionsChecks(
     }
 
     // Commit rollups can include valid Actions runs for another branch pointing at the same SHA.
-    // Such a run is not authority for this PR after trusted metadata proves the head-ref mismatch.
-    if (runHeadRef !== expectedRef) continue;
-
-    currentPrActions.push({
-      check,
-      event,
-      index,
-      runId,
-      runNumber: BigInt(runNumber),
-      workflowId,
-    });
+    // Only a run whose validated head ref exactly equals this PR's validated head ref becomes authority.
+    if (runHeadRef === expectedRef) {
+      currentPrActions.push({
+        check,
+        event,
+        index,
+        runId,
+        runNumber: BigInt(runNumber),
+        workflowId,
+      });
+    }
   }
 
   if (invalid) return { checks: [], invalid: true };
