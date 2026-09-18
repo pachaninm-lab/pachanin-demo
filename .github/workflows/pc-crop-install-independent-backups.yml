@@ -166,18 +166,21 @@ jobs:
           else
             git -C "$MIRROR" remote update --prune
           fi
-          git -C "$MIRROR" fsck --full --no-reflogs
+          git -C "$MIRROR" fsck --full --no-reflogs --no-dangling
           main_sha="$(git -C "$MIRROR" rev-parse refs/heads/main)"
           bundle="$ROOT/git/pachanin-demo-${DAY}-${main_sha:0:12}.bundle"
+          if [[ -e "$bundle" ]] && ! git -C "$MIRROR" bundle verify "$bundle" >/dev/null 2>&1; then
+            rm -f "$bundle" "$bundle.sha256"
+          fi
           if [[ ! -e "$bundle" ]]; then
             git -C "$MIRROR" bundle create "$bundle" --all
-            git -C "$MIRROR" bundle verify "$bundle"
-            chown root:pcbackup "$bundle"
-            chmod 0640 "$bundle"
-            sha256sum "$bundle" > "$bundle.sha256"
-            chown root:pcbackup "$bundle.sha256"
-            chmod 0640 "$bundle.sha256"
           fi
+          git -C "$MIRROR" bundle verify "$bundle"
+          chown root:pcbackup "$bundle"
+          chmod 0640 "$bundle"
+          sha256sum "$bundle" > "$bundle.sha256"
+          chown root:pcbackup "$bundle.sha256"
+          chmod 0640 "$bundle.sha256"
           find "$ROOT/git" -maxdepth 1 -type f -name '*.bundle*' -mtime +30 -delete
 
           cfg="$ROOT/config/config-and-secret-authority-${DAY}.tar.zst"
