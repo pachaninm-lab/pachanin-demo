@@ -1,0 +1,59 @@
+name: IP Private Repository Transport Prepare
+
+on:
+  push:
+    branches:
+      - ip-hardening/private-repo-transport-4447
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ip-private-repo-transport-prepare
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ip-hardening/private-repo-transport-4447
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Apply bounded authenticated transport transformation
+        run: |
+          set -Eeuo pipefail
+          node scripts/ip/apply-private-repo-transport.mjs
+          bash -n scripts/pc-tai-release-controller.sh
+          bash -n scripts/pc-tai-controller-sync.sh
+          node scripts/check-pc-tai-release-controller.mjs
+          node scripts/check-tai-controller-sync.mjs
+          git diff --check
+
+      - name: Commit controller scripts only
+        run: |
+          set -Eeuo pipefail
+          mapfile -t changed < <(git diff --name-only)
+          ((${#changed[@]} > 0)) || { echo 'No transformation required.'; exit 0; }
+          for path in "${changed[@]}"; do
+            case "$path" in
+              scripts/pc-tai-release-controller.sh|scripts/pc-tai-controller-sync.sh|.github/workflows/*.yml|.github/workflows/*.yaml) ;;
+              *) echo "Unexpected transformed path: $path" >&2; exit 2 ;;
+            esac
+          done
+          git add -- scripts/pc-tai-release-controller.sh scripts/pc-tai-controller-sync.sh
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'IP: authenticate protected REG.RU repository fetch #4447'
+          git push origin HEAD:ip-hardening/private-repo-transport-4447

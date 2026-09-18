@@ -3,7 +3,7 @@ set -Eeuo pipefail
 umask 077
 
 export PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
-unset BASH_ENV ENV CDPATH GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0 SSH_AUTH_SOCK
+unset BASH_ENV ENV CDPATH GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0 SSH_AUTH_SOCK GIT_ASKPASS GIT_TERMINAL_PROMPT PC_GITHUB_TOKEN_FILE
 
 readonly REPOSITORY_URL='https://github.com/pachaninm-lab/pachanin-demo.git'
 readonly REPOSITORY_ROOT='/var/lib/pc-release-authority/repository'
@@ -18,6 +18,43 @@ readonly INSTALLED_CONTROLLER='/usr/local/sbin/pc-tai-release-controller'
 fail() {
   printf 'ERROR_CODE=%s\n' "$1" >&2
   exit "${2:-1}"
+}
+
+repo_auth_dir=''
+
+clear_repo_auth() {
+  unset GIT_ASKPASS GIT_TERMINAL_PROMPT PC_GITHUB_TOKEN_FILE
+  if [[ -n "${repo_auth_dir:-}" ]]; then
+    [[ "$repo_auth_dir" == "$STATE_ROOT/controller-jobs/git-auth-$RUN_ID" ]] || return 90
+    rm -f -- "$repo_auth_dir/token" "$repo_auth_dir/askpass.sh" || return 91
+    rmdir -- "$repo_auth_dir" || return 92
+    repo_auth_dir=''
+  fi
+}
+
+prepare_repo_auth() {
+  local token='' token_file askpass
+  IFS= read -r token || [[ -n "$token" ]] || fail REPOSITORY_READ_TOKEN_MISSING 13
+  [[ "$token" =~ ^[A-Za-z0-9_-]{20,512}$ ]] || fail REPOSITORY_READ_TOKEN_INVALID 14
+  repo_auth_dir="$STATE_ROOT/controller-jobs/git-auth-$RUN_ID"
+  [[ ! -e "$repo_auth_dir" && ! -L "$repo_auth_dir" ]] || fail REPOSITORY_AUTH_STATE_EXISTS 15
+  install -d -m 0700 -o root -g root "$repo_auth_dir"
+  token_file="$repo_auth_dir/token"
+  askpass="$repo_auth_dir/askpass.sh"
+  ( umask 077; printf '%s' "$token" > "$token_file" )
+  unset token
+  cat > "$askpass" <<'GIT_ASKPASS_SH'
+#!/bin/sh
+case "${1:-}" in
+  *Username*) printf '%s\n' 'x-access-token' ;;
+  *Password*) cat "${PC_GITHUB_TOKEN_FILE:?}" ;;
+  *) exit 1 ;;
+esac
+GIT_ASKPASS_SH
+  chmod 0700 "$askpass"
+  export GIT_ASKPASS="$askpass"
+  export GIT_TERMINAL_PROMPT=0
+  export PC_GITHUB_TOKEN_FILE="$token_file"
 }
 
 [[ "$(id -u)" -eq 0 ]] || fail ROOT_AUTHORITY_REQUIRED 2
@@ -55,6 +92,7 @@ restore_runner_boundary() {
 on_exit() {
   local rc="$?" restore_rc=0
   trap - EXIT
+  clear_repo_auth || true
   restore_runner_boundary || restore_rc="$?"
   if (( rc == 0 && restore_rc != 0 )); then
     rc="$restore_rc"
@@ -66,6 +104,8 @@ trap on_exit EXIT
 install -d -m 0710 -o root -g pcactions "$STATE_ROOT"
 install -d -m 0730 -o root -g pcactions "$INPUT_ROOT"
 install -d -m 0750 -o root -g pcactions "$OUTPUT_ROOT"
+install -d -m 0700 -o root -g root "$STATE_ROOT/controller-jobs"
+prepare_repo_auth
 if [[ ! -d "$REPOSITORY_ROOT/.git" ]]; then
   rm -rf "$REPOSITORY_ROOT"
   git clone --filter=blob:none --no-checkout "$REPOSITORY_URL" "$REPOSITORY_ROOT" >/dev/null
@@ -81,6 +121,7 @@ git -C "$REPOSITORY_ROOT" checkout --force --detach "$TARGET_SHA" >/dev/null
 git -C "$REPOSITORY_ROOT" clean -ffdx >/dev/null
 [[ "$(git -C "$REPOSITORY_ROOT" rev-parse HEAD)" == "$TARGET_SHA" ]] || fail PROTECTED_CHECKOUT_MISMATCH 23
 [[ -z "$(git -C "$REPOSITORY_ROOT" status --porcelain=v1)" ]] || fail PROTECTED_CHECKOUT_DIRTY 24
+clear_repo_auth || fail REPOSITORY_AUTH_CLEANUP_FAILED 29
 
 readonly CORE_PATH="$REPOSITORY_ROOT/$CORE_RELATIVE"
 readonly REPAIR_PATH="$REPOSITORY_ROOT/$REPAIR_RELATIVE"
