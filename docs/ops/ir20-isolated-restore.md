@@ -43,7 +43,10 @@ network, no published port, no host bind, a read-only root filesystem, dropped
 capabilities, no-new-privileges, a non-root PostgreSQL UID, 1 CPU, 768 MiB memory,
 128 PIDs and bounded tmpfs. Source and restore IDs cannot be equal. Only this
 owned disposable instance can be removed. A create/cleanup transport ambiguity
-is not reported as success.
+is not reported as success. After a successful removal command, a separate
+bounded local-daemon inventory must confirm that the validated full target ID is
+absent in all container states. Non-empty, malformed or failed inventory prevents
+report finalization; a successful delete acknowledgement alone is insufficient.
 
 The roles export omits role passwords. Restore retains ownership and ACLs;
 `--no-owner` and `--no-acl` are not used. The complete custom-format database archive
@@ -102,3 +105,4 @@ and exported snapshots; Docker Engine resource/runtime isolation options.
 - https://www.postgresql.org/docs/16/app-pgrestore.html
 - https://www.postgresql.org/docs/16/functions-admin.html#FUNCTIONS-SNAPSHOT-SYNCHRONIZATION
 - https://docs.docker.com/reference/cli/docker/container/create/
+- https://docs.docker.com/reference/cli/docker/container/ls/

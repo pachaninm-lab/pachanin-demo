@@ -70,7 +70,15 @@ if a[0]=='start':
 if a[0]=='rm':
  assert a[-1]==restored
  if mode=='cleanup':error()
+ if mode=='cleanup_noop':sys.exit()
  state.unlink();sys.exit()
+if a[0]=='ps':
+ assert a==['ps','-aq','--no-trunc','--filter','id='+restored]
+ if mode=='cleanup_inventory_transport':error()
+ if mode=='cleanup_inventory_invalid':print('SYNTHETIC_SECRET_DO_NOT_EMIT');sys.exit()
+ if mode=='cleanup_inventory_wrong':print(source);sys.exit()
+ if state.exists():print(restored)
+ sys.exit()
 if a[0]=='exec':
  target=source if source in a else restored
  if 'id' in a:
@@ -136,6 +144,11 @@ class DrillTests(unittest.TestCase):
         self.assertIn('--pull=never', create)
         self.assertEqual(create[create.index('--network')+1], 'none')
         self.assertEqual(sum(v[2]=='rm' for v in calls), 1)
+        inventory = [v for v in calls if v[2]=='ps']
+        self.assertEqual(inventory, [['--host','unix:///var/run/docker.sock',
+                                     'ps','-aq','--no-trunc','--filter','id='+RESTORE]])
+        self.assertGreater(calls.index(inventory[0]),
+                           next(i for i,v in enumerate(calls) if v[2]=='rm'))
         restore = next(v for v in calls if 'pg_restore' in v)
         self.assertIn('--exit-on-error', restore)
         self.assertNotIn('--no-owner', restore)
@@ -180,6 +193,17 @@ class DrillTests(unittest.TestCase):
                 self.assertEqual(result.stdout,'')
                 if case!='cleanup_transport':
                     self.assertTrue(any(v[2]=='rm' for v in calls))
+
+    def test_delete_acknowledgement_without_proven_absence_never_emits_pass(self):
+        for case in ('cleanup_noop', 'cleanup_inventory_transport',
+                     'cleanup_inventory_invalid', 'cleanup_inventory_wrong'):
+            with self.subTest(case=case):
+                result,calls=self.run_case(case)
+                self.assertNotEqual(result.returncode,0)
+                self.assertEqual(result.stdout,'')
+                self.assertIn('IR20_RESTORE_ERROR=CLEANUP_NOT_PROVEN',result.stderr)
+                self.assertEqual(sum(v[2]=='rm' for v in calls),1)
+                self.assertEqual(sum(v[2]=='ps' for v in calls),1)
 
 
 if __name__ == '__main__':

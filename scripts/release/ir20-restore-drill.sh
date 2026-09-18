@@ -40,7 +40,7 @@ RESTORE_ID=''; SNAP_PID=''; SNAP_IN=''; SNAP_OUT=''; RESULT=FAILED
 
 # Diagnostics and database bytes remain in root-only storage on the executing host.
 cleanup() {
-  local rc=$? id identity
+  local rc=$? id identity remaining
   trap - EXIT INT TERM
   if [[ -n "$SNAP_IN" ]]; then
     printf 'ROLLBACK;\n\\q\n' >&"$SNAP_IN" 2>/dev/null || true
@@ -55,6 +55,14 @@ cleanup() {
       printf 'IR20_RESTORE_ERROR=CLEANUP_IDENTITY\n' >&2; rc=1
     elif ! timeout 30 docker --host unix:///var/run/docker.sock rm -fv "$id" >/dev/null 2>&1; then
       printf 'IR20_RESTORE_ERROR=CLEANUP_FAILED\n' >&2; rc=1
+    else
+      # A successful delete acknowledgement alone does not prove absence.
+      # Query all states by the validated full ID, never enumerate other services.
+      if ! remaining="$(timeout 15 docker --host unix:///var/run/docker.sock ps -aq --no-trunc --filter "id=$id" 2>/dev/null)"; then
+        printf 'IR20_RESTORE_ERROR=CLEANUP_NOT_PROVEN\n' >&2; rc=1
+      elif [[ -n "$remaining" ]]; then
+        printf 'IR20_RESTORE_ERROR=CLEANUP_NOT_PROVEN\n' >&2; rc=1
+      fi
     fi
   elif [[ "$CREATE_ATTEMPTED" == 1 ]]; then
     # Do not turn an inspection/transport failure into proof of cleanup.
