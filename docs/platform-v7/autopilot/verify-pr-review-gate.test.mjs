@@ -567,8 +567,8 @@ const rejectedEvidenceHarness=String.raw`
 import ast, hashlib, json, os, pathlib, re, subprocess, sys, tempfile
 remote, validator, transport, cleanup, scenario = sys.argv[1:]
 tree=ast.parse(remote)
-constants={'MAX_SPECULATIVE_REPAIR_ATTEMPTS','SPECULATIVE','SPECULATIVE_REASON','SECURITY_CLASSIFICATION','SECURITY_FINDING_TERMS','ROUTE_TEST_REFERENCE','EXTERNAL_TERMS'}
-functions={'fail','finding_violation','policy_violation','candidate_anchor','anchored_repair_schema','scoped_speculative_repair_item','can_retry_speculative','repair_user','save_rejected'}
+constants={'MAX_SPECULATIVE_REPAIR_ATTEMPTS','SPECULATIVE','SPECULATIVE_REASON','SECURITY_CLASSIFICATION','SECURITY_FINDING_TERMS','ROUTE_TEST_REFERENCE','BYPASS_CLAIM_TERMS','EXTERNAL_TERMS'}
+functions={'fail','direct_fail_closed_rejection','fail_closed_rejection_bypass_contradiction','finding_violation','policy_violation','candidate_anchor','anchored_repair_schema','scoped_speculative_repair_item','can_retry_speculative','repair_user','save_rejected'}
 definitions=[node for node in tree.body if isinstance(node,ast.FunctionDef) and node.name in functions or isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id in constants for t in node.targets)]
 loop=[node for node in tree.body if isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='repairs' for t in node.targets) or isinstance(node,ast.With) and any(isinstance(i.context_expr,ast.Call) and isinstance(i.context_expr.func,ast.Attribute) and isinstance(i.context_expr.func.value,ast.Name) and i.context_expr.func.value.id=='output_path' for i in node.items)]
 with tempfile.TemporaryDirectory() as directory:
