@@ -1,6 +1,24 @@
 export type LedgerEntryType = 'RESERVE' | 'HOLD' | 'RELEASE' | 'REFUND' | 'COMMISSION' | 'TRANSFER';
 
-export type LedgerAccountType = 'BUYER_ESCROW' | 'SELLER_SETTLEMENT' | 'COMMISSION_POOL' | 'DISPUTE_HOLD' | 'PLATFORM_RESERVE';
+/**
+ * Один источник правды для счетов книги.
+ *
+ * Раньше список существовал дважды: как union типа и как массив внутри
+ * getBalances(). Разъехаться они могли молча — новый счёт в union, забытый в
+ * массиве, делал бы проводки по нему невидимыми в балансах. Тип выводится из
+ * массива, поэтому расхождение теперь невыразимо.
+ */
+export const LEDGER_ACCOUNTS = [
+  'BUYER_ESCROW',
+  'SELLER_SETTLEMENT',
+  'COMMISSION_POOL',
+  'DISPUTE_HOLD',
+  'PLATFORM_RESERVE',
+] as const;
+
+export type LedgerAccountType = typeof LEDGER_ACCOUNTS[number];
+
+const KNOWN_ACCOUNTS: ReadonlySet<string> = new Set(LEDGER_ACCOUNTS);
 
 export interface LedgerEntry {
   readonly id: string;
@@ -67,17 +85,27 @@ export class AppendOnlyLedger {
   }
 
   getBalances(): LedgerBalance[] {
-    const accounts: LedgerAccountType[] = ['BUYER_ESCROW', 'SELLER_SETTLEMENT', 'COMMISSION_POOL', 'DISPUTE_HOLD', 'PLATFORM_RESERVE'];
-    return accounts.map((account) => ({ account, balanceKopecks: this.getBalance(account) }));
+    return LEDGER_ACCOUNTS.map((account) => ({ account, balanceKopecks: this.getBalance(account) }));
   }
 
+  /**
+   * Сумма балансов по всем счетам обязана быть нулём.
+   *
+   * Прежняя версия начиналась с `total === debitTotal`, где обе величины
+   * вычислялись БУКВАЛЬНО одним и тем же выражением — редукцией по
+   * `amountKopecks`. Это `x === x`: замерено, что половина давала `true` в том
+   * числе для книги с проводкой на счёт вне набора, то есть не проверяла
+   * ничего. Сторож, который по построению не может упасть, — это заявление о
+   * намерении, выданное за контроль.
+   *
+   * Осталась единственная величина, которая действительно может разойтись.
+   * После проверки счетов в validateEntry это пост-условие, а не независимое
+   * открытие: каждая проводка вносит −amount и +amount по двум известным
+   * счетам. Проверка оставлена намеренно дешёвой страховкой на случай, если
+   * getBalances() когда-нибудь начнёт перечислять подмножество счетов.
+   */
   verifyDoubleEntryInvariant(): boolean {
-    const total = this.entries.reduce((acc, e) => acc + e.amountKopecks, 0);
-    const debitTotal = this.entries.reduce((acc, e) => acc + e.amountKopecks, 0);
-    // Every entry has exactly one debit and one credit — sum of all debits == sum of all credits == sum of amounts
-    // Net balance across all accounts must be zero
-    const netAcrossAll = this.getBalances().reduce((acc, b) => acc + b.balanceKopecks, 0);
-    return total === debitTotal && netAcrossAll === 0;
+    return this.getBalances().reduce((acc, b) => acc + b.balanceKopecks, 0) === 0;
   }
 
   get length() {
@@ -91,6 +119,16 @@ function validateEntry(entry: Omit<LedgerEntry, 'createdAt'>): void {
   }
   if (entry.debitAccount === entry.creditAccount) {
     throw new Error('debitAccount and creditAccount must differ');
+  }
+  // Счёт вне известного набора принимался молча, а getBalances() его не
+  // перечисляет — поэтому дебетовая сторона такой проводки исчезала из
+  // балансов, а кредитовая оставалась. Замерено: книга с одной такой проводкой
+  // на 50 000 копеек показывала BUYER_ESCROW −50 000 при нулях по остальным
+  // счетам. Отказ на входе, а не искажённые балансы на выходе.
+  for (const [side, account] of [['debitAccount', entry.debitAccount], ['creditAccount', entry.creditAccount]] as const) {
+    if (!KNOWN_ACCOUNTS.has(account)) {
+      throw new Error(`${side} is not a known ledger account: ${String(account)}`);
+    }
   }
   if (!entry.id || !entry.dealId || !entry.actorId) {
     throw new Error('id, dealId, and actorId are required');
