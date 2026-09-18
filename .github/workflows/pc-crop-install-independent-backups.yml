@@ -1,0 +1,324 @@
+name: PC-CROP Install Independent Backup Mirrors
+
+on:
+  push:
+    branches:
+      - ops/backup-topology-discovery-20260918
+    paths:
+      - '.github/workflows/pc-crop-install-independent-backups.yml'
+
+permissions:
+  contents: read
+
+env:
+  DEFAULT_HOST: 195.19.12.120
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+
+jobs:
+  install:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve protected production SSH
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]]
+          [[ -n "$user" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port>=1 && port<=65535 ))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          mkdir -p "$HOME/.ssh" artifacts
+          chmod 700 "$HOME/.ssh"
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"
+            chmod 600 "$target"
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}"
+          scan="$(mktemp)"; match="$(mktemp)"
+          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          while IFS= read -r line; do
+            fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+            [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+          done < "$scan"
+          sort -u -o "$match" "$match"
+          [[ "$(grep -c . "$match" || true)" == 1 ]]
+          mv "$match" "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          printf 'host=195.19.12.120\nport=%s\nbackup_user=pcbackup\nhost_fingerprint=%s\n' "$port" "$expected" > artifacts/mac-connection.txt
+
+      - name: Install server-side backup services
+        shell: bash
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          USER: ${{ steps.ssh.outputs.user }}
+          MAC_BACKUP_PUBLIC_KEY: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG5zIIUrfnvF3neXvBc2KERD4UjR+ZUBbpJ63K2QQMHw pc-crop-backup-pull'
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" \
+            "MAC_BACKUP_PUBLIC_KEY='$MAC_BACKUP_PUBLIC_KEY' bash -s" <<'REMOTE'
+          set -euo pipefail
+          umask 027
+          test "$(id -u)" -eq 0
+
+          command -v docker >/dev/null
+          command -v pg_dump >/dev/null
+          command -v git >/dev/null
+          command -v zstd >/dev/null
+          command -v rsync >/dev/null
+          command -v systemctl >/dev/null
+
+          BACKUP_ROOT=/var/backups/pc-crop
+          install -d -m 0750 -o root -g root "$BACKUP_ROOT"
+
+          if ! getent group pcbackup >/dev/null 2>&1; then
+            groupadd --system pcbackup
+          fi
+          if ! id pcbackup >/dev/null 2>&1; then
+            useradd --system --create-home --home-dir /var/lib/pcbackup --shell /bin/bash --gid pcbackup pcbackup
+          fi
+          install -d -m 0700 -o pcbackup -g pcbackup /var/lib/pcbackup/.ssh
+          printf '%s\n' "restrict $MAC_BACKUP_PUBLIC_KEY" > /var/lib/pcbackup/.ssh/authorized_keys
+          chown pcbackup:pcbackup /var/lib/pcbackup/.ssh/authorized_keys
+          chmod 0600 /var/lib/pcbackup/.ssh/authorized_keys
+
+          install -d -m 0750 -o root -g pcbackup \
+            "$BACKUP_ROOT/db/recent" "$BACKUP_ROOT/db/daily" \
+            "$BACKUP_ROOT/git" "$BACKUP_ROOT/objects" "$BACKUP_ROOT/config" \
+            "$BACKUP_ROOT/images" "$BACKUP_ROOT/manifests"
+
+          cat > /usr/local/sbin/pc-crop-backup-db <<'SCRIPT'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          umask 027
+          ROOT=/var/backups/pc-crop
+          STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+          DAY="$(date -u +%Y%m%d)"
+          pg_id="$(docker ps -q --filter 'label=com.docker.compose.project=grainflow' --filter 'label=com.docker.compose.service=postgres' | head -1)"
+          [[ -n "$pg_id" ]]
+          name="grainflow-${STAMP}.backup"
+          docker exec "$pg_id" sh -ceu 'umask 077; : "${POSTGRES_USER:?}"; : "${POSTGRES_DB:?}"; pg_dump --format=custom --compress=6 --no-owner --no-acl --username="$POSTGRES_USER" --file="$1" "$POSTGRES_DB"' sh "/tmp/$name"
+          docker cp "$pg_id:/tmp/$name" "$ROOT/db/recent/$name" >/dev/null
+          docker exec "$pg_id" rm -f "/tmp/$name"
+          chown root:pcbackup "$ROOT/db/recent/$name"
+          chmod 0640 "$ROOT/db/recent/$name"
+          sha256sum "$ROOT/db/recent/$name" > "$ROOT/db/recent/$name.sha256"
+          chown root:pcbackup "$ROOT/db/recent/$name.sha256"
+          chmod 0640 "$ROOT/db/recent/$name.sha256"
+          if [[ ! -e "$ROOT/db/daily/grainflow-${DAY}.backup" ]]; then
+            cp -p "$ROOT/db/recent/$name" "$ROOT/db/daily/grainflow-${DAY}.backup"
+            cp -p "$ROOT/db/recent/$name.sha256" "$ROOT/db/daily/grainflow-${DAY}.backup.sha256"
+          fi
+          find "$ROOT/db/recent" -type f -mtime +2 -delete
+          find "$ROOT/db/daily" -type f -mtime +30 -delete
+          printf 'status=PASS\ncreated_utc=%s\nfile=%s\nbytes=%s\nsha256=%s\n' \
+            "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$name" "$(stat -c %s "$ROOT/db/recent/$name")" \
+            "$(sha256sum "$ROOT/db/recent/$name" | awk '{print $1}')" \
+            > "$ROOT/manifests/latest-db.txt"
+          chown root:pcbackup "$ROOT/manifests/latest-db.txt"
+          chmod 0640 "$ROOT/manifests/latest-db.txt"
+          SCRIPT
+          chmod 0750 /usr/local/sbin/pc-crop-backup-db
+
+          cat > /usr/local/sbin/pc-crop-backup-full <<'SCRIPT'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          umask 027
+          ROOT=/var/backups/pc-crop
+          DAY="$(date -u +%Y%m%d)"
+          FREE="$(df --output=avail -B1 /var/backups | tail -1 | tr -d ' ')"
+
+          MIRROR="$ROOT/git/pachanin-demo.git"
+          if [[ ! -d "$MIRROR" ]]; then
+            git clone --mirror https://github.com/pachaninm-lab/pachanin-demo.git "$MIRROR"
+          else
+            git -C "$MIRROR" remote update --prune
+          fi
+          git -C "$MIRROR" fsck --full --no-reflogs
+          main_sha="$(git -C "$MIRROR" rev-parse refs/heads/main)"
+          bundle="$ROOT/git/pachanin-demo-${DAY}-${main_sha:0:12}.bundle"
+          if [[ ! -e "$bundle" ]]; then
+            git -C "$MIRROR" bundle create "$bundle" --all
+            git bundle verify "$bundle"
+            chown root:pcbackup "$bundle"
+            chmod 0640 "$bundle"
+            sha256sum "$bundle" > "$bundle.sha256"
+            chown root:pcbackup "$bundle.sha256"
+            chmod 0640 "$bundle.sha256"
+          fi
+          find "$ROOT/git" -maxdepth 1 -type f -name '*.bundle*' -mtime +30 -delete
+
+          cfg="$ROOT/config/config-and-secret-authority-${DAY}.tar.zst"
+          if [[ ! -e "$cfg" ]]; then
+            tar --ignore-failed-read --numeric-owner -C / \
+              opt/pachanin/infra/single-server \
+              var/lib/pc-release-authority \
+              var/lib/pc-secret-authority \
+              2>/dev/null | zstd -T0 -6 -q -o "$cfg"
+            chown root:pcbackup "$cfg"; chmod 0640 "$cfg"
+            sha256sum "$cfg" > "$cfg.sha256"; chown root:pcbackup "$cfg.sha256"; chmod 0640 "$cfg.sha256"
+          fi
+          find "$ROOT/config" -type f -mtime +30 -delete
+
+          minio=/var/lib/docker/volumes/grainflow_miniodata/_data
+          if [[ -d "$minio" ]]; then
+            used="$(du -sb "$minio" | awk '{print $1}')"
+            obj="$ROOT/objects/minio-${DAY}.tar.zst"
+            if [[ ! -e "$obj" && "$used" -lt $(( FREE / 3 )) ]]; then
+              tar --numeric-owner -C "$minio" . | zstd -T0 -4 -q -o "$obj"
+              chown root:pcbackup "$obj"; chmod 0640 "$obj"
+              sha256sum "$obj" > "$obj.sha256"; chown root:pcbackup "$obj.sha256"; chmod 0640 "$obj.sha256"
+            fi
+          fi
+          find "$ROOT/objects" -type f -mtime +14 -delete
+
+          img="$ROOT/images/grainflow-first-party-${DAY}.tar.zst"
+          if [[ ! -e "$img" ]]; then
+            mapfile -t images < <(docker ps --format '{{.Image}}' | grep '^ghcr.io/pachaninm-lab/grainflow-' | sort -u)
+            if (( ${#images[@]} > 0 )); then
+              docker save "${images[@]}" | zstd -T0 -4 -q -o "$img"
+              chown root:pcbackup "$img"; chmod 0640 "$img"
+              sha256sum "$img" > "$img.sha256"; chown root:pcbackup "$img.sha256"; chmod 0640 "$img.sha256"
+            fi
+          fi
+          find "$ROOT/images" -type f -mtime +7 -delete
+
+          {
+            echo "status=PASS"
+            echo "created_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "main_sha=$main_sha"
+            echo "git_bundle=$(basename "$bundle")"
+            echo "config_archive=$(basename "$cfg")"
+            if [[ -e "$ROOT/objects/minio-${DAY}.tar.zst" ]]; then echo "minio_snapshot=minio-${DAY}.tar.zst"; else echo "minio_snapshot=SKIPPED_HEADROOM_OR_ABSENT"; fi
+            if [[ -e "$img" ]]; then echo "first_party_images=$(basename "$img")"; else echo "first_party_images=SKIPPED"; fi
+            echo "note_minio=crash-consistent-filesystem-snapshot"
+          } > "$ROOT/manifests/latest-full.txt"
+          chown root:pcbackup "$ROOT/manifests/latest-full.txt"
+          chmod 0640 "$ROOT/manifests/latest-full.txt"
+
+          find "$ROOT" -type d -exec chown root:pcbackup {} + 2>/dev/null || true
+          find "$ROOT" -type d -exec chmod 0750 {} + 2>/dev/null || true
+          SCRIPT
+          chmod 0750 /usr/local/sbin/pc-crop-backup-full
+
+          cat > /etc/systemd/system/pc-crop-backup-db.service <<'UNIT'
+          [Unit]
+          Description=PC-CROP PostgreSQL logical backup
+          After=docker.service
+          Requires=docker.service
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/sbin/pc-crop-backup-db
+          Nice=10
+          IOSchedulingClass=best-effort
+          IOSchedulingPriority=7
+          UNIT
+
+          cat > /etc/systemd/system/pc-crop-backup-db.timer <<'UNIT'
+          [Unit]
+          Description=PC-CROP PostgreSQL backup every 15 minutes
+
+          [Timer]
+          OnBootSec=5min
+          OnUnitActiveSec=15min
+          AccuracySec=1min
+          Persistent=true
+
+          [Install]
+          WantedBy=timers.target
+          UNIT
+
+          cat > /etc/systemd/system/pc-crop-backup-full.service <<'UNIT'
+          [Unit]
+          Description=PC-CROP daily source/object/config/image backup
+          After=docker.service network-online.target
+          Wants=network-online.target
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/sbin/pc-crop-backup-full
+          Nice=15
+          IOSchedulingClass=best-effort
+          IOSchedulingPriority=7
+          UNIT
+
+          cat > /etc/systemd/system/pc-crop-backup-full.timer <<'UNIT'
+          [Unit]
+          Description=PC-CROP daily full backup
+
+          [Timer]
+          OnCalendar=*-*-* 02:40:00 UTC
+          RandomizedDelaySec=10m
+          Persistent=true
+
+          [Install]
+          WantedBy=timers.target
+          UNIT
+
+          systemctl daemon-reload
+          systemctl enable --now pc-crop-backup-db.timer pc-crop-backup-full.timer
+          systemctl start pc-crop-backup-db.service
+          systemctl start pc-crop-backup-full.service
+
+          echo "SERVER_BACKUP_INSTALL=PASS"
+          systemctl --no-pager --full status pc-crop-backup-db.timer | sed -n '1,12p'
+          systemctl --no-pager --full status pc-crop-backup-full.timer | sed -n '1,12p'
+          echo "[latest manifests]"
+          cat "$BACKUP_ROOT/manifests/latest-db.txt"
+          cat "$BACKUP_ROOT/manifests/latest-full.txt"
+          echo "[sizes]"
+          du -sh "$BACKUP_ROOT" "$BACKUP_ROOT"/db "$BACKUP_ROOT"/git "$BACKUP_ROOT"/objects "$BACKUP_ROOT"/config "$BACKUP_ROOT"/images 2>/dev/null || true
+          REMOTE
+
+      - name: Verify exported backup root
+        shell: bash
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          USER: ${{ steps.ssh.outputs.user }}
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" \
+            'set -euo pipefail; test -f /var/backups/pc-crop/manifests/latest-db.txt; test -f /var/backups/pc-crop/manifests/latest-full.txt; id pcbackup; find /var/backups/pc-crop -maxdepth 2 -type f -printf "%m %g %s %p\n" | head -60' \
+            > artifacts/server-backup-verification.txt
+          cat artifacts/server-backup-verification.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-independent-backup-install
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 14
