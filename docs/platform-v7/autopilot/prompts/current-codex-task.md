@@ -206,16 +206,26 @@ be retried merely to obtain PASS, and does not alter the serialized IR-10.5 scop
 Confirmed master production acceptance remains 0/100 (0%).
 
 
-## Implementation brief
-
-Implement IR-20 Canonical Durable Outbox strictly inside the state allowed scope.
-
-
 ## Owner-authorized review-provider simplification — 2026-09-18
 
 The owner prioritizes correct, timely completion of MASTER and delegates implementation-method selection. Qwen remains confined to Gekta. MASTER v2.1 R0.2 explicitly names Qwen/Mistral review providers; this provider-specific choice is superseded for development review by this owner-authorized decision, while independent review, exact-head authority and fail-closed admission remain mandatory. This does not assert Russian certification or localization of external development services.
 
-This is prior governance authority only. Do not implement it in the governance PR. After this authority is independently reviewed and merged, branch `fix/provider-neutral-review-admission-20260918` may change only its exact `approvedConcurrentScopes` paths from merged main:
+This is prior governance authority only. It authorizes the scope-enforcement prerequisite, NOT provider retirement yet. The only newly approved branch is `fix/provider-review-scope-guard-20260918`, with four exact paths in state. Its implementation must:
+
+1. Add the future provider-admission branch to both `is_immutable_scope_branch` and every trusted-base workflow branch list. The actual guard/resolver/state used for that future branch must come from immutable base, never PR-supplied authority.
+2. Only in the same reviewed enforcement change, add the future `fix/provider-neutral-review-admission-20260918` state entry for exactly the two provider workflow files and verifier/test files listed below. Its scope cannot be activated before enforcement ships.
+3. Reject mutation of state, queue, prompts, scope manifests, guard scripts or guard workflow by that future branch; allow exactly its four implementation paths, including the verifier and verifier regression test as explicit bounded exceptions to the generic autopilot-directory prohibition.
+4. Add adversarial fixture tests for PR-side scope inflation, authority-file edits, unapproved product edits, path-prefix/suffix tricks, missing base authorization and valid in-scope changes. Verify workflow selects trusted base guard/resolver/state.
+5. The guard-maintenance PR may change state ONLY by adding that exact future entry; it must not modify its own approved entry, current scope/status, or any other state fields. Its sole script/workflow changes implement this bounded enforcement; genuine independent exact-head review and ordinary CI remain mandatory.
+
+The future implementation allowlist is exactly:
+
+- `.github/workflows/local-qwen-independent-review.yml`
+- `.github/workflows/octopus-independent-review.yml`
+- `docs/platform-v7/autopilot/verify-pr-review-gate.mjs`
+- `docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs`
+
+No provider workflow, admission policy or product code is changed by the scope-enforcement prerequisite. Only AFTER it is independently reviewed, merged and verified on live main may the future provider branch perform the following changes within its four immutable-base-approved paths:
 
 - retire the Qwen and Octopus PR-review workflow entry points; do not alter Gekta models, inference, evaluation or production runtime;
 - retire their authority for future admission while retaining historical evidence as historical evidence;
@@ -229,4 +239,9 @@ This is prior governance authority only. Do not implement it in the governance P
 
 Required regression coverage: genuine exact-head clean review accepted; actor spoof, stale SHA, ambiguous prefix, incomplete review, finding-bearing review and author self-audit rejected as independent approval; active changes-requested/unresolved findings block; red/pending substantive CI blocks; retired providers cannot confer new admission; modern review parsing does not reinterpret a mere completion or reaction as clean authority. Preserve the full existing meaningful regression suite.
 
-Sequence: authority PR → isolated implementation PR with fresh independent review and applicable CI → forward-sync #5406 and fresh exact-head admission/CI → #5406 merge → #5347 sync plus app_outbox transaction-local claim-protocol fixture → full CI and Production-like Kubernetes Acceptance PASS → #5347 merge → exact-current-main REG.RU release and live acceptance. No old review/CI PASS transfers to a new SHA. IR-20 stays active; no new product delivery slice opens until its required acceptance is complete.
+Sequence: authority PR → scope-enforcement prerequisite PR → isolated provider-admission implementation PR with fresh independent review and applicable CI → forward-sync #5406 and fresh exact-head admission/CI → #5406 merge → #5347 sync plus app_outbox transaction-local claim-protocol fixture → full CI and Production-like Kubernetes Acceptance PASS → #5347 merge → exact-current-main REG.RU release and live acceptance. No old review/CI PASS transfers to a new SHA. IR-20 stays active; no new product delivery slice opens until its required acceptance is complete.
+
+
+## Implementation brief
+
+Implement IR-20 Canonical Durable Outbox strictly inside the state allowed scope.

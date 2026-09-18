@@ -209,7 +209,7 @@
     ".github/workflows/ci.yml"
   ],
   "approvedConcurrentScopes": {
-    "fix/provider-neutral-review-admission-20260918": [".github/workflows/local-qwen-independent-review.yml", ".github/workflows/octopus-independent-review.yml", "docs/platform-v7/autopilot/verify-pr-review-gate.mjs", "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"],
+    "fix/provider-review-scope-guard-20260918": ["scripts/p7-autopilot-guard.sh", "scripts/p7-autopilot-guard.test.mjs", ".github/workflows/platform-v7-autopilot-guard.yml", "docs/platform-v7/autopilot/autopilot-state.json"],
     "governance/kind-minio-image-source-20260912": [
       ".github/workflows/platform-v7-autopilot-guard.yml",
       "docs/platform-v7/autopilot/autopilot-state.json",
