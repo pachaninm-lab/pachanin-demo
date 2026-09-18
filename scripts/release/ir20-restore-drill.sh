@@ -132,11 +132,12 @@ m=re.search(r'^MemAvailable:\s+(\d+) kB$',pathlib.Path('/proc/meminfo').read_tex
 assert m and int(m[1])*1024 >= 2*1024**3
 PY
 
-# Explicit local socket; inherited PGHOST/PGOPTIONS cannot select a remote database.
+# Explicit local socket; inherited libpq service/host-address overrides are removed.
+# An empty PGSERVICE is not disabled: libpq tries to resolve the empty service name.
 source_exec() {
   bounded docker --host unix:///var/run/docker.sock exec -i -e PGHOST=/var/run/postgresql -e PGPORT=5432 \
     -e PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=120000 -c lock_timeout=5000 -c timezone=UTC -c datestyle=ISO,YMD -c intervalstyle=postgres -c search_path=pg_catalog,public' \
-    -e PGSERVICE= -e PGSERVICEFILE=/dev/null "$SOURCE_ID" "$@"
+    "$SOURCE_ID" env -u PGSERVICE -u PGSERVICEFILE -u PGHOSTADDR "$@"
 }
 source_sql() { source_exec psql -h /var/run/postgresql -p 5432 -XqAt -w -v ON_ERROR_STOP=1 -U "$DB_USER" -d "$DB_NAME"; }
 source_authority="$(printf "SELECT (current_user = '%s' AND current_database() = '%s' AND current_setting('transaction_read_only') = 'on' AND current_setting('server_version_num')::int BETWEEN 160000 AND 169999 AND (SELECT rolsuper FROM pg_roles WHERE rolname=current_user))::int;\n" "$DB_USER" "$DB_NAME" | source_sql)" || fail SOURCE_DATABASE_AUTHORITY
@@ -242,7 +243,7 @@ done
 [[ "$ready" == 1 ]] || fail RESTORE_STARTUP
 restore_exec() {
   bounded docker --host unix:///var/run/docker.sock exec -i -e PGHOST=/var/run/postgresql -e PGPORT=5432 \
-    -e PGOPTIONS='-c statement_timeout=120000 -c timezone=UTC -c datestyle=ISO,YMD -c intervalstyle=postgres -c search_path=pg_catalog,public' "$RESTORE_ID" "$@"
+    -e PGOPTIONS='-c statement_timeout=120000 -c timezone=UTC -c datestyle=ISO,YMD -c intervalstyle=postgres -c search_path=pg_catalog,public' "$RESTORE_ID" env -u PGSERVICE -u PGSERVICEFILE -u PGHOSTADDR "$@"
 }
 restore_exec psql -Xq -w -v ON_ERROR_STOP=1 -U "$BOOTSTRAP" -d restored <"$DIR/roles.sql" >/dev/null || fail ROLE_RESTORE
 # Ownership and ACLs must be restored; no --no-owner/--no-acl shortcut.

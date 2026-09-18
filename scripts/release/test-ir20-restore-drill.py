@@ -140,6 +140,12 @@ class DrillTests(unittest.TestCase):
         self.assertIn('--exit-on-error', restore)
         self.assertNotIn('--no-owner', restore)
         self.assertNotIn('--no-acl', restore)
+        for call in calls:
+            if any(tool in call for tool in ('psql','pg_dump','pg_dumpall','pg_restore')):
+                target = SOURCE if SOURCE in call else RESTORE
+                self.assertEqual(call[call.index(target)+1:call.index(target)+8],
+                                 ['env','-u','PGSERVICE','-u','PGSERVICEFILE','-u','PGHOSTADDR'])
+                self.assertNotIn('PGSERVICE=',call)
 
     def test_input_rejections_do_not_call_docker(self):
         for args in ([SHA[:7],SOURCE,'production'],[SHA,SOURCE[:12],'production'],[SHA,SOURCE,'../other']):
