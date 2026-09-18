@@ -132,6 +132,7 @@ jobs:
           docker exec "$pg_id" sh -ceu 'umask 077; : "${POSTGRES_USER:?}"; : "${POSTGRES_DB:?}"; pg_dump --format=custom --compress=6 --no-owner --no-acl --username="$POSTGRES_USER" --file="$1" "$POSTGRES_DB"' sh "/tmp/$name"
           docker cp "$pg_id:/tmp/$name" "$ROOT/db/recent/$name" >/dev/null
           docker exec "$pg_id" rm -f "/tmp/$name"
+          pg_restore --list "$ROOT/db/recent/$name" >/dev/null
           chown root:pcbackup "$ROOT/db/recent/$name"
           chmod 0640 "$ROOT/db/recent/$name"
           sha256sum "$ROOT/db/recent/$name" > "$ROOT/db/recent/$name.sha256"
@@ -211,16 +212,19 @@ jobs:
             used="$(du -sb "$minio" | awk '{print $1}')"
             obj="$ROOT/objects/minio-${DAY}.tar.zst"
             if [[ -e "$obj" ]] && ! (zstd -dc "$obj" 2>/dev/null | tar -tf - >/dev/null 2>&1); then rm -f "$obj" "$obj.sha256"; fi
+            if [[ -e "$obj" ]] && ! zstd -t -q "$obj"; then rm -f "$obj" "$obj.sha256"; fi
+            if [[ -e "$obj" ]] && ! tar -I zstd -tf "$obj" 2>/dev/null | grep -q .; then rm -f "$obj" "$obj.sha256"; fi
             if [[ ! -e "$obj" && "$used" -lt $(( FREE / 3 )) ]]; then
               tmp_obj="$obj.tmp"
               rm -f "$tmp_obj"
               set +e
-              tar --ignore-failed-read --warning=no-file-changed --numeric-owner -C "$minio" -cf - . 2>/dev/null | zstd -T0 -4 -q -o "$tmp_obj"
-              pipe_status=("${PIPESTATUS[@]}")
+              tar --ignore-failed-read --warning=no-file-changed --numeric-owner -I 'zstd -T0 -4 -q' -C "$minio" -cf "$tmp_obj" . 2>/dev/null
+              tar_rc=$?
               set -e
-              (( pipe_status[1] == 0 ))
-              (( pipe_status[0] == 0 || pipe_status[0] == 1 ))
+              (( tar_rc == 0 || tar_rc == 1 ))
               [[ -s "$tmp_obj" ]]
+              zstd -t -q "$tmp_obj"
+              tar -I zstd -tf "$tmp_obj" 2>/dev/null | grep -q .
               mv "$tmp_obj" "$obj"
               chown root:pcbackup "$obj"; chmod 0640 "$obj"
               sha256sum "$obj" > "$obj.sha256"; chown root:pcbackup "$obj.sha256"; chmod 0640 "$obj.sha256"
@@ -233,6 +237,7 @@ jobs:
             mapfile -t images < <(docker ps --format '{{.Image}}' | grep '^ghcr.io/pachaninm-lab/grainflow-' | sort -u)
             if (( ${#images[@]} > 0 )); then
               docker save "${images[@]}" | zstd -T0 -4 -q -o "$img"
+              zstd -t -q "$img"
               chown root:pcbackup "$img"; chmod 0640 "$img"
               sha256sum "$img" > "$img.sha256"; chown root:pcbackup "$img.sha256"; chmod 0640 "$img.sha256"
             fi
@@ -342,7 +347,7 @@ jobs:
         run: |
           set -euo pipefail
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$USER@$HOST" \
-            'set -euo pipefail; test -f /var/backups/pc-crop/manifests/latest-db.txt; test -f /var/backups/pc-crop/manifests/latest-full.txt; id pcbackup; find /var/backups/pc-crop -maxdepth 2 -type f -printf "%m %g %s %p\n" | head -60' \
+            'set -euo pipefail; test -f /var/backups/pc-crop/manifests/latest-db.txt; test -f /var/backups/pc-crop/manifests/latest-full.txt; latest_db=$(awk -F= "$1==\"file\"{print $2}" /var/backups/pc-crop/manifests/latest-db.txt); test -n "$latest_db"; pg_restore --list "/var/backups/pc-crop/db/recent/$latest_db" >/dev/null; zstd -t -q /var/backups/pc-crop/config/*.tar.zst; zstd -t -q /var/backups/pc-crop/images/*.tar.zst; zstd -t -q /var/backups/pc-crop/objects/*.tar.zst; id pcbackup; find /var/backups/pc-crop -maxdepth 3 -type f -printf "%m %g %s %p\n" | head -80' \
             > artifacts/server-backup-verification.txt
           cat artifacts/server-backup-verification.txt
 
