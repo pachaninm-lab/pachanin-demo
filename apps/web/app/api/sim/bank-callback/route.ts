@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { jsonNoStore } from '../../../../lib/http/no-store';
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
@@ -17,5 +18,5 @@ export async function POST(req: NextRequest) {
     ts: new Date().toISOString(),
   };
 
-  return NextResponse.json(payload);
+  return jsonNoStore(payload);
 }

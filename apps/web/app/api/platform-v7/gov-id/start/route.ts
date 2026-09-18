@@ -10,11 +10,15 @@ export async function GET(request: NextRequest) {
 
   if (!startUrl) {
     const response = NextResponse.redirect(bridgeFallbackTarget(request, flow, 'not-configured'));
+    // Редирект несёт state и nonce в адресе; кэшировать его нельзя (V14.3.2).
+    response.headers.set('cache-control', 'no-store');
     response.headers.set('Cache-Control', 'no-store');
     return response;
   }
 
   const response = NextResponse.redirect(startUrl);
+  // Редирект несёт state и nonce в адресе; кэшировать его нельзя (V14.3.2).
+  response.headers.set('cache-control', 'no-store');
   response.cookies.set(GOV_ID_STATE_COOKIE, state, bridgeCookieOptions(request));
   response.cookies.set(GOV_ID_NONCE_COOKIE, nonce, bridgeCookieOptions(request));
   response.cookies.set(GOV_ID_FLOW_COOKIE, flow, bridgeCookieOptions(request));

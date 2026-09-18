@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
 import { readVerifiedCabinetRole, signCabinetSession } from '@/lib/platform-v7/verified-session';
 import { assertCsrf } from '@/lib/server-request-security';
+import { jsonNoStore } from '../../../../lib/http/no-store';
 
 /**
  * Phase 4D-pre — dedicated platform-v7 cabinet session issuance.
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
   const csrf = assertCsrf(request);
   if (!csrf.ok) {
     const reason = 'reason' in csrf ? csrf.reason : 'csrf_invalid';
-    return NextResponse.json({ ok: false, code: 'CSRF_REQUIRED', reason }, { status: 403 });
+    return jsonNoStore({ ok: false, code: 'CSRF_REQUIRED', reason }, { status: 403 });
   }
   const body = await request.json().catch(() => ({}));
   const bodyRole = typeof body?.role === 'string' ? body.role : '';
@@ -93,13 +93,13 @@ export async function POST(request: Request) {
     const reason = bodyRole && !directBodyRoleAllowed && !verifiedRole
       ? 'verified backend role required'
       : 'unknown role';
-    return NextResponse.json({ ok: false, reason }, { status: bodyRole ? 403 : 400 });
+    return jsonNoStore({ ok: false, reason }, { status: bodyRole ? 403 : 400 });
   }
 
   const token = await signCabinetSession(role, secret, { nowSeconds, ttlSeconds: TTL_SECONDS });
   if (!token) {
     // No secret / signing unavailable — stay safe: no cookie, no false session.
-    return NextResponse.json({ ok: true, issued: false });
+    return jsonNoStore({ ok: true, issued: false });
   }
 
   cookieStore.set(CABINET_SESSION_COOKIE, token, {
@@ -109,5 +109,5 @@ export async function POST(request: Request) {
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
   });
-  return NextResponse.json({ ok: true, issued: true, source: verifiedRole ? 'verified-backend-role' : 'controlled-pilot-body-role' });
+  return jsonNoStore({ ok: true, issued: true, source: verifiedRole ? 'verified-backend-role' : 'controlled-pilot-body-role' });
 }

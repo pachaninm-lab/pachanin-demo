@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
 import { runtimeApiUrl, runtimeAuthHeaders } from '../runtime-auth-helpers';
+import { jsonNoStore } from '../../../lib/http/no-store';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +27,7 @@ export async function GET() {
 
   const apiOnline = deals !== null;
 
-  return NextResponse.json({
+  return jsonNoStore({
     apiOnline,
     timestamp: new Date().toISOString(),
     deals: deals ?? [],

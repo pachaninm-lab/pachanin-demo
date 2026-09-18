@@ -1,11 +1,11 @@
-import { NextResponse } from 'next/server';
 import { commercialFetch } from '../../../../../lib/commercial-api';
+import { jsonNoStore } from '../../../../../lib/http/no-store';
 
 export async function GET() {
   try {
     const payload = await commercialFetch('/finance/applications');
-    return NextResponse.json(payload);
+    return jsonNoStore(payload);
   } catch {
-    return NextResponse.json({ ok: false, items: [] }, { status: 200 });
+    return jsonNoStore({ ok: false, items: [] }, { status: 200 });
   }
 }

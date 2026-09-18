@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
 import { assertCsrf } from '@/lib/server-request-security';
 import { runtimeApiUrl, runtimeAuthHeaders } from '../../../../runtime-auth-helpers';
+import { jsonNoStore } from '../../../../../../lib/http/no-store';
 
 /**
  * Proxies the final-payment release to the backend settlement engine, which is
@@ -18,7 +18,7 @@ export async function POST(request: Request, props: { params: Promise<{ dealId: 
   const csrf = assertCsrf(request);
   if (!csrf.ok) {
     const reason = 'reason' in csrf ? csrf.reason : 'csrf_invalid';
-    return NextResponse.json({ ok: false, code: 'CSRF_REQUIRED', reason }, { status: 403 });
+    return jsonNoStore({ ok: false, code: 'CSRF_REQUIRED', reason }, { status: 403 });
   }
   const params = await props.params;
   try {
@@ -28,8 +28,8 @@ export async function POST(request: Request, props: { params: Promise<{ dealId: 
       headers: await runtimeAuthHeaders({ 'content-type': 'application/json' }),
     });
     const payload = await response.json().catch(() => ({ ok: false }));
-    return NextResponse.json(payload, { status: response.status });
+    return jsonNoStore(payload, { status: response.status });
   } catch {
-    return NextResponse.json({ ok: false, message: 'settlement backend unavailable' }, { status: 502 });
+    return jsonNoStore({ ok: false, message: 'settlement backend unavailable' }, { status: 502 });
   }
 }
