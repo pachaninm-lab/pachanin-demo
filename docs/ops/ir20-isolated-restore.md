@@ -37,6 +37,10 @@ Source database names and principals are read from existing container configurat
 and checked against the live local PostgreSQL session. No credentials are replaced.
 All source queries run in READ ONLY transactions; exported data and the five
 critical-table fingerprints use the same PostgreSQL exported snapshot.
+Writes to the snapshot session run in child shells with no inherited EXIT cleanup.
+A closed input pipe therefore fails the operation without terminating the parent
+before its cleanup. Session loss cannot emit successful restore evidence or leave
+raw inspection/row copies through a skipped cleanup path.
 
 A fresh restore instance uses a random name and independent bootstrap role, no
 network, no published port, no host bind, a read-only root filesystem, dropped
@@ -106,3 +110,4 @@ and exported snapshots; Docker Engine resource/runtime isolation options.
 - https://www.postgresql.org/docs/16/functions-admin.html#FUNCTIONS-SNAPSHOT-SYNCHRONIZATION
 - https://docs.docker.com/reference/cli/docker/container/create/
 - https://docs.docker.com/reference/cli/docker/container/ls/
+- https://www.gnu.org/software/bash/manual/html_node/Signals.html

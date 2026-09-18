@@ -43,7 +43,7 @@ cleanup() {
   local rc=$? id identity remaining
   trap - EXIT INT TERM
   if [[ -n "$SNAP_IN" ]]; then
-    printf 'ROLLBACK;\n\\q\n' >&"$SNAP_IN" 2>/dev/null || true
+    ( trap - EXIT; printf 'ROLLBACK;\n\\q\n' >&"$SNAP_IN" ) 2>/dev/null || true
     eval "exec ${SNAP_IN}>&-" 2>/dev/null || true
   fi
   if [[ -n "$SNAP_PID" ]]; then wait "$SNAP_PID" 2>/dev/null || true; fi
@@ -154,7 +154,8 @@ coproc SNAPSHOT { source_sql 2>"$DIR/snapshot.log"; }
 SNAP_PID=$SNAPSHOT_PID
 # Duplicate coprocess descriptors; Bash may unset the array when it terminates.
 exec {SNAP_IN}>&"${SNAPSHOT[1]}"; exec {SNAP_OUT}<&"${SNAPSHOT[0]}"
-printf "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;\nSET LOCAL idle_in_transaction_session_timeout='240s';\nSELECT pg_export_snapshot();\n" >&"$SNAP_IN"
+# Keep a dead snapshot pipe from killing the parent before its cleanup trap.
+( trap - EXIT; printf "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;\nSET LOCAL idle_in_transaction_session_timeout='240s';\nSELECT pg_export_snapshot();\n" >&"$SNAP_IN" ) 2>/dev/null || fail SNAPSHOT_START
 IFS= read -r -t 15 SNAPSHOT_ID <&"$SNAP_OUT" || fail SNAPSHOT_START
 [[ "$SNAPSHOT_ID" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{8}-[1-9][0-9]*$ ]] || fail SNAPSHOT_ID
 TABLES=(deals audit_events ledger_entries outbox_entries _prisma_migrations catalog)
@@ -206,7 +207,7 @@ def normalized(filename):
     return [r for r in rows if r not in marks]
 assert normalized(sys.argv[1])==normalized(sys.argv[2])
 PYROLES
-printf 'ROLLBACK;\n\\q\n' >&"$SNAP_IN"
+( trap - EXIT; printf 'ROLLBACK;\n\\q\n' >&"$SNAP_IN" ) 2>/dev/null || fail SNAPSHOT_END
 eval "exec ${SNAP_IN}>&-"; SNAP_IN=''
 wait "$SNAP_PID" || fail SNAPSHOT_END
 SNAP_PID=''

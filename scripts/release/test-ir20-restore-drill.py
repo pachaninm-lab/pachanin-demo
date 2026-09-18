@@ -36,6 +36,10 @@ def source_row():
 if a[:2]==['container','inspect']:
  target=a[-1]
  if target==source:
+  output=pathlib.Path(os.readlink('/proc/self/fd/1'))
+  if output.name=='source-before.json':
+   assert output.parent.parent==pathlib.Path('/var/lib/pc-release-authority/backups/ir20')
+   (root/'backup-location').write_text(str(output.parent))
   if mode=='source_transport':error()
   print(json.dumps([source_row()]));sys.exit()
  if not state.exists():sys.exit(1)
@@ -100,8 +104,14 @@ if a[0]=='exec':
  if 'psql' in a:
   for line in sys.stdin:
    if 'SELECT (current_user' in line:print('0' if mode=='db_authority' else '1',flush=True)
-   elif 'pg_export_snapshot' in line:print('bad' if mode=='snapshot' else '00000003-0000001A-1',flush=True)
+   elif 'pg_export_snapshot' in line:
+    print('bad' if mode in ('snapshot','snapshot_closed_invalid') else '00000003-0000001A-1',flush=True)
+    if mode.startswith('snapshot_closed_'):sys.exit(23)
    elif line.startswith('COPY'):
+    if mode=='snapshot_closed_fingerprint' and target==source:
+     counter=root/'fingerprints'; n=int(counter.read_text())+1 if counter.exists() else 1
+     counter.write_text(str(n))
+     if n==6:error()
     if mode=='fingerprint' and target==source:error()
     print('{"id":"changed"}' if mode=='mismatch' and target==restored else '{"id":"synthetic"}',flush=True)
    elif line.strip()=='\\q':break
@@ -128,6 +138,13 @@ class DrillTests(unittest.TestCase):
             calls = [json.loads(v) for v in (root/'calls').read_text().splitlines()] if (root/'calls').exists() else []
             self.assertFalse(any(v[2] in ('pull','stop','restart','update','kill') for v in calls))
             self.assertFalse(any(v[2]=='rm' and SOURCE in v for v in calls))
+            if (root/'backup-location').exists():
+                backup=Path((root/'backup-location').read_text())
+                self.assertEqual(backup.parent,Path('/var/lib/pc-release-authority/backups/ir20'))
+                # Only the intended protected backup/roles and a final report may remain.
+                remnants=sorted(p.name for p in backup.iterdir()
+                                if p.name not in ('database.dump','roles.sql','report.json'))
+                self.assertEqual(remnants, [], 'sensitive temporary files survived cleanup')
             return result, calls
 
     def test_actual_executor_happy_path_and_local_daemon(self):
@@ -204,6 +221,19 @@ class DrillTests(unittest.TestCase):
                 self.assertIn('IR20_RESTORE_ERROR=CLEANUP_NOT_PROVEN',result.stderr)
                 self.assertEqual(sum(v[2]=='rm' for v in calls),1)
                 self.assertEqual(sum(v[2]=='ps' for v in calls),1)
+
+    def test_closed_snapshot_input_does_not_terminate_parent_or_skip_cleanup(self):
+        cases={'snapshot_closed_valid':'SNAPSHOT_END',
+               'snapshot_closed_invalid':'SNAPSHOT_ID',
+               'snapshot_closed_fingerprint':'SOURCE_FINGERPRINT'}
+        for case,code in cases.items():
+            with self.subTest(case=case):
+                result,calls=self.run_case(case)
+                self.assertEqual(result.returncode,1,result.stderr)
+                self.assertEqual(result.stdout,'')
+                self.assertIn('IR20_RESTORE_ERROR='+code,result.stderr)
+                self.assertIn('IR20_RESTORE_RESULT=NOT_VERIFIED',result.stderr)
+                self.assertFalse(any(v[2]=='create' for v in calls))
 
 
 if __name__ == '__main__':
