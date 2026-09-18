@@ -606,23 +606,18 @@ export function canonicalizeExactPrHeadActionsChecks(
 ) {
   const expectedSha = canonicalSha40(expectedHeadSha);
   const expectedRef = strictGitHubHeadRef(expectedHeadRef);
+  const repository = strictGitHubRepositorySlug(repo);
   const sourceChecks = Array.isArray(checks) ? checks : [];
   const sourceRuns = Array.isArray(actionsRuns) ? actionsRuns : [];
-  const errors = [];
+  let invalid = false;
 
-  if (!expectedSha) return { checks: [], errors: ['exact-head-sha-invalid'] };
-  if (!expectedRef) return { checks: [], errors: ['exact-head-ref-invalid'] };
-  if (!isGitHubRepositorySlug(repo)) return { checks: [], errors: ['actions-authority-input-invalid'] };
+  if (!expectedSha || !expectedRef || !repository) return { checks: [], invalid: true };
 
   const indexedRuns = [];
   for (const run of sourceRuns) {
     const id = positiveIntegerString(run?.id);
-    if (!id) {
-      errors.push('actions-run-id-invalid');
-      continue;
-    }
-    if (indexedRuns.some((entry) => entry.id === id)) {
-      errors.push('actions-run-duplicate');
+    if (!id || indexedRuns.some((entry) => entry.id === id)) {
+      invalid = true;
       continue;
     }
     indexedRuns.push({ id, run });
@@ -638,14 +633,10 @@ export function canonicalizeExactPrHeadActionsChecks(
       continue;
     }
 
-    const runId = actionsRunIdFromCheck(check, repo);
-    if (!runId) {
-      errors.push('actions-check-run-url-invalid');
-      continue;
-    }
-    const run = indexedRuns.find((entry) => entry.id === runId)?.run;
-    if (!run) {
-      errors.push('actions-run-metadata-missing');
+    const runId = actionsRunIdFromCheck(check, repository);
+    const run = runId ? indexedRuns.find((entry) => entry.id === runId)?.run : null;
+    if (!runId || !run) {
+      invalid = true;
       continue;
     }
 
@@ -656,21 +647,17 @@ export function canonicalizeExactPrHeadActionsChecks(
     const runHeadSha = canonicalSha40(run?.head_sha);
     const runHeadRef = strictGitHubHeadRef(run?.head_branch);
     const event = strictGitHubActionsEvent(run?.event);
-    if (!metadataId || !workflowId || !runNumber || !runAttempt || !runHeadSha || !runHeadRef || !event) {
-      errors.push('actions-run-authority-metadata-invalid');
-      continue;
-    }
-    if (metadataId !== runId) {
-      errors.push('actions-run-id-mismatch');
-      continue;
-    }
-    if (runHeadSha !== expectedSha) {
-      errors.push('actions-run-head-sha-mismatch');
+    if (
+      !metadataId || !workflowId || !runNumber || !runAttempt || !runHeadSha || !runHeadRef || !event
+      || metadataId !== runId
+      || runHeadSha !== expectedSha
+    ) {
+      invalid = true;
       continue;
     }
 
-    // GitHub's commit-level rollup can contain checks from a different branch that points at
-    // the same SHA. Valid run metadata proving a foreign head ref makes that check non-PR authority.
+    // Commit rollups can include valid Actions runs for another branch pointing at the same SHA.
+    // Such a run is not authority for this PR after trusted metadata proves the head-ref mismatch.
     if (runHeadRef !== expectedRef) continue;
 
     currentPrActions.push({
@@ -683,7 +670,7 @@ export function canonicalizeExactPrHeadActionsChecks(
     });
   }
 
-  if (errors.length > 0) return { checks: [], errors: [...new Set(errors)] };
+  if (invalid) return { checks: [], invalid: true };
 
   const authoritativeRuns = [];
   for (const entry of currentPrActions) {
@@ -710,11 +697,9 @@ export function canonicalizeExactPrHeadActionsChecks(
       };
       continue;
     }
-    if (entry.runNumber === previous.runNumber && entry.runId !== previous.runId) {
-      errors.push('actions-run-number-ambiguous');
-    }
+    if (entry.runNumber === previous.runNumber && entry.runId !== previous.runId) invalid = true;
   }
-  if (errors.length > 0) return { checks: [], errors: [...new Set(errors)] };
+  if (invalid) return { checks: [], invalid: true };
 
   const selected = currentPrActions.filter((entry) => authoritativeRuns.some(
     (candidate) => candidate.workflowId === entry.workflowId
@@ -726,7 +711,7 @@ export function canonicalizeExactPrHeadActionsChecks(
   for (const entry of selected) {
     const name = checkName(entry.check);
     if (!name) {
-      errors.push('actions-selected-check-name-missing');
+      invalid = true;
       continue;
     }
 
@@ -748,21 +733,21 @@ export function canonicalizeExactPrHeadActionsChecks(
     }
     const ranked = group.map((entry) => ({ entry, startedAt: strictStartedAt(entry.check?.startedAt) }));
     if (ranked.some((item) => item.startedAt === null)) {
-      errors.push('actions-selected-check-started-at-invalid');
+      invalid = true;
       continue;
     }
     ranked.sort((a, b) => b.startedAt - a.startedAt);
     if (ranked.length > 1 && ranked[0].startedAt === ranked[1].startedAt) {
-      errors.push('actions-selected-check-started-at-ambiguous');
+      invalid = true;
       continue;
     }
     deduped.push(ranked[0].entry);
   }
 
-  if (errors.length > 0) return { checks: [], errors: [...new Set(errors)] };
+  if (invalid) return { checks: [], invalid: true };
   return {
     checks: [...passthrough, ...deduped].sort((a, b) => a.index - b.index).map((entry) => entry.check),
-    errors: [],
+    invalid: false,
   };
 }
 
@@ -1114,7 +1099,7 @@ function fetchCheckSnapshot(repo, prNumber) {
       headSha: '',
       headRef: '',
       checks: [],
-      canonicalizationErrors: ['actions-authority-input-invalid'],
+      canonicalizationInvalid: true,
     };
   }
 
@@ -1154,7 +1139,7 @@ function fetchCheckSnapshot(repo, prNumber) {
     headSha,
     headRef,
     checks: canonical.checks,
-    canonicalizationErrors: canonical.errors,
+    canonicalizationInvalid: canonical.invalid,
   };
 }
 
@@ -1249,11 +1234,8 @@ function providerMaintenanceBootstrapDecision(repo, pr, headSha, reviews) {
   if (snapshot.headRef !== expectedHeadRef) {
     return { eligible: false, reason: 'ci-head-ref-mismatch' };
   }
-  if (snapshot.canonicalizationErrors.length > 0) {
-    return {
-      eligible: false,
-      reason: `ci-snapshot-invalid:${snapshot.canonicalizationErrors.slice(0, 10).join(',')}`,
-    };
+  if (snapshot.canonicalizationInvalid) {
+    return { eligible: false, reason: 'ci-snapshot-invalid' };
   }
   const observed = providerMaintenanceBootstrapSubstantiveChecks(snapshot.checks);
   if (observed.length === 0) {
@@ -1464,11 +1446,8 @@ function main() {
         `CI snapshot head ref ${snapshot.headRef || 'missing'} does not match the validated PR head ref.`,
       );
     }
-    if (snapshot.canonicalizationErrors.length > 0) {
-      fail(
-        'REVIEW_GATE_CI_SNAPSHOT_INVALID',
-        `Exact-PR-head CI authority metadata is malformed or ambiguous: ${snapshot.canonicalizationErrors.slice(0, 20).join(', ')}`,
-      );
+    if (snapshot.canonicalizationInvalid) {
+      fail('REVIEW_GATE_CI_SNAPSHOT_INVALID', 'Exact-PR-head CI authority metadata is malformed or ambiguous.');
     }
 
     const observed = substantiveChecks(snapshot.checks);
