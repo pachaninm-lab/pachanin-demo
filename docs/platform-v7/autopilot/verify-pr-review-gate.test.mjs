@@ -1045,10 +1045,12 @@ test('review reconciliation workflow uses supported dispatch wiring and complete
 test('Actions run fetch failures remain fail-closed with a distinct sanitized diagnostic', () => {
   const rawChecks = [actionsCheck({ runId: 42 }), actionsCheck({ runId: 43 })];
   const calls = [];
+  // Synthetic fixture only: verify the thrown message is omitted from the snapshot.
+  const fixtureErrorMessage = 'SYNTHETIC_ACTIONS_API_ERROR_SENTINEL';
   const snapshot = fetchCheckSnapshot(repo, 5406, (args) => {
     calls.push(args);
     if (args[0] === 'pr') return { headRefOid: head, headRefName: exactHeadRef, statusCheckRollup: rawChecks };
-    if (args[1].endsWith('/42')) throw new Error('transport failure with private operational details');
+    if (args[1].endsWith('/42')) throw new Error(fixtureErrorMessage);
     return actionsRun({ id: 43, runNumber: 11 });
   });
   assert.equal(snapshot.headSha, head);
@@ -1056,7 +1058,7 @@ test('Actions run fetch failures remain fail-closed with a distinct sanitized di
   assert.equal(snapshot.checks, null);
   assert.deepEqual(snapshot.runFetchErrors, [{ runId: '42', code: 'ACTIONS_RUN_FETCH_FAILED' }]);
   assert.equal(calls.length, 3);
-  assert.equal(JSON.stringify(snapshot).includes('private operational details'), false);
+  assert.equal(JSON.stringify(snapshot).includes(fixtureErrorMessage), false);
 });
 
 test('successful fetch with missing or malformed Actions metadata is not a transport failure', () => {
