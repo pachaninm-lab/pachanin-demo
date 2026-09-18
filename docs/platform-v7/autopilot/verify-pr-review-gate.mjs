@@ -525,11 +525,14 @@ function checkWorkflow(check) {
 
 function positiveIntegerString(value) {
   const normalized = String(value ?? '').trim();
-  return /^[1-9][0-9]{0,19}$/u.test(normalized) ? normalized : '';
+  if (!/^[1-9][0-9]*$/u.test(normalized)) return '';
+  const numeric = Number(normalized);
+  return Number.isSafeInteger(numeric) && numeric > 0 ? normalized : '';
 }
 
-function strictNonEmptyString(value) {
-  return typeof value === 'string' && value === value.trim() && value ? value : '';
+function strictGitHubActionsEvent(value) {
+  if (typeof value !== 'string' || value !== value.trim()) return '';
+  return /^[a-z][a-z0-9_]*$/u.test(value) ? value : '';
 }
 
 function strictGitHubRepositorySlug(value) {
@@ -652,7 +655,7 @@ export function canonicalizeExactPrHeadActionsChecks(
     const runAttempt = positiveIntegerString(run?.run_attempt);
     const runHeadSha = canonicalSha40(run?.head_sha);
     const runHeadRef = strictGitHubHeadRef(run?.head_branch);
-    const event = strictNonEmptyString(run?.event);
+    const event = strictGitHubActionsEvent(run?.event);
     if (!metadataId || !workflowId || !runNumber || !runAttempt || !runHeadSha || !runHeadRef || !event) {
       errors.push('actions-run-authority-metadata-invalid');
       continue;
