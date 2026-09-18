@@ -532,6 +532,10 @@ function strictNonEmptyString(value) {
   return typeof value === 'string' && value === value.trim() && value ? value : '';
 }
 
+function strictGitHubRepositorySlug(value) {
+  return isGitHubRepositorySlug(String(value || '').trim()) ? String(value || '').trim() : '';
+}
+
 export function strictGitHubHeadRef(value) {
   if (typeof value !== 'string' || value !== value.trim() || !value) return '';
   if (value.startsWith('/')) return '';
@@ -562,8 +566,8 @@ function strictStartedAt(value) {
 
 export function actionsRunIdFromCheck(check, repo) {
   if (!checkWorkflow(check)) return '';
-  const repository = String(repo || '').trim();
-  if (!isGitHubRepositorySlug(repository)) return '';
+  const repository = strictGitHubRepositorySlug(repo);
+  if (!repository) return '';
   const detailsUrl = String(check?.detailsUrl || check?.details_url || '').trim();
   if (!detailsUrl) return '';
 
@@ -584,9 +588,9 @@ export function actionsRunIdFromCheck(check, repo) {
 }
 
 export function actionsRunApiPath(repo, runId) {
-  const repository = String(repo || '').trim();
+  const repository = strictGitHubRepositorySlug(repo);
   const id = positiveIntegerString(runId);
-  if (!isGitHubRepositorySlug(repository) || !id) return '';
+  if (!repository || !id) return '';
   return `repos/${repository}/actions/runs/${id}`;
 }
 
@@ -1101,8 +1105,8 @@ function fetchAllReviewThreads(repo, prNumber) {
 }
 
 function fetchCheckSnapshot(repo, prNumber) {
-  const repository = String(repo || '').trim();
-  if (!isGitHubRepositorySlug(repository)) {
+  const repository = strictGitHubRepositorySlug(repo);
+  if (!repository) {
     return {
       headSha: '',
       headRef: '',
