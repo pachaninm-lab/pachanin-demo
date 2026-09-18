@@ -534,27 +534,19 @@ function strictNonEmptyString(value) {
 
 export function strictGitHubHeadRef(value) {
   if (typeof value !== 'string' || value !== value.trim() || !value) return '';
-  if (
-    value.startsWith('/')
-    || value.endsWith('/')
-    || value.endsWith('.')
-    || value.includes('//')
-    || value.includes('..')
-    || value.includes('@{')
-  ) {
-    return '';
-  }
+  if (value.startsWith('/')) return '';
+  if (value.endsWith('/')) return '';
+  if (value.endsWith('.')) return '';
+  if (value.includes('//')) return '';
+  if (value.includes('..')) return '';
+  if (value.includes('@{')) return '';
 
   for (const character of value) {
     const codePoint = character.codePointAt(0);
-    if (
-      codePoint <= 0x20
-      || codePoint === 0x7f
-      || '~^:?*['.includes(character)
-      || character === '\\'
-    ) {
-      return '';
-    }
+    if (codePoint <= 0x20) return '';
+    if (codePoint === 0x7f) return '';
+    if ('~^:?*['.includes(character)) return '';
+    if (character === '\\') return '';
   }
 
   const components = value.split('/');
@@ -615,18 +607,18 @@ export function canonicalizeExactPrHeadActionsChecks(
   if (!expectedRef) return { checks: [], errors: ['exact-head-ref-invalid'] };
   if (!isGitHubRepositorySlug(repo)) return { checks: [], errors: ['actions-authority-input-invalid'] };
 
-  const runsById = new Map();
+  const indexedRuns = [];
   for (const run of sourceRuns) {
     const id = positiveIntegerString(run?.id);
     if (!id) {
       errors.push('actions-run-id-invalid');
       continue;
     }
-    if (runsById.has(id)) {
+    if (indexedRuns.some((entry) => entry.id === id)) {
       errors.push(`actions-run-duplicate:${id}`);
       continue;
     }
-    runsById.set(id, run);
+    indexedRuns.push({ id, run });
   }
 
   const passthrough = [];
@@ -644,7 +636,7 @@ export function canonicalizeExactPrHeadActionsChecks(
       errors.push(`actions-check-run-url-invalid:${workflow}:${checkName(check) || 'unnamed-check'}`);
       continue;
     }
-    const run = runsById.get(runId);
+    const run = indexedRuns.find((entry) => entry.id === runId)?.run;
     if (!run) {
       errors.push(`actions-run-metadata-missing:${runId}`);
       continue;
@@ -686,12 +678,29 @@ export function canonicalizeExactPrHeadActionsChecks(
 
   if (errors.length > 0) return { checks: [], errors: [...new Set(errors)] };
 
-  const authoritativeRunByFamily = new Map();
+  const authoritativeRuns = [];
   for (const entry of currentPrActions) {
-    const family = `${entry.workflowId}\u0000${entry.event}`;
-    const previous = authoritativeRunByFamily.get(family);
-    if (!previous || entry.runNumber > previous.runNumber) {
-      authoritativeRunByFamily.set(family, { runId: entry.runId, runNumber: entry.runNumber });
+    const previousIndex = authoritativeRuns.findIndex(
+      (candidate) => candidate.workflowId === entry.workflowId && candidate.event === entry.event,
+    );
+    if (previousIndex === -1) {
+      authoritativeRuns.push({
+        event: entry.event,
+        runId: entry.runId,
+        runNumber: entry.runNumber,
+        workflowId: entry.workflowId,
+      });
+      continue;
+    }
+
+    const previous = authoritativeRuns[previousIndex];
+    if (entry.runNumber > previous.runNumber) {
+      authoritativeRuns[previousIndex] = {
+        event: entry.event,
+        runId: entry.runId,
+        runNumber: entry.runNumber,
+        workflowId: entry.workflowId,
+      };
       continue;
     }
     if (entry.runNumber === previous.runNumber && entry.runId !== previous.runId) {
@@ -700,26 +709,32 @@ export function canonicalizeExactPrHeadActionsChecks(
   }
   if (errors.length > 0) return { checks: [], errors: [...new Set(errors)] };
 
-  const selected = currentPrActions.filter((entry) => {
-    const family = `${entry.workflowId}\u0000${entry.event}`;
-    return authoritativeRunByFamily.get(family)?.runId === entry.runId;
-  });
+  const selected = currentPrActions.filter((entry) => authoritativeRuns.some(
+    (candidate) => candidate.workflowId === entry.workflowId
+      && candidate.event === entry.event
+      && candidate.runId === entry.runId,
+  ));
 
-  const selectedByLogicalCheck = new Map();
+  const selectedGroups = [];
   for (const entry of selected) {
     const name = checkName(entry.check);
     if (!name) {
       errors.push(`actions-selected-check-name-missing:${entry.runId}`);
       continue;
     }
-    const key = `${entry.runId}\u0000${name}`;
-    const group = selectedByLogicalCheck.get(key) || [];
-    group.push(entry);
-    selectedByLogicalCheck.set(key, group);
+
+    let group = selectedGroups.find(
+      (candidate) => candidate.runId === entry.runId && candidate.name === name,
+    );
+    if (!group) {
+      group = { entries: [], name, runId: entry.runId };
+      selectedGroups.push(group);
+    }
+    group.entries.push(entry);
   }
 
   const deduped = [];
-  for (const group of selectedByLogicalCheck.values()) {
+  for (const { entries: group } of selectedGroups) {
     if (group.length === 1) {
       deduped.push(group[0]);
       continue;
