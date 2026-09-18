@@ -1443,7 +1443,7 @@ jobs:
           repairs = 0
           with output_path.open('w', encoding='utf-8') as out:
               for item in requests:
-                  initial = completion(item['system'], item['user'])
+                  initial = completion(item['system'], item['user'], fresh_unanchored_review_schema(schema, item))
                   content = initial
                   violation = policy_violation(item, initial)
                   repaired = False
