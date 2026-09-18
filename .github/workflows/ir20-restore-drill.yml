@@ -1,0 +1,66 @@
+name: IR20 Isolated Restore Acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/ir20-restore-drill.yml'
+      - 'scripts/release/ir20-restore-drill.sh'
+      - 'scripts/release/test-ir20-restore-drill.py'
+      - 'scripts/release/test-ir20-restore-drill-integration.sh'
+      - 'docs/ops/ir20-isolated-restore.md'
+      - 'docs/platform-v7/autopilot/scopes/ir20-isolated-restore-20260919.json'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ir20-isolated-restore-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    name: IR20 snapshot-bound isolated restore
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      TARGET_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Validate exact source and shell syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          bash -n scripts/release/ir20-restore-drill.sh
+          bash -n scripts/release/test-ir20-restore-drill-integration.sh
+      - name: Exercise executor rejection and cleanup paths
+        run: sudo /usr/bin/python3 -B scripts/release/test-ir20-restore-drill.py
+      - name: Restore a synthetic PostgreSQL snapshot with the existing image authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="$(python3 -I - <<'PY'
+          import json,re
+          m=json.load(open('.github/container-images/postgres-16.v1.json'))
+          assert m['schema']=='pc.ci-container-image.v1'
+          assert m['logical_name']=='postgres-16' and m['verification_status']=='VERIFIED'
+          assert m['mirrored_repository']=='ghcr.io/pachaninm-lab/ci-postgres'
+          assert re.fullmatch(r'sha256:[0-9a-f]{64}',m['mirrored_digest'])
+          assert m['mirrored_digest']==m['upstream_digest']
+          assert m['source_run_id'] and m['verified_by']['digest_preserved'] is True
+          print(m['mirrored_repository']+'@'+m['mirrored_digest'])
+          PY
+          )"
+          docker pull "$image" >/dev/null
+          sudo bash scripts/release/test-ir20-restore-drill-integration.sh "$TARGET_SHA" "$image"
+      - name: Retain only sanitized fixture evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ir20-isolated-restore-${{ github.event.pull_request.head.sha }}-${{ github.run_id }}
+          path: artifacts/ir20-restore-drill/report.json
+          if-no-files-found: error
+          retention-days: 30
