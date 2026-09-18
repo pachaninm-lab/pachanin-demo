@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-reviewer-exact-deployed-repair-3799",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_MEMBERSHIP_REPAIR_EXACT_DEPLOYED_SHA",
+  "issue": 3799,
+  "title": "Production P0 reviewer membership repair on the exact already deployed revision",
+  "deployedRevision": "30d9075d8867fa60b3ec275b1e244f151debf0f4",
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-membership-repair-deployed.yml",
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "docs/platform-v7/autopilot/scopes/production-p0-reviewer-membership-repair-deployed-3799.json",
+    "scripts/check-production-p0-reviewer-membership-repair-deployed.mjs",
+    "scripts/production-p0-reviewer-membership-repair-deployed-sha.sh"
+  ],
+  "boundaries": {
+    "productionMutation": "REVIEWER_MEMBERSHIP_ONLY",
+    "immutableCheckedInRunner": true,
+    "runtimeRewriting": false,
+    "arbitraryTarget": false,
+    "currentMainDeploymentRequired": false,
+    "deployedRevisionMustBeAncestorOfMain": true,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "rawDatabaseMessageOutput": false,
+    "deploymentMutation": false,
+    "securityWeakening": false,
+    "arbitrarySqlSurface": false,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "the owner-only command is fixed to /production p0-reviewer-membership-repair deployed-30d9075 and cannot accept an arbitrary SHA",
+    "the production repair runner is an immutable checked-in Bash file and performs no runtime source rewriting or temporary script generation",
+    "the production API and Web containers must both remain on exact revision 30d9075d8867fa60b3ec275b1e244f151debf0f4 before the database call",
+    "the same exact API and Web revision must still be present after the database call before success evidence is published",
+    "the deployed revision must remain an ancestor of repository main while unrelated main movement is permitted",
+    "the repair remains no-argument, pc_staff_runtime function-only, SERIALIZABLE and advisory-locked",
+    "only the fixed internal organization, one reviewer membership, immutable staff audit and durable outbox evidence may be created",
+    "identity, staff assignment, password, MFA factor, session and customer tenant data remain unchanged",
+    "no email, user ID, organization ID, tenant ID, credential, token, cookie or raw database message is published",
+    "the branch and exact five-file allow-list are registered in the authoritative autopilot state",
+    "the operation performs no deployment, arbitrary SQL, privilege widening or recurring-cost change"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}
