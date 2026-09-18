@@ -220,6 +220,9 @@ jobs:
       - name: Verify request validation coverage ratchet
         run: node scripts/security/verify-request-validation-coverage.mjs
 
+      - name: Verify no raw query asserts a column it cannot return
+        run: node scripts/security/verify-raw-sql-shape.mjs
+
       - name: Verify every key records where it may be used
         run: node scripts/security/verify-key-usage.mjs
 
