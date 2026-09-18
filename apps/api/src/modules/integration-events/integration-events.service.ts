@@ -1,5 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import {
+  safeIntegrationErrorCode,
+  summarizeIntegrationPayload,
+  toSafeIntegrationEventView,
+} from './integration-event-redaction.policy';
 
 export interface LogIntegrationEventParams {
   adapterName: string;
@@ -30,15 +35,24 @@ export class IntegrationEventsService {
         eventType: params.eventType,
         externalId: params.externalId,
         dealId: params.dealId,
-        requestPayload: params.requestPayload ? JSON.stringify(params.requestPayload) : null,
-        responsePayload: params.responsePayload ? JSON.stringify(params.responsePayload) : null,
+        // Never persist the original request/response. Even when a caller hands
+        // us a token/password by mistake, only structural metadata survives.
+        requestPayload: summarizeIntegrationPayload(params.requestPayload),
+        responsePayload: summarizeIntegrationPayload(params.responsePayload),
         status: params.status,
-        errorMessage: params.errorMessage,
+        // Exception text often contains URLs, headers or upstream bodies. Keep
+        // only an explicitly machine-safe code, otherwise collapse it.
+        errorMessage: safeIntegrationErrorCode(params.errorMessage),
         httpStatus: params.httpStatus,
         durationMs: params.durationMs,
         idempotencyKey: params.idempotencyKey,
       },
-    }).catch((err) => this.logger.debug(`Integration event log: ${err.message}`));
+    }).catch(() => {
+      // Do not echo the database exception into application logs: it can contain
+      // values from the rejected row. Integration telemetry is not business
+      // authority, so the external operation is not failed by telemetry outage.
+      this.logger.debug('Integration event log write failed');
+    });
   }
 
   async withLogging<T>(
@@ -48,29 +62,43 @@ export class IntegrationEventsService {
     const start = Date.now();
     try {
       const result = await fn();
-      await this.log({ ...params, status: 'SUCCESS', responsePayload: result, durationMs: Date.now() - start });
+      await this.log({
+        ...params,
+        status: 'SUCCESS',
+        responsePayload: result,
+        durationMs: Date.now() - start,
+      });
       return result;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      await this.log({ ...params, status: 'ERROR', errorMessage: message, durationMs: Date.now() - start });
+      await this.log({
+        ...params,
+        status: 'ERROR',
+        errorMessage: message,
+        durationMs: Date.now() - start,
+      });
       throw err;
     }
   }
 
   async listByAdapter(adapterName: string, limit = 50) {
-    return this.prisma.integrationEvent.findMany({
+    const take = boundedTake(limit, 50);
+    const rows = await this.prisma.integrationEvent.findMany({
       where: { adapterName },
       orderBy: { createdAt: 'desc' },
-      take: limit,
+      take,
     }).catch(() => []);
+    return rows.map(toSafeIntegrationEventView);
   }
 
   async listFailed(limit = 100) {
-    return this.prisma.integrationEvent.findMany({
+    const take = boundedTake(limit, 100);
+    const rows = await this.prisma.integrationEvent.findMany({
       where: { status: { in: ['ERROR', 'TIMEOUT'] } },
       orderBy: { createdAt: 'desc' },
-      take: limit,
+      take,
     }).catch(() => []);
+    return rows.map(toSafeIntegrationEventView);
   }
 
   async getStats() {
@@ -91,4 +119,9 @@ export class IntegrationEventsService {
     }
     return stats;
   }
+}
+
+function boundedTake(value: number, fallback: number): number {
+  if (!Number.isSafeInteger(value) || value < 1) return fallback;
+  return Math.min(value, 500);
 }
