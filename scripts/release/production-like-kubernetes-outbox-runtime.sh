@@ -369,4 +369,101 @@ if (rendered === source) {
 fs.writeFileSync(process.env.GENERATED_SCRIPT, rendered, { mode: 0o700 });
 NODE
 
-bash "$GENERATED_SCRIPT"
+# Diagnostics never change the acceptance result or mutate scenario rows. Keep
+# each remote request bounded so an unavailable dependency cannot hang cleanup.
+capture_failure_diagnostics() {
+  command -v timeout >/dev/null || return 0
+  local runtime_dir="${EVIDENCE_DIR:-artifacts/industrial-readiness}/kubernetes/outbox-runtime"
+  local diagnostic_run_id
+  diagnostic_run_id="$(jq -er --arg head "$EXACT_HEAD" '
+    select(.commitSha == $head and .result == "FAIL") | .runId
+    | select(test("^ir2649-[a-f0-9]{12}-[0-9]+$"))
+  ' "$runtime_dir/outbox-worker-runtime-acceptance.json" 2>/dev/null)" || return 0
+
+  # Only aggregate synthetic rows from this failed run. Do not export payloads,
+  # lease tokens, connection strings or unrestricted lastError messages.
+  timeout 8s kubectl exec -n "$NAMESPACE" statefulset/postgresql -- \
+    env PGPASSWORD="$postgres_password" \
+    psql -q -v ON_ERROR_STOP=1 -U postgres -d grainflow -Atc "
+      SET statement_timeout = '5s';
+      WITH grouped AS (
+        SELECT substring(\"correlationId\" FROM char_length('$diagnostic_run_id') + 2) AS scenario,
+          \"status\"::text AS status,
+          CASE WHEN \"lastErrorCategory\" IN ('TRANSIENT','PERMANENT','AMBIGUOUS')
+            THEN \"lastErrorCategory\" ELSE NULL END AS category,
+          CASE WHEN \"lastErrorCode\" ~ '^[A-Z0-9_.:-]{1,64}$'
+            THEN \"lastErrorCode\" ELSE NULL END AS code,
+          \"retryCount\" AS retries,
+          (\"leaseOwner\" IS NOT NULL) AS leased,
+          (\"leaseExpiresAt\" < NOW()) AS expired,
+          (\"lastAttemptAt\" IS NOT NULL) AS attempted,
+          (\"sentAt\" IS NOT NULL) AS acknowledged,
+          count(*) AS count
+        FROM \"outbox_entries\"
+        WHERE \"correlationId\" LIKE '$diagnostic_run_id.%'
+        GROUP BY 1,2,3,4,5,6,7,8,9
+      )
+      SELECT jsonb_build_object('commitSha','$EXACT_HEAD','runId','$diagnostic_run_id',
+        'groups',COALESCE(jsonb_agg(to_jsonb(grouped)), '[]'::jsonb)) FROM grouped;
+    " > "$runtime_dir/failure-outcome-counts.json" 2>/dev/null || true
+
+  timeout 8s kubectl get pods -n "$NAMESPACE" \
+    -l app.kubernetes.io/name=grainflow-outbox-worker -o json 2>/dev/null |
+    jq --arg head "$EXACT_HEAD" --arg run "$diagnostic_run_id" '{
+      commitSha:$head, runId:$run,
+      workers:[.items[] | {pod:.metadata.name, phase:.status.phase,
+        deleting:(.metadata.deletionTimestamp != null),
+        containers:[.status.containerStatuses[]? | {name,ready,restartCount,
+          waitingReason:.state.waiting.reason, terminationReason:.state.terminated.reason,
+          lastExitCode:.lastState.terminated.exitCode}]}]
+    }' > "$runtime_dir/failure-worker-state.json" 2>/dev/null || true
+
+  # Filter in memory before saving. Only fixed drain counters and known error
+  # identifiers are retained; arbitrary exception text never enters the file.
+  timeout 8s kubectl logs -n "$NAMESPACE" \
+    -l app.kubernetes.io/name=grainflow-outbox-worker \
+    --all-containers=true --prefix=true --tail=300 2>/dev/null |
+    node -e '
+      let text = "";
+      process.stdin.setEncoding("utf8");
+      process.stdin.on("data", chunk => { text = (text + chunk).slice(-1000000); });
+      process.stdin.on("end", () => {
+        for (const line of text.split("\n")) {
+          const pod = line.match(/pod\/(grainflow-outbox-worker-[a-z0-9-]+)/)?.[1] ?? null;
+          const drain = line.match(/Outbox drain claimed=\d+ delivered=\d+ retried=\d+ dead=\d+ manualReview=\d+ leaseLost=\d+/)?.[0];
+          const codes = [...new Set(line.match(/\b(?:P20\d{2}|KAFKA_MESSAGE_TOO_LARGE|KAFKA_RECORD_LIST_TOO_LARGE|KAFKA_TRANSPORT_UNAVAILABLE|KafkaJSConnectionError|KafkaJSRequestTimeoutError|KafkaJSNumberOfRetriesExceeded|KafkaJSProtocolError|ETIMEDOUT|ECONNREFUSED|OutboxLeaseLostError)\b/g) ?? [])];
+          const categories = [
+            ["kafka-send-failed", /Kafka send failed/],
+            ["kafka-readiness-failed", /Kafka readiness probe failed/],
+            ["outbox-drain-failed", /Outbox drain failed/],
+            ["sequence-order-error", /out.of.order.sequence|out of order sequence/i],
+            ["unknown-producer", /UNKNOWN_PRODUCER_ID|unknown producer id/i],
+            ["timeout", /timed?\s*out|timeout/i],
+            ["sql-permission", /\b42501\b/],
+            ["sql-deadlock", /\b40P01\b/],
+            ["sql-serialization", /\b40001\b/],
+          ].filter(([, pattern]) => pattern.test(line)).map(([category]) => category);
+          if (drain || codes.length || categories.length) console.log(JSON.stringify({pod,drain:drain ?? null,codes,categories}));
+        }
+      });
+    ' > "$runtime_dir/failure-worker-events.jsonl" 2>/dev/null || true
+
+  timeout 8s kubectl exec -n "$NAMESPACE" statefulset/postgresql -- \
+    env PGPASSWORD="$postgres_password" \
+    psql -q -v ON_ERROR_STOP=1 -U postgres -d grainflow -Atc "
+      SET statement_timeout = '5s';
+      SELECT COALESCE(jsonb_agg(to_jsonb(grouped)), '[]'::jsonb) FROM (
+        SELECT state, wait_event_type, wait_event, count(*) AS count
+        FROM pg_stat_activity WHERE usename='app_outbox'
+        GROUP BY state, wait_event_type, wait_event
+      ) AS grouped;
+    " > "$runtime_dir/failure-database-waits.json" 2>/dev/null || true
+}
+
+if bash "$GENERATED_SCRIPT"; then
+  exit 0
+else
+  runtime_status=$?
+fi
+capture_failure_diagnostics || true
+exit "$runtime_status"

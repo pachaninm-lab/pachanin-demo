@@ -158,3 +158,66 @@ test('saved wrapper renders executable final snapshot before cleanup without cha
   const syntax = spawnSync('bash', ['-n', generated], { encoding: 'utf8' });
   assert.equal(syntax.status, 0, syntax.stderr);
 });
+
+for (const diagnosticFailure of [false, true]) {
+  test(`failed runtime preserves its exit code with ${diagnosticFailure ? 'unavailable' : 'available'} diagnostics`, (t) => {
+    const f = fixture(t);
+    f.runtime.pass = false;
+    f.runtime.result = 'FAIL';
+    f.write('outbox-worker-runtime-acceptance.json', f.runtime);
+    const reportBefore = fs.readFileSync(path.join(f.dir, 'outbox-worker-runtime-acceptance.json'), 'utf8');
+    const wrapper = fs.readFileSync(path.join(root, 'scripts/release/production-like-kubernetes-outbox-runtime.sh'), 'utf8');
+    const suffix = wrapper.slice(wrapper.indexOf('capture_failure_diagnostics() {'));
+    assert.ok(suffix.startsWith('capture_failure_diagnostics() {'));
+    const bin = path.join(f.cwd, 'bin');
+    fs.mkdirSync(bin);
+    const mock = `#!${process.execPath}
+const fs = require('node:fs');
+const args = process.argv.slice(2);
+if (process.env.DIAGNOSTIC_FAILURE === '1') process.exit(77);
+if (args[0] === 'exec') {
+  const sql = args.at(-1);
+  fs.appendFileSync(process.env.SQL_AUDIT, sql + '\\n');
+  if (!sql.includes('SELECT') || /\\b(?:UPDATE|DELETE|INSERT|ALTER)\\b/.test(sql)) process.exit(78);
+  console.log(JSON.stringify({groups:[{status:'PENDING',count:100}]}));
+} else if (args[0] === 'get') {
+  console.log(JSON.stringify({items:[{metadata:{name:'grainflow-outbox-worker-test'},spec:{secret:'SENSITIVE_FIXTURE'},status:{phase:'Running',containerStatuses:[{name:'outbox',ready:true,restartCount:2}]}}]}));
+} else if (args[0] === 'logs') {
+  console.log('[pod/grainflow-outbox-worker-test/outbox] Outbox drain claimed=25 delivered=20 retried=0 dead=0 manualReview=5 leaseLost=0 SENSITIVE_FIXTURE');
+  console.log('[pod/grainflow-outbox-worker-test/outbox] P2024 SENSITIVE_FIXTURE');
+  console.log('payload=SENSITIVE_FIXTURE password=SENSITIVE_FIXTURE KafkaJSSecretValue KAFKA_SECRET_VALUE');
+  console.log('Kafka send failed [private-topic]: out of order sequence number; timed out; SENSITIVE_FIXTURE');
+  console.log('Outbox drain failed: Code: 42501; SENSITIVE_FIXTURE');
+} else process.exit(79);
+`;
+    fs.writeFileSync(path.join(bin, 'kubectl'), mock, { mode: 0o700 });
+    const failedRuntime = path.join(f.cwd, 'failed-runtime.sh');
+    fs.writeFileSync(failedRuntime, '#!/usr/bin/env bash\nexit 37\n');
+    const executed = spawnSync('bash', ['-c', `set -Eeuo pipefail\n${suffix}`], {
+      cwd: f.cwd,
+      env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, EXACT_HEAD: head,
+        EVIDENCE_DIR: path.join(f.cwd, 'artifacts/industrial-readiness'), NAMESPACE: 'test',
+        GENERATED_SCRIPT: failedRuntime, postgres_password: 'SENSITIVE_FIXTURE',
+        DIAGNOSTIC_FAILURE: diagnosticFailure ? '1' : '0', SQL_AUDIT: path.join(f.cwd, 'sql.txt') },
+      encoding: 'utf8', timeout: 10000,
+    });
+    assert.equal(executed.status, 37, executed.stderr);
+    assert.equal(fs.readFileSync(path.join(f.dir, 'outbox-worker-runtime-acceptance.json'), 'utf8'), reportBefore);
+    assert.doesNotMatch(executed.stdout + executed.stderr, /SENSITIVE_FIXTURE/u);
+    const events = fs.readFileSync(path.join(f.dir, 'failure-worker-events.jsonl'), 'utf8');
+    const workers = fs.readFileSync(path.join(f.dir, 'failure-worker-state.json'), 'utf8');
+    assert.doesNotMatch(events + workers, /SENSITIVE_FIXTURE|KafkaJSSecretValue|KAFKA_SECRET_VALUE|private-topic/u);
+    if (!diagnosticFailure) {
+      assert.match(events, /delivered=20/u);
+      assert.match(events, /P2024/u);
+      assert.match(events, /kafka-send-failed/u);
+      assert.match(events, /sequence-order-error/u);
+      assert.match(events, /timeout/u);
+      assert.match(events, /sql-permission/u);
+      assert.equal(JSON.parse(workers).workers[0].containers[0].restartCount, 2);
+      const sql = fs.readFileSync(path.join(f.cwd, 'sql.txt'), 'utf8');
+      assert.ok(sql.includes(`LIKE '${runId}.%'`));
+      assert.doesNotMatch(sql, /"payload"|"leaseToken"|"lastError"/u);
+    }
+  });
+}
