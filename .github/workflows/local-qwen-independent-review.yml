@@ -1449,6 +1449,7 @@ jobs:
                                   except (OSError, ValueError, TypeError, KeyError):
                                       pass
                                   fail('POLICY_INITIAL_EVIDENCE_BINDING_INVALID_' + re.sub(r'[^A-Z0-9_]', '_', violation.upper()))
+                              initial = content
                               initial_violation = violation
                       elif violation not in repairable:
                           fail('POLICY_INVALID_' + re.sub(r'[^A-Z0-9_]', '_', violation.upper()))
