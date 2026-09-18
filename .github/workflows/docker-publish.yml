@@ -73,13 +73,13 @@ on:
   workflow_dispatch:
     inputs:
       services:
-        description: "Canonical services to build: api, web, tai, migration, outbox-worker or all"
+        description: "Canonical services to build: api, web, tai, migration or all. Also accepts outbox-worker."
         default: "all"
         required: false
   workflow_call:
     inputs:
       services:
-        description: "Canonical services to build: api, web, tai, migration, outbox-worker or all"
+        description: "Canonical services to build: api, web, tai, migration or all. Also accepts outbox-worker."
         type: string
         default: "all"
         required: false
