@@ -1,38 +1,17 @@
 {
   "branch": "agent/platform-v7-strategic-rebuild-v3",
   "status": "active",
-  "purpose": "Strategic transaction-centric rebuild of the public /platform-v7 homepage, including industrial positioning, responsive typography, unified header controls and capability-led RU/EN/ZH copy, without changing production authority or deployment topology.",
+  "purpose": "Admit the owner-requested Final Public Experience v1 presentation-only continuation of PR #5431 before IR-20 completion. Registration intent ships through separately gated PR #5433 before homepage CTAs are accepted. No API, DB, permissions, external activation or release-policy changes.",
   "allowedPaths": [
-    ".github/workflows/platform-v7-strategic-home-lighthouse.yml",
-    "apps/web/app/layout.tsx",
-    "apps/web/app/loading.tsx",
-    "apps/web/app/pc-public-entry/platform-v7/page.tsx",
-    "apps/web/app/platform-v7/page.tsx",
     "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
     "apps/web/components/platform-v7/PublicDealRoleScenario.tsx",
-    "apps/web/components/platform-v7/PublicDealRoleScenario.module.css",
-    "apps/web/components/platform-v7/PublicLocaleLink.tsx",
-    "apps/web/components/platform-v7/OrganizationConnectForm.tsx",
-    "apps/web/components/platform-v7/OrganizationConnectForm.module.css",
-    "apps/web/components/platform-v7/PublicExperienceAnalytics.tsx",
-    "apps/web/i18n/platform-v7-home-v3.ts",
     "apps/web/i18n/platform-v7-hero-message.ts",
     "apps/web/i18n/platform-v7-organization-connect.ts",
-    "apps/web/lighthouserc.cjs",
-    "apps/web/styles/platform-v7-public-typography.css",
     "apps/web/styles/platform-v7-strategic-home-v3.css",
-    "apps/web/styles/platform-v7-hero-infrastructure-message.css",
-    "apps/web/playwright.acceptance.config.ts",
+    "apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts",
+    "apps/web/tests/unit/platformV7HeroInfrastructureMessage.test.ts",
     "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
     "apps/web/tests/unit/platformV7StrategicHomeSafety.test.ts",
-    "apps/web/tests/unit/platformV7HeroInfrastructureMessage.test.ts",
-    "apps/web/tests/unit/platformV7PublicIndustrialCopy.test.ts",
-    "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
-    "apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts",
-    "docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json",
-    "docs/platform-v7/autopilot/scopes/fix-platform-v7-editorial-typography-v4.json",
-    "scripts/p7-autopilot-guard.sh",
-    "scripts/platform-v7-lighthouse-summary.mjs",
     "scripts/production-full-stack-live-acceptance.sh"
   ],
   "acceptanceEvidence": {
@@ -43,10 +22,29 @@
     "lighthouseWorkflow": ".github/workflows/platform-v7-strategic-home-lighthouse.yml",
     "lighthouseEvidenceClass": "local-production-build-not-live-vps",
     "lighthouseRunsPerMode": 3,
-    "lighthouseModes": ["mobile", "desktop"],
-    "viewports": [320, 375, 390, 430, 768, 1280, 1440],
-    "locales": ["ru", "en", "zh"],
-    "browsers": ["chromium", "firefox", "webkit"],
+    "lighthouseModes": [
+      "mobile",
+      "desktop"
+    ],
+    "viewports": [
+      320,
+      375,
+      390,
+      430,
+      768,
+      1280,
+      1440
+    ],
+    "locales": [
+      "ru",
+      "en",
+      "zh"
+    ],
+    "browsers": [
+      "chromium",
+      "firefox",
+      "webkit"
+    ],
     "requiredBoundaries": [
       "no horizontal overflow",
       "WCAG serious and critical violations equal zero",
@@ -70,6 +68,11 @@
     "No real transaction authority in the public scenario",
     "No claim that bank, FGIS, EDI or another external system is connected without verified runtime evidence",
     "RU, EN and ZH content remain complete",
-    "No personal data persistence before a verified server endpoint is accepted"
-  ]
+    "No personal data persistence before a verified server endpoint is accepted",
+    "After this governance PR reaches main, inherit accepted main and remove implementation-local scope edits. Exact-head independent review, owner audit, all substantive CI and REG.RU production acceptance remain mandatory.",
+    "The changed live-acceptance script may update only public presentation selectors and assertions; no release permission, threshold, transport or protected operation is changed."
+  ],
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "authorizedBy": "explicit-user-final-public-experience-v1-20260919",
+  "authorityBaseExactMain": "f933c5f153a84b8c9b9131d6302ba0910665968f"
 }

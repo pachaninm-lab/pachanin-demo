@@ -209,7 +209,12 @@
     ".github/workflows/ci.yml"
   ],
   "approvedConcurrentScopes": {
-    "fix/provider-review-scope-guard-20260918": ["scripts/p7-autopilot-guard.sh", "scripts/p7-autopilot-guard.test.mjs", ".github/workflows/platform-v7-autopilot-guard.yml", "docs/platform-v7/autopilot/autopilot-state.json"],
+    "fix/provider-review-scope-guard-20260918": [
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs",
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "docs/platform-v7/autopilot/autopilot-state.json"
+    ],
     "governance/kind-minio-image-source-20260912": [
       ".github/workflows/platform-v7-autopilot-guard.yml",
       "docs/platform-v7/autopilot/autopilot-state.json",
@@ -1436,6 +1441,25 @@
       "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
       "apps/web/tests/unit/firstCustomerWorkspaceSnapshot.test.ts",
       ".github/workflows/ci.yml"
+    ],
+    "agent/platform-v7-strategic-rebuild-v3": [
+      "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
+      "apps/web/components/platform-v7/PublicDealRoleScenario.tsx",
+      "apps/web/i18n/platform-v7-hero-message.ts",
+      "apps/web/i18n/platform-v7-organization-connect.ts",
+      "apps/web/styles/platform-v7-strategic-home-v3.css",
+      "apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts",
+      "apps/web/tests/unit/platformV7HeroInfrastructureMessage.test.ts",
+      "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+      "apps/web/tests/unit/platformV7StrategicHomeSafety.test.ts",
+      "scripts/production-full-stack-live-acceptance.sh"
+    ],
+    "fix/public-registration-final-copy-4916": [
+      "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
+      "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
+      "apps/web/app/platform-v7/register/page.tsx",
+      "apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts",
+      "apps/web/tests/unit/platformV7RootWorkEntry.test.ts"
     ]
   },
   "currentAcceptance": [
