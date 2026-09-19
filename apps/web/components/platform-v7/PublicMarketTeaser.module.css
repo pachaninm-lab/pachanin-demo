@@ -198,10 +198,14 @@
 }
 .source svg { color: #087a3b; }
 
-.actions { display: flex; gap: 9px; align-items: center; }
+.actions { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; }
 .primary,
 .secondary {
   display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: center;
   min-height: 44px;
   align-items: center;
   justify-content: center;

@@ -27,7 +27,7 @@ const COPY = {
     emptyTitle: 'Активных опубликованных лотов сейчас нет',
     emptyText: 'После регистрации продавец может разместить товар и опубликовать разрешённый к показу лот.',
     degradedTitle: 'Рынок временно недоступен',
-    degradedText: 'Публикация лотов приостановлена до восстановления подтверждённого источника. Регистрация и вход остаются доступны.',
+    degradedText: 'Не удалось загрузить актуальные лоты. Регистрация и вход остаются доступны.',
   },
   en: {
     eyebrow: 'Market now',
@@ -50,7 +50,7 @@ const COPY = {
     emptyTitle: 'No active published lots right now',
     emptyText: 'After registration, a seller can list product and publish a lot admitted for public display.',
     degradedTitle: 'Market is temporarily unavailable',
-    degradedText: 'Lot publication is paused until the confirmed source is restored. Registration and sign-in remain available.',
+    degradedText: 'Current lots could not be loaded. Registration and sign-in remain available.',
   },
   zh: {
     eyebrow: '当前市场',
@@ -73,7 +73,7 @@ const COPY = {
     emptyTitle: '当前没有有效的公开批次',
     emptyText: '注册后，卖方可以发布商品，并公开符合展示条件的批次。',
     degradedTitle: '市场暂时不可用',
-    degradedText: '在已确认的数据源恢复前，批次发布会暂停；注册和登录仍可使用。',
+    degradedText: '暂时无法加载当前批次。注册和登录仍可使用。',
   },
 } as const;
 

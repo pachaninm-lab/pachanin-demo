@@ -257,6 +257,14 @@ describe('anonymous public Auction market projection', () => {
   });
 });
 
+describe('public market failure copy and narrow card actions', () => {
+  it('describes read failure without asserting a publication state', () => {
+    const teaser = read(webTeaserPath);
+    for (const text of ['Не удалось загрузить актуальные лоты.', 'Current lots could not be loaded.', '暂时无法加载当前批次。']) expect(teaser).toContain(text);
+    for (const claim of ['Публикация лотов приостановлена', 'Lot publication is paused', '批次发布会暂停']) expect(teaser).not.toContain(claim);
+  });
+});
+
 describe('public market teaser page bounds', () => {
   const observedAt = new Date('2026-09-15T12:00:00.000Z');
   const lotRow = (index: number) => ({
