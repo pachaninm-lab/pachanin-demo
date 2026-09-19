@@ -1,1 +1,0 @@
-"""Transparent Agro Intelligence package."""

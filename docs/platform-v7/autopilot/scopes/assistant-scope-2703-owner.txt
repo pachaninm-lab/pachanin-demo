@@ -1,3 +1,0 @@
-Authority owner: repository maintainer
-Implementation PR: #2703
-Scope expansion policy: separate authority change required

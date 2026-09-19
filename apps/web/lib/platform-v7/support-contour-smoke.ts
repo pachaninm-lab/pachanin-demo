@@ -1,1 +1,0 @@
-export const PLATFORM_V7_SUPPORT_CONTOUR_SMOKE = true;

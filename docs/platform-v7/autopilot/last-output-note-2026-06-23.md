@@ -1,3 +1,0 @@
-# last output note
-
-Ready.
