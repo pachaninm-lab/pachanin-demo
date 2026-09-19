@@ -28,7 +28,10 @@
     "apps/web/components/platform-v7/PublicAiInActionSimpleExperience.tsx",
     "apps/web/app/platform-v7/ai-in-action/page.tsx",
     "apps/web/tests/unit/gektaPublicBrandContract.test.ts",
-    "scripts/check-production-full-stack-release.mjs"
+    "scripts/check-production-full-stack-release.mjs",
+    "apps/web/tests/unit/platformV7HomeFinalPolish.test.ts",
+    "apps/web/tests/unit/platformV7InternationalHomepageFix.test.ts",
+    "apps/web/tests/e2e/platform-v7-role-human-acceptance.spec.ts"
   ],
   "acceptanceEvidence": {
     "staticSafety": "apps/web/tests/unit/platformV7StrategicHomeSafety.test.ts",
@@ -79,6 +82,8 @@
     ]
   },
   "constraints": [
+    "The role-human browser suite may migrate only the ninth role's connected-organisation employee labels and corresponding bounded responsibility/evidence/financial expectations, and open the homepage's native role disclosure before interaction. Preserve all nine roles, seven stage cases, locale/viewport/browser matrix, keyboard, accessibility, no-network and inactive-action assertions.",
+    "The final-polish and international-homepage tests may migrate only retired homepage hero/progress-rail/composition selectors and connected-organisation employee copy. Preserve canonical header, all locales, semantic HTML, touch targets, reduced motion, routing, SEO, privacy, access-control and unrelated assertions. Do not add skips or compatibility-only comments to satisfy tests.",
     "The public Gekta brand test may migrate only the moved human-decision boundary and renamed public page title. The release checker and live script must assert the final RU/EN/ZH hero and CTA contract using executable checks, not compatibility comments. Preserve every exact-SHA, production authority, transport, replay, security and threshold assertion.",
     "No production deployment topology changes",
     "The operating organization-connect copy is the runtime alias target. Change only pre-registration assistance wording in RU/EN/ZH; preserve consent, payload, submission, verification and server authority.",

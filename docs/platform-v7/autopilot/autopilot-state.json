@@ -1471,7 +1471,10 @@
       "apps/web/components/platform-v7/PublicAiInActionSimpleExperience.tsx",
       "apps/web/app/platform-v7/ai-in-action/page.tsx",
       "apps/web/tests/unit/gektaPublicBrandContract.test.ts",
-      "scripts/check-production-full-stack-release.mjs"
+      "scripts/check-production-full-stack-release.mjs",
+      "apps/web/tests/unit/platformV7HomeFinalPolish.test.ts",
+      "apps/web/tests/unit/platformV7InternationalHomepageFix.test.ts",
+      "apps/web/tests/e2e/platform-v7-role-human-acceptance.spec.ts"
     ],
     "fix/public-registration-final-copy-4916": [
       "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
@@ -1479,6 +1482,15 @@
       "apps/web/app/platform-v7/register/page.tsx",
       "apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts",
       "apps/web/tests/unit/platformV7RootWorkEntry.test.ts"
+    ],
+    "governance/industrial-load-diagnostics-20260919": [
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "docs/platform-v7/execution-queue.md",
+      "docs/platform-v7/autopilot/prompts/current-codex-task.md",
+      "docs/platform-v7/autopilot/prompts/current-review-task.md",
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs",
+      ".github/workflows/platform-v7-autopilot-guard.yml"
     ],
     "test/industrial-load-diagnostics-20260919": [
       "apps/api/test/industrial/load-proof.e2e-spec.ts"
