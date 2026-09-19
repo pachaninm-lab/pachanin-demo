@@ -169,7 +169,9 @@ describe('platform-v7 final public entry', () => {
     expect(home).not.toContain('<aside');
     expect(home).toContain('<PublicDealExecutionStates title={copy.execution.title}');
     expect(home).toContain('states={copy.execution.states}');
-    expect(home).toContain("fetchPriority='high'");
+    expect(home).toContain("<HeroGrainIllustration label={copy.hero.visualAlt} />");
+    expect(home).toContain("preserveAspectRatio='xMidYMid slice'");
+    expect(home).not.toContain("data:image/svg+xml;base64,");
     expect(home).toContain("role='region' aria-label={copy.capabilities.title}");
     expect(homeCss).toContain(':focus-visible');
     expect(homeCss).toContain('@media(max-width:767px)');
