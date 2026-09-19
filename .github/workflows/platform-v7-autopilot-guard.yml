@@ -105,6 +105,84 @@ on:
       - 'docs/ops/production-full-stack-release.md'
       - 'docs/ops/production-p0-first-customer-acceptance.md'
       - 'docs/ops/production-p0-all-role-registration.md'
+      - '.github/workflows/platform-v7-strategic-home-lighthouse.yml'
+      - 'apps/api/prisma/migrations/20260903044500_registration_consent_evidence_20260903/migration.sql'
+      - 'apps/api/prisma/migrations/20260913143000_public_market_lot_projection/migration.sql'
+      - 'apps/api/src/modules/auctions/auctions.module.ts'
+      - 'apps/api/src/modules/auctions/public-auction-market.controller.ts'
+      - 'apps/api/src/modules/auctions/public-auction-market.service.ts'
+      - 'apps/api/src/modules/auctions/public-auction-market.spec.ts'
+      - 'apps/api/src/modules/auth/consent-policy.spec.ts'
+      - 'apps/api/src/modules/auth/consent-policy.ts'
+      - 'apps/api/src/modules/auth/gekta-registration.spec.ts'
+      - 'apps/api/src/modules/auth/organization-invitation.service.spec.ts'
+      - 'apps/web/app/layout.tsx'
+      - 'apps/web/app/loading.tsx'
+      - 'apps/web/app/pc-public-entry/platform-v7/page.tsx'
+      - 'apps/web/app/platform-v7/how-it-works/page.tsx'
+      - 'apps/web/app/platform-v7/invitation/InvitationAcceptClient.tsx'
+      - 'apps/web/app/platform-v7/mfa-recovery/MfaRecoveryClient.tsx'
+      - 'apps/web/app/platform-v7/mfa-recovery/page.tsx'
+      - 'apps/web/app/platform-v7/oferta/page.tsx'
+      - 'apps/web/app/platform-v7/page.tsx'
+      - 'apps/web/app/platform-v7/privacy/page.tsx'
+      - 'apps/web/app/platform-v7/register/RegisterFormClient.tsx'
+      - 'apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx'
+      - 'apps/web/app/platform-v7/register/layout.tsx'
+      - 'apps/web/app/platform-v7/register/page.tsx'
+      - 'apps/web/app/platform-v7/terms/page.tsx'
+      - 'apps/web/components/platform-v7/OrganizationConnectForm.module.css'
+      - 'apps/web/components/platform-v7/OrganizationConnectForm.tsx'
+      - 'apps/web/components/platform-v7/PlatformV7StrategicHome.tsx'
+      - 'apps/web/components/platform-v7/PublicDealExplorerV4.tsx'
+      - 'apps/web/components/platform-v7/PublicDealRoleScenario.module.css'
+      - 'apps/web/components/platform-v7/PublicDealRoleScenario.tsx'
+      - 'apps/web/components/platform-v7/PublicExperienceAnalytics.tsx'
+      - 'apps/web/components/platform-v7/PublicLocaleLink.tsx'
+      - 'apps/web/components/platform-v7/PublicMarketTeaser.module.css'
+      - 'apps/web/components/platform-v7/PublicMarketTeaser.tsx'
+      - 'apps/web/i18n/platform-v7-home-v3.ts'
+      - 'apps/web/i18n/platform-v7-organization-connect.ts'
+      - 'apps/web/i18n/public-deal-journey-v5.ts'
+      - 'apps/web/lib/public-market-server.ts'
+      - 'apps/web/lighthouserc.cjs'
+      - 'apps/web/playwright.acceptance.config.ts'
+      - 'apps/web/styles/platform-v7-hero-infrastructure-message.css'
+      - 'apps/web/styles/platform-v7-public-deal-journey-v5.css'
+      - 'apps/web/styles/platform-v7-public-register-reflow.css'
+      - 'apps/web/styles/platform-v7-public-typography.css'
+      - 'apps/web/styles/platform-v7-strategic-home-v3.css'
+      - 'apps/web/tests/e2e/platform-v7-public-deal-explorer-mobile.spec.ts'
+      - 'apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts'
+      - 'apps/web/tests/e2e/platform-v7-public-product-experience-v3.spec.ts'
+      - 'apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts'
+      - 'apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts'
+      - 'apps/web/tests/unit/platformV7HeroInfrastructureMessage.test.ts'
+      - 'apps/web/tests/unit/platformV7PublicDealExplorerMobileUx.test.ts'
+      - 'apps/web/tests/unit/platformV7PublicDealJourneyV5.test.ts'
+      - 'apps/web/tests/unit/platformV7PublicIndustrialCopy.test.ts'
+      - 'apps/web/tests/unit/platformV7RootWorkEntry.test.ts'
+      - 'apps/web/tests/unit/platformV7StrategicHomeSafety.test.ts'
+      - 'docs/platform-v7/DEAL_JOURNEY_10OF10_ACCEPTANCE_20260808.md'
+      - 'docs/platform-v7/autopilot/scopes/fix-platform-v7-editorial-typography-v4.json'
+      - 'docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json'
+      - 'docs/platform-v7/autopilot/scopes/public-deal-journey-10of10-20260808.json'
+      - 'docs/platform-v7/autopilot/scopes/public-registration-final-copy-4916.json'
+      - 'scripts/platform-v7-lighthouse-summary.mjs'
+      - 'apps/web/tests/e2e/platform-v7-home-brand-visibility.spec.ts'
+      - 'apps/web/tests/e2e/platform-v7-hero-card-min14.spec.ts'
+      - 'apps/web/i18n/platform-v7-organization-connect-operating.ts'
+      - 'apps/web/tests/unit/gektaProductSeparation.test.ts'
+      - 'apps/web/tests/unit/platformV7AccountingClosureValue.test.ts'
+      - 'apps/web/tests/unit/platformV7HomeTaiRoleEntry.test.ts'
+      - 'apps/web/tests/unit/platformV7HomepageProductCopy.test.ts'
+      - 'apps/web/tests/unit/platformV7HomepageVisibleOperatingCopy.test.ts'
+      - 'apps/web/tests/unit/platformV7PublicCopyQuality.test.ts'
+      - 'apps/web/tests/unit/platformV7PublicExperienceV4.test.ts'
+      - 'apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts'
+      - 'apps/web/components/platform-v7/PublicAiInActionSimpleExperience.tsx'
+      - 'apps/web/app/platform-v7/ai-in-action/page.tsx'
+      - 'scripts/production-full-stack-live-acceptance.sh'
 
 concurrency:
   group: platform-v7-autopilot-guard-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
@@ -590,6 +668,13 @@ jobs:
       github.event.pull_request.head.ref == 'fix/kind-minio-image-source-20260912' ||
       github.event.pull_request.head.ref == 'fix/gitleaks-release-authority-attestation-20260912' ||
       github.event.pull_request.head.ref == 'fix/owner-handoff-product-host-20260908' ||
+      github.event.pull_request.head.ref == 'governance/final-public-experience-v1-20260919' ||
+      github.event.pull_request.head.ref == 'agent/platform-v7-strategic-rebuild-v3' ||
+      github.event.pull_request.head.ref == 'p0/farmer-public-market-teaser-20260913' ||
+      github.event.pull_request.head.ref == 'fix/public-registration-final-copy-4916' ||
+      github.event.pull_request.head.ref == 'fix/public-deal-journey-10of10-current-main-20260808' ||
+      github.event.pull_request.head.ref == 'agent/platform-v7-product-copy' ||
+      github.event.pull_request.head.ref == 'ops/production-full-stack-release-v1' ||
       github.event.pull_request.head.ref == 'security/pc-crop-next-15-5-24-4997')
     permissions:
       checks: write
@@ -618,7 +703,7 @@ jobs:
               exit 1
             fi
             case "$IMMUTABLE_SCOPE_BRANCH" in
-              fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|feat/pc-crop-auction-inventory-authority-4997|ops/pc-crop-w1-production-acceptance-4997|governance/pc-crop-post-registration-progress-scope-4997|governance/pc-crop-inventory-reservation-scope-4997|docs/pc-crop-post-registration-progress-4997|governance/public-home-role-clarity-scope-20260905|feat/public-home-role-clarity-20260905|governance/production-like-outbox-poison-isolation-scope-3793|fix/production-like-outbox-poison-isolation-3793|fix/local-qwen-failed-review-evidence-20260912|fix/kind-minio-image-source-20260912|fix/gitleaks-release-authority-attestation-20260912|fix/owner-handoff-product-host-20260908|security/pc-crop-next-15-5-24-4997) ;;
+              fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|feat/pc-crop-auction-inventory-authority-4997|ops/pc-crop-w1-production-acceptance-4997|governance/pc-crop-post-registration-progress-scope-4997|governance/pc-crop-inventory-reservation-scope-4997|docs/pc-crop-post-registration-progress-4997|governance/public-home-role-clarity-scope-20260905|feat/public-home-role-clarity-20260905|governance/production-like-outbox-poison-isolation-scope-3793|fix/production-like-outbox-poison-isolation-3793|fix/local-qwen-failed-review-evidence-20260912|fix/kind-minio-image-source-20260912|fix/gitleaks-release-authority-attestation-20260912|fix/owner-handoff-product-host-20260908|governance/final-public-experience-v1-20260919|agent/platform-v7-strategic-rebuild-v3|p0/farmer-public-market-teaser-20260913|fix/public-registration-final-copy-4916|fix/public-deal-journey-10of10-current-main-20260808|agent/platform-v7-product-copy|ops/production-full-stack-release-v1|security/pc-crop-next-15-5-24-4997) ;;
               *) echo 'Trusted immutable-scope guard received an unauthorized branch.' >&2; exit 1 ;;
             esac
             if ! [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || ! [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
@@ -673,7 +758,7 @@ jobs:
           [[ "$CONTEXT_OUTCOME" == success ]]
 
   guard:
-    name: ${{ github.event_name == 'pull_request' && (github.head_ref == 'governance/ir20-api-database-binding-admission-20260919' || github.head_ref == 'governance/ir20-binding-immutable-scope-20260919' || github.head_ref == 'fix/p0-registration-authority-rollover-4637' || github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698' || github.head_ref == 'feat/pc-crop-auction-inventory-authority-4997' || github.head_ref == 'ops/pc-crop-w1-production-acceptance-4997' || github.head_ref == 'governance/pc-crop-post-registration-progress-scope-4997' || github.head_ref == 'governance/pc-crop-inventory-reservation-scope-4997' || github.head_ref == 'docs/pc-crop-post-registration-progress-4997' || github.head_ref == 'governance/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'feat/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'governance/public-home-role-clarity-scope-20260905' || github.head_ref == 'feat/public-home-role-clarity-20260905' || github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' || github.head_ref == 'fix/production-like-outbox-poison-isolation-3793' || github.head_ref == 'fix/local-qwen-failed-review-evidence-20260912' || github.head_ref == 'fix/kind-minio-image-source-20260912' || github.head_ref == 'fix/gitleaks-release-authority-attestation-20260912' || github.head_ref == 'fix/owner-handoff-product-host-20260908') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}
+    name: ${{ github.event_name == 'pull_request' && (github.head_ref == 'governance/ir20-api-database-binding-admission-20260919' || github.head_ref == 'governance/ir20-binding-immutable-scope-20260919' || github.head_ref == 'fix/p0-registration-authority-rollover-4637' || github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698' || github.head_ref == 'feat/pc-crop-auction-inventory-authority-4997' || github.head_ref == 'ops/pc-crop-w1-production-acceptance-4997' || github.head_ref == 'governance/pc-crop-post-registration-progress-scope-4997' || github.head_ref == 'governance/pc-crop-inventory-reservation-scope-4997' || github.head_ref == 'docs/pc-crop-post-registration-progress-4997' || github.head_ref == 'governance/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'feat/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'governance/public-home-role-clarity-scope-20260905' || github.head_ref == 'feat/public-home-role-clarity-20260905' || github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' || github.head_ref == 'fix/production-like-outbox-poison-isolation-3793' || github.head_ref == 'fix/local-qwen-failed-review-evidence-20260912' || github.head_ref == 'fix/kind-minio-image-source-20260912' || github.head_ref == 'fix/gitleaks-release-authority-attestation-20260912' || github.head_ref == 'fix/owner-handoff-product-host-20260908' || github.head_ref == 'governance/final-public-experience-v1-20260919' || github.head_ref == 'agent/platform-v7-strategic-rebuild-v3' || github.head_ref == 'p0/farmer-public-market-teaser-20260913' || github.head_ref == 'fix/public-registration-final-copy-4916' || github.head_ref == 'fix/public-deal-journey-10of10-current-main-20260808' || github.head_ref == 'agent/platform-v7-product-copy' || github.head_ref == 'ops/production-full-stack-release-v1') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}
     needs: standard_validation
     if: always() && github.event_name != 'pull_request_target'
     permissions:
@@ -713,14 +798,14 @@ jobs:
           github.head_ref == 'fix/local-qwen-failed-review-evidence-20260912' ||
           github.head_ref == 'fix/kind-minio-image-source-20260912' ||
           github.head_ref == 'fix/gitleaks-release-authority-attestation-20260912' ||
-          github.head_ref == 'fix/owner-handoff-product-host-20260908')
+          github.head_ref == 'fix/owner-handoff-product-host-20260908' || github.head_ref == 'governance/final-public-experience-v1-20260919' || github.head_ref == 'agent/platform-v7-strategic-rebuild-v3' || github.head_ref == 'p0/farmer-public-market-teaser-20260913' || github.head_ref == 'fix/public-registration-final-copy-4916' || github.head_ref == 'fix/public-deal-journey-10of10-current-main-20260808' || github.head_ref == 'agent/platform-v7-product-copy' || github.head_ref == 'ops/production-full-stack-release-v1')
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           IMMUTABLE_SCOPE_BRANCH: ${{ github.head_ref }}
         run: |
           case "$IMMUTABLE_SCOPE_BRANCH" in
-            fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|feat/pc-crop-auction-inventory-authority-4997|ops/pc-crop-w1-production-acceptance-4997|governance/pc-crop-post-registration-progress-scope-4997|governance/pc-crop-inventory-reservation-scope-4997|docs/pc-crop-post-registration-progress-4997|governance/public-home-role-clarity-scope-20260905|feat/public-home-role-clarity-20260905|governance/production-like-outbox-poison-isolation-scope-3793|fix/production-like-outbox-poison-isolation-3793|fix/local-qwen-failed-review-evidence-20260912|fix/kind-minio-image-source-20260912|fix/gitleaks-release-authority-attestation-20260912|fix/owner-handoff-product-host-20260908) ;;
+            fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|feat/pc-crop-auction-inventory-authority-4997|ops/pc-crop-w1-production-acceptance-4997|governance/pc-crop-post-registration-progress-scope-4997|governance/pc-crop-inventory-reservation-scope-4997|docs/pc-crop-post-registration-progress-4997|governance/public-home-role-clarity-scope-20260905|feat/public-home-role-clarity-20260905|governance/production-like-outbox-poison-isolation-scope-3793|fix/production-like-outbox-poison-isolation-3793|fix/local-qwen-failed-review-evidence-20260912|fix/kind-minio-image-source-20260912|fix/gitleaks-release-authority-attestation-20260912|fix/owner-handoff-product-host-20260908|governance/final-public-experience-v1-20260919|agent/platform-v7-strategic-rebuild-v3|p0/farmer-public-market-teaser-20260913|fix/public-registration-final-copy-4916|fix/public-deal-journey-10of10-current-main-20260808|agent/platform-v7-product-copy|ops/production-full-stack-release-v1) ;;
             *) echo 'PR-head immutable-scope guard received an unauthorized branch.' >&2; exit 1 ;;
           esac
           if ! [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || ! [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
@@ -780,6 +865,13 @@ jobs:
           github.head_ref != 'fix/kind-minio-image-source-20260912' &&
           github.head_ref != 'fix/gitleaks-release-authority-attestation-20260912' &&
           github.head_ref != 'fix/owner-handoff-product-host-20260908' &&
+          github.head_ref != 'governance/final-public-experience-v1-20260919' &&
+          github.head_ref != 'agent/platform-v7-strategic-rebuild-v3' &&
+          github.head_ref != 'p0/farmer-public-market-teaser-20260913' &&
+          github.head_ref != 'fix/public-registration-final-copy-4916' &&
+          github.head_ref != 'fix/public-deal-journey-10of10-current-main-20260808' &&
+          github.head_ref != 'agent/platform-v7-product-copy' &&
+          github.head_ref != 'ops/production-full-stack-release-v1' &&
           github.head_ref != 'security/pc-crop-next-15-5-24-4997')
         run: bash scripts/p7-autopilot-guard.sh
 
