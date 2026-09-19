@@ -1,9 +1,13 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { hostname } from 'node:os';
-import { KafkaProducerService } from '../../common/kafka/kafka-producer.service';
+import {
+  KafkaDefinitiveRejectionError,
+  KafkaProducerService,
+} from '../../common/kafka/kafka-producer.service';
 import {
   ClaimedOutboxEntry,
   DurableOutboxWorker,
+  OutboxDeliveryError,
   OutboxDrainReport,
   OutboxLeaseLostError,
 } from './durable-outbox.worker';
@@ -95,35 +99,50 @@ export class DurableOutboxRunner implements OnModuleInit, OnModuleDestroy {
   private scheduleDrain(): void {
     if (this.stopped || this.running) return;
 
-    // Do not claim durable work while the only configured transport is known to
-    // be unavailable. This avoids converting a platform-wide outage into a
-    // retry/dead-letter storm. A transport failure after claim is still handled
-    // by the lease and retry state machine below.
-    if (!this.kafka.isConnected()) {
-      this.lastError = 'Kafka transport is not connected';
+    // Readiness probing is part of the serialized drain cycle so a slow broker
+    // probe cannot overlap with another claim attempt.
+    this.running = this.drainWhenReady().finally(() => {
+      this.running = undefined;
+    });
+  }
+
+  private async drainWhenReady(): Promise<void> {
+    // A process-local connection flag is insufficient here: Kafka may disappear
+    // after startup. Probe the broker before claiming durable rows so a known
+    // platform-wide outage cannot turn into ambiguous post-send outcomes.
+    let ready = false;
+    try {
+      ready = await this.kafka.isReady();
+    } catch (error) {
+      this.lastError = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Kafka readiness probe failed: ${this.lastError}`);
+      return;
+    }
+
+    // Shutdown may start while the asynchronous readiness probe is pending.
+    if (this.stopped) return;
+
+    if (!ready) {
+      this.lastError = 'Kafka transport is not ready';
       return;
     }
 
     this.lastDrainStartedAt = new Date();
-    this.running = this.worker
-      .drainOnce(this.workerId, this.batchSize)
-      .then((report) => {
-        this.lastReport = report;
-        this.lastError = null;
-        if (report.claimed > 0) {
-          this.logger.log(
-            `Outbox drain claimed=${report.claimed} delivered=${report.delivered} retried=${report.retried} dead=${report.deadLettered} leaseLost=${report.leaseLost}`,
-          );
-        }
-      })
-      .catch((error) => {
-        this.lastError = error instanceof Error ? error.message : String(error);
-        this.logger.error(`Outbox drain failed: ${this.lastError}`);
-      })
-      .finally(() => {
-        this.lastDrainCompletedAt = new Date();
-        this.running = undefined;
-      });
+    try {
+      const report = await this.worker.drainOnce(this.workerId, this.batchSize);
+      this.lastReport = report;
+      this.lastError = null;
+      if (report.claimed > 0) {
+        this.logger.log(
+          `Outbox drain claimed=${report.claimed} delivered=${report.delivered} retried=${report.retried} dead=${report.deadLettered} manualReview=${report.manualReview} leaseLost=${report.leaseLost}`,
+        );
+      }
+    } catch (error) {
+      this.lastError = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Outbox drain failed: ${this.lastError}`);
+    } finally {
+      this.lastDrainCompletedAt = new Date();
+    }
   }
 
   private async deliver(entry: ClaimedOutboxEntry): Promise<void> {
@@ -141,17 +160,47 @@ export class DurableOutboxRunner implements OnModuleInit, OnModuleDestroy {
     heartbeat.unref?.();
 
     try {
-      const delivered = await this.kafka.send({
-        topic: entry.type.startsWith('BANK_') ? 'grainflow.bank.events' : 'grainflow.domain.events',
-        key: entry.idempotencyKey ?? entry.id,
-        value: entry.payload as Record<string, unknown>,
-        headers: {
-          'x-outbox-id': entry.id,
-          ...(entry.correlationId ? { 'x-correlation-id': entry.correlationId } : {}),
-        },
-      });
+      if (!this.kafka.isConnected()) {
+        throw new OutboxDeliveryError(
+          'TRANSIENT',
+          'KAFKA_TRANSPORT_UNAVAILABLE',
+          'Kafka transport became unavailable before delivery attempt',
+        );
+      }
+
+      let delivered: boolean;
+      try {
+        delivered = await this.kafka.sendOrThrow({
+          topic: entry.type.startsWith('BANK_') ? 'grainflow.bank.events' : 'grainflow.domain.events',
+          key: entry.idempotencyKey ?? entry.id,
+          value: entry.payload as Record<string, unknown>,
+          headers: {
+            'x-outbox-id': entry.id,
+            ...(entry.correlationId ? { 'x-correlation-id': entry.correlationId } : {}),
+          },
+        });
+      } catch (error) {
+        if (error instanceof OutboxLeaseLostError || error instanceof OutboxDeliveryError) throw error;
+        if (error instanceof KafkaDefinitiveRejectionError) {
+          throw new OutboxDeliveryError('PERMANENT', error.code, error.message);
+        }
+        throw new OutboxDeliveryError(
+          'AMBIGUOUS',
+          'TRANSPORT_OUTCOME_UNKNOWN',
+          `Kafka delivery outcome is unknown: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
       if (heartbeatFailure) throw heartbeatFailure;
-      if (!delivered) throw new Error('Kafka transport is disabled or delivery failed');
+      if (!delivered) {
+        // A false result after a connected delivery attempt carries no broker
+        // rejection evidence. Preserve the ambiguity rather than guessing that
+        // the record was not accepted and replaying a possible duplicate.
+        throw new OutboxDeliveryError(
+          'AMBIGUOUS',
+          'TRANSPORT_OUTCOME_UNKNOWN',
+          'Kafka send returned without durable acknowledgement; delivery outcome is unknown',
+        );
+      }
     } finally {
       clearInterval(heartbeat);
     }
