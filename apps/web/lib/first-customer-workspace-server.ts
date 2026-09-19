@@ -36,6 +36,14 @@ const QUEUE_ENDPOINT: Readonly<Record<FirstCustomerSurface, string>> = {
   lab: '/labs/samples', surveyor: '/labs/samples',
 };
 
+// Logistics list is bounded to 500 by the authoritative shipment repository.
+// Keep other endpoint bounds unchanged; none of these arrays proves completeness.
+const QUEUE_LIMIT: Readonly<Record<FirstCustomerSurface, number>> = {
+  seller: 100, buyer: 100, bank: 100,
+  logistics: 500, driver: 500, elevator: 500,
+  lab: 100, surveyor: 100,
+};
+
 const OWNER_CONTROLLED_NEXT: Readonly<Record<FirstCustomerSurface, string>> = {
   seller: '/platform-v7/seller/lots',
   buyer: '/platform-v7/buyer/lots',
@@ -146,7 +154,7 @@ export async function getFirstCustomerWorkspace(
       });
     }
     const payload: unknown = await response.json();
-    if (!Array.isArray(payload) || payload.length > 100) throw new Error('Invalid workspace queue');
+    if (!Array.isArray(payload) || payload.length > QUEUE_LIMIT[surface]) throw new Error('Invalid workspace queue');
     const items = payload.map((item) => queueItem(item, surface)).filter((item): item is FirstCustomerQueueItem => item !== null);
     if (items.length !== payload.length) throw new Error('Invalid workspace item');
     return Object.freeze({
@@ -177,7 +185,7 @@ function queueItem(value: unknown, surface: FirstCustomerSurface): FirstCustomer
   if (!id || !dealId || !status) return null;
   const blockers = Array.isArray(item.blockers)
     ? item.blockers.map((entry) => text(entry, 500)).filter(Boolean)
-    : [];
+    : [typeof item.blockers === 'string' ? text(item.blockers, 500) : null];
   const nextAction = text(item.nextAction, 500) || blockers[0] || null;
   return Object.freeze({
     id,

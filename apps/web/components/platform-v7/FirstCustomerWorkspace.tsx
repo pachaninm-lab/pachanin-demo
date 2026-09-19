@@ -22,7 +22,8 @@ const COPY = {
     ownerDescription: 'Реальный вход владельца с MFA. Интерфейс кабинета открыт в фиксированной контролируемой тестовой организации; клиентская роль в API не подменяется.',
     ownerReady: 'владелец · контролируемый доступ', ownerReadyTitle: 'Открыть рабочий раздел кабинета', ownerReadyDescription: 'Это настоящий защищённый маршрут кабинета. Данные для просмотра контролируемые; боевые действия продолжают проверяться сервером по реальной личности владельца.',
     ready: 'сервер подтверждён', empty: 'очередь пуста', degraded: 'серверная очередь недоступна', forbidden: 'доступ запрещён',
-    blocker: 'Блокер', owner: 'Ответственный', impact: 'Влияние', result: 'Результат', next: 'Следующее действие', priority: 'Главная задача', facts: 'Подтверждённые данные',
+    blocker: 'Блокер', owner: 'Ответственный', impact: 'Влияние', result: 'Результат', next: 'Следующее действие', priority: 'Объект из текущей выборки', facts: 'Подтверждённые данные',
+    windowTitle: 'Показана текущая выборка', windowDescription: 'Список может включать не все рабочие объекты. Порядок записей не определяет приоритет действий.',
     readyTitle: 'Открыть первый доступный объект', readyDescription: 'Объект уже ограничен текущим tenant, membership и ролью на API.',
     emptyTitle: 'Рабочих объектов пока нет', emptyDescription: 'Это реальное пустое состояние. Демо-сделки, рейсы и заявки не подставляются.',
     degradedTitle: 'Не подменять недоступный backend', degradedDescription: 'Сервер не подтвердил очередь. Доступ и локальные данные не создаются.',
@@ -34,7 +35,8 @@ const COPY = {
     ownerDescription: 'Real platform-owner sign-in with MFA. The cabinet interface is opened against a fixed controlled test organization; the API business role is not impersonated.',
     ownerReady: 'owner · controlled access', ownerReadyTitle: 'Open the cabinet work area', ownerReadyDescription: 'This is the real protected cabinet route. Review data is controlled; production actions still authorize the real owner identity on the server.',
     ready: 'server confirmed', empty: 'queue is empty', degraded: 'server queue unavailable', forbidden: 'access denied',
-    blocker: 'Blocker', owner: 'Owner', impact: 'Impact', result: 'Result', next: 'Next action', priority: 'Primary task', facts: 'Confirmed data',
+    blocker: 'Blocker', owner: 'Owner', impact: 'Impact', result: 'Result', next: 'Next action', priority: 'Item from the current selection', facts: 'Confirmed data',
+    windowTitle: 'Current selection shown', windowDescription: 'The list may not include all work items. Its order does not determine action priority.',
     readyTitle: 'Open the first accessible object', readyDescription: 'The API has already scoped this object to the current tenant, membership and role.',
     emptyTitle: 'No work objects yet', emptyDescription: 'This is a real empty state. No demo Deals, trips or applications are substituted.',
     degradedTitle: 'Do not substitute an unavailable backend', degradedDescription: 'The server did not confirm the queue. No access or local data is created.',
@@ -46,7 +48,8 @@ const COPY = {
     ownerDescription: '平台所有者使用真实账号与 MFA 登录。工作台绑定固定受控测试组织，API 中不会伪装客户业务角色。',
     ownerReady: '所有者 · 受控访问', ownerReadyTitle: '打开工作台功能区', ownerReadyDescription: '这是实际受保护的工作台路由。查看数据受控；生产操作仍按所有者真实身份由服务器授权。',
     ready: '服务器已确认', empty: '队列为空', degraded: '服务器队列不可用', forbidden: '禁止访问',
-    blocker: '阻塞项', owner: '负责人', impact: '影响', result: '结果', next: '下一步', priority: '主要任务', facts: '已确认数据',
+    blocker: '阻塞项', owner: '负责人', impact: '影响', result: '结果', next: '下一步', priority: '当前列表中的项目', facts: '已确认数据',
+    windowTitle: '显示当前列表', windowDescription: '此列表可能不包含所有工作项目。列表顺序不代表操作优先级。',
     readyTitle: '打开第一个可访问对象', readyDescription: 'API 已按当前 tenant、membership 和角色限制该对象。',
     emptyTitle: '暂时没有工作对象', emptyDescription: '这是真实的空状态，不会替换为演示交易、行程或申请。',
     degradedTitle: '不得替换不可用的 backend', degradedDescription: '服务器未确认队列，不会创建访问权限或本地数据。',
@@ -108,6 +111,9 @@ export async function FirstCustomerWorkspace({ surface }: { surface: FirstCustom
       boundary={description}
     >
       <OperationalCockpitSection id='first-customer-work-queue'>
+        {workspace.available && !workspace.ownerControlled && workspace.items.length > 0 ? (
+          <InlineNotice tone='information' title={copy.windowTitle}>{copy.windowDescription}</InlineNotice>
+        ) : null}
         {workspace.available && workspace.items.length ? (
           <OperationalQueue aria-label={copy.queue}>
             {workspace.items.map((item) => item.href ? (
