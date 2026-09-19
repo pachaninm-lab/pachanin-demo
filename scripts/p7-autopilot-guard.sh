@@ -9,17 +9,36 @@ OWNER_AUDIT_LOCK_BRANCH="fix/p0-owner-control-plane-audit-lock-4698"
 POST_REGISTRATION_PROGRESS_BRANCH="docs/pc-crop-post-registration-progress-4997"
 INVENTORY_RESERVATION_BRANCH="feat/pc-crop-inventory-reservation-authority-4997"
 AUCTION_INVENTORY_BRANCH="feat/pc-crop-auction-inventory-authority-4997"
+W1_PRODUCTION_ACCEPTANCE_BRANCH="ops/pc-crop-w1-production-acceptance-4997"
 SCOPE_GOVERNANCE_BRANCH="governance/pc-crop-post-registration-progress-scope-4997"
 INVENTORY_SCOPE_GOVERNANCE_BRANCH="governance/pc-crop-inventory-reservation-scope-4997"
 PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH="governance/public-home-role-clarity-scope-20260905"
 PUBLIC_HOME_IMPLEMENTATION_BRANCH="feat/public-home-role-clarity-20260905"
 PUBLIC_HOME_GOVERNANCE_MANIFEST="docs/platform-v7/autopilot/scopes/governance-public-home-role-clarity-scope-20260905.json"
 PUBLIC_HOME_IMPLEMENTATION_MANIFEST="docs/platform-v7/autopilot/scopes/public-home-role-clarity-20260905.json"
+POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH="governance/production-like-outbox-poison-isolation-scope-3793"
+POISON_ISOLATION_IMPLEMENTATION_BRANCH="fix/production-like-outbox-poison-isolation-3793"
+OWNER_HANDOFF_IMPLEMENTATION_BRANCH="fix/owner-handoff-product-host-20260908"
+QWEN_FAILED_EVIDENCE_BRANCH="fix/local-qwen-failed-review-evidence-20260912"
+KIND_MINIO_IMAGE_SOURCE_BRANCH="fix/kind-minio-image-source-20260912"
+GITLEAKS_RELEASE_ATTESTATION_BRANCH="fix/gitleaks-release-authority-attestation-20260912"
+FINAL_PUBLIC_HOME_BRANCH="agent/platform-v7-strategic-rebuild-v3"
+FINAL_PUBLIC_MARKET_BRANCH="p0/farmer-public-market-teaser-20260913"
+FINAL_PUBLIC_REGISTRATION_BRANCH="fix/public-registration-final-copy-4916"
+FINAL_PUBLIC_HOW_BRANCH="fix/public-deal-journey-10of10-current-main-20260808"
+FINAL_PUBLIC_PRODUCT_COPY_BRANCH="agent/platform-v7-product-copy"
+FINAL_PUBLIC_RELEASE_BRANCH="ops/production-full-stack-release-v1"
+FINAL_PUBLIC_GOVERNANCE_BRANCH="governance/final-public-experience-v1-20260919"
+POISON_ISOLATION_MANIFEST="docs/platform-v7/autopilot/scopes/production-like-outbox-poison-isolation-3793.json"
+NEXT_SECURITY_PATCH_BRANCH="security/pc-crop-next-15-5-24-4997"
+INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH="governance/industrial-load-diagnostics-20260919"
+INDUSTRIAL_DIAGNOSTIC_BRANCH="test/industrial-load-diagnostics-20260919"
 CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
 
 is_immutable_scope_branch() {
   case "$1" in
-    "$REGISTRATION_ROLLOVER_BRANCH"|"$OWNER_AUDIT_LOCK_BRANCH"|"$POST_REGISTRATION_PROGRESS_BRANCH"|"$INVENTORY_RESERVATION_BRANCH"|"$AUCTION_INVENTORY_BRANCH"|"$SCOPE_GOVERNANCE_BRANCH"|"$INVENTORY_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_IMPLEMENTATION_BRANCH") return 0 ;;
+    "$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_BRANCH") return 0 ;;
+    "$REGISTRATION_ROLLOVER_BRANCH"|"$OWNER_AUDIT_LOCK_BRANCH"|"$POST_REGISTRATION_PROGRESS_BRANCH"|"$INVENTORY_RESERVATION_BRANCH"|"$AUCTION_INVENTORY_BRANCH"|"$W1_PRODUCTION_ACCEPTANCE_BRANCH"|"$SCOPE_GOVERNANCE_BRANCH"|"$INVENTORY_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_IMPLEMENTATION_BRANCH"|"$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH"|"$POISON_ISOLATION_IMPLEMENTATION_BRANCH"|"$OWNER_HANDOFF_IMPLEMENTATION_BRANCH"|"$QWEN_FAILED_EVIDENCE_BRANCH"|"$KIND_MINIO_IMAGE_SOURCE_BRANCH"|"$GITLEAKS_RELEASE_ATTESTATION_BRANCH"|"$FINAL_PUBLIC_HOME_BRANCH"|"$FINAL_PUBLIC_MARKET_BRANCH"|"$FINAL_PUBLIC_REGISTRATION_BRANCH"|"$FINAL_PUBLIC_HOW_BRANCH"|"$FINAL_PUBLIC_PRODUCT_COPY_BRANCH"|"$FINAL_PUBLIC_RELEASE_BRANCH"|"$FINAL_PUBLIC_GOVERNANCE_BRANCH") return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -329,6 +348,66 @@ if [ "${GITHUB_HEAD_REF:-}" = "agent/industrial-readiness-v1-security-gates-v2" 
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$INDUSTRIAL_SECURITY_GATE_SCOPE")
 fi
 
+# The W1 release may append only the two reviewed static-label findings. The
+# trusted-base guard, not the implementation branch, owns this exception bound.
+if [ "$CURRENT_BRANCH" = "$W1_PRODUCTION_ACCEPTANCE_BRANCH" ] && printf '%s\n' "$DIFF_FILES" | grep -Fxq '.gitleaksignore'; then
+  P7_EXCEPTION_BASE="$BASE_REF" P7_EXCEPTION_HEAD="$HEAD_REF" node - <<'JS'
+const assert = require('node:assert/strict');
+const { execFileSync } = require('node:child_process');
+const read = ref => execFileSync('git', ['show', `${ref}:.gitleaksignore`], { encoding: 'utf8' });
+const baseline = read(process.env.P7_EXCEPTION_BASE);
+const head = read(process.env.P7_EXCEPTION_HEAD);
+const approvedAppend = "\n# False positive: static PC_W1_API_DIGEST_VERIFIED output field name in W1 controller history.\n# Exact commit/path/rule/line only; these strings never contained a credential.\n25f4fa23451d9b2fd58ff60ba9badfc063055796:.github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:391\nba4e7b26a34f95ebc5636c6a18785a6a2d63b0b1:.github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:395\n";
+assert.equal(head, baseline + approvedAppend, 'W1 historical scan exceptions must be the exact approved append; existing entries and all other findings remain protected');
+JS
+fi
+
+# This repair may only synchronize the release-authority assertion with four
+# already-reviewed entries in .gitleaksignore. Bind the trusted scope to the
+# exact textual transformation so the implementation cannot weaken the test.
+if [ "$CURRENT_BRANCH" = "$GITLEAKS_RELEASE_ATTESTATION_BRANCH" ] && printf '%s\n' "$DIFF_FILES" | grep -Fxq 'apps/tai/tests/test_gitleaks_release_authority.py'; then
+  P7_ATTESTATION_BASE="$BASE_REF" P7_ATTESTATION_HEAD="$HEAD_REF" node - <<'JS'
+const assert = require('node:assert/strict');
+const { execFileSync } = require('node:child_process');
+const path = 'apps/tai/tests/test_gitleaks_release_authority.py';
+const read = ref => execFileSync('git', ['show', `${ref}:${path}`], { encoding: 'utf8' });
+const baseline = read(process.env.P7_ATTESTATION_BASE);
+const head = read(process.env.P7_ATTESTATION_HEAD);
+const insertAfterCommodity =
+  '        "generic-api-key:11",\n';
+const serviceMarketplace =
+  '        "8c08a3d3764b616f919a1e73828643dff95db5d4:"\n' +
+  '        "apps/api/src/modules/service-marketplace/service-marketplace.contract.spec.ts:"\n' +
+  '        "generic-api-key:11",\n';
+const insertAfterSdiz =
+  '        ".github/workflows/pc-crop-08f-sync-main.yml:generic-api-key:126",\n';
+const finalReviewedEntries =
+  '        "bcc5ba620f5e8cfec4e540c4b9fab4e236393c63:"\n' +
+  '        "apps/web/tests/unit/platformV7RootWorkEntry.test.ts:generic-api-key:227",\n' +
+  '        "25f4fa23451d9b2fd58ff60ba9badfc063055796:"\n' +
+  '        ".github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:391",\n' +
+  '        "ba4e7b26a34f95ebc5636c6a18785a6a2d63b0b1:"\n' +
+  '        ".github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:395",\n';
+const replaceExactlyOnce = (value, anchor, replacement, label) => {
+  assert.equal(value.split(anchor).length - 1, 1, `Gitleaks release attestation ${label} anchor must occur exactly once`);
+  return value.replace(anchor, replacement);
+};
+let expected = replaceExactlyOnce(
+  baseline,
+  insertAfterCommodity,
+  insertAfterCommodity + serviceMarketplace,
+  'commodity-profile',
+);
+expected = replaceExactlyOnce(
+  expected,
+  insertAfterSdiz,
+  insertAfterSdiz + finalReviewedEntries,
+  'SDIZ',
+);
+assert.equal(head, expected, 'Gitleaks release attestation repair must add exactly four reviewed fingerprints and preserve every existing assertion');
+JS
+fi
+
 if [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-transitive-runtime-remediation" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$TRANSITIVE_RUNTIME_REMEDIATION_SCOPE")
 fi
@@ -362,7 +441,7 @@ if [ "${GITHUB_HEAD_REF:-}" = "fix/exact-main-live-evidence-2659" ]; then
 fi
 
 if is_immutable_scope_branch "$CURRENT_BRANCH"; then
-  APPROVED_BRANCH_SCOPE=$(BASE_REF="$BASE_REF" STATE_FILE="$STATE_FILE" GITHUB_HEAD_REF="$CURRENT_BRANCH" PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH="$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" PUBLIC_HOME_IMPLEMENTATION_BRANCH="$PUBLIC_HOME_IMPLEMENTATION_BRANCH" PUBLIC_HOME_GOVERNANCE_MANIFEST="$PUBLIC_HOME_GOVERNANCE_MANIFEST" PUBLIC_HOME_IMPLEMENTATION_MANIFEST="$PUBLIC_HOME_IMPLEMENTATION_MANIFEST" node - <<'JS'
+  APPROVED_BRANCH_SCOPE=$(BASE_REF="$BASE_REF" STATE_FILE="$STATE_FILE" GITHUB_HEAD_REF="$CURRENT_BRANCH" PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH="$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" PUBLIC_HOME_IMPLEMENTATION_BRANCH="$PUBLIC_HOME_IMPLEMENTATION_BRANCH" PUBLIC_HOME_GOVERNANCE_MANIFEST="$PUBLIC_HOME_GOVERNANCE_MANIFEST" PUBLIC_HOME_IMPLEMENTATION_MANIFEST="$PUBLIC_HOME_IMPLEMENTATION_MANIFEST" POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH="$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" POISON_ISOLATION_IMPLEMENTATION_BRANCH="$POISON_ISOLATION_IMPLEMENTATION_BRANCH" POISON_ISOLATION_MANIFEST="$POISON_ISOLATION_MANIFEST" node - <<'JS'
 const { execFileSync } = require('node:child_process');
 
 const baseRef = String(process.env.BASE_REF || '').trim();
@@ -372,6 +451,9 @@ const publicHomeGovernanceBranch = String(process.env.PUBLIC_HOME_SCOPE_GOVERNAN
 const publicHomeImplementationBranch = String(process.env.PUBLIC_HOME_IMPLEMENTATION_BRANCH || '').trim();
 const publicHomeGovernanceManifest = String(process.env.PUBLIC_HOME_GOVERNANCE_MANIFEST || '').trim();
 const publicHomeImplementationManifest = String(process.env.PUBLIC_HOME_IMPLEMENTATION_MANIFEST || '').trim();
+const poisonIsolationScopeGovernanceBranch = String(process.env.POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH || '').trim();
+const poisonIsolationImplementationBranch = String(process.env.POISON_ISOLATION_IMPLEMENTATION_BRANCH || '').trim();
+const poisonIsolationManifest = String(process.env.POISON_ISOLATION_MANIFEST || '').trim();
 if (!baseRef || !stateFile || !branch) {
   throw new Error('P7_IMMUTABLE_SCOPE: immutable scope inputs are required');
 }
@@ -392,6 +474,21 @@ if (branch === publicHomeGovernanceBranch) {
     throw new Error('P7_IMMUTABLE_SCOPE: accepted public-home manifest identity is invalid');
   }
   scopes = manifest.allowedPaths;
+} else if (branch === poisonIsolationScopeGovernanceBranch) {
+  scopes = [poisonIsolationManifest, 'scripts/p7-autopilot-guard.sh', 'scripts/p7-autopilot-guard.test.mjs'];
+} else if (branch === poisonIsolationImplementationBranch) {
+  let manifest;
+  try {
+    const raw = execFileSync('git', ['show', `${baseRef}:${poisonIsolationManifest}`], { encoding: 'utf8' });
+    manifest = JSON.parse(raw);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`P7_IMMUTABLE_SCOPE: cannot load accepted poison-isolation manifest: ${message}`);
+  }
+  if (manifest.schemaVersion !== 'platform-v7.concurrent-scope.v1' || manifest.status !== 'active' || manifest.branch !== poisonIsolationImplementationBranch) {
+    throw new Error('P7_IMMUTABLE_SCOPE: accepted poison-isolation manifest identity is invalid');
+  }
+  scopes = manifest.allowedPaths;
 } else {
   let state;
   try {
@@ -402,6 +499,111 @@ if (branch === publicHomeGovernanceBranch) {
     throw new Error(`P7_IMMUTABLE_SCOPE: cannot load ${baseRef}:${stateFile}: ${message}`);
   }
   scopes = state.approvedConcurrentScopes?.[branch];
+
+  if (branch === 'governance/industrial-load-diagnostics-20260919' || branch === 'test/industrial-load-diagnostics-20260919') {
+    const { isDeepStrictEqual } = require('node:util');
+    const governance = 'governance/industrial-load-diagnostics-20260919';
+    const diagnostic = 'test/industrial-load-diagnostics-20260919';
+    const governancePaths = [
+      'docs/platform-v7/autopilot/autopilot-state.json',
+      'docs/platform-v7/execution-queue.md',
+      'docs/platform-v7/autopilot/prompts/current-codex-task.md',
+      'docs/platform-v7/autopilot/prompts/current-review-task.md',
+      'scripts/p7-autopilot-guard.sh',
+      'scripts/p7-autopilot-guard.test.mjs',
+      '.github/workflows/platform-v7-autopilot-guard.yml',
+    ];
+    const diagnosticPaths = ['apps/api/test/industrial/load-proof.e2e-spec.ts'];
+    const expected = branch === governance ? governancePaths : diagnosticPaths;
+    const baseline = structuredClone(state);
+    if (branch === governance && scopes === undefined) {
+      // Owner authorization in the 2026-09-19 session permits this atomic
+      // seven-file repair. This is NOT a claim of prior machine admission.
+      // The initial candidate is reviewed/tested without privileged execution.
+      const sha = execFileSync('git', ['rev-parse', baseRef], { encoding: 'utf8' }).trim();
+      const blob = execFileSync('git', ['rev-parse', `${baseRef}:${stateFile}`], { encoding: 'utf8' }).trim();
+      if (sha !== 'fe50e24d202bcd22d72dd15e4dc58f9ddc491331' || blob !== 'ea92fc5f636efaf147ddeee34f81428cdd69a925' ||
+          Object.hasOwn(state.approvedConcurrentScopes, diagnostic)) {
+        throw new Error('INDUSTRIAL_DIAGNOSTIC_BOOTSTRAP_BASE_MISMATCH');
+      }
+      baseline.approvedConcurrentScopes[governance] = governancePaths;
+      baseline.approvedConcurrentScopes[diagnostic] = diagnosticPaths;
+      scopes = governancePaths;
+    }
+    if (!isDeepStrictEqual(scopes, expected)) throw new Error('INDUSTRIAL_DIAGNOSTIC_ACCEPTED_SCOPE_MISMATCH');
+    const headRef = String(process.env.HEAD_REF || 'HEAD');
+    const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${stateFile}`], { encoding: 'utf8' }));
+    if (!isDeepStrictEqual(candidate, baseline)) throw new Error('INDUSTRIAL_DIAGNOSTIC_STATE_MUTATION');
+    const changes = execFileSync('git', ['diff', '--no-renames', '--name-status', `${baseRef}...${headRef}`], { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
+    for (const change of changes) {
+      const [status, file, extra] = change.split('\t');
+      if (status !== 'M' || extra || !expected.includes(file)) throw new Error('INDUSTRIAL_DIAGNOSTIC_DIFF_SCOPE');
+      const modes = [baseRef, headRef].map(ref => execFileSync('git', ['ls-tree', ref, '--', file], { encoding: 'utf8' }).split(' ')[0]);
+      if (!['100644', '100755'].includes(modes[0]) || modes[0] !== modes[1]) throw new Error('INDUSTRIAL_DIAGNOSTIC_FILE_MODE');
+    }
+  }
+
+  if (branch === 'governance/final-public-experience-v1-20260919') {
+    const { isDeepStrictEqual } = require('node:util');
+    const headRef = String(process.env.HEAD_REF || 'HEAD');
+    const changes = execFileSync('git', ['diff', '--no-renames', '--name-status', `${baseRef}...${headRef}`], { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
+    for (const change of changes) {
+      const [status, file] = change.split('\t');
+      if (status !== 'M') throw new Error('P7_IMMUTABLE_SCOPE: public governance permits modifications only');
+      const modes = [baseRef, headRef].map((ref) => execFileSync('git', ['ls-tree', ref, '--', file], { encoding: 'utf8' }).split(' ')[0]);
+      if (!['100644', '100755'].includes(modes[0]) || modes[0] !== modes[1]) {
+        throw new Error('P7_IMMUTABLE_SCOPE: public governance requires unchanged regular-file modes');
+      }
+    }
+    const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${stateFile}`], { encoding: 'utf8' }));
+    const baseline = JSON.parse(JSON.stringify(state));
+    for (const admittedBranch of ['agent/platform-v7-strategic-rebuild-v3', 'fix/public-registration-final-copy-4916']) {
+      if (candidate.approvedConcurrentScopes) delete candidate.approvedConcurrentScopes[admittedBranch];
+      if (baseline.approvedConcurrentScopes) delete baseline.approvedConcurrentScopes[admittedBranch];
+    }
+    if (!isDeepStrictEqual(candidate, baseline)) {
+      throw new Error('P7_IMMUTABLE_SCOPE: public governance cannot alter its own or unrelated state authority');
+    }
+  }
+
+  // Final Public branches transition to trusted-base state admission through a separate
+  // governance PR. Until that state entry lands, use only the already-merged
+  // base-owned manifest. Never read scope authority from the PR head.
+  if (!Array.isArray(scopes) || scopes.length === 0) {
+    const finalPublicStaticScopeByBranch = new Map([
+      ['agent/platform-v7-product-copy', ['apps/web/tests/unit/platformV7HomepageProductCopy.test.ts']],
+      ['ops/production-full-stack-release-v1', [
+        'scripts/check-production-full-stack-release.mjs',
+        'scripts/production-full-stack-live-acceptance.sh',
+      ]],
+    ]);
+    const staticScope = finalPublicStaticScopeByBranch.get(branch);
+    if (staticScope) {
+      scopes = staticScope;
+    } else {
+      const finalPublicManifestByBranch = new Map([
+        ['agent/platform-v7-strategic-rebuild-v3', 'docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json'],
+        ['p0/farmer-public-market-teaser-20260913', 'docs/platform-v7/autopilot/scopes/farmer-public-market-teaser-20260913.json'],
+        ['fix/public-registration-final-copy-4916', 'docs/platform-v7/autopilot/scopes/public-registration-final-copy-4916.json'],
+        ['fix/public-deal-journey-10of10-current-main-20260808', 'docs/platform-v7/autopilot/scopes/public-deal-journey-10of10-20260808.json'],
+      ]);
+      const manifestPath = finalPublicManifestByBranch.get(branch);
+      if (manifestPath) {
+      let manifest;
+      try {
+        const raw = execFileSync('git', ['show', `${baseRef}:${manifestPath}`], { encoding: 'utf8' });
+        manifest = JSON.parse(raw);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`P7_IMMUTABLE_SCOPE: cannot load accepted Final Public manifest: ${message}`);
+      }
+      if (manifest?.branch !== branch || manifest?.status !== 'active' || !Array.isArray(manifest?.allowedPaths) || manifest.allowedPaths.length === 0) {
+        throw new Error('P7_IMMUTABLE_SCOPE: accepted Final Public manifest identity is invalid');
+      }
+        scopes = manifest.allowedPaths;
+      }
+    }
+  }
 }
 
 if (!Array.isArray(scopes) || scopes.length === 0) {
@@ -425,11 +627,45 @@ process.stdout.write(`${normalized.join('\n')}\n`);
 JS
   )
 else
-  APPROVED_BRANCH_SCOPE=$(GITHUB_HEAD_REF="$CURRENT_BRANCH" node - <<'JS'
+  APPROVED_BRANCH_SCOPE=$(GITHUB_HEAD_REF="$CURRENT_BRANCH" P7_SCOPE_BASE_REF="$BASE_REF" P7_SCOPE_HEAD_REF="$HEAD_REF" node - <<'JS'
 const fs = require('fs');
-const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+const { execFileSync } = require('node:child_process');
+const { isDeepStrictEqual } = require('node:util');
 const branch = String(process.env.GITHUB_HEAD_REF || '').trim();
-const scopes = branch ? state.approvedConcurrentScopes?.[branch] : undefined;
+const state = JSON.parse(branch === 'security/pc-crop-next-15-5-24-4997'
+  ? execFileSync('git', ['show', `${process.env.P7_SCOPE_HEAD_REF}:docs/platform-v7/autopilot/autopilot-state.json`], { encoding: 'utf8' })
+  : fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+let scopes = branch ? state.approvedConcurrentScopes?.[branch] : undefined;
+if (branch === 'security/pc-crop-next-15-5-24-4997') {
+  const expected = ['.github/workflows/platform-v7-autopilot-guard.yml', '.github/workflows/sbom-scan.yml', 'apps/web/package.json', 'package.json', 'pnpm-lock.yaml',
+    'docs/platform-v7/autopilot/autopilot-state.json',
+    'scripts/p7-autopilot-guard.sh', 'scripts/p7-autopilot-guard.test.mjs'];
+  // The owner authorized this combined governance/security repair on 2026-09-09
+  // after separate governance #5196 was blocked by the vulnerable base itself.
+  // Bootstrap is bound to that exact base state; it is not a generic fallback.
+  let accepted;
+  try {
+    accepted = JSON.parse(execFileSync('git', ['show', `${process.env.P7_SCOPE_BASE_REF}:docs/platform-v7/autopilot/autopilot-state.json`], { encoding: 'utf8' }));
+  } catch {
+    throw new Error('NEXT_SECURITY_PATCH_ACCEPTED_SCOPE_MISSING');
+  }
+  const acceptedScope = accepted.approvedConcurrentScopes?.[branch];
+  if (!Array.isArray(acceptedScope)) {
+    const blob = execFileSync('git', ['rev-parse', `${process.env.P7_SCOPE_BASE_REF}:docs/platform-v7/autopilot/autopilot-state.json`], { encoding: 'utf8' }).trim();
+    if (blob !== '571d2821ac3c371d548e51e747ea8111a436dab8') {
+      throw new Error('NEXT_SECURITY_PATCH_ACCEPTED_SCOPE_MISSING');
+    }
+    accepted.approvedConcurrentScopes[branch] = [...expected];
+  } else if (JSON.stringify([...acceptedScope].sort()) !== JSON.stringify([...expected].sort())) {
+    throw new Error('NEXT_SECURITY_PATCH_ACCEPTED_SCOPE_MISSING');
+  }
+  if (!Array.isArray(scopes) || JSON.stringify([...scopes].sort()) !== JSON.stringify(expected.sort())) {
+    throw new Error('NEXT_SECURITY_PATCH_SCOPE_MISMATCH');
+  }
+  // No modification of other branches, global scope or state is authorized.
+  if (!isDeepStrictEqual(state, accepted)) throw new Error('NEXT_SECURITY_PATCH_STATE_MUTATION');
+  scopes = expected;
+}
 if (Array.isArray(scopes)) {
   for (const file of scopes) console.log(file);
 }
@@ -440,11 +676,14 @@ fi
 if is_immutable_scope_branch "$CURRENT_BRANCH"; then
   # Discard every legacy hardcoded or diff-triggered scope expansion above.
   ALLOWED_CURRENT="$APPROVED_BRANCH_SCOPE"
+elif [ "$CURRENT_BRANCH" = "$NEXT_SECURITY_PATCH_BRANCH" ]; then
+  # Owner-authorized 2026-09-09 dependency repair uses only its explicit paths.
+  ALLOWED_CURRENT="$APPROVED_BRANCH_SCOPE"
 elif [ -n "$APPROVED_BRANCH_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$APPROVED_BRANCH_SCOPE")
 fi
 
-if is_immutable_scope_branch "$CURRENT_BRANCH"; then
+if is_immutable_scope_branch "$CURRENT_BRANCH" || [ "$CURRENT_BRANCH" = "$NEXT_SECURITY_PATCH_BRANCH" ]; then
   SOURCE_CONTROLLED_SCOPE=''
 else
   SOURCE_CONTROLLED_SCOPE=$(GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-}" node scripts/p7-source-controlled-scope.mjs)
@@ -454,8 +693,12 @@ if [ -n "$SOURCE_CONTROLLED_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$SOURCE_CONTROLLED_SCOPE")
 fi
 
-if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INVENTORY_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" ]; then
+if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INVENTORY_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$FINAL_PUBLIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH" ]; then
   MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$DIFF_FILES" | grep -E '^(AGENTS\.md|docs/platform-v7/autopilot/|scripts/p7-autopilot-guard\.sh$|scripts/p7-autopilot-guard\.test\.mjs$|scripts/p7-source-controlled-scope\.mjs$|\.github/workflows/platform-v7-autopilot-guard\.yml$|\.github/workflows/automerge\.yml$)' || true)
+  if [ "$CURRENT_BRANCH" = "$QWEN_FAILED_EVIDENCE_BRANCH" ]; then
+    # This diagnostic regression file is still subject to exact base-approved scope.
+    MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES" | grep -Fxv 'docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs' || true)
+  fi
   if [ -n "$MUTABLE_SCOPE_AUTHORITIES" ]; then
     echo "Mutable scope authority changed on a PC-CROP immutable-scope implementation branch:"
     printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES"
@@ -463,7 +706,7 @@ if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE
   fi
 fi
 
-if [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-transitive-runtime-remediation" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-opentelemetry-220" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-next-15-5-16-final" ] || [ "${GITHUB_HEAD_REF:-}" = "claude/tai-production-attestation-gizgzh" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/security-brace-expansion-5-0-8" ] || [ "${GITHUB_HEAD_REF:-}" = "identity-rls-3670" ]; then
+if [ "$CURRENT_BRANCH" = "$NEXT_SECURITY_PATCH_BRANCH" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-transitive-runtime-remediation" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-opentelemetry-220" ] || [ "${GITHUB_HEAD_REF:-}" = "agent/ir-sec-next-15-5-16-final" ] || [ "${GITHUB_HEAD_REF:-}" = "claude/tai-production-attestation-gizgzh" ] || [ "${GITHUB_HEAD_REF:-}" = "fix/security-brace-expansion-5-0-8" ] || [ "${GITHUB_HEAD_REF:-}" = "identity-rls-3670" ]; then
   FORBIDDEN_ALWAYS='^(apps/landing/|package-lock\.json$|\.env|.*\.pem$|.*\.key$)'
 else
   FORBIDDEN_ALWAYS='^(apps/landing/|package-lock\.json$|pnpm-lock\.yaml$|\.env|.*\.pem$|.*\.key$)'
@@ -500,7 +743,7 @@ if [ -n "$FORBIDDEN_FILES" ]; then
   exit 1
 fi
 
-if is_immutable_scope_branch "$CURRENT_BRANCH"; then
+if is_immutable_scope_branch "$CURRENT_BRANCH" || [ "$CURRENT_BRANCH" = "$NEXT_SECURITY_PATCH_BRANCH" ]; then
   P7_EXACT_APPROVED_SCOPE=1
 else
   P7_EXACT_APPROVED_SCOPE=0

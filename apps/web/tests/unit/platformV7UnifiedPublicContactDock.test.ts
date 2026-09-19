@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-const root = process.cwd();
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'utf8');
 
 const contextual = read('apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx');
@@ -22,12 +23,12 @@ const roles = [
 ] as const;
 
 describe('platform-v7 unified public and cabinet contact docks', () => {
-  it('keeps the public three-action surface unchanged', () => {
+  it('preserves all public action destinations under canonical responsive presentation', () => {
     expect(contextual).toContain("import { PublicContactDock } from './PublicContactDock'");
     expect(contextual).toContain('<PublicPlatformAssistant />');
     expect(contextual).toContain('<ChatSupportWidget />');
     expect(contextual).toContain('{renderDock ? <PublicContactDock /> : null}');
-    expect(publicDock).toContain("assistant: 'ИИ'");
+    expect(publicDock).toContain("assistant: 'Гекта'");
     expect(publicDock).toContain("support: 'Поддержка'");
     expect(publicDock).toContain("call: 'Позвонить'");
     expect(publicDock).toContain('href={SUPPORT_PHONE_HREF}');

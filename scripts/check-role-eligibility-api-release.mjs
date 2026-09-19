@@ -32,6 +32,24 @@ requireAll('executor', [
   'ROLE_ELIGIBILITY_ENFORCEMENT_UNCHANGED',
   'REGISTRATION_CONFIGURATION_UNCHANGED',
   'PROTECTED_CONTAINERS_UNCHANGED',
+  'API_DIGEST="${PC_ROLE_ELIGIBILITY_API_DIGEST:-}"',
+  '[[ "$API_DIGEST" =~ ^ghcr\\.io/pachaninm-lab/grainflow-api@sha256:[0-9a-f]{64}$ ]] || fail API_DIGEST_REFERENCE_INVALID 7',
+  '[[ -n "$API_DIGEST" ]] || return 0',
+  'docker pull "$API_DIGEST" >/dev/null || fail API_DIGEST_PULL_FAILED 40',
+  'PINNED_API_IMAGE_ID="$(docker image inspect --format \'{{.Id}}\' "$API_DIGEST" 2>/dev/null || true)"',
+  '[[ "$PINNED_API_IMAGE_ID" =~ ^sha256:[0-9a-f]{64}$ ]] || fail API_DIGEST_IMAGE_ID_INVALID 41',
+  '[[ "$pinned_revision" == "$TARGET_SHA" ]] || fail API_DIGEST_REVISION_MISMATCH 42',
+  '[[ "$actual_id" == "$PINNED_API_IMAGE_ID" ]] || fail API_IMAGE_DIGEST_MISMATCH 43',
+  '[[ -z "$API_DIGEST" || "$baseline_image_id" == "$PINNED_API_IMAGE_ID" ]] || fail API_AUDIT_DIGEST_MISMATCH 45',
+  '[[ -z "$API_DIGEST" || "$new_image_id" == "$PINNED_API_IMAGE_ID" ]] || fail DEPLOYED_API_DIGEST_MISMATCH 44',
+  '[[ -z "$API_DIGEST" ]] || emit ROLE_ELIGIBILITY_API_DIGEST_VERIFIED PASS',
+  'W1_ROUTES="${PC_ROLE_ELIGIBILITY_W1_ROUTES:-0}"',
+  '[[ "$W1_ROUTES" == 0 || "$W1_ROUTES" == 1 ]] || fail W1_ROUTE_MODE_INVALID 46',
+  '[[ "$ACTION" == deploy && -n "$API_DIGEST" ]] || fail W1_ROUTE_DIGEST_REQUIRED 47',
+  '[[ -f "$w1_checker" && ! -L "$w1_checker" ]] || fail W1_ROUTE_SOURCE_MISSING 48',
+  'w1_route_boundary "$new_api_id"',
+  '|| fail W1_API_ROUTE_BOUNDARY_FAILED 49',
+  '|| fail W1_API_ROUTE_EVIDENCE_INVALID 50',
 ]);
 
 requireAll('workflow', [
@@ -86,7 +104,36 @@ if (!/\[\[ \"\$TARGET_SHA\" =~ \^\[0-9a-f\]\{40\}\$ \]\] \|\| \{ echo ROLE_ELIGI
 if (!/docker pull \"\$API_IMAGE\"/.test(source.executor)) failures.push('executor must pull only the exact API image');
 if (!/services:\n  api:\n    image: \$image\n    pull_policy: never/.test(source.executor)) failures.push('executor override must contain only api image authority');
 if (!/trap 'cleanup_on_exit/.test(source.executor)) failures.push('executor must arm exit rollback');
+const routeProbe=source.executor.indexOf('\nw1_route_boundary "$new_api_id"\n');
+if (!(routeProbe>source.executor.indexOf("trap 'cleanup_on_exit")
+  && routeProbe>source.executor.indexOf('|| fail DEPLOYED_API_REVISION_MISMATCH 36')
+  && routeProbe<source.executor.lastIndexOf('emit ROLE_ELIGIBILITY_API_RELEASE PASS'))) {
+  failures.push('W1 route probe must fail inside the armed rollback boundary before release acceptance');
+}
+if (!source.executor.includes("$'PC_W1_API_ROUTE_BOUNDARY=PASS\\nPC_W1_API_ROUTES=5\\nPC_W1_AUTHENTICATED_ACCEPTANCE=NOT_EVIDENCED'")) {
+  failures.push('W1 route probe must require complete exact evidence without business acceptance');
+}
 if (!/MUTATION_STARTED=1\nwrite_override/.test(source.executor)) failures.push('rollback must be armed before persistent override mutation');
+const tagPull = source.executor.indexOf('docker pull "$API_IMAGE"');
+const firstDigestCheck = source.executor.indexOf('\nassert_api_image_digest\n');
+const rollbackDefinition = source.executor.indexOf('\ncleanup_on_exit(){');
+if (!(tagPull >= 0 && firstDigestCheck > tagPull && firstDigestCheck < rollbackDefinition)) {
+  failures.push('optional digest must be checked after the legacy tag pull, before any mutation');
+}
+if (!source.executor.includes('assert_api_image_digest\nMUTATION_STARTED=1\nwrite_override')) {
+  failures.push('optional digest must be rechecked immediately before persistent override mutation');
+}
+if (!source.executor.includes('assert_api_image_digest\n"${dc_target[@]}" up -d --no-deps --force-recreate --pull never api')) {
+  failures.push('optional digest must be rechecked immediately before API recreation');
+}
+if (!source.executor.includes('new_image_id="$(docker inspect --format \'{{.Image}}\' "$new_api_id")"\n[[ -z "$API_DIGEST" || "$new_image_id" == "$PINNED_API_IMAGE_ID" ]]')) {
+  failures.push('running API image must match the pinned digest after readiness');
+}
+const auditBranch = source.executor.slice(source.executor.indexOf('if [[ "$ACTION" == audit ]]'), tagPull);
+if (!(auditBranch.indexOf('API_AUDIT_DIGEST_MISMATCH') >= 0
+  && auditBranch.indexOf('API_AUDIT_DIGEST_MISMATCH') < auditBranch.indexOf('emit ROLE_ELIGIBILITY_API_RELEASE PASS'))) {
+  failures.push('audit must validate the supplied digest before reporting acceptance');
+}
 if (!/docker ps -q --no-trunc --filter \"label=com\.docker\.compose\.project=\$prod_project\"/.test(source.executor)) {
   failures.push('protected snapshot must be scoped to the canonical production Compose project');
 }

@@ -16,5 +16,10 @@ describe('platform-v7 deal scenario production copy', () => {
     expect(source).toContain('DL-EXEC-001');
     expect(source).toContain('The execution scenario shows the path after price agreement');
     expect(source).toContain('外部集成按合同和访问密钥接入');
+    expect(source).toContain("volume: '240 т'");
+    expect(source).toContain("volume: '240 t'");
+    expect(source).toContain("volume: '240 吨'");
+    expect(source).toContain('<p>{t.volume}</p>');
+    expect(source).not.toContain('<p>240 т</p>');
   });
 });
