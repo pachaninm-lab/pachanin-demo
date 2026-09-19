@@ -258,7 +258,8 @@ This supersedes the pending sequencing decision in the proposal above, solely
 for that bounded recovery. It does not authorize the broader UX, bank or FGIS backlog.
 
 Record the implementation branch `fix/first-customer-workspace-recovery-20260919`
-in approvedConcurrentScopes with exactly the three proposed application/test paths.
+in approvedConcurrentScopes with the three proposed application/test paths plus
+the strictly bounded CI test registration described below.
 Governance and implementation remain separate reviewable changes. A draft may be
 prepared against this governance branch under the owner's explicit authorization;
 do not merge the implementation before this admission reaches trusted main and its
@@ -269,3 +270,19 @@ After: owner-authorized preparation and reviewed admission of the two bounded fi
 IR-20 remains active and all production release/acceptance requirements remain.
 Reason, risks, regression matrix and exclusions are those in the proposal above.
 Progress means implementation/review evidence only, never IR-20 PRODUCTION_PASS.
+
+### Required CI registration for the approved recovery
+
+Implementation detail discovered during validation: the repository coverage gate
+requires every new unit test to be explicitly executed by CI. The three-path
+proposal omitted that registration and would fail UNACCOUNTED_TEST_FILE.
+The approved two-defect fix therefore also includes exactly one change in
+`.github/workflows/ci.yml`: append
+`tests/unit/firstCustomerWorkspaceSnapshot.test.ts` to the existing web-unit
+Vitest invocation. No trigger, permission, runner, gate, dependency, exclusion,
+release workflow or other command changes are admitted. This is required test
+wiring for the already authorized fixes, not another product capability.
+Before: three implementation paths, new regression not executed by CI.
+After: four paths, the same regression runs on subsequent qualifying PRs.
+Risk: CI-list omission leaves regression unprotected; coverage guard and the
+existing web-unit test selection must pass. Readiness/production claims unchanged.
