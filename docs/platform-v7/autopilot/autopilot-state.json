@@ -1464,7 +1464,9 @@
       "apps/web/tests/unit/platformV7HomepageVisibleOperatingCopy.test.ts",
       "apps/web/tests/unit/platformV7PublicCopyQuality.test.ts",
       "apps/web/tests/unit/platformV7PublicExperienceV4.test.ts",
-      "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts"
+      "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
+      "apps/web/components/platform-v7/PublicAiInActionSimpleExperience.tsx",
+      "apps/web/app/platform-v7/ai-in-action/page.tsx"
     ],
     "fix/public-registration-final-copy-4916": [
       "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
