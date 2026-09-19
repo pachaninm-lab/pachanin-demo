@@ -209,12 +209,7 @@
     ".github/workflows/ci.yml"
   ],
   "approvedConcurrentScopes": {
-    "fix/provider-review-scope-guard-20260918": [
-      "scripts/p7-autopilot-guard.sh",
-      "scripts/p7-autopilot-guard.test.mjs",
-      ".github/workflows/platform-v7-autopilot-guard.yml",
-      "docs/platform-v7/autopilot/autopilot-state.json"
-    ],
+    "fix/provider-review-scope-guard-20260918": ["scripts/p7-autopilot-guard.sh", "scripts/p7-autopilot-guard.test.mjs", ".github/workflows/platform-v7-autopilot-guard.yml", "docs/platform-v7/autopilot/autopilot-state.json"],
     "governance/kind-minio-image-source-20260912": [
       ".github/workflows/platform-v7-autopilot-guard.yml",
       "docs/platform-v7/autopilot/autopilot-state.json",
@@ -1441,6 +1436,14 @@
       "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
       "apps/web/tests/unit/firstCustomerWorkspaceSnapshot.test.ts",
       ".github/workflows/ci.yml"
+    ],
+    "governance/final-public-experience-v1-20260919": [
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json",
+      "docs/platform-v7/autopilot/scopes/public-registration-final-copy-4916.json",
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs",
+      ".github/workflows/platform-v7-autopilot-guard.yml"
     ],
     "agent/platform-v7-strategic-rebuild-v3": [
       "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
