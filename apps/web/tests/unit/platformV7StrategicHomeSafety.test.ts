@@ -9,6 +9,7 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
   const form = read('components/platform-v7/OrganizationConnectForm.tsx');
   const formCss = read('components/platform-v7/OrganizationConnectForm.module.css');
   const formBaseCopy = read('i18n/platform-v7-organization-connect.ts');
+  const heroCopy = read('i18n/platform-v7-hero-message.ts');
   const formOperatingCopy = read('i18n/platform-v7-organization-connect-operating.ts');
   const roleScenario = read('components/platform-v7/PublicDealRoleScenario.tsx');
   const roleScenarioCss = read('components/platform-v7/PublicDealRoleScenario.module.css');
@@ -23,18 +24,34 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
     forbiddenChanges?: string[];
   };
 
-  it('keeps a stable Deal cockpit locator and keyboard-focusable public journey', () => {
+  it('keeps a stable public locator and keyboard-focusable final journey without masking overflow', () => {
     expect(home).toContain("data-testid='platform-v7-root-execution-cockpit'");
-    expect(home).toContain("className='pc-v6-lifecycle' role='list' tabIndex={0}");
-    expect(home).toContain('aria-label={copy.lifecycle.title}');
-    expect(homeCss).toContain('.pc-v6-lifecycle:focus-visible');
-    expect(homeCss).toMatch(/\.pc-v6-page\s*\{[^}]*overflow-x:\s*clip/);
+    expect(home).toContain("className='pc-final-carousel' tabIndex={0} role='region'");
+    expect(home).toContain("type='radio' name='public-final-deal-state'");
+    expect(home).toContain("htmlFor={`public-final-state-${state.key}`}");
+    expect(home).toContain("loading='eager' fetchPriority='high'");
+    expect(home).toContain("const HERO_IMAGE_DATA = 'data:image/svg+xml;base64,");
+    expect(home).toContain("src={HERO_IMAGE_DATA}");
+    expect(home).toContain("decoding='sync'");
+    expect(homeCss).toContain('#public-final-state-normal:focus-visible~.pc-final-state-tabs');
+    expect(homeCss).toContain('.pc-final-page :where(a,button,input,select,textarea,summary,[role="tab"]):focus-visible');
+    expect(homeCss).not.toContain('overflow-x:clip');
+    expect(homeCss).toContain('.pc-final-page .pc-skip-link {');
+    expect(homeCss).toContain('.pc-final-page .pc-skip-link:focus-visible { top: 8px; }');
+    expect(homeCss).toContain('.pc-final-hero-visual{min-height:120px;border-radius:20px}');
+  });
+
+  it('keeps visitor-facing copy free of development-stage and infrastructure vocabulary', () => {
+    const visitorCopy = [heroCopy, formBaseCopy, roleScenario].join('\n');
+    expect(visitorCopy).not.toMatch(/(?:демо|демонстрац|пилот|прототип|скоро|в разработ|demo|demonstrat|pilot|prototype|coming soon|in development)/i);
+    expect(visitorCopy).not.toMatch(/(?:postgresql|\\brls\\b|kafka|outbox|k8s|sbom|qwen|governance|release authority)/i);
   });
 
   it('uses protected registration as primary conversion while keeping durable assistance separate', () => {
-    expect(home).toContain('const registerHref = `/platform-v7/register?lang=');
+    expect(home).toContain('function registerHref(locale: Locale)');
+    expect(home).not.toContain("query.set('intent'");
     expect(home).toContain("eventName='registration_open'");
-    expect(home).toContain("href='#connect-organization'");
+    expect(home).toContain("className='pc-final-help-link' href='#connect-organization'");
     expect(home).toContain('<OrganizationConnectForm locale={locale} />');
     expect(formOperatingCopy).toContain('Эта форма не является регистрацией');
     expect(formOperatingCopy).toContain("submit: 'Отправить запрос на помощь'");
@@ -45,7 +62,7 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
   });
 
   it('separates assistance-open, step completion, submission and server acceptance analytics', () => {
-    expect(home).toContain("eventName='open_organization_connect'");
+    expect(home).toContain("href='#connect-organization'");
     expect(home).not.toContain("eventName='submit_organization_request'");
     expect(form).toContain("name: 'organization_request_step_completed'");
     expect(form).toContain("name: 'submit_organization_request'");
@@ -94,6 +111,12 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
     expect(roleScenario).toContain("role='tabpanel'");
     expect(roleScenario).toContain("aria-live='polite'");
     expect(roleScenario).toContain('реальные полномочия определяются системой после регистрации и проверки организации');
+    expect(roleScenario).toContain("label: 'Сотрудник подключённой организации'");
+    expect(roleScenario).toContain("label: 'Employee of a connected organisation'");
+    expect(roleScenario).toContain("label: '已接入机构员工'");
+    for (const retired of ['Сотрудник платформы', 'сотрудник платформы', 'Platform employee', 'platform employee', 'platform staff', '平台员工']) {
+      expect(roleScenario).not.toContain(retired);
+    }
     expect(roleScenario).not.toContain('accessToken');
     expect(roleScenario).not.toContain('tenantId');
     expect(roleScenario).not.toContain('fetch(');
@@ -123,7 +146,7 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
     expect(roleScenarioCss).toMatch(/min-height:\s*44px/);
     expect(roleScenarioCss).toMatch(/overflow-x:\s*auto/);
     expect(roleScenarioCss).toMatch(/scroll-snap-type:\s*x\s+(?:proximity|mandatory)/);
-    expect(homeCss).toContain('@media (max-width: 767px)');
+    expect(homeCss).toContain('@media(max-width:767px)');
   });
 
   it('binds implementation to the explicit immutable public-home scope', () => {

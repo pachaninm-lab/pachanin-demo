@@ -1,4 +1,5 @@
 {
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "agent/platform-v7-strategic-rebuild-v3",
   "status": "active",
   "purpose": "Strategic transaction-centric rebuild of the public /platform-v7 homepage, including industrial positioning, responsive typography, unified header controls and capability-led RU/EN/ZH copy, without changing production authority or deployment topology.",
