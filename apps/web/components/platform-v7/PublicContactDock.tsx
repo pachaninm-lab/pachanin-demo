@@ -322,4 +322,29 @@ const css = `
   .pc-public-contact-dock-icon,
   .pc-public-contact-dock-assistant .pc-public-contact-dock-icon { color: ButtonText; background: Canvas; box-shadow: inset 0 0 0 1px ButtonText; }
 }
+
+/* One public dock geometry on every public route. Private/workspace styles above are unchanged. */
+@media (min-width: 1180px) {
+  .pc-public-contact-dock[data-assistant-context='public'] { right:max(10px,env(safe-area-inset-right,0px))!important;left:auto!important;bottom:max(12px,calc(env(safe-area-inset-bottom,0px) + 10px))!important;width:54px!important;min-width:54px!important;max-width:54px!important;grid-template-columns:1fr!important;grid-template-rows:repeat(3,48px)!important;gap:2px!important;padding:2px!important;border-radius:16px!important; }
+  .pc-public-contact-dock[data-assistant-context='public'] .pc-public-contact-dock-action { width:48px!important;min-width:48px!important;height:48px!important;min-height:48px!important;padding:0!important;border-radius:12px!important; }
+  .pc-public-contact-dock[data-assistant-context='public'] .pc-public-contact-dock-action strong { position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;clip-path:inset(50%)!important;white-space:nowrap!important;border:0!important; }
+}
+
+@media (max-width: 767px) {
+  .pc-public-contact-dock[data-assistant-context='public'] { right:max(12px,env(safe-area-inset-right,0px))!important;left:auto!important;bottom:max(12px,calc(env(safe-area-inset-bottom,0px) + 10px))!important;width:56px!important;min-width:56px!important;height:56px!important;grid-template-columns:1fr!important;padding:3px!important;border-radius:18px!important; }
+  .pc-public-contact-dock[data-assistant-context='public'] .pc-public-contact-dock-action:not(.pc-public-contact-dock-assistant) { display:none!important; }
+  .pc-public-contact-dock[data-assistant-context='public'] .pc-public-contact-dock-assistant { width:48px!important;height:48px!important;min-height:48px!important;padding:0!important;border-radius:14px!important; }
+  .pc-public-contact-dock[data-assistant-context='public'] .pc-public-contact-dock-assistant .pc-public-contact-dock-icon { width:32px!important;height:32px!important;flex-basis:32px!important; }
+  .pc-public-contact-dock[data-assistant-context='public'] .pc-public-contact-dock-assistant strong { position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;clip-path:inset(50%)!important;white-space:nowrap!important;border:0!important; }
+}
+@media (max-width: 390px) {
+  .pc-public-contact-dock[data-assistant-context='public'] { right:max(8px,env(safe-area-inset-right,0px))!important;bottom:max(8px,calc(env(safe-area-inset-bottom,0px) + 8px))!important;width:48px!important;min-width:48px!important;height:48px!important;padding:1px!important;border-radius:16px!important; }
+  .pc-public-contact-dock[data-assistant-context='public'] .pc-public-contact-dock-assistant { width:44px!important;height:44px!important;min-height:44px!important;border-radius:13px!important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pc-public-contact-dock[data-assistant-context='public'] * { animation:none!important;transition-duration:0.01ms!important;scroll-behavior:auto!important; }
+}
+@media (forced-colors: active) {
+  .pc-public-contact-dock[data-assistant-context='public'] { border:1px solid ButtonText;background:Canvas;outline:1px solid ButtonText;outline-offset:1px; }
+}
 `;

@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { canRoleAccessCabinet } from '@/lib/platform-v7/cabinet-access-policy';
 
 const cwd = process.cwd();
 const repoRoot = [cwd, path.resolve(cwd, '../..')]
@@ -14,6 +15,11 @@ const releaseMutation = /fetch\s*\(|method\s*:\s*['"](?:POST|PUT|PATCH|DELETE)['
 
 const documents = read('apps/web/app/platform-v7/documents/page.tsx');
 const disputes = read('apps/web/app/platform-v7/disputes/page.tsx');
+const executive = read('apps/web/app/platform-v7/executive/page.tsx');
+const status = read('apps/web/app/platform-v7/status/page.tsx');
+const dealsServer = read('apps/web/lib/deals-server.ts');
+const disputesServer = read('apps/web/lib/disputes-server.ts');
+const outboxServer = read('apps/web/lib/outbox-server.ts');
 const releaseSafety = read('apps/web/app/platform-v7/bank/release-safety/page.tsx');
 const designSystemIndex = read('packages/design-system-v8/src/index.ts');
 const governance = JSON.parse(read('design-governance-v8.json')) as { migratedFiles: string[] };
@@ -54,6 +60,54 @@ describe('Design System v8 critical transaction routes', () => {
     expect(disputes).toContain('labels={copy.labels}');
     expect(disputes).toContain("import { EmptyState } from '@pc/design-system-v8'");
     expect(designSystemIndex).toContain("export { EmptyState } from './EmptyState'");
+  });
+
+  it('keeps executive all-clear fail-closed and routes restricted bank alerts to the read-only status aggregate', () => {
+    expect(executive).toContain('getDealsSnapshot');
+    expect(executive).toContain('!dealsAvailable');
+    expect(executive).toContain('getDisputesSnapshot');
+    expect(executive).toContain('!disputesAvailable');
+    expect(executive).toContain('!outboxAvailable');
+    expect(executive).toContain('споры: состояние неизвестно');
+    expect(executive).toContain('Требует внимания: источник споров');
+    expect(executive).toContain("href='/platform-v7/executive'");
+    expect(executive).toContain('Требует внимания: источник банка');
+    expect(executive).toContain('Требуют внимания: ошибки банка');
+    expect(executive).toContain('failedBank > 0');
+    expect(executive).toContain('manualReviewBank > 0');
+    expect(executive).toContain('unclassifiedBank > 0');
+    expect(executive).toContain('!outboxComplete');
+    expect(executive).toContain('!paymentsComplete');
+    expect(executive).toContain('Требуют внимания: ручная банковская сверка');
+    expect(executive).not.toContain('getShipments');
+    expect(executive).not.toContain('activeShipmentCount');
+    expect(executive).toContain("href='/platform-v7/status'");
+    expect(executive).not.toContain("href='/platform-v7/bank'");
+    expect(dealsServer).toContain('getDealsSnapshot');
+    expect(dealsServer).toContain('isApiAvailable: false');
+    expect(dealsServer).toContain('isComplete: raw.length < 100');
+    expect(executive).toContain('!dealsComplete');
+    expect(executive).toContain("outboxComplete && paymentsComplete ? String(pendingBank)");
+    expect(executive).toContain('apiOnline={dealsAvailable && disputesAvailable && outboxAvailable && paymentsAvailable}');
+    expect(executive).not.toContain('apiOnline={dealsComplete && disputesAvailable && outboxComplete && paymentsComplete}');
+    expect(executive).toContain("value: !paymentsAvailable ? '—' : manualReviewBank > 0 ? String(manualReviewBank) : paymentsComplete ? '0' : '—'");
+    expect(executive).toContain('выборка неполна (лимит 100) · старые MANUAL_REVIEW могут быть вне окна');
+    expect(disputesServer).toContain('isApiAvailable: false');
+    expect(disputesServer).toContain('isApiAvailable: true');
+    expect(executive).toContain('unresolvedDisputeCount');
+    expect(executive).not.toContain('openDisputeCount');
+    expect(disputesServer).toContain('export function unresolvedDisputeCount');
+    expect(disputesServer).toContain("dispute.status !== 'CLOSED'");
+    expect(executive).toContain('Незакрытые споры');
+    expect(outboxServer).toContain('!Array.isArray(data.pending) || !Array.isArray(data.failed) || !Array.isArray(data.confirmed)');
+    expect(outboxServer).toContain('totalUnclassified');
+    expect(outboxServer).toContain('isComplete: data.total < 200');
+    expect(outboxServer).toContain('getPaymentsSnapshot');
+    expect(outboxServer).toContain('isComplete: raw.length < 100');
+    expect(outboxServer).toContain("payment.status === 'MANUAL_REVIEW' || payment.reconciliationStatus === 'MANUAL_REVIEW'");
+    expect(status).toContain('getOutboxStatus');
+    expect(status).not.toContain('RbacGuard');
+    expect(canRoleAccessCabinet('executive', '/platform-v7/status')).toBe(true);
   });
 
   it('keeps bank release review server-selected, read-only and callback-authoritative', () => {

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 5222,
+  "branch": "fix/review-gate-local-qwen-test-signature-20260909",
+  "status": "active",
+  "purpose": "Provider-only exact-head review reliability repair: align the verifier test with the current Local Qwen API and schedule bounded inference by runner capacity.",
+  "authorization": "Owner-authorized continuation of the existing provider-only repair after terminal Local Qwen timeout; this scope changes no product, registration, database, production, or DoD behavior.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/local-qwen-independent-review.yml",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs"
+  ],
+  "boundaries": {
+    "productBehaviorChange": false,
+    "registrationChange": false,
+    "databaseChange": false,
+    "productionMutation": false,
+    "securityGateWeakening": false,
+    "reviewAuthorityChange": false
+  }
+}
