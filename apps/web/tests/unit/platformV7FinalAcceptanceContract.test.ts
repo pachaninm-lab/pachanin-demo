@@ -112,8 +112,23 @@ describe('platform-v7 Design System v8 final acceptance contract', () => {
     expect(registrationClient).not.toContain('Рабочий email');
     expect(registrationClient).toContain('Номер обращения:');
     expect(registrationClient).toContain('Адрес электронной почты *');
-    expect(registrationClient).toContain("['employee', 'Сотрудник существующей организации']");
+    expect(registrationClient).toContain("['employee', 'Сотрудник подключённой организации']");
     expect(registrationClient).toContain('Новая организация при этом не создаётся.');
+  });
+
+  it('prefills only a bounded public participation class without granting role authority', () => {
+    expect(registrationPage).toContain("type PublicRegistrationIntent = 'sell' | 'buy' | 'execution' | 'finance'");
+    expect(registrationPage).toContain("sell: 'seller'");
+    expect(registrationPage).toContain("buy: 'buyer'");
+    expect(registrationPage).toContain("execution: 'logistics'");
+    expect(registrationPage).toContain("finance: 'bank'");
+    expect(registrationPage).toContain("localeQuery.set('intent', intent)");
+    expect(registrationPage).toContain('initialWorkspace={initialWorkspace}');
+    expect(registrationClient).toContain("React.useState<RegistrationWorkspace>(initialWorkspace || 'seller')");
+    expect(registrationBaseClient).toContain("defaultValue={initialWorkspace || 'seller'}");
+    expect(registrationClient).toContain("event.target.value as RegistrationWorkspace");
+    expect(registrationClient).not.toContain('requestedRole');
+    expect(registrationBaseClient).not.toContain('requestedRole');
   });
 
   it('keeps RU EN ZH registration copy human-facing and hides internal status vocabulary', () => {
