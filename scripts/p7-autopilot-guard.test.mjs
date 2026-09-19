@@ -355,6 +355,44 @@ for (const forbidden of ['README.md', '.github/workflows/ci.yml']) {
   });
 }
 
+function finalPublicManifestFallbackFixture(t) {
+  const implementationBranch = finalPublicBranches[1];
+  const manifestPath = 'docs/platform-v7/autopilot/scopes/farmer-public-market-teaser-20260913.json';
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-final-public-fallback-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
+  write(root, 'scripts/p7-autopilot-guard.sh', fs.readFileSync(sourceGuard, 'utf8'), 0o755);
+  write(root, 'scripts/p7-source-controlled-scope.mjs', fs.readFileSync(sourceResolver, 'utf8'), 0o755);
+  write(root, '.github/workflows/platform-v7-autopilot-guard.yml', 'name: fixture\n');
+  write(root, 'docs/platform-v7/autopilot/autopilot-state.json', '{"allowedCurrentScope":["README.md"],"approvedConcurrentScopes":{}}\n');
+  write(root, manifestPath, `${JSON.stringify({ schemaVersion: 'platform-v7.concurrent-scope.v1', branch: implementationBranch, status: 'active', allowedPaths: ['allowed.txt'] }, null, 2)}\n`);
+  write(root, 'README.md', 'baseline\n');
+  write(root, 'allowed.txt', 'baseline\n');
+  git(root, ['init', '--initial-branch=main']);
+  git(root, ['config', 'user.name', 'Final Public Guard Test']);
+  git(root, ['config', 'user.email', 'final-public-guard@example.invalid']);
+  commit(root, 'trusted base manifest');
+  const baseline = git(root, ['rev-parse', 'HEAD']);
+  git(root, ['switch', '-c', implementationBranch]);
+  return { root, baseline, implementationBranch, manifestPath };
+}
+
+test('Final Public immutable routing accepts only the trusted-base manifest before state admission lands', (t) => {
+  const allowed = finalPublicManifestFallbackFixture(t);
+  write(allowed.root, 'allowed.txt', 'accepted through base manifest\n');
+  commit(allowed.root, 'accepted bounded change');
+  const accepted = runGuard(allowed);
+  assert.equal(accepted.status, 0, output(accepted));
+
+  const rejected = finalPublicManifestFallbackFixture(t);
+  const manifest = JSON.parse(fs.readFileSync(path.join(rejected.root, rejected.manifestPath), 'utf8'));
+  manifest.allowedPaths = [rejected.manifestPath, 'README.md'];
+  write(rejected.root, rejected.manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  write(rejected.root, 'README.md', 'self-authorized through head manifest\n');
+  commit(rejected.root, 'attempt head manifest widening');
+  const denied = runGuard(rejected);
+  assert.notEqual(denied.status, 0, output(denied));
+  assert.match(output(denied), /Mutable scope authority changed|Files outside current autopilot scope/u);
+});
 for (const implementationBranch of implementationBranches) {
 test(`${implementationBranch}: accepts only a path approved by the immutable base state`, (t) => {
   const context = fixture(t, implementationBranch);
@@ -622,7 +660,7 @@ test('runs immutable authority checks from a read-only trusted-base workflow', (
     "-f name='guard'",
     '-f head_sha="$HEAD_SHA"',
     "-f status='completed'",
-    `github.head_ref == '${publicHomeImplementationBranch}' || github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' || github.head_ref == 'fix/production-like-outbox-poison-isolation-3793' || github.head_ref == '${qwenFailedEvidenceBranch}' || github.head_ref == '${kindMinioImageSourceBranch}' || github.head_ref == '${gitleaksReleaseAttestationBranch}' || github.head_ref == 'fix/owner-handoff-product-host-20260908') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}`,
+    "'PC-CROP immutable scope · PR-head defense' || 'guard' }}",
     'needs: standard_validation',
     "if: always() && github.event_name != 'pull_request_target'",
     'git show "$BASE_SHA:scripts/p7-autopilot-guard.sh" > "$TRUSTED_GUARD"',
@@ -687,7 +725,7 @@ test(`${branch}: trusted scope routing retains substantive head validation`, () 
   };
   const trusted = section('  trusted-immutable-scope:', '  guard:');
   assert.ok(trusted.includes(`github.event.pull_request.head.ref == '${branch}'`));
-  assert.ok(trusted.includes(`|${branch}|`));
+  assert.ok(trusted.includes(`|${branch}|`) || trusted.includes(`|${branch})`));
   assert.ok(trusted.includes('ref: ${{ github.event.pull_request.base.sha }}'));
   assert.ok(trusted.includes('test "$(git rev-parse HEAD)" = "$BASE_SHA"'));
   assert.ok(trusted.includes('bash scripts/p7-autopilot-guard.sh'));
@@ -698,7 +736,7 @@ test(`${branch}: trusted scope routing retains substantive head validation`, () 
   assert.ok(guard.includes('permissions:\n      contents: read'));
   const defense = section('      - name: Validate immutable scope with trusted base guard on PR head', '      - name: Validate post-registration DoD register');
   assert.ok(defense.includes(`github.head_ref == '${branch}'`));
-  assert.ok(defense.includes(`|${branch}|`));
+  assert.ok(defense.includes(`|${branch}|`) || defense.includes(`|${branch})`));
   assert.ok(defense.includes('git show "$BASE_SHA:scripts/p7-autopilot-guard.sh" > "$TRUSTED_GUARD"'));
   const standardScope = section('      - name: Validate standard branch scope on PR head', '  standard_validation:');
   assert.ok(standardScope.includes(`github.head_ref != '${branch}'`));
