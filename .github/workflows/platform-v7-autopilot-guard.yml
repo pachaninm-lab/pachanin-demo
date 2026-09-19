@@ -44,6 +44,7 @@ on:
       - 'apps/api/test/industrial/auction-inventory-authority.e2e-spec.ts'
       - 'apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts'
       - 'apps/api/test/industrial/auction-atomic-execution.e2e-spec.ts'
+      - 'apps/api/test/industrial/load-proof.e2e-spec.ts'
       - 'scripts/verify-pc-crop-auction-inventory-scope.test.mjs'
       - '.github/workflows/auction-atomic-acceptance.yml'
       - 'scripts/auction-atomic-acceptance.mjs'
@@ -183,6 +184,10 @@ on:
       - 'apps/web/components/platform-v7/PublicAiInActionSimpleExperience.tsx'
       - 'apps/web/app/platform-v7/ai-in-action/page.tsx'
       - 'apps/web/tests/unit/gektaPublicBrandContract.test.ts'
+      - 'apps/web/tests/unit/platformV7HomeFinalPolish.test.ts'
+      - 'apps/web/tests/unit/platformV7InternationalHomepageFix.test.ts'
+      - 'apps/web/tests/e2e/platform-v7-role-human-acceptance.spec.ts'
+      - 'apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts'
       - 'scripts/production-full-stack-live-acceptance.sh'
 
 concurrency:
@@ -190,8 +195,49 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  public-home-contract:
+    name: Final public experience · exact-head unit contracts
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.ref == 'agent/platform-v7-strategic-rebuild-v3'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact public implementation head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify all admitted homepage unit contracts
+        run: >-
+          pnpm --filter @pc/web exec vitest run
+          tests/unit/platformV7HeroInfrastructureMessage.test.ts
+          tests/unit/platformV7RootWorkEntry.test.ts
+          tests/unit/platformV7StrategicHomeSafety.test.ts
+          tests/unit/gektaProductSeparation.test.ts
+          tests/unit/platformV7AccountingClosureValue.test.ts
+          tests/unit/platformV7HomeTaiRoleEntry.test.ts
+          tests/unit/platformV7HomepageProductCopy.test.ts
+          tests/unit/platformV7HomepageVisibleOperatingCopy.test.ts
+          tests/unit/platformV7PublicCopyQuality.test.ts
+          tests/unit/platformV7PublicExperienceV4.test.ts
+          tests/unit/gektaPublicBrandContract.test.ts
+          tests/unit/platformV7HomeFinalPolish.test.ts
+          tests/unit/platformV7InternationalHomepageFix.test.ts
+
   trusted-ir20-binding-bootstrap:
-    name: IR-20 binding governance bootstrap · trusted base
+    name: ${{ (github.event.pull_request.head.ref == 'governance/ir20-api-database-binding-admission-20260919' || github.event.pull_request.head.ref == 'governance/ir20-binding-immutable-scope-20260919') && 'PC-CROP implementation immutable scope · trusted base' || 'IR-20 binding governance bootstrap · trusted base' }}
     if: >-
       github.event_name == 'pull_request_target' &&
       (github.event.pull_request.head.ref == 'governance/ir20-api-database-binding-admission-20260919' ||
@@ -199,6 +245,7 @@ jobs:
     permissions:
       contents: read
       checks: write
+      statuses: write
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -307,22 +354,41 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           VALIDATION_RC: ${{ steps.trusted_validation.outputs.rc }}
         run: |
           set -Eeuo pipefail
           [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]]
+          [[ "$GITHUB_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$GITHUB_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
           conclusion=failure
-          title='IR-20 governance bootstrap rejected'
-          summary='The accepted-base IR-20 bootstrap failed closed; no scope or release is authorized.'
+          title='PC-CROP immutable scope rejected'
+          summary='The base-controlled immutable scope check failed closed.'
           if [[ "$VALIDATION_RC" == 0 ]]; then
             conclusion=success
-            title='IR-20 governance bootstrap accepted'
-            summary='The exact candidate SHA satisfies the bounded IR-20 governance authority in the accepted base.'
+            title='PC-CROP immutable scope accepted'
+            summary='The exact PR head satisfies the immutable scope recorded in the trusted base.'
           fi
-          gh api --method POST -H 'Accept: application/vnd.github+json' \
+          binding="platform-v7.scope-guard.v1:pr:$PR_NUMBER:head:$HEAD_SHA:base:$BASE_SHA:run:$GITHUB_RUN_ID:attempt:$GITHUB_RUN_ATTEMPT"
+          run_url="https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          gh api --method POST \
+            "repos/$GITHUB_REPOSITORY/statuses/$HEAD_SHA" \
+            -f context='scope-guard/exact-head' -f "state=$conclusion" \
+            -f "target_url=$run_url" \
+            -f description='Trusted-base immutable scope result; exact PR head and workflow run required' >/dev/null
+          gh api --method POST \
+            -H 'Accept: application/vnd.github+json' \
             "repos/$GITHUB_REPOSITORY/check-runs" \
-            -f name='guard' -f head_sha="$HEAD_SHA" -f status='completed' \
-            -f conclusion="$conclusion" -f "output[title]=$title" -f "output[summary]=$summary" >/dev/null
+            -f name='guard' -f head_sha="$HEAD_SHA" \
+            -f "external_id=$binding" \
+            -f "details_url=$run_url" \
+            -f status='completed' \
+            -f conclusion="$conclusion" \
+            -f "output[title]=$title" \
+            -f "output[summary]=$summary" >/dev/null
       - name: Require the IR-20 validation and guard publication to succeed
         if: always()
         env:
@@ -331,6 +397,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           [[ "$VALIDATION_RC" == 0 && "$CONTEXT_OUTCOME" == success ]]
+
 
   trusted-kind-minio-governance-bootstrap:
     name: Kind MinIO governance bootstrap · trusted base
@@ -576,6 +643,7 @@ jobs:
           const expectedSorted = [...expectedAllowed].sort();
           const actualSorted = [...allowed].sort();
           if (JSON.stringify(actualSorted) !== JSON.stringify(expectedSorted)) throw new Error('EGRUL_SCOPE_ALLOWLIST_DRIFT');
+
           const expectedForbidden = [
             'apps/api/prisma/migrations/**',
             'apps/api/prisma/schema.prisma',
@@ -651,7 +719,7 @@ jobs:
           [[ "$CONTEXT_OUTCOME" == success ]]
 
   trusted-immutable-scope:
-    name: PC-CROP implementation immutable scope · trusted base
+    name: ${{ (github.event.pull_request.head.ref == 'governance/ir20-api-database-binding-admission-20260919' || github.event.pull_request.head.ref == 'governance/ir20-binding-immutable-scope-20260919') && 'PC-CROP immutable scope · inactive generic route' || 'PC-CROP implementation immutable scope · trusted base' }}
     if: >-
       github.event_name == 'pull_request_target' &&
       (github.event.pull_request.head.ref == 'fix/p0-registration-authority-rollover-4637' ||
@@ -669,6 +737,8 @@ jobs:
       github.event.pull_request.head.ref == 'fix/kind-minio-image-source-20260912' ||
       github.event.pull_request.head.ref == 'fix/gitleaks-release-authority-attestation-20260912' ||
       github.event.pull_request.head.ref == 'fix/owner-handoff-product-host-20260908' ||
+      github.event.pull_request.head.ref == 'governance/industrial-load-diagnostics-20260919' ||
+      github.event.pull_request.head.ref == 'test/industrial-load-diagnostics-20260919' ||
       github.event.pull_request.head.ref == 'governance/final-public-experience-v1-20260919' ||
       github.event.pull_request.head.ref == 'agent/platform-v7-strategic-rebuild-v3' ||
       github.event.pull_request.head.ref == 'p0/farmer-public-market-teaser-20260913' ||
@@ -679,6 +749,7 @@ jobs:
       github.event.pull_request.head.ref == 'security/pc-crop-next-15-5-24-4997')
     permissions:
       checks: write
+      statuses: write
       contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -704,7 +775,7 @@ jobs:
               exit 1
             fi
             case "$IMMUTABLE_SCOPE_BRANCH" in
-              fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|feat/pc-crop-auction-inventory-authority-4997|ops/pc-crop-w1-production-acceptance-4997|governance/pc-crop-post-registration-progress-scope-4997|governance/pc-crop-inventory-reservation-scope-4997|docs/pc-crop-post-registration-progress-4997|governance/public-home-role-clarity-scope-20260905|feat/public-home-role-clarity-20260905|governance/production-like-outbox-poison-isolation-scope-3793|fix/production-like-outbox-poison-isolation-3793|fix/local-qwen-failed-review-evidence-20260912|fix/kind-minio-image-source-20260912|fix/gitleaks-release-authority-attestation-20260912|fix/owner-handoff-product-host-20260908|governance/final-public-experience-v1-20260919|agent/platform-v7-strategic-rebuild-v3|p0/farmer-public-market-teaser-20260913|fix/public-registration-final-copy-4916|fix/public-deal-journey-10of10-current-main-20260808|agent/platform-v7-product-copy|ops/production-full-stack-release-v1|security/pc-crop-next-15-5-24-4997) ;;
+              fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|feat/pc-crop-auction-inventory-authority-4997|ops/pc-crop-w1-production-acceptance-4997|governance/pc-crop-post-registration-progress-scope-4997|governance/pc-crop-inventory-reservation-scope-4997|docs/pc-crop-post-registration-progress-4997|governance/public-home-role-clarity-scope-20260905|feat/public-home-role-clarity-20260905|governance/production-like-outbox-poison-isolation-scope-3793|fix/production-like-outbox-poison-isolation-3793|fix/local-qwen-failed-review-evidence-20260912|fix/kind-minio-image-source-20260912|fix/gitleaks-release-authority-attestation-20260912|fix/owner-handoff-product-host-20260908|governance/industrial-load-diagnostics-20260919|test/industrial-load-diagnostics-20260919|governance/final-public-experience-v1-20260919|agent/platform-v7-strategic-rebuild-v3|p0/farmer-public-market-teaser-20260913|fix/public-registration-final-copy-4916|fix/public-deal-journey-10of10-current-main-20260808|agent/platform-v7-product-copy|ops/production-full-stack-release-v1|security/pc-crop-next-15-5-24-4997) ;;
               *) echo 'Trusted immutable-scope guard received an unauthorized branch.' >&2; exit 1 ;;
             esac
             if ! [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || ! [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
@@ -727,10 +798,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           VALIDATION_RC: ${{ steps.trusted_validation.outputs.rc }}
         run: |
           set -Eeuo pipefail
           [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]]
+          [[ "$GITHUB_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$GITHUB_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
           conclusion=failure
           title='PC-CROP immutable scope rejected'
           summary='The base-controlled immutable scope check failed closed.'
@@ -739,11 +816,20 @@ jobs:
             title='PC-CROP immutable scope accepted'
             summary='The exact PR head satisfies the immutable scope recorded in the trusted base.'
           fi
+          binding="platform-v7.scope-guard.v1:pr:$PR_NUMBER:head:$HEAD_SHA:base:$BASE_SHA:run:$GITHUB_RUN_ID:attempt:$GITHUB_RUN_ATTEMPT"
+          run_url="https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          gh api --method POST \
+            "repos/$GITHUB_REPOSITORY/statuses/$HEAD_SHA" \
+            -f context='scope-guard/exact-head' -f "state=$conclusion" \
+            -f "target_url=$run_url" \
+            -f description='Trusted-base immutable scope result; exact PR head and workflow run required' >/dev/null
           gh api --method POST \
             -H 'Accept: application/vnd.github+json' \
             "repos/$GITHUB_REPOSITORY/check-runs" \
             -f name='guard' \
             -f head_sha="$HEAD_SHA" \
+            -f "external_id=$binding" \
+            -f "details_url=$run_url" \
             -f status='completed' \
             -f conclusion="$conclusion" \
             -f "output[title]=$title" \
@@ -759,8 +845,8 @@ jobs:
           [[ "$CONTEXT_OUTCOME" == success ]]
 
   guard:
-    name: ${{ github.event_name == 'pull_request' && (github.head_ref == 'governance/ir20-api-database-binding-admission-20260919' || github.head_ref == 'governance/ir20-binding-immutable-scope-20260919' || github.head_ref == 'fix/p0-registration-authority-rollover-4637' || github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698' || github.head_ref == 'feat/pc-crop-auction-inventory-authority-4997' || github.head_ref == 'ops/pc-crop-w1-production-acceptance-4997' || github.head_ref == 'governance/pc-crop-post-registration-progress-scope-4997' || github.head_ref == 'governance/pc-crop-inventory-reservation-scope-4997' || github.head_ref == 'docs/pc-crop-post-registration-progress-4997' || github.head_ref == 'governance/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'feat/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'governance/public-home-role-clarity-scope-20260905' || github.head_ref == 'feat/public-home-role-clarity-20260905' || github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' || github.head_ref == 'fix/production-like-outbox-poison-isolation-3793' || github.head_ref == 'fix/local-qwen-failed-review-evidence-20260912' || github.head_ref == 'fix/kind-minio-image-source-20260912' || github.head_ref == 'fix/gitleaks-release-authority-attestation-20260912' || github.head_ref == 'fix/owner-handoff-product-host-20260908' || github.head_ref == 'governance/final-public-experience-v1-20260919' || github.head_ref == 'agent/platform-v7-strategic-rebuild-v3' || github.head_ref == 'p0/farmer-public-market-teaser-20260913' || github.head_ref == 'fix/public-registration-final-copy-4916' || github.head_ref == 'fix/public-deal-journey-10of10-current-main-20260808' || github.head_ref == 'agent/platform-v7-product-copy' || github.head_ref == 'ops/production-full-stack-release-v1') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}
-    needs: standard_validation
+    name: ${{ github.event_name == 'pull_request' && !(github.head_ref == 'governance/industrial-load-diagnostics-20260919' && github.event.pull_request.base.sha == 'fe50e24d202bcd22d72dd15e4dc58f9ddc491331') && (github.head_ref == 'governance/ir20-api-database-binding-admission-20260919' || github.head_ref == 'governance/ir20-binding-immutable-scope-20260919' || github.head_ref == 'fix/p0-registration-authority-rollover-4637' || github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698' || github.head_ref == 'feat/pc-crop-auction-inventory-authority-4997' || github.head_ref == 'ops/pc-crop-w1-production-acceptance-4997' || github.head_ref == 'governance/pc-crop-post-registration-progress-scope-4997' || github.head_ref == 'governance/pc-crop-inventory-reservation-scope-4997' || github.head_ref == 'docs/pc-crop-post-registration-progress-4997' || github.head_ref == 'governance/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'feat/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'governance/public-home-role-clarity-scope-20260905' || github.head_ref == 'feat/public-home-role-clarity-20260905' || github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' || github.head_ref == 'fix/production-like-outbox-poison-isolation-3793' || github.head_ref == 'fix/local-qwen-failed-review-evidence-20260912' || github.head_ref == 'fix/kind-minio-image-source-20260912' || github.head_ref == 'fix/gitleaks-release-authority-attestation-20260912' || github.head_ref == 'fix/owner-handoff-product-host-20260908' || github.head_ref == 'governance/industrial-load-diagnostics-20260919' || github.head_ref == 'test/industrial-load-diagnostics-20260919' || github.head_ref == 'governance/final-public-experience-v1-20260919' || github.head_ref == 'agent/platform-v7-strategic-rebuild-v3' || github.head_ref == 'p0/farmer-public-market-teaser-20260913' || github.head_ref == 'fix/public-registration-final-copy-4916' || github.head_ref == 'fix/public-deal-journey-10of10-current-main-20260808' || github.head_ref == 'agent/platform-v7-product-copy' || github.head_ref == 'ops/production-full-stack-release-v1') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}
+    needs: [standard_validation, public-home-contract]
     if: always() && github.event_name != 'pull_request_target'
     permissions:
       contents: read
@@ -782,6 +868,15 @@ jobs:
             echo "Standard platform-v7 guard validations did not pass: $STANDARD_VALIDATION_RESULT" >&2
             exit 1
           fi
+      - name: Require final public unit contracts for homepage implementation
+        if: github.event_name == 'pull_request' && github.head_ref == 'agent/platform-v7-strategic-rebuild-v3'
+        env:
+          PUBLIC_HOME_RESULT: ${{ needs.public-home-contract.result }}
+        run: |
+          if [ "$PUBLIC_HOME_RESULT" != 'success' ]; then
+            echo 'Final public homepage unit contracts did not pass.' >&2
+            exit 1
+          fi
       - name: Validate immutable scope with trusted base guard on PR head
         if: >-
           github.event_name == 'pull_request' &&
@@ -799,14 +894,14 @@ jobs:
           github.head_ref == 'fix/local-qwen-failed-review-evidence-20260912' ||
           github.head_ref == 'fix/kind-minio-image-source-20260912' ||
           github.head_ref == 'fix/gitleaks-release-authority-attestation-20260912' ||
-          github.head_ref == 'fix/owner-handoff-product-host-20260908' || github.head_ref == 'governance/final-public-experience-v1-20260919' || github.head_ref == 'agent/platform-v7-strategic-rebuild-v3' || github.head_ref == 'p0/farmer-public-market-teaser-20260913' || github.head_ref == 'fix/public-registration-final-copy-4916' || github.head_ref == 'fix/public-deal-journey-10of10-current-main-20260808' || github.head_ref == 'agent/platform-v7-product-copy' || github.head_ref == 'ops/production-full-stack-release-v1')
+          github.head_ref == 'fix/owner-handoff-product-host-20260908' || github.head_ref == 'governance/industrial-load-diagnostics-20260919' || github.head_ref == 'test/industrial-load-diagnostics-20260919' || github.head_ref == 'governance/final-public-experience-v1-20260919' || github.head_ref == 'agent/platform-v7-strategic-rebuild-v3' || github.head_ref == 'p0/farmer-public-market-teaser-20260913' || github.head_ref == 'fix/public-registration-final-copy-4916' || github.head_ref == 'fix/public-deal-journey-10of10-current-main-20260808' || github.head_ref == 'agent/platform-v7-product-copy' || github.head_ref == 'ops/production-full-stack-release-v1')
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           IMMUTABLE_SCOPE_BRANCH: ${{ github.head_ref }}
         run: |
           case "$IMMUTABLE_SCOPE_BRANCH" in
-            fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|feat/pc-crop-auction-inventory-authority-4997|ops/pc-crop-w1-production-acceptance-4997|governance/pc-crop-post-registration-progress-scope-4997|governance/pc-crop-inventory-reservation-scope-4997|docs/pc-crop-post-registration-progress-4997|governance/public-home-role-clarity-scope-20260905|feat/public-home-role-clarity-20260905|governance/production-like-outbox-poison-isolation-scope-3793|fix/production-like-outbox-poison-isolation-3793|fix/local-qwen-failed-review-evidence-20260912|fix/kind-minio-image-source-20260912|fix/gitleaks-release-authority-attestation-20260912|fix/owner-handoff-product-host-20260908|governance/final-public-experience-v1-20260919|agent/platform-v7-strategic-rebuild-v3|p0/farmer-public-market-teaser-20260913|fix/public-registration-final-copy-4916|fix/public-deal-journey-10of10-current-main-20260808|agent/platform-v7-product-copy|ops/production-full-stack-release-v1) ;;
+            fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|feat/pc-crop-auction-inventory-authority-4997|ops/pc-crop-w1-production-acceptance-4997|governance/pc-crop-post-registration-progress-scope-4997|governance/pc-crop-inventory-reservation-scope-4997|docs/pc-crop-post-registration-progress-4997|governance/public-home-role-clarity-scope-20260905|feat/public-home-role-clarity-20260905|governance/production-like-outbox-poison-isolation-scope-3793|fix/production-like-outbox-poison-isolation-3793|fix/local-qwen-failed-review-evidence-20260912|fix/kind-minio-image-source-20260912|fix/gitleaks-release-authority-attestation-20260912|fix/owner-handoff-product-host-20260908|governance/industrial-load-diagnostics-20260919|test/industrial-load-diagnostics-20260919|governance/final-public-experience-v1-20260919|agent/platform-v7-strategic-rebuild-v3|p0/farmer-public-market-teaser-20260913|fix/public-registration-final-copy-4916|fix/public-deal-journey-10of10-current-main-20260808|agent/platform-v7-product-copy|ops/production-full-stack-release-v1) ;;
             *) echo 'PR-head immutable-scope guard received an unauthorized branch.' >&2; exit 1 ;;
           esac
           if ! [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || ! [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
@@ -820,6 +915,18 @@ jobs:
           chmod 0700 "$TRUSTED_GUARD"
           BASE_REF="$BASE_SHA" HEAD_REF="$HEAD_SHA" GITHUB_HEAD_REF="$IMMUTABLE_SCOPE_BRANCH" \
             bash "$TRUSTED_GUARD"
+      - name: Validate owner-authorized industrial diagnostic bootstrap candidate
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.head_ref == 'governance/industrial-load-diagnostics-20260919' &&
+          github.event.pull_request.base.sha == 'fe50e24d202bcd22d72dd15e4dc58f9ddc491331'
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.sha }}
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+        # Unprivileged candidate validation, additional to the unchanged base
+        # guard above. Never label this initial check as trusted-base admission.
+        run: bash scripts/p7-autopilot-guard.sh
       - name: Validate bounded security repair with trusted base authority
         if: github.event_name == 'pull_request' && github.head_ref == 'security/pc-crop-next-15-5-24-4997'
         env:
@@ -866,6 +973,8 @@ jobs:
           github.head_ref != 'fix/kind-minio-image-source-20260912' &&
           github.head_ref != 'fix/gitleaks-release-authority-attestation-20260912' &&
           github.head_ref != 'fix/owner-handoff-product-host-20260908' &&
+          github.head_ref != 'governance/industrial-load-diagnostics-20260919' &&
+          github.head_ref != 'test/industrial-load-diagnostics-20260919' &&
           github.head_ref != 'governance/final-public-experience-v1-20260919' &&
           github.head_ref != 'agent/platform-v7-strategic-rebuild-v3' &&
           github.head_ref != 'p0/farmer-public-market-teaser-20260913' &&
@@ -1072,6 +1181,195 @@ jobs:
             assert.doesNotMatch(job, /ref: \$\{\{ github\.event\.pull_request\.head\.sha/);
           });
           IR20_BOOTSTRAP_TESTS
+      - name: Validate IR-20 native guard provenance regressions
+        run: |
+          node --input-type=module <<'IR20_PROVENANCE_TESTS'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import os from 'node:os';
+          import path from 'node:path';
+          import { spawnSync } from 'node:child_process';
+          import { runInNewContext } from 'node:vm';
+          import test from 'node:test';
+          import { nativeScopeGuardBinding, nativeScopeGuardMatchesRun } from './docs/platform-v7/autopilot/verify-pr-review-gate.mjs';
+          const workflow = fs.readFileSync('.github/workflows/platform-v7-autopilot-guard.yml', 'utf8');
+          const branches = ['governance/ir20-api-database-binding-admission-20260919', 'governance/ir20-binding-immutable-scope-20260919'];
+          const repo = 'fixture/project', head = 'a'.repeat(40), base = 'b'.repeat(40), pr = 5438;
+          const canonicalName = 'PC-CROP implementation immutable scope · trusted base';
+          function job(id) {
+            const start = new RegExp(`^  ${id}:$`, 'm').exec(workflow);
+            assert.ok(start, `missing job ${id}`);
+            return workflow.slice(start.index).split(/\n(?=  [a-z][a-z0-9_-]*:\n)/u)[0];
+          }
+          const bootstrap = job('trusted-ir20-binding-bootstrap');
+          const generic = job('trusted-immutable-scope');
+          function evaluate(expression, branch) {
+            return runInNewContext(expression.trim().replace(/^\$\{\{\s*/u, '').replace(/\s*\}\}$/u, ''), {
+              github: { event_name: 'pull_request_target', event: { pull_request: { head: { ref: branch } } } },
+            }, { timeout: 100 });
+          }
+          function jobName(source, branch) {
+            const name = source.match(/^    name: (.+)$/mu)[1];
+            return name.startsWith('$') ? evaluate(name, branch) : name;
+          }
+          function jobRuns(source, branch) {
+            const condition = source.match(/^    if: >-\n((?:      .+\n)+)/mu)[1];
+            return evaluate(condition, branch);
+          }
+          function shellStep(source, name) {
+            const step = source.split(`      - name: ${name}\n`)[1]?.split(/\n      - /u)[0];
+            assert.ok(step, `missing step ${name}`);
+            return step.split('        run: |\n')[1].split('\n').map(line => {
+              assert.ok(!line || line.startsWith('          '), 'unexpected shell indentation');
+              return line.slice(10);
+            }).join('\n');
+          }
+          const publisher = shellStep(bootstrap, 'Emit required guard context from accepted IR-20 bootstrap');
+          const enforce = shellStep(bootstrap, 'Require the IR-20 validation and guard publication to succeed');
+          function publish(t, overrides = {}, script = publisher) {
+            const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ir20-provenance-'));
+            t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+            const log = path.join(root, 'calls.jsonl');
+            fs.writeFileSync(path.join(root, 'gh'), `#!${process.execPath}\n` +
+              `const fs = require('node:fs'); const args = process.argv.slice(2);\n` +
+              `fs.appendFileSync(process.env.IR20_CAPTURE, JSON.stringify(args)+'\\n');\n` +
+              `if (process.env.IR20_FAIL && args.some(x => x.includes(process.env.IR20_FAIL))) process.exit(9);\n`);
+            fs.chmodSync(path.join(root, 'gh'), 0o700);
+            const env = { ...process.env, PATH: `${root}:${process.env.PATH}`, GH_TOKEN: 'inert-test-token',
+              GITHUB_REPOSITORY: repo, HEAD_SHA: head, BASE_SHA: base, PR_NUMBER: String(pr),
+              GITHUB_RUN_ID: '42', GITHUB_RUN_ATTEMPT: '2', VALIDATION_RC: '0', IR20_CAPTURE: log, IR20_FAIL: '', ...overrides };
+            for (const key of Object.keys(env)) if (env[key] === undefined) delete env[key];
+            const result = spawnSync('bash', ['-c', script], { encoding: 'utf8', env, timeout: 10000 });
+            const calls = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n').map(JSON.parse) : [];
+            return { result, calls };
+          }
+          function fields(args) {
+            const out = {};
+            for (let i = 0; i < args.length; i++) if (args[i] === '-f') {
+              const index = args[i + 1].indexOf('=');
+              out[args[i + 1].slice(0, index)] = args[i + 1].slice(index + 1);
+            }
+            return out;
+          }
+          function evidence(calls, branch = branches[0]) {
+            assert.equal(calls.length, 2);
+            assert.ok(calls[0].includes(`repos/${repo}/statuses/${head}`));
+            assert.ok(calls[1].includes(`repos/${repo}/check-runs`));
+            const s = fields(calls[0]), c = fields(calls[1]);
+            const check = { id: 101, name: c.name, head_sha: c.head_sha, app: { id: 15368, slug: 'github-actions' },
+              status: c.status, conclusion: c.conclusion, external_id: c.external_id,
+              details_url: `https://github.com/${repo}/runs/101`,
+              started_at: '2026-09-19T00:00:02Z', completed_at: '2026-09-19T00:00:02Z',
+              output: { title: c['output[title]'], summary: c['output[summary]'], annotations_count: 0, text: null } };
+            const statuses = [{ ...s, created_at: '2026-09-19T00:00:01Z',
+              creator: { login: 'github-actions[bot]', id: 41898282, type: 'Bot' } }];
+            const run = { id: 42, run_attempt: 2, workflow_id: 1, run_number: 2, check_suite_id: 33,
+              repository: { id: 1, full_name: repo }, head_repository: { full_name: repo },
+              name: 'platform-v7 autopilot guard', path: '.github/workflows/platform-v7-autopilot-guard.yml',
+              event: 'pull_request_target', head_sha: head, head_branch: branch, status: 'completed',
+              run_started_at: '2026-09-19T00:00:00Z', updated_at: '2026-09-19T00:00:04Z',
+              pull_requests: [{ number: pr, head: { sha: head, ref: branch, repo: { id: 1 } },
+                base: { sha: base, ref: 'main', repo: { id: 1 } } }] };
+            const peers = [{ id: 102, name: jobName(bootstrap, branch), app: check.app, head_sha: head,
+              details_url: c.details_url, check_suite: { id: 33 }, status: 'completed', conclusion: c.conclusion,
+              started_at: '2026-09-19T00:00:00Z', completed_at: '2026-09-19T00:00:03Z' }];
+            return { check, statuses, run, peers, branch };
+          }
+          function valid(e) {
+            const binding = nativeScopeGuardBinding(e.check, e.statuses, repo, pr, head);
+            return Boolean(binding && nativeScopeGuardMatchesRun(binding, e.check, e.run, e.peers, repo, pr, head, e.branch));
+          }
+          for (const branch of [...branches, 'governance/pc-crop-post-registration-progress-scope-4997']) {
+            test(`IR-20 provenance uses exactly one actual native producer: ${branch}`, () => {
+              const active = [bootstrap, generic].filter(source => jobRuns(source, branch));
+              assert.equal(active.length, 1);
+              assert.equal(jobName(active[0], branch), canonicalName);
+              assert.notEqual(jobName(bootstrap, branch), jobName(generic, branch));
+              assert.equal(active[0], branches.includes(branch) ? bootstrap : generic);
+            });
+          }
+          for (const branch of branches) {
+            test(`IR-20 actual publisher satisfies the unchanged verifier: ${branch}`, t => {
+              const { result, calls } = publish(t);
+              assert.equal(result.status, 0, result.stderr);
+              const e = evidence(calls, branch);
+              assert.equal(e.check.external_id, `platform-v7.scope-guard.v1:pr:${pr}:head:${head}:base:${base}:run:42:attempt:2`);
+              assert.equal(valid(e), true);
+            });
+          }
+          for (const rc of ['', '1', '00', 'not-a-result']) {
+            test(`IR-20 publisher fails closed for validation result ${JSON.stringify(rc)}`, t => {
+              const { result, calls } = publish(t, { VALIDATION_RC: rc });
+              assert.equal(result.status, 0, result.stderr);
+              const e = evidence(calls);
+              assert.equal(e.check.conclusion, 'failure');
+              assert.equal(e.statuses[0].state, 'failure');
+              assert.equal(valid(e), true, 'failure evidence must remain bound, never become success');
+              const final = spawnSync('bash', ['-c', enforce], { env: { ...process.env, VALIDATION_RC: rc, CONTEXT_OUTCOME: 'success' } });
+              assert.notEqual(final.status, 0);
+            });
+          }
+          for (const [key, value] of [['HEAD_SHA', 'HEAD'], ['BASE_SHA', 'main'], ['PR_NUMBER', '0'],
+            ['GITHUB_RUN_ID', '0'], ['GITHUB_RUN_ATTEMPT', '0'], ['HEAD_SHA', undefined]]) {
+            test(`IR-20 publisher rejects invalid identity ${key}=${value}`, t => {
+              const { result, calls } = publish(t, { [key]: value });
+              assert.notEqual(result.status, 0);
+              assert.equal(calls.length, 0);
+            });
+          }
+          for (const [failure, count] of [['/statuses/', 1], ['/check-runs', 2]]) {
+            test(`IR-20 publisher cannot hide API failure ${failure}`, t => {
+              const { result, calls } = publish(t, { IR20_FAIL: failure });
+              assert.notEqual(result.status, 0);
+              assert.equal(calls.length, count);
+              const final = spawnSync('bash', ['-c', enforce], { env: { ...process.env, VALIDATION_RC: '0', CONTEXT_OUTCOME: 'failure' } });
+              assert.notEqual(final.status, 0);
+            });
+          }
+          const mutations = {
+            'missing binding': e => { delete e.check.external_id; },
+            'wrong PR': e => { e.check.external_id = e.check.external_id.replace(`:pr:${pr}:`, ':pr:1:'); },
+            'wrong head': e => { e.check.external_id = e.check.external_id.replace(`:head:${head}:`, `:head:${base}:`); },
+            'wrong base': e => { e.check.external_id = e.check.external_id.replace(`:base:${base}:`, `:base:${head}:`); },
+            'wrong attempt': e => { e.run.run_attempt = 1; },
+            'wrong event': e => { e.run.event = 'pull_request'; },
+            'wrong workflow': e => { e.run.path = '.github/workflows/other.yml'; },
+            'foreign repository': e => { e.run.head_repository.full_name = 'fork/project'; },
+            'wrong status producer': e => { e.statuses[0].creator.id = 1; },
+            'missing status': e => { e.statuses = []; },
+            'missing producer': e => { e.peers = []; },
+            'unrun producer': e => { e.peers[0].conclusion = 'skipped'; },
+            'duplicate producer': e => { e.peers.push(structuredClone(e.peers[0])); },
+            'foreign suite': e => { e.peers[0].check_suite.id = 99; },
+            'foreign producer run': e => { e.peers[0].details_url = `https://github.com/${repo}/actions/runs/99`; },
+            'status before run': e => { e.statuses[0].created_at = '2026-09-18T23:00:00Z'; },
+            'check after producer': e => { e.peers[0].completed_at = '2026-09-19T00:00:01Z'; },
+          };
+          for (const [name, mutate] of Object.entries(mutations)) {
+            test(`IR-20 accepted verifier rejects ${name}`, t => {
+              const { calls } = publish(t);
+              const e = evidence(calls);
+              assert.equal(valid(e), true, 'positive control');
+              mutate(e);
+              assert.equal(valid(e), false);
+            });
+          }
+          test('IR-20 old unbound publisher is reproducibly rejected', t => {
+            const old = publisher.replace(/^.*(?:external_id=|details_url=).*\n/gmu, '');
+            const { result, calls } = publish(t, {}, old);
+            assert.equal(result.status, 0, result.stderr);
+            const e = evidence(calls);
+            assert.equal(nativeScopeGuardBinding(e.check, e.statuses, repo, pr, head), null);
+          });
+          test('IR-20 publication permissions and identity remain bound to the event', () => {
+            assert.match(bootstrap, /contents: read\n      checks:\x20write\n      statuses:\x20write/u);
+            for (const [env, field] of [['HEAD_SHA', 'head.sha'], ['BASE_SHA', 'base.sha'], ['PR_NUMBER', 'number']]) {
+              assert.ok(bootstrap.includes(`${env}: $` + `{{ github.event.pull_request.${field} }}`));
+            }
+            const final = spawnSync('bash', ['-c', enforce], { env: { ...process.env, VALIDATION_RC: '0', CONTEXT_OUTCOME: 'success' } });
+            assert.equal(final.status, 0);
+          });
+          IR20_PROVENANCE_TESTS
       - name: Validate provider-independent manual readiness
         run: node --test docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs scripts/test-provider-independent-readiness-workflow.mjs
       - name: Validate Local Qwen failed-review evidence regression
