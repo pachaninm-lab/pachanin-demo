@@ -91,6 +91,83 @@ class Checks(unittest.TestCase):
         def change(r,o,e,g):(r/'.git/shallow').write_text(e['EXACT_HEAD']+'\n')
         rc,v,_=self.run_case(change);self.assertEqual(rc,1);self.assertIsNone(v)
 
+class ScopeSchemaChecks(unittest.TestCase):
+    root = WORKFLOW.parents[2]
+    resolver = root / 'scripts/p7-source-controlled-scope.mjs'
+    manifest_path = root / 'docs/platform-v7/autopilot/scopes/ir-k8s-production-like-2659.json'
+    branch = 'ir/k8s-production-like-2659'
+    allowed = [
+        '.github/workflows/production-like-kubernetes-acceptance.yml',
+        'docs/platform-v7/autopilot/prompts/current-review-task.md',
+        'docs/platform-v7/autopilot/scopes/ir-k8s-production-like-2659.json',
+        'scripts/p7-autopilot-guard.sh',
+        'scripts/release/build-production-like-kubernetes-evidence.mjs',
+        'scripts/release/build-production-like-outbox-runtime-evidence.mjs',
+        'scripts/release/enforce-production-like-outbox-runtime-evidence.mjs',
+        'scripts/release/production-like-kubernetes-*.sh',
+        'scripts/release/production-like-kubernetes-fallback-evidence.mjs',
+        'scripts/release/production-like-kubernetes-enforce-evidence.mjs',
+        'scripts/release/production-like-kubernetes-migration-runtime.mjs',
+    ]
+    forbidden = ['apps/api/**', 'apps/web/**', 'apps/landing/**', 'packages/**',
+                 'package.json', 'pnpm-lock.yaml', 'package-lock.json', 'apps/api/prisma/**']
+
+    def invoke(self, mutate=None, duplicate=False, malformed=False, branch=None):
+        value = json.loads(self.manifest_path.read_text())
+        if mutate:
+            mutate(value)
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / 'scope.json'
+            target.write_text('{' if malformed else json.dumps(value))
+            if duplicate:
+                (Path(directory) / 'duplicate.json').write_text(json.dumps(value))
+            return subprocess.run(['node', str(self.resolver)], capture_output=True, text=True,
+                env=dict(os.environ, P7_SCOPE_DIRECTORY=directory, GITHUB_HEAD_REF=branch or self.branch), timeout=10)
+
+    def test_schema_normalization_preserves_original_permissions(self):
+        value = json.loads(self.manifest_path.read_text())
+        self.assertEqual(value['schemaVersion'], 'platform-v7.concurrent-scope.v1')
+        self.assertEqual(value['branch'], self.branch)
+        self.assertEqual(value['status'], 'active')
+        self.assertEqual(value['allowedPaths'], self.allowed)
+        self.assertEqual(value['forbiddenPaths'], self.forbidden)
+        self.assertEqual(len(value['requiredEvidence']), 10)
+
+    def test_real_resolver_exports_only_existing_allowlist(self):
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertCountEqual(result.stdout.splitlines(), self.allowed)
+
+    def test_previous_missing_schema_is_rejected_by_unchanged_resolver(self):
+        result = self.invoke(lambda value: value.pop('schemaVersion'))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('unsupported schema', result.stderr)
+        self.assertEqual(result.stdout, '')
+
+    def test_wrong_schema_inactive_empty_and_unsafe_paths_remain_rejected(self):
+        for update in [{'schemaVersion': 'wrong'}, {'status': 'closed'},
+                       {'allowedPaths': []}, {'allowedPaths': ['../outside']}]:
+            with self.subTest(update=update):
+                result = self.invoke(lambda value: value.update(update))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(result.stdout, '')
+
+    def test_duplicate_branch_manifests_still_fail_closed(self):
+        result = self.invoke(duplicate=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('duplicate manifests', result.stderr)
+
+    def test_malformed_manifest_still_fails_closed(self):
+        result = self.invoke(malformed=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('malformed JSON', result.stderr)
+
+    def test_unrelated_branch_does_not_receive_this_scope(self):
+        result = self.invoke(branch='unrelated/test-fixture')
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, '')
+
+
 try:
     unittest.main(verbosity=2)
 finally:

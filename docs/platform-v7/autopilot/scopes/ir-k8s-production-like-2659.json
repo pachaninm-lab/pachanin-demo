@@ -1,4 +1,5 @@
 {
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
   "id": "IR-OUTBOX-RUNTIME-2649",
   "parentProgramIssue": 2597,
   "issue": 2649,
