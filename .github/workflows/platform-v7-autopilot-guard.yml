@@ -44,6 +44,7 @@ on:
       - 'apps/api/test/industrial/auction-inventory-authority.e2e-spec.ts'
       - 'apps/api/test/industrial/inventory-reservation-authority.e2e-spec.ts'
       - 'apps/api/test/industrial/auction-atomic-execution.e2e-spec.ts'
+      - 'apps/api/test/industrial/load-proof.e2e-spec.ts'
       - 'scripts/verify-pc-crop-auction-inventory-scope.test.mjs'
       - '.github/workflows/auction-atomic-acceptance.yml'
       - 'scripts/auction-atomic-acceptance.mjs'
@@ -572,6 +573,8 @@ jobs:
       github.event.pull_request.head.ref == 'fix/kind-minio-image-source-20260912' ||
       github.event.pull_request.head.ref == 'fix/gitleaks-release-authority-attestation-20260912' ||
       github.event.pull_request.head.ref == 'fix/owner-handoff-product-host-20260908' ||
+      github.event.pull_request.head.ref == 'governance/industrial-load-diagnostics-20260919' ||
+      github.event.pull_request.head.ref == 'test/industrial-load-diagnostics-20260919' ||
       github.event.pull_request.head.ref == 'governance/final-public-experience-v1-20260919' ||
       github.event.pull_request.head.ref == 'agent/platform-v7-strategic-rebuild-v3' ||
       github.event.pull_request.head.ref == 'p0/farmer-public-market-teaser-20260913' ||
@@ -608,7 +611,7 @@ jobs:
               exit 1
             fi
             case "$IMMUTABLE_SCOPE_BRANCH" in
-              fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|feat/pc-crop-auction-inventory-authority-4997|ops/pc-crop-w1-production-acceptance-4997|governance/pc-crop-post-registration-progress-scope-4997|governance/pc-crop-inventory-reservation-scope-4997|docs/pc-crop-post-registration-progress-4997|governance/public-home-role-clarity-scope-20260905|feat/public-home-role-clarity-20260905|governance/production-like-outbox-poison-isolation-scope-3793|fix/production-like-outbox-poison-isolation-3793|fix/local-qwen-failed-review-evidence-20260912|fix/kind-minio-image-source-20260912|fix/gitleaks-release-authority-attestation-20260912|fix/owner-handoff-product-host-20260908|governance/final-public-experience-v1-20260919|agent/platform-v7-strategic-rebuild-v3|p0/farmer-public-market-teaser-20260913|fix/public-registration-final-copy-4916|fix/public-deal-journey-10of10-current-main-20260808|agent/platform-v7-product-copy|ops/production-full-stack-release-v1|security/pc-crop-next-15-5-24-4997) ;;
+              fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|feat/pc-crop-auction-inventory-authority-4997|ops/pc-crop-w1-production-acceptance-4997|governance/pc-crop-post-registration-progress-scope-4997|governance/pc-crop-inventory-reservation-scope-4997|docs/pc-crop-post-registration-progress-4997|governance/public-home-role-clarity-scope-20260905|feat/public-home-role-clarity-20260905|governance/production-like-outbox-poison-isolation-scope-3793|fix/production-like-outbox-poison-isolation-3793|fix/local-qwen-failed-review-evidence-20260912|fix/kind-minio-image-source-20260912|fix/gitleaks-release-authority-attestation-20260912|fix/owner-handoff-product-host-20260908|governance/industrial-load-diagnostics-20260919|test/industrial-load-diagnostics-20260919|governance/final-public-experience-v1-20260919|agent/platform-v7-strategic-rebuild-v3|p0/farmer-public-market-teaser-20260913|fix/public-registration-final-copy-4916|fix/public-deal-journey-10of10-current-main-20260808|agent/platform-v7-product-copy|ops/production-full-stack-release-v1|security/pc-crop-next-15-5-24-4997) ;;
               *) echo 'Trusted immutable-scope guard received an unauthorized branch.' >&2; exit 1 ;;
             esac
             if ! [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || ! [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
@@ -678,7 +681,7 @@ jobs:
           [[ "$CONTEXT_OUTCOME" == success ]]
 
   guard:
-    name: ${{ github.event_name == 'pull_request' && (github.head_ref == 'fix/p0-registration-authority-rollover-4637' || github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698' || github.head_ref == 'feat/pc-crop-auction-inventory-authority-4997' || github.head_ref == 'ops/pc-crop-w1-production-acceptance-4997' || github.head_ref == 'governance/pc-crop-post-registration-progress-scope-4997' || github.head_ref == 'governance/pc-crop-inventory-reservation-scope-4997' || github.head_ref == 'docs/pc-crop-post-registration-progress-4997' || github.head_ref == 'governance/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'feat/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'governance/public-home-role-clarity-scope-20260905' || github.head_ref == 'feat/public-home-role-clarity-20260905' || github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' || github.head_ref == 'fix/production-like-outbox-poison-isolation-3793' || github.head_ref == 'fix/local-qwen-failed-review-evidence-20260912' || github.head_ref == 'fix/kind-minio-image-source-20260912' || github.head_ref == 'fix/gitleaks-release-authority-attestation-20260912' || github.head_ref == 'fix/owner-handoff-product-host-20260908' || github.head_ref == 'governance/final-public-experience-v1-20260919' || github.head_ref == 'agent/platform-v7-strategic-rebuild-v3' || github.head_ref == 'p0/farmer-public-market-teaser-20260913' || github.head_ref == 'fix/public-registration-final-copy-4916' || github.head_ref == 'fix/public-deal-journey-10of10-current-main-20260808' || github.head_ref == 'agent/platform-v7-product-copy' || github.head_ref == 'ops/production-full-stack-release-v1') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}
+    name: ${{ github.event_name == 'pull_request' && !(github.head_ref == 'governance/industrial-load-diagnostics-20260919' && github.event.pull_request.base.sha == 'fe50e24d202bcd22d72dd15e4dc58f9ddc491331') && (github.head_ref == 'fix/p0-registration-authority-rollover-4637' || github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698' || github.head_ref == 'feat/pc-crop-auction-inventory-authority-4997' || github.head_ref == 'ops/pc-crop-w1-production-acceptance-4997' || github.head_ref == 'governance/pc-crop-post-registration-progress-scope-4997' || github.head_ref == 'governance/pc-crop-inventory-reservation-scope-4997' || github.head_ref == 'docs/pc-crop-post-registration-progress-4997' || github.head_ref == 'governance/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'feat/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'governance/public-home-role-clarity-scope-20260905' || github.head_ref == 'feat/public-home-role-clarity-20260905' || github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' || github.head_ref == 'fix/production-like-outbox-poison-isolation-3793' || github.head_ref == 'fix/local-qwen-failed-review-evidence-20260912' || github.head_ref == 'fix/kind-minio-image-source-20260912' || github.head_ref == 'fix/gitleaks-release-authority-attestation-20260912' || github.head_ref == 'fix/owner-handoff-product-host-20260908' || github.head_ref == 'governance/industrial-load-diagnostics-20260919' || github.head_ref == 'test/industrial-load-diagnostics-20260919' || github.head_ref == 'governance/final-public-experience-v1-20260919' || github.head_ref == 'agent/platform-v7-strategic-rebuild-v3' || github.head_ref == 'p0/farmer-public-market-teaser-20260913' || github.head_ref == 'fix/public-registration-final-copy-4916' || github.head_ref == 'fix/public-deal-journey-10of10-current-main-20260808' || github.head_ref == 'agent/platform-v7-product-copy' || github.head_ref == 'ops/production-full-stack-release-v1') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}
     needs: [standard_validation, public-home-contract]
     if: always() && github.event_name != 'pull_request_target'
     permissions:
@@ -727,14 +730,14 @@ jobs:
           github.head_ref == 'fix/local-qwen-failed-review-evidence-20260912' ||
           github.head_ref == 'fix/kind-minio-image-source-20260912' ||
           github.head_ref == 'fix/gitleaks-release-authority-attestation-20260912' ||
-          github.head_ref == 'fix/owner-handoff-product-host-20260908' || github.head_ref == 'governance/final-public-experience-v1-20260919' || github.head_ref == 'agent/platform-v7-strategic-rebuild-v3' || github.head_ref == 'p0/farmer-public-market-teaser-20260913' || github.head_ref == 'fix/public-registration-final-copy-4916' || github.head_ref == 'fix/public-deal-journey-10of10-current-main-20260808' || github.head_ref == 'agent/platform-v7-product-copy' || github.head_ref == 'ops/production-full-stack-release-v1')
+          github.head_ref == 'fix/owner-handoff-product-host-20260908' || github.head_ref == 'governance/industrial-load-diagnostics-20260919' || github.head_ref == 'test/industrial-load-diagnostics-20260919' || github.head_ref == 'governance/final-public-experience-v1-20260919' || github.head_ref == 'agent/platform-v7-strategic-rebuild-v3' || github.head_ref == 'p0/farmer-public-market-teaser-20260913' || github.head_ref == 'fix/public-registration-final-copy-4916' || github.head_ref == 'fix/public-deal-journey-10of10-current-main-20260808' || github.head_ref == 'agent/platform-v7-product-copy' || github.head_ref == 'ops/production-full-stack-release-v1')
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           IMMUTABLE_SCOPE_BRANCH: ${{ github.head_ref }}
         run: |
           case "$IMMUTABLE_SCOPE_BRANCH" in
-            fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|feat/pc-crop-auction-inventory-authority-4997|ops/pc-crop-w1-production-acceptance-4997|governance/pc-crop-post-registration-progress-scope-4997|governance/pc-crop-inventory-reservation-scope-4997|docs/pc-crop-post-registration-progress-4997|governance/public-home-role-clarity-scope-20260905|feat/public-home-role-clarity-20260905|governance/production-like-outbox-poison-isolation-scope-3793|fix/production-like-outbox-poison-isolation-3793|fix/local-qwen-failed-review-evidence-20260912|fix/kind-minio-image-source-20260912|fix/gitleaks-release-authority-attestation-20260912|fix/owner-handoff-product-host-20260908|governance/final-public-experience-v1-20260919|agent/platform-v7-strategic-rebuild-v3|p0/farmer-public-market-teaser-20260913|fix/public-registration-final-copy-4916|fix/public-deal-journey-10of10-current-main-20260808|agent/platform-v7-product-copy|ops/production-full-stack-release-v1) ;;
+            fix/p0-registration-authority-rollover-4637|fix/p0-owner-control-plane-audit-lock-4698|feat/pc-crop-auction-inventory-authority-4997|ops/pc-crop-w1-production-acceptance-4997|governance/pc-crop-post-registration-progress-scope-4997|governance/pc-crop-inventory-reservation-scope-4997|docs/pc-crop-post-registration-progress-4997|governance/public-home-role-clarity-scope-20260905|feat/public-home-role-clarity-20260905|governance/production-like-outbox-poison-isolation-scope-3793|fix/production-like-outbox-poison-isolation-3793|fix/local-qwen-failed-review-evidence-20260912|fix/kind-minio-image-source-20260912|fix/gitleaks-release-authority-attestation-20260912|fix/owner-handoff-product-host-20260908|governance/industrial-load-diagnostics-20260919|test/industrial-load-diagnostics-20260919|governance/final-public-experience-v1-20260919|agent/platform-v7-strategic-rebuild-v3|p0/farmer-public-market-teaser-20260913|fix/public-registration-final-copy-4916|fix/public-deal-journey-10of10-current-main-20260808|agent/platform-v7-product-copy|ops/production-full-stack-release-v1) ;;
             *) echo 'PR-head immutable-scope guard received an unauthorized branch.' >&2; exit 1 ;;
           esac
           if ! [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || ! [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
@@ -748,6 +751,18 @@ jobs:
           chmod 0700 "$TRUSTED_GUARD"
           BASE_REF="$BASE_SHA" HEAD_REF="$HEAD_SHA" GITHUB_HEAD_REF="$IMMUTABLE_SCOPE_BRANCH" \
             bash "$TRUSTED_GUARD"
+      - name: Validate owner-authorized industrial diagnostic bootstrap candidate
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.head_ref == 'governance/industrial-load-diagnostics-20260919' &&
+          github.event.pull_request.base.sha == 'fe50e24d202bcd22d72dd15e4dc58f9ddc491331'
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.sha }}
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+        # Unprivileged candidate validation, additional to the unchanged base
+        # guard above. Never label this initial check as trusted-base admission.
+        run: bash scripts/p7-autopilot-guard.sh
       - name: Validate bounded security repair with trusted base authority
         if: github.event_name == 'pull_request' && github.head_ref == 'security/pc-crop-next-15-5-24-4997'
         env:
@@ -794,6 +809,8 @@ jobs:
           github.head_ref != 'fix/kind-minio-image-source-20260912' &&
           github.head_ref != 'fix/gitleaks-release-authority-attestation-20260912' &&
           github.head_ref != 'fix/owner-handoff-product-host-20260908' &&
+          github.head_ref != 'governance/industrial-load-diagnostics-20260919' &&
+          github.head_ref != 'test/industrial-load-diagnostics-20260919' &&
           github.head_ref != 'governance/final-public-experience-v1-20260919' &&
           github.head_ref != 'agent/platform-v7-strategic-rebuild-v3' &&
           github.head_ref != 'p0/farmer-public-market-teaser-20260913' &&
