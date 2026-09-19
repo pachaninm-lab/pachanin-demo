@@ -355,3 +355,34 @@ existing web-unit test selection must pass. Readiness/production claims unchange
 ## Implementation brief
 
 Implement IR-20 Canonical Durable Outbox strictly inside the state allowed scope.
+
+## Owner-authorized bounded industrial-load diagnostics — 2026-09-19
+
+PR #5436 exact head f3ab1a37583dc20845ee07062a87abca8b86b305 failed
+CI run 35461479056 / job 105946017745: one of twelve concurrent Deal cycles
+rejected. AggregateError output hides the nested cause and failing phase.
+Adjacent transaction-conflict warnings are not proof of the rejected cause.
+The owner explicitly authorized the proposed separate diagnostic PR.
+
+Admit branch `test/industrial-load-diagnostics-20260919` for exactly
+`apps/api/test/industrial/load-proof.e2e-spec.ts`. Permit bounded, redacted
+failure diagnostics with controlled fixture index, action/phase and attempt,
+and diagnostic regression assertions within that existing test file.
+Never log raw error messages/stacks, SQL, payloads, credentials, tenant/user
+identifiers, bank references or arbitrary provider data. Use allowlisted error
+classification and safe scalar codes; unknown values remain unknown.
+Preserve AggregateError rejection, all twelve default concurrent Deal cycles,
+existing retry counts/backoff, timeouts and every existing business assertion.
+No runtime, money, settlement, outbox, harness, workflow or dependency changes.
+
+Governance and implementation remain separate. A diagnostic draft may be
+prepared against this admission; do not merge it before admission reaches
+trusted main. Exact-head independent review, owner audit and substantive CI
+remain mandatory. Diagnose on disposable PostgreSQL; an unrelated green rerun
+cannot explain the original rejection. If diagnostics reveal a runtime defect,
+obtain a separately bounded admission before changing that runtime.
+IR-20 remains active in its own execution lane; no delivery or progress gate
+is advanced here. This does not expand the four-file workspace repair scope.
+Before: opaque rejected cycle blocks acceptance. After: diagnostic permission
+only, not a claim that the failed cycle or the workspace release is accepted.
+Virtual-server deployment: not required for this test-only admission.
