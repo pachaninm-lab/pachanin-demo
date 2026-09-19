@@ -49,10 +49,14 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
     expect(homeCss).toContain('.pc-final-role-explorer>summary{min-height:44px');
     expect(home).toContain('<PublicDealExecutionStates title={copy.execution.title}');
     expect(home).toContain('states={copy.execution.states}');
-    expect(home).toContain("loading='eager' fetchPriority='high'");
-    expect(home).toContain("const HERO_IMAGE_DATA = 'data:image/svg+xml;base64,");
-    expect(home).toContain("src={HERO_IMAGE_DATA}");
-    expect(home).toContain("decoding='sync'");
+    expect(home).toContain("<svg");
+    expect(home).toContain("className='pc-final-hero-image'");
+    expect(home).toContain("aria-label={label}");
+    expect(home).toContain("preserveAspectRatio='xMidYMid slice'");
+    expect(home).toContain("<HeroGrainIllustration label={copy.hero.visualAlt} />");
+    expect(home).not.toContain("data:image/svg+xml;base64,");
+    expect(home).not.toContain("<img className='pc-final-hero-image'");
+    expect(home).not.toContain("<feGaussianBlur");
     expect(homeCss).toContain('.pc-final-state-tabs button:focus-visible');
     expect(homeCss).toContain('.pc-final-page :where(a,button,input,select,textarea,summary,[role="tab"]):focus-visible');
     expect(homeCss).not.toContain('overflow-x:clip');
