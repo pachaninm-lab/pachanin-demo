@@ -3,7 +3,7 @@
   "branch": "governance/public-home-role-clarity-scope-20260905",
   "status": "active",
   "authorizedBy": "explicit-user-instruction-2026-09-19-final-public-experience-connected-organisation-employee",
-  "purpose": "Refresh the trusted public-home role-clarity slot after exact-head browser acceptance proved the legacy Phase-5 oracle still models the ninth public role as internal platform staff. Authorize only the existing role-scenario component and its role-human acceptance oracle to use the final ninth role 'employee of a connected organisation' in RU/EN/ZH while preserving all nine roles, seven stages, 189 role-stage-locale assertions, browser coverage and protected authority boundaries.",
+  "purpose": "Refresh the trusted public-home role-clarity slot only so every existing assertion that names the ninth public role can move from retired internal platform staff wording to employee of a connected organisation. The implementation remains limited to the existing role scenario plus existing acceptance oracles; no new product authority, route, registration, API, database or production behavior is authorized.",
   "authorityBaseExactMain": "769a11cecde02447e6f72b8962557180af711110",
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/governance-public-home-role-clarity-scope-20260905.json",
@@ -11,7 +11,7 @@
   ],
   "implementationBranch": "feat/public-home-role-clarity-20260905",
   "implementationManifest": "docs/platform-v7/autopilot/scopes/public-home-role-clarity-20260905.json",
-  "implementationAllowedPathCount": 6,
+  "implementationAllowedPathCount": 8,
   "boundaries": {
     "productBehaviorChange": true,
     "registrationChange": false,
