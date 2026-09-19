@@ -209,7 +209,12 @@
     ".github/workflows/ci.yml"
   ],
   "approvedConcurrentScopes": {
-    "fix/provider-review-scope-guard-20260918": ["scripts/p7-autopilot-guard.sh", "scripts/p7-autopilot-guard.test.mjs", ".github/workflows/platform-v7-autopilot-guard.yml", "docs/platform-v7/autopilot/autopilot-state.json"],
+    "fix/provider-review-scope-guard-20260918": [
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs",
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "docs/platform-v7/autopilot/autopilot-state.json"
+    ],
     "governance/kind-minio-image-source-20260912": [
       ".github/workflows/platform-v7-autopilot-guard.yml",
       "docs/platform-v7/autopilot/autopilot-state.json",
@@ -1474,7 +1479,8 @@
       "scripts/check-production-full-stack-release.mjs",
       "apps/web/tests/unit/platformV7HomeFinalPolish.test.ts",
       "apps/web/tests/unit/platformV7InternationalHomepageFix.test.ts",
-      "apps/web/tests/e2e/platform-v7-role-human-acceptance.spec.ts"
+      "apps/web/tests/e2e/platform-v7-role-human-acceptance.spec.ts",
+      "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts"
     ],
     "fix/public-registration-final-copy-4916": [
       "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
