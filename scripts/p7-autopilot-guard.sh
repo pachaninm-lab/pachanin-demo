@@ -500,16 +500,25 @@ if (branch === publicHomeGovernanceBranch) {
   // governance PR. Until that state entry lands, use only the already-merged
   // base-owned manifest. Never read scope authority from the PR head.
   if (!Array.isArray(scopes) || scopes.length === 0) {
-    const finalPublicManifestByBranch = new Map([
-      ['agent/platform-v7-strategic-rebuild-v3', 'docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json'],
-      ['p0/farmer-public-market-teaser-20260913', 'docs/platform-v7/autopilot/scopes/farmer-public-market-teaser-20260913.json'],
-      ['fix/public-registration-final-copy-4916', 'docs/platform-v7/autopilot/scopes/public-registration-final-copy-4916.json'],
-      ['fix/public-deal-journey-10of10-current-main-20260808', 'docs/platform-v7/autopilot/scopes/public-deal-journey-10of10-20260808.json'],
-      ['agent/platform-v7-product-copy', 'docs/platform-v7/autopilot/scopes/platform-v7-product-copy-2026-07-31.json'],
-      ['ops/production-full-stack-release-v1', 'docs/platform-v7/autopilot/scopes/production-full-stack-release-v1.json'],
+    const finalPublicStaticScopeByBranch = new Map([
+      ['agent/platform-v7-product-copy', ['apps/web/tests/unit/platformV7HomepageProductCopy.test.ts']],
+      ['ops/production-full-stack-release-v1', [
+        'scripts/check-production-full-stack-release.mjs',
+        'scripts/production-full-stack-live-acceptance.sh',
+      ]],
     ]);
-    const manifestPath = finalPublicManifestByBranch.get(branch);
-    if (manifestPath) {
+    const staticScope = finalPublicStaticScopeByBranch.get(branch);
+    if (staticScope) {
+      scopes = staticScope;
+    } else {
+      const finalPublicManifestByBranch = new Map([
+        ['agent/platform-v7-strategic-rebuild-v3', 'docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json'],
+        ['p0/farmer-public-market-teaser-20260913', 'docs/platform-v7/autopilot/scopes/farmer-public-market-teaser-20260913.json'],
+        ['fix/public-registration-final-copy-4916', 'docs/platform-v7/autopilot/scopes/public-registration-final-copy-4916.json'],
+        ['fix/public-deal-journey-10of10-current-main-20260808', 'docs/platform-v7/autopilot/scopes/public-deal-journey-10of10-20260808.json'],
+      ]);
+      const manifestPath = finalPublicManifestByBranch.get(branch);
+      if (manifestPath) {
       let manifest;
       try {
         const raw = execFileSync('git', ['show', `${baseRef}:${manifestPath}`], { encoding: 'utf8' });
@@ -521,7 +530,8 @@ if (branch === publicHomeGovernanceBranch) {
       if (manifest?.branch !== branch || manifest?.status !== 'active' || !Array.isArray(manifest?.allowedPaths) || manifest.allowedPaths.length === 0) {
         throw new Error('P7_IMMUTABLE_SCOPE: accepted Final Public manifest identity is invalid');
       }
-      scopes = manifest.allowedPaths;
+        scopes = manifest.allowedPaths;
+      }
     }
   }
 }
