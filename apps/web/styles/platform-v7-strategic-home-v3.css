@@ -1,4 +1,6 @@
 /* FINAL PUBLIC EXPERIENCE v1 — no retired homepage CSS on the critical path. */
+:root{--pc-v6-font-body:var(--pc-entry-font-body,"SF Pro Text","Segoe UI Variable Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif);--pc-v6-font-display:var(--pc-entry-font-display,"SF Pro Display","Segoe UI Variable Display","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif)}
+.pc-v6-page{font-family:var(--pc-v6-font-body)}
 .pc-final-page,.pc-final-page *{box-sizing:border-box}
 .pc-final-page .pc-skip-link {
   position:fixed;top:-96px;left:12px;z-index:3000;padding:10px 14px;border:1px solid #9fbaaa;
@@ -11,6 +13,11 @@
 .pc-v6-header-cta:hover{background:#07572e}
 @media (max-width: 767px) {
   .pc-final-page .pc-skip-link{left:8px}
+  .pc-v6-page .pc-site-mobile-menu > summary { width: 44px; }
+  .pc-v6-page .entry-login { width: 44px; padding: 0; }
+}
+@media (max-width: 359px) {
+  .pc-v6-page .pc-site-brand-text strong { max-width: 72px !important; }
 }
 @media (prefers-reduced-motion: reduce) {
   .pc-final-page .pc-final-primary,.pc-final-page .pc-final-secondary{transition:none}
