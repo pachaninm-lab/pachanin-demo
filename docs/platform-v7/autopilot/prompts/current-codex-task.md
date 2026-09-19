@@ -314,6 +314,26 @@ FGIS settings must show authoritative connection/capability state; displaying a
 setting must never imply provider activation. Do not replace these acceptance
 criteria with an unsupported claim of compliance with every global standard.
 
+## Owner-approved bounded workspace recovery — 2026-09-19
+
+The owner explicitly answered "Разрешаю" to the request to fix the two workspace
+defects before IR-20 completion while preserving all checks and release conditions.
+This supersedes the pending sequencing decision in the proposal above, solely
+for that bounded recovery. It does not authorize the broader UX, bank or FGIS backlog.
+
+Record the implementation branch `fix/first-customer-workspace-recovery-20260919`
+in approvedConcurrentScopes with exactly the three proposed application/test paths.
+Governance and implementation remain separate reviewable changes. A draft may be
+prepared against this governance branch under the owner's explicit authorization;
+do not merge the implementation before this admission reaches trusted main and its
+exact-head review/CI gates pass. No additional owner continuation prompt is needed.
+
+Before: discovery only, product work waits for IR-20.
+After: owner-authorized preparation and reviewed admission of the two bounded fixes;
+IR-20 remains active and all production release/acceptance requirements remain.
+Reason, risks, regression matrix and exclusions are those in the proposal above.
+Progress means implementation/review evidence only, never IR-20 PRODUCTION_PASS.
+
 
 ## Implementation brief
 

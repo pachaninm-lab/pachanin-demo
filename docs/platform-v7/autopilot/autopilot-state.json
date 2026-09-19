@@ -1430,6 +1430,11 @@
     ],
     "fix/gitleaks-release-authority-attestation-20260912": [
       "apps/tai/tests/test_gitleaks_release_authority.py"
+    ],
+    "fix/first-customer-workspace-recovery-20260919": [
+      "apps/web/lib/first-customer-workspace-server.ts",
+      "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
+      "apps/web/tests/unit/firstCustomerWorkspaceSnapshot.test.ts"
     ]
   },
   "currentAcceptance": [
