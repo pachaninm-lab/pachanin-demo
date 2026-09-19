@@ -231,6 +231,96 @@ export function nativeReadinessMatchesRun(binding, run, repo, prNumber, headSha,
   return ['issue_comment', 'workflow_dispatch', 'workflow_run'].includes(run.event) && run.head_branch === 'main';
 }
 
+// API-created guard records require a stable producer declaration plus native
+// run/job evidence. A rewritten /runs/<check-id> URL alone is never authority.
+const GUARD_PROVENANCE_PREFIX = 'platform-v7.guard-provenance.';
+const GUARD_PRODUCERS = {
+  'trusted-immutable-scope': {
+    name: 'PC-CROP implementation immutable scope · trusted base',
+    title: 'PC-CROP immutable scope',
+    success: 'The exact PR head satisfies the immutable scope recorded in the trusted base.',
+    failure: 'The base-controlled immutable scope check failed closed.',
+    steps: ['Validate untrusted head with trusted base guard',
+      'Emit required guard context from trusted base on the PR head',
+      'Enforce trusted immutable-scope result'],
+  },
+  'trusted-ir20-binding-bootstrap': {
+    name: 'IR-20 binding governance bootstrap · trusted base',
+    title: 'IR-20 governance bootstrap',
+    success: 'The exact candidate SHA satisfies the bounded IR-20 governance authority in the accepted base.',
+    failure: 'The accepted-base IR-20 bootstrap failed closed; no scope or release is authorized.',
+    steps: ['Validate bounded IR-20 governance without executing the candidate',
+      'Emit required guard context from accepted IR-20 bootstrap',
+      'Require the IR-20 validation and guard publication to succeed'],
+  },
+};
+
+export function nativeGuardCheckBinding(check, repo, prNumber, headSha, baseSha) {
+  if (check?.name !== 'guard' || check?.app?.id !== 15368 || check?.app?.slug !== 'github-actions'
+      || check?.head_sha !== headSha || !strictWorkflowRunSha40(headSha) || !strictWorkflowRunSha40(baseSha)
+      || !positiveIntegerString(check?.id) || check?.status !== 'completed'
+      || !['success', 'failure'].includes(check?.conclusion)
+      || check?.output?.annotations_count !== 0 || check?.output?.text != null) return null;
+  const match = typeof check.external_id === 'string' && check.external_id.match(
+    /^platform-v7\.guard-provenance\.v1:pr:([1-9][0-9]*):head:([0-9a-f]{40}):base:([0-9a-f]{40}):run:([1-9][0-9]*):attempt:([1-9][0-9]*):job:(trusted-immutable-scope|trusted-ir20-binding-bootstrap)$/u,
+  );
+  if (!match || match[1] !== String(prNumber) || !positiveIntegerString(match[1])
+      || match[2] !== headSha || match[3] !== baseSha
+      || !positiveIntegerString(match[4]) || !positiveIntegerString(match[5])) return null;
+  const [, , , , runId, runAttempt, jobKey] = match;
+  const producer = GUARD_PRODUCERS[jobKey];
+  const started = strictStartedAt(check.started_at), completed = strictStartedAt(check.completed_at);
+  if (started === null || completed === null || completed < started
+      || check.output.title !== `${producer.title} ${check.conclusion === 'success' ? 'accepted' : 'rejected'}`
+      || check.output.summary !== producer[check.conclusion]) return null;
+  if (!canonicalGitHubRecordUrl(check.details_url, repo, `runs/${check.id}`)
+      && !canonicalGitHubRecordUrl(check.details_url, repo, `actions/runs/${runId}`)) return null;
+  return { runId, runAttempt, jobKey, started, completed, conclusion: check.conclusion, baseSha };
+}
+
+export function nativeGuardMatchesRun(binding, run, repo, prNumber, headSha, headRef) {
+  if (!binding || !strictGitHubHeadRef(headRef) || String(run?.id) !== binding.runId
+      || run?.repository?.full_name !== repo || run?.head_repository?.full_name !== repo
+      || run?.name !== 'platform-v7 autopilot guard' || run?.path !== '.github/workflows/platform-v7-autopilot-guard.yml'
+      || !positiveIntegerString(run?.workflow_id) || !positiveIntegerString(run?.run_number)
+      || positiveIntegerString(run?.run_attempt) !== binding.runAttempt
+      || run?.event !== 'pull_request_target' || run?.head_sha !== headSha || run?.head_branch !== headRef
+      || run?.status !== 'completed' || run?.conclusion !== binding.conclusion
+      || !Array.isArray(run?.pull_requests)) return false;
+  const created = strictStartedAt(run.created_at), updated = strictStartedAt(run.updated_at);
+  if (created === null || updated === null || created > binding.started || updated < binding.completed) return false;
+  const matches = run.pull_requests.filter(pr => pr?.number === prNumber && pr?.head?.sha === headSha
+    && pr?.head?.ref === headRef && pr?.base?.ref === 'main' && pr?.base?.sha === binding.baseSha);
+  return matches.length === 1;
+}
+
+export function nativeGuardMatchesJobs(binding, pages, headSha, repo) {
+  if (!binding || !Array.isArray(pages) || !pages.length
+      || pages.some(page => !Array.isArray(page?.jobs) || !Number.isSafeInteger(page.total_count) || page.total_count < 0)) return false;
+  const jobs = pages.flatMap(page => page.jobs);
+  if (pages.some(page => page.total_count !== jobs.length)) return false;
+  const ids = jobs.map(job => positiveIntegerString(job?.id));
+  if (ids.some(id => !id) || new Set(ids).size !== ids.length) return false;
+  const producer = GUARD_PRODUCERS[binding.jobKey];
+  if (!producer) return false;
+  const matches = jobs.filter(job => job.name === producer.name);
+  if (matches.length !== 1) return false;
+  const job = matches[0];
+  if (String(job.run_id) !== binding.runId || positiveIntegerString(job.run_attempt) !== binding.runAttempt
+      || job.head_sha !== headSha || job.status !== 'completed' || job.conclusion !== binding.conclusion
+      || !canonicalGitHubRecordUrl(job.html_url, repo, `actions/runs/${binding.runId}/job/${job.id}`)
+      || !Array.isArray(job.steps)) return false;
+  const started = strictStartedAt(job.started_at), completed = strictStartedAt(job.completed_at);
+  if (started === null || completed === null || started > binding.started || completed < binding.completed) return false;
+  const required = producer.steps.map(name => job.steps.filter(step => step.name === name));
+  if (required.some(steps => steps.length !== 1 || steps[0].status !== 'completed')) return false;
+  const ordered = required.map(steps => steps[0]);
+  if (!ordered.every(step => positiveIntegerString(step.number))
+      || !(ordered[0].number < ordered[1].number && ordered[1].number < ordered[2].number)) return false;
+  if (binding.conclusion === 'success') return ordered.every(step => step.conclusion === 'success');
+  return ordered[2].conclusion === 'failure';
+}
+
 export function actionsRunApiPath(repo, runId) {
   const repository = strictGitHubRepositorySlug(repo);
   const id = positiveIntegerString(runId);
@@ -479,6 +569,7 @@ export function fetchCheckSnapshot(repo, prNumber, readGitHubJson = ghJson) {
   const pr = readGitHubJson(['api', `repos/${repository}/pulls/${prNumber}`]);
   const headSha = strictWorkflowRunSha40(pr?.head?.sha);
   const headRef = strictGitHubHeadRef(pr?.head?.ref);
+  const baseSha = strictWorkflowRunSha40(pr?.base?.sha);
   const invalid = { headSha, headRef, checks: null, runFetchErrors: [] };
   if (!headSha || !headRef) return invalid;
   const pages = readGitHubJson(['api', '--paginate', '--slurp', `repos/${repository}/commits/${headSha}/check-runs?per_page=100&filter=all`]);
@@ -496,10 +587,19 @@ export function fetchCheckSnapshot(repo, prNumber, readGitHubJson = ghJson) {
   const rawChecks = raw.map((check) => ({ ...check, appSlug: check.app.slug, startedAt: check.started_at }));
   const runIds = new Set();
   const nativeBindings = new Map();
+  const guardBindings = new Map();
   for (const check of rawChecks) {
-    if (check.appSlug !== 'github-actions') continue;
+    const declaresGuard = (typeof check.external_id === 'string' && check.external_id.startsWith(GUARD_PROVENANCE_PREFIX))
+      || (check.name === 'guard' && Object.values(GUARD_PRODUCERS).some(producer =>
+        [ `${producer.title} accepted`, `${producer.title} rejected` ].includes(check.output?.title)));
+    if (!declaresGuard && check.appSlug !== 'github-actions') continue;
     let id = actionsRunIdFromCheck(check, repository);
-    if (!id) {
+    if (declaresGuard) {
+      const binding = nativeGuardCheckBinding(check, repository, prNumber, headSha, baseSha);
+      if (!binding) return { ...invalid, metadataError: 'NATIVE_CHECK_PROVENANCE_INVALID' };
+      guardBindings.set(String(check.id), binding);
+      id = binding.runId;
+    } else if (!id) {
       const binding = nativeReadinessRunCandidates(check, allStatuses, repository, prNumber, headSha);
       if (!binding) return { ...invalid, metadataError: 'NATIVE_CHECK_PROVENANCE_INVALID' };
       nativeBindings.set(String(check.id), binding);
@@ -527,11 +627,32 @@ export function fetchCheckSnapshot(repo, prNumber, readGitHubJson = ghJson) {
   for (const check of rawChecks) {
     if (check.appSlug !== 'github-actions') continue;
     const binding = nativeBindings.get(String(check.id));
-    const id = binding?.runId || actionsRunIdFromCheck(check, repository);
+    const guardBinding = guardBindings.get(String(check.id));
+    const id = guardBinding?.runId || binding?.runId || actionsRunIdFromCheck(check, repository);
     const run = actionsRuns.find((value) => String(value?.id) === id);
     if (!run || typeof run.name !== 'string' || !run.name || typeof run.path !== 'string' || !run.path.startsWith('.github/workflows/')) return invalid;
     if (run.repository?.full_name?.toLowerCase() !== repository.toLowerCase()) return invalid;
     if (binding && !nativeReadinessMatchesRun(binding, run, repository, prNumber, headSha, headRef)) return { ...invalid, metadataError: 'NATIVE_CHECK_PROVENANCE_INVALID' };
+    if (guardBinding) {
+      const latestAttempt = positiveIntegerString(run.run_attempt);
+      if (!latestAttempt || BigInt(guardBinding.runAttempt) > BigInt(latestAttempt)) return { ...invalid, metadataError: 'NATIVE_CHECK_PROVENANCE_INVALID' };
+      try {
+        // Validate historical records against their own immutable attempt, while
+        // retaining the latest run summary below so old green cannot hide a retry.
+        const producerRun = guardBinding.runAttempt === latestAttempt ? run : readGitHubJson([
+          'api', `${actionsRunApiPath(repository, id)}/attempts/${guardBinding.runAttempt}`,
+        ]);
+        if (!nativeGuardMatchesRun(guardBinding, producerRun, repository, prNumber, headSha, headRef)) return { ...invalid, metadataError: 'NATIVE_CHECK_PROVENANCE_INVALID' };
+        const jobPages = readGitHubJson(['api', '--paginate', '--slurp',
+          `${actionsRunApiPath(repository, id)}/attempts/${guardBinding.runAttempt}/jobs?per_page=100`]);
+        if (!nativeGuardMatchesJobs(guardBinding, jobPages, headSha, repository)) return { ...invalid, metadataError: 'NATIVE_CHECK_PROVENANCE_INVALID' };
+      } catch {
+        return { ...invalid, runFetchErrors: [{ runId: id, code: 'ACTIONS_RUN_FETCH_FAILED' }] };
+      }
+      // This is an in-memory canonical address derived only after native run/job
+      // verification, not a rewrite or upgrade of the persisted GitHub result.
+      check.detailsUrl = `https://github.com/${repository}/actions/runs/${id}`;
+    }
     check.workflowName = run.name;
     check.workflowPath = run.path;
   }

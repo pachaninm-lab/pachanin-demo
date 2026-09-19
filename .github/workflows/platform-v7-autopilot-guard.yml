@@ -586,15 +586,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           VALIDATION_RC: ${{ steps.trusted_validation.outputs.rc }}
         run: |
           set -Eeuo pipefail
-          [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ && "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "${GITHUB_SERVER_URL:-}" == 'https://github.com' ]]
           [[ "${GITHUB_REPOSITORY:-}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]
-          [[ "${GITHUB_RUN_ID:-}" =~ ^[1-9][0-9]*$ ]]
-          [[ "${#GITHUB_RUN_ID}" -le 16 ]]
-          (( GITHUB_RUN_ID <= 9007199254740991 ))
+          [[ "$GITHUB_REPOSITORY" != './'* && "$GITHUB_REPOSITORY" != '../'* && "$GITHUB_REPOSITORY" != *'/.' && "$GITHUB_REPOSITORY" != *'/..' ]]
+          for identity in "${GITHUB_RUN_ID:-}" "${GITHUB_RUN_ATTEMPT:-}" "${PR_NUMBER:-}"; do
+            [[ "$identity" =~ ^[1-9][0-9]*$ && "${#identity}" -le 16 ]]
+            (( identity <= 9007199254740991 ))
+          done
+          [[ "${GITHUB_JOB:-}" == trusted-immutable-scope ]]
           conclusion=failure
           title='PC-CROP immutable scope rejected'
           summary='The base-controlled immutable scope check failed closed.'
@@ -603,16 +608,34 @@ jobs:
             title='PC-CROP immutable scope accepted'
             summary='The exact PR head satisfies the immutable scope recorded in the trusted base.'
           fi
-          gh api --method POST \
+          external_id="platform-v7.guard-provenance.v1:pr:$PR_NUMBER:head:$HEAD_SHA:base:$BASE_SHA:run:$GITHUB_RUN_ID:attempt:$GITHUB_RUN_ATTEMPT:job:$GITHUB_JOB"
+          check_id=$(gh api --method POST \
             -H 'Accept: application/vnd.github+json' \
             "repos/$GITHUB_REPOSITORY/check-runs" \
             -f name='guard' \
             -f head_sha="$HEAD_SHA" \
             -f "details_url=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            -f "external_id=$external_id" \
             -f status='completed' \
             -f conclusion="$conclusion" \
             -f "output[title]=$title" \
-            -f "output[summary]=$summary" >/dev/null
+            -f "output[summary]=$summary" --jq '.id')
+          [[ "$check_id" =~ ^[1-9][0-9]*$ && "${#check_id}" -le 16 ]]
+          (( check_id <= 9007199254740991 ))
+          export GUARD_CHECK_ID="$check_id" GUARD_EXTERNAL_ID="$external_id" GUARD_CONCLUSION="$conclusion" GUARD_TITLE="$title" GUARD_SUMMARY="$summary"
+          gh api "repos/$GITHUB_REPOSITORY/check-runs/$check_id" | node -e '
+            const check = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
+            const env = process.env;
+            const root = `${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}`;
+            if (String(check.id) !== env.GUARD_CHECK_ID || check.name !== "guard" || check.head_sha !== env.HEAD_SHA
+                || check.external_id !== env.GUARD_EXTERNAL_ID || check.status !== "completed" || check.conclusion !== env.GUARD_CONCLUSION
+                || check.app?.id !== 15368 || check.app?.slug !== "github-actions"
+                || check.output?.title !== env.GUARD_TITLE || check.output?.summary !== env.GUARD_SUMMARY
+                || check.output?.annotations_count !== 0 || check.output?.text != null
+                || ![`${root}/runs/${env.GUARD_CHECK_ID}`, `${root}/actions/runs/${env.GITHUB_RUN_ID}`].includes(check.details_url)) {
+              throw new Error("GUARD_PERSISTED_PROVENANCE_INVALID");
+            }
+          '
       - name: Enforce trusted immutable-scope result
         if: always()
         env:
@@ -764,13 +787,14 @@ jobs:
         run: node --test docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs scripts/test-provider-independent-readiness-workflow.mjs
       - name: Validate trusted guard publisher provenance
         run: |
-          node <<'NODE'
-          const assert = require('node:assert/strict');
-          const { mkdtempSync, readFileSync, writeFileSync, existsSync, rmSync } = require('node:fs');
-          const { tmpdir } = require('node:os');
-          const { join } = require('node:path');
-          const { spawnSync } = require('node:child_process');
-          const { test, after } = require('node:test');
+          node --input-type=module <<'PROVENANCE_TEST_JS'
+          import assert from 'node:assert/strict';
+          import { mkdtempSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
+          import { tmpdir } from 'node:os';
+          import { join } from 'node:path';
+          import { spawnSync } from 'node:child_process';
+          import { test, after } from 'node:test';
+          import { nativeGuardCheckBinding, nativeGuardMatchesRun, nativeGuardMatchesJobs, fetchCheckSnapshot, checkRollupBlockers } from './docs/platform-v7/autopilot/verify-pr-review-gate.mjs';
           const workflow = readFileSync('.github/workflows/platform-v7-autopilot-guard.yml', 'utf8');
           const start = '      - name: Emit required guard context from trusted base on the PR head\n';
           const end = '      - name: Enforce trusted immutable-scope result\n';
@@ -782,30 +806,59 @@ jobs:
             assert.ok(!line.trim() || line.startsWith('          '));
             return line.startsWith('          ') ? line.slice(10) : line;
           }).join('\n');
-          const root = mkdtempSync(join(tmpdir(), 'guard-provenance-'));
-          const capture = join(root, 'request.json');
-          writeFileSync(join(root, 'gh'), `#!${process.execPath}\nrequire('node:fs').writeFileSync(process.env.MOCK_GH_OUT, JSON.stringify(process.argv.slice(2))); process.exit(Number(process.env.MOCK_GH_RC || 0));\n`, { mode: 0o700 });
+          const root = mkdtempSync(join(tmpdir(), 'guard-provenance-')), capture = join(root, 'request.json');
+          writeFileSync(join(root, 'gh'), `#!${process.execPath}
+          const fs=require('node:fs');
+          const args=process.argv.slice(2), file=process.env.MOCK_GH_OUT;
+          if(args.includes('POST')){
+            fs.writeFileSync(file,JSON.stringify(args));
+            if(process.env.MOCK_GH_RC)process.exit(Number(process.env.MOCK_GH_RC));
+            console.log('42');
+          }else{
+            if(process.env.MOCK_GH_GET_RC)process.exit(Number(process.env.MOCK_GH_GET_RC));
+            const posted=JSON.parse(fs.readFileSync(file,'utf8'));
+            const field=name=>posted.find(value=>value.startsWith(name+'=')).slice(name.length+1);
+            const check={id:42,name:field('name'),head_sha:field('head_sha'),external_id:field('external_id'),status:field('status'),conclusion:field('conclusion'),
+              app:{id:15368,slug:'github-actions'},details_url:'https://github.com/'+process.env.GITHUB_REPOSITORY+'/runs/42',
+              output:{title:field('output[title]'),summary:field('output[summary]'),annotations_count:0,text:null}};
+            const mutation=process.env.MOCK_MUTATION;
+            if(mutation==='unrewritten')check.details_url=field('details_url');
+            else if(mutation==='head')check.head_sha='0'.repeat(40);
+            else if(mutation==='external')check.external_id='';
+            else if(mutation==='url')check.details_url='https://evil.invalid/runs/42';
+            else if(mutation==='status')check.status='in_progress';
+            else if(mutation==='conclusion')check.conclusion='neutral';
+            else if(mutation==='app')check.app.id=1;
+            else if(mutation==='name')check.name='fake';
+            else if(mutation==='id')check.id=43;
+            else if(mutation==='summary')check.output.summary='PASS';
+            else if(mutation==='annotations')check.output.annotations_count=1;
+            else if(mutation==='text')check.output.text='unbound';
+            console.log(JSON.stringify(check));
+          }
+          `, { mode: 0o700 });
           after(() => rmSync(root, { recursive: true, force: true }));
-          const head = 'a'.repeat(40);
-          const run = (overrides = {}) => {
+          const head = 'a'.repeat(40), base = 'b'.repeat(40);
+          const runPublisher = (overrides = {}) => {
             rmSync(capture, { force: true });
-            const env = { PATH: `${root}:${process.env.PATH}`, HEAD_SHA: head, VALIDATION_RC: '0',
-              GITHUB_SERVER_URL: 'https://github.com', GITHUB_REPOSITORY: 'pachaninm-lab/pachanin-demo',
-              GITHUB_RUN_ID: '35463098903', MOCK_GH_OUT: capture, ...overrides };
+            const env = { PATH: `${root}:${process.env.PATH}`, HEAD_SHA: head, BASE_SHA: base, PR_NUMBER: '5445', VALIDATION_RC: '0',
+              GITHUB_SERVER_URL: 'https://github.com', GITHUB_REPOSITORY: 'pachaninm-lab/pachanin-demo', GITHUB_RUN_ID: '35463098903',
+              GITHUB_RUN_ATTEMPT: '1', GITHUB_JOB: 'trusted-immutable-scope', MOCK_GH_OUT: capture, ...overrides };
             for (const key of Object.keys(env)) if (env[key] === null) delete env[key];
             const result = spawnSync('bash', ['-c', script], { env, encoding: 'utf8', timeout: 5000 });
             assert.ifError(result.error);
             return { status: result.status, args: existsSync(capture) ? JSON.parse(readFileSync(capture, 'utf8')) : null };
           };
-          test('publisher binds success to the exact head and actual Actions producer run', () => {
-            const result = run();
+          test('publisher accepts the persisted rewritten URL only with its exact stable binding', () => {
+            const result = runPublisher();
             assert.equal(result.status, 0);
             assert.ok(result.args.includes(`head_sha=${head}`));
             assert.ok(result.args.includes('conclusion=success'));
             assert.ok(result.args.includes('details_url=https://github.com/pachaninm-lab/pachanin-demo/actions/runs/35463098903'));
+            assert.ok(result.args.includes(`external_id=platform-v7.guard-provenance.v1:pr:5445:head:${head}:base:${base}:run:35463098903:attempt:1:job:trusted-immutable-scope`));
           });
           for (const value of ['', '1', '-1', 'failure']) test(`validation ${JSON.stringify(value)} stays failure-default`, () => {
-            const result = run({ VALIDATION_RC: value });
+            const result = runPublisher({ VALIDATION_RC: value });
             assert.equal(result.status, 0);
             assert.ok(result.args.includes('conclusion=failure'));
           });
@@ -814,6 +867,8 @@ jobs:
             ['lookalike server', { GITHUB_SERVER_URL: 'https://github.com.evil.invalid' }],
             ['missing repository', { GITHUB_REPOSITORY: null }],
             ['repository traversal', { GITHUB_REPOSITORY: 'owner/repo/../other' }],
+            ['dot owner', { GITHUB_REPOSITORY: '../repo' }],
+            ['dot repository', { GITHUB_REPOSITORY: 'owner/..' }],
             ['missing run', { GITHUB_RUN_ID: null }],
             ['empty run', { GITHUB_RUN_ID: '' }],
             ['zero run', { GITHUB_RUN_ID: '0' }],
@@ -824,18 +879,155 @@ jobs:
             ['unsafe integer run', { GITHUB_RUN_ID: '9007199254740992' }],
             ['overflow run', { GITHUB_RUN_ID: '9'.repeat(40) }],
             ['invalid head', { HEAD_SHA: 'x'.repeat(40) }],
+            ['missing base', { BASE_SHA: null }],
+            ['invalid base', { BASE_SHA: 'x'.repeat(40) }],
+            ['missing PR', { PR_NUMBER: null }],
+            ['zero PR', { PR_NUMBER: '0' }],
+            ['missing attempt', { GITHUB_RUN_ATTEMPT: null }],
+            ['wrong attempt', { GITHUB_RUN_ATTEMPT: '01' }],
+            ['missing job', { GITHUB_JOB: null }],
+            ['wrong job', { GITHUB_JOB: 'candidate' }],
           ];
           for (const [label, overrides] of invalid) test(`${label} rejects before any API publication`, () => {
-            const result = run(overrides);
+            const result = runPublisher(overrides);
             assert.notEqual(result.status, 0);
             assert.equal(result.args, null);
           });
           test('failed API publication remains a failure', () => {
-            const result = run({ MOCK_GH_RC: '1' });
+            const result = runPublisher({ MOCK_GH_RC: '1' });
             assert.notEqual(result.status, 0);
             assert.ok(result.args);
           });
-          NODE
+          test('failed persisted-record read fails closed', () => assert.notEqual(runPublisher({ MOCK_GH_GET_RC: '1' }).status, 0));
+          test('unrewritten persisted producer URL is valid', () => assert.equal(runPublisher({ MOCK_MUTATION: 'unrewritten' }).status, 0));
+          for (const mutation of ['head', 'external', 'url', 'status', 'conclusion', 'app', 'name', 'id', 'summary', 'annotations', 'text']) {
+            test(`persisted ${mutation} mismatch fails closed`, () => assert.notEqual(runPublisher({ MOCK_MUTATION: mutation }).status, 0));
+          }
+          const repo = 'pachaninm-lab/pachanin-demo', ref = 'governance/pc-crop-post-registration-progress-scope-4997';
+          const fixture = () => {
+            const check = { id: 42, name: 'guard', app: { id: 15368, slug: 'github-actions' }, head_sha: head, status: 'completed', conclusion: 'success',
+              external_id: `platform-v7.guard-provenance.v1:pr:5445:head:${head}:base:${base}:run:100:attempt:1:job:trusted-immutable-scope`,
+              details_url: `https://github.com/${repo}/runs/42`, started_at: '2026-09-19T19:02:52Z', completed_at: '2026-09-19T19:02:52Z',
+              output: { title: 'PC-CROP immutable scope accepted', summary: 'The exact PR head satisfies the immutable scope recorded in the trusted base.', annotations_count: 0, text: null } };
+            const run = { id: 100, repository: { full_name: repo }, head_repository: { full_name: repo }, name: 'platform-v7 autopilot guard', path: '.github/workflows/platform-v7-autopilot-guard.yml',
+              workflow_id: 282418356, run_number: 7, run_attempt: 1, event: 'pull_request_target', head_sha: head, head_branch: ref, status: 'completed', conclusion: 'success',
+              created_at: '2026-09-19T19:02:41Z', run_started_at: '2026-09-19T19:02:41Z', updated_at: '2026-09-19T19:02:58Z',
+              pull_requests: [{ number: 5445, head: { sha: head, ref }, base: { ref: 'main', sha: base } }] };
+            const pages = [{ total_count: 1, jobs: [{ id: 43, run_id: 100, run_attempt: 1, head_sha: head, status: 'completed', conclusion: 'success',
+              html_url: `https://github.com/${repo}/actions/runs/100/job/43`, name: 'PC-CROP implementation immutable scope · trusted base',
+              started_at: '2026-09-19T19:02:43Z', completed_at: '2026-09-19T19:02:57Z',
+              steps: ['Validate untrusted head with trusted base guard', 'Emit required guard context from trusted base on the PR head', 'Enforce trusted immutable-scope result']
+                .map((name, i) => ({ name, number: i + 3, status: 'completed', conclusion: 'success' })) }] }];
+            return { check, run, pages };
+          };
+          const accepted = f => {
+            const binding = nativeGuardCheckBinding(f.check, repo, 5445, head, base);
+            return Boolean(binding && nativeGuardMatchesRun(binding, f.run, repo, 5445, head, ref) && nativeGuardMatchesJobs(binding, f.pages, head, repo));
+          };
+          test('rewritten persisted record requires complete run and producer evidence', () => assert.equal(accepted(fixture()), true));
+          test('unrewritten URL with the same explicit binding is also accepted', () => {
+            const f = fixture(); f.check.details_url = `https://github.com/${repo}/actions/runs/100`; assert.equal(accepted(f), true);
+          });
+          const mutations = {
+            'no external binding': f => delete f.check.external_id,
+            'wrong PR': f => f.check.external_id = f.check.external_id.replace('pr:5445', 'pr:5446'),
+            'wrong head': f => f.check.head_sha = 'c'.repeat(40),
+            'wrong bound head': f => f.check.external_id = f.check.external_id.replace(head, 'c'.repeat(40)),
+            'wrong base': f => f.check.external_id = f.check.external_id.replace(base, 'c'.repeat(40)),
+            'wrong declared run': f => f.check.external_id = f.check.external_id.replace('run:100', 'run:101'),
+            'wrong attempt': f => f.check.external_id = f.check.external_id.replace('attempt:1', 'attempt:2'),
+            'unsafe integer': f => f.check.external_id = f.check.external_id.replace('run:100', 'run:9007199254740992'),
+            'leading zero': f => f.check.external_id = f.check.external_id.replace('run:100', 'run:0100'),
+            'wrong producer': f => f.check.external_id = f.check.external_id.replace('trusted-immutable-scope', 'untrusted'),
+            'wrong app ID': f => f.check.app.id = 15369,
+            'wrong app slug': f => f.check.app.slug = 'fake-actions',
+            'wrong output': f => f.check.output.summary = 'PASS',
+            'hidden text': f => f.check.output.text = 'unbound',
+            'annotations': f => f.check.output.annotations_count = 1,
+            'wrong check URL': f => f.check.details_url = `https://github.com/${repo}/runs/41`,
+            'wrong repository URL': f => f.check.details_url = 'https://github.com/other/repo/runs/42',
+            'arbitrary URL': f => f.check.details_url = 'https://evil.invalid/runs/42',
+            'wrong URL run': f => f.check.details_url = `https://github.com/${repo}/actions/runs/101`,
+            'pending check': f => f.check.status = 'in_progress',
+            'neutral check': f => f.check.conclusion = 'neutral',
+            'bad chronology': f => f.check.completed_at = '2026-09-19T19:02:50Z',
+            'wrong run repository': f => f.run.repository.full_name = 'other/repo',
+            'forked run': f => f.run.head_repository.full_name = 'other/repo',
+            'wrong workflow path': f => f.run.path = '.github/workflows/fake.yml',
+            'wrong workflow name': f => f.run.name = 'fake',
+            'candidate event': f => f.run.event = 'pull_request',
+            'wrong run head': f => f.run.head_sha = 'c'.repeat(40),
+            'wrong branch': f => f.run.head_branch = 'other-branch',
+            'queued run': f => f.run.status = 'queued',
+            'failed native run': f => f.run.conclusion = 'failure',
+            'stale attempt': f => f.run.run_attempt = 2,
+            'wrong PR inventory': f => f.run.pull_requests[0].number = 5446,
+            'missing PR inventory': f => f.run.pull_requests = [],
+            'duplicate PR inventory': f => f.run.pull_requests.push(structuredClone(f.run.pull_requests[0])),
+            'wrong accepted base': f => f.run.pull_requests[0].base.sha = 'c'.repeat(40),
+            'not main': f => f.run.pull_requests[0].base.ref = 'staging',
+            'truncated job pages': f => f.pages[0].total_count = 2,
+            'duplicate jobs': f => { f.pages[0].jobs.push(structuredClone(f.pages[0].jobs[0])); f.pages[0].total_count = 2; },
+            'missing producer job': f => f.pages[0].jobs[0].name = 'unrelated green job',
+            'wrong job run': f => f.pages[0].jobs[0].run_id = 101,
+            'wrong job attempt': f => f.pages[0].jobs[0].run_attempt = 2,
+            'wrong job head': f => f.pages[0].jobs[0].head_sha = 'c'.repeat(40),
+            'wrong job URL': f => f.pages[0].jobs[0].html_url = `https://github.com/${repo}/actions/runs/101/job/43`,
+            'skipped job': f => f.pages[0].jobs[0].conclusion = 'skipped',
+            'failed job': f => f.pages[0].jobs[0].conclusion = 'failure',
+            'unfinished job': f => f.pages[0].jobs[0].status = 'in_progress',
+            'outside producer window': f => f.pages[0].jobs[0].completed_at = '2026-09-19T19:02:51Z',
+            'missing validation': f => f.pages[0].jobs[0].steps.shift(),
+            'skipped validation': f => f.pages[0].jobs[0].steps[0].conclusion = 'skipped',
+            'failed publication': f => f.pages[0].jobs[0].steps[1].conclusion = 'failure',
+            'failed enforcement': f => f.pages[0].jobs[0].steps[2].conclusion = 'failure',
+            'reordered steps': f => f.pages[0].jobs[0].steps[0].number = 9,
+          };
+          for (const [label, change] of Object.entries(mutations)) test(`${label} fails closed`, () => {
+            const f = fixture(); change(f); assert.equal(accepted(f), false);
+          });
+          test('IR-20 producer has a distinct exact job/step/output identity', () => {
+            const f = fixture(); f.check.external_id = f.check.external_id.replace('trusted-immutable-scope', 'trusted-ir20-binding-bootstrap');
+            f.check.output.title = 'IR-20 governance bootstrap accepted';
+            f.check.output.summary = 'The exact candidate SHA satisfies the bounded IR-20 governance authority in the accepted base.';
+            f.pages[0].jobs[0].name = 'IR-20 binding governance bootstrap · trusted base';
+            f.pages[0].jobs[0].steps = ['Validate bounded IR-20 governance without executing the candidate', 'Emit required guard context from accepted IR-20 bootstrap', 'Require the IR-20 validation and guard publication to succeed']
+              .map((name, i) => ({ name, number: i + 3, status: 'completed', conclusion: 'success' }));
+            assert.equal(accepted(f), true);
+            f.pages[0].jobs[0].name = 'PC-CROP implementation immutable scope · trusted base'; assert.equal(accepted(f), false);
+          });
+          const snapshot = (f, failJobs = false) => fetchCheckSnapshot(repo, 5445, args => {
+            const endpoint = args.at(-1), prefix = `repos/${repo}`;
+            if (endpoint === `${prefix}/pulls/5445`) return { head: { sha: head, ref }, base: { sha: base } };
+            if (endpoint === `${prefix}/commits/${head}/check-runs?per_page=100&filter=all`) return [{ total_count: 1, check_runs: [structuredClone(f.check)] }];
+            if (endpoint === `${prefix}/commits/${head}/statuses?per_page=100`) return [[]];
+            if (endpoint === `${prefix}/actions/runs?head_sha=${head}&per_page=100`) return [{ total_count: 1, workflow_runs: [structuredClone(f.run)] }];
+            if (endpoint === `${prefix}/actions/runs/100`) return structuredClone(f.run);
+            if (endpoint === `${prefix}/actions/runs/100/attempts/1`) return structuredClone(f.priorRun || f.run);
+            if (endpoint === `${prefix}/actions/runs/100/attempts/1/jobs?per_page=100`) {
+              if (failJobs) throw new Error('synthetic transport failure');
+              return structuredClone(f.pages);
+            }
+            throw new Error(`Unexpected test endpoint ${endpoint}`);
+          });
+          test('full snapshot retains the verified rewritten guard as substantive', () => {
+            const result = snapshot(fixture()); assert.ok(Array.isArray(result.checks));
+            assert.ok(result.checks.some(check => check.name === 'guard'));
+            assert.equal(checkRollupBlockers(result.checks).length, 0);
+          });
+          test('snapshot rejects an unbound historical guard instead of upgrading it', () => {
+            const f = fixture(); delete f.check.external_id; assert.equal(snapshot(f).metadataError, 'NATIVE_CHECK_PROVENANCE_INVALID');
+          });
+          test('snapshot rejects a forged app even with declared producer identity', () => {
+            const f = fixture(); f.check.app.slug = 'fake-actions'; assert.equal(snapshot(f).metadataError, 'NATIVE_CHECK_PROVENANCE_INVALID');
+          });
+          test('snapshot fails closed on missing producer job transport', () => assert.equal(snapshot(fixture(), true).runFetchErrors.length, 1));
+          for (const state of ['in_progress', 'completed']) test(`old green cannot hide a newer ${state} failed or pending attempt`, () => {
+            const f = fixture(); f.priorRun = structuredClone(f.run); f.run.run_attempt = 2;
+            f.run.status = state; f.run.conclusion = state === 'completed' ? 'failure' : null;
+            const result = snapshot(f); assert.ok(Array.isArray(result.checks)); assert.ok(checkRollupBlockers(result.checks).length > 0);
+          });
+          PROVENANCE_TEST_JS
       - name: Validate Local Qwen failed-review evidence regression
         if: github.event_name == 'pull_request' && github.head_ref == 'fix/local-qwen-failed-review-evidence-20260912'
         run: node --test docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs
