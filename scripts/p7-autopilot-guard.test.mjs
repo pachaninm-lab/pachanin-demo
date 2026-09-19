@@ -5,6 +5,12 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
+const finalPublicBranches = [
+  'agent/platform-v7-strategic-rebuild-v3',
+  'p0/farmer-public-market-teaser-20260913',
+  'fix/public-registration-final-copy-4916',
+  'fix/public-deal-journey-10of10-current-main-20260808',
+];
 const implementationBranches = [
   'fix/p0-registration-authority-rollover-4637',
   'fix/p0-owner-control-plane-audit-lock-4698',
@@ -14,6 +20,7 @@ const implementationBranches = [
   'governance/pc-crop-post-registration-progress-scope-4997',
   'governance/pc-crop-inventory-reservation-scope-4997',
   'fix/owner-handoff-product-host-20260908',
+  ...finalPublicBranches,
 ];
 const publicHomeGovernanceBranch = 'governance/public-home-role-clarity-scope-20260905';
 const publicHomeImplementationBranch = 'feat/public-home-role-clarity-20260905';
@@ -669,7 +676,7 @@ test('governance branches retain unprivileged head regression validation', () =>
   assert.ok(workflow.includes('run: node --test scripts/p7-autopilot-guard.test.mjs'));
 });
 
-for (const branch of ['feat/pc-crop-auction-inventory-authority-4997', 'ops/pc-crop-w1-production-acceptance-4997', qwenFailedEvidenceBranch, kindMinioImageSourceBranch, gitleaksReleaseAttestationBranch]) {
+for (const branch of ['feat/pc-crop-auction-inventory-authority-4997', 'ops/pc-crop-w1-production-acceptance-4997', qwenFailedEvidenceBranch, kindMinioImageSourceBranch, gitleaksReleaseAttestationBranch, ...finalPublicBranches]) {
 test(`${branch}: trusted scope routing retains substantive head validation`, () => {
   const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
   const section = (start, end) => {
