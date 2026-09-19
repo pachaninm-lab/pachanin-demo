@@ -14,9 +14,12 @@
     "apps/web/tests/unit/platformV7DealScenarioProductionCopy.test.ts",
     "apps/web/tests/e2e/platform-v7-role-human-acceptance.spec.ts",
     "apps/web/tests/unit/platformV7HomeFinalPolish.test.ts",
-    "apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts"
+    "apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts",
+    "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
+    "apps/web/tests/e2e/platform-v7-public-experience-v4.spec.ts"
   ],
   "requiredInvariants": [
+    "The additionally admitted public-intelligence-layer and public-experience-v4 browser suites may change only the homepage ninth-role labels, lens text or selectors that target PublicDealRoleScenario; unrelated Gekta/AI role-analysis assertions, links, provider-state checks and browser behavior remain unchanged.",
     "The two additionally admitted tests may change only employee-role labels, lens snippets, role-stage text or selectors that refer to the retired ninth-role taxonomy; all unrelated assertions, viewports, browsers, overflow, keyboard, accessibility, registration and authority-boundary checks remain unchanged.",
     "The Phase-5 role-human acceptance oracle may change only to follow the corrected ninth-role taxonomy and matching role-stage text. It must retain all nine roles, seven stages, RU/EN/ZH 189 role-stage-locale assertions, required visual viewports, cross-browser keyboard traversal, overflow checks and authority-boundary checks.",
     "The employee-of-connected-organisation perspective grants no authority by selection. Any visible action must remain bounded to the employee's organisation, assigned role, granted permissions and the specific Deal.",
@@ -49,8 +52,9 @@
     "production credentials or server configuration"
   ],
   "acceptance": [
+    "All homepage PublicDealRoleScenario oracles across the ten allowed paths use the connected-organisation ninth-role taxonomy; unrelated employee-labelled surfaces outside PublicDealRoleScenario are not rewritten by this scope.",
     "The final implementation has no retired employee-role oracle in platformV7HomeFinalPolish.test.ts, platform-v7-strategic-home-v3.spec.ts, platform-v7-production-mobile-acceptance.spec.ts or platform-v7-role-human-acceptance.spec.ts, while all surrounding acceptance coverage remains intact.",
-    "The implementation diff is a strict subset of the eight allowed paths and contains no governance manifest change.",
+    "The implementation diff is a strict subset of the ten allowed paths and contains no governance manifest change.",
     "The implementation runs on the existing trusted immutable branch feat/public-home-role-clarity-20260905 so the accepted-base manifest, not the implementation checkout, remains scope authority.",
     "Exact-head substantive CI, including platform-v7 autopilot guard, Node/CI/web-unit/security/SBOM/Design System v8/Production-like Kubernetes, is terminal green before merge.",
     "The role-human acceptance source retains the full Phase-5 coverage while replacing only the retired internal-platform-employee oracle with the connected-organisation employee label, lens and seven inactive-by-default organisation-authority actions in RU/EN/ZH.",
