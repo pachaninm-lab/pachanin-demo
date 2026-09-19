@@ -624,6 +624,7 @@ jobs:
             'apps/api/src/fns-egrul-import.ts',
             'apps/api/src/modules/role-eligibility/fns-egrul-file-import.service.ts',
             'apps/api/src/modules/role-eligibility/fns-egrul-file-import.service.spec.ts',
+            'apps/api/src/modules/role-eligibility/role-eligibility-fns-egrul-import.module.ts',
             'apps/api/src/modules/role-eligibility/role-eligibility-registry-sync.service.ts',
             'apps/api/src/modules/role-eligibility/role-eligibility-registry-sync.spec.ts',
             'docs/security/CRYPTOGRAPHIC_INVENTORY.md',
@@ -1262,7 +1263,7 @@ jobs:
               output: { title: c['output[title]'], summary: c['output[summary]'], annotations_count: 0, text: null } };
             const statuses = [{ ...s, created_at: '2026-09-19T00:00:01Z',
               creator: { login: 'github-actions[bot]', id: 41898282, type: 'Bot' } }];
-            const run = { id: 42, run_attempt: 2, workflow_id: 1, run_number: 2, check_suite_id: 33,
+            const run = { id: 42, run_attempt: ification2, workflow_id: 1, run_number: 2, check_suite_id: 33,
               repository: { id: 1, full_name: repo }, head_repository: { full_name: repo },
               name: 'platform-v7 autopilot guard', path: '.github/workflows/platform-v7-autopilot-guard.yml',
               event: 'pull_request_target', head_sha: head, head_branch: branch, status: 'completed',
