@@ -341,3 +341,21 @@ existing web-unit test selection must pass. Readiness/production claims unchange
 Review IR-20 Canonical Durable Outbox strictly against the state allowed scope and queue.
 
 Return PASS or BLOCKED. If BLOCKED, include blocker, file, why risk and exact fix.
+
+## Industrial diagnostic guard prerequisite — 2026-09-19
+
+Owner-authorized diagnostic continuation encountered review finding in #5448:
+an approvedConcurrentScopes entry alone inherits global IR-20 scope on a
+non-immutable branch. Do not accept that as exact one-file enforcement.
+This prerequisite admits only the seven listed governance/guard files on
+`governance/industrial-load-diagnostics-20260919`, allowing #5448 to add
+trusted-base immutable routing and negative scope tests before admitting the
+diagnostic implementation. It does not admit the diagnostic test branch itself.
+No runtime, active IR-20 scope, progress, release gate or production change.
+The follow-up must prove rejection of extra outbox/runtime files, head-scope
+expansion, poisoned head guards and missing trusted-base admission. Preserve
+unprivileged candidate validation and existing substantive checks. Separate
+exact-head independent review and green CI are mandatory for both PRs.
+Before: #5448 has no admitted guard-edit paths. After: its guard remediation
+can be reviewed against trusted-main permission. This is admission only,
+not a claim that immutable routing or the original load failure is fixed.
