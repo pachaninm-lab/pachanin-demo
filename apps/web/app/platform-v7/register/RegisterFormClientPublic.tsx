@@ -6,6 +6,8 @@ import { applyCsrfHeader } from '@/lib/csrf';
 import { RegisterFormClient } from './RegisterFormClient';
 
 type Locale = 'ru' | 'en' | 'zh';
+type PublicWorkspace = 'seller' | 'buyer' | 'logistics' | 'bank';
+type RegistrationWorkspace = 'seller' | 'buyer' | 'logistics' | 'driver' | 'elevator' | 'lab' | 'surveyor' | 'bank' | 'employee';
 type RegistrationStatus = {
   applicationId?: string;
   status?: string;
@@ -46,7 +48,7 @@ const PARTICIPATION = [
   ['lab', 'Лаборатория'],
   ['surveyor', 'Сюрвейер / независимый инспектор'],
   ['bank', 'Банк / финансовая организация'],
-  ['employee', 'Сотрудник существующей организации'],
+  ['employee', 'Сотрудник подключённой организации'],
 ] as const;
 const ORG_TYPES = [
   ['LEGAL', 'Юридическое лицо'],
@@ -63,9 +65,9 @@ function Reference({ value }: { value: string }) {
   return <p className='p0-register-reference'><strong>Номер обращения:</strong> <span>{value}</span></p>;
 }
 
-function RussianRegistration({ verifyToken, initialStatusToken }: { verifyToken?: string; initialStatusToken?: string }) {
+function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace }: { verifyToken?: string; initialStatusToken?: string; initialWorkspace?: PublicWorkspace }) {
   const idempotencyKey = React.useRef<string>(globalThis.crypto.randomUUID());
-  const [workspace, setWorkspace] = React.useState('seller');
+  const [workspace, setWorkspace] = React.useState<RegistrationWorkspace>(initialWorkspace || 'seller');
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState('');
   const [correlationId, setCorrelationId] = React.useState('');
@@ -265,7 +267,7 @@ function RussianRegistration({ verifyToken, initialStatusToken }: { verifyToken?
 
   return <form className='p0-register-form' onSubmit={submitRegistration}>
     <p className='p0-register-required-note'>Поля со знаком * обязательны для заполнения.</p>
-    <section className='p0-register-card'><div className='p0-register-section-heading'><h2>1. Формат участия</h2><p>Выберите предполагаемый формат участия. Права доступа и доступные действия будут определены после проверки и одобрения заявки.</p></div><div className='p0-register-grid'><label><span>Формат участия *</span><select name='workspace' aria-label='Формат участия *' value={workspace} onChange={(event) => setWorkspace(event.target.value)} required>{PARTICIPATION.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label><span>Правовой статус *</span><select name='orgType' aria-label='Правовой статус *' defaultValue='LEGAL' required>{ORG_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label></div></section>
+    <section className='p0-register-card'><div className='p0-register-section-heading'><h2>1. Формат участия</h2><p>Выберите предполагаемый формат участия. Права доступа и доступные действия будут определены после проверки и одобрения заявки.</p></div><div className='p0-register-grid'><label><span>Формат участия *</span><select name='workspace' aria-label='Формат участия *' value={workspace} onChange={(event) => setWorkspace(event.target.value as RegistrationWorkspace)} required>{PARTICIPATION.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label><span>Правовой статус *</span><select name='orgType' aria-label='Правовой статус *' defaultValue='LEGAL' required>{ORG_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label></div></section>
 
     <section className='p0-register-card'><div className='p0-register-section-heading'><h2>2. Сведения об организации</h2><p>{workspace === 'employee' ? 'Укажите сведения существующей организации, к которой вы запрашиваете присоединение. Новая организация при этом не создаётся.' : 'Укажите сведения, по которым можно однозначно идентифицировать организацию или предпринимателя.'}</p></div><div className='p0-register-grid'><label className='p0-register-wide'><span>Наименование организации / ФИО предпринимателя *</span><input name='orgLegalName' minLength={2} maxLength={300} required autoComplete='organization' /></label><label><span>ИНН *</span><input name='orgInn' inputMode='numeric' pattern='(?:[0-9]{10}|[0-9]{12})' required aria-describedby='p0-register-inn-hint' /><small id='p0-register-inn-hint'>10 цифр для юридического лица или 12 цифр для ИП / физического лица.</small></label><label><span>КПП (при наличии)</span><input name='orgKpp' inputMode='numeric' pattern='[0-9]{9}' aria-describedby='p0-register-kpp-hint' /><small id='p0-register-kpp-hint'>9 цифр. Для ИП и самозанятых обычно не указывается.</small></label><label><span>ОГРН / ОГРНИП (при наличии)</span><input name='orgOgrn' inputMode='numeric' pattern='(?:[0-9]{13}|[0-9]{15})' aria-describedby='p0-register-ogrn-hint' /><small id='p0-register-ogrn-hint'>13 цифр для ОГРН или 15 цифр для ОГРНИП.</small></label><label><span>Регион *</span><input name='region' minLength={2} maxLength={160} required autoComplete='address-level1' /></label></div></section>
 
@@ -279,7 +281,7 @@ function RussianRegistration({ verifyToken, initialStatusToken }: { verifyToken?
   </form>;
 }
 
-export function RegisterFormClientPublic(props: { locale: Locale; verifyToken?: string; initialStatusToken?: string }) {
+export function RegisterFormClientPublic(props: { locale: Locale; verifyToken?: string; initialStatusToken?: string; initialWorkspace?: PublicWorkspace }) {
   if (props.locale !== 'ru') return <RegisterFormClient {...props} />;
-  return <RussianRegistration verifyToken={props.verifyToken} initialStatusToken={props.initialStatusToken} />;
+  return <RussianRegistration verifyToken={props.verifyToken} initialStatusToken={props.initialStatusToken} initialWorkspace={props.initialWorkspace} />;
 }
