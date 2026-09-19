@@ -12,7 +12,10 @@
     "apps/web/tests/unit/platformV7HeroInfrastructureMessage.test.ts",
     "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
     "apps/web/tests/unit/platformV7StrategicHomeSafety.test.ts",
-    "scripts/production-full-stack-live-acceptance.sh"
+    "scripts/production-full-stack-live-acceptance.sh",
+    "apps/web/tests/e2e/platform-v7-home-brand-visibility.spec.ts",
+    "apps/web/tests/e2e/platform-v7-hero-card-min14.spec.ts",
+    "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts"
   ],
   "acceptanceEvidence": {
     "staticSafety": "apps/web/tests/unit/platformV7StrategicHomeSafety.test.ts",
@@ -70,7 +73,8 @@
     "RU, EN and ZH content remain complete",
     "No personal data persistence before a verified server endpoint is accepted",
     "After this governance PR reaches main, inherit accepted main and remove implementation-local scope edits. Exact-head independent review, owner audit, all substantive CI and REG.RU production acceptance remain mandatory.",
-    "The changed live-acceptance script may update only public presentation selectors and assertions; no release permission, threshold, transport or protected operation is changed."
+    "The changed live-acceptance script may update only public presentation selectors and assertions; no release permission, threshold, transport or protected operation is changed.",
+    "The three existing homepage browser suites must migrate their retired H1/dashboard/section assertions to Final Public Experience v1. Preserve all browser/viewport/locale coverage, keyboard/focus, minimum target and font, no-overflow and accessibility thresholds; retain every unrelated route assertion. Do not skip tests or remove suites from the acceptance config."
   ],
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "authorizedBy": "explicit-user-final-public-experience-v1-20260919",

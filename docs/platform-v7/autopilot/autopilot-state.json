@@ -1452,7 +1452,10 @@
       "apps/web/tests/unit/platformV7HeroInfrastructureMessage.test.ts",
       "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
       "apps/web/tests/unit/platformV7StrategicHomeSafety.test.ts",
-      "scripts/production-full-stack-live-acceptance.sh"
+      "scripts/production-full-stack-live-acceptance.sh",
+      "apps/web/tests/e2e/platform-v7-home-brand-visibility.spec.ts",
+      "apps/web/tests/e2e/platform-v7-hero-card-min14.spec.ts",
+      "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts"
     ],
     "fix/public-registration-final-copy-4916": [
       "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
