@@ -1473,7 +1473,8 @@
       "apps/web/tests/unit/gektaPublicBrandContract.test.ts",
       "scripts/check-production-full-stack-release.mjs",
       "apps/web/tests/unit/platformV7HomeFinalPolish.test.ts",
-      "apps/web/tests/unit/platformV7InternationalHomepageFix.test.ts"
+      "apps/web/tests/unit/platformV7InternationalHomepageFix.test.ts",
+      "apps/web/tests/e2e/platform-v7-role-human-acceptance.spec.ts"
     ],
     "fix/public-registration-final-copy-4916": [
       "apps/web/app/platform-v7/register/RegisterFormClient.tsx",

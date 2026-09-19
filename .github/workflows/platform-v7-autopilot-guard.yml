@@ -185,6 +185,7 @@ on:
       - 'apps/web/tests/unit/gektaPublicBrandContract.test.ts'
       - 'apps/web/tests/unit/platformV7HomeFinalPolish.test.ts'
       - 'apps/web/tests/unit/platformV7InternationalHomepageFix.test.ts'
+      - 'apps/web/tests/e2e/platform-v7-role-human-acceptance.spec.ts'
       - 'scripts/production-full-stack-live-acceptance.sh'
 
 concurrency:
