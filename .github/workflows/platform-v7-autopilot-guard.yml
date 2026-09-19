@@ -582,6 +582,7 @@ jobs:
       github.event.pull_request.head.ref == 'security/pc-crop-next-15-5-24-4997')
     permissions:
       checks: write
+      statuses: write
       contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -630,10 +631,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           VALIDATION_RC: ${{ steps.trusted_validation.outputs.rc }}
         run: |
           set -Eeuo pipefail
           [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]]
+          [[ "$GITHUB_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$GITHUB_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
           conclusion=failure
           title='PC-CROP immutable scope rejected'
           summary='The base-controlled immutable scope check failed closed.'
@@ -642,11 +649,20 @@ jobs:
             title='PC-CROP immutable scope accepted'
             summary='The exact PR head satisfies the immutable scope recorded in the trusted base.'
           fi
+          binding="platform-v7.scope-guard.v1:pr:$PR_NUMBER:head:$HEAD_SHA:base:$BASE_SHA:run:$GITHUB_RUN_ID:attempt:$GITHUB_RUN_ATTEMPT"
+          run_url="https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          gh api --method POST \
+            "repos/$GITHUB_REPOSITORY/statuses/$HEAD_SHA" \
+            -f context='scope-guard/exact-head' -f "state=$conclusion" \
+            -f "target_url=$run_url" \
+            -f description='Trusted-base immutable scope result; exact PR head and workflow run required' >/dev/null
           gh api --method POST \
             -H 'Accept: application/vnd.github+json' \
             "repos/$GITHUB_REPOSITORY/check-runs" \
             -f name='guard' \
             -f head_sha="$HEAD_SHA" \
+            -f "external_id=$binding" \
+            -f "details_url=$run_url" \
             -f status='completed' \
             -f conclusion="$conclusion" \
             -f "output[title]=$title" \
