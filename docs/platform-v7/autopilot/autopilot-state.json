@@ -1434,7 +1434,8 @@
     "fix/first-customer-workspace-recovery-20260919": [
       "apps/web/lib/first-customer-workspace-server.ts",
       "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
-      "apps/web/tests/unit/firstCustomerWorkspaceSnapshot.test.ts"
+      "apps/web/tests/unit/firstCustomerWorkspaceSnapshot.test.ts",
+      ".github/workflows/ci.yml"
     ]
   },
   "currentAcceptance": [
