@@ -155,6 +155,7 @@ jobs:
               }
               const check = (await github.rest.checks.create({
                 owner, repo, name: checkName, head_sha: head, status: 'in_progress', details_url: detailsUrl,
+                external_id: `platform-v7.merge-readiness.v1:pr:${number}:head:${head}:run:${context.runId}`,
                 output: { title: 'Engineering readiness evaluation', summary: 'Independent review and a manual exact-SHA merge remain required.' },
               })).data;
               await github.rest.repos.createCommitStatus({

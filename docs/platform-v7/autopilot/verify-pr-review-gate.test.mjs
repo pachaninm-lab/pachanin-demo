@@ -8,6 +8,7 @@ import {
   fetchCheckSnapshot, fetchAllList, fetchAllReviewThreads, isIgnoredMergeGateCheck,
   latestBlockingChangeRequests, latestCommitStatuses, mergeReadinessResult,
   reviewGatePrState, strictGitHubHeadRef, substantiveChecks, verifyManualReadiness,
+  nativeReadinessRunCandidates, nativeReadinessMatchesRun,
 } from './verify-pr-review-gate.mjs';
 const head = 'a'.repeat(40), oldHead = 'b'.repeat(40);
 const exactHeadRef = 'fix/manual-readiness';
@@ -320,6 +321,94 @@ function fixture(overrides = {}) {
 function verify(f) { return verifyManualReadiness({ argv: ['--manual-readiness'], env: f.env, readGitHubJson: f.read }); }
 function expectBlocked(f, code) { assert.throws(() => verify(f), { message: code }); }
 
+function scopeGuardFixture() {
+  const f = fixture();
+  const run = f.data.run;
+  Object.assign(run, { event: 'pull_request_target', run_attempt: 1, check_suite_id: 77,
+    repository: { id: 88, full_name: repo }, head_repository: { id: 88, full_name: repo },
+    run_started_at: '2026-09-18T12:00:00Z', updated_at: '2026-09-18T12:02:00Z',
+    pull_requests: [{ number: 5422, head: { sha: head, ref: exactHeadRef, repo: { id: 88 } }, base: { sha: oldHead, ref: 'main', repo: { id: 88 } } }],
+  });
+  const peer = f.data.checks[0];
+  Object.assign(peer, { name: 'PC-CROP implementation immutable scope · trusted base', app: { id: 15368, slug: 'github-actions' },
+    check_suite: { id: 77 }, completed_at: '2026-09-18T12:01:30Z' });
+  const native = { id: 101, name: 'guard', head_sha: head, app: { id: 15368, slug: 'github-actions' },
+    status: 'completed', conclusion: 'success', started_at: '2026-09-18T12:01:01Z', completed_at: '2026-09-18T12:01:01Z',
+    details_url: `https://github.com/${repo}/runs/101`,
+    external_id: `platform-v7.scope-guard.v1:pr:5422:head:${head}:base:${oldHead}:run:42:attempt:1`,
+    output: { title: 'PC-CROP immutable scope accepted', summary: 'The exact PR head satisfies the immutable scope recorded in the trusted base.', annotations_count: 0, text: null },
+  };
+  const status = { id: 102, context: 'scope-guard/exact-head', state: 'success', created_at: '2026-09-18T12:01:00Z',
+    description: 'Trusted-base immutable scope result; exact PR head and workflow run required',
+    target_url: `https://github.com/${repo}/actions/runs/42`, creator: { login: 'github-actions[bot]', id: 41898282, type: 'Bot' } };
+  f.data.checks.push(native); f.data.statuses.push(status);
+  return { ...f, native, peer, status };
+}
+
+test('bound native scope guard stays substantive and preserves manual-only readiness', () => {
+  const f = scopeGuardFixture();
+  const snapshot = fetchCheckSnapshot(repo, 5422, f.read);
+  assert.ok(Array.isArray(snapshot.checks));
+  assert.ok(snapshot.checks.some(check => check.name === 'guard' && check.workflowPath === '.github/workflows/platform-v7-autopilot-guard.yml'));
+  assert.deepEqual(checkRollupBlockers(snapshot.checks), []);
+  assert.equal(verify(f).automaticMergeAllowed, false);
+});
+
+test('native scope provenance rejects missing, forged, stale and ambiguous evidence', () => {
+  const mutations = [
+    f => { f.native.external_id = ''; },
+    f => { f.native.external_id = f.native.external_id.replace('pr:5422', 'pr:5423'); },
+    f => { f.native.external_id = f.native.external_id.replace('attempt:1', 'attempt:2'); },
+    f => { f.native.app.id = 1; },
+    f => { f.native.details_url += '?forged=1'; },
+    f => { f.native.output.summary = 'success'; },
+    f => { f.data.statuses = []; },
+    f => { f.status.creator.id = 1; },
+    f => { f.status.target_url = `https://github.com/${repo}/actions/runs/43`; },
+    f => { f.status.created_at = '2026-09-18T11:59:59Z'; },
+    f => { f.status.created_at = '2026-09-18T12:01:02Z'; },
+    f => { f.data.run.event = 'pull_request'; },
+    f => { f.data.run.path = '.github/workflows/other.yml'; },
+    f => { f.data.run.head_repository.full_name = 'attacker/fork'; },
+    f => { f.data.run.pull_requests[0].base.sha = head; },
+    f => { f.data.run.pull_requests[0].head.repo.id = 99; },
+    f => { f.peer.conclusion = 'skipped'; },
+    f => { f.peer.check_suite.id = 78; },
+    f => { f.peer.completed_at = '2026-09-18T12:00:59Z'; },
+    f => { f.data.checks.push({ ...f.peer, id: 103 }); },
+  ];
+  for (const mutate of mutations) {
+    const f = scopeGuardFixture(); mutate(f);
+    const snapshot = fetchCheckSnapshot(repo, 5422, f.read);
+    assert.equal(snapshot.checks, null, mutate.toString());
+    assert.equal(snapshot.metadataError, 'NATIVE_CHECK_PROVENANCE_INVALID', mutate.toString());
+  }
+});
+
+test('bound failed scope guard and unrelated pending CI still block', () => {
+  const f = scopeGuardFixture();
+  f.native.conclusion = f.peer.conclusion = f.status.state = 'failure';
+  f.native.output.title = 'PC-CROP immutable scope rejected';
+  f.native.output.summary = 'The base-controlled immutable scope check failed closed.';
+  f.data.run.conclusion = 'failure';
+  const snapshot = fetchCheckSnapshot(repo, 5422, f.read);
+  assert.ok(Array.isArray(snapshot.checks));
+  assert.ok(checkRollupBlockers(snapshot.checks).some(value => value.includes('guard:FAILURE')));
+  const pending = scopeGuardFixture();
+  pending.data.checks.push({ ...pending.peer, id: 103, name: 'security', status: 'in_progress', conclusion: null });
+  assert.ok(checkRollupBlockers(fetchCheckSnapshot(repo, 5422, pending.read).checks).some(value => value.includes('security:IN_PROGRESS')));
+});
+
+test('trusted-base emitter publishes matching bounded native scope provenance', () => {
+  const workflow = readFileSync(new URL('../../../.github/workflows/platform-v7-autopilot-guard.yml', import.meta.url), 'utf8');
+  const emitter = workflow.slice(workflow.indexOf('      - name: Emit required guard context from trusted base on the PR head'), workflow.indexOf('      - name: Enforce trusted immutable-scope result'));
+  assert.match(emitter, /platform-v7\.scope-guard\.v1:pr:\$PR_NUMBER:head:\$HEAD_SHA:base:\$BASE_SHA:run:\$GITHUB_RUN_ID:attempt:\$GITHUB_RUN_ATTEMPT/);
+  assert.match(emitter, /context='scope-guard\/exact-head'/);
+  assert.match(emitter, /-f "external_id=\$binding"/);
+  assert.ok(emitter.indexOf('statuses/$HEAD_SHA') < emitter.indexOf('check-runs'));
+  assert.match(workflow, /checks: write\n      statuses: write\n      contents: read/);
+});
+
 test('CLI legacy invocation fails before environment or network, with no PASS contract', () => {
   let reads = 0;
   for (const argv of [[], ['--independent-only'], ['--manual-readiness', '--other'], ['manual-readiness']]) {
@@ -492,4 +581,117 @@ test('pending, failed, cancelled, unknown and timed-out substantive checks stay 
 test('malformed Actions SHA cannot be normalized into authority', () => {
   const f = fixture(); f.data.run.head_sha = head.toUpperCase();
   expectBlocked(f, 'MERGE_READINESS_CI_SNAPSHOT_INVALID');
+});
+
+// Actual GitHub response shape from #5422 check 105669150123: checks.create's
+// requested /actions/runs URL was rewritten to /runs/<check-id>, with no external_id.
+const observedHead = 'ed9306da7d2ef5536c50b3a97ff26e6f4ea3b38d';
+const observedNativeCheck = {
+  id: 105669150123, name: 'Exact-head clean-comment gate', head_sha: observedHead, external_id: '',
+  details_url: `https://github.com/${repo}/runs/105669150123`,
+  status: 'completed', conclusion: 'failure', started_at: '2026-09-18T16:03:48Z', completed_at: '2026-09-18T16:03:54Z',
+  app: { id: 15368, slug: 'github-actions' }, check_suite: { id: 95717609014 },
+  output: { title: 'Engineering readiness blocked', summary: `PR #5422; exact head ${observedHead}. Engineering readiness blocked; manual merge is not ready. No independent-review approval or merge authority is issued.`, text: null, annotations_count: 0 },
+};
+const observedReadinessStatus = {
+  id: 54461440856, context: 'merge-readiness/exact-head', state: 'failure',
+  description: 'Engineering readiness blocked; manual merge is not ready',
+  target_url: `https://github.com/${repo}/actions/runs/35366171823`, created_at: '2026-09-18T16:03:53Z',
+  creator: { login: 'github-actions[bot]', id: 41898282, type: 'Bot' },
+};
+const observedPublisherRun = {
+  id: 35366171823, name: 'Repo automations', path: '.github/workflows/automerge.yml',
+  repository: { full_name: repo }, head_repository: { full_name: repo },
+  head_sha: 'e7f42bbdbceedd9c384d78a3e3a2a81f3c12a38d', head_branch: 'main', event: 'issue_comment',
+  status: 'completed', conclusion: 'failure', workflow_id: 259435281, run_number: 40936, run_attempt: 1,
+  created_at: '2026-09-18T16:03:33Z', updated_at: '2026-09-18T16:03:57Z',
+};
+function nativeFixture() {
+  const f = fixture();
+  const check = structuredClone(observedNativeCheck);
+  check.head_sha = head; check.output.summary = check.output.summary.replace(observedHead, head);
+  const status = structuredClone(observedReadinessStatus);
+  const publisher = structuredClone(observedPublisherRun);
+  f.data.checks.push(check); f.data.statuses.push(status); f.data.runs.push(publisher);
+  // Trusted-main publisher is fetched via status binding, not the exact-PR-head inventory.
+  f.data.runPages = [{ total_count: 1, workflow_runs: [f.data.run] }];
+  return { ...f, nativeCheck: check, readinessStatus: status, publisher };
+}
+
+test('observed GitHub rewritten native check is correlated without treating check ID as workflow run ID', () => {
+  const binding = nativeReadinessRunCandidates(observedNativeCheck, [observedReadinessStatus], repo, 5422, observedHead);
+  assert.equal(binding.runId, '35366171823');
+  assert.notEqual(binding.runId, String(observedNativeCheck.id));
+  assert.equal(nativeReadinessMatchesRun(binding, observedPublisherRun, repo, 5422, observedHead, 'fix/provider-review-scope-guard-20260918'), true);
+  const f = nativeFixture();
+  assert.equal(verify(f).status, 'READY_FOR_MANUAL_REVIEW');
+  assert.ok(f.calls.some(args => args.includes(`repos/${repo}/actions/runs/35366171823`)));
+  assert.equal(f.calls.some(args => args.includes(`repos/${repo}/actions/runs/105669150123`)), false);
+});
+
+test('new explicit external_id safely identifies an in-progress rewritten readiness check', () => {
+  const f = nativeFixture();
+  Object.assign(f.nativeCheck, { status: 'in_progress', conclusion: null, completed_at: null,
+    external_id: `platform-v7.merge-readiness.v1:pr:5422:head:${head}:run:35366171823`,
+    output: { title: 'Engineering readiness evaluation', summary: 'Independent review and a manual exact-SHA merge remain required.', text: null, annotations_count: 0 } });
+  Object.assign(f.readinessStatus, { state: 'pending', created_at: '2026-09-18T16:03:49Z', description: 'Engineering readiness is being evaluated; manual review remains required' });
+  Object.assign(f.publisher, { status: 'in_progress', conclusion: null, updated_at: '2026-09-18T16:03:35Z' });
+  assert.equal(verify(f).status, 'READY_FOR_MANUAL_REVIEW');
+  f.nativeCheck.external_id = '';
+  expectBlocked(f, 'MERGE_READINESS_CI_NATIVE_CHECK_PROVENANCE_INVALID');
+});
+
+test('pull_request_target publisher requires the matching PR/head/ref tuple', () => {
+  const f = nativeFixture();
+  f.nativeCheck.external_id = `platform-v7.merge-readiness.v1:pr:5422:head:${head}:run:35366171823`;
+  Object.assign(f.publisher, { event: 'pull_request_target', head_sha: head, head_branch: exactHeadRef,
+    pull_requests: [{ number: 5422, head: { sha: head, ref: exactHeadRef }, base: { ref: 'main' } }] });
+  assert.equal(verify(f).status, 'READY_FOR_MANUAL_REVIEW');
+  f.publisher.pull_requests[0].number = 9999;
+  expectBlocked(f, 'MERGE_READINESS_CI_NATIVE_CHECK_PROVENANCE_INVALID');
+});
+
+test('legacy attribution retains historical statuses rather than only the latest context value', () => {
+  const f = nativeFixture();
+  f.data.statuses.unshift({ ...f.readinessStatus, id: f.readinessStatus.id + 1,
+    created_at: '2026-09-18T17:00:00Z', target_url: `https://github.com/${repo}/actions/runs/42` });
+  assert.equal(verify(f).status, 'READY_FOR_MANUAL_REVIEW');
+});
+
+test('a name, rewritten URL or shared Actions app alone cannot suppress another check', () => {
+  const mutations = [
+    c => { c.app.id = 999; }, c => { c.name = 'security'; }, c => { c.output.title = 'Security check'; },
+    c => { c.output.annotations_count = 1; }, c => { c.output.text = 'real finding'; },
+    c => { c.output.summary += ' Additional finding'; }, c => { c.details_url += '?untrusted=1'; },
+    c => { c.external_id = 42; }, c => { c.external_id = 'invalid'; },
+    c => { c.external_id = `platform-v7.merge-readiness.v1:pr:9999:head:${head}:run:35366171823`; },
+    c => { c.external_id = `platform-v7.merge-readiness.v1:pr:5422:head:${oldHead}:run:35366171823`; },
+    c => { c.external_id = `platform-v7.merge-readiness.v1:pr:5422:head:${head}:run:123`; },
+  ];
+  for (const mutate of mutations) { const f = nativeFixture(); mutate(f.nativeCheck); expectBlocked(f, 'MERGE_READINESS_CI_NATIVE_CHECK_PROVENANCE_INVALID'); }
+});
+
+test('native correlation rejects absent, foreign, ambiguous or out-of-window status evidence', () => {
+  for (const mutate of [
+    f => { f.data.statuses = []; }, f => { f.readinessStatus.creator.id = 1; },
+    f => { f.readinessStatus.creator.login = 'owner'; }, f => { f.readinessStatus.created_at = '2026-09-18T16:03:47Z'; },
+    f => { f.readinessStatus.created_at = '2026-09-18T16:03:55Z'; },
+    f => { f.readinessStatus.target_url = 'https://github.com/foreign/repo/actions/runs/35366171823'; },
+    f => { f.readinessStatus.description = 'looks ready'; },
+    f => { f.data.statuses.push({ ...f.readinessStatus, id: f.readinessStatus.id + 1, target_url: `https://github.com/${repo}/actions/runs/42` }); },
+  ]) { const f = nativeFixture(); mutate(f); expectBlocked(f, 'MERGE_READINESS_CI_NATIVE_CHECK_PROVENANCE_INVALID'); }
+});
+
+test('native correlation still verifies trusted workflow metadata and event provenance', () => {
+  for (const changes of [
+    { name: 'Security' }, { path: '.github/workflows/security.yml' }, { event: 'pull_request' },
+    { head_branch: 'untrusted' }, { head_sha: 'malformed' }, { head_repository: { full_name: 'foreign/repo' } },
+    { created_at: '2026-09-18T16:03:49Z' }, { updated_at: '2026-09-18T16:03:52Z' },
+    { run_attempt: 0 }, { status: 'queued' },
+  ]) { const f = nativeFixture(); Object.assign(f.publisher, changes); expectBlocked(f, 'MERGE_READINESS_CI_NATIVE_CHECK_PROVENANCE_INVALID'); }
+});
+
+test('valid native self-check attribution never hides a substantive security failure', () => {
+  const f = nativeFixture(); f.data.checks[0].name = 'security'; f.data.checks[0].conclusion = 'failure';
+  expectBlocked(f, 'MERGE_READINESS_CI_NOT_GREEN');
 });
