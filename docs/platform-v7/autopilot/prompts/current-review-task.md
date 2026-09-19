@@ -380,7 +380,7 @@ includes preparing this necessary bounded guard repair. No earlier machine
 admission for this seven-file bootstrap is claimed. Native findings on #5448
 and #5451 correctly reject the legacy union with global IR-20 scope.
 Bootstrap is limited to governance/industrial-load-diagnostics-20260919 at
-base 6d3aef5370a7ef6c46f82d9147f1c3c39e41e206 and state blob
+base 31437d368ab284da32746cc958efc02f4cb8c97a and state blob
 78c82dce0e18e867c43c6a44ddc345a396f241ca. Its exact seven paths are the
 four governance documents and guard script, guard tests and guard workflow.
 Only the two exact governance/diagnostic scope entries may be appended;
@@ -393,3 +393,7 @@ implementation admits only the load-proof test, with no head-state fallback,
 global scope union or generic infrastructure exception. A changed base or an
 actual trusted gate rejection requires renewed bounded review/authority,
 not disabling checks. No automatic merge or protection changes are permitted.
+The base pin was renewed after independent review of main #5452: only the
+trusted emitter and readiness verifier/tests changed; the state blob and all
+scope authority are identical. Preserve that complete upstream delta. Earlier
+head review/CI does not carry forward to this refreshed candidate.

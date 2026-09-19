@@ -1355,7 +1355,7 @@ for (const mutation of ['approved append', 'wrong base SHA', 'wrong state blob',
     // Bind the frozen guard to this synthetic fixture, not to mutable inputs.
     // Production literals are checked separately below; no runtime override exists.
     let guard = fs.readFileSync(sourceGuard, 'utf8')
-      .replace('6d3aef5370a7ef6c46f82d9147f1c3c39e41e206', mutation === 'wrong base SHA' ? '0'.repeat(40) : context.baseline)
+      .replace('31437d368ab284da32746cc958efc02f4cb8c97a', mutation === 'wrong base SHA' ? '0'.repeat(40) : context.baseline)
       .replace('78c82dce0e18e867c43c6a44ddc345a396f241ca', mutation === 'wrong state blob' ? '0'.repeat(40) : blob);
     state.approvedConcurrentScopes[industrialGovernanceBranch] = [...industrialGovernancePaths];
     state.approvedConcurrentScopes[industrialDiagnosticBranch] = [...industrialDiagnosticPaths];
@@ -1380,13 +1380,13 @@ test('industrial bootstrap retains base defense and read-only candidate tests wi
   const state = JSON.parse(fs.readFileSync(industrialGovernancePaths[0], 'utf8'));
   assert.deepEqual(state.approvedConcurrentScopes[industrialGovernanceBranch], industrialGovernancePaths);
   assert.deepEqual(state.approvedConcurrentScopes[industrialDiagnosticBranch], industrialDiagnosticPaths);
-  assert.ok(source.includes("sha !== '6d3aef5370a7ef6c46f82d9147f1c3c39e41e206'"));
+  assert.ok(source.includes("sha !== '31437d368ab284da32746cc958efc02f4cb8c97a'"));
   assert.ok(source.includes("blob !== '78c82dce0e18e867c43c6a44ddc345a396f241ca'"));
   const candidate = workflow.split('- name: Validate owner-authorized industrial diagnostic bootstrap candidate')[1]
     .split('- name: Validate bounded security repair with trusted base authority')[0];
   assert.ok(candidate.includes("github.event_name == 'pull_request'"));
   assert.ok(candidate.includes(`github.head_ref == '${industrialGovernanceBranch}'`));
-  assert.ok(candidate.includes("github.event.pull_request.base.sha == '6d3aef5370a7ef6c46f82d9147f1c3c39e41e206'"));
+  assert.ok(candidate.includes("github.event.pull_request.base.sha == '31437d368ab284da32746cc958efc02f4cb8c97a'"));
   assert.ok(candidate.includes('run: bash scripts/p7-autopilot-guard.sh'));
   const paths = workflow.split('\n  pull_request:\n')[1].split('\nconcurrency:')[0];
   assert.ok(paths.includes(`'${industrialDiagnosticPaths[0]}'`));
