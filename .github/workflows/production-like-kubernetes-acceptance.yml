@@ -60,7 +60,9 @@ jobs:
           node-version: '24'
 
       - name: Reject incorrect outbox runtime evidence
-        run: node --test scripts/test-production-like-outbox-runtime-evidence.mjs
+        run: |
+          node --test scripts/test-production-like-outbox-runtime-evidence.mjs
+          bash scripts/release/production-like-kubernetes-kafka-storage-test.sh
 
       - uses: azure/setup-helm@v4
         with:
@@ -112,6 +114,10 @@ jobs:
           kubectl rollout status deployment/grainflow-outbox-worker \
             -n grainflow-acceptance --timeout=360s
           bash scripts/release/production-like-kubernetes-outbox-runtime.sh
+
+      - name: Verify broker storage across outage tests
+        if: always()
+        run: bash scripts/release/production-like-kubernetes-kafka-storage.sh verify
 
       - name: Enforce machine-readable Kubernetes evidence
         if: always()
