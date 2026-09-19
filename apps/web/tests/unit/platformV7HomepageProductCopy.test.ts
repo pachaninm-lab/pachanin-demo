@@ -26,11 +26,12 @@ const privacyPolicy = read('app/platform-v7/privacy/page.tsx');
 const accounting = read('i18n/platform-v7-accounting-value.ts');
 
 describe('platform-v7 homepage product copy', () => {
-  it('keeps the approved design entrypoints and durable optional assistance form', () => {
+  it('keeps the approved public entrypoints and durable optional assistance form without pinning a retired homepage layout', () => {
     expect(component).toContain("import '@/styles/platform-v7-public-assistant.css'");
-    expect(component).toContain("import styles from './PlatformV7StrategicHomeStory.module.css'");
-    expect(component).toContain("className={`pc-v6-hero ${styles.hero}`}");
+    expect(component).toContain("data-testid='platform-v7-root-execution-cockpit'");
+    expect(component).toContain('<PublicSiteHeader');
     expect(component).toContain("<OrganizationConnectForm locale={locale} />");
+    expect(component).toContain("type='application/ld+json'");
   });
 
   it('routes live copy imports through product/operating layers without editing tsconfig', () => {
@@ -41,13 +42,12 @@ describe('platform-v7 homepage product copy', () => {
   });
 
   it('presents one crop Deal product with nine roles and seven public steps in RU EN ZH', () => {
-    expect(hero).toContain('ведёт одну агросделку от товара и торгов до поставки, качества, документов и расчёта');
-    expect(hero).toContain('какие факты и основания доступны и что делать дальше');
-    expect(hero).toContain('с собственным искусственным интеллектом');
-    expect(hero).toContain('with proprietary artificial intelligence');
-    expect(hero).toContain('配备自主人工智能');
-    expect(hero).not.toContain('что уже подтверждено и что делать дальше');
+    expect(hero).toContain('Платформа управления агросделками в растениеводстве');
+    expect(hero).toContain('Crop Deal management platform');
+    expect(hero).toContain('种植业农业交易管理平台');
     expect(hero).toContain('но не принимает решение вместо человека');
+    expect(hero).toContain('does not decide instead of the user');
+    expect(hero).toContain('不会替用户作出决定');
     expect(story).toContain('Полный контур агросделки собран в одной рабочей системе');
     expect(story).toContain('The complete agricultural Deal workflow in one operating system');
     expect(story).toContain('完整农业交易流程集中在同一工作系统');
