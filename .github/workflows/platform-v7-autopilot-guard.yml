@@ -190,6 +190,148 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  trusted-ir20-binding-bootstrap:
+    name: IR-20 binding governance bootstrap · trusted base
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      (github.event.pull_request.head.ref == 'governance/ir20-api-database-binding-admission-20260919' ||
+      github.event.pull_request.head.ref == 'governance/ir20-binding-immutable-scope-20260919')
+    permissions:
+      contents: read
+      checks: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout accepted IR-20 bootstrap authority
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate bounded IR-20 governance without executing the candidate
+        id: trusted_validation
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          IR20_SCOPE_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set +e
+          (
+            set -Eeuo pipefail
+            [[ "$HEAD_REPOSITORY" == "$GITHUB_REPOSITORY" ]]
+            [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ && "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
+            test "$(git rev-parse HEAD)" = "$BASE_SHA"
+            timeout 60s git fetch --no-tags origin "$HEAD_SHA"
+            test "$(git rev-parse FETCH_HEAD)" = "$HEAD_SHA"
+            node - <<'IR20_SCOPE_JS'
+          const { execFileSync } = require('node:child_process');
+          const { isDeepStrictEqual } = require('node:util');
+          const admission = 'governance/ir20-api-database-binding-admission-20260919';
+          const prerequisite = 'governance/ir20-binding-immutable-scope-20260919';
+          const implementation = 'ops/ir20-api-database-binding-20260919';
+          const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+          const governancePaths = [
+            'scripts/p7-autopilot-guard.sh',
+            'scripts/p7-autopilot-guard.test.mjs',
+            '.github/workflows/platform-v7-autopilot-guard.yml',
+            statePath,
+          ];
+          const implementationPaths = [
+            'scripts/release/ir20-api-database-binding.py',
+            'scripts/release/test-ir20-api-database-binding.py',
+            'scripts/release/test-ir20-api-database-binding-integration.py',
+            '.github/workflows/ir20-api-database-binding.yml',
+            'docs/ops/ir20-api-database-binding.md',
+          ];
+          const base = process.env.BASE_SHA;
+          const head = process.env.HEAD_SHA;
+          const branch = process.env.IR20_SCOPE_BRANCH;
+          function reject(reason) { throw new Error(`IR20_TRUSTED_BOOTSTRAP:${reason}`); }
+          if (!/^[0-9a-f]{40}$/.test(base || '') || !/^[0-9a-f]{40}$/.test(head || '')) reject('invalid SHA');
+          if (!process.env.GITHUB_REPOSITORY || process.env.HEAD_REPOSITORY !== process.env.GITHUB_REPOSITORY) reject('fork or missing repository identity');
+          if (branch !== admission && branch !== prerequisite) reject('unknown branch');
+          function git(...args) {
+            return execFileSync('git', args, { encoding: 'utf8', timeout: 10000, maxBuffer: 1024 * 1024 });
+          }
+          git('merge-base', '--is-ancestor', base, head);
+          function readState(ref) {
+            const raw = git('show', `${ref}:${statePath}`);
+            if (Buffer.byteLength(raw) > 256 * 1024) reject('oversized state');
+            const state = JSON.parse(raw);
+            if (!state || Array.isArray(state) || typeof state !== 'object' || !state.approvedConcurrentScopes ||
+                Array.isArray(state.approvedConcurrentScopes) || typeof state.approvedConcurrentScopes !== 'object') reject('invalid state');
+            return state;
+          }
+          const accepted = readState(base);
+          const candidate = readState(head);
+          const expected = structuredClone(accepted);
+          let allowed;
+          if (branch === admission) {
+            if (Object.hasOwn(accepted.approvedConcurrentScopes, prerequisite) ||
+                Object.hasOwn(accepted.approvedConcurrentScopes, implementation)) reject('admission is not a fresh prerequisite');
+            expected.approvedConcurrentScopes[prerequisite] = governancePaths;
+            allowed = [statePath];
+          } else {
+            const basePaths = accepted.approvedConcurrentScopes[prerequisite];
+            if (!Array.isArray(basePaths) || !isDeepStrictEqual([...basePaths].sort(), [...governancePaths].sort())) reject('missing exact base-only four-file admission');
+            if (Object.hasOwn(accepted.approvedConcurrentScopes, implementation)) reject('implementation already admitted');
+            expected.approvedConcurrentScopes[implementation] = implementationPaths;
+            allowed = basePaths;
+          }
+          if (!isDeepStrictEqual(candidate, expected)) reject('unauthorized state or scope mutation');
+          const entries = git('diff', '--no-renames', '--name-status', '-z', `${base}...${head}`).split('\0');
+          if (entries.pop() !== '' || entries.length % 2 !== 0) reject('malformed diff');
+          const changed = [];
+          for (let index = 0; index < entries.length; index += 2) {
+            const status = entries[index];
+            const file = entries[index + 1];
+            if (status !== 'M' || !allowed.includes(file)) reject('only exact existing governance files may change');
+            for (const ref of [base, head]) {
+              const mode = git('ls-tree', '-z', ref, '--', file);
+              if (!/^(100644|100755) blob [0-9a-f]{40}\t/.test(mode) || mode.split('\0').length !== 2) reject('non-regular governance file');
+            }
+            changed.push(file);
+          }
+          if (!isDeepStrictEqual([...changed].sort(), [...allowed].sort())) reject('incomplete or duplicate governance diff');
+          console.log(`PASS: ${head} is the exact ${branch === admission ? 'state-only admission' : 'four-file enforcement prerequisite'}; candidate code was not executed.`);
+          IR20_SCOPE_JS
+          ) > "$RUNNER_TEMP/trusted-ir20-binding-bootstrap.log" 2>&1
+          rc=$?
+          set -e
+          cat "$RUNNER_TEMP/trusted-ir20-binding-bootstrap.log"
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+      - name: Emit required guard context from accepted IR-20 bootstrap
+        id: trusted_context
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          VALIDATION_RC: ${{ steps.trusted_validation.outputs.rc }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
+          conclusion=failure
+          title='IR-20 governance bootstrap rejected'
+          summary='The accepted-base IR-20 bootstrap failed closed; no scope or release is authorized.'
+          if [[ "$VALIDATION_RC" == 0 ]]; then
+            conclusion=success
+            title='IR-20 governance bootstrap accepted'
+            summary='The exact candidate SHA satisfies the bounded IR-20 governance authority in the accepted base.'
+          fi
+          gh api --method POST -H 'Accept: application/vnd.github+json' \
+            "repos/$GITHUB_REPOSITORY/check-runs" \
+            -f name='guard' -f head_sha="$HEAD_SHA" -f status='completed' \
+            -f conclusion="$conclusion" -f "output[title]=$title" -f "output[summary]=$summary" >/dev/null
+      - name: Require the IR-20 validation and guard publication to succeed
+        if: always()
+        env:
+          VALIDATION_RC: ${{ steps.trusted_validation.outputs.rc }}
+          CONTEXT_OUTCOME: ${{ steps.trusted_context.outcome }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$VALIDATION_RC" == 0 && "$CONTEXT_OUTCOME" == success ]]
+
   trusted-kind-minio-governance-bootstrap:
     name: Kind MinIO governance bootstrap · trusted base
     if: >-
@@ -434,7 +576,6 @@ jobs:
           const expectedSorted = [...expectedAllowed].sort();
           const actualSorted = [...allowed].sort();
           if (JSON.stringify(actualSorted) !== JSON.stringify(expectedSorted)) throw new Error('EGRUL_SCOPE_ALLOWLIST_DRIFT');
-
           const expectedForbidden = [
             'apps/api/prisma/migrations/**',
             'apps/api/prisma/schema.prisma',
@@ -618,7 +759,7 @@ jobs:
           [[ "$CONTEXT_OUTCOME" == success ]]
 
   guard:
-    name: ${{ github.event_name == 'pull_request' && (github.head_ref == 'fix/p0-registration-authority-rollover-4637' || github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698' || github.head_ref == 'feat/pc-crop-auction-inventory-authority-4997' || github.head_ref == 'ops/pc-crop-w1-production-acceptance-4997' || github.head_ref == 'governance/pc-crop-post-registration-progress-scope-4997' || github.head_ref == 'governance/pc-crop-inventory-reservation-scope-4997' || github.head_ref == 'docs/pc-crop-post-registration-progress-4997' || github.head_ref == 'governance/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'feat/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'governance/public-home-role-clarity-scope-20260905' || github.head_ref == 'feat/public-home-role-clarity-20260905' || github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' || github.head_ref == 'fix/production-like-outbox-poison-isolation-3793' || github.head_ref == 'fix/local-qwen-failed-review-evidence-20260912' || github.head_ref == 'fix/kind-minio-image-source-20260912' || github.head_ref == 'fix/gitleaks-release-authority-attestation-20260912' || github.head_ref == 'fix/owner-handoff-product-host-20260908' || github.head_ref == 'governance/final-public-experience-v1-20260919' || github.head_ref == 'agent/platform-v7-strategic-rebuild-v3' || github.head_ref == 'p0/farmer-public-market-teaser-20260913' || github.head_ref == 'fix/public-registration-final-copy-4916' || github.head_ref == 'fix/public-deal-journey-10of10-current-main-20260808' || github.head_ref == 'agent/platform-v7-product-copy' || github.head_ref == 'ops/production-full-stack-release-v1') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}
+    name: ${{ github.event_name == 'pull_request' && (github.head_ref == 'governance/ir20-api-database-binding-admission-20260919' || github.head_ref == 'governance/ir20-binding-immutable-scope-20260919' || github.head_ref == 'fix/p0-registration-authority-rollover-4637' || github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698' || github.head_ref == 'feat/pc-crop-auction-inventory-authority-4997' || github.head_ref == 'ops/pc-crop-w1-production-acceptance-4997' || github.head_ref == 'governance/pc-crop-post-registration-progress-scope-4997' || github.head_ref == 'governance/pc-crop-inventory-reservation-scope-4997' || github.head_ref == 'docs/pc-crop-post-registration-progress-4997' || github.head_ref == 'governance/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'feat/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'governance/public-home-role-clarity-scope-20260905' || github.head_ref == 'feat/public-home-role-clarity-20260905' || github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' || github.head_ref == 'fix/production-like-outbox-poison-isolation-3793' || github.head_ref == 'fix/local-qwen-failed-review-evidence-20260912' || github.head_ref == 'fix/kind-minio-image-source-20260912' || github.head_ref == 'fix/gitleaks-release-authority-attestation-20260912' || github.head_ref == 'fix/owner-handoff-product-host-20260908' || github.head_ref == 'governance/final-public-experience-v1-20260919' || github.head_ref == 'agent/platform-v7-strategic-rebuild-v3' || github.head_ref == 'p0/farmer-public-market-teaser-20260913' || github.head_ref == 'fix/public-registration-final-copy-4916' || github.head_ref == 'fix/public-deal-journey-10of10-current-main-20260808' || github.head_ref == 'agent/platform-v7-product-copy' || github.head_ref == 'ops/production-full-stack-release-v1') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}
     needs: standard_validation
     if: always() && github.event_name != 'pull_request_target'
     permissions:
@@ -754,6 +895,183 @@ jobs:
           persist-credentials: false
       - name: Validate PC-CROP immutable-scope guard regression
         run: node --test scripts/p7-autopilot-guard.test.mjs
+      - name: Validate IR-20 trusted bootstrap rejection regressions
+        run: |
+          node --input-type=module <<'IR20_BOOTSTRAP_TESTS'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          import os from 'node:os';
+          import path from 'node:path';
+          import { spawnSync } from 'node:child_process';
+          import test from 'node:test';
+          const sourceWorkflow = path.resolve('.github/workflows/platform-v7-autopilot-guard.yml');
+          function write(root, file, content) {
+            const target = path.join(root, file);
+            fs.mkdirSync(path.dirname(target), { recursive: true });
+            fs.writeFileSync(target, content);
+          }
+          function git(root, args) {
+            const result = spawnSync('git', args, { cwd: root, encoding: 'utf8', timeout: 10000 });
+            assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+            return result.stdout.trim();
+          }
+          function commit(root, message) {
+            git(root, ['add', '--all']);
+            git(root, ['commit', '-m', message]);
+          }
+          function fixture(t, implementationBranch) {
+            const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ir20-trusted-bootstrap-'));
+            t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 }));
+            for (const file of ['scripts/p7-autopilot-guard.sh', 'scripts/p7-source-controlled-scope.mjs',
+              '.github/workflows/platform-v7-autopilot-guard.yml']) write(root, file, '# accepted inert fixture\n');
+            git(root, ['init', '--initial-branch=main']);
+            git(root, ['config', 'user.name', 'IR20 Bootstrap Regression']);
+            git(root, ['config', 'user.email', 'ir20-bootstrap@example.invalid']);
+            commit(root, 'initial fixture');
+            git(root, ['switch', '-c', implementationBranch]);
+            return { root, implementationBranch };
+          }
+
+          // IR-20 admission and enforcement are two independently reviewed transitions.
+          const ir20AdmissionBranch = 'governance/ir20-api-database-binding-admission-20260919';
+          const ir20PrerequisiteBranch = 'governance/ir20-binding-immutable-scope-20260919';
+          const ir20ImplementationBranch = 'ops/ir20-api-database-binding-20260919';
+          const ir20StatePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+          const ir20GovernancePaths = ['scripts/p7-autopilot-guard.sh', 'scripts/p7-autopilot-guard.test.mjs',
+            '.github/workflows/platform-v7-autopilot-guard.yml', ir20StatePath];
+          const ir20ImplementationPaths = ['scripts/release/ir20-api-database-binding.py',
+            'scripts/release/test-ir20-api-database-binding.py', 'scripts/release/test-ir20-api-database-binding-integration.py',
+            '.github/workflows/ir20-api-database-binding.yml', 'docs/ops/ir20-api-database-binding.md'];
+
+          function ir20BootstrapFixture(t, branch = ir20PrerequisiteBranch) {
+            const context = fixture(t, branch);
+            const accepted = { allowedCurrentScope: ['apps/api/src/common/outbox/**'], current: 'IR-20', next: 'IR-21',
+              approvedConcurrentScopes: { 'unrelated/accepted': ['unrelated.txt'] } };
+            if (branch === ir20PrerequisiteBranch) accepted.approvedConcurrentScopes[branch] = ir20GovernancePaths;
+            write(context.root, ir20StatePath, `${JSON.stringify(accepted, null, 2)}\n`);
+            write(context.root, 'scripts/p7-autopilot-guard.test.mjs', '// accepted fixture test\n');
+            commit(context.root, 'accepted bootstrap authority');
+            context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+            const candidate = structuredClone(accepted);
+            if (branch === ir20AdmissionBranch) {
+              candidate.approvedConcurrentScopes[ir20PrerequisiteBranch] = ir20GovernancePaths;
+            } else {
+              candidate.approvedConcurrentScopes[ir20ImplementationBranch] = ir20ImplementationPaths;
+              for (const file of ir20GovernancePaths.filter((file) => file !== ir20StatePath)) {
+                write(context.root, file, fs.readFileSync(path.join(context.root, file), 'utf8') + '\n# inert candidate fixture\n');
+              }
+            }
+            write(context.root, ir20StatePath, `${JSON.stringify(candidate, null, 2)}\n`);
+            return context;
+          }
+
+          function runIr20Bootstrap(context, overrides = {}) {
+            const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+            const start = "            node - <<'IR20_SCOPE_JS'\n";
+            const finish = '\n          IR20_SCOPE_JS';
+            assert.equal(workflow.split(start).length, 2);
+            const body = workflow.split(start)[1].split(finish)[0].split('\n').map((line) => {
+              assert.ok(line.startsWith('          '));
+              return line.slice(10);
+            }).join('\n');
+            return spawnSync(process.execPath, ['-'], {
+              cwd: context.root, input: body, encoding: 'utf8', timeout: 20000,
+              env: { ...process.env, BASE_SHA: context.baseline, HEAD_SHA: git(context.root, ['rev-parse', 'HEAD']),
+                IR20_SCOPE_BRANCH: context.implementationBranch, GITHUB_REPOSITORY: 'fixture/project',
+                HEAD_REPOSITORY: 'fixture/project', ...overrides },
+            });
+          }
+
+          for (const branch of [ir20AdmissionBranch, ir20PrerequisiteBranch]) {
+            test(`IR-20 trusted bootstrap accepts the exact bounded transition: ${branch}`, (t) => {
+              const context = ir20BootstrapFixture(t, branch);
+              commit(context.root, 'bounded candidate');
+              const result = runIr20Bootstrap(context);
+              assert.equal(result.status, 0, result.stdout + result.stderr);
+              assert.match(result.stdout, /candidate code was not executed/);
+            });
+            for (const mutation of ['self-scope', 'global-scope', 'neighbor-scope', 'score', 'own-manifest', 'broad-current', 'delete', 'symlink']) {
+              test(`IR-20 trusted bootstrap rejects ${mutation}: ${branch}`, (t) => {
+                const context = ir20BootstrapFixture(t, branch);
+                const file = path.join(context.root, ir20StatePath);
+                const state = JSON.parse(fs.readFileSync(file, 'utf8'));
+                if (mutation === 'self-scope') state.approvedConcurrentScopes[ir20PrerequisiteBranch] = [...ir20GovernancePaths, 'unrelated.txt'];
+                if (mutation === 'global-scope') state.allowedCurrentScope.push('scripts/release/**');
+                if (mutation === 'neighbor-scope') state.approvedConcurrentScopes['unrelated/accepted'].push('extra.txt');
+                if (mutation === 'score') state.current = 'IR-21';
+                fs.writeFileSync(file, `${JSON.stringify(state, null, 2)}\n`);
+                if (mutation === 'own-manifest') write(context.root, 'docs/platform-v7/autopilot/scopes/ir20-self.json',
+                  JSON.stringify({ schemaVersion: 'platform-v7.concurrent-scope.v1', branch, status: 'active', allowedPaths: ['unrelated.txt'] }));
+                if (mutation === 'broad-current') write(context.root, 'apps/api/src/common/outbox/unrelated.txt', 'inert\n');
+                if (mutation === 'delete') fs.unlinkSync(file);
+                if (mutation === 'symlink') { fs.unlinkSync(file); fs.symlinkSync('nonexistent-inert-target', file); }
+                commit(context.root, 'hostile candidate');
+                const result = runIr20Bootstrap(context);
+                assert.notEqual(result.status, 0, result.stdout + result.stderr);
+              });
+            }
+          }
+
+          test('IR-20 trusted bootstrap rejects missing accepted prerequisite and implementation authority files', (t) => {
+            const missing = ir20BootstrapFixture(t);
+            const accepted = JSON.parse(git(missing.root, ['show', `${missing.baseline}:${ir20StatePath}`]));
+            delete accepted.approvedConcurrentScopes[ir20PrerequisiteBranch];
+            write(missing.root, ir20StatePath, JSON.stringify(accepted));
+            commit(missing.root, 'base without prerequisite admission');
+            missing.baseline = git(missing.root, ['rev-parse', 'HEAD']);
+            accepted.approvedConcurrentScopes[ir20PrerequisiteBranch] = ir20GovernancePaths;
+            accepted.approvedConcurrentScopes[ir20ImplementationBranch] = ir20ImplementationPaths;
+            write(missing.root, ir20StatePath, JSON.stringify(accepted));
+            commit(missing.root, 'self admission cannot substitute for base');
+            assert.notEqual(runIr20Bootstrap(missing).status, 0);
+            const authority = ir20BootstrapFixture(t);
+            const value = JSON.parse(fs.readFileSync(path.join(authority.root, ir20StatePath), 'utf8'));
+            value.approvedConcurrentScopes[ir20ImplementationBranch].push('docs/platform-v7/autopilot/scopes/ir20-api-database-binding-20260919.json');
+            write(authority.root, ir20StatePath, JSON.stringify(value));
+            commit(authority.root, 'forbidden sixth authority path');
+            assert.notEqual(runIr20Bootstrap(authority).status, 0);
+          });
+
+          test('IR-20 trusted bootstrap rejects forks, invalid refs, unknown branches and non-descendant heads', (t) => {
+            const context = ir20BootstrapFixture(t);
+            commit(context.root, 'bounded candidate');
+            for (const overrides of [{ HEAD_REPOSITORY: 'fork/project' }, { BASE_SHA: 'main' }, { HEAD_SHA: 'HEAD' },
+              { IR20_SCOPE_BRANCH: ir20ImplementationBranch }, { BASE_SHA: git(context.root, ['rev-parse', 'HEAD']), HEAD_SHA: context.baseline }]) {
+              assert.notEqual(runIr20Bootstrap(context, overrides).status, 0, JSON.stringify(overrides));
+            }
+          });
+
+          test('IR-20 trusted bootstrap never executes a candidate guard or resolver', (t) => {
+            const context = ir20BootstrapFixture(t);
+            write(context.root, 'scripts/p7-autopilot-guard.sh', '#!/usr/bin/env bash\ntouch CANDIDATE_EXECUTED\nexit 0\n');
+            const value = JSON.parse(fs.readFileSync(path.join(context.root, ir20StatePath), 'utf8'));
+            value.approvedConcurrentScopes[ir20PrerequisiteBranch].push('scripts/release/unrelated.txt');
+            write(context.root, ir20StatePath, JSON.stringify(value));
+            write(context.root, 'scripts/release/unrelated.txt', 'inert\n');
+            commit(context.root, 'hostile candidate with a replacement guard');
+            assert.notEqual(runIr20Bootstrap(context).status, 0);
+            assert.equal(fs.existsSync(path.join(context.root, 'CANDIDATE_EXECUTED')), false);
+          });
+
+          test('IR-20 trusted bootstrap workflow binds validation and required context to the same exact head', () => {
+            const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+            const job = workflow.split('  trusted-ir20-binding-bootstrap:\n')[1].split('  trusted-kind-minio-governance-bootstrap:\n')[0];
+            assert.match(job, /github\.event_name == 'pull_request_target'/);
+            for (const branch of [ir20AdmissionBranch, ir20PrerequisiteBranch]) {
+              assert.ok(job.includes(`github.event.pull_request.head.ref == '${branch}'`));
+              const prHeadName = workflow.split('  guard:\n')[1].split('\n    needs:')[0];
+              assert.ok(prHeadName.includes(`github.head_ref == '${branch}'`));
+            }
+            assert.match(job, /ref: \$\{\{ github\.event\.pull_request\.base\.sha \}\}/);
+            assert.match(job, /persist-credentials: false/);
+            assert.match(job, /contents: read\n      checks:\x20write/);
+            assert.match(job, /conclusion=failure/);
+            assert.match(job, /-f name='guard' -f head_sha="\$HEAD_SHA"/);
+            assert.match(job, /VALIDATION_RC: \$\{\{ steps\.trusted_validation\.outputs\.rc \}\}/);
+            assert.match(job, /\[\[ "\$VALIDATION_RC" == 0 && "\$CONTEXT_OUTCOME" == success \]\]/);
+            assert.doesNotMatch(job, /ref: \$\{\{ github\.event\.pull_request\.head\.sha/);
+          });
+          IR20_BOOTSTRAP_TESTS
       - name: Validate provider-independent manual readiness
         run: node --test docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs scripts/test-provider-independent-readiness-workflow.mjs
       - name: Validate Local Qwen failed-review evidence regression
