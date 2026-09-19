@@ -487,12 +487,39 @@ test(`${implementationBranch}: fails closed without immutable base authority`, (
   commit(context.root, 'attempt without authority');
   const result = runGuard({ ...context, baseline: unauthorizedBase });
   assert.notEqual(result.status, 0, output(result));
-  if (finalPublicBranches.includes(implementationBranch)) {
+  if (['agent/platform-v7-product-copy', 'ops/production-full-stack-release-v1'].includes(implementationBranch)) {
+    assert.match(output(result), /Files outside current autopilot scope/u);
+  } else if (finalPublicBranches.includes(implementationBranch)) {
     assert.match(output(result), /cannot load accepted Final Public manifest/u);
   } else {
     assert.match(output(result), /no immutable approved scope/u);
   }
 });
+}
+
+for (const [branch, allowed, rejected] of [
+  ['agent/platform-v7-product-copy', 'apps/web/tests/unit/platformV7HomepageProductCopy.test.ts', 'apps/web/tsconfig.json'],
+  ['ops/production-full-stack-release-v1', 'scripts/production-full-stack-live-acceptance.sh', 'scripts/production-full-stack-exact-sha.sh'],
+]) {
+  test(`${branch}: transitional fallback is exact and rejects broader legacy-manifest paths`, (t) => {
+    const context = fixture(t, branch);
+    const stateFile = path.join(context.root, 'docs/platform-v7/autopilot/autopilot-state.json');
+    const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+    delete state.approvedConcurrentScopes[branch];
+    fs.writeFileSync(stateFile, `${JSON.stringify(state, null, 2)}\n`);
+    commit(context.root, 'base without state admission');
+    const baseline = git(context.root, ['rev-parse', 'HEAD']);
+
+    write(context.root, allowed, 'accepted narrow fallback\n');
+    commit(context.root, 'change narrow fallback path');
+    assert.equal(runGuard({ ...context, baseline }).status, 0);
+
+    write(context.root, rejected, 'rejected legacy-manifest path\n');
+    commit(context.root, 'attempt broader legacy path');
+    const rejectedResult = runGuard({ ...context, baseline });
+    assert.notEqual(rejectedResult.status, 0, output(rejectedResult));
+    assert.match(output(rejectedResult), /Files outside current autopilot scope/u);
+  });
 }
 
 test('public-home governance branch accepts only the two manifest files', (t) => {
