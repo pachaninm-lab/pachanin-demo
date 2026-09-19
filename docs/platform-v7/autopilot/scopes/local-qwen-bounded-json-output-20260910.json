@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/local-qwen-bounded-json-output-20260910",
+  "status": "active",
+  "purpose": "Bounded provider self-maintenance authority after exact-head owner-access review run 34526405461 completed all 11 deterministic inference chunks at n_predict=1024 but strict canonical validation failed closed because chunk 1 ended with an unterminated JSON string. Repair generation grammar only so valid output is structurally bounded without relaxing semantic validation.",
+  "authorityBaseExactMain": "c2ee08e155f8f72deca6c0e44e0b08089ed62201",
+  "evidence": {
+    "substantivePullRequest": 5184,
+    "reviewRunId": 34526405461,
+    "reviewJobId": 103036274939,
+    "reviewedExactHead": "073813b43a3a72641609f5563f5a84062eca1421",
+    "chunkCount": 11,
+    "diffSha256": "ad7b1e4c5f27ca8c8c97a3e3ca0acba39faf69a8711863724ff7a2b64c7d06c5",
+    "manifestSha256": "436507096ee642f27eb887c5c66501ed7699ba86cc4decc6f1601b1b897c890d",
+    "inferenceStep": "SUCCESS",
+    "validatorStep": "FAIL_CLOSED",
+    "validatorError": "Invalid model JSON in chunk 1: Unterminated string starting at: line 9 column 11 (char 159)"
+  },
+  "allowedPaths": [
+    ".github/workflows/local-qwen-independent-review.yml"
+  ],
+  "requiredChange": {
+    "summary": "Constrain generated finding cardinality and generated path/title/reason/summary string lengths in hand-written GBNF so every accepted completion fits inside the already-approved 1024-token budget.",
+    "semanticPaths": [
+      "findings grammar",
+      "path/title/reason/summary grammar helpers"
+    ]
+  },
+  "requiredInvariants": [
+    "Request n_predict remains 1024 and llama-server --n-predict remains 1024.",
+    "Immutable model revision/hash, llama.cpp build/hash, review policy/hash, strict JSON schema, 8 KiB chunk bound, 96-chunk bound, complete-diff coverage, prompt-bundle hash, exact-head revalidation and fail-closed publication remain unchanged.",
+    "The generation grammar may only become stricter: at most three findings per chunk; path at most 256 characters; title at most 128 characters; reason at most 320 characters; summary restricted to a short fixed PASS/BLOCK token.",
+    "Existing post-generation validator remains authoritative and is not relaxed. Malformed output, stale-head reuse, manual semantic PASS and guard weakening remain forbidden.",
+    "No product, FNS, API, database, RBAC, registration, cabinet, customer-data or production runtime behavior changes are included.",
+    "No independent-provider PASS is claimed for this provider self-repair itself.",
+    "After repair merge, PR #5184 must synchronize forward-only to then-current main and obtain a new genuine Local Qwen exact-head PASS.",
+    "Production hosting remains REG.RU only and new recurring cost remains 0 RUB."
+  ],
+  "admission": [
+    "Authority PR changes exactly this manifest path.",
+    "Implementation repair PR changes exactly .github/workflows/local-qwen-independent-review.yml.",
+    "All applicable ordinary exact-head CI/security/runtime gates for each PR are terminal green before merge.",
+    "Unresolved review findings and CHANGES_REQUESTED are zero.",
+    "Owner exact-head self-audit may establish provider-maintenance scope evidence but does not substitute for independent semantic review.",
+    "Live main must not drift from each repair PR base before merge."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
