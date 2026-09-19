@@ -93,6 +93,21 @@ function HeroGrainIllustration({ label }: { label: string }) {
 }
 
 
+const FINAL_HERO_CRITICAL_CSS = `
+.pc-v7-public-entry.pc-final-page{background:#fff;color:#102019;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+.pc-v7-public-entry .pc-final-shell{width:min(100% - 40px,1200px);margin:0 auto}
+.pc-v7-public-entry .pc-final-hero{display:grid;grid-template-columns:minmax(0,55fr) minmax(0,45fr);gap:48px;align-items:center;padding:58px 0 30px}
+.pc-v7-public-entry .pc-final-eyebrow{display:block;color:#087a3b;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+.pc-v7-public-entry .pc-final-hero-copy{min-width:0}
+.pc-v7-public-entry .pc-final-hero-copy h1{margin:14px 0 0;max-width:12ch;font-size:clamp(48px,5.2vw,76px);font-weight:760;line-height:.98;letter-spacing:-.055em;text-wrap:balance}
+.pc-v7-public-entry .pc-final-hero-copy h1 span,.pc-v7-public-entry .pc-final-hero-copy h1 strong{display:block}
+.pc-v7-public-entry .pc-final-hero-copy h1 strong{color:#087a3b;font-weight:760}
+.pc-v7-public-entry .pc-final-hero-copy>p{max-width:720px;margin:22px 0 0;color:#53645a;font-size:18px;line-height:1.62}
+@media(max-width:1023px){.pc-v7-public-entry .pc-final-hero{grid-template-columns:1fr;gap:28px}}
+@media(max-width:767px){.pc-v7-public-entry .pc-final-shell{width:min(100% - 28px,1200px)}.pc-v7-public-entry .pc-final-hero{padding:20px 0 18px}.pc-v7-public-entry .pc-final-hero-copy h1{max-width:none;margin-top:10px;font-size:clamp(32px,10vw,42px);line-height:1.01}.pc-v7-public-entry .pc-final-hero-copy>p{margin-top:14px;font-size:14px;line-height:1.5}.pc-v7-public-entry .pc-final-hero-visual{min-height:120px;border-radius:20px}}
+@media(max-width:360px){.pc-v7-public-entry .pc-final-shell{width:min(100% - 22px,1200px)}.pc-v7-public-entry .pc-final-hero-copy h1{font-size:36px}.pc-v7-public-entry .pc-final-hero-visual{min-height:112px}}
+`;
+
 const COPY = {
   ru: {
     nav: { market: 'Рынок', how: 'Как работает', participants: 'Для участников', trust: 'Доверие', gekta: 'Гекта', login: 'Войти', register: 'Зарегистрироваться' },
@@ -430,6 +445,7 @@ export async function PlatformV7StrategicHome() {
 
   return (
     <div className='pc-v7-public-entry pc-final-page' data-testid='platform-v7-root-execution-cockpit'>
+      <style>{FINAL_HERO_CRITICAL_CSS}</style>
       <a className='pc-skip-link' href='#main-content'>{chrome('skipToContent')}</a>
       <PublicExperiencePageView locale={locale} name='home_v3_view' />
       <script type='application/ld+json' dangerouslySetInnerHTML={{ __html: structuredData }} />

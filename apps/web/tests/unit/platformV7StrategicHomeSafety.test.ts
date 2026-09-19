@@ -54,6 +54,10 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
     expect(home).toContain("aria-label={label}");
     expect(home).toContain("preserveAspectRatio='xMidYMid slice'");
     expect(home).toContain("<HeroGrainIllustration label={copy.hero.visualAlt} />");
+    expect(home).toContain("const FINAL_HERO_CRITICAL_CSS = "+String.fromCharCode(96));
+    expect(home).toContain("<style>{FINAL_HERO_CRITICAL_CSS}</style>");
+    expect(home).toContain(".pc-v7-public-entry .pc-final-hero-copy h1{margin:14px 0 0");
+    expect(home).toContain("@media(max-width:767px){.pc-v7-public-entry .pc-final-shell");
     expect(home).not.toContain("data:image/svg+xml;base64,");
     expect(home).not.toContain("<img className='pc-final-hero-image'");
     expect(home).not.toContain("<feGaussianBlur");
