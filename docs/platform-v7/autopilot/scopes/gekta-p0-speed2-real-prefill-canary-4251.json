@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/gekta-speed2-real-prefill-canary-4251",
+  "status": "active",
+  "issue": 4251,
+  "purpose": "Extend the single owner-only SPEED-2 controller with a no-mutation real /gekta prefill rejection canary that correlates browser TTFT with privacy-safe llama.cpp timing evidence.",
+  "approvedBy": "repository-owner SPEED-2 authority issue #4251 on 2026-08-16",
+  "authorityBaseExactMain": "435f787e59411a11b7e273c1168731fef31252a2",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/gekta-p0-speed2-controller.yml",
+    "scripts/gekta-speed2-real-canary.mjs",
+    "docs/platform-v7/autopilot/scopes/gekta-p0-speed2-real-prefill-canary-4251.json"
+  ],
+  "requiredBehavior": [
+    "reuse the existing SPEED-2 controller and add /gekta speed2 baseline current-main instead of creating a workflow per experiment",
+    "run the real /gekta -> reserveAnswer -> /api/agro-chat SSE path with bounded synthetic RU EN ZH follow-up and repeated-prefix cases",
+    "perform no production runtime application prompt model database or service mutation",
+    "capture only numerical llama.cpp prompt evaluation timings from a bounded journal cursor window and never publish raw journal content",
+    "reject and retry any timing window containing anything other than exactly one model completion",
+    "publish no prompt content answer content user data cookies auth credentials tokens raw environment raw argv or raw journal",
+    "preserve exact-current-main owner provenance pinned SSH host key and accepted SPEED #3896 runtime attestation",
+    "new recurring cost remains zero"
+  ],
+  "forbiddenCapabilities": [
+    "new experiment workflow arbitrary shell arbitrary remote input sudo root SSH systemctl restart stop start kill pkill docker mutation runtime config mutation",
+    "prompt response history user data cookies auth secrets tokens credentials raw journal raw argv or raw environment publication",
+    "threads threads-batch parallel ctx batch ubatch model quantization prompt safety StreamingAnswerGate timeout application database registration PC-CROP or Company OS mutation",
+    "second model process new server paid API SaaS or recurring cost"
+  ]
+}

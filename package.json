@@ -1,6 +1,7 @@
 {
   "name": "prozrachnaya-cena-runtime",
   "private": true,
+  "license": "UNLICENSED",
   "packageManager": "pnpm@10.2.1",
   "scripts": {
     "dev": "pnpm -r --parallel dev",
@@ -23,6 +24,8 @@
     "pilot:up": "bash ./scripts/pilot-up.sh",
     "audit:roles": "node ./scripts/audit-role-contract-consistency.mjs",
     "audit:flows": "node ./scripts/audit-critical-flows.mjs",
+    "audit:ip:packages": "node ./scripts/ip/verify-private-packages.mjs",
+    "audit:ip:clean-room": "node ./scripts/ip/build-ip-clean-room.mjs artifacts/ip-clean-room",
     "release:industrial": "node ./scripts/build-industrial-release.mjs",
     "db:seed:service-providers": "pnpm --filter @pc/api ts-node prisma/service-providers.seed.ts",
     "verify:shared": "tsc -p ./tsconfig.shared-verify.json --noEmit",
@@ -30,6 +33,7 @@
     "i18n:platform-v7": "node ./scripts/check-platform-v7-i18n.mjs",
     "i18n:messages": "node ./scripts/build-platform-v7-messages.mjs",
     "design:v8:guard": "node ./scripts/check-design-system-v8.mjs",
+    "verify:pc-crop:governance": "node ./scripts/verify-pc-crop-governance.mjs",
     "verify:repo:contour": "node ./scripts/run-repo-build-test-contour.mjs"
   },
   "workspaces": [
@@ -42,13 +46,20 @@
       "fast-uri": ">=3.1.1",
       "glob": ">=10.5.0",
       "lodash": ">=4.18.0",
-      "multer": ">=2.2.0",
+      "multer": "2.3.0",
       "picomatch": ">=4.0.4",
-      "ws": ">=8.21.0"
+      "ws": ">=8.21.0",
+      "brace-expansion@<2.1.2": "2.1.2",
+      "brace-expansion@>=5.0.0 <5.0.9": "5.0.9",
+      "archiver@5.3.2>readdir-glob": "3.0.0",
+      "engine.io@<6.6.7": "6.6.7",
+      "socket.io-parser@>=4.0.0 <4.2.7": "4.2.7",
+      "sharp": "0.35.4",
+      "postcss": "8.5.18",
+      "nanoid@<3.3.18": "3.3.18"
     }
   },
   "devDependencies": {
-    "@netlify/plugin-nextjs": "5.15.12",
     "@vitest/browser": "^4.1.9",
     "@vitest/coverage-v8": "^4.1.9",
     "jsdom": "^29.0.1",

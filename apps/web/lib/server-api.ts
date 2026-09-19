@@ -1,9 +1,14 @@
 import { cookies } from 'next/headers';
 import { ACCESS_COOKIE } from './auth-cookies';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+const API_URL = String(
+  process.env.API_URL
+  || process.env.NEXT_PUBLIC_API_URL
+  || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:4000/api'),
+).replace(/\/$/, '');
 
 export function serverApiUrl(path: string) {
+  if (!API_URL) throw new Error('Server API URL is not configured');
   return `${API_URL}${path}`;
 }
 

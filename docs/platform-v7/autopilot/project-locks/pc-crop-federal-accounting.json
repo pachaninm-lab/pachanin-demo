@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.active-project-lock.v2",
+  "id": "PC-CROP-FEDERAL-ACCOUNTING",
+  "status": "active",
+  "programme": "PC-CROP Federal Accounting / 1С / ЭДО / MASTER SECURITY v3.0",
+  "authorityNote": "A separate authority for a new programme. PC-CROP-REMAINDER stays completed with its completion evidence untouched; nothing here reopens it, and a scope bound to that lock is still refused by it.",
+  "governanceBranch": "governance/pc-crop-project-lock-3389",
+  "governanceIssue": 3389,
+  "activeIssue": 4321,
+  "activeSlice": null,
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "branchAuthority": "SOURCE_CONTROLLED_SCOPE",
+  "branchAuthorityNote": "Authority comes from the source-controlled scope and its projectLockId, never from the branch name. Renaming a branch changes nothing: the scope still names this lock, and the paths below still belong to it.",
+  "ownedPathPrefixes": [
+    "apps/api/src/modules/accounting/",
+    "apps/web/app/platform-v7/accounting/",
+    "apps/web/app/platform-v7/deals/[id]/accounting/",
+    "apps/web/app/api/platform-v7/accounting/",
+    ".github/workflows/pc-crop-accounting-acceptance.yml",
+    "docs/ops/pc-crop-federal-accounting/"
+  ],
+  "ownedPathNote": "Any scope listing one of these paths must bind to this lock. That is what stops the work from leaving the lock under a different branch name or a different scope file.",
+  "rules": {
+    "exactIssueRequired": true,
+    "sourceControlledScopeRequired": true,
+    "projectLockBindingRequired": true,
+    "unsafeWildcardScopeForbidden": true,
+    "noAutoMerge": true,
+    "noDirectPushToMain": true,
+    "noSelfModifyingWorkflow": true,
+    "mergeIsNotProductionAcceptance": true
+  },
+  "ownerAuthorizedExceptions": []
+}

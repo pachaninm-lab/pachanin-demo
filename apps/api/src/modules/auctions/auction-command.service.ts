@@ -11,6 +11,14 @@ import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { RlsTransactionService } from '../../common/prisma/rls-transaction.service';
 import type { RequestUser } from '../../common/types/request-user';
+import {
+  FGIS_LEGACY_ERROR_CODES,
+  recordLegacyFgisDenial,
+} from '../regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine';
+import { FgisLegacyQuarantineAuditService } from '../regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.audit';
+import { validateAuctionInventoryRegistration, type RegisterAuctionLotInput } from './auction-inventory.contract';
+
+export type { RegisterAuctionLotInput } from './auction-inventory.contract';
 
 const SAFE_ID = /^[A-Za-z0-9:_.-]{1,240}$/;
 const DECIMAL_6 = /^(?:0|[1-9]\d{0,19})(?:\.\d{1,6})?$/;
@@ -18,25 +26,6 @@ const MAX_TEXT = 500;
 
 type JsonRecord = Record<string, unknown>;
 type CommandRow = Readonly<{ result: Prisma.JsonValue }>;
-
-export type RegisterAuctionLotInput = Readonly<{
-  title: string;
-  culture: string;
-  grade?: string | null;
-  volumeTons: string;
-  startPriceKopecksPerTon: string;
-  stepPriceKopecksPerTon: string;
-  region: string;
-  address?: string | null;
-  auctionEndsAt: string;
-  sourceType: 'FGIS' | 'ERP' | 'MANUAL_VERIFIED' | 'OTHER';
-  sourceExternalId: string;
-  sourceCertificateId?: string | null;
-  autoExtendEnabled?: boolean;
-  autoExtendWindowMinutes?: number;
-  autoExtendMinutes?: number;
-  idempotencyKey: string;
-}>;
 
 export type RecordAuctionAdmissionInput = Readonly<{
   buyerOrgId: string;
@@ -62,9 +51,13 @@ export type CloseAuctionLotInput = Readonly<{
 
 @Injectable()
 export class AuctionCommandService {
-  constructor(private readonly rls: RlsTransactionService) {}
+  constructor(
+    private readonly rls: RlsTransactionService,
+    private readonly quarantineAudit: FgisLegacyQuarantineAuditService,
+  ) {}
 
   async registerLot(input: RegisterAuctionLotInput, user: RequestUser) {
+    validateAuctionInventoryRegistration(input);
     const commandId = `auction-command:${randomUUID()}`;
     const idempotencyKey = safeId(input.idempotencyKey, 'idempotencyKey');
     const title = requiredText(input.title, 'title');
@@ -76,35 +69,34 @@ export class AuctionCommandService {
     const region = requiredText(input.region, 'region');
     const address = optionalText(input.address, 'address');
     const auctionEndsAt = isoDate(input.auctionEndsAt, 'auctionEndsAt');
-    const sourceType = sourceTypeValue(input.sourceType);
+    const sourceType = await this.assertPublishableSourceType(input.sourceType, user);
     const sourceExternalId = safeId(input.sourceExternalId, 'sourceExternalId');
     const sourceCertificateId = optionalSafeId(input.sourceCertificateId, 'sourceCertificateId');
     const autoExtendEnabled = input.autoExtendEnabled ?? true;
     const autoExtendWindowMinutes = boundedInteger(input.autoExtendWindowMinutes, 0, 120, 10, 'autoExtendWindowMinutes');
     const autoExtendMinutes = boundedInteger(input.autoExtendMinutes, 0, 120, 10, 'autoExtendMinutes');
+    const command = {
+      title, culture, grade, volumeTons: volumeTons.toFixed(),
+      startPriceKopecksPerTon: startPrice.toString(), stepPriceKopecksPerTon: stepPrice.toString(),
+      region, address, auctionEndsAt: auctionEndsAt.toISOString(), sourceType,
+      sourceExternalId, sourceCertificateId, autoExtendEnabled, autoExtendWindowMinutes, autoExtendMinutes,
+      commandId, idempotencyKey,
+      inventoryPositionId: safeId(input.inventoryPositionId, 'inventoryPositionId'),
+      inventoryExpectedVersion: positiveBigInt(input.inventoryExpectedVersion, 'inventoryExpectedVersion').toString(),
+      profileVersionId: safeId(input.profileVersionId, 'profileVersionId'),
+      unitCode: safeId(input.unitCode, 'unitCode'),
+      quantity: positiveDecimal(input.quantity, 'quantity').toFixed(),
+      correlationId: safeId(input.correlationId, 'correlationId'),
+      reason: requiredText(input.reason, 'reason'),
+    };
 
     return this.execute(user, async (tx) => {
       const rows = await tx.$queryRaw<CommandRow[]>(Prisma.sql`
-        SELECT auction.register_verified_lot(
-          ${title},
-          ${culture},
-          ${grade},
-          ${volumeTons},
-          ${startPrice},
-          ${stepPrice},
-          ${region},
-          ${address},
-          ${auctionEndsAt},
-          ${sourceType},
-          ${sourceExternalId},
-          ${sourceCertificateId},
-          ${autoExtendEnabled},
-          ${autoExtendWindowMinutes}::integer,
-          ${autoExtendMinutes}::integer,
-          ${commandId},
-          ${idempotencyKey}
-        ) AS result
+        SELECT auction.register_inventory_lot(${JSON.stringify(command)}::jsonb) AS result
       `);
+      // The lot, inventory reservation and both evidence chains must satisfy
+      // deferred constraints before an accepted receipt leaves this transaction.
+      await tx.$executeRaw(Prisma.sql`SET CONSTRAINTS ALL IMMEDIATE`);
       return commandResult(rows, commandId);
     });
   }
@@ -215,6 +207,36 @@ export class AuctionCommandService {
     });
   }
 
+  /**
+   * Client source labels cannot establish regulatory verification. Inventory
+   * registration creates a declared stock binding; a confirmed FGIS party
+   * snapshot and regulatory passport remain separate evidence requirements.
+   * Keep the legacy FGIS attempt in the durable audit before refusing it.
+   *
+   * `auction.fgis_verified_lot_guard` repeats the refusal at the row level for
+   * any caller that bypasses this service.
+   */
+  private async assertPublishableSourceType(
+    value: unknown,
+    user: RequestUser,
+  ): Promise<RegisterAuctionLotInput['sourceType']> {
+    const sourceType = sourceTypeValue(value);
+    if (sourceType !== 'FGIS') return sourceType;
+
+    const denial = await recordLegacyFgisDenial({
+      code: FGIS_LEGACY_ERROR_CODES.VERIFIED_LOT_PATH_NOT_READY,
+      message:
+        'Публикация лота, подтверждённого ФГИС «Зерно», пока недоступна: ' +
+        'подтверждение источника выполняет сервер по данным партии, а не клиент.',
+      nextStep:
+        'Создайте лот из подтверждённой партии ФГИС «Зерно» после подключения организации.',
+      route: 'POST /auctions/lots (sourceType=FGIS)',
+      actor: user,
+      audit: this.quarantineAudit,
+    });
+    throw new UnprocessableEntityException({ ...denial, field: 'sourceType' });
+  }
+
   private async execute<T>(
     user: RequestUser,
     work: Parameters<RlsTransactionService['withTrustedContext']>[1],
@@ -245,7 +267,8 @@ function commandResult(rows: CommandRow[], commandId: string): JsonRecord {
   }
   return {
     ...(result as JsonRecord),
-    commandId,
+    commandId: typeof (result as JsonRecord).commandId === 'string'
+      ? (result as JsonRecord).commandId : commandId,
   };
 }
 
@@ -349,6 +372,16 @@ function mapAuctionError(error: unknown): Error {
   ) return error;
 
   const material = errorMaterial(error);
+  const meta = error && typeof error === 'object'
+    ? (error as { meta?: { code?: string; message?: string } }).meta : undefined;
+  const inventoryCode = material.match(/\bINVENTORY_[A-Z_]+\b/u)?.[0];
+  if (inventoryCode) {
+    if (meta?.code === '42501') return new ForbiddenException({ code: inventoryCode });
+    if (meta?.code === 'P0002') return new NotFoundException({ code: inventoryCode });
+    if (meta?.code === '40001' || meta?.code === '23505') return new ConflictException({ code: inventoryCode, refreshRequired: true });
+    if (meta?.code === '22023' || meta?.code === '23514') return new UnprocessableEntityException({ code: inventoryCode });
+    return new InternalServerErrorException({ code: 'AUCTION_COMMAND_FAILED' });
+  }
   const code = AUCTION_CODES.find((candidate) => material.includes(candidate));
   if (!code) {
     return new InternalServerErrorException({ code: 'AUCTION_COMMAND_FAILED' });
@@ -357,7 +390,8 @@ function mapAuctionError(error: unknown): Error {
     return new NotFoundException({ code });
   }
   if (
-    code.includes('ROLE_DENIED')
+    meta?.code === '42501'
+    || code.includes('ROLE_DENIED')
     || code.includes('SCOPE_DENIED')
     || code.includes('ADMISSION_REQUIRED')
     || code.includes('ACTIVE_MEMBERSHIP_REQUIRED')
@@ -391,6 +425,10 @@ function errorMaterial(error: unknown): string {
 }
 
 const AUCTION_CODES = [
+  // Raised by `auction.fgis_verified_lot_guard` when a caller reaches the table
+  // without going through `sourceTypeValue` above. Listed first so it is matched
+  // before any substring-overlapping auction code.
+  FGIS_LEGACY_ERROR_CODES.VERIFIED_LOT_PATH_NOT_READY,
   'AUCTION_TRUSTED_CONTEXT_REQUIRED',
   'AUCTION_ROLE_DENIED',
   'AUCTION_ACTIVE_MEMBERSHIP_REQUIRED',
@@ -421,4 +459,12 @@ const AUCTION_CODES = [
   'AUCTION_LOT_TERMS_INVALID',
   'AUCTION_VERIFIED_SOURCE_REQUIRED',
   'AUCTION_EXTENSION_POLICY_INVALID',
+  'AUCTION_INVENTORY_BINDING_REQUIRED',
+  'AUCTION_INVENTORY_BINDING_IMMUTABLE',
+  'AUCTION_PROFILE_MISMATCH',
+  'AUCTION_QUANTITY_MISMATCH',
+  'AUCTION_BOUND_RESERVATION_REUSE_DENIED',
+  'AUCTION_BOUND_RESERVATION_RELEASE_DENIED',
+  'AUCTION_UNKNOWN_FIELD',
+  'AUCTION_INPUT_INVALID',
 ] as const;

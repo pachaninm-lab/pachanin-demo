@@ -1,0 +1,35 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "program_issue": 2726,
+  "issue": 2726,
+  "branch": "claude/tai-register-read-tools",
+  "exact_base": "9bca619f10f23284f8faceac1ec9dd7819215808",
+  "allowed_paths": [
+    "apps/tai/governance/scopes/ap-18-register-read-tools.json",
+    "apps/tai/tai/policy.py",
+    "apps/tai/tai/read_tool_contracts.py",
+    "apps/tai/tai/tool_planner.py",
+    "apps/tai/tests/test_production_entrypoint.py",
+    "apps/tai/tests/test_production_platform_tools.py",
+    "apps/tai/tests/test_read_tool_contracts.py",
+    "apps/tai/tests/test_tool_planner.py",
+    "docs/platform-v7/autopilot/autopilot-state.json"
+  ],
+  "acceptance": [
+    "the seven newly served read tools are registered with the same optional identifiers the platform accepts",
+    "no registered tool declares a server-derived tenant, role, organization or identity argument",
+    "every registered tool still requires a deal and refuses undeclared arguments",
+    "the TAI registry never exceeds the server registry parsed from tai-tool-assertion.ts",
+    "every adapter-registered tool also has a deterministic planner intent and a policy definition",
+    "the configured production entrypoint composes instead of returning TAI_PRODUCTION_COMPOSITION_FAILED",
+    "a question naming two subjects is rejected as ambiguous rather than guessed at",
+    "getIntegrationStatus stays unregistered until the platform can answer it"
+  ],
+  "forbidden_capabilities": [
+    "write-tool or confirmed-action activation",
+    "model bundle, benchmark, admission authority or runtime-host changes",
+    "Gateway, UI, routing, feature-flag or deployment changes",
+    "server-side tool implementation changes",
+    "planner catalogue version changes, which are pinned by the 0014 migration CHECK constraint"
+  ]
+}

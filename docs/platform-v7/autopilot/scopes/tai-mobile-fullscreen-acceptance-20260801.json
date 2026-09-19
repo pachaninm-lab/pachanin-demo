@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-mobile-fullscreen-acceptance-20260801",
+  "status": "active",
+  "purpose": "Repair the exact-main restricted Qwen Chromium acceptance after the live 390x844 public assistant correctly exposed one hidden native fullscreen control while the test incorrectly counted only visible accessibility controls.",
+  "approvedBy": "owner-continue-tai-agro-os-production-2026-08-01",
+  "authorityBaseExactMain": "c7aa878818749d6fecf2c2b7bbd031cfb94095b1",
+  "failureRun": 30676683335,
+  "allowedPaths": [
+    "scripts/tai-live-public-ai-acceptance.mjs",
+    "apps/web/tests/unit/taiLivePublicAiAcceptanceContract.test.ts",
+    "docs/platform-v7/autopilot/scopes/tai-mobile-fullscreen-acceptance-20260801.json"
+  ],
+  "requiredBehavior": [
+    "the live manifest must equal exact current main",
+    "the public assistant must retain exactly one native fullscreen DOM control",
+    "the 390x844 mobile viewport authority must be active and the native fullscreen control must be hidden because the panel already owns the full visual viewport",
+    "approved RU title and subtitle remain exact",
+    "real public SSE inference must complete before PASS",
+    "failure evidence and a screenshot must be retained even when an assertion fails",
+    "production activation rollback remains fail closed"
+  ],
+  "forbiddenCapabilities": [
+    "removing the fullscreen control from the DOM",
+    "allowing duplicate fullscreen controls",
+    "weakening exact-main manifest or live inference checks",
+    "changing API model database RBAC tenant money or production topology",
+    "Netlify Vercel Railway or new paid infrastructure"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

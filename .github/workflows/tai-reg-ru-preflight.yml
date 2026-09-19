@@ -1,0 +1,328 @@
+name: TAI REG.RU Preflight
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/tai-reg-ru-preflight.yml"
+      - ".github/workflows/tai-reg-ru-deploy.yml"
+      - ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml"
+      - "scripts/pc-tai-release-controller.sh"
+      - "scripts/install-pc-prod-actions-runner.sh"
+      - "scripts/resume-pc-prod-actions-runner.sh"
+      - "scripts/check-resume-pc-prod-actions-runner.mjs"
+      - "scripts/check-pc-tai-release-controller.mjs"
+      - "scripts/check-pc-release-authority-boundary.mjs"
+      - "scripts/install-pc-prod-actions-runner.sh"
+      - "scripts/resume-pc-prod-actions-runner.sh"
+      - "scripts/check-tai-reg-ru-preflight.mjs"
+      - "scripts/check-tai-reg-ru-release-chain.mjs"
+      - "scripts/verify-tai-upstream-workflow-jobs.mjs"
+      - "apps/tai/TAI_REG_RU_PREFLIGHT.md"
+      - "docs/platform-v7/autopilot/scopes/tai-reg-ru-least-privilege-controller-20260731.json"
+      - "docs/platform-v7/autopilot/scopes/tai-runner-resume-authority-20260731.json"
+      - "docs/platform-v7/autopilot/scopes/tai-reg-ru-release-chain-gate-20260801.json"
+  workflow_run:
+    workflows: ["Build & Publish Canonical Docker Images"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      target_sha:
+        description: Exact current main SHA
+        required: true
+        type: string
+      confirmation:
+        description: Enter PREFLIGHT-TAI-REG-RU
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-reg-ru-preflight-${{ github.event.workflow_run.head_sha || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  upstream_build_gate:
+    name: Require successful canonical image build
+    if: always()
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Reject incomplete or non-main upstream runs
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CURRENT_REF: ${{ github.ref }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+          UPSTREAM_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          UPSTREAM_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          UPSTREAM_EVENT: ${{ github.event.workflow_run.event }}
+          UPSTREAM_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+        run: |
+          set -Eeuo pipefail
+          if [[ "$EVENT_NAME" == pull_request ]]; then exit 0; fi
+          if [[ "$EVENT_NAME" == workflow_run ]]; then
+            [[ "$UPSTREAM_REPOSITORY" == "$GITHUB_REPOSITORY" ]]
+            [[ "$UPSTREAM_CONCLUSION" == success ]]
+            [[ "$UPSTREAM_BRANCH" == main ]]
+            [[ "$UPSTREAM_EVENT" == push ]]
+            exit 0
+          fi
+          [[ "$EVENT_NAME" == workflow_dispatch ]]
+          [[ "$CURRENT_REF" == refs/heads/main ]]
+          [[ "$ACTOR" == "$OWNER" ]]
+          [[ "$TRIGGERING_ACTOR" == "$OWNER" ]]
+          [[ "$CONFIRMATION" == PREFLIGHT-TAI-REG-RU ]]
+
+  contract:
+    name: Least-privilege preflight contract
+    needs: upstream_build_gate
+    if: needs.upstream_build_gate.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate controller and preflight authority
+        run: |
+          bash -n scripts/pc-tai-release-controller.sh
+          bash -n scripts/install-pc-prod-actions-runner.sh
+          bash -n scripts/resume-pc-prod-actions-runner.sh
+          node scripts/check-resume-pc-prod-actions-runner.mjs
+          node scripts/check-pc-tai-release-controller.mjs
+          node scripts/check-pc-release-authority-boundary.mjs
+          node scripts/check-tai-reg-ru-preflight.mjs
+          node scripts/check-tai-reg-ru-release-chain.mjs
+
+  image_authority:
+    name: Exact-main canonical TAI image authority
+    needs: contract
+    if: >-
+      (
+        github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.event == 'push'
+      ) ||
+      (
+        github.event_name == 'workflow_dispatch' &&
+        github.ref == 'refs/heads/main' &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        inputs.confirmation == 'PREFLIGHT-TAI-REG-RU'
+      )
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
+      statuses: write
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+      target_short: ${{ steps.target.outputs.short }}
+      reference: ${{ steps.image.outputs.reference }}
+      digest: ${{ steps.image.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Resolve exact current main
+        id: target
+        env:
+          TARGET_SHA: ${{ github.event.workflow_run.head_sha || inputs.target_sha }}
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$TARGET_SHA" == "$(git rev-parse origin/main)" ]]
+          echo "sha=$TARGET_SHA" >> "$GITHUB_OUTPUT"
+          echo "short=${TARGET_SHA:0:7}" >> "$GITHUB_OUTPUT"
+      - name: Verify canonical exact-SHA TAI image outside production
+        id: image
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          SHORT_SHA: ${{ steps.target.outputs.short }}
+        run: |
+          set -Eeuo pipefail
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          image="ghcr.io/pachaninm-lab/grainflow-tai:sha-${SHORT_SHA}"
+          ready=0
+          for attempt in $(seq 1 90); do
+            if docker pull "$image" >/dev/null 2>&1; then
+              revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")"
+              user="$(docker image inspect --format '{{.Config.User}}' "$image")"
+              digest="$(docker image inspect --format '{{ index .RepoDigests 0 }}' "$image")"
+              if [[ "$revision" == "$TARGET_SHA" && "$user" == '65532:65532' && "$digest" =~ @sha256:[0-9a-f]{64}$ ]]; then ready=1; break; fi
+            fi
+            sleep 10
+          done
+          (( ready == 1 )) || { echo 'Exact TAI image is unavailable or invalid.' >&2; exit 2; }
+          echo "reference=$image" >> "$GITHUB_OUTPUT"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - name: Publish local-runner pending status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          gh api --method POST -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
+            -f state='pending' -f context='TAI REG.RU Preflight' -f description='Awaiting least-privilege REG.RU controller' \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+      - name: Remove hosted registry session
+        if: always()
+        run: docker logout ghcr.io >/dev/null 2>&1 || true
+
+  live_preflight:
+    name: Exact-main REG.RU controller inventory
+    needs: image_authority
+    if: needs.image_authority.result == 'success'
+    runs-on: [self-hosted, linux, x64, pc-prod, tai-readonly]
+    permissions:
+      contents: read
+      packages: none
+      statuses: none
+    timeout-minutes: 35
+    outputs:
+      evidence_json: ${{ steps.evidence.outputs.json }}
+    env:
+      TARGET_SHA: ${{ needs.image_authority.outputs.target_sha }}
+      TARGET_SHORT: ${{ needs.image_authority.outputs.target_short }}
+      TAI_IMAGE: ${{ needs.image_authority.outputs.reference }}
+      TAI_DIGEST: ${{ needs.image_authority.outputs.digest }}
+    steps:
+      - name: Verify non-root runner and restricted controller authority
+        run: |
+          set -Eeuo pipefail
+          [[ "${RUNNER_NAME:-}" == pc-prod-* ]]
+          [[ "$(id -u)" -ne 0 ]]
+          ! id -nG | tr ' ' '\n' | grep -Fxq docker
+          if docker version >/dev/null 2>&1; then exit 21; fi
+          [[ ! -r /etc/pc-release-authority/actions-runner.json ]]
+          [[ "$(stat -c '%U:%G:%a' /usr/local/sbin/pc-tai-release-controller)" == root:pcactions:750 ]]
+          sudo -n -l | grep -Fq '/usr/local/sbin/pc-tai-release-controller'
+      - name: Execute protected read-only preflight
+        run: |
+          set -Eeuo pipefail
+          sudo -n /usr/local/sbin/pc-tai-release-controller preflight "$TARGET_SHA" "$GITHUB_RUN_ID" "$TAI_IMAGE" "$TAI_DIGEST"
+      - name: Upload redacted preflight evidence
+        id: evidence
+        if: always()
+        run: |
+          set -Eeuo pipefail
+          report="/var/lib/pc-release-authority/runner-output/${GITHUB_RUN_ID}/preflight.json"
+          [[ -s "$report" ]]
+          python3 - "$report" "$GITHUB_OUTPUT" <<'PY'
+          import json
+          import sys
+
+          report_path, output_path = sys.argv[1:]
+          raw = open(report_path, 'rb').read()
+          if not raw or len(raw) > 65536:
+              raise SystemExit('redacted preflight evidence size is outside the 1..65536 byte boundary')
+          payload = json.loads(raw.decode('utf-8'))
+          if not isinstance(payload, dict) or payload.get('schemaVersion') != 'tai.reg-ru.preflight.v1':
+              raise SystemExit('redacted preflight evidence schema is invalid')
+          canonical = json.dumps(payload, ensure_ascii=True, separators=(',', ':'))
+          if '\n' in canonical or '\r' in canonical or len(canonical.encode('utf-8')) > 65536:
+              raise SystemExit('canonical redacted preflight evidence is invalid')
+          with open(output_path, 'a', encoding='utf-8') as output:
+              output.write(f'json={canonical}\n')
+          PY
+      - name: Enforce manual preflight result
+        if: always() && github.event_name == 'workflow_dispatch'
+        run: |
+          python3 - "/var/lib/pc-release-authority/runner-output/${GITHUB_RUN_ID}/preflight.json" <<'PY'
+          import json,sys
+          r=json.load(open(sys.argv[1],encoding='utf-8'))
+          if r.get('passed') is not True or r.get('blockers'): raise SystemExit(f'blocked: {r.get("blockers")}')
+          PY
+
+  publish_status:
+    name: Publish REG.RU preflight status
+    if: always() && needs.image_authority.outputs.target_sha != ''
+    needs: [image_authority, live_preflight]
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+      statuses: write
+    steps:
+      - name: Materialize bounded redacted preflight evidence
+        if: needs.live_preflight.result == 'success'
+        env:
+          PREFLIGHT_EVIDENCE_JSON: ${{ needs.live_preflight.outputs.evidence_json }}
+        run: |
+          set -Eeuo pipefail
+          [[ -n "$PREFLIGHT_EVIDENCE_JSON" ]]
+          install -d -m 0700 "$RUNNER_TEMP/preflight"
+          python3 - "$PREFLIGHT_EVIDENCE_JSON" "$RUNNER_TEMP/preflight/preflight.json" <<'PY'
+          import json
+          import os
+          import sys
+
+          raw, report_path = sys.argv[1:]
+          if not raw or len(raw.encode('utf-8')) > 65536 or '\n' in raw or '\r' in raw:
+              raise SystemExit('transferred redacted preflight evidence is outside the boundary')
+          payload = json.loads(raw)
+          if not isinstance(payload, dict) or payload.get('schemaVersion') != 'tai.reg-ru.preflight.v1':
+              raise SystemExit('transferred redacted preflight evidence schema is invalid')
+          canonical = json.dumps(payload, ensure_ascii=True, separators=(',', ':'))
+          if canonical != raw:
+              raise SystemExit('transferred redacted preflight evidence is not canonical')
+          with open(report_path, 'w', encoding='utf-8') as report:
+              report.write(canonical)
+              report.write('\n')
+              report.flush()
+              os.fsync(report.fileno())
+          PY
+      - name: Publish exact-main preflight commit status
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ needs.image_authority.outputs.target_sha }}
+          LIVE_RESULT: ${{ needs.live_preflight.result }}
+        run: |
+          set -Eeuo pipefail
+          report="$RUNNER_TEMP/preflight/preflight.json"
+          state=error; description='REG.RU controller execution failed before evidence'
+          if [[ "$LIVE_RESULT" == success && -s "$report" ]]; then
+            read -r state description < <(python3 - "$report" <<'PY'
+          import json,sys
+          r=json.load(open(sys.argv[1],encoding='utf-8')); b=r.get('blockers') or []
+          print('success TAI REG.RU preflight PASS' if r.get('passed') is True and not b else f'failure BLOCKED: {len(b)} prerequisite(s)')
+          PY
+            )
+          fi
+          gh api --method POST -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
+            -f state="$state" -f context='TAI REG.RU Preflight' -f description="$description" \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+  result_gate:
+    name: Confirm REG.RU preflight chain result
+    needs: [upstream_build_gate, contract, image_authority, live_preflight, publish_status]
+    if: always() && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Reject failed or skipped preflight jobs
+        env:
+          UPSTREAM_RESULT: ${{ needs.upstream_build_gate.result }}
+          CONTRACT_RESULT: ${{ needs.contract.result }}
+          IMAGE_RESULT: ${{ needs.image_authority.result }}
+          PREFLIGHT_RESULT: ${{ needs.live_preflight.result }}
+          PUBLISH_RESULT: ${{ needs.publish_status.result }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$UPSTREAM_RESULT" == success ]]
+          [[ "$CONTRACT_RESULT" == success ]]
+          [[ "$IMAGE_RESULT" == success ]]
+          [[ "$PREFLIGHT_RESULT" == success ]]
+          [[ "$PUBLISH_RESULT" == success ]]

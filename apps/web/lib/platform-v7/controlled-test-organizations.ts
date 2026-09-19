@@ -8,6 +8,7 @@ export type ControlledCabinetRole =
   | 'elevator'
   | 'lab'
   | 'bank'
+  | 'organization'
   | 'arbitrator'
   | 'compliance'
   | 'executive';
@@ -215,6 +216,15 @@ export const CONTROLLED_CABINET_CONTEXTS: Readonly<Record<ControlledCabinetRole,
     tenantId: CONTROLLED_TEST_TENANT_ID,
     memberEmail: 'bank.test@procent-agro.test',
     memberName: 'Тестовый банковский сотрудник',
+  },
+  organization: {
+    role: 'organization',
+    apiRole: 'GUEST',
+    organizationId: 'org-canonical-seller',
+    organizationName: 'ООО «Золотое Поле Тест»',
+    tenantId: CONTROLLED_TEST_TENANT_ID,
+    memberEmail: 'employee.test@procent-agro.test',
+    memberName: 'Тестовый сотрудник организации',
   },
   arbitrator: {
     role: 'arbitrator',

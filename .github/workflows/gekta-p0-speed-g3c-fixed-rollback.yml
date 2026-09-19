@@ -1,0 +1,196 @@
+name: Gekta P0 SPEED G3C Fixed Rollback
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/gekta-p0-speed-g3c-fixed-rollback.yml'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/gekta-p0-speed-g3c-fixed-rollback.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gekta-p0-speed-g3c-candidate
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Prove fixed least-privilege rollback contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = '.github/workflows/gekta-p0-speed-g3c-fixed-rollback.yml';
+          const text = fs.readFileSync(path, 'utf8');
+          const exact = ['sudo -n /usr/local/sbin/gekta-qwen-g3c', 'rollback'].join(' ');
+          const required = [
+            "github.event_name == 'push'",
+            'github.actor == github.repository_owner',
+            'github.triggering_actor == github.repository_owner',
+            'StrictHostKeyChecking=yes',
+            ['secrets', 'TAI_MODEL_SSH_KEY'].join('.'),
+            ['secrets', 'TAI_MODEL_SSH_HOST_KEY'].join('.'),
+            exact,
+            'sha256sum /usr/local/sbin/gekta-qwen-g3c',
+            'sha256sum /usr/local/libexec/gekta-qwen-g3c-base.py',
+          ];
+          for (const token of required) if (!text.includes(token)) throw new Error(`missing fixed rollback control: ${token}`);
+          const forbidden = [
+            ['PC_PROD', 'SSH_KEY'].join('_'),
+            ['PC_PROD', 'SSH_PRIVATE_KEY'].join('_'),
+            ['VPS', 'SSH_KEY'].join('_'),
+            ['TAI_MODEL_ROOT', 'SSH_KEY'].join('_'),
+            ['sudo', '-s'].join(' '),
+            ['sudo', 'bash'].join(' '),
+            ['sudo', 'sh'].join(' '),
+            ['NOPASSWD:', 'ALL'].join(' '),
+            ['SET', 'ENV:'].join(''),
+            ['$','ACTION'].join(''),
+            ['ubatch512', 'current-main'].join(' '),
+          ];
+          for (const token of forbidden) if (text.includes(token)) throw new Error(`forbidden rollback authority: ${token}`);
+          if (text.split(exact).length !== 2) throw new Error('fixed rollback execution must appear exactly once');
+          NODE
+
+  rollback:
+    if: >-
+      github.event_name == 'push' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    env:
+      MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
+      MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
+      MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
+      MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
+      MODEL_HOST_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_HOST_KEY }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve exact current main and controller digests
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          sha="$(git rev-parse origin/main)"
+          [[ "$sha" == "$(git rev-parse HEAD)" && "$sha" =~ ^[0-9a-f]{40}$ ]]
+          helper_sha="$(sha256sum scripts/gekta-qwen-g3c-runtime-v2.py | awk '{print $1}')"
+          base_sha="$(sha256sum scripts/gekta-qwen-g3c-runtime.py | awk '{print $1}')"
+          [[ "$helper_sha" =~ ^[0-9a-f]{64}$ && "$base_sha" =~ ^[0-9a-f]{64}$ ]]
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "helper_sha=$helper_sha" >> "$GITHUB_OUTPUT"
+          echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve pinned model-host transport
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          write_key(){
+            local raw="$1" target="$2" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null || true
+            for candidate in "$a" "$b" "$c"; do
+              if [[ -s "$candidate" ]] && ssh-keygen -y -P '' -f "$candidate" >/dev/null 2>&1; then
+                install -m 0600 "$candidate" "$target"
+                rm -f "$a" "$b" "$c"
+                return 0
+              fi
+            done
+            rm -f "$a" "$b" "$c"
+            return 1
+          }
+          host="$(trim "${MODEL_HOST_SECRET:-}")"
+          user="$(trim "${MODEL_USER_SECRET:-}")"
+          port="$(trim "${MODEL_PORT_SECRET:-22}")"
+          [[ -n "$host" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ && "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535))
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          write_key "$(trim "${MODEL_KEY_SECRET:-}")" "$HOME/.ssh/id_tai_model"
+          pin="$(trim "${MODEL_HOST_KEY_SECRET:-}")"
+          [[ -n "$pin" ]]
+          pin_type="$(printf '%s' "$pin" | awk '{print $(NF-1)}')"
+          pin_material="$(printf '%s' "$pin" | awk '{print $NF}')"
+          scanned="$(ssh-keyscan -T 30 -p "$port" -t "$pin_type" "$host" 2>/dev/null || true)"
+          printf '%s\n' "$scanned" | awk -v pinned="$pin_material" '$3 == pinned {ok=1} END{exit ok?0:1}'
+          printf '%s %s %s\n' "$host" "$pin_type" "$pin_material" > "$HOME/.ssh/model_known_hosts"
+          chmod 600 "$HOME/.ssh/model_known_hosts"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Verify installed controller and execute fixed rollback
+        env:
+          MODEL_HOST: ${{ steps.ssh.outputs.host }}
+          MODEL_USER: ${{ steps.ssh.outputs.user }}
+          MODEL_SSH_PORT: ${{ steps.ssh.outputs.port }}
+          EXPECTED_HELPER_SHA: ${{ steps.target.outputs.helper_sha }}
+          EXPECTED_BASE_SHA: ${{ steps.target.outputs.base_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh_base=(ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" -o StrictHostKeyChecking=yes "$MODEL_USER@$MODEL_HOST")
+          remote_sha="$("${ssh_base[@]}" 'sha256sum /usr/local/sbin/gekta-qwen-g3c 2>/dev/null' | awk '{print $1}' || true)"
+          remote_base_sha="$("${ssh_base[@]}" 'sha256sum /usr/local/libexec/gekta-qwen-g3c-base.py 2>/dev/null' | awk '{print $1}' || true)"
+          [[ "$remote_sha" == "$EXPECTED_HELPER_SHA" && "$remote_base_sha" == "$EXPECTED_BASE_SHA" ]] || {
+            echo 'GEKTA_G3C_ERROR=installed_controller_digest_mismatch' > "$RUNNER_TEMP/g3c-result"
+            cat "$RUNNER_TEMP/g3c-result"
+            exit 31
+          }
+          set +e
+          "${ssh_base[@]}" 'sudo -n /usr/local/sbin/gekta-qwen-g3c rollback' > "$RUNNER_TEMP/g3c-raw" 2>&1
+          rc=$?
+          set -e
+          grep -E '^GEKTA_G3C_[A-Z0-9_]+=[A-Za-z0-9_.:-]+$' "$RUNNER_TEMP/g3c-raw" > "$RUNNER_TEMP/g3c-result" || true
+          [[ -s "$RUNNER_TEMP/g3c-result" ]] || echo 'GEKTA_G3C_ERROR=bounded_evidence_missing' > "$RUNNER_TEMP/g3c-result"
+          cat "$RUNNER_TEMP/g3c-result"
+          exit "$rc"
+
+      - name: Publish bounded rollback evidence
+        if: always()
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$RUNNER_TEMP/comment.md"
+          {
+            echo '## Gekta P0 SPEED G3C fixed rollback'
+            echo
+            echo "- exact repository main: \`$TARGET_SHA\`"
+            echo "- workflow run: \`$GITHUB_RUN_ID\`"
+            echo '- action: `rollback`'
+            echo '- transport: `DEDICATED_MODEL_SSH_PINNED_HOST`'
+            echo '- arbitrary remote command authority: `NONE`'
+            echo '- root SSH credential in GitHub: `NONE`'
+            echo
+            echo '```text'
+            if [[ -s "$RUNNER_TEMP/g3c-result" ]]; then cat "$RUNNER_TEMP/g3c-result"; else echo 'GEKTA_G3C_ERROR=execution_not_reached'; fi
+            echo '```'
+          } > "$body"
+          gh issue comment 3896 --repo "$GITHUB_REPOSITORY" --body-file "$body"

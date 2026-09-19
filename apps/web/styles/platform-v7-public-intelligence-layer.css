@@ -1,0 +1,1320 @@
+.pc-ppe-page {
+  --pc-intelligence-ink: #092118;
+  --pc-intelligence-muted: #52635b;
+  --pc-intelligence-green: #087a3b;
+  --pc-intelligence-green-dark: #07572e;
+  --pc-intelligence-night: #073b29;
+  --pc-intelligence-soft: #f5f8f6;
+  --pc-intelligence-line: #cfdcd4;
+  --pc-intelligence-route: #145b84;
+  --pc-intelligence-warning: #a86612;
+  --pc-intelligence-danger: #a33a32;
+  --pc-intelligence-ease: cubic-bezier(.22, 1, .36, 1);
+  overflow-x: clip;
+}
+
+.pc-public-intelligence-hero .pc-ppe-hero-copy,
+.pc-public-intelligence-hero .pc-ppe-hero-contour {
+  min-width: 0;
+}
+
+.pc-public-hero-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.pc-public-hero-metrics span {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 11px;
+  border: 1px solid var(--pc-intelligence-line);
+  border-radius: 10px;
+  background: var(--pc-intelligence-soft);
+  color: var(--pc-intelligence-ink);
+  font-size: 12px;
+  line-height: 1.25;
+  font-weight: 760;
+}
+
+.pc-public-hero-ai-line {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 11px 12px;
+  border-left: 3px solid var(--pc-intelligence-green);
+  border-radius: 0 10px 10px 0;
+  background: rgba(8, 122, 59, .055);
+  color: var(--pc-intelligence-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.pc-public-hero-ai-line > svg {
+  color: var(--pc-intelligence-green);
+}
+
+.pc-public-hero-ai-line a {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--pc-intelligence-green-dark);
+  font-weight: 780;
+  text-decoration: none;
+}
+
+.pc-public-hero-ai-line a:hover,
+.pc-public-hero-ai-line a:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.pc-public-hero-ai-line a:focus-visible,
+.pc-public-stage-coverage button:focus-visible,
+.pc-public-government-controls button:focus-visible,
+.pc-public-government-source-grid button:focus-visible,
+.pc-public-evidence-source-note:focus-visible {
+  outline: 3px solid rgba(8, 122, 59, .22);
+  outline-offset: 3px;
+}
+
+.pc-public-hero-intelligence {
+  min-height: 92px;
+  display: grid;
+  gap: 8px;
+  padding: 13px 14px;
+  border: 1px solid rgba(8, 122, 59, .28);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(9, 33, 24, .06);
+  animation: pc-intelligence-enter 520ms var(--pc-intelligence-ease) both;
+  animation-delay: 340ms;
+}
+
+.pc-public-hero-intelligence-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.pc-public-hero-intelligence-mark {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 30px;
+  border-radius: 9px;
+  background: rgba(8, 122, 59, .11);
+  color: var(--pc-intelligence-green);
+}
+
+.pc-public-hero-intelligence-heading div {
+  display: grid;
+  gap: 1px;
+}
+
+.pc-public-hero-intelligence-heading strong {
+  color: var(--pc-intelligence-green-dark);
+  font-size: 11px;
+  line-height: 1.2;
+  letter-spacing: .065em;
+  text-transform: uppercase;
+}
+
+.pc-public-hero-intelligence-heading small {
+  color: var(--pc-intelligence-muted);
+  font-size: 10px;
+}
+
+.pc-public-hero-intelligence > p {
+  margin: 0;
+  color: var(--pc-intelligence-ink);
+  font-size: 15px;
+  line-height: 1.25;
+  font-weight: 820;
+}
+
+.pc-public-hero-intelligence ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pc-public-hero-intelligence li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--pc-intelligence-muted);
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.pc-public-hero-intelligence li svg {
+  color: var(--pc-intelligence-green);
+}
+
+.pc-public-hero-intelligence li[data-tone='attention'] {
+  color: #70450d;
+  font-weight: 760;
+}
+
+.pc-public-hero-intelligence li[data-tone='attention'] svg {
+  color: var(--pc-intelligence-warning);
+}
+
+.pc-public-intelligence-hero .pc-ppe-hero-contour-desktop {
+  position: relative;
+  animation: pc-intelligence-fade 420ms var(--pc-intelligence-ease) both;
+  animation-delay: 130ms;
+}
+
+.pc-public-intelligence-hero .pc-ppe-hero-contour-desktop::after {
+  content: '';
+  position: absolute;
+  left: 4%;
+  top: 29px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--pc-intelligence-green);
+  box-shadow: 0 0 0 4px rgba(8, 122, 59, .12);
+  opacity: 0;
+  pointer-events: none;
+  animation: pc-stage-data-pass 720ms var(--pc-intelligence-ease) 240ms 1 both;
+}
+
+.pc-public-intelligence-hero .pc-ppe-hero-contour-desktop > span[data-active='true'] {
+  outline: 1px solid rgba(8, 122, 59, .35);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+.pc-public-stage-coverage {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.pc-public-stage-coverage-line {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.pc-public-stage-coverage-line::before {
+  content: '';
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  top: 16px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(8, 122, 59, .25), rgba(20, 91, 132, .45));
+  pointer-events: none;
+}
+
+.pc-public-stage-coverage button {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  min-height: 34px;
+  display: grid;
+  place-items: center;
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--pc-intelligence-muted);
+  cursor: pointer;
+}
+
+.pc-public-stage-coverage button > span {
+  width: 21px;
+  height: 21px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--pc-intelligence-line);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--pc-intelligence-muted);
+  font-size: 9px;
+  font-weight: 850;
+  transition: background-color 180ms var(--pc-intelligence-ease), border-color 180ms var(--pc-intelligence-ease), color 180ms var(--pc-intelligence-ease), transform 180ms var(--pc-intelligence-ease);
+}
+
+.pc-public-stage-coverage button small {
+  display: none;
+}
+
+.pc-public-stage-coverage button[data-active='true'] > span {
+  border-color: var(--pc-intelligence-green);
+  background: var(--pc-intelligence-green);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.pc-public-stage-coverage-description {
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  padding: 9px 11px;
+  border: 1px solid var(--pc-intelligence-line);
+  border-radius: 10px;
+  background: var(--pc-intelligence-soft);
+  color: var(--pc-intelligence-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.pc-public-stage-coverage-description svg,
+.pc-public-stage-coverage-description strong {
+  color: var(--pc-intelligence-green-dark);
+}
+
+.pc-public-stage-coverage-description strong {
+  white-space: nowrap;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.pc-public-deal-preview-card {
+  overflow: hidden;
+}
+
+.pc-public-deal-intelligence-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.94fr) minmax(310px, 1fr);
+  gap: 18px;
+  align-items: stretch;
+  margin-top: 18px;
+}
+
+.pc-public-deal-core {
+  min-width: 0;
+}
+
+.pc-public-deal-detail {
+  transition: opacity 200ms var(--pc-intelligence-ease);
+}
+
+.pc-public-deal-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.pc-public-deal-intelligence {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--pc-intelligence-night);
+  color: #fff;
+  box-shadow: 0 16px 34px rgba(7, 59, 41, .18);
+  animation: pc-intelligence-enter 440ms var(--pc-intelligence-ease) both;
+}
+
+.pc-public-deal-intelligence > header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.pc-public-deal-intelligence > header > span {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 32px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .09);
+  color: #a8dfba;
+}
+
+.pc-public-deal-intelligence > header div {
+  display: grid;
+  gap: 1px;
+}
+
+.pc-public-deal-intelligence > header strong {
+  font-size: 12px;
+  letter-spacing: .045em;
+  text-transform: uppercase;
+}
+
+.pc-public-deal-intelligence > header small {
+  color: #a9c8b8;
+  font-size: 10px;
+}
+
+.pc-public-deal-intelligence-alert {
+  padding: 13px;
+  border: 1px solid rgba(222, 163, 65, .38);
+  border-radius: 11px;
+  background: rgba(168, 102, 18, .14);
+}
+
+.pc-public-deal-intelligence-alert > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #f2d59e;
+  font-size: 10px;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.pc-public-deal-intelligence-alert p {
+  margin: 7px 0 0;
+  color: #fff;
+  font-size: 17px;
+  line-height: 1.3;
+  font-weight: 780;
+}
+
+.pc-public-deal-intelligence-summary {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.pc-public-deal-intelligence-summary > div {
+  padding: 11px 12px;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .045);
+}
+
+.pc-public-deal-intelligence-summary dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #a9c8b8;
+  font-size: 10px;
+  font-weight: 820;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.pc-public-deal-intelligence-summary dd {
+  margin: 6px 0 0;
+  color: #f3f8f5;
+  font-size: 13px;
+  line-height: 1.42;
+  font-weight: 650;
+}
+
+.pc-public-deal-intelligence-summary .pc-public-deal-intelligence-next {
+  border-color: rgba(91, 204, 132, .5);
+  background: rgba(8, 122, 59, .22);
+}
+
+.pc-public-deal-intelligence-evidence {
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, .08);
+}
+
+.pc-public-deal-intelligence-evidence summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  cursor: pointer;
+  color: #dceae2;
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.pc-public-deal-intelligence-evidence > div {
+  display: grid;
+  gap: 7px;
+  padding: 0 10px 10px;
+}
+
+.pc-public-deal-intelligence-evidence article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 8px;
+  padding: 9px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .055);
+}
+
+.pc-public-deal-intelligence-evidence article strong,
+.pc-public-deal-intelligence-evidence article span,
+.pc-public-deal-intelligence-evidence article small,
+.pc-public-deal-intelligence-evidence article em {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pc-public-deal-intelligence-evidence article strong {
+  color: #fff;
+  font-size: 11px;
+}
+
+.pc-public-deal-intelligence-evidence article span {
+  color: #c4d7cc;
+  font-size: 9px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.pc-public-deal-intelligence-evidence article small {
+  color: #9db7a8;
+  font-size: 9px;
+}
+
+.pc-public-deal-intelligence-evidence article em {
+  color: #d9e8df;
+  font-size: 9px;
+  font-style: normal;
+  text-align: right;
+}
+
+.pc-public-deal-intelligence-safety {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  color: #b8cfc2;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.pc-public-deal-intelligence-safety svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: #87d7a4;
+}
+
+.pc-ppe-perspective-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.pc-public-role-intelligence {
+  display: grid;
+  gap: 2px;
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(8, 122, 59, .14);
+}
+
+.pc-public-role-intelligence b {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--pc-intelligence-green-dark);
+  font-size: 9px;
+  line-height: 1.2;
+  letter-spacing: .055em;
+}
+
+.pc-public-role-intelligence small {
+  display: block;
+  color: var(--pc-intelligence-muted);
+  font-size: 10px;
+  line-height: 1.3;
+  font-weight: 620;
+}
+
+.pc-public-evidence-intelligence {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.38fr) 34px minmax(300px, 1fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.pc-public-evidence-platform,
+.pc-public-evidence-tai {
+  min-width: 0;
+  border: 1px solid var(--pc-intelligence-line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.pc-public-evidence-platform {
+  padding: 18px;
+}
+
+.pc-public-evidence-column-label {
+  display: block;
+  margin-bottom: 12px;
+  color: var(--pc-intelligence-green-dark);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.pc-public-evidence-intelligence .pc-ppe-evidence-chain li {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.pc-public-evidence-intelligence[data-visible='true'] .pc-ppe-evidence-chain li {
+  animation: pc-intelligence-enter 480ms var(--pc-intelligence-ease) both;
+  animation-delay: var(--pc-evidence-delay);
+}
+
+.pc-public-evidence-bridge {
+  display: grid;
+  place-items: center;
+  color: var(--pc-intelligence-route);
+}
+
+.pc-public-evidence-bridge::before {
+  content: '';
+  position: absolute;
+  left: calc(58% - 6px);
+  width: 42px;
+  height: 1px;
+  background: var(--pc-intelligence-route);
+  transform-origin: left;
+  transform: scaleX(0);
+}
+
+.pc-public-evidence-intelligence[data-visible='true'] .pc-public-evidence-bridge::before {
+  animation: pc-line-draw 680ms var(--pc-intelligence-ease) 460ms both;
+}
+
+.pc-public-evidence-tai {
+  padding: 18px;
+  background: var(--pc-intelligence-night);
+  color: #fff;
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.pc-public-evidence-intelligence[data-visible='true'] .pc-public-evidence-tai {
+  animation: pc-intelligence-enter 520ms var(--pc-intelligence-ease) 560ms both;
+}
+
+.pc-public-evidence-tai > header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #b6e5c7;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.pc-public-evidence-lead {
+  margin: 11px 0 14px;
+  color: #c8dbd0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.pc-public-evidence-tai dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.pc-public-evidence-tai dl > div {
+  padding: 10px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .055);
+}
+
+.pc-public-evidence-tai dt {
+  color: #9fc2af;
+  font-size: 9px;
+  font-weight: 830;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.pc-public-evidence-tai dd {
+  margin: 5px 0 0;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 650;
+}
+
+.pc-public-evidence-tai ul {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pc-public-evidence-tai li,
+.pc-public-evidence-recommendation dd {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.pc-public-evidence-tai li svg,
+.pc-public-evidence-recommendation svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: #83d7a1;
+}
+
+.pc-public-evidence-recommendation {
+  border: 1px solid rgba(83, 202, 126, .43);
+  background: rgba(8, 122, 59, .22) !important;
+}
+
+.pc-public-evidence-source-note {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 10px;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 255, 255, .13);
+  border-radius: 9px;
+  background: transparent;
+  color: #b9cec2;
+  font: inherit;
+  font-size: 10px;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pc-public-government-section .pc-ppe-section-header > small {
+  display: block;
+  max-width: 780px;
+  margin-top: 10px;
+  color: var(--pc-intelligence-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.pc-public-government-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.pc-public-government-map,
+.pc-public-government-result {
+  min-width: 0;
+  border: 1px solid var(--pc-intelligence-line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.pc-public-government-map {
+  position: relative;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  overflow: hidden;
+}
+
+.pc-public-government-controls {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 8px;
+}
+
+.pc-public-government-controls button {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--pc-intelligence-line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--pc-intelligence-green-dark);
+  cursor: pointer;
+}
+
+.pc-public-government-controls > span {
+  color: var(--pc-intelligence-muted);
+  font-size: 10px;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.pc-public-government-source-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pc-public-government-source-grid button {
+  position: relative;
+  min-width: 0;
+  min-height: 76px;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-content: center;
+  gap: 3px 8px;
+  padding: 10px;
+  border: 1px solid var(--pc-intelligence-line);
+  border-radius: 10px;
+  background: var(--pc-intelligence-soft);
+  color: var(--pc-intelligence-ink);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 180ms var(--pc-intelligence-ease), border-color 180ms var(--pc-intelligence-ease), background-color 180ms var(--pc-intelligence-ease);
+}
+
+.pc-public-government-source-grid button > svg {
+  grid-row: 1 / span 2;
+  color: var(--pc-intelligence-route);
+}
+
+.pc-public-government-source-grid button > span {
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.25;
+  font-weight: 760;
+  overflow-wrap: anywhere;
+}
+
+.pc-public-government-source-grid button > small {
+  min-width: 0;
+  color: var(--pc-intelligence-muted);
+  font-size: 9px;
+  line-height: 1.3;
+}
+
+.pc-public-government-source-grid button[data-active='true'] {
+  border-color: var(--pc-intelligence-route);
+  background: rgba(20, 91, 132, .065);
+  transform: translateY(-1px);
+}
+
+.pc-public-government-source-grid button[data-active='true']::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -22px;
+  width: 1px;
+  height: 20px;
+  background: var(--pc-intelligence-route);
+  transform-origin: top;
+  animation: pc-line-draw-y 620ms var(--pc-intelligence-ease) both;
+}
+
+.pc-public-government-deal-node {
+  position: relative;
+  z-index: 1;
+  min-height: 76px;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: center;
+  gap: 4px 10px;
+  margin-top: 9px;
+  padding: 12px 14px;
+  border: 1px solid rgba(8, 122, 59, .34);
+  border-radius: 11px;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(9, 33, 24, .06);
+}
+
+.pc-public-government-deal-node > span {
+  grid-row: 1 / span 2;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: rgba(8, 122, 59, .1);
+  color: var(--pc-intelligence-green);
+}
+
+.pc-public-government-deal-node strong {
+  font-size: 13px;
+}
+
+.pc-public-government-deal-node small {
+  color: var(--pc-intelligence-muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.pc-public-government-deal-node::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -21px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--pc-intelligence-route);
+  box-shadow: 0 0 0 4px rgba(20, 91, 132, .11);
+  animation: pc-government-data-dot 700ms var(--pc-intelligence-ease) 260ms 1 both;
+}
+
+.pc-public-government-result {
+  height: 100%;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 16px;
+  animation: pc-intelligence-fade 220ms var(--pc-intelligence-ease) both;
+}
+
+.pc-public-government-result > header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.pc-public-government-result > header > span {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 34px;
+  border-radius: 9px;
+  background: rgba(20, 91, 132, .09);
+  color: var(--pc-intelligence-route);
+}
+
+.pc-public-government-result > header div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.pc-public-government-result > header small,
+.pc-public-government-result dt {
+  color: var(--pc-intelligence-muted);
+  font-size: 9px;
+  font-weight: 820;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.pc-public-government-result > header strong {
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.pc-public-government-result dl {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+
+.pc-public-government-result dl > div {
+  padding: 9px 10px;
+  border: 1px solid var(--pc-intelligence-line);
+  border-radius: 9px;
+  background: var(--pc-intelligence-soft);
+}
+
+.pc-public-government-result dt {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pc-public-government-result dd {
+  margin: 5px 0 0;
+  color: var(--pc-intelligence-ink);
+  font-size: 11px;
+  line-height: 1.42;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.pc-public-government-result dd code {
+  font-size: 9px;
+  white-space: normal;
+}
+
+.pc-public-government-result-unchecked {
+  border-color: rgba(168, 102, 18, .36) !important;
+  background: rgba(168, 102, 18, .06) !important;
+}
+
+.pc-public-government-result-unchecked dd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #70450d;
+}
+
+.pc-public-government-result > p {
+  margin: 0;
+  padding: 10px;
+  border-left: 3px solid var(--pc-intelligence-warning);
+  background: rgba(168, 102, 18, .055);
+  color: var(--pc-intelligence-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.pc-public-ai-governance-strip {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(8, 122, 59, .27);
+  border-radius: 11px;
+  background: var(--pc-intelligence-soft);
+  color: var(--pc-intelligence-ink);
+}
+
+.pc-public-ai-governance-strip > span,
+.pc-public-ai-governance-strip > svg {
+  color: var(--pc-intelligence-green);
+}
+
+.pc-public-ai-governance-strip > strong {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.pc-public-ai-governance-strip ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pc-public-ai-governance-strip li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--pc-intelligence-muted);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.pc-public-ai-governance-strip li svg {
+  color: var(--pc-intelligence-green);
+}
+
+.pc-public-final-actions {
+  grid-template-columns: repeat(3, minmax(0, auto));
+}
+
+@keyframes pc-intelligence-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pc-intelligence-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pc-line-draw {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes pc-line-draw-y {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+@keyframes pc-stage-data-pass {
+  0% { left: 4%; opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { left: 94%; opacity: 0; }
+}
+
+@keyframes pc-government-data-dot {
+  0% { top: -22px; opacity: 0; }
+  25% { opacity: 1; }
+  100% { top: 2px; opacity: 0; }
+}
+
+@media (min-width: 821px) {
+  .pc-public-intelligence-hero .pc-ppe-hero-contour-desktop {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(76px, 1fr));
+    align-items: start;
+    gap: 12px 8px;
+    min-height: 188px;
+  }
+
+  .pc-public-intelligence-hero .pc-ppe-hero-contour-desktop::before {
+    display: none;
+  }
+
+  .pc-public-intelligence-hero .pc-ppe-hero-contour-desktop > span {
+    align-content: start;
+  }
+
+  .pc-public-intelligence-hero .pc-ppe-hero-contour-desktop > span > b {
+    max-width: 100px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .pc-public-deal-intelligence-layout,
+  .pc-public-government-layout {
+    grid-template-columns: minmax(0, 1.55fr) minmax(280px, 1fr);
+  }
+
+  .pc-public-evidence-intelligence {
+    grid-template-columns: minmax(0, 1.18fr) 24px minmax(280px, 1fr);
+  }
+
+  .pc-public-ai-governance-strip {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .pc-public-ai-governance-strip ul {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 820px) {
+  .pc-public-hero-ai-line {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .pc-public-hero-ai-line a {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .pc-public-hero-intelligence {
+    margin-bottom: 10px;
+  }
+
+  .pc-public-stage-coverage-line {
+    overflow-x: auto;
+    grid-template-columns: repeat(10, minmax(52px, 1fr));
+    padding: 3px 2px 8px;
+    scrollbar-width: thin;
+  }
+
+  .pc-public-stage-coverage button {
+    min-height: 44px;
+  }
+
+  .pc-public-stage-coverage button small {
+    display: block;
+    max-width: 64px;
+    color: inherit;
+    font-size: 8px;
+    line-height: 1.1;
+    text-align: center;
+  }
+
+  .pc-public-stage-coverage-line::before {
+    top: 13px;
+  }
+
+  .pc-public-deal-intelligence-layout,
+  .pc-public-government-layout,
+  .pc-public-evidence-intelligence {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pc-public-deal-intelligence {
+    order: 2;
+  }
+
+  .pc-public-evidence-bridge {
+    min-height: 28px;
+    transform: rotate(90deg);
+  }
+
+  .pc-public-evidence-bridge::before {
+    display: none;
+  }
+
+  .pc-public-government-source-grid {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: thin;
+  }
+
+  .pc-public-government-source-grid button {
+    flex: 0 0 min(250px, 74vw);
+    scroll-snap-align: start;
+  }
+
+  .pc-public-government-source-grid button[data-active='true']::after {
+    display: none;
+  }
+
+  .pc-public-government-deal-node::before {
+    display: none;
+  }
+
+  .pc-public-final-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .pc-public-hero-metrics {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 5px;
+  }
+
+  .pc-public-hero-metrics span {
+    min-height: 31px;
+    justify-content: flex-start;
+    padding: 6px 9px;
+  }
+
+  .pc-public-hero-ai-line {
+    padding: 10px;
+    font-size: 12px;
+  }
+
+  .pc-public-hero-intelligence {
+    min-height: 0;
+    padding: 12px;
+  }
+
+  .pc-public-hero-intelligence ul {
+    display: grid;
+    gap: 5px;
+  }
+
+  .pc-public-stage-coverage-description {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .pc-public-stage-coverage-description span {
+    grid-column: 1 / -1;
+  }
+
+  .pc-public-deal-intelligence-layout {
+    margin-top: 14px;
+  }
+
+  .pc-public-deal-intelligence {
+    padding: 13px;
+    border-radius: 12px;
+  }
+
+  .pc-public-deal-intelligence-alert p {
+    font-size: 15px;
+  }
+
+  .pc-public-deal-intelligence-evidence article {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pc-public-deal-intelligence-evidence article em {
+    text-align: left;
+  }
+
+  .pc-public-role-intelligence small {
+    font-size: 9px;
+  }
+
+  .pc-public-evidence-platform,
+  .pc-public-evidence-tai,
+  .pc-public-government-map,
+  .pc-public-government-result {
+    padding: 13px;
+    border-radius: 12px;
+  }
+
+  .pc-public-government-controls > span {
+    font-size: 9px;
+  }
+
+  .pc-public-ai-governance-strip {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    padding: 11px;
+  }
+
+  .pc-public-ai-governance-strip ul {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 6px;
+  }
+}
+
+@media (max-width: 350px) {
+  .pc-public-hero-ai-line {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pc-public-hero-ai-line > svg {
+    display: none;
+  }
+
+  .pc-public-hero-ai-line a {
+    grid-column: 1;
+  }
+
+  .pc-public-government-source-grid button {
+    flex-basis: 82vw;
+  }
+
+  .pc-public-ai-governance-strip ul {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pc-public-hero-intelligence,
+  .pc-public-intelligence-hero .pc-ppe-hero-contour-desktop,
+  .pc-public-intelligence-hero .pc-ppe-hero-contour-desktop::after,
+  .pc-public-deal-intelligence,
+  .pc-public-evidence-intelligence .pc-ppe-evidence-chain li,
+  .pc-public-evidence-tai,
+  .pc-public-evidence-bridge::before,
+  .pc-public-government-source-grid button[data-active='true']::after,
+  .pc-public-government-deal-node::before,
+  .pc-public-government-result {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+
+  .pc-public-stage-coverage button > span,
+  .pc-public-government-source-grid button,
+  .pc-public-deal-detail {
+    transition: none !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .pc-public-deal-intelligence,
+  .pc-public-evidence-tai {
+    border: 2px solid CanvasText;
+    background: Canvas;
+    color: CanvasText;
+  }
+
+  .pc-public-government-source-grid button[data-active='true'],
+  .pc-public-stage-coverage button[data-active='true'] > span {
+    border: 2px solid Highlight;
+  }
+}

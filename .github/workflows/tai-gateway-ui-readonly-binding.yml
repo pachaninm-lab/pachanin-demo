@@ -1,0 +1,93 @@
+name: TAI Gateway UI Read-only Remediation Controller
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: tai-gateway-ui-remediation-3005
+  cancel-in-progress: false
+
+jobs:
+  remediate:
+    if: >-
+      github.event.issue.pull_request != null &&
+      github.event.issue.number == 3005 &&
+      github.event.comment.user.login == github.repository_owner &&
+      contains(github.event.comment.body, '/tai remediate gateway-ui 3005')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout governed implementation branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/tai-gateway-ui-readonly-3004
+          fetch-depth: 0
+
+      - name: Align with exact main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch --no-tags origin main
+          set +e
+          git merge --no-edit origin/main
+          merge_rc=$?
+          set -e
+          if (( merge_rc != 0 )); then
+            conflicts="$(git diff --name-only --diff-filter=U)"
+            [[ "$conflicts" == '.github/workflows/tai-gateway-ui-readonly-binding.yml' ]] || {
+              echo "Unexpected merge conflicts: $conflicts" >&2
+              git merge --abort || true
+              exit 20
+            }
+            git checkout --theirs .github/workflows/tai-gateway-ui-readonly-binding.yml
+            git add .github/workflows/tai-gateway-ui-readonly-binding.yml
+            git commit --no-edit
+          fi
+
+      - name: Apply four bounded review remediations
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/tai-gateway-ui-readonly-remediation.py
+
+      - name: Run focused acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm --filter web test -- \
+            platformV7AiGatewayStream.test.ts \
+            platformV7PublicAssistantTransportResilience.test.ts \
+            platformV7RoleScopedAiAssistant.test.ts
+
+      - name: Commit verified remediation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add \
+            apps/web/app/api/proxy/'[...path]'/route.ts \
+            apps/web/app/api/public-platform-assistant/route.ts \
+            apps/web/components/platform-v7/AiAssistantPanel.tsx \
+            apps/web/components/platform-v7/PublicPlatformAssistant.tsx \
+            apps/web/tests/unit/platformV7PublicAssistantTransportResilience.test.ts \
+            apps/web/tests/unit/platformV7RoleScopedAiAssistant.test.ts \
+            .github/workflows/tai-gateway-ui-readonly-binding.yml
+          git commit -m 'fix(tai): bind admitted provider and preserve validated SSE'
+          git push origin HEAD:agent/tai-gateway-ui-readonly-3004
+
+      - name: Report result
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh pr comment 3005 --body "TAI remediation controller run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} — result: ${{ job.status }}. Production flags remain disabled."

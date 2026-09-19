@@ -1,0 +1,144 @@
+{
+  "map_version": "1.0.0",
+  "principle": "INTENT_FIRST_NOT_MODULE_FIRST",
+  "global_shell": {
+    "desktop": [
+      "top_header",
+      "context_navigation",
+      "main_work_area",
+      "context_drawer"
+    ],
+    "mobile": [
+      "compact_header",
+      "main_work_area",
+      "bottom_navigation",
+      "safe_area"
+    ],
+    "primary_nav": [
+      "home",
+      "deals",
+      "tasks",
+      "documents",
+      "more"
+    ],
+    "contextual_entries": [
+      "tai",
+      "support",
+      "call"
+    ]
+  },
+  "screens": [
+    {
+      "screen_id": "HOME_PRIORITY_QUEUE",
+      "route_pattern": "role-home",
+      "order": [
+        "critical_now",
+        "today",
+        "active_deals",
+        "overview"
+      ],
+      "primary_question": "What must I do now?"
+    },
+    {
+      "screen_id": "DEAL_WORKSPACE",
+      "route_pattern": "/platform-v7/deals/:dealId",
+      "order": [
+        "next_action",
+        "blockers_and_risk",
+        "state_dimensions",
+        "timeline",
+        "context"
+      ],
+      "primary_question": "What is the safe next step for this Deal?"
+    },
+    {
+      "screen_id": "COMMODITY_PROFILE",
+      "route_pattern": "/platform-v7/commodity-profiles/:profileId",
+      "order": [
+        "identity",
+        "quality",
+        "documents",
+        "storage",
+        "acceptance",
+        "release_blockers",
+        "versions"
+      ],
+      "primary_question": "Which pinned rules control this product?"
+    },
+    {
+      "screen_id": "FIELD_DRIVER",
+      "route_pattern": "/platform-v7/driver",
+      "order": [
+        "active_trip",
+        "next_checkpoint",
+        "required_documents",
+        "capture",
+        "issue",
+        "sync_state"
+      ],
+      "primary_question": "What is the next physical action?"
+    },
+    {
+      "screen_id": "RECEIVING",
+      "route_pattern": "/platform-v7/elevator",
+      "order": [
+        "scan_trip",
+        "weigh",
+        "sample",
+        "quality",
+        "acceptance",
+        "receipt"
+      ],
+      "primary_question": "Which physical fact must be fixed now?"
+    },
+    {
+      "screen_id": "CONTROL_TOWER",
+      "route_pattern": "/platform-v7/control-tower",
+      "order": [
+        "cross_deal_blockers",
+        "external_health",
+        "backlog",
+        "reconciliation",
+        "incidents"
+      ],
+      "primary_question": "Which blocker creates the highest execution risk?"
+    }
+  ],
+  "mandatory_ui_states": [
+    "LOADING",
+    "EMPTY",
+    "READY",
+    "BLOCKED",
+    "PENDING_EXTERNAL",
+    "PARTIAL",
+    "OFFLINE",
+    "SYNC_CONFLICT",
+    "PERMISSION_DENIED",
+    "FAILED_RETRYABLE",
+    "FAILED_FINAL",
+    "SUCCEEDED"
+  ],
+  "critical_action_flow": [
+    "REVIEW",
+    "IMPACT",
+    "PREREQUISITES",
+    "CONFIRMATION",
+    "SERVER_RESULT",
+    "IMMUTABLE_RECEIPT"
+  ],
+  "breakpoints_px": [
+    320,
+    375,
+    390,
+    430,
+    768,
+    1024,
+    1440
+  ],
+  "locales": [
+    "ru",
+    "en",
+    "zh"
+  ],
+  "accessibility": "WCAG_2_2_AA"
+}

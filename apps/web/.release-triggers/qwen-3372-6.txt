@@ -1,0 +1,3 @@
+Operational no-op trigger for issue #3372.
+
+This file changes no emitted web runtime behavior. Its only purpose is to publish canonical API, web and migration images for the exact merge SHA before the protected REG.RU Qwen activation workflow is dispatched.

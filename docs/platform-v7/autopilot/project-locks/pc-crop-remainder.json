@@ -1,0 +1,94 @@
+{
+  "schemaVersion": "platform-v7.active-project-lock.v1",
+  "id": "PC-CROP-REMAINDER",
+  "status": "completed",
+  "governanceIssue": 3389,
+  "activeIssue": null,
+  "activeSlice": null,
+  "sequence": [],
+  "completion": {
+    "slice": "PC-CROP-10D",
+    "issue": 3504,
+    "pr": 3506,
+    "mergeSha": "2a2a58778d194d4abc37c4dde429993dc8546d1f",
+    "exactMainStatusContext": "PC-CROP-10D exact-main",
+    "completedAt": "2026-07-30T19:53:53Z",
+    "finalTruthPath": "docs/platform-v7/crop-platform/agricultural-government-systems.final-truth.v1.json",
+    "finalTruthBlobSha": "20650c296b75c6a3a248e40ce67f78a7f023496f",
+    "readinessPath": "docs/platform-v7/crop-platform/agricultural-government-systems.readiness.v2.json",
+    "readinessBlobSha": "f175a5583771275562ceaa2a5af09f7f9c86c867",
+    "internalRepositoryRemainderComplete": true,
+    "industrialLiveReady": false,
+    "implementationAuthorized": false
+  },
+  "allowedBranchPrefixes": [
+    "agent/pc-crop-",
+    "fix/pc-crop-",
+    "governance/pc-crop-",
+    "ops/pc-crop-"
+  ],
+  "governanceBranch": "governance/pc-crop-project-lock-3389",
+  "forbiddenProgramTokens": [
+    "tai-",
+    "qwen",
+    "model-host",
+    "model-admission",
+    "ap-13",
+    "ap-14",
+    "netlify",
+    "vercel",
+    "railway"
+  ],
+  "sourceDocument": "Остаток_ТЗ_Прозрачная_Цена_растениеводство",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "aiException": {
+    "slice": "PC-CROP-18",
+    "allowedOnlyWhenActive": true
+  },
+  "ownerAuthorizedExceptions": [
+    {
+      "id": "PRODUCTION_AI_RECOVERY_3372",
+      "status": "expired",
+      "issue": 3372,
+      "governanceCommentId": 5120686584,
+      "expiresWhenIssueClosed": true,
+      "branchPrefixes": [
+        "agent/qwen-recovery-",
+        "fix/qwen-recovery-",
+        "ops/qwen-recovery-"
+      ],
+      "titlePrefix": "QWEN-RECOVERY:",
+      "allowedProgramTokens": [
+        "tai-",
+        "qwen",
+        "model-host"
+      ],
+      "allowedPathPrefixes": [
+        ".github/workflows/tai-qwen-",
+        ".github/workflows/tai-restricted-qwen-",
+        "docs/platform-v7/autopilot/scopes/qwen-recovery-"
+      ],
+      "forbiddenPathPrefixes": [
+        ".github/workflows/pc-crop-",
+        "docs/platform-v7/crop-platform/",
+        "docs/platform-v7/autopilot/project-locks/",
+        "scripts/pc-crop-"
+      ],
+      "allowedPurpose": "restore-accepted-restricted-qwen-contour-only",
+      "productionHosting": "REG_RU_VPS_ONLY",
+      "operationalStatus": "NOT_ATTESTED",
+      "expiredBecauseIssueClosed": true
+    }
+  ],
+  "rules": {
+    "exactIssueRequired": true,
+    "sourceControlledScopeRequired": true,
+    "projectLockBindingRequired": true,
+    "unrelatedPrerequisiteRequiresSeparateEvidence": true,
+    "runtimeChange": false,
+    "authorizationChange": false,
+    "tenantBoundaryChange": false,
+    "productionTopologyChange": false
+  }
+}

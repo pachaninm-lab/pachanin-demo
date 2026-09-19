@@ -42,7 +42,10 @@ const evidence = {
   schemaVersion: 1,
   repository: process.env.GITHUB_REPOSITORY || 'pachaninm-lab/pachanin-demo',
   branch: process.env.GITHUB_REF_NAME || null,
-  commitSha: process.env.GITHUB_SHA || expectedDeploySha || null,
+  // The accepted release SHA wins over GITHUB_SHA. Under the workflow_run
+  // trigger GITHUB_SHA is main's head, which is not necessarily what the
+  // virtual server accepted, and evidence must name the deployed commit.
+  commitSha: expectedDeploySha || process.env.GITHUB_SHA || null,
   endpoint,
   host: payload.host,
   keyLocation,

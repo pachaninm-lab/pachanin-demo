@@ -1,0 +1,81 @@
+{
+  "schema_version": "tai.llama-cpp-toolchain-authority.v1",
+  "toolchain_name": "ggml-org/llama.cpp",
+  "repository_uri": "https://github.com/ggml-org/llama.cpp",
+  "release": "b9637",
+  "commit": "aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3",
+  "source_archive_uri": "https://github.com/ggml-org/llama.cpp/archive/aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3.tar.gz",
+  "evidence_layout": {
+    "source_archive_path": "source/llama.cpp-aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3.tar.gz",
+    "git_head_output_path": "evidence/git-head.txt",
+    "git_status_output_path": "evidence/git-status.txt",
+    "cmake_identity_output_path": "evidence/cmake-version.txt",
+    "c_compiler_identity_output_path": "evidence/cc-version.txt",
+    "cxx_compiler_identity_output_path": "evidence/cxx-version.txt",
+    "configure_log_path": "evidence/configure.log",
+    "build_log_path": "evidence/build.log",
+    "cmake_cache_path": "build/llama.cpp-b9637/CMakeCache.txt"
+  },
+  "build_profile": {
+    "profile_id": "linux-x86_64-cpu-release-static-v1",
+    "operating_system": "linux",
+    "architecture": "x86_64",
+    "generator": "Ninja",
+    "checkout_path": "source/llama.cpp",
+    "configure_command": [
+      "cmake",
+      "-S",
+      "source/llama.cpp",
+      "-B",
+      "build/llama.cpp-b9637",
+      "-G",
+      "Ninja",
+      "-DCMAKE_BUILD_TYPE=Release",
+      "-DBUILD_SHARED_LIBS=OFF",
+      "-DLLAMA_BUILD_COMMON=ON",
+      "-DLLAMA_BUILD_TESTS=OFF",
+      "-DLLAMA_BUILD_EXAMPLES=OFF",
+      "-DLLAMA_BUILD_TOOLS=ON",
+      "-DLLAMA_BUILD_SERVER=ON",
+      "-DLLAMA_BUILD_APP=OFF",
+      "-DLLAMA_BUILD_UI=OFF",
+      "-DLLAMA_USE_PREBUILT_UI=OFF",
+      "-DLLAMA_TOOLS_INSTALL=OFF",
+      "-DLLAMA_OPENSSL=OFF",
+      "-DLLAMA_LLGUIDANCE=OFF",
+      "-DGGML_NATIVE=OFF"
+    ],
+    "build_command": [
+      "cmake",
+      "--build",
+      "build/llama.cpp-b9637",
+      "--config",
+      "Release",
+      "--target",
+      "llama-cli",
+      "llama-server",
+      "llama-quantize",
+      "llama-bench",
+      "--parallel",
+      "2"
+    ],
+    "required_targets": [
+      {
+        "target": "llama-cli",
+        "path": "build/llama.cpp-b9637/bin/llama-cli"
+      },
+      {
+        "target": "llama-server",
+        "path": "build/llama.cpp-b9637/bin/llama-server"
+      },
+      {
+        "target": "llama-quantize",
+        "path": "build/llama.cpp-b9637/bin/llama-quantize"
+      },
+      {
+        "target": "llama-bench",
+        "path": "build/llama.cpp-b9637/bin/llama-bench"
+      }
+    ]
+  }
+}

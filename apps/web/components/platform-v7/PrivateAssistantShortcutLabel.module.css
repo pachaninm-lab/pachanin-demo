@@ -1,0 +1,104 @@
+.shortcut {
+  position: fixed;
+  right: max(86px, calc(env(safe-area-inset-right) + 82px));
+  bottom: max(92px, calc(env(safe-area-inset-bottom) + 88px));
+  z-index: 3499;
+  display: inline-flex;
+  min-height: 54px;
+  max-width: min(250px, calc(100vw - 112px));
+  align-items: center;
+  gap: 9px;
+  padding: 7px 13px 7px 8px;
+  border: 1px solid color-mix(in srgb, var(--ds-color-action-primary) 42%, var(--ds-color-border));
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--ds-color-surface) 96%, transparent);
+  color: var(--ds-color-text-primary);
+  box-shadow: var(--ds-shadow-overlay);
+  text-decoration: none;
+  backdrop-filter: blur(16px);
+}
+
+.shortcut:hover {
+  border-color: var(--ds-color-action-primary);
+  background: var(--ds-color-action-primary-subtle);
+  transform: translateY(-1px);
+}
+
+.icon {
+  display: inline-flex;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--ds-color-action-primary) 34%, var(--ds-color-border));
+  border-radius: 13px;
+  background: var(--ds-color-action-primary-subtle);
+  color: var(--ds-color-action-primary);
+}
+
+.copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.copy strong,
+.copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copy strong {
+  color: var(--ds-color-text-primary);
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.copy small {
+  color: var(--ds-color-text-muted);
+  font-size: 9px;
+  line-height: 1.25;
+}
+
+.shortcut:focus-visible {
+  outline: 3px solid var(--ds-color-focus);
+  outline-offset: 3px;
+}
+
+@media (max-width: 560px) {
+  .shortcut {
+    right: max(82px, calc(env(safe-area-inset-right) + 78px));
+    bottom: max(88px, calc(env(safe-area-inset-bottom) + 84px));
+    max-width: calc(100vw - 104px);
+  }
+
+  .copy small {
+    display: none;
+  }
+}
+
+@media (max-width: 360px) {
+  .shortcut {
+    padding-right: 10px;
+  }
+
+  .copy strong {
+    max-width: 128px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shortcut {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .shortcut,
+  .icon {
+    border: 1px solid CanvasText;
+  }
+}

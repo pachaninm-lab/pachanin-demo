@@ -1,0 +1,38 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "feat/tai-model-bundle-s3-finalization-2953",
+  "status": "active",
+  "program_issue": 2726,
+  "parent_issue": 2835,
+  "issue": 2953,
+  "maturity_boundary": "external-immutable-storage-smoke-only",
+  "allowed_paths": [
+    ".github/workflows/tai-model-bundle-storage-preflight.yml",
+    "apps/tai/governance/scopes/ap-13b3e1-storage-preflight-2953.json",
+    "apps/tai/model-artifacts/model-bundle-storage-authority.v1.json",
+    "apps/tai/tests/test_model_bundle_storage_preflight.py"
+  ],
+  "forbidden_capabilities": [
+    "model-host access, model conversion or quantization",
+    "model, GGUF, source weight or large artifact transfer",
+    "production-server fallback or production workload access",
+    "bucket policy, versioning, retention or Object Lock mutation",
+    "object deletion or retention shortening",
+    "benchmark, admission, activation or production-readiness claim",
+    "secret, access-key or credential publication"
+  ],
+  "acceptance": [
+    "owner-only issue command is exact-main and non-automatic",
+    "exact-main TAI Release Acceptance is successful and accepted",
+    "S3 endpoint uses HTTPS and credentials are isolated in GitHub Actions",
+    "bucket versioning is Enabled",
+    "bucket Object Lock is Enabled",
+    "default retention is COMPLIANCE for at least 90 days",
+    "a bounded smoke object is written with COMPLIANCE retention",
+    "the exact immutable object version is independently downloaded and SHA-256 verified",
+    "the retained smoke object is not deleted",
+    "only bounded metadata evidence is uploaded to GitHub",
+    "benchmark and admission remain NOT_RUN and NOT_DONE",
+    "production_operational_status remains NOT_ATTESTED"
+  ]
+}

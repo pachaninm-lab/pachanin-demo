@@ -1,0 +1,31 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "program_issue": 2726,
+  "parent_issue": 2977,
+  "issue": 2982,
+  "branch": "agent/tai-ap-13c1a1-exact-main-probe",
+  "allowed_paths": [
+    ".github/workflows/tai-cpu-benchmark-execution-authority.yml",
+    "apps/tai/governance/scopes/ap-13c1a1-exact-main-probe-2982.json",
+    "apps/tai/model-artifacts/exact-main-probe.v1.sh",
+    "apps/tai/tests/test_cpu_benchmark_exact_main_probe.py",
+    "apps/tai/tests/test_cpu_benchmark_execution_workflow.py"
+  ],
+  "acceptance": [
+    "the issue-comment checkout is bound to the live main branch head through git ls-remote",
+    "a missing, ambiguous, malformed or moved main branch fails closed",
+    "the checked-out HEAD, GITHUB_SHA and live main SHA must be identical",
+    "the clean-worktree assertion remains mandatory",
+    "the exact-main probe executes immediately after checkout and before editable installation",
+    "the exact-main probe has executable negative tests",
+    "no benchmark or external model operation is introduced",
+    "production_operational_status remains NOT_ATTESTED"
+  ],
+  "forbidden_capabilities": [
+    "mutable branch assumptions or unverified remote-tracking refs",
+    "moving exact-main verification after editable package installation",
+    "network mutation, model download, inference or benchmark execution",
+    "automatic acceptance of storage, bundles or expert review",
+    "model admission, activation, deployment or production attestation"
+  ]
+}

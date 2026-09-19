@@ -1,0 +1,18 @@
+{
+  "schema_version": "tai.llama-cpp-build-evidence.v1",
+  "status": "PENDING_BUILD",
+  "authority": {
+    "toolchain_name": "ggml-org/llama.cpp",
+    "repository_uri": "https://github.com/ggml-org/llama.cpp",
+    "release": "b9637",
+    "commit": "aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3",
+    "profile_id": "linux-x86_64-cpu-release-static-v1",
+    "authority_sha256": "3064250e63baed7bdcfd20851e1d3ea2c86fc33f087b69a2a4fcff18c384374b"
+  },
+  "pending_reason": "The controlled exact-commit source build has not been executed.",
+  "source": null,
+  "environment": null,
+  "commands": null,
+  "logs": null,
+  "binaries": []
+}

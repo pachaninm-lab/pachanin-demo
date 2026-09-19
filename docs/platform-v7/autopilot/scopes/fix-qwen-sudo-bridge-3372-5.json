@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "PUBLIC-AI-QWEN-SUDO-BRIDGE-3372-5",
+  "branch": "ops/fix-qwen-sudo-bridge-3372-5",
+  "status": "active",
+  "issue": 3372,
+  "baseCommit": "cb663a720005d912213738e834294f22f43fa422",
+  "operationalStatus": "NON_ROOT_MODEL_SSH_USER_REQUIRES_FAIL_CLOSED_ROOT_ELEVATION",
+  "maturityBoundary": "model-host-transport-repair-only",
+  "allowedPaths": [
+    ".github/workflows/tai-qwen-model-host-repair.yml",
+    "docs/platform-v7/autopilot/scopes/fix-qwen-sudo-bridge-3372-5.json"
+  ],
+  "forbiddenPaths": [
+    "apps/**",
+    "packages/**",
+    "prisma/**",
+    "infra/**",
+    "pnpm-lock.yaml",
+    "production credentials"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "authorizationChange": false,
+    "tenantOrDealBoundaryChange": false,
+    "modelAdmissionChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "productionDeployment": true
+  },
+  "requiredEvidence": [
+    "Non-root SSH is accepted only with passwordless sudo and otherwise fails with a precise marker",
+    "The model service remains private-only and Bearer authenticated",
+    "The dedicated SSH account receives a restricted noninteractive bridge only after root elevation is proven",
+    "The bridge permits only the governed repair bootstrap and the existing Qwen preflight command shape",
+    "The model API key remains undisclosed and server-only",
+    "Accepted REG.RU activation is dispatched only after authenticated health passes",
+    "Failure leaves issue 3372 open and production activation undispatched",
+    "Permanent AP-13D admission remains NOT_ATTESTED",
+    "Production hosting remains REG_RU_VPS_ONLY"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

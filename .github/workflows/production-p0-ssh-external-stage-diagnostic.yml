@@ -1,0 +1,216 @@
+name: PC-CROP P0 SSH External Stage Diagnostic
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-ssh-external-stage-diagnostic.yml'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-p0-ssh-external-stage-diagnostic-4445.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pc-crop-p0-ssh-external-stage-diagnostic
+  cancel-in-progress: false
+
+env:
+  CANONICAL_HOST: 195.19.12.120
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  AUTHORITY_ISSUE: '4445'
+  COMMAND: '/production p0-ssh-external-stage-diagnose current-main'
+
+jobs:
+  contract:
+    name: Validate external SSH stage diagnostic contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 4445 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.body == '/production p0-ssh-external-stage-diagnose current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Prove read-only bounded contract
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          wf = Path('.github/workflows/production-p0-ssh-external-stage-diagnostic.yml')
+          scope_path = Path('docs/platform-v7/autopilot/scopes/pc-crop-p0-ssh-external-stage-diagnostic-4445.json')
+          text = wf.read_text(encoding='utf-8')
+          payload = text[text.index('\n  diagnose:\n'):]
+          scope = json.loads(scope_path.read_text(encoding='utf-8'))
+          if scope.get('schemaVersion') != 'platform-v7.concurrent-scope.v1': raise SystemExit('SCOPE_SCHEMA')
+          if scope.get('issue') != 4445 or scope.get('registrationIssue') != 3785 or scope.get('releaseIssue') != 3072: raise SystemExit('SCOPE_AUTHORITY')
+          if scope.get('branch') != 'fix/p0-ssh-external-stage-diagnostic-4445': raise SystemExit('SCOPE_BRANCH')
+          if set(scope.get('allowedPaths') or []) != {str(wf), str(scope_path)}: raise SystemExit('SCOPE_PATHS')
+          if (scope.get('boundaries') or {}).get('productionMutation') != 'NONE' or scope.get('newRecurringCostRub') != 0: raise SystemExit('SCOPE_MUTATION_OR_COST')
+          required = (
+              '/production p0-ssh-external-stage-diagnose current-main',
+              'PC_PROD_SSH_PORT', 'PC_PROD_SSH_HOST_FINGERPRINT',
+              'ssh-keyscan -T 10', 'SSH_KEYSCAN_EMPTY_ALL', 'SSH_KEYSCAN_INTERMITTENT',
+              'SSH_KEYSCAN_UNSTABLE', 'PROTECTED_PIN_NOT_UNIQUE_OR_NOT_OFFERED',
+              'PASS_EXTERNAL_PIN_MATCH', 'PRODUCTION_MUTATION=NONE',
+          )
+          for marker in required:
+              if marker not in text: raise SystemExit(f'MISSING:{marker}')
+          for marker in (
+              'StrictHostKeyChecking=no','StrictHostKeyChecking=accept-new','UserKnownHostsFile=/dev/null',
+              'sshpass','PasswordAuthentication=yes','secrets.PC_PROD_SSH_KEY','secrets.PC_PROD_SSH_PRIVATE_KEY',
+              'secrets.VPS_SSH_KEY','docker compose','docker run','docker rm','docker rmi','docker prune',
+              'systemctl restart','systemctl stop','systemctl start','prisma migrate','psql ','gh secret set',
+              'gh variable set','sudo ',
+          ):
+              if marker in payload: raise SystemExit(f'FORBIDDEN:{marker}')
+          PY
+
+  diagnose:
+    name: Classify hosted SSH observation failure without mutation
+    needs: contract
+    if: >-
+      needs.contract.result == 'success' &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 4445 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/production p0-ssh-external-stage-diagnose current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Publish sanitized external SSH stage classification
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          result='UNKNOWN'
+          dns_state='NOT_EVALUATED'
+          scan_state='NOT_EVALUATED'
+          pin_state='NOT_EVALUATED'
+          target='UNKNOWN'
+          tmp="$(mktemp -d "$RUNNER_TEMP/p0-ssh-external-stage.XXXXXX")"
+          trap 'rm -rf -- "$tmp"' EXIT
+
+          git fetch --no-tags origin main >/dev/null
+          target="$(git rev-parse origin/main)"
+          if [[ ! "$target" =~ ^[0-9a-f]{40}$ || "$(git rev-parse HEAD)" != "$target" ]]; then
+            result='MAIN_DRIFT'
+          fi
+
+          port="${PC_PROD_SSH_PORT//[[:space:]]/}"
+          expected="${PC_PROD_SSH_HOST_FINGERPRINT//[[:space:]]/}"
+          if [[ "$result" == UNKNOWN ]]; then
+            if [[ -z "$port" || ! "$port" =~ ^[0-9]+$ ]] || (( port < 1 || port > 65535 )); then
+              result='PROTECTED_SSH_PORT_INVALID_OR_MISSING'
+            fi
+          fi
+
+          if [[ "$result" == UNKNOWN ]]; then
+            dns="$(getent ahostsv4 "$LIVE_DOMAIN" 2>/dev/null | awk '{print $1}' | sort -u || true)"
+            if [[ -z "$dns" ]]; then
+              dns_state='FAIL'
+              result='DNS_NO_IPV4_OBSERVATION'
+            elif ! grep -Fxq "$CANONICAL_HOST" <<< "$dns"; then
+              dns_state='FAIL'
+              result='DNS_CANONICAL_IP_MISSING'
+            else
+              dns_state='PASS'
+            fi
+          fi
+
+          if [[ "$result" == UNKNOWN ]]; then
+            empty=0
+            for n in 1 2 3; do
+              ssh-keyscan -T 10 -p "$port" "$CANONICAL_HOST" 2>/dev/null | sort -u > "$tmp/scan-$n" || true
+              [[ -s "$tmp/scan-$n" ]] || empty=$((empty + 1))
+              (( n == 3 )) || sleep "$n"
+            done
+            if (( empty == 3 )); then
+              scan_state='FAIL'
+              result='SSH_KEYSCAN_EMPTY_ALL'
+            elif (( empty > 0 )); then
+              scan_state='FAIL'
+              result='SSH_KEYSCAN_INTERMITTENT'
+            elif ! cmp -s "$tmp/scan-1" "$tmp/scan-2" || ! cmp -s "$tmp/scan-1" "$tmp/scan-3"; then
+              scan_state='FAIL'
+              result='SSH_KEYSCAN_UNSTABLE'
+            else
+              scan_state='PASS'
+            fi
+          fi
+
+          if [[ "$result" == UNKNOWN ]]; then
+            if [[ ! "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]; then
+              result='PROTECTED_PIN_INVALID_OR_MISSING'
+            else
+              key_count=0
+              match_count=0
+              parse_fail=0
+              while IFS= read -r line; do
+                [[ -n "$line" ]] || continue
+                fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+                if [[ ! "$fp" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]; then
+                  parse_fail=1
+                  continue
+                fi
+                key_count=$((key_count + 1))
+                [[ "$fp" != "$expected" ]] || match_count=$((match_count + 1))
+              done < "$tmp/scan-1"
+              if (( parse_fail != 0 || key_count < 1 || key_count > 8 )); then
+                pin_state='NOT_EVALUATED'
+                result='SSH_PUBLIC_KEY_PARSE_OR_CARDINALITY'
+              elif (( match_count != 1 )); then
+                pin_state='FAIL'
+                result='PROTECTED_PIN_NOT_UNIQUE_OR_NOT_OFFERED'
+              else
+                pin_state='PASS'
+                result='PASS_EXTERNAL_PIN_MATCH'
+              fi
+            fi
+          fi
+
+          report="$tmp/report.md"
+          cat > "$report" <<EOF
+          ## PC-CROP P0 SSH external stage diagnostic
+
+          - target SHA: \`$target\`
+          - classification: \`$result\`
+          - canonical DNS observation: \`$dns_state\`
+          - three-scan SSH observation: \`$scan_state\`
+          - stored protected pin externally offered exactly once: \`$pin_state\`
+          - protected port / fingerprint / raw keys: \`NOT_PUBLISHED\`
+          - production mutation: \`NONE\`
+          - new recurring cost: \`0 RUB\`
+          EOF
+          cat "$report"
+          gh issue comment "$AUTHORITY_ISSUE" --repo "$GITHUB_REPOSITORY" --body-file "$report" >/dev/null
+          echo 'PRODUCTION_MUTATION=NONE'

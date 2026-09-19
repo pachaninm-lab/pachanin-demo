@@ -10,7 +10,8 @@ describe('platform-v7 public smoke audit', () => {
     const smoke = read('tests/e2e/platform-v7-public-smoke.spec.ts');
 
     expect(smoke).toContain('PLATFORM_V7_PUBLIC_URL');
-    expect(smoke).toContain('vermillion-kitsune-0e7b97.netlify.app');
+    expect(smoke).toContain('https://процент-агро.рф');
+    expect(smoke).not.toContain('netlify');
     expect(smoke).toContain("'/platform-v7'");
     expect(smoke).toContain("'/platform-v7/bank'");
     expect(smoke).toContain("'/platform-v7/driver/field'");

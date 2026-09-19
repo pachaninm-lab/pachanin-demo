@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4631,
+  "branch": "chore/gitignore-asvs-matrix-artifacts-4631",
+  "status": "active",
+  "purpose": "Add /artifacts/ to .gitignore so scripts/security/build-asvs-matrix.mjs's local run output (regenerated on every ASVS applicability-decisions verification pass) stops showing as untracked. No script logic or application code changes.",
+  "authorityBaseExactMain": "d92b2b7e66a805aea830afd6519af7dcd320e3fa",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/gitignore-asvs-matrix-artifacts-4631.json",
+    ".gitignore"
+  ],
+  "requiredInvariants": [
+    "Only an addition to .gitignore; no existing ignore rule is removed or narrowed.",
+    "/artifacts/ has never been committed in git history (verified: git log --all -- artifacts/ is empty) and is not referenced by any workflow as a path it checks out or expects tracked.",
+    "No production, REG.RU, DNS or database mutation.",
+    "This scope changes no application code."
+  ],
+  "acceptance": [
+    "git status --ignored shows artifacts/ as ignored after running scripts/security/build-asvs-matrix.mjs.",
+    "node --test scripts/security/*.test.mjs is unaffected (still whatever it was before this change)."
+  ]
+}

@@ -1,0 +1,462 @@
+{
+  "benchmark_status": "PENDING_BENCHMARK",
+  "blocking_items": [
+    {
+      "item_id": "A.04",
+      "reason": "7 TAI branches are 55-135 commits behind exact main b6ed69c40e5b",
+      "stage": "A",
+      "status": "BLOCKED",
+      "title": "All active TAI branches are synchronized with exact main"
+    },
+    {
+      "item_id": "A.06",
+      "reason": "8 TAI pull requests are open concurrently with overlapping scope and unmerged bases",
+      "stage": "A",
+      "status": "BLOCKED",
+      "title": "Open TAI pull requests reduced to single-scope review-clean changes"
+    },
+    {
+      "item_id": "B.01",
+      "reason": "bundle lifecycle is PENDING_ACQUISITION with an empty source inventory",
+      "stage": "B",
+      "status": "BLOCKED",
+      "title": "Qwen3-8B primary source acquired at the pinned revision"
+    },
+    {
+      "item_id": "B.02",
+      "reason": "bundle lifecycle is PENDING_ACQUISITION with an empty source inventory",
+      "stage": "B",
+      "status": "BLOCKED",
+      "title": "Mistral-7B-Instruct-v0.3 fallback source acquired at the pinned revision"
+    },
+    {
+      "item_id": "B.04",
+      "reason": "conversion requires acquired sources on the dedicated model host (B.01, B.02)",
+      "stage": "B",
+      "status": "BLOCKED",
+      "title": "GGUF conversion and Q4_K_M quantization with verified SHA-256"
+    },
+    {
+      "item_id": "B.06",
+      "reason": "external immutable storage provisioning is unfinished (issues 2954, 2958, 2961)",
+      "stage": "B",
+      "status": "BLOCKED",
+      "title": "Immutable external bundle storage upload with proven retention"
+    },
+    {
+      "item_id": "B.07",
+      "reason": "depends on B.06 immutable bundle upload",
+      "stage": "B",
+      "status": "BLOCKED",
+      "title": "Clean restore from immutable storage with re-verified digests"
+    },
+    {
+      "item_id": "C.01",
+      "reason": "no admitted GGUF exists to benchmark (B.04)",
+      "stage": "C",
+      "status": "BLOCKED",
+      "title": "CPU Qwen Q4_K_M measured profile including one-hour soak and operating cost"
+    },
+    {
+      "item_id": "C.02",
+      "reason": "no admitted fallback GGUF exists to benchmark (B.04)",
+      "stage": "C",
+      "status": "BLOCKED",
+      "title": "CPU Mistral Q4_K_M fallback profile"
+    },
+    {
+      "item_id": "C.03",
+      "reason": "no GPU model host is provisioned (issue 2972)",
+      "stage": "C",
+      "status": "BLOCKED",
+      "title": "GPU Qwen Q8_0 profile at concurrency 1/2/4/8 with VRAM and one-hour soak"
+    },
+    {
+      "item_id": "C.04",
+      "reason": "depends on C.01 measured evidence",
+      "stage": "C",
+      "status": "BLOCKED",
+      "title": "Primary model admission manifest"
+    },
+    {
+      "item_id": "C.05",
+      "reason": "depends on C.02 and C.04",
+      "stage": "C",
+      "status": "BLOCKED",
+      "title": "Fallback admission with routing, draining, health checks and version pinning"
+    },
+    {
+      "item_id": "D.01",
+      "reason": "not yet accepted",
+      "stage": "D",
+      "status": "IN_PROGRESS",
+      "title": "Platform Knowledge Base contour"
+    },
+    {
+      "item_id": "D.02",
+      "reason": "not yet accepted",
+      "stage": "D",
+      "status": "NOT_STARTED",
+      "title": "Agro Knowledge Graph contour"
+    },
+    {
+      "item_id": "D.03",
+      "reason": "not yet accepted",
+      "stage": "D",
+      "status": "NOT_STARTED",
+      "title": "Regulatory Knowledge contour"
+    },
+    {
+      "item_id": "D.04",
+      "reason": "not yet accepted",
+      "stage": "D",
+      "status": "NOT_STARTED",
+      "title": "Market Data Layer contour"
+    },
+    {
+      "item_id": "D.05",
+      "reason": "not yet accepted",
+      "stage": "D",
+      "status": "IN_PROGRESS",
+      "title": "Per-fact provenance, freshness, authority and expiry metadata"
+    },
+    {
+      "item_id": "D.06",
+      "reason": "6 official sources are registered and none has accepted live ingestion evidence",
+      "stage": "D",
+      "status": "BLOCKED",
+      "title": "At least 7 of 8 mandatory knowledge topics closed with live source evidence"
+    },
+    {
+      "item_id": "E.01",
+      "reason": "not yet accepted",
+      "stage": "E",
+      "status": "NOT_STARTED",
+      "title": "Platform gold set reaches 95 percent accuracy"
+    },
+    {
+      "item_id": "E.02",
+      "reason": "not yet accepted",
+      "stage": "E",
+      "status": "NOT_STARTED",
+      "title": "Agro gold set reaches 90 percent accuracy"
+    },
+    {
+      "item_id": "E.03",
+      "reason": "not yet accepted",
+      "stage": "E",
+      "status": "NOT_STARTED",
+      "title": "Groundedness, citation validity and unsupported-claim measurement"
+    },
+    {
+      "item_id": "E.04",
+      "reason": "not yet accepted",
+      "stage": "E",
+      "status": "NOT_STARTED",
+      "title": "Abstention precision and recall measurement"
+    },
+    {
+      "item_id": "E.05",
+      "reason": "not yet accepted",
+      "stage": "E",
+      "status": "NOT_STARTED",
+      "title": "RU/EN/ZH, typo, translit, adversarial and leakage evaluation suite"
+    },
+    {
+      "item_id": "E.06",
+      "reason": "gold-set-authority.mjs --require-accepted exits 2 with EXPERT_REVIEWS_MISSING: 0 of 58 cases reviewed, corpus and protocol present on exact main",
+      "stage": "E",
+      "status": "BLOCKED",
+      "title": "Authenticated human reviewer attestation without LLM-only judging"
+    },
+    {
+      "item_id": "F.01",
+      "reason": "not yet accepted",
+      "stage": "F",
+      "status": "IN_PROGRESS",
+      "title": "Embeddings and semantic retrieval"
+    },
+    {
+      "item_id": "F.02",
+      "reason": "not yet accepted",
+      "stage": "F",
+      "status": "IN_PROGRESS",
+      "title": "Hybrid fusion and reranking"
+    },
+    {
+      "item_id": "F.03",
+      "reason": "not yet accepted",
+      "stage": "F",
+      "status": "IN_PROGRESS",
+      "title": "Tenant, role, document and freshness retrieval filters"
+    },
+    {
+      "item_id": "F.04",
+      "reason": "not yet accepted",
+      "stage": "F",
+      "status": "IN_PROGRESS",
+      "title": "Retrieval benchmark with Recall@K, Precision@K, MRR, nDCG and tenant isolation"
+    },
+    {
+      "item_id": "F.05",
+      "reason": "not yet accepted",
+      "stage": "F",
+      "status": "NOT_STARTED",
+      "title": "Semantic cache with invalidation on knowledge update"
+    },
+    {
+      "item_id": "G.01",
+      "reason": "not yet accepted",
+      "stage": "G",
+      "status": "NOT_STARTED",
+      "title": "Document ingest with MIME validation, size limits, malware scan and quarantine"
+    },
+    {
+      "item_id": "G.02",
+      "reason": "not yet accepted",
+      "stage": "G",
+      "status": "NOT_STARTED",
+      "title": "Page-level extraction, table extraction, on-demand OCR and page provenance"
+    },
+    {
+      "item_id": "G.03",
+      "reason": "not yet accepted",
+      "stage": "G",
+      "status": "NOT_STARTED",
+      "title": "Document versioning and deduplication"
+    },
+    {
+      "item_id": "G.04",
+      "reason": "not yet accepted",
+      "stage": "G",
+      "status": "NOT_STARTED",
+      "title": "Prompt-injection, hidden-text and suspicious-link detection in documents"
+    },
+    {
+      "item_id": "G.05",
+      "reason": "not yet accepted",
+      "stage": "G",
+      "status": "NOT_STARTED",
+      "title": "Per-field extraction confidence with human review for critical fields"
+    },
+    {
+      "item_id": "H.06",
+      "reason": "depends on C.04 primary model admission and runtime health; H.01-H.05 are accepted and the gateway is deliberately disabled",
+      "stage": "H",
+      "status": "BLOCKED",
+      "title": "Production feature flag enabled only after model admission and runtime health"
+    },
+    {
+      "item_id": "J.01",
+      "reason": "not yet accepted",
+      "stage": "J",
+      "status": "IN_PROGRESS",
+      "title": "Metrics, structured logs, traces and token accounting"
+    },
+    {
+      "item_id": "J.02",
+      "reason": "not yet accepted",
+      "stage": "J",
+      "status": "NOT_STARTED",
+      "title": "AI quality telemetry for abstention, citation, unsupported claims and stale sources"
+    },
+    {
+      "item_id": "J.03",
+      "reason": "not yet accepted",
+      "stage": "J",
+      "status": "NOT_STARTED",
+      "title": "AI Ops Console"
+    },
+    {
+      "item_id": "J.04",
+      "reason": "not yet accepted",
+      "stage": "J",
+      "status": "NOT_STARTED",
+      "title": "Incident registry and rollback surface"
+    },
+    {
+      "item_id": "K.01",
+      "reason": "no dedicated inference host is provisioned in the Russian production contour",
+      "stage": "K",
+      "status": "BLOCKED",
+      "title": "REG.RU production contour with a separate inference host"
+    },
+    {
+      "item_id": "K.02",
+      "reason": "depends on K.01",
+      "stage": "K",
+      "status": "BLOCKED",
+      "title": "TLS, private network, firewall, secret management and rate limits"
+    },
+    {
+      "item_id": "K.03",
+      "reason": "depends on K.01",
+      "stage": "K",
+      "status": "BLOCKED",
+      "title": "Supervision, health, readiness, liveness, graceful shutdown, rolling deploy and rollback"
+    },
+    {
+      "item_id": "K.04",
+      "reason": "depends on K.01",
+      "stage": "K",
+      "status": "BLOCKED",
+      "title": "Backups, restore test and log/audit retention"
+    },
+    {
+      "item_id": "L.01",
+      "reason": "not yet accepted",
+      "stage": "L",
+      "status": "NOT_STARTED",
+      "title": "12-role end-to-end acceptance"
+    },
+    {
+      "item_id": "L.02",
+      "reason": "not yet accepted",
+      "stage": "L",
+      "status": "NOT_STARTED",
+      "title": "Public/private and multi-tenant isolation acceptance"
+    },
+    {
+      "item_id": "L.03",
+      "reason": "not yet accepted",
+      "stage": "L",
+      "status": "NOT_STARTED",
+      "title": "Security red-team pass for escalation, injection, tool abuse, SSRF and exfiltration"
+    },
+    {
+      "item_id": "L.04",
+      "reason": "not yet accepted",
+      "stage": "L",
+      "status": "NOT_STARTED",
+      "title": "Fault injection for model outage, fallback, overload, backpressure and host restart"
+    },
+    {
+      "item_id": "L.05",
+      "reason": "not yet accepted",
+      "stage": "L",
+      "status": "NOT_STARTED",
+      "title": "Restore acceptance for backups and immutable bundles"
+    },
+    {
+      "item_id": "L.06",
+      "reason": "target load acceptance is unproven and its remediation branches are unmerged (issue 2694)",
+      "stage": "L",
+      "status": "BLOCKED",
+      "title": "Sustained load acceptance and backlog recovery"
+    },
+    {
+      "item_id": "L.07",
+      "reason": "not yet accepted",
+      "stage": "L",
+      "status": "NOT_STARTED",
+      "title": "Concurrent write, replay, idempotency, optimistic lock, audit and outbox verification"
+    },
+    {
+      "item_id": "L.08",
+      "reason": "not yet accepted",
+      "stage": "L",
+      "status": "NOT_STARTED",
+      "title": "24-hour read-only production soak"
+    },
+    {
+      "item_id": "L.10",
+      "reason": "attestation requires every preceding mandatory acceptance item",
+      "stage": "L",
+      "status": "BLOCKED",
+      "title": "Published production operational attestation"
+    }
+  ],
+  "counts_method": "Repository-scoped REST pagination over repos/{owner}/{repo}/issues?state=open, counting entries without a pull_request field as issues; the search API is not reachable from this session and its issue index previously returned total_count 0",
+  "document_intelligence_status": "NOT_STARTED",
+  "exact_main_sha": "ecce12f9a6e3938a0820301501fcbd3d5edae262",
+  "failing_main_workflows": [],
+  "gateway_status": "ACCEPTED_DISABLED_PENDING_MODEL_ADMISSION",
+  "generated_at": "2026-07-27T22:50:00Z",
+  "knowledge_status": "PARTIAL",
+  "model_admission_status": "PENDING_ADMISSION",
+  "model_artifact_status": "PENDING_ACQUISITION",
+  "observability_status": "PARTIAL",
+  "open_issue_count": 207,
+  "open_pull_request_count": 169,
+  "operational_acceptance_status": "NOT_ATTESTED",
+  "production_deployment_status": "NOT_ACTIVATED",
+  "recommended_execution_order": [
+    "A.04",
+    "A.06",
+    "B.01",
+    "B.02",
+    "B.04",
+    "B.06",
+    "B.07",
+    "C.01",
+    "C.02",
+    "C.03",
+    "C.04",
+    "C.05",
+    "D.01",
+    "D.02",
+    "D.03",
+    "D.04",
+    "D.05",
+    "D.06",
+    "E.01",
+    "E.02",
+    "E.03",
+    "E.04",
+    "E.05",
+    "E.06",
+    "F.01",
+    "F.02",
+    "F.03",
+    "F.04",
+    "F.05",
+    "G.01",
+    "G.02",
+    "G.03",
+    "G.04",
+    "G.05",
+    "H.06",
+    "J.01",
+    "J.02",
+    "J.03",
+    "J.04",
+    "K.01",
+    "K.02",
+    "K.03",
+    "K.04",
+    "L.01",
+    "L.02",
+    "L.03",
+    "L.04",
+    "L.05",
+    "L.06",
+    "L.07",
+    "L.08",
+    "L.10"
+  ],
+  "retrieval_status": "PARTIAL",
+  "safe_tools_status": "PARTIAL",
+  "schema": "tai.current-industrial-gap-report.v1",
+  "stale_branches": [
+    "agent/tai-ap-13b3e-immutable-storage-contract",
+    "agent/tai-ap-13c1d-remediation-2997",
+    "agent/tai-ap-13c1e-cpu-benchmark-finalization",
+    "agent/tai-gateway-ui-readonly-3004",
+    "agent/tai-security-audit-remediation-3006",
+    "tai/ap12b-assign-logistics-confirmed-action"
+  ],
+  "totals": {
+    "accepted": 16,
+    "blocked": 21,
+    "completion_formula": "100 * mandatory_accepted / mandatory_total",
+    "completion_percent": 23.53,
+    "completion_scope": "READINESS_EVIDENCE_GATES_WITH_ACCEPTED_EXACT_MAIN_EVIDENCE. Not overall TAI implementation progress and not product readiness.",
+    "mandatory_accepted": 16,
+    "mandatory_deferred_by_owner_decision": 3,
+    "mandatory_total": 68,
+    "regressed": 0,
+    "remaining": 55,
+    "total": 71
+  },
+  "ui_status": "NOT_ACTIVATED"
+}

@@ -1,0 +1,41 @@
+{
+  "acceptance": [
+    "owner-only exact-main finalization is issue-bound and cannot run from pull-request context",
+    "the completed conversion run is consumed without source download, conversion or quantization rerun",
+    "each model payload is archived as a deterministic two-pass stream without retaining a local archive copy",
+    "the final object key is content-addressed by the measured archive SHA-256 and bound to an exact VersionId",
+    "Object Lock COMPLIANCE retention and private versioned storage are verified before payload transfer",
+    "one model at a time is downloaded by exact object version into a clean restore root",
+    "unsafe tar members, payload drift, same-root restore, missing version identity and digest mismatch fail closed",
+    "only bounded locator, digest and verification metadata return to GitHub",
+    "benchmark remains NOT_RUN, model admission remains NOT_DONE and production_operational_status remains NOT_ATTESTED"
+  ],
+  "allowed_paths": [
+    ".gitleaksignore",
+    ".github/workflows/tai-model-bundle-finalization.yml",
+    "apps/tai/governance/scopes/ap-13b3h-bundle-finalization-2961.json",
+    "apps/tai/model-artifacts/model-bundle-finalization-authority.v1.json",
+    "apps/tai/model-artifacts/model-bundle-finalization-driver.v1.sh",
+    "apps/tai/model-artifacts/model-bundle-finalization-remote.v1.sh",
+    "apps/tai/model-artifacts/model-bundle-finalization-runbook.v1.md",
+    "apps/tai/tai/model_bundle_external_storage.py",
+    "apps/tai/tai/model_bundle_external_storage_cli.py",
+    "apps/tai/model-artifacts/model_bundle_finalization_remote.py",
+    "apps/tai/tests/test_gitleaks_release_authority.py",
+    "apps/tai/tests/test_model_bundle_external_storage.py",
+    "apps/tai/tests/test_model_bundle_finalization_workflow.py"
+  ],
+  "branch": "agent/tai-ap-13b3h-bundle-finalization",
+  "forbidden_capabilities": [
+    "model source, GGUF, payload archive or storage credential committed to Git",
+    "production-host credentials or production-server fallback",
+    "S3 credential disclosure in logs, comments, artifacts or metadata",
+    "object deletion, version deletion or retention shortening under the governed prefix",
+    "source download, conversion rerun or quantization rerun",
+    "model benchmark, admission, activation, deployment or production-readiness claim"
+  ],
+  "issue": 2961,
+  "parent_issue": 2954,
+  "program_issue": 2726,
+  "schema_version": "tai.concurrent-scope.v1"
+}

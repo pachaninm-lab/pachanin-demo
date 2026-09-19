@@ -1,0 +1,32 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "program_issue": 2726,
+  "issue": 3004,
+  "branch": "claude/tai-gateway-contract-a1-kylgh7",
+  "supersedes": "agent/tai-gateway-ui-readonly-3004",
+  "allowed_paths": [
+    "apps/tai/governance/scopes/ap-17-gateway-c-private-contour.json",
+    "apps/web/app/api/proxy/[...path]/route.ts",
+    "apps/web/components/platform-v7/AiAssistantPanel.tsx",
+    "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
+    "apps/web/lib/platform-v7/ai-gateway-stream.ts",
+    "apps/web/tests/unit/platformV7PrivateAssistantStreamBinding.test.tsx",
+    "apps/web/tests/unit/platformV7PrivateGatewayStreamProxy.test.ts",
+    "docs/platform-v7/ai/gateway-ui-readonly-runtime-binding.md",
+    "docs/platform-v7/autopilot/autopilot-state.json"
+  ],
+  "acceptance": [
+    "the private assistant proxy streams SSE without buffering, with the reader's cancellation forwarded upstream instead of a fixed deadline",
+    "the gateway stream has no demo form: without the real backend it refuses rather than serving a prepared reply",
+    "the private panel renders provisional text as provisional and removes it entirely when the stream does not complete",
+    "a refusal is shown as a refusal; the composed chat answer stands in only for FEATURE_DISABLED or MODEL_NOT_ADMITTED",
+    "every other proxied path keeps its buffered behaviour and its existing deadline"
+  ],
+  "forbidden_capabilities": [
+    "model bundle, benchmark, admission authority, runtime-host or quality-scoring changes",
+    "write-tool activation",
+    "client-selected tenant, organization, membership or role authority",
+    "live-runtime or production-attestation claim without exact endpoint evidence",
+    "TAI Enterprise, 1C and external adapter work"
+  ]
+}

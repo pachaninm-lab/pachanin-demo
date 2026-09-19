@@ -16,6 +16,8 @@ const OPTIONAL_RUNTIME_VALIDATOR_PATH = resolve('scripts/security/validate-optio
 const WORKFLOW_PATH = resolve('.github/workflows/security-quality-gate.yml');
 const RUNTIME_WORKFLOW_PATH = resolve('.github/workflows/runtime-context-security-gate.yml');
 const OPTIONAL_RUNTIME_WORKFLOW_PATH = resolve('.github/workflows/optional-runtime-retirement-gate.yml');
+const OUTBOX_WORKFLOW_PATH = resolve('.github/workflows/outbox-worker-topology-acceptance.yml');
+const IMMUTABLE_RELEASE_WORKFLOW_PATH = resolve('.github/workflows/immutable-release-authority-acceptance.yml');
 const REPORT_PATH = resolve(process.env.SECURITY_POLICY_REPORT ?? 'artifacts/security/security-policy-validation.json');
 const IGNORE_DIR = resolve(process.env.TRIVY_IGNORE_DIR ?? 'artifacts/security');
 const EXACT_HEAD = String(process.env.SECURITY_EXACT_HEAD ?? '').trim();
@@ -24,6 +26,8 @@ const MAX_EXCEPTION_DAYS = 90;
 const ALLOWED_SCANNERS = new Set([
   'trivy-container',
   'trivy-web-container',
+  'trivy-outbox-worker-container',
+  'trivy-migration-container',
   'trivy-filesystem',
   'trivy-iac',
   'pnpm-audit',
@@ -105,6 +109,9 @@ const optionalRuntimeInventory = parseJson(OPTIONAL_RUNTIME_INVENTORY_PATH);
 const workflow = readFileSync(WORKFLOW_PATH, 'utf8');
 const runtimeWorkflow = readFileSync(RUNTIME_WORKFLOW_PATH, 'utf8');
 const optionalRuntimeWorkflow = readFileSync(OPTIONAL_RUNTIME_WORKFLOW_PATH, 'utf8');
+const outboxWorkflow = readFileSync(OUTBOX_WORKFLOW_PATH, 'utf8');
+const immutableReleaseWorkflow = readFileSync(IMMUTABLE_RELEASE_WORKFLOW_PATH, 'utf8');
+const trivyEvaluator = readFileSync(TRIVY_EVALUATOR_PATH, 'utf8');
 const runtimeValidator = readFileSync(RUNTIME_VALIDATOR_PATH, 'utf8');
 const optionalRuntimeValidator = readFileSync(OPTIONAL_RUNTIME_VALIDATOR_PATH, 'utf8');
 const bulkAuditCollector = readFileSync(BULK_AUDIT_COLLECTOR_PATH, 'utf8');
@@ -115,6 +122,8 @@ check(errors, /^[0-9a-f]{40}$/i.test(EXACT_HEAD), 'SECURITY_EXACT_HEAD must be a
 check(errors, validatedCommit === EXACT_HEAD, `Checked out commit ${validatedCommit} does not match exact head ${EXACT_HEAD}.`);
 check(errors, schema?.properties?.schemaVersion?.const === 1, 'Security exception schema version must remain 1.');
 check(errors, schema?.properties?.exceptions?.items?.properties?.scanner?.enum?.includes('trivy-web-container'), 'Security exception schema must govern the web container scanner.');
+check(errors, schema?.properties?.exceptions?.items?.properties?.scanner?.enum?.includes('trivy-outbox-worker-container'), 'Security exception schema must govern the outbox worker container scanner.');
+check(errors, schema?.properties?.exceptions?.items?.properties?.scanner?.enum?.includes('trivy-migration-container'), 'Security exception schema must govern the migration container scanner.');
 check(errors, registry.schemaVersion === 1, 'Security exception registry schemaVersion must equal 1.');
 check(errors, registry.policy?.criticalExceptionsAllowed === false, 'Critical vulnerability exceptions are forbidden.');
 check(errors, registry.policy?.maximumExceptionDays === MAX_EXCEPTION_DAYS, `maximumExceptionDays must equal ${MAX_EXCEPTION_DAYS}.`);
@@ -192,6 +201,8 @@ const findingKeys = new Set();
 const trivyExceptions = {
   'trivy-container': [],
   'trivy-web-container': [],
+  'trivy-outbox-worker-container': [],
+  'trivy-migration-container': [],
   'trivy-filesystem': [],
   'trivy-iac': [],
 };
@@ -225,6 +236,7 @@ for (const exception of exceptions) {
 
   if (scanner.startsWith('trivy-')) {
     check(errors, TRIVY_TYPES.has(exception?.findingType), `${id}: Trivy exception requires findingType.`);
+    check(errors, (exception?.paths?.length ?? 0) + (exception?.purls?.length ?? 0) > 0, `${id}: Trivy exception requires an exact path or PURL scope.`);
     for (const path of exception?.paths ?? []) check(errors, typeof path === 'string' && path.length > 0, `${id}: invalid path scope.`);
     for (const purl of exception?.purls ?? []) check(errors, /^pkg:/.test(purl), `${id}: invalid PURL scope.`);
     if (trivyExceptions[scanner]) trivyExceptions[scanner].push(exception);
@@ -282,6 +294,33 @@ requireFragments(errors, runtimeWorkflow, [
   'Runtime Context Gate · all blocking checks',
 ], 'Runtime context workflow');
 
+requireFragments(errors, outboxWorkflow, [
+  'Outbox Worker Topology Acceptance',
+  'infra/docker/Dockerfile.outbox-worker',
+  'TRIVY_SCANNER: trivy-outbox-worker-container',
+  'trivy-worker-container.json',
+  'trivy-worker-container-evaluation.json',
+  'evaluate-trivy-report.mjs',
+], 'Outbox worker topology workflow');
+
+requireFragments(errors, immutableReleaseWorkflow, [
+  'Immutable Release Authority Acceptance',
+  'infra/docker/Dockerfile.migrations',
+  'TRIVY_SCANNER: trivy-migration-container',
+  'trivy-migration-container.json',
+  'trivy-migration-container-evaluation.json',
+  'ignore-unfixed: false',
+  'evaluate-trivy-report.mjs',
+  'docs/platform-v7/autopilot/security-exceptions.json',
+], 'Immutable release authority workflow');
+
+requireFragments(errors, trivyEvaluator, [
+  "candidate.findingType === 'vulnerability'",
+  'candidate.purls.length > 0',
+  'candidate.purls.includes(finding.purl)',
+  'exact package PURL',
+], 'Fail-closed Trivy report evaluator');
+
 requireFragments(errors, optionalRuntimeWorkflow, [
   'Optional Runtime Retirement Gate',
   'scripts/security/validate-optional-runtime-retirement.mjs',
@@ -333,6 +372,7 @@ for (const [path, label] of [
   [OPTIONAL_RUNTIME_VALIDATOR_PATH, 'Fail-closed optional runtime validator'],
   [RUNTIME_WORKFLOW_PATH, 'Blocking runtime context workflow'],
   [OPTIONAL_RUNTIME_WORKFLOW_PATH, 'Blocking optional runtime retirement workflow'],
+  [IMMUTABLE_RELEASE_WORKFLOW_PATH, 'Blocking immutable release authority workflow'],
 ]) {
   check(errors, existsSync(path), `${label} is missing.`);
 }

@@ -10,7 +10,11 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
+import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import { RequestUser } from '../../common/types/request-user';
+import { RegistrationDecisionService } from '../auth/registration-decision.service';
+import { RegistrationDecisionDto } from '../auth/dto/registration-application.dto';
 import {
   ActivateBreakGlassDto,
   ConsumeCriticalActionDto,
@@ -54,11 +58,47 @@ export class StaffAccessController {
     private readonly audit: StaffAuditService,
     private readonly emergency: StaffEmergencyService,
     private readonly projection: StaffProjectionService,
+    private readonly registrationDecisions: RegistrationDecisionService,
   ) {}
 
   @Get('assignments/me')
   myAssignments(@Req() request: StaffRequest) {
     return this.access.listMyAssignments(request.user);
+  }
+
+  @Get('registration/applications')
+  @UseGuards(StaffAccessGuard)
+  @StaffAccessModes(StaffAccessMode.CONTROL_PLANE)
+  @StaffPermissions(StaffPermission.STAFF_REQUEST_READ)
+  @RateLimit({ name: 'staff_registration_application_list', scope: 'user', limit: 60, windowSeconds: 60 })
+  async registrationApplications(@Req() request: StaffRequest) {
+    await this.access.requirePermission(request.user, StaffPermission.STAFF_REQUEST_READ);
+    return this.registrationDecisions.listPlatformReviewQueue(request.user);
+  }
+
+  @Post('registration/applications/:applicationId/decision')
+  @UseGuards(StaffAccessGuard)
+  @StaffAccessModes(StaffAccessMode.CONTROL_PLANE)
+  @StaffPermissions(StaffPermission.STAFF_REQUEST_APPROVE)
+  @RateLimit({ name: 'staff_registration_application_decision', scope: 'user', limit: 20, windowSeconds: 900, includeParams: ['applicationId'] })
+  async registrationApplicationDecision(
+    @Req() request: StaffRequest,
+    @Param('applicationId') applicationId: string,
+    @Body() body: RegistrationDecisionDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
+    @Headers('x-correlation-id') correlationId?: string,
+    @Headers('x-registration-delivery-key') deliveryKey?: string,
+  ) {
+    await this.access.requirePermission(request.user, StaffPermission.STAFF_REQUEST_APPROVE);
+    return this.registrationDecisions.decide(
+      applicationId,
+      body.decision,
+      body.reason,
+      request.user,
+      String(idempotencyKey || ''),
+      correlationId || randomUUID(),
+      deliveryKey,
+    );
   }
 
   @Get('assignments')
@@ -276,7 +316,11 @@ export class StaffAccessController {
   @StaffAccessModes(StaffAccessMode.CONTROL_PLANE)
   @StaffPermissions(StaffPermission.ORGANIZATION_LIST)
   organizations(@Req() request: StaffRequest) {
-    return this.projection.organizationDirectory(request.user);
+    return this.projection.organizationDirectory(
+      request.user,
+      this.requireAccessContext(request),
+      this.requireCapabilityToken(request),
+    );
   }
 
   @Get('organizations/:organizationId/users')
@@ -287,7 +331,12 @@ export class StaffAccessController {
     @Req() request: StaffRequest,
     @Param('organizationId') organizationId: string,
   ) {
-    return this.projection.organizationUsers(request.user, organizationId);
+    return this.projection.organizationUsers(
+      request.user,
+      this.requireAccessContext(request),
+      this.requireCapabilityToken(request),
+      organizationId,
+    );
   }
 
   @Get('organizations/:organizationId/cabinet/:role')
@@ -302,6 +351,7 @@ export class StaffAccessController {
     return this.projection.cabinetProjection(
       request.user,
       this.requireAccessContext(request),
+      this.requireCapabilityToken(request),
       organizationId,
       role,
     );
@@ -335,5 +385,13 @@ export class StaffAccessController {
       throw new UnauthorizedException('X-Staff-Access-Session is required');
     }
     return request.staffAccess;
+  }
+
+  private requireCapabilityToken(request: StaffRequest): string {
+    const raw = request.headers?.['x-staff-access-session'];
+    if (Array.isArray(raw) || typeof raw !== 'string' || !raw.trim()) {
+      throw new UnauthorizedException('X-Staff-Access-Session capability is required');
+    }
+    return raw;
   }
 }

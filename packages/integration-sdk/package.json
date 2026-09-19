@@ -1,5 +1,7 @@
 {
   "name": "@pachanin/integration-sdk",
+  "private": true,
+  "license": "UNLICENSED",
   "version": "1.0.0",
   "description": "GrainFlow Integration Adapter SDK",
   "main": "src/index.ts",

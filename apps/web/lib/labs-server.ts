@@ -33,35 +33,6 @@ export type LabProtocolSummary = {
   isComplete: boolean;
 };
 
-const STATIC_FALLBACK: LabSampleServerItem[] = [
-  {
-    id: 'SAMPLE-001',
-    dealId: 'DEAL-001',
-    shipmentId: 'SHIP-001',
-    status: 'ANALYZED',
-    culture: 'wheat',
-    protocol: 'PROT-001',
-    collectedAt: '2026-03-30T08:00:00Z',
-    finalizedAt: '2026-03-30T12:00:00Z',
-    labId: 'prov-lab-1',
-    moneyDeltaRub: -250000,
-    tests: [
-      { id: 'T-001', parameter: 'moisture', value: 15.2, unit: '%', norm: '<=13', passed: false, recordedAt: '2026-03-30T10:00:00Z' },
-      { id: 'T-002', parameter: 'protein', value: 12.1, unit: '%', norm: '>=11', passed: true, recordedAt: '2026-03-30T10:30:00Z' },
-    ],
-  },
-  {
-    id: 'SAMPLE-002',
-    dealId: 'DEAL-002',
-    status: 'COLLECTED',
-    culture: 'corn',
-    collectedAt: '2026-04-02T09:00:00Z',
-    labId: 'prov-lab-1',
-    moneyDeltaRub: 0,
-    tests: [],
-  },
-];
-
 export async function getLabSamples(): Promise<LabSampleServerItem[]> {
   try {
     const res = await fetch(serverApiUrl('/labs/samples'), {
@@ -70,9 +41,9 @@ export async function getLabSamples(): Promise<LabSampleServerItem[]> {
     });
     if (!res.ok) throw new Error(`lab samples ${res.status}`);
     const data = await res.json();
-    return Array.isArray(data) ? data : STATIC_FALLBACK;
+    return Array.isArray(data) ? data : [];
   } catch {
-    return STATIC_FALLBACK;
+    return [];
   }
 }
 
@@ -85,7 +56,7 @@ export async function getLabSample(id: string): Promise<LabSampleServerItem | nu
     if (!res.ok) throw new Error(`lab sample ${id} ${res.status}`);
     return res.json();
   } catch {
-    return STATIC_FALLBACK.find((s) => s.id === id) ?? null;
+    return null;
   }
 }
 

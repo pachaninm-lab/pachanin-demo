@@ -1,0 +1,411 @@
+{
+  "schemaVersion": "pc-crop.data-classification.v2",
+  "authority": "Owner decision for «Прозрачная Цена» + «ГЕКТА». Canonical source of truth for code, tests, masking, AI minimization, outbound telemetry, the analytics boundary, the secret inventory, ASVS evidence and policy documents.",
+  "regulatoryBasis": {
+    "regime": "152-ФЗ",
+    "productionLevel": "УЗ-2",
+    "productionScope": "Ordinary personal data of users, employees, counterparties and sole traders.",
+    "specialAndBiometric": "Out of the current target scope. Collection, storage, processing and transfer are prohibited by default. Actual processing found in the product is a defect or a separate isolated contour. If ever introduced deliberately, the level is not below УЗ-1 until a separate decision.",
+    "publicContacts": "Business contacts published by the subject themselves are permitted only in an isolated public-only contour, where minimal УЗ-4 handling applies.",
+    "anonymised": "Anonymised and aggregated data that cannot identify a natural person directly or indirectly is not personal data."
+  },
+  "notAnAuthorityFor": [
+    "migration or re-encryption of production data",
+    "widening processing to special or biometric personal data",
+    "weakening any security control"
+  ],
+  "classes": [
+    {
+      "id": "C0_PUBLIC_NON_PD",
+      "title": "Public, not personal data",
+      "personalData": false,
+      "prohibited": false,
+      "examples": [
+        "public marketing content",
+        "publicly reachable pages",
+        "anonymised aggregate statistics"
+      ],
+      "handling": {},
+      "retention": {
+        "requirement": "No retention requirement; not personal data.",
+        "basis": "not-applicable",
+        "enforcement": "not-applicable"
+      },
+      "databaseEncryption": {
+        "requirement": "Not required.",
+        "enforcement": "not-applicable"
+      },
+      "integrityVerification": {
+        "requirement": "Not required.",
+        "enforcement": "not-applicable"
+      }
+    },
+    {
+      "id": "C1_INTERNAL_NON_PD",
+      "title": "Internal, not personal data",
+      "personalData": false,
+      "prohibited": false,
+      "examples": [
+        "technical statuses",
+        "internal reference data without personal data",
+        "service metadata that identifies no natural person"
+      ],
+      "handling": {},
+      "retention": {
+        "requirement": "No retention requirement driven by 152-ФЗ; may follow ordinary operational data lifecycle.",
+        "basis": "not-applicable",
+        "enforcement": "not-applicable"
+      },
+      "databaseEncryption": {
+        "requirement": "Not required.",
+        "enforcement": "not-applicable"
+      },
+      "integrityVerification": {
+        "requirement": "Not required beyond ordinary application correctness.",
+        "enforcement": "not-applicable"
+      }
+    },
+    {
+      "id": "C2_BUSINESS_CONFIDENTIAL",
+      "title": "Commercially confidential, not necessarily personal",
+      "personalData": false,
+      "prohibited": false,
+      "examples": [
+        "non-public deal terms",
+        "prices",
+        "contract parameters",
+        "internal decisions",
+        "dispute and evidence material without personal data",
+        "legal-entity bank details not tied to a natural person"
+      ],
+      "handling": {
+        "neverSessionReplay": true,
+        "neverExternalAnalytics": true,
+        "redactOutbound": true
+      },
+      "handlingSource": "Derived from the analytics boundary rule (session replay, external analytics) plus this extension: commercially confidential values must not reach outbound telemetry (Sentry) either. This is not a new legal decision — it is the existing 'do not leak business-confidential data' principle applied to a channel the original decision did not name. Business-confidential data leaking to a third-party SaaS is a real commercial risk independent of personal-data status.",
+      "retention": {
+        "requirement": "Proposed default: not less than 5 years from the end of the reporting year where the record underlies an accounting document (deal, invoice, settlement); otherwise for the duration of business need.",
+        "basis": "proposed-default; Federal Law 402-ФЗ \"О бухгалтерском учёте\" Art. 29 for the accounting-linked case",
+        "enforcement": "not-enforced; no automatic deletion or archival job exists for this class"
+      },
+      "databaseEncryption": {
+        "requirement": "Not mandated by regulation; recommended where linked to a natural person is possible on the same column (see GektaMerchantProfile.inn below).",
+        "enforcement": "not-enforced; Organization.inn is plain VarChar (Prisma schema.prisma:16)"
+      },
+      "integrityVerification": {
+        "requirement": "A finalised record (a signed contract version, deal evidence) must be tamper-evident; amendment must produce a new version rather than overwrite.",
+        "enforcement": "enforced for two concrete mechanisms — contract-version.policy.ts makes a SIGNED contract version immutable (amendment supersedes, the prior version stays); evidence-pack.service.ts maintains a SHA-256 hash chain per deal (hash, prevHash) with a verifyChain function actually invoked from a verification path, not write-only"
+      }
+    },
+    {
+      "id": "C3_PD_BASIC",
+      "title": "Ordinary personal data, basic",
+      "personalData": true,
+      "prohibited": false,
+      "examples": [
+        "full name",
+        "work email",
+        "phone",
+        "job title",
+        "organisation membership",
+        "role in the system",
+        "business contact data of a natural person"
+      ],
+      "handling": {
+        "redactOutbound": true,
+        "neverSessionReplayOnPrivate": true
+      },
+      "retention": {
+        "requirement": "Proposed default: retained for the duration of the account or organisation relationship, then deleted or anonymised within 3 years of account closure absent a legal hold.",
+        "basis": "proposed-default; 152-ФЗ Art. 5(7) (no longer than the purpose requires); ГК РФ Art. 196 general limitation period as the post-closure bound",
+        "enforcement": "not-enforced; no automatic deletion job exists for this class"
+      },
+      "databaseEncryption": {
+        "requirement": "Not mandated at УЗ-2 for this class as a blanket rule; access control and tenant isolation (RLS) are the primary control, application-level encryption is additive where already present.",
+        "enforcement": "exceeds the requirement for one field type: phone number is AES-256-GCM encrypted at rest (apps/api/src/modules/gekta/gekta-phone.service.ts) with a separate HMAC lookup column so plaintext is not needed for search"
+      },
+      "integrityVerification": {
+        "requirement": "Not separately required beyond ordinary application correctness.",
+        "enforcement": "not-applicable"
+      }
+    },
+    {
+      "id": "C4_PD_ACCOUNT",
+      "title": "Account and access personal data",
+      "personalData": true,
+      "prohibited": false,
+      "examples": [
+        "login or email as sign-in identifier",
+        "email and phone confirmation",
+        "auth events",
+        "MFA enrollment metadata",
+        "session ownership metadata",
+        "device or session linkage tied to a person"
+      ],
+      "handling": {
+        "redactOutbound": true,
+        "neverSessionReplayOnPrivate": true
+      },
+      "retention": {
+        "requirement": "Same proposed default as C3_PD_BASIC for account records. Tokens within this class are lifecycle-bound, not retained as data: access token 15 minutes, session and refresh token 30 days.",
+        "basis": "proposed-default for account records (152-ФЗ Art. 5(7)); token lifetimes are existing fact, not proposed",
+        "enforcement": "token TTLs enforced — apps/api/src/modules/auth/access-token.ts:16 (ACCESS_TOKEN_TTL), apps/api/src/modules/auth/auth.service.ts:50-51 (SESSION_TTL_MS, REFRESH_TOKEN_TTL_MS); account-record deletion not enforced"
+      },
+      "databaseEncryption": {
+        "requirement": "Not mandated at УЗ-2 for this class as a blanket rule; access control and tenant isolation are the primary control.",
+        "enforcement": "not separately assessed beyond C10 secrets, which are encrypted (see C10 below)"
+      },
+      "integrityVerification": {
+        "requirement": "Auth events must be append-only.",
+        "enforcement": "covered by the audit-logging integrity control already assessed under ASVS V16.4.2 (append-only), not re-verified in this pass"
+      }
+    },
+    {
+      "id": "C5_PD_IDENTITY",
+      "title": "Identity documents and identifiers",
+      "personalData": true,
+      "prohibited": false,
+      "examples": [
+        "passport data",
+        "INN of a natural person",
+        "SNILS",
+        "driving licence",
+        "other identifiers of a natural person"
+      ],
+      "handling": {
+        "redactInLogs": true,
+        "redactOutbound": true,
+        "neverSessionReplay": true,
+        "neverExternalAnalytics": true,
+        "neverQueryString": true
+      },
+      "retention": {
+        "requirement": "Proposed default: not less than 5 years from the end of the reporting year where the identifier is part of a completed accounting or tax document; otherwise purpose completion plus up to 1 year, then delete.",
+        "basis": "proposed-default; 402-ФЗ Art. 29 for the accounting-linked case; 152-ФЗ Art. 5(7) otherwise",
+        "enforcement": "not-enforced; no automatic deletion job exists for this class"
+      },
+      "databaseEncryption": {
+        "requirement": "Required: application-level AES-256-GCM column encryption (the platform's existing primitive) or equivalent infrastructure-level encryption at rest.",
+        "enforcement": "not-enforced — GektaMerchantProfile.inn (Prisma schema.prisma:2706) is plain VarChar and holds a natural person's INN when operatorType is НПД or ИП; this is a real, named gap, not a general statement"
+      },
+      "integrityVerification": {
+        "requirement": "Not separately required beyond the general record-tamper-evidence rule under C2 where the identifier is part of a deal or accounting document.",
+        "enforcement": "inherits C2 enforcement where applicable; no separate mechanism for identity data outside that context"
+      }
+    },
+    {
+      "id": "C6_PD_FINANCIAL",
+      "title": "Financial data of a natural person or sole trader",
+      "personalData": true,
+      "prohibited": false,
+      "examples": [
+        "bank details of a natural person or sole trader",
+        "account numbers of a natural person or sole trader",
+        "payment identifiers",
+        "billing and payment records tied to a person",
+        "tax and settlement documents containing personal data"
+      ],
+      "handling": {
+        "redactInLogs": true,
+        "redactOutbound": true,
+        "neverSessionReplay": true,
+        "neverExternalAnalytics": true,
+        "neverQueryString": true
+      },
+      "retention": {
+        "requirement": "Proposed default: not less than 5 years from the end of the reporting year.",
+        "basis": "proposed-default; 402-ФЗ Art. 29 (primary accounting documents and registers, minimum 5 years)",
+        "enforcement": "not-enforced; no automatic deletion job exists for this class"
+      },
+      "databaseEncryption": {
+        "requirement": "Required: application-level AES-256-GCM column encryption or equivalent infrastructure-level encryption at rest.",
+        "enforcement": "not-enforced for stored bank/account fields tied to a natural person; not separately verified in this pass beyond the INN case already named under C5"
+      },
+      "integrityVerification": {
+        "requirement": "Same as C2: a finalised financial record must be tamper-evident.",
+        "enforcement": "inherits the evidence-pack hash chain where the financial record is deal-linked; not separately verified for standalone financial records"
+      }
+    },
+    {
+      "id": "C7_PD_OPERATIONAL",
+      "title": "Operational data that becomes personal through linkage",
+      "personalData": true,
+      "prohibited": false,
+      "examples": [
+        "routes and logistics events tied to a driver",
+        "geolocation of a natural person",
+        "information about an employee, driver, laboratory technician, surveyor or representative",
+        "documents and attachments containing personal data",
+        "document metadata that identifies a person"
+      ],
+      "handling": {
+        "redactInLogs": true,
+        "redactOutbound": true,
+        "neverSessionReplay": true,
+        "neverExternalAnalytics": true,
+        "neverQueryString": true
+      },
+      "retention": {
+        "requirement": "Same proposed default as C6_PD_FINANCIAL where the record is tied to a completed deal; otherwise purpose completion plus up to 1 year.",
+        "basis": "proposed-default; 402-ФЗ Art. 29 for the deal-linked case; 152-ФЗ Art. 5(7) otherwise",
+        "enforcement": "not-enforced; no automatic deletion job exists for this class"
+      },
+      "databaseEncryption": {
+        "requirement": "Required for fields that identify a person (driver name, geolocation); document content itself follows its own storage path.",
+        "enforcement": "not-enforced; no column-level encryption verified for this class beyond the phone-number case credited under C3"
+      },
+      "integrityVerification": {
+        "requirement": "Same as C2 where the operational record is deal-linked (logistics events, document attachments).",
+        "enforcement": "inherits the evidence-pack hash chain where deal-linked; not separately verified otherwise"
+      }
+    },
+    {
+      "id": "C8_PD_SPECIAL",
+      "title": "Special categories of personal data",
+      "personalData": true,
+      "prohibited": true,
+      "examples": [
+        "out of scope by owner decision"
+      ],
+      "handling": {
+        "redactInLogs": true,
+        "redactOutbound": true,
+        "neverSessionReplay": true,
+        "neverExternalAnalytics": true,
+        "neverQueryString": true
+      },
+      "retention": {
+        "requirement": "Not applicable: this class must not be collected in the current scope.",
+        "basis": "not-applicable",
+        "enforcement": "not-applicable"
+      },
+      "databaseEncryption": {
+        "requirement": "Not applicable: this class must not be collected.",
+        "enforcement": "not-applicable"
+      },
+      "integrityVerification": {
+        "requirement": "Not applicable: this class must not be collected.",
+        "enforcement": "not-applicable"
+      }
+    },
+    {
+      "id": "C9_PD_BIOMETRIC",
+      "title": "Biometric personal data",
+      "personalData": true,
+      "prohibited": true,
+      "examples": [
+        "out of scope by owner decision"
+      ],
+      "handling": {
+        "redactInLogs": true,
+        "redactOutbound": true,
+        "neverSessionReplay": true,
+        "neverExternalAnalytics": true,
+        "neverQueryString": true
+      },
+      "retention": {
+        "requirement": "Not applicable: this class must not be collected in the current scope.",
+        "basis": "not-applicable",
+        "enforcement": "not-applicable"
+      },
+      "databaseEncryption": {
+        "requirement": "Not applicable: this class must not be collected.",
+        "enforcement": "not-applicable"
+      },
+      "integrityVerification": {
+        "requirement": "Not applicable: this class must not be collected.",
+        "enforcement": "not-applicable"
+      }
+    },
+    {
+      "id": "C10_AUTH_SECRET",
+      "title": "Authentication secrets",
+      "personalData": false,
+      "prohibited": false,
+      "examples": [
+        "passwords",
+        "password hashes",
+        "TOTP seeds",
+        "backup codes",
+        "recovery codes",
+        "session tokens",
+        "refresh tokens",
+        "cookies",
+        "user API tokens"
+      ],
+      "handling": {
+        "neverLog": true,
+        "redactOutbound": true,
+        "neverSessionReplay": true,
+        "neverExternalAnalytics": true,
+        "neverExternalAI": true,
+        "neverQueryString": true,
+        "neverRedisplay": true
+      },
+      "retention": {
+        "requirement": "Lifecycle-bound, not calendar-retained: a stored hash or ciphertext is superseded on rotation and revoked on session termination; not retained independently of the account or session it belongs to.",
+        "basis": "existing implementation, not a proposed default",
+        "enforcement": "password hash superseded on change; session/refresh/access tokens expire per the TTLs above; MFA/TOTP seed and backup codes live until MFA is disabled or rotated"
+      },
+      "databaseEncryption": {
+        "requirement": "Required: never stored as plaintext.",
+        "enforcement": "enforced — passwords are bcrypt-hashed (never reversible), MFA/TOTP secrets are AES-256-GCM encrypted at rest (apps/api/src/modules/auth/auth-crypto.ts)"
+      },
+      "integrityVerification": {
+        "requirement": "Ciphertext integrity is required wherever this class is encrypted.",
+        "enforcement": "enforced structurally — every encryption site in the platform uses AES-256-GCM, an authenticated mode; a modified ciphertext fails authentication before any plaintext is returned (already assessed PASS under ASVS V11.3.3)"
+      }
+    },
+    {
+      "id": "C11_CRYPTO_SECRET",
+      "title": "Cryptographic and system secrets",
+      "personalData": false,
+      "prohibited": false,
+      "examples": [
+        "encryption keys",
+        "KEK and DEK",
+        "signing keys",
+        "Vault secrets",
+        "application secrets",
+        "service credentials",
+        "private keys"
+      ],
+      "handling": {
+        "neverLog": true,
+        "redactOutbound": true,
+        "neverSessionReplay": true,
+        "neverExternalAnalytics": true,
+        "neverExternalAI": true,
+        "neverQueryString": true,
+        "neverRedisplay": true
+      },
+      "retention": {
+        "requirement": "Retention is tied to a key-rotation schedule.",
+        "basis": "not specified — the key-management standard and crypto-period this would follow from is the open gap already recorded against ASVS V11.1.1; not invented here",
+        "enforcement": "no rotation schedule exists to enforce"
+      },
+      "databaseEncryption": {
+        "requirement": "Required: key material must never be persisted to an application database column.",
+        "enforcement": "enforced today — no C11 column exists in schema.prisma; the one adjacent field, signingKeyReference (schema.prisma:1993), stores a reference string, not key material; keys live in files, Vault or environment"
+      },
+      "integrityVerification": {
+        "requirement": "Same as C10.",
+        "enforcement": "same as C10 wherever this class is encrypted in transit or at rest by the application; key custody itself is out of the application's control (Vault/KMS)"
+      }
+    }
+  ],
+  "analyticsBoundary": "Analytics and session replay are permitted only on public-only pages. Private, account, admin, deal, document, payment, MFA and registration-sensitive surfaces are excluded fail-closed.",
+  "financialRule": "Legal-entity bank and settlement data with no link to a natural person is C2_BUSINESS_CONFIDENTIAL. The same data linked to a natural person or sole trader is C6_PD_FINANCIAL.",
+  "extensionRule": "A new data type must be mapped explicitly to one of C0–C11, or introduced as a new canonical class with evidence and tests. No downstream control may drop a canonical class because its own terminology differs.",
+  "openItems": [
+    "The necessity carve-out for C3/C4 in outbound channels is not defined per field. User agent is currently redacted under the literal rule; relaxing it for diagnostics would be an owner decision."
+  ],
+  "protectionRequirementsNote": "Two different claims are kept separate throughout this document, and neither substitutes for the other. 'requirement' states what is documented, with a basis. 'enforcement' states what is true in code today, with evidence, or records an honest gap. A retention value grounded in a named statute is a proposed default pending confirmation by qualified counsel, not a certified legal conclusion — the owner approved the classification and delegated completing this policy; a specific retention window is a technical implementation of that classification, not a new legal decision. Completing this document closes the ASVS requirement that asks whether protection requirements are documented (V14.1.2). It does not, by itself, close any requirement that asks whether those requirements are enforced (V14.2.7 and others) — those are judged on enforcement evidence alone, independent of this document's completeness.",
+  "closedItems": [
+    "Per-class retention: documented as a requirement for every class, with a stated basis. Values grounded in statute are proposed defaults pending confirmation, not certified legal conclusions. Enforcement is a separate, mostly-open gap and is stated per class.",
+    "Database-level encryption requirements: documented per class. C10/C11 are enforced. C5's gap is named concretely (GektaMerchantProfile.inn, plain VarChar, holds a natural person's INN for НПД/ИП rows).",
+    "Integrity-verification requirements: documented per class. C2 (and the classes that inherit from it) are enforced via an existing SHA-256 hash chain (evidence-pack.service.ts) and contract-version immutability, both verified to be real by reading the code rather than assumed.",
+    "Outbound rule for C2_BUSINESS_CONFIDENTIAL: added — redactOutbound now applies to this class."
+  ]
+}

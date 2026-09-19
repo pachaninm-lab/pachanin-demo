@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import type { Request } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RateLimit } from '../../common/decorators/rate-limit.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -10,8 +11,9 @@ import {
   type CloseAuctionLotInput,
   type PlaceAuctionBidInput,
   type RecordAuctionAdmissionInput,
-  type RegisterAuctionLotInput,
 } from './auction-command.service';
+import { validateAuctionInventoryRegistration } from './auction-inventory.contract';
+import { RegisterAuctionInventoryLotDto } from './dto/auction-inventory.dto';
 
 @UseGuards(RolesGuard)
 @Roles('FARMER', 'BUYER', 'SUPPORT_MANAGER', 'ADMIN', 'COMPLIANCE_OFFICER', 'EXECUTIVE')
@@ -39,10 +41,13 @@ export class AuctionsController {
   @Roles('FARMER')
   @RateLimit({ name: 'auction_register_lot', scope: 'org', limit: 10, windowSeconds: 60 })
   registerLot(
-    @Body() body: RegisterAuctionLotInput,
+    @Body() _dto: RegisterAuctionInventoryLotDto,
     @CurrentUser() user: RequestUser,
+    @Req() request: Pick<Request, 'body'>,
   ) {
-    return this.commands.registerLot(body ?? ({} as RegisterAuctionLotInput), user);
+    const body: unknown = request.body;
+    validateAuctionInventoryRegistration(body);
+    return this.commands.registerLot(body, user);
   }
 
   @Post('lots/:lotId/admissions')

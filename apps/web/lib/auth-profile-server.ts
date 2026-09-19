@@ -9,6 +9,7 @@ export type AuthProfileSnapshot = Readonly<{
   orgId: string | null;
   tenantId: string | null;
   membershipId: string | null;
+  isOrgAdmin: boolean | null;
   fullName: string | null;
   mfaVerified: boolean | null;
   mfaVerifiedAt: string | null;
@@ -23,6 +24,7 @@ const UNAVAILABLE: AuthProfileSnapshot = Object.freeze({
   orgId: null,
   tenantId: null,
   membershipId: null,
+  isOrgAdmin: null,
   fullName: null,
   mfaVerified: null,
   mfaVerifiedAt: null,
@@ -53,6 +55,8 @@ function parseProfile(value: unknown): AuthProfileSnapshot {
 
   const mfaVerified = optionalBoolean(record.mfaVerified);
   if (record.mfaVerified !== null && record.mfaVerified !== undefined && mfaVerified === null) return UNAVAILABLE;
+  const isOrgAdmin = optionalBoolean(record.isOrgAdmin);
+  if (record.isOrgAdmin !== null && record.isOrgAdmin !== undefined && isOrgAdmin === null) return UNAVAILABLE;
 
   const mfaVerifiedAt = optionalDate(record.mfaVerifiedAt);
   if (record.mfaVerifiedAt !== null && record.mfaVerifiedAt !== undefined && record.mfaVerifiedAt !== '' && !mfaVerifiedAt) {
@@ -68,6 +72,7 @@ function parseProfile(value: unknown): AuthProfileSnapshot {
     orgId,
     tenantId,
     membershipId,
+    isOrgAdmin,
     fullName: optionalText(record.fullName),
     mfaVerified,
     mfaVerifiedAt,

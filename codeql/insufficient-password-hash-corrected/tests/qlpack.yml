@@ -1,0 +1,8 @@
+name: pachaninm-lab/insufficient-password-hash-corrected-tests
+version: 1.0.0
+library: false
+extractor: javascript
+tests: .
+dependencies:
+  pachaninm-lab/insufficient-password-hash-corrected: "*"
+  codeql/javascript-all: "*"

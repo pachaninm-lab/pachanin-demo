@@ -1,0 +1,34 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "agent/tai-ap-13b3-model-host-probe",
+  "status": "active",
+  "parent_issue": 2726,
+  "issue": 2835,
+  "maturity_boundary": "owner-only-exact-main-read-only-capacity-probe-without-model-acquisition",
+  "allowed_paths": [
+    ".github/workflows/tai-model-host-capacity-probe.yml",
+    "apps/tai/governance/scopes/ap-13b3-model-host-probe-2835.json",
+    "apps/tai/tests/test_model_host_capacity_probe_workflow.py"
+  ],
+  "forbidden_capabilities": [
+    "pull-request, push, schedule or non-owner-triggered VPS access",
+    "remote directory creation, package installation, file write or deletion",
+    "model, tokenizer, weight, license or GGUF download",
+    "container creation, restart, replacement or production service mutation",
+    "automatic legal approval",
+    "conversion, quantization, benchmark or admission claim",
+    "production readiness or operational attestation claim"
+  ],
+  "acceptance": [
+    "workflow is issue 2835 command-bound, repository-owner-only and exact-main",
+    "repository and Actions permissions are read-only except bounded issue summary publication",
+    "protected SSH credentials are required and never persisted in artifacts",
+    "remote script executes only read-only system, filesystem, tool, Docker-info and endpoint HEAD probes",
+    "workflow uploads a bounded machine-readable report with no credential or model bytes",
+    "failed credentials, SSH, parsing or incomplete output fail closed",
+    "Qwen and Mistral remain PENDING_ACQUISITION",
+    "legal review, conversion, quantization and benchmark remain NOT_DONE",
+    "production_operational_status remains NOT_ATTESTED",
+    "Ruff, strict mypy, full pytest/coverage, security/runtime and exact-head CI pass"
+  ]
+}

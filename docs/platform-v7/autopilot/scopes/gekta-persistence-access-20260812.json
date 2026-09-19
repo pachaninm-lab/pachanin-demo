@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-persistence-access-20260812",
+  "branch": "claude/gekta-persistence-access",
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "f247d770f83a4a7af82e803288d10d8e9d2bfe45"
+  },
+  "purpose": "Серверная persistence Гекты поверх существующих PostgreSQL, Prisma и identity платформы: аккаунт и пробный доступ, обязательный телефон с шифрованием и HMAC-индексом, ручные и бессрочные гранты владельца, проекты и история диалогов с проверкой владения, импорт анонимной истории, версионированные согласия по целям, права кабинета оператора и неизменяемый журнал действий. Второй контур аутентификации или базы данных не создаётся.",
+  "notes": {
+    "appModuleRegistration": "Регистрация GektaModule в apps/api/src/app.module.ts вынесена в срез gekta-module-registration-20260812: PC-CROP-01B.3 объявляет этот файл своей границей и отклоняет PR, где вместе с ним меняется что-либо ещё.",
+    "schemaFormatting": "apps/api/prisma/schema.prisma меняется только добавлением. Выравнивание существующих моделей не трогается: PC-CROP-10C сравнивает блоки моделей FGIS побайтово и косметический prisma format читается им как изменение authority."
+  },
+  "allowedPaths": [
+    "apps/api/prisma/schema.prisma",
+    "apps/api/prisma/migrations/20260812170000_gekta_account_access_persistence/**",
+    "apps/api/src/modules/gekta/**",
+    "apps/web/app/gekta/**",
+    "apps/web/app/legal/**",
+    "apps/web/app/api/gekta/**",
+    "apps/web/components/gekta/**",
+    "apps/web/lib/gekta/**",
+    "apps/web/tests/unit/gekta*.test.ts",
+    "docs/gekta/**",
+    "docs/platform-v7/autopilot/scopes/gekta-persistence-access-20260812.json",
+    "apps/web/lib/platform-v7/public-seo-routes.json"
+  ],
+  "productBoundary": {
+    "canonicalProductEntry": "/gekta",
+    "identityAuthority": "existing platform email verification, password/session and MFA",
+    "phoneVerification": "DECLARED-only until a real provider exists",
+    "trialDays": 30,
+    "newBackend": false,
+    "newServer": false,
+    "newRecurringCostRub": 0,
+    "livePayment": "forbidden-without-legal-and-acquiring-credentials"
+  },
+  "forbiddenChanges": [
+    "второй контур аутентификации",
+    "вторая база данных",
+    "Qwen runtime и параметры модели",
+    "Deal state machine и settlement",
+    "существующие RLS-политики платформы",
+    "fake acquiring, fake receipts, fake SMS"
+  ],
+  "requiredChecks": [
+    "prisma validate и generate",
+    "forward-only migration gate",
+    "api typecheck и jest по модулю gekta",
+    "web typecheck и unit-тесты Гекты",
+    "exact-head CI"
+  ],
+  "deploymentState": "not-deployed"
+}

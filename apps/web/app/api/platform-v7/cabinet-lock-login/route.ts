@@ -97,6 +97,12 @@ function secureCookie(httpOnly: boolean) {
 }
 
 export async function POST(request: Request) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json(
+      { ok: false, reason: 'controlled_test_login_disabled_in_production' },
+      { status: 410, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
   const body = await request.json().catch(() => ({}));
   const login = typeof body?.login === 'string' ? body.login.trim().toLowerCase() : '';
   const password = typeof body?.password === 'string' ? body.password.trim() : '';
@@ -111,6 +117,12 @@ export async function POST(request: Request) {
   const rolePassword = readEnv('PC_CABINET_ROLE_PASSWORD');
   const sessionSecret = cabinetSessionSecret();
   const testAccessEnabled = controlledTestAccessEnabled();
+  if (!testAccessEnabled) {
+    return NextResponse.json(
+      { ok: false, reason: 'controlled_test_access_disabled' },
+      { status: 410, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
   const fixedRole = testAccessEnabled ? ROLE_TEST_ACCOUNTS[login] : undefined;
   const ownerLogin = Boolean(configuredOwner && safeEqual(login, configuredOwner));
 
@@ -175,7 +187,7 @@ export async function POST(request: Request) {
         expires: new Date(0),
         httpOnly: name === ACCESS_COOKIE,
         sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
+        secure: false,
       });
     }
   }

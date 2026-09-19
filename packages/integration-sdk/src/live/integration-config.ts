@@ -2,7 +2,7 @@
  * Env-driven configuration for integration adapters, resolved per adapter name.
  *
  * Convention (per adapter NAME, e.g. BANK, FGIS_ZERNO):
- *   <NAME>_MODE            disabled | stub | sandbox | live   (default: stub)
+ *   <NAME>_MODE            disabled | stub | sandbox | live   (default: disabled)
  *   <NAME>_BASE_URL        base URL of the external system (required for live/sandbox)
  *   <NAME>_AUTH            none | api_key | bearer | oauth2    (default: none)
  *   <NAME>_API_KEY_HEADER  header name for api_key auth        (default: X-API-Key)
@@ -42,9 +42,10 @@ export type Env = Record<string, string | undefined>;
 function normalizeMode(raw?: string): IntegrationMode {
   const v = String(raw || '').trim().toLowerCase();
   if (v === 'disabled' || v === 'off' || v === 'false') return 'disabled';
+  if (v === 'stub' || v === 'mock') return 'stub';
   if (v === 'sandbox' || v === 'test') return 'sandbox';
   if (v === 'live' || v === 'prod' || v === 'production') return 'live';
-  return 'stub';
+  return 'disabled';
 }
 
 function normalizeAuth(raw?: string): AuthKind {

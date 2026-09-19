@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import { DealCommandForm } from '@/components/platform-v7/DealCommandForm';
+import { applyCsrfHeader } from '@/lib/csrf';
 import styles from './CanonicalDealWorkspace.module.css';
 
 type SpineState = 'done' | 'active' | 'pending';
@@ -254,7 +255,7 @@ export function CanonicalDealWorkspace({ role, dealId }: { role: PlatformRole; d
     try {
       const response = await fetch(`/api/proxy/deals/${encodeURIComponent(workspace.deal.id)}/commands/${encodeURIComponent(action.id)}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers: applyCsrfHeader({ 'Content-Type': 'application/json', Accept: 'application/json' }),
         cache: 'no-store',
         body: JSON.stringify({
           commandId,

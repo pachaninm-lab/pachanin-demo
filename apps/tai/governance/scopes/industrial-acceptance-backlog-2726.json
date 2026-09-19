@@ -1,0 +1,48 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "program_issue": 2726,
+  "issue": 2726,
+  "branch": "claude/tai-production-attestation-gizgzh",
+  "exact_base": "b6ed69c40e5b5faac14e2490ba2a3a06242dcc99",
+  "allowed_paths": [
+    ".github/scripts/pc-crop-08f-sdiz-remediation.py",
+    ".github/scripts/tai-gateway-ui-readonly-remediation.py",
+    ".github/workflows/pc-crop-08f-sync-main.yml",
+    ".github/workflows/tai-gateway-ui-readonly-binding.yml",
+    ".github/workflows/workflow-syntax-guard.yml",
+    ".gitleaksignore",
+    "apps/tai/governance/current-industrial-gap-report.json",
+    "apps/tai/governance/industrial-acceptance-backlog.v1.json",
+    "apps/tai/governance/scopes/industrial-acceptance-backlog-2726.json",
+    "apps/tai/governance/tai-production-operational-manifest.json",
+    "apps/tai/tai/industrial_gap_report.py",
+    "apps/tai/tai/industrial_gap_report_cli.py",
+    "apps/tai/tai/platform_tools.py",
+    "apps/tai/tai/read_tool_contracts.py",
+    "apps/tai/tai/tool_planner.py",
+    "apps/tai/tests/test_industrial_gap_report.py",
+    "apps/tai/tests/test_platform_tools.py",
+    "apps/tai/tests/test_read_tool_contracts.py",
+    "scripts/check-workflow-syntax.py"
+  ],
+  "acceptance": [
+    "every GitHub Actions workflow on the branch parses and declares triggers and jobs",
+    "extracted remediation programs are byte-identical to what the YAML block scalar produced",
+    "every acceptance row is verified against exact main before it is recorded",
+    "ACCEPTED is unrepresentable without at least one evidence reference",
+    "BLOCKED and REGRESSED are unrepresentable without a stated blocking reason",
+    "final_status is derived from the backlog and can never be supplied by a caller",
+    "PASS requires every mandatory item accepted and no regression anywhere",
+    "reported percentages ship with the counts and the formula that produced them",
+    "the committed gap report and manifest are re-derivable from the committed backlog with zero drift",
+    "no free-form argument object reaches the platform: every adapter-reachable tool is constrained by its declared contract before anything is signed",
+    "the TAI tool registry never advertises a tool absent from the server registry",
+    "the deterministic planner and the adapter share one argument declaration, so a plan that validates is exactly a plan the adapter accepts"
+  ],
+  "forbidden_capabilities": [
+    "model bundle, benchmark, admission authority, runtime-host or quality-scoring changes",
+    "Gateway, UI, routing, feature-flag or production deployment changes",
+    "write-tool activation",
+    "any production readiness or operational attestation claim"
+  ]
+}

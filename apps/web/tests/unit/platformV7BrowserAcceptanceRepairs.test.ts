@@ -12,6 +12,7 @@ const protectedShell = read('apps/web/components/platform-v7/PlatformV7Protected
 const protectedShellCss = read('apps/web/components/platform-v7/PlatformV7ProtectedShell.module.css');
 const designSystemRuntime = read('apps/web/components/platform-v7/PlatformV7DesignSystemV8Runtime.tsx');
 const publicHeader = read('apps/web/components/platform-v7/PublicSiteHeader.tsx');
+const publicEntryLayout = read('apps/web/app/pc-public-entry/platform-v7/layout.tsx');
 const supportMount = read('apps/web/components/platform-v7/HydrationSafeChatSupport.tsx');
 const quietLayer = read('apps/web/components/platform-v7/UxFinalQuietLayer.tsx');
 const workStepGuide = read('apps/web/components/platform-v7/WorkStepGuide.tsx');
@@ -25,7 +26,13 @@ const tokenJson = read('packages/design-tokens/tokens.json');
 
 describe('platform-v7 browser acceptance repairs', () => {
   it('keeps protected route authority exclusively in the verified server layout', () => {
-    expect(serverLayout).toContain('readVerifiedCabinetSessionRole');
+    // The layout moved from reading a role to reading the whole verified
+    // context - role plus user, membership, organization, tenant and ownerAccess
+    // - which is more than this pinned, not less. Both helpers verify the same
+    // signed session, so the contract is that the role comes from one of them
+    // and never from anything the client can set.
+    expect(serverLayout).toMatch(/readVerifiedCabinetSession(?:Role|Context)/u);
+    expect(serverLayout).not.toContain("cookies().get('pc-role')");
     expect(serverLayout).toContain('canRoleAccessCabinet(role, pathname)');
     expect(guard).toContain('return null');
     for (const forbidden of [
@@ -48,13 +55,22 @@ describe('platform-v7 browser acceptance repairs', () => {
     expect(protectedShell).not.toContain('Открываем интерфейс кабинета');
   });
 
-  it('keeps support entirely outside the server and initial hydration tree', () => {
-    expect(publicHeader).toContain('<HydrationSafeChatSupport />');
+  it('keeps support outside server rendering and mounts it once per public or protected tree', () => {
+    expect(serverLayout).toContain('<HydrationSafeChatSupport />');
+    // Mounted with the dock suppressed on the public entry tree; the assertion
+    // is that support is mounted there exactly once, not that it takes no props.
+    expect(publicEntryLayout).toContain('<HydrationSafeChatSupport');
+    expect(publicEntryLayout.match(/<HydrationSafeChatSupport/gu)).toHaveLength(1);
+    expect(publicHeader).not.toContain('<HydrationSafeChatSupport />');
     expect(publicHeader).not.toContain('<ChatSupportWidget />');
-    expect(designSystemRuntime).toContain('<HydrationSafeChatSupport />');
+    // Mounted with the verified role and the dock suppressed, so the tag now
+    // carries props. Once per tree is the property; taking no props never was.
+    expect(protectedRuntime).toContain('<HydrationSafeChatSupport');
+    expect(protectedRuntime.match(/<HydrationSafeChatSupport/gu)).toHaveLength(1);
+    expect(designSystemRuntime).not.toContain('<HydrationSafeChatSupport />');
     expect(designSystemRuntime).not.toContain('<ChatSupportWidget />');
     expect(supportMount).toContain("import dynamic from 'next/dynamic'");
-    expect(supportMount).toContain("import('@/components/platform-v7/ChatSupportWidget')");
+    expect(supportMount).toContain("import('@/components/platform-v7/ContextualSupportOrAssistant')");
     expect(supportMount).toContain('ssr: false');
     expect(supportMount).toContain('loading: () => null');
     expect(supportMount).not.toContain('setMounted');

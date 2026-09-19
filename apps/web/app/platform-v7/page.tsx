@@ -1,336 +1,327 @@
-import '@/styles/platform-v7-public-header.css';
-import '@/styles/platform-v7-public-mobile-safe-area.css';
-import '@/styles/platform-v7-i18n-cjk.css';
-import '@/styles/platform-v7-public-product-experience-v3.css';
-import '@/styles/platform-v7-public-product-experience-v3-refinement.css';
-import '@/styles/platform-v7-public-product-experience-v4.css';
-import '@/styles/platform-v7-public-product-entry-variants.css';
-import '@/styles/platform-v7-public-product-experience-v5.css';
+import '@/styles/platform-v7-strategic-home-v3.css';
 import type { Metadata } from 'next';
-import { getLocale, getTranslations } from 'next-intl/server';
-import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
-import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
-import { PublicDealPreview } from '@/components/platform-v7/PublicDealPreview';
-import { PublicExperienceIcon } from '@/components/platform-v7/PublicExperienceIcon';
-import {
-  PublicExperienceLink,
-  PublicExperiencePageView,
-  PublicExperienceScrollCoordinator,
-} from '@/components/platform-v7/PublicExperienceAnalytics';
-import { getPublicProductExperienceCopy } from '@/i18n/public-product-experience-v3';
-import { getPublicProductExperienceV4Copy } from '@/i18n/public-product-experience-v4';
-import { TOUR_STAGES, type TourPerspective } from '@/lib/platform-v7/public-product-experience-state';
+import { getLocale } from 'next-intl/server';
+import { PlatformV7StrategicHome } from '@/components/platform-v7/PlatformV7StrategicHome';
 
-export const metadata: Metadata = {
-  title: 'Прозрачная Цена — исполнение зерновой сделки',
-  description: 'Одна история исполнения зерновой сделки: участники, перевозка, приёмка, качество, документы, деньги, риски и спор.',
-  alternates: {
-    canonical: '/platform-v7',
-    languages: {
-      ru: '/platform-v7?lang=ru',
-      en: '/platform-v7?lang=en',
-      zh: '/platform-v7?lang=zh',
-    },
+const CRITICAL_HOME_CSS = `
+.pc-v7-public-entry {
+  --pc-entry-font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  --pc-entry-font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  --pc-v6-green: #087a3b;
+  --pc-v6-green-dark: #07572e;
+  --pc-v6-ink: #102019;
+  --pc-v6-muted: #526159;
+  --pc-v6-line: #d7e1db;
+  --pc-v6-line-strong: #bfd0c6;
+  --pc-v6-bg: #f5f8f6;
+  --pc-v6-bg-strong: #edf5f0;
+  --pc-v6-warn: #8a5400;
+  --pc-v6-error: #a43132;
+  --pc-v6-font-body: var(--pc-entry-font-body);
+  --pc-v6-font-display: var(--pc-entry-font-display);
+  --entry-public-header-offset: env(safe-area-inset-top, 0px);
+  --entry-public-header-base: 64px;
+  --entry-header-height: calc(var(--entry-public-header-base) + var(--entry-public-header-offset));
+  min-height: 100dvh !important;
+  padding-top: var(--entry-header-height) !important;
+  background: #fff;
+  color: var(--pc-v6-ink);
+  font-family: var(--pc-entry-font-body);
+  text-rendering: auto;
+  -webkit-font-smoothing: antialiased;
+}
+.pc-v7-public-entry .pc-site-header {
+  top: var(--entry-public-header-offset) !important;
+  height: var(--entry-public-header-base) !important;
+  min-height: var(--entry-public-header-base) !important;
+  max-height: var(--entry-public-header-base) !important;
+}
+.pc-v7-public-entry [data-testid='platform-v7-presentation-download'] {
+  border-color: transparent !important;
+  background: transparent !important;
+  color: var(--pc-v6-muted) !important;
+  box-shadow: none !important;
+  padding-inline: 8px !important;
+  font-weight: 600 !important;
+}
+.pc-v7-public-entry [data-testid='platform-v7-presentation-download']:hover,
+.pc-v7-public-entry [data-testid='platform-v7-presentation-download']:focus-visible {
+  border-color: var(--pc-v6-line) !important;
+  background: var(--pc-v6-bg) !important;
+  color: var(--pc-v6-ink) !important;
+}
+.pc-v7-public-entry [data-comparison-row='true'] > span:first-of-type {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.pc-v7-public-entry [data-comparison-row='true'] > span:first-of-type::before {
+  content: '×';
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  display: inline-grid;
+  place-items: center;
+  margin-top: 1px;
+  border: 2px solid #d92d2d;
+  border-radius: 999px;
+  color: #d92d2d;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+}
+.pc-v7-public-entry .pc-public-deal-stage-rail--hero {
+  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+  padding-bottom: 14px !important;
+}
+.pc-v7-public-entry .pc-public-deal-stage-rail--hero small {
+  display: none !important;
+}
+.pc-v6-hero {
+  display: grid;
+  align-items: center;
+  gap: 42px;
+  padding-top: 58px;
+  padding-bottom: 42px;
+}
+.pc-v6-hero-copy {
+  min-width: 0;
+  max-width: 650px;
+}
+.pc-v6-hero .pc-v6-kicker {
+  display: block;
+  max-width: 44ch;
+  margin-bottom: 12px;
+  color: var(--pc-v6-green);
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: pre-line;
+}
+.pc-v6-hero h1.pc-v6-hero-title {
+  max-width: 13ch;
+  margin: 0;
+  color: var(--pc-v6-ink);
+  font-family: Arial, sans-serif;
+  font-size: clamp(48px, 5vw, 64px);
+  font-weight: 700;
+  line-height: .98;
+  letter-spacing: -.048em;
+  text-wrap: balance;
+}
+.pc-v6-hero-title-main,
+.pc-v6-hero-title-accent { display: block; }
+.pc-v6-hero-title-accent {
+  margin-top: 8px;
+  color: var(--pc-v6-green);
+}
+.pc-v6-hero-copy > p.pc-v6-hero-lead {
+  max-width: 58ch;
+  margin: 18px 0 0;
+  color: var(--pc-v6-muted);
+  font-family: Arial, sans-serif;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: -.006em;
+}
+.pc-v6-control-tower { align-self: start !important; }
+html[data-p7-language='zh'] * {
+  letter-spacing: 0 !important;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+html[data-p7-language='zh'] h1,
+html[data-p7-language='zh'] h2,
+html[data-p7-language='zh'] h3 { line-height: 1.14; }
+@supports (content-visibility: auto) {
+  .pc-v7-public-entry #participants,
+  .pc-v7-public-entry #deal-path,
+  .pc-v7-public-entry #live,
+  .pc-v7-public-entry #tai,
+  .pc-v7-public-entry #money,
+  .pc-v7-public-entry #connect-organization,
+  .pc-v7-public-entry .pc-v6-faq,
+  .pc-v7-public-entry .pc-v6-final {
+    content-visibility: visible !important;
+    contain: none !important;
+    contain-intrinsic-size: none !important;
+  }
+}
+@media (min-width: 901px) and (max-width: 1279px) {
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-nav {
+    display: none !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-mobile-menu {
+    display: block !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-actions,
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-v6-header-actions {
+    gap: 6px !important;
+  }
+}
+@media (min-width: 1280px) and (max-width: 1320px) {
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-header {
+    gap: 12px !important;
+    padding-inline: 20px !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-nav {
+    gap: 12px !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-site-actions,
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-v6-header-actions {
+    gap: 6px !important;
+  }
+}
+@media (max-width: 1023px) {
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] [data-testid='platform-v7-deal-card'] > div:first-child {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 10px !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] [data-testid='platform-v7-deal-card'] > div:first-child > div {
+    min-width: 0 !important;
+  }
+  .pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] [data-testid='platform-v7-deal-card'] > div:first-child > b {
+    justify-self: start !important;
+    max-width: 100% !important;
+    white-space: normal !important;
+    text-align: left !important;
+  }
+}
+@media (max-width: 767px) {
+  .pc-v7-public-entry [data-comparison-row='true'] > span:first-of-type::before {
+    width: 18px;
+    height: 18px;
+    font-size: 16px;
+  }
+  .pc-v6-hero {
+    gap: 16px;
+    padding-top: 20px;
+    padding-bottom: 26px;
+  }
+  .pc-v6-hero .pc-v6-kicker {
+    width: 100%;
+    max-width: 36ch;
+    margin-bottom: 9px;
+    font-size: clamp(12px, 3.45vw, 14px);
+    line-height: 1.3;
+    white-space: pre-line;
+    text-wrap: balance;
+  }
+  .pc-v6-hero h1.pc-v6-hero-title {
+    max-width: 100%;
+    font-size: clamp(33px, 8.7vw, 36px);
+    line-height: 1;
+    letter-spacing: -.04em;
+  }
+  .pc-v6-hero-title-accent { margin-top: 5px; }
+  .pc-v6-hero-copy > p.pc-v6-hero-lead {
+    max-width: 42ch;
+    margin-top: 12px;
+    font-size: 15px;
+    line-height: 1.42;
+  }
+}
+@media (max-width: 359px) {
+  .pc-v6-hero h1.pc-v6-hero-title { font-size: 31px; }
+}
+@media (min-width: 768px) {
+  .pc-v6-hero { grid-template-columns: minmax(0, 1.02fr) minmax(380px, .98fr); }
+}
+:lang(zh) .pc-v6-hero h1.pc-v6-hero-title { max-width: 11em; letter-spacing: -.015em; }
+:lang(zh) .pc-v6-hero-title-accent { letter-spacing: 0; }
+`;
+
+type PublicHomeLocale = 'ru' | 'en' | 'zh';
+
+type PublicHomeMetadataCopy = Readonly<{
+  title: string;
+  description: string;
+  openGraphDescription: string;
+  twitterTitle: string;
+  twitterDescription: string;
+}>;
+
+const HOME_METADATA: Record<PublicHomeLocale, PublicHomeMetadataCopy> = {
+  ru: {
+    title: 'Прозрачная Цена — единая система управления агросделкой',
+    description: 'Условия, торги, поставка, качество, документы, расчёт и Гекта связаны в одной Сделке. Отклонения и споры подключаются только при необходимости.',
+    openGraphDescription: 'Одна агросделка от условий и выбора контрагента до поставки, качества, документов, расчёта и закрытия. Отклонение или спор — отдельная ветка, когда она действительно нужна.',
+    twitterTitle: 'Прозрачная Цена — управление агросделкой от цены до расчёта',
+    twitterDescription: 'Единая система управления агросделкой с аграрным интеллектом Гекта: от условий и поставки до документов, расчёта и закрытия.',
   },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      'max-image-preview': 'large',
-      'max-snippet': -1,
-      'max-video-preview': -1,
-    },
+  en: {
+    title: 'Transparent Price — one system for managing an agricultural Deal',
+    description: 'Terms, trading, delivery, quality, documents, settlement and Gekta are connected in one Deal. Deviations and disputes appear only when needed.',
+    openGraphDescription: 'One crop-trade Deal from terms and counterparty selection through delivery, quality, documents, settlement and closure. Deviations and disputes stay separate exception branches.',
+    twitterTitle: 'Transparent Price — agricultural Deal management from terms to settlement',
+    twitterDescription: 'One agricultural Deal with Gekta intelligence: terms, delivery, documents, settlement and closure in one verifiable flow.',
+  },
+  zh: {
+    title: '透明价格 — 农业交易统一管理系统',
+    description: '条件、交易、交付、质量、文件、结算与 Gekta 连接在同一笔交易中；只有在需要时才进入偏差或争议流程。',
+    openGraphDescription: '一笔种植业交易从条件和交易方选择，到交付、质量、文件、结算与关闭；偏差和争议仅作为需要时启用的例外分支。',
+    twitterTitle: '透明价格 — 从条件到结算的农业交易管理',
+    twitterDescription: '一笔农业交易与 Gekta 智能层贯穿条件、交付、文件、结算与关闭，形成可核验流程。',
   },
 };
 
-const firstStageCopy = {
-  ru: {
-    stageCounter: 'Этап 1 из 10',
-    currentStage: 'Условия сделки',
-    nextStage: 'Далее: проверка допуска',
-    showAllStages: 'Посмотреть весь путь сделки с начала',
-  },
-  en: {
-    stageCounter: 'Stage 1 of 10',
-    currentStage: 'Deal terms',
-    nextStage: 'Next: admission checks',
-    showAllStages: 'View the full deal path from the beginning',
-  },
-  zh: {
-    stageCounter: '第 1 阶段，共 10 阶段',
-    currentStage: '交易条件',
-    nextStage: '下一步：准入检查',
-    showAllStages: '从头查看完整交易路径',
-  },
-} as const;
+function homeMetadataLocale(value: string): PublicHomeLocale {
+  if (value.startsWith('en')) return 'en';
+  if (value.startsWith('zh')) return 'zh';
+  return 'ru';
+}
 
-function PerspectiveCard({
-  perspective,
-  locale,
-  label,
-  value,
-}: {
-  perspective: TourPerspective;
-  locale: string;
-  label: string;
-  value: string;
-}) {
-  return (
-    <PublicExperienceLink
-      href={`/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&lens=execution&perspective=${perspective}`}
-      className='pc-ppe-perspective-card'
-      eventName='role_selected'
-      locale={locale}
-      params={{ perspective, source: 'home' }}
-    >
-      <span><PublicExperienceIcon name={perspective} size={22} /></span>
-      <span>
-        <strong>{label}</strong>
-        <small>{value}</small>
-      </span>
-      <PublicExperienceIcon name='arrow' size={20} />
-    </PublicExperienceLink>
-  );
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = homeMetadataLocale(await getLocale());
+  const copy = HOME_METADATA[locale];
+
+  return {
+    title: copy.title,
+    description: copy.description,
+    alternates: {
+      canonical: '/platform-v7',
+      languages: {
+        ru: '/platform-v7?lang=ru',
+        en: '/platform-v7?lang=en',
+        zh: '/platform-v7?lang=zh',
+      },
+    },
+    openGraph: {
+      type: 'website',
+      title: copy.title,
+      description: copy.openGraphDescription,
+      url: '/platform-v7',
+      siteName: 'Прозрачная Цена',
+      locale: locale === 'en' ? 'en_US' : locale === 'zh' ? 'zh_CN' : 'ru_RU',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: copy.twitterTitle,
+      description: copy.twitterDescription,
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+        'max-video-preview': -1,
+      },
+    },
+  };
 }
 
 export default async function PlatformV7RootPage() {
-  const locale = await getLocale();
-  const copy = getPublicProductExperienceCopy(locale);
-  const ui = getPublicProductExperienceV4Copy(locale);
-  const chrome = await getTranslations('publicEntry.chrome');
-  const allPrimaryPerspectives = copy.home.perspectives.primary as readonly TourPerspective[];
-  const primaryPerspectives = allPrimaryPerspectives.slice(0, 5);
-  const secondaryPerspectives: readonly TourPerspective[] = [
-    ...allPrimaryPerspectives.slice(5),
-    ...(copy.home.perspectives.secondary as readonly TourPerspective[]),
-  ];
-  const contourStages = TOUR_STAGES;
-  const start = firstStageCopy[locale === 'en' || locale === 'zh' ? locale : 'ru'];
-  const startDealHref = `/platform-v7/how-it-works?lang=${encodeURIComponent(locale)}&entry=deal&stage=terms&lens=execution&perspective=buyer`;
-  const nav = (
-    <>
-      <a href='#deal-example'>{ui.header.howItWorks}</a>
-      <a href='#participants'>{ui.header.participants}</a>
-      <a href='#reliability'>{ui.header.reliability}</a>
-    </>
-  );
-
-  return (
-    <main id='main-content' className='pc-ppe-page' data-testid='platform-v7-root-execution-cockpit'>
-      <style>{`
-        @media (min-width: 821px) {
-          .pc-ppe-page .pc-ppe-hero-contour-desktop {
-            grid-template-columns: repeat(5, minmax(0, 1fr));
-            grid-template-rows: repeat(2, minmax(92px, 1fr));
-            align-items: start;
-            gap: 18px 8px;
-            min-height: 250px;
-          }
-          .pc-ppe-page .pc-ppe-hero-contour-desktop::before { display: none; }
-          .pc-ppe-page .pc-ppe-hero-contour-desktop > span { align-content: start; }
-          .pc-ppe-page .pc-ppe-hero-contour-desktop > span > b { max-width: 100px; }
-        }
-      `}</style>
-      <a className='pc-skip-link' href='#pc-ppe-hero-title'>{chrome('skipToContent')}</a>
-      <PublicExperiencePageView locale={locale} name='home_view' />
-      <PublicExperienceScrollCoordinator />
-
-      <PublicSiteHeader
-        ariaLabel={copy.header.aria}
-        brandHomeLabel={copy.header.brandHome}
-        navLabel={copy.header.aria}
-        menuLabel={ui.header.menu}
-        nav={nav}
-        showMobileMenu
-        localeControl={<PublicLocaleLink />}
-        actions={<a href='/platform-v7/login' className='entry-login'>{copy.header.signIn}</a>}
-      />
-
-      <div className='pc-ppe-shell'>
-        <section className='pc-ppe-hero pc-ppe-hero-copy-only' aria-labelledby='pc-ppe-hero-title'>
-          <div className='pc-ppe-hero-copy'>
-            <span className='pc-ppe-kicker'>{ui.home.hero.kicker}</span>
-            <h1 id='pc-ppe-hero-title'>{ui.home.hero.title}</h1>
-            <p>{ui.home.hero.lead}</p>
-            <div className='pc-ppe-public-status' role='note' aria-label={ui.home.hero.statusLabel}>
-              <strong>{ui.home.hero.statusLabel}</strong>
-              <span>{ui.home.hero.statusText}</span>
-            </div>
-            <div className='pc-ppe-hero-actions'>
-              <PublicExperienceLink
-                href={startDealHref}
-                className='pc-ppe-primary-button'
-                eventName='deal_preview_opened'
-                locale={locale}
-                params={{ source: 'hero', stage: 'terms' }}
-              >
-                <span>{ui.home.hero.primary}</span>
-                <PublicExperienceIcon name='arrow' size={20} />
-              </PublicExperienceLink>
-              <PublicExperienceLink
-                href='/platform-v7/register'
-                className='pc-ppe-secondary-button'
-                eventName='organization_connect_started'
-                locale={locale}
-                params={{ source: 'hero' }}
-              >
-                {ui.home.hero.secondary}
-              </PublicExperienceLink>
-            </div>
-          </div>
-
-          <div className='pc-ppe-hero-contour' role='group' aria-label={ui.home.hero.progressAria}>
-            <div className='pc-ppe-hero-contour-desktop' aria-hidden='true'>
-              {contourStages.map((stage, index) => (
-                <span key={stage} data-active={stage === 'terms' ? 'true' : 'false'}>
-                  <i>{index + 1}</i>
-                  <b>{copy.explorer.stages[stage].label}</b>
-                </span>
-              ))}
-            </div>
-            <div className='pc-ppe-hero-progress-mobile'>
-              <span>{start.stageCounter}</span>
-              <strong>{start.currentStage}</strong>
-              <small>{start.nextStage}</small>
-              <a href={startDealHref} aria-label={start.showAllStages}>
-                <PublicExperienceIcon name='arrow' size={20} />
-              </a>
-            </div>
-          </div>
-        </section>
-
-        <section id='deal-example' className='pc-ppe-section' aria-label={ui.home.preview.demoLabel}>
-          <PublicDealPreview copy={copy} locale={locale} />
-        </section>
-
-        <section id='participants' className='pc-ppe-section' aria-labelledby='pc-ppe-perspectives-title'>
-          <div className='pc-ppe-section-header'>
-            <span className='pc-ppe-section-eyebrow'>{ui.home.perspectives.eyebrow}</span>
-            <h2 id='pc-ppe-perspectives-title'>{ui.home.perspectives.title}</h2>
-            <p>{ui.home.perspectives.lead}</p>
-          </div>
-          <div className='pc-ppe-perspective-grid' role='group' aria-labelledby='pc-ppe-perspectives-title'>
-            {primaryPerspectives.map((perspective) => (
-              <PerspectiveCard
-                key={perspective}
-                perspective={perspective}
-                locale={locale}
-                label={copy.explorer.perspectives[perspective].label}
-                value={copy.explorer.perspectives[perspective].value}
-              />
-            ))}
-          </div>
-          <details className='pc-ppe-all-participants'>
-            <summary>
-              <span>{ui.home.perspectives.more}</span>
-              <PublicExperienceIcon name='arrow' size={20} />
-            </summary>
-            <div className='pc-ppe-perspective-grid' role='group' aria-label={ui.home.perspectives.more}>
-              {secondaryPerspectives.map((perspective) => (
-                <PerspectiveCard
-                  key={perspective}
-                  perspective={perspective}
-                  locale={locale}
-                  label={copy.explorer.perspectives[perspective].label}
-                  value={copy.explorer.perspectives[perspective].value}
-                />
-              ))}
-            </div>
-          </details>
-        </section>
-
-        <section className='pc-ppe-section' aria-labelledby='pc-ppe-proof-title'>
-          <div className='pc-ppe-evidence-panel'>
-            <header>
-              <span className='pc-ppe-section-eyebrow'>{ui.home.proof.eyebrow}</span>
-              <h2 id='pc-ppe-proof-title'>{ui.home.proof.title}</h2>
-              <p>{ui.home.proof.lead}</p>
-            </header>
-            <ol className='pc-ppe-evidence-chain'>
-              {ui.home.proof.steps.map((step, index) => (
-                <li key={step.label}>
-                  <span aria-hidden='true'>{index + 1}</span>
-                  <div>
-                    <strong>{step.label}</strong>
-                    <p>{step.value}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-            <div className='pc-ppe-evidence-result'>
-              <strong>{ui.home.proof.resultLabel}</strong>
-              <p>{ui.home.proof.resultValue}</p>
-            </div>
-          </div>
-        </section>
-
-        <section id='reliability' className='pc-ppe-section' aria-labelledby='pc-ppe-trust-title'>
-          <div className='pc-ppe-section-header'>
-            <span className='pc-ppe-section-eyebrow'>{ui.home.trust.eyebrow}</span>
-            <h2 id='pc-ppe-trust-title'>{ui.home.trust.title}</h2>
-            <p>{ui.home.trust.lead}</p>
-          </div>
-          <div className='pc-ppe-trust-grid'>
-            {ui.home.trust.cards.map((card) => (
-              <article key={card.title} className='pc-ppe-trust-card'>
-                <span>{card.title}</span>
-                <strong>{card.value}</strong>
-                <p>{card.note}</p>
-                <a href={card.href}>{card.link}<PublicExperienceIcon name='arrow' size={17} /></a>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className='pc-ppe-final-cta' aria-labelledby='pc-ppe-final-title'>
-          <h2 id='pc-ppe-final-title'>{ui.home.final.title}</h2>
-          <p>{ui.home.final.lead}</p>
-          <div className='pc-ppe-final-actions'>
-            <PublicExperienceLink
-              href={startDealHref}
-              className='pc-ppe-primary-button'
-              eventName='deal_preview_opened'
-              locale={locale}
-              params={{ source: 'final_cta', stage: 'terms' }}
-            >
-              <span>{ui.home.final.primary}</span>
-              <PublicExperienceIcon name='arrow' size={20} />
-            </PublicExperienceLink>
-            <PublicExperienceLink
-              href='/platform-v7/register'
-              className='pc-ppe-secondary-button'
-              eventName='organization_connect_started'
-              locale={locale}
-              params={{ source: 'final_cta' }}
-            >
-              {ui.home.final.secondary}
-            </PublicExperienceLink>
-          </div>
-          <p className='pc-ppe-final-signin'>
-            {ui.home.final.signInPrefix} <a href='/platform-v7/login'>{ui.home.final.signIn}</a>
-          </p>
-        </section>
-      </div>
-
-      <footer className='pc-ppe-footer'>
-        <div className='pc-ppe-shell pc-ppe-footer-grid'>
-          <div className='pc-ppe-footer-brand'>
-            <strong>Прозрачная Цена</strong>
-            <p>{ui.footer.note}</p>
-          </div>
-          <nav aria-label={copy.header.aria}>
-            <a href='/platform-v7/about'>{ui.footer.about}</a>
-            <a href='/platform-v7/status'>{ui.footer.status}</a>
-            <a href='/platform-v7/privacy'>{ui.footer.privacy}</a>
-            <a href='/platform-v7/terms'>{ui.footer.terms}</a>
-            <a href='/platform-v7/contact'>{ui.footer.contact}</a>
-          </nav>
-          <small>{ui.footer.disclaimer}</small>
-          <span>© {new Date().getUTCFullYear()} Прозрачная Цена</span>
-        </div>
-      </footer>
-    </main>
-  );
+  const home = await PlatformV7StrategicHome();
+  return <><style>{CRITICAL_HOME_CSS}</style>{home}</>;
 }

@@ -5,7 +5,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RlsTransactionService } from '../../common/prisma/rls-transaction.service';
 import { RequestUser, Role } from '../../common/types/request-user';
@@ -39,13 +39,12 @@ type CanonicalDealRecord = {
   readonly totalKopecks: bigint | number | null;
 };
 
-type CanonicalMembershipCandidate = {
-  readonly organizationId: string;
-  readonly role: string;
-  readonly isDefault: boolean;
-};
+/** A deal accumulates outbox rows without limit; the reader must stay bounded. */
+const MAX_INTEGRATION_ENTRIES = 100;
 
-const KNOWN_ROLES = new Set<string>(Object.values(Role));
+function isoOrNull(value: Date | null): string | null {
+  return value === null ? null : value.toISOString();
+}
 
 function stable(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stable);
@@ -81,76 +80,170 @@ export class IndustrialDealCommandGateway {
   }
 
   /**
-   * Список сделок, в которых пользователь — активный участник.
-   * Скоуп определяет PostgreSQL (DealParticipant + RLS trusted context),
-   * никогда — клиент. Выборка ограничена и JSON-safe (bigint → number).
+   * Outbox delivery state for one deal, as audit-safe metadata.
+   *
+   * The deal workspace projection does not carry outbox rows, and widening it would
+   * change what every existing deal endpoint returns, so this is a separate read on
+   * the same authority: resolveMembership proves an active participant in a verified
+   * organization inside the caller's tenant before anything is read, and the query
+   * runs in that trusted RLS scope.
+   *
+   * The select list is a whitelist on purpose. `payload` carries business data,
+   * `lastError` carries internal failure text, and the lease columns and
+   * `triggeredByUserId` identify infrastructure and people rather than delivery
+   * state. None of them belongs in an answer a model can relay, so none is read.
+   *
+   * The entry list is bounded; the counts are not derived from it.
+   *
+   * Read at REPEATABLE READ. Three statements at READ COMMITTED each take their own
+   * snapshot, so the outbox worker committing between them could produce a response
+   * listing a PENDING entry while the counts report no pending entries at all. One
+   * snapshot for the whole transaction makes the answer internally consistent, and a
+   * read-only transaction cannot hit the write conflicts that isolation level risks.
    */
-  async listAccessibleDeals(user: RequestUser, take = 50) {
-    if (!user.tenantId) {
-      throw new ForbiddenException({ code: 'TENANT_CONTEXT_REQUIRED' });
-    }
-    const bounded = Math.min(Math.max(Math.trunc(take), 1), 100);
-    const memberships = (await this.prisma.userOrg.findMany({
-      where: { userId: user.id },
-      select: { organizationId: true, role: true },
-      orderBy: [{ isDefault: 'desc' }, { joinedAt: 'asc' }],
-    })) as Array<{ organizationId: string; role: string }>;
-
-    const byId = new Map<string, Record<string, unknown>>();
-    for (const membership of memberships) {
-      if (!KNOWN_ROLES.has(membership.role) || membership.role === Role.BANK_CALLBACK) continue;
-      const scopedUser: RequestUser = {
-        ...user,
-        role: membership.role as Role,
-        orgId: membership.organizationId,
-        tenantId: user.tenantId,
-      };
-      const deals = await this.rls.withTrustedContext(scopedUser, (tx) =>
-        tx.deal.findMany({
-          where: {
-            tenantId: user.tenantId,
-            participants: {
-              some: {
-                userId: user.id,
-                organizationId: membership.organizationId,
-                role: membership.role,
-                status: 'ACTIVE',
-              },
-            },
-          },
-          orderBy: { updatedAt: 'desc' },
-          take: bounded,
+  async integrationStatus(dealId: string, user: RequestUser) {
+    const scoped = await this.resolveMembership(dealId, user);
+    return this.rls.withTrustedContext(
+      scoped.user,
+      async (tx) => {
+        const entries = await tx.outboxEntry.findMany({
+          where: { dealId },
           select: {
             id: true,
-            dealNumber: true,
+            type: true,
             status: true,
-            culture: true,
-            cropClass: true,
-            region: true,
-            volumeTons: true,
-            totalKopecks: true,
-            currency: true,
-            version: true,
-            updatedAt: true,
-            nextAction: true,
+            retryCount: true,
+            maxRetries: true,
+            createdAt: true,
+            sentAt: true,
+            confirmedAt: true,
+            failedAt: true,
+            deadLetterAt: true,
+            nextRetryAt: true,
           },
-        }),
-      );
-      for (const deal of deals) {
-        byId.set(deal.id, {
-          ...deal,
-          totalKopecks: deal.totalKopecks === null ? null : Number(deal.totalKopecks),
-          version: Number(deal.version),
-          updatedAt: deal.updatedAt.toISOString(),
-          myRole: membership.role,
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          take: MAX_INTEGRATION_ENTRIES + 1,
+        });
+        // Counted across the whole deal, not the returned page. Deriving these from the
+        // bounded slice would report deadLetterCount 0 for a deal whose dead letters are
+        // simply older than the hundred most recent rows — wrong exactly when it matters.
+        const grouped = await tx.outboxEntry.groupBy({
+          by: ['status'],
+          where: { dealId },
+          _count: { _all: true },
+        });
+        const deadLetterCount = await tx.outboxEntry.count({
+          where: { dealId, deadLetterAt: { not: null } },
+        });
+        const truncated = entries.length > MAX_INTEGRATION_ENTRIES;
+        const bounded = truncated ? entries.slice(0, MAX_INTEGRATION_ENTRIES) : entries;
+        const countsByStatus: Record<string, number> = {};
+        for (const group of grouped) {
+          countsByStatus[group.status] = group._count._all;
+        }
+        return {
+          dealId,
+          // Timestamps are rendered here rather than left to a serializer, so the shape
+          // is the same whoever transports it.
+          entries: bounded.map((entry) => ({
+            id: entry.id,
+            type: entry.type,
+            status: entry.status,
+            retryCount: entry.retryCount,
+            maxRetries: entry.maxRetries,
+            createdAt: isoOrNull(entry.createdAt),
+            sentAt: isoOrNull(entry.sentAt),
+            confirmedAt: isoOrNull(entry.confirmedAt),
+            failedAt: isoOrNull(entry.failedAt),
+            deadLetterAt: isoOrNull(entry.deadLetterAt),
+            nextRetryAt: isoOrNull(entry.nextRetryAt),
+          })),
+          returnedCount: bounded.length,
+          truncated,
+          countsByStatus,
+          deadLetterCount,
+        };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
+  }
+
+  /**
+   * Список сделок для membership, выбранной серверной сессией.
+   * Скоуп определяют PostgreSQL и session projection; перебора других membership
+   * пользователя нет. Выборка ограничена и JSON-safe (bigint → number).
+   */
+  async listAccessibleDeals(user: RequestUser, take = 50) {
+    this.assertSessionMembership(user);
+    const bounded = Math.min(Math.max(Math.trunc(take), 1), 100);
+
+    return this.rls.withTrustedContext(user, async (tx) => {
+      const membership = await tx.userOrg.findFirst({
+        where: {
+          id: user.membershipId,
+          userId: user.id,
+          organizationId: user.orgId,
+          role: String(user.role),
+        },
+        select: { id: true },
+      });
+      if (!membership) {
+        throw new ForbiddenException({
+          code: 'SESSION_MEMBERSHIP_REQUIRED',
+          message: 'Verified session membership is not active in the database.',
         });
       }
-    }
 
-    const items = [...byId.values()]
-      .sort((left, right) => String(right.updatedAt).localeCompare(String(left.updatedAt)))
-      .slice(0, bounded);
-    return { count: items.length, items };
+      const organization = await tx.organization.findFirst({
+        where: { id: user.orgId, tenantId: user.tenantId },
+        select: { status: true },
+      });
+      if (!organization || organization.status !== 'VERIFIED') {
+        throw new ForbiddenException({
+          code: 'VERIFIED_ORGANIZATION_REQUIRED',
+          message: 'Verified organization is required.',
+        });
+      }
+
+      const deals = await tx.deal.findMany({
+        where: {
+          tenantId: user.tenantId,
+          participants: {
+            some: {
+              userId: user.id,
+              organizationId: user.orgId,
+              role: String(user.role),
+              status: 'ACTIVE',
+            },
+          },
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: bounded,
+        select: {
+          id: true,
+          dealNumber: true,
+          status: true,
+          culture: true,
+          cropClass: true,
+          region: true,
+          volumeTons: true,
+          totalKopecks: true,
+          currency: true,
+          version: true,
+          updatedAt: true,
+          nextAction: true,
+        },
+      });
+
+      const items = deals.map((deal) => ({
+        ...deal,
+        totalKopecks: deal.totalKopecks === null ? null : Number(deal.totalKopecks),
+        version: Number(deal.version),
+        updatedAt: deal.updatedAt.toISOString(),
+        myRole: String(user.role),
+      }));
+      return { count: items.length, items };
+    });
   }
 
   /**
@@ -373,93 +466,97 @@ export class IndustrialDealCommandGateway {
 
   /**
    * Authorization order is deliberately fail-closed:
-   * UserOrg identity membership -> exact ACTIVE DealParticipant -> Organization -> Deal.
-   * Client-supplied role and orgId never select scope.
+   * exact server-verified session membership -> ACTIVE DealParticipant ->
+   * verified Organization -> tenant-scoped Deal. No pre-context identity scan
+   * and no fallback to another membership are permitted.
    */
   private async resolveMembership(dealId: string, user: RequestUser) {
-    if (!user.tenantId) {
-      throw new ForbiddenException({
-        code: 'TENANT_CONTEXT_REQUIRED',
-        message: 'Verified session tenant is required.',
+    this.assertSessionMembership(user);
+
+    const scoped = await this.rls.withTrustedContext(user, async (tx) => {
+      const membership = await tx.userOrg.findFirst({
+        where: {
+          id: user.membershipId,
+          userId: user.id,
+          organizationId: user.orgId,
+          role: String(user.role),
+        },
+        select: { id: true },
       });
-    }
+      if (!membership) return null;
 
-    const memberships = (await this.prisma.userOrg.findMany({
-      where: { userId: user.id },
-      select: {
-        organizationId: true,
-        role: true,
-        isDefault: true,
-      },
-      orderBy: [{ isDefault: 'desc' }, { joinedAt: 'asc' }],
-    })) as CanonicalMembershipCandidate[];
+      const participant = await tx.dealParticipant.findFirst({
+        where: {
+          dealId,
+          tenantId: user.tenantId,
+          organizationId: user.orgId,
+          userId: user.id,
+          role: String(user.role),
+          status: 'ACTIVE',
+        },
+        select: {
+          id: true,
+          accessLevel: true,
+          status: true,
+        },
+      });
+      if (!participant) return null;
 
-    for (const membership of memberships) {
-      if (!KNOWN_ROLES.has(membership.role) || membership.role === Role.BANK_CALLBACK) continue;
+      const organization = await tx.organization.findFirst({
+        where: {
+          id: user.orgId,
+          tenantId: user.tenantId,
+        },
+        select: { id: true, tenantId: true, status: true },
+      });
+      if (!organization || organization.status !== 'VERIFIED') return null;
 
-      const scopedUser: RequestUser = {
-        ...user,
-        role: membership.role as Role,
-        orgId: membership.organizationId,
-        tenantId: user.tenantId,
+      const deal = await tx.deal.findUnique({
+        where: { id: dealId },
+        select: {
+          id: true,
+          tenantId: true,
+          sellerOrgId: true,
+          buyerOrgId: true,
+          status: true,
+          updatedAt: true,
+          totalKopecks: true,
+        },
+      });
+      if (!deal || !deal.tenantId || deal.tenantId !== user.tenantId) return null;
+
+      return {
+        deal: deal as CanonicalDealRecord,
+        participant,
       };
+    });
 
-      const scoped = await this.rls.withTrustedContext(scopedUser, async (tx) => {
-        const participant = await tx.dealParticipant.findFirst({
-          where: {
-            dealId,
-            tenantId: user.tenantId,
-            organizationId: membership.organizationId,
-            userId: user.id,
-            role: membership.role,
-            status: 'ACTIVE',
-          },
-          select: {
-            id: true,
-            accessLevel: true,
-            status: true,
-          },
-        });
-        if (!participant) return null;
-
-        const organization = await tx.organization.findFirst({
-          where: {
-            id: membership.organizationId,
-            tenantId: user.tenantId,
-          },
-          select: { id: true, tenantId: true, status: true },
-        });
-        if (!organization || organization.status !== 'VERIFIED') return null;
-
-        const deal = await tx.deal.findUnique({
-          where: { id: dealId },
-          select: {
-            id: true,
-            tenantId: true,
-            sellerOrgId: true,
-            buyerOrgId: true,
-            status: true,
-            updatedAt: true,
-            totalKopecks: true,
-          },
-        });
-        if (!deal || !deal.tenantId || deal.tenantId !== user.tenantId) return null;
-
-        return {
-          deal: deal as CanonicalDealRecord,
-          participant,
-        };
-      });
-
-      if (scoped) {
-        return { ...scoped, user: scopedUser };
-      }
-    }
+    if (scoped) return { ...scoped, user };
 
     throw new ForbiddenException({
       code: 'ACTIVE_DEAL_PARTICIPANT_REQUIRED',
       message: 'No active database-backed participant assignment for this deal.',
     });
+  }
+
+  private assertSessionMembership(user: RequestUser): asserts user is RequestUser & {
+    tenantId: string;
+    membershipId: string;
+  } {
+    if (
+      !user.tenantId
+      || !user.membershipId
+      || !user.orgId
+      || !user.id
+      || !user.sessionId
+      || !user.role
+      || user.role === Role.BANK_CALLBACK
+    ) {
+      throw new ForbiddenException({
+        code: 'VERIFIED_SESSION_MEMBERSHIP_REQUIRED',
+        message: 'Verified session tenant and membership are required.',
+      });
+    }
   }
 
   private async readDealInTrustedScope(

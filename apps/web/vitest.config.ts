@@ -17,6 +17,16 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      // The boundary validates through the API's contract module itself rather
+      // than a copy, so the test run must resolve the same file the build does.
+      '@pc/ai-assistant-stream-contract': path.resolve(
+        __dirname,
+        '../api/src/modules/ai-insights/ai-assistant-stream.contract.ts',
+      ),
+      '@pc/ai-assistant-admission-manifest': path.resolve(
+        __dirname,
+        '../api/src/modules/ai-insights/ai-assistant-admission.manifest.ts',
+      ),
       '@': path.resolve(__dirname, '.'),
     },
   },

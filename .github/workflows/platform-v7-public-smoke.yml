@@ -6,7 +6,7 @@ on:
       public_url:
         description: Public base URL for platform-v7
         required: false
-        default: https://vermillion-kitsune-0e7b97.netlify.app
+        default: https://процент-агро.рф
 
 jobs:
   public-smoke:

@@ -27,6 +27,7 @@ import {
   type SettlementReleaseRequest,
 } from './settlement-engine.service';
 import { SettlementFinancialMfaGuard } from './settlement-financial-mfa.guard';
+import { RevokeBankKeyDto } from './dto/revoke-bank-key.dto';
 import type {
   ConfigureSettlementTermsInput,
   PlaceSettlementHoldInput,
@@ -245,7 +246,7 @@ export class SettlementEngineController {
   @RateLimit({ name: 'bank_key_revoke', scope: 'user', limit: 5, windowSeconds: 60 })
   async revokeBankKey(
     @Param('keyId') keyId: string,
-    @Body() body: { reason?: string },
+    @Body() body: RevokeBankKeyDto,
     @CurrentUser() user: RequestUser,
   ) {
     const reason = String(body?.reason ?? '').trim();

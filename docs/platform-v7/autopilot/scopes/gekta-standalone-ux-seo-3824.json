@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-standalone-ux-seo-3824",
+  "branch": "feat/gekta-standalone-ux-seo-3824",
+  "issue": 3824,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "37153d25ccc70f211345fc484c17b26d2ec13d04"
+  },
+  "purpose": "Evolve the existing /gekta surface into a standalone search-first plus chat-first agricultural AI product with server-rendered RU/EN/ZH product copy, canonical locale URLs, a bounded people-first topic microsite, full conversation UX, accessibility, privacy-safe analytics and exact-SHA production acceptance while reusing the governed public agro-chat boundary.",
+  "allowedPaths": [
+    "apps/web/app/gekta/**",
+    "apps/web/components/gekta/**",
+    "apps/web/lib/gekta/**",
+    "apps/web/lib/platform-v7/public-seo-routes.json",
+    "apps/web/middleware.ts",
+    "apps/web/tests/unit/gekta*.test.ts",
+    "apps/web/tests/e2e/gekta*.spec.ts",
+    "scripts/production-web-live-acceptance.sh",
+    "docs/platform-v7/autopilot/scopes/gekta-standalone-ux-seo-3824.json"
+  ],
+  "productBoundary": {
+    "canonicalEntry": "/gekta",
+    "localeEntries": ["/gekta", "/gekta/en", "/gekta/zh"],
+    "modelBoundary": "/api/agro-chat?stream=1",
+    "attachmentBoundary": "/api/public-platform-assistant/attachments",
+    "newBackend": false,
+    "newServer": false,
+    "newRecurringCostRub": 0,
+    "anonymousPrivatePlatformData": "forbidden",
+    "analyticsPromptOrAnswerBody": "forbidden"
+  },
+  "forbiddenChanges": [
+    "Qwen runtime, llama.cpp, model threads or speed tuning",
+    "PC-CROP registration, reviewer, MFA or password reset",
+    "tenant, RBAC, RLS, database roles or settlement",
+    "Deal state machine",
+    "production credentials",
+    "a second AI backend",
+    "unaccepted public capability claims",
+    "scaled SEO pages or fabricated ratings, reviews, users, prices or awards"
+  ],
+  "requiredChecks": [
+    "web typecheck and build",
+    "Gekta product and crawler HTML tests",
+    "RU EN ZH canonical and hreflang tests",
+    "mobile 320 390 430 acceptance",
+    "keyboard focus and ARIA acceptance",
+    "private endpoint and secret leakage checks",
+    "exact-head CI",
+    "exact-SHA REG.RU release",
+    "live /gekta /gekta/en /gekta/zh crawler and chat acceptance"
+  ],
+  "deploymentState": "not-deployed"
+}

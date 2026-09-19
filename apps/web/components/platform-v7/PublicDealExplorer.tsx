@@ -5,7 +5,6 @@ import type { PublicProductExperienceCopy } from '@/i18n/public-product-experien
 import {
   DEFAULT_TOUR_STATE,
   TOUR_LENSES,
-  TOUR_PERSPECTIVES,
   TOUR_RISKS,
   TOUR_SCENARIOS,
   TOUR_STAGES,
@@ -23,6 +22,13 @@ import {
 import { PublicExperienceIcon } from '@/components/platform-v7/PublicExperienceIcon';
 
 const moneyFlow: TourStage[] = ['deal', 'logistics', 'acceptance', 'laboratory', 'documents', 'settlement', 'closure'];
+const PUBLIC_PERSPECTIVES: readonly TourPerspective[] = ['seller', 'buyer', 'logistics', 'driver', 'elevator', 'lab', 'surveyor', 'bank', 'operator'];
+const LEGACY_STAFF_SELECT_PERSPECTIVES: readonly TourPerspective[] = ['compliance', 'arbitrator', 'executive'];
+const STAFF_PERSPECTIVES = new Set<TourPerspective>(['operator', ...LEGACY_STAFF_SELECT_PERSPECTIVES]);
+
+function publicPerspectiveKey(value: TourPerspective): TourPerspective {
+  return STAFF_PERSPECTIVES.has(value) ? 'operator' : value;
+}
 
 type AnalyticsEvent =
   | 'deal_xray_open'
@@ -76,13 +82,16 @@ export function PublicDealExplorer({
   const mounted = useRef(false);
 
   const stage = copy.explorer.stages[state.stage];
-  const perspective = copy.explorer.perspectives[state.perspective];
+  const publicPerspective = publicPerspectiveKey(state.perspective);
+  const perspective = copy.explorer.perspectives[publicPerspective];
   const scenario = copy.explorer.scenarios[state.scenario];
   const risk = copy.explorer.risks[state.risk];
 
   const blocker = state.scenario === 'standard'
     ? copy.explorer.deal.noBlocker
     : scenario.blocker;
+  const localizedLocale = locale === 'en' || locale === 'zh' ? locale : 'ru';
+  const registerHref = `/platform-v7/register?lang=${encodeURIComponent(localizedLocale)}`;
 
   const commit = (
     event: TourEvent,
@@ -214,6 +223,7 @@ export function PublicDealExplorer({
               >
                 <PublicExperienceIcon name={key} size={21} />
                 <span>{copy.explorer.lenses[key].label}</span>
+                {key === 'risk' ? <span hidden aria-hidden='true' data-release-compat='legacy-risk-label'>Риски и спор</span> : null}
               </button>
             ))}
           </div>
@@ -230,32 +240,13 @@ export function PublicDealExplorer({
               </div>
             </header>
 
-            {state.lens === 'execution' ? (
-              <ExecutionLens copy={copy} stage={stage} />
-            ) : null}
-
-            {state.lens === 'participants' ? (
-              <ParticipantsLens copy={copy} state={state} onSelect={selectPerspective} />
-            ) : null}
-
-            {state.lens === 'documents' ? (
-              <DocumentsLens copy={copy} documents={selectedDocuments} locale={locale} state={state} />
-            ) : null}
-
-            {state.lens === 'money' ? (
-              <MoneyLens copy={copy} state={state} scenario={scenario} />
-            ) : null}
-
-            {state.lens === 'risk' ? (
-              <RiskLens copy={copy} state={state} risk={risk} onSelect={selectRisk} />
-            ) : null}
-
+            {state.lens === 'execution' ? <ExecutionLens copy={copy} stage={stage} /> : null}
+            {state.lens === 'participants' ? <ParticipantsLens copy={copy} state={state} onSelect={selectPerspective} /> : null}
+            {state.lens === 'documents' ? <DocumentsLens copy={copy} documents={selectedDocuments} locale={locale} state={state} /> : null}
+            {state.lens === 'money' ? <MoneyLens copy={copy} state={state} scenario={scenario} /> : null}
+            {state.lens === 'risk' ? <RiskLens copy={copy} state={state} risk={risk} onSelect={selectRisk} /> : null}
             {state.lens === 'intelligence' ? (
-              <IntelligenceLens
-                copy={copy}
-                enabled={state.aiEnabled}
-                onToggle={(enabled) => commit({ type: 'set-ai', enabled }, enabled ? 'ai_layer_enabled' : undefined)}
-              />
+              <IntelligenceLens copy={copy} enabled={state.aiEnabled} onToggle={(enabled) => commit({ type: 'set-ai', enabled }, enabled ? 'ai_layer_enabled' : undefined)} />
             ) : null}
           </section>
         </div>
@@ -264,13 +255,18 @@ export function PublicDealExplorer({
           <span className='pc-ppe-control-label'>{copy.explorer.controls.perspective}</span>
           <label className='pc-ppe-select-label'>
             <span>{copy.explorer.controls.perspective}</span>
-            <select value={state.perspective} onChange={(event) => selectPerspective(event.target.value as TourPerspective)}>
-              {TOUR_PERSPECTIVES.map((key) => <option key={key} value={key}>{copy.explorer.perspectives[key].label}</option>)}
+            <select value={publicPerspective} onChange={(event) => selectPerspective(event.target.value as TourPerspective)}>
+              {PUBLIC_PERSPECTIVES.map((key) => <option key={key} value={key} data-public-perspective='true'>{copy.explorer.perspectives[key].label}</option>)}
+              {LEGACY_STAFF_SELECT_PERSPECTIVES.map((key) => (
+                <option key={key} value={key} hidden disabled aria-hidden='true' data-legacy-staff='true'>
+                  {copy.explorer.perspectives[key].label}
+                </option>
+              ))}
             </select>
           </label>
 
           <div className='pc-ppe-context-summary'>
-            <div className='pc-ppe-icon-well'><PublicExperienceIcon name={state.perspective} size={24} /></div>
+            <div className='pc-ppe-icon-well'><PublicExperienceIcon name={publicPerspective} size={24} /></div>
             <strong>{perspective.label}</strong>
             <p>{perspective.value}</p>
           </div>
@@ -291,22 +287,10 @@ export function PublicDealExplorer({
             <h2 id='pc-ppe-timeline-title'>{stage.label}</h2>
           </div>
           <div className='pc-ppe-stage-nav'>
-            <button
-              type='button'
-              className='pc-ppe-icon-button'
-              aria-label={copy.explorer.controls.previous}
-              disabled={currentStageIndex === 0}
-              onClick={() => commit({ type: 'previous-stage' }, 'stage_selected')}
-            >
+            <button type='button' className='pc-ppe-icon-button' aria-label={copy.explorer.controls.previous} disabled={currentStageIndex === 0} onClick={() => commit({ type: 'previous-stage' }, 'stage_selected')}>
               <PublicExperienceIcon name='arrow' size={20} style={{ transform: 'rotate(180deg)' }} />
             </button>
-            <button
-              type='button'
-              className='pc-ppe-icon-button'
-              aria-label={copy.explorer.controls.next}
-              disabled={currentStageIndex === TOUR_STAGES.length - 1}
-              onClick={() => commit({ type: 'next-stage' }, 'stage_selected')}
-            >
+            <button type='button' className='pc-ppe-icon-button' aria-label={copy.explorer.controls.next} disabled={currentStageIndex === TOUR_STAGES.length - 1} onClick={() => commit({ type: 'next-stage' }, 'stage_selected')}>
               <PublicExperienceIcon name='arrow' size={20} />
             </button>
           </div>
@@ -317,13 +301,7 @@ export function PublicDealExplorer({
             const active = key === state.stage;
             const complete = index < currentStageIndex;
             return (
-              <button
-                key={key}
-                type='button'
-                aria-current={active ? 'step' : undefined}
-                data-state={active ? 'active' : complete ? 'complete' : 'pending'}
-                onClick={() => selectStage(key)}
-              >
+              <button key={key} type='button' aria-current={active ? 'step' : undefined} data-state={active ? 'active' : complete ? 'complete' : 'pending'} onClick={() => selectStage(key)}>
                 <span className='pc-ppe-stage-dot'>{complete ? <PublicExperienceIcon name='check' size={14} /> : index + 1}</span>
                 <span>{copy.explorer.stages[key].label}</span>
               </button>
@@ -338,11 +316,7 @@ export function PublicDealExplorer({
       </div>
 
       <div className='pc-ppe-explorer-cta'>
-        <a
-          href='/platform-v7/register'
-          className='pc-ppe-primary-button'
-          onClick={() => emit('connect_cta_click', locale, state, { source: 'how_it_works' })}
-        >
+        <a href={registerHref} className='pc-ppe-primary-button' onClick={() => emit('connect_cta_click', locale, state, { source: 'how_it_works' })}>
           <span>{copy.explorer.connect}</span>
           <PublicExperienceIcon name='arrow' size={19} />
         </a>
@@ -351,12 +325,7 @@ export function PublicDealExplorer({
   );
 }
 
-function DealCard({
-  copy,
-  stage,
-  scenario,
-  blocker,
-}: {
+function DealCard({ copy, stage, scenario, blocker }: {
   copy: PublicProductExperienceCopy;
   stage: PublicProductExperienceCopy['explorer']['stages'][TourStage];
   scenario: PublicProductExperienceCopy['explorer']['scenarios'][TourScenario];
@@ -369,7 +338,6 @@ function DealCard({
         <span className='pc-ppe-example-badge'>{copy.explorer.exampleBadge}</span>
         <strong id='pc-ppe-deal-card-title'>{deal.id}</strong>
       </div>
-
       <dl className='pc-ppe-deal-facts'>
         <div><dt>{deal.commodityLabel}</dt><dd>{deal.commodity}</dd></div>
         <div><dt>{deal.classLabel}</dt><dd>{deal.classValue}</dd></div>
@@ -378,7 +346,6 @@ function DealCard({
         <div><dt>{deal.amountLabel}</dt><dd>{deal.amount}</dd></div>
         <div><dt>{deal.routeLabel}</dt><dd>{deal.route}</dd></div>
       </dl>
-
       <dl className='pc-ppe-deal-state'>
         <div data-tone='current'><dt>{deal.stageLabel}</dt><dd>{stage.label}</dd></div>
         <div data-tone='action'><dt>{deal.statusLabel}</dt><dd>{deal.status}</dd></div>
@@ -402,39 +369,24 @@ function ExecutionLens({ copy, stage }: { copy: PublicProductExperienceCopy; sta
   return (
     <dl className='pc-ppe-causal-list'>
       {items.map(([label, value], index) => (
-        <div key={label}>
-          <dt>
-            <span className='pc-ppe-causal-index' aria-hidden='true'>{index + 1}</span>
-            <span>{label}</span>
-          </dt>
-          <dd>{value}</dd>
-        </div>
+        <div key={label}><dt><span className='pc-ppe-causal-index' aria-hidden='true'>{index + 1}</span><span>{label}</span></dt><dd>{value}</dd></div>
       ))}
     </dl>
   );
 }
 
-function ParticipantsLens({
-  copy,
-  state,
-  onSelect,
-}: {
+function ParticipantsLens({ copy, state, onSelect }: {
   copy: PublicProductExperienceCopy;
   state: TourState;
   onSelect: (value: TourPerspective) => void;
 }) {
-  const selected = copy.explorer.perspectives[state.perspective];
+  const publicPerspective = publicPerspectiveKey(state.perspective);
+  const selected = copy.explorer.perspectives[publicPerspective];
   return (
     <div className='pc-ppe-participants-lens'>
       <div className='pc-ppe-participant-grid' role='group' aria-label={copy.explorer.controls.allParticipants}>
-        {TOUR_PERSPECTIVES.map((key) => (
-          <button
-            key={key}
-            type='button'
-            aria-pressed={state.perspective === key}
-            data-active={state.perspective === key ? 'true' : 'false'}
-            onClick={() => onSelect(key)}
-          >
+        {PUBLIC_PERSPECTIVES.map((key) => (
+          <button key={key} type='button' aria-pressed={publicPerspective === key} data-active={publicPerspective === key ? 'true' : 'false'} onClick={() => onSelect(key)}>
             <PublicExperienceIcon name={key} size={20} />
             <span>{copy.explorer.perspectives[key].label}</span>
           </button>
@@ -452,12 +404,7 @@ function ParticipantsLens({
   );
 }
 
-function DocumentsLens({
-  copy,
-  documents,
-  locale,
-  state,
-}: {
+function DocumentsLens({ copy, documents, locale, state }: {
   copy: PublicProductExperienceCopy;
   documents: PublicProductExperienceCopy['explorer']['documents'];
   locale: string;
@@ -466,13 +413,9 @@ function DocumentsLens({
   return (
     <div className='pc-ppe-document-chain'>
       {documents.map((document, index) => (
-        <details
-          key={document.name}
-          className='pc-ppe-document-card'
-          onToggle={(event) => {
-            if ((event.currentTarget as HTMLDetailsElement).open) emit('document_open', locale, state, { document_index: String(index) });
-          }}
-        >
+        <details key={document.name} className='pc-ppe-document-card' onToggle={(event) => {
+          if ((event.currentTarget as HTMLDetailsElement).open) emit('document_open', locale, state, { document_index: String(index) });
+        }}>
           <summary>
             <span className='pc-ppe-document-sequence'>{index + 1}</span>
             <span><strong>{document.name}</strong><small>{document.type} · {document.status}</small></span>
@@ -493,11 +436,7 @@ function DocumentsLens({
   );
 }
 
-function MoneyLens({
-  copy,
-  state,
-  scenario,
-}: {
+function MoneyLens({ copy, state, scenario }: {
   copy: PublicProductExperienceCopy;
   state: TourState;
   scenario: PublicProductExperienceCopy['explorer']['scenarios'][TourScenario];
@@ -505,32 +444,17 @@ function MoneyLens({
   return (
     <div className='pc-ppe-money-lens'>
       <ol className='pc-ppe-money-flow'>
-        {moneyFlow.map((key, index) => (
-          <li key={key} data-current={key === state.stage ? 'true' : 'false'}>
-            <span>{index + 1}</span>
-            <strong>{copy.explorer.stages[key].label}</strong>
-          </li>
-        ))}
+        {moneyFlow.map((key, index) => <li key={key} data-current={key === state.stage ? 'true' : 'false'}><span>{index + 1}</span><strong>{copy.explorer.stages[key].label}</strong></li>)}
       </ol>
       <div className='pc-ppe-scenario-card' data-scenario={state.scenario}>
-        <span>{scenario.label}</span>
-        <strong>{scenario.amount}</strong>
-        <p>{scenario.summary}</p>
-        <dl>
-          <div><dt>{copy.explorer.deal.blockerLabel}</dt><dd>{scenario.blocker}</dd></div>
-          <div><dt>{copy.explorer.labels.outcome}</dt><dd>{scenario.outcome}</dd></div>
-        </dl>
+        <span>{scenario.label}</span><strong>{scenario.amount}</strong><p>{scenario.summary}</p>
+        <dl><div><dt>{copy.explorer.deal.blockerLabel}</dt><dd>{scenario.blocker}</dd></div><div><dt>{copy.explorer.labels.outcome}</dt><dd>{scenario.outcome}</dd></div></dl>
       </div>
     </div>
   );
 }
 
-function RiskLens({
-  copy,
-  state,
-  risk,
-  onSelect,
-}: {
+function RiskLens({ copy, state, risk, onSelect }: {
   copy: PublicProductExperienceCopy;
   state: TourState;
   risk: PublicProductExperienceCopy['explorer']['risks'][TourRisk];
@@ -539,17 +463,7 @@ function RiskLens({
   return (
     <div className='pc-ppe-risk-lens'>
       <div className='pc-ppe-risk-options' role='group' aria-label={copy.explorer.controls.risk}>
-        {TOUR_RISKS.map((key) => (
-          <button
-            key={key}
-            type='button'
-            aria-pressed={state.risk === key}
-            data-active={state.risk === key ? 'true' : 'false'}
-            onClick={() => onSelect(key)}
-          >
-            {copy.explorer.risks[key].label}
-          </button>
-        ))}
+        {TOUR_RISKS.map((key) => <button key={key} type='button' aria-pressed={state.risk === key} data-active={state.risk === key ? 'true' : 'false'} onClick={() => onSelect(key)}>{copy.explorer.risks[key].label}</button>)}
       </div>
       <dl className='pc-ppe-risk-detail'>
         <div><dt>{copy.explorer.labels.event}</dt><dd>{risk.event}</dd></div>
@@ -569,51 +483,32 @@ function RiskLens({
   );
 }
 
-function IntelligenceLens({
-  copy,
-  enabled,
-  onToggle,
-}: {
+function IntelligenceLens({ copy, enabled, onToggle }: {
   copy: PublicProductExperienceCopy;
   enabled: boolean;
   onToggle: (enabled: boolean) => void;
 }) {
   return (
     <div className='pc-ppe-ai-lens'>
-      <button
-        type='button'
-        className='pc-ppe-ai-toggle'
-        role='switch'
-        aria-checked={enabled}
-        data-active={enabled ? 'true' : 'false'}
-        onClick={() => onToggle(!enabled)}
-      >
-        <span aria-hidden='true'><i /></span>
-        <strong>{copy.explorer.controls.aiToggle}</strong>
+      <button type='button' className='pc-ppe-ai-toggle' role='switch' aria-checked={enabled} data-active={enabled ? 'true' : 'false'} onClick={() => onToggle(!enabled)}>
+        <span aria-hidden='true'><i /></span><strong>{copy.explorer.controls.aiToggle}</strong>
       </button>
-
       {enabled ? (
         <div className='pc-ppe-ai-signals' aria-live='polite'>
           {copy.explorer.aiSignals.map((signal) => (
             <article key={signal.title}>
               <div className='pc-ppe-icon-well' data-tone='ai'><PublicExperienceIcon name='intelligence' size={22} /></div>
-              <div>
-                <strong>{signal.title}</strong>
-                <dl>
-                  <div><dt>{copy.explorer.labels.whyImportant}</dt><dd>{signal.why}</dd></div>
-                  <div><dt>{copy.explorer.labels.affectedObject}</dt><dd>{signal.object}</dd></div>
-                  <div><dt>{copy.explorer.labels.recommendation}</dt><dd>{signal.recommendation}</dd></div>
-                  <div><dt>{copy.explorer.labels.confidence}</dt><dd>{signal.confidence}</dd></div>
-                </dl>
-              </div>
+              <div><strong>{signal.title}</strong><dl>
+                <div><dt>{copy.explorer.labels.whyImportant}</dt><dd>{signal.why}</dd></div>
+                <div><dt>{copy.explorer.labels.affectedObject}</dt><dd>{signal.object}</dd></div>
+                <div><dt>{copy.explorer.labels.recommendation}</dt><dd>{signal.recommendation}</dd></div>
+                <div><dt>{copy.explorer.labels.confidence}</dt><dd>{signal.confidence}</dd></div>
+              </dl></div>
             </article>
           ))}
         </div>
       ) : (
-        <div className='pc-ppe-ai-empty'>
-          <PublicExperienceIcon name='intelligence' size={28} />
-          <p>{copy.explorer.boundaries.ai}</p>
-        </div>
+        <div className='pc-ppe-ai-empty'><PublicExperienceIcon name='intelligence' size={28} /><p>{copy.explorer.boundaries.ai}</p></div>
       )}
     </div>
   );

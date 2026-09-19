@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "production-static-readiness-4341",
+  "branch": "fix/production-static-readiness-4341",
+  "issue": 4341,
+  "status": "active",
+  "authorizedBy": "explicit-user-continuation",
+  "baseline": { "branch": "main", "commit": "3edb9ad9d46181f7b7c7c7a1805f5c9bc38a6e7e" },
+  "purpose": "Eliminate the post-rollout public _next/static 502 window by making public asset readiness a fail-closed part of the exact-SHA production live gate before browser acceptance can begin.",
+  "allowedPaths": [
+    ".github/workflows/production-static-readiness-contract.yml",
+    "scripts/production-public-static-readiness.sh",
+    "scripts/production-full-stack-live-acceptance.sh",
+    "docs/platform-v7/autopilot/scopes/production-static-readiness-4341.json"
+  ],
+  "productBoundary": {
+    "productionHost": "REG.RU",
+    "publicDomain": "процент-агро.рф",
+    "mode": "release-readiness-only",
+    "applicationCode": "unchanged",
+    "backendApi": "unchanged",
+    "authentication": "unchanged",
+    "database": "unchanged",
+    "modelRuntime": "unchanged",
+    "newRecurringCostRub": 0
+  },
+  "forbiddenChanges": [
+    "weakening Gekta browser, keyboard, H1, localization or accessibility acceptance",
+    "sleep-only workaround or retry inflation that hides a failing public asset",
+    "Caddy mutation or production topology change",
+    "backend business logic, auth, PostgreSQL or registration mutation",
+    "paid external service or new dependency",
+    "claiming production PASS while any referenced public static asset returns non-200 or empty content"
+  ],
+  "requiredChecks": [
+    "exact PR head checkout",
+    "bash -n scripts/production-public-static-readiness.sh",
+    "bash -n scripts/production-full-stack-live-acceptance.sh",
+    "six public routes discover Next static assets",
+    "JavaScript and CSS asset classes are both present",
+    "ten consecutive public rounds have zero 4xx/5xx and non-empty bodies",
+    "final route pass remains 200 after the asset window",
+    "static evidence records round, route, asset, HTTP status, bytes and timestamp",
+    "existing live intake and rollback gates remain fail-closed"
+  ],
+  "deploymentState": "not-deployed",
+  "maturityBoundary": "This scope fixes release/static-delivery readiness only. Gekta issue #4332 still requires production browser evidence and real iPhone/Android keyboard soak before closure."
+}

@@ -1,0 +1,177 @@
+{
+  "bundle_authority": {
+    "authority_sha256": "3391ea2ba4ddd855b45c5f389f12ffe3ddffb7cc4f46a4048d7357ffcdda6022",
+    "path": "model-artifacts/model-bundle-authority.v2.json"
+  },
+  "command": "/tai convert model-bundles exact-main",
+  "issue": 2932,
+  "legal_review": {
+    "authority_path": "model-artifacts/model-legal-review-authority.v1.json",
+    "authority_sha256": "fe637511fc7fde634112f6ce0919db049cb2179307fc3dafe4f118102e326257",
+    "intended_use_sha256": "0a096a097324b7e316966594bd62f51650773f8c94ef2c62460a8753acd1655a",
+    "required_status": "ALL_APPROVED_FOR_CONVERSION"
+  },
+  "maturity_boundary": {
+    "benchmarks": "NOT_RUN",
+    "bundle_restore": "NOT_RUN",
+    "conversion": "NOT_RUN",
+    "model_admission": "NOT_DONE",
+    "production_operational_status": "NOT_ATTESTED",
+    "quantization": "NOT_RUN"
+  },
+  "minimums": {
+    "cpu_count": 16,
+    "memory_total_bytes": 15000000000,
+    "swap_total_bytes": 15000000000,
+    "workspace_available_bytes": 140000000000
+  },
+  "models": [
+    {
+      "conversion_argv": [
+        "python3",
+        "toolchain/source/convert_hf_to_gguf.py",
+        "sources/qwen3-8b",
+        "--outfile",
+        "artifacts/qwen3-8b-bf16.gguf",
+        "--outtype",
+        "bf16"
+      ],
+      "intermediate": {
+        "format": "BF16",
+        "path": "artifacts/qwen3-8b-bf16.gguf"
+      },
+      "key": "qwen3-8b",
+      "metadata_artifact_digest": "3aa3c6edcd3abd972a53ef9eb078e3d16ac56bf9239ae823c794ac9a64e642e1",
+      "metadata_artifact_id": 8458597272,
+      "model_id": "Qwen/Qwen3-8B",
+      "model_root": "models/qwen3-8b/original",
+      "quantizations": [
+        {
+          "argv": [
+            "toolchain/bin/llama-quantize",
+            "artifacts/qwen3-8b-bf16.gguf",
+            "artifacts/qwen3-8b-q4-k-m.gguf",
+            "Q4_K_M"
+          ],
+          "path": "artifacts/qwen3-8b-q4-k-m.gguf",
+          "quantization": "Q4_K_M",
+          "runtime_class": "CPU"
+        },
+        {
+          "argv": [
+            "toolchain/bin/llama-quantize",
+            "artifacts/qwen3-8b-bf16.gguf",
+            "artifacts/qwen3-8b-q8-0.gguf",
+            "Q8_0"
+          ],
+          "path": "artifacts/qwen3-8b-q8-0.gguf",
+          "quantization": "Q8_0",
+          "runtime_class": "GPU_SHARED"
+        }
+      ],
+      "revision": "895c8d171bc03c30e113cd7a28c02494b5e068b7",
+      "role": "PRIMARY",
+      "source_files_sha256": "d3ef5d7334761a40cf857c247d2e2e2af383cd7c3c1e7c180414d07a15f9f2d4",
+      "source_manifest_sha256": "7c61e18eb68fc1d4f48e3f1c6ac59093e06e9d1484414dda776daea3374a5644"
+    },
+    {
+      "conversion_argv": [
+        "python3",
+        "toolchain/source/convert_hf_to_gguf.py",
+        "sources/mistral-7b-instruct-v0.3",
+        "--outfile",
+        "artifacts/mistral-7b-instruct-v0.3-f16.gguf",
+        "--outtype",
+        "f16"
+      ],
+      "intermediate": {
+        "format": "F16",
+        "path": "artifacts/mistral-7b-instruct-v0.3-f16.gguf"
+      },
+      "key": "mistral-7b-instruct-v0.3",
+      "metadata_artifact_digest": "5242ea40bb07234744096095712588431a684cb898bd6e6b10a3c948fad872ea",
+      "metadata_artifact_id": 8458566162,
+      "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
+      "model_root": "models/mistral-7b-instruct-v0.3/original",
+      "quantizations": [
+        {
+          "argv": [
+            "toolchain/bin/llama-quantize",
+            "artifacts/mistral-7b-instruct-v0.3-f16.gguf",
+            "artifacts/mistral-7b-instruct-v0.3-q4-k-m.gguf",
+            "Q4_K_M"
+          ],
+          "path": "artifacts/mistral-7b-instruct-v0.3-q4-k-m.gguf",
+          "quantization": "Q4_K_M",
+          "runtime_class": "CPU"
+        }
+      ],
+      "revision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
+      "role": "FALLBACK",
+      "source_files_sha256": "377ffe04a6583e425ca78709afd065989bc6055dd12fcdc904837edffba3cc9e",
+      "source_manifest_sha256": "504b55481b74f7975119a12d88bb5fb00380bdf50f9a219f1d26813bb7e6ef84"
+    }
+  ],
+  "parent_issue": 2835,
+  "program_issue": 2726,
+  "release_acceptance": {
+    "accepted": true,
+    "artifact_name_template": "tai-release-attestation-{exact_main_sha}",
+    "production_operational_status": "NOT_ATTESTED",
+    "workflow_name": "TAI Release Acceptance",
+    "workflow_path": ".github/workflows/tai-release-acceptance.yml"
+  },
+  "result": {
+    "benchmark_status": "NOT_RUN",
+    "complete_status": "CONVERSION_AND_QUANTIZATION_COMPLETE_PENDING_BUNDLE_RESTORE",
+    "failed_status": "FAILED_CLOSED",
+    "large_artifacts_in_git": false,
+    "model_admission_status": "NOT_DONE",
+    "production_operational_status": "NOT_ATTESTED"
+  },
+  "schema_version": "tai.model-conversion-authority.v1",
+  "source_acceptance": {
+    "accepted_main_sha": "7439ed17c94b173da1bb0c37e0d74ffdfb848d49",
+    "path": "model-artifacts/model-source-acquisition-acceptance.v1.json",
+    "source_exact_main_sha": "4a7b04731aa204b741691a334d7adfe7785d6463",
+    "status": "VERIFIED_SOURCE_RESTORED_LEGAL_PENDING",
+    "workflow_run_id": 29736320896
+  },
+  "target": {
+    "host_role": "DEDICATED_MODEL_HOST",
+    "production_fallback_allowed": false,
+    "required_user": "tai-model",
+    "run_root_template": "conversion-runs/{exact_main_sha}/{workflow_run_id}-{workflow_run_attempt}",
+    "ssh_secret_prefix": "TAI_MODEL_",
+    "workspace_root": "/srv/tai-models"
+  },
+  "toolchain_acceptance": {
+    "authority_sha256": "3064250e63baed7bdcfd20851e1d3ea2c86fc33f087b69a2a4fcff18c384374b",
+    "commit": "aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3",
+    "converter": {
+      "path": "source/llama.cpp/convert_hf_to_gguf.py",
+      "sha256": "c819f18fb22927b49fabc3b35d1c9e21ee638b3817eccd1bd4efbcc7116eeb4d",
+      "size_bytes": 12592
+    },
+    "package_artifact_digest": "807f815e0265096150d87b4ff289d02e26fcd1d83cca891957c66a4e39054e52",
+    "package_artifact_id": 8454821423,
+    "package_sha256": "b742781c628fb1ab5ef1341e9937bb1d7a76cd96afaaf904d71d20554fa6a450",
+    "package_size_bytes": 135198377,
+    "path": "model-artifacts/llama-cpp-build-acceptance.v1.json",
+    "profile": "linux-x86_64-cpu-release-static-v1",
+    "release": "b9637",
+    "requirements": [
+      {
+        "path": "source/llama.cpp/requirements/requirements-convert_hf_to_gguf.txt",
+        "sha256": "d6ee53814f8069932540c3c06f03121914098b3485c7a48bb7baa4e6358943d8",
+        "size_bytes": 397
+      },
+      {
+        "path": "source/llama.cpp/requirements/requirements-convert_legacy_llama.txt",
+        "sha256": "64e5b8f1be7f0e88b79ec24e10cfc9defe5f3c061f730a3e2f88423e152f5bc0",
+        "size_bytes": 102
+      }
+    ],
+    "status": "VERIFIED_RESTORED"
+  }
+}

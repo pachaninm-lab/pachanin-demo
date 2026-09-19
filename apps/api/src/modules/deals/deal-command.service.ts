@@ -775,22 +775,45 @@ OR: [{ driverUserId }, { vehicleNumber: vehicleId }],
       }
 
       case 'assign_logistics': {
-        const driver = await tx.user.findUniqueOrThrow({ where: { id: String(payload.driverUserId) } });
-        const carrier = await tx.organization.findUniqueOrThrow({ where: { id: String(payload.carrierOrgId) } });
+        const assignments = await tx.$queryRaw<Array<{
+          driverId: string;
+          driverName: string;
+          carrierOrgId: string;
+          carrierName: string;
+        }>>(Prisma.sql`
+          SELECT
+            driver_id AS "driverId",
+            driver_name AS "driverName",
+            carrier_org_id AS "carrierOrgId",
+            carrier_name AS "carrierName"
+          FROM public.app_logistics_assignment_projection(
+            ${deal.id},
+            ${user.tenantId ?? ''},
+            ${String(payload.carrierOrgId)},
+            ${String(payload.driverUserId)},
+            ${String(payload.vehicleId)},
+            ${String(payload.routeFromFacilityId)},
+            ${String(payload.routeToFacilityId)}
+          )
+        `);
+        const assignment = assignments[0];
+        if (!assignment) {
+          invalid('driverUserId', 'Подтверждённая логистическая связка водителя и перевозчика не найдена.');
+        }
         await tx.shipment.create({
-data: {
-  id: `shipment:${deal.id}`,
-  dealId: deal.id,
-  status: 'DRIVER_ASSIGNED',
-  carrierOrgId: carrier.id,
-  carrierName: carrier.name,
-  driverUserId: driver.id,
-  driverName: driver.fullName,
-  vehicleNumber: String(payload.vehicleId),
-  routeFrom: String(payload.routeFromFacilityId),
-  routeTo: String(payload.routeToFacilityId),
-  nextAction: 'Подтвердить погрузку',
-},
+          data: {
+            id: `shipment:${deal.id}`,
+            dealId: deal.id,
+            status: 'DRIVER_ASSIGNED',
+            carrierOrgId: assignment.carrierOrgId,
+            carrierName: assignment.carrierName,
+            driverUserId: assignment.driverId,
+            driverName: assignment.driverName,
+            vehicleNumber: String(payload.vehicleId),
+            routeFrom: String(payload.routeFromFacilityId),
+            routeTo: String(payload.routeToFacilityId),
+            nextAction: 'Подтвердить погрузку',
+          },
         });
         break;
       }

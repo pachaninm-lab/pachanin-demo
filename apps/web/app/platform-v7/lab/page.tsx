@@ -1,4 +1,6 @@
 import { NextActionCard, StatusChip, Surface } from '@pc/design-system-v8';
+import { FirstCustomerWorkspace } from '@/components/platform-v7/FirstCustomerWorkspace';
+import { firstCustomerWorkspaceRequired } from '@/lib/first-customer-workspace-server';
 import { FieldTaskTemplate, KeyFact, KeyFactGrid } from '@/components/transaction-ux/FieldTaskTemplate';
 import workspace from '@/components/transaction-ux/FieldRoleWorkspace.module.css';
 import { RoleExecutionSummary } from '@/components/platform-v7/RoleExecutionSummary';
@@ -22,6 +24,10 @@ const labSteps = [
 ] as const;
 
 export default async function Page() {
+  if (firstCustomerWorkspaceRequired()) {
+    return <FirstCustomerWorkspace surface='lab' />;
+  }
+
   const samples = await getLabSamples();
   const pending = pendingProtocols(samples);
   const moneyImpact = labMoneyImpactRub(samples);

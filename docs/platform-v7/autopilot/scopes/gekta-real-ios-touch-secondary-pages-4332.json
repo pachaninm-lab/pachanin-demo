@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/gekta-real-ios-touch-secondary-pages-4332",
+  "status": "active",
+  "purpose": "Repair real-iPhone Gekta mobile touch/keyboard viewport regressions and keep Gekta support/security journeys inside the Gekta visual system without changing backend, model, auth, registration or business logic.",
+  "approvedBy": "owner-instruction-2026-08-18-real-iphone-gekta-mobile-repair",
+  "authorityBaseExactMain": "ad6408f6d4a1d46e3794649e3dc4efa7fc780b52",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "concurrencyBoundary": "Frontend/mobile UX, Gekta public navigation and focused acceptance only. Concurrent PC-CROP, Company OS, accounting and SPEED work must not be modified.",
+  "allowedPaths": [
+    "apps/web/app/gekta/security/**",
+    "apps/web/app/gekta/support/**",
+    "apps/web/app/gekta/en/security/**",
+    "apps/web/app/gekta/en/support/**",
+    "apps/web/app/gekta/zh/security/**",
+    "apps/web/app/gekta/zh/support/**",
+    "apps/web/components/gekta/GektaChatWorkspace.tsx",
+    "apps/web/components/gekta/GektaComposer.tsx",
+    "apps/web/components/gekta/GektaDiscoverySections.tsx",
+    "apps/web/components/gekta/GektaEmptyState.tsx",
+    "apps/web/components/gekta/GektaLegalFooter.tsx",
+    "apps/web/components/gekta/GektaMobileDrawer.tsx",
+    "apps/web/components/gekta/GektaProductShell.tsx",
+    "apps/web/components/gekta/GektaSidebar.tsx",
+    "apps/web/components/gekta/GektaTopicPage.tsx",
+    "apps/web/components/gekta/GektaUtilityMobileStyle.tsx",
+    "apps/web/components/gekta/GektaUtilityPage.tsx",
+    "apps/web/components/gekta/GektaViewportAuthority.tsx",
+    "apps/web/tests/e2e/gekta-keyboard-start-acceptance.spec.ts",
+    "apps/web/tests/unit/gektaKeyboardStartContract.test.ts",
+    "apps/web/tests/unit/gektaMobileUxRedTeam.test.ts",
+    "apps/web/tests/unit/gektaRealMobileTouchAndSecondaryRoutes.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-real-ios-touch-secondary-pages-4332.json"
+  ],
+  "requiredBehavior": [
+    "real mobile text entry must not replace the whole discovery page with a fixed visual-viewport workspace",
+    "document scrolling must not be globally locked by keyboard detection",
+    "the composer must remain usable above the on-screen keyboard without losing draft or caret",
+    "Gekta support and data/security links must remain in the Gekta route and visual system",
+    "all new primary actions must expose at least 44x44 CSS px touch targets",
+    "RU/EN/ZH routes must remain available without horizontal overflow"
+  ],
+  "forbiddenCapabilities": [
+    "backend API, streaming protocol, model, auth, MFA, PostgreSQL, registration, role or business-logic changes",
+    "acceptance threshold weakening or retry masking",
+    "new paid service, server, library or recurring cost",
+    "production mutation before exact-head CI and protected release authority"
+  ],
+  "acceptance": [
+    "all changed files remain inside allowedPaths",
+    "focused unit and Chromium/WebKit keyboard-start contracts pass",
+    "web-unit and Workflow Syntax Guard pass",
+    "all required exact-head security/governance gates pass before merge",
+    "production acceptance remains fail-closed"
+  ]
+}

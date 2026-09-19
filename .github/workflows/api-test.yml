@@ -8,6 +8,7 @@ on:
       - 'shared/**'
       - 'infra/sql/production-rls-policies.sql'
       - 'scripts/platform-v7-rls-*'
+      - 'scripts/sql/identity-rls-*.sql'
       - '.github/workflows/api-test.yml'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -17,6 +18,7 @@ on:
       - 'shared/**'
       - 'infra/sql/production-rls-policies.sql'
       - 'scripts/platform-v7-rls-*'
+      - 'scripts/sql/identity-rls-*.sql'
       - '.github/workflows/api-test.yml'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -66,7 +68,7 @@ jobs:
     timeout-minutes: 15
     services:
       postgres:
-        image: postgres:16-alpine
+        image: ghcr.io/pachaninm-lab/ci-postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
         env:
           POSTGRES_USER: rls_admin
           POSTGRES_PASSWORD: ephemeral_rls_admin_only
@@ -102,6 +104,25 @@ jobs:
           else
             node scripts/platform-v7-rls-validate.mjs 2>&1 | tee /tmp/platform-v7-rls-integration.log
           fi
+      - name: Prove complete migration chain has no inert RLS policies
+        shell: bash
+        env:
+          RLS_INTEGRATION_ADMIN_URL: "postgresql://rls_admin:ephemeral_rls_admin_only@127.0.0.1:${{ job.services.postgres.ports[5432] }}/rls_integration"
+        run: |
+          set -o pipefail
+          psql "$RLS_INTEGRATION_ADMIN_URL" \
+            -X --set ON_ERROR_STOP=1 \
+            --file scripts/sql/identity-rls-no-inert-policies.sql \
+            2>&1 | tee -a /tmp/platform-v7-rls-integration.log
+      - name: Prove the API database principal confinement gate
+        shell: bash
+        env:
+          CONFINEMENT_ADMIN_URL: "postgresql://rls_admin:ephemeral_rls_admin_only@127.0.0.1:${{ job.services.postgres.ports[5432] }}/rls_integration"
+        run: |
+          set -o pipefail
+          node scripts/check-api-database-principal-confinement.mjs \
+            2>&1 | tee -a /tmp/platform-v7-rls-integration.log
+
       - name: Upload RLS gate log
         if: always()
         uses: actions/upload-artifact@v4

@@ -1,8 +1,9 @@
-import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { RequestUser, Role } from '../../common/types/request-user';
 import { integrationRegistry } from '../../../../../packages/integration-sdk/src/registry';
+import { xmlText } from '../../common/security/xml-escape';
 import { MockFnsAdapter } from '../../../../../packages/integration-sdk/src/adapters/fns.adapter';
 import { MockAmlAdapter } from '../../../../../packages/integration-sdk/src/adapters/aml.adapter';
 import type { MockSmevAdapter } from '../../../../../packages/integration-sdk/src/adapters/smev.adapter';
@@ -204,23 +205,38 @@ export class KycService {
     reporterFullName: string;
     reporterPosition: string;
   }): { xml: string; deadlineAt: string } {
-    const deadlineAt = new Date(new Date(params.detectedAt).getTime() + 72 * 60 * 60 * 1000).toISOString();
+    // Дата обнаружения приходит строкой из тела запроса. Прежде она шла прямо в
+    // `new Date(...).getTime()`, и на нечисловом значении `toISOString()`
+    // бросал `RangeError: Invalid time value` — замерено, а не предположено, —
+    // то есть вызывающий получал 500 вместо отказа.
+    const detectedAt = new Date(params.detectedAt);
+    if (Number.isNaN(detectedAt.getTime())) {
+      throw new BadRequestException('RKN_INCIDENT_DETECTED_AT_INVALID');
+    }
+    // Количество субъектов подставлялось как есть. Строка на этом месте
+    // вносила в документ посторонние элементы; здесь оно приводится к целому,
+    // а форму проверяет DTO на границе.
+    const affectedSubjects = Math.trunc(Number(params.affectedSubjectsCount));
+    if (!Number.isFinite(affectedSubjects) || affectedSubjects < 0) {
+      throw new BadRequestException('RKN_INCIDENT_AFFECTED_SUBJECTS_INVALID');
+    }
+    const deadlineAt = new Date(detectedAt.getTime() + 72 * 60 * 60 * 1000).toISOString();
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Уведомление xmlns="urn:РКН:инцидент:2023">
   <Оператор>
     <Наименование>ООО ГрейнФлоу</Наименование>
     <ИНН>placeholder</ИНН>
     <КонтактноеЛицо>
-      <ФИО>${params.reporterFullName}</ФИО>
-      <Должность>${params.reporterPosition}</Должность>
+      <ФИО>${xmlText(params.reporterFullName)}</ФИО>
+      <Должность>${xmlText(params.reporterPosition)}</Должность>
     </КонтактноеЛицо>
   </Оператор>
   <Инцидент>
-    <Тип>${params.incidentType}</Тип>
-    <Описание>${params.description}</Описание>
-    <КоличествоСубъектов>${params.affectedSubjectsCount}</КоличествоСубъектов>
-    <ДатаОбнаружения>${params.detectedAt}</ДатаОбнаружения>
-    <СрокУведомления>${deadlineAt}</СрокУведомления>
+    <Тип>${xmlText(params.incidentType)}</Тип>
+    <Описание>${xmlText(params.description)}</Описание>
+    <КоличествоСубъектов>${xmlText(affectedSubjects)}</КоличествоСубъектов>
+    <ДатаОбнаружения>${xmlText(detectedAt.toISOString())}</ДатаОбнаружения>
+    <СрокУведомления>${xmlText(deadlineAt)}</СрокУведомления>
     <Версия>1.0</Версия>
   </Инцидент>
 </Уведомление>`;

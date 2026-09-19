@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-organization-intake-401-20260730",
+  "status": "active",
+  "issue": 3072,
+  "baseCommit": "7be95adb256133d7d3d9123ba6839fe3f167b712",
+  "operationalStatus": "PUBLIC_ORGANIZATION_INTAKE_401_REMEDIATION",
+  "allowedPaths": [
+    "apps/web/middleware.ts",
+    "apps/web/tests/unit/platformV7PublicOrganizationIntakeMiddleware.test.ts",
+    "scripts/check-production-full-stack-release.mjs",
+    ".github/workflows/one-shot-release-controller-fix.yml",
+    "docs/platform-v7/autopilot/scopes/one-shot-release-controller-fix-3072.json",
+    "docs/platform-v7/autopilot/scopes/fix-public-organization-intake-401-3072.json"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "blanketContinueOnError": false,
+    "productionDeployment": true
+  },
+  "acceptance": [
+    "the exact public organization intake route is admitted by middleware without a cabinet session",
+    "all other unlisted platform API routes remain protected",
+    "the production live-acceptance endpoint and middleware allow-list remain contract-bound",
+    "temporary one-shot generator authority is removed",
+    "the release rebuilds exact API, web and migration images for current main",
+    "terminal success requires live intake replay, conflict replay and durable PostgreSQL audit/outbox evidence"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

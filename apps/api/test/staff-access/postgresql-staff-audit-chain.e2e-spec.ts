@@ -1,17 +1,24 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { AuthPrismaService } from '../../src/modules/auth/auth-prisma.service';
 import { StaffAccessRepository } from '../../src/modules/staff-access/staff-access.repository';
 
 const userId = 'user-staff-audit-chain-e2e';
 const assignmentId = 'sta-audit-chain-e2e';
+const ADMIN_DATABASE_URL = process.env.STAFF_ACCESS_TEST_ADMIN_URL ?? '';
 
 describe('staff audit chain PostgreSQL enforcement', () => {
   const prisma = new AuthPrismaService();
+  const adminPrisma = new PrismaClient(
+    ADMIN_DATABASE_URL ? { datasources: { db: { url: ADMIN_DATABASE_URL } } } : undefined,
+  );
   const repository = new StaffAccessRepository(prisma);
 
   beforeAll(async () => {
-    await prisma.$connect();
-    await prisma.user.upsert({
+    if (!ADMIN_DATABASE_URL) {
+      throw new Error('STAFF_ACCESS_TEST_ADMIN_URL is required for isolated fixture bootstrap.');
+    }
+    await Promise.all([prisma.$connect(), adminPrisma.$connect()]);
+    await adminPrisma.user.upsert({
       where: { id: userId },
       create: {
         id: userId,
@@ -22,7 +29,7 @@ describe('staff audit chain PostgreSQL enforcement', () => {
       },
       update: {},
     });
-    await prisma.$executeRaw(Prisma.sql`
+    await adminPrisma.$executeRaw(Prisma.sql`
       INSERT INTO auth.staff_assignments (
         id, user_id, role, status, activated_at, granted_by_user_id, reason
       ) VALUES (
@@ -34,7 +41,7 @@ describe('staff audit chain PostgreSQL enforcement', () => {
   });
 
   afterAll(async () => {
-    await prisma.$disconnect();
+    await Promise.allSettled([prisma.$disconnect(), adminPrisma.$disconnect()]);
   });
 
   it('accepts the canonical previous hash and rejects a forked previous hash', async () => {

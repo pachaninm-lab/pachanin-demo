@@ -1,0 +1,36 @@
+{
+  "authentication_mode": "GITHUB_TOKEN",
+  "digest_preservation": "skopeo copy --all --preserve-digests reproduces the upstream manifest index byte for byte, so the mirrored digest equals the upstream digest. Any difference means the copy was not faithful and is a refusal.",
+  "logical_name": "postgres-16-alpine",
+  "mirrored_at": "2026-07-27T07:55:05Z",
+  "mirrored_digest": "sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+  "mirrored_registry": "ghcr.io",
+  "mirrored_repository": "ghcr.io/pachaninm-lab/ci-postgres",
+  "mirrored_tag": "16-alpine-57c72fd2a128",
+  "note": "Alpine-based PostgreSQL 16 used by ci, api-test and security-abuse evidence. Kept as a separate logical image: Alpine and Debian builds differ in libc and collation, so unifying them silently could change sort order and index behaviour.",
+  "observed_at": "2026-07-27T04:40:00Z",
+  "platforms": [
+    "linux/386",
+    "linux/amd64",
+    "linux/arm/v6",
+    "linux/arm/v7",
+    "linux/arm64/v8",
+    "linux/ppc64le",
+    "linux/riscv64",
+    "linux/s390x"
+  ],
+  "schema": "pc.ci-container-image.v1",
+  "source_run_id": "30247846635",
+  "source_workflow": ".github/workflows/ci-postgres-image-mirror.yml",
+  "upstream_digest": "sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777",
+  "upstream_registry": "docker.io",
+  "upstream_repository": "docker.io/library/postgres",
+  "upstream_tag": "16-alpine",
+  "verification_status": "VERIFIED",
+  "verified_by": {
+    "digest_preserved": true,
+    "exact_head_sha": "ef9fb163474fc963a56f337df6533fbf5727103f",
+    "run_id": "30247846635",
+    "run_url": "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/30247846635"
+  }
+}

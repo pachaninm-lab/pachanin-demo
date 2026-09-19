@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-ap-14f1b2-acquisition-authority-3362",
+  "status": "active",
+  "issue": 3362,
+  "baseCommit": "2c7a65e8cdffb9f7e5797703a277a466756c0aad",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/tai-ap-14f1b2.yml",
+    "apps/tai/tai/migrations/0021_public_official_acquisition_authority.sql",
+    "apps/tai/tai/migrations/manifest.json",
+    "apps/tai/tai/public_official_acquisition.py",
+    "apps/tai/tests/test_migration_manifest.py",
+    "apps/tai/tests/test_public_official_acquisition.py",
+    "docs/platform-v7/autopilot/scopes/tai-ap-14f1b2-3362.json",
+    "scripts/tai-ap-14f1a/verify.mjs",
+    "scripts/tai-ap-14f1b2/verify.mjs"
+  ],
+  "boundaries": {
+    "authorityOnly": true,
+    "realNetworkSourceCount": 0,
+    "noRealNetworkAcceptance": true,
+    "noBroadCrawl": true,
+    "noCabinetAccess": true,
+    "noCredentials": true,
+    "noPdfOcrMediaArchiveParsing": true,
+    "noTenantLiveOrContractedData": true,
+    "noEmbeddingsOrVectorMutation": true,
+    "noModelTrainingOrWeights": true,
+    "noRuntimeActivation": true,
+    "noExternalWrites": true,
+    "noProductionCompletenessClaim": true
+  },
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "mergeExpectedHeadRequired": true,
+    "reviewThreadsRequired": 0,
+    "changedPathCount": 9,
+    "migrationVersion": 22,
+    "immutableAuthorityTableCount": 5,
+    "restrictedMutationFunctionCount": 4,
+    "realNetworkSourceCount": 0,
+    "operationalStatus": "NOT_ATTESTED"
+  }
+}

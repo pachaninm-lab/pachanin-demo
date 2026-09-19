@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4664,
+  "branch": "ci/pin-checkout-actions-4664",
+  "status": "active",
+  "purpose": "Restore the GitHub Actions pinning ratchet, which has been failing closed on main since #4648 and therefore fails the 'Conservative provenance, licenses & SBOM baseline' job on every pull request. #4648 added two actions/checkout references by floating tag to platform-v7-autopilot-guard.yml, taking the floating count from the baseline ceiling of 1028 to 1030. verify-action-pinning.mjs exits 1 before the evidence-generating steps run, so artifacts/ip-clean-room is never created and the IP evidence verification cascades into failure.",
+  "authorityBaseExactMain": "0e9b7b13426264f11c7dd2a2695c4d83f5803340",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/pin-checkout-actions-4664.json",
+    ".github/workflows/platform-v7-autopilot-guard.yml"
+  ],
+  "requiredInvariants": [
+    "The baseline ceiling is NOT raised. Raising it to match the observed count would weaken a security gate to force green, which is forbidden; the ratchet only moves toward tightening.",
+    "The references are pinned to 11d5960a326750d5838078e36cf38b85af677262, the exact commit SHA this repository already uses for actions/checkout in 10 other places. No new supply-chain decision is introduced and no version is changed.",
+    "Only platform-v7-autopilot-guard.yml is touched. No other workflow, no gate logic, and no application code.",
+    "The cause was established by bisecting verify-action-pinning.mjs across the last 12 commits of main, not inferred: the count rises from 1028 to 1030 exactly at #4648.",
+    "It was confirmed not to be the current work's doing: the verifier gives the identical exit 1 and the identical 1030 on clean origin/main.",
+    "No production, REG.RU, DNS or database mutation."
+  ],
+  "acceptance": [
+    "node scripts/security/verify-action-pinning.mjs exits 0 with ACTION_PINNING: WITHIN_BASELINE.",
+    "The floating count returns to 1027, at or below the untouched ceiling of 1028.",
+    "grep finds no remaining actions/checkout floating-tag reference in platform-v7-autopilot-guard.yml.",
+    "The 'Conservative provenance, licenses & SBOM baseline' job reaches its evidence-generation steps instead of exiting before them."
+  ]
+}

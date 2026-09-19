@@ -12,6 +12,12 @@ export type StaffAssignmentRow = {
   valid_until: Date | null;
 };
 
+export type StaffTargetScopeRow = {
+  tenant_id: string | null;
+  organization_id: string | null;
+  user_id: string | null;
+};
+
 export type StaffAccessRequestRow = {
   id: string;
   requester_user_id: string;
@@ -102,6 +108,29 @@ export class StaffAccessRepository {
       maxWait: 5_000,
       timeout: 15_000,
     });
+  }
+
+  async resolveTargetScope(
+    client: StaffSqlClient,
+    input: {
+      actorUserId: string;
+      assignmentId: string;
+      targetTenantId?: string | null;
+      targetOrganizationId?: string | null;
+      targetUserId?: string | null;
+    },
+  ): Promise<StaffTargetScopeRow | null> {
+    const rows = await client.$queryRaw<StaffTargetScopeRow[]>(Prisma.sql`
+      SELECT tenant_id, organization_id, user_id
+      FROM auth.resolve_staff_target_scope(
+        ${input.actorUserId},
+        ${input.assignmentId},
+        ${input.targetTenantId ?? null},
+        ${input.targetOrganizationId ?? null},
+        ${input.targetUserId ?? null}
+      )
+    `);
+    return rows[0] ?? null;
   }
 
   async listActiveAssignments(client: StaffSqlClient, userId: string, now = new Date()): Promise<StaffAssignmentRow[]> {
@@ -483,7 +512,9 @@ export class StaffAccessRepository {
   }
 
   async latestEventHash(client: StaffSqlClient, actorUserId: string): Promise<string | null> {
-    await client.$executeRaw(Prisma.sql`SELECT auth.lock_staff_access_event_chain(${actorUserId})`);
+    await client.$queryRaw(Prisma.sql`
+      SELECT pg_advisory_xact_lock(hashtextextended(${actorUserId}, 0)) IS NULL AS locked
+    `);
     const rows = await client.$queryRaw<Array<{ hash: string }>>(Prisma.sql`
       SELECT hash FROM auth.staff_access_events
       WHERE actor_user_id = ${actorUserId}

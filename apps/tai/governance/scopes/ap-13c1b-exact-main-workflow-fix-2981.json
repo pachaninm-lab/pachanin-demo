@@ -1,0 +1,27 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "program_issue": 2726,
+  "parent_issue": 2977,
+  "issue": 2981,
+  "branch": "agent/tai-ap-13c1b-exact-main-workflow-fix",
+  "allowed_paths": [
+    ".github/workflows/tai-cpu-benchmark-execution-authority.yml",
+    "apps/tai/governance/scopes/ap-13c1b-exact-main-workflow-fix-2981.json",
+    "apps/tai/tests/test_cpu_benchmark_execution_workflow.py"
+  ],
+  "acceptance": [
+    "exact-main SHA and clean-tree checks execute immediately after checkout",
+    "editable package installation cannot invalidate the immutable checkout assertion",
+    "AP-14C authority validation and prerequisite readiness evaluation execute on current main",
+    "current external blockers are reported explicitly instead of READINESS_REPORT_ABSENT",
+    "no model host, model payload, benchmark measurement, admission or production state is touched",
+    "benchmark remains PENDING_BENCHMARK, model admission remains PENDING_ADMISSION and production_operational_status remains NOT_ATTESTED"
+  ],
+  "forbidden_capabilities": [
+    "weakening or removing exact-main SHA or clean-tree checks",
+    "treating editable-install metadata as repository evidence",
+    "starting model inference, SSH, S3 mutation or benchmark execution",
+    "fabricating AP-14C acceptance, immutable bundles or readiness evidence",
+    "model admission, activation, deployment or production attestation"
+  ]
+}

@@ -15,6 +15,8 @@ const atomicMoneyMigrationPath =
   'apps/api/prisma/migrations/20260715013100_auction_atomic_execution/migration.sql';
 const atomicCompatibilityMigrationPath =
   'apps/api/prisma/migrations/20260715013200_auction_atomic_execution/migration.sql';
+const inventoryMigrationPath =
+  'apps/api/prisma/migrations/20260905100000_auction_inventory_binding/migration.sql';
 const servicePath = 'apps/api/src/modules/auctions/auction-authority.service.ts';
 const commandServicePath = 'apps/api/src/modules/auctions/auction-command.service.ts';
 const controllerPath = 'apps/api/src/modules/auctions/auctions.controller.ts';
@@ -144,5 +146,35 @@ describe('auction PostgreSQL authority', () => {
     expect(service).toContain('AUCTION_DEAL_AUTHORITY_MISMATCH');
     expect(service).toContain("award.award_status === 'DEAL_CREATED'");
     expect(service).toContain('award.deal_source_lot_id === lot.id');
+  });
+
+  it('requires the inventory-bound command while preserving the existing auction command authority', () => {
+    const command = read(commandServicePath);
+    const controller = read(controllerPath);
+    expect(command).toContain('auction.register_inventory_lot(');
+    expect(command).not.toContain('auction.register_verified_lot(');
+    expect(command).toContain('SET CONSTRAINTS ALL IMMEDIATE');
+    expect(command).toContain('maxConflictRetries: 5');
+    expect(controller).toContain('@Body() _dto: RegisterAuctionInventoryLotDto');
+    expect(controller).toContain('const body: unknown = request.body');
+    expect(controller).toContain('validateAuctionInventoryRegistration(body)');
+  });
+
+  it('keeps stock binding immutable, FORCE-RLS protected and guarded at the database command boundary', () => {
+    const migration = read(inventoryMigrationPath);
+    expect(migration).toContain('ALTER TABLE auction.inventory_bindings FORCE ROW LEVEL SECURITY');
+    expect(migration).toContain('EXECUTE FUNCTION inventory.private_write_guard()');
+    expect(migration).toContain('CREATE CONSTRAINT TRIGGER auction_inventory_registration_evidence');
+    expect(migration).toContain('DEFERRABLE INITIALLY DEFERRED');
+    expect(migration).toContain('inventory.execute_command(jsonb_build_object');
+    expect(migration).toContain('membership_id := inventory.require_actor()');
+    expect(migration).toContain("PERFORM auction.assert_actor(ARRAY['FARMER'])");
+    expect(migration).toContain('AUCTION_BOUND_RESERVATION_RELEASE_DENIED');
+    expect(migration).toContain('AUCTION_BOUND_RESERVATION_REUSE_DENIED');
+    expect(migration).toContain('AUCTION_PROFILE_MISMATCH');
+    expect(migration).toContain('AUCTION_QUANTITY_MISMATCH');
+    expect(migration).toContain('OWNER TO pc_inventory_authority');
+    expect(migration).toContain('REVOKE ALL ON FUNCTION auction.register_verified_lot');
+    expect(migration).not.toMatch(/DISABLE\s+(?:TRIGGER|ROW\s+LEVEL\s+SECURITY)/i);
   });
 });

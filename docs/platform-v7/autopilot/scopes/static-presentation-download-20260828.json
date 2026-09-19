@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "static-presentation-download-20260828",
+  "branch": "fix/static-presentation-download-20260828",
+  "issue": 3048,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "db199aa21f3dac117723ec1df0af0b74e7845d43"
+  },
+  "purpose": "Repair the proven live presentation download failure by replacing the internally inconsistent mixed Brotli transport with the complete deterministic 14-part transport that already produced the approved normalized 14-page PDF. Materialize it at web build time and serve it as the existing public static asset. Presentation content, design, page count, CTA URL and filename remain unchanged.",
+  "allowedPaths": [
+    "apps/web/app/downloads/prozrachnaya-tsena-presentation.pdf/route.ts",
+    "apps/web/package.json",
+    "apps/web/scripts/materialize-presentation-pdf.mjs",
+    "apps/web/lib/presentation-pdf/part-00.ts",
+    "apps/web/lib/presentation-pdf/part-01.ts",
+    "apps/web/lib/presentation-pdf/part-02.ts",
+    "apps/web/lib/presentation-pdf/part-03.ts",
+    "apps/web/lib/presentation-pdf/part-04.ts",
+    "apps/web/lib/presentation-pdf/part-05.ts",
+    "apps/web/lib/presentation-pdf/part-06.ts",
+    "apps/web/lib/presentation-pdf/part-07.ts",
+    "apps/web/lib/presentation-pdf/part-08.ts",
+    "apps/web/lib/presentation-pdf/part-09.ts",
+    "apps/web/lib/presentation-pdf/part-10.ts",
+    "apps/web/lib/presentation-pdf/part-11.ts",
+    "apps/web/lib/presentation-pdf/part-12.ts",
+    "apps/web/lib/presentation-pdf/part-13.ts",
+    "apps/web/tests/unit/platformV7PresentationDownload.test.ts",
+    "docs/platform-v7/autopilot/scopes/static-presentation-download-20260828.json",
+    "docs/ip/FILE_PROVENANCE.csv",
+    "docs/ip/FILE_PROVENANCE.json"
+  ],
+  "evidence": {
+    "releaseRun": 33199863110,
+    "deployedSha": "db199aa21f3dac117723ec1df0af0b74e7845d43",
+    "releaseResult": "PASS",
+    "liveVerificationRun": 33200294324,
+    "liveHomeHttp": 200,
+    "liveCta": "PASS",
+    "liveDownloadHttp": 500,
+    "approvedFinalSourceBytes": 692279,
+    "approvedFinalSourceSha256": "5be757c4cac321aa99fbbee6517318aadf9db2db5dc5a67e506fb6d595d65a63",
+    "transportSourcePr": 4751,
+    "transportSourceCommit": "39b77b5bbc7a4efef5572114fabf92abcb027a53",
+    "expectedPdfBytes": 312533,
+    "expectedPdfPages": 14,
+    "expectedPdfSha256": "1f99bd881404624ef8fe8bec9a10caf10a021f8cacff3ed5a6633101255178a5",
+    "expectedBrotliBytes": 198423,
+    "expectedBrotliSha256": "e99c503bb653bfc1f4c2fd800a5bc230404a6d22d02f3d1362cb66e1172b0612",
+    "expectedBase64Length": 264564,
+    "previousMixedTransportSha256": "0ec7f109872592cce9ce4fcdde44d8be6af0e1efedcbff88ef2cde4562a21b92",
+    "normalizationVisualRegressionMaxChangedFraction": 0.0006861
+  },
+  "forbiddenChanges": [
+    "presentation content, design or page count",
+    "public CTA URL or filename",
+    "Gekta, API, database, authentication, registration, roles or tenant logic",
+    "production release gates or rollback semantics",
+    "new secrets, external storage, SaaS or recurring cost"
+  ],
+  "requiredChecks": [
+    "platform-v7 scope guard",
+    "web unit presentation contract",
+    "web build successfully materializes the exact PDF",
+    "canonical web image build",
+    "exact-SHA REG.RU web-only release",
+    "two independent live HTTP 200 PDF downloads with exact bytes, SHA-256 and 14 pages"
+  ],
+  "newRecurringCostRub": 0
+}

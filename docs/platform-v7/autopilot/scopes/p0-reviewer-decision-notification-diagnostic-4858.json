@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-reviewer-decision-notification-diagnostic-4858",
+  "status": "active",
+  "purpose": "Read only the bounded production Web log window for failed all-role registration run 33425716125 attempt 2 and publish aggregate reviewer-decision, notification-delivery and idempotent-replay counts sufficient to distinguish a committed approval plus failed notification from missed human review, without publishing raw logs, identifiers, PII or credentials.",
+  "approvedBy": "owner-issue-4858",
+  "authorityBaseExactMain": "1bffaec1a7aad09840df136e886c07d2b32e2008",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-decision-notification-diagnostic.yml",
+    "scripts/check-production-p0-reviewer-decision-notification-diagnostic.mjs",
+    "docs/platform-v7/autopilot/scopes/p0-reviewer-decision-notification-diagnostic-4858.json"
+  ],
+  "requiredBehavior": [
+    "run only from the exact repository-owner command on issue 4858 and serialize in pc-crop-registration-lifecycle",
+    "bind the inspection to failed run 33425716125 attempt 2 and immutable runtime SHA 1bffaec1a7aad09840df136e886c07d2b32e2008",
+    "require the failed runtime SHA to remain an ancestor of current main and require the live Web OCI revision to equal that failed runtime SHA",
+    "use pinned REG.RU SSH host identity and read docker inspect plus a fixed UTC docker-log window only",
+    "parse raw production logs only on the REG.RU host and return a strict whitelist of aggregate counts and bounded classifications",
+    "publish no raw log line, application identifier, hash marker, email address, token, cookie, database URL or credential",
+    "perform no production mutation and create no new recurring cost"
+  ],
+  "forbiddenCapabilities": [
+    "production container restart, stop, remove, compose or service mutation",
+    "database insert, update, delete, truncate, role change or ad-hoc SQL mutation",
+    "HTTP POST to any production application endpoint",
+    "reviewer impersonation, credential retrieval or session handoff",
+    "MFA, RLS, CSRF, role, tenant, rate-limit, audit, outbox or notification weakening",
+    "raw production log, PII, secret, identifier or correlation marker publication",
+    "unrelated repository or production changes"
+  ],
+  "acceptanceEvidence": [
+    "source-controlled contract PASS",
+    "exact owner provenance PASS",
+    "pinned REG.RU SSH identity PASS",
+    "live Web revision equals immutable failed runtime SHA",
+    "strict aggregate output whitelist PASS",
+    "bounded classification for notification-after-commit versus replay-missing versus log-window mismatch",
+    "production mutation NONE and raw logs published zero"
+  ]
+}

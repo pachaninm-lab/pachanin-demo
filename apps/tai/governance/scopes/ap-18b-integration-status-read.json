@@ -1,0 +1,41 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "program_issue": 2726,
+  "issue": 2726,
+  "branch": "claude/tai-integration-status-read",
+  "exact_base": "714b848daaa643085784a202c8a690c2d5ce3c82",
+  "allowed_paths": [
+    "apps/api/src/modules/deals/industrial-deal-command.gateway.ts",
+    "apps/api/src/modules/deals/industrial-deal-command.gateway.spec.ts",
+    "apps/api/src/modules/tai-tools/README.md",
+    "apps/api/src/modules/tai-tools/tai-tool-assertion.ts",
+    "apps/api/src/modules/tai-tools/tai-tools.service.ts",
+    "apps/api/src/modules/tai-tools/tai-tools.service.spec.ts",
+    "apps/tai/governance/scopes/ap-18b-integration-status-read.json",
+    "apps/tai/tai/policy.py",
+    "apps/tai/tai/read_tool_contracts.py",
+    "apps/tai/tai/tool_planner.py",
+    "apps/tai/tests/test_production_platform_tools.py",
+    "apps/tai/tests/test_read_tool_contracts.py",
+    "apps/tai/tests/test_tool_planner.py",
+    "docs/platform-v7/autopilot/autopilot-state.json"
+  ],
+  "acceptance": [
+    "the platform serves getIntegrationStatus from its own bounded read, not by widening the deal workspace projection",
+    "the read resolves an active DealParticipant in a VERIFIED organization inside the caller's tenant before touching outbox rows",
+    "the query runs inside the trusted RLS context, never on the untrusted client",
+    "the select list excludes payload, lastError, lease columns, idempotencyKey and triggeredByUserId",
+    "the entry list is bounded and reports returnedCount and truncated",
+    "countsByStatus and deadLetterCount are aggregated across the whole deal, not derived from the returned page",
+    "the tool is registered in the argument contract, the planner intent catalogue and the policy registry together",
+    "read-only Safe Tools reach 10 of 10"
+  ],
+  "forbidden_capabilities": [
+    "write-tool or confirmed-action activation",
+    "outbox mutation, redrive or lease acquisition from a tool path",
+    "model bundle, benchmark, admission authority or runtime-host changes",
+    "UI, routing, feature-flag or deployment changes",
+    "schema or migration changes",
+    "planner catalogue version changes, which are pinned by the 0014 migration CHECK constraint"
+  ]
+}

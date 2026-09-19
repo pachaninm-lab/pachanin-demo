@@ -1,0 +1,17 @@
+{
+  "branch": "design/platform-v7-public-industrial-copy-v1",
+  "status": "active",
+  "purpose": "Remove development-stage and maturity messaging from the public platform-v7 homepage while preserving factual integration boundaries, RU/EN/ZH completeness, mobile-first behavior and the transaction-centric architecture.",
+  "approvedBy": "user-directed-public-industrial-presentation-2026-07-23",
+  "allowedPaths": [
+    "apps/web/i18n/platform-v7-home-v3.ts",
+    "apps/web/tests/unit/platformV7PublicIndustrialCopy.test.ts",
+    "docs/platform-v7/autopilot/scopes/platform-v7-public-industrial-copy-v1.json"
+  ],
+  "forbiddenCapabilities": [
+    "claiming that a bank, FGIS, EDI or other external system is connected when no verified runtime evidence exists",
+    "changing API, database, RBAC, TAI runtime, deployment topology or protected routes",
+    "introducing pilot, demo, pre-live, in-development or maturity-status wording into the public homepage",
+    "using Netlify or Vercel as production evidence"
+  ]
+}

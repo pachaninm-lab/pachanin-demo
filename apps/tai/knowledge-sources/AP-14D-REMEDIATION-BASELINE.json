@@ -1,0 +1,37 @@
+{
+  "catalog_sha256": "9dd9624ecdfee92fd05f0ba8885a808eae558492d6f07a436e6dacafb302c8df",
+  "evidence_bundle_sha256": "c6009223a728d0cf976c0f614db73f2abe6645fe636feab790c4c94ad65a82c2",
+  "exact_source_sha": "08824d0925c853cf5ee31e460c1580a2861e4b6d",
+  "healthy_topic_coverage_basis_points": 1250,
+  "observed_source_count": 2,
+  "schema_version": "tai.ap14d.remediation-baseline.v1",
+  "source_count": 5,
+  "source_results": [
+    {
+      "reason": "source_transport_failure",
+      "source_id": "official.mcx.opendata",
+      "status": "FAILED"
+    },
+    {
+      "reason": "source_transport_failure",
+      "source_id": "official.rosstat.agriculture",
+      "status": "FAILED"
+    },
+    {
+      "reason": "official_source_observed",
+      "source_id": "official.eec.grain-regulation",
+      "status": "OBSERVED"
+    },
+    {
+      "reason": "source_document_count_empty",
+      "source_id": "official.mintrans.rail-tariffs",
+      "status": "FAILED"
+    },
+    {
+      "reason": "official_source_observed",
+      "source_id": "official.cbr.key-rate",
+      "status": "OBSERVED"
+    }
+  ],
+  "workflow_run_id": 29686367649
+}

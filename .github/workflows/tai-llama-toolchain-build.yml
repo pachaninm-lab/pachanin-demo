@@ -1,0 +1,539 @@
+name: TAI llama.cpp Exact Source Build
+
+on:
+  workflow_dispatch:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      (
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'issue_comment' &&
+          github.event.action == 'created' &&
+          github.event.issue.pull_request == null &&
+          github.event.issue.number == 2832 &&
+          github.event.comment.body == '/tai build llama-cpp exact-main' &&
+          github.event.comment.author_association == 'OWNER' &&
+          github.event.comment.user.login == github.repository_owner
+        )
+      )
+    concurrency:
+      group: tai-llama-cpp-exact-source-build
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      LLAMA_REPOSITORY: https://github.com/ggml-org/llama.cpp
+      LLAMA_RELEASE: b9637
+      LLAMA_COMMIT: aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3
+      LLAMA_AUTHORITY_SHA256: 3064250e63baed7bdcfd20851e1d3ea2c86fc33f087b69a2a4fcff18c384374b
+      PACKAGE_ARTIFACT_NAME: tai-llama-toolchain-build-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+      LOCATOR_ARTIFACT_NAME: tai-llama-toolchain-locator-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+    steps:
+      - name: Checkout exact main authority
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+          path: repository
+
+      - name: Verify exact checked-out main revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C repository rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$GITHUB_REF" = 'refs/heads/main'
+          git -C repository fetch --no-tags --depth=1 origin main
+          test "$(git -C repository rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"
+
+      - name: Checkout exact llama.cpp commit
+        uses: actions/checkout@v4
+        with:
+          repository: ggml-org/llama.cpp
+          ref: aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3
+          fetch-depth: 1
+          persist-credentials: false
+          clean: true
+          lfs: false
+          submodules: false
+          path: llama-evidence/source/llama.cpp
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate controlled host and exact authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -s)" = 'Linux'
+          test "$(uname -m)" = 'x86_64'
+          command -v git
+          command -v curl
+          command -v cmake
+          command -v ninja
+          command -v cc
+          command -v c++
+          command -v sha256sum
+          command -v tar
+          command -v gzip
+
+          PYTHONPATH=repository/apps/tai python - <<'PY'
+          from pathlib import Path
+          from tai.llama_toolchain import load_llama_toolchain_authority
+
+          authority = load_llama_toolchain_authority(
+              Path("repository/apps/tai/model-artifacts/llama-cpp-toolchain-authority.v1.json")
+          )
+          assert authority.release == "b9637"
+          assert authority.commit == "aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3"
+          assert authority.authority_sha256 == "3064250e63baed7bdcfd20851e1d3ea2c86fc33f087b69a2a4fcff18c384374b"
+          assert authority.build_profile.profile_id == "linux-x86_64-cpu-release-static-v1"
+          assert [target.target for target in authority.build_profile.required_targets] == [
+              "llama-cli",
+              "llama-server",
+              "llama-quantize",
+              "llama-bench",
+          ]
+          PY
+
+      - name: Capture exact source archive and pre-build identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence_root="$GITHUB_WORKSPACE/llama-evidence"
+          archive_path="$evidence_root/source/llama.cpp-$LLAMA_COMMIT.tar.gz"
+          mkdir -p "$evidence_root/evidence" "$evidence_root/build"
+
+          test "$(git -C "$evidence_root/source/llama.cpp" rev-parse HEAD)" = "$LLAMA_COMMIT"
+          test -d "$evidence_root/source/llama.cpp/.git"
+          test -z "$(git -C "$evidence_root/source/llama.cpp" status --porcelain=v1 --untracked-files=all)"
+          git -C "$evidence_root/source/llama.cpp" remote set-url origin "$LLAMA_REPOSITORY"
+          remote_url="$(git -C "$evidence_root/source/llama.cpp" config --get remote.origin.url)"
+          test "$remote_url" = "$LLAMA_REPOSITORY"
+          if git -C "$evidence_root/source/llama.cpp" config --get-regexp 'http\..*\.extraheader' > /dev/null 2>&1; then
+            echo 'Persisted Git authentication header is forbidden.' >&2
+            exit 1
+          fi
+
+          curl --fail --location --proto '=https' --tlsv1.2 \
+            --retry 3 --retry-all-errors \
+            "$LLAMA_REPOSITORY/archive/$LLAMA_COMMIT.tar.gz" \
+            --output "$archive_path"
+          test -s "$archive_path"
+
+          git -C "$evidence_root/source/llama.cpp" rev-parse HEAD \
+            > "$evidence_root/evidence/git-head.txt"
+          git -C "$evidence_root/source/llama.cpp" status \
+            --porcelain=v1 --untracked-files=all \
+            > "$evidence_root/evidence/git-status.txt"
+          cmake --version > "$evidence_root/evidence/cmake-version.txt"
+          cc --version > "$evidence_root/evidence/cc-version.txt"
+          c++ --version > "$evidence_root/evidence/cxx-version.txt"
+          ninja --version > "$evidence_root/evidence/ninja-version.txt"
+          uname -a > "$evidence_root/evidence/uname.txt"
+          printf '%s\n' "$GITHUB_SHA" > "$evidence_root/evidence/repository-main-sha.txt"
+          printf '%s\n' "$GITHUB_RUN_ID" > "$evidence_root/evidence/workflow-run-id.txt"
+          printf '%s\n' "$GITHUB_RUN_ATTEMPT" > "$evidence_root/evidence/workflow-run-attempt.txt"
+
+          test "$(cat "$evidence_root/evidence/git-head.txt")" = "$LLAMA_COMMIT"
+          test ! -s "$evidence_root/evidence/git-status.txt"
+          test -s "$evidence_root/evidence/cmake-version.txt"
+          test -s "$evidence_root/evidence/cc-version.txt"
+          test -s "$evidence_root/evidence/cxx-version.txt"
+
+      - name: Configure exact governed build
+        shell: bash
+        env:
+          CC: /usr/bin/cc
+          CXX: /usr/bin/c++
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/llama-evidence"
+          test "$(command -v cc)" = "$CC"
+          test "$(command -v c++)" = "$CXX"
+
+          cmake \
+            -S source/llama.cpp \
+            -B build/llama.cpp-b9637 \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DLLAMA_BUILD_COMMON=ON \
+            -DLLAMA_BUILD_TESTS=OFF \
+            -DLLAMA_BUILD_EXAMPLES=OFF \
+            -DLLAMA_BUILD_TOOLS=ON \
+            -DLLAMA_BUILD_SERVER=ON \
+            -DLLAMA_BUILD_APP=OFF \
+            -DLLAMA_BUILD_UI=OFF \
+            -DLLAMA_USE_PREBUILT_UI=OFF \
+            -DLLAMA_TOOLS_INSTALL=OFF \
+            -DLLAMA_OPENSSL=OFF \
+            -DLLAMA_LLGUIDANCE=OFF \
+            -DGGML_NATIVE=OFF \
+            > evidence/configure.log 2>&1
+
+          test -s evidence/configure.log
+          test -s build/llama.cpp-b9637/CMakeCache.txt
+
+      - name: Build exactly four governed targets
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/llama-evidence"
+
+          cmake \
+            --build build/llama.cpp-b9637 \
+            --config Release \
+            --target \
+            llama-cli \
+            llama-server \
+            llama-quantize \
+            llama-bench \
+            --parallel 2 \
+            > evidence/build.log 2>&1
+
+          test -s evidence/build.log
+          for binary in \
+            build/llama.cpp-b9637/bin/llama-cli \
+            build/llama.cpp-b9637/bin/llama-server \
+            build/llama.cpp-b9637/bin/llama-quantize \
+            build/llama.cpp-b9637/bin/llama-bench
+          do
+            test -f "$binary"
+            test ! -L "$binary"
+            test -s "$binary"
+          done
+
+      - name: Reconfirm clean exact source and collect evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence_root="$GITHUB_WORKSPACE/llama-evidence"
+          authority="$GITHUB_WORKSPACE/repository/apps/tai/model-artifacts/llama-cpp-toolchain-authority.v1.json"
+          manifest="$evidence_root/evidence/llama-cpp-build.v1.json"
+          report="$evidence_root/evidence/llama-cpp-verification.v1.json"
+
+          git -C "$evidence_root/source/llama.cpp" rev-parse HEAD \
+            > "$evidence_root/evidence/git-head.txt"
+          git -C "$evidence_root/source/llama.cpp" status \
+            --porcelain=v1 --untracked-files=all \
+            > "$evidence_root/evidence/git-status.txt"
+          test "$(cat "$evidence_root/evidence/git-head.txt")" = "$LLAMA_COMMIT"
+          test ! -s "$evidence_root/evidence/git-status.txt"
+
+          PYTHONPATH="$GITHUB_WORKSPACE/repository/apps/tai" \
+            python -m tai.model_artifact_registry_cli collect-toolchain-evidence \
+            "$authority" \
+            "$evidence_root" \
+            --cmake-executable "$(command -v cmake)" \
+            --c-compiler-executable "$(command -v cc)" \
+            --cxx-compiler-executable "$(command -v c++)" \
+            --output "$manifest" \
+            --verification-output "$report"
+
+          PYTHONPATH="$GITHUB_WORKSPACE/repository/apps/tai" \
+            python -m tai.model_artifact_registry_cli verify-toolchain \
+            "$authority" \
+            "$manifest" \
+            "$evidence_root" \
+            --output "$report"
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path("llama-evidence/evidence/llama-cpp-verification.v1.json").read_text()
+          )
+          assert report["status"] == "VERIFIED"
+          assert report["reasons"] == []
+          assert report["verified_targets"] == [
+              "llama-bench",
+              "llama-cli",
+              "llama-quantize",
+              "llama-server",
+          ]
+          PY
+
+      - name: Create deterministic external evidence package
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_dir="$GITHUB_WORKSPACE/llama-package"
+          package_path="$package_dir/llama-cpp-b9637-evidence.tar.gz"
+          index_path="$package_dir/package-index.v1.json"
+          mkdir -p "$package_dir"
+
+          tar \
+            --sort=name \
+            --mtime='UTC 1970-01-01' \
+            --owner=0 \
+            --group=0 \
+            --numeric-owner \
+            -C "$GITHUB_WORKSPACE" \
+            -cf - llama-evidence \
+            | gzip -n -9 > "$package_path"
+          test -s "$package_path"
+          (
+            cd "$package_dir"
+            sha256sum llama-cpp-b9637-evidence.tar.gz \
+              > llama-cpp-b9637-evidence.tar.gz.sha256
+          )
+
+          REPOSITORY_SHA="$GITHUB_SHA" \
+          RUN_ID="$GITHUB_RUN_ID" \
+          RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" \
+          PACKAGE_PATH="$package_path" \
+          INDEX_PATH="$index_path" \
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          package = Path(os.environ["PACKAGE_PATH"])
+          manifest = Path("llama-evidence/evidence/llama-cpp-build.v1.json")
+          report = Path("llama-evidence/evidence/llama-cpp-verification.v1.json")
+
+          def digest(path: Path) -> str:
+              value = hashlib.sha256()
+              with path.open("rb") as stream:
+                  while chunk := stream.read(1024 * 1024):
+                      value.update(chunk)
+              return value.hexdigest()
+
+          payload = {
+              "schema_version": "tai.llama-cpp-build-package-index.v1",
+              "status": "PACKAGED",
+              "repository_sha": os.environ["REPOSITORY_SHA"],
+              "workflow_run_id": os.environ["RUN_ID"],
+              "workflow_run_attempt": os.environ["RUN_ATTEMPT"],
+              "authority_sha256": "3064250e63baed7bdcfd20851e1d3ea2c86fc33f087b69a2a4fcff18c384374b",
+              "package": {
+                  "path": package.name,
+                  "sha256": digest(package),
+                  "size_bytes": package.stat().st_size,
+              },
+              "build_evidence": {
+                  "path": "llama-evidence/evidence/llama-cpp-build.v1.json",
+                  "sha256": digest(manifest),
+                  "size_bytes": manifest.stat().st_size,
+              },
+              "verification_report": {
+                  "path": "llama-evidence/evidence/llama-cpp-verification.v1.json",
+                  "sha256": digest(report),
+                  "size_bytes": report.stat().st_size,
+              },
+              "retention_days": 90,
+          }
+          Path(os.environ["INDEX_PATH"]).write_text(
+              json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Upload immutable exact-main build package
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PACKAGE_ARTIFACT_NAME }}
+          path: llama-package
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
+
+      - name: Restore uploaded package for independent verification
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.PACKAGE_ARTIFACT_NAME }}
+          path: restored-package
+
+      - name: Verify restored immutable package
+        shell: bash
+        run: |
+          set -euo pipefail
+          package="$GITHUB_WORKSPACE/restored-package/llama-cpp-b9637-evidence.tar.gz"
+          index="$GITHUB_WORKSPACE/restored-package/package-index.v1.json"
+          restore_root="$GITHUB_WORKSPACE/restored-evidence"
+          authority="$GITHUB_WORKSPACE/repository/apps/tai/model-artifacts/llama-cpp-toolchain-authority.v1.json"
+          report="$GITHUB_WORKSPACE/restored-verification.v1.json"
+          test -s "$package"
+          test -s "$index"
+          (
+            cd "$GITHUB_WORKSPACE/restored-package"
+            sha256sum -c llama-cpp-b9637-evidence.tar.gz.sha256
+          )
+
+          PACKAGE_PATH="$package" \
+          INDEX_PATH="$index" \
+          REPOSITORY_SHA="$GITHUB_SHA" \
+          RUN_ID="$GITHUB_RUN_ID" \
+          RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" \
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          package = Path(os.environ["PACKAGE_PATH"])
+          index = json.loads(Path(os.environ["INDEX_PATH"]).read_text())
+          value = hashlib.sha256()
+          with package.open("rb") as stream:
+              while chunk := stream.read(1024 * 1024):
+                  value.update(chunk)
+          assert index["status"] == "PACKAGED"
+          assert index["repository_sha"] == os.environ["REPOSITORY_SHA"]
+          assert index["workflow_run_id"] == os.environ["RUN_ID"]
+          assert index["workflow_run_attempt"] == os.environ["RUN_ATTEMPT"]
+          assert index["package"]["sha256"] == value.hexdigest()
+          assert index["package"]["size_bytes"] == package.stat().st_size
+          assert index["authority_sha256"] == "3064250e63baed7bdcfd20851e1d3ea2c86fc33f087b69a2a4fcff18c384374b"
+          PY
+
+          if tar -tzf "$package" | grep -E '(^/|(^|/)\.\.(/|$))'; then
+            echo 'Unsafe path found in evidence archive.' >&2
+            exit 1
+          fi
+          mkdir -p "$restore_root"
+          tar -xzf "$package" -C "$restore_root"
+
+          PYTHONPATH="$GITHUB_WORKSPACE/repository/apps/tai" \
+            python -m tai.model_artifact_registry_cli verify-toolchain \
+            "$authority" \
+            "$restore_root/llama-evidence/evidence/llama-cpp-build.v1.json" \
+            "$restore_root/llama-evidence" \
+            --output "$report"
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("restored-verification.v1.json").read_text())
+          assert report["status"] == "VERIFIED"
+          assert report["reasons"] == []
+          assert report["verified_targets"] == [
+              "llama-bench",
+              "llama-cli",
+              "llama-quantize",
+              "llama-server",
+          ]
+          PY
+
+      - name: Create machine-readable artifact locator
+        shell: bash
+        env:
+          PACKAGE_ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          PACKAGE_ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+          PACKAGE_ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifact-locator
+          test -n "$PACKAGE_ARTIFACT_ID"
+          test -n "$PACKAGE_ARTIFACT_URL"
+          test -n "$PACKAGE_ARTIFACT_DIGEST"
+
+          PACKAGE_INDEX="$GITHUB_WORKSPACE/restored-package/package-index.v1.json" \
+          RESTORE_REPORT="$GITHUB_WORKSPACE/restored-verification.v1.json" \
+          LOCATOR_OUTPUT="$GITHUB_WORKSPACE/artifact-locator/llama-cpp-build-artifact-locator.v1.json" \
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          package_index_path = Path(os.environ["PACKAGE_INDEX"])
+          restore_report_path = Path(os.environ["RESTORE_REPORT"])
+          package_index = json.loads(package_index_path.read_text())
+          restore_report = json.loads(restore_report_path.read_text())
+
+          def digest(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          payload = {
+              "schema_version": "tai.llama-cpp-build-artifact-locator.v1",
+              "status": "VERIFIED_RESTORED",
+              "repository_sha": os.environ["GITHUB_SHA"],
+              "workflow_run_id": os.environ["GITHUB_RUN_ID"],
+              "workflow_run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+              "artifact": {
+                  "id": os.environ["PACKAGE_ARTIFACT_ID"],
+                  "name": os.environ["PACKAGE_ARTIFACT_NAME"],
+                  "url": os.environ["PACKAGE_ARTIFACT_URL"],
+                  "digest": os.environ["PACKAGE_ARTIFACT_DIGEST"],
+                  "retention_days": 90,
+              },
+              "package_index": {
+                  "sha256": digest(package_index_path),
+                  "content": package_index,
+              },
+              "restored_verification": {
+                  "sha256": digest(restore_report_path),
+                  "content": restore_report,
+              },
+          }
+          Path(os.environ["LOCATOR_OUTPUT"]).write_text(
+              json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+          cp restored-verification.v1.json artifact-locator/
+          cp restored-package/package-index.v1.json artifact-locator/
+
+      - name: Upload immutable locator and restore report
+        id: locator
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.LOCATOR_ARTIFACT_NAME }}
+          path: artifact-locator
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+          overwrite: false
+
+      - name: Publish exact-main build summary
+        shell: bash
+        env:
+          LOCATOR_ARTIFACT_ID: ${{ steps.locator.outputs.artifact-id }}
+          LOCATOR_ARTIFACT_URL: ${{ steps.locator.outputs.artifact-url }}
+          LOCATOR_ARTIFACT_DIGEST: ${{ steps.locator.outputs.artifact-digest }}
+        run: |
+          set -euo pipefail
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+
+          locator = json.loads(
+              Path("artifact-locator/llama-cpp-build-artifact-locator.v1.json").read_text()
+          )
+          restored = locator["restored_verification"]["content"]
+          package = locator["package_index"]["content"]["package"]
+          print("## TAI llama.cpp exact source build")
+          print(f"- repository SHA: `{locator['repository_sha']}`")
+          print(f"- authority: `{locator['package_index']['content']['authority_sha256']}`")
+          print(f"- restored status: `{restored['status']}`")
+          print(f"- targets: `{', '.join(restored['verified_targets'])}`")
+          print(f"- package SHA-256: `{package['sha256']}`")
+          print(f"- package bytes: `{package['size_bytes']}`")
+          print(f"- package artifact id: `{locator['artifact']['id']}`")
+          PY
+          printf '%s\n' \
+            "Locator artifact id: $LOCATOR_ARTIFACT_ID" \
+            "Locator artifact URL: $LOCATOR_ARTIFACT_URL" \
+            "Locator artifact digest: $LOCATOR_ARTIFACT_DIGEST" \
+            >> "$GITHUB_STEP_SUMMARY"

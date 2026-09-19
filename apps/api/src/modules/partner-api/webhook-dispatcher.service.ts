@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { PartnerApiService } from './partner-api.service';
+import { configuredAllowedHosts, safeOutboundRequest } from '../../common/security/safe-outbound-request';
 
 export interface WebhookPayload {
   eventType: string;
@@ -53,7 +54,10 @@ export class WebhookDispatcherService {
     const sig = this.sign(secret, timestamp, body);
 
     try {
-      const response = await fetch(url, {
+      // The destination is chosen by a partner, so it is vetted and pinned
+      // rather than handed to a client that would resolve it again. A refusal
+      // for one subscription must not stop the others, so it is returned.
+      const response = await safeOutboundRequest(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -63,11 +67,17 @@ export class WebhookDispatcherService {
           'User-Agent': 'GrainFlow-Webhook/3.0',
         },
         body,
-        signal: AbortSignal.timeout(10_000),
+        timeoutMs: 10_000,
+        allowedHosts: configuredAllowedHosts(),
       });
 
-      const ok = response.ok;
-      this.logger.log(`Webhook delivered: sub=${subscriptionId} url=${url} status=${response.status} ok=${ok}`);
+      if (response.refusedBecause) {
+        this.logger.warn(`Webhook refused: sub=${subscriptionId} reason=${response.refusedBecause}`);
+        return { subscriptionId, url, status: 'failed', error: response.refusedBecause };
+      }
+
+      const ok = response.delivered;
+      this.logger.log(`Webhook delivered: sub=${subscriptionId} status=${response.status} ok=${ok}`);
       return { subscriptionId, url, status: ok ? 'delivered' : 'failed', httpStatus: response.status };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

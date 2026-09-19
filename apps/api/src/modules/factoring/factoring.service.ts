@@ -26,7 +26,16 @@ export interface FactoringApplication {
   dueDate?: string;
 }
 
-type DealScoreRow = { status: string; totalKopecks: number | null; totalRub: number | null };
+/**
+ * Форма строки сделки для скоринга.
+ *
+ * `totalKopecks` объявлен `bigint`, потому что в схеме это `BigInt`, и Prisma
+ * отдаёт именно его. Прежний алиас обещал `number`, и это была неправда,
+ * которую никто не замечал: `.catch(() => [] as DealScoreRow[])` расширял
+ * элемент массива до `any` и отключал проверку. Как только catch убрали, tsc
+ * отказался компилировать — тип исправлен по схеме, а не подогнан под вызов.
+ */
+type DealScoreRow = { id: string; status: string; totalKopecks: bigint | null; totalRub: number | null };
 
 const FINANCE_ROLES: ReadonlySet<Role> = new Set([Role.ADMIN, Role.ACCOUNTING, Role.EXECUTIVE, Role.FARMER, Role.BUYER]);
 const ADMIN_ACCOUNTING_EXECUTIVE: ReadonlySet<Role> = new Set([Role.ADMIN, Role.ACCOUNTING, Role.EXECUTIVE]);
@@ -111,7 +120,7 @@ export class FactoringService implements OnModuleInit, OnModuleDestroy {
       throw new ForbiddenException(`Факторинговая компания "${params.factorName}" не подключена`);
     }
 
-    const score = await this.scoreOrganization(params.organizationId);
+    const score = await this.scoreOrganization(params.organizationId, user);
 
     const app: FactoringApplication = {
       id: `FACTOR-${String(++this.counter).padStart(5, '0')}`,
@@ -147,7 +156,44 @@ export class FactoringService implements OnModuleInit, OnModuleDestroy {
     return app;
   }
 
-  async scoreOrganization(organizationId: string): Promise<{ score: number; details: Record<string, unknown> }> {
+  /**
+   * Тенант вызывающего — обязателен, а не желателен.
+   *
+   * FINANCE_ROLES здесь включает FARMER и BUYER, то есть обычных участников
+   * рынка, а не только финансовые роли платформы. Скоринг принимает
+   * organizationId параметром и до этой правки не проверял, чей он.
+   */
+  private assertTenantScope(user: RequestUser): string {
+    const tenantId = user.tenantId;
+    if (typeof tenantId !== 'string' || tenantId.length === 0) {
+      throw new ForbiddenException('Factoring tenant scope unavailable');
+    }
+    return tenantId;
+  }
+
+  /**
+   * Организация — только в пределах тенанта вызывающего.
+   *
+   * `findFirst` с предикатом тенанта, а не `findUnique` по id: чужая
+   * организация должна быть неотличима от несуществующей. У модели есть
+   * `@@unique([id, tenantId])`, так что запрос остаётся точечным.
+   */
+  private async resolveScopedOrganization(
+    organizationId: string,
+    tenantId: string,
+  ): Promise<{ inn: string; name: string } | null> {
+    if (!this.prisma) return null;
+    return this.prisma.organization.findFirst({
+      where: { id: organizationId, tenantId },
+      select: { inn: true, name: true },
+    });
+  }
+
+  async scoreOrganization(
+    organizationId: string,
+    user: RequestUser,
+  ): Promise<{ score: number; details: Record<string, unknown> }> {
+    const tenantId = this.assertTenantScope(user);
     let closedDeals = 0;
     let totalDeals = 0;
     let disputeCount = 0;
@@ -156,20 +202,39 @@ export class FactoringService implements OnModuleInit, OnModuleDestroy {
     let orgName: string | undefined;
 
     if (this.prisma) {
+      // Предиката тенанта не было: скоринг считался по сделкам организации
+      // независимо от того, чьей она была. Вместе с непроверенным
+      // organizationId это давало участнику одного тенанта статистику
+      // организации другого — число сделок, закрытых, оборот, — а через
+      // orgInn ещё и запрос в бюро кредитных историй по чужому юрлицу.
       const deals = await this.prisma.deal.findMany({
-        where: { sellerOrgId: organizationId },
-        select: { status: true, totalKopecks: true, totalRub: true },
-      }).catch(() => [] as DealScoreRow[]);
+        where: { sellerOrgId: organizationId, tenantId },
+        select: { id: true, status: true, totalKopecks: true, totalRub: true },
+      });
 
       totalDeals = deals.length;
       closedDeals = deals.filter(d => d.status === 'CLOSED' || d.status === 'SETTLED').length;
       totalVolumeKopecks = deals.reduce((sum: number, deal: DealScoreRow) => {
-        return sum + (deal.totalKopecks ?? Math.round((deal.totalRub ?? 0) * 100));
+        // totalKopecks — BigInt в схеме; без приведения сложение с числом
+        // роняет запрос целиком.
+        const kopecks = deal.totalKopecks === null || deal.totalKopecks === undefined
+          ? Math.round((deal.totalRub ?? 0) * 100)
+          : Number(deal.totalKopecks);
+        return sum + kopecks;
       }, 0);
 
-      disputeCount = await this.prisma.dispute.count({ where: { createdAt: { gte: new Date(Date.now() - 365 * 24 * 3600_000) } } }).catch(() => 0);
+      // У disputes не было скоупа ВООБЩЕ: считались споры всей платформы за
+      // год и делились на число сделок ЭТОЙ организации. Это не только утечка
+      // масштаба платформы, но и прямая порча рейтинга: у организации с тремя
+      // сделками disputeRate уходил за единицу и обнулял 30 баллов из 100.
+      disputeCount = await this.prisma.dispute.count({
+        where: {
+          dealId: { in: deals.map((deal) => deal.id) },
+          createdAt: { gte: new Date(Date.now() - 365 * 24 * 3600_000) },
+        },
+      });
 
-      const org = await this.prisma.organization.findUnique({ where: { id: organizationId }, select: { inn: true, name: true } }).catch(() => null);
+      const org = await this.resolveScopedOrganization(organizationId, tenantId);
       orgInn = org?.inn;
       orgName = org?.name;
     } else {
@@ -237,11 +302,19 @@ export class FactoringService implements OnModuleInit, OnModuleDestroy {
     if (!FINANCE_ROLES.has(user.role)) {
       throw new ForbiddenException();
     }
+    // Запасной ИНН оставлен ТОЛЬКО для режима без базы. Раньше он подставлялся
+    // и когда база есть, а организация не найдена: тогда метод возвращал
+    // { organizationId, ...report } — кредитный отчёт по постороннему юрлицу,
+    // подписанный запрошенным идентификатором организации. Это не деградация,
+    // а выдуманная финансовая справка о названной компании.
     let inn = '7712345678';
     let name: string | undefined;
     if (this.prisma) {
-      const org = await this.prisma.organization.findUnique({ where: { id: organizationId }, select: { inn: true, name: true } }).catch(() => null);
-      if (org) { inn = org.inn; name = org.name; }
+      const tenantId = this.assertTenantScope(user);
+      const org = await this.resolveScopedOrganization(organizationId, tenantId);
+      if (!org) throw new NotFoundException(`Organization ${organizationId} not found`);
+      inn = org.inn;
+      name = org.name;
     }
     const bki = integrationRegistry.get<MockBkiAdapter>('BKI_NBKI');
     const report = await bki.getCreditReport(inn, name);

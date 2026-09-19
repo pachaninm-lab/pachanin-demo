@@ -5,6 +5,7 @@ import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { PersistentAuthRepository } from '../../src/modules/auth/persistent-auth.repository';
 import { CanonicalTestDealSeedService } from '../../src/modules/deals/canonical-test-deal.seed';
 import { CANONICAL_TEST_DEAL_ID } from '../../src/modules/deals/deal-command.policy';
+import { PERSISTENT_ACTOR_USER_IDS } from './persistent-actor-identities';
 
 export const AUTHORITY_LOT_ID = 'LOT-RLS-AUTHORITY-001';
 export const AUTHORITY_BID_ID = 'BID-RLS-AUTHORITY-001';
@@ -282,20 +283,7 @@ async function main(): Promise<void> {
     }
 
     const deterministicIds = new Set(memberships.map((item) => item.userId));
-    for (const expectedId of [
-      'farmer-e2e',
-      'buyer-e2e',
-      'logistician-e2e',
-      'driver-e2e',
-      'surveyor-e2e',
-      'elevator-e2e',
-      'lab-e2e',
-      'accounting-e2e',
-      'compliance-e2e',
-      'arbitrator-e2e',
-      'operator-e2e',
-      'executive-e2e',
-    ]) {
+    for (const expectedId of PERSISTENT_ACTOR_USER_IDS) {
       if (!deterministicIds.has(expectedId)) throw new Error(`Missing deterministic persistent identity ${expectedId}`);
     }
 

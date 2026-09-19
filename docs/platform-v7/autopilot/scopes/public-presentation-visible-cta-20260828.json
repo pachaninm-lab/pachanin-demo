@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-presentation-visible-cta-20260828",
+  "status": "active",
+  "purpose": "Make the already verified public presentation PDF immediately and visibly downloadable from the real /platform-v7 production hero rendered by the isolated public-entry rewrite, while deleting the unreachable duplicate from the bypassed layout.",
+  "allowedPaths": [
+    "apps/web/app/platform-v7/layout.tsx",
+    "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
+    "apps/web/tests/unit/platformV7PresentationDownload.test.ts"
+  ],
+  "requiredBehavior": [
+    "The RU, EN and ZH homepage variants render exactly one prominent presentation download CTA in initial server HTML inside the hero.",
+    "The CTA uses a plain download anchor with the exact public path /downloads/prozrachnaya-tsena-presentation.pdf and filename Прозрачная_Цена_и_ГЕКТА.pdf.",
+    "The presentation download is the single primary hero action; the existing deal demonstration remains available as a secondary action.",
+    "The bypassed platform-v7 layout no longer owns presentation UI.",
+    "The existing verified PDF bytes, download route, middleware authorization boundary, public-entry rewrite, authentication and contact dock remain unchanged."
+  ],
+  "forbiddenChanges": [
+    "presentation PDF payload or download route semantics",
+    "API, database, authentication, RBAC, tenant, role or organization behavior",
+    "production workflow, host topology, secrets, volumes, networks or external services",
+    "homepage product claims, connection form behavior or unrelated visual redesign"
+  ]
+}

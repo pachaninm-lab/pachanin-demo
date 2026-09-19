@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/production-p0-registration-lifecycle-receipt-3750",
+  "status": "active",
+  "purpose": "Add the missing causal auth.registration.lifecycle.receipt producer required by the already approved P0 production user-registration acceptance. The producer runs only after server-side ACTIVATED state and immutable approval audit in the same serializable transaction.",
+  "approvedBy": "owner-direct-registration-production-finish-2026-08-09",
+  "authorityBaseExactMain": "181b97e3e61133d9595e66f6616d17ee94cd7a66",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/api/prisma/migrations/20260808213000_p0_registration_lifecycle_receipt/migration.sql",
+    "apps/api/src/modules/auth/registration-decision.service.ts",
+    "apps/api/src/modules/auth/registration-decision.service.spec.ts",
+    "docs/platform-v7/autopilot/scopes/production-p0-registration-lifecycle-receipt-3750.json"
+  ],
+  "requiredBehavior": [
+    "emit the receipt only for an APPROVE decision after the application is ACTIVATED and the immutable auth approval audit has been inserted",
+    "perform activation, audit and receipt insertion inside the same existing serializable transaction so partial lifecycle evidence cannot commit",
+    "derive actor, user, organization, membership, workspace, role, event IDs, audit ID and application version from PostgreSQL rather than caller-selected authority; prove tenant isolation separately in the approved two-tenant acceptance",
+    "write exactly one auth.registration.lifecycle.receipt for registration-lifecycle:<applicationId>:<applicationVersion> and reject conflicting replay",
+    "use a membership-free NOLOGIN NOSUPERUSER NOBYPASSRLS PostgreSQL authority with only read plus bounded outbox INSERT privileges",
+    "keep public.outbox_entries under ENABLE and FORCE RLS with purpose-specific policies for the isolated authority",
+    "exclude email, phone, password material, tokens, TOTP secrets and protected infrastructure values from the receipt payload"
+  ],
+  "forbiddenCapabilities": [
+    "client-selected role, tenant, organization, staff actor or lifecycle version",
+    "receipt creation before approval, on rejection, request-information, suspension or an unrelated action",
+    "BYPASSRLS, SUPERUSER, role membership, schema-wide EXECUTE, broad staff access or auth-table mutation by the receipt authority",
+    "RLS, MFA, immutable audit, outbox, CSRF or rate-limit weakening",
+    "direct production SQL, VPS shell mutation, credential disclosure or secret logging",
+    "new paid provider, SaaS subscription, API or recurring cost",
+    "reporting this code merge alone as production registration PASS"
+  ],
+  "acceptanceEvidence": [
+    "focused Jest proves audit precedes receipt in the same transaction",
+    "migration proof confirms membership-free least privilege, FORCE RLS and append-only auth audit triggers",
+    "fresh and baseline forward-only migration gates pass",
+    "full required CI is terminal PASS on the exact PR head",
+    "after exact REG.RU release, the protected P0 acceptance binds its run correlation to the named receipt and registration-lifecycle idempotency key"
+  ]
+}

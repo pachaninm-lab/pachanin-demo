@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/pc-crop-docker-headroom-rollover-4637",
+  "status": "active",
+  "issue": 3785,
+  "purpose": "Recover only the Docker disk headroom required after exact-main PC-CROP registration release 33148633805 failed while extracting the canonical Web image with no space left on device. Reuse the existing protected pinned production SSH authority and delete only old unused canonical grainflow images without changing application, database, customer data, containers, volumes or networks.",
+  "approvedBy": "repository-owner continuation of PC-CROP production registration issue 3785 and production release authority issue 3072 on 2026-08-14; governance authorization comment 5289918015 on issue 3389",
+  "authorityBaseExactMain": "8961d36ad03d679f0c81bc63c3425c5d9d6e7155",
+  "evidenceIssue": 3072,
+  "authorityContinuationIssue": 4637,
+  "authorityContinuationBaseExactMain": "7886c60baa47bb549afc744381c9ff9e90097d7d",
+  "registrationMatrixIssue": 3785,
+  "governanceIssue": 3389,
+  "ownerAuthorizationCommentId": 5289918015,
+  "newRecurringCostRub": 0,
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/pc-crop-hosted-docker-headroom-recovery-3785.json",
+    ".github/workflows/production-docker-headroom-recovery.yml",
+    "scripts/production-docker-headroom-recovery.sh"
+  ],
+  "requiredBehavior": [
+    "owner-only recovery command is bound to active continuation issue 4637 and exact current main while historical issue 3072 remains non-command evidence",
+    "reuse the protected production SSH principal private key slots pinned VPS fingerprint and canonical production host already used by the full-stack release authority",
+    "delete only local ghcr.io/pachaninm-lab/grainflow-api web migration or tai images that are unused by every running or stopped container",
+    "protect every image referenced by any running or stopped container every image whose OCI revision equals exact current main and the two newest local images per canonical component",
+    "never remove containers volumes networks build cache arbitrary third-party images or model-host artifacts",
+    "before deleting anything prove that Docker root and the observed containerd snapshot root share the same filesystem so the free-space threshold covers the failed extraction path",
+    "stop reclaim when Docker filesystem available space reaches 6 GiB and fail closed if the hard 5 GiB release threshold is still not met",
+    "prove running API and web container identity and OCI revisions remain unchanged after a successful reclaim",
+    "prove container volume and network object counts remain unchanged after a successful reclaim",
+    "publish only bounded capacity counts and reclaimed-byte evidence without image ids paths credentials environment values or customer data",
+    "new recurring cost remains zero"
+  ],
+  "forbiddenCapabilities": [
+    "docker system prune docker image prune docker builder prune or forced image deletion",
+    "docker container volume or network deletion",
+    "deleting an image referenced by any running or stopped container",
+    "deleting exact-main images or reducing the two-image rollback reserve per canonical component",
+    "changing the self-hosted runner identity sudoers Docker group membership or protected release controller",
+    "database application model-host deal role money registration token or customer-data mutation",
+    "un-pinned SSH host identity password SSH or disabled strict host checking",
+    "new server paid API SaaS or recurring cost"
+  ]
+}

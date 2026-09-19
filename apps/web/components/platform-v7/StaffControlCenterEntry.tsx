@@ -4,14 +4,13 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { parseStaffCapabilitiesContract } from '@/lib/platform-v7/staff-capabilities';
 
 const LABELS = {
   ru: 'Центр управления доступом',
   en: 'Access Control Center',
   zh: '访问控制中心',
 } as const;
-
-type Assignment = { status?: string };
 
 export function StaffControlCenterEntry() {
   const pathname = usePathname();
@@ -33,17 +32,17 @@ export function StaffControlCenterEntry() {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch('/api/staff/assignments/me', {
+    fetch('/api/staff/capabilities/me', {
       method: 'GET',
       credentials: 'same-origin',
       cache: 'no-store',
       signal: controller.signal,
       headers: { Accept: 'application/json' },
     })
-      .then(async (response) => response.ok ? response.json() : [])
-      .then((rows: Assignment[]) => {
-        const assignments = Array.isArray(rows) ? rows : [];
-        setVisible(assignments.some((item) => ['ACTIVE', 'ELIGIBLE'].includes(String(item.status || ''))));
+      .then(async (response) => response.ok ? response.json() : null)
+      .then((payload: unknown) => {
+        const capabilities = parseStaffCapabilitiesContract(payload);
+        setVisible(Boolean(capabilities));
       })
       .catch(() => setVisible(false));
     return () => controller.abort();

@@ -1,12 +1,19 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { clearClientSessionState } from '@/lib/client-session-cleanup';
 
 export function SessionControls() {
   const router = useRouter();
 
   async function logout() {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } finally {
+      // В finally, а не после await: сессия должна быть убрана с устройства и
+      // тогда, когда запрос не дошёл.
+      clearClientSessionState();
+    }
     router.push('/login');
     router.refresh();
   }

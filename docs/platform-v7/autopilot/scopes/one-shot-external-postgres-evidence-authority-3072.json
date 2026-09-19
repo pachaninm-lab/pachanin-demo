@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "ops/one-shot-external-postgres-evidence-authority-20260730",
+  "status": "active",
+  "issue": 3072,
+  "baseCommit": "57262ed76487edb56f498c39a257b8868b5187d4",
+  "operationalStatus": "ONE_SHOT_EXTERNAL_POSTGRES_EVIDENCE_GENERATOR",
+  "allowedPaths": [
+    ".github/workflows/one-shot-external-postgres-evidence-authority.yml",
+    "scripts/one-shot-external-postgres-evidence-authority.py",
+    "docs/platform-v7/autopilot/templates/public-intake-evidence-authority.sql",
+    "docs/platform-v7/autopilot/scopes/one-shot-external-postgres-evidence-authority-3072.json"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "blanketContinueOnError": false,
+    "productionDeployment": true
+  },
+  "acceptance": [
+    "the generator creates a bounded follow-up PR from current main",
+    "the follow-up removes every temporary generator artifact",
+    "no production runtime changes are applied by this generator PR",
+    "production remains REG.RU VPS only"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

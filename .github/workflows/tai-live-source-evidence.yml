@@ -1,0 +1,321 @@
+name: TAI Live Official Source Evidence
+
+on:
+  workflow_dispatch:
+  issue_comment:
+    types: [created]
+  schedule:
+    - cron: '23 4 * * 2'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  collect:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (
+        github.event_name == 'schedule' ||
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'issue_comment' &&
+          github.event.action == 'created' &&
+          github.event.issue.pull_request == null &&
+          github.event.comment.body == '/tai run exact-main' &&
+          github.event.comment.author_association == 'OWNER' &&
+          github.event.comment.user.login == github.repository_owner &&
+          github.actor == github.repository_owner &&
+          github.triggering_actor == github.repository_owner
+        )
+      )
+    concurrency:
+      group: tai-live-official-source-evidence
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/tai
+    steps:
+      - name: Checkout exact main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Verify exact checked-out revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$GITHUB_REF" = 'refs/heads/main'
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: apps/tai/pyproject.toml
+
+      - name: Install TAI runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Restore previous immutable source-health history
+        id: history
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p prior-health
+
+          bounded_diagnostics() {
+            label=$1
+            diagnostic_path=$2
+            printf '[history-restore] %s\n' "$label" >&2
+            if [ ! -s "$diagnostic_path" ]; then
+              printf '[history-restore] (no diagnostic output)\n' >&2
+              return 0
+            fi
+            LC_ALL=C awk '
+              NR <= 20 {
+                line = substr($0, 1, 500)
+                suffix = length($0) > 500 ? "..." : ""
+                print "[history-restore] " line suffix
+              }
+              NR == 21 {
+                print "[history-restore] ... diagnostics truncated ..."
+                exit
+              }
+            ' "$diagnostic_path" >&2
+          }
+
+          candidate_path=prior-health/artifact-candidates.tsv
+          sorted_path=prior-health/artifact-candidates.sorted.tsv
+          set +e
+          gh api --paginate \
+            "repos/$REPOSITORY/actions/artifacts?per_page=100" \
+            --jq '.artifacts[]
+              | select(.expired == false)
+              | select(.workflow_run.head_branch == "main")
+              | select(.name | startswith("tai-live-official-source-v3-"))
+              | select((.created_at | type) == "string")
+              | select((.id | type) == "number")
+              | [.created_at, .id]
+              | @tsv' \
+            > "$candidate_path" \
+            2> prior-health/list-error.log
+          list_status=$?
+          set -e
+
+          artifact_id=''
+          selector_status=0
+          if [ "$list_status" -eq 0 ]; then
+            tab=$'\t'
+            set +e
+            LC_ALL=C sort \
+              -t "$tab" \
+              -k1,1r \
+              -k2,2nr \
+              "$candidate_path" \
+              > "$sorted_path" \
+              2> prior-health/select-error.log
+            selector_status=$?
+            set -e
+
+            if [ "$selector_status" -eq 0 ] && [ -s "$sorted_path" ]; then
+              artifact_created_at=''
+              extra=''
+              if ! IFS="$tab" read -r artifact_created_at artifact_id extra \
+                < "$sorted_path"; then
+                selector_status=2
+              elif [ -z "$artifact_created_at" ] || [ -n "$extra" ]; then
+                selector_status=2
+              else
+                case "$artifact_id" in
+                  ''|*[!0-9]*) selector_status=2 ;;
+                esac
+              fi
+            fi
+          fi
+
+          if [ "$list_status" -ne 0 ]; then
+            bounded_diagnostics \
+              "artifact listing failed with status $list_status" \
+              prior-health/list-error.log
+            echo 'GAP' > prior-health/history-status.txt
+          elif [ "$selector_status" -ne 0 ]; then
+            bounded_diagnostics \
+              "artifact selection failed with status $selector_status" \
+              prior-health/select-error.log
+            echo 'GAP' > prior-health/history-status.txt
+          elif [ -z "$artifact_id" ]; then
+            echo 'BOOTSTRAP' > prior-health/history-status.txt
+          else
+            mkdir -p prior-health/unpacked
+            set +e
+            gh api "repos/$REPOSITORY/actions/artifacts/$artifact_id/zip" \
+              > prior-health/previous.zip \
+              2> prior-health/download-error.log
+            download_status=$?
+            unzip_status=1
+            if [ "$download_status" -eq 0 ]; then
+              unzip -q prior-health/previous.zip \
+                -d prior-health/unpacked \
+                > prior-health/unzip-output.log 2>&1
+              unzip_status=$?
+            fi
+            set -e
+
+            history_path=''
+            history_count=0
+            if [ "$download_status" -eq 0 ] \
+              && [ "$unzip_status" -eq 0 ]; then
+              set +e
+              find prior-health/unpacked \
+                -name source-health-history.v1.json \
+                -type f -print \
+                > prior-health/history-paths.txt \
+                2> prior-health/find-error.log
+              find_status=$?
+              set -e
+              if [ "$find_status" -eq 0 ]; then
+                while IFS= read -r candidate_history; do
+                  history_count=$((history_count + 1))
+                  history_path=$candidate_history
+                done < prior-health/history-paths.txt
+              fi
+            else
+              find_status=1
+            fi
+
+            if [ "$download_status" -eq 0 ] \
+              && [ "$unzip_status" -eq 0 ] \
+              && [ "$find_status" -eq 0 ] \
+              && [ "$history_count" -eq 1 ] \
+              && [ -n "$history_path" ]; then
+              cp "$history_path" prior-health/previous-history.json
+              echo 'CONTIGUOUS' > prior-health/history-status.txt
+            else
+              if [ "$download_status" -ne 0 ]; then
+                bounded_diagnostics \
+                  "artifact download failed with status $download_status" \
+                  prior-health/download-error.log
+              elif [ "$unzip_status" -ne 0 ]; then
+                bounded_diagnostics \
+                  "artifact unzip failed with status $unzip_status" \
+                  prior-health/unzip-output.log
+              elif [ "$find_status" -ne 0 ]; then
+                bounded_diagnostics \
+                  "history search failed with status $find_status" \
+                  prior-health/find-error.log
+              else
+                printf '%s\n' \
+                  "expected exactly one history file, found $history_count" \
+                  > prior-health/find-error.log
+                bounded_diagnostics \
+                  'history file cardinality is invalid' \
+                  prior-health/find-error.log
+              fi
+              echo 'GAP' > prior-health/history-status.txt
+            fi
+          fi
+          cat prior-health/history-status.txt
+
+      - name: Collect governed live-source evidence
+        id: collect
+        shell: bash
+        run: |
+          set +e
+          mkdir -p live-evidence
+          history_args=(
+            --history-status "$(cat prior-health/history-status.txt)"
+          )
+          if [ -f prior-health/previous-history.json ]; then
+            history_args+=(
+              --previous-history prior-health/previous-history.json
+            )
+          fi
+          acceptance_args=()
+          if [ "$GITHUB_EVENT_NAME" = 'workflow_dispatch' ] \
+            || [ "$GITHUB_EVENT_NAME" = 'issue_comment' ]; then
+            acceptance_args+=(--require-complete-coverage)
+          fi
+          python -m tai.live_source_evidence_cli \
+            knowledge-sources/official-sources.v1.json \
+            --repository-sha "$GITHUB_SHA" \
+            --output-dir live-evidence \
+            --timeout-seconds 20 \
+            --run-id "$GITHUB_RUN_ID" \
+            --run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --trigger "$GITHUB_EVENT_NAME" \
+            --remediation-baseline \
+              knowledge-sources/AP-14D-REMEDIATION-BASELINE.json \
+            "${history_args[@]}" \
+            "${acceptance_args[@]}" \
+            > live-evidence/collector-output.json 2>&1
+          status=$?
+          echo "$status" > live-evidence/collector-exit-code.txt
+          cat live-evidence/collector-output.json
+          exit 0
+
+      - name: Upload exact-main live evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-live-official-source-v3-${{ github.sha }}-${{ github.run_id }}
+          path: apps/tai/live-evidence
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish machine-readable source-health summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f live-evidence/source-health-dashboard.v1.json ]; then
+            python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+
+          dashboard = json.loads(
+              Path("live-evidence/source-health-dashboard.v1.json").read_text()
+          )
+          acceptance = json.loads(
+              Path("live-evidence/knowledge-acceptance.v1.json").read_text()
+          )
+          print("## TAI official-source health")
+          print(f"- status: `{dashboard['status']}`")
+          print(f"- history: `{dashboard['history_status']}`")
+          print(f"- coverage: `{dashboard['coverage_basis_points']}/10000`")
+          print(f"- accepted: `{acceptance['accepted']}`")
+          print(f"- live knowledge sources: `{acceptance.get('live_knowledge_source_count', 0)}`")
+          print(f"- active alerts: `{len(dashboard['alerts'])}`")
+          PY
+          fi
+
+      - name: Enforce collector structural validity
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f live-evidence/collector-exit-code.txt
+          test "$(cat live-evidence/collector-exit-code.txt)" = '0'
+          test -f live-evidence/live-run-manifest.json
+          test -f live-evidence/source-observations.v1.json
+          test -f live-evidence/public-live-knowledge.v1.json
+          test -f live-evidence/coverage-assessment.json
+          test -f live-evidence/source-health-history.v1.json
+          test -f live-evidence/source-health-dashboard.v1.json
+          test -f live-evidence/active-alerts.v1.json
+          test -f live-evidence/remediation-trace.v1.json
+          test -f live-evidence/knowledge-acceptance.v1.json
+          test -f live-evidence/evidence-bundle-index.v1.json

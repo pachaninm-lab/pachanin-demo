@@ -3,10 +3,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE, CSRF_COOKIE, SESSION_COOKIE, sessionMarkerCookie } from '@/lib/auth-cookies';
 import { CABINET_SESSION_COOKIE } from '@/lib/server/auth-session-response';
 import {
+  CANONICAL_COMPOSE_API_BASE_URL,
+  resolveServerApiBaseUrl,
+} from '@/lib/server/server-api-origin';
+import {
   controlledCabinetContext,
   type ControlledCabinetContext,
 } from '@/lib/platform-v7/controlled-test-organizations';
+import { parseStaffCapabilitiesContract } from '@/lib/platform-v7/staff-capabilities';
 import { signCabinetSession, verifyHs256Jwt } from '@/lib/platform-v7/verified-session';
+import { FIXTURE_AUDIENCE, fixtureTokenIsForService } from '@/lib/platform-v7/fixture-token';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,7 +22,7 @@ const MAX_CONTROLLED_TTL_SECONDS = 8 * 60 * 60;
 const MAX_API_OWNER_TTL_SECONDS = 60 * 60;
 
 const OWNER_CABINETS = {
-  operator: '/platform-v7/control-tower',
+  operator: '/platform-v7/operator',
   buyer: '/platform-v7/buyer',
   seller: '/platform-v7/seller',
   logistics: '/platform-v7/logistics',
@@ -25,6 +31,7 @@ const OWNER_CABINETS = {
   elevator: '/platform-v7/elevator',
   lab: '/platform-v7/lab',
   bank: '/platform-v7/bank',
+  organization: '/platform-v7/profile',
   arbitrator: '/platform-v7/arbitrator',
   compliance: '/platform-v7/compliance',
   executive: '/platform-v7/executive',
@@ -47,8 +54,6 @@ type ParsedRequest = {
   formSubmission: boolean;
   csrfOk: boolean;
 };
-type StaffIdentity = { id?: string; email?: string };
-type StaffAssignment = { role?: string; status?: string };
 
 function readEnv(name: string): string {
   return String(process.env[name] || '').trim();
@@ -65,18 +70,6 @@ function controlledFixtureEnabled(): boolean {
 
 function signingSecret(): string {
   return readEnv('JWT_SECRET') || readEnv('PC_CABINET_SESSION_SECRET');
-}
-
-function apiOrigin(): string {
-  const configured = String(process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '').trim();
-  if (!configured) return '';
-  try {
-    const url = new URL(configured);
-    if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:') return '';
-    return url.toString().replace(/\/$/, '');
-  } catch {
-    return '';
-  }
 }
 
 function json(body: Record<string, unknown>, status = 200) {
@@ -99,6 +92,24 @@ function redirectBack(request: NextRequest, code: string) {
 
 function isOwnerCabinetRole(value: unknown): value is OwnerCabinetRole {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(OWNER_CABINETS, value);
+}
+
+function ownerCabinetTarget(role: OwnerCabinetRole): string {
+  switch (role) {
+    case 'operator': return OWNER_CABINETS.operator;
+    case 'buyer': return OWNER_CABINETS.buyer;
+    case 'seller': return OWNER_CABINETS.seller;
+    case 'logistics': return OWNER_CABINETS.logistics;
+    case 'driver': return OWNER_CABINETS.driver;
+    case 'surveyor': return OWNER_CABINETS.surveyor;
+    case 'elevator': return OWNER_CABINETS.elevator;
+    case 'lab': return OWNER_CABINETS.lab;
+    case 'bank': return OWNER_CABINETS.bank;
+    case 'organization': return OWNER_CABINETS.organization;
+    case 'arbitrator': return OWNER_CABINETS.arbitrator;
+    case 'compliance': return OWNER_CABINETS.compliance;
+    case 'executive': return OWNER_CABINETS.executive;
+  }
 }
 
 function constantTimeEqual(a: string, b: string): boolean {
@@ -182,6 +193,7 @@ async function parseRequest(request: NextRequest): Promise<ParsedRequest> {
 async function controlledOwnerAuthority(accessToken: string, secret: string): Promise<AuthorityResult | null> {
   if (!controlledFixtureEnabled()) return null;
   const claims = await verifyHs256Jwt(accessToken, secret);
+  if (!fixtureTokenIsForService(claims, FIXTURE_AUDIENCE.ownerCabinet)) return null;
   if (!claims || claims.testAccess !== true) return null;
 
   const nowSeconds = Math.floor(Date.now() / 1000);
@@ -210,49 +222,43 @@ async function controlledOwnerAuthority(accessToken: string, secret: string): Pr
 }
 
 async function apiOwnerAuthority(accessToken: string, correlationId: string): Promise<AuthorityResult> {
-  const origin = apiOrigin();
-  if (!origin) return { status: 'unavailable' };
+  // Owner authority is stricter than generic server API traffic: production
+  // never consults configurable origins and always targets the exact internal
+  // Compose service. Non-production keeps the shared validated resolver.
+  const apiBaseUrl = process.env.NODE_ENV === 'production'
+    ? CANONICAL_COMPOSE_API_BASE_URL
+    : resolveServerApiBaseUrl();
+  if (!apiBaseUrl) return { status: 'unavailable' };
 
   try {
-    const commonHeaders = {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: 'application/json',
-      'x-correlation-id': correlationId,
-    };
-    const [identityResponse, assignmentsResponse] = await Promise.all([
-      fetch(`${origin}/auth/me`, {
-        headers: commonHeaders,
-        cache: 'no-store',
-        redirect: 'manual',
-        signal: AbortSignal.timeout(5_000),
-      }),
-      fetch(`${origin}/staff/assignments/me`, {
-        headers: commonHeaders,
-        cache: 'no-store',
-        redirect: 'manual',
-        signal: AbortSignal.timeout(5_000),
-      }),
-    ]);
+    const response = await fetch(`${apiBaseUrl}/staff/capabilities/me`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'application/json',
+        'x-correlation-id': correlationId,
+      },
+      cache: 'no-store',
+      redirect: 'manual',
+      signal: AbortSignal.timeout(5_000),
+    });
 
-    if ([identityResponse.status, assignmentsResponse.status].some((status) => status === 401 || status === 403)) {
-      return { status: 'denied' };
-    }
-    if (!identityResponse.ok || !assignmentsResponse.ok) return { status: 'unavailable' };
+    if (response.status === 401 || response.status === 403) return { status: 'denied' };
+    if (!response.ok) return { status: 'unavailable' };
 
-    const identity = await identityResponse.json().catch(() => null) as StaffIdentity | null;
-    const assignments = await assignmentsResponse.json().catch(() => null) as StaffAssignment[] | null;
-    const activeOwner = Array.isArray(assignments)
-      && assignments.some((item) => item.role === 'PLATFORM_OWNER' && item.status === 'ACTIVE');
+    const capabilities = parseStaffCapabilitiesContract(await response.json());
+    const activeOwner = capabilities?.assignments.some((item) => (
+      item.role === 'PLATFORM_OWNER' && item.status === 'ACTIVE'
+    )) === true;
 
-    if (!identity || typeof identity.id !== 'string' || typeof identity.email !== 'string' || !activeOwner) {
+    if (!capabilities || !activeOwner || !capabilities.authenticationAssurance.mfaVerified) {
       return { status: 'denied' };
     }
 
     return {
       status: 'authorized',
       authority: {
-        actorId: identity.id,
-        email: identity.email,
+        actorId: capabilities.identity.id,
+        email: capabilities.identity.email,
         ttlSeconds: MAX_API_OWNER_TTL_SECONDS,
         source: 'staff-api',
       },
@@ -271,13 +277,19 @@ function resolveControlledOrganization(
   role: OwnerCabinetRole,
   submittedOrganizationId: unknown,
   authority: OwnerAuthority,
-): ControlledCabinetContext | null | 'invalid' {
-  if (authority.source !== 'controlled') return null;
+): ControlledCabinetContext | 'invalid' {
   const context = controlledCabinetContext(role);
   if (!context) return 'invalid';
-  if (typeof submittedOrganizationId !== 'string' || submittedOrganizationId !== context.organizationId) {
-    return 'invalid';
-  }
+
+  // The real production owner never chooses an arbitrary customer organization
+  // through this shortcut. The server binds the role to its fixed controlled
+  // test organization. The legacy controlled fixture still has to submit the
+  // exact expected organization so its regression contract stays fail-closed.
+  if (
+    authority.source === 'controlled'
+    && (typeof submittedOrganizationId !== 'string' || submittedOrganizationId !== context.organizationId)
+  ) return 'invalid';
+
   return context;
 }
 
@@ -287,7 +299,7 @@ function setCabinetCookies(
   role: OwnerCabinetRole,
   authority: OwnerAuthority,
   expiresAt: number,
-  organization: ControlledCabinetContext | null,
+  organization: ControlledCabinetContext,
 ) {
   response.cookies.set(CABINET_SESSION_COOKIE, cabinetToken, {
     path: '/',
@@ -303,8 +315,8 @@ function setCabinetCookies(
       role,
       exp: expiresAt,
       email: authority.email,
-      organizationId: organization?.organizationId || null,
-      tenantId: organization?.tenantId || null,
+      organizationId: organization.organizationId,
+      tenantId: organization.tenantId,
       ownerAccess: true,
     })),
     { ...sessionMarkerCookie(), maxAge: authority.ttlSeconds, priority: 'high' },
@@ -327,9 +339,12 @@ export async function POST(request: NextRequest) {
 
   if (!parsed.csrfOk) return fail('CSRF_REJECTED', 'Сессия формы устарела. Обнови страницу.', 403);
   if (!isOwnerCabinetRole(parsed.role)) return fail('INVALID_CABINET_ROLE', 'Неизвестный кабинет.', 400);
+  const role: OwnerCabinetRole = parsed.role;
+  const target = ownerCabinetTarget(role);
 
   const secret = signingSecret();
-  const accessToken = request.cookies.get(ACCESS_COOKIE)?.value || '';
+  const rawAccessToken = request.cookies.get(ACCESS_COOKIE)?.value || '';
+  const accessToken = rawAccessToken.length > 0 && rawAccessToken.length <= 8192 ? rawAccessToken : '';
   if (!secret || !accessToken) {
     return fail('OWNER_ACCESS_UNAVAILABLE', 'Требуется активный вход владельца платформы.', 401);
   }
@@ -339,50 +354,51 @@ export async function POST(request: NextRequest) {
     return fail('OWNER_AUTHORITY_UNAVAILABLE', 'Не удалось проверить полномочия владельца.', 503);
   }
   if (authorityResult.status === 'denied') {
-    return fail('PLATFORM_OWNER_REQUIRED', 'Требуется активное назначение владельца платформы.', 403);
+    return fail('PLATFORM_OWNER_REQUIRED', 'Требуется активное назначение владельца платформы и подтверждённый MFA.', 403);
   }
 
   const { authority } = authorityResult;
-  const organization = resolveControlledOrganization(parsed.role, parsed.organizationId, authority);
+  const organization = resolveControlledOrganization(role, parsed.organizationId, authority);
   if (organization === 'invalid') {
     return fail('INVALID_TEST_ORGANIZATION', 'Тестовая организация не соответствует выбранному кабинету.', 400);
   }
 
   const nowSeconds = Math.floor(Date.now() / 1000);
-  const cabinetToken = await signCabinetSession(parsed.role, secret, {
+  const cabinetToken = await signCabinetSession(role, secret, {
     nowSeconds,
     ttlSeconds: authority.ttlSeconds,
-    organizationId: organization?.organizationId || null,
-    tenantId: organization?.tenantId || null,
+    userId: authority.actorId,
+    organizationId: organization.organizationId,
+    tenantId: organization.tenantId,
     ownerAccess: true,
   });
   if (!cabinetToken) return fail('CABINET_SESSION_UNAVAILABLE', 'Не удалось открыть кабинет.', 503);
 
   const expiresAt = nowSeconds + authority.ttlSeconds;
   const response = parsed.formSubmission
-    ? NextResponse.redirect(new URL(OWNER_CABINETS[parsed.role], request.url), 303)
+    ? NextResponse.redirect(new URL(target, request.url), 303)
     : json({
       ok: true,
-      role: parsed.role,
-      redirectTo: OWNER_CABINETS[parsed.role],
-      organization: organization ? {
+      role,
+      redirectTo: target,
+      organization: {
         id: organization.organizationId,
         name: organization.organizationName,
         tenantId: organization.tenantId,
         testData: true,
-      } : null,
+      },
       expiresAt: new Date(expiresAt * 1000).toISOString(),
       correlationId,
     });
 
   response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-  setCabinetCookies(response, cabinetToken, parsed.role, authority, expiresAt, organization);
+  setCabinetCookies(response, cabinetToken, role, authority, expiresAt, organization);
 
   console.info('owner_direct_cabinet_open', JSON.stringify({
     actor: authority.actorId,
     authoritySource: authority.source,
-    role: parsed.role,
-    organizationId: organization?.organizationId || null,
+    role,
+    organizationId: organization.organizationId,
     correlationId,
     transport: parsed.formSubmission ? 'native-form' : 'json-fetch',
   }));

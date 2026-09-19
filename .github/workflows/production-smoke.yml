@@ -6,7 +6,7 @@ on:
       web_url:
         description: 'Web base URL to check'
         required: true
-        default: 'https://vermillion-kitsune-0e7b97.netlify.app'
+        default: 'https://процент-агро.рф'
       api_url:
         description: 'API base URL to check. Leave empty to skip API smoke.'
         required: false
@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      WEB_URL: ${{ inputs.web_url || 'https://vermillion-kitsune-0e7b97.netlify.app' }}
+      WEB_URL: ${{ inputs.web_url || 'https://процент-агро.рф' }}
       API_URL: ${{ inputs.api_url || '' }}
       WEB_PATHS: ${{ inputs.web_paths || '' }}
     steps:

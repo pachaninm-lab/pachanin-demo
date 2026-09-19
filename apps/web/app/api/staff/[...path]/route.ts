@@ -1,13 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
+import { requiresCanonicalControlHost } from '@/lib/platform-v7/control-host';
+import { resolveServerApiBaseUrl } from '@/lib/server/server-api-origin';
 import { assertCsrf } from '@/lib/server-request-security';
+import { readBoundedBody } from '../../../../lib/uploads/bounded-body';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 12;
+export const maxDuration = 75;
 
-const API_URL = String(process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '').trim().replace(/\/$/, '');
+const API_BASE_URL = resolveServerApiBaseUrl();
 const STAFF_ACCESS_COOKIE = 'pc_staff_access_token';
 const STAFF_ACCESS_META_COOKIE = 'pc_staff_access_meta';
 const MAX_BODY_BYTES = 64 * 1024;
@@ -22,6 +25,7 @@ const READ_PATHS = [
   /^organizations$/,
   /^organizations\/[^/]+\/users$/,
   /^organizations\/[^/]+\/cabinet\/[^/]+$/,
+  /^registration\/applications$/,
   /^audit\/events$/,
   /^break-glass\/active$/,
 ] as const;
@@ -33,6 +37,7 @@ const WRITE_PATHS = [
   /^access\/sessions\/[^/]+\/(?:end|revoke)$/,
   /^break-glass\/activate$/,
   /^break-glass\/[^/]+\/end$/,
+  /^registration\/applications\/[^/]+\/decision$/,
 ] as const;
 
 type StaffSessionMetadata = {
@@ -170,7 +175,7 @@ function parseMetadata(raw: string | undefined): StaffSessionMetadata | null {
 }
 
 async function listOwnSessions(accessToken: string, correlationId: string): Promise<StaffSessionRow[]> {
-  const upstream = await fetch(`${API_URL}/staff/access/sessions`, {
+  const upstream = await fetch(`${API_BASE_URL}/staff/access/sessions`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       Accept: 'application/json',
@@ -218,7 +223,7 @@ function persistedMetadata(row: StaffSessionRow): StaffSessionMetadata | null {
 
 async function cleanupActivatedSession(accessToken: string, sessionId: string, correlationId: string) {
   try {
-    await fetch(`${API_URL}/staff/access/sessions/${encodeURIComponent(sessionId)}/end`, {
+    await fetch(`${API_BASE_URL}/staff/access/sessions/${encodeURIComponent(sessionId)}/end`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -280,24 +285,19 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
   const path = normalizePath(pathSegments);
   const correlationId = request.headers.get('x-correlation-id')?.slice(0, 128) || randomUUID();
 
+  if (requiresCanonicalControlHost(request)) {
+    const response = json({ ok: false, code: 'CONTROL_HOST_REQUIRED', correlationId }, 421);
+    clearStaffSession(response);
+    return response;
+  }
+
   const accessToken = request.cookies.get(ACCESS_COOKIE)?.value;
   if (!accessToken) {
     const response = json({ ok: false, code: 'UNAUTHENTICATED', message: 'Требуется повторный вход.', correlationId }, 401);
     clearStaffSession(response);
     return response;
   }
-  if (!API_URL) {
-    return json({ ok: false, code: 'STAFF_SERVICE_UNAVAILABLE', message: 'Контур управления временно недоступен.', correlationId }, 503);
-  }
-
-  let apiOrigin: string;
-  try {
-    const url = new URL(API_URL);
-    if (process.env.NODE_ENV === 'production' && url.protocol !== 'https:') {
-      return json({ ok: false, code: 'STAFF_SERVICE_UNAVAILABLE', message: 'Контур управления временно недоступен.', correlationId }, 503);
-    }
-    apiOrigin = url.toString().replace(/\/$/, '');
-  } catch {
+  if (!API_BASE_URL) {
     return json({ ok: false, code: 'STAFF_SERVICE_UNAVAILABLE', message: 'Контур управления временно недоступен.', correlationId }, 503);
   }
 
@@ -323,14 +323,42 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
 
   let body: string | undefined;
   if (method === 'POST') {
-    body = await request.text();
-    if (Buffer.byteLength(body, 'utf8') > MAX_BODY_BYTES) {
+    // Предпроверка выше отказывает на некорректном заголовке - этот случай
+    // здесь продуман, в отличие от соседних маршрутов. Но у chunked-запроса
+    // заголовка нет вовсе, Number(null || 0) это ноль, и она молчит.
+    //
+    // Ниже стояла проверка после чтения, поэтому слишком большое тело всё же
+    // отвергалось - но уже занятой памятью. Счёт байтов на чтении отказывает
+    // до неё, а не после. Обёрнуто: оборвавшийся клиент роняет reader.read(),
+    // и прежде это была необработанная ошибка сервера.
+    let raw: ArrayBuffer | null;
+    try {
+      raw = await readBoundedBody(request.body, MAX_BODY_BYTES);
+    } catch {
+      return json({ ok: false, code: 'REQUEST_BODY_UNREADABLE', message: 'Тело запроса не удалось прочитать.', correlationId }, 400);
+    }
+    if (raw === null) {
       return json({ ok: false, code: 'PAYLOAD_TOO_LARGE', message: 'Запрос превышает допустимый размер.', correlationId }, 413);
     }
+    body = new TextDecoder().decode(raw);
+  }
+
+  const registrationDecision = /^registration\/applications\/[^/]+\/decision$/.test(path);
+  const registrationDeliveryKey = registrationDecision
+    ? String(process.env.REGISTRATION_DELIVERY_KEY || '').trim()
+    : '';
+  const idempotencyKey = registrationDecision
+    ? String(request.headers.get('idempotency-key') || '').trim()
+    : '';
+  if (registrationDecision && registrationDeliveryKey.length < 32) {
+    return json({ ok: false, code: 'REGISTRATION_NOTIFICATION_UNAVAILABLE', correlationId }, 503);
+  }
+  if (registrationDecision && (idempotencyKey.length < 16 || idempotencyKey.length > 128)) {
+    return json({ ok: false, code: 'IDEMPOTENCY_KEY_REQUIRED', correlationId }, 400);
   }
 
   const query = request.nextUrl.searchParams.toString();
-  const targetUrl = `${apiOrigin}/staff/${path}${query ? `?${query}` : ''}`;
+  const targetUrl = `${API_BASE_URL}/staff/${path}${query ? `?${query}` : ''}`;
   const ip = requestIp(request);
   const userAgent = request.headers.get('user-agent');
 
@@ -343,13 +371,17 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
         Accept: 'application/json',
         'x-correlation-id': correlationId,
         ...(staffAccessToken ? { 'x-staff-access-session': staffAccessToken } : {}),
+        ...(registrationDecision ? {
+          'idempotency-key': idempotencyKey,
+          'x-registration-delivery-key': registrationDeliveryKey,
+        } : {}),
         ...(ip ? { 'x-forwarded-for': ip } : {}),
         ...(userAgent ? { 'user-agent': userAgent } : {}),
       },
       body,
       cache: 'no-store',
       redirect: 'manual',
-      signal: AbortSignal.timeout(8_000),
+      signal: AbortSignal.timeout(registrationDecision ? 65_000 : 8_000),
     });
 
     if (upstream.status >= 300 && upstream.status < 400) {
@@ -362,6 +394,40 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
       : {};
     const safePayload: Record<string, unknown> = { ...payloadObject, correlationId };
     delete safePayload.accessToken;
+    const notification = safePayload.notificationDelivery && typeof safePayload.notificationDelivery === 'object'
+      ? safePayload.notificationDelivery as { status?: unknown }
+      : null;
+    delete safePayload.notificationDelivery;
+    if (upstream.ok && registrationDecision && notification?.status !== 'SENT') {
+      return json({
+        ...safePayload,
+        code: 'REGISTRATION_DECISION_NOTIFICATION_PENDING',
+        correlationId,
+      }, 503);
+    }
+    if (upstream.ok && registrationDecision && payloadObject.replayed !== true) {
+      const notificationDelivered = notification?.status === 'SENT';
+      safePayload.notificationDelivered = notificationDelivered;
+      console.info('registration_decision_notification_result', JSON.stringify({
+        correlationId,
+        delivered: notificationDelivered,
+        provider: 'auth-mail-outbox',
+        reason: String(notification?.status || 'MISSING'),
+      }));
+    }
+    if (upstream.ok && registrationDecision && correlationId.startsWith('p0-human-')) {
+      const applicationId = path.split('/')[2] || '';
+      const replayed = payloadObject.replayed === true;
+      const notificationDelivered = safePayload.notificationDelivered === true;
+      console.info('p0_human_reviewer_ceremony', JSON.stringify({
+        marker: 'P0_HUMAN_REVIEWER_CEREMONY',
+        applicationId,
+        correlationId,
+        replayed,
+        notificationDelivered,
+        notificationSuppressed: replayed && !Object.hasOwn(safePayload, 'notificationDelivered'),
+      }));
+    }
     let response = json(Array.isArray(payload) ? payload : safePayload, upstream.status);
 
     if (upstream.ok && /^access\/grants\/[^/]+\/activate$/.test(path)) {

@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "scopeId": "next-15-5-21-security-hotfix-v1",
+  "branch": "security/next-15-5-21-hotfix",
+  "governanceBase": "0b1ef8d7e30a55e7ffbb00ff2daed175e3b2298d",
+  "advisories": [
+    "GHSA-89xv-2m56-2m9x",
+    "GHSA-m99w-x7hq-7vfj",
+    "GHSA-p9j2-gv94-2wf4"
+  ],
+  "target": {
+    "package": "next",
+    "from": "15.5.18",
+    "to": "15.5.21"
+  },
+  "allowedPaths": [
+    ".github/workflows/apply-next-15-5-21-hotfix.yml",
+    "apps/web/package.json",
+    "docs/security/next-15-5-21-security-hotfix.md",
+    "pnpm-lock.yaml"
+  ],
+  "acceptance": [
+    "pnpm frozen-lockfile install passes",
+    "production dependency audit has no unexcepted HIGH or CRITICAL finding for next",
+    "web typecheck and production build pass",
+    "security quality and runtime context gates pass"
+  ],
+  "forbidden": [
+    "formal exception for the three Next.js HIGH advisories",
+    "React major upgrade",
+    "application feature or routing changes",
+    "production deployment changes",
+    "lockfile changes unrelated to the exact Next.js patch update"
+  ]
+}

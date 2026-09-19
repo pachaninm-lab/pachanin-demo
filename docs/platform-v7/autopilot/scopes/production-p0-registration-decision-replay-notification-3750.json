@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/production-p0-registration-decision-replay-notification-3750",
+  "status": "active",
+  "purpose": "Prevent exact registration-decision idempotency replays from exposing notification delivery metadata a second time.",
+  "authorityBaseExactMain": "7bf5d4cef3315bf96a00e56e2152b2af5fe614f4",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/api/src/modules/auth/registration-decision.service.spec.ts",
+    "apps/api/src/modules/auth/registration-decision.service.ts"
+  ],
+  "baselineSha256": {
+    "service": "37a53d1966df2a14e5bf687604845334aa0137926de7d86a63ccf3b8be62e0b3",
+    "test": "2c949a94235f0ae47baa89a3c0ccd0aba385ddc9cfddad8acd6ffa91988870ea"
+  },
+  "acceptedSha256": {
+    "service": "0b1e3d8da5d07da875eec065332f4ff6231068b023a13903ed43315c8c11954e",
+    "test": "c075095068fb1b566ffe8085c7175376e6e06f66ceafe12450fff1bca8fada90"
+  },
+  "requiredInvariants": [
+    "The first authorized decision result can expose one notification delivery payload.",
+    "An exact idempotency replay returns replayed=true and omits notification delivery metadata.",
+    "Reusing an idempotency key for another application remains a conflict.",
+    "Both platform-reviewer and organization-administrator decision paths share the replay-safe boundary.",
+    "The follow-up branch cannot edit this scope contract, its checker, or the protected guard workflow."
+  ]
+}

@@ -28,13 +28,19 @@ const baseInput = {
 
 function fixture(rows: unknown[]) {
   const access = { requestAccess: jest.fn().mockResolvedValue({ requestId: 'request-1' }) } as any;
-  const repository = { prisma: { $queryRaw: jest.fn().mockResolvedValue(rows) } } as any;
-  return { service: new StaffAccessRequestService(repository, access), access, repository };
+  const repository = { prisma: { $queryRaw: jest.fn() } } as any;
+  const staffAuthorityPrisma = { $queryRaw: jest.fn().mockResolvedValue(rows) } as any;
+  return {
+    service: new StaffAccessRequestService(repository, access, staffAuthorityPrisma),
+    access,
+    repository,
+    staffAuthorityPrisma,
+  };
 }
 
 describe('StaffAccessRequestService deal scope binding', () => {
-  it('injects the authoritative tenant returned by PostgreSQL', async () => {
-    const { service, access } = fixture([{
+  it('injects the authoritative tenant returned by the dedicated staff datasource', async () => {
+    const { service, access, staffAuthorityPrisma, repository } = fixture([{
       tenant_id: 'tenant-a',
       seller_organization_id: 'seller-org',
       buyer_organization_id: 'buyer-org',
@@ -42,6 +48,8 @@ describe('StaffAccessRequestService deal scope binding', () => {
 
     await service.requestAccess(user, baseInput, 'correlation-1');
 
+    expect(staffAuthorityPrisma.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(repository.prisma.$queryRaw).not.toHaveBeenCalled();
     expect(access.requestAccess).toHaveBeenCalledWith(user, {
       ...baseInput,
       targetTenantId: 'tenant-a',
@@ -82,11 +90,12 @@ describe('StaffAccessRequestService deal scope binding', () => {
     expect(access.requestAccess).not.toHaveBeenCalled();
   });
 
-  it('does not invoke the projection for requests without a target deal', async () => {
-    const { service, access, repository } = fixture([]);
+  it('does not invoke either projection datasource for requests without a target deal', async () => {
+    const { service, access, repository, staffAuthorityPrisma } = fixture([]);
     const input = { ...baseInput, targetDealId: undefined, targetTenantId: 'tenant-a' };
     await service.requestAccess(user, input);
     expect(repository.prisma.$queryRaw).not.toHaveBeenCalled();
+    expect(staffAuthorityPrisma.$queryRaw).not.toHaveBeenCalled();
     expect(access.requestAccess).toHaveBeenCalledWith(user, input, undefined);
   });
 });

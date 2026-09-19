@@ -1,0 +1,20 @@
+{
+  "attestation_reference": "https://github.com/pachaninm-lab/pachanin-demo/issues/2877?comment_id=5030210324#sha256=c83c7e64842e3fafc4bfb2f0e9933853b1af2af14dda6bc450a5c77592d46532",
+  "conditions": [
+    "Соблюдать условия Apache-2.0 и сохранять применимые уведомления об авторских правах и лицензии.",
+    "Использование ограничено локальным коммерческим inference внутри Transparent Agro Intelligence на контролируемой инфраструктуре.",
+    "Публичное распространение исходных весов в рамках этого решения запрещено.",
+    "Разрешены только controlled conversion и зарегистрированная квантизация принятым exact llama.cpp b9637 toolchain.",
+    "Решение не является benchmark, model admission, production readiness или operational attestation; статус остаётся NOT_ATTESTED."
+  ],
+  "decision": "APPROVED",
+  "decision_basis": "Человеческое рассмотрение точной ревизии Qwen/Qwen3-8B@895c8d171bc03c30e113cd7a28c02494b5e068b7, принятого model-card SHA-256 2d321409d3083a11c13cf00baa2d7adf0eac68ddaf484fcd46e6f5b313c5f95c, точного текста Apache-2.0 SHA-256 cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30, legal packet SHA-256 aace040831e8f304729d90c8cf51a5f90d92c414f7cfbf4a5e23e7087df06bb2, принятых source-acquisition evidence и intended use. Решение APPROVED ограничено локальным коммерческим inference внутри TAI, хранением на контролируемой инфраструктуре и последующей governed conversion/quantization без публичного распространения исходных весов.",
+  "license_spdx": "Apache-2.0",
+  "license_text_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+  "record_type": "ATTRIBUTED_RECORD",
+  "reviewed_at": "2026-07-21T07:36:01+03:00",
+  "reviewer_id": "github:pachaninm-lab",
+  "reviewer_name": "Максим / pachaninm-lab",
+  "reviewer_type": "HUMAN",
+  "schema_version": "tai.model-legal-review-record.v1"
+}

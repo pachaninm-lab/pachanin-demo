@@ -1,0 +1,409 @@
+name: Production Auth-Mail Outbox Cutover
+
+on:
+  workflow_call:
+    inputs:
+      controller_authorized:
+        description: 'Set only by the bounded owner release controller after full-stack success.'
+        required: true
+        type: boolean
+      controller_target_sha:
+        description: 'Exact main SHA released by the owner controller.'
+        required: true
+        type: string
+      controller_run_id:
+        description: 'Owner release-controller run that contains successful full-stack jobs.'
+        required: true
+        type: string
+      controller_issue_number:
+        description: 'Exact owner-validated release issue propagated by the controller.'
+        required: true
+        type: number
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-auth-mail-outbox-cutover.yml'
+      - '.github/workflows/platform-v7-safe-merge.yml'
+      - 'scripts/production-auth-mail-outbox-cutover.sh'
+      - 'scripts/production-auth-mail-outbox-cutover-core.sh'
+      - 'scripts/check-production-auth-mail-outbox-cutover.mjs'
+      - 'scripts/provision-production-auth-mail-runtime.sh'
+      - 'apps/api/src/auth-mail-worker.ts'
+      - 'apps/api/src/modules/auth-mail/**'
+      - 'apps/api/src/modules/auth/password-reset.service.ts'
+      - 'apps/api/src/modules/auth/password-reset.service.spec.ts'
+      - 'apps/api/src/modules/auth/dto/password-reset.dto.ts'
+      - 'apps/api/src/modules/auth/auth.module.ts'
+      - 'apps/api/prisma/migrations/20260812010000_p0_industrial_auth_mail_outbox/**'
+      - 'apps/web/app/api/auth/forgot-password/route.ts'
+      - 'infra/docker/Dockerfile.api'
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+concurrency:
+  group: production-auth-mail-outbox-cutover
+  cancel-in-progress: false
+  queue: max
+
+env:
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  EVIDENCE_DIR: artifacts/production-auth-mail-outbox-cutover
+  RELEASE_ISSUE_NUMBER: 3072
+  CONTINUATION_ISSUE_NUMBER: 4637
+  REGISTRATION_ISSUE_NUMBER: 3785
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+  PROD_DIR_SECRET: ${{ secrets.PC_PROD_DIR }}
+  PROD_COMPOSE_SECRET: ${{ secrets.PC_PROD_COMPOSE }}
+  PROD_PROJECT_SECRET: ${{ secrets.PC_PROD_PROJECT }}
+
+jobs:
+  contract:
+    name: Validate auth-mail cutover contract
+    if: >-
+      (inputs.controller_authorized == true &&
+       github.event_name == 'issue_comment' &&
+       (inputs.controller_issue_number == 3072 || inputs.controller_issue_number == 4637) &&
+       inputs.controller_issue_number == github.event.issue.number &&
+       github.event.comment.user.login == github.repository_owner &&
+       github.event.comment.author_association == 'OWNER' &&
+       github.event.comment.body == '/production release current-main' &&
+       github.actor == github.repository_owner &&
+       github.triggering_actor == github.repository_owner) ||
+      github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.controller_authorized == true && inputs.controller_target_sha || github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate bounded cutover source contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/production-auth-mail-outbox-cutover.sh
+          bash -n scripts/production-auth-mail-outbox-cutover-core.sh
+          bash -n scripts/provision-production-auth-mail-runtime.sh
+          node scripts/check-production-auth-mail-outbox-cutover.mjs
+
+  production:
+    name: Cut over exact production to durable auth-mail worker
+    needs: contract
+    if: >-
+      (inputs.controller_authorized == true &&
+       github.event_name == 'issue_comment' &&
+       (inputs.controller_issue_number == 3072 || inputs.controller_issue_number == 4637) &&
+       inputs.controller_issue_number == github.event.issue.number &&
+       github.event.comment.user.login == github.repository_owner &&
+       github.event.comment.author_association == 'OWNER' &&
+       github.event.comment.body == '/production release current-main' &&
+       github.actor == github.repository_owner &&
+       github.triggering_actor == github.repository_owner)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    concurrency:
+      group: pc-crop-production-release-candidate
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.controller_target_sha }}
+          fetch-depth: 0
+
+      - name: Guard immutable release candidate and upstream release authority
+        id: target
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          CONTROLLER_AUTHORIZED: ${{ inputs.controller_authorized == true }}
+          TARGET_SHA: ${{ inputs.controller_target_sha }}
+          UPSTREAM_RUN_ID: ${{ inputs.controller_run_id }}
+          UPSTREAM_NAME: platform-v7 safe merge
+          UPSTREAM_CONCLUSION: success
+          UPSTREAM_HEAD_BRANCH: main
+          UPSTREAM_EVENT: ${{ github.event_name }}
+          UPSTREAM_ACTOR: ${{ github.actor }}
+          UPSTREAM_TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          CONTROLLER_ISSUE_NUMBER: ${{ inputs.controller_issue_number }}
+          TRIGGER_ISSUE_NUMBER: ${{ github.event.issue.number }}
+          CONTROLLER_COMMENTER: ${{ github.event.comment.user.login }}
+          CONTROLLER_COMMAND: ${{ github.event.comment.body }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          [[ "$UPSTREAM_CONCLUSION" == success ]]
+          [[ "$UPSTREAM_HEAD_BRANCH" == main ]]
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$UPSTREAM_RUN_ID" =~ ^[0-9]{1,24}$ ]]
+          actor_is_owner=false
+          triggering_actor_is_owner=false
+          [[ "$UPSTREAM_ACTOR" == "$REPOSITORY_OWNER" ]] && actor_is_owner=true
+          [[ "$UPSTREAM_TRIGGERING_ACTOR" == "$REPOSITORY_OWNER" ]] && triggering_actor_is_owner=true
+          printf 'UPSTREAM_PROVENANCE_NAME=%s\nUPSTREAM_PROVENANCE_EVENT=%s\nUPSTREAM_ACTOR_IS_OWNER=%s\nUPSTREAM_TRIGGERING_ACTOR_IS_OWNER=%s\nCONTROLLER_AUTHORIZED=%s\n' \
+            "$UPSTREAM_NAME" "$UPSTREAM_EVENT" "$actor_is_owner" "$triggering_actor_is_owner" "$CONTROLLER_AUTHORIZED"
+
+          [[ "$CONTROLLER_AUTHORIZED" == true ]]
+          [[ "$UPSTREAM_NAME" == 'platform-v7 safe merge' ]]
+          [[ "$UPSTREAM_EVENT" == issue_comment ]]
+          [[ "$CONTROLLER_ISSUE_NUMBER" == "$RELEASE_ISSUE_NUMBER" || "$CONTROLLER_ISSUE_NUMBER" == "$CONTINUATION_ISSUE_NUMBER" ]]
+          [[ "$CONTROLLER_ISSUE_NUMBER" == "$TRIGGER_ISSUE_NUMBER" ]]
+          [[ "$CONTROLLER_COMMENTER" == "$REPOSITORY_OWNER" ]]
+          [[ "$CONTROLLER_COMMAND" == '/production release current-main' ]]
+          [[ "$UPSTREAM_ACTOR" == "$REPOSITORY_OWNER" ]]
+          [[ "$UPSTREAM_TRIGGERING_ACTOR" == "$REPOSITORY_OWNER" ]]
+          for required_job in \
+            'production-full-stack-execution-3072 / Validate full-stack release contract' \
+            'production-full-stack-execution-3072 / Migrate, deploy API and web, verify live intake'; do
+            mapfile -t conclusions < <(gh api \
+              -H 'Accept: application/vnd.github+json' \
+              "repos/$REPO/actions/runs/$UPSTREAM_RUN_ID/jobs?filter=latest&per_page=100" \
+              --jq ".jobs | map(select(.name == \"$required_job\")) | .[].conclusion")
+            [[ "${#conclusions[@]}" == 1 && "${conclusions[0]}" == success ]] || {
+              echo 'AUTH_MAIL_CUTOVER=FAIL_CONTROLLER_RELEASE_EVIDENCE'
+              echo "REQUIRED_JOB=$required_job"
+              exit 17
+            }
+          done
+
+          git fetch --no-tags origin main
+          current_main="$(git rev-parse origin/main)"
+          [[ "$current_main" == "$(gh api "repos/$REPO/commits/main" --jq .sha)" ]]
+          git cat-file -e "${TARGET_SHA}^{commit}"
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]] || {
+            echo 'AUTH_MAIL_CUTOVER=FAIL_CHECKOUT_NOT_EXACT_RELEASE_CANDIDATE'
+            exit 18
+          }
+          git merge-base --is-ancestor "$TARGET_SHA" "$current_main" || {
+            echo 'AUTH_MAIL_CUTOVER=FAIL_RELEASE_CANDIDATE_NO_LONGER_ANCESTOR'
+            exit 19
+          }
+          echo 'eligible=true' >> "$GITHUB_OUTPUT"
+          echo "sha=$TARGET_SHA" >> "$GITHUB_OUTPUT"
+          echo "upstream_run_id=$UPSTREAM_RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "evidence_issue_number=$CONTROLLER_ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve protected key and pinned VPS identity
+        if: steps.target.outputs.eligible == 'true'
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || { echo 'Canonical VPS mismatch.' >&2; exit 10; }
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] || { echo 'Protected production principal is missing or invalid.' >&2; exit 11; }
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535)) || exit 12
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] || { echo 'Pinned host fingerprint is required.' >&2; exit 13; }
+          domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
+          grep -Fxq "$DEFAULT_HOST" <<< "$domain_ips"
+          mkdir -p "$HOME/.ssh" "$EVIDENCE_DIR"
+          chmod 700 "$HOME/.ssh"
+
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
+            tr -d '\r' < "$source" > "$target"
+            chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            pub="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
+            ssh-keygen -lf "$pub" > "$EVIDENCE_DIR/ssh-key-fingerprint.txt"
+            rm -f "$pub"
+          }
+          try_slot(){
+            local raw="$1" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }
+            rm -f "$a" "$b" "$c"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}" || {
+            echo 'No valid protected SSH private key is configured.' >&2
+            exit 14
+          }
+
+          scan="$(mktemp)"; match="$(mktemp)"; pinned_ready=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"
+            ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            if [[ -s "$scan" ]]; then
+              while IFS= read -r line; do
+                fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+                [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+              done < "$scan"
+              sort -u -o "$match" "$match"
+              if [[ "$(grep -c . "$match" || true)" == 1 ]]; then pinned_ready=1; break; fi
+            fi
+            (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$pinned_ready" == 1 ]] || { rm -f "$scan" "$match"; echo 'Pinned host key mismatch.' >&2; exit 15; }
+          mv "$match" "$HOME/.ssh/known_hosts"; rm -f "$scan"; chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$SSH_USER_SECRET@$host" \
+            'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null; docker compose version >/dev/null; python3 --version >/dev/null; echo SSH_AUTH_OK' \
+            > "$EVIDENCE_DIR/ssh-auth.txt"
+          grep -Fxq SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Copy bounded auth-mail assets
+        if: steps.target.outputs.eligible == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          UPSTREAM_RUN_ID: ${{ steps.target.outputs.upstream_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes)
+          scp "${scp_common[@]}" scripts/production-auth-mail-outbox-cutover.sh "$SSH_USER_SECRET@$HOST:/tmp/pc-auth-mail-cutover-${GITHUB_RUN_ID}.sh"
+          scp "${scp_common[@]}" scripts/production-auth-mail-outbox-cutover-core.sh "$SSH_USER_SECRET@$HOST:/tmp/pc-auth-mail-cutover-core-${GITHUB_RUN_ID}.sh"
+          scp "${scp_common[@]}" scripts/provision-production-auth-mail-runtime.sh "$SSH_USER_SECRET@$HOST:/tmp/pc-auth-mail-provision-${UPSTREAM_RUN_ID}.sh"
+
+      - name: Execute fail-closed auth-mail cutover
+        if: steps.target.outputs.eligible == 'true'
+        id: cutover
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          UPSTREAM_RUN_ID: ${{ steps.target.outputs.upstream_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main >/dev/null
+          current_main="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$(git rev-parse origin/main)" == "$current_main" ]]
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          git merge-base --is-ancestor "$TARGET_SHA" "$current_main" || {
+            echo AUTH_MAIL_CUTOVER=FAIL_RELEASE_CANDIDATE_NO_LONGER_ANCESTOR
+            exit 19
+          }
+          enc(){ printf '%s' "$1" | base64 -w0; }
+          raw="$(mktemp)"; clean="$EVIDENCE_DIR/cutover.log"
+          set +e
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+            "set -euo pipefail; chmod 0700 '/tmp/pc-auth-mail-cutover-${GITHUB_RUN_ID}.sh' '/tmp/pc-auth-mail-cutover-core-${GITHUB_RUN_ID}.sh' '/tmp/pc-auth-mail-provision-${UPSTREAM_RUN_ID}.sh'; PC_AUTH_MAIL_CUTOVER_CORE='/tmp/pc-auth-mail-cutover-core-${GITHUB_RUN_ID}.sh' PC_AUTH_MAIL_PROVISION_SCRIPT='/tmp/pc-auth-mail-provision-${UPSTREAM_RUN_ID}.sh' PC_PROD_DIR_B64='$(enc "${PROD_DIR_SECRET:-}")' PC_PROD_COMPOSE_B64='$(enc "${PROD_COMPOSE_SECRET:-}")' PC_PROD_PROJECT_B64='$(enc "${PROD_PROJECT_SECRET:-}")' '/tmp/pc-auth-mail-cutover-${GITHUB_RUN_ID}.sh' cutover '$TARGET_SHA' '$UPSTREAM_RUN_ID'" > "$raw" 2>&1
+          rc=$?
+          set -e
+          sed -E \
+            -e 's#postgres(ql)?://[^[:space:]@]+@#postgresql://[REDACTED]@#g' \
+            -e 's#(PASSWORD|TOKEN|SECRET|PASS|KEY)([A-Z0-9_]*)([=:])[[:graph:]]+#\1\2\3[REDACTED]#gI' \
+            "$raw" > "$clean"
+          rm -f "$raw"
+          cat "$clean"
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          for field in AUTH_MAIL_CUTOVER TARGET_SHA DEPLOYED_API_REVISION DEPLOYED_WEB_REVISION DEPLOYED_AUTH_MAIL_WORKER_REVISION AUTH_MAIL_WORKER_READY AUTH_MAIL_RUNTIME LEGACY_WEB_TRANSACTIONAL_MAIL_AUTHORITY API_SMTP_AUTHORITY ROLLBACK_ATTEMPTED ROLLBACK_COMPLETE ERROR_CODE; do
+            value="$(sed -n "s/^${field}=//p" "$clean" | tail -1)"
+            echo "$(printf '%s' "$field" | tr '[:upper:]' '[:lower:]')=${value:-unknown}" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Publish bounded production evidence
+        if: always() && steps.target.outputs.eligible == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          UPSTREAM_RUN_ID: ${{ steps.target.outputs.upstream_run_id }}
+          CUTOVER_RC: ${{ steps.cutover.outputs.rc }}
+          CUTOVER_STATUS: ${{ steps.cutover.outputs.auth_mail_cutover }}
+          API_REVISION: ${{ steps.cutover.outputs.deployed_api_revision }}
+          WEB_REVISION: ${{ steps.cutover.outputs.deployed_web_revision }}
+          WORKER_REVISION: ${{ steps.cutover.outputs.deployed_auth_mail_worker_revision }}
+          WORKER_READY: ${{ steps.cutover.outputs.auth_mail_worker_ready }}
+          AUTH_MAIL_RUNTIME: ${{ steps.cutover.outputs.auth_mail_runtime }}
+          LEGACY_WEB_TRANSACTIONAL_MAIL_AUTHORITY: ${{ steps.cutover.outputs.legacy_web_transactional_mail_authority }}
+          API_SMTP_AUTHORITY: ${{ steps.cutover.outputs.api_smtp_authority }}
+          ROLLBACK_ATTEMPTED: ${{ steps.cutover.outputs.rollback_attempted }}
+          ROLLBACK_COMPLETE: ${{ steps.cutover.outputs.rollback_complete }}
+          ERROR_CODE: ${{ steps.cutover.outputs.error_code }}
+          CONTROLLER_AUTHORIZED: ${{ inputs.controller_authorized == true }}
+          EVIDENCE_ISSUE_NUMBER: ${{ steps.target.outputs.evidence_issue_number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EVIDENCE_ISSUE_NUMBER" == "$RELEASE_ISSUE_NUMBER" || "$EVIDENCE_ISSUE_NUMBER" == "$CONTINUATION_ISSUE_NUMBER" ]]
+          record="$EVIDENCE_DIR/evidence.md"
+          {
+            echo '### PC-CROP durable auth-mail production cutover'
+            echo
+            echo "- target SHA: \`${TARGET_SHA}\`"
+            echo "- upstream release-controller run: \`${UPSTREAM_RUN_ID}\`"
+            echo "- cutover: \`${CUTOVER_STATUS:-unknown}\` (rc=\`${CUTOVER_RC:-unknown}\`)"
+            echo "- API revision: \`${API_REVISION:-unknown}\`"
+            echo "- web revision: \`${WEB_REVISION:-unknown}\`"
+            echo "- auth-mail worker revision: \`${WORKER_REVISION:-unknown}\`"
+            echo "- worker ready: \`${WORKER_READY:-unknown}\`"
+            echo "- auth-mail runtime: \`${AUTH_MAIL_RUNTIME:-unknown}\`"
+            echo "- legacy Web transactional-mail authority: \`${LEGACY_WEB_TRANSACTIONAL_MAIL_AUTHORITY:-unknown}\`"
+            echo "- API SMTP authority: \`${API_SMTP_AUTHORITY:-unknown}\`"
+            echo "- rollback attempted: \`${ROLLBACK_ATTEMPTED:-unknown}\`"
+            echo "- rollback complete: \`${ROLLBACK_COMPLETE:-unknown}\`"
+            echo "- safe error code: \`${ERROR_CODE:-none}\`"
+            echo '- secrets, reset bearer tokens, recipients and raw SMTP responses are not published.'
+          } > "$record"
+          if [[ "$CONTROLLER_AUTHORIZED" == true && "$EVIDENCE_ISSUE_NUMBER" == "$CONTINUATION_ISSUE_NUMBER" ]]; then
+            gh issue comment "$EVIDENCE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          else
+            gh issue comment "$REGISTRATION_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+            gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          fi
+
+      - name: Cleanup bounded remote assets
+        if: always() && steps.target.outputs.eligible == 'true' && steps.ssh.outputs.host != ''
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          UPSTREAM_RUN_ID: ${{ steps.target.outputs.upstream_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$SSH_USER_SECRET@$HOST" \
+            "rm -f '/tmp/pc-auth-mail-cutover-${GITHUB_RUN_ID}.sh' '/tmp/pc-auth-mail-cutover-core-${GITHUB_RUN_ID}.sh' '/tmp/pc-auth-mail-provision-${UPSTREAM_RUN_ID}.sh'" || true
+
+      - name: Enforce cutover result
+        if: steps.target.outputs.eligible == 'true'
+        env:
+          RC: ${{ steps.cutover.outputs.rc }}
+          STATUS: ${{ steps.cutover.outputs.auth_mail_cutover }}
+          API_REVISION: ${{ steps.cutover.outputs.deployed_api_revision }}
+          WEB_REVISION: ${{ steps.cutover.outputs.deployed_web_revision }}
+          WORKER_REVISION: ${{ steps.cutover.outputs.deployed_auth_mail_worker_revision }}
+          WORKER_READY: ${{ steps.cutover.outputs.auth_mail_worker_ready }}
+          AUTH_MAIL_RUNTIME: ${{ steps.cutover.outputs.auth_mail_runtime }}
+          LEGACY_WEB_TRANSACTIONAL_MAIL_AUTHORITY: ${{ steps.cutover.outputs.legacy_web_transactional_mail_authority }}
+          API_SMTP_AUTHORITY: ${{ steps.cutover.outputs.api_smtp_authority }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${RC:-1}" == 0 ]]
+          [[ "$STATUS" == PASS ]]
+          [[ "$API_REVISION" == "$TARGET_SHA" ]]
+          [[ "$WEB_REVISION" == "$TARGET_SHA" ]]
+          [[ "$WORKER_REVISION" == "$TARGET_SHA" ]]
+          [[ "$WORKER_READY" == PASS ]]
+          [[ "$AUTH_MAIL_RUNTIME" == PASS ]]
+          [[ "$LEGACY_WEB_TRANSACTIONAL_MAIL_AUTHORITY" == PRESERVED ]]
+          [[ "$API_SMTP_AUTHORITY" == ABSENT ]]

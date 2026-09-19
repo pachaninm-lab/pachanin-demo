@@ -1,23 +1,9 @@
 import { IntegrationAdapter, HealthStatus } from './adapter.interface';
-import { MockFgisZernoAdapter } from './adapters/fgis-zerno.adapter';
-import { MockFnsAdapter } from './adapters/fns.adapter';
-import { MockDiadokAdapter } from './adapters/diadok.adapter';
-import { MockCryptoproAdapter } from './adapters/cryptopro.adapter';
-import { MockBankAdapter } from './adapters/bank.adapter';
-import { MockGpsAdapter } from './adapters/gps.adapter';
-import { MockFtsAdapter } from './adapters/fts.adapter';
-import { MockRshnAdapter } from './adapters/rshn.adapter';
-import { MockAmlAdapter } from './adapters/aml.adapter';
-import { MockRzdEtranAdapter } from './adapters/rzd-etran.adapter';
-import { MockGisEpdAdapter } from './adapters/gis-epd.adapter';
-import { MockBkiAdapter } from './adapters/bki.adapter';
-import { MockTakskomAdapter } from './adapters/takskom.adapter';
-import { MockMarineAdapter } from './adapters/marine.adapter';
-import { MockSmevAdapter } from './adapters/smev.adapter';
+import { QuarantinedFgisZernoAdapter } from './quarantine/fgis-zerno-legacy';
 
 export type AdapterName = 'FGIS_ZERNO' | 'FNS' | 'DIADOK' | 'CRYPTOPRO_DSS' | 'BANK' | 'GPS' | 'FTS' | 'RSHN' | 'AML_ROSFINMONITORING' | 'RZD_ETRAN' | 'GIS_EPD' | 'BKI_NBKI' | 'TAKSKOM' | 'MARINE_TRAFFIC' | 'SMEV';
 
-class IntegrationRegistry {
+export class IntegrationRegistry {
   private readonly adapters = new Map<AdapterName, IntegrationAdapter>();
 
   register(name: AdapterName, adapter: IntegrationAdapter): void {
@@ -52,31 +38,34 @@ class IntegrationRegistry {
     return results as Record<AdapterName, HealthStatus>;
   }
 
-  listAdapters(): Array<{ name: AdapterName; mode: string; version: string }> {
+  listAdapters(): Array<{
+    name: AdapterName;
+    mode: string;
+    version: string;
+    quarantined: boolean;
+  }> {
     return Array.from(this.adapters.entries()).map(([name, a]) => ({
       name,
       mode: a.mode,
       version: a.version,
+      // Surfaced so a status projection can tell "a mock stands in for this
+      // integration" apart from "this integration is withdrawn and fails
+      // closed". Rendering the second as sandbox would overstate readiness.
+      quarantined: (a as { isQuarantined?: boolean }).isQuarantined === true,
     }));
   }
 }
 
-// Singleton registry populated with mock adapters by default
-export const integrationRegistry = new IntegrationRegistry();
+/**
+ * Process adapter instances are mechanics, not binding or maturity authority.
+ * The exported process registry starts with only the permanently quarantined
+ * FGIS transport. Every other adapter must be bound explicitly by startup
+ * configuration; importing this module can no longer make a mock callable.
+ */
+export function createIntegrationRegistry(): IntegrationRegistry {
+  const registry = new IntegrationRegistry();
+  registry.register('FGIS_ZERNO', new QuarantinedFgisZernoAdapter());
+  return registry;
+}
 
-// Register all mock adapters — replace with live adapters via env flag
-integrationRegistry.register('FGIS_ZERNO', new MockFgisZernoAdapter());
-integrationRegistry.register('FNS', new MockFnsAdapter());
-integrationRegistry.register('DIADOK', new MockDiadokAdapter());
-integrationRegistry.register('CRYPTOPRO_DSS', new MockCryptoproAdapter());
-integrationRegistry.register('BANK', new MockBankAdapter());
-integrationRegistry.register('GPS', new MockGpsAdapter());
-integrationRegistry.register('FTS', new MockFtsAdapter());
-integrationRegistry.register('RSHN', new MockRshnAdapter());
-integrationRegistry.register('AML_ROSFINMONITORING', new MockAmlAdapter());
-integrationRegistry.register('RZD_ETRAN', new MockRzdEtranAdapter());
-integrationRegistry.register('GIS_EPD', new MockGisEpdAdapter());
-integrationRegistry.register('BKI_NBKI', new MockBkiAdapter());
-integrationRegistry.register('TAKSKOM', new MockTakskomAdapter('TAKSKOM'));
-integrationRegistry.register('MARINE_TRAFFIC', new MockMarineAdapter());
-integrationRegistry.register('SMEV', new MockSmevAdapter());
+export const integrationRegistry = createIntegrationRegistry();

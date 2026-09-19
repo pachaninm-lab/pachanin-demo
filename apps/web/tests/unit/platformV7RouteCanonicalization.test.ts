@@ -6,9 +6,11 @@ import {
 } from '@/lib/platform-v7/route-canonicalization';
 
 describe('platform-v7 route canonicalization', () => {
-  it('canonicalizes integration and connector terminology to connectors', () => {
-    expect(canonicalizePlatformV7Route('/platform-v7/integrations')).toBe(PLATFORM_V7_CANONICAL_ROUTES.connectors);
-    expect(isPlatformV7KnownAlias('/platform-v7/integrations')).toBe(true);
+  it('keeps Integration Control Tower as an independent canonical private route', () => {
+    expect(PLATFORM_V7_CANONICAL_ROUTES.integrations).toBe('/platform-v7/integrations');
+    expect(canonicalizePlatformV7Route('/platform-v7/integrations')).toBeUndefined();
+    expect(isPlatformV7KnownAlias('/platform-v7/integrations')).toBe(false);
+    expect(PLATFORM_V7_CANONICAL_ROUTES.integrations).not.toBe(PLATFORM_V7_CANONICAL_ROUTES.connectors);
   });
 
   it('canonicalizes singular dispute detail routes to plural disputes', () => {

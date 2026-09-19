@@ -1,0 +1,8 @@
+{
+  "implementationPullRequest": 2703,
+  "implementationBranch": "feat/assistant-universal-understanding",
+  "authorityBranch": "authority/assistant-scope-2703",
+  "status": "approved",
+  "separationOfAuthority": true,
+  "notes": "The implementation pull request cannot create or broaden this authority record. Any scope expansion requires another independent authority change."
+}

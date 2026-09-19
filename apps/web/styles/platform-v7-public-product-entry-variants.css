@@ -178,6 +178,91 @@
   outline-offset: 3px;
 }
 
+/* Public home visual refinement: improve hierarchy without changing the product architecture. */
+.pc-ppe-page .pc-public-intelligence-hero {
+  position: relative;
+}
+
+.pc-ppe-page .pc-public-intelligence-hero::before {
+  content: '';
+  position: absolute;
+  inset: 6% -10% auto 46%;
+  height: 58%;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(25, 125, 78, .08), rgba(25, 125, 78, 0) 68%);
+  pointer-events: none;
+}
+
+.pc-ppe-page .pc-public-intelligence-hero .pc-ppe-hero-copy {
+  position: relative;
+  z-index: 1;
+}
+
+.pc-ppe-page .pc-public-intelligence-hero .pc-ppe-kicker {
+  border-radius: 999px !important;
+  border-color: #bfd8c8 !important;
+  background: #f7fbf8 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
+}
+
+.pc-ppe-page .pc-public-intelligence-hero h1 {
+  max-width: 760px;
+  color: #0a241a;
+  letter-spacing: -.05em;
+}
+
+.pc-ppe-page .pc-public-intelligence-hero .pc-ppe-hero-copy > p {
+  max-width: 720px;
+  color: #53675d;
+}
+
+.pc-ppe-page .pc-public-hero-ai-line {
+  border: 1px solid #bfd8c8 !important;
+  border-left: 1px solid #bfd8c8 !important;
+  border-radius: 18px !important;
+  background: linear-gradient(180deg, #fbfdfc 0%, #f4faf6 100%) !important;
+  box-shadow: 0 12px 30px rgba(16, 70, 44, .07);
+}
+
+.pc-ppe-page .pc-public-hero-ai-line > svg {
+  width: 34px;
+  height: 34px;
+  padding: 8px;
+  border-radius: 12px;
+  background: #eaf6ee;
+}
+
+.pc-ppe-page .pc-ppe-primary-button {
+  border-radius: 16px !important;
+  background: linear-gradient(135deg, #0a8745 0%, #08723b 100%) !important;
+  box-shadow: 0 14px 26px rgba(8, 122, 59, .18) !important;
+  transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+}
+
+.pc-ppe-page .pc-ppe-primary-button:hover {
+  transform: translateY(-1px);
+  filter: brightness(.98);
+  box-shadow: 0 18px 34px rgba(8, 122, 59, .22) !important;
+}
+
+.pc-ppe-page .pc-ppe-secondary-button {
+  border-radius: 16px !important;
+  background: rgba(255,255,255,.94) !important;
+}
+
+.pc-ppe-page .pc-ppe-hero-contour {
+  border-color: #d8e5dd !important;
+  border-radius: 22px !important;
+  background: linear-gradient(155deg, rgba(255,255,255,.98), #f4f8f5) !important;
+  box-shadow: 0 18px 42px rgba(12, 51, 34, .08) !important;
+}
+
+.pc-ppe-page .pc-public-hero-intelligence {
+  border-color: #d5e4db !important;
+  border-radius: 16px !important;
+  box-shadow: none !important;
+}
+
 @media (max-width: 720px) {
   .pc-ppe-page {
     --pc-ppe-v4-header: 54px;
@@ -240,6 +325,88 @@
   .pc-ppe-page .pc-ppe-footer {
     padding-bottom: max(88px, calc(env(safe-area-inset-bottom, 0px) + 72px));
   }
+
+  .pc-ppe-page .pc-public-intelligence-hero::before {
+    inset: 10% -40% auto 35%;
+    height: 42%;
+  }
+
+  .pc-ppe-page .pc-public-intelligence-hero {
+    padding-top: 24px !important;
+    gap: 18px !important;
+  }
+
+  .pc-ppe-page .pc-public-intelligence-hero h1 {
+    margin: 12px 0 14px !important;
+    max-width: 10.5ch;
+    font-size: clamp(38px, 10.7vw, 46px) !important;
+    line-height: 1.01 !important;
+    letter-spacing: -.055em;
+  }
+
+  .pc-ppe-page .pc-public-intelligence-hero .pc-ppe-hero-copy > p {
+    font-size: 17px !important;
+    line-height: 1.46 !important;
+  }
+
+  .pc-ppe-page .pc-public-hero-metrics {
+    margin-top: 16px !important;
+    gap: 6px !important;
+  }
+
+  .pc-ppe-page .pc-public-hero-metrics span {
+    min-height: 30px !important;
+    padding: 6px 9px !important;
+    border-radius: 999px !important;
+    background: #f8faf9 !important;
+  }
+
+  .pc-ppe-page .pc-public-hero-ai-line {
+    grid-template-columns: auto minmax(0, 1fr) auto !important;
+    gap: 10px !important;
+    margin-top: 12px !important;
+    padding: 14px !important;
+  }
+
+  .pc-ppe-page .pc-public-hero-ai-line > span {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .pc-ppe-page .pc-public-hero-ai-line a {
+    width: 40px;
+    height: 40px;
+    min-height: 40px !important;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 50%;
+    background: #0a7f40;
+    color: #fff !important;
+    font-size: 0;
+  }
+
+  .pc-ppe-page .pc-public-hero-ai-line a svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .pc-ppe-page .pc-ppe-hero-actions {
+    margin-top: 18px !important;
+    gap: 8px !important;
+  }
+
+  .pc-ppe-page .pc-ppe-primary-button,
+  .pc-ppe-page .pc-ppe-secondary-button {
+    min-height: 54px !important;
+  }
+
+  .pc-ppe-page .pc-ppe-hero-contour {
+    padding: 14px !important;
+    border-radius: 18px !important;
+    box-shadow: 0 12px 28px rgba(12, 51, 34, .07) !important;
+  }
 }
 
 @media (max-width: 420px) {
@@ -271,6 +438,11 @@
   .pc-ppe-entry-gate-actions .pc-ppe-secondary-button,
   .pc-ppe-entry-gate-actions .pc-ppe-text-button {
     width: 100%;
+  }
+
+  .pc-ppe-page .pc-public-intelligence-hero h1 {
+    max-width: 9.5ch;
+    font-size: clamp(36px, 10.2vw, 42px) !important;
   }
 }
 

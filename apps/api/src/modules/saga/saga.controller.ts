@@ -4,6 +4,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser, Role } from '../../common/types/request-user';
 import { DealSagaService, SagaStepId } from './deal-saga.service';
 import { FgisStepService } from './fgis-step.service';
+import { SagaReasonDto } from './dto/saga-reason.dto';
 import { ForbiddenException } from '@nestjs/common';
 
 @Controller('api/saga')
@@ -22,7 +23,7 @@ export class SagaController {
   @Post('deals/:dealId/pause')
   pause(
     @Param('dealId') dealId: string,
-    @Body() body: { reason: string },
+    @Body() body: SagaReasonDto,
     @CurrentUser() user: RequestUser,
   ) {
     this.assertAdmin(user);
@@ -49,7 +50,7 @@ export class SagaController {
   skip(
     @Param('dealId') dealId: string,
     @Param('stepId') stepId: string,
-    @Body() body: { reason: string },
+    @Body() body: SagaReasonDto,
     @CurrentUser() user: RequestUser,
   ) {
     this.assertAdmin(user);
@@ -71,7 +72,7 @@ export class SagaController {
     @CurrentUser() user: RequestUser,
   ) {
     this.assertAdmin(user);
-    return this.fgis.executeFgisRegister({ dealId, ...body });
+    return this.fgis.executeFgisRegister({ dealId, ...body }, user);
   }
 
   @Post('deals/:dealId/fgis/confirm-shipment')
@@ -81,7 +82,7 @@ export class SagaController {
     @CurrentUser() user: RequestUser,
   ) {
     this.assertAdmin(user);
-    return this.fgis.confirmShipment({ dealId, ...body });
+    return this.fgis.confirmShipment({ dealId, ...body }, user);
   }
 
   @Post('deals/:dealId/fgis/confirm-acceptance')
@@ -91,12 +92,12 @@ export class SagaController {
     @CurrentUser() user: RequestUser,
   ) {
     this.assertAdmin(user);
-    return this.fgis.confirmAcceptance({ dealId, ...body });
+    return this.fgis.confirmAcceptance({ dealId, ...body }, user);
   }
 
   @Get('fgis/crops')
-  getFgisCrops() {
-    return this.fgis.getCrops();
+  getFgisCrops(@CurrentUser() user: RequestUser) {
+    return this.fgis.getCrops(user ?? null);
   }
 
   private assertAdmin(user: RequestUser): void {

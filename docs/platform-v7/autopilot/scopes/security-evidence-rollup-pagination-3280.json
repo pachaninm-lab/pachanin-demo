@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/security-evidence-rollup-pagination-3280",
+  "status": "active",
+  "issue": 3280,
+  "baseCommit": "476f63e9832184011149ccf4b624767c56d93162",
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/security-abuse-evidence.yml",
+    "docs/platform-v7/autopilot/scopes/security-evidence-rollup-pagination-3280.json",
+    "scripts/security/capture-base-security-jobs.contract.mjs",
+    "scripts/security/capture-base-security-jobs.mjs"
+  ],
+  "boundaries": {
+    "securityExceptionAdded": false,
+    "securitySeverityReduced": false,
+    "requiredJobSetReduced": false,
+    "runtimeProductMutation": false,
+    "productionDeployment": false,
+    "credentialOrSecretMutation": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

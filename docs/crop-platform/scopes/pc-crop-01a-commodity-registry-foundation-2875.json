@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "pc-crop.concurrent-scope.v1",
+  "branch": "agent/pc-crop-01-commodity-registry-foundation",
+  "status": "active",
+  "parentIssue": 2875,
+  "baseExactMain": "05b1b5a62911d273a25e04e28951bf9772af705d",
+  "operationalStatus": "NOT_ATTESTED",
+  "maturityBoundary": "commodity-profile-domain-and-interface-foundation-without-postgresql-runtime-authority",
+  "allowedPaths": [
+    "packages/domain-core/package.json",
+    "packages/domain-core/tsconfig.pc-crop.json",
+    "packages/domain-core/vitest.pc-crop.config.ts",
+    "packages/domain-core/src/index.ts",
+    "packages/domain-core/src/commodity-profile.ts",
+    "packages/domain-core/src/commodity-profile.test.ts",
+    "apps/web/tsconfig.pc-crop.json",
+    "apps/web/components/crop-platform/CommodityProfileRegistryView.tsx",
+    "apps/web/components/crop-platform/CommodityProfileRegistryView.module.css",
+    "apps/web/components/crop-platform/css-modules.d.ts",
+    "docs/crop-platform/PC-CROP-01A-DOMAIN-AND-UX.md",
+    "docs/crop-platform/scopes/pc-crop-01a-commodity-registry-foundation-2875.json",
+    "scripts/verify-pc-crop-01a.mjs",
+    ".github/workflows/pc-crop-01a.yml"
+  ],
+  "forbiddenCapabilities": [
+    "parallel Deal, Lot or Organization authority",
+    "Prisma schema, migration, API controller or runtime persistence in this foundation slice",
+    "static, mock or browser-stored commodity profile runtime authority",
+    "client-selected role or tenant",
+    "automatic profile approval, activation or revocation",
+    "external FGIS, EDO, bank or registry availability claim",
+    "production operational attestation",
+    "direct privileged write by TAI",
+    "silently weakening repository-wide compiler checks"
+  ],
+  "acceptance": [
+    "six archetypes share one canonical domain contract",
+    "conversion and bounds use exact decimal strings rather than JavaScript float authority",
+    "content hash is deterministic for semantically identical set ordering",
+    "published content is immutable and deeply frozen",
+    "lifecycle transitions, approval evidence and effective-range overlap fail closed",
+    "release blockers reference declared document requirements",
+    "interface consumes server-supplied profiles and server-derived primary action",
+    "interface covers loading, empty, error, forbidden, conflict and ready states",
+    "interface uses compact registry plus progressive detail rather than a card wall",
+    "RU, EN and ZH, WCAG 2.2 AA patterns, 320-430 px, forced colors and reduced motion are present",
+    "isolated TypeScript 5.9-compatible configs validate the new domain and interface files without hiding the separate repository compiler migration debt",
+    "isolated node test config avoids unresolved web-plugin warnings in domain acceptance",
+    "no mock, demo, pilot, localStorage, sessionStorage or direct fetch authority is introduced",
+    "exact-head CI passes while operational status remains NOT_ATTESTED"
+  ]
+}

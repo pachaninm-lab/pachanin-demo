@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/production-staff-database-provision-3734",
+  "status": "active",
+  "purpose": "Provision the existing least-privilege pc_staff_runtime login with a protected root-owned production URL so the API can enforce staff/database principal separation without losing public registration availability.",
+  "approvedBy": "owner-direct-registration-production-recovery-2026-08-08",
+  "authorityBaseExactMain": "3233bd05b4f39ba3a0bdbe8253a414a7dc25a6ec",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-staff-database-url.yml",
+    "scripts/production-full-stack-exact-sha.sh",
+    "scripts/provision-production-staff-database-url.sh",
+    "scripts/check-production-staff-database-provision.mjs",
+    "docs/platform-v7/autopilot/scopes/production-staff-database-provision-3734.json",
+    "docs/platform-v7/autopilot/autopilot-state.json"
+  ],
+  "forbiddenCapabilities": [
+    "secret value disclosure or repository storage",
+    "reuse of deal, auth or storage database principals",
+    "staff table grants, membership, SUPERUSER or BYPASSRLS",
+    "production host, SSH identity or protected Compose path disclosure",
+    "release gate weakening",
+    "application product-code change"
+  ]
+}

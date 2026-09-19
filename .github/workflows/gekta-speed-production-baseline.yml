@@ -1,0 +1,232 @@
+name: Gekta Production Speed Baseline
+
+# Read-only latency measurement of the public Gekta assistant.
+#
+# This workflow never deploys, never mutates REG.RU, never touches Docker, the
+# database or any production secret, and never receives SSH. It issues public
+# HTTPS requests to the published assistant endpoint and records how long the
+# stream took to become readable. The P0 SPEED gate is stated in user-visible
+# terms, so the measurement is taken where a user would experience it.
+#
+# The contract job runs on every change to this scope and proves the tool
+# without any network access. The baseline job runs only on an owner-authorized
+# trigger.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/gekta-speed-production-baseline.yml'
+      - 'scripts/tai-speed-baseline.mjs'
+      - 'apps/web/tests/unit/taiSpeedBaseline.test.ts'
+      - 'docs/platform-v7/autopilot/scopes/gekta-p0-speed-20260811.json'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/gekta-speed-production-baseline.yml'
+      - 'scripts/tai-speed-baseline.mjs'
+      - 'apps/web/tests/unit/taiSpeedBaseline.test.ts'
+      - 'docs/platform-v7/autopilot/scopes/gekta-p0-speed-20260811.json'
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Baseline phase label recorded in the artifact name
+        required: true
+        default: before
+        type: choice
+        options: [before, after]
+      concurrency_waves:
+        description: Comma-separated read-only concurrency waves
+        required: false
+        default: '1,2,4'
+      repeat:
+        description: How many times the corpus is repeated per wave
+        required: false
+        default: '1'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+# Only real measurement commands share a group, so at most one benchmark ever
+# runs against production at a time. Everything else — and `issue_comment` fires
+# for every comment in the repository, not just this command — gets a group of
+# its own, because a queued run that will immediately skip must never supersede
+# a queued measurement. A shared group cancels pending runs even when
+# cancel-in-progress is false, which silently cancelled the first attempts.
+concurrency:
+  group: >-
+    gekta-speed-production-baseline-${{
+      (github.event_name == 'workflow_dispatch'
+        || (github.event_name == 'issue_comment'
+            && startsWith(github.event.comment.body, '/gekta speed-baseline current-main')))
+      && 'measurement' || github.run_id }}
+  cancel-in-progress: false
+
+env:
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+  RELEASE_ISSUE_NUMBER: 3072
+  EVIDENCE_DIR: artifacts/gekta-speed-baseline
+
+jobs:
+  contract:
+    name: Validate speed baseline contract
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install workspace
+        run: pnpm install --frozen-lockfile
+
+      # The tool is proven against synthetic streams. A contract check that
+      # needed production to pass would be a deployment gate, not a unit test.
+      - name: Prove the measurement tool without any network access
+        run: pnpm vitest run apps/web/tests/unit/taiSpeedBaseline.test.ts
+
+      - name: Refuse to run without an explicit target
+        run: |
+          set +e
+          node scripts/tai-speed-baseline.mjs > /dev/null 2>&1
+          status=$?
+          set -e
+          if [ "$status" -ne 2 ]; then
+            echo "Expected exit 2 when no --base-url is given, got $status."
+            exit 1
+          fi
+          echo "Baseline tool refuses to run against nothing."
+
+      - name: Assert the baseline job holds no production credential
+        run: |
+          set -euo pipefail
+          # A measurement that needed a production secret would no longer be a
+          # read-only measurement. The default token is the only one allowed,
+          # and this scope never asks for it either.
+          if grep -nE 'secrets\.' .github/workflows/gekta-speed-production-baseline.yml; then
+            echo "This workflow must not reference any repository secret."
+            exit 1
+          fi
+          if ! grep -qE '^permissions:' .github/workflows/gekta-speed-production-baseline.yml; then
+            echo "This workflow must declare explicit least-privilege permissions."
+            exit 1
+          fi
+          echo "No secret referenced; permissions are declared explicitly."
+
+  baseline:
+    name: Measure production speed baseline
+    if: >-
+      (
+        github.event_name == 'workflow_dispatch' &&
+        github.actor == github.repository_owner
+      ) ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        startsWith(github.event.comment.body, '/gekta speed-baseline current-main')
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      # Recorded before any request, so the run can never be re-attributed to a
+      # revision that happened to deploy while it was measuring.
+      - name: Record the exact repository main under measurement
+        id: authority
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin main
+          MAIN_SHA="$(git rev-parse FETCH_HEAD)"
+          echo "main_sha=$MAIN_SHA" >> "$GITHUB_OUTPUT"
+          echo "Repository main under measurement: $MAIN_SHA"
+
+      - name: Record the deployed web revision before measuring
+        run: |
+          set -euo pipefail
+          curl -sS --max-time 30 "$LIVE_BASE/api/health/ready" | tee /tmp/deployed-revision.json
+          echo
+
+      # Attribution first: if the contour refuses the benchmark, the run has to
+      # say which layer refused it. This never sends a credential.
+      - name: Attribute the public contour
+        continue-on-error: true
+        run: node scripts/tai-speed-baseline.mjs --base-url "$LIVE_BASE" --probe-only
+
+      # The artifact path is fixed before the benchmark runs, so a non-zero exit
+      # still leaves the summary and upload steps able to find what was written.
+      - name: Reserve the evidence path
+        env:
+          PHASE: ${{ github.event.inputs.phase || 'before' }}
+          MAIN_SHA: ${{ steps.authority.outputs.main_sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          echo "BASELINE_ARTIFACT=$EVIDENCE_DIR/gekta-speed-baseline-${PHASE}-${GITHUB_RUN_ID}-${MAIN_SHA}.json" >> "$GITHUB_ENV"
+
+      - name: Measure the public assistant stream
+        env:
+          WAVES: ${{ github.event.inputs.concurrency_waves || '1,2,4' }}
+          REPEAT: ${{ github.event.inputs.repeat || '1' }}
+          MAIN_SHA: ${{ steps.authority.outputs.main_sha }}
+        run: |
+          set -euo pipefail
+          node scripts/tai-speed-baseline.mjs \
+            --base-url "$LIVE_BASE" \
+            --concurrency "$WAVES" \
+            --repeat "$REPEAT" \
+            --locales ru,en,zh \
+            --main-sha "$MAIN_SHA" \
+            --cooldown-ms 15000 \
+            --out "$BASELINE_ARTIFACT"
+          echo "MEASUREMENT_OUTCOME=passed" >> "$GITHUB_ENV"
+
+      - name: Summarize what was and was not proven
+        if: always()
+        run: |
+          set -euo pipefail
+          # Three outcomes are distinguished on purpose. A failed measurement
+          # that still wrote evidence is far more useful than one that did not,
+          # and neither may be reported as a pass.
+          if [ ! -f "${BASELINE_ARTIFACT:-}" ]; then
+            echo "MEASUREMENT_FAILED_NO_ARTIFACT"
+            echo "No baseline artifact was produced. Reporting no baseline rather than a fabricated one."
+            exit 0
+          fi
+          if [ "${MEASUREMENT_OUTCOME:-failed}" = "passed" ]; then
+            echo "MEASUREMENT_PASS"
+          else
+            echo "MEASUREMENT_FAILED_WITH_ARTIFACT"
+          fi
+          # Rendered by the tool, not by an inline script. An inline summary
+          # once carried a top-level return, and that syntax error reported a
+          # measurement that had passed as a failed job.
+          node scripts/tai-speed-baseline.mjs --summarize "$BASELINE_ARTIFACT"
+
+      - name: Upload bounded baseline evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gekta-speed-baseline-${{ github.event.inputs.phase || 'before' }}-${{ github.run_id }}-${{ steps.authority.outputs.main_sha }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: warn
+          retention-days: 30

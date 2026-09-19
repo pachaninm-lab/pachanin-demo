@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-assistant-single-mobile-viewport-20260731",
+  "status": "active",
+  "purpose": "Replace the conflicting mobile keyboard footer geometry with one locked visual-viewport container so the public AI dialog cannot expose or scroll the homepage behind its composer.",
+  "approvedBy": "owner-live-screenshots-2026-07-31T10:18+03:00",
+  "authorityBaseExactMain": "1f6d98a54a885ad4ba98e8e9fb90c9d43953198a",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/PublicAssistantMobileLayoutAuthority.tsx",
+    "apps/web/tests/unit/platformV7PublicAssistantMobileLayoutAuthority.test.ts",
+    "docs/platform-v7/autopilot/scopes/fix-public-assistant-single-mobile-viewport-20260731.json"
+  ],
+  "requiredBehavior": [
+    "the public AI panel uses visualViewport top left width and height as one coordinate system",
+    "the composer remains in normal flex flow beneath the independently scrollable message area",
+    "the underlying document is locked while the mobile dialog is open and restored exactly on close",
+    "the panel and backdrop fully cover the visible mobile viewport with no exposed homepage strip",
+    "delayed WebKit keyboard resize scroll and pageTop changes are remeasured while the dialog is open",
+    "desktop layout AI answers API RBAC Deal data and model routing remain unchanged",
+    "production remains REG.RU only"
+  ],
+  "forbiddenCapabilities": [
+    "absolute composer footer positioning",
+    "calculated layout-bottom keyboard insets",
+    "private account tenant Deal document payment or personal-data access",
+    "write authority or autonomous actions",
+    "model prompt provider credential or infrastructure topology changes",
+    "Netlify or Vercel deployment"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

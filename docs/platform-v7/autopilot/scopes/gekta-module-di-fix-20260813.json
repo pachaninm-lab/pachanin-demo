@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-module-di-fix-20260813",
+  "branch": "claude/gekta-module-di-fix",
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "cc3cf71f"
+  },
+  "purpose": "Постоянная защита от дефекта внедрения зависимостей в графе GektaModule. Такой дефект уже доехал до main: guard объявлял зависимость структурным типом, TypeScript писал в design:paramtypes значение Object, Nest не находил провайдер, приложение не стартовало, поды grainflow-api не проходили readiness и приёмка Kubernetes падала с «initial application rollout failed» при полностью зелёных проверках PR. Сама причина уже исправлена в main через @Inject(StaffAccessService); здесь добавляется только тест, который поднимает граф модуля целиком и делает такую ошибку видимой в CI.",
+  "allowedPaths": [
+    "apps/api/src/modules/gekta/gekta.module.spec.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-module-di-fix-20260813.json"
+  ],
+  "forbiddenChanges": [
+    "изменение production-кода ради прохождения теста",
+    "ослабление проверки прав кабинета оператора"
+  ],
+  "requiredChecks": [
+    "Node CI",
+    "API unit tests + TypeScript check",
+    "Production-like Kubernetes Acceptance",
+    "exact-head CI"
+  ],
+  "deploymentState": "not-deployed"
+}

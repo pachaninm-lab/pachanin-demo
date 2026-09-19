@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { RequestUser } from '../../common/types/request-user';
-import { StaffAccessRepository } from './staff-access.repository';
+import { digestOpaqueAuthToken } from '../auth/opaque-token-authority';
 import { StaffAccessService } from './staff-access.service';
 import { StaffAccessContext, StaffPermission } from './staff-access.types';
+import { StaffAuthorityPrismaService } from './staff-authority-prisma.service';
 
 export type StaffOrganizationProjection = {
   id: string;
@@ -40,36 +41,61 @@ export type StaffCabinetDealProjection = {
 @Injectable()
 export class StaffProjectionService {
   constructor(
-    private readonly repository: StaffAccessRepository,
+    private readonly staffAuthorityPrisma: StaffAuthorityPrismaService,
     private readonly access: StaffAccessService,
   ) {}
 
-  async organizationDirectory(user: RequestUser) {
+  async organizationDirectory(
+    user: RequestUser,
+    accessContext: StaffAccessContext,
+    capabilityToken: string,
+  ) {
     await this.access.requirePermission(user, StaffPermission.ORGANIZATION_LIST);
-    return this.repository.prisma.$queryRaw<StaffOrganizationProjection[]>(Prisma.sql`
-      SELECT * FROM auth.staff_organization_directory(${user.id})
+    const capabilityHash = this.capabilityHash(capabilityToken);
+    return this.staffAuthorityPrisma.$queryRaw<StaffOrganizationProjection[]>(Prisma.sql`
+      SELECT *
+      FROM auth.staff_organization_directory(
+        ${user.id},
+        ${accessContext.accessSessionId},
+        ${capabilityHash}
+      )
     `);
   }
 
-  async organizationUsers(user: RequestUser, organizationId: string) {
+  async organizationUsers(
+    user: RequestUser,
+    accessContext: StaffAccessContext,
+    capabilityToken: string,
+    organizationId: string,
+  ) {
     await this.access.requirePermission(user, StaffPermission.USER_LIST);
-    return this.repository.prisma.$queryRaw<StaffOrganizationUserProjection[]>(Prisma.sql`
-      SELECT * FROM auth.staff_organization_users(${user.id}, ${organizationId})
+    const capabilityHash = this.capabilityHash(capabilityToken);
+    return this.staffAuthorityPrisma.$queryRaw<StaffOrganizationUserProjection[]>(Prisma.sql`
+      SELECT *
+      FROM auth.staff_organization_users(
+        ${user.id},
+        ${accessContext.accessSessionId},
+        ${capabilityHash},
+        ${organizationId}
+      )
     `);
   }
 
   async cabinetProjection(
     user: RequestUser,
     accessContext: StaffAccessContext,
+    capabilityToken: string,
     organizationId: string,
     role: string,
   ) {
     await this.access.requirePermission(user, StaffPermission.CABINET_VIEW_AS);
-    const deals = await this.repository.prisma.$queryRaw<StaffCabinetDealProjection[]>(Prisma.sql`
+    const capabilityHash = this.capabilityHash(capabilityToken);
+    const deals = await this.staffAuthorityPrisma.$queryRaw<StaffCabinetDealProjection[]>(Prisma.sql`
       SELECT *
       FROM auth.staff_cabinet_deals(
         ${user.id},
         ${accessContext.accessSessionId},
+        ${capabilityHash},
         ${organizationId},
         ${role}
       )
@@ -85,5 +111,11 @@ export class StaffProjectionService {
       expiresAt: accessContext.expiresAt.toISOString(),
       deals,
     };
+  }
+
+  private capabilityHash(capabilityToken: string): string {
+    const token = String(capabilityToken ?? '').trim();
+    if (!token) throw new UnauthorizedException('Staff access capability is required');
+    return digestOpaqueAuthToken({ purpose: 'staff-access', rawToken: token });
   }
 }

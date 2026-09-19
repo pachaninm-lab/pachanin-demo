@@ -1,0 +1,242 @@
+{
+  "authority": {
+    "authority_sha256": "3064250e63baed7bdcfd20851e1d3ea2c86fc33f087b69a2a4fcff18c384374b",
+    "commit": "aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3",
+    "profile_id": "linux-x86_64-cpu-release-static-v1",
+    "release": "b9637",
+    "repository_uri": "https://github.com/ggml-org/llama.cpp",
+    "toolchain_name": "ggml-org/llama.cpp"
+  },
+  "authority_continuity": {
+    "acceptance_base_sha": "b411a960cc259919e701704bfa652bd06d33c7d8",
+    "authority_changed": false,
+    "build_repository_sha": "637d36f7e9bb152ee3c7b22545a9a83eca3e4388",
+    "changed_paths": [
+      "apps/web/app/platform-v7/layout.tsx",
+      "apps/web/app/platform-v7/page.tsx",
+      "apps/web/tests/unit/platformV7PublicAiRouteAuthority.test.ts",
+      "docs/platform-v7/autopilot/scopes/fix-public-ai-layout-authority.json",
+      "scripts/p7-autopilot-guard.sh"
+    ],
+    "commits_after_build": 7,
+    "compare_status": "ahead"
+  },
+  "build_run": {
+    "actor": "pachaninm-lab",
+    "command": "/tai build llama-cpp exact-main",
+    "completed_at": "2026-07-20T08:18:51Z",
+    "event": "issue_comment",
+    "repository_sha": "637d36f7e9bb152ee3c7b22545a9a83eca3e4388",
+    "run_attempt": 1,
+    "run_id": 29727061145,
+    "started_at": "2026-07-20T08:12:01Z",
+    "triggering_actor": "pachaninm-lab",
+    "workflow_name": "TAI llama.cpp Exact Source Build",
+    "workflow_path": ".github/workflows/tai-llama-toolchain-build.yml"
+  },
+  "evidence": {
+    "binaries": [
+      {
+        "path": "build/llama.cpp-b9637/bin/llama-cli",
+        "sha256": "1f97b492e7739ec9e10b9a7da5317a27b70845873d060b7ede2c2d2f3e92f849",
+        "size_bytes": 12399720,
+        "target": "llama-cli"
+      },
+      {
+        "path": "build/llama.cpp-b9637/bin/llama-server",
+        "sha256": "1b26384ad90d9ae8fe65b2a3e2dfd08c70d92663b2127d5f479f34774b4a6dbf",
+        "size_bytes": 12940416,
+        "target": "llama-server"
+      },
+      {
+        "path": "build/llama.cpp-b9637/bin/llama-quantize",
+        "sha256": "77ae93aca41abd98f6b1e63478c09de77ab558d11d6cea6f1f53949310920e20",
+        "size_bytes": 5616560,
+        "target": "llama-quantize"
+      },
+      {
+        "path": "build/llama.cpp-b9637/bin/llama-bench",
+        "sha256": "eac9d7ee5e75a84668755caf44a09d3e1c5907d2b88fab205c27ad1e57bef335",
+        "size_bytes": 10023592,
+        "target": "llama-bench"
+      }
+    ],
+    "build_manifest": {
+      "path": "llama-evidence/evidence/llama-cpp-build.v1.json",
+      "sha256": "44f8aaefa9ba250cd2f523d07de9e084d9d8cc2a8bd0f17430e4a299aa35e1a1",
+      "size_bytes": 4531
+    },
+    "commands": {
+      "build": [
+        "cmake",
+        "--build",
+        "build/llama.cpp-b9637",
+        "--config",
+        "Release",
+        "--target",
+        "llama-cli",
+        "llama-server",
+        "llama-quantize",
+        "llama-bench",
+        "--parallel",
+        "2"
+      ],
+      "configure": [
+        "cmake",
+        "-S",
+        "source/llama.cpp",
+        "-B",
+        "build/llama.cpp-b9637",
+        "-G",
+        "Ninja",
+        "-DCMAKE_BUILD_TYPE=Release",
+        "-DBUILD_SHARED_LIBS=OFF",
+        "-DLLAMA_BUILD_COMMON=ON",
+        "-DLLAMA_BUILD_TESTS=OFF",
+        "-DLLAMA_BUILD_EXAMPLES=OFF",
+        "-DLLAMA_BUILD_TOOLS=ON",
+        "-DLLAMA_BUILD_SERVER=ON",
+        "-DLLAMA_BUILD_APP=OFF",
+        "-DLLAMA_BUILD_UI=OFF",
+        "-DLLAMA_USE_PREBUILT_UI=OFF",
+        "-DLLAMA_TOOLS_INSTALL=OFF",
+        "-DLLAMA_OPENSSL=OFF",
+        "-DLLAMA_LLGUIDANCE=OFF",
+        "-DGGML_NATIVE=OFF"
+      ]
+    },
+    "environment": {
+      "architecture": "x86_64",
+      "c_compiler": {
+        "executable": "/usr/bin/cc",
+        "output": {
+          "path": "evidence/cc-version.txt",
+          "sha256": "3e8cc208c40f60832f67377aa1b03c3e7e858f20cd5d365464944700c0bd7ad1",
+          "size_bytes": 245
+        },
+        "version": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
+      },
+      "cmake": {
+        "executable": "/usr/local/bin/cmake",
+        "output": {
+          "path": "evidence/cmake-version.txt",
+          "sha256": "f6e81c2559f3ce00c5fdad01d7b226c301f5d6b07ee04f65db6dbfdc1cc5970b",
+          "size_bytes": 91
+        },
+        "version": "cmake version 3.31.6"
+      },
+      "cxx_compiler": {
+        "executable": "/usr/bin/c++",
+        "output": {
+          "path": "evidence/cxx-version.txt",
+          "sha256": "88b7c4b67564a146863224148116065fee418539f0a408f3636a68f3bde51805",
+          "size_bytes": 246
+        },
+        "version": "c++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0"
+      },
+      "generator": "Ninja",
+      "operating_system": "linux"
+    },
+    "logs": {
+      "build_log": {
+        "path": "evidence/build.log",
+        "sha256": "8b376133956adeb36f911a07dff91e2f10826f2dbf586751f177bca2c78999e0",
+        "size_bytes": 23869
+      },
+      "cmake_cache": {
+        "path": "build/llama.cpp-b9637/CMakeCache.txt",
+        "sha256": "b86f6f42a7ad5e049cfa2c10ebc7e89f716a55cb454105e9a3e246e71224a4bf",
+        "size_bytes": 31648
+      },
+      "configure_log": {
+        "path": "evidence/configure.log",
+        "sha256": "fab4d0c10fd974122c32619038accfc8ad82930d8d617cac3d5462096332029e",
+        "size_bytes": 1506
+      }
+    },
+    "source": {
+      "checkout_path": "source/llama.cpp",
+      "checkout_tree_sha256": "529bad4b20bf533b7f19c35513cc61103b8277f0c33ceb8ccff43171fd336ea9",
+      "git_head_output": {
+        "path": "evidence/git-head.txt",
+        "sha256": "c12f8a2d5dc09d4f84fccd5c20f948c93693f9d9916b0437b47946ccf99ef479",
+        "size_bytes": 41
+      },
+      "git_status_output": {
+        "path": "evidence/git-status.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "size_bytes": 0
+      },
+      "source_archive": {
+        "path": "source/llama.cpp-aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3.tar.gz",
+        "sha256": "3857876e4a2461f7041166bd74b5d39e3db51b8639353d55f87d6f904b3b75bd",
+        "size_bytes": 34876966
+      }
+    },
+    "verification_report": {
+      "evidence_sha256": "a1d58c34ca8e6184156abc12c310eb144cbac8996a7b0a0552e89fce468e0cac",
+      "path": "llama-evidence/evidence/llama-cpp-verification.v1.json",
+      "reasons": [],
+      "report_sha256": "d3284b22f4f2e64d79db3c4bad58877731cd04e02d082826aa6a72967aa04b51",
+      "sha256": "b8140f52ef9da5c3c1a6a7340107076a307665b50695ec2b6bd1a2a5f7e37040",
+      "size_bytes": 1023,
+      "status": "VERIFIED"
+    },
+    "verified_targets": [
+      "llama-bench",
+      "llama-cli",
+      "llama-quantize",
+      "llama-server"
+    ]
+  },
+  "external_artifacts": {
+    "locator_artifact": {
+      "api_digest": "sha256:db5f9213178f3bdd3e24c2e28fa979df705ebd78e03d4f9217f3fea5412e6227",
+      "committed_locator_path": "apps/tai/model-artifacts/llama-cpp-build-artifact-locator.accepted.v1.json",
+      "committed_locator_sha256": "64cc5bbd6d310491b21d8e24244ca6219b7caa91a8051b38b0d9e6efe234c159",
+      "expires_at": "2026-10-18T08:12:02Z",
+      "id": 8454825634,
+      "name": "tai-llama-toolchain-locator-637d36f7e9bb152ee3c7b22545a9a83eca3e4388-29727061145-1",
+      "retention_days": 90,
+      "zip_size_bytes": 5389
+    },
+    "package_artifact": {
+      "api_digest": "sha256:807f815e0265096150d87b4ff289d02e26fcd1d83cca891957c66a4e39054e52",
+      "expires_at": "2026-10-18T08:12:02Z",
+      "id": 8454821423,
+      "name": "tai-llama-toolchain-build-637d36f7e9bb152ee3c7b22545a9a83eca3e4388-29727061145-1",
+      "payload_sha256": "b742781c628fb1ab5ef1341e9937bb1d7a76cd96afaaf904d71d20554fa6a450",
+      "payload_size_bytes": 135198377,
+      "retention_days": 90,
+      "zip_size_bytes": 135199864
+    }
+  },
+  "issue": 2832,
+  "maturity_boundary": {
+    "accepted_use": [
+      "AP-13B.3 exact-source conversion evidence",
+      "AP-13B.3 governed quantization evidence",
+      "AP-13C benchmark execution"
+    ],
+    "benchmarks": "NOT_DONE",
+    "forbidden_claims": [
+      "model weights acquired",
+      "license approved",
+      "model admitted",
+      "production ready",
+      "operationally attested"
+    ],
+    "legal_review": "NOT_DONE",
+    "model_acquisition": "PENDING_ACQUISITION",
+    "model_admission": "NOT_DONE",
+    "production_operational_status": "NOT_ATTESTED"
+  },
+  "restore": {
+    "independent_reverification": true,
+    "package_index_sha256": "6a70beb3d653e9cad578f18a2dcf7b5df8761e26c309edd83255dff6db711c4a",
+    "restored_verification_sha256": "b8140f52ef9da5c3c1a6a7340107076a307665b50695ec2b6bd1a2a5f7e37040",
+    "status": "VERIFIED_RESTORED"
+  },
+  "schema_version": "tai.llama-cpp-build-acceptance.v1",
+  "status": "VERIFIED_RESTORED"
+}

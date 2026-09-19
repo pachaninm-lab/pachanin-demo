@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "p0/production-all-role-registration-3785",
+  "status": "active",
+  "purpose": "Run the exact-current-main REG.RU production registration matrix for seller, buyer, logistics, driver, elevator, lab, surveyor, bank and employee after the deep First Customer Acceptance has passed on that same revision. Use real transactional email, a visible fresh-MFA PLATFORM_OWNER ceremony for the eight new organizations, the verified seller organization administrator for the employee join required by tenant authority, first TOTP enrollment, server-derived cabinet access in desktop and mobile Chromium, a permitted protected read, logout and fresh-MFA relogin.",
+  "approvedBy": "owner-issue-3785-production-9-role-matrix",
+  "authorityBaseExactMain": "91f4394fb0e5a81cd95f6c646b784686b88749cf",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-p0-all-role-registration.yml",
+    "scripts/production-p0-all-role-registration.sh",
+    "scripts/check-production-p0-all-role-registration.mjs",
+    "docs/ops/production-p0-all-role-registration.md",
+    "docs/platform-v7/autopilot/scopes/production-p0-all-role-registration-3785.json"
+  ],
+  "requiredBehavior": [
+    "run only from the repository owner command /production p0-all-role-registration current-main on release issue 3072",
+    "require a successful deep Production P0 First-Customer Acceptance artifact for the same exact current main before any matrix registration",
+    "require exact live API and Web OCI revisions and keep exact main stable before every external action",
+    "use only the public production Web BFF and real transactional mailbox verification for all nine run-scoped identities",
+    "permit no reviewer email, password, TOTP secret, cookie, token or session in GitHub Actions",
+    "wait for the existing production PLATFORM_OWNER to approve the eight marked NEW_ORGANIZATION applications in the visible CONTROL_PLANE with fresh MFA",
+    "prove the first decision notification and one idempotent replay suppression for each of the eight visible reviewer approvals",
+    "register employee only against the already VERIFIED seller organization and require the seller organization administrator with fresh MFA to approve that JOIN_EXISTING_ORGANIZATION request",
+    "never let a platform reviewer override the organization-admin decision boundary for employee",
+    "derive FARMER, BUYER, LOGISTICIAN, DRIVER, ELEVATOR, LAB, SURVEYOR, ACCOUNTING and GUEST only from server registration policy",
+    "prove eight distinct organizations and tenants, nine distinct users and memberships, and employee sharing exactly the seller organization and tenant",
+    "complete first TOTP enrollment for every identity, then prove the canonical server-authorized cabinet and protected organization-team read in desktop Chromium",
+    "prove logout revokes every session, then complete visible TOTP relogin and reopen the same canonical cabinet in mobile Chromium",
+    "respect production registration, login, MFA and reviewer decision rate windows without weakening or bypassing them",
+    "publish only bounded aggregate and hashed evidence with no email address, password, TOTP secret, backup code, verification token, cookie, access token or database URL"
+  ],
+  "forbiddenCapabilities": [
+    "direct production SQL or VPS mutation to create, verify, approve, activate or impersonate an identity",
+    "platform-reviewer approval of an existing-organization join",
+    "client-selected role, tenant or cabinet authority",
+    "demo, mock, static fallback, localStorage or role-preview authentication",
+    "reviewer credential or reviewer session handoff into CI",
+    "RLS, MFA, CSRF, audit, outbox, rate-limit or tenant-boundary weakening",
+    "runtime source rewriting or direct push from Actions",
+    "new paid provider, SaaS subscription, production host or recurring cost"
+  ],
+  "acceptanceEvidence": [
+    "same-revision deep First Customer Acceptance PASS artifact",
+    "exact main equals live API and Web OCI revisions",
+    "nine public BFF registrations and nine real mailbox verifications",
+    "eight fresh-MFA visible PLATFORM_OWNER approvals with delivered first notification and suppressed idempotent replay",
+    "one fresh-MFA seller organization-admin approval for employee join",
+    "server-derived roles FARMER, BUYER, LOGISTICIAN, DRIVER, ELEVATOR, LAB, SURVEYOR, ACCOUNTING and GUEST",
+    "eight distinct organization and tenant contexts with employee sharing seller context",
+    "desktop and mobile live Chromium canonical cabinet checks plus protected organization-team reads",
+    "first TOTP, logout revocation and TOTP relogin for all nine identities"
+  ]
+}

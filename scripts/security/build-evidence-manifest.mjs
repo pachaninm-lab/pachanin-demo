@@ -97,6 +97,73 @@ function requirePassed(report, label) {
   if (passed !== true) throw new Error(`${label} is not marked passed or valid.`);
 }
 
+function requireArrayField(report, field, label) {
+  const value = report?.[field];
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} ${field} must be an array.`);
+  }
+  return value;
+}
+
+function dependencyFindingIdentity(finding) {
+  return [
+    String(finding?.findingId ?? ''),
+    String(finding?.package ?? ''),
+    String(finding?.severity ?? '').toUpperCase(),
+  ].join(':');
+}
+
+function validateDependencyEvaluation(dependencies) {
+  const findings = requireArrayField(
+    dependencies,
+    'highOrCriticalFindings',
+    'Dependency evaluation',
+  );
+  const excepted = requireArrayField(dependencies, 'excepted', 'Dependency evaluation');
+  const blocked = requireArrayField(dependencies, 'blocked', 'Dependency evaluation');
+
+  if (blocked.length !== 0) {
+    throw new Error('Dependency evaluation contains blocked findings.');
+  }
+
+  for (const [label, entries] of [
+    ['HIGH or CRITICAL finding', findings],
+    ['excepted dependency finding', excepted],
+  ]) {
+    for (const finding of entries) {
+      const findingId = String(finding?.findingId ?? '').trim();
+      const packageName = String(finding?.package ?? '').trim();
+      const severity = String(finding?.severity ?? '').trim().toUpperCase();
+      if (!findingId || !packageName || !['HIGH', 'CRITICAL'].includes(severity)) {
+        throw new Error(`Dependency evaluation contains an invalid ${label}.`);
+      }
+      if (severity === 'CRITICAL') {
+        throw new Error('Dependency evaluation contains a CRITICAL finding; CRITICAL exceptions are prohibited.');
+      }
+    }
+  }
+
+  const findingKeys = findings.map(dependencyFindingIdentity);
+  const exceptedKeys = excepted.map(dependencyFindingIdentity);
+  if (new Set(findingKeys).size !== findingKeys.length) {
+    throw new Error('Dependency evaluation contains duplicate HIGH or CRITICAL findings.');
+  }
+  if (new Set(exceptedKeys).size !== exceptedKeys.length) {
+    throw new Error('Dependency evaluation contains duplicate formal exceptions.');
+  }
+
+  const findingKeySet = new Set(findingKeys);
+  const exceptedKeySet = new Set(exceptedKeys);
+  if (exceptedKeys.some((key) => !findingKeySet.has(key))) {
+    throw new Error('Dependency evaluation contains a formal exception that is not bound to an observed finding.');
+  }
+  if (findingKeys.some((key) => !exceptedKeySet.has(key))) {
+    throw new Error('Dependency evaluation contains an unexcepted HIGH finding.');
+  }
+
+  return { findings, excepted, blocked };
+}
+
 function validateJsonEvidence(byBasename) {
   const pathFor = (name) => byBasename.get(name)[0];
   const policy = parseJson(pathFor('security-policy-validation.json'), 'Security policy report');
@@ -120,12 +187,7 @@ function validateJsonEvidence(byBasename) {
     requirePassed(report, label);
   }
 
-  if ((dependencies.blocked ?? []).length !== 0) {
-    throw new Error('Dependency evaluation contains blocked findings.');
-  }
-  if ((dependencies.highOrCriticalFindings ?? []).length !== 0) {
-    throw new Error('Dependency evaluation contains HIGH or CRITICAL findings.');
-  }
+  const dependencyEvaluation = validateDependencyEvaluation(dependencies);
   if ((container.blocked ?? []).length !== 0) {
     throw new Error('Container evaluation contains blocked findings.');
   }
@@ -142,7 +204,17 @@ function validateJsonEvidence(byBasename) {
     throw new Error('Canonical container image digest is missing or invalid.');
   }
 
-  return { policy, container, dependencies, gitleaks, typescript, evaluatorContract, abuse, imageDigest };
+  return {
+    policy,
+    container,
+    dependencies,
+    dependencyEvaluation,
+    gitleaks,
+    typescript,
+    evaluatorContract,
+    abuse,
+    imageDigest,
+  };
 }
 
 function main() {
@@ -194,8 +266,9 @@ function main() {
     },
     canonicalImageDigest: validated.imageDigest,
     summary: {
-      dependencyHighOrCritical: validated.dependencies.highOrCriticalFindings.length,
-      dependencyBlocked: validated.dependencies.blocked.length,
+      dependencyHighOrCritical: validated.dependencyEvaluation.findings.length,
+      dependencyExcepted: validated.dependencyEvaluation.excepted.length,
+      dependencyBlocked: validated.dependencyEvaluation.blocked.length,
       containerBlocked: validated.container.blocked.length,
       evaluatorFixtures: validated.evaluatorContract.fixtures.length,
       evaluatorFixturesPassed: validated.evaluatorContract.fixtures.filter((fixture) => fixture.passed).length,

@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/pc-crop-control-compose-cutover-3785",
+  "status": "active",
+  "purpose": "Perform the separately guarded PC-CROP control-host cutover required by #3785 on the already attested Docker Compose Caddy edge, with exact DNS and pinned SSH preconditions, narrow mutation, live acceptance and automatic rollback.",
+  "authorityBaseExactMain": "ed4273dbcd441de4c6f2c2167f56336f81c62330",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/company-os-control-host-cutover-authorized-20260818.yml",
+    "docs/platform-v7/autopilot/scopes/pc-crop-control-compose-cutover-3785.json"
+  ],
+  "requiredInvariants": [
+    "The workflow runs only from an owner-authored exact-main push that changes the authorized cutover workflow and refuses concurrent production workflows.",
+    "Control DNS must have exactly one canonical A record and no AAAA record by exact dig RR-type evidence before SSH.",
+    "Production SSH must match the already attested pinned host fingerprint; the SSH pin is never changed.",
+    "The preflight must prove one running Compose web container and one running valid Compose Caddy container in the same project and protected working directory.",
+    "Only the production environment gate PC_CONTROL_HOST_ENABLED, the bound Caddyfile and the web container may change.",
+    "The web service is recreated with --no-deps, --no-build and --pull never and must preserve the exact pre-cutover immutable image ID and revision.",
+    "Caddy is reloaded inside the existing Caddy container; the Caddy image and every non-web project container ID must remain unchanged.",
+    "The Caddy candidate is validated offline with the already running immutable Caddy image and no network before the live file is changed.",
+    "The protected environment and Caddyfile are backed up before mutation; any local mutation failure restores both, and any public acceptance failure runs a second guarded rollback.",
+    "No DNS, database, migration, API, auth-mail worker, SSH trust anchor, image pull/build, secret, role, membership or user data is mutated.",
+    "No protected working path, Compose path, project name, environment value, Caddyfile body, container ID, private key or secret is posted to issues or artifacts.",
+    "GO and farmer-registration language remain forbidden until First Customer and all 9 of 9 role journeys pass."
+  ],
+  "acceptance": [
+    "A valid TLS certificate for the exact control host is observed without bypassing certificate verification.",
+    "Ten consecutive live rounds prove control login readiness, public-route denial on the control host, parent staff redirect to control, parent staff API denial and exact primary-domain revision.",
+    "The primary domain returns no regression and the running web OCI revision remains the exact pre-cutover revision.",
+    "Failure inside the mutation or any live acceptance failure restores the original Caddyfile, original environment gate and original web image.",
+    "Successful cutover evidence is posted to #4159 and may then be referenced from #3785/#3072; it is not reviewer-MFA or 9-of-9 evidence.",
+    "No recurring cost is introduced."
+  ]
+}

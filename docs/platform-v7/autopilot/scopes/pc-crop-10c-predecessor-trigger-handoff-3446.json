@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "PC-CROP-10C-PREDECESSOR-TRIGGER-HANDOFF-3446",
+  "branch": "fix/pc-crop-10c-predecessor-trigger-handoff-3446",
+  "status": "active",
+  "projectLockId": "PC-CROP-REMAINDER",
+  "issue": 3446,
+  "activeSlice": "PC-CROP-10C",
+  "baseCommit": "acffe4e6fea38990219923da50a8a0f63cdedb8e",
+  "operationalStatus": "NOT_ATTESTED",
+  "maturityBoundary": "predecessor-trigger-handoff-only",
+  "successor": {
+    "workflow": ".github/workflows/pc-crop-10c.yml",
+    "branch": "agent/pc-crop-10c-tenant-authorized-read-adapter",
+    "commit": "499de702b23ffb0d257d3dc53eab9ef18f7e3122",
+    "workflowBlobSha": "e45e0db74d3ff9b416da1f89eb499d4766f947a3"
+  },
+  "sharedTriggerPaths": [
+    "apps/api/prisma/schema.prisma",
+    "apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts"
+  ],
+  "allowedPaths": [
+    ".github/workflows/pc-crop-08h.yml",
+    ".github/workflows/pc-crop-08i.yml",
+    ".github/workflows/pc-crop-10c-predecessor-trigger-handoff.yml",
+    "docs/platform-v7/autopilot/scopes/pc-crop-10c-predecessor-trigger-handoff-3446.json",
+    "scripts/pc-crop-10c-predecessor-trigger-handoff.mjs"
+  ],
+  "boundaries": {
+    "runtimeProductMutation": false,
+    "acceptanceWeakening": false,
+    "securityException": false,
+    "requiredTestRemoval": false,
+    "continueOnError": false,
+    "productionDeployment": false
+  },
+  "requiredEvidence": [
+    "PC-CROP-08H and PC-CROP-08I retain all predecessor-specific triggers and complete test jobs",
+    "PC-CROP-08H and PC-CROP-08I permissions and jobs remain byte-identical to the exact base",
+    "shared schema and regulatory module trigger ownership transfers to PC-CROP-10C",
+    "workflow self-triggers transfer to the dedicated handoff governance workflow",
+    "PC-CROP-10C successor workflow and exact blob are pinned",
+    "no continue-on-error skip security exception or production activation is introduced"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

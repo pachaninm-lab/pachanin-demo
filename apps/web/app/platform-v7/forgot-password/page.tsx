@@ -3,33 +3,182 @@ import '@/styles/platform-v7-public-auth.css';
 import '@/styles/platform-v7-public-mobile-safe-area.css';
 import '@/styles/platform-v7-i18n-cjk.css';
 import '@/styles/platform-v7-public-webkit-safe.css';
-import { ArrowLeft } from 'lucide-react';
-import { getTranslations } from 'next-intl/server';
+import { ArrowLeft, Languages } from 'lucide-react';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
 import { ForgotPasswordFormClient, type ForgotPasswordCopy } from './ForgotPasswordFormClient';
+import { ResetPasswordFormClient, type ResetPasswordCopy } from '../reset-password/ResetPasswordFormClient';
 
-export default async function ForgotPasswordPage() {
+type Locale = 'ru' | 'en' | 'zh';
+type ResetPageCopy = ResetPasswordCopy & {
+  publicNav: string;
+  brandTagline: string;
+  backHome: string;
+  title: string;
+  lead: string;
+  language: string;
+};
+
+const RESET_COPY: Record<Locale, ResetPageCopy> = {
+  ru: {
+    publicNav: 'Навигация восстановления доступа',
+    brandTagline: 'Восстановление доступа',
+    backHome: 'На главную',
+    title: 'Установить новый пароль',
+    lead: 'Ссылка предназначена для однократного использования. После смены пароля все ранее открытые сессии будут завершены.',
+    language: 'Сменить язык',
+    newPassword: 'Новый пароль',
+    newPasswordPlaceholder: 'Не менее 12 символов',
+    confirmPassword: 'Повторите пароль',
+    confirmPasswordPlaceholder: 'Введите пароль ещё раз',
+    showPassword: 'Показать пароль',
+    hidePassword: 'Скрыть пароль',
+    policy: 'Пароль должен содержать 12–128 символов и как минимум три группы: строчные буквы, прописные буквы, цифры, специальные знаки. Не используйте очевидные последовательности.',
+    mismatch: 'Пароли не совпадают.',
+    invalid: 'Ссылка недействительна, срок её действия истёк или она уже была использована.',
+    unavailable: 'Сервис восстановления временно недоступен. Запросите новую ссылку позднее.',
+    rateLimited: 'Превышено допустимое количество попыток. Повторите попытку позднее.',
+    submit: 'Сохранить новый пароль',
+    loading: 'Пароль сохраняется…',
+    successTitle: 'Пароль изменён',
+    successText: 'Теперь можно войти с новым паролем.',
+    sessionsRevoked: 'Все ранее открытые сессии завершены.',
+    backToLogin: 'Перейти ко входу',
+  },
+  en: {
+    publicNav: 'Access recovery navigation',
+    brandTagline: 'Access recovery',
+    backHome: 'Home',
+    title: 'Set a new password',
+    lead: 'The link is single-use. All previous sessions will be revoked after the password is changed.',
+    language: 'Change language',
+    newPassword: 'New password',
+    newPasswordPlaceholder: 'At least 12 characters',
+    confirmPassword: 'Repeat password',
+    confirmPasswordPlaceholder: 'Enter the password again',
+    showPassword: 'Show password',
+    hidePassword: 'Hide password',
+    policy: 'Use 12–128 characters and at least three groups: lowercase letters, uppercase letters, digits and symbols. Avoid obvious sequences.',
+    mismatch: 'The passwords do not match.',
+    invalid: 'The link is invalid, expired or has already been used.',
+    unavailable: 'The recovery service is temporarily unavailable. Request a new link later.',
+    rateLimited: 'Too many attempts. Try again later.',
+    submit: 'Save new password',
+    loading: 'Saving…',
+    successTitle: 'Password changed',
+    successText: 'You can now sign in with the new password.',
+    sessionsRevoked: 'All previous sessions have been revoked.',
+    backToLogin: 'Go to sign in',
+  },
+  zh: {
+    publicNav: '访问恢复导航',
+    brandTagline: '恢复访问权限',
+    backHome: '返回首页',
+    title: '设置新密码',
+    lead: '该链接只能使用一次。密码更改后，所有旧会话都将被撤销。',
+    language: '切换语言',
+    newPassword: '新密码',
+    newPasswordPlaceholder: '至少12个字符',
+    confirmPassword: '再次输入密码',
+    confirmPasswordPlaceholder: '重新输入密码',
+    showPassword: '显示密码',
+    hidePassword: '隐藏密码',
+    policy: '密码长度为12–128个字符，并至少包含三类：小写字母、大写字母、数字和特殊符号。请避免明显的连续字符。',
+    mismatch: '两次输入的密码不一致。',
+    invalid: '链接无效、已过期或已被使用。',
+    unavailable: '恢复服务暂时不可用。请稍后重新申请链接。',
+    rateLimited: '尝试次数过多。请稍后再试。',
+    submit: '保存新密码',
+    loading: '正在保存…',
+    successTitle: '密码已更改',
+    successText: '现在可以使用新密码登录。',
+    sessionsRevoked: '所有旧会话均已撤销。',
+    backToLogin: '前往登录',
+  },
+};
+
+function localeFrom(value: string | undefined): Locale {
+  return value === 'en' || value === 'zh' ? value : 'ru';
+}
+
+function nextLocale(locale: Locale): Locale {
+  return locale === 'ru' ? 'en' : locale === 'en' ? 'zh' : 'ru';
+}
+
+export default async function ForgotPasswordPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = (await searchParams) ?? {};
+  const tokenValue = Array.isArray(params.token) ? params.token[0] : params.token;
+  const langValue = Array.isArray(params.lang) ? params.lang[0] : params.lang;
+  const token = String(tokenValue || '').trim().slice(0, 512);
+
+  if (token) {
+    const locale = localeFrom(langValue);
+    const copy = RESET_COPY[locale];
+    const next = nextLocale(locale);
+    const localeQuery = new URLSearchParams({ lang: next, token });
+
+    return (
+      <main className='pc-v7-public-entry pc-recovery-page'>
+        <PublicSiteHeader
+          ariaLabel={copy.publicNav}
+          tagline={copy.brandTagline}
+          localeControl={(
+            <a
+              className='pc-site-locale-switch'
+              href={`/platform-v7/forgot-password?${localeQuery.toString()}`}
+              aria-label={copy.language}
+              title={copy.language}
+            >
+              <Languages size={16} strokeWidth={2.35} aria-hidden='true' />
+              <span>{locale.toUpperCase()}</span>
+            </a>
+          )}
+          actions={(
+            <a className='pc-site-action' href='/platform-v7' aria-label={copy.backHome} title={copy.backHome}>
+              <ArrowLeft size={20} aria-hidden='true' />
+              <span>{copy.backHome}</span>
+            </a>
+          )}
+        />
+
+        <section className='pc-recovery-shell' aria-labelledby='pc-reset-title'>
+          <div className='pc-recovery-heading'>
+            <h1 id='pc-reset-title'>{copy.title}</h1>
+            <p>{copy.lead}</p>
+          </div>
+          <ResetPasswordFormClient token={token} copy={copy} locale={locale} />
+        </section>
+      </main>
+    );
+  }
+
+  const locale = localeFrom(await getLocale());
   const t = await getTranslations('publicEntry.forgot');
+  const ru = locale === 'ru';
   const copy = {
-    error: t('error'),
+    error: ru ? 'Не удалось принять запрос. Повторите попытку позднее или обратитесь в поддержку.' : t('error'),
     requestName: t('requestName'),
     requestMessage: t('requestMessage'),
-    successTitle: t('successTitle'),
-    successText: t('successText'),
-    backToLogin: t('backToLogin'),
-    email: t('email'),
+    successTitle: ru ? 'Запрос принят' : t('successTitle'),
+    successText: ru ? 'Если адрес связан с учётной записью, инструкции по восстановлению будут направлены на электронную почту.' : t('successText'),
+    backToLogin: ru ? 'Вернуться ко входу' : t('backToLogin'),
+    email: ru ? 'Адрес электронной почты' : t('email'),
     emailPlaceholder: t('emailPlaceholder'),
-    loading: t('loading'),
-    submit: t('submit'),
-    note: t('note'),
+    loading: ru ? 'Запрос отправляется…' : t('loading'),
+    submit: ru ? 'Отправить запрос на восстановление' : t('submit'),
+    note: ru ? 'Система не сообщает, существует ли учётная запись с указанным адресом.' : t('note'),
   } satisfies ForgotPasswordCopy;
 
   return (
     <main className='pc-v7-public-entry pc-recovery-page'>
       <PublicSiteHeader
         ariaLabel={t('publicNav')}
-        tagline={t('brandTagline')}
+        tagline={ru ? 'Восстановление доступа' : t('brandTagline')}
         localeControl={<PublicLocaleLink />}
         actions={(
           <a className='pc-site-action' href='/platform-v7' aria-label={t('backHome')} title={t('backHome')}>
@@ -41,8 +190,8 @@ export default async function ForgotPasswordPage() {
 
       <section className='pc-recovery-shell' aria-labelledby='pc-recovery-title'>
         <div className='pc-recovery-heading'>
-          <h1 id='pc-recovery-title'>{t('title')}</h1>
-          <p>{t('lead')}</p>
+          <h1 id='pc-recovery-title'>{ru ? 'Восстановление доступа' : t('title')}</h1>
+          <p>{ru ? 'Укажите адрес электронной почты, связанный с вашей учётной записью.' : t('lead')}</p>
         </div>
         <ForgotPasswordFormClient copy={copy} />
       </section>

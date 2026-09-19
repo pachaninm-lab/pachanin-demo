@@ -29,7 +29,7 @@ jobs:
     timeout-minutes: 70
     services:
       postgres:
-        image: postgres:16-alpine
+        image: ghcr.io/pachaninm-lab/ci-postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
         env:
           POSTGRES_USER: one_deal_admin
           POSTGRES_PASSWORD: ephemeral_one_deal_admin_only
@@ -45,6 +45,7 @@ jobs:
       NODE_ENV: test
       ONE_DEAL_ADMIN_URL: postgresql://one_deal_admin:ephemeral_one_deal_admin_only@127.0.0.1:5432/one_deal_e2e
       ONE_DEAL_AUTH_URL: postgresql://one_deal_auth:ephemeral_one_deal_auth_only@127.0.0.1:5432/one_deal_e2e
+      ONE_DEAL_STAFF_URL: postgresql://one_deal_staff:ephemeral_one_deal_staff_only@127.0.0.1:5432/one_deal_e2e
       ONE_DEAL_APP_URL: postgresql://one_deal_app:ephemeral_one_deal_app_only@127.0.0.1:5432/one_deal_e2e
       ONE_DEAL_STORAGE_URL: postgresql://one_deal_storage:ephemeral_one_deal_storage_only@127.0.0.1:5432/one_deal_e2e
       ONE_DEAL_EVIDENCE_LOG: artifacts/security-abuse/one-deal-e2e.log
@@ -104,6 +105,9 @@ jobs:
           path: ${{ env.SECURITY_ABUSE_DIR }}
           if-no-files-found: error
           retention-days: 90
+
+      - name: Prove security authority capture contract
+        run: node scripts/security/capture-base-security-jobs.contract.mjs
 
       - name: Capture matching Security Quality Gate authority
         env:

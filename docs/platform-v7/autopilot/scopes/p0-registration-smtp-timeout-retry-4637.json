@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "status": "active",
+  "branch": "fix/p0-registration-smtp-timeout-retry-4637",
+  "issue": 4637,
+  "purpose": "Bounded repair for the proven transient SMTP timeout and rate-window forwarding in production registration.",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "operationalStatus": "NOT_ATTESTED",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/app/api/auth/register/route.ts",
+    "apps/web/tests/unit/platformV7FirstCustomerRegistrationBoundary.test.ts"
+  ]
+}

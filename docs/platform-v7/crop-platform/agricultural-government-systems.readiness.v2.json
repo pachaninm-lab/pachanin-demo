@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "pc-crop.agricultural-government-systems.readiness.v2",
+  "generatedAt": "2026-07-30T18:00:00Z",
+  "sourceFinalTruth": "./agricultural-government-systems.final-truth.v1.json",
+  "operationalStatus": "NOT_ATTESTED",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "internalRepositoryRemainderComplete": true,
+  "industrialLiveReady": false,
+  "counts": {
+    "acceptedAuthoritySlices": 10,
+    "acceptedFgisGrainRuntimeSlices": 9,
+    "publicUiDeclarations": 8,
+    "integrationSdkDeclarations": 15,
+    "liveDeclarations": 0,
+    "credentialReferencesPresent": 0,
+    "credentialMaterialPresent": 0
+  },
+  "fgisGrain": {
+    "systemCode": "FGIS_GRAIN",
+    "registryIntegrationStatus": "CONTRACT_PINNED",
+    "registryPlatformState": "SANDBOX_ONLY",
+    "runtimeAuthority": "ACCEPTED_NON_LIVE_AUTHORITY",
+    "apiContractVersion": "1.0.23",
+    "platformReadEnabled": false,
+    "platformWriteEnabled": false,
+    "tenantAuthorizedAdapterPresent": true,
+    "tenantAuthorizedAdapterState": "ACCEPTED_DISABLED_BY_DEFAULT",
+    "externalProviderE2E": "ABSENT",
+    "productionAttestation": "ABSENT"
+  },
+  "declarationTruth": {
+    "publicFgisCode": {
+      "code": "fgis_grain",
+      "state": "MANUAL_ROUTE",
+      "classification": "RUNTIME_AUTHORITY_EXISTS_DECLARATION_NOT_LIVE"
+    },
+    "sdkFgisCode": {
+      "code": "FGIS_ZERNO",
+      "state": "MOCK_ADAPTER",
+      "classification": "LEGACY_MOCK_REFERENCE_ONLY_DESPITE_RUNTIME_AUTHORITY"
+    },
+    "allOtherSdkCodes": "MOCK_REFERENCE_ONLY",
+    "allDeclarationsLiveStatus": "NOT_LIVE"
+  },
+  "externalAssessment": {
+    "systemCode": "FGIS_GRAIN",
+    "kind": "GOVERNED_EXTERNAL_READ_ACCEPTANCE",
+    "assessment": "NOT_ASSESSED",
+    "implementationAuthorized": false,
+    "liveStatus": "NOT_LIVE",
+    "requiredEvidence": [
+      "GOVERNED_PROVIDER_CREDENTIAL_REFERENCE",
+      "REAL_PROVIDER_READ_E2E",
+      "LEGAL_ATTESTATION",
+      "SECURITY_ATTESTATION",
+      "OPERATIONS_ATTESTATION"
+    ]
+  },
+  "forbiddenConclusions": [
+    "INTERNAL_REPOSITORY_COMPLETION_MEANS_LIVE",
+    "MOCK_SDK_IS_RUNTIME_AUTHORITY",
+    "MANUAL_UI_ROUTE_IS_PROVIDER_ACCEPTANCE",
+    "WRITE_ACCESS_IS_ENABLED",
+    "PRODUCTION_INTEGRATION_IS_ATTESTED",
+    "EXTERNAL_IMPLEMENTATION_IS_AUTHORIZED"
+  ]
+}

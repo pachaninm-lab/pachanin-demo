@@ -1,0 +1,31 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "agent/tai-ap-14c2-review-packet",
+  "program_issue": 2726,
+  "parent_issue": 2788,
+  "issue": 2973,
+  "allowed_paths": [
+    ".github/workflows/tai-ap14c-expert-review-packet.yml",
+    "apps/tai/governance/scopes/ap-14c2-review-packet-2973.json",
+    "apps/tai/model-artifacts/expert-review-packet.mjs",
+    "apps/tai/model-artifacts/expert-review-packet-runbook.v1.md",
+    "apps/tai/tests/expert-review-packet.test.mjs"
+  ],
+  "forbidden_capabilities": [
+    "automated expert approval, rejection or needs-changes decision",
+    "fabricated reviewer identity, timestamp, evidence digest or review digest",
+    "modification of gold-set prompts, expectations, citations or case digests",
+    "model execution, benchmark, admission, activation or deployment",
+    "model weights, GGUF, source payloads, credentials or external evidence bytes in Git"
+  ],
+  "acceptance": [
+    "owner-only exact-main command prepares bounded review metadata in issue 2973",
+    "all 58 exact cases and 23 critical cases are included",
+    "platform, agro, security and legal-method reviewer tracks are complete",
+    "all generated review templates keep human-only fields null",
+    "packet and file manifest carry exact SHA-256 digests",
+    "existing expert review status remains PENDING_REVIEW",
+    "benchmark and model admission remain pending",
+    "production_operational_status remains NOT_ATTESTED"
+  ]
+}

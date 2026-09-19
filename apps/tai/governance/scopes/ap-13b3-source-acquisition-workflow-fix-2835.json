@@ -1,0 +1,31 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "agent/tai-ap-13b3-source-acquisition-workflow-fix",
+  "status": "active",
+  "parent_issue": 2726,
+  "issue": 2835,
+  "maturity_boundary": "workflow-validation-repair-only-without-acquisition-or-model-admission",
+  "allowed_paths": [
+    ".github/workflows/tai-model-source-acquisition.yml",
+    "apps/tai/governance/scopes/ap-13b3-source-acquisition-workflow-fix-2835.json",
+    "apps/tai/tests/test_model_source_acquisition_workflow_runtime_context.py"
+  ],
+  "forbidden_capabilities": [
+    "model source, tokenizer, weight or GGUF byte download during repository acceptance",
+    "change to exact model identities, revisions, selected source inventory or hash semantics",
+    "automated legal approval or rejection",
+    "conversion, quantization, benchmark, admission or activation claim",
+    "production readiness or operational attestation claim"
+  ],
+  "acceptance": [
+    "job-level env no longer uses the unavailable runner context",
+    "ephemeral original and restore roots are derived from RUNNER_TEMP inside a shell step and exported through GITHUB_ENV",
+    "actionlint validates the workflow without expression-context errors",
+    "owner-only exact-main issue 2835 command and workflow_dispatch triggers remain unchanged",
+    "source acquisition, clean re-download, local hashing, shard verification, deletion before artifact upload and 90-day evidence remain unchanged",
+    "legal review remains PENDING_HUMAN_DECISION",
+    "conversion, quantization and model admission remain NOT_RUN or NOT_DONE",
+    "production_operational_status remains NOT_ATTESTED",
+    "Ruff, strict mypy, full pytest/coverage, security/runtime and exact-head CI pass"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/production-emergency-rollback-3744-verify",
+  "status": "active",
+  "purpose": "Owner-only recovery of the failed exact-SHA API rollout 31273608232 using its preserved rollback state and the evidence-recorded baseline revision.",
+  "approvedBy": "owner-direct-production-recovery-2026-08-08",
+  "authorityBaseExactMain": "current-main-resolved-in-owner-workflow",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-staff-database-url.yml",
+    "scripts/production-full-stack-exact-sha.sh",
+    "scripts/check-production-staff-database-provision.mjs",
+    "docs/platform-v7/autopilot/scopes/production-emergency-rollback-3741.json",
+    "docs/platform-v7/autopilot/autopilot-state.json"
+  ]
+}

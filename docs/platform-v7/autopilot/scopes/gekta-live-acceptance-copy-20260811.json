@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "gekta-live-acceptance-copy-20260811",
+  "branch": "agent/gekta-live-acceptance-copy-20260811",
+  "issue": 3365,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction-2026-08-11",
+  "baseline": {
+    "branch": "main",
+    "commit": "7a9f0822498e57b90fb8c086545c41b7d3f06c4c"
+  },
+  "purpose": "Align the governed live Chromium and mobile acceptance labels with the merged Gekta RU, EN and ZH public assistant copy so the protected REG.RU release chain can judge the deployed UI without weakening SSE, privacy, mobile or rollback assertions.",
+  "allowedPaths": [
+    ".github/workflows/tai-public-agro-semantic-live-acceptance.yml",
+    "apps/web/tests/unit/taiLiveBrowserMatrixContract.test.ts",
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    "docs/platform-v7/autopilot/scopes/gekta-live-acceptance-copy-20260811.json",
+    "scripts/tai-live-public-ai-acceptance.mjs",
+    "scripts/tai-potato-mobile-live-acceptance.mjs"
+  ],
+  "forbiddenChanges": [
+    "public assistant behavior or route authority",
+    "model routing, prompts or private transport",
+    "production credentials or host authority",
+    "database or tenant authority",
+    "weakening RU, EN, ZH, SSE, privacy, mobile or rollback assertions",
+    "direct production mutation"
+  ],
+  "requiredChecks": [
+    "node --check scripts/tai-live-public-ai-acceptance.mjs",
+    "node --check scripts/tai-potato-mobile-live-acceptance.mjs",
+    "apps/web focused taiLiveBrowserMatrixContract test",
+    "Workflow Syntax Guard",
+    "git diff --check",
+    "platform-v7 autopilot guard"
+  ],
+  "deploymentState": "not-deployed",
+  "maturityBoundary": "Acceptance-copy alignment only; no live deployment claim until the protected activation and hosted acceptance both pass."
+}

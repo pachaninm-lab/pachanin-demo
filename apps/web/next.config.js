@@ -1,10 +1,30 @@
 /** @type {import('next').NextConfig} */
+// Exact-main release after final PC-CROP governance closure; runtime configuration is unchanged.
+// Exact-main public AI production correction release: approved agribusiness branding, one fullscreen control and complete mobile assistant UI.
+// Exact-main public assistant mobile keyboard and lighter UI release trigger; runtime configuration is unchanged.
+// Exact-main Qwen broad-agro semantic acceptance trigger: substantive market-factor proof.
+// Exact-main Qwen live UI acceptance v2 trigger: hydrated agro assistant.
+// Exact-main Qwen activation retry after public API middleware repair for issue #3372; runtime behavior is unchanged.
+// Exact-main public-home AI visibility release trigger for PR #3417; runtime configuration is unchanged.
+// Exact-main Qwen activation retry after 80-second provider timeout remediation; runtime behavior is unchanged.
+// Exact-main Qwen push activation after trace suppression and complete request-abort hardening; runtime configuration is unchanged.
+// Exact-main release trigger for approved `ИИ для агробизнеса` identity and final public reasoning-safety fixes; runtime configuration is unchanged.
+// Exact-main retry after aligning live Chromium acceptance with approved `ИИ для агробизнеса` branding; runtime configuration is unchanged.
+// Exact-main retry after binding Chromium subtitle acceptance to the stable public-assistant data attribute; runtime configuration is unchanged.
+// Exact-main release after moving approved public AI branding into the canonical React source; runtime routing is unchanged.
+// Exact-main push activation for DOM-safe public AI identity after workflow-dispatch actor rejection; runtime configuration is unchanged.
+// Exact-main trusted push publishes the approved DOM-safe public AI after finalized PC-CROP lock maintenance; runtime configuration is unchanged.
+// P0 model-first agricultural chat: broad domain questions reach local Qwen without a knowledge-base admission gate.
 const createNextIntlPlugin = require('next-intl/plugin');
 
 const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://vermillion-kitsune-0e7b97.netlify.app';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://процент-агро.рф';
 
+// Хост аналитики намеренно не перечислен. Действующую CSP отдаёт
+// middleware, и она этот хост не разрешает; пока он оставался здесь,
+// репозиторий заявлял два разных намерения про стороннюю загрузку скрипта,
+// и безопасное побеждало только за счёт порядка применения заголовков.
 const securityHeaders = [
   { key: 'X-DNS-Prefetch-Control', value: 'on' },
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
@@ -16,16 +36,28 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://mc.yandex.ru https://api-maps.yandex.ru",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://api-maps.yandex.ru",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob: https:",
-      "connect-src 'self' https://mc.yandex.ru https://api-maps.yandex.ru wss:",
+      "connect-src 'self' https://api-maps.yandex.ru wss:",
       "frame-src 'self'",
       "worker-src 'self' blob:",
       "manifest-src 'self'",
     ].join('; '),
   },
+];
+
+const publicEntryFreshHeaders = [
+  { key: 'Cache-Control', value: 'no-store, no-cache, max-age=0, must-revalidate' },
+  { key: 'CDN-Cache-Control', value: 'no-store' },
+  { key: 'Pragma', value: 'no-cache' },
+  { key: 'Expires', value: '0' },
+];
+
+const serviceWorkerRecoveryHeaders = [
+  ...publicEntryFreshHeaders,
+  { key: 'Service-Worker-Allowed', value: '/' },
 ];
 
 const nextConfig = {
@@ -39,6 +71,22 @@ const nextConfig = {
   async headers() {
     return [
       {
+        source: '/',
+        headers: publicEntryFreshHeaders,
+      },
+      {
+        source: '/platform-v7',
+        headers: publicEntryFreshHeaders,
+      },
+      {
+        source: '/pc-public-entry/platform-v7',
+        headers: publicEntryFreshHeaders,
+      },
+      {
+        source: '/sw.js',
+        headers: serviceWorkerRecoveryHeaders,
+      },
+      {
         source: '/(.*)',
         headers: securityHeaders,
       },
@@ -47,6 +95,8 @@ const nextConfig = {
   async rewrites() {
     return {
       beforeFiles: [
+        { source: '/api/public-platform-assistant', destination: '/api/agro-chat' },
+        { source: '/sw.js', destination: '/pc-public-entry/sw-recovery' },
         { source: '/platform-v7', destination: '/pc-public-entry/platform-v7' },
         { source: '/platform-v7/login', destination: '/pc-public-entry/platform-v7/login' },
         { source: '/platform-v7/forgot-password', destination: '/pc-public-entry/platform-v7/forgot-password' },
@@ -57,6 +107,11 @@ const nextConfig = {
   },
   async redirects() {
     return [
+      {
+        source: '/platform-v7/demo/ai',
+        destination: '/platform-v7/ai-in-action',
+        permanent: false,
+      },
       {
         source: '/platform-v7/deals/:id',
         destination: '/platform-v7/deals/:id/clean',

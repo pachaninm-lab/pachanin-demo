@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4531,
+  "branch": "sec/asvs-v5-file-handling-4531",
+  "status": "active",
+  "purpose": "Assess ASVS V5 File Handling against the platform's real upload and download surfaces, producing per-requirement PASS and FAIL backed by file-bound evidence rather than by chapter-level assumption.",
+  "authorityBaseExactMain": "7812c8814f07d7571bf972fee63ef6db71e4179c",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/asvs-v5-file-handling-4531.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "scripts/security/asvs-decisions.mjs",
+    "scripts/security/asvs-decisions.test.mjs",
+    "scripts/security/build-asvs-matrix.mjs",
+    "scripts/security/build-asvs-matrix.test.mjs"
+  ],
+  "requiredInvariants": [
+    "Each of the 13 V5 requirements carries its own decision and its own evidence; none inherits a verdict from its chapter or its neighbour.",
+    "PASS is expressible only where the control is named by file and re-verified on every run.",
+    "FAIL is held to the same standard as PASS: it must name where the gap is and carry a condition that stops holding once the gap is closed.",
+    "A FAIL is recorded and reported, never resolved by editing product logic - that is outside the scope of this programme.",
+    "A requirement that cannot be assessed honestly stays PENDING_APPLICABILITY_REVIEW and NOT_ASSESSED.",
+    "finalPass stays false.",
+    "Requirement prose from the standard must not be copied into the evidence artifact.",
+    "Proprietary source must not be sent to any external service; only the pinned public standard is downloaded.",
+    "No product logic, dependency, production, REG.RU, DNS or database change."
+  ],
+  "acceptance": [
+    "PRESENT_AT_PATH holds only when every named path carries the control; a partial result does not satisfy it.",
+    "A decision naming a path that is no longer tracked stops holding.",
+    "ABSENT_AT_PATH stops holding once the gap it describes is closed, and the requirement returns to assessment.",
+    "A path-bound condition declaring no paths does not hold.",
+    "A FAIL without evidence or without a condition is rejected.",
+    "All 13 V5 requirements are decided: 4 PASS, 9 FAIL.",
+    "finalPass stays false and the blockers name the remaining pending and failing requirements.",
+    "The concurrent-scope guard accepts exactly the six authorized paths."
+  ]
+}

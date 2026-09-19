@@ -1,0 +1,15 @@
+{
+  "schema_version": "tai.local-model-artifact-bundle.v2",
+  "lifecycle": "PENDING_ACQUISITION",
+  "role": "FALLBACK",
+  "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
+  "revision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
+  "authority_sha256": "3391ea2ba4ddd855b45c5f389f12ffe3ddffb7cc4f46a4048d7357ffcdda6022",
+  "remote_inventory": null,
+  "source_files": [],
+  "legal_review": null,
+  "toolchain_package": null,
+  "conversion": null,
+  "quantizations": [],
+  "storage": null
+}

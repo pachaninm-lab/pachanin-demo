@@ -172,6 +172,41 @@
   border-radius: 12px;
 }
 
+/* The AI page is a primary public product entry, not a secondary text note. */
+.pc-ppe-page .pc-ppe-public-status {
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid #91c8a7;
+  border-left: 5px solid #087a3b;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #effaf3 0%, #ffffff 100%);
+  box-shadow: 0 10px 28px rgba(8, 122, 59, 0.10);
+}
+
+.pc-ppe-page .pc-ppe-ai-status-link {
+  width: 100% !important;
+  min-height: 52px;
+  display: flex !important;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-radius: 11px !important;
+  background: #087a3b;
+  color: #ffffff !important;
+  box-shadow: 0 8px 20px rgba(8, 122, 59, 0.22);
+}
+
+.pc-ppe-page .pc-ppe-ai-status-link strong {
+  font-size: 16px !important;
+  line-height: 1.25 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+.pc-ppe-page .pc-ppe-ai-status-link:hover,
+.pc-ppe-page .pc-ppe-ai-status-link:focus-visible {
+  background: #066832;
+}
+
 @media (max-width: 1080px) {
   .pc-site-nav {
     display: none;
@@ -200,6 +235,15 @@
     min-width: 50px;
     height: 40px;
     padding: 0 8px;
+  }
+
+  .pc-ppe-page .pc-ppe-public-status {
+    padding: 13px;
+  }
+
+  .pc-ppe-page .pc-ppe-ai-status-link {
+    min-height: 56px;
+    padding: 14px 16px;
   }
 }
 

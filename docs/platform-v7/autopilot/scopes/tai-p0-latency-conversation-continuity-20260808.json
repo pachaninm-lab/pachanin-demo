@@ -1,0 +1,49 @@
+{
+  "scopeId": "tai-p0-latency-conversation-continuity-20260808",
+  "status": "PROPOSED",
+  "objective": "Reduce TAI time-to-first-useful-answer without lowering model or answer quality, and make same-conversation follow-ups reliably resolve against the newest relevant dialogue context.",
+  "baseline": "db98710047f589d3770689e8d5b5e915c207fc05",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
+    "apps/web/app/api/public-platform-assistant/route.ts",
+    "apps/web/app/api/restricted-public-platform-assistant/route.ts",
+    "apps/web/lib/platform-v7/assistant-relevance-router.ts",
+    "apps/web/lib/platform-v7/assistant-server-context.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.spec.ts",
+    "apps/web/tests/unit/platformV7RestrictedPublicQwenRoute.test.ts",
+    "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts",
+    "apps/web/tests/e2e/platform-v7-public-assistant-context.spec.ts",
+    "docs/platform-v7/autopilot/scopes/tai-p0-latency-conversation-continuity-20260808.json"
+  ],
+  "required": [
+    "Preserve the current local Qwen model identity, quantization, answer-quality requirements, safety boundaries, RU/EN/ZH support and read-only authority.",
+    "Replace synthetic post-completion token chunking with end-to-end model streaming or a bounded validated streaming path so useful answer text reaches the browser before full generation completes.",
+    "Never stream unvalidated secrets, prohibited write claims, private data or unsupported current-value claims; use a small sentence or semantic-block validation buffer where full raw-token passthrough would weaken safety.",
+    "Keep output-length capability and semantic completeness; do not improve latency by lowering answer quality, shrinking the model, disabling grounding or weakening completeness checks.",
+    "Fix bounded history retention so newest valid turns cannot be evicted by older long turns when the history character budget is reached.",
+    "Build a relevance-preserving conversation context from the newest turns plus compact structured subject/entities/constraints/unresolved-reference state instead of blindly replaying the largest possible raw history.",
+    "Resolve pronouns, ellipsis and continuation prompts against the immediately preceding user and assistant turns in the same conversation.",
+    "A new-chat/reset action must clear conversation context; no context may leak across tabs, sessions, users, tenants or organizations.",
+    "Public conversation context remains semantic-only and cannot grant data or authority. Authenticated context remains server-authoritative for role, tenant and accessible objects.",
+    "Instrument time-to-first-useful-token, total latency, prompt tokens, completion tokens, queue time and model time without logging raw secrets or private content.",
+    "Add warm-runtime latency acceptance and a follow-up continuity corpus in RU/EN/ZH plus mobile Chromium acceptance.",
+    "Re-run exact-main REG.RU activation/deployment/postflight and prove no semantic-quality or safety regression before production PASS."
+  ],
+  "forbidden": [
+    "Smaller or lower-quality model solely for latency",
+    "Lower max output length solely for latency",
+    "Disabling grounding, provenance, safety or completeness checks",
+    "Client-authoritative role, tenant, organization, Deal or permission context",
+    "Cross-conversation or cross-tenant memory",
+    "Unbounded conversation history",
+    "Raw model-token passthrough that can expose content before required safety checks"
+  ],
+  "acceptance": {
+    "quality": "No regression on the existing semantic, agro-wide, disease-completeness, safety, RU/EN/ZH and exact-model-identity gates.",
+    "continuity": "Follow-up prompts using pronouns, ellipsis, comparison and omitted subjects resolve against the newest relevant turns in the same chat, while a clearly new full question is not contaminated by the previous topic.",
+    "latency": "Measure baseline and candidate on the same warm REG.RU runtime and fixed prompt corpus; candidate must reduce median time-to-first-useful-answer by at least 70% and must not worsen accepted-answer quality. Absolute warm-runtime SLOs are to be recorded from evidence rather than fabricated in advance.",
+    "isolation": "New chat/reset, another tab/session and another authenticated principal do not inherit the previous conversation context.",
+    "production": "Exact-SHA REG.RU release, live RU/EN/ZH streaming, mobile Chromium, rollback and immutable evidence PASS."
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-deal-explorer-mobile-ux-20260807",
+  "status": "active",
+  "purpose": "Repair the public deal explorer mobile hierarchy and controls so role, scenario, guided walkthrough and deal state are clear without changing transaction or authorization architecture.",
+  "approvedBy": "owner-direct-implement-2026-08-07",
+  "authorityBaseExactMain": "9892673c1a520dd2fc852466de5de0fa5528c5e9",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/fix-public-deal-explorer-mobile-ux-20260807.json",
+    "apps/web/components/platform-v7/PublicDealExplorerV4.tsx",
+    "apps/web/app/platform-v7/how-it-works/page.tsx",
+    "apps/web/styles/platform-v7-public-deal-explorer-mobile.css",
+    "apps/web/tests/unit/platformV7PublicDealExplorerMobileUx.test.ts",
+    "apps/web/tests/e2e/platform-v7-public-deal-explorer-mobile.spec.ts",
+    "apps/web/tests/e2e/platform-v7-public-product-experience-v3.spec.ts"
+  ],
+  "requiredBehavior": [
+    "mobile users choose role and scenario before starting the guided deal walkthrough",
+    "scenario choices render as compact usable controls instead of a one-column oversized stack",
+    "all three mobile scenario choices remain visible together without horizontal discovery dependence",
+    "the active scenario is visually and semantically explicit",
+    "mobile content hierarchy keeps the deal itself ahead of secondary role context after the initial selection",
+    "the fixed public contact dock remains available without obscuring the primary guided-tour action",
+    "RU EN ZH continue to use the existing localized public-product copy and URL-authoritative tour state",
+    "analytics and public funnel events remain emitted for role scenario and guided-tour actions",
+    "mobile browser acceptance proves ordering state updates and zero horizontal overflow at representative narrow widths",
+    "existing cross-browser acceptance follows the visible responsive scenario controls while retaining 44 by 44 touch-target, history and overflow assertions"
+  ],
+  "forbiddenCapabilities": [
+    "transaction state-machine changes",
+    "RBAC or authentication changes",
+    "money or settlement changes",
+    "API or persistence changes",
+    "fake live data or production-state claims",
+    "acceptance weakening",
+    "new mandatory paid services"
+  ]
+}

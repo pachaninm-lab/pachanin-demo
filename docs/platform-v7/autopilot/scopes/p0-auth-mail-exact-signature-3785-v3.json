@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-auth-mail-exact-signature-3785-v3",
+  "status": "active",
+  "operationalStatus": "P0_AUTH_MAIL_EXACT_SIGNATURE",
+  "issue": 3785,
+  "registrationMatrixIssue": 3785,
+  "releaseIssue": 3072,
+  "sourceBlob": "0cb311fb798d2bf85dc76608b87938ada4b9022c",
+  "title": "Bind auth-mail enqueue placeholders to the exact reviewed PostgreSQL signature",
+  "allowedPaths": [
+    "apps/api/src/modules/auth-mail/auth-mail-outbox.service.spec.ts",
+    "apps/api/src/modules/auth-mail/auth-mail-outbox.service.ts",
+    "docs/platform-v7/autopilot/scopes/p0-auth-mail-exact-signature-3785-v3.json"
+  ],
+  "boundaries": {
+    "productionMutation": "NONE",
+    "databaseMutation": false,
+    "passwordResetRequest": false,
+    "passwordMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "mailSend": false,
+    "smtpDataCommand": false,
+    "reviewerIdentityAccess": false,
+    "reviewerIdentityOutput": false,
+    "credentialOutput": false,
+    "rawProtocolOutput": false,
+    "deploymentMutation": false,
+    "containerLifecycleMutation": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "auth.enqueue_mail_outbox is called with exactly twelve placeholders bound in reviewed order",
+    "the five leading payload fields and the replay/idempotency/correlation fields are explicitly cast to text",
+    "the key version and max-attempt positions are explicitly cast to integer",
+    "available_at and expires_at are explicitly cast to timestamptz",
+    "the focused regression asserts the exact cast order and preserves value positions",
+    "no migration, privilege, RLS, reviewer identity, reset, mail, session, runtime or production mutation is introduced",
+    "new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

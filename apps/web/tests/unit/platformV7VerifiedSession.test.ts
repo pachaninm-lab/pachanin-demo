@@ -23,6 +23,26 @@ function mintJwt(payload: Record<string, unknown>, secret = SECRET): string {
   return `${header}.${body}.${sig}`;
 }
 
+/**
+ * An access token as the API actually mints one.
+ *
+ * These cases are about role mapping and about refusing a role that came from
+ * anywhere but the token, and they still are. What changed is that the reader
+ * now checks the token was issued as an API access token for this platform
+ * (V9.2.2, V9.2.3) rather than accepting any HS256 token signed with the same
+ * secret, so a fixture that omitted those claims was no longer exercising the
+ * path it was written for. The claims are added; not one assertion is relaxed,
+ * and tokenPurposeBinding.spec.ts covers the refusals themselves.
+ */
+function mintAccessJwt(payload: Record<string, unknown>, secret = SECRET): string {
+  return mintJwt({
+    typ: 'access',
+    iss: 'transparent-price-api',
+    aud: 'transparent-price-platform',
+    ...payload,
+  }, secret);
+}
+
 describe('mapApiRoleToCabinetRole', () => {
   it('maps every current operational API role to the correct cabinet', () => {
     expect(mapApiRoleToCabinetRole('BUYER')).toBe('buyer');
@@ -32,7 +52,7 @@ describe('mapApiRoleToCabinetRole', () => {
     expect(mapApiRoleToCabinetRole('COMPLIANCE_OFFICER')).toBe('compliance');
     expect(mapApiRoleToCabinetRole('ARBITRATOR')).toBe('arbitrator');
     expect(mapApiRoleToCabinetRole('SURVEYOR')).toBe('surveyor');
-    expect(mapApiRoleToCabinetRole('GUEST')).toBeNull();
+    expect(mapApiRoleToCabinetRole('GUEST')).toBe('organization');
     expect(mapApiRoleToCabinetRole('nonsense')).toBeNull();
     expect(mapApiRoleToCabinetRole(undefined)).toBeNull();
   });
@@ -58,18 +78,18 @@ describe('verifyHs256Jwt', () => {
 
 describe('readVerifiedCabinetRole', () => {
   it('accepts verified JWT roles including oversight cabinets', async () => {
-    expect(await readVerifiedCabinetRole(mintJwt({ role: 'BANK_OFFICER' }), SECRET, NOW)).toBeNull();
-    expect(await readVerifiedCabinetRole(mintJwt({ role: 'BUYER', exp: NOW + 3600 }), SECRET, NOW)).toBe('buyer');
-    expect(await readVerifiedCabinetRole(mintJwt({ role: 'EXECUTIVE', exp: NOW + 3600 }), SECRET, NOW)).toBe('executive');
-    expect(await readVerifiedCabinetRole(mintJwt({ role: 'ACCOUNTING', exp: NOW + 3600 }), SECRET, NOW)).toBe('bank');
-    expect(await readVerifiedCabinetRole(mintJwt({ role: 'COMPLIANCE_OFFICER', exp: NOW + 3600 }), SECRET, NOW)).toBe('compliance');
-    expect(await readVerifiedCabinetRole(mintJwt({ role: 'ARBITRATOR', exp: NOW + 3600 }), SECRET, NOW)).toBe('arbitrator');
+    expect(await readVerifiedCabinetRole(mintAccessJwt({ role: 'BANK_OFFICER' }), SECRET, NOW)).toBeNull();
+    expect(await readVerifiedCabinetRole(mintAccessJwt({ role: 'BUYER', exp: NOW + 3600 }), SECRET, NOW)).toBe('buyer');
+    expect(await readVerifiedCabinetRole(mintAccessJwt({ role: 'EXECUTIVE', exp: NOW + 3600 }), SECRET, NOW)).toBe('executive');
+    expect(await readVerifiedCabinetRole(mintAccessJwt({ role: 'ACCOUNTING', exp: NOW + 3600 }), SECRET, NOW)).toBe('bank');
+    expect(await readVerifiedCabinetRole(mintAccessJwt({ role: 'COMPLIANCE_OFFICER', exp: NOW + 3600 }), SECRET, NOW)).toBe('compliance');
+    expect(await readVerifiedCabinetRole(mintAccessJwt({ role: 'ARBITRATOR', exp: NOW + 3600 }), SECRET, NOW)).toBe('arbitrator');
   });
 
   it('ignores URL-style role spoofing — only the token is read', async () => {
-    const verifiedRole = await readVerifiedCabinetRole(mintJwt({ role: 'BUYER', exp: NOW + 3600 }), SECRET, NOW);
+    const verifiedRole = await readVerifiedCabinetRole(mintAccessJwt({ role: 'BUYER', exp: NOW + 3600 }), SECRET, NOW);
     expect(verifiedRole).toBe('buyer');
-    expect(resolveServerCabinetAccess({ pathname: '/platform-v7/bank', verifiedRole, mode: 'report' }).status).toBe('would-deny');
+    expect(resolveServerCabinetAccess({ pathname: '/platform-v7/bank', verifiedRole }).status).toBe('denied');
   });
 
   it('rejects a raw/spoofed role string', async () => {
@@ -81,16 +101,16 @@ describe('readVerifiedCabinetRole', () => {
   it('returns null for unverified, expired or missing sessions', async () => {
     expect(await readVerifiedCabinetRole(null, SECRET, NOW)).toBeNull();
     expect(await readVerifiedCabinetRole(undefined, SECRET, NOW)).toBeNull();
-    expect(await readVerifiedCabinetRole(mintJwt({ role: 'BUYER', exp: NOW - 10 }), SECRET, NOW)).toBeNull();
-    const result = resolveServerCabinetAccess({ pathname: '/platform-v7/bank', verifiedRole: null, mode: 'report' });
-    expect(result.status).toBe('unknown');
-    expect(result.enforced).toBe(false);
+    expect(await readVerifiedCabinetRole(mintAccessJwt({ role: 'BUYER', exp: NOW - 10 }), SECRET, NOW)).toBeNull();
+    const result = resolveServerCabinetAccess({ pathname: '/platform-v7/bank', verifiedRole: null });
+    expect(result.status).toBe('denied');
+    expect(result.enforced).toBe(true);
   });
 });
 
 describe('dedicated cabinet session', () => {
   it('signs a cabinet session that verifies back to the same cabinet role', async () => {
-    for (const role of ['bank', 'surveyor', 'arbitrator', 'compliance', 'seller', 'operator'] as const) {
+    for (const role of ['bank', 'surveyor', 'arbitrator', 'compliance', 'seller', 'operator', 'organization'] as const) {
       const token = await signCabinetSession(role, SECRET, { nowSeconds: NOW, ttlSeconds: 3600 });
       expect(token).toBeTruthy();
       expect(await readVerifiedCabinetSessionRole(token, SECRET, NOW)).toBe(role);

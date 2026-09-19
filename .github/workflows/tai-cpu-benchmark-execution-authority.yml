@@ -1,0 +1,197 @@
+name: TAI CPU Benchmark Execution Authority
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+concurrency:
+  group: tai-cpu-benchmark-execution-authority
+  cancel-in-progress: false
+
+jobs:
+  authorize:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.action == 'created' &&
+      github.event.issue.pull_request == null &&
+      github.event.issue.number == 2977 &&
+      github.event.comment.body == '/tai benchmark cpu-fallback exact-main' &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.user.login == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout exact main authority
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Assert exact-main immutable checkout
+        shell: bash
+        env:
+          EXACT_MAIN_PROBE_REPORT: cpu-benchmark-authority-evidence/exact-main-probe.json
+        run: bash apps/tai/model-artifacts/exact-main-probe.v1.sh
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install exact TAI authority package
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e apps/tai
+
+      - name: Validate CPU benchmark execution authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p cpu-benchmark-authority-evidence
+          python -m tai.cpu_benchmark_execution_cli validate-authority \
+            apps/tai/model-artifacts/cpu-benchmark-execution-authority.v1.json \
+            --output cpu-benchmark-authority-evidence/authority-validation.json
+
+      - name: Validate exact AP-14C corpus and review assessment
+        shell: bash
+        run: |
+          set -euo pipefail
+          node docs/platform-v7/autopilot/tai-ap-14c/gold-set-authority.mjs \
+            > cpu-benchmark-authority-evidence/gold-authority-validation.json
+          report='cpu-benchmark-authority-evidence/gold-authority-validation.json'
+          test "$(jq -r '.schema_version' "$report")" = 'tai.gold-set-assessment.v1'
+          test "$(jq -r '.counts.total_cases' "$report")" = '58'
+          test "$(jq -r '.counts.critical_cases' "$report")" = '23'
+          [[ "$(jq -r '.assessment_sha256' "$report")" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$(jq -r '.corpus_sha256' "$report")" =~ ^[0-9a-f]{64}$ ]]
+
+      - name: Evaluate exact-main benchmark prerequisites
+        id: readiness
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          evaluated_at="$(date --utc +'%Y-%m-%dT%H:%M:%S+00:00')"
+          python -m tai.benchmark_prerequisite_matrix_cli \
+            apps/tai/model-artifacts/benchmark-prerequisite-authority.v1.json \
+            apps/tai/model-artifacts/benchmark-prerequisite-baseline.v1.json \
+            --evaluated-at "$evaluated_at" \
+            --output cpu-benchmark-authority-evidence/prerequisite-report.json || true
+          python -m tai.cpu_benchmark_execution_cli evaluate-readiness \
+            apps/tai/model-artifacts/cpu-benchmark-execution-authority.v1.json \
+            cpu-benchmark-authority-evidence/prerequisite-report.json \
+            docs/platform-v7/autopilot/tai-ap-14c/baseline-assessment.v1.json \
+            --exact-main "$GITHUB_SHA" \
+            --evaluated-at "$evaluated_at" \
+            --output cpu-benchmark-authority-evidence/readiness.json
+
+      - name: Upload bounded readiness evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-cpu-benchmark-authority-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            cpu-benchmark-authority-evidence/exact-main-probe.json
+            cpu-benchmark-authority-evidence/authority-validation.json
+            cpu-benchmark-authority-evidence/gold-authority-validation.json
+            cpu-benchmark-authority-evidence/prerequisite-report.json
+            cpu-benchmark-authority-evidence/readiness.json
+            apps/tai/model-artifacts/cpu-benchmark-execution-authority.v1.json
+          if-no-files-found: warn
+          retention-days: 90
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
+
+      - name: Publish bounded readiness summary
+        if: always()
+        shell: bash
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' > cpu-benchmark-authority-summary.md
+          import json
+          import os
+          from pathlib import Path
+
+          probe_path = Path('cpu-benchmark-authority-evidence/exact-main-probe.json')
+          readiness_path = Path('cpu-benchmark-authority-evidence/readiness.json')
+          gold_path = Path('cpu-benchmark-authority-evidence/gold-authority-validation.json')
+          if probe_path.exists():
+              probe = json.loads(probe_path.read_text(encoding='utf-8'))
+          else:
+              probe = {'status': 'REJECTED', 'report_sha256': None}
+          if readiness_path.exists():
+              value = json.loads(readiness_path.read_text(encoding='utf-8'))
+          else:
+              value = {
+                  'status': 'BLOCKED',
+                  'ready': False,
+                  'reasons': ['READINESS_REPORT_ABSENT'],
+                  'benchmark_status': 'PENDING_BENCHMARK',
+                  'model_admission_status': 'PENDING_ADMISSION',
+                  'production_operational_status': 'NOT_ATTESTED',
+              }
+          if gold_path.exists():
+              gold = json.loads(gold_path.read_text(encoding='utf-8'))
+          else:
+              gold = {'status': 'INVALID', 'accepted': False, 'assessment_sha256': None}
+
+          print('## TAI CPU/fallback benchmark execution authority')
+          print()
+          print(f"- exact-main: `{os.environ['GITHUB_SHA']}`;")
+          print(f"- workflow run: `{os.environ['GITHUB_RUN_ID']}` / attempt `{os.environ['GITHUB_RUN_ATTEMPT']}`;")
+          print(f"- exact-main probe: `{probe.get('status')}`;")
+          print(f"- exact-main report SHA-256: `{probe.get('report_sha256')}`;")
+          print(f"- AP-14C authority: `{gold.get('status')}` / accepted `{gold.get('accepted')}`;")
+          print(f"- AP-14C assessment SHA-256: `{gold.get('assessment_sha256')}`;")
+          print(f"- readiness: `{value.get('status')}`;")
+          print(f"- ready: `{value.get('ready')}`;")
+          print(f"- blockers: `{value.get('reasons', [])}`;")
+          print("- real CPU benchmark: `NOT_RUN`;")
+          print("- GPU benchmark: `NOT_RUN`;")
+          print(f"- benchmark status: `{value.get('benchmark_status', 'PENDING_BENCHMARK')}`;")
+          print(f"- model admission: `{value.get('model_admission_status', 'PENDING_ADMISSION')}`;")
+          print(f"- production operational status: `{value.get('production_operational_status', 'NOT_ATTESTED')}`.")
+          PY
+          jq -n --rawfile body cpu-benchmark-authority-summary.md '{body: $body}' \
+            | gh api --method POST "repos/$REPOSITORY/issues/2977/comments" --input -
+
+      - name: Enforce external execution readiness
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          probe='cpu-benchmark-authority-evidence/exact-main-probe.json'
+          gold='cpu-benchmark-authority-evidence/gold-authority-validation.json'
+          report='cpu-benchmark-authority-evidence/readiness.json'
+          test -s "$probe"
+          test -s "$gold"
+          test -s "$report"
+          test "$(jq -r '.status' "$probe")" = 'EXACT_MAIN_CONFIRMED'
+          test "$(jq -r '.event_sha' "$probe")" = "$GITHUB_SHA"
+          test "$(jq -r '.remote_main_sha' "$probe")" = "$GITHUB_SHA"
+          test "$(jq -r '.accepted' "$gold")" = 'true'
+          test "$(jq -r '.status' "$gold")" = 'ACCEPTED'
+          test "$(jq -r '.counts.reviewed_cases' "$gold")" = '58'
+          test "$(jq -r '.counts.unreviewed_cases' "$gold")" = '0'
+          test "$(jq -r '.status' "$report")" = 'READY_FOR_EXTERNAL_EXECUTION'
+          test "$(jq -r '.ready' "$report")" = 'true'
+          test "$(jq -r '.reasons | length' "$report")" = '0'
+          test "$(jq -r '.benchmark_status' "$report")" = 'PENDING_BENCHMARK'
+          test "$(jq -r '.model_admission_status' "$report")" = 'PENDING_ADMISSION'
+          test "$(jq -r '.production_operational_status' "$report")" = 'NOT_ATTESTED'

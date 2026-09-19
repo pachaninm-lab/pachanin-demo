@@ -1,0 +1,106 @@
+{
+  "schema_version": "tai.benchmark-prerequisite-authority.v1",
+  "program_issue": 2726,
+  "issue": 2974,
+  "benchmark_authority_issue": 2862,
+  "maximum_evidence_age_days": 30,
+  "prerequisites": [
+    {
+      "id": "benchmark-authority-v2",
+      "owner_issue": 2862,
+      "kind": "CODE_AUTHORITY",
+      "required_status": "VALID"
+    },
+    {
+      "id": "immutable-model-bundles",
+      "owner_issue": 2961,
+      "kind": "EXTERNAL_EXECUTION",
+      "required_status": "BUNDLES_IMMUTABLY_STORED_AND_CLEANLY_RESTORED"
+    },
+    {
+      "id": "external-evidence-storage",
+      "owner_issue": 2954,
+      "kind": "EXTERNAL_ACCOUNT",
+      "required_status": "EXTERNAL_STORAGE_ACCEPTED"
+    },
+    {
+      "id": "expert-reviewed-58-case-suite",
+      "owner_issue": 2973,
+      "kind": "HUMAN_REVIEW",
+      "required_status": "ACCEPTED"
+    },
+    {
+      "id": "dedicated-cpu-host",
+      "owner_issue": 2861,
+      "kind": "EXTERNAL_INFRASTRUCTURE",
+      "required_status": "CPU_HOST_ACCEPTED"
+    },
+    {
+      "id": "dedicated-gpu-host",
+      "owner_issue": 2972,
+      "kind": "EXTERNAL_INFRASTRUCTURE",
+      "required_status": "GPU_HOST_ACCEPTED"
+    },
+    {
+      "id": "cpu-fallback-benchmark",
+      "owner_issue": 2971,
+      "kind": "EXTERNAL_EXECUTION",
+      "required_status": "CPU_FALLBACK_BENCHMARK_VERIFIED"
+    },
+    {
+      "id": "gpu-benchmark",
+      "owner_issue": 2972,
+      "kind": "EXTERNAL_EXECUTION",
+      "required_status": "GPU_BENCHMARK_VERIFIED"
+    }
+  ],
+  "slices": [
+    {
+      "id": "cpu-fallback-execution",
+      "required_prerequisites": [
+        "benchmark-authority-v2",
+        "immutable-model-bundles",
+        "external-evidence-storage",
+        "expert-reviewed-58-case-suite",
+        "dedicated-cpu-host"
+      ],
+      "ready_status": "READY_FOR_CPU_FALLBACK_BENCHMARK"
+    },
+    {
+      "id": "gpu-execution",
+      "required_prerequisites": [
+        "benchmark-authority-v2",
+        "immutable-model-bundles",
+        "external-evidence-storage",
+        "expert-reviewed-58-case-suite",
+        "dedicated-gpu-host"
+      ],
+      "ready_status": "READY_FOR_GPU_BENCHMARK"
+    },
+    {
+      "id": "joint-model-admission",
+      "required_prerequisites": [
+        "benchmark-authority-v2",
+        "immutable-model-bundles",
+        "external-evidence-storage",
+        "expert-reviewed-58-case-suite",
+        "cpu-fallback-benchmark",
+        "gpu-benchmark"
+      ],
+      "ready_status": "READY_FOR_JOINT_MODEL_ADMISSION"
+    }
+  ],
+  "evidence_policy": {
+    "exact_commit_required_for_code_authority": true,
+    "external_evidence_reference_required": true,
+    "timezone_aware_observed_at_required": true,
+    "simulation_accepted": false,
+    "pending_accepted": false,
+    "self_attestation_accepted_for_human_review": false
+  },
+  "maturity_boundary": {
+    "benchmark_status": "PENDING_BENCHMARK",
+    "model_admission_status": "PENDING_ADMISSION",
+    "production_operational_status": "NOT_ATTESTED"
+  }
+}

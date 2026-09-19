@@ -1,0 +1,318 @@
+name: TAI Owner Runtime Role Direct Grant Repair
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/tai-owner-runtime-role-direct-grant-repair.yml"
+      - "scripts/tai-runtime-role-direct-grant-repair.sh"
+      - "scripts/check-tai-runtime-role-direct-grant-repair.mjs"
+      - "docs/platform-v7/autopilot/scopes/tai-orphan-role-direct-grant-removal-20260803.json"
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tai-owner-runtime-role-direct-grant-repair-${{ github.event.issue.number || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+env:
+  DEFAULT_HOST: 195.19.12.120
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+  SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+  SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+  SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+  SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+  SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+  SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+  EVIDENCE_DIR: artifacts/tai-runtime-role-direct-grant-repair
+
+jobs:
+  authority:
+    name: Resolve exact owner repair authority
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3365 &&
+        github.event.comment.body == '/tai repair-runtime-role-direct-grants current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      statuses: read
+    outputs:
+      target_sha: ${{ steps.authority.outputs.target_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.sha || github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Validate direct-grant repair contract
+        if: github.event_name == 'pull_request'
+        run: |
+          set -Eeuo pipefail
+          bash -n scripts/tai-runtime-role-direct-grant-repair.sh
+          node scripts/check-tai-runtime-role-direct-grant-repair.mjs
+      - name: Verify owner command and exact successful upstream authority
+        id: authority
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$COMMENTER" == "$OWNER" ]]
+          [[ "$ACTOR" == "$OWNER" ]]
+          [[ "$TRIGGERING_ACTOR" == "$OWNER" ]]
+          target_sha="$(gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/commits/main" --jq '.sha')"
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
+          gh api -H 'Accept: application/vnd.github+json' \
+            "repos/${GITHUB_REPOSITORY}/commits/${target_sha}/status" \
+            > "$RUNNER_TEMP/status.json"
+          node - "$RUNNER_TEMP/status.json" "$GITHUB_REPOSITORY" <<'NODE'
+          const fs = require('node:fs');
+          const [path, repository] = process.argv.slice(2);
+          const report = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const statuses = Array.isArray(report.statuses) ? report.statuses : [];
+          for (const context of ['TAI Controller Sync', 'TAI REG.RU Preflight']) {
+            const matches = statuses.filter((item) => item?.context === context);
+            if (!matches.length || matches[0].state !== 'success') process.exit(2);
+            const url = String(matches[0].target_url || '');
+            if (!url.startsWith(`https://github.com/${repository}/actions/runs/`)) process.exit(3);
+          }
+          NODE
+          echo "target_sha=$target_sha" >> "$GITHUB_OUTPUT"
+
+  repair:
+    name: Remove strictly attested orphan runtime role
+    needs: authority
+    if: >-
+      github.event_name == 'issue_comment' &&
+      needs.authority.result == 'success' &&
+      needs.authority.outputs.target_sha != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      TARGET_SHA: ${{ needs.authority.outputs.target_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Confirm exact checkout
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+          bash -n scripts/tai-runtime-role-direct-grant-repair.sh
+      - name: Resolve protected root key and pinned REG.RU identity
+        id: ssh
+        run: |
+          set -Eeuo pipefail
+          trim(){ local value="$1"; value="${value#"${value%%[![:space:]]*}"}"; value="${value%"${value##*[![:space:]]}"}"; printf '%s' "$value"; }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]]
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          mkdir -p "$HOME/.ssh" "$EVIDENCE_DIR"
+          chmod 700 "$HOME/.ssh"
+          validate_key(){
+            local source="$1" target="$HOME/.ssh/id_pc_prod" public_key
+            tr -d '\r' < "$source" > "$target"
+            chmod 600 "$target"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
+            public_key="$(mktemp)"
+            ssh-keygen -y -P '' -f "$target" > "$public_key" 2>/dev/null || { rm -f "$public_key"; return 1; }
+            ssh-keygen -lf "$public_key" > "$EVIDENCE_DIR/ssh-key-fingerprint.txt"
+            rm -f "$public_key"
+          }
+          try_slot(){
+            local raw="$1" first second third
+            [[ -n "$raw" ]] || return 1
+            first="$(mktemp)"; second="$(mktemp)"; third="$(mktemp)"
+            printf '%s\n' "$raw" > "$first"
+            validate_key "$first" && { rm -f "$first" "$second" "$third"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$second"
+            validate_key "$second" && { rm -f "$first" "$second" "$third"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$third" 2>/dev/null && validate_key "$third" && { rm -f "$first" "$second" "$third"; return 0; }
+            rm -f "$first" "$second" "$third"; return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" || try_slot "${SSH_KEY_SECONDARY:-}" || try_slot "${SSH_KEY_FALLBACK:-}"
+          scan="$(mktemp)"; match="$(mktemp)"
+          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          [[ -s "$scan" ]]
+          while IFS= read -r line; do
+            fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+            [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+          done < "$scan"
+          [[ "$(grep -c . "$match" || true)" == 1 ]]
+          mv "$match" "$HOME/.ssh/known_hosts"
+          rm -f "$scan"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes -o ConnectTimeout=15 "$user@$host" \
+            'set -Eeuo pipefail; [[ "$(id -u)" -eq 0 ]]; docker version >/dev/null; docker compose version >/dev/null; echo ROOT_SSH_AUTH_OK' \
+            > "$EVIDENCE_DIR/ssh-auth.txt"
+          grep -Fxq ROOT_SSH_AUTH_OK "$EVIDENCE_DIR/ssh-auth.txt"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+      - name: Copy bounded repair asset
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -Eeuo pipefail
+          scp -i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes scripts/tai-runtime-role-direct-grant-repair.sh \
+            "$USER@$HOST:/tmp/pc-tai-runtime-role-direct-grant-repair-${GITHUB_RUN_ID}.sh"
+      - name: Execute transactional orphan-role repair
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -Eeuo pipefail
+          remote_script="/tmp/pc-tai-runtime-role-direct-grant-repair-${GITHUB_RUN_ID}.sh"
+          remote_evidence="/var/lib/pc-release-authority/runner-output/${GITHUB_RUN_ID}/runtime-role-direct-grant-repair.json"
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes "$USER@$HOST" \
+            "chmod 0700 '$remote_script' && '$remote_script' '$TARGET_SHA' '$GITHUB_RUN_ID' '$remote_evidence'" \
+            | tee "$EVIDENCE_DIR/repair.log"
+          grep -Fxq TAI_RUNTIME_DIRECT_REPAIR_COMPLETE=1 "$EVIDENCE_DIR/repair.log"
+      - name: Retrieve and validate redacted repair evidence
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set -Eeuo pipefail
+          remote_evidence="/var/lib/pc-release-authority/runner-output/${GITHUB_RUN_ID}/runtime-role-direct-grant-repair.json"
+          scp -i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes "$USER@$HOST:$remote_evidence" "$EVIDENCE_DIR/runtime-role-direct-grant-repair.json"
+          node - "$EVIDENCE_DIR/runtime-role-direct-grant-repair.json" "$TARGET_SHA" <<'NODE'
+          const fs = require('node:fs');
+          const [path, sha] = process.argv.slice(2);
+          const report = JSON.parse(fs.readFileSync(path, 'utf8'));
+          if (report.schemaVersion !== 'tai.runtime-role-direct-grant-repair.v1') process.exit(2);
+          if (report.targetSha !== sha || report.hosting !== 'REG_RU_VPS_ONLY' || report.newRecurringCostRub !== 0) process.exit(3);
+          if (report.passed !== true || !['ALREADY_ABSENT','REMOVED_SAFE_ORPHAN'].includes(report.status)) process.exit(4);
+          if (report.dropOwnedUsed !== false || report.reassignOwnedUsed !== false) process.exit(5);
+          NODE
+      - name: Remove transient remote and local key material
+        if: always()
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          USER: ${{ steps.ssh.outputs.user }}
+          PORT: ${{ steps.ssh.outputs.port }}
+        run: |
+          set +e
+          if [[ -n "${HOST:-}" && -n "${USER:-}" && "${PORT:-}" =~ ^[0-9]+$ && -f "$HOME/.ssh/id_pc_prod" ]]; then
+            ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes \
+              -o StrictHostKeyChecking=yes "$USER@$HOST" \
+              "rm -f '/tmp/pc-tai-runtime-role-direct-grant-repair-${GITHUB_RUN_ID}.sh'" >/dev/null 2>&1
+          fi
+          rm -rf "$HOME/.ssh"
+      - name: Upload direct-grant repair evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-runtime-role-direct-grant-repair-${{ github.run_id }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish exact-main direct-grant repair result
+    needs: [authority, repair]
+    if: >-
+      always() &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3365 &&
+      github.event.comment.body == '/tai repair-runtime-role-direct-grants current-main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+      statuses: write
+    steps:
+      - name: Publish terminal redacted evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUTHORITY_RESULT: ${{ needs.authority.result }}
+          REPAIR_RESULT: ${{ needs.repair.result }}
+          TARGET_SHA: ${{ needs.authority.outputs.target_sha }}
+        run: |
+          set -Eeuo pipefail
+          state=failure
+          terminal=FAILED_NO_DEPLOYMENT_STARTED
+          description='TAI orphan runtime role direct-grant repair failed'
+          if [[ "$AUTHORITY_RESULT" == success && "$REPAIR_RESULT" == success ]]; then
+            state=success
+            terminal=PASS
+            description='TAI orphan runtime role direct-grant repair PASS'
+          fi
+          if [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            gh api --method POST -H 'Accept: application/vnd.github+json' \
+              "repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
+              -f state="$state" -f context='TAI Runtime Role Direct Grant Repair' -f description="$description" \
+              -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          fi
+          cat > "$RUNNER_TEMP/comment.md" <<EOF_COMMENT
+          ## TAI runtime role direct-grant repair
+
+          - result: \`$terminal\`
+          - exact main: \`${TARGET_SHA:-unresolved}\`
+          - repair run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          - production deployment started: \`false\`
+          - DROP OWNED used: \`false\`
+          - REASSIGN OWNED used: \`false\`
+          EOF_COMMENT
+          gh issue comment 3365 --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/comment.md"
+          [[ "$state" == success ]]
+
+  result_gate:
+    name: Confirm direct-grant repair result
+    needs: [authority, repair, publish]
+    if: >-
+      always() &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3365 &&
+      github.event.comment.body == '/tai repair-runtime-role-direct-grants current-main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Reject failed or skipped repair jobs
+        env:
+          AUTHORITY_RESULT: ${{ needs.authority.result }}
+          REPAIR_RESULT: ${{ needs.repair.result }}
+          PUBLISH_RESULT: ${{ needs.publish.result }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$AUTHORITY_RESULT" == success ]]
+          [[ "$REPAIR_RESULT" == success ]]
+          [[ "$PUBLISH_RESULT" == success ]]

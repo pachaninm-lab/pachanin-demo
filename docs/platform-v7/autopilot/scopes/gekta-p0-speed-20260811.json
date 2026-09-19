@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "claude/gekta-p0-speed-20260811",
+  "status": "active",
+  "purpose": "Measure the user-visible latency of the public Gekta assistant on the exact deployed production revision, so the P0 SPEED gate of the Gekta final unified completion specification can be accepted or rejected on evidence instead of estimate. This scope covers measurement instrumentation only: a baseline tool that reads the same SSE stream a browser consumes, its unit tests, and an owner-triggered read-only workflow that runs it against the public production endpoint. No runtime, model, gateway or request-path behaviour is changed by this scope.",
+  "approvedBy": "owner-instruction-2026-08-11-gekta-p0-speed-concurrent-workstream",
+  "authorityBaseExactMain": "2165da407e0ca09d9a6dc290c16e4a52674ed1e7",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "concurrentWith": "IR-10.4 Settlement PostgreSQL Authority",
+  "concurrencyBoundary": "This scope is additive and must never modify, reorder, pause or reinterpret allowedCurrentScope. IR-10.4 settlement remains the current step and its files are outside this scope.",
+  "allowedPaths": [
+    ".github/workflows/gekta-speed-production-baseline.yml",
+    "scripts/tai-speed-baseline.mjs",
+    "apps/web/tests/unit/taiSpeedBaseline.test.ts",
+    "docs/platform-v7/autopilot/scopes/gekta-p0-speed-20260811.json"
+  ],
+  "requiredBehavior": [
+    "run the production baseline only from an owner-authorized workflow_dispatch, never automatically and never on push",
+    "measure only the public production HTTPS endpoint https://процент-агро.рф and its published SSE path /api/agro-chat?stream=1",
+    "record the repository main SHA, the deployed API revision, the deployed Web revision and the measurement time before any request is issued",
+    "publish the run as an exact-main baseline only when the deployed API and Web revisions are actually proven; otherwise publish it as an unattested network measurement",
+    "separate headersMs, firstTokenMs, firstMeaningfulTextMs and completedMs, because the P0 SPEED gate is stated in terms of first meaningful text rather than the first frame of any kind",
+    "keep failed requests out of the latency percentiles and report them as error classes, so a timeout cannot be read as a slow success",
+    "report null and exit non-zero when nothing completed, rather than emitting a fabricated baseline",
+    "keep single-turn percentiles separate from multi-turn, correction and topic-shift latency",
+    "raise concurrency only through bounded read-only waves with a cooldown between them, and stop escalating when a wave shows overload"
+  ],
+  "forbiddenCapabilities": [
+    "any SSH access to the REG.RU virtual server",
+    "any production secret, credential, token or database URL in the workflow",
+    "any deploy, image build, container, Compose, Caddy or DNS mutation",
+    "any database read, write or migration",
+    "any change to the AI gateway, Qwen runtime settings, model parameters or request path",
+    "any change to settlement, registration, authentication, RLS, MFA or audit behaviour",
+    "any write request against production, including registration, login or deal actions",
+    "raising a timeout, weakening semantic acceptance, dropping difficult questions, dropping RU/EN/ZH coverage or disabling context in order to improve a measured number",
+    "presenting a measurement taken against an unproven revision as an exact-main baseline"
+  ],
+  "acceptance": [
+    "the baseline tool is unit tested without contacting any network endpoint",
+    "the workflow runs on a github-hosted runner with no repository secrets beyond the default token",
+    "a completed run publishes a bounded JSON artifact containing percentiles, error classes, revision evidence and per-class breakdown",
+    "no file outside allowedPaths is changed by this scope"
+  ]
+}

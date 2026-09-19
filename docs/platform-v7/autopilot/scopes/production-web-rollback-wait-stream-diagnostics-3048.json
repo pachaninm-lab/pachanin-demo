@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "scopeId": "production-web-rollback-wait-stream-diagnostics-3048",
+  "branch": "fix/production-web-rollback-wait-stream-diagnostics-3048",
+  "issue": 3048,
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "baseline": {
+    "branch": "main",
+    "commit": "a7946cc1abc27028da0b039fdaff9a110884ecce"
+  },
+  "purpose": "Repair the proven bounded web-only exact-SHA release failure from run 32084073659 without weakening live acceptance. The rollback path recreated the previous exact web image and inspected health immediately, so a normal starting state was reported as AUTOMATIC_ROLLBACK_COMPLETED=0. The same run proved every static, crawler, indexation, compatibility and route check passed while the Gekta stream gate exposed only stream=fail. Add a bounded rollback health wait and non-secret stream-stage diagnostics so the next exact-SHA release can restore safely and classify the remaining failure precisely.",
+  "allowedPaths": [
+    "scripts/production-web-exact-sha.sh",
+    "scripts/production-web-live-acceptance.sh",
+    "scripts/check-production-web-hardening.mjs",
+    "docs/platform-v7/autopilot/scopes/production-web-rollback-wait-stream-diagnostics-3048.json"
+  ],
+  "evidence": {
+    "failedReleaseRun": 32084073659,
+    "targetSha": "beed71c08783906d4235f3a02ad0b737a4c8be15",
+    "preDeployBaselineSha": "6823e5faf25e1e6c32d6b88b5d5736dcff88bd2c",
+    "newWebState": "healthy",
+    "staticAcceptance": "PASS for exact manifest, RU/EN/ZH routes, Deal route, Gekta routes, crawler HTML, indexation and compatibility redirect",
+    "remainingFailure": "Gekta stream gate returned only stream=fail for all 12 attempts",
+    "rollbackEvidence": "AUTOMATIC_ROLLBACK_ATTEMPTED=1 followed by immediate recreation/start and AUTOMATIC_ROLLBACK_COMPLETED=0",
+    "issueDependency": 4332,
+    "mutationBoundary": "web-only exact-SHA release and rollback mechanics; no database, API, auth, model, registration, role, tenant or business-state mutation"
+  },
+  "forbiddenChanges": [
+    "Gekta frontend design, viewport, composer, drawer, localization or interaction thresholds",
+    "Gekta entitlement, streaming API semantics, model runtime, prompts or safety policy",
+    "authentication, registration, MFA, RBAC, RLS, tenant, organization or PostgreSQL authority",
+    "production API, migration, mail, financial, Deal or external-integration runtime",
+    "release-gate relaxation, synthetic token events, hidden retries or acceptance bypass",
+    "new secrets, credentials, SaaS, hosting providers or recurring costs"
+  ],
+  "requiredChecks": [
+    "source-controlled scope guard",
+    "bash syntax for both production scripts",
+    "production web hardening contract",
+    "bounded rollback health-state convergence",
+    "exact rollback OCI revision equality",
+    "safe stream diagnostics without response, ticket or secret disclosure",
+    "all existing exact-SHA, manifest, route, crawler, indexation, compatibility and stream gates remain fail-closed"
+  ],
+  "newRecurringCostRub": 0,
+  "maturityBoundary": "This remediation does not claim Gekta mobile completion, stream recovery, exact production deployment or physical-device acceptance. Issue #4332 remains open until exact production stability, three zero-retry Chromium plus WebKit runs and documented iPhone plus Android keyboard soak are proven."
+}

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-const BASE = process.env.PLATFORM_V7_PUBLIC_URL ?? 'https://vermillion-kitsune-0e7b97.netlify.app';
+const BASE = process.env.PLATFORM_V7_PUBLIC_URL ?? 'https://процент-агро.рф';
 
 const routes = [
   { path: '/platform-v7', required: /Прозрачная Цена|исполн/i },

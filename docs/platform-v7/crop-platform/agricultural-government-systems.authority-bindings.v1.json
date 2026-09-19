@@ -1,0 +1,391 @@
+{
+  "$schema": "./agricultural-government-systems.authority-bindings.schema.v1.json",
+  "schemaVersion": "pc-crop.agricultural-government-systems.authority-bindings.v1",
+  "generatedAt": "2026-07-29T16:15:00Z",
+  "operationalStatus": "NOT_ATTESTED",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "registryBinding": {
+    "path": "docs/platform-v7/crop-platform/agricultural-government-systems.registry.v1.json",
+    "registryVersion": "1.0.0",
+    "mergeSha": "0446f477e418e6dcbd97faa627b1ef7b57b4fa4e",
+    "blobSha": "0b790f54599302edeaa46e9ea4e64fbc4f3a8442"
+  },
+  "runtimeAuthorities": [
+    {
+      "slice": "PC-CROP-08A",
+      "pr": 3156,
+      "mergeSha": "a8f0fda722967d37dffaea76db6014b9fdd196ee",
+      "systemCode": "FGIS_GRAIN",
+      "capabilities": [
+        "OFFICIAL_ARTIFACT_PINNED",
+        "WSDL_XSD_SCHEMA_GRAPH"
+      ],
+      "requiredPaths": [
+        "docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.source-lock.json",
+        "scripts/pc-crop-08a/artifact_intake.py"
+      ],
+      "runtimeStatus": "ACCEPTED_NON_LIVE_AUTHORITY",
+      "liveEvidence": "ABSENT"
+    },
+    {
+      "slice": "PC-CROP-08B",
+      "pr": 3159,
+      "mergeSha": "e6b92a6b71c9edb8e93c408d730dced4b3f54e34",
+      "systemCode": "FGIS_GRAIN",
+      "capabilities": [
+        "BUSINESS_OPERATION_CATALOG",
+        "TYPED_SOAP_CONTRACT_CATALOG"
+      ],
+      "requiredPaths": [
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.contract.ts",
+        "docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.operation-catalog.lock.json"
+      ],
+      "runtimeStatus": "ACCEPTED_NON_LIVE_AUTHORITY",
+      "liveEvidence": "ABSENT"
+    },
+    {
+      "slice": "PC-CROP-08C",
+      "pr": 3166,
+      "mergeSha": "97f3c140bd31b5ab46642eeaee9484a0a15491a2",
+      "systemCode": "FGIS_GRAIN",
+      "capabilities": [
+        "HARDENED_XML_CODEC",
+        "SIGNING_INPUT_DESCRIPTOR"
+      ],
+      "requiredPaths": [
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.ts",
+        "scripts/pc-crop-08c/verify.mjs"
+      ],
+      "runtimeStatus": "ACCEPTED_NON_LIVE_AUTHORITY",
+      "liveEvidence": "ABSENT"
+    },
+    {
+      "slice": "PC-CROP-08D",
+      "pr": 3169,
+      "mergeSha": "cfad7089412c3c4bdd1cd866e08454a3451fa35f",
+      "systemCode": "FGIS_GRAIN",
+      "capabilities": [
+        "CANONICAL_OUTBOX_DISPATCH",
+        "SIGNING_POLICY_AUTHORITY"
+      ],
+      "requiredPaths": [
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-outbox-dispatch.handler.ts",
+        "docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.signing-policy.lock.json"
+      ],
+      "runtimeStatus": "ACCEPTED_NON_LIVE_AUTHORITY",
+      "liveEvidence": "ABSENT"
+    },
+    {
+      "slice": "PC-CROP-08E",
+      "pr": 3173,
+      "mergeSha": "918e538cc48b53a17e845ddf2f5694d3f8c981ab",
+      "systemCode": "FGIS_GRAIN",
+      "capabilities": [
+        "PROVIDER_CONFIGURATION_ATTESTATION",
+        "TEST_ONLY_ACTIVATION"
+      ],
+      "requiredPaths": [
+        "apps/api/prisma/migrations/20260724145500_fgis_grain_provider_attestation_authority/migration.sql",
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-provider-attestation.repository.ts"
+      ],
+      "runtimeStatus": "ACCEPTED_NON_LIVE_AUTHORITY",
+      "liveEvidence": "ABSENT"
+    },
+    {
+      "slice": "PC-CROP-08F",
+      "pr": 3180,
+      "mergeSha": "d79064333ff5653baa43528fd6a956bd9b2fbb87",
+      "systemCode": "FGIS_GRAIN",
+      "capabilities": [
+        "SDIZ_POSTGRESQL_PROJECTION",
+        "VERIFIED_INBOX_APPLICATION"
+      ],
+      "requiredPaths": [
+        "apps/api/prisma/migrations/20260724190000_fgis_grain_sdiz_projection/migration.sql",
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-sdiz-projection.repository.ts"
+      ],
+      "runtimeStatus": "ACCEPTED_NON_LIVE_AUTHORITY",
+      "liveEvidence": "ABSENT"
+    },
+    {
+      "slice": "PC-CROP-08H",
+      "pr": 3284,
+      "mergeSha": "be4cc002aa2a9581ada123084f96ea73cac3980e",
+      "systemCode": "FGIS_GRAIN",
+      "capabilities": [
+        "EXCHANGE_RECEIPT_LEDGER",
+        "VERIFIED_RESPONSE_CORRELATION"
+      ],
+      "requiredPaths": [
+        "apps/api/prisma/migrations/20260727193000_fgis_grain_exchange_receipt/migration.sql",
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-exchange-correlation.repository.ts"
+      ],
+      "runtimeStatus": "ACCEPTED_NON_LIVE_AUTHORITY",
+      "liveEvidence": "ABSENT"
+    },
+    {
+      "slice": "PC-CROP-08I",
+      "pr": 3313,
+      "mergeSha": "ed7b00daed390e391ec8450801cbbe00942a660a",
+      "systemCode": "FGIS_GRAIN",
+      "capabilities": [
+        "OUTBOUND_ACK_LEDGER",
+        "RETRY_SAFE_ACK_DISPATCH"
+      ],
+      "requiredPaths": [
+        "apps/api/prisma/migrations/20260728004500_fgis_grain_outbound_ack/migration.sql",
+        "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-ack.repository.ts"
+      ],
+      "runtimeStatus": "ACCEPTED_NON_LIVE_AUTHORITY",
+      "liveEvidence": "ABSENT"
+    },
+    {
+      "slice": "PC-CROP-10A",
+      "pr": 3326,
+      "mergeSha": "0446f477e418e6dcbd97faa627b1ef7b57b4fa4e",
+      "systemCode": "AGRICULTURAL_GOVERNMENT_SYSTEMS_REGISTRY",
+      "capabilities": [
+        "GOVERNMENT_SYSTEMS_REGISTRY",
+        "UI_SDK_COVERAGE_INVENTORY"
+      ],
+      "requiredPaths": [
+        "docs/platform-v7/crop-platform/agricultural-government-systems.registry.schema.v1.json",
+        "docs/platform-v7/crop-platform/agricultural-government-systems.registry.v1.json"
+      ],
+      "runtimeStatus": "ACCEPTED_REGISTRY_AUTHORITY",
+      "liveEvidence": "ABSENT"
+    }
+  ],
+  "declarationBindings": [
+    {
+      "sourceKind": "PUBLIC_UI_PROVIDER",
+      "code": "sber_safe_deals",
+      "targetSystemCodes": [],
+      "observedPath": "apps/web/lib/platform-v7/integrations/providerRegistry.ts",
+      "registryObservedState": "TEST_DECLARATION",
+      "truthClassification": "CONTRACT_REQUIRED",
+      "liveStatus": "NOT_LIVE"
+    },
+    {
+      "sourceKind": "PUBLIC_UI_PROVIDER",
+      "code": "sber_business_id",
+      "targetSystemCodes": [],
+      "observedPath": "apps/web/lib/platform-v7/integrations/providerRegistry.ts",
+      "registryObservedState": "TEST_DECLARATION",
+      "truthClassification": "CONTRACT_REQUIRED",
+      "liveStatus": "NOT_LIVE"
+    },
+    {
+      "sourceKind": "PUBLIC_UI_PROVIDER",
+      "code": "sber_credit",
+      "targetSystemCodes": [],
+      "observedPath": "apps/web/lib/platform-v7/integrations/providerRegistry.ts",
+      "registryObservedState": "SIMULATION_ONLY",
+      "truthClassification": "CONTRACT_REQUIRED",
+      "liveStatus": "NOT_LIVE"
+    },
+    {
+      "sourceKind": "PUBLIC_UI_PROVIDER",
+      "code": "fgis_grain",
+      "targetSystemCodes": ["FGIS_GRAIN"],
+      "observedPath": "apps/web/lib/platform-v7/integrations/providerRegistry.ts",
+      "registryObservedState": "MANUAL_ROUTE",
+      "truthClassification": "RUNTIME_AUTHORITY_EXISTS_DECLARATION_NOT_LIVE",
+      "liveStatus": "NOT_LIVE"
+    },
+    {
+      "sourceKind": "PUBLIC_UI_PROVIDER",
+      "code": "edo_saby",
+      "targetSystemCodes": [],
+      "observedPath": "apps/web/lib/platform-v7/integrations/providerRegistry.ts",
+      "registryObservedState": "SIMULATION_ONLY",
+      "truthClassification": "CONTRACT_REQUIRED",
+      "liveStatus": "NOT_LIVE"
+    },
+    {
+      "sourceKind": "PUBLIC_UI_PROVIDER",
+      "code": "edo_diadoc",
+      "targetSystemCodes": [],
+      "observedPath": "apps/web/lib/platform-v7/integrations/providerRegistry.ts",
+      "registryObservedState": "SIMULATION_ONLY",
+      "truthClassification": "CONTRACT_REQUIRED",
+      "liveStatus": "NOT_LIVE"
+    },
+    {
+      "sourceKind": "PUBLIC_UI_PROVIDER",
+      "code": "gps_wialon",
+      "targetSystemCodes": [],
+      "observedPath": "apps/web/lib/platform-v7/integrations/providerRegistry.ts",
+      "registryObservedState": "SIMULATION_ONLY",
+      "truthClassification": "CONTRACT_REQUIRED",
+      "liveStatus": "NOT_LIVE"
+    },
+    {
+      "sourceKind": "PUBLIC_UI_PROVIDER",
+      "code": "logistics_sphere",
+      "targetSystemCodes": ["GIS_EPD", "GIS_EPD_OPERATOR_REGISTRY"],
+      "observedPath": "apps/web/lib/platform-v7/integrations/providerRegistry.ts",
+      "registryObservedState": "SIMULATION_ONLY",
+      "truthClassification": "CONTRACT_REQUIRED",
+      "liveStatus": "NOT_LIVE"
+    },
+    {
+      "sourceKind": "INTEGRATION_SDK_ADAPTER",
+      "code": "FGIS_ZERNO",
+      "targetSystemCodes": ["FGIS_GRAIN"],
+      "observedPath": "packages/integration-sdk/src/registry.ts",
+      "registryObservedState": "MOCK_ADAPTER",
+      "truthClassification": "LEGACY_MOCK_REFERENCE_ONLY_DESPITE_RUNTIME_AUTHORITY",
+      "liveStatus": "NOT_LIVE"
+    },
+    {
+      "sourceKind": "INTEGRATION_SDK_ADAPTER",
+      "code": "FNS",
+      "targetSystemCodes": ["FNS_EGRUL_EGRIP"],
+      "observedPath": "packages/integration-sdk/src/registry.ts",
+      "registryObservedState": "MOCK_ADAPTER",
+      "truthClassification": "MOCK_REFERENCE_ONLY",
+      "liveStatus": "NOT_LIVE"
+    },
+    {
+      "sourceKind": "INTEGRATION_SDK_ADAPTER",
+      "code": "DIADOK",
+      "targetSystemCodes": [],
+      "observedPath": "packages/integration-sdk/src/registry.ts",
+      "registryObservedState": "MOCK_ADAPTER",
+      "truthClassification": "MOCK_REFERENCE_ONLY",
+      "liveStatus": "NOT_LIVE"
+    },
+    {
+      "sourceKind": "INTEGRATION_SDK_ADAPTER",
+      "code": "CRYPTOPRO_DSS",
+      "targetSystemCodes": [],
+      "observedPath": "packages/integration-sdk/src/registry.ts",
+      "registryObservedState": "MOCK_ADAPTER",
+      "truthClassification": "MOCK_REFERENCE_ONLY",
+      "liveStatus": "NOT_LIVE"
+    },
+    {
+      "sourceKind": "INTEGRATION_SDK_ADAPTER",
+      "code": "BANK",
+      "targetSystemCodes": [],
+      "observedPath": "packages/integration-sdk/src/registry.ts",
+      "registryObservedState": "MOCK_ADAPTER",
+      "truthClassification": "MOCK_REFERENCE_ONLY",
+      "liveStatus": "NOT_LIVE"
+    },
+    {
+      "sourceKind": "INTEGRATION_SDK_ADAPTER",
+      "code": "GPS",
+      "targetSystemCodes": [],
+      "observedPath": "packages/integration-sdk/src/registry.ts",
+      "registryObservedState": "MOCK_ADAPTER",
+      "truthClassification": "MOCK_REFERENCE_ONLY",
+      "liveStatus": "NOT_LIVE"
+    },
+    {
+      "sourceKind": "INTEGRATION_SDK_ADAPTER",
+      "code": "FTS",
+      "targetSystemCodes": ["FTS_PARTICIPANT_SERVICES"],
+      "observedPath": "packages/integration-sdk/src/registry.ts",
+      "registryObservedState": "MOCK_ADAPTER",
+      "truthClassification": "MOCK_REFERENCE_ONLY",
+      "liveStatus": "NOT_LIVE"
+    },
+    {
+      "sourceKind": "INTEGRATION_SDK_ADAPTER",
+      "code": "RSHN",
+      "targetSystemCodes": ["FGIS_SATURN", "FGIS_ARGUS_FITO", "FGIS_VETIS"],
+      "observedPath": "packages/integration-sdk/src/registry.ts",
+      "registryObservedState": "MOCK_ADAPTER",
+      "truthClassification": "MOCK_REFERENCE_ONLY",
+      "liveStatus": "NOT_LIVE"
+    },
+    {
+      "sourceKind": "INTEGRATION_SDK_ADAPTER",
+      "code": "AML_ROSFINMONITORING",
+      "targetSystemCodes": ["ROSFINMONITORING_AML"],
+      "observedPath": "packages/integration-sdk/src/registry.ts",
+      "registryObservedState": "MOCK_ADAPTER",
+      "truthClassification": "MOCK_REFERENCE_ONLY",
+      "liveStatus": "NOT_LIVE"
+    },
+    {
+      "sourceKind": "INTEGRATION_SDK_ADAPTER",
+      "code": "RZD_ETRAN",
+      "targetSystemCodes": [],
+      "observedPath": "packages/integration-sdk/src/registry.ts",
+      "registryObservedState": "MOCK_ADAPTER",
+      "truthClassification": "MOCK_REFERENCE_ONLY",
+      "liveStatus": "NOT_LIVE"
+    },
+    {
+      "sourceKind": "INTEGRATION_SDK_ADAPTER",
+      "code": "GIS_EPD",
+      "targetSystemCodes": ["GIS_EPD", "GIS_EPD_OPERATOR_REGISTRY"],
+      "observedPath": "packages/integration-sdk/src/registry.ts",
+      "registryObservedState": "MOCK_ADAPTER",
+      "truthClassification": "MOCK_REFERENCE_ONLY",
+      "liveStatus": "NOT_LIVE"
+    },
+    {
+      "sourceKind": "INTEGRATION_SDK_ADAPTER",
+      "code": "BKI_NBKI",
+      "targetSystemCodes": [],
+      "observedPath": "packages/integration-sdk/src/registry.ts",
+      "registryObservedState": "MOCK_ADAPTER",
+      "truthClassification": "MOCK_REFERENCE_ONLY",
+      "liveStatus": "NOT_LIVE"
+    },
+    {
+      "sourceKind": "INTEGRATION_SDK_ADAPTER",
+      "code": "TAKSKOM",
+      "targetSystemCodes": [],
+      "observedPath": "packages/integration-sdk/src/registry.ts",
+      "registryObservedState": "MOCK_ADAPTER",
+      "truthClassification": "MOCK_REFERENCE_ONLY",
+      "liveStatus": "NOT_LIVE"
+    },
+    {
+      "sourceKind": "INTEGRATION_SDK_ADAPTER",
+      "code": "MARINE_TRAFFIC",
+      "targetSystemCodes": [],
+      "observedPath": "packages/integration-sdk/src/registry.ts",
+      "registryObservedState": "MOCK_ADAPTER",
+      "truthClassification": "MOCK_REFERENCE_ONLY",
+      "liveStatus": "NOT_LIVE"
+    },
+    {
+      "sourceKind": "INTEGRATION_SDK_ADAPTER",
+      "code": "SMEV",
+      "targetSystemCodes": ["SMEV3"],
+      "observedPath": "packages/integration-sdk/src/registry.ts",
+      "registryObservedState": "MOCK_ADAPTER",
+      "truthClassification": "MOCK_REFERENCE_ONLY",
+      "liveStatus": "NOT_LIVE"
+    }
+  ],
+  "forbiddenClaims": [
+    "CONFIRMED_LIVE",
+    "PRODUCTION_INTEGRATION_ENABLED",
+    "PLATFORM_READ_ENABLED",
+    "PLATFORM_WRITE_ENABLED",
+    "MOCK_EQUALS_RUNTIME",
+    "DECLARATION_EQUALS_PROVIDER_ACCEPTANCE",
+    "TAI_OR_QWEN_SCOPE"
+  ],
+  "nextAdapter": {
+    "slice": "PC-CROP-10C",
+    "systemCode": "FGIS_GRAIN",
+    "mode": "TENANT_AUTHORIZED_READ_ONLY",
+    "platformState": "DISABLED",
+    "requiresTenantAuthorization": true,
+    "blockers": [
+      "EXTERNAL_LEGAL_SECURITY_OPERATIONS_ATTESTATIONS",
+      "GOVERNED_CREDENTIAL_REFERENCE",
+      "PROVIDER_READ_E2E",
+      "RLS_NEGATIVE_TESTS",
+      "SERVER_DERIVED_TENANT_ORG_ROLE_SCOPE"
+    ]
+  }
+}

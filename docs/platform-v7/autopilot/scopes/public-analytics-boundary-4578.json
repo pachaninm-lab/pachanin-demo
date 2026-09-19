@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4578,
+  "branch": "sec/public-analytics-boundary-4578",
+  "status": "active",
+  "purpose": "Close ASVS V14.2.3: confine analytics to a fail-closed public boundary, remove session replay, resolve the two contradictory CSPs, and correct a merged decision note that overstated the exposure.",
+  "authorityBaseExactMain": "a666ee6e817ba0dd5d84a937712d0a7f4dbb3027",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/public-analytics-boundary-4578.json",
+    "docs/security/asvs-applicability-decisions.json",
+    "apps/web/lib/analytics/analytics-boundary.ts",
+    "apps/web/components/analytics/PublicAnalytics.tsx",
+    "apps/web/tests/unit/publicAnalyticsBoundary.test.ts",
+    "apps/web/app/layout.tsx",
+    "apps/web/next.config.js"
+  ],
+  "requiredInvariants": [
+    "The boundary is deny-by-default: an unrecognised path gets no analytics markup, script or pixel.",
+    "No security control is widened; in particular no CSP gains a third-party host.",
+    "Session replay is removed rather than reconfigured, because no safe public-only boundary can be demonstrated.",
+    "Field-level masking is never offered as the primary protection.",
+    "The noscript pixel is treated as a separate exposure from the script, because CSP does not stop an image.",
+    "A merged decision note found to be overstated is corrected in place, not quietly restated.",
+    "finalPass stays false.",
+    "No product business logic beyond the analytics boundary, and no production, REG.RU, DNS or database change."
+  ],
+  "acceptance": [
+    "Every private and credential-bearing path family is denied, enumerated explicitly in the test rather than inferred.",
+    "An unknown path, an empty path and a relative path all fail closed.",
+    "A private path cannot masquerade as an allowlisted prefix (/legal-internal, /trustee).",
+    "The root layout contains no analytics markup at all.",
+    "next.config.js no longer names the analytics host.",
+    "No file enables webvisor.",
+    "Measured against a running server: the cabinet page carried the snippet and the pixel before and carries neither after.",
+    "V14.2.3 moves FAIL to PASS, and its note records the correction to the earlier overstatement.",
+    "The evidence gate rejects 0 decisions at the head.",
+    "finalPass stays false."
+  ]
+}

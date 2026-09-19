@@ -252,6 +252,34 @@ function waitForMergeablePr(prNumber, label) {
 }
 
 function mergePr(prNumber, headSha, message) {
+  const expectedHead = String(headSha || '');
+  if (!/^[0-9a-f]{40}$/.test(expectedHead)) throw new Error(`PR #${prNumber} has invalid expected head: ${expectedHead}`);
+
+  run('node', ['docs/platform-v7/autopilot/verify-pr-review-gate.mjs'], {
+    ...process.env,
+    REPO: repo,
+    PR_NUMBER: String(prNumber),
+    HEAD_SHA: expectedHead,
+    REQUIRE_GREEN_CI: '1',
+  });
+
+  const latest = json('gh', [
+    'pr',
+    'view',
+    String(prNumber),
+    '--repo',
+    repo,
+    '--json',
+    'isDraft,mergeable,headRefOid,labels',
+  ]);
+  const liveHead = String(latest.headRefOid || '');
+  if (!/^[0-9a-f]{40}$/.test(liveHead)) throw new Error(`PR #${prNumber} has invalid live head: ${liveHead}`);
+  if (liveHead !== expectedHead) throw new Error(`PR #${prNumber} head moved before merge: expected=${expectedHead} actual=${liveHead}`);
+  if (latest.isDraft) throw new Error(`PR #${prNumber} became draft before merge`);
+  if (latest.mergeable !== 'MERGEABLE') throw new Error(`PR #${prNumber} is not mergeable before merge: ${latest.mergeable}`);
+  const liveLabels = Array.isArray(latest.labels) ? latest.labels.map((label) => String(label?.name || label || '')) : [];
+  if (!liveLabels.includes('platform-v7')) throw new Error(`PR #${prNumber} lost required platform-v7 label before merge`);
+
   run('gh', [
     'api',
     '--method',
@@ -260,7 +288,7 @@ function mergePr(prNumber, headSha, message) {
     '-f',
     'merge_method=squash',
     '-f',
-    `sha=${headSha}`,
+    `sha=${liveHead}`,
     '-f',
     `commit_title=${message}`,
   ]);
@@ -477,7 +505,6 @@ function recoverMergedGeneratedPr() {
     const mergeSha = mergedPrCommitSha(prNumber) || headSha;
     return openStateAdvanceRecovery(prNumber, mergeSha) ? 1 : 0;
   }
-
   return 0;
 }
 

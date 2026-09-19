@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-presentation-pdf-runtime-final-20260827",
+  "status": "active",
+  "allowedPaths": [
+    "apps/web/public/downloads/prozrachnaya-tsena-presentation.pdf",
+    "apps/web/middleware.ts",
+    "apps/web/tests/unit/platformV7PresentationDownload.test.ts",
+    "apps/api/src/modules/auth/codeqlPasswordHashModel.spec.ts",
+    "codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql"
+  ],
+  "notes": [
+    "The two CodeQL provenance-consistency files are test/comment-only and repair the existing 2.26.4 lock drift detected by Node CI; they do not change runtime or query semantics."
+  ]
+}

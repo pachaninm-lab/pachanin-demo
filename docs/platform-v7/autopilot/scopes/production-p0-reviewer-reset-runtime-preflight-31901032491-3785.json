@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "diag/p0-reviewer-reset-runtime-preflight-31901032491-3785",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_RESET_RUNTIME_PREFLIGHT_31901032491",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "title": "Read-only runtime and PostgreSQL authority preflight for reviewer reset run 31901032491",
+  "sourceRun": 31901032491,
+  "sourceRevision": "056ed4461dafb5e7dab2efc9ea5a0d5877523169",
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-reset-runtime-preflight-31901032491.yml",
+    "scripts/production-p0-reviewer-reset-runtime-preflight-31901032491.sh",
+    "scripts/check-production-p0-reviewer-reset-runtime-preflight-31901032491.mjs",
+    "docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-runtime-preflight-31901032491-3785.json"
+  ],
+  "boundaries": {
+    "productionMutation": "NONE",
+    "databaseMutation": false,
+    "databaseReadOnly": true,
+    "identityMutation": false,
+    "passwordMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "resetReplay": false,
+    "mailSend": false,
+    "deploymentMutation": false,
+    "containerLifecycleMutation": false,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "rawLogOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "inspect only the active API container at immutable reviewer reset revision 056ed4461dafb5e7dab2efc9ea5a0d5877523169",
+    "prove PC_PUBLIC_SITE_URL equals the canonical production HTTPS origin without publishing any protected value",
+    "read and validate the mounted auth-mail key-version/key material only inside the API container and publish only a boolean synthetic AES/HKDF self-test result",
+    "connect to AUTH_DATABASE_URL with default_transaction_read_only=on and inspect only role/function/RLS metadata",
+    "prove the API database principal has EXECUTE on auth.enqueue_mail_outbox and the SECURITY DEFINER owner/RLS contract is intact",
+    "do not call password-reset request or confirm, do not send mail, and do not write any database row",
+    "do not publish emails, tokens, credentials, key values, database rows, raw Docker inspect output, or raw logs",
+    "new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

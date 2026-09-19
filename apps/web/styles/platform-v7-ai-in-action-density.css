@@ -1,0 +1,341 @@
+/* Route-scoped density and mobile composition refinements for /platform-v7/ai-in-action. */
+
+.pc-ai-in-action-page [class*='PublicAiInActionExperience_finalSection__'] {
+  padding-bottom: 24px;
+}
+
+.pc-ai-in-action-page .pc-ppe-footer {
+  margin-top: 0;
+  padding-top: 28px;
+  padding-bottom: max(22px, env(safe-area-inset-bottom));
+}
+
+.pc-ai-in-action-page .pc-ppe-footer-grid {
+  row-gap: 18px;
+}
+
+@media (max-width: 760px) {
+  .pc-ai-in-action-page {
+    scroll-padding-top: 58px;
+  }
+
+  .pc-ai-in-action-page .pc-site-header {
+    --pc-site-control-height: 34px !important;
+    height: 50px !important;
+    min-height: 50px !important;
+    padding-inline: 10px !important;
+  }
+
+  .pc-ai-in-action-page .pc-site-brand-mark,
+  .pc-ai-in-action-page .pc-site-brand-mark[data-brand-mark='transparent-price-canonical'] {
+    width: 30px !important;
+    height: 30px !important;
+    flex-basis: 30px !important;
+  }
+
+  .pc-ai-in-action-page .pc-site-brand-text strong {
+    font-size: 14px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_hero__'] {
+    padding-top: 68px !important;
+    padding-bottom: 32px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_heroGrid__'] {
+    gap: 24px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_heroCopy__'] h1 {
+    margin: 11px 0 13px !important;
+    font-size: clamp(33px, 9.5vw, 42px) !important;
+    line-height: 1.01 !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_heroCopy__'] > p {
+    font-size: 15px !important;
+    line-height: 1.42 !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_heroSignalCard__'] {
+    min-height: 0 !important;
+    margin-top: 14px !important;
+    padding: 10px 12px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_heroActions__'] {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    margin-top: 16px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_primaryLink__'],
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_secondaryLink__'] {
+    min-height: 44px !important;
+    padding: 9px 11px !important;
+    font-size: 12px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_heroVisual__'] {
+    min-height: 276px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_heroCore__'] {
+    top: 38% !important;
+    width: 96px !important;
+    height: 96px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_heroResult__'] {
+    padding: 11px 12px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_scenarioSection__'],
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_boundarySection__'] {
+    padding-top: 34px !important;
+    padding-bottom: 34px !important;
+    scroll-margin-top: 58px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_sectionHeader__'] {
+    margin-bottom: 14px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_sectionHeader__'] h2,
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_finalPanel__'] h2 {
+    margin-top: 9px !important;
+    font-size: clamp(27px, 7.3vw, 34px) !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_selectorGrid__'] {
+    gap: 7px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_selector__'] {
+    padding: 7px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_segmented__'] button {
+    min-height: 36px !important;
+    padding: 6px 5px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_phaseHeader__'] {
+    gap: 7px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_runStatus__'] {
+    min-height: 38px !important;
+    padding: 7px 10px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_phaseTrack__'],
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_factRail__'] {
+    position: relative;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: auto !important;
+    scrollbar-color: #7fb090 #e7efe9;
+    -webkit-overflow-scrolling: touch;
+    mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 24px), transparent 100%);
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_phaseTrack__'] {
+    grid-template-columns: repeat(5, 82px) !important;
+    gap: 5px !important;
+    padding: 0 26px 7px 0 !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_phaseTrack__'] button {
+    min-height: 40px !important;
+    padding: 5px 6px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_phaseTrack__'] button > span {
+    width: 20px !important;
+    height: 20px !important;
+    flex-basis: 20px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_workspace__'] {
+    gap: 8px !important;
+    padding: 7px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_stagePanel__'] > header,
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_resultPanel__'] > header {
+    padding-top: 12px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_stageBody__'] {
+    gap: 8px !important;
+    padding: 12px 14px 10px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_orbit__'] {
+    width: 132px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_aiOrb__'] {
+    width: 66px !important;
+    height: 66px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_stageNarrative__'] h3 {
+    margin: 5px 0 7px !important;
+    font-size: 24px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_stageNarrative__'] strong {
+    margin-top: 8px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_factArea__'] {
+    padding: 0 12px 12px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_factAreaLabel__'] {
+    padding-top: 10px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_factRail__'] {
+    grid-template-columns: repeat(4, 138px) !important;
+    margin-top: 7px !important;
+    padding: 0 26px 7px 0 !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_factRail__'] button {
+    min-height: 68px !important;
+    padding: 7px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_evidenceDetail__'] {
+    min-height: 0 !important;
+    margin-top: 7px !important;
+    padding: 9px 10px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_resultPanel__'] {
+    padding-bottom: 10px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_resultPanel__'] > h3 {
+    margin-top: 12px !important;
+    margin-bottom: 7px !important;
+    font-size: 24px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_reasonCard__'],
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_nextAction__'] {
+    padding: 9px 10px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_metrics__'] {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+    margin-top: 7px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_metrics__'] > div {
+    min-height: 54px !important;
+    padding: 7px 8px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_metricWide__'] {
+    grid-column: 1 / -1 !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_nextAction__'] {
+    margin-top: 8px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_confirmButton__'] {
+    min-height: 40px !important;
+    margin-top: 8px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_controlNote__'] {
+    margin-top: 6px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_transportControls__'] {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 5px !important;
+    margin-top: 8px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_transportControls__'] button {
+    min-height: 38px !important;
+    padding: 6px 5px !important;
+    font-size: 10px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_resetButton__'] {
+    grid-column: auto !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_boundaryGrid__'] {
+    gap: 7px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_boundaryGrid__'] article {
+    grid-template-columns: 34px minmax(0, 1fr) !important;
+    column-gap: 10px !important;
+    padding: 11px 12px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_boundaryIcon__'] {
+    width: 34px !important;
+    height: 34px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_boundaryGrid__'] h3 {
+    margin: 0 0 3px !important;
+    font-size: 16px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_boundaryGrid__'] p {
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_finalSection__'] {
+    padding-bottom: 12px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_finalPanel__'] {
+    padding: 20px 16px !important;
+  }
+
+  .pc-ai-in-action-page .pc-ppe-footer {
+    padding-top: 16px !important;
+    padding-bottom: max(16px, env(safe-area-inset-bottom)) !important;
+  }
+
+  .pc-ai-in-action-page .pc-ppe-footer-grid {
+    row-gap: 10px !important;
+  }
+
+  .pc-ai-in-action-page .pc-ppe-footer nav {
+    gap: 10px 18px !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_heroActions__'] {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_heroVisual__'] {
+    min-height: 248px !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_transportControls__'] {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  .pc-ai-in-action-page [class*='PublicAiInActionExperience_transportControls__'] button {
+    font-size: 9px !important;
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "agent/tai-ap-13b3-model-host-preflight",
+  "status": "active",
+  "parent_issue": 2726,
+  "issue": 2835,
+  "maturity_boundary": "owner-only-exact-main-read-only-model-host-preflight-without-acquisition-or-legal-decision",
+  "allowed_paths": [
+    ".github/workflows/tai-model-host-preflight.yml",
+    "apps/tai/governance/scopes/ap-13b3-model-host-preflight-2835.json",
+    "apps/tai/model-artifacts/model-host-preflight-requirements.v1.json",
+    "apps/tai/tests/test_model_host_preflight_workflow.py"
+  ],
+  "forbidden_capabilities": [
+    "pull-request, push, schedule or non-owner-triggered SSH probe",
+    "remote filesystem mutation, package installation or production service change",
+    "model source download, source archive creation, conversion or quantization",
+    "automatic legal approval or legal decision inference",
+    "model benchmark, admission or activation claim",
+    "production readiness or operational attestation claim"
+  ],
+  "acceptance": [
+    "issue 2832 real llama.cpp build is accepted on exact-main with production_operational_status NOT_ATTESTED",
+    "workflow is exact-main, repository-owner-only and issue 2835 command-bound",
+    "workflow prefers dedicated model-host credentials and labels production SSH fallback as non-admissible",
+    "remote probe is read-only and captures CPU, memory, storage, isolation, required tools and exact pinned source endpoint reachability",
+    "host is READY_FOR_CONTROLLED_ACQUISITION only when every machine-readable requirement passes",
+    "probe evidence is uploaded as a small immutable Actions artifact",
+    "no model bytes, license decision, GGUF, benchmark or admission evidence is introduced",
+    "Ruff, strict mypy, full pytest/coverage, security/runtime and exact-head CI pass"
+  ]
+}

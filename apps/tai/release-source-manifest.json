@@ -1,0 +1,20 @@
+{
+  "schema_version": "tai.release.source-manifest.v1",
+  "roots": [
+    ".github/workflows",
+    "apps/api",
+    "apps/tai/tai",
+    "apps/tai/tests",
+    "packages",
+    "scripts"
+  ],
+  "files": [
+    ".gitleaksignore",
+    "apps/tai/pyproject.toml",
+    "infra/docker/Dockerfile.tai",
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "tsconfig.base.json"
+  ]
+}

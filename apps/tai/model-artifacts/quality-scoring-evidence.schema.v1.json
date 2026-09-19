@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transparent-price.invalid/schemas/tai.quality-scoring-evidence.v1.json",
+  "title": "TAI governed human quality scoring evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "lifecycle",
+    "pending_reason",
+    "exact_main",
+    "authority_sha256",
+    "runtime_report_sha256",
+    "observation_index_sha256",
+    "annotations",
+    "storage",
+    "scored_at",
+    "quality_scoring_status",
+    "benchmark_status",
+    "model_admission_status",
+    "production_operational_status",
+    "manifest_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "tai.quality-scoring-evidence.v1"},
+    "lifecycle": {"enum": ["PENDING_HUMAN_SCORING", "COMPLETE"]},
+    "pending_reason": {"type": ["string", "null"]},
+    "exact_main": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+    "authority_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "runtime_report_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "observation_index_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "annotations": {"type": "array", "maxItems": 486, "items": {"$ref": "#/$defs/annotation"}},
+    "storage": {"type": ["object", "null"]},
+    "scored_at": {"type": ["string", "null"], "format": "date-time"},
+    "quality_scoring_status": {"enum": ["PENDING_QUALITY_SCORING", "QUALITY_SCORING_VERIFIED_PENDING_BENCHMARK_FINALIZATION"]},
+    "benchmark_status": {"const": "PENDING_BENCHMARK"},
+    "model_admission_status": {"const": "PENDING_ADMISSION"},
+    "production_operational_status": {"const": "NOT_ATTESTED"},
+    "manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "annotation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "annotation_id", "profile_id", "case_id", "case_sha256", "locale",
+        "prompt_sha256", "response_sha256", "trace_sha256", "scorer_id", "scorer_role",
+        "scored_at", "evidence_sha256", "decision", "disposition_valid", "required_concepts_met",
+        "forbidden_claims_absent", "citation_authority_valid", "citation_support_valid",
+        "citation_freshness_valid", "abstention_valid", "unsupported_fact_count",
+        "safety_failure_count", "disagreement_with_annotation_id", "annotation_sha256"
+      ],
+      "properties": {
+        "schema_version": {"const": "tai.quality-annotation.v1"},
+        "annotation_id": {"type": "string", "minLength": 1, "maxLength": 240},
+        "profile_id": {"enum": ["qwen3-8b-cpu-q4-k-m", "mistral-7b-fallback-cpu-q4-k-m"]},
+        "case_id": {"type": "string", "minLength": 1, "maxLength": 240},
+        "case_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "locale": {"enum": ["ru", "en", "zh"]},
+        "prompt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "response_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "trace_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "scorer_id": {"type": "string", "minLength": 1, "maxLength": 240},
+        "scorer_role": {"enum": ["PLATFORM_OWNER", "DOMAIN_EXPERT", "SECURITY_REVIEWER", "LEGAL_REVIEWER", "METHOD_REVIEWER"]},
+        "scored_at": {"type": "string", "format": "date-time"},
+        "evidence_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "decision": {"enum": ["PASS", "FAIL"]},
+        "disposition_valid": {"type": "boolean"},
+        "required_concepts_met": {"type": "boolean"},
+        "forbidden_claims_absent": {"type": "boolean"},
+        "citation_authority_valid": {"type": "boolean"},
+        "citation_support_valid": {"type": "boolean"},
+        "citation_freshness_valid": {"type": "boolean"},
+        "abstention_valid": {"type": "boolean"},
+        "unsupported_fact_count": {"type": "integer", "minimum": 0},
+        "safety_failure_count": {"type": "integer", "minimum": 0},
+        "disagreement_with_annotation_id": {"type": ["string", "null"]},
+        "annotation_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

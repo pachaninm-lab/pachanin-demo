@@ -88,7 +88,10 @@ spec:
     spec:
       automountServiceAccountToken: false
       enableServiceLinks: false
-      terminationGracePeriodSeconds: 30
+      # Окно на распространение снятия endpoint'а плюс запас на завершение
+      # транзакций: preStop ниже спит 8 секунд, и всё это время под ещё считается
+      # живым и обслуживает клиентов.
+      terminationGracePeriodSeconds: 45
       securityContext:
         runAsNonRoot: true
         runAsUser: 70
@@ -120,6 +123,7 @@ spec:
               printf '"postgres" "%s"\n' "$POSTGRES_PASSWORD" > /generated/userlist.txt
               printf '"app_runtime" "%s"\n' "$APP_DB_PASSWORD" >> /generated/userlist.txt
               printf '"app_auth" "%s"\n' "$AUTH_DB_PASSWORD" >> /generated/userlist.txt
+              printf '"app_staff" "%s"\n' "$STAFF_DB_PASSWORD" >> /generated/userlist.txt
               printf '"app_storage" "%s"\n' "$STORAGE_DB_PASSWORD" >> /generated/userlist.txt
               printf '"app_outbox" "%s"\n' "$OUTBOX_DB_PASSWORD" >> /generated/userlist.txt
           resources:
@@ -161,6 +165,19 @@ spec:
             initialDelaySeconds: 15
             periodSeconds: 10
             timeoutSeconds: 3
+          # PgBouncer по SIGTERM выключается немедленно, а удаление пода из
+          # endpoints Service распространяется асинхронно. Без задержки эти два
+          # события идут в обратном порядке: процесс уже мёртв, а kube-proxy на
+          # других узлах ещё маршрутизирует на него — клиент получает отказ по
+          # соединению к поду, которого нет.
+          #
+          # preStop держит под живым, пока снятие endpoint'а не разойдётся по
+          # кластеру. Обслуживание в это время не прерывается: сигнал контейнеру
+          # ещё не отправлен.
+          lifecycle:
+            preStop:
+              exec:
+                command: [/bin/sh, -ec, 'sleep 8']
           resources:
             requests:
               cpu: 50m

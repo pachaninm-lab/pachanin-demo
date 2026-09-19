@@ -1,15 +1,28 @@
 import './globals.css';
+import '../styles/platform-v7-spacing-system.css';
 import './platform-v7/_styles/fixed-header-contract.css';
 import './platform-v7/_styles/public-supporting-shell.css';
 import './platform-v7/_styles/public-header-accessibility.css';
 import type { Metadata, Viewport } from 'next';
 import { ReactNode } from 'react';
-import Script from 'next/script';
+import { PublicAnalytics } from '../components/analytics/PublicAnalytics';
 import { headers } from 'next/headers';
 import { Inter, Manrope, JetBrains_Mono } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
 import { FeatureFlagsDevPanel } from '@/components/platform-v7/FeatureFlagsDevPanel';
+import {
+  buildPublicBrandRuntimeScript,
+  normalizePublicBrandText,
+  PUBLIC_BRAND_ORIGIN,
+} from '@/lib/platform-v7/public-brand-domain';
+import {
+  isEphemeralPublicAnalyticsId,
+  normalizeAnalyticsPath,
+  posthogPublicAnalyticsAllowedForPath,
+  sanitizePublicProductAnalyticsDetail,
+  type PublicProductAnalyticsCaptureInput,
+} from '@/lib/analytics/analytics-boundary';
 
 const inter = Inter({
   subsets: ['latin', 'cyrillic'],
@@ -32,9 +45,10 @@ const jetbrainsMono = JetBrains_Mono({
   preload: false,
 });
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://xn----8sbjf4befbjgs9b.xn--p1ai';
+const SITE_URL = normalizePublicBrandText(process.env.NEXT_PUBLIC_SITE_URL || PUBLIC_BRAND_ORIGIN);
 const SITE_TITLE = 'Процент-Агро | Прозрачная Цена — цифровой контур зерновой сделки';
 const SITE_DESCRIPTION = 'Процент-Агро — публичный контур проекта «Прозрачная Цена»: зерновая сделка после согласования цены, логистика, приёмка, качество, документы, расчёты, спор и доказательства.';
+const PLATFORM_V7_DESCRIPTION = 'Единый цифровой контур исполнения Сделки в растениеводстве: условия, допуск, торги, логистика, качество, документы, финансирование, деньги, споры, доказательства и закрытие.';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -84,6 +98,10 @@ export const viewport: Viewport = {
 };
 
 const YM_ID = process.env.NEXT_PUBLIC_YM_ID;
+const POSTHOG_INGEST_ORIGINS = Object.freeze({
+  us: 'https://us.i.posthog.com',
+  eu: 'https://eu.i.posthog.com',
+});
 const HTML_LANG: Record<string, string> = { ru: 'ru', en: 'en', zh: 'zh-CN' };
 const LEAN_PUBLIC_ENTRY_PATHS = new Set([
   '/platform-v7',
@@ -93,10 +111,67 @@ const LEAN_PUBLIC_ENTRY_PATHS = new Set([
   '/pc-public-entry/platform-v7/login',
   '/pc-public-entry/platform-v7/forgot-password',
 ]);
+const brandUrlAuthorityScript = buildPublicBrandRuntimeScript();
+const serviceWorkerRecoveryScript = `(function(){var version='2026-07-19-contact-dock-v3';var parameter='pc-sw-recovery';var controlled=false;try{controlled=!!('serviceWorker'in navigator&&navigator.serviceWorker.controller);}catch(e){}var tasks=[];try{if('serviceWorker'in navigator){tasks.push(navigator.serviceWorker.getRegistrations().then(function(items){return Promise.all(items.map(function(item){return item.unregister();}));}));}}catch(e){}try{if('caches'in window){tasks.push(caches.keys().then(function(keys){return Promise.all(keys.map(function(key){return caches.delete(key);}));}));}}catch(e){}Promise.all(tasks).catch(function(){}).then(function(){try{var url=new URL(window.location.href);var recovered=url.searchParams.get(parameter)===version;if(controlled&&!recovered){url.searchParams.set(parameter,version);window.location.replace(url.toString());return;}if(recovered){url.searchParams.delete(parameter);window.history.replaceState(window.history.state,'',url.pathname+(url.search||'')+url.hash);}}catch(e){}});})();`;
 const themeScript = `(function(){try{var t=localStorage.getItem('pc-theme');if(t==='dark'||t==='light'||t==='high-contrast'){document.documentElement.setAttribute('data-theme',t);}else{document.documentElement.setAttribute('data-theme','light');}}catch(e){}})();`;
 
 function normalizePath(value: string | null) {
   return (value || '').split('?')[0].replace(/\/$/, '') || '/';
+}
+
+function posthogCaptureConfiguration(): { captureUrl: string; projectReference: string } | null {
+  const projectReference = String(process.env.POSTHOG_PROJECT_REFERENCE || '').trim();
+  const region = String(process.env.POSTHOG_INGEST_REGION || '').trim();
+  if (!/^phc_[A-Za-z0-9_-]{20,96}$/u.test(projectReference)) return null;
+  if (region !== 'us' && region !== 'eu') return null;
+  return {
+    captureUrl: `${POSTHOG_INGEST_ORIGINS[region]}/i/v0/e/`,
+    projectReference,
+  };
+}
+
+async function capturePublicProductAnalytics(input: PublicProductAnalyticsCaptureInput): Promise<void> {
+  'use server';
+
+  const configuration = posthogCaptureConfiguration();
+  if (!configuration || !isEphemeralPublicAnalyticsId(input?.distinctId)) return;
+
+  const requestHeaders = await headers();
+  const requestPath = requestHeaders.get('x-pc-pathname');
+  // middleware сам перезаписывает x-pc-pathname из req.nextUrl.pathname, поэтому
+  // клиент не выбирает, какой маршрут считать публичным.
+  if (!posthogPublicAnalyticsAllowedForPath(requestPath)) return;
+  const fetchSite = requestHeaders.get('sec-fetch-site');
+  if (fetchSite !== 'same-origin') return;
+
+  const rawProperties = input && typeof input.properties === 'object' && input.properties !== null && !Array.isArray(input.properties)
+    ? input.properties
+    : {};
+  const sanitized = sanitizePublicProductAnalyticsDetail({ name: input?.name, ...rawProperties });
+  if (!sanitized) return;
+  const pathname = normalizeAnalyticsPath(requestPath as string);
+
+  try {
+    await fetch(configuration.captureUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(2000),
+      body: JSON.stringify({
+        api_key: configuration.projectReference,
+        distinct_id: input.distinctId,
+        event: sanitized.name,
+        properties: {
+          ...sanitized.properties,
+          path: pathname,
+          '$process_person_profile': false,
+          '$geoip_disable': true,
+        },
+      }),
+    });
+  } catch {
+    // Аналитика не является authority и никогда не должна ухудшать доступность продукта.
+  }
 }
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
@@ -105,11 +180,15 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const leanPublicEntry = LEAN_PUBLIC_ENTRY_PATHS.has(pathname)
     || pathname === '/platform-v7/staff'
     || pathname.startsWith('/platform-v7/staff/');
+  const pageDescription = pathname === '/platform-v7' || pathname === '/pc-public-entry/platform-v7'
+    ? PLATFORM_V7_DESCRIPTION
+    : SITE_DESCRIPTION;
   const content = leanPublicEntry
     ? children
     : <NextIntlClientProvider locale={locale} messages={await getMessages()}>{children}</NextIntlClientProvider>;
   const showDevPanel = !leanPublicEntry && process.env.NEXT_PUBLIC_DEV_MODE === 'true';
   const fontVariables = leanPublicEntry ? '' : `${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`;
+  const posthogConfigured = posthogCaptureConfiguration() !== null;
 
   return (
     <html
@@ -120,7 +199,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       className={`notranslate${fontVariables ? ` ${fontVariables}` : ''}`}
     >
       <head>
+        <script dangerouslySetInnerHTML={{ __html: brandUrlAuthorityScript }} />
+        <script dangerouslySetInnerHTML={{ __html: serviceWorkerRecoveryScript }} />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <meta name='description' content={pageDescription} />
         <meta name='google' content='notranslate' />
         <meta name='googlebot' content='notranslate' />
         <meta httpEquiv='Content-Language' content={HTML_LANG[locale] ?? 'ru'} />
@@ -128,24 +210,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <body translate='no' className='notranslate'>
         {content}
         {showDevPanel ? <FeatureFlagsDevPanel /> : null}
-        {YM_ID ? (
-          <>
-            <Script id='yandex-metrika' strategy='afterInteractive'>{`
-              (function(m,e,t,r,i,k,a){m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
-              m[i].l=1*new Date();
-              for(var j=0;j<document.scripts.length;j++){if(document.scripts[j].src===r){return;}}
-              k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)})
-              (window,document,'script','https://mc.yandex.ru/metrika/tag.js','ym');
-              ym(${YM_ID},'init',{clickmap:true,trackLinks:true,accurateTrackBounce:true,webvisor:true});
-            `}</Script>
-            <noscript>
-              <div>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`https://mc.yandex.ru/watch/${YM_ID}`} style={{ position: 'absolute', left: -9999 }} alt='' />
-              </div>
-            </noscript>
-          </>
-        ) : null}
+        <PublicAnalytics
+          counterId={YM_ID}
+          locale={locale}
+          capturePublicProductAnalyticsAction={posthogConfigured ? capturePublicProductAnalytics : undefined}
+        />
       </body>
     </html>
   );

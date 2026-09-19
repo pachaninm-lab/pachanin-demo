@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4847,
+  "branch": "security/v831-condition-applied-chain-4847",
+  "status": "active",
+  "purpose": "Repoint V8.3.1's second self-revoking condition from infra/sql/production-rls-policies.sql to the forward-only migration that actually installs the strict row policies. Only CI, docker-compose and the rehearsal and acceptance scripts reference that artifact; no deploy path applies it. The check was therefore revocable by something inert and not revocable by the chain production actually receives - measured, not argued: stripping every CREATE POLICY out of the chain did not revoke the decision, while editing the artifact did.",
+  "authorityBaseExactMain": "9ea51864774e7699e2872099ce49d085b09cb304",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/v831-condition-applied-chain-4847.json",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "The verdict does not move. V8.3.1 asks WHERE authorization is enforced, not how completely, and the global server-side guard satisfies that on its own. Only the evidence changes. Moving the status would be treating an evidence defect as a control defect.",
+    "V8.1.1 is NOT touched. It cites the same artifact, and there the citation is legitimate: V8.1.1 asks that authorization DOCUMENTATION define the access rules, and a document need not execute to be a document. The same file is sound evidence for a documentation requirement and unsound for an enforcement claim; conflating the two would be the error this pass exists to correct.",
+    "Coverage gaps stay where they belong. The chain still leaves deals_app_access USING (true) in place, which is recorded under #4814 and reported against V8.2.2 and V8.4.1 - not against this requirement.",
+    "No production, REG.RU, DNS, database or credential mutation. No migration, no source change, no new dependency, no lockfile change. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "The defect was demonstrated before the fix was written: stripping every CREATE POLICY from 20260830190000_migration_chain_rls_permissive_closure - the migration production actually receives - left V8.3.1 standing. A PASS survived the deletion of the thing it claimed.",
+    "The replacement condition was verified in both directions before being committed, on main, with nothing committed: gutting the applied chain revokes V8.3.1; gutting the inert artifact does not.",
+    "Re-verified on the committed form. M1 gut the chain: V8.3.1 rejected. M2 gut the artifact: not rejected (V8.1.1 is, correctly, since documentation is what it cites). M3 delete the global guard registration from app.module.ts: V8.3.1 rejected, so the other pillar's condition is sound too.",
+    "A method note worth keeping: the first attempt at M3 renamed APP_GUARD to APP_GUARD_REMOVED and AppAuthGuard to AppAuthGuardRemoved, and V8.3.1 did not revoke. That was a bad mutation rather than a finding - the evaluator matches lowercased substrings, and the renamed identifiers still contain the originals. A rename with a suffix is never a valid mutation against a substring check; the line has to go.",
+    "Matrix unchanged at PASS 126 / FAIL 93 / applied 332 / rejected 0, which is the intended outcome."
+  ]
+}

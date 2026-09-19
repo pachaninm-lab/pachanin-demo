@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-crop-yield-semantic-validator-20260805",
+  "status": "active",
+  "title": "TAI crop-yield semantic acceptance repair",
+  "priority": "P0",
+  "baselineExactMain": "aef41d0544f2f19cd97a8145f871778e9c0cf709",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "objective": "Eliminate the false-negative broad live acceptance for a substantive answer about declining winter-wheat yield by validating independent crop-yield factor groups rather than narrow literal stems.",
+  "allowedPaths": [
+    "scripts/tai-potato-mobile-live-acceptance.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-crop-yield-semantic-validator-20260805.json"
+  ],
+  "boundaries": [
+    "Do not change production model behavior, prompts, API routing, security controls, authorization, tenant isolation, write paths or infrastructure",
+    "Do not weaken source, model identity, answer mode, stream completion, subject relevance, minimum answer length, forbidden-platform-article, RU/EN/ZH or mobile Chromium assertions",
+    "The winter-wheat yield scenario must require at least two independent factor groups among nutrition, water and climate, soil condition, crop health, agronomy and genetics, and field history",
+    "Multiple nutrient names count as one nutrition group and multiple weather words count as one water-climate group",
+    "The substantive production answer naming nutrient deficiency, moisture or temperature conditions and soil state must pass without requiring unrelated disease, weed or variety words",
+    "The validator remains fail-closed and must preserve the actual answer in evidence before any failure",
+    "Production completion requires exact-head terminal PASS, merge, exact-main full-stack REG.RU release, controller sync, preflight, protected activation, all 21 endpoint and 5 mobile cases PASS, finalization accept, standalone TAI deployment and postflight PASS"
+  ]
+}

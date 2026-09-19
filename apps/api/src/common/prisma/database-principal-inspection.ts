@@ -36,6 +36,11 @@ type AuthInspectionRow = DealInspectionRow & {
   organizations_update: boolean;
   auth_tables_read_write: boolean;
   auth_audit_read_insert: boolean;
+  identity_rls_forced: boolean;
+  owns_identity_tables: boolean;
+  identity_bootstrap_execute: boolean;
+  staff_admission_execute: boolean;
+  identity_bootstrap_member: boolean;
 };
 
 function baseSnapshot(row: DealInspectionRow): DatabasePrincipalSnapshot {
@@ -65,6 +70,11 @@ function baseSnapshot(row: DealInspectionRow): DatabasePrincipalSnapshot {
     organizationsUpdate: false,
     authTablesReadWrite: false,
     authAuditReadInsert: false,
+    identityRlsForced: false,
+    ownsIdentityTables: false,
+    identityBootstrapExecute: false,
+    staffAdmissionExecute: false,
+    identityBootstrapMember: false,
   };
 }
 
@@ -143,7 +153,54 @@ async function inspectAuthPrincipal(
       (
         has_table_privilege(current_user, 'auth.audit_events', 'SELECT')
         AND has_table_privilege(current_user, 'auth.audit_events', 'INSERT')
-      ) AS auth_audit_read_insert
+      ) AS auth_audit_read_insert,
+      (
+        SELECT count(*) = 3
+        FROM pg_class identity
+        JOIN pg_namespace identity_schema ON identity_schema.oid = identity.relnamespace
+        WHERE identity_schema.nspname = 'public'
+          AND identity.relname IN ('users', 'user_orgs', 'organizations')
+          AND identity.relrowsecurity
+          AND identity.relforcerowsecurity
+      ) AS identity_rls_forced,
+      EXISTS (
+        SELECT 1
+        FROM pg_class identity
+        JOIN pg_namespace identity_schema ON identity_schema.oid = identity.relnamespace
+        WHERE identity_schema.nspname = 'public'
+          AND identity.relname IN ('users', 'user_orgs', 'organizations')
+          AND identity.relowner = roles.oid
+      ) AS owns_identity_tables,
+      -- Production auth must have the exact minimal login/session surface and
+      -- must not retain EXECUTE on any historical wider bootstrap function.
+      (
+        coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_credential(text)'), 'EXECUTE'), false)
+        AND coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_default_membership(text)'), 'EXECUTE'), false)
+        AND coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_context_by_membership(text,text)'), 'EXECUTE'), false)
+        AND coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_session_identity(text,text,text,text)'), 'EXECUTE'), false)
+        AND NOT (
+          coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_identity(text)'), 'EXECUTE'), false)
+          OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_identity_by_id(text)'), 'EXECUTE'), false)
+          OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_memberships(text)'), 'EXECUTE'), false)
+          OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_memberships_ordered(text)'), 'EXECUTE'), false)
+          OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_login_context_by_email(text)'), 'EXECUTE'), false)
+        )
+      ) AS identity_bootstrap_execute,
+      (
+        coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_staff_target_scope(text,text,text,text,text)'), 'EXECUTE'), false)
+        OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.resolve_staff_deal_target_scope(text,text,text)'), 'EXECUTE'), false)
+        OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.staff_admission_queue(text,text,text,integer)'), 'EXECUTE'), false)
+        OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.staff_admission_application(text,text,text,text)'), 'EXECUTE'), false)
+        OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.staff_admission_decision(text,text,text,text,text,text)'), 'EXECUTE'), false)
+        OR coalesce(has_function_privilege(current_user, to_regprocedure('auth.staff_admission_capability(text,text,text,text,text)'), 'EXECUTE'), false)
+      ) AS staff_admission_execute,
+      EXISTS (
+        SELECT 1
+        FROM pg_auth_members bootstrap_membership
+        JOIN pg_roles bootstrap ON bootstrap.oid = bootstrap_membership.roleid
+        WHERE bootstrap.rolname = 'pc_identity_bootstrap'
+          AND bootstrap_membership.member = roles.oid
+      ) AS identity_bootstrap_member
     FROM pg_roles roles
     JOIN pg_class deals ON deals.oid = 'public.deals'::regclass
     WHERE roles.rolname = current_user
@@ -165,6 +222,11 @@ async function inspectAuthPrincipal(
     organizationsUpdate: row.organizations_update,
     authTablesReadWrite: row.auth_tables_read_write,
     authAuditReadInsert: row.auth_audit_read_insert,
+    identityRlsForced: row.identity_rls_forced,
+    ownsIdentityTables: row.owns_identity_tables,
+    identityBootstrapExecute: row.identity_bootstrap_execute,
+    staffAdmissionExecute: row.staff_admission_execute,
+    identityBootstrapMember: row.identity_bootstrap_member,
   };
 }
 

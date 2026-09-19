@@ -1,23 +1,62 @@
 import { PrismaService } from '../../src/common/prisma/prisma.service';
 import { RlsTransactionService } from '../../src/common/prisma/rls-transaction.service';
 import { RequestUser, Role } from '../../src/common/types/request-user';
+import { AuthPrismaService } from '../../src/modules/auth/auth-prisma.service';
 import { CANONICAL_TEST_DEAL_ID } from '../../src/modules/deals/deal-command.policy';
 
 const TENANT_ID = 'tenant-canonical-test';
+const SEEDED_USER_ID_BY_ROLE: Partial<Record<Role, string>> = {
+  [Role.BUYER]: 'buyer-e2e',
+  [Role.SUPPORT_MANAGER]: 'operator-e2e',
+};
 
-async function seededUser(prisma: PrismaService, role: Role): Promise<RequestUser> {
-  const membership = await prisma.userOrg.findFirst({
-    where: { role },
-    include: { user: true },
-  });
-  if (!membership) throw new Error(`Missing seeded membership for ${role}`);
+async function seededUser(authPrisma: AuthPrismaService, role: Role): Promise<RequestUser> {
+  const userId = SEEDED_USER_ID_BY_ROLE[role];
+  if (!userId) throw new Error(`No seeded identity is registered for ${role}`);
+
+  const memberships = await authPrisma.$queryRaw<Array<{ membership_id: string }>>`
+    SELECT membership_id
+    FROM auth.resolve_login_default_membership(${userId})
+  `;
+  const membershipId = memberships[0]?.membership_id;
+  if (!membershipId) throw new Error(`Missing default seeded membership for ${role}`);
+
+  const rows = await authPrisma.$queryRaw<Array<{
+    user_id: string;
+    email: string;
+    full_name: string;
+    membership_id: string;
+    organization_id: string;
+    tenant_id: string;
+    role: string;
+  }>>`
+    SELECT
+      user_id,
+      email,
+      full_name,
+      membership_id,
+      organization_id,
+      tenant_id,
+      role
+    FROM auth.resolve_login_context_by_membership(${userId}, ${membershipId})
+  `;
+  const identity = rows[0];
+  if (
+    !identity
+    || identity.membership_id !== membershipId
+    || identity.tenant_id !== TENANT_ID
+    || identity.role !== String(role)
+  ) {
+    throw new Error(`Missing seeded membership for ${role}`);
+  }
   return {
-    id: membership.user.id,
-    email: membership.user.email,
-    fullName: membership.user.fullName,
+    id: identity.user_id,
+    email: identity.email,
+    fullName: identity.full_name,
     role,
-    orgId: membership.organizationId,
-    tenantId: TENANT_ID,
+    orgId: identity.organization_id,
+    tenantId: identity.tenant_id,
+    membershipId: identity.membership_id,
     sessionId: `recovery-${role.toLowerCase()}`,
     mfaVerified: true,
   };
@@ -25,20 +64,22 @@ async function seededUser(prisma: PrismaService, role: Role): Promise<RequestUse
 
 describe('industrial one-deal recovery matrix', () => {
   let prisma: PrismaService;
+  let authPrisma: AuthPrismaService;
   let rls: RlsTransactionService;
 
   beforeEach(async () => {
     prisma = new PrismaService();
+    authPrisma = new AuthPrismaService();
     rls = new RlsTransactionService(prisma);
-    await prisma.$connect();
+    await Promise.all([prisma.$connect(), authPrisma.onModuleInit()]);
   });
 
   afterEach(async () => {
-    await prisma.$disconnect();
+    await Promise.all([prisma.$disconnect(), authPrisma.onModuleDestroy()]);
   });
 
   it('does not leak transaction-local RLS context across pooled connection reuse', async () => {
-    const buyer = await seededUser(prisma, Role.BUYER);
+    const buyer = await seededUser(authPrisma, Role.BUYER);
     const visible = await rls.withTrustedContext(buyer, (tx) =>
       tx.deal.findMany({ where: { id: CANONICAL_TEST_DEAL_ID }, select: { id: true } }),
     );
@@ -61,7 +102,7 @@ describe('industrial one-deal recovery matrix', () => {
   });
 
   it('rolls back event, audit and outbox atomically after a forced failure', async () => {
-    const operator = await seededUser(prisma, Role.SUPPORT_MANAGER);
+    const operator = await seededUser(authPrisma, Role.SUPPORT_MANAGER);
     const marker = `rollback-proof-${Date.now()}`;
 
     await expect(
@@ -117,7 +158,7 @@ describe('industrial one-deal recovery matrix', () => {
   });
 
   it('preserves durable deal, receipt and audit state across Prisma client restart', async () => {
-    const operator = await seededUser(prisma, Role.SUPPORT_MANAGER);
+    const operator = await seededUser(authPrisma, Role.SUPPORT_MANAGER);
     const before = await rls.withTrustedContext(operator, async (tx) => ({
       deal: await tx.deal.findUnique({ where: { id: CANONICAL_TEST_DEAL_ID }, select: { id: true, status: true } }),
       eventCount: await tx.dealEvent.count({ where: { dealId: CANONICAL_TEST_DEAL_ID } }),
@@ -130,7 +171,7 @@ describe('industrial one-deal recovery matrix', () => {
     rls = new RlsTransactionService(prisma);
     await prisma.$connect();
 
-    const operatorAfterRestart = await seededUser(prisma, Role.SUPPORT_MANAGER);
+    const operatorAfterRestart = await seededUser(authPrisma, Role.SUPPORT_MANAGER);
     const after = await rls.withTrustedContext(operatorAfterRestart, async (tx) => ({
       deal: await tx.deal.findUnique({ where: { id: CANONICAL_TEST_DEAL_ID }, select: { id: true, status: true } }),
       eventCount: await tx.dealEvent.count({ where: { dealId: CANONICAL_TEST_DEAL_ID } }),

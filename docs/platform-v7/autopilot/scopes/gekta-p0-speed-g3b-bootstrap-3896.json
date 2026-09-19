@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/gekta-p0-speed-g3b-bootstrap-3896",
+  "status": "active",
+  "purpose": "Create a one-time fail-closed bootstrap and owner-only G3B controller for the existing Qwen model host so issue #3896 can test exactly the threads 8 to 16 family with deterministic rollback, without granting GitHub root SSH or a general sudo/systemctl surface.",
+  "approvedBy": "repository-owner continuation for issue #3896 on 2026-08-11",
+  "authorityBaseExactMain": "1c720bf943bc8f3106d882401578b91c5f3d4d6d",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3b-bootstrap-3896.json",
+    "scripts/gekta-qwen-g3b-runtime.py",
+    "scripts/gekta-qwen-g3b-bootstrap.sh",
+    ".github/workflows/gekta-p0-speed-g3b-candidate.yml"
+  ],
+  "requiredBehavior": [
+    "bootstrap is a one-time manual root action and never creates or stores a root SSH credential in GitHub",
+    "GitHub runtime transport remains the dedicated TAI model SSH key plus pinned model-host key",
+    "sudo authority is restricted to the installed helper with exact arguments threads16 rollback or status",
+    "threads16 changes only threads and threads-batch from 8 to 16 while preserving parallel 1 ctx 8192 and every unrelated argv and environment value",
+    "candidate state is reversible and any failed restart health or exact-argv verification triggers automatic rollback",
+    "rollback restores the original systemd launcher and exact baseline argv before reporting success",
+    "controller commands are owner-only and bound to issue 3896",
+    "published evidence is bounded and never includes paths raw argv environment values API keys prompts responses model bytes or customer data",
+    "new recurring cost remains zero"
+  ],
+  "forbiddenCapabilities": [
+    "root SSH key repository secret provider-console credential or production VPS SSH credential as model-host authority",
+    "trust-on-first-use model-host identity",
+    "sudo shell sudo bash sudo systemctl arbitrary helper arguments or SETENV",
+    "parallel ctx-size kv-unified batch ubatch model endpoint API-key or model-file mutation in this candidate",
+    "timeout inflation to hide overload",
+    "database REG.RU application deal role money or registration mutation",
+    "second full Qwen sidecar on the 16 GB host",
+    "new server paid API SaaS or recurring cost"
+  ]
+}

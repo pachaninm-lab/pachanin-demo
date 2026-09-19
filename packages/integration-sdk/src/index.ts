@@ -17,6 +17,7 @@ export * from './adapters/takskom.adapter';
 export * from './adapters/marine.adapter';
 export * from './adapters/smev.adapter';
 export * from './adapters/mfa.adapter';
+export * from './quarantine/fgis-zerno-legacy';
 
 // Live integration layer: real HTTP transport, auth, config and reference adapters.
 export * from './live/http-integration-client';
@@ -25,7 +26,8 @@ export * from './live/integration-config';
 export * from './live/build-client';
 export * from './live/live-adapter-base';
 export * from './live/live-bank.adapter';
-export * from './live/live-fgis-zerno.adapter';
+// `live-fgis-zerno.adapter` is intentionally absent: the legacy REST adapter was
+// retired in P0.2-1A. See `./quarantine/fgis-zerno-legacy`.
 export * from './live/live-diadok.adapter';
 export * from './live/live-cryptopro.adapter';
 export * from './live/live-fns.adapter';

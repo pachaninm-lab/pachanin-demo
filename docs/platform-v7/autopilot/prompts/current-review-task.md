@@ -1,98 +1,223 @@
-# Review current task — IR-10.4 Settlement PostgreSQL Authority
+# Review current task — IR-20 Canonical Durable Outbox
 
-Maturity: pre-integration / isolated PostgreSQL evidence only.
-Do not imply live bank, nominal-account, credit, reserve or payout integration.
-Do not auto-merge. Review exact diff, exact-head evidence and repository scope.
+Maturity: controlled-pilot / pre-integration.
+Do not overstate maturity or imply live external integrations.
+Do not change apps/landing, production UI, visual/theme/onboarding, adapters, server actions, AI gateway runtime, DB/migrations or lockfiles unless the current step explicitly allows it.
+Do not auto-merge. Independent review and green checks are required before a manual SHA-bound merge.
+
+Review the diff, not the agent report.
 
 ## Required scope checks
 
-- `apps/landing`, `apps/web`, lockfiles and packages diff must be 0;
-- no live provider activation, credentials or fake-live claims;
-- no RuntimeCore, optional Prisma, repository factory, ActionExecutor memory authority or process-memory OutboxService in the production settlement graph;
-- no float/`amountRub` financial authority;
-- no human/operator confirmation of reserve or release;
-- no trigger/RLS/idempotency/ledger bypass in fixtures;
-- no temporary/self-modifying workflow and no direct push from Actions;
-- state, task prompt and actual diff must agree.
+- `apps/landing` diff must be 0.
+- UI/visual/theme/onboarding diff must be 0 unless explicitly allowed by the current step.
+- adapters/server-actions/AI gateway diff must be 0 unless explicitly allowed by the current step.
+- no auto-merge behavior.
+- no fake-live or maturity overclaim.
 
-## Approved concurrent infrastructure scope — IR-K8S #2659 / PR #2660
+## Current allowed scope
 
-The serialized primary task remains IR-10.4. A separate, isolated infrastructure acceptance slice is authorized for branch `ir/k8s-production-like-2659` under:
+- docs/platform-v7/autopilot/autopilot-state.json
+- docs/platform-v7/autopilot/progress.json
+- docs/platform-v7/autopilot/prompts/current-codex-task.md
+- docs/platform-v7/autopilot/prompts/current-review-task.md
+- docs/platform-v7/execution-queue.md
+- apps/api/src/common/outbox/**
+- apps/api/src/common/prisma/outbox-*
+- apps/api/src/outbox-worker.ts
+- apps/api/src/outbox-worker.module.ts
+- apps/api/src/modules/integration-events/durable-outbox.runner.ts
+- apps/api/src/modules/integration-events/durable-outbox.runner.spec.ts
+- apps/api/src/modules/integration-events/durable-outbox.worker.ts
+- apps/api/src/modules/integration-events/integration-events.module.ts
+- apps/api/prisma/schema.prisma
+- apps/api/prisma/migrations/20260912*_canonical_durable_outbox/**
+- apps/api/test/industrial/harness.ts
+- apps/api/test/industrial/durable-outbox.e2e-spec.ts
+- apps/api/test/industrial/outbox-worker-process.e2e-spec.ts
+- infra/sql/postgresql-outbox-worker-policies.sql
+- scripts/platform-v7-forward-only-migration-check.mjs
+- scripts/platform-v7-one-deal-e2e.sh
+- .github/workflows/ci.yml
 
-`docs/platform-v7/autopilot/scopes/ir-k8s-production-like-2659.json`
+## Transition guard
 
-Review this branch only against that exact allow-list. It may add the production-like Kubernetes workflow, disposable kind topology, runtime dependencies, hardening manifests, PgBouncer configuration and `scripts/release/production-like-kubernetes-*` acceptance/evidence tooling. It must not change application/domain code, Prisma schema or migrations, web code, packages or lockfiles.
+- BLOCKED: IR-20 Canonical Durable Outbox is not green/closed/mergeable. Dispatcher will not advance to IR-21 Durable Integration Inbox.
 
-This concurrent scope proves only a disposable multi-node production-like deployment, immutable rollout and same-schema rollback. It does not advance the global maturity status, does not prove provider HA/PITR or production capacity, and does not authorize any live external integration.
+## Queue snapshot
 
-## Automatic hard blockers
+# platform-v7 Industrial Integration Readiness queue
 
-Return BLOCKED immediately for any of the following:
+CURRENT: IR-20 Canonical Durable Outbox
 
-1. Settlement mutation still calls RuntimeCore or process-memory OutboxService.
-2. Money authority is persisted or calculated in floating-point units.
-3. `confirmWorksheet`, `releasePayment` or another human endpoint can confirm bank money movement.
-4. Callback validation omits partner/key version/event/operation/fingerprint binding.
-5. Exact callback replay creates a second financial effect, while conflicting replay is accepted.
-6. Reserve, release, refund, beneficiary allocation or partial payout can exceed confirmed funds or become negative.
-7. Payment/bank-operation/ledger/audit/outbox writes can partially commit.
-8. Confirmed ledger or callback facts can be updated or deleted.
-9. Reconciliation mismatch silently changes authority instead of entering manual review.
-10. Same-tenant outsider or cross-tenant access passes under restricted principals.
-11. CI is made green by disabling RLS, triggers, constraints or required tests.
+GOVERNING SPECIFICATION:
+- `docs/platform-v7/autopilot/industrial-integration-readiness-v1.0.md`
+- target gate: Industrial Integration-Ready;
+- current gate: NO-GO;
+- exact baseline: `576d813c2d305efb645c9d26fa81a38fb6e4abbe` on `main`.
 
-For the approved IR-K8S concurrent scope, also return BLOCKED if:
+BASELINE PROVEN:
+- persistent identity, session rotation/revocation, MFA and one-time backup codes are merged with isolated PostgreSQL evidence (#2276, #2280, #2282, #2283);
+- separate restricted auth and deal PostgreSQL principals are merged (#2287);
+- canonical Deal command execution, idempotency, optimistic concurrency, callback authority, transactional audit/outbox creation and isolated recovery evidence are merged (#2260, #2270, #2274, #2378, #2406, #2407);
+- Documents PostgreSQL Authority is merged (#2410);
+- Logistics PostgreSQL Authority is merged (#2412);
+- Labs PostgreSQL Authority is merged (#2426, merge `576d813c2d305efb645c9d26fa81a38fb6e4abbe`, verified head `73149bb4fba09a33875311faea313bb2ad272503`);
+- Settlement PostgreSQL Authority is merged (#5338, merge `9dbff1a67225a006ec5f33ebe7fa8b483a368718`, verified head `686c89f6cf2438baebb01f6bf4abcafb3eb85963`) with production-like Kubernetes evidence only; no live bank or REG.RU deployment is claimed;
+- Disputes PostgreSQL Authority is exact-main revalidated at `397e98955d9f98704c40befd0088a1390556e0fa` by workflow run `34726015616` and artifact digest `sha256:01c713e0487c3ad040aca44e7d6631063a0788e60be4cc77a5de1097f12bdc60`; this is PostgreSQL 16 CI evidence only, not production acceptance;
+- bank callback reconciliation and key rotation/revocation mechanics exist (#2379), but live bank and nominal-account integration remain open;
+- CI-scale correctness and isolated backup/restore remain evidence only and do not prove production capacity, HA or provider DR.
 
-12. The actual diff exceeds the allow-list in the IR-K8S scope manifest.
-13. A chart or acceptance overlay creates additive broad egress that weakens destination-scoped NetworkPolicy.
-14. A probe/helper pod impersonates a monitored workload selector or gains unnecessary network authority.
-15. Images are mutable, mixed-commit, not registry-digest addressed or not bound to the exact head.
-16. API or worker runs schema migrations, or application principals gain DDL authority.
-17. Evidence is not machine-readable, exact-head bound or contains violated thresholds.
+CURRENT GOAL:
+- preserve the already PostgreSQL-authoritative enqueue service and absent legacy relay/memory store;
+- remove the second DurableOutboxRunner from the API process and enforce the dedicated worker as the only delivery owner;
+- make PENDING, PROCESSING, RETRY, SENT or CONFIRMED, and DEAD transitions PostgreSQL-authoritative using DB time, bounded leases and `SKIP LOCKED`;
+- persist attempts, classified failure code/category and retry timing;
+- isolate ambiguous post-send outcomes from automatic retry and require governed reconciliation or redrive;
+- support audited redrive, backpressure and graceful shutdown;
+- prove concurrent-worker, crash-window, provider-ambiguity, retry, expired-lease, replay, restart and double-owner behavior;
+- keep live provider delivery and production deployment outside this PR.
 
-## Review questions
+CURRENT ALLOWED:
+- docs/platform-v7/autopilot/autopilot-state.json
+- docs/platform-v7/autopilot/progress.json
+- docs/platform-v7/autopilot/prompts/current-codex-task.md
+- docs/platform-v7/autopilot/prompts/current-review-task.md
+- docs/platform-v7/execution-queue.md
+- apps/api/src/common/outbox/**
+- apps/api/src/common/prisma/outbox-*
+- apps/api/src/outbox-worker.ts
+- apps/api/src/outbox-worker.module.ts
+- apps/api/src/modules/integration-events/durable-outbox.runner.ts
+- apps/api/src/modules/integration-events/durable-outbox.runner.spec.ts
+- apps/api/src/modules/integration-events/durable-outbox.worker.ts
+- apps/api/src/modules/integration-events/integration-events.module.ts
+- apps/api/prisma/schema.prisma
+- apps/api/prisma/migrations/20260912*_canonical_durable_outbox/**
+- apps/api/test/industrial/harness.ts
+- apps/api/test/industrial/durable-outbox.e2e-spec.ts
+- apps/api/test/industrial/outbox-worker-process.e2e-spec.ts
+- infra/sql/postgresql-outbox-worker-policies.sql
+- scripts/platform-v7-forward-only-migration-check.mjs
+- scripts/platform-v7-one-deal-e2e.sh
+- .github/workflows/ci.yml
 
-1. Does production bootstrap fail closed for missing, memory and unknown payment repository modes?
-2. Is PostgreSQL the only production settlement authority?
-3. Are tenant, actor, Deal participation and financial role derived server-side?
-4. Are all amounts integer kopecks with explicit overflow and boundary checks?
-5. Are payment terms and release basis versioned Deal-linked facts?
-6. Do reserve/release/refund requests atomically create payment state, bank operation, audit and PENDING outbox?
-7. Can only a verified callback confirm money movement?
-8. Are callbacks durably idempotent across restart and multiple instances?
-9. Are holds, partial releases, beneficiary allocations and refunds bounded by confirmed reserve?
-10. Are ledger entries append-only, balanced and linked to audit/correlation IDs?
-11. Does reconciliation mismatch fail closed without mutating confirmed authority?
-12. Are same-tenant outsiders and cross-tenant users denied by PostgreSQL RLS?
-13. Do empty/baseline migrations, drift, typecheck, tests, build, one-deal, DR and exact-head security gates pass?
+CURRENT CRITERIA:
+- one dedicated durable outbox owner replaces the legacy relay and process-memory production paths;
+- DB-time leases, `SKIP LOCKED`, attempts, classified failures, retries, DEAD state and audited redrive are PostgreSQL-authoritative;
+- concurrent workers, crash windows, provider ambiguity, timeout/429/4xx/5xx, expired leases, duplicate enqueue, restart and double-owner startup fail safely;
+- exact-head CI passes without claiming production deployment or provider delivery.
 
-For IR-K8S #2659 additionally verify:
+LOCKED:
+- IR-21 Durable Integration Inbox;
+- IR-22 Persistent Partner API and Outbound Webhooks;
+- IR-30 through IR-90 in dependency order.
 
-14. Does default Helm rendering remain fail-closed with zero executable workloads?
-15. Are API, web, worker and migration images a complete immutable exact-head digest set?
-16. Does one separate migration Job complete before API/web/worker rollout?
-17. Are two replicas of API, web and outbox worker ready on separate worker nodes?
-18. Do PDB, anti-affinity, non-root, read-only filesystem, dropped capabilities, seccomp and disabled service-account tokens hold at runtime?
-19. Are NetworkPolicies destination-scoped without additive broad chart policies?
-20. Do single-pod deletion, rolling update and same-schema rollback meet all declared thresholds?
-21. Does the evidence artifact identify the exact commit, commands, actuals, thresholds, violations and maturity boundary?
+NEXT:
+- Layer: IR-21 Durable Integration Inbox
+- Allowed files:
+  - docs/platform-v7/autopilot/autopilot-state.json
+  - docs/platform-v7/autopilot/progress.json
+  - docs/platform-v7/autopilot/prompts/current-codex-task.md
+  - docs/platform-v7/autopilot/prompts/current-review-task.md
+  - docs/platform-v7/execution-queue.md
+  - apps/api/src/modules/regulatory-integration/**
+  - apps/api/src/modules/integration-events/integration-events.module.ts
+  - apps/api/prisma/schema.prisma
+  - apps/api/prisma/migrations/*_regulatory_integration_inbox/**
+  - apps/api/test/industrial/regulatory-integration-inbox.e2e-spec.ts
+  - infra/sql/postgresql-regulatory-integration-inbox-policies.sql
+  - scripts/verify-pc-crop-07a.mjs
+  - .github/workflows/pc-crop-07a.yml
+- Success criteria:
+  - provider identity, provider event ID, tenant mapping, raw-body hash, schema/mapping/key versions, DB receive time, verification, attempts, correlation and linked operation are durable facts;
+  - signatures are verified over raw bytes, replay windows and key lifecycle fail closed, and HTTP acknowledgement is separated from domain processing;
+  - unknown schemas quarantine safely and audited redrive cannot bypass verification or tenant authority;
+  - exact-head CI passes without claiming live FGIS/provider activation or production delivery.
+- Readiness remains NO-GO.
 
-## Mandatory exact PostgreSQL proof matrix
+TRANSITION RULE:
+- one narrow PR at a time in dependency order;
+- no auto-merge;
+- no self-modifying workflow or direct push to `main`;
+- advance only after exact-head checks and diff review;
+- update state, queue, progress and prompts after merge before opening the next work package;
+- mock, simulator and CI-scale evidence remain explicitly labelled and cannot be used as live or production acceptance.
 
-- reserve request and verified callback confirmation;
-- release request and verified callback confirmation;
-- exact replay and conflicting replay;
-- two-instance callback and command races;
-- restart persistence;
-- same-tenant outsider and cross-tenant denial;
-- hold/dispute blocking;
-- partial payout and multiple beneficiaries;
-- over-release, negative amount and overflow denial;
-- refund bounds;
-- reconciliation match and mismatch/manual review;
-- full rollback with no partial payment/bank operation/ledger/audit/outbox effects;
-- append-only denial for confirmed financial facts.
+RF REGULATED-CONTOUR BOUNDARY:
+- preserve replaceable infrastructure boundaries and a deployment profile capable of using software from the Russian software register where the customer or system classification requires it;
+- public foreign images, including MinIO images from Quay, are dependency sources for the disposable production-like acceptance contour only and are not evidence of Russian-software-register status;
+- 44-FZ/223-FZ procurement, significant CII, regulated financial activity and a concrete FGIS require separate legal classification and verified domestic/certified software, protection and cryptography controls before any compliance claim;
+- no current repository, CI or production-like result proves certification, Russian cryptography activation or regulated-contour acceptance.
 
-## Decision format
+READINESS:
+Industrial Integration-Ready remains NO-GO until every mandatory gate through IR-90 has commit-, deployment- and operations-linked evidence.
 
-Return PASS or BLOCKED. If BLOCKED, state severity, exact file/line or migration object, financial or operational risk and exact fix. Industrial Integration-Ready remains NO-GO regardless of this slice until IR-90 acceptance.
+## Historical conditional Qwen diagnostics — 2026-09-12
+
+Archived instruction only. The current provider-independent policy below retires this PR-review workflow; this record grants no current implementation authority.
+
+This is preliminary instruction alignment for future branch
+`fix/local-qwen-failed-review-evidence-20260912`, not current implementation
+permission. Implementation is permitted only after the immutable prior authority
+proposed in PR #5335 is accepted and merged into `main`, and the implementation
+base's trusted scope authorizes that exact branch and both paths below. This
+paragraph does not change state or expand any permission; primary tasks and all
+other scope boundaries remain unchanged.
+
+The future implementation is limited to exactly:
+
+- `.github/workflows/local-qwen-independent-review.yml`
+- `docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs`
+
+Preserve bounded rejected-candidate diagnostics before policy-validation failure
+can discard them, including evidence transfer before the final failure exit.
+Bind evidence to the exact head/run/attempt/diff/manifest/chunk identity and
+verify content hashes. Reject invalid UTF-8 and envelopes exceeding 64 KiB.
+Preserve the original failure result, fail-closed behavior and cleanup of remote
+and unvalidated temporary files. Add no
+model calls and change no review semantics, model selection, policy, status or
+merge/review gates. Diagnostic artifacts are not accepted review evidence.
+
+Proceed only when that prior authority and base-scope match are independently
+verified; otherwise keep this implementation blocked.
+
+## Historical paused concurrent W1 acceptance — 2026-09-12
+
+The following is the recorded state on 2026-09-12, not a fresh status or an active provider requirement.
+
+W1 PR #5332 at `ff03424d073e97d52f1a8cf38dad3de74345ed08` remains
+blocked by current Qwen policy-validation failure and Octopus community quota.
+Its successful native review and code/security checks do not override those
+provider failures. W1 is safely paused without production completion, must not
+be retried merely to obtain PASS, and does not alter the serialized IR-10.5 scope.
+Confirmed master production acceptance remains 0/100 (0%).
+
+
+## Owner-authorized provider-independent review — 2026-09-18
+
+The owner's later explicit instruction removes the Codex blocking dependency and authorizes a durable provider-independent review policy. This supersedes the earlier same-day plan that required #5422 followed by a four-path `fix/provider-neutral-review-admission-20260918` PR while retaining native Codex/Copilot authority. That earlier plan and its observed provider failures are historical; they are not prerequisites for this owner-authorized migration. MASTER v2.1 R0.2 provider selection is superseded only for development review. Independent review, engineering quality, exact-SHA evidence and production acceptance remain required. Qwen remains confined to Gekta; Gekta inference, models, evaluation and production runtime are unchanged.
+
+The newly authorized migration is one narrow PR on `fix/provider-independent-review-20260918`, limited to its exact scope manifest: review policy and prompts, the deterministic readiness verifier and its regressions, removal of mandatory PR-provider workflow entry points, retirement of automated merge behavior, and the scope enforcement needed for these exact paths. This grants no additional product, database, dependency, deployment or secret-access scope. The migration itself requires actual independent review of its current diff, fresh applicable CI/security and a manual SHA-bound merge under existing GitHub protections. It does not depend on a native AI provider producing a review event.
+
+Current review contract:
+
+- No named AI provider, quota, account plan, model endpoint or hosted review service is a mandatory dependency. Optional AI review findings remain review findings and must be addressed when applicable.
+- An independent human or a separate session review agent must inspect the actual exact-head diff. The implementation author cannot supply their own independent review. Record the full head SHA, reviewer identity and independence, reviewed scope, checks, limitations and findings. Session review is recorded as session review, never forged as native GitHub bot or human approval.
+- The deterministic engineering-readiness check retains exact-head identity, complete applicable substantive CI/security checks, implementation-owner exact-head audit, active latest `CHANGES_REQUESTED` and unresolved current review-thread blocking. No provider failure can conceal a substantive failure or resolve a finding.
+- `--manual-readiness` can return `READY_FOR_MANUAL_REVIEW`; this is a readiness result, not independent-review PASS or merge permission. The default CLI returns `AUTOMATIC_MERGE_DISABLED`. Missing or stale independent review must be resolved through a real reviewer before a manual merge.
+- Automated merging and label-based merge authority are disabled. Immediately before a manual merge, the authorized operator verifies the independent review, reloads current head and readiness, and supplies the full expected head SHA. Existing GitHub branch protections apply; no force merge, fabricated checks or approval impersonation is permitted.
+- A head change invalidates previous review, owner audit and CI evidence. Provider retirement does not transfer historical PASS, dismiss findings or claim production acceptance.
+
+Required regressions: absent, rate-limited and retired AI providers cannot block otherwise valid manual readiness; readiness never enables automatic merge; missing or stale owner audit, malformed or incomplete check metadata, red/pending substantive CI, active changes-requested and unresolved review threads still block. Preserve meaningful exact-head and workflow-run authority coverage, including the distinction between transport failure and malformed metadata. Negative evidence must not become PASS because a provider is retired.
+
+Execution sequence: independently review and manually merge this owner-authorized migration after fresh applicable CI; verify live main; reassess #5422 and #5406 against that main and preserve their still-needed scope-enforcement and check-run-authority fixes without reintroducing provider binding; then forward-sync #5347, reuse the saved app_outbox transaction-local claim-protocol fixture, and obtain full CI plus real Production-like Kubernetes Acceptance PASS before its independent review and manual SHA-bound merge. Every remaining change stays in a separately approved narrow scope.
+
+IR-20 remains active. Its final closure requires the exact-current-main REG.RU release, verified immutable running images and canonical production Compose topology, functional live acceptance for the touched outbox flow, and at least 30 minutes of observation required by MASTER. Worker publication, protected release and rollback work require their own reviewed scopes and operational evidence. Local patches, independent review, green CI, a Kubernetes PASS, image publication and a merge do not by themselves constitute `PRODUCTION_PASS`. No IR-21 or other product delivery slice opens before the required IR-20 acceptance is complete.
+
+
+## Review brief
+
+Review IR-20 Canonical Durable Outbox strictly against the state allowed scope and queue.
+
+Return PASS or BLOCKED. If BLOCKED, include blocker, file, why risk and exact fix.

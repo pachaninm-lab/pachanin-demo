@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 // WCAG assertions stay fail-closed across every configured desktop and mobile engine.
 function installLayoutShiftObserver(page: Page) {
@@ -39,7 +39,28 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(1);
 }
 
+async function scrollAndFlush(page: Page, top: number) {
+  await page.evaluate(async (targetTop) => {
+    window.scrollTo({ top: targetTop, behavior: 'instant' });
+    window.dispatchEvent(new Event('scroll'));
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()));
+    });
+  }, top);
+}
+
+async function settleContactDock(page: Page) {
+  const dock = page.locator('.pc-public-contact-dock');
+  if (await dock.count() === 0) return;
+
+  await scrollAndFlush(page, 0);
+  await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
+  await expect(dock).toBeVisible();
+  await expect(dock.locator('.pc-public-contact-dock-assistant')).toBeEnabled();
+}
+
 async function expectNoSeriousAxeViolations(page: Page) {
+  await settleContactDock(page);
   const result = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
     .analyze();
@@ -55,21 +76,43 @@ async function expectLayoutShiftWithinBudget(page: Page) {
   expect(cls).toBeLessThanOrEqual(0.1);
 }
 
-async function expectMinimumTargets(page: Page, locator: string) {
-  const targets = await page.locator(locator).evaluateAll((elements) => elements.map((element) => {
-    const box = element.getBoundingClientRect();
-    return { width: box.width, height: box.height };
-  }));
-  expect(targets.length).toBeGreaterThan(0);
-  expect(targets.every((target) => target.width >= 44 && target.height >= 44)).toBe(true);
+function responsiveScenarioSelector(_page: Page) {
+  return '.pc-ppe-v5-scenario-grid > button';
 }
 
-test.describe('Public Product Experience V4 browser acceptance', () => {
+async function expectMinimumTargets(page: Page, locator: string) {
+  const elements = page.locator(locator);
+  await expect(elements.first()).toBeVisible();
+  await expect.poll(async () => {
+    const targets = await elements.evaluateAll((nodes) => nodes.map((element) => {
+      const box = element.getBoundingClientRect();
+      return { width: box.width, height: box.height };
+    }));
+    return targets.length > 0 && targets.every((target) => target.width >= 44 && target.height >= 44);
+  }, {
+    timeout: 5_000,
+    message: `${locator} must settle at a minimum 44×44 CSS px target size`,
+  }).toBe(true);
+}
+
+async function clickUntilAttribute(button: Locator, target: Locator, attribute: string, value: string) {
+  await expect(button).toBeVisible();
+  await expect.poll(async () => {
+    if (await target.getAttribute(attribute) !== value) await button.click();
+    return target.getAttribute(attribute);
+  }, {
+    timeout: 10_000,
+    intervals: [100, 200, 400],
+    message: `${attribute} must settle to ${value} after hydrated interaction`,
+  }).toBe(value);
+}
+
+test.describe('Public Product Experience V5 browser acceptance', () => {
   test.beforeEach(async ({ page }) => {
     await installLayoutShiftObserver(page);
   });
 
-  test('deal explorer is localized, deterministic and isolated from live APIs', async ({ page }) => {
+  test('detailed Deal explorer is localized, deterministic and isolated from live APIs', async ({ page }) => {
     const runtimeFailures = collectRuntimeFailures(page);
     const forbiddenRequests: string[] = [];
     page.on('request', (request) => {
@@ -79,7 +122,7 @@ test.describe('Public Product Experience V4 browser acceptance', () => {
 
     for (const locale of ['ru', 'en', 'zh'] as const) {
       const response = await page.goto(
-        `/platform-v7/how-it-works?lang=${locale}&entry=deal&lens=money&stage=settlement&scenario=partial&perspective=bank&risk=paymentBasis&ai=0`,
+        `/platform-v7/how-it-works?lang=${locale}&entry=deal&intent=settle&view=detail&lens=money&stage=settlement&scenario=partial&perspective=bank&risk=paymentBasis&ai=0`,
         { waitUntil: 'load' },
       );
       expect(response?.ok(), `${locale} deal explorer response`).toBe(true);
@@ -92,6 +135,7 @@ test.describe('Public Product Experience V4 browser acceptance', () => {
       await expect(page.locator('.pc-ppe-segmented button')).toHaveCount(3);
       await expect(page.locator('.pc-ppe-select-label option')).toHaveCount(12);
       await expect(page.locator('.pc-ppe-stage-track button')).toHaveCount(10);
+      await expect(page.locator('.pc-ppe-v5-scenario-grid button')).toHaveCount(3);
       await expectNoHorizontalOverflow(page);
     }
 
@@ -99,7 +143,7 @@ test.describe('Public Product Experience V4 browser acceptance', () => {
     expect(runtimeFailures).toEqual([]);
   });
 
-  test('role-first, problem-first and deal-first entries resolve into the same deal', async ({ page }) => {
+  test('role-first, problem-first and intent-first entries resolve into the same Deal', async ({ page }) => {
     const runtimeFailures = collectRuntimeFailures(page);
 
     await page.goto('/platform-v7/how-it-works?lang=ru&entry=role', { waitUntil: 'load' });
@@ -126,6 +170,13 @@ test.describe('Public Product Experience V4 browser acceptance', () => {
 
     await page.goto('/platform-v7/how-it-works?lang=ru&entry=deal', { waitUntil: 'load' });
     await expect(page.locator('.pc-ppe-entry-gate')).toHaveCount(0);
+    await expect(page.locator('.pc-ppe-v5-intent')).toBeVisible();
+    await expect(page.locator('.pc-ppe-v5-intent-option')).toHaveCount(6);
+    await page.getByRole('button', { name: /Купить продукцию/ }).click();
+    await expect(page).toHaveURL(/intent=buy/);
+    await expect(page).toHaveURL(/perspective=buyer/);
+    await expect(page.locator('[data-testid="public-deal-quick-stage"]')).toBeVisible();
+    await page.locator('.pc-ppe-v5-mode-switch button').nth(1).click();
     await expect(page.locator('.pc-ppe-explorer')).toBeVisible();
 
     await expectNoSeriousAxeViolations(page);
@@ -136,25 +187,28 @@ test.describe('Public Product Experience V4 browser acceptance', () => {
   test('business areas, scenarios and browser history remain operable', async ({ page }) => {
     const runtimeFailures = collectRuntimeFailures(page);
     await page.goto(
-      '/platform-v7/how-it-works?lang=ru&entry=deal&lens=money&stage=settlement&scenario=partial&perspective=bank&risk=paymentBasis&ai=0',
+      '/platform-v7/how-it-works?lang=ru&entry=deal&intent=settle&view=detail&lens=money&stage=settlement&scenario=partial&perspective=bank&risk=paymentBasis&ai=0',
       { waitUntil: 'load' },
     );
 
     const explorer = page.locator('.pc-ppe-explorer');
-    await page.locator('.pc-ppe-lens-list button:visible').filter({ hasText: 'Риски и спор' }).click();
-    await expect(explorer).toHaveAttribute('data-lens', 'risk');
+    const riskButton = page.locator('.pc-ppe-lens-list button:visible').filter({ hasText: 'Риски и спор' });
+    await clickUntilAttribute(riskButton, explorer, 'data-lens', 'risk');
     await expect(page).toHaveURL(/lens=risk/);
 
-    await page.locator('.pc-ppe-segmented button').filter({ hasText: 'Спор по качеству' }).click();
-    await expect(explorer).toHaveAttribute('data-scenario', 'dispute');
+    const disputeButton = page.locator(responsiveScenarioSelector(page)).filter({ hasText: 'Качество не совпало' });
+    await disputeButton.click();
     await expect(page).toHaveURL(/scenario=dispute/);
+    await expect(explorer).toHaveAttribute('data-scenario', 'dispute');
 
     await page.goBack();
+    await expect(page).toHaveURL(/lens=risk/);
+    await expect(page).toHaveURL(/scenario=partial/);
     await expect(explorer).toHaveAttribute('data-lens', 'risk');
     await expect(explorer).toHaveAttribute('data-scenario', 'partial');
 
-    await page.locator('.pc-ppe-lens-list button:visible').filter({ hasText: 'Документы' }).click();
-    await expect(explorer).toHaveAttribute('data-lens', 'documents');
+    const documentsButton = page.locator('.pc-ppe-lens-list button:visible').filter({ hasText: 'Документы' });
+    await clickUntilAttribute(documentsButton, explorer, 'data-lens', 'documents');
     await expect(page).toHaveURL(/lens=documents/);
 
     await expectNoSeriousAxeViolations(page);
@@ -173,11 +227,16 @@ test.describe('Public Product Experience V4 browser acceptance', () => {
       await expectMinimumTargets(page, '.pc-ppe-entry-option');
 
       const response = await page.goto(`/platform-v7/how-it-works?lang=${locale}&entry=deal`, { waitUntil: 'load' });
-      expect(response?.ok(), `${locale} explorer 320px response`).toBe(true);
+      expect(response?.ok(), `${locale} journey 320px response`).toBe(true);
       await expectNoHorizontalOverflow(page);
+      await expectMinimumTargets(page, '.pc-ppe-v5-intent-option');
+      await page.locator('.pc-ppe-v5-intent-option').first().click();
+      await expectMinimumTargets(page, responsiveScenarioSelector(page));
+      await expectMinimumTargets(page, '.pc-ppe-v5-stage-nav button');
+      await page.locator('.pc-ppe-v5-mode-switch button').nth(1).click();
       await expectMinimumTargets(page, '.pc-ppe-lens-list button:visible');
-      await expectMinimumTargets(page, '.pc-ppe-segmented button');
       await expectMinimumTargets(page, '.pc-ppe-stage-nav button');
+      await expectNoHorizontalOverflow(page);
     }
   });
 });

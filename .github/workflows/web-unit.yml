@@ -45,6 +45,7 @@ jobs:
         run: |
           set -o pipefail
           pnpm --filter @pc/web exec vitest run \
+            tests/unit/serverRequestSecurity.test.ts \
             tests/unit/shellRolePolicy.test.ts \
             tests/unit/platformV7DriverRoleShellGuard.test.ts \
             tests/unit/platformV7BankPaymentBasisRoutesManifest.test.ts \
@@ -52,6 +53,9 @@ jobs:
             tests/unit/roleContinuityPanel.test.tsx \
             tests/unit/platformV7VerifiedSession.test.ts \
             tests/unit/platformV7CanonicalDealWorkspace.test.ts \
+            tests/unit/surfaceRoleMappingParity.test.ts \
+            tests/unit/platformV7ProductionI18nRuntimeBridge.test.tsx \
+            tests/unit/platformV7PublicCjkTypography.test.ts \
             2>&1 | tee /tmp/web-unit.log
 
       - name: Upload web-unit log

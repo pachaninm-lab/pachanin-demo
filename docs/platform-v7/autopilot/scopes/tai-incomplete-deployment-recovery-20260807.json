@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-incomplete-deployment-recovery-20260807",
+  "status": "active",
+  "title": "TAI incomplete standalone deployment recovery",
+  "priority": "P0",
+  "baselineExactMain": "810bcf47ecafec8c51c741429b21586567563a6d",
+  "objective": "Recover only a provably incomplete standalone TAI deployment left by the existing fail-closed deploy path, restore its captured pre-mutation env/Compose state, and remove only a runtime role proven to have been created by that failed attempt.",
+  "allowedPaths": [
+    ".github/workflows/tai-owner-incomplete-deployment-recovery.yml",
+    "scripts/tai-incomplete-deployment-recovery.sh",
+    "scripts/check-tai-incomplete-deployment-recovery.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-incomplete-deployment-recovery-20260807.json"
+  ],
+  "boundaries": [
+    "Owner-only exact current-main command",
+    "Requires a successful exact-main Production Full-Stack Exact-SHA Release before mutation",
+    "Recovers only the newest incomplete tai-agro-os state matching the currently materialized TAI activation SHA",
+    "Current TAI runtime must be unhealthy and bound to the failed target SHA",
+    "Restores only snapshots captured by the failed deployment state",
+    "Drops tai_runtime only when metadata proves the failed attempt created it and fresh PostgreSQL checks prove least privilege, zero memberships, zero sessions and zero non-TAI effective relation privileges",
+    "No tenant, deal, money, model-admission or Safe Tool write authority is added",
+    "REG.RU only",
+    "Zero new recurring cost"
+  ]
+}

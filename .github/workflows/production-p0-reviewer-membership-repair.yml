@@ -1,0 +1,329 @@
+name: Production P0 Reviewer Membership Repair
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reviewer-membership-repair.yml'
+      - 'scripts/production-p0-reviewer-membership-repair.sh'
+      - 'scripts/check-production-p0-reviewer-membership-repair.mjs'
+      - 'apps/api/prisma/migrations/20260810170000_p0_reviewer_membership_repair/migration.sql'
+      - 'apps/api/prisma/migrations/20260811023000_p0_reviewer_owner_identity_semantics/migration.sql'
+      - 'apps/api/prisma/migrations/20260811090000_p0_reviewer_membership_candidate_scope/migration.sql'
+      - 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-membership-repair-3799.json'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reviewer-membership-repair.yml'
+      - 'scripts/production-p0-reviewer-membership-repair.sh'
+      - 'scripts/check-production-p0-reviewer-membership-repair.mjs'
+      - 'apps/api/prisma/migrations/20260810170000_p0_reviewer_membership_repair/migration.sql'
+      - 'apps/api/prisma/migrations/20260811023000_p0_reviewer_owner_identity_semantics/migration.sql'
+      - 'apps/api/prisma/migrations/20260811090000_p0_reviewer_membership_candidate_scope/migration.sql'
+      - 'docs/platform-v7/autopilot/scopes/production-p0-reviewer-membership-repair-3799.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-reviewer-membership-repair
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    name: Validate reviewer membership repair contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.event_name == 'push' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        github.event.comment.body == '/production p0-reviewer-membership-repair current-main'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-production-p0-reviewer-membership-repair.mjs
+      - run: bash -n scripts/production-p0-reviewer-membership-repair.sh
+
+  postgresql-candidate-scope:
+    name: PostgreSQL 16 unrelated-membership repair proof
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: ghcr.io/pachaninm-lab/ci-postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+        env:
+          POSTGRES_USER: reviewer_admin
+          POSTGRES_PASSWORD: ephemeral_reviewer_admin_only
+          POSTGRES_DB: reviewer_candidate_scope
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U reviewer_admin -d reviewer_candidate_scope"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://reviewer_admin:ephemeral_reviewer_admin_only@127.0.0.1:5432/reviewer_candidate_scope
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install frozen dependencies and PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client
+          pnpm install --frozen-lockfile
+      - name: Apply the complete forward-only migration chain
+        run: pnpm --filter @pc/api exec prisma migrate deploy --schema prisma/schema.prisma
+      - name: Prove unrelated membership preservation and idempotent repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$DATABASE_URL" == *'/reviewer_candidate_scope' ]]
+
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 <<'SQL'
+          INSERT INTO public."users" (
+            "id", "email", "passwordHash", "fullName", "status",
+            "mfaEnabled", "createdAt", "updatedAt"
+          ) VALUES (
+            'reviewer_candidate_scope_user',
+            'reviewer-candidate-scope@example.invalid',
+            'RESET_REQUIRED',
+            'Reviewer candidate-scope fixture',
+            'ACTIVE',
+            false,
+            clock_timestamp(),
+            clock_timestamp()
+          );
+
+          INSERT INTO public."organizations" (
+            "id", "inn", "name", "type", "status", "tenantId",
+            "kycStatus", "amlStatus", "sanctionHit", "createdAt", "updatedAt"
+          ) VALUES (
+            'org_reviewer_unrelated_fixture',
+            '9900000001',
+            'Unrelated unusable reviewer fixture',
+            'LEGAL',
+            'PENDING',
+            'tenant_reviewer_unrelated_fixture',
+            'PENDING',
+            'CLEAR',
+            false,
+            clock_timestamp(),
+            clock_timestamp()
+          );
+
+          INSERT INTO public."user_orgs" (
+            "id", "userId", "organizationId", "role", "status",
+            "requested_workspace", "isDefault", "is_org_admin",
+            "joinedAt", "activated_at", "revoked_at", "version"
+          ) VALUES (
+            'membership_reviewer_unrelated_fixture',
+            'reviewer_candidate_scope_user',
+            'org_reviewer_unrelated_fixture',
+            'GUEST',
+            'ACTIVE',
+            'employee',
+            true,
+            true,
+            clock_timestamp(),
+            NULL,
+            NULL,
+            0
+          );
+
+          INSERT INTO auth.staff_assignments (
+            id, user_id, role, status, valid_from, valid_until,
+            activated_at, suspended_at, revoked_at, granted_by_user_id,
+            reason, created_at, updated_at
+          ) VALUES (
+            'assignment_reviewer_candidate_scope',
+            'reviewer_candidate_scope_user',
+            'PLATFORM_OWNER',
+            'ACTIVE',
+            clock_timestamp() - interval '1 minute',
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            'P0 reviewer candidate-scope fixture',
+            clock_timestamp(),
+            clock_timestamp()
+          );
+          SQL
+
+          baseline="$(
+            psql "$DATABASE_URL" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT concat_ws(
+            '|',
+            assignment_ready_count,
+            active_identity_ready_count,
+            membership_ready_count,
+            password_ready_count,
+            mfa_enrolled_ready_count,
+            login_ready_count
+          )
+          FROM auth.staff_reviewer_login_readiness();
+          SQL
+          )"
+          [[ "$baseline" == '1|1|0|0|0|0' ]]
+
+          repaired="$(
+            psql "$DATABASE_URL" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+          SET SESSION AUTHORIZATION pc_staff_runtime;
+          BEGIN ISOLATION LEVEL SERIALIZABLE;
+          SELECT concat_ws(
+            '|',
+            result_code,
+            assignment_ready_count,
+            active_identity_ready_count,
+            membership_ready_count,
+            password_ready_count,
+            mfa_enrolled_ready_count,
+            login_ready_count,
+            internal_organization_count,
+            internal_membership_count,
+            audit_event_count,
+            outbox_event_count
+          )
+          FROM auth.repair_single_reviewer_membership();
+          COMMIT;
+          RESET SESSION AUTHORIZATION;
+          SQL
+          )"
+          [[ "$repaired" == 'REPAIRED|1|1|1|0|0|0|1|1|1|1' ]]
+
+          replay="$(
+            psql "$DATABASE_URL" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+          SET SESSION AUTHORIZATION pc_staff_runtime;
+          BEGIN ISOLATION LEVEL SERIALIZABLE;
+          SELECT concat_ws(
+            '|',
+            result_code,
+            assignment_ready_count,
+            active_identity_ready_count,
+            membership_ready_count,
+            password_ready_count,
+            mfa_enrolled_ready_count,
+            login_ready_count,
+            internal_organization_count,
+            internal_membership_count,
+            audit_event_count,
+            outbox_event_count
+          )
+          FROM auth.repair_single_reviewer_membership();
+          COMMIT;
+          RESET SESSION AUTHORIZATION;
+          SQL
+          )"
+          [[ "$replay" == 'ALREADY_REPAIRED|1|1|1|0|0|0|1|1|1|1' ]]
+
+          durable="$(
+            psql "$DATABASE_URL" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
+          SELECT concat_ws(
+            '|',
+            (
+              SELECT count(*)
+              FROM public."user_orgs"
+              WHERE "userId" = 'reviewer_candidate_scope_user'
+            ),
+            (
+              SELECT count(*)
+              FROM public."user_orgs"
+              WHERE "id" = 'membership_reviewer_unrelated_fixture'
+                AND "organizationId" = 'org_reviewer_unrelated_fixture'
+                AND "role" = 'GUEST'
+                AND "status" = 'ACTIVE'
+                AND "isDefault" = true
+                AND "is_org_admin" = true
+                AND "activated_at" IS NULL
+                AND "revoked_at" IS NULL
+            ),
+            (
+              SELECT count(*)
+              FROM public."user_orgs"
+              WHERE "id" = 'membership_pc_reviewer_internal_v1'
+                AND "userId" = 'reviewer_candidate_scope_user'
+                AND "organizationId" = 'org_pc_internal_platform_v1'
+            ),
+            (
+              SELECT membership_ready_count
+              FROM auth.staff_reviewer_login_readiness()
+            ),
+            (
+              SELECT count(*)
+              FROM auth.staff_access_events
+              WHERE id = 'sae_p0_reviewer_membership_repair_v1'
+            ),
+            (
+              SELECT count(*)
+              FROM public."outbox_entries"
+              WHERE "id" = 'outbox_p0_reviewer_membership_repair_v1'
+            )
+          );
+          SQL
+          )"
+          [[ "$durable" == '2|1|1|1|1|1' ]]
+          printf 'PASS: unrelated membership preserved; fixed reviewer membership repaired idempotently.\n'
+
+  repair:
+    name: One-time exact-main REG.RU reviewer membership repair
+    needs: contract
+    if: >-
+      needs.contract.result == 'success' &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/production p0-reviewer-membership-repair current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Repair only the unique partial reviewer membership
+        shell: bash
+        run: bash scripts/production-p0-reviewer-membership-repair.sh

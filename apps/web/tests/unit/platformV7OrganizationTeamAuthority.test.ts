@@ -9,6 +9,8 @@ const page = read('apps/web/app/platform-v7/profile/team/page.tsx');
 const reader = read('apps/web/lib/organization-team-server.ts');
 const apiController = read('apps/api/src/modules/auth/auth.controller.ts');
 const apiService = read('apps/api/src/modules/auth/organization-team.service.ts');
+const authorityMigration = read('apps/api/prisma/migrations/20260808130000_p0_organization_team_authority/migration.sql');
+const adminClient = read('apps/web/app/platform-v7/profile/team/OrganizationTeamAdminClient.tsx');
 const routePolicy = read('apps/web/lib/platform-v7/design-system-v8-route-policy.ts');
 const governance = JSON.parse(read('design-governance-v8.json'));
 const forbiddenPresentation = /style\s*=\s*\{\{|dangerouslySetInnerHTML|#[0-9a-f]{3,8}\b|\brgba?\s*\(|!important/i;
@@ -36,11 +38,13 @@ describe('platform-v7 organization team authority', () => {
   it('enforces tenant, organization and active membership boundaries in PostgreSQL', () => {
     expect(apiService).toContain('Active tenant membership is required.');
     expect(apiService).toContain('Membership does not belong to the active tenant session.');
-    expect(apiService).toContain('organization: { tenantId }');
-    expect(apiService).toContain('organizationId');
-    expect(apiService).toContain('user: { deletedAt: null }');
-    expect(apiService).toContain('take: 100');
-    expect(apiService).toContain('current: membership.id === membershipId');
+    expect(apiService).toContain('FROM auth.organization_team_snapshot(');
+    expect(authorityMigration).toContain('session."id" = p_session_id');
+    expect(authorityMigration).toContain('session.organization_id = p_organization_id');
+    expect(authorityMigration).toContain('session.tenant_id = p_tenant_id');
+    expect(authorityMigration).toContain('subject."deletedAt" IS NULL');
+    expect(authorityMigration).toContain('LIMIT 100');
+    expect(apiService).toContain('current: membership.membership_id === membershipId');
   });
 
   it('does not reintroduce fake people, invitations or browser-side role mutation', () => {
@@ -57,16 +61,19 @@ describe('platform-v7 organization team authority', () => {
       'setTimeout',
       'Приглашение отправлено',
     ]) expect(page).not.toContain(forbidden);
-    expect(page).toContain('нет фиктивных приглашений');
-    expect(page).toContain('no fake invitations');
-    expect(page).toContain('没有虚假邀请');
+    expect(page).toContain('без фиктивных приглашений');
+    expect(page).toContain('without fake invitations');
+    expect(page).toContain('不使用虚假邀请');
   });
 
-  it('keeps mutations outside the read screen until audited commands exist', () => {
-    expect(page).toContain('RBAC, MFA, идемпотентностью и audit trail');
-    expect(page).toContain('RBAC, MFA, idempotency and an audit trail');
-    expect(page).toContain('RBAC、MFA、幂等性和审计轨迹');
-    expect(page).toContain('read-only');
+  it('mounts the audited administration surface only for a confirmed organization administrator', () => {
+    expect(page).toContain('team.isOrganizationAdmin');
+    expect(page).toContain('OrganizationTeamAdminClient');
+    expect(page).toContain('tenant-проверкой, свежей MFA, optimistic concurrency и audit trail');
+    expect(page).toContain('tenant-scoped server commands with fresh MFA, optimistic concurrency and an audit trail');
+    expect(page).toContain('tenant 范围的服务器命令执行，并要求最新 MFA、乐观并发和审计');
+    expect(adminClient).toContain('applyCsrfHeader');
+    expect(adminClient).toContain("fetch('/api/auth/organization-invitations'");
   });
 
   it('remains registered in the minimal v8 runtime and governance', () => {

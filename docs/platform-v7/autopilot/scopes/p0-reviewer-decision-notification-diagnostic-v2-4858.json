@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-reviewer-notification-diagnostic-validator-4858",
+  "status": "active",
+  "purpose": "Run a compact owner-only read-only aggregate classification of the failed reviewer decision notification window after the first diagnostic validator rejected its own lowercase schema value.",
+  "approvedBy": "owner-issue-4858",
+  "authorityBaseExactMain": "fd1311ecd5156d39de3ee1df9ae7d0f4d06dcb65",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-decision-notification-diagnostic-v2.yml",
+    "scripts/check-production-p0-reviewer-decision-notification-diagnostic-v2.mjs",
+    "docs/platform-v7/autopilot/scopes/p0-reviewer-decision-notification-diagnostic-v2-4858.json"
+  ],
+  "requiredBehavior": [
+    "exact owner command on issue 4858 and pc-crop-registration-lifecycle serialization",
+    "failed run 33425716125 attempt 2 and immutable SHA 1bffaec1a7aad09840df136e886c07d2b32e2008",
+    "live Web OCI revision must equal the failed immutable SHA",
+    "pinned REG.RU SSH host fingerprint and fixed UTC docker-log window",
+    "remote aggregation only; publish counts and a bounded classification",
+    "no raw logs, identifiers, PII, credentials or production mutation"
+  ],
+  "forbiddenCapabilities": [
+    "database or HTTP write",
+    "container restart, stop, remove, compose or image mutation",
+    "reviewer impersonation or credential retrieval",
+    "security control weakening",
+    "raw production log or identifier publication",
+    "unrelated repository change"
+  ]
+}

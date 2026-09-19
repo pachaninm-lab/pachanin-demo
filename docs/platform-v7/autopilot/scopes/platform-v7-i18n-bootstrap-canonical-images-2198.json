@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "release/platform-v7-i18n-bootstrap-canonical-images-2198",
+  "status": "active",
+  "title": "Platform V7 i18n exact-main canonical image release bridge",
+  "priority": "P0",
+  "baselineExactMain": "d51824669219285e11b6223272a5c61b6839aa1d",
+  "issue": 2198,
+  "objective": "Trigger the existing canonical API, Web, Migration and TAI image publication once from the post-recovery current main so the protected REG.RU exact-SHA full-stack release can deploy and attest the already merged Platform V7 EN/ZH localization fix. This bridge changes no application behavior, release authority, credentials, database state, roles, tenants or production runtime configuration.",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/platform-v7-i18n-bootstrap-canonical-images-2198.json"
+  ],
+  "boundaries": [
+    "Pull request itself performs no production mutation",
+    "Canonical images are built only by the existing Build & Publish Canonical Docker Images main-push authority after merge",
+    "Production deployment remains exclusively controlled by Production Full-Stack Exact-SHA Release with exact-current-main and pinned REG.RU authority",
+    "No TAI-specific owner command is used to avoid unrelated production activation",
+    "No credentials, tenant, role, money, database, customer data, application code or runtime configuration are changed",
+    "REG.RU remains the only production target",
+    "New recurring cost is 0 RUB"
+  ],
+  "newRecurringCostRub": 0
+}

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-preflight-run-discovery-20260803",
+  "status": "active",
+  "title": "TAI owner preflight run discovery",
+  "priority": "P0",
+  "baselineExactMain": "63fc9ae025539ac748ca8b09c1b4a5901c497729",
+  "objective": "Make owner activation discover the latest completed successful exact-SHA owner-preflight run even when the workflow-list REST payload omits optional repository, branch or event fields, while preserving strict verification of the selected run and all six jobs before mutation.",
+  "allowedPaths": [
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    "scripts/select-tai-owner-preflight-run.mjs",
+    "scripts/check-tai-owner-preflight-run-selection.mjs",
+    "scripts/check-tai-owner-activation-command.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-preflight-run-discovery-20260803.json"
+  ],
+  "boundaries": [
+    "Initial discovery requires exact workflow name, exact SHA, completed success, positive run ID and attempt",
+    "Selected run is subsequently verified for repository, branch, exact SHA, attempt, event and owner actors",
+    "All six owner-preflight jobs remain mandatory and successful",
+    "No image, controller, live acceptance, finalization, rollback or deployment authority is weakened",
+    "No new recurring cost"
+  ]
+}

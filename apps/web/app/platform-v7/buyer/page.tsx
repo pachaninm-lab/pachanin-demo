@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { FirstCustomerWorkspace } from '@/components/platform-v7/FirstCustomerWorkspace';
+import { firstCustomerWorkspaceRequired } from '@/lib/first-customer-workspace-server';
 import { StatusChip, Surface } from '@pc/design-system-v8';
 import {
   MoneyBoundary,
@@ -65,6 +67,10 @@ const buyerSdizActionItems = [
 ] satisfies readonly PlatformV7ExecutionActionUiItem[];
 
 export default async function PlatformV7BuyerPage() {
+  if (firstCustomerWorkspaceRequired()) {
+    return <FirstCustomerWorkspace surface='buyer' />;
+  }
+
   const [deals, disputes] = await Promise.all([getDealsCanonical(), getDisputes()]);
   const apiOnline = deals.length > 0;
   const disputeCount = openDisputeCount(disputes);

@@ -91,6 +91,15 @@ CREATE POLICY deal_participants_update ON public."deal_participants" FOR UPDATE 
 -- ── deals ─────────────────────────────────────────────────────────────────────
 ALTER TABLE public."deals" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."deals" FORCE ROW LEVEL SECURITY;
+-- 20260831180000 replaced deals_app_access with two narrowly named permissive
+-- policies for the migration-only database, where the uncontexted read and the
+-- two contextless system writers still need them. This artifact installs the
+-- strict set instead, and permissive policies combine with OR - so leaving
+-- those two in place here would OR away the very policies below. They are
+-- dropped rather than kept: an environment that applies this file never had a
+-- permissive fallback on deals, and must not gain one.
+DROP POLICY IF EXISTS deals_uncontexted_read ON public."deals";
+DROP POLICY IF EXISTS deals_uncontexted_update ON public."deals";
 DROP POLICY IF EXISTS deals_app_access ON public."deals";
 DROP POLICY IF EXISTS deals_select ON public."deals";
 DROP POLICY IF EXISTS deals_insert ON public."deals";
@@ -179,35 +188,38 @@ CREATE POLICY deals_update ON public."deals" FOR UPDATE USING (
 -- ── organizations ─────────────────────────────────────────────────────────────
 ALTER TABLE public."organizations" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."organizations" FORCE ROW LEVEL SECURITY;
+
+-- Identity-table access is migration-owned. Do not recreate the historical
+-- GUC-authorized policies here: the confined runtime can write those settings,
+-- and deal-derived predicates make identity reads depend on unrelated tables.
 DROP POLICY IF EXISTS organizations_write_privileged ON public."organizations";
 DROP POLICY IF EXISTS organizations_select ON public."organizations";
 DROP POLICY IF EXISTS organizations_insert_privileged ON public."organizations";
 DROP POLICY IF EXISTS organizations_update_privileged ON public."organizations";
-CREATE POLICY organizations_select ON public."organizations" FOR SELECT USING (
-  public.app_rls_context_ready()
-  AND "tenantId" = current_setting('app.current_tenant_id', true)
-  AND (
-    public.app_rls_privileged()
-    OR "id" = current_setting('app.current_org_id', true)
-  )
-);
-CREATE POLICY organizations_insert_privileged ON public."organizations" FOR INSERT
-WITH CHECK (
-  public.app_rls_context_ready()
-  AND public.app_rls_privileged()
-  AND "tenantId" = current_setting('app.current_tenant_id', true)
-);
-CREATE POLICY organizations_update_privileged ON public."organizations" FOR UPDATE
-USING (
-  public.app_rls_context_ready()
-  AND public.app_rls_privileged()
-  AND "tenantId" = current_setting('app.current_tenant_id', true)
-)
-WITH CHECK (
-  public.app_rls_context_ready()
-  AND public.app_rls_privileged()
-  AND "tenantId" = current_setting('app.current_tenant_id', true)
-);
+
+DO $identity_organization_policy_authority$
+BEGIN
+  IF EXISTS (
+    SELECT required.policy_name
+    FROM unnest(ARRAY[
+      'organizations_bootstrap_login',
+      'organizations_context_select',
+      'organizations_admin_update',
+      'organizations_bootstrap_insert'
+    ]) AS required(policy_name)
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM pg_catalog.pg_policies policy
+      WHERE policy.schemaname = 'public'
+        AND policy.tablename = 'organizations'
+        AND policy.policyname = required.policy_name
+    )
+  ) THEN
+    RAISE EXCEPTION 'Forward-only identity organization policies are missing'
+      USING ERRCODE = '42501';
+  END IF;
+END
+$identity_organization_policy_authority$;
 -- No DELETE policy: organizations are lifecycle-managed, not physically deleted.
 
 -- ── audit_events: append-only ─────────────────────────────────────────────────
@@ -289,12 +301,12 @@ DROP POLICY IF EXISTS outbox_entries_worker_update ON public."outbox_entries";
 DROP POLICY IF EXISTS outbox_entries_select ON public."outbox_entries";
 DROP POLICY IF EXISTS outbox_entries_insert ON public."outbox_entries";
 CREATE POLICY outbox_entries_worker_select ON public."outbox_entries" FOR SELECT
-USING (current_user IN ('app_service', 'app_outbox_worker'));
+USING (current_user IN ('app_service', 'app_outbox_worker', 'app_outbox'));
 CREATE POLICY outbox_entries_worker_insert ON public."outbox_entries" FOR INSERT
 WITH CHECK (current_user IN ('app_service', 'app_outbox_worker'));
 CREATE POLICY outbox_entries_worker_update ON public."outbox_entries" FOR UPDATE
-USING (current_user IN ('app_service', 'app_outbox_worker'))
-WITH CHECK (current_user IN ('app_service', 'app_outbox_worker'));
+USING (current_user IN ('app_service', 'app_outbox_worker', 'app_outbox'))
+WITH CHECK (current_user IN ('app_service', 'app_outbox_worker', 'app_outbox'));
 CREATE POLICY outbox_entries_select ON public."outbox_entries" FOR SELECT USING (
   public.app_rls_context_ready()
   AND "dealId" IS NOT NULL

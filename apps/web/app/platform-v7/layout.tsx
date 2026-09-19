@@ -1,29 +1,33 @@
 import type { Metadata } from 'next';
+import { getLocale } from 'next-intl/server';
 import { cookies, headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { ACCESS_COOKIE } from '@/lib/auth-cookies';
+import { PublicLinkedSurfaceShell } from '@/components/platform-v7/PublicLinkedSurfaceShell';
+import { HydrationSafeChatSupport } from '@/components/platform-v7/HydrationSafeChatSupport';
+import { getAuthProfile } from '@/lib/auth-profile-server';
 import { canRoleAccessCabinet } from '@/lib/platform-v7/cabinet-access-policy';
 import { isDesignSystemV8Route } from '@/lib/platform-v7/design-system-v8-route-policy';
+import { getVerifiedOwnerControlledCabinet } from '@/lib/platform-v7/owner-controlled-cabinet-server';
 import { platformV7RoleRoute } from '@/lib/platform-v7/shellRoutes';
 import {
-  readVerifiedCabinetRole,
-  readVerifiedCabinetSessionRole,
+  mapApiRoleToCabinetRole,
+  readVerifiedCabinetSessionContext,
+  type VerifiedCabinetRole,
 } from '@/lib/platform-v7/verified-session';
-import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 
 export const metadata: Metadata = {
   title: { default: 'Прозрачная Цена', template: '%s · Прозрачная Цена' },
-  description: 'Цифровой контур исполнения зерновой сделки: допуск, логистика, приёмка, качество, документы, расчёты, спор и доказательства.',
-  keywords: ['зерно', 'агроторговля', 'элеватор', 'логистика зерна', 'сделка', 'документы', 'расчёты'],
+  description: 'Управление агросделкой в растениеводстве: товар, контрагент, логистика, качество, документы, расчёт и исключения.',
+  keywords: ['растениеводство', 'агроторговля', 'хранение', 'агрологистика', 'сделка', 'документы', 'расчёты'],
   creator: 'Прозрачная Цена',
   robots: { index: false, follow: false },
   openGraph: {
     type: 'website',
     locale: 'ru_RU',
     siteName: 'Прозрачная Цена',
-    title: 'Прозрачная Цена — контур исполнения зерновой сделки',
-    description: 'Логистика, приёмка, качество, документы, расчёты, спор и доказательства в одном проверяемом процессе.',
+    title: 'Прозрачная Цена — управление агросделкой',
+    description: 'Товар, контрагент, логистика, качество, документы, расчёт и исключения в одной связной Сделке.',
   },
   metadataBase: new URL('https://xn----8sbjf4befbjgs9b.xn--p1ai'),
 };
@@ -31,6 +35,12 @@ export const metadata: Metadata = {
 const LANDING_PATH = '/platform-v7';
 const STAFF_PREFIX = '/platform-v7/staff';
 const CABINET_SESSION_COOKIE = 'pc_v7_cabinet';
+const ORGANIZATION_CABINET_PREFIXES = [
+  '/platform-v7/profile',
+  '/platform-v7/onboarding',
+  '/platform-v7/status',
+  '/platform-v7/notifications',
+] as const;
 const AUTH_PATHS = new Set([
   '/platform-v7/login',
   '/platform-v7/forgot-password',
@@ -40,16 +50,20 @@ const PUBLIC_EXACT_PATHS = new Set([
   ...AUTH_PATHS,
   '/platform-v7/open',
   '/platform-v7/register',
+  '/platform-v7/invitation',
+  '/platform-v7/mfa-recovery',
   '/platform-v7/help',
   '/platform-v7/pricing',
   '/platform-v7/roadmap',
   '/platform-v7/deal-flow',
   '/platform-v7/how-it-works',
+  '/platform-v7/ai-in-action',
   '/platform-v7/demo',
   '/platform-v7/contact',
   '/platform-v7/request',
   '/platform-v7/docs',
   '/platform-v7/about',
+  '/platform-v7/trust',
   '/platform-v7/oferta',
   '/platform-v7/privacy',
   '/platform-v7/roles',
@@ -162,7 +176,6 @@ const ALIAS_EXACT_PATHS = new Set([
   '/platform-v7/support',
   '/platform-v7/surveyor/grain',
   '/platform-v7/trading',
-  '/platform-v7/trust',
 ]);
 const ALIAS_DYNAMIC_PATHS = [
   /^\/platform-v7\/auctions\/[^/]+$/,
@@ -207,23 +220,63 @@ function loginHref(pathname: string): string {
   return `/platform-v7/login?next=${encodeURIComponent(pathname)}`;
 }
 
-async function verifiedCabinetRole(): Promise<PlatformRole | null> {
+function isOrganizationCabinetPath(pathname: string): boolean {
+  return ORGANIZATION_CABINET_PREFIXES.some((prefix) => (
+    pathname === prefix || pathname.startsWith(`${prefix}/`)
+  ));
+}
+
+async function verifiedCabinetRole(): Promise<VerifiedCabinetRole | null> {
+  // A real platform owner may open only the fixed controlled test cabinet bound
+  // by the owner-access endpoint. The helper verifies the signed cabinet token,
+  // controlled tenant/org, active PLATFORM_OWNER assignment and MFA. It never
+  // changes the API bearer identity or grants a business membership.
+  const ownerControlled = await getVerifiedOwnerControlledCabinet();
+  if (ownerControlled) return ownerControlled.role;
+
   const secret = String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
   if (!secret) return null;
   const nowSeconds = Math.floor(Date.now() / 1000);
-  const cookieStore = await cookies();
-  return (
-    await readVerifiedCabinetSessionRole(cookieStore.get(CABINET_SESSION_COOKIE)?.value ?? null, secret, nowSeconds)
-  ) ?? (
-    await readVerifiedCabinetRole(cookieStore.get(ACCESS_COOKIE)?.value ?? null, secret, nowSeconds)
+  const [cookieStore, profile] = await Promise.all([cookies(), getAuthProfile()]);
+  if (!profile.available || !profile.role || !profile.id || !profile.orgId || !profile.tenantId || !profile.membershipId) {
+    return null;
+  }
+  const context = await readVerifiedCabinetSessionContext(
+    cookieStore.get(CABINET_SESSION_COOKIE)?.value ?? null,
+    secret,
+    nowSeconds,
   );
+  const role = mapApiRoleToCabinetRole(profile.role);
+  if (
+    !context
+    || !role
+    || context.role !== role
+    || context.userId !== profile.id
+    || context.membershipId !== profile.membershipId
+    || context.organizationId !== profile.orgId
+    || context.tenantId !== profile.tenantId
+  ) return null;
+  return role;
 }
 
 export default async function PlatformV7Layout({ children }: { children: ReactNode }) {
   const pathname = normalizePath((await headers()).get('x-pc-pathname'));
 
   // Every public route owns its static route-level shell, locale copy and CSS.
-  if (isPublicPath(pathname)) return children;
+  // The contact dock is mounted at the route boundary so supporting pages that
+  // do not render PublicSiteHeader still expose the same AI/support/call entry.
+  if (isPublicPath(pathname)) {
+    const publicContent = pathname === '/platform-v7/terms' || pathname === '/platform-v7/privacy'
+      || pathname === '/platform-v7/oferta' || pathname === '/platform-v7/docs'
+      ? <PublicLinkedSurfaceShell pathname={pathname} locale={await getLocale()}>{children}</PublicLinkedSurfaceShell>
+      : children;
+    return (
+      <>
+        {publicContent}
+        <HydrationSafeChatSupport />
+      </>
+    );
+  }
 
   // Staff remains a separate privileged authority plane and authenticates through
   // its own server-issued staff session rather than a business cabinet role.
@@ -238,6 +291,11 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
   // or page code reaches the client.
   const role = await verifiedCabinetRole();
   if (!role) redirect(loginHref(pathname));
+  if (role === 'organization') {
+    if (!isOrganizationCabinetPath(pathname)) redirect('/platform-v7/profile');
+    const { OrganizationAccessShell } = await import('@/components/platform-v7/OrganizationAccessShell');
+    return <OrganizationAccessShell locale={await getLocale()}>{children}</OrganizationAccessShell>;
+  }
   if (!canRoleAccessCabinet(role, pathname)) redirect(platformV7RoleRoute(role));
 
   const { PlatformV7ProtectedRuntime } = await import('@/components/platform-v7/PlatformV7ProtectedRuntime');

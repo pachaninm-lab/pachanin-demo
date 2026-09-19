@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transparent-price.invalid/schemas/tai.model-admission-decision.v2.json",
+  "title": "TAI model admission decision v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "reasons",
+    "authority_sha256",
+    "primary",
+    "fallback",
+    "evaluated_at",
+    "decision_sha256",
+    "production_operational_status"
+  ],
+  "properties": {
+    "schema_version": {"const": "tai.model-admission-decision.v2"},
+    "status": {"enum": ["PENDING_ADMISSION", "ADMITTED", "REJECTED"]},
+    "reasons": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "authority_sha256": {"type": ["string", "null"]},
+    "primary": {"type": ["object", "null"]},
+    "fallback": {"type": ["object", "null"]},
+    "evaluated_at": {"type": "string", "format": "date-time"},
+    "decision_sha256": {"type": ["string", "null"]},
+    "production_operational_status": {"const": "NOT_ATTESTED"}
+  }
+}

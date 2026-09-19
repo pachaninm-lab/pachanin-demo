@@ -1,0 +1,36 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "agent/tai-ap-13b3h2-finalization-retarget-2961-v2",
+  "status": "active",
+  "program_issue": 2726,
+  "parent_issue": 2954,
+  "issue": 2961,
+  "exact_base": "bc8989707b81bda5cb4f0dcfaf6d7604e764cc18",
+  "maturity_boundary": "completed-conversion-handoff-and-transitive-pin-retarget-only",
+  "allowed_paths": [
+    "apps/tai/governance/scopes/ap-13b3h2-finalization-retarget-2961.json",
+    "apps/tai/model-artifacts/model-bundle-finalization-authority.v1.json",
+    "apps/tai/model-artifacts/model-bundle-finalization-driver.v1.sh",
+    "apps/tai/model-artifacts/model-bundle-finalization-remote.v1.sh",
+    "apps/tai/model-artifacts/model-bundle-finalization-runbook.v1.md",
+    "apps/tai/model-artifacts/cpu-benchmark-run-plan-authority.v1.json",
+    "apps/tai/tai/cpu_benchmark_run_plan.py",
+    "apps/tai/tests/test_model_bundle_finalization_workflow.py"
+  ],
+  "forbidden_capabilities": [
+    "model conversion or quantization rerun",
+    "accepted model output path, size or SHA-256 identity change",
+    "S3, secret, credential, REG.RU or external-service mutation",
+    "Gateway, runtime activation or production-topology change",
+    "benchmark, admission, activation or production-status advancement",
+    "maturity-state advancement"
+  ],
+  "acceptance": [
+    "finalization authority, driver, remote executor and runbook bind the accepted conversion handoff",
+    "canonical conversion report digest remains f9022405fd7b59fe721e53a76adfebb974667328ff1416fa0afb4e55f9d63b7d and is recomputed before S3 mutation",
+    "CPU run-plan authority and Python expected contract pin finalization-authority Git blob 7e0ebaa54d1ef44fbddb8af8fd7847df0412651d",
+    "positive and tampered canonical-report tests execute the real inline validator source",
+    "full TAI suite, focused workflow tests, strict mypy, Ruff, shell syntax and scope guard pass",
+    "benchmark_status remains NOT_RUN, model_admission_status remains NOT_DONE and production_operational_status remains NOT_ATTESTED"
+  ]
+}

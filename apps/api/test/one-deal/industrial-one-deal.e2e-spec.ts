@@ -51,6 +51,7 @@ const CANONICAL_ORG_IDS = [
   'org-canonical-lab',
   'org-canonical-bank',
   'org-canonical-platform',
+  'org-canonical-arbitrator',
 ] as const;
 
 type UserActionId = Exclude<DealActionId, 'confirm_reserve' | 'confirm_release'>;

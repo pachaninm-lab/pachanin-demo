@@ -29,6 +29,13 @@ export type StaffAccessMode = typeof StaffAccessMode[keyof typeof StaffAccessMod
 export const StaffPermission = {
   ORGANIZATION_LIST: 'organization:list',
   ORGANIZATION_READ: 'organization:read',
+  /**
+   * Settling an admission application: the only write the bounded staff
+   * authority surface in 20260806103000 performs on identity state. Held
+   * separately from ORGANIZATION_READ so reviewing a queue never carries the
+   * ability to admit anyone.
+   */
+  ORGANIZATION_ADMISSION_DECIDE: 'organization:admission:decide',
   USER_LIST: 'user:list',
   USER_READ: 'user:read',
   USER_SESSION_REVOKE: 'user:session:revoke',
@@ -61,6 +68,7 @@ export const StaffPermission = {
   BREAK_GLASS_ACTIVATE: 'break-glass:activate',
   CRITICAL_ACTION_REQUEST: 'critical-action:request',
   CRITICAL_ACTION_APPROVE: 'critical-action:approve',
+  COMMODITY_PROFILE_LIFECYCLE_MANAGE: 'commodity-profile:lifecycle:manage',
 } as const;
 
 export type StaffPermission = typeof StaffPermission[keyof typeof StaffPermission];
@@ -91,6 +99,7 @@ export const ROLE_PERMISSION_CEILING: Readonly<Record<StaffRole, readonly StaffP
   PLATFORM_ADMIN: [
     StaffPermission.ORGANIZATION_LIST,
     StaffPermission.ORGANIZATION_READ,
+    StaffPermission.ORGANIZATION_ADMISSION_DECIDE,
     StaffPermission.USER_LIST,
     StaffPermission.USER_READ,
     StaffPermission.USER_SESSION_REVOKE,
@@ -106,6 +115,7 @@ export const ROLE_PERMISSION_CEILING: Readonly<Record<StaffRole, readonly StaffP
     StaffPermission.STAFF_SESSION_READ,
     StaffPermission.STAFF_SESSION_REVOKE,
     StaffPermission.CABINET_VIEW_AS,
+    StaffPermission.COMMODITY_PROFILE_LIFECYCLE_MANAGE,
     StaffPermission.CRITICAL_ACTION_REQUEST,
     StaffPermission.CRITICAL_ACTION_APPROVE,
   ],
@@ -160,6 +170,7 @@ export const ROLE_PERMISSION_CEILING: Readonly<Record<StaffRole, readonly StaffP
     StaffPermission.CABINET_VIEW_AS,
     StaffPermission.STAFF_REQUEST_READ,
     StaffPermission.STAFF_REQUEST_APPROVE,
+    StaffPermission.COMMODITY_PROFILE_LIFECYCLE_MANAGE,
     StaffPermission.CRITICAL_ACTION_REQUEST,
     StaffPermission.CRITICAL_ACTION_APPROVE,
   ],
@@ -177,6 +188,7 @@ export const ROLE_PERMISSION_CEILING: Readonly<Record<StaffRole, readonly StaffP
   COMPLIANCE_STAFF: [
     StaffPermission.ORGANIZATION_LIST,
     StaffPermission.ORGANIZATION_READ,
+    StaffPermission.ORGANIZATION_ADMISSION_DECIDE,
     StaffPermission.USER_LIST,
     StaffPermission.USER_READ,
     StaffPermission.DEAL_LIST,
@@ -187,6 +199,7 @@ export const ROLE_PERMISSION_CEILING: Readonly<Record<StaffRole, readonly StaffP
     StaffPermission.AUDIT_READ,
     StaffPermission.AUDIT_EXPORT,
     StaffPermission.CABINET_VIEW_AS,
+    StaffPermission.COMMODITY_PROFILE_LIFECYCLE_MANAGE,
     StaffPermission.STAFF_REQUEST_READ,
     StaffPermission.STAFF_REQUEST_APPROVE,
     StaffPermission.CRITICAL_ACTION_APPROVE,

@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/gekta-speed2-s2-0-controller-4251",
+  "status": "active",
+  "issue": 4251,
+  "purpose": "Create the single owner-only SPEED-2 control plane and perform S2-0 read-only production latency/cache diagnosis before any runtime candidate mutation.",
+  "approvedBy": "repository-owner SPEED-2 authority issue #4251 on 2026-08-16",
+  "authorityBaseExactMain": "2c3256ffb996172d69528cb19871bcd13f0d0723",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/gekta-p0-speed2-s2-0-controller-4251.json",
+    ".github/workflows/gekta-p0-speed2-controller.yml",
+    "scripts/gekta-speed2-model-diagnose.py"
+  ],
+  "requiredBehavior": [
+    "issue #4251 is the only SPEED-2 command authority and issue #3896 remains completed",
+    "controller accepts only exact owner or trusted owner connector provenance and exact current-main commands",
+    "status performs no inference and no production mutation",
+    "diagnose performs only two bounded synthetic one-token model requests after proving the accepted SPEED #3896 runtime baseline",
+    "diagnosis publishes hashes and bounded hardware/runtime/cache/timing facts only; no prompt content user data raw argv raw environment cookies credentials or tokens",
+    "actual deployed application SHA is re-attested from the production manifest before the model-host diagnostic",
+    "model host transport uses the dedicated model SSH identity and pinned host key with no sudo",
+    "no candidate runtime mutation is introduced by S2-0",
+    "machine-readable evidence is uploaded and a bounded summary is posted to issue #4251",
+    "new recurring cost remains zero"
+  ],
+  "forbiddenCapabilities": [
+    "sudo root SSH arbitrary shell input arbitrary systemctl restart stop start kill pkill docker mutation or runtime config mutation",
+    "prompt system-prompt history grounding response user data cookies auth secrets tokens raw argv or raw environment publication",
+    "threads threads-batch parallel ctx batch ubatch model quantization prompt safety StreamingAnswerGate timeout application database registration PC-CROP or Company OS mutation",
+    "second model process new server paid API SaaS or recurring cost"
+  ]
+}

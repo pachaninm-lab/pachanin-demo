@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-production-preflight-cli-20260731",
+  "status": "active",
+  "purpose": "Add a deterministic read-only production prerequisite CLI inside the canonical TAI image without duplicating or changing the existing REG.RU shell preflight authority.",
+  "approvedBy": "owner-direct-continue-2026-07-31",
+  "authorityBaseExactMain": "f8a3c80da65aa1174b95394831b271b0eaf95e0f",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/tai/tai/production_preflight.py",
+    "apps/tai/tests/test_production_preflight.py",
+    "docs/platform-v7/autopilot/scopes/tai-production-preflight-cli-20260731.json"
+  ],
+  "requiredBehavior": [
+    "enforce PostgreSQL read-only transaction before evidence queries",
+    "check required relation inventory and SELECT privileges",
+    "check materialized active knowledge generation",
+    "check artifact-bound admission for every active model profile",
+    "perform one bounded authenticated deterministic model probe",
+    "emit only sanitized statuses, counts and governed reason codes",
+    "return non-zero while any production prerequisite is blocked"
+  ],
+  "forbiddenCapabilities": [
+    "REG.RU SSH or Compose mutation",
+    "database DDL, DML, grants, roles or migration",
+    "credential, DSN, endpoint, model identity or model output serialization",
+    "deployment or live-acceptance claim",
+    "tenant, role, financial, veterinary or write-authority expansion",
+    "new paid dependency or recurring cost"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "changedPathCount": 3,
+    "requiredChecks": [
+      "TAI Foundation",
+      "TAI Runtime Image",
+      "CI",
+      "Security Quality Gate",
+      "Runtime Context Security Gate",
+      "Security Abuse and Evidence Acceptance"
+    ],
+    "operationalStatus": "NOT_DEPLOYED"
+  }
+}

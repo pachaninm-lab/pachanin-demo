@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/owner-showroom-4414",
+  "status": "active",
+  "purpose": "Issue #4414: add two read-only PC-CROP showroom entry paths over the same synthetic presentation data: a privileged PLATFORM_OWNER+MFA staff entry and a short-lived high-entropy presentation bearer entry. Neither path impersonates business users, weakens production RBAC, enables public demo credentials, fetches real customer data or permits production mutations.",
+  "authorityBaseExactMain": "aa237f085ddb9d1447a6625b586c15cc8d989ce5",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/app/platform-v7/staff/showroom/page.tsx",
+    "apps/web/app/platform-v7/role-preview/showroom/page.tsx",
+    "apps/web/tests/unit/platformV7OwnerShowroom.test.ts",
+    "docs/platform-v7/autopilot/scopes/owner-showroom-4414.json"
+  ],
+  "requiredInvariants": [
+    "The privileged showroom requires a server-verified PLATFORM_OWNER session with MFA.",
+    "The temporary presentation entry accepts only a high-entropy bearer whose plaintext is absent from source, whose SHA-256 digest is compared in constant time and whose validity has a fixed expiry.",
+    "The temporary bearer grants access only to synthetic read-only showroom rendering and is not accepted by business APIs, auth APIs or staff APIs.",
+    "Neither showroom path mints or impersonates a business-user session.",
+    "Normal platform-v7 role, user, membership, organization and tenant equality checks remain unchanged.",
+    "No passwordless demo route, universal password, role-test credential or canonical test seed is enabled in production.",
+    "The owner access token is used only for staff authority verification and is never sent to business-data endpoints from the showroom.",
+    "All displayed organizations, role facts, deal facts and amounts are synthetic presentation data.",
+    "All operations that could mutate a deal, payment, document, lab result, arbitration state or external integration are disabled in showroom rendering.",
+    "The employee organization-profile surface is included alongside the twelve existing execution-role surfaces.",
+    "Every showroom screen is visibly marked TEST or SHOWROOM and robots indexing is disabled.",
+    "No database, migration, production environment, external integration or recurring-cost change is included."
+  ],
+  "acceptance": [
+    "Focused unit source contract proves PLATFORM_OWNER plus MFA gating for the privileged entry.",
+    "Focused unit source contract proves SHA-256 constant-time bearer verification, finite expiry and absence of plaintext bearer from source.",
+    "Focused unit source contract proves exactly the thirteen requested showroom surfaces are represented in both entry modes.",
+    "Focused unit source contract proves no business proxy/deals/logistics/lab workspace fetch is present.",
+    "Focused unit source contract proves mutating cockpit actions are disabled and SHOWROOM labeling is present.",
+    "Exact-head web unit, Node CI, security and governance checks pass before merge.",
+    "Production acceptance opens all thirteen showroom surfaces using the temporary presentation link and separately confirms owner entry when owner credentials are available."
+  ]
+}

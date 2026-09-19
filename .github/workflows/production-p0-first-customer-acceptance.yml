@@ -1,0 +1,1084 @@
+name: Production P0 First-Customer Acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-first-customer-acceptance.yml'
+      - 'scripts/production-p0-first-customer-acceptance.sh'
+      - 'scripts/check-production-p0-first-customer-acceptance.mjs'
+      - 'docs/ops/production-p0-first-customer-acceptance.md'
+      - 'docs/platform-v7/autopilot/scopes/production-p0-first-customer-acceptance-3749.json'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-first-customer-acceptance.yml'
+      - 'scripts/production-p0-first-customer-acceptance.sh'
+      - 'scripts/check-production-p0-first-customer-acceptance.mjs'
+      - 'docs/ops/production-p0-first-customer-acceptance.md'
+      - 'docs/platform-v7/autopilot/scopes/production-p0-first-customer-acceptance-3749.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.event_name == 'issue_comment' && (github.event.issue.number == 3072 || github.event.issue.number == 4637) && github.event.comment.user.login == github.repository_owner && github.actor == github.repository_owner && github.event.comment.body == '/production p0-first-customer current-main' && 'pc-crop-registration-lifecycle' || 'production-p0-first-customer-acceptance' }}
+  cancel-in-progress: false
+  queue: max
+
+env:
+  LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  RELEASE_ISSUE_NUMBER: 3072
+  CONTINUATION_ISSUE_NUMBER: 4637
+  EVIDENCE_DIR: artifacts/production-p0-first-customer
+
+jobs:
+  contract:
+    name: Validate production P0 acceptance contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.event_name == 'push' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.actor == github.repository_owner &&
+        github.triggering_actor == github.repository_owner &&
+        (
+          (
+            github.event.issue.number == 3072 &&
+            (
+              github.event.comment.body == '/production p0-first-customer current-main' ||
+              github.event.comment.body == '/production p0-reviewer-membership-repair deployed-30d9075'
+            )
+          ) ||
+          (
+            github.event.issue.number == 4637 &&
+            github.event.comment.body == '/production p0-first-customer current-main'
+          )
+        )
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-production-p0-first-customer-acceptance.mjs
+      - name: Validate immutable exact-deployed reviewer prerequisite
+        shell: bash
+        run: |
+          set -euo pipefail
+          workflow='.github/workflows/production-p0-first-customer-acceptance.yml'
+          for marker in \
+            "/production p0-reviewer-membership-repair deployed-30d9075" \
+            "TARGET_SHA='30d9075d8867fa60b3ec275b1e244f151debf0f4'" \
+            'git merge-base --is-ancestor "$TARGET_SHA" "$live_main"' \
+            'FROM auth.repair_single_reviewer_membership()' \
+            'Prisma.TransactionIsolationLevel.Serializable' \
+            'PRODUCTION_MUTATION=REVIEWER_MEMBERSHIP_ONLY' \
+            'REVIEWER_PASSWORD_RESET_REQUIRED'; do
+            grep -Fq -- "$marker" "$workflow"
+          done
+          if sed -n '/^  repair-production-reviewer:/,$p' "$workflow" \
+            | grep -Eq 'runtime source rewriting|python3 - .*PATCHED|target\.write_text'; then
+            echo P0_REVIEWER_REPAIR_RUNTIME_REWRITING_FORBIDDEN >&2
+            exit 1
+          fi
+
+  repair-production-reviewer:
+    name: Restore the exact deployed PLATFORM_OWNER membership
+    needs: contract
+    if: >-
+      needs.contract.result == 'success' &&
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3072 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/production p0-reviewer-membership-repair deployed-30d9075'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    concurrency:
+      group: pc-crop-production-release-candidate
+      cancel-in-progress: false
+      queue: max
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Repair only the fixed reviewer membership on exact deployed 30d9075
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          COMMAND='/production p0-reviewer-membership-repair deployed-30d9075'
+          TARGET_SHA='30d9075d8867fa60b3ec275b1e244f151debf0f4'
+          key_path="$RUNNER_TEMP/pc-p0-reviewer-membership-repair-key"
+          known_hosts="$RUNNER_TEMP/pc-p0-reviewer-membership-repair-known-hosts"
+          result_published=0
+
+          cleanup() {
+            rm -f -- "$key_path" "$known_hosts"
+          }
+
+          publish_failure() {
+            local rc="$?"
+            trap - ERR
+            if [[ "$result_published" == '0' ]]; then
+              gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer membership repair
+
+          - command: \`$COMMAND\`
+          - exact deployed revision: \`$TARGET_SHA\`
+          - result: \`FAIL\`
+          - production mutation: \`UNCONFIRMED_RECHECK_REQUIRED\`
+          - blocker: \`REVIEWER_MEMBERSHIP_REPAIR_FAILED_CLOSED\`
+          - exit code: \`$rc\`" >/dev/null || true
+            fi
+            exit "$rc"
+          }
+
+          trap cleanup EXIT
+          trap publish_failure ERR
+
+          trim() {
+            local value="$1"
+            value="${value#"${value%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
+            printf '%s' "$value"
+          }
+
+          guard_repository_ancestry() {
+            local live_main
+            live_main="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+            [[ "$live_main" =~ ^[0-9a-f]{40}$ ]]
+            git fetch --no-tags origin main >/dev/null
+            [[ "$(git rev-parse origin/main)" == "$live_main" ]]
+            git cat-file -e "$TARGET_SHA^{commit}"
+            git merge-base --is-ancestor "$TARGET_SHA" "$live_main"
+          }
+
+          guard_repository_ancestry
+
+          host="$(trim "${PC_PROD_HOST:-$DEFAULT_HOST}")"
+          user="$(trim "${PC_PROD_SSH_USER:-}")"
+          port="$(trim "${PC_PROD_SSH_PORT:-22}")"
+          expected="$(trim "${PC_PROD_SSH_HOST_FINGERPRINT:-}")"
+
+          [[ "$host" == "$DEFAULT_HOST" ]]
+          [[ -n "$user" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+
+          validate_key() {
+            local source="$1" public_key
+            tr -d '\r' < "$source" > "$key_path"
+            chmod 0600 "$key_path"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$key_path" && return 1
+            public_key="$(mktemp)"
+            ssh-keygen -y -P '' -f "$key_path" > "$public_key" 2>/dev/null \
+              || { rm -f "$public_key"; return 1; }
+            rm -f "$public_key"
+          }
+
+          try_key() {
+            local raw="$1" plain escaped decoded
+            [[ -n "$raw" ]] || return 1
+            plain="$(mktemp)"
+            escaped="$(mktemp)"
+            decoded="$(mktemp)"
+            printf '%s\n' "$raw" > "$plain"
+            validate_key "$plain" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$escaped"
+            validate_key "$escaped" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$decoded" 2>/dev/null \
+              && validate_key "$decoded" \
+              && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            rm -f "$plain" "$escaped" "$decoded"
+            return 1
+          }
+
+          try_key "${PC_PROD_SSH_KEY:-}" \
+            || try_key "${PC_PROD_SSH_PRIVATE_KEY:-}" \
+            || try_key "${VPS_SSH_KEY:-}"
+
+          guard_repository_ancestry
+
+          domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
+          grep -Fxq "$DEFAULT_HOST" <<< "$domain_ips"
+
+          scan="$(mktemp)"
+          match="$(mktemp)"
+          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          [[ -s "$scan" ]]
+          while IFS= read -r line; do
+            fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+            [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+          done < "$scan"
+          [[ "$(grep -c . "$match" || true)" == '1' ]]
+          mv "$match" "$known_hosts"
+          rm -f "$scan"
+          chmod 0600 "$known_hosts"
+
+          guard_repository_ancestry
+          ssh -i "$key_path" -p "$port" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$known_hosts" -o ConnectTimeout=15 \
+            "$user@$host" 'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null' \
+            >/dev/null
+
+          output="$(ssh -i "$key_path" -p "$port" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$known_hosts" -o ConnectTimeout=15 \
+            "$user@$host" "bash -s -- '$TARGET_SHA'" <<'REMOTE'
+          set -euo pipefail
+          target_sha="$1"
+          [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(id -u)" -eq 0 ]]
+          command -v docker >/dev/null 2>&1
+
+          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
+          (( ${#web_ids[@]} == 1 ))
+          web_id="${web_ids[0]}"
+          project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
+          [[ -n "$project" ]]
+          mapfile -t api_ids < <(docker ps -q \
+            --filter "label=com.docker.compose.project=$project" \
+            --filter 'label=com.docker.compose.service=api')
+          (( ${#api_ids[@]} == 1 ))
+          api_id="${api_ids[0]}"
+          api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
+          web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
+          [[ "$api_revision" == "$target_sha" && "$web_revision" == "$target_sha" ]]
+
+          docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - <<'NODE'
+          const { Prisma, PrismaClient } = require('@prisma/client');
+
+          const sanitizeErrorCode = (error) => {
+            const raw = String(error && typeof error === 'object' && 'code' in error ? error.code : 'UNKNOWN');
+            return raw.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 32) || 'UNKNOWN';
+          };
+
+          (async () => {
+            const databaseUrl = String(process.env.STAFF_DATABASE_URL || '').trim();
+            if (!databaseUrl) {
+              console.error('P0_STAFF_DB_URL_MISSING');
+              process.exitCode = 41;
+              return;
+            }
+
+            const db = new PrismaClient({ datasources: { db: { url: databaseUrl } } });
+            try {
+              const principals = await db.$queryRawUnsafe(`
+                SELECT current_user AS user_name,
+                       rolsuper,
+                       rolbypassrls,
+                       has_table_privilege(current_user, 'public.users', 'SELECT') AS can_read_users,
+                       has_table_privilege(current_user, 'public.user_orgs', 'SELECT') AS can_read_memberships,
+                       has_table_privilege(current_user, 'public.organizations', 'SELECT') AS can_read_organizations,
+                       has_table_privilege(current_user, 'public.outbox_entries', 'INSERT') AS can_insert_outbox,
+                       has_table_privilege(current_user, 'auth.staff_assignments', 'SELECT') AS can_read_assignments,
+                       has_table_privilege(current_user, 'auth.staff_access_events', 'INSERT') AS can_insert_staff_audit,
+                       coalesce(has_function_privilege(
+                         current_user,
+                         to_regprocedure('auth.repair_single_reviewer_membership()'),
+                         'EXECUTE'
+                       ), false) AS repair_execute
+                FROM pg_roles
+                WHERE rolname = current_user
+              `);
+              const principal = principals[0];
+              if (!principal || principal.user_name !== 'pc_staff_runtime'
+                  || principal.rolsuper || principal.rolbypassrls
+                  || principal.can_read_users || principal.can_read_memberships
+                  || principal.can_read_organizations || principal.can_insert_outbox
+                  || principal.can_read_assignments || principal.can_insert_staff_audit
+                  || !principal.repair_execute) {
+                console.error('P0_REVIEWER_REPAIR_PRINCIPAL_BOUNDARY_INVALID');
+                process.exitCode = 42;
+                return;
+              }
+
+              const rows = await db.$transaction(
+                async (tx) => tx.$queryRawUnsafe(`
+                  SELECT
+                    result_code,
+                    assignment_ready_count,
+                    active_identity_ready_count,
+                    membership_ready_count,
+                    password_ready_count,
+                    mfa_enrolled_ready_count,
+                    login_ready_count,
+                    internal_organization_count,
+                    internal_membership_count,
+                    audit_event_count,
+                    outbox_event_count
+                  FROM auth.repair_single_reviewer_membership()
+                `),
+                {
+                  isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+                  maxWait: 5_000,
+                  timeout: 30_000,
+                },
+              );
+
+              if (!Array.isArray(rows) || rows.length !== 1) {
+                console.error('P0_REVIEWER_REPAIR_RESULT_CARDINALITY_INVALID');
+                process.exitCode = 43;
+                return;
+              }
+              const result = rows[0];
+              const resultCode = String(result.result_code || '');
+              const values = [
+                Number(result.assignment_ready_count),
+                Number(result.active_identity_ready_count),
+                Number(result.membership_ready_count),
+                Number(result.password_ready_count),
+                Number(result.mfa_enrolled_ready_count),
+                Number(result.login_ready_count),
+                Number(result.internal_organization_count),
+                Number(result.internal_membership_count),
+                Number(result.audit_event_count),
+                Number(result.outbox_event_count),
+              ];
+              if (!['REPAIRED', 'ALREADY_REPAIRED'].includes(resultCode)
+                  || values.some((value) => !Number.isInteger(value) || value < 0)) {
+                console.error('P0_REVIEWER_REPAIR_RESULT_INVALID');
+                process.exitCode = 44;
+                return;
+              }
+
+              const [assignments, identities, memberships, passwords, mfa, login,
+                organizations, internalMemberships, audits, outbox] = values;
+              if (assignments !== 1 || identities !== 1 || memberships !== 1
+                  || passwords !== 0 || mfa !== 0 || login !== 0
+                  || organizations !== 1 || internalMemberships !== 1
+                  || audits !== 1 || outbox !== 1) {
+                console.error('P0_REVIEWER_REPAIR_POSTCONDITION_INVALID');
+                process.exitCode = 45;
+                return;
+              }
+
+              console.log(
+                `REVIEWER_MEMBERSHIP_REPAIR|${principal.user_name}|${resultCode}`
+                + `|${assignments}|${identities}|${memberships}|${passwords}|${mfa}|${login}`
+                + `|${organizations}|${internalMemberships}|${audits}|${outbox}`,
+              );
+            } finally {
+              await db.$disconnect();
+            }
+          })().catch((error) => {
+            console.error(`P0_REVIEWER_MEMBERSHIP_REPAIR_DB_ERROR|${sanitizeErrorCode(error)}`);
+            process.exitCode = 46;
+          });
+          NODE
+
+          api_revision_after="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
+          web_revision_after="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
+          [[ "$api_revision_after" == "$target_sha" && "$web_revision_after" == "$target_sha" ]]
+          printf 'PRODUCTION_MUTATION=REVIEWER_MEMBERSHIP_ONLY\n'
+          REMOTE
+          )"
+
+          marker="$(grep '^REVIEWER_MEMBERSHIP_REPAIR|' <<< "$output" | tail -n1)"
+          mutation="$(grep '^PRODUCTION_MUTATION=' <<< "$output" | tail -n1)"
+          [[ "$mutation" == 'PRODUCTION_MUTATION=REVIEWER_MEMBERSHIP_ONLY' ]]
+          IFS='|' read -r tag principal result assignments identities memberships passwords mfa login organizations internal_memberships audits outbox <<< "$marker"
+          [[ "$tag" == 'REVIEWER_MEMBERSHIP_REPAIR' ]]
+          [[ "$principal" == 'pc_staff_runtime' ]]
+          [[ "$result" == 'REPAIRED' || "$result" == 'ALREADY_REPAIRED' ]]
+          for count in "$assignments" "$identities" "$memberships" "$passwords" "$mfa" "$login" \
+            "$organizations" "$internal_memberships" "$audits" "$outbox"; do
+            [[ "$count" =~ ^[0-9]+$ ]]
+          done
+          [[ "$assignments" == '1' && "$identities" == '1' && "$memberships" == '1' ]]
+          [[ "$passwords" == '0' && "$mfa" == '0' && "$login" == '0' ]]
+          [[ "$organizations" == '1' && "$internal_memberships" == '1' ]]
+          [[ "$audits" == '1' && "$outbox" == '1' ]]
+
+          guard_repository_ancestry
+
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body "## Production P0 reviewer membership repair
+
+          - command: \`$COMMAND\`
+          - exact deployed revision: \`$TARGET_SHA\`
+          - result: \`PASS / $result\`
+          - staff principal: \`$principal\`
+          - active reviewer assignments: \`$assignments\`
+          - active reviewer identities: \`$identities\`
+          - reviewer memberships in VERIFIED organizations: \`$memberships\`
+          - password credentials ready: \`$passwords\`
+          - TOTP enrollments ready: \`$mfa\`
+          - login-ready reviewers: \`$login\`
+          - fixed internal organizations: \`$organizations\`
+          - fixed internal memberships: \`$internal_memberships\`
+          - immutable staff audit evidence: \`$audits\`
+          - durable outbox evidence: \`$outbox\`
+          - production mutation: \`REVIEWER_MEMBERSHIP_ONLY\`
+          - next: \`REVIEWER_PASSWORD_RESET_REQUIRED\`" >/dev/null
+          result_published=1
+
+  accept-production-first-customers:
+    name: Two public customers · staff MFA · RLS · causal receipt
+    needs: contract
+    if: >-
+      needs.contract.result == 'success' &&
+      github.event_name == 'issue_comment' &&
+      (github.event.issue.number == 3072 || github.event.issue.number == 4637) &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      github.event.comment.body == '/production p0-first-customer current-main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    concurrency:
+      group: pc-crop-production-release-candidate
+      cancel-in-progress: false
+      queue: max
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PC_P0_EMAIL_TEMPLATE: ${{ secrets.PC_PROD_P0_MAILBOX_EMAIL_TEMPLATE || secrets.PC_PROD_P0_EMAIL_TEMPLATE }}
+      PC_P0_IMAP_HOST: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_HOST || secrets.PC_PROD_P0_IMAP_HOST }}
+      PC_P0_IMAP_PORT: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PORT || secrets.PC_PROD_P0_IMAP_PORT }}
+      PC_P0_IMAP_USER: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_USER || secrets.PC_PROD_P0_IMAP_USER }}
+      PC_P0_IMAP_PASSWORD: ${{ secrets.PC_PROD_P0_MAILBOX_IMAP_PASSWORD || secrets.PC_PROD_P0_IMAP_PASSWORD }}
+      PC_P0_IMAP_FOLDER: ${{ secrets.PC_PROD_P0_IMAP_FOLDER }}
+      PC_P0_HUMAN_APPROVAL_TIMEOUT_SECONDS: 1800
+      SSH_HOST_SECRET: ${{ secrets.PC_PROD_HOST }}
+      SSH_USER_SECRET: ${{ secrets.PC_PROD_SSH_USER }}
+      SSH_PORT_SECRET: ${{ secrets.PC_PROD_SSH_PORT }}
+      SSH_KEY_PRIMARY: ${{ secrets.PC_PROD_SSH_KEY }}
+      SSH_KEY_SECONDARY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      SSH_KEY_FALLBACK: ${{ secrets.VPS_SSH_KEY }}
+      SSH_HOST_FINGERPRINT_SECRET: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+      RELEASE_ISSUE_NUMBER: ${{ github.event.issue.number }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve immutable candidate from successful release and mail cutover
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          runs="$RUNNER_TEMP/pc-p0-release-controller-runs.json"
+          jobs="$RUNNER_TEMP/pc-p0-release-controller-jobs.json"
+          gh api --paginate --slurp \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/platform-v7-safe-merge.yml/runs?event=issue_comment&branch=main&actor=$GITHUB_REPOSITORY_OWNER&per_page=100" \
+            > "$runs"
+          candidates_parser_file="$RUNNER_TEMP/pc-p0-candidates-parser-1.txt"
+          node - "$runs" > "$candidates_parser_file" <<'NODE'
+          const fs = require('node:fs');
+          const payload = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          const pages = Array.isArray(payload) ? payload : [payload];
+          const workflowRuns = pages.flatMap((page) => page.workflow_runs || []);
+          for (const run of workflowRuns.sort((a, b) => Number(b.id) - Number(a.id))) {
+            if (run.event === 'issue_comment'
+              && run.head_branch === 'main'
+              && Number.isSafeInteger(Number(run.id))
+              && /^[0-9a-f]{40}$/.test(String(run.head_sha || ''))) {
+              process.stdout.write(`${run.id} ${run.run_attempt || 1} ${run.head_sha} ${run.status || 'unknown'} ${run.conclusion || 'pending'}\n`);
+            }
+          }
+          NODE
+          mapfile -t candidates < "$candidates_parser_file"
+          target=''
+          release_run_id=''
+          release_run_attempt=''
+          for candidate in "${candidates[@]}"; do
+            read -r candidate_run candidate_attempt candidate_sha candidate_status candidate_conclusion <<< "$candidate"
+            [[ "$candidate_run" =~ ^[0-9]{2,20}$ && "$candidate_attempt" =~ ^[0-9]{1,4}$ && "$candidate_sha" =~ ^[0-9a-f]{40}$ ]] || continue
+            for materialize_attempt in $(seq 1 5); do
+              gh api "repos/$GITHUB_REPOSITORY/actions/runs/$candidate_run/attempts/$candidate_attempt/jobs?per_page=100" > "$jobs"
+              [[ "$(node -e "const p=require(process.argv[1]);process.stdout.write(String((p.jobs||[]).length))" "$jobs")" != 0 ]] && break
+              sleep 2
+            done
+            job_count="$(node -e "const p=require(process.argv[1]);process.stdout.write(String((p.jobs||[]).length))" "$jobs")"
+            if [[ "$job_count" == 0 ]]; then
+              echo "P0_RELEASE_INTENT_JOBS_NOT_MATERIALIZED=$candidate_run" >&2
+              exit 14
+            fi
+            set +e
+            node - "$jobs" "$candidate_status" "$candidate_conclusion" "$candidate_attempt" <<'NODE'
+          const fs = require('node:fs');
+          const [path, runStatus, runConclusion, runAttempt] = process.argv.slice(2);
+          const jobs = JSON.parse(fs.readFileSync(path, 'utf8')).jobs || [];
+          const control = jobs.filter((job) => job.name === 'production-release-control-3072');
+          if (control.length === 1 && control[0].conclusion === 'skipped') {
+            process.exit(Number(runAttempt) > 1 ? 5 : 2);
+          }
+          if (control.length !== 1) process.exit(3);
+          const required = [
+            'production-release-control-3072',
+            'production-full-stack-execution-3072 / Validate full-stack release contract',
+            'production-full-stack-execution-3072 / Migrate, deploy API and web, verify live intake',
+            'production-auth-mail-cutover-3072 / Validate auth-mail cutover contract',
+            'production-auth-mail-cutover-3072 / Cut over exact production to durable auth-mail worker',
+            'production-reviewer-readiness-3072 / Validate production reviewer inspect contract',
+            'production-reviewer-readiness-3072 / Read-only REG.RU reviewer login readiness',
+          ];
+          if (runStatus !== 'completed' || runConclusion !== 'success') process.exit(4);
+          for (const name of required) {
+            const matches = jobs.filter((job) => job.name === name);
+            if (matches.length !== 1 || matches[0].conclusion !== 'success') process.exit(4);
+          }
+          NODE
+            verdict=$?
+            set -e
+            if [[ "$verdict" == 2 ]]; then
+              continue
+            elif [[ "$verdict" == 0 ]]; then
+              target="$candidate_sha"
+              release_run_id="$candidate_run"
+              release_run_attempt="$candidate_attempt"
+              break
+            else
+              echo "P0_LATEST_RELEASE_INTENT_NOT_TERMINAL_PASS=$candidate_run" >&2
+              exit 13
+            fi
+          done
+          [[ "$release_run_id" =~ ^[0-9]{2,20}$ && "$release_run_attempt" =~ ^[0-9]{1,4}$ ]]
+          [[ "$target" =~ ^[0-9a-f]{40}$ ]]
+          git fetch --no-tags origin main
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$(git rev-parse origin/main)" == "$current" ]]
+          git cat-file -e "$target^{commit}"
+          git merge-base --is-ancestor "$target" "$current" \
+            || { echo P0_RELEASE_CANDIDATE_NO_LONGER_ANCESTOR >&2; exit 12; }
+          git checkout --detach "$target"
+          [[ "$(git rev-parse HEAD)" == "$target" ]]
+          echo "sha=$target" >> "$GITHUB_OUTPUT"
+          echo "release_run_id=$release_run_id" >> "$GITHUB_OUTPUT"
+          echo "release_run_attempt=$release_run_attempt" >> "$GITHUB_OUTPUT"
+          rm -f "$runs" "$jobs"
+
+      - name: Validate acceptance contract from immutable candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/check-production-p0-first-customer-acceptance.mjs
+          bash -n scripts/production-p0-first-customer-acceptance.sh
+
+      - name: Resolve protected key and pinned REG.RU identity
+        id: ssh
+        continue-on-error: true
+        shell: bash
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          set -euo pipefail
+          guard_candidate_ancestry() {
+            local current
+            git fetch --no-tags origin main >/dev/null
+            current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+            [[ "$(git rev-parse origin/main)" == "$current" ]]
+            git cat-file -e "$TARGET_SHA^{commit}"
+            git merge-base --is-ancestor "$TARGET_SHA" "$current"
+          }
+          trim() {
+            local value="$1"
+            value="${value#"${value%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
+            printf '%s' "$value"
+          }
+          host="$(trim "${SSH_HOST_SECRET:-$DEFAULT_HOST}")"
+          user="$(trim "${SSH_USER_SECRET:-}")"
+          port="$(trim "${SSH_PORT_SECRET:-22}")"
+          expected="$(trim "${SSH_HOST_FINGERPRINT_SECRET:-}")"
+          [[ "$host" == "$DEFAULT_HOST" ]] || { echo P0_CANONICAL_VPS_MISMATCH >&2; exit 20; }
+          [[ -n "$user" && "$user" == "${SSH_USER_SECRET:-}" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]] \
+            || { echo MISSING_P0_SSH_PREREQUISITE >&2; exit 21; }
+          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 )) \
+            || { echo MISSING_P0_SSH_PREREQUISITE >&2; exit 22; }
+          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]] \
+            || { echo MISSING_P0_SSH_PREREQUISITE >&2; exit 23; }
+          if [[ -z "$PC_P0_EMAIL_TEMPLATE" || -z "$PC_P0_IMAP_HOST" \
+            || -z "$PC_P0_IMAP_USER" || -z "$PC_P0_IMAP_PASSWORD" ]]; then
+            echo MISSING_P0_MAILBOX_PREREQUISITE >&2
+            exit 24
+          fi
+          key_path="$RUNNER_TEMP/pc-p0-production-key"
+          known_hosts="$RUNNER_TEMP/pc-p0-known-hosts"
+          validate_key() {
+            local source="$1" public_key
+            tr -d '\r' < "$source" > "$key_path"
+            chmod 0600 "$key_path"
+            grep -Eq '^(ssh-|ecdsa-|sk-)' "$key_path" && return 1
+            public_key="$(mktemp)"
+            ssh-keygen -y -P '' -f "$key_path" > "$public_key" 2>/dev/null \
+              || { rm -f "$public_key"; return 1; }
+            rm -f "$public_key"
+          }
+          try_slot() {
+            local raw="$1" plain escaped decoded
+            [[ -n "$raw" ]] || return 1
+            plain="$(mktemp)"; escaped="$(mktemp)"; decoded="$(mktemp)"
+            printf '%s\n' "$raw" > "$plain"
+            validate_key "$plain" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            printf '%s' "${raw//\\n/$'\n'}" > "$escaped"
+            validate_key "$escaped" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            printf '%s' "$raw" | base64 --decode > "$decoded" 2>/dev/null \
+              && validate_key "$decoded" \
+              && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
+            rm -f "$plain" "$escaped" "$decoded"
+            return 1
+          }
+          try_slot "${SSH_KEY_PRIMARY:-}" \
+            || try_slot "${SSH_KEY_SECONDARY:-}" \
+            || try_slot "${SSH_KEY_FALLBACK:-}" \
+            || { echo MISSING_P0_SSH_PREREQUISITE >&2; exit 26; }
+
+          guard_candidate_ancestry
+          domain_ips="$(getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u || true)"
+          grep -Fxq "$DEFAULT_HOST" <<< "$domain_ips" || { echo P0_CANONICAL_DNS_MISMATCH >&2; exit 27; }
+          guard_candidate_ancestry
+          scan="$(mktemp)"; match="$(mktemp)"
+          ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan"
+          [[ -s "$scan" ]]
+          while IFS= read -r line; do
+            fingerprint="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
+            [[ "$fingerprint" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
+          done < "$scan"
+          [[ "$(grep -c . "$match" || true)" == 1 ]] || { echo P0_PINNED_HOST_KEY_MISMATCH >&2; exit 28; }
+          mv "$match" "$known_hosts"
+          rm -f "$scan"
+          chmod 0600 "$known_hosts"
+          guard_candidate_ancestry
+          ssh -i "$key_path" -p "$port" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$known_hosts" -o ConnectTimeout=15 \
+            "$user@$host" 'set -euo pipefail; test "$(id -u)" -eq 0; docker version >/dev/null' \
+            >/dev/null
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+          echo "key_path=$key_path" >> "$GITHUB_OUTPUT"
+          echo "known_hosts=$known_hosts" >> "$GITHUB_OUTPUT"
+
+      - name: Reconfirm immutable release candidate immediately before production mutation
+        shell: bash
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          RELEASE_RUN_ID: ${{ steps.target.outputs.release_run_id }}
+          RELEASE_RUN_ATTEMPT: ${{ steps.target.outputs.release_run_attempt }}
+        run: |
+          set -euo pipefail
+          assert_no_newer_release_intent() {
+            local runs row run_id run_status jobs count state materialized
+            read -r expected_attempt expected_status expected_conclusion expected_created < <(gh api \
+              "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN_ID" \
+              --jq '[.run_attempt, .status, (.conclusion // "pending"), .created_at] | @tsv')
+            [[ "$expected_attempt" == "$RELEASE_RUN_ATTEMPT" \
+              && "$expected_status" == completed && "$expected_conclusion" == success ]]
+            [[ "$expected_created" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]]
+            runs="$RUNNER_TEMP/terminal-release-intents.json"
+            gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/workflows/platform-v7-safe-merge.yml/runs?event=issue_comment&branch=main&actor=$GITHUB_REPOSITORY_OWNER&created=%3E%3D$expected_created&per_page=100" > "$runs"
+            newer_parser_file="$RUNNER_TEMP/pc-p0-newer-parser-2.txt"
+            node - "$runs" "$RELEASE_RUN_ID" > "$newer_parser_file" <<'NODE'
+          const fs = require('node:fs');
+          const [path, expected] = process.argv.slice(2);
+          const payload = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const pages = Array.isArray(payload) ? payload : [payload];
+          for (const run of pages.flatMap((page) => page.workflow_runs || [])) {
+            if (Number(run.id) > Number(expected)) process.stdout.write(`${run.id} ${run.run_attempt || 1} ${run.status}\n`);
+          }
+          NODE
+            mapfile -t newer < "$newer_parser_file"
+            for row in "${newer[@]}"; do
+              read -r run_id run_attempt run_status <<< "$row"
+              jobs="$RUNNER_TEMP/terminal-release-$run_id.json"
+              materialized=0
+              for materialize_attempt in $(seq 1 5); do
+                gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/attempts/$run_attempt/jobs?per_page=100" > "$jobs"
+                if [[ "$(node -e "const p=require(process.argv[1]);process.stdout.write(String((p.jobs||[]).length))" "$jobs")" != 0 ]]; then
+                  materialized=1
+                  break
+                fi
+                [[ "$run_status" == completed ]] && break
+                sleep 2
+              done
+              read -r count state < <(node - "$jobs" <<'NODE'
+          const fs = require('node:fs');
+          const jobs = JSON.parse(fs.readFileSync(process.argv[2], 'utf8')).jobs || [];
+          const matches = jobs.filter((job) => job.name === 'production-release-control-3072');
+          process.stdout.write(`${matches.length} ${matches[0]?.conclusion || matches[0]?.status || 'none'}\n`);
+          NODE
+              )
+              [[ "$run_attempt" == 1 && "$materialized" == 1 \
+                && "$count" == 1 && "$state" == skipped ]] || return 1
+            done
+            read -r expected_attempt expected_status expected_conclusion < <(gh api \
+              "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN_ID" \
+              --jq '[.run_attempt, .status, (.conclusion // "pending")] | @tsv')
+            [[ "$expected_attempt" == "$RELEASE_RUN_ATTEMPT" \
+              && "$expected_status" == completed && "$expected_conclusion" == success ]]
+          }
+          git fetch --no-tags origin main >/dev/null
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$(git rev-parse origin/main)" == "$current" ]]
+          git cat-file -e "$TARGET_SHA^{commit}"
+          git merge-base --is-ancestor "$TARGET_SHA" "$current" \
+            || { echo P0_RELEASE_CANDIDATE_NO_LONGER_ANCESTOR >&2; exit 29; }
+          assert_no_newer_release_intent
+
+      - name: Execute immutable-candidate P0 first-customer acceptance
+        id: acceptance
+        continue-on-error: true
+        shell: bash
+        env:
+          PC_P0_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          PC_P0_RELEASE_RUN_ID: ${{ steps.target.outputs.release_run_id }}
+          PC_P0_RELEASE_RUN_ATTEMPT: ${{ steps.target.outputs.release_run_attempt }}
+          PC_P0_LIVE_BASE: ${{ env.LIVE_BASE }}
+          PC_P0_EVIDENCE_DIR: ${{ env.EVIDENCE_DIR }}
+          PC_P0_SSH_HOST: ${{ steps.ssh.outputs.host }}
+          PC_P0_SSH_USER: ${{ steps.ssh.outputs.user }}
+          PC_P0_SSH_PORT: ${{ steps.ssh.outputs.port }}
+          PC_P0_SSH_KEY_PATH: ${{ steps.ssh.outputs.key_path }}
+          PC_P0_SSH_KNOWN_HOSTS: ${{ steps.ssh.outputs.known_hosts }}
+        run: |
+          set -euo pipefail
+          read -r release_attempt release_status release_conclusion < <(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$PC_P0_RELEASE_RUN_ID" \
+            --jq '[.run_attempt, .status, (.conclusion // "pending")] | @tsv')
+          [[ "$release_attempt" == "$PC_P0_RELEASE_RUN_ATTEMPT" \
+            && "$release_status" == completed && "$release_conclusion" == success ]] \
+            || { echo P0_RELEASE_ATTEMPT_CHANGED_BEFORE_FIRST_CUSTOMER >&2; exit 32; }
+          command -v setsid >/dev/null
+          mkdir -p "$EVIDENCE_DIR"
+          lineage_done="$RUNNER_TEMP/first-customer-lineage-monitor.done"
+          lineage_blocker="$RUNNER_TEMP/first-customer-lineage-monitor.blocker"
+          rm -f "$lineage_done" "$lineage_blocker"
+          runner_pid=''
+          monitor_pid=''
+          cleanup_supervisor() {
+            touch "$lineage_done" 2>/dev/null || true
+            if [[ -n "${monitor_pid:-}" ]] && kill -0 "$monitor_pid" 2>/dev/null; then
+              kill -TERM "$monitor_pid" 2>/dev/null || true
+            fi
+            wait "${monitor_pid:-0}" 2>/dev/null || true
+            if [[ -n "${runner_pid:-}" ]] && kill -0 "$runner_pid" 2>/dev/null; then
+              kill -TERM -- "-$runner_pid" 2>/dev/null || true
+            fi
+          }
+          trap cleanup_supervisor EXIT
+          monitor_release_attempt() {
+            local snapshot attempt status conclusion
+            while [[ ! -e "$lineage_done" ]]; do
+              if ! snapshot="$(gh api \
+                "repos/$GITHUB_REPOSITORY/actions/runs/$PC_P0_RELEASE_RUN_ID" \
+                --jq '[.run_attempt, .status, (.conclusion // "pending")] | @tsv')"; then
+                printf 'P0_RELEASE_ATTEMPT_MONITOR_LOOKUP_FAILED\n' > "$lineage_blocker"
+                break
+              fi
+              read -r attempt status conclusion <<< "$snapshot"
+              if [[ "$attempt" != "$PC_P0_RELEASE_RUN_ATTEMPT" \
+                || "$status" != completed || "$conclusion" != success ]]; then
+                printf 'P0_RELEASE_ATTEMPT_CHANGED_DURING_FIRST_CUSTOMER\n' > "$lineage_blocker"
+                break
+              fi
+              for _ in $(seq 1 15); do
+                [[ -e "$lineage_done" ]] && return 0
+                sleep 1
+              done
+            done
+            if [[ -s "$lineage_blocker" ]] && kill -0 "$runner_pid" 2>/dev/null; then
+              kill -TERM -- "-$runner_pid" 2>/dev/null || true
+              for _ in $(seq 1 10); do
+                kill -0 "$runner_pid" 2>/dev/null || return 0
+                sleep 1
+              done
+              kill -KILL -- "-$runner_pid" 2>/dev/null || true
+            fi
+          }
+          set +e
+          setsid --wait bash -c \
+            'set -o pipefail; bash scripts/production-p0-first-customer-acceptance.sh "$1" | tee "$2/run.log"' \
+            _ '${{ steps.target.outputs.sha }}' "$EVIDENCE_DIR" &
+          runner_pid=$!
+          monitor_release_attempt &
+          monitor_pid=$!
+          wait "$runner_pid"
+          runner_status=$?
+          touch "$lineage_done"
+          wait "$monitor_pid"
+          monitor_status=$?
+          set -e
+          trap - EXIT
+          cleanup_supervisor
+          if [[ -s "$lineage_blocker" ]]; then
+            cat "$lineage_blocker" >&2
+            exit 32
+          fi
+          [[ "$monitor_status" == 0 ]] || { echo P0_RELEASE_ATTEMPT_MONITOR_FAILED >&2; exit 32; }
+          exit "$runner_status"
+
+      - name: Enforce bounded redacted evidence
+        id: evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "$EVIDENCE_DIR/result.json"
+          node - "$EVIDENCE_DIR/result.json" '${{ steps.target.outputs.sha }}' '${{ github.run_id }}-${{ github.run_attempt }}' '${{ steps.target.outputs.release_run_id }}' '${{ steps.target.outputs.release_run_attempt }}' <<'NODE'
+          const fs = require('node:fs');
+          const [path, target, runId, releaseRunId, releaseRunAttempt] = process.argv.slice(2);
+          const result = JSON.parse(fs.readFileSync(path, 'utf8'));
+          if (result.schemaVersion !== 'production.p0.first-customer.acceptance.v1'
+            || result.passed !== true
+            || result.targetSha !== target
+            || result.runId !== runId
+            || result.releaseControllerRunId !== releaseRunId
+            || result.releaseControllerRunAttempt !== releaseRunAttempt
+            || result.production?.apiRevisionExact !== true
+            || result.production?.webRevisionExact !== true
+            || result.production?.migrationImageRevisionExact !== true
+            || result.production?.authMailWorkerRevisionExact !== true
+            || result.production?.authMailWorkerReady !== true
+            || result.secretsOrRawTokensInEvidence !== false) process.exit(2);
+          NODE
+          if ! command -v rg >/dev/null 2>&1; then
+            rg() {
+              grep -PR --binary-files=text "$@"
+            }
+          fi
+          set +e
+          rg --quiet --ignore-case \
+            'verify=|statusToken|setupSecret|mfaSecret|totpSecret|backupCodes|otpAuthUri|otpauth://|postgres(?:ql)?://|DATABASE_URL=|BEGIN (OPENSSH |RSA |EC )?PRIVATE KEY|pc_(staff_)?(access|refresh)_token|staffAccessToken|bearer[[:space:]]+[A-Za-z0-9._~-]{20,}|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|"password"[[:space:]]*:' \
+            "$EVIDENCE_DIR"
+          scan_status=$?
+          set -e
+          case "$scan_status" in
+            0) echo P0_EVIDENCE_CONTAINS_SECRET_MATERIAL >&2; exit 30 ;;
+            1) ;;
+            *) echo P0_EVIDENCE_SCAN_FAILED >&2; exit 31 ;;
+          esac
+          find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 \
+            | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
+
+      - name: Guard immutable release candidate before artifact publication
+        id: artifact_guard
+        if: always()
+        shell: bash
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          RELEASE_RUN_ID: ${{ steps.target.outputs.release_run_id }}
+          RELEASE_RUN_ATTEMPT: ${{ steps.target.outputs.release_run_attempt }}
+        run: |
+          set -euo pipefail
+          assert_no_newer_release_intent() {
+            local runs row run_id run_status jobs count state materialized
+            read -r expected_attempt expected_status expected_conclusion expected_created < <(gh api \
+              "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN_ID" \
+              --jq '[.run_attempt, .status, (.conclusion // "pending"), .created_at] | @tsv')
+            [[ "$expected_attempt" == "$RELEASE_RUN_ATTEMPT" \
+              && "$expected_status" == completed && "$expected_conclusion" == success ]]
+            [[ "$expected_created" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]]
+            runs="$RUNNER_TEMP/terminal-release-intents.json"
+            gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/workflows/platform-v7-safe-merge.yml/runs?event=issue_comment&branch=main&actor=$GITHUB_REPOSITORY_OWNER&created=%3E%3D$expected_created&per_page=100" > "$runs"
+            newer_parser_file="$RUNNER_TEMP/pc-p0-newer-parser-3.txt"
+            node - "$runs" "$RELEASE_RUN_ID" > "$newer_parser_file" <<'NODE'
+          const fs = require('node:fs');
+          const [path, expected] = process.argv.slice(2);
+          const payload = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const pages = Array.isArray(payload) ? payload : [payload];
+          for (const run of pages.flatMap((page) => page.workflow_runs || [])) {
+            if (Number(run.id) > Number(expected)) process.stdout.write(`${run.id} ${run.run_attempt || 1} ${run.status}\n`);
+          }
+          NODE
+            mapfile -t newer < "$newer_parser_file"
+            for row in "${newer[@]}"; do
+              read -r run_id run_attempt run_status <<< "$row"
+              jobs="$RUNNER_TEMP/terminal-release-$run_id.json"
+              materialized=0
+              for materialize_attempt in $(seq 1 5); do
+                gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/attempts/$run_attempt/jobs?per_page=100" > "$jobs"
+                if [[ "$(node -e "const p=require(process.argv[1]);process.stdout.write(String((p.jobs||[]).length))" "$jobs")" != 0 ]]; then
+                  materialized=1
+                  break
+                fi
+                [[ "$run_status" == completed ]] && break
+                sleep 2
+              done
+              read -r count state < <(node - "$jobs" <<'NODE'
+          const fs = require('node:fs');
+          const jobs = JSON.parse(fs.readFileSync(process.argv[2], 'utf8')).jobs || [];
+          const matches = jobs.filter((job) => job.name === 'production-release-control-3072');
+          process.stdout.write(`${matches.length} ${matches[0]?.conclusion || matches[0]?.status || 'none'}\n`);
+          NODE
+              )
+              [[ "$run_attempt" == 1 && "$materialized" == 1 \
+                && "$count" == 1 && "$state" == skipped ]] || return 1
+            done
+            read -r expected_attempt expected_status expected_conclusion < <(gh api \
+              "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN_ID" \
+              --jq '[.run_attempt, .status, (.conclusion // "pending")] | @tsv')
+            [[ "$expected_attempt" == "$RELEASE_RUN_ATTEMPT" \
+              && "$expected_status" == completed && "$expected_conclusion" == success ]]
+          }
+          git fetch --no-tags origin main >/dev/null
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$(git rev-parse origin/main)" == "$current" ]]
+          git cat-file -e "$TARGET_SHA^{commit}"
+          git merge-base --is-ancestor "$TARGET_SHA" "$current"
+          assert_no_newer_release_intent
+          git fetch --no-tags origin main >/dev/null
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$(git rev-parse origin/main)" == "$current" ]]
+          git cat-file -e "$TARGET_SHA^{commit}"
+          git merge-base --is-ancestor "$TARGET_SHA" "$current"
+          read -r release_attempt release_status release_conclusion < <(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN_ID" \
+            --jq '[.run_attempt, .status, (.conclusion // "pending")] | @tsv')
+          [[ "$release_attempt" == "$RELEASE_RUN_ATTEMPT" \
+            && "$release_status" == completed && "$release_conclusion" == success ]] \
+            || { echo P0_RELEASE_ATTEMPT_CHANGED_BEFORE_FIRST_CUSTOMER_ARTIFACT >&2; exit 32; }
+
+      - name: Upload bounded P0 acceptance evidence
+        id: upload
+        if: >-
+          always() &&
+          steps.evidence.outcome == 'success' &&
+          steps.artifact_guard.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-p0-first-customer-${{ steps.target.outputs.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+      - name: Remove protected runner credentials
+        id: credential_cleanup
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for protected_path in \
+            '${{ steps.ssh.outputs.key_path }}' \
+            '${{ steps.ssh.outputs.known_hosts }}' \
+            "$RUNNER_TEMP/pc-p0-production-key" \
+            "$RUNNER_TEMP/pc-p0-known-hosts"; do
+            [[ -z "$protected_path" ]] || rm -f -- "$protected_path"
+          done
+
+      - name: Publish bounded terminal result to release authority
+        id: publication
+        if: always()
+        continue-on-error: true
+        shell: bash
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+          ACCEPTANCE_OUTCOME: ${{ steps.acceptance.outcome }}
+          EVIDENCE_OUTCOME: ${{ steps.evidence.outcome }}
+          ARTIFACT_GUARD_OUTCOME: ${{ steps.artifact_guard.outcome }}
+          UPLOAD_OUTCOME: ${{ steps.upload.outcome }}
+          CLEANUP_OUTCOME: ${{ steps.credential_cleanup.outcome }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main >/dev/null
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$(git rev-parse origin/main)" == "$current" ]]
+          git cat-file -e "$TARGET_SHA^{commit}"
+          git merge-base --is-ancestor "$TARGET_SHA" "$current"
+          execution_result=''
+          stage=''
+          blocker=''
+          if [[ -f "$EVIDENCE_DIR/run.log" ]]; then
+            execution_result="$(sed -n 's/^P0_FIRST_CUSTOMER_ACCEPTANCE=//p' "$EVIDENCE_DIR/run.log" | tail -1)"
+            stage="$(sed -n 's/^P0_ACCEPTANCE_STAGE=//p' "$EVIDENCE_DIR/run.log" | tail -1)"
+            blocker="$(sed -n 's/^P0_BLOCKER=//p' "$EVIDENCE_DIR/run.log" | tail -1)"
+          fi
+          [[ "$execution_result" =~ ^(PASS|FAIL)?$ ]]
+          [[ "$stage" =~ ^[A-Za-z0-9._:-]{0,100}$ ]]
+          [[ "$blocker" =~ ^[A-Z0-9_]{0,100}$ ]]
+          terminal_result=FAIL
+          if [[ "$execution_result" == PASS \
+            && "$ACCEPTANCE_OUTCOME" == success \
+            && "$EVIDENCE_OUTCOME" == success \
+            && "$ARTIFACT_GUARD_OUTCOME" == success \
+            && "$UPLOAD_OUTCOME" == success \
+            && "$CLEANUP_OUTCOME" == success ]]; then
+            terminal_result=PASS
+          elif [[ -z "$blocker" ]]; then
+            if [[ "$ACCEPTANCE_OUTCOME" != success ]]; then blocker=P0_ACCEPTANCE_EXECUTION_FAILED
+            elif [[ "$EVIDENCE_OUTCOME" != success ]]; then blocker=P0_EVIDENCE_VALIDATION_FAILED
+            elif [[ "$ARTIFACT_GUARD_OUTCOME" != success ]]; then blocker=P0_ARTIFACT_GUARD_FAILED
+            elif [[ "$UPLOAD_OUTCOME" != success ]]; then blocker=P0_EVIDENCE_UPLOAD_FAILED
+            else blocker=P0_CREDENTIAL_CLEANUP_FAILED
+            fi
+          fi
+          record="$(mktemp)"
+          {
+            echo "## Production P0 first-customer acceptance"
+            echo
+            echo "- immutable release candidate: \`$TARGET_SHA\`"
+            echo "- result: \`$terminal_result\`"
+            echo "- execution: \`${execution_result:-FAIL}\`"
+            echo "- stage: \`${stage:-unknown}\`"
+            echo "- blocker: \`${blocker:-none}\`"
+            echo "- evidence validation: \`$EVIDENCE_OUTCOME\`"
+            echo "- release-candidate artifact guard: \`$ARTIFACT_GUARD_OUTCOME\`"
+            echo "- artifact upload: \`$UPLOAD_OUTCOME\`"
+            echo "- credential cleanup: \`$CLEANUP_OUTCOME\`"
+            echo "- artifact retention policy: \`90 days\`"
+            echo "- run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } > "$record"
+          git fetch --no-tags origin main >/dev/null
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$(git rev-parse origin/main)" == "$current" ]]
+          git cat-file -e "$TARGET_SHA^{commit}"
+          git merge-base --is-ancestor "$TARGET_SHA" "$current"
+          gh issue comment "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
+          rm -f "$record"
+
+      - name: Enforce production P0 result
+        if: always()
+        shell: bash
+        env:
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main >/dev/null
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          [[ "$(git rev-parse origin/main)" == "$current" ]]
+          git cat-file -e "$TARGET_SHA^{commit}"
+          git merge-base --is-ancestor "$TARGET_SHA" "$current" \
+            || { echo P0_RELEASE_CANDIDATE_NO_LONGER_ANCESTOR >&2; exit 1; }
+          [[ '${{ steps.acceptance.outcome }}' == success ]]
+          [[ '${{ steps.evidence.outcome }}' == success ]]
+          [[ '${{ steps.artifact_guard.outcome }}' == success ]]
+          [[ '${{ steps.upload.outcome }}' == success ]]
+          [[ '${{ steps.credential_cleanup.outcome }}' == success ]]
+          [[ '${{ steps.publication.outcome }}' == success ]]
+          grep -Fxq P0_FIRST_CUSTOMER_ACCEPTANCE=PASS "$EVIDENCE_DIR/run.log"

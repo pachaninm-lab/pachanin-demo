@@ -176,7 +176,11 @@ function validateDeliveryWorkflows() {
     'Build & Publish Canonical Docker Images',
     'infra/docker/Dockerfile.api',
     'infra/docker/Dockerfile.web',
-    'Canonical services to build: api, web or all',
+    'infra/docker/Dockerfile.migrations',
+    'infra/docker/Dockerfile.tai',
+    'Canonical services to build: api, web, tai, migration or all',
+    'Build TAI image',
+    'grainflow-tai',
   ]);
   forbidPatterns('.github/workflows/docker-publish.yml', [
     [/Dockerfile\.ml/, 'ML Dockerfile publisher'],

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix-public-assistant-single-keyboard-authority-20260731",
+  "status": "active",
+  "purpose": "Remove conflicting mobile keyboard viewport controllers and keep the public AI composer continuously attached to the actual iOS and Yandex software-keyboard edge.",
+  "approvedBy": "owner-live-screenshots-2026-07-31T13:12+03:00",
+  "authorityBaseExactMain": "10e0c5576d67fbeeb95b9cc6d881628800a52da5",
+  "allowedPaths": [
+    "apps/web/app/platform-v7/template.tsx",
+    "apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx",
+    "apps/web/components/platform-v7/PublicAssistantMobileLayoutAuthority.tsx",
+    "apps/web/styles/platform-v7-public-assistant-mobile-hotfix.css",
+    "apps/web/tests/unit/platformV7PublicAssistantMobileKeyboard.test.ts",
+    "apps/web/tests/unit/platformV7PublicAssistantMobileLayoutAuthority.test.ts",
+    "docs/platform-v7/autopilot/scopes/fix-public-assistant-single-keyboard-authority-20260731.json"
+  ],
+  "requiredBehavior": [
+    "PublicAssistantMobileLayoutAuthority is the only runtime owner of public-assistant mobile viewport geometry",
+    "visualViewport offsetTop height width and offsetLeft remain in one coordinate system and pageTop is not mixed into fixed positioning",
+    "only keyboard-sized contractions of visualViewport window innerHeight and document clientHeight participate in visible-bottom reconciliation",
+    "VirtualKeyboard height is a hard upper bound when the browser exposes it",
+    "isolated delayed WebKit viewport drops cannot move the composer upward after keyboard animation settles",
+    "the composer remains in normal flex flow directly beneath the independently scrollable message region",
+    "background scroll locking does not fix or translate body and therefore does not perturb viewport measurements",
+    "the route template contains no emergency inline color or important override that violates Design System v8",
+    "desktop behavior AI answers API RBAC Deal data model routing and REG.RU-only production remain unchanged"
+  ],
+  "forbiddenCapabilities": [
+    "a second visualViewport or keyboard geometry controller",
+    "pageTop and offsetTop mixed-coordinate positioning",
+    "absolute or translated composer footer positioning",
+    "private account tenant Deal document payment or personal-data access",
+    "write authority or autonomous actions",
+    "model prompt provider credential or infrastructure topology changes",
+    "acceptance weakening",
+    "Netlify or Vercel deployment"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

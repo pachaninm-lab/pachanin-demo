@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-reviewer-unrelated-membership-3799",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_MEMBERSHIP_REPAIR_BOUNDED",
+  "issue": 3799,
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-membership-repair.yml",
+    "apps/api/prisma/migrations/20260810170000_p0_reviewer_membership_repair/migration.sql",
+    "apps/api/prisma/migrations/20260811023000_p0_reviewer_owner_identity_semantics/migration.sql",
+    "apps/api/prisma/migrations/20260811090000_p0_reviewer_membership_candidate_scope/migration.sql",
+    "docs/platform-v7/autopilot/scopes/production-p0-reviewer-membership-repair-3799.json",
+    "scripts/check-production-p0-reviewer-membership-repair.mjs",
+    "scripts/production-p0-reviewer-membership-repair.sh"
+  ],
+  "boundaries": {
+    "productionMutation": "REVIEWER_MEMBERSHIP_ONLY",
+    "identityMutation": false,
+    "staffAssignmentMutation": false,
+    "passwordMutation": false,
+    "mfaMutation": false,
+    "sessionMutation": false,
+    "customerOrganizationMutation": false,
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "the exact structural pre-state is one active PLATFORM_OWNER assignment, one active identity, zero VERIFIED memberships, zero password-ready reviewers, zero TOTP-ready reviewers and zero login-ready reviewers",
+    "unrelated historic or customer memberships are preserved and are not treated as collisions",
+    "a row occupying the fixed membership identifier or the unique reviewer/fixed-internal-organization pair remains a fail-closed conflict unless it is the exact canonical row",
+    "the no-argument SECURITY DEFINER authority creates only the fixed PLATFORM_INTERNAL organization and one ACTIVE default GUEST membership",
+    "the ceremony runs only as pc_staff_runtime inside a SERIALIZABLE transaction and the runtime retains no direct table privileges",
+    "the authority emits one append-only staff event and one durable outbox event without returning PII, credentials, identifiers or secrets",
+    "a matching PostgreSQL 16 fixture proves REPAIRED, ALREADY_REPAIRED, unrelated-row preservation and the exact 1/1/1/0/0/0 readiness post-state",
+    "the owner-only exact-current-main REG.RU command reports REVIEWER_PASSWORD_RESET_REQUIRED",
+    "every exact-head required repository, PostgreSQL, security, release and Kubernetes check is terminal PASS"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

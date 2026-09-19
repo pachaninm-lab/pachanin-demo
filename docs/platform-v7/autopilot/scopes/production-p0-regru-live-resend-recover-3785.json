@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-regru-live-resend-recover-20260811",
+  "status": "active",
+  "operationalStatus": "P0_REGRU_LIVE_RESEND_RECOVERY",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "title": "Preserve an already-running canonical Resend credential from the active REG.RU Web container into the root-only auth-mail runtime",
+  "allowedPaths": [
+    ".github/workflows/production-p0-regru-live-resend-recover.yml",
+    "scripts/production-p0-regru-live-resend-recover.sh",
+    "docs/platform-v7/autopilot/scopes/production-p0-regru-live-resend-recover-3785.json"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY",
+  "boundaries": {
+    "productionMutation": "ROOT_ONLY_AUTH_MAIL_RUNTIME_FILES_ONLY_AFTER_CANONICAL_ACTIVE_WEB_CREDENTIAL_PROOF",
+    "databaseMutation": false,
+    "deploymentMutation": false,
+    "credentialOutput": false,
+    "rawEnvironmentOutput": false,
+    "rawLogOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "activeWebCredentialOnly": true,
+    "messageSentByRecovery": false,
+    "newProvider": false,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "use only the single active REG.RU Compose Web container as the credential source",
+    "accept only a complete existing RESEND_API_KEY plus canonical platform sender",
+    "normalize only the exact known Unicode sender to its ASCII IDN representation",
+    "never output or transport the credential from REG.RU to GitHub",
+    "send no email during recovery; real delivery remains mandatory in first-customer production acceptance",
+    "perform no root-only runtime mutation when the active Web container has no complete canonical Resend environment",
+    "require pinned production DNS and SSH identity before server inspection",
+    "reuse scripts/provision-production-p0-password-reset-runtime.sh for delivery keys and transactional-mail runtime",
+    "publish only bounded result/blocker/mutation markers",
+    "perform no database or deployment mutation",
+    "add zero recurring cost"
+  ]
+}

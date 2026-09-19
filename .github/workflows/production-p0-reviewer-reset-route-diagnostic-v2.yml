@@ -1,0 +1,161 @@
+name: Production P0 Reviewer Reset Route Diagnostic v2
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reviewer-reset-route-diagnostic-v2.yml'
+      - 'scripts/production-p0-reviewer-reset-route-diagnostic.sh'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-reviewer-reset-route-diagnostic-v2-${{ github.event_name }}-${{ github.event.comment.id || github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  diagnostic:
+    name: Diagnose public route with explicit Secure CSRF replay
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        (
+          (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+          github.event.comment.performed_via_github_app.id == 1144995
+        ) &&
+        github.event.comment.body == '/production p0-reviewer-reset-route-diagnostic-v2 current-runtime'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Build corrected diagnostic ephemerally and enforce read-only boundary
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          source='scripts/production-p0-reviewer-reset-route-diagnostic.sh'
+          target='/tmp/production-p0-reviewer-reset-route-diagnostic-v2.sh'
+          bash -n "$source"
+          python3 - "$source" "$target" <<'PY'
+          from pathlib import Path
+          import sys
+          source, target = sys.argv[1:]
+          text = Path(source).read_text(encoding='utf-8')
+          required = [
+              "web_jar=\"$tmp/web.cookies\"; web_page=\"$tmp/web.page\"; web_body=\"$tmp/web.body\"",
+              "web_csrf=\"$(awk -F '\\t' '$6 == \"pc_csrf_token\" { value=$7 } END { print value }' \"$web_jar\")\"",
+              "--data-binary '{\"email\":\"invalid\",\"locale\":\"ru\"}'",
+              'PUBLIC_ROUTE_DIVERGES_FROM_WEB_BFF',
+              'RESET_REQUEST_SENT NO',
+              'REVIEWER_IDENTITY_EXPOSURE NONE',
+              'PRODUCTION_MUTATION NONE',
+              'StrictHostKeyChecking=yes',
+          ]
+          missing = [x for x in required if x not in text]
+          if missing:
+              raise SystemExit('missing source invariant: ' + ' | '.join(missing))
+          forbidden = [
+              'staff_reviewer_password_reset_subject', '/auth/password-reset/request',
+              'MAIL FROM', 'RCPT TO', 'sendmail(', 'send_message(',
+              'INSERT INTO', 'UPDATE auth.', 'DELETE FROM', 'TRUNCATE ', 'ALTER ROLE',
+              'docker restart', 'docker compose', 'docker service',
+              'StrictHostKeyChecking=no', 'UserKnownHostsFile=/dev/null',
+          ]
+          bad = [x for x in forbidden if x in text]
+          if bad:
+              raise SystemExit('forbidden source surface: ' + ' | '.join(bad))
+
+          old = 'web_jar="$tmp/web.cookies"; web_page="$tmp/web.page"; web_body="$tmp/web.body"\n: > "$web_jar"; : > "$web_body"; chmod 0600 "$web_jar" "$web_body"'
+          new = 'web_jar="$tmp/web.cookies"; web_page="$tmp/web.page"; web_body="$tmp/web.body"; web_headers="$tmp/web.headers"\n: > "$web_jar"; : > "$web_body"; : > "$web_headers"; chmod 0600 "$web_jar" "$web_body" "$web_headers"'
+          if text.count(old) != 1:
+              raise SystemExit('direct-web temp-file anchor invalid')
+          text = text.replace(old, new, 1)
+
+          old = 'web_get="$(curl --silent --show-error --connect-timeout 5 --max-time 15 --output "$web_page" --write-out \'%{http_code}\' --cookie "$web_jar" --cookie-jar "$web_jar" -H "Host: $live_domain"'
+          new = 'web_get="$(curl --silent --show-error --connect-timeout 5 --max-time 15 --dump-header "$web_headers" --output "$web_page" --write-out \'%{http_code}\' --cookie "$web_jar" --cookie-jar "$web_jar" -H "Host: $live_domain"'
+          if text.count(old) != 1:
+              raise SystemExit('direct-web GET anchor invalid')
+          text = text.replace(old, new, 1)
+
+          old = 'web_csrf="$(awk -F \'\\t\' \'$6 == "pc_csrf_token" { value=$7 } END { print value }\' "$web_jar")"'
+          new = '''web_csrf="$(awk 'BEGIN{IGNORECASE=1} /^set-cookie:[[:space:]]*pc_csrf_token=/{line=$0; sub(/\\r$/,\"\",line); sub(/^[^=]*=/,\"\",line); sub(/;.*/,\"\",line); value=line} END{print value}' "$web_headers")"'''
+          if text.count(old) != 1:
+              raise SystemExit('direct-web CSRF extraction anchor invalid')
+          text = text.replace(old, new, 1)
+
+          old = 'web_status="$(curl --silent --show-error --connect-timeout 5 --max-time 15 --output "$web_body" --write-out \'%{http_code}\' --cookie "$web_jar" --cookie-jar "$web_jar" -H "Host: $live_domain" -H \'X-Forwarded-Proto: https\' -H \'Accept: application/json\' -H \'Content-Type: application/json\' -H "Origin: $live_base" -H "x-csrf-token: $web_csrf"'
+          new = 'web_status="$(curl --silent --show-error --connect-timeout 5 --max-time 15 --output "$web_body" --write-out \'%{http_code}\' -H "Host: $live_domain" -H \'X-Forwarded-Proto: https\' -H \'Accept: application/json\' -H \'Content-Type: application/json\' -H "Origin: $live_base" -H "Cookie: pc_csrf_token=$web_csrf" -H "x-csrf-token: $web_csrf"'
+          if text.count(old) != 1:
+              raise SystemExit('direct-web POST anchor invalid')
+          text = text.replace(old, new, 1)
+
+          Path(target).write_text(text, encoding='utf-8')
+          PY
+          chmod 0700 "$target"
+          bash -n "$target"
+          grep -Fq -- '--dump-header "$web_headers"' "$target"
+          grep -Fq -- '-H "Cookie: pc_csrf_token=$web_csrf"' "$target"
+          grep -Fq 'RESET_REQUEST_SENT NO' "$target"
+          grep -Fq 'REVIEWER_IDENTITY_EXPOSURE NONE' "$target"
+          grep -Fq 'PRODUCTION_MUTATION NONE' "$target"
+          if grep -Eq 'staff_reviewer_password_reset_subject|/auth/password-reset/request|MAIL FROM|RCPT TO|docker restart|docker compose|docker service|StrictHostKeyChecking=no|UserKnownHostsFile=/dev/null' "$target"; then
+            echo 'forbidden mutation/identity surface detected' >&2
+            exit 1
+          fi
+
+      - name: Verify exact owner-issued provenance and current main
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          EXPECTED_BODY: /production p0-reviewer-reset-route-diagnostic-v2 current-runtime
+          TRUSTED_CONNECTOR_APP_ID: '1144995'
+        run: |
+          set -Eeuo pipefail
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.login')"
+          user="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.user.login')"
+          assoc="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.author_association')"
+          body="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.body')"
+          app="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.performed_via_github_app.id // 0')"
+          [[ "$user" == "$owner" && "$assoc" == 'OWNER' && "$body" == "$EXPECTED_BODY" ]]
+          if [[ "$GITHUB_ACTOR" == "$owner" && "${{ github.triggering_actor }}" == "$owner" ]]; then
+            echo OWNER_DIRECT_PROVENANCE_OK=1
+          else
+            [[ "$app" == "$TRUSTED_CONNECTOR_APP_ID" ]]
+            echo OWNER_CONNECTOR_PROVENANCE_OK=1
+          fi
+          git fetch --no-tags origin main
+          main_sha="$(git rev-parse origin/main)"
+          [[ "$main_sha" == "$(git rev-parse HEAD)" ]]
+          [[ "$main_sha" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          [[ -z "$(git status --porcelain=v1)" ]]
+
+      - name: Run corrected read-only route diagnostic
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+          PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+          PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+          PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+          PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+        run: bash /tmp/production-p0-reviewer-reset-route-diagnostic-v2.sh
