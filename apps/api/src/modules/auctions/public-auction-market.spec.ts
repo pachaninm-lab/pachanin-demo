@@ -212,16 +212,16 @@ describe('anonymous public Auction market projection', () => {
     expect(authorityFetch).toBeGreaterThan(asyncChildStart);
   });
 
-  it('renders a truthful anonymized teaser without demo fallback or identity leakage', () => {
+  it('renders a truthful anonymized teaser without demo vocabulary or identity leakage', () => {
     const teaser = read(webTeaserPath);
-    expect(teaser).toContain('Демо-лоты не подставляются');
-    expect(teaser).toContain('No demo lots are substituted');
-    expect(teaser).toContain('系统不会填充演示批次');
+    expect(teaser).not.toMatch(/Демо|demo lots|演示批次/i);
     expect(teaser).not.toMatch(/LOT-001|BID-001|DL-2607-014/);
     expect(teaser).toContain('Продавец скрыт');
-    expect(teaser).toContain('Наличие заявлено продавцом');
-    expect(teaser).toContain('Независимое подтверждение не получено');
-    expect(teaser).toContain('Полная карточка, контрагент, предложение и ставка доступны только после входа.');
+    expect(teaser).toContain('Наличие: заявлено продавцом');
+    expect(teaser).toContain('Качество: по данным продавца');
+    expect(teaser).toContain('Для участия потребуется регистрация и проверка организации.');
+    expect(teaser).toContain('Источник факта: торговый контур платформы');
+    expect(teaser).not.toContain('Источник: PostgreSQL');
     expect(teaser).not.toContain('lot.seller');
     expect(teaser).not.toContain('lot.address');
     expect(teaser).not.toContain('lot.publicRef}</');
@@ -234,12 +234,12 @@ describe('anonymous public Auction market projection', () => {
     const home = read(webHomePath);
     expect(teaser).toContain('/platform-v7/register?lang=');
     expect(teaser).toContain('/platform-v7/login?lang=');
-    expect(teaser).toContain("details: 'Подробнее после входа'");
-    expect(teaser).toContain("bid: 'Сделать ставку'");
-    expect(teaser).toContain("details: 'View details after sign-in'");
-    expect(teaser).toContain("bid: 'Place a bid'");
-    expect(teaser).toContain("details: '登录后查看详情'");
-    expect(teaser).toContain("bid: '参与竞价'");
+    expect(teaser).toContain("details: 'Войти и посмотреть'");
+    expect(teaser).toContain("bid: 'Получить доступ к торгам'");
+    expect(teaser).toContain("details: 'Sign in and view'");
+    expect(teaser).toContain("bid: 'Get trading access'");
+    expect(teaser).toContain("details: '登录查看'");
+    expect(teaser).toContain("bid: '获取交易权限'");
     expect(teaser).toContain("data-testid='public-market-lot-actions'");
     expect(teaser).toContain('href={loginHref}>{copy.details}</a>');
     expect(teaser).toContain('href={registerHref}>{copy.bid}');

@@ -9,71 +9,71 @@ const COPY = {
   ru: {
     eyebrow: 'Рынок сейчас',
     title: 'Опубликованные лоты фермеров',
-    lead: 'На главной показываются только разрешённые к публикации лоты из канонического контура торгов. Продавец и внутренние идентификаторы скрыты.',
+    lead: 'Обезличенные лоты, разрешённые к публикации в торговом контуре платформы. Продавец и внутренние идентификаторы не раскрываются.',
     sellerHidden: 'Продавец скрыт',
-    declared: 'Наличие заявлено продавцом',
-    unverified: 'Независимое подтверждение не получено',
+    declared: 'Наличие: заявлено продавцом',
+    unverified: 'Качество: по данным продавца',
     volume: 'Объём',
     startPrice: 'Стартовая цена',
     ends: 'Торги до',
     grade: 'Класс / сорт',
-    fullAccess: 'Полная карточка, контрагент, предложение и ставка доступны только после входа.',
-    details: 'Подробнее после входа',
-    bid: 'Сделать ставку',
-    register: 'Зарегистрироваться',
+    fullAccess: 'Для участия потребуется регистрация и проверка организации.',
+    details: 'Войти и посмотреть',
+    bid: 'Получить доступ к торгам',
+    register: 'Получить доступ к торгам',
     login: 'Войти',
-    source: 'Источник: PostgreSQL · обезличенная публичная проекция',
+    source: 'Источник факта: торговый контур платформы',
     loading: 'Загружаем актуальные лоты…',
     emptyTitle: 'Активных опубликованных лотов сейчас нет',
-    emptyText: 'Демо-лоты не подставляются. После регистрации фермер может опубликовать лот из своей канонической партии.',
+    emptyText: 'После регистрации продавец может разместить товар и опубликовать разрешённый к показу лот.',
     degradedTitle: 'Рынок временно недоступен',
-    degradedText: 'Платформа не показывает вымышленные карточки при сбое источника. Регистрация и вход остаются доступны.',
+    degradedText: 'Публикация лотов приостановлена до восстановления подтверждённого источника. Регистрация и вход остаются доступны.',
   },
   en: {
     eyebrow: 'Market now',
     title: 'Published farmer lots',
-    lead: 'The home page shows only lots admitted for publication by the canonical trading authority. Seller identity and internal identifiers stay hidden.',
+    lead: 'Anonymised lots admitted for publication in the platform trading circuit. Seller identity and internal identifiers are not disclosed.',
     sellerHidden: 'Seller hidden',
-    declared: 'Availability declared by seller',
-    unverified: 'No independent verification recorded',
+    declared: 'Availability: declared by seller',
+    unverified: 'Quality: seller-provided data',
     volume: 'Volume',
     startPrice: 'Starting price',
     ends: 'Bidding until',
     grade: 'Grade',
-    fullAccess: 'Full lot details, counterparty, offers and bidding require sign-in.',
-    details: 'View details after sign-in',
-    bid: 'Place a bid',
-    register: 'Register',
+    fullAccess: 'Participation requires registration and organisation verification.',
+    details: 'Sign in and view',
+    bid: 'Get trading access',
+    register: 'Get trading access',
     login: 'Sign in',
-    source: 'Source: PostgreSQL · anonymized public projection',
+    source: 'Fact source: platform trading circuit',
     loading: 'Loading current lots…',
     emptyTitle: 'No active published lots right now',
-    emptyText: 'No demo lots are substituted. After registration, a farmer can publish a lot from canonical inventory.',
+    emptyText: 'After registration, a seller can list product and publish a lot admitted for public display.',
     degradedTitle: 'Market is temporarily unavailable',
-    degradedText: 'The platform does not show fabricated cards when the authority is unavailable. Registration and sign-in remain available.',
+    degradedText: 'Lot publication is paused until the confirmed source is restored. Registration and sign-in remain available.',
   },
   zh: {
     eyebrow: '当前市场',
     title: '农户已发布批次',
-    lead: '首页仅展示经规范交易权限允许公开的批次；卖方身份和内部标识不会公开。',
+    lead: '展示获准在平台交易闭环公开的匿名批次；卖方身份和内部标识不会披露。',
     sellerHidden: '卖方已隐藏',
-    declared: '库存由卖方申报',
-    unverified: '尚无独立核验记录',
+    declared: '库存：卖方申报',
+    unverified: '质量：卖方提供的数据',
     volume: '数量',
     startPrice: '起始价格',
     ends: '竞价截止',
     grade: '等级',
-    fullAccess: '完整批次、交易方、报价和竞价功能仅在登录后开放。',
-    details: '登录后查看详情',
-    bid: '参与竞价',
-    register: '注册',
+    fullAccess: '参与交易需要完成注册和机构审核。',
+    details: '登录查看',
+    bid: '获取交易权限',
+    register: '获取交易权限',
     login: '登录',
-    source: '来源：PostgreSQL · 匿名公开投影',
+    source: '事实来源：平台交易闭环',
     loading: '正在加载当前批次…',
     emptyTitle: '当前没有有效的公开批次',
-    emptyText: '系统不会填充演示批次。注册后，农户可从规范库存中发布批次。',
+    emptyText: '注册后，卖方可以发布商品，并公开符合展示条件的批次。',
     degradedTitle: '市场暂时不可用',
-    degradedText: '权威数据源不可用时，平台不会展示虚构卡片；注册和登录仍可使用。',
+    degradedText: '在已确认的数据源恢复前，批次发布会暂停；注册和登录仍可使用。',
   },
 } as const;
 
@@ -86,7 +86,7 @@ const CULTURES: Record<Locale, Record<string, string>> = {
 export function PublicMarketTeaser({ locale }: { locale: string }) {
   const lang = localeOf(locale);
   const copy = COPY[lang];
-  const registerHref = `/platform-v7/register?lang=${encodeURIComponent(lang)}`;
+  const registerHref = `/platform-v7/register?lang=${encodeURIComponent(lang)}&intent=buy`;
   const loginHref = `/platform-v7/login?lang=${encodeURIComponent(lang)}`;
 
   return (
@@ -144,7 +144,7 @@ async function PublicMarketLotResults({ locale }: { locale: Locale }) {
 function LotCard({ lot, locale }: { lot: PublicMarketLot; locale: Locale }) {
   const copy = COPY[locale];
   const culture = cultureLabel(lot.culture, locale);
-  const registerHref = `/platform-v7/register?lang=${encodeURIComponent(locale)}`;
+  const registerHref = `/platform-v7/register?lang=${encodeURIComponent(locale)}&intent=buy`;
   const loginHref = `/platform-v7/login?lang=${encodeURIComponent(locale)}`;
   return (
     <article className={styles.card} data-testid='public-market-lot-card'>
