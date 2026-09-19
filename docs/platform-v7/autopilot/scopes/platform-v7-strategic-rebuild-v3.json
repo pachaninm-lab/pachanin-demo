@@ -26,7 +26,9 @@
     "apps/web/tests/unit/platformV7PublicExperienceV4.test.ts",
     "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
     "apps/web/components/platform-v7/PublicAiInActionSimpleExperience.tsx",
-    "apps/web/app/platform-v7/ai-in-action/page.tsx"
+    "apps/web/app/platform-v7/ai-in-action/page.tsx",
+    "apps/web/tests/unit/gektaPublicBrandContract.test.ts",
+    "scripts/check-production-full-stack-release.mjs"
   ],
   "acceptanceEvidence": {
     "staticSafety": "apps/web/tests/unit/platformV7StrategicHomeSafety.test.ts",
@@ -77,6 +79,7 @@
     ]
   },
   "constraints": [
+    "The public Gekta brand test may migrate only the moved human-decision boundary and renamed public page title. The release checker and live script must assert the final RU/EN/ZH hero and CTA contract using executable checks, not compatibility comments. Preserve every exact-SHA, production authority, transport, replay, security and threshold assertion.",
     "No production deployment topology changes",
     "The operating organization-connect copy is the runtime alias target. Change only pre-registration assistance wording in RU/EN/ZH; preserve consent, payload, submission, verification and server authority.",
     "The seven added unit suites and production-mobile suite may migrate obsolete homepage composition/copy/selectors to the final contract. Preserve route, viewport, locale, keyboard, touch-target, overflow and accessibility coverage. Preserve unrelated private-cabinet and authority assertions; no skips, blanket snapshots or weakened safety checks.",
