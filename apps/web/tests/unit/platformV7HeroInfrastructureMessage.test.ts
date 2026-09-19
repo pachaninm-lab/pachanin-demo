@@ -63,8 +63,11 @@ describe('platform-v7 FINAL PUBLIC EXPERIENCE v1 entry', () => {
 
   it('uses a restrained crop visual instead of a dashboard hero', () => {
     expect(component).toContain("className='pc-final-hero-visual'");
-    expect(component).toContain('src={HERO_IMAGE_DATA}');
-    expect(component).toMatch(/const HERO_IMAGE_DATA = ['"]data:image\/svg\+xml/);
+    expect(component).toContain("<HeroGrainIllustration label={copy.hero.visualAlt} />");
+    expect(component).toContain("className='pc-final-hero-image'");
+    expect(component).toContain("preserveAspectRatio='xMidYMid slice'");
+    expect(component).not.toContain('data:image/svg+xml;base64,');
+    expect(component).not.toMatch(/<img[^>]+pc-final-hero-image/);
     expect(component).not.toMatch(/1[ ,]200|Исполнение в работе|Execution in progress|正在履约/);
     expect(component).toContain("visualStage: 'Приёмка и качество'");
     expect(component).toContain("visualStatus: 'От товара до расчёта'");
