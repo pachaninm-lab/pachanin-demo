@@ -195,47 +195,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  public-home-contract:
-    name: Final public experience · exact-head unit contracts
-    if: >-
-      github.event_name == 'pull_request' &&
-      github.event.pull_request.head.ref == 'agent/platform-v7-strategic-rebuild-v3'
-    permissions:
-      contents: read
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Checkout exact public implementation head
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          persist-credentials: false
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.2.1
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: pnpm
-      - name: Install locked dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Verify all admitted homepage unit contracts
-        run: >-
-          pnpm --filter @pc/web exec vitest run
-          tests/unit/platformV7HeroInfrastructureMessage.test.ts
-          tests/unit/platformV7RootWorkEntry.test.ts
-          tests/unit/platformV7StrategicHomeSafety.test.ts
-          tests/unit/gektaProductSeparation.test.ts
-          tests/unit/platformV7AccountingClosureValue.test.ts
-          tests/unit/platformV7HomeTaiRoleEntry.test.ts
-          tests/unit/platformV7HomepageProductCopy.test.ts
-          tests/unit/platformV7HomepageVisibleOperatingCopy.test.ts
-          tests/unit/platformV7PublicCopyQuality.test.ts
-          tests/unit/platformV7PublicExperienceV4.test.ts
-          tests/unit/gektaPublicBrandContract.test.ts
-          tests/unit/platformV7HomeFinalPolish.test.ts
-          tests/unit/platformV7InternationalHomepageFix.test.ts
-
   trusted-ir20-binding-bootstrap:
     name: ${{ (github.event.pull_request.head.ref == 'governance/ir20-api-database-binding-admission-20260919' || github.event.pull_request.head.ref == 'governance/ir20-binding-immutable-scope-20260919') && 'PC-CROP implementation immutable scope · trusted base' || 'IR-20 binding governance bootstrap · trusted base' }}
     if: >-
@@ -398,6 +357,47 @@ jobs:
           set -Eeuo pipefail
           [[ "$VALIDATION_RC" == 0 && "$CONTEXT_OUTCOME" == success ]]
 
+
+  public-home-contract:
+    name: Final public experience · exact-head unit contracts
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.ref == 'agent/platform-v7-strategic-rebuild-v3'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact public implementation head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify all admitted homepage unit contracts
+        run: >-
+          pnpm --filter @pc/web exec vitest run
+          tests/unit/platformV7HeroInfrastructureMessage.test.ts
+          tests/unit/platformV7RootWorkEntry.test.ts
+          tests/unit/platformV7StrategicHomeSafety.test.ts
+          tests/unit/gektaProductSeparation.test.ts
+          tests/unit/platformV7AccountingClosureValue.test.ts
+          tests/unit/platformV7HomeTaiRoleEntry.test.ts
+          tests/unit/platformV7HomepageProductCopy.test.ts
+          tests/unit/platformV7HomepageVisibleOperatingCopy.test.ts
+          tests/unit/platformV7PublicCopyQuality.test.ts
+          tests/unit/platformV7PublicExperienceV4.test.ts
+          tests/unit/gektaPublicBrandContract.test.ts
+          tests/unit/platformV7HomeFinalPolish.test.ts
+          tests/unit/platformV7InternationalHomepageFix.test.ts
 
   trusted-kind-minio-governance-bootstrap:
     name: Kind MinIO governance bootstrap · trusted base
@@ -624,7 +624,6 @@ jobs:
             'apps/api/src/fns-egrul-import.ts',
             'apps/api/src/modules/role-eligibility/fns-egrul-file-import.service.ts',
             'apps/api/src/modules/role-eligibility/fns-egrul-file-import.service.spec.ts',
-            'apps/api/src/modules/role-eligibility/role-eligibility-fns-egrul-import.module.ts',
             'apps/api/src/modules/role-eligibility/role-eligibility-registry-sync.service.ts',
             'apps/api/src/modules/role-eligibility/role-eligibility-registry-sync.spec.ts',
             'docs/security/CRYPTOGRAPHIC_INVENTORY.md',
@@ -1164,7 +1163,7 @@ jobs:
 
           test('IR-20 trusted bootstrap workflow binds validation and required context to the same exact head', () => {
             const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
-            const job = workflow.split('  trusted-ir20-binding-bootstrap:\n')[1].split('  trusted-kind-minio-governance-bootstrap:\n')[0];
+            const job = workflow.split('  trusted-ir20-binding-bootstrap:\n')[1].split(/\n  [a-z][a-z0-9_-]*:\n/u)[0];
             assert.match(job, /github\.event_name == 'pull_request_target'/);
             for (const branch of [ir20AdmissionBranch, ir20PrerequisiteBranch]) {
               assert.ok(job.includes(`github.event.pull_request.head.ref == '${branch}'`));
@@ -1372,6 +1371,23 @@ jobs:
             }
             const final = spawnSync('bash', ['-c', enforce], { env: { ...process.env, VALIDATION_RC: '0', CONTEXT_OUTCOME: 'success' } });
             assert.equal(final.status, 0);
+          });
+          test('IR-20 bootstrap cannot enter the existing unprivileged public contract slice', () => {
+            const publicSlice = workflow.split('\n  public-home-contract:\n')[1]
+              .split('\n  trusted-kind-minio-governance-bootstrap:')[0];
+            const publicJob = job('public-home-contract');
+            assert.equal(publicSlice.trim(), publicJob.split('  public-home-contract:\n')[1].trim());
+            assert.doesNotMatch(publicSlice, /pull_request_target|continue-on-error|secrets\.|(?:checks|contents|pull-requests|statuses): write/u);
+            assert.match(publicSlice, /ref: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/u);
+            assert.match(publicSlice, /persist-credentials: false/u);
+          });
+          test('IR-20 legacy bootstrap assertions inspect exactly one real job', () => {
+            const isolated = workflow.split('  trusted-ir20-binding-bootstrap:\n')[1]
+              .split(/\n  [a-z][a-z0-9_-]*:\n/u)[0];
+            assert.equal(isolated.trim(), bootstrap.split('  trusted-ir20-binding-bootstrap:\n')[1].trim());
+            assert.match(isolated, /ref: \$\{\{ github\.event\.pull_request\.base\.sha \}\}/u);
+            assert.doesNotMatch(isolated, /ref: \$\{\{ github\.event\.pull_request\.head\.sha/u);
+            assert.ok(!isolated.includes('public-home-contract:'));
           });
           IR20_PROVENANCE_TESTS
       - name: Validate provider-independent manual readiness
