@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "ops/ir20-api-database-binding-20260919",
+  "status": "active",
+  "authorizedBy": "owner-request-finish-IR20-2026-09-19",
+  "purpose": "Prove the selected source SQL endpoint sees the API default connection's live backend before a separately reviewed protected restore controller can be admitted. This narrow source prerequisite does not authorize a production invocation, restore or release.",
+  "allowedPaths": [
+    "scripts/release/ir20-api-database-binding.py",
+    "scripts/release/test-ir20-api-database-binding.py",
+    "scripts/release/test-ir20-api-database-binding-integration.py",
+    ".github/workflows/ir20-api-database-binding.yml",
+    "docs/ops/ir20-api-database-binding.md",
+    "docs/platform-v7/autopilot/scopes/ir20-api-database-binding-20260919.json"
+  ],
+  "requiredInvariants": [
+    "IR-20 remains active; IR-21 and production acceptance remain locked.",
+    "No product, database, dependency, credential, existing workflow, review or merge-policy change.",
+    "Use the existing API default connection; accept no caller-supplied DSN.",
+    "Bind actual live backend identity using a fresh random transaction-local marker, not matching database names or copied metadata.",
+    "Keep source queries read-only and container-side execution independently bounded.",
+    "Unknown identity, missing proof, failed completion or runtime drift cannot emit successful binding.",
+    "Publish no raw database names, principals, connection strings, inspections or marker.",
+    "No restore, dump, migration, release, provider delivery, secret access or new production command entry point is added.",
+    "Synthetic and mocked-Prisma protocol tests are not real PostgreSQL or production evidence.",
+    "Run real PostgreSQL marker semantics only on bounded disposable GitHub-hosted fixtures; distinguish its psql API transport from the production Prisma/API image.",
+    "Actual independent exact-head review and all applicable substantive CI are required before a manual SHA-bound merge."
+  ]
+}
