@@ -72,8 +72,8 @@ describe('Public Deal Journey v5', () => {
     expect(copy).toContain("connect: 'Зарегистрироваться'");
     expect(copy).toContain('Сначала платформа показывает нормальное исполнение');
     expect(page).toContain("import '@/styles/platform-v7-public-deal-journey-v5.css'");
-    expect(page).toContain("heading: 'Как проходит Сделка?'");
-    expect(page).toContain('не выдаёт условные данные за реальные сделки, организации или банковские операции');
+    expect(page).toContain("heading: 'От условий до закрытия — один понятный путь'");
+    expect(page).toContain('не содержит реальных сделок, организаций или банковских операций');
     expect(page).toContain('const registerHref = localizedHref');
   });
 
