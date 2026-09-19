@@ -72,8 +72,8 @@ describe('Public Deal Journey v5', () => {
     expect(copy).toContain("connect: 'Зарегистрироваться'");
     expect(copy).toContain('Сначала платформа показывает нормальное исполнение');
     expect(page).toContain("import '@/styles/platform-v7-public-deal-journey-v5.css'");
-    expect(page).toContain("heading: 'От условий до закрытия — один понятный путь'");
-    expect(page).toContain('Ниже используется вымышленный пример.');
+    expect(page).toContain("heading: 'Как проходит Сделка?'");
+    expect(page).toContain('не выдаёт условные данные за реальные сделки, организации или банковские операции');
     expect(page).toContain('const registerHref = localizedHref');
   });
 
@@ -85,5 +85,26 @@ describe('Public Deal Journey v5', () => {
     expect(css).toContain('@media (prefers-reduced-motion: reduce)');
     expect(css).toContain('@media (forced-colors: active)');
     expect(component).toContain("aria-current={stageKey === historyState.stage ? 'step' : undefined}");
+  });
+});
+
+// The summary must preserve the complete public journey in every locale.
+describe('Final public seven-stage journey', () => {
+  const summary = page.split('const SUMMARY_COPY = {')[1].split('const HOW_IT_WORKS_PUBLIC_CSS')[0];
+  it.each(['ru', 'en', 'zh'])('keeps seven ordered stages and three settlement scenarios in %s', (locale) => {
+    const localized = summary.split(`  ${locale}: {`)[1].split('\n  },')[0];
+    const stages = localized.split('stages: [')[1].split('    ],')[0];
+    const states = localized.split('states: [')[1].split('    ],')[0];
+    expect(stages.match(/^      \['/gm)).toHaveLength(7);
+    expect(states.match(/^      \['/gm)).toHaveLength(3);
+    expect(localized).toContain('participants:');
+    expect(localized).toContain('detailLead:');
+  });
+  it('keeps connected-organisation employees and dispute settlement boundaries explicit', () => {
+    for (const text of ['Сотрудник подключённой организации', 'Employee of a connected organisation', '已接入机构员工', 'финансовое действие остаётся остановленным', 'financial action remains paused', '金融操作保持暂停']) {
+      expect(summary).toContain(text);
+    }
+    expect(page).toContain('#how-it-works');
+    expect(page).toContain('scroll-snap-type:x mandatory');
   });
 });
