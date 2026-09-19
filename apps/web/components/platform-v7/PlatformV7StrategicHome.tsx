@@ -30,7 +30,68 @@ import '@/styles/platform-v7-unified-modal-fullscreen.css';
 
 type Locale = 'ru' | 'en' | 'zh';
 
-const HERO_IMAGE_DATA = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMjAwIiBoZWlnaHQ9IjkwMCIgdmlld0JveD0iMCAwIDEyMDAgOTAwIiByb2xlPSJpbWciIGFyaWEtbGFiZWw9ItCl0YPQtNC+0LbQtdGB0YLQstC10L3QvdGL0LUg0LrQvtC70L7RgdGM0Y8g0L/RiNC10L3QuNGG0YsiPgogIDxkZWZzPgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJzdGVtIiB4MT0iMCIgeTE9IjAiIHgyPSIwLjM1IiB5Mj0iMSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iI2Q4YzU4ZCIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjAuNTUiIHN0b3AtY29sb3I9IiNiOTkwM2MiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMGE3YTNiIi8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJncmFpbiIgeDE9IjAiIHkxPSIwIiB4Mj0iMSIgeTI9IjEiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiNmZmYyYmYiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIwLjQ1IiBzdG9wLWNvbG9yPSIjZDZiMzVlIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzliNzIyNyIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0ibGVhZiIgeDE9IjAiIHkxPSIwIiB4Mj0iMSIgeTI9IjEiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiNlM2VhZGMiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIwLjUiIHN0b3AtY29sb3I9IiM5YmI3OGUiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMGE3YTNiIi8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogICAgPGZpbHRlciBpZD0icGFwZXIiIHg9Ii0xMiUiIHk9Ii0xMiUiIHdpZHRoPSIxMjQlIiBoZWlnaHQ9IjEyNCUiPgogICAgICA8ZmVHYXVzc2lhbkJsdXIgc3RkRGV2aWF0aW9uPSIwLjQ1Ii8+CiAgICA8L2ZpbHRlcj4KICAgIDxmaWx0ZXIgaWQ9Indhc2giIHg9Ii00MCUiIHk9Ii00MCUiIHdpZHRoPSIxODAlIiBoZWlnaHQ9IjE4MCUiPgogICAgICA8ZmVHYXVzc2lhbkJsdXIgc3RkRGV2aWF0aW9uPSIxNiIvPgogICAgPC9maWx0ZXI+CiAgPC9kZWZzPgoKICA8cmVjdCB3aWR0aD0iMTIwMCIgaGVpZ2h0PSI5MDAiIGZpbGw9Im5vbmUiLz4KCiAgPGcgb3BhY2l0eT0iMC4yMiIgZmlsdGVyPSJ1cmwoI3dhc2gpIj4KICAgIDxlbGxpcHNlIGN4PSI5MjAiIGN5PSIzODAiIHJ4PSIyNTAiIHJ5PSIzNjAiIGZpbGw9IiNkOGM1OGQiLz4KICAgIDxlbGxpcHNlIGN4PSIxMDI1IiBjeT0iNjIwIiByeD0iMjIwIiByeT0iMjMwIiBmaWxsPSIjMGE3YTNiIiBvcGFjaXR5PSIwLjQyIi8+CiAgICA8ZWxsaXBzZSBjeD0iNzQyIiBjeT0iNjgwIiByeD0iMTUwIiByeT0iMjEwIiBmaWxsPSIjZmZmMmJmIiBvcGFjaXR5PSIwLjc0Ii8+CiAgPC9nPgoKICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSg0MzAgNTQpIiBmaWxsPSJub25lIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGZpbHRlcj0idXJsKCNwYXBlcikiPgogICAgPHBhdGggZD0iTTE2OCA3OTIgQzE3OCA2NTIgMjA2IDUxNCAyNjUgMzUyIEMzMDIgMjUyIDM2MCAxNTQgNDMwIDU0IiBzdHJva2U9InVybCgjc3RlbSkiIHN0cm9rZS13aWR0aD0iNyIgb3BhY2l0eT0iMC41NiIvPgogICAgPHBhdGggZD0iTTMzNCA4MjAgQzMyOCA2NzYgMzUwIDUyNCA0MjAgMzQ0IEM0NjQgMjMwIDUzOCAxMzYgNjI2IDM4IiBzdHJva2U9InVybCgjc3RlbSkiIHN0cm9rZS13aWR0aD0iOCIgb3BhY2l0eT0iMC42MiIvPgogICAgPHBhdGggZD0iTTUxMiA4MjAgQzQ5MCA2OTAgNTEyIDU0MiA1OTAgMzY2IEM2NDYgMjQwIDcyOCAxNDIgODIwIDcwIiBzdHJva2U9InVybCgjc3RlbSkiIHN0cm9rZS13aWR0aD0iNyIgb3BhY2l0eT0iMC41MCIvPgogICAgPHBhdGggZD0iTTg4IDgyMiBDMTA2IDY5MCAxMzIgNTc0IDE3OCA0NDAgQzIxOCAzMjQgMjcwIDIyNCAzNDIgMTI4IiBzdHJva2U9InVybCgjc3RlbSkiIHN0cm9rZS13aWR0aD0iNSIgb3BhY2l0eT0iMC4zNSIvPgogIDwvZz4KCiAgPGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNDMwIDU0KSIgZmlsbD0idXJsKCNncmFpbikiIG9wYWNpdHk9IjAuNTgiIGZpbHRlcj0idXJsKCNwYXBlcikiPgogICAgPGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoNDMwIDU0KSByb3RhdGUoMzQpIj4KICAgICAgPGVsbGlwc2UgY3g9IjAiIGN5PSIwIiByeD0iMTUiIHJ5PSI0OCIvPgogICAgICA8ZWxsaXBzZSBjeD0iLTMzIiBjeT0iMzgiIHJ4PSIxMyIgcnk9IjQzIiB0cmFuc2Zvcm09InJvdGF0ZSgtMjgpIi8+CiAgICAgIDxlbGxpcHNlIGN4PSIzNCIgY3k9IjQyIiByeD0iMTMiIHJ5PSI0MyIgdHJhbnNmb3JtPSJyb3RhdGUoMjgpIi8+CiAgICAgIDxlbGxpcHNlIGN4PSItMzkiIGN5PSI4OCIgcng9IjEyIiByeT0iMzkiIHRyYW5zZm9ybT0icm90YXRlKC0zMSkiLz4KICAgICAgPGVsbGlwc2UgY3g9IjM4IiBjeT0iOTIiIHJ4PSIxMiIgcnk9IjM5IiB0cmFuc2Zvcm09InJvdGF0ZSgzMSkiLz4KICAgICAgPGVsbGlwc2UgY3g9Ii0zMSIgY3k9IjEzOCIgcng9IjEwIiByeT0iMzQiIHRyYW5zZm9ybT0icm90YXRlKC0yOSkiLz4KICAgICAgPGVsbGlwc2UgY3g9IjMwIiBjeT0iMTQyIiByeD0iMTAiIHJ5PSIzNCIgdHJhbnNmb3JtPSJyb3RhdGUoMjkpIi8+CiAgICAgIDxwYXRoIGQ9Ik0wIC01MCBDLTggMTggLTQgMTE0IDMgMTkwIiBzdHJva2U9IiM5YjcyMjciIHN0cm9rZS13aWR0aD0iMyIgb3BhY2l0eT0iMC40MiIgZmlsbD0ibm9uZSIvPgogICAgPC9nPgoKICAgIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDYyNiAzOCkgcm90YXRlKDI1KSI+CiAgICAgIDxlbGxpcHNlIGN4PSIwIiBjeT0iMCIgcng9IjE3IiByeT0iNTgiLz4KICAgICAgPGVsbGlwc2UgY3g9Ii00MCIgY3k9IjQ1IiByeD0iMTUiIHJ5PSI1MCIgdHJhbnNmb3JtPSJyb3RhdGUoLTMwKSIvPgogICAgICA8ZWxsaXBzZSBjeD0iNDAiIGN5PSI1MiIgcng9IjE1IiByeT0iNTAiIHRyYW5zZm9ybT0icm90YXRlKDMwKSIvPgogICAgICA8ZWxsaXBzZSBjeD0iLTQ0IiBjeT0iMTA2IiByeD0iMTQiIHJ5PSI0NiIgdHJhbnNmb3JtPSJyb3RhdGUoLTMyKSIvPgogICAgICA8ZWxsaXBzZSBjeD0iNDMiIGN5PSIxMTIiIHJ4PSIxNCIgcnk9IjQ2IiB0cmFuc2Zvcm09InJvdGF0ZSgzMikiLz4KICAgICAgPGVsbGlwc2UgY3g9Ii0zNSIgY3k9IjE2NiIgcng9IjEyIiByeT0iNDAiIHRyYW5zZm9ybT0icm90YXRlKC0zMCkiLz4KICAgICAgPGVsbGlwc2UgY3g9IjM0IiBjeT0iMTcyIiByeD0iMTIiIHJ5PSI0MCIgdHJhbnNmb3JtPSJyb3RhdGUoMzApIi8+CiAgICAgIDxlbGxpcHNlIGN4PSItMjAiIGN5PSIyMjQiIHJ4PSI5IiByeT0iMzEiIHRyYW5zZm9ybT0icm90YXRlKC0xOCkiLz4KICAgICAgPGVsbGlwc2UgY3g9IjIwIiBjeT0iMjI2IiByeD0iOSIgcnk9IjMxIiB0cmFuc2Zvcm09InJvdGF0ZSgxOCkiLz4KICAgICAgPHBhdGggZD0iTTAgLTYwIEMtNSAzMCAtMiAxNTIgMiAyNjQiIHN0cm9rZT0iIzhkNjcyMiIgc3Ryb2tlLXdpZHRoPSIzLjQiIG9wYWNpdHk9IjAuNDUiIGZpbGw9Im5vbmUiLz4KICAgIDwvZz4KCiAgICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSg4MjAgNzApIHJvdGF0ZSgyMCkiIG9wYWNpdHk9IjAuODIiPgogICAgICA8ZWxsaXBzZSBjeD0iMCIgY3k9IjAiIHJ4PSIxNCIgcnk9IjQ2Ii8+CiAgICAgIDxlbGxpcHNlIGN4PSItMzEiIGN5PSI0MiIgcng9IjEyIiByeT0iMzkiIHRyYW5zZm9ybT0icm90YXRlKC0yOSkiLz4KICAgICAgPGVsbGlwc2UgY3g9IjMxIiBjeT0iNDgiIHJ4PSIxMiIgcnk9IjM5IiB0cmFuc2Zvcm09InJvdGF0ZSgyOSkiLz4KICAgICAgPGVsbGlwc2UgY3g9Ii0zMCIgY3k9Ijk0IiByeD0iMTAiIHJ5PSIzNCIgdHJhbnNmb3JtPSJyb3RhdGUoLTMxKSIvPgogICAgICA8ZWxsaXBzZSBjeD0iMzAiIGN5PSIxMDAiIHJ4PSIxMCIgcnk9IjM0IiB0cmFuc2Zvcm09InJvdGF0ZSgzMSkiLz4KICAgICAgPHBhdGggZD0iTTAgLTQ4IEMtMiAyOCAwIDk2IDIgMTU4IiBzdHJva2U9IiM4ZDY3MjIiIHN0cm9rZS13aWR0aD0iMi44IiBvcGFjaXR5PSIwLjQyIiBmaWxsPSJub25lIi8+CiAgICA8L2c+CgogICAgPGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMzQyIDEyOCkgcm90YXRlKDM1KSIgb3BhY2l0eT0iMC40OCI+CiAgICAgIDxlbGxpcHNlIGN4PSIwIiBjeT0iMCIgcng9IjEwIiByeT0iMzQiLz4KICAgICAgPGVsbGlwc2UgY3g9Ii0yNCIgY3k9IjM0IiByeD0iOSIgcnk9IjI5IiB0cmFuc2Zvcm09InJvdGF0ZSgtMjgpIi8+CiAgICAgIDxlbGxpcHNlIGN4PSIyNSIgY3k9IjM5IiByeD0iOSIgcnk9IjI5IiB0cmFuc2Zvcm09InJvdGF0ZSgyOCkiLz4KICAgICAgPGVsbGlwc2UgY3g9Ii0yMiIgY3k9Ijc0IiByeD0iOCIgcnk9IjI1IiB0cmFuc2Zvcm09InJvdGF0ZSgtMjgpIi8+CiAgICAgIDxlbGxpcHNlIGN4PSIyMyIgY3k9Ijc5IiByeD0iOCIgcnk9IjI1IiB0cmFuc2Zvcm09InJvdGF0ZSgyOCkiLz4KICAgIDwvZz4KICA8L2c+CgogIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDQzMCA1NCkiIGZpbGw9InVybCgjbGVhZikiIG9wYWNpdHk9IjAuMzIiIGZpbHRlcj0idXJsKCNwYXBlcikiPgogICAgPHBhdGggZD0iTTIwNiA2MTIgQzEwNiA1ODQgNjIgNTM0IDI4IDQ3MiBDMTEyIDQ4MCAxNzIgNTE2IDIzMCA1ODYgQzIzOCA2MDAgMjI2IDYxOCAyMDYgNjEyWiIvPgogICAgPHBhdGggZD0iTTM4NiA2MDQgQzQ3NCA1NDggNTQ4IDUzNiA2NDYgNTY2IEM1NTYgNjM2IDQ3OCA2NTggMzkwIDYzMiBDMzc0IDYyOCAzNzEgNjEzIDM4NiA2MDRaIi8+CiAgICA8cGF0aCBkPSJNNTIwIDY4NiBDNjI0IDYzOCA3MjQgNjQ0IDg0MiA3MDIgQzcxNCA3NDIgNjE2IDc0OCA1MjAgNzE2IEM1MDAgNzA4IDUwMCA2OTYgNTIwIDY4NloiIG9wYWNpdHk9IjAuNjIiLz4KICAgIDxwYXRoIGQ9Ik0xMTYgNzIwIEM1NiA3MDAgMTYgNjYwIDAgNjEwIEM3NCA2MjAgMTI2IDY1MCAxNjAgNzAwIEMxNjggNzEzIDE1NCA3MzIgMTE2IDcyMFoiIG9wYWNpdHk9IjAuNTIiLz4KICA8L2c+CgogIDxnIG9wYWNpdHk9IjAuMjYiIHN0cm9rZT0iIzBhN2EzYiIgc3Ryb2tlLXdpZHRoPSIyLjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgZmlsbD0ibm9uZSI+CiAgICA8cGF0aCBkPSJNNzIwIDE3MCBDODIwIDE1OCA5MzAgMTgwIDEwMzggMjQwIi8+CiAgICA8cGF0aCBkPSJNNzcwIDI0NCBDODkyIDIzMCAxMDE2IDI2MCAxMTMyIDMzNiIgb3BhY2l0eT0iMC43MCIvPgogICAgPHBhdGggZD0iTTY2OCAzNTAgQzc3OCAzNDQgOTA2IDM4MCAxMDE2IDQ1NiIgb3BhY2l0eT0iMC41MiIvPgogIDwvZz4KPC9zdmc+Cg==';
+function HeroGrainIllustration({ label }: { label: string }) {
+  return (
+    <svg className='pc-final-hero-image' width='1200' height='900' viewBox='0 0 1200 900' role='img' aria-label={label} focusable='false' preserveAspectRatio='xMidYMid slice'>
+      <defs>
+        <linearGradient id='pcHeroStem' x1='0' y1='0' x2='0.35' y2='1'>
+          <stop offset='0' stopColor='#d8c58d' />
+          <stop offset='0.55' stopColor='#b9903c' />
+          <stop offset='1' stopColor='#0a7a3b' />
+        </linearGradient>
+        <linearGradient id='pcHeroGrain' x1='0' y1='0' x2='1' y2='1'>
+          <stop offset='0' stopColor='#fff2bf' />
+          <stop offset='0.45' stopColor='#d6b35e' />
+          <stop offset='1' stopColor='#9b7227' />
+        </linearGradient>
+        <linearGradient id='pcHeroLeaf' x1='0' y1='0' x2='1' y2='1'>
+          <stop offset='0' stopColor='#e3eadc' />
+          <stop offset='0.5' stopColor='#9bb78e' />
+          <stop offset='1' stopColor='#0a7a3b' />
+        </linearGradient>
+      </defs>
+      <rect width='1200' height='900' fill='none' />
+      <g opacity='0.22'>
+        <ellipse cx='920' cy='380' rx='250' ry='360' fill='#d8c58d' />
+        <ellipse cx='1025' cy='620' rx='220' ry='230' fill='#0a7a3b' opacity='0.42' />
+        <ellipse cx='742' cy='680' rx='150' ry='210' fill='#fff2bf' opacity='0.74' />
+      </g>
+      <g transform='translate(430 54)' fill='none' strokeLinecap='round' strokeLinejoin='round'>
+        <path d='M168 792 C178 652 206 514 265 352 C302 252 360 154 430 54' stroke='url(#pcHeroStem)' strokeWidth='7' opacity='0.56' />
+        <path d='M334 820 C328 676 350 524 420 344 C464 230 538 136 626 38' stroke='url(#pcHeroStem)' strokeWidth='8' opacity='0.62' />
+        <path d='M512 820 C490 690 512 542 590 366 C646 240 728 142 820 70' stroke='url(#pcHeroStem)' strokeWidth='7' opacity='0.50' />
+        <path d='M88 822 C106 690 132 574 178 440 C218 324 270 224 342 128' stroke='url(#pcHeroStem)' strokeWidth='5' opacity='0.35' />
+      </g>
+      <g transform='translate(430 54)' fill='url(#pcHeroGrain)' opacity='0.58'>
+        <g transform='translate(430 54) rotate(34)'>
+          <ellipse cx='0' cy='0' rx='15' ry='48' /><ellipse cx='-33' cy='38' rx='13' ry='43' transform='rotate(-28)' /><ellipse cx='34' cy='42' rx='13' ry='43' transform='rotate(28)' /><ellipse cx='-39' cy='88' rx='12' ry='39' transform='rotate(-31)' /><ellipse cx='38' cy='92' rx='12' ry='39' transform='rotate(31)' /><ellipse cx='-31' cy='138' rx='10' ry='34' transform='rotate(-29)' /><ellipse cx='30' cy='142' rx='10' ry='34' transform='rotate(29)' />
+          <path d='M0 -50 C-8 18 -4 114 3 190' stroke='#9b7227' strokeWidth='3' opacity='0.42' fill='none' />
+        </g>
+        <g transform='translate(626 38) rotate(25)'>
+          <ellipse cx='0' cy='0' rx='17' ry='58' /><ellipse cx='-40' cy='45' rx='15' ry='50' transform='rotate(-30)' /><ellipse cx='40' cy='52' rx='15' ry='50' transform='rotate(30)' /><ellipse cx='-44' cy='106' rx='14' ry='46' transform='rotate(-32)' /><ellipse cx='43' cy='112' rx='14' ry='46' transform='rotate(32)' /><ellipse cx='-35' cy='166' rx='12' ry='40' transform='rotate(-30)' /><ellipse cx='34' cy='172' rx='12' ry='40' transform='rotate(30)' /><ellipse cx='-20' cy='224' rx='9' ry='31' transform='rotate(-18)' /><ellipse cx='20' cy='226' rx='9' ry='31' transform='rotate(18)' />
+          <path d='M0 -60 C-5 30 -2 152 2 264' stroke='#8d6722' strokeWidth='3.4' opacity='0.45' fill='none' />
+        </g>
+        <g transform='translate(820 70) rotate(20)' opacity='0.82'>
+          <ellipse cx='0' cy='0' rx='14' ry='46' /><ellipse cx='-31' cy='42' rx='12' ry='39' transform='rotate(-29)' /><ellipse cx='31' cy='48' rx='12' ry='39' transform='rotate(29)' /><ellipse cx='-30' cy='94' rx='10' ry='34' transform='rotate(-31)' /><ellipse cx='30' cy='100' rx='10' ry='34' transform='rotate(31)' />
+          <path d='M0 -48 C-2 28 0 96 2 158' stroke='#8d6722' strokeWidth='2.8' opacity='0.42' fill='none' />
+        </g>
+        <g transform='translate(342 128) rotate(35)' opacity='0.48'>
+          <ellipse cx='0' cy='0' rx='10' ry='34' /><ellipse cx='-24' cy='34' rx='9' ry='29' transform='rotate(-28)' /><ellipse cx='25' cy='39' rx='9' ry='29' transform='rotate(28)' /><ellipse cx='-22' cy='74' rx='8' ry='25' transform='rotate(-28)' /><ellipse cx='23' cy='79' rx='8' ry='25' transform='rotate(28)' />
+        </g>
+      </g>
+      <g transform='translate(430 54)' fill='url(#pcHeroLeaf)' opacity='0.32'>
+        <path d='M206 612 C106 584 62 534 28 472 C112 480 172 516 230 586 C238 600 226 618 206 612Z' />
+        <path d='M386 604 C474 548 548 536 646 566 C556 636 478 658 390 632 C374 628 371 613 386 604Z' />
+        <path d='M520 686 C624 638 724 644 842 702 C714 742 616 748 520 716 C500 708 500 696 520 686Z' opacity='0.62' />
+        <path d='M116 720 C56 700 16 660 0 610 C74 620 126 650 160 700 C168 713 154 732 116 720Z' opacity='0.52' />
+      </g>
+      <g opacity='0.26' stroke='#0a7a3b' strokeWidth='2.2' strokeLinecap='round' fill='none'>
+        <path d='M720 170 C820 158 930 180 1038 240' /><path d='M770 244 C892 230 1016 260 1132 336' opacity='0.70' /><path d='M668 350 C778 344 906 380 1016 456' opacity='0.52' />
+      </g>
+    </svg>
+  );
+}
+
 
 const COPY = {
   ru: {
@@ -411,7 +472,7 @@ export async function PlatformV7StrategicHome() {
             </div>
 
             <div className='pc-final-hero-visual'>
-              <img className='pc-final-hero-image' src={HERO_IMAGE_DATA} alt={copy.hero.visualAlt} loading='eager' fetchPriority='high' decoding='sync' />
+              <HeroGrainIllustration label={copy.hero.visualAlt} />
               <div className='pc-final-visual-overlay'>
                 <span>{copy.hero.visualCulture}</span>
                 <strong>{copy.hero.visualVolume}</strong>
