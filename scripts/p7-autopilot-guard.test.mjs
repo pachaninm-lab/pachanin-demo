@@ -775,7 +775,7 @@ test('runs immutable authority checks from a read-only trusted-base workflow', (
     '-f head_sha="$HEAD_SHA"',
     "-f status='completed'",
     "'PC-CROP immutable scope · PR-head defense' || 'guard' }}",
-    'needs: standard_validation',
+    'needs: [standard_validation, public-home-contract]',
     "if: always() && github.event_name != 'pull_request_target'",
     'git show "$BASE_SHA:scripts/p7-autopilot-guard.sh" > "$TRUSTED_GUARD"',
     'standard_validation:',
@@ -783,6 +783,33 @@ test('runs immutable authority checks from a read-only trusted-base workflow', (
     "- '.github/workflows/production-full-stack-exact-sha.yml'",
     "- 'docs/ops/production-p0-all-role-registration.md'",
   ]) assert.ok(workflow.includes(marker), `missing trusted-base workflow marker: ${marker}`);
+});
+
+test('final public unit contracts run on unprivileged exact head and fail the guard closed', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const job = workflow.split('\n  public-home-contract:\n')[1].split('\n  trusted-kind-minio-governance-bootstrap:')[0];
+  assert.match(job, /github\.event_name == 'pull_request'/u);
+  assert.match(job, /head\.ref == 'agent\/platform-v7-strategic-rebuild-v3'/u);
+  assert.match(job, /ref: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/u);
+  assert.match(job, /permissions:\n      contents: read/u);
+  assert.match(job, /persist-credentials: false/u);
+  assert.match(job, /pnpm install --frozen-lockfile/u);
+  assert.doesNotMatch(job, /pull_request_target|continue-on-error|secrets\.|(?:checks|contents|pull-requests): write/u);
+  const manifest = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json'), 'utf8'));
+  for (const file of manifest.allowedPaths.filter(file => file.startsWith('apps/web/tests/unit/'))) {
+    assert.ok(job.includes(file.replace('apps/web/', '')), `Scoped unit suite is not executed: ${file}`);
+  }
+  const guard = workflow.split('\n  guard:\n')[1].split('\n  standard_validation:\n')[0];
+  assert.match(guard, /needs: \[standard_validation, public-home-contract\]/u);
+  const step = guard.split('      - name: Require final public unit contracts for homepage implementation\n')[1]
+    .split('      - name: Validate immutable scope')[0];
+  assert.match(step, /github\.event_name == 'pull_request' && github\.head_ref == 'agent\/platform-v7-strategic-rebuild-v3'/u);
+  assert.ok(step.includes('PUBLIC_HOME_RESULT: ${{ needs.public-home-contract.result }}'));
+  const shell = step.split('        run: |\n')[1].split('\n').map(line => line.replace(/^          /u, '')).join('\n');
+  for (const state of ['success', 'failure', 'cancelled', 'skipped', '']) {
+    const result = spawnSync('bash', ['-c', shell], { env: { ...process.env, PUBLIC_HOME_RESULT: state }, encoding: 'utf8' });
+    assert.equal(result.status, state === 'success' ? 0 : 1, state);
+  }
 });
 
 test('public-home workflow routing covers every non-glob presentation path that otherwise lacks a broad trigger', () => {
@@ -902,9 +929,9 @@ test('Qwen failed-evidence candidate regressions run unprivileged and block the 
   assert.match(standard.split('      - name:')[0], /persist-credentials: false/u);
   assert.doesNotMatch(standard, /continue-on-error:|secrets\.|(?:checks|contents|pull-requests): write/u);
   const guard = workflow.split('\n  guard:\n')[1].split('\n  standard_validation:\n')[0];
-  assert.match(guard, /needs: standard_validation/u);
+  assert.match(guard, /needs: \[standard_validation, public-home-contract\]/u);
   const required = guard.split('      - name: Require standard validations in the required guard context\n')[1]
-    .split('      - name: Validate immutable scope with trusted base guard on PR head')[0];
+    .split('      - name: Require final public unit contracts for homepage implementation')[0];
   assert.ok(required.includes('STANDARD_VALIDATION_RESULT: ${{ needs.standard_validation.result }}'));
   const enforce = required.split('        run: |\n')[1].split('\n').map(line => line.replace(/^          /u, '')).join('\n');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-qwen-candidate-validation-'));
