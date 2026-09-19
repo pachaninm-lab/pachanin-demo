@@ -94,7 +94,7 @@ function commit(root, message) {
 
 function fixture(t, implementationBranch) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-immutable-scope-guard-'));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 
   write(root, 'scripts/p7-autopilot-guard.sh', fs.readFileSync(sourceGuard, 'utf8'), 0o755);
   write(root, 'scripts/p7-source-controlled-scope.mjs', fs.readFileSync(sourceResolver, 'utf8'), 0o755);
@@ -121,7 +121,7 @@ function fixture(t, implementationBranch) {
 
 function publicHomeImplementationFixture(t, { withManifest = true } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-public-home-immutable-scope-'));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   write(root, 'scripts/p7-autopilot-guard.sh', fs.readFileSync(sourceGuard, 'utf8'), 0o755);
   write(root, 'scripts/p7-source-controlled-scope.mjs', fs.readFileSync(sourceResolver, 'utf8'), 0o755);
   write(root, '.github/workflows/platform-v7-autopilot-guard.yml', 'name: fixture\n');
@@ -149,7 +149,7 @@ function publicHomeImplementationFixture(t, { withManifest = true } = {}) {
 
 function poisonIsolationFixture(t, { manifest = 'valid' } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-poison-isolation-immutable-scope-'));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   write(root, 'scripts/p7-autopilot-guard.sh', fs.readFileSync(sourceGuard, 'utf8'), 0o755);
   write(root, 'scripts/p7-source-controlled-scope.mjs', fs.readFileSync(sourceResolver, 'utf8'), 0o755);
   write(root, '.github/workflows/platform-v7-autopilot-guard.yml', 'name: fixture\n');
@@ -181,7 +181,7 @@ function poisonIsolationFixture(t, { manifest = 'valid' } = {}) {
 
 function publicHomeGovernanceFixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-public-home-governance-scope-'));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   write(root, 'scripts/p7-autopilot-guard.sh', fs.readFileSync(sourceGuard, 'utf8'), 0o755);
   write(root, 'scripts/p7-source-controlled-scope.mjs', fs.readFileSync(sourceResolver, 'utf8'), 0o755);
   write(root, '.github/workflows/platform-v7-autopilot-guard.yml', 'name: fixture\n');
@@ -734,7 +734,7 @@ test('Qwen failed-evidence candidate regressions run unprivileged and block the 
   assert.ok(required.includes('STANDARD_VALIDATION_RESULT: ${{ needs.standard_validation.result }}'));
   const enforce = required.split('        run: |\n')[1].split('\n').map(line => line.replace(/^          /u, '')).join('\n');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-qwen-candidate-validation-'));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   const candidateEnv = { ...process.env };
   delete candidateEnv.NODE_TEST_CONTEXT;
   for (const fails of [false, true]) {
@@ -752,22 +752,26 @@ test('Qwen failed-evidence candidate regressions run unprivileged and block the 
   }
 });
 
-test('Qwen conditional authority survives actual dispatcher regeneration without duplication', (t) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-qwen-dispatcher-regression-'));
-  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+test('provider-independent review policy survives actual dispatcher regeneration without duplication', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-review-policy-dispatcher-regression-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
   for (const file of ['docs/platform-v7/autopilot/autopilot-state.json', 'docs/platform-v7/execution-queue.md']) {
     write(root, file, fs.readFileSync(file, 'utf8'));
   }
   const promptPaths = ['docs/platform-v7/autopilot/prompts/current-codex-task.md', 'docs/platform-v7/autopilot/prompts/current-review-task.md'];
   for (const file of promptPaths) write(root, file, 'Stale generated prompt must be replaced.\n');
-  const heading = '## Conditional future Qwen rejected-review diagnostics — 2026-09-12';
+  const heading = '## Owner-authorized provider-independent review — 2026-09-18';
   const queue = fs.readFileSync('docs/platform-v7/execution-queue.md', 'utf8');
   const conditionalBlock = heading + (queue.split(heading)[1]?.split('\n## ')[0] ?? '');
   const required = [
-    qwenFailedEvidenceBranch, ...qwenFailedEvidencePaths,
-    'Implementation is permitted only after the immutable prior authority proposed in PR #5335 is accepted and merged into `main`',
-    "base's trusted scope authorizes that exact branch and both paths below.",
-    'otherwise keep this implementation blocked.',
+    'fix/provider-independent-review-20260918',
+    'The implementation author cannot supply their own independent review.',
+    'READY_FOR_MANUAL_REVIEW',
+    'AUTOMATIC_MERGE_DISABLED',
+    'complete applicable substantive CI/security checks',
+    'Existing GitHub branch protections apply',
+    'IR-20 remains active.',
+    'Archived instruction only.',
   ];
   const firstPass = [];
   for (let run = 0; run < 2; run += 1) {
@@ -775,7 +779,7 @@ test('Qwen conditional authority survives actual dispatcher regeneration without
     assert.equal(result.status, 0, output(result));
     for (const [index, file] of promptPaths.entries()) {
       const prompt = fs.readFileSync(path.join(root, file), 'utf8');
-      assert.equal(prompt.split(heading).length - 1, 1, `${file}: conditional authority must survive exactly once`);
+      assert.equal(prompt.split(heading).length - 1, 1, `${file}: current review policy must survive exactly once`);
       assert.ok(prompt.includes(conditionalBlock), `${file}: preserve the entire queue authority block`);
       const normalized = prompt.replace(/\s+/gu, ' ');
       for (const marker of required) assert.ok(normalized.includes(marker), `${file}: missing ${marker}`);

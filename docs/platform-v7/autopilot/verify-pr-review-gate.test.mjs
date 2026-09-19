@@ -1,615 +1,609 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
-
 import {
-  activeUnresolvedThreads,
-  checkRollupBlockers,
-  ciSnapshotMatchesHead,
-  cleanCodexReviewPrefixes,
-  COPILOT_REVIEW_LOGINS,
-  exactHeadCodexReviews,
-  exactHeadCopilotReviews,
-  exactHeadOwnerSelfAudits,
-  isIgnoredMergeGateCheck,
-  latestBlockingChangeRequests,
-  LOCAL_QWEN_LLAMA_ARCHIVE_SHA256,
-  LOCAL_QWEN_LLAMA_BUILD,
-  LOCAL_QWEN_LLAMA_SOURCE_COMMIT,
-  LOCAL_QWEN_MAX_CHUNKS,
-  LOCAL_QWEN_MAX_DIFF_BYTES,
-  LOCAL_QWEN_MODEL_REVISION,
-  LOCAL_QWEN_MODEL_SHA256,
-  LOCAL_QWEN_POLICY_SHA256,
-  LOCAL_QWEN_STATUS_CONTEXT,
-  LOCAL_QWEN_WORKFLOW_NAME,
-  LOCAL_QWEN_WORKFLOW_PATH,
-  OCTOPUS_ACTION_SHA,
-  OCTOPUS_STATUS_CONTEXT,
-  octopusAttestationMatchesWorkflowRun,
-  positiveExactHeadCodexReviews,
-  positiveExactHeadCopilotReviews,
-  positiveExactHeadLocalQwenAttestations,
-  positiveExactHeadOctopusAttestations,
-  localQwenAttestationMatchesWorkflowRun,
-  reviewGatePrState,
-  substantiveChecks,
+  activeUnresolvedThreads, actionsRunIdFromCheck, canonicalizeExactPrHeadActionsChecks,
+  canonicalSha40, checkRollupBlockers, ciSnapshotMatchesHead, exactHeadOwnerSelfAudits,
+  fetchCheckSnapshot, fetchAllList, fetchAllReviewThreads, isIgnoredMergeGateCheck,
+  latestBlockingChangeRequests, latestCommitStatuses, mergeReadinessResult,
+  reviewGatePrState, strictGitHubHeadRef, substantiveChecks, verifyManualReadiness,
+  nativeReadinessRunCandidates, nativeReadinessMatchesRun,
 } from './verify-pr-review-gate.mjs';
+const head = 'a'.repeat(40), oldHead = 'b'.repeat(40);
+const exactHeadRef = 'fix/manual-readiness';
+const repo = 'pachaninm-lab/pachanin-demo';
 
-const head = 'a'.repeat(40);
-const oldHead = 'b'.repeat(40);
-
-test('accepts only a completed Codex review on the exact head', () => {
-  const reviews = [
-    { user: { login: 'chatgpt-codex-connector[bot]' }, commit_id: oldHead, state: 'COMMENTED' },
-    { user: { login: 'chatgpt-codex-connector[bot]' }, commit_id: head, state: 'DISMISSED' },
-    { user: { login: 'chatgpt-codex-connector[bot]' }, commit_id: head, state: 'PENDING' },
-    { user: { login: 'chatgpt-codex-connector[bot]' }, commit_id: head, state: 'COMMENTED' },
-  ];
-  assert.equal(exactHeadCodexReviews(reviews, head).length, 1);
-});
-
-test('only explicit Codex approval is positive review authority; COMMENTED and CHANGES_REQUESTED are not', () => {
-  const reviews = [
-    { user: { login: 'chatgpt-codex-connector[bot]' }, commit_id: head, state: 'COMMENTED' },
-    { user: { login: 'chatgpt-codex-connector' }, commit_id: head, state: 'CHANGES_REQUESTED' },
-    { user: { login: 'chatgpt-codex-connector' }, commit_id: head, state: 'APPROVED' },
-  ];
-  assert.equal(exactHeadCodexReviews(reviews, head).length, 3);
-  assert.deepEqual(positiveExactHeadCodexReviews(reviews, head), [reviews[2]]);
-  assert.equal(positiveExactHeadCodexReviews(reviews.slice(0, 2), head).length, 0);
-});
-
-test('GitHub Copilot is an explicit independent reviewer provider, not an arbitrary bot', () => {
-  assert.deepEqual([...COPILOT_REVIEW_LOGINS], ['copilot-pull-request-reviewer[bot]']);
-  const reviews = [
-    { user: { login: 'copilot-pull-request-reviewer[bot]' }, commit_id: oldHead, state: 'COMMENTED' },
-    { user: { login: 'copilot-pull-request-reviewer[bot]' }, commit_id: head, state: 'PENDING' },
-    { user: { login: 'some-other-review-bot[bot]' }, commit_id: head, state: 'APPROVED' },
-    { user: { login: 'copilot-pull-request-reviewer[bot]' }, commit_id: head, state: 'COMMENTED' },
-    { user: { login: 'copilot-pull-request-reviewer[bot]' }, commit_id: head, state: 'APPROVED' },
-    { user: { login: 'copilot-pull-request-reviewer[bot]' }, commit_id: head, state: 'CHANGES_REQUESTED' },
-  ];
-  assert.deepEqual(exactHeadCopilotReviews(reviews, head), [reviews[3], reviews[4], reviews[5]]);
-  assert.deepEqual(positiveExactHeadCopilotReviews(reviews, head), [reviews[3], reviews[4]]);
-});
-
-test('Octopus authority requires paired exact-head structured review and latest matching success status', () => {
-  const repo = 'pachaninm-lab/pachanin-demo';
-  const summaryHash = 'c'.repeat(64);
-  const runId = '123456789';
-  const body = [
-    'OCTOPUS INDEPENDENT REVIEW: PASS',
-    `Exact head: \`${head}\``,
-    'Provider workflow: `.github/workflows/octopus-independent-review.yml`',
-    `Provider action: \`${OCTOPUS_ACTION_SHA}\``,
-    'Findings: `0`',
-    `Summary SHA-256: \`${summaryHash}\``,
-    `Workflow run: \`${runId}\``,
-  ].join('\n');
-  const goodReview = { user: { login: 'github-actions[bot]' }, commit_id: head, state: 'COMMENTED', body };
-  const goodStatus = {
-    context: OCTOPUS_STATUS_CONTEXT,
-    state: 'success',
-    creator: { login: 'github-actions[bot]' },
-    description: `Octopus clean ${OCTOPUS_ACTION_SHA.slice(0, 8)} summary=${summaryHash.slice(0, 16)}`,
-    target_url: `https://github.com/${repo}/actions/runs/${runId}`,
+function actionsCheck({
+  runId,
+  name = 'guard',
+  conclusion = 'SUCCESS',
+  status = 'COMPLETED',
+  startedAt = '2026-09-17T19:30:00Z',
+  workflowName = 'platform-v7 autopilot guard',
+}) {
+  return {
+    workflowName,
+    name,
+    status,
+    conclusion,
+    startedAt,
+    detailsUrl: `https://github.com/${repo}/actions/runs/${runId}/job/${runId}01`,
   };
-  assert.equal(positiveExactHeadOctopusAttestations([goodReview], [goodStatus], head, repo).length, 1);
-  assert.equal(positiveExactHeadOctopusAttestations([{ ...goodReview, commit_id: oldHead }], [goodStatus], head, repo).length, 0);
-  assert.equal(positiveExactHeadOctopusAttestations([{ ...goodReview, user: { login: 'pachaninm-lab' } }], [goodStatus], head, repo).length, 0);
-  assert.equal(positiveExactHeadOctopusAttestations([goodReview], [{ ...goodStatus, description: 'Octopus clean mismatched evidence' }], head, repo).length, 0);
-  assert.equal(positiveExactHeadOctopusAttestations([goodReview], [{ ...goodStatus, state: 'failure' }, goodStatus], head, repo).length, 0);
+}
+
+function actionsRun({
+  id,
+  runNumber,
+  workflowId = 282418356,
+  event = 'pull_request',
+  headSha = head,
+  headRef = exactHeadRef,
+  runAttempt = 1,
+}) {
+  return {
+    id,
+    workflow_id: workflowId,
+    run_number: runNumber,
+    run_attempt: runAttempt,
+    event,
+    head_sha: headSha,
+    head_branch: headRef,
+  };
+}
+
+test('Actions check URL parsing is repository-bound and exact', () => {
+  const check = actionsCheck({ runId: 35265106561 });
+  assert.equal(actionsRunIdFromCheck(check, repo), '35265106561');
+  assert.equal(actionsRunIdFromCheck(check, 'other/repo'), '');
+  assert.equal(actionsRunIdFromCheck({ ...check, detailsUrl: 'https://example.com/actions/runs/35265106561' }, repo), '');
+  assert.equal(actionsRunIdFromCheck(actionsCheck({ runId: '9007199254740992' }), repo), '');
 });
 
-test('Octopus authority is additionally bound to one successful trusted workflow run on the exact PR head', () => {
-  const repo = 'pachaninm-lab/pachanin-demo';
-  const repositoryId = 1203022077;
-  const prNumber = 5167;
-  const runId = '34180354026';
-  const attestation = { runId };
-  const run = {
-    id: Number(runId), name: 'Independent Octopus Review', path: '.github/workflows/octopus-independent-review.yml',
-    event: 'pull_request_target', status: 'completed', conclusion: 'success', head_sha: head,
-    repository: { id: repositoryId, full_name: repo },
-    pull_requests: [{ number: prNumber, head: { sha: head, repo: { id: repositoryId } } }],
-  };
-  assert.equal(octopusAttestationMatchesWorkflowRun(attestation, run, repo, prNumber, head), true);
-  for (const mutation of [
-    { id: 1 }, { name: 'Some Other Workflow' }, { path: '.github/workflows/not-octopus.yml' },
-    { event: 'pull_request' }, { status: 'in_progress' }, { conclusion: 'failure' }, { head_sha: oldHead },
-    { repository: { id: repositoryId, full_name: 'evil/repo' } },
-    { pull_requests: [{ number: 9999, head: { sha: head, repo: { id: repositoryId } } }] },
-    { pull_requests: [{ number: prNumber, head: { sha: oldHead, repo: { id: repositoryId } } }] },
-    { pull_requests: [{ number: prNumber, head: { sha: head, repo: { id: 999 } } }] },
+test('PR head refs use strict Git ref syntax before becoming CI authority', () => {
+  for (const valid of [
+    exactHeadRef,
+    '@',
+    'feature/review.v2',
+    'release-2026_09',
+    'topic/ümlaut',
   ]) {
-    assert.equal(octopusAttestationMatchesWorkflowRun(attestation, { ...run, ...mutation }, repo, prNumber, head), false, JSON.stringify(mutation));
+    assert.equal(strictGitHubHeadRef(valid), valid);
+  }
+
+  for (const invalid of [
+    '',
+    ' branch',
+    'branch ',
+    'branch name',
+    '/branch',
+    'branch/',
+    'branch.',
+    'a//b',
+    'a..b',
+    'a@{b',
+    '.hidden/topic',
+    'a/.hidden',
+    'a/b.lock',
+    'a?b',
+    'a\\b',
+    'a\nb',
+  ]) {
+    assert.equal(strictGitHubHeadRef(invalid), '');
   }
 });
 
-test('observed successful Octopus pull_request_target run shape is accepted without weakening exact-head binding', () => {
-  const observed = {
-    id: 34180354026, name: 'Independent Octopus Review', head_sha: '0f6fdeccbcb97a70161198ac0321d0918388a084',
-    path: '.github/workflows/octopus-independent-review.yml', event: 'pull_request_target', status: 'completed', conclusion: 'success',
-    pull_requests: [{ number: 5167, head: { sha: '0f6fdeccbcb97a70161198ac0321d0918388a084', repo: { id: 1203022077 } } }],
-    repository: { id: 1203022077, full_name: 'pachaninm-lab/pachanin-demo' },
+test('invalid repository identity fails closed with a generic Actions authority diagnostic', () => {
+  const result = canonicalizeExactPrHeadActionsChecks(
+    [actionsCheck({ runId: 42 })],
+    [actionsRun({ id: 42, runNumber: 10 })],
+    head,
+    exactHeadRef,
+    'owner/repo/extra',
+  );
+  assert.equal(result, null);
+});
+
+test('same-SHA Actions check from a foreign PR head ref is excluded only after valid run metadata proves the mismatch', () => {
+  const foreignFailure = actionsCheck({ runId: 35264531109, conclusion: 'FAILURE' });
+  const currentSuccess = actionsCheck({ runId: 35265106561, conclusion: 'SUCCESS' });
+  const result = canonicalizeExactPrHeadActionsChecks(
+    [foreignFailure, currentSuccess],
+    [
+      actionsRun({ id: 35264531109, runNumber: 11817, headRef: 'transport/local-qwen-evidence-20260917', runAttempt: 2 }),
+      actionsRun({ id: 35265106561, runNumber: 11819 }),
+    ],
+    head,
+    exactHeadRef,
+    repo,
+  );
+  assert.ok(Array.isArray(result));
+  assert.deepEqual(result, [currentSuccess]);
+  assert.deepEqual(checkRollupBlockers(result), []);
+});
+
+test('missing or malformed Actions head-ref authority metadata fails closed instead of excluding the check', () => {
+  const check = actionsCheck({ runId: 42 });
+  for (const headRef of ['', ' branch-with-space ', 'branch with space', 'branch..name', 'branch@{name']) {
+    const result = canonicalizeExactPrHeadActionsChecks(
+      [check],
+      [actionsRun({ id: 42, runNumber: 10, headRef })],
+      head,
+      exactHeadRef,
+      repo,
+    );
+    assert.equal(result, null);
+  }
+});
+
+test('Actions event authority is canonical lowercase metadata and fails closed otherwise', () => {
+  const check = actionsCheck({ runId: 42 });
+  const valid = canonicalizeExactPrHeadActionsChecks(
+    [check],
+    [actionsRun({ id: 42, runNumber: 10, event: 'workflow_dispatch' })],
+    head,
+    exactHeadRef,
+    repo,
+  );
+  assert.ok(Array.isArray(valid));
+  assert.deepEqual(valid, [check]);
+
+  const invalid = canonicalizeExactPrHeadActionsChecks(
+    [check],
+    [actionsRun({ id: 42, runNumber: 10, event: 'Pull_Request' })],
+    head,
+    exactHeadRef,
+    repo,
+  );
+  assert.equal(invalid, null);
+});
+
+test('older failure followed by newer success in the same workflow/event family selects the newer run_number', () => {
+  const olderFailure = actionsCheck({ runId: 101, conclusion: 'FAILURE', startedAt: '2026-09-17T19:20:00Z' });
+  const newerSuccess = actionsCheck({ runId: 102, conclusion: 'SUCCESS', startedAt: '2026-09-17T19:30:00Z' });
+  const result = canonicalizeExactPrHeadActionsChecks(
+    [olderFailure, newerSuccess],
+    [actionsRun({ id: 101, runNumber: 100 }), actionsRun({ id: 102, runNumber: 101 })],
+    head,
+    exactHeadRef,
+    repo,
+  );
+  assert.ok(Array.isArray(result));
+  assert.deepEqual(result, [newerSuccess]);
+  assert.deepEqual(checkRollupBlockers(result), []);
+});
+
+test('newer failure in the same workflow/event family remains blocking', () => {
+  const olderSuccess = actionsCheck({ runId: 101, conclusion: 'SUCCESS' });
+  const newerFailure = actionsCheck({ runId: 102, conclusion: 'FAILURE' });
+  const result = canonicalizeExactPrHeadActionsChecks(
+    [olderSuccess, newerFailure],
+    [actionsRun({ id: 101, runNumber: 100 }), actionsRun({ id: 102, runNumber: 101 })],
+    head,
+    exactHeadRef,
+    repo,
+  );
+  assert.ok(Array.isArray(result));
+  assert.deepEqual(result, [newerFailure]);
+  assert.deepEqual(checkRollupBlockers(result), ['platform-v7 autopilot guard / guard:FAILURE']);
+});
+
+test('later wall-clock rerun of an older run_number cannot supersede a newer run_number', () => {
+  const rerunOlderFailure = actionsCheck({ runId: 101, conclusion: 'FAILURE', startedAt: '2026-09-17T19:47:03Z' });
+  const newerSuccess = actionsCheck({ runId: 102, conclusion: 'SUCCESS', startedAt: '2026-09-17T19:29:13Z' });
+  const result = canonicalizeExactPrHeadActionsChecks(
+    [rerunOlderFailure, newerSuccess],
+    [actionsRun({ id: 101, runNumber: 100, runAttempt: 2 }), actionsRun({ id: 102, runNumber: 101 })],
+    head,
+    exactHeadRef,
+    repo,
+  );
+  assert.ok(Array.isArray(result));
+  assert.deepEqual(result, [newerSuccess]);
+});
+
+test('distinct Actions event families for the same workflow and exact PR head remain independently evaluated', () => {
+  const prSuccess = actionsCheck({ runId: 101, name: 'pull-request-guard', conclusion: 'SUCCESS' });
+  const dispatchFailure = actionsCheck({ runId: 202, name: 'dispatch-guard', conclusion: 'FAILURE' });
+  const result = canonicalizeExactPrHeadActionsChecks(
+    [prSuccess, dispatchFailure],
+    [
+      actionsRun({ id: 101, runNumber: 100, event: 'pull_request' }),
+      actionsRun({ id: 202, runNumber: 110, event: 'workflow_dispatch' }),
+    ],
+    head,
+    exactHeadRef,
+    repo,
+  );
+  assert.ok(Array.isArray(result));
+  assert.deepEqual(result, [prSuccess, dispatchFailure]);
+  assert.deepEqual(checkRollupBlockers(result), ['platform-v7 autopilot guard / dispatch-guard:FAILURE']);
+});
+
+test('selected Actions run deduplicates the same logical check only by strictly newer parseable startedAt', () => {
+  const first = actionsCheck({ runId: 42, conclusion: 'FAILURE', startedAt: '2026-09-17T19:29:13Z' });
+  const retry = actionsCheck({ runId: 42, conclusion: 'SUCCESS', startedAt: '2026-09-17T19:31:13Z' });
+  const result = canonicalizeExactPrHeadActionsChecks(
+    [first, retry],
+    [actionsRun({ id: 42, runNumber: 10, runAttempt: 2 })],
+    head,
+    exactHeadRef,
+    repo,
+  );
+  assert.ok(Array.isArray(result));
+  assert.deepEqual(result, [retry]);
+});
+
+test('malformed or ambiguous selected-run duplicate ordering blocks snapshot canonicalization', () => {
+  const malformed = canonicalizeExactPrHeadActionsChecks(
+    [actionsCheck({ runId: 42, startedAt: 'not-a-date' }), actionsCheck({ runId: 42, startedAt: '2026-09-17T19:31:13Z' })],
+    [actionsRun({ id: 42, runNumber: 10, runAttempt: 2 })],
+    head,
+    exactHeadRef,
+    repo,
+  );
+  assert.equal(malformed, null);
+
+  const ambiguous = canonicalizeExactPrHeadActionsChecks(
+    [
+      actionsCheck({ runId: 42, conclusion: 'FAILURE', startedAt: '2026-09-17T19:31:13Z' }),
+      actionsCheck({ runId: 42, conclusion: 'SUCCESS', startedAt: '2026-09-17T19:31:13Z' }),
+    ],
+    [actionsRun({ id: 42, runNumber: 10, runAttempt: 2 })],
+    head,
+    exactHeadRef,
+    repo,
+  );
+  assert.equal(ambiguous, null);
+});
+
+test('Actions authority metadata conflicts and exact-head SHA mismatch fail closed', () => {
+  const wrongSha = canonicalizeExactPrHeadActionsChecks(
+    [actionsCheck({ runId: 42 })],
+    [actionsRun({ id: 42, runNumber: 10, headSha: oldHead })],
+    head,
+    exactHeadRef,
+    repo,
+  );
+  assert.equal(wrongSha, null);
+
+  const ambiguous = canonicalizeExactPrHeadActionsChecks(
+    [actionsCheck({ runId: 42 }), actionsCheck({ runId: 43, name: 'other' })],
+    [actionsRun({ id: 42, runNumber: 10 }), actionsRun({ id: 43, runNumber: 10 })],
+    head,
+    exactHeadRef,
+    repo,
+  );
+  assert.equal(ambiguous, null);
+});
+
+test('legacy non-Actions status contexts survive exact-PR-head Actions canonicalization unchanged', () => {
+  const legacy = { context: 'legacy-green', state: 'SUCCESS' };
+  const current = actionsCheck({ runId: 42, conclusion: 'SUCCESS' });
+  const result = canonicalizeExactPrHeadActionsChecks(
+    [legacy, current],
+    [actionsRun({ id: 42, runNumber: 10 })],
+    head,
+    exactHeadRef,
+    repo,
+  );
+  assert.ok(Array.isArray(result));
+  assert.deepEqual(result, [legacy, current]);
+});
+
+
+function fixture(overrides = {}) {
+  const pr = { number: 5422, state: 'open', draft: false, auto_merge: null, head: { sha: head, ref: exactHeadRef }, base: { repo: { full_name: repo } } };
+  const run = { ...actionsRun({ id: 42, runNumber: 10 }), name: 'platform-v7 autopilot guard', path: '.github/workflows/platform-v7-autopilot-guard.yml', repository: { full_name: repo }, status: 'completed', conclusion: 'success' };
+  const raw = { id: 100, head_sha: head, name: 'guard', status: 'completed', conclusion: 'success', started_at: '2026-09-18T12:00:00Z', details_url: `https://github.com/${repo}/actions/runs/42/job/100`, app: { slug: 'github-actions' } };
+  const data = { pr, run, reviews: [], comments: [{ id: 1, user: { login: 'pachaninm-lab' }, body: 'OWNER SELF-AUDIT: PASS exact head `' + head + '`' }], threads: [], checks: [raw], statuses: [], runs: [run], ...overrides };
+  let prReads = 0;
+  const calls = [];
+  const read = (args) => {
+    calls.push(args);
+    const endpoint = args.find((value) => typeof value === 'string' && value.startsWith('repos/'));
+    if (args.includes('graphql')) return data.threadPages || [{ data: { repository: { pullRequest: { headRefOid: head, reviewThreads: { nodes: data.threads, pageInfo: { hasNextPage: false, endCursor: null } } } } } }];
+    if (endpoint?.endsWith('/pulls/5422')) { prReads += 1; return prReads === 3 && data.finalPr ? data.finalPr : data.pr; }
+    if (endpoint?.includes('/reviews?')) return data.reviewPages || [data.reviews];
+    if (endpoint?.includes('/comments?')) return [data.comments];
+    if (endpoint?.includes('/check-runs?')) return data.checkPages || [{ total_count: data.checks.length, check_runs: data.checks }];
+    if (endpoint?.includes('/statuses?')) return [data.statuses];
+    if (endpoint?.includes('/actions/runs?')) return data.runPages || [{ total_count: data.runs.length, workflow_runs: data.runs }];
+    if (endpoint?.includes('/actions/runs/')) {
+      const id = endpoint.split('/').at(-1);
+      if (data.fetchError) throw new Error('SYNTHETIC_SECRET_ERROR_SENTINEL');
+      return Object.hasOwn(data, 'runOverride') ? data.runOverride : data.runs.find((row) => String(row.id) === id);
+    }
+    throw new Error(`Unexpected fixture call ${args}`);
   };
-  assert.equal(octopusAttestationMatchesWorkflowRun({ runId: '34180354026' }, observed, 'pachaninm-lab/pachanin-demo', 5167, '0f6fdeccbcb97a70161198ac0321d0918388a084'), true);
+  return { data, read, calls, env: { REPO: repo, HEAD_SHA: head, PR_NUMBER: '5422' } };
+}
+function verify(f) { return verifyManualReadiness({ argv: ['--manual-readiness'], env: f.env, readGitHubJson: f.read }); }
+function expectBlocked(f, code) { assert.throws(() => verify(f), { message: code }); }
+
+test('CLI legacy invocation fails before environment or network, with no PASS contract', () => {
+  let reads = 0;
+  for (const argv of [[], ['--independent-only'], ['--manual-readiness', '--other'], ['manual-readiness']]) {
+    assert.throws(() => verifyManualReadiness({ argv, readGitHubJson: () => { reads += 1; } }), { message: 'AUTOMATIC_MERGE_DISABLED' });
+  }
+  assert.equal(reads, 0);
+  const child = spawnSync(process.execPath, ['docs/platform-v7/autopilot/verify-pr-review-gate.mjs'], { encoding: 'utf8', env: { PATH: '/nonexistent' } });
+  assert.equal(child.status, 1);
+  assert.equal(child.stdout, '');
+  assert.equal(child.stderr.trim(), 'AUTOMATIC_MERGE_DISABLED');
 });
 
-test('actual #5167 Octopus review, latest status and successful run form one exact-head authority tuple', () => {
-  const actualHead = '0f6fdeccbcb97a70161198ac0321d0918388a084';
-  const repo = 'pachaninm-lab/pachanin-demo';
-  const runId = '34180354026';
-  const summary = '2e552f1f5a628d16efbd4daaea671580a52e853c281dfb42b59a3ef92d5c2af8';
-  const review = {
-    user: { login: 'github-actions[bot]' }, commit_id: actualHead, state: 'COMMENTED',
-    body: ['OCTOPUS INDEPENDENT REVIEW: PASS', `Exact head: \`${actualHead}\``, 'Provider workflow: `.github/workflows/octopus-independent-review.yml`', `Provider action: \`${OCTOPUS_ACTION_SHA}\``, 'Findings: `0`', `Summary SHA-256: \`${summary}\``, `Workflow run: \`${runId}\``].join('\n'),
-  };
-  const statuses = [{ context: OCTOPUS_STATUS_CONTEXT, state: 'success', creator: { login: 'github-actions[bot]' }, description: `Octopus clean ${OCTOPUS_ACTION_SHA.slice(0, 8)} summary=${summary.slice(0, 16)}`, target_url: `https://github.com/${repo}/actions/runs/${runId}` }];
-  const [attestation] = positiveExactHeadOctopusAttestations([review], statuses, actualHead, repo);
-  assert.ok(attestation);
-  assert.equal(octopusAttestationMatchesWorkflowRun(attestation, {
-    id: Number(runId), name: 'Independent Octopus Review', path: '.github/workflows/octopus-independent-review.yml', event: 'pull_request_target', status: 'completed', conclusion: 'success', head_sha: actualHead,
-    repository: { id: 1203022077, full_name: repo }, pull_requests: [{ number: 5167, head: { sha: actualHead, repo: { id: 1203022077 } } }],
-  }, repo, 5167, actualHead), true);
+test('zero AI reviews produces engineering readiness only; independent review and manual merge remain required', () => {
+  const f = fixture();
+  assert.deepEqual(verify(f), { schemaVersion: 'platform-v7.merge-readiness.v1', status: 'READY_FOR_MANUAL_REVIEW', head, independentReviewRequired: true, automaticMergeAllowed: false });
+  assert.equal(mergeReadinessResult('short'), null);
+  assert.equal(f.calls.some((args) => args.some((value) => /octopus-review|chatgpt\.com|api\.openai|copilot/u.test(value))), false);
 });
 
-test('Local Qwen authority requires exact canonical Qwen3 identity, policy, status and trusted Actions run', () => {
-  const repo = 'pachaninm-lab/pachanin-demo';
-  const runId = '987654321';
-  const tick = String.fromCharCode(96);
-  const diffSha = 'd'.repeat(64), manifestSha = 'e'.repeat(64), promptSha = 'f'.repeat(64), responseSha = '1'.repeat(64);
-  const body = [
-    'LOCAL QWEN INDEPENDENT REVIEW: PASS',
-    'Exact head: ' + tick + head + tick,
-    'Provider workflow: ' + tick + LOCAL_QWEN_WORKFLOW_PATH + tick,
-    'Model revision: ' + tick + LOCAL_QWEN_MODEL_REVISION + tick,
-    'Model SHA-256: ' + tick + LOCAL_QWEN_MODEL_SHA256 + tick,
-    'Runtime build: ' + tick + LOCAL_QWEN_LLAMA_BUILD + tick,
-    'Runtime source commit: ' + tick + LOCAL_QWEN_LLAMA_SOURCE_COMMIT + tick,
-    'Runtime archive SHA-256: ' + tick + LOCAL_QWEN_LLAMA_ARCHIVE_SHA256 + tick,
-    'Policy SHA-256: ' + tick + LOCAL_QWEN_POLICY_SHA256 + tick,
-    'Full diff SHA-256: ' + tick + diffSha + tick,
-    'Diff bytes: ' + tick + '227121' + tick,
-    'Chunk count: ' + tick + '4' + tick,
-    'Review manifest SHA-256: ' + tick + manifestSha + tick,
-    'Prompt bundle SHA-256: ' + tick + promptSha + tick,
-    'Response SHA-256: ' + tick + responseSha + tick,
-    'Workflow run: ' + tick + runId + tick,
-    'Verdict: ' + tick + 'PASS' + tick,
-    'Findings: ' + tick + '0' + tick,
-  ].join('\n');
-  const review = { user: { login: 'github-actions[bot]' }, commit_id: head, state: 'COMMENTED', body };
-  const status = {
-    context: LOCAL_QWEN_STATUS_CONTEXT, state: 'success', creator: { login: 'github-actions[bot]' },
-    description: 'Qwen clean model=' + LOCAL_QWEN_MODEL_SHA256.slice(0, 8) + ' response=' + responseSha.slice(0, 16) + ' chunks=4 manifest=' + manifestSha.slice(0, 16),
-    target_url: 'https://github.com/' + repo + '/actions/runs/' + runId,
-  };
-  const attestations = positiveExactHeadLocalQwenAttestations([review], [status], head, repo);
-  assert.equal(attestations.length, 1);
-  assert.equal(localQwenAttestationMatchesWorkflowRun(attestations[0], {
-    id: Number(runId), name: LOCAL_QWEN_WORKFLOW_NAME, path: LOCAL_QWEN_WORKFLOW_PATH, event: 'pull_request_target', status: 'completed', conclusion: 'success', head_sha: head,
-    repository: { id: 1203022077, full_name: repo }, pull_requests: [{ number: 5127, head: { sha: head, repo: { id: 1203022077 } } }],
-  }, repo, 5127, head), true);
-  assert.equal(positiveExactHeadLocalQwenAttestations([review], [{ ...status, state: 'failure' }, status], head, repo).length, 0);
-  assert.equal(positiveExactHeadLocalQwenAttestations([{ ...review, body: body.replace(LOCAL_QWEN_MODEL_SHA256, '0'.repeat(64)) }], [status], head, repo).length, 0);
-  assert.equal(positiveExactHeadLocalQwenAttestations([{ ...review, body: body.replace(LOCAL_QWEN_MODEL_REVISION, '9'.repeat(40)) }], [status], head, repo).length, 0);
-  assert.equal(positiveExactHeadLocalQwenAttestations([{ ...review, body: body.replace(LOCAL_QWEN_POLICY_SHA256, '2'.repeat(64)) }], [status], head, repo).length, 0);
-  assert.equal(localQwenAttestationMatchesWorkflowRun(attestations[0], {
-    id: Number(runId), name: LOCAL_QWEN_WORKFLOW_NAME, path: LOCAL_QWEN_WORKFLOW_PATH, event: 'pull_request_target', status: 'completed', conclusion: 'success', head_sha: oldHead,
-    repository: { id: 1203022077, full_name: repo }, pull_requests: [{ number: 5127, head: { sha: oldHead, repo: { id: 1203022077 } } }],
-  }, repo, 5127, head), false);
-  assert.equal(LOCAL_QWEN_MAX_DIFF_BYTES >= 227121, true);
-  assert.equal(LOCAL_QWEN_MAX_CHUNKS >= 4, true);
+test('native auto-merge cannot consume readiness, even if enabled during verification', () => {
+  for (const auto_merge of [undefined, { enabled_by: 'fixture' }]) {
+    const f = fixture(); f.data.pr.auto_merge = auto_merge;
+    expectBlocked(f, 'AUTOMATIC_MERGE_DISABLED');
+  }
+  const f = fixture(); f.data.finalPr = { ...f.data.pr, auto_merge: {} };
+  expectBlocked(f, 'AUTOMATIC_MERGE_DISABLED');
 });
 
-test('recognizes clean Codex review evidence only from the Codex bot and a reviewed commit prefix', () => {
-  const comments = [
-    { user: { login: 'someone-else' }, body: "Codex Review: Didn't find any major issues.\n\n**Reviewed commit:** `1234567890`" },
-    { user: { login: 'chatgpt-codex-connector[bot]' }, body: 'Codex Review summary without clean-review sentence. **Reviewed commit:** `abcdef1234`' },
-    { user: { login: 'chatgpt-codex-connector[bot]' }, body: "Codex Review: Didn't find any major issues. Keep it up!\n\n**Reviewed commit:** `deadbeef42`" },
+test('missing owner exact-head audit blocks and another actor cannot substitute it', () => {
+  for (const comments of [[], [{ id: 1, user: { login: 'other' }, body: 'OWNER SELF-AUDIT: PASS exact head `' + head + '`' }], [{ id: 1, user: { login: 'pachaninm-lab' }, body: 'OWNER SELF-AUDIT: PASS exact head `' + oldHead + '`' }]]) expectBlocked(fixture({ comments }), 'MERGE_READINESS_OWNER_AUDIT_MISSING');
+});
+
+test('all current or outdated unresolved findings and active changes requested block', () => {
+  for (const isOutdated of [true, false]) expectBlocked(fixture({ threads: [{ isResolved: false, isOutdated }] }), 'MERGE_READINESS_UNRESOLVED_THREADS');
+  const request = { id: 1, state: 'CHANGES_REQUESTED', user: { login: 'independent' }, submitted_at: '2026-09-18T10:00:00Z' };
+  expectBlocked(fixture({ reviews: [request] }), 'MERGE_READINESS_CHANGES_REQUESTED');
+  const comment = { ...request, id: 2, state: 'COMMENTED', submitted_at: '2026-09-18T11:00:00Z' };
+  expectBlocked(fixture({ reviews: [request, comment] }), 'MERGE_READINESS_CHANGES_REQUESTED');
+  assert.equal(verify(fixture({ reviews: [request, { ...comment, state: 'APPROVED' }] })).status, 'READY_FOR_MANUAL_REVIEW');
+});
+
+test('review page two findings are not lost and malformed pages are rejected', () => {
+  const request = { id: 2, state: 'CHANGES_REQUESTED', user: { login: 'independent' }, submitted_at: '2026-09-18T10:00:00Z' };
+  expectBlocked(fixture({ reviewPages: [[], [request]] }), 'MERGE_READINESS_CHANGES_REQUESTED');
+  for (const pages of [null, [], [[], {}], [[{ id: 1 }], [{ id: 1 }]]]) assert.throws(() => fetchAllList('repos/o/r/reviews', () => pages));
+});
+
+test('thread pagination requires a complete, exact-head, error-free chain', () => {
+  const page = (hasNextPage, nodes = [], endCursor = 'cursor') => ({ data: { repository: { pullRequest: { headRefOid: head, reviewThreads: { nodes, pageInfo: { hasNextPage, endCursor } } } } } });
+  expectBlocked(fixture({ threadPages: [page(true), page(false, [{ isResolved: false, isOutdated: false }])] }), 'MERGE_READINESS_UNRESOLVED_THREADS');
+  for (const pages of [[page(true)], [page(false), page(false)], [{ errors: [{ message: 'private' }], ...page(false) }], [{ data: null }]]) assert.throws(() => fetchAllReviewThreads(repo, 5422, head, () => pages));
+});
+
+test('provider quota statuses and exact known review jobs are advisory; real findings still block', () => {
+  const f = fixture();
+  const providerRun = { ...f.data.run, id: 43, workflow_id: 2, name: 'Independent Octopus Review', path: '.github/workflows/octopus-independent-review.yml', conclusion: 'failure' };
+  f.data.runs.push(providerRun);
+  f.data.checks.push({ ...f.data.checks[0], id: 101, name: 'Octopus exact-head independent review', conclusion: 'failure', details_url: `https://github.com/${repo}/actions/runs/43/job/101` });
+  f.data.statuses.push({ id: 1, context: 'review-provider/octopus', state: 'failure' }, { id: 2, context: 'review-provider/local-qwen', state: 'pending' });
+  assert.equal(verify(f).status, 'READY_FOR_MANUAL_REVIEW');
+  f.data.threads = [{ isResolved: false, isOutdated: false }];
+  expectBlocked(f, 'MERGE_READINESS_UNRESOLVED_THREADS');
+});
+
+test('advisory names do not mask substantive jobs, security workflows, or unknown review contexts', () => {
+  for (const change of [{ name: 'Octopus exact-head independent review' }, { name: 'security-test', workflowName: 'Independent Octopus Review' }]) {
+    const f = fixture(); Object.assign(f.data.checks[0], change, { conclusion: 'failure' });
+    expectBlocked(f, 'MERGE_READINESS_CI_NOT_GREEN');
+  }
+  const f = fixture(); f.data.statuses = [{ id: 1, context: 'review-provider/unknown-security', state: 'failure' }];
+  expectBlocked(f, 'MERGE_READINESS_CI_NOT_GREEN');
+  assert.equal(isIgnoredMergeGateCheck({ name: 'Exact-head clean-comment gate', workflowName: 'Security', workflowPath: '.github/workflows/security.yml', appSlug: 'github-actions' }), false);
+});
+
+test('unexpected security job inside known advisory workflow remains blocking', () => {
+  const f = fixture();
+  f.data.run.name = 'Independent Octopus Review'; f.data.run.path = '.github/workflows/octopus-independent-review.yml';
+  f.data.checks[0].name = 'security'; f.data.checks[0].conclusion = 'failure';
+  expectBlocked(f, 'MERGE_READINESS_CI_NOT_GREEN');
+});
+
+test('legacy provider output without native findings is not a quota/schema veto or review PASS', () => {
+  const f = fixture({ reviews: [{ id: 1, user: { login: 'github-actions[bot]' }, state: 'COMMENTED', submitted_at: '2026-09-18T10:00:00Z', body: 'LOCAL QWEN INDEPENDENT REVIEW: BLOCK\nMalformed provider output' }] });
+  assert.equal(verify(f).independentReviewRequired, true);
+});
+
+test('CI is mandatory regardless of REQUIRE_GREEN_CI and never empty', () => {
+  const f = fixture(); f.env.REQUIRE_GREEN_CI = '0'; f.data.checks[0].conclusion = 'failure';
+  expectBlocked(f, 'MERGE_READINESS_CI_NOT_GREEN');
+  expectBlocked(fixture({ checks: [], runs: [], statuses: [] }), 'MERGE_READINESS_CI_EVIDENCE_MISSING');
+});
+
+test('full check pagination includes a failing security check after item 100', () => {
+  const f = fixture();
+  const rows = Array.from({ length: 101 }, (_, i) => ({ ...f.data.checks[0], id: i + 1, name: `job-${i}`, conclusion: i === 100 ? 'failure' : 'success' }));
+  f.data.checkPages = [{ total_count: 101, check_runs: rows.slice(0, 100) }, { total_count: 101, check_runs: rows.slice(100) }];
+  expectBlocked(f, 'MERGE_READINESS_CI_NOT_GREEN');
+  f.data.checkPages.pop();
+  expectBlocked(f, 'MERGE_READINESS_CI_SNAPSHOT_INVALID');
+});
+
+test('new queued run with no check jobs prevents an older green from winning', () => {
+  const f = fixture();
+  f.data.runs.push({ ...f.data.run, id: 43, run_number: 11, status: 'queued', conclusion: null });
+  expectBlocked(f, 'MERGE_READINESS_CI_NOT_GREEN');
+});
+
+test('incomplete Actions inventory fails closed', () => {
+  const f = fixture(); f.data.runPages = [{ total_count: 2, workflow_runs: [f.data.run] }];
+  expectBlocked(f, 'MERGE_READINESS_CI_SNAPSHOT_INVALID');
+});
+
+test('Actions transport failure is distinct from malformed metadata and does not expose raw error', () => {
+  const f = fixture({ fetchError: true });
+  const snapshot = fetchCheckSnapshot(repo, 5422, f.read);
+  assert.deepEqual(snapshot.runFetchErrors, [{ runId: '42', code: 'ACTIONS_RUN_FETCH_FAILED' }]);
+  assert.equal(snapshot.checks, null);
+  assert.equal(JSON.stringify(snapshot).includes('SYNTHETIC_SECRET'), false);
+  expectBlocked(fixture({ fetchError: true }), 'MERGE_READINESS_CI_ACTIONS_RUN_FETCH_FAILED');
+  for (const runOverride of [null, {}, { id: 42, name: 'guard' }]) {
+    const broken = fixture({ runOverride });
+    assert.deepEqual(fetchCheckSnapshot(repo, 5422, broken.read).runFetchErrors, []);
+    expectBlocked(fixture({ runOverride }), 'MERGE_READINESS_CI_SNAPSHOT_INVALID');
+  }
+});
+
+test('repository and exact head are validated before and after CI', () => {
+  const cases = [
+    ['MERGE_READINESS_REPO_AUTHORITY_MISMATCH', (f) => { f.env.GITHUB_REPOSITORY = 'other/repo'; }],
+    ['MERGE_READINESS_EXPECTED_HEAD_INVALID', (f) => { f.env.HEAD_SHA = 'short'; }],
+    ['MERGE_READINESS_PR_NOT_REVIEWABLE', (f) => { f.data.pr.state = 'closed'; }],
+    ['MERGE_READINESS_PR_NOT_REVIEWABLE', (f) => { f.data.pr.draft = true; }],
+    ['MERGE_READINESS_HEAD_MOVED', (f) => { f.data.pr.head.sha = oldHead; }],
+    ['MERGE_READINESS_HEAD_MOVED_DURING_VERIFICATION', (f) => { f.data.finalPr = { ...f.data.pr, head: { ...f.data.pr.head, sha: oldHead } }; }],
   ];
-  assert.deepEqual(cleanCodexReviewPrefixes(comments), ['deadbeef42']);
+  for (const [code, mutate] of cases) { const f = fixture(); mutate(f); expectBlocked(f, code); }
 });
 
-test('rejects short or malformed clean-review commit prefixes', () => {
-  const comments = [
-    { user: { login: 'chatgpt-codex-connector[bot]' }, body: "Codex Review: Didn't find any major issues.\n\n**Reviewed commit:** `abc1234`" },
-    { user: { login: 'chatgpt-codex-connector[bot]' }, body: "Codex Review: Didn't find any major issues.\n\n**Reviewed commit:** `not-a-sha!`" },
-  ];
-  assert.deepEqual(cleanCodexReviewPrefixes(comments), []);
+test('latest commit status selection uses monotonic identity and preserves non-provider failures', () => {
+  const statuses = [{ id: 1, context: 'security', state: 'success' }, { id: 2, context: 'security', state: 'failure' }];
+  assert.deepEqual(latestCommitStatuses(statuses), [statuses[1]]);
+  assert.deepEqual(latestCommitStatuses([...statuses].reverse()), [statuses[1]]);
+  expectBlocked(fixture({ statuses }), 'MERGE_READINESS_CI_NOT_GREEN');
 });
 
-test('clean-review SHA resolution cannot rebind an old prefix through a branch or tag alias', () => {
-  const verifier = readFileSync(new URL('./verify-pr-review-gate.mjs', import.meta.url), 'utf8');
-  assert.ok(verifier.includes("if (!/^[0-9a-f]{10,40}$/u.test(prefix)) return '';"));
-  assert.ok(verifier.includes("return /^[0-9a-f]{40}$/u.test(sha) && sha.startsWith(prefix) ? sha : '';"));
+test('workflow contains no merge or provider request and invokes only explicit manual readiness', () => {
+  const workflow = readFileSync('.github/workflows/automerge.yml', 'utf8');
+  assert.match(workflow, /--manual-readiness/u);
+  assert.doesNotMatch(workflow, /gh pr merge|pulls\.merge|@codex review|requestReviewers|schedule:/u);
 });
 
-test('owner self-audit authority is exact-head and exact-owner only', () => {
-  const owner = 'pachaninm-lab';
-  const comments = [
-    { user: { login: owner }, body: `OWNER SELF-AUDIT: PASS exact head \`${head}\`` },
-    { user: { login: owner }, body: `OWNER SELF-AUDIT: PASS exact head \`${oldHead}\`` },
-    { user: { login: 'someone-else' }, body: `OWNER SELF-AUDIT: PASS exact head \`${head}\`` },
-    { user: { login: owner }, body: `OWNER SELF-AUDIT: PASS exact head \`${head.slice(0, 12)}\`` },
-  ];
-  assert.deepEqual(exactHeadOwnerSelfAudits(comments, owner, head), [comments[0]]);
-  assert.equal(exactHeadOwnerSelfAudits(comments, owner, oldHead).length, 1);
-  assert.equal(exactHeadOwnerSelfAudits(comments, 'other-owner', head).length, 0);
-  assert.equal(exactHeadOwnerSelfAudits(comments, owner, 'not-a-sha').length, 0);
+test('readiness self-check on PR head is advisory only with exact trusted-main workflow identity', () => {
+  const f = fixture();
+  const ownRun = { ...f.data.run, id: 43, head_sha: oldHead, head_branch: 'main', workflow_id: 2, name: 'Repo automations', path: '.github/workflows/automerge.yml', status: 'in_progress', conclusion: null };
+  f.data.runs.push(ownRun);
+  f.data.runPages = [{ total_count: 1, workflow_runs: [f.data.run] }];
+  f.data.checks.push({ ...f.data.checks[0], id: 101, name: 'Exact-head clean-comment gate', status: 'in_progress', conclusion: null, details_url: `https://github.com/${repo}/actions/runs/43` });
+  assert.equal(verify(f).status, 'READY_FOR_MANUAL_REVIEW');
+  ownRun.path = '.github/workflows/security.yml';
+  expectBlocked(f, 'MERGE_READINESS_CI_SNAPSHOT_INVALID');
 });
 
-test('rejects a Codex review from another actor even when commit matches', () => {
-  const reviews = [{ user: { login: 'someone-else' }, commit_id: head, state: 'APPROVED' }];
-  assert.equal(exactHeadCodexReviews(reviews, head).length, 0);
-  assert.equal(positiveExactHeadCodexReviews(reviews, head).length, 0);
+test('pending, failed, cancelled, unknown and timed-out substantive checks stay blocking', () => {
+  for (const [status, conclusion] of [['queued', null], ['in_progress', null], ['completed', 'failure'], ['completed', 'cancelled'], ['completed', 'timed_out'], ['completed', null]]) {
+    const f = fixture(); Object.assign(f.data.checks[0], { status, conclusion });
+    expectBlocked(f, 'MERGE_READINESS_CI_NOT_GREEN');
+  }
 });
 
-test('rejects a Copilot-looking review from another actor even when commit matches', () => {
-  const reviews = [{ user: { login: 'copilot-reviewer[bot]' }, commit_id: head, state: 'COMMENTED' }];
-  assert.equal(exactHeadCopilotReviews(reviews, head).length, 0);
-  assert.equal(positiveExactHeadCopilotReviews(reviews, head).length, 0);
+test('malformed Actions SHA cannot be normalized into authority', () => {
+  const f = fixture(); f.data.run.head_sha = head.toUpperCase();
+  expectBlocked(f, 'MERGE_READINESS_CI_SNAPSHOT_INVALID');
 });
 
-test('blocks only unresolved non-outdated review threads', () => {
-  const threads = [
-    { isResolved: false, isOutdated: false, path: 'a.ts', line: 1 },
-    { isResolved: true, isOutdated: false, path: 'b.ts', line: 2 },
-    { isResolved: false, isOutdated: true, path: 'c.ts', line: 3 },
-  ];
-  assert.deepEqual(activeUnresolvedThreads(threads), [threads[0]]);
-});
-
-test('approval clears an earlier CHANGES_REQUESTED from the same reviewer', () => {
-  const reviews = [
-    { user: { login: 'reviewer-a' }, state: 'CHANGES_REQUESTED', submitted_at: '2026-09-05T01:00:00Z' },
-    { user: { login: 'reviewer-a' }, state: 'APPROVED', submitted_at: '2026-09-05T02:00:00Z' },
-    { user: { login: 'reviewer-b' }, state: 'CHANGES_REQUESTED', submitted_at: '2026-09-05T03:00:00Z' },
-  ];
-  assert.deepEqual(latestBlockingChangeRequests(reviews).map(({ login }) => login), ['reviewer-b']);
-});
-
-test('a later COMMENTED review does not clear CHANGES_REQUESTED', () => {
-  const reviews = [
-    { user: { login: 'reviewer-a' }, state: 'CHANGES_REQUESTED', submitted_at: '2026-09-05T01:00:00Z' },
-    { user: { login: 'reviewer-a' }, state: 'COMMENTED', submitted_at: '2026-09-05T02:00:00Z' },
-  ];
-  assert.deepEqual(latestBlockingChangeRequests(reviews).map(({ login }) => login), ['reviewer-a']);
-});
-
-test('dismissal clears a previous change request', () => {
-  const reviews = [
-    { user: { login: 'reviewer-a' }, state: 'CHANGES_REQUESTED', submitted_at: '2026-09-05T01:00:00Z' },
-    { user: { login: 'reviewer-a' }, state: 'DISMISSED', submitted_at: '2026-09-05T02:00:00Z' },
-  ];
-  assert.equal(latestBlockingChangeRequests(reviews).length, 0);
-});
-
-test('ignores only review-gate automation checks to avoid self-deadlock', () => {
-  const checks = [
-    { workflowName: 'Repo automations', name: 'Exact-head Codex review gate', status: 'IN_PROGRESS' },
-    { context: 'review-gate/exact-head', state: 'SUCCESS' },
-    { workflowName: 'CI', name: 'web-unit', status: 'COMPLETED', conclusion: 'SUCCESS' },
-  ];
-  assert.equal(isIgnoredMergeGateCheck(checks[0]), true);
-  assert.equal(isIgnoredMergeGateCheck(checks[1]), true);
-  assert.equal(isIgnoredMergeGateCheck(checks[2]), false);
-  assert.deepEqual(substantiveChecks(checks), [checks[2]]);
-});
-
-test('green, skipped and neutral exact-head checks are accepted', () => {
-  const checks = [
-    { workflowName: 'CI', name: 'unit', status: 'COMPLETED', conclusion: 'SUCCESS' },
-    { workflowName: 'CI', name: 'optional', status: 'COMPLETED', conclusion: 'SKIPPED' },
-    { workflowName: 'Security', name: 'advisory', status: 'COMPLETED', conclusion: 'NEUTRAL' },
-  ];
-  assert.deepEqual(checkRollupBlockers(checks), []);
-});
-
-test('pending and red exact-head checks both block automated merge', () => {
-  const checks = [
-    { workflowName: 'CI', name: 'pending', status: 'IN_PROGRESS', conclusion: null },
-    { workflowName: 'Security', name: 'failed', status: 'COMPLETED', conclusion: 'FAILURE' },
-  ];
-  assert.deepEqual(checkRollupBlockers(checks), ['CI / pending:IN_PROGRESS', 'Security / failed:FAILURE']);
-});
-
-test('legacy status contexts are evaluated by state', () => {
-  const checks = [{ context: 'legacy-green', state: 'SUCCESS' }, { context: 'legacy-pending', state: 'PENDING' }];
-  assert.deepEqual(checkRollupBlockers(checks), ['legacy-pending:PENDING']);
-});
-
-test('CI snapshot must be bound to the exact verified head', () => {
-  assert.equal(ciSnapshotMatchesHead(head, head), true);
-  assert.equal(ciSnapshotMatchesHead(oldHead, head), false);
-  assert.equal(ciSnapshotMatchesHead('not-a-sha', head), false);
-  assert.equal(ciSnapshotMatchesHead('', head), false);
-});
-
-test('PR state classification fails closed for Draft and incomplete/unknown state', () => {
-  assert.equal(reviewGatePrState({ state: 'open', draft: false }), 'REVIEWABLE');
-  assert.equal(reviewGatePrState({ state: 'open', draft: true }), 'DRAFT');
-  assert.equal(reviewGatePrState({ state: 'closed', draft: false }), 'CLOSED');
-  assert.equal(reviewGatePrState({ state: 'open' }), 'INVALID');
-  assert.equal(reviewGatePrState({ state: 'unknown', draft: false }), 'INVALID');
-  assert.equal(reviewGatePrState({ draft: false }), 'INVALID');
-  assert.equal(reviewGatePrState(null), 'INVALID');
-});
-
-test('verifier main requires genuine independent exact-head authority from Codex, GitHub Copilot, Octopus, or Local Qwen', () => {
-  const verifier = readFileSync(new URL('./verify-pr-review-gate.mjs', import.meta.url), 'utf8');
-  const mainStart = verifier.indexOf('function main()');
-  assert.ok(mainStart >= 0);
-  const mainBody = verifier.slice(mainStart);
-  assert.match(mainBody, /positiveExactHeadCodexReviews\(reviews, headSha\)/u);
-  assert.match(mainBody, /cleanCodexReviewPrefixes\(comments\)/u);
-  assert.match(mainBody, /resolveCommitSha\(repo, prefix\) === headSha/u);
-  assert.match(mainBody, /positiveExactHeadCopilotReviews\(reviews, headSha\)/u);
-  assert.match(mainBody, /positiveExactHeadOctopusAttestations/u);
-  assert.match(mainBody, /octopusAttestationMatchesWorkflowRun/u);
-  assert.match(mainBody, /positiveExactHeadLocalQwenAttestations\(/u);
-  assert.match(mainBody, /localQwenAttestationMatchesWorkflowRun/u);
-  assert.match(mainBody, /fetchPublicLocalQwenActionsRun\(repo, attestation\.runId\)/u);
-  assert.match(mainBody, /fetchPublicOctopusActionsRun\(repo, attestation\.runId\)/u);
-  assert.match(mainBody, /fetchAllCommitStatuses\(repo, headSha\)/u);
-  assert.match(mainBody, /REVIEW_GATE_INDEPENDENT_EXACT_HEAD_MISSING/u);
-  assert.match(mainBody, /REVIEW_GATE_OWNER_SELF_AUDIT_MISSING/u);
-  assert.match(mainBody, /reviewAuthority=/u);
-  assert.match(mainBody, /GITHUB_COPILOT/u);
-  assert.match(mainBody, /OCTOPUS/u);
-  assert.doesNotMatch(mainBody, /MACHINE_FALLBACK/u);
-  assert.doesNotMatch(mainBody, /machineReviewAuthorities/u);
-  assert.ok(mainBody.indexOf('REVIEW_GATE_INDEPENDENT_EXACT_HEAD_MISSING') < mainBody.indexOf('PR_REVIEW_GATE=PASS'));
-});
-
-test('Octopus workflow is immutable, opt-in, no-head-checkout and fails closed on pending review output', () => {
-  const workflow = readFileSync(new URL('../../../.github/workflows/octopus-independent-review.yml', import.meta.url), 'utf8');
-  assert.match(workflow, /^\s*pull_request_target:\s*$/mu);
-  assert.match(workflow, /contains\(github\.event\.pull_request\.body, '<!-- independent-review:octopus -->'\)/u);
-  assert.match(workflow, /octopusreview\/action@c7156c0dc465c20e8b06da84b92b64f9ae8c7c36/u);
-  assert.doesNotMatch(workflow, /actions\/checkout/u);
-  assert.match(workflow, /^\s*contents:\s*read\s*$/mu);
-  assert.match(workflow, /^\s*pull-requests:\s*write\s*$/mu);
-  assert.match(workflow, /^\s*statuses:\s*write\s*$/mu);
-  assert.match(workflow, /review-provider\/octopus/u);
-  assert.match(workflow, /indexing in progress/u);
-  assert.match(workflow, /review pending/u);
-  assert.match(workflow, /live_head=.*gh api/u);
-  assert.match(workflow, /OCTOPUS INDEPENDENT REVIEW: PASS/u);
-  assert.match(workflow, /Summary SHA-256/u);
-  assert.match(workflow, /Workflow run/u);
-});
-
-test('Local Qwen workflow uses canonical Qwen3 model-host, remains bounded and fails closed', () => {
-  const workflow = readFileSync(new URL('../../../.github/workflows/local-qwen-independent-review.yml', import.meta.url), 'utf8');
-  assert.match(workflow, /MAX_DIFF_BYTES=400000/u);
-  assert.match(workflow, /MAX_CHUNK_DIFF_BYTES=8000/u);
-  assert.match(workflow, /MAX_CHUNKS=96/u);
-  assert.match(workflow, /local-qwen-review-manifest\.v1/u);
-  assert.match(workflow, /full_diff_sha256/u);
-  assert.match(workflow, /source_sha256/u);
-  assert.match(workflow, /prompt_bundle_sha256/u);
-  assert.match(workflow, /MODEL_REVISION: 895c8d171bc03c30e113cd7a28c02494b5e068b7/u);
-  assert.match(workflow, /MODEL_SHA256: 107afd988cdbdcced3b8e76ebc3a8e83b5a18a5c796fca20778410cb9c47a814/u);
-  assert.match(workflow, /MODEL_IDENTITY: tai-qwen3-8b-q4km/u);
-  assert.match(workflow, /LLAMA_BUILD: b9637/u);
-  assert.match(workflow, /TAI_MODEL_HOST/u);
-  assert.match(workflow, /TAI_MODEL_SSH_USER/u);
-  assert.match(workflow, /TAI_MODEL_SSH_KEY/u);
-  assert.match(workflow, /TAI_MODEL_SSH_HOST_KEY/u);
-  assert.match(workflow, /StrictHostKeyChecking=yes/u);
-  assert.match(workflow, /tai-qwen3-8b\.service/u);
-  assert.match(workflow, /MODEL_SHA256_MISMATCH/u);
-  assert.match(workflow, /MODEL_IDENTITY_NOT_SERVED/u);
-  assert.match(workflow, /enable_thinking/u);
-  assert.match(workflow, /response_format/u);
-  assert.match(workflow, /temperature':0/u);
-  assert.match(workflow, /max_tokens':512/u);
-  assert.match(workflow, /review-provider\/local-qwen/u);
-  assert.match(workflow, /LOCAL QWEN INDEPENDENT REVIEW: PASS/u);
-  assert.match(workflow, /Review manifest SHA-256/u);
-  assert.match(workflow, /Prompt bundle SHA-256/u);
-  assert.match(workflow, /"required":\["findings"\]/u);
-  assert.match(workflow, /set\(value\)!=\{'findings'\}/u);
-  assert.match(workflow, /verdict='PASS' if not all_findings else 'BLOCK'/u);
-  assert.match(workflow, /Do not author verdict or summary/u);
-  assert.match(workflow, /json\.dumps\(value,ensure_ascii=True,sort_keys=True,separators=/u);
-  assert.doesNotMatch(workflow, /json\.dumps\(value,ensure_ascii=False,sort_keys=True,separators=/u);
-  assert.doesNotMatch(workflow, /"required":\["verdict","findings","summary"\]/u);
-  assert.doesNotMatch(workflow, /Inconsistent BLOCK in chunk/u);
-  assert.match(workflow, /SPECULATIVE_REASON/u);
-  assert.match(workflow, /TRUSTED_POLICY_REPAIR_NOTICE/u);
-  assert.match(workflow, /POLICY_REPAIR_INVALID_/u);
-  assert.match(workflow, /QWEN3_POLICY_REPAIR_OK=/u);
-  assert.match(workflow, /repair_prompt_sha256/u);
-  assert.match(workflow, /finding\['path'\] != chunk\['path'\]/u);
-  assert.match(workflow, /Policy-inadmissible speculative finding survived repair/u);
-  assert.match(workflow, /'repairs':repair_metadata/u);
-  assert.match(workflow, /Pinned canonical Qwen3 review failed closed/u);
-  assert.doesNotMatch(workflow, /Qwen2\.5-Coder-3B/u);
-  assert.doesNotMatch(workflow, /huggingface\.co\/Qwen\/Qwen2\.5/u);
-  assert.doesNotMatch(workflow, /actions\/checkout/u);
-});
-
-function qwenLiteralSource(value) {
-  // Decode only the fixed ten-space prefix of these checked-in run literals.
-  return value.split('\n').map(line=>{
-    if(!line.length) return line;
-    assert.ok(line.startsWith('          '),'unexpected workflow literal indentation');
-    return line.slice(10);
-  }).join('\n');
+// Actual GitHub response shape from #5422 check 105669150123: checks.create's
+// requested /actions/runs URL was rewritten to /runs/<check-id>, with no external_id.
+const observedHead = 'ed9306da7d2ef5536c50b3a97ff26e6f4ea3b38d';
+const observedNativeCheck = {
+  id: 105669150123, name: 'Exact-head clean-comment gate', head_sha: observedHead, external_id: '',
+  details_url: `https://github.com/${repo}/runs/105669150123`,
+  status: 'completed', conclusion: 'failure', started_at: '2026-09-18T16:03:48Z', completed_at: '2026-09-18T16:03:54Z',
+  app: { id: 15368, slug: 'github-actions' }, check_suite: { id: 95717609014 },
+  output: { title: 'Engineering readiness blocked', summary: `PR #5422; exact head ${observedHead}. Engineering readiness blocked; manual merge is not ready. No independent-review approval or merge authority is issued.`, text: null, annotations_count: 0 },
+};
+const observedReadinessStatus = {
+  id: 54461440856, context: 'merge-readiness/exact-head', state: 'failure',
+  description: 'Engineering readiness blocked; manual merge is not ready',
+  target_url: `https://github.com/${repo}/actions/runs/35366171823`, created_at: '2026-09-18T16:03:53Z',
+  creator: { login: 'github-actions[bot]', id: 41898282, type: 'Bot' },
+};
+const observedPublisherRun = {
+  id: 35366171823, name: 'Repo automations', path: '.github/workflows/automerge.yml',
+  repository: { full_name: repo }, head_repository: { full_name: repo },
+  head_sha: 'e7f42bbdbceedd9c384d78a3e3a2a81f3c12a38d', head_branch: 'main', event: 'issue_comment',
+  status: 'completed', conclusion: 'failure', workflow_id: 259435281, run_number: 40936, run_attempt: 1,
+  created_at: '2026-09-18T16:03:33Z', updated_at: '2026-09-18T16:03:57Z',
+};
+function nativeFixture() {
+  const f = fixture();
+  const check = structuredClone(observedNativeCheck);
+  check.head_sha = head; check.output.summary = check.output.summary.replace(observedHead, head);
+  const status = structuredClone(observedReadinessStatus);
+  const publisher = structuredClone(observedPublisherRun);
+  f.data.checks.push(check); f.data.statuses.push(status); f.data.runs.push(publisher);
+  // Trusted-main publisher is fetched via status binding, not the exact-PR-head inventory.
+  f.data.runPages = [{ total_count: 1, workflow_runs: [f.data.run] }];
+  return { ...f, nativeCheck: check, readinessStatus: status, publisher };
 }
 
-const rejectedEvidenceHarness=String.raw`
-import ast, hashlib, json, os, pathlib, re, subprocess, sys, tempfile
-remote, validator, transport, cleanup, scenario = sys.argv[1:]
-tree=ast.parse(remote)
-constants={'SPECULATIVE_REASON','SECURITY_CLASSIFICATION','ROUTE_TEST_REFERENCE'}
-functions={'fail','policy_violation','repair_user','save_rejected'}
-definitions=[node for node in tree.body if isinstance(node,ast.FunctionDef) and node.name in functions or isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id in constants for t in node.targets)]
-loop=[node for node in tree.body if isinstance(node,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='repairs' for t in node.targets) or isinstance(node,ast.With) and any(isinstance(i.context_expr,ast.Call) and isinstance(i.context_expr.func,ast.Attribute) and isinstance(i.context_expr.func.value,ast.Name) and i.context_expr.func.value.id=='output_path' for i in node.items)]
-with tempfile.TemporaryDirectory() as directory:
-    root=pathlib.Path(directory)
-    manifest={'full_diff_sha256':'d'*64,'chunks':[{'index':1,'path':'src/changed.mjs','sha256':'c'*64}]}
-    manifest_path=root/'review-manifest.json'
-    manifest_path.write_text(json.dumps(manifest))
-    manifest_sha=hashlib.sha256(manifest_path.read_bytes()).hexdigest()
-    namespace={'json':json,'re':re,'hashlib':hashlib,'review_head':'a'*40,'run_id':'123','run_attempt':'2','diff_sha':'d'*64,'manifest_sha':manifest_sha,'bearer':'PRIVATE_TOKEN_CANARY','host':'PRIVATE_HOST_CANARY'}
-    exec(compile(ast.Module(body=definitions,type_ignores=[]),'<actual-qwen-functions>','exec'),namespace)
-    original_save=namespace['save_rejected']
-    item={'index':1,'path':'src/changed.mjs','chunk_sha256':'c'*64,'system':'trusted fixture policy','user':'public fixture diff'}
-    def response(reason):
-        return json.dumps({'findings':[{'severity':'P1','path':item['path'],'line':1,'title':'Concrete fixture','reason':reason}]},ensure_ascii=False)
-    initial=response('This change could fail for the public fixture.')
-    final=response('This change may fail for the public fixture.')
-    def review(responses, save=None, request=None):
-        folder=root/('review-'+str(len(list(root.glob('review-*')))))
-        folder.mkdir()
-        output=folder/'review-responses.jsonl'
-        calls=[]
-        def completion(system,user):
-            calls.append((system,user))
-            return responses[len(calls)-1]
-        namespace.update(output_path=output,requests=[request or item],completion=completion,save_rejected=save or original_save)
-        failure=None
-        try: exec(compile(ast.Module(body=loop,type_ignores=[]),'<actual-qwen-loop>','exec'),namespace)
-        except SystemExit as error: failure=str(error)
-        return output,folder/'review-rejected.json',calls,failure
-    def validate(raw, expected=True):
-        source=root/'untrusted-rejected.json'; destination=root/'validated-rejected.json'
-        destination.unlink(missing_ok=True)
-        source.write_bytes(raw)
-        args=[str(source),str(manifest_path),str(destination),'a'*40,'123','2','d'*64,manifest_sha]
-        result=subprocess.run([sys.executable,'-c',validator,*args],capture_output=True,text=True)
-        assert (result.returncode==0)==expected,(result.returncode,result.stderr)
-        assert result.stdout==''
-        assert 'PRIVATE_' not in result.stderr
-        assert destination.exists()==expected
-        if expected:
-            assert destination.read_bytes()==raw
-            assert destination.stat().st_mode & 0o777 == 0o600
-    if scenario=='failed-repair':
-        output,rejected,calls,failure=review([initial,final])
-        assert failure=='REMOTE_REVIEW_ERROR=POLICY_REPAIR_INVALID_SPECULATIVE_REASON'
-        assert len(calls)==2 and output.read_text()==''
-        raw=rejected.read_bytes(); value=json.loads(raw)
-        assert len(raw)<=65536 and rejected.stat().st_mode & 0o777 == 0o600
-        assert value['initial']['content']==initial and value['final']['content']==final
-        assert value['repair_prompt_sha256']==hashlib.sha256(calls[1][1].encode()).hexdigest()
-        assert b'PRIVATE_TOKEN_CANARY' not in raw and b'PRIVATE_HOST_CANARY' not in raw
-        validate(raw)
-    elif scenario=='unchanged-review':
-        for responses in [['{"findings":[]}'],[initial,'{"findings":[]}'],[response('The changed branch returns the wrong value for input zero.')]]:
-            output,rejected,calls,failure=review(responses)
-            assert failure is None and len(calls)==len(responses) and not rejected.exists()
-            assert json.loads(output.read_text())['content']==responses[-1]
-    elif scenario=='diagnostic-write-failure':
-        for error in (OSError('fixture disk error'),KeyError('fixture metadata')):
-            def broken(*args): raise error
-            output,rejected,calls,failure=review([initial,final],broken)
-            assert failure=='REMOTE_REVIEW_ERROR=POLICY_REPAIR_INVALID_SPECULATIVE_REASON'
-            assert len(calls)==2 and output.read_text()=='' and not rejected.exists()
-    elif scenario=='utf8-and-bounds':
-        output,rejected,calls,failure=review([response('could: я中🌾'),response('may: я中🌾')])
-        raw=rejected.read_bytes(); value=json.loads(raw)
-        for key in ('initial','final'):
-            content=value[key]['content'].encode('utf-8')
-            assert value[key]['utf8_bytes']==len(content) and value[key]['sha256']==hashlib.sha256(content).hexdigest()
-        validate(raw)
-        validate(raw+b' '*(65536-len(raw)))
-        validate(raw+b' '*(65537-len(raw)),False)
-        validate(raw.decode().encode('utf-16'),False)
-        output,rejected,calls,failure=review([response('could '+'\x00'*20000),final])
-        assert failure=='REMOTE_REVIEW_ERROR=POLICY_REPAIR_INVALID_SPECULATIVE_REASON' and not rejected.exists()
-    elif scenario=='binding-and-schema':
-        _,rejected,_,_=review([initial,final]); original=json.loads(rejected.read_bytes())
-        mutations=[lambda v:v.update(head='b'*40),lambda v:v.update(run_id='124'),lambda v:v.update(run_attempt='3'),
-            lambda v:v.update(full_diff_sha256='e'*64),lambda v:v.update(manifest_sha256='f'*64),
-            lambda v:v['chunk'].update(index=2),lambda v:v['chunk'].update(path='src/other.mjs'),lambda v:v['chunk'].update(sha256='e'*64),
-            lambda v:v['initial'].update(content='changed'),lambda v:v['final'].update(sha256='e'*64),lambda v:v['final'].update(utf8_bytes=True),
-            lambda v:v.update(private_host='PRIVATE_HOST_CANARY')]
-        for mutate in mutations:
-            value=json.loads(json.dumps(original)); mutate(value); validate(json.dumps(value).encode(),False)
-    elif scenario=='failed-transport':
-        _,rejected,_,_=review([initial,final])
-        for mode in ('valid','invalid','unavailable'):
-            runner=root/mode; runner.mkdir()
-            (runner/'review-manifest.json').write_bytes(manifest_path.read_bytes())
-            fixture=root/('fixture-'+mode+'.json')
-            fixture.write_bytes(rejected.read_bytes() if mode=='valid' else b'{"private_host":"PRIVATE_HOST_CANARY"}')
-            env={'PATH':os.environ['PATH'],'RUNNER_TEMP':str(runner),'FIXTURE_REJECTED':str(fixture),'COPY_MODE':mode,
-                'REVIEW_HEAD':'a'*40,'GITHUB_RUN_ID':'123','GITHUB_RUN_ATTEMPT':'2','REVIEW_DIFF_SHA256':'d'*64,'REVIEW_MANIFEST_SHA256':manifest_sha}
-            setup='''set -Eeuo pipefail
-umask 077
-ssh_opts=(); scp_opts=()
-MODEL_USER=fixture; MODEL_HOST=fixture; MODEL_IDENTITY=fixture; MODEL_SHA256=fixture; MODEL_SIZE_BYTES=1; LLAMA_SOURCE_COMMIT=fixture; remote_dir=fixture
-ssh(){ return 23; }
-scp(){ if [[ "$COPY_MODE" == unavailable ]]; then return 27; fi; local destination; for destination; do :; done; cp "$FIXTURE_REJECTED" "$destination"; }
-'''
-            script=setup+cleanup+'\ntrap cleanup EXIT\n'+transport
-            result=subprocess.run(['bash'],input=script,env=env,capture_output=True,text=True)
-            assert result.returncode==23,(mode,result.returncode,result.stderr)
-            assert 'PRIVATE_' not in result.stdout+result.stderr
-            assert not (runner/'review-rejected.raw.json').exists()
-            assert not (runner/'review-rejected.tmp').exists()
-            assert (runner/'review-rejected.json').exists()==(mode=='valid')
-    else: raise AssertionError('unknown scenario')
-`;
+test('observed GitHub rewritten native check is correlated without treating check ID as workflow run ID', () => {
+  const binding = nativeReadinessRunCandidates(observedNativeCheck, [observedReadinessStatus], repo, 5422, observedHead);
+  assert.equal(binding.runId, '35366171823');
+  assert.notEqual(binding.runId, String(observedNativeCheck.id));
+  assert.equal(nativeReadinessMatchesRun(binding, observedPublisherRun, repo, 5422, observedHead, 'fix/provider-review-scope-guard-20260918'), true);
+  const f = nativeFixture();
+  assert.equal(verify(f).status, 'READY_FOR_MANUAL_REVIEW');
+  assert.ok(f.calls.some(args => args.includes(`repos/${repo}/actions/runs/35366171823`)));
+  assert.equal(f.calls.some(args => args.includes(`repos/${repo}/actions/runs/105669150123`)), false);
+});
 
-for(const scenario of ['failed-repair','unchanged-review','diagnostic-write-failure','utf8-and-bounds','binding-and-schema','failed-transport']) {
-  test(`Qwen rejected evidence executes the actual workflow: ${scenario}`,()=>{
-    const workflow=readFileSync(new URL('../../../.github/workflows/local-qwen-independent-review.yml',import.meta.url),'utf8');
-    const block=marker=>{
-      const index=workflow.indexOf(marker); assert.ok(index>=0,'expected actual Python block');
-      const match=workflow.slice(index).match(/<<'PY'\n([\s\S]*?)\n          PY\n/);
-      assert.ok(match,'expected fixed literal heredoc'); return qwenLiteralSource(match[1]);
-    };
-    const start=workflow.indexOf('          inference_status=0\n');
-    const end=workflow.indexOf('          scp "${scp_opts[@]}" "$MODEL_USER@$MODEL_HOST:$remote_dir/review-responses.jsonl"',start);
-    assert.ok(start>=0 && end>start,'expected actual failure transport');
-    const cleanup=workflow.match(/          (cleanup\(\)\{[^\n]+)\n/); assert.ok(cleanup);
-    const result=spawnSync('python3',['-c',rejectedEvidenceHarness,
-      block('cat > "$RUNNER_TEMP/remote-review.py"'),block('if python3 - "$RUNNER_TEMP/review-rejected.raw.json"'),
-      qwenLiteralSource(workflow.slice(start,end)),cleanup[1],scenario],{encoding:'utf8'});
-    assert.equal(result.status,0,result.stderr); assert.equal(result.stdout,'');
-    assert.match(workflow,/if: always\(\) && steps\.inference\.outcome == 'failure'/);
-    assert.match(workflow,/path: \$\{\{ runner\.temp \}\}\/review-rejected\.json/);
-    const canonicalizer=workflow.slice(workflow.indexOf('- name: Validate and canonicalize independent review'));
-    assert.doesNotMatch(canonicalizer,/review-rejected/,'diagnostics cannot become review authority');
-  });
-}
+test('new explicit external_id safely identifies an in-progress rewritten readiness check', () => {
+  const f = nativeFixture();
+  Object.assign(f.nativeCheck, { status: 'in_progress', conclusion: null, completed_at: null,
+    external_id: `platform-v7.merge-readiness.v1:pr:5422:head:${head}:run:35366171823`,
+    output: { title: 'Engineering readiness evaluation', summary: 'Independent review and a manual exact-SHA merge remain required.', text: null, annotations_count: 0 } });
+  Object.assign(f.readinessStatus, { state: 'pending', created_at: '2026-09-18T16:03:49Z', description: 'Engineering readiness is being evaluated; manual review remains required' });
+  Object.assign(f.publisher, { status: 'in_progress', conclusion: null, updated_at: '2026-09-18T16:03:35Z' });
+  assert.equal(verify(f).status, 'READY_FOR_MANUAL_REVIEW');
+  f.nativeCheck.external_id = '';
+  expectBlocked(f, 'MERGE_READINESS_CI_NATIVE_CHECK_PROVENANCE_INVALID');
+});
 
-test('review reconciliation workflow uses supported dispatch wiring and complete pagination', () => {
-  const workflow = readFileSync(new URL('../../../.github/workflows/automerge.yml', import.meta.url), 'utf8');
-  assert.doesNotMatch(workflow, /^\s*pull_request_review_thread:/mu);
-  assert.match(workflow, /^\s*types:\s*\[[^\]]*ready_for_review[^\]]*converted_to_draft[^\]]*\]\s*$/mu);
-  assert.match(workflow, /^\s*repository_dispatch:\s*$/mu);
-  assert.match(workflow, /^\s*types:\s*\[review-gate-reconcile\]\s*$/mu);
-  assert.match(workflow, /group:\s*repo-automerge-\$\{\{[^\n]*github\.event\.client_payload\.pr_number[^\n]*\}\}/u);
-  assert.match(workflow, /^\s*cancel-in-progress:\s*false\s*$/mu);
-  assert.doesNotMatch(workflow, /^\s*cancel-in-progress:\s*true\s*$/mu);
-  assert.match(workflow, /^\s*queue:\s*max\s*$/mu);
-  const strictDraftEligibilityChecks = workflow.match(/\[ "\$draft" = false \]/gu) || [];
-  assert.ok(strictDraftEligibilityChecks.length >= 2);
-  const finalLiveStateChecks = workflow.match(/--json headRefOid,isDraft,state/gu) || [];
-  assert.ok(finalLiveStateChecks.length >= 3);
-  const draftInvalidations = workflow.match(/\[ "\$current_state" != OPEN \] \|\| \[ "\$current_draft" != false \]/gu) || [];
-  assert.ok(draftInvalidations.length >= 3);
-  const incompleteStateInvalidations = workflow.match(/Exact-head review authority invalidated by incomplete live PR state/gu) || [];
-  assert.ok(incompleteStateInvalidations.length >= 3);
-  const publisherAuthorityFailures = workflow.match(/if \[ "\$state" != success \]; then\s+exit 1\s+fi/gu) || [];
-  assert.ok(publisherAuthorityFailures.length >= 3);
-  assert.match(workflow, /^\s*exact-head-dispatched-gate:\s*$/mu);
-  assert.match(workflow, /github\.event_name == 'repository_dispatch' && github\.event\.action == 'review-gate-reconcile'/u);
-  assert.match(workflow, /PR_NUMBER:\s*\$\{\{ github\.event\.client_payload\.pr_number \}\}/u);
-  assert.match(workflow, /EXPECTED_HEAD:\s*\$\{\{ github\.event\.client_payload\.head_sha \}\}/u);
-  assert.match(workflow, /gh api --paginate --slurp/u);
-  assert.match(workflow, /repos\/\$REPO\/pulls\?state=open&per_page=100/u);
-  assert.match(workflow, /repos\/\$REPO\/dispatches/u);
-  assert.match(workflow, /event_type=review-gate-reconcile/u);
-  assert.match(workflow, /client_payload\[pr_number\]=\$pr_number/u);
-  assert.match(workflow, /client_payload\[head_sha\]=\$head_sha/u);
+test('pull_request_target publisher requires the matching PR/head/ref tuple', () => {
+  const f = nativeFixture();
+  f.nativeCheck.external_id = `platform-v7.merge-readiness.v1:pr:5422:head:${head}:run:35366171823`;
+  Object.assign(f.publisher, { event: 'pull_request_target', head_sha: head, head_branch: exactHeadRef,
+    pull_requests: [{ number: 5422, head: { sha: head, ref: exactHeadRef }, base: { ref: 'main' } }] });
+  assert.equal(verify(f).status, 'READY_FOR_MANUAL_REVIEW');
+  f.publisher.pull_requests[0].number = 9999;
+  expectBlocked(f, 'MERGE_READINESS_CI_NATIVE_CHECK_PROVENANCE_INVALID');
+});
+
+test('legacy attribution retains historical statuses rather than only the latest context value', () => {
+  const f = nativeFixture();
+  f.data.statuses.unshift({ ...f.readinessStatus, id: f.readinessStatus.id + 1,
+    created_at: '2026-09-18T17:00:00Z', target_url: `https://github.com/${repo}/actions/runs/42` });
+  assert.equal(verify(f).status, 'READY_FOR_MANUAL_REVIEW');
+});
+
+test('a name, rewritten URL or shared Actions app alone cannot suppress another check', () => {
+  const mutations = [
+    c => { c.app.id = 999; }, c => { c.name = 'security'; }, c => { c.output.title = 'Security check'; },
+    c => { c.output.annotations_count = 1; }, c => { c.output.text = 'real finding'; },
+    c => { c.output.summary += ' Additional finding'; }, c => { c.details_url += '?untrusted=1'; },
+    c => { c.external_id = 42; }, c => { c.external_id = 'invalid'; },
+    c => { c.external_id = `platform-v7.merge-readiness.v1:pr:9999:head:${head}:run:35366171823`; },
+    c => { c.external_id = `platform-v7.merge-readiness.v1:pr:5422:head:${oldHead}:run:35366171823`; },
+    c => { c.external_id = `platform-v7.merge-readiness.v1:pr:5422:head:${head}:run:123`; },
+  ];
+  for (const mutate of mutations) { const f = nativeFixture(); mutate(f.nativeCheck); expectBlocked(f, 'MERGE_READINESS_CI_NATIVE_CHECK_PROVENANCE_INVALID'); }
+});
+
+test('native correlation rejects absent, foreign, ambiguous or out-of-window status evidence', () => {
+  for (const mutate of [
+    f => { f.data.statuses = []; }, f => { f.readinessStatus.creator.id = 1; },
+    f => { f.readinessStatus.creator.login = 'owner'; }, f => { f.readinessStatus.created_at = '2026-09-18T16:03:47Z'; },
+    f => { f.readinessStatus.created_at = '2026-09-18T16:03:55Z'; },
+    f => { f.readinessStatus.target_url = 'https://github.com/foreign/repo/actions/runs/35366171823'; },
+    f => { f.readinessStatus.description = 'looks ready'; },
+    f => { f.data.statuses.push({ ...f.readinessStatus, id: f.readinessStatus.id + 1, target_url: `https://github.com/${repo}/actions/runs/42` }); },
+  ]) { const f = nativeFixture(); mutate(f); expectBlocked(f, 'MERGE_READINESS_CI_NATIVE_CHECK_PROVENANCE_INVALID'); }
+});
+
+test('native correlation still verifies trusted workflow metadata and event provenance', () => {
+  for (const changes of [
+    { name: 'Security' }, { path: '.github/workflows/security.yml' }, { event: 'pull_request' },
+    { head_branch: 'untrusted' }, { head_sha: 'malformed' }, { head_repository: { full_name: 'foreign/repo' } },
+    { created_at: '2026-09-18T16:03:49Z' }, { updated_at: '2026-09-18T16:03:52Z' },
+    { run_attempt: 0 }, { status: 'queued' },
+  ]) { const f = nativeFixture(); Object.assign(f.publisher, changes); expectBlocked(f, 'MERGE_READINESS_CI_NATIVE_CHECK_PROVENANCE_INVALID'); }
+});
+
+test('valid native self-check attribution never hides a substantive security failure', () => {
+  const f = nativeFixture(); f.data.checks[0].name = 'security'; f.data.checks[0].conclusion = 'failure';
+  expectBlocked(f, 'MERGE_READINESS_CI_NOT_GREEN');
 });
