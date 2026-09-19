@@ -493,6 +493,33 @@ if (branch === publicHomeGovernanceBranch) {
     throw new Error(`P7_IMMUTABLE_SCOPE: cannot load ${baseRef}:${stateFile}: ${message}`);
   }
   scopes = state.approvedConcurrentScopes?.[branch];
+
+  // Final Public branches transition to trusted-base state admission through a separate
+  // governance PR. Until that state entry lands, use only the already-merged
+  // base-owned manifest. Never read scope authority from the PR head.
+  if (!Array.isArray(scopes) || scopes.length === 0) {
+    const finalPublicManifestByBranch = new Map([
+      ['agent/platform-v7-strategic-rebuild-v3', 'docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json'],
+      ['p0/farmer-public-market-teaser-20260913', 'docs/platform-v7/autopilot/scopes/farmer-public-market-teaser-20260913.json'],
+      ['fix/public-registration-final-copy-4916', 'docs/platform-v7/autopilot/scopes/public-registration-final-copy-4916.json'],
+      ['fix/public-deal-journey-10of10-current-main-20260808', 'docs/platform-v7/autopilot/scopes/public-deal-journey-10of10-20260808.json'],
+    ]);
+    const manifestPath = finalPublicManifestByBranch.get(branch);
+    if (manifestPath) {
+      let manifest;
+      try {
+        const raw = execFileSync('git', ['show', `${baseRef}:${manifestPath}`], { encoding: 'utf8' });
+        manifest = JSON.parse(raw);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`P7_IMMUTABLE_SCOPE: cannot load accepted Final Public manifest: ${message}`);
+      }
+      if (manifest?.branch !== branch || manifest?.status !== 'active' || !Array.isArray(manifest?.allowedPaths) || manifest.allowedPaths.length === 0) {
+        throw new Error('P7_IMMUTABLE_SCOPE: accepted Final Public manifest identity is invalid');
+      }
+      scopes = manifest.allowedPaths;
+    }
+  }
 }
 
 if (!Array.isArray(scopes) || scopes.length === 0) {
