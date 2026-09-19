@@ -209,7 +209,12 @@
     ".github/workflows/ci.yml"
   ],
   "approvedConcurrentScopes": {
-    "fix/provider-review-scope-guard-20260918": ["scripts/p7-autopilot-guard.sh", "scripts/p7-autopilot-guard.test.mjs", ".github/workflows/platform-v7-autopilot-guard.yml", "docs/platform-v7/autopilot/autopilot-state.json"],
+    "fix/provider-review-scope-guard-20260918": [
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs",
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "docs/platform-v7/autopilot/autopilot-state.json"
+    ],
     "governance/kind-minio-image-source-20260912": [
       ".github/workflows/platform-v7-autopilot-guard.yml",
       "docs/platform-v7/autopilot/autopilot-state.json",
@@ -1436,6 +1441,42 @@
       "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
       "apps/web/tests/unit/firstCustomerWorkspaceSnapshot.test.ts",
       ".github/workflows/ci.yml"
+    ],
+    "agent/platform-v7-strategic-rebuild-v3": [
+      "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
+      "apps/web/components/platform-v7/PublicDealRoleScenario.tsx",
+      "apps/web/i18n/platform-v7-hero-message.ts",
+      "apps/web/i18n/platform-v7-organization-connect.ts",
+      "apps/web/styles/platform-v7-strategic-home-v3.css",
+      "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
+      "apps/web/tests/e2e/platform-v7-role-human-acceptance.spec.ts",
+      "apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts",
+      "apps/web/tests/unit/platformV7DealScenarioProductionCopy.test.ts",
+      "apps/web/tests/unit/platformV7HeroInfrastructureMessage.test.ts",
+      "apps/web/tests/unit/platformV7HomeFinalPolish.test.ts",
+      "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+      "apps/web/tests/unit/platformV7StrategicHomeSafety.test.ts"
+    ],
+    "p0/farmer-public-market-teaser-20260913": [
+      "apps/api/src/modules/auctions/public-auction-market.spec.ts",
+      "apps/web/components/platform-v7/PublicMarketTeaser.module.css",
+      "apps/web/components/platform-v7/PublicMarketTeaser.tsx"
+    ],
+    "fix/public-registration-final-copy-4916": [
+      "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
+      "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
+      "apps/web/app/platform-v7/register/page.tsx",
+      "apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts"
+    ],
+    "fix/public-deal-journey-10of10-current-main-20260808": [
+      "apps/web/app/platform-v7/how-it-works/page.tsx"
+    ],
+    "agent/platform-v7-product-copy": [
+      "apps/web/tests/unit/platformV7HomepageProductCopy.test.ts"
+    ],
+    "ops/production-full-stack-release-v1": [
+      "scripts/check-production-full-stack-release.mjs",
+      "scripts/production-full-stack-live-acceptance.sh"
     ]
   },
   "currentAcceptance": [
