@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path';
+import { validateRuntimeCounts } from './validate-production-like-outbox-runtime-counts.mjs';
 
 const exactHead = process.env.EXACT_HEAD;
 const evidenceRoot = process.env.EVIDENCE_DIR || 'artifacts/industrial-readiness';
@@ -29,18 +30,38 @@ const number = (value, fallback = 999) => {
 
 const runtime = readJson(runtimeReportPath);
 const stale = readJson(staleReportPath);
+const outcomeSnapshot = readJson(path.join(runtimeDir, 'terminal-outcome-counts.json'));
+const measuredCounts = validateRuntimeCounts({
+  snapshot: outcomeSnapshot,
+  exactHead,
+  runId: runtime?.runId,
+  ambiguity: read('lease-recovery-ambiguity.txt'),
+  leaseSnapshot: read('killed-lease-snapshot.txt'),
+});
 const outageSummary = read('kafka-outage-summary.txt') || '';
-const outageRetries = number(outageSummary.match(/retries=(\d+)/)?.[1], 0);
+const outageRetriesRaw = outageSummary.match(/\bretries=(\d+)\b/u)?.[1];
+const outageRetries = outageRetriesRaw === undefined ? null : Number(outageRetriesRaw);
+const poisonDefinitiveRaw = read('poison-definitive-rejection.txt') || '';
+const poisonDefinitiveParts = poisonDefinitiveRaw.split('|');
+const poisonDefinitiveRejection = {
+  status: poisonDefinitiveParts[0] || null,
+  retryCount: /^\d+$/u.test(poisonDefinitiveParts[1] || '')
+    ? Number(poisonDefinitiveParts[1])
+    : null,
+  category: poisonDefinitiveParts[2] || null,
+  code: poisonDefinitiveParts[3] || null,
+  leaseState: poisonDefinitiveParts[4] || null,
+  deliveryState: poisonDefinitiveParts[5] || null,
+};
 
-// Count semantics are explicit because the outbox schema stores retry transitions,
-// not an append-only claim audit. Distinct claimed rows, terminal outcomes and the
-// forced abandoned lease are exact. The retry value is a proven lower bound from
-// persisted outage retries plus the two poison attempts required for DEAD_LETTER.
-const claimed = 343;
-const delivered = 342;
-const retried = outageRetries + 2;
-const dead = 1;
-const leaseLost = 1;
+// Terminal counts come from the final run-bound database snapshot, including the
+// ambiguous killed-owner row that must remain quarantined, never counted SENT.
+// The retry value is a proven lower bound from
+// persisted Kafka-outage retry transitions only. The poison fixture now proves a
+// definitive permanent broker rejection on its first failed attempt, so counting
+// that failure as a retry would overstate the evidence.
+const { claimed, delivered, dead, quarantined, leaseLost } = measuredCounts;
+const retried = outageRetries;
 
 const actual = runtime?.actualMeasurements || {};
 const recoveryDurationSeconds = Math.max(
@@ -49,7 +70,8 @@ const recoveryDurationSeconds = Math.max(
   number(actual.backlogRecoverySeconds),
 );
 
-const violations = [];
+const violations = [...measuredCounts.violations];
+if (!Number.isSafeInteger(retried) || retried < 0) violations.push('missingOrInvalidOutageRetryEvidence');
 if (!exactHead || !/^[0-9a-f]{40}$/.test(exactHead)) violations.push('invalidExactHead');
 if (!runtime) violations.push('missingDeepRuntimeReport');
 if (!stale) violations.push('missingStaleTokenReport');
@@ -68,12 +90,19 @@ if (actual.poisonHealthyDelivered !== 20) violations.push('poisonIsolationDelive
 if (actual.backlogEntries !== 300) violations.push('backlogEntryCount');
 if (actual.missingKafkaDeliveries !== 0) violations.push('missingKafkaDeliveries');
 if (actual.duplicateKafkaDeliveries !== 0) violations.push('duplicateKafkaDeliveries');
+if (poisonDefinitiveRejection.status !== 'DEAD_LETTER') violations.push('poisonDefinitiveStatus');
+if (poisonDefinitiveRejection.retryCount !== 1) violations.push('poisonDefinitiveRetryCount');
+if (poisonDefinitiveRejection.category !== 'PERMANENT') violations.push('poisonDefinitiveCategory');
+if (poisonDefinitiveRejection.code !== 'KAFKA_MESSAGE_TOO_LARGE') violations.push('poisonDefinitiveCode');
+if (poisonDefinitiveRejection.leaseState !== 'no-lease') violations.push('poisonDefinitiveLeaseState');
+if (poisonDefinitiveRejection.deliveryState !== 'unsent') violations.push('poisonDefinitiveDeliveryState');
 
 const pass = violations.length === 0;
 const report = {
   schemaVersion: 1,
   repository: process.env.GITHUB_REPOSITORY || 'pachaninm-lab/pachanin-demo',
   commitSha: exactHead || null,
+  runId: runtime?.runId || null,
   branch: process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME || 'unknown',
   environment: 'github-actions-multi-node-kind-production-like',
   timestamp: new Date().toISOString(),
@@ -86,14 +115,19 @@ const report = {
   delivered,
   retried,
   dead,
+  quarantined,
   leaseLost,
   countSemantics: {
     claimed: 'Exact number of distinct deep-runtime acceptance rows presented to the worker topology.',
     delivered: 'Exact number of acceptance rows ending SENT after the measured scenarios.',
-    retried: 'Proven lower bound: persisted Kafka-outage retry transitions plus two poison attempts; claim attempts are not append-only in the current schema.',
+    retried: 'Proven lower bound from persisted Kafka-outage retry transitions; the definitive poison rejection is a failed first attempt, not a retry, and claim attempts are not append-only in the current schema.',
     dead: 'Exact number of poison acceptance rows ending DEAD_LETTER.',
+    quarantined: 'Exact number of attempted killed-owner rows remaining MANUAL_REVIEW and unsent after lease expiry; they are not automatically redriven.',
     leaseLost: 'Exact number of force-killed worker leases intentionally abandoned in the pod-kill scenario.',
   },
+  poisonDefinitiveRejection,
+  outcomeSnapshot,
+  leaseQuarantine: measuredCounts.quarantine,
   recoveryDurationSeconds,
   recoveryDurations: {
     kafkaOutage: actual.outageRecoverySeconds ?? null,
@@ -112,6 +146,10 @@ const report = {
     'artifacts/industrial-readiness/kubernetes/outbox-runtime/graceful-worker.log',
     'artifacts/industrial-readiness/kubernetes/outbox-runtime/kafka-outage-summary.txt',
     'artifacts/industrial-readiness/kubernetes/outbox-runtime/lease-recovery-summary.txt',
+    'artifacts/industrial-readiness/kubernetes/outbox-runtime/lease-recovery-ambiguity.txt',
+    'artifacts/industrial-readiness/kubernetes/outbox-runtime/killed-lease-snapshot.txt',
+    'artifacts/industrial-readiness/kubernetes/outbox-runtime/terminal-outcome-counts.json',
+    'artifacts/industrial-readiness/kubernetes/outbox-runtime/poison-definitive-rejection.txt',
     'artifacts/industrial-readiness/kubernetes/outbox-runtime/poison-summary.txt',
     'artifacts/industrial-readiness/kubernetes/outbox-runtime/backlog-summary.txt',
     'artifacts/industrial-readiness/kubernetes/outbox-runtime/kafka-backlog-consumer.log',

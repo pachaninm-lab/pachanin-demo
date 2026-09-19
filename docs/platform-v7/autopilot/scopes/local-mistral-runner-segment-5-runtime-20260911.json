@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/local-mistral-runner-segment-5-runtime-20260911",
+  "status": "active",
+  "purpose": "Stage and independently review the fifth inert segment of the future Local Mistral reviewer: bounded loopback-only llama-server lifecycle and deterministic schema-constrained model invocation without workflow activation or publication.",
+  "authorityBaseExactMain": "63d1704f19d3e30828cc6d60fae1a34798941c5f",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/bootstrap/local-mistral-runner.py.inert",
+    "docs/platform-v7/autopilot/scopes/local-mistral-runner-segment-5-runtime-20260911.json"
+  ],
+  "requiredInvariants": [
+    "The staged .inert file is not executed or referenced by any workflow.",
+    "Runtime launch is restricted to the already hash-verified llama-server binary and model artifact admitted by prior segments.",
+    "The future local server binds only to 127.0.0.1, uses a per-process random API bearer, strips LLAMA_ARG_* and legacy API/port environment overrides, and exposes no web UI.",
+    "Startup is bounded and fail-closed; the served model identity must be observed through /v1/models before a candidate can be requested.",
+    "HTTP responses are size-bounded, status-checked and JSON-object checked; transport, schema, model identity, choice count and finish-reason failures cannot become PASS.",
+    "Generation is deterministic by policy: temperature=0, top_p=1, seed=424242, bounded max_tokens, streaming disabled and strict JSON-schema response format.",
+    "This segment returns only an in-process raw candidate. It does not write output evidence, publish a status/review, or activate any workflow.",
+    "Sensitive-output filtering, evidence/attestation publication and provider/verifier authority remain separately governed prerequisites before activation.",
+    "Local Qwen workflow and exact-head verifier remain unchanged and are the independent authority for this PR.",
+    "No product, API, database, RBAC, registration, cabinet, customer-data or production-routing behavior changes.",
+    "Production hosting remains REG_RU_VPS_ONLY and new recurring cost remains 0 RUB."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
