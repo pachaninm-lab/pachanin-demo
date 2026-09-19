@@ -10,6 +10,8 @@ const finalPublicBranches = [
   'p0/farmer-public-market-teaser-20260913',
   'fix/public-registration-final-copy-4916',
   'fix/public-deal-journey-10of10-current-main-20260808',
+  'agent/platform-v7-product-copy',
+  'ops/production-full-stack-release-v1',
 ];
 const implementationBranches = [
   'fix/p0-registration-authority-rollover-4637',
