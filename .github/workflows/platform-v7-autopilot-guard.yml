@@ -182,6 +182,7 @@ on:
       - 'apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts'
       - 'apps/web/components/platform-v7/PublicAiInActionSimpleExperience.tsx'
       - 'apps/web/app/platform-v7/ai-in-action/page.tsx'
+      - 'apps/web/tests/unit/gektaPublicBrandContract.test.ts'
       - 'scripts/production-full-stack-live-acceptance.sh'
 
 concurrency:
