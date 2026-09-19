@@ -341,3 +341,65 @@ existing web-unit test selection must pass. Readiness/production claims unchange
 Review IR-20 Canonical Durable Outbox strictly against the state allowed scope and queue.
 
 Return PASS or BLOCKED. If BLOCKED, include blocker, file, why risk and exact fix.
+
+## Owner-authorized bounded industrial-load diagnostics — 2026-09-19
+
+PR #5436 exact head f3ab1a37583dc20845ee07062a87abca8b86b305 failed
+CI run 35461479056 / job 105946017745: one of twelve concurrent Deal cycles
+rejected. AggregateError output hides the nested cause and failing phase.
+Adjacent transaction-conflict warnings are not proof of the rejected cause.
+The owner explicitly authorized the proposed separate diagnostic PR.
+
+Admit branch `test/industrial-load-diagnostics-20260919` for exactly
+`apps/api/test/industrial/load-proof.e2e-spec.ts`. Permit bounded, redacted
+failure diagnostics with controlled fixture index, action/phase and attempt,
+and diagnostic regression assertions within that existing test file.
+Never log raw error messages/stacks, SQL, payloads, credentials, tenant/user
+identifiers, bank references or arbitrary provider data. Use allowlisted error
+classification and safe scalar codes; unknown values remain unknown.
+Preserve AggregateError rejection, all twelve default concurrent Deal cycles,
+existing retry counts/backoff, timeouts and every existing business assertion.
+No runtime, money, settlement, outbox, harness, workflow or dependency changes.
+
+Governance and implementation remain separate. A diagnostic draft may be
+prepared against this admission; do not merge it before admission reaches
+trusted main. Exact-head independent review, owner audit and substantive CI
+remain mandatory. Diagnose on disposable PostgreSQL; an unrelated green rerun
+cannot explain the original rejection. If diagnostics reveal a runtime defect,
+obtain a separately bounded admission before changing that runtime.
+IR-20 remains active in its own execution lane; no delivery or progress gate
+is advanced here. This does not expand the four-file workspace repair scope.
+Before: opaque rejected cycle blocks acceptance. After: diagnostic permission
+only, not a claim that the failed cycle or the workspace release is accepted.
+Virtual-server deployment: not required for this test-only admission.
+
+### Atomic diagnostic scope enforcement (supersedes permission-only #5451)
+
+The owner's 2026-09-19 session authorization to implement the specification
+includes preparing this necessary bounded guard repair. No earlier machine
+admission for this seven-file bootstrap is claimed. Native findings on #5448
+and #5451 correctly reject the legacy union with global IR-20 scope.
+Bootstrap is limited to governance/industrial-load-diagnostics-20260919 at
+base fe50e24d202bcd22d72dd15e4dc58f9ddc491331 and state blob
+ea92fc5f636efaf147ddeee34f81428cdd69a925. Its exact seven paths are the
+four governance documents and guard script, guard tests and guard workflow.
+Only the two exact governance/diagnostic scope entries may be appended;
+all other state and other execution lanes remain unchanged. Initial candidate
+checks are unprivileged, additional to the existing base guard, and require
+independent exact-head review and owner audit. They are not retroactive
+trusted-base enforcement. Never execute candidate code in pull_request_target.
+After merge both branches use immutable trusted-base routing; diagnostic
+implementation admits only the load-proof test, with no head-state fallback,
+global scope union or generic infrastructure exception. A changed base or an
+actual trusted gate rejection requires renewed bounded review/authority,
+not disabling checks. No automatic merge or protection changes are permitted.
+The base pin was renewed after independent review of main #5452: only the
+trusted emitter and readiness verifier/tests changed; the state blob and all
+scope authority are identical. Preserve that complete upstream delta. Earlier
+head review/CI does not carry forward to this refreshed candidate.
+A second independent base review covered main #5447: its three additional
+homepage test paths, manifest constraints and mandatory unprivileged public
+contract job remain intact. The new state blob is pinned explicitly above.
+The old CI rejected stale authority as designed; it was not rerun or waived.
+The workflow conflict retains both our exact bootstrap identity and upstream
+public-contract dependency/enforcement. Scope remains the same seven files.
