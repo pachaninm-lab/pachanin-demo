@@ -61,7 +61,7 @@ jobs:
           if str(inspector_path) not in workflow_text:
               raise SystemExit('TRANSPORTED_SCRIPT_PATH_MISSING')
           inspector_source = inspector_path.read_bytes()
-          if hashlib.sha256(inspector_source).hexdigest() != 'b6b141fd9fd53728acd2e3a05a674008e1e776a02fd218a459cc2f04bc9b0ba9':
+          if hashlib.sha256(inspector_source).hexdigest() != '0ae4f33050aa2cd885e6612346b70abcc091e8d2072e61e41b0fbf97b13d0ad6':
               raise SystemExit('TRANSPORTED_SCRIPT_DIGEST_MISMATCH')
           text = workflow_text + '\n' + inspector_source.decode('utf-8', errors='strict')
           for marker in ('SET TRANSACTION READ ONLY', 'statement_timeout', "'deployment_authorized': False", 'def validate_report('):
@@ -80,6 +80,8 @@ jobs:
               'pc-crop-registration-lifecycle',
               'queue: max',
               'RUNTIME_STABILITY',
+              'compose_config_command',
+              'validate_release_inventory',
               '/production p0-runtime-revision-parity-diagnostic current-runtime',
           ]
           missing = [item for item in required if item not in text]
@@ -94,7 +96,8 @@ jobs:
               raise SystemExit('non-exact continuation invariant: ' + ' | '.join(wrong_count))
           forbidden = [
               'docker ' + 'restart', 'docker ' + 'rm', 'docker ' + 'stop',
-              'docker ' + 'kill', 'docker ' + 'compose', 'docker ' + 'service',
+              'docker ' + 'kill', 'docker ' + 'compose up', 'docker ' + 'compose run',
+              'docker ' + 'compose down', 'docker ' + 'compose restart', 'docker ' + 'service',
               'INSERT ' + 'INTO', 'UPDATE ' + 'auth.', 'DELETE ' + 'FROM',
               'TRUNCATE ' + 'TABLE', 'ALTER ' + 'ROLE', 'MAIL ' + 'FROM',
               'RCPT ' + 'TO', '/api/auth/' + 'forgot-password',
@@ -259,7 +262,7 @@ jobs:
           ssh -i "$key" -p "$port" \
             -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile="$known" -o ConnectTimeout=15 \
-            "$user@$host" 'bash -s' > "$raw" <<'REMOTE'
+            "$user@$host" 'bash -s' > "$raw" 2>/dev/null <<'REMOTE'
           set -Eeuo pipefail
           emit(){ printf '%s=%s\n' "$1" "$2"; }
           command -v docker >/dev/null 2>&1
@@ -451,6 +454,7 @@ jobs:
               report = module.validate_report(json.loads(raw.decode('utf-8', errors='strict')), sys.argv[1])
               report['transported_source_sha256'] = hashlib.sha256(source.read_bytes()).hexdigest()
               report['source_migration_comparison'] = module.source_lineage(report['migration_inventory'], pathlib.Path('apps/api/prisma/migrations'))
+              report['outbox_source_comparison'] = module.outbox_source_comparison(report['outbox_topology'], pathlib.Path('apps/api/prisma/migrations'))
               payload = json.dumps(report, sort_keys=True, ensure_ascii=True, separators=(',', ':')) + '\n'
               if len(payload.encode()) > module.MAX_BYTES:
                   raise ValueError('BOUNDS')
