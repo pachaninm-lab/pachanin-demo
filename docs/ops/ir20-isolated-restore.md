@@ -161,3 +161,28 @@ Pinned upstream sources (checked 2026-09-19):
   https://github.com/ggml-org/llama.cpp/releases/tag/b10964
 - Ministral-3-8B-Instruct-2512-GGUF revision 65457cc28fafb2210c8fb885a068b107e8d7fab3:
   https://huggingface.co/mistralai/Ministral-3-8B-Instruct-2512-GGUF
+
+
+## Optional review execution repair — 2026-09-19
+
+Run `35412668024` ended with exit 1, no response, and NOT_REVIEW. Its deleted
+runtime logs make the underlying exception unproven; do not call it a proven
+timeout or memory failure. The pinned engine's own server README documents a
+3600-second default timeout, not the older 600-second default:
+`ggml-org/llama.cpp@b29c606e28a01b1bc8c1351026a0fa6e616bf6c4/tools/server/README.md`.
+
+The corrected collector records distinct preparation, template, tokenization,
+inference and validation stages and allowlisted exception categories/statuses.
+An always-run finalizer preserves classified diagnostics, exact-run identity and
+artifact hashes before deleting raw logs. Exception messages, URLs and HTTP
+bodies are not published. Missing exit evidence or interrupted execution is
+NOT_REVIEW; collection success still grants no review or merge authority.
+
+The one-shot CPU inference now uses a 40960-token slot and 128-token physical
+batches to bound allocation rather than reserving an unnecessary 65536-token
+slot. The full prompt, 6144-token output and 512-token margin must fit together;
+there is no truncation, chunk omission, weaker review schema or retry loop.
+Explicit server/client deadlines are 3000/2700 seconds. A 60-minute execution
+step leaves ten minutes within the existing job budget for finalization/upload.
+A new run after these material repairs is diagnostic execution, not evidence
+that the historical cause was established or that independent review passed.

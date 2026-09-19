@@ -162,11 +162,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Collect a separate read-only model review without creating approval
+        id: review_execution
+        timeout-minutes: 60
         shell: bash
         run: |
           set -euo pipefail
           export REVIEW_OUT="$RUNNER_TEMP/ir20-independent-review-evidence"
           export REVIEW_TMP="$RUNNER_TEMP/ir20-independent-review-runtime"
+          umask 077
           mkdir -p "$REVIEW_OUT" "$REVIEW_TMP"
           # This is an optional evidence collector, not a substantive test or merge gate.
           # A provider/transport/model failure is recorded as NOT_REVIEW, never as approval.
@@ -174,7 +177,20 @@ jobs:
           (
             set -euo pipefail
             SERVER_PID=''
-            trap 'if [[ -n "$SERVER_PID" ]]; then kill "$SERVER_PID" 2>/dev/null || true; wait "$SERVER_PID" 2>/dev/null || true; fi' EXIT
+            finish_server() {
+              if [[ -n "$SERVER_PID" ]]; then
+                if kill -0 "$SERVER_PID" 2>/dev/null; then
+                  printf 'running\n' > "$REVIEW_TMP/server-state.txt"
+                  kill "$SERVER_PID" 2>/dev/null || true
+                  wait "$SERVER_PID" 2>/dev/null || true
+                else
+                  local code=0
+                  wait "$SERVER_PID" 2>/dev/null || code=$?
+                  printf '%s\n' "$code" > "$REVIEW_TMP/server-state.txt"
+                fi
+              fi
+            }
+            trap finish_server EXIT
             printf 'capacity\n' > "$REVIEW_TMP/stage.txt"
             python3 -I - <<'PY_CAPACITY'
           import os,pathlib,re,shutil
@@ -204,8 +220,9 @@ jobs:
             printf 'local-engine\n' > "$REVIEW_TMP/stage.txt"
             export LD_LIBRARY_PATH="$(dirname "${engines[0]}")"
             timeout --kill-after=15s 55m "${engines[0]}" --model "$REVIEW_TMP/model.gguf" \
-              --host 127.0.0.1 --port 18089 --ctx-size 65536 --parallel 1 \
+              --host 127.0.0.1 --port 18089 --ctx-size 40960 --parallel 1 \
               --threads 4 --threads-batch 4 --n-gpu-layers 0 --jinja --no-webui \
+              --batch-size 512 --ubatch-size 128 --timeout 3000 \
               --cache-type-k q8_0 --cache-type-v q8_0 --flash-attn on --no-context-shift \
               > "$REVIEW_TMP/engine.log" 2>&1 &
             SERVER_PID=$!
@@ -216,9 +233,9 @@ jobs:
               sleep 2
             done
             [[ "$ready" == 1 ]]
-            printf 'single-full-diff-inference\n' > "$REVIEW_TMP/stage.txt"
+            printf 'source-preparation\n' > "$REVIEW_TMP/stage.txt"
             python3 -I - <<'PY_REVIEW_AGENT'
-          import hashlib, json, os, pathlib, re, subprocess, sys, urllib.request
+          import hashlib, http.client, json, os, pathlib, re, subprocess, sys, time, urllib.error, urllib.request
 
           PATHS = (
               '.github/workflows/ir20-restore-drill.yml',
@@ -276,6 +293,52 @@ jobs:
               require(all(isinstance(v, str) and len(v) >= 20 for v in limits))
               return r
 
+          def checkpoint(stage):
+              runtime = pathlib.Path(os.environ['REVIEW_TMP'])
+              (runtime/'stage.txt').write_text(stage+'\n')
+              record = {'stage':stage, 'started_at_unix':time.time(),
+                        'source_sha':os.environ['TARGET_SHA']}
+              (runtime/'checkpoint.json').write_text(json.dumps(record)+'\n')
+
+          def failure_details(error):
+              # Only fixed classifications and integers: never messages, URLs or response bodies.
+              classes = ((urllib.error.HTTPError,'HTTP_ERROR'),
+                  (TimeoutError,'TIMEOUT'), (urllib.error.URLError,'TRANSPORT_ERROR'),
+                  (http.client.HTTPException,'HTTP_PROTOCOL_ERROR'),
+                  (json.JSONDecodeError,'INVALID_JSON'), (UnicodeError,'INVALID_ENCODING'),
+                  (subprocess.CalledProcessError,'SOURCE_COMMAND_FAILED'),
+                  (subprocess.TimeoutExpired,'SOURCE_COMMAND_TIMEOUT'),
+                  (ValueError,'INVALID_REVIEW_EVIDENCE'), (OSError,'IO_ERROR'))
+              result = {'category':next((name for cls,name in classes if isinstance(error,cls)),
+                                       'UNEXPECTED_EXCEPTION')}
+              if isinstance(error,urllib.error.HTTPError):
+                  result['http_status'] = int(error.code)
+              if isinstance(error,subprocess.CalledProcessError):
+                  result['command_exit_code'] = int(error.returncode)
+              cause = error.reason if isinstance(error,urllib.error.URLError) else error
+              if isinstance(cause,TimeoutError): result['category'] = 'TIMEOUT'
+              if isinstance(cause,OSError) and type(cause.errno) is int:
+                  result['errno'] = cause.errno
+              if isinstance(error,json.JSONDecodeError): result['json_offset'] = error.pos
+              return result
+
+          def run_review():
+              try:
+                  main()
+                  return 0
+              except Exception as error:
+                  runtime = pathlib.Path(os.environ['REVIEW_TMP'])
+                  diagnostic = failure_details(error)
+                  diagnostic['recorded_at_unix'] = time.time()
+                  tb = error.__traceback__
+                  lines = []
+                  while tb is not None:
+                      if tb.tb_frame.f_code.co_filename == '<stdin>': lines.append(tb.tb_lineno)
+                      tb = tb.tb_next
+                  diagnostic['agent_line_numbers'] = lines[-12:]
+                  (runtime/'failure.json').write_text(json.dumps(diagnostic)+'\n')
+                  return 1
+
           def api(path, payload, timeout=30):
               request = urllib.request.Request('http://127.0.0.1:18089' + path,
                   data=json.dumps(payload).encode(), headers={'Content-Type': 'application/json'})
@@ -285,6 +348,7 @@ jobs:
               return json.loads(raw)
 
           def main():
+              checkpoint('source-preparation')
               out = pathlib.Path(os.environ['REVIEW_OUT'])
               sha, base = os.environ['TARGET_SHA'], os.environ['BASE_SHA']
               require(all(re.fullmatch(r'[0-9a-f]{40}', v) for v in (sha, base)))
@@ -337,19 +401,25 @@ jobs:
                   'request_sha256':hashlib.sha256((out/'request.json').read_bytes()).hexdigest(),
                   'implementation_edits_by_reviewer':False,'production_access':False}
               (out/'input-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
+              checkpoint('template-rendering')
               rendered = api('/apply-template', {'messages':messages})['prompt']
+              checkpoint('prompt-tokenization')
               tokens = api('/tokenize', {'content':rendered,'add_special':False,'parse_special':True})['tokens']
-              require(isinstance(tokens,list) and 0 < len(tokens) <= 57000)
+              require(isinstance(tokens,list) and 0 < len(tokens) <= 40960-6144-512)
               require(all(type(n) is int and n >= 0 for n in tokens))
               manifest['prompt_token_count'] = len(tokens)
+              manifest.update(context_tokens=40960, output_tokens=6144, context_margin=512,
+                              client_timeout_seconds=2700, server_timeout_seconds=3000)
               (out/'input-manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
               # Exactly one fresh inference. No author-generated verdict and no retry-until-PASS loop.
+              checkpoint('single-full-diff-inference')
               result = api('/completion', {'prompt':tokens,'n_predict':6144,'temperature':0.05,'seed':0,
                   'cache_prompt':False,'stream':False,'json_schema':{'type':'object'}}, timeout=2700)
               raw = json.dumps(result,ensure_ascii=False).encode('utf-8')
               # The engine can echo the reviewed public-source prompt; keep the response bounded.
               require(len(raw) <= 1024*1024)
               (out/'response.json').write_bytes(raw)
+              checkpoint('candidate-validation')
               candidate = validate_candidate(result, sha, line_counts, len(tokens))
               record = {'schema':'ir20.optional-source-review-candidate.v1','source_sha':sha,
                   'candidate_valid':True,'model_verdict':candidate['verdict'],
@@ -359,26 +429,100 @@ jobs:
               (out/'evidence.json').write_text(json.dumps(record,indent=2)+'\n')
 
           if __name__ == '__main__':
-              main()
+              sys.exit(run_review())
           PY_REVIEW_AGENT
           ) > "$REVIEW_TMP/collector.log" 2>&1
           rc=$?
           set -e
-          REVIEW_EXIT="$rc" python3 -I - <<'PY_REVIEW_RECORD'
-          import json,os,pathlib
-          out=pathlib.Path(os.environ['REVIEW_OUT']); path=out/'evidence.json'
-          rc=int(os.environ['REVIEW_EXIT'])
-          if rc != 0 or not path.exists():
-              stage=(pathlib.Path(os.environ['REVIEW_TMP'])/'stage.txt')
-              record={'schema':'ir20.optional-source-review-candidate.v1',
-                  'source_sha':os.environ['TARGET_SHA'],'candidate_valid':False,
-                  'execution_exit_code':rc,'stage':stage.read_text().strip()[:80] if stage.exists() else 'initialization',
-                  'independent_review_accepted':False,'merge_authorized':False,
-                  'production_acceptance':False,'disposition':'NOT_REVIEW'}
-              path.write_text(json.dumps(record,indent=2)+'\n')
-          print(path.read_text())
+          printf '%s\n' "$rc" > "$REVIEW_TMP/exit-code.txt"
+      - name: Preserve classified evidence before deleting private runtime logs
+        if: always()
+        env:
+          REVIEW_OUTCOME: ${{ steps.review_execution.outcome }}
+        shell: bash
+        run: |
+          python3 -I - <<'PY_REVIEW_RECORD'
+          import hashlib,json,os,pathlib,re,shutil
+
+          def finalize(out,runtime,identity,outcome):
+              def load(name):
+                  path=runtime/name
+                  try:
+                      raw=path.read_bytes()
+                      return json.loads(raw) if len(raw)<=8192 else {}
+                  except (OSError,ValueError): return {}
+              def small_text(name):
+                  try: return (runtime/name).read_text()[:100].strip()
+                  except (OSError,UnicodeError): return ''
+              path=out/'evidence.json'
+              try:
+                  out.mkdir(parents=True,exist_ok=True)
+                  rc_text=small_text('exit-code.txt')
+                  rc=int(rc_text) if re.fullmatch(r'[0-9]{1,3}',rc_text) else None
+                  stage=small_text('stage.txt')
+                  stages={'capacity','pinned-downloads','local-engine',
+                          'source-preparation','template-rendering','prompt-tokenization',
+                          'single-full-diff-inference','candidate-validation'}
+                  stage=stage if stage in stages else 'initialization-or-unclassified'
+                  try: record=json.loads(path.read_bytes())
+                  except (OSError,ValueError): record={}
+                  valid=(rc==0 and outcome=='success' and isinstance(record,dict)
+                         and record.get('candidate_valid') is True
+                         and record.get('source_sha')==identity['source_sha'])
+                  if not valid:
+                      record={'schema':'ir20.optional-source-review-candidate.v1',
+                              'candidate_valid':False,'disposition':'NOT_REVIEW'}
+                  record.update(identity, execution_exit_code=rc, stage=stage,
+                                independent_review_accepted=False,merge_authorized=False,
+                                production_acceptance=False)
+                  server=small_text('server-state.txt')
+                  record['server_running_before_cleanup']=True if server=='running' else False if server.isdecimal() else None
+                  record['server_exit_code']=int(server) if re.fullmatch(r'[0-9]{1,3}',server) else None
+                  point=load('checkpoint.json')
+                  if isinstance(point,dict) and type(point.get('started_at_unix')) in (float,int):
+                      record['stage_started_at_unix']=point['started_at_unix']
+                  diagnostic=load('failure.json')
+                  if not isinstance(diagnostic,dict): diagnostic={}
+                  categories={'HTTP_ERROR','TIMEOUT','TRANSPORT_ERROR','HTTP_PROTOCOL_ERROR',
+                      'INVALID_JSON','INVALID_ENCODING','SOURCE_COMMAND_FAILED',
+                      'SOURCE_COMMAND_TIMEOUT','INVALID_REVIEW_EVIDENCE','IO_ERROR',
+                      'UNEXPECTED_EXCEPTION'}
+                  category=diagnostic.get('category')
+                  record['failure_category']=category if isinstance(category,str) and category in categories else (
+                      'NONE' if valid else 'PROCESS_FAILED' if rc is not None else 'EXECUTION_INTERRUPTED_OR_EXIT_UNRECORDED')
+                  record['diagnostic']={k:v for k,v in diagnostic.items()
+                      if k in ('http_status','command_exit_code','errno','json_offset') and type(v) is int}
+                  lines=diagnostic.get('agent_line_numbers',[])
+                  if isinstance(lines,list) and all(type(v) is int and 0<v<10000 for v in lines):
+                      record['diagnostic']['agent_line_numbers']=lines[:12]
+                  # Allowlisted log indicators are observations, not a guessed root cause.
+                  markers={'allocation_failure':r'out of memory|bad_alloc|failed to allocate',
+                           'context_limit':r'exceeds.*context|context.*exceeded',
+                           'engine_wait_timeout':r'stopping wait for next result due to should_stop'}
+                  try:
+                      with (runtime/'engine.log').open('rb') as log:
+                          log.seek(0,2);size=log.tell();log.seek(max(0,size-65536))
+                          tail=log.read(65536).decode('utf-8',errors='replace')
+                      record['engine_log_bytes']=size
+                      record['engine_log_indicators']=[k for k,pattern in markers.items() if re.search(pattern,tail,re.I)]
+                  except OSError: record['engine_log_indicators']=[]
+                  record['artifact_sha256']={p.name:hashlib.sha256(p.read_bytes()).hexdigest()
+                      for p in (out/'request.json',out/'input-manifest.json',out/'response.json') if p.is_file()}
+                  pending=out/'evidence.pending.json'
+                  pending.write_text(json.dumps(record,indent=2)+'\n')
+                  os.replace(pending,path)
+                  return record
+              finally:
+                  if runtime.exists(): shutil.rmtree(runtime,ignore_errors=False)
+
+          if __name__=='__main__':
+              temp=pathlib.Path(os.environ['RUNNER_TEMP'])
+              identity={'source_sha':os.environ['TARGET_SHA'],'base_sha':os.environ['BASE_SHA'],
+                        'run_id':os.environ['GITHUB_RUN_ID'],'run_attempt':os.environ['GITHUB_RUN_ATTEMPT']}
+              record=finalize(temp/'ir20-independent-review-evidence',temp/'ir20-independent-review-runtime',
+                              identity,os.environ['REVIEW_OUTCOME'])
+              print(json.dumps(record,indent=2))
           PY_REVIEW_RECORD
-          rm -rf "$REVIEW_TMP"
       - name: Retain candidate and provenance, never an automatic review approval
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

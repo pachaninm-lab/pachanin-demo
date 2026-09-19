@@ -391,5 +391,122 @@ class OptionalReviewEvidenceTests(unittest.TestCase):
                     self.namespace['validate_candidate'](self.response,SHA,self.lines,100)
 
 
+class ReviewDiagnosticsTests(unittest.TestCase):
+    def setUp(self):
+        import textwrap
+        self.workflow = SCRIPT.parents[2]/'.github/workflows/ir20-restore-drill.yml'
+        self.text = self.workflow.read_text()
+        self.agents = {}
+        for tag in ('PY_REVIEW_AGENT','PY_REVIEW_RECORD'):
+            matches = re.findall(r"<<'"+tag+r"'[^\n]*\n(.*?)^          "+tag+r"$",
+                                 self.text,re.M|re.S)
+            self.assertEqual(len(matches),1)
+            namespace = {'__name__':'synthetic_diagnostic_test'}
+            exec(compile(textwrap.dedent(matches[0]),'<stdin>','exec'),namespace)
+            self.agents[tag] = namespace
+
+    def test_exception_classification_never_serializes_private_details(self):
+        import http.client
+        import urllib.error
+        cases = [(urllib.error.HTTPError('https://'+CANARY,503,CANARY,{},None),'HTTP_ERROR'),
+                 (TimeoutError(CANARY),'TIMEOUT'),
+                 (urllib.error.URLError(TimeoutError(CANARY)),'TIMEOUT'),
+                 (urllib.error.URLError(CANARY),'TRANSPORT_ERROR'),
+                 (http.client.RemoteDisconnected(CANARY),'HTTP_PROTOCOL_ERROR'),
+                 (json.JSONDecodeError(CANARY,CANARY,1),'INVALID_JSON'),
+                 (subprocess.CalledProcessError(23,CANARY,stderr=CANARY),'SOURCE_COMMAND_FAILED'),
+                 (ValueError(CANARY),'INVALID_REVIEW_EVIDENCE'),
+                 (RuntimeError(CANARY),'UNEXPECTED_EXCEPTION')]
+        for error,category in cases:
+            with self.subTest(category=category):
+                result=self.agents['PY_REVIEW_AGENT']['failure_details'](error)
+                self.assertEqual(result['category'],category)
+                self.assertNotIn(CANARY,json.dumps(result))
+                if category=='HTTP_ERROR': self.assertEqual(result['http_status'],503)
+
+    def test_actual_agent_failure_retains_stage_and_safe_diagnostic(self):
+        agent=self.agents['PY_REVIEW_AGENT']
+        with tempfile.TemporaryDirectory() as temp, mock.patch.dict(os.environ,REVIEW_TMP=temp,TARGET_SHA=SHA):
+            def fail():
+                agent['checkpoint']('single-full-diff-inference')
+                raise TimeoutError(CANARY)
+            with mock.patch.dict(agent,main=fail):
+                self.assertEqual(agent['run_review'](),1)
+            path=Path(temp)
+            self.assertEqual((path/'stage.txt').read_text().strip(),'single-full-diff-inference')
+            data=json.loads((path/'failure.json').read_text())
+            self.assertEqual(data['category'],'TIMEOUT')
+            self.assertNotIn(CANARY,json.dumps(data))
+
+    def finalize_case(self,rc='1',outcome='success',candidate=None,diagnostic=None,stage='single-full-diff-inference'):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);out=root/'evidence';runtime=root/'runtime'
+            out.mkdir();runtime.mkdir()
+            if rc is not None: (runtime/'exit-code.txt').write_text(rc)
+            (runtime/'stage.txt').write_text(stage)
+            (runtime/'server-state.txt').write_text('137')
+            (runtime/'collector.log').write_text(CANARY)
+            (runtime/'engine.log').write_text(CANARY+' failed to allocate '+CANARY)
+            if diagnostic is not None: (runtime/'failure.json').write_text(json.dumps(diagnostic))
+            if candidate is not None: (out/'evidence.json').write_text(json.dumps(candidate))
+            (out/'request.json').write_text('{"synthetic":true}')
+            identity={'source_sha':SHA,'base_sha':'d'*40,'run_id':'fixture','run_attempt':'1'}
+            result=self.agents['PY_REVIEW_RECORD']['finalize'](out,runtime,identity,outcome)
+            self.assertFalse(runtime.exists())
+            self.assertEqual(result,json.loads((out/'evidence.json').read_text()))
+            self.assertEqual(result['source_sha'],SHA)
+            self.assertEqual(result['server_exit_code'],137)
+            self.assertIn('request.json',result['artifact_sha256'])
+            self.assertNotIn(CANARY,json.dumps(result))
+            for key in ('independent_review_accepted','merge_authorized','production_acceptance'):
+                self.assertIs(result[key],False)
+            return result
+
+    def test_failure_finalization_keeps_evidence_but_not_logs_or_approval(self):
+        result=self.finalize_case(diagnostic={'category':'HTTP_ERROR','http_status':503,
+                                             'message':CANARY,'agent_line_numbers':[10,20]})
+        self.assertFalse(result['candidate_valid'])
+        self.assertEqual(result['disposition'],'NOT_REVIEW')
+        self.assertEqual(result['diagnostic']['http_status'],503)
+        self.assertEqual(result['engine_log_indicators'],['allocation_failure'])
+
+    def test_interrupted_or_stale_execution_cannot_retain_candidate_success(self):
+        candidate={'source_sha':SHA,'candidate_valid':True,'model_verdict':'PASS'}
+        for rc,outcome,value in [(None,'cancelled',candidate),('1','success',candidate),
+                                ('0','failure',candidate),('0','success',dict(candidate,source_sha='0'*40))]:
+            with self.subTest(rc=rc,outcome=outcome):
+                result=self.finalize_case(rc,outcome,value)
+                self.assertFalse(result['candidate_valid'])
+                self.assertEqual(result['disposition'],'NOT_REVIEW')
+
+    def test_finalizer_filters_untrusted_diagnostic_strings_and_malformed_fields(self):
+        for diagnostic in ([],{'category':[CANARY]},{'category':CANARY,'http_status':CANARY,'agent_line_numbers':[True]}):
+            result=self.finalize_case(diagnostic=diagnostic,stage=CANARY)
+            self.assertEqual(result['failure_category'],'PROCESS_FAILED')
+            self.assertEqual(result['stage'],'initialization-or-unclassified')
+
+    def test_well_formed_candidate_still_never_creates_independent_acceptance(self):
+        result=self.finalize_case('0','success',{'source_sha':SHA,'candidate_valid':True,
+                                  'model_verdict':'BLOCKED','merge_authorized':True})
+        self.assertTrue(result['candidate_valid'])
+        self.assertEqual(result['model_verdict'],'BLOCKED')
+
+    def test_missing_runtime_still_records_interrupted_execution(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            result=self.agents['PY_REVIEW_RECORD']['finalize'](root/'out',root/'absent',{'source_sha':SHA},'skipped')
+            self.assertFalse(result['candidate_valid'])
+            self.assertIsNone(result['execution_exit_code'])
+
+    def test_capacity_and_deadline_contract_and_always_finalizer_are_present(self):
+        self.assertIn('--ctx-size 40960',self.text)
+        self.assertIn('len(tokens) <= 40960-6144-512',self.text)
+        self.assertIn('--ubatch-size 128 --timeout 3000',self.text)
+        self.assertIn('timeout=2700',self.text)
+        self.assertIn('id: review_execution\n        timeout-minutes: 60',self.text)
+        self.assertIn('Preserve classified evidence before deleting private runtime logs\n        if: always()',self.text)
+        self.assertEqual(self.text.count("result = api('/completion'"),1)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
