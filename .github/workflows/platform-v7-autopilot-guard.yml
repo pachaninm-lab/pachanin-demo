@@ -183,6 +183,9 @@ on:
       - 'apps/web/components/platform-v7/PublicAiInActionSimpleExperience.tsx'
       - 'apps/web/app/platform-v7/ai-in-action/page.tsx'
       - 'apps/web/tests/unit/gektaPublicBrandContract.test.ts'
+      - 'apps/web/tests/unit/platformV7HomeFinalPolish.test.ts'
+      - 'apps/web/tests/unit/platformV7InternationalHomepageFix.test.ts'
+      - 'apps/web/tests/e2e/platform-v7-role-human-acceptance.spec.ts'
       - 'scripts/production-full-stack-live-acceptance.sh'
 
 concurrency:
@@ -190,6 +193,47 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  public-home-contract:
+    name: Final public experience · exact-head unit contracts
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.ref == 'agent/platform-v7-strategic-rebuild-v3'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact public implementation head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify all admitted homepage unit contracts
+        run: >-
+          pnpm --filter @pc/web exec vitest run
+          tests/unit/platformV7HeroInfrastructureMessage.test.ts
+          tests/unit/platformV7RootWorkEntry.test.ts
+          tests/unit/platformV7StrategicHomeSafety.test.ts
+          tests/unit/gektaProductSeparation.test.ts
+          tests/unit/platformV7AccountingClosureValue.test.ts
+          tests/unit/platformV7HomeTaiRoleEntry.test.ts
+          tests/unit/platformV7HomepageProductCopy.test.ts
+          tests/unit/platformV7HomepageVisibleOperatingCopy.test.ts
+          tests/unit/platformV7PublicCopyQuality.test.ts
+          tests/unit/platformV7PublicExperienceV4.test.ts
+          tests/unit/gektaPublicBrandContract.test.ts
+          tests/unit/platformV7HomeFinalPolish.test.ts
+          tests/unit/platformV7InternationalHomepageFix.test.ts
+
   trusted-kind-minio-governance-bootstrap:
     name: Kind MinIO governance bootstrap · trusted base
     if: >-
@@ -635,7 +679,7 @@ jobs:
 
   guard:
     name: ${{ github.event_name == 'pull_request' && (github.head_ref == 'fix/p0-registration-authority-rollover-4637' || github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698' || github.head_ref == 'feat/pc-crop-auction-inventory-authority-4997' || github.head_ref == 'ops/pc-crop-w1-production-acceptance-4997' || github.head_ref == 'governance/pc-crop-post-registration-progress-scope-4997' || github.head_ref == 'governance/pc-crop-inventory-reservation-scope-4997' || github.head_ref == 'docs/pc-crop-post-registration-progress-4997' || github.head_ref == 'governance/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'feat/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'governance/public-home-role-clarity-scope-20260905' || github.head_ref == 'feat/public-home-role-clarity-20260905' || github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' || github.head_ref == 'fix/production-like-outbox-poison-isolation-3793' || github.head_ref == 'fix/local-qwen-failed-review-evidence-20260912' || github.head_ref == 'fix/kind-minio-image-source-20260912' || github.head_ref == 'fix/gitleaks-release-authority-attestation-20260912' || github.head_ref == 'fix/owner-handoff-product-host-20260908' || github.head_ref == 'governance/final-public-experience-v1-20260919' || github.head_ref == 'agent/platform-v7-strategic-rebuild-v3' || github.head_ref == 'p0/farmer-public-market-teaser-20260913' || github.head_ref == 'fix/public-registration-final-copy-4916' || github.head_ref == 'fix/public-deal-journey-10of10-current-main-20260808' || github.head_ref == 'agent/platform-v7-product-copy' || github.head_ref == 'ops/production-full-stack-release-v1') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}
-    needs: standard_validation
+    needs: [standard_validation, public-home-contract]
     if: always() && github.event_name != 'pull_request_target'
     permissions:
       contents: read
@@ -655,6 +699,15 @@ jobs:
         run: |
           if [ "$STANDARD_VALIDATION_RESULT" != 'success' ]; then
             echo "Standard platform-v7 guard validations did not pass: $STANDARD_VALIDATION_RESULT" >&2
+            exit 1
+          fi
+      - name: Require final public unit contracts for homepage implementation
+        if: github.event_name == 'pull_request' && github.head_ref == 'agent/platform-v7-strategic-rebuild-v3'
+        env:
+          PUBLIC_HOME_RESULT: ${{ needs.public-home-contract.result }}
+        run: |
+          if [ "$PUBLIC_HOME_RESULT" != 'success' ]; then
+            echo 'Final public homepage unit contracts did not pass.' >&2
             exit 1
           fi
       - name: Validate immutable scope with trusted base guard on PR head
