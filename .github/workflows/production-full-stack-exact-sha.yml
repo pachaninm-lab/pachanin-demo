@@ -23,8 +23,12 @@ on:
       - '.github/workflows/docker-publish.yml'
       - '.github/workflows/production-full-stack-exact-sha.yml'
       - 'scripts/production-full-stack-exact-sha.sh'
+      - 'scripts/release/verify-production-image-binding.py'
+      - 'scripts/release/test-production-image-binding.py'
       - 'scripts/production-full-stack-live-acceptance.sh'
       - 'scripts/check-production-full-stack-release.mjs'
+      - 'scripts/test-production-release-target-isolation.py'
+      - 'scripts/test-production-full-stack-ssh-fingerprint.py'
       - 'docs/ops/production-full-stack-release.md'
       - 'docs/ops/virtual-server-production-runbook.md'
       - 'docs/ops/vps-post-deploy-checklist.md'
@@ -34,8 +38,12 @@ on:
       - '.github/workflows/docker-publish.yml'
       - '.github/workflows/production-full-stack-exact-sha.yml'
       - 'scripts/production-full-stack-exact-sha.sh'
+      - 'scripts/release/verify-production-image-binding.py'
+      - 'scripts/release/test-production-image-binding.py'
       - 'scripts/production-full-stack-live-acceptance.sh'
       - 'scripts/check-production-full-stack-release.mjs'
+      - 'scripts/test-production-release-target-isolation.py'
+      - 'scripts/test-production-full-stack-ssh-fingerprint.py'
 permissions:
   contents: read
   packages: read
@@ -101,6 +109,11 @@ jobs:
           [[ "$GITHUB_ACTOR" == "$REPOSITORY_OWNER" ]]
           [[ "$GITHUB_TRIGGERING_ACTOR" == "$REPOSITORY_OWNER" ]]
       - run: node scripts/check-production-full-stack-release.mjs
+      - name: Exercise release target isolation
+        run: python3 -B scripts/test-production-release-target-isolation.py
+      - name: Exercise protected SSH fingerprint handling
+        run: python3 -B scripts/test-production-full-stack-ssh-fingerprint.py
+      - run: python3 -B scripts/release/test-production-image-binding.py
 
   deploy:
     name: Migrate, deploy API and web, verify live intake
@@ -161,14 +174,13 @@ jobs:
             ready=0
             for attempt in $(seq 1 90); do
               if docker pull "$image" >/dev/null 2>&1; then
-                revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image" 2>/dev/null || true)"
-                if [[ "$revision" == "$TARGET_SHA" ]]; then ready=1; break; fi
+                if exact_image="$(python3 scripts/release/verify-production-image-binding.py resolve "$component" "$TARGET_SHA" "$image" 2>/dev/null)"; then ready=1; break; fi
               fi
               sleep 10
             done
             (( ready == 1 )) || { echo "Exact $component image unavailable." >&2; exit 2; }
-            docker image inspect "$image" > "$EVIDENCE_DIR/${component}-image.json"
-            echo "${component}_image=$image" >> "$GITHUB_OUTPUT"
+            python3 scripts/release/verify-production-image-binding.py verify "$component" "$TARGET_SHA" "$exact_image" > "$EVIDENCE_DIR/${component}-image.json" 2>/dev/null || { echo 'Exact image identity verification failed.' >&2; exit 2; }
+            echo "${component}_image=$exact_image" >> "$GITHUB_OUTPUT"
           done
           printf '%s\n' "$TARGET_SHA" > "$EVIDENCE_DIR/target-sha.txt"
 
@@ -192,14 +204,17 @@ jobs:
           chmod 700 "$HOME/.ssh"
 
           validate_key(){
-            local source="$1" target="$HOME/.ssh/id_pc_prod" pub
-            tr -d '\r' < "$source" > "$target"
-            chmod 600 "$target"
+            local source="$1" target="$HOME/.ssh/id_pc_prod" fingerprint
+            tr -d '\r' 2>/dev/null < "$source" > "$target" || return 1
+            chmod 600 "$target" 2>/dev/null || return 1
             grep -Eq '^(ssh-|ecdsa-|sk-)' "$target" && return 1
-            pub="$(mktemp)"
-            ssh-keygen -y -P '' -f "$target" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
-            ssh-keygen -lf "$pub" > "$EVIDENCE_DIR/ssh-key-fingerprint.txt"
-            rm -f "$pub"
+            fingerprint="$(
+              ssh-keygen -y -P '' -f "$target" </dev/null 2>/dev/null |
+                ssh-keygen -lf /dev/stdin -E sha256 2>/dev/null |
+                awk '{print $2}'
+            )" || return 1
+            [[ "$fingerprint" =~ ^SHA256:[A-Za-z0-9+/]{43}$ ]] || return 1
+            printf '%s\n' "$fingerprint" 2>/dev/null > "$EVIDENCE_DIR/ssh-key-fingerprint.txt" || return 1
           }
           try_slot(){
             local raw="$1" a b c
@@ -258,6 +273,7 @@ jobs:
           set -euo pipefail
           scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=12 -o TCPKeepAlive=yes)
           scp "${scp_common[@]}" scripts/production-full-stack-exact-sha.sh "$SSH_USER_SECRET@$HOST:/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh"
+          scp "${scp_common[@]}" scripts/release/verify-production-image-binding.py "$SSH_USER_SECRET@$HOST:/tmp/pc-full-stack-image-binding-${GITHUB_RUN_ID}.py" >/dev/null 2>&1 || { echo 'Release image verifier transfer failed.' >&2; exit 2; }
 
       - name: Authenticate production host to exact private registry
         env:
@@ -388,7 +404,7 @@ jobs:
           raw="$(mktemp)"; clean="$EVIDENCE_DIR/production-action.log"
           set +e
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=12 -o TCPKeepAlive=yes "$SSH_USER_SECRET@$HOST" \
-            "chmod 0700 /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh && DOCKER_CONFIG='/tmp/pc-registry-${GITHUB_RUN_ID}' PC_API_IMAGE='$API_IMAGE' PC_WEB_IMAGE='$WEB_IMAGE' PC_MIGRATION_IMAGE='$MIGRATION_IMAGE' PC_PROD_DIR_B64='$(enc "${PROD_DIR_SECRET:-}")' PC_PROD_COMPOSE_B64='$(enc "${PROD_COMPOSE_SECRET:-}")' PC_PROD_PROJECT_B64='$(enc "${PROD_PROJECT_SECRET:-}")' PC_PROD_BACKUP_EVIDENCE_FILE_B64='$(enc "${BACKUP_EVIDENCE_FILE_SECRET:-}")' /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh deploy '$TARGET_SHA' '$GITHUB_RUN_ID'" > "$raw" 2>&1
+            "chmod 0700 /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh && DOCKER_CONFIG='/tmp/pc-registry-${GITHUB_RUN_ID}' PC_RELEASE_IMAGE_BINDING_VERIFIER='/tmp/pc-full-stack-image-binding-${GITHUB_RUN_ID}.py' PC_API_IMAGE='$API_IMAGE' PC_WEB_IMAGE='$WEB_IMAGE' PC_MIGRATION_IMAGE='$MIGRATION_IMAGE' PC_PROD_DIR_B64='$(enc "${PROD_DIR_SECRET:-}")' PC_PROD_COMPOSE_B64='$(enc "${PROD_COMPOSE_SECRET:-}")' PC_PROD_PROJECT_B64='$(enc "${PROD_PROJECT_SECRET:-}")' PC_PROD_BACKUP_EVIDENCE_FILE_B64='$(enc "${BACKUP_EVIDENCE_FILE_SECRET:-}")' /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh deploy '$TARGET_SHA' '$GITHUB_RUN_ID'" > "$raw" 2>&1
           rc=$?
           set -e
           sed -E 's#postgres(ql)?://[^[:space:]@]+@#postgresql://[REDACTED]@#g; /(_PATH|_DIR|COMPOSE|CONFIG_FILES)=/ s#=.*#=[REDACTED]#' "$raw" > "$clean"
@@ -454,7 +470,7 @@ jobs:
           set -euo pipefail
           if [[ -n "${HOST:-}" && -n "${PORT:-}" && -f "$HOME/.ssh/id_pc_prod" && -f "$HOME/.ssh/known_hosts" ]]; then
             ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=12 -o TCPKeepAlive=yes "$SSH_USER_SECRET@$HOST" \
-              "set -euo pipefail; DOCKER_CONFIG='/tmp/pc-registry-${GITHUB_RUN_ID}' docker logout ghcr.io >/dev/null 2>&1 || true; rm -rf '/tmp/pc-registry-${GITHUB_RUN_ID}'; rm -f '/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh'" \
+              "set -euo pipefail; DOCKER_CONFIG='/tmp/pc-registry-${GITHUB_RUN_ID}' docker logout ghcr.io >/dev/null 2>&1 || true; rm -rf '/tmp/pc-registry-${GITHUB_RUN_ID}'; rm -f '/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh' '/tmp/pc-full-stack-image-binding-${GITHUB_RUN_ID}.py'" \
               || true
           fi
           docker logout ghcr.io >/dev/null 2>&1 || true
