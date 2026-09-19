@@ -522,7 +522,7 @@ if (branch === publicHomeGovernanceBranch) {
       // The initial candidate is reviewed/tested without privileged execution.
       const sha = execFileSync('git', ['rev-parse', baseRef], { encoding: 'utf8' }).trim();
       const blob = execFileSync('git', ['rev-parse', `${baseRef}:${stateFile}`], { encoding: 'utf8' }).trim();
-      if (sha !== '31437d368ab284da32746cc958efc02f4cb8c97a' || blob !== '78c82dce0e18e867c43c6a44ddc345a396f241ca' ||
+      if (sha !== 'fe50e24d202bcd22d72dd15e4dc58f9ddc491331' || blob !== 'ea92fc5f636efaf147ddeee34f81428cdd69a925' ||
           Object.hasOwn(state.approvedConcurrentScopes, diagnostic)) {
         throw new Error('INDUSTRIAL_DIAGNOSTIC_BOOTSTRAP_BASE_MISMATCH');
       }

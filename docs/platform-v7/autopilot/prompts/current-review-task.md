@@ -380,8 +380,8 @@ includes preparing this necessary bounded guard repair. No earlier machine
 admission for this seven-file bootstrap is claimed. Native findings on #5448
 and #5451 correctly reject the legacy union with global IR-20 scope.
 Bootstrap is limited to governance/industrial-load-diagnostics-20260919 at
-base 31437d368ab284da32746cc958efc02f4cb8c97a and state blob
-78c82dce0e18e867c43c6a44ddc345a396f241ca. Its exact seven paths are the
+base fe50e24d202bcd22d72dd15e4dc58f9ddc491331 and state blob
+ea92fc5f636efaf147ddeee34f81428cdd69a925. Its exact seven paths are the
 four governance documents and guard script, guard tests and guard workflow.
 Only the two exact governance/diagnostic scope entries may be appended;
 all other state and other execution lanes remain unchanged. Initial candidate
@@ -397,3 +397,9 @@ The base pin was renewed after independent review of main #5452: only the
 trusted emitter and readiness verifier/tests changed; the state blob and all
 scope authority are identical. Preserve that complete upstream delta. Earlier
 head review/CI does not carry forward to this refreshed candidate.
+A second independent base review covered main #5447: its three additional
+homepage test paths, manifest constraints and mandatory unprivileged public
+contract job remain intact. The new state blob is pinned explicitly above.
+The old CI rejected stale authority as designed; it was not rerun or waived.
+The workflow conflict retains both our exact bootstrap identity and upstream
+public-contract dependency/enforcement. Scope remains the same seven files.

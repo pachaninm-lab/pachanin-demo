@@ -787,7 +787,7 @@ test('runs immutable authority checks from a read-only trusted-base workflow', (
     '-f head_sha="$HEAD_SHA"',
     "-f status='completed'",
     "'PC-CROP immutable scope · PR-head defense' || 'guard' }}",
-    'needs: standard_validation',
+    'needs: [standard_validation, public-home-contract]',
     "if: always() && github.event_name != 'pull_request_target'",
     'git show "$BASE_SHA:scripts/p7-autopilot-guard.sh" > "$TRUSTED_GUARD"',
     'standard_validation:',
@@ -795,6 +795,33 @@ test('runs immutable authority checks from a read-only trusted-base workflow', (
     "- '.github/workflows/production-full-stack-exact-sha.yml'",
     "- 'docs/ops/production-p0-all-role-registration.md'",
   ]) assert.ok(workflow.includes(marker), `missing trusted-base workflow marker: ${marker}`);
+});
+
+test('final public unit contracts run on unprivileged exact head and fail the guard closed', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const job = workflow.split('\n  public-home-contract:\n')[1].split('\n  trusted-kind-minio-governance-bootstrap:')[0];
+  assert.match(job, /github\.event_name == 'pull_request'/u);
+  assert.match(job, /head\.ref == 'agent\/platform-v7-strategic-rebuild-v3'/u);
+  assert.match(job, /ref: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/u);
+  assert.match(job, /permissions:\n      contents: read/u);
+  assert.match(job, /persist-credentials: false/u);
+  assert.match(job, /pnpm install --frozen-lockfile/u);
+  assert.doesNotMatch(job, /pull_request_target|continue-on-error|secrets\.|(?:checks|contents|pull-requests): write/u);
+  const manifest = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json'), 'utf8'));
+  for (const file of manifest.allowedPaths.filter(file => file.startsWith('apps/web/tests/unit/'))) {
+    assert.ok(job.includes(file.replace('apps/web/', '')), `Scoped unit suite is not executed: ${file}`);
+  }
+  const guard = workflow.split('\n  guard:\n')[1].split('\n  standard_validation:\n')[0];
+  assert.match(guard, /needs: \[standard_validation, public-home-contract\]/u);
+  const step = guard.split('      - name: Require final public unit contracts for homepage implementation\n')[1]
+    .split('      - name: Validate immutable scope')[0];
+  assert.match(step, /github\.event_name == 'pull_request' && github\.head_ref == 'agent\/platform-v7-strategic-rebuild-v3'/u);
+  assert.ok(step.includes('PUBLIC_HOME_RESULT: ${{ needs.public-home-contract.result }}'));
+  const shell = step.split('        run: |\n')[1].split('\n').map(line => line.replace(/^          /u, '')).join('\n');
+  for (const state of ['success', 'failure', 'cancelled', 'skipped', '']) {
+    const result = spawnSync('bash', ['-c', shell], { env: { ...process.env, PUBLIC_HOME_RESULT: state }, encoding: 'utf8' });
+    assert.equal(result.status, state === 'success' ? 0 : 1, state);
+  }
 });
 
 test('public-home workflow routing covers every non-glob presentation path that otherwise lacks a broad trigger', () => {
@@ -914,9 +941,9 @@ test('Qwen failed-evidence candidate regressions run unprivileged and block the 
   assert.match(standard.split('      - name:')[0], /persist-credentials: false/u);
   assert.doesNotMatch(standard, /continue-on-error:|secrets\.|(?:checks|contents|pull-requests): write/u);
   const guard = workflow.split('\n  guard:\n')[1].split('\n  standard_validation:\n')[0];
-  assert.match(guard, /needs: standard_validation/u);
+  assert.match(guard, /needs: \[standard_validation, public-home-contract\]/u);
   const required = guard.split('      - name: Require standard validations in the required guard context\n')[1]
-    .split('      - name: Validate immutable scope with trusted base guard on PR head')[0];
+    .split('      - name: Require final public unit contracts for homepage implementation')[0];
   assert.ok(required.includes('STANDARD_VALIDATION_RESULT: ${{ needs.standard_validation.result }}'));
   const enforce = required.split('        run: |\n')[1].split('\n').map(line => line.replace(/^          /u, '')).join('\n');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-qwen-candidate-validation-'));
@@ -1355,8 +1382,8 @@ for (const mutation of ['approved append', 'wrong base SHA', 'wrong state blob',
     // Bind the frozen guard to this synthetic fixture, not to mutable inputs.
     // Production literals are checked separately below; no runtime override exists.
     let guard = fs.readFileSync(sourceGuard, 'utf8')
-      .replace('31437d368ab284da32746cc958efc02f4cb8c97a', mutation === 'wrong base SHA' ? '0'.repeat(40) : context.baseline)
-      .replace('78c82dce0e18e867c43c6a44ddc345a396f241ca', mutation === 'wrong state blob' ? '0'.repeat(40) : blob);
+      .replace('fe50e24d202bcd22d72dd15e4dc58f9ddc491331', mutation === 'wrong base SHA' ? '0'.repeat(40) : context.baseline)
+      .replace('ea92fc5f636efaf147ddeee34f81428cdd69a925', mutation === 'wrong state blob' ? '0'.repeat(40) : blob);
     state.approvedConcurrentScopes[industrialGovernanceBranch] = [...industrialGovernancePaths];
     state.approvedConcurrentScopes[industrialDiagnosticBranch] = [...industrialDiagnosticPaths];
     if (mutation === 'expanded governance') state.approvedConcurrentScopes[industrialGovernanceBranch].push('**');
@@ -1380,13 +1407,13 @@ test('industrial bootstrap retains base defense and read-only candidate tests wi
   const state = JSON.parse(fs.readFileSync(industrialGovernancePaths[0], 'utf8'));
   assert.deepEqual(state.approvedConcurrentScopes[industrialGovernanceBranch], industrialGovernancePaths);
   assert.deepEqual(state.approvedConcurrentScopes[industrialDiagnosticBranch], industrialDiagnosticPaths);
-  assert.ok(source.includes("sha !== '31437d368ab284da32746cc958efc02f4cb8c97a'"));
-  assert.ok(source.includes("blob !== '78c82dce0e18e867c43c6a44ddc345a396f241ca'"));
+  assert.ok(source.includes("sha !== 'fe50e24d202bcd22d72dd15e4dc58f9ddc491331'"));
+  assert.ok(source.includes("blob !== 'ea92fc5f636efaf147ddeee34f81428cdd69a925'"));
   const candidate = workflow.split('- name: Validate owner-authorized industrial diagnostic bootstrap candidate')[1]
     .split('- name: Validate bounded security repair with trusted base authority')[0];
   assert.ok(candidate.includes("github.event_name == 'pull_request'"));
   assert.ok(candidate.includes(`github.head_ref == '${industrialGovernanceBranch}'`));
-  assert.ok(candidate.includes("github.event.pull_request.base.sha == '31437d368ab284da32746cc958efc02f4cb8c97a'"));
+  assert.ok(candidate.includes("github.event.pull_request.base.sha == 'fe50e24d202bcd22d72dd15e4dc58f9ddc491331'"));
   assert.ok(candidate.includes('run: bash scripts/p7-autopilot-guard.sh'));
   const paths = workflow.split('\n  pull_request:\n')[1].split('\nconcurrency:')[0];
   assert.ok(paths.includes(`'${industrialDiagnosticPaths[0]}'`));
