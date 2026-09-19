@@ -719,7 +719,7 @@ jobs:
           [[ "$CONTEXT_OUTCOME" == success ]]
 
   trusted-immutable-scope:
-    name: ${{ (github.event.pull_request.head.ref == 'governance/ir20-api-database-binding-admission-20260919' || github.event.pull_request.head.ref == 'governance/ir20-binding-immutable-scope-20260919') && 'PC-CROP immutable scope · inactive generic route' || 'PC-CROP implementation immutable scope · trusted base' }}
+    name: PC-CROP implementation immutable scope · trusted base
     if: >-
       github.event_name == 'pull_request_target' &&
       (github.event.pull_request.head.ref == 'fix/p0-registration-authority-rollover-4637' ||
@@ -1273,6 +1273,10 @@ jobs:
             const peers = [{ id: 102, name: jobName(bootstrap, branch), app: check.app, head_sha: head,
               details_url: c.details_url, check_suite: { id: 33 }, status: 'completed', conclusion: c.conclusion,
               started_at: '2026-09-19T00:00:00Z', completed_at: '2026-09-19T00:00:03Z' }];
+            // GitHub also reports the inactive generic route. It is not evidence:
+            // the accepted verifier requires a completed success/failure producer.
+            if (branches.includes(branch)) peers.push({ ...structuredClone(peers[0]), id: 103,
+              name: jobName(generic, branch), conclusion: 'skipped' });
             return { check, statuses, run, peers, branch };
           }
           function valid(e) {
@@ -1284,7 +1288,7 @@ jobs:
               const active = [bootstrap, generic].filter(source => jobRuns(source, branch));
               assert.equal(active.length, 1);
               assert.equal(jobName(active[0], branch), canonicalName);
-              assert.notEqual(jobName(bootstrap, branch), jobName(generic, branch));
+              assert.equal(jobName(generic, branch), canonicalName, 'accepted generic producer name must stay stable');
               assert.equal(active[0], branches.includes(branch) ? bootstrap : generic);
             });
           }
