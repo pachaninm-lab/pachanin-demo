@@ -209,6 +209,14 @@
     ".github/workflows/ci.yml"
   ],
   "approvedConcurrentScopes": {
+    "ops/ir20-api-database-binding-20260919": [
+      "scripts/release/ir20-api-database-binding.py",
+      "scripts/release/test-ir20-api-database-binding.py",
+      "scripts/release/test-ir20-api-database-binding-integration.py",
+      ".github/workflows/ir20-api-database-binding.yml",
+      "docs/ops/ir20-api-database-binding.md",
+      "docs/platform-v7/autopilot/scopes/ir20-api-database-binding-20260919.json"
+    ],
     "fix/provider-review-scope-guard-20260918": ["scripts/p7-autopilot-guard.sh", "scripts/p7-autopilot-guard.test.mjs", ".github/workflows/platform-v7-autopilot-guard.yml", "docs/platform-v7/autopilot/autopilot-state.json"],
     "governance/kind-minio-image-source-20260912": [
       ".github/workflows/platform-v7-autopilot-guard.yml",
@@ -323,20 +331,6 @@
       "apps/api/src/modules/auth/accounting-document-staleness.policy.ts",
       "apps/api/src/modules/auth/accounting-document-staleness.policy.spec.ts",
       "apps/api/prisma/migrations/*_pc_crop_accounting_documents/**",
-      "apps/api/src/modules/auth/accounting-document-numbering.policy.ts",
-      "apps/api/src/modules/auth/accounting-document-numbering.policy.spec.ts",
-      "apps/api/prisma/migrations/*_pc_crop_accounting_number_counter/**",
-      "apps/api/src/modules/auth/regulatory-rule-registry.policy.ts",
-      "apps/api/src/modules/auth/regulatory-rule-registry.policy.spec.ts",
-      "apps/api/prisma/migrations/*_pc_crop_regulatory_rule_registry/**",
-      "apps/api/src/modules/auth/organization-tax-profile.policy.ts",
-      "apps/api/src/modules/auth/organization-tax-profile.policy.spec.ts",
-      "apps/api/prisma/migrations/*_pc_crop_organization_tax_profile/**",
-      "apps/api/src/modules/auth/contract-version.policy.ts",
-      "apps/api/src/modules/auth/contract-version.policy.spec.ts",
-      "apps/api/prisma/migrations/*_pc_crop_contract_versions/**",
-      "apps/api/src/modules/auth/document-format.policy.ts",
-      "apps/api/src/modules/auth/document-format.policy.spec.ts",
       "apps/api/src/modules/auth/accounting-document-issuing.repository.ts",
       "apps/api/src/modules/auth/accounting-document-issuing.postgresql.spec.ts",
       "apps/api/src/modules/auth/accounting-document-payload.builder.ts",
