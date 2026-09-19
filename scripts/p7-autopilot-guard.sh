@@ -31,10 +31,13 @@ FINAL_PUBLIC_RELEASE_BRANCH="ops/production-full-stack-release-v1"
 FINAL_PUBLIC_GOVERNANCE_BRANCH="governance/final-public-experience-v1-20260919"
 POISON_ISOLATION_MANIFEST="docs/platform-v7/autopilot/scopes/production-like-outbox-poison-isolation-3793.json"
 NEXT_SECURITY_PATCH_BRANCH="security/pc-crop-next-15-5-24-4997"
+INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH="governance/industrial-load-diagnostics-20260919"
+INDUSTRIAL_DIAGNOSTIC_BRANCH="test/industrial-load-diagnostics-20260919"
 CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
 
 is_immutable_scope_branch() {
   case "$1" in
+    "$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_BRANCH") return 0 ;;
     "$REGISTRATION_ROLLOVER_BRANCH"|"$OWNER_AUDIT_LOCK_BRANCH"|"$POST_REGISTRATION_PROGRESS_BRANCH"|"$INVENTORY_RESERVATION_BRANCH"|"$AUCTION_INVENTORY_BRANCH"|"$W1_PRODUCTION_ACCEPTANCE_BRANCH"|"$SCOPE_GOVERNANCE_BRANCH"|"$INVENTORY_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_IMPLEMENTATION_BRANCH"|"$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH"|"$POISON_ISOLATION_IMPLEMENTATION_BRANCH"|"$OWNER_HANDOFF_IMPLEMENTATION_BRANCH"|"$QWEN_FAILED_EVIDENCE_BRANCH"|"$KIND_MINIO_IMAGE_SOURCE_BRANCH"|"$GITLEAKS_RELEASE_ATTESTATION_BRANCH"|"$FINAL_PUBLIC_HOME_BRANCH"|"$FINAL_PUBLIC_MARKET_BRANCH"|"$FINAL_PUBLIC_REGISTRATION_BRANCH"|"$FINAL_PUBLIC_HOW_BRANCH"|"$FINAL_PUBLIC_PRODUCT_COPY_BRANCH"|"$FINAL_PUBLIC_RELEASE_BRANCH"|"$FINAL_PUBLIC_GOVERNANCE_BRANCH") return 0 ;;
     *) return 1 ;;
   esac
@@ -497,6 +500,49 @@ if (branch === publicHomeGovernanceBranch) {
   }
   scopes = state.approvedConcurrentScopes?.[branch];
 
+  if (branch === 'governance/industrial-load-diagnostics-20260919' || branch === 'test/industrial-load-diagnostics-20260919') {
+    const { isDeepStrictEqual } = require('node:util');
+    const governance = 'governance/industrial-load-diagnostics-20260919';
+    const diagnostic = 'test/industrial-load-diagnostics-20260919';
+    const governancePaths = [
+      'docs/platform-v7/autopilot/autopilot-state.json',
+      'docs/platform-v7/execution-queue.md',
+      'docs/platform-v7/autopilot/prompts/current-codex-task.md',
+      'docs/platform-v7/autopilot/prompts/current-review-task.md',
+      'scripts/p7-autopilot-guard.sh',
+      'scripts/p7-autopilot-guard.test.mjs',
+      '.github/workflows/platform-v7-autopilot-guard.yml',
+    ];
+    const diagnosticPaths = ['apps/api/test/industrial/load-proof.e2e-spec.ts'];
+    const expected = branch === governance ? governancePaths : diagnosticPaths;
+    const baseline = structuredClone(state);
+    if (branch === governance && scopes === undefined) {
+      // Owner authorization in the 2026-09-19 session permits this atomic
+      // seven-file repair. This is NOT a claim of prior machine admission.
+      // The initial candidate is reviewed/tested without privileged execution.
+      const sha = execFileSync('git', ['rev-parse', baseRef], { encoding: 'utf8' }).trim();
+      const blob = execFileSync('git', ['rev-parse', `${baseRef}:${stateFile}`], { encoding: 'utf8' }).trim();
+      if (sha !== '6d3aef5370a7ef6c46f82d9147f1c3c39e41e206' || blob !== '78c82dce0e18e867c43c6a44ddc345a396f241ca' ||
+          Object.hasOwn(state.approvedConcurrentScopes, diagnostic)) {
+        throw new Error('INDUSTRIAL_DIAGNOSTIC_BOOTSTRAP_BASE_MISMATCH');
+      }
+      baseline.approvedConcurrentScopes[governance] = governancePaths;
+      baseline.approvedConcurrentScopes[diagnostic] = diagnosticPaths;
+      scopes = governancePaths;
+    }
+    if (!isDeepStrictEqual(scopes, expected)) throw new Error('INDUSTRIAL_DIAGNOSTIC_ACCEPTED_SCOPE_MISMATCH');
+    const headRef = String(process.env.HEAD_REF || 'HEAD');
+    const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${stateFile}`], { encoding: 'utf8' }));
+    if (!isDeepStrictEqual(candidate, baseline)) throw new Error('INDUSTRIAL_DIAGNOSTIC_STATE_MUTATION');
+    const changes = execFileSync('git', ['diff', '--no-renames', '--name-status', `${baseRef}...${headRef}`], { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
+    for (const change of changes) {
+      const [status, file, extra] = change.split('\t');
+      if (status !== 'M' || extra || !expected.includes(file)) throw new Error('INDUSTRIAL_DIAGNOSTIC_DIFF_SCOPE');
+      const modes = [baseRef, headRef].map(ref => execFileSync('git', ['ls-tree', ref, '--', file], { encoding: 'utf8' }).split(' ')[0]);
+      if (!['100644', '100755'].includes(modes[0]) || modes[0] !== modes[1]) throw new Error('INDUSTRIAL_DIAGNOSTIC_FILE_MODE');
+    }
+  }
+
   if (branch === 'governance/final-public-experience-v1-20260919') {
     const { isDeepStrictEqual } = require('node:util');
     const headRef = String(process.env.HEAD_REF || 'HEAD');
@@ -647,7 +693,7 @@ if [ -n "$SOURCE_CONTROLLED_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$SOURCE_CONTROLLED_SCOPE")
 fi
 
-if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INVENTORY_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$FINAL_PUBLIC_GOVERNANCE_BRANCH" ]; then
+if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INVENTORY_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$FINAL_PUBLIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH" ]; then
   MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$DIFF_FILES" | grep -E '^(AGENTS\.md|docs/platform-v7/autopilot/|scripts/p7-autopilot-guard\.sh$|scripts/p7-autopilot-guard\.test\.mjs$|scripts/p7-source-controlled-scope\.mjs$|\.github/workflows/platform-v7-autopilot-guard\.yml$|\.github/workflows/automerge\.yml$)' || true)
   if [ "$CURRENT_BRANCH" = "$QWEN_FAILED_EVIDENCE_BRANCH" ]; then
     # This diagnostic regression file is still subject to exact base-approved scope.

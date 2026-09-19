@@ -317,3 +317,24 @@ is advanced here. This does not expand the four-file workspace repair scope.
 Before: opaque rejected cycle blocks acceptance. After: diagnostic permission
 only, not a claim that the failed cycle or the workspace release is accepted.
 Virtual-server deployment: not required for this test-only admission.
+
+### Atomic diagnostic scope enforcement (supersedes permission-only #5451)
+
+The owner's 2026-09-19 session authorization to implement the specification
+includes preparing this necessary bounded guard repair. No earlier machine
+admission for this seven-file bootstrap is claimed. Native findings on #5448
+and #5451 correctly reject the legacy union with global IR-20 scope.
+Bootstrap is limited to governance/industrial-load-diagnostics-20260919 at
+base 6d3aef5370a7ef6c46f82d9147f1c3c39e41e206 and state blob
+78c82dce0e18e867c43c6a44ddc345a396f241ca. Its exact seven paths are the
+four governance documents and guard script, guard tests and guard workflow.
+Only the two exact governance/diagnostic scope entries may be appended;
+all other state and other execution lanes remain unchanged. Initial candidate
+checks are unprivileged, additional to the existing base guard, and require
+independent exact-head review and owner audit. They are not retroactive
+trusted-base enforcement. Never execute candidate code in pull_request_target.
+After merge both branches use immutable trusted-base routing; diagnostic
+implementation admits only the load-proof test, with no head-state fallback,
+global scope union or generic infrastructure exception. A changed base or an
+actual trusted gate rejection requires renewed bounded review/authority,
+not disabling checks. No automatic merge or protection changes are permitted.
