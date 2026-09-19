@@ -26,13 +26,15 @@ FINAL_PUBLIC_HOME_BRANCH="agent/platform-v7-strategic-rebuild-v3"
 FINAL_PUBLIC_MARKET_BRANCH="p0/farmer-public-market-teaser-20260913"
 FINAL_PUBLIC_REGISTRATION_BRANCH="fix/public-registration-final-copy-4916"
 FINAL_PUBLIC_HOW_BRANCH="fix/public-deal-journey-10of10-current-main-20260808"
+FINAL_PUBLIC_PRODUCT_COPY_BRANCH="agent/platform-v7-product-copy"
+FINAL_PUBLIC_RELEASE_BRANCH="ops/production-full-stack-release-v1"
 POISON_ISOLATION_MANIFEST="docs/platform-v7/autopilot/scopes/production-like-outbox-poison-isolation-3793.json"
 NEXT_SECURITY_PATCH_BRANCH="security/pc-crop-next-15-5-24-4997"
 CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
 
 is_immutable_scope_branch() {
   case "$1" in
-    "$REGISTRATION_ROLLOVER_BRANCH"|"$OWNER_AUDIT_LOCK_BRANCH"|"$POST_REGISTRATION_PROGRESS_BRANCH"|"$INVENTORY_RESERVATION_BRANCH"|"$AUCTION_INVENTORY_BRANCH"|"$W1_PRODUCTION_ACCEPTANCE_BRANCH"|"$SCOPE_GOVERNANCE_BRANCH"|"$INVENTORY_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_IMPLEMENTATION_BRANCH"|"$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH"|"$POISON_ISOLATION_IMPLEMENTATION_BRANCH"|"$OWNER_HANDOFF_IMPLEMENTATION_BRANCH"|"$QWEN_FAILED_EVIDENCE_BRANCH"|"$KIND_MINIO_IMAGE_SOURCE_BRANCH"|"$GITLEAKS_RELEASE_ATTESTATION_BRANCH"|"$FINAL_PUBLIC_HOME_BRANCH"|"$FINAL_PUBLIC_MARKET_BRANCH"|"$FINAL_PUBLIC_REGISTRATION_BRANCH"|"$FINAL_PUBLIC_HOW_BRANCH") return 0 ;;
+    "$REGISTRATION_ROLLOVER_BRANCH"|"$OWNER_AUDIT_LOCK_BRANCH"|"$POST_REGISTRATION_PROGRESS_BRANCH"|"$INVENTORY_RESERVATION_BRANCH"|"$AUCTION_INVENTORY_BRANCH"|"$W1_PRODUCTION_ACCEPTANCE_BRANCH"|"$SCOPE_GOVERNANCE_BRANCH"|"$INVENTORY_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_IMPLEMENTATION_BRANCH"|"$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH"|"$POISON_ISOLATION_IMPLEMENTATION_BRANCH"|"$OWNER_HANDOFF_IMPLEMENTATION_BRANCH"|"$QWEN_FAILED_EVIDENCE_BRANCH"|"$KIND_MINIO_IMAGE_SOURCE_BRANCH"|"$GITLEAKS_RELEASE_ATTESTATION_BRANCH"|"$FINAL_PUBLIC_HOME_BRANCH"|"$FINAL_PUBLIC_MARKET_BRANCH"|"$FINAL_PUBLIC_REGISTRATION_BRANCH"|"$FINAL_PUBLIC_HOW_BRANCH"|"$FINAL_PUBLIC_PRODUCT_COPY_BRANCH"|"$FINAL_PUBLIC_RELEASE_BRANCH") return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -503,6 +505,8 @@ if (branch === publicHomeGovernanceBranch) {
       ['p0/farmer-public-market-teaser-20260913', 'docs/platform-v7/autopilot/scopes/farmer-public-market-teaser-20260913.json'],
       ['fix/public-registration-final-copy-4916', 'docs/platform-v7/autopilot/scopes/public-registration-final-copy-4916.json'],
       ['fix/public-deal-journey-10of10-current-main-20260808', 'docs/platform-v7/autopilot/scopes/public-deal-journey-10of10-20260808.json'],
+      ['agent/platform-v7-product-copy', 'docs/platform-v7/autopilot/scopes/platform-v7-product-copy-2026-07-31.json'],
+      ['ops/production-full-stack-release-v1', 'docs/platform-v7/autopilot/scopes/production-full-stack-release-v1.json'],
     ]);
     const manifestPath = finalPublicManifestByBranch.get(branch);
     if (manifestPath) {
