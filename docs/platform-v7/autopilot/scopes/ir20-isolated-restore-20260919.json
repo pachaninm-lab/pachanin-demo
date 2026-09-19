@@ -20,5 +20,6 @@
     "No existing release entry point, authority, permissions, concurrency or merge gate is modified.",
     "Source-to-canonical-API binding, full DR, worker rollout, rollback compatibility and live acceptance remain separate unproven requirements.",
     "Independent exact-head review and complete applicable CI precede manual SHA-bound merge. IR-20 remains active and official progress remains zero."
-  ]
+  ],
+  "executionMethodNote": "Owner-directed continuation: optional separate read-only full-diff inference on the existing hosted PR runner; candidate evidence only. No new paths, production access, mandatory provider, paid inference, gate relaxation or runtime model changes."
 }

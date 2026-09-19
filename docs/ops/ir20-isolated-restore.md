@@ -129,3 +129,35 @@ and exported snapshots; Docker Engine resource/runtime isolation options.
 - https://docs.docker.com/reference/cli/docker/container/ls/
 - https://www.gnu.org/software/bash/manual/html_node/Signals.html
 - https://man7.org/linux/man-pages/man2/fsync.2.html
+
+
+## Optional separate source-review execution
+
+Owner-directed continuation on 2026-09-19 adds a bounded, read-only review
+process to the existing PR-only workflow. This changes the execution method,
+not the six-file scope, restore contract, required tests or merge authority.
+The runner loads a checksum-pinned Apache-2.0 Ministral 3 8B model and a
+checksum-pinned llama.cpp CPU engine. Both are development-only, disposable
+runner artifacts; neither is added to the platform or Gekta runtime. No API
+key, paid inference service, production secret, new runner class or Mac is used.
+
+The model receives the complete Git base-to-head diff in a fresh inference
+context. It has no implementation tools. The artifact preserves the actual
+request, response, exact refs/tree/blobs/diff hash, model/engine identities and
+prompt-token accounting. Missing files, wrong SHA, inadequate per-file/area
+coverage, truncated context/generation, fabricated execution claims and a PASS
+with a blocking finding reject the candidate. Validator fixtures are not reviews.
+
+This is an OPTIONAL evidence collector. A successful collection job is neither
+review PASS nor merge admission. Unavailable execution records NOT_REVIEW, not
+approval. Even a well-formed model candidate retains independent_review_accepted=false
+and merge_authorized=false until the authorized operator actually examines its
+provenance, full coverage, limitations and findings. Findings remain actionable;
+automation cannot resolve them. Another real independent reviewer can replace
+this method; no named model/provider becomes a mandatory dependency.
+
+Pinned upstream sources (checked 2026-09-19):
+- llama.cpp b10964 / b29c606e28a01b1bc8c1351026a0fa6e616bf6c4, release asset 563672468:
+  https://github.com/ggml-org/llama.cpp/releases/tag/b10964
+- Ministral-3-8B-Instruct-2512-GGUF revision 65457cc28fafb2210c8fb885a068b107e8d7fab3:
+  https://huggingface.co/mistralai/Ministral-3-8B-Instruct-2512-GGUF

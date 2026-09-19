@@ -316,5 +316,80 @@ class DurabilityTests(unittest.TestCase):
         self.assertEqual(result['roles'], b'synthetic roles')
 
 
+class OptionalReviewEvidenceTests(unittest.TestCase):
+    def setUp(self):
+        import textwrap
+        workflow = SCRIPT.parents[2] / '.github/workflows/ir20-restore-drill.yml'
+        text = workflow.read_text()
+        matches = re.findall(r"<<'PY_REVIEW_AGENT'[^\n]*\n(.*?)^          PY_REVIEW_AGENT$",
+                             text, re.MULTILINE | re.DOTALL)
+        self.assertEqual(len(matches), 1)
+        self.namespace = {'__name__':'review_evidence_test'}
+        exec(compile(textwrap.dedent(matches[0]), str(workflow), 'exec'), self.namespace)
+        self.paths = self.namespace['PATHS']
+        self.lines = {p:10000 for p in self.paths}
+        self.candidate = {
+            'reviewed_head_sha':SHA, 'verdict':'PASS', 'tests_executed':False,
+            'deployment_approval':False,
+            'files':[{'path':p, 'analysis':'Synthetic validator fixture only; this is not an actual source review. '*2,
+                      'line_refs':[1]} for p in self.paths],
+            'areas':{a:'Synthetic validator fixture only; this is not an actual source review. '*2
+                     for a in self.namespace['AREAS']},
+            'findings':[], 'limitations':['Synthetic schema tests do not execute a model or supply independent review.']}
+        self.response = {'stop_type':'eos', 'truncated':False, 'tokens_evaluated':100}
+
+    def validate(self):
+        self.response['content'] = json.dumps(self.candidate)
+        return self.namespace['validate_candidate'](self.response, SHA, self.lines, 100)
+
+    def test_well_formed_candidate_is_not_deployment_approval(self):
+        result = self.validate()
+        self.assertFalse(result['deployment_approval'])
+        self.assertFalse(result['tests_executed'])
+
+    def test_context_or_generation_truncation_is_not_review(self):
+        for key,value in [('truncated',True),('stop_type','limit'),('tokens_evaluated',99)]:
+            with self.subTest(key=key):
+                old=self.response[key];self.response[key]=value
+                with self.assertRaises(ValueError):self.validate()
+                self.response[key]=old
+
+    def test_wrong_sha_incomplete_files_or_missing_area_is_not_review(self):
+        for mode in ('sha','file','duplicate','area','analysis','line','bool-line'):
+            with self.subTest(mode=mode):
+                saved=json.loads(json.dumps(self.candidate))
+                if mode=='sha':self.candidate['reviewed_head_sha']='0'*40
+                elif mode=='file':self.candidate['files'].pop()
+                elif mode=='duplicate':self.candidate['files'][0]=self.candidate['files'][1]
+                elif mode=='area':self.candidate['areas'].pop(next(iter(self.candidate['areas'])))
+                elif mode=='analysis':self.candidate['files'][0]['analysis']='PASS'
+                elif mode=='line':self.candidate['files'][0]['line_refs']=[10001]
+                else:self.candidate['files'][0]['line_refs']=[True]
+                with self.assertRaises(ValueError):self.validate()
+                self.candidate=saved
+
+    def test_blocking_finding_cannot_coexist_with_pass(self):
+        self.candidate['findings']=[{'path':self.paths[0],'line':1,'severity':'P1',
+            'problem':'Synthetic blocking defect for validator regression only.',
+            'fix':'Synthetic required correction for validator regression only.'}]
+        with self.assertRaises(ValueError):self.validate()
+        self.candidate['verdict']='BLOCKED'
+        self.assertEqual(self.validate()['verdict'],'BLOCKED')
+
+    def test_fabricated_test_or_deployment_claim_is_not_review(self):
+        for key in ('tests_executed','deployment_approval'):
+            with self.subTest(key=key):
+                self.candidate[key]=True
+                with self.assertRaises(ValueError):self.validate()
+                self.candidate[key]=False
+
+    def test_malformed_oversized_or_incomplete_response_is_not_review(self):
+        for content in ('not json','[]','x'*98305):
+            with self.subTest(content=content[:10]):
+                self.response['content']=content
+                with self.assertRaises((ValueError,TypeError)):
+                    self.namespace['validate_candidate'](self.response,SHA,self.lines,100)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
