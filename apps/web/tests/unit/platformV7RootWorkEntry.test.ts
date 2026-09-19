@@ -134,7 +134,7 @@ describe('platform-v7 final public entry', () => {
       'settlement readiness',
     ]) expect(combined).not.toContain(token);
     expect(home).toContain('Внешний источник сохраняет свою роль и основание');
-    expect(home).toContain('Учётные, государственные, финансовые и сервисные системы подключаются через управляемые контуры обмена.');
+    expect(home).toContain('Подключение учётных, государственных, финансовых и сервисных систем выполняется только через управляемый контур и подтверждённое основание.');
     expect(home).not.toContain('PostgreSQL');
   });
 

@@ -162,7 +162,7 @@ const COPY = {
         ['Решение', 'Кто принимает окончательное решение'],
       ],
       integrations: '1С · ФГИС · ЭДО · Банки · Лаборатории · Логистика',
-      integrationText: 'Платформа связывает Сделку с учётными, государственными, финансовыми и сервисными системами. Внешний источник сохраняет свою роль и основание, а связанные данные становятся частью единой истории Сделки.',
+      integrationText: 'Когда внешний источник подключён на подтверждённом основании, его данные могут быть связаны со Сделкой. Источник сохраняет собственную роль и не считается активным без подтверждения.',
       cta: 'Центр доверия',
     },
     gekta: {
@@ -187,7 +187,7 @@ const COPY = {
         ['Роли и полномочия', 'Все участники работают с одной историей, но видят только относящиеся к своей роли данные и действия.'],
         ['Гекта', 'Анализ доступных фактов, риска, источников и следующего допустимого шага.'],
         ['Учёт', 'Расчётные и учётные данные остаются связаны с исполнением Сделки.'],
-        ['Внешние системы', 'Учётные, государственные, финансовые и сервисные системы подключаются через управляемые контуры обмена.'],
+        ['Внешние системы', 'Подключение учётных, государственных, финансовых и сервисных систем выполняется только через управляемый контур и подтверждённое основание.'],
       ],
     },
     final: {
@@ -254,7 +254,7 @@ const COPY = {
       lead: 'A critical action is tied to authority, basis, source and an accountable decision.',
       cards: [['Authority', 'Who has the right to act'], ['Basis', 'Which terms, documents and events allow the action'], ['Source', 'Where the specific fact came from'], ['Decision', 'Who makes the final decision']],
       integrations: '1C · Government systems · EDI · Banks · Laboratories · Logistics',
-      integrationText: 'The platform links the Deal to accounting, government, financial and service systems. Each external source keeps its own role and basis while linked data becomes part of one Deal history.',
+      integrationText: 'When an external source is connected on a confirmed basis, its data can be linked to the Deal. The source keeps its own role and is not shown as active without confirmation.',
       cta: 'Trust Center',
     },
     gekta: {
@@ -279,7 +279,7 @@ const COPY = {
         ['Roles and authority', 'All participants share one history while seeing only role-relevant data and actions.'],
         ['Gekta', 'Analysis of available facts, risk, sources and the next allowed step.'],
         ['Accounting', 'Settlement and accounting data remain linked to Deal execution.'],
-        ['External systems', 'Accounting, government, financial and service systems connect through governed exchange circuits.'],
+        ['External systems', 'Accounting, government, financial and service systems are connected only through a governed exchange circuit and a confirmed basis.'],
       ],
     },
     final: {
@@ -346,7 +346,7 @@ const COPY = {
       lead: '关键操作与权限、依据、事实来源和责任决定绑定。',
       cards: [['权限', '谁有权操作'], ['依据', '哪些条件、文件和事件允许操作'], ['来源', '具体事实来自哪里'], ['决定', '谁作出最终决定']],
       integrations: '1C · 政府系统 · 电子单据 · 银行 · 实验室 · 物流',
-      integrationText: '平台把交易与核算、政府、金融和服务系统关联。外部来源保留自身角色和依据，关联数据进入同一交易历史。',
+      integrationText: '只有在外部来源已基于可确认依据接入时，其数据才可关联到交易。该来源保留自身角色，未经确认不会显示为已启用。',
       cta: '信任中心',
     },
     gekta: {
@@ -371,7 +371,7 @@ const COPY = {
         ['角色与权限', '所有参与方共享同一历史，但只看到与自身角色相关的数据和操作。'],
         ['Gekta', '分析可用事实、风险、来源和下一个允许的步骤。'],
         ['核算', '结算和核算数据与交易履约保持关联。'],
-        ['外部系统', '核算、政府、金融和服务系统通过受控数据交换闭环接入。'],
+        ['外部系统', '核算、政府、金融和服务系统只有通过受控数据交换闭环并具备已确认依据时才接入。'],
       ],
     },
     final: {
