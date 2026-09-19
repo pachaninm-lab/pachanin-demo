@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/local-mistral-segment-10-runtime-fd-authority-20260912",
+  "status": "active",
+  "purpose": "Stage and independently review only canonical Local Mistral conversion-root directory authority as an inert pinned directory descriptor.",
+  "authorityBaseExactMain": "024147387e2c5728843f1b22fa18d6ec709e5d31",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/bootstrap/local-mistral-conversion-root.py.inert",
+    "docs/platform-v7/autopilot/scopes/local-mistral-segment-10-conversion-root-20260912.json"
+  ],
+  "requiredInvariants": [
+    "This PR remains inert: it does not activate Local Mistral workflow routing, invoke a model, publish provider status, or change product/API/database/RBAC/registration/cabinet behavior.",
+    "Input authority contains exactly exactMainSha, workflowRunId, workflowRunAttempt and conversionRoot; exactMainSha is lowercase SHA-40 and run/attempt are positive integers.",
+    "conversionRoot must exactly equal /srv/tai-models/conversion-runs/{exactMainSha}/{workflowRunId}-{workflowRunAttempt}; no caller-selected alternate path is accepted.",
+    "Traversal starts from the kernel root directory and opens only the fixed components srv, tai-models, conversion-runs followed by the validated exact-main and canonical run-attempt components.",
+    "Every component is opened relative to the already-pinned parent with Linux openat2 using O_PATH|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC and RESOLVE_BENEATH|RESOLVE_NO_MAGICLINKS|RESOLVE_NO_SYMLINKS.",
+    "Each accepted directory must be owned by uid 0 or by the exact effective dedicated model-host reviewer identity executing this primitive, and must have no group/world write bits. This matches the canonical conversion transport, which creates the per-run tree as tai-model, without granting file-content authority.",
+    "A successful result exposes only the still-open final directory FD plus exact main/run/attempt and stable device/inode identity; file content authority is not established here.",
+    "The returned final directory descriptor remains pinned after all ancestor descriptors are closed; later file-identity binding must operate relative to this descriptor and must not reconstruct the pathname.",
+    "The already-merged content-verification stage still requires stronger final-file immutability. Its current root-owned/no-write contract is not weakened or bypassed here; any compatibility repair or privileged freeze must be separately governed before Local Mistral activation.",
+    "Local Qwen remains the independent reviewer for this future Local Mistral authority change.",
+    "REG.RU remains production authority, mandatory SaaS/API keys remain none and new recurring cost remains 0 RUB."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

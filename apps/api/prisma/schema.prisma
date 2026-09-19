@@ -1913,6 +1913,10 @@ model OutboxEntry {
   retryCount            Int       @default(0)
   nextRetryAt           DateTime  @default(now())
   lastError             String?
+  lastErrorCode         String?   @db.VarChar(64)
+  lastErrorCategory     String?
+  lastAttemptAt         DateTime?
+  manualReviewAt        DateTime?
   correlationId         String?
   auditId               String?
   runtimeSnapshotId     String?
@@ -1950,10 +1954,15 @@ model OutboxRedriveEvent {
   id                 String   @id @default(cuid())
   outboxEntryId      String
   idempotencyKey     String   @unique
+  requestFingerprint String?  @db.VarChar(64)
   actorUserId        String
   reason             String
   previousStatus     String
   previousRetryCount Int
+  previousErrorCode  String?   @db.VarChar(64)
+  previousErrorCategory String?
+  previousLastAttemptAt DateTime?
+  previousManualReviewAt DateTime?
   prevHash           String?
   hash               String
   createdAt          DateTime @default(now())

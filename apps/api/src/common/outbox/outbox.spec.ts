@@ -1,4 +1,5 @@
 import { OutboxService } from './outbox.service';
+import { Prisma } from '@prisma/client';
 
 function makeRow(overrides: Record<string, unknown> = {}) {
   const now = new Date('2026-07-15T12:00:00.000Z');
@@ -43,6 +44,7 @@ function makePrisma() {
       findUnique: jest.fn(),
     },
     $queryRaw: jest.fn(),
+    $executeRaw: jest.fn(),
     $transaction: jest.fn(),
   };
 }
@@ -106,7 +108,7 @@ describe('OutboxService — PostgreSQL authority', () => {
 
   it('confirms only a SENT row and treats a repeated confirmation as idempotent', async () => {
     const prisma = makePrisma();
-    prisma.outboxEntry.updateMany.mockResolvedValueOnce({ count: 1 });
+    prisma.$executeRaw.mockResolvedValueOnce(1);
     prisma.outboxEntry.findUnique.mockResolvedValueOnce(
       makeRow({ status: 'CONFIRMED', confirmedAt: new Date('2026-07-15T12:01:00.000Z') }),
     );
@@ -115,7 +117,7 @@ describe('OutboxService — PostgreSQL authority', () => {
     const confirmed = await outbox.confirm('outbox-1');
     expect(confirmed.status).toBe('CONFIRMED');
 
-    prisma.outboxEntry.updateMany.mockResolvedValueOnce({ count: 0 });
+    prisma.$executeRaw.mockResolvedValueOnce(0);
     prisma.outboxEntry.findUnique.mockResolvedValueOnce(
       makeRow({ status: 'CONFIRMED', confirmedAt: new Date('2026-07-15T12:01:00.000Z') }),
     );
@@ -124,7 +126,7 @@ describe('OutboxService — PostgreSQL authority', () => {
 
   it('rejects confirmation from a non-terminal-delivery state', async () => {
     const prisma = makePrisma();
-    prisma.outboxEntry.updateMany.mockResolvedValue({ count: 0 });
+    prisma.$executeRaw.mockResolvedValue(0);
     prisma.outboxEntry.findUnique.mockResolvedValue(makeRow({ status: 'PENDING' }));
     const outbox = new OutboxService(prisma as any);
 
@@ -156,6 +158,107 @@ describe('OutboxService — PostgreSQL authority', () => {
       manualReview: 0,
       oldestDueAt: '2026-07-15T11:59:00.000Z',
     });
+  });
+
+  it('preserves exact replay for a legacy redrive record without a fingerprint', async () => {
+    const prisma = makePrisma();
+    const legacyReplay = {
+      id: 'redrive-legacy-1',
+      outboxEntryId: 'outbox-1',
+      idempotencyKey: 'redrive-key-1',
+      requestFingerprint: null,
+      actorUserId: 'admin-1',
+      reason: 'provider recovered',
+    };
+    const tx = {
+      outboxRedriveEvent: { findUnique: jest.fn().mockResolvedValue(legacyReplay) },
+      outboxEntry: { findUnique: jest.fn().mockResolvedValue(makeRow()) },
+    };
+    prisma.$transaction.mockImplementation(async (operation: (client: typeof tx) => unknown) => (
+      operation(tx)
+    ));
+    const outbox = new OutboxService(prisma as any);
+
+    await expect(outbox.redrive({
+      entryId: 'outbox-1',
+      actorUserId: 'admin-1',
+      reason: 'provider recovered',
+      idempotencyKey: 'redrive-key-1',
+    })).resolves.toMatchObject({ redriveEventId: 'redrive-legacy-1', replayed: true });
+
+    await expect(outbox.redrive({
+      entryId: 'outbox-1',
+      actorUserId: 'admin-1',
+      reason: 'different command',
+      idempotencyKey: 'redrive-key-1',
+    })).rejects.toThrow('Redrive idempotency conflict');
+  });
+
+  it.each<[string, number[], number[], number[]]>([
+    ['transaction start order differs from append order', [100, 90, 120], [100, 110, 120], [100, 110, 120]],
+    ['three appends share one database millisecond', [100, 100, 100], [100, 100, 100], [100, 101, 102]],
+    ['the database clock moves backwards', [100, 90, 80], [100, 90, 80], [100, 101, 102]],
+  ])('keeps one redrive audit chain when %s', async (_, starts, clocks, expectedTimes) => {
+    const prisma = makePrisma();
+    const events: Array<{ id: string; hash: string; prevHash: string | null; createdAt: Date }> = [];
+    // Deliberately defeat the id DESC tie-breaker: the second append's id sorts
+    // before the first. Timestamp ties must never decide chain membership.
+    const ids = ['event-z', 'event-a', 'event-m'];
+    let append = 0;
+    let chainLocked = false;
+    const tx = {
+      outboxEntry: { findUnique: jest.fn().mockResolvedValue(makeRow()) },
+      outboxRedriveEvent: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        findFirst: jest.fn().mockImplementation(() => {
+          expect(chainLocked).toBe(true);
+          return [...events].sort((left, right) => (
+            right.createdAt.getTime() - left.createdAt.getTime() || right.id.localeCompare(left.id)
+          ))[0] ?? null;
+        }),
+        create: jest.fn().mockImplementation(({ data }) => {
+          expect(chainLocked).toBe(true);
+          // Model PostgreSQL's transaction-start default if createdAt is omitted.
+          const event = { id: ids[append], createdAt: new Date(starts[append]), ...data };
+          events.push(event);
+          return event;
+        }),
+      },
+      $queryRaw: jest.fn().mockImplementation((query: Prisma.Sql) => {
+        if (query.sql.includes('clock_timestamp()')) {
+          expect(chainLocked).toBe(true);
+          return [{ now: new Date(clocks[append]) }];
+        }
+        return [{
+          id: `outbox-${append}`, status: 'DEAD_LETTER', retryCount: 3,
+          lastErrorCode: null, lastErrorCategory: null,
+          lastAttemptAt: null, manualReviewAt: null,
+        }];
+      }),
+      $executeRaw: jest.fn().mockImplementation((query: Prisma.Sql) => {
+        if (query.sql.includes('pg_advisory_xact_lock')) chainLocked = true;
+        return 1;
+      }),
+    };
+    prisma.$transaction.mockImplementation(async (operation: (client: typeof tx) => unknown) => {
+      chainLocked = false;
+      return operation(tx);
+    });
+    const service = new OutboxService(prisma as any);
+
+    for (append = 0; append < 3; append += 1) {
+      await service.redrive({
+        entryId: `outbox-${append}`, actorUserId: 'admin-1', reason: 'provider recovered',
+        idempotencyKey: `append-${append}`,
+      });
+    }
+
+    expect(events.map((event) => event.createdAt.getTime())).toEqual(expectedTimes);
+    expect(events.map((event) => event.prevHash)).toEqual([null, events[0].hash, events[1].hash]);
+    expect(new Set(events.map((event) => event.hash)).size).toBe(3);
+    expect(prisma.$transaction).toHaveBeenCalledWith(
+      expect.any(Function), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
   });
 
   it('lists entries asynchronously from PostgreSQL', async () => {

@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "p0/farmer-public-market-teaser-20260913",
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction-2026-09-13-farmer-first-master-v2.1",
+  "purpose": "Bound the farmer-first anonymous public market teaser: eligible seller inventory lots may be projected transactionally into a PostgreSQL-authoritative public-safe card surface while full lot, counterparty and transaction actions stay behind authentication/registration.",
+  "authorityBaseExactMain": "d1ae34d3cc78d13df3af83c043e0b2f7972e0979",
+  "effectiveAfter": "This independent governance PR is reviewed and merged to main. The implementation branch must then synchronize to the accepted exact main containing this manifest and must not widen its own scope.",
+  "allowedPaths": [
+    "apps/api/prisma/migrations/20260913143000_public_market_lot_projection/migration.sql",
+    "apps/api/src/modules/auctions/auctions.module.ts",
+    "apps/api/src/modules/auctions/public-auction-market.controller.ts",
+    "apps/api/src/modules/auctions/public-auction-market.service.ts",
+    "apps/api/src/modules/auctions/public-auction-market.spec.ts",
+    "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
+    "apps/web/components/platform-v7/PublicMarketTeaser.module.css",
+    "apps/web/components/platform-v7/PublicMarketTeaser.tsx",
+    "apps/web/lib/public-market-server.ts",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "requiredInvariants": [
+    "REGISTRATION_CODE_CHANGED=0, REGISTRATION_BEHAVIOR_CHANGED=0 and ROLE_ELIGIBILITY_REGRESSION=0.",
+    "auction.register_inventory_lot remains the canonical new-lot writer; the legacy lots module is not revived and no parallel market core is introduced.",
+    "Only inventory-bound, ADMITTED, live BIDDING lots satisfying the bounded public-eligibility predicate may be projected; ineligible records fail closed to non-public state.",
+    "The protected projection is PostgreSQL-authoritative, FORCE RLS protected and directly unreadable by ordinary runtime roles; the canonical lot id may exist only as an internal non-public synchronization key.",
+    "The public database function and HTTP response never expose canonical lot id, tenant id, seller user/organization identity, address, inventory position, reservation, source record id or source certificate.",
+    "Seller identity is REDACTED and verification remains truthfully DECLARED unless independent evidence is separately authoritative; no verified or guaranteed wording may be fabricated.",
+    "Guest access is read-only and rate-limited; full lot detail, counterparty identity, offers, bids and transaction actions remain authentication/registration gated.",
+    "Public fetching sends no authenticated session headers and fails closed to an explicit degraded/empty state; no demo, mock or fabricated market fallback is permitted.",
+    "Money remains integer-safe in kopecks and is never represented as floating-point authority.",
+    "Public market cards remain RU/EN/ZH-capable, responsive and structured for mobile and desktop without changing registration behavior.",
+    "The existing durable-outbox implementation and PR #5347 scope remain untouched by this implementation.",
+    "No external-provider activation, production mutation, new paid dependency or recurring mandatory cost is introduced; REG.RU remains the only production target."
+  ],
+  "acceptance": [
+    "The implementation diff remains within exactly the ten allowed paths and does not add its own scope authority.",
+    "The migration enforces public-card synchronization in the canonical transaction and hides rather than deletes records that lose public eligibility.",
+    "Restricted runtime principals receive only bounded public-function execution and no direct projection-table access.",
+    "The public API is explicitly public, rate-limited and returns only the bounded anonymous authority envelope and card fields.",
+    "The server-side public fetch uses no auth/session headers and returns no fabricated fallback data on failure.",
+    "The public UI renders culture, grade, volume, start price, region, deadline and truthful trust state while omitting seller identity and internal identifiers.",
+    "Registration/login calls to action gate deeper lot participation without claiming that the complete two-sided marketplace is already implemented.",
+    "Fresh exact-head CI/security/runtime gates are terminal green, unresolved review findings are zero, and no PASS is carried across a different SHA.",
+    "Production credit remains zero until the accepted implementation is merged, released by exact SHA to REG.RU and verified live against that same SHA."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
