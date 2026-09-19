@@ -193,6 +193,47 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  public-home-contract:
+    name: Final public experience · exact-head unit contracts
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.ref == 'agent/platform-v7-strategic-rebuild-v3'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact public implementation head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify all admitted homepage unit contracts
+        run: >-
+          pnpm --filter @pc/web exec vitest run
+          tests/unit/platformV7HeroInfrastructureMessage.test.ts
+          tests/unit/platformV7RootWorkEntry.test.ts
+          tests/unit/platformV7StrategicHomeSafety.test.ts
+          tests/unit/gektaProductSeparation.test.ts
+          tests/unit/platformV7AccountingClosureValue.test.ts
+          tests/unit/platformV7HomeTaiRoleEntry.test.ts
+          tests/unit/platformV7HomepageProductCopy.test.ts
+          tests/unit/platformV7HomepageVisibleOperatingCopy.test.ts
+          tests/unit/platformV7PublicCopyQuality.test.ts
+          tests/unit/platformV7PublicExperienceV4.test.ts
+          tests/unit/gektaPublicBrandContract.test.ts
+          tests/unit/platformV7HomeFinalPolish.test.ts
+          tests/unit/platformV7InternationalHomepageFix.test.ts
+
   trusted-kind-minio-governance-bootstrap:
     name: Kind MinIO governance bootstrap · trusted base
     if: >-
