@@ -487,7 +487,11 @@ test(`${implementationBranch}: fails closed without immutable base authority`, (
   commit(context.root, 'attempt without authority');
   const result = runGuard({ ...context, baseline: unauthorizedBase });
   assert.notEqual(result.status, 0, output(result));
-  assert.match(output(result), /no immutable approved scope/u);
+  if (finalPublicBranches.includes(implementationBranch)) {
+    assert.match(output(result), /cannot load accepted Final Public manifest/u);
+  } else {
+    assert.match(output(result), /no immutable approved scope/u);
+  }
 });
 }
 
@@ -682,6 +686,21 @@ test('public-home workflow routing covers every non-glob presentation path that 
     'apps/web/i18n/platform-v7-home-v3-product.ts',
     'apps/web/i18n/platform-v7-organization-connect-product.ts',
   ]) assert.ok(workflow.includes(`- '${path}'`), `missing public-home head-validation trigger: ${path}`);
+});
+
+test('every trusted-base Final Public manifest path triggers unprivileged candidate-head validation', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  for (const manifestPath of [
+    'docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json',
+    'docs/platform-v7/autopilot/scopes/farmer-public-market-teaser-20260913.json',
+    'docs/platform-v7/autopilot/scopes/public-registration-final-copy-4916.json',
+    'docs/platform-v7/autopilot/scopes/public-deal-journey-10of10-20260808.json',
+  ]) {
+    const manifest = JSON.parse(fs.readFileSync(path.resolve(manifestPath), 'utf8'));
+    for (const allowedPath of manifest.allowedPaths) {
+      assert.ok(workflow.includes(`- '${allowedPath}'`), `missing pull_request path trigger: ${allowedPath}`);
+    }
+  }
 });
 
 for (const branch of implementationBranches.filter((name) => name.startsWith('governance/'))) {
