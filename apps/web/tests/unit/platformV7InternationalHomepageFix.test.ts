@@ -39,13 +39,10 @@ describe('platform-v7 international homepage completion', () => {
     expect(story).toContain("journey: '7 шагов'");
     expect(story).toContain("fullPathLabel: 'Обычный путь'");
     expect(story).not.toContain("navFunctions: '8 шагов Сделки'");
-    expect(home).toContain('const heroCurrentStepIndex = Math.min(4, story.demo.stages.length - 1);');
-    expect(home).toContain('aria-valuemax={story.demo.stages.length}');
-    expect(home).toContain('aria-valuenow={heroCurrentStepIndex + 1}');
-    expect(home).toContain('stageIndex < heroCurrentStepIndex ? styles.progressDone');
-    expect(home).toContain('stageIndex === heroCurrentStepIndex ? styles.progressActive');
-    expect(home).toContain('pc-public-deal-stage-rail--hero');
-    expect(home).toContain('pc-public-deal-stage-rail--demo');
+    expect(home).toContain("<ol className='pc-final-stages' tabIndex={0} aria-labelledby='journey-title'>");
+    expect(home).toContain('copy.journey.stages.map(');
+    expect(home).not.toContain('heroCurrentStepIndex');
+    expect(home).not.toContain('aria-valuenow=');
     expect(css).toContain('.pc-v7-public-entry .pc-public-deal-stage-rail');
     expect(css).toContain('grid-template-columns: repeat(7, minmax(0, 1fr));');
     expect(css).toContain('.pc-v7-public-entry .pc-public-deal-stage-rail--demo');
@@ -58,8 +55,9 @@ describe('platform-v7 international homepage completion', () => {
     expect(css).toContain('font-size: 14px !important');
   });
 
-  it('keeps full brand and registration together in one canonical 64px mobile header', () => {
-    expect(home).toContain("<a href={registerHref} className='pc-v6-header-cta'>{copy.nav.connect}</a>");
+  it('keeps the canonical 64px header with registration accessible from its mobile menu', () => {
+    expect(home).toContain("<a href={registerHref(locale)} className='pc-v6-header-cta'>{copy.nav.register}</a>");
+    expect(home).toContain("<a className='pc-final-mobile-access' href={registerHref(locale)}>{copy.nav.register}</a>");
     expect(siteHeader).toContain("data-public-site-header='canonical'");
     expect(siteHeader).toContain(".pc-site-header[data-public-site-header='canonical'].pc-site-header.pc-site-header");
     expect(siteHeader).toContain('flex-wrap: nowrap !important');

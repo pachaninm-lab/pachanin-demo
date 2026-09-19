@@ -19,6 +19,33 @@ type AcceptanceViewport = (typeof viewports)[number];
 
 const TARGET_SIZE_EPSILON = 0.001;
 
+async function expectHeaderAccess(page: Page, locale = 'ru') {
+  const mobile = (page.viewportSize()?.width ?? 1440) < 768;
+  const menu = page.locator('.pc-site-mobile-menu');
+  const wasOpen = await menu.getAttribute('open') !== null;
+  if (mobile && !wasOpen) {
+    await menu.locator('summary').focus();
+    await page.keyboard.press('Enter');
+  }
+  for (const route of ['login', 'register']) {
+    const link = mobile
+      ? menu.locator(`a.pc-final-mobile-access[href="/platform-v7/${route}?lang=${locale}"]`)
+      : page.locator(route === 'login' ? '.entry-login' : '.pc-v6-header-cta');
+    await expect(link).toBeVisible();
+    await expect(link).toHaveAttribute('href', `/platform-v7/${route}?lang=${locale}`);
+    await expect(link).toBeInViewport({ ratio: 1 });
+    const box = await link.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.width).toBeGreaterThanOrEqual(44 - TARGET_SIZE_EPSILON);
+    expect(box!.height).toBeGreaterThanOrEqual(44 - TARGET_SIZE_EPSILON);
+  }
+  if (mobile) {
+    await expect(page.locator('.pc-v6-header-actions')).toBeHidden();
+    if (!wasOpen) await menu.locator('summary').click();
+  }
+}
+
+
 const publicRoutes = [
   { path: '/platform-v7', name: 'home' },
   { path: '/platform-v7/login', name: 'login' },
@@ -164,7 +191,7 @@ async function expectProductionHomepageDesignGates(
   expect(brandGeometry.scrollFits).toBe(true);
 
   if (viewport.width <= 430) {
-    for (const selector of ['.pc-site-mobile-menu > summary', '.pc-site-locale-switch', '.entry-login']) {
+    for (const selector of ['.pc-site-mobile-menu > summary', '.pc-site-locale-switch']) {
       const control = page.locator(selector).first();
       await expect(control).toBeVisible();
       const box = await control.boundingBox();
@@ -174,7 +201,9 @@ async function expectProductionHomepageDesignGates(
     }
   }
 
-  const card = page.locator('[data-testid="platform-v7-deal-card"]');
+  await expectHeaderAccess(page, new URL(page.url()).searchParams.get('lang') ?? 'ru');
+
+  const card = page.locator('.pc-final-hero-visual');
   await expect(card).toBeVisible();
   const tinyText = await card.evaluate((root) => {
     const offenders: Array<{ text: string; fontSize: number; tag: string }> = [];
@@ -201,7 +230,7 @@ async function expectProductionHomepageDesignGates(
   expect(tinyText, JSON.stringify(tinyText, null, 2)).toEqual([]);
 
   if (viewport.width === 320 && viewport.height === 700) {
-    const heading = page.locator('#pc-v6-title');
+    const heading = page.locator('#pc-final-title');
     await expect(heading).toBeVisible();
     const lineCount = await heading.evaluate((node) => {
       // Count only rendered text fragments. A Range over the H1 parent also
@@ -226,12 +255,22 @@ async function expectProductionHomepageDesignGates(
     expect(lineCount, 'production 320px Hero H1 line count').toBeGreaterThanOrEqual(1);
     expect(lineCount, 'production 320px Hero H1 line count').toBeLessThanOrEqual(5);
 
-    const primary = page.locator('.pc-v6-actions .pc-v6-primary').first();
+    const primary = page.locator('.pc-final-hero .pc-final-primary').first();
     await expect(primary).toBeVisible();
     const primaryBox = await primary.boundingBox();
     expect(primaryBox, 'production primary Hero CTA bounding box').not.toBeNull();
     expect(primaryBox!.y, 'production primary Hero CTA top').toBeGreaterThanOrEqual(0);
     expect(primaryBox!.y + primaryBox!.height, 'production primary Hero CTA bottom').toBeLessThanOrEqual(viewport.height + 1);
+    const secondary = page.locator('.pc-final-hero .pc-final-secondary');
+    await expect(secondary).toBeVisible();
+    const secondaryBox = await secondary.boundingBox();
+    expect(secondaryBox, 'production buy CTA bounding box').not.toBeNull();
+    expect(secondaryBox!.y).toBeGreaterThanOrEqual(0);
+    expect(secondaryBox!.y + secondaryBox!.height).toBeLessThanOrEqual(viewport.height + 1);
+    const locale = new URL(page.url()).searchParams.get('lang') ?? 'ru';
+    await expect(primary).toHaveAttribute('href', `/platform-v7/register?lang=${locale}&intent=sell`);
+    await expect(secondary).toHaveAttribute('href', `/platform-v7/register?lang=${locale}&intent=buy`);
+
   }
 
   await expectNoHorizontalOverflow(page);

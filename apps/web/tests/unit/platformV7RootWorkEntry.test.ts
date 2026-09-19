@@ -38,9 +38,8 @@ describe('platform-v7 final public entry', () => {
       expect(home).not.toContain(retired);
     }
     expect(home).toContain("aria-labelledby='final-title'");
-    expect(home).toContain("function registerHref(locale: Locale)");
-    expect(home).toContain("href={registerHref(locale)}");
-    expect(home).not.toContain("query.set('intent'");
+    expect(home).toContain("registerHref(locale, 'sell')");
+    expect(home).toContain("registerHref(locale, 'buy')");
     expect(home).toContain('<PublicDealRoleScenario locale={locale} />');
     expect(home).toContain('<OrganizationConnectForm locale={locale} />');
     expect(home).toContain('Обращение не создаёт аккаунт и не предоставляет доступ к платформе.');
@@ -168,8 +167,8 @@ describe('platform-v7 final public entry', () => {
     expect(home).toContain("className='pc-v7-public-entry pc-final-page'");
     expect(home).toContain("<main id='main-content' tabIndex={-1}>");
     expect(home).not.toContain('<aside');
-    expect(home).toContain("type='radio' name='public-final-deal-state'");
-    expect(home).toContain("htmlFor={`public-final-state-${state.key}`}");
+    expect(home).toContain('<PublicDealExecutionStates title={copy.execution.title}');
+    expect(home).toContain('states={copy.execution.states}');
     expect(home).toContain("fetchPriority='high'");
     expect(home).toContain("role='region' aria-label={copy.capabilities.title}");
     expect(homeCss).toContain(':focus-visible');
@@ -218,11 +217,14 @@ describe('bounded public linked-surface shell', () => {
 const web = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const read = (path: string) => readFileSync(resolve(web, path), 'utf8');
 const sha = (value: string) => createHash('sha256').update(value).digest('hex');
-// Immutable evidence binds to accepted parent 2100552142416743524f493954b6e6c86f0aa6e5.
+// Unrelated immutable evidence binds to accepted parent 2100552142416743524f493954b6e6c86f0aa6e5.
+// The three registration-only fingerprints incorporate the bounded public intent/copy diff
+// admitted by governance #5441; token, consent, CSRF and submission authority are preserved.
 const IMMUTABLE = {
   "app/platform-v7/terms/page.tsx": "7249d807e7df5e71a255947c2425882c5698e39133e112cd534dfb5dea701c18",
   "app/platform-v7/privacy/page.tsx": "c68e3d50bf3a984207a961882bb4e0564057303a180fe4c95af65d9f74798e85",
   "components/platform-v7/PrivacyPortalPanel.tsx": "4059be07e8891b06c3df9bfeb053b714f69cce42c9efcd9f696f6fb10d5c75a8",
+  "app/platform-v7/register/RegisterFormClientPublic.tsx": "f871c6b4be73398567c205a666a46c70aebe680cbf304aed459ac4333122dbae",
   "app/platform-v7/register/RegisterCleanClient.tsx": "a189822f6b04b0a0a56fda9d712f72f47ae08450bd86b3c179706fedf679a138",
   "components/gekta/GektaChatWorkspace.tsx": "88dacf82fa78c68bf3888be9502b920c001072df59518c6e8a04ca838589001a",
   "components/gekta/GektaAccessGate.tsx": "e190a0cfa0d6e058175f5cacd649d35417817485c551931b1c962f1241da3f3b",
@@ -231,6 +233,8 @@ const IMMUTABLE = {
 const AUTHORITY = {
   "layoutClassification": "8a471c78bd812c65a2dfe73ec5c0f8c7857340f437893e0fb1e3aef1713abff7",
   "layoutProtectedSuffix": "a5d7c858b010651ebb8ba00219d3faee69e9adacc149d9a1f200a8af235f5ca5",
+  "registerQueryAuthority": "4e1704266358e911d44b1c1855297d7619719a1dded78518e5dd356b6dddaa53",
+  "registerFormAndHero": "0b1eabc5e0a8ec07e5df3c86704b68f570ffe35262e2bb1b422f1b9f402f2f9e",
   "dockBehavior": "0d7d883c19e1e3c248d4d834f138dcf76d5b54c617fc58e9607ac78ff93ede2d"
 };
 
@@ -243,8 +247,10 @@ const AUTHORITY = {
     expect(sha(layout.split('  // Staff remains')[1]!)).toBe(AUTHORITY.layoutProtectedSuffix);
     expect(layout.indexOf('if (isPublicPath(pathname))')).toBeLessThan(layout.indexOf('<PublicLinkedSurfaceShell'));
   });
-  it('preserves registration token continuity and server-authoritative role boundaries without byte-locking permitted UX copy', () => {
+  it('preserves registration tokens, locale cycling and the exact form props', () => {
     const register = read('app/platform-v7/register/page.tsx');
+    expect(sha(register.split('type Locale')[1]!.split('  return (')[0]!)).toBe(AUTHORITY.registerQueryAuthority);
+    expect(sha(register.slice(register.indexOf('        <section')))).toBe(AUTHORITY.registerFormAndHero);
     const publicForm = read('app/platform-v7/register/RegisterFormClientPublic.tsx');
     expect(register).toContain("const verifyToken = String(first(params.verify)");
     expect(register).toContain("const statusToken = String(first(params.statusToken)");

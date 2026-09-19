@@ -1,10 +1,26 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { createElement } from 'react';
+import { render, fireEvent, cleanup } from '@testing-library/react';
+import { PublicDealExecutionStates } from '../../components/platform-v7/PublicDealRoleScenario';
+import { getOrganizationConnectCopy } from '../../i18n/platform-v7-organization-connect-product';
+import { sanitizePublicProductAnalyticsDetail } from '../../lib/analytics/analytics-boundary';
 
 const read = (relativePath: string) => readFileSync(join(process.cwd(), relativePath), 'utf8');
 
 describe('platform-v7 strategic homepage safety and accessibility contract', () => {
+  it.each([
+    ['ru', 'Нужна помощь перед регистрацией?', 'Обращение не создаёт аккаунт и не предоставляет доступ к платформе.'],
+    ['en', 'Need help before registration?', 'An inquiry does not create an account or provide platform access.'],
+    ['zh', '注册前需要帮助？', '提交咨询不会创建账户，也不会授予平台访问权限。'],
+  ])('resolves pre-registration help through the actual runtime alias in %s', (locale, title, boundary) => {
+    const copy = getOrganizationConnectCopy(locale);
+    const paths = JSON.parse(read('tsconfig.json')).compilerOptions.paths;
+    expect(paths['@/i18n/platform-v7-organization-connect']).toEqual(['./i18n/platform-v7-organization-connect-product.ts']);
+    expect(copy.title).toBe(title);
+    expect(copy.lead).toContain(boundary);
+  });
   const home = read('components/platform-v7/PlatformV7StrategicHome.tsx');
   const form = read('components/platform-v7/OrganizationConnectForm.tsx');
   const formCss = read('components/platform-v7/OrganizationConnectForm.module.css');
@@ -17,7 +33,7 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
   const homeCss = read('styles/platform-v7-strategic-home-v3.css');
   const rootLayout = read('app/layout.tsx');
   const publicAuthorityPage = read('app/platform-v7/page.tsx');
-  const scopeManifest = JSON.parse(read('../../docs/platform-v7/autopilot/scopes/public-home-role-clarity-20260905.json')) as {
+  const scopeManifest = JSON.parse(read('../../docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json')) as {
     schemaVersion?: string;
     branch?: string;
     allowedPaths?: string[];
@@ -27,13 +43,17 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
   it('keeps a stable public locator and keyboard-focusable final journey without masking overflow', () => {
     expect(home).toContain("data-testid='platform-v7-root-execution-cockpit'");
     expect(home).toContain("className='pc-final-carousel' tabIndex={0} role='region'");
-    expect(home).toContain("type='radio' name='public-final-deal-state'");
-    expect(home).toContain("htmlFor={`public-final-state-${state.key}`}");
+    expect(home).toContain("className='pc-final-stages' tabIndex={0} aria-labelledby='journey-title'");
+    expect(home).toContain("<details className='pc-final-role-explorer'>");
+    expect(home).toContain('<summary>{copy.participants.explorerTitle}</summary>');
+    expect(homeCss).toContain('.pc-final-role-explorer>summary{min-height:44px');
+    expect(home).toContain('<PublicDealExecutionStates title={copy.execution.title}');
+    expect(home).toContain('states={copy.execution.states}');
     expect(home).toContain("loading='eager' fetchPriority='high'");
     expect(home).toContain("const HERO_IMAGE_DATA = 'data:image/svg+xml;base64,");
     expect(home).toContain("src={HERO_IMAGE_DATA}");
     expect(home).toContain("decoding='sync'");
-    expect(homeCss).toContain('#public-final-state-normal:focus-visible~.pc-final-state-tabs');
+    expect(homeCss).toContain('.pc-final-state-tabs button:focus-visible');
     expect(homeCss).toContain('.pc-final-page :where(a,button,input,select,textarea,summary,[role="tab"]):focus-visible');
     expect(homeCss).not.toContain('overflow-x:clip');
     expect(homeCss).toContain('.pc-final-page .pc-skip-link {');
@@ -48,12 +68,11 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
   });
 
   it('uses protected registration as primary conversion while keeping durable assistance separate', () => {
-    expect(home).toContain('function registerHref(locale: Locale)');
-    expect(home).not.toContain("query.set('intent'");
+    expect(home).toContain('function registerHref(locale: Locale, intent?: string)');
     expect(home).toContain("eventName='registration_open'");
     expect(home).toContain("className='pc-final-help-link' href='#connect-organization'");
     expect(home).toContain('<OrganizationConnectForm locale={locale} />');
-    expect(formOperatingCopy).toContain('Эта форма не является регистрацией');
+    expect(formOperatingCopy).toContain('Обращение не создаёт аккаунт и не предоставляет доступ к платформе');
     expect(formOperatingCopy).toContain("submit: 'Отправить запрос на помощь'");
     expect(form).toContain("fetch('/api/platform-v7/organization-connect'");
     expect(form).toContain("'Idempotency-Key'");
@@ -68,6 +87,19 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
     expect(form).toContain("name: 'submit_organization_request'");
     expect(form).toContain("mode: 'durable_server_intake'");
     expect(form).toContain("name: 'organization_request_accepted'");
+  });
+
+  it('preserves sell and buy intent through the existing privacy-safe analytics boundary', () => {
+    const entries = [...home.matchAll(/params=\{\{ source: '([^']+)', option: '([^']+)', role_entry: '([^']+)' \}\}/g)];
+    expect(entries.map(([, source, option, role]) => [source, option, role])).toEqual([
+      ['public_v5_intent', 'sell', 'seller'], ['public_v5_intent', 'buy', 'buyer'],
+      ['public_v5_complete', 'sell', 'seller'], ['public_v5_complete', 'buy', 'buyer'],
+    ]);
+    for (const [, source, option, role_entry] of entries) {
+      expect(sanitizePublicProductAnalyticsDetail({ name: 'registration_open', source, option, role_entry,
+        email: 'private@example.invalid', form_text: 'private form text', url: '?token=private' }))
+        .toEqual({ name: 'registration_open', properties: { source, option, role_entry } });
+    }
   });
 
   it('fails closed without JavaScript and keeps personal data out of browser storage', () => {
@@ -151,12 +183,13 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
 
   it('binds implementation to the explicit immutable public-home scope', () => {
     expect(scopeManifest.schemaVersion).toBe('platform-v7.concurrent-scope.v1');
-    expect(scopeManifest.branch).toBe('feat/public-home-role-clarity-20260905');
+    expect(scopeManifest.branch).toBe('agent/platform-v7-strategic-rebuild-v3');
     expect(scopeManifest.allowedPaths).toContain('apps/web/components/platform-v7/PlatformV7StrategicHome.tsx');
     expect(scopeManifest.allowedPaths).toContain('apps/web/components/platform-v7/PublicDealRoleScenario.tsx');
-    expect(scopeManifest.allowedPaths).toContain('apps/web/components/platform-v7/OrganizationConnectForm.tsx');
-    expect(scopeManifest.forbiddenChanges).toContain('apps/web/app/platform-v7/register/**');
-    expect(scopeManifest.forbiddenChanges).toContain('apps/api/**');
+    expect(scopeManifest.allowedPaths).toContain('apps/web/i18n/platform-v7-organization-connect.ts');
+    expect(scopeManifest.allowedPaths).toHaveLength(30);
+    expect(scopeManifest.allowedPaths?.some((path) => path.startsWith('apps/api/') || path.startsWith('apps/web/app/platform-v7/register/'))).toBe(false);
+    expect(scopeManifest.allowedPaths).not.toContain('docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json');
   });
 
   it('emits indexable homepage metadata while preserving root recovery bootstrap', () => {
@@ -173,5 +206,35 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
     expect(rootLayout).toContain("pathname === '/platform-v7' || pathname === '/pc-public-entry/platform-v7'");
     expect(rootLayout).toContain("<meta name='description' content={pageDescription} />");
     expect(rootLayout).toContain('tasks.push(caches.keys().then(function(keys){return Promise.all(keys.map(function(key){return caches.delete(key);}));}));}}catch(e){}');
+  });
+});
+
+
+describe('public execution state keyboard interaction', () => {
+  it('links selected tabs to panels and supports arrows, Home and End without granting an action', () => {
+    const states = ['normal', 'deviation', 'dispute'].map((key) => ({ key, tab: key, happened: key, owner: 'participant', money: 'basis', next: 'review' }));
+    const view = render(createElement(PublicDealExecutionStates, { title: 'Execution', states, labels: { happened: 'Fact', owner: 'Who', money: 'Money', next: 'Next' } }));
+    try {
+      const tabs = view.getAllByRole('tab');
+      expect(tabs).toHaveLength(3);
+      expect(view.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', tabs[0].id);
+      tabs[0].focus();
+      fireEvent.keyDown(tabs[0], { key: 'ArrowRight' });
+      expect(tabs[1]).toHaveFocus();
+      expect(tabs[1]).toHaveAttribute('aria-selected', 'true');
+      expect(tabs[0]).toHaveAttribute('tabindex', '-1');
+      expect(view.getByRole('tabpanel')).toHaveAttribute('id', tabs[1].getAttribute('aria-controls'));
+      fireEvent.keyDown(tabs[1], { key: 'End' });
+      expect(tabs[2]).toHaveFocus();
+      fireEvent.keyDown(tabs[2], { key: 'ArrowRight' });
+      expect(tabs[0]).toHaveFocus();
+      fireEvent.keyDown(tabs[0], { key: 'ArrowLeft' });
+      expect(tabs[2]).toHaveFocus();
+      fireEvent.keyDown(tabs[2], { key: 'Home' });
+      expect(tabs[0]).toHaveFocus();
+      fireEvent.click(tabs[2]);
+      expect(view.getByRole('tabpanel')).toHaveTextContent('dispute');
+      expect(view.getByRole('tabpanel').querySelector('button,form,a')).toBeNull();
+    } finally { cleanup(); }
   });
 });

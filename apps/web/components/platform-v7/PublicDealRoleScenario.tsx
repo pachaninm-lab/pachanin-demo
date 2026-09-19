@@ -213,7 +213,7 @@ const roleStageActions: RoleStageActions = {
       {"state": "active", "text": "Confirm the buyer’s demand and product/term requirements."},
       {"state": "active", "text": "Compare offers and select the buyer-side permitted commercial option."},
       {"state": "active", "text": "Confirm contract terms and perform the buyer-side permitted action."},
-      {"state": "active", "text": "Confirm receiving conditions and buyer-side readiness for the agreed delivery."},
+      {"state": "active", "text": "Confirm receiving conditions and buyer-side arrangements for the agreed delivery."},
       {"state": "active", "text": "Compare acceptance/quality with terms and take the decision allowed to the buyer."},
       {"state": "active", "text": "Review documents and settlement basis and perform the buyer-side permitted action."},
       {"state": "active", "text": "Confirm buyer-side closure or act on a buyer-related exception."},
@@ -540,4 +540,43 @@ export function PublicDealRoleScenario({ locale }: { locale: string }) {
       </section>
     </div>
   );
+}
+
+
+type ExecutionState = Readonly<{ key: string; tab: string; happened: string; owner: string; money: string; next: string }>;
+
+export function PublicDealExecutionStates({ title, states, labels }: {
+  title: string;
+  states: readonly ExecutionState[];
+  labels: Readonly<Record<'happened' | 'owner' | 'money' | 'next', string>>;
+}) {
+  const [selected, setSelected] = useState(0);
+  const buttons = useRef<Array<HTMLButtonElement | null>>([]);
+  const state = states[selected] ?? states[0];
+  if (!state) return null;
+  function onKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const next = event.key === 'ArrowRight' ? (index + 1) % states.length
+      : event.key === 'ArrowLeft' ? (index + states.length - 1) % states.length
+      : event.key === 'Home' ? 0 : event.key === 'End' ? states.length - 1 : null;
+    if (next === null) return;
+    event.preventDefault();
+    setSelected(next);
+    buttons.current[next]?.focus();
+  }
+  return <div className='pc-final-execution-states'>
+    <div className='pc-final-state-tabs' role='tablist' aria-label={title}>
+      {states.map((item, index) => <button key={item.key} type='button' role='tab'
+        id={`public-final-tab-${item.key}`} aria-controls={`public-final-panel-${item.key}`}
+        aria-selected={selected === index} tabIndex={selected === index ? 0 : -1}
+        ref={(node) => { buttons.current[index] = node; }}
+        onClick={() => setSelected(index)} onKeyDown={(event) => onKeyDown(event, index)}>{item.tab}</button>)}
+    </div>
+    <div className='pc-final-state-panels'>
+      {states.map((item, index) => <article key={item.key} id={`public-final-panel-${item.key}`}
+        className='pc-final-state-panel' role='tabpanel' aria-labelledby={`public-final-tab-${item.key}`}
+        tabIndex={0} hidden={selected !== index}>
+        {(['happened', 'owner', 'money', 'next'] as const).map((field) => <div key={field} className='pc-final-state-fact'><span>{labels[field]}</span><strong>{item[field]}</strong></div>)}
+      </article>)}
+    </div>
+  </div>;
 }

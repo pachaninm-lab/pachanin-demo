@@ -10,15 +10,17 @@ const styles = read('components/platform-v7/PlatformV7AccountingClosureValue.mod
 const copy = read('i18n/platform-v7-accounting-value.ts');
 
 describe('platform-v7 accounting closure homepage value', () => {
-  it('places the section after the ordinary Deal path and before the illustrative states', () => {
-    expect(home).toContain("import { PlatformV7AccountingClosureValue } from './PlatformV7AccountingClosureValue';");
-    expect(home).toContain('<PlatformV7AccountingClosureValue locale={locale} />');
-    const dealPath = home.indexOf("id='deal-path'");
-    const accounting = home.indexOf('<PlatformV7AccountingClosureValue locale={locale} />');
-    const live = home.indexOf("id='live'");
+  it('keeps accounting in the capabilities carousel after the ordinary Deal path', () => {
+    expect(home).toContain("['Учёт', 'Расчётные и учётные данные остаются связаны с исполнением Сделки.']");
+    expect(home).toContain("['Accounting', 'Settlement and accounting data remain linked to Deal execution.']");
+    expect(home).toContain('copy.capabilities.items.map');
+    const dealPath = home.indexOf("id='how-it-works'");
+    const accounting = home.indexOf("aria-labelledby='capabilities-title'");
+    const live = home.indexOf("aria-labelledby='execution-title'");
     expect(dealPath).toBeGreaterThan(-1);
     expect(accounting).toBeGreaterThan(dealPath);
-    expect(live).toBeGreaterThan(accounting);
+    expect(live).toBeGreaterThan(dealPath);
+    expect(accounting).toBeGreaterThan(live);
   });
 
   it('explains value for producer, accountant and buyer without connection-state marketing', () => {

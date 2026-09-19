@@ -1,20 +1,3 @@
-/*
- * Release-contract compatibility markers only. These strings are intentionally
- * not exported or rendered; live acceptance rejects the retired hero title.
- * Платформа управления агросделками в растениеводстве
- * с собственным искусственным интеллектом
- * Управляйте агросделкой
- * от цены до расчёта
- * Crop Deal management platform
- * with proprietary artificial intelligence
- * Manage an agricultural Deal
- * from price to settlement
- * 种植业农业交易管理平台
- * 配备自主人工智能
- * 管理农业交易
- * 从价格到结算
- */
-
 export type PlatformV7HeroMessage = {
   kicker: string;
   title: string;

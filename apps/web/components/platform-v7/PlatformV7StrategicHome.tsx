@@ -18,7 +18,7 @@ import {
 import { PublicSiteHeader } from './PublicSiteHeader';
 import { PublicLocaleLink } from './PublicLocaleLink';
 import { PublicExperienceLink, PublicExperiencePageView } from './PublicExperienceAnalytics';
-import { PublicDealRoleScenario } from './PublicDealRoleScenario';
+import { PublicDealRoleScenario, PublicDealExecutionStates } from './PublicDealRoleScenario';
 import { PublicMarketTeaser } from './PublicMarketTeaser';
 import { OrganizationConnectForm } from './OrganizationConnectForm';
 import { GEKTA_PATHS } from '@/lib/gekta/content';
@@ -44,7 +44,7 @@ const COPY = {
       roles: 'Логистика · Элеватор · Лаборатория · Сюрвейер · Банк',
       rolesCta: 'посмотреть свою роль',
       visualAlt: 'Растениеводство и исполнение агросделки',
-      visualCulture: 'Пшеница', visualVolume: '1 200 т', visualStage: 'Приёмка и качество', visualStatus: 'Исполнение в работе',
+      visualCulture: 'Растениеводство', visualVolume: 'Одна Сделка', visualStage: 'Приёмка и качество', visualStatus: 'От товара до расчёта',
       proof: [['Реальные лоты', 'Публичный рынок'], ['9 ролей', 'Одна Сделка'], ['7 этапов Сделки', 'От товара до закрытия'], ['RU · EN · 中文', 'Три языка']],
     },
     journey: {
@@ -58,10 +58,10 @@ const COPY = {
       eyebrow: 'Для участников', title: 'Одна Сделка — разные задачи',
       lead: 'Каждый участник работает с одним контекстом Сделки, но видит только относящиеся к своей роли данные и действия.',
       cards: [
-        { icon: 'seller', title: 'Продать продукцию', sub: 'Для сельхозпроизводителя.', bullets: ['разместить товар', 'получить предложения', 'видеть исполнение', 'понимать расчётное основание'], cta: 'Продать продукцию' },
-        { icon: 'buyer', title: 'Купить продукцию', sub: 'Для покупателя.', bullets: ['найти товар', 'сравнить условия', 'провести приёмку', 'связать качество с расчётом'], cta: 'Купить продукцию' },
-        { icon: 'execution', title: 'Исполнить Сделку', sub: 'Логистика · Водитель · Элеватор · Лаборатория · Сюрвейер', bullets: ['получить свою задачу', 'подтвердить относящийся факт', 'передать результат или документ', 'работать в пределах своей роли'], cta: 'Роли исполнения' },
-        { icon: 'finance', title: 'Финансы', sub: 'Банк · финансовая организация', bullets: ['увидеть основание', 'проверить относящиеся документы', 'видеть влияние исполнения на расчёт', 'действовать в пределах полномочий'], cta: 'Финансовый контур' },
+        { icon: 'seller', title: 'Продать продукцию', sub: 'Для сельхозпроизводителя.', bullets: ['разместить товар', 'получить предложения', 'видеть исполнение', 'понимать расчётное основание'], cta: 'Продать продукцию', intent: 'sell' },
+        { icon: 'buyer', title: 'Купить продукцию', sub: 'Для покупателя.', bullets: ['найти товар', 'сравнить условия', 'провести приёмку', 'связать качество с расчётом'], cta: 'Купить продукцию', intent: 'buy' },
+        { icon: 'execution', title: 'Исполнить Сделку', sub: 'Логистика · Водитель · Элеватор · Лаборатория · Сюрвейер', bullets: ['получить свою задачу', 'подтвердить относящийся факт', 'передать результат или документ', 'работать в пределах своей роли'], cta: 'Роли исполнения', intent: 'execution' },
+        { icon: 'finance', title: 'Финансы', sub: 'Банк · финансовая организация', bullets: ['увидеть основание', 'проверить относящиеся документы', 'видеть влияние исполнения на расчёт', 'действовать в пределах полномочий'], cta: 'Финансовый контур', intent: 'finance' },
       ],
       explorerTitle: 'Посмотреть все роли',
       explorerLead: 'Что видит роль, за что отвечает, что делает дальше и как её действия связаны с основанием и деньгами.',
@@ -141,7 +141,7 @@ const COPY = {
       roles: 'Logistics · Elevator · Laboratory · Surveyor · Bank',
       rolesCta: 'view your role',
       visualAlt: 'Crop production and agricultural Deal execution',
-      visualCulture: 'Wheat', visualVolume: '1,200 t', visualStage: 'Acceptance and quality', visualStatus: 'Execution in progress',
+      visualCulture: 'Crop production', visualVolume: 'One Deal', visualStage: 'Acceptance and quality', visualStatus: 'Product to settlement',
       proof: [['Real lots', 'Public market'], ['9 roles', 'One Deal'], ['7 Deal stages', 'Product to closure'], ['RU · EN · 中文', 'Three languages']],
     },
     journey: {
@@ -155,10 +155,10 @@ const COPY = {
       eyebrow: 'For participants', title: 'One Deal — different responsibilities',
       lead: 'Every participant works with one Deal context while seeing only the data and actions relevant to their role.',
       cards: [
-        { icon: 'seller', title: 'Sell produce', sub: 'For agricultural producers.', bullets: ['list product', 'receive offers', 'track execution', 'understand the settlement basis'], cta: 'Sell produce' },
-        { icon: 'buyer', title: 'Buy produce', sub: 'For buyers.', bullets: ['find product', 'compare terms', 'complete acceptance', 'link quality to settlement'], cta: 'Buy produce' },
-        { icon: 'execution', title: 'Execute the Deal', sub: 'Logistics · Driver · Elevator · Laboratory · Surveyor', bullets: ['receive the assigned task', 'confirm the relevant fact', 'submit a result or document', 'work within role authority'], cta: 'Execution roles' },
-        { icon: 'finance', title: 'Finance', sub: 'Bank · financial organisation', bullets: ['see the basis', 'review relevant documents', 'see execution impact on settlement', 'act within authority'], cta: 'Financial circuit' },
+        { icon: 'seller', title: 'Sell produce', sub: 'For agricultural producers.', bullets: ['list product', 'receive offers', 'track execution', 'understand the settlement basis'], cta: 'Sell produce', intent: 'sell' },
+        { icon: 'buyer', title: 'Buy produce', sub: 'For buyers.', bullets: ['find product', 'compare terms', 'complete acceptance', 'link quality to settlement'], cta: 'Buy produce', intent: 'buy' },
+        { icon: 'execution', title: 'Execute the Deal', sub: 'Logistics · Driver · Elevator · Laboratory · Surveyor', bullets: ['receive the assigned task', 'confirm the relevant fact', 'submit a result or document', 'work within role authority'], cta: 'Execution roles', intent: 'execution' },
+        { icon: 'finance', title: 'Finance', sub: 'Bank · financial organisation', bullets: ['see the basis', 'review relevant documents', 'see execution impact on settlement', 'act within authority'], cta: 'Financial circuit', intent: 'finance' },
       ],
       explorerTitle: 'View all roles',
       explorerLead: 'What each role sees, owns, does next, and how its action relates to evidence and money.',
@@ -233,7 +233,7 @@ const COPY = {
       roles: '物流 · 筒仓 · 实验室 · 检验机构 · 银行',
       rolesCta: '查看你的角色',
       visualAlt: '种植业与农业交易履约',
-      visualCulture: '小麦', visualVolume: '1,200 吨', visualStage: '验收与质量', visualStatus: '正在履约',
+      visualCulture: '种植业', visualVolume: '同一笔交易', visualStage: '验收与质量', visualStatus: '从商品到结算',
       proof: [['真实批次', '公开市场'], ['9 个角色', '同一笔交易'], ['7 个交易阶段', '从商品到关闭'], ['RU · EN · 中文', '三种语言']],
     },
     journey: {
@@ -247,10 +247,10 @@ const COPY = {
       eyebrow: '面向参与方', title: '同一笔交易 — 不同任务',
       lead: '所有参与方共享同一交易上下文，但只看到与自身角色相关的数据和操作。',
       cards: [
-        { icon: 'seller', title: '出售农产品', sub: '面向农业生产者。', bullets: ['发布商品', '接收报价', '查看履约', '理解结算依据'], cta: '出售农产品' },
-        { icon: 'buyer', title: '采购农产品', sub: '面向买方。', bullets: ['寻找商品', '比较条件', '完成验收', '把质量与结算关联'], cta: '采购农产品' },
-        { icon: 'execution', title: '履行交易', sub: '物流 · 司机 · 筒仓 · 实验室 · 检验机构', bullets: ['接收自己的任务', '确认相关事实', '提交结果或文件', '仅在角色权限内工作'], cta: '履约角色' },
-        { icon: 'finance', title: '金融', sub: '银行 · 金融机构', bullets: ['查看依据', '核验相关文件', '查看履约对结算的影响', '在权限范围内操作'], cta: '金融闭环' },
+        { icon: 'seller', title: '出售农产品', sub: '面向农业生产者。', bullets: ['发布商品', '接收报价', '查看履约', '理解结算依据'], cta: '出售农产品', intent: 'sell' },
+        { icon: 'buyer', title: '采购农产品', sub: '面向买方。', bullets: ['寻找商品', '比较条件', '完成验收', '把质量与结算关联'], cta: '采购农产品', intent: 'buy' },
+        { icon: 'execution', title: '履行交易', sub: '物流 · 司机 · 筒仓 · 实验室 · 检验机构', bullets: ['接收自己的任务', '确认相关事实', '提交结果或文件', '仅在角色权限内工作'], cta: '履约角色', intent: 'execution' },
+        { icon: 'finance', title: '金融', sub: '银行 · 金融机构', bullets: ['查看依据', '核验相关文件', '查看履约对结算的影响', '在权限范围内操作'], cta: '金融闭环', intent: 'finance' },
       ],
       explorerTitle: '查看全部角色',
       explorerLead: '每个角色能看到什么、负责什么、下一步是什么，以及操作如何与依据和资金关联。',
@@ -329,8 +329,10 @@ function localeOf(locale: string): Locale {
   return locale === 'en' || locale === 'zh' ? locale : 'ru';
 }
 
-function registerHref(locale: Locale) {
-  return `/platform-v7/register?lang=${encodeURIComponent(locale)}`;
+function registerHref(locale: Locale, intent?: string) {
+  const query = new URLSearchParams({ lang: locale });
+  if (intent) query.set('intent', intent);
+  return `/platform-v7/register?${query.toString()}`;
 }
 
 export async function PlatformV7StrategicHome() {
@@ -352,6 +354,8 @@ export async function PlatformV7StrategicHome() {
       <a href='#participants'>{copy.nav.participants}</a>
       <a href='#trust'>{copy.nav.trust}</a>
       <a href='#gekta'>{copy.nav.gekta}</a>
+      <a className='pc-final-mobile-access' href={loginHref}>{copy.nav.login}</a>
+      <a className='pc-final-mobile-access' href={registerHref(locale)}>{copy.nav.register}</a>
     </>
   );
 
@@ -396,10 +400,10 @@ export async function PlatformV7StrategicHome() {
               <h1 id='pc-final-title'><span>{copy.hero.title}</span><strong>{copy.hero.accent}</strong></h1>
               <p>{copy.hero.lead}</p>
               <div className='pc-final-actions'>
-                <PublicExperienceLink href={registerHref(locale)} className='pc-final-primary' eventName='registration_open' locale={locale} params={{ source: 'home_v1_sell' }}>
+                <PublicExperienceLink href={registerHref(locale, 'sell')} className='pc-final-primary' eventName='registration_open' locale={locale} params={{ source: 'public_v5_intent', option: 'sell', role_entry: 'seller' }}>
                   {copy.hero.sell}<ArrowRight aria-hidden='true' size={18} />
                 </PublicExperienceLink>
-                <PublicExperienceLink href={registerHref(locale)} className='pc-final-secondary' eventName='registration_open' locale={locale} params={{ source: 'home_v1_buy' }}>
+                <PublicExperienceLink href={registerHref(locale, 'buy')} className='pc-final-secondary' eventName='registration_open' locale={locale} params={{ source: 'public_v5_intent', option: 'buy', role_entry: 'buyer' }}>
                   {copy.hero.buy}<ArrowRight aria-hidden='true' size={18} />
                 </PublicExperienceLink>
               </div>
@@ -412,7 +416,7 @@ export async function PlatformV7StrategicHome() {
                 <span>{copy.hero.visualCulture}</span>
                 <strong>{copy.hero.visualVolume}</strong>
                 <small>{copy.hero.visualStage}</small>
-                <b><CheckCircle2 aria-hidden='true' size={15} />{copy.hero.visualStatus}</b>
+                <b><ArrowRight aria-hidden='true' size={15} />{copy.hero.visualStatus}</b>
               </div>
             </div>
           </section>
@@ -426,7 +430,7 @@ export async function PlatformV7StrategicHome() {
           <span id='deal-path' className='pc-final-legacy-anchor' aria-hidden='true' />
           <section id='how-it-works' className='pc-final-section' aria-labelledby='journey-title'>
             <SectionHead eyebrow={copy.journey.eyebrow} title={copy.journey.title} lead={copy.journey.lead} id='journey-title' />
-            <ol className='pc-final-stages'>
+            <ol className='pc-final-stages' tabIndex={0} aria-labelledby='journey-title'>
               {copy.journey.stages.map((stage, index) => <li key={stage}><i>{index + 1}</i><span>{stage}</span></li>)}
             </ol>
             <div className='pc-final-section-note'><ShieldCheck aria-hidden='true' size={20} /><span>{copy.journey.note}</span></div>
@@ -442,37 +446,20 @@ export async function PlatformV7StrategicHome() {
                   <Icon aria-hidden='true' size={24} />
                   <div><h3>{card.title}</h3><p>{card.sub}</p></div>
                   <ul>{card.bullets.map((item) => <li key={item}><CheckCircle2 aria-hidden='true' size={15} />{item}</li>)}</ul>
-                  <a href={registerHref(locale)}>{card.cta}<ArrowRight aria-hidden='true' size={16} /></a>
+                  <a href={registerHref(locale, card.intent)}>{card.cta}<ArrowRight aria-hidden='true' size={16} /></a>
                 </article>;
               })}
             </div>
-            <div className='pc-final-role-explorer'>
-              <div><span className='pc-final-eyebrow'>{copy.participants.explorerTitle}</span><p>{copy.participants.explorerLead}</p></div>
+            <details className='pc-final-role-explorer'>
+              <summary>{copy.participants.explorerTitle}</summary>
+              <p>{copy.participants.explorerLead}</p>
               <PublicDealRoleScenario locale={locale} />
-            </div>
+            </details>
           </section>
 
           <section className='pc-final-section' aria-labelledby='execution-title'>
             <SectionHead eyebrow={copy.execution.eyebrow} title={copy.execution.title} lead={copy.execution.lead} id='execution-title' />
-            <fieldset className='pc-final-state-demo'>
-              <legend className='pc-final-sr-only'>{copy.execution.title}</legend>
-              {copy.execution.states.map((state, index) => (
-                <input key={state.key} className='pc-final-state-input' type='radio' name='public-final-deal-state' id={`public-final-state-${state.key}`} defaultChecked={index === 0} />
-              ))}
-              <div className='pc-final-state-tabs'>
-                {copy.execution.states.map((state, index) => <label key={state.key} htmlFor={`public-final-state-${state.key}`} data-index={index}>{state.tab}</label>)}
-              </div>
-              <div className='pc-final-state-panels'>
-                {copy.execution.states.map((state) => (
-                  <article key={state.key} id={`public-final-panel-${state.key}`} className={`pc-final-state-panel pc-final-state-panel--${state.key}`}>
-                    <StateFact label={copy.execution.labels.happened} value={state.happened} />
-                    <StateFact label={copy.execution.labels.owner} value={state.owner} />
-                    <StateFact label={copy.execution.labels.money} value={state.money} />
-                    <StateFact label={copy.execution.labels.next} value={state.next} />
-                  </article>
-                ))}
-              </div>
-            </fieldset>
+            <PublicDealExecutionStates title={copy.execution.title} states={copy.execution.states} labels={copy.execution.labels} />
           </section>
 
           <section id='trust' className='pc-final-section' aria-labelledby='trust-title'>
@@ -494,8 +481,8 @@ export async function PlatformV7StrategicHome() {
             <div className='pc-final-gekta-copy'>
               <SectionHead eyebrow={copy.gekta.eyebrow} title={copy.gekta.title} lead={copy.gekta.lead} id='gekta-title' />
               <div className='pc-final-actions'>
-                <a className='pc-final-primary' href={aiInActionHref}>{copy.gekta.dealCta}<ArrowRight aria-hidden='true' size={17} /></a>
-                <a className='pc-final-secondary' href={gektaProductHref}>{copy.gekta.productCta}<ArrowRight aria-hidden='true' size={17} /></a>
+                <PublicExperienceLink className='pc-final-primary' href={aiInActionHref} eventName='tai_detail_open' locale={locale}>{copy.gekta.dealCta}<ArrowRight aria-hidden='true' size={17} /></PublicExperienceLink>
+                <PublicExperienceLink className='pc-final-secondary' href={gektaProductHref} eventName='gekta_product_open' locale={locale}>{copy.gekta.productCta}<ArrowRight aria-hidden='true' size={17} /></PublicExperienceLink>
               </div>
             </div>
             <div className='pc-final-gekta-visual' aria-label={copy.gekta.title}>
@@ -532,8 +519,8 @@ export async function PlatformV7StrategicHome() {
             <h2 id='final-title'>{copy.final.title}</h2>
             <p>{copy.final.lead}</p>
             <div className='pc-final-actions'>
-              <PublicExperienceLink href={registerHref(locale)} className='pc-final-primary' eventName='registration_open' locale={locale} params={{ source: 'home_v1_final_sell' }}>{copy.final.sell}<ArrowRight aria-hidden='true' size={18} /></PublicExperienceLink>
-              <PublicExperienceLink href={registerHref(locale)} className='pc-final-secondary' eventName='registration_open' locale={locale} params={{ source: 'home_v1_final_buy' }}>{copy.final.buy}<ArrowRight aria-hidden='true' size={18} /></PublicExperienceLink>
+              <PublicExperienceLink href={registerHref(locale, 'sell')} className='pc-final-primary' eventName='registration_open' locale={locale} params={{ source: 'public_v5_complete', option: 'sell', role_entry: 'seller' }}>{copy.final.sell}<ArrowRight aria-hidden='true' size={18} /></PublicExperienceLink>
+              <PublicExperienceLink href={registerHref(locale, 'buy')} className='pc-final-secondary' eventName='registration_open' locale={locale} params={{ source: 'public_v5_complete', option: 'buy', role_entry: 'buyer' }}>{copy.final.buy}<ArrowRight aria-hidden='true' size={18} /></PublicExperienceLink>
             </div>
             <a className='pc-final-help-link' href='#connect-organization'>{copy.final.help}</a>
             <small>{copy.final.helpNote}</small>

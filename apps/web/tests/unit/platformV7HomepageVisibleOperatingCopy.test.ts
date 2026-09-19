@@ -52,8 +52,8 @@ describe('platform-v7 visible public operating copy', () => {
     expect(roleWorkspace).not.toContain('styles.done');
     expect(roleWorkspace).not.toContain('status:');
 
-    expect(strategicHome).toContain('story.process.phases.slice(0, 3)');
-    expect(strategicHome).toContain('story.process.phases.slice(3)');
+    expect(strategicHome).toContain("stages: ['Товар / потребность', 'Торги', 'Обязательства', 'Доставка', 'Приёмка и качество', 'Документы и расчёт', 'Закрытие']");
+    expect(strategicHome).toContain('copy.journey.stages.map');
     expect(internationalCss).toContain("#deal-path #phases-more-toggle");
     expect(internationalCss).toContain("#deal-path label[for='phases-more-toggle']");
     expect(internationalCss).toContain("#deal-path #phases-more-cards");
@@ -90,7 +90,7 @@ describe('platform-v7 visible public operating copy', () => {
 
     expect(roleWorkspace).toContain("querySelectorAll<HTMLButtonElement>('[role=\"tab\"]')");
     expect(roleWorkspace).toContain('event.preventDefault()');
-    expect(roleWorkspace).toContain('tabs?.[nextIndex]?.focus()');
+    expect(roleWorkspace).toContain('tabs?.[nextIndex]?.focus({ preventScroll: true })');
     expect(roleWorkspace).toContain('реальные полномочия определяются системой после регистрации и проверки организации');
   });
 
@@ -99,7 +99,8 @@ describe('platform-v7 visible public operating copy', () => {
     expect(roleWorkspace).toContain('{selectedStage.title}');
     expect(roleWorkspace).toContain('{selectedStage.explanation}');
     expect(roleWorkspace).toContain('selectedStage.cards.map');
-    expect(roleWorkspace).toContain('{selectedStage.next}');
+    expect(roleWorkspace).toContain('roleStageActions[normalized][role][stageIndex]');
+    expect(roleWorkspace).toContain('{selectedRoleAction.text}');
     expect(roleWorkspace).toContain('{selectedStage.evidence}');
     expect(roleWorkspace).toContain('{selectedRole.lens}');
     expect(roleWorkspace).toContain('{selectedRole.responsibility}');
@@ -132,7 +133,7 @@ describe('platform-v7 visible public operating copy', () => {
 
   it('keeps crop positioning and registration-first conversion on the first screen', () => {
     expect(hero).toContain('Платформа управления агросделками в растениеводстве');
-    expect(hero).toContain("title: 'Управляйте агросделкой'");
+    expect(hero).toContain("title: 'От лота и цены'");
     expect(home).toContain("nav: { connect: 'Начать'");
     expect(home).toContain("secondary: 'Зарегистрироваться'");
     expect(home).toContain("tertiary: 'Скачать презентацию'");
@@ -151,8 +152,8 @@ describe('platform-v7 visible public operating copy', () => {
       expect(connect).toContain(task);
     }
 
-    expect(connect).toContain("eyebrow: 'Дополнительная помощь'");
-    expect(connect).toContain('Эта форма не является регистрацией');
+    expect(connect).toContain("eyebrow: 'Помощь перед регистрацией'");
+    expect(connect).toContain('Обращение не создаёт аккаунт и не предоставляет доступ к платформе');
     expect(connect).toContain("submit: 'Отправить запрос на помощь'");
     expect(connect).toContain('Для создания аккаунта используйте отдельную регистрацию платформы');
   });

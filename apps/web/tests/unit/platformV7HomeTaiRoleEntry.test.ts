@@ -28,27 +28,31 @@ describe('platform-v7 Gekta and nine-role public value scenario', () => {
   });
 
   it('keeps registration as the only primary hero conversion', () => {
-    const firstHero = home.slice(home.indexOf("className={`pc-v6-hero"), home.indexOf("id='participants'"));
-    expect(firstHero.match(/className='pc-v6-primary'/g)?.length).toBe(1);
+    const firstHero = home.slice(home.indexOf("className='pc-final-hero'"), home.indexOf('<PublicMarketTeaser'));
+    expect(firstHero.match(/className='pc-final-primary'/g)?.length).toBe(1);
     expect(firstHero).toContain("eventName='registration_open'");
-    expect(firstHero).toContain('href={registerHref}');
-    expect(firstHero).toContain("href='#live'");
-    expect(firstHero).toContain("href='/downloads/prozrachnaya-tsena-presentation.pdf'");
+    expect(firstHero).toContain("href={registerHref(locale, 'sell')}");
+    expect(firstHero).toContain("href={registerHref(locale, 'buy')}");
+    expect(firstHero).toContain("href='#participants'");
   });
 
   it('places role value and ordinary Deal understanding before the Gekta detail layer', () => {
     const roles = home.indexOf("id='participants'");
-    const path = home.indexOf("id='deal-path'");
-    const tai = home.indexOf("id='tai'");
+    const path = home.indexOf("id='how-it-works'");
+    const tai = home.indexOf("id='gekta'");
     expect(roles).toBeGreaterThan(-1);
-    expect(path).toBeGreaterThan(roles);
-    expect(tai).toBeGreaterThan(path);
-    expect(home).toContain("const taiHref = `/platform-v7/ai-in-action?lang=${encodeURIComponent(normalizedLocale)}`;");
+    expect(path).toBeGreaterThan(-1);
+    expect(roles).toBeGreaterThan(path);
+    expect(tai).toBeGreaterThan(roles);
+    expect(home).toContain('href={aiInActionHref}');
+    expect(home).toContain('/platform-v7/ai-in-action?lang=');
     expect(storyCopy).toContain('Гекта');
     expect(storyCopy).toContain('Критические решения подтверждает уполномоченный участник.');
   });
 
   it('uses the same nine public perspectives on the Gekta explanation page', () => {
+    for (const label of ['Сотрудник подключённой организации', 'Employee of a connected organisation', '已接入机构员工']) expect(aiExperience).toContain(label);
+    for (const retiredLabel of ['Сотрудник платформы', 'Platform employee', '平台员工']) expect(aiExperience).not.toContain(retiredLabel);
     expect(aiExperience).toContain("type RoleKey = 'seller' | 'buyer' | 'logistics' | 'driver' | 'storage' | 'laboratory' | 'surveyor' | 'bank' | 'employee';");
     expect(aiExperience).toContain("title: 'Одна Сделка — девять понятных рабочих перспектив'");
     expect(aiExperience).not.toContain("status: 'NOT_ATTESTED'");

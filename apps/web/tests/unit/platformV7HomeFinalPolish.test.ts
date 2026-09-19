@@ -39,33 +39,39 @@ describe('platform-v7 final homepage polish contract', () => {
   });
 
   it('keeps product proposition and registration before explanatory detail', () => {
-    expect(heroCopy).toContain("title: 'Управляйте агросделкой'");
-    expect(heroCopy).toContain('Сделка может начаться с вашего товара или потребности.');
-    expect(heroCopy).toContain('Вместо разрозненных чатов, таблиц и файлов');
-    expect(heroCopy).toContain('A Deal can start with your product or your demand.');
-    expect(heroCopy).toContain('一笔交易可以从你的商品或采购需求开始。');
-    const hero = home.indexOf("className={`pc-v6-hero ${styles.hero}`}");
+    for (const fragment of [
+      "title: 'От лота и цены'", "accent: 'до поставки, качества и расчёта'",
+      '«Прозрачная Цена» связывает продавца, покупателя и исполнителей в одной Сделке',
+      "title: 'From lot and price'", "accent: 'to delivery, quality and settlement'",
+      'Transparent Price connects seller, buyer and execution parties in one Deal',
+      "title: '从批次和价格'", "accent: '到交付、质量与结算'",
+      '“透明价格”把卖方、买方和履约参与方连接在同一笔交易中',
+    ]) expect(heroCopy).toContain(fragment);
+    const hero = home.indexOf("className='pc-final-hero'");
+    expect(hero).toBeGreaterThan(-1);
     const register = home.indexOf("eventName='registration_open'");
     const roles = home.indexOf("id='participants'");
     const path = home.indexOf("id='deal-path'");
-    const tai = home.indexOf("id='tai'");
+    const tai = home.indexOf("id='gekta'");
     expect(register).toBeGreaterThan(hero);
     expect(roles).toBeGreaterThan(hero);
-    expect(path).toBeGreaterThan(roles);
-    expect(tai).toBeGreaterThan(path);
+    expect(path).toBeGreaterThan(register);
+    expect(roles).toBeGreaterThan(path);
+    expect(tai).toBeGreaterThan(roles);
   });
 
   it('presents Gekta as a bounded cross-cutting capability rather than a Deal phase', () => {
-    expect(home).toContain("id='tai'");
+    expect(home).toContain("id='gekta'");
     expect(storyCopy).toContain("title: 'Контроль и Гекта'");
     expect(storyCopy).toContain('Гекта объясняет доступные факты и риски');
     expect(storyCopy).toContain("processTitle: 'Семь шагов обычной агросделки'");
     expect(storyCopy).not.toContain("title: 'Анализ Гекты'");
   });
 
-  it('keeps the Hero Deal progress rail structurally seven-stage and visually quiet', () => {
-    expect(home).toContain("className={`${styles.heroDealProgress} pc-public-deal-stage-rail pc-public-deal-stage-rail--hero`}");
-    expect(home).toContain('aria-valuemax={story.demo.stages.length}');
+  it('keeps the seven-stage journey keyboard reachable and visually quiet', () => {
+    expect(home).toContain("<ol className='pc-final-stages' tabIndex={0} aria-labelledby='journey-title'>");
+    expect(home).toContain('copy.journey.stages.map(');
+    expect(home).not.toContain('heroCurrentStepIndex');
     expect(page).toContain('grid-template-columns: repeat(7, minmax(0, 1fr)) !important');
     expect(page).toContain('padding-bottom: 14px !important');
     expect(page).toContain(".pc-public-deal-stage-rail--hero small {\n  display: none !important;");
@@ -87,7 +93,7 @@ describe('platform-v7 final homepage polish contract', () => {
     expect(scenario).toContain('className={styles.metrics}');
     expect(scenario).toContain('className={styles.rolePanel}');
     expect(scenario).toContain("preview: 'Упрощённый экран рабочего кабинета'");
-    expect(scenario).toContain("label: 'Сотрудник платформы'");
+    expect(scenario).toContain("label: 'Сотрудник подключённой организации'");
     expect(scenario.toLowerCase()).not.toContain('confirmed_live');
     expect(scenario).not.toContain('accessToken');
   });

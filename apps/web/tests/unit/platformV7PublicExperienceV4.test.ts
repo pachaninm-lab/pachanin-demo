@@ -16,10 +16,11 @@ const acceptanceE2e = readFileSync('tests/e2e/platform-v7-public-experience-v4.s
 
 describe('Public Product Experience V4/V5 compatibility under the canonical homepage', () => {
   it('keeps the public entry registration-first and ordinary-journey oriented', () => {
-    expect(root).toContain('const registerHref = `/platform-v7/register?lang=');
+    expect(root).toContain('function registerHref(locale: Locale, intent?: string)');
     expect(root).toContain("eventName='registration_open'");
-    expect(root).toContain("href='#live'");
-    expect(root).toContain("href='/downloads/prozrachnaya-tsena-presentation.pdf'");
+    expect(root).toContain("href={registerHref(locale, 'sell')}");
+    expect(root).toContain("href={registerHref(locale, 'buy')}");
+    expect(root).toContain('href={howHref}');
     expect(copy).toContain("secondary: 'Зарегистрироваться'");
     expect(copy).toContain("primary: 'Посмотреть, как работает Сделка'");
     expect(copy).toContain("kicker: 'Агросделка в растениеводстве'");
@@ -30,7 +31,7 @@ describe('Public Product Experience V4/V5 compatibility under the canonical home
     expect(root).toContain('showMobileMenu');
     expect(root).toContain("id='trust'");
     expect(root).toContain('href={trustHref}');
-    expect(root).toContain('href={contactHref}');
+    expect(root).toContain("['Контакты', '/platform-v7/contact']");
     expect(explorerPage).toContain('nav={nav}');
     expect(explorerPage).toContain('showMobileMenu');
     expect(explorerPage).toContain("href={localizedHref('/platform-v7/trust')}");

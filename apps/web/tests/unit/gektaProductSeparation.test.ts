@@ -12,28 +12,30 @@ const contextualPrompts = read('components/platform-v7/PublicContextualAssistant
 
 describe('Gekta platform scenario and standalone Gekta product are separate entry points', () => {
   it('keeps the in-Deal Gekta explanation on the platform route, not on the standalone product route', () => {
-    expect(home).toContain('const taiHref = `/platform-v7/ai-in-action?lang=${encodeURIComponent(normalizedLocale)}`;');
-    expect(home).not.toContain('const taiHref = `/gekta');
+    expect(home).toContain('const aiInActionHref = `/platform-v7/ai-in-action?lang=${locale}`;');
+    expect(home).not.toContain('const aiInActionHref = `/gekta');
     expect(home).toContain("eventName='tai_detail_open'");
     expect(storyCopy).toContain('Гекта');
   });
 
   it('keeps the standalone Gekta product block with its own canonical route and CTA', () => {
-    expect(home).toContain('const gektaProductHref = GEKTA_PATHS[normalizedLocale];');
-    expect(home).toContain("data-gekta-product-entry='true'");
-    expect(home).toContain('{story.gektaProduct.title}');
-    expect(home).toContain('{story.gektaProduct.cta}');
+    expect(home).toContain('const gektaProductHref = GEKTA_PATHS[locale];');
+    expect(home).toContain("id='gekta'");
+    expect(home).toContain('href={gektaProductHref}');
+    expect(home).toContain('{copy.gekta.productCta}');
     expect(home).toContain("eventName='gekta_product_open'");
-    expect(storyCopy).toContain("title: 'Гекта — самостоятельный аграрный ИИ'");
-    expect(storyCopy).toContain("cta: 'Открыть Гекту'");
-    expect(storyCopy).toContain("title: 'Gekta — a standalone agricultural AI'");
-    expect(storyCopy).toContain("title: 'Gekta — 独立的农业人工智能'");
+    expect(home).toContain("productCta: 'Гекта — аграрный ИИ'");
+    expect(home).toContain('GEKTA_PATHS[locale]');
+    expect(home).toContain("dealCta: 'Гекта в Сделке'");
+    expect(home).toContain("productCta: 'Gekta — agricultural AI'");
+    expect(home).toContain("productCta: 'Gekta — 农业 AI'");
   });
 
   it('publishes the standalone product as a navigation destination without making it a Deal phase', () => {
-    expect(home).toContain("<a href={gektaProductHref} data-nav-product='gekta'>{story.gektaProduct.navLabel}</a>");
-    expect(storyCopy).toContain("navLabel: 'Гекта'");
-    expect(storyCopy).toContain("navLabel: 'Gekta'");
+    expect(home).toContain("<a href='#gekta'>{copy.nav.gekta}</a>");
+    expect(home).toContain("href={gektaProductHref} eventName='gekta_product_open'");
+    expect(home).toContain("gekta: 'Гекта'");
+    expect(home).toContain("gekta: 'Gekta'");
     expect(storyCopy).toContain("processTitle: 'Семь шагов обычной агросделки'");
     expect(storyCopy).not.toContain("title: 'Анализ Гекты'");
   });

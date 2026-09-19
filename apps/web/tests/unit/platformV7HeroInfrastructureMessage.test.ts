@@ -10,16 +10,15 @@ describe('platform-v7 FINAL PUBLIC EXPERIENCE v1 entry', () => {
   const page = read('app/platform-v7/page.tsx');
   const homeCss = read('styles/platform-v7-strategic-home-v3.css');
 
-  it('keeps crop positioning and makes seller/buyer tasks the primary conversion without an unconsumed authority hint', () => {
+  it('keeps crop positioning and makes seller/buyer intent the primary conversion', () => {
     expect(heroCopy).toContain("kicker: 'Платформа управления агросделками в растениеводстве'");
     expect(heroCopy).toContain("title: 'От лота и цены'");
     expect(heroCopy).toContain("accent: 'до поставки, качества и расчёта'");
-    expect(component).toContain("function registerHref(locale: Locale)");
-    expect(component).toContain("href={registerHref(locale)}");
-    expect(component).not.toContain("query.set('intent'");
+    expect(component).toContain("registerHref(locale, 'sell')");
+    expect(component).toContain("registerHref(locale, 'buy')");
     expect(component).toContain("eventName='registration_open'");
-    expect(component).toContain("source: 'home_v1_sell'");
-    expect(component).toContain("source: 'home_v1_buy'");
+    expect(component).toContain("source: 'public_v5_intent', option: 'sell', role_entry: 'seller'");
+    expect(component).toContain("source: 'public_v5_intent', option: 'buy', role_entry: 'buyer'");
     expect(component).not.toContain("href='/downloads/prozrachnaya-tsena-presentation.pdf'");
   });
 
@@ -52,8 +51,8 @@ describe('platform-v7 FINAL PUBLIC EXPERIENCE v1 entry', () => {
   });
 
   it('presents normal execution first and keeps deviation/dispute explicit', () => {
-    expect(component).toContain("name='public-final-deal-state'");
-    expect(component).toContain('defaultChecked={index === 0}');
+    expect(component).toContain('<PublicDealExecutionStates');
+    expect(read('components/platform-v7/PublicDealRoleScenario.tsx')).toContain('const [selected, setSelected] = useState(0)');
     expect(component).toContain("tab: 'Норма'");
     expect(component).toContain("tab: 'Отклонение'");
     expect(component).toContain("tab: 'Спор'");
@@ -64,10 +63,11 @@ describe('platform-v7 FINAL PUBLIC EXPERIENCE v1 entry', () => {
 
   it('uses a restrained crop visual instead of a dashboard hero', () => {
     expect(component).toContain("className='pc-final-hero-visual'");
-    expect(component).toContain("const HERO_IMAGE_DATA = 'data:image/svg+xml;base64,");
-    expect(component).toContain("src={HERO_IMAGE_DATA}");
+    expect(component).toContain('src={HERO_IMAGE_DATA}');
+    expect(component).toMatch(/const HERO_IMAGE_DATA = ['"]data:image\/svg\+xml/);
+    expect(component).not.toMatch(/1[ ,]200|Исполнение в работе|Execution in progress|正在履约/);
     expect(component).toContain("visualStage: 'Приёмка и качество'");
-    expect(component).toContain("visualStatus: 'Исполнение в работе'");
+    expect(component).toContain("visualStatus: 'От товара до расчёта'");
     expect(component).not.toContain('pc-v6-control-tower');
     expect(component).not.toContain("data-testid='platform-v7-deal-card'");
   });

@@ -1,5 +1,32 @@
 import { expect, test, type Page } from '@playwright/test';
 
+async function expectHeaderAccess(page: Page, locale = 'ru') {
+  const mobile = (page.viewportSize()?.width ?? 1440) < 768;
+  const menu = page.locator('.pc-site-mobile-menu');
+  const wasOpen = await menu.getAttribute('open') !== null;
+  if (mobile && !wasOpen) {
+    await menu.locator('summary').focus();
+    await page.keyboard.press('Enter');
+  }
+  for (const route of ['login', 'register']) {
+    const link = mobile
+      ? menu.locator(`a.pc-final-mobile-access[href="/platform-v7/${route}?lang=${locale}"]`)
+      : page.locator(route === 'login' ? '.entry-login' : '.pc-v6-header-cta');
+    await expect(link).toBeVisible();
+    await expect(link).toHaveAttribute('href', `/platform-v7/${route}?lang=${locale}`);
+    await expect(link).toBeInViewport({ ratio: 1 });
+    const box = await link.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.width).toBeGreaterThanOrEqual(44 - 0.001);
+    expect(box!.height).toBeGreaterThanOrEqual(44 - 0.001);
+  }
+  if (mobile) {
+    await expect(page.locator('.pc-v6-header-actions')).toBeHidden();
+    if (!wasOpen) await menu.locator('summary').click();
+  }
+}
+
+
 const TARGET_SIZE_EPSILON = 0.001;
 
 async function expectBrandFullyVisible(page: Page) {
@@ -53,7 +80,6 @@ async function expectHeaderControls(page: Page) {
   const selectors = [
     '.pc-site-mobile-menu > summary',
     '.pc-site-locale-switch',
-    '.entry-login',
   ];
   for (const selector of selectors) {
     const control = page.locator(selector).first();
@@ -69,7 +95,7 @@ async function expectHeaderControls(page: Page) {
 }
 
 async function expectMobileHeroFirstViewport(page: Page) {
-  const heading = page.locator('#pc-v6-title');
+  const heading = page.locator('#pc-final-title');
   await expect(heading).toBeVisible();
   const lineCount = await heading.evaluate((node) => {
     const range = document.createRange();
@@ -87,7 +113,7 @@ async function expectMobileHeroFirstViewport(page: Page) {
   expect(lineCount, '320px Hero H1 line count').toBeGreaterThanOrEqual(1);
   expect(lineCount, '320px Hero H1 line count').toBeLessThanOrEqual(5);
 
-  const primary = page.locator('.pc-v6-actions .pc-v6-primary').first();
+  const primary = page.locator('.pc-final-hero .pc-final-primary').first();
   await expect(primary).toBeVisible();
   const primaryBox = await primary.boundingBox();
   expect(primaryBox, 'primary Hero CTA bounding box').not.toBeNull();
@@ -104,6 +130,7 @@ test.describe('Platform V7 strategic homepage mobile design gates', () => {
 
       await expectBrandFullyVisible(page);
       await expectHeaderControls(page);
+      await expectHeaderAccess(page);
 
       const overflow = await page.evaluate(() => Math.max(
         document.documentElement.scrollWidth - document.documentElement.clientWidth,

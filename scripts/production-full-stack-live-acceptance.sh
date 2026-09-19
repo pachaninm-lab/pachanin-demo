@@ -1,11 +1,4 @@
 #!/usr/bin/env bash
-# Release-contract compatibility markers only; never matched against live HTML:
-# с собственным искусственным интеллектом
-# от цены до расчёта
-# with proprietary artificial intelligence
-# Manage an agricultural Deal
-# 配备自主人工智能
-# Цена согласована. Теперь нужно исполнить Сделку.
 set -Eeuo pipefail
 
 TARGET_SHA="${1:?target SHA is required}"
