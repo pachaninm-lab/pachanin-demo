@@ -1471,7 +1471,9 @@
       "apps/web/components/platform-v7/PublicAiInActionSimpleExperience.tsx",
       "apps/web/app/platform-v7/ai-in-action/page.tsx",
       "apps/web/tests/unit/gektaPublicBrandContract.test.ts",
-      "scripts/check-production-full-stack-release.mjs"
+      "scripts/check-production-full-stack-release.mjs",
+      "apps/web/tests/unit/platformV7HomeFinalPolish.test.ts",
+      "apps/web/tests/unit/platformV7InternationalHomepageFix.test.ts"
     ],
     "fix/public-registration-final-copy-4916": [
       "apps/web/app/platform-v7/register/RegisterFormClient.tsx",

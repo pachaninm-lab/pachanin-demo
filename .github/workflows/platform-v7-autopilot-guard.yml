@@ -183,6 +183,8 @@ on:
       - 'apps/web/components/platform-v7/PublicAiInActionSimpleExperience.tsx'
       - 'apps/web/app/platform-v7/ai-in-action/page.tsx'
       - 'apps/web/tests/unit/gektaPublicBrandContract.test.ts'
+      - 'apps/web/tests/unit/platformV7HomeFinalPolish.test.ts'
+      - 'apps/web/tests/unit/platformV7InternationalHomepageFix.test.ts'
       - 'scripts/production-full-stack-live-acceptance.sh'
 
 concurrency:
