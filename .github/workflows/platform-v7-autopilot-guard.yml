@@ -497,7 +497,6 @@ jobs:
           const expectedSorted = [...expectedAllowed].sort();
           const actualSorted = [...allowed].sort();
           if (JSON.stringify(actualSorted) !== JSON.stringify(expectedSorted)) throw new Error('EGRUL_SCOPE_ALLOWLIST_DRIFT');
-
           const expectedForbidden = [
             'apps/api/prisma/migrations/**',
             'apps/api/prisma/schema.prisma',
@@ -674,7 +673,7 @@ jobs:
           [[ "$CONTEXT_OUTCOME" == success ]]
 
   guard:
-    name: ${{ github.event_name == 'pull_request' && (github.head_ref == 'fix/p0-registration-authority-rollover-4637' || github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698' || github.head_ref == 'feat/pc-crop-auction-inventory-authority-4997' || github.head_ref == 'ops/pc-crop-w1-production-acceptance-4997' || github.head_ref == 'governance/pc-crop-post-registration-progress-scope-4997' || github.head_ref == 'governance/pc-crop-inventory-reservation-scope-4997' || github.head_ref == 'docs/pc-crop-post-registration-progress-4997' || github.head_ref == 'governance/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'feat/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'governance/public-home-role-clarity-scope-20260905' || github.head_ref == 'feat/public-home-role-clarity-20260905' || github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' || github.head_ref == 'fix/production-like-outbox-poison-isolation-3793' || github.head_ref == 'fix/local-qwen-failed-review-evidence-20260912' || github.head_ref == 'fix/kind-minio-image-source-20260912' || github.head_ref == 'fix/gitleaks-release-authority-attestation-20260912' || github.head_ref == 'fix/owner-handoff-product-host-20260908' || github.head_ref == 'governance/ir20-api-database-binding-admission-20260919' || github.head_ref == 'governance/ir20-binding-immutable-scope-20260919') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}
+    name: ${{ github.event_name == 'pull_request' && (github.head_ref == 'governance/ir20-api-database-binding-admission-20260919' || github.head_ref == 'governance/ir20-binding-immutable-scope-20260919' || github.head_ref == 'fix/p0-registration-authority-rollover-4637' || github.head_ref == 'fix/p0-owner-control-plane-audit-lock-4698' || github.head_ref == 'feat/pc-crop-auction-inventory-authority-4997' || github.head_ref == 'ops/pc-crop-w1-production-acceptance-4997' || github.head_ref == 'governance/pc-crop-post-registration-progress-scope-4997' || github.head_ref == 'governance/pc-crop-inventory-reservation-scope-4997' || github.head_ref == 'docs/pc-crop-post-registration-progress-4997' || github.head_ref == 'governance/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'feat/role-eligibility-fns-egrul-file-import-5016' || github.head_ref == 'governance/public-home-role-clarity-scope-20260905' || github.head_ref == 'feat/public-home-role-clarity-20260905' || github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' || github.head_ref == 'fix/production-like-outbox-poison-isolation-3793' || github.head_ref == 'fix/local-qwen-failed-review-evidence-20260912' || github.head_ref == 'fix/kind-minio-image-source-20260912' || github.head_ref == 'fix/gitleaks-release-authority-attestation-20260912' || github.head_ref == 'fix/owner-handoff-product-host-20260908') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}
     needs: standard_validation
     if: always() && github.event_name != 'pull_request_target'
     permissions:
@@ -972,7 +971,7 @@ jobs:
             }
             assert.match(job, /ref: \$\{\{ github\.event\.pull_request\.base\.sha \}\}/);
             assert.match(job, /persist-credentials: false/);
-            assert.match(job, /contents: read\n      checks: write/);
+            assert.match(job, /contents: read\n      checks:\x20write/);
             assert.match(job, /conclusion=failure/);
             assert.match(job, /-f name='guard' -f head_sha="\$HEAD_SHA"/);
             assert.match(job, /VALIDATION_RC: \$\{\{ steps\.trusted_validation\.outputs\.rc \}\}/);
