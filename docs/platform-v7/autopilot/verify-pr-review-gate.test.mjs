@@ -310,6 +310,10 @@ function fixture(overrides = {}) {
     if (endpoint?.includes('/statuses?')) return [data.statuses];
     if (endpoint?.includes('/actions/runs?')) return data.runPages || [{ total_count: data.runs.length, workflow_runs: data.runs }];
     if (endpoint?.includes('/actions/runs/')) {
+      if (endpoint.includes('/attempts/')) {
+        if (!data.attempts?.[endpoint.split('/').at(-1)]) throw new Error('Attempt not found');
+        return data.attempts[endpoint.split('/').at(-1)];
+      }
       const id = endpoint.split('/').at(-1);
       if (data.fetchError) throw new Error('SYNTHETIC_SECRET_ERROR_SENTINEL');
       return Object.hasOwn(data, 'runOverride') ? data.runOverride : data.runs.find((row) => String(row.id) === id);
@@ -397,6 +401,43 @@ test('bound failed scope guard and unrelated pending CI still block', () => {
   const pending = scopeGuardFixture();
   pending.data.checks.push({ ...pending.peer, id: 103, name: 'security', status: 'in_progress', conclusion: null });
   assert.ok(checkRollupBlockers(fetchCheckSnapshot(repo, 5422, pending.read).checks).some(value => value.includes('security:IN_PROGRESS')));
+});
+
+test('reruns verify historical native guard provenance before selecting latest attempt', () => {
+  const f = scopeGuardFixture();
+  f.data.attempts = { 1: structuredClone(f.data.run) };
+  f.data.run.run_attempt = 2;
+  f.data.run.run_started_at = '2026-09-18T12:03:00Z';
+  f.data.run.updated_at = '2026-09-18T12:05:00Z';
+  f.data.checks.push({ ...f.peer, id: 103, started_at: '2026-09-18T12:03:00Z', completed_at: '2026-09-18T12:04:30Z' });
+  f.data.checks.push({ ...structuredClone(f.native), id: 104, details_url: `https://github.com/${repo}/runs/104`,
+    external_id: f.native.external_id.replace('attempt:1', 'attempt:2'),
+    started_at: '2026-09-18T12:04:01Z', completed_at: '2026-09-18T12:04:01Z' });
+  f.data.statuses.push({ ...f.status, id: 105, created_at: '2026-09-18T12:04:00Z' });
+  const snapshot = fetchCheckSnapshot(repo, 5422, f.read);
+  assert.ok(Array.isArray(snapshot.checks));
+  assert.deepEqual(snapshot.checks.filter(check => check.name === 'guard').map(check => check.id), [104]);
+  assert.deepEqual(checkRollupBlockers(snapshot.checks), []);
+  // A proven historical failure can be superseded only by the later valid attempt.
+  f.native.conclusion = f.peer.conclusion = f.status.state = 'failure';
+  f.native.output.title = 'PC-CROP immutable scope rejected';
+  f.native.output.summary = 'The base-controlled immutable scope check failed closed.';
+  f.data.attempts[1].conclusion = 'failure';
+  assert.deepEqual(checkRollupBlockers(fetchCheckSnapshot(repo, 5422, f.read).checks), []);
+  f.native.conclusion = f.peer.conclusion = f.status.state = 'success';
+  f.native.output.title = 'PC-CROP immutable scope accepted';
+  f.native.output.summary = 'The exact PR head satisfies the immutable scope recorded in the trusted base.';
+  f.data.attempts[1].conclusion = 'success';
+  const latest = f.data.checks.find(check => check.id === 104);
+  latest.conclusion = f.data.checks.find(check => check.id === 103).conclusion = f.data.statuses[1].state = 'failure';
+  latest.output.title = 'PC-CROP immutable scope rejected';
+  latest.output.summary = 'The base-controlled immutable scope check failed closed.';
+  f.data.run.conclusion = 'failure';
+  assert.ok(checkRollupBlockers(fetchCheckSnapshot(repo, 5422, f.read).checks).some(value => value.includes('guard:FAILURE')));
+  f.data.attempts[1].head_sha = oldHead;
+  assert.equal(fetchCheckSnapshot(repo, 5422, f.read).metadataError, 'NATIVE_CHECK_PROVENANCE_INVALID');
+  delete f.data.attempts[1];
+  assert.deepEqual(fetchCheckSnapshot(repo, 5422, f.read).runFetchErrors, [{ runId: '42', code: 'ACTIONS_RUN_ATTEMPT_FETCH_FAILED' }]);
 });
 
 test('trusted-base emitter publishes matching bounded native scope provenance', () => {

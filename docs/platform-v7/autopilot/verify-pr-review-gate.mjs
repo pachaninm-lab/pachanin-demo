@@ -577,6 +577,7 @@ export function fetchCheckSnapshot(repo, prNumber, readGitHubJson = ghJson) {
     catch { runFetchErrors.push({ runId, code: 'ACTIONS_RUN_FETCH_FAILED' }); }
   }
   if (runFetchErrors.length) return { ...invalid, runFetchErrors };
+  const historicalAttempts = new Map();
   for (const check of rawChecks) {
     if (check.appSlug !== 'github-actions') continue;
     const binding = nativeBindings.get(String(check.id));
@@ -585,8 +586,18 @@ export function fetchCheckSnapshot(repo, prNumber, readGitHubJson = ghJson) {
     if (!run || typeof run.name !== 'string' || !run.name || typeof run.path !== 'string' || !run.path.startsWith('.github/workflows/')) return invalid;
     if (run.repository?.full_name?.toLowerCase() !== repository.toLowerCase()) return invalid;
     if (binding) {
+      let producerRun = run;
+      if (binding.kind === 'scope-guard' && String(run.run_attempt) !== binding.attempt) {
+        if (!positiveIntegerString(run.run_attempt) || BigInt(binding.attempt) > BigInt(run.run_attempt)) return { ...invalid, metadataError: 'NATIVE_CHECK_PROVENANCE_INVALID' };
+        const attemptPath = `${actionsRunApiPath(repository, binding.runId)}/attempts/${binding.attempt}`;
+        if (!historicalAttempts.has(attemptPath)) {
+          try { historicalAttempts.set(attemptPath, readGitHubJson(['api', attemptPath])); }
+          catch { return { ...invalid, runFetchErrors: [{ runId: binding.runId, code: 'ACTIONS_RUN_ATTEMPT_FETCH_FAILED' }] }; }
+        }
+        producerRun = historicalAttempts.get(attemptPath);
+      }
       const verified = binding.kind === 'scope-guard'
-        ? nativeScopeGuardMatchesRun(binding, check, run, rawChecks, repository, prNumber, headSha, headRef)
+        ? nativeScopeGuardMatchesRun(binding, check, producerRun, rawChecks, repository, prNumber, headSha, headRef)
         : nativeReadinessMatchesRun(binding, run, repository, prNumber, headSha, headRef);
       if (!verified) return { ...invalid, metadataError: 'NATIVE_CHECK_PROVENANCE_INVALID' };
       if (binding.kind === 'scope-guard') check.detailsUrl = `https://github.com/${repository}/actions/runs/${binding.runId}`;
