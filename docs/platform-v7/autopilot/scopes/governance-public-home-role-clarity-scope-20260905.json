@@ -3,7 +3,7 @@
   "branch": "governance/public-home-role-clarity-scope-20260905",
   "status": "active",
   "authorizedBy": "explicit-user-instruction-2026-09-19-final-public-experience-connected-organisation-employee",
-  "purpose": "Refresh the trusted public-home role-clarity slot only so every existing assertion that names the ninth public role can move from retired internal platform staff wording to employee of a connected organisation. The implementation remains limited to the existing role scenario plus existing acceptance oracles; no new product authority, route, registration, API, database or production behavior is authorized.",
+  "purpose": "Refresh the trusted public-home role-clarity slot only so every existing homepage assertion that names the ninth public role can move from retired internal platform staff wording to employee of a connected organisation. The implementation remains limited to the existing role scenario plus existing acceptance oracles; no new product authority, route, registration, API, database or production behavior is authorized.",
   "authorityBaseExactMain": "769a11cecde02447e6f72b8962557180af711110",
   "allowedPaths": [
     "docs/platform-v7/autopilot/scopes/governance-public-home-role-clarity-scope-20260905.json",
@@ -11,7 +11,7 @@
   ],
   "implementationBranch": "feat/public-home-role-clarity-20260905",
   "implementationManifest": "docs/platform-v7/autopilot/scopes/public-home-role-clarity-20260905.json",
-  "implementationAllowedPathCount": 8,
+  "implementationAllowedPathCount": 10,
   "boundaries": {
     "productBehaviorChange": true,
     "registrationChange": false,
