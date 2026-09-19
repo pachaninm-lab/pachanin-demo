@@ -316,3 +316,46 @@ jobs:
     steps:
       - name: Enforce acceptance job
         run: test "${{ needs.production-like-kubernetes.result }}" = success
+
+
+  optional-independent-source-review:
+    name: Optional separate source-review evidence
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (github.event.pull_request.number == 5430 || github.event.pull_request.number == 5429)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    permissions:
+      contents: read
+    env:
+      EXACT_BASE: ${{ github.event.pull_request.base.sha }}
+      REVIEW_PR: ${{ github.event.pull_request.number }}
+    steps:
+      - name: Checkout exact source without retained credentials
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Reject invalid review evidence without invoking a model
+        run: bash scripts/release/production-like-kubernetes-independent-review-test.sh
+      - name: Collect one separate complete-diff review
+        id: review_execution
+        # Optional execution failure never substitutes for the required genuine review.
+        continue-on-error: true
+        timeout-minutes: 48
+        run: bash scripts/release/production-like-kubernetes-independent-review.sh collect
+      - name: Finalize provenance without granting approval
+        if: always()
+        env:
+          REVIEW_OUTCOME: ${{ steps.review_execution.outcome }}
+        run: bash scripts/release/production-like-kubernetes-independent-review.sh finalize
+      - name: Retain actual input and answer, not model weights or private logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ir20-independent-source-review-${{ env.EXACT_HEAD }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/ir20-independent-source-review/
+          if-no-files-found: error
+          retention-days: 7
