@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-agro-os-v4-foundation-20260731",
+  "status": "active",
+  "purpose": "Start TAI Agro OS Master Specification v4.0 from exact current main by adding the canonical specification, an evidence-bounded implementation audit, a stable cross-domain ontology registry, and the first deterministic crop, livestock and machinery calculators without expanding write authority or production claims.",
+  "approvedBy": "owner-direct-implement-2026-07-31",
+  "authorityBaseExactMain": "aee6f0d32300a33983fd71b6a09ddf497d9394fd",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/tai-agro-os-v4-foundation-20260731.json",
+    "apps/tai/TAI_AGRO_OS_MASTER_SPECIFICATION_v4.0.md",
+    "apps/tai/TAI_AGRO_OS_V4_IMPLEMENTATION_AUDIT.md",
+    "apps/tai/governance/tai-agro-os-v4-capability-matrix.v1.json",
+    "apps/tai/tai/agro_ontology.py",
+    "apps/tai/tai/agro_calculators.py",
+    "apps/tai/tests/test_agro_ontology_v4.py",
+    "apps/tai/tests/test_agro_calculators_v4.py"
+  ],
+  "requiredBehavior": [
+    "record the exact audited main SHA",
+    "separate repository evidence from REG.RU live acceptance",
+    "preserve the current informational-only and read-only TAI boundary",
+    "define exactly the 90 canonical ontology entities required by v4",
+    "fail closed on unknown ontology entities",
+    "execute the first critical calculations with Decimal-based versioned code",
+    "echo calculation inputs and formula version for auditability",
+    "require specialist confirmation for agronomic seed assumptions",
+    "reject missing invalid non-finite or unsafe calculator inputs",
+    "add focused deterministic tests"
+  ],
+  "forbiddenCapabilities": [
+    "autonomous platform writes",
+    "financial execution",
+    "client-selected tenant or role",
+    "veterinary diagnosis prescription or dosing",
+    "invented agronomic prescriptions",
+    "invented machinery fault codes specifications or compatibility",
+    "claiming a domain product is complete",
+    "claiming REG.RU deployment or live acceptance",
+    "new paid dependency or recurring cost"
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4887,
+  "branch": "security/saga-persist-silent-failure-4887",
+  "status": "active",
+  "purpose": "DealSagaService.persistSaga has never persisted anything, for any principal, and nothing has ever reported it. This pass fixes ONLY the silence: the .catch(() => {}) that discarded the failure becomes a logged warning naming the deal, the step and the cause. What to do about the write itself stays with the owner in #4887.",
+  "authorityBaseExactMain": "c0a0eaec1199969d62848cf421b1d04ee717ba41",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/saga-persist-silent-failure-4887.json",
+    "apps/api/src/modules/saga/deal-saga.service.ts",
+    "apps/api/src/modules/saga/deal-saga-persist-visibility.spec.ts"
+  ],
+  "requiredInvariants": [
+    "Neither option in #4887 is taken. The write is not removed, not reordered and not split into two statements - splitting it would let sagaStep land and would silently adopt the narrow-the-immutability answer.",
+    "The immutability trigger and its migration are not touched. sagaState stays in both the trigger column list and the compared ROW.",
+    "Swallowing the exception remains deliberate and is preserved: a failed persist must not fail a saga step that already ran. Exactly one thing changes - the failure is now audible.",
+    "Logged at warn, not error, and once per call: the refusal is expected and permanent until #4887 is decided, so raising it to error would declare an incident over a known open defect.",
+    "No schema change, no migration, no new dependency, no lockfile change. No production, REG.RU, DNS, database or credential mutation. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "Measured on PostgreSQL 16 against the real function and trigger taken verbatim from 20260712194000_deal_basis_immutability, not reasoned from PostgreSQL semantics: UPDATE of sagaState + sagaStep together is refused; UPDATE of sagaStep alone returns UPDATE 1; UPDATE of sagaState alone is refused. The row afterwards reads sagaState=NULL, sagaStep=STEP_1, proving the middle case landed.",
+    "The mechanism is exact: sagaState appears in BOTH the trigger column list and the compared ROW, so any write of it raises. sagaStep appears in NEITHER and is mutable on its own, but persistSaga writes it in the same statement, and a RAISE in a BEFORE trigger aborts the whole statement - the mutable column is lost as collateral damage of the immutable one.",
+    "The measurement ran as rolsuper=true and was still refused, so no principal escapes it. Triggers bind superusers, unlike RLS. This is the strongest privilege available and it confirms the earlier finding rather than restating it.",
+    "Consequence recorded, not claimed as fixed: the in-process Map is the only saga state, so all saga progress is lost on restart.",
+    "Two mutations, both caught: restoring .catch(() => {}) fails the reporting test; keeping the warning but dropping the error message from the line also fails it, because the test requires the cause and not merely the fact of a warning.",
+    "Four cases in the new suite: failure is reported; the saga step still runs and in-memory state still advances; a successful persist reports nothing; and with no prisma injected nothing is attempted and nothing is complained about. api tsc --noEmit exit 0."
+  ]
+}

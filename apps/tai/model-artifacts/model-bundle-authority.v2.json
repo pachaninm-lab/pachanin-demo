@@ -1,0 +1,278 @@
+{
+  "schema_version": "tai.model-bundle-authority.v2",
+  "toolchain": {
+    "name": "ggml-org/llama.cpp",
+    "uri": "https://github.com/ggml-org/llama.cpp",
+    "release": "b9637",
+    "commit": "aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3",
+    "profile": "linux-x86_64-cpu-release-static-v1",
+    "authority_sha256": "3064250e63baed7bdcfd20851e1d3ea2c86fc33f087b69a2a4fcff18c384374b",
+    "required_binaries": [
+      "llama-cli",
+      "llama-server",
+      "llama-quantize",
+      "llama-bench"
+    ]
+  },
+  "models": [
+    {
+      "role": "PRIMARY",
+      "model_id": "Qwen/Qwen3-8B",
+      "revision": "895c8d171bc03c30e113cd7a28c02494b5e068b7",
+      "source_uri": "https://huggingface.co/Qwen/Qwen3-8B/tree/895c8d171bc03c30e113cd7a28c02494b5e068b7",
+      "model_card_uri": "https://huggingface.co/Qwen/Qwen3-8B/blob/895c8d171bc03c30e113cd7a28c02494b5e068b7/README.md",
+      "license_spdx": "Apache-2.0",
+      "source_inventory": [
+        {
+          "path": "sources/qwen3-8b/.gitattributes",
+          "role": "AUXILIARY",
+          "disposition": "EXCLUDED",
+          "exclusion_reason": "Repository transport metadata is inventoried but is not a converter input."
+        },
+        {
+          "path": "sources/qwen3-8b/README.md",
+          "role": "MODEL_CARD",
+          "disposition": "SELECTED",
+          "exclusion_reason": null
+        },
+        {
+          "path": "sources/qwen3-8b/config.json",
+          "role": "CONFIG",
+          "disposition": "SELECTED",
+          "exclusion_reason": null
+        },
+        {
+          "path": "sources/qwen3-8b/generation_config.json",
+          "role": "CONFIG",
+          "disposition": "SELECTED",
+          "exclusion_reason": null
+        },
+        {
+          "path": "sources/qwen3-8b/merges.txt",
+          "role": "TOKENIZER",
+          "disposition": "SELECTED",
+          "exclusion_reason": null
+        },
+        {
+          "path": "sources/qwen3-8b/model-00001-of-00005.safetensors",
+          "role": "WEIGHT_SHARD",
+          "disposition": "SELECTED",
+          "exclusion_reason": null
+        },
+        {
+          "path": "sources/qwen3-8b/model-00002-of-00005.safetensors",
+          "role": "WEIGHT_SHARD",
+          "disposition": "SELECTED",
+          "exclusion_reason": null
+        },
+        {
+          "path": "sources/qwen3-8b/model-00003-of-00005.safetensors",
+          "role": "WEIGHT_SHARD",
+          "disposition": "SELECTED",
+          "exclusion_reason": null
+        },
+        {
+          "path": "sources/qwen3-8b/model-00004-of-00005.safetensors",
+          "role": "WEIGHT_SHARD",
+          "disposition": "SELECTED",
+          "exclusion_reason": null
+        },
+        {
+          "path": "sources/qwen3-8b/model-00005-of-00005.safetensors",
+          "role": "WEIGHT_SHARD",
+          "disposition": "SELECTED",
+          "exclusion_reason": null
+        },
+        {
+          "path": "sources/qwen3-8b/model.safetensors.index.json",
+          "role": "SHARD_INDEX",
+          "disposition": "SELECTED",
+          "exclusion_reason": null
+        },
+        {
+          "path": "sources/qwen3-8b/tokenizer.json",
+          "role": "TOKENIZER",
+          "disposition": "SELECTED",
+          "exclusion_reason": null
+        },
+        {
+          "path": "sources/qwen3-8b/tokenizer_config.json",
+          "role": "TOKENIZER",
+          "disposition": "SELECTED",
+          "exclusion_reason": null
+        },
+        {
+          "path": "sources/qwen3-8b/vocab.json",
+          "role": "TOKENIZER",
+          "disposition": "SELECTED",
+          "exclusion_reason": null
+        }
+      ],
+      "conversion": {
+        "intermediate_path": "artifacts/qwen3-8b-bf16.gguf",
+        "intermediate_format": "BF16",
+        "converter_path": "toolchain/source/convert_hf_to_gguf.py",
+        "argv": [
+          "python3",
+          "toolchain/source/convert_hf_to_gguf.py",
+          "sources/qwen3-8b",
+          "--outfile",
+          "artifacts/qwen3-8b-bf16.gguf",
+          "--outtype",
+          "bf16"
+        ]
+      },
+      "quantizations": [
+        {
+          "runtime_class": "CPU",
+          "quantization": "Q4_K_M",
+          "output_path": "artifacts/qwen3-8b-q4-k-m.gguf",
+          "argv": [
+            "toolchain/bin/llama-quantize",
+            "artifacts/qwen3-8b-bf16.gguf",
+            "artifacts/qwen3-8b-q4-k-m.gguf",
+            "Q4_K_M"
+          ]
+        },
+        {
+          "runtime_class": "GPU_SHARED",
+          "quantization": "Q8_0",
+          "output_path": "artifacts/qwen3-8b-q8-0.gguf",
+          "argv": [
+            "toolchain/bin/llama-quantize",
+            "artifacts/qwen3-8b-bf16.gguf",
+            "artifacts/qwen3-8b-q8-0.gguf",
+            "Q8_0"
+          ]
+        }
+      ]
+    },
+    {
+      "role": "FALLBACK",
+      "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
+      "revision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
+      "source_uri": "https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3/tree/c170c708c41dac9275d15a8fff4eca08d52bab71",
+      "model_card_uri": "https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3/blob/c170c708c41dac9275d15a8fff4eca08d52bab71/README.md",
+      "license_spdx": "Apache-2.0",
+      "source_inventory": [
+        {
+          "path": "sources/mistral-7b-instruct-v0.3/.gitattributes",
+          "role": "AUXILIARY",
+          "disposition": "EXCLUDED",
+          "exclusion_reason": "Repository transport metadata is inventoried but is not a converter input."
+        },
+        {
+          "path": "sources/mistral-7b-instruct-v0.3/README.md",
+          "role": "MODEL_CARD",
+          "disposition": "SELECTED",
+          "exclusion_reason": null
+        },
+        {
+          "path": "sources/mistral-7b-instruct-v0.3/config.json",
+          "role": "CONFIG",
+          "disposition": "SELECTED",
+          "exclusion_reason": null
+        },
+        {
+          "path": "sources/mistral-7b-instruct-v0.3/consolidated.safetensors",
+          "role": "AUXILIARY",
+          "disposition": "EXCLUDED",
+          "exclusion_reason": "Duplicate alternate Mistral serialization; the governed llama.cpp conversion uses the complete Hugging Face shard/index set and must not mix both weight layouts."
+        },
+        {
+          "path": "sources/mistral-7b-instruct-v0.3/generation_config.json",
+          "role": "CONFIG",
+          "disposition": "SELECTED",
+          "exclusion_reason": null
+        },
+        {
+          "path": "sources/mistral-7b-instruct-v0.3/model-00001-of-00003.safetensors",
+          "role": "WEIGHT_SHARD",
+          "disposition": "SELECTED",
+          "exclusion_reason": null
+        },
+        {
+          "path": "sources/mistral-7b-instruct-v0.3/model-00002-of-00003.safetensors",
+          "role": "WEIGHT_SHARD",
+          "disposition": "SELECTED",
+          "exclusion_reason": null
+        },
+        {
+          "path": "sources/mistral-7b-instruct-v0.3/model-00003-of-00003.safetensors",
+          "role": "WEIGHT_SHARD",
+          "disposition": "SELECTED",
+          "exclusion_reason": null
+        },
+        {
+          "path": "sources/mistral-7b-instruct-v0.3/model.safetensors.index.json",
+          "role": "SHARD_INDEX",
+          "disposition": "SELECTED",
+          "exclusion_reason": null
+        },
+        {
+          "path": "sources/mistral-7b-instruct-v0.3/params.json",
+          "role": "CONFIG",
+          "disposition": "SELECTED",
+          "exclusion_reason": null
+        },
+        {
+          "path": "sources/mistral-7b-instruct-v0.3/special_tokens_map.json",
+          "role": "TOKENIZER",
+          "disposition": "SELECTED",
+          "exclusion_reason": null
+        },
+        {
+          "path": "sources/mistral-7b-instruct-v0.3/tokenizer.json",
+          "role": "TOKENIZER",
+          "disposition": "SELECTED",
+          "exclusion_reason": null
+        },
+        {
+          "path": "sources/mistral-7b-instruct-v0.3/tokenizer.model",
+          "role": "TOKENIZER",
+          "disposition": "SELECTED",
+          "exclusion_reason": null
+        },
+        {
+          "path": "sources/mistral-7b-instruct-v0.3/tokenizer.model.v3",
+          "role": "TOKENIZER",
+          "disposition": "SELECTED",
+          "exclusion_reason": null
+        },
+        {
+          "path": "sources/mistral-7b-instruct-v0.3/tokenizer_config.json",
+          "role": "TOKENIZER",
+          "disposition": "SELECTED",
+          "exclusion_reason": null
+        }
+      ],
+      "conversion": {
+        "intermediate_path": "artifacts/mistral-7b-instruct-v0.3-f16.gguf",
+        "intermediate_format": "F16",
+        "converter_path": "toolchain/source/convert_hf_to_gguf.py",
+        "argv": [
+          "python3",
+          "toolchain/source/convert_hf_to_gguf.py",
+          "sources/mistral-7b-instruct-v0.3",
+          "--outfile",
+          "artifacts/mistral-7b-instruct-v0.3-f16.gguf",
+          "--outtype",
+          "f16"
+        ]
+      },
+      "quantizations": [
+        {
+          "runtime_class": "CPU",
+          "quantization": "Q4_K_M",
+          "output_path": "artifacts/mistral-7b-instruct-v0.3-q4-k-m.gguf",
+          "argv": [
+            "toolchain/bin/llama-quantize",
+            "artifacts/mistral-7b-instruct-v0.3-f16.gguf",
+            "artifacts/mistral-7b-instruct-v0.3-q4-k-m.gguf",
+            "Q4_K_M"
+          ]
+        }
+      ]
+    }
+  ]
+}

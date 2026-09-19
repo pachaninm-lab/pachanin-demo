@@ -1,0 +1,36 @@
+name: platform-v7 CodeQL configuration
+
+# One-for-one replacement of a single security control.
+#
+#   standard suite
+#     MINUS the built-in js/insufficient-password-hash
+#     PLUS  the repository-owned corrected version of the same control
+#
+# The corrected query is derived from the pinned upstream source and keeps its
+# sources, sinks, sanitizers, data flow, CWE-916, severity, security severity,
+# precision, tags and help metadata. Its only semantic difference is one added
+# barrier: a value carrying full CSPRNG entropy is not a password.
+#
+# Nothing else is removed. The default security suite still runs, no product
+# file, path or function is excluded, no finding id is allowlisted, no severity
+# is changed, and there is no baseline and no continue-on-error. The selection
+# guard and the parity manifest fail the job if any of that stops being true.
+
+# A local query is attached through `queries:`. `packs:` accepts only published
+# pack names — a path there is silently ignored, which is exactly how the first
+# attempt failed without saying so.
+queries:
+  - uses: ./codeql/insufficient-password-hash-corrected/InsufficientPasswordHashCorrected.ql
+
+query-filters:
+  # The replaced control, and only that one. Its corrected counterpart runs in
+  # its place and reports every genuine password flow the original reported.
+  - exclude:
+      id: js/insufficient-password-hash
+
+paths-ignore:
+  # The query-test pack only. These are CodeQL test fixtures — deliberately
+  # vulnerable password flows, written to prove the query still reports them —
+  # and they are not product code. The path is exact, so it cannot hide
+  # anything under apps/ or scripts/.
+  - codeql/insufficient-password-hash-corrected/tests

@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "policy": {
+    "criticalExceptionsAllowed": false,
+    "maximumExceptionDays": 90
+  },
+  "exceptions": []
+}

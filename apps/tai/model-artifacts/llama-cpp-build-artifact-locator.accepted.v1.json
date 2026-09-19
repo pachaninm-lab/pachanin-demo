@@ -1,0 +1,73 @@
+{
+  "artifact": {
+    "digest": "807f815e0265096150d87b4ff289d02e26fcd1d83cca891957c66a4e39054e52",
+    "id": "8454821423",
+    "name": "tai-llama-toolchain-build-637d36f7e9bb152ee3c7b22545a9a83eca3e4388-29727061145-1",
+    "retention_days": 90,
+    "url": "https://github.com/pachaninm-lab/pachanin-demo/actions/runs/29727061145/artifacts/8454821423"
+  },
+  "package_index": {
+    "content": {
+      "authority_sha256": "3064250e63baed7bdcfd20851e1d3ea2c86fc33f087b69a2a4fcff18c384374b",
+      "build_evidence": {
+        "path": "llama-evidence/evidence/llama-cpp-build.v1.json",
+        "sha256": "44f8aaefa9ba250cd2f523d07de9e084d9d8cc2a8bd0f17430e4a299aa35e1a1",
+        "size_bytes": 4531
+      },
+      "package": {
+        "path": "llama-cpp-b9637-evidence.tar.gz",
+        "sha256": "b742781c628fb1ab5ef1341e9937bb1d7a76cd96afaaf904d71d20554fa6a450",
+        "size_bytes": 135198377
+      },
+      "repository_sha": "637d36f7e9bb152ee3c7b22545a9a83eca3e4388",
+      "retention_days": 90,
+      "schema_version": "tai.llama-cpp-build-package-index.v1",
+      "status": "PACKAGED",
+      "verification_report": {
+        "path": "llama-evidence/evidence/llama-cpp-verification.v1.json",
+        "sha256": "b8140f52ef9da5c3c1a6a7340107076a307665b50695ec2b6bd1a2a5f7e37040",
+        "size_bytes": 1023
+      },
+      "workflow_run_attempt": "1",
+      "workflow_run_id": "29727061145"
+    },
+    "sha256": "6a70beb3d653e9cad578f18a2dcf7b5df8761e26c309edd83255dff6db711c4a"
+  },
+  "repository_sha": "637d36f7e9bb152ee3c7b22545a9a83eca3e4388",
+  "restored_verification": {
+    "content": {
+      "authority_sha256": "3064250e63baed7bdcfd20851e1d3ea2c86fc33f087b69a2a4fcff18c384374b",
+      "evidence_sha256": "a1d58c34ca8e6184156abc12c310eb144cbac8996a7b0a0552e89fce468e0cac",
+      "reasons": [],
+      "report_sha256": "d3284b22f4f2e64d79db3c4bad58877731cd04e02d082826aa6a72967aa04b51",
+      "schema_version": "tai.llama-cpp-toolchain-verification-report.v1",
+      "status": "VERIFIED",
+      "verified_files": [
+        "build/llama.cpp-b9637/CMakeCache.txt",
+        "build/llama.cpp-b9637/bin/llama-bench",
+        "build/llama.cpp-b9637/bin/llama-cli",
+        "build/llama.cpp-b9637/bin/llama-quantize",
+        "build/llama.cpp-b9637/bin/llama-server",
+        "evidence/build.log",
+        "evidence/cc-version.txt",
+        "evidence/cmake-version.txt",
+        "evidence/configure.log",
+        "evidence/cxx-version.txt",
+        "evidence/git-head.txt",
+        "evidence/git-status.txt",
+        "source/llama.cpp-aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3.tar.gz"
+      ],
+      "verified_targets": [
+        "llama-bench",
+        "llama-cli",
+        "llama-quantize",
+        "llama-server"
+      ]
+    },
+    "sha256": "b8140f52ef9da5c3c1a6a7340107076a307665b50695ec2b6bd1a2a5f7e37040"
+  },
+  "schema_version": "tai.llama-cpp-build-artifact-locator.v1",
+  "status": "VERIFIED_RESTORED",
+  "workflow_run_attempt": "1",
+  "workflow_run_id": "29727061145"
+}

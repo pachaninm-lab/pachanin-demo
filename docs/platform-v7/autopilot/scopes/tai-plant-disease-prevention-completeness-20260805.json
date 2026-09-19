@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-plant-disease-prevention-completeness-20260805",
+  "status": "active",
+  "title": "TAI plant disease prevention completeness repair",
+  "priority": "P0",
+  "baselineExactMain": "8e24af07fdf10d4852bea06756421698010e03e5",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "objective": "Repair the exact-main activation failure where the local Qwen answer to plant-disease prevention discussed humidity and roots but omitted independent disease-cycle controls such as inoculum sanitation, canopy drying, weather-linked infection risk, monitoring/timing and label-compliant crop protection.",
+  "allowedPaths": [
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+    "apps/api/src/modules/ai-insights/restricted-public-qwen.disease-completeness.spec.ts",
+    "docs/platform-v7/autopilot/scopes/tai-plant-disease-prevention-completeness-20260805.json"
+  ],
+  "boundaries": [
+    "Preserve agro-first fail-open content routing and every fail-closed privacy, tenant, authorization, write, financial-action, tool and secret boundary",
+    "The model remains primary; the production prompt must require actionable plant-disease prevention factors before clarification",
+    "A bounded read-only completeness floor may be appended only when a plant-disease prevention answer contains fewer than two independent disease-cycle factor groups",
+    "For orchard and crop disease prevention, cover at least two independent groups among inoculum sanitation, canopy or leaf-drying conditions, weather and infection risk, monitoring or timing, and locally registered label-compliant crop protection",
+    "Do not invent pesticide products, doses, application intervals, resistance claims, legal registrations or current regional rules",
+    "Preserve the original model answer and expose any bounded augmentation through GENERAL_AGRO_DISEASE_COMPLETENESS_FLOOR",
+    "Do not weaken source, model identity, answer mode, stream completeness, subject relevance, minimum length, forbidden-platform-article, RU/EN/ZH or mobile Chromium assertions",
+    "Production completion requires exact-head terminal PASS, merge, exact-main full-stack REG.RU release, controller sync, preflight, protected activation, all 21 endpoint and 5 mobile cases PASS, finalization accept and standalone TAI postflight PASS"
+  ]
+}

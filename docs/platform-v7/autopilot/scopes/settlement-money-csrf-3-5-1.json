@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/settlement-money-csrf-3-5-1",
+  "status": "active",
+  "purpose": "V3.5.1 (level 1) is FAIL. The next class in that gap is the routes that act on an ambient cookie credential, and the two heaviest of them are the settlement money proxies: apps/web/app/api/settlement-engine/deal/[dealId]/release/route.ts and .../confirm/route.ts. Both call runtimeAuthHeaders(), which reads pc_access_token through cookies() and turns it into an Authorization Bearer, and neither calls assertCsrf. This closes those two.",
+  "authorityBaseExactMain": "ed14ebe1a",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/settlement-money-csrf-3-5-1.json",
+    "docs/platform-v7/qa/web-unit-coverage-registry.json",
+    ".github/workflows/ci.yml",
+    "apps/web/app/api/settlement-engine/deal/[dealId]/release/route.ts",
+    "apps/web/app/api/settlement-engine/deal/[dealId]/confirm/route.ts",
+    "apps/web/tests/unit/settlementMoneyCsrf.spec.ts"
+  ],
+  "requiredInvariants": [
+    "V3.5.1 is NOT claimed and stays FAIL. Two routes of the fourteen still unguarded are closed. Claiming the requirement on one class would be the substitution this programme forbids.",
+    "The existing double-submit mechanism is reused as-is: assertCsrf from server-request-security, the same pc_csrf_token cookie and x-csrf-token header the other guarded routes already use. No new anti-forgery scheme is invented.",
+    "SameSite=Lax on the access cookie is left exactly as it is, and the backend SettlementFinancialMfaGuard is not touched. Both are real mitigations and neither is removed or presented as sufficient.",
+    "The backend settlement engine remains the only authority that moves money. This pass adds a gate in front of the proxy; it does not add, relax or reinterpret any money rule, role, state gate or MFA requirement.",
+    "No production, REG.RU, DNS, database or credential mutation. No schema change, no migration, no dependency, no lockfile change. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "The ambient-credential claim was verified by reading apps/web/app/api/runtime-auth-helpers.ts, not inferred from the route name: runtimeAuthHeaders() calls cookies() for ACCESS_COOKIE (pc_access_token) and sets Authorization: Bearer from it. That is the confused-deputy shape the requirement is about.",
+    "The change is one-sided BECAUSE THERE IS NO CALLER, and that was established by search rather than assumed: no frontend code calls /api/settlement-engine/deal/<id>/confirm or /release. The UI money paths are /api/deals/<id>/release and the platform-v7 contracts, and lib/outbox-server.ts talks to the backend directly through serverApiUrl, never through these BFF routes. Reported as blast radius, NOT as an argument that the hole was harmless: both routes are mounted and reachable by any browser holding a session.",
+    "Severity is stated with its mitigations rather than at its worst. SameSite=Lax on pc_access_token blocks a classic cross-site form POST. The backend guard SettlementFinancialMfaGuard requires MFA no older than 15 minutes and takes that timestamp from the server-side session, never from a client header - so a forged release would only land inside a 15-minute step-up window. Both layers are real; neither is the anti-forgery token V3.5.1 asks for.",
+    "Recorded and NOT fixed here: the backend settlement controller exposes no deal/:id/confirm handler at all (its POST routes are terms, reserve, release, refund, holds, holds/:holdId/release, reconciliation, bank-keys/:keyId/revoke, bank-callback). The confirm proxy therefore forwards to a path that does not exist. Removing a dead route is a behaviour change beyond this pass; the gate is added to both so the proxy is not left open if that backend path ever appears.",
+    "Ten cases: for each of the two routes, no header at all; cookie without header; header not matching the cookie (asserting reason csrf_mismatch, so absence and mismatch stay distinguishable); a matching pair passing the gate; and an ordering assertion that assertCsrf runs before runtimeAuthHeaders, since a gate after the upstream call would mean the request had already been sent as the visitor.",
+    "Four mutations, all caught: removing the gate fails 4 of 10; moving the gate after the credential is spent fails the same 4; making the gate refuse everything fails 2 - including the matching-pair case, so 'everything closed' cannot pass as success; dropping the reason from the refusal body fails 1.",
+    "The ordering assertion first passed against the docstring rather than the call, because the helper is named in the comment too. It now slices the handler body before searching, so it asserts the code and not the prose.",
+    "The test is added to the web-unit list in ci.yml, not just to the tree, and tracked by git - verify-web-unit-coverage reports EXECUTED_BUT_MISSING otherwise.",
+    "The ASVS decision file is deliberately NOT touched in this pass. Its V3.5.1 note carries a route census that is being corrected in the accounting pass on the same requirement; editing the same note from two open branches would collide. The census moves from 14 unguarded to 12 once both land, and that decrement is left to whichever merges second."
+  ]
+}

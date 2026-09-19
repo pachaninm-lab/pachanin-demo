@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-06-11T20:22:00.000Z",
+  "task": "VP-2.5 money reserve amountRub fixture refresh",
+  "scope": [
+    "apps/web/tests/unit/platformV7MoneyReserveRequestRuntime.test.ts"
+  ],
+  "sourceOfTruth": "The money reserve runtime accepts amountRub fallback when the fallback is a positive finite numeric value or numeric string.",
+  "changes": [
+    "Replaced the invalid underscore-bearing amountRub fixture with a valid numeric string while keeping the fallback behavior assertion intact."
+  ],
+  "forbiddenZonesTouched": false,
+  "runtimeTouched": false
+}

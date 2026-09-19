@@ -1,0 +1,48 @@
+apiVersion: projectcalico.org/v3
+kind: NetworkPolicy
+metadata:
+  name: deny-runtime-direct-postgresql
+  namespace: grainflow-acceptance
+spec:
+  order: 10
+  selector: all()
+  types:
+    - Egress
+  egress:
+    - action: Allow
+      protocol: TCP
+      source:
+        selector: "app.kubernetes.io/name == 'pgbouncer'"
+      destination:
+        selector: "app.kubernetes.io/name == 'postgresql'"
+        ports:
+          - 5432
+    - action: Deny
+      protocol: TCP
+      destination:
+        ports:
+          - 5432
+---
+apiVersion: projectcalico.org/v3
+kind: NetworkPolicy
+metadata:
+  name: deny-postgresql-ingress-bypass
+  namespace: grainflow-acceptance
+spec:
+  order: 10
+  selector: "app.kubernetes.io/name == 'postgresql'"
+  types:
+    - Ingress
+  ingress:
+    - action: Allow
+      protocol: TCP
+      source:
+        selector: "app.kubernetes.io/name == 'pgbouncer'"
+      destination:
+        ports:
+          - 5432
+    - action: Deny
+      protocol: TCP
+      destination:
+        ports:
+          - 5432

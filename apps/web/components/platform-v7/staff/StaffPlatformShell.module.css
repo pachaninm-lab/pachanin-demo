@@ -1,0 +1,160 @@
+.shell {
+  --staff-shell-ink: #10231d;
+  --staff-shell-muted: #53675f;
+  --staff-shell-green: #17563f;
+  min-height: 100svh;
+  color: var(--staff-shell-ink);
+  background:
+    radial-gradient(circle at 10% -10%, rgba(38, 117, 83, .12), transparent 34%),
+    radial-gradient(circle at 92% 0%, rgba(183, 143, 62, .08), transparent 30%),
+    linear-gradient(180deg, #f7faf8 0%, #eef5f1 52%, #f8faf8 100%);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.shell, .shell * { box-sizing: border-box; }
+.shell a { color: inherit; text-decoration: none; }
+
+.skip {
+  position: fixed;
+  top: 8px;
+  left: 12px;
+  z-index: 10000;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #fff;
+  color: #123d2d;
+  box-shadow: 0 12px 32px rgba(16, 35, 29, .18);
+  transform: translateY(-160%);
+  transition: transform .16s ease;
+}
+.skip:focus { transform: translateY(0); }
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  display: grid;
+  grid-template-columns: minmax(220px, auto) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  min-height: 68px;
+  padding: 10px max(18px, env(safe-area-inset-right)) 10px max(18px, env(safe-area-inset-left));
+  border-bottom: 1px solid rgba(20, 70, 53, .13);
+  background: rgba(251, 253, 252, .94);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 10px 30px rgba(16, 35, 29, .055);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  border-radius: 14px;
+}
+.brand > span:last-child { display: grid; min-width: 0; gap: 1px; }
+.brand strong { font-size: 15px; line-height: 1.15; letter-spacing: -.015em; }
+.brand small { color: var(--staff-shell-muted); font-size: 11px; line-height: 1.25; white-space: nowrap; }
+
+.context {
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid rgba(23, 86, 63, .13);
+  border-radius: 999px;
+  background: rgba(234, 246, 239, .84);
+  color: #315d4c;
+  font-size: 12px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.context i {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #218457;
+  box-shadow: 0 0 0 4px rgba(33, 132, 87, .12);
+}
+
+.actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.locales {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid rgba(20, 70, 53, .14);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, .82);
+}
+.locales a {
+  display: grid;
+  place-items: center;
+  min-width: 38px;
+  min-height: 38px;
+  border-radius: 10px;
+  color: #4a6259;
+  font-size: 11px;
+  font-weight: 850;
+}
+.locales a[aria-current="page"] { background: #17563f; color: #fff; }
+.back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 15px;
+  border: 1px solid rgba(20, 70, 53, .16);
+  border-radius: 13px;
+  background: #fff;
+  color: #225a45;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.brand:focus-visible, .locales a:focus-visible, .back:focus-visible {
+  outline: 3px solid #1d6d4e;
+  outline-offset: 3px;
+}
+
+.content {
+  width: 100%;
+  min-width: 0;
+  padding-bottom: max(32px, env(safe-area-inset-bottom));
+  outline: none;
+}
+
+@media (max-width: 860px) {
+  .header { grid-template-columns: minmax(0, 1fr) auto; gap: 10px; min-height: 64px; }
+  .context { display: none; }
+  .brand small { display: none; }
+  .actions { gap: 6px; }
+  .back { min-width: 44px; padding: 0 11px; font-size: 0; }
+  .back::before { content: "←"; font-size: 18px; line-height: 1; }
+}
+
+@media (max-width: 520px) {
+  .header {
+    padding-left: max(10px, env(safe-area-inset-left));
+    padding-right: max(10px, env(safe-area-inset-right));
+  }
+  .brand { gap: 8px; }
+  .brand strong { font-size: 13px; }
+  .locales a { min-width: 34px; min-height: 38px; }
+}
+
+@media (max-width: 360px) {
+  .brand strong { max-width: 118px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .locales a { min-width: 31px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skip { transition: none; }
+}
+
+@media (forced-colors: active) {
+  .header, .locales, .back { border: 1px solid CanvasText; }
+  .locales a[aria-current="page"] { background: Highlight; color: HighlightText; }
+}

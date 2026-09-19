@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/remove-public-trust-integration-block",
+  "status": "active",
+  "purpose": "Remove the owner-rejected public trust, integration status, metrics and evidence-ladder block from the Platform V7 homepage without changing backend authority.",
+  "allowedPaths": [
+    "apps/web/app/globals.css",
+    "apps/web/tests/unit/platformV7PublicTrustBlockRemoval.test.ts",
+    "docs/platform-v7/autopilot/scopes/remove-public-trust-integration-block.json"
+  ],
+  "constraints": [
+    "No backend, database, authentication, RBAC, Deal or financial-authority changes",
+    "No replacement claims or fake-live integration statuses",
+    "The section and its navigation entry must not render on the public homepage"
+  ]
+}

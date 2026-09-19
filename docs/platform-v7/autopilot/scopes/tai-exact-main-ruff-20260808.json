@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-exact-main-ruff-20260808",
+  "status": "active",
+  "purpose": "Restore exact-main TAI Foundation acceptance after PR #3684 by typing the production model binding with its existing protocol and applying the three safe Ruff B009 fixes without changing runtime behavior or authority.",
+  "approvedBy": "owner-direct-finish-registration-2026-08-08",
+  "authorityBaseExactMain": "c5d2d452543506bfecd81c43b70cc066bc71a030",
+  "allowedPaths": [
+    "apps/tai/tai/production_model_supervisor.py",
+    "apps/tai/tests/test_production_model_supervisor.py",
+    "docs/platform-v7/autopilot/scopes/tai-exact-main-ruff-20260808.json"
+  ],
+  "requiredBehavior": [
+    "Ruff reports no B009 findings for the production model supervisor",
+    "mypy retains the ModelEndpointBinding contract used by the base supervisor",
+    "TAI unit tests preserve production warm-up behavior",
+    "no model, database, tenant, deployment or tool authority changes"
+  ],
+  "forbiddenCapabilities": [
+    "paid LLM API",
+    "public model listener",
+    "runtime authority expansion",
+    "direct production mutation",
+    "acceptance weakening",
+    "new recurring cost"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

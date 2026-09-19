@@ -1,0 +1,67 @@
+{
+  "generatedAt": "2026-04-05T14:27:09.975Z",
+  "passCount": 0,
+  "failCount": 10,
+  "results": [
+    {
+      "name": "domain_typecheck",
+      "status": "FAIL",
+      "command": "tsc -p packages/domain-core/tsconfig.json --noEmit",
+      "output": "packages/domain-core/src/index.ts(12,15): error TS2307: Cannot find module './service-provider-registry' or its corresponding type declarations.\n"
+    },
+    {
+      "name": "shared_verify",
+      "status": "FAIL",
+      "command": "tsc -p tsconfig.shared-verify.json --noEmit",
+      "output": "packages/domain-core/src/index.ts(12,15): error TS2307: Cannot find module './service-provider-registry' or its corresponding type declarations.\n"
+    },
+    {
+      "name": "api_verify_offline",
+      "status": "FAIL",
+      "command": "tsc -p tsconfig.api-verify.json --noEmit",
+      "output": "apps/api/src/common/decorators/current-user.decorator.ts(1,10): error TS2305: Module '\"@nestjs/common\"' has no exported member 'createParamDecorator'.\napps/api/src/common/decorators/public.decorator.ts(1,23): error TS2305: Module '\"@nestjs/common\"' has no exported member 'applyDecorators'.\napps/api/src/common/decorators/rate-limit.decorator.ts(1,23): error TS2305: Module '\"@nestjs/common\"' has no exported member 'applyDecorators'.\napps/api/src/common/guards/auth.guard.ts(3,29): error TS2307: Cannot find module '../../modules/auth/auth.service' or its corresponding type declarations.\napps/api/src/modules/auth/auth.controller.ts(1,28): error TS2307: Cannot find module '../../common/guards/roles.guard' or its corresponding type declarations.\napps/api/src/modules/auth/auth.controller.ts(4,42): error TS2305: Module '\"@nestjs/common\"' has no exported member 'Ip'.\napps/api/src/modules/auth/auth.controller.ts(9,29): error TS2307: Cannot find module './auth.service' or its corresponding type declarations.\napps/api/src/modules/auth/auth.module.ts(2,42): error TS2307: Cannot find module '../business-reputation/business-reputation.module' or its corresponding type declarations.\napps/api/src/modules/auth/auth.module.ts(4,29): error TS2307: Cannot find module './auth.service' or its corresponding type declarations.\napps/api/src/modules/deals/deals.controller.ts(1,28): error TS2307: Cannot find module '../../common/guards/roles.guard' or its corresponding type declarations.\napps/api/src/modules/deals/deals.controller.ts(6,30): error TS2307: Cannot find module './deals.service' or its corresponding type declarations.\napps/api/src/modules/deals/deals.module.ts(2,36): error TS2307: Cannot find module '../../common/security/access.service' or its corresponding type declarations.\napps/api/src/modules/deals/deals.module.ts(3,29): error TS2307: Cannot find module '../audit/audit.module' or its corresponding type declarations.\napps/api/src/modules/deals/deals.module.ts(4,33): error TS2307: Cannot find module '../anti-fraud/anti-fraud.module' or its corresponding type declarations.\napps/api/src/modules/deals/deals.module.ts(7,30): error TS2307: Cannot find module '../ledger/ledger.module' or its corresponding type declarations.\napps/api/src/modules/deals/deals.module.ts(9,30): error TS2307: Cannot find module './deals.service' or its corresponding type declarations.\napps/api/src/modules/disputes/disputes.controller.ts(5,28): error TS2307: Cannot find module '../../common/guards/roles.guard' or its corresponding type declarations.\napps/api/src/modules/disputes/disputes.controller.ts(6,33): error TS2307: Cannot find module './disputes.service' or its corresponding type declarations.\napps/api/src/modules/disputes/disputes.module.ts(2,36): error TS2307: Cannot find module '../../common/security/access.service' or its corresponding type declarations.\napps/api/src/modules/disputes/disputes.module.ts(3,29): error TS2307: Cannot find module '../audit/audit.module' or its corresponding type declarations.\napps/api/src/modules/disputes/disputes.module.ts(6,33): error TS2307: Cannot find module './disputes.service' or its corresponding type declarations.\napps/api/src/modules/documents/document-upload-policy.service.ts(15,33): error TS2749: 'Buffer' refers to a value, but is being used as a type here. Did you mean 'typeof Buffer'?\napps/api/src/modules/documents/document-upload-policy.service.ts(57,35): error TS2749: 'Buffer' refers to a value, but is being used as a type here. Did you mean 'typeof Buffer'?\napps/api/src/modules/documents/documents.controller.ts(1,28): error TS2307: Cannot find module '../../common/guards/roles.guard' or its corresponding type declarations.\napps/api/src/modules/documents/documents.controller.ts(8,34): error TS2307: Cannot find module './documents.service' or its corresponding type declarations.\napps/api/src/modules/documents/documents.controller.ts(9,35): error TS2307: Cannot find module './dto/upload-document.dto' or its corresponding type declarations.\napps/api/src/modules/documents/documents.module.ts(2,36): error TS2307: Cannot find module '../../common/security/access.service' or its corresponding type declarations.\napps/api/src/modules/documents/documents.module.ts(3,29): error TS2307: Cannot find module '../audit/audit.module' or its corresponding type declarations.\napps/api/src/modules/documents/documents.module.ts(5,33): error TS2307: Cannot find module '../anti-fraud/anti-fraud.module' or its corresponding type declarations.\napps/api/src/modules/documents/documents.module.ts(7,34): error TS2307: Cannot find module './documents.service' or its corresponding type declarations.\napps/api/src/modules/integrations/integrations.controller.ts(5,28): error TS2307: Cannot find module '../../common/guards/roles.guard' or its corresponding type declarations.\napps/api/src/modules/integrations/integrations.controller.ts(6,37): error TS2307: Cannot find module './integrations.service' or its corresponding type declarations.\napps/api/src/modules/integrations/integrations.module.ts(2,36): error TS2307: Cannot find module '../../common/security/access.service' or its corresponding type declarations.\napps/api/src/modules/integrations/integrations.module.ts(5,37): error TS2307: Cannot find module './integrations.service' or its corresponding type declarations.\napps/api/src/modules/labs/labs.controller.ts(5,28): error TS2307: Cannot find module '../../common/guards/roles.guard' or its corresponding type declarations.\napps/api/src/modules/labs/labs.controller.ts(6,29): error TS2307: Cannot find module './labs.service' or its corresponding type declarations.\napps/api/src/modules/labs/labs.module.ts(2,36): error TS2307: Cannot find module '../../common/security/access.service' or its corresponding type declarations.\napps/api/src/modules/labs/labs.module.ts(3,29): error TS2307: Cannot find module '../audit/audit.module' or its corresponding type declarations.\napps/api/src/modules/labs/labs.module.ts(5,29): error TS2307: Cannot find module './labs.service' or its corresponding type declarations.\napps/api/src/modules/logistics/logistics.controller.ts(1,28): error TS2307: Cannot find module '../../common/guards/roles.guard' or its corresponding type declarations.\napps/api/src/modules/logistics/logistics.controller.ts(6,34): error TS2307: Cannot find module './logistics.service' or its corresponding type declarations.\napps/api/src/modules/logistics/logistics.module.ts(2,36): error TS2307: Cannot find module '../../common/security/access.service' or its corresponding type declarations.\napps/api/src/modules/logistics/logistics.module.ts(3,29): error TS2307: Cannot find module '../audit/audit.module' or its corresponding type declarations.\napps/api/src/modules/logistics/logistics.module.ts(6,33): error TS2307: Cannot find module '../anti-fraud/anti-fraud.module' or its corresponding type declarations.\napps/api/src/modules/logistics/logistics.module.ts(8,34): error TS2307: Cannot find module './logistics.service' or its corresponding type declarations.\napps/api/src/modules/lots/lots.controller.ts(1,28): error TS2307: Cannot find module '../../common/guards/roles.guard' or its corresponding type declarations.\napps/api/src/modules/lots/lots.controller.ts(7,29): error TS2307: Cannot find module './lots.service' or its corresponding type declarations.\napps/api/src/modules/lots/lots.module.ts(2,36): error TS2307: Cannot find module '../../common/security/access.service' or its corresponding type declarations.\napps/api/src/modules/lots/lots.module.ts(4,29): error TS2307: Cannot find module '../audit/audit.module' or its corresponding type declarations.\napps/api/src/modules/lots/lots.module.ts(6,29): error TS2307: Cannot find module './lots.service' or its corresponding type declarations.\napps/api/src/modules/notifications/notifications.controller.ts(2,28): error TS2307: Cannot find module '../../common/guards/roles.guard' or its corresponding type declarations.\napps/api/src/modules"
+    },
+    {
+      "name": "web_verify_offline",
+      "status": "FAIL",
+      "command": "tsc -p tsconfig.web-verify.json --noEmit",
+      "output": "apps/web/app/dispatch/page.tsx(336,88): error TS1003: Identifier expected.\napps/web/app/dispatch/page.tsx(353,12): error TS1382: Unexpected token. Did you mean `{'>'}` or `&gt;`?\napps/web/components/finance-application-workspace.tsx(82,1): error TS1005: ')' expected.\n"
+    },
+    {
+      "name": "archive_local_gates",
+      "status": "FAIL",
+      "command": "node ./scripts/run-archive-local-gates.mjs",
+      "output": ""
+    },
+    {
+      "name": "repo_static_audit",
+      "status": "FAIL",
+      "command": "node ./scripts/audit-static-repo-integrity.mjs",
+      "output": ""
+    },
+    {
+      "name": "preintegration_pack",
+      "status": "FAIL",
+      "command": "node ./scripts/build-preintegration-evidence-pack.mjs",
+      "output": ""
+    },
+    {
+      "name": "critical_flow_audit",
+      "status": "FAIL",
+      "command": "node ./scripts/audit-critical-flows.mjs",
+      "output": ""
+    },
+    {
+      "name": "role_contract_audit",
+      "status": "FAIL",
+      "command": "node ./scripts/audit-role-contract-consistency.mjs",
+      "output": ""
+    },
+    {
+      "name": "fallback_audit",
+      "status": "FAIL",
+      "command": "node ./scripts/audit-fallback-surfaces.mjs",
+      "output": ""
+    }
+  ]
+}

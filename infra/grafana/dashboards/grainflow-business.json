@@ -1,0 +1,123 @@
+{
+  "title": "GrainFlow — Business Metrics",
+  "uid": "grainflow-business",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "tags": ["grainflow", "business", "slo"],
+  "panels": [
+    {
+      "id": 1,
+      "title": "GMV (руб) за последние 24 часа",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "targets": [{
+        "expr": "sum(grainflow_deal_total_rub{status='CLOSED'}) by ()",
+        "legendFormat": "GMV"
+      }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "unit": "short" }
+    },
+    {
+      "id": 2,
+      "title": "Error Rate (%) — SLO < 1%",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "targets": [{
+        "expr": "rate(http_requests_total{status=~'5..'}[5m]) / rate(http_requests_total[5m]) * 100",
+        "legendFormat": "Error Rate %"
+      }],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "thresholds": {
+          "steps": [
+            { "color": "green", "value": 0 },
+            { "color": "yellow", "value": 0.5 },
+            { "color": "red", "value": 1 }
+          ]
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "p95 Latency (ms) — SLO < 500ms",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "targets": [{
+        "expr": "histogram_quantile(0.95, rate(http_request_duration_ms_bucket[5m]))",
+        "legendFormat": "p95 ms"
+      }],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "thresholds": {
+          "steps": [
+            { "color": "green", "value": 0 },
+            { "color": "yellow", "value": 300 },
+            { "color": "red", "value": 500 }
+          ]
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Активные сделки",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "targets": [{
+        "expr": "grainflow_deals_active_total",
+        "legendFormat": "Активных сделок"
+      }]
+    },
+    {
+      "id": 5,
+      "title": "Latency — p50 / p95 / p99",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, rate(http_request_duration_ms_bucket[5m]))", "legendFormat": "p50" },
+        { "expr": "histogram_quantile(0.95, rate(http_request_duration_ms_bucket[5m]))", "legendFormat": "p95" },
+        { "expr": "histogram_quantile(0.99, rate(http_request_duration_ms_bucket[5m]))", "legendFormat": "p99" }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "RPS по методам",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "targets": [{
+        "expr": "sum by (method) (rate(http_requests_total[5m]))",
+        "legendFormat": "{{ method }}"
+      }]
+    },
+    {
+      "id": 7,
+      "title": "Статусы сделок",
+      "type": "piechart",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 12 },
+      "targets": [{
+        "expr": "grainflow_deals_by_status",
+        "legendFormat": "{{ status }}"
+      }]
+    },
+    {
+      "id": 8,
+      "title": "Outbox Queue",
+      "type": "timeseries",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 12 },
+      "targets": [
+        { "expr": "grainflow_outbox_pending_total", "legendFormat": "PENDING" },
+        { "expr": "grainflow_outbox_sent_total", "legendFormat": "SENT" },
+        { "expr": "grainflow_outbox_dead_total", "legendFormat": "DEAD" }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Интеграции — статус адаптеров",
+      "type": "table",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 12 },
+      "targets": [{
+        "expr": "grainflow_integration_health",
+        "legendFormat": "{{ adapter }}"
+      }]
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+[
+  {
+    "op": "test",
+    "path": "/spec/template/spec/containers/0/name",
+    "value": "api"
+  },
+  {
+    "op": "add",
+    "path": "/spec/template/spec/containers/0/envFrom/-",
+    "value": {
+      "secretRef": {
+        "name": "grainflow-object-storage-secrets"
+      }
+    }
+  },
+  {
+    "op": "add",
+    "path": "/spec/template/spec/containers/0/volumeMounts/-",
+    "value": {
+      "name": "minio-ca",
+      "mountPath": "/var/run/grainflow-ca",
+      "readOnly": true
+    }
+  },
+  {
+    "op": "add",
+    "path": "/spec/template/spec/volumes/-",
+    "value": {
+      "name": "minio-ca",
+      "secret": {
+        "secretName": "grainflow-minio-tls",
+        "items": [
+          {
+            "key": "ca.crt",
+            "path": "minio-ca.crt"
+          }
+        ],
+        "defaultMode": 292
+      }
+    }
+  }
+]

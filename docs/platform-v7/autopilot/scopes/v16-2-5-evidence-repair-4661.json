@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4661,
+  "branch": "security/v16-2-5-evidence-repair-4661",
+  "status": "active",
+  "purpose": "Repair the V16.2.5 evidence, the last item deferred by the #4647 audit. Its PASS rested on a single accidental substring match: two of its three patterns (MASK_RULES, SENSITIVE_BODY_FIELDS) appear nowhere in the repository, and PRESENT_AT_PATH matches with patterns.some(), so the condition held on maskip alone - which matched the private maskIp IP-truncation helper by coincidence. The cited path was stale too: the classification moved to common/security/sensitive-data.ts and log-masking.middleware.ts is a thin delegate. The verdict was re-derived rather than preserved, and only then kept.",
+  "authorityBaseExactMain": "0e9b7b13426264f11c7dd2a2695c4d83f5803340",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/v16-2-5-evidence-repair-4661.json",
+    "docs/security/asvs-applicability-decisions.json"
+  ],
+  "requiredInvariants": [
+    "Only the V16.2.5 decision changes. No other requirement's verdict, evidence, condition or note is touched, and no verdict moves: decisionsApplied stays 332, decisionsRejected stays 0, and the blocker rollup stays NOT_ASSESSED:25, PENDING_APPLICABILITY_REVIEW:13, FAIL:121.",
+    "The verdict is re-derived, not preserved by default. V16.2.5 asks that logging be enforced based on the data's protection level; the class does not enter the runtime decision, and the note says so plainly rather than implying otherwise.",
+    "PASS is justified only from #4655 onward, and the evidence proves it mechanically: run against main before that merge, two of the seven conditions fail - exactly the two naming the global-logger channel.",
+    "The wiring condition the previous entry rightly carried (app.module.ts installs LogMaskingMiddleware) is kept, not dropped, and strengthened to also require forRoutes('*') so a narrowed installation revokes the decision.",
+    "No application code is touched. No production, REG.RU, DNS or database mutation."
+  ],
+  "acceptance": [
+    "All seven conditions hold against the live tree, and all 12 negative checks - every pattern removed from every listed path, one at a time - revoke the decision.",
+    "The same seven conditions do NOT all hold against main before #4655, which is what ties the PASS to the fix rather than to the wording.",
+    "node --test scripts/security/*.test.mjs reports 64/64, and the register-wide conjunctive test now covers 35 conditions with 77/77 negative checks revoking.",
+    "No pattern in the new entry is a phantom: every one was confirmed present in its named path before being written."
+  ]
+}

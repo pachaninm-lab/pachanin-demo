@@ -1,0 +1,106 @@
+# GrainFlow — Alertmanager Configuration (ТЗ 13.2)
+# P1/P2 → PagerDuty, P3 → Telegram, P4 → Email
+
+global:
+  smtp_smarthost: 'smtp.yandex.ru:465'
+  smtp_from: 'alerts@grainflow.ru'
+  smtp_auth_username: 'alerts@grainflow.ru'
+  smtp_auth_password_file: /etc/alertmanager/smtp-password
+
+  pagerduty_url: 'https://events.pagerduty.com/v2/enqueue'
+
+route:
+  group_by: ['alertname', 'severity']
+  group_wait:      30s
+  group_interval:  5m
+  repeat_interval: 4h
+  receiver: 'default-email'
+
+  routes:
+    # P1 — Critical: PagerDuty (немедленно)
+    - matchers:
+        - severity = critical
+      receiver: pagerduty-p1
+      group_wait:      10s
+      group_interval:  1m
+      repeat_interval: 30m
+      continue: true
+
+    # P1 — Critical: также Telegram
+    - matchers:
+        - severity = critical
+      receiver: telegram-oncall
+      continue: false
+
+    # P2 — Warning: PagerDuty (low urgency) + Telegram
+    - matchers:
+        - severity = warning
+      receiver: pagerduty-p2
+      group_wait:      1m
+      group_interval:  5m
+      repeat_interval: 2h
+      continue: true
+
+    - matchers:
+        - severity = warning
+      receiver: telegram-oncall
+      continue: false
+
+    # P3 — Info: только Telegram
+    - matchers:
+        - severity = info
+      receiver: telegram-team
+      continue: false
+
+receivers:
+  - name: 'default-email'
+    email_configs:
+      - to: 'devops@grainflow.ru'
+        send_resolved: true
+
+  - name: 'pagerduty-p1'
+    pagerduty_configs:
+      - routing_key_file: /etc/alertmanager/pagerduty-p1-key
+        severity: critical
+        description: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        details:
+          environment: 'production'
+          runbook: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+        send_resolved: true
+
+  - name: 'pagerduty-p2'
+    pagerduty_configs:
+      - routing_key_file: /etc/alertmanager/pagerduty-p2-key
+        severity: warning
+        description: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        send_resolved: true
+
+  - name: 'telegram-oncall'
+    webhook_configs:
+      - url: 'http://telegram-alert-bot:8080/alert'
+        send_resolved: true
+        http_config:
+          basic_auth:
+            username: grainflow
+            password_file: /etc/alertmanager/telegram-bot-secret
+        max_alerts: 10
+
+  - name: 'telegram-team'
+    webhook_configs:
+      - url: 'http://telegram-alert-bot:8080/info'
+        send_resolved: true
+
+inhibit_rules:
+  # Если API полностью упал — подавляем предупреждения о latency
+  - source_matchers:
+      - alertname = ApiDown
+    target_matchers:
+      - alertname =~ "ApiLatency.*"
+    equal: ['job']
+
+  # P1 подавляет P2 того же сервиса
+  - source_matchers:
+      - severity = critical
+    target_matchers:
+      - severity = warning
+    equal: ['alertname', 'job']

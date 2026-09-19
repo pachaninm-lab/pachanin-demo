@@ -1,0 +1,146 @@
+.workspace {
+  min-width: 0;
+  display: grid;
+  gap: var(--ds-space-3);
+  color: var(--ds-color-text-primary);
+}
+
+.stateSurface {
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+
+.stateContent {
+  width: min(100%, 480px);
+  display: grid;
+  justify-items: center;
+  gap: var(--ds-space-3);
+}
+
+.stateContent h1,
+.stateContent p { margin: 0; }
+.stateContent h1 { color: var(--ds-color-text-primary); font-size: clamp(21px, 4vw, 28px); }
+.stateContent p { max-width: 44ch; color: var(--ds-color-text-secondary); font-size: 14px; line-height: 1.55; }
+
+.summary {
+  padding: clamp(var(--ds-space-4), 3vw, var(--ds-space-6));
+  display: grid;
+  gap: var(--ds-space-4);
+}
+
+.summaryTop {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ds-space-4);
+}
+
+.summaryIdentity { min-width: 0; }
+.eyebrow { display: inline-flex; align-items: center; gap: var(--ds-space-2); color: var(--ds-color-action-primary); font-size: var(--ds-font-caption); font-weight: 900; }
+.summary h1 { margin: var(--ds-space-2) 0 var(--ds-space-1); font-size: clamp(27px, 5vw, 40px); line-height: 1.05; letter-spacing: -0.035em; overflow-wrap: anywhere; }
+.summarySubtitle { margin: 0; color: var(--ds-color-text-secondary); font-size: var(--ds-font-body); line-height: 1.5; }
+
+.stageBlock { min-width: 170px; display: grid; justify-items: end; gap: var(--ds-space-2); }
+.roleLine { padding-top: var(--ds-space-3); border-top: 1px solid var(--ds-color-border); display: flex; align-items: center; gap: var(--ds-space-2); flex-wrap: wrap; font-size: 14px; }
+.roleIdentity { display: inline-flex; align-items: center; gap: var(--ds-space-2); color: var(--ds-color-action-primary); font-weight: 900; }
+.roleFocus { font-weight: 750; }
+.refreshButton { width: var(--ds-control-height); min-width: var(--ds-control-height); padding: 0; margin-left: auto; }
+
+.actionExtras { display: grid; gap: var(--ds-space-3); }
+.blockerList { margin: 0; padding-left: var(--ds-space-5); display: grid; gap: var(--ds-space-2); color: var(--ds-color-text-primary); font-size: 14px; font-weight: 750; }
+.systemNote { margin: 0; color: var(--ds-color-text-secondary); font-size: 14px; line-height: 1.5; }
+
+.messages { display: grid; gap: var(--ds-space-2); }
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--ds-space-2);
+}
+
+.metric {
+  min-width: 0;
+  padding: var(--ds-space-3);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-color-surface);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--ds-space-2);
+}
+.metric svg { color: var(--ds-color-action-primary); }
+.metricCopy { min-width: 0; display: grid; gap: var(--ds-space-1); }
+.metricLabel { color: var(--ds-color-text-muted); font-size: var(--ds-font-caption); font-weight: 900; letter-spacing: 0.04em; text-transform: uppercase; }
+.metricValue { overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
+
+.details {
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-color-surface);
+  overflow: clip;
+}
+
+.details summary {
+  min-height: 56px;
+  padding: 0 var(--ds-space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-3);
+  cursor: pointer;
+  font-size: var(--ds-font-body);
+  font-weight: 850;
+}
+.details summary::marker { content: ''; }
+.details summary::after { content: 'Показать'; color: var(--ds-color-action-primary); font-size: var(--ds-font-caption); }
+.details[open] summary::after { content: 'Скрыть'; }
+.detailsBody { padding: var(--ds-space-4); border-top: 1px solid var(--ds-color-border); }
+
+.spine { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--ds-space-1); }
+.spineItem { min-height: 54px; padding: var(--ds-space-2); border-radius: var(--ds-radius-md); display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: var(--ds-space-2); }
+.spineItemActive { background: var(--ds-color-action-primary-subtle); }
+.stepMarker { width: 32px; height: 32px; border: 2px solid var(--ds-color-border); border-radius: 50%; display: grid; place-items: center; color: var(--ds-color-text-muted); }
+.spineItemDone .stepMarker { border-color: var(--ds-color-success); background: var(--ds-color-success); color: var(--ds-color-on-action); }
+.spineItemActive .stepMarker { border-color: var(--ds-color-action-primary); color: var(--ds-color-action-primary); }
+.stepCopy { min-width: 0; display: grid; gap: var(--ds-space-1); }
+.stepCopy small { color: var(--ds-color-text-muted); font-size: var(--ds-font-caption); }
+.stepCopy strong { font-size: 14px; }
+.stepState { color: var(--ds-color-text-muted); font-size: var(--ds-font-caption); font-weight: 850; }
+
+.factGrid { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 var(--ds-space-4); }
+.factRow { padding: var(--ds-space-3) 0; border-bottom: 1px solid var(--ds-color-border); display: flex; justify-content: space-between; gap: var(--ds-space-3); }
+.factRow dt { color: var(--ds-color-text-muted); font-size: 13px; }
+.factRow dd { margin: 0; text-align: right; font-size: 13px; font-weight: 850; }
+
+.spin { animation: transaction-deal-spin 0.85s linear infinite; }
+@keyframes transaction-deal-spin { to { transform: rotate(360deg); } }
+
+.details summary:focus-visible { outline: 3px solid var(--ds-color-focus); outline-offset: -3px; }
+
+@media (max-width: 800px) {
+  .summaryTop { flex-direction: column; }
+  .stageBlock { width: 100%; justify-items: start; }
+  .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .factGrid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 430px) {
+  .workspace { gap: var(--ds-space-2); }
+  .summary { padding: var(--ds-space-4); }
+  .metrics { gap: var(--ds-space-2); }
+  .metric { grid-template-columns: 1fr; align-items: start; }
+  .spineItem { grid-template-columns: 32px minmax(0, 1fr); }
+  .stepState { grid-column: 2; }
+}
+
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+
+@media (forced-colors: active) {
+  .metric,
+  .details,
+  .stepMarker { border-color: CanvasText; }
+}

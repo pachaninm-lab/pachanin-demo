@@ -1,0 +1,18 @@
+{
+  "pilot": "tambov-controlled",
+  "dealIds": ["DEAL-001", "DEAL-002"],
+  "lots": ["LOT-001", "LOT-002"],
+  "shipments": ["SHIP-001", "SHIP-002"],
+  "companies": ["ORG-SELLER-1", "ORG-BUYER-1"],
+  "labSamples": ["LAB-001", "LAB-002"],
+  "documents": ["DOC-001", "DOC-002", "DOC-003"],
+  "focusModules": [
+    "deal control",
+    "dispatch",
+    "receiving",
+    "lab",
+    "documents",
+    "payments",
+    "disputes"
+  ]
+}

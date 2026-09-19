@@ -1,0 +1,340 @@
+name: Gekta P0 SPEED Model Host Control Probe
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/gekta-p0-speed-model-host-control-probe.yml'
+      - 'docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3b-control-probe-3896.json'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gekta-p0-speed-model-host-control-probe
+  cancel-in-progress: false
+
+env:
+  MODEL_HOST_SECRET: ${{ secrets.TAI_MODEL_HOST }}
+  MODEL_USER_SECRET: ${{ secrets.TAI_MODEL_SSH_USER }}
+  MODEL_PORT_SECRET: ${{ secrets.TAI_MODEL_SSH_PORT }}
+  MODEL_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_KEY }}
+  MODEL_HOST_KEY_SECRET: ${{ secrets.TAI_MODEL_SSH_HOST_KEY }}
+
+jobs:
+  contract:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Prove read-only control-plane contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=.github/workflows/gekta-p0-speed-model-host-control-probe.yml
+          node - "$file" <<'NODE'
+          const fs = require('node:fs');
+          const text = fs.readFileSync(process.argv[2], 'utf8');
+          const begin = text.indexOf("<<'REMOTE_PROBE'\n");
+          const end = begin < 0 ? -1 : text.indexOf('\n          REMOTE_PROBE', begin);
+          if (begin < 0 || end < 0) throw new Error('remote control probe heredoc not found');
+          const remote = text.slice(begin, end);
+          for (const forbidden of [
+            'systemctl restart', 'systemctl start', 'systemctl stop',
+            'systemctl enable', 'systemctl disable', 'systemctl daemon-reload',
+            'systemctl set-property', 'systemctl edit',
+            'sudo ', 'su ', 'doas ', 'kill ', 'pkill ', 'rm ', 'mv ', 'cp ',
+            'chmod ', 'chown ', 'tee ', 'apt ', 'apt-get ', 'dnf ', 'yum '
+          ]) {
+            if (remote.includes(forbidden)) throw new Error(`forbidden remote mutation token: ${forbidden.trim()}`);
+          }
+          for (const credential of ['PC_PROD_SSH_KEY', 'PC_PROD_SSH_PRIVATE_KEY', 'VPS_SSH_KEY']) {
+            if (text.includes(`secrets.${credential}`)) throw new Error(`production credential in model-host chain: ${credential}`);
+          }
+          for (const required of [
+            'secrets.TAI_MODEL_SSH_KEY',
+            'secrets.TAI_MODEL_SSH_HOST_KEY',
+            'TAI_MODEL_SSH_KEY is required',
+            'TAI_MODEL_SSH_HOST_KEY is required',
+            'does not match the pinned TAI_MODEL_SSH_HOST_KEY',
+            'StrictHostKeyChecking=yes'
+          ]) {
+            if (!text.includes(required)) throw new Error(`missing model-host identity control: ${required}`);
+          }
+          if (/ssh-keyscan[^\n]*>\s*"?\$HOME\/\.ssh\/model_known_hosts/u.test(text)) {
+            throw new Error('trust-on-first-use model known_hosts wiring');
+          }
+          NODE
+          GITHUB_HEAD_REF=fix/gekta-p0-speed-g3b-control-probe-3896 BASE_REF=origin/main bash scripts/p7-autopilot-guard.sh
+
+  probe:
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.number == 3896 &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      startsWith(github.event.comment.body, '/gekta speed-model-control-probe current-main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve exact current main
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          sha="$(git rev-parse origin/main)"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$sha" == "$(git rev-parse HEAD)" ]]
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve protected model-host transport
+        id: ssh
+        shell: bash
+        run: |
+          set -euo pipefail
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          write_key(){
+            local raw="$1" target="$2" a b c
+            [[ -n "$raw" ]] || return 1
+            a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"
+            printf '%s\n' "$raw" > "$a"
+            printf '%s' "${raw//\\n/$'\n'}" > "$b"
+            printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null || true
+            for candidate in "$a" "$b" "$c"; do
+              if [[ -s "$candidate" ]] && ssh-keygen -y -P '' -f "$candidate" >/dev/null 2>&1; then
+                install -m 0600 "$candidate" "$target"
+                rm -f "$a" "$b" "$c"
+                return 0
+              fi
+            done
+            rm -f "$a" "$b" "$c"
+            return 1
+          }
+          host="$(trim "${MODEL_HOST_SECRET:-}")"
+          user="$(trim "${MODEL_USER_SECRET:-root}")"
+          port="$(trim "${MODEL_PORT_SECRET:-22}")"
+          [[ -n "$host" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
+          [[ "$port" =~ ^[0-9]+$ ]] && ((port>=1 && port<=65535))
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          key="$(trim "${MODEL_KEY_SECRET:-}")"
+          if [[ -z "$key" ]]; then
+            echo "TAI_MODEL_SSH_KEY is required for the model host control probe." >&2
+            exit 20
+          fi
+          write_key "$key" "$HOME/.ssh/id_tai_model"
+          pin="$(trim "${MODEL_HOST_KEY_SECRET:-}")"
+          if [[ -z "$pin" ]]; then
+            echo "TAI_MODEL_SSH_HOST_KEY is required: the model host identity must be pinned." >&2
+            exit 21
+          fi
+          pin_type="$(printf '%s' "$pin" | awk '{ print $(NF-1) }')"
+          pin_material="$(printf '%s' "$pin" | awk '{ print $NF }')"
+          [[ -n "$pin_type" && -n "$pin_material" ]] || exit 21
+          scanned="$(ssh-keyscan -T 30 -p "$port" -t "$pin_type" "$host" 2>/dev/null || true)"
+          if ! printf '%s\n' "$scanned" | awk -v pinned="$pin_material" '$3 == pinned { matched = 1 } END { exit matched ? 0 : 1 }'; then
+            echo "model host key does not match the pinned TAI_MODEL_SSH_HOST_KEY" >&2
+            exit 21
+          fi
+          printf '%s %s %s\n' "$host" "$pin_type" "$pin_material" > "$HOME/.ssh/model_known_hosts"
+          chmod 600 "$HOME/.ssh/model_known_hosts"
+          echo "host=$host" >> "$GITHUB_OUTPUT"
+          echo "user=$user" >> "$GITHUB_OUTPUT"
+          echo "port=$port" >> "$GITHUB_OUTPUT"
+
+      - name: Read bounded control-plane facts
+        env:
+          MODEL_HOST: ${{ steps.ssh.outputs.host }}
+          MODEL_USER: ${{ steps.ssh.outputs.user }}
+          MODEL_SSH_PORT: ${{ steps.ssh.outputs.port }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/id_tai_model" -p "$MODEL_SSH_PORT" \
+            -o BatchMode=yes -o IdentitiesOnly=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/model_known_hosts" \
+            -o StrictHostKeyChecking=yes \
+            "$MODEL_USER@$MODEL_HOST" /bin/bash -s > "$RUNNER_TEMP/raw-control-probe" <<'REMOTE_PROBE'
+          set -Eeuo pipefail
+          service=tai-qwen3-8b.service
+          systemctl is-active --quiet "$service"
+          pid="$(systemctl show "$service" --property=MainPID --value)"
+          [[ "$pid" =~ ^[1-9][0-9]*$ ]]
+          python3 - "$pid" "$service" <<'PY'
+          import hashlib
+          import os
+          import pathlib
+          import pwd
+          import re
+          import shutil
+          import subprocess
+          import sys
+
+          pid = int(sys.argv[1])
+          service = sys.argv[2]
+
+          def show(prop: str) -> str:
+              result = subprocess.run(
+                  ['systemctl', 'show', service, '--property', prop, '--value'],
+                  stdout=subprocess.PIPE,
+                  stderr=subprocess.DEVNULL,
+                  text=True,
+                  timeout=5,
+                  check=False,
+                  env={'PATH':'/usr/bin:/bin','LC_ALL':'C'},
+              )
+              if result.returncode != 0:
+                  raise SystemExit(f'systemctl_show_failed_{prop}')
+              return result.stdout.strip()
+
+          execstart = show('ExecStart')
+          environment_files_raw = show('EnvironmentFiles')
+          fragment_raw = show('FragmentPath')
+          dropins_raw = show('DropInPaths')
+          service_user = show('User')
+          restart_policy = show('Restart')
+
+          if not execstart or not fragment_raw or not service_user:
+              raise SystemExit('required_systemd_property_missing')
+
+          fragment = pathlib.Path(fragment_raw)
+          fragment_present = int(fragment.is_file())
+          fragment_writable = int(os.access(fragment, os.W_OK)) if fragment_present else 0
+          fragment_parent_writable = int(os.access(fragment.parent, os.W_OK))
+
+          env_paths = []
+          env_parse_ok = 1
+          if environment_files_raw:
+              matches = re.findall(r'(?:^|\s)(-?\S+)\s+\(ignore_errors=(?:yes|no)\)', environment_files_raw)
+              if not matches:
+                  env_parse_ok = 0
+              for raw in matches:
+                  raw = raw[1:] if raw.startswith('-') else raw
+                  env_paths.append(pathlib.Path(raw))
+          env_present = sum(1 for path in env_paths if path.is_file())
+          env_writable = sum(1 for path in env_paths if path.is_file() and os.access(path, os.W_OK))
+
+          dropin_paths = []
+          if dropins_raw:
+              for token in re.findall(r'\S+', dropins_raw):
+                  candidate = pathlib.Path(token)
+                  if candidate.is_file():
+                      dropin_paths.append(candidate)
+          dropin_writable = sum(1 for path in dropin_paths if os.access(path, os.W_OK))
+
+          exec_path_match = re.search(r'(?:^|[ {;])path=([^ ;}]+)', execstart)
+          exec_path_present = 0
+          exec_path_writable = 0
+          exec_path_matches_process = 0
+          if exec_path_match:
+              exec_path = pathlib.Path(exec_path_match.group(1))
+              exec_path_present = int(exec_path.is_file())
+              exec_path_writable = int(exec_path_present and os.access(exec_path, os.W_OK))
+              if exec_path_present:
+                  try:
+                      exec_path_matches_process = int(exec_path.resolve(strict=True) == pathlib.Path(f'/proc/{pid}/exe').resolve(strict=True))
+                  except OSError:
+                      exec_path_matches_process = 0
+
+          def has_flag(long_name: str, short_name: str | None = None) -> int:
+              names = [re.escape(long_name)]
+              if short_name:
+                  names.append(re.escape(short_name))
+              pattern = r'(?:^|\s)(?:' + '|'.join(names) + r')(?:=|\s)'
+              return int(bool(re.search(pattern, execstart)))
+
+          proc_env = pathlib.Path(f'/proc/{pid}/environ').read_bytes().split(b'\0')
+          env_names = {part.split(b'=', 1)[0].decode('ascii', 'ignore') for part in proc_env if b'=' in part}
+          current_user = pwd.getpwuid(os.getuid()).pw_name
+
+          polkit = 'UNAVAILABLE'
+          pkcheck = shutil.which('pkcheck')
+          if pkcheck:
+              result = subprocess.run(
+                  [pkcheck, '--action-id', 'org.freedesktop.systemd1.manage-units', '--process', str(os.getpid()), '--allow-user-interaction=false'],
+                  stdout=subprocess.DEVNULL,
+                  stderr=subprocess.DEVNULL,
+                  timeout=5,
+                  check=False,
+                  env={'PATH':'/usr/bin:/bin','LC_ALL':'C'},
+              )
+              if result.returncode == 0:
+                  polkit = 'AUTHORIZED'
+              elif result.returncode in {1, 2, 3}:
+                  polkit = 'DENIED'
+              else:
+                  polkit = 'ERROR'
+
+          print('CONTROL_PROBE_SERVICE_USER_MATCH=' + str(int(service_user == current_user)))
+          print('CONTROL_PROBE_RESTART_POLICY=' + (restart_policy if re.fullmatch(r'[A-Za-z0-9_.:-]+', restart_policy) else 'INVALID'))
+          print('CONTROL_PROBE_FRAGMENT_PRESENT=' + str(fragment_present))
+          print('CONTROL_PROBE_FRAGMENT_WRITABLE=' + str(fragment_writable))
+          print('CONTROL_PROBE_FRAGMENT_PARENT_WRITABLE=' + str(fragment_parent_writable))
+          print('CONTROL_PROBE_ENV_PARSE_OK=' + str(env_parse_ok))
+          print('CONTROL_PROBE_ENV_FILES_COUNT=' + str(len(env_paths)))
+          print('CONTROL_PROBE_ENV_FILES_PRESENT=' + str(env_present))
+          print('CONTROL_PROBE_ENV_FILES_WRITABLE=' + str(env_writable))
+          print('CONTROL_PROBE_DROPINS_COUNT=' + str(len(dropin_paths)))
+          print('CONTROL_PROBE_DROPINS_WRITABLE=' + str(dropin_writable))
+          print('CONTROL_PROBE_EXEC_PATH_PRESENT=' + str(exec_path_present))
+          print('CONTROL_PROBE_EXEC_PATH_WRITABLE=' + str(exec_path_writable))
+          print('CONTROL_PROBE_EXEC_PATH_MATCHES_PROCESS=' + str(exec_path_matches_process))
+          print('CONTROL_PROBE_EXEC_HAS_THREADS=' + str(has_flag('--threads', '-t')))
+          print('CONTROL_PROBE_EXEC_HAS_THREADS_BATCH=' + str(has_flag('--threads-batch', '-tb')))
+          print('CONTROL_PROBE_EXEC_HAS_PARALLEL=' + str(has_flag('--parallel', '-np')))
+          print('CONTROL_PROBE_EXEC_HAS_CTX=' + str(has_flag('--ctx-size', '-c')))
+          print('CONTROL_PROBE_EXEC_HAS_KV_UNIFIED=' + str(has_flag('--kv-unified')))
+          print('CONTROL_PROBE_ENV_LLAMA_THREADS_PRESENT=' + str(int('LLAMA_ARG_THREADS' in env_names)))
+          print('CONTROL_PROBE_ENV_LLAMA_THREADS_BATCH_PRESENT=' + str(int('LLAMA_ARG_THREADS_BATCH' in env_names)))
+          print('CONTROL_PROBE_ENV_LLAMA_PARALLEL_PRESENT=' + str(int('LLAMA_ARG_N_PARALLEL' in env_names or 'LLAMA_ARG_PARALLEL' in env_names)))
+          print('CONTROL_PROBE_ENV_LLAMA_KV_UNIFIED_PRESENT=' + str(int('LLAMA_ARG_KV_UNIFIED' in env_names)))
+          print('CONTROL_PROBE_POLKIT_MANAGE_UNITS=' + polkit)
+          print('CONTROL_PROBE_EXECSTART_SHA256=' + hashlib.sha256(execstart.encode()).hexdigest())
+          print('CONTROL_PROBE_ENVFILES_SHA256=' + hashlib.sha256(environment_files_raw.encode()).hexdigest())
+          PY
+          REMOTE_PROBE
+          grep -E '^CONTROL_PROBE_(SERVICE_USER_MATCH|RESTART_POLICY|FRAGMENT_PRESENT|FRAGMENT_WRITABLE|FRAGMENT_PARENT_WRITABLE|ENV_PARSE_OK|ENV_FILES_COUNT|ENV_FILES_PRESENT|ENV_FILES_WRITABLE|DROPINS_COUNT|DROPINS_WRITABLE|EXEC_PATH_PRESENT|EXEC_PATH_WRITABLE|EXEC_PATH_MATCHES_PROCESS|EXEC_HAS_THREADS|EXEC_HAS_THREADS_BATCH|EXEC_HAS_PARALLEL|EXEC_HAS_CTX|EXEC_HAS_KV_UNIFIED|ENV_LLAMA_THREADS_PRESENT|ENV_LLAMA_THREADS_BATCH_PRESENT|ENV_LLAMA_PARALLEL_PRESENT|ENV_LLAMA_KV_UNIFIED_PRESENT|POLKIT_MANAGE_UNITS|EXECSTART_SHA256|ENVFILES_SHA256)=' "$RUNNER_TEMP/raw-control-probe" > "$RUNNER_TEMP/control-probe"
+          [[ "$(wc -l < "$RUNNER_TEMP/control-probe")" -eq 26 ]]
+          if grep -Ev '^CONTROL_PROBE_[A-Z0-9_]+=([0-9]+|[a-f0-9]{64}|[A-Z_]+|[a-z0-9_.:-]+)$' "$RUNNER_TEMP/control-probe"; then
+            echo 'Control probe emitted a value outside the bounded grammar.' >&2
+            exit 40
+          fi
+          cat "$RUNNER_TEMP/control-probe"
+
+      - name: Publish redacted control-plane evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$RUNNER_TEMP/comment.md"
+          {
+            echo '## Gekta P0 SPEED model-host control-plane probe'
+            echo
+            echo "- exact repository main: \`$TARGET_SHA\`"
+            echo "- workflow run: \`$GITHUB_RUN_ID\`"
+            echo '- mode: `READ_ONLY`'
+            echo '- production mutation: `NONE`'
+            echo
+            echo '```text'
+            cat "$RUNNER_TEMP/control-probe"
+            echo '```'
+          } > "$body"
+          gh issue comment 3896 --repo "$GITHUB_REPOSITORY" --body-file "$body"

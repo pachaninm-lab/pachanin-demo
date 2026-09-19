@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["es2022"],
+    "types": [],
+    "skipLibCheck": true
+  },
+  "include": [
+    "types/verify-shims.d.ts",
+    "shared/**/*.ts",
+    "packages/domain-core/src/**/*.ts"
+  ]
+}

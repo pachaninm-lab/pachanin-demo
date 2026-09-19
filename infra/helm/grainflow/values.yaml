@@ -1,0 +1,286 @@
+# GrainFlow Helm Values — fail-closed release defaults
+# Workloads remain disabled until an accepted immutable OCI digest set is supplied.
+
+release:
+  sourceCommit: ""
+  manifestId: ""
+
+# ── Forward-only migration authority ──────────────────────────────────────────
+# API and worker pods never execute migrations. A release that enables API must
+# also enable this one-shot pre-install/pre-upgrade Job with a separate DDL
+# principal supplied through grainflow-migration-secrets.
+migration:
+  enabled: false
+  image:
+    repository: cr.yandex/grainflow/migrations
+    digest: ""
+    pullPolicy: IfNotPresent
+  activeDeadlineSeconds: 900
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  secretEnvFrom:
+    - secretRef:
+        name: grainflow-migration-secrets
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+
+# ── API Service ───────────────────────────────────────────────────────────────
+api:
+  enabled: false
+  image:
+    repository: cr.yandex/grainflow/api
+    digest: ""
+    pullPolicy: IfNotPresent
+
+  replicaCount: 2
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "2000m"
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  env:
+    NODE_ENV: production
+    PORT: "3001"
+    LOG_LEVEL: info
+    TRUST_PROXY_MODE: cidr
+    TRUSTED_PROXY_CIDRS: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+    VAULT_ADDR: "http://vault.grainflow-prod.svc.cluster.local:8200"
+    KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+    S3_BUCKET: "grainflow-documents"
+    OUTBOX_WORKER_ENABLED: "false"
+
+  secretEnvFrom:
+    - secretRef:
+        name: grainflow-api-secrets
+
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 3001
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: 3001
+    initialDelaySeconds: 15
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  startupProbe:
+    httpGet:
+      path: /health
+      port: 3001
+    failureThreshold: 12
+    periodSeconds: 10
+
+  service:
+    type: ClusterIP
+    port: 3001
+
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+      nginx.ingress.kubernetes.io/modsecurity-snippet: |
+        SecRuleEngine On
+    hosts:
+      - host: api.grainflow.ru
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: grainflow-api-tls
+        hosts:
+          - api.grainflow.ru
+
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values: [grainflow-api]
+            topologyKey: kubernetes.io/hostname
+
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    fsGroup: 65532
+    readOnlyRootFilesystem: true
+
+# ── Durable PostgreSQL outbox worker ──────────────────────────────────────────
+outboxWorker:
+  enabled: false
+  image:
+    repository: cr.yandex/grainflow/outbox-worker
+    digest: ""
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  healthPort: 3002
+  terminationGracePeriodSeconds: 90
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "250m"
+    limits:
+      memory: "768Mi"
+      cpu: "1000m"
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  env:
+    NODE_ENV: production
+    RUNTIME_COMPONENT: outbox-worker
+    OUTBOX_WORKER_ENABLED: "true"
+    KAFKA_REQUIRED: "true"
+    KAFKA_BROKERS: "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+    OUTBOX_WORKER_HEALTH_PORT: "3002"
+    OUTBOX_WORKER_INTERVAL_MS: "1000"
+    OUTBOX_WORKER_BATCH_SIZE: "25"
+    OUTBOX_WORKER_HEARTBEAT_MS: "20000"
+    OTEL_SERVICE_NAME: grainflow-outbox-worker
+
+  secretEnvFrom:
+    - secretRef:
+        name: grainflow-outbox-worker-secrets
+
+  livenessProbe:
+    httpGet:
+      path: /live
+      port: health
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: health
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  startupProbe:
+    httpGet:
+      path: /live
+      port: health
+    periodSeconds: 5
+    failureThreshold: 24
+
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: [grainflow-outbox-worker]
+          topologyKey: kubernetes.io/hostname
+
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    fsGroup: 65532
+    readOnlyRootFilesystem: true
+
+# ── Web Frontend ──────────────────────────────────────────────────────────────
+web:
+  enabled: false
+  image:
+    repository: cr.yandex/grainflow/web
+    digest: ""
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+  service:
+    type: ClusterIP
+    port: 3000
+  ingress:
+    enabled: true
+    hosts:
+      - host: app.grainflow.ru
+
+# ML runtime is intentionally absent. The chart renders only a NOT_DEPLOYABLE
+# status ConfigMap from templates/ml-deployment.yaml under issue #2605.
+
+# ── Vault Agent Injector ──────────────────────────────────────────────────────
+vault:
+  agentInjector:
+    enabled: true
+  annotations:
+    vault.hashicorp.com/agent-inject: "true"
+    vault.hashicorp.com/role: "grainflow-api"
+    vault.hashicorp.com/agent-inject-secret-db: "database/creds/grainflow-app-role"
+    vault.hashicorp.com/agent-inject-template-db: |
+      {{- with secret "database/creds/grainflow-app-role" -}}
+      DATABASE_URL=postgresql://{{ .Data.username }}:{{ .Data.password }}@postgres:5432/grainflow?sslmode=require
+      {{- end }}
+
+# ── Monitoring ────────────────────────────────────────────────────────────────
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    namespace: grainflow-monitoring
+    interval: 15s
+    path: /metrics
+
+# ── Network Policy ────────────────────────────────────────────────────────────
+networkPolicy:
+  enabled: true
+  denyAll: true
+  allowIngressFromNamespaces:
+    - ingress-nginx
+  allowEgressToServices:
+    - postgresql: 5432
+    - redis: 6379
+    - kafka: 9092
+    - vault: 8200
+
+# ── Namespace ─────────────────────────────────────────────────────────────────
+namespace:
+  create: true
+  name: grainflow-prod
+  labels:
+    environment: production
+    team: grainflow

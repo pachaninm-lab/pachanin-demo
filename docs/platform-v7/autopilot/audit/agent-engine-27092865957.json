@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-06-07T12:41:55.842Z",
+  "engine": "fallback",
+  "runId": "27092865957",
+  "issueNumber": 1612,
+  "branchName": "p7-agent/27092865957-autopilot-product-slice-17",
+  "currentStep": "Autopilot Product Slice 17",
+  "agentWritableScope": [
+    "apps/web/tests/e2e/platform-v7-agent-generated-smoke-16.spec.ts"
+  ],
+  "openaiRealCodingProven": false,
+  "fallbackUsed": true,
+  "note": "Deterministic fallback produced the accepted diff; OpenAI real coding is not proven by this run."
+}

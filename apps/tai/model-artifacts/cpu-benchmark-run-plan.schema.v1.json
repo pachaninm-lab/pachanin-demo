@@ -1,0 +1,343 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://transparent-price.invalid/schemas/tai.cpu-benchmark-run-plan.v1.json",
+  "title": "TAI external CPU benchmark run plan v1",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "lifecycle",
+        "status",
+        "pending_reason",
+        "exact_main",
+        "authority_sha256",
+        "input_evidence",
+        "models",
+        "compiled_at",
+        "expires_at",
+        "benchmark_status",
+        "model_admission_status",
+        "production_operational_status",
+        "plan_sha256"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "tai.cpu-benchmark-run-plan.v1"
+        },
+        "lifecycle": {
+          "const": "PENDING_INPUTS"
+        },
+        "status": {
+          "const": "PENDING_EXTERNAL_RUN_PLAN_INPUTS"
+        },
+        "pending_reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "exact_main": {
+          "type": "null"
+        },
+        "authority_sha256": {
+          "type": "null"
+        },
+        "input_evidence": {
+          "type": "null"
+        },
+        "models": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "compiled_at": {
+          "type": "null"
+        },
+        "expires_at": {
+          "type": "null"
+        },
+        "benchmark_status": {
+          "const": "PENDING_BENCHMARK"
+        },
+        "model_admission_status": {
+          "const": "PENDING_ADMISSION"
+        },
+        "production_operational_status": {
+          "const": "NOT_ATTESTED"
+        },
+        "plan_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "status",
+        "accepted",
+        "exact_main",
+        "compiled_at",
+        "expires_at",
+        "authority_sha256",
+        "execution_authority",
+        "model_bundle_authority",
+        "benchmark_authority",
+        "finalization_authority",
+        "input_evidence",
+        "target",
+        "corpus",
+        "models",
+        "execution_policy",
+        "protected_access_policy",
+        "benchmark_status",
+        "model_admission_status",
+        "production_operational_status",
+        "plan_sha256"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "tai.cpu-benchmark-run-plan.v1"
+        },
+        "status": {
+          "const": "RUN_PLAN_VERIFIED_READY_FOR_PROTECTED_ACCESS"
+        },
+        "accepted": {
+          "const": true
+        },
+        "exact_main": {
+          "$ref": "#/$defs/commit"
+        },
+        "compiled_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "authority_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "execution_authority": {
+          "$ref": "#/$defs/authorityBinding"
+        },
+        "model_bundle_authority": {
+          "$ref": "#/$defs/authorityBinding"
+        },
+        "benchmark_authority": {
+          "$ref": "#/$defs/authorityBinding"
+        },
+        "finalization_authority": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "file_sha256"
+          ],
+          "properties": {
+            "file_sha256": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        },
+        "input_evidence": {
+          "type": "object"
+        },
+        "target": {
+          "type": "object"
+        },
+        "corpus": {
+          "type": "object"
+        },
+        "models": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "$ref": "#/$defs/model"
+          }
+        },
+        "execution_policy": {
+          "type": "object"
+        },
+        "protected_access_policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "compiler_performed_protected_access",
+            "runner_access_allowed_after_status",
+            "ssh_allowed_before_plan",
+            "s3_read_allowed_before_plan",
+            "s3_mutation_allowed"
+          ],
+          "properties": {
+            "compiler_performed_protected_access": {
+              "const": false
+            },
+            "runner_access_allowed_after_status": {
+              "const": "RUN_PLAN_VERIFIED_READY_FOR_PROTECTED_ACCESS"
+            },
+            "ssh_allowed_before_plan": {
+              "const": false
+            },
+            "s3_read_allowed_before_plan": {
+              "const": false
+            },
+            "s3_mutation_allowed": {
+              "const": false
+            }
+          }
+        },
+        "benchmark_status": {
+          "const": "PENDING_BENCHMARK"
+        },
+        "model_admission_status": {
+          "const": "PENDING_ADMISSION"
+        },
+        "production_operational_status": {
+          "const": "NOT_ATTESTED"
+        },
+        "plan_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "authorityBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file_sha256",
+        "authority_sha256"
+      ],
+      "properties": {
+        "file_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "authority_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "declaredFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model_key",
+        "role",
+        "model_id",
+        "revision",
+        "runtime_profile_id",
+        "runtime_class",
+        "quantization",
+        "artifact",
+        "archive_sha256",
+        "archive_size_bytes",
+        "immutable_locator",
+        "object",
+        "verification_report_sha256",
+        "toolchain_binaries",
+        "original_root",
+        "restored_root",
+        "retention_expires_at"
+      ],
+      "properties": {
+        "model_key": {
+          "enum": [
+            "qwen3-8b",
+            "mistral-7b-instruct-v0.3"
+          ]
+        },
+        "role": {
+          "enum": [
+            "PRIMARY",
+            "FALLBACK"
+          ]
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "$ref": "#/$defs/commit"
+        },
+        "runtime_profile_id": {
+          "type": "string"
+        },
+        "runtime_class": {
+          "const": "CPU"
+        },
+        "quantization": {
+          "const": "Q4_K_M"
+        },
+        "artifact": {
+          "$ref": "#/$defs/declaredFile"
+        },
+        "archive_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "archive_size_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "immutable_locator": {
+          "type": "string",
+          "pattern": "^s3\\+version://"
+        },
+        "object": {
+          "type": "object"
+        },
+        "verification_report_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "toolchain_binaries": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "original_root": {
+          "type": "string",
+          "pattern": "^/srv/tai-models/benchmark-runs/"
+        },
+        "restored_root": {
+          "type": "string",
+          "pattern": "^/srv/tai-models/benchmark-runs/"
+        },
+        "retention_expires_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}

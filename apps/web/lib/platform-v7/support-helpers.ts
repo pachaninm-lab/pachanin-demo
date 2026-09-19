@@ -1,0 +1,98 @@
+import type { SupportAuditEvent, SupportCase, SupportCategory, SupportInternalNote, SupportMessage, SupportPriority, SupportRelatedEntityType, SupportStatus } from './support-types';
+export { SUPPORT_MATURITY_LABEL } from './support-types';
+
+export const SUPPORT_CATEGORY_LABELS: Record<SupportCategory, string> = { money: 'Деньги', documents: 'Документы', logistics: 'Логистика', acceptance: 'Приёмка', quality: 'Качество', dispute: 'Спор', access: 'Доступ', integration: 'Интеграция', other: 'Другое' };
+export const SUPPORT_PRIORITY_LABELS: Record<SupportPriority, string> = { P0: 'Критично', P1: 'Высоко', P2: 'Обычно', P3: 'Справка' };
+export const SUPPORT_STATUS_LABELS: Record<SupportStatus, string> = { created: 'Создано', accepted: 'Принято в работу', waiting_user: 'Нужны данные', waiting_external: 'Ожидается внешнее действие', assigned_operator: 'Назначен оператор', assigned_bank: 'Передано в банк', assigned_logistics: 'Передано в логистику', resolved: 'Решение подготовлено', closed: 'Закрыто', escalated: 'Эскалировано' };
+export const SUPPORT_ENTITY_LABELS: Record<SupportRelatedEntityType, string> = { deal: 'Сделка', lot: 'Лот', trip: 'Рейс', document: 'Документ', blocker: 'Блокер', dispute: 'Спор', money: 'Деньги', integration: 'Интеграция', other: 'Объект' };
+
+export function supportFormatRub(value: number): string { return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(value) + ' ₽'; }
+export function supportSlaHours(priority: SupportPriority): number { return priority === 'P0' ? 2 : priority === 'P1' ? 8 : priority === 'P2' ? 24 : 72; }
+export function supportOwner(category: SupportCategory): string { return category === 'money' || category === 'dispute' ? 'Банковый контур' : category === 'logistics' ? 'Логистика' : category === 'documents' ? 'Документы' : category === 'acceptance' ? 'Приёмка' : category === 'quality' ? 'Качество' : category === 'access' ? 'Доступ' : category === 'integration' ? 'Интеграции' : 'Оператор сделки'; }
+export function supportStatusByOwner(owner: string): SupportStatus { return owner === 'Банковый контур' ? 'assigned_bank' : owner === 'Логистика' ? 'assigned_logistics' : 'assigned_operator'; }
+export function supportObjectLabel(item: Pick<SupportCase, 'relatedEntityType' | 'relatedEntityId'>): string { return `${SUPPORT_ENTITY_LABELS[item.relatedEntityType]} ${item.relatedEntityId}`; }
+export function supportLinkedExecutionHref(item: Pick<SupportCase, 'relatedEntityType' | 'relatedEntityId' | 'dealId' | 'lotId' | 'tripId'>): string {
+  if (item.relatedEntityType === 'deal') return `/platform-v7/deals/${item.dealId ?? item.relatedEntityId}`;
+  if (item.relatedEntityType === 'lot') return `/platform-v7/market/lots/${item.lotId ?? item.relatedEntityId}`;
+  if (item.relatedEntityType === 'trip') return `/platform-v7/logistics/trips/${item.tripId ?? item.relatedEntityId}`;
+  if (item.relatedEntityType === 'document') return `/platform-v7/documents?document=${encodeURIComponent(item.relatedEntityId)}`;
+  if (item.relatedEntityType === 'money') return `/platform-v7/bank?money=${encodeURIComponent(item.relatedEntityId)}`;
+  if (item.relatedEntityType === 'dispute') return `/platform-v7/disputes?dispute=${encodeURIComponent(item.relatedEntityId)}`;
+  if (item.relatedEntityType === 'integration') return `/platform-v7/connectors?integration=${encodeURIComponent(item.relatedEntityId)}`;
+  if (item.dealId) return `/platform-v7/deals/${item.dealId}`;
+  if (item.lotId) return `/platform-v7/market/lots/${item.lotId}`;
+  if (item.tripId) return `/platform-v7/logistics/trips/${item.tripId}`;
+  return '/platform-v7/control-tower';
+}
+export function supportSlaState(item: Pick<SupportCase, 'slaDueAt' | 'status'>, now = '2026-05-05T12:00:00.000Z'): 'closed' | 'breached' | 'due_soon' | 'open' {
+  if (item.status === 'closed' || item.status === 'resolved') return 'closed';
+  const remainingMs = new Date(item.slaDueAt).getTime() - new Date(now).getTime();
+  if (remainingMs < 0) return 'breached';
+  if (remainingMs <= 2 * 3600000) return 'due_soon';
+  return 'open';
+}
+export function supportSlaLabel(item: Pick<SupportCase, 'slaDueAt' | 'status'>, now = '2026-05-05T12:00:00.000Z'): string {
+  const state = supportSlaState(item, now);
+  if (state === 'closed') return 'Срок закрыт';
+  if (state === 'breached') return 'Срок просрочен';
+  if (state === 'due_soon') return 'Срок скоро истечёт';
+  return 'Срок в работе';
+}
+export function supportSortCases(cases: SupportCase[]): SupportCase[] {
+  const rank = { P0: 0, P1: 1, P2: 2, P3: 3 };
+  const slaRank = { breached: 0, due_soon: 1, open: 2, closed: 3 };
+  return [...cases].sort((a, b) => slaRank[supportSlaState(a)] - slaRank[supportSlaState(b)] || rank[a.priority] - rank[b.priority] || new Date(a.slaDueAt).getTime() - new Date(b.slaDueAt).getTime() || b.moneyAtRiskRub - a.moneyAtRiskRub);
+}
+export function createSupportAuditEvent(params: {
+  readonly caseId: string;
+  readonly actor: string;
+  readonly action: SupportAuditEvent['action'];
+  readonly description: string;
+  readonly before?: string;
+  readonly after?: string;
+  readonly createdAt: string;
+  readonly relatedEntityId?: string;
+  readonly sequence?: number;
+}): SupportAuditEvent {
+  const suffix = params.sequence ?? new Date(params.createdAt).getTime();
+  const objectPart = params.relatedEntityId ? `-${params.relatedEntityId}` : '';
+  return {
+    id: `SAE-${params.caseId}-${params.action}${objectPart}-${suffix}`,
+    caseId: params.caseId,
+    actor: params.actor,
+    action: params.action,
+    description: params.description,
+    before: params.before,
+    after: params.after,
+    createdAt: params.createdAt,
+  };
+}
+function cleanSentence(value: string): string {
+  return value.trim().replace(/[.。]+$/u, '');
+}
+export function supportEscalationTraceDescription(item: Pick<SupportCase, 'relatedEntityType' | 'relatedEntityId' | 'owner' | 'blocker' | 'nextAction'>, targetStatus: SupportStatus): string {
+  const object = supportObjectLabel(item);
+  const blocker = cleanSentence(item.blocker);
+  const nextAction = cleanSentence(item.nextAction);
+  if (targetStatus === 'escalated') return `Эскалация по ${object}: ${blocker}. Следующий шаг: ${nextAction}.`;
+  if (targetStatus === 'waiting_user') return `Запрошены данные по ${object}: ${blocker}.`;
+  if (targetStatus === 'resolved') return `Подготовлено решение по ${object}. Ответственный контур: ${item.owner}.`;
+  return `Статус обращения по ${object} изменён. Ответственный контур: ${item.owner}.`;
+}
+export function supportSortedAuditEvents(audit: readonly SupportAuditEvent[]): SupportAuditEvent[] {
+  return [...audit].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() || a.id.localeCompare(b.id));
+}
+export function supportSortedInternalNotes(notes: readonly SupportInternalNote[]): SupportInternalNote[] {
+  return [...notes].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() || a.id.localeCompare(b.id));
+}
+export function supportAuditTransitionLabel(event: Pick<SupportAuditEvent, 'before' | 'after'>): string | null {
+  if (!event.before && !event.after) return null;
+  return `${event.before ?? '—'} → ${event.after ?? '—'}`;
+}
+export function supportInternalNoteIntegrityLabel(note: Pick<SupportInternalNote, 'id' | 'createdAt'>): string {
+  return `Внутренняя заметка · ${note.id} · ${note.createdAt}`;
+}
+export function supportLastMessage(caseId: string, messages: SupportMessage[]): string { return messages.filter((m) => m.caseId === caseId && m.public).at(-1)?.body ?? 'Ответ ещё не добавлен.'; }
+export function supportSlaDueAt(priority: SupportPriority, now: string): string { return new Date(new Date(now).getTime() + supportSlaHours(priority) * 3600000).toISOString(); }
+export function supportCategoryByText(text: string): SupportCategory { const value = text.toLowerCase(); if (/(деньг|оплат|выпуск|удерж|резерв|банк|сумм)/i.test(value)) return 'money'; if (/(документ|сдиз|эдо|наклад|акт|пакет)/i.test(value)) return 'documents'; if (/(рейс|водител|маршрут|машин|логист|груз)/i.test(value)) return 'logistics'; if (/(при[её]мк|вес|разгруз|элеватор)/i.test(value)) return 'acceptance'; if (/(качеств|лаборатор|проб|класс)/i.test(value)) return 'quality'; if (/(спор|претенз|арбитр|доказательств)/i.test(value)) return 'dispute'; if (/(доступ|роль|войти|кабинет|права)/i.test(value)) return 'access'; if (/(интеграц|фгис|есиа|внешн)/i.test(value)) return 'integration'; return 'other'; }
+export function supportPriority(category: SupportCategory, moneyAtRiskRub: number, text: string): SupportPriority { const hard = /(заблок|останов|не выпуск|не закрыт|спор|отклон|удерж)/i.test(text); if (hard && (moneyAtRiskRub > 0 || ['money', 'logistics', 'acceptance', 'dispute'].includes(category))) return 'P0'; if (['documents', 'logistics', 'access', 'integration'].includes(category)) return 'P1'; return 'P2'; }

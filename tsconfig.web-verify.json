@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": [],
+    "lib": ["dom", "dom.iterable", "es2022"],
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "skipLibCheck": true
+  },
+  "include": [
+    "types/repo-verify-shims.d.ts",
+    "apps/web/**/*.ts",
+    "apps/web/**/*.tsx",
+    "shared/**/*.ts",
+    "packages/domain-core/src/**/*.ts"
+  ]
+}

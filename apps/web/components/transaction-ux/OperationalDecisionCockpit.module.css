@@ -1,0 +1,280 @@
+.root {
+  min-width: 0;
+  display: grid;
+  gap: var(--ds-space-4);
+}
+
+.header {
+  min-width: 0;
+  padding: clamp(var(--ds-space-4), 4vw, var(--ds-space-6));
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-xl);
+  background: var(--ds-color-surface);
+  box-shadow: var(--ds-shadow-surface);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--ds-space-4);
+}
+
+.heading,
+.contentStack,
+.sectionStack,
+.queue,
+.toolGrid {
+  min-width: 0;
+  display: grid;
+  gap: var(--ds-space-3);
+}
+
+.eyebrow,
+.priorityEyebrow,
+.factLabel,
+.metaItem dt {
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-caption);
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.eyebrow { color: var(--ds-color-action-primary); }
+
+.title {
+  margin: 0;
+  color: var(--ds-color-text-primary);
+  font-size: clamp(28px, 5vw, 44px);
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+  overflow-wrap: anywhere;
+}
+
+.description,
+.priorityDescription,
+.factHint,
+.muted {
+  margin: 0;
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-body);
+  line-height: 1.6;
+}
+
+.status { justify-self: end; }
+
+.priority {
+  min-width: 0;
+  padding: clamp(var(--ds-space-4), 4vw, var(--ds-space-6));
+  border: 2px solid var(--ds-color-warning);
+  border-radius: var(--ds-radius-xl);
+  background: var(--ds-color-warning-bg);
+  display: grid;
+  gap: var(--ds-space-4);
+}
+
+.priorityReady {
+  border-color: var(--ds-color-success);
+  background: var(--ds-color-success-bg);
+}
+
+.priorityCritical {
+  border-color: var(--ds-color-critical);
+  background: var(--ds-color-critical-bg);
+}
+
+.priorityReadonly {
+  border-color: var(--ds-color-information);
+  background: var(--ds-color-information-bg);
+}
+
+.priorityTitle {
+  margin: 0;
+  color: var(--ds-color-text-primary);
+  font-size: clamp(24px, 4vw, 36px);
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+  overflow-wrap: anywhere;
+}
+
+.priorityMeta,
+.factGrid {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--ds-space-2);
+}
+
+.metaItem,
+.fact {
+  min-width: 0;
+  padding: var(--ds-space-3);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface);
+  display: grid;
+  gap: var(--ds-space-1);
+}
+
+.metaItem dd,
+.factValue {
+  margin: 0;
+  color: var(--ds-color-text-primary);
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.factHint { font-size: var(--ds-font-caption); }
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-2);
+}
+
+.primaryLink,
+.secondaryLink,
+.queueLink {
+  min-height: var(--ds-control-height);
+  padding: 0 var(--ds-space-4);
+  border: 1px solid transparent;
+  border-radius: var(--ds-radius-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  text-decoration: none;
+  font-weight: 850;
+}
+
+.primaryLink {
+  background: var(--ds-color-action-primary);
+  color: var(--ds-color-on-action);
+}
+
+.primaryLink:hover { background: var(--ds-color-action-primary-hover); }
+
+.secondaryLink {
+  border-color: var(--ds-color-border);
+  background: var(--ds-color-surface);
+  color: var(--ds-color-text-primary);
+}
+
+.secondaryLink:hover { background: var(--ds-color-surface-subtle); }
+
+.sectionAnchor { scroll-margin-top: calc(98px + var(--ds-space-4)); }
+
+.queueLink {
+  min-width: 0;
+  height: auto;
+  padding: var(--ds-space-3);
+  border-color: var(--ds-color-border);
+  background: var(--ds-color-surface-subtle);
+  color: var(--ds-color-text-primary);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--ds-space-3);
+  text-align: left;
+}
+
+.queueLink:hover { border-color: var(--ds-color-action-primary); }
+
+.queueCopy {
+  min-width: 0;
+  display: grid;
+  gap: var(--ds-space-1);
+}
+
+.queueCopy strong,
+.queueCopy span { overflow-wrap: anywhere; }
+.queueCopy span { color: var(--ds-color-text-secondary); font-size: var(--ds-font-caption); line-height: 1.45; }
+
+.boundary {
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border: 1px solid var(--ds-color-information);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-information-bg);
+  color: var(--ds-color-information);
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.5;
+}
+
+.toolGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.tableWrap {
+  min-width: 0;
+  overflow-x: auto;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-color-surface);
+}
+
+.readOnlyTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.readOnlyTable th,
+.readOnlyTable td {
+  padding: var(--ds-space-3);
+  border-bottom: 1px solid var(--ds-color-border);
+  text-align: left;
+  color: var(--ds-color-text-secondary);
+}
+
+.readOnlyTable th {
+  background: var(--ds-color-surface-subtle);
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-caption);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.readOnlyTable tr:last-child td { border-bottom: 0; }
+
+.primaryLink:focus-visible,
+.secondaryLink:focus-visible,
+.queueLink:focus-visible {
+  outline: 3px solid var(--ds-color-focus);
+  outline-offset: 3px;
+}
+
+@media (max-width: 900px) {
+  .priorityMeta,
+  .factGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .toolGrid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .header { grid-template-columns: 1fr; padding: var(--ds-space-4); }
+  .status { justify-self: start; }
+  .priority { padding: var(--ds-space-4); }
+  .priorityMeta,
+  .factGrid { grid-template-columns: 1fr; }
+  .actions { display: grid; }
+  .primaryLink,
+  .secondaryLink { width: 100%; }
+  .queueLink { grid-template-columns: 1fr; align-items: start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primaryLink,
+  .secondaryLink,
+  .queueLink { scroll-behavior: auto; }
+}
+
+@media (forced-colors: active) {
+  .header,
+  .priority,
+  .metaItem,
+  .fact,
+  .primaryLink,
+  .secondaryLink,
+  .queueLink,
+  .boundary,
+  .tableWrap { border-color: CanvasText; }
+}

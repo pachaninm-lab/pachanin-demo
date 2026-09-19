@@ -1,0 +1,103 @@
+name: TAI Gateway remediation main-push executor
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tai-gateway-remediation-main-push.yml'
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: tai-gateway-remediation-main-push-3005
+  cancel-in-progress: false
+
+jobs:
+  remediate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout governed TAI branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/tai-gateway-ui-readonly-3004
+          fetch-depth: 0
+
+      - name: Align branch with exact main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch --no-tags origin main
+          set +e
+          git merge --no-edit origin/main
+          merge_rc=$?
+          set -e
+          if (( merge_rc != 0 )); then
+            conflicts="$(git diff --name-only --diff-filter=U)"
+            [[ "$conflicts" == '.github/workflows/tai-gateway-ui-readonly-binding.yml' ]] || {
+              echo "Unexpected merge conflicts: $conflicts" >&2
+              git merge --abort || true
+              exit 20
+            }
+            git checkout --theirs .github/workflows/tai-gateway-ui-readonly-binding.yml
+            git add .github/workflows/tai-gateway-ui-readonly-binding.yml
+            git commit --no-edit
+          fi
+
+      - name: Execute source-controlled bounded remediation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from textwrap import dedent
+
+          source = Path('.github/workflows/tai-gateway-ui-readonly-binding.yml').read_text().splitlines()
+          start = next(i for i, line in enumerate(source) if "python3 - <<'PY'" in line) + 1
+          end = next(i for i in range(start, len(source)) if source[i].strip() == 'PY')
+          script = dedent('\n'.join(source[start:end])) + '\n'
+          target = Path('/tmp/tai_gateway_remediation.py')
+          target.write_text(script)
+          compile(script, str(target), 'exec')
+          PY
+          python3 /tmp/tai_gateway_remediation.py
+
+      - name: Focused exact-head acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm --filter @pc/web test -- \
+            platformV7AiGatewayStream.test.ts \
+            platformV7PublicAssistantTransportResilience.test.ts \
+            platformV7RoleScopedAiAssistant.test.ts
+          pnpm --filter @pc/web typecheck
+
+      - name: Commit and publish verified remediation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add \
+            apps/web/app/api/proxy/'[...path]'/route.ts \
+            apps/web/app/api/public-platform-assistant/route.ts \
+            apps/web/components/platform-v7/AiAssistantPanel.tsx \
+            apps/web/components/platform-v7/PublicPlatformAssistant.tsx \
+            apps/web/tests/unit/platformV7PublicAssistantTransportResilience.test.ts \
+            apps/web/tests/unit/platformV7RoleScopedAiAssistant.test.ts
+          git diff --cached --check
+          git commit -m 'fix(tai): bind admitted provider and preserve validated SSE'
+          git push origin HEAD:agent/tai-gateway-ui-readonly-3004
+
+      - name: Report result
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh pr comment 3005 --body "TAI main-push remediation: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} — result: ${{ job.status }}. Production flags remain disabled."

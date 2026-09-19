@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/gekta-p0-speed-g3b-capacity-3896",
+  "status": "active",
+  "purpose": "Extend the existing Gekta P0 SPEED model-host diagnostic with bounded read-only capacity and runtime facts required to choose a safe llama.cpp G3B concurrency candidate without root access, service mutation, context loss or OOM risk.",
+  "approvedBy": "repository-owner continuation for issue #3896 on 2026-08-11",
+  "authorityBaseExactMain": "b966f49f823e6fb29dd955f33ceec756d442851d",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3b-capacity-3896.json",
+    ".github/workflows/gekta-p0-speed-model-host-diagnostic.yml"
+  ],
+  "requiredBehavior": [
+    "owner-only issue command on #3896",
+    "reuse only the dedicated protected model-host SSH identity and pinned host key",
+    "run entirely as the existing least-privilege model-host SSH principal",
+    "perform read-only commands only",
+    "publish only whitelisted CPU topology memory PSS service policy executable identity and llama.cpp scheduling facts",
+    "never print environment contents credentials filesystem paths raw command line prompt response model bytes or customer data"
+  ],
+  "forbiddenCapabilities": [
+    "production VPS credentials as fallback model-host authority",
+    "trust-on-first-use model-host identity",
+    "sudo su doas or any other privilege escalation",
+    "systemctl restart start stop enable disable daemon-reload or edit",
+    "file write chmod chown package install process signal or alternate model process on the model host",
+    "database or REG.RU application mutation",
+    "printing any secret environment value filesystem path or arbitrary ExecStart argument",
+    "new server paid API SaaS or recurring cost"
+  ]
+}

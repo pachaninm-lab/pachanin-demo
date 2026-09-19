@@ -1,0 +1,29 @@
+/*
+ * Minimal CJK typography contract for locale-native Platform V7 public surfaces.
+ * Keep this layer intentionally narrow: no sizes, spacing, layout or remote fonts.
+ */
+html:lang(zh) .pc-v7-public-entry,
+html[data-p7-language='zh'] .pc-v7-public-entry {
+  --pc-entry-font-body: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  --pc-entry-font-display: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  --pc-v6-font-body: var(--pc-entry-font-body);
+  --pc-v6-font-display: var(--pc-entry-font-display);
+  font-family: var(--pc-entry-font-body);
+  letter-spacing: 0;
+}
+
+html:lang(zh) .pc-v7-public-entry :where(h1, h2, h3, strong, span, p, small, em, a, button, input, select, textarea, summary),
+html[data-p7-language='zh'] .pc-v7-public-entry :where(h1, h2, h3, strong, span, p, small, em, a, button, input, select, textarea, summary) {
+  letter-spacing: 0 !important;
+}
+
+html:lang(zh) .pc-v7-public-entry :where(h1, h2, h3),
+html[data-p7-language='zh'] .pc-v7-public-entry :where(h1, h2, h3) {
+  font-family: var(--pc-entry-font-display) !important;
+  line-height: 1.14;
+}
+
+html:lang(zh) .pc-v7-public-entry :where(button, input, select, textarea),
+html[data-p7-language='zh'] .pc-v7-public-entry :where(button, input, select, textarea) {
+  font-family: var(--pc-entry-font-body);
+}

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/platform-v7-production-mobile-acceptance-3527",
+  "status": "active",
+  "purpose": "Close exact production mobile acceptance after PR #3522 by aligning the mobile heading size with the established threshold and removing the obsolete deal-path anchor expectation without restoring duplicated public content.",
+  "allowedPaths": [
+    "apps/web/styles/platform-v7-international-home-fix.css",
+    "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
+    "docs/platform-v7/autopilot/scopes/fix-platform-v7-production-mobile-acceptance-3527.json"
+  ],
+  "acceptanceEvidence": {
+    "productionMobileContract": "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
+    "mobileHeadingCorrection": "apps/web/styles/platform-v7-international-home-fix.css"
+  },
+  "constraints": [
+    "Do not restore the duplicated deal-path block or add a hidden replacement anchor",
+    "Do not change public copy, routes, Trust Center, seven-step Deal flow or AI dock behavior",
+    "Do not change API, database, infrastructure or release workflows",
+    "Production mobile acceptance must pass at 390x844 and 430x932"
+  ]
+}

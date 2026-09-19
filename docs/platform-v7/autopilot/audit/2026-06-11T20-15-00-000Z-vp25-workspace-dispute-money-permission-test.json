@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-06-11T20:15:00.000Z",
+  "task": "VP-2.5 workspace dispute money permission invariant refresh",
+  "scope": [
+    "apps/web/tests/unit/platformV7WorkspacePermissionInvariant.test.ts"
+  ],
+  "sourceOfTruth": "The resolve-dispute workspace action requires both dispute and money runtime services, excluding audit and notification side-effect services from permission coverage checks.",
+  "changes": [
+    "Aligned the workspace permission invariant fixture with the existing resolve-dispute money runtime requirement."
+  ],
+  "forbiddenZonesTouched": false,
+  "runtimeTouched": false
+}

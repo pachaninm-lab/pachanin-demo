@@ -1,0 +1,154 @@
+{
+  "schema_version": "tai.cpu-runtime-evidence-authority.v1",
+  "program_issue": 2726,
+  "parent_issue": 2971,
+  "issue": 2987,
+  "readiness": {
+    "schema_version": "tai.cpu-benchmark-execution-readiness.v1",
+    "required_status": "READY_FOR_EXTERNAL_EXECUTION",
+    "maximum_age_hours": 24,
+    "exact_main_required": true,
+    "simulated_evidence_accepted": false
+  },
+  "bundle_finalization": {
+    "schema_version": "tai.model-bundle-finalization-report.v1",
+    "required_status": "BUNDLES_IMMUTABLY_STORED_AND_CLEANLY_RESTORED",
+    "bundle_authority_schema": "tai.model-bundle-authority.v2",
+    "verification_status": "VERIFIED",
+    "exact_object_version_required": true,
+    "independent_restore_required": true
+  },
+  "toolchain": {
+    "name": "ggml-org/llama.cpp",
+    "release": "b9637",
+    "commit": "aedb2a5e9ca3d4064148bbb919e0ddc0c1b70ab3",
+    "profile": "linux-x86_64-cpu-release-static-v1",
+    "required_binaries": [
+      "llama-cli",
+      "llama-server",
+      "llama-bench"
+    ]
+  },
+  "target": {
+    "host_role": "DEDICATED_MODEL_HOST",
+    "required_user": "tai-model",
+    "workspace_root": "/srv/tai-models/cpu-runtime-runs",
+    "production_fallback_allowed": false,
+    "loopback_inference_only": true,
+    "external_egress": "EXACT_VERSION_S3_ONLY"
+  },
+  "corpus": {
+    "suite_id": "tai-platform-agro-58-v1",
+    "assessment_schema": "tai.gold-set-assessment.v1",
+    "required_status": "ACCEPTED",
+    "required_accepted": true,
+    "required_total_cases": 58,
+    "required_critical_cases": 23,
+    "required_locales": [
+      "ru",
+      "en",
+      "zh"
+    ],
+    "required_raw_observations_per_profile": 174,
+    "required_raw_observations_total": 348,
+    "maximum_unreviewed_cases": 0
+  },
+  "runtime_profiles": [
+    {
+      "profile_id": "qwen3-8b-cpu-q4-k-m",
+      "role": "PRIMARY",
+      "model_key": "qwen3-8b",
+      "model_id": "Qwen/Qwen3-8B",
+      "revision": "895c8d171bc03c30e113cd7a28c02494b5e068b7",
+      "runtime_class": "CPU",
+      "quantization": "Q4_K_M",
+      "artifact_path": "artifacts/qwen3-8b-q4-k-m.gguf",
+      "required_concurrency_levels": [
+        1,
+        2,
+        4
+      ],
+      "thresholds": {
+        "minimum_sample_count": 100,
+        "minimum_prompt_tokens_per_second_milli": 5000,
+        "minimum_generation_tokens_per_second_milli": 4000,
+        "maximum_p95_latency_ms": 20000,
+        "maximum_p99_latency_ms": 30000,
+        "maximum_error_rate_basis_points": 100,
+        "maximum_peak_ram_mb": 16384,
+        "maximum_cold_start_ms": 120000,
+        "maximum_warmup_ms": 180000
+      }
+    },
+    {
+      "profile_id": "mistral-7b-fallback-cpu-q4-k-m",
+      "role": "FALLBACK",
+      "model_key": "mistral-7b-instruct-v0.3",
+      "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
+      "revision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
+      "runtime_class": "CPU",
+      "quantization": "Q4_K_M",
+      "artifact_path": "artifacts/mistral-7b-instruct-v0.3-q4-k-m.gguf",
+      "required_concurrency_levels": [
+        1,
+        2,
+        4
+      ],
+      "thresholds": {
+        "minimum_sample_count": 100,
+        "minimum_prompt_tokens_per_second_milli": 4000,
+        "minimum_generation_tokens_per_second_milli": 3000,
+        "maximum_p95_latency_ms": 25000,
+        "maximum_p99_latency_ms": 35000,
+        "maximum_error_rate_basis_points": 100,
+        "maximum_peak_ram_mb": 16384,
+        "maximum_cold_start_ms": 120000,
+        "maximum_warmup_ms": 180000
+      }
+    }
+  ],
+  "generation": {
+    "deterministic_seed": 13001,
+    "temperature_milli": 0,
+    "maximum_output_tokens": 512,
+    "request_timeout_seconds": 120
+  },
+  "fallback": {
+    "minimum_trigger_count": 100,
+    "forced_primary_failure_required": true,
+    "maximum_failed_transitions": 0,
+    "maximum_p95_takeover_ms": 5000,
+    "maximum_continuity_violations": 0
+  },
+  "soak": {
+    "minimum_duration_seconds": 3600,
+    "minimum_request_count": 1000,
+    "maximum_failed_requests": 10,
+    "maximum_critical_failures": 0,
+    "maximum_memory_drift_mb": 512
+  },
+  "evidence": {
+    "schema_version": "tai.cpu-runtime-evidence.v1",
+    "maximum_file_count": 256,
+    "maximum_file_size_bytes": 536870912,
+    "maximum_total_size_bytes": 8589934592,
+    "minimum_external_retention_days": 90,
+    "exact_version_restore_required": true,
+    "independent_restore_roots_required": true,
+    "raw_payloads_in_github_allowed": false,
+    "required_semantic_files": [
+      "suite/case-manifest.json",
+      "raw-observations/manifest.json",
+      "raw-observations/payload.json",
+      "fallback/metrics.json",
+      "soak/metrics.json"
+    ]
+  },
+  "maturity_boundary": {
+    "verified_runtime_status": "RUNTIME_EVIDENCE_VERIFIED_PENDING_QUALITY_SCORING",
+    "quality_scoring_status": "PENDING_QUALITY_SCORING",
+    "benchmark_status": "PENDING_BENCHMARK",
+    "model_admission_status": "PENDING_ADMISSION",
+    "production_operational_status": "NOT_ATTESTED"
+  }
+}

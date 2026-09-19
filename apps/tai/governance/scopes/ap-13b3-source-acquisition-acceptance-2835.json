@@ -1,0 +1,33 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "agent/tai-ap-13b3-source-acquisition-acceptance",
+  "status": "active",
+  "parent_issue": 2726,
+  "issue": 2835,
+  "maturity_boundary": "verified-source-acquisition-accepted-with-human-legal-review-pending",
+  "allowed_paths": [
+    "apps/tai/governance/scopes/ap-13b3-source-acquisition-acceptance-2835.json",
+    "apps/tai/model-artifacts/model-source-acquisition-acceptance.v1.json",
+    "apps/tai/tests/test_model_source_acquisition_acceptance.py"
+  ],
+  "forbidden_capabilities": [
+    "model weight, tokenizer, source archive, binary or GGUF commit to Git",
+    "automated legal approval or rejection",
+    "conversion or quantization completion claim",
+    "benchmark or model admission claim",
+    "production readiness or operational attestation claim"
+  ],
+  "acceptance": [
+    "exact-main release attestation is accepted with no reasons and remains NOT_ATTESTED",
+    "owner-triggered source acquisition run is bound to the same exact-main SHA",
+    "Qwen and Mistral exact revisions each have reconciled, locally hashed and cleanly re-downloaded source evidence",
+    "source file counts, selected byte totals, SHA-256 chains and artifact identities are recorded",
+    "metadata and locator artifacts are digest-bound and retained for 90 days",
+    "source bytes were not copied to Git or GitHub Actions artifacts",
+    "legal review remains PENDING_HUMAN_DECISION",
+    "conversion and quantization remain NOT_RUN",
+    "model admission remains NOT_DONE",
+    "production_operational_status remains NOT_ATTESTED",
+    "Ruff, strict mypy, full pytest/coverage, security/runtime and exact-head CI pass"
+  ]
+}

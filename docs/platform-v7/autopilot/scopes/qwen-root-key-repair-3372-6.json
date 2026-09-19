@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "PUBLIC-AI-QWEN-ROOT-KEY-REPAIR-3372-6",
+  "branch": "ops/qwen-root-key-repair-3372-6",
+  "status": "active",
+  "issue": 3372,
+  "baseCommit": "043f9273e36c2fa534565582f2e248dafd61b818",
+  "operationalStatus": "PASSWORDLESS_SUDO_UNAVAILABLE_ROOT_KEY_FALLBACK_PENDING",
+  "maturityBoundary": "model-host-root-transport-repair-only",
+  "allowedPaths": [
+    ".github/workflows/tai-qwen-root-key-repair.yml",
+    "docs/platform-v7/autopilot/scopes/qwen-root-key-repair-3372-6.json"
+  ],
+  "forbiddenPaths": [
+    "apps/**",
+    "packages/**",
+    "prisma/**",
+    "infra/**",
+    "pnpm-lock.yaml",
+    "production credentials"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "authorizationChange": false,
+    "tenantOrDealBoundaryChange": false,
+    "modelAdmissionChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "productionDeployment": true
+  },
+  "requiredEvidence": [
+    "Root SSH is attempted only with already protected model or production private keys",
+    "No private key, model API key, password or environment contents enter logs or issues",
+    "Model service, env mode, private listener and authenticated health are accepted before activation dispatch",
+    "A root-owned allowlist bridge grants the dedicated model SSH user only governed Qwen repair and preflight command shapes",
+    "Failure emits one bounded non-secret marker and leaves production activation undispatched",
+    "Success dispatches the existing accepted REG.RU activation workflow for exact current main",
+    "Existing rollback, RU/EN/ZH SSE and Chromium acceptance remain authoritative",
+    "Permanent AP-13D admission remains NOT_ATTESTED",
+    "Production hosting remains REG_RU_VPS_ONLY"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

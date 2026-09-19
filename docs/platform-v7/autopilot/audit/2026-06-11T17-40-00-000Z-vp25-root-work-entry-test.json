@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-06-11T17:40:00.000Z",
+  "task": "VP-2.5 root work entry test refresh",
+  "scope": [
+    "apps/web/tests/unit/platformV7RootWorkEntry.test.ts"
+  ],
+  "sourceOfTruth": "Current platform-v7 root page uses the execution cockpit state directly and keeps role entry points after the blocker queue.",
+  "changes": [
+    "Updated the source-inspection test from the old v7r command center hub expectations to the current root execution cockpit and entry-cockpit-state contract."
+  ],
+  "forbiddenZonesTouched": false,
+  "runtimeTouched": false
+}

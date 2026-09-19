@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "repository": "pachaninm-lab/pachanin-demo",
+  "releaseAuthority": [
+    {
+      "component": "api",
+      "dockerfile": "infra/docker/Dockerfile.api",
+      "status": "DEPLOYABLE",
+      "runtimeUser": "nonroot",
+      "productionDependenciesOnly": true,
+      "activationContract": {
+        "helmEnabledByDefault": false,
+        "immutableDigestRequired": true,
+        "releaseManifestRequired": true,
+        "sourceCommitLabelRequired": true,
+        "migrationGateRequired": true
+      },
+      "ticket": "#2652"
+    },
+    {
+      "component": "web",
+      "dockerfile": "infra/docker/Dockerfile.web",
+      "status": "DEPLOYABLE",
+      "runtimeUser": "nonroot",
+      "productionDependenciesOnly": true,
+      "activationContract": {
+        "helmEnabledByDefault": false,
+        "immutableDigestRequired": true,
+        "releaseManifestRequired": true,
+        "sourceCommitLabelRequired": true
+      },
+      "ticket": "#2652"
+    },
+    {
+      "component": "outbox-worker",
+      "dockerfile": "infra/docker/Dockerfile.outbox-worker",
+      "entrypoint": "dist-outbox-worker/outbox-worker.js",
+      "status": "DEPLOYABLE",
+      "runtimeUser": "nonroot",
+      "productionDependenciesOnly": true,
+      "stateAuthority": "PostgreSQL outbox_entries",
+      "databasePrincipal": "app_outbox",
+      "databasePrivileges": {
+        "allowed": [
+          "SELECT public.outbox_entries",
+          "UPDATE durable lease retry receipt columns on public.outbox_entries"
+        ],
+        "forbidden": [
+          "INSERT public.outbox_entries",
+          "DELETE public.outbox_entries",
+          "ALL public.deals",
+          "ALL public.outbox_redrive_events",
+          "USAGE auth schema",
+          "role inheritance",
+          "BYPASSRLS"
+        ]
+      },
+      "independentProcess": true,
+      "activationContract": {
+        "helmEnabledByDefault": false,
+        "immutableDigestRequired": true,
+        "releaseManifestRequired": true,
+        "sourceCommitLabelRequired": true,
+        "requiredEnvironment": [
+          "DATABASE_URL using app_outbox",
+          "KAFKA_BROKERS",
+          "KAFKA_REQUIRED=true",
+          "OUTBOX_WORKER_ENABLED=true",
+          "RUNTIME_COMPONENT=outbox-worker"
+        ]
+      },
+      "ticket": "#2649"
+    }
+  ],
+  "releaseUtilities": [
+    {
+      "component": "migration-job",
+      "dockerfile": "infra/docker/Dockerfile.migrations",
+      "entrypoint": "node_modules/prisma/build/index.js migrate deploy --schema prisma/schema.prisma",
+      "status": "RELEASE_GATE_ONLY",
+      "runtimeUser": "nonroot",
+      "productionDependenciesOnly": false,
+      "databasePrincipal": "dedicated DDL principal from grainflow-migration-secrets",
+      "activationContract": {
+        "helmEnabledByDefault": false,
+        "immutableDigestRequired": true,
+        "releaseManifestRequired": true,
+        "sourceCommitLabelRequired": true,
+        "preInstallPreUpgradeHook": true,
+        "applicationPodsRunMigrations": false,
+        "backoffLimit": 0
+      },
+      "ticket": "#2652"
+    }
+  ],
+  "nonDeployable": [
+    {
+      "component": "route-simulator-worker",
+      "formerDockerfile": "infra/docker/Dockerfile.worker",
+      "status": "NOT_DEPLOYABLE",
+      "ticket": "#2606",
+      "reason": "The removed image executed a test route simulator through ts-node and was not a durable production worker authority. It remains retired and is not replaced by an alias or compatibility path."
+    }
+  ]
+}

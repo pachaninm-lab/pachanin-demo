@@ -1,0 +1,23 @@
+{
+  "project": "platform-v7",
+  "event": "vp25_localhost_backend_test_fallback",
+  "createdAt": "2026-06-11T12:36:16.000Z",
+  "baseline": {
+    "command": "pnpm --filter @pc/web test",
+    "result": "failed",
+    "failedSuites": 1,
+    "failedTests": 112,
+    "totalFailures": 113
+  },
+  "slice": "Remove vitest dependency on a live localhost:4000 backend by routing absolute backend URLs through MSW-compatible test fetch and deterministic fallback JSON.",
+  "changedFiles": [
+    "apps/web/tests/setup.ts",
+    "apps/web/tests/unit/components.test.tsx"
+  ],
+  "constraints": [
+    "test infrastructure only",
+    "no runtime/API/DB expansion",
+    "controlled-pilot",
+    "pre-integration"
+  ]
+}

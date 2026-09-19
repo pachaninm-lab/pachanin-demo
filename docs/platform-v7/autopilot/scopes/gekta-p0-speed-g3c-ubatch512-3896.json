@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/gekta-g3c-process-swap-gate-3896",
+  "status": "active",
+  "purpose": "Continue only the Gekta SPEED #3896 G3C one-factor llama.cpp physical ubatch 128 to 512 experiment and diagnose its exact process-launch mismatch with bounded read-only provenance evidence, while preserving fail-closed model-process swap and MemAvailable gates, deterministic rollback, and zero application, model, context, scheduler or quality mutation.",
+  "approvedBy": "repository-owner continuation for issue #3896 on 2026-08-13",
+  "authorityBaseExactMain": "9c770514774052fc19db2b7a107ceaecdee55a1b",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/gekta-p0-speed-g3c-ubatch512-3896.json",
+    "scripts/gekta-qwen-g3c-runtime.py",
+    "scripts/gekta-qwen-g3c-runtime-v2.py",
+    "scripts/gekta-qwen-g3c-bootstrap.sh",
+    ".github/workflows/gekta-p0-speed-g3c-candidate.yml"
+  ],
+  "requiredBehavior": [
+    "bootstrap is a one-time manual root action and never creates or stores a root SSH credential in GitHub",
+    "G3C layers after the existing G3B threads16 drop-in so rollback restores the proven threads16 ubatch128 runtime",
+    "GitHub runtime transport remains the dedicated TAI model SSH key plus pinned model-host key",
+    "sudo authority is restricted to the installed helper with exact arguments ubatch512 rollback or status; the provenance probe never uses sudo",
+    "candidate changes only ubatch-size from 128 to 512 while preserving threads16 threads-batch16 parallel1 ctx8192 batch512 executable argv environment model endpoint model key and every unrelated value",
+    "candidate requires llama-server process VmSwap equal to zero and at least 3 GiB MemAvailable; system-wide swap usage is evidence only and is not itself an admission failure",
+    "candidate state is reversible and any failed restart readiness memory process-swap or exact-argv verification triggers automatic rollback",
+    "the read-only provenance action may inspect only systemd read properties and proc metadata for the active model process, and may publish only bounded hashes, numeric facts, presence bits or allowlisted value classes; raw argv, raw environment, paths and secret values remain forbidden",
+    "controller commands are owner-only and bound to issue 3896",
+    "published evidence is bounded and never includes paths raw argv environment values API keys prompts responses model bytes or customer data",
+    "new recurring cost remains zero"
+  ],
+  "forbiddenCapabilities": [
+    "root SSH key repository secret provider-console credential or production VPS SSH credential as model-host authority",
+    "trust-on-first-use model-host identity",
+    "sudo shell sudo bash sudo systemctl arbitrary helper arguments or SETENV",
+    "read-only provenance action performing sudo systemd mutation process signaling filesystem mutation or raw argv environment disclosure",
+    "threads threads-batch parallel ctx-size logical batch kv-unified model endpoint API-key model-file prompt quality token-budget or application mutation in this candidate",
+    "timeout inflation to hide overload",
+    "database REG.RU application deal role money registration or PC-CROP mutation",
+    "second Qwen sidecar new server paid API SaaS or recurring cost"
+  ]
+}

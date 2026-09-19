@@ -1,0 +1,3 @@
+# terminal note
+
+Ready.

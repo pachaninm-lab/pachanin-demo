@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-06-11T16:25:00.000Z",
+  "task": "VP-2.5 operational panels copy boundary test refresh",
+  "scope": [
+    "apps/web/tests/unit/operationalPanelsCopyBoundary.test.tsx"
+  ],
+  "sourceOfTruth": "Current main frames operational money/action panels as pre-integration and execution-contour surfaces without external connection claims.",
+  "changes": [
+    "Updated money safety audit assertion from тестовый контур to предынтеграционный контур.",
+    "Updated execution action panel assertion from пилотный контур / боевое подключение wording to контур исполнения / внешнее подключение wording."
+  ],
+  "forbiddenZonesTouched": false,
+  "runtimeTouched": false
+}

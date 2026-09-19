@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4471,
+  "branch": "fix/pc-crop-01a-scope-isolation-4471",
+  "status": "active",
+  "purpose": "Isolate the frozen PC-CROP-01A invariant verifier from unrelated paths that have already passed the central source-controlled scope guard, without permitting branch-name bypasses or weakening predecessor ownership checks.",
+  "authorityBaseExactMain": "ef164d3e921cffc3af3ab96eaeb7c2fff22703c8",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/pc-crop-01a.yml",
+    "docs/platform-v7/autopilot/scopes/pc-crop-01a-scope-isolation-4471.json",
+    "scripts/verify-pc-crop-01a-scope-isolation.test.mjs",
+    "scripts/verify-pc-crop-01a.mjs"
+  ],
+  "requiredInvariants": [
+    "The central platform-v7 autopilot guard validates the complete exact-head diff before the PC-CROP-01A verifier runs.",
+    "Every frozen PC-CROP-01A domain, interface, fixed-precision, crypto-adapter, accessibility, typecheck and evidence invariant remains enabled.",
+    "No branch name, synthetic empty diff, rewritten origin/main ref, continue-on-error or blanket skip can produce PASS.",
+    "Malformed, duplicate, inactive and unsafe source-controlled scope manifests fail closed.",
+    "No application, database, DNS, Caddy, Compose, container or production mutation is performed."
+  ],
+  "acceptance": [
+    "An independently authorized IP metadata diff can pass the predecessor workflow after the central scope guard accepts the complete diff.",
+    "A path outside the active exact branch scope is rejected by the central guard.",
+    "The PC-CROP-01A verifier continues to enforce all frozen source and interface invariants.",
+    "Workflow syntax, focused abuse tests, central scope guard and exact-head CI pass."
+  ]
+}

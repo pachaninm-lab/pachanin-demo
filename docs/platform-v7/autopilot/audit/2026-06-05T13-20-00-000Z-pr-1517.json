@@ -1,0 +1,28 @@
+{
+  "timestamp": "2026-06-05T13:20:00.000Z",
+  "sourcePr": 1517,
+  "sourceSha": "d5c3f1ad962abddf9316de894e15915647914093",
+  "layerClosed": "Autopilot Product Slice 01",
+  "nextLayer": "Autopilot Product Slice 02",
+  "allowedFiles": [
+    "docs/platform-v7/autopilot/**",
+    "docs/platform-v7/execution-queue.md",
+    "scripts/p7-autopilot-*.mjs",
+    ".github/workflows/platform-v7-autopilot-*.yml"
+  ],
+  "checksSummary": {
+    "success": [
+      "generated PR created by repo-side runner",
+      "generated branch opened by github-actions[bot]",
+      "guarded automerge completed",
+      "generated file landed on main"
+    ],
+    "failed": [
+      "generated PR cleanup workflow failed after merge and requires separate follow-up"
+    ],
+    "skipped": []
+  },
+  "autoFixAttempts": 0,
+  "mergeDecision": "merged",
+  "stopReason": null
+}

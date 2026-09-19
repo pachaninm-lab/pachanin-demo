@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/netlify-retirement-structural-3297",
+  "status": "active",
+  "issue": 3297,
+  "baseCommit": "26fb0f412060c084d0db2fa31788a14a04d63199",
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/netlify-retirement-authority.yml",
+    "docs/platform-v7/autopilot/scopes/netlify-retirement-structural-3297.json",
+    "scripts/check-netlify-retirement.contract.mjs",
+    "scripts/check-netlify-retirement.mjs"
+  ],
+  "boundaries": {
+    "fileAllowlistForPolicyOrTestProse": false,
+    "activeNetlifyUsageException": false,
+    "runtimeProductMutation": false,
+    "credentialOrSecretMutation": false,
+    "productionDeployment": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

@@ -1,0 +1,45 @@
+name: Publish AI plain language fc1ed41
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/release-triggers/ai-plain-language-fc1ed41.md'
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  TARGET_SHA: fc1ed410ac0680cdba5dd78b9a8a96ea465af7e5
+  IMAGE: ghcr.io/pachaninm-lab/grainflow-web
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fc1ed410ac0680cdba5dd78b9a8a96ea465af7e5
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: pachaninm-lab
+          password: ${{ github.token }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/Dockerfile.web
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/pachaninm-lab/grainflow-web:latest
+            ghcr.io/pachaninm-lab/grainflow-web:sha-fc1ed410ac06
+          build-args: |
+            GIT_COMMIT=fc1ed410ac0680cdba5dd78b9a8a96ea465af7e5
+      - name: Verify registry image
+        run: |
+          docker pull ghcr.io/pachaninm-lab/grainflow-web:latest
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' ghcr.io/pachaninm-lab/grainflow-web:latest)" = "fc1ed410ac0680cdba5dd78b9a8a96ea465af7e5"

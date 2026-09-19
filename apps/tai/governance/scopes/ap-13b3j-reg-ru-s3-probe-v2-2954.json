@@ -1,0 +1,41 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "agent/tai-ap-13b3i-reg-ru-metadata-visibility-2954",
+  "status": "active",
+  "program_issue": 2726,
+  "parent_issue": 2835,
+  "issue": 2954,
+  "exact_base": "8dff44ace01a1448f8f96b0fbf19f2532ee319e2",
+  "maturity_boundary": "dormant-local-reg-ru-s3-panel-compatibility-v2-evidence-only",
+  "allowed_paths": [
+    "apps/tai/governance/scopes/ap-13b3j-reg-ru-s3-probe-v2-2954.json",
+    "apps/tai/model-artifacts/reg-ru-s3-compatibility-authority.v2.json",
+    "apps/tai/model-artifacts/reg-ru-s3-compatibility-probe.v2.sh",
+    "apps/tai/model-artifacts/reg-ru-s3-compatibility-runbook.v2.md",
+    "apps/tai/tai/reg_ru_s3_compatibility_v2.py",
+    "apps/tai/tests/test_reg_ru_s3_compatibility_v2.py",
+    "apps/tai/tests/test_reg_ru_s3_compatibility_v2_edges.py",
+    "apps/tai/tests/test_reg_ru_s3_compatibility_v2_threshold.py"
+  ],
+  "forbidden_capabilities": [
+    "GitHub Actions workflow, repository secret registration or unattended execution",
+    "active provider-profile registration or active preflight-requirements switch",
+    "model-bundle finalization, accepted model-bundle upload, benchmark, admission, activation or deployment",
+    "bucket creation, bucket deletion, versioning change, Object Lock configuration change or semantic bucket-policy mutation",
+    "credential values in command arguments, logs, evidence, Git, issues, pull requests, screenshots or chat",
+    "successful data-plane mutation without exact interactive confirmation",
+    "more than one 9437184-byte retained governed compatibility object or any retained multipart payload",
+    "TLS verification bypass, including --no-verify-ssl"
+  ],
+  "acceptance": [
+    "REG_RU_S3_2026 remains CANDIDATE_NOT_ACTIVE",
+    "the authority contains all seven live REG.RU panel rules, including explicit control-key bucket and object denies",
+    "credentials are requested once per execution after all dependencies and local authority checks pass",
+    "expected denials are classified only from botocore ClientError Error.Code and ResponseMetadata.HTTPStatusCode rather than AWS CLI text formatting",
+    "TLS, connectivity, timeout, malformed response and HTTP 5xx failures remain fail-closed and cannot satisfy a denial proof",
+    "the exact live bucket policy is admin-read-only, validated locally, hashed and never retained",
+    "the finalizer is allowed on the governed prefix while the control key is denied listing, multipart creation and known-object reads",
+    "all successful mutations are bounded to one resumable 9437184-byte retained stream object and one fully aborted multipart upload",
+    "only a bounded sanitized report is retained and finalization_allowed remains false"
+  ]
+}

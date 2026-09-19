@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/pc-crop-08a-fgis-1-0-23-artifact-intake",
+  "status": "active",
+  "issue": 3155,
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-08a.yml",
+    "docs/platform-v7/autopilot/scopes/pc-crop-08a-fgis-artifact-intake.json",
+    "docs/platform-v7/crop-platform/fgis-grain-api-1.0.23.source-lock.json",
+    "scripts/pc-crop-08a/**"
+  ],
+  "boundaries": {
+    "officialOperatorSourceOnly": true,
+    "binaryArchiveCommittedToGit": false,
+    "handwrittenEndpointOrFieldMapping": false,
+    "liveCredentialOrCertificateUse": false,
+    "externalProductionApiCall": false,
+    "confirmedLiveClaim": false,
+    "secondInboxOutboxOrRelay": false,
+    "productionDeploymentEvidence": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

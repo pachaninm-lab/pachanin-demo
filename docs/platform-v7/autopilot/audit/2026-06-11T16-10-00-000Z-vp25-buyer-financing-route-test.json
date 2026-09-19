@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-06-11T16:10:00.000Z",
+  "task": "VP-2.5 buyer financing route test refresh",
+  "scope": [
+    "apps/web/tests/unit/buyerFinancingRoute.test.tsx"
+  ],
+  "sourceOfTruth": "Current main frames buyer financing as a проверочный контур screen instead of the older sandbox wording.",
+  "changes": [
+    "Updated buyer financing route assertions to the current проверочный контур copy.",
+    "Kept bank scoring, credit issuance, money reserve, and live workflow negative boundaries covered."
+  ],
+  "forbiddenZonesTouched": false,
+  "runtimeTouched": false
+}

@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/pc-crop-07b-integration-control-tower",
+  "status": "active",
+  "issue": 3040,
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-07b.yml",
+    "apps/api/src/app.module.ts",
+    "apps/api/src/modules/regulatory-integration/**",
+    "apps/web/app/api/platform-v7/integrations/**",
+    "apps/web/app/api/staff/integration-control-tower/**",
+    "apps/web/app/api/staff/integrations/**",
+    "apps/web/app/platform-v7/integrations/**",
+    "apps/web/components/crop-platform/IntegrationControlTowerClient.tsx",
+    "apps/web/components/crop-platform/IntegrationControlTowerClient.module.css",
+    "apps/web/components/crop-platform/integration-control-tower-live-adapter.ts",
+    "apps/web/lib/platform-v7/cabinet-access-policy.ts",
+    "apps/web/lib/platform-v7/design-system-v8-route-policy.ts",
+    "apps/web/lib/platform-v7/route-canonicalization.ts",
+    "apps/web/lib/platform-v7/routes.ts",
+    "apps/web/tests/unit/integrationControlTowerLiveAdapter.test.ts",
+    "apps/web/tests/unit/platformV7IntegrationControlTower.test.ts",
+    "apps/web/tests/unit/platformV7RouteCanonicalization.test.ts",
+    "apps/web/tsconfig.pc-crop.json",
+    "docs/platform-v7/autopilot/scopes/pc-crop-07b-private-integration-control-tower.json",
+    "scripts/p7-autopilot-guard.sh",
+    "scripts/verify-pc-crop-07b.mjs"
+  ],
+  "boundaries": {
+    "clientSelectedRoleTenantAuthority": false,
+    "staticOrFixtureAuthorityFallback": false,
+    "publicUnauthenticatedIntegrationRoute": false,
+    "rawPayloadOrSecretDisplay": false,
+    "confirmedLiveInferenceFromCodeOrMocks": false,
+    "directProductionDatabaseMutation": false,
+    "secondInboxOutboxOrRelay": false,
+    "externalLiveProviderCall": false,
+    "productionDeploymentEvidence": false
+  }
+}

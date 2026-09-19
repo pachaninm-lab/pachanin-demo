@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/production-like-kubernetes-timeout-3750",
+  "status": "active",
+  "purpose": "Permit only the measured production-like Kubernetes job timeout increase required to complete immutable API, web, migration and outbox image acceptance.",
+  "authorityBaseExactMain": "181b97e3e61133d9595e66f6616d17ee94cd7a66",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-like-kubernetes-acceptance.yml"
+  ],
+  "baselineWorkflowSha256": "95bf73b4fceacc3d7f34dc907f16e89720a3d6eaa9c351b5782d4332f7d714e1",
+  "acceptedWorkflowSha256": "c90f8be3252e2ff1767a57627fafdb2e5728393fc1e40ad3e9101a293a5369eb",
+  "acceptedChange": {
+    "path": "jobs.production-like-kubernetes.timeout-minutes",
+    "from": 210,
+    "to": 300
+  },
+  "requiredInvariants": [
+    "The branch changes exactly one repository path.",
+    "The workflow content differs from the recorded baseline only by timeout-minutes 210 -> 300.",
+    "The production-like Kubernetes execution, evidence enforcement, artifact upload, cleanup and blocking gate remain byte-for-byte unchanged.",
+    "The checker and this scope contract are installed on main before the timeout-only branch is opened and are outside that branch's writable scope."
+  ]
+}

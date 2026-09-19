@@ -1,0 +1,40 @@
+{
+  "branch": "ops/production-full-stack-release-v1",
+  "status": "active",
+  "purpose": "Create one fail-closed exact-SHA production release authority for the REG.RU Docker Compose contour: publish immutable API, web and migration images; apply a forward-only migration through the protected one-shot service; recreate only API and web; verify the live organization-intake path; and preserve immutable image rollback.",
+  "approvedBy": "user-directed-finish-homepage-2026-07-23",
+  "evidenceIssue": 3072,
+  "allowedPaths": [
+    ".github/workflows/docker-publish.yml",
+    ".github/workflows/production-full-stack-exact-sha.yml",
+    "scripts/production-full-stack-exact-sha.sh",
+    "scripts/production-full-stack-live-acceptance.sh",
+    "scripts/check-production-full-stack-release.mjs",
+    "docs/ops/production-full-stack-release.md",
+    "docs/ops/virtual-server-production-runbook.md",
+    "docs/ops/vps-post-deploy-checklist.md",
+    "docs/platform-v7/autopilot/scopes/production-full-stack-release-v1.json"
+  ],
+  "forbiddenCapabilities": [
+    "using latest mutable tags or local builds on the production VPS",
+    "running migration from the API process or application runtime credentials",
+    "database down-migration or destructive schema rollback",
+    "changing Caddy protected environment volumes networks PostgreSQL Redis MinIO or non-target service configuration",
+    "printing SSH keys passwords database URLs protected paths or resolved Compose secrets",
+    "bypassing host fingerprint verification or using an untrusted proxy-derived SSH host",
+    "declaring deployment success without exact API and web OCI revisions and live intake evidence",
+    "changing application product code packages or lockfiles"
+  ],
+  "acceptance": [
+    "migration image is published from the same exact source SHA as API and web",
+    "workflow requires an exact full SHA reachable from current main and verifies all OCI revision labels",
+    "SSH and host identity fail closed before server mutation",
+    "protected Compose authority and one unambiguous migration service are discovered without printing paths or secrets",
+    "migration runs once with successful exit before API or web recreation",
+    "only API and web container identities may change and all other production containers remain invariant",
+    "API readiness and web health pass before live acceptance",
+    "live RU EN ZH routes and server-issued organization request plus exact replay pass",
+    "API and web images roll back automatically after post-deploy failure while the forward-compatible schema remains",
+    "evidence is checksummed and written to issue 3072"
+  ]
+}

@@ -1,0 +1,40 @@
+# Production overrides — extends values.yaml
+# Применять: helm upgrade grainflow ./infra/helm/grainflow -f values.yaml -f values-production.yaml
+
+api:
+  replicaCount: 5
+  autoscaling:
+    minReplicas: 5
+    maxReplicas: 20
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "4000m"
+  env:
+    LOG_LEVEL: warn
+    NODE_ENV: production
+
+web:
+  replicaCount: 3
+  autoscaling:
+    minReplicas: 3
+    maxReplicas: 15
+
+ml:
+  replicaCount: 3
+  autoscaling:
+    minReplicas: 3
+    maxReplicas: 10
+
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 10s
+
+networkPolicy:
+  enabled: true
+  denyAll: true

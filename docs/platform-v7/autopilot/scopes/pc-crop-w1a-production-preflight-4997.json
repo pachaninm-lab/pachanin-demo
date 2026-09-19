@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4997,
+  "branch": "ops/pc-crop-w1a-production-preflight-4997",
+  "status": "active",
+  "purpose": "Add an owner-triggered aggregate-only READ ONLY REG.RU preflight for W1-A Organization Capability Authority so production migration state is measured before any migration or broader release is authorized.",
+  "authorityBaseExactMain": "d401f2678070eae3362d22d09b60aadf3a8e042d",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/pc-crop-w1a-production-preflight-4997.json",
+    ".github/workflows/pc-crop-w1a-production-preflight.yml"
+  ],
+  "requiredInvariants": [
+    "REGISTRATION_CODE_CHANGED=0 and REGISTRATION_BEHAVIOR_CHANGED=0.",
+    "ROLE_ELIGIBILITY_REGRESSION=0 and ROLE_ELIGIBILITY_ENFORCEMENT remains false.",
+    "Production database access is one REPEATABLE READ, READ ONLY transaction and PRODUCTION_DATABASE_MUTATION=0.",
+    "The preflight may report repository migration names and aggregate counts only; it emits no tenant, organization, membership, user or registration identifiers.",
+    "No migration, deploy, backfill, capability grant, external call or partner message is performed.",
+    "A later isolated W1-A migration may be authorized only when the target migration is the sole repository migration pending in production, or when the target is already applied and schema invariants are intact."
+  ],
+  "acceptance": [
+    "The exact current main SHA and deployed API revision are recorded without changing runtime.",
+    "Repository migration directories are compared with the production Prisma migration ledger in READ ONLY mode.",
+    "The target migration 20260904120000_organization_capability_authority is classified as applied, sole-pending or blocked by other pending migrations.",
+    "Target table presence, row counts and FORCE RLS flags are measured without mutation.",
+    "Immutable evidence is uploaded and the decision is written back to issue #4997."
+  ]
+}

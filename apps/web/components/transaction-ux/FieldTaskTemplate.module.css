@@ -1,0 +1,110 @@
+.root {
+  width: min(100%, var(--ds-content-max));
+  margin: 0 auto;
+  display: grid;
+  gap: var(--ds-space-4);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ds-space-4);
+}
+
+.headingGroup {
+  min-width: 0;
+  display: grid;
+  gap: var(--ds-space-2);
+}
+
+.eyebrow {
+  color: var(--ds-color-action-primary);
+  font-size: var(--ds-font-caption);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.headingGroup h1 {
+  margin: 0;
+  color: var(--ds-color-text-primary);
+  font-size: clamp(var(--ds-font-title), 5vw, var(--ds-font-display));
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+}
+
+.headingGroup p {
+  margin: 0;
+  max-width: 76ch;
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-body);
+  line-height: 1.55;
+}
+
+.workArea {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  align-items: start;
+  gap: var(--ds-space-4);
+}
+
+.primary,
+.context,
+.evidence,
+.contextStack {
+  min-width: 0;
+  display: grid;
+  gap: var(--ds-space-4);
+}
+
+.factGrid {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--ds-space-3);
+}
+
+.fact {
+  min-width: 0;
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  padding: var(--ds-space-3);
+  background: var(--ds-color-surface-subtle);
+}
+
+.fact dt {
+  color: var(--ds-color-text-muted);
+  font-size: var(--ds-font-caption);
+  font-weight: 750;
+}
+
+.fact dd {
+  margin: var(--ds-space-1) 0 0;
+  color: var(--ds-color-text-primary);
+  font-size: var(--ds-font-body);
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.fact small {
+  display: block;
+  margin-top: var(--ds-space-1);
+  color: var(--ds-color-text-secondary);
+  line-height: 1.4;
+}
+
+@media (max-width: 760px) {
+  .header { display: grid; }
+  .workArea { grid-template-columns: 1fr; }
+  .context { order: 2; }
+  .factGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 420px) {
+  .factGrid { grid-template-columns: 1fr; }
+}
+
+@media (forced-colors: active) {
+  .fact { border-color: CanvasText; }
+}

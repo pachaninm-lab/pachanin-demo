@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-06-12T01:18:00.000Z",
+  "task": "VP-2.5 role focus bank copy guard refresh",
+  "scope": [
+    "apps/web/tests/unit/platformV7RoleFocusLabels.test.ts"
+  ],
+  "sourceOfTruth": "The premium role focus label for bank is currently 'основания для банковской проверки' in ExecutionUi.",
+  "changes": [
+    "Aligned the role-focus unit assertion with the current bank focus copy without changing the UI source."
+  ],
+  "forbiddenZonesTouched": false,
+  "runtimeTouched": false
+}

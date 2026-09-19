@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "PLATFORM-V7-UNIFIED-HOME-FINAL-RELEASE-2026-07-25",
+  "branch": "release/platform-v7-unified-home-final-authority",
+  "status": "completed",
+  "maturityBoundary": "exact-sha-web-publication-trigger-only",
+  "globalProgramStateUnchanged": "This scope did not claim new application, banking, integration or TAI maturity. It authorized one operational Dockerfile comment that published the already accepted homepage from the current main lineage.",
+  "completionEvidence": {
+    "releasePullRequest": 3229,
+    "releaseMergeSha": "1b9c30c677586d9ea7c3bd0aab1956e6716929bb",
+    "releaseIssue": 3048,
+    "deploymentComplete": true,
+    "runningOciRevision": "1b9c30c677586d9ea7c3bd0aab1956e6716929bb",
+    "dockerState": "healthy",
+    "liveAcceptance": "PASS",
+    "rollbackResult": "not-required",
+    "watchtowerRetired": true,
+    "mobileViewports": ["390x844", "430x932"]
+  },
+  "allowedPaths": [
+    "infra/docker/Dockerfile.web"
+  ],
+  "forbiddenPaths": [
+    "apps/api/**",
+    "apps/web/**",
+    "packages/**",
+    ".github/workflows/**",
+    "infra/compose/**",
+    "infra/helm/**",
+    "pnpm-lock.yaml",
+    "production credentials"
+  ],
+  "requiredEvidence": [
+    "The release PR changed only infra/docker/Dockerfile.web",
+    "The Dockerfile runtime instructions and image contents remained unchanged",
+    "The canonical web image was labeled with the exact merge SHA",
+    "Production recorded DEPLOYMENT_COMPLETE=1 and LIVE_ACCEPTANCE=PASS for the exact target",
+    "RU, EN and ZH public routes and the 390x844 and 430x932 mobile homepage were accepted"
+  ]
+}

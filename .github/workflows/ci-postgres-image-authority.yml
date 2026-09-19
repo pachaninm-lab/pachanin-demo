@@ -1,0 +1,60 @@
+name: CI PostgreSQL Image Authority
+
+# The mirror only helps while consumers actually use it. This gate refuses any return
+# to an anonymous Docker Hub pull or a mutable tag, and refuses to bless consumers when
+# the manifests themselves are not verified.
+#
+# It is intentionally unfiltered by path: the regression it guards against is a one-line
+# edit in any workflow or script, and a path filter is exactly how the previous drift in
+# this repository stayed invisible.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-postgres-image-authority-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  authority:
+    name: Every PostgreSQL consumer pulls a verified mirrored digest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Verify exact checked-out head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Prove the guard fails on a regression before trusting it to pass
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test scripts/check-ci-postgres-image-authority.test.mjs
+
+      - name: Enforce PostgreSQL image authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/check-ci-postgres-image-authority.mjs

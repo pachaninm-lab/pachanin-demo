@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-agro-os-v4-stage1-reg-ru-deploy-20260731",
+  "status": "active",
+  "purpose": "Materialize the independent rootless TAI Agro OS runtime on the existing REG.RU production host after the read-only exact-main preflight, using the existing private Qwen service, PostgreSQL and Docker Compose authority with no new infrastructure or recurring cost.",
+  "approvedBy": "owner-direct-continue-2026-07-31",
+  "authorityBaseExactMain": "551ab5bf087ed710baca6483d70da11dc311a68a",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "productionMutationAllowed": true,
+  "allowedPaths": [
+    ".github/workflows/tai-reg-ru-deploy.yml",
+    "apps/tai/TAI_REG_RU_DEPLOY.md",
+    "apps/tai/TAI_REG_RU_PREFLIGHT.md",
+    "docs/platform-v7/autopilot/scopes/tai-agro-os-v4-stage1-reg-ru-deploy-20260731.json",
+    "scripts/check-tai-reg-ru-deploy.mjs",
+    "scripts/check-tai-reg-ru-preflight.mjs",
+    "scripts/tai-reg-ru-deploy.sh",
+    "scripts/tai-reg-ru-preflight.sh"
+  ],
+  "requiredBehavior": [
+    "accept only the exact current main SHA after successful canonical images and restricted Qwen activation",
+    "rerun the read-only REG.RU preflight and reject every blocker outside the exact materialization allowlist",
+    "verify the exact rootless TAI image revision remote digest image identity and non-root process identity",
+    "reuse the existing private Bearer-authenticated Qwen endpoint without exposing its address or credential to the browser",
+    "create or safely reuse one dedicated PostgreSQL runtime principal restricted by effective privileges to public tai-prefixed relations and without superuser bypassrls createdb createrole inherit replication or role membership",
+    "persist production secrets only in a root-owned mode-0600 environment file on the existing REG.RU host",
+    "materialize one internal-only Compose service named tai from the immutable image digest with no published ports read-only root filesystem dropped capabilities and no-new-privileges",
+    "preserve the existing API web migration PostgreSQL model-host and network topology",
+    "prove health readiness model warm-up and one request-bound HMAC-authenticated grounded inference through the TAI service",
+    "prove tools remain disabled-safe and no prepared or executed write action is returned",
+    "produce redacted exact-main deployment evidence and a deterministic rollback authority including previous TAI restoration",
+    "extend the read-only preflight so a correctly materialized TAI service and dedicated database principal can reach PASS",
+    "remove transient model-token and deployment-script files from the production host before deleting local SSH authority"
+  ],
+  "forbiddenCapabilities": [
+    "public TAI port publication",
+    "Netlify Vercel Railway or paid cloud LLM dependency",
+    "new server database cluster network product or recurring expense",
+    "replacement or mutation of the existing private Qwen model service",
+    "logging persisting or exposing the Qwen Bearer token outside protected server-only files",
+    "persistent expanded Compose configuration containing resolved secrets",
+    "effective grant on non-TAI business tables including privileges inherited from PUBLIC",
+    "PostgreSQL superuser bypassrls createdb createrole inherit replication or role membership for the TAI runtime principal",
+    "mutation of an existing TAI database principal without exact rollback evidence",
+    "destructive schema rollback or reverse migration",
+    "autonomous platform financial veterinary agronomic machinery or repair write action",
+    "client-selected tenant role membership or authority",
+    "removal weakening or bypass of existing API web tenant RLS MFA audit outbox idempotency or optimistic-concurrency controls",
+    "production PASS claim without exact-main deployment evidence live readiness and rollback proof"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "requiredChecks": [
+      "Workflow Syntax Guard",
+      "TAI REG.RU Deployment",
+      "TAI REG.RU Preflight",
+      "TAI Foundation",
+      "TAI Runtime Image",
+      "CI",
+      "Node CI",
+      "Security Quality Gate",
+      "Runtime Context Security Gate",
+      "Security Abuse and Evidence Acceptance"
+    ],
+    "operationalStatusBeforeLiveAcceptance": "NOT_DEPLOYED"
+  }
+}

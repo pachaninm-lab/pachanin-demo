@@ -1,0 +1,24 @@
+{
+  "attestation_reference": "https://github.com/pachaninm-lab/pachanin-demo/issues/2877?comment_id=5030210324#sha256=c83c7e64842e3fafc4bfb2f0e9933853b1af2af14dda6bc450a5c77592d46532",
+  "authority_sha256": "fe637511fc7fde634112f6ce0919db049cb2179307fc3dafe4f118102e326257",
+  "decision": "APPROVED",
+  "intended_use_sha256": "0a096a097324b7e316966594bd62f51650773f8c94ef2c62460a8753acd1655a",
+  "legal_packet_sha256": "a4a1eeca2db59a7e22f26a664016abd7892736ccb83ce0e78669e4e2acc38280",
+  "license_text_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+  "model_card_sha256": "3166974023134d972368b585d730fa5f70100873684f90a10a773b20e80b30ba",
+  "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
+  "review_record": {
+    "path": "model-artifacts/legal-reviews/mistral-7b-instruct-v0.3.review-record.v1.json",
+    "sha256": "7ad0017858f6f931ea12a3f82658ee39b14d2a8464dcc308d015d8d0456d4fdb",
+    "size_bytes": 2391
+  },
+  "reviewed_at": "2026-07-21T07:36:01+03:00",
+  "reviewer_id": "github:pachaninm-lab",
+  "revision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
+  "role": "FALLBACK",
+  "schema_version": "tai.model-legal-review-attestation.v1",
+  "source_acceptance_exact_main_sha": "7439ed17c94b173da1bb0c37e0d74ffdfb848d49",
+  "source_acceptance_git_blob_sha": "9d5390d2592c707a1ce995ce15cccf8df58c6a70",
+  "source_files_sha256": "377ffe04a6583e425ca78709afd065989bc6055dd12fcdc904837edffba3cc9e",
+  "source_manifest_sha256": "504b55481b74f7975119a12d88bb5fb00380bdf50f9a219f1d26813bb7e6ef84"
+}

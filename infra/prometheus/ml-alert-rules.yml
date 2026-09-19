@@ -1,0 +1,94 @@
+groups:
+  - name: ml_service_alerts
+    interval: 30s
+    rules:
+      - alert: MLServiceDown
+        expr: up{job="ml-service"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: ml
+        annotations:
+          summary: "ML Service недоступен"
+          description: "ML сервис (price/scoring/fraud) не отвечает более 2 минут. Платформа работает на эвристическом fallback."
+
+      - alert: MLHighErrorRate
+        expr: |
+          sum(rate(grainflow_http_requests_total{route=~"/api/ml/.*", status_code=~"5.."}[5m]))
+          / sum(rate(grainflow_http_requests_total{route=~"/api/ml/.*"}[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: ml
+        annotations:
+          summary: "Высокий error rate в ML сервисе (>5%)"
+          description: "{{ $value | humanizePercentage }} запросов к ML сервису возвращают 5xx ошибки"
+
+      - alert: FraudHighBlockRate
+        expr: |
+          sum(rate(grainflow_http_requests_total{route="/api/ml/fraud/check"}[5m]))
+          > 100
+        for: 10m
+        labels:
+          severity: warning
+          component: fraud
+        annotations:
+          summary: "Аномально высокая нагрузка на fraud detection"
+          description: "Более 100 fraud check запросов в секунду — возможная атака"
+
+      - alert: MLModelFallbackMode
+        expr: |
+          increase(grainflow_http_requests_total{route="/api/ml/price/predict"}[1h]) > 0
+          unless on() grainflow_ml_model_loaded{model="price_predictor"} == 1
+        for: 1h
+        labels:
+          severity: warning
+          component: ml
+        annotations:
+          summary: "Price predictor работает в режиме эвристики"
+          description: "ML модель предсказания цен не загружена. Требуется переобучение или проверка MODEL_PATH."
+
+  - name: business_alerts
+    interval: 60s
+    rules:
+      - alert: NoDealsCreatedIn1Hour
+        expr: |
+          increase(grainflow_http_requests_total{route="/api/deals", method="POST", status_code="201"}[1h]) == 0
+        for: 90m
+        labels:
+          severity: warning
+          component: business
+        annotations:
+          summary: "Нет новых сделок более 1.5 часов"
+          description: "За последние 90 минут не было создано ни одной сделки. Возможно — технический сбой или проблема с доступом."
+
+      - alert: HighFraudBlockRate
+        expr: |
+          sum(rate(grainflow_fraud_blocked_total[10m])) > 5
+        for: 5m
+        labels:
+          severity: critical
+          component: fraud
+        annotations:
+          summary: "Массовая блокировка действий fraud detector"
+          description: "Более 5 блокировок в минуту. Возможная атака или ложные срабатывания."
+
+      - alert: KafkaConsumerLag
+        expr: kafka_consumer_group_lag{group="grainflow-api-group"} > 10000
+        for: 5m
+        labels:
+          severity: warning
+          component: kafka
+        annotations:
+          summary: "Kafka consumer lag высокий (>10k сообщений)"
+          description: "Топик {{ $labels.topic }} отстал на {{ $value }} сообщений"
+
+      - alert: OutboxDeadLetters
+        expr: grainflow_outbox_dead_total > 10
+        for: 10m
+        labels:
+          severity: warning
+          component: outbox
+        annotations:
+          summary: "Накопились dead-letter сообщения в Outbox"
+          description: "{{ $value }} сообщений в статусе DEAD — требуется ручная проверка"

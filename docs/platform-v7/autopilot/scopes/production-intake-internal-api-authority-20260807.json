@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/production-intake-internal-api-authority-20260807",
+  "status": "active",
+  "title": "Production organization intake internal API authority",
+  "priority": "P0",
+  "baselineExactMain": "9892673c1a520dd2fc852466de5de0fa5528c5e9",
+  "objective": "Restore exact-main REG.RU public organization intake by binding the server-side Web BFF to the canonical internal Compose API service when no explicit server API URL is configured.",
+  "allowedPaths": [
+    "apps/web/app/api/platform-v7/organization-connect/route.ts",
+    "apps/web/tests/unit/platformV7OrganizationConnectProductionApiAuthority.test.ts",
+    "docs/platform-v7/autopilot/scopes/production-intake-internal-api-authority-20260807.json"
+  ],
+  "boundaries": [
+    "Explicit server-side API_URL remains highest priority",
+    "Production fallback is limited to the canonical Compose service http://api:3001 already required by the protected release authority",
+    "NEXT_PUBLIC_API_URL remains a non-production fallback and is not production server authority",
+    "No authentication, tenant, role, database, release-controller, rollback, credential or external integration authority is widened",
+    "No new recurring cost"
+  ]
+}

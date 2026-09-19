@@ -1,0 +1,10 @@
+{
+  "timestamp": "2026-06-06T23:35:20.338Z",
+  "sourcePr": 1591,
+  "sourceSha": "30bda6c08805c9635b6f05875610a5b153a13733",
+  "layerClosed": "Autopilot Product Slice 11",
+  "nextLayer": "Autopilot Product Slice 12",
+  "generatedWritableFile": "apps/web/tests/e2e/platform-v7-agent-generated-smoke-10.spec.ts",
+  "nextAgentWritableFile": "apps/web/tests/e2e/platform-v7-agent-generated-smoke-11.spec.ts",
+  "mergeDecision": "generated_pr_merged"
+}

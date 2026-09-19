@@ -1,0 +1,135 @@
+/* Cross-device viewport hardening for the public assistant.
+ * Every rule is strictly scoped to assistant-owned elements. Fixed elements are
+ * intentionally not transformed: transformed fixed layers can trigger iOS
+ * Safari compositing and horizontal viewport drift after the keyboard closes.
+ */
+
+.pc-public-assistant {
+  max-width: 0;
+  max-height: 0;
+  overflow: visible;
+}
+
+.pc-public-assistant-messages {
+  min-height: 0;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pc-public-assistant-form,
+.pc-public-assistant-form textarea {
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .pc-public-assistant-backdrop {
+    width: 100%;
+    height: 100dvh;
+    min-height: 100svh;
+  }
+
+  .pc-public-assistant-panel {
+    top: max(8px, env(safe-area-inset-top, 0px));
+    right: max(8px, env(safe-area-inset-right, 0px));
+    bottom: max(8px, env(safe-area-inset-bottom, 0px));
+    left: max(8px, env(safe-area-inset-left, 0px));
+    width: auto;
+    height: auto;
+    max-width: calc(100vw - 16px);
+    max-height: none;
+    grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
+    border-radius: 20px;
+  }
+
+  .pc-public-assistant-header {
+    padding-top: max(12px, env(safe-area-inset-top, 0px));
+  }
+
+  .pc-public-assistant-messages {
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .pc-public-assistant-form textarea {
+    /* Prevent native iOS focus zoom without changing the page viewport. */
+    font-size: 16px;
+    line-height: 1.4;
+  }
+
+  .pc-public-assistant-form-actions {
+    min-width: 0;
+  }
+
+  .pc-public-assistant-primary,
+  .pc-public-assistant-secondary {
+    max-width: 100%;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 390px) {
+  .pc-public-assistant-panel {
+    top: max(4px, env(safe-area-inset-top, 0px));
+    right: max(4px, env(safe-area-inset-right, 0px));
+    bottom: max(4px, env(safe-area-inset-bottom, 0px));
+    left: max(4px, env(safe-area-inset-left, 0px));
+    max-width: calc(100vw - 8px);
+    border-radius: 16px;
+  }
+
+  .pc-public-assistant-header,
+  .pc-public-assistant-boundary,
+  .pc-public-assistant-form {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+
+  .pc-public-assistant-starters {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+
+  .pc-public-assistant-form-actions {
+    gap: 6px;
+  }
+
+  .pc-public-assistant-primary,
+  .pc-public-assistant-secondary {
+    min-width: 0;
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+}
+
+@media (max-height: 520px) and (max-width: 720px) {
+  .pc-public-assistant-boundary,
+  .pc-public-assistant-starters,
+  .pc-public-assistant-version {
+    display: none;
+  }
+
+  .pc-public-assistant-header {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .pc-public-assistant-form {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .pc-public-assistant-form textarea {
+    min-height: 48px;
+    max-height: 88px;
+  }
+}
+
+@supports not (height: 100dvh) {
+  @media (max-width: 720px) {
+    .pc-public-assistant-panel {
+      height: calc(100vh - 16px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    }
+  }
+}

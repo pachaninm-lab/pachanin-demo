@@ -1,0 +1,133 @@
+name: API Tests
+
+on:
+  push:
+    branches: [main, 'claude/**']
+    paths:
+      - 'apps/api/**'
+      - 'shared/**'
+      - 'infra/sql/production-rls-policies.sql'
+      - 'scripts/platform-v7-rls-*'
+      - 'scripts/sql/identity-rls-*.sql'
+      - '.github/workflows/api-test.yml'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+  pull_request:
+    paths:
+      - 'apps/api/**'
+      - 'shared/**'
+      - 'infra/sql/production-rls-policies.sql'
+      - 'scripts/platform-v7-rls-*'
+      - 'scripts/sql/identity-rls-*.sql'
+      - '.github/workflows/api-test.yml'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: API unit tests + TypeScript check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: API typecheck
+        run: pnpm --filter @pc/api typecheck
+      - name: API unit tests
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api test 2>&1 | tee /tmp/api-unit-test.log
+      - name: Upload API unit test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-unit-test-log
+          path: /tmp/api-unit-test.log
+          if-no-files-found: ignore
+
+  rls-integration:
+    name: PostgreSQL 16 RLS tenant isolation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: ghcr.io/pachaninm-lab/ci-postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+        env:
+          POSTGRES_USER: rls_admin
+          POSTGRES_PASSWORD: ephemeral_rls_admin_only
+          POSTGRES_DB: rls_integration
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd "pg_isready -U rls_admin -d rls_integration"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      NODE_ENV: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client
+      - name: Run RLS gate
+        shell: bash
+        env:
+          RLS_INTEGRATION_ADMIN_URL: "postgresql://rls_admin:ephemeral_rls_admin_only@127.0.0.1:${{ job.services.postgres.ports[5432] }}/rls_integration"
+        run: |
+          set -o pipefail
+          if [[ -f scripts/platform-v7-rls-integration.sh ]]; then
+            bash scripts/platform-v7-rls-integration.sh 2>&1 | tee /tmp/platform-v7-rls-integration.log
+          else
+            node scripts/platform-v7-rls-validate.mjs 2>&1 | tee /tmp/platform-v7-rls-integration.log
+          fi
+      - name: Prove complete migration chain has no inert RLS policies
+        shell: bash
+        env:
+          RLS_INTEGRATION_ADMIN_URL: "postgresql://rls_admin:ephemeral_rls_admin_only@127.0.0.1:${{ job.services.postgres.ports[5432] }}/rls_integration"
+        run: |
+          set -o pipefail
+          psql "$RLS_INTEGRATION_ADMIN_URL" \
+            -X --set ON_ERROR_STOP=1 \
+            --file scripts/sql/identity-rls-no-inert-policies.sql \
+            2>&1 | tee -a /tmp/platform-v7-rls-integration.log
+      - name: Prove the API database principal confinement gate
+        shell: bash
+        env:
+          CONFINEMENT_ADMIN_URL: "postgresql://rls_admin:ephemeral_rls_admin_only@127.0.0.1:${{ job.services.postgres.ports[5432] }}/rls_integration"
+        run: |
+          set -o pipefail
+          node scripts/check-api-database-principal-confinement.mjs \
+            2>&1 | tee -a /tmp/platform-v7-rls-integration.log
+
+      - name: Upload RLS gate log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-v7-rls-integration-log
+          path: /tmp/platform-v7-rls-integration.log
+          if-no-files-found: error
+          retention-days: 7

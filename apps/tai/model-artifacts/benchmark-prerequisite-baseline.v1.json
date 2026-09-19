@@ -1,0 +1,73 @@
+{
+  "schema_version": "tai.benchmark-prerequisite-observation.v1",
+  "observed_at": "2026-07-21T14:15:00+00:00",
+  "observations": [
+    {
+      "id": "benchmark-authority-v2",
+      "owner_issue": 2862,
+      "status": "VALID",
+      "evidence_ref": "repo://pachaninm-lab/pachanin-demo@bdf901dbdd4660ed87d25e40c6459b4698e424a9/apps/tai/model-artifacts/model-benchmark-admission-authority.v2.json",
+      "exact_commit": "bdf901dbdd4660ed87d25e40c6459b4698e424a9",
+      "simulated": false
+    },
+    {
+      "id": "immutable-model-bundles",
+      "owner_issue": 2961,
+      "status": "FAILED_CLOSED",
+      "evidence_ref": "https://github.com/pachaninm-lab/pachanin-demo/issues/2961#issuecomment-5034662678",
+      "exact_commit": "1183eab316d287407e29cac79cf88a599e682906",
+      "simulated": false
+    },
+    {
+      "id": "external-evidence-storage",
+      "owner_issue": 2954,
+      "status": "MISSING_SELECTEL_S3_INPUTS",
+      "evidence_ref": "https://github.com/pachaninm-lab/pachanin-demo/issues/2958#issuecomment-5033324335",
+      "exact_commit": "1183eab316d287407e29cac79cf88a599e682906",
+      "simulated": false
+    },
+    {
+      "id": "expert-reviewed-58-case-suite",
+      "owner_issue": 2973,
+      "status": "PENDING_REVIEW",
+      "evidence_ref": "repo://pachaninm-lab/pachanin-demo@bdf901dbdd4660ed87d25e40c6459b4698e424a9/docs/platform-v7/autopilot/tai-ap-14c/baseline-assessment.v1.json",
+      "exact_commit": "bdf901dbdd4660ed87d25e40c6459b4698e424a9",
+      "simulated": false
+    },
+    {
+      "id": "dedicated-cpu-host",
+      "owner_issue": 2861,
+      "status": "CPU_HOST_ACCEPTED",
+      "evidence_ref": "https://github.com/pachaninm-lab/pachanin-demo/issues/2861#issuecomment-5030432350",
+      "exact_commit": "b09bcb2f43a3de96bfd5e2f02f10efbc12f345dc",
+      "simulated": false
+    },
+    {
+      "id": "dedicated-gpu-host",
+      "owner_issue": 2972,
+      "status": "NOT_PROVISIONED",
+      "evidence_ref": "https://github.com/pachaninm-lab/pachanin-demo/issues/2972",
+      "exact_commit": null,
+      "simulated": false
+    },
+    {
+      "id": "cpu-fallback-benchmark",
+      "owner_issue": 2971,
+      "status": "NOT_RUN",
+      "evidence_ref": "https://github.com/pachaninm-lab/pachanin-demo/issues/2971",
+      "exact_commit": null,
+      "simulated": false
+    },
+    {
+      "id": "gpu-benchmark",
+      "owner_issue": 2972,
+      "status": "NOT_RUN",
+      "evidence_ref": "https://github.com/pachaninm-lab/pachanin-demo/issues/2972",
+      "exact_commit": null,
+      "simulated": false
+    }
+  ],
+  "benchmark_status": "PENDING_BENCHMARK",
+  "model_admission_status": "PENDING_ADMISSION",
+  "production_operational_status": "NOT_ATTESTED"
+}

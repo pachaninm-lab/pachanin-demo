@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-deploy-internal-stage-evidence-20260802",
+  "status": "active",
+  "purpose": "Localize the confirmed exact-main TAI standalone deployment failure inside the protected deploy script with deterministic root-only stage evidence, without exposing raw logs, credentials, model paths or expanding production authority.",
+  "approvedBy": "owner-continue-tai-production-now-2026-08-02",
+  "authorityBaseExactMain": "eae723d57243b514b9911d9ae42ade4e8ccf200a",
+  "failureRun": 30746507765,
+  "failureArtifact": 8833061100,
+  "confirmedControllerCode": "TAI_STANDALONE_DEPLOY_EXECUTION_FAILED",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "productionMutationAllowedBeforeMerge": false,
+  "allowedPaths": [
+    ".github/workflows/apply-tai-deploy-internal-stage-evidence.yml",
+    "scripts/apply-tai-deploy-internal-stage-evidence.py",
+    "scripts/tai-reg-ru-deploy.sh",
+    "scripts/check-tai-reg-ru-deploy.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-deploy-internal-stage-evidence-20260802.json"
+  ],
+  "requiredBehavior": [
+    "retain the existing server-authoritative PostgreSQL and least-privilege boundaries",
+    "record only strict uppercase underscore-delimited stage codes in root-only controller state",
+    "cover every material pre-mutation deployment stage and the post-mutation rollback-sensitive stages",
+    "allow a later explicit deploy or rollback error code to override the current stage marker",
+    "never publish raw deploy logs environment values model paths tokens credentials or SQL contents",
+    "preserve fail-closed rollback and exact-main release authority",
+    "remove the temporary materializer workflow and patch script from the final source tree",
+    "keep REG.RU-only hosting and zero new recurring cost"
+  ],
+  "forbiddenCapabilities": [
+    "raw protected log publication",
+    "secret token credential environment SQL or model path disclosure",
+    "new sudo Docker SSH tenant or production mutation authority",
+    "continue-on-error acceptance weakening or fabricated production PASS",
+    "new hosting paid service or recurring expense"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "productionMutationAllowedBeforeMerge": false,
+    "deterministicInternalStageCodeRequired": true,
+    "temporaryMaterializerAbsentFromFinalTree": true,
+    "rerunExactMainReleaseChainRequired": true
+  }
+}

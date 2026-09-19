@@ -1,0 +1,20 @@
+{
+  "timestamp": "2026-06-12T02:22:00.000Z",
+  "task": "VP-2.5 role route guard refresh",
+  "scope": [
+    "apps/web/lib/platform-v7/navigation.ts",
+    "apps/web/app/platform-v7/bank/page.tsx",
+    "apps/web/app/platform-v7/compliance/page.tsx",
+    "apps/web/tests/unit/platformV7RoleNavigationIsolation.test.ts",
+    "apps/web/tests/unit/platformV7InvestorDashboard.test.ts",
+    "apps/web/tests/unit/platformV7FinalShellHardeningPack.test.ts",
+    "apps/web/tests/unit/platformV7PrimaryRoleCockpit.test.tsx"
+  ],
+  "sourceOfTruth": "MASTER-ТЗ 2 / VP-2.5 keeps field-role isolation and visible cockpit guards aligned with current controlled-pilot pages.",
+  "changes": [
+    "Kept field-role navigation limited to one role home route per field role.",
+    "Aligned investor, shell-route and primary-cockpit assertions with the current route and cockpit marker contracts."
+  ],
+  "forbiddenZonesTouched": false,
+  "runtimeTouched": false
+}

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "ops/release-public-ai-exact-main-20260730",
+  "status": "active",
+  "issue": 3072,
+  "baseCommit": "b82cbfca240293a2e0a75705aeb7df4081c0850a",
+  "operationalStatus": "PUBLIC_AI_EXACT_MAIN_RELEASE_TRIGGER",
+  "allowedPaths": [
+    "scripts/check-production-full-stack-release.mjs",
+    "docs/platform-v7/autopilot/scopes/release-public-ai-exact-main-20260730.json"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "blanketContinueOnError": false,
+    "productionDeployment": true
+  },
+  "acceptance": [
+    "the production release contract explicitly preserves repository-owner authorization for direct manual dispatch",
+    "the merge changes an approved release trigger path so exact API, web and migration images are rebuilt for current main",
+    "the push-triggered production workflow performs migration, API and web rollout rather than the skipped bot-dispatch path",
+    "terminal success requires exact running revisions, live acceptance and durable PostgreSQL audit/outbox evidence"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

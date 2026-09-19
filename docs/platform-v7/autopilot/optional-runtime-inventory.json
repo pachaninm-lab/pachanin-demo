@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "repository": "pachaninm-lab/pachanin-demo",
+  "decisionIssue": "#2605",
+  "decisionStatus": "RETIRED_UNTIL_REQUALIFIED",
+  "contours": [
+    {
+      "id": "ml-service",
+      "path": "apps/ml",
+      "status": "NOT_DEPLOYABLE",
+      "releaseAuthority": false,
+      "runtimeEntrypoint": null,
+      "dependencyManifest": null,
+      "containerDockerfile": null,
+      "deploymentManifest": null,
+      "reason": "The experimental FastAPI and model code is not part of the canonical Deal execution authority, has no accepted data lineage or model lifecycle, and previously depended on an unqualified vulnerable Python graph.",
+      "reactivationGate": [
+        "approved product decision tied to Deal execution",
+        "versioned training and inference datasets",
+        "model registry, rollback and drift monitoring",
+        "zero unexcepted HIGH or CRITICAL dependencies",
+        "non-root immutable image",
+        "tenant and object authorization",
+        "load, failure and security acceptance"
+      ]
+    },
+    {
+      "id": "airflow-orchestration",
+      "path": "infra/airflow",
+      "status": "NOT_DEPLOYABLE",
+      "releaseAuthority": false,
+      "runtimeEntrypoint": null,
+      "dependencyManifest": null,
+      "containerDockerfile": null,
+      "deploymentManifest": null,
+      "reason": "The retained DAG concepts used static service credentials, direct database writes and unconfirmed external endpoints. They are removed from executable topology and may only return through durable platform workers or a separately accepted orchestrator.",
+      "reactivationGate": [
+        "no direct database mutation outside canonical services",
+        "secret-manager credentials and least privilege",
+        "durable idempotency and audit",
+        "adapter conformance for every external endpoint",
+        "zero unexcepted HIGH or CRITICAL dependencies",
+        "backup, retry, poison-task and recovery acceptance"
+      ]
+    }
+  ]
+}

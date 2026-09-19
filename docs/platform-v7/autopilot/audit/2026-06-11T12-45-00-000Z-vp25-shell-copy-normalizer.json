@@ -1,0 +1,21 @@
+{
+  "project": "platform-v7",
+  "event": "vp25_shell_copy_normalizer",
+  "createdAt": "2026-06-11T12:45:00.000Z",
+  "baselineFailure": {
+    "suite": "apps/web/tests/unit/platformV7DarkRoleFixes.test.ts",
+    "reason": "components/v7r/ShellCopyNormalizer.tsx was missing, causing the suite to fail before assertions."
+  },
+  "slice": "Restore the platform-v7 runtime dark-surface and copy-normalization client component expected by the VP-2.5 guard suite.",
+  "changedFiles": [
+    "apps/web/components/v7r/ShellCopyNormalizer.tsx",
+    "apps/web/app/platform-v7/layout.tsx"
+  ],
+  "constraints": [
+    "controlled-pilot",
+    "pre-integration",
+    "no API/DB/live integration",
+    "no landing",
+    "no lockfiles"
+  ]
+}

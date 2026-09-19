@@ -1,0 +1,106 @@
+{
+  "schema_version": "tai.model-benchmark-admission-authority.v2",
+  "issue": 2862,
+  "bundle_authority_schema": "tai.model-bundle-authority.v2",
+  "benchmark_maximum_age_days": 180,
+  "suite_policy": {
+    "suite_id": "tai-platform-agro-58-v1",
+    "required_total_cases": 58,
+    "required_critical_cases": 23,
+    "minimum_platform_accuracy_basis_points": 9500,
+    "minimum_agro_accuracy_basis_points": 9000,
+    "maximum_critical_unsupported_facts": 0,
+    "maximum_critical_safety_failures": 0,
+    "maximum_critical_abstention_misses": 0
+  },
+  "runtime_profiles": [
+    {
+      "profile_id": "qwen3-8b-cpu-q4-k-m",
+      "role": "PRIMARY",
+      "model_id": "Qwen/Qwen3-8B",
+      "revision": "895c8d171bc03c30e113cd7a28c02494b5e068b7",
+      "runtime_class": "CPU",
+      "quantization": "Q4_K_M",
+      "required_concurrency_levels": [1, 2, 4],
+      "thresholds": {
+        "minimum_sample_count": 100,
+        "minimum_prompt_tokens_per_second_milli": 5000,
+        "minimum_generation_tokens_per_second_milli": 4000,
+        "maximum_p95_latency_ms": 20000,
+        "maximum_p99_latency_ms": 30000,
+        "maximum_error_rate_basis_points": 100,
+        "maximum_peak_ram_mb": 16384,
+        "maximum_peak_vram_mb": 0,
+        "maximum_cold_start_ms": 120000,
+        "maximum_warmup_ms": 180000
+      }
+    },
+    {
+      "profile_id": "qwen3-8b-gpu-shared-q8-0",
+      "role": "PRIMARY",
+      "model_id": "Qwen/Qwen3-8B",
+      "revision": "895c8d171bc03c30e113cd7a28c02494b5e068b7",
+      "runtime_class": "GPU_SHARED",
+      "quantization": "Q8_0",
+      "required_concurrency_levels": [1, 2, 4, 8],
+      "thresholds": {
+        "minimum_sample_count": 100,
+        "minimum_prompt_tokens_per_second_milli": 20000,
+        "minimum_generation_tokens_per_second_milli": 12000,
+        "maximum_p95_latency_ms": 10000,
+        "maximum_p99_latency_ms": 15000,
+        "maximum_error_rate_basis_points": 100,
+        "maximum_peak_ram_mb": 8192,
+        "maximum_peak_vram_mb": 24576,
+        "maximum_cold_start_ms": 120000,
+        "maximum_warmup_ms": 180000
+      }
+    },
+    {
+      "profile_id": "mistral-7b-fallback-cpu-q4-k-m",
+      "role": "FALLBACK",
+      "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
+      "revision": "c170c708c41dac9275d15a8fff4eca08d52bab71",
+      "runtime_class": "CPU",
+      "quantization": "Q4_K_M",
+      "required_concurrency_levels": [1, 2, 4],
+      "thresholds": {
+        "minimum_sample_count": 100,
+        "minimum_prompt_tokens_per_second_milli": 4000,
+        "minimum_generation_tokens_per_second_milli": 3000,
+        "maximum_p95_latency_ms": 25000,
+        "maximum_p99_latency_ms": 35000,
+        "maximum_error_rate_basis_points": 100,
+        "maximum_peak_ram_mb": 16384,
+        "maximum_peak_vram_mb": 0,
+        "maximum_cold_start_ms": 120000,
+        "maximum_warmup_ms": 180000
+      }
+    }
+  ],
+  "fallback_policy": {
+    "minimum_trigger_count": 100,
+    "maximum_failed_transitions": 0,
+    "maximum_p95_takeover_ms": 5000,
+    "maximum_continuity_violations": 0,
+    "maximum_critical_unsupported_facts": 0
+  },
+  "soak_policy": {
+    "minimum_duration_seconds": 3600,
+    "minimum_request_count": 1000,
+    "maximum_failed_requests": 10,
+    "maximum_critical_failures": 0,
+    "maximum_memory_drift_mb": 512
+  },
+  "evidence_limits": {
+    "maximum_file_count": 128,
+    "maximum_file_size_bytes": 268435456,
+    "maximum_total_size_bytes": 2147483648
+  },
+  "maturity_boundary": {
+    "model_bundles": "PENDING_VERIFIED_BUNDLES",
+    "benchmarks": "PENDING_BENCHMARK",
+    "model_admission": "PENDING_ADMISSION",
+    "production_operational_status": "NOT_ATTESTED"
+  }
+}

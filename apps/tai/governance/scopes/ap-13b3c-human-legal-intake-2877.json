@@ -1,0 +1,53 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "agent/tai-ap-13b3c-human-legal-intake",
+  "status": "active",
+  "program_issue": 2726,
+  "parent_issue": 2835,
+  "issue": 2877,
+  "maturity_boundary": "human-legal-review-intake-and-validation-only",
+  "allowed_paths": [
+    ".github/workflows/tai-model-legal-review.yml",
+    "apps/tai/governance/scopes/ap-13b3c-human-legal-intake-2877.json",
+    "apps/tai/model-artifacts/model-legal-review-authority.v1.json",
+    "apps/tai/model-artifacts/model-legal-review-record.schema.v1.json",
+    "apps/tai/model-artifacts/model-legal-review-attestation.schema.v1.json",
+    "apps/tai/model-artifacts/model-legal-review-runbook.v1.md",
+    "apps/tai/tai/model_legal_review.py",
+    "apps/tai/tai/model_legal_review_authority.py",
+    "apps/tai/tai/model_legal_review_authority_parse.py",
+    "apps/tai/tai/model_legal_review_cli.py",
+    "apps/tai/tai/model_legal_review_evidence.py",
+    "apps/tai/tai/model_legal_review_evidence_parse.py",
+    "apps/tai/tai/model_legal_review_source.py",
+    "apps/tai/tai/model_legal_review_verify.py",
+    "apps/tai/tests/test_model_legal_review.py",
+    "apps/tai/tests/test_model_legal_review_workflow.py"
+  ],
+  "forbidden_capabilities": [
+    "automated legal decision generation or mutation",
+    "anonymous, bot or service reviewer acceptance",
+    "mutable model, license or source evidence substitution",
+    "model weights, tokenizer files, source archives or GGUF in Git",
+    "conversion, quantization or model admission",
+    "benchmark or production readiness claim",
+    "production deployment or operational attestation"
+  ],
+  "acceptance": [
+    "authority binds exact accepted Qwen and Mistral source evidence and intended use",
+    "completed human review records remain bundle-v2 compatible",
+    "attestation envelopes bind exact model, revision, role, source hashes, intended use and record digest",
+    "reviewer identity is namespaced and bot identities are rejected",
+    "ATTRIBUTED_RECORD binds issue 2877 and an immutable SHA-256 reference",
+    "SIGNED_RECORD requires an immutable versioned or digest-bound locator",
+    "reviews predating accepted source evidence are rejected",
+    "APPROVED authorizes only a later conversion proposal",
+    "REJECTED is a valid record that blocks conversion",
+    "absence of both files remains PENDING_HUMAN_DECISION",
+    "incomplete, malformed or mismatched pairs fail closed",
+    "dedicated workflow is pull-request-only and contents-read-only",
+    "no automation writes or infers a human decision",
+    "Ruff, strict mypy, full pytest/coverage, security/runtime and exact-head CI pass",
+    "production_operational_status remains NOT_ATTESTED"
+  ]
+}

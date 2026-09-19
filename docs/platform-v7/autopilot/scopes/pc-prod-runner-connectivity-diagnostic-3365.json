@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "diag/pc-prod-runner-connectivity-3365",
+  "status": "active",
+  "purpose": "Diagnose why the already-registered REG.RU pc-prod GitHub Actions runner remains unavailable to GitHub scheduling after a bounded service restart, without mutating the runner, Docker, application, database, model runtime, credentials or customer data.",
+  "approvedBy": "repository-owner direct continuation of Gekta SPEED #3896 and REG.RU release recovery on 2026-08-14",
+  "authorityBaseExactMain": "ad8e3204143b75aed3facf47c927dfff7d51ebcf",
+  "newRecurringCostRub": 0,
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "allowedPaths": [
+    ".github/workflows/tai-reg-ru-runner-diagnostic-owner-command.yml",
+    "docs/platform-v7/autopilot/scopes/pc-prod-runner-connectivity-diagnostic-3365.json"
+  ],
+  "requiredBehavior": [
+    "owner-only command is bound to issue 3365 and exact literal /tai diagnose-pc-prod-runner current-main",
+    "execute only from a GitHub-hosted runner through the existing protected REG.RU root SSH key and pinned host fingerprint",
+    "resolve exact current main before diagnostics",
+    "require exactly one pre-existing pc-prod actions.runner systemd service and read only its state and process metadata",
+    "verify the configured runner identity is pc-prod-* and the configured execution user is pcactions",
+    "test DNS and bounded HTTPS reachability to the fixed GitHub and GitHub Actions endpoints without authentication",
+    "classify only allowlisted runner diagnostic error categories and freshness counters; never publish raw runner logs or credential files",
+    "collect read-only filesystem and inode headroom counters",
+    "publish only bounded machine-readable diagnostic fields and the GitHub run URL",
+    "new recurring cost remains zero"
+  ],
+  "forbiddenCapabilities": [
+    "systemctl start stop restart enable disable daemon-reload or service mutation",
+    "runner registration re-registration removal token consumption or config.sh invocation",
+    "reading or publishing .credentials .credentials_rsaparams OAuth tokens registration tokens or raw .runner content",
+    "publishing raw journalctl or runner _diag log lines",
+    "Docker container image volume network build-cache or registry mutation",
+    "application deployment rollback restart or configuration mutation",
+    "database model-host deal role money registration credential or customer-data mutation",
+    "unbounded remote shell input or user-controlled remote command arguments",
+    "new server paid API SaaS or recurring cost"
+  ]
+}

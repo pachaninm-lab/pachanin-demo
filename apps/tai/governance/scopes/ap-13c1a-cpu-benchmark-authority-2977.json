@@ -1,0 +1,36 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "program_issue": 2726,
+  "parent_issue": 2971,
+  "issue": 2977,
+  "branch": "agent/tai-ap-13c1a-cpu-benchmark-authority",
+  "allowed_paths": [
+    ".gitleaksignore",
+    ".github/workflows/tai-cpu-benchmark-execution-authority.yml",
+    "apps/tai/governance/scopes/ap-13c1a-cpu-benchmark-authority-2977.json",
+    "apps/tai/model-artifacts/cpu-benchmark-execution-authority.v1.json",
+    "apps/tai/model-artifacts/cpu-benchmark-execution-runbook.v1.md",
+    "apps/tai/tai/cpu_benchmark_execution.py",
+    "apps/tai/tests/test_cpu_benchmark_execution.py",
+    "apps/tai/tests/test_cpu_benchmark_execution_cli.py",
+    "apps/tai/tests/test_cpu_benchmark_execution_workflow.py",
+    "apps/tai/tests/test_gitleaks_release_authority.py",
+    "apps/tai/tai/cpu_benchmark_execution_cli.py"
+  ],
+  "acceptance": [
+    "owner-only exact-main command validates the CPU/fallback execution gate",
+    "stale, simulated, pending, incomplete or maturity-inflated evidence is rejected",
+    "the exact Qwen and Mistral CPU profiles, llama.cpp toolchain and 58-case suite are pinned",
+    "public immutable model revisions use only exact fingerprint-bound Gitleaks exceptions",
+    "current missing immutable bundles and expert review remain visible blockers",
+    "no model inference, benchmark measurement, admission, activation or deployment is claimed",
+    "production_operational_status remains NOT_ATTESTED"
+  ],
+  "forbidden_capabilities": [
+    "model weights, GGUF files, bundle archives, benchmark payloads or credentials in Git",
+    "broad secret-scanner suppression or unbound Gitleaks exceptions",
+    "automatic acceptance of Selectel storage, expert reviews or external execution",
+    "execution on the production web, API or PostgreSQL host",
+    "GPU benchmark, joint model admission, activation, deployment or production attestation"
+  ]
+}

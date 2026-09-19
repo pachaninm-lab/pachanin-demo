@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-model-token-repr-hardening-20260731",
+  "status": "active",
+  "purpose": "Prevent the protected Qwen Bearer credential from appearing in diagnostic object representations after the authenticated runtime was merged by PR #3547.",
+  "approvedBy": "owner-direct-continue-2026-07-31",
+  "authorityBaseExactMain": "6bbff3549be8eee81c248d53c2e8e93a0bab9d81",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/tai/tai/production_authenticated_runtime.py",
+    "apps/tai/tests/test_production_authenticated_runtime.py",
+    "docs/platform-v7/autopilot/scopes/tai-model-token-repr-hardening-20260731.json"
+  ],
+  "requiredBehavior": [
+    "exclude the model Bearer token from ProductionModelAccess repr",
+    "preserve the existing validated token value for authenticated transport",
+    "add a deterministic regression proving the token is absent from repr",
+    "preserve all existing production, tenant, model-admission and write-authority boundaries"
+  ],
+  "forbiddenCapabilities": [
+    "REG.RU compose mutation",
+    "production deployment or live-acceptance claim",
+    "authentication policy weakening",
+    "token logging or browser exposure",
+    "Docker or GHCR authority changes",
+    "database migration execution",
+    "new paid dependency or recurring cost",
+    "tenant, role, financial, veterinary or write-authority expansion"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "changedPathCount": 3,
+    "requiredChecks": [
+      "TAI Foundation",
+      "TAI Runtime Image",
+      "CI",
+      "Security Quality Gate",
+      "Runtime Context Security Gate",
+      "Security Abuse and Evidence Acceptance"
+    ],
+    "operationalStatus": "NOT_DEPLOYED"
+  }
+}

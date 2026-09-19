@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "pc-crop.concurrent-scope.v1",
+  "branch": "agent/pc-crop-01b-postgresql-registry-authority",
+  "status": "active",
+  "parentIssue": 2883,
+  "stackDependency": {
+    "issue": 2875,
+    "pullRequest": 2879,
+    "baseBranch": "agent/pc-crop-01-commodity-registry-foundation"
+  },
+  "operationalStatus": "NOT_ATTESTED",
+  "maturityBoundary": "postgresql-schema-and-invariant-authority-without-prisma-model-sync-or-nest-runtime",
+  "allowedPaths": [
+    "apps/api/prisma/migrations/20260720131500_commodity_profile_registry_authority/migration.sql",
+    "apps/api/test/industrial/commodity-profile-registry-invariants.sql",
+    "scripts/pc-crop-01b1-postgresql-acceptance.sh",
+    "scripts/verify-pc-crop-01b1.mjs",
+    "docs/crop-platform/PC-CROP-01B1-POSTGRESQL-AUTHORITY.md",
+    "docs/crop-platform/scopes/pc-crop-01b1-postgresql-authority-2883.json",
+    ".github/workflows/pc-crop-01b1.yml"
+  ],
+  "forbiddenCapabilities": [
+    "parallel Deal, Lot or Organization authority",
+    "Float or double precision for commodity quantities, conversions or quality values",
+    "destructive down migration or deletion of published history",
+    "browser, static or in-memory registry authority",
+    "client-selected role or tenant",
+    "NestJS command/API activation in this schema slice",
+    "Prisma model completion claim before schema.prisma sync and generate acceptance",
+    "reference profile presented as current statutory rule",
+    "external FGIS, EDO, bank or registry live claim",
+    "production operational attestation",
+    "direct privileged write by TAI"
+  ],
+  "acceptance": [
+    "three PostgreSQL authority tables are created without changing Deal or Lot models",
+    "six archetypes are constrained in the stable profile identity",
+    "version starts in DRAFT and published content is immutable",
+    "SHA-256 metadata is mandatory and stale content hash is denied",
+    "lifecycle transitions fail closed",
+    "approved and effective ranges cannot overlap under concurrent sessions",
+    "per-profile advisory lock avoids optional extension dependency",
+    "transition receipts are profile-consistent, chained and append-only",
+    "forced RLS exposes ordinary reads only for currently effective versions and reserves writes for privileged server context",
+    "migration chain applies on PostgreSQL 16",
+    "machine-readable evidence and SHA-256 inventory are retained for 90 days",
+    "Prisma models remain explicitly PENDING_SCHEMA_SYNC",
+    "operational status remains NOT_ATTESTED"
+  ]
+}

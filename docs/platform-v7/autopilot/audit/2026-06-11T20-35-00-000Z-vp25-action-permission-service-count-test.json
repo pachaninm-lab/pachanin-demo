@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-06-11T20:35:00.000Z",
+  "task": "VP-2.5 action permission service-count guard refresh",
+  "scope": [
+    "apps/web/tests/unit/platformV7ActionPermissionBoundary.test.ts"
+  ],
+  "sourceOfTruth": "The action permission boundary summary reports the current unique service count from PLATFORM_V7_ACTION_PERMISSION_POLICIES.",
+  "changes": [
+    "Replaced the stale hard-coded service count with the policy-derived expected count."
+  ],
+  "forbiddenZonesTouched": false,
+  "runtimeTouched": false
+}

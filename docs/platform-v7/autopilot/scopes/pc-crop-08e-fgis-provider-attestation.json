@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/pc-crop-08e-fgis-provider-attestation",
+  "status": "active",
+  "issue": 3172,
+  "baseCommit": "cfad7089412c3c4bdd1cd866e08454a3451fa35f",
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-08e.yml",
+    "apps/api/prisma/migrations/20260724*_fgis_grain_provider_attestation_authority/**",
+    "apps/api/src/modules/regulatory-integration/fgis-grain/**",
+    "apps/api/src/modules/regulatory-integration/regulatory-integration.module.ts",
+    "apps/api/test/industrial/fgis-grain-provider-attestation.e2e-spec.ts",
+    "docs/platform-v7/autopilot/scopes/pc-crop-08e-fgis-provider-attestation.json",
+    "scripts/pc-crop-08e/**",
+    "scripts/p7-autopilot-guard.sh"
+  ],
+  "boundaries": {
+    "postgresqlAuthorityOnly": true,
+    "referenceOnlyConfiguration": true,
+    "serverDerivedTenantOrgRole": true,
+    "independentAttestationGates": true,
+    "productionActivation": false,
+    "rawCredentialCertificateOrPrivateKeyBytes": false,
+    "networkClient": false,
+    "externalProviderCall": false,
+    "secondInboxOutboxOrRelay": false,
+    "directDealLotOrSdizMutation": false,
+    "confirmedLiveClaim": false,
+    "productionDeploymentEvidence": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

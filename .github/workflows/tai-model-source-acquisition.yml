@@ -1,0 +1,470 @@
+name: TAI Exact Model Source Acquisition
+
+on:
+  workflow_dispatch:
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+
+concurrency:
+  group: tai-exact-model-source-acquisition
+  cancel-in-progress: false
+
+jobs:
+  acquire:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner &&
+      (
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event_name == 'issue_comment' &&
+          github.event.action == 'created' &&
+          github.event.issue.pull_request == null &&
+          github.event.issue.number == 2835 &&
+          github.event.comment.body == '/tai acquire model-sources exact-main' &&
+          github.event.comment.author_association == 'OWNER' &&
+          github.event.comment.user.login == github.repository_owner
+        )
+      )
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - key: qwen3-8b
+            model_id: Qwen/Qwen3-8B
+            revision: 895c8d171bc03c30e113cd7a28c02494b5e068b7
+            model_card_path: sources/qwen3-8b/README.md
+          - key: mistral-7b-instruct-v0.3
+            model_id: mistralai/Mistral-7B-Instruct-v0.3
+            revision: c170c708c41dac9275d15a8fff4eca08d52bab71
+            model_card_path: sources/mistral-7b-instruct-v0.3/README.md
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    env:
+      AUTHORITY_PATH: repository/apps/tai/model-artifacts/model-bundle-authority.v2.json
+      EVIDENCE_ROOT: model-source-evidence/${{ matrix.key }}
+      LICENSE_URI: https://www.apache.org/licenses/LICENSE-2.0.txt
+      SELECTED_MARGIN_BYTES: 25000000000
+
+    steps:
+      - name: Checkout exact main authority
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+          path: repository
+
+      - name: Verify exact checked-out main revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = 'refs/heads/main'
+          test "$(git -C repository rev-parse HEAD)" = "$GITHUB_SHA"
+          git -C repository fetch --no-tags --depth=1 origin main
+          test "$(git -C repository rev-parse refs/remotes/origin/main)" = "$GITHUB_SHA"
+
+      - name: Prepare ephemeral source roots
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            printf 'ORIGINAL_ROOT=%s\n' "$RUNNER_TEMP/tai-${{ matrix.key }}-original"
+            printf 'RESTORE_ROOT=%s\n' "$RUNNER_TEMP/tai-${{ matrix.key }}-restore"
+          } >> "$GITHUB_ENV"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate exact authority and accepted toolchain dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=repository/apps/tai python -m tai.model_artifact_registry_cli \
+            validate-bundle-authority-v2 \
+            "$AUTHORITY_PATH" \
+            --output authority-validation.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          validation = json.loads(Path('authority-validation.json').read_text())
+          build = json.loads(
+              Path(
+                  'repository/apps/tai/model-artifacts/'
+                  'llama-cpp-build-acceptance.v1.json'
+              ).read_text()
+          )
+          assert validation['status'] == 'VALID'
+          assert validation['authority_sha256'] == (
+              '3391ea2ba4ddd855b45c5f389f12ffe3ddffb7cc4f46a4048d7357ffcdda6022'
+          )
+          assert build['status'] == 'VERIFIED_RESTORED'
+          assert build['evidence']['verification_report']['status'] == 'VERIFIED'
+          assert build['evidence']['verification_report']['reasons'] == []
+          assert (
+              build['maturity_boundary']['production_operational_status']
+              == 'NOT_ATTESTED'
+          )
+          PY
+
+      - name: Reconcile exact Hugging Face revision inventory
+        shell: bash
+        env:
+          MODEL_ID: ${{ matrix.model_id }}
+          REVISION: ${{ matrix.revision }}
+        run: |
+          set -euo pipefail
+          mkdir -p \
+            "$EVIDENCE_ROOT" \
+            "$EVIDENCE_ROOT/legal" \
+            "$ORIGINAL_ROOT" \
+            "$RESTORE_ROOT"
+          chmod 700 "$ORIGINAL_ROOT" "$RESTORE_ROOT"
+          observed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          curl --fail --silent --show-error --location \
+            --proto '=https' --tlsv1.2 \
+            --retry 6 --retry-all-errors --max-time 90 \
+            "https://huggingface.co/api/models/$MODEL_ID/revision/$REVISION?blobs=true" \
+            --output "$EVIDENCE_ROOT/huggingface-api-response.json"
+          PYTHONPATH=repository/apps/tai python -m tai.model_source_acquisition_cli \
+            reconcile-inventory \
+            "$AUTHORITY_PATH" "$MODEL_ID" "$REVISION" \
+            "$EVIDENCE_ROOT/huggingface-api-response.json" \
+            --observed-at "$observed_at" \
+            --output "$EVIDENCE_ROOT/remote-inventory.json"
+          PYTHONPATH=repository/apps/tai python -m tai.model_source_acquisition_cli \
+            download-plan "$EVIDENCE_ROOT/remote-inventory.json" \
+            --output "$EVIDENCE_ROOT/download-plan.json"
+
+      - name: Enforce actual free runner capacity
+        shell: bash
+        run: |
+          set -euo pipefail
+          selected_bytes="$(python -c 'import json; print(json.load(open("model-source-evidence/${{ matrix.key }}/download-plan.json"))["selected_total_bytes"])')"
+          available_bytes="$(df -B1 --output=avail "$RUNNER_TEMP" | tail -1 | tr -d ' ')"
+          memory_total_bytes="$(awk '/MemTotal:/{printf "%.0f", $2 * 1024}' /proc/meminfo)"
+          required_bytes=$((selected_bytes * 2 + SELECTED_MARGIN_BYTES))
+          printf '%s\n' \
+            "selected_bytes=$selected_bytes" \
+            "available_bytes=$available_bytes" \
+            "required_bytes=$required_bytes" \
+            "memory_total_bytes=$memory_total_bytes" \
+            > "$EVIDENCE_ROOT/capacity.env"
+          test "$available_bytes" -ge "$required_bytes"
+          test "$memory_total_bytes" -ge 12000000000
+
+      - name: Download and hash exact selected source files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY' > "$EVIDENCE_ROOT/download-plan.tsv"
+          import json
+          from pathlib import Path
+
+          plan = json.loads(
+              Path(
+                  'model-source-evidence/${{ matrix.key }}/download-plan.json'
+              ).read_text()
+          )
+          for item in plan['entries']:
+              values = (item['path'], item['download_uri'], str(item['size_bytes']))
+              if any('\t' in value or '\n' in value for value in values):
+                  raise SystemExit('unsafe download-plan value')
+              print('\t'.join(values))
+          PY
+          : > "$EVIDENCE_ROOT/original-download.log"
+          while IFS=$'\t' read -r relative_path uri expected_size; do
+            target="$ORIGINAL_ROOT/$relative_path"
+            partial="${target}.partial"
+            mkdir -p "$(dirname "$target")"
+            printf 'START\t%s\t%s\n' "$relative_path" "$expected_size" \
+              >> "$EVIDENCE_ROOT/original-download.log"
+            curl --fail --silent --show-error --location \
+              --proto '=https' --tlsv1.2 \
+              --retry 12 --retry-all-errors --retry-delay 5 \
+              --connect-timeout 30 --max-time 7200 \
+              --continue-at - --output "$partial" "$uri"
+            test "$(stat --format='%s' "$partial")" = "$expected_size"
+            mv "$partial" "$target"
+            printf 'DONE\t%s\t%s\n' "$relative_path" "$expected_size" \
+              >> "$EVIDENCE_ROOT/original-download.log"
+          done < "$EVIDENCE_ROOT/download-plan.tsv"
+
+      - name: Collect fail-closed source manifest and shard-index evidence
+        shell: bash
+        env:
+          MODEL_ID: ${{ matrix.model_id }}
+          REVISION: ${{ matrix.revision }}
+        run: |
+          set -euo pipefail
+          PYTHONPATH=repository/apps/tai python -m tai.model_source_acquisition_cli \
+            collect-source \
+            "$AUTHORITY_PATH" "$MODEL_ID" "$REVISION" \
+            "$EVIDENCE_ROOT/remote-inventory.json" "$ORIGINAL_ROOT" \
+            --output "$EVIDENCE_ROOT/source-manifest.json"
+
+      - name: Prepare exact license evidence without manufacturing approval
+        shell: bash
+        env:
+          MODEL_CARD_PATH: ${{ matrix.model_card_path }}
+          MODEL_ID: ${{ matrix.model_id }}
+          REVISION: ${{ matrix.revision }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            --proto '=https' --tlsv1.2 \
+            --retry 6 --retry-all-errors --max-time 90 \
+            "$LICENSE_URI" \
+            --output "$EVIDENCE_ROOT/legal/LICENSE-2.0.txt"
+          test -s "$EVIDENCE_ROOT/legal/LICENSE-2.0.txt"
+          cp "$ORIGINAL_ROOT/$MODEL_CARD_PATH" "$EVIDENCE_ROOT/legal/model-card.md"
+          prepared_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          PYTHONPATH=repository/apps/tai python -m tai.model_source_acquisition_cli \
+            legal-packet \
+            "$AUTHORITY_PATH" "$MODEL_ID" "$REVISION" \
+            "$EVIDENCE_ROOT/source-manifest.json" "$ORIGINAL_ROOT" \
+            "$EVIDENCE_ROOT/legal/LICENSE-2.0.txt" \
+            --license-uri "$LICENSE_URI" \
+            --prepared-at "$prepared_at" \
+            --output "$EVIDENCE_ROOT/legal-review-packet.json"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          packet = json.loads(
+              Path(
+                  'model-source-evidence/${{ matrix.key }}/'
+                  'legal-review-packet.json'
+              ).read_text()
+          )
+          assert packet['status'] == 'PENDING_HUMAN_DECISION'
+          assert packet['required_human_record']['decision'] is None
+          assert (
+              packet['automation_boundary']
+              == 'AUTOMATION_MUST_NOT_APPROVE_OR_REJECT'
+          )
+          PY
+
+      - name: Independently re-download exact sources into clean restore root
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(find "$RESTORE_ROOT" -mindepth 1 -print -quit)"
+          : > "$EVIDENCE_ROOT/restore-download.log"
+          while IFS=$'\t' read -r relative_path uri expected_size; do
+            target="$RESTORE_ROOT/$relative_path"
+            partial="${target}.partial"
+            mkdir -p "$(dirname "$target")"
+            printf 'START\t%s\t%s\n' "$relative_path" "$expected_size" \
+              >> "$EVIDENCE_ROOT/restore-download.log"
+            curl --fail --silent --show-error --location \
+              --proto '=https' --tlsv1.2 \
+              --retry 12 --retry-all-errors --retry-delay 5 \
+              --connect-timeout 30 --max-time 7200 \
+              --continue-at - --output "$partial" "$uri"
+            test "$(stat --format='%s' "$partial")" = "$expected_size"
+            mv "$partial" "$target"
+            printf 'DONE\t%s\t%s\n' "$relative_path" "$expected_size" \
+              >> "$EVIDENCE_ROOT/restore-download.log"
+          done < "$EVIDENCE_ROOT/download-plan.tsv"
+
+      - name: Verify clean source restore and assemble acquisition report
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=repository/apps/tai python -m tai.model_source_acquisition_cli \
+            verify-restore \
+            "$EVIDENCE_ROOT/source-manifest.json" "$RESTORE_ROOT" \
+            --output "$EVIDENCE_ROOT/restore-verification.json"
+          PYTHONPATH=repository/apps/tai python -m tai.model_source_acquisition_cli \
+            assemble-report \
+            "$EVIDENCE_ROOT/remote-inventory.json" \
+            "$EVIDENCE_ROOT/source-manifest.json" \
+            "$EVIDENCE_ROOT/legal-review-packet.json" \
+            "$EVIDENCE_ROOT/restore-verification.json" \
+            --repository-sha "$GITHUB_SHA" \
+            --workflow-run-id "$GITHUB_RUN_ID" \
+            --workflow-run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --output "$EVIDENCE_ROOT/acquisition-report.json"
+          sha256sum \
+            "$EVIDENCE_ROOT/remote-inventory.json" \
+            "$EVIDENCE_ROOT/source-manifest.json" \
+            "$EVIDENCE_ROOT/legal-review-packet.json" \
+            "$EVIDENCE_ROOT/restore-verification.json" \
+            "$EVIDENCE_ROOT/acquisition-report.json" \
+            > "$EVIDENCE_ROOT/evidence-sha256.txt"
+
+      - name: Remove multi-gigabyte source bytes before evidence upload
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$ORIGINAL_ROOT" "$RESTORE_ROOT"
+          test ! -e "$ORIGINAL_ROOT"
+          test ! -e "$RESTORE_ROOT"
+          if find "$EVIDENCE_ROOT" -type f -size +50000000c -print -quit \
+            | grep -q .; then
+            echo 'Large source bytes entered the metadata evidence directory.' >&2
+            exit 1
+          fi
+
+      - name: Upload immutable source-acquisition metadata
+        id: evidence_upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-model-source-${{ matrix.key }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: model-source-evidence/${{ matrix.key }}
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
+
+      - name: Create machine-readable metadata locator
+        shell: bash
+        env:
+          ARTIFACT_ID: ${{ steps.evidence_upload.outputs.artifact-id }}
+          ARTIFACT_URL: ${{ steps.evidence_upload.outputs.artifact-url }}
+          ARTIFACT_DIGEST: ${{ steps.evidence_upload.outputs.artifact-digest }}
+        run: |
+          set -euo pipefail
+          test -n "$ARTIFACT_ID"
+          test -n "$ARTIFACT_URL"
+          test -n "$ARTIFACT_DIGEST"
+          mkdir -p "model-source-locator/${{ matrix.key }}"
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path('model-source-evidence/${{ matrix.key }}')
+          report_path = root / 'acquisition-report.json'
+          report = json.loads(report_path.read_text())
+          payload = {
+              'schema_version': 'tai.model-source-acquisition-artifact-locator.v1',
+              'status': report['status'],
+              'model_id': report['model_id'],
+              'revision': report['revision'],
+              'repository_sha': report['repository_sha'],
+              'workflow_run_id': report['workflow_run_id'],
+              'workflow_run_attempt': report['workflow_run_attempt'],
+              'artifact': {
+                  'id': os.environ['ARTIFACT_ID'],
+                  'url': os.environ['ARTIFACT_URL'],
+                  'digest': os.environ['ARTIFACT_DIGEST'],
+                  'retention_days': 90,
+              },
+              'acquisition_report': {
+                  'sha256': hashlib.sha256(report_path.read_bytes()).hexdigest(),
+                  'content': report,
+              },
+              'source_bytes_storage': {
+                  'type': 'UPSTREAM_EXACT_REVISION_RESTORABLE',
+                  'locally_hashed': True,
+                  'clean_redownload_reverified': True,
+                  'copied_to_git_or_actions_artifact': False,
+              },
+          }
+          Path(
+              'model-source-locator/${{ matrix.key }}/locator.json'
+          ).write_text(
+              json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True)
+              + '\n'
+          )
+          PY
+
+      - name: Upload immutable source-acquisition locator
+        id: locator_upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-model-source-locator-${{ matrix.key }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: model-source-locator/${{ matrix.key }}
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
+
+      - name: Publish bounded acquisition summary to issue 2835
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          EVIDENCE_ARTIFACT_ID: ${{ steps.evidence_upload.outputs.artifact-id }}
+          EVIDENCE_ARTIFACT_DIGEST: ${{ steps.evidence_upload.outputs.artifact-digest }}
+          LOCATOR_ARTIFACT_ID: ${{ steps.locator_upload.outputs.artifact-id }}
+          LOCATOR_ARTIFACT_DIGEST: ${{ steps.locator_upload.outputs.artifact-digest }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path('model-source-evidence/${{ matrix.key }}')
+          report = json.loads((root / 'acquisition-report.json').read_text())
+          manifest = json.loads((root / 'source-manifest.json').read_text())
+          inventory = json.loads((root / 'remote-inventory.json').read_text())
+          lines = [
+              f"## TAI exact source acquisition — {report['model_id']}",
+              '',
+              f"- status: `{report['status']}`;",
+              f"- exact revision: `{report['revision']}`;",
+              f"- exact-main: `{report['repository_sha']}`;",
+              f"- selected source bytes: `{inventory['selected_total_bytes']}`;",
+              f"- selected source files: `{len(manifest['files'])}`;",
+              f"- source-files SHA-256: `{report['source_files_sha256']}`;",
+              '- clean re-download/rehash: `VERIFIED_SOURCE_RESTORED`;',
+              (
+                  '- evidence artifact: '
+                  f"`{os.environ['EVIDENCE_ARTIFACT_ID']}` / "
+                  f"`{os.environ['EVIDENCE_ARTIFACT_DIGEST']}`;"
+              ),
+              (
+                  '- locator artifact: '
+                  f"`{os.environ['LOCATOR_ARTIFACT_ID']}` / "
+                  f"`{os.environ['LOCATOR_ARTIFACT_DIGEST']}`;"
+              ),
+              '- source weights copied to Git or Actions artifact: `false`;',
+              '- legal review: `PENDING_HUMAN_DECISION`;',
+              '- conversion: `NOT_RUN`;',
+              '- quantization: `NOT_RUN`;',
+              '- model admission: `NOT_DONE`;',
+              '- production operational status: `NOT_ATTESTED`.',
+          ]
+          Path('issue-comment.md').write_text('\n'.join(lines) + '\n')
+          PY
+          gh api "/repos/$REPOSITORY/issues/2835/comments" \
+            --method POST \
+            --raw-field body="$(cat issue-comment.md)"
+
+      - name: Enforce honest acquisition maturity boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path(
+                  'model-source-evidence/${{ matrix.key }}/acquisition-report.json'
+              ).read_text()
+          )
+          assert report['status'] == 'VERIFIED_SOURCE_RESTORED_LEGAL_PENDING'
+          assert report['reasons'] == []
+          assert report['legal_review_status'] == 'PENDING_HUMAN_DECISION'
+          assert report['conversion_status'] == 'NOT_RUN'
+          assert report['quantization_status'] == 'NOT_RUN'
+          assert report['model_admission_status'] == 'NOT_DONE'
+          assert report['production_operational_status'] == 'NOT_ATTESTED'
+          PY

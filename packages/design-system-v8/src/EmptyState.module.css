@@ -1,0 +1,58 @@
+.root {
+  min-width: 0;
+  border: 1px dashed var(--ds-color-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-color-surface-subtle);
+  color: var(--ds-color-text-primary);
+  padding: var(--ds-space-5);
+  display: grid;
+  justify-items: center;
+  gap: var(--ds-space-2);
+  text-align: center;
+}
+
+.icon {
+  width: var(--ds-control-height);
+  height: var(--ds-control-height);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-color-surface);
+  color: var(--ds-color-text-muted);
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+}
+
+.title {
+  font-size: var(--ds-font-body);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.description {
+  max-width: 54ch;
+  margin: 0;
+  color: var(--ds-color-text-secondary);
+  font-size: var(--ds-font-body);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.action {
+  margin-top: var(--ds-space-2);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--ds-space-2);
+}
+
+@media (max-width: 640px) {
+  .root { padding: var(--ds-space-4); }
+  .action,
+  .action > * { width: 100%; }
+}
+
+@media (forced-colors: active) {
+  .root,
+  .icon { border-color: CanvasText; }
+}

@@ -1,0 +1,166 @@
+name: Production Release Accepted SHA
+
+# Single source of truth for "which commit did production actually accept".
+#
+# A push to main is NOT a deployment. The REG.RU virtual server changes only
+# when `Production Web Exact-SHA Release` performs a bounded deploy or rollback
+# and its live acceptance passes. Anything that talks to the live domain — SEO
+# live smoke, IndexNow submission — must be told the accepted SHA by this
+# workflow instead of assuming `github.sha`.
+#
+# Resolution is deliberately fail-closed: if the release run was an `audit`, if
+# it did not complete a deployment, or if its evidence is missing, this returns
+# `deployment_accepted=false` and the caller skips. It never guesses.
+
+on:
+  workflow_call:
+    inputs:
+      release_run_id:
+        description: 'Run id of the completed Production Web Exact-SHA Release run.'
+        required: false
+        type: string
+        default: ''
+      manual_sha:
+        description: 'Diagnostics-only override. Still verified against the live server.'
+        required: false
+        type: string
+        default: ''
+    outputs:
+      accepted_sha:
+        description: 'Full 40-hex commit id production is serving, or empty.'
+        value: ${{ jobs.resolve.outputs.accepted_sha }}
+      deployment_accepted:
+        description: 'true only when a real deploy or rollback was accepted and is live.'
+        value: ${{ jobs.resolve.outputs.deployment_accepted }}
+      release_source:
+        description: 'release-run or workflow_dispatch.'
+        value: ${{ jobs.resolve.outputs.release_source }}
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  resolve:
+    name: Resolve the SHA production accepted
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      LIVE_BASE: https://xn----8sbjf4befbjgs9b.xn--p1ai
+    outputs:
+      accepted_sha: ${{ steps.resolve.outputs.accepted_sha }}
+      deployment_accepted: ${{ steps.confirm.outputs.deployment_accepted }}
+      release_source: ${{ steps.resolve.outputs.release_source }}
+
+    steps:
+      - name: Checkout main history
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Download release evidence
+        id: evidence
+        if: inputs.release_run_id != ''
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: production-web-exact-sha-${{ inputs.release_run_id }}
+          path: release-evidence
+          run-id: ${{ inputs.release_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Resolve accepted SHA from release evidence
+        id: resolve
+        shell: bash
+        env:
+          MANUAL_SHA: ${{ inputs.manual_sha }}
+          RELEASE_RUN_ID: ${{ inputs.release_run_id }}
+        run: |
+          set -euo pipefail
+
+          accepted=''
+          source=''
+
+          if [ -n "$MANUAL_SHA" ]; then
+            accepted="$MANUAL_SHA"
+            source='workflow_dispatch'
+            echo "Manual diagnostics SHA supplied; it is still verified against the live server."
+          elif [ -f release-evidence/action.txt ] && [ -f release-evidence/production-action.log ]; then
+            action="$(tr -d '[:space:]' < release-evidence/action.txt)"
+            complete="$(sed -n 's/^DEPLOYMENT_COMPLETE=//p' release-evidence/production-action.log | tail -1 | tr -d '[:space:]')"
+            revision="$(sed -n 's/^DEPLOYED_WEB_REVISION=//p' release-evidence/production-action.log | tail -1 | tr -d '[:space:]')"
+
+            echo "Release run $RELEASE_RUN_ID: action=$action DEPLOYMENT_COMPLETE=${complete:-missing} DEPLOYED_WEB_REVISION=${revision:-missing}"
+
+            if [ "$action" = 'audit' ]; then
+              echo 'Release run was an audit. Production was not changed; nothing to smoke or submit.'
+            elif [ "$complete" != '1' ]; then
+              echo 'Release run did not complete a deployment. Refusing to treat it as live.'
+            else
+              accepted="$revision"
+              source='release-run'
+            fi
+          else
+            echo 'No release evidence is available. Refusing to assume a deployment happened.'
+          fi
+
+          if [ -z "$accepted" ]; then
+            echo 'accepted_sha=' >> "$GITHUB_OUTPUT"
+            echo 'release_source=' >> "$GITHUB_OUTPUT"
+            echo 'resolved=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if ! printf '%s' "$accepted" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "Accepted revision is not a full 40-hex commit id: $accepted" >&2
+            exit 1
+          fi
+
+          if ! git cat-file -e "${accepted}^{commit}" 2>/dev/null; then
+            echo "Accepted revision $accepted is not a commit in this repository." >&2
+            exit 1
+          fi
+
+          if ! git merge-base --is-ancestor "$accepted" origin/main; then
+            echo "Accepted revision $accepted is not contained in main." >&2
+            exit 1
+          fi
+
+          echo "accepted_sha=$accepted" >> "$GITHUB_OUTPUT"
+          echo "release_source=$source" >> "$GITHUB_OUTPUT"
+          echo 'resolved=true' >> "$GITHUB_OUTPUT"
+
+      - name: Confirm the live server serves the accepted SHA
+        id: confirm
+        shell: bash
+        env:
+          ACCEPTED_SHA: ${{ steps.resolve.outputs.accepted_sha }}
+          RESOLVED: ${{ steps.resolve.outputs.resolved }}
+        run: |
+          set -euo pipefail
+
+          if [ "$RESOLVED" != 'true' ]; then
+            echo 'deployment_accepted=false' >> "$GITHUB_OUTPUT"
+            echo 'No accepted deployment to confirm.'
+            exit 0
+          fi
+
+          # The release workflow already ran live acceptance against this exact
+          # revision, so this is a short confirmation, not an open-ended wait for
+          # a SHA that may never be published.
+          for attempt in $(seq 1 10); do
+            body="$(curl --fail --silent --show-error --location \
+              --retry 2 --retry-all-errors \
+              "$LIVE_BASE/manifest-pc-deploy.json?accepted=$ACCEPTED_SHA&attempt=$attempt" 2>/dev/null || true)"
+            live_sha="$(jq -r '.commitSha // empty' <<< "$body" 2>/dev/null || true)"
+            echo "Confirm attempt $attempt: accepted=$ACCEPTED_SHA live=${live_sha:-missing}"
+            if [ "$live_sha" = "$ACCEPTED_SHA" ]; then
+              echo 'deployment_accepted=true' >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            [ "$attempt" -lt 10 ] && sleep 15
+          done
+
+          echo "The live server does not serve the accepted revision $ACCEPTED_SHA." >&2
+          exit 1

@@ -1,0 +1,8 @@
+{
+  "source": "SmartAgro sandbox",
+  "fieldId": "field-1",
+  "forecastDate": "2026-03-14",
+  "ndvi": 0.68,
+  "soilMoisture": 0.54,
+  "riskFlags": ["wind_high"]
+}

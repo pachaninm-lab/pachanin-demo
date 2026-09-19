@@ -1,0 +1,1 @@
+Deployment trigger created via ChatGPT on 2026-04-18 to force a fresh Vercel production build for pachanin-canonical-web.

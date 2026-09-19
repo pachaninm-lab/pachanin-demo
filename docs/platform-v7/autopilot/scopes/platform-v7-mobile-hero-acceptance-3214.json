@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "PLATFORM-V7-MOBILE-HERO-ACCEPTANCE-3214",
+  "pullRequest": 3214,
+  "branch": "fix/platform-v7-mobile-hero-acceptance",
+  "status": "active",
+  "maturityBoundary": "public-mobile-hero-visual-density-and-copy-only",
+  "globalProgramStateUnchanged": "This isolated public-entry refinement does not advance platform production maturity, banking readiness or integration attestation.",
+  "branchBaseExactMain": "b07ecfea85eca6b972e7e659c173f11fc034a1da",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/PlatformV7HomeEnhancements.tsx",
+    "apps/web/components/platform-v7/PlatformV7HomeHeroAcceptance.css",
+    "apps/web/i18n/platform-v7-hero-message.ts",
+    "docs/platform-v7/autopilot/scopes/platform-v7-mobile-hero-acceptance-3214.json"
+  ],
+  "forbiddenPaths": [
+    "apps/api/**",
+    "apps/web/app/api/**",
+    "apps/web/lib/**",
+    "packages/**",
+    "infra/**",
+    "pnpm-lock.yaml",
+    "package-lock.json",
+    "production credentials"
+  ],
+  "requiredEvidence": [
+    "RU, EN and ZH hero copy remains complete",
+    "mobile touch targets remain accessible",
+    "Design System v8 boundary and typecheck pass",
+    "mobile and desktop Lighthouse acceptance pass",
+    "production release remains exact-SHA and separate from this pull request"
+  ],
+  "forbiddenClaims": [
+    "production deployment completed",
+    "production visual acceptance completed",
+    "all platform maturity gates completed",
+    "external integrations confirmed live"
+  ]
+}

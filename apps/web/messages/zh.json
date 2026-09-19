@@ -1,0 +1,384 @@
+{
+  "landing": {
+    "brand": "透明价格",
+    "brandTagline": "交易执行闭环",
+    "publicNav": "公共导航",
+    "sectionsNav": "主页栏目",
+    "nav": {
+      "process": "流程",
+      "control": "控制",
+      "roles": "角色",
+      "demo": "交易复盘",
+      "contact": "问题",
+      "docs": "文件"
+    },
+    "signIn": "登录",
+    "register": "注册",
+    "hero": {
+      "kicker": "进入执行闭环的统一入口",
+      "titleLine1": "交易的主要风险",
+      "titleLine2": "开始于",
+      "titleLine3": "价格确认之后",
+      "lead": "透明价格是粮食交易的数字执行闭环：运输、验收、质量、文件、资金、争议和证据在一个流程中管理。",
+      "primaryCta": "接入组织",
+      "secondaryCta": "查看交易闭环",
+      "questionCta": "提问"
+    },
+    "visual": {
+      "label": "交易闭环",
+      "note": "执行处于控制中",
+      "signals": {
+        "price": {
+          "label": "价格",
+          "value": "已确认"
+        },
+        "trip": {
+          "label": "运输",
+          "value": "进行中"
+        },
+        "acceptance": {
+          "label": "验收",
+          "value": "等待事实确认"
+        },
+        "documents": {
+          "label": "文件",
+          "value": "核对中"
+        },
+        "settlement": {
+          "label": "结算",
+          "value": "依据确认后"
+        }
+      },
+      "docs": "文件",
+      "docsState": "核对中",
+      "quality": "质量",
+      "qualityState": "等待验收单",
+      "money": "结算",
+      "moneyState": "依据确认后"
+    },
+    "control": {
+      "title": "平台控制什么",
+      "text": "价格确认后，关键事项仍在控制中：运输、验收、文件、质量和付款依据。",
+      "money": {
+        "title": "资金",
+        "text": "付款释放前可以看到结算依据。"
+      },
+      "documents": {
+        "title": "文件",
+        "text": "SDIZ、电子文件流、运输文件和验收文件与交易事件关联。"
+      },
+      "logistics": {
+        "title": "物流",
+        "text": "运输、司机、路线和检查点都在一个闭环中。"
+      },
+      "quality": {
+        "title": "质量",
+        "text": "最终结算前会考虑验收和实验室指标。"
+      }
+    },
+    "process": {
+      "title": "交易流程",
+      "text": "每个阶段都能看到已确认事项、待处理事项以及下一步负责人。",
+      "price": {
+        "title": "价格",
+        "text": "价格、数量、基准和质量容差在运输前固定。"
+      },
+      "deal": {
+        "title": "交易",
+        "text": "各方、批次和执行条件被整合到一个闭环。"
+      },
+      "trip": {
+        "title": "运输",
+        "text": "路线、司机、车辆和检查点已分配。"
+      },
+      "acceptance": {
+        "title": "验收",
+        "text": "重量、交付事实和差异在粮仓记录。"
+      },
+      "documents": {
+        "title": "文件",
+        "text": "文件与执行事件核对。"
+      },
+      "settlement": {
+        "title": "结算",
+        "text": "付款在依据确认后执行。"
+      },
+      "dispute": {
+        "title": "争议",
+        "text": "复盘基于已记录数据。"
+      }
+    },
+    "roles": {
+      "title": "选择你在交易中的角色",
+      "text": "请先选择交易参与方角色。之后使用登录名、密码和组织登录。",
+      "operator": {
+        "title": "运营方",
+        "text": "交易、阻断项、SLA和控制动作。",
+        "cta": "以运营方身份登录"
+      },
+      "buyer": {
+        "title": "买方",
+        "text": "交付、质量、文件和付款风险。",
+        "cta": "以买方身份登录"
+      },
+      "seller": {
+        "title": "卖方",
+        "text": "批次、运输、验收和付款依据。",
+        "cta": "以卖方身份登录"
+      },
+      "logistics": {
+        "title": "物流",
+        "text": "运输、司机、移动和路线偏差。",
+        "cta": "以物流身份登录"
+      },
+      "driver": {
+        "title": "司机",
+        "text": "路线、运输节点、照片和离线证据。",
+        "cta": "以司机身份登录"
+      },
+      "elevator": {
+        "title": "粮仓",
+        "text": "验收、仓储、重量和批次状态。",
+        "cta": "以粮仓身份登录"
+      },
+      "lab": {
+        "title": "实验室",
+        "text": "检测、质量指标和验收关联。",
+        "cta": "以实验室身份登录"
+      },
+      "surveyor": {
+        "title": "检验员",
+        "text": "检查、事实记录和独立证据层。",
+        "cta": "以检验员身份登录"
+      },
+      "bank": {
+        "title": "银行",
+        "text": "基于已确认事件的融资和结算依据。",
+        "cta": "以银行身份登录"
+      },
+      "compliance": {
+        "title": "合规",
+        "text": "访问权限、参与方动作和规则控制。",
+        "cta": "以合规身份登录"
+      },
+      "arbitrator": {
+        "title": "仲裁员",
+        "text": "争议、差异、证据包和基于事实的决定。",
+        "cta": "以仲裁员身份登录"
+      },
+      "executive": {
+        "title": "管理层",
+        "text": "结算、阻断项、角色、争议和执行进度。",
+        "cta": "以管理层身份登录"
+      }
+    },
+    "trust": {
+      "aria": "信任与控制",
+      "status": {
+        "title": "无猜测状态",
+        "text": "按阶段和参与方统一视图。"
+      },
+      "trail": {
+        "title": "具有法律意义的记录",
+        "text": "事件和文件与交易执行关联。"
+      },
+      "docsControl": {
+        "title": "文件控制",
+        "text": "完整性、版本、期限和负责人都在控制中。"
+      },
+      "basis": {
+        "title": "结算依据",
+        "text": "结算基于已确认事件。"
+      },
+      "cta": "接入组织"
+    }
+  },
+  "loginLegacy": {
+    "brand": "透明价格",
+    "back": "返回",
+    "kicker": "统一入口",
+    "title": "登录工作平台",
+    "lead": "输入企业凭证以访问工作闭环。",
+    "chooseWorkspace": "选择一个工作区",
+    "login": "登录名",
+    "password": "密码",
+    "organisation": "组织",
+    "orgPlaceholder": "公司 / 税号",
+    "submit": "进入工作区",
+    "error": "请填写登录名、密码和组织。工作区仅在完成登录表单后开放。",
+    "roles": {
+      "operator": "运营方",
+      "buyer": "买方",
+      "seller": "卖方",
+      "logistics": "物流",
+      "driver": "司机",
+      "elevator": "粮仓",
+      "lab": "实验室",
+      "surveyor": "检验员",
+      "bank": "银行",
+      "compliance": "合规",
+      "arbitrator": "仲裁员",
+      "executive": "管理层"
+    }
+  },
+  "docs": {
+    "brand": "透明价格",
+    "demo": "演示",
+    "contact": "请求",
+    "connect": "接入组织",
+    "kicker": "交易文件闭环",
+    "title": "文件必须确认交易执行",
+    "lead": "平台把SDIZ、电子文件流、运输文件、单据、验收、质量、结算和证据连接到一个执行闭环。",
+    "boundary": "当前准备边界",
+    "boundaryText": "本节描述目标文件闭环。外部系统集成在合同、访问权限和真实连接确认前不声明为已接入。",
+    "items": {
+      "sdiz": {
+        "title": "SDIZ和电子文件流",
+        "text": "文件与批次、运输、验收和责任动作相连。"
+      },
+      "transport": {
+        "title": "运输文件",
+        "text": "运输、司机、路线和检查点提供核对依据。"
+      },
+      "acts": {
+        "title": "单据和验收",
+        "text": "交付事实、重量和差异在最终结算前记录。"
+      },
+      "quality": {
+        "title": "质量",
+        "text": "实验室指标在形成付款依据前被纳入考虑。"
+      },
+      "basis": {
+        "title": "结算依据",
+        "text": "金融闭环获得可核验的事件和文件集合。"
+      },
+      "dispute": {
+        "title": "争议和证据",
+        "text": "争议复盘基于事件日志、文件、验收和质量。"
+      }
+    }
+  },
+  "demo": {
+    "brand": "透明价格",
+    "sub": "交易执行闭环",
+    "title": "平台如何控制粮食交易执行",
+    "lead": "演示场景展示价格确认后的路径：运输、验收、质量、文件、结算和证据。真实数据不会开放。",
+    "q": "提问",
+    "back": "返回",
+    "status": "当前状态",
+    "current": "等待确认质量和文件",
+    "deal": "交易",
+    "amount": "金额",
+    "route": "路线",
+    "map": "执行地图",
+    "money": "付款取决于已确认事件",
+    "proof": "争议沿交易轨迹复盘",
+    "home": "首页",
+    "disabled": "演示中金融操作不可用",
+    "cards": {
+      "terms": "交易条件",
+      "trip": "运输",
+      "acceptance": "验收",
+      "quality": "质量",
+      "documents": "文件",
+      "settlement": "结算"
+    },
+    "states": {
+      "done": "已完成",
+      "review": "审核中",
+      "pending": "等待"
+    }
+  },
+  "contact": {
+    "brand": "透明价格",
+    "subbrand": "交易执行闭环",
+    "demo": "交易复盘",
+    "connect": "接入组织",
+    "login": "登录",
+    "kicker": "官方请求渠道",
+    "title": "平台请求",
+    "lead": "使用此表单咨询演示访问、试点项目、组织接入、银行协作、地区启动或技术接入相关问题。",
+    "cards": {
+      "noReg": {
+        "title": "无需进入工作区",
+        "text": "无需授权或选择参与方角色即可使用表单。"
+      },
+      "channel": {
+        "title": "不开放工作数据",
+        "text": "提交请求不会开放交易、文件或平台受限板块。"
+      },
+      "separate": {
+        "title": "按所留联系方式回复",
+        "text": "联系方式仅用于处理请求和发送回复。"
+      }
+    },
+    "sentTitle": "请求已接收",
+    "sentText": "请求处理后，将通过所留电话或电子邮箱回复。",
+    "sentBack": "返回交易复盘",
+    "formTitle": "请求表单",
+    "formText": "请填写必填项。不要提供密码、访问密钥、银行信息或文件副本。",
+    "type": "请求主题",
+    "name": "姓名",
+    "namePh": "姓名",
+    "org": "组织",
+    "orgPh": "如适用",
+    "contact": "电话或电子邮箱",
+    "contactPh": "电话或组织邮箱",
+    "message": "请求内容",
+    "messagePh": "请简要描述问题、试点项目参数、组织角色或所需协作形式。",
+    "consent": "我同意为处理请求并发送回复而处理上述数据。",
+    "submit": "发送请求",
+    "types": {
+      "platform": "平台一般问题",
+      "pilot": "试点项目",
+      "bank_partner": "银行或合作方",
+      "region": "地区启动",
+      "technical": "技术接入",
+      "other": "其他请求"
+    }
+  },
+  "register": {
+    "brand": "透明价格",
+    "login": "登录",
+    "exit": "退出",
+    "title": "将公司接入交易闭环",
+    "lead": "申请固定角色、组织和负责人。工作区访问仅在审核后开放。",
+    "role": "参与方角色",
+    "org": "组织",
+    "req": "账户信息",
+    "person": "负责人",
+    "status": "审核状态",
+    "send": "提交审核申请",
+    "already": "已有访问权限 — 登录",
+    "fields": {
+      "type": "参与方类型",
+      "orgName": "组织名称",
+      "region": "地区",
+      "inn": "税号",
+      "kpp": "KPP",
+      "ogrn": "OGRN / OGRNIP",
+      "fullName": "全名",
+      "position": "职位",
+      "phone": "电话",
+      "email": "Email"
+    },
+    "states": {
+      "created": "申请已创建",
+      "awaiting": "等待审核",
+      "clarify": "需要补充说明",
+      "approved": "已准入",
+      "declined": "已拒绝"
+    },
+    "roles": {
+      "seller": "卖方",
+      "buyer": "买方",
+      "logistics": "物流",
+      "elevator": "粮仓",
+      "lab": "实验室",
+      "surveyor": "检验员",
+      "bank": "银行",
+      "arbitrator": "仲裁员",
+      "operator": "运营方"
+    }
+  }
+}

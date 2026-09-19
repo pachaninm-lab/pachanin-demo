@@ -1,0 +1,366 @@
+{
+  "plan_version": "1.0.0",
+  "master_issue": 2871,
+  "exact_main_baseline": "6f074942b46e226982e646c6f688886504b712ce",
+  "production_operational_status": "NOT_ATTESTED",
+  "execution_policy": {
+    "one_pr_one_slice": true,
+    "exact_head_acceptance": true,
+    "exact_main_reacceptance": true,
+    "fake_live_forbidden": true
+  },
+  "gates": [
+    {
+      "gate": "G0",
+      "title": "Governance and truth source",
+      "epics": [
+        "PC-CROP-00"
+      ],
+      "exit": "accepted registries, gap-map, ADR and UX contract"
+    },
+    {
+      "gate": "G1",
+      "title": "Universal crop foundation",
+      "epics": [
+        "PC-CROP-01",
+        "PC-CROP-02",
+        "PC-CROP-06"
+      ],
+      "exit": "six archetypes pass domain and E2E tests without parallel state machine"
+    },
+    {
+      "gate": "G2",
+      "title": "Identity and legal readiness",
+      "epics": [
+        "PC-CROP-03",
+        "PC-CROP-04"
+      ],
+      "exit": "activation matrix and required legal approvals"
+    },
+    {
+      "gate": "G3",
+      "title": "Regulatory and document core",
+      "epics": [
+        "PC-CROP-07",
+        "PC-CROP-08",
+        "PC-CROP-09",
+        "PC-CROP-10"
+      ],
+      "exit": "truthful adapter status, contract tests, durable persistence/ACK/reconciliation"
+    },
+    {
+      "gate": "G4",
+      "title": "Quality, evidence and logistics",
+      "epics": [
+        "PC-CROP-11",
+        "PC-CROP-12"
+      ],
+      "exit": "dry-bulk E2E, offline recovery and evidence package"
+    },
+    {
+      "gate": "G5",
+      "title": "Settlement and dispute",
+      "epics": [
+        "PC-CROP-13",
+        "PC-CROP-14"
+      ],
+      "exit": "zero-double-effect tests and real bank reconciliation evidence"
+    },
+    {
+      "gate": "G6",
+      "title": "Controlled rollout",
+      "epics": [
+        "PC-CROP-20",
+        "PC-CROP-21",
+        "PC-CROP-22"
+      ],
+      "exit": "repeatable full-cycle deals by archetype"
+    },
+    {
+      "gate": "G10",
+      "title": "Federal industrial acceptance",
+      "epics": [
+        "PC-CROP-23"
+      ],
+      "exit": "exact-release HA/DR/load/soak/security/legal/operations PASS"
+    }
+  ],
+  "epics": [
+    {
+      "epic_id": "PC-CROP-00",
+      "title": "Governance, source registry and requirement traceability",
+      "dependencies": [],
+      "status": "IN_PROGRESS",
+      "priority": "P0",
+      "release_evidence": "REQUIRED"
+    },
+    {
+      "epic_id": "PC-CROP-01",
+      "title": "Canonical Commodity Profile Registry",
+      "dependencies": [
+        "PC-CROP-00"
+      ],
+      "status": "PLANNED",
+      "priority": "P0",
+      "release_evidence": "REQUIRED"
+    },
+    {
+      "epic_id": "PC-CROP-02",
+      "title": "Crop/Production Passport and genealogy",
+      "dependencies": [
+        "PC-CROP-01"
+      ],
+      "status": "PLANNED",
+      "priority": "P1",
+      "release_evidence": "REQUIRED"
+    },
+    {
+      "epic_id": "PC-CROP-03",
+      "title": "Identity, KYB, KEP/MChD and admission",
+      "dependencies": [
+        "PC-CROP-00"
+      ],
+      "status": "PLANNED",
+      "priority": "P0",
+      "release_evidence": "REQUIRED"
+    },
+    {
+      "epic_id": "PC-CROP-04",
+      "title": "Platform-economy legal readiness",
+      "dependencies": [
+        "PC-CROP-03"
+      ],
+      "status": "PLANNED",
+      "priority": "P0",
+      "release_evidence": "REQUIRED"
+    },
+    {
+      "epic_id": "PC-CROP-05",
+      "title": "Auction/offer/award hardening",
+      "dependencies": [
+        "PC-CROP-01",
+        "PC-CROP-03"
+      ],
+      "status": "PLANNED",
+      "priority": "P0",
+      "release_evidence": "REQUIRED"
+    },
+    {
+      "epic_id": "PC-CROP-06",
+      "title": "Deal multi-dimensional workflow",
+      "dependencies": [
+        "PC-CROP-00",
+        "PC-CROP-01"
+      ],
+      "status": "PLANNED",
+      "priority": "P0",
+      "release_evidence": "REQUIRED"
+    },
+    {
+      "epic_id": "PC-CROP-07",
+      "title": "Regulatory Integration Gateway core",
+      "dependencies": [
+        "PC-CROP-00",
+        "PC-CROP-06"
+      ],
+      "status": "PLANNED",
+      "priority": "P0",
+      "release_evidence": "REQUIRED"
+    },
+    {
+      "epic_id": "PC-CROP-08",
+      "title": "FGIS Grain API 1.0.23 adapter",
+      "dependencies": [
+        "PC-CROP-07",
+        "PC-CROP-01"
+      ],
+      "status": "PLANNED",
+      "priority": "P0",
+      "release_evidence": "REQUIRED"
+    },
+    {
+      "epic_id": "PC-CROP-09",
+      "title": "GIS EPD/EDO/signature adapters",
+      "dependencies": [
+        "PC-CROP-07",
+        "PC-CROP-03"
+      ],
+      "status": "PLANNED",
+      "priority": "P0",
+      "release_evidence": "REQUIRED"
+    },
+    {
+      "epic_id": "PC-CROP-10",
+      "title": "FGIS Seed/Saturn/Argus/land registry adapters",
+      "dependencies": [
+        "PC-CROP-07",
+        "PC-CROP-02"
+      ],
+      "status": "PLANNED",
+      "priority": "P1",
+      "release_evidence": "REQUIRED"
+    },
+    {
+      "epic_id": "PC-CROP-11",
+      "title": "Quality sample/lab/evidence chain",
+      "dependencies": [
+        "PC-CROP-01",
+        "PC-CROP-06"
+      ],
+      "status": "PLANNED",
+      "priority": "P0",
+      "release_evidence": "REQUIRED"
+    },
+    {
+      "epic_id": "PC-CROP-12",
+      "title": "Logistics, slot, weighing and offline acceptance",
+      "dependencies": [
+        "PC-CROP-06",
+        "PC-CROP-11"
+      ],
+      "status": "PLANNED",
+      "priority": "P0",
+      "release_evidence": "REQUIRED"
+    },
+    {
+      "epic_id": "PC-CROP-13",
+      "title": "Bank-neutral settlement and ledger",
+      "dependencies": [
+        "PC-CROP-06",
+        "PC-CROP-09"
+      ],
+      "status": "PLANNED",
+      "priority": "P0",
+      "release_evidence": "REQUIRED"
+    },
+    {
+      "epic_id": "PC-CROP-14",
+      "title": "Dispute, expertise and evidence package",
+      "dependencies": [
+        "PC-CROP-11",
+        "PC-CROP-13"
+      ],
+      "status": "PLANNED",
+      "priority": "P0",
+      "release_evidence": "REQUIRED"
+    },
+    {
+      "epic_id": "PC-CROP-15",
+      "title": "Factual reputation and anti-fraud",
+      "dependencies": [
+        "PC-CROP-02",
+        "PC-CROP-05",
+        "PC-CROP-12",
+        "PC-CROP-13"
+      ],
+      "status": "PLANNED",
+      "priority": "P1",
+      "release_evidence": "REQUIRED"
+    },
+    {
+      "epic_id": "PC-CROP-16",
+      "title": "Finance/insurance partner packages",
+      "dependencies": [
+        "PC-CROP-02",
+        "PC-CROP-11",
+        "PC-CROP-13",
+        "PC-CROP-15"
+      ],
+      "status": "PLANNED",
+      "priority": "P1",
+      "release_evidence": "REQUIRED"
+    },
+    {
+      "epic_id": "PC-CROP-17",
+      "title": "Analytics, KPI and enterprise API",
+      "dependencies": [
+        "PC-CROP-06",
+        "PC-CROP-13",
+        "PC-CROP-14"
+      ],
+      "status": "PLANNED",
+      "priority": "P1",
+      "release_evidence": "REQUIRED"
+    },
+    {
+      "epic_id": "PC-CROP-18",
+      "title": "TAI tool gateway extension",
+      "dependencies": [
+        "PC-CROP-06",
+        "PC-CROP-17"
+      ],
+      "status": "PLANNED",
+      "priority": "P0",
+      "release_evidence": "REQUIRED"
+    },
+    {
+      "epic_id": "PC-CROP-19",
+      "title": "Admin, JIT, incidents and reconciliation",
+      "dependencies": [
+        "PC-CROP-07",
+        "PC-CROP-13",
+        "PC-CROP-14"
+      ],
+      "status": "PLANNED",
+      "priority": "P0",
+      "release_evidence": "REQUIRED"
+    },
+    {
+      "epic_id": "PC-CROP-20",
+      "title": "Dry-bulk controlled production rollout",
+      "dependencies": [
+        "PC-CROP-08",
+        "PC-CROP-09",
+        "PC-CROP-11",
+        "PC-CROP-12",
+        "PC-CROP-13",
+        "PC-CROP-14",
+        "PC-CROP-19"
+      ],
+      "status": "PLANNED",
+      "priority": "P0",
+      "release_evidence": "REQUIRED"
+    },
+    {
+      "epic_id": "PC-CROP-21",
+      "title": "Seed/planting rollout",
+      "dependencies": [
+        "PC-CROP-10",
+        "PC-CROP-20"
+      ],
+      "status": "PLANNED",
+      "priority": "P1",
+      "release_evidence": "REQUIRED"
+    },
+    {
+      "epic_id": "PC-CROP-22",
+      "title": "Fresh/root/greenhouse rollout",
+      "dependencies": [
+        "PC-CROP-01",
+        "PC-CROP-11",
+        "PC-CROP-12",
+        "PC-CROP-13",
+        "PC-CROP-20"
+      ],
+      "status": "PLANNED",
+      "priority": "P1",
+      "release_evidence": "REQUIRED"
+    },
+    {
+      "epic_id": "PC-CROP-23",
+      "title": "Federal industrial acceptance and scale",
+      "dependencies": [
+        "PC-CROP-20",
+        "PC-CROP-21",
+        "PC-CROP-22",
+        "PC-CROP-16",
+        "PC-CROP-17",
+        "PC-CROP-18",
+        "PC-CROP-19"
+      ],
+      "status": "PLANNED",
+      "priority": "P0",
+      "release_evidence": "REQUIRED"
+    }
+  ]
+}

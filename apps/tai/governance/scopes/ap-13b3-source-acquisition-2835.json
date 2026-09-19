@@ -1,0 +1,44 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "branch": "agent/tai-ap-13b3-source-acquisition",
+  "status": "active",
+  "parent_issue": 2726,
+  "issue": 2835,
+  "maturity_boundary": "exact-source-acquisition-and-clean-restore-with-human-legal-decision-pending",
+  "allowed_paths": [
+    ".gitleaksignore",
+    ".github/workflows/tai-model-source-acquisition.yml",
+    "apps/tai/governance/scopes/ap-13b3-source-acquisition-2835.json",
+    "apps/tai/tai/model_source_acquisition.py",
+    "apps/tai/tai/model_source_acquisition_cli.py",
+    "apps/tai/tests/test_gitleaks_release_authority.py",
+    "apps/tai/tests/test_model_source_acquisition.py",
+    "apps/tai/tests/test_model_source_acquisition_workflow.py"
+  ],
+  "forbidden_capabilities": [
+    "mutable branch, tag, latest model or short revision download",
+    "unselected or excluded source weight download",
+    "model weight, tokenizer, source archive or GGUF commit to Git",
+    "model weight upload to GitHub Actions artifacts",
+    "automated APPROVED or REJECTED legal decision",
+    "conversion, quantization, benchmark or model admission claim",
+    "production readiness or operational attestation claim"
+  ],
+  "acceptance": [
+    "workflow is owner-only, issue 2835 command-bound and exact-main",
+    "official Hugging Face API inventory matches every authority path including exclusions",
+    "only exact selected files from each pinned 40-character revision are downloaded",
+    "actual runner disk and RAM capacity pass fixed fail-closed margins before download",
+    "every selected source byte is locally size-checked and SHA-256 hashed",
+    "the shard index references exactly the selected weight shards",
+    "canonical Apache-2.0 text and exact model card are preserved in a legal packet with PENDING_HUMAN_DECISION",
+    "a clean independent re-download matches every source size and SHA-256",
+    "only bounded metadata, review material and locators enter Actions artifacts",
+    "source weights are not copied to Git or Actions artifacts",
+    "the only secret-scan suppression is fingerprint-bound to one public immutable model revision false positive",
+    "the release-authority test attests the complete exact gitleaks exception set",
+    "Qwen and Mistral remain legally pending and no conversion or admission is claimed",
+    "production_operational_status remains NOT_ATTESTED",
+    "Ruff, strict mypy, full pytest/coverage, security/runtime and exact-head CI pass"
+  ]
+}

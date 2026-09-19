@@ -1,0 +1,25 @@
+# Elasticsearch is deliberately not deployed by this repository.
+# The previous StatefulSet required privileged init containers for node-kernel
+# and filesystem ownership changes. Applying this file now records a fail-closed
+# architecture decision only; it creates no Elasticsearch workload or Service.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: elasticsearch-deployment-status
+  namespace: grainflow-prod
+  labels:
+    app.kubernetes.io/name: elasticsearch
+    platform.prozrachnaya-cena/deployable: "false"
+  annotations:
+    platform.prozrachnaya-cena/status: NOT_DEPLOYABLE
+    platform.prozrachnaya-cena/ticket: "#2606"
+data:
+  status: NOT_DEPLOYABLE
+  reason: >-
+    Privileged init containers, in-pod kernel mutation and embedded static
+    credentials are forbidden. Production must use a managed Elasticsearch
+    service or a separately accepted node-pool architecture with the required
+    kernel limits configured outside the application namespace.
+  requiredAcceptance: >-
+    Managed endpoint, TLS verification, secret-manager credentials, backup and
+    restore proof, capacity limits, network policy and exact-head IaC evidence.

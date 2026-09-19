@@ -1,0 +1,21 @@
+{
+  "project": "platform-v7",
+  "event": "vp25_support_detail_searchparams_mock",
+  "createdAt": "2026-06-11T13:05:00.000Z",
+  "baselineFailure": {
+    "suite": "apps/web/tests/unit/supportDetailNewRoleScope.test.tsx",
+    "reason": "The test mocked next/navigation without useSearchParams while SupportNewCaseScopedClient legitimately reads the role query parameter."
+  },
+  "slice": "Stabilize the support detail role-scope unit test by matching the component's Next navigation dependencies.",
+  "changedFiles": [
+    "apps/web/tests/unit/supportDetailNewRoleScope.test.tsx"
+  ],
+  "constraints": [
+    "controlled-pilot",
+    "pre-integration",
+    "no runtime behavior change",
+    "no API/DB/live integration",
+    "no landing",
+    "no lockfiles"
+  ]
+}

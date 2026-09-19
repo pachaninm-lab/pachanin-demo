@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-06-12T02:10:00.000Z",
+  "task": "VP-2.5 action feedback registry contract refresh",
+  "scope": [
+    "apps/web/lib/platform-v7/action-targets.ts",
+    "apps/web/tests/unit/platformV7ActionRegistry.test.ts",
+    "apps/web/tests/unit/platformV7FeedbackCopySafety.spec.ts",
+    "apps/web/tests/unit/platformV7MoneyFeedbackReconciliation.spec.ts"
+  ],
+  "sourceOfTruth": "MASTER-ТЗ 2 / VP-2.5 requires E4 action specs, targets and feedback guards to agree without claiming live money movement.",
+  "changes": [
+    "Added missing E4 SDIZ action targets for the existing execution action specs.",
+    "Focused money feedback copy and reconciliation tests on explicit bank-boundary fixtures."
+  ],
+  "forbiddenZonesTouched": false,
+  "runtimeTouched": false
+}

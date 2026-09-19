@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-potato-direct-route-activation-20260803",
+  "status": "active",
+  "title": "TAI agro-wide model-first routing and REG.RU activation repair",
+  "priority": "P0",
+  "baselineExactMain": "9fb1ffcb2f018f345a8609f00bffc339c3b011ec",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "objective": "Ensure every safe question with any reasonable connection to agriculture, gardens, orchards, fields, villages, livestock, agricultural machinery, storage, logistics, farm economics or farm IT reaches local Qwen as general_agro and cannot resolve to an unrelated platform article.",
+  "allowedPaths": [
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    "apps/web/middleware.ts",
+    "apps/web/tests/unit/taiPotatoRoutingRegression.test.ts",
+    "docs/platform-v7/autopilot/security-exceptions.json",
+    "docs/platform-v7/autopilot/scopes/tai-potato-direct-route-activation-20260803.json",
+    "scripts/security/build-evidence-manifest.mjs",
+    "scripts/tai-potato-mobile-live-acceptance.mjs"
+  ],
+  "boundaries": [
+    "Every POST to /api/public-platform-assistant is rewritten to /api/agro-chat before legacy filesystem route resolution",
+    "GET /api/public-platform-assistant remains the read-only starter-prompt catalog",
+    "Live acceptance covers crops, gardens, orchards, soils, irrigation, livestock, poultry, beekeeping, agricultural machinery, grain storage, farm economics, village infrastructure and farm IT",
+    "Short follow-up questions inherit agricultural context",
+    "RU is mandatory and representative EN and ZH cases are mandatory",
+    "Every accepted answer must use tai-qwen3-8b-q4km in general_agro mode, mention the actual subject and contain at least two domain-relevant factors",
+    "Agricultural questions must not receive platform data-protection, RBAC, session, tenant-isolation or audit boilerplate unless the user asks about those subjects",
+    "Activation controller input, state and output use a numeric attempt-scoped identifier derived from github.run_id and github.run_attempt",
+    "An unexpected attempt-id collision fails closed and does not delete or chmod an existing protected directory",
+    "Private mode, signed sessions, role propagation, tenant isolation, secret handling, write authority and current-evidence controls remain unchanged",
+    "No hard-coded agronomic dose is introduced without soil, crop, region and production inputs",
+    "The newly published brace-expansion advisory may be covered only by the formal seven-day HIGH exception SEC-2026-3665; CRITICAL exceptions remain prohibited and the lock must be upgraded before expiry",
+    "The unified security evidence manifest may accept observed HIGH findings only when every finding is bound one-to-one to a formal evaluator exception; blocked, unexcepted, duplicate, orphaned or CRITICAL findings fail closed",
+    "No paid model, SaaS, database, hosting service or recurring cost is added",
+    "Production completion requires exact-head CI, exact-main merge, canonical images, REG.RU deployment, preflight, restricted Qwen activation and finalization, direct SSE and 390x844 mobile Chromium acceptance",
+    "PostgreSQL, audit and outbox authority must remain PASS"
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "id": "PC-CROP-10D-FINAL-TRUTH-3504",
+  "branch": "agent/pc-crop-10d-final-truth",
+  "status": "active",
+  "projectLockId": "PC-CROP-REMAINDER",
+  "issue": 3504,
+  "activeSlice": "PC-CROP-10D",
+  "baseCommit": "314d4366bdac943c1566b2bad00a5fb3af3888b2",
+  "operationalStatus": "NOT_ATTESTED",
+  "maturityBoundary": "internal-repository-completion-with-external-live-blocked",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-10d.yml",
+    "docs/platform-v7/autopilot/scopes/pc-crop-10d-final-truth.json",
+    "docs/platform-v7/crop-platform/agricultural-government-systems.final-truth.schema.v1.json",
+    "docs/platform-v7/crop-platform/agricultural-government-systems.final-truth.v1.json",
+    "docs/platform-v7/crop-platform/agricultural-government-systems.readiness.v2.json",
+    "scripts/pc-crop-10d/verify.mjs"
+  ],
+  "forbiddenPaths": [
+    "apps/**",
+    "packages/**",
+    "prisma/**",
+    "infra/**",
+    "pnpm-lock.yaml",
+    "production credentials"
+  ],
+  "boundaries": {
+    "runtimeBusinessBehaviorChange": false,
+    "authorizationChange": false,
+    "tenantOrDealBoundaryChange": false,
+    "modelAdmissionChange": false,
+    "securityGateDisabled": false,
+    "acceptanceGateWeakened": false,
+    "productionDeployment": false,
+    "externalImplementationAuthorization": false
+  },
+  "requiredEvidence": [
+    "PC-CROP-10A registry and PC-CROP-10B bindings remain immutable by exact merge and blob identity",
+    "PC-CROP-10C exact merge and exact-main status are bound to three unchanged authority paths",
+    "Ten accepted internal authority slices are recorded without a live declaration",
+    "FGIS Grain tenant-authorized read authority is accepted but remains disabled by default",
+    "All 38 mutation operations and provider writes remain forbidden",
+    "Internal repository remainder is complete while industrial live readiness remains false",
+    "External provider E2E and legal security operations attestations remain absent",
+    "No credentials network calls runtime changes or production activation"
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

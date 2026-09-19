@@ -1,0 +1,23 @@
+# ML is deliberately not deployed by this chart.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "grainflow.fullname" . }}-ml-runtime-status
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "grainflow.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ml
+    platform.prozrachnaya-cena/deployable: "false"
+  annotations:
+    platform.prozrachnaya-cena/status: NOT_DEPLOYABLE
+    platform.prozrachnaya-cena/ticket: "#2605"
+data:
+  status: NOT_DEPLOYABLE
+  reason: >-
+    The experimental ML service is outside canonical Deal execution authority
+    and has no accepted data lineage, model lifecycle, tenant authorization,
+    dependency or operational evidence.
+  reactivationGate: >-
+    Separate product approval, versioned datasets, model registry, rollback and
+    drift monitoring, zero unexcepted HIGH or CRITICAL dependencies, non-root
+    immutable image, tenant isolation, load, failure and security acceptance.

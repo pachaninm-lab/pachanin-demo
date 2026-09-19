@@ -1,0 +1,320 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pachanin.example/schemas/tai-ap-14f0-provenance.schema.v1.json",
+  "title": "TAI AP-14F0 provenance record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "recordId",
+    "factKind",
+    "sourceId",
+    "sourceClass",
+    "dataPlane",
+    "officialLocator",
+    "publicationDate",
+    "effectiveDate",
+    "observedAt",
+    "sourceLocator",
+    "contentSha256",
+    "unit",
+    "period",
+    "rights",
+    "tenantBinding",
+    "contractedBinding",
+    "freshness",
+    "admission"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "tai.ap14f0-provenance.v1"
+    },
+    "recordId": {
+      "type": "string",
+      "pattern": "^prov_[a-z0-9]{16,64}$"
+    },
+    "factKind": {
+      "type": "string",
+      "enum": ["NUMERIC", "TEXTUAL", "DOCUMENT"]
+    },
+    "sourceId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{4,160}$"
+    },
+    "sourceClass": {
+      "type": "string",
+      "enum": [
+        "OFFICIAL_MANUAL",
+        "OFFICIAL_REGULATION",
+        "OPEN_DATASET",
+        "PUBLIC_REGISTRY",
+        "TENANT_API_RESPONSE",
+        "TENANT_EXPORT",
+        "CONTRACTED_API",
+        "CONTRACTED_DATASET"
+      ]
+    },
+    "dataPlane": {
+      "type": "string",
+      "enum": ["PUBLIC_OFFICIAL", "TENANT_LIVE", "CONTRACTED"]
+    },
+    "officialLocator": {
+      "$ref": "#/$defs/officialLocator"
+    },
+    "publicationDate": {
+      "type": ["string", "null"],
+      "format": "date"
+    },
+    "effectiveDate": {
+      "type": ["string", "null"],
+      "format": "date"
+    },
+    "observedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sourceLocator": {
+      "$ref": "#/$defs/sourceLocator"
+    },
+    "contentSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "unit": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/unit"}
+      ]
+    },
+    "period": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/period"}
+      ]
+    },
+    "rights": {
+      "$ref": "#/$defs/rights"
+    },
+    "tenantBinding": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/tenantBinding"}
+      ]
+    },
+    "contractedBinding": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/contractedBinding"}
+      ]
+    },
+    "freshness": {
+      "$ref": "#/$defs/freshness"
+    },
+    "admission": {
+      "$ref": "#/$defs/admission"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {"factKind": {"const": "NUMERIC"}},
+        "required": ["factKind"]
+      },
+      "then": {
+        "properties": {
+          "unit": {"$ref": "#/$defs/unit"},
+          "period": {"$ref": "#/$defs/period"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"dataPlane": {"const": "PUBLIC_OFFICIAL"}},
+        "required": ["dataPlane"]
+      },
+      "then": {
+        "properties": {
+          "tenantBinding": {"type": "null"},
+          "contractedBinding": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"dataPlane": {"const": "TENANT_LIVE"}},
+        "required": ["dataPlane"]
+      },
+      "then": {
+        "properties": {
+          "tenantBinding": {"$ref": "#/$defs/tenantBinding"},
+          "contractedBinding": {"type": "null"},
+          "admission": {
+            "allOf": [
+              {"$ref": "#/$defs/admission"},
+              {
+                "properties": {
+                  "sharedIndexAllowed": {"const": false},
+                  "modelWeightsAllowed": {"const": false}
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {"dataPlane": {"const": "CONTRACTED"}},
+        "required": ["dataPlane"]
+      },
+      "then": {
+        "properties": {
+          "tenantBinding": {"$ref": "#/$defs/tenantBinding"},
+          "contractedBinding": {"$ref": "#/$defs/contractedBinding"},
+          "admission": {
+            "allOf": [
+              {"$ref": "#/$defs/admission"},
+              {
+                "properties": {
+                  "sharedIndexAllowed": {"const": false},
+                  "modelWeightsAllowed": {"const": false}
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "officialLocator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "hostPin", "retrievalKind"],
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://"
+        },
+        "hostPin": {
+          "type": "string",
+          "pattern": "^[a-z0-9.-]{4,253}$"
+        },
+        "retrievalKind": {
+          "type": "string",
+          "enum": ["PUBLIC_READ", "TENANT_AUTHORIZED_READ", "CONTRACTED_READ"]
+        }
+      }
+    },
+    "sourceLocator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["PAGE", "ROW", "SECTION", "RECORD_ID", "JSON_POINTER", "XML_XPATH", "API_FIELD"]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      }
+    },
+    "unit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "symbol", "scale"],
+      "properties": {
+        "code": {"type": "string", "pattern": "^[A-Z0-9._/-]{1,40}$"},
+        "symbol": {"type": "string", "minLength": 1, "maxLength": 20},
+        "scale": {"type": "integer", "minimum": 0, "maximum": 12}
+      }
+    },
+    "period": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end", "timezone"],
+      "properties": {
+        "start": {"type": "string", "format": "date-time"},
+        "end": {"type": "string", "format": "date-time"},
+        "timezone": {"type": "string", "const": "UTC"}
+      }
+    },
+    "rights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decisionId", "status", "reviewedAt", "reviewDueAt", "basisLocator"],
+      "properties": {
+        "decisionId": {"type": "string", "pattern": "^AP14F0-[A-Z0-9_-]{5,100}$"},
+        "status": {
+          "type": "string",
+          "enum": [
+            "REVIEW_REQUIRED",
+            "METADATA_ONLY",
+            "TENANT_EPHEMERAL_ONLY",
+            "CONTRACT_REQUIRED",
+            "FORBIDDEN",
+            "ALLOWED_SHARED_RAG"
+          ]
+        },
+        "reviewedAt": {"type": "string", "format": "date"},
+        "reviewDueAt": {"type": "string", "format": "date"},
+        "basisLocator": {"type": "string", "minLength": 8, "maxLength": 500}
+      }
+    },
+    "tenantBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tenantIdHash", "organizationIdHash", "subjectIdHash", "role", "auditEventId", "expiresAt"],
+      "properties": {
+        "tenantIdHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "organizationIdHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "subjectIdHash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "role": {"type": "string", "pattern": "^[A-Z_]{3,80}$"},
+        "auditEventId": {"type": "string", "pattern": "^audit_[a-z0-9]{12,80}$"},
+        "expiresAt": {"type": "string", "format": "date-time"}
+      }
+    },
+    "contractedBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agreementReference", "credentialReference", "permittedPurpose", "expiresAt"],
+      "properties": {
+        "agreementReference": {"type": "string", "pattern": "^agreement-ref:[A-Za-z0-9._/-]{6,160}$"},
+        "credentialReference": {"type": "string", "pattern": "^secret-ref:[A-Za-z0-9._/-]{6,160}$"},
+        "permittedPurpose": {"type": "string", "minLength": 12, "maxLength": 500},
+        "expiresAt": {"type": "string", "format": "date-time"}
+      }
+    },
+    "freshness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["freshUntil", "authorityReviewDueAt", "availabilityCheckedAt"],
+      "properties": {
+        "freshUntil": {"type": "string", "format": "date-time"},
+        "authorityReviewDueAt": {"type": "string", "format": "date-time"},
+        "availabilityCheckedAt": {"type": "string", "format": "date-time"}
+      }
+    },
+    "admission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "sharedIndexAllowed", "modelWeightsAllowed", "abstentionRequired", "reasonCodes"],
+      "properties": {
+        "status": {"type": "string", "enum": ["QUARANTINED", "ELIGIBLE", "ADMITTED"]},
+        "sharedIndexAllowed": {"type": "boolean"},
+        "modelWeightsAllowed": {"type": "boolean", "const": false},
+        "abstentionRequired": {"type": "boolean"},
+        "reasonCodes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[A-Z0-9_]{3,80}$"}
+        }
+      }
+    }
+  }
+}

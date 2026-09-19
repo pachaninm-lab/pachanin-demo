@@ -1,0 +1,46 @@
+version: "3.9"
+
+# Flagsmith feature flags — добавить к основному docker-compose.yml
+services:
+  flagsmith:
+    image: flagsmith/flagsmith:2.76.0
+    container_name: grainflow-flagsmith
+    environment:
+      DATABASE_URL: postgresql://flagsmith:flagsmith@postgres-flagsmith:5432/flagsmith
+      DJANGO_ALLOWED_HOSTS: "*"
+      SECRET_KEY: "${FLAGSMITH_SECRET_KEY:-flagsmith-dev-secret-change-in-prod}"
+      ENABLE_ADMIN_ACCESS_USER_PASS: "true"
+      ADMIN_EMAIL: "admin@grainflow.ru"
+      ADMIN_INITIAL_PASSWORD: "${FLAGSMITH_ADMIN_PASSWORD:-grainflow-admin}"
+      ENVIRONMENTS_TABLE_NAME_OVERRIDE: "grainflow_flags"
+      ALLOW_REGISTRATION_WITHOUT_INVITE: "false"
+      FLAGSMITH_ON_FLAGSMITH_SERVER_KEY: ""
+    ports:
+      - "8002:8000"
+    depends_on:
+      postgres-flagsmith:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  postgres-flagsmith:
+    image: postgres:16-alpine
+    container_name: grainflow-flagsmith-db
+    environment:
+      POSTGRES_DB: flagsmith
+      POSTGRES_USER: flagsmith
+      POSTGRES_PASSWORD: flagsmith
+    volumes:
+      - flagsmith_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flagsmith"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  flagsmith_pg_data:

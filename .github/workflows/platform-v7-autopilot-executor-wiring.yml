@@ -1,0 +1,37 @@
+name: platform-v7 autopilot executor wiring
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'docs/platform-v7/autopilot/**'
+      - 'docs/platform-v7/execution-queue.md'
+      - 'scripts/p7-autopilot-*.mjs'
+      - '.github/workflows/platform-v7-autopilot-*.yml'
+
+concurrency:
+  group: platform-v7-autopilot-executor-wiring-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run planner
+        run: |
+          node scripts/p7-autopilot-issue-executor-pr-wiring.mjs \
+            --output docs/platform-v7/autopilot/executor-wiring-result.json
+
+      - name: Show result
+        run: cat docs/platform-v7/autopilot/executor-wiring-result.json

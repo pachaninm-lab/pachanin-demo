@@ -1,0 +1,184 @@
+/* Platform v7 exhibition polish: единый демонстрационный UX-слой без изменения бизнес-логики. */
+
+.pc-main {
+  color: var(--p7-color-text-primary);
+  font-family: var(--pc-font-sans, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+  text-rendering: geometricPrecision;
+  isolation: isolate;
+}
+
+.pc-main :where(h1, h2, h3, h4) {
+  color: var(--p7-color-text-primary);
+  text-wrap: balance;
+  letter-spacing: -0.035em;
+}
+
+.pc-main :where(p, li, td, th, label, small) {
+  color: var(--p7-color-text-secondary);
+}
+
+.pc-main :where(section, article, aside, form, table, [data-p7-dark-fixed='surface']) {
+  border-color: var(--p7-color-border) !important;
+}
+
+.pc-main :where(button, a, input, textarea, select) {
+  font: inherit;
+}
+
+.pc-main :where(button, a[role='button'], input[type='button'], input[type='submit']) {
+  min-height: 44px;
+  border-radius: var(--pc-radius-md, 14px);
+  transition: transform 140ms ease, border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
+  touch-action: manipulation;
+}
+
+.pc-main :where(button, a[role='button'], input[type='button'], input[type='submit']):where(:hover, :focus-visible) {
+  transform: translateY(-1px);
+  box-shadow: var(--pc-shadow-sm);
+}
+
+.pc-main :where(button, a[role='button'], input[type='button'], input[type='submit']):active {
+  transform: translateY(0) scale(0.99);
+}
+
+.pc-main :where(button, a, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--p7-color-brand) 72%, white 28%);
+  outline-offset: 3px;
+}
+
+.pc-main :where(button:disabled, [aria-disabled='true']) {
+  cursor: not-allowed;
+  opacity: 0.58;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.pc-main :where(input, textarea, select) {
+  min-height: 44px;
+  border-radius: var(--pc-radius-sm, 10px);
+  border: 1px solid var(--p7-color-border);
+  background: var(--p7-color-background-elevated);
+  color: var(--p7-color-text-primary);
+  transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+}
+
+.pc-main :where(input, textarea, select):focus {
+  border-color: color-mix(in srgb, var(--p7-color-brand) 62%, var(--p7-color-border));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--p7-color-brand) 14%, transparent);
+}
+
+.pc-main :where([data-state='empty'], [data-p7-state='empty'], .pc-empty-state) {
+  display: grid;
+  gap: 10px;
+  border: 1px dashed color-mix(in srgb, var(--p7-color-border) 74%, var(--p7-color-text-muted));
+  border-radius: var(--pc-radius-lg, 20px);
+  background: color-mix(in srgb, var(--p7-color-surface-muted) 82%, transparent);
+  color: var(--p7-color-text-secondary);
+  padding: clamp(18px, 4vw, 32px);
+}
+
+.pc-main :where([data-state='error'], [data-p7-state='error'], .pc-error-state) {
+  border: 1px solid color-mix(in srgb, var(--p7-color-danger) 34%, transparent);
+  border-radius: var(--pc-radius-lg, 20px);
+  background: var(--p7-color-danger-soft);
+  color: var(--p7-color-danger);
+  padding: clamp(16px, 3vw, 24px);
+}
+
+.pc-main :where([aria-busy='true'], [data-state='loading'], [data-p7-state='loading'], .pc-loading-state) {
+  position: relative;
+  overflow: hidden;
+}
+
+.pc-main :where([aria-busy='true'], [data-state='loading'], [data-p7-state='loading'], .pc-loading-state)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 0%, color-mix(in srgb, var(--p7-color-brand-soft) 52%, transparent) 48%, transparent 100%);
+  transform: translateX(-100%);
+  animation: pc-p7-skeleton 1.4s ease-in-out infinite;
+}
+
+.pc-main :where(.pc-status-chip, [data-p7-dark-fixed='chip']) {
+  min-height: 28px;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.pc-main :where(table) {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.pc-main :where(th, td) {
+  min-height: 44px;
+  vertical-align: middle;
+}
+
+.pc-main :where([data-p7-money], [data-p7-sum], .pc-money) {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.pc-main :where([style*='box-shadow']) {
+  box-shadow: var(--pc-shadow-sm) !important;
+}
+
+@keyframes pc-p7-skeleton {
+  to { transform: translateX(100%); }
+}
+
+@media (max-width: 768px) {
+  .pc-main {
+    width: 100%;
+    max-width: 100vw;
+  }
+
+  .pc-main :where(button, a[role='button'], input, textarea, select) {
+    min-height: 44px;
+  }
+
+  .pc-main :where(table) {
+    display: block;
+    overflow-x: auto;
+    max-width: calc(100vw - 20px);
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .pc-main :where([style*='grid-template-columns']) {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .pc-main :where([style*='padding: 32px'], [style*='padding:32px'], [style*='padding: 28px'], [style*='padding:28px']) {
+    padding: 18px !important;
+  }
+}
+
+@media (max-width: 430px) {
+  .pc-main :where(h1) {
+    font-size: clamp(26px, 8vw, 34px) !important;
+    line-height: 1.08 !important;
+  }
+
+  .pc-main :where(h2) {
+    font-size: clamp(21px, 6vw, 26px) !important;
+    line-height: 1.14 !important;
+  }
+
+  .pc-main :where(.pc-status-chip, [data-p7-dark-fixed='chip']) {
+    max-width: 100%;
+    white-space: normal;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pc-main *,
+  .pc-main *::before,
+  .pc-main *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

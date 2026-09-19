@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "governance/pc-crop-predecessor-trigger-isolation-3170",
+  "status": "active",
+  "issue": 3170,
+  "baseCommit": "3133779b10b69950ed0f01c9a58e9f98e4d957fe",
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-07a.yml",
+    ".github/workflows/pc-crop-07b.yml",
+    ".github/workflows/pc-crop-08b.yml",
+    ".github/workflows/pc-crop-08c.yml",
+    ".github/workflows/pc-crop-08d.yml",
+    ".github/workflows/pc-crop-predecessor-trigger-governance.yml",
+    "docs/platform-v7/autopilot/pc-crop-predecessor-trigger-lock.json",
+    "docs/platform-v7/autopilot/scopes/pc-crop-predecessor-trigger-isolation-3170.json",
+    "scripts/pc-crop-predecessor-trigger-governance.mjs"
+  ],
+  "boundaries": {
+    "jobBodyModification": false,
+    "acceptanceWeakening": false,
+    "continueOnError": false,
+    "runtimeBusinessCodeChange": false,
+    "productionDeployment": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-orphan-role-direct-grant-removal-20260803",
+  "status": "active",
+  "title": "TAI orphan runtime role direct-grant removal",
+  "priority": "P0",
+  "baselineExactMain": "bea9a2e71bfb6b69050285b5347cf1834eb09b37",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "objective": "Remove only the strictly attested orphan tai_runtime PostgreSQL principal after revoking role-specific ACLs without altering PUBLIC or other principals, so the normal exact-main TAI deployment can recreate the runtime identity with a fresh secret and complete production acceptance.",
+  "allowedPaths": [
+    ".github/workflows/tai-owner-runtime-role-direct-grant-repair.yml",
+    "scripts/tai-runtime-role-direct-grant-repair.sh",
+    "scripts/check-tai-runtime-role-direct-grant-repair.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-orphan-role-direct-grant-removal-20260803.json"
+  ],
+  "boundaries": [
+    "The only command is /tai repair-runtime-role-direct-grants current-main on issue 3365",
+    "Commenter, actor and triggering actor must equal the repository owner",
+    "Exact current main must have successful TAI Controller Sync and TAI REG.RU Preflight commit statuses",
+    "Transport uses only the canonical REG.RU host, protected root SSH principal and pinned host fingerprint",
+    "No repair runs while a TAI container, dedicated environment file or TAI Compose override exists",
+    "The exact-main web and API containers, Compose project and single persistent PostgreSQL authority must be proven before mutation",
+    "The role must be LOGIN, NOSUPERUSER, NOCREATEDB, NOCREATEROLE, NOINHERIT, NOREPLICATION, NOBYPASSRLS with connection limit 20",
+    "The role must have no memberships in either direction, no active sessions, no owned database objects and no default ACL ownership or grants",
+    "Only ACL entries whose grantee is tai_runtime may be revoked; PUBLIC and every other principal remain unchanged",
+    "Database, schema, relation, column, sequence, function and type ACL revocation plus DROP ROLE occur in one PostgreSQL transaction",
+    "Any remaining dependency makes DROP ROLE fail and rolls back the complete transaction",
+    "DROP OWNED, REASSIGN OWNED, grants, object deletion, tenant mutation and application deployment are forbidden",
+    "Role absence is an idempotent PASS",
+    "The normal owner deployment remains responsible for fresh role creation, TAI materialization, rollback and live acceptance",
+    "No model, tenant, financial or autonomous write authority is widened",
+    "No new recurring cost"
+  ]
+}

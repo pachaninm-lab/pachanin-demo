@@ -1,0 +1,28 @@
+{
+  "project": "platform-v7",
+  "event": "vp25_guard_scope_sync",
+  "createdAt": "2026-06-11T12:10:54.000Z",
+  "reason": "PR #1694 merged VP-2.5 simulation-panel fixes with packages/domain-core/src/execution-simulation changes while the source-of-truth allowed scope still omitted that already-bound domain-core simulation slice.",
+  "changedScope": [
+    "packages/domain-core/src/execution-simulation/**",
+    ".github/workflows/platform-v7-autopilot-guard.yml",
+    ".github/workflows/platform-v7-autopilot-issue-executor-dry-run.yml",
+    ".github/workflows/platform-v7-autopilot-executor-wiring.yml",
+    ".github/workflows/web-unit.yml",
+    "scripts/p7-autopilot-issue-executor-dry-run.mjs",
+    "scripts/p7-autopilot-issue-executor-pr-wiring.mjs"
+  ],
+  "guardWorkflowPathsAdded": [
+    "apps/web/app/platform-v7/**",
+    "apps/web/components/platform-v7/**",
+    "apps/web/components/v7r/**",
+    "packages/domain-core/src/execution-simulation/**"
+  ],
+  "constraints": [
+    "controlled-pilot",
+    "pre-integration",
+    "no live/API/DB expansion",
+    "no apps/landing",
+    "no lockfiles"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "project": "platform-v7",
+  "event": "vp25_decision_pack_async_route_test",
+  "createdAt": "2026-06-11T13:45:00.000Z",
+  "baselineFailure": {
+    "suite": "apps/web/tests/unit/platformV7DecisionPackPagePlacementCurrentMain.test.tsx",
+    "reason": "The unit test rendered async bank and disputes route components directly, producing [object Promise] React child errors."
+  },
+  "slice": "Stabilize decision pack placement assertions by awaiting the async server pages before rendering.",
+  "changedFiles": [
+    "apps/web/tests/unit/platformV7DecisionPackPagePlacementCurrentMain.test.tsx"
+  ],
+  "constraints": [
+    "controlled-pilot",
+    "pre-integration",
+    "test-only route rendering fix",
+    "no API/DB/live integration",
+    "no landing",
+    "no lockfiles"
+  ]
+}

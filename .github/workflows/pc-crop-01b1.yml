@@ -1,0 +1,156 @@
+name: PC-CROP-01B.1 PostgreSQL Registry Authority
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/prisma/migrations/20260720131500_commodity_profile_registry_authority/**'
+      - 'apps/api/test/industrial/commodity-profile-registry-invariants.sql'
+      - 'scripts/pc-crop-01b1-postgresql-acceptance.sh'
+      - 'scripts/verify-pc-crop-01b1.mjs'
+      - 'docs/crop-platform/PC-CROP-01B1-POSTGRESQL-AUTHORITY.md'
+      - 'docs/crop-platform/scopes/pc-crop-01b1-postgresql-authority-2883.json'
+      - '.github/workflows/pc-crop-01b1.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/prisma/migrations/20260720131500_commodity_profile_registry_authority/**'
+      - 'apps/api/test/industrial/commodity-profile-registry-invariants.sql'
+      - 'scripts/pc-crop-01b1-postgresql-acceptance.sh'
+      - 'scripts/verify-pc-crop-01b1.mjs'
+      - 'docs/crop-platform/PC-CROP-01B1-POSTGRESQL-AUTHORITY.md'
+      - 'docs/crop-platform/scopes/pc-crop-01b1-postgresql-authority-2883.json'
+      - '.github/workflows/pc-crop-01b1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pc-crop-01b1-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  ADMIN_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/grainflow?schema=public
+  EVIDENCE_DIR: artifacts/pc-crop-01b1
+
+jobs:
+  postgresql-authority:
+    name: PostgreSQL 16 migration, invariants and activation race
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: grainflow
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grainflow"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Initialize exact-head evidence
+        run: |
+          mkdir -p "$EVIDENCE_DIR"
+          printf '%s\n' "$EXACT_HEAD" > "$EVIDENCE_DIR/exact-head.txt"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            printf 'origin/%s\n' "${{ github.base_ref }}" > "$EVIDENCE_DIR/base-ref.txt"
+          else
+            printf 'HEAD^\n' > "$EVIDENCE_DIR/base-ref.txt"
+          fi
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify exact bounded migration scope
+        run: |
+          set -o pipefail
+          base_ref="$(cat "$EVIDENCE_DIR/base-ref.txt")"
+          PC_CROP_BASE_REF="$base_ref" \
+            node scripts/verify-pc-crop-01b1.mjs \
+              --output "$EVIDENCE_DIR/static-acceptance.json" \
+            2>&1 | tee "$EVIDENCE_DIR/static-acceptance.log"
+
+      - name: Apply complete forward migration chain on PostgreSQL 16
+        env:
+          DATABASE_URL: ${{ env.ADMIN_DATABASE_URL }}
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec prisma migrate deploy \
+            2>&1 | tee "$EVIDENCE_DIR/migrate-deploy.log"
+          pnpm --filter @pc/api exec prisma migrate status \
+            2>&1 | tee "$EVIDENCE_DIR/migrate-status.log"
+
+      - name: Run DB invariant and concurrent activation acceptance
+        env:
+          DATABASE_URL: ${{ env.ADMIN_DATABASE_URL }}
+          PC_CROP_EVIDENCE_DIR: ${{ github.workspace }}/artifacts/pc-crop-01b1/runtime
+        run: |
+          set -o pipefail
+          bash scripts/pc-crop-01b1-postgresql-acceptance.sh \
+            2>&1 | tee "$EVIDENCE_DIR/postgresql-acceptance.log"
+
+      - name: Enforce machine-readable acceptance
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const staticReport = JSON.parse(fs.readFileSync('artifacts/pc-crop-01b1/static-acceptance.json', 'utf8'));
+          const runtimeReport = JSON.parse(fs.readFileSync('artifacts/pc-crop-01b1/runtime/acceptance.json', 'utf8'));
+          if (staticReport.status !== 'PASS' || runtimeReport.status !== 'PASS') process.exit(1);
+          if (staticReport.operationalStatus !== 'NOT_ATTESTED' || runtimeReport.operationalStatus !== 'NOT_ATTESTED') process.exit(1);
+          if (runtimeReport.invariants.effectiveOverlapConcurrentWinnerCount !== 1) process.exit(1);
+          if (runtimeReport.invariants.effectiveTransitionReceiptCount !== 1) process.exit(1);
+          if (runtimeReport.boundaries.prismaModels !== 'PENDING_SCHEMA_SYNC') process.exit(1);
+          NODE
+
+      - name: Build exact evidence inventory
+        run: |
+          sha256sum \
+            apps/api/prisma/migrations/20260720131500_commodity_profile_registry_authority/migration.sql \
+            apps/api/test/industrial/commodity-profile-registry-invariants.sql \
+            scripts/pc-crop-01b1-postgresql-acceptance.sh \
+            scripts/verify-pc-crop-01b1.mjs \
+            "$EVIDENCE_DIR/static-acceptance.json" \
+            "$EVIDENCE_DIR/runtime/acceptance.json" \
+            > "$EVIDENCE_DIR/exact-evidence-sha256.txt"
+
+      - name: Upload PostgreSQL authority evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-01b1-postgresql-${{ env.EXACT_HEAD }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+          overwrite: false
+
+  postgresql-gate:
+    name: PC-CROP-01B.1 Gate · all blocking checks
+    if: always()
+    runs-on: ubuntu-24.04
+    needs: postgresql-authority
+    steps:
+      - name: Enforce PostgreSQL authority result
+        run: test "${{ needs.postgresql-authority.result }}" = success

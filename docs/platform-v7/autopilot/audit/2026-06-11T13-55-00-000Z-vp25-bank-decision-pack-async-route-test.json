@@ -1,0 +1,21 @@
+{
+  "project": "platform-v7",
+  "event": "vp25_bank_decision_pack_async_route_test",
+  "createdAt": "2026-06-11T13:55:00.000Z",
+  "baselineFailure": {
+    "suite": "apps/web/tests/unit/platformV7BankReleaseReviewDecisionPackCurrentMain.test.tsx",
+    "reason": "The unit test rendered the async bank route component directly, producing an [object Promise] React child error."
+  },
+  "slice": "Stabilize the bank release review decision pack placement assertion by awaiting the async server page before rendering.",
+  "changedFiles": [
+    "apps/web/tests/unit/platformV7BankReleaseReviewDecisionPackCurrentMain.test.tsx"
+  ],
+  "constraints": [
+    "controlled-pilot",
+    "pre-integration",
+    "test-only route rendering fix",
+    "no API/DB/live integration",
+    "no landing",
+    "no lockfiles"
+  ]
+}

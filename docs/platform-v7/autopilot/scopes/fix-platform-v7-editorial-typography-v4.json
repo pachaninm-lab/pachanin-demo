@@ -1,0 +1,33 @@
+{
+  "branch": "fix/platform-v7-editorial-typography-v4",
+  "status": "active",
+  "purpose": "Rebuild the public Platform V7 homepage typography, editorial hierarchy and mobile header controls in RU, EN and ZH without changing Deal authority, authentication, APIs, banking logic or external integration status.",
+  "approvedBy": "user-directed-public-home-redesign-2026-07-24",
+  "allowedPaths": [
+    "apps/web/app/platform-v7/page.tsx",
+    "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
+    "apps/web/components/platform-v7/PublicDealRoleScenario.tsx",
+    "apps/web/components/platform-v7/PublicLocaleLink.tsx",
+    "apps/web/i18n/platform-v7-hero-message.ts",
+    "apps/web/i18n/platform-v7-home-v3.ts",
+    "apps/web/styles/platform-v7-hero-infrastructure-message.css",
+    "apps/web/styles/platform-v7-strategic-home-v3.css",
+    "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
+    "apps/web/tests/e2e/platform-v7-strategic-home-v3.spec.ts",
+    "apps/web/tests/unit/platformV7HeroInfrastructureMessage.test.ts",
+    "apps/web/tests/unit/platformV7PublicIndustrialCopy.test.ts",
+    "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+    "scripts/production-full-stack-live-acceptance.sh",
+    "scripts/p7-autopilot-guard.sh",
+    "docs/platform-v7/autopilot/scopes/fix-platform-v7-editorial-typography-v4.json"
+  ],
+  "forbiddenCapabilities": [
+    "changes to authentication, RBAC, tenant authority or protected routing",
+    "changes to Deal state machines, money movement, banking callbacks or reconciliation",
+    "changes to API, database schema, infrastructure or deployment topology",
+    "claims that unverified government, banking, laboratory or logistics integrations are connected",
+    "use of Netlify or Vercel as production infrastructure",
+    "autonomous critical actions by TAI",
+    "public development-stage or fake-live messaging"
+  ]
+}

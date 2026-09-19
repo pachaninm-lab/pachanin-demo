@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "releaseAuthority": {
+    "sourceRoots": [
+      "apps/api/src",
+      "apps/web/app",
+      "apps/web/lib",
+      "workers",
+      "packages"
+    ],
+    "containerDockerfile": "infra/docker/Dockerfile.api",
+    "containerDockerfiles": [
+      "infra/docker/Dockerfile.api",
+      "infra/docker/Dockerfile.web"
+    ],
+    "runtimeInventory": "infra/docker/runtime-inventory.json",
+    "optionalRuntimeInventory": "docs/platform-v7/autopilot/optional-runtime-inventory.json",
+    "iacRoots": [
+      "infra/docker",
+      "infra/helm",
+      "infra/k8s"
+    ],
+    "dependencyPolicy": "all-workspace-production-dependencies",
+    "secretScanRoot": "."
+  },
+  "deferredContours": [],
+  "retiredContours": [
+    {
+      "path": "apps/ml",
+      "status": "NOT_DEPLOYABLE",
+      "ticket": "#2605",
+      "inventoryId": "ml-service",
+      "reason": "Reference model code is retained without dependency manifest, runtime entrypoint, image, publisher or deployment authority. Reactivation requires a separate accepted product and model-lifecycle program."
+    },
+    {
+      "path": "infra/airflow",
+      "status": "NOT_DEPLOYABLE",
+      "ticket": "#2605",
+      "inventoryId": "airflow-orchestration",
+      "reason": "Executable Airflow dependencies and DAGs are removed. Any future orchestration must use durable audited workers or a separately accepted orchestrator."
+    }
+  ]
+}

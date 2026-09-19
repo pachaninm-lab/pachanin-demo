@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/production-release-owner-bridge-3731",
+  "status": "active",
+  "purpose": "Repair the owner-authorized exact-current-main release bridge without permitting bot-originated workflow dispatch to bypass deployment authority.",
+  "approvedBy": "owner-direct-production-release-repair-2026-08-08",
+  "authorityBaseExactMain": "f457ff19e7ea41bcbd390f807c24dbb3a6f5e2b4",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/production-full-stack-exact-sha.yml",
+    ".github/workflows/platform-v7-safe-merge.yml",
+    "scripts/check-production-full-stack-release.mjs",
+    "docs/platform-v7/autopilot/scopes/production-release-owner-bridge-3731.json",
+    "docs/platform-v7/autopilot/autopilot-state.json",
+    ".github/workflows/pc-crop-10a.yml"
+  ]
+}

@@ -1,0 +1,103 @@
+# GrainFlow Kafka Topics Configuration (ТЗ 4.2)
+# Deploy via: kafka-topics.sh --bootstrap-server kafka:9092 --create --config-file topics.yml
+# Or via: infra/kafka/create-topics.sh
+
+topics:
+  # ── Сделки ─────────────────────────────────────────────────────────────────
+  - name: grainflow.deals.events
+    partitions: 12
+    replication-factor: 3
+    configs:
+      retention.ms: 2592000000      # 30 дней
+      min.insync.replicas: 2
+      compression.type: lz4
+      cleanup.policy: delete
+      message.max.bytes: 1048576    # 1MB
+
+  - name: grainflow.deals.commands
+    partitions: 6
+    replication-factor: 3
+    configs:
+      retention.ms: 86400000        # 1 день (команды краткосрочны)
+      min.insync.replicas: 2
+      compression.type: lz4
+      cleanup.policy: delete
+
+  # ── Платежи ─────────────────────────────────────────────────────────────────
+  - name: grainflow.payments.events
+    partitions: 6
+    replication-factor: 3
+    configs:
+      retention.ms: 31536000000     # 1 год (финансы)
+      min.insync.replicas: 2
+      compression.type: lz4
+      cleanup.policy: delete
+
+  # ── Логистика / GPS ─────────────────────────────────────────────────────────
+  - name: grainflow.logistics.events
+    partitions: 24
+    replication-factor: 3
+    configs:
+      retention.ms: 2592000000      # 30 дней
+      min.insync.replicas: 2
+      compression.type: lz4
+      cleanup.policy: delete
+
+  # ── Документы / ЭДО ─────────────────────────────────────────────────────────
+  - name: grainflow.documents.events
+    partitions: 6
+    replication-factor: 3
+    configs:
+      retention.ms: 31536000000     # 1 год
+      min.insync.replicas: 2
+      compression.type: lz4
+      cleanup.policy: delete
+
+  # ── Интеграции ──────────────────────────────────────────────────────────────
+  - name: grainflow.integrations.inbound
+    partitions: 12
+    replication-factor: 3
+    configs:
+      retention.ms: 604800000       # 7 дней
+      min.insync.replicas: 2
+      compression.type: lz4
+      cleanup.policy: delete
+
+  - name: grainflow.integrations.outbound
+    partitions: 12
+    replication-factor: 3
+    configs:
+      retention.ms: 604800000       # 7 дней
+      min.insync.replicas: 2
+      compression.type: lz4
+      cleanup.policy: delete
+
+  # ── Аудит (append-only, 5 лет) ──────────────────────────────────────────────
+  - name: grainflow.audit.events
+    partitions: 6
+    replication-factor: 3
+    configs:
+      retention.ms: 157680000000    # 5 лет
+      min.insync.replicas: 2
+      compression.type: lz4
+      cleanup.policy: delete
+
+  # ── Уведомления ─────────────────────────────────────────────────────────────
+  - name: grainflow.notifications
+    partitions: 6
+    replication-factor: 3
+    configs:
+      retention.ms: 86400000        # 1 день
+      min.insync.replicas: 2
+      compression.type: lz4
+      cleanup.policy: delete
+
+  # ── Dead Letter Queue ────────────────────────────────────────────────────────
+  - name: grainflow.outbox.dead-letter
+    partitions: 3
+    replication-factor: 3
+    configs:
+      retention.ms: 604800000       # 7 дней (ручная обработка)
+      min.insync.replicas: 2
+      compression.type: lz4
+      cleanup.policy: delete

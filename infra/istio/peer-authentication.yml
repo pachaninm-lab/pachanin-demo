@@ -1,0 +1,76 @@
+# Istio mTLS — строгий режим для всего namespace
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: grainflow-prod
+spec:
+  mtls:
+    mode: STRICT
+
+---
+# Разрешаем прометеусу скрейпить без mTLS (из infra namespace)
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: allow-prometheus-scrape
+  namespace: grainflow-prod
+spec:
+  selector:
+    matchLabels:
+      app: grainflow-api
+  mtls:
+    mode: STRICT
+  portLevelMtls:
+    "3000":
+      mode: PERMISSIVE
+
+---
+# AuthorizationPolicy — нулевое доверие между сервисами
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: grainflow-api-policy
+  namespace: grainflow-prod
+spec:
+  selector:
+    matchLabels:
+      app: grainflow-api
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "cluster.local/ns/grainflow-prod/sa/grainflow-web"
+              - "cluster.local/ns/grainflow-prod/sa/grainflow-ml"
+              - "cluster.local/ns/monitoring/sa/prometheus"
+              - "cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"
+      to:
+        - operation:
+            methods: ["GET", "POST", "PUT", "PATCH", "DELETE"]
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: grainflow-ml-policy
+  namespace: grainflow-prod
+spec:
+  selector:
+    matchLabels:
+      app: grainflow-ml
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "cluster.local/ns/grainflow-prod/sa/grainflow-api"
+
+---
+# Deny all остальное
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all
+  namespace: grainflow-prod
+spec: {}

@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/tai-postgres-service-authority-20260801",
+  "status": "active",
+  "purpose": "Replace the failed workflow materializer with a reviewable source repair that binds the production PostgreSQL authority to the active exact-main API DATABASE_URL, the matching durable Compose service, exactly one running container and its matching POSTGRES_DB before any production mutation.",
+  "approvedBy": "owner-direct-tai-agro-os-v4-production-completion-2026-08-01",
+  "authorityBaseExactMain": "0a4d5c854485d3b51db0144bdeb2bbe4ce4c7830",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "productionMutationAllowedBeforeMerge": false,
+  "allowedPaths": [
+    "scripts/tai-reg-ru-deploy.sh",
+    "scripts/check-tai-reg-ru-deploy.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-postgres-authority-20260801.json"
+  ],
+  "requiredBehavior": [
+    "resolve exactly one running API container in the active production Compose project and require its OCI revision to equal the requested exact-main SHA",
+    "read one non-empty DATABASE_URL from that exact-main API container and accept only postgres or postgresql schemes",
+    "bind the decoded DATABASE_URL hostname to an existing Compose service and the decoded database name to the live POSTGRES_DB",
+    "recognize PostgreSQL images only by an exact repository basename rather than a substring",
+    "exclude provision init migration seed backup and restore helper services from authority",
+    "require exactly one non-helper persistent PostgreSQL Compose service with a durable bind or volume covering PGDATA",
+    "require exactly one running container for the selected authority service and a matching live durable mount",
+    "stop before migration bootstrap role environment or Compose mutation on every authority mismatch",
+    "execute focused fixtures for helper ambiguity duplicate persistent services missing services invalid schemes non-PostgreSQL hosts missing or duplicate containers database mismatch and ephemeral storage",
+    "preserve the canonical contents-read protected REG.RU deployment workflow rollback boundary and zero-cost hosting"
+  ],
+  "forbiddenCapabilities": [
+    "workflow materializer or workflow self-push",
+    "contents write permission in the canonical TAI deployment workflow",
+    "PostgreSQL authority selected by broad image substring",
+    "helper service selected as database authority",
+    "head-first selection of API or PostgreSQL containers",
+    "mutation before authority validation",
+    "continue-on-error or masked authority failure",
+    "new server paid API SaaS database or recurring expense",
+    "production PASS before exact-main merge REG.RU deployment and live postflight evidence"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "authorityChangedPathCount": 3,
+    "negativeFixtureCount": 28,
+    "operationalStatusBeforeLiveAcceptance": "NOT_DEPLOYED"
+  }
+}

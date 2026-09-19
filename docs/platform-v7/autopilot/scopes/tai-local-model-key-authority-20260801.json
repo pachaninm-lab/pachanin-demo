@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-backup-authority-propagation-20260801",
+  "status": "active",
+  "purpose": "Resolve the confirmed exact-main BACKUP_AUTHORITY_UNAVAILABLE blocker by propagating the existing protected external backup evidence path through bounded runner input into the root-only full-stack controller, without exposing file contents or widening production authority.",
+  "approvedBy": "owner-direct-make-sure-2026-08-01",
+  "authorityBaseExactMain": "58da2137c3722b7d257b9958d027c9efc21c7cb5",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/tai-restricted-qwen-reg-ru-activation.yml",
+    "scripts/pc-tai-release-controller-core.sh",
+    "scripts/check-tai-local-model-key-authority.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-local-model-key-authority-20260801.json"
+  ],
+  "requiredBehavior": [
+    "materialize only the existing protected backup evidence path as bounded runner input",
+    "validate absolute canonical path, regular-file type, protected mode and STATUS=PASS before mutation",
+    "pass only the base64-encoded path to the existing full-stack deployment script",
+    "remove the bounded runner input immediately after root-only validation",
+    "preserve activation and deployment EXIT-trap state outside function-local scope",
+    "preserve explicit rollback outcome and redacted failure evidence",
+    "reuse the already validated model token from the single active API container",
+    "preserve exact-main, root-only controller, non-root runner and zero new recurring cost"
+  ],
+  "forbiddenCapabilities": [
+    "backup file contents in logs, environment artifacts or GitHub artifacts",
+    "production mutation without validated backup authority",
+    "secret values in logs or artifacts",
+    "private SSH key transport through GitHub Actions or repository secrets",
+    "direct Docker authority for pcactions",
+    "production inbound SSH",
+    "arbitrary sudo commands",
+    "unverified rollback success",
+    "new infrastructure or recurring cost"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "changedPathCount": 4,
+    "productionMutationAllowedBeforeMerge": false,
+    "requiredChecks": [
+      "platform-v7 autopilot guard",
+      "Workflow Syntax Guard",
+      "TAI REG.RU Preflight",
+      "TAI Restricted Qwen REG.RU Activation",
+      "CI",
+      "Node CI",
+      "Security Quality Gate",
+      "Runtime Context Security Gate",
+      "Security Abuse and Evidence Acceptance"
+    ]
+  }
+}

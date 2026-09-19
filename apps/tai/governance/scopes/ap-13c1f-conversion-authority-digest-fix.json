@@ -1,0 +1,30 @@
+{
+  "schema_version": "tai.concurrent-scope.v1",
+  "program_issue": 2726,
+  "issue": 3003,
+  "branch": "claude/tai-conversion-authority-digest-fix",
+  "exact_base": "c922b3e061ceceadc610d87ba06f21f24f50db23",
+  "allowed_paths": [
+    "apps/tai/governance/scopes/ap-13c1f-conversion-authority-digest-fix.json",
+    "apps/tai/model-artifacts/qwen-preview-runtime-authority.v1.json",
+    "apps/tai/model-artifacts/qwen-preview-runtime-remote.v1.sh",
+    "apps/tai/tai/qwen_preview_runtime.py",
+    "apps/tai/tests/test_qwen_preview_conversion_authority_digests.py",
+    "apps/tai/tests/test_qwen_preview_runtime.py"
+  ],
+  "acceptance": [
+    "the executed conversion authority is verified by the raw SHA-256 of its bytes",
+    "the committed source authority is verified independently from execution.committed_authority_sha256 inside that file",
+    "neither digest can stand in for the other and swapping them is rejected",
+    "exact main, workflow run id and attempt recorded inside the executed file are bound",
+    "raw-file verification is preserved and never replaced by the recorded field",
+    "the committed digest equals the canonical-JSON digest of the in-repository conversion authority",
+    "the top-level authority_sha256 is recomputed by the accepted algorithm"
+  ],
+  "forbidden_capabilities": [
+    "model, GGUF, toolchain, conversion provenance or source revision changes",
+    "SSH host-key pinning, credential handling or runtime limits changes",
+    "evidence schema, retention or maturity status changes",
+    "Gateway, UI, routing, feature-flag, model-admission or deployment changes"
+  ]
+}

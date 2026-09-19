@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/fix-production-mobile-copy-contract",
+  "status": "active",
+  "purpose": "Align exact-production mobile acceptance with the approved operating Deal workspace copy already deployed on REG.RU, then republish an exact main SHA and require mobile PASS.",
+  "approvedBy": "production-mobile-failure-30595647320",
+  "allowedPaths": [
+    "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
+    "apps/web/app/api/health/ready/route.ts",
+    "docs/platform-v7/autopilot/scopes/fix-production-mobile-copy-contract-2026-07-31.json"
+  ],
+  "forbiddenChanges": [
+    "homepage layout, CSS, fonts, components or visible copy",
+    "API behavior, database, RBAC, protected routes or TAI runtime",
+    "weakening mobile size, overflow, anchor or accessibility assertions"
+  ],
+  "acceptance": [
+    "production test selects the current Deal workspace accessible names",
+    "all existing mobile geometry, target-size, overflow and anchor assertions remain unchanged",
+    "exact-main REG.RU deployment is healthy with LIVE_ACCEPTANCE PASS",
+    "production mobile acceptance passes at 390x844 and 430x932"
+  ]
+}

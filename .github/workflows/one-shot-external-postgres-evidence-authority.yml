@@ -1,0 +1,67 @@
+name: One-shot external PostgreSQL evidence authority fix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/one-shot-external-postgres-evidence-authority.yml'
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  generate-fix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Generate bounded external PostgreSQL evidence fix
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          FIX_BRANCH: fix/external-postgres-evidence-authority-20260730
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git checkout -B "$FIX_BRANCH" origin/main
+          python scripts/one-shot-external-postgres-evidence-authority.py
+
+          rm .github/workflows/one-shot-external-postgres-evidence-authority.yml
+          rm scripts/one-shot-external-postgres-evidence-authority.py
+          rm docs/platform-v7/autopilot/templates/public-intake-evidence-authority.sql
+          rm docs/platform-v7/autopilot/scopes/one-shot-external-postgres-evidence-authority-3072.json
+
+          bash -n scripts/production-full-stack-exact-sha.sh
+          node scripts/check-production-full-stack-release.mjs
+          git diff --check
+
+          git add scripts/production-full-stack-exact-sha.sh \
+            scripts/check-production-full-stack-release.mjs \
+            apps/api/prisma/migrations/20260730113000_public_organization_intake_evidence_authority/migration.sql \
+            .github/workflows/one-shot-external-postgres-evidence-authority.yml \
+            scripts/one-shot-external-postgres-evidence-authority.py \
+            docs/platform-v7/autopilot/templates/public-intake-evidence-authority.sql \
+            docs/platform-v7/autopilot/scopes/one-shot-external-postgres-evidence-authority-3072.json \
+            docs/platform-v7/autopilot/scopes/fix-external-postgres-evidence-authority-3072.json
+          git commit -m 'FIX: verify durable intake through external PostgreSQL authority'
+          git push --force origin "HEAD:refs/heads/$FIX_BRANCH"
+
+          existing=$(gh pr list --repo "$REPO" --state open --head "$FIX_BRANCH" --json number --jq '.[0].number // empty')
+          if [[ -z "$existing" ]]; then
+            pr_url=$(gh pr create --repo "$REPO" --base main --head "$FIX_BRANCH" \
+              --title 'FIX: verify durable intake through external PostgreSQL authority' \
+              --body 'The public AI UI release passes live acceptance but rolls back because production PostgreSQL is external to Compose. This adds a least-privilege SECURITY DEFINER evidence function returning only verdict/audit/outbox IDs and lets the exact API runtime verify it through Prisma. Existing Compose PostgreSQL verification remains supported. No PII is returned. Merge triggers exact images and a REG.RU rollout.')
+          else
+            pr_url="$GITHUB_SERVER_URL/$REPO/pull/$existing"
+          fi
+          gh issue comment 3072 --repo "$REPO" --body "Generated external PostgreSQL evidence corrective PR: $pr_url"

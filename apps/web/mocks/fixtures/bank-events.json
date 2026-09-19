@@ -1,0 +1,15 @@
+{
+  "status": "live",
+  "balance": 6384000,
+  "lastCallbackAt": "2026-03-15T14:30:00Z",
+  "callbacks": [
+    { "id": "CB-441", "type": "Резерв", "dealId": "DL-9102", "status": "ok", "note": "Подтверждено автоматически", "at": "2026-03-11T09:12:00Z" },
+    { "id": "CB-442", "type": "Качество", "dealId": "DL-9102", "status": "mismatch", "note": "Расхождение 0.8% — ручная сверка", "at": "2026-03-11T14:30:00Z" },
+    { "id": "CB-443", "type": "Финал", "dealId": "DL-9102", "status": "pending", "note": "Зависит от разрешения CB-442", "at": null }
+  ],
+  "operations": [
+    { "type": "reserve", "dealId": "DL-9102", "amount": 6384000, "at": "2026-03-10T09:00:00Z", "status": "confirmed" },
+    { "type": "hold", "dealId": "DL-9102", "amount": 624000, "at": "2026-03-15T14:30:00Z", "status": "active" },
+    { "type": "release", "dealId": "DL-9102", "amount": 5760000, "at": null, "status": "pending" }
+  ]
+}

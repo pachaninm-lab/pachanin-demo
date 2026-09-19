@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4814,
+  "branch": "security/deals-update-shape-4814",
+  "status": "active",
+  "purpose": "Remainder of #4814: narrow the uncontexted UPDATE on public.deals. 20260831180000 closed INSERT and DELETE and left UPDATE permissive because the writers that need it have no user to derive an RLS context from. A policy cannot express the restriction - USING sees the old row, WITH CHECK the new one, and no single expression sees both - so it is a trigger. Measured under app_runtime with no context: before this, any column of any tenant's deal could be rewritten; after, only the auto-cancel transition survives.",
+  "authorityBaseExactMain": "dc61910f5",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/deals-update-shape-4814.json",
+    "apps/api/prisma/migrations/20260901070000_deals_uncontexted_update_shape/migration.sql"
+  ],
+  "requiredInvariants": [
+    "A trigger is not a policy and the difference is handled rather than discovered. A trigger fires for the table owner and for superusers too, which RLS does not, because public.deals carries no FORCE ROW LEVEL SECURITY. Admin connections are therefore exempted by an explicit principal check - the same device app_outbox_application_deal_visible already uses - or this would break the seeding and rehearsal paths that legitimately run as admin, canonical-test-deal.seed.ts among them, which platform-v7-one-deal-e2e.sh runs with DATABASE_URL=$ADMIN_URL.",
+    "A caller that carries an RLS context is returned immediately to the row policies. This guard adds no authority to the contexted path; it exists for callers that carry none.",
+    "The 14-day staleness threshold is NOT encoded in the database. It lives in DEAL_AUTO_CANCEL_DAYS, and pinning it here would couple them so that changing an environment variable silently breaks writes.",
+    "Cancelling any tenant's deal without a context REMAINS possible and is stated rather than implied. That is the shape of DealAutoService.autoCancel itself, a deliberate global sweep with no user. What closes is every other uncontexted mutation.",
+    "V8.2.2 and V8.4.1 are NOT claimed and stay FAIL. Both are about the cross-tenant READ, which stays open under deals_uncontexted_read. The ASVS decisions file is not touched by this pass.",
+    "No production, REG.RU, DNS, database or credential mutation. Forward-only; applied to production only in a separate controlled exact-SHA release. No new dependency, no lockfile change. New mandatory cost: 0 RUB."
+  ],
+  "acceptance": [
+    "Measured on a live PostgreSQL 16 carrying the whole chain (186 migrations applied clean) under app_runtime confirmed NOBYPASSRLS, with no RLS context. The auto-cancel shape on a staleable deal passes. Cancelling a SIGNED deal, forging SIGNED on another tenant, changing nextAction alone, and bumping version alone are each refused with 'deal update without an RLS context is limited to the auto-cancel shape' - this guard's own message, not another trigger's.",
+    "The contexted path was verified, not assumed: with the five app.current_* settings present, an ordinary nextAction update returns UPDATE 1. The admin path was verified too: the same update as the owner returns UPDATE 1.",
+    "Mutation: dropping the trigger lets the cross-tenant status forgery succeed again (UPDATE 1); recreating it refuses the next attempt from inside the function. The guard is what does the work.",
+    "The first version of this pass reserved a SECOND shape for DealSagaService.persistSaga, and measuring it proved that shape cannot exist. 20260712194000 lists sagaState among the columns deals_basis_immutable makes immutable after creation, for EVERY principal - owner and superuser included, since that trigger has no principal check. Verified directly: an owner UPDATE of sagaState is refused. Its trigger also sorts before this one alphabetically, so it rejects the write first and this guard never sees it. persistSaga sets sagaState on every call and ends in .catch(() => {}), so saga state has not been persisted at all since that migration landed, and the failure is swallowed. The shape was removed rather than left as dead code asserting a false thing.",
+    "That discovery corrects the record of the previous pass. #4871 justified keeping UPDATE permissive partly so the saga would not 'stop persisting silently'. It already does not persist. The DealAutoService half of that justification stands and is why this trigger allows one shape rather than none; the saga half was wrong and is corrected here rather than carried forward.",
+    "The first run of the case matrix also contained a test that proved nothing: 'cancel from a non-staleable status' was run against a deal the previous case had already cancelled, so OLD.status equalled NEW.status, no column differed, and it passed for the wrong reason. Rebuilt on a fresh database with a deal seeded SIGNED; it is refused. Reporting the first run would have been a false pass.",
+    "Not proven and not claimed: production grants, and whether the production principal is one of the four confined roles or the table owner. If it is the owner, this guard does not apply to it - the same open question #4814 already records about FORCE ROW LEVEL SECURITY."
+  ]
+}

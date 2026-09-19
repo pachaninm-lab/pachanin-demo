@@ -1,0 +1,109 @@
+name: PC-CROP Active Project Lock
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pc-crop-project-lock.yml'
+      - 'docs/platform-v7/autopilot/project-locks/pc-crop-remainder.json'
+      - 'docs/platform-v7/autopilot/scopes/pc-crop-project-lock-3389.json'
+      - 'scripts/verify-pc-crop-project-lock.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  statuses: read
+
+concurrency:
+  group: pc-crop-project-lock-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Deliberately unconditional. The branch-prefix filter it replaces meant a
+  # rename was enough to keep this gate from ever running, so the check that
+  # decides who may touch a locked programme could be switched off by the person
+  # it constrains. It now runs everywhere and answers NOT_APPLICABLE for work no
+  # active lock claims — a read-only pass costs a minute, and the alternative
+  # cost a whole class of supervision.
+  project-lock:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Prove lock and negative drift cases
+        run: node scripts/verify-pc-crop-project-lock.mjs --self-test
+
+      - name: Require terminal PC-CROP exact-main completion
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          lock_status="$(
+            node -p "require('./docs/platform-v7/autopilot/project-locks/pc-crop-remainder.json').status"
+          )"
+          if [[ "$lock_status" != 'completed' ]]; then
+            exit 0
+          fi
+          completion_sha="$(
+            node -p "require('./docs/platform-v7/autopilot/project-locks/pc-crop-remainder.json').completion.mergeSha"
+          )"
+          completion_context="$(
+            node -p "require('./docs/platform-v7/autopilot/project-locks/pc-crop-remainder.json').completion.exactMainStatusContext"
+          )"
+          gh api "repos/$GITHUB_REPOSITORY/commits/$completion_sha/status" \
+            --jq ".statuses[] | select(.context == \"$completion_context\" and .state == \"success\") | .context" \
+            | grep -Fx "$completion_context"
+
+      # No fetch here on purpose: the checkout above already took the whole
+      # history, and it dropped its credentials, so a fetch would be both
+      # unnecessary and the kind of step that fails for a reason unrelated to
+      # what this gate is judging.
+      - name: Collect the changed files
+        if: github.event_name == 'pull_request'
+        id: changed
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e "${BASE_SHA}^{commit}"
+          {
+            printf 'files<<PC_CROP_EOF\n'
+            git diff --name-only "${BASE_SHA}...${HEAD_SHA}"
+            printf 'PC_CROP_EOF\n'
+          } >> "$GITHUB_OUTPUT"
+
+      # Scope resolution now lives in the verifier, so the shell cannot decide
+      # that a pull request has no authority to answer to. A branch with no
+      # active scope is reported, not silently skipped, and a branch with two is
+      # a failure rather than a coin toss.
+      - name: Enforce project authority
+        if: github.event_name == 'pull_request'
+        env:
+          PC_CROP_BRANCH: ${{ github.head_ref }}
+          PC_CROP_TITLE: ${{ github.event.pull_request.title }}
+          PC_CROP_CHANGED_FILES: ${{ steps.changed.outputs.files }}
+        run: node scripts/verify-pc-crop-project-lock.mjs
+
+      - name: Upload project-lock evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pc-crop-project-lock-${{ github.event.pull_request.head.sha || github.sha }}
+          path: artifacts/pc-crop-project-lock
+          if-no-files-found: error
+          retention-days: 90

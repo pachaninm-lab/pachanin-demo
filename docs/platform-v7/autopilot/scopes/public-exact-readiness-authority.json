@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-exact-readiness-authority",
+  "status": "active",
+  "operationalStatus": "PRODUCTION_RELEASE_BLOCKER_REMEDIATION",
+  "purpose": "Expose the existing no-secret web readiness route at the exact public middleware boundary required by the REG.RU exact-SHA release contract, while keeping every other unauthenticated API route fail-closed.",
+  "allowedPaths": [
+    "apps/web/middleware.ts",
+    "apps/web/tests/unit/exactMainLiveEvidenceContract.test.ts",
+    "docs/platform-v7/autopilot/scopes/public-exact-readiness-authority.json"
+  ],
+  "evidence": {
+    "failedProductionMobileRun": 30242532098,
+    "observedManifestRevision": "5b06246d1383a4c5ebc2716ac0e0e54dd6429ba5",
+    "observedReadinessHttp": 401,
+    "expectedReadinessContract": "status/service/releaseAuthority/revision/checkedAt only"
+  },
+  "boundaries": {
+    "homepageInformationArchitectureChange": false,
+    "apiImplementationChange": false,
+    "databaseChange": false,
+    "tenantIsolationChange": false,
+    "protectedAuthOrRbacChange": false,
+    "financialAuthorityChange": false,
+    "dealDomainChange": false,
+    "productionTopologyChange": false,
+    "netlifyOrVercelProductionDependency": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

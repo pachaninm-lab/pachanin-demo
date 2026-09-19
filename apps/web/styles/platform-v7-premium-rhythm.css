@@ -1,0 +1,114 @@
+/* Platform v7 premium rhythm: выставочная собранность поверх существующей системы. */
+
+.pc-main :where(section, article, aside, form) {
+  backdrop-filter: saturate(1.04);
+}
+
+.pc-main :where(section, article, aside) :where(section, article, aside) {
+  box-shadow: none !important;
+}
+
+.pc-main :where([style*='border-radius: 28px'], [style*='borderRadius: 28'], [style*='border-radius: 24px'], [style*='borderRadius: 24']) {
+  border-radius: var(--pc-radius-lg, 20px) !important;
+}
+
+.pc-main :where([style*='gap: 32px'], [style*='gap:32px']) {
+  gap: 24px !important;
+}
+
+.pc-main :where([style*='gap: 28px'], [style*='gap:28px']) {
+  gap: 20px !important;
+}
+
+.pc-main :where([style*='padding: 40px'], [style*='padding:40px']) {
+  padding: clamp(22px, 3vw, 32px) !important;
+}
+
+.pc-main :where([style*='padding: 32px'], [style*='padding:32px']) {
+  padding: clamp(20px, 2.6vw, 28px) !important;
+}
+
+.pc-main :where([style*='padding: 28px'], [style*='padding:28px']) {
+  padding: clamp(18px, 2.4vw, 24px) !important;
+}
+
+.pc-main :where([style*='letter-spacing: 0.08em'], [style*='letterSpacing: 0.08em'], [style*='letter-spacing: 0.1em'], [style*='letterSpacing: 0.1em']) {
+  letter-spacing: 0.06em !important;
+}
+
+.pc-main :where([style*='text-transform: uppercase'], [style*='textTransform: uppercase']) {
+  font-size: min(12px, 0.82rem) !important;
+}
+
+.pc-main :where(.pc-status-chip, [data-p7-dark-fixed='chip'], [style*='border-radius: 999px'], [style*='borderRadius: 999']) {
+  min-height: 30px;
+  border-width: 1px !important;
+  font-weight: 760 !important;
+}
+
+.pc-main :where(table) :where(th) {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--p7-color-text-muted) !important;
+  background: color-mix(in srgb, var(--p7-color-surface-muted) 78%, transparent);
+}
+
+.pc-main :where(table) :where(td, th) {
+  border-color: var(--p7-color-border) !important;
+}
+
+.pc-main :where(table) :where(tr:hover td) {
+  background: color-mix(in srgb, var(--p7-color-brand-soft) 32%, transparent);
+}
+
+.pc-main :where([data-testid*='money'], [data-testid*='bank'], [data-testid*='release'], [data-testid*='reserve']) {
+  font-variant-numeric: tabular-nums;
+}
+
+.pc-main :where([aria-label*='деньги' i], [aria-label*='резерв' i], [aria-label*='выпуск' i]) {
+  font-variant-numeric: tabular-nums;
+}
+
+.pc-main :where(button, a[role='button']) svg {
+  flex: 0 0 auto;
+}
+
+.pc-main :where(button, a[role='button']) span {
+  min-width: 0;
+}
+
+.pc-main :where(.pc-alert-panel) {
+  border-radius: var(--pc-radius-lg, 20px) !important;
+  box-shadow: var(--pc-shadow-lg) !important;
+}
+
+@media (min-width: 1280px) {
+  .pc-main {
+    padding-left: 24px !important;
+    padding-right: 24px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .pc-main :where(section, article, aside, form) {
+    border-radius: 18px !important;
+  }
+
+  .pc-main :where([style*='gap: 24px'], [style*='gap:24px'], [style*='gap: 20px'], [style*='gap:20px']) {
+    gap: 14px !important;
+  }
+
+  .pc-main :where([style*='font-size: 56px'], [style*='fontSize: 56'], [style*='font-size: 48px'], [style*='fontSize: 48']) {
+    font-size: clamp(28px, 8.5vw, 38px) !important;
+  }
+
+  .pc-main :where([style*='font-size: 32px'], [style*='fontSize: 32']) {
+    font-size: clamp(23px, 7vw, 30px) !important;
+  }
+
+  .pc-main :where(.pc-status-chip, [data-p7-dark-fixed='chip'], [style*='border-radius: 999px'], [style*='borderRadius: 999']) {
+    min-height: 32px;
+    white-space: normal !important;
+  }
+}

@@ -1,0 +1,368 @@
+name: TAI AP-14F1D Rosstat Shared Retrieval Acceptance
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/tai-ap-14f1d.yml'
+      - 'apps/tai/tai/migrations/0021_retrieval_activation_serialization.sql'
+      - 'apps/tai/tai/migrations/manifest.json'
+      - 'apps/tai/tai/public_corpus_retrieval_sync.py'
+      - 'apps/tai/tests/test_migration_manifest.py'
+      - 'apps/tai/tests/test_public_corpus_retrieval_sync.py'
+      - 'apps/tai/tests/test_public_corpus_retrieval_sync_database.py'
+      - 'docs/platform-v7/autopilot/scopes/tai-ap-14f1d-3374.json'
+      - 'scripts/tai-ap-14f1d/verify.py'
+  push:
+    branches:
+      - main
+      - agent/tai-ap-14f1d-rosstat-shared-retrieval-3374
+    paths:
+      - '.github/workflows/tai-ap-14f1d.yml'
+      - 'apps/tai/tai/migrations/0021_retrieval_activation_serialization.sql'
+      - 'apps/tai/tai/migrations/manifest.json'
+      - 'apps/tai/tai/public_corpus_retrieval_sync.py'
+      - 'apps/tai/tests/test_migration_manifest.py'
+      - 'apps/tai/tests/test_public_corpus_retrieval_sync.py'
+      - 'apps/tai/tests/test_public_corpus_retrieval_sync_database.py'
+      - 'docs/platform-v7/autopilot/scopes/tai-ap-14f1d-3374.json'
+      - 'scripts/tai-ap-14f1d/verify.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  statuses: write
+
+concurrency:
+  group: tai-ap-14f1d-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  MANIFEST: apps/tai/knowledge-sources/AP-14F1C-ROSSTAT-7708234640-VSHP2016254.v1.json
+  EVIDENCE_DIR: artifacts/tai-ap-14f1d
+  TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/tai_ap14f1d
+  OBSERVED_AT: '2026-07-29T06:30:00Z'
+
+jobs:
+  rosstat-shared-retrieval:
+    name: Public snapshot · retrieval sync · RU/EN/ZH · withdrawal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: ghcr.io/pachaninm-lab/ci-postgres@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tai_ap14f1d
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tai_ap14f1d"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - name: Resolve governed comparison base
+        id: base
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            base_ref="origin/${{ github.base_ref }}"
+          elif [[ "$GITHUB_REF_NAME" == "main" ]]; then
+            base_ref="HEAD^"
+          else
+            base_ref="aa0583eef4a3d70a0810992a2d115811a6a97d0d"
+          fi
+          printf 'base_ref=%s\n' "$base_ref" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: apps/tai/pyproject.toml
+
+      - name: Verify source-controlled scope
+        if: github.ref_name != 'main'
+        shell: bash
+        env:
+          BASE_REF: ${{ steps.base.outputs.base_ref }}
+        run: |
+          set -euo pipefail
+          export GITHUB_HEAD_REF="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          bash scripts/p7-autopilot-guard.sh
+
+      - name: Install TAI test toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -e 'apps/tai[dev]'
+
+      - name: Static, unit and adversarial acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          node --check scripts/tai-ap-14f1c/discover.mjs
+          node scripts/tai-ap-14f1c/discover.mjs --self-test \
+            | tee "$EVIDENCE_DIR/discovery-self-test.txt"
+          python -m json.tool apps/tai/tai/migrations/manifest.json \
+            > "$EVIDENCE_DIR/migration-manifest.json"
+          ruff check \
+            apps/tai/tai/public_corpus_retrieval_sync.py \
+            apps/tai/tests/test_migration_manifest.py \
+            apps/tai/tests/test_public_corpus_retrieval_sync.py \
+            apps/tai/tests/test_public_corpus_retrieval_sync_database.py \
+            scripts/tai-ap-14f1d/verify.py \
+            | tee "$EVIDENCE_DIR/ruff.txt"
+          mypy \
+            apps/tai/tai/public_corpus_retrieval_sync.py \
+            scripts/tai-ap-14f1d/verify.py \
+            | tee "$EVIDENCE_DIR/mypy.txt"
+          pytest \
+            apps/tai/tests/test_migration_manifest.py \
+            apps/tai/tests/test_public_corpus_retrieval_sync.py \
+            apps/tai/tests/test_public_corpus_retrieval_sync_database.py \
+            apps/tai/tests/test_rosstat_vshp2016254.py \
+            | tee "$EVIDENCE_DIR/pytest.txt"
+
+      - name: Build and verify pinned Rosstat Russian CA chain
+        shell: bash
+        env:
+          ROOT_CERT_SHA256_FINGERPRINT: d2:6d:2d:02:31:b7:c3:9f:92:cc:73:85:12:ba:54:10:35:19:e4:40:5d:68:b5:bd:70:3e:97:88:ca:8e:cf:31
+          SUB_CERT_SHA256_FINGERPRINT: 21:55:78:50:36:c9:00:db:b5:f1:bb:2a:15:69:c8:0c:55:59:5b:d6:bf:94:86:7a:29:bb:dd:bc:7d:88:a3:f2
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR" /tmp/rosstat-ca
+
+          convert_certificate() {
+            local input="$1"
+            local output="$2"
+            if openssl x509 -in "$input" -noout >/dev/null 2>&1; then
+              openssl x509 -in "$input" -out "$output"
+            else
+              openssl x509 -inform DER -in "$input" -out "$output"
+            fi
+          }
+
+          download_pinned_http_certificate() {
+            local target="$1"
+            shift
+            local downloaded=false
+            for url in "$@"; do
+              if curl --silent --show-error --fail \
+                --proto '=http' \
+                --max-redirs 0 \
+                --connect-timeout 10 \
+                --max-time 30 \
+                "$url" \
+                -o "$target"
+              then
+                printf '%s\n' "$url"
+                downloaded=true
+                break
+              fi
+            done
+            test "$downloaded" = true
+          }
+
+          download_pinned_http_certificate /tmp/rosstat-ca/root.cer \
+            'http://nuc-cdp.digital.gov.ru/cdp/rootca_ssl_rsa2022.crt' \
+            'http://nuc-cdp.voskhod.ru/cdp/rootca_ssl_rsa2022.crt' \
+            | tee "$EVIDENCE_DIR/rosstat-root-source.txt"
+          convert_certificate /tmp/rosstat-ca/root.cer /tmp/rosstat-ca/root.pem
+          root_fingerprint="$(
+            openssl x509 -in /tmp/rosstat-ca/root.pem -noout -fingerprint -sha256 \
+              | cut -d= -f2 | tr 'A-F' 'a-f'
+          )"
+          test "$root_fingerprint" = "$ROOT_CERT_SHA256_FINGERPRINT"
+          root_subject="$(
+            openssl x509 -in /tmp/rosstat-ca/root.pem -noout -subject -nameopt RFC2253 \
+              | sed 's/^subject=//'
+          )"
+          root_issuer="$(
+            openssl x509 -in /tmp/rosstat-ca/root.pem -noout -issuer -nameopt RFC2253 \
+              | sed 's/^issuer=//'
+          )"
+          test "$root_subject" = "$root_issuer"
+          grep -F 'CN=Russian Trusted Root CA' <<<"$root_subject"
+          openssl verify -CAfile /tmp/rosstat-ca/root.pem /tmp/rosstat-ca/root.pem \
+            | tee "$EVIDENCE_DIR/rosstat-root-verification.txt"
+
+          download_pinned_http_certificate /tmp/rosstat-ca/sub.cer \
+            'http://nuc-cdp.digital.gov.ru/cdp/subca_ssl_rsa2024.crt' \
+            'http://nuc-cdp.voskhod.ru/cdp/subca_ssl_rsa2024.crt' \
+            | tee "$EVIDENCE_DIR/rosstat-sub-source.txt"
+          convert_certificate /tmp/rosstat-ca/sub.cer /tmp/rosstat-ca/sub.pem
+          sub_fingerprint="$(
+            openssl x509 -in /tmp/rosstat-ca/sub.pem -noout -fingerprint -sha256 \
+              | cut -d= -f2 | tr 'A-F' 'a-f'
+          )"
+          test "$sub_fingerprint" = "$SUB_CERT_SHA256_FINGERPRINT"
+          openssl verify -CAfile /tmp/rosstat-ca/root.pem /tmp/rosstat-ca/sub.pem \
+            | tee "$EVIDENCE_DIR/rosstat-sub-verification.txt"
+
+          timeout 20 openssl s_client \
+            -connect rosstat.gov.ru:443 \
+            -servername rosstat.gov.ru \
+            -showcerts \
+            </dev/null > "$EVIDENCE_DIR/rosstat-tls-chain.txt" 2>&1 || true
+          awk '
+            /-----BEGIN CERTIFICATE-----/ {capture=1}
+            capture {print}
+            /-----END CERTIFICATE-----/ {exit}
+          ' "$EVIDENCE_DIR/rosstat-tls-chain.txt" > /tmp/rosstat-ca/leaf.pem
+          test -s /tmp/rosstat-ca/leaf.pem
+          openssl x509 -in /tmp/rosstat-ca/leaf.pem -noout -checkhost rosstat.gov.ru \
+            | tee "$EVIDENCE_DIR/rosstat-leaf-hostname.txt"
+          openssl verify \
+            -CAfile /tmp/rosstat-ca/root.pem \
+            -untrusted /tmp/rosstat-ca/sub.pem \
+            /tmp/rosstat-ca/leaf.pem \
+            | tee "$EVIDENCE_DIR/rosstat-leaf-chain-verification.txt"
+
+          cat /tmp/rosstat-ca/root.pem /tmp/rosstat-ca/sub.pem > /tmp/rosstat-ca/ca-bundle.pem
+          chmod 0600 /tmp/rosstat-ca/ca-bundle.pem
+          printf 'CURL_CA_BUNDLE=%s\n' '/tmp/rosstat-ca/ca-bundle.pem' >> "$GITHUB_ENV"
+
+      - name: Controlled governed-resource acquisition
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/tai-ap-14f1c/discover.mjs \
+            --manifest "$MANIFEST" \
+            --output "$EVIDENCE_DIR/rosstat-resource-evidence.json" \
+            | tee "$EVIDENCE_DIR/acquisition.log"
+
+      - name: Enforce governed integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const evidence = JSON.parse(
+            fs.readFileSync('artifacts/tai-ap-14f1d/rosstat-resource-evidence.json', 'utf8'),
+          );
+          if (evidence.exactHead !== process.env.EXACT_HEAD) {
+            throw new Error('exact-head evidence mismatch');
+          }
+          if (!evidence.allIntegritySatisfied || evidence.failure !== null) {
+            throw new Error('resource integrity is not satisfied');
+          }
+          if (evidence.rawBytesPersisted !== false || evidence.sharedRagAllowed !== false) {
+            throw new Error('acquisition evidence boundary mismatch');
+          }
+          if (
+            evidence.resources.length !== 5
+            || evidence.resources.some((item) => !item.integrityMatched)
+          ) {
+            throw new Error('resource integrity evidence is incomplete');
+          }
+          NODE
+
+      - name: Ephemeral exact-byte refetch
+        shell: bash
+        run: |
+          set -euo pipefail
+          materialized_dir=/tmp/tai-ap14f1d-exact
+          rm -rf "$materialized_dir"
+          mkdir -p "$materialized_dir"
+          chmod 0700 "$materialized_dir"
+          selected_ip="$(
+            node -e "const e=require('./$EVIDENCE_DIR/rosstat-resource-evidence.json'); process.stdout.write(e.dns.selected)"
+          )"
+          node - <<'NODE' > /tmp/tai-ap14f1d-resources.tsv
+          const fs = require('node:fs');
+          const manifest = JSON.parse(fs.readFileSync(process.env.MANIFEST, 'utf8'));
+          for (const item of manifest.resources.filter(
+            (resource) => resource.integrityMode === 'EXACT_BYTES',
+          )) {
+            console.log([item.code, item.uri, item.maximumBytes, item.expectedSha256].join('\t'));
+          }
+          NODE
+          while IFS=$'\t' read -r code uri maximum_bytes expected_sha; do
+            output="$materialized_dir/$code"
+            curl --silent --show-error --fail-with-body \
+              --cacert "$CURL_CA_BUNDLE" \
+              --proto '=https' \
+              --tlsv1.2 \
+              --max-redirs 0 \
+              --connect-timeout 10 \
+              --max-time 90 \
+              --max-filesize "$maximum_bytes" \
+              --header 'Accept-Encoding: identity' \
+              --header 'Cookie:' \
+              --user-agent 'Transparent-Agro-Intelligence/1.0 governed-shared-retrieval' \
+              --resolve "rosstat.gov.ru:443:$selected_ip" \
+              --output "$output" \
+              "$uri"
+            test "$(sha256sum "$output" | cut -d' ' -f1)" = "$expected_sha"
+            test "$(stat -c '%s' "$output")" -le "$maximum_bytes"
+            chmod 0600 "$output"
+          done < /tmp/tai-ap14f1d-resources.tsv
+          test -s "$materialized_dir/PASSPORT_CSV"
+          test -s "$materialized_dir/SDMX_STRUCTURE_XML"
+          test -s "$materialized_dir/DATA_XML"
+
+      - name: PostgreSQL shared retrieval and withdrawal acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/tai-ap-14f1d/verify.py \
+            --database-url "$TEST_DATABASE_URL" \
+            --passport-csv /tmp/tai-ap14f1d-exact/PASSPORT_CSV \
+            --structure-xml /tmp/tai-ap14f1d-exact/SDMX_STRUCTURE_XML \
+            --data-xml /tmp/tai-ap14f1d-exact/DATA_XML \
+            --observed-at "$OBSERVED_AT" \
+            --evidence-output "$EVIDENCE_DIR/shared-retrieval-evidence.json" \
+            | tee "$EVIDENCE_DIR/postgresql.log"
+
+      - name: Remove ephemeral source bytes
+        if: always()
+        shell: bash
+        run: |
+          rm -rf /tmp/tai-ap14f1d-exact /tmp/tai-ap14f1d-resources.tsv /tmp/rosstat-ca
+
+      - name: Upload immutable acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tai-ap-14f1d-shared-retrieval-evidence-${{ env.EXACT_HEAD }}
+          path: ${{ env.EVIDENCE_DIR }}
+          if-no-files-found: error
+          retention-days: 30
+
+  exact-main-status:
+    name: Observable exact-main status
+    if: github.ref_name == 'main'
+    needs: rosstat-shared-retrieval
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Publish exact-main acceptance status
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: process.env.EXACT_HEAD,
+              state: 'success',
+              context: 'TAI AP-14F1D exact-main',
+              description: 'Rosstat shared retrieval activation and withdrawal accepted',
+              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });

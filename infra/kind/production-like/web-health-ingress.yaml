@@ -1,0 +1,20 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grainflow-web-health
+  namespace: grainflow-acceptance
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /platform-v7
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: app.acceptance.grainflow.invalid
+      http:
+        paths:
+          - path: /api/health
+            pathType: Exact
+            backend:
+              service:
+                name: grainflow-web
+                port:
+                  number: 3000

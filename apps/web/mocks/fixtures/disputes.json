@@ -1,0 +1,59 @@
+[
+  {
+    "id": "DK-2024-89",
+    "dealId": "DL-9102",
+    "title": "Несоответствие качества зерна",
+    "type": "quality_mismatch",
+    "status": "active",
+    "openedAt": "2026-03-12T08:30:00Z",
+    "slaDeadline": "2026-04-18T23:59:00Z",
+    "slaDaysLeft": 6,
+    "holdAmount": 624000,
+    "parties": {
+      "seller": "КФХ Ковалёв А.С.",
+      "buyer": "ОАО «Агроинвест»",
+      "owner": "Иванов А.С."
+    },
+    "description": "При приёмке зафиксировано расхождение протеина 0.8% относительно базиса договора. Банк ввёл hold на 624 000 ₽ до решения по спору.",
+    "timeline": [
+      { "date": "2026-03-15T14:30:00Z", "actor": "Банк", "text": "Введён hold 624 000 ₽ — ожидание решения по качеству", "tone": "danger" },
+      { "date": "2026-03-15T09:00:00Z", "actor": "Банк", "text": "Callback CB-442 — mismatch. Ручная сверка обязательна", "tone": "warn" },
+      { "date": "2026-03-14T16:00:00Z", "actor": "Продавец", "text": "Загружен паспорт качества ФГИС Зерно", "tone": "success" },
+      { "date": "2026-03-13T11:00:00Z", "actor": "Лаборатория", "text": "Протокол ЛАБ-2847: расхождение протеина 0.8% от базиса", "tone": "warn" },
+      { "date": "2026-03-12T08:30:00Z", "actor": "Покупатель", "text": "Зафиксировано расхождение качества при приёмке", "tone": "danger" }
+    ],
+    "evidence": [
+      { "id": "e-01", "name": "Паспорт качества ФГИС Зерно", "uploadedAt": "2026-03-14T16:00:00Z", "author": "Продавец", "status": "uploaded", "tone": "success" },
+      { "id": "e-02", "name": "Протокол испытаний ЛАБ-2847", "uploadedAt": "2026-03-13T11:00:00Z", "author": "Лаборатория", "status": "uploaded", "tone": "success" },
+      { "id": "e-03", "name": "Фотофиксация разгрузки", "uploadedAt": "2026-03-12T16:00:00Z", "author": "Водитель", "status": "uploaded", "tone": "success" },
+      { "id": "e-04", "name": "Акт несоответствия", "uploadedAt": "2026-03-12T10:00:00Z", "author": "Покупатель", "status": "uploaded", "tone": "success" },
+      { "id": "e-05", "name": "Заключение независимого эксперта", "uploadedAt": null, "author": "Покупатель", "status": "missing", "tone": "warn" }
+    ],
+    "nextSteps": [
+      { "step": 1, "text": "Загрузить заключение независимого эксперта", "who": "Покупатель", "urgent": true },
+      { "step": 2, "text": "Ручной разбор CB-442 в банке", "who": "Банк", "urgent": true },
+      { "step": 3, "text": "Получить решение арбитража", "who": "Контроль", "urgent": false },
+      { "step": 4, "text": "Выпустить или вернуть 624 000 ₽", "who": "Банк", "urgent": false }
+    ]
+  },
+  {
+    "id": "DK-2024-91",
+    "dealId": "DL-9110",
+    "title": "Расхождение влажности",
+    "type": "quality_mismatch",
+    "status": "active",
+    "openedAt": "2026-04-08T09:00:00Z",
+    "slaDeadline": "2026-04-25T23:59:00Z",
+    "slaDaysLeft": 13,
+    "holdAmount": 512000,
+    "parties": {
+      "seller": "ООО «ЮгЗерно»",
+      "buyer": "ИП Карпов С.С.",
+      "owner": "Петров В.И."
+    },
+    "description": "Влажность кукурузы при приёмке 16.2% vs. 14.0% по договору.",
+    "timeline": [],
+    "evidence": [],
+    "nextSteps": []
+  }
+]

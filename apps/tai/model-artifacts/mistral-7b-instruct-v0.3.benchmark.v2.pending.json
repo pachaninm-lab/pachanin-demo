@@ -1,0 +1,19 @@
+{
+  "schema_version": "tai.model-benchmark-evidence.v2",
+  "lifecycle": "PENDING_BENCHMARK",
+  "pending_reason": "The exact Mistral fallback bundle is not yet VERIFIED and no AP-13C measurement has run.",
+  "model": {
+    "role": "FALLBACK",
+    "model_id": "mistralai/Mistral-7B-Instruct-v0.3",
+    "revision": "c170c708c41dac9275d15a8fff4eca08d52bab71"
+  },
+  "bundle": null,
+  "evaluation_suite": null,
+  "quality": null,
+  "runtime_profiles": [],
+  "fallback_exercise": null,
+  "soak": null,
+  "evidence_files": [],
+  "storage": null,
+  "measured_at": null
+}

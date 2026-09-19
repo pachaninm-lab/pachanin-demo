@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "agent/tai-runner-evidence-traversal-20260801",
+  "status": "active",
+  "purpose": "Preserve root-only protected release state while restoring traversal-only access to the state parent and pcactions-readable redacted evidence after every exact-main controller execution.",
+  "approvedBy": "owner-direct-continue-2026-08-01",
+  "authorityBaseExactMain": "325e0057af4fb2bcfcbba9baf6a64441123e83ea",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "scripts/pc-tai-release-controller.sh",
+    "scripts/pc-tai-release-controller-core.sh",
+    "scripts/check-pc-tai-release-controller.mjs",
+    "docs/platform-v7/autopilot/scopes/tai-runner-evidence-traversal-20260801.json"
+  ],
+  "requiredBehavior": [
+    "delegate protected release logic to an exact-main core script from the root-owned protected checkout",
+    "require the wrapper and installed controller to match the exact current main",
+    "restore /var/lib/pc-release-authority as root:pcactions mode 0710 after every controller exit",
+    "keep protected repository and controller-jobs root:root mode 0700",
+    "keep runner-output root:pcactions mode 0750",
+    "publish only regular redacted evidence files as root:pcactions mode 0640",
+    "preserve the original controller return code unless boundary restoration itself fails",
+    "retain the non-root runner and restricted controller-only sudo authority"
+  ],
+  "forbiddenCapabilities": [
+    "direct Docker authority for pcactions",
+    "runner re-registration or token consumption",
+    "production inbound SSH",
+    "arbitrary sudo commands",
+    "runner access to protected repository, controller state or model private key",
+    "credential output",
+    "new infrastructure or recurring cost"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "exactMainRequired": true,
+    "behindByRequired": 0,
+    "reviewThreadsRequired": 0,
+    "changedPathCount": 4,
+    "productionMutationAllowedBeforeMerge": false,
+    "requiredChecks": [
+      "platform-v7 autopilot guard",
+      "Workflow Syntax Guard",
+      "TAI REG.RU Preflight",
+      "CI",
+      "Node CI",
+      "Security Quality Gate",
+      "Runtime Context Security Gate",
+      "Security Abuse and Evidence Acceptance"
+    ]
+  }
+}

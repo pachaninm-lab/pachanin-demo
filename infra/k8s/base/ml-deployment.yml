@@ -1,0 +1,24 @@
+# ML is deliberately not deployed by this repository.
+# This resource records a fail-closed architecture decision and creates no
+# Deployment, Service, ServiceAccount, PVC, HPA or PodDisruptionBudget.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ml-runtime-status
+  namespace: grainflow-prod
+  labels:
+    app.kubernetes.io/name: grainflow-ml
+    platform.prozrachnaya-cena/deployable: "false"
+  annotations:
+    platform.prozrachnaya-cena/status: NOT_DEPLOYABLE
+    platform.prozrachnaya-cena/ticket: "#2605"
+data:
+  status: NOT_DEPLOYABLE
+  reason: >-
+    The experimental ML service is outside canonical Deal execution authority
+    and has no accepted data lineage, model registry, rollback, drift monitoring,
+    tenant authorization, dependency or operational evidence.
+  reactivationGate: >-
+    Separate product approval, versioned datasets, model lifecycle, zero
+    unexcepted HIGH or CRITICAL dependencies, non-root immutable image, tenant
+    isolation, load, failure and security acceptance.

@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/production-web-owner-call-provenance-20260811",
+  "status": "active",
+  "purpose": "Repair the existing owner-only exact-SHA web release bridge so the canonical release receives the original repository-owner identity instead of a github-actions bot identity and can execute its unchanged fail-closed production authority.",
+  "approvedBy": "owner-direct-continue-2026-08-11",
+  "authorityBaseExactMain": "0fdc1a78dbb7cbd1898e9c5600c96949f2241b0f",
+  "allowedPaths": [
+    ".github/workflows/production-web-owner-exact-command.yml",
+    ".github/workflows/production-web-exact-sha.yml",
+    "scripts/check-production-web-owner-exact-command.mjs",
+    "docs/platform-v7/autopilot/scopes/production-web-owner-call-provenance-20260811.json"
+  ],
+  "requiredBehavior": [
+    "only issue 3048 comments created by the repository owner may enter the owner command",
+    "the validated exact main ancestor is passed to the canonical production-web-exact-sha workflow through workflow_call",
+    "the original github context and repository-owner actor are preserved for the called workflow",
+    "production secrets are inherited only by the canonical called workflow and never handled by the command wrapper",
+    "the canonical workflow remains responsible for exact image verification protected REG.RU access live acceptance evidence and rollback",
+    "invalid workflow_call actions fail closed"
+  ],
+  "forbiddenCapabilities": [
+    "allowing github-actions bot as a generic production actor",
+    "direct SSH SCP Docker or production credential handling in the owner command wrapper",
+    "API deployment or database migration",
+    "TAI or Gekta model-runtime mutation",
+    "host verification weakening",
+    "acceptance weakening",
+    "direct production mutation outside production-web-exact-sha.yml"
+  ]
+}

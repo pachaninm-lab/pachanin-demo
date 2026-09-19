@@ -1,0 +1,63 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+const widgetFile = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/RoleAssistantWidget.tsx'), 'utf8');
+const layoutFile = fs.readFileSync(path.join(process.cwd(), 'apps/web/app/platform-v7/layout.tsx'), 'utf8');
+const railFile = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/MobileHeaderActionRail.tsx'), 'utf8');
+const layoutClientFile = fs.readFileSync(path.join(process.cwd(), 'apps/web/components/platform-v7/PlatformV7LayoutClient.tsx'), 'utf8');
+
+describe('platform-v7 role assistant widget', () => {
+  it('mounts the assistant from the protected platform shell', () => {
+    expect(layoutClientFile).toContain('import { RoleAssistantWidget }');
+    expect(layoutClientFile).toContain('<RoleAssistantWidget />');
+  });
+
+  it('keeps assistant out of public platform pages', () => {
+    expect(widgetFile).toContain('PUBLIC_PATHS');
+    expect(widgetFile).toContain("'/platform-v7/login'");
+    expect(widgetFile).toContain("'/platform-v7/register'");
+    expect(widgetFile).toContain('return null');
+  });
+
+  it('hides assistant from bottom and drawer navigation surfaces', () => {
+    expect(widgetFile).toContain(".pc-v7-role-dock a[href='/platform-v7/ai']");
+    expect(widgetFile).toContain(".pc-v7-safe-drawer-link[href='/platform-v7/ai']");
+    expect(widgetFile).toContain(".pc-v4-bottomnav a[href='/platform-v7/ai']");
+  });
+
+  it('mounts a fixed mobile action rail above the shell header', () => {
+    expect(layoutFile).toContain('import { MobileHeaderActionRail }');
+    expect(layoutFile).toContain('<MobileHeaderActionRail />');
+    expect(railFile).toContain("className='p7-mobile-action-rail'");
+    expect(railFile).toContain('useBodyMount');
+    expect(railFile).toContain('document.body');
+    expect(railFile).toContain('position:fixed!important');
+    expect(railFile).toContain('z-index:5000!important');
+    expect(railFile).toContain('grid-template-columns:repeat(7,30px)!important');
+    expect(railFile).toContain("aria-label='Открыть поиск'");
+    expect(railFile).toContain("aria-label='Открыть блокнот'");
+    expect(railFile).toContain("aria-label='Открыть уведомления'");
+    expect(railFile).toContain("aria-label='Статус и помощь'");
+    expect(railFile).toContain("aria-label='Открыть калькулятор'");
+    expect(railFile).toContain("aria-label='Выйти из кабинета'");
+  });
+
+  it('uses direct mobile panels rather than hidden source-button clicks', () => {
+    expect(railFile).toContain('MobilePanel');
+    expect(railFile).toContain("openPanel('notepad')");
+    expect(railFile).toContain("openPanel('notices')");
+    expect(railFile).toContain("openPanel('calculator')");
+    expect(railFile).toContain("panel === 'notepad'");
+    expect(railFile).toContain("panel === 'calculator'");
+    expect(railFile).toContain('p7-mobile-tool-panel');
+    expect(railFile).toContain('z-index:5010!important');
+    expect(railFile).not.toContain('clickNative');
+  });
+
+  it('keeps compact mobile header height', () => {
+    expect(layoutFile).toContain('.pc-v4-header{min-block-size:58px!important;max-block-size:64px!important}');
+    expect(layoutFile).toContain('.pc-v4-header-inner{position:relative!important;overflow:visible!important;padding:8px!important;min-block-size:56px!important;max-block-size:60px!important}');
+    expect(layoutFile).not.toContain('padding:calc(env(safe-area-inset-top) + 7px) 8px!important');
+  });
+});

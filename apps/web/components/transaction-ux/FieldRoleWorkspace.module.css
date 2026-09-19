@@ -1,0 +1,118 @@
+.stack,
+.sectionStack,
+.evidenceStack {
+  min-width: 0;
+  display: grid;
+  gap: var(--ds-space-3);
+}
+
+.evidenceStack { gap: var(--ds-space-4); }
+
+.primaryLink,
+.secondaryLink {
+  min-height: var(--ds-control-height);
+  border-radius: var(--ds-radius-md);
+  padding: 0 var(--ds-space-4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  text-decoration: none;
+  font-weight: 850;
+}
+
+.primaryLink {
+  background: var(--ds-color-action-primary);
+  color: var(--ds-color-on-action);
+}
+
+.primaryLink:hover { background: var(--ds-color-action-primary-hover); }
+
+.secondaryLink {
+  border: 1px solid var(--ds-color-border);
+  background: var(--ds-color-surface);
+  color: var(--ds-color-text-primary);
+}
+
+.primaryLink:focus-visible,
+.secondaryLink:focus-visible,
+.assignmentCard:focus-visible {
+  outline: 3px solid var(--ds-color-focus);
+  outline-offset: 3px;
+}
+
+.sectionAnchor { scroll-margin-top: calc(var(--ds-control-height) + var(--ds-space-8)); }
+
+.contextList,
+.assignmentList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--ds-space-2);
+}
+
+.contextList li {
+  min-width: 0;
+  border-bottom: 1px solid var(--ds-color-border);
+  padding-bottom: var(--ds-space-3);
+  display: grid;
+  gap: var(--ds-space-1);
+}
+
+.contextList li:last-child { border-bottom: 0; padding-bottom: 0; }
+.contextList span,
+.contextList small,
+.muted { color: var(--ds-color-text-secondary); line-height: 1.45; }
+.contextList strong { color: var(--ds-color-text-primary); overflow-wrap: anywhere; }
+
+.twoColumn {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ds-space-3);
+}
+
+.alert {
+  border: 1px solid var(--ds-color-critical);
+  border-radius: var(--ds-radius-md);
+  padding: var(--ds-space-3);
+  background: var(--ds-color-critical-bg);
+  color: var(--ds-color-critical);
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.assignmentCard {
+  min-height: var(--ds-control-height);
+  border: 1px solid var(--ds-color-border);
+  border-radius: var(--ds-radius-md);
+  padding: var(--ds-space-3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-3);
+  background: var(--ds-color-surface-subtle);
+  color: inherit;
+  text-decoration: none;
+}
+
+.assignmentCopy {
+  min-width: 0;
+  display: grid;
+  gap: var(--ds-space-1);
+}
+
+.assignmentCopy span,
+.assignmentCopy small { color: var(--ds-color-text-secondary); }
+
+@media (max-width: 640px) {
+  .twoColumn { grid-template-columns: 1fr; }
+  .assignmentCard { align-items: flex-start; }
+}
+
+@media (forced-colors: active) {
+  .primaryLink,
+  .secondaryLink,
+  .assignmentCard,
+  .alert { border-color: CanvasText; }
+}

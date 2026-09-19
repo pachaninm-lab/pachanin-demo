@@ -1,0 +1,332 @@
+.simplifiedShell {}
+
+.root {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.trigger {
+  min-height: 42px;
+  border: 1px solid var(--pc-border);
+  border-radius: 14px;
+  background: var(--pc-bg-elevated);
+  color: var(--pc-text-primary);
+  padding: 0 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.trigger[data-open='true'] {
+  border-color: var(--pc-accent-border);
+  background: var(--pc-accent-bg);
+  color: var(--pc-accent-strong);
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  border: 0;
+  background: rgba(3, 8, 7, 0.34);
+  padding: 0;
+  cursor: default;
+}
+
+.panel {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 66px);
+  right: 14px;
+  z-index: 5010;
+  width: min(420px, calc(100dvw - 28px));
+  max-height: calc(100dvh - env(safe-area-inset-top) - 82px);
+  overflow: auto;
+  border: 1px solid var(--pc-border);
+  border-radius: 22px;
+  background: var(--pc-bg-card);
+  color: var(--pc-text-primary);
+  box-shadow: var(--pc-shadow-lg);
+  padding: 14px;
+  display: grid;
+  gap: 14px;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panelTitle {
+  display: grid;
+  gap: 3px;
+}
+
+.panelTitle strong {
+  font-size: 16px;
+  line-height: 1.2;
+  font-weight: 950;
+}
+
+.panelTitle span {
+  color: var(--pc-text-muted);
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 700;
+}
+
+.closeButton,
+.backButton {
+  min-width: 42px;
+  min-height: 42px;
+  border: 1px solid var(--pc-border);
+  border-radius: 13px;
+  background: var(--pc-bg-elevated);
+  color: var(--pc-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.section {
+  display: grid;
+  gap: 8px;
+}
+
+.sectionTitle {
+  margin: 0;
+  color: var(--pc-text-muted);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.actionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.action,
+.linkAction {
+  min-width: 0;
+  min-height: 66px;
+  border: 1px solid var(--pc-border);
+  border-radius: 16px;
+  background: var(--pc-bg-elevated);
+  color: var(--pc-text-primary);
+  padding: 10px 11px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  text-align: left;
+  text-decoration: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.action:hover,
+.linkAction:hover {
+  border-color: var(--pc-accent-border);
+  background: var(--pc-accent-bg);
+}
+
+.actionIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: var(--pc-bg-card);
+  color: var(--pc-accent-strong);
+  display: grid;
+  place-items: center;
+}
+
+.actionCopy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.actionCopy strong {
+  font-size: 13px;
+  line-height: 1.25;
+  font-weight: 900;
+}
+
+.actionCopy span {
+  color: var(--pc-text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.logout {
+  min-height: 48px;
+  border: 1px solid color-mix(in srgb, var(--pc-danger, #b42318) 28%, var(--pc-border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--pc-danger-bg, #fff3f2) 72%, var(--pc-bg-card));
+  color: var(--pc-danger, #b42318);
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.notePanel {
+  display: grid;
+  gap: 12px;
+}
+
+.notePanel textarea {
+  width: 100%;
+  min-height: 240px;
+  resize: vertical;
+  border: 1px solid var(--pc-border);
+  border-radius: 16px;
+  background: var(--pc-bg-elevated);
+  color: var(--pc-text-primary);
+  padding: 13px;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.notePanel textarea:focus-visible {
+  border-color: var(--pc-accent);
+  outline: 3px solid color-mix(in srgb, var(--pc-accent) 28%, transparent);
+  outline-offset: 2px;
+}
+
+.noteFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--pc-text-muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.clearNote {
+  min-height: 42px;
+  border: 1px solid var(--pc-border);
+  border-radius: 13px;
+  background: var(--pc-bg-elevated);
+  color: var(--pc-text-secondary);
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.clearNote:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.trigger:focus-visible,
+.closeButton:focus-visible,
+.backButton:focus-visible,
+.action:focus-visible,
+.linkAction:focus-visible,
+.logout:focus-visible,
+.clearNote:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--pc-accent) 36%, transparent);
+  outline-offset: 3px;
+}
+
+/* Native shell actions remain functional and are activated from this single menu. */
+.simplifiedShell :global(.pc-v4-actions > .pc-v4-search),
+.simplifiedShell :global(.pc-v4-actions > .pc-v4-theme-toggle),
+.simplifiedShell :global(.pc-v4-actions button[aria-label='Открыть уведомления']),
+.simplifiedShell :global(.pc-v4-actions button[aria-label='Открыть калькулятор']),
+.simplifiedShell :global(.pc-v4-actions .p7-note-widget),
+.simplifiedShell :global(.pc-v4-actions .p7-role-support),
+.simplifiedShell :global(.pc-v7-role-dock a[href='/platform-v7/ai']),
+.simplifiedShell :global(.pc-v7-safe-drawer-link[href='/platform-v7/ai']),
+.simplifiedShell :global(.pc-v4-bottomnav a[href='/platform-v7/ai']),
+.simplifiedShell :global(.pc-v7-role-dock button.pc-v7-role-dock-item) {
+  display: none !important;
+}
+
+@media (max-width: 767px) {
+  .trigger {
+    width: 42px;
+    min-width: 42px;
+    max-width: 42px;
+    height: 42px;
+    padding: 0;
+  }
+
+  .triggerText {
+    display: none;
+  }
+
+  .panel {
+    top: calc(env(safe-area-inset-top) + 58px);
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-height: calc(100dvh - env(safe-area-inset-top) - 72px);
+    border-radius: 20px;
+    padding: 12px;
+  }
+
+  .actionGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .action,
+  .linkAction {
+    min-height: 58px;
+  }
+}
+
+@media (max-width: 374px) {
+  .trigger {
+    width: 38px;
+    min-width: 38px;
+    max-width: 38px;
+    height: 38px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel { scroll-behavior: auto; }
+}
+
+@media (forced-colors: active) {
+  .trigger,
+  .panel,
+  .closeButton,
+  .backButton,
+  .action,
+  .linkAction,
+  .logout,
+  .notePanel textarea,
+  .clearNote {
+    border: 1px solid CanvasText;
+  }
+}

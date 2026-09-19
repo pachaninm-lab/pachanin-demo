@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://percent-agro.example/schemas/pc-crop-acceptance.v1.json",
+  "title": "PC-CROP exact revision acceptance report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "slice_id",
+    "repository",
+    "revision_kind",
+    "commit_sha",
+    "status",
+    "checks",
+    "maturity_boundary",
+    "evidence"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "slice_id": {
+      "type": "string",
+      "pattern": "^PC-CROP-[0-9]{2}$"
+    },
+    "repository": {
+      "const": "pachaninm-lab/pachanin-demo"
+    },
+    "revision_kind": {
+      "enum": [
+        "EXACT_HEAD",
+        "EXACT_MAIN"
+      ]
+    },
+    "commit_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "status": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "NOT_RUN",
+        "BLOCKED_EXTERNAL"
+      ]
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "check_id",
+          "status",
+          "evidence_ref"
+        ],
+        "properties": {
+          "check_id": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "PASS",
+              "FAIL",
+              "NOT_RUN",
+              "NOT_APPLICABLE",
+              "BLOCKED_EXTERNAL"
+            ]
+          },
+          "evidence_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "maturity_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "production_operational_status",
+        "live_claim_allowed"
+      ],
+      "properties": {
+        "production_operational_status": {
+          "enum": [
+            "NOT_ATTESTED",
+            "CONTROLLED",
+            "PRODUCTION",
+            "SCALE"
+          ]
+        },
+        "live_claim_allowed": {
+          "type": "boolean"
+        },
+        "unconfirmed_integrations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "generated_at",
+        "generator",
+        "immutable_locator",
+        "sha256"
+      ],
+      "properties": {
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "generator": {
+          "type": "string"
+        },
+        "immutable_locator": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "legal_activation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "decision": {
+          "enum": [
+            "APPROVED",
+            "REJECTED",
+            "PENDING",
+            "NOT_APPLICABLE"
+          ]
+        },
+        "reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

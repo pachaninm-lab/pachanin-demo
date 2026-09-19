@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/p0-regru-live-container-mail-recover-20260811",
+  "status": "active",
+  "operationalStatus": "P0_REGRU_LIVE_CONTAINER_MAIL_RECOVERY",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "title": "Recover auth-mail runtime from the already-running canonical REG.RU Web container",
+  "allowedPaths": [
+    ".github/workflows/production-p0-regru-live-container-mail-recover.yml",
+    "scripts/production-p0-regru-live-container-mail-recover.sh",
+    "docs/platform-v7/autopilot/scopes/production-p0-regru-live-container-mail-recover-3785.json"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY",
+  "boundaries": {
+    "productionMutation": "ROOT_ONLY_AUTH_MAIL_RUNTIME_FILES_ONLY_AFTER_CANONICAL_LIVE_SMTP_AUTH",
+    "databaseMutation": false,
+    "deploymentMutation": false,
+    "credentialOutput": false,
+    "rawEnvironmentOutput": false,
+    "rawLogOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "liveContainerEnvironmentReadOnlyUntilSmtpAuth": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "use only the single active REG.RU Compose Web container as the credential source",
+    "inspect only allowlisted current or legacy SMTP environment keys and never output their values",
+    "accept only sm38.hosting.reg.ru port 465 and access@процент-агро.рф in Unicode or canonical ASCII IDN form",
+    "perform SMTP authentication only and send no message during the credential proof",
+    "perform no file mutation when no complete canonical SMTP environment exists or SMTP authentication fails",
+    "require pinned production DNS and SSH host identity before server inspection",
+    "reuse scripts/provision-production-p0-password-reset-runtime.sh for root-only delivery and transactional-mail runtime creation",
+    "publish only bounded source/result/blocker markers and never credential values, raw environment or protected paths",
+    "perform no database or deployment mutation",
+    "add zero recurring cost"
+  ]
+}

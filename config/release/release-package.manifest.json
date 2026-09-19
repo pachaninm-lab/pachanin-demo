@@ -1,0 +1,20 @@
+{
+  "release": "baseline_preintegration",
+  "mode": "pilot-ready",
+  "includes": [
+    "apps",
+    "packages",
+    "shared",
+    "scripts",
+    "docs",
+    "config",
+    "infra",
+    "integrations"
+  ],
+  "excludes": [
+    "node_modules",
+    "dist",
+    "coverage",
+    "playwright-report"
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "diag/p0-reviewer-reset-durable-mutation-3785",
+  "status": "active",
+  "operationalStatus": "P0_REVIEWER_RESET_DURABLE_MUTATION_DIAGNOSTIC",
+  "issue": 3785,
+  "releaseIssue": 3072,
+  "title": "Production P0 reviewer reset durable mutation read-only diagnostic",
+  "allowedPaths": [
+    ".github/workflows/production-p0-reviewer-reset-incident-diagnostic.yml",
+    "docs/platform-v7/autopilot/scopes/production-p0-reviewer-reset-incident-diagnostic-3785.json",
+    "scripts/check-production-p0-reviewer-reset-incident-diagnostic.mjs",
+    "scripts/production-p0-reviewer-reset-incident-diagnostic.sh"
+  ],
+  "incident": {
+    "firstRunId": 31648675850,
+    "secondRunId": 31648772066,
+    "firstSinceUtc": "2026-08-12T22:51:40Z",
+    "firstUntilUtc": "2026-08-12T22:52:30Z",
+    "secondSinceUtc": "2026-08-12T22:53:10Z",
+    "secondUntilUtc": "2026-08-12T22:54:05Z",
+    "deployedRevision": "d2dd7972105cc59002263455b5ae0eb8d8f2d386"
+  },
+  "boundaries": {
+    "productionMutation": "NONE",
+    "databaseMutation": false,
+    "deploymentMutation": false,
+    "credentialMutation": false,
+    "sessionMutation": false,
+    "mfaMutation": false,
+    "piiOutput": false,
+    "credentialOutput": false,
+    "rawEnvironmentOutput": false,
+    "rawLogOutput": false,
+    "ownerOnly": true,
+    "exactMainGuard": true,
+    "newRecurringCostRub": 0
+  },
+  "acceptance": [
+    "the owner-only command is accepted only on release issue 3072 and is fixed to failed reset runs 31648675850 and 31648772066",
+    "the active REG.RU API and Web containers must remain exact independently proven deployed revision d2dd7972105cc59002263455b5ae0eb8d8f2d386 and that revision must remain an ancestor of diagnostic main",
+    "the diagnostic resolves the unique reviewer only inside the API process using the existing table-free staff SECURITY DEFINER boundary; reviewer email and user id never leave the process",
+    "the normal auth runtime must be non-superuser and non-BYPASSRLS and must already possess its application SELECT/EXECUTE authority before aggregate inspection proceeds",
+    "only aggregate counts over auth.password_reset_challenges and auth.audit_events are published for the two fixed failed-run windows, together with current password readiness and whether any unexpired pending challenge exists",
+    "no password-reset request, confirmation, mail send, HTTP auth call, database write, privilege change, deployment or container lifecycle mutation is performed",
+    "no reviewer identity, token, token hash, user id, database URL, credential, raw row, raw database output or raw container output is published",
+    "production mutation is NONE and new recurring cost remains 0 RUB"
+  ],
+  "productionHosting": "REG_RU_EXISTING_INFRASTRUCTURE_ONLY"
+}

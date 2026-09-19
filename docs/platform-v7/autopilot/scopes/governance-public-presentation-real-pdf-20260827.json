@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "governance/public-presentation-real-pdf-20260827",
+  "status": "active",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/scopes/governance-public-presentation-real-pdf-20260827.json",
+    "docs/platform-v7/autopilot/scopes/public-presentation-real-pdf-20260827.json"
+  ]
+}

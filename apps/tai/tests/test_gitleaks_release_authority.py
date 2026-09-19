@@ -1,0 +1,70 @@
+from __future__ import annotations
+
+import json
+import re
+from pathlib import Path
+
+_FINGERPRINT = re.compile(
+    r"^[0-9a-f]{40}:[A-Za-z0-9_./-]+:generic-api-key:[1-9][0-9]*$"
+)
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[3]
+
+
+def test_gitleaks_exceptions_are_exact_and_release_attested() -> None:
+    root = _repo_root()
+    ignore_path = root / ".gitleaksignore"
+    manifest = json.loads(
+        (root / "apps/tai/release-source-manifest.json").read_text(encoding="utf-8")
+    )
+    entries = [
+        line.strip()
+        for line in ignore_path.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+
+    assert ".gitleaksignore" in manifest["files"]
+    assert entries == [
+        "b11c310787b81cfcfddd0be67f515f8f4a32cebd:"
+        "apps/tai/tests/test_tool_planner.py:generic-api-key:42",
+        "c5077eebcc9bbc47e3d650795e11b55f265428e8:"
+        ".github/workflows/tai-model-source-acquisition.yml:generic-api-key:43",
+        "ec4b80ce1ee4fa7cf18361f1ff536c34b5030948:"
+        "apps/api/src/modules/commodity-profiles/commodity-profile-command.contract.spec.ts:"
+        "generic-api-key:11",
+        "8c08a3d3764b616f919a1e73828643dff95db5d4:"
+        "apps/api/src/modules/service-marketplace/service-marketplace.contract.spec.ts:"
+        "generic-api-key:11",
+        "d4f147c04c64b7565f11288b3b545c97340d7899:"
+        "apps/tai/model-artifacts/model-conversion-authority.v1.json:generic-api-key:91",
+        "387c77b28f89b467080371c3e55cbf376acdd28e:"
+        "apps/tai/model-artifacts/model-bundle-finalization-authority.v1.json:"
+        "generic-api-key:75",
+        "d84b7faadf1b430e549850ccc5cce82a03d52d99:"
+        "apps/tai/model-artifacts/cpu-benchmark-execution-authority.v1.json:"
+        "generic-api-key:67",
+        "ecdc1130ca1bc424f3ccecb072115e304722c971:"
+        "apps/tai/tai/cpu_benchmark_execution.py:generic-api-key:413",
+        "14f03a7cc036251ed9bafcf52d0b3f9107d3eedb:"
+        "apps/tai/model-artifacts/cpu-runtime-evidence-authority.v1.json:"
+        "generic-api-key:85",
+        "14a80f93f2719a6fbf4edcf689ddfdf787430ec4:"
+        "apps/tai/tests/test_cpu_runtime_evidence.py:generic-api-key:407",
+        "58d22ac80dc1daf7ed62b38daccce77a3aabbcf4:"
+        "apps/tai/tai/cpu_runtime_evidence.py:generic-api-key:52",
+        "20109ee68ff5f1c69eb858d089460ba5d569456d:"
+        "apps/tai/tai/cpu_runtime_contract.py:generic-api-key:51",
+        "35a5abc736593d472b2d6a2d19c9ac1666242dbd:"
+        ".github/scripts/pc-crop-08f-sdiz-remediation.py:generic-api-key:59",
+        "72c83adf77d1c7a42f190e1960bcf4d22674f740:"
+        ".github/workflows/pc-crop-08f-sync-main.yml:generic-api-key:126",
+        "bcc5ba620f5e8cfec4e540c4b9fab4e236393c63:"
+        "apps/web/tests/unit/platformV7RootWorkEntry.test.ts:generic-api-key:227",
+        "25f4fa23451d9b2fd58ff60ba9badfc063055796:"
+        ".github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:391",
+        "ba4e7b26a34f95ebc5636c6a18785a6a2d63b0b1:"
+        ".github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:395",
+    ]
+    assert all(_FINGERPRINT.fullmatch(entry) is not None for entry in entries)

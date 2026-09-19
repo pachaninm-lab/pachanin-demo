@@ -1,0 +1,16 @@
+{
+  "authority_sha256": null,
+  "benchmark_status": "PENDING_BENCHMARK",
+  "compiled_at": null,
+  "exact_main": null,
+  "expires_at": null,
+  "input_evidence": null,
+  "lifecycle": "PENDING_INPUTS",
+  "model_admission_status": "PENDING_ADMISSION",
+  "models": [],
+  "pending_reason": "Exact accepted finalization evidence and a compiled input index are absent.",
+  "plan_sha256": "8c8fddf348ea3fdb4b881c23f7e36cdab83a615ce5f79c19e843f7b4a71e8969",
+  "production_operational_status": "NOT_ATTESTED",
+  "schema_version": "tai.cpu-benchmark-run-plan.v1",
+  "status": "PENDING_EXTERNAL_RUN_PLAN_INPUTS"
+}

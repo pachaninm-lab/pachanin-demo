@@ -1,0 +1,21 @@
+{
+  "project": "platform-v7",
+  "event": "vp25_readiness_route_test",
+  "createdAt": "2026-06-11T15:40:00.000Z",
+  "baselineFailure": {
+    "suite": "apps/web/tests/unit/readinessRoute.test.tsx",
+    "reason": "The readiness route test used single-element text queries for repeated readiness domains and blocker summaries while the current page renders those labels across the hero, cards, state machine, and deal list."
+  },
+  "slice": "Refresh readiness route assertions to allow repeated readiness domain labels and blocker summaries.",
+  "changedFiles": [
+    "apps/web/tests/unit/readinessRoute.test.tsx"
+  ],
+  "constraints": [
+    "controlled-pilot",
+    "pre-integration",
+    "test-only assertion refresh",
+    "no API/DB/live integration",
+    "no landing",
+    "no lockfiles"
+  ]
+}

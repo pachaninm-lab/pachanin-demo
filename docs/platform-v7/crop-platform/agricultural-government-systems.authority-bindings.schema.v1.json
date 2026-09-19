@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pachanin.example/schemas/agricultural-government-systems.authority-bindings.schema.v1.json",
+  "title": "PC-CROP-10B government-system authority bindings",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "generatedAt",
+    "operationalStatus",
+    "productionHosting",
+    "registryBinding",
+    "runtimeAuthorities",
+    "declarationBindings",
+    "forbiddenClaims",
+    "nextAdapter"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "./agricultural-government-systems.authority-bindings.schema.v1.json"
+    },
+    "schemaVersion": {
+      "const": "pc-crop.agricultural-government-systems.authority-bindings.v1"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "operationalStatus": {
+      "const": "NOT_ATTESTED"
+    },
+    "productionHosting": {
+      "const": "REG_RU_VPS_ONLY"
+    },
+    "registryBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "registryVersion", "mergeSha", "blobSha"],
+      "properties": {
+        "path": {
+          "const": "docs/platform-v7/crop-platform/agricultural-government-systems.registry.v1.json"
+        },
+        "registryVersion": {
+          "const": "1.0.0"
+        },
+        "mergeSha": {
+          "$ref": "#/$defs/sha40"
+        },
+        "blobSha": {
+          "$ref": "#/$defs/sha40"
+        }
+      }
+    },
+    "runtimeAuthorities": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "items": {
+        "$ref": "#/$defs/runtimeAuthority"
+      }
+    },
+    "declarationBindings": {
+      "type": "array",
+      "minItems": 23,
+      "maxItems": 23,
+      "items": {
+        "$ref": "#/$defs/declarationBinding"
+      }
+    },
+    "forbiddenClaims": {
+      "type": "array",
+      "minItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 3
+      }
+    },
+    "nextAdapter": {
+      "$ref": "#/$defs/nextAdapter"
+    }
+  },
+  "$defs": {
+    "sha40": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "runtimeAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slice",
+        "pr",
+        "mergeSha",
+        "systemCode",
+        "capabilities",
+        "requiredPaths",
+        "runtimeStatus",
+        "liveEvidence"
+      ],
+      "properties": {
+        "slice": {
+          "type": "string",
+          "pattern": "^PC-CROP-(08[A-I]|10A)$"
+        },
+        "pr": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "mergeSha": {
+          "$ref": "#/$defs/sha40"
+        },
+        "systemCode": {
+          "type": "string",
+          "enum": ["FGIS_GRAIN", "AGRICULTURAL_GOVERNMENT_SYSTEMS_REGISTRY"]
+        },
+        "capabilities": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z0-9_]{3,120}$"
+          }
+        },
+        "requiredPaths": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 3,
+            "not": {
+              "pattern": "(^|/)(\\.\\.|\\*)($|/)"
+            }
+          }
+        },
+        "runtimeStatus": {
+          "enum": ["ACCEPTED_NON_LIVE_AUTHORITY", "ACCEPTED_REGISTRY_AUTHORITY"]
+        },
+        "liveEvidence": {
+          "const": "ABSENT"
+        }
+      }
+    },
+    "declarationBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceKind",
+        "code",
+        "targetSystemCodes",
+        "observedPath",
+        "registryObservedState",
+        "truthClassification",
+        "liveStatus"
+      ],
+      "properties": {
+        "sourceKind": {
+          "enum": ["PUBLIC_UI_PROVIDER", "INTEGRATION_SDK_ADAPTER"]
+        },
+        "code": {
+          "type": "string",
+          "minLength": 2
+        },
+        "targetSystemCodes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z0-9_]{3,100}$"
+          }
+        },
+        "observedPath": {
+          "type": "string",
+          "minLength": 3
+        },
+        "registryObservedState": {
+          "type": "string",
+          "minLength": 3
+        },
+        "truthClassification": {
+          "enum": [
+            "RUNTIME_AUTHORITY_EXISTS_DECLARATION_NOT_LIVE",
+            "LEGACY_MOCK_REFERENCE_ONLY_DESPITE_RUNTIME_AUTHORITY",
+            "DECLARATION_ONLY",
+            "MOCK_REFERENCE_ONLY",
+            "OFFICIAL_ACCESS_REQUIRED",
+            "CONTRACT_REQUIRED",
+            "NOT_ASSESSED"
+          ]
+        },
+        "liveStatus": {
+          "const": "NOT_LIVE"
+        }
+      }
+    },
+    "nextAdapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slice",
+        "systemCode",
+        "mode",
+        "platformState",
+        "requiresTenantAuthorization",
+        "blockers"
+      ],
+      "properties": {
+        "slice": {
+          "const": "PC-CROP-10C"
+        },
+        "systemCode": {
+          "const": "FGIS_GRAIN"
+        },
+        "mode": {
+          "const": "TENANT_AUTHORIZED_READ_ONLY"
+        },
+        "platformState": {
+          "const": "DISABLED"
+        },
+        "requiresTenantAuthorization": {
+          "const": true
+        },
+        "blockers": {
+          "type": "array",
+          "minItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z0-9_]{3,140}$"
+          }
+        }
+      }
+    }
+  }
+}

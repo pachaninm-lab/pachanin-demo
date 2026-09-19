@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-06-12T02:02:00.000Z",
+  "task": "VP-2.5 helper assertion refresh",
+  "scope": [
+    "apps/web/tests/unit/platformV7AuditEventHelper.test.ts",
+    "apps/web/tests/unit/platformV7PersistenceRepository.test.ts",
+    "apps/web/tests/unit/platformV7ControlledPilotBoundaryReport.test.ts",
+    "apps/web/tests/unit/platformV7ActionWorkflow.test.ts"
+  ],
+  "sourceOfTruth": "MASTER-ТЗ 2 / VP-2.5 requires restoring full web vitest without weakening controlled-pilot or money-boundary claims.",
+  "changes": [
+    "Aligned audit-event, repository, boundary-report and action-workflow unit assertions with the current controlled-pilot helper contracts."
+  ],
+  "forbiddenZonesTouched": false,
+  "runtimeTouched": false
+}

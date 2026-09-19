@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/platform-v7-login-i18n-metadata-2198",
+  "status": "active",
+  "purpose": "Close the deterministic residual login metadata localization defect proven by Platform V7 Production i18n Acceptance run 31915635539: EN/ZH login rendered the correct localized body but retained the Russian SSR document title through direct and rewritten login metadata. No design, authentication, authorization, routing, data, API, database, persistence or production mutation is authorized by this scope.",
+  "approvedBy": "independent-authority-pr",
+  "issue": 2198,
+  "implementationPullRequest": 4239,
+  "implementationHeadAtAuthorization": "4c2af3c5ef46d6f5056384a087ae7d9f20322c5e",
+  "authorityBaseExactMain": "42ec6ec7b87f1c4ff32d20746925576c3fd40c6a",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/app/pc-public-entry/platform-v7/login/page.tsx",
+    "apps/web/app/platform-v7/login/layout.tsx",
+    "apps/web/tests/unit/platformV7SingleEntryLogin.test.ts"
+  ],
+  "requiredInvariants": [
+    "The implementation remains limited to the three listed files.",
+    "No visual design or layout change is introduced.",
+    "No authentication, MFA, authorization, RBAC, tenant, organization, route semantics, API, database or persistence boundary is changed.",
+    "Both direct and production-rewritten login metadata resolve locale server-side and derive title and description from the canonical public login copy.",
+    "The Russian product brand may remain in the title; locale-specific login action text must be English for EN and Chinese for ZH.",
+    "Exact-head CI must pass before merge.",
+    "Any implementation-head advancement remains bounded to the exact branch and allowedPaths declared here.",
+    "After merge, canonical images, exact-SHA REG.RU release, production mobile acceptance and full EN/ZH Chromium/WebKit browser acceptance must all pass before completion is claimed."
+  ],
+  "boundaries": {
+    "designMutation": false,
+    "authMutation": false,
+    "authorizationMutation": false,
+    "routingSemanticsMutation": false,
+    "dataMutation": false,
+    "apiMutation": false,
+    "databaseMutation": false,
+    "productionMutationFromAuthorityPr": false,
+    "newRecurringCost": false
+  }
+}

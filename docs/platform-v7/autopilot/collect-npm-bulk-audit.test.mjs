@@ -1,0 +1,273 @@
+#!/usr/bin/env node
+/**
+ * Regression tests for the npm Bulk Advisory transport.
+ *
+ * The Security Quality Gate failed with NPM_BULK_AUDIT_FAILURE on the gzip magic byte:
+ * the registry sent a gzip body with no Content-Encoding, undici did not inflate it,
+ * response.text() produced mojibake, and JSON.parse choked. The gate read a transport
+ * bug as a failed dependency audit.
+ *
+ * These tests pin the transport, not the verdict. A scanner that cannot read its own
+ * response must still fail closed — none of these makes a failure look like a pass.
+ */
+
+import assert from 'node:assert/strict';
+import { gzipSync } from 'node:zlib';
+import {
+  decodeResponseBody,
+  looksGzipped,
+  LIMITS,
+  postBulkAdvisories,
+  readBoundedBody,
+} from './collect-npm-bulk-audit.mjs';
+
+const results = [];
+
+async function test(name, fn) {
+  try {
+    await fn();
+    results.push([true, name]);
+  } catch (error) {
+    results.push([false, `${name}\n    ${String(error.message).split('\n')[0]}`]);
+  }
+}
+
+const ADVISORY = {
+  lodash: [{ id: 1523, severity: 'high', vulnerable_versions: '<4.17.21' }],
+};
+const ADVISORY_JSON = JSON.stringify(ADVISORY);
+const LIMIT = LIMITS.MAX_COMPRESSED_BYTES;
+
+await test('request timeout budget is bounded and reaches the npm registry ceiling', () => {
+  assert.deepEqual(LIMITS.REQUEST_TIMEOUTS_MS, [30_000, 90_000, 300_000]);
+});
+
+/** A response whose body arrives as the given chunks, recording reader lifecycle. */
+function streamingResponse(chunks, { status = 200, contentLength } = {}) {
+  const state = { delivered: 0, cancelled: false };
+  let index = 0;
+  const headers = new Map();
+  if (contentLength !== undefined) headers.set('content-length', String(contentLength));
+  return {
+    state,
+    response: {
+      ok: status >= 200 && status < 300,
+      status,
+      headers: { get: (key) => headers.get(key.toLowerCase()) ?? null },
+      body: {
+        getReader: () => ({
+          read: async () => {
+            if (index >= chunks.length) return { done: true, value: undefined };
+            const value = chunks[index];
+            index += 1;
+            state.delivered += 1;
+            return { done: false, value };
+          },
+          cancel: async () => {
+            state.cancelled = true;
+          },
+        }),
+      },
+    },
+  };
+}
+
+const u8 = (n, fill = 0x61) => new Uint8Array(n).fill(fill);
+
+// --- bounded streaming reader ------------------------------------------------------
+
+await test('a stream under the limit is accepted', async () => {
+  const { response } = streamingResponse([u8(1_000), u8(2_000)]);
+  const body = await readBoundedBody(response, LIMIT);
+  assert.equal(body.length, 3_000);
+});
+
+await test('a stream exactly on the limit is accepted', async () => {
+  const { response } = streamingResponse([u8(LIMIT)]);
+  const body = await readBoundedBody(response, LIMIT);
+  assert.equal(body.length, LIMIT);
+});
+
+await test('a single oversized chunk cancels the reader and fails', async () => {
+  const { response, state } = streamingResponse([u8(LIMIT + 1)]);
+  await assert.rejects(readBoundedBody(response, LIMIT), /exceeded .* compressed bytes/);
+  assert.equal(state.cancelled, true, 'reader.cancel must be called');
+});
+
+await test('a stream that crosses the limit stops before reading the rest', async () => {
+  // Four chunks; the total crosses the limit on the third. The fourth must never be read.
+  const chunk = Math.ceil(LIMIT / 2);
+  const { response, state } = streamingResponse([u8(chunk), u8(chunk), u8(chunk), u8(chunk)]);
+  await assert.rejects(readBoundedBody(response, LIMIT), /exceeded .* compressed bytes/);
+  assert.equal(state.delivered, 3, 'must stop at the crossing chunk, not drain the stream');
+  assert.equal(state.cancelled, true);
+});
+
+await test('a Content-Length above the limit is refused before any read', async () => {
+  const { response, state } = streamingResponse([u8(10)], { contentLength: LIMIT + 1 });
+  await assert.rejects(readBoundedBody(response, LIMIT), /declared .* over the .* limit/);
+  assert.equal(state.delivered, 0, 'no chunk may be read once the declaration is over');
+});
+
+await test('a lying Content-Length does not bypass the running total', async () => {
+  // Sender claims 10 bytes and streams past the limit. The count is the authority.
+  const { response, state } = streamingResponse([u8(LIMIT + 1)], { contentLength: 10 });
+  await assert.rejects(readBoundedBody(response, LIMIT), /exceeded .* compressed bytes/);
+  assert.equal(state.cancelled, true);
+});
+
+await test('an absent body stream fails closed rather than falling back', async () => {
+  const response = { ok: true, status: 200, headers: { get: () => null }, body: null };
+  await assert.rejects(readBoundedBody(response, LIMIT), /no readable body stream/);
+});
+
+// --- decoding ----------------------------------------------------------------------
+
+await test('plain JSON is accepted', () => {
+  assert.deepEqual(
+    JSON.parse(decodeResponseBody(new Uint8Array(Buffer.from(ADVISORY_JSON, 'utf8')))),
+    ADVISORY,
+  );
+});
+
+await test('gzip JSON is accepted', () => {
+  const bytes = new Uint8Array(gzipSync(Buffer.from(ADVISORY_JSON, 'utf8')));
+  assert.deepEqual(JSON.parse(decodeResponseBody(bytes)), ADVISORY);
+});
+
+await test('the exact production failure is reproduced and then fixed', () => {
+  const bytes = new Uint8Array(gzipSync(Buffer.from(ADVISORY_JSON, 'utf8')));
+  assert.equal(bytes[0], 0x1f);
+  assert.equal(bytes[1], 0x8b);
+  // The old path: response.text() then JSON.parse.
+  assert.throws(
+    () => JSON.parse(Buffer.from(bytes).toString('utf8')),
+    /Unexpected token/,
+    'the old path must still fail on this fixture',
+  );
+  assert.deepEqual(JSON.parse(decodeResponseBody(bytes)), ADVISORY);
+});
+
+await test('an already-inflated body is never inflated twice', () => {
+  const bytes = new Uint8Array(Buffer.from(ADVISORY_JSON, 'utf8'));
+  assert.equal(looksGzipped(bytes), false);
+  assert.deepEqual(JSON.parse(decodeResponseBody(bytes)), ADVISORY);
+});
+
+await test('corrupt gzip is rejected', () => {
+  const corrupt = Buffer.from(gzipSync(Buffer.from(ADVISORY_JSON, 'utf8')));
+  corrupt[corrupt.length - 5] ^= 0xff;
+  assert.throws(() => decodeResponseBody(new Uint8Array(corrupt)), /could not be decompressed/);
+});
+
+await test('invalid JSON inside gzip is rejected by the caller', () => {
+  const bytes = new Uint8Array(gzipSync(Buffer.from('{"advisories": ', 'utf8')));
+  assert.throws(() => JSON.parse(decodeResponseBody(bytes)), SyntaxError);
+});
+
+await test('an oversized decompressed payload is rejected', () => {
+  const huge = Buffer.alloc(LIMITS.MAX_DECOMPRESSED_BYTES + 1_024, 0x20);
+  const bytes = new Uint8Array(gzipSync(huge));
+  assert.ok(bytes.length < LIMIT, 'fixture must pass the wire limit so the inflate cap fires');
+  assert.throws(() => decodeResponseBody(bytes), /decompressed bytes/);
+});
+
+await test('invalid UTF-8 is rejected rather than silently replaced', () => {
+  assert.throws(() => decodeResponseBody(new Uint8Array([0x80, 0x81])), TypeError);
+});
+
+await test('no raw response bytes appear in a thrown message', () => {
+  const marker = 'SENTINEL_SECRET_BYTES';
+  const corrupt = Buffer.from(gzipSync(Buffer.from(JSON.stringify({ marker }), 'utf8')));
+  corrupt[corrupt.length - 5] ^= 0xff;
+  try {
+    decodeResponseBody(new Uint8Array(corrupt));
+    assert.fail('expected corrupt gzip to throw');
+  } catch (error) {
+    assert.ok(!error.message.includes(marker));
+    assert.ok(!/[\u0000-\u001f]/.test(error.message), 'no control bytes in the message');
+  }
+});
+
+// --- request path ------------------------------------------------------------------
+
+const realFetch = globalThis.fetch;
+
+function stubFetch(status, body, options = {}) {
+  const seen = { attempts: 0, init: null, cancelled: false };
+  globalThis.fetch = async (url, init) => {
+    seen.attempts += 1;
+    seen.init = init;
+    const { response, state } = streamingResponse([new Uint8Array(body)], {
+      status,
+      ...options,
+    });
+    Object.defineProperty(seen, 'cancelled', { get: () => state.cancelled, configurable: true });
+    return response;
+  };
+  return seen;
+}
+
+await test('a gzip response survives the whole request path', async () => {
+  const seen = stubFetch(200, gzipSync(Buffer.from(ADVISORY_JSON, 'utf8')));
+  assert.deepEqual(await postBulkAdvisories({ lodash: ['4.17.20'] }), ADVISORY);
+  assert.equal(seen.init.headers['accept-encoding'], 'identity');
+});
+
+await test('HTTP 429 retries three times then fails closed', async () => {
+  const seen = stubFetch(429, Buffer.from('slow down', 'utf8'));
+  await assert.rejects(postBulkAdvisories({ lodash: ['4.17.20'] }), /returned HTTP 429/);
+  assert.equal(seen.attempts, 3);
+});
+
+await test('HTTP 500 retries three times then fails closed', async () => {
+  const seen = stubFetch(500, Buffer.from('boom', 'utf8'));
+  await assert.rejects(postBulkAdvisories({ lodash: ['4.17.20'] }), /returned HTTP 500/);
+  assert.equal(seen.attempts, 3);
+});
+
+await test('HTTP 400 fails closed without retrying', async () => {
+  const seen = stubFetch(400, Buffer.from('bad request', 'utf8'));
+  await assert.rejects(postBulkAdvisories({ lodash: ['4.17.20'] }), /returned HTTP 400/);
+  assert.equal(seen.attempts, 1);
+});
+
+await test('a gzip error body is summarised, never echoed', async () => {
+  stubFetch(503, gzipSync(Buffer.from('SENTINEL', 'utf8')));
+  await postBulkAdvisories({ lodash: ['4.17.20'] }).then(
+    () => assert.fail('expected rejection'),
+    (error) => {
+      assert.match(error.responseBody, /^<gzip payload, \d+ bytes>$/);
+      assert.ok(!error.responseBody.includes('SENTINEL'));
+    },
+  );
+});
+
+await test('an oversized response fails closed instead of being audited', async () => {
+  const seen = stubFetch(200, Buffer.alloc(LIMIT + 1, 0x61));
+  await assert.rejects(
+    postBulkAdvisories({ lodash: ['4.17.20'] }),
+    /exceeded .* compressed bytes/,
+  );
+  assert.equal(seen.cancelled, true, 'the transfer must be cancelled, not drained');
+});
+
+await test('an unreadable success body fails closed rather than reporting zero advisories', async () => {
+  const corrupt = Buffer.from(gzipSync(Buffer.from(ADVISORY_JSON, 'utf8')));
+  corrupt[corrupt.length - 5] ^= 0xff;
+  stubFetch(200, corrupt);
+  await assert.rejects(
+    postBulkAdvisories({ lodash: ['4.17.20'] }),
+    /could not be decompressed/,
+  );
+});
+
+globalThis.fetch = realFetch;
+
+const failed = results.filter(([ok]) => !ok);
+for (const [ok, name] of results) process.stdout.write(`${ok ? '  ok' : 'FAIL'}  ${name}\n`);
+if (failed.length) {
+  process.stdout.write(`\nFAIL: ${failed.length} of ${results.length} transport tests\n`);
+  process.exit(1);
+}
+process.stdout.write(`\nPASS: ${results.length} npm bulk audit transport tests\n`);

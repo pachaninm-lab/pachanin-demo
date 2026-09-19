@@ -1,0 +1,336 @@
+{
+  "version": 1,
+  "generatedAt": "2026-03-17T00:00:00.000Z",
+  "providers": [
+    {
+      "id": "carrier-1",
+      "name": "ТамбовЛогистик",
+      "kind": "carrier",
+      "scope": "regional",
+      "status": "active",
+      "region": "Тамбовская область",
+      "fleet": 18,
+      "vehicles": [
+        "КамАЗ зерновоз",
+        "MAN TGS 33.480"
+      ],
+      "contacts": {
+        "dispatcher": "+7 900 000 11 11",
+        "email": "dispatch@tambovlogistic.example"
+      },
+      "documents": [
+        {
+          "type": "ИНН",
+          "number": "6829001111",
+          "expiresAt": null,
+          "status": "VALID"
+        },
+        {
+          "type": "ОГРН",
+          "number": "1196820001111",
+          "expiresAt": null,
+          "status": "VALID"
+        },
+        {
+          "type": "Лицензия перевозчика",
+          "number": "TL-TRANS-2026-01",
+          "expiresAt": "2027-03-01",
+          "status": "VALID"
+        },
+        {
+          "type": "Реестр ГосЛог",
+          "number": "GL-CARRIER-001",
+          "expiresAt": "2026-12-31",
+          "status": "LIVE_REQUIRED"
+        }
+      ],
+      "checks": {
+        "registryRequired": true,
+        "registryConnected": false,
+        "manualReview": true
+      },
+      "assignments": [
+        {
+          "stage": "dispatch",
+          "mode": "shortlist",
+          "priority": 1,
+          "coverage": [
+            "Тамбов",
+            "Мичуринск",
+            "Кирсанов"
+          ]
+        }
+      ],
+      "notes": [
+        "Подходит для pilot-ready сценариев",
+        "Живой реестр ГосЛог не подключён"
+      ]
+    },
+    {
+      "id": "carrier-2",
+      "name": "ЦЧР АгроТранс",
+      "kind": "carrier",
+      "scope": "interregional",
+      "status": "active",
+      "region": "ЦФО",
+      "fleet": 34,
+      "vehicles": [
+        "Volvo FH",
+        "Scania зерновоз"
+      ],
+      "contacts": {
+        "dispatcher": "+7 900 000 22 22",
+        "email": "dispatch@agrotrans.example"
+      },
+      "documents": [
+        {
+          "type": "ИНН",
+          "number": "3666002222",
+          "expiresAt": null,
+          "status": "VALID"
+        },
+        {
+          "type": "ОГРН",
+          "number": "1203600002222",
+          "expiresAt": null,
+          "status": "VALID"
+        },
+        {
+          "type": "Реестр ГосЛог",
+          "number": "GL-CARRIER-002",
+          "expiresAt": "2026-12-31",
+          "status": "LIVE_REQUIRED"
+        }
+      ],
+      "checks": {
+        "registryRequired": true,
+        "registryConnected": false,
+        "manualReview": true
+      },
+      "assignments": [
+        {
+          "stage": "dispatch",
+          "mode": "backup",
+          "priority": 2,
+          "coverage": [
+            "ЦФО",
+            "ПФО"
+          ]
+        }
+      ],
+      "notes": [
+        "Рекомендуется как резервный перевозчик"
+      ]
+    },
+    {
+      "id": "forwarder-1",
+      "name": "Агро Экспедитор Плюс",
+      "kind": "expeditor",
+      "scope": "regional",
+      "status": "active",
+      "region": "Тамбовская область",
+      "contacts": {
+        "manager": "+7 900 000 33 33",
+        "email": "ops@agroexpeditor.example"
+      },
+      "documents": [
+        {
+          "type": "ИНН",
+          "number": "6829003333",
+          "expiresAt": null,
+          "status": "VALID"
+        },
+        {
+          "type": "ОГРН",
+          "number": "1216820003333",
+          "expiresAt": null,
+          "status": "VALID"
+        },
+        {
+          "type": "Реестр ГосЛог",
+          "number": "GL-FORWARDER-001",
+          "expiresAt": "2026-12-31",
+          "status": "LIVE_REQUIRED"
+        }
+      ],
+      "checks": {
+        "registryRequired": true,
+        "registryConnected": false,
+        "manualReview": true
+      },
+      "assignments": [
+        {
+          "stage": "logistics_planning",
+          "mode": "operator_assign",
+          "priority": 1,
+          "coverage": [
+            "Тамбовская область"
+          ]
+        }
+      ],
+      "notes": [
+        "Требует live-проверки по ГосЛог"
+      ]
+    },
+    {
+      "id": "lab-1",
+      "name": "ТамбовАгроЛаб",
+      "kind": "lab",
+      "scope": "regional",
+      "status": "active",
+      "region": "Тамбовская область",
+      "contacts": {
+        "manager": "+7 900 000 44 44",
+        "email": "lab@tambovagrolab.example"
+      },
+      "documents": [
+        {
+          "type": "Аттестат аккредитации",
+          "number": "RA.RU.21AB11",
+          "expiresAt": "2027-05-14",
+          "status": "LIVE_REQUIRED"
+        },
+        {
+          "type": "ИНН",
+          "number": "6829004444",
+          "expiresAt": null,
+          "status": "VALID"
+        }
+      ],
+      "checks": {
+        "registryRequired": true,
+        "registryConnected": false,
+        "manualReview": true
+      },
+      "assignments": [
+        {
+          "stage": "quality_control",
+          "mode": "preferred",
+          "priority": 1,
+          "coverage": [
+            "Тамбов",
+            "Моршанск"
+          ]
+        }
+      ],
+      "notes": [
+        "Проверка по реестру аккредитации обязательна"
+      ]
+    },
+    {
+      "id": "edo-1",
+      "name": "ЭДО Контур-песочница",
+      "kind": "edo",
+      "scope": "federal",
+      "status": "sandbox",
+      "region": "Россия",
+      "contacts": {
+        "support": "+7 900 000 55 55",
+        "email": "support@edo-sandbox.example"
+      },
+      "documents": [
+        {
+          "type": "Контур подключения",
+          "number": "EDO-SB-001",
+          "expiresAt": null,
+          "status": "SANDBOX_ONLY"
+        }
+      ],
+      "checks": {
+        "registryRequired": false,
+        "registryConnected": false,
+        "manualReview": false
+      },
+      "assignments": [
+        {
+          "stage": "documents",
+          "mode": "sandbox",
+          "priority": 1,
+          "coverage": [
+            "все сделки"
+          ]
+        }
+      ],
+      "notes": [
+        "Используется только как sandbox-ready провайдер"
+      ]
+    },
+    {
+      "id": "epd-1",
+      "name": "ГИС ЭПД контур",
+      "kind": "epd",
+      "scope": "federal",
+      "status": "planned",
+      "region": "Россия",
+      "contacts": {
+        "support": "+7 900 000 66 66",
+        "email": "support@epd.example"
+      },
+      "documents": [
+        {
+          "type": "Контур подключения",
+          "number": "EPD-PLANNED-001",
+          "expiresAt": null,
+          "status": "LIVE_REQUIRED"
+        }
+      ],
+      "checks": {
+        "registryRequired": false,
+        "registryConnected": false,
+        "manualReview": true
+      },
+      "assignments": [
+        {
+          "stage": "documents",
+          "mode": "future_live",
+          "priority": 2,
+          "coverage": [
+            "все перевозки"
+          ]
+        }
+      ],
+      "notes": [
+        "Полное закрытие требований только после live-интеграции"
+      ]
+    },
+    {
+      "id": "bank-1",
+      "name": "Сбер API sandbox",
+      "kind": "bank",
+      "scope": "federal",
+      "status": "sandbox",
+      "region": "Россия",
+      "contacts": {
+        "manager": "+7 900 000 77 77",
+        "email": "bank@sandbox.example"
+      },
+      "documents": [
+        {
+          "type": "API sandbox profile",
+          "number": "SBER-SB-001",
+          "expiresAt": null,
+          "status": "SANDBOX_ONLY"
+        }
+      ],
+      "checks": {
+        "registryRequired": false,
+        "registryConnected": false,
+        "manualReview": false
+      },
+      "assignments": [
+        {
+          "stage": "settlement",
+          "mode": "sandbox",
+          "priority": 1,
+          "coverage": [
+            "safe deals",
+            "payment callbacks"
+          ]
+        }
+      ],
+      "notes": [
+        "Используется для sandbox/payment simulation"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,163 @@
+{
+  "schemaVersion": "tai.agro-os.capability-matrix.v1",
+  "specification": "TAI Agro OS Master Specification v4.0",
+  "repository": "pachaninm-lab/pachanin-demo",
+  "auditedExactMain": "aee6f0d32300a33983fd71b6a09ddf497d9394fd",
+  "auditedAt": "2026-07-31",
+  "evidenceBoundary": "repository-only-no-live-inference",
+  "overallStatus": "NOT_ACCEPTED",
+  "stages": [
+    {
+      "stage": 1,
+      "name": "TAI Always-On Core",
+      "status": "PARTIAL",
+      "evidence": [
+        "apps/tai/README.md",
+        "apps/tai/ROADMAP.md",
+        "apps/tai/tai/gateway_acceptance.py"
+      ],
+      "missing": [
+        "distributed admission and backpressure",
+        "model draining and warm-up authority",
+        "HA/DR",
+        "load fault restore backlog and soak evidence",
+        "exact-main operational attestation"
+      ]
+    },
+    {
+      "stage": 2,
+      "name": "Unified Agro Knowledge Core",
+      "status": "PARTIAL",
+      "evidence": [
+        "apps/tai/README.md",
+        "apps/tai/ROADMAP.md"
+      ],
+      "missing": [
+        "complete v4 ontology",
+        "measured official-source coverage and freshness",
+        "embeddings",
+        "hybrid retrieval",
+        "reranker",
+        "domain gold sets"
+      ]
+    },
+    {
+      "stage": 3,
+      "name": "TAI Crop",
+      "status": "NOT_ACCEPTED",
+      "evidence": [],
+      "missing": [
+        "field and season operating model",
+        "technology maps",
+        "crop resources and economics",
+        "deterministic crop calculator set",
+        "mobile field workflow",
+        "end-to-end acceptance"
+      ]
+    },
+    {
+      "stage": 4,
+      "name": "TAI Livestock",
+      "status": "NOT_ACCEPTED",
+      "evidence": [],
+      "missing": [
+        "animal herd and group registry",
+        "feeding reproduction productivity and health contours",
+        "microclimate and biosecurity",
+        "deterministic livestock calculator set",
+        "end-to-end acceptance"
+      ]
+    },
+    {
+      "stage": 5,
+      "name": "TAI Machinery",
+      "status": "NOT_ACCEPTED",
+      "evidence": [],
+      "missing": [
+        "canonical machine identity",
+        "manual and service document model",
+        "maintenance fault code and parts compatibility contours",
+        "telemetry",
+        "deterministic machinery calculator set",
+        "safety acceptance"
+      ]
+    },
+    {
+      "stage": 6,
+      "name": "TAI Expert",
+      "status": "NOT_ACCEPTED",
+      "evidence": [
+        "apps/tai/README.md"
+      ],
+      "missing": [
+        "PDF scan table and certificate pipeline",
+        "quarantine",
+        "page table row cell provenance",
+        "document injection defence"
+      ]
+    },
+    {
+      "stage": 7,
+      "name": "TAI Trade",
+      "status": "PARTIAL",
+      "evidence": [
+        "apps/tai/README.md",
+        "apps/tai/ROADMAP.md"
+      ],
+      "missing": [
+        "v4 product packaging",
+        "full trade domain evaluation",
+        "separate acceptance for any future write contour"
+      ]
+    },
+    {
+      "stage": 8,
+      "name": "TAI Enterprise and Connect",
+      "status": "PARTIAL_UNVERIFIED",
+      "evidence": [
+        "apps/tai/README.md"
+      ],
+      "missing": [
+        "accepted 1C ERP EDI TMS WMS and LIMS connectors",
+        "per-integration technical acceptance",
+        "SDK OEM and white-label commercial controls"
+      ]
+    },
+    {
+      "stage": 9,
+      "name": "Event agents",
+      "status": "NOT_ACCEPTED",
+      "evidence": [],
+      "missing": [
+        "cross-domain event schemas",
+        "threshold and provenance policy",
+        "notifications",
+        "prepared-action boundary",
+        "replay and idempotency tests"
+      ]
+    },
+    {
+      "stage": 10,
+      "name": "Commercial contour",
+      "status": "NOT_ACCEPTED",
+      "evidence": [],
+      "missing": [
+        "TAI organization plans and quotas",
+        "API keys and usage reporting",
+        "white-label controls",
+        "sales materials",
+        "manual billing process"
+      ]
+    }
+  ],
+  "nonNegotiableBoundaries": [
+    "server-authoritative identity tenant and role",
+    "PostgreSQL authority",
+    "tenant isolation RBAC RLS and audit",
+    "zero autonomous financial actions",
+    "zero cross-tenant access",
+    "critical calculations executed by versioned code",
+    "no deployment claim without exact-main REG.RU live acceptance",
+    "zero new recurring cost without written owner decision"
+  ]
+}
