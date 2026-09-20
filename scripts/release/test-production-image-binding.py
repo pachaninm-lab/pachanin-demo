@@ -16,8 +16,8 @@ EXECUTOR = ROOT / "scripts/production-full-stack-exact-sha.sh"
 WORKFLOW = ROOT / ".github/workflows/production-full-stack-exact-sha.yml"
 SHA = "a" * 40
 CANARY = "SYNTHETIC_PROTECTED_IMAGE_CANARY"
-CID = {"api": "1" * 64, "web": "2" * 64}
-REPOS = {component: "ghcr.io/pachaninm-lab/grainflow-" + component for component in ("api", "web", "migration")}
+CID = {"api": "1" * 64, "web": "2" * 64, "outbox-worker": "3" * 64}
+REPOS = {component: "ghcr.io/pachaninm-lab/grainflow-" + component for component in ("api", "web", "migration", "outbox-worker")}
 REFS = {component: repo + "@sha256:" + str(index) * 64 for index, (component, repo) in enumerate(REPOS.items(), 3)}
 
 
@@ -61,7 +61,7 @@ if args[:1] == ['pull']:
     print(os.environ['IMAGE_TEST_CANARY'], file=sys.stderr)
     sys.exit(data['pullStatus'])
 if args[:2] == ['compose', 'ps']:
-    print({'api': '1' * 64, 'web': '2' * 64}[args[-1]])
+    print({'api': '1' * 64, 'web': '2' * 64, 'outbox-worker': '3' * 64}[args[-1]])
     sys.exit(0)
 if args[:2] == ['image', 'inspect']:
     value = data['images'].get(args[2])
@@ -242,7 +242,7 @@ else:
         verify = source[source.index("verify_image() {"):source.index("wait_api() {")]
         return "set -Eeuo pipefail\n" + fail + verify
 
-    def test_actual_executor_preflight_checks_all_three_images(self):
+    def test_actual_executor_preflight_checks_all_four_images(self):
         source = EXECUTOR.read_text()
         preflight = source[source.index('[[ -n "$API_IMAGE" &&'):source.index('# Shared release-authority root:')]
         result = self.execute(["bash", "-c", self.executor_functions() + preflight + '\nprintf "PREFLIGHT_DONE\\n"\n'])
@@ -265,7 +265,7 @@ else:
         return (self.executor_functions() + '\ndc_target=(docker compose)\nRELEASE_ROLLBACK_ARMED=1\n'
                 'rollback_and_exit() { printf "ROLLBACK_INVOKED\\n" >&2; exit "$1"; }\n' + final)
 
-    def test_actual_executor_success_requires_both_runtime_bindings(self):
+    def test_actual_executor_success_requires_all_runtime_bindings(self):
         result = self.execute(["bash", "-c", self.final_verification()])
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("DEPLOYMENT_COMPLETE=1\n", result.stdout)
