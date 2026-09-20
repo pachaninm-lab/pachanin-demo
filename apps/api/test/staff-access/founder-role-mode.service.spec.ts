@@ -184,6 +184,7 @@ describe('FounderRoleModeService', () => {
 
     expect(result).toEqual(expect.objectContaining({
       active: true,
+      accessSessionId: 'sas-role-mode',
       cabinetKey: 'executive',
       canonicalPath: '/platform-v7/executive',
       effectiveRole: Role.EXECUTIVE,
