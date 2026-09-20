@@ -36,7 +36,7 @@ const linkedPages = [
   { name: 'market', path: '/platform-v7/market', ready: 'main h1' },
   { name: 'how-it-works', path: '/platform-v7/how-it-works', ready: 'main h1' },
   { name: 'capabilities', path: '/platform-v7/capabilities', ready: 'main h1' },
-  { name: 'gekta', path: '/platform-v7/ai-in-action', ready: 'main h1' },
+  { name: 'gekta', path: '/platform-v7/gekta', ready: 'main h1' },
   { name: 'trust', path: '/platform-v7/trust', ready: 'main h1' },
   { name: 'about', path: '/platform-v7/about', ready: 'main h1' },
   { name: 'contact', path: '/platform-v7/contact', ready: '[data-testid="platform-v7-question-form-page"]' },
