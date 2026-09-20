@@ -6,7 +6,7 @@ import { LoginFormClient } from './LoginFormClient';
 export default async function LoginPage() {
   const rawLocale=await getLocale();
   const locale=canonicalPublicLocale(rawLocale);
-  const { form }=getPublicLoginCopy(rawLocale);
+  const { form }=getPublicLoginCopy(locale);
 
   return (
     <main id='main-content' className='pc-canonical-public pc-v7-public-entry pc-auth-page'>
