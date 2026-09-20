@@ -112,10 +112,10 @@ export function CanonicalPublicHeader({
   const nav = (
     <>
       {NAV[lang].map(([label, href]) => (
-        <Link key={href} href={`${href}${suffix}`} data-active={activePath === href ? 'true' : undefined}>{label}</Link>
+        <Link prefetch={false} key={href} href={`${href}${suffix}`} data-active={activePath === href ? 'true' : undefined}>{label}</Link>
       ))}
-      <Link className='pc-cp-mobile-only' href={`/platform-v7/login${suffix}`}><LogIn size={16} aria-hidden='true' />{copy.login}</Link>
-      <Link className='pc-cp-mobile-only' href={`/platform-v7/register${suffix}`}><UserRound size={16} aria-hidden='true' />{copy.register}</Link>
+      <Link prefetch={false} className='pc-cp-mobile-only' href={`/platform-v7/login${suffix}`}><LogIn size={16} aria-hidden='true' />{copy.login}</Link>
+      <Link prefetch={false} className='pc-cp-mobile-only' href={`/platform-v7/register${suffix}`}><UserRound size={16} aria-hidden='true' />{copy.register}</Link>
     </>
   );
   return (
@@ -130,8 +130,8 @@ export function CanonicalPublicHeader({
       localeControl={localeControl ?? <PublicLocaleLink />}
       actions={actions === false ? <span className='pc-canonical-header-actions' /> : actions === true ? (
         <div className='pc-canonical-header-actions'>
-          <Link className='entry-login' href={`/platform-v7/login${suffix}`}>{copy.login}</Link>
-          <Link className='pc-v6-header-cta' href={`/platform-v7/register${suffix}`}>{copy.register}</Link>
+          <Link prefetch={false} className='entry-login' href={`/platform-v7/login${suffix}`}>{copy.login}</Link>
+          <Link prefetch={false} className='pc-v6-header-cta' href={`/platform-v7/register${suffix}`}>{copy.register}</Link>
         </div>
       ) : actions}
     />
@@ -284,7 +284,7 @@ export function CanonicalBottomNav({ locale, active }: { locale: string; active?
       ] as const;
   return (
     <nav className='pc-cp-bottom-nav' aria-label={lang === 'ru' ? 'Мобильная навигация' : lang === 'en' ? 'Mobile navigation' : '移动导航'}>
-      {items.map(([label, href, Icon, center]) => <Link href={`${href}?lang=${lang}`} key={href} data-active={active === href ? 'true' : 'false'} data-center={center ? 'true' : 'false'}><Icon aria-hidden='true' /><span>{label}</span></Link>)}
+      {items.map(([label, href, Icon, center]) => <Link prefetch={false} href={`${href}?lang=${lang}`} key={href} data-active={active === href ? 'true' : 'false'} data-center={center ? 'true' : 'false'}><Icon aria-hidden='true' /><span>{label}</span></Link>)}
     </nav>
   );
 }
