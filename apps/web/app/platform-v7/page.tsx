@@ -1,4 +1,4 @@
-import '@/styles/platform-v7-canonical-public-v1.css';
+import '@/styles/platform-v7-canonical-home-v1.css';
 import type { Metadata } from 'next';
 import { getLocale } from 'next-intl/server';
 import { PlatformV7StrategicHome } from '@/components/platform-v7/PlatformV7StrategicHome';
