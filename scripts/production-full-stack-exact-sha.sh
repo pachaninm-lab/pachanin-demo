@@ -10,6 +10,7 @@ API_IMAGE="${PC_API_IMAGE:-}"
 WEB_IMAGE="${PC_WEB_IMAGE:-}"
 MIGRATION_IMAGE="${PC_MIGRATION_IMAGE:-}"
 OUTBOX_WORKER_IMAGE="${PC_OUTBOX_WORKER_IMAGE:-}"
+OUTBOX_POLICY_FILE="${PC_OUTBOX_POLICY_FILE:-}"
 KAFKA_IMAGE='confluentinc/cp-kafka@sha256:24cdd3a7fa89d2bed150560ebea81ff1943badfa61e51d66bb541a6b0d7fb047'
 KAFKA_SERVICE='ir20-kafka'
 OUTBOX_SERVICE='outbox-worker'
@@ -678,6 +679,12 @@ PY
   rc=$?; set -e; rm -f "$json"; return "$rc"
 }
 
+apply_outbox_policy() {
+  [[ -n "$OUTBOX_POLICY_FILE" && "$OUTBOX_POLICY_FILE" == /tmp/pc-ir20-outbox-policy-* && -f "$OUTBOX_POLICY_FILE" && ! -L "$OUTBOX_POLICY_FILE" ]] || fail OUTBOX_POLICY_FILE_INVALID 121
+  [[ "$(stat -c '%u:%g' "$OUTBOX_POLICY_FILE")" == '0:0' ]] || fail OUTBOX_POLICY_FILE_OWNER_INVALID 122
+  "${dc_target[@]}" run --rm --no-deps --pull never -T "$migration_service" node_modules/prisma/build/index.js db execute --stdin --schema prisma/schema.prisma < "$OUTBOX_POLICY_FILE" >/dev/null 2>&1 || fail OUTBOX_POLICY_APPLY_FAILED 123
+  printf 'IR20_OUTBOX_POLICY_APPLIED=1\n'
+}
 provision_outbox_runtime() {
   resolve_outbox_runtime_env_file
   if [[ "$OUTBOX_RUNTIME_ENV_PREEXISTED" == 1 ]]; then
@@ -685,7 +692,7 @@ provision_outbox_runtime() {
   else
     local migration_url password worker_url sql temp
     migration_url="$(migration_database_url)" || fail MIGRATION_DATABASE_URL_UNAVAILABLE_FOR_OUTBOX 91
-    password="$(openssl rand -hex 48)"; [[ "$password" =~ ^[A-Fa-f0-9]{96}$ ]] || fail OUTBOX_PASSWORD_GENERATION_FAILED 92
+    password="$(python3 -c 'import secrets; print(secrets.token_hex(48))')"; [[ "$password" =~ ^[A-Fa-f0-9]{96}$ ]] || fail OUTBOX_PASSWORD_GENERATION_FAILED 92
     worker_url="$(printf '%s\0%s' "$migration_url" "$password" | python3 -c '
 import sys
 from urllib.parse import quote,urlsplit,urlunsplit
@@ -984,7 +991,9 @@ if [[ "$ACTION" == observe-ir20 ]]; then
   [[ "$worker_revision" == "$TARGET_SHA" ]] || fail IR20_WORKER_REVISION_MISMATCH 105
   initial_worker_restarts="$(docker inspect --format '{{.RestartCount}}' "$local_worker")"; initial_broker_restarts="$(docker inspect --format '{{.RestartCount}}' "$local_broker")"
   [[ "$initial_worker_restarts" =~ ^[0-9]+$ && "$initial_broker_restarts" =~ ^[0-9]+$ ]] || fail IR20_RESTART_COUNTER_INVALID 106
-  for observation in $(seq 1 180); do
+  observation_started_at="$(date +%s)"
+  observation_deadline=$((observation_started_at + 1800))
+  while true; do
     current_worker="$(optional_release_service_id "$OUTBOX_SERVICE")" || fail IR20_WORKER_DISCOVERY_FAILED 101
     current_broker="$(optional_release_service_id "$KAFKA_SERVICE")" || fail IR20_BROKER_DISCOVERY_FAILED 102
     [[ "$current_worker" == "$local_worker" && "$current_broker" == "$local_broker" ]] || fail IR20_RUNTIME_IDENTITY_CHANGED 107
@@ -992,9 +1001,15 @@ if [[ "$ACTION" == observe-ir20 ]]; then
     [[ "$(docker inspect --format '{{.RestartCount}}' "$current_broker")" == "$initial_broker_restarts" ]] || fail IR20_BROKER_RESTARTED 109
     docker exec "$current_worker" /nodejs/bin/node -e "fetch('http://127.0.0.1:3002/ready',{signal:AbortSignal.timeout(4000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1 || fail IR20_WORKER_NOT_READY 110
     docker exec "$current_broker" kafka-topics --bootstrap-server 127.0.0.1:9092 --list >/dev/null 2>&1 || fail IR20_BROKER_NOT_READY 111
-    (( observation == 180 )) || sleep 10
+    observation_now="$(date +%s)"
+    (( observation_now >= observation_deadline )) && break
+    observation_sleep=$((observation_deadline - observation_now))
+    (( observation_sleep > 10 )) && observation_sleep=10
+    sleep "$observation_sleep"
   done
-  printf 'IR20_RUNTIME_OBSERVATION=PASS\nIR20_OBSERVATION_SECONDS=1800\n'; exit 0
+  observation_elapsed=$(( $(date +%s) - observation_started_at ))
+  (( observation_elapsed >= 1800 )) || fail IR20_OBSERVATION_TOO_SHORT 124
+  printf 'IR20_RUNTIME_OBSERVATION=PASS\nIR20_OBSERVATION_SECONDS=%s\n' "$observation_elapsed"; exit 0
 fi
 
 if [[ "$ACTION" == rollback ]]; then
@@ -1105,6 +1120,7 @@ write_override "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" "" "$full_override" 
 "${dc_target[@]}" config --quiet
 "${dc_target[@]}" run --rm --no-deps --pull never "$migration_service"
 printf 'MIGRATION_COMPLETE=1\n'
+apply_outbox_policy
 provision_outbox_runtime
 write_override "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" "$OUTBOX_WORKER_IMAGE" "$full_override" 1 1
 "${dc_target[@]}" config --quiet
