@@ -229,6 +229,7 @@ const COPY = {
 } as const;
 
 const GROUP_ICONS = [Wheat, Handshake, Truck, Banknote] as const;
+const ROLE_GROUP_INDEXES = [[0],[1],[2,3,4,5,6],[7,8]] as const;
 
 export async function PlatformV7StrategicHome() {
   const locale = canonicalPublicLocale(await getLocale());
@@ -295,12 +296,8 @@ export async function PlatformV7StrategicHome() {
           <div className='pc-cp-role-grid'>
             {copy.groups.map(([title, text], index) => {
               const Icon = GROUP_ICONS[index]!;
-              return <article className='pc-cp-card pc-cp-role-card' key={title}><Icon size={22} aria-hidden='true' /><strong>{title}</strong><p>{text}</p></article>;
+              return <article className='pc-cp-card pc-cp-role-card' key={title}><Icon size={22} aria-hidden='true' /><strong>{title}</strong><p>{text}</p><div className='pc-cp-role-tags'>{ROLE_GROUP_INDEXES[index]!.map((roleIndex)=><span key={CANONICAL_ROLES[locale][roleIndex]}>{CANONICAL_ROLES[locale][roleIndex]}</span>)}</div></article>;
             })}
-          </div>
-          <div style={{ marginTop: 16 }}>
-            <span className='pc-cp-eyebrow'>{copy.rolesLabel}</span>
-            <div className='pc-cp-hero-proof' style={{ marginTop: 10 }}>{CANONICAL_ROLES[locale].map((role) => <span key={role}>{role}</span>)}</div>
           </div>
         </div>
       </section>
