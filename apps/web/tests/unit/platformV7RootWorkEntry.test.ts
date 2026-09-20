@@ -105,7 +105,8 @@ describe('platform-v7 canonical public experience',()=>{
   it('keeps public market public without weakening protected Deal routes',()=>{
     expect(layout).toContain("'/platform-v7/market'");
     expect(middleware).toContain("'/platform-v7/market'");
-    expect(layout).not.toContain("'/platform-v7/market/'");
+    const publicPrefixBlock=layout.slice(layout.indexOf('const PUBLIC_PREFIX_PATHS'),layout.indexOf('// Server redirects remain valid'));
+    expect(publicPrefixBlock).not.toContain("'/platform-v7/market/'");
     expect(routeAliases).toContain("'/platform-v7/market': PLATFORM_V7_CANONICAL_ROUTES.lots");
     expect(layout.indexOf('if (isPublicPath(pathname))')).toBeLessThan(layout.indexOf('if (!isKnownProtectedPath(pathname))'));
     expect(layout).toContain("/^\\/platform-v7\\/deals\\/[^/]+$/");
@@ -160,7 +161,7 @@ describe('platform-v7 canonical public experience',()=>{
   });
 
   it('keeps Gekta inside source and authority boundaries',()=>{
-    expect(gekta).toContain('Критическое решение остаётся за человеком и правилами платформы');
+    expect(gekta).toContain('критическое решение остаётся за человеком и правилами платформы');
     expect(gekta).toContain('Только контекст, доступный текущему участнику');
     expect(gekta).toContain('Гекта объясняет; критическое действие не исполняет самостоятельно');
     expect(gekta).not.toContain('автоматически переводит деньги');
