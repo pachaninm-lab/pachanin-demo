@@ -3,8 +3,6 @@ import { getLocale } from 'next-intl/server';
 import { cookies, headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { PublicLinkedSurfaceShell } from '@/components/platform-v7/PublicLinkedSurfaceShell';
-import { HydrationSafeChatSupport } from '@/components/platform-v7/HydrationSafeChatSupport';
 import { getAuthProfile } from '@/lib/auth-profile-server';
 import { canRoleAccessCabinet } from '@/lib/platform-v7/cabinet-access-policy';
 import { isDesignSystemV8Route } from '@/lib/platform-v7/design-system-v8-route-policy';
@@ -281,14 +279,21 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
   // The contact dock is mounted at the route boundary so supporting pages that
   // do not render PublicSiteHeader still expose the same AI/support/call entry.
   if (isPublicPath(pathname)) {
-    const publicContent = pathname === '/platform-v7/terms' || pathname === '/platform-v7/privacy'
-      || pathname === '/platform-v7/oferta' || pathname === '/platform-v7/docs'
+    const linkedSurface = pathname === '/platform-v7/terms' || pathname === '/platform-v7/privacy'
+      || pathname === '/platform-v7/oferta' || pathname === '/platform-v7/docs';
+    const PublicLinkedSurfaceShell = linkedSurface
+      ? (await import('@/components/platform-v7/PublicLinkedSurfaceShell')).PublicLinkedSurfaceShell
+      : null;
+    const HydrationSafeChatSupport = shouldMountLegacyPublicDock(pathname)
+      ? (await import('@/components/platform-v7/HydrationSafeChatSupport')).HydrationSafeChatSupport
+      : null;
+    const publicContent = PublicLinkedSurfaceShell
       ? <PublicLinkedSurfaceShell pathname={pathname} locale={await getLocale()}>{children}</PublicLinkedSurfaceShell>
       : children;
     return (
       <>
         {publicContent}
-        {shouldMountLegacyPublicDock(pathname) ? <HydrationSafeChatSupport /> : null}
+        {HydrationSafeChatSupport ? <HydrationSafeChatSupport /> : null}
       </>
     );
   }
