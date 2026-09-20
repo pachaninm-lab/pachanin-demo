@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, Clock3, LockKeyhole, MapPin, ShieldCheck } from 'lucide-react';
+import { ArrowRight, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { getPublicMarketLots, type PublicMarketLot, type PublicMarketReadResult } from '@/lib/public-market-server';
 import { canonicalPublicLocale, type CanonicalPublicLocale } from './PublicCanonicalPrimitives';
 
