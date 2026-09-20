@@ -94,6 +94,7 @@ const PLATFORM_V7_PUBLIC_EXACT = new Set([
   '/platform-v7/login',
   '/platform-v7/register',
   '/platform-v7/market',
+  '/platform-v7/gekta',
   '/platform-v7/forgot-password',
   '/platform-v7/invitation',
   '/platform-v7/mfa-recovery',
