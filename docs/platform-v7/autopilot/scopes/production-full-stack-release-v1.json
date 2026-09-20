@@ -28,7 +28,7 @@
   "acceptance": [
     "the release candidate is the exact SHA captured by the owner controller and remains an ancestor of current main at every mutation boundary",
     "API web migration and outbox-worker images are immutable registry-digest references with OCI revision equal to the target SHA",
-    "the canonical durable-outbox migration completes before worker activation and the reclaim fence plus RLS catalog checks pass",
+    "the canonical durable-outbox migration and the reviewed postgresql-outbox-worker least-privilege policy complete before worker activation and the reclaim fence plus RLS catalog checks pass",
     "exactly one production outbox-worker runs with OUTBOX_WORKER_ENABLED=true KAFKA_REQUIRED=true RUNTIME_COMPONENT=outbox-worker while API is forced to OUTBOX_WORKER_ENABLED=false",
     "app_outbox is a login runtime principal with row_security on only the required outbox SELECT and update-column privileges and no tenant-domain authority",
     "the internal Kafka broker is pinned by digest has no published host ports uses a persistent named volume and retains the required topics across a controlled restart",
