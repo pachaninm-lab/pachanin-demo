@@ -209,6 +209,12 @@
     ".github/workflows/ci.yml"
   ],
   "approvedConcurrentScopes": {
+    "governance/ir20-binding-immutable-scope-20260919": [
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs",
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "docs/platform-v7/autopilot/autopilot-state.json"
+    ],
     "fix/provider-review-scope-guard-20260918": [
       "scripts/p7-autopilot-guard.sh",
       "scripts/p7-autopilot-guard.test.mjs",
@@ -1500,6 +1506,13 @@
     ],
     "test/industrial-load-diagnostics-20260919": [
       "apps/api/test/industrial/load-proof.e2e-spec.ts"
+    ],
+    "ops/ir20-api-database-binding-20260919": [
+      "scripts/release/ir20-api-database-binding.py",
+      "scripts/release/test-ir20-api-database-binding.py",
+      "scripts/release/test-ir20-api-database-binding-integration.py",
+      ".github/workflows/ir20-api-database-binding.yml",
+      "docs/ops/ir20-api-database-binding.md"
     ],
     "ops/production-full-stack-release-v1": [
       ".github/workflows/production-full-stack-exact-sha.yml",
