@@ -16,6 +16,15 @@ const finalPublicBranches = [
 const finalPublicGovernanceBranch = 'governance/final-public-experience-v1-20260919';
 const industrialGovernanceBranch = 'governance/industrial-load-diagnostics-20260919';
 const industrialDiagnosticBranch = 'test/industrial-load-diagnostics-20260919';
+const ir20BindingPrerequisiteBranch = 'governance/ir20-binding-immutable-scope-20260919';
+const ir20BindingImplementationBranch = 'ops/ir20-api-database-binding-20260919';
+const ir20BindingImplementationPaths = [
+  'scripts/release/ir20-api-database-binding.py',
+  'scripts/release/test-ir20-api-database-binding.py',
+  'scripts/release/test-ir20-api-database-binding-integration.py',
+  '.github/workflows/ir20-api-database-binding.yml',
+  'docs/ops/ir20-api-database-binding.md',
+];
 const industrialDiagnosticPaths = ['apps/api/test/industrial/load-proof.e2e-spec.ts'];
 const industrialGovernancePaths = [
   'docs/platform-v7/autopilot/autopilot-state.json',
@@ -43,6 +52,7 @@ const implementationBranches = [
   'governance/pc-crop-post-registration-progress-scope-4997',
   'governance/pc-crop-inventory-reservation-scope-4997',
   'fix/owner-handoff-product-host-20260908',
+  ir20BindingImplementationBranch,
   ...finalPublicBranches,
 ];
 const publicHomeGovernanceBranch = 'governance/public-home-role-clarity-scope-20260905';
@@ -148,6 +158,18 @@ function fixture(t, implementationBranch) {
   git(root, ['switch', '-c', implementationBranch]);
   return { root, baseline, implementationBranch };
 }
+
+test('IR-20 binding prerequisite admits exactly the five non-authority implementation paths', () => {
+  const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+  assert.deepEqual(state.approvedConcurrentScopes[ir20BindingImplementationBranch], ir20BindingImplementationPaths);
+  assert.deepEqual(state.approvedConcurrentScopes[ir20BindingPrerequisiteBranch], [
+    'scripts/p7-autopilot-guard.sh',
+    'scripts/p7-autopilot-guard.test.mjs',
+    '.github/workflows/platform-v7-autopilot-guard.yml',
+    'docs/platform-v7/autopilot/autopilot-state.json',
+  ]);
+  assert.equal(ir20BindingImplementationPaths.some((file) => file.includes('/scopes/')), false);
+});
 
 function publicHomeImplementationFixture(t, { withManifest = true } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-public-home-immutable-scope-'));
