@@ -52,7 +52,7 @@ const targets = [
   { name: '06-deal-mobile', path: '/platform-v7/deal-flow?lang=ru', width: 430, height: 932, ready: 'main h1' },
   { name: '07-how-it-works-desktop', path: '/platform-v7/how-it-works?lang=ru', width: 1448, height: 1086, ready: 'main h1' },
   { name: '08-trust-desktop', path: '/platform-v7/trust?lang=ru', width: 1448, height: 1086, ready: 'main h1' },
-  { name: '09-gekta-desktop', path: '/platform-v7/ai-in-action?lang=ru', width: 1672, height: 941, ready: 'main h1' },
+  { name: '09-gekta-desktop', path: '/platform-v7/gekta?lang=ru', width: 1672, height: 941, ready: 'main h1' },
 ] as const;
 
 test.describe('canonical visual authority evidence', () => {
@@ -109,7 +109,7 @@ test.describe('canonical visual authority evidence', () => {
         '/platform-v7/market?lang=ru&lot=0',
         '/platform-v7/how-it-works?lang=ru',
         '/platform-v7/trust?lang=ru',
-        '/platform-v7/ai-in-action?lang=ru',
+        '/platform-v7/gekta?lang=ru',
       ]) {
         const response = await page.goto(route, { waitUntil: 'domcontentloaded' });
         expect(response?.ok(), `${route} should return 200 at ${width}px`).toBe(true);
@@ -130,6 +130,7 @@ test.describe('canonical visual authority evidence', () => {
         '/platform-v7/market',
         '/platform-v7/how-it-works',
         '/platform-v7/trust',
+        '/platform-v7/gekta',
         '/platform-v7/ai-in-action',
         '/platform-v7/register',
         '/platform-v7/login',
