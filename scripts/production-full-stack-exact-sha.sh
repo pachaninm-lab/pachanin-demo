@@ -332,7 +332,7 @@ resolve_api_runtime_network_authority() {
 if [[ "$ACTION" == deploy || "$ACTION" == rollback ]]; then
   resolve_api_runtime_network_authority
 fi
-baseline_api_image="$(docker inspect --format '{{.Config.Image}}' "$api_id")
+baseline_api_image="$(docker inspect --format '{{.Config.Image}}' "$api_id")"
 baseline_web_image="$(docker inspect --format '{{.Config.Image}}' "$web_id")"
 baseline_api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
 baseline_web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
