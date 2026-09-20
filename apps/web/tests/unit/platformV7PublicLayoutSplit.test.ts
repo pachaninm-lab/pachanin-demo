@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest';
 const absolute = (file: string) => path.join(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..'), file);
 const read = (file: string) => fs.readFileSync(absolute(file), 'utf8');
 const rootLayout = read('apps/web/app/layout.tsx');
+const globalsCss = read('apps/web/app/globals.css');
+const tailwindRuntimeCss = read('apps/web/styles/platform-v7-tailwind-runtime.css');
 const layout = read('apps/web/app/platform-v7/layout.tsx');
 const template = read('apps/web/app/platform-v7/template.tsx');
 const protectedRuntime = read('apps/web/components/platform-v7/PlatformV7ProtectedRuntime.tsx');
@@ -131,6 +133,16 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(template).not.toContain("'use client'");
     expect(template).not.toContain('PlatformV7ProtectedTemplateRuntime');
     expect(template).not.toContain('PlatformV7TemplateGuards');
+  });
+
+  it('keeps Tailwind out of the canonical home render path and available elsewhere', () => {
+    expect(globalsCss).not.toContain('@tailwind components');
+    expect(globalsCss).not.toContain('@tailwind utilities');
+    expect(tailwindRuntimeCss).toContain('@tailwind components');
+    expect(tailwindRuntimeCss).toContain('@tailwind utilities');
+    expect(rootLayout).toContain("pathname === '/platform-v7' || pathname === '/pc-public-entry/platform-v7'");
+    expect(rootLayout).toContain("await import('@/components/platform-v7/PlatformV7TailwindRuntime')");
+    expect(rootLayout).toContain('{TailwindRuntime ? <TailwindRuntime /> : null}');
   });
 
   it('does not preload or activate protected font variables on lean public entry routes', () => {
