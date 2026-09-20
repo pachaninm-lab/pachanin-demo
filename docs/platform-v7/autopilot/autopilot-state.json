@@ -209,6 +209,12 @@
     ".github/workflows/ci.yml"
   ],
   "approvedConcurrentScopes": {
+    "governance/ir20-binding-immutable-scope-20260919": [
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs",
+      ".github/workflows/platform-v7-autopilot-guard.yml",
+      "docs/platform-v7/autopilot/autopilot-state.json"
+    ],
     "fix/provider-review-scope-guard-20260918": [
       "scripts/p7-autopilot-guard.sh",
       "scripts/p7-autopilot-guard.test.mjs",
