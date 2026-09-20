@@ -1,18 +1,28 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
-  "fullTzReadinessPercent": 0,
-  "currentStep": "IR-20 Canonical Durable Outbox",
-  "lastCompletedStep": "IR-10.5 Disputes PostgreSQL Authority exact-main revalidation 397e98955d9f98704c40befd0088a1390556e0fa",
+  "governingSpecification": "PC-CROP_CODEX_MASTER_TZ_v2.1_2026-09-12",
+  "overallProductionProgress": {
+    "points": 5,
+    "total": 100,
+    "percent": 5
+  },
+  "currentStep": "R1.1 Server-side inventory of 13 cabinets and authority",
+  "currentBlock": "R1 Founder/CEO and owner access to all 13 cabinets",
+  "currentTaskExecution": "inventory in progress; no R1 points until full block PRODUCTION_PASS",
+  "lastCompletedStep": "R0 + IR-20 PRODUCTION_PASS on 5da8e80744908413102214f91dd68018911b892e",
+  "exactMain": "5da8e80744908413102214f91dd68018911b892e",
+  "productionSha": "5da8e80744908413102214f91dd68018911b892e",
+  "productionControllerRun": 35520784872,
   "openPr": null,
-  "blockedBy": [
-    "IR-20 Canonical Durable Outbox is not green/closed/mergeable. Dispatcher will not advance to IR-21 Durable Integration Inbox."
-  ],
-  "nextStep": "IR-20 Canonical Durable Outbox",
-  "updatedAt": "2026-09-12T23:49:51.776Z",
+  "blockedBy": [],
+  "nextStep": "R1 remaining-only: real-data owner open-as-role → Founder data layer/decision queue/metrics → negative auth/audit → CI → release → 13/13 live acceptance",
+  "updatedAt": "2026-09-20T22:47:00+03:00",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
     "noAutoMerge": true,
-    "controlledPilotOnly": true
+    "serverAuthority": true,
+    "noClientSelectedRole": true,
+    "noParallelUxFgisBankImplementation": true
   }
 }
