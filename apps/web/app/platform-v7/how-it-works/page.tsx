@@ -70,7 +70,7 @@ export default async function HowItWorksPage(){
  const locale=canonicalPublicLocale(await getLocale()); const c=COPY[locale];
  return <main className='pc-canonical-public pc-cp-page-how'>
   <CanonicalPublicHeader locale={locale} activePath='/platform-v7/how-it-works'/>
-  <section className='pc-cp-hero' style={{minHeight:520}}>
+  <section className='pc-cp-hero'>
    <div className='pc-cp-container pc-cp-hero-grid'>
     <div className='pc-cp-hero-copy'><span className='pc-cp-eyebrow'>{c.e}</span><h1 style={{maxWidth:'13ch'}}>{c.t}</h1><p>{c.p}</p><div className='pc-cp-actions'><Link className='pc-cp-button' href={`/platform-v7/register?lang=${locale}`}>{c.cta}<ArrowRight size={16}/></Link><Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/market?lang=${locale}`}>{c.market}</Link></div></div>
     <aside className='pc-cp-card pc-cp-state-shell'><CanonicalDealSpine locale={locale} currentIndex={0}/></aside>
