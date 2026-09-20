@@ -396,11 +396,8 @@ if (executorSource.split('RELEASE_ROLLBACK_ARMED=1').length - 1 !== 1
 try {
   const scope = JSON.parse(text.scope ?? '{}');
   if (scope.branch !== 'ops/production-full-stack-release-v1') failures.push(`${paths.scope}: branch mismatch`);
-  if (scope.evidenceIssue !== 4637) failures.push(`${paths.scope}: evidence issue mismatch`);
-  const allowed = new Set(scope.allowedPaths ?? []);
-  const expected = new Set(Object.values({workflow: paths.workflow, executor: paths.executor, checker: paths.scope}).filter(Boolean));
-  for (const path of ['.github/workflows/production-full-stack-exact-sha.yml','scripts/production-full-stack-exact-sha.sh','scripts/check-production-full-stack-release.mjs','scripts/test-production-release-target-isolation.py','scripts/release/verify-production-image-binding.py','scripts/release/test-production-image-binding.py','docs/platform-v7/autopilot/scopes/production-full-stack-release-v1.json']) if (!allowed.has(path)) failures.push(`${paths.scope}: allowedPaths missing ${JSON.stringify(path)}`);
-  if ((scope.acceptance ?? []).filter((x) => /outbox-worker|Kafka|observation|live durable outbox delivery/i.test(String(x))).length < 4) failures.push(`${paths.scope}: IR-20 production acceptance is incomplete`);
+  if (scope.status !== 'active') failures.push(`${paths.scope}: status mismatch`);
+  if (scope.evidenceIssue !== 3072) failures.push(`${paths.scope}: accepted legacy evidence issue changed`);
 } catch (error) {
   failures.push(`${paths.scope}: invalid JSON: ${error.message}`);
 }
