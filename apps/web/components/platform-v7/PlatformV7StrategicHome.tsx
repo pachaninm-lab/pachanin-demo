@@ -351,7 +351,7 @@ export async function PlatformV7StrategicHome() {
             <span className='pc-cp-eyebrow'>{copy.opportunitiesEyebrow}</span>
             <h2 id='pc-home-cap-title'>{copy.opportunitiesTitle}</h2>
           </div>
-          <div className='pc-cp-capabilities'>
+          <div className='pc-cp-capabilities' tabIndex={0} aria-label={locale === 'ru' ? 'Карусель возможностей платформы' : locale === 'en' ? 'Platform capabilities carousel' : '平台功能轮播'}>
             {CAPABILITIES.map(([Icon, key]) => {
               const [title, text] = copy.capability[key];
               return <article className='pc-cp-card pc-cp-capability' key={key}><Icon size={21} aria-hidden='true' /><strong>{title}</strong><p>{text}</p></article>;
