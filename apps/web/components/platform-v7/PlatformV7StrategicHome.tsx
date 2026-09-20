@@ -2,12 +2,8 @@ import Link from 'next/link';
 import { getLocale } from 'next-intl/server';
 import {
   ArrowRight,
-  BadgeCheck,
   Banknote,
-  FileCheck2,
   Handshake,
-  Scale,
-  ShieldCheck,
   Truck,
   Wheat,
 } from 'lucide-react';
