@@ -1,0 +1,51 @@
+name: IR20 API Database Binding Contract
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/ir20-api-database-binding.yml'
+      - 'scripts/release/ir20-api-database-binding.py'
+      - 'scripts/release/test-ir20-api-database-binding.py'
+      - 'scripts/release/test-ir20-api-database-binding-integration.py'
+      - 'docs/ops/ir20-api-database-binding.md'
+      - 'docs/platform-v7/autopilot/scopes/ir20-api-database-binding-20260919.json'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ir20-api-database-binding.yml'
+      - 'scripts/release/ir20-api-database-binding.py'
+      - 'scripts/release/test-ir20-api-database-binding.py'
+      - 'scripts/release/test-ir20-api-database-binding-integration.py'
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  contract:
+    name: Test read-only binding rejection and process protocol
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run synthetic and real-process protocol tests
+        run: python3 -B scripts/release/test-ir20-api-database-binding.py
+      - name: Pull the existing digest-pinned PostgreSQL fixture
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          image="$(python3 -c 'import json; a=json.load(open(".github/container-images/postgres-16.v1.json")); print(a["mirrored_repository"]+"@"+a["mirrored_digest"])')"
+          docker pull "$image" >/dev/null
+      - name: Test positive and wrong-database challenges on real PostgreSQL
+        run: python3 -B scripts/release/test-ir20-api-database-binding-integration.py
+      - name: Remove ephemeral registry login
+        if: always()
+        run: docker logout ghcr.io >/dev/null
