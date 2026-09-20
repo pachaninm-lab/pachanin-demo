@@ -687,8 +687,8 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
 
 @media(max-width:760px){
   .pc-cp-page-home .pc-cp-hero{padding:12px 0 5px;min-height:0}
-  .pc-cp-page-home .pc-cp-hero-media{width:43%;max-width:185px;height:272px;object-position:center top}
-  .pc-cp-page-home .pc-cp-hero::after{height:272px}
+  .pc-cp-page-home .pc-cp-hero-media{width:31%;max-width:128px;height:220px;object-position:center top}
+  .pc-cp-page-home .pc-cp-hero::after{height:244px}
   .pc-cp-page-home .pc-cp-hero-copy{min-height:244px;gap:5px}
   .pc-cp-page-home .pc-cp-hero-copy h1{font-size:33px;line-height:.91;max-width:9.7ch}
   .pc-cp-page-home .pc-cp-hero-copy p{font-size:11px;line-height:1.2;max-width:250px}
