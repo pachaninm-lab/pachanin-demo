@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 
@@ -55,11 +55,76 @@ const targets = [
   { name: '09-gekta-desktop', path: '/platform-v7/gekta?lang=ru', width: 1672, height: 941, ready: 'main h1' },
 ] as const;
 
+// A 200 login page is not evidence for the requested public screen. This
+// comparison validates test navigation only; it grants no runtime access.
+function matchesPublicRoute(observedUrl: string, expectedUrl: URL): boolean {
+  try {
+    const observed = new URL(observedUrl);
+    const expected = new URL(expectedUrl.href);
+    if (observed.username || observed.password) return false;
+    observed.searchParams.sort();
+    expected.searchParams.sort();
+    return observed.href === expected.href;
+  } catch {
+    return false;
+  }
+}
+
+async function expectPublicRoute(
+  page: Page,
+  requestedPath: string,
+  baseURL: string | undefined,
+  ready = 'main h1',
+): Promise<void> {
+  if (!baseURL) throw new Error('Canonical visual acceptance requires an explicit baseURL');
+  const expected = new URL(requestedPath, baseURL);
+  await expect(page, `Wrong public route or query context for ${requestedPath}`)
+    .toHaveURL((url) => matchesPublicRoute(url.href, expected));
+  await expect(page.locator(ready).first()).toBeVisible();
+  // Content readiness must not conceal a client-side redirect after navigation.
+  expect(matchesPublicRoute(page.url(), expected), `Route changed while rendering ${requestedPath}`).toBe(true);
+}
+
+test.describe('public route evidence identity', () => {
+  const baseURL = 'http://127.0.0.1:3000';
+  const expected = new URL('/platform-v7/market?lang=zh&lot=0', baseURL);
+  const cases = [
+    { name: 'exact route', url: expected.href, accepted: true },
+    { name: 'query key order', url: `${baseURL}/platform-v7/market?lot=0&lang=zh`, accepted: true },
+    { name: 'login redirect', url: `${baseURL}/platform-v7/login?next=%2Fplatform-v7%2Fmarket`, accepted: false },
+    { name: 'login with preserved context', url: `${baseURL}/platform-v7/login?lang=zh&lot=0`, accepted: false },
+    { name: 'different public page', url: `${baseURL}/platform-v7/trust?lang=zh&lot=0`, accepted: false },
+    { name: 'missing locale', url: `${baseURL}/platform-v7/market?lot=0`, accepted: false },
+    { name: 'wrong locale', url: `${baseURL}/platform-v7/market?lang=ru&lot=0`, accepted: false },
+    { name: 'missing zero lot', url: `${baseURL}/platform-v7/market?lang=zh`, accepted: false },
+    { name: 'different lot', url: `${baseURL}/platform-v7/market?lang=zh&lot=1`, accepted: false },
+    { name: 'duplicate locale', url: `${baseURL}/platform-v7/market?lang=zh&lang=ru&lot=0`, accepted: false },
+    { name: 'duplicate lot', url: `${baseURL}/platform-v7/market?lang=zh&lot=0&lot=0`, accepted: false },
+    { name: 'unexpected query', url: `${baseURL}/platform-v7/market?lang=zh&lot=0&role=bank`, accepted: false },
+    { name: 'different origin', url: 'http://localhost:3000/platform-v7/market?lang=zh&lot=0', accepted: false },
+    { name: 'different port', url: 'http://127.0.0.1:3001/platform-v7/market?lang=zh&lot=0', accepted: false },
+    { name: 'different scheme', url: 'https://127.0.0.1:3000/platform-v7/market?lang=zh&lot=0', accepted: false },
+    { name: 'URL credentials', url: 'http://fixture@127.0.0.1:3000/platform-v7/market?lang=zh&lot=0', accepted: false },
+    { name: 'unexpected fragment', url: `${expected.href}#unverified`, accepted: false },
+    { name: 'malformed URL', url: 'not a URL', accepted: false },
+  ] as const;
+  for (const item of cases) {
+    test(item.name, () => {
+      expect(matchesPublicRoute(item.url, expected)).toBe(item.accepted);
+    });
+  }
+  test('allows the login screen only when that screen was requested', () => {
+    const login = new URL('/platform-v7/login?lang=en', baseURL);
+    expect(matchesPublicRoute(login.href, login)).toBe(true);
+    expect(matchesPublicRoute(expected.href, login)).toBe(false);
+  });
+});
+
 test.describe('canonical visual authority evidence', () => {
   test.setTimeout(180_000);
 
   for (const target of targets) {
-    test(`${target.name} visual evidence`, async ({ page }, testInfo) => {
+    test(`${target.name} visual evidence`, async ({ page, baseURL }, testInfo) => {
       await page.setViewportSize({ width: target.width, height: target.height });
       const runtimeFailures: string[] = [];
       page.on('pageerror', (error) => runtimeFailures.push(error.message));
@@ -68,9 +133,8 @@ test.describe('canonical visual authority evidence', () => {
       });
 
       const response = await page.goto(target.path, { waitUntil: 'networkidle' });
-      expect(response?.ok()).toBe(true);
-      expect(new URL(page.url()).pathname, `Unexpected redirect for ${target.path}: ${page.url()}`).toBe(new URL(target.path, 'http://127.0.0.1:3000').pathname);
-      await expect(page.locator(target.ready).first()).toBeVisible();
+      expect(response?.status(), `${target.path} should return 200`).toBe(200);
+      await expectPublicRoute(page, target.path, baseURL, target.ready);
 
       const overflow = await page.evaluate(() => Math.max(
         document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -100,7 +164,7 @@ test.describe('canonical visual authority evidence', () => {
   }
   const responsiveWidths = [320, 375, 390, 768, 1280, 1440] as const;
   for (const width of responsiveWidths) {
-    test(`responsive contract ${width}px`, async ({ page }) => {
+    test(`responsive contract ${width}px`, async ({ page, baseURL }) => {
       const height = width <= 390 ? 844 : width <= 768 ? 1024 : 900;
       await page.setViewportSize({ width, height });
       for (const route of [
@@ -112,7 +176,8 @@ test.describe('canonical visual authority evidence', () => {
         '/platform-v7/gekta?lang=ru',
       ]) {
         const response = await page.goto(route, { waitUntil: 'domcontentloaded' });
-        expect(response?.ok(), `${route} should return 200 at ${width}px`).toBe(true);
+        expect(response?.status(), `${route} should return 200 at ${width}px`).toBe(200);
+        await expectPublicRoute(page, route, baseURL, targets.find((target) => target.path === route)?.ready);
         const overflow = await page.evaluate(() => Math.max(
           document.documentElement.scrollWidth - document.documentElement.clientWidth,
           document.body.scrollWidth - document.body.clientWidth,
@@ -123,7 +188,7 @@ test.describe('canonical visual authority evidence', () => {
   }
 
   for (const locale of ['ru', 'en', 'zh'] as const) {
-    test(`public locale ${locale} remains layout-safe on mobile`, async ({ page }) => {
+    test(`public locale ${locale} remains layout-safe on mobile`, async ({ page, baseURL }) => {
       await page.setViewportSize({ width: 390, height: 844 });
       for (const route of [
         '/platform-v7',
@@ -138,8 +203,10 @@ test.describe('canonical visual authority evidence', () => {
         '/platform-v7/contact',
       ]) {
         const separator = route.includes('?') ? '&' : '?';
-        const response = await page.goto(`${route}${separator}lang=${locale}`, { waitUntil: 'domcontentloaded' });
-        expect(response?.ok(), `${route} should return 200 for ${locale}`).toBe(true);
+        const requestedPath = `${route}${separator}lang=${locale}`;
+        const response = await page.goto(requestedPath, { waitUntil: 'domcontentloaded' });
+        expect(response?.status(), `${route} should return 200 for ${locale}`).toBe(200);
+        await expectPublicRoute(page, requestedPath, baseURL);
         const overflow = await page.evaluate(() => Math.max(
           document.documentElement.scrollWidth - document.documentElement.clientWidth,
           document.body.scrollWidth - document.body.clientWidth,
