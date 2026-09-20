@@ -27,7 +27,7 @@ export default async function PlatformV7DealFlowPage(){
  :locale==='en'
  ?{e:'Deal workspace',t:'A Deal in progress without losing context',p:'This public page shows the structure of the workspace but never presents an example as a real Deal. After sign-in, actual data comes from authorised server context.',h:'What the workspace shows',lead:'The platform shows settlement basis but does not create a financial event on the client.',state:['Actual state of the specific Deal','Participant with confirmed authority','Linked fact, condition or document','Only server-confirmed settlement impact','Permitted action for the current role'],login:'Sign in',how:'How the Deal works'}
  :{e:'交易工作区',t:'进行中的交易，不丢失上下文',p:'公开页面只展示工作区结构，不会把示例冒充真实交易。登录后，实际数据来自获授权的服务器上下文。',h:'工作区展示什么',lead:'平台展示结算依据，但不会在客户端创建金融事件。',state:['具体交易的真实状态','具有已确认权限的参与方','关联事实、条件或文件','仅展示服务器确认的结算影响','当前角色允许的操作'],login:'登录',how:'交易如何进行'};
- return <main className='pc-canonical-public p7-deal-flow-page'>
+ return <main className='pc-canonical-public pc-cp-page-deal-flow p7-deal-flow-page'>
   <CanonicalPublicHeader locale={locale}/>
   <section className='pc-cp-section pc-cp-section--soft'>
    <div className='pc-cp-container'>
