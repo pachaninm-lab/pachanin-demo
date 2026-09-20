@@ -875,3 +875,17 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
     width:min(222px,72%)!important
   }
 }
+
+
+/* Mobile first-paint containment: keep distant public sections out of the LCP layout pass. */
+@media(max-width:760px){
+  .pc-cp-page-home #participants,
+  .pc-cp-page-home #live,
+  .pc-cp-page-home #trust,
+  .pc-cp-page-home #gekta,
+  .pc-cp-page-home #capabilities,
+  .pc-cp-page-home .pc-cp-final{
+    content-visibility:auto!important;
+    contain-intrinsic-size:auto 320px;
+  }
+}

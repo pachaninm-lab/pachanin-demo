@@ -216,11 +216,13 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         {TailwindRuntime ? <TailwindRuntime /> : null}
         {content}
         {showDevPanel ? <FeatureFlagsDevPanel /> : null}
-        <PublicAnalytics
-          counterId={YM_ID}
-          locale={locale}
-          capturePublicProductAnalyticsAction={posthogConfigured ? capturePublicProductAnalytics : undefined}
-        />
+        {(YM_ID || posthogConfigured) ? (
+          <PublicAnalytics
+            counterId={YM_ID}
+            locale={locale}
+            capturePublicProductAnalyticsAction={posthogConfigured ? capturePublicProductAnalytics : undefined}
+          />
+        ) : null}
       </body>
     </html>
   );
