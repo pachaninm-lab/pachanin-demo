@@ -270,7 +270,7 @@ export async function PlatformV7StrategicHome() {
             <h2 id='pc-home-market-title'>{copy.marketTitle}</h2>
             <p>{copy.marketLead}</p>
           </div>
-          <CanonicalMarketPreview locale={locale} />
+          <CanonicalMarketPreview locale={locale} limit={4} />
           <div className='pc-cp-actions' style={{ marginTop: 18 }}><Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/market?lang=${locale}`}>{copy.openMarket}<ArrowRight size={16} aria-hidden='true' /></Link></div>
         </div>
       </section>
