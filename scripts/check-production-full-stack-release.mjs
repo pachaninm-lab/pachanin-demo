@@ -176,7 +176,7 @@ requireAll('controller', [
   'Build API image',
   'Build web image',
   'Build migration image',
-  'Build canonical outbox worker image',
+  'services=all',
   'Release candidate is no longer an ancestor of main.',
   'production-full-stack-execution-3072:',
   'needs: production-release-control-3072',
