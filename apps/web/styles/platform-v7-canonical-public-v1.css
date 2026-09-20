@@ -539,3 +539,20 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-page-deal-flow .pc-cp-state-grid{grid-template-columns:1fr 1fr}
   .pc-cp-page-deal-flow .pc-cp-state-cell:last-child{grid-column:1/-1}
 }
+
+/* CANONICAL LOCALE CLUSTER */
+.pc-site-locale-cluster{display:flex;align-items:center;justify-content:center;gap:2px;flex:0 0 auto}
+.pc-site-locale-option{min-width:30px;min-height:36px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px;border-radius:8px;color:#5d6963;text-decoration:none;font-size:10px;font-weight:750;line-height:1}
+.pc-site-locale-option[data-active='true']{color:var(--pc-cp-ink);font-weight:900}
+.pc-site-locale-option:hover,.pc-site-locale-option:focus-visible{background:var(--pc-cp-green-soft);color:var(--pc-cp-green)}
+@media(max-width:760px){
+  .pc-site-locale-cluster{gap:0}
+  .pc-site-locale-option{min-width:36px;min-height:44px;padding:0 3px;font-size:10px}
+  .pc-site-locale-option[lang='zh-CN']{min-width:44px}
+}
+@media(max-width:430px){
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-text strong{font-size:12px!important}
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-brand{min-width:118px!important}
+  .pc-site-locale-option{min-width:31px}
+  .pc-site-locale-option[lang='zh-CN']{min-width:39px}
+}
