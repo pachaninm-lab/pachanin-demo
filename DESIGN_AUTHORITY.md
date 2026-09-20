@@ -1,8 +1,8 @@
 # DESIGN_AUTHORITY.md
 
-Status: **CANONICAL / ACTIVE**
+Status: **CANONICAL / ACTIVE**\nCurrent UX implementation branch is required to remain rebased/merged to the current protected `main`; as of this authority revision it is `behind=0`.
 Authority date: 2026-09-20
-Authority base main: `21a9a4a445a117c6b9821fd7b01617c3d4ce6b78`
+Authority base main: `5a73ca79dcf1c5645ba3ccfc49e036d4d092b0cf`
 
 ## Rule
 
