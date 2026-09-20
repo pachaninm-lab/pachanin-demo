@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import type { ReactNode } from 'react';
 import {
   BadgeCheck,
@@ -112,10 +111,10 @@ export function CanonicalPublicHeader({
   const nav = (
     <>
       {NAV[lang].map(([label, href]) => (
-        <Link prefetch={false} key={href} href={`${href}${suffix}`} data-active={activePath === href ? 'true' : undefined}>{label}</Link>
+        <a key={href} href={`${href}${suffix}`} data-active={activePath === href ? 'true' : undefined}>{label}</a>
       ))}
-      <Link prefetch={false} className='pc-cp-mobile-only' href={`/platform-v7/login${suffix}`}><LogIn size={16} aria-hidden='true' />{copy.login}</Link>
-      <Link prefetch={false} className='pc-cp-mobile-only' href={`/platform-v7/register${suffix}`}><UserRound size={16} aria-hidden='true' />{copy.register}</Link>
+      <a className='pc-cp-mobile-only' href={`/platform-v7/login${suffix}`}><LogIn size={16} aria-hidden='true' />{copy.login}</a>
+      <a className='pc-cp-mobile-only' href={`/platform-v7/register${suffix}`}><UserRound size={16} aria-hidden='true' />{copy.register}</a>
     </>
   );
   return (
@@ -130,8 +129,8 @@ export function CanonicalPublicHeader({
       localeControl={localeControl ?? <PublicLocaleLink />}
       actions={actions === false ? <span className='pc-canonical-header-actions' /> : actions === true ? (
         <div className='pc-canonical-header-actions'>
-          <Link prefetch={false} className='entry-login' href={`/platform-v7/login${suffix}`}>{copy.login}</Link>
-          <Link prefetch={false} className='pc-v6-header-cta' href={`/platform-v7/register${suffix}`}>{copy.register}</Link>
+          <a className='entry-login' href={`/platform-v7/login${suffix}`}>{copy.login}</a>
+          <a className='pc-v6-header-cta' href={`/platform-v7/register${suffix}`}>{copy.register}</a>
         </div>
       ) : actions}
     />
@@ -284,7 +283,7 @@ export function CanonicalBottomNav({ locale, active }: { locale: string; active?
       ] as const;
   return (
     <nav className='pc-cp-bottom-nav' aria-label={lang === 'ru' ? 'Мобильная навигация' : lang === 'en' ? 'Mobile navigation' : '移动导航'}>
-      {items.map(([label, href, Icon, center]) => <Link prefetch={false} href={`${href}?lang=${lang}`} key={href} data-active={active === href ? 'true' : 'false'} data-center={center ? 'true' : 'false'}><Icon aria-hidden='true' /><span>{label}</span></Link>)}
+      {items.map(([label, href, Icon, center]) => <a href={`${href}?lang=${lang}`} key={href} data-active={active === href ? 'true' : 'false'} data-center={center ? 'true' : 'false'}><Icon aria-hidden='true' /><span>{label}</span></a>)}
     </nav>
   );
 }
@@ -301,10 +300,10 @@ export function CanonicalFooter({ locale }: { locale: string }) {
       <div className='pc-cp-container pc-cp-footer-grid'>
         <div><strong>Прозрачная Цена</strong><p>{description}</p></div>
         <nav aria-label={ACTIONS[lang].nav}>
-          {NAV[lang].map(([label, href]) => <Link key={href} href={`${href}?lang=${lang}`}>{label}</Link>)}
-          <Link href={`/platform-v7/contact?lang=${lang}`}>{lang === 'ru' ? 'Контакты' : lang === 'en' ? 'Contact' : '联系'}</Link>
-          <Link href={`/platform-v7/privacy?lang=${lang}`}>{lang === 'ru' ? 'Конфиденциальность' : lang === 'en' ? 'Privacy' : '隐私'}</Link>
-          <Link href={`/platform-v7/terms?lang=${lang}`}>{lang === 'ru' ? 'Условия' : lang === 'en' ? 'Terms' : '条款'}</Link>
+          {NAV[lang].map(([label, href]) => <a key={href} href={`${href}?lang=${lang}`}>{label}</a>)}
+          <a href={`/platform-v7/contact?lang=${lang}`}>{lang === 'ru' ? 'Контакты' : lang === 'en' ? 'Contact' : '联系'}</a>
+          <a href={`/platform-v7/privacy?lang=${lang}`}>{lang === 'ru' ? 'Конфиденциальность' : lang === 'en' ? 'Privacy' : '隐私'}</a>
+          <a href={`/platform-v7/terms?lang=${lang}`}>{lang === 'ru' ? 'Условия' : lang === 'en' ? 'Terms' : '条款'}</a>
         </nav>
       </div>
     </footer>

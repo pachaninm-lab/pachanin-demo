@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2, Clock3, LoaderCircle, LockKeyhole, RefreshCw, SearchX, WifiOff } from 'lucide-react';
 
@@ -50,7 +49,7 @@ export function CanonicalUxState({
     <div className={`pc-cp-ux-state${compact?' pc-cp-ux-state--compact':''}`} data-ux-state={kind} role={role} aria-live={live} aria-atomic='true'>
       <div className='pc-cp-ux-state-icon' aria-hidden='true'><Icon size={22}/></div>
       <div className='pc-cp-ux-state-copy'><strong>{title}</strong><p>{description}</p></div>
-      {action??(actionHref&&actionLabel?<Link className='pc-cp-button pc-cp-button--secondary' href={actionHref}>{actionLabel}</Link>:null)}
+      {action??(actionHref&&actionLabel?<a className='pc-cp-button pc-cp-button--secondary' href={actionHref}>{actionLabel}</a>:null)}
     </div>
   );
 }

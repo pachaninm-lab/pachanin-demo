@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { getLocale } from 'next-intl/server';
 import {
   ArrowRight,
@@ -248,8 +247,8 @@ export async function PlatformV7StrategicHome() {
             <h1 id='pc-cp-home-title'>{copy.heroTitle}</h1>
             <p>{copy.heroLead}</p>
             <div className='pc-cp-actions'>
-              <Link prefetch={false} className='pc-cp-button' href={`${registerBase}&intent=sell`}>{copy.sell}<ArrowRight size={17} aria-hidden='true' /></Link>
-              <Link prefetch={false} className='pc-cp-button pc-cp-button--secondary' href={`${registerBase}&intent=buy`}>{copy.buy}</Link>
+              <a className='pc-cp-button' href={`${registerBase}&intent=sell`}>{copy.sell}<ArrowRight size={17} aria-hidden='true' /></a>
+              <a className='pc-cp-button pc-cp-button--secondary' href={`${registerBase}&intent=buy`}>{copy.buy}</a>
             </div>
             <div className='pc-cp-hero-proof'>{copy.proof.map((item) => <span key={item}>{item}</span>)}</div>
           </div>
@@ -272,7 +271,7 @@ export async function PlatformV7StrategicHome() {
             <p>{copy.marketLead}</p>
           </div>
           <CanonicalMarketPreview locale={locale} limit={4} />
-          <div className='pc-cp-actions' style={{ marginTop: 18 }}><Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/market?lang=${locale}`}>{copy.openMarket}<ArrowRight size={16} aria-hidden='true' /></Link></div>
+          <div className='pc-cp-actions' style={{ marginTop: 18 }}><a className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/market?lang=${locale}`}>{copy.openMarket}<ArrowRight size={16} aria-hidden='true' /></a></div>
         </div>
       </section>
 
@@ -362,8 +361,8 @@ export async function PlatformV7StrategicHome() {
           <h2>{copy.finalTitle}</h2>
           <p>{copy.finalText}</p>
           <div className='pc-cp-actions'>
-            <Link className='pc-cp-button' href={`/platform-v7/register?lang=${locale}`}>{copy.register}<ArrowRight size={17} aria-hidden='true' /></Link>
-            <Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/contact?lang=${locale}`}>{copy.contact}</Link>
+            <a className='pc-cp-button' href={`/platform-v7/register?lang=${locale}`}>{copy.register}<ArrowRight size={17} aria-hidden='true' /></a>
+            <a className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/contact?lang=${locale}`}>{copy.contact}</a>
           </div>
         </div></div>
       </section>

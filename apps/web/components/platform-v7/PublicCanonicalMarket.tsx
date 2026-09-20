@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { ArrowRight, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { getPublicMarketLots, type PublicMarketLot, type PublicMarketReadResult } from '@/lib/public-market-server';
 import { canonicalPublicLocale, type CanonicalPublicLocale } from './PublicCanonicalPrimitives';
@@ -133,9 +132,9 @@ export async function CanonicalPublicLotView({ locale, lotIndex }: { locale: str
   return (
     <div data-testid='canonical-public-lot-view'>
       <div className='pc-cp-lot-breadcrumb'>
-        <Link href={`/platform-v7?lang=${lang}`}>{lang === 'ru' ? 'Главная' : lang === 'en' ? 'Home' : '首页'}</Link>
+        <a href={`/platform-v7?lang=${lang}`}>{lang === 'ru' ? 'Главная' : lang === 'en' ? 'Home' : '首页'}</a>
         <span>→</span>
-        <Link href={`/platform-v7/market?lang=${lang}`}>{lang === 'ru' ? 'Рынок' : lang === 'en' ? 'Market' : '市场'}</Link>
+        <a href={`/platform-v7/market?lang=${lang}`}>{lang === 'ru' ? 'Рынок' : lang === 'en' ? 'Market' : '市场'}</a>
         <span>→</span>
         <strong>{cultureLabel(lot.culture, lang)}{lot.grade ? `, ${lot.grade}` : ''}</strong>
       </div>
@@ -158,8 +157,8 @@ export async function CanonicalPublicLotView({ locale, lotIndex }: { locale: str
             <Metric label={copy.ends} value={formatDate(lot.auctionEndsAt, lang)} />
           </div>
           <div className='pc-cp-actions'>
-            <Link className='pc-cp-button' href={`/platform-v7/register?lang=${lang}&intent=buy`}>{copy.access}<ArrowRight size={16} aria-hidden='true' /></Link>
-            <Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/login?lang=${lang}`}>{copy.details}</Link>
+            <a className='pc-cp-button' href={`/platform-v7/register?lang=${lang}&intent=buy`}>{copy.access}<ArrowRight size={16} aria-hidden='true' /></a>
+            <a className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/login?lang=${lang}`}>{copy.details}</a>
           </div>
           <small className='pc-cp-lot-source'>{copy.source}{market.authority?.observedAt ? ` · ${formatObserved(market.authority.observedAt, lang)}` : ''}</small>
         </article>
@@ -184,8 +183,8 @@ function PublicLotUnavailableView({ locale, kind }: { locale: CanonicalPublicLoc
   return (
     <div data-testid='canonical-public-lot-view' data-market-state={kind}>
       <div className='pc-cp-lot-breadcrumb'>
-        <Link href={`/platform-v7?lang=${locale}`}>{locale==='ru'?'Главная':locale==='en'?'Home':'首页'}</Link><span>→</span>
-        <Link href={`/platform-v7/market?lang=${locale}`}>{locale==='ru'?'Рынок':locale==='en'?'Market':'市场'}</Link><span>→</span><strong>{hidden}</strong>
+        <a href={`/platform-v7?lang=${locale}`}>{locale==='ru'?'Главная':locale==='en'?'Home':'首页'}</a><span>→</span>
+        <a href={`/platform-v7/market?lang=${locale}`}>{locale==='ru'?'Рынок':locale==='en'?'Market':'市场'}</a><span>→</span><strong>{hidden}</strong>
       </div>
       <div className='pc-cp-lot-layout'>
         <div className='pc-cp-lot-image' role='img' aria-label={hidden}><span>{copy.photo}</span></div>
@@ -195,7 +194,7 @@ function PublicLotUnavailableView({ locale, kind }: { locale: CanonicalPublicLoc
             <Metric label={copy.volume} value='—'/><Metric label={copy.price} value='—'/><Metric label={copy.region} value='—'/><Metric label={copy.ends} value='—'/>
           </div>
           <p className='pc-cp-lead'>{text}</p>
-          <div className='pc-cp-actions'><Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/market?lang=${locale}`}>{locale==='ru'?'Вернуться на рынок':locale==='en'?'Back to market':'返回市场'}</Link></div>
+          <div className='pc-cp-actions'><a className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/market?lang=${locale}`}>{locale==='ru'?'Вернуться на рынок':locale==='en'?'Back to market':'返回市场'}</a></div>
         </article>
       </div>
       <div className='pc-cp-lot-detail-grid'>
@@ -228,7 +227,7 @@ function MarketCard({ lot, publicIndex, locale, selected = false }: { lot: Publi
         </div>
         <div className='pc-cp-lot-foot'><span><ShieldCheck size={13} aria-hidden='true' /> {copy.declared}</span></div>
         <div className='pc-cp-actions' data-testid='canonical-public-market-lot-actions'>
-          <Link className='pc-cp-button pc-cp-button--secondary' href={detailHref}>{locale === 'ru' ? 'Подробнее' : locale === 'en' ? 'Details' : '详情'}<ArrowRight size={15} aria-hidden='true' /></Link>
+          <a className='pc-cp-button pc-cp-button--secondary' href={detailHref}>{locale === 'ru' ? 'Подробнее' : locale === 'en' ? 'Details' : '详情'}<ArrowRight size={15} aria-hidden='true' /></a>
           <a className='pc-cp-button' href={registerHref}>{copy.access}</a>
         </div>
       </div>
@@ -250,7 +249,7 @@ function MarketAside({ lot, publicIndex, locale, authority }: { lot: PublicMarke
       </dl>
       <div className='pc-cp-chip pc-cp-chip--ok'><ShieldCheck size={13} aria-hidden='true' />{copy.declared}</div>
       <p className='pc-cp-lead' style={{ fontSize: 12 }}>{copy.quality}</p>
-      <Link className='pc-cp-button' href={`/platform-v7/market?lang=${locale}&lot=${publicIndex}`}>{locale === 'ru' ? 'Открыть карточку' : locale === 'en' ? 'Open lot' : '打开批次'}<ArrowRight size={16} aria-hidden='true' /></Link>
+      <a className='pc-cp-button' href={`/platform-v7/market?lang=${locale}&lot=${publicIndex}`}>{locale === 'ru' ? 'Открыть карточку' : locale === 'en' ? 'Open lot' : '打开批次'}<ArrowRight size={16} aria-hidden='true' /></a>
       <small style={{ color: 'var(--pc-cp-muted)', lineHeight: 1.45 }}>{copy.source}{authority.authority?.observedAt ? ` · ${formatObserved(authority.authority.observedAt, locale)}` : ''}</small>
     </aside>
   );
