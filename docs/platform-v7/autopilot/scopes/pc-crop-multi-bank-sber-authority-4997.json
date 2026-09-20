@@ -3,13 +3,24 @@
   "issue": 4997,
   "branch": "feat/pc-crop-multi-bank-sber-authority-4997",
   "status": "staged",
-  "purpose": "W6-A: establish provider-neutral bank capabilities and a Sber reference adapter contract over the canonical SettlementPlan/bank-operation authority without claiming live credentials or creating bank-specific core semantics.",
-  "authorityBaseExactMain": "7f900c79326a8ac816324472f90995428842ac9d",
-  "authorization": "Owner instruction on 2026-09-05 to continue the supplied PC-CROP specification. This branch stages a finite future scope only; implementation authority requires separate governance review, merge and immutable base-state promotion.",
+  "purpose": "W6-A: establish provider-neutral bank capabilities and receipt/finality boundaries over the canonical SettlementPlan/bank-operation authority, with Sber as the primary reference mapping and Alfa-Bank/T-Bank as additional conformance targets, without claiming live credentials or creating bank-specific core semantics.",
+  "authorityBaseExactMain": "3a8d7efe07097d78f70e6bba714f8daba7d1c1e2",
+  "authorization": "Owner instruction on 2026-09-21 to continue bank/finance product and integration work without a second settlement core, combined with the earlier staged W6-A scope. Implementation authority still requires this governance scope to pass review and merge on current main.",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
-  "specificationSections": [26, 27],
-  "terminalCriteria": ["MULTI_BANK=PASS", "SBER_REFERENCE_ADAPTER=PASS", "SBER_SAFE_DEAL_READY=PASS", "SBER_BILLING_READY=PASS", "SBER_FINANCING_READY=PASS"],
+  "specificationSections": [
+    26,
+    27
+  ],
+  "terminalCriteria": [
+    "MULTI_BANK=PASS",
+    "SBER_REFERENCE_ADAPTER=PASS",
+    "ALFA_REFERENCE_CONFORMANCE=PASS",
+    "TBANK_REFERENCE_CONFORMANCE=PASS",
+    "SBER_SAFE_DEAL_READY=PASS",
+    "BANK_BILLING_CAPABILITY_READY=PASS",
+    "BANK_FINANCING_CAPABILITY_READY=PASS"
+  ],
   "allowedPaths": [
     "packages/domain-core/src/bank-capability.ts",
     "packages/domain-core/src/bank-capability.test.ts",
@@ -20,6 +31,10 @@
     "apps/api/src/modules/bank-adapters/bank-receipt.contract.spec.ts",
     "apps/api/src/modules/bank-adapters/sber-reference.adapter.ts",
     "apps/api/src/modules/bank-adapters/sber-reference.adapter.spec.ts",
+    "apps/api/src/modules/bank-adapters/alfa-reference.adapter.ts",
+    "apps/api/src/modules/bank-adapters/alfa-reference.adapter.spec.ts",
+    "apps/api/src/modules/bank-adapters/tbank-reference.adapter.ts",
+    "apps/api/src/modules/bank-adapters/tbank-reference.adapter.spec.ts",
     "apps/api/test/industrial/multi-bank-reference-adapter.e2e-spec.ts",
     "scripts/verify-pc-crop-multi-bank-sber-scope.test.mjs",
     ".github/workflows/pc-crop-multi-bank-sber.yml",
@@ -29,47 +44,103 @@
   "dependencies": {
     "canonicalSettlementPlanRequired": "W5-A consumer boundary",
     "providerRegistryReused": true,
-    "integrationBindingReused": true
+    "integrationBindingReused": true,
+    "canonicalBankSettlementReadContract": "PRODUCT-MULTIBANK-CANONICAL-READ-CONTRACT-20260921; required before any PRODUCT screen binds a concrete Deal/bank operation to a provider/binding/finality state",
+    "realProviderCredentialsExternal": true,
+    "providerSpecificLiveActivationOutsideFoundation": true
   },
   "sourceAuditFindings": [
     "The exact-main gap map says bank-neutral settlement, holds, callback keys and pending bank operations already exist, but outbound bank consumers, a complete adapter, BillingPort, FinancingPort, bank binding and live finality receipts are absent. This scope must extend those authorities rather than create a second money engine.",
     "config/integration/integration.env.example currently contains BANK_MODE=sandbox, BANK_PROVIDER=sber and BANK_CALLBACK_VERIFY=false. Those example values are configuration examples only and are forbidden as readiness, callback-verification or production-success evidence.",
     "apps/web/lib/platform-v7/integrations/providerRegistry.ts exposes Sber-labelled provider codes for presentation/routing. UI provider metadata is not bank authority and cannot choose a tenant bank binding or advance Settlement.",
     "apps/web/lib/sber-server.ts and apps/web/components/sber-money-rail-panel.tsx are web presentation/proxy surfaces. They remain outside this foundation and cannot be used as proof of provider availability or transaction finality.",
-    "Sber Business ID/authentication is a distinct identity concern and must never be reused as settlement, billing, financing or callback authority."
+    "Sber Business ID/authentication is a distinct identity concern and must never be reused as settlement, billing, financing or callback authority.",
+    "Current official public documentation exists for Sber, Alfa-Bank and T-Bank nominal-account/payment platform scenarios. Public documentation proves discoverability/specification only; it does not prove this organization's contract, credentials, IntegrationBinding maturity, callback trust or settlement finality.",
+    "Alfa-Bank public payment status vocabulary and T-Bank HTTP success responses are provider-specific transport/business states. They must be mapped behind the provider-neutral port and must never become canonical Settlement state names by string reuse."
   ],
   "requiredInvariants": [
-    "Bank/provider choice is an adapter concern. Core SettlementPlan/FinancialObligation semantics remain provider-neutral and no Sber-only field enters canonical money authority.",
-    "Capabilities are explicit and versioned, including reserve/release safe-deal-like flow, direct payment/billing, financing/application and callback/reconciliation support; unsupported capability fails closed.",
-    "The Sber adapter is a reference adapter whose live state is NOT_ACTIVATED until a real contract, credentials, endpoint configuration and accepted receipt evidence exist.",
+    "Bank/provider choice is an adapter concern. Core SettlementPlan/FinancialObligation semantics remain provider-neutral and no Sber-, Alfa- or T-Bank-only field enters canonical money authority.",
+    "Capabilities are explicit and versioned, including reserve/release safe-deal-like flow, direct payment/billing, financing/application, statements/status and callback/reconciliation support; unsupported capability fails closed.",
+    "Sber, Alfa-Bank and T-Bank mappings remain NOT_ACTIVATED/unknown for real traffic until the canonical Provider/IntegrationBinding authority has current server-held evidence and the concrete settlement operation is bound to that provider/binding.",
     "Adapter request/response contracts use exact minor units, immutable operation/idempotency identifiers and the canonical settlement source versions; no Float money or browser-computed amount becomes authority.",
-    "An outbound accepted/queued request is not bank success. Only validated provider receipt/callback bound to exact operation/provider/key/payload fingerprint can advance canonical settlement state.",
-    "The same router contract accepts at least two test adapter implementations without changing Settlement core, proving multi-bank substitution rather than one-provider lock-in.",
+    "An outbound accepted/queued request, HTTP 2xx or provider transport acknowledgement is not bank finality. Only validated provider evidence bound to exact operation/provider/key/payload fingerprint plus canonical reconciliation can advance final settlement authority.",
+    "The same router contract accepts Sber, Alfa-Bank and T-Bank reference/conformance mappings plus test doubles without changing Settlement core, proving provider substitution rather than one-provider lock-in.",
     "Credential/key/revocation authority remains server-side. Browser, Deal participant or adapter cannot select arbitrary tenant/provider identity or callback key.",
     "Callback replay, mismatched amount/currency/operation/provider, stale key and unknown event fail closed and cannot create duplicate ledger movements.",
-    "Example env values, UI provider registries, mock handlers, display panels and historical docs are non-authoritative and cannot satisfy live-provider or multi-bank acceptance.",
-    "Sber Business ID or any other authentication/session identity must not be accepted as bank-operation authorization, settlement finality, callback authenticity, billing approval or financing approval.",
+    "Example env values, UI provider registries, mock handlers, display panels, public developer docs and historical docs are non-authoritative and cannot satisfy live-provider or multi-bank acceptance.",
+    "Bank identity/authentication products or user sessions must not be accepted as bank-operation authorization, settlement finality, callback authenticity, billing approval or financing approval.",
     "Financing readiness is a capability/application lifecycle only; adapter availability does not imply approved financing, credit limit or funds.",
     "Billing readiness is separate from safe-deal/reserve-release readiness; one provider capability cannot be silently reused as another.",
-    "No live Sber claim is emitted by fixtures, docs or UI until production receipts are evidenced on REG.RU.",
+    "No live Sber, Alfa-Bank or T-Bank claim is emitted by fixtures, docs or UI until production receipts are evidenced on REG.RU and server-held maturity permits real traffic.",
     "Registration, Role Eligibility, Federal Accounting lock #4321, packages/lockfiles and production topology remain unchanged."
   ],
   "acceptance": [
-    "Contract tests prove the provider-neutral adapter/receipt vocabulary and capability matrix has no Sber-only field in canonical core types.",
-    "Two fake/reference bank adapters satisfy the same router and can be swapped without Settlement core changes.",
-    "Sber reference adapter fails NOT_ACTIVATED without production credentials/config and never returns fabricated SUCCESS.",
-    "Exact amount/currency/idempotency/callback matching and duplicate/replay/mismatched receipt cases are tested fail closed.",
-    "Focused regressions prove BANK_MODE/BANK_PROVIDER example configuration, web provider metadata, mocks and Sber Business ID cannot satisfy bank authority or finality checks.",
-    "Capability absence separately blocks safe-deal, billing or financing actions rather than degrading to another bank function.",
+    "Contract tests prove the provider-neutral adapter/receipt vocabulary and capability matrix has no Sber-, Alfa- or T-Bank-only field in canonical core types.",
+    "Sber, Alfa-Bank and T-Bank reference/conformance adapters satisfy the same port/router contract, while at least two independent test doubles can be swapped without Settlement core changes.",
+    "Every provider mapping fails NOT_ACTIVATED or equivalent fail-closed state without production credentials/config/server-held LIVE_ACCEPTED evidence and never fabricates SUCCESS.",
+    "Exact amount/currency/idempotency/callback/provider/operation matching and duplicate/replay/mismatched receipt cases are tested fail closed.",
+    "Focused regressions prove BANK_MODE/BANK_PROVIDER example configuration, web provider metadata, mocks, public developer docs and bank identity sessions cannot satisfy bank authority or finality checks.",
+    "HTTP 2xx, accepted, queued, IN_PROGRESS/AWAIT_EXTERNAL or analogous provider-specific statuses are not treated as canonical finality without provider evidence and reconciliation.",
+    "Capability absence separately blocks safe-deal, billing, statements/status or financing actions rather than degrading to another bank function.",
     "Existing settlement reconciliation/key rotation/hash-chain tests remain green and no new mutation authority bypasses them.",
     "No secret, credential or paid dependency is committed; new mandatory recurring cost remains 0 RUB.",
-    "Exact-head CI/review and later REG.RU credentialed acceptance are required before terminal multi-bank/Sber credit."
+    "Exact-head CI/review and later REG.RU credentialed acceptance are required before terminal multi-bank credit."
   ],
   "remainingTerminalBoundary": [
-    "Real Sber contract, credentials, endpoints, callback/revocation feeds and production receipts are external dependencies.",
+    "Real Sber, Alfa-Bank and T-Bank contracts/credentials/endpoints and authentic provider receipts remain external dependencies unless separately obtained and accepted.",
+    "The canonical bank-settlement read/binding contract must link a concrete Deal/operation to Provider/IntegrationBinding maturity before PRODUCT can truthfully name its runtime bank authority.",
     "W5-A SettlementPlan consumer wiring must exist before adapters can move real canonical obligations.",
-    "A second real bank provider is required to prove production multi-bank substitution; test adapters are foundation evidence only.",
+    "At least two real providers with accepted production evidence are required to prove terminal production multi-bank substitution; reference/test adapters are foundation evidence only.",
     "REG.RU production acceptance remains mandatory."
   ],
-  "terminalCredit": 0
+  "terminalCredit": 0,
+  "historicalStagedBaseExactMain": "7f900c79326a8ac816324472f90995428842ac9d",
+  "productTargetProviders": [
+    {
+      "provider": "SBER",
+      "role": "PRIMARY_REFERENCE_MAPPING",
+      "runtimeMaturity": "UNKNOWN_UNTIL_SERVER_HELD_EVIDENCE"
+    },
+    {
+      "provider": "ALFA_BANK",
+      "role": "CONFORMANCE_TARGET",
+      "runtimeMaturity": "UNKNOWN_UNTIL_SERVER_HELD_EVIDENCE"
+    },
+    {
+      "provider": "T_BANK",
+      "role": "CONFORMANCE_TARGET",
+      "runtimeMaturity": "UNKNOWN_UNTIL_SERVER_HELD_EVIDENCE"
+    }
+  ],
+  "officialPublicSourceDiscovery": {
+    "observedAt": "2026-09-21",
+    "effect": "DISCOVERY_ONLY_DOES_NOT_ADVANCE_INTEGRATION_CAPABILITY_MATURITY",
+    "sources": [
+      {
+        "provider": "SBER",
+        "url": "https://developers.sber.ru/docs/ru/sber-api/scenarios/transfers/nominal-accounts/overview",
+        "finding": "Official Sber developer documentation describes Safe Deals over nominal accounts and test/industrial connection flows."
+      },
+      {
+        "provider": "ALFA_BANK",
+        "url": "https://developers.alfabank.ru/products/alfa-api/documentation/articles/nominal-accounts/nominal-accounts",
+        "finding": "Official Alfa API documentation describes nominal accounts for platforms/marketplaces, including safe-deal and direct-payout scenarios."
+      },
+      {
+        "provider": "ALFA_BANK",
+        "url": "https://developers.alfabank.ru/products/alfa-api/documentation/articles/nominal-accounts/articles/na-payments/articles/get-payoffs/v1/get-payoffs",
+        "finding": "Official Alfa API documentation exposes nominal-account payment status reads with explicit processing/failure/success states."
+      },
+      {
+        "provider": "T_BANK",
+        "url": "https://developer.tbank.ru/docs/api/t-api",
+        "finding": "Official T-API documentation lists payments/statuses, statements, nominal accounts and credit products for direct/partner integrations."
+      },
+      {
+        "provider": "T_BANK",
+        "url": "https://developer.tbank.ru/docs/api/nominalnie-scheta",
+        "finding": "Official T-Bank developer documentation exposes nominal-account methods for beneficiaries, billing, deals and deal stages."
+      }
+    ]
+  }
 }
