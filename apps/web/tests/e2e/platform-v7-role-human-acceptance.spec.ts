@@ -62,7 +62,7 @@ const roles: Record<Locale, readonly RoleExpectation[]> = {
     { key: 'laboratory', label: 'Лаборатория', lensSnippet: 'Проба, методика' },
     { key: 'surveyor', label: 'Сюрвейер', lensSnippet: 'Цепочка фактов' },
     { key: 'bank', label: 'Банк / финансы', lensSnippet: 'Основание финансового действия' },
-    { key: 'employee', label: 'Сотрудник платформы', lensSnippet: 'Причина исключения' },
+    { key: 'employee', label: 'Сотрудник подключённой организации', lensSnippet: 'Только данные и действия' },
   ],
   en: [
     { key: 'seller', label: 'Seller', lensSnippet: 'Product terms' },
@@ -73,7 +73,7 @@ const roles: Record<Locale, readonly RoleExpectation[]> = {
     { key: 'laboratory', label: 'Laboratory', lensSnippet: 'Sample, method' },
     { key: 'surveyor', label: 'Surveyor', lensSnippet: 'fact and evidence chain' },
     { key: 'bank', label: 'Bank / finance', lensSnippet: 'basis for a financial action' },
-    { key: 'employee', label: 'Platform employee', lensSnippet: 'Exception cause' },
+    { key: 'employee', label: 'Employee of a connected organisation', lensSnippet: 'Only data and actions' },
   ],
   zh: [
     { key: 'seller', label: '卖方', lensSnippet: '商品条件' },
@@ -84,7 +84,7 @@ const roles: Record<Locale, readonly RoleExpectation[]> = {
     { key: 'laboratory', label: '实验室', lensSnippet: '样品、方法' },
     { key: 'surveyor', label: '检验机构', lensSnippet: '可用于独立核验' },
     { key: 'bank', label: '银行 / 金融', lensSnippet: '金融动作的依据' },
-    { key: 'employee', label: '平台员工', lensSnippet: '异常原因' },
+    { key: 'employee', label: '已接入机构员工', lensSnippet: '仅查看与其机构' },
   ],
 };
 
@@ -167,13 +167,13 @@ const expectedRoleStageActions: RoleStageActions = {
       {"state": "active", "text": "Зафиксировать финансовый исход закрытия либо выполнить только назначенную финансовую корректировку/возврат."},
     ],
     employee: [
-      {"state": "inactive", "text": "Активного действия нет: сотрудник платформы подключается только к назначенному контролируемому исключению."},
-      {"state": "inactive", "text": "Активного действия нет: сотрудник платформы не выбирает контрагента за участника; только назначенное исключение активирует роль."},
-      {"state": "inactive", "text": "Активного действия нет: сотрудник платформы не принимает договорное решение за сторону; роль активна только при назначенном исключении."},
-      {"state": "inactive", "text": "Активного действия нет: сотрудник платформы не выполняет транспортную роль; подключение — только по назначенному исключению."},
-      {"state": "inactive", "text": "Активного действия нет: сотрудник платформы не заменяет приёмку, лабораторию или стороны; подключение — только по исключению."},
-      {"state": "inactive", "text": "Активного действия нет: сотрудник платформы не распоряжается средствами и не подтверждает расчёт за участников; только назначенное исключение."},
-      {"state": "inactive", "text": "Активного действия нет без назначенного исключения; при исключении сотрудник только маршрутизирует Сделку к разрешённому следующему шагу."},
+      {"state": "inactive", "text": "Активного действия нет: сотрудник подключённой организации действует только в рамках назначенной роли и полномочий своей организации."},
+      {"state": "inactive", "text": "Активного действия нет: выбор контрагента доступен сотруднику только если такое действие входит в его назначенную роль в организации."},
+      {"state": "inactive", "text": "Активного действия нет: договорное действие доступно только в пределах назначенной организационной роли и выданных полномочий."},
+      {"state": "inactive", "text": "Активного действия нет: транспортное действие доступно сотруднику только при соответствующей назначенной роли организации."},
+      {"state": "inactive", "text": "Активного действия нет: приёмка или работа с качеством доступны только при соответствующей назначенной роли организации."},
+      {"state": "inactive", "text": "Активного действия нет: работа с документами или расчётным основанием доступна только в пределах выданных полномочий."},
+      {"state": "inactive", "text": "Активного действия нет: закрытие или действие по отклонению доступно только если оно назначено роли сотрудника в конкретной Сделке."},
     ],
   },
   en: {
@@ -250,13 +250,13 @@ const expectedRoleStageActions: RoleStageActions = {
       {"state": "active", "text": "Record the financial closure outcome or perform only an assigned financial correction/reversal."},
     ],
     employee: [
-      {"state": "inactive", "text": "No active action: a platform employee acts only on an assigned controlled exception."},
-      {"state": "inactive", "text": "No active action: platform staff do not choose a counterparty for a participant; only an assigned exception activates the role."},
-      {"state": "inactive", "text": "No active action: staff do not make a party’s contract decision; only an assigned exception activates the role."},
-      {"state": "inactive", "text": "No active action: staff do not perform transport work; involvement is exception-only."},
-      {"state": "inactive", "text": "No active action: staff do not replace acceptance, laboratory or party authority; involvement is exception-only."},
-      {"state": "inactive", "text": "No active action: staff do not control participant funds or confirm settlement for them; exception-only."},
-      {"state": "inactive", "text": "No active action without an assigned exception; when assigned, staff only route the Deal to an allowed next step."},
+      {"state": "inactive", "text": "No active action: an employee of a connected organisation acts only within the organisation role and authority assigned to them."},
+      {"state": "inactive", "text": "No active action: counterparty selection is available only when it belongs to the employee’s assigned organisational role."},
+      {"state": "inactive", "text": "No active action: a contract action is available only within the assigned organisational role and granted authority."},
+      {"state": "inactive", "text": "No active action: transport work is available only when the employee has the corresponding assigned organisation role."},
+      {"state": "inactive", "text": "No active action: acceptance or quality work is available only under the corresponding assigned organisation role."},
+      {"state": "inactive", "text": "No active action: document or settlement-basis work is available only within the employee’s granted authority."},
+      {"state": "inactive", "text": "No active action: closure or deviation handling is available only when assigned to the employee’s role for the specific Deal."},
     ],
   },
   zh: {
@@ -333,13 +333,13 @@ const expectedRoleStageActions: RoleStageActions = {
       {"state": "active", "text": "记录交易关闭的金融结果，或仅执行已指定的金融更正/冲正。"},
     ],
     employee: [
-      {"state": "inactive", "text": "当前无主动操作：平台员工仅在分配受控异常后介入。"},
-      {"state": "inactive", "text": "当前无主动操作：平台员工不替参与方选择交易对手；只有分配异常后才激活。"},
-      {"state": "inactive", "text": "当前无主动操作：平台员工不替任何一方作合同决定；仅在分配异常后激活。"},
-      {"state": "inactive", "text": "当前无主动操作：平台员工不承担运输角色；仅在分配异常时介入。"},
-      {"state": "inactive", "text": "当前无主动操作：平台员工不替代接收、实验室或交易方权限；仅处理异常。"},
-      {"state": "inactive", "text": "当前无主动操作：平台员工不支配参与方资金，也不替其确认结算；仅处理异常。"},
-      {"state": "inactive", "text": "未分配异常时无主动操作；出现已分配异常时，平台员工只把交易引导至允许的下一步。"},
+      {"state": "inactive", "text": "当前无主动操作：已接入机构员工仅能在机构为其分配的角色和权限范围内操作。"},
+      {"state": "inactive", "text": "当前无主动操作：只有交易对手选择属于其机构已分配角色时，员工才可执行该动作。"},
+      {"state": "inactive", "text": "当前无主动操作：合同动作仅在已分配的机构角色和授权范围内可用。"},
+      {"state": "inactive", "text": "当前无主动操作：只有员工被分配相应机构角色时，才可执行运输相关动作。"},
+      {"state": "inactive", "text": "当前无主动操作：接收或质量工作仅在员工被分配相应机构角色时可用。"},
+      {"state": "inactive", "text": "当前无主动操作：文件或结算依据相关工作仅在员工获授的权限范围内可用。"},
+      {"state": "inactive", "text": "当前无主动操作：只有具体交易把关闭或偏差处理分配给员工角色时，员工才可执行。"},
     ],
   },
 };
@@ -378,6 +378,11 @@ async function openRoleWorkspace(page: Page, locale: Locale) {
   const response = await page.goto(`/platform-v7?lang=${locale}`, { waitUntil: 'load' });
   expect(response?.ok()).toBe(true);
   const copy = localeCopy[locale];
+  const explorer = page.locator('.pc-final-role-explorer');
+  if (await explorer.getAttribute('open') === null) {
+    await explorer.locator('summary').focus();
+    await page.keyboard.press('Enter');
+  }
   const workspace = page.getByRole('region', { name: copy.preview });
   await workspace.scrollIntoViewIfNeeded();
   await expect(workspace).toBeVisible();

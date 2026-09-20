@@ -12,6 +12,7 @@ const sources = {
   productPassport: read('components/platform-v7/PublicAiInActionSimpleExperience.tsx'),
   dealJourney: read('i18n/public-deal-journey-v5.ts'),
   hero: read('i18n/platform-v7-hero-message.ts'),
+  home: read('components/platform-v7/PlatformV7StrategicHome.tsx'),
   homeOperating: read('i18n/platform-v7-home-v3-operating.ts'),
   homeStory: read('i18n/platform-v7-home-story-product.ts'),
   homeInternational: read('components/platform-v7/PlatformV7StrategicHomeInternational.tsx'),
@@ -68,7 +69,7 @@ describe('Gekta public brand contract', () => {
     expect(sources.contactDock).toContain("assistant: 'Гекта'");
     expect(sources.contactDock).toContain("assistantAria: 'Открыть Гекту'");
     expect(sources.dealJourney).toContain("askTai: 'Спросить Гекту об этом этапе'");
-    expect(sources.hero).toContain('Гекта помогает разобрать факты и риск, но не принимает решение вместо человека.');
+    expect(sources.home).toContain('Она помогает разобрать доступные факты, риск и следующий шаг. Критическое решение остаётся за уполномоченным человеком.');
     expect(sources.homeStory).toContain("label: 'Гекта'");
     expect(sources.homeStory).toContain("title: 'Контроль и Гекта'");
     expect(sources.productPassport).toContain("title: 'Гекта объясняет, что происходит в Сделке и что делать дальше'");
@@ -82,8 +83,8 @@ describe('Gekta public brand contract', () => {
     expect(sources.contactDock).toContain("assistantAria: 'Open Gekta'");
     expect(sources.dealJourney).toContain("askTai: 'Ask Gekta about this stage'");
     expect(sources.dealJourney).toContain("askTai: '向 Gekta 询问当前阶段'");
-    expect(sources.hero).toContain('Gekta helps interpret facts and risk but does not decide instead of the user.');
-    expect(sources.hero).toContain('Gekta 帮助理解事实和风险，但不会替用户作出决定。');
+    expect(sources.home).toContain('It helps interpret available facts, risk and the next step. Critical decisions remain with an authorised person.');
+    expect(sources.home).toContain('它帮助分析可用事实、风险和下一步。关键决定仍由获授权人员作出。');
     expect(sources.productPassport).toContain('Gekta explains what is happening in the Deal and what comes next');
     expect(sources.productPassport).toContain('Gekta 解释交易中正在发生什么，以及下一步做什么');
   });
@@ -93,7 +94,7 @@ describe('Gekta public brand contract', () => {
     expect(sources.platformHead).toContain("alternateName: ['Gekta', 'ГЕКТА', 'Аграрный интеллект для земли, урожая и решений']");
     expect(sources.platformHead).toContain("name: 'Гекта — аграрный интеллект для земли, урожая и решений'");
     expect(sources.platformPage).toContain('аграрным интеллектом Гекта');
-    expect(sources.passportPage).toContain("title: 'Гекта в работе — Прозрачная Цена'");
+    expect(sources.passportPage).toContain("title: 'Гекта в Сделке — Прозрачная Цена'");
     expect(sources.passportPage).toContain("canonical: '/platform-v7/ai-in-action'");
   });
 

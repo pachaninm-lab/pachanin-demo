@@ -205,24 +205,27 @@ describe('platform-v7 public copy quality', () => {
     expect(story).toContain('下面展示的是虚构交易示例');
     expect(howItWorks).toContain("kicker: 'Как работает Сделка'");
     expect(howItWorks).toContain('вымышленный пример');
-    expect(home).toContain('const normalState = story.demo.states[0]!;');
+    expect(home).toContain('<PublicDealExecutionStates');
+    expect(home).not.toContain('1 200');
+    expect(home).toContain("visualStatus: 'От товара до расчёта'");
   });
 
   it('exposes distinct protected registration entry points', () => {
     const home = read('apps/web/components/platform-v7/PlatformV7StrategicHome.tsx');
-    expect(home.match(/href=\{registerHref\}/g)).toHaveLength(3);
+    expect(home.match(/href=\{registerHref\(locale, 'sell'\)\}/g)).toHaveLength(2);
+    expect(home.match(/href=\{registerHref\(locale, 'buy'\)\}/g)).toHaveLength(2);
     expect(home).toContain("className='pc-v6-header-cta'");
-    expect(home).toContain("className='pc-v6-primary'");
-    expect(home).toContain('const registerHref = `/platform-v7/register?lang=');
+    expect(home).toContain("className='pc-final-primary'");
+    expect(home).toContain('return `/platform-v7/register?${query.toString()}`');
     expect(home).toContain("eventName='registration_open'");
   });
 
   it('keeps the public Deal-path exploration secondary to registration', () => {
     const home = read('apps/web/components/platform-v7/PlatformV7StrategicHome.tsx');
-    expect(home).toMatch(/href='#live'\s+className='pc-v6-secondary'/);
-    expect(home).toMatch(/href=\{registerHref\}\s+className='pc-v6-primary'/);
-    expect(home).toContain("href='#live'");
-    expect(home).toContain("href='/downloads/prozrachnaya-tsena-presentation.pdf'");
+    expect(home).toContain("className='pc-final-text-link' href={howHref}");
+    expect(home).toMatch(/href=\{registerHref\(locale, 'sell'\)\}\s+className='pc-final-primary'/);
+    expect(home.indexOf("id='how-it-works'")).toBeGreaterThan(home.indexOf("className='pc-final-hero'"));
+    expect(home).toContain('/platform-v7/how-it-works?lang=');
   });
 
   it('keeps protected role navigation understandable', () => {

@@ -25,47 +25,46 @@ describe('platform-v7 final public entry', () => {
   const support = read('components/platform-v7/ChatSupportWidget.tsx');
   const siteHeader = read('components/platform-v7/PublicSiteHeader.tsx');
   const aiExperience = read('components/platform-v7/PublicAiInActionSimpleExperience.tsx');
+  const marketTeaser = read('components/platform-v7/PublicMarketTeaser.tsx');
 
-  it('renders the full public narrative, trust layer, final registration CTA and optional assistance form', () => {
+  it('renders the frozen public narrative, trust layer, task-first CTAs and optional pre-registration help', () => {
     expect(page).toContain('const home = await PlatformV7StrategicHome();');
-    for (const anchor of [
-      "id='participants'",
-      "id='difference'",
-      "id='deal-path'",
-      "id='functions'",
-      "id='live'",
-      "id='trust'",
-      "id='tai'",
-      "id='faq'",
-    ]) expect(home).toContain(anchor);
-    expect(home).not.toContain("id='maturity'");
-    expect(home).not.toContain("id='integrations'");
-    expect(home).toContain("aria-labelledby='registration-title'");
+    for (const anchor of ["id='how-it-works'", "id='participants'", "id='trust'", "id='gekta'"]) {
+      expect(home).toContain(anchor);
+    }
+    expect(home).toContain('<PublicMarketTeaser locale={locale} />');
+    expect(marketTeaser).toContain("id='market'");
+    for (const retired of ["id='difference'", "id='faq'", "id='maturity'", "id='integrations'"]) {
+      expect(home).not.toContain(retired);
+    }
+    expect(home).toContain("aria-labelledby='final-title'");
+    expect(home).toContain("registerHref(locale, 'sell')");
+    expect(home).toContain("registerHref(locale, 'buy')");
     expect(home).toContain('<PublicDealRoleScenario locale={locale} />');
     expect(home).toContain('<OrganizationConnectForm locale={locale} />');
+    expect(home).toContain('Обращение не создаёт аккаунт и не предоставляет доступ к платформе.');
   });
 
-  it('publishes one seven-step ordinary journey without marketing the internal 19-stage model', () => {
-    for (const title of [
-      'Товар и условия',
-      'Торги и контрагент',
-      'Сделка и договор',
-      'Логистика и поставка',
+  it('publishes exactly seven public Deal stages without exposing the legacy long lifecycle on the homepage', () => {
+    for (const stage of [
+      'Товар / потребность',
+      'Торги',
+      'Обязательства',
+      'Доставка',
       'Приёмка и качество',
-      'Документы и основания расчёта',
-      'Расчёт и закрытие',
-    ]) expect(storyCopy).toContain(`title: '${title}'`);
-    expect(storyCopy).toContain("journey: '7 шагов'");
-    expect(storyCopy).toContain("fullPathLabel: 'Обычный путь'");
-    expect(storyCopy).not.toContain("fullPathText: '19 этапов");
-    expect(homeCopy).toContain("phases: ['Товар и условия', 'Торги и контрагент', 'Сделка и договор'");
-    expect(home).toContain("className='pc-v6-lifecycle'");
+      'Документы и расчёт',
+      'Закрытие',
+    ]) expect(home).toContain(stage);
+    expect(home).toContain("copy.journey.stages.map");
+    expect(home).not.toContain("className='pc-v6-lifecycle'");
+    expect(home).not.toContain('19 этапов');
   });
 
   it('preserves the public walkthrough while collapsing staff subroles to one public employee perspective', () => {
     expect(explorerPage).toContain("stage: 'terms'");
     expect(explorerPage).toContain("perspective: 'buyer'");
-    expect(home).toContain('stage=terms&lens=execution&perspective=buyer');
+    expect(home).toContain('<PublicDealRoleScenario locale={locale} />');
+    expect(home).toContain("const howHref = `/platform-v7/how-it-works?lang=${locale}`;");
     expect(explorerAdapter).toContain('normalizeTourStateFromSearchParams');
     expect(explorerAdapter).toContain("window.addEventListener('popstate', restorePublicHistoryState)");
     expect(explorer).toContain("const PUBLIC_PERSPECTIVES: readonly TourPerspective[] = ['seller', 'buyer', 'logistics', 'driver', 'elevator', 'lab', 'surveyor', 'bank', 'operator']");
@@ -134,18 +133,19 @@ describe('platform-v7 final public entry', () => {
       'готовность расчёта',
       'settlement readiness',
     ]) expect(combined).not.toContain(token);
-    expect(home).toContain('платформа не приписывает им действий без внешнего основания');
-    expect(storyCopy).toContain('Внешние системы используются через отдельные управляемые адаптеры');
-    expect(storyCopy).toContain('Схема обмена и права организации определяются до передачи данных.');
+    expect(home).toContain('Внешний источник сохраняет свою роль и основание');
+    expect(home).toContain('Подключение учётных, государственных, финансовых и сервисных систем выполняется только через управляемый контур и подтверждённое основание.');
+    expect(home).not.toContain('PostgreSQL');
   });
 
   it('ships explicit RU EN ZH copy and the approved crop hero', () => {
     expect(storyCopy).toContain('ru: {');
     expect(storyCopy).toContain('en: {');
     expect(storyCopy).toContain('zh: {');
-    expect(heroCopy).toContain("title: 'Manage an agricultural Deal'");
-    expect(heroCopy).toContain("title: '管理农业交易'");
-    expect(heroCopy).toContain("title: 'Управляйте агросделкой'");
+    expect(heroCopy).toContain("title: 'From lot and price'");
+    expect(heroCopy).toContain("title: '从批次和价格'");
+    expect(heroCopy).toContain("title: 'От лота и цены'");
+    expect(home).toContain("visualAlt: 'Растениеводство и исполнение агросделки'");
   });
 
   it('preserves mobile, touch-target, reduced-motion and help gates', () => {
@@ -163,26 +163,29 @@ describe('platform-v7 final public entry', () => {
     expect(support).toContain("aria-modal='true'");
   });
 
-  it('keeps site landmarks and responsive disclosures available to assistive technology', () => {
-    expect(home).toContain("className={`pc-v6-page pc-v7-public-entry ${styles.root}`}");
+  it('keeps final site landmarks, keyboard surfaces and responsive disclosure available to assistive technology', () => {
+    expect(home).toContain("className='pc-v7-public-entry pc-final-page'");
     expect(home).toContain("<main id='main-content' tabIndex={-1}>");
     expect(home).not.toContain('<aside');
-    expect(home.match(/pc-v6-control-tower/g)).toHaveLength(1);
-    for (const id of ['difference-more-toggle', 'functions-more-toggle', 'phases-more-toggle']) {
-      expect(home).toContain(`id='${id}'`);
-    }
-    expect(storyCss).toContain('.root :global(.pc-site-header)');
-    expect(storyCss).toContain('font-family: var(--pc-entry-font-body) !important');
-    expect(storyCss).toContain('.moreContentToggle:focus-visible ~ .moreContentLabel');
+    expect(home).toContain('<PublicDealExecutionStates title={copy.execution.title}');
+    expect(home).toContain('states={copy.execution.states}');
+    expect(home).toContain("<HeroGrainIllustration label={copy.hero.visualAlt} />");
+    expect(home).toContain("preserveAspectRatio='xMidYMid slice'");
+    expect(home).not.toContain("data:image/svg+xml;base64,");
+    expect(home).toContain("role='region' aria-label={copy.capabilities.title}");
+    expect(homeCss).toContain(':focus-visible');
+    expect(homeCss).toContain('@media(max-width:767px)');
+    expect(homeCss).toContain('@media(prefers-reduced-motion:reduce)');
+    expect(homeCss).not.toContain('.pc-final-page{min-height:100vh;background:#f7faf8;color:#102019;overflow-x:clip}');
   });
 
-  it('keeps comparison data in a valid accessible table structure', () => {
-    expect(home).toContain("className={styles.comparisonTable} role='table' aria-labelledby='difference-title'");
-    expect(home.match(/className=\{styles\.comparisonTable\} role='table'/g)).toHaveLength(1);
-    expect(home).toContain("id='difference-comparison-rows' className={styles.comparisonRows} role='rowgroup'");
-    expect(home).toContain("data-comparison-row='true'");
-    expect(home).toContain("<strong role='rowheader'>{row.criterion}</strong>");
-    expect(home).not.toMatch(/<article[^>]+role='row'/);
+  it('removes the retired comparison/FAQ sections and exposes the final capabilities carousel instead', () => {
+    expect(home).not.toContain("id='difference'");
+    expect(home).not.toContain("id='faq'");
+    expect(home).not.toContain("role='table' aria-labelledby='difference-title'");
+    expect(home).toContain("className='pc-final-carousel'");
+    expect(home).toContain("id={`capability-${index + 1}`}");
+    expect(home).toContain('copy.capabilities.items.map');
   });
 });
 
@@ -250,9 +253,21 @@ const AUTHORITY = {
     const register = read('app/platform-v7/register/page.tsx');
     expect(sha(register.split('type Locale')[1]!.split('  return (')[0]!)).toBe(AUTHORITY.registerQueryAuthority);
     expect(sha(register.slice(register.indexOf('        <section')))).toBe(AUTHORITY.registerFormAndHero);
+    const publicForm = read('app/platform-v7/register/RegisterFormClientPublic.tsx');
+    expect(register).toContain("const verifyToken = String(first(params.verify)");
+    expect(register).toContain("const statusToken = String(first(params.statusToken)");
+    expect(register).toContain("if (verifyToken) localeQuery.set('verify', verifyToken)");
+    expect(register).toContain("if (statusToken) localeQuery.set('statusToken', statusToken)");
     expect(register).toContain('localeQuery.toString()');
     expect(register).toContain('<PublicSiteHeader');
+    expect(register).toContain('<RegisterFormClientPublic');
     expect(register).not.toContain('<header');
+    expect(publicForm).toContain("fetch('/api/auth/register'");
+    expect(publicForm).toContain('applyCsrfHeader');
+    expect(publicForm).toContain("'idempotency-key'");
+    expect(publicForm).not.toContain('requestedRole');
+    expect(publicForm).not.toContain('tenantId');
+    expect(publicForm).not.toContain('requestedTenant');
   });
   it('keeps dock commands, modal handling and focus restoration unchanged', () => {
     const dock = read('components/platform-v7/PublicContactDock.tsx');

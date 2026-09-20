@@ -28,8 +28,8 @@ const accounting = read('i18n/platform-v7-accounting-value.ts');
 describe('platform-v7 homepage product copy', () => {
   it('keeps the approved design entrypoints and durable optional assistance form', () => {
     expect(component).toContain("import '@/styles/platform-v7-public-assistant.css'");
-    expect(component).toContain("import styles from './PlatformV7StrategicHomeStory.module.css'");
-    expect(component).toContain("className={`pc-v6-hero ${styles.hero}`}");
+    expect(page).toContain("import '@/styles/platform-v7-strategic-home-v3.css'");
+    expect(component).toContain("className='pc-final-hero'");
     expect(component).toContain("<OrganizationConnectForm locale={locale} />");
   });
 
@@ -41,13 +41,13 @@ describe('platform-v7 homepage product copy', () => {
   });
 
   it('presents one crop Deal product with nine roles and seven public steps in RU EN ZH', () => {
-    expect(hero).toContain('ведёт одну агросделку от товара и торгов до поставки, качества, документов и расчёта');
-    expect(hero).toContain('какие факты и основания доступны и что делать дальше');
-    expect(hero).toContain('с собственным искусственным интеллектом');
-    expect(hero).toContain('with proprietary artificial intelligence');
-    expect(hero).toContain('配备自主人工智能');
+    expect(hero).toContain('связывает продавца, покупателя и исполнителей в одной Сделке');
+    expect(component).toContain('От товара до расчёта');
+    expect(component).toContain('Critical decisions remain with an authorised person.');
+    expect(component).toContain('Критическое решение остаётся за уполномоченным человеком.');
+    expect(component).toContain('关键决定仍由获授权人员作出');
     expect(hero).not.toContain('что уже подтверждено и что делать дальше');
-    expect(hero).toContain('но не принимает решение вместо человека');
+    expect(component).toContain('Гекта понимает контекст Сделки');
     expect(story).toContain('Полный контур агросделки собран в одной рабочей системе');
     expect(story).toContain('The complete agricultural Deal workflow in one operating system');
     expect(story).toContain('完整农业交易流程集中在同一工作系统');
@@ -173,7 +173,9 @@ describe('platform-v7 linked public-page trust', () => {
     expect(ai).not.toContain('Неподключённая внешняя система не отображается как подключённая.');
     expect(ai).not.toContain('Vercel');
     expect(ai).not.toContain('Netlify');
-    expect(aiPage).toContain("title: 'Гекта в работе — Прозрачная Цена'");
+    expect(aiPage).toContain("title: 'Гекта в Сделке — Прозрачная Цена'");
+    expect(aiPage).toContain("title: 'Gekta in the Deal — Transparent Price'");
+    expect(aiPage).toContain("title: '交易中的 Gekta — 透明价格'");
     expect(aiPage).toContain('/platform-v7/register');
   });
 

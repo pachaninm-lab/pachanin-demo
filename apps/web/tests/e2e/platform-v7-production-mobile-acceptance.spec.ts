@@ -1,5 +1,32 @@
 import { expect, test, type Page } from '@playwright/test';
 
+async function expectHeaderAccess(page: Page, locale = 'ru') {
+  const mobile = (page.viewportSize()?.width ?? 1440) < 768;
+  const menu = page.locator('.pc-site-mobile-menu');
+  const wasOpen = await menu.getAttribute('open') !== null;
+  if (mobile && !wasOpen) {
+    await menu.locator('summary').focus();
+    await page.keyboard.press('Enter');
+  }
+  for (const route of ['login', 'register']) {
+    const link = mobile
+      ? menu.locator(`a.pc-final-mobile-access[href="/platform-v7/${route}?lang=${locale}"]`)
+      : page.locator(route === 'login' ? '.entry-login' : '.pc-v6-header-cta');
+    await expect(link).toBeVisible();
+    await expect(link).toHaveAttribute('href', `/platform-v7/${route}?lang=${locale}`);
+    await expect(link).toBeInViewport({ ratio: 1 });
+    const box = await link.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.width).toBeGreaterThanOrEqual(44 - 0.001);
+    expect(box!.height).toBeGreaterThanOrEqual(44 - 0.001);
+  }
+  if (mobile) {
+    await expect(page.locator('.pc-v6-header-actions')).toBeHidden();
+    if (!wasOpen) await menu.locator('summary').click();
+  }
+}
+
+
 const viewports = [
   { width: 320, height: 800, name: '320x800' },
   { width: 375, height: 812, name: '375x812' },
@@ -31,13 +58,10 @@ type LinkedPublicPageName = (typeof linkedPublicPages)[number]['name'];
 
 const currentPublicAnchorIds = [
   'participants',
-  'difference',
-  'deal-path',
-  'functions',
-  'live',
+  'market',
+  'how-it-works',
   'trust',
-  'tai',
-  'faq',
+  'gekta',
   'connect-organization',
 ] as const;
 
@@ -84,14 +108,14 @@ async function expectCurrentAnchorsBelowStickyHeader(page: Page) {
   ).toBe(true);
 
   await page.evaluate(() => {
-    history.replaceState(null, '', `${location.pathname}${location.search}#deal-path`);
-    document.getElementById('deal-path')?.scrollIntoView();
+    history.replaceState(null, '', `${location.pathname}${location.search}#how-it-works`);
+    document.getElementById('how-it-works')?.scrollIntoView();
   });
   await page.waitForTimeout(100);
 
   const dealPathPosition = await page.evaluate(() => {
     const header = document.querySelector('.pc-site-header');
-    const target = document.getElementById('deal-path');
+    const target = document.getElementById('how-it-works');
     return {
       headerBottom: header?.getBoundingClientRect().bottom ?? 0,
       targetTop: target?.getBoundingClientRect().top ?? -1,
@@ -101,7 +125,7 @@ async function expectCurrentAnchorsBelowStickyHeader(page: Page) {
 }
 
 async function expectRegistrationOnlyPrimaryCtas(page: Page) {
-  const primaryHrefs = await page.locator('main .pc-v6-primary').evaluateAll((nodes) => nodes
+  const primaryHrefs = await page.locator('.pc-final-hero .pc-final-primary, .pc-final-cta .pc-final-primary').evaluateAll((nodes) => nodes
     .filter((node) => {
       const style = window.getComputedStyle(node as HTMLElement);
       const box = (node as HTMLElement).getBoundingClientRect();
@@ -111,10 +135,14 @@ async function expectRegistrationOnlyPrimaryCtas(page: Page) {
 
   expect(primaryHrefs.length).toBe(2);
   expect(primaryHrefs.every((href) => href?.startsWith('/platform-v7/register?lang=ru'))).toBe(true);
-  await expect(page.locator('[data-testid="platform-v7-presentation-download"]')).not.toHaveClass(/pc-v6-primary/);
+  const buyLinks = page.locator('.pc-final-hero .pc-final-secondary, .pc-final-cta .pc-final-secondary');
+  await expect(buyLinks).toHaveCount(2);
+  for (const link of await buyLinks.all()) await expect(link).toHaveAttribute('href', '/platform-v7/register?lang=ru&intent=buy');
 }
 
 async function expectKeyboardCompleteRoleTabs(page: Page) {
+  const disclosure = page.locator('.pc-final-role-explorer');
+  if (!await disclosure.getAttribute('open').then((value) => value !== null)) await disclosure.locator('summary').click();
   const tablist = page.getByRole('tablist', { name: 'Выберите роль для просмотра' });
   await expect(tablist).toBeVisible();
 
@@ -131,10 +159,10 @@ async function expectKeyboardCompleteRoleTabs(page: Page) {
   await expect(seller).toBeFocused();
 
   await seller.press('End');
-  const employee = page.getByRole('tab', { name: 'Сотрудник платформы', exact: true });
+  const employee = page.getByRole('tab', { name: 'Сотрудник подключённой организации', exact: true });
   await expect(employee).toHaveAttribute('aria-selected', 'true');
   await expect(employee).toBeFocused();
-  await expect(page.getByRole('tabpanel')).toHaveAttribute('aria-labelledby', 'public-role-tab-employee');
+  await expect(page.locator('#public-role-panel')).toHaveAttribute('aria-labelledby', 'public-role-tab-employee');
 }
 
 async function expectStageAwareDealWorkspace(page: Page) {
@@ -238,27 +266,20 @@ test.describe('Platform V7 exact responsive public acceptance', () => {
       await expect(brandLink).toBeVisible();
       await expect(brandText).toBeVisible();
       await expect(brandText).toHaveText('Прозрачная Цена');
-      if (viewport.width <= 430) {
-        await expect(brandMark).toBeHidden();
-      } else {
-        await expect(brandMark).toBeVisible();
-      }
+      await expect(brandMark).toBeVisible();
 
-      const headerRegistration = page.locator('.pc-v6-header-cta');
-      await expect(headerRegistration).toBeVisible();
-      await expect(headerRegistration).toBeInViewport({ ratio: 1 });
-      await expect(headerRegistration).toHaveAttribute('href', '/platform-v7/register?lang=ru');
+      await expectHeaderAccess(page);
 
       if (viewport.width < 768) {
-        await expectVisibleTargetsAtLeast(page, '.pc-site-mobile-menu > summary, .pc-site-locale-switch, .entry-login, .pc-v6-header-cta', 44);
+        await expectVisibleTargetsAtLeast(page, '.pc-site-mobile-menu > summary, .pc-site-locale-switch', 44);
       } else {
         await expectVisibleTargetsAtLeast(page, '.pc-site-locale-switch, .entry-login, .pc-v6-header-cta', 44);
       }
-      await expectVisibleTargetsAtLeast(page, 'main .pc-v6-actions a:visible', 44);
+      await expectVisibleTargetsAtLeast(page, 'main .pc-final-actions a:visible', 44);
       await expectVisibleTargetsAtLeast(page, '[role="tab"]', 44);
       await expectNoHorizontalOverflow(page);
 
-      const headings = await page.locator('.pc-v6-section-head h2, .pc-v6-final h2, #connect-organization h2').evaluateAll((nodes) => nodes
+      const headings = await page.locator('.pc-final-section-head h2, .pc-final-cta h2, #connect-organization h2').evaluateAll((nodes) => nodes
         .filter((node) => {
           const box = (node as HTMLElement).getBoundingClientRect();
           return box.width > 0 && box.height > 0;

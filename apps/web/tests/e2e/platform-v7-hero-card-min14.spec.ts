@@ -2,14 +2,14 @@ import { expect, test } from '@playwright/test';
 
 const widths = [320, 375, 390, 430, 768, 1440] as const;
 
-test.describe('Platform V7 Hero Deal card legibility', () => {
+test.describe('Platform V7 Hero process overlay legibility', () => {
   for (const width of widths) {
-    test(`${width}px keeps every visible Hero Deal card text node at or above 14 CSS px`, async ({ page }) => {
+    test(`${width}px keeps every visible Hero process overlay text node at or above 14 CSS px`, async ({ page }) => {
       await page.setViewportSize({ width, height: width < 768 ? 900 : 1000 });
       const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
       expect(response?.ok()).toBe(true);
 
-      const card = page.locator('[data-testid="platform-v7-deal-card"]');
+      const card = page.locator('.pc-final-visual-overlay');
       await expect(card).toBeVisible();
 
       const offenders = await card.evaluate((root) => {

@@ -46,24 +46,27 @@ for locale in ru en zh; do
   case "$locale" in
     ru)
       expected_kicker_primary='Платформа управления агросделками в растениеводстве'
-      expected_kicker_secondary='с собственным искусственным интеллектом'
-      expected_title='Управляйте агросделкой'
-      expected_accent='от цены до расчёта'
-      retired_title='Цена согласована. Теперь нужно исполнить Сделку.'
+      expected_title='От лота и цены'
+      expected_accent='до поставки, качества и расчёта'
+      expected_sell='Продать продукцию'
+      expected_buy='Купить продукцию'
+      retired_title='Управляйте агросделкой'
       ;;
     en)
       expected_kicker_primary='Crop Deal management platform'
-      expected_kicker_secondary='with proprietary artificial intelligence'
-      expected_title='Manage an agricultural Deal'
-      expected_accent='from price to settlement'
-      retired_title='The price is agreed. Now the Deal must be executed.'
+      expected_title='From lot and price'
+      expected_accent='to delivery, quality and settlement'
+      expected_sell='Sell produce'
+      expected_buy='Buy produce'
+      retired_title='Manage an agricultural Deal'
       ;;
     zh)
       expected_kicker_primary='种植业农业交易管理平台'
-      expected_kicker_secondary='配备自主人工智能'
-      expected_title='管理农业交易'
-      expected_accent='从价格到结算'
-      retired_title='价格已经确定。现在需要完成交易履约。'
+      expected_title='从批次和价格'
+      expected_accent='到交付、质量与结算'
+      expected_sell='出售农产品'
+      expected_buy='采购农产品'
+      retired_title='管理农业交易'
       ;;
   esac
 
@@ -75,9 +78,10 @@ for locale in ru en zh; do
 
   CURRENT_CHECK="approved-homepage-content-$locale"
   grep -Fq "$expected_kicker_primary" "$EVIDENCE_DIR/platform-$locale.html"
-  grep -Fq "$expected_kicker_secondary" "$EVIDENCE_DIR/platform-$locale.html"
   grep -Fq "$expected_title" "$EVIDENCE_DIR/platform-$locale.html"
   grep -Fq "$expected_accent" "$EVIDENCE_DIR/platform-$locale.html"
+  grep -Fq "$expected_sell" "$EVIDENCE_DIR/platform-$locale.html"
+  grep -Fq "$expected_buy" "$EVIDENCE_DIR/platform-$locale.html"
   if grep -Fq "$retired_title" "$EVIDENCE_DIR/platform-$locale.html"; then
     printf 'Retired homepage hero is still live for locale %s.\n' "$locale" >&2
     exit 29

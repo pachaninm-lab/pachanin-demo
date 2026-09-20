@@ -283,15 +283,8 @@ requireAll('live', [
   '?lang=$locale&release=$TARGET_SHA&run=$RELEASE_RUN_ID',
   'Cache-Control: no-cache, no-store, max-age=0',
   'Платформа управления агросделками в растениеводстве',
-  'с собственным искусственным интеллектом',
-  'Управляйте агросделкой',
-  'от цены до расчёта',
   'Crop Deal management platform',
-  'with proprietary artificial intelligence',
-  'Manage an agricultural Deal',
   '种植业农业交易管理平台',
-  '配备自主人工智能',
-  'Цена согласована. Теперь нужно исполнить Сделку.',
   'if grep -Fq "$retired_title"',
   '/api/health/ready?release=$TARGET_SHA&run=$RELEASE_RUN_ID',
   '/api/platform-v7/organization-connect',
@@ -303,20 +296,29 @@ requireAll('live', [
   'LIVE_CONFLICT_REPLAY=PASS',
   'LIVE_ACCEPTANCE=PASS',
 ]);
-requireAll('hero', [
-  'Платформа управления агросделками в растениеводстве',
-  'с собственным искусственным интеллектом',
-  'Управляйте агросделкой',
-  'от цены до расчёта',
-  'Crop Deal management platform',
-  'with proprietary artificial intelligence',
-  'Manage an agricultural Deal',
-  'from price to settlement',
-  '种植业农业交易管理平台',
-  '配备自主人工智能',
-  '管理农业交易',
-  '从价格到结算',
-]);
+// Comments cannot satisfy the public presentation contract.
+const liveCode = (text.live ?? '').replace(/^\s*#.*$/gm, '');
+const heroCode = (text.hero ?? '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const publicHero = [
+  ['ru', 'Платформа управления агросделками в растениеводстве', 'От лота и цены', 'до поставки, качества и расчёта', 'Продать продукцию', 'Купить продукцию'],
+  ['en', 'Crop Deal management platform', 'From lot and price', 'to delivery, quality and settlement', 'Sell produce', 'Buy produce'],
+  ['zh', '种植业农业交易管理平台', '从批次和价格', '到交付、质量与结算', '出售农产品', '采购农产品'],
+];
+for (const [locale, kicker, title, accent, sell, buy] of publicHero) {
+  const heroBlock = heroCode.match(new RegExp(`${locale}: \\{([\\s\\S]*?)\\n  \\}`))?.[1] ?? '';
+  const liveBlock = liveCode.match(new RegExp(`${locale}\\)([\\s\\S]*?);;`))?.[1] ?? '';
+  for (const [key, value] of Object.entries({ kicker, title, accent })) {
+    if (!heroBlock.includes(`${key}: '${value}'`)) failures.push(`${paths.hero}: ${locale} ${key} contract mismatch`);
+  }
+  for (const [key, value] of Object.entries({ kicker_primary: kicker, title, accent, sell, buy })) {
+    if (!liveBlock.includes(`expected_${key}='${value}'`)) failures.push(`${paths.live}: ${locale} ${key} contract mismatch`);
+  }
+}
+for (const key of ['kicker_primary', 'title', 'accent', 'sell', 'buy']) {
+  if (!liveCode.includes(`grep -Fq "$expected_${key}" "$EVIDENCE_DIR/platform-$locale.html"`)) {
+    failures.push(`${paths.live}: missing executable ${key} assertion`);
+  }
+}
 forbid('hero', [/Crop Deal execution platform/]);
 
 forbid('workflow', [

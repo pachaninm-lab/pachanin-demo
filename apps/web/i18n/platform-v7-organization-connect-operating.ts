@@ -35,9 +35,9 @@ const scenarioLabels: Record<Locale, readonly SelectOption[]> = {
 
 const operatingCopy = {
   ru: {
-    eyebrow: 'Дополнительная помощь',
-    title: 'Нужна помощь с подключением организации?',
-    lead: 'Эта форма не является регистрацией. Используйте её, если после регистрации вам нужна помощь с рабочим сценарием, ролями или подключением внешних систем.',
+    eyebrow: 'Помощь перед регистрацией',
+    title: 'Нужна помощь перед регистрацией?',
+    lead: 'Задайте вопрос о своей задаче, роли или работе организации на платформе. Обращение не создаёт аккаунт и не предоставляет доступ к платформе.',
     stepOneTitle: 'Организация и контакт',
     stepTwoTitle: 'Роль и задача для подключения',
     scenario: 'С чем нужна помощь',
@@ -49,9 +49,9 @@ const operatingCopy = {
     successText: 'Команда платформы свяжется по указанным контактам и продолжит работу по вашему вопросу подключения.',
   },
   en: {
-    eyebrow: 'Optional assistance',
-    title: 'Need help connecting your organisation?',
-    lead: 'This form is not registration. Use it when you need help after registration with an operating scenario, roles or an external-system connection.',
+    eyebrow: 'Help before registration',
+    title: 'Need help before registration?',
+    lead: 'Ask about your task, role or organisation workflow. An inquiry does not create an account or provide platform access.',
     stepOneTitle: 'Organisation and contact',
     stepTwoTitle: 'Role and connection task',
     scenario: 'What you need help with',
@@ -63,9 +63,9 @@ const operatingCopy = {
     successText: 'The platform team will contact you and continue work on your organisation-connection question.',
   },
   zh: {
-    eyebrow: '可选接入协助',
-    title: '需要协助接入机构？',
-    lead: '此表单不是注册。完成注册后，如果需要工作场景、角色或外部系统接入方面的帮助，请使用此表单。',
+    eyebrow: '注册前帮助',
+    title: '注册前需要帮助？',
+    lead: '咨询你的任务、角色或机构工作流程。提交咨询不会创建账户，也不会授予平台访问权限。',
     stepOneTitle: '机构与联系人',
     stepTwoTitle: '角色与接入任务',
     scenario: '需要哪方面帮助',
