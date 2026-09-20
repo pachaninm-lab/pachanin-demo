@@ -21,6 +21,8 @@
     "apps/web/styles/platform-v7-canonical-public-v1.css",
     "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
     "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
+    "apps/web/tests/unit/platformV7PublicLayoutSplit.test.ts",
+    "apps/web/tests/unit/platformV7SpacingAndContactDock.regression.test.ts",
     "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
     "docs/security/cryptographic-inventory.json",
     "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
