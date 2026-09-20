@@ -177,6 +177,10 @@ async function capturePublicProductAnalytics(input: PublicProductAnalyticsCaptur
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const locale = await getLocale();
   const pathname = normalizePath((await headers()).get('x-pc-pathname'));
+  const canonicalPublicHome = pathname === '/platform-v7' || pathname === '/pc-public-entry/platform-v7';
+  const TailwindRuntime = canonicalPublicHome
+    ? null
+    : (await import('@/components/platform-v7/PlatformV7TailwindRuntime')).PlatformV7TailwindRuntime;
   const leanPublicEntry = LEAN_PUBLIC_ENTRY_PATHS.has(pathname)
     || pathname === '/platform-v7/staff'
     || pathname.startsWith('/platform-v7/staff/');
@@ -208,6 +212,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <meta httpEquiv='Content-Language' content={HTML_LANG[locale] ?? 'ru'} />
       </head>
       <body translate='no' className='notranslate'>
+        {TailwindRuntime ? <TailwindRuntime /> : null}
         {content}
         {showDevPanel ? <FeatureFlagsDevPanel /> : null}
         <PublicAnalytics
