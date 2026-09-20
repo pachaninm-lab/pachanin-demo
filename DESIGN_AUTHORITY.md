@@ -81,3 +81,13 @@ The canonical Playwright acceptance captures the exact authority viewports and a
 - perceptual average-hash distance thresholds bound to the final authority images above.
 
 This is an acceptance guard, not a substitute for the source SHA-256 list. The source files and hashes in this document remain the visual authority.
+
+
+## Performance boundary
+
+The canonical landing keeps the same visual authority while using a narrower render path:
+
+- `apps/web/styles/platform-v7-canonical-home-v1.css` is the route-scoped home stylesheet derived from the shared canonical public design system; linked public pages continue to use `platform-v7-canonical-public-v1.css`.
+- Application-wide Tailwind utilities are loaded through the server-gated `PlatformV7TailwindRuntime` on routes that use them, and are not downloaded by the canonical `/platform-v7` landing.
+- The rewritten canonical landing does not hydrate legacy contact/support surfaces that are hidden by the approved UI; login/recovery and older public entry routes keep their existing support behavior.
+- These are performance boundaries only. They do not change the canonical mockup hashes, logo, product semantics, data authority, role/tenant authority or public navigation contract.
