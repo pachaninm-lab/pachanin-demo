@@ -495,3 +495,37 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-page-home .pc-cp-final{min-height:150px}
   .pc-cp-page-home .pc-cp-final h2{font-size:29px}
 }
+
+/* DEAL FLOW CANONICAL DENSITY */
+@media (min-width:761px){
+  .pc-cp-page-deal-flow>.pc-cp-section{padding:18px 0}
+  .pc-cp-page-deal-flow>.pc-cp-section:first-of-type{padding:20px 0 16px}
+  .pc-cp-page-deal-flow .pc-cp-section-head{margin-bottom:8px}
+  .pc-cp-page-deal-flow .pc-cp-section-head h1{font-size:38px;max-width:760px}
+  .pc-cp-page-deal-flow .pc-cp-section-head h2{font-size:25px}
+  .pc-cp-page-deal-flow .pc-cp-section-head p{font-size:10px;max-width:760px}
+  .pc-cp-page-deal-flow .pc-cp-deal-spine{margin-top:8px}
+  .pc-cp-page-deal-flow .pc-cp-stage i{width:29px;height:29px}
+  .pc-cp-page-deal-flow .pc-cp-stage strong{font-size:9px}
+  .pc-cp-page-deal-flow .pc-cp-state-shell{padding:10px}
+  .pc-cp-page-deal-flow .pc-cp-state-tabs{padding-bottom:6px}
+  .pc-cp-page-deal-flow .pc-cp-state-tab{min-height:28px;font-size:9px}
+  .pc-cp-page-deal-flow .pc-cp-state-grid{gap:7px;margin-top:8px}
+  .pc-cp-page-deal-flow .pc-cp-state-cell{padding:8px}
+  .pc-cp-page-deal-flow .pc-cp-state-cell span{font-size:7px}
+  .pc-cp-page-deal-flow .pc-cp-state-cell strong{font-size:9px;line-height:1.2}
+  .pc-cp-page-deal-flow .pc-cp-trust-grid{gap:7px}
+  .pc-cp-page-deal-flow .pc-cp-trust-card{padding:9px;min-height:88px}
+  .pc-cp-page-deal-flow .pc-cp-trust-card strong{font-size:15px}
+  .pc-cp-page-deal-flow .pc-cp-trust-card p{font-size:8px}
+  .pc-cp-page-deal-flow .pc-cp-gekta-strip{padding:10px 14px}
+  .pc-cp-page-deal-flow .pc-cp-footer{padding:12px 0 18px}
+}
+@media (max-width:760px){
+  .pc-cp-page-deal-flow>.pc-cp-section{padding:20px 0}
+  .pc-cp-page-deal-flow .pc-cp-section-head h1{font-size:32px}
+  .pc-cp-page-deal-flow .pc-cp-section-head h2{font-size:25px}
+  .pc-cp-page-deal-flow .pc-cp-section-head p{font-size:11px}
+  .pc-cp-page-deal-flow .pc-cp-state-grid{grid-template-columns:1fr 1fr}
+  .pc-cp-page-deal-flow .pc-cp-state-cell:last-child{grid-column:1/-1}
+}
