@@ -241,7 +241,7 @@ export async function PlatformV7StrategicHome() {
       <CanonicalPublicHeader locale={locale} activePath='/platform-v7' />
 
       <section className='pc-cp-hero' aria-labelledby='pc-cp-home-title'>
-        <img className='pc-cp-hero-media' src='/platform-v7/hero-farmer-canonical.webp' alt='' width='400' height='320' loading='eager' decoding='async' fetchPriority='high' aria-hidden='true' />
+        <img className='pc-cp-hero-media' src='/platform-v7/hero-farmer-canonical.webp' alt='' width='400' height='320' loading='eager' decoding='sync' fetchPriority='high' aria-hidden='true' />
         <div className='pc-cp-container pc-cp-hero-grid'>
           <div className='pc-cp-hero-copy'>
             <span className='pc-cp-eyebrow'>{copy.heroKicker}</span>
