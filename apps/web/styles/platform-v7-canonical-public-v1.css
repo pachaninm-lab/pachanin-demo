@@ -769,3 +769,48 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-page-home .pc-cp-final .pc-cp-button--secondary{display:none}
   .pc-cp-page-home .pc-cp-footer{display:none}
 }
+
+
+/* FINAL MOBILE READABILITY + LCP CONTRACT */
+@media(max-width:760px){
+  .pc-cp-page-home .pc-cp-hero-media{
+    width:25%;
+    max-width:104px;
+    height:190px;
+    right:8px;
+    object-position:center top;
+  }
+  .pc-cp-page-home .pc-cp-hero::after{height:230px}
+
+  .pc-cp-page-home .pc-cp-hero-copy p,
+  .pc-cp-page-home .pc-cp-deal-lens-next small,
+  .pc-cp-page-home .pc-cp-deal-lens-next strong,
+  .pc-cp-page-home .pc-cp-section-head p,
+  .pc-cp-page-home .pc-cp-market-preview-alert span,
+  .pc-cp-page-home .pc-cp-market-preview-alert strong,
+  .pc-cp-page-home .pc-cp-lot-meta span,
+  .pc-cp-page-home .pc-cp-lot-meta strong,
+  .pc-cp-page-home .pc-cp-stage i,
+  .pc-cp-page-home .pc-cp-stage strong,
+  .pc-cp-page-home .pc-cp-role-card p,
+  .pc-cp-page-home .pc-cp-role-tags span,
+  .pc-cp-page-home .pc-cp-state-tab,
+  .pc-cp-page-home .pc-cp-state-cell span,
+  .pc-cp-page-home .pc-cp-state-cell strong,
+  .pc-cp-page-home .pc-cp-trust-card i,
+  .pc-cp-page-home .pc-cp-trust-card strong,
+  .pc-cp-page-home .pc-cp-trust-card p,
+  .pc-cp-page-home .pc-cp-gekta-chips span,
+  .pc-cp-page-home .pc-cp-capability strong,
+  .pc-cp-page-home .pc-cp-capability p,
+  .pc-cp-page-home .pc-cp-final p,
+  .pc-cp-bottom-nav a,
+  .pc-site-locale-option{
+    font-size:12px!important;
+    line-height:1.2;
+  }
+
+  .pc-cp-page-home .pc-cp-stage i{width:28px;height:28px}
+  .pc-cp-page-home .pc-cp-state-tab{min-height:44px}
+  .pc-cp-page-home .pc-cp-gekta-chips span{min-height:44px}
+}
