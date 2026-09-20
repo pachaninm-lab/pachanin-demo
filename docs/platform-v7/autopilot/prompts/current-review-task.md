@@ -215,9 +215,191 @@ Execution sequence: independently review and manually merge this owner-authorize
 
 IR-20 remains active. Its final closure requires the exact-current-main REG.RU release, verified immutable running images and canonical production Compose topology, functional live acceptance for the touched outbox flow, and at least 30 minutes of observation required by MASTER. Worker publication, protected release and rollback work require their own reviewed scopes and operational evidence. Local patches, independent review, green CI, a Kubernetes PASS, image publication and a merge do not by themselves constitute `PRODUCTION_PASS`. No IR-21 or other product delivery slice opens before the required IR-20 acceptance is complete.
 
+## Proposed bounded workspace recovery — 2026-09-19
+
+Status: PROPOSED / NOT ACTIVE. Related discovery: #5371 and #5372.
+This records a reviewable scope delta requested by the owner's instruction to
+continue cabinet UX work. It does not assert approval of an IR-20 sequencing
+exception. Merging this planning text alone does not authorize implementation,
+open a product slice, change allowedCurrentScope or establish production acceptance.
+
+Before: product delivery remains locked until IR-20 acceptance.
+Proposed after: allow only the read-only workspace recovery described below on
+a separately admitted branch, while IR-20, provider activation and REG.RU release
+requirements remain unchanged. Reason: valid authoritative queue data currently
+loses an actionable blocker or makes an entire cabinet unavailable.
+Decision needed: explicitly accept or reject this bounded sequencing exception;
+if accepted, record the exact branch and paths in trusted main scope authority
+before implementation. Do not derive authority from this proposal or from a
+scope manifest added by the implementation branch itself.
+
+Evidence baseline: main `126f4b17f0be87eab07a238dc3ffee35a4b8ed8b`.
+The following are isolated source-behavior reproductions, not live incidents,
+fixed-test results, complete CI or deployment evidence:
+
+- `apps/web/lib/first-customer-workspace-server.ts`, blob
+  `14ebf994f43c3eb4c682aa1bfee1ac4885ccd7c1`: queueItem accepts blocker arrays
+  but drops a non-empty string blocker when nextAction is absent.
+- `apps/api/src/modules/logistics/prisma-shipment.repository.ts`, blob
+  `bd5f7af2955f7abb874d170f7ac14d520c122c81`: list returns at most 500
+  shipments, preserving the repository's string-or-null blockers field.
+  The workspace rejects any array longer than 100. A valid 101-row response
+  therefore becomes unavailable.
+- Existing production routing selects the first-customer workspace. These
+  observations do not prove that legacy demo balances are displayed in production.
+
+Proposed implementation branch: `fix/first-customer-workspace-recovery-20260919`.
+Proposed exact scope, subject to the admission decision:
+
+- `apps/web/lib/first-customer-workspace-server.ts`
+- `apps/web/components/platform-v7/FirstCustomerWorkspace.tsx`
+- `apps/web/tests/unit/firstCustomerWorkspaceSnapshot.test.ts`
+
+Acceptance for the proposed implementation:
+
+1. Preserve explicit authoritative nextAction precedence. Fall back to a
+   non-empty string blocker or the first valid blocker in a legacy array.
+   Trim and bound text; never invent an action from a status label.
+2. Accept the documented bounded logistics list without treating row 101 as a
+   transport outage. Keep a hard bound and reject malformed rows. Do not silently
+   slice data, assume every endpoint shares the same list contract, or call a
+   bounded response a complete workload.
+3. Distinguish the displayed queue window from a complete count. If completeness
+   cannot be established from server metadata, say so in the workspace and do
+   not label the first row the globally highest-priority action. Any navigation
+   offered for additional work must point to a verified existing authorized route.
+   This slice does not introduce or pretend to implement server pagination.
+4. Preserve role/tenant checks, owner-controlled behavior, no-store authenticated
+   reads, forbidden versus unavailable states, empty-state semantics and the
+   canonical deal execution URL. No synthetic items, balances or provider status.
+5. Test the actual workspace loader with mocked authenticated upstream responses:
+   string/array/null/whitespace blockers, explicit action precedence, valid 100,
+   101 and 500 shipment rows, oversized and malformed responses, role mismatch,
+   upstream 403/5xx, empty success and unchanged owner-controlled behavior.
+   Verify the queue-window notice against its rendered component.
+6. Require applicable exact-head CI, implementation-owner audit and independent
+   full-diff review before manual SHA-bound merge. No auto-merge or forged review.
+   Verify production separately under the canonical REG.RU release procedure.
+
+Out of scope: bank instructions and payment state, SettlementBasis authority,
+FGIS adapters/projections, schema/migrations, auth or registration changes,
+dependencies/lockfiles, public pages, landing, release workflows and IR-20 code.
+Risk: accepting a larger response can mislead users about completeness; explicit
+window semantics and bounded validation are mandatory parts of the same slice.
+Progress: two defects reproduced; zero product changes or production acceptance
+claimed by this proposal. Revalidate source contracts after any main change.
+
+Subsequent role-settings work remains under #5372 and requires its own scope:
+farmer, buyer, logistics, driver, elevator, laboratory, surveyor, bank/accounting
+and organization employees. Each role needs a documented entry point, available
+commands, permissions, personal versus organization settings, inheritance,
+effective time, workflow impact, reset semantics and recovery states. Bank and
+FGIS settings must show authoritative connection/capability state; displaying a
+setting must never imply provider activation. Do not replace these acceptance
+criteria with an unsupported claim of compliance with every global standard.
+
+## Owner-approved bounded workspace recovery — 2026-09-19
+
+The owner explicitly answered "Разрешаю" to the request to fix the two workspace
+defects before IR-20 completion while preserving all checks and release conditions.
+This supersedes the pending sequencing decision in the proposal above, solely
+for that bounded recovery. It does not authorize the broader UX, bank or FGIS backlog.
+
+Record the implementation branch `fix/first-customer-workspace-recovery-20260919`
+in approvedConcurrentScopes with the three proposed application/test paths plus
+the strictly bounded CI test registration described below.
+Governance and implementation remain separate reviewable changes. A draft may be
+prepared against this governance branch under the owner's explicit authorization;
+do not merge the implementation before this admission reaches trusted main and its
+exact-head review/CI gates pass. No additional owner continuation prompt is needed.
+
+Before: discovery only, product work waits for IR-20.
+After: owner-authorized preparation and reviewed admission of the two bounded fixes;
+IR-20 remains active and all production release/acceptance requirements remain.
+Reason, risks, regression matrix and exclusions are those in the proposal above.
+Progress means implementation/review evidence only, never IR-20 PRODUCTION_PASS.
+
+### Required CI registration for the approved recovery
+
+Implementation detail discovered during validation: the repository coverage gate
+requires every new unit test to be explicitly executed by CI. The three-path
+proposal omitted that registration and would fail UNACCOUNTED_TEST_FILE.
+The approved two-defect fix therefore also includes exactly one change in
+`.github/workflows/ci.yml`: append
+`tests/unit/firstCustomerWorkspaceSnapshot.test.ts` to the existing web-unit
+Vitest invocation. No trigger, permission, runner, gate, dependency, exclusion,
+release workflow or other command changes are admitted. This is required test
+wiring for the already authorized fixes, not another product capability.
+Before: three implementation paths, new regression not executed by CI.
+After: four paths, the same regression runs on subsequent qualifying PRs.
+Risk: CI-list omission leaves regression unprotected; coverage guard and the
+existing web-unit test selection must pass. Readiness/production claims unchanged.
+
 
 ## Review brief
 
 Review IR-20 Canonical Durable Outbox strictly against the state allowed scope and queue.
 
 Return PASS or BLOCKED. If BLOCKED, include blocker, file, why risk and exact fix.
+
+## Owner-authorized bounded industrial-load diagnostics — 2026-09-19
+
+PR #5436 exact head f3ab1a37583dc20845ee07062a87abca8b86b305 failed
+CI run 35461479056 / job 105946017745: one of twelve concurrent Deal cycles
+rejected. AggregateError output hides the nested cause and failing phase.
+Adjacent transaction-conflict warnings are not proof of the rejected cause.
+The owner explicitly authorized the proposed separate diagnostic PR.
+
+Admit branch `test/industrial-load-diagnostics-20260919` for exactly
+`apps/api/test/industrial/load-proof.e2e-spec.ts`. Permit bounded, redacted
+failure diagnostics with controlled fixture index, action/phase and attempt,
+and diagnostic regression assertions within that existing test file.
+Never log raw error messages/stacks, SQL, payloads, credentials, tenant/user
+identifiers, bank references or arbitrary provider data. Use allowlisted error
+classification and safe scalar codes; unknown values remain unknown.
+Preserve AggregateError rejection, all twelve default concurrent Deal cycles,
+existing retry counts/backoff, timeouts and every existing business assertion.
+No runtime, money, settlement, outbox, harness, workflow or dependency changes.
+
+Governance and implementation remain separate. A diagnostic draft may be
+prepared against this admission; do not merge it before admission reaches
+trusted main. Exact-head independent review, owner audit and substantive CI
+remain mandatory. Diagnose on disposable PostgreSQL; an unrelated green rerun
+cannot explain the original rejection. If diagnostics reveal a runtime defect,
+obtain a separately bounded admission before changing that runtime.
+IR-20 remains active in its own execution lane; no delivery or progress gate
+is advanced here. This does not expand the four-file workspace repair scope.
+Before: opaque rejected cycle blocks acceptance. After: diagnostic permission
+only, not a claim that the failed cycle or the workspace release is accepted.
+Virtual-server deployment: not required for this test-only admission.
+
+### Atomic diagnostic scope enforcement (supersedes permission-only #5451)
+
+The owner's 2026-09-19 session authorization to implement the specification
+includes preparing this necessary bounded guard repair. No earlier machine
+admission for this seven-file bootstrap is claimed. Native findings on #5448
+and #5451 correctly reject the legacy union with global IR-20 scope.
+Bootstrap is limited to governance/industrial-load-diagnostics-20260919 at
+base fe50e24d202bcd22d72dd15e4dc58f9ddc491331 and state blob
+ea92fc5f636efaf147ddeee34f81428cdd69a925. Its exact seven paths are the
+four governance documents and guard script, guard tests and guard workflow.
+Only the two exact governance/diagnostic scope entries may be appended;
+all other state and other execution lanes remain unchanged. Initial candidate
+checks are unprivileged, additional to the existing base guard, and require
+independent exact-head review and owner audit. They are not retroactive
+trusted-base enforcement. Never execute candidate code in pull_request_target.
+After merge both branches use immutable trusted-base routing; diagnostic
+implementation admits only the load-proof test, with no head-state fallback,
+global scope union or generic infrastructure exception. A changed base or an
+actual trusted gate rejection requires renewed bounded review/authority,
+not disabling checks. No automatic merge or protection changes are permitted.
+The base pin was renewed after independent review of main #5452: only the
+trusted emitter and readiness verifier/tests changed; the state blob and all
+scope authority are identical. Preserve that complete upstream delta. Earlier
+head review/CI does not carry forward to this refreshed candidate.
+A second independent base review covered main #5447: its three additional
+homepage test paths, manifest constraints and mandatory unprivileged public
+contract job remain intact. The new state blob is pinned explicitly above.
+The old CI rejected stale authority as designed; it was not rerun or waived.
+The workflow conflict retains both our exact bootstrap identity and upstream
+public-contract dependency/enforcement. Scope remains the same seven files.
