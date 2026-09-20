@@ -1190,3 +1190,41 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-deal-mobile-summary strong{font-size:12px}
   .pc-cp-deal-mobile-summary>.pc-cp-chip{padding-inline:7px}
 }
+
+
+/* CANONICAL AUTHORITY LOCK V6 — mobile language/menu fidelity */
+.pc-site-mobile-nav-links{display:grid;gap:2px}
+.pc-site-mobile-locale{display:none}
+@media(max-width:760px){
+  .pc-site-header[data-public-site-header='canonical']>.pc-site-actions>.pc-site-locale-cluster .pc-site-locale-option:not([data-active='true']){
+    display:none!important
+  }
+  .pc-site-header[data-public-site-header='canonical']>.pc-site-actions>.pc-site-locale-cluster .pc-site-locale-option[data-active='true']{
+    display:inline-flex!important;
+    width:44px!important;
+    min-width:44px!important;
+    min-height:44px!important
+  }
+  .pc-site-mobile-locale{
+    display:block!important;
+    margin-top:6px;
+    padding-top:8px;
+    border-top:1px solid var(--pc-cp-line)
+  }
+  .pc-site-mobile-locale .pc-site-locale-cluster{
+    display:grid!important;
+    grid-template-columns:repeat(3,1fr)!important;
+    gap:4px!important
+  }
+  .pc-site-mobile-locale .pc-site-locale-option{
+    display:inline-flex!important;
+    width:auto!important;
+    min-width:44px!important;
+    min-height:44px!important;
+    border-radius:8px!important
+  }
+  .pc-site-mobile-locale .pc-site-locale-option[data-active='true']{
+    background:var(--pc-cp-green-soft)!important;
+    color:var(--pc-cp-green)!important
+  }
+}
