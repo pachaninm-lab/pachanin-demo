@@ -217,3 +217,79 @@ test.describe('canonical visual authority evidence', () => {
   }
 
 });
+
+// CORE handoff PRODUCT-CAPABILITIES-ROUTE-AUTHORITY admits only this exact
+// informational route. These reads never create an authenticated role/session.
+test.describe('capabilities exact public route boundary', () => {
+  const headings = {
+    ru: 'Вся Сделка — в одном рабочем контуре',
+    en: 'The whole Deal in one working flow',
+    zh: '整笔交易在一个工作流程中',
+  } as const;
+
+  for (const locale of ['ru', 'en', 'zh'] as const) {
+    test(`capabilities is public and mobile-safe in ${locale}`, async ({ page, baseURL }) => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      const route = `/platform-v7/capabilities?lang=${locale}`;
+      const response = await page.goto(route, { waitUntil: 'networkidle' });
+      expect(response?.status()).toBe(200);
+      await expectPublicRoute(page, route, baseURL);
+      await expect(page.locator('main h1')).toHaveText(headings[locale]);
+      expect(await page.evaluate(() => Math.max(
+        document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        document.body.scrollWidth - document.body.clientWidth,
+      ))).toBeLessThanOrEqual(1);
+      const report = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
+      expect(report.violations.filter((item) => item.impact === 'critical' || item.impact === 'serious')).toEqual([]);
+    });
+
+    test(`primary navigation retains capabilities locale ${locale}`, async ({ page, baseURL }) => {
+      await page.setViewportSize({ width: 1440, height: 1000 });
+      const home = `/platform-v7?lang=${locale}`;
+      await page.goto(home, { waitUntil: 'networkidle' });
+      await expectPublicRoute(page, home, baseURL);
+      const route = `/platform-v7/capabilities?lang=${locale}`;
+      await page.locator(`header a[href="${route}"]`).first().click();
+      await expectPublicRoute(page, route, baseURL);
+      await expect(page.locator('main h1')).toHaveText(headings[locale]);
+      await page.goBack();
+      await expectPublicRoute(page, home, baseURL);
+    });
+  }
+
+  for (const route of [
+    '/platform-v7/capabilities/private',
+    '/platform-v7/capabilities/nested/path',
+    '/platform-v7/capabilities-unadmitted',
+    '/platform-v7/bank',
+    '/platform-v7/seller',
+    '/platform-v7/profile',
+    '/platform-v7/deals/capability-boundary-fixture/execution',
+  ]) {
+    test(`exact public admission does not authorize ${route}`, async ({ request, baseURL }) => {
+      if (!baseURL) throw new Error('Explicit acceptance origin required');
+      const response = await request.get(route, { maxRedirects: 0 });
+      expect(response.status()).toBe(307);
+      const target = new URL(response.headers().location, baseURL);
+      expect(target.origin).toBe(new URL(baseURL).origin);
+      expect(target.pathname).toBe('/platform-v7/login');
+      expect(target.searchParams.get('next')).toBe(route);
+    });
+  }
+
+  for (const route of ['/api/proxy/deals', '/api/proxy/settlement']) {
+    test(`public page admission leaves unauthenticated ${route} closed`, async ({ request }) => {
+      const response = await request.get(route, { maxRedirects: 0 });
+      expect(response.status()).toBe(401);
+      expect(await response.json()).toEqual({ ok: false, message: 'unauthenticated' });
+    });
+  }
+
+  test('public presentation role parameters do not create authenticated cabinet access', async ({ page, baseURL }) => {
+    const publicRoute = '/platform-v7/capabilities?lang=ru&as=bank&tenantId=capability-boundary-fixture';
+    await page.goto(publicRoute, { waitUntil: 'networkidle' });
+    await expectPublicRoute(page, publicRoute, baseURL);
+    await page.goto('/platform-v7/bank');
+    await expect(page).toHaveURL((url) => url.pathname === '/platform-v7/login' && url.searchParams.get('next') === '/platform-v7/bank');
+  });
+});
