@@ -879,6 +879,8 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
 
 /* Mobile first-paint containment: keep distant public sections out of the LCP layout pass. */
 @media(max-width:760px){
+
+  .pc-cp-page-home .pc-cp-hero-media{filter:none!important}
   .pc-cp-page-home #participants,
   .pc-cp-page-home #live,
   .pc-cp-page-home #trust,
