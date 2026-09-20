@@ -91,7 +91,8 @@ else:
                         IMAGE_TEST_LOG=str(self.log), IMAGE_TEST_DATA=str(self.fixture),
                         IMAGE_TEST_CANARY=CANARY, TARGET_SHA=SHA, IMAGE_BINDING_VERIFIER=str(VERIFIER),
                         API_IMAGE=REFS["api"], WEB_IMAGE=REFS["web"], MIGRATION_IMAGE=REFS["migration"],
-                        OUTBOX_WORKER_IMAGE=REFS["outbox-worker"], KAFKA_IMAGE=KAFKA_IMAGE)
+                        OUTBOX_WORKER_IMAGE=REFS["outbox-worker"], KAFKA_IMAGE=KAFKA_IMAGE,
+                        OUTBOX_SERVICE="outbox-worker", KAFKA_SERVICE="ir20-kafka")
 
     def execute(self, command, env=None):
         self.fixture.write_text(json.dumps(self.data))
