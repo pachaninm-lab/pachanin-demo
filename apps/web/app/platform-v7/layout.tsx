@@ -279,16 +279,18 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
   // The contact dock is mounted at the route boundary so supporting pages that
   // do not render PublicSiteHeader still expose the same AI/support/call entry.
   if (isPublicPath(pathname)) {
-    const linkedSurface = pathname === '/platform-v7/terms' || pathname === '/platform-v7/privacy'
-      || pathname === '/platform-v7/oferta' || pathname === '/platform-v7/docs';
-    const PublicLinkedSurfaceShell = linkedSurface
+    const linkedSurfacePath = pathname === '/platform-v7/terms' || pathname === '/platform-v7/privacy'
+      || pathname === '/platform-v7/oferta' || pathname === '/platform-v7/docs'
+      ? pathname
+      : null;
+    const PublicLinkedSurfaceShell = linkedSurfacePath
       ? (await import('@/components/platform-v7/PublicLinkedSurfaceShell')).PublicLinkedSurfaceShell
       : null;
     const HydrationSafeChatSupport = shouldMountLegacyPublicDock(pathname)
       ? (await import('@/components/platform-v7/HydrationSafeChatSupport')).HydrationSafeChatSupport
       : null;
-    const publicContent = PublicLinkedSurfaceShell
-      ? <PublicLinkedSurfaceShell pathname={pathname} locale={await getLocale()}>{children}</PublicLinkedSurfaceShell>
+    const publicContent = PublicLinkedSurfaceShell && linkedSurfacePath
+      ? <PublicLinkedSurfaceShell pathname={linkedSurfacePath} locale={await getLocale()}>{children}</PublicLinkedSurfaceShell>
       : children;
     return (
       <>
