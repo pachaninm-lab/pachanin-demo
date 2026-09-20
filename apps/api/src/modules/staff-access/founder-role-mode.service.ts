@@ -162,6 +162,7 @@ export class FounderRoleModeService {
     return {
       schemaVersion: FOUNDER_ROLE_MODE_SCHEMA,
       active: true,
+      accessSessionId: context.accessSessionId,
       actor: { displayName },
       cabinetKey: cabinet.key,
       canonicalPath: cabinet.canonicalPath,
