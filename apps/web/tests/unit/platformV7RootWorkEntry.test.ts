@@ -40,7 +40,7 @@ describe('platform-v7 canonical public experience',()=>{
   });
 
   it('renders one canonical root and shared design system',()=>{
-    expect(root).toContain("import '@/styles/platform-v7-canonical-public-v1.css'");
+    expect(root).toContain("import '@/styles/platform-v7-canonical-home-v1.css'");
     expect(root).toContain('<PlatformV7StrategicHome/>');
     expect(home).toContain("data-testid='platform-v7-root-execution-cockpit'");
     expect(home).toContain('CanonicalMarketPreview');
