@@ -1,6 +1,6 @@
 # PC-CROP MASTER v2.1 execution queue
 
-CURRENT: R1.1 Server-side inventory of 13 cabinets and authority
+CURRENT: R1.2 Controlled open-as-role server authority
 
 OFFICIAL OVERALL: 5/100 = 5%
 TARGET AFTER R1 PRODUCTION_PASS: 12/100 = 12%
@@ -12,34 +12,25 @@ CURRENT ALLOWED:
 - docs/platform-v7/autopilot/prompts/current-review-task.md
 - docs/platform-v7/execution-queue.md
 - docs/execution/**
-- apps/api/src/app.module.ts
-- apps/api/src/modules/founder-control/**
-- apps/api/src/modules/staff-access/staff-access.controller.ts
-- apps/api/src/modules/staff-access/staff-access.service.ts
-- apps/api/src/modules/staff-access/staff-access.repository.ts
-- apps/api/src/modules/staff-access/staff-access.types.ts
-- apps/api/src/modules/staff-access/staff-delegated-access.guard.ts
-- apps/api/src/modules/staff-access/staff-projection.service.ts
-- apps/api/prisma/migrations/*_founder_control_center/**
-- infra/kind/production-like/postgresql-runtime-grants.sql
-- scripts/r1-founder-production-acceptance.mjs
-- .github/workflows/r1-founder-production-acceptance.yml
-- .github/workflows/ci.yml
+- apps/api/src/modules/staff-access/**
+- apps/api/test/staff-access/**
 
 CURRENT CRITERIA:
-- derive the exact 13-cabinet registry from current server role/route authority;
-- map role × object permissions, tenant boundaries, owner/founder entry authority, audit, APIs and current Control Center capabilities;
-- classify R1 requirements as KEEP, EXTEND_EXISTING or NEW_REQUIRED with current-main evidence;
-- identify controlled-test/demo dependencies that cannot count toward R1 production acceptance;
-- record active parallel UX/FGIS/bank changed-file boundaries and avoid implementation overlap;
-- keep R1 official points at 0 until the whole R1 block reaches PRODUCTION_PASS.
+- expose one server-owned canonical mapping for all 13 Founder role-mode cabinet intents;
+- preserve the authenticated Founder as actual actor and store effective organization/role only inside durable staff access context;
+- derive tenant server-side from the authorized organization; reject client-selected tenant/effective-role authority;
+- create role mode through existing PLATFORM_OWNER + recent MFA + VIEW_AS request/grant/session flow;
+- keep VIEW_AS read-only; high-risk actions remain behind ordinary authority, MFA and approval boundaries;
+- preserve reason, ticket, expiry, end/revoke and append-only audit evidence;
+- prove forged cabinet key, cross-tenant target, stale/revoked/expired session and write-in-VIEW_AS denials;
+- do not touch PRODUCT UX/FGIS/bank visual work.
 
 LOCKED:
-- R1 official 7 points remain 0 until the entire block has PRODUCTION_PASS.
-- UX/UI, FGIS and bank/finance visual implementation remain owned by the parallel account.
+- R1.3 CEO overview and P0/P1 decision queue until R1.2 is merged with exact-head evidence.
+- R1 official 7 points remain 0 until the whole block has PRODUCTION_PASS.
 
 NEXT:
-- Layer: R1.2 Controlled open-as-role server authority
+- Layer: R1.3 CEO overview and P0/P1 decision queue
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/autopilot/progress.json
@@ -47,29 +38,35 @@ NEXT:
   - docs/platform-v7/autopilot/prompts/current-review-task.md
   - docs/platform-v7/execution-queue.md
   - docs/execution/**
-  - apps/api/src/modules/staff-access/**
   - apps/api/src/app.module.ts
+  - apps/api/src/modules/founder-control/**
+  - apps/api/src/modules/staff-access/staff-access.types.ts
+  - apps/api/prisma/migrations/*_founder_control_center/**
+  - infra/kind/production-like/postgresql-runtime-grants.sql
+  - apps/api/test/staff-access/**
+  - .github/workflows/ci.yml
 - Success criteria:
-  - owner identity remains the actual actor while effective organization/tenant/role are server-derived from authorized targets
-  - VIEW_AS remains read-only and high-risk actions retain ordinary capability plus recent-MFA requirements
-  - session issuance, expiry, return/revoke and audit evidence are PostgreSQL-authoritative
-  - no controlled-test/demo target is accepted as R1 production evidence
-  - negative cross-tenant/role tamper and stale-session cases pass
+  - Company Health contract combines business, operations, finance, risk and system health without fake numeric fallback
+  - every metric exposes source/freshness/grain/formula or an explicit unavailable state plus drill-down reference
+  - P0/P1 queue exposes owner, deadline, impact, next action, escalation and source
+  - Founder read authority is PLATFORM_OWNER-only and current durable assignment/MFA are revalidated
+  - empty/unavailable is honest; plan/forecast never masquerades as actual
 - Readiness remains MASTER_R1_IN_PROGRESS.
+
+## R1.1 closed evidence
+- exact inventory: `docs/execution/R1_1_EXACT_INVENTORY_2026-09-20.md`
+- exact baseline used: `5da8e80744908413102214f91dd68018911b892e`
+- canonical 13 cabinet roots are derived from current server role/route authority.
+- controlled-test owner shortcut is explicitly excluded from R1 production evidence.
+- fragmented role/permission registries are recorded as R1 deltas rather than silently treated as canonical.
 
 ## R1 factual baseline
 - MASTER: PC-CROP_CODEX_MASTER_TZ_v2.1_2026-09-12.
-- exact current-main = exact production baseline at R1 start: `5da8e80744908413102214f91dd68018911b892e`.
-- REG.RU release controller evidence: run `35520784872`.
 - R0 = PRODUCTION_PASS.
 - IR-20 Canonical Durable Outbox = PRODUCTION_PASS.
-- Existing staff access already provides PostgreSQL-backed assignments/requests/grants/sessions, permission ceilings, recent-MFA checks, audited actual-actor context and read-only VIEW_AS projections.
-- Existing direct 13-cabinet shortcut uses controlled test organizations and therefore is not R1 acceptance evidence.
-- PR #5182 is stale and diverged from current main; do not merge it wholesale.
-- PR #5465 is parallel UX/public visual work and is not part of this lane.
-
-## Conflict rule
-Before every implementation slice re-check current main, open UX/FGIS/bank PRs and their changed files. If a path overlaps, keep this lane on backend/API/data contracts or wait for a separately admitted boundary. No force push, protection bypass, forged review or stale evidence reuse.
+- overall remains 5/100 until all R1 requirements pass together.
+- Team Hub #5469 is the live cross-contour coordination bus.
+- PRODUCT owns visual UX/FGIS/bank surfaces; CORE owns R1 server truth/authority/contracts.
 
 ## R1 PASS
 R1 remains IN_PROGRESS until REQ-R1-001..005 and REQ-ROL-001..006 are evidenced on one accepted exact SHA, including 13/13 open/read-or-authorized-action/return, denied/high-risk cases, real-data-only Founder metrics with source/drill-down, actual-actor/effective-role audit, PRE_RELEASE_PASS, exact-current-main REG.RU release, exact production identity, live acceptance and required observation. Only then may OVERALL_PRODUCTION_PROGRESS become 12/100 = 12%.
@@ -137,3 +134,4 @@ Required regressions: absent, rate-limited and retired AI providers cannot block
 Execution sequence: independently review and manually merge this owner-authorized migration after fresh applicable CI; verify live main; reassess #5422 and #5406 against that main and preserve their still-needed scope-enforcement and check-run-authority fixes without reintroducing provider binding; then forward-sync #5347, reuse the saved app_outbox transaction-local claim-protocol fixture, and obtain full CI plus real Production-like Kubernetes Acceptance PASS before its independent review and manual SHA-bound merge. Every remaining change stays in a separately approved narrow scope.
 
 IR-20 remains active. Its final closure requires the exact-current-main REG.RU release, verified immutable running images and canonical production Compose topology, functional live acceptance for the touched outbox flow, and at least 30 minutes of observation required by MASTER. Worker publication, protected release and rollback work require their own reviewed scopes and operational evidence. Local patches, independent review, green CI, a Kubernetes PASS, image publication and a merge do not by themselves constitute `PRODUCTION_PASS`. No IR-21 or other product delivery slice opens before the required IR-20 acceptance is complete.
+
