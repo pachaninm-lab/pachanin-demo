@@ -30,7 +30,11 @@ jobs:
       JWT_SECRET: canonical-visual-acceptance-secret
       PC_CABINET_SESSION_SECRET: canonical-visual-acceptance-secret
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
       - uses: pnpm/action-setup@v4
         with:
           version: 10.2.1
@@ -41,6 +45,8 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - name: Install frozen dependencies
         run: pnpm install --frozen-lockfile
+      - name: Typecheck exact head
+        run: pnpm --filter @pc/web typecheck
       - name: Build production web bundle
         run: pnpm --filter @pc/web build
       - name: Install Chromium
@@ -52,7 +58,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: platform-v7-canonical-visual-${{ github.sha }}
+          name: platform-v7-canonical-visual-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
             apps/web/test-results/canonical-visual
             apps/web/playwright-report-canonical-visual
