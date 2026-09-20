@@ -1518,6 +1518,11 @@
     "bank/release-request-truth-20260920": [
       "apps/web/app/platform-v7/bank/release-safety/page.tsx",
       "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx"
+    ],
+    "fgis/regulatory-truth-ux-20260921": [
+      "apps/web/components/crop-platform/IntegrationControlTowerClient.tsx",
+      "apps/web/components/crop-platform/IntegrationControlTowerClient.module.css",
+      "apps/web/tests/unit/platformV7IntegrationControlTower.test.ts"
     ]
   },
   "currentAcceptance": [
@@ -1636,6 +1641,32 @@
         "external-success claim"
       ],
       "teamHubDependency": "5752421291"
+    },
+    "fgis-regulatory-truth-ux-20260921": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Truthfulness-only Regulatory/FGIS Control Tower presentation correction using existing canonical read fields; no regulatory authority, applicability inference, external acceptance or provider activation.",
+      "authorityBaseExactMain": "3a8d7efe07097d78f70e6bba714f8daba7d1c1e2",
+      "implementationBranch": "fgis/regulatory-truth-ux-20260921",
+      "allowedPaths": [
+        "apps/web/components/crop-platform/IntegrationControlTowerClient.tsx",
+        "apps/web/components/crop-platform/IntegrationControlTowerClient.module.css",
+        "apps/web/tests/unit/platformV7IntegrationControlTower.test.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "freshnessAt is the timestamp of the latest server-held integration fact and must not be presented as proof that the authoritative external source is CURRENT",
+        "provider acknowledgement / HTTP success is not business acceptance",
+        "current Control Tower DTO does not expose per-Deal applicability, regulatory rule/version/source/evidence or blocking stage; PRODUCT must render that absence explicitly and never infer it",
+        "server-provided capabilities may be displayed but do not prove live provider connectivity"
+      ],
+      "forbiddenAuthority": [
+        "regulatory applicability or obligation authority",
+        "FGIS/SDIZ mutation or business acceptance",
+        "API/DTO/database/inbox/outbox/reconciliation authority",
+        "role/tenant/RLS authority",
+        "external-success/live-integration claim",
+        "regulatory override authority"
+      ],
+      "teamHubDependency": "PRODUCT-REGULATORY-APPLICABILITY-READ-CONTRACT-20260921"
     }
   }
 }
