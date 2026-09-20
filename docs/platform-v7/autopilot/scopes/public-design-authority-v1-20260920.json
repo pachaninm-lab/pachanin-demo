@@ -11,6 +11,9 @@
     ".github/workflows/platform-v7-canonical-visual-acceptance.yml",
     "DESIGN_AUTHORITY.md",
     "apps/api/src/modules/auctions/public-auction-market.spec.ts",
+    "apps/web/app/layout.tsx",
+    "apps/web/app/globals.css",
+    "apps/web/styles/platform-v7-tailwind-runtime.css",
     "apps/web/app/pc-public-entry/platform-v7/layout.tsx",
     "apps/web/app/platform-v7/**",
     "apps/web/components/platform-v7/**",
@@ -38,7 +41,8 @@
     "Visual acceptance uses exact-head production build evidence; no production release occurs before terminal acceptance.",
     "No branch protection, security gate, governance guard or server authority is bypassed.",
     "The canonical /platform-v7 landing does not hydrate hidden legacy contact/support surfaces; login/recovery and older public surfaces retain their existing support behavior.",
-    "The canonical landing may use a route-scoped stylesheet derived from the shared design system so linked-page CSS does not block home rendering; visual authority and shared tokens/primitives remain unchanged."
+    "The canonical landing may use a route-scoped stylesheet derived from the shared design system so linked-page CSS does not block home rendering; visual authority and shared tokens/primitives remain unchanged.",
+    "Tailwind utilities remain available to non-canonical routes through a server-gated style boundary, while /platform-v7 does not download the application-wide Tailwind bundle."
   ],
   "acceptance": [
     "Exact-head web typecheck, unit, Node CI, API and security gates pass.",
