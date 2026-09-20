@@ -1060,7 +1060,7 @@ verify_live_outbox_delivery() {
   [[ "$INTAKE_CORRELATION_ID" =~ ^[A-Za-z0-9._:-]{8,128}$ ]] || fail LIVE_OUTBOX_CORRELATION_INVALID 98
   worker_node "$INTAKE_CORRELATION_ID" <<'NODE' || fail LIVE_OUTBOX_DELIVERY_FAILED 99
 const {PrismaClient}=require('@prisma/client'); const correlation=process.argv[2]; const p=new PrismaClient(); const bad=new Set(['DEAD','DEAD_LETTER','MANUAL_REVIEW']);
-(async()=>{const deadline=Date.now()+120000; while(Date.now()<deadline){const rows=await p.$queryRawUnsafe('SELECT status FROM public.outbox_entries WHERE "correlationId"=$1 ORDER BY "createdAt" DESC LIMIT 1',correlation); if(rows.length===1){const s=String(rows[0].status); if(s==='SENT'||s==='CONFIRMED'){process.stdout.write('IR20_LIVE_OUTBOX_DELIVERY=PASS\\n');return;} if(bad.has(s)) throw Error('BAD');} await new Promise(r=>setTimeout(r,1000));} throw Error('TIMEOUT');})().catch(()=>process.exitCode=1).finally(()=>p.$disconnect());
+(async()=>{const deadline=Date.now()+120000; while(Date.now()<deadline){const rows=await p.$queryRawUnsafe('SELECT status FROM public.outbox_entries WHERE "correlationId"=$1 ORDER BY "createdAt" DESC LIMIT 1',correlation); if(rows.length===1){const s=String(rows[0].status); if(s==='SENT'||s==='CONFIRMED'){process.stdout.write('IR20_LIVE_OUTBOX_DELIVERY=PASS\n');return;} if(bad.has(s)) throw Error('BAD');} await new Promise(r=>setTimeout(r,1000));} throw Error('TIMEOUT');})().catch(()=>process.exitCode=1).finally(()=>p.$disconnect());
 NODE
 }
 
