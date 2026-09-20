@@ -70,12 +70,13 @@ export default async function HowItWorksPage(){
  const locale=canonicalPublicLocale(await getLocale()); const c=COPY[locale];
  return <main className='pc-canonical-public pc-cp-page-how'>
   <CanonicalPublicHeader locale={locale} activePath='/platform-v7/how-it-works'/>
-  <section className='pc-cp-hero'>
-   <div className='pc-cp-container pc-cp-hero-grid'>
-    <div className='pc-cp-hero-copy'><span className='pc-cp-eyebrow'>{c.e}</span><h1 style={{maxWidth:'13ch'}}>{c.t}</h1><p>{c.p}</p><div className='pc-cp-actions'><Link className='pc-cp-button' href={`/platform-v7/register?lang=${locale}`}>{c.cta}<ArrowRight size={16}/></Link><Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/market?lang=${locale}`}>{c.market}</Link></div></div>
-    <aside className='pc-cp-card pc-cp-state-shell'><CanonicalDealSpine locale={locale} currentIndex={0}/></aside>
+  <section className='pc-cp-hero pc-cp-how-hero'>
+   <div className='pc-cp-container pc-cp-how-hero-grid'>
+    <div className='pc-cp-hero-copy'><span className='pc-cp-eyebrow'>{c.e}</span><h1>{c.t}</h1><p>{c.p}</p></div>
+    <aside className='pc-cp-how-hero-quote'><strong>{locale==='ru'?'От поля до результата':locale==='en'?'From field to outcome':'从田间到结果'}</strong><span>{locale==='ru'?'Один контекст, семь этапов, проверяемые факты.':locale==='en'?'One context, seven stages, verifiable facts.':'一个上下文、七个阶段、可核验事实。'}</span></aside>
    </div>
   </section>
+  <section className='pc-cp-how-spine'><div className='pc-cp-container'><CanonicalDealSpine locale={locale} currentIndex={0}/></div></section>
   <section className='pc-cp-section'><div className='pc-cp-container'>
    <div className='pc-cp-process-cards'>
     {c.stages.map((s,index)=><article className='pc-cp-card pc-cp-process-card' key={s[0]}><i>{index+1}</i><div><h3>{s[0]}</h3><div className='pc-cp-process-meta'>
@@ -83,8 +84,11 @@ export default async function HowItWorksPage(){
     </div></div></article>)}
    </div>
   </div></section>
-  <section className='pc-cp-section pc-cp-section--soft'><div className='pc-cp-container'><div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{c.trust}</span><h2>{c.trust}</h2><p>{c.trustLead}</p></div><CanonicalTrustLedger locale={locale}/></div></section>
-  <section className='pc-cp-section pc-cp-section--tight'><div className='pc-cp-container'><CanonicalGektaStrip locale={locale}/></div></section>
+  <section className='pc-cp-section pc-cp-section--soft pc-cp-how-trust'><div className='pc-cp-container'>
+   <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{c.trust}</span><h2>{c.trust}</h2><p>{c.trustLead}</p></div>
+   <div className='pc-cp-how-trust-layout'><CanonicalTrustLedger locale={locale}/><aside className='pc-cp-how-gekta-note'><strong>{locale==='ru'?'Гекта помогает понимать, а не решать':locale==='en'?'Gekta helps understand, not decide':'Gekta 帮助理解，而不是替你决定'}</strong><p>{locale==='ru'?'Объясняет факты и следующий допустимый шаг. Решение остаётся за участником и правилами Сделки.':locale==='en'?'Explains facts and the next permitted step. The decision stays with the participant and Deal rules.':'解释事实和允许的下一步；决定仍由参与方和交易规则控制。'}</p></aside></div>
+  </div></section>
+  <section className='pc-cp-section pc-cp-section--tight pc-cp-how-gekta'><div className='pc-cp-container'><CanonicalGektaStrip locale={locale}/></div></section>
   <CanonicalFooter locale={locale}/><CanonicalBottomNav locale={locale} active='/platform-v7/how-it-works'/>
  </main>
 }
