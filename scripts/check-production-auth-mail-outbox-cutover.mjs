@@ -142,7 +142,7 @@ has(workflow, 'inputs.controller_target_sha', 'workflow must consume direct targ
 has(workflow, 'inputs.controller_run_id', 'workflow must consume direct controller run ID');
 has(workflow, 'inputs.controller_issue_number', 'workflow must consume direct controller issue number');
 has(workflow, "'production-full-stack-execution-3072 / Validate full-stack release contract'", 'controller full-stack contract evidence check missing');
-has(workflow, "'production-full-stack-execution-3072 / Migrate, deploy API and web, verify live intake'", 'controller production rollout evidence check missing');
+has(workflow, "'production-full-stack-execution-3072 / Migrate, deploy API/web and canonical outbox, verify live delivery'", 'controller production rollout evidence check missing');
 has(workflow, 'AUTH_MAIL_CUTOVER=FAIL_CONTROLLER_RELEASE_EVIDENCE', 'controller release evidence fail-closed marker missing');
 has(workflow, 'mapfile -t conclusions', 'controller job proof must retain exact cardinality');
 has(workflow, '"${#conclusions[@]}" == 1', 'controller job proof must reject missing or duplicate jobs');
