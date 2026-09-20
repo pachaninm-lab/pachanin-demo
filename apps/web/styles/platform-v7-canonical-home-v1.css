@@ -891,3 +891,17 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
     contain-intrinsic-size:auto 320px;
   }
 }
+
+/* Mobile LCP authority: the canonical hero image is decorative. Render the same
+   asset as a CSS background so semantic LCP is the visible hero copy, while
+   preserving the approved crop and overlay. */
+@media(max-width:760px){
+  .pc-cp-page-home .pc-cp-hero{
+    background-color:#d9b86f!important;
+    background-image:url('/platform-v7/hero-farmer-canonical.webp')!important;
+    background-size:cover!important;
+    background-position:70% 35%!important;
+    background-repeat:no-repeat!important
+  }
+  .pc-cp-page-home .pc-cp-hero-media{display:none!important}
+}
