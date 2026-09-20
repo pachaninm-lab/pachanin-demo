@@ -270,3 +270,16 @@
 .p7-contact-success,.p7-contact-error{display:grid;gap:10px}.p7-contact-success h2{margin:0;font-family:var(--pc-cp-display);font-size:32px}.p7-contact-success p,.p7-contact-error p{margin:0;color:var(--pc-cp-muted);line-height:1.5}.p7-contact-success a{color:var(--pc-cp-green);font-weight:800;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
 .p7-contact-error{padding:14px;border:1px solid #efcccc;border-radius:14px;background:#fff5f5}.p7-contact-error svg{color:var(--pc-cp-red)}.p7-contact-error a{color:var(--pc-cp-red);font-weight:800}
 @media(max-width:760px){.p7-contact-page{padding:calc(84px + env(safe-area-inset-top,0px)) 14px 116px}.p7-contact-layout{grid-template-columns:1fr}.p7-contact-form-card{padding:16px}.p7-contact-form{grid-template-columns:1fr}.p7-contact-form h2,.p7-contact-form>p,.p7-contact-full,.p7-contact-consent,.p7-contact-form>button{grid-column:1}.p7-contact-copy h1{font-size:41px}}
+
+/* canonical UX states */
+.pc-cp-ux-state{width:min(100%,760px);min-height:190px;margin-inline:auto;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;padding:24px;border:1px dashed var(--pc-cp-line-strong);border-radius:var(--pc-cp-radius);background:#fff}
+.pc-cp-ux-state--compact{min-height:0;padding:16px}
+.pc-cp-ux-state-icon{width:44px;height:44px;display:grid;place-items:center;border-radius:13px;background:var(--pc-cp-green-soft);color:var(--pc-cp-green)}
+.pc-cp-ux-state[data-ux-state='validation-error'] .pc-cp-ux-state-icon,.pc-cp-ux-state[data-ux-state='conflict'] .pc-cp-ux-state-icon{background:#fff7e8;color:#8b620f}
+.pc-cp-ux-state[data-ux-state='permission-denied'] .pc-cp-ux-state-icon,.pc-cp-ux-state[data-ux-state='unavailable'] .pc-cp-ux-state-icon{background:#fff1f1;color:#9f3030}
+.pc-cp-ux-state[data-ux-state='success'] .pc-cp-ux-state-icon{background:#edf7f1;color:var(--pc-cp-green)}
+.pc-cp-ux-state[data-ux-state='loading'] .pc-cp-ux-state-icon svg{animation:pc-cp-spin 1s linear infinite}
+.pc-cp-ux-state-copy strong{display:block;font-size:18px}.pc-cp-ux-state-copy p{margin:5px 0 0;color:var(--pc-cp-muted);font-size:13px;line-height:1.5}
+@keyframes pc-cp-spin{to{transform:rotate(360deg)}}
+@media(max-width:600px){.pc-cp-ux-state{grid-template-columns:auto minmax(0,1fr);padding:18px;min-height:154px}.pc-cp-ux-state>.pc-cp-button{grid-column:1/-1;width:100%}}
+@media(forced-colors:active){.pc-cp-button,.pc-cp-card,.pc-cp-chip,.pc-cp-ux-state,.pc-cp-search{forced-color-adjust:auto}.pc-cp-stage i,.pc-cp-ux-state-icon{border:1px solid CanvasText}.pc-cp-hero::before,.pc-cp-final::before{display:none}}
