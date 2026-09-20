@@ -448,22 +448,41 @@ runtime_project=""
 resolve_release_runtime_project || fail RUNTIME_PROJECT_VALIDATION_FAILED 78
 
 write_override() {
-  local api_image="$1" web_image="$2" migration_image="$3" worker_image="$4" destination="$5"
-  local include_password_reset_runtime="${6:-0}" include_ir20="${7:-0}"
+  local api_image="$1" web_image="$2" migration_image="$3" destination="$4"
+  local include_password_reset_runtime="${5:-0}" worker_image="${6:-}" include_ir20="${7:-0}"
   [[ "$include_password_reset_runtime" =~ ^[01]$ ]] || fail PASSWORD_RESET_RUNTIME_OVERRIDE_MODE_INVALID 67
   [[ "$include_ir20" =~ ^[01]$ ]] || fail IR20_RUNTIME_OVERRIDE_MODE_INVALID 84
   umask 077
-  {
-    printf 'services:\n'
-    printf '  api:\n    image: %s\n    pull_policy: never\n    environment:\n      OUTBOX_WORKER_ENABLED: "false"\n' "$api_image"
-    printf '    env_file:\n      - %s\n      - %s\n' "$auth_opaque_token_env_file" "$staff_database_env_file"
-    if [[ "$include_password_reset_runtime" == 1 ]]; then printf '      - %s\n      - %s\n' "$password_reset_delivery_env_file" "$gekta_api_runtime_env_file"; fi
-    printf '  web:\n    image: %s\n    pull_policy: never\n' "$web_image"
-    if [[ "$include_password_reset_runtime" == 1 ]]; then printf '    env_file:\n      - %s\n      - %s\n      - %s\n' "$password_reset_delivery_env_file" "$transactional_mail_env_file" "$gekta_web_runtime_env_file"; fi
-    printf '  %s:\n    image: %s\n    pull_policy: never\n' "$migration_service" "$migration_image"
-    if [[ "$include_ir20" == 1 ]]; then
-      [[ -n "$worker_image" && -n "$outbox_runtime_env_file" ]] || fail IR20_RUNTIME_INPUT_MISSING 85
-      cat <<YAML
+  cat > "$destination.tmp" <<YAML
+services:
+  api:
+    image: ${api_image}
+    pull_policy: never
+    environment:
+      OUTBOX_WORKER_ENABLED: "false"
+    env_file:
+      - ${auth_opaque_token_env_file}
+      - ${staff_database_env_file}
+$(if [[ "$include_password_reset_runtime" == 1 ]]; then
+  printf '      - %s\n' "${password_reset_delivery_env_file}"
+  printf '      - %s\n' "${gekta_api_runtime_env_file}"
+fi)
+  web:
+    image: ${web_image}
+    pull_policy: never
+$(if [[ "$include_password_reset_runtime" == 1 ]]; then
+  printf '    env_file:\n'
+  printf '      - %s\n' "${password_reset_delivery_env_file}"
+  printf '      - %s\n' "${transactional_mail_env_file}"
+  printf '      - %s\n' "${gekta_web_runtime_env_file}"
+fi)
+  ${migration_service}:
+    image: ${migration_image}
+    pull_policy: never
+YAML
+  if [[ "$include_ir20" == 1 ]]; then
+    [[ -n "$worker_image" && -n "$outbox_runtime_env_file" ]] || fail IR20_RUNTIME_INPUT_MISSING 85
+    cat >> "$destination.tmp" <<YAML
   $KAFKA_SERVICE:
     image: $KAFKA_IMAGE
     pull_policy: never
@@ -491,19 +510,24 @@ write_override() {
       timeout: 5s
       retries: 30
       start_period: 20s
-    security_opt: ["no-new-privileges:true"]
+    security_opt:
+      - no-new-privileges:true
   $OUTBOX_SERVICE:
     image: $worker_image
     pull_policy: never
     restart: unless-stopped
-    env_file: [$outbox_runtime_env_file]
+    env_file:
+      - $outbox_runtime_env_file
     depends_on:
       $KAFKA_SERVICE:
         condition: service_healthy
     read_only: true
-    tmpfs: ["/tmp:size=64m,mode=1777"]
-    cap_drop: [ALL]
-    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     stop_grace_period: 90s
     healthcheck:
       test: ["CMD", "/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:3002/ready',{signal:AbortSignal.timeout(4000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
@@ -515,9 +539,9 @@ volumes:
   pc_ir20_kafka_data:
     name: pc_ir20_kafka_data
 YAML
-    fi
-  } > "$destination.tmp"
-  mv "$destination.tmp" "$destination"; chmod 0600 "$destination"
+  fi
+  mv "$destination.tmp" "$destination"
+  chmod 0600 "$destination"
 }
 
 dc_target=("${dc[@]}" -f "$full_override")
@@ -780,7 +804,7 @@ rollback_images() {
   resolve_outbox_runtime_env_file
   if [[ "${BASELINE_WORKER_PRESENT:-0}" == 1 ]]; then
     is_revision "${BASELINE_WORKER_REVISION:-}" || return 1
-    write_override "$BASELINE_API_IMAGE" "$BASELINE_WEB_IMAGE" "$MIGRATION_IMAGE" "$BASELINE_WORKER_IMAGE" "$full_override" 0 1
+    write_override "$BASELINE_API_IMAGE" "$BASELINE_WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override" 0 "$BASELINE_WORKER_IMAGE" 1
     "${dc_target[@]}" config --quiet
     "${dc_target[@]}" up -d --no-deps --pull never "$KAFKA_SERVICE" "$OUTBOX_SERVICE" api web
     wait_broker && wait_worker && wait_api && wait_web || return 1
@@ -791,7 +815,7 @@ rollback_images() {
     broker_id="$(optional_release_service_id "$KAFKA_SERVICE")" || return 1
     [[ -z "$worker_id" ]] || docker rm -f "$worker_id" >/dev/null 2>&1 || return 1
     [[ -z "$broker_id" ]] || docker rm -f "$broker_id" >/dev/null 2>&1 || return 1
-    write_override "$BASELINE_API_IMAGE" "$BASELINE_WEB_IMAGE" "$MIGRATION_IMAGE" "" "$full_override" 0 0
+    write_override "$BASELINE_API_IMAGE" "$BASELINE_WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override"
     "${dc_target[@]}" config --quiet
     "${dc_target[@]}" up -d --no-deps --pull never api web
     wait_api && wait_web || return 1
@@ -1057,6 +1081,7 @@ baseline_worker_id="$(optional_release_service_id "$OUTBOX_SERVICE")" || fail OU
 baseline_broker_id="$(optional_release_service_id "$KAFKA_SERVICE")" || fail KAFKA_BASELINE_DISCOVERY_FAILED 113
 if [[ -n "$baseline_worker_id" ]]; then BASELINE_WORKER_PRESENT=1; baseline_worker_image="$(docker inspect --format '{{.Config.Image}}' "$baseline_worker_id")"; baseline_worker_revision="$(container_revision "$baseline_worker_id")"; is_revision "$baseline_worker_revision" || fail OUTBOX_BASELINE_REVISION_INVALID 114; else baseline_worker_image=''; baseline_worker_revision=''; fi
 [[ -z "$baseline_broker_id" ]] || BASELINE_BROKER_PRESENT=1
+[[ "$BASELINE_WORKER_PRESENT" == "$BASELINE_BROKER_PRESENT" ]] || fail IR20_BASELINE_TOPOLOGY_PARTIAL 121
 resolve_outbox_runtime_env_file
 cat > "$STATE_FILE" <<STATE
 BASELINE_API_IMAGE='$baseline_api_image'
@@ -1116,13 +1141,13 @@ fi
 RELEASE_ROLLBACK_ARMED=1
 mutated=1
 if [[ "$BASELINE_WORKER_PRESENT" == 1 ]]; then docker stop "$baseline_worker_id" >/dev/null; fi
-write_override "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" "" "$full_override" 1 0
+write_override "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override" 1
 "${dc_target[@]}" config --quiet
 "${dc_target[@]}" run --rm --no-deps --pull never "$migration_service"
 printf 'MIGRATION_COMPLETE=1\n'
 apply_outbox_policy
 provision_outbox_runtime
-write_override "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" "$OUTBOX_WORKER_IMAGE" "$full_override" 1 1
+write_override "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override" 1 "$OUTBOX_WORKER_IMAGE" 1
 "${dc_target[@]}" config --quiet
 "${dc_target[@]}" up -d --no-deps --pull never "$KAFKA_SERVICE"; wait_broker || fail KAFKA_READINESS_FAILED 115
 ensure_kafka_topics || fail KAFKA_TOPIC_AUTHORITY_FAILED 116
@@ -1152,4 +1177,7 @@ fi
 [[ "$(docker inspect --format '{{.Config.Image}}' "$new_broker_id")" == "$KAFKA_IMAGE" ]] || fail RUNNING_KAFKA_IMAGE_BINDING_FAILED 120
 RELEASE_ROLLBACK_ARMED=0; mutated=0; trap - ERR
 printf 'DEPLOYED_API_REVISION=%s\n' "$new_api_revision"; printf 'DEPLOYED_WEB_REVISION=%s\n' "$new_web_revision"; printf 'DEPLOYED_OUTBOX_WORKER_REVISION=%s\n' "$new_worker_revision"
-printf 'IR20_KAFKA_READY=1\nIR20_OUTBOX_WORKER_READY=1\nWATCHTOWER_RETIRED=1\nDEPLOYMENT_COMPLETE=1\n'
+printf 'IR20_KAFKA_READY=1\n'
+printf 'IR20_OUTBOX_WORKER_READY=1\n'
+printf 'WATCHTOWER_RETIRED=1\n'
+printf 'DEPLOYMENT_COMPLETE=1\n'
