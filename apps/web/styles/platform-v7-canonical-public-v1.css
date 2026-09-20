@@ -1239,3 +1239,11 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
     grid-template-columns:repeat(4,minmax(0,1fr))!important
   }
 }
+
+
+/* MOBILE INTERACTION FLOOR — canonical 44px */
+@media(max-width:760px){
+  .pc-cp-page-home .pc-cp-hero-copy .pc-cp-button{min-height:44px!important}
+  .pc-cp-page-deal-flow .pc-cp-deal-public-main .pc-cp-state-tab{min-height:44px!important}
+  .pc-cp-page-trust .pc-cp-faq-item summary{min-height:44px!important}
+}
