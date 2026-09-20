@@ -8,6 +8,7 @@
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
+    ".github/workflows/crypto-inventory-exact-head-evidence.yml",
     ".github/workflows/platform-v7-canonical-visual-acceptance.yml",
     "DESIGN_AUTHORITY.md",
     "apps/api/src/modules/auctions/public-auction-market.spec.ts",
