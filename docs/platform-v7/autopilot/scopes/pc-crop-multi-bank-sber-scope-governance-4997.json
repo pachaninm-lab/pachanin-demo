@@ -1,7 +1,7 @@
 {
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "issue": 4997,
-  "status": "staged",
+  "status": "active",
   "authorizedBy": "explicit-user-instruction",
   "authorityBaseExactMain": "3a8d7efe07097d78f70e6bba714f8daba7d1c1e2",
   "authorization": "Owner instruction on 2026-09-21 to continue the bank/finance lane continuously, combined with the earlier staged W6-A authority. This governance PR changes no product behavior and grants no implementation authority until exact-head review, CI and merge.",
@@ -32,11 +32,12 @@
     "securityGateWeakening": false,
     "externalSuccessClaim": false,
     "credentialOrSecretChange": false,
-    "implementationAuthorityGranted": false,
     "providerSpecificCoreState": false,
     "publicDocsAreLiveEvidence": false,
     "httpAckEqualsFinality": false,
-    "productRuntimeBindingBeforeCanonicalReadContract": false
+    "productRuntimeBindingBeforeCanonicalReadContract": false,
+    "implementationAuthorityBeforeGovernanceMerge": false,
+    "implementationAuthorityAfterAcceptedMainMerge": true
   },
   "historicalStagedBaseExactMain": "7f900c79326a8ac816324472f90995428842ac9d",
   "targetProviderFamilies": [
@@ -44,5 +45,6 @@
     "ALFA_BANK",
     "T_BANK"
   ],
-  "sourceDiscovery": "Official public developer documentation was re-verified on 2026-09-21; this only informs adapter/conformance planning and does not advance canonical IntegrationCapability maturity."
+  "sourceDiscovery": "Official public developer documentation was re-verified on 2026-09-21; this only informs adapter/conformance planning and does not advance canonical IntegrationCapability maturity.",
+  "effectiveAfter": "Merged to main after exact-head CI, independent review and owner self-audit. The PR head itself is not authority for the future implementation branch."
 }
