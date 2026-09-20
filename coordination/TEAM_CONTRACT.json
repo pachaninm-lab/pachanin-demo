@@ -1,0 +1,110 @@
+{
+  "schemaVersion": "pc-crop.team-coordination.v1",
+  "status": "ACTIVE",
+  "hubIssue": 5469,
+  "hubUrl": "https://github.com/pachaninm-lab/pachanin-demo/issues/5469",
+  "coordinationBranch": "coordination/pc-crop-team-hub",
+  "master": {
+    "version": "2.1",
+    "originalFilename": "!!!!! PC-CROP_CODEX_MASTER_TZ_v2.1_2026-09-12.docx",
+    "originalSha256": "7b81a6de53081b7eec1edfa654ae73a4597137db61e99652037f89544f309e42",
+    "indexPath": "coordination/master-v2.1/INDEX.md",
+    "normativeSource": "original DOCX",
+    "githubCopyPurpose": "shared agent-readable continuous Markdown copy"
+  },
+  "sessionPreflight": [
+    "refresh_live_main",
+    "read_team_hub_latest",
+    "read_applicable_master",
+    "inspect_other_contour_active_prs_and_changed_paths",
+    "inspect_dependencies_handoffs_decisions_conflicts",
+    "check_file_and_semantic_collision",
+    "post_or_refresh_claim_before_implementation"
+  ],
+  "messageTypes": [
+    "CLAIM",
+    "DEPENDENCY",
+    "HANDOFF",
+    "DECISION",
+    "PEER_REVIEW_REQUEST",
+    "CONFLICT",
+    "CHECKPOINT",
+    "PRODUCTION_LINK"
+  ],
+  "priorities": [
+    "P0_PRODUCTION_SECURITY_DATA_LOSS_MONEY_INTEGRITY",
+    "CROSS_CONTOUR_BLOCKING_DEPENDENCY",
+    "CURRENT_MASTER_CRITICAL_PATH",
+    "NEXT_REMAINING_ONLY_OWN_LANE",
+    "INDEPENDENT_POLISH"
+  ],
+  "contours": {
+    "ACCOUNT_1_CORE": {
+      "primary": "MASTER core; current R1 to PRODUCTION_PASS",
+      "owns": [
+        "server_domain_authority",
+        "founder_owner_authority",
+        "controlled_open_as_role",
+        "postgresql_rls_tenant_permissions",
+        "r1_api_dto_contracts",
+        "decision_semantics",
+        "metric_truth_authority",
+        "audit_security_ci",
+        "r1_release_and_production_acceptance"
+      ],
+      "doesNotOwn": [
+        "competing_visual_design",
+        "parallel_fgis_implementation",
+        "parallel_bank_product_surface"
+      ],
+      "bootstrapPr": 5468
+    },
+    "ACCOUNT_2_PRODUCT": {
+      "primary": "UX/UI + FGIS + bank/finance product/integration surfaces",
+      "owns": [
+        "approved_visual_authority",
+        "product_ux_usability",
+        "desktop_mobile_accessibility_i18n",
+        "public_and_role_surfaces",
+        "fgis_product_integration_surfaces",
+        "bank_finance_product_integration_surfaces"
+      ],
+      "doesNotOwn": [
+        "parallel_founder_owner_authority",
+        "parallel_rls_tenant_authority",
+        "parallel_payment_settlement_finality",
+        "parallel_r1_server_semantics",
+        "duplicate_canonical_core"
+      ],
+      "bootstrapPr": 5465
+    }
+  },
+  "collisionPolicy": {
+    "fileOverlap": "WARN_AND_INSPECT",
+    "semanticAuthorityOverlap": "HARD_STOP_OVERLAPPING_IMPLEMENTATION",
+    "existingValidClaimKeepsOwnership": true,
+    "resolveVia": [
+      "DEPENDENCY",
+      "HANDOFF",
+      "DECISION",
+      "CONFLICT"
+    ]
+  },
+  "reciprocalPeerReview": {
+    "ACCOUNT_1_CORE_reviews_PRODUCT_for": [
+      "authority_leak",
+      "api_contract_truth",
+      "tenant_role_money_finality_boundary",
+      "registration_security_regression"
+    ],
+    "ACCOUNT_2_PRODUCT_reviews_CORE_for": [
+      "ux_contract_completeness",
+      "state_coverage",
+      "mobile_accessibility",
+      "error_empty_loading_denied_workflows"
+    ],
+    "note": "peer compatibility review complements but never substitutes repository-required independent review"
+  },
+  "ownerInteractionPolicy": "PRODUCT_OWNER_NOT_DAY_TO_DAY_DISPATCHER",
+  "productionProtection": "coordination updates must not move main merely to communicate team state"
+}
