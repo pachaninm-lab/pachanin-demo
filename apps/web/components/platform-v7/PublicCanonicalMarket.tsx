@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { ArrowRight, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { getPublicMarketLots, type PublicMarketLot, type PublicMarketReadResult } from '@/lib/public-market-server';
 import { canonicalPublicLocale, type CanonicalPublicLocale } from './PublicCanonicalPrimitives';
@@ -116,7 +115,6 @@ export async function CanonicalMarketResults({
 
 function MarketCard({ lot, locale, selected = false }: { lot: PublicMarketLot; locale: CanonicalPublicLocale; selected?: boolean }) {
   const copy = COPY[locale];
-  const suffix = `?lang=${locale}`;
   const loginHref = `/platform-v7/login?lang=${locale}`;
   const registerHref = `/platform-v7/register?lang=${locale}&intent=buy`;
   return (
