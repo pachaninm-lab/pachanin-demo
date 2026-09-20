@@ -73,7 +73,9 @@ describe('platform-v7 canonical public experience',()=>{
 
   it('uses the four-part trust model everywhere instead of maturity claims',()=>{
     for(const item of ['Полномочия','Основание','Источник','Решение']) expect(primitives).toContain(item);
-    expect(trust).toContain('CanonicalTrustLedger');
+    expect(trust).toContain('TRUST_MODEL');
+    expect(trust).toContain('TRUST_DETAILS');
+    expect(trust).toContain('pc-cp-trust-pillar');
     expect(protectedDeal).toContain('CanonicalTrustLedger');
     expect(home).toContain('CanonicalTrustLedger');
     expect(trust).not.toContain('provider-status');
