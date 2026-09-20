@@ -320,7 +320,19 @@ compose_id() { "${dc[@]}" ps -q "$1" | head -1; }
 api_id="$(compose_id api)"
 web_id="$(compose_id web)"
 [[ -n "$api_id" && -n "$web_id" ]] || fail TARGET_RUNTIME_MISSING 16
-baseline_api_image="$(docker inspect --format '{{.Config.Image}}' "$api_id")"
+api_runtime_network_name=""
+resolve_api_runtime_network_authority() {
+  local -a network_names
+  mapfile -t network_names < <(docker inspect --format '{{range $name, $_ := .NetworkSettings.Networks}}{{println $name}}{{end}}' "$api_id" | sed '/^[[:space:]]*$/d' | sort -u)
+  (( ${#network_names[@]} == 1 )) || fail API_RUNTIME_NETWORK_CARDINALITY_INVALID 125
+  api_runtime_network_name="${network_names[0]}"
+  [[ "$api_runtime_network_name" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$ ]] || fail API_RUNTIME_NETWORK_NAME_INVALID 126
+  docker network inspect "$api_runtime_network_name" >/dev/null 2>&1 || fail API_RUNTIME_NETWORK_NOT_FOUND 127
+}
+if [[ "$ACTION" == deploy || "$ACTION" == rollback ]]; then
+  resolve_api_runtime_network_authority
+fi
+baseline_api_image="$(docker inspect --format '{{.Config.Image}}' "$api_id")
 baseline_web_image="$(docker inspect --format '{{.Config.Image}}' "$web_id")"
 baseline_api_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
 baseline_web_revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
@@ -504,6 +516,8 @@ YAML
       KAFKA_HEAP_OPTS: -Xms256m -Xmx512m
     volumes:
       - pc_ir20_kafka_data:/var/lib/kafka/data
+    networks:
+      - ir20_api_runtime
     healthcheck:
       test: ["CMD-SHELL", "kafka-topics --bootstrap-server 127.0.0.1:9092 --list >/dev/null 2>&1"]
       interval: 10s
@@ -518,6 +532,8 @@ YAML
     restart: unless-stopped
     env_file:
       - $outbox_runtime_env_file
+    networks:
+      - ir20_api_runtime
     depends_on:
       $KAFKA_SERVICE:
         condition: service_healthy
@@ -538,6 +554,10 @@ YAML
 volumes:
   pc_ir20_kafka_data:
     name: pc_ir20_kafka_data
+networks:
+  ir20_api_runtime:
+    external: true
+    name: $api_runtime_network_name
 YAML
   fi
   mv "$destination.tmp" "$destination"
@@ -776,6 +796,20 @@ print("DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '\''app
 }
 
 worker_node() { "${dc_target[@]}" run --rm --no-deps --pull never -T --entrypoint /nodejs/bin/node "$OUTBOX_SERVICE" - "$@"; }
+
+verify_ir20_runtime_network_parity() {
+  local current_api current_worker current_broker
+  local -a api_networks worker_networks broker_networks
+  current_api="$("${dc_target[@]}" ps -q api | head -1)"
+  current_worker="$("${dc_target[@]}" ps -q "$OUTBOX_SERVICE" | head -1)"
+  current_broker="$("${dc_target[@]}" ps -q "$KAFKA_SERVICE" | head -1)"
+  [[ -n "$current_api" && -n "$current_worker" && -n "$current_broker" ]] || return 1
+  mapfile -t api_networks < <(docker inspect --format '{{range $name, $_ := .NetworkSettings.Networks}}{{println $name}}{{end}}' "$current_api" | sed '/^[[:space:]]*$/d' | sort -u)
+  mapfile -t worker_networks < <(docker inspect --format '{{range $name, $_ := .NetworkSettings.Networks}}{{println $name}}{{end}}' "$current_worker" | sed '/^[[:space:]]*$/d' | sort -u)
+  mapfile -t broker_networks < <(docker inspect --format '{{range $name, $_ := .NetworkSettings.Networks}}{{println $name}}{{end}}' "$current_broker" | sed '/^[[:space:]]*$/d' | sort -u)
+  (( ${#api_networks[@]} == 1 && ${#worker_networks[@]} == 1 && ${#broker_networks[@]} == 1 )) || return 1
+  [[ "${api_networks[0]}" == "$api_runtime_network_name"     && "${worker_networks[0]}" == "$api_runtime_network_name"     && "${broker_networks[0]}" == "$api_runtime_network_name" ]]
+}
 
 worker_principal_smoke() {
   worker_node <<'NODE' >/dev/null 2>&1
@@ -1183,6 +1217,7 @@ ensure_kafka_topics || fail KAFKA_TOPIC_AUTHORITY_FAILED 116
 verify_first_broker_restart_persistence || fail KAFKA_PERSISTENCE_PROOF_FAILED 117
 "${dc_target[@]}" up -d --no-deps --pull never "$OUTBOX_SERVICE"
 if ! wait_worker; then emit_worker_startup_diagnostics; fail OUTBOX_WORKER_READINESS_FAILED 118; fi
+verify_ir20_runtime_network_parity || fail IR20_RUNTIME_NETWORK_PARITY_FAILED 128
 worker_principal_smoke || fail OUTBOX_PRINCIPAL_BOUNDARY_FAILED 97
 "${dc_target[@]}" up -d --no-deps --pull never api
 if ! wait_api; then emit_api_startup_diagnostics; fail API_READINESS_FAILED 30; fi
