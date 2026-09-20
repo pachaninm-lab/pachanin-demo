@@ -2,6 +2,8 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
+import { evaluateRights, parseRightsRegister, rightsSets } from './contributor-rights.mjs';
+import { parseDeminimisRegister, verifyDeminimis } from './deminimis-adjudication.mjs';
 
 const outDir = process.argv[2] ?? 'artifacts/ip-clean-room';
 mkdirSync(outDir, { recursive: true });
@@ -36,6 +38,7 @@ const indexByPath = new Map(indexEntries.map((entry) => [entry.path, entry]));
 
 const firstByPath = new Map();
 const contributorsByPath = new Map();
+const historyEmailsByPath = new Map();
 const allContributors = new Map();
 const historicalVendor = new Map();
 const historicalDeleted = new Map();
@@ -49,6 +52,8 @@ function rememberContributor(path, commit) {
   const id = contributorId(commit.authorName, commit.authorEmail);
   if (!contributorsByPath.has(path)) contributorsByPath.set(path, new Set());
   contributorsByPath.get(path).add(id);
+  if (!historyEmailsByPath.has(path)) historyEmailsByPath.set(path, new Set());
+  historyEmailsByPath.get(path).add(String(commit.authorEmail || '').trim().toLowerCase());
   const existing = allContributors.get(id) ?? {
     contributorId: id,
     displayName: commit.authorName || 'UNKNOWN',
@@ -137,6 +142,27 @@ for (const path of tracked) {
   }
 }
 
+// Rights evidence for first-party classification. The decision logic and the
+// register schema live in ./contributor-rights.mjs so they can be exercised directly;
+// this file supplies only the Git I/O. classify()'s UNKNOWN fallthrough is unchanged:
+// nothing is presumed owned, and the gate below is the single evidenced route out.
+const rightsRegisterDocument = JSON.parse(readFileSync('docs/ip/contributor-rights-register.json', 'utf8'));
+const { byEmail: rightsByEmail, defects: rightsDefects } = parseRightsRegister(rightsRegisterDocument);
+if (rightsDefects.length) {
+  throw new Error(`contributor-rights-register.json is defective: ${rightsDefects.join(', ')}`);
+}
+const sets = rightsSets(rightsByEmail);
+
+const { adjudications: deminimisAdjudications, defects: deminimisDefects } = parseDeminimisRegister(
+  readFileSync('docs/ip/deminimis-line-adjudications.json', 'utf8'),
+);
+if (deminimisDefects.length) {
+  throw new Error(`deminimis-line-adjudications.json is defective: ${deminimisDefects.join(', ')}`);
+}
+const deminimisByKey = new Map(
+  deminimisAdjudications.map((entry) => [`${entry.path}\u0000${entry.identityEmail}`, entry]),
+);
+
 const boundary = JSON.parse(readFileSync('docs/ip/proprietary-core-boundary.json', 'utf8'));
 const protectedRoots = boundary.protectedRoots ?? [];
 function protectedEntry(path) {
@@ -178,7 +204,71 @@ function detectMarkers(content) {
   return { license: spdx || named, copyright };
 }
 
-function classify(path, markers, criticality) {
+// Blame is the expensive half of the rights gate, and the two accessors below are
+// always asked about the same file in turn, so one slot of cache removes the second
+// walk without holding blame output for the whole tree.
+let blameCache = { path: null, lines: null };
+function blameLines(path) {
+  if (blameCache.path === path) return blameCache.lines;
+  let lines = null;
+  try {
+    const blame = git(['blame', '--line-porcelain', 'HEAD', '--', path], 64 * 1024 * 1024);
+    lines = [];
+    let email = '';
+    let lineNumber = 0;
+    for (const line of blame.split(/\r?\n/u)) {
+      const header = /^[0-9a-f]{40} \d+ (\d+)/u.exec(line);
+      if (header) { lineNumber = Number(header[1]); continue; }
+      if (line.startsWith('author-mail ')) {
+        email = line.slice(12).trim().replace(/^<|>$/gu, '').toLowerCase();
+        continue;
+      }
+      if (line.startsWith('\t')) lines.push({ line: lineNumber, content: line.slice(1), email });
+    }
+  } catch {
+    lines = null;
+  }
+  blameCache = { path, lines };
+  return lines;
+}
+
+function survivingLineEmails(path) {
+  const lines = blameLines(path);
+  if (!lines) return null;
+  return new Set(lines.map((entry) => entry.email));
+}
+
+// Consulted only when surviving lines from an address without a resolved rights basis
+// are the sole obstacle. Every such line must be covered by a verified adjudication in
+// docs/ip/deminimis-line-adjudications.json; the verifier re-derives expressiveness from
+// the real content, so this cannot be used to wave through authored material.
+function deminimisVerdict(path, offendingEmails) {
+  const lines = blameLines(path);
+  if (!lines) return null;
+  const details = [];
+  for (const email of offendingEmails) {
+    const adjudication = deminimisByKey.get(`${path}\u0000${email}`);
+    if (!adjudication) return { ok: false, detail: `no de minimis adjudication for ${email} in ${path}` };
+    const surviving = lines
+      .filter((entry) => entry.email === email)
+      .map((entry) => ({ line: entry.line, content: entry.content }));
+    const verdict = verifyDeminimis(adjudication, surviving);
+    if (!verdict.ok) return { ok: false, detail: `${email}: ${verdict.reason}` };
+    details.push(`${email}: ${verdict.reason}`);
+  }
+  return { ok: true, detail: details.join('; ') };
+}
+
+function rightsEvidence(path) {
+  return evaluateRights(
+    historyEmailsByPath.get(path),
+    () => survivingLineEmails(path),
+    sets,
+    (offendingEmails) => deminimisVerdict(path, offendingEmails),
+  );
+}
+
+function classify(path, markers, criticality, rights) {
   if (ipControlRe.test(path)) {
     return {
       originClass: 'AI_ASSISTED_FIRST_PARTY',
@@ -204,6 +294,17 @@ function classify(path, markers, criticality) {
       aiInvolvement: 'NONE_EXPECTED_GENERATED_FILE', decision: 'KEEP_AS_INFRASTRUCTURE_EVIDENCE', status: 'INFRASTRUCTURE_GENERATED',
     };
   }
+  if (rights) {
+    return {
+      originClass: 'FIRST_PARTY_PROPRIETARY',
+      originSource: `CONTRIBUTOR_RIGHTS_REGISTER_${rights.tier}`,
+      license: markers.license || 'PROPRIETARY / UNLICENSED',
+      rightsBasis: `FIRST_PARTY_AUTHORSHIP_EVIDENCED; ${rights.detail}`,
+      aiInvolvement: rights.aiInvolvement,
+      decision: 'KEEP_FIRST_PARTY_CONTROL',
+      status: 'FIRST_PARTY_RIGHTS_EVIDENCED',
+    };
+  }
   return {
     originClass: 'UNKNOWN',
     originSource: 'REPOSITORY_HISTORY_ONLY',
@@ -226,7 +327,9 @@ for (const path of tracked) {
   const markers = detectMarkers(content);
   const protection = protectedEntry(path);
   const criticality = protection?.criticality ?? (protection ? 'CROWN_JEWEL' : 'STANDARD');
-  const classification = classify(path, markers, criticality);
+  const licenceMarkerBlocks = Boolean(markers.license) && !ipControlRe.test(path);
+  const rights = licenceMarkerBlocks ? null : rightsEvidence(path);
+  const classification = classify(path, markers, criticality, rights);
   const contributors = [...(contributorsByPath.get(path) ?? new Set([contributorId(origin.authorName, origin.authorEmail)]))]
     .sort((left, right) => left.localeCompare(right, 'en'));
   if (markers.license || markers.copyright) {

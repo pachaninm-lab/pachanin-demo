@@ -311,6 +311,16 @@ if (asvs.schemaVersion !== 'pc-crop.asvs-evidence.v1'
   process.exit(8);
 }
 
+// The final gate below is deliberately one gate over two programmes: ownership
+// evidence and ASVS security assessment. That coupling is intentional and stays.
+// It does, however, make the ownership verdict unreportable on its own, because a
+// pending ASVS requirement blocks the same exit code as an unowned crown jewel.
+// --ip-scope reports the ownership half separately. It relaxes nothing: the blocker
+// list is computed identically, the default and --baseline paths are untouched, and
+// a single IP blocker still exits non-zero. What it does not do is claim ASVS PASS.
+const ipScopeMode = process.argv.includes('--ip-scope');
+const ASVS_BLOCKER_PREFIX = /^ASVS_/u;
+
 const finalBlockers = [];
 if (unknownLicenses > 0) finalBlockers.push(`UNKNOWN_DEPENDENCY_LICENSES:${unknownLicenses}`);
 if (legalReviewLicenses > 0) finalBlockers.push(`UNRESOLVED_DEPENDENCY_LICENSE_REVIEWS:${legalReviewLicenses}`);
@@ -325,6 +335,20 @@ if (asvsStatusCounts.NOT_ASSESSED > 0) finalBlockers.push(`ASVS_NOT_ASSESSED:${a
 if (asvsStatusCounts.FAIL > 0) finalBlockers.push(`ASVS_FAIL:${asvsStatusCounts.FAIL}`);
 if (asvsApplicabilityCounts.PENDING_APPLICABILITY_REVIEW > 0) finalBlockers.push(`ASVS_APPLICABILITY_PENDING:${asvsApplicabilityCounts.PENDING_APPLICABILITY_REVIEW}`);
 if (asvs.finalPass !== true) finalBlockers.push('ASVS_NOT_FINAL_PASS');
+
+if (ipScopeMode) {
+  const ownershipBlockers = finalBlockers.filter((blocker) => !ASVS_BLOCKER_PREFIX.test(blocker));
+  const deferredAsvs = finalBlockers.filter((blocker) => ASVS_BLOCKER_PREFIX.test(blocker));
+  const deferredNote = deferredAsvs.length
+    ? ` ASVS blockers outside this scope and still open: ${deferredAsvs.join(', ')}.`
+    : ' No ASVS blocker is open either.';
+  if (ownershipBlockers.length) {
+    console.error(`IP OWNERSHIP SCOPE BLOCKED: ${ownershipBlockers.join(', ')}.${deferredNote}`);
+    process.exit(8);
+  }
+  console.log(`IP OWNERSHIP SCOPE PASS: ${provenance.recordedFiles}/${provenance.trackedFiles} origins resolved; ${provenance.crownJewelUnknownOrigin} crown-jewel files of unknown origin; ${license.components} dependency components; SBOM scope ${coveredRecords.length}/${coverageRecords.length} (${coverage.totals.coveragePercent}%); offline similarity ${similarity.status}. This is the ownership-evidence half of the gate only: it is not the full IP final gate, not an ASVS result, and not a legal determination of title.${deferredNote}`);
+  process.exit(0);
+}
 
 if (!baselineMode && finalBlockers.length) {
   console.error(`IP final evidence gate BLOCKED: ${finalBlockers.join(', ')}`);

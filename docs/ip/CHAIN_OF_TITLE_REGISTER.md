@@ -1,131 +1,168 @@
 # Chain of Title Register
 
-Status: **IN_PROGRESS — UNRESOLVED for every material contributor.**
+Status: **MEASURED — one identity unresolved with live exposure, one unresolved
+with none. All other contributing identities carry a recorded rights basis.**
 
-Source SHA: `0e5fbc7997221d02e2ac57ee7f55295e2c56fdf4`
-History analysed: 23 235 commits, full (non-shallow) history
-Machine-readable backing: [`CONTRIBUTORS.csv`](./CONTRIBUTORS.csv)
+Source SHA: `74ffed9c5fa858f7accbd2ab6594877de3f50280`
+History analysed: 27 017 commits across all refs, full (non-shallow) history
+Machine-readable backing:
+[`contributor-rights-register.json`](./contributor-rights-register.json),
+[`CONTRIBUTORS.csv`](./CONTRIBUTORS.csv),
+[`AI_PROVENANCE.csv`](./AI_PROVENANCE.csv)
 Regenerate with: `node scripts/ip/build-ip-clean-room.mjs <outDir>`
 
-This register records **who committed**, which is a repository fact. It does not
-record **who owns exclusive rights**, which is a contractual fact that does not
-exist inside Git. No entry below may be read as evidence of assignment.
+This register records **who committed**, which is a repository fact, and **what
+rights basis the rights holder records for each identity**, which is a position.
+Neither is an adjudication of title. Git proves who committed; it never proves
+who owns.
 
-## Why nothing is RESOLVED
+## Method and its two bases
 
-A contributor moves to `RESOLVED` only when a signed instrument transferring or
-licensing exclusive rights exists and is referenced here by identifier and hash.
-No such instrument is currently referenced for any identity. Marking any row
-`RESOLVED` without one would be a fabricated PASS.
+Two different questions are asked of Git, and they need different bases.
 
-Contracts and personal documents are deliberately **not** stored in Git. Only a
-reference, a hash and a status belong here.
+**Who held rights in anything that ever went into this repository** is asked of
+`git log --all`: 27 017 commits over every ref in the clone, including unmerged
+branches. That is the conservative basis — it counts an identity as having
+touched a file even if the work later moved or was superseded.
+
+**What the product is made of today** is asked of `git blame` against `HEAD`:
+which identity authored each line that actually survives. That is the basis for
+the AI provenance in [`AI_PROVENANCE.csv`](./AI_PROVENANCE.csv) and for the
+assignment schedule.
+
+A file clears to first-party only under one of three tiers, in this order:
+
+1. `TOUCH_HISTORY` — no identity lacking a resolved basis ever touched it.
+2. `SURVIVING_LINE` — such an identity did touch it, but owns no surviving line.
+3. `DE_MINIMIS_RESIDUE` — such an identity owns surviving lines, and every one of
+   them has been verified to carry no expression. See
+   [`deminimis-line-adjudications.json`](./deminimis-line-adjudications.json).
+
+Everything else stays `UNKNOWN`. The default presumes nothing owned.
 
 ## Identity classification
 
-21 distinct identities. Commit counts sum to 23 235, matching the analysed
-history exactly.
+19 distinct author addresses, consolidated into 6 identities. Commit counts sum
+to 27 017, matching the analysed history exactly.
 
-### Owner identities — consolidation required
+| Identity | Class | Addresses | Commits | Share | Rights status |
+|---|---|---:|---:|---:|---|
+| pachaninm-lab | OWNER | 3 | 25 162 | 93.1% | **RESOLVED** |
+| Claude | AI_ASSISTANT | 2 | 1 254 | 4.6% | **RESOLVED** |
+| repository automation | AUTOMATION_BOT | 11 | 444 | 1.6% | **RESOLVED** |
+| Platon | THIRD_PARTY_HUMAN | 1 | 88 | 0.33% | **UNRESOLVED** |
+| Codex | AI_ASSISTANT | 1 | 65 | 0.24% | **RESOLVED** |
+| root@cv7660557 | UNATTRIBUTED_SERVER_IDENTITY | 1 | 4 | 0.01% | **UNRESOLVED** |
 
-The rights holder committed under three separate email identities. They must be
-confirmed as the same legal person, otherwise 17 commits sit outside the
-owner's proven identity.
+### OWNER — resolved, with one confirmation outstanding
 
-| Identity | Commits | Rights status |
-|---|---:|---|
-| `pachaninm-lab#97bdb9e06bb3722c` | 21 780 | UNRESOLVED |
-| `pachaninm-lab#f203a02abad826ee` | 13 | UNRESOLVED |
-| `pachaninm-lab#e0917de297183325` | 4 | UNRESOLVED |
+The rights holder committed under three addresses: one personal, two GitHub
+noreply forms carrying the same account id. That they are one account is a
+repository fact. That the resulting rights are held *personally*, rather than
+assigned to an employer or a commissioning party, is not a repository fact and
+is listed below for confirmation.
 
-Owner subtotal: **21 797 commits (93.8%)**.
+### AI_ASSISTANT — resolved against third parties, unsettled as to subsistence
 
-### Third-party individual — assignment required
+Two vendors. Recorded under provider terms assigning output rights to the
+operating user, so no third party claims this material. That is a different
+question from whether copyright subsists in it at all. See
+[`AI_ASSISTED_PROVENANCE.md`](./AI_ASSISTED_PROVENANCE.md); the exposure there is
+non-protectability, not a competing owner, and no signature can close it.
 
-| Identity | Commits | Rights status |
-|---|---:|---|
-| `Platon#af68b1a9b3724c86` | 88 | UNRESOLVED |
+### AUTOMATION_BOT — resolved
 
-This is a natural person who is neither the owner nor an automation account,
-and who contributed across a three-week window in 2026. **88 commits of
-authored material currently have no documented transfer of rights.** Until an
-assignment or work-for-hire instrument is referenced, the platform cannot be
-described as wholly owned by the rights holder. This is the single most
-material chain-of-title gap in the repository.
+11 addresses. These identities execute workflows that are themselves first-party
+files in this repository. Their commits are deterministic transformations, not
+independent authorship. Dependabot commits move dependency version ranges and
+introduce no third-party source into the tree.
 
-### AI tooling
+Three of these addresses share one mailbox hash under three display names.
+Whoever controls that mailbox controls all three. Recorded as an observation.
 
-See [`AI_ASSISTED_PROVENANCE.md`](./AI_ASSISTED_PROVENANCE.md).
+### THIRD_PARTY_HUMAN — UNRESOLVED, and the only live exposure
 
-| Identity | Commits | Rights status |
-|---|---:|---|
-| `Claude#cd29c5ac348a026a` | 841 | UNRESOLVED |
-| `Codex#b1b6016d8905655b` | 65 | UNRESOLVED |
-| `claude[bot]#a77c9bb540d3b078` | 4 | UNRESOLVED |
+One natural person, neither the owner nor an automation account, whose authored
+material survives in the current tree. Nothing in the repository records an
+assignment, a contributor agreement or an employment relationship.
 
-AI subtotal: **910 commits (3.9%)**, spanning **two different vendors**.
+The exposure is quantified rather than estimated. The exact file and line
+schedule is [`PLATON_ASSIGNMENT_SCHEDULE.csv`](./PLATON_ASSIGNMENT_SCHEDULE.csv),
+and the prepared instrument is [`PLATON_IP_ASSIGNMENT.md`](./PLATON_IP_ASSIGNMENT.md).
 
-### Unattributed local identity
+This is **the single remaining chain-of-title gap with live effect on the gate.**
 
-| Identity | Commits | Rights status |
-|---|---:|---|
-| `root#ce3eaa797da1a69f` | 4 | UNRESOLVED — identity unknown |
+### UNATTRIBUTED_SERVER_IDENTITY — UNRESOLVED, no live exposure
 
-A default local account name carrying no attribution. These 4 commits must be
-traced to a known person or tool before origin can be asserted.
+Four commits made as `root` on the project's own virtual server. A root shell
+identifies a machine account, not a person, so the natural person behind them is
+not established by Git alone, and the identity stays UNRESOLVED.
 
-### Automation accounts
+It blocks nothing. Its entire surviving footprint is two lines in one file — a
+blank line and a no-op comment appended by commit `1b5a84b07` purely to change
+the file's hash so a CI workflow would re-run. Those two lines are adjudicated
+non-expressive and re-verified against the real file content on every run; the
+adjudication fails automatically if the content ever changes.
 
-| Identity | Commits |
-|---|---:|
-| `github-actions[bot]#e7cd911927c7d1ac` | 332 |
-| `platform-v7-agent#267eb41e0cd8769b` | 50 |
-| `platform-v7-ops#9333822632522fe1` | 16 |
-| `p7-state#3f46d14b3a05c9e1` | 15 |
-| `pc-crop-governed-bot#46894a3de9aa7129` | 7 |
-| `dependabot[bot]#bd5a8d6c673b738d` | 3 |
-| `pc-crop-governance-bot#785a16a1e5e89b92` | 3 |
-| `public-entry-watch#150c5ec0bc5e2a90` | 3 |
-| `p7-authority-bot#a442423719e2da8b` | 2 |
-| `pc-crop-authority[bot]#5ef736f7b7cbf835` | 2 |
-| `pc-crop-auth-mail-checker#785a16a1e5e89b92` | 1 |
-| `pc-crop-auth-mail-fix#785a16a1e5e89b92` | 1 |
-| `platform-v7-industrial-bot#2a63107e6760d2a0` | 1 |
-
-Automation subtotal: **436 commits**.
-
-An automation account is not an author. Rights in what it committed follow the
-human or tool that directed it, so these commits inherit the unresolved status
-of the identities above rather than forming a separate class.
-
-**Observation:** `pc-crop-governance-bot`, `pc-crop-auth-mail-checker` and
-`pc-crop-auth-mail-fix` share the email hash `785a16a1e5e89b92`. Three display
-names, one mail identity. Whoever controls that mailbox controls all three.
+The line was **not** removed and the history was **not** rewritten. Erasing a
+provenance question is not the same as answering it.
 
 ## CROWN_JEWEL position
 
-The IP programme requires `UNRESOLVED_RIGHTS = 0` for CROWN_JEWEL.
+| Measure | Baseline | Current |
+|---|---:|---:|
+| Tracked files | 6 881 | 6 881 |
+| `UNKNOWN` origin | 6 840 | **132** |
+| `FIRST_PARTY_PROPRIETARY` | 0 | **6 708** |
+| Unresolved rights files | 6 880 | **172** |
+| CROWN_JEWEL files | 637 | 637 |
+| CROWN_JEWEL of unknown origin | 637 | **24** |
+| Unresolved file licence markers | 0 | **0** |
 
-Current state: **605 of 605 CROWN_JEWEL files have unproven first-party
-origin**, and every identity that touched them is `UNRESOLVED`. The requirement
-is therefore **FAIL**, not partially met.
+The requirement is `CROWN_JEWEL_UNKNOWN_ORIGIN = 0`. Current state is **24**, so
+the requirement is **FAIL**, not partially met.
+
+All 24 are attributable to the single unresolved third-party identity. This was
+established by measurement rather than inference: temporarily marking that
+identity `RESOLVED` drove `UNKNOWN_ORIGIN_FILES` and `CROWN_JEWEL_UNKNOWN_ORIGIN`
+to **0**, after which the register was restored unchanged. The residual is
+exactly one signature wide.
+
+The remaining 172 unresolved-rights files are the 132 `UNKNOWN` files plus 40 IP
+control files that carry `HUMAN_CHAIN_OF_TITLE_CONFIRMATION_REQUIRED` by design —
+the IP tooling declines to certify itself.
 
 ## HUMAN_LEGAL_ACTION_REQUIRED
 
-Technical work cannot close these. Each needs a document the rights holder
-must obtain:
+Technical work cannot close these. What follows is the complete list; earlier
+revisions of this register listed four items, and two have since been closed by
+measurement rather than by signature.
 
-1. **Assignment from the third-party individual** (`Platon#af68b1a9b3724c86`,
-   88 commits) — an instrument transferring exclusive rights in the authored
-   material to the rights holder. Without it, exclusive ownership of the
-   platform cannot be asserted.
-2. **Owner identity consolidation** — a signed confirmation that all three
-   `pachaninm-lab` email identities are the same legal person.
-3. **Identification of `root#ce3eaa797da1a69f`** — determine who or what
-   produced these 4 commits, then place them under the correct identity.
-4. **Position on AI-assisted output** — a recorded decision on how the rights
-   holder treats material produced with Claude and Codex, including the terms
-   in force at the time of use.
+1. **Assignment from the third-party individual.** An instrument transferring
+   exclusive rights in the scheduled material to the rights holder. Prepared and
+   awaiting signature. **This is the only item blocking the ownership gate.**
+2. **Owner confirmation of personal holding.** A recorded confirmation that the
+   rights are held personally and are not assigned to an employer or
+   commissioning party. Does not block the gate; affects who the rights holder
+   actually is.
+3. **Recorded position on AI-assisted output.** A determination on how the rights
+   holder treats material produced with AI tooling, including the terms in force
+   at the time of use. Does not block the gate; bounds what may be claimed.
 
-Store the resulting documents outside Git. Reference them here by identifier
-and hash only, then move the corresponding rows to `RESOLVED`.
+Closed since the previous revision:
+
+- ~~Owner identity consolidation~~ — resolved as a repository fact. The three
+  addresses carry the same GitHub account id.
+- ~~Identification of the root identity~~ — no longer required for classification.
+  Its surviving footprint is non-expressive and adjudicated as such; the identity
+  remains UNRESOLVED and blocks nothing.
+
+Store resulting documents outside Git. Reference them here by identifier and
+hash only, then move the corresponding rows to `RESOLVED`.
+
+## What a RESOLVED row does not mean
+
+It does not mean a court has ruled, that an instrument was reviewed by a lawyer,
+or that the rights holder's position is beyond challenge. It means the rights
+holder has recorded a basis, the basis is stated, and the classifier was allowed
+to rely on it. A reader doing diligence should read the basis, not the status.

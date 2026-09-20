@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { extname, join, relative, resolve } from 'node:path';
+import { normalizeSource, parseAdjudications, tokens, verifyAdjudication } from './similarity-adjudication.mjs';
 
 const outDir = process.argv[2] ?? 'artifacts/ip-clean-room';
 const corpusInput = String(process.env.IP_SIMILARITY_CORPUS ?? '').trim();
@@ -22,21 +23,6 @@ function git(args) {
 
 function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
-}
-
-function normalizeSource(source) {
-  return source
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/(^|\s)\/\/.*$/gm, '$1 ')
-    .replace(/(^|\s)#.*$/gm, '$1 ')
-    .replace(/`(?:\\.|[^`\\])*`|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g, '<STRING>')
-    .replace(/\b\d+(?:\.\d+)?\b/g, '<NUMBER>')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function tokens(source) {
-  return normalizeSource(source).match(/[\p{L}_$][\p{L}\p{N}_$]*|<STRING>|<NUMBER>|===|!==|=>|==|!=|<=|>=|&&|\|\||[^\s]/gu) ?? [];
 }
 
 function fnv1a(value) {
@@ -114,8 +100,23 @@ const sourceFingerprints = protectedFiles.map((path) => {
   if (!metadata.isFile()) throw new Error(`Protected source is not a regular file: ${path}`);
   return fingerprint(path, readFileSync(path, 'utf8'));
 });
+// Adjudication of screening findings lives in ./similarity-adjudication.mjs, which
+// also owns the tokenizer used above, so a determination is re-verified with exactly
+// the comparison that produced the finding.
+const adjudicationPath = 'docs/ip/similarity-adjudications.json';
+const { adjudications, defects: adjudicationDefects } = existsSync(adjudicationPath)
+  ? parseAdjudications(JSON.parse(readFileSync(adjudicationPath, 'utf8')))
+  : { adjudications: new Map(), defects: [] };
+
+function adjudicate(sourcePath, method) {
+  const entry = adjudications.get(sourcePath);
+  if (!entry) return null;
+  return verifyAdjudication(entry, readFileSync(sourcePath, 'utf8'), method);
+}
+
 const findings = [];
 const finalBlockers = [];
+if (adjudicationDefects.length) finalBlockers.push(`SIMILARITY_ADJUDICATION_DEFECTS:${adjudicationDefects.length}`);
 if (protectedNonRegular.length) finalBlockers.push(`PROTECTED_NON_REGULAR_FILES:${protectedNonRegular.length}`);
 let corpusFiles = 0;
 let corpusApproved = false;
@@ -232,6 +233,7 @@ if (!corpusInput) {
     }
 
     for (const [index, match] of candidateMethods) {
+      const adjudication = adjudicate(source.path, match.method);
       findings.push({
         findingId: `SIM-${String(findings.length + 1).padStart(6, '0')}`,
         sourcePath: source.path,
@@ -239,23 +241,27 @@ if (!corpusInput) {
         method: match.method,
         score: match.score.toFixed(6),
         status: match.method === 'EXACT_SHA256' ? 'POSSIBLE_COPY' : 'POSSIBLE_DERIVATIVE',
-        decision: 'REVIEW_REQUIRED',
-        evidence: 'Hash/token evidence only; inspect under clean-room controls.',
+        decision: adjudication?.decision ?? 'REVIEW_REQUIRED',
+        resolved: adjudication?.resolved === true,
+        evidence: adjudication?.evidence ?? 'Hash/token evidence only; inspect under clean-room controls.',
       });
     }
   }
 
-  if (findings.length) {
+  const unresolved = findings.filter((item) => !item.resolved);
+  if (unresolved.length) {
     status = 'FINDINGS_REVIEW_REQUIRED';
-    finalBlockers.push(`UNRESOLVED_SIMILARITY_FINDINGS:${findings.length}`);
+    finalBlockers.push(`UNRESOLVED_SIMILARITY_FINDINGS:${unresolved.length}`);
+  } else if (findings.length && corpusApproved) {
+    status = 'ALL_FINDINGS_ADJUDICATED';
   } else if (corpusApproved) {
     status = 'NO_RELEVANT_MATCH';
   }
 }
 
 writeFileSync(join(outDir, 'SIMILARITY_FINDINGS.csv'), [
-  'finding_id,source_path,corpus_path,method,score,status,decision,evidence',
-  ...findings.map((item) => [item.findingId, item.sourcePath, item.corpusPath, item.method, item.score, item.status, item.decision, item.evidence].map(csv).join(',')),
+  'finding_id,source_path,corpus_path,method,score,status,decision,resolved,evidence',
+  ...findings.map((item) => [item.findingId, item.sourcePath, item.corpusPath, item.method, item.score, item.status, item.decision, item.resolved ? 'RESOLVED' : 'UNRESOLVED', item.evidence].map(csv).join(',')),
 ].join('\n') + '\n');
 
 writeFileSync(join(outDir, 'similarity-fingerprints.json'), JSON.stringify({
@@ -271,7 +277,7 @@ writeFileSync(join(outDir, 'similarity-summary.json'), JSON.stringify({
   schemaVersion: 1,
   generatedAt: new Date().toISOString(),
   status,
-  finalEligible: status === 'NO_RELEVANT_MATCH' && finalBlockers.length === 0,
+  finalEligible: (status === 'NO_RELEVANT_MATCH' || status === 'ALL_FINDINGS_ADJUDICATED') && finalBlockers.length === 0,
   networkUsed: false,
   sourceUploaded: false,
   protectedFiles: sourceFingerprints.length,
@@ -280,9 +286,12 @@ writeFileSync(join(outDir, 'similarity-summary.json'), JSON.stringify({
   corpusDigestSha256,
   corpusApprovalEvidence,
   corpusFiles,
-  unresolvedFindings: findings.length,
+  totalFindings: findings.length,
+  adjudicatedFindings: findings.filter((item) => item.resolved).length,
+  adjudicationDefects,
+  unresolvedFindings: findings.filter((item) => !item.resolved).length,
   finalBlockers,
   methodology: 'Exact SHA-256, normalized-token SHA-256, winnowing signatures and bounded winnowing Jaccard are computed only inside the runner against an explicitly mounted corpus. Final eligibility additionally requires a non-empty corpus and a regular-file approval record whose authority, rights basis, scope, date and exact aggregate corpus digest validate. No source text or source phrase is sent to a public scanner. No match is screening evidence, not absolute proof of originality.',
 }, null, 2) + '\n');
 
-console.log(JSON.stringify({ status, protectedFiles: sourceFingerprints.length, corpusFiles, findings: findings.length, finalBlockers }, null, 2));
+console.log(JSON.stringify({ status, protectedFiles: sourceFingerprints.length, corpusFiles, findings: findings.length, adjudicated: findings.filter((item) => item.resolved).length, unresolved: findings.filter((item) => !item.resolved).length, finalBlockers }, null, 2));

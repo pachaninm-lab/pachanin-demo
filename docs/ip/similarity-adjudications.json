@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Adjudications for offline similarity findings. Each determination is re-verified from the file's current content by scripts/ip/build-offline-similarity-evidence.mjs on every run; an adjudication is evidence of a re-checkable property, never a standing exemption. Editing an adjudicated file so that it carries real logic makes the determination stop holding and returns the finding to the unresolved count.",
+  "determinations": {
+    "RE_EXPORT_BARREL_NO_EXPRESSION": "The file's normalized token set lies entirely within the re-export idiom {export, *, from, <STRING>, ;}. Normalization replaces every string literal with <STRING>, so the module paths - the only content that distinguishes one barrel from another - are erased before comparison. What matches is the idiom skeleton, which carries no protectable expression in either direction. Verified by recomputing the token set at run time."
+  },
+  "adjudications": [
+    {
+      "sourcePath": "packages/domain-core/src/execution-simulation/index.ts",
+      "determination": "RE_EXPORT_BARREL_NO_EXPRESSION",
+      "scope": "ALL_MATCHES_FOR_SOURCE",
+      "reviewedAt": "2026-09-20",
+      "rationale": "Six-line re-export barrel for the execution-simulation module. Measured token set is exactly {*, ;, <STRING>, export, from} (30 tokens, 5 distinct). It matched index.d.ts barrels in @nestjs/common, @nestjs/core, fork-ts-checker-webpack-plugin and zod purely on that skeleton; the exported module names share nothing with any of them. No implementation text is common.",
+      "matchedCorpusExamples": [
+        "zod@4.3.6/zod/src/v3/external.ts",
+        "@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_reflect-metadata@0.2.2_rxjs@7.8.2/@nestjs/common/pipes/file/index.d.ts"
+      ]
+    },
+    {
+      "sourcePath": "packages/integration-sdk/src/index.ts",
+      "determination": "RE_EXPORT_BARREL_NO_EXPRESSION",
+      "scope": "ALL_MATCHES_FOR_SOURCE",
+      "reviewedAt": "2026-09-20",
+      "rationale": "Public surface barrel for the integration SDK: forty-odd re-exports of first-party adapters (FGIS-Zerno, FNS, Diadok, CryptoPro, bank, GPS, FTS, RSHN, AML, SMEV and the live transport layer). Measured token set is exactly {*, ;, <STRING>, export, from} (200 tokens, 5 distinct). Every adapter name is first-party and appears in no corpus package; the match is the barrel skeleton alone.",
+      "matchedCorpusExamples": []
+    }
+  ]
+}

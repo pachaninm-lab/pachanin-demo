@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Maps every Git identity that has ever authored a line surviving in HEAD to a contributor class and a rights basis. scripts/ip/build-ip-clean-room.mjs consults this register: a file can only be classified first-party proprietary when every surviving line is attributable to an identity whose rightsStatus is RESOLVED. Identities are matched by author email, which is what Git records; display names are not load-bearing.",
+  "limits": [
+    "A rights basis recorded here is a position, not an adjudicated title. Git proves who committed, never who owns.",
+    "OWNER rights depend on the owner holding the rights personally rather than through an employer or a commissioning contract. That is outside the repository and is listed for the owner to confirm.",
+    "AI_ASSISTANT identities are recorded under provider terms that assign output rights to the operating user. Whether a purely machine-generated fragment attracts copyright at all is jurisdiction-dependent; see docs/ip/AI_ASSISTED_PROVENANCE.md.",
+    "An identity with rightsStatus UNRESOLVED blocks first-party classification of every file carrying its surviving lines. That is the intended behaviour and must not be relaxed by editing this file."
+  ],
+  "identities": [
+    {
+      "contributorClass": "OWNER",
+      "displayName": "pachaninm-lab",
+      "emails": [
+        "pachaninm@gmail.com",
+        "pachaninm-lab@users.noreply.github.com",
+        "263435807+pachaninm-lab@users.noreply.github.com"
+      ],
+      "rightsBasis": "PRINCIPAL_AUTHOR_AND_DECLARED_RIGHTS_HOLDER",
+      "evidence": "25162 of 27017 commits across all refs (93.1%). Repository owner account pachaninm-lab. The three addresses are the same person: a personal address and two GitHub noreply forms of the same account id.",
+      "rightsStatus": "RESOLVED",
+      "ownerConfirmationRequired": "Confirm the rights are held personally and are not assigned to an employer or commissioning party."
+    },
+    {
+      "contributorClass": "AI_ASSISTANT",
+      "displayName": "Claude",
+      "emails": ["noreply@anthropic.com", "209825114+claude[bot]@users.noreply.github.com"],
+      "rightsBasis": "TOOL_OUTPUT_UNDER_PROVIDER_TERMS_ASSIGNING_OUTPUT_TO_OPERATING_USER",
+      "evidence": "1254 commits authored through the Anthropic assistant operating under the owner's direction and on the owner's instructions recorded in issue #4459 and in repository AGENTS.md.",
+      "rightsStatus": "RESOLVED",
+      "ownerConfirmationRequired": "None for third-party claims. See the AI caveat in limits: the exposure is non-protectability, not a competing owner."
+    },
+    {
+      "contributorClass": "AI_ASSISTANT",
+      "displayName": "Codex",
+      "emails": ["codex@openai.local"],
+      "rightsBasis": "TOOL_OUTPUT_UNDER_PROVIDER_TERMS_ASSIGNING_OUTPUT_TO_OPERATING_USER",
+      "evidence": "65 commits authored through the OpenAI Codex assistant operating under the owner's direction.",
+      "rightsStatus": "RESOLVED",
+      "ownerConfirmationRequired": "None for third-party claims. Same non-protectability caveat as other AI output."
+    },
+    {
+      "contributorClass": "AUTOMATION_BOT",
+      "displayName": "repository automation",
+      "emails": [
+        "41898282+github-actions[bot]@users.noreply.github.com",
+        "platform-v7-agent@users.noreply.github.com",
+        "platform-v7-ops@users.noreply.github.com",
+        "platform-v7-industrial-bot@users.noreply.github.com",
+        "p7-state@users.noreply.github.com",
+        "p7-authority-bot@users.noreply.github.com",
+        "pc-crop-governed-bot@users.noreply.github.com",
+        "pc-crop-authority[bot]@users.noreply.github.com",
+        "public-entry-watch@users.noreply.github.com",
+        "actions@users.noreply.github.com",
+        "49699333+dependabot[bot]@users.noreply.github.com"
+      ],
+      "rightsBasis": "MECHANICAL_OUTPUT_OF_REPOSITORY_OWNED_AUTOMATION",
+      "evidence": "444 commits. These identities run workflows defined in .github/workflows, which are themselves first-party files in this repository; their commits are deterministic transformations, not independent authorship. dependabot commits change dependency version ranges only and introduce no third-party source into the tree.",
+      "rightsStatus": "RESOLVED",
+      "ownerConfirmationRequired": "None."
+    },
+    {
+      "contributorClass": "THIRD_PARTY_HUMAN",
+      "displayName": "Platon",
+      "emails": ["platon@MacBook-Pro-Platon.local"],
+      "rightsBasis": "NO_RECORDED_ASSIGNMENT_OR_CONTRIBUTOR_AGREEMENT",
+      "evidence": "88 commits from a personal machine identity with no organisational address. 8561 lines survive in HEAD across 132 tracked files, 24 of them inside the protected boundary. Nothing in the repository records an assignment, a contributor agreement or an employment relationship.",
+      "rightsStatus": "UNRESOLVED",
+      "ownerConfirmationRequired": "A signed contributor IP assignment covering the schedule in docs/ip/PLATON_ASSIGNMENT_SCHEDULE.csv, or a decision to clean-room replace those files."
+    },
+    {
+      "contributorClass": "UNATTRIBUTED_SERVER_IDENTITY",
+      "displayName": "root",
+      "emails": ["root@cv7660557.novalocal"],
+      "rightsBasis": "UNIDENTIFIED_OPERATOR_ON_PROJECT_VIRTUAL_SERVER",
+      "evidence": "4 commits made as root on the project virtual server host cv7660557.novalocal. 2 surviving lines in scripts/platform-v7-rls-integration.sh: one blank line and one no-op CI-trigger comment, both appended by commit 1b5a84b07 solely to change the file hash. The host is the project's own server, but a root shell identifies a machine account, not a person, so the natural person behind the commits is not established by Git alone.",
+      "rightsStatus": "UNRESOLVED",
+      "ownerConfirmationRequired": "Confirm who operated the server for those four commits. If it was the owner, this collapses into OWNER. The file it touches no longer depends on that answer: both surviving lines are adjudicated non-expressive in docs/ip/deminimis-line-adjudications.json and verified against the real content on every run, so this identity blocks nothing while remaining formally unresolved."
+    }
+  ]
+}

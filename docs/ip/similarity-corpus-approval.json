@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "status": "APPROVED",
+  "approvedAt": "2026-09-20",
+  "authorityReference": "IP clean-room mandate, issue #4459. Recorded by the implementation agent; the rights basis below is a factual statement about locally installed dependencies, not a discretionary permission, and is listed in the final report for owner confirmation.",
+  "rightsBasis": "The corpus is this project's own dependency tree, resolved from the committed pnpm lockfile and installed into node_modules under each package's own open-source licence. Comparison is performed locally and read-only on files the project already lawfully possesses. Nothing is redistributed, no corpus text is copied into the product, and no source or source phrase leaves the runner; the scanner records only hashes and token-window signatures.",
+  "scope": "Dependency source staged from node_modules/.pnpm as <package>@<version>/<path-inside-package>, restricted to the scanner's own text extensions and path exclusions. 23075 files across 881 distinct packages. Package-internal dist/, build/, test/ and fixture directories are excluded by the scanner, so shipped bundles and vendored test data are out of scope; this corpus screens hand-written dependency source, which is the realistic origin for an undeclared copy.",
+  "corpusDigestSha256": "083ec991817c5c1b337a27c4c8268262b8784e90fcadf37f3ebf9a6505f3e15f",
+  "limits": [
+    "A corpus of this project's own dependencies cannot detect copying from a source that is not a dependency.",
+    "No match is screening evidence of originality, not proof of it.",
+    "The digest binds this approval to the exact file set that was compared; restaging a different set invalidates it."
+  ]
+}
