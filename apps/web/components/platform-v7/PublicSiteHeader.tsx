@@ -101,16 +101,19 @@ export function PublicSiteHeader({
         {nav ? <nav className='pc-site-nav' aria-label={navLabel}>{nav}</nav> : null}
 
         <div className='pc-site-actions'>
+          {localeControl ?? <PublicLocaleSwitch />}
           {nav && showMobileMenu ? (
             <details className='pc-site-mobile-menu'>
               <summary aria-label={menuLabel} title={menuLabel}>
                 <span aria-hidden='true' className='pc-site-menu-glyph'><i /><i /><i /></span>
                 <span className='pc-visually-hidden'>{menuLabel}</span>
               </summary>
-              <nav className='pc-site-mobile-nav' aria-label={navLabel}>{nav}</nav>
+              <div className='pc-site-mobile-nav'>
+                <nav className='pc-site-mobile-nav-links' aria-label={navLabel}>{nav}</nav>
+                <div className='pc-site-mobile-locale'>{localeControl ?? <PublicLocaleSwitch />}</div>
+              </div>
             </details>
           ) : null}
-          {localeControl ?? <PublicLocaleSwitch />}
           {actions}
         </div>
       </header>
