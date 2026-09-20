@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowRight, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { getPublicMarketLots, type PublicMarketLot, type PublicMarketReadResult } from '@/lib/public-market-server';
 import { canonicalPublicLocale, type CanonicalPublicLocale } from './PublicCanonicalPrimitives';
+import { CanonicalUxState } from './CanonicalUxState';
 
 const COPY = {
   ru: {
@@ -214,8 +215,18 @@ function MarketAside({ lot, locale, authority }: { lot: PublicMarketLot; locale:
 function MarketState({ locale, kind }: { locale: CanonicalPublicLocale; kind: 'empty' | 'unavailable' | 'noMatch' }) {
   const copy = COPY[locale];
   const title = kind === 'empty' ? copy.emptyTitle : kind === 'unavailable' ? copy.unavailableTitle : copy.noMatchTitle;
-  const text = kind === 'empty' ? copy.emptyText : kind === 'unavailable' ? copy.unavailableText : copy.noMatchText;
-  return <div className='pc-cp-empty' data-market-state={kind}><div><ShieldCheck size={26} aria-hidden='true' /><strong>{title}</strong><span>{text}</span></div></div>;
+  const description = kind === 'empty' ? copy.emptyText : kind === 'unavailable' ? copy.unavailableText : copy.noMatchText;
+  return (
+    <div data-market-state={kind}>
+      <CanonicalUxState
+        kind={kind === 'unavailable' ? 'unavailable' : 'empty'}
+        title={title}
+        description={description}
+        actionHref={kind === 'noMatch' ? `/platform-v7/market?lang=${locale}` : undefined}
+        actionLabel={kind === 'noMatch' ? (locale === 'ru' ? 'Все лоты' : locale === 'en' ? 'All lots' : '全部批次') : undefined}
+      />
+    </div>
+  );
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
