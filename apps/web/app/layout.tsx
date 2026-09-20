@@ -203,9 +203,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       className={`notranslate${fontVariables ? ` ${fontVariables}` : ''}`}
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: brandUrlAuthorityScript }} />
-        <script dangerouslySetInnerHTML={{ __html: serviceWorkerRecoveryScript }} />
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {!canonicalPublicHome ? <script dangerouslySetInnerHTML={{ __html: brandUrlAuthorityScript }} /> : null}
+        {!canonicalPublicHome ? <script dangerouslySetInnerHTML={{ __html: serviceWorkerRecoveryScript }} /> : null}
+        {!canonicalPublicHome ? <script dangerouslySetInnerHTML={{ __html: themeScript }} /> : null}
         <meta name='description' content={pageDescription} />
         <meta name='google' content='notranslate' />
         <meta name='googlebot' content='notranslate' />
