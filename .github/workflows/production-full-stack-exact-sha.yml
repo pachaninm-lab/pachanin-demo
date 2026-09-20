@@ -29,6 +29,7 @@ on:
       - 'scripts/check-production-full-stack-release.mjs'
       - 'scripts/test-production-release-target-isolation.py'
       - 'scripts/test-production-full-stack-ssh-fingerprint.py'
+      - 'docs/platform-v7/autopilot/scopes/production-full-stack-release-v1.json'
       - 'docs/ops/production-full-stack-release.md'
       - 'docs/ops/virtual-server-production-runbook.md'
       - 'docs/ops/vps-post-deploy-checklist.md'
@@ -44,6 +45,7 @@ on:
       - 'scripts/check-production-full-stack-release.mjs'
       - 'scripts/test-production-release-target-isolation.py'
       - 'scripts/test-production-full-stack-ssh-fingerprint.py'
+      - 'docs/platform-v7/autopilot/scopes/production-full-stack-release-v1.json'
 permissions:
   contents: read
   packages: read
@@ -116,7 +118,7 @@ jobs:
       - run: python3 -B scripts/release/test-production-image-binding.py
 
   deploy:
-    name: Migrate, deploy API and web, verify live intake
+    name: Migrate, deploy API/web and canonical outbox, verify live delivery
     needs: contract
     if: >-
       (inputs.owner_release_authorized == true &&
@@ -128,7 +130,7 @@ jobs:
          github.actor == github.repository_owner &&
        github.triggering_actor == github.repository_owner)
     runs-on: ubuntu-24.04
-    timeout-minutes: 75
+    timeout-minutes: 120
     concurrency:
       group: pc-crop-production-release-candidate
       cancel-in-progress: false
@@ -169,7 +171,7 @@ jobs:
           set -euo pipefail
           mkdir -p "$EVIDENCE_DIR"
           echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
-          for component in api web migration; do
+          for component in api web migration outbox-worker; do
             image="ghcr.io/pachaninm-lab/grainflow-${component}:sha-${SHORT_SHA}"
             ready=0
             for attempt in $(seq 1 90); do
@@ -180,7 +182,8 @@ jobs:
             done
             (( ready == 1 )) || { echo "Exact $component image unavailable." >&2; exit 2; }
             python3 scripts/release/verify-production-image-binding.py verify "$component" "$TARGET_SHA" "$exact_image" > "$EVIDENCE_DIR/${component}-image.json" 2>/dev/null || { echo 'Exact image identity verification failed.' >&2; exit 2; }
-            echo "${component}_image=$exact_image" >> "$GITHUB_OUTPUT"
+            output_key="${component//-/_}_image"
+            echo "${output_key}=$exact_image" >> "$GITHUB_OUTPUT"
           done
           printf '%s\n' "$TARGET_SHA" > "$EVIDENCE_DIR/target-sha.txt"
 
@@ -391,6 +394,7 @@ jobs:
           API_IMAGE: ${{ steps.images.outputs.api_image }}
           WEB_IMAGE: ${{ steps.images.outputs.web_image }}
           MIGRATION_IMAGE: ${{ steps.images.outputs.migration_image }}
+          OUTBOX_WORKER_IMAGE: ${{ steps.images.outputs.outbox_worker_image }}
         shell: bash
         run: |
           set -euo pipefail
@@ -404,13 +408,13 @@ jobs:
           raw="$(mktemp)"; clean="$EVIDENCE_DIR/production-action.log"
           set +e
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=12 -o TCPKeepAlive=yes "$SSH_USER_SECRET@$HOST" \
-            "chmod 0700 /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh && DOCKER_CONFIG='/tmp/pc-registry-${GITHUB_RUN_ID}' PC_RELEASE_IMAGE_BINDING_VERIFIER='/tmp/pc-full-stack-image-binding-${GITHUB_RUN_ID}.py' PC_API_IMAGE='$API_IMAGE' PC_WEB_IMAGE='$WEB_IMAGE' PC_MIGRATION_IMAGE='$MIGRATION_IMAGE' PC_PROD_DIR_B64='$(enc "${PROD_DIR_SECRET:-}")' PC_PROD_COMPOSE_B64='$(enc "${PROD_COMPOSE_SECRET:-}")' PC_PROD_PROJECT_B64='$(enc "${PROD_PROJECT_SECRET:-}")' PC_PROD_BACKUP_EVIDENCE_FILE_B64='$(enc "${BACKUP_EVIDENCE_FILE_SECRET:-}")' /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh deploy '$TARGET_SHA' '$GITHUB_RUN_ID'" > "$raw" 2>&1
+            "chmod 0700 /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh && DOCKER_CONFIG='/tmp/pc-registry-${GITHUB_RUN_ID}' PC_RELEASE_IMAGE_BINDING_VERIFIER='/tmp/pc-full-stack-image-binding-${GITHUB_RUN_ID}.py' PC_API_IMAGE='$API_IMAGE' PC_WEB_IMAGE='$WEB_IMAGE' PC_MIGRATION_IMAGE='$MIGRATION_IMAGE' PC_OUTBOX_WORKER_IMAGE='$OUTBOX_WORKER_IMAGE' PC_PROD_DIR_B64='$(enc "${PROD_DIR_SECRET:-}")' PC_PROD_COMPOSE_B64='$(enc "${PROD_COMPOSE_SECRET:-}")' PC_PROD_PROJECT_B64='$(enc "${PROD_PROJECT_SECRET:-}")' PC_PROD_BACKUP_EVIDENCE_FILE_B64='$(enc "${BACKUP_EVIDENCE_FILE_SECRET:-}")' /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh deploy '$TARGET_SHA' '$GITHUB_RUN_ID'" > "$raw" 2>&1
           rc=$?
           set -e
           sed -E 's#postgres(ql)?://[^[:space:]@]+@#postgresql://[REDACTED]@#g; /(_PATH|_DIR|COMPOSE|CONFIG_FILES)=/ s#=.*#=[REDACTED]#' "$raw" > "$clean"
           rm -f "$raw"
           cat "$clean"
-          for field in DEPLOYMENT_COMPLETE MIGRATION_COMPLETE DEPLOYED_API_REVISION DEPLOYED_WEB_REVISION BASELINE_API_REVISION BASELINE_WEB_REVISION WATCHTOWER_RETIRED BACKUP_MODE; do
+          for field in DEPLOYMENT_COMPLETE MIGRATION_COMPLETE DEPLOYED_API_REVISION DEPLOYED_WEB_REVISION DEPLOYED_OUTBOX_WORKER_REVISION IR20_KAFKA_READY IR20_OUTBOX_WORKER_READY BASELINE_API_REVISION BASELINE_WEB_REVISION WATCHTOWER_RETIRED BACKUP_MODE; do
             value="$(sed -n "s/^${field}=//p" "$clean" | tail -1)"
             echo "$(printf '%s' "$field" | tr '[:upper:]' '[:lower:]')=${value:-unknown}" >> "$GITHUB_OUTPUT"
           done
@@ -443,12 +447,16 @@ jobs:
           [[ "$request" =~ ^PC-[0-9]{8}-[0-9A-F]{12}$ ]]
           [[ "$correlation" =~ ^[A-Za-z0-9._:-]{8,128}$ ]]
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=12 -o TCPKeepAlive=yes "$SSH_USER_SECRET@$HOST" \
-            "/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh verify-intake '$TARGET_SHA' '$GITHUB_RUN_ID' '$request' '$correlation'" \
+            "PC_RELEASE_IMAGE_BINDING_VERIFIER='/tmp/pc-full-stack-image-binding-${GITHUB_RUN_ID}.py' PC_OUTBOX_WORKER_IMAGE='${{ steps.images.outputs.outbox_worker_image }}' /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh verify-intake '$TARGET_SHA' '$GITHUB_RUN_ID' '$request' '$correlation'" \
             | tee "$EVIDENCE_DIR/durable-intake-db.log"
           grep -Fxq DURABLE_INTAKE_DB=PASS "$EVIDENCE_DIR/durable-intake-db.log"
+          grep -Fxq IR20_LIVE_OUTBOX_DELIVERY=PASS "$EVIDENCE_DIR/durable-intake-db.log"
 
-      - name: Restore exact API/web images after acceptance failure
-        if: steps.live.outcome == 'failure' || steps.database.outcome == 'failure'
+      - name: Observe exact IR-20 runtime for 30 minutes
+        id: ir20_observation
+        if: steps.database.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 35
         env:
           HOST: ${{ steps.ssh.outputs.host }}
           PORT: ${{ steps.ssh.outputs.port }}
@@ -457,7 +465,22 @@ jobs:
         run: |
           set -euo pipefail
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=12 -o TCPKeepAlive=yes "$SSH_USER_SECRET@$HOST" \
-            "/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh rollback '$TARGET_SHA' '$GITHUB_RUN_ID'" \
+            "PC_RELEASE_IMAGE_BINDING_VERIFIER='/tmp/pc-full-stack-image-binding-${GITHUB_RUN_ID}.py' PC_OUTBOX_WORKER_IMAGE='${{ steps.images.outputs.outbox_worker_image }}' /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh observe-ir20 '$TARGET_SHA' '$GITHUB_RUN_ID'" \
+            | tee "$EVIDENCE_DIR/ir20-observation.log"
+          grep -Fxq IR20_RUNTIME_OBSERVATION=PASS "$EVIDENCE_DIR/ir20-observation.log"
+          grep -Fxq IR20_OBSERVATION_SECONDS=1800 "$EVIDENCE_DIR/ir20-observation.log"
+
+      - name: Restore exact API/web/outbox images after acceptance failure
+        if: steps.live.outcome == 'failure' || steps.database.outcome == 'failure' || steps.ir20_observation.outcome == 'failure'
+        env:
+          HOST: ${{ steps.ssh.outputs.host }}
+          PORT: ${{ steps.ssh.outputs.port }}
+          TARGET_SHA: ${{ steps.target.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=12 -o TCPKeepAlive=yes "$SSH_USER_SECRET@$HOST" \
+            "PC_RELEASE_IMAGE_BINDING_VERIFIER='/tmp/pc-full-stack-image-binding-${GITHUB_RUN_ID}.py' PC_OUTBOX_WORKER_IMAGE='${{ steps.images.outputs.outbox_worker_image }}' /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh rollback '$TARGET_SHA' '$GITHUB_RUN_ID'" \
             | tee "$EVIDENCE_DIR/live-failure-rollback.log"
 
       - name: Remove production registry session and bounded assets
@@ -486,12 +509,16 @@ jobs:
           MIGRATION_COMPLETE: ${{ steps.production.outputs.migration_complete }}
           DEPLOYED_API_REVISION: ${{ steps.production.outputs.deployed_api_revision }}
           DEPLOYED_WEB_REVISION: ${{ steps.production.outputs.deployed_web_revision }}
+          DEPLOYED_OUTBOX_WORKER_REVISION: ${{ steps.production.outputs.deployed_outbox_worker_revision }}
+          IR20_KAFKA_READY: ${{ steps.production.outputs.ir20_kafka_ready }}
+          IR20_OUTBOX_WORKER_READY: ${{ steps.production.outputs.ir20_outbox_worker_ready }}
           BASELINE_API_REVISION: ${{ steps.production.outputs.baseline_api_revision }}
           BASELINE_WEB_REVISION: ${{ steps.production.outputs.baseline_web_revision }}
           WATCHTOWER_RETIRED: ${{ steps.production.outputs.watchtower_retired }}
           BACKUP_MODE: ${{ steps.production.outputs.backup_mode }}
           LIVE_OUTCOME: ${{ steps.live.outcome }}
           DATABASE_OUTCOME: ${{ steps.database.outcome }}
+          IR20_OBSERVATION_OUTCOME: ${{ steps.ir20_observation.outcome }}
           EVIDENCE_ISSUE_NUMBER: ${{ inputs.owner_release_authorized == true && inputs.controller_issue_number || 3072 }}
         shell: bash
         run: |
@@ -500,6 +527,8 @@ jobs:
           live="$(sed -n 's/^LIVE_ACCEPTANCE=//p' "$EVIDENCE_DIR/live.log" 2>/dev/null | tail -1 || true)"
           request="$(sed -n 's/^LIVE_REQUEST_NUMBER=//p' "$EVIDENCE_DIR/live.log" 2>/dev/null | tail -1 || true)"
           durable="$(sed -n 's/^DURABLE_INTAKE_DB=//p' "$EVIDENCE_DIR/durable-intake-db.log" 2>/dev/null | tail -1 || true)"
+          outbox_delivery="$(sed -n 's/^IR20_LIVE_OUTBOX_DELIVERY=//p' "$EVIDENCE_DIR/durable-intake-db.log" 2>/dev/null | tail -1 || true)"
+          observation="$(sed -n 's/^IR20_RUNTIME_OBSERVATION=//p' "$EVIDENCE_DIR/ir20-observation.log" 2>/dev/null | tail -1 || true)"
           audit_id="$(sed -n 's/^DURABLE_INTAKE_AUDIT_ID=//p' "$EVIDENCE_DIR/durable-intake-db.log" 2>/dev/null | tail -1 || true)"
           outbox_id="$(sed -n 's/^DURABLE_INTAKE_OUTBOX_ID=//p' "$EVIDENCE_DIR/durable-intake-db.log" 2>/dev/null | tail -1 || true)"
           rollback=not-required; [[ ! -f "$EVIDENCE_DIR/live-failure-rollback.log" ]] || rollback=attempted
@@ -514,8 +543,13 @@ jobs:
             echo "- deployment complete: \`${DEPLOYMENT_COMPLETE:-0}\`"
             echo "- API revision: \`${DEPLOYED_API_REVISION:-unknown}\`"
             echo "- web revision: \`${DEPLOYED_WEB_REVISION:-unknown}\`"
+            echo "- outbox worker revision: \`${DEPLOYED_OUTBOX_WORKER_REVISION:-unknown}\`"
+            echo "- Kafka ready: \`${IR20_KAFKA_READY:-0}\`"
+            echo "- outbox worker ready: \`${IR20_OUTBOX_WORKER_READY:-0}\`"
             echo "- live acceptance: \`${live:-${LIVE_OUTCOME:-skipped}}\`"
             echo "- durable intake DB/audit/outbox: \`${durable:-${DATABASE_OUTCOME:-skipped}}\`"
+            echo "- canonical outbox delivery: \`${outbox_delivery:-skipped}\`"
+            echo "- IR-20 30-minute observation: \`${observation:-${IR20_OBSERVATION_OUTCOME:-skipped}}\`"
             echo "- live request number: \`${request:-none}\`"
             echo "- audit event: \`${audit_id:-none}\`"
             echo "- outbox entry: \`${outbox_id:-none}\`"
@@ -526,7 +560,7 @@ jobs:
           } > "$record"
           find "$EVIDENCE_DIR" -type f ! -name sha256.txt -print0 | sort -z | xargs -0 -r sha256sum > "$EVIDENCE_DIR/sha256.txt"
           gh issue comment "$EVIDENCE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$record"
-          if [[ "$EVIDENCE_ISSUE_NUMBER" == "$RELEASE_ISSUE_NUMBER" && "${DEPLOYMENT_COMPLETE:-0}" == 1 && "${MIGRATION_COMPLETE:-0}" == 1 && "$live" == PASS && "$durable" == PASS && "${DEPLOYED_API_REVISION:-}" == "$TARGET_SHA" && "${DEPLOYED_WEB_REVISION:-}" == "$TARGET_SHA" ]]; then
+          if [[ "$EVIDENCE_ISSUE_NUMBER" == "$RELEASE_ISSUE_NUMBER" && "${DEPLOYMENT_COMPLETE:-0}" == 1 && "${MIGRATION_COMPLETE:-0}" == 1 && "$live" == PASS && "$durable" == PASS && "$outbox_delivery" == PASS && "$observation" == PASS && "${DEPLOYED_API_REVISION:-}" == "$TARGET_SHA" && "${DEPLOYED_WEB_REVISION:-}" == "$TARGET_SHA" && "${DEPLOYED_OUTBOX_WORKER_REVISION:-}" == "$TARGET_SHA" ]]; then
             gh issue close "$RELEASE_ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY" --reason completed
           fi
 
@@ -539,6 +573,10 @@ jobs:
           [[ '${{ steps.production.outputs.migration_complete }}' == 1 ]]
           [[ '${{ steps.live.outcome }}' == success ]]
           [[ '${{ steps.database.outcome }}' == success ]]
+          [[ '${{ steps.ir20_observation.outcome }}' == success ]]
+          [[ '${{ steps.production.outputs.deployed_outbox_worker_revision }}' == '${{ steps.target.outputs.sha }}' ]]
+          [[ '${{ steps.production.outputs.ir20_kafka_ready }}' == 1 ]]
+          [[ '${{ steps.production.outputs.ir20_outbox_worker_ready }}' == 1 ]]
 
       - name: Upload release evidence
         if: always()
