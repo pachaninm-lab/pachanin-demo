@@ -15,7 +15,6 @@ import { StaffCapabilitiesController } from './staff-capabilities.controller';
 import { StaffCapabilitiesService } from './staff-capabilities.service';
 import { StaffDelegatedAccessGuard } from './staff-delegated-access.guard';
 import { StaffEmergencyService } from './staff-emergency.service';
-import { FounderRoleModeService } from './founder-role-mode.service';
 import { StaffProjectionService } from './staff-projection.service';
 import { StaffRuntimeAccessRepository } from './staff-runtime-access.repository';
 import { StaffSupportService } from './staff-support.service';
@@ -46,7 +45,6 @@ import { StaffWorkspaceService } from './staff-workspace.service';
     StaffAuditWriterService,
     StaffCapabilitiesService,
     StaffEmergencyService,
-    FounderRoleModeService,
     StaffProjectionService,
     StaffSupportService,
     StaffWorkspaceService,
