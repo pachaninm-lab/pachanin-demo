@@ -70,11 +70,11 @@ const COPY = {
   },
 } as const;
 
-export async function CanonicalMarketPreview({ locale, limit = 3 }: { locale: string; limit?: number }) {
+export async function CanonicalMarketPreview({ locale, limit = 4 }: { locale: string; limit?: number }) {
   const lang = canonicalPublicLocale(locale);
   const market = await getPublicMarketLots();
-  if (!market.available) return <MarketState locale={lang} kind='unavailable' />;
-  if (market.items.length === 0) return <MarketState locale={lang} kind='empty' />;
+  if (!market.available) return <MarketPreviewState locale={lang} kind='unavailable' limit={limit} />;
+  if (market.items.length === 0) return <MarketPreviewState locale={lang} kind='empty' limit={limit} />;
   return (
     <div className='pc-cp-market-grid pc-cp-market-grid--preview' data-testid='canonical-market-preview'>
       {market.items.slice(0, limit).map((lot, index) => <MarketCard key={lot.publicRef} lot={lot} publicIndex={index} locale={lang} />)}
@@ -93,8 +93,8 @@ export async function CanonicalMarketResults({
 }) {
   const lang = canonicalPublicLocale(locale);
   const market = await getPublicMarketLots();
-  if (!market.available) return <MarketState locale={lang} kind='unavailable' />;
-  if (market.items.length === 0) return <MarketState locale={lang} kind='empty' />;
+  if (!market.available) return <MarketEmptyLayout locale={lang} kind='unavailable' />;
+  if (market.items.length === 0) return <MarketEmptyLayout locale={lang} kind='empty' />;
 
   const normalizedQuery = query.trim().toLocaleLowerCase(lang === 'ru' ? 'ru-RU' : lang === 'zh' ? 'zh-CN' : 'en-US');
   const indexed = market.items.map((lot, index) => ({ lot, index }));
@@ -220,6 +220,67 @@ function MarketAside({ lot, publicIndex, locale, authority }: { lot: PublicMarke
       <Link className='pc-cp-button' href={`/platform-v7/market?lang=${locale}&lot=${publicIndex}`}>{locale === 'ru' ? 'Открыть карточку' : locale === 'en' ? 'Open lot' : '打开批次'}<ArrowRight size={16} aria-hidden='true' /></Link>
       <small style={{ color: 'var(--pc-cp-muted)', lineHeight: 1.45 }}>{copy.source}{authority.authority?.observedAt ? ` · ${formatObserved(authority.authority.observedAt, locale)}` : ''}</small>
     </aside>
+  );
+}
+
+
+function MarketPreviewState({ locale, kind, limit }: { locale: CanonicalPublicLocale; kind: 'empty' | 'unavailable'; limit: number }) {
+  const copy=COPY[locale];
+  const title=kind==='unavailable'?copy.unavailableTitle:copy.emptyTitle;
+  const text=kind==='unavailable'?copy.unavailableText:copy.emptyText;
+  return (
+    <div className='pc-cp-market-preview-state' data-market-state={kind}>
+      <div className='pc-cp-market-preview-alert'><ShieldCheck size={16} aria-hidden='true'/><strong>{title}</strong><span>{text}</span></div>
+      <div className='pc-cp-market-grid pc-cp-market-grid--preview pc-cp-market-grid--empty' data-testid='canonical-market-preview'>
+        {Array.from({length:Math.max(1,Math.min(limit,4))},(_,index)=><EmptyLotCard key={index} locale={locale} index={index}/>)}
+      </div>
+    </div>
+  );
+}
+
+function MarketEmptyLayout({ locale, kind }: { locale: CanonicalPublicLocale; kind: 'empty' | 'unavailable' }) {
+  const copy=COPY[locale];
+  const title=kind==='unavailable'?copy.unavailableTitle:copy.emptyTitle;
+  const text=kind==='unavailable'?copy.unavailableText:copy.emptyText;
+  const noLot=locale==='ru'?'Лот не выбран':locale==='en'?'No lot selected':'未选择批次';
+  const noData=locale==='ru'?'Публичные данные не подтверждены':locale==='en'?'Public data is not confirmed':'公开数据未确认';
+  return (
+    <div className='pc-cp-market-layout pc-cp-market-layout--empty' data-market-state={kind}>
+      <div>
+        <div className='pc-cp-market-preview-alert pc-cp-market-preview-alert--wide'><ShieldCheck size={16} aria-hidden='true'/><strong>{title}</strong><span>{text}</span></div>
+        <div className='pc-cp-market-grid pc-cp-market-grid--empty'>
+          {Array.from({length:6},(_,index)=><EmptyLotCard key={index} locale={locale} index={index}/>)}
+        </div>
+      </div>
+      <aside className='pc-cp-card pc-cp-market-aside pc-cp-market-aside--empty' aria-label={noLot}>
+        <span className='pc-cp-eyebrow'>{copy.selected}</span>
+        <h2>{noLot}</h2>
+        <div className='pc-cp-lot-media pc-cp-lot-media--empty' aria-hidden='true'/>
+        <div className='pc-cp-chip pc-cp-chip--warn'>{noData}</div>
+        <dl>
+          <Row label={copy.volume} value='—'/>
+          <Row label={copy.price} value='—'/>
+          <Row label={copy.region} value='—'/>
+          <Row label={copy.ends} value='—'/>
+        </dl>
+        <p className='pc-cp-lead' style={{fontSize:12}}>{text}</p>
+      </aside>
+    </div>
+  );
+}
+
+function EmptyLotCard({ locale, index }: { locale: CanonicalPublicLocale; index: number }) {
+  const unavailable=locale==='ru'?'Данные лота недоступны':locale==='en'?'Lot data unavailable':'批次数据不可用';
+  const waiting=locale==='ru'?'Ожидаем подтверждённую публикацию':locale==='en'?'Awaiting confirmed publication':'等待确认发布';
+  return (
+    <article className='pc-cp-card pc-cp-lot-card pc-cp-lot-card--empty' aria-label={unavailable}>
+      <div className='pc-cp-lot-media pc-cp-lot-media--empty' data-visual-index={index} aria-hidden='true'/>
+      <div className='pc-cp-lot-body'>
+        <span className='pc-cp-chip pc-cp-chip--warn'>{unavailable}</span>
+        <div className='pc-cp-lot-title'>{waiting}</div>
+        <div className='pc-cp-empty-lines' aria-hidden='true'><i/><i/><i/></div>
+      </div>
+    </article>
   );
 }
 
