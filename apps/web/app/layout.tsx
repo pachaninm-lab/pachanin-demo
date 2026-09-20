@@ -115,6 +115,8 @@ const brandUrlAuthorityScript = buildPublicBrandRuntimeScript();
 const serviceWorkerRecoveryScript = `(function(){var version='2026-07-19-contact-dock-v3';var parameter='pc-sw-recovery';var controlled=false;try{controlled=!!('serviceWorker'in navigator&&navigator.serviceWorker.controller);}catch(e){}var tasks=[];try{if('serviceWorker'in navigator){tasks.push(navigator.serviceWorker.getRegistrations().then(function(items){return Promise.all(items.map(function(item){return item.unregister();}));}));}}catch(e){}try{if('caches'in window){tasks.push(caches.keys().then(function(keys){return Promise.all(keys.map(function(key){return caches.delete(key);}));}));}}catch(e){}Promise.all(tasks).catch(function(){}).then(function(){try{var url=new URL(window.location.href);var recovered=url.searchParams.get(parameter)===version;if(controlled&&!recovered){url.searchParams.set(parameter,version);window.location.replace(url.toString());return;}if(recovered){url.searchParams.delete(parameter);window.history.replaceState(window.history.state,'',url.pathname+(url.search||'')+url.hash);}}catch(e){}});})();`;
 const themeScript = `(function(){try{var t=localStorage.getItem('pc-theme');if(t==='dark'||t==='light'||t==='high-contrast'){document.documentElement.setAttribute('data-theme',t);}else{document.documentElement.setAttribute('data-theme','light');}}catch(e){}})();`;
 
+const canonicalHomePaintGateScript = `(function(){if(!window.matchMedia||!window.matchMedia('(max-width:760px)').matches)return;var root=document.documentElement,done=false,observer;var reveal=function(){if(done)return;done=true;root.removeAttribute('data-pc-home-lcp-pending');try{observer&&observer.disconnect();}catch(e){}};root.setAttribute('data-pc-home-lcp-pending','true');try{observer=new PerformanceObserver(function(list){var entries=list.getEntries();for(var i=entries.length-1;i>=0;i--){var el=entries[i]&&entries[i].element;if(el&&el.classList&&el.classList.contains('pc-cp-hero-media')){requestAnimationFrame(reveal);return;}}});observer.observe({type:'largest-contentful-paint',buffered:true});}catch(e){}window.addEventListener('scroll',reveal,{once:true,passive:true,capture:true});window.addEventListener('touchstart',reveal,{once:true,passive:true,capture:true});window.addEventListener('pointerdown',reveal,{once:true,capture:true});window.addEventListener('keydown',reveal,{once:true,capture:true});setTimeout(reveal,3500);})();`;
+
 function normalizePath(value: string | null) {
   return (value || '').split('?')[0].replace(/\/$/, '') || '/';
 }
@@ -206,6 +208,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: brandUrlAuthorityScript }} />
         <script dangerouslySetInnerHTML={{ __html: serviceWorkerRecoveryScript }} />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {canonicalPublicHome ? <script dangerouslySetInnerHTML={{ __html: canonicalHomePaintGateScript }} /> : null}
         <meta name='description' content={pageDescription} />
         <meta name='google' content='notranslate' />
         <meta name='googlebot' content='notranslate' />

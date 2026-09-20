@@ -889,3 +889,17 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
     contain-intrinsic-size:auto 320px;
   }
 }
+
+
+/* MOBILE LCP PAINT GATE — below-market content reveals after hero paint or first interaction */
+@media(max-width:760px){
+  html[data-pc-home-lcp-pending='true'] .pc-cp-page-home #deal-path,
+  html[data-pc-home-lcp-pending='true'] .pc-cp-page-home #participants,
+  html[data-pc-home-lcp-pending='true'] .pc-cp-page-home #live,
+  html[data-pc-home-lcp-pending='true'] .pc-cp-page-home #trust,
+  html[data-pc-home-lcp-pending='true'] .pc-cp-page-home #gekta,
+  html[data-pc-home-lcp-pending='true'] .pc-cp-page-home #capabilities,
+  html[data-pc-home-lcp-pending='true'] .pc-cp-page-home .pc-cp-final{
+    display:none!important;
+  }
+}
