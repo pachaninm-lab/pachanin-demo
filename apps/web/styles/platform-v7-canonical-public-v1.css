@@ -1247,3 +1247,14 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-page-deal-flow .pc-cp-deal-public-main .pc-cp-state-tab{min-height:44px!important}
   .pc-cp-page-trust .pc-cp-faq-item summary{min-height:44px!important}
 }
+
+
+/* TRUST AUTHORITY V5 — restore approved desktop vertical density */
+@media(min-width:761px){
+  .pc-cp-page-trust .pc-cp-trust-pillars{align-items:stretch}
+  .pc-cp-page-trust .pc-cp-trust-pillar{min-height:326px!important;grid-template-rows:auto 1fr 76px auto!important;padding:11px!important;gap:7px!important}
+  .pc-cp-page-trust .pc-cp-trust-pillar-media{height:76px!important}
+  .pc-cp-page-trust .pc-cp-trust-pillar-head p{font-size:8px!important;line-height:1.25!important}
+  .pc-cp-page-trust .pc-cp-trust-pillar li{font-size:8px!important;line-height:1.24!important}
+  .pc-cp-page-trust .pc-cp-trust-pillar>small{font-size:7px!important;line-height:1.22!important}
+}
