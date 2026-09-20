@@ -5,6 +5,7 @@ import { CheckCircle2, Eye, EyeOff, RefreshCw, ShieldCheck } from 'lucide-react'
 import { applyCsrfHeader } from '@/lib/csrf';
 
 type Locale = 'ru' | 'en' | 'zh';
+type PublicWorkspace = 'seller' | 'buyer' | 'logistics' | 'bank';
 
 type RegistrationStatus = {
   applicationId?: string;
@@ -176,7 +177,7 @@ const COPY: Record<Locale, Copy> = {
       { value: 'lab', label: 'Лаборатория' },
       { value: 'surveyor', label: 'Сюрвейер / независимый инспектор' },
       { value: 'bank', label: 'Банк / финансовая организация' },
-      { value: 'employee', label: 'Сотрудник существующей организации' },
+      { value: 'employee', label: 'Сотрудник подключённой организации' },
     ],
     orgTypes: [
       { value: 'LEGAL', label: 'Юридическое лицо' },
@@ -274,7 +275,7 @@ const COPY: Record<Locale, Copy> = {
       { value: 'lab', label: 'Laboratory' },
       { value: 'surveyor', label: 'Surveyor / independent inspector' },
       { value: 'bank', label: 'Bank / financial organization' },
-      { value: 'employee', label: 'Employee of an existing organization' },
+      { value: 'employee', label: 'Employee of a connected organisation' },
     ],
     orgTypes: [
       { value: 'LEGAL', label: 'Legal entity' },
@@ -372,7 +373,7 @@ const COPY: Record<Locale, Copy> = {
       { value: 'lab', label: '实验室' },
       { value: 'surveyor', label: '检验员 / 独立检查员' },
       { value: 'bank', label: '银行 / 金融机构' },
-      { value: 'employee', label: '现有组织员工' },
+      { value: 'employee', label: '已接入机构员工' },
     ],
     orgTypes: [
       { value: 'LEGAL', label: '法人实体' },
@@ -390,10 +391,12 @@ export function RegisterFormClient({
   locale,
   verifyToken,
   initialStatusToken,
+  initialWorkspace,
 }: {
   locale: Locale;
   verifyToken?: string;
   initialStatusToken?: string;
+  initialWorkspace?: PublicWorkspace;
 }) {
   const copy = COPY[locale];
   const idempotencyKey = React.useRef<string>(globalThis.crypto?.randomUUID?.() || `reg-${Date.now()}-${Math.random()}`);
@@ -686,7 +689,7 @@ export function RegisterFormClient({
       <section className='p0-register-card'>
         <div className='p0-register-section-heading'><h2>1. {copy.participationSection}</h2><p>{copy.participationLead}</p></div>
         <div className='p0-register-grid'>
-          <label><span>{copy.workspace} *</span><select name='workspace' defaultValue='seller' required>{copy.workspaces.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+          <label><span>{copy.workspace} *</span><select name='workspace' defaultValue={initialWorkspace || 'seller'} required>{copy.workspaces.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
           <label><span>{copy.orgType} *</span><select name='orgType' defaultValue='LEGAL' required>{copy.orgTypes.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
         </div>
       </section>
