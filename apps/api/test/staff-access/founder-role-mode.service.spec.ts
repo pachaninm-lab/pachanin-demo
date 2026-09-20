@@ -198,6 +198,34 @@ describe('FounderRoleModeService', () => {
     expect(result.actor).toEqual({ displayName: 'Founder User' });
   });
 
+  it.each([
+    { actorUserId: 'different-actor', staffRole: StaffRole.PLATFORM_OWNER },
+    { actorUserId: owner.id, staffRole: StaffRole.PLATFORM_ADMIN },
+  ])('rejects a VIEW_AS session that is not the founder owner session', async ({ actorUserId, staffRole }) => {
+    const { service } = fixture();
+    const context = {
+      accessSessionId: 'sas-wrong-owner',
+      grantId: 'sag-wrong-owner',
+      actorUserId,
+      staffRole,
+      accessMode: StaffAccessMode.VIEW_AS,
+      permissions: [
+        StaffPermission.CABINET_VIEW_AS,
+        StaffPermission.DEAL_READ,
+        StaffPermission.DOCUMENT_METADATA_READ,
+      ],
+      effectiveTenantId: 'tenant-real',
+      effectiveOrganizationId: 'org-real',
+      effectiveUserId: null,
+      effectiveRole: Role.BUYER,
+      reason: 'Wrong delegated owner context',
+      ticketId: 'R1-NEG-OWNER',
+      expiresAt: new Date(Date.now() + 60_000),
+    } as StaffAccessContext;
+
+    await expect(service.session(owner, context)).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it('rejects a role-mode session carrying non-canonical or write-capable permissions', async () => {
     const { service } = fixture();
     const context = {
