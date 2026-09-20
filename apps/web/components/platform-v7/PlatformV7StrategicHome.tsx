@@ -236,7 +236,7 @@ export async function PlatformV7StrategicHome() {
   const registerBase = `/platform-v7/register?lang=${locale}`;
 
   return (
-    <main className='pc-canonical-public' data-testid='platform-v7-root-execution-cockpit'>
+    <main className='pc-canonical-public pc-cp-page-home' data-testid='platform-v7-root-execution-cockpit'>
       <CanonicalPublicHeader locale={locale} activePath='/platform-v7' />
 
       <section className='pc-cp-hero' aria-labelledby='pc-cp-home-title'>
