@@ -170,6 +170,24 @@ function installedManifestLicense(purl) {
   return resolved;
 }
 
+// Registry-published licences for components this machine does not install, produced
+// by the separate online step scripts/ip/fetch-registry-license-evidence.mjs. Read
+// offline here so the map stays deterministic. Consulted only after the installed
+// artifact, and only for an exact name+version match.
+const registryEvidencePath = process.argv[5] ?? 'docs/ip/registry-license-evidence.json';
+const registryEvidence = new Map();
+let registryResolved = 0;
+if (existsSync(registryEvidencePath)) {
+  if (!lstatSync(registryEvidencePath).isFile()) {
+    throw new Error(`Registry licence evidence path is not a regular file: ${registryEvidencePath}`);
+  }
+  const parsed = JSON.parse(readFileSync(registryEvidencePath, 'utf8'));
+  if (parsed.schemaVersion !== 1) {
+    throw new Error(`Unsupported registry licence evidence schemaVersion: ${parsed.schemaVersion}`);
+  }
+  for (const entry of parsed.entries ?? []) registryEvidence.set(entry.purl, entry);
+}
+
 const overrides = new Map();
 if (existsSync(overridesPath)) {
   if (!lstatSync(overridesPath).isFile()) throw new Error(`License override path is not a regular file: ${overridesPath}`);
@@ -239,6 +257,17 @@ const rows = [...byKey.values()].map((item) => {
       classification = classifyLicenseExpression(installed.license);
       evidence = `Installed package manifest: ${installed.path}`;
       installedEvidence = installed.path;
+    } else {
+      // Ничего не установлено — как правило, это optional-бинарник для другой
+      // платформы. Лицензия берётся из опубликованного манифеста ровно этой
+      // версии; имя пакета по-прежнему ничего не решает.
+      const published = registryEvidence.get(item.purl);
+      if (published && published.version === item.version) {
+        license = published.license;
+        classification = classifyLicenseExpression(published.license);
+        evidence = `Registry manifest: ${published.registryUrl} (${published.distIntegrity || published.distShasum})`;
+        registryResolved += 1;
+      }
     }
   }
 
@@ -283,6 +312,7 @@ writeFileSync(join(outDir, 'license-summary.json'), JSON.stringify({
   internalComponents: rows.filter((row) => row.classification === 'INTERNAL_PROPRIETARY').length,
   internalEvidenceMode: 'SBOM_SRCFILE_TO_EXACT_REPOSITORY_MANIFEST',
   licensesResolvedFromInstalledArtifact: rows.filter((row) => row.installedEvidence).length,
+  licensesResolvedFromRegistryManifest: registryResolved,
   unresolvedAfterInstalledLookup: rows.filter((row) => row.classification === 'UNKNOWN_REVIEW').length,
   classifications: summary,
   dependencyScopes: scopeSummary,
@@ -292,6 +322,7 @@ writeFileSync(join(outDir, 'license-summary.json'), JSON.stringify({
     review: 'Weak copyleft, attribution-heavy, custom and unresolved licenses remain explicit review items; they are not silently treated as proprietary code.',
     internal: 'A component is internal only when its SBOM SrcFile identifies an approved repository manifest whose private/name/version metadata matches exactly. Name prefixes alone never establish first-party origin.',
     installedArtifact: 'When the SBOM declares no license, the license is read from the installed package manifest the build actually ships, and the evidence column names that exact path. The version must match the component version. Nothing is inferred from a package name, and a component that cannot be resolved stays UNKNOWN_REVIEW rather than being guessed.',
+    registryManifest: 'When nothing is installed -- typically an optional prebuilt binary for another platform -- the license is read from the registry-published manifest for that exact version, and the evidence column names the registry URL and the published dist integrity. Local evidence always outranks it. Nothing is inferred from a package name.',
   },
 }, null, 2) + '\n');
 

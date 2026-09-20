@@ -1,0 +1,586 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-20T16:02:29.291Z",
+  "source": "https://registry.npmjs.org",
+  "purpose": "Licence read from the registry-published manifest for components the build does not install locally, chiefly platform-specific optional binaries. Consumed offline by scripts/ip/build-license-map.mjs. Primary-source evidence, not inference from package names.",
+  "limits": [
+    "Records what the registry publishes for that exact version. It does not audit the package contents against its declared licence.",
+    "Local evidence outranks this: a component whose licence the SBOM declares, or whose installed manifest can be read, is never resolved from here.",
+    "Re-fetching should reproduce these values. A change in the published manifest is a signal to re-review, not to update silently."
+  ],
+  "resolved": 57,
+  "unresolved": 0,
+  "entries": [
+    {
+      "purl": "pkg:npm/%40emnapi/core@1.9.2",
+      "name": "@emnapi/core",
+      "version": "1.9.2",
+      "license": "MIT",
+      "registryUrl": "https://registry.npmjs.org/@emnapi%2Fcore/1.9.2",
+      "distIntegrity": "sha512-UC+ZhH3XtczQYfOlu3lNEkdW/p4dsJ1r/bP7H8+rhao3TTTMO1ATq/4DdIi23XuGoFY+Cz0JmCbdVl0hz9jZcA==",
+      "distShasum": "3870265ecffc7352d01ead62d8d83d8358a2d034",
+      "manifestVersion": "1.9.2"
+    },
+    {
+      "purl": "pkg:npm/%40emnapi/runtime@1.11.2",
+      "name": "@emnapi/runtime",
+      "version": "1.11.2",
+      "license": "MIT",
+      "registryUrl": "https://registry.npmjs.org/@emnapi%2Fruntime/1.11.2",
+      "distIntegrity": "sha512-kyOl3X0DuTiT1h2ft8r2fYO8JYtU9a9Xis/zBSiGArNaagCOWx90N1k2wxp18czFDH+OgcWGb5ZP/XMt3dcyPA==",
+      "distShasum": "eb22f04d76febfdf4f87fdaff54c8a53f6bf0dbd",
+      "manifestVersion": "1.11.2"
+    },
+    {
+      "purl": "pkg:npm/%40emnapi/wasi-threads@1.2.1",
+      "name": "@emnapi/wasi-threads",
+      "version": "1.2.1",
+      "license": "MIT",
+      "registryUrl": "https://registry.npmjs.org/@emnapi%2Fwasi-threads/1.2.1",
+      "distIntegrity": "sha512-uTII7OYF+/Mes/MrcIOYp5yOtSMLBWSIoLPpcgwipoiKbli6k322tcoFsxoIIxPDqW01SQGAgko4EzZi2BNv2w==",
+      "distShasum": "28fed21a1ba1ce797c44a070abc94d42f3ae8548",
+      "manifestVersion": "1.2.1"
+    },
+    {
+      "purl": "pkg:npm/%40img/sharp-darwin-arm64@0.35.3",
+      "name": "@img/sharp-darwin-arm64",
+      "version": "0.35.3",
+      "license": "Apache-2.0",
+      "registryUrl": "https://registry.npmjs.org/@img%2Fsharp-darwin-arm64/0.35.3",
+      "distIntegrity": "sha512-RMnFX7YQsMoh7lWfcM4NEHHymBX/rLuKNPVM84XE9ONPcaSCDgE7CHIHpSgPcO2xcRthgBy1HfNO319mwhIAkg==",
+      "distShasum": "8b2740884bc58b127fc3020479a01294fa1095cb",
+      "manifestVersion": "0.35.3"
+    },
+    {
+      "purl": "pkg:npm/%40img/sharp-darwin-x64@0.35.3",
+      "name": "@img/sharp-darwin-x64",
+      "version": "0.35.3",
+      "license": "Apache-2.0",
+      "registryUrl": "https://registry.npmjs.org/@img%2Fsharp-darwin-x64/0.35.3",
+      "distIntegrity": "sha512-Xo+5uFBtLN0BKqieTxiFzFPQAUlBbbH5iBKyRX/z1JrbnYsHTfKJnUfL8+p2TPXr1pXqao4eeL4Rl144uDpK9w==",
+      "distShasum": "92df91320faf57cc54b331185770d5a93d510049",
+      "manifestVersion": "0.35.3"
+    },
+    {
+      "purl": "pkg:npm/%40img/sharp-freebsd-wasm32@0.35.3",
+      "name": "@img/sharp-freebsd-wasm32",
+      "version": "0.35.3",
+      "license": "Apache-2.0",
+      "registryUrl": "https://registry.npmjs.org/@img%2Fsharp-freebsd-wasm32/0.35.3",
+      "distIntegrity": "sha512-lUxcqWIj2wMQ9BrwNjngcr1gWUr5xgaGThBRqPPalIC2n67Cqj1uPh8NnA/ZhAg8hUbKl+kVHKwgUIwe6ZYPrg==",
+      "distShasum": "48018c1379a8f507d681d6cd8dbe43d9795dc809",
+      "manifestVersion": "0.35.3"
+    },
+    {
+      "purl": "pkg:npm/%40img/sharp-libvips-darwin-arm64@1.3.2",
+      "name": "@img/sharp-libvips-darwin-arm64",
+      "version": "1.3.2",
+      "license": "LGPL-3.0-or-later",
+      "registryUrl": "https://registry.npmjs.org/@img%2Fsharp-libvips-darwin-arm64/1.3.2",
+      "distIntegrity": "sha512-9J6ypZFpQBj4YnePGoq/S38w6nz+vqg5WZLrLGY4YuSemdMq47GMLBPO42MzwdGwpg/agZ7xzZcFHa48xlywfg==",
+      "distShasum": "227b41ffc6c99612bceaba56f994a1933d779573",
+      "manifestVersion": "1.3.2"
+    },
+    {
+      "purl": "pkg:npm/%40img/sharp-libvips-darwin-x64@1.3.2",
+      "name": "@img/sharp-libvips-darwin-x64",
+      "version": "1.3.2",
+      "license": "LGPL-3.0-or-later",
+      "registryUrl": "https://registry.npmjs.org/@img%2Fsharp-libvips-darwin-x64/1.3.2",
+      "distIntegrity": "sha512-m2pW1n6cns9VaubNwsZ+c3CRYjxNQWgJ5gPlnL1nbBcpkBvFm6SCFN5o0psFHI8w9n11NKhFkeEDns98tiqbEw==",
+      "distShasum": "694903ec410c00945ce5b0c26dac83d7184c8b86",
+      "manifestVersion": "1.3.2"
+    },
+    {
+      "purl": "pkg:npm/%40img/sharp-libvips-linux-arm@1.3.2",
+      "name": "@img/sharp-libvips-linux-arm",
+      "version": "1.3.2",
+      "license": "LGPL-3.0-or-later",
+      "registryUrl": "https://registry.npmjs.org/@img%2Fsharp-libvips-linux-arm/1.3.2",
+      "distIntegrity": "sha512-1eMLzy92I4J6rmi4mAT8yC3HxOtniyGELlzGbNMLLeqe052ahFQ0h6LFq+lh5DsDIdYViIDst08abvSbcEdLXQ==",
+      "distShasum": "e60e088c806bde1ac28be648b60c3465f41c18a7",
+      "manifestVersion": "1.3.2"
+    },
+    {
+      "purl": "pkg:npm/%40img/sharp-libvips-linux-arm64@1.3.2",
+      "name": "@img/sharp-libvips-linux-arm64",
+      "version": "1.3.2",
+      "license": "LGPL-3.0-or-later",
+      "registryUrl": "https://registry.npmjs.org/@img%2Fsharp-libvips-linux-arm64/1.3.2",
+      "distIntegrity": "sha512-dqVSFynCox4C/J8kT16V7SIFAns0IjgLwkvYT7p8LQVmJ5OS5b6tI9IGflxTeuBS//zXeFIUbwt5dwxyZ17cnA==",
+      "distShasum": "49ddf156728666a21deed0716f3bb72bb351179e",
+      "manifestVersion": "1.3.2"
+    },
+    {
+      "purl": "pkg:npm/%40img/sharp-libvips-linux-ppc64@1.3.2",
+      "name": "@img/sharp-libvips-linux-ppc64",
+      "version": "1.3.2",
+      "license": "LGPL-3.0-or-later",
+      "registryUrl": "https://registry.npmjs.org/@img%2Fsharp-libvips-linux-ppc64/1.3.2",
+      "distIntegrity": "sha512-3z0NHDxD6n5I9gc05U1eW1AyRm+Gznzq3naMrthPNqE6oYykcogW0l/jfpJdjYnuNl8R7yI9pNbE1XiUeyq0Aw==",
+      "distShasum": "be3161aafd659417b3e26374dfbbcd2da2bfb62c",
+      "manifestVersion": "1.3.2"
+    },
+    {
+      "purl": "pkg:npm/%40img/sharp-libvips-linux-riscv64@1.3.2",
+      "name": "@img/sharp-libvips-linux-riscv64",
+      "version": "1.3.2",
+      "license": "LGPL-3.0-or-later",
+      "registryUrl": "https://registry.npmjs.org/@img%2Fsharp-libvips-linux-riscv64/1.3.2",
+      "distIntegrity": "sha512-bsb4rI+NldGOsXuej2r8OdSS8+zXDVaCWxyWrcv6kneTOlgAHtZABRzBBCwdsPiD90J4myNJuHpg6kA20ImW/w==",
+      "distShasum": "bf008a6779d9be2b56a4df67b753941f767c957d",
+      "manifestVersion": "1.3.2"
+    },
+    {
+      "purl": "pkg:npm/%40img/sharp-libvips-linux-s390x@1.3.2",
+      "name": "@img/sharp-libvips-linux-s390x",
+      "version": "1.3.2",
+      "license": "LGPL-3.0-or-later",
+      "registryUrl": "https://registry.npmjs.org/@img%2Fsharp-libvips-linux-s390x/1.3.2",
+      "distIntegrity": "sha512-/ABshyj8gCpyIrNXnHn4LorDJ0HHm1VhXPBlxZ8zAtfVPAaSafXPGn+sUSIRiwaSBy0mmFjSjiXI5mkcwdChKQ==",
+      "distShasum": "9583814b8db58889c85bad9e5e0b7825257ff394",
+      "manifestVersion": "1.3.2"
+    },
+    {
+      "purl": "pkg:npm/%40img/sharp-libvips-linuxmusl-arm64@1.3.2",
+      "name": "@img/sharp-libvips-linuxmusl-arm64",
+      "version": "1.3.2",
+      "license": "LGPL-3.0-or-later",
+      "registryUrl": "https://registry.npmjs.org/@img%2Fsharp-libvips-linuxmusl-arm64/1.3.2",
+      "distIntegrity": "sha512-zE9EdiUzUmg5mDT5a1rk5fYJ6GWPloTwWBYDS14naqHsL+EaMpDj1AWnpLgh3u0YCORv2Tt50wrcrpYqkP97Kw==",
+      "distShasum": "e58fb14a7879f15d9e70a982870f384f39a832a2",
+      "manifestVersion": "1.3.2"
+    },
+    {
+      "purl": "pkg:npm/%40img/sharp-linux-arm@0.35.3",
+      "name": "@img/sharp-linux-arm",
+      "version": "0.35.3",
+      "license": "Apache-2.0",
+      "registryUrl": "https://registry.npmjs.org/@img%2Fsharp-linux-arm/0.35.3",
+      "distIntegrity": "sha512-affVWCTLooy8TSxbDx2qkzuDeaWLNVBA+P//FNBirHsXpP2fuBhk5AuboYUnrDnzoXes8GFjpTx0SBFOCRg+FA==",
+      "distShasum": "c8da500c4016893a89d46e9832d08a06eef77f27",
+      "manifestVersion": "0.35.3"
+    },
+    {
+      "purl": "pkg:npm/%40img/sharp-linux-arm64@0.35.3",
+      "name": "@img/sharp-linux-arm64",
+      "version": "0.35.3",
+      "license": "Apache-2.0",
+      "registryUrl": "https://registry.npmjs.org/@img%2Fsharp-linux-arm64/0.35.3",
+      "distIntegrity": "sha512-QgKDspHPnrU+GQ55XPhGwyhC8acLVOOSyAvo1oVfFmrIXLkDNmGWzAfDZ4xK8oSA1qBQrALcHX0G5UZni/SuFQ==",
+      "distShasum": "44b65823ecc977d4585b308070fff3947256de04",
+      "manifestVersion": "0.35.3"
+    },
+    {
+      "purl": "pkg:npm/%40img/sharp-linux-ppc64@0.35.3",
+      "name": "@img/sharp-linux-ppc64",
+      "version": "0.35.3",
+      "license": "Apache-2.0",
+      "registryUrl": "https://registry.npmjs.org/@img%2Fsharp-linux-ppc64/0.35.3",
+      "distIntegrity": "sha512-sMd8rDxmpLOwv/7N44klFjOD5DUO7FLdjiXDI0hoxYaf7Ar262dQIEkosE98bps+5HPLtp/EvNqeqQtOycP/IA==",
+      "distShasum": "ea1d7db818f52af1e1e057e82d55f23b2de3864c",
+      "manifestVersion": "0.35.3"
+    },
+    {
+      "purl": "pkg:npm/%40img/sharp-linux-riscv64@0.35.3",
+      "name": "@img/sharp-linux-riscv64",
+      "version": "0.35.3",
+      "license": "Apache-2.0",
+      "registryUrl": "https://registry.npmjs.org/@img%2Fsharp-linux-riscv64/0.35.3",
+      "distIntegrity": "sha512-0Eob78yjlYPfL5vMNWAW55l3R9Y6BQS/gOfe0ZcP9mEz9ohhKSt4im1hayiknXgf8AWrFqMvJcKIdmLmEe7yeQ==",
+      "distShasum": "722bd7994658791b02d1037ea09ca5cb78030d8d",
+      "manifestVersion": "0.35.3"
+    },
+    {
+      "purl": "pkg:npm/%40img/sharp-linux-s390x@0.35.3",
+      "name": "@img/sharp-linux-s390x",
+      "version": "0.35.3",
+      "license": "Apache-2.0",
+      "registryUrl": "https://registry.npmjs.org/@img%2Fsharp-linux-s390x/0.35.3",
+      "distIntegrity": "sha512-KgAxQ0DxpNOq1rG2t5cgTgShJFGSuU7XO45cqC+1NVOuZnP6tlgZRuSYOfNupGkHID0o3cJOsw4DVeJpMovcGw==",
+      "distShasum": "e8294817d7da495541a4a870f56e6b5d0f8643cd",
+      "manifestVersion": "0.35.3"
+    },
+    {
+      "purl": "pkg:npm/%40img/sharp-linuxmusl-arm64@0.35.3",
+      "name": "@img/sharp-linuxmusl-arm64",
+      "version": "0.35.3",
+      "license": "Apache-2.0",
+      "registryUrl": "https://registry.npmjs.org/@img%2Fsharp-linuxmusl-arm64/0.35.3",
+      "distIntegrity": "sha512-Vz0iQjzzcSX3HCbfwFfCSG/9SCIqyO0mH2sXyiHaAYfBk0cRsCWXRyQYX0ovCK/PAQBbTzQ0dsPQHh5MAFL59w==",
+      "distShasum": "9cfee4ecc3d41ab9a274e019dfe7b4062840510c",
+      "manifestVersion": "0.35.3"
+    },
+    {
+      "purl": "pkg:npm/%40img/sharp-wasm32@0.35.3",
+      "name": "@img/sharp-wasm32",
+      "version": "0.35.3",
+      "license": "Apache-2.0 AND LGPL-3.0-or-later AND MIT",
+      "registryUrl": "https://registry.npmjs.org/@img%2Fsharp-wasm32/0.35.3",
+      "distIntegrity": "sha512-cZ0XkcYGpHZkqW6iCkqTcmUC0CD9DhD5d/qeZlZkfRBn6GnHniZXLUo5+9xw8Iv76YE6LQFN9YNBlKREcCG76w==",
+      "distShasum": "42f8979bdbe1a541a2e9b99d3b5be07e6b71c7c0",
+      "manifestVersion": "0.35.3"
+    },
+    {
+      "purl": "pkg:npm/%40img/sharp-webcontainers-wasm32@0.35.3",
+      "name": "@img/sharp-webcontainers-wasm32",
+      "version": "0.35.3",
+      "license": "Apache-2.0",
+      "registryUrl": "https://registry.npmjs.org/@img%2Fsharp-webcontainers-wasm32/0.35.3",
+      "distIntegrity": "sha512-2rnq7bX3NzeR2T4YWgz8qiG4h3TSdMe+vN1iQXpJleSJ3SM5zQ8Fy2SyyXAWlbxpEZ2Y+Z4u1BePgJEYbSy80Q==",
+      "distShasum": "823aaa93d14db84999d5b5dc967ff56cf1966d9f",
+      "manifestVersion": "0.35.3"
+    },
+    {
+      "purl": "pkg:npm/%40img/sharp-win32-arm64@0.35.3",
+      "name": "@img/sharp-win32-arm64",
+      "version": "0.35.3",
+      "license": "Apache-2.0 AND LGPL-3.0-or-later",
+      "registryUrl": "https://registry.npmjs.org/@img%2Fsharp-win32-arm64/0.35.3",
+      "distIntegrity": "sha512-4bPwFdMbeC4JQ8L8LOyWp6nsHcboP5fxkp6iPOXz2Vg49R42TuMs2whkJ5OAP4/Ul035qOzy0AecOF9VOscn4w==",
+      "distShasum": "f3554d45cbe24532a0adea736ec57658f74a2911",
+      "manifestVersion": "0.35.3"
+    },
+    {
+      "purl": "pkg:npm/%40img/sharp-win32-ia32@0.35.3",
+      "name": "@img/sharp-win32-ia32",
+      "version": "0.35.3",
+      "license": "Apache-2.0 AND LGPL-3.0-or-later",
+      "registryUrl": "https://registry.npmjs.org/@img%2Fsharp-win32-ia32/0.35.3",
+      "distIntegrity": "sha512-r53mXsBN6lFUDiST764SvgwUdHAqM4rPAiDzAmf4fLoB6X/rkfyTrLCg6+g17wJJiCmB3JYgHuUldCWUIRFSXw==",
+      "distShasum": "0942b2643bcb57e48419fe4119de84078ae0ac74",
+      "manifestVersion": "0.35.3"
+    },
+    {
+      "purl": "pkg:npm/%40img/sharp-win32-x64@0.35.3",
+      "name": "@img/sharp-win32-x64",
+      "version": "0.35.3",
+      "license": "Apache-2.0 AND LGPL-3.0-or-later",
+      "registryUrl": "https://registry.npmjs.org/@img%2Fsharp-win32-x64/0.35.3",
+      "distIntegrity": "sha512-D4y1vNeZrIIJCN+uHaWVtH86B+aCrdMYYjicy9pXHvbGZeGYLLSd3wdVuC37FxVXlU1ARsk84eKWfWMXGYEqvA==",
+      "distShasum": "8a25cacdc75a8c26077c07fba51e8056aae474f1",
+      "manifestVersion": "0.35.3"
+    },
+    {
+      "purl": "pkg:npm/%40napi-rs/wasm-runtime@1.1.2",
+      "name": "@napi-rs/wasm-runtime",
+      "version": "1.1.2",
+      "license": "MIT",
+      "registryUrl": "https://registry.npmjs.org/@napi-rs%2Fwasm-runtime/1.1.2",
+      "distIntegrity": "sha512-sNXv5oLJ7ob93xkZ1XnxisYhGYXfaG9f65/ZgYuAu3qt7b3NadcOEhLvx28hv31PgX8SZJRYrAIPQilQmFpLVw==",
+      "distShasum": "e25454b4d44cfabd21d1bc801705359870e33ecc",
+      "manifestVersion": "1.1.2"
+    },
+    {
+      "purl": "pkg:npm/%40next/swc-darwin-arm64@15.5.21",
+      "name": "@next/swc-darwin-arm64",
+      "version": "15.5.21",
+      "license": "MIT",
+      "registryUrl": "https://registry.npmjs.org/@next%2Fswc-darwin-arm64/15.5.21",
+      "distIntegrity": "sha512-ZfjqPEdi6TRC/fWx7UDbwb1fbVgyh2uD5tVTRKIDZDlYM+UNuE/LafDG2fwuAoZilADpABh46OY/F5qf9JjqLQ==",
+      "distShasum": "bac5a07fc86a50555e0bab64fc7446605b028df4",
+      "manifestVersion": "15.5.21"
+    },
+    {
+      "purl": "pkg:npm/%40next/swc-darwin-x64@15.5.21",
+      "name": "@next/swc-darwin-x64",
+      "version": "15.5.21",
+      "license": "MIT",
+      "registryUrl": "https://registry.npmjs.org/@next%2Fswc-darwin-x64/15.5.21",
+      "distIntegrity": "sha512-TlCf1NpxgQLzTrexuev75xwmNCJMd1/qkJpTVP1GRRcih93hlIBn1P72hkh8T0gnRFr6BmWksQtbyG3jT6jnww==",
+      "distShasum": "b369644e8e5f0b3b51469542fc7d724c23762946",
+      "manifestVersion": "15.5.21"
+    },
+    {
+      "purl": "pkg:npm/%40next/swc-linux-arm64-gnu@15.5.21",
+      "name": "@next/swc-linux-arm64-gnu",
+      "version": "15.5.21",
+      "license": "MIT",
+      "registryUrl": "https://registry.npmjs.org/@next%2Fswc-linux-arm64-gnu/15.5.21",
+      "distIntegrity": "sha512-LXRsq1p+HvHSi7ygwNcSEEcK0zuo5jS75ZlqFHtOH+LF7qntXAJVJxah+1Pi/GyBm7EpkwU7m4EgbvIKrMqm9A==",
+      "distShasum": "90d8033f1411b1f1cd834d8d0b13daa6c1e978ac",
+      "manifestVersion": "15.5.21"
+    },
+    {
+      "purl": "pkg:npm/%40next/swc-linux-arm64-musl@15.5.21",
+      "name": "@next/swc-linux-arm64-musl",
+      "version": "15.5.21",
+      "license": "MIT",
+      "registryUrl": "https://registry.npmjs.org/@next%2Fswc-linux-arm64-musl/15.5.21",
+      "distIntegrity": "sha512-hyGixhFxpDKjqoev6l4KlcRBlt9AXWrGhDZwmwg49sMJM5tnKQPSi+SEj9+e5n+l/bthRGZUdh59GKIs6lQPRw==",
+      "distShasum": "fa3359b5d8e50d24a47d3f24fd663dd29b751abb",
+      "manifestVersion": "15.5.21"
+    },
+    {
+      "purl": "pkg:npm/%40next/swc-win32-arm64-msvc@15.5.21",
+      "name": "@next/swc-win32-arm64-msvc",
+      "version": "15.5.21",
+      "license": "MIT",
+      "registryUrl": "https://registry.npmjs.org/@next%2Fswc-win32-arm64-msvc/15.5.21",
+      "distIntegrity": "sha512-tNGNOlT0Wn7E4IMsSnufjXN/l2L2/AGdLLpa2vzS89SYCBuihgLn3ngLsIrvndAnWo9nAkus+4gZHTI/Ijx9HA==",
+      "distShasum": "d5fdddb7a96bc549ce2581a50c44bb9b44db0942",
+      "manifestVersion": "15.5.21"
+    },
+    {
+      "purl": "pkg:npm/%40next/swc-win32-x64-msvc@15.5.21",
+      "name": "@next/swc-win32-x64-msvc",
+      "version": "15.5.21",
+      "license": "MIT",
+      "registryUrl": "https://registry.npmjs.org/@next%2Fswc-win32-x64-msvc/15.5.21",
+      "distIntegrity": "sha512-DmIdWmC9p4rdNIiQqo8ap0+Cnj6kKtTZnuSCxoYydSc8sgpDgAg9wFhxplunak9imLV0pTvc5WVCOHwm5eHLtQ==",
+      "distShasum": "762363d4aaa353775b3c7a03e202f9eb0b1dca9e",
+      "manifestVersion": "15.5.21"
+    },
+    {
+      "purl": "pkg:npm/%40rolldown/binding-android-arm64@1.0.0-rc.12",
+      "name": "@rolldown/binding-android-arm64",
+      "version": "1.0.0-rc.12",
+      "license": "MIT",
+      "registryUrl": "https://registry.npmjs.org/@rolldown%2Fbinding-android-arm64/1.0.0-rc.12",
+      "distIntegrity": "sha512-pv1y2Fv0JybcykuiiD3qBOBdz6RteYojRFY1d+b95WVuzx211CRh+ytI/+9iVyWQ6koTh5dawe4S/yRfOFjgaA==",
+      "distShasum": "4e6af08b89da02596cc5da4b105082b68673ffec",
+      "manifestVersion": "1.0.0-rc.12"
+    },
+    {
+      "purl": "pkg:npm/%40rolldown/binding-darwin-arm64@1.0.0-rc.12",
+      "name": "@rolldown/binding-darwin-arm64",
+      "version": "1.0.0-rc.12",
+      "license": "MIT",
+      "registryUrl": "https://registry.npmjs.org/@rolldown%2Fbinding-darwin-arm64/1.0.0-rc.12",
+      "distIntegrity": "sha512-cFYr6zTG/3PXXF3pUO+umXxt1wkRK/0AYT8lDwuqvRC+LuKYWSAQAQZjCWDQpAH172ZV6ieYrNnFzVVcnSflAg==",
+      "distShasum": "a06890f4c9b48ff0fc97edbedfc762bef7cffd73",
+      "manifestVersion": "1.0.0-rc.12"
+    },
+    {
+      "purl": "pkg:npm/%40rolldown/binding-darwin-x64@1.0.0-rc.12",
+      "name": "@rolldown/binding-darwin-x64",
+      "version": "1.0.0-rc.12",
+      "license": "MIT",
+      "registryUrl": "https://registry.npmjs.org/@rolldown%2Fbinding-darwin-x64/1.0.0-rc.12",
+      "distIntegrity": "sha512-ZCsYknnHzeXYps0lGBz8JrF37GpE9bFVefrlmDrAQhOEi4IOIlcoU1+FwHEtyXGx2VkYAvhu7dyBf75EJQffBw==",
+      "distShasum": "eddf6aa3ed3509171fe21711f1e8ec8e0fd7ec49",
+      "manifestVersion": "1.0.0-rc.12"
+    },
+    {
+      "purl": "pkg:npm/%40rolldown/binding-freebsd-x64@1.0.0-rc.12",
+      "name": "@rolldown/binding-freebsd-x64",
+      "version": "1.0.0-rc.12",
+      "license": "MIT",
+      "registryUrl": "https://registry.npmjs.org/@rolldown%2Fbinding-freebsd-x64/1.0.0-rc.12",
+      "distIntegrity": "sha512-dMLeprcVsyJsKolRXyoTH3NL6qtsT0Y2xeuEA8WQJquWFXkEC4bcu1rLZZSnZRMtAqwtrF/Ib9Ddtpa/Gkge9Q==",
+      "distShasum": "2102dfed19fd1f1b53435fcaaf0bc61129a266a3",
+      "manifestVersion": "1.0.0-rc.12"
+    },
+    {
+      "purl": "pkg:npm/%40rolldown/binding-linux-arm-gnueabihf@1.0.0-rc.12",
+      "name": "@rolldown/binding-linux-arm-gnueabihf",
+      "version": "1.0.0-rc.12",
+      "license": "MIT",
+      "registryUrl": "https://registry.npmjs.org/@rolldown%2Fbinding-linux-arm-gnueabihf/1.0.0-rc.12",
+      "distIntegrity": "sha512-YqWjAgGC/9M1lz3GR1r1rP79nMgo3mQiiA+Hfo+pvKFK1fAJ1bCi0ZQVh8noOqNacuY1qIcfyVfP6HoyBRZ85Q==",
+      "distShasum": "b2c13f40e990fd1e1935492850536c768c961a0f",
+      "manifestVersion": "1.0.0-rc.12"
+    },
+    {
+      "purl": "pkg:npm/%40rolldown/binding-linux-arm64-gnu@1.0.0-rc.12",
+      "name": "@rolldown/binding-linux-arm64-gnu",
+      "version": "1.0.0-rc.12",
+      "license": "MIT",
+      "registryUrl": "https://registry.npmjs.org/@rolldown%2Fbinding-linux-arm64-gnu/1.0.0-rc.12",
+      "distIntegrity": "sha512-/I5AS4cIroLpslsmzXfwbe5OmWvSsrFuEw3mwvbQ1kDxJ822hFHIx+vsN/TAzNVyepI/j/GSzrtCIwQPeKCLIg==",
+      "distShasum": "32ca9f77c1e76b2913b3d53d2029dc171c0532d6",
+      "manifestVersion": "1.0.0-rc.12"
+    },
+    {
+      "purl": "pkg:npm/%40rolldown/binding-linux-arm64-musl@1.0.0-rc.12",
+      "name": "@rolldown/binding-linux-arm64-musl",
+      "version": "1.0.0-rc.12",
+      "license": "MIT",
+      "registryUrl": "https://registry.npmjs.org/@rolldown%2Fbinding-linux-arm64-musl/1.0.0-rc.12",
+      "distIntegrity": "sha512-V6/wZztnBqlx5hJQqNWwFdxIKN0m38p8Jas+VoSfgH54HSj9tKTt1dZvG6JRHcjh6D7TvrJPWFGaY9UBVOaWPw==",
+      "distShasum": "f4337ddd52f0ed3ada2105b59ee1b757a2c4858c",
+      "manifestVersion": "1.0.0-rc.12"
+    },
+    {
+      "purl": "pkg:npm/%40rolldown/binding-linux-ppc64-gnu@1.0.0-rc.12",
+      "name": "@rolldown/binding-linux-ppc64-gnu",
+      "version": "1.0.0-rc.12",
+      "license": "MIT",
+      "registryUrl": "https://registry.npmjs.org/@rolldown%2Fbinding-linux-ppc64-gnu/1.0.0-rc.12",
+      "distIntegrity": "sha512-AP3E9BpcUYliZCxa3w5Kwj9OtEVDYK6sVoUzy4vTOJsjPOgdaJZKFmN4oOlX0Wp0RPV2ETfmIra9x1xuayFB7g==",
+      "distShasum": "22fdd14cb00ee8208c28a39bab7f28860ec6705d",
+      "manifestVersion": "1.0.0-rc.12"
+    },
+    {
+      "purl": "pkg:npm/%40rolldown/binding-linux-s390x-gnu@1.0.0-rc.12",
+      "name": "@rolldown/binding-linux-s390x-gnu",
+      "version": "1.0.0-rc.12",
+      "license": "MIT",
+      "registryUrl": "https://registry.npmjs.org/@rolldown%2Fbinding-linux-s390x-gnu/1.0.0-rc.12",
+      "distIntegrity": "sha512-nWwpvUSPkoFmZo0kQazZYOrT7J5DGOJ/+QHHzjvNlooDZED8oH82Yg67HvehPPLAg5fUff7TfWFHQS8IV1n3og==",
+      "distShasum": "838215096d1de6d3d509e0410801cb7cda8161ff",
+      "manifestVersion": "1.0.0-rc.12"
+    },
+    {
+      "purl": "pkg:npm/%40rolldown/binding-openharmony-arm64@1.0.0-rc.12",
+      "name": "@rolldown/binding-openharmony-arm64",
+      "version": "1.0.0-rc.12",
+      "license": "MIT",
+      "registryUrl": "https://registry.npmjs.org/@rolldown%2Fbinding-openharmony-arm64/1.0.0-rc.12",
+      "distIntegrity": "sha512-vRugONE4yMfVn0+7lUKdKvN4D5YusEiPilaoO2sgUWpCvrncvWgPMzK00ZFFJuiPgLwgFNP5eSiUlv2tfc+lpA==",
+      "distShasum": "f66317e29eafcc300bed7af8dddac26ab3b1bf82",
+      "manifestVersion": "1.0.0-rc.12"
+    },
+    {
+      "purl": "pkg:npm/%40rolldown/binding-wasm32-wasi@1.0.0-rc.12",
+      "name": "@rolldown/binding-wasm32-wasi",
+      "version": "1.0.0-rc.12",
+      "license": "MIT",
+      "registryUrl": "https://registry.npmjs.org/@rolldown%2Fbinding-wasm32-wasi/1.0.0-rc.12",
+      "distIntegrity": "sha512-ykGiLr/6kkiHc0XnBfmFJuCjr5ZYKKofkx+chJWDjitX+KsJuAmrzWhwyOMSHzPhzOHOy7u9HlFoa5MoAOJ/Zg==",
+      "distShasum": "8825523fdffa1f1dc4683be9650ffaa9e4a77f04",
+      "manifestVersion": "1.0.0-rc.12"
+    },
+    {
+      "purl": "pkg:npm/%40rolldown/binding-win32-arm64-msvc@1.0.0-rc.12",
+      "name": "@rolldown/binding-win32-arm64-msvc",
+      "version": "1.0.0-rc.12",
+      "license": "MIT",
+      "registryUrl": "https://registry.npmjs.org/@rolldown%2Fbinding-win32-arm64-msvc/1.0.0-rc.12",
+      "distIntegrity": "sha512-5eOND4duWkwx1AzCxadcOrNeighiLwMInEADT0YM7xeEOOFcovWZCq8dadXgcRHSf3Ulh1kFo/qvzoFiCLOL1Q==",
+      "distShasum": "4f3a17e3d68a58309c27c0930b0f7986ccabef47",
+      "manifestVersion": "1.0.0-rc.12"
+    },
+    {
+      "purl": "pkg:npm/%40rolldown/binding-win32-x64-msvc@1.0.0-rc.12",
+      "name": "@rolldown/binding-win32-x64-msvc",
+      "version": "1.0.0-rc.12",
+      "license": "MIT",
+      "registryUrl": "https://registry.npmjs.org/@rolldown%2Fbinding-win32-x64-msvc/1.0.0-rc.12",
+      "distIntegrity": "sha512-PyqoipaswDLAZtot351MLhrlrh6lcZPo2LSYE+VDxbVk24LVKAGOuE4hb8xZQmrPAuEtTZW8E6D2zc5EUZX4Lw==",
+      "distShasum": "d762765d5660598a96b570b513f535c151272985",
+      "manifestVersion": "1.0.0-rc.12"
+    },
+    {
+      "purl": "pkg:npm/%40tybys/wasm-util@0.10.1",
+      "name": "@tybys/wasm-util",
+      "version": "0.10.1",
+      "license": "MIT",
+      "registryUrl": "https://registry.npmjs.org/@tybys%2Fwasm-util/0.10.1",
+      "distIntegrity": "sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg==",
+      "distShasum": "ecddd3205cf1e2d5274649ff0eedd2991ed7f414",
+      "manifestVersion": "0.10.1"
+    },
+    {
+      "purl": "pkg:npm/fsevents@2.3.2",
+      "name": "fsevents",
+      "version": "2.3.2",
+      "license": "MIT",
+      "registryUrl": "https://registry.npmjs.org/fsevents/2.3.2",
+      "distIntegrity": "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==",
+      "distShasum": "8a526f78b8fdf4623b709e0b975c52c24c02fd1a",
+      "manifestVersion": "2.3.2"
+    },
+    {
+      "purl": "pkg:npm/fsevents@2.3.3",
+      "name": "fsevents",
+      "version": "2.3.3",
+      "license": "MIT",
+      "registryUrl": "https://registry.npmjs.org/fsevents/2.3.3",
+      "distIntegrity": "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==",
+      "distShasum": "cac6407785d03675a2a5e1a5305c697b347d90d6",
+      "manifestVersion": "2.3.3"
+    },
+    {
+      "purl": "pkg:npm/lightningcss-android-arm64@1.32.0",
+      "name": "lightningcss-android-arm64",
+      "version": "1.32.0",
+      "license": "MPL-2.0",
+      "registryUrl": "https://registry.npmjs.org/lightningcss-android-arm64/1.32.0",
+      "distIntegrity": "sha512-YK7/ClTt4kAK0vo6w3X+Pnm0D2cf2vPHbhOXdoNti1Ga0al1P4TBZhwjATvjNwLEBCnKvjJc2jQgHXH0NEwlAg==",
+      "distShasum": "f033885116dfefd9c6f54787523e3514b61e1968",
+      "manifestVersion": "1.32.0"
+    },
+    {
+      "purl": "pkg:npm/lightningcss-darwin-arm64@1.32.0",
+      "name": "lightningcss-darwin-arm64",
+      "version": "1.32.0",
+      "license": "MPL-2.0",
+      "registryUrl": "https://registry.npmjs.org/lightningcss-darwin-arm64/1.32.0",
+      "distIntegrity": "sha512-RzeG9Ju5bag2Bv1/lwlVJvBE3q6TtXskdZLLCyfg5pt+HLz9BqlICO7LZM7VHNTTn/5PRhHFBSjk5lc4cmscPQ==",
+      "distShasum": "50b71871b01c8199584b649e292547faea7af9b5",
+      "manifestVersion": "1.32.0"
+    },
+    {
+      "purl": "pkg:npm/lightningcss-darwin-x64@1.32.0",
+      "name": "lightningcss-darwin-x64",
+      "version": "1.32.0",
+      "license": "MPL-2.0",
+      "registryUrl": "https://registry.npmjs.org/lightningcss-darwin-x64/1.32.0",
+      "distIntegrity": "sha512-U+QsBp2m/s2wqpUYT/6wnlagdZbtZdndSmut/NJqlCcMLTWp5muCrID+K5UJ6jqD2BFshejCYXniPDbNh73V8w==",
+      "distShasum": "35f3e97332d130b9ca181e11b568ded6aebc6d5e",
+      "manifestVersion": "1.32.0"
+    },
+    {
+      "purl": "pkg:npm/lightningcss-freebsd-x64@1.32.0",
+      "name": "lightningcss-freebsd-x64",
+      "version": "1.32.0",
+      "license": "MPL-2.0",
+      "registryUrl": "https://registry.npmjs.org/lightningcss-freebsd-x64/1.32.0",
+      "distIntegrity": "sha512-JCTigedEksZk3tHTTthnMdVfGf61Fky8Ji2E4YjUTEQX14xiy/lTzXnu1vwiZe3bYe0q+SpsSH/CTeDXK6WHig==",
+      "distShasum": "9777a76472b64ed6ff94342ad64c7bafd794a575",
+      "manifestVersion": "1.32.0"
+    },
+    {
+      "purl": "pkg:npm/lightningcss-linux-arm-gnueabihf@1.32.0",
+      "name": "lightningcss-linux-arm-gnueabihf",
+      "version": "1.32.0",
+      "license": "MPL-2.0",
+      "registryUrl": "https://registry.npmjs.org/lightningcss-linux-arm-gnueabihf/1.32.0",
+      "distIntegrity": "sha512-x6rnnpRa2GL0zQOkt6rts3YDPzduLpWvwAF6EMhXFVZXD4tPrBkEFqzGowzCsIWsPjqSK+tyNEODUBXeeVHSkw==",
+      "distShasum": "13ae652e1ab73b9135d7b7da172f666c410ad53d",
+      "manifestVersion": "1.32.0"
+    },
+    {
+      "purl": "pkg:npm/lightningcss-linux-arm64-gnu@1.32.0",
+      "name": "lightningcss-linux-arm64-gnu",
+      "version": "1.32.0",
+      "license": "MPL-2.0",
+      "registryUrl": "https://registry.npmjs.org/lightningcss-linux-arm64-gnu/1.32.0",
+      "distIntegrity": "sha512-0nnMyoyOLRJXfbMOilaSRcLH3Jw5z9HDNGfT/gwCPgaDjnx0i8w7vBzFLFR1f6CMLKF8gVbebmkUN3fa/kQJpQ==",
+      "distShasum": "417858795a94592f680123a1b1f9da8a0e1ef335",
+      "manifestVersion": "1.32.0"
+    },
+    {
+      "purl": "pkg:npm/lightningcss-linux-arm64-musl@1.32.0",
+      "name": "lightningcss-linux-arm64-musl",
+      "version": "1.32.0",
+      "license": "MPL-2.0",
+      "registryUrl": "https://registry.npmjs.org/lightningcss-linux-arm64-musl/1.32.0",
+      "distIntegrity": "sha512-UpQkoenr4UJEzgVIYpI80lDFvRmPVg6oqboNHfoH4CQIfNA+HOrZ7Mo7KZP02dC6LjghPQJeBsvXhJod/wnIBg==",
+      "distShasum": "6be36692e810b718040802fd809623cffe732133",
+      "manifestVersion": "1.32.0"
+    },
+    {
+      "purl": "pkg:npm/lightningcss-win32-arm64-msvc@1.32.0",
+      "name": "lightningcss-win32-arm64-msvc",
+      "version": "1.32.0",
+      "license": "MPL-2.0",
+      "registryUrl": "https://registry.npmjs.org/lightningcss-win32-arm64-msvc/1.32.0",
+      "distIntegrity": "sha512-8SbC8BR40pS6baCM8sbtYDSwEVQd4JlFTOlaD3gWGHfThTcABnNDBda6eTZeqbofalIJhFx0qKzgHJmcPTnGdw==",
+      "distShasum": "4f30ba3fa5e925f5b79f945e8cc0d176c3b1ab38",
+      "manifestVersion": "1.32.0"
+    },
+    {
+      "purl": "pkg:npm/lightningcss-win32-x64-msvc@1.32.0",
+      "name": "lightningcss-win32-x64-msvc",
+      "version": "1.32.0",
+      "license": "MPL-2.0",
+      "registryUrl": "https://registry.npmjs.org/lightningcss-win32-x64-msvc/1.32.0",
+      "distIntegrity": "sha512-Amq9B/SoZYdDi1kFrojnoqPLxYhQ4Wo5XiL8EVJrVsB8ARoC1PWW6VGtT0WKCemjy8aC+louJnjS7U18x3b06Q==",
+      "distShasum": "141aa5605645064928902bb4af045fa7d9f4220a",
+      "manifestVersion": "1.32.0"
+    }
+  ],
+  "failures": []
+}
