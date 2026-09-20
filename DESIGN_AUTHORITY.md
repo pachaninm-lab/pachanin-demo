@@ -32,6 +32,7 @@ If a listed mockup conflicts with accessibility, responsive behavior, a real pro
 | `09-gekta-desktop.jpg` | Гекта — desktop; mobile derives from the same canonical design system and IA | 1672×941 | `2d2a3dd0940cc920b9ea87c847ba204d504c76c658f375fe397862adb838e8f2` |
 
 The canonical source bundle supplied for this work is `final_canonical_mockups(2).zip`.
+Bundle SHA-256: `cd188423bdd8c30fb07d01ad5da10fb1d3c32d7a3dbe3d8aaf232163463307ed`.
 
 ## Canonical product contract
 
