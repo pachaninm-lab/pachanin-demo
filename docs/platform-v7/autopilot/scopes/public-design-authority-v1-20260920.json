@@ -18,6 +18,7 @@
     "apps/web/middleware.ts",
     "apps/web/playwright.canonical-visual.config.ts",
     "apps/web/public/platform-v7/hero-farmer-canonical.webp",
+    "apps/web/styles/platform-v7-canonical-home-v1.css",
     "apps/web/styles/platform-v7-canonical-public-v1.css",
     "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
     "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
@@ -36,7 +37,8 @@
     "RU, EN and ZH use one shared design system and the canonical nine roles, seven Deal stages and Trust model.",
     "Visual acceptance uses exact-head production build evidence; no production release occurs before terminal acceptance.",
     "No branch protection, security gate, governance guard or server authority is bypassed.",
-    "The canonical /platform-v7 landing does not hydrate hidden legacy contact/support surfaces; login/recovery and older public surfaces retain their existing support behavior."
+    "The canonical /platform-v7 landing does not hydrate hidden legacy contact/support surfaces; login/recovery and older public surfaces retain their existing support behavior.",
+    "The canonical landing may use a route-scoped stylesheet derived from the shared design system so linked-page CSS does not block home rendering; visual authority and shared tokens/primitives remain unchanged."
   ],
   "acceptance": [
     "Exact-head web typecheck, unit, Node CI, API and security gates pass.",
