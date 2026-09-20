@@ -22,14 +22,25 @@ export const SUPPORTED_DETERMINATIONS = Object.freeze(['RE_EXPORT_BARREL_NO_EXPR
 export const SUPPORTED_SCOPES = Object.freeze(['ALL_MATCHES_FOR_SOURCE']);
 export const MINIMUM_RATIONALE_LENGTH = 40;
 
+// Moved here verbatim from build-offline-similarity-evidence.mjs so that the matcher
+// and the adjudication verifier can never drift apart. Verbatim is the point: these
+// expressions decide every fingerprint in the corpus, so changing them changes every
+// finding. Do not "tidy" them.
+//
+// In particular, each string-literal alternative is written so its branches cannot
+// both match the same character -- `\\.` for an escape, `[^`\\]` for anything that is
+// neither the closing quote nor a backslash. A single combined alternative such as
+// /(['"`])(?:\\.|(?!\1)[\s\S])*\1/ looks equivalent and is not: a backslash satisfies
+// both branches, so an unterminated literal makes the engine try exponentially many
+// partitions. On a large minified corpus file that does not finish.
 export function normalizeSource(source) {
   return source
-    .replace(/\r\n?/gu, '\n')
-    .replace(/\/\*[\s\S]*?\*\//gu, ' ')
-    .replace(/(^|[^:])\/\/[^\n]*/gu, '$1 ')
-    .replace(/(['"`])(?:\\.|(?!\1)[\s\S])*\1/gu, '<STRING>')
-    .replace(/\b\d[\d_]*(?:\.\d+)?(?:e[+-]?\d+)?\b/giu, '<NUMBER>')
-    .replace(/\s+/gu, ' ')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/(^|\s)\/\/.*$/gm, '$1 ')
+    .replace(/(^|\s)#.*$/gm, '$1 ')
+    .replace(/`(?:\\.|[^`\\])*`|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g, '<STRING>')
+    .replace(/\b\d+(?:\.\d+)?\b/g, '<NUMBER>')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 

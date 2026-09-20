@@ -123,3 +123,50 @@ test('the committed register parses with no defects and only supported determina
     assert.equal(result.resolved, true, `${sourcePath} no longer satisfies its determination`);
   }
 });
+
+// --- tokenizer regressions -------------------------------------------------
+//
+// normalizeSource decides every fingerprint in the corpus. These tests exist because
+// a refactor once "tidied" it and changed results while looking equivalent.
+
+test('shell and Python comments are stripped', () => {
+  assert.deepEqual(tokens('value = 1 # trailing note\nother = 2'), tokens('value = <NUMBER> other = <NUMBER>'));
+});
+
+test('line comments are stripped', () => {
+  assert.deepEqual(tokens('const a = 1; // note here'), tokens('const a = <NUMBER>;'));
+});
+
+test('block comments are stripped', () => {
+  assert.deepEqual(tokens('const /* inline */ a = 1;'), tokens('const a = <NUMBER>;'));
+});
+
+test('string literals collapse to a single token regardless of quote style', () => {
+  assert.deepEqual(tokens("a = 'x'"), tokens('a = "x"'));
+  assert.deepEqual(tokens('a = `x`'), tokens('a = "x"'));
+  assert.deepEqual(tokens('a = "x"'), ['a', '=', '<STRING>']);
+});
+
+test('an escaped quote does not end a string literal', () => {
+  assert.deepEqual(tokens('a = "x\\"y"; b'), ['a', '=', '<STRING>', ';', 'b']);
+});
+
+// The defect this guards: a combined alternative such as /(['"`])(?:\\.|(?!\1)[\s\S])*\1/
+// lets a backslash satisfy both branches, so an unterminated literal backtracks
+// exponentially. Sized so the broken form fails in seconds rather than hanging the
+// suite: at this length it takes ~5s, while the correct expression takes under 1ms.
+test('an unterminated string literal tokenizes promptly', () => {
+  const pathological = `const x = "${'a\\\\'.repeat(18)}`;
+  const started = Date.now();
+  tokens(pathological);
+  const elapsed = Date.now() - started;
+  assert.ok(elapsed < 2000, `tokenizing took ${elapsed}ms; the string-literal regex is backtracking`);
+});
+
+test('an unterminated literal inside a minified line tokenizes promptly', () => {
+  const pathological = `a=1;b=2;const x = '${'z\\\\'.repeat(18)}`;
+  const started = Date.now();
+  tokens(pathological);
+  const elapsed = Date.now() - started;
+  assert.ok(elapsed < 2000, `tokenizing took ${elapsed}ms; the string-literal regex is backtracking`);
+});
