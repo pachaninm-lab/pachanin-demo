@@ -66,7 +66,7 @@ describe('FounderRoleModeService', () => {
       canonicalPath: '/platform-v7/profile',
       effectiveRole: Role.GUEST,
     }));
-    expect(result.cabinets.some((item) => item.effectiveRole === Role.BANK_CALLBACK)).toBe(false);
+    expect(result.cabinets.map((item) => String(item.effectiveRole))).not.toContain(Role.BANK_CALLBACK);
     expect(result.mode).toBe(StaffAccessMode.VIEW_AS);
     expect(result.readOnly).toBe(true);
   });
