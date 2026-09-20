@@ -53,7 +53,7 @@ describe('platform-v7 canonical public experience',()=>{
   it('keeps one canonical navigation contract in RU EN ZH',()=>{
     for(const route of [
       '/platform-v7/market','/platform-v7/how-it-works','/platform-v7/capabilities',
-      '/platform-v7/ai-in-action','/platform-v7/trust','/platform-v7/about',
+      '/platform-v7/gekta','/platform-v7/trust','/platform-v7/about',
     ]) expect(primitives).toContain(route);
     for(const label of ['Рынок','Как проходит Сделка','Возможности','Гекта','Доверие','О платформе']) expect(primitives).toContain(label);
     for(const label of ['Market','How the Deal works','Capabilities','Trust','About']) expect(primitives).toContain(label);
