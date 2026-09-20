@@ -1015,3 +1015,178 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-page-home .pc-cp-hero-copy p{max-width:220px!important;font-size:10px!important}
   .pc-cp-page-market .pc-cp-lot-card{grid-template-columns:112px minmax(0,1fr)!important}
 }
+
+
+/* CANONICAL AUTHORITY LOCK V5 — exact-canvas alignment after screenshot pass */
+.pc-cp-footer p{color:#596860!important}
+
+@media(min-width:761px){
+  :root{--pc-cp-shell:min(1380px,calc(100vw - 32px))}
+  .pc-site-header[data-public-site-header='canonical'].pc-site-header.pc-site-header{
+    padding-inline:max(16px,calc((100vw - 1380px)/2))!important
+  }
+
+  /* The 1448 authority canvases use almost the full horizontal field. */
+  .pc-cp-page-market .pc-cp-market-layout{grid-template-columns:minmax(0,1fr) 320px!important}
+  .pc-cp-page-market .pc-cp-market-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+
+  /* Gekta authority is a 1672-wide application canvas, not a narrow marketing shell. */
+  .pc-cp-page-gekta .pc-cp-container{width:min(1600px,calc(100vw - 56px))!important}
+  .pc-cp-page-gekta .pc-site-header[data-public-site-header='canonical'].pc-site-header.pc-site-header{
+    padding-inline:max(18px,calc((100vw - 1600px)/2))!important
+  }
+  .pc-cp-page-gekta .pc-cp-gekta-workspace{
+    grid-template-columns:280px minmax(0,1fr) 340px!important;
+    gap:10px!important;
+    min-height:515px!important
+  }
+  .pc-cp-page-gekta .pc-cp-gekta-public-hero{min-height:225px!important}
+}
+
+.pc-cp-deal-mobile-summary{display:none}
+
+@media(max-width:760px){
+  /* Authority phone header keeps one active locale control; the other locale
+   * options remain reachable through the canonical menu on supporting pages. */
+  .pc-cp-page-home .pc-cp-hero-copy .pc-cp-actions{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    width:min(222px,72%)!important
+  }
+
+  /* Mobile Deal authority: title -> compact protected lot -> 7-stage rail ->
+   * state lens. Detailed protected lot context remains available on desktop. */
+  .pc-cp-page-deal-flow .pc-cp-deal-public-hero{padding:18px 0 12px!important;background:#fff!important}
+  .pc-cp-page-deal-flow .pc-cp-deal-public-hero .pc-cp-section-head{
+    margin-bottom:10px!important
+  }
+  .pc-cp-page-deal-flow .pc-cp-deal-public-hero .pc-cp-section-head .pc-cp-eyebrow{
+    display:none!important
+  }
+  .pc-cp-page-deal-flow .pc-cp-deal-public-hero .pc-cp-section-head h1{
+    font-size:31px!important;
+    line-height:1!important
+  }
+  .pc-cp-page-deal-flow .pc-cp-deal-public-hero .pc-cp-section-head p{
+    display:none!important
+  }
+  .pc-cp-deal-mobile-summary{
+    display:grid!important;
+    grid-template-columns:76px minmax(0,1fr) auto;
+    gap:10px;
+    align-items:center;
+    margin:8px 0 18px
+  }
+  .pc-cp-deal-mobile-summary-media{
+    width:76px;
+    height:64px;
+    display:grid;
+    place-items:center;
+    border-radius:0;
+    color:#fff;
+    background:
+      linear-gradient(180deg,rgba(255,255,255,.04),rgba(11,79,58,.10)),
+      url('/platform-v7/wheat-exact-background.svg') center/cover no-repeat
+  }
+  .pc-cp-deal-mobile-summary>div:nth-child(2){display:grid;gap:5px}
+  .pc-cp-deal-mobile-summary strong{font-family:var(--pc-cp-ui);font-size:13px;line-height:1.15}
+  .pc-cp-deal-mobile-summary div span{color:var(--pc-cp-green);font-size:10px;font-weight:800}
+  .pc-cp-deal-mobile-summary>.pc-cp-chip{min-height:30px;padding:0 10px;font-size:8px}
+
+  .pc-cp-page-deal-flow .pc-cp-deal-public-hero .pc-cp-deal-spine{
+    grid-template-columns:repeat(7,minmax(0,1fr))!important;
+    margin:0!important;
+    overflow:visible!important;
+    padding:0!important
+  }
+  .pc-cp-page-deal-flow .pc-cp-deal-public-hero .pc-cp-deal-spine::before{
+    left:6%!important;right:6%!important;width:auto!important;top:12px!important
+  }
+  .pc-cp-page-deal-flow .pc-cp-deal-public-hero .pc-cp-stage{gap:4px!important;min-width:0!important}
+  .pc-cp-page-deal-flow .pc-cp-deal-public-hero .pc-cp-stage i{width:25px!important;height:25px!important;font-size:8px!important}
+  .pc-cp-page-deal-flow .pc-cp-deal-public-hero .pc-cp-stage strong{
+    font-size:6.5px!important;
+    line-height:1.05!important;
+    max-width:46px!important
+  }
+
+  .pc-cp-page-deal-flow .pc-cp-deal-public-body{padding:12px 0 84px!important}
+  .pc-cp-page-deal-flow .pc-cp-deal-public-layout{display:block!important}
+  .pc-cp-page-deal-flow .pc-cp-deal-public-lot{display:none!important}
+  .pc-cp-page-deal-flow .pc-cp-deal-public-stage{display:none!important}
+  .pc-cp-page-deal-flow .pc-cp-deal-public-main{display:grid!important;gap:10px!important}
+  .pc-cp-page-deal-flow .pc-cp-deal-public-main .pc-cp-state-shell{
+    padding:0!important;
+    border:0!important;
+    box-shadow:none!important;
+    background:transparent!important
+  }
+  .pc-cp-page-deal-flow .pc-cp-deal-public-main .pc-cp-state-tabs{
+    display:grid!important;
+    grid-template-columns:repeat(3,1fr)!important;
+    gap:0!important;
+    padding:4px!important;
+    border:0!important;
+    border-radius:9px!important;
+    background:#f2f5f3!important;
+    overflow:visible!important
+  }
+  .pc-cp-page-deal-flow .pc-cp-deal-public-main .pc-cp-state-tab{
+    justify-content:center!important;
+    min-height:38px!important;
+    padding:0 4px!important;
+    border:0!important;
+    border-radius:7px!important;
+    background:transparent!important;
+    color:#68766f!important;
+    font-size:9px!important
+  }
+  .pc-cp-page-deal-flow .pc-cp-deal-public-main .pc-cp-state-tab[data-active='true'][data-state='normal']{
+    background:var(--pc-cp-green)!important;
+    color:#fff!important
+  }
+  .pc-cp-page-deal-flow .pc-cp-deal-public-main .pc-cp-state-grid{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:8px!important;
+    margin-top:14px!important
+  }
+  .pc-cp-page-deal-flow .pc-cp-deal-public-main .pc-cp-state-cell{
+    min-height:70px!important;
+    padding:13px!important;
+    border:1px solid var(--pc-cp-line)!important;
+    border-radius:9px!important;
+    background:#fff!important
+  }
+  .pc-cp-page-deal-flow .pc-cp-deal-public-main .pc-cp-state-cell span{
+    font-size:9px!important;
+    letter-spacing:.02em!important;
+    text-transform:none!important;
+    color:var(--pc-cp-ink)!important;
+    font-weight:850!important
+  }
+  .pc-cp-page-deal-flow .pc-cp-deal-public-main .pc-cp-state-cell strong{
+    margin-top:7px!important;
+    color:#77847d!important;
+    font-size:10px!important;
+    line-height:1.3!important;
+    font-weight:500!important
+  }
+  .pc-cp-page-deal-flow .pc-cp-deal-public-actions{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:6px!important
+  }
+  .pc-cp-page-deal-flow .pc-cp-deal-public-actions .pc-cp-button{
+    min-height:46px!important;
+    width:100%!important
+  }
+  .pc-cp-page-deal-flow .pc-cp-deal-public-actions .pc-cp-button--secondary{display:none!important}
+}
+
+@media(max-width:390px){
+  .pc-cp-deal-mobile-summary{grid-template-columns:70px minmax(0,1fr) auto;gap:8px}
+  .pc-cp-deal-mobile-summary-media{width:70px;height:60px}
+  .pc-cp-deal-mobile-summary strong{font-size:12px}
+  .pc-cp-deal-mobile-summary>.pc-cp-chip{padding-inline:7px}
+}
