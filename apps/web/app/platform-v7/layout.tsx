@@ -78,6 +78,7 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7/fgis-zerno',
 ]);
 const PUBLIC_PREFIX_PATHS = [
+  '/platform-v7/market/',
   '/platform-v7/role-preview',
   '/platform-v7/demo',
 ];
@@ -209,6 +210,18 @@ function isPublicPath(pathname: string) {
   return PUBLIC_EXACT_PATHS.has(pathname) || PUBLIC_PREFIX_PATHS.some((prefix) => pathname.startsWith(prefix));
 }
 
+const CANONICAL_PUBLIC_NO_LEGACY_DOCK = new Set([
+  '/platform-v7', '/platform-v7/market', '/platform-v7/how-it-works', '/platform-v7/capabilities',
+  '/platform-v7/ai-in-action', '/platform-v7/trust', '/platform-v7/about', '/platform-v7/contact',
+  '/platform-v7/register', '/platform-v7/login', '/platform-v7/deal-flow',
+]);
+
+function shouldMountLegacyPublicDock(pathname: string) {
+  if (CANONICAL_PUBLIC_NO_LEGACY_DOCK.has(pathname)) return false;
+  if (pathname.startsWith('/platform-v7/market/')) return false;
+  return true;
+}
+
 function isStaffPath(pathname: string) {
   return pathname === STAFF_PREFIX || pathname.startsWith(`${STAFF_PREFIX}/`);
 }
@@ -276,7 +289,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
     return (
       <>
         {publicContent}
-        <HydrationSafeChatSupport />
+        {shouldMountLegacyPublicDock(pathname) ? <HydrationSafeChatSupport /> : null}
       </>
     );
   }
