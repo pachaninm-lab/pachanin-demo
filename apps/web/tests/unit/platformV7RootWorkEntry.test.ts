@@ -8,6 +8,7 @@ describe('platform-v7 canonical public experience',()=>{
   const authority=read('../../DESIGN_AUTHORITY.md');
   const root=read('app/platform-v7/page.tsx');
   const layout=read('app/platform-v7/layout.tsx');
+  const middleware=read('middleware.ts');
   const home=read('components/platform-v7/PlatformV7StrategicHome.tsx');
   const primitives=read('components/platform-v7/PublicCanonicalPrimitives.tsx');
   const market=read('components/platform-v7/PublicCanonicalMarket.tsx');
@@ -93,6 +94,7 @@ describe('platform-v7 canonical public experience',()=>{
 
   it('keeps public market public without weakening protected Deal routes',()=>{
     expect(layout).toContain("'/platform-v7/market'");
+    expect(middleware).toContain("'/platform-v7/market'");
     expect(layout).not.toContain("'/platform-v7/market/'");
     expect(routeAliases).toContain("'/platform-v7/market': PLATFORM_V7_CANONICAL_ROUTES.lots");
     expect(layout.indexOf('if (isPublicPath(pathname))')).toBeLessThan(layout.indexOf('if (!isKnownProtectedPath(pathname))'));
