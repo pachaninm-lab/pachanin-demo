@@ -177,7 +177,6 @@ export async function CanonicalPublicLotView({ locale, lotIndex }: { locale: str
 
 function MarketCard({ lot, publicIndex, locale, selected = false }: { lot: PublicMarketLot; publicIndex: number; locale: CanonicalPublicLocale; selected?: boolean }) {
   const copy = COPY[locale];
-  const loginHref = `/platform-v7/login?lang=${locale}`;
   const registerHref = `/platform-v7/register?lang=${locale}&intent=buy`;
   const detailHref = `/platform-v7/market?lang=${locale}&lot=${publicIndex}`;
   return (
@@ -249,9 +248,6 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 function Detail({ title, text }: { title: string; text: string }) {
   return <article className='pc-cp-card pc-cp-detail-block'><h3>{title}</h3><p>{text}</p></article>;
-}
-function unpublished(locale: CanonicalPublicLocale) {
-  return locale === 'ru' ? 'Не опубликовано в публичном контуре. Детали доступны только авторизованным участникам с подтверждёнными полномочиями.' : locale === 'en' ? 'Not published in the public circuit. Details are available only to authorised participants with confirmed authority.' : '未在公开范围发布。详细信息仅向已确认权限的授权参与方开放。';
 }
 function cultureLabel(value: string, locale: CanonicalPublicLocale) {
   const key = value.trim().toLowerCase();
