@@ -151,7 +151,7 @@ export function CanonicalDealSpine({
   const stages = CANONICAL_DEAL_STAGES[lang];
   const safeIndex = Math.max(0, Math.min(stages.length - 1, currentIndex));
   return (
-    <div className='pc-cp-deal-spine' role='list' aria-label={lang === 'ru' ? 'Семь этапов Сделки' : lang === 'en' ? 'Seven Deal stages' : '交易七个阶段'} id={id}>
+    <div className='pc-cp-deal-spine' role='list' tabIndex={0} aria-label={lang === 'ru' ? 'Семь этапов Сделки' : lang === 'en' ? 'Seven Deal stages' : '交易七个阶段'} id={id}>
       {stages.map((stage, index) => (
         <div className='pc-cp-stage' role='listitem' key={stage} data-state={index < safeIndex ? 'done' : index === safeIndex ? 'current' : 'pending'}>
           <i>{index + 1}</i><strong>{stage}</strong>
