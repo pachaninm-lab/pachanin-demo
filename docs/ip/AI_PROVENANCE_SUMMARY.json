@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-20T15:56:50.753Z",
+  "gitHead": "74ffed9c5fa858f7accbd2ab6594877de3f50280",
+  "basis": "SURVIVING_LINES_IN_HEAD",
+  "note": "Attribution is by Git author address. An address proves who committed a line, not that no other person contributed to its creation. AI-authored lines were produced under owner direction; see docs/ip/AI_ASSISTED_PROVENANCE.md.",
+  "trackedFiles": 6881,
+  "attributedFiles": 6878,
+  "unblameableFiles": 0,
+  "totalSurvivingLines": 1126844,
+  "linesByClass": {
+    "OWNER": 864557,
+    "AI_ASSISTANT": 244553,
+    "THIRD_PARTY_HUMAN": 8561,
+    "AUTOMATION_BOT": 9171,
+    "UNATTRIBUTED_SERVER_IDENTITY": 2,
+    "UNREGISTERED": 0
+  },
+  "aiOnly": {
+    "files": 682,
+    "lines": 199124,
+    "withinProtectedBoundary": 145,
+    "withinProtectedBoundaryLines": 28258,
+    "crownJewel": 142,
+    "crownJewelLines": 27984
+  },
+  "thirdPartyHuman": {
+    "files": 132,
+    "lines": 8561,
+    "withinProtectedBoundary": 24,
+    "crownJewel": 24,
+    "whollyAuthoredFiles": 18
+  }
+}
