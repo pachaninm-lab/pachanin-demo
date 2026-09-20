@@ -268,3 +268,230 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
 @keyframes pc-cp-spin{to{transform:rotate(360deg)}}
 @media(max-width:600px){.pc-cp-ux-state{grid-template-columns:auto minmax(0,1fr);padding:18px;min-height:154px}.pc-cp-ux-state>.pc-cp-button{grid-column:1/-1;width:100%}}
 @media(forced-colors:active){.pc-cp-button,.pc-cp-card,.pc-cp-chip,.pc-cp-ux-state,.pc-cp-search{forced-color-adjust:auto}.pc-cp-stage i,.pc-cp-ux-state-icon{border:1px solid CanvasText}.pc-cp-hero::before,.pc-cp-final::before{display:none}}
+
+/* FINAL CANONICAL AUTHORITY DENSITY — 2026-09-20 */
+@media (min-width:761px){
+  :root{--pc-cp-shell:min(1180px,calc(100vw - 72px))}
+  .pc-canonical-public{padding-top:60px}
+  .pc-site-header[data-public-site-header='canonical']{min-height:60px!important;height:60px!important}
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-nav{gap:22px!important;font-size:12px!important}
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-text strong{font-size:18px!important}
+  .pc-cp-section{padding:24px 0}
+  .pc-cp-section--tight{padding:18px 0}
+  .pc-cp-section-head{gap:5px;margin-bottom:12px;max-width:760px}
+  .pc-cp-section-head h1{font-size:42px;line-height:.98}
+  .pc-cp-section-head h2{font-size:30px;line-height:1}
+  .pc-cp-section-head p,.pc-cp-lead{font-size:12px;line-height:1.42}
+  .pc-cp-eyebrow{font-size:9px}
+  .pc-cp-button{min-height:36px;padding:0 14px;border-radius:9px;font-size:12px}
+  .pc-cp-chip{min-height:24px;padding:3px 7px;font-size:9px}
+
+  /* Home: fit the full canonical story into the authority canvas. */
+  .pc-cp-page-home .pc-cp-hero{min-height:305px;padding:24px 0 18px}
+  .pc-cp-page-home .pc-cp-hero-grid{grid-template-columns:minmax(0,1fr) 320px;gap:28px}
+  .pc-cp-page-home .pc-cp-hero-copy{gap:9px;max-width:600px}
+  .pc-cp-page-home .pc-cp-hero-copy h1{font-size:48px;line-height:.92;max-width:12ch}
+  .pc-cp-page-home .pc-cp-hero-copy p{max-width:500px;font-size:13px;line-height:1.35}
+  .pc-cp-page-home .pc-cp-hero-proof{gap:6px}
+  .pc-cp-page-home .pc-cp-hero-proof span{min-height:26px;padding:0 8px;font-size:9px}
+  .pc-cp-page-home .pc-cp-deal-lens{padding:11px;border-radius:13px}
+  .pc-cp-page-home .pc-cp-deal-lens-head{padding-bottom:8px}
+  .pc-cp-page-home .pc-cp-deal-lens-head strong{font-size:18px}
+  .pc-cp-page-home .pc-cp-deal-lens-grid{gap:6px;margin-top:8px}
+  .pc-cp-page-home .pc-cp-deal-lens-cell{min-height:49px;padding:8px;border-radius:9px}
+  .pc-cp-page-home .pc-cp-deal-lens-cell small{font-size:8px}
+  .pc-cp-page-home .pc-cp-deal-lens-cell strong{margin-top:3px;font-size:10px;line-height:1.18}
+  .pc-cp-page-home .pc-cp-deal-lens-next{margin-top:7px;padding:8px;border-radius:9px}
+  .pc-cp-page-home .pc-cp-deal-lens-next strong{font-size:10px}
+  .pc-cp-page-home .pc-cp-section{padding:17px 0}
+  .pc-cp-page-home .pc-cp-section--tight{padding:12px 0}
+  .pc-cp-page-home .pc-cp-section-head{margin-bottom:8px}
+  .pc-cp-page-home .pc-cp-section-head h2{font-size:26px}
+  .pc-cp-page-home .pc-cp-section-head p{font-size:10px;max-width:680px}
+  .pc-cp-page-home .pc-cp-market-grid--preview{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+  .pc-cp-page-home .pc-cp-lot-card{min-height:116px;border-radius:10px;display:grid;grid-template-columns:88px minmax(0,1fr)}
+  .pc-cp-page-home .pc-cp-lot-media{height:auto;min-height:116px;padding:7px;font-size:8px}
+  .pc-cp-page-home .pc-cp-lot-body{padding:8px;gap:4px}
+  .pc-cp-page-home .pc-cp-lot-title{font-size:14px}
+  .pc-cp-page-home .pc-cp-lot-meta{gap:3px}
+  .pc-cp-page-home .pc-cp-lot-meta span{font-size:7px}
+  .pc-cp-page-home .pc-cp-lot-meta strong{font-size:9px}
+  .pc-cp-page-home .pc-cp-lot-foot{padding-top:4px}
+  .pc-cp-page-home .pc-cp-lot-foot span,.pc-cp-page-home .pc-cp-lot-foot strong{font-size:7px}
+  .pc-cp-page-home .pc-cp-empty{min-height:78px;padding:12px}
+  .pc-cp-page-home .pc-cp-empty strong{font-size:13px}
+  .pc-cp-page-home .pc-cp-empty span{font-size:9px}
+  .pc-cp-page-home #market .pc-cp-actions{margin-top:8px!important}
+
+  .pc-cp-page-home .pc-cp-deal-spine{margin-top:8px}
+  .pc-cp-page-home .pc-cp-deal-spine::before{top:13px}
+  .pc-cp-page-home .pc-cp-stage{gap:3px}
+  .pc-cp-page-home .pc-cp-stage i{width:27px;height:27px;font-size:9px}
+  .pc-cp-page-home .pc-cp-stage strong{font-size:9px;line-height:1.12}
+  .pc-cp-page-home .pc-cp-role-grid{gap:7px}
+  .pc-cp-page-home .pc-cp-role-card{padding:10px;gap:5px;min-height:70px}
+  .pc-cp-page-home .pc-cp-role-card svg{width:17px;height:17px}
+  .pc-cp-page-home .pc-cp-role-card strong{font-size:15px}
+  .pc-cp-page-home .pc-cp-role-card p{font-size:9px;line-height:1.25}
+  .pc-cp-page-home #participants>.pc-cp-container>div:last-child{margin-top:8px!important}
+  .pc-cp-page-home #participants .pc-cp-hero-proof span{font-size:8px;min-height:22px}
+
+  .pc-cp-page-home .pc-cp-state-shell{padding:9px}
+  .pc-cp-page-home .pc-cp-state-tabs{padding-bottom:6px}
+  .pc-cp-page-home .pc-cp-state-tab{min-height:27px;padding:0 9px;font-size:9px}
+  .pc-cp-page-home .pc-cp-state-grid{gap:6px;margin-top:7px}
+  .pc-cp-page-home .pc-cp-state-cell{padding:8px;border-radius:8px}
+  .pc-cp-page-home .pc-cp-state-cell span{font-size:7px}
+  .pc-cp-page-home .pc-cp-state-cell strong{margin-top:3px;font-size:9px;line-height:1.2}
+  .pc-cp-page-home .pc-cp-trust-grid{gap:7px}
+  .pc-cp-page-home .pc-cp-trust-card{padding:9px;gap:4px;min-height:72px}
+  .pc-cp-page-home .pc-cp-trust-card i{width:24px;height:24px;font-size:9px}
+  .pc-cp-page-home .pc-cp-trust-card strong{font-size:14px}
+  .pc-cp-page-home .pc-cp-trust-card p{font-size:8px;line-height:1.2}
+  .pc-cp-page-home .pc-cp-gekta-strip{grid-template-columns:260px 1fr;gap:12px;padding:11px 14px;border-radius:12px}
+  .pc-cp-page-home .pc-cp-gekta-brand strong{font-size:23px}
+  .pc-cp-page-home .pc-cp-gekta-brand span{font-size:8px}
+  .pc-cp-page-home .pc-cp-gekta-brand p{margin-top:3px;font-size:9px;line-height:1.22}
+  .pc-cp-page-home .pc-cp-gekta-chips{gap:5px}
+  .pc-cp-page-home .pc-cp-gekta-chips span{padding:5px 7px;font-size:8px}
+  .pc-cp-page-home .pc-cp-capabilities{grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+  .pc-cp-page-home .pc-cp-capability{padding:8px;gap:3px;min-height:54px;border-radius:9px}
+  .pc-cp-page-home .pc-cp-capability svg{width:15px;height:15px}
+  .pc-cp-page-home .pc-cp-capability strong{font-size:9px}
+  .pc-cp-page-home .pc-cp-capability p{font-size:7px;line-height:1.15}
+  .pc-cp-page-home .pc-cp-final{min-height:96px}
+  .pc-cp-page-home .pc-cp-final-inner{gap:6px;max-width:560px}
+  .pc-cp-page-home .pc-cp-final h2{font-size:26px}
+  .pc-cp-page-home .pc-cp-final p{font-size:9px}
+  .pc-cp-page-home .pc-cp-footer{padding:12px 0 18px}
+  .pc-cp-page-home .pc-cp-footer-grid{gap:12px}
+  .pc-cp-page-home .pc-cp-footer strong{font-size:16px}
+  .pc-cp-page-home .pc-cp-footer p,.pc-cp-page-home .pc-cp-footer a{font-size:8px}
+  .pc-cp-page-home .pc-cp-footer a{min-height:26px}
+
+  /* How the Deal works: seven cards in one authority-width row. */
+  .pc-cp-page-how .pc-cp-hero{min-height:205px;padding:18px 0 12px;background-image:linear-gradient(90deg,rgba(250,249,245,.96),rgba(250,249,245,.58)),url('/platform-v7/hero-farmer-canonical.webp');background-size:cover;background-position:center 48%}
+  .pc-cp-page-how .pc-cp-hero::after{display:none}
+  .pc-cp-page-how .pc-cp-hero-grid{grid-template-columns:minmax(0,.9fr) minmax(440px,1.1fr);gap:18px}
+  .pc-cp-page-how .pc-cp-hero-copy{gap:6px}
+  .pc-cp-page-how .pc-cp-hero-copy h1{font-size:38px;max-width:14ch}
+  .pc-cp-page-how .pc-cp-hero-copy p{font-size:11px;max-width:520px}
+  .pc-cp-page-how .pc-cp-hero-copy .pc-cp-actions{display:none}
+  .pc-cp-page-how .pc-cp-state-shell{padding:8px}
+  .pc-cp-page-how .pc-cp-deal-spine{margin-top:2px}
+  .pc-cp-page-how .pc-cp-stage i{width:28px;height:28px}
+  .pc-cp-page-how .pc-cp-stage strong{font-size:8px}
+  .pc-cp-page-how>.pc-cp-section{padding:15px 0}
+  .pc-cp-page-how .pc-cp-process-cards{grid-template-columns:repeat(7,minmax(0,1fr));gap:7px}
+  .pc-cp-page-how .pc-cp-process-card{padding:9px;display:block;min-height:260px}
+  .pc-cp-page-how .pc-cp-process-card>i{width:28px;height:28px;font-size:10px;float:left;margin-right:7px}
+  .pc-cp-page-how .pc-cp-process-card h3{font-size:16px;line-height:1.05;min-height:34px}
+  .pc-cp-page-how .pc-cp-process-meta{grid-template-columns:1fr;gap:4px;margin-top:8px;clear:both}
+  .pc-cp-page-how .pc-cp-process-meta div{padding:5px;border-radius:6px}
+  .pc-cp-page-how .pc-cp-process-meta span{font-size:6px}
+  .pc-cp-page-how .pc-cp-process-meta strong{font-size:8px;line-height:1.16}
+  .pc-cp-page-how .pc-cp-trust-grid{gap:7px}
+  .pc-cp-page-how .pc-cp-trust-card{padding:10px;gap:5px;min-height:92px}
+  .pc-cp-page-how .pc-cp-trust-card strong{font-size:15px}
+  .pc-cp-page-how .pc-cp-trust-card p{font-size:8px}
+  .pc-cp-page-how .pc-cp-gekta-strip{padding:10px 14px;border-radius:10px}
+  .pc-cp-page-how .pc-cp-footer{padding:12px 0 18px}
+
+  /* Trust: hero + four dense pillars + decision path. */
+  .pc-cp-page-trust .pc-cp-hero{min-height:265px;padding:26px 0 18px;background-image:linear-gradient(90deg,rgba(250,249,245,.97) 0%,rgba(250,249,245,.72) 43%,rgba(250,249,245,.10) 78%),url('/platform-v7/hero-farmer-canonical.webp');background-size:cover;background-position:center 45%}
+  .pc-cp-page-trust .pc-cp-hero::after{display:none}
+  .pc-cp-page-trust .pc-cp-hero-grid{grid-template-columns:minmax(0,.8fr) minmax(300px,.55fr);gap:34px}
+  .pc-cp-page-trust .pc-cp-hero-copy h1{font-size:48px;max-width:10ch}
+  .pc-cp-page-trust .pc-cp-hero-copy p{font-size:12px;max-width:500px}
+  .pc-cp-page-trust .pc-cp-state-shell{padding:11px;background:rgba(255,255,255,.90)}
+  .pc-cp-page-trust>.pc-cp-section{padding:15px 0}
+  .pc-cp-page-trust .pc-cp-trust-grid{gap:8px}
+  .pc-cp-page-trust .pc-cp-trust-card{padding:12px;gap:6px;min-height:150px}
+  .pc-cp-page-trust .pc-cp-trust-card strong{font-size:19px}
+  .pc-cp-page-trust .pc-cp-trust-card p{font-size:10px;line-height:1.3}
+  .pc-cp-page-trust .pc-cp-deal-spine{margin-top:6px}
+  .pc-cp-page-trust .pc-cp-gekta-strip{padding:10px 14px}
+  .pc-cp-page-trust .pc-cp-detail-grid{gap:7px}
+  .pc-cp-page-trust .pc-cp-detail-block{padding:9px;min-height:70px}
+  .pc-cp-page-trust .pc-cp-detail-block h3{font-size:14px}
+  .pc-cp-page-trust .pc-cp-detail-block p{font-size:8px;line-height:1.25}
+  .pc-cp-page-trust .pc-cp-footer{padding:12px 0 18px}
+
+  /* Gekta: compact application workspace like the authority canvas. */
+  .pc-cp-page-gekta>section:first-of-type{padding:18px 0 16px!important;min-height:830px;background-image:linear-gradient(180deg,rgba(7,66,48,.90) 0,rgba(7,66,48,.92) 225px,#fff 226px)!important}
+  .pc-cp-page-gekta>section:first-of-type .pc-cp-section-head{max-width:820px;margin-bottom:12px}
+  .pc-cp-page-gekta>section:first-of-type .pc-cp-section-head h1{font-size:43px;color:#fff}
+  .pc-cp-page-gekta>section:first-of-type .pc-cp-section-head p{font-size:11px;max-width:850px}
+  .pc-cp-page-gekta .pc-cp-gekta-workspace{grid-template-columns:250px minmax(0,1fr) 300px;gap:9px;min-height:565px}
+  .pc-cp-page-gekta .pc-cp-gekta-panel{padding:11px;border-radius:10px}
+  .pc-cp-page-gekta .pc-cp-gekta-context{background:#fff;color:var(--pc-cp-ink);border-color:var(--pc-cp-line);box-shadow:var(--pc-cp-shadow)}
+  .pc-cp-page-gekta .pc-cp-gekta-context li{padding:7px;background:#f4f8f5;color:#33463c;font-size:9px}
+  .pc-cp-page-gekta .pc-cp-gekta-cards{gap:7px;margin-top:9px}
+  .pc-cp-page-gekta .pc-cp-gekta-action{padding:10px;border-radius:9px;min-height:112px}
+  .pc-cp-page-gekta .pc-cp-gekta-action p{font-size:9px}
+  .pc-cp-page-gekta .pc-cp-gekta-source{gap:6px;margin-top:8px}
+  .pc-cp-page-gekta .pc-cp-gekta-source div{padding:8px;border-radius:8px}
+  .pc-cp-page-gekta .pc-cp-gekta-source strong{font-size:9px}
+  .pc-cp-page-gekta>.pc-cp-section{padding:14px 0}
+  .pc-cp-page-gekta .pc-cp-footer{padding:12px 0 18px}
+
+  /* Market: dense catalogue + sidebar, matching the canonical desktop rhythm. */
+  .pc-cp-page-market>.pc-cp-section{padding:20px 0}
+  .pc-cp-page-market .pc-cp-section-head{margin-bottom:10px}
+  .pc-cp-page-market .pc-cp-section-head h1{font-size:40px}
+  .pc-cp-page-market .pc-cp-market-toolbar{margin-bottom:10px;gap:8px}
+  .pc-cp-page-market .pc-cp-search{min-height:38px;font-size:12px}
+  .pc-cp-page-market .pc-cp-market-layout{grid-template-columns:minmax(0,1fr) 300px;gap:12px}
+  .pc-cp-page-market .pc-cp-market-grid{gap:8px}
+  .pc-cp-page-market .pc-cp-lot-card{min-height:180px}
+  .pc-cp-page-market .pc-cp-lot-media{height:70px}
+  .pc-cp-page-market .pc-cp-lot-body{padding:9px;gap:5px}
+  .pc-cp-page-market .pc-cp-lot-title{font-size:16px}
+  .pc-cp-page-market .pc-cp-lot-meta span{font-size:8px}
+  .pc-cp-page-market .pc-cp-lot-meta strong{font-size:10px}
+  .pc-cp-page-market .pc-cp-market-aside{top:70px;padding:12px;gap:9px}
+  .pc-cp-page-market .pc-cp-market-aside h2{font-size:20px}
+  .pc-cp-page-market .pc-cp-market-aside dt{font-size:8px}
+  .pc-cp-page-market .pc-cp-market-aside dd{font-size:10px}
+  .pc-cp-page-market .pc-cp-footer{padding:12px 0 18px}
+}
+
+@media (max-width:760px){
+  .pc-cp-page-home .pc-cp-hero{padding:18px 0 8px}
+  .pc-cp-page-home .pc-cp-hero-media{height:340px;object-position:center top}
+  .pc-cp-page-home .pc-cp-hero::after{height:340px}
+  .pc-cp-page-home .pc-cp-hero-copy{min-height:300px;gap:7px}
+  .pc-cp-page-home .pc-cp-hero-copy h1{font-size:36px;line-height:.94}
+  .pc-cp-page-home .pc-cp-hero-copy p{font-size:12px;line-height:1.28;max-width:270px}
+  .pc-cp-page-home .pc-cp-actions{gap:6px}
+  .pc-cp-page-home .pc-cp-button{min-height:42px}
+  .pc-cp-page-home .pc-cp-hero-proof{display:none}
+  .pc-cp-page-home .pc-cp-deal-lens{margin-top:4px;padding:10px}
+  .pc-cp-page-home .pc-cp-deal-lens-head strong{font-size:18px}
+  .pc-cp-page-home .pc-cp-deal-lens-grid{grid-template-columns:1fr 1fr;gap:5px}
+  .pc-cp-page-home .pc-cp-deal-lens-cell{min-height:51px;padding:7px}
+  .pc-cp-page-home .pc-cp-deal-lens-cell small{font-size:8px}
+  .pc-cp-page-home .pc-cp-deal-lens-cell strong{font-size:10px}
+  .pc-cp-page-home .pc-cp-deal-lens-next{padding:7px;margin-top:6px}
+  .pc-cp-page-home .pc-cp-deal-lens-next strong{font-size:10px}
+  .pc-cp-page-home .pc-cp-section{padding:20px 0}
+  .pc-cp-page-home .pc-cp-section-head{margin-bottom:9px}
+  .pc-cp-page-home .pc-cp-section-head h2{font-size:27px}
+  .pc-cp-page-home .pc-cp-section-head p{font-size:11px}
+  .pc-cp-page-home .pc-cp-market-grid--preview{display:flex;overflow-x:auto;gap:8px;padding-bottom:4px;scroll-snap-type:x mandatory}
+  .pc-cp-page-home .pc-cp-market-grid--preview .pc-cp-lot-card{min-width:250px;scroll-snap-align:start;grid-template-columns:86px 1fr}
+  .pc-cp-page-home .pc-cp-role-grid{grid-template-columns:repeat(2,1fr)}
+  .pc-cp-page-home .pc-cp-role-card{min-height:92px;padding:10px}
+  .pc-cp-page-home .pc-cp-role-card strong{font-size:16px}
+  .pc-cp-page-home .pc-cp-role-card p{font-size:9px}
+  .pc-cp-page-home #participants .pc-cp-hero-proof{display:flex}
+  .pc-cp-page-home .pc-cp-state-grid{grid-template-columns:repeat(2,1fr)}
+  .pc-cp-page-home .pc-cp-state-cell:last-child{grid-column:1/-1}
+  .pc-cp-page-home .pc-cp-trust-grid{grid-template-columns:repeat(2,1fr)}
+  .pc-cp-page-home .pc-cp-trust-card{padding:10px}
+  .pc-cp-page-home .pc-cp-gekta-strip{padding:14px}
+  .pc-cp-page-home .pc-cp-capabilities{display:flex;overflow-x:auto;gap:8px;padding-bottom:4px;scroll-snap-type:x mandatory}
+  .pc-cp-page-home .pc-cp-capability{min-width:180px;min-height:90px;scroll-snap-align:start}
+  .pc-cp-page-home .pc-cp-final{min-height:150px}
+  .pc-cp-page-home .pc-cp-final h2{font-size:29px}
+}
