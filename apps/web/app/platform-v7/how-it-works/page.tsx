@@ -68,7 +68,7 @@ zh:{
 
 export default async function HowItWorksPage(){
  const locale=canonicalPublicLocale(await getLocale()); const c=COPY[locale];
- return <main className='pc-canonical-public'>
+ return <main className='pc-canonical-public pc-cp-page-how'>
   <CanonicalPublicHeader locale={locale} activePath='/platform-v7/how-it-works'/>
   <section className='pc-cp-hero' style={{minHeight:520}}>
    <div className='pc-cp-container pc-cp-hero-grid'>
