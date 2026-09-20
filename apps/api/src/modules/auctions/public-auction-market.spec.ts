@@ -248,7 +248,7 @@ describe('anonymous public Auction market projection', () => {
     expect(canonicalMarket).not.toMatch(/href=.*publicRef/);
     expect(canonicalMarket).not.toContain('/platform-v7/market/${encodeURIComponent(lot.publicRef)}');
     expect(home).toContain("import { CanonicalMarketPreview } from './PublicCanonicalMarket';");
-    expect(home).toContain('<CanonicalMarketPreview locale={locale} />');
+    expect(home).toContain('<CanonicalMarketPreview locale={locale} limit={4} />');
     expect(home).toContain("<section className='pc-cp-section' id='market'");
     expect(css).toContain('@media(max-width:760px)');
     expect(css).toContain('@media(max-width:430px)');
