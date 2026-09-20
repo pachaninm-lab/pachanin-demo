@@ -331,7 +331,7 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-page-home .pc-cp-lot-body{padding:8px;gap:4px}
   .pc-cp-page-home .pc-cp-lot-title{font-size:14px}
   .pc-cp-page-home .pc-cp-lot-meta{gap:3px}
-  .pc-cp-page-home .pc-cp-lot-meta span{font-size:7px}
+  .pc-cp-page-home .pc-cp-lot-meta{display:none}
   .pc-cp-page-home .pc-cp-lot-meta strong{font-size:9px}
   .pc-cp-page-home .pc-cp-lot-foot{padding-top:4px}
   .pc-cp-page-home .pc-cp-lot-foot span,.pc-cp-page-home .pc-cp-lot-foot strong{font-size:7px}
@@ -358,7 +358,7 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-page-home .pc-cp-state-tab{min-height:27px;padding:0 9px;font-size:9px}
   .pc-cp-page-home .pc-cp-state-grid{gap:6px;margin-top:7px}
   .pc-cp-page-home .pc-cp-state-cell{padding:8px;border-radius:8px}
-  .pc-cp-page-home .pc-cp-state-cell span{font-size:7px}
+  .pc-cp-page-home .pc-cp-state-cell span{font-size:12px}
   .pc-cp-page-home .pc-cp-state-cell strong{margin-top:3px;font-size:9px;line-height:1.2}
   .pc-cp-page-home .pc-cp-trust-grid{gap:7px}
   .pc-cp-page-home .pc-cp-trust-card{padding:9px;gap:4px;min-height:72px}
@@ -691,22 +691,22 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-page-home .pc-cp-hero::after{height:244px}
   .pc-cp-page-home .pc-cp-hero-copy{min-height:244px;gap:5px}
   .pc-cp-page-home .pc-cp-hero-copy h1{font-size:33px;line-height:.91;max-width:9.7ch}
-  .pc-cp-page-home .pc-cp-hero-copy p{font-size:11px;line-height:1.2;max-width:250px}
+  .pc-cp-page-home .pc-cp-hero-copy p{font-size:12px;line-height:1.25;max-width:250px}
   .pc-cp-page-home .pc-cp-actions{gap:6px}
   .pc-cp-page-home .pc-cp-deal-lens{margin-top:2px;padding:8px;border-radius:12px}
   .pc-cp-page-home .pc-cp-deal-lens-head{padding-bottom:6px}
   .pc-cp-page-home .pc-cp-deal-lens-head strong{font-size:16px}
   .pc-cp-page-home .pc-cp-deal-lens-grid{display:none}
   .pc-cp-page-home .pc-cp-deal-lens-next{margin-top:6px;padding:7px;border-radius:8px}
-  .pc-cp-page-home .pc-cp-deal-lens-next small{font-size:8px}
-  .pc-cp-page-home .pc-cp-deal-lens-next strong{font-size:9px;line-height:1.15}
+  .pc-cp-page-home .pc-cp-deal-lens-next small{font-size:12px}
+  .pc-cp-page-home .pc-cp-deal-lens-next strong{font-size:12px;line-height:1.2}
 
   .pc-cp-page-home .pc-cp-section{padding:9px 0}
   .pc-cp-page-home .pc-cp-section--tight{padding:7px 0}
   .pc-cp-page-home .pc-cp-section-head{margin-bottom:5px;gap:2px}
   .pc-cp-page-home .pc-cp-section-head .pc-cp-eyebrow{display:none}
   .pc-cp-page-home .pc-cp-section-head h2{font-size:23px;line-height:.98}
-  .pc-cp-page-home .pc-cp-section-head p{font-size:9px;line-height:1.2}
+  .pc-cp-page-home .pc-cp-section-head p{font-size:12px;line-height:1.25}
   .pc-cp-page-home #market .pc-cp-actions{display:none}
   .pc-cp-page-home .pc-cp-market-preview-alert{padding:5px 7px}
   .pc-cp-page-home .pc-cp-market-grid--preview{gap:6px}
@@ -715,15 +715,15 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-page-home .pc-cp-lot-body{padding:7px;gap:3px}
   .pc-cp-page-home .pc-cp-lot-title{font-size:12px}
   .pc-cp-page-home .pc-cp-lot-meta span{font-size:7px}
-  .pc-cp-page-home .pc-cp-lot-meta strong{font-size:8px}
+  .pc-cp-page-home .pc-cp-lot-meta strong{font-size:12px}
   .pc-cp-page-home .pc-cp-lot-foot{display:none}
   .pc-cp-page-home .pc-cp-lot-card .pc-cp-actions{display:none}
 
-  .pc-cp-page-home .pc-cp-deal-spine{margin-top:4px;grid-template-columns:repeat(7,72px)}
-  .pc-cp-page-home .pc-cp-deal-spine::before{top:12px;left:36px;width:432px}
+  .pc-cp-page-home .pc-cp-deal-spine{margin-top:4px;grid-template-columns:repeat(7,88px)}
+  .pc-cp-page-home .pc-cp-deal-spine::before{top:12px;left:44px;width:528px}
   .pc-cp-page-home .pc-cp-stage{gap:2px}
   .pc-cp-page-home .pc-cp-stage i{width:25px;height:25px;font-size:8px}
-  .pc-cp-page-home .pc-cp-stage strong{font-size:8px;line-height:1.05}
+  .pc-cp-page-home .pc-cp-stage strong{font-size:12px;line-height:1.08}
 
   .pc-cp-page-home{display:flex;flex-direction:column}
   .pc-cp-page-home>.pc-cp-hero{order:1}
@@ -740,24 +740,24 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
 
   .pc-cp-page-home .pc-cp-state-shell{padding:7px}
   .pc-cp-page-home .pc-cp-state-tabs{padding-bottom:4px}
-  .pc-cp-page-home .pc-cp-state-tab{min-height:30px;font-size:8px;padding:0 8px}
+  .pc-cp-page-home .pc-cp-state-tab{min-height:36px;font-size:12px;padding:0 10px}
   .pc-cp-page-home .pc-cp-state-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-top:5px}
   .pc-cp-page-home .pc-cp-state-cell{padding:7px}
   .pc-cp-page-home .pc-cp-state-cell:last-child{grid-column:1/-1}
   .pc-cp-page-home .pc-cp-state-cell span{font-size:7px}
-  .pc-cp-page-home .pc-cp-state-cell strong{font-size:8px;line-height:1.18}
+  .pc-cp-page-home .pc-cp-state-cell strong{font-size:12px;line-height:1.22}
 
   .pc-cp-page-home .pc-cp-trust-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
   .pc-cp-page-home .pc-cp-trust-card{min-height:72px;padding:7px;gap:3px}
   .pc-cp-page-home .pc-cp-trust-card i{width:22px;height:22px;font-size:8px}
-  .pc-cp-page-home .pc-cp-trust-card strong{font-size:10px}
-  .pc-cp-page-home .pc-cp-trust-card p{font-size:7px;line-height:1.08}
+  .pc-cp-page-home .pc-cp-trust-card strong{font-size:12px}
+  .pc-cp-page-home .pc-cp-trust-card p{display:none}
 
   .pc-cp-page-home #gekta .pc-cp-section-head{margin-bottom:3px}
   .pc-cp-page-home .pc-cp-gekta-strip{display:block;padding:7px 8px;background:#fff;color:var(--pc-cp-ink);border:1px solid var(--pc-cp-line);border-radius:9px}
   .pc-cp-page-home .pc-cp-gekta-brand{display:none}
   .pc-cp-page-home .pc-cp-gekta-chips{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
-  .pc-cp-page-home .pc-cp-gekta-chips span{min-height:30px;padding:4px 5px;border-color:var(--pc-cp-line);background:#fff;color:#31473c;font-size:8px;text-align:center;justify-content:center}
+  .pc-cp-page-home .pc-cp-gekta-chips span{min-height:36px;padding:5px 6px;border-color:var(--pc-cp-line);background:#fff;color:#31473c;font-size:12px;text-align:center;justify-content:center}
   .pc-cp-page-home .pc-cp-gekta-chips span:nth-child(n+4){display:none}
 
   .pc-cp-page-home .pc-cp-final{min-height:72px}
@@ -813,4 +813,17 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-page-home .pc-cp-stage i{width:28px;height:28px}
   .pc-cp-page-home .pc-cp-state-tab{min-height:44px}
   .pc-cp-page-home .pc-cp-gekta-chips span{min-height:44px}
+}
+
+
+/* FINAL MOBILE LEGIBILITY — Lighthouse Best Practices / readable text */
+@media(max-width:760px){
+  .pc-cp-page-home .pc-cp-market-preview-alert strong,
+  .pc-cp-page-home .pc-cp-market-preview-alert span{font-size:12px}
+  .pc-cp-page-home .pc-cp-role-card p{font-size:12px;line-height:1.3}
+  .pc-cp-page-home .pc-cp-role-tags span{font-size:12px;min-height:24px;padding:3px 7px}
+  .pc-cp-page-home .pc-cp-role-card{min-height:0}
+  .pc-cp-page-home .pc-cp-capability p{font-size:12px;line-height:1.25}
+  .pc-cp-page-home .pc-cp-capability strong{font-size:13px}
+  .pc-cp-page-home .pc-cp-chip{font-size:12px}
 }
