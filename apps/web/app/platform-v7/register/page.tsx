@@ -8,6 +8,15 @@ import { RegisterFormClientPublic } from './RegisterFormClientPublic';
 
 type Locale = 'ru' | 'en' | 'zh';
 type RegisterSearchParams = Record<string, string | string[] | undefined>;
+type PublicRegistrationIntent = 'sell' | 'buy' | 'execution' | 'finance';
+type PublicWorkspace = 'seller' | 'buyer' | 'logistics' | 'bank';
+
+const WORKSPACE_BY_INTENT: Record<PublicRegistrationIntent, PublicWorkspace> = {
+  sell: 'seller',
+  buy: 'buyer',
+  execution: 'logistics',
+  finance: 'bank',
+};
 
 const PAGE_COPY = {
   ru: {
@@ -47,6 +56,10 @@ function localeFrom(value: string | undefined): Locale {
   return value === 'en' || value === 'zh' ? value : 'ru';
 }
 
+function registrationIntent(value: string | undefined): PublicRegistrationIntent | null {
+  return value === 'sell' || value === 'buy' || value === 'execution' || value === 'finance' ? value : null;
+}
+
 function nextLocale(locale: Locale): Locale {
   return locale === 'ru' ? 'en' : locale === 'en' ? 'zh' : 'ru';
 }
@@ -60,11 +73,14 @@ export default async function RegisterPage({
   const locale = localeFrom(first(params.lang));
   const verifyToken = String(first(params.verify) || '').trim().slice(0, 512);
   const statusToken = String(first(params.statusToken) || '').trim().slice(0, 512);
+  const intent = registrationIntent(first(params.intent));
+  const initialWorkspace = intent ? WORKSPACE_BY_INTENT[intent] : undefined;
   const copy = PAGE_COPY[locale];
   const next = nextLocale(locale);
   const localeQuery = new URLSearchParams({ lang: next });
   if (verifyToken) localeQuery.set('verify', verifyToken);
   if (statusToken) localeQuery.set('statusToken', statusToken);
+  if (intent) localeQuery.set('intent', intent);
 
   return (
     <main className='p0-register-page'>
@@ -88,6 +104,7 @@ export default async function RegisterPage({
           locale={locale}
           verifyToken={verifyToken || undefined}
           initialStatusToken={statusToken || undefined}
+          initialWorkspace={initialWorkspace}
         />
       </div>
     </main>
