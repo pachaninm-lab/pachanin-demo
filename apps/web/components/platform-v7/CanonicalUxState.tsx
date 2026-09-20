@@ -43,12 +43,14 @@ export function CanonicalUxState({
   compact?:boolean;
 }){
   const Icon=ICONS[kind];
-  const live=kind==='loading'?'polite':kind==='success'?'polite':'assertive';
+  const urgent=kind==='validation-error'||kind==='unavailable'||kind==='permission-denied'||kind==='conflict';
+  const role=urgent?'alert':'status';
+  const live=urgent?'assertive':'polite';
   return (
-    <section className={`pc-cp-ux-state${compact?' pc-cp-ux-state--compact':''}`} data-ux-state={kind} role={kind==='loading'?'status':'region'} aria-live={live}>
+    <div className={`pc-cp-ux-state${compact?' pc-cp-ux-state--compact':''}`} data-ux-state={kind} role={role} aria-live={live} aria-atomic='true'>
       <div className='pc-cp-ux-state-icon' aria-hidden='true'><Icon size={22}/></div>
       <div className='pc-cp-ux-state-copy'><strong>{title}</strong><p>{description}</p></div>
       {action??(actionHref&&actionLabel?<Link className='pc-cp-button pc-cp-button--secondary' href={actionHref}>{actionLabel}</Link>:null)}
-    </section>
+    </div>
   );
 }
