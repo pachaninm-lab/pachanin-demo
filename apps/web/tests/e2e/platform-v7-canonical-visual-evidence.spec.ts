@@ -49,4 +49,53 @@ test.describe('canonical visual authority evidence', () => {
       });
     });
   }
+  const responsiveWidths = [320, 375, 390, 768, 1280, 1440] as const;
+  for (const width of responsiveWidths) {
+    test(`responsive contract ${width}px`, async ({ page }) => {
+      const height = width <= 390 ? 844 : width <= 768 ? 1024 : 900;
+      await page.setViewportSize({ width, height });
+      for (const route of [
+        '/platform-v7?lang=ru',
+        '/platform-v7/market?lang=ru',
+        '/platform-v7/how-it-works?lang=ru',
+        '/platform-v7/trust?lang=ru',
+        '/platform-v7/ai-in-action?lang=ru',
+      ]) {
+        const response = await page.goto(route, { waitUntil: 'domcontentloaded' });
+        expect(response?.ok(), `${route} should return 200 at ${width}px`).toBe(true);
+        const overflow = await page.evaluate(() => Math.max(
+          document.documentElement.scrollWidth - document.documentElement.clientWidth,
+          document.body.scrollWidth - document.body.clientWidth,
+        ));
+        expect(overflow, `${route} horizontal overflow at ${width}px`).toBeLessThanOrEqual(1);
+      }
+    });
+  }
+
+  for (const locale of ['ru', 'en', 'zh'] as const) {
+    test(`public locale ${locale} remains layout-safe on mobile`, async ({ page }) => {
+      await page.setViewportSize({ width: 390, height: 844 });
+      for (const route of [
+        '/platform-v7',
+        '/platform-v7/market',
+        '/platform-v7/how-it-works',
+        '/platform-v7/trust',
+        '/platform-v7/ai-in-action',
+        '/platform-v7/register',
+        '/platform-v7/login',
+        '/platform-v7/about',
+        '/platform-v7/contact',
+      ]) {
+        const separator = route.includes('?') ? '&' : '?';
+        const response = await page.goto(`${route}${separator}lang=${locale}`, { waitUntil: 'domcontentloaded' });
+        expect(response?.ok(), `${route} should return 200 for ${locale}`).toBe(true);
+        const overflow = await page.evaluate(() => Math.max(
+          document.documentElement.scrollWidth - document.documentElement.clientWidth,
+          document.body.scrollWidth - document.body.clientWidth,
+        ));
+        expect(overflow, `${route} ${locale} horizontal overflow`).toBeLessThanOrEqual(1);
+      }
+    });
+  }
+
 });
