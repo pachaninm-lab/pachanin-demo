@@ -832,7 +832,7 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
 /* FINAL MOBILE AUTHORITY COMPOSITION V2 — compact without illegible text */
 @media(max-width:760px){
   .pc-cp-page-home .pc-cp-hero{padding:10px 0 4px}
-  .pc-cp-page-home .pc-cp-hero-media{width:28%;max-width:116px;height:200px;object-position:center top}
+  .pc-cp-page-home .pc-cp-hero-media{width:22%;max-width:94px;height:150px;object-position:center top}
   .pc-cp-page-home .pc-cp-hero::after{height:220px}
   .pc-cp-page-home .pc-cp-hero-copy{min-height:206px;gap:4px}
   .pc-cp-page-home .pc-cp-hero-copy h1{font-size:30px;line-height:.92;max-width:13ch}
