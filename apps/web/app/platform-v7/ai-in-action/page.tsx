@@ -73,7 +73,7 @@ const ICONS=[Search,ShieldCheck,BarChart3,FileCheck2,Calculator,Route] as const;
 export default async function PublicGektaPage(){
  const locale=canonicalPublicLocale(await getLocale());const c=COPY[locale];
  return <main className='pc-canonical-public pc-cp-page-gekta'>
-  <CanonicalPublicHeader locale={locale} activePath='/platform-v7/ai-in-action'/>
+  <CanonicalPublicHeader locale={locale} activePath='/platform-v7/gekta'/>
   <section className='pc-cp-gekta-public-hero'>
    <div className='pc-cp-container'>
     <div className='pc-cp-gekta-hero-grid'>
