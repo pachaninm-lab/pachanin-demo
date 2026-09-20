@@ -68,3 +68,15 @@ Do not redraw, regenerate or replace the logo.
 - `02-home-mobile.jpg` is a presentation-scale phone composition. Runtime mobile acceptance keeps its hierarchy, crop, CTA order, bottom navigation and visual character, but does not compress interactive controls below the required 44×44 px touch target or reduce text below readable WCAG-safe sizing.
 - Public Market and Lot screens never invent inventory, counterparties, quality confirmations or documents to fill the mockup. When the PostgreSQL `ANONYMIZED_PUBLIC_MARKET` projection has no `PUBLIC_ALLOWED` data, the approved visual composition uses explicit empty/unavailable states.
 - Protected Deal screens bind to the real server-authoritative Deal workspace. Public visual acceptance exercises the non-sensitive explanatory state; authoritative financial state, role, tenant and private Deal data are never fabricated for a public screenshot.
+
+
+## Visual acceptance mechanism
+
+The canonical Playwright acceptance captures the exact authority viewports and applies:
+- runtime/error rejection;
+- WCAG 2.2 AA serious/critical violation rejection;
+- horizontal-overflow rejection;
+- RU / EN / 中文 responsive checks at 320 / 375 / 390 / 768 / 1280 / 1440;
+- perceptual average-hash distance thresholds bound to the final authority images above.
+
+This is an acceptance guard, not a substitute for the source SHA-256 list. The source files and hashes in this document remain the visual authority.
