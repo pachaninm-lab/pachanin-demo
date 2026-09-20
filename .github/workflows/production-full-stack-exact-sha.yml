@@ -277,6 +277,7 @@ jobs:
           scp_common=(-i "$HOME/.ssh/id_pc_prod" -P "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=12 -o TCPKeepAlive=yes)
           scp "${scp_common[@]}" scripts/production-full-stack-exact-sha.sh "$SSH_USER_SECRET@$HOST:/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh"
           scp "${scp_common[@]}" scripts/release/verify-production-image-binding.py "$SSH_USER_SECRET@$HOST:/tmp/pc-full-stack-image-binding-${GITHUB_RUN_ID}.py" >/dev/null 2>&1 || { echo 'Release image verifier transfer failed.' >&2; exit 2; }
+          scp "${scp_common[@]}" infra/sql/postgresql-outbox-worker-policies.sql "$SSH_USER_SECRET@$HOST:/tmp/pc-ir20-outbox-policy-${GITHUB_RUN_ID}.sql" >/dev/null 2>&1 || { echo 'Outbox policy transfer failed.' >&2; exit 2; }
 
       - name: Authenticate production host to exact private registry
         env:
@@ -408,7 +409,7 @@ jobs:
           raw="$(mktemp)"; clean="$EVIDENCE_DIR/production-action.log"
           set +e
           ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=12 -o TCPKeepAlive=yes "$SSH_USER_SECRET@$HOST" \
-            "chmod 0700 /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh && DOCKER_CONFIG='/tmp/pc-registry-${GITHUB_RUN_ID}' PC_RELEASE_IMAGE_BINDING_VERIFIER='/tmp/pc-full-stack-image-binding-${GITHUB_RUN_ID}.py' PC_API_IMAGE='$API_IMAGE' PC_WEB_IMAGE='$WEB_IMAGE' PC_MIGRATION_IMAGE='$MIGRATION_IMAGE' PC_OUTBOX_WORKER_IMAGE='$OUTBOX_WORKER_IMAGE' PC_PROD_DIR_B64='$(enc "${PROD_DIR_SECRET:-}")' PC_PROD_COMPOSE_B64='$(enc "${PROD_COMPOSE_SECRET:-}")' PC_PROD_PROJECT_B64='$(enc "${PROD_PROJECT_SECRET:-}")' PC_PROD_BACKUP_EVIDENCE_FILE_B64='$(enc "${BACKUP_EVIDENCE_FILE_SECRET:-}")' /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh deploy '$TARGET_SHA' '$GITHUB_RUN_ID'" > "$raw" 2>&1
+            "chmod 0700 /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh && DOCKER_CONFIG='/tmp/pc-registry-${GITHUB_RUN_ID}' PC_RELEASE_IMAGE_BINDING_VERIFIER='/tmp/pc-full-stack-image-binding-${GITHUB_RUN_ID}.py' PC_OUTBOX_POLICY_FILE='/tmp/pc-ir20-outbox-policy-${GITHUB_RUN_ID}.sql' PC_API_IMAGE='$API_IMAGE' PC_WEB_IMAGE='$WEB_IMAGE' PC_MIGRATION_IMAGE='$MIGRATION_IMAGE' PC_OUTBOX_WORKER_IMAGE='$OUTBOX_WORKER_IMAGE' PC_PROD_DIR_B64='$(enc "${PROD_DIR_SECRET:-}")' PC_PROD_COMPOSE_B64='$(enc "${PROD_COMPOSE_SECRET:-}")' PC_PROD_PROJECT_B64='$(enc "${PROD_PROJECT_SECRET:-}")' PC_PROD_BACKUP_EVIDENCE_FILE_B64='$(enc "${BACKUP_EVIDENCE_FILE_SECRET:-}")' /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh deploy '$TARGET_SHA' '$GITHUB_RUN_ID'" > "$raw" 2>&1
           rc=$?
           set -e
           sed -E 's#postgres(ql)?://[^[:space:]@]+@#postgresql://[REDACTED]@#g; /(_PATH|_DIR|COMPOSE|CONFIG_FILES)=/ s#=.*#=[REDACTED]#' "$raw" > "$clean"
@@ -493,7 +494,7 @@ jobs:
           set -euo pipefail
           if [[ -n "${HOST:-}" && -n "${PORT:-}" && -f "$HOME/.ssh/id_pc_prod" && -f "$HOME/.ssh/known_hosts" ]]; then
             ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=12 -o TCPKeepAlive=yes "$SSH_USER_SECRET@$HOST" \
-              "set -euo pipefail; DOCKER_CONFIG='/tmp/pc-registry-${GITHUB_RUN_ID}' docker logout ghcr.io >/dev/null 2>&1 || true; rm -rf '/tmp/pc-registry-${GITHUB_RUN_ID}'; rm -f '/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh' '/tmp/pc-full-stack-image-binding-${GITHUB_RUN_ID}.py'" \
+              "set -euo pipefail; DOCKER_CONFIG='/tmp/pc-registry-${GITHUB_RUN_ID}' docker logout ghcr.io >/dev/null 2>&1 || true; rm -rf '/tmp/pc-registry-${GITHUB_RUN_ID}'; rm -f '/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh' '/tmp/pc-full-stack-image-binding-${GITHUB_RUN_ID}.py' '/tmp/pc-ir20-outbox-policy-${GITHUB_RUN_ID}.sql'" \
               || true
           fi
           docker logout ghcr.io >/dev/null 2>&1 || true
