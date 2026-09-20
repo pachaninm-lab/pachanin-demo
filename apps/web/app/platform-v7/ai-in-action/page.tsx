@@ -25,6 +25,8 @@ ru:{
  ['Что блокирует','Объяснить подтверждённый блокер и связанную с ним роль, документ или событие.'],
  ['Какое основание','Показать, на какой источник и условие опирается допустимое действие.'],
  ['Кто действует дальше','Определить следующего ответственного в пределах серверно подтверждённых полномочий.'],
+ ['Проверить риски','Собрать доступные факты, ограничения и неподтверждённые места, которые требуют внимания участника.'],
+ ['Что влияет на расчёт','Объяснить, какие подтверждённые условия и события могут влиять на расчёт, не создавая финансовое состояние на клиенте.'],
  ],sources:'Источники и границы',sourceRows:[
  ['Сделка','Только контекст, доступный текущему участнику'],
  ['Документы','Только связанные и разрешённые к чтению данные'],
@@ -40,6 +42,8 @@ en:{
  ['What blocks progress','Explain a confirmed blocker and the related role, document or event.'],
  ['Which basis matters','Show the source and condition supporting the permitted action.'],
  ['Who acts next','Identify the next responsible participant within server-confirmed authority.'],
+ ['Check risks','Bring together available facts, constraints and unresolved items that require participant attention.'],
+ ['What affects settlement','Explain which confirmed terms and events may affect settlement without creating financial state on the client.'],
  ],sources:'Sources and boundaries',sourceRows:[
  ['Deal','Only context available to the current participant'],
  ['Documents','Only linked data authorised for reading'],
@@ -55,6 +59,8 @@ zh:{
  ['什么在阻挡','解释已确认阻断及其关联角色、文件或事件。'],
  ['依据是什么','展示允许操作所依赖的来源和条件。'],
  ['下一步谁处理','在服务器确认权限范围内识别下一责任方。'],
+ ['检查风险','汇总可用事实、限制和仍待确认的事项，供参与方处理。'],
+ ['什么影响结算','解释哪些已确认条件和事件可能影响结算，但不在客户端创建金融状态。'],
  ],sources:'来源与边界',sourceRows:[
  ['交易','仅使用当前参与方可访问的上下文'],
  ['文件','仅使用关联且允许读取的数据'],
@@ -93,7 +99,14 @@ export default async function PublicGektaPage(){
       <section className='pc-cp-card pc-cp-gekta-panel pc-cp-gekta-main-panel'>
         <div className='pc-cp-gekta-main-head'><Bot size={28}/><div><span className='pc-cp-eyebrow'>{c.e}</span><h2>{locale==='ru'?'Гекта работает с контекстом вашей Сделки':locale==='en'?'Gekta works with your Deal context':'Gekta 基于你的交易上下文工作'}</h2></div></div>
         <div className='pc-cp-gekta-cards'>{c.cards.map(([title,text],i)=>{const Icon=ICONS[i]!;return <article className='pc-cp-gekta-action' key={title}><Icon size={19}/><strong>{title}</strong><p>{text}</p></article>})}</div>
-        <div className='pc-cp-gekta-prompts'>{[c.prompt,locale==='ru'?'Какие риски при приёмке?':locale==='en'?'What are the acceptance risks?':'验收有什么风险？',locale==='ru'?'Что влияет на цену?':locale==='en'?'What affects price?':'什么影响价格？'].map(x=><span key={x}>{x}<ArrowRight size={13}/></span>)}</div>
+        <div className='pc-cp-gekta-prompts'>{[
+          c.prompt,
+          locale==='ru'?'Какие риски при приёмке?':locale==='en'?'What are the acceptance risks?':'验收有什么风险？',
+          locale==='ru'?'Что влияет на расчёт?':locale==='en'?'What affects settlement?':'什么影响结算？',
+          locale==='ru'?'Какие основания доступны?':locale==='en'?'Which evidence is available?':'有哪些依据？',
+          locale==='ru'?'Кто должен действовать дальше?':locale==='en'?'Who should act next?':'下一步谁处理？',
+          locale==='ru'?'Что ещё требует подтверждения?':locale==='en'?'What still needs confirmation?':'还有什么待确认？',
+        ].map(x=><span key={x}>{x}<ArrowRight size={13}/></span>)}</div>
         <div className='pc-cp-gekta-composer'><Bot size={18}/><span>{c.prompt}</span><button type='button' aria-label={locale==='ru'?'Отправить запрос':locale==='en'?'Send query':'发送查询'}><ArrowRight size={17}/></button></div>
       </section>
       <aside className='pc-cp-card pc-cp-gekta-panel pc-cp-gekta-sources-panel'>
