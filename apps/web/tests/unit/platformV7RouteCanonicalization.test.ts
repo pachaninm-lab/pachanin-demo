@@ -18,9 +18,10 @@ describe('platform-v7 route canonicalization', () => {
     expect(isPlatformV7KnownAlias('/platform-v7/dispute/DSP-100')).toBe(true);
   });
 
-  it('canonicalizes marketplace and market routes away from marketplace positioning', () => {
+  it('keeps the public market canonical while retiring only the marketplace alias', () => {
     expect(canonicalizePlatformV7Route('/platform-v7/marketplace')).toBe(PLATFORM_V7_CANONICAL_ROUTES.lots);
-    expect(canonicalizePlatformV7Route('/platform-v7/market')).toBe(PLATFORM_V7_CANONICAL_ROUTES.lots);
+    expect(canonicalizePlatformV7Route('/platform-v7/market')).toBeUndefined();
+    expect(isPlatformV7KnownAlias('/platform-v7/market')).toBe(false);
   });
 
   it('canonicalizes the generic field route to the driver field shell', () => {
