@@ -1,7 +1,7 @@
 import '@/styles/platform-v7-canonical-public-v1.css';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, Bot, FileCheck2, Route, Scale, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowRight, Bot, FileCheck2, Route, ShieldCheck, Sparkles } from 'lucide-react';
 import { getLocale } from 'next-intl/server';
 import {
   CanonicalBottomNav,
@@ -11,7 +11,7 @@ import {
 } from '@/components/platform-v7/PublicCanonicalPrimitives';
 
 export const metadata:Metadata={
-  title:'Гекта — Прозрачная Цена',
+  title:'Гекта в работе — Прозрачная Цена',
   description:'Гекта объясняет контекст Сделки, документы, логистику, качество, расчёт, риски и допустимый следующий шаг в пределах доступных фактов и полномочий.',
   alternates:{canonical:'/platform-v7/ai-in-action'},robots:{index:true,follow:true},
 };
