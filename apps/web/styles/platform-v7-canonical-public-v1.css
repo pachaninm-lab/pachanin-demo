@@ -827,3 +827,30 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-page-home .pc-cp-capability strong{font-size:13px}
   .pc-cp-page-home .pc-cp-chip{font-size:12px}
 }
+
+
+/* FINAL MOBILE AUTHORITY COMPOSITION V2 — compact without illegible text */
+@media(max-width:760px){
+  .pc-cp-page-home .pc-cp-hero{padding:10px 0 4px}
+  .pc-cp-page-home .pc-cp-hero-media{width:28%;max-width:116px;height:200px;object-position:center top}
+  .pc-cp-page-home .pc-cp-hero::after{height:220px}
+  .pc-cp-page-home .pc-cp-hero-copy{min-height:206px;gap:4px}
+  .pc-cp-page-home .pc-cp-hero-copy h1{font-size:30px;line-height:.92;max-width:13ch}
+  .pc-cp-page-home .pc-cp-hero-copy p{font-size:12px;line-height:1.2;max-width:310px}
+  .pc-cp-page-home .pc-cp-hero-copy .pc-cp-eyebrow{font-size:10px}
+  .pc-cp-page-home .pc-cp-hero-copy .pc-cp-actions{margin-top:2px}
+  .pc-cp-page-home .pc-cp-deal-lens{padding:6px 8px;margin-top:2px}
+  .pc-cp-page-home .pc-cp-deal-lens-head{padding-bottom:4px}
+  .pc-cp-page-home .pc-cp-deal-lens-head .pc-cp-eyebrow{display:none}
+  .pc-cp-page-home .pc-cp-deal-lens-head strong{font-size:15px}
+  .pc-cp-page-home .pc-cp-deal-lens-next{margin-top:4px;padding:6px 7px}
+  .pc-cp-page-home .pc-cp-deal-lens-next small{display:none}
+  .pc-cp-page-home .pc-cp-deal-lens-next strong{font-size:12px;line-height:1.15}
+  .pc-cp-page-home #market{padding-top:7px}
+  .pc-cp-page-home #market .pc-cp-section-head p{display:none}
+  .pc-cp-page-home .pc-cp-market-preview-alert{padding:6px 8px}
+  .pc-cp-page-home .pc-cp-market-preview-alert span{line-height:1.15}
+  .pc-cp-page-home .pc-cp-market-grid--preview.pc-cp-market-grid--empty{display:none!important}
+  .pc-cp-page-home #deal-path{padding-top:7px}
+  .pc-cp-page-home #deal-path .pc-cp-section-head p{display:none}
+}
