@@ -114,66 +114,13 @@ export async function CanonicalMarketResults({
   );
 }
 
-export async function CanonicalPublicLotDetail({ locale, publicRef }: { locale: string; publicRef: string }) {
-  const lang = canonicalPublicLocale(locale);
-  const market = await getPublicMarketLots();
-  if (!market.available) return <MarketState locale={lang} kind='unavailable' />;
-  const lot = market.items.find((item) => item.publicRef === publicRef);
-  if (!lot) return <MarketState locale={lang} kind='empty' />;
-  const copy = COPY[lang];
-  const suffix = `?lang=${lang}`;
-
-  return (
-    <>
-      <section className='pc-cp-lot-hero'>
-        <div className='pc-cp-container'>
-          <div className='pc-cp-lot-layout'>
-            <div className='pc-cp-lot-image' role='img' aria-label={copy.photo}>{copy.photo}</div>
-            <article className='pc-cp-card pc-cp-lot-summary'>
-              <div>
-                <span className='pc-cp-chip'><LockKeyhole size={13} aria-hidden='true' />{copy.hidden}</span>
-                <h1>{cultureLabel(lot.culture, lang)}{lot.grade ? ` · ${lot.grade}` : ''}</h1>
-              </div>
-              <div className='pc-cp-lot-meta'>
-                <Metric label={copy.volume} value={formatVolume(lot.volumeTons, lang)} />
-                <Metric label={copy.price} value={formatPrice(lot.startPriceKopecksPerTon, lang)} />
-                <Metric label={copy.region} value={lot.region} />
-                <Metric label={copy.ends} value={formatDate(lot.auctionEndsAt, lang)} />
-              </div>
-              <div className='pc-cp-actions'>
-                <Link className='pc-cp-button' href={`/platform-v7/register${suffix}&intent=buy`}>{copy.access}<ArrowRight size={16} aria-hidden='true' /></Link>
-                <Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/market${suffix}`}>{lang === 'ru' ? 'Назад на рынок' : lang === 'en' ? 'Back to market' : '返回市场'}</Link>
-              </div>
-              <small className='pc-cp-lead' style={{ fontSize: 12 }}>{copy.source}</small>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <section className='pc-cp-section'>
-        <div className='pc-cp-container'>
-          <div className='pc-cp-section-head'>
-            <span className='pc-cp-eyebrow'>{lang === 'ru' ? 'Публичные данные лота' : lang === 'en' ? 'Public lot data' : '公开批次数据'}</span>
-            <h2>{lang === 'ru' ? 'Только подтверждённая публичная проекция' : lang === 'en' ? 'Only the confirmed public projection' : '仅展示已确认的公开投影'}</h2>
-            <p>{lang === 'ru' ? 'Данные организации, внутренние идентификаторы, документы и непубличные условия сделки здесь намеренно не раскрываются.' : lang === 'en' ? 'Organisation data, internal identifiers, documents and non-public Deal terms are intentionally not exposed here.' : '机构数据、内部标识、文件和非公开交易条件不会在此披露。'}</p>
-          </div>
-          <div className='pc-cp-detail-grid'>
-            <Detail title={copy.declared} text={lang === 'ru' ? 'Статус PUBLIC_ALLOWED подтверждён серверной публичной проекцией.' : lang === 'en' ? 'PUBLIC_ALLOWED is confirmed by the server-side public projection.' : 'PUBLIC_ALLOWED 状态由服务器端公共投影确认。'} />
-            <Detail title={copy.quality} text={lang === 'ru' ? 'Независимая верификация в публичной проекции отсутствует; интерфейс не выдаёт её за выполненную.' : lang === 'en' ? 'No independent verification is present in the public projection; the UI does not imply otherwise.' : '公共投影中没有独立核验；界面不会暗示已完成核验。'} />
-            <Detail title={lang === 'ru' ? 'Логистика' : lang === 'en' ? 'Logistics' : '物流'} text={unpublished(lang)} />
-            <Detail title={lang === 'ru' ? 'Документы и расчёт' : lang === 'en' ? 'Documents and settlement' : '文件与结算'} text={unpublished(lang)} />
-          </div>
-        </div>
-      </section>
-    </>
-  );
-}
-
 function MarketCard({ lot, locale, selected = false }: { lot: PublicMarketLot; locale: CanonicalPublicLocale; selected?: boolean }) {
   const copy = COPY[locale];
   const suffix = `?lang=${locale}`;
+  const loginHref = `/platform-v7/login?lang=${locale}`;
+  const registerHref = `/platform-v7/register?lang=${locale}&intent=buy`;
   return (
-    <Link className='pc-cp-card pc-cp-lot-card' href={`/platform-v7/market/${encodeURIComponent(lot.publicRef)}${suffix}`} data-selected={selected ? 'true' : undefined}>
+    <article className='pc-cp-card pc-cp-lot-card' data-selected={selected ? 'true' : undefined}>
       <div className='pc-cp-lot-media'>{copy.photo}</div>
       <div className='pc-cp-lot-body'>
         <div>
@@ -186,9 +133,13 @@ function MarketCard({ lot, locale, selected = false }: { lot: PublicMarketLot; l
           <Metric label={copy.region} value={lot.region} />
           <Metric label={copy.ends} value={formatDate(lot.auctionEndsAt, locale)} />
         </div>
-        <div className='pc-cp-lot-foot'><span><ShieldCheck size={13} aria-hidden='true' /> {copy.declared}</span><strong>{copy.details} →</strong></div>
+        <div className='pc-cp-lot-foot'><span><ShieldCheck size={13} aria-hidden='true' /> {copy.declared}</span></div>
+        <div className='pc-cp-actions' data-testid='canonical-public-market-lot-actions'>
+          <a className='pc-cp-button pc-cp-button--secondary' href={loginHref}>{copy.details}</a>
+          <a className='pc-cp-button' href={registerHref}>{copy.access}<ArrowRight size={15} aria-hidden='true' /></a>
+        </div>
       </div>
-    </Link>
+    </article>
   );
 }
 
@@ -206,7 +157,7 @@ function MarketAside({ lot, locale, authority }: { lot: PublicMarketLot; locale:
       </dl>
       <div className='pc-cp-chip pc-cp-chip--ok'><ShieldCheck size={13} aria-hidden='true' />{copy.declared}</div>
       <p className='pc-cp-lead' style={{ fontSize: 12 }}>{copy.quality}</p>
-      <Link className='pc-cp-button' href={`/platform-v7/market/${encodeURIComponent(lot.publicRef)}?lang=${locale}`}>{copy.details}<ArrowRight size={16} aria-hidden='true' /></Link>
+      <a className='pc-cp-button' href={`/platform-v7/login?lang=${locale}`}>{copy.details}<ArrowRight size={16} aria-hidden='true' /></a>
       <small style={{ color: 'var(--pc-cp-muted)', lineHeight: 1.45 }}>{copy.source}{authority.authority?.observedAt ? ` · ${formatObserved(authority.authority.observedAt, locale)}` : ''}</small>
     </aside>
   );
