@@ -613,6 +613,35 @@ emit_api_startup_diagnostics() {
   printf 'API_STARTUP_DIAGNOSTICS_END\n' >&2
 }
 
+emit_worker_startup_diagnostics() {
+  local id state health restart_count exit_code oom_killed
+  id="$("${dc_target[@]}" ps -q "$OUTBOX_SERVICE" | head -1)"
+  printf 'OUTBOX_WORKER_STARTUP_DIAGNOSTICS_BEGIN\n' >&2
+  if [[ -z "$id" ]]; then
+    printf 'OUTBOX_WORKER_STARTUP_CONTAINER=missing\n' >&2
+    printf 'OUTBOX_WORKER_STARTUP_DIAGNOSTICS_END\n' >&2
+    return 0
+  fi
+
+  state="$(docker inspect --format '{{.State.Status}}' "$id" 2>/dev/null || true)"
+  health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$id" 2>/dev/null || true)"
+  restart_count="$(docker inspect --format '{{.RestartCount}}' "$id" 2>/dev/null || true)"
+  exit_code="$(docker inspect --format '{{.State.ExitCode}}' "$id" 2>/dev/null || true)"
+  oom_killed="$(docker inspect --format '{{.State.OOMKilled}}' "$id" 2>/dev/null || true)"
+  printf 'OUTBOX_WORKER_STARTUP_CONTAINER_STATE=%s\n' "${state:-unknown}" >&2
+  printf 'OUTBOX_WORKER_STARTUP_HEALTH=%s\n' "${health:-unknown}" >&2
+  printf 'OUTBOX_WORKER_STARTUP_RESTART_COUNT=%s\n' "${restart_count:-unknown}" >&2
+  printf 'OUTBOX_WORKER_STARTUP_EXIT_CODE=%s\n' "${exit_code:-unknown}" >&2
+  printf 'OUTBOX_WORKER_STARTUP_OOM_KILLED=%s\n' "${oom_killed:-unknown}" >&2
+  printf 'OUTBOX_WORKER_READY_BODY_BEGIN\n' >&2
+  docker exec "$id" /nodejs/bin/node -e "fetch('http://127.0.0.1:3002/ready',{signal:AbortSignal.timeout(4000)}).then(async r=>{process.stdout.write(await r.text()); process.exit(r.ok?0:1)}).catch(e=>{process.stderr.write(String(e&&e.message||e)); process.exit(1)})" 2>&1 | redact_api_startup_log >&2 || true
+  printf '\nOUTBOX_WORKER_READY_BODY_END\n' >&2
+  printf 'OUTBOX_WORKER_STARTUP_LOG_TAIL_BEGIN\n' >&2
+  docker logs --tail 120 "$id" 2>&1 | redact_api_startup_log >&2 || true
+  printf 'OUTBOX_WORKER_STARTUP_LOG_TAIL_END\n' >&2
+  printf 'OUTBOX_WORKER_STARTUP_DIAGNOSTICS_END\n' >&2
+}
+
 wait_web() {
   local id state attempt
   for attempt in $(seq 1 30); do
@@ -1152,7 +1181,8 @@ write_override "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override" 1 "
 "${dc_target[@]}" up -d --no-deps --pull never "$KAFKA_SERVICE"; wait_broker || fail KAFKA_READINESS_FAILED 115
 ensure_kafka_topics || fail KAFKA_TOPIC_AUTHORITY_FAILED 116
 verify_first_broker_restart_persistence || fail KAFKA_PERSISTENCE_PROOF_FAILED 117
-"${dc_target[@]}" up -d --no-deps --pull never "$OUTBOX_SERVICE"; wait_worker || fail OUTBOX_WORKER_READINESS_FAILED 118
+"${dc_target[@]}" up -d --no-deps --pull never "$OUTBOX_SERVICE"
+if ! wait_worker; then emit_worker_startup_diagnostics; fail OUTBOX_WORKER_READINESS_FAILED 118; fi
 worker_principal_smoke || fail OUTBOX_PRINCIPAL_BOUNDARY_FAILED 97
 "${dc_target[@]}" up -d --no-deps --pull never api
 if ! wait_api; then emit_api_startup_diagnostics; fail API_READINESS_FAILED 30; fi
