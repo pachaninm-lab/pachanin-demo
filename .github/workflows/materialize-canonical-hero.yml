@@ -1,0 +1,59 @@
+name: Materialize Canonical Hero Asset
+
+on:
+  push:
+    branches: [feat/public-design-authority-v1-20260920]
+    paths:
+      - '.github/asset-input/hero-farmer.b64.*'
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Decode and verify exact canonical hero asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p apps/web/public/platform-v7
+          cat .github/asset-input/hero-farmer.b64.* | tr -d '\n\r ' | base64 -d > apps/web/public/platform-v7/hero-farmer-canonical.webp
+          test "$(stat -c%s apps/web/public/platform-v7/hero-farmer-canonical.webp)" = "14826"
+          echo "3c8ab7f7bdb33b2d9ec2940a03016004d9d2873cb86e4cd1e3180b1a391946f3  apps/web/public/platform-v7/hero-farmer-canonical.webp" | sha256sum -c -
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('apps/web/public/platform-v7/hero-farmer-canonical.webp')
+          b=p.read_bytes()
+          assert b[:4] == b'RIFF' and b[8:12] == b'WEBP'
+          PY
+
+      - name: Switch implementation to binary asset and remove bootstrap files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('apps/web/components/platform-v7/PlatformV7StrategicHome.tsx')
+          s=p.read_text()
+          s=s.replace('/platform-v7/hero-farmer-canonical.svg','/platform-v7/hero-farmer-canonical.webp')
+          p.write_text(s)
+          PY
+          rm -f apps/web/public/platform-v7/hero-farmer-canonical.svg
+          rm -f .github/asset-input/hero-farmer.b64.*
+          rm -f .github/workflows/materialize-canonical-hero.yml
+
+      - name: Commit exact asset to the PR branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(assets): materialize canonical farmer hero"
+          git push origin HEAD:feat/public-design-authority-v1-20260920
