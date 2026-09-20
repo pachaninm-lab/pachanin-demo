@@ -1,6 +1,6 @@
 # PC-CROP MASTER v2.1 execution queue
 
-CURRENT: R1 Founder/CEO Control Center and owner access to all 13 cabinets
+CURRENT: R1.1 Server-side inventory of 13 cabinets and authority
 
 OFFICIAL OVERALL: 5/100 = 5%
 TARGET AFTER R1 PRODUCTION_PASS: 12/100 = 12%
@@ -27,30 +27,35 @@ CURRENT ALLOWED:
 - .github/workflows/ci.yml
 
 CURRENT CRITERIA:
-- derive the exact 13-cabinet registry and role/object authority from current server truth;
-- extend existing PostgreSQL-authoritative staff access rather than create a parallel identity or role system;
-- build Founder/CEO data contracts, P0/P1 queue and real-data-only metrics with source lineage and drill-down;
-- preserve tenant isolation, actual actor identity, recent MFA, reason, expiry, audit and high-risk denials;
-- add negative, concurrency, recovery and metric-reconciliation tests;
-- keep apps/web visual/session handoff out of this first backend slice; admit any later handoff separately after conflict recheck;
-- finish R1 only after exact-current-main REG.RU release, 13/13 live matrix, negative acceptance and required observation.
+- derive the exact 13-cabinet registry from current server role/route authority;
+- map role × object permissions, tenant boundaries, owner/founder entry authority, audit, APIs and current Control Center capabilities;
+- classify R1 requirements as KEEP, EXTEND_EXISTING or NEW_REQUIRED with current-main evidence;
+- identify controlled-test/demo dependencies that cannot count toward R1 production acceptance;
+- record active parallel UX/FGIS/bank changed-file boundaries and avoid implementation overlap;
+- keep R1 official points at 0 until the whole R1 block reaches PRODUCTION_PASS.
 
 LOCKED:
 - R1 official 7 points remain 0 until the entire block has PRODUCTION_PASS.
 - UX/UI, FGIS and bank/finance visual implementation remain owned by the parallel account.
 
 NEXT:
-- Layer: Post-R1 queue selection after R1 PRODUCTION_PASS
+- Layer: R1.2 Controlled open-as-role server authority
 - Allowed files:
   - docs/platform-v7/autopilot/autopilot-state.json
   - docs/platform-v7/autopilot/progress.json
   - docs/platform-v7/autopilot/prompts/current-codex-task.md
   - docs/platform-v7/autopilot/prompts/current-review-task.md
   - docs/platform-v7/execution-queue.md
+  - docs/execution/**
+  - apps/api/src/modules/staff-access/**
+  - apps/api/src/app.module.ts
 - Success criteria:
-  - preserve R1 production evidence and select the next owner-authorized MASTER block without fabricating partial points
-  - do not auto-start a parallel-account UX/FGIS/bank slice
-- Readiness remains OWNER_QUEUE_SELECTION_REQUIRED.
+  - owner identity remains the actual actor while effective organization/tenant/role are server-derived from authorized targets
+  - VIEW_AS remains read-only and high-risk actions retain ordinary capability plus recent-MFA requirements
+  - session issuance, expiry, return/revoke and audit evidence are PostgreSQL-authoritative
+  - no controlled-test/demo target is accepted as R1 production evidence
+  - negative cross-tenant/role tamper and stale-session cases pass
+- Readiness remains MASTER_R1_IN_PROGRESS.
 
 ## R1 factual baseline
 - MASTER: PC-CROP_CODEX_MASTER_TZ_v2.1_2026-09-12.
