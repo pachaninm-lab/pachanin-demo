@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-const root = process.cwd();
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 const read = (file: string) => fs.readFileSync(path.join(root, file), 'utf8');
 const component = read('apps/web/components/platform-v7/PublicDealExplorerV4.tsx');
 const copy = read('apps/web/i18n/public-deal-journey-v5.ts');
@@ -26,12 +27,16 @@ describe('Public Deal Journey v5', () => {
     expect(component).toContain("return 'organization_connect_started'");
   });
 
-  it('marks public banking and external-integration boundaries explicitly', () => {
+  it('marks public banking and external-system boundaries without live or connection-status claims', () => {
     expect(copy).toContain('не выполняет банковские операции');
-    expect(copy).toContain('не выдаёт неподключённые внешние системы за работающие');
+    expect(copy).toContain('не имитирует ответы внешних систем');
     expect(copy).toContain('реальная банковская операция в публичном примере не выполняется');
-    expect(copy).toContain('no real banking operation is performed in the public example');
+    expect(copy).toContain('does not simulate responses from external systems');
     expect(copy).toContain('公开页面不执行真实银行操作');
+    expect(copy).toContain('不模拟外部系统的响应');
+    expect(copy).not.toContain('не выдаёт неподключённые внешние системы за работающие');
+    expect(copy).not.toContain('unconnected external system as live');
+    expect(copy).not.toContain('尚未接入的外部系统显示为在线能力');
     expect(component).not.toContain('fetch(');
   });
 
@@ -47,14 +52,29 @@ describe('Public Deal Journey v5', () => {
     expect(copy).not.toContain("perspective: 'executive'");
   });
 
+  it('uses grounds and next-action language instead of readiness or public status language', () => {
+    expect(copy).toContain("settle: { label: 'Проверить основания расчёта'");
+    expect(copy).toContain("settle: { label: 'Review settlement grounds'");
+    expect(copy).toContain("settle: { label: '检查结算依据'");
+    expect(copy).toContain('Гекта объясняет факты, риск и следующий шаг');
+    expect(copy).toContain('Gekta explains facts, risk and the next action');
+    expect(copy).toContain('Gekta 解释事实、风险和下一步');
+    expect(copy).not.toContain('Проверить готовность расчёта');
+    expect(copy).not.toContain('Check settlement readiness');
+    expect(copy).not.toContain('检查结算准备');
+    expect(copy).not.toContain('Гекта объясняет текущий статус');
+    expect(copy).not.toContain('Gekta explains current status');
+    expect(copy).not.toContain('Gekta 解释当前状态');
+  });
+
   it('uses ordinary-journey-first language and registration on the actual how-it-works route', () => {
     expect(copy).toContain("kicker: 'Как работает Сделка'");
     expect(copy).toContain("connect: 'Зарегистрироваться'");
     expect(copy).toContain('Сначала платформа показывает нормальное исполнение');
     expect(page).toContain("import '@/styles/platform-v7-public-deal-journey-v5.css'");
     expect(page).toContain("heading: 'От условий до закрытия — один понятный путь'");
-    expect(page).toContain('Ниже используется вымышленный пример.');
-    expect(page).toContain('const registerHref = `/platform-v7/register?lang=');
+    expect(page).toContain('не содержит реальных сделок, организаций или банковских операций');
+    expect(page).toContain('const registerHref = localizedHref');
   });
 
   it('is mobile-first, accessible and progressive rather than dashboard-dense', () => {
@@ -65,5 +85,26 @@ describe('Public Deal Journey v5', () => {
     expect(css).toContain('@media (prefers-reduced-motion: reduce)');
     expect(css).toContain('@media (forced-colors: active)');
     expect(component).toContain("aria-current={stageKey === historyState.stage ? 'step' : undefined}");
+  });
+});
+
+// The summary must preserve the complete public journey in every locale.
+describe('Final public seven-stage journey', () => {
+  const summary = page.split('const SUMMARY_COPY = {')[1].split('const HOW_IT_WORKS_PUBLIC_CSS')[0];
+  it.each(['ru', 'en', 'zh'])('keeps seven ordered stages and three settlement scenarios in %s', (locale) => {
+    const localized = summary.split(`  ${locale}: {`)[1].split('\n  },')[0];
+    const stages = localized.split('stages: [')[1].split('    ],')[0];
+    const states = localized.split('states: [')[1].split('    ],')[0];
+    expect(stages.match(/^      \['/gm)).toHaveLength(7);
+    expect(states.match(/^      \['/gm)).toHaveLength(3);
+    expect(localized).toContain('participants:');
+    expect(localized).toContain('detailLead:');
+  });
+  it('keeps connected-organisation employees and dispute settlement boundaries explicit', () => {
+    for (const text of ['Сотрудник подключённой организации', 'Employee of a connected organisation', '已接入机构员工', 'финансовое действие остаётся остановленным', 'financial action remains paused', '金融操作保持暂停']) {
+      expect(summary).toContain(text);
+    }
+    expect(page).toContain('#how-it-works');
+    expect(page).toContain('scroll-snap-type:x mandatory');
   });
 });

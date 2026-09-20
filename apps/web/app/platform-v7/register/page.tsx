@@ -2,12 +2,21 @@ import '@/styles/platform-v7-public-register.css';
 import '@/styles/platform-v7-public-register-official.css';
 import '@/styles/platform-v7-public-register-reflow.css';
 import Link from 'next/link';
-import { Home, Languages, LogIn } from 'lucide-react';
-import { BrandMark } from '@/components/v7r/BrandMark';
+import { Languages } from 'lucide-react';
+import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
 import { RegisterFormClientPublic } from './RegisterFormClientPublic';
 
 type Locale = 'ru' | 'en' | 'zh';
 type RegisterSearchParams = Record<string, string | string[] | undefined>;
+type PublicRegistrationIntent = 'sell' | 'buy' | 'execution' | 'finance';
+type PublicWorkspace = 'seller' | 'buyer' | 'logistics' | 'bank';
+
+const WORKSPACE_BY_INTENT: Record<PublicRegistrationIntent, PublicWorkspace> = {
+  sell: 'seller',
+  buy: 'buyer',
+  execution: 'logistics',
+  finance: 'bank',
+};
 
 const PAGE_COPY = {
   ru: {
@@ -47,6 +56,10 @@ function localeFrom(value: string | undefined): Locale {
   return value === 'en' || value === 'zh' ? value : 'ru';
 }
 
+function registrationIntent(value: string | undefined): PublicRegistrationIntent | null {
+  return value === 'sell' || value === 'buy' || value === 'execution' || value === 'finance' ? value : null;
+}
+
 function nextLocale(locale: Locale): Locale {
   return locale === 'ru' ? 'en' : locale === 'en' ? 'zh' : 'ru';
 }
@@ -60,39 +73,26 @@ export default async function RegisterPage({
   const locale = localeFrom(first(params.lang));
   const verifyToken = String(first(params.verify) || '').trim().slice(0, 512);
   const statusToken = String(first(params.statusToken) || '').trim().slice(0, 512);
+  const intent = registrationIntent(first(params.intent));
+  const initialWorkspace = intent ? WORKSPACE_BY_INTENT[intent] : undefined;
   const copy = PAGE_COPY[locale];
   const next = nextLocale(locale);
   const localeQuery = new URLSearchParams({ lang: next });
   if (verifyToken) localeQuery.set('verify', verifyToken);
   if (statusToken) localeQuery.set('statusToken', statusToken);
+  if (intent) localeQuery.set('intent', intent);
 
   return (
     <main className='p0-register-page'>
       <div className='p0-register-shell'>
-        <header className='p0-register-header' aria-label={copy.nav}>
-          <Link className='p0-register-brand' href='/platform-v7' aria-label={copy.home}>
-            <BrandMark size={42} />
-            <span>Прозрачная Цена</span>
-          </Link>
-          <nav className='p0-register-header-actions' aria-label={copy.nav}>
-            <a
-              href={`/platform-v7/register?${localeQuery.toString()}`}
-              aria-label={copy.language}
-              title={copy.language}
-            >
-              <Languages size={17} aria-hidden='true' />
-              <span>{locale.toUpperCase()}</span>
-            </a>
-            <Link href='/platform-v7/login' aria-label={copy.login} title={copy.login}>
-              <LogIn size={17} aria-hidden='true' />
-              <span>{copy.login}</span>
-            </Link>
-            <Link href='/platform-v7' aria-label={copy.home} title={copy.home}>
-              <Home size={17} aria-hidden='true' />
-              <span>{copy.home}</span>
-            </Link>
-          </nav>
-        </header>
+        <PublicSiteHeader
+          ariaLabel={copy.nav}
+          brandHomeLabel={copy.home}
+          brandHomeHref={`/platform-v7?lang=${locale}`}
+          showMobileMenu={false}
+          localeControl={<a className='pc-site-locale-switch' href={`/platform-v7/register?${localeQuery.toString()}`} aria-label={copy.language} title={copy.language}><Languages size={17} aria-hidden='true' /><span>{locale.toUpperCase()}</span></a>}
+          actions={<Link className='entry-login' href={`/platform-v7/login?lang=${locale}`} aria-label={copy.login}>{copy.login}</Link>}
+        />
 
         <section className='p0-register-hero' aria-labelledby='p0-register-title'>
           <small>{copy.kicker}</small>
@@ -104,6 +104,7 @@ export default async function RegisterPage({
           locale={locale}
           verifyToken={verifyToken || undefined}
           initialStatusToken={statusToken || undefined}
+          initialWorkspace={initialWorkspace}
         />
       </div>
     </main>

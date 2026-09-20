@@ -1,11 +1,12 @@
 {
-  "note": "Pinned upstream provenance for the one-for-one replacement of js/insufficient-password-hash. Drift protection compares the live analysis against these values and fails the job when they move. CodeQL CLI 2.26.4 was re-reviewed against 2.26.3: the inherited InsufficientPasswordHash query, flow configuration and customizations are byte-identical at the pinned upstream tags; only the bundled pack versions advanced.",
-  "codeqlCli": "2.26.4",
+  "note": "Pinned upstream provenance for the one-for-one replacement of js/insufficient-password-hash. The local replacement remains derived from CodeQL 2.26.4; CodeQL CLI 2.27.0 was independently re-reviewed against that derivation and the inherited InsufficientPasswordHash query, flow configuration and customizations remain byte-identical. Only the bundled pack versions advanced.",
+  "codeqlCli": "2.27.0",
   "codeqlActionMajor": "v4",
-  "upstreamTag": "codeql-cli/v2.26.4",
+  "derivedFromTag": "codeql-cli/v2.26.4",
+  "upstreamTag": "codeql-cli/v2.27.0",
   "queriesPack": {
     "name": "codeql/javascript-queries",
-    "version": "2.4.4"
+    "version": "2.4.5"
   },
   "upstream": {
     "query": "javascript/ql/src/Security/CWE-916/InsufficientPasswordHash.ql",
@@ -19,7 +20,7 @@
     "Everything else is inherited from upstream: Source, Sink, Sanitizer, taint tracking, CWE-916, severity, security-severity, precision, tags and help metadata."
   ],
   "bundledLibraryPacks": {
-    "codeql/javascript-all": "2.10.0"
+    "codeql/javascript-all": "2.10.1"
   },
   "reviewEvidence": {
     "queryBlobSha": "1cfc3111ad9138f0c0be3bc294d8d8f0480c7865",

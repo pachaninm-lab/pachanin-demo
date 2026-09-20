@@ -76,6 +76,9 @@ requireAll('publish', [
   '${{ env.IMAGE_PREFIX }}-migration',
   'file: infra/docker/Dockerfile.migrations',
   'GIT_COMMIT=${{ github.sha }}',
+  'build-outbox-worker:',
+  'Build canonical outbox worker image',
+  'file: infra/docker/Dockerfile.outbox-worker',
 ]);
 
 const requiredReleaseTriggerPaths = [
@@ -121,16 +124,24 @@ requireAll('workflow', [
   'queue: max',
   'RELEASE_ISSUE_NUMBER: 3072',
   'CONTINUATION_ISSUE_NUMBER: 4637',
-  'for component in api web migration',
+  'for component in api web migration outbox-worker',
   'grainflow-${component}:sha-${SHORT_SHA}',
   'PC_PROD_SSH_HOST_FINGERPRINT',
   'PC_PROD_BACKUP_EVIDENCE_FILE_B64',
   'No valid protected SSH private key is configured.',
+  'infra/sql/postgresql-outbox-worker-policies.sql',
+  "PC_OUTBOX_POLICY_FILE='/tmp/pc-ir20-outbox-policy-${GITHUB_RUN_ID}.sql'",
+  'observation_seconds >= 1800',
   'scripts/production-full-stack-exact-sha.sh',
   'scripts/production-full-stack-live-acceptance.sh',
   'Verify PostgreSQL, audit and outbox evidence',
-  'Restore exact API/web images after acceptance failure',
+  'Restore exact API/web/outbox images after acceptance failure',
   'DURABLE_INTAKE_DB=PASS',
+  'IR20_LIVE_OUTBOX_DELIVERY=PASS',
+  'Observe exact IR-20 runtime for 30 minutes',
+  'IR20_RUNTIME_OBSERVATION=PASS',
+  'steps.ir20_observation.outcome',
+  'deployed_outbox_worker_revision',
   'steps.database.outcome',
   'Publish release evidence',
   'gh issue comment',
@@ -168,6 +179,7 @@ requireAll('controller', [
   'Build API image',
   'Build web image',
   'Build migration image',
+  'services=all',
   'Release candidate is no longer an ancestor of main.',
   'production-full-stack-execution-3072:',
   'needs: production-release-control-3072',
@@ -217,11 +229,39 @@ requireAll('executor', [
   'MIGRATION_COMPLETE=1',
   'up -d --no-deps --pull never api',
   'up -d --no-deps --pull never web',
+  'OUTBOX_WORKER_IMAGE',
+  "KAFKA_IMAGE='confluentinc/cp-kafka@sha256:",
+  'KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"',
+  'pc_ir20_kafka_data',
+  'resolve_api_runtime_network_authority',
+  'API_RUNTIME_NETWORK_CARDINALITY_INVALID',
+  'ir20_api_runtime',
+  'external: true',
+  'verify_ir20_runtime_network_parity',
+  'IR20_RUNTIME_NETWORK_PARITY_FAILED',
+  'OUTBOX_WORKER_ENABLED: "false"',
+  'RUNTIME_COMPONENT=outbox-worker',
+  'ALTER ROLE app_outbox LOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION',
+  'apply_outbox_policy',
+  'IR20_OUTBOX_POLICY_APPLIED=1',
+  'worker_principal_smoke',
+  'ensure_kafka_topics',
+  'verify_first_broker_restart_persistence',
+  'verify_live_outbox_delivery',
+  'IR20_LIVE_OUTBOX_DELIVERY=PASS',
+  'observe-ir20',
+  'IR20_RUNTIME_OBSERVATION=PASS',
+  'DEPLOYED_OUTBOX_WORKER_REVISION=',
   'wait_api',
   'redact_api_startup_log',
   'emit_api_startup_diagnostics',
   'API_STARTUP_DIAGNOSTICS_BEGIN',
   'API_STARTUP_LOG_TAIL_BEGIN',
+  'emit_worker_startup_diagnostics',
+  'OUTBOX_WORKER_STARTUP_DIAGNOSTICS_BEGIN',
+  'OUTBOX_WORKER_READY_BODY_BEGIN',
+  'OUTBOX_WORKER_STARTUP_LOG_TAIL_BEGIN',
+  'docker logs --tail 120',
   'docker logs --tail 80',
   'wait_web',
   'rollback_images',
@@ -234,6 +274,10 @@ requireAll('executor', [
   'WATCHTOWER_RETIRED=1',
   'DEPLOYMENT_COMPLETE=1',
 ]);
+const liveOutboxPassSource = String.raw`IR20_LIVE_OUTBOX_DELIVERY=PASS\n`;
+const doubleEscapedLiveOutboxPassSource = String.raw`IR20_LIVE_OUTBOX_DELIVERY=PASS\\n`;
+if (!(text.executor ?? '').includes(liveOutboxPassSource)) failures.push(`${paths.executor}: missing newline-terminated IR20 live delivery PASS marker`);
+if ((text.executor ?? '').includes(doubleEscapedLiveOutboxPassSource)) failures.push(`${paths.executor}: IR20 live delivery PASS marker must not be double-escaped`);
 requireAll('live', [
   'for locale in ru en zh',
   '?lang=$locale&release=$TARGET_SHA&run=$RELEASE_RUN_ID',
@@ -280,7 +324,8 @@ forbid('workflow', [
   /sshpass/i,
   /SSH_PASSWORD/i,
   /StrictHostKeyChecking=no/,
-  /grainflow-(?:api|web|migration):latest/,
+  /grainflow-(?:api|web|migration|outbox-worker):latest/,
+  /confluentinc\/cp-kafka:(?:latest|7\.6\.0)/,
   /docker\s+build/,
   /prisma\s+migrate\s+reset/i,
   /\[\[\s*"?\$user"?\s*==\s*root\s*\]\]/,
@@ -342,7 +387,7 @@ requireAll('executor', [
 const executorSource = text.executor ?? '';
 const rollbackHandlerIndex = executorSource.indexOf('rollback_and_exit()');
 const rollbackArmIndex = executorSource.indexOf('RELEASE_ROLLBACK_ARMED=1');
-const targetOverrideIndex = executorSource.indexOf('write_override "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override" 1');
+const targetOverrideIndex = executorSource.indexOf('write_override "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override" 1 "$OUTBOX_WORKER_IMAGE" 1');
 const revisionMismatchIndex = executorSource.indexOf('fail RUNNING_REVISION_MISMATCH 33');
 const rollbackDisarmIndex = executorSource.lastIndexOf('RELEASE_ROLLBACK_ARMED=0');
 const successIndex = executorSource.indexOf("printf 'DEPLOYMENT_COMPLETE=1\\n'");
@@ -359,13 +404,15 @@ if (executorSource.split('RELEASE_ROLLBACK_ARMED=1').length - 1 !== 1
   || executorSource.split('RELEASE_ROLLBACK_ACTIVE=0').length - 1 !== 1
   || executorSource.split('rollback_and_exit').length - 1 !== 3
   || executorSource.split('RUNNING_API_REVISION=').length - 1 !== 1
-  || executorSource.split('RUNNING_WEB_REVISION=').length - 1 !== 1) {
+  || executorSource.split('RUNNING_WEB_REVISION=').length - 1 !== 1
+  || executorSource.split('RUNNING_OUTBOX_WORKER_REVISION=').length - 1 !== 1) {
   failures.push(`${paths.executor}: explicit-exit rollback safety marker cardinality is invalid`);
 }
 try {
   const scope = JSON.parse(text.scope ?? '{}');
   if (scope.branch !== 'ops/production-full-stack-release-v1') failures.push(`${paths.scope}: branch mismatch`);
-  if (scope.evidenceIssue !== 3072) failures.push(`${paths.scope}: evidence issue mismatch`);
+  if (scope.status !== 'active') failures.push(`${paths.scope}: status mismatch`);
+  if (scope.evidenceIssue !== 3072) failures.push(`${paths.scope}: accepted legacy evidence issue changed`);
 } catch (error) {
   failures.push(`${paths.scope}: invalid JSON: ${error.message}`);
 }
@@ -375,4 +422,4 @@ if (failures.length) {
   for (const failure of failures) console.error(`- ${failure}`);
   process.exit(1);
 }
-console.log('PASS: exact API/web/migration images, owner-controller-only immutable release authority, serialized release chain, protected pinned SSH identity, protected Compose discovery, backup, forward-only migration, target-only rollout, automatic image rollback, approved homepage content, public organization intake, live acceptance and PostgreSQL/audit/outbox evidence are enforced.');
+console.log('PASS: exact API/web/migration/outbox-worker images, pinned internal Kafka, least-privilege app_outbox ownership, owner-controller-only immutable release authority, serialized release chain, protected SSH identity, backup, forward-only migration, target-only rollout, bounded rollback, live durable outbox delivery and 30-minute IR-20 runtime observation are enforced.');
