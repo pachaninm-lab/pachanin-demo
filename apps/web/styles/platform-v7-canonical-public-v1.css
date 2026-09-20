@@ -582,3 +582,16 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-page-home .pc-cp-footer{padding-top:22px}
   .pc-cp-page-home .pc-cp-empty{min-height:130px}
 }
+
+
+/* supporting canonical public hero artwork */
+.pc-cp-hero:not(:has(.pc-cp-hero-media)){
+  background-image:linear-gradient(90deg,rgba(250,248,241,.96) 0%,rgba(250,248,241,.83) 45%,rgba(250,248,241,.18) 100%),url('/platform-v7/wheat-exact-background.svg');
+  background-size:cover;
+  background-position:center 52%;
+}
+.pc-cp-gekta-public-hero{
+  background-image:linear-gradient(90deg,rgba(6,69,49,.96),rgba(6,69,49,.80) 58%,rgba(6,69,49,.58)),url('/platform-v7/wheat-exact-background.svg')!important;
+  background-size:cover!important;
+  background-position:center 55%!important;
+}
