@@ -2,10 +2,10 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "issue": 4997,
   "branch": "feat/pc-crop-multi-bank-sber-authority-4997",
-  "status": "staged",
+  "status": "active",
   "purpose": "W6-A: establish provider-neutral bank capabilities and receipt/finality boundaries over the canonical SettlementPlan/bank-operation authority, with Sber as the primary reference mapping and Alfa-Bank/T-Bank as additional conformance targets, without claiming live credentials or creating bank-specific core semantics.",
   "authorityBaseExactMain": "3a8d7efe07097d78f70e6bba714f8daba7d1c1e2",
-  "authorization": "Owner instruction on 2026-09-21 to continue bank/finance product and integration work without a second settlement core, combined with the earlier staged W6-A scope. Implementation authority still requires this governance scope to pass review and merge on current main.",
+  "authorization": "Owner instruction on 2026-09-21 to continue bank/finance product and integration work without a second settlement core, combined with the earlier staged W6-A scope. Implementation authority becomes effective only after the governance scope containing this manifest is independently reviewed, green and merged to main.",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "specificationSections": [
@@ -142,5 +142,6 @@
         "finding": "Official T-Bank developer documentation exposes nominal-account methods for beneficiaries, billing, deals and deal stages."
       }
     ]
-  }
+  },
+  "effectiveAfter": "This governance scope is merged to main. Before merge, the PR head cannot grant implementation authority to itself; the future implementation branch must resolve this manifest from accepted main."
 }
