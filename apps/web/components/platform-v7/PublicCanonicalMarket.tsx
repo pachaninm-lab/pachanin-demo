@@ -282,7 +282,7 @@ function MarketEmptyLayout({ locale, kind }: { locale: CanonicalPublicLocale; ki
       <div>
         <div className='pc-cp-market-preview-alert pc-cp-market-preview-alert--wide'><ShieldCheck size={16} aria-hidden='true'/><strong>{title}</strong><span>{text}</span></div>
         <div className='pc-cp-market-grid pc-cp-market-grid--empty'>
-          {Array.from({length:6},(_,index)=><EmptyLotCard key={index} locale={locale} index={index}/>)}
+          {Array.from({length:9},(_,index)=><EmptyLotCard key={index} locale={locale} index={index}/>)}
         </div>
       </div>
       <aside className='pc-cp-card pc-cp-market-aside pc-cp-market-aside--empty' aria-label={noLot}>
