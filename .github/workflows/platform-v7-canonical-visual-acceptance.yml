@@ -1,0 +1,61 @@
+name: Platform V7 Canonical Visual Acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'DESIGN_AUTHORITY.md'
+      - 'apps/web/app/platform-v7/**'
+      - 'apps/web/components/platform-v7/**'
+      - 'apps/web/components/v7r/BrandMark.tsx'
+      - 'apps/web/styles/platform-v7-canonical-public-v1.css'
+      - 'apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts'
+      - 'apps/web/playwright.canonical-visual.config.ts'
+      - '.github/workflows/platform-v7-canonical-visual-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platform-v7-canonical-visual-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  canonical-visual:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      JWT_SECRET: canonical-visual-acceptance-secret
+      PC_CABINET_SESSION_SECRET: canonical-visual-acceptance-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.2.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build production web bundle
+        run: pnpm --filter @pc/web build
+      - name: Install Chromium
+        run: pnpm --filter @pc/web exec playwright install --with-deps chromium
+      - name: Capture canonical visual evidence
+        working-directory: apps/web
+        run: pnpm exec playwright test --config=playwright.canonical-visual.config.ts
+      - name: Upload canonical visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-v7-canonical-visual-${{ github.sha }}
+          path: |
+            apps/web/test-results/canonical-visual
+            apps/web/playwright-report-canonical-visual
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
