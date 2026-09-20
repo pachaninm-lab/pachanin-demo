@@ -1522,7 +1522,8 @@
     "Target tenant is derived server-side from the authorized organization; VIEW_AS stays read-only and time-bound.",
     "Reason, ticket, effective organization/role, expiry, activation and end/revoke are durable and audited through existing Staff Access tables.",
     "High-risk writes remain outside VIEW_AS and keep ordinary authority/MFA/approval boundaries.",
-    "Cross-tenant, forged-role, stale/revoked/expired-session and controlled-test-as-production cases fail closed."
+    "Cross-tenant, forged-role, stale/revoked/expired-session and controlled-test-as-production cases fail closed.",
+    "R1.2 implementation starts only after this governance admission has final exact-head green CI, independent review and a manual SHA-bound merge to current main."
   ],
   "nextAfterCurrentGreen": [
     "IR-21 Durable Integration Inbox",
