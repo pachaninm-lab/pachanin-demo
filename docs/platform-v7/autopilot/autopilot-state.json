@@ -1521,7 +1521,9 @@
       "scripts/test-production-release-target-isolation.py",
       "scripts/release/verify-production-image-binding.py",
       "scripts/release/test-production-image-binding.py",
-      "docs/platform-v7/autopilot/scopes/production-full-stack-release-v1.json"
+      "docs/platform-v7/autopilot/scopes/production-full-stack-release-v1.json",
+      ".github/workflows/production-auth-mail-outbox-cutover.yml",
+      "scripts/check-production-auth-mail-outbox-cutover.mjs"
     ]
   },
   "currentAcceptance": [
