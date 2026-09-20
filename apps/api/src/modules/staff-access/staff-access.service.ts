@@ -100,6 +100,18 @@ export class StaffAccessService {
     return this.repository.listActiveAssignments(this.repository.prisma, user.id);
   }
 
+  async requireActivePlatformOwner(user: RequestUser) {
+    this.assertRecentMfa(user);
+    const assignments = await this.repository.listActiveAssignments(this.repository.prisma, user.id);
+    const assignment = assignments.find((item) => (
+      item.role === StaffRole.PLATFORM_OWNER && item.status === 'ACTIVE'
+    ));
+    if (!assignment) {
+      throw new ForbiddenException('Active PLATFORM_OWNER assignment is required');
+    }
+    return assignment;
+  }
+
   async listRequests(user: RequestUser) {
     await this.requireAssignments(user);
     return this.repository.listAccessRequests(this.repository.prisma, user.id, false);
