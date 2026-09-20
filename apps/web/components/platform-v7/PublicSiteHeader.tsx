@@ -376,20 +376,23 @@ const PUBLIC_SITE_HEADER_STYLES = `
   }
   .pc-site-header[data-public-site-header='canonical'] .pc-site-brand {
     flex: 1 1 auto !important;
-    min-width: 84px !important;
-    gap: 0 !important;
+    min-width: 130px !important;
+    gap: 6px !important;
     overflow: visible !important;
   }
   .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-mark[data-brand-mark='transparent-price-canonical'] {
-    display: none !important;
+    display: inline-grid !important;
+    width: 31px !important;
+    height: 31px !important;
+    flex-basis: 31px !important;
   }
   .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-text strong {
     width: 100% !important;
     max-width: none !important;
     min-width: 0 !important;
-    font-size: 14px !important;
+    font-size: 13px !important;
     line-height: 1.04 !important;
-    white-space: normal !important;
+    white-space: nowrap !important;
     overflow: visible !important;
     overflow-wrap: normal !important;
     word-break: normal !important;
