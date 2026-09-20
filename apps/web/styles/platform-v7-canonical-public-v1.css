@@ -725,8 +725,18 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-page-home .pc-cp-stage i{width:25px;height:25px;font-size:8px}
   .pc-cp-page-home .pc-cp-stage strong{font-size:8px;line-height:1.05}
 
-  .pc-cp-page-home #participants,
-  .pc-cp-page-home #capabilities{display:none}
+  .pc-cp-page-home{display:flex;flex-direction:column}
+  .pc-cp-page-home>.pc-cp-hero{order:1}
+  .pc-cp-page-home>#market{order:2}
+  .pc-cp-page-home>#deal-path{order:3}
+  .pc-cp-page-home>#live{order:4}
+  .pc-cp-page-home>#trust{order:5}
+  .pc-cp-page-home>#gekta{order:6}
+  .pc-cp-page-home>.pc-cp-final{order:7}
+  .pc-cp-page-home>#participants{order:8;content-visibility:visible}
+  .pc-cp-page-home>#capabilities{order:9;content-visibility:visible}
+  .pc-cp-page-home>.pc-cp-footer{order:10}
+  .pc-cp-page-home>.pc-cp-bottom-nav{order:11}
 
   .pc-cp-page-home .pc-cp-state-shell{padding:7px}
   .pc-cp-page-home .pc-cp-state-tabs{padding-bottom:4px}
