@@ -83,7 +83,7 @@ zh:{
 
 export default async function TrustPage(){
  const locale=canonicalPublicLocale(await getLocale());const c=COPY[locale];
- return <main className='pc-canonical-public'>
+ return <main className='pc-canonical-public pc-cp-page-trust'>
   <CanonicalPublicHeader locale={locale} activePath='/platform-v7/trust'/>
   <section className='pc-cp-hero' style={{minHeight:500}}>
    <div className='pc-cp-container pc-cp-hero-grid'>
