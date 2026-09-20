@@ -6,7 +6,7 @@ const AUTHORITY_AHASH: Record<string,{hash:string;maxDistance:number}> = {
   '01-home-desktop': { hash:'3fd80602000e000af001fffffffffffffffff7fffff9fffdfffdbfff00009fff', maxDistance:90 },
   '02-home-mobile': { hash:'dc399ff18181800180018ffd8ff18221bffdbffdbdfd9fedbff5bffd80818001', maxDistance:125 },
   '03-market-desktop': { hash:'7ffc1ff31800f800ffefff0f001f3e3fffffffff003f003fffffffff8003003f', maxDistance:130 },
-  '04-lot-desktop': { hash:'fff7f3e7c78303f9f9ffffffffffffffffffffffffffffffffffffffffffffff', maxDistance:135 },
+  '04-lot-desktop': { hash:'3ffc0800000005ef05ff07ff07ff07ff07e0ffffffffffffffffffffffffffff', maxDistance:135 },
   '05-deal-desktop': { hash:'1ff8cff01fdf1ff7e3ffe7ffff21a9e8ef68f9efbfffe3fceda8fff80bfd1fff', maxDistance:130 },
   '06-deal-mobile': { hash:'3fff80ff807f07ff83ff03ffffffcfffdfffdfffffff00008000ffffffffffff', maxDistance:125 },
   '06-market-mobile': { hash:'bfffafffffffffff83ff01ff83ff83ff03ff03ff01ff01ff03ff83ff01ffffff', maxDistance:115 },
