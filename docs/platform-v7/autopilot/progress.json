@@ -1,12 +1,12 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 5,
-  "currentStep": "R1.1 Server-side inventory of 13 cabinets and authority",
-  "lastCompletedStep": "MASTER v2.1 R0 + IR-20 PRODUCTION_PASS 5da8e80744908413102214f91dd68018911b892e",
-  "openPr": 5468,
+  "currentStep": "R1.2 Controlled open-as-role server authority",
+  "lastCompletedStep": "R1.1 exact 13-cabinet inventory admitted by PR #5468",
+  "openPr": null,
   "blockedBy": [],
-  "nextStep": "R1 backend authority/data layer first; owner web handoff remains separately scoped after conflict recheck",
-  "updatedAt": "2026-09-20T22:47:00+03:00",
+  "nextStep": "R1.2 canonical 13 role-mode API/server authority; no visual implementation",
+  "updatedAt": "2026-09-20T23:20:00+03:00",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
@@ -23,5 +23,5 @@
     "productionSha": "5da8e80744908413102214f91dd68018911b892e",
     "productionControllerRun": 35520784872
   },
-  "currentTaskExecution": "R1.1 inventory complete enough to activate backend authority slice; R1 official points remain 0 until full PRODUCTION_PASS"
+  "currentTaskExecution": "R1.1 inventory complete in this admission; main should start at R1.2 after merge; R1 points remain uncredited until full PRODUCTION_PASS"
 }
