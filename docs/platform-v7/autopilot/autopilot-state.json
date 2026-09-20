@@ -1500,6 +1500,15 @@
     ],
     "test/industrial-load-diagnostics-20260919": [
       "apps/api/test/industrial/load-proof.e2e-spec.ts"
+    ],
+    "ops/production-full-stack-release-v1": [
+      ".github/workflows/production-full-stack-exact-sha.yml",
+      "scripts/production-full-stack-exact-sha.sh",
+      "scripts/check-production-full-stack-release.mjs",
+      "scripts/test-production-release-target-isolation.py",
+      "scripts/release/verify-production-image-binding.py",
+      "scripts/release/test-production-image-binding.py",
+      "docs/platform-v7/autopilot/scopes/production-full-stack-release-v1.json"
     ]
   },
   "currentAcceptance": [
