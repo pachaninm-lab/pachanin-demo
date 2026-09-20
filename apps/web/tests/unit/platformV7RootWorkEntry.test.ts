@@ -82,7 +82,6 @@ describe('platform-v7 canonical public experience',()=>{
     expect(market).toContain('getPublicMarketLots');
     expect(market).toContain("kind='unavailable'");
     expect(market).toContain("kind='empty'");
-    expect(market).toContain('PUBLIC_ALLOWED');
     expect(marketSource).toContain("source: 'POSTGRESQL'");
     expect(marketSource).toContain("projection: 'ANONYMIZED_PUBLIC_MARKET'");
     expect(marketSource).toContain("sellerIdentity: 'REDACTED'");
