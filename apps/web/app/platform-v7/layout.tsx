@@ -57,6 +57,8 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7/roadmap',
   '/platform-v7/deal-flow',
   '/platform-v7/how-it-works',
+  '/platform-v7/market',
+  '/platform-v7/capabilities',
   '/platform-v7/ai-in-action',
   '/platform-v7/demo',
   '/platform-v7/contact',
@@ -76,6 +78,7 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7/fgis-zerno',
 ]);
 const PUBLIC_PREFIX_PATHS = [
+  '/platform-v7/market/',
   '/platform-v7/role-preview',
   '/platform-v7/demo',
 ];
