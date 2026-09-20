@@ -35,7 +35,6 @@ import { StaffAssignmentService } from './staff-assignment.service';
 import { StaffAuditQuery, StaffAuditService } from './staff-audit.service';
 import { StaffDelegatedAccessGuard } from './staff-delegated-access.guard';
 import { StaffEmergencyService } from './staff-emergency.service';
-import { FounderRoleModeService } from './founder-role-mode.service';
 import { StaffPermissions } from './staff-permissions.decorator';
 import { StaffProjectionService } from './staff-projection.service';
 import {
@@ -59,7 +58,6 @@ export class StaffAccessController {
     private readonly assignments: StaffAssignmentService,
     private readonly audit: StaffAuditService,
     private readonly emergency: StaffEmergencyService,
-    private readonly founderRoleMode: FounderRoleModeService,
     private readonly projection: StaffProjectionService,
     private readonly registrationDecisions: RegistrationDecisionService,
   ) {}
@@ -72,7 +70,7 @@ export class StaffAccessController {
   @Get('founder/role-mode/registry')
   @RateLimit({ name: 'founder_role_mode_registry', scope: 'user', limit: 60, windowSeconds: 60 })
   founderRoleModeRegistry(@Req() request: StaffRequest) {
-    return this.founderRoleMode.registry(request.user);
+    return this.access.founderRoleModeRegistry(request.user);
   }
 
   @Post('founder/role-mode/requests')
@@ -82,7 +80,7 @@ export class StaffAccessController {
     @Body() body: RequestFounderRoleModeDto,
     @Headers('x-correlation-id') correlationId?: string,
   ) {
-    return this.founderRoleMode.request(request.user, body, correlationId);
+    return this.access.requestFounderRoleMode(request.user, body, correlationId);
   }
 
   @Get('founder/role-mode/session')
@@ -91,7 +89,7 @@ export class StaffAccessController {
   @StaffPermissions(StaffPermission.CABINET_VIEW_AS)
   @RateLimit({ name: 'founder_role_mode_session', scope: 'user', limit: 120, windowSeconds: 60 })
   founderRoleModeSession(@Req() request: StaffRequest) {
-    return this.founderRoleMode.session(request.user, this.requireAccessContext(request));
+    return this.access.founderRoleModeSession(request.user, this.requireAccessContext(request));
   }
 
   @Get('registration/applications')
