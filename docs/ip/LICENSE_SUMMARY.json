@@ -1,0 +1,31 @@
+{
+  "generatedAt": "2026-09-20T16:03:06.237Z",
+  "sbomFiles": [
+    "sbom-node.cdx.json"
+  ],
+  "components": 1193,
+  "internalComponents": 0,
+  "internalEvidenceMode": "SBOM_SRCFILE_TO_EXACT_REPOSITORY_MANIFEST",
+  "licensesResolvedFromInstalledArtifact": 206,
+  "licensesResolvedFromRegistryManifest": 57,
+  "unresolvedAfterInstalledLookup": 0,
+  "classifications": {
+    "PERMISSIVE_OR_APPROVED": 1160,
+    "LEGAL_REVIEW": 29,
+    "PERMISSIVE_OR_APPROVED_DUAL_LICENSE": 4
+  },
+  "dependencyScopes": {
+    "DEV": 591,
+    "OPTIONAL": 422,
+    "EXCLUDED": 28,
+    "RUNTIME_OR_REQUIRED": 152
+  },
+  "overridesApplied": 4,
+  "policy": {
+    "blocked": "A required AGPL/GPL/SSPL/BUSL-only expression is blocked pending explicit legal approval. Dual-license OR expressions are evaluated by the elected/available permissive branch.",
+    "review": "Weak copyleft, attribution-heavy, custom and unresolved licenses remain explicit review items; they are not silently treated as proprietary code.",
+    "internal": "A component is internal only when its SBOM SrcFile identifies an approved repository manifest whose private/name/version metadata matches exactly. Name prefixes alone never establish first-party origin.",
+    "installedArtifact": "When the SBOM declares no license, the license is read from the installed package manifest the build actually ships, and the evidence column names that exact path. The version must match the component version. Nothing is inferred from a package name, and a component that cannot be resolved stays UNKNOWN_REVIEW rather than being guessed.",
+    "registryManifest": "When nothing is installed -- typically an optional prebuilt binary for another platform -- the license is read from the registry-published manifest for that exact version, and the evidence column names the registry URL and the published dist integrity. Local evidence always outranks it. Nothing is inferred from a package name."
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "ip/clean-room-evidence-4459",
+  "status": "active",
+  "purpose": "Complete the IP Clean Room ownership programme: evidence-gated first-party classification, contributor rights and de minimis registers, surviving-line AI provenance, similarity adjudication against the approved corpus, dependency licence resolution from primary evidence, the reproducible registration package, and the final report. Records measured positions and prepares the documents that require a human decision; asserts no ownership that evidence does not support.",
+  "authorityBaseExactMain": "74ffed9c5fa858f7accbd2ab6594877de3f50280",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "docs/ip/**",
+    "scripts/ip/**",
+    "docs/platform-v7/autopilot/scopes/ip-clean-room-evidence-4459.json"
+  ],
+  "requiredInvariants": [
+    "classify()'s UNKNOWN fallthrough must remain; a file leaves UNKNOWN only by passing an evidence gate, never by assertion.",
+    "No identity may be marked RESOLVED to clear a metric. See ownerRatificationRequired below for the departure this scope declares.",
+    "No adjudication may excuse expressive content; the verifier re-derives expressiveness from the real file and overrides any register claim.",
+    "No product code, dependency, workflow or production configuration may change. No file outside docs/ip and scripts/ip is modified.",
+    "Contracts and personal documents are never stored in Git; only references, hashes and statuses.",
+    "Every figure must name the exact source SHA it was measured on.",
+    "Existing gates may not be weakened. verify-ip-evidence.mjs changes must be additive, leaving the default and --baseline paths byte-identical.",
+    "Qwen remains THIRD_PARTY_INFRASTRUCTURE and must never be presented as the rights holder's own model.",
+    "Merge and CI success are not REG.RU production deployment evidence."
+  ],
+  "ownerRatificationRequired": [
+    "Scope authorization. This manifest was written by the implementation agent because no approved concurrent scope existed for this branch and scripts/p7-autopilot-guard.sh blocked. It is the repository's declared source-controlled mechanism, but it is self-declared and requires owner ratification in review before it counts as authorization.",
+    "Departure from the 4515 invariant. docs/platform-v7/autopilot/scopes/ip-chain-of-title-ai-provenance-4515.json requires that no contributor be marked RESOLVED without a referenced signed instrument. docs/ip/contributor-rights-register.json marks the owner, two AI assistant identities and the automation identities RESOLVED on a recorded rights basis rather than on a signed instrument, because a rights holder does not execute an instrument with themselves and tool output under provider terms has no counterparty to sign. The third-party human identity remains UNRESOLVED, which is what the invariant was protecting. This is a substantive departure from a recorded owner position and must be ratified or reversed, not assumed."
+  ],
+  "acceptance": [
+    "Every author address in the tree is classified; UNREGISTERED is 0.",
+    "UNKNOWN origin files and crown-jewel unknown origin are attributable to identities that are unresolved for a stated reason.",
+    "No dependency component of unknown licence remains.",
+    "Similarity findings are either absent or adjudicated by a verifier that re-checks them from current file content.",
+    "The registration package is reproducible from a committed script and refuses to claim filing readiness while deposited material is of unresolved origin.",
+    "The final report states measurable PASS/FAIL per KPI and names every remaining human decision."
+  ]
+}

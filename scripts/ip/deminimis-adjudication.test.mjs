@@ -13,7 +13,7 @@ const CI_COMMENT = '# Exact-head CI trigger: identity RLS acceptance.';
 function adjudication(lines) {
   return {
     path: 'scripts/example.sh',
-    identityEmail: 'root@example.local',
+    identitySha256: '3ac21bf9e38c6ce964a161f83427b150dab6db610271227bcde480406cac6bb6',
     determination: 'NON_EXPRESSIVE_CI_TRIGGER_RESIDUE',
     rationale: 'A no-op comment appended solely to change the commit hash.',
     lines,

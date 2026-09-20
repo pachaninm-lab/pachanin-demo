@@ -3,8 +3,8 @@
 Status: **MEASURED — AI involvement disclosed and attributed per file. One
 crown-jewel module has no surviving human-authored line.**
 
-Source SHA: `74ffed9c5fa858f7accbd2ab6594877de3f50280`
-History analysed: 27 017 commits across all refs
+Source SHA: `23cf35a2592e67017505d48748974f834da2b5d7`
+History analysed: 27 021 commits across all refs
 Machine-readable backing: [`AI_PROVENANCE.csv`](./AI_PROVENANCE.csv),
 [`AI_PROVENANCE_SUMMARY.json`](./AI_PROVENANCE_SUMMARY.json),
 [`AI_ONLY_FILES.csv`](./AI_ONLY_FILES.csv)
@@ -30,7 +30,7 @@ of making it.
 
 ## Why commit counts understate the picture
 
-Commit share is 4.9%. Surviving-line share is **21.7%**. The two differ because
+Commit share is 4.9%. Surviving-line share is **22.4%**. The two differ because
 a single commit may rewrite a whole file, and because the owner's commits are
 numerous and often small.
 
@@ -39,17 +39,21 @@ Line share is the honest measure of what the product is made of. Measured by
 
 | Contributor class | Surviving lines | Share |
 |---|---:|---:|
-| OWNER | 864 557 | 76.7% |
-| AI_ASSISTANT | 244 553 | 21.7% |
+| OWNER | 864 557 | 76.0% |
+| AI_ASSISTANT | 255 183 | 22.4% |
 | AUTOMATION_BOT | 9 171 | 0.81% |
-| THIRD_PARTY_HUMAN | 8 561 | 0.76% |
+| THIRD_PARTY_HUMAN | 8 561 | 0.75% |
 | UNATTRIBUTED_SERVER_IDENTITY | 2 | 0.0002% |
-| **Total** | **1 126 844** | |
+| **Total** | **1 137 474** | |
 
 `UNREGISTERED = 0` confirms every author address in the tree is accounted for in
 [`contributor-rights-register.json`](./contributor-rights-register.json). There
-are no unclassified contributors. 6 878 of 6 881 tracked files were attributed;
+are no unclassified contributors. 6 901 of 6 904 tracked files were attributed;
 the remaining 3 are empty and contain no lines to attribute.
+
+Identities are matched by the SHA-256 of the lowercased Git author address, the
+identifier `CONTRIBUTORS.csv` publishes. Raw addresses are personal data and are not
+stored in the repository.
 
 ## A correction to the earlier measure
 
@@ -63,25 +67,26 @@ Read as a statement about what is in the tree today, it was misleading: a file
 whose every surviving line was written by an assistant still reported
 `DECLARED_AI_ASSISTED_WITH_HUMAN_AUTHORSHIP`, because a human made its first
 commit. On that basis the count of AI-only files was **zero**. On the surviving-
-line basis it is **682**.
+line basis it is **705**.
 
 Both fields are now published. `ai_involvement` continues to serve the rights
 gate; `AI_PROVENANCE.csv` describes the code.
 
 ## AI-only material
 
-682 files contain AI-authored surviving lines and **no** surviving line authored
+705 files contain AI-authored surviving lines and **no** surviving line authored
 by any human identity.
 
 | Scope | Files | AI lines |
 |---|---:|---:|
-| Whole repository | 682 | 199 124 |
+| Whole repository | 705 | 209 723 |
 | Inside the protected boundary | 145 | 28 258 |
 | CROWN_JEWEL | 142 | 27 984 |
 
-Two of the 682 are generated evidence artifacts (`FILE_PROVENANCE.csv`/`.json`),
-which are machine output rather than authored expression. The crown-jewel subset
-is real source.
+Some of the 705 are generated evidence artifacts (`FILE_PROVENANCE.csv`/`.json`),
+which are machine output rather than authored expression, and 23 are the IP tooling
+and documents added by the branch that produced this measurement — themselves
+AI-written. The crown-jewel subset is real product source.
 
 ### Concentration — the finding that matters
 
@@ -126,7 +131,7 @@ human decisions throughout.
 
 Whether that direction amounts to authorship in a given jurisdiction is a legal
 question this repository cannot answer. What it can do is state the boundary
-honestly, which is what the 682 figure is for: it bounds the material for which
+honestly, which is what the 705 figure is for: it bounds the material for which
 the question arises. It does not decide it.
 
 ## Position taken

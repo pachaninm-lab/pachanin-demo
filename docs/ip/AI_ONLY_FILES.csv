@@ -1,5 +1,6 @@
 path,criticality,total_lines,ai_lines,automation_lines
 docs/ip/FILE_PROVENANCE.json,STANDARD,111158,111158,0
+docs/ip/AI_PROVENANCE.csv,STANDARD,6879,6879,0
 docs/ip/FILE_PROVENANCE.csv,STANDARD,6176,6176,0
 apps/api/openapi.yaml,STANDARD,3669,3669,0
 scripts/sql/pc-crop-accounting-rls-checks.sql,STANDARD,3168,3168,0
@@ -8,7 +9,9 @@ apps/api/src/modules/accounting/accounting.controller.ts,CROWN_JEWEL,840,840,0
 docs/ops/pc-crop-federal-accounting/execution-state.json,STANDARD,745,745,0
 apps/web/lib/platform-v7/tai-conversation-state.ts,STANDARD,735,735,0
 apps/api/src/modules/accounting/deal-service.postgresql.spec.ts,CROWN_JEWEL,709,709,0
+docs/ip/AI_ONLY_FILES.csv,STANDARD,683,683,0
 apps/api/prisma/migrations/20260806103000_bounded_staff_admission_authority/migration.sql,STANDARD,620,620,0
+docs/ip/registry-license-evidence.json,STANDARD,586,586,0
 apps/api/prisma/migrations/20260806090000_identity_row_level_security/migration.sql,STANDARD,556,556,0
 apps/api/src/modules/accounting/deal-service.repository.ts,CROWN_JEWEL,518,518,0
 apps/api/prisma/migrations/20260817170000_pc_crop_accounting_deal_services/migration.sql,STANDARD,517,517,0
@@ -101,6 +104,7 @@ apps/api/src/modules/accounting/work-task-projection.policy.spec.ts,CROWN_JEWEL,
 apps/api/prisma/migrations/20260816030000_pc_crop_organization_tax_profile/migration.sql,STANDARD,224,224,0
 apps/api/src/modules/railway/railway.service.ts,STANDARD,223,223,0
 apps/api/src/modules/accounting/accounting-period.policy.spec.ts,CROWN_JEWEL,221,221,0
+scripts/ip/build-rospatent-package.mjs,STANDARD,221,221,0
 docs/ops/pc-crop-federal-accounting/gap-matrix.md,STANDARD,220,220,0
 apps/api/src/modules/accounting/document-transmission.policy.ts,CROWN_JEWEL,218,218,0
 scripts/check-ci-postgres-image-authority.mjs,STANDARD,218,218,0
@@ -110,6 +114,7 @@ apps/web/components/v9/timeline/PhaseTimeline.tsx,STANDARD,215,215,0
 .github/scripts/tai-gateway-ui-readonly-remediation.py,STANDARD,210,210,0
 apps/api/src/modules/auth/regulatory-rule-registry.policy.ts,CROWN_JEWEL,207,207,0
 apps/web/lib/workflow-policies.ts,STANDARD,207,207,0
+scripts/ip/build-ai-provenance.mjs,STANDARD,207,207,0
 types/repo-verify-shims.d.ts,STANDARD,207,207,0
 scripts/security/scan-secret-history.mjs,STANDARD,205,205,0
 apps/tai/tests/test_qwen_preview_conversion_authority_digests.py,STANDARD,204,204,0
@@ -135,6 +140,7 @@ apps/api/src/modules/lots/lots.service.spec.ts,STANDARD,190,190,0
 apps/web/lib/gekta/billing.ts,CROWN_JEWEL,188,188,0
 apps/web/lib/gekta/merchant.ts,CROWN_JEWEL,188,188,0
 apps/web/lib/offline.ts,STANDARD,188,188,0
+docs/ip/PLATON_IP_ASSIGNMENT.md,STANDARD,188,188,0
 apps/web/components/gekta/GektaVoiceInput.tsx,PROTECTED_PRODUCT_UI,186,186,0
 docs/gekta/legal-source-audit-20260812.md,STANDARD,186,186,0
 docs/platform-v7/crop-platform/p0.2-1a-legacy-fgis-quarantine.md,STANDARD,184,184,0
@@ -146,13 +152,16 @@ scripts/ip/verify-qwen-immutability.mjs,STANDARD,181,181,0
 infra/clickhouse/schema.sql,STANDARD,180,180,0
 apps/api/prisma/migrations/20260816210000_pc_crop_work_task_period_link/migration.sql,STANDARD,179,179,0
 infra/nginx/nginx.conf,STANDARD,179,179,0
+docs/ip/AI_ASSISTED_PROVENANCE.md,STANDARD,177,177,0
 scripts/ip/sbom-coverage-model.mjs,STANDARD,177,177,0
+docs/ip/OWNERSHIP_CLAIMS_POSITION.md,STANDARD,176,176,0
 .github/workflows/ci-postgres-image-mirror.yml,STANDARD,175,175,0
 infra/k6/production-load.js,STANDARD,173,173,0
 apps/api/prisma/migrations/20260802150000_fgis_legacy_quarantine_audit/migration.sql,STANDARD,172,172,0
 apps/api/prisma/migrations/20260815210000_pc_crop_accounting_read_authority/migration.sql,STANDARD,172,172,0
 apps/web/lib/commercial-workspace-repository.ts,STANDARD,172,172,0
 scripts/check-ci-postgres-image-authority.test.mjs,STANDARD,172,172,0
+scripts/ip/similarity-adjudication.test.mjs,STANDARD,172,172,0
 apps/api/src/modules/accounting/accounting-document-version.repository.ts,CROWN_JEWEL,170,170,0
 apps/api/src/modules/export-trade/export-trade.service.ts,STANDARD,170,170,0
 apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-quarantine-audit-principal.spec.ts,STANDARD,170,170,0
@@ -161,6 +170,7 @@ apps/api/prisma/migrations/20260815230000_pc_crop_accounting_write_authority/mig
 apps/web/tests/e2e/deal-cycle-e2e-simulation.spec.ts,STANDARD,168,168,0
 docs/ip/CHAIN_OF_TITLE_REGISTER.md,STANDARD,168,168,0
 packages/integration-sdk/src/adapters/smev.adapter.ts,CROWN_JEWEL,167,167,0
+scripts/ip/deminimis-adjudication.mjs,STANDARD,167,167,0
 apps/api/src/modules/accounting/advance.policy.ts,CROWN_JEWEL,164,164,0
 apps/api/src/modules/auth/opaqueTokenAuthority.spec.ts,CROWN_JEWEL,164,164,0
 apps/web/lib/commercial-expansion-server.ts,STANDARD,164,164,0
@@ -177,6 +187,7 @@ apps/api/src/modules/accounting/work-task.deriver.ts,CROWN_JEWEL,160,160,0
 apps/api/test/e2e-deal-cycle.spec.ts,STANDARD,160,160,0
 scripts/tai-public-assessment-contract.mjs,STANDARD,159,159,0
 packages/integration-sdk/src/adapters/marine.adapter.ts,CROWN_JEWEL,158,158,0
+scripts/ip/contributor-rights.test.mjs,STANDARD,158,158,0
 docs/ops/pc-crop-federal-accounting/risk-register.md,STANDARD,156,156,0
 apps/web/lib/gekta/phone.ts,CROWN_JEWEL,155,155,0
 packages/integration-sdk/src/adapters/takskom.adapter.ts,CROWN_JEWEL,155,155,0
@@ -197,8 +208,10 @@ infra/nginx/modsecurity-grainflow.conf,STANDARD,142,142,0
 infra/prometheus/runtime-alert-rules.yml,STANDARD,142,142,0
 apps/api/src/modules/accounting/document-transport.contract.ts,CROWN_JEWEL,141,141,0
 apps/web/components/v9/layout/RoleSwitcher.tsx,STANDARD,141,141,0
+scripts/ip/deminimis-adjudication.test.mjs,STANDARD,140,140,0
 apps/tai/tests/test_qwen_preview_control_package_checksum.py,STANDARD,139,139,0
 apps/api/src/shared/runtime-command-processor.ts,STANDARD,135,135,0
+docs/ip/PLATON_ASSIGNMENT_SCHEDULE.csv,STANDARD,133,133,0
 apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-quarantine-audit-principal.grants.spec.ts,STANDARD,132,132,0
 apps/web/app/platform-v7/deals/[id]/accounting/DealAccountingClient.tsx,STANDARD,131,131,0
 apps/web/components/market-center-workspace.tsx,STANDARD,131,131,0
@@ -214,6 +227,7 @@ shared/role-contract.test.ts,STANDARD,126,126,0
 apps/web/app/assistant/page.tsx,STANDARD,126,125,1
 codeql/insufficient-password-hash-corrected/tests/negative/opaqueCredentials.js,STANDARD,125,125,0
 infra/grafana/dashboards/grainflow-business.json,STANDARD,123,123,0
+scripts/ip/fetch-registry-license-evidence.mjs,STANDARD,123,123,0
 apps/api/src/modules/saga/fgis-step.service.spec.ts,STANDARD,122,122,0
 apps/web/tests/unit/gektaProductExperience.test.ts,STANDARD,122,122,0
 apps/api/src/modules/accounting/accounting.module.spec.ts,CROWN_JEWEL,121,121,0
@@ -233,6 +247,7 @@ packages/integration-sdk/src/quarantine/fgis-zerno-legacy.test.ts,CROWN_JEWEL,11
 apps/api/src/modules/auth/organization-job-profile.ts,CROWN_JEWEL,112,112,0
 apps/web/app/api/lots/route.ts,STANDARD,113,112,1
 apps/web/components/trust-graph-panel.tsx,STANDARD,112,112,0
+docs/ip/LICENSE_POLICY_DECISION.md,STANDARD,112,112,0
 infra/kafka/create-topics.sh,STANDARD,112,112,0
 apps/api/src/modules/notifications/notifications.service.ts,STANDARD,111,111,0
 apps/api/src/modules/route-planner/route-planner.service.ts,STANDARD,111,111,0
@@ -252,12 +267,15 @@ infra/prometheus/alertmanager.yml,STANDARD,106,106,0
 apps/web/lib/closure-readiness-engine.ts,STANDARD,105,105,0
 apps/web/lib/v9/statuses.ts,STANDARD,105,105,0
 infra/k6/deal-cycle-load.js,STANDARD,104,104,0
+scripts/ip/similarity-adjudication.mjs,STANDARD,104,104,0
 apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.audit.ts,STANDARD,103,103,0
 docs/security/SECRET_ROTATION_REGISTER.md,STANDARD,103,103,0
 docs/security/SUPPLY_CHAIN_MATRIX.md,STANDARD,103,103,0
 infra/kafka/topics.yml,STANDARD,103,103,0
 apps/web/tests/unit/taiNoFakeStreamingAudit.test.ts,STANDARD,102,102,0
 packages/integration-sdk/src/adapters/aml.adapter.ts,CROWN_JEWEL,102,102,0
+scripts/ip/contributor-rights.mjs,STANDARD,102,102,0
+scripts/ip/rospatent-deposit.test.mjs,STANDARD,102,102,0
 shared/runtime-snapshot.ts,STANDARD,102,102,0
 apps/api/prisma/migrations/20260815220000_pc_crop_authority_two_person_rule/migration.sql,STANDARD,101,101,0
 apps/web/lib/offline-ai-kb.ts,STANDARD,101,101,0
@@ -292,7 +310,6 @@ apps/web/components/service-provider-selection-panel.tsx,STANDARD,87,87,0
 apps/api/src/common/security/object-policy.service.ts,STANDARD,86,86,0
 apps/api/src/modules/route-planner/route-planner.controller.ts,STANDARD,86,86,0
 apps/web/components/liquidity-layer-panel.tsx,STANDARD,86,86,0
-docs/ip/AI_ASSISTED_PROVENANCE.md,STANDARD,86,86,0
 docs/ops/pc-crop-federal-accounting/integration-compatibility.md,STANDARD,86,86,0
 docs/runbooks/P1-api-down.md,STANDARD,86,86,0
 apps/web/lib/v9/tokens.ts,STANDARD,85,85,0
@@ -301,6 +318,7 @@ apps/web/components/finance-application-workspace.tsx,STANDARD,83,83,0
 apps/web/tests/unit/platformV7AccountingMobileContract.test.ts,STANDARD,83,83,0
 .github/workflows/security.yml,STANDARD,82,82,0
 apps/web/lib/scenario-data.ts,STANDARD,82,82,0
+docs/ip/contributor-rights-register.json,STANDARD,82,82,0
 docs/runbooks/P1-database-failure.md,STANDARD,82,82,0
 infra/k8s/base/network-policy.yml,STANDARD,82,82,0
 packages/integration-sdk/src/adapters/gps.adapter.ts,CROWN_JEWEL,82,82,0
@@ -319,6 +337,7 @@ packages/domain-core/src/operator-case-center.ts,CROWN_JEWEL,75,75,0
 apps/web/components/service-provider-assignment-console.tsx,STANDARD,74,74,0
 apps/web/lib/gekta/speech.ts,CROWN_JEWEL,74,74,0
 packages/integration-sdk/src/adapters/diadok.adapter.ts,CROWN_JEWEL,74,74,0
+scripts/ip/rospatent-deposit.mjs,STANDARD,74,74,0
 shared/role-contract.ts,STANDARD,74,74,0
 apps/api/src/modules/auth/registrationIdempotencyContract.spec.ts,CROWN_JEWEL,73,73,0
 docs/CONTROLLED_PILOT_EXECUTION_PLAN_2026_04_04.md,STANDARD,73,73,0
@@ -448,6 +467,7 @@ workers/runtime-janitor/runtime-janitor.worker.ts,STANDARD,35,35,0
 apps/web/components/decision-readiness-panel.tsx,STANDARD,34,34,0
 apps/web/components/integration-contracts-panel.tsx,STANDARD,34,34,0
 apps/web/lib/auth-cookies.ts,STANDARD,34,34,0
+docs/ip/AI_PROVENANCE_SUMMARY.json,STANDARD,34,34,0
 docs/platform-v7/autopilot/scopes/ip-chain-of-title-ai-provenance-4515.json,STANDARD,34,34,0
 docs/platform-v7/autopilot/scopes/ip-qwen-immutability-gate-4519.json,STANDARD,34,34,0
 apps/api/src/common/security/object-access.service.ts,STANDARD,33,33,0
@@ -471,6 +491,7 @@ apps/web/components/live-resource-table.tsx,STANDARD,28,28,0
 apps/web/components/offline-banner.tsx,STANDARD,28,28,0
 apps/web/components/offline-conflict-panel.tsx,STANDARD,28,28,0
 config/modes/pilot.env.example,STANDARD,28,28,0
+docs/ip/similarity-adjudications.json,STANDARD,28,28,0
 packages/domain-core/src/integration-contracts.ts,CROWN_JEWEL,28,28,0
 workers/role-projection/role-projection.worker.ts,STANDARD,28,28,0
 apps/web/components/deal-lifecycle-lane.tsx,STANDARD,27,27,0
@@ -495,6 +516,7 @@ apps/web/lib/route-roles.ts,STANDARD,24,24,0
 apps/web/playwright.config.ts,STANDARD,24,24,0
 apps/web/components/critical-blockers-panel.tsx,STANDARD,23,23,0
 apps/web/components/v9/cards/EmptyState.tsx,STANDARD,23,23,0
+docs/ip/deminimis-line-adjudications.json,STANDARD,23,23,0
 docs/TASK_14_PROBLEM_HARDENING.md,STANDARD,23,23,0
 infra/k8s/base/namespace.yml,STANDARD,23,23,0
 infra/sql/performance-hardening.sql,STANDARD,23,23,0
@@ -561,6 +583,7 @@ tsconfig.base.json,STANDARD,15,15,0
 apps/web/components/file-upload.tsx,STANDARD,14,14,0
 apps/web/components/lot-inline-calculator.tsx,STANDARD,14,14,0
 apps/web/components/v9/ui/skeleton.tsx,STANDARD,14,14,0
+docs/ip/similarity-corpus-approval.json,STANDARD,14,14,0
 docs/security/secret-scan-allowlist.json,STANDARD,14,14,0
 tsconfig.shared-verify.json,STANDARD,14,14,0
 workers/runtime-supervisor/runtime-supervisor.worker.ts,STANDARD,14,14,0

@@ -14,6 +14,16 @@
 //
 // An address absent from the register counts as unresolved, so a new contributor
 // can never silently inherit somebody else's rights basis.
+//
+// Identities are matched by the SHA-256 of the lowercased author address, never by
+// the address itself. Raw addresses are personal data and are not stored in Git; the
+// hash is the same identifier CONTRIBUTORS.csv already publishes.
+
+import { createHash } from 'node:crypto';
+
+export function hashEmail(email) {
+  return createHash('sha256').update(String(email ?? '').trim().toLowerCase()).digest('hex');
+}
 
 export function parseRightsRegister(document) {
   const byEmail = new Map();
@@ -30,13 +40,15 @@ export function parseRightsRegister(document) {
     if (rightsStatus === 'RESOLVED' && String(identity?.rightsBasis ?? '').trim().length < 8) {
       defects.push(`RESOLVED_WITHOUT_RIGHTS_BASIS:${contributorClass}`); continue;
     }
-    const emails = Array.isArray(identity?.emails) ? identity.emails : [];
-    if (!emails.length) { defects.push(`NO_EMAILS:${contributorClass}`); continue; }
-    for (const raw of emails) {
-      const email = String(raw ?? '').trim().toLowerCase();
-      if (!email) { defects.push(`EMPTY_EMAIL:${contributorClass}`); continue; }
-      if (byEmail.has(email)) { defects.push(`DUPLICATE_EMAIL:${email}`); continue; }
-      byEmail.set(email, { contributorClass, rightsStatus, rightsBasis: identity.rightsBasis });
+    const hashes = Array.isArray(identity?.emailsSha256) ? identity.emailsSha256 : [];
+    if (!hashes.length) { defects.push(`NO_EMAILS:${contributorClass}`); continue; }
+    for (const raw of hashes) {
+      const hash = String(raw ?? '').trim().toLowerCase();
+      if (!hash) { defects.push(`EMPTY_EMAIL:${contributorClass}`); continue; }
+      // A raw address here would be both a privacy defect and a silent lookup miss.
+      if (!/^[0-9a-f]{64}$/u.test(hash)) { defects.push(`NOT_A_SHA256:${contributorClass}`); continue; }
+      if (byEmail.has(hash)) { defects.push(`DUPLICATE_EMAIL:${hash}`); continue; }
+      byEmail.set(hash, { contributorClass, rightsStatus, rightsBasis: identity.rightsBasis });
     }
   }
   return { byEmail, defects };

@@ -1,6 +1,10 @@
 /**
  * De minimis line adjudication.
  *
+ * Identities are named by the SHA-256 of the lowercased Git author address, matching
+ * docs/ip/contributor-rights-register.json. Raw addresses are personal data and are
+ * not stored in Git.
+ *
  * An identity whose rights are UNRESOLVED blocks first-party classification of
  * every file carrying its surviving lines. That rule is deliberately blunt, and
  * it must stay blunt: see scripts/ip/contributor-rights.mjs.
@@ -84,11 +88,12 @@ export function parseDeminimisRegister(raw) {
   entries.forEach((entry, index) => {
     const at = `adjudications[${index}]`;
     const path = typeof entry?.path === 'string' ? entry.path.trim() : '';
-    const email = typeof entry?.identityEmail === 'string'
-      ? entry.identityEmail.trim().toLowerCase()
+    const email = typeof entry?.identitySha256 === 'string'
+      ? entry.identitySha256.trim().toLowerCase()
       : '';
     if (!path) defects.push(`${at} has no path`);
-    if (!email) defects.push(`${at} has no identityEmail`);
+    if (!email) defects.push(`${at} has no identitySha256`);
+    else if (!/^[0-9a-f]{64}$/u.test(email)) defects.push(`${at} identitySha256 is not a SHA-256 digest`);
     if (!SUPPORTED_DETERMINATIONS.includes(entry?.determination)) {
       defects.push(`${at} has unsupported determination ${JSON.stringify(entry?.determination)}`);
     }
@@ -115,7 +120,7 @@ export function parseDeminimisRegister(raw) {
     if (path && email && lines) {
       adjudications.push({
         path,
-        identityEmail: email,
+        identitySha256: email,
         determination: entry.determination,
         rationale: String(entry.rationale ?? ''),
         originCommit: typeof entry.originCommit === 'string' ? entry.originCommit : '',

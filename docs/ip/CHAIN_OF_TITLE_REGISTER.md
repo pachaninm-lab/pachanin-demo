@@ -45,6 +45,11 @@ Everything else stays `UNKNOWN`. The default presumes nothing owned.
 19 distinct author addresses, consolidated into 6 identities. Commit counts sum
 to 27 017, matching the analysed history exactly.
 
+Throughout this package an identity is named by the SHA-256 of its lowercased Git
+author address — the identifier [`CONTRIBUTORS.csv`](./CONTRIBUTORS.csv) already
+publishes. Raw addresses are personal data and are not stored in the repository, so
+the classifier, the registers and the generated evidence all match on the digest.
+
 | Identity | Class | Addresses | Commits | Share | Rights status |
 |---|---|---:|---:|---:|---|
 | pachaninm-lab | OWNER | 3 | 25 162 | 93.1% | **RESOLVED** |
@@ -52,7 +57,7 @@ to 27 017, matching the analysed history exactly.
 | repository automation | AUTOMATION_BOT | 11 | 444 | 1.6% | **RESOLVED** |
 | Platon | THIRD_PARTY_HUMAN | 1 | 88 | 0.33% | **UNRESOLVED** |
 | Codex | AI_ASSISTANT | 1 | 65 | 0.24% | **RESOLVED** |
-| root@cv7660557 | UNATTRIBUTED_SERVER_IDENTITY | 1 | 4 | 0.01% | **UNRESOLVED** |
+| root (project server) | UNATTRIBUTED_SERVER_IDENTITY | 1 | 4 | 0.01% | **UNRESOLVED** |
 
 ### OWNER — resolved, with one confirmation outstanding
 

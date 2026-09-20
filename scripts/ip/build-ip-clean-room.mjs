@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
-import { evaluateRights, parseRightsRegister, rightsSets } from './contributor-rights.mjs';
+import { evaluateRights, hashEmail, parseRightsRegister, rightsSets } from './contributor-rights.mjs';
 import { parseDeminimisRegister, verifyDeminimis } from './deminimis-adjudication.mjs';
 
 const outDir = process.argv[2] ?? 'artifacts/ip-clean-room';
@@ -53,7 +53,7 @@ function rememberContributor(path, commit) {
   if (!contributorsByPath.has(path)) contributorsByPath.set(path, new Set());
   contributorsByPath.get(path).add(id);
   if (!historyEmailsByPath.has(path)) historyEmailsByPath.set(path, new Set());
-  historyEmailsByPath.get(path).add(String(commit.authorEmail || '').trim().toLowerCase());
+  historyEmailsByPath.get(path).add(hashEmail(commit.authorEmail));
   const existing = allContributors.get(id) ?? {
     contributorId: id,
     displayName: commit.authorName || 'UNKNOWN',
@@ -160,7 +160,7 @@ if (deminimisDefects.length) {
   throw new Error(`deminimis-line-adjudications.json is defective: ${deminimisDefects.join(', ')}`);
 }
 const deminimisByKey = new Map(
-  deminimisAdjudications.map((entry) => [`${entry.path}\u0000${entry.identityEmail}`, entry]),
+  deminimisAdjudications.map((entry) => [`${entry.path}\u0000${entry.identitySha256}`, entry]),
 );
 
 const boundary = JSON.parse(readFileSync('docs/ip/proprietary-core-boundary.json', 'utf8'));
@@ -220,7 +220,8 @@ function blameLines(path) {
       const header = /^[0-9a-f]{40} \d+ (\d+)/u.exec(line);
       if (header) { lineNumber = Number(header[1]); continue; }
       if (line.startsWith('author-mail ')) {
-        email = line.slice(12).trim().replace(/^<|>$/gu, '').toLowerCase();
+        // Hashed immediately: the raw address never enters an artifact or a record.
+        email = hashEmail(line.slice(12).trim().replace(/^<|>$/gu, ''));
         continue;
       }
       if (line.startsWith('\t')) lines.push({ line: lineNumber, content: line.slice(1), email });
@@ -248,13 +249,13 @@ function deminimisVerdict(path, offendingEmails) {
   const details = [];
   for (const email of offendingEmails) {
     const adjudication = deminimisByKey.get(`${path}\u0000${email}`);
-    if (!adjudication) return { ok: false, detail: `no de minimis adjudication for ${email} in ${path}` };
+    if (!adjudication) return { ok: false, detail: `no de minimis adjudication for identity ${email.slice(0, 16)} in ${path}` };
     const surviving = lines
       .filter((entry) => entry.email === email)
       .map((entry) => ({ line: entry.line, content: entry.content }));
     const verdict = verifyDeminimis(adjudication, surviving);
-    if (!verdict.ok) return { ok: false, detail: `${email}: ${verdict.reason}` };
-    details.push(`${email}: ${verdict.reason}`);
+    if (!verdict.ok) return { ok: false, detail: `${email.slice(0, 16)}: ${verdict.reason}` };
+    details.push(`${email.slice(0, 16)}: ${verdict.reason}`);
   }
   return { ok: true, detail: details.join('; ') };
 }

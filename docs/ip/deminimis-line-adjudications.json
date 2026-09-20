@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "purpose": "Records surviving lines authored by an identity whose rights are UNRESOLVED, where the surviving text carries no expression and therefore cannot support an authorship claim against it. Verified mechanically by scripts/ip/deminimis-adjudication.mjs against the real file content on every run.",
+  "purpose": "Records surviving lines authored by an identity (named by the SHA-256 of its lowercased Git author address) whose rights are UNRESOLVED, where the surviving text carries no expression and therefore cannot support an authorship claim against it. Verified mechanically by scripts/ip/deminimis-adjudication.mjs against the real file content on every run.",
   "limits": [
     "This is not a finding that the identity's rights are resolved. The identity stays UNRESOLVED in docs/ip/contributor-rights-register.json.",
     "This is not a finding that the line was removed. The line remains in the product and in Git history.",
@@ -10,14 +10,20 @@
   "adjudications": [
     {
       "path": "scripts/platform-v7-rls-integration.sh",
-      "identityEmail": "root@cv7660557.novalocal",
       "determination": "NON_EXPRESSIVE_CI_TRIGGER_RESIDUE",
       "originCommit": "1b5a84b077a9cdf61f995aa7c02adeb748979cad",
       "rationale": "Commit 1b5a84b07, message 'ci: trigger identity RLS exact-head acceptance', appended a blank line and a label comment after the script's final functional statement. The commit exists to change the file's hash so an exact-head CI workflow would re-run; it adds no behaviour and describes nothing the script does not already state. These are the only two lines in the repository still attributed to this identity.",
       "lines": [
-        { "line": 825, "content": "" },
-        { "line": 826, "content": "# Exact-head CI trigger: identity RLS acceptance." }
-      ]
+        {
+          "line": 825,
+          "content": ""
+        },
+        {
+          "line": 826,
+          "content": "# Exact-head CI trigger: identity RLS acceptance."
+        }
+      ],
+      "identitySha256": "ce3eaa797da1a69f079b9f7cb1ad86da0fe1833a348f0ba28a4931f05500eab0"
     }
   ]
 }

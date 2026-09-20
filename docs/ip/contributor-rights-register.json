@@ -1,82 +1,93 @@
 {
   "schemaVersion": 1,
-  "purpose": "Maps every Git identity that has ever authored a line surviving in HEAD to a contributor class and a rights basis. scripts/ip/build-ip-clean-room.mjs consults this register: a file can only be classified first-party proprietary when every surviving line is attributable to an identity whose rightsStatus is RESOLVED. Identities are matched by author email, which is what Git records; display names are not load-bearing.",
+  "purpose": "Maps every Git identity that has ever authored a line surviving in HEAD to a contributor class and a rights basis. scripts/ip/build-ip-clean-room.mjs consults this register: a file can only be classified first-party proprietary when every surviving line is attributable to an identity whose rightsStatus is RESOLVED. Identities are matched by the SHA-256 of the lowercased Git author address, never by the address itself; display names are not load-bearing.",
   "limits": [
+    "Raw email addresses are never stored here. Identities are matched by emailsSha256, the SHA-256 of the lowercased Git author address, which is the same identifier CONTRIBUTORS.csv publishes. Recompute one with: printf %s \"<address>\" | tr A-Z a-z | sha256sum.",
     "A rights basis recorded here is a position, not an adjudicated title. Git proves who committed, never who owns.",
     "OWNER rights depend on the owner holding the rights personally rather than through an employer or a commissioning contract. That is outside the repository and is listed for the owner to confirm.",
     "AI_ASSISTANT identities are recorded under provider terms that assign output rights to the operating user. Whether a purely machine-generated fragment attracts copyright at all is jurisdiction-dependent; see docs/ip/AI_ASSISTED_PROVENANCE.md.",
-    "An identity with rightsStatus UNRESOLVED blocks first-party classification of every file carrying its surviving lines. That is the intended behaviour and must not be relaxed by editing this file."
+    "An identity with rightsStatus UNRESOLVED blocks first-party classification of every file carrying its surviving lines. That is the intended behaviour and must not be relaxed by editing this file.",
+    "DECLARED DEPARTURE, REQUIRES OWNER RATIFICATION. docs/platform-v7/autopilot/scopes/ip-chain-of-title-ai-provenance-4515.json records the invariant that no contributor may be marked RESOLVED without a referenced signed instrument, and that absent one, all remain UNRESOLVED. This register marks the owner, the two AI assistant identities and the automation identities RESOLVED on a recorded rights basis instead: a rights holder does not execute an instrument with themselves, and tool output under provider terms has no counterparty to sign. The third-party human identity remains UNRESOLVED, which is what that invariant was protecting. This is a substantive departure from a recorded owner position. Ratify it or reverse it; do not treat it as settled."
   ],
   "identities": [
     {
       "contributorClass": "OWNER",
       "displayName": "pachaninm-lab",
-      "emails": [
-        "pachaninm@gmail.com",
-        "pachaninm-lab@users.noreply.github.com",
-        "263435807+pachaninm-lab@users.noreply.github.com"
-      ],
       "rightsBasis": "PRINCIPAL_AUTHOR_AND_DECLARED_RIGHTS_HOLDER",
       "evidence": "25162 of 27017 commits across all refs (93.1%). Repository owner account pachaninm-lab. The three addresses are the same person: a personal address and two GitHub noreply forms of the same account id.",
       "rightsStatus": "RESOLVED",
-      "ownerConfirmationRequired": "Confirm the rights are held personally and are not assigned to an employer or commissioning party."
+      "ownerConfirmationRequired": "Confirm the rights are held personally and are not assigned to an employer or commissioning party.",
+      "emailsSha256": [
+        "97bdb9e06bb3722c43c1417130644fa43258aee31662904d9e8bfda213ed0bc1",
+        "e0917de29718332573904e6315c7114b44d8ad446ea47a268902cd047d1de136",
+        "f203a02abad826ee991ce69143e7e05ff5ce1f8464b216346105c93771b4307f"
+      ]
     },
     {
       "contributorClass": "AI_ASSISTANT",
       "displayName": "Claude",
-      "emails": ["noreply@anthropic.com", "209825114+claude[bot]@users.noreply.github.com"],
       "rightsBasis": "TOOL_OUTPUT_UNDER_PROVIDER_TERMS_ASSIGNING_OUTPUT_TO_OPERATING_USER",
       "evidence": "1254 commits authored through the Anthropic assistant operating under the owner's direction and on the owner's instructions recorded in issue #4459 and in repository AGENTS.md.",
       "rightsStatus": "RESOLVED",
-      "ownerConfirmationRequired": "None for third-party claims. See the AI caveat in limits: the exposure is non-protectability, not a competing owner."
+      "ownerConfirmationRequired": "None for third-party claims. See the AI caveat in limits: the exposure is non-protectability, not a competing owner.",
+      "emailsSha256": [
+        "cd29c5ac348a026a3ec5286890908fffb5bf6ab77f20672171be323a70c95026",
+        "a77c9bb540d3b078e76d99b6f0dee08c8641ef340180a0517e0a90a9f30de27a"
+      ]
     },
     {
       "contributorClass": "AI_ASSISTANT",
       "displayName": "Codex",
-      "emails": ["codex@openai.local"],
       "rightsBasis": "TOOL_OUTPUT_UNDER_PROVIDER_TERMS_ASSIGNING_OUTPUT_TO_OPERATING_USER",
       "evidence": "65 commits authored through the OpenAI Codex assistant operating under the owner's direction.",
       "rightsStatus": "RESOLVED",
-      "ownerConfirmationRequired": "None for third-party claims. Same non-protectability caveat as other AI output."
+      "ownerConfirmationRequired": "None for third-party claims. Same non-protectability caveat as other AI output.",
+      "emailsSha256": [
+        "b1b6016d8905655b67015c82dca83fdadc094e90453b159d4ef2280f82e374e4"
+      ]
     },
     {
       "contributorClass": "AUTOMATION_BOT",
       "displayName": "repository automation",
-      "emails": [
-        "41898282+github-actions[bot]@users.noreply.github.com",
-        "platform-v7-agent@users.noreply.github.com",
-        "platform-v7-ops@users.noreply.github.com",
-        "platform-v7-industrial-bot@users.noreply.github.com",
-        "p7-state@users.noreply.github.com",
-        "p7-authority-bot@users.noreply.github.com",
-        "pc-crop-governed-bot@users.noreply.github.com",
-        "pc-crop-authority[bot]@users.noreply.github.com",
-        "public-entry-watch@users.noreply.github.com",
-        "actions@users.noreply.github.com",
-        "49699333+dependabot[bot]@users.noreply.github.com"
-      ],
       "rightsBasis": "MECHANICAL_OUTPUT_OF_REPOSITORY_OWNED_AUTOMATION",
       "evidence": "444 commits. These identities run workflows defined in .github/workflows, which are themselves first-party files in this repository; their commits are deterministic transformations, not independent authorship. dependabot commits change dependency version ranges only and introduce no third-party source into the tree.",
       "rightsStatus": "RESOLVED",
-      "ownerConfirmationRequired": "None."
+      "ownerConfirmationRequired": "None.",
+      "emailsSha256": [
+        "e7cd911927c7d1acf6281b69d385990d8fadcd26871048bbcdbff2e88da7f607",
+        "267eb41e0cd8769b8edacbc341caecda0fb97febd51b578f1252013fc76233d3",
+        "9333822632522fe1c87a23617a598aa6a0d163200df06b2945a699d02d40e385",
+        "2a63107e6760d2a073787a4d882137676b06ec891f2abb18bba19596ab80d183",
+        "3f46d14b3a05c9e157532297eab5de28240f44a89c3acf77bc5f22b71ab8da05",
+        "a442423719e2da8b85b8cb29eb71cafc2dc0f556249d2237cff75a8cb13f4c36",
+        "46894a3de9aa712919704f581466e4acdfe44ce42247249e431ca559d8403f3e",
+        "5ef736f7b7cbf8351b350a01b1ca73a5ead735cb1d7209e90c13968518b800d1",
+        "150c5ec0bc5e2a908b36b6cee4d08f6a76824202d33af8d38eb10bbea2691769",
+        "785a16a1e5e89b92020cf20636ca2ce3d4a3b905fd479a37270f72f4013a2637",
+        "bd5a8d6c673b738d52b0ac42a110045f3f964b3ebfc1d60ea805af743b1dc0e6"
+      ]
     },
     {
       "contributorClass": "THIRD_PARTY_HUMAN",
       "displayName": "Platon",
-      "emails": ["platon@MacBook-Pro-Platon.local"],
       "rightsBasis": "NO_RECORDED_ASSIGNMENT_OR_CONTRIBUTOR_AGREEMENT",
       "evidence": "88 commits from a personal machine identity with no organisational address. 8561 lines survive in HEAD across 132 tracked files, 24 of them inside the protected boundary. Nothing in the repository records an assignment, a contributor agreement or an employment relationship.",
       "rightsStatus": "UNRESOLVED",
-      "ownerConfirmationRequired": "A signed contributor IP assignment covering the schedule in docs/ip/PLATON_ASSIGNMENT_SCHEDULE.csv, or a decision to clean-room replace those files."
+      "ownerConfirmationRequired": "A signed contributor IP assignment covering the schedule in docs/ip/PLATON_ASSIGNMENT_SCHEDULE.csv, or a decision to clean-room replace those files.",
+      "emailsSha256": [
+        "af68b1a9b3724c86efba21773bcbf16345e7722d4fb4f00e3afbab2042d9ae89"
+      ]
     },
     {
       "contributorClass": "UNATTRIBUTED_SERVER_IDENTITY",
       "displayName": "root",
-      "emails": ["root@cv7660557.novalocal"],
       "rightsBasis": "UNIDENTIFIED_OPERATOR_ON_PROJECT_VIRTUAL_SERVER",
-      "evidence": "4 commits made as root on the project virtual server host cv7660557.novalocal. 2 surviving lines in scripts/platform-v7-rls-integration.sh: one blank line and one no-op CI-trigger comment, both appended by commit 1b5a84b07 solely to change the file hash. The host is the project's own server, but a root shell identifies a machine account, not a person, so the natural person behind the commits is not established by Git alone.",
+      "evidence": "4 commits made as root on the project's own virtual server (host name deliberately not recorded here). 2 surviving lines in scripts/platform-v7-rls-integration.sh: one blank line and one no-op CI-trigger comment, both appended by commit 1b5a84b07 solely to change the file hash. The host is the project's own server, but a root shell identifies a machine account, not a person, so the natural person behind the commits is not established by Git alone.",
       "rightsStatus": "UNRESOLVED",
-      "ownerConfirmationRequired": "Confirm who operated the server for those four commits. If it was the owner, this collapses into OWNER. The file it touches no longer depends on that answer: both surviving lines are adjudicated non-expressive in docs/ip/deminimis-line-adjudications.json and verified against the real content on every run, so this identity blocks nothing while remaining formally unresolved."
+      "ownerConfirmationRequired": "Confirm who operated the server for those four commits. If it was the owner, this collapses into OWNER. The file it touches no longer depends on that answer: both surviving lines are adjudicated non-expressive in docs/ip/deminimis-line-adjudications.json and verified against the real content on every run, so this identity blocks nothing while remaining formally unresolved.",
+      "emailsSha256": [
+        "ce3eaa797da1a69f079b9f7cb1ad86da0fe1833a348f0ba28a4931f05500eab0"
+      ]
     }
   ]
 }

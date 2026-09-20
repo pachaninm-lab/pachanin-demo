@@ -28,8 +28,12 @@ Measured at the source SHA above, by surviving line in `HEAD`:
 
 The schedule CSV is the authoritative list and is regenerated from Git, not
 maintained by hand. Every row is a file in which at least one line in the
-current tree is attributed to this contributor's Git author address
-`platon@MacBook-Pro-Platon.local`.
+current tree is attributed to this contributor's Git author identity
+`Platon#af68b1a9b3724c86` (the identifier used throughout this package is the SHA-256 of the
+lowercased Git author address; the address itself is personal data and is not
+stored in the repository).
+
+    af68b1a9b3724c86efba21773bcbf16345e7722d4fb4f00e3afbab2042d9ae89
 
 Until an instrument exists, the correct statement about the platform is that it
 is **first-party developed with one unassigned third-party contribution**, not

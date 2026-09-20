@@ -1,21 +1,23 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { aiInvolvementFor, evaluateRights, parseRightsRegister, rightsSets } from './contributor-rights.mjs';
+import { aiInvolvementFor, evaluateRights, hashEmail, parseRightsRegister, rightsSets } from './contributor-rights.mjs';
 
-const OWNER = 'owner@example.test';
-const AI = 'ai@example.test';
-const BOT = 'bot@example.test';
-const STRANGER = 'stranger@example.test';
+// Identities are matched by the SHA-256 of the lowercased address, so the fixtures
+// are hashes too. A raw address here would silently match nothing.
+const OWNER = hashEmail('owner@example.test');
+const AI = hashEmail('ai@example.test');
+const BOT = hashEmail('bot@example.test');
+const STRANGER = hashEmail('stranger@example.test');
 
 function register(overrides = []) {
   return {
     schemaVersion: 1,
     identities: [
-      { contributorClass: 'OWNER', emails: [OWNER], rightsBasis: 'PRINCIPAL_AUTHOR', rightsStatus: 'RESOLVED' },
-      { contributorClass: 'AI_ASSISTANT', emails: [AI], rightsBasis: 'PROVIDER_TERMS', rightsStatus: 'RESOLVED' },
-      { contributorClass: 'AUTOMATION_BOT', emails: [BOT], rightsBasis: 'REPO_AUTOMATION', rightsStatus: 'RESOLVED' },
-      { contributorClass: 'THIRD_PARTY_HUMAN', emails: [STRANGER], rightsBasis: 'NONE', rightsStatus: 'UNRESOLVED' },
+      { contributorClass: 'OWNER', emailsSha256: [OWNER], rightsBasis: 'PRINCIPAL_AUTHOR', rightsStatus: 'RESOLVED' },
+      { contributorClass: 'AI_ASSISTANT', emailsSha256: [AI], rightsBasis: 'PROVIDER_TERMS', rightsStatus: 'RESOLVED' },
+      { contributorClass: 'AUTOMATION_BOT', emailsSha256: [BOT], rightsBasis: 'REPO_AUTOMATION', rightsStatus: 'RESOLVED' },
+      { contributorClass: 'THIRD_PARTY_HUMAN', emailsSha256: [STRANGER], rightsBasis: 'NONE', rightsStatus: 'UNRESOLVED' },
       ...overrides,
     ],
   };
@@ -67,10 +69,12 @@ test('a register that cannot be trusted yields defects instead of silent permiss
   const cases = [
     ['UNSUPPORTED_SCHEMA_VERSION', { schemaVersion: 2, identities: [] }],
     ['DOCUMENT_NOT_AN_OBJECT', null],
-    ['UNSUPPORTED_RIGHTS_STATUS', register([{ contributorClass: 'X', emails: ['x@e.test'], rightsStatus: 'PROBABLY_FINE' }])],
-    ['RESOLVED_WITHOUT_RIGHTS_BASIS', register([{ contributorClass: 'X', emails: ['x@e.test'], rightsStatus: 'RESOLVED', rightsBasis: '' }])],
-    ['NO_EMAILS', register([{ contributorClass: 'X', emails: [], rightsStatus: 'RESOLVED', rightsBasis: 'SOMETHING' }])],
-    ['DUPLICATE_EMAIL', register([{ contributorClass: 'X', emails: [OWNER], rightsStatus: 'RESOLVED', rightsBasis: 'SOMETHING' }])],
+    ['UNSUPPORTED_RIGHTS_STATUS', register([{ contributorClass: 'X', emailsSha256: ['584c62542eac8df1bedd3ddfd41e6ef282832ddffe683ff231272fe454139860'], rightsStatus: 'PROBABLY_FINE' }])],
+    ['RESOLVED_WITHOUT_RIGHTS_BASIS', register([{ contributorClass: 'X', emailsSha256: ['584c62542eac8df1bedd3ddfd41e6ef282832ddffe683ff231272fe454139860'], rightsStatus: 'RESOLVED', rightsBasis: '' }])],
+    ['NO_EMAILS', register([{ contributorClass: 'X', emailsSha256: [], rightsStatus: 'RESOLVED', rightsBasis: 'SOMETHING' }])],
+    ['DUPLICATE_EMAIL', register([{ contributorClass: 'X', emailsSha256: [OWNER, OWNER], rightsStatus: 'RESOLVED', rightsBasis: 'SOMETHING' }])],
+    // A raw address here is both a privacy defect and a lookup that silently matches nothing.
+    ['NOT_A_SHA256', register([{ contributorClass: 'X', emailsSha256: ['someone@example.test'], rightsStatus: 'RESOLVED', rightsBasis: 'SOMETHING' }])],
   ];
   for (const [expected, document] of cases) {
     const { defects } = parseRightsRegister(document);
@@ -97,19 +101,20 @@ const deminimisSets = rightsSets(
         contributorClass: 'OWNER',
         rightsStatus: 'RESOLVED',
         rightsBasis: 'PRINCIPAL_AUTHOR',
-        emails: ['owner@example.com'],
+        emailsSha256: ['c8cd3c6427301eaf6665bccacd65ddb614527acc843a15463e3faba57124c351'],
       },
       {
         contributorClass: 'UNATTRIBUTED_SERVER_IDENTITY',
         rightsStatus: 'UNRESOLVED',
-        emails: ['root@server.local'],
+        emailsSha256: ['91a3088330d98fb20d12bb1bbce7a4fa4e737698f03fc3a13dabef5917b6a666'],
       },
     ],
   }).byEmail,
 );
 
-const touched = new Set(['owner@example.com', 'root@server.local']);
-const survives = () => new Set(['owner@example.com', 'root@server.local']);
+const ROOT = '91a3088330d98fb20d12bb1bbce7a4fa4e737698f03fc3a13dabef5917b6a666';
+const touched = new Set(['c8cd3c6427301eaf6665bccacd65ddb614527acc843a15463e3faba57124c351', '91a3088330d98fb20d12bb1bbce7a4fa4e737698f03fc3a13dabef5917b6a666']);
+const survives = () => new Set(['c8cd3c6427301eaf6665bccacd65ddb614527acc843a15463e3faba57124c351', '91a3088330d98fb20d12bb1bbce7a4fa4e737698f03fc3a13dabef5917b6a666']);
 
 test('surviving lines from an unresolved address still block when no de minimis accessor is supplied', () => {
   assert.equal(evaluateRights(touched, survives, deminimisSets), null);
@@ -131,7 +136,7 @@ test('a verified de minimis residue clears the file under its own tier', () => {
   const evidence = evaluateRights(touched, survives, deminimisSets, accepting);
   assert.ok(evidence, 'a verified residue must produce evidence');
   assert.equal(evidence.tier, 'DE_MINIMIS_RESIDUE');
-  assert.match(evidence.detail, /root@server\.local/);
+  assert.match(evidence.detail, new RegExp(ROOT));
   assert.match(evidence.detail, /carry no expression/);
 });
 
@@ -142,7 +147,7 @@ test('the de minimis accessor is only consulted about the offending addresses', 
     return { ok: true, detail: 'ok' };
   };
   evaluateRights(touched, survives, deminimisSets, accepting);
-  assert.deepEqual(seen, ['root@server.local']);
+  assert.deepEqual(seen, ['91a3088330d98fb20d12bb1bbce7a4fa4e737698f03fc3a13dabef5917b6a666']);
 });
 
 test('a file with no unresolved author never consults the de minimis accessor', () => {
@@ -151,8 +156,8 @@ test('a file with no unresolved author never consults the de minimis accessor', 
     called = true;
     return { ok: true, detail: 'ok' };
   };
-  const clean = new Set(['owner@example.com']);
-  const evidence = evaluateRights(clean, () => new Set(['owner@example.com']), deminimisSets, spy);
+  const clean = new Set(['c8cd3c6427301eaf6665bccacd65ddb614527acc843a15463e3faba57124c351']);
+  const evidence = evaluateRights(clean, () => new Set(['c8cd3c6427301eaf6665bccacd65ddb614527acc843a15463e3faba57124c351']), deminimisSets, spy);
   assert.equal(evidence.tier, 'TOUCH_HISTORY');
   assert.equal(called, false, 'de minimis must never be consulted for an already-clean file');
 });

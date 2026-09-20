@@ -29,7 +29,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { parseRightsRegister } from './contributor-rights.mjs';
+import { hashEmail, parseRightsRegister } from './contributor-rights.mjs';
 
 const outDir = process.argv[2] ?? 'docs/ip';
 mkdirSync(outDir, { recursive: true });
@@ -52,10 +52,18 @@ function criticalityOf(path) {
 }
 
 // An address missing from the register is UNREGISTERED rather than silently human or
-// silently AI. It must not be able to masquerade as either.
-function classOf(email) {
-  return byEmail.get(email)?.contributorClass ?? 'UNREGISTERED';
+// silently AI. It must not be able to masquerade as either. Lookup is by the SHA-256
+// of the lowercased address; raw addresses are personal data and never leave this loop.
+function classOf(emailHash) {
+  return byEmail.get(emailHash)?.contributorClass ?? 'UNREGISTERED';
 }
+
+// The third-party human whose material the assignment schedule must cover.
+const THIRD_PARTY_HUMAN_HASHES = new Set(
+  registerDocument.identities
+    .filter((identity) => identity.contributorClass === 'THIRD_PARTY_HUMAN')
+    .flatMap((identity) => identity.emailsSha256 ?? []),
+);
 
 // Classes whose surviving lines count as human authorship. UNATTRIBUTED_SERVER_IDENTITY
 // is counted here deliberately: a root shell is probably a person, and assuming
@@ -84,7 +92,7 @@ for (const [index, path] of tracked.entries()) {
   let total = 0;
   for (const line of blame.split(/\r?\n/u)) {
     if (line.startsWith('author-mail ')) {
-      email = line.slice(12).trim().replace(/^<|>$/gu, '').toLowerCase();
+      email = hashEmail(line.slice(12).trim().replace(/^<|>$/gu, ''));
       continue;
     }
     if (!line.startsWith('\t')) continue;
@@ -113,7 +121,9 @@ for (const [index, path] of tracked.entries()) {
     unregistered: byClass.get('UNREGISTERED') ?? 0,
     humanLines,
     humanAuthorship: humanLines > 0 ? 'SURVIVING' : 'NONE_SURVIVING',
-    platonLines: byEmailCount.get('platon@macbook-pro-platon.local') ?? 0,
+    thirdPartyLines: [...byEmailCount]
+      .filter(([hash]) => THIRD_PARTY_HUMAN_HASHES.has(hash))
+      .reduce((sum, [, count]) => sum + count, 0),
   });
 }
 
@@ -149,17 +159,17 @@ writeFileSync(
   ),
 );
 
-const platon = rows.filter((row) => row.platonLines > 0);
+const thirdParty = rows.filter((row) => row.thirdPartyLines > 0);
 writeFileSync(
   join(outDir, 'PLATON_ASSIGNMENT_SCHEDULE.csv'),
   csv(
     ['path', 'criticality', 'surviving_lines_authored', 'total_lines_in_file', 'share_percent', 'wholly_authored'],
-    platon
-      .sort((a, b) => b.platonLines - a.platonLines || a.path.localeCompare(b.path))
+    thirdParty
+      .sort((a, b) => b.thirdPartyLines - a.thirdPartyLines || a.path.localeCompare(b.path))
       .map((row) => [
-        quote(row.path), row.criticality, row.platonLines, row.total,
-        ((row.platonLines / row.total) * 100).toFixed(1),
-        row.platonLines === row.total ? 'YES' : 'NO',
+        quote(row.path), row.criticality, row.thirdPartyLines, row.total,
+        ((row.thirdPartyLines / row.total) * 100).toFixed(1),
+        row.thirdPartyLines === row.total ? 'YES' : 'NO',
       ].join(',')),
   ),
 );
@@ -195,11 +205,11 @@ const summary = {
     crownJewelLines: sum(crownJewel(aiOnly), 'ai'),
   },
   thirdPartyHuman: {
-    files: platon.length,
-    lines: sum(platon, 'platonLines'),
-    withinProtectedBoundary: inBoundary(platon).length,
-    crownJewel: crownJewel(platon).length,
-    whollyAuthoredFiles: platon.filter((row) => row.platonLines === row.total).length,
+    files: thirdParty.length,
+    lines: sum(thirdParty, 'thirdPartyLines'),
+    withinProtectedBoundary: inBoundary(thirdParty).length,
+    crownJewel: crownJewel(thirdParty).length,
+    whollyAuthoredFiles: thirdParty.filter((row) => row.thirdPartyLines === row.total).length,
   },
 };
 
