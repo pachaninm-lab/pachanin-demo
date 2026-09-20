@@ -8,7 +8,6 @@ import {
   CanonicalFooter,
   CanonicalGektaStrip,
   CanonicalPublicHeader,
-  CanonicalTrustLedger,
   TRUST_MODEL,
   canonicalPublicLocale,
 } from '@/components/platform-v7/PublicCanonicalPrimitives';
@@ -81,31 +80,59 @@ zh:{
  register:'注册',how:'交易如何进行'
 }} as const;
 
+
+const TRUST_DETAILS={
+  ru:[
+    ['Проверка регистрации и статуса компании','Доверенности и роли в системе','Проверка ограничений и доступов'],
+    ['Договоры и приложения','Соответствие требованиям','Версии и первичные документы'],
+    ['Государственные реестры и API','Лабораторные протоколы','Логистические и банковские подтверждения'],
+    ['Фиксация результата и статуса','Прозрачная история изменений','Уведомление участников и аудит'],
+  ],
+  en:[
+    ['Organisation status verification','Authority and system roles','Access and restriction checks'],
+    ['Contracts and attachments','Requirement compliance','Versions and primary documents'],
+    ['Public registries and APIs','Laboratory protocols','Logistics and banking confirmations'],
+    ['Recorded outcome and status','Transparent change history','Participant notification and audit'],
+  ],
+  zh:[
+    ['机构状态核验','授权与系统角色','访问和限制检查'],
+    ['合同及附件','要求合规性','版本与原始文件'],
+    ['公共登记与 API','实验室协议','物流与银行确认'],
+    ['记录结果与状态','透明变更历史','参与方通知与审计'],
+  ],
+} as const;
+
 export default async function TrustPage(){
  const locale=canonicalPublicLocale(await getLocale());const c=COPY[locale];
  return <main className='pc-canonical-public pc-cp-page-trust'>
   <CanonicalPublicHeader locale={locale} activePath='/platform-v7/trust'/>
-  <section className='pc-cp-hero'>
+  <section className='pc-cp-hero pc-cp-trust-hero'>
    <div className='pc-cp-container pc-cp-hero-grid'>
     <div className='pc-cp-hero-copy'><span className='pc-cp-eyebrow'>{c.e}</span><h1>{c.t}</h1><p>{c.p}</p><div className='pc-cp-actions'><Link className='pc-cp-button' href={`/platform-v7/register?lang=${locale}`}>{c.register}<ArrowRight size={16}/></Link><Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/how-it-works?lang=${locale}`}>{c.how}</Link></div></div>
-    <aside className='pc-cp-card pc-cp-state-shell'><div className='pc-cp-section-head' style={{marginBottom:14}}><span className='pc-cp-eyebrow'>{c.fact}</span><p>{c.factLead}</p></div>{TRUST_MODEL[locale].map((item)=><div key={item[0]} className='pc-cp-chip pc-cp-chip--ok' style={{margin:'4px'}}><CheckCircle2 size={13}/>{item[0]}</div>)}</aside>
+    <aside className='pc-cp-trust-hero-quote'><strong>{locale==='ru'?'Надёжные данные. Сильный АПК России.':locale==='en'?'Reliable data. Strong agriculture.':'可靠数据。更强农业。'}</strong><span>{locale==='ru'?'Проверяемые факты вместо обещаний.':locale==='en'?'Verifiable facts instead of promises.':'用可核验事实替代空泛承诺。'}</span></aside>
    </div>
   </section>
-  <section className='pc-cp-section'><div className='pc-cp-container'><CanonicalTrustLedger locale={locale}/></div></section>
+  <section className='pc-cp-section pc-cp-trust-pillars-section'><div className='pc-cp-container'>
+    <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{locale==='ru'?'Четыре столпа доверия':locale==='en'?'Four trust pillars':'四个信任支柱'}</span><h2>{locale==='ru'?'Четыре столпа доверия':locale==='en'?'Four trust pillars':'四个信任支柱'}</h2><p>{locale==='ru'?'Каждый факт в Сделке проверяется по единым принципам.':locale==='en'?'Every Deal fact is evaluated through the same principles.':'每个交易事实都按同一套原则核验。'}</p></div>
+    <div className='pc-cp-trust-pillars'>
+      {TRUST_MODEL[locale].map((item,index)=><article className='pc-cp-card pc-cp-trust-pillar' key={item[0]}>
+        <div className='pc-cp-trust-pillar-head'><i>{index+1}</i><div><h3>{item[0]}</h3><p>{item[1]}</p></div></div>
+        <ul>{TRUST_DETAILS[locale][index].map(bullet=><li key={bullet}><CheckCircle2 size={12} aria-hidden='true'/><span>{bullet}</span></li>)}</ul>
+        <div className='pc-cp-trust-pillar-media' data-visual-index={index} aria-hidden='true'/>
+        <small>{c.boundary[index]?.[1]}</small>
+      </article>)}
+    </div>
+  </div></section>
   <section className='pc-cp-section pc-cp-section--soft'><div className='pc-cp-container'>
    <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{c.fact}</span><h2>{c.fact}</h2><p>{c.factLead}</p></div>
    <div className='pc-cp-card pc-cp-state-shell'><div className='pc-cp-deal-spine' style={{gridTemplateColumns:'repeat(6,minmax(0,1fr))'}}>
     {c.rail.map((x,i)=><div className='pc-cp-stage' key={x} data-state={i===5?'current':'done'}><i>{i+1}</i><strong>{x}</strong></div>)}
    </div></div>
   </div></section>
-  <section className='pc-cp-section'><div className='pc-cp-container'>
-   <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{c.boundaries}</span><h2>{c.boundaries}</h2><p>{c.boundariesLead}</p></div>
-   <div className='pc-cp-trust-grid'>{c.boundary.map(([title,text])=><article className='pc-cp-card pc-cp-trust-card' key={title}><i><ShieldCheck size={16}/></i><strong>{title}</strong><p>{text}</p></article>)}</div>
-  </div></section>
-  <section className='pc-cp-section pc-cp-section--tight'><div className='pc-cp-container'><CanonicalGektaStrip locale={locale}/></div></section>
+  <section className='pc-cp-section pc-cp-section--tight pc-cp-trust-gekta'><div className='pc-cp-container'><CanonicalGektaStrip locale={locale}/></div></section>
   <section className='pc-cp-section pc-cp-section--soft'><div className='pc-cp-container'>
    <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{c.faq}</span><h2>{c.faq}</h2></div>
-   <div className='pc-cp-detail-grid'>{c.faqs.map(([q,a])=><article className='pc-cp-card pc-cp-detail-block' key={q}><h3>{q}</h3><p>{a}</p></article>)}</div>
+   <div className='pc-cp-faq-row'>{c.faqs.map(([q,a])=><details className='pc-cp-card pc-cp-faq-item' key={q}><summary>{q}<span aria-hidden='true'>↓</span></summary><p>{a}</p></details>)}</div>
   </div></section>
   <CanonicalFooter locale={locale}/><CanonicalBottomNav locale={locale} active='/platform-v7/trust'/>
  </main>
