@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/public-design-authority-v1-20260920",
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction-2026-09-20-final-canonical-ux-ui",
+  "purpose": "Implement the final canonical public UX/UI for Transparent Price from the approved mockups without changing authoritative business semantics, tenant/role authority, money authority, database authority or security boundaries.",
+  "authorityBaseExactMain": "5a73ca79dcf1c5645ba3ccfc49e036d4d092b0cf",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/platform-v7-canonical-visual-acceptance.yml",
+    "DESIGN_AUTHORITY.md",
+    "apps/api/src/modules/auctions/public-auction-market.spec.ts",
+    "apps/web/app/platform-v7/**",
+    "apps/web/components/platform-v7/**",
+    "apps/web/lighthouserc.cjs",
+    "apps/web/middleware.ts",
+    "apps/web/playwright.canonical-visual.config.ts",
+    "apps/web/public/platform-v7/hero-farmer-canonical.webp",
+    "apps/web/styles/platform-v7-canonical-public-v1.css",
+    "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
+    "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
+    "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/platform-v7/autopilot/scopes/public-design-authority-v1-20260920.json"
+  ],
+  "requiredInvariants": [
+    "Existing backend/API/security/role/tenant/registration/Deal semantics remain authoritative and are not replaced by client state.",
+    "The public market remains read-only, anonymised and fail-closed; no fabricated live prices, partners, companies, Deal IDs or integration states are introduced.",
+    "Protected /lots, /deals and role-specific cabinet surfaces remain authenticated and role/tenant checked.",
+    "The canonical repository logo asset remains the only brand mark.",
+    "RU, EN and ZH use one shared design system and the canonical nine roles, seven Deal stages and Trust model.",
+    "Visual acceptance uses exact-head production build evidence; no production release occurs before terminal acceptance.",
+    "No branch protection, security gate, governance guard or server authority is bypassed."
+  ],
+  "acceptance": [
+    "Exact-head web typecheck, unit, Node CI, API and security gates pass.",
+    "Canonical visual acceptance passes required screenshots, WCAG 2.2 AA serious/critical checks, runtime-error checks and horizontal-overflow checks.",
+    "Responsive acceptance covers 320, 375, 390, 768, 1280 and 1440 widths and RU/EN/ZH public routes.",
+    "Lighthouse meets the configured production thresholds and mobile LCP target.",
+    "Production is released only after PR acceptance and then manually verified on REG.RU."
+  ]
+}
