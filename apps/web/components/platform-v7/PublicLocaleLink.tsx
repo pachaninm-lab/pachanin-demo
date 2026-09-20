@@ -1,47 +1,37 @@
 import { headers } from 'next/headers';
 import { getLocale, getTranslations } from 'next-intl/server';
-import { Languages } from 'lucide-react';
 import { isAppLocale, SUPPORTED_LOCALES, type AppLocale } from '@/i18n/locale';
 
-const SHORT_LABELS: Record<AppLocale, string> = {
-  ru: 'RU',
-  en: 'EN',
-  zh: 'ZH',
-};
+const LABELS: Record<AppLocale,string> = { ru:'RU', en:'EN', zh:'中文' };
 
-function nextLocale(current: AppLocale): AppLocale {
-  const index = SUPPORTED_LOCALES.indexOf(current);
-  return SUPPORTED_LOCALES[(index + 1) % SUPPORTED_LOCALES.length] ?? 'ru';
+function normalizePath(value:string|null){
+  return (value||'').split('?')[0].replace(/\/$/,'')||'/platform-v7';
 }
 
-function normalizePath(value: string | null) {
-  return (value || '').split('?')[0].replace(/\/$/, '') || '/platform-v7';
-}
-
-/**
- * Zero-hydration locale control for the public entry surfaces.
- * The next locale is encoded in the URL and resolved by middleware/server i18n.
- */
-export async function PublicLocaleLink() {
-  const localeValue = await getLocale();
-  const t = await getTranslations('publicEntry.language');
-  const locale: AppLocale = isAppLocale(localeValue) ? localeValue : 'ru';
-  const next = nextLocale(locale);
-  const currentLabel = SHORT_LABELS[locale];
-  const nextLabel = SHORT_LABELS[next];
-  const pathname = normalizePath((await headers()).get('x-pc-pathname'));
-
+/** Zero-hydration canonical RU / EN / 中文 control. */
+export async function PublicLocaleLink(){
+  const localeValue=await getLocale();
+  const t=await getTranslations('publicEntry.language');
+  const locale:AppLocale=isAppLocale(localeValue)?localeValue:'ru';
+  const pathname=normalizePath((await headers()).get('x-pc-pathname'));
   return (
-    <a
-      className='pc-site-locale-switch'
-      href={`${pathname}?lang=${next}`}
-      aria-label={t('switchLabel', { current: currentLabel, next: nextLabel })}
-      title={t('switchTitle', { current: currentLabel })}
+    <nav
+      className='pc-site-locale-cluster'
+      aria-label={t('switchTitle',{current:LABELS[locale]})}
       data-current-locale={locale}
-      data-next-locale={next}
     >
-      <Languages aria-hidden='true' size={19} strokeWidth={1.9} />
-      <span>{currentLabel}</span>
-    </a>
+      {SUPPORTED_LOCALES.map((item)=>(
+        <a
+          key={item}
+          className='pc-site-locale-option'
+          href={`${pathname}?lang=${item}`}
+          lang={item==='zh'?'zh-CN':item}
+          aria-current={item===locale?'page':undefined}
+          data-active={item===locale?'true':'false'}
+        >
+          {LABELS[item]}
+        </a>
+      ))}
+    </nav>
   );
 }
