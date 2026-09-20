@@ -469,7 +469,8 @@ jobs:
             "PC_RELEASE_IMAGE_BINDING_VERIFIER='/tmp/pc-full-stack-image-binding-${GITHUB_RUN_ID}.py' PC_OUTBOX_WORKER_IMAGE='${{ steps.images.outputs.outbox_worker_image }}' /tmp/pc-full-stack-${GITHUB_RUN_ID}.sh observe-ir20 '$TARGET_SHA' '$GITHUB_RUN_ID'" \
             | tee "$EVIDENCE_DIR/ir20-observation.log"
           grep -Fxq IR20_RUNTIME_OBSERVATION=PASS "$EVIDENCE_DIR/ir20-observation.log"
-          grep -Fxq IR20_OBSERVATION_SECONDS=1800 "$EVIDENCE_DIR/ir20-observation.log"
+          observation_seconds="$(sed -n 's/^IR20_OBSERVATION_SECONDS=//p' "$EVIDENCE_DIR/ir20-observation.log" | tail -1)"
+          [[ "$observation_seconds" =~ ^[0-9]+$ ]] && (( observation_seconds >= 1800 ))
 
       - name: Restore exact API/web/outbox images after acceptance failure
         if: steps.live.outcome == 'failure' || steps.database.outcome == 'failure' || steps.ir20_observation.outcome == 'failure'
