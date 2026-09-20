@@ -4,11 +4,10 @@
   "status": "active",
   "authorizedBy": "explicit-user-instruction-2026-09-20-final-canonical-ux-ui",
   "purpose": "Implement the final canonical public UX/UI for Transparent Price from the approved mockups without changing authoritative business semantics, tenant/role authority, money authority, database authority or security boundaries.",
-  "authorityBaseExactMain": "5a73ca79dcf1c5645ba3ccfc49e036d4d092b0cf",
+  "authorityBaseExactMain": "5da8e80744908413102214f91dd68018911b892e",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
-    ".github/workflows/crypto-inventory-exact-head-evidence.yml",
     ".github/workflows/platform-v7-canonical-visual-acceptance.yml",
     "DESIGN_AUTHORITY.md",
     "apps/api/src/modules/auctions/public-auction-market.spec.ts",
