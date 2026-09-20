@@ -9,6 +9,7 @@ on:
       - 'apps/web/components/platform-v7/**'
       - 'apps/web/components/v7r/BrandMark.tsx'
       - 'apps/web/styles/platform-v7-canonical-public-v1.css'
+      - 'apps/web/styles/platform-v7-canonical-home-v1.css'
       - 'apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts'
       - 'apps/web/playwright.canonical-visual.config.ts'
       - '.github/workflows/platform-v7-canonical-visual-acceptance.yml'
