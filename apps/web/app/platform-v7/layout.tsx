@@ -60,6 +60,7 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7/capabilities',
   '/platform-v7/market',
   '/platform-v7/ai-in-action',
+  '/platform-v7/gekta',
   '/platform-v7/demo',
   '/platform-v7/contact',
   '/platform-v7/request',
@@ -211,7 +212,7 @@ function isPublicPath(pathname: string) {
 
 const CANONICAL_PUBLIC_NO_LEGACY_DOCK = new Set([
   '/platform-v7', '/platform-v7/market', '/platform-v7/how-it-works', '/platform-v7/capabilities',
-  '/platform-v7/ai-in-action', '/platform-v7/trust', '/platform-v7/about', '/platform-v7/contact',
+  '/platform-v7/ai-in-action', '/platform-v7/gekta', '/platform-v7/trust', '/platform-v7/about', '/platform-v7/contact',
   '/platform-v7/register', '/platform-v7/login', '/platform-v7/deal-flow',
 ]);
 
