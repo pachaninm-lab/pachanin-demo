@@ -92,6 +92,16 @@ describe('platform-v7 canonical public experience',()=>{
     expect(market).not.toContain('DL-9102');
   });
 
+  it('renders the canonical lot screen without exposing raw public identifiers or private seller data',()=>{
+    expect(market).toContain('CanonicalPublicLotView');
+    expect(market).toContain("data-testid='canonical-public-lot-view'");
+    expect(market).toContain('lotIndex: number');
+    expect(market).toContain('&lot=${publicIndex}');
+    expect(market).not.toContain('encodeURIComponent(lot.publicRef)');
+    expect(marketSource).toContain("sellerIdentity: 'REDACTED'");
+    expect(market).toContain('Фото партии не опубликовано');
+    expect(market).toContain('Документы доступны только участникам с подтверждёнными полномочиями.');
+  });
   it('keeps public market public without weakening protected Deal routes',()=>{
     expect(layout).toContain("'/platform-v7/market'");
     expect(middleware).toContain("'/platform-v7/market'");
