@@ -367,7 +367,7 @@ requireAll('executor', [
 const executorSource = text.executor ?? '';
 const rollbackHandlerIndex = executorSource.indexOf('rollback_and_exit()');
 const rollbackArmIndex = executorSource.indexOf('RELEASE_ROLLBACK_ARMED=1');
-const targetOverrideIndex = executorSource.indexOf('write_override "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" "$OUTBOX_WORKER_IMAGE" "$full_override" 1 1');
+const targetOverrideIndex = executorSource.indexOf('write_override "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override" 1 "$OUTBOX_WORKER_IMAGE" 1');
 const revisionMismatchIndex = executorSource.indexOf('fail RUNNING_REVISION_MISMATCH 33');
 const rollbackDisarmIndex = executorSource.lastIndexOf('RELEASE_ROLLBACK_ARMED=0');
 const successIndex = executorSource.indexOf("printf 'DEPLOYMENT_COMPLETE=1\\n'");
