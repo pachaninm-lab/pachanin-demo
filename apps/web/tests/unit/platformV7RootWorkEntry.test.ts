@@ -23,6 +23,7 @@ describe('platform-v7 canonical public experience',()=>{
   const gekta=read('app/platform-v7/ai-in-action/page.tsx');
   const css=read('styles/platform-v7-canonical-public-v1.css');
   const brand=read('components/v7r/BrandMark.tsx');
+  const siteHeader=read('components/platform-v7/PublicSiteHeader.tsx');
 
   it('binds visual implementation to the explicit final mockup authority',()=>{
     expect(authority).toContain('Everything else is superseded.');
@@ -82,8 +83,9 @@ describe('platform-v7 canonical public experience',()=>{
     expect(market).toContain('PUBLIC_ALLOWED');
     expect(marketSource).toContain("source: 'POSTGRESQL'");
     expect(marketSource).toContain("projection: 'ANONYMIZED_PUBLIC_MARKET'");
-    expect(marketSource).toContain("seller: 'REDACTED'");
-    expect(marketSource).toContain("tradePermission: z.literal('PUBLIC_ALLOWED')");
+    expect(marketSource).toContain("sellerIdentity: 'REDACTED'");
+    expect(marketSource).toContain("row.tradePermission !== 'PUBLIC_ALLOWED'");
+    expect(marketSource).toContain("tradePermission: 'PUBLIC_ALLOWED'");
     expect(market).not.toMatch(/ООО\s+(?:Ромашка|Тест|Агро)/);
     expect(market).not.toContain('DL-9102');
   });
@@ -157,7 +159,8 @@ describe('platform-v7 canonical public experience',()=>{
 
   it('keeps the repository canonical brand implementation rather than a generated replacement',()=>{
     expect(brand).toContain('ApprovedHeaderLogo');
-    expect(brand).toContain("data-brand-mark='transparent-price-canonical'");
+    expect(brand).toContain("data-approved-brand-mark='owner-login-header-pixel-exact'");
+    expect(siteHeader).toContain("data-brand-mark='transparent-price-canonical'");
     expect(primitives).toContain('PublicSiteHeader');
     expect(authority).toContain('ApprovedHeaderLogo');
   });
