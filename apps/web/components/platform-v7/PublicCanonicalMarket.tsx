@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { ArrowRight, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { getPublicMarketLots, type PublicMarketLot, type PublicMarketReadResult } from '@/lib/public-market-server';
 import { canonicalPublicLocale, type CanonicalPublicLocale } from './PublicCanonicalPrimitives';
@@ -76,7 +77,7 @@ export async function CanonicalMarketPreview({ locale, limit = 3 }: { locale: st
   if (market.items.length === 0) return <MarketState locale={lang} kind='empty' />;
   return (
     <div className='pc-cp-market-grid pc-cp-market-grid--preview' data-testid='canonical-market-preview'>
-      {market.items.slice(0, limit).map((lot) => <MarketCard key={lot.publicRef} lot={lot} locale={lang} />)}
+      {market.items.slice(0, limit).map((lot, index) => <MarketCard key={lot.publicRef} lot={lot} publicIndex={index} locale={lang} />)}
     </div>
   );
 }
@@ -84,11 +85,11 @@ export async function CanonicalMarketPreview({ locale, limit = 3 }: { locale: st
 export async function CanonicalMarketResults({
   locale,
   query = '',
-  selectedRef,
+  selectedIndex,
 }: {
   locale: string;
   query?: string;
-  selectedRef?: string;
+  selectedIndex?: number | null;
 }) {
   const lang = canonicalPublicLocale(locale);
   const market = await getPublicMarketLots();
@@ -96,27 +97,89 @@ export async function CanonicalMarketResults({
   if (market.items.length === 0) return <MarketState locale={lang} kind='empty' />;
 
   const normalizedQuery = query.trim().toLocaleLowerCase(lang === 'ru' ? 'ru-RU' : lang === 'zh' ? 'zh-CN' : 'en-US');
+  const indexed = market.items.map((lot, index) => ({ lot, index }));
   const items = normalizedQuery
-    ? market.items.filter((lot) => [lot.culture, lot.grade || '', lot.region].some((value) => value.toLocaleLowerCase().includes(normalizedQuery)))
-    : market.items;
+    ? indexed.filter(({ lot }) => [lot.culture, lot.grade || '', lot.region].some((value) => value.toLocaleLowerCase().includes(normalizedQuery)))
+    : indexed;
 
   if (items.length === 0) return <MarketState locale={lang} kind='noMatch' />;
 
-  const selected = items.find((lot) => lot.publicRef === selectedRef) ?? items[0]!;
+  const selected = items.find((item) => item.index === selectedIndex) ?? items[0]!;
   return (
     <div className='pc-cp-market-layout' data-testid='canonical-market-results'>
       <div className='pc-cp-market-grid'>
-        {items.map((lot) => <MarketCard key={lot.publicRef} lot={lot} locale={lang} selected={lot.publicRef === selected.publicRef} />)}
+        {items.map(({ lot, index }) => <MarketCard key={lot.publicRef} lot={lot} publicIndex={index} locale={lang} selected={index === selected.index} />)}
       </div>
-      <MarketAside lot={selected} locale={lang} authority={market} />
+      <MarketAside lot={selected.lot} publicIndex={selected.index} locale={lang} authority={market} />
     </div>
   );
 }
 
-function MarketCard({ lot, locale, selected = false }: { lot: PublicMarketLot; locale: CanonicalPublicLocale; selected?: boolean }) {
+
+export async function CanonicalPublicLotView({ locale, lotIndex }: { locale: string; lotIndex: number }) {
+  const lang = canonicalPublicLocale(locale);
+  const copy = COPY[lang];
+  const market = await getPublicMarketLots();
+  if (!market.available) return <MarketState locale={lang} kind='unavailable' />;
+  const lot = Number.isInteger(lotIndex) && lotIndex >= 0 ? market.items[lotIndex] : undefined;
+  if (!lot) return <MarketState locale={lang} kind='noMatch' />;
+
+  const unavailable = lang === 'ru'
+    ? 'Не опубликовано в публичном контуре'
+    : lang === 'en'
+      ? 'Not published in the public circuit'
+      : '未在公开范围发布';
+
+  return (
+    <div data-testid='canonical-public-lot-view'>
+      <div className='pc-cp-lot-breadcrumb'>
+        <Link href={`/platform-v7?lang=${lang}`}>{lang === 'ru' ? 'Главная' : lang === 'en' ? 'Home' : '首页'}</Link>
+        <span>→</span>
+        <Link href={`/platform-v7/market?lang=${lang}`}>{lang === 'ru' ? 'Рынок' : lang === 'en' ? 'Market' : '市场'}</Link>
+        <span>→</span>
+        <strong>{cultureLabel(lot.culture, lang)}{lot.grade ? `, ${lot.grade}` : ''}</strong>
+      </div>
+
+      <div className='pc-cp-lot-layout'>
+        <div className='pc-cp-lot-image' role='img' aria-label={lang === 'ru' ? 'Иллюстрация культуры, фото партии не опубликовано' : lang === 'en' ? 'Crop illustration; lot photo not published' : '作物示意图；批次照片未公开'}>
+          <span>{lang === 'ru' ? 'Фото партии не опубликовано' : lang === 'en' ? 'Lot photo not published' : '批次照片未公开'}</span>
+        </div>
+
+        <article className='pc-cp-card pc-cp-lot-summary'>
+          <div>
+            <span className='pc-cp-chip pc-cp-chip--ok'>{lang === 'ru' ? 'Публичный лот' : lang === 'en' ? 'Public lot' : '公开批次'}</span>
+            <h1>{cultureLabel(lot.culture, lang)}{lot.grade ? `, ${lot.grade}` : ''}</h1>
+            <p className='pc-cp-lead'><LockKeyhole size={15} aria-hidden='true' /> {copy.hidden}</p>
+          </div>
+          <div className='pc-cp-lot-meta pc-cp-lot-meta--detail'>
+            <Metric label={copy.volume} value={formatVolume(lot.volumeTons, lang)} />
+            <Metric label={copy.price} value={formatPrice(lot.startPriceKopecksPerTon, lang)} />
+            <Metric label={copy.region} value={lot.region} />
+            <Metric label={copy.ends} value={formatDate(lot.auctionEndsAt, lang)} />
+          </div>
+          <div className='pc-cp-actions'>
+            <Link className='pc-cp-button' href={`/platform-v7/register?lang=${lang}&intent=buy`}>{copy.access}<ArrowRight size={16} aria-hidden='true' /></Link>
+            <Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/login?lang=${lang}`}>{copy.details}</Link>
+          </div>
+          <small className='pc-cp-lot-source'>{copy.source}{market.authority?.observedAt ? ` · ${formatObserved(market.authority.observedAt, lang)}` : ''}</small>
+        </article>
+      </div>
+
+      <div className='pc-cp-lot-detail-grid'>
+        <Detail title={lang === 'ru' ? 'Основные параметры' : lang === 'en' ? 'Core parameters' : '主要参数'} text={`${copy.volume}: ${formatVolume(lot.volumeTons, lang)} · ${copy.region}: ${lot.region} · ${copy.ends}: ${formatDate(lot.auctionEndsAt, lang)}`} />
+        <Detail title={lang === 'ru' ? 'Качество' : lang === 'en' ? 'Quality' : '质量'} text={lot.independentVerification === null ? `${copy.quality}. ${unavailable}: ${lang === 'ru' ? 'независимое подтверждение' : lang === 'en' ? 'independent verification' : '独立核验'}.` : copy.quality} />
+        <Detail title={lang === 'ru' ? 'Документы' : lang === 'en' ? 'Documents' : '文件'} text={`${unavailable}. ${lang === 'ru' ? 'Документы доступны только участникам с подтверждёнными полномочиями.' : lang === 'en' ? 'Documents are available only to participants with confirmed authority.' : '文件仅向具有已确认权限的参与方开放。'}`} />
+        <Detail title={lang === 'ru' ? 'Контрагент' : lang === 'en' ? 'Counterparty' : '交易对手'} text={`${copy.hidden}. ${lang === 'ru' ? 'Название организации и внутренние идентификаторы не раскрываются.' : lang === 'en' ? 'Organisation name and internal identifiers are not disclosed.' : '机构名称和内部标识不会披露。'}`} />
+      </div>
+    </div>
+  );
+}
+
+function MarketCard({ lot, publicIndex, locale, selected = false }: { lot: PublicMarketLot; publicIndex: number; locale: CanonicalPublicLocale; selected?: boolean }) {
   const copy = COPY[locale];
   const loginHref = `/platform-v7/login?lang=${locale}`;
   const registerHref = `/platform-v7/register?lang=${locale}&intent=buy`;
+  const detailHref = `/platform-v7/market?lang=${locale}&lot=${publicIndex}`;
   return (
     <article className='pc-cp-card pc-cp-lot-card' data-selected={selected ? 'true' : undefined}>
       <div className='pc-cp-lot-media'>{copy.photo}</div>
@@ -133,15 +196,15 @@ function MarketCard({ lot, locale, selected = false }: { lot: PublicMarketLot; l
         </div>
         <div className='pc-cp-lot-foot'><span><ShieldCheck size={13} aria-hidden='true' /> {copy.declared}</span></div>
         <div className='pc-cp-actions' data-testid='canonical-public-market-lot-actions'>
-          <a className='pc-cp-button pc-cp-button--secondary' href={loginHref}>{copy.details}</a>
-          <a className='pc-cp-button' href={registerHref}>{copy.access}<ArrowRight size={15} aria-hidden='true' /></a>
+          <Link className='pc-cp-button pc-cp-button--secondary' href={detailHref}>{locale === 'ru' ? 'Подробнее' : locale === 'en' ? 'Details' : '详情'}<ArrowRight size={15} aria-hidden='true' /></Link>
+          <a className='pc-cp-button' href={registerHref}>{copy.access}</a>
         </div>
       </div>
     </article>
   );
 }
 
-function MarketAside({ lot, locale, authority }: { lot: PublicMarketLot; locale: CanonicalPublicLocale; authority: PublicMarketReadResult }) {
+function MarketAside({ lot, publicIndex, locale, authority }: { lot: PublicMarketLot; publicIndex: number; locale: CanonicalPublicLocale; authority: PublicMarketReadResult }) {
   const copy = COPY[locale];
   return (
     <aside className='pc-cp-card pc-cp-market-aside' aria-label={copy.selected}>
@@ -155,7 +218,7 @@ function MarketAside({ lot, locale, authority }: { lot: PublicMarketLot; locale:
       </dl>
       <div className='pc-cp-chip pc-cp-chip--ok'><ShieldCheck size={13} aria-hidden='true' />{copy.declared}</div>
       <p className='pc-cp-lead' style={{ fontSize: 12 }}>{copy.quality}</p>
-      <a className='pc-cp-button' href={`/platform-v7/login?lang=${locale}`}>{copy.details}<ArrowRight size={16} aria-hidden='true' /></a>
+      <Link className='pc-cp-button' href={`/platform-v7/market?lang=${locale}&lot=${publicIndex}`}>{locale === 'ru' ? 'Открыть карточку' : locale === 'en' ? 'Open lot' : '打开批次'}<ArrowRight size={16} aria-hidden='true' /></Link>
       <small style={{ color: 'var(--pc-cp-muted)', lineHeight: 1.45 }}>{copy.source}{authority.authority?.observedAt ? ` · ${formatObserved(authority.authority.observedAt, locale)}` : ''}</small>
     </aside>
   );
