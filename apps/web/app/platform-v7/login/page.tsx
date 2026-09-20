@@ -14,7 +14,7 @@ export default async function LoginPage() {
       <CanonicalPublicHeader locale={locale} activePath='/platform-v7/login' actions={false}/>
       <section className='pc-cp-section pc-cp-section--soft' style={{minHeight:'calc(100dvh - 72px)'}}>
         <div className='pc-cp-container'>
-          <LoginFormClient copy={form}/>
+          <LoginFormClient copy={form} />
         </div>
       </section>
       <CanonicalBottomNav locale={locale} active='/platform-v7/login'/>
