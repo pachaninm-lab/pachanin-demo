@@ -1,8 +1,7 @@
 /*
  * Canonical HOME-only stylesheet.
- * Derived from platform-v7-canonical-public-v1.css to keep the landing render path
- * free of route-specific Market/Lot/Deal/How/Trust/Gekta/Auth CSS. Shared tokens,
- * primitives and the exact home authority overrides remain source-identical.
+ * Derived from platform-v7-canonical-public-v1.css by complete authority blocks.
+ * Linked-page styling is intentionally excluded from the landing render path.
  */
 
 :root{
@@ -150,6 +149,7 @@ body:has(.pc-canonical-public) .p7-ai-trigger,
 body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
 
 
+
 /* focus / motion */
 .pc-canonical-public :focus-visible,.pc-canonical-deal :focus-visible{outline:3px solid rgba(25,117,82,.38);outline-offset:3px}
 .pc-cp-deal-spine:focus-visible{border-radius:12px;outline-offset:6px}
@@ -219,6 +219,7 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-deal-lens-grid{grid-template-columns:1fr 1fr}.pc-cp-lot-card{grid-template-columns:96px minmax(0,1fr)}.pc-cp-lot-meta{grid-template-columns:1fr}
   .pc-cp-footer nav{grid-template-columns:1fr 1fr}
 }
+
 
 
 
@@ -322,6 +323,9 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-page-home .pc-cp-footer p,.pc-cp-page-home .pc-cp-footer a{font-size:8px}
   .pc-cp-page-home .pc-cp-footer a{min-height:26px}
 
+  
+}
+
 
 /* CANONICAL LOCALE CLUSTER */
 .pc-site-locale-cluster{display:flex;align-items:center;justify-content:center;gap:2px;flex:0 0 auto}
@@ -374,6 +378,7 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
 .pc-cp-empty-lines{display:grid;gap:5px;margin-top:4px}.pc-cp-empty-lines i{display:block;height:6px;border-radius:99px;background:#edf1ee}.pc-cp-empty-lines i:nth-child(2){width:72%}.pc-cp-empty-lines i:nth-child(3){width:48%}
 .pc-cp-market-aside--empty .pc-cp-lot-media--empty{height:120px;border-radius:12px}
 .pc-cp-market-aside--empty dl{margin-top:0}
+
 
 
 /* Home must show the entire canonical story at 1055×1491. */
@@ -613,6 +618,8 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
 }
 
 
+
+
 /* CANONICAL AUTHORITY LOCK V4 — 2026-09-20 */
 
 /* One geometry authority for the approved public mockups. This block only
@@ -669,6 +676,7 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
 
   .pc-cp-page-home .pc-cp-final{min-height:88px}.pc-cp-page-home .pc-cp-final-inner{gap:5px}.pc-cp-page-home .pc-cp-final h2{font-size:22px}.pc-cp-page-home .pc-cp-final p{font-size:7px;line-height:1.2}.pc-cp-page-home .pc-cp-final .pc-cp-button{min-height:29px;font-size:8px}
 }
+
 
 
 /* ---------- MOBILE AUTHORITY HIERARCHY ---------- */
@@ -729,6 +737,8 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
 }
 
 
+
+
 /* CANONICAL AUTHORITY LOCK V5 — exact-canvas alignment after screenshot pass */
 .pc-cp-footer p{color:#596860!important}
 
@@ -755,9 +765,7 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-page-gekta .pc-cp-gekta-public-hero{min-height:225px!important}
 }
 
-.pc-cp-deal-mobile-summary{display:none}
 
-@media(max-width:760px){
 
 /* CANONICAL AUTHORITY LOCK V6 — mobile language/menu fidelity */
 .pc-site-mobile-nav-links{display:grid;gap:2px}
@@ -816,7 +824,9 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
 }
 
 
-/* V5 mobile home action width, kept without the Deal-only rules that surrounded it. */
+
+
+/* V5 mobile home action width without Deal-only rules. */
 @media(max-width:760px){
   .pc-cp-page-home .pc-cp-hero-copy .pc-cp-actions{
     display:grid!important;
