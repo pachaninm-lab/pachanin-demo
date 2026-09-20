@@ -974,7 +974,7 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-bottom-nav{min-height:62px;padding-top:4px}.pc-cp-bottom-nav a{min-height:44px;font-size:9px}.pc-cp-bottom-nav a[data-center='true']{transform:translateY(-8px)}
   .pc-cp-footer{display:none!important}
 
-  .pc-cp-page-home .pc-cp-hero{padding:10px 0 6px;min-height:0;background:#d9b86f url('/platform-v7/wheat-exact-background.svg') center/cover no-repeat}
+  .pc-cp-page-home .pc-cp-hero{padding:10px 0 6px;min-height:0;background:#d9b86f}
   .pc-cp-page-home .pc-cp-hero-media{inset:0!important;width:100%!important;max-width:none!important;height:236px!important;object-fit:cover!important;object-position:70% 35%!important;filter:saturate(.93) contrast(1.02)!important;z-index:-2!important}
   .pc-cp-page-home .pc-cp-hero::after{height:236px!important;background:linear-gradient(90deg,rgba(255,252,243,.94) 0%,rgba(255,252,243,.80) 47%,rgba(255,252,243,.18) 77%,rgba(255,252,243,0) 100%)!important}
   .pc-cp-page-home .pc-cp-hero-copy{min-height:228px!important;gap:5px}.pc-cp-page-home .pc-cp-hero-copy h1{font-size:31px!important;line-height:.91!important;max-width:10.5ch!important}.pc-cp-page-home .pc-cp-hero-copy p{font-size:11px!important;line-height:1.18!important;max-width:245px!important}
@@ -1138,7 +1138,7 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
     border:0!important;
     border-radius:7px!important;
     background:transparent!important;
-    color:#68766f!important;
+    color:#536159!important;
     font-size:9px!important
   }
   .pc-cp-page-deal-flow .pc-cp-deal-public-main .pc-cp-state-tab[data-active='true'][data-state='normal']{
