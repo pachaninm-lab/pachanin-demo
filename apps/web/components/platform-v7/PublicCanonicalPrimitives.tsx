@@ -252,30 +252,30 @@ export function CanonicalBottomNav({ locale, active }: { locale: string; active?
   const lang = canonicalPublicLocale(locale);
   const items = lang === 'ru'
     ? [
-      ['Главная', '/platform-v7', Home],
-      ['Рынок', '/platform-v7/market', Store],
-      ['Сделка', '/platform-v7/how-it-works', Layers3],
-      ['Доверие', '/platform-v7/trust', ShieldCheck],
-      ['Войти', '/platform-v7/login', LogIn],
+      ['Главная', '/platform-v7', Home, false],
+      ['Рынок', '/platform-v7/market', Store, false],
+      ['Регистрация', '/platform-v7/register', UserRound, true],
+      ['Сделка', '/platform-v7/how-it-works', Layers3, false],
+      ['Войти', '/platform-v7/login', LogIn, false],
     ] as const
     : lang === 'en'
       ? [
-        ['Home', '/platform-v7', Home],
-        ['Market', '/platform-v7/market', Store],
-        ['Deal', '/platform-v7/how-it-works', Layers3],
-        ['Trust', '/platform-v7/trust', ShieldCheck],
-        ['Sign in', '/platform-v7/login', LogIn],
+        ['Home', '/platform-v7', Home, false],
+        ['Market', '/platform-v7/market', Store, false],
+        ['Register', '/platform-v7/register', UserRound, true],
+        ['Deal', '/platform-v7/how-it-works', Layers3, false],
+        ['Sign in', '/platform-v7/login', LogIn, false],
       ] as const
       : [
-        ['首页', '/platform-v7', Home],
-        ['市场', '/platform-v7/market', Store],
-        ['交易', '/platform-v7/how-it-works', Layers3],
-        ['信任', '/platform-v7/trust', ShieldCheck],
-        ['登录', '/platform-v7/login', LogIn],
+        ['首页', '/platform-v7', Home, false],
+        ['市场', '/platform-v7/market', Store, false],
+        ['注册', '/platform-v7/register', UserRound, true],
+        ['交易', '/platform-v7/how-it-works', Layers3, false],
+        ['登录', '/platform-v7/login', LogIn, false],
       ] as const;
   return (
     <nav className='pc-cp-bottom-nav' aria-label={lang === 'ru' ? 'Мобильная навигация' : lang === 'en' ? 'Mobile navigation' : '移动导航'}>
-      {items.map(([label, href, Icon]) => <Link href={`${href}?lang=${lang}`} key={href} data-active={active === href ? 'true' : 'false'}><Icon aria-hidden='true' /><span>{label}</span></Link>)}
+      {items.map(([label, href, Icon, center]) => <Link href={`${href}?lang=${lang}`} key={href} data-active={active === href ? 'true' : 'false'} data-center={center ? 'true' : 'false'}><Icon aria-hidden='true' /><span>{label}</span></Link>)}
     </nav>
   );
 }
