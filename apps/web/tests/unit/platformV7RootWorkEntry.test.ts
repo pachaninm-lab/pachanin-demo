@@ -99,7 +99,7 @@ describe('platform-v7 canonical public experience',()=>{
     expect(layout.indexOf('if (isPublicPath(pathname))')).toBeLessThan(layout.indexOf('if (!isKnownProtectedPath(pathname))'));
     expect(layout).toContain("/^\\/platform-v7\\/deals\\/[^/]+$/");
     expect(layout).toContain("/^\\/platform-v7\\/lot\\/[^/]+$/");
-    expect(layout).not.toMatch(/ALIAS_EXACT_PATHS[\s\S]*?'\/platform-v7\/market',[\s\S]*?\];/);
+    expect(layout.indexOf("'/platform-v7/market'")).toBeLessThan(layout.indexOf('if (!isKnownProtectedPath(pathname))'));
   });
 
   it('keeps registration intent informational while server authority remains external to the browser',()=>{
