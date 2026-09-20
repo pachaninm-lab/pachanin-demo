@@ -112,9 +112,9 @@ describe('platform-v7 canonical public experience',()=>{
 
   it('preserves verified login and MFA flow without browser role selection',()=>{
     expect(loginPage).toContain('getPublicLoginCopy(locale)');
-    expect(loginPage).toContain('<LoginFormClient copy={form}/>');
+    expect(loginPage).toContain('<LoginFormClient copy={form} />');
     expect(loginClient).toContain("requestJson('/api/auth/login'");
-    expect(loginClient).toContain("requestJson('/api/auth/mfa/verify'");
+    expect(loginClient).toContain("requestJson('/api/auth/mfa-login'");
     expect(loginClient).not.toContain('/api/platform-v7/cabinet-session');
     expect(loginClient).not.toContain('usePlatformV7RStore');
     expect(loginClient).not.toContain('sessionStorage');
