@@ -87,7 +87,7 @@ class TargetIsolation(unittest.TestCase):
             (root/'next.json').write_text(json.dumps(next_data or {}))
             script=("set -Eeuo pipefail\n" + HELPERS + '\n' +
                     'dc=(docker compose --project-name production)\n' +
-                    f'api_id={API}\nweb_id={WEB}\nprod_project={shlex.quote(project)}\nruntime_project=""\n' +
+                    f'api_id={API}\nweb_id={WEB}\nprod_project={shlex.quote(project)}\nruntime_project=""\nOUTBOX_SERVICE=outbox-worker\nKAFKA_SERVICE=ir20-kafka\n' +
                     'resolve_release_runtime_project\n' + body)
             env={**os.environ, 'PATH':str(root)+os.pathsep+os.environ['PATH'],
                  'FIXTURE_PATH':str(root/'fixture.json'), 'DOCKER_CALLS':str(root/'calls')}
