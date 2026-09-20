@@ -1228,3 +1228,14 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
     color:var(--pc-cp-green)!important
   }
 }
+
+
+/* CANONICAL AUTHORITY LOCK V7 — 1055 desktop must stay desktop-density */
+@media(min-width:761px){
+  .pc-cp-page-home #participants .pc-cp-role-grid{
+    grid-template-columns:repeat(4,minmax(0,1fr))!important
+  }
+  .pc-cp-page-home #trust .pc-cp-trust-grid{
+    grid-template-columns:repeat(4,minmax(0,1fr))!important
+  }
+}
