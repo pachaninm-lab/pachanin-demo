@@ -1514,6 +1514,10 @@
       "scripts/r1-founder-production-acceptance.mjs",
       ".github/workflows/r1-founder-production-acceptance.yml",
       ".github/workflows/ci.yml"
+    ],
+    "bank/release-request-truth-20260920": [
+      "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+      "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx"
     ]
   },
   "currentAcceptance": [
@@ -1612,6 +1616,19 @@
       ".github/workflows/ci.yml"
     ],
     "webHandoffStatus": "deferred to separately admitted non-conflicting server boundary; no visual implementation in this lane",
-    "r11InventoryEvidence": "docs/execution/R1_1_EXACT_INVENTORY_2026-09-20.md"
+    "r11InventoryEvidence": "docs/execution/R1_1_EXACT_INVENTORY_2026-09-20.md",
+    "parallelDependencies": {
+      "bankReleaseRequestTruth": {
+        "owner": "ACCOUNT_2_PRODUCT",
+        "branch": "bank/release-request-truth-20260920",
+        "allowedPaths": [
+          "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+          "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx"
+        ],
+        "authority": "presentation-truthfulness-only",
+        "forbidden": "money/settlement/provider/role/tenant/RLS/API/projection authority changes",
+        "teamHub": "#5469 / dependency 5752421291"
+      }
+    }
   }
 }
