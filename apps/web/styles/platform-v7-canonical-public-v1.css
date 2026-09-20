@@ -854,3 +854,17 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-page-home #deal-path{padding-top:7px}
   .pc-cp-page-home #deal-path .pc-cp-section-head p{display:none}
 }
+
+
+/* FINAL MOBILE HERO AUTHORITY TONE — field without enlarging the LCP bitmap */
+@media(max-width:760px){
+  .pc-cp-page-home .pc-cp-hero{
+    background:
+      linear-gradient(90deg,rgba(241,226,188,.98) 0%,rgba(226,197,132,.92) 54%,rgba(195,155,82,.82) 100%),
+      repeating-linear-gradient(102deg,rgba(118,86,35,.13) 0 2px,transparent 2px 13px),
+      #d2af69;
+  }
+  .pc-cp-page-home .pc-cp-hero::after{
+    background:linear-gradient(90deg,rgba(255,253,246,.86) 0%,rgba(255,253,246,.65) 48%,rgba(255,253,246,.18) 78%,rgba(255,253,246,.02) 100%);
+  }
+}
