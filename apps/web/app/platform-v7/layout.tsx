@@ -217,7 +217,6 @@ const CANONICAL_PUBLIC_NO_LEGACY_DOCK = new Set([
 
 function shouldMountLegacyPublicDock(pathname: string) {
   if (CANONICAL_PUBLIC_NO_LEGACY_DOCK.has(pathname)) return false;
-  if (pathname.startsWith('/platform-v7/market/')) return false;
   return true;
 }
 
