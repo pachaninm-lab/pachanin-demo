@@ -264,7 +264,7 @@ function MarketPreviewState({ locale, kind, limit }: { locale: CanonicalPublicLo
   return (
     <div className='pc-cp-market-preview-state' data-market-state={kind}>
       <div className='pc-cp-market-preview-alert'><ShieldCheck size={16} aria-hidden='true'/><strong>{title}</strong><span>{text}</span></div>
-      <div className='pc-cp-market-grid pc-cp-market-grid--preview pc-cp-market-grid--empty' data-testid='canonical-market-preview'>
+      <div className='pc-cp-market-grid pc-cp-market-grid--preview pc-cp-market-grid--empty' data-testid='canonical-market-preview' tabIndex={0} aria-label={locale === 'ru' ? 'Публичные лоты: данных пока нет' : locale === 'en' ? 'Public lots: no data yet' : '公开批次：暂无数据'}>
         {Array.from({length:Math.max(1,Math.min(limit,4))},(_,index)=><EmptyLotCard key={index} locale={locale} index={index}/>)}
       </div>
     </div>
