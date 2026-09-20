@@ -1,7 +1,7 @@
 import '@/styles/platform-v7-canonical-public-v1.css';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, Bot, FileCheck2, Route, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowRight, BarChart3, Bot, Calculator, FileCheck2, Route, Search, ShieldCheck, Sparkles } from 'lucide-react';
 import { getLocale } from 'next-intl/server';
 import {
   CanonicalBottomNav,
@@ -62,36 +62,46 @@ zh:{
  ['决定','Gekta 负责解释，不独立执行关键操作'],
  ],prompt:'询问上下文、风险或下一步',trust:'打开信任模型',register:'注册'
 }} as const;
-const ICONS=[Sparkles,ShieldCheck,FileCheck2,Route] as const;
+const ICONS=[Search,ShieldCheck,BarChart3,FileCheck2,Calculator,Route] as const;
 
 export default async function PublicGektaPage(){
  const locale=canonicalPublicLocale(await getLocale());const c=COPY[locale];
  return <main className='pc-canonical-public pc-cp-page-gekta'>
   <CanonicalPublicHeader locale={locale} activePath='/platform-v7/ai-in-action'/>
-  <section className='pc-cp-gekta-public-hero' style={{background:'#0b4f3a',color:'#fff',padding:'52px 0 30px'}}>
+  <section className='pc-cp-gekta-public-hero'>
    <div className='pc-cp-container'>
-    <div className='pc-cp-section-head' style={{maxWidth:900}}>
-      <span className='pc-cp-eyebrow' style={{color:'#cce3d8'}}>{c.e}</span>
-      <h1 style={{color:'#fff'}}>{c.t}</h1><p style={{color:'#d8e8e0'}}>{c.p}</p>
+    <div className='pc-cp-gekta-hero-grid'>
+      <div className='pc-cp-section-head'>
+        <span className='pc-cp-eyebrow'>{c.e}</span>
+        <h1>{c.t}<span> AI</span></h1><p>{c.p}</p>
+      </div>
+      <aside className='pc-cp-gekta-hero-quote'><strong>{locale==='ru'?'«Больше ясности на каждом этапе Сделки»':locale==='en'?'“More clarity at every Deal stage”':'“交易每个阶段都更清晰”'}</strong><span>— Гекта</span></aside>
     </div>
+    <div className='pc-cp-gekta-benefits'>
+      {[locale==='ru'?'На основе данных платформы':locale==='en'?'Based on platform data':'基于平台数据',locale==='ru'?'С указанием источников':locale==='en'?'With source references':'标明来源',locale==='ru'?'Учитывает правила и риски':locale==='en'?'Accounts for rules and risk':'考虑规则与风险',locale==='ru'?'Помогает принять решение быстрее':locale==='en'?'Helps decide faster':'帮助更快决策'].map((x,i)=><span key={x}><i>{i+1}</i>{x}</span>)}
+    </div>
+   </div>
+  </section>
+  <section className='pc-cp-gekta-workspace-section'>
+   <div className='pc-cp-container'>
     <div className='pc-cp-gekta-workspace'>
       <aside className='pc-cp-card pc-cp-gekta-panel pc-cp-gekta-context'>
         <Bot size={24}/><h2>{c.context}</h2>
+        <span className='pc-cp-chip'><ShieldCheck size={12}/>{locale==='ru'?'Только разрешённый контекст':locale==='en'?'Authorised context only':'仅限授权上下文'}</span>
         <ul>{c.contextItems.map(x=><li key={x}>{x}</li>)}</ul>
       </aside>
-      <section className='pc-cp-card pc-cp-gekta-panel'>
-        <span className='pc-cp-eyebrow'>{c.e}</span><h2 style={{fontSize:34,marginTop:6}}>{c.ask}</h2>
-        <div className='pc-cp-gekta-cards'>{c.cards.map(([title,text],i)=>{const Icon=ICONS[i]!;return <article className='pc-cp-gekta-action' key={title}><Icon size={19} style={{color:'var(--pc-cp-green)'}}/><strong style={{marginTop:8}}>{title}</strong><p>{text}</p></article>})}</div>
-        <div style={{marginTop:14,padding:14,border:'1px solid var(--pc-cp-line)',borderRadius:14,display:'flex',gap:10,alignItems:'center'}}>
-          <Bot size={18} style={{color:'var(--pc-cp-green)'}}/><span style={{color:'var(--pc-cp-muted)',fontSize:13}}>{c.prompt}</span>
-        </div>
+      <section className='pc-cp-card pc-cp-gekta-panel pc-cp-gekta-main-panel'>
+        <div className='pc-cp-gekta-main-head'><Bot size={28}/><div><span className='pc-cp-eyebrow'>{c.e}</span><h2>{locale==='ru'?'Гекта работает с контекстом вашей Сделки':locale==='en'?'Gekta works with your Deal context':'Gekta 基于你的交易上下文工作'}</h2></div></div>
+        <div className='pc-cp-gekta-cards'>{c.cards.map(([title,text],i)=>{const Icon=ICONS[i]!;return <article className='pc-cp-gekta-action' key={title}><Icon size={19}/><strong>{title}</strong><p>{text}</p></article>})}</div>
+        <div className='pc-cp-gekta-prompts'>{[c.prompt,locale==='ru'?'Какие риски при приёмке?':locale==='en'?'What are the acceptance risks?':'验收有什么风险？',locale==='ru'?'Что влияет на цену?':locale==='en'?'What affects price?':'什么影响价格？'].map(x=><span key={x}>{x}<ArrowRight size={13}/></span>)}</div>
+        <div className='pc-cp-gekta-composer'><Bot size={18}/><span>{c.prompt}</span><button type='button' aria-label={locale==='ru'?'Отправить запрос':locale==='en'?'Send query':'发送查询'}><ArrowRight size={17}/></button></div>
       </section>
-      <aside className='pc-cp-card pc-cp-gekta-panel'>
-        <span className='pc-cp-eyebrow'>{c.sources}</span><h3 style={{fontSize:24,marginTop:6}}>{c.sources}</h3>
+      <aside className='pc-cp-card pc-cp-gekta-panel pc-cp-gekta-sources-panel'>
+        <span className='pc-cp-eyebrow'>{c.sources}</span><h3>{c.sources}</h3>
         <div className='pc-cp-gekta-source'>{c.sourceRows.map(([title,text])=><div key={title}><span>{title}</span><strong>{text}</strong></div>)}</div>
-        <div className='pc-cp-actions' style={{marginTop:14,display:'grid'}}>
+        <div className='pc-cp-gekta-stage-list'><strong>{locale==='ru'?'Этапы, которые Гекта может объяснить':locale==='en'?'Stages Gekta can explain':'Gekta 可解释的阶段'}</strong><span>{locale==='ru'?'Качество':locale==='en'?'Quality':'质量'}</span><span>{locale==='ru'?'Расчёт':locale==='en'?'Settlement':'结算'}</span><span>{locale==='ru'?'Логистика':locale==='en'?'Logistics':'物流'}</span></div>
+        <div className='pc-cp-actions'>
           <Link className='pc-cp-button' href={`/platform-v7/trust?lang=${locale}`}>{c.trust}<ArrowRight size={16}/></Link>
-          <Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/register?lang=${locale}`}>{c.register}</Link>
         </div>
       </aside>
     </div>
