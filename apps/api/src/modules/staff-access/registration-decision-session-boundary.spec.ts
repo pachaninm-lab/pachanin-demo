@@ -43,7 +43,6 @@ describe('registration review staff access session boundary', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
       registrationDecisions as never,
     );
     const user = { id: 'staff-reviewer' } as never;
@@ -66,7 +65,6 @@ describe('registration review staff access session boundary', () => {
     };
     const controller = new StaffAccessController(
       access as never,
-      {} as never,
       {} as never,
       {} as never,
       {} as never,
