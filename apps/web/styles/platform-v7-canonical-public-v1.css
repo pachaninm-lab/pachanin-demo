@@ -204,7 +204,7 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-text small{display:none!important}
   .pc-canonical-header-actions{display:none!important}
   .pc-cp-mobile-only{display:flex!important}
-  .pc-cp-hero{min-height:0;padding:26px 0 16px}.pc-cp-hero-media{height:410px;object-position:center top}.pc-cp-hero::after{height:410px;background:linear-gradient(90deg,rgba(251,250,246,.96) 0%,rgba(251,250,246,.78) 47%,rgba(251,250,246,.05) 82%)}
+  .pc-cp-hero{min-height:0;padding:26px 0 16px}.pc-cp-hero-media{inset:0 0 auto auto;width:34%;max-width:150px;height:300px;object-position:center top}.pc-cp-hero::after{height:410px;background:linear-gradient(90deg,rgba(251,250,246,.98) 0%,rgba(251,250,246,.90) 52%,rgba(251,250,246,.28) 78%,rgba(251,250,246,.04) 100%)}
   .pc-cp-hero-grid{grid-template-columns:1fr;gap:14px}.pc-cp-hero-copy{gap:10px;min-height:360px;align-content:start}.pc-cp-hero-copy h1{font-size:clamp(38px,10.5vw,48px);max-width:10.4ch}.pc-cp-hero-copy p{font-size:14px;max-width:300px}.pc-cp-deal-lens{margin-top:10px}
   .pc-cp-deal-lens{padding:15px;border-radius:16px}.pc-cp-deal-lens-head strong{font-size:21px}.pc-cp-deal-lens-grid{gap:8px}.pc-cp-deal-lens-cell{min-height:68px;padding:10px}
   .pc-cp-market-toolbar{grid-template-columns:1fr}.pc-cp-market-layout{grid-template-columns:1fr}.pc-cp-market-aside{display:none}
@@ -233,7 +233,7 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-text strong{font-size:13px!important;white-space:nowrap!important}
   .pc-site-header[data-public-site-header='canonical'] .pc-site-locale-switch{width:44px!important;min-width:44px!important}
   .pc-site-header[data-public-site-header='canonical'] .pc-site-mobile-menu>summary{width:48px!important;min-width:48px!important;height:48px!important;min-height:48px!important}
-  .pc-cp-hero{padding-top:30px}.pc-cp-hero-copy h1{font-size:41px}.pc-cp-actions{display:grid;grid-template-columns:1fr 1fr}.pc-cp-actions .pc-cp-button{width:100%;padding-inline:10px}
+  .pc-cp-hero{padding-top:30px}.pc-cp-hero-media{width:32%;max-width:132px;height:286px}.pc-cp-hero-copy h1{font-size:41px}.pc-cp-actions{display:grid;grid-template-columns:1fr 1fr}.pc-cp-actions .pc-cp-button{width:100%;padding-inline:10px}
   .pc-cp-hero-proof{gap:6px}.pc-cp-hero-proof span{font-size:10px;min-height:30px}
   .pc-cp-role-grid,.pc-cp-trust-grid,.pc-cp-capabilities{grid-template-columns:1fr}
   .pc-cp-deal-lens-grid{grid-template-columns:1fr 1fr}.pc-cp-lot-card{grid-template-columns:96px minmax(0,1fr)}.pc-cp-lot-meta{grid-template-columns:1fr}
