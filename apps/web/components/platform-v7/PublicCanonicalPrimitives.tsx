@@ -99,10 +99,12 @@ export function CanonicalPublicHeader({
   locale,
   activePath,
   actions = true,
+  localeControl,
 }: {
   locale: string;
   activePath?: string;
-  actions?: boolean;
+  actions?: boolean | ReactNode;
+  localeControl?: ReactNode;
 }) {
   const lang = canonicalPublicLocale(locale);
   const copy = ACTIONS[lang];
@@ -125,13 +127,13 @@ export function CanonicalPublicHeader({
       menuLabel={copy.menu}
       nav={nav}
       showMobileMenu
-      localeControl={<PublicLocaleLink />}
-      actions={actions ? (
+      localeControl={localeControl ?? <PublicLocaleLink />}
+      actions={actions === false ? <span className='pc-canonical-header-actions' /> : actions === true ? (
         <div className='pc-canonical-header-actions'>
           <Link className='entry-login' href={`/platform-v7/login${suffix}`}>{copy.login}</Link>
           <Link className='pc-v6-header-cta' href={`/platform-v7/register${suffix}`}>{copy.register}</Link>
         </div>
-      ) : <span className='pc-canonical-header-actions' />}
+      ) : actions}
     />
   );
 }
