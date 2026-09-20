@@ -3,8 +3,8 @@ import { Role, type RequestUser } from '../../src/common/types/request-user';
 import {
   FOUNDER_ROLE_MODE_CABINETS,
   FOUNDER_ROLE_MODE_RESTRICTIONS,
-} from '../../src/modules/staff-access/founder-role-mode.contract';
-import { FounderRoleModeService } from '../../src/modules/staff-access/founder-role-mode.service';
+  StaffAccessService,
+} from '../../src/modules/staff-access/staff-access.service';
 import {
   StaffAccessMode,
   StaffPermission,
@@ -29,35 +29,32 @@ function fixture(scope: { tenant_id: string | null; organization_id: string | nu
   organization_id: 'org-real',
   user_id: null,
 }) {
-  const access = {
-    requireActivePlatformOwner: jest.fn().mockResolvedValue({
+  const repository: any = {
+    prisma: {},
+    listActiveAssignments: jest.fn().mockResolvedValue([{
       id: 'assignment-owner',
       user_id: owner.id,
       role: StaffRole.PLATFORM_OWNER,
       status: 'ACTIVE',
-    }),
-    requestAccess: jest.fn().mockResolvedValue({
-      requestId: 'sar-role-mode',
-      status: 'GRANTED',
-      grantId: 'sag-role-mode',
-      expiresAt: new Date(Date.now() + 900_000).toISOString(),
-    }),
-  } as any;
-  const repository = {
-    prisma: {},
+      valid_from: new Date(0),
+      valid_until: null,
+    }]),
     resolveTargetScope: jest.fn().mockResolvedValue(scope),
-  } as any;
-  return {
-    service: new FounderRoleModeService(access, repository),
-    access,
-    repository,
   };
+  const service = new StaffAccessService(repository);
+  const requestAccess = jest.spyOn(service, 'requestAccess').mockResolvedValue({
+    requestId: 'sar-role-mode',
+    status: 'GRANTED',
+    grantId: 'sag-role-mode',
+    expiresAt: new Date(Date.now() + 900_000).toISOString(),
+  });
+  return { service, repository, requestAccess };
 }
 
-describe('FounderRoleModeService', () => {
+describe('StaffAccessService founder role mode', () => {
   it('exposes one server-owned exact 13-cabinet registry', async () => {
     const { service } = fixture();
-    const result = await service.registry(owner);
+    const result = await service.founderRoleModeRegistry(owner);
 
     expect(result.cabinets).toHaveLength(13);
     expect(new Set(result.cabinets.map((item) => item.key)).size).toBe(13);
@@ -72,15 +69,14 @@ describe('FounderRoleModeService', () => {
   });
 
   it('derives tenant and effective role server-side and reuses the durable VIEW_AS flow', async () => {
-    const { service, access, repository } = fixture();
+    const { service, requestAccess, repository } = fixture();
 
-    const result = await service.request(owner, {
+    const result = await service.requestFounderRoleMode(owner, {
       cabinetKey: 'buyer',
       organizationId: 'org-real',
       reason: 'Founder inspecting the real buyer cabinet',
       ticketId: 'R1-ROLE-001',
       durationSeconds: 600,
-      // Extra properties are deliberately ignored by the service implementation.
       targetTenantId: 'tenant-forged',
       targetRole: Role.ADMIN,
     } as any, 'corr-r1');
@@ -90,7 +86,7 @@ describe('FounderRoleModeService', () => {
       assignmentId: 'assignment-owner',
       targetOrganizationId: 'org-real',
     });
-    expect(access.requestAccess).toHaveBeenCalledWith(owner, {
+    expect(requestAccess).toHaveBeenCalledWith(owner, {
       assignmentId: 'assignment-owner',
       accessMode: StaffAccessMode.VIEW_AS,
       permissions: [
@@ -115,9 +111,9 @@ describe('FounderRoleModeService', () => {
   });
 
   it('rejects a cabinet key outside the server registry before creating authority', async () => {
-    const { service, access, repository } = fixture();
+    const { service, requestAccess, repository } = fixture();
 
-    await expect(service.request(owner, {
+    await expect(service.requestFounderRoleMode(owner, {
       cabinetKey: 'invented-admin-role',
       organizationId: 'org-real',
       reason: 'Attempt to forge a cabinet role safely',
@@ -125,36 +121,36 @@ describe('FounderRoleModeService', () => {
     })).rejects.toBeInstanceOf(BadRequestException);
 
     expect(repository.resolveTargetScope).not.toHaveBeenCalled();
-    expect(access.requestAccess).not.toHaveBeenCalled();
+    expect(requestAccess).not.toHaveBeenCalled();
   });
 
   it('fails closed when the organization scope cannot be resolved', async () => {
-    const { service, access } = fixture(null);
+    const { service, requestAccess } = fixture(null);
 
-    await expect(service.request(owner, {
+    await expect(service.requestFounderRoleMode(owner, {
       cabinetKey: 'seller',
       organizationId: 'org-unknown',
       reason: 'Founder inspecting a real seller cabinet',
       ticketId: 'R1-NEG-002',
     })).rejects.toBeInstanceOf(ForbiddenException);
 
-    expect(access.requestAccess).not.toHaveBeenCalled();
+    expect(requestAccess).not.toHaveBeenCalled();
   });
 
   it.each([
     { tenant_id: 'tenant-canonical-test', organization_id: 'org-real', user_id: null },
     { tenant_id: 'tenant-real', organization_id: 'org-canonical-buyer', user_id: null },
   ])('never counts controlled test targets as R1 production role-mode authority', async (scope) => {
-    const { service, access } = fixture(scope);
+    const { service, requestAccess } = fixture(scope);
 
-    await expect(service.request(owner, {
+    await expect(service.requestFounderRoleMode(owner, {
       cabinetKey: 'buyer',
       organizationId: scope.organization_id!,
       reason: 'Founder role mode must use real production organization data',
       ticketId: 'R1-NEG-003',
     })).rejects.toBeInstanceOf(ForbiddenException);
 
-    expect(access.requestAccess).not.toHaveBeenCalled();
+    expect(requestAccess).not.toHaveBeenCalled();
   });
 
   it('returns a versioned read-only consumer session contract from durable VIEW_AS context', async () => {
@@ -180,7 +176,7 @@ describe('FounderRoleModeService', () => {
       expiresAt: new Date('2026-09-21T00:00:00.000Z'),
     };
 
-    const result = await service.session(owner, context);
+    const result = await service.founderRoleModeSession(owner, context);
 
     expect(result).toEqual(expect.objectContaining({
       active: true,
@@ -224,7 +220,7 @@ describe('FounderRoleModeService', () => {
       expiresAt: new Date(Date.now() + 60_000),
     } as StaffAccessContext;
 
-    await expect(service.session(owner, context)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.founderRoleModeSession(owner, context)).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it('rejects a role-mode session carrying non-canonical or write-capable permissions', async () => {
@@ -245,6 +241,6 @@ describe('FounderRoleModeService', () => {
       expiresAt: new Date(Date.now() + 60_000),
     } as StaffAccessContext;
 
-    await expect(service.session(owner, context)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.founderRoleModeSession(owner, context)).rejects.toBeInstanceOf(ForbiddenException);
   });
 });
