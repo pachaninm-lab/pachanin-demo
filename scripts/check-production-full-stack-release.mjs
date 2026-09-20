@@ -274,6 +274,10 @@ requireAll('executor', [
   'WATCHTOWER_RETIRED=1',
   'DEPLOYMENT_COMPLETE=1',
 ]);
+const liveOutboxPassSource = String.raw`IR20_LIVE_OUTBOX_DELIVERY=PASS\n`;
+const doubleEscapedLiveOutboxPassSource = String.raw`IR20_LIVE_OUTBOX_DELIVERY=PASS\\n`;
+if (!(text.executor ?? '').includes(liveOutboxPassSource)) failures.push(`${paths.executor}: missing newline-terminated IR20 live delivery PASS marker`);
+if ((text.executor ?? '').includes(doubleEscapedLiveOutboxPassSource)) failures.push(`${paths.executor}: IR20 live delivery PASS marker must not be double-escaped`);
 requireAll('live', [
   'for locale in ru en zh',
   '?lang=$locale&release=$TARGET_SHA&run=$RELEASE_RUN_ID',
