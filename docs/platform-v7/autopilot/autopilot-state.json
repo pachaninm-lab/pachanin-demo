@@ -1513,6 +1513,15 @@
       "scripts/release/test-ir20-api-database-binding-integration.py",
       ".github/workflows/ir20-api-database-binding.yml",
       "docs/ops/ir20-api-database-binding.md"
+    ],
+    "ops/production-full-stack-release-v1": [
+      ".github/workflows/production-full-stack-exact-sha.yml",
+      "scripts/production-full-stack-exact-sha.sh",
+      "scripts/check-production-full-stack-release.mjs",
+      "scripts/test-production-release-target-isolation.py",
+      "scripts/release/verify-production-image-binding.py",
+      "scripts/release/test-production-image-binding.py",
+      "docs/platform-v7/autopilot/scopes/production-full-stack-release-v1.json"
     ]
   },
   "currentAcceptance": [
