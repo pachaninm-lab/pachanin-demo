@@ -1,550 +1,381 @@
-import { getLocale, getTranslations } from 'next-intl/server';
+import Link from 'next/link';
+import { getLocale } from 'next-intl/server';
 import {
   ArrowRight,
-  CheckCircle2,
-  CircleDollarSign,
-  Download,
+  BadgeCheck,
+  Banknote,
   FileCheck2,
-  FlaskConical,
-  Link2,
-  LogIn,
-  MapPinned,
-  ScanSearch,
+  Handshake,
+  Scale,
   ShieldCheck,
-  Sparkles,
-  TriangleAlert,
-  Waypoints,
+  Truck,
+  Wheat,
 } from 'lucide-react';
-import { PublicSiteHeader } from './PublicSiteHeader';
-import { PublicLocaleLink } from './PublicLocaleLink';
-import { PublicExperienceLink, PublicExperiencePageView } from './PublicExperienceAnalytics';
-import { PublicDealRoleScenario } from './PublicDealRoleScenario';
-import { PublicMarketTeaser } from './PublicMarketTeaser';
-import { OrganizationConnectForm } from './OrganizationConnectForm';
-import { PlatformV7AccountingClosureValue } from './PlatformV7AccountingClosureValue';
-import { getPlatformV7HomeCopy } from '@/i18n/platform-v7-home-v3';
-import { getPlatformV7HeroMessage } from '@/i18n/platform-v7-hero-message';
-import { getPlatformV7HomeStoryCopy } from '@/i18n/platform-v7-home-story';
-import { GEKTA_PATHS } from '@/lib/gekta/content';
-import { GektaFloatingEntry } from '@/components/gekta/GektaFloatingEntry';
-import '@/styles/platform-v7-public-assistant.css';
-import '@/styles/platform-v7-public-assistant-shortcut.css';
-import '@/styles/platform-v7-public-assistant-mobile-fix.css';
-import '@/styles/platform-v7-unified-modal-fullscreen.css';
-import styles from './PlatformV7StrategicHomeStory.module.css';
+import {
+  CAPABILITIES,
+  CANONICAL_ROLES,
+  CanonicalBottomNav,
+  CanonicalDealSpine,
+  CanonicalFooter,
+  CanonicalGektaStrip,
+  CanonicalPublicHeader,
+  CanonicalStateLens,
+  CanonicalTrustLedger,
+  canonicalPublicLocale,
+} from './PublicCanonicalPrimitives';
+import { CanonicalMarketPreview } from './PublicCanonicalMarket';
 
-type Locale = 'ru' | 'en' | 'zh';
-type SectionHeaderProps = { id: string; eyebrow: string; title: string; lead?: string };
-
-function SectionHeader({ id, eyebrow, title, lead }: SectionHeaderProps) {
-  return (
-    <div className='pc-v6-section-head'>
-      <span>{eyebrow}</span>
-      <h2 id={id}>{title}</h2>
-      {lead ? <p>{lead}</p> : null}
-    </div>
-  );
-}
-
-const functionIcons = [
-  CircleDollarSign,
-  FileCheck2,
-  MapPinned,
-  FlaskConical,
-  FileCheck2,
-  CircleDollarSign,
-  TriangleAlert,
-  ShieldCheck,
-] as const;
-
-const proofIcons = [Link2, ShieldCheck, FileCheck2, Sparkles] as const;
-const stateInputClasses = [styles.stateNormal, styles.stateDeviation, styles.stateDispute] as const;
-const stateTabClasses = [styles.tabNormal, styles.tabDeviation, styles.tabDispute] as const;
-const statePanelClasses = [styles.panelNormal, styles.panelDeviation, styles.panelDispute] as const;
-const MARKET_NAV_LABEL: Record<Locale, string> = {
-  ru: 'Рынок',
-  en: 'Market',
-  zh: '市场',
-};
-
-const TRUST_COPY = {
+const COPY = {
   ru: {
-    eyebrow: 'Доверие и контроль',
-    title: 'Доверие встроено в логику одной Сделки',
-    lead: 'Полномочия определяются ролью и организацией, основания остаются связаны с действиями и документами, а внешние системы взаимодействуют через отдельные разрешённые контуры.',
-    cards: [
-      ['Ролевые полномочия', 'Публичный выбор роли ничего не открывает. Реальные права назначаются после регистрации и проверки организации.'],
-      ['Связная история', 'Условия, события, документы, решения и основания остаются связаны с конкретной Сделкой.'],
-      ['Граница внешних систем', '1С, ЭДО, финансовые и государственные системы взаимодействуют через отдельные контуры; платформа не приписывает им действий без внешнего основания.'],
+    heroKicker: 'Единый контур агросделки',
+    heroTitle: 'Агросделка. От товара и цены — до результата.',
+    heroLead: 'Лот, торги, обязательства, доставка, качество, документы, расчёт и закрытие связаны в одной Сделке — с понятными полномочиями, основаниями и следующим шагом.',
+    sell: 'Продать',
+    buy: 'Купить',
+    proof: ['Реальные публичные лоты', '9 ролей', '7 этапов', 'Факты и основания'],
+    lens: 'Deal Lens',
+    lensState: 'Структура Сделки',
+    lensCells: [
+      ['Объект', 'Одна сквозная Сделка'],
+      ['Полномочия', 'Только подтверждённой роли'],
+      ['Состояние', 'Норма · Отклонение · Спор'],
+      ['Источник', 'Связанные факты и документы'],
     ],
-    trust: 'Открыть центр доверия',
-    contact: 'Связаться с платформой',
+    lensNext: 'Следующий шаг определяется состоянием Сделки и полномочиями участника.',
+    marketEyebrow: 'Рынок',
+    marketTitle: 'Публичные лоты без вымышленных данных',
+    marketLead: 'Показываем только обезличенные лоты, которые сервер разрешил к публичной публикации. Если актуальных данных нет — интерфейс честно показывает это.',
+    openMarket: 'Открыть рынок',
+    dealEyebrow: 'Сквозная Сделка',
+    dealTitle: 'Семь этапов в одном контексте',
+    dealLead: 'Этапы не живут отдельными экранами: каждый следующий шаг связан с ответственным участником, основанием, источником факта и влиянием на расчёт.',
+    whoEyebrow: 'Для кого',
+    whoTitle: 'Один дизайн-язык для всех участников',
+    groups: [
+      ['Продать', 'Продавец размещает товар и ведёт исполнение до закрытия Сделки.'],
+      ['Купить', 'Покупатель видит рынок, условия, исполнение, качество и документы.'],
+      ['Исполнить Сделку', 'Логистика, водитель, элеватор, лаборатория и сюрвейер работают в своём контексте.'],
+      ['Финансы', 'Банк работает только с подтверждённым основанием и доступным ему контекстом.'],
+    ],
+    rolesLabel: '9 канонических ролей',
+    liveEyebrow: 'Сделка в работе',
+    liveTitle: 'Норма, отклонение и спор — один рабочий контур',
+    liveLead: 'Критическое состояние отвечает на пять вопросов: что произошло, кто действует, на каком основании, что с расчётом и какой следующий шаг допустим.',
+    state: {
+      happened: 'Рабочий экран показывает фактическое состояние без подмены серверных данных.',
+      actor: 'Только участник с подтверждённой ролью и доступом к Сделке.',
+      basis: 'Условия, событие, документ или иное подтверждённое основание.',
+      settlement: 'Финансовый статус не выбирается клиентом и зависит от подтверждённых оснований.',
+      next: 'Доступное действие определяется серверным контекстом и полномочиями.',
+    },
+    trustEyebrow: 'Доверие',
+    trustTitle: 'Полномочия → Основание → Источник → Решение',
+    trustLead: 'Этот порядок одинаков для рынка, исполнения Сделки, документов, финансового шага и разбора исключений.',
+    gektaEyebrow: 'Гекта',
+    gektaTitle: 'Интеллект внутри контекста, а не вместо полномочий',
+    opportunitiesEyebrow: 'Возможности',
+    opportunitiesTitle: 'Одна система вместо разрозненных контуров',
+    capability: {
+      market: ['Рынок', 'Публичные обезличенные лоты и безопасный вход в торговый контур.'],
+      trading: ['Торги', 'Выбор контрагента и фиксация результата торгов в контексте Сделки.'],
+      commitments: ['Обязательства', 'Условия и ответственность сторон остаются связаны с исполнением.'],
+      delivery: ['Доставка', 'Роль логистики и водителя встроена в путь Сделки.'],
+      acceptance: ['Приёмка и качество', 'Факты приёмки и качества влияют на разрешённый следующий шаг.'],
+      documents: ['Документы', 'Документы и события не оторваны от конкретной Сделки.'],
+      settlement: ['Расчёт', 'Платформа показывает основание; финансовое событие остаётся внешне подтверждаемым.'],
+      dispute: ['Спор', 'Исключение разбирается по связанным фактам, основаниям и журналу действий.'],
+      trust: ['Доверие', 'Полномочия, основание, источник и решение видимы в рабочем контексте.'],
+      gekta: ['Гекта', 'Объясняет контекст, риск и допустимый следующий шаг без самостоятельной критической власти.'],
+      roles: ['Роли', 'Каждый участник видит только разрешённый ему рабочий контекст.'],
+      history: ['История', 'События Сделки сохраняют связь с фактом, участником и основанием.'],
+    },
+    finalTitle: 'Начни с рынка или своей роли в Сделке',
+    finalText: 'Регистрация создаёт заявку на подключение. Реальные права появляются только после серверной проверки организации и полномочий.',
+    register: 'Регистрация',
+    contact: 'Контакты',
   },
   en: {
-    eyebrow: 'Trust and control',
-    title: 'Trust is built into the logic of one Deal',
-    lead: 'Authority follows the role and organisation, evidence stays linked to actions and documents, and external systems interact through separate authorised circuits.',
-    cards: [
-      ['Role authority', 'Choosing a role publicly grants nothing. Actual permissions follow registration and organisation verification.'],
-      ['Connected history', 'Terms, events, documents, decisions and evidence remain linked to the specific Deal.'],
-      ['External-system boundary', '1C, EDI, financial and government systems interact through separate circuits; the platform does not attribute actions to them without external evidence.'],
+    heroKicker: 'One agricultural Deal flow',
+    heroTitle: 'The agricultural Deal. From product and price to outcome.',
+    heroLead: 'Lot, trading, commitments, delivery, quality, documents, settlement and closure stay connected in one Deal with clear authority, evidence and the next permitted step.',
+    sell: 'Sell',
+    buy: 'Buy',
+    proof: ['Real public lots', '9 roles', '7 stages', 'Facts and evidence'],
+    lens: 'Deal Lens',
+    lensState: 'Deal structure',
+    lensCells: [
+      ['Object', 'One end-to-end Deal'],
+      ['Authority', 'Confirmed role only'],
+      ['State', 'Normal · Deviation · Dispute'],
+      ['Source', 'Connected facts and documents'],
     ],
-    trust: 'Open Trust Center',
-    contact: 'Contact the platform',
+    lensNext: 'The next step follows Deal state and participant authority.',
+    marketEyebrow: 'Market',
+    marketTitle: 'Public lots without fabricated data',
+    marketLead: 'Only anonymised lots admitted by the server for public publication are shown. If current data is unavailable, the interface says so.',
+    openMarket: 'Open market',
+    dealEyebrow: 'End-to-end Deal',
+    dealTitle: 'Seven stages in one context',
+    dealLead: 'Stages are not isolated screens: each next step is tied to the responsible participant, basis, fact source and settlement impact.',
+    whoEyebrow: 'For whom',
+    whoTitle: 'One design language for every participant',
+    groups: [
+      ['Sell', 'The seller lists product and manages execution through Deal closure.'],
+      ['Buy', 'The buyer sees market, terms, execution, quality and documents.'],
+      ['Execute the Deal', 'Logistics, driver, elevator, laboratory and surveyor work in their own authorised context.'],
+      ['Finance', 'The bank works only with confirmed basis and the context available to it.'],
+    ],
+    rolesLabel: '9 canonical roles',
+    liveEyebrow: 'Deal in progress',
+    liveTitle: 'Normal, deviation and dispute in one working context',
+    liveLead: 'A critical state answers five questions: what happened, who acts, on what basis, what happens to settlement and what the next permitted step is.',
+    state: {
+      happened: 'The workspace shows actual state without replacing server data.',
+      actor: 'Only a participant with a confirmed role and Deal access.',
+      basis: 'Terms, event, document or another confirmed basis.',
+      settlement: 'Financial state is not client-selected and depends on confirmed basis.',
+      next: 'Available action follows server context and authority.',
+    },
+    trustEyebrow: 'Trust',
+    trustTitle: 'Authority → Basis → Source → Decision',
+    trustLead: 'The same order applies to market, Deal execution, documents, the financial step and exception handling.',
+    gektaEyebrow: 'Gekta',
+    gektaTitle: 'Intelligence inside context, never instead of authority',
+    opportunitiesEyebrow: 'Capabilities',
+    opportunitiesTitle: 'One system instead of disconnected circuits',
+    capability: {
+      market: ['Market', 'Public anonymised lots and a safe entry into trading.'],
+      trading: ['Trading', 'Counterparty selection and trading outcome remain in Deal context.'],
+      commitments: ['Commitments', 'Terms and responsibilities stay connected to execution.'],
+      delivery: ['Delivery', 'Logistics and driver roles are part of the Deal path.'],
+      acceptance: ['Acceptance and quality', 'Acceptance and quality facts affect the permitted next step.'],
+      documents: ['Documents', 'Documents and events stay tied to the specific Deal.'],
+      settlement: ['Settlement', 'The platform shows basis; the financial event remains externally confirmed.'],
+      dispute: ['Dispute', 'Exceptions are reviewed using connected facts, evidence and the action log.'],
+      trust: ['Trust', 'Authority, basis, source and decision remain visible in context.'],
+      gekta: ['Gekta', 'Explains context, risk and the permitted next step without independent critical authority.'],
+      roles: ['Roles', 'Each participant sees only its authorised working context.'],
+      history: ['History', 'Deal events remain linked to fact, participant and basis.'],
+    },
+    finalTitle: 'Start with the market or your role in the Deal',
+    finalText: 'Registration creates a connection request. Actual rights appear only after server-side organisation and authority checks.',
+    register: 'Register',
+    contact: 'Contact',
   },
   zh: {
-    eyebrow: '信任与控制',
-    title: '信任边界内置于同一笔交易逻辑中',
-    lead: '权限由角色和机构决定，依据始终与操作和文件关联；外部系统通过独立、获授权的交互通道与平台协作。',
-    cards: [
-      ['角色权限', '公开页面选择角色不会授予任何权限。真实权限在注册和机构核验后确定。'],
-      ['关联历史', '条件、事件、文件、决定和依据都与具体交易保持关联。'],
-      ['外部系统边界', '1C、电子单据、金融和政府系统通过独立通道交互；没有外部依据时，平台不会把动作归因于这些系统。'],
+    heroKicker: '统一农业交易流程',
+    heroTitle: '农业交易。从商品与价格，到最终结果。',
+    heroLead: '批次、交易、义务、交付、质量、文件、结算和关闭保持在同一笔交易中，并明确权限、依据和允许的下一步。',
+    sell: '出售',
+    buy: '购买',
+    proof: ['真实公开批次', '9 个角色', '7 个阶段', '事实与依据'],
+    lens: 'Deal Lens',
+    lensState: '交易结构',
+    lensCells: [
+      ['对象', '一笔端到端交易'],
+      ['权限', '仅限已确认角色'],
+      ['状态', '正常 · 偏差 · 争议'],
+      ['来源', '关联事实和文件'],
     ],
-    trust: '打开信任中心',
-    contact: '联系平台',
+    lensNext: '下一步由交易状态和参与方权限决定。',
+    marketEyebrow: '市场',
+    marketTitle: '公开批次，不使用虚构数据',
+    marketLead: '仅展示服务器允许公开发布的匿名批次。如果当前数据不可用，界面会明确说明。',
+    openMarket: '打开市场',
+    dealEyebrow: '端到端交易',
+    dealTitle: '七个阶段，一个上下文',
+    dealLead: '各阶段不是彼此孤立的页面：每一步都与责任参与方、依据、事实来源和结算影响关联。',
+    whoEyebrow: '面向谁',
+    whoTitle: '所有参与方使用同一套设计语言',
+    groups: [
+      ['出售', '卖方发布商品并管理履约直至交易关闭。'],
+      ['购买', '买方查看市场、条件、履约、质量和文件。'],
+      ['执行交易', '物流、司机、粮库、实验室和检验机构在各自授权上下文中工作。'],
+      ['金融', '银行仅处理已确认依据及其获准查看的上下文。'],
+    ],
+    rolesLabel: '9 个规范角色',
+    liveEyebrow: '进行中的交易',
+    liveTitle: '正常、偏差和争议在同一工作上下文中',
+    liveLead: '关键状态回答五个问题：发生了什么、谁处理、依据是什么、结算如何受影响、下一步允许做什么。',
+    state: {
+      happened: '工作空间展示真实状态，不替换服务器数据。',
+      actor: '仅限具有已确认角色和交易访问权限的参与方。',
+      basis: '条件、事件、文件或其他已确认依据。',
+      settlement: '金融状态不能由客户端选择，只取决于已确认依据。',
+      next: '可执行操作由服务器上下文和权限决定。',
+    },
+    trustEyebrow: '信任',
+    trustTitle: '权限 → 依据 → 来源 → 决定',
+    trustLead: '这一顺序统一适用于市场、交易履约、文件、金融步骤和异常处理。',
+    gektaEyebrow: 'Gekta',
+    gektaTitle: '智能服务于上下文，而不是取代权限',
+    opportunitiesEyebrow: '功能',
+    opportunitiesTitle: '一个系统，替代分散的工作链路',
+    capability: {
+      market: ['市场', '公开匿名批次和安全进入交易流程。'],
+      trading: ['交易', '交易方选择和交易结果保持在交易上下文中。'],
+      commitments: ['义务', '条件和责任始终与履约关联。'],
+      delivery: ['交付', '物流和司机角色嵌入交易路径。'],
+      acceptance: ['验收与质量', '验收和质量事实影响允许的下一步。'],
+      documents: ['文件', '文件和事件始终与具体交易关联。'],
+      settlement: ['结算', '平台展示依据；金融事件仍需外部确认。'],
+      dispute: ['争议', '异常根据关联事实、依据和操作日志处理。'],
+      trust: ['信任', '权限、依据、来源和决定在工作上下文中可见。'],
+      gekta: ['Gekta', '解释上下文、风险和允许的下一步，但不拥有独立关键决策权。'],
+      roles: ['角色', '每个参与方只看到其获授权的工作上下文。'],
+      history: ['历史', '交易事件与事实、参与方和依据保持关联。'],
+    },
+    finalTitle: '从市场或你在交易中的角色开始',
+    finalText: '注册会创建接入申请。真实权限只有在服务器完成机构和权限审核后才会出现。',
+    register: '注册',
+    contact: '联系',
   },
 } as const;
 
-function localeOf(locale: string): Locale {
-  return locale === 'en' || locale === 'zh' ? locale : 'ru';
-}
+const GROUP_ICONS = [Wheat, Handshake, Truck, Banknote] as const;
 
 export async function PlatformV7StrategicHome() {
-  const locale = await getLocale();
-  const normalizedLocale = localeOf(locale);
-  const copy = getPlatformV7HomeCopy(locale);
-  const heroMessage = getPlatformV7HeroMessage(locale);
-  const story = getPlatformV7HomeStoryCopy(locale);
-  const chrome = await getTranslations('publicEntry.chrome');
-  const trustCopy = TRUST_COPY[normalizedLocale];
-  const marketNavLabel = MARKET_NAV_LABEL[normalizedLocale];
-  const presentationDownloadLabel = normalizedLocale === 'en'
-    ? 'Download presentation (PDF)'
-    : normalizedLocale === 'zh'
-      ? '下载演示文稿（PDF）'
-      : 'Скачать презентацию (PDF)';
-
-  const registerHref = `/platform-v7/register?lang=${encodeURIComponent(normalizedLocale)}`;
-  const loginHref = `/platform-v7/login?lang=${encodeURIComponent(normalizedLocale)}`;
-  const contactHref = `/platform-v7/contact?lang=${encodeURIComponent(normalizedLocale)}`;
-  const trustHref = `/platform-v7/trust?lang=${encodeURIComponent(normalizedLocale)}`;
-  const dealHref = `/platform-v7/how-it-works?lang=${encodeURIComponent(normalizedLocale)}&entry=deal&stage=terms&lens=execution&perspective=buyer`;
-  const taiHref = `/platform-v7/ai-in-action?lang=${encodeURIComponent(normalizedLocale)}`;
-  const gektaProductHref = GEKTA_PATHS[normalizedLocale];
-  const normalState = story.demo.states[0]!;
-  const heroCurrentStepIndex = Math.min(4, story.demo.stages.length - 1);
-
-  const nav = (
-    <>
-      <a href='#market'>{marketNavLabel}</a>
-      <a href='#participants'>{story.nav.roles}</a>
-      <a href='#deal-path'>{story.nav.deal}</a>
-      <a href='#functions'>{story.nav.functions}</a>
-      <a href='#trust'>{copy.nav.status}</a>
-      <a href='#tai'>{story.nav.tai}</a>
-      <a href={gektaProductHref} data-nav-product='gekta'>{story.gektaProduct.navLabel}</a>
-    </>
-  );
-
-  const structuredData = JSON.stringify({
-    '@context': 'https://schema.org',
-    '@graph': [
-      {
-        '@type': 'Organization',
-        '@id': 'https://процент-агро.рф/#organization',
-        name: 'Прозрачная Цена',
-        url: 'https://процент-агро.рф/',
-      },
-      {
-        '@type': 'WebSite',
-        '@id': 'https://процент-агро.рф/#website',
-        url: 'https://процент-агро.рф/',
-        name: 'Прозрачная Цена',
-        publisher: { '@id': 'https://процент-агро.рф/#organization' },
-        inLanguage: ['ru', 'en', 'zh'],
-      },
-    ],
-  }).replace(/</g, '\\u003c');
+  const locale = canonicalPublicLocale(await getLocale());
+  const copy = COPY[locale];
+  const registerBase = `/platform-v7/register?lang=${locale}`;
 
   return (
-    <div className={`pc-v6-page pc-v7-public-entry ${styles.root}`} data-testid='platform-v7-root-execution-cockpit'>
-      <a className='pc-skip-link' href='#main-content'>{chrome('skipToContent')}</a>
-      <PublicExperiencePageView locale={locale} name='home_v3_view' />
-      <script type='application/ld+json' dangerouslySetInnerHTML={{ __html: structuredData }} />
+    <main className='pc-canonical-public' data-testid='platform-v7-root-execution-cockpit'>
+      <CanonicalPublicHeader locale={locale} activePath='/platform-v7' />
 
-      <PublicSiteHeader
-        ariaLabel={copy.a11y.site}
-        brandHomeLabel={copy.a11y.site}
-        navLabel={copy.a11y.nav}
-        menuLabel={copy.a11y.menu}
-        nav={nav}
-        showMobileMenu
-        localeControl={<PublicLocaleLink />}
-        actions={
-          <div className='pc-v6-header-actions'>
-            <a href={loginHref} className='entry-login' aria-label={copy.nav.login}>
-              <LogIn aria-hidden='true' size={18} strokeWidth={1.9} />
-              <span>{copy.nav.login}</span>
-            </a>
-            <a href={registerHref} className='pc-v6-header-cta'>{copy.nav.connect}</a>
+      <section className='pc-cp-hero' aria-labelledby='pc-cp-home-title'>
+        <div className='pc-cp-container pc-cp-hero-grid'>
+          <div className='pc-cp-hero-copy'>
+            <span className='pc-cp-eyebrow'>{copy.heroKicker}</span>
+            <h1 id='pc-cp-home-title'>{copy.heroTitle}</h1>
+            <p>{copy.heroLead}</p>
+            <div className='pc-cp-actions'>
+              <Link className='pc-cp-button' href={`${registerBase}&intent=sell`}>{copy.sell}<ArrowRight size={17} aria-hidden='true' /></Link>
+              <Link className='pc-cp-button pc-cp-button--secondary' href={`${registerBase}&intent=buy`}>{copy.buy}</Link>
+            </div>
+            <div className='pc-cp-hero-proof'>{copy.proof.map((item) => <span key={item}>{item}</span>)}</div>
           </div>
-        }
-      />
 
-      <main id='main-content' tabIndex={-1}>
-        <div className='pc-v6-shell'>
-          <section className={`pc-v6-hero ${styles.hero}`} aria-labelledby='pc-v6-title'>
-            <div className={`pc-v6-hero-copy ${styles.heroCopy}`}>
-              <span className='pc-v6-kicker'>{heroMessage.kicker}</span>
-              <h1 id='pc-v6-title' className='pc-v6-hero-title'>
-                <span className='pc-v6-hero-title-main'>{heroMessage.title}</span>
-                <span className='pc-v6-hero-title-accent'>{heroMessage.accent}</span>
-              </h1>
-              <p className='pc-v6-hero-lead'>{heroMessage.lead}</p>
-              <div className='pc-v6-actions'>
-                <PublicExperienceLink
-                  href={registerHref}
-                  className='pc-v6-primary'
-                  eventName='registration_open'
-                  locale={locale}
-                  params={{ source: 'home_v5_hero' }}
-                >
-                  {copy.hero.secondary}<ArrowRight aria-hidden='true' size={18} />
-                </PublicExperienceLink>
-                <PublicExperienceLink
-                  href='#live'
-                  className='pc-v6-secondary'
-                  eventName='deal_demo_open'
-                  locale={locale}
-                  params={{ source: 'home_v5_hero' }}
-                >
-                  {copy.hero.primary}<ArrowRight aria-hidden='true' size={17} />
-                </PublicExperienceLink>
-                <a
-                  href='/downloads/prozrachnaya-tsena-presentation.pdf'
-                  download='Прозрачная_Цена_и_ГЕКТА.pdf'
-                  type='application/pdf'
-                  className='pc-v6-secondary'
-                  data-testid='platform-v7-presentation-download'
-                >
-                  {presentationDownloadLabel}<Download aria-hidden='true' size={18} />
-                </a>
-              </div>
+          <aside className='pc-cp-deal-lens' aria-label={copy.lens}>
+            <div className='pc-cp-deal-lens-head'><span className='pc-cp-eyebrow'>{copy.lens}</span><strong>{copy.lensState}</strong></div>
+            <div className='pc-cp-deal-lens-grid'>
+              {copy.lensCells.map(([label, value]) => <div className='pc-cp-deal-lens-cell' key={label}><small>{label}</small><strong>{value}</strong></div>)}
             </div>
+            <div className='pc-cp-deal-lens-next'><small>{locale === 'ru' ? 'Следующий шаг' : locale === 'en' ? 'Next step' : '下一步'}</small><strong>{copy.lensNext}</strong></div>
+          </aside>
+        </div>
+      </section>
 
-            <div
-              className={`${styles.heroDeal} pc-v6-control-tower`}
-              role='group'
-              aria-label={copy.a11y.controlTower}
-              data-testid='platform-v7-deal-card'
-            >
-              <div className={styles.heroDealHeader}>
-                <div>
-                  <span>{story.heroDeal.sampleLabel}</span>
-                  <strong>{story.heroDeal.product}</strong>
-                  <small>{story.heroDeal.route}</small>
-                </div>
-              </div>
-              <div
-                className={`${styles.heroDealProgress} pc-public-deal-stage-rail pc-public-deal-stage-rail--hero`}
-                role='progressbar'
-                aria-label={story.demo.stageLabel}
-                aria-valuemin={1}
-                aria-valuemax={story.demo.stages.length}
-                aria-valuenow={heroCurrentStepIndex + 1}
-              >
-                {story.demo.stages.map((stage, stageIndex) => (
-                  <span
-                    key={stage}
-                    className={stageIndex < heroCurrentStepIndex ? styles.progressDone : stageIndex === heroCurrentStepIndex ? styles.progressActive : undefined}
-                  >
-                    <i aria-hidden='true' />
-                    <small>{stage}</small>
-                  </span>
-                ))}
-              </div>
-              <div className={styles.heroDealBody}>
-                <article>
-                  <span>{story.heroDeal.stageLabel}</span>
-                  <strong>{normalState.title}</strong>
-                </article>
-                {normalState.kpis.slice(0, 2).map((kpi) => (
-                  <article key={kpi.label}>
-                    <span>{kpi.label}</span>
-                    <strong>{kpi.value}</strong>
-                  </article>
-                ))}
-                <article className={styles.settlementItem}>
-                  <span>{normalState.actionTitle}</span>
-                  <strong><CheckCircle2 aria-hidden='true' size={17} />{normalState.actionCta}</strong>
-                </article>
-              </div>
-              <div className={styles.heroDealProof}>
-                <FileCheck2 aria-hidden='true' size={18} />
-                <span>{normalState.summary}</span>
-              </div>
-            </div>
-          </section>
+      <section className='pc-cp-section' id='market' aria-labelledby='pc-home-market-title'>
+        <div className='pc-cp-container'>
+          <div className='pc-cp-section-head'>
+            <span className='pc-cp-eyebrow'>{copy.marketEyebrow}</span>
+            <h2 id='pc-home-market-title'>{copy.marketTitle}</h2>
+            <p>{copy.marketLead}</p>
+          </div>
+          <CanonicalMarketPreview locale={locale} />
+          <div className='pc-cp-actions' style={{ marginTop: 18 }}><Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/market?lang=${locale}`}>{copy.openMarket}<ArrowRight size={16} aria-hidden='true' /></Link></div>
+        </div>
+      </section>
 
-          <section className={styles.proofStrip} aria-label={copy.hero.proofLabel}>
-            {story.proof.map((item, index) => {
-              const Icon = proofIcons[index] ?? CheckCircle2;
-              return (
-                <article key={item.label}>
-                  <Icon aria-hidden='true' />
-                  <div><strong>{item.label}</strong><span>{item.text}</span></div>
-                </article>
-              );
+      <section className='pc-cp-section pc-cp-section--soft' id='deal-path' aria-labelledby='pc-home-deal-title'>
+        <div className='pc-cp-container'>
+          <div className='pc-cp-section-head'>
+            <span className='pc-cp-eyebrow'>{copy.dealEyebrow}</span>
+            <h2 id='pc-home-deal-title'>{copy.dealTitle}</h2>
+            <p>{copy.dealLead}</p>
+          </div>
+          <CanonicalDealSpine locale={locale} currentIndex={0} />
+        </div>
+      </section>
+
+      <section className='pc-cp-section' id='participants' aria-labelledby='pc-home-groups-title'>
+        <div className='pc-cp-container'>
+          <div className='pc-cp-section-head'>
+            <span className='pc-cp-eyebrow'>{copy.whoEyebrow}</span>
+            <h2 id='pc-home-groups-title'>{copy.whoTitle}</h2>
+          </div>
+          <div className='pc-cp-role-grid'>
+            {copy.groups.map(([title, text], index) => {
+              const Icon = GROUP_ICONS[index]!;
+              return <article className='pc-cp-card pc-cp-role-card' key={title}><Icon size={22} aria-hidden='true' /><strong>{title}</strong><p>{text}</p></article>;
             })}
-          </section>
-
-          <PublicMarketTeaser locale={locale} />
-
-          <section id='participants' className={`pc-v6-section ${styles.section}`} aria-labelledby='participants-title'>
-            <SectionHeader id='participants-title' eyebrow={story.roles.eyebrow} title={story.roles.title} lead={story.roles.lead} />
-            <div className={styles.benefitGrid}>
-              {story.roles.benefits.map((benefit) => (
-                <article key={benefit.title}><strong>{benefit.title}</strong><span>{benefit.text}</span></article>
-              ))}
-            </div>
-            <div className={styles.roleScenarioHeader}>
-              <div><strong>{story.roles.scenarioTitle}</strong><span>{story.roles.scenarioLead}</span></div>
-            </div>
-            <div className={styles.roleScenario}>
-              <PublicDealRoleScenario locale={locale} />
-            </div>
-          </section>
-
-          <section id='difference' className={`pc-v6-section ${styles.section}`} aria-labelledby='difference-title'>
-            <SectionHeader id='difference-title' eyebrow={story.difference.eyebrow} title={story.difference.title} lead={story.difference.lead} />
-            <div className={styles.comparisonSurface}>
-              <input className={styles.moreContentToggle} type='checkbox' id='difference-more-toggle' aria-controls='difference-comparison-rows' />
-              <div className={styles.comparisonTable} role='table' aria-labelledby='difference-title'>
-                <div className={styles.comparisonHeader} role='row'>
-                  {story.difference.headers.map((header) => <strong key={header} role='columnheader'>{header}</strong>)}
-                </div>
-                <div id='difference-comparison-rows' className={styles.comparisonRows} role='rowgroup'>
-                  {story.difference.rows.map((row, index) => (
-                    <div key={row.criterion} className={`${styles.comparisonRow} ${index > 1 ? styles.comparisonExtraRow : ''}`} role='row' data-comparison-row='true'>
-                      <strong role='rowheader'>{row.criterion}</strong>
-                      <span role='cell'>{row.typical}</span>
-                      <span role='cell'><CheckCircle2 aria-hidden='true' />{row.platform}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <label className={styles.moreContentLabel} htmlFor='difference-more-toggle'>
-                {story.difference.moreLabel}<ArrowRight aria-hidden='true' size={16} />
-              </label>
-            </div>
-            <div className={styles.honestBoundary}><ShieldCheck aria-hidden='true' /><p>{story.difference.boundary}</p></div>
-          </section>
-
-          <section id='deal-path' className={`pc-v6-section ${styles.section}`} aria-labelledby='deal-path-title'>
-            <SectionHeader id='deal-path-title' eyebrow={story.process.eyebrow} title={story.process.title} lead={story.process.lead} />
-            <div className={styles.phaseGrid}>
-              {story.process.phases.slice(0, 3).map((phase) => (
-                <article key={phase.index} className={styles.phaseCard}>
-                  <span>{phase.index}</span><h3>{phase.title}</h3><p>{phase.text}</p>
-                  <small><b>{story.process.resultLabel}:</b> {phase.result}</small>
-                </article>
-              ))}
-              <input className={styles.moreContentToggle} type='checkbox' id='phases-more-toggle' aria-controls='phases-more-cards' />
-              <label className={styles.moreContentLabel} htmlFor='phases-more-toggle'>
-                {story.process.moreLabel}<ArrowRight aria-hidden='true' size={16} />
-              </label>
-              <div id='phases-more-cards' className={styles.morePhaseGrid}>
-                {story.process.phases.slice(3).map((phase) => (
-                  <article key={phase.index} className={styles.phaseCard}>
-                    <span>{phase.index}</span><h3>{phase.title}</h3><p>{phase.text}</p>
-                    <small><b>{story.process.resultLabel}:</b> {phase.result}</small>
-                  </article>
-                ))}
-              </div>
-            </div>
-            <div className={styles.fullPath}>
-              <span>{story.process.fullPathLabel}</span>
-              <strong>{story.process.fullPathText}</strong>
-              <details className={styles.fullStages}>
-                <summary>{story.process.stagesLabel}<ArrowRight aria-hidden='true' size={16} /></summary>
-                <div className='pc-v6-lifecycle' role='list' tabIndex={0} aria-label={copy.lifecycle.title}>
-                  {copy.lifecycle.phases.map((phase: string, index: number) => <div key={phase} role='listitem'><i>{index + 1}</i><span>{phase}</span></div>)}
-                </div>
-              </details>
-            </div>
-          </section>
-
-          <section id='functions' className={`pc-v6-section ${styles.section}`} aria-labelledby='functions-title'>
-            <SectionHeader id='functions-title' eyebrow={story.functions.eyebrow} title={story.functions.title} lead={story.functions.lead} />
-            <div className={styles.functionGrid}>
-              {story.functions.items.slice(0, 4).map((item, index) => {
-                const Icon = functionIcons[index] ?? CheckCircle2;
-                return (
-                  <article key={item.index} className={styles.functionCard}>
-                    <div className={styles.cardTop}><span>{item.index}</span><Icon aria-hidden='true' /></div>
-                    <h3>{item.title}</h3><p>{item.text}</p><small><b>{story.functions.resultLabel}:</b> {item.result}</small>
-                  </article>
-                );
-              })}
-              <input className={styles.moreContentToggle} type='checkbox' id='functions-more-toggle' aria-controls='functions-more-cards' />
-              <label className={styles.moreContentLabel} htmlFor='functions-more-toggle'>
-                {story.functions.moreLabel}<ArrowRight aria-hidden='true' size={16} />
-              </label>
-              <div id='functions-more-cards' className={styles.moreCardGrid}>
-                {story.functions.items.slice(4).map((item, innerIndex) => {
-                  const index = innerIndex + 4;
-                  const Icon = functionIcons[index] ?? CheckCircle2;
-                  return (
-                    <article key={item.index} className={styles.functionCard}>
-                      <div className={styles.cardTop}><span>{item.index}</span><Icon aria-hidden='true' /></div>
-                      <h3>{item.title}</h3><p>{item.text}</p><small><b>{story.functions.resultLabel}:</b> {item.result}</small>
-                    </article>
-                  );
-                })}
-              </div>
-            </div>
-            <div className={styles.functionSummary}>
-              <Waypoints aria-hidden='true' />
-              <div><strong>{story.functions.summaryTitle}</strong><span>{story.functions.summaryText}</span></div>
-            </div>
-          </section>
-
-          <PlatformV7AccountingClosureValue locale={locale} />
-
-          <section id='live' className={`pc-v6-section ${styles.section} ${styles.liveSection}`} aria-labelledby='live-title'>
-            <SectionHeader id='live-title' eyebrow={story.demo.eyebrow} title={story.demo.title} lead={story.demo.lead} />
-            <fieldset className={styles.stateDemo}>
-              <legend className={styles.srOnly}>{story.demo.statesLabel}</legend>
-              {story.demo.states.map((state, index) => (
-                <input key={state.key} className={`${styles.stateInput} ${stateInputClasses[index] ?? ''}`} type='radio' name='public-deal-state' id={`public-deal-state-${state.key}`} defaultChecked={index === 0} />
-              ))}
-              <div className={styles.stateTabs} role='presentation'>
-                {story.demo.states.map((state, index) => (
-                  <label key={state.key} className={`${styles.stateTab} ${stateTabClasses[index] ?? ''}`} htmlFor={`public-deal-state-${state.key}`}>{state.tab}</label>
-                ))}
-              </div>
-              <div className={styles.statePanels}>
-                {story.demo.states.map((state, index) => (
-                  <article key={state.key} className={`${styles.statePanel} ${statePanelClasses[index] ?? ''}`} data-state={state.key}>
-                    <div className={styles.demoHeader}>
-                      <div><span>{story.heroDeal.product}</span><small>{story.heroDeal.route}</small></div>
-                    </div>
-                    <div className={`${styles.demoStageRail} pc-public-deal-stage-rail pc-public-deal-stage-rail--demo`} aria-label={story.demo.stageLabel}>
-                      {story.demo.stages.map((stage, stageIndex) => (
-                        <span key={stage} className={stageIndex < 4 ? styles.stageDone : stageIndex === 4 ? styles.stageCurrent : undefined}><i>{stageIndex + 1}</i><small>{stage}</small></span>
-                      ))}
-                    </div>
-                    <div className={styles.demoContent}>
-                      <div className={styles.demoPrimary}>
-                        <span className={styles.demoPerspective}>{story.demo.roleLabel}: <b>{story.demo.role}</b></span>
-                        <h3>{state.title}</h3><p>{state.summary}</p>
-                        <div className={styles.demoKpis}>{state.kpis.map((kpi) => <div key={kpi.label}><span>{kpi.label}</span><strong>{kpi.value}</strong></div>)}</div>
-                      </div>
-                      <div className={styles.demoEvents}>
-                        {state.events.map((event) => (
-                          <article key={`${event.meta}-${event.title}`}><i aria-hidden='true' /><div><span>{event.meta}</span><strong>{event.title}</strong><p>{event.text}</p></div></article>
-                        ))}
-                      </div>
-                      <div className={styles.demoAction}>
-                        <ScanSearch aria-hidden='true' /><div><strong>{state.actionTitle}</strong><p>{state.actionText}</p></div><span>{state.actionCta}</span>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </fieldset>
-            <div className={styles.liveFooter}>
-              <span>{story.demo.lead}</span>
-              <PublicExperienceLink href={dealHref} className='pc-v6-secondary' eventName='open_deal_scenario' locale={locale} params={{ source: 'home_v5_live_deal' }}>
-                {story.demo.openDeal}<ArrowRight aria-hidden='true' size={18} />
-              </PublicExperienceLink>
-            </div>
-          </section>
-
-          <section id='trust' className={`pc-v6-section ${styles.section}`} aria-labelledby='trust-title'>
-            <SectionHeader id='trust-title' eyebrow={trustCopy.eyebrow} title={trustCopy.title} lead={trustCopy.lead} />
-            <div className={styles.benefitGrid}>
-              {trustCopy.cards.map(([title, text]) => <article key={title}><strong>{title}</strong><span>{text}</span></article>)}
-            </div>
-            <div className={styles.liveFooter}>
-              <a href={trustHref} className='pc-v6-secondary'>{trustCopy.trust}<ArrowRight aria-hidden='true' size={17} /></a>
-              <a href={contactHref} className='pc-v6-secondary'>{trustCopy.contact}</a>
-            </div>
-          </section>
-
-          <section id='tai' className={`pc-v6-section ${styles.section} ${styles.taiSection}`} aria-labelledby='tai-title'>
-            <SectionHeader id='tai-title' eyebrow={story.tai.eyebrow} title={story.tai.title} lead={story.tai.lead} />
-            <div className={styles.taiLayout}>
-              <div className={styles.taiCapabilities}>
-                {story.tai.capabilities.map((capability, index) => {
-                  const Icon = functionIcons[index + 4] ?? Sparkles;
-                  return <article key={capability.title}><Icon aria-hidden='true' /><div><strong>{capability.title}</strong><span>{capability.text}</span></div></article>;
-                })}
-                <ul>{story.tai.principles.map((principle) => <li key={principle}><CheckCircle2 aria-hidden='true' />{principle}</li>)}</ul>
-              </div>
-              <div className={styles.taiAnalysis} data-testid='platform-v7-ai-analysis'>
-                <div className={styles.taiAnalysisHeader}><Sparkles aria-hidden='true' /><strong>{story.tai.analysisLabel}</strong><span>{story.tai.state}</span></div>
-                <div className={styles.taiRows}>
-                  {story.tai.rows.map((row, index) => <article key={row.label} id={index === 2 ? 'money' : undefined}><span>{row.label}</span><strong>{row.value}</strong></article>)}
-                </div>
-                <div className={styles.taiSources}><b>{story.tai.sourcesLabel}</b><div>{story.tai.sources.map((source) => <span key={source}>{source}</span>)}</div></div>
-                <p className={styles.taiLimit}>{story.tai.limit}</p>
-                <PublicExperienceLink href={taiHref} className={styles.taiLink} eventName='tai_detail_open' locale={locale} params={{ source: 'home_v5_tai' }}>
-                  {story.tai.cta}<ArrowRight aria-hidden='true' size={17} />
-                </PublicExperienceLink>
-              </div>
-            </div>
-            <div className={styles.gektaProduct} data-gekta-product-entry='true'>
-              <div className={styles.gektaProductBody}>
-                <span className={styles.gektaProductEyebrow}>{story.gektaProduct.eyebrow}</span>
-                <h3 id='gekta-product-title'>{story.gektaProduct.title}</h3><p>{story.gektaProduct.lead}</p>
-              </div>
-              <PublicExperienceLink href={gektaProductHref} className={styles.gektaProductLink} eventName='gekta_product_open' locale={locale} params={{ source: 'home_tai_product_block' }}>
-                {story.gektaProduct.cta}<ArrowRight aria-hidden='true' size={17} />
-              </PublicExperienceLink>
-            </div>
-          </section>
-
-          <section id='faq' className={`pc-v6-section ${styles.section} ${styles.faqSection}`} aria-labelledby='faq-title'>
-            <SectionHeader id='faq-title' eyebrow={story.faq.eyebrow} title={story.faq.title} />
-            <div className={styles.faqList}>
-              {story.faq.items.map((item, index) => (
-                <details key={item.question} open={index === 0}><summary><span>{item.question}</span><i aria-hidden='true'>+</i></summary><p>{item.answer}</p></details>
-              ))}
-            </div>
-          </section>
-
-          <section className='pc-v6-final' aria-labelledby='registration-title'>
-            <h2 id='registration-title'>{copy.final.title}</h2>
-            <p>{copy.final.lead}</p>
-            <div className='pc-v6-actions'>
-              <PublicExperienceLink href={registerHref} className='pc-v6-primary' eventName='registration_open' locale={locale} params={{ source: 'home_v5_final' }}>
-                {copy.final.primary}<ArrowRight aria-hidden='true' size={18} />
-              </PublicExperienceLink>
-              <PublicExperienceLink href='#connect-organization' className='pc-v6-secondary' eventName='open_organization_connect' locale={locale} params={{ source: 'home_v5_final' }}>
-                {copy.final.secondary}
-              </PublicExperienceLink>
-            </div>
-          </section>
-
-          <OrganizationConnectForm locale={locale} />
+          </div>
+          <div style={{ marginTop: 16 }}>
+            <span className='pc-cp-eyebrow'>{copy.rolesLabel}</span>
+            <div className='pc-cp-hero-proof' style={{ marginTop: 10 }}>{CANONICAL_ROLES[locale].map((role) => <span key={role}>{role}</span>)}</div>
+          </div>
         </div>
-      </main>
+      </section>
 
-      <footer className='pc-v6-footer'>
-        <div className='pc-v6-shell'>
-          <strong>{copy.a11y.site}</strong>
-          <p>{copy.footer.note}</p>
-          <nav>
-            <a href={trustHref}>{copy.nav.status}</a>
-            <a href={`/platform-v7/privacy?lang=${encodeURIComponent(normalizedLocale)}`}>{copy.footer.privacy}</a>
-            <a href={contactHref}>{copy.footer.contacts}</a>
-          </nav>
+      <section className='pc-cp-section pc-cp-section--soft' id='live' aria-labelledby='pc-home-live-title'>
+        <div className='pc-cp-container'>
+          <div className='pc-cp-section-head'>
+            <span className='pc-cp-eyebrow'>{copy.liveEyebrow}</span>
+            <h2 id='pc-home-live-title'>{copy.liveTitle}</h2>
+            <p>{copy.liveLead}</p>
+          </div>
+          <CanonicalStateLens
+            locale={locale}
+            state='normal'
+            happened={copy.state.happened}
+            actor={copy.state.actor}
+            basis={copy.state.basis}
+            settlement={copy.state.settlement}
+            next={copy.state.next}
+          />
         </div>
-      </footer>
+      </section>
 
-      <GektaFloatingEntry locale={normalizedLocale} />
-    </div>
+      <section className='pc-cp-section' id='trust' aria-labelledby='pc-home-trust-title'>
+        <div className='pc-cp-container'>
+          <div className='pc-cp-section-head'>
+            <span className='pc-cp-eyebrow'>{copy.trustEyebrow}</span>
+            <h2 id='pc-home-trust-title'>{copy.trustTitle}</h2>
+            <p>{copy.trustLead}</p>
+          </div>
+          <CanonicalTrustLedger locale={locale} />
+        </div>
+      </section>
+
+      <section className='pc-cp-section pc-cp-section--tight' id='gekta' aria-labelledby='pc-home-gekta-title'>
+        <div className='pc-cp-container'>
+          <div className='pc-cp-section-head'>
+            <span className='pc-cp-eyebrow'>{copy.gektaEyebrow}</span>
+            <h2 id='pc-home-gekta-title'>{copy.gektaTitle}</h2>
+          </div>
+          <CanonicalGektaStrip locale={locale} />
+        </div>
+      </section>
+
+      <section className='pc-cp-section pc-cp-section--soft' id='capabilities' aria-labelledby='pc-home-cap-title'>
+        <div className='pc-cp-container'>
+          <div className='pc-cp-section-head'>
+            <span className='pc-cp-eyebrow'>{copy.opportunitiesEyebrow}</span>
+            <h2 id='pc-home-cap-title'>{copy.opportunitiesTitle}</h2>
+          </div>
+          <div className='pc-cp-capabilities'>
+            {CAPABILITIES.map(([Icon, key]) => {
+              const [title, text] = copy.capability[key];
+              return <article className='pc-cp-card pc-cp-capability' key={key}><Icon size={21} aria-hidden='true' /><strong>{title}</strong><p>{text}</p></article>;
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section className='pc-cp-final'>
+        <div className='pc-cp-container'><div className='pc-cp-final-inner'>
+          <h2>{copy.finalTitle}</h2>
+          <p>{copy.finalText}</p>
+          <div className='pc-cp-actions'>
+            <Link className='pc-cp-button' href={`/platform-v7/register?lang=${locale}`}>{copy.register}<ArrowRight size={17} aria-hidden='true' /></Link>
+            <Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/contact?lang=${locale}`}>{copy.contact}</Link>
+          </div>
+        </div></div>
+      </section>
+
+      <CanonicalFooter locale={locale} />
+      <CanonicalBottomNav locale={locale} active='/platform-v7' />
+    </main>
   );
 }
