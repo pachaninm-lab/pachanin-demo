@@ -88,7 +88,7 @@ export default async function TrustPage(){
   <section className='pc-cp-hero' style={{minHeight:500}}>
    <div className='pc-cp-container pc-cp-hero-grid'>
     <div className='pc-cp-hero-copy'><span className='pc-cp-eyebrow'>{c.e}</span><h1>{c.t}</h1><p>{c.p}</p><div className='pc-cp-actions'><Link className='pc-cp-button' href={`/platform-v7/register?lang=${locale}`}>{c.register}<ArrowRight size={16}/></Link><Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/how-it-works?lang=${locale}`}>{c.how}</Link></div></div>
-    <aside className='pc-cp-card pc-cp-state-shell'><div className='pc-cp-section-head' style={{marginBottom:14}}><span className='pc-cp-eyebrow'>{c.fact}</span><p>{c.factLead}</p></div>{TRUST_MODEL[locale].map((item)=><div key={title} className='pc-cp-chip pc-cp-chip--ok' style={{margin:'4px'}}><CheckCircle2 size={13}/>{item[0]}</div>)}</aside>
+    <aside className='pc-cp-card pc-cp-state-shell'><div className='pc-cp-section-head' style={{marginBottom:14}}><span className='pc-cp-eyebrow'>{c.fact}</span><p>{c.factLead}</p></div>{TRUST_MODEL[locale].map((item)=><div key={item[0]} className='pc-cp-chip pc-cp-chip--ok' style={{margin:'4px'}}><CheckCircle2 size={13}/>{item[0]}</div>)}</aside>
    </div>
   </section>
   <section className='pc-cp-section'><div className='pc-cp-container'><CanonicalTrustLedger locale={locale}/></div></section>
