@@ -215,7 +215,7 @@
   .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-mark[data-brand-mark='transparent-price-canonical']{display:inline-grid!important;width:31px!important;height:31px!important;flex-basis:31px!important}
   .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-text strong{font-size:13px!important;white-space:nowrap!important}
   .pc-site-header[data-public-site-header='canonical'] .pc-site-locale-switch{width:44px!important;min-width:44px!important}
-  .pc-site-header[data-public-site-header='canonical'] .pc-site-mobile-menu>summary{width:44px!important;min-width:44px!important;height:44px!important;min-height:44px!important}
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-mobile-menu>summary{width:48px!important;min-width:48px!important;height:48px!important;min-height:48px!important}
   .pc-cp-hero{padding-top:30px}.pc-cp-hero-copy h1{font-size:41px}.pc-cp-actions{display:grid;grid-template-columns:1fr 1fr}.pc-cp-actions .pc-cp-button{width:100%;padding-inline:10px}
   .pc-cp-hero-proof{gap:6px}.pc-cp-hero-proof span{font-size:10px;min-height:30px}
   .pc-cp-role-grid,.pc-cp-trust-grid,.pc-cp-capabilities{grid-template-columns:1fr}
