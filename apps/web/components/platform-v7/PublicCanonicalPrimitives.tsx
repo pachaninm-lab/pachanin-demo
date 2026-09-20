@@ -144,16 +144,20 @@ export function CanonicalDealSpine({
   id,
 }: {
   locale: string;
-  currentIndex?: number;
+  currentIndex?: number | null;
   id?: string;
 }) {
   const lang = canonicalPublicLocale(locale);
   const stages = CANONICAL_DEAL_STAGES[lang];
-  const safeIndex = Math.max(0, Math.min(stages.length - 1, currentIndex));
+  const safeIndex = typeof currentIndex === 'number' && Number.isInteger(currentIndex)
+    && currentIndex >= 0 && currentIndex < stages.length ? currentIndex : null;
+  const label = safeIndex === null
+    ? (lang === 'ru' ? 'Схема из семи этапов; прогресс не подтверждён' : lang === 'en' ? 'Seven-stage outline; progress unconfirmed' : '七阶段示意；进度未确认')
+    : (lang === 'ru' ? 'Семь этапов Сделки' : lang === 'en' ? 'Seven Deal stages' : '交易七个阶段');
   return (
-    <div className='pc-cp-deal-spine' role='list' tabIndex={0} aria-label={lang === 'ru' ? 'Семь этапов Сделки' : lang === 'en' ? 'Seven Deal stages' : '交易七个阶段'} id={id}>
+    <div className='pc-cp-deal-spine' role='list' tabIndex={0} aria-label={label} id={id}>
       {stages.map((stage, index) => (
-        <div className='pc-cp-stage' role='listitem' key={stage} data-state={index < safeIndex ? 'done' : index === safeIndex ? 'current' : 'pending'}>
+        <div className='pc-cp-stage' role='listitem' key={stage} data-state={safeIndex === null ? 'unknown' : index < safeIndex ? 'done' : index === safeIndex ? 'current' : 'pending'} aria-current={index === safeIndex ? 'step' : undefined}>
           <i>{index + 1}</i><strong>{stage}</strong>
         </div>
       ))}
@@ -185,13 +189,13 @@ export function CanonicalStateTabs({
   state,
 }: {
   locale: string;
-  state: CanonicalDealState;
+  state: CanonicalDealState | null;
 }) {
   const lang = canonicalPublicLocale(locale);
   return (
-    <div className='pc-cp-state-tabs' role='tablist' aria-label={lang === 'ru' ? 'Состояние Сделки' : lang === 'en' ? 'Deal state' : '交易状态'}>
+    <div className='pc-cp-state-tabs' role='list' aria-label={lang === 'ru' ? 'Состояние Сделки' : lang === 'en' ? 'Deal state' : '交易状态'}>
       {(['normal', 'deviation', 'dispute'] as const).map((item) => (
-        <span key={item} role='tab' aria-selected={state === item} className='pc-cp-state-tab' data-state={item} data-active={state === item ? 'true' : 'false'}>
+        <span key={item} role='listitem' aria-current={state === item ? 'true' : undefined} className='pc-cp-state-tab' data-state={item} data-active={state === item ? 'true' : 'false'}>
           {STATE_COPY[lang][item]}
         </span>
       ))}
@@ -209,7 +213,7 @@ export function CanonicalStateLens({
   next,
 }: {
   locale: string;
-  state: CanonicalDealState;
+  state: CanonicalDealState | null;
   happened: ReactNode;
   actor: ReactNode;
   basis: ReactNode;
@@ -225,6 +229,11 @@ export function CanonicalStateLens({
   const values = [happened, actor, basis, settlement, next];
   return (
     <section className='pc-cp-card pc-cp-state-shell'>
+      {state === null ? <p data-canonical-state='unconfirmed'>{lang === 'ru'
+        ? 'Общее состояние не подтверждено. Проверяйте факты и подробные этапы сделки.'
+        : lang === 'en'
+          ? 'Overall state is unconfirmed. Review the facts and detailed Deal stages.'
+          : '总体状态尚未确认。请查看事实和交易的详细阶段。'}</p> : null}
       <CanonicalStateTabs locale={lang} state={state} />
       <div className='pc-cp-state-grid'>
         {labels.map((label, index) => <div className='pc-cp-state-cell' key={label}><span>{label}</span><strong>{values[index]}</strong></div>)}

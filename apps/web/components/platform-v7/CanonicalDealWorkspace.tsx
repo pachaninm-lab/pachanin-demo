@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import { DealCommandForm } from '@/components/platform-v7/DealCommandForm';
-import { CanonicalDealSpine, CanonicalStateLens, CanonicalTrustLedger, type CanonicalDealState } from '@/components/platform-v7/PublicCanonicalPrimitives';
+import { CanonicalDealSpine, CanonicalStateLens, CanonicalTrustLedger } from '@/components/platform-v7/PublicCanonicalPrimitives';
 import { applyCsrfHeader } from '@/lib/csrf';
 import styles from './CanonicalDealWorkspace.module.css';
 
@@ -341,8 +341,9 @@ export function CanonicalDealWorkspace({ role, dealId }: { role: PlatformRole; d
           : 'Сделка завершена или ожидает системного события.';
 
   const TaskIcon = hasBlockers ? AlertTriangle : systemAction ? Banknote : ArrowRight;
-  const canonicalState: CanonicalDealState = workspace.disputes.length > 0 ? 'dispute' : hasBlockers ? 'deviation' : 'normal';
-  const canonicalStageIndex = resolveCanonicalStageIndex(activeStep?.stage || workspace.deal.status);
+  // The server supplies detailed action states, not verified seven-stage totals
+  // or an aggregate normal/deviation/dispute status. Keep this overview unknown.
+  // Compatibility contract: Team Hub #5469 / PRODUCT-5465-DEAL-STAGE-TRUTH.
   const canonicalActor = action?.enabled
     ? roleLabel(role)
     : action
@@ -382,11 +383,11 @@ export function CanonicalDealWorkspace({ role, dealId }: { role: PlatformRole; d
         </div>
       </header>
 
-      <section className={styles.canonicalOverview} data-canonical-seven-stage='true' aria-label='Канонический путь и состояние Сделки'>
-        <CanonicalDealSpine locale='ru' currentIndex={canonicalStageIndex} />
+      <section className={styles.canonicalOverview} data-canonical-seven-stage='true' aria-label='Схема пути и подтверждённые факты Сделки'>
+        <CanonicalDealSpine locale='ru' currentIndex={null} />
         <CanonicalStateLens
           locale='ru'
-          state={canonicalState}
+          state={null}
           happened={activeStep?.label || workspace.attention || humanStatus(workspace.deal.status)}
           actor={canonicalActor}
           basis={canonicalBasis}
@@ -498,14 +499,3 @@ export function CanonicalDealWorkspace({ role, dealId }: { role: PlatformRole; d
   );
 }
 
-
-function resolveCanonicalStageIndex(value: string | null | undefined): number {
-  const stage = String(value || '').toLowerCase();
-  if (/lot|лот/.test(stage)) return 0;
-  if (/auction|bid|торг/.test(stage)) return 1;
-  if (/contract|commit|обяз|договор|reserve/.test(stage)) return 2;
-  if (/ship|deliver|transit|logistic|достав|логист|рейс/.test(stage)) return 3;
-  if (/accept|quality|lab|прием|приём|качеств|лаборат/.test(stage)) return 4;
-  if (/document|settle|bank|payment|документ|расч|банк/.test(stage)) return 5;
-  return 6;
-}

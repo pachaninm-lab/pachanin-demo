@@ -1,6 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { cleanup, render, waitFor } from '@testing-library/react';
+import { CanonicalDealWorkspace } from '@/components/platform-v7/CanonicalDealWorkspace';
+import { CanonicalDealSpine, CanonicalStateLens, CanonicalStateTabs } from '@/components/platform-v7/PublicCanonicalPrimitives';
+// Fixtures use the existing pure server policy; product code does not import it.
+import { DEAL_ACTIONS, buildDealSpine, getCurrentDealAction } from '../../../api/src/modules/deals/deal-command.policy';
 
 const read=(relativePath:string)=>readFileSync(join(process.cwd(),relativePath),'utf8');
 
@@ -194,5 +201,146 @@ describe('platform-v7 canonical public experience',()=>{
     expect(root).toContain("zh:'/platform-v7?lang=zh'");
     expect(root).toContain('index:true');
     expect(root).toContain('follow:true');
+  });
+});
+
+describe('canonical overview does not invent server progress', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  function markup(element: Parameters<typeof renderToStaticMarkup>[0]) {
+    const container = document.createElement('div');
+    container.innerHTML = renderToStaticMarkup(element);
+    return container;
+  }
+
+  for (const locale of ['ru', 'en', 'zh']) {
+    it(`shows unknown progress and state explicitly in ${locale}`, () => {
+      const spine = markup(createElement(CanonicalDealSpine, { locale, currentIndex: null }));
+      expect(spine.querySelectorAll('[data-state="unknown"]')).toHaveLength(7);
+      expect(spine.querySelectorAll('[data-state="done"], [data-state="current"], [aria-current]')).toHaveLength(0);
+      const lens = markup(createElement(CanonicalStateLens, {
+        locale, state: null, happened: 'source event', actor: 'source actor',
+        basis: 'source basis', settlement: 'source money', next: 'source action',
+      }));
+      expect(lens.querySelector('[data-canonical-state="unconfirmed"]')?.textContent).toBeTruthy();
+      expect(lens.querySelectorAll('[data-active="true"], [aria-current], [role="tab"]')).toHaveLength(0);
+      for (const value of ['source event', 'source actor', 'source basis', 'source money', 'source action']) {
+        expect(lens.textContent).toContain(value);
+      }
+    });
+  }
+
+  for (const currentIndex of [null, -1, 7, 1.5, Number.NaN, Infinity, -Infinity]) {
+    it(`does not clamp invalid progress ${String(currentIndex)} into completion`, () => {
+      const result = markup(createElement(CanonicalDealSpine, { locale: 'ru', currentIndex }));
+      expect(result.querySelectorAll('[data-state="unknown"]')).toHaveLength(7);
+      expect(result.querySelectorAll('[data-state="done"], [data-state="current"]')).toHaveLength(0);
+    });
+  }
+
+  for (const currentIndex of [0, 1, 2, 3, 4, 5, 6]) {
+    it(`preserves the explicitly supplied illustrative stage ${currentIndex}`, () => {
+      const result = markup(createElement(CanonicalDealSpine, { locale: 'en', currentIndex }));
+      expect(result.querySelectorAll('[data-state="done"]')).toHaveLength(currentIndex);
+      expect(result.querySelectorAll('[data-state="current"][aria-current="step"]')).toHaveLength(1);
+      expect(result.querySelectorAll('[data-state="pending"]')).toHaveLength(6 - currentIndex);
+    });
+  }
+
+  it('preserves the default public outline without using that default in a private Deal', () => {
+    const result = markup(createElement(CanonicalDealSpine, { locale: 'ru' }));
+    expect(result.querySelectorAll('[data-state="done"]')).toHaveLength(0);
+    expect(result.querySelectorAll('[data-state="current"]')).toHaveLength(1);
+    const workspaceSource = read('components/platform-v7/CanonicalDealWorkspace.tsx');
+    expect(workspaceSource).toContain("<CanonicalDealSpine locale='ru' currentIndex={null}");
+    expect(workspaceSource).toContain('state={null}');
+    expect(workspaceSource).not.toContain('resolveCanonicalStageIndex');
+    expect(workspaceSource).not.toContain("workspace.disputes.length > 0 ? 'dispute'");
+  });
+
+  for (const state of ['normal', 'deviation', 'dispute'] as const) {
+    it(`announces the read-only ${state} indicator without fake interactive tabs`, () => {
+      const result = markup(createElement(CanonicalStateTabs, { locale: 'ru', state }));
+      expect(result.querySelectorAll('[role="listitem"]')).toHaveLength(3);
+      expect(result.querySelectorAll('[aria-current="true"]')).toHaveLength(1);
+      expect(result.querySelector('[aria-current="true"]')?.getAttribute('data-state')).toBe(state);
+      expect(result.querySelectorAll('[role="tab"], [role="tablist"], button')).toHaveLength(0);
+    });
+  }
+
+  function fixture(status: string, disputeStatus?: string) {
+    const current = getCurrentDealAction(status);
+    return {
+      deal: {
+        id: 'product-stage-fixture', number: null, status, version: '3',
+        updatedAt: '2026-09-20T00:00:00Z', culture: 'Тестовая культура', cropClass: null,
+        volumeTons: '1', pricePerTon: '1', totalKopecks: '123456789012345678901', currency: 'RUB',
+      },
+      roleProjection: {
+        role: 'BUYER', focus: 'Проверка серверного состояния', canAct: false,
+        primaryAction: current ? {
+          id: current.id, label: current.label, source: current.source ?? 'USER',
+          enabled: false, waitingForRoles: [...current.roles],
+        } : null,
+      },
+      attention: 'Серверное следующее действие', blockers: [] as string[],
+      money: null as null | { status: string; amountKopecks: string; callbackState: string; bankRef: string },
+      spine: buildDealSpine(status), shipments: [], documents: [], laboratory: [], acceptance: [],
+      disputes: disputeStatus ? [{ id: 'product-dispute-fixture', status: disputeStatus, description: 'Тестовый спор' }] : [],
+      timeline: [],
+    };
+  }
+
+  async function renderWorkspace(workspace: ReturnType<typeof fixture>) {
+    const sourceSnapshot = JSON.stringify(workspace);
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => JSON.parse(sourceSnapshot) });
+    vi.stubGlobal('fetch', fetchMock);
+    const result = render(createElement(CanonicalDealWorkspace, { role: 'buyer', dealId: workspace.deal.id }));
+    await waitFor(() => expect(result.container.querySelector('[data-canonical-seven-stage]')).toBeTruthy());
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(`/api/proxy/deals/${workspace.deal.id}/execution-workspace`, {
+      method: 'GET', cache: 'no-store', headers: { Accept: 'application/json' },
+    });
+    expect(JSON.stringify(workspace)).toBe(sourceSnapshot);
+    return result.container;
+  }
+
+  for (const status of [...DEAL_ACTIONS.map((action) => action.from), 'CLOSED', 'UNRECOGNIZED_FUTURE_STATUS']) {
+    it(`retains actual server steps without inferring seven-stage completion for ${status}`, async () => {
+      const workspace = fixture(status);
+      const container = await renderWorkspace(workspace);
+      const overview = container.querySelector('[data-canonical-seven-stage]')!;
+      expect(overview.querySelectorAll('[data-state="unknown"]')).toHaveLength(7);
+      expect(overview.querySelectorAll('[data-state="done"], [data-state="current"], [data-active="true"]')).toHaveLength(0);
+      const steps = [...container.querySelectorAll('ol li')];
+      expect(steps).toHaveLength(workspace.spine.length);
+      workspace.spine.forEach((step, index) => {
+        expect(steps[index].textContent).toContain(step.label);
+        expect(steps[index].textContent).toContain(step.state === 'done' ? 'Готово' : step.state === 'active' ? 'Сейчас' : 'Позже');
+      });
+    });
+  }
+
+  for (const disputeStatus of ['RESOLVED', 'CLOSED', 'CANCELLED', 'OPEN']) {
+    it(`does not invent an aggregate dispute state from historical rows: ${disputeStatus}`, async () => {
+      const workspace = fixture('DOCUMENTS_COMPLETE', disputeStatus);
+      if (disputeStatus === 'OPEN') workspace.blockers = ['Серверный блокер открытого спора'];
+      const container = await renderWorkspace(workspace);
+      expect(container.querySelector('[data-canonical-state="unconfirmed"]')).toBeTruthy();
+      expect(container.querySelectorAll('.pc-cp-state-tab[data-active="true"]')).toHaveLength(0);
+      if (workspace.blockers.length) expect(container.textContent).toContain(workspace.blockers[0]);
+    });
+  }
+
+  it('retains confirmed money facts and exact minor units without setting aggregate finality', async () => {
+    const workspace = fixture('RELEASED');
+    workspace.money = { status: 'RELEASED', amountKopecks: workspace.deal.totalKopecks, callbackState: 'CONFIRMED', bankRef: 'product-bank-fixture' };
+    const container = await renderWorkspace(workspace);
+    expect(container.querySelector('article[title="RELEASED"]')).toBeTruthy();
+    expect(container.textContent).toContain('1 234 567 890 123 456 789,01 ₽');
+    expect(container.querySelectorAll('[data-canonical-seven-stage] [data-state="done"]')).toHaveLength(0);
   });
 });
