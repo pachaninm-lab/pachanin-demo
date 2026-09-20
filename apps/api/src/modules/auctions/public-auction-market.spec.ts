@@ -18,6 +18,8 @@ const webHelperPath = 'apps/web/lib/public-market-server.ts';
 const webTeaserPath = 'apps/web/components/platform-v7/PublicMarketTeaser.tsx';
 const webCssPath = 'apps/web/components/platform-v7/PublicMarketTeaser.module.css';
 const webHomePath = 'apps/web/components/platform-v7/PlatformV7StrategicHome.tsx';
+const webCanonicalMarketPath = 'apps/web/components/platform-v7/PublicCanonicalMarket.tsx';
+const webCanonicalCssPath = 'apps/web/styles/platform-v7-canonical-public-v1.css';
 
 function read(path: string): string {
   return readFileSync(resolve(REPO_ROOT, path), 'utf8');
@@ -230,30 +232,26 @@ describe('anonymous public Auction market projection', () => {
 
   it('gates per-lot details and bidding plus section-level market actions behind localized auth without leaking lot identity', () => {
     const teaser = read(webTeaserPath);
-    const css = read(webCssPath);
+    const canonicalMarket = read(webCanonicalMarketPath);
+    const css = read(webCanonicalCssPath);
     const home = read(webHomePath);
-    expect(teaser).toContain('/platform-v7/register?lang=');
-    expect(teaser).toContain('/platform-v7/login?lang=');
-    expect(teaser).toContain("details: 'Войти и посмотреть'");
-    expect(teaser).toContain("bid: 'Получить доступ к торгам'");
-    expect(teaser).toContain("details: 'Sign in and view'");
-    expect(teaser).toContain("bid: 'Get trading access'");
-    expect(teaser).toContain("details: '登录查看'");
-    expect(teaser).toContain("bid: '获取交易权限'");
-    expect(teaser).toContain("data-testid='public-market-lot-actions'");
-    expect(teaser).toContain('href={loginHref}>{copy.details}</a>');
-    expect(teaser).toContain('href={registerHref}>{copy.bid}');
     expect(teaser).not.toMatch(/href=.*publicRef/);
-    expect(home).toContain("import { PublicMarketTeaser } from './PublicMarketTeaser';");
-    expect(home).toContain("const MARKET_NAV_LABEL: Record<Locale, string> = {");
-    expect(home).toContain('const marketNavLabel = MARKET_NAV_LABEL[normalizedLocale];');
-    expect(home).not.toContain("const marketNavLabel = normalizedLocale ===");
-    expect(home).toContain("<a href='#market'>{marketNavLabel}</a>");
-    expect(home).toContain('<PublicMarketTeaser locale={locale} />');
-    expect(teaser).toContain("id='market'");
-    expect(teaser).toContain("data-testid='public-market-teaser'");
-    expect(css).toContain('@media (max-width: 640px)');
-    expect(css).toContain('@media (max-width: 390px)');
+    expect(canonicalMarket).toContain('/platform-v7/register?lang=');
+    expect(canonicalMarket).toContain('/platform-v7/login?lang=');
+    expect(canonicalMarket).toContain("details: 'Войти и посмотреть'");
+    expect(canonicalMarket).toContain("access: 'Доступ к торгам'");
+    expect(canonicalMarket).toContain("details: 'Sign in and view'");
+    expect(canonicalMarket).toContain("access: 'Trading access'");
+    expect(canonicalMarket).toContain("details: '登录查看'");
+    expect(canonicalMarket).toContain("access: '获取交易权限'");
+    expect(canonicalMarket).toContain("data-testid='canonical-public-market-lot-actions'");
+    expect(canonicalMarket).not.toMatch(/href=.*publicRef/);
+    expect(canonicalMarket).not.toContain('/platform-v7/market/${encodeURIComponent(lot.publicRef)}');
+    expect(home).toContain("import { CanonicalMarketPreview } from './PublicCanonicalMarket';");
+    expect(home).toContain('<CanonicalMarketPreview locale={locale} />');
+    expect(home).toContain("<section className='pc-cp-section' id='market'");
+    expect(css).toContain('@media(max-width:760px)');
+    expect(css).toContain('@media(max-width:430px)');
   });
 });
 
