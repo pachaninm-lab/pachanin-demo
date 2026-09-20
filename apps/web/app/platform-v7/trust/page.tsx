@@ -100,7 +100,7 @@ export default async function TrustPage(){
   </div></section>
   <section className='pc-cp-section'><div className='pc-cp-container'>
    <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{c.boundaries}</span><h2>{c.boundaries}</h2><p>{c.boundariesLead}</p></div>
-   <div className='pc-cp-trust-grid'>{c.boundary.map(([title,text],i)=><article className='pc-cp-card pc-cp-trust-card' key={title}><i><ShieldCheck size={16}/></i><strong>{title}</strong><p>{text}</p></article>)}</div>
+   <div className='pc-cp-trust-grid'>{c.boundary.map(([title,text])=><article className='pc-cp-card pc-cp-trust-card' key={title}><i><ShieldCheck size={16}/></i><strong>{title}</strong><p>{text}</p></article>)}</div>
   </div></section>
   <section className='pc-cp-section pc-cp-section--tight'><div className='pc-cp-container'><CanonicalGektaStrip locale={locale}/></div></section>
   <section className='pc-cp-section pc-cp-section--soft'><div className='pc-cp-container'>
