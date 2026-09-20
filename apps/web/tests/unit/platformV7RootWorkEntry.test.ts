@@ -105,7 +105,7 @@ describe('platform-v7 canonical public experience',()=>{
   it('keeps public market public without weakening protected Deal routes',()=>{
     expect(layout).toContain("'/platform-v7/market'");
     expect(middleware).toContain("'/platform-v7/market'");
-    expect(layout).toContain("'/platform-v7/market/'");
+    expect(layout).not.toContain("'/platform-v7/market/'");
     expect(routeAliases).toContain("'/platform-v7/market': PLATFORM_V7_CANONICAL_ROUTES.lots");
     expect(layout.indexOf('if (isPublicPath(pathname))')).toBeLessThan(layout.indexOf('if (!isKnownProtectedPath(pathname))'));
     expect(layout).toContain("/^\\/platform-v7\\/deals\\/[^/]+$/");
