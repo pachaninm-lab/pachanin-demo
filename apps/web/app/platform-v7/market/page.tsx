@@ -42,9 +42,13 @@ export default async function PlatformV7MarketPage({searchParams}:{searchParams?
   }
   return <main className='pc-canonical-public pc-cp-page-market'>
     <CanonicalPublicHeader locale={locale} activePath='/platform-v7/market'/>
-    <section className='pc-cp-section pc-cp-section--soft'>
+    <section className='pc-cp-market-hero'>
       <div className='pc-cp-container'>
         <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{c.e}</span><h1>{c.t}</h1><p>{c.p}</p></div>
+      </div>
+    </section>
+    <section className='pc-cp-section pc-cp-section--tight'>
+      <div className='pc-cp-container'>
         <form className='pc-cp-market-toolbar' action='/platform-v7/market' method='get' role='search'>
           <input type='hidden' name='lang' value={locale}/>
           <div style={{position:'relative'}}>
