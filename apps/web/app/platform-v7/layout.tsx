@@ -77,7 +77,6 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7/fgis-zerno',
 ]);
 const PUBLIC_PREFIX_PATHS = [
-  '/platform-v7/market/',
   '/platform-v7/role-preview',
   '/platform-v7/demo',
 ];
@@ -189,6 +188,7 @@ const ALIAS_DYNAMIC_PATHS = [
   /^\/platform-v7\/counterparty\/[^/]+$/,
   /^\/platform-v7\/deal-drafts\/[^/]+$/,
   /^\/platform-v7\/deals\/[^/]+$/,
+  /^\/platform-v7\/deals\/[^/]+\/clean$/,
   /^\/platform-v7\/dispute\/[^/]+$/,
   /^\/platform-v7\/disputes\/[^/]+\/hold$/,
   /^\/platform-v7\/disputes\/[^/]+$/,
