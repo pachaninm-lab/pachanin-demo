@@ -1,3 +1,4 @@
+import './public-entry-contact-dock-mount.css';
 import type { ReactNode } from 'react';
 import { headers } from 'next/headers';
 
