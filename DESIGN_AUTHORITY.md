@@ -31,7 +31,7 @@ If a listed mockup conflicts with accessibility, responsive behavior, a real pro
 | `08-trust-desktop.jpg` | Доверие — desktop; mobile derives from the same canonical design system and IA | 1448×1086 | `3b3a0c543dce4592c333fcac363e98b580ec74a964f9b247b73a47b68e96d4d2` |
 | `09-gekta-desktop.jpg` | Гекта — desktop; mobile derives from the same canonical design system and IA | 1672×941 | `2d2a3dd0940cc920b9ea87c847ba204d504c76c658f375fe397862adb838e8f2` |
 
-The canonical source bundle supplied for this work is `final_canonical_mockups(1).zip`.
+The canonical source bundle supplied for this work is `final_canonical_mockups(2).zip`.
 
 ## Canonical product contract
 
