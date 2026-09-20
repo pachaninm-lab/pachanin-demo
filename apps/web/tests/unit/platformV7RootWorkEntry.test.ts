@@ -14,7 +14,9 @@ describe('platform-v7 canonical public experience',()=>{
   const marketSource=read('lib/public-market-server.ts');
   const routeAliases=read('lib/platform-v7/route-canonicalization.ts');
   const dealFlow=read('app/platform-v7/deal-flow/page.tsx');
-  const protectedDeal=read('app/platform-v7/deals/[id]/clean/page.tsx');
+  const protectedDeal=read('components/platform-v7/CanonicalDealWorkspace.tsx');
+  const protectedDealRoute=read('app/platform-v7/deals/[id]/execution/page.tsx');
+  const cleanDealAlias=read('app/platform-v7/deals/[id]/clean/page.tsx');
   const registerPage=read('app/platform-v7/register/page.tsx');
   const registerForm=read('app/platform-v7/register/RegisterFormClientPublic.tsx');
   const loginPage=read('app/platform-v7/login/page.tsx');
@@ -93,7 +95,8 @@ describe('platform-v7 canonical public experience',()=>{
   it('keeps public market public without weakening protected Deal routes',()=>{
     expect(layout).toContain("'/platform-v7/market'");
     expect(layout).toContain("'/platform-v7/market/'");
-    expect(routeAliases).not.toContain("'/platform-v7/market': PLATFORM_V7_CANONICAL_ROUTES.lots");
+    expect(routeAliases).toContain("'/platform-v7/market': PLATFORM_V7_CANONICAL_ROUTES.lots");
+    expect(layout.indexOf('if (isPublicPath(pathname))')).toBeLessThan(layout.indexOf('if (!isKnownProtectedPath(pathname))'));
     expect(layout).toContain("/^\\/platform-v7\\/deals\\/[^/]+$/");
     expect(layout).toContain("/^\\/platform-v7\\/lot\\/[^/]+$/");
     expect(layout).not.toMatch(/ALIAS_EXACT_PATHS[\s\S]*?'\/platform-v7\/market',[\s\S]*?\];/);
@@ -121,14 +124,19 @@ describe('platform-v7 canonical public experience',()=>{
     expect(loginClient).not.toContain('setDirectRole');
   });
 
-  it('keeps the protected Deal on authoritative runtime bindings and existing command boundary',()=>{
-    expect(protectedDeal).toContain('buildP7DealWorkspaceRuntimeBinding');
-    expect(protectedDeal).toContain('selectDealById(id)');
-    expect(protectedDeal).toContain('selectDisputesByDealId(deal.id)');
-    expect(protectedDeal).toContain('evaluateReleaseGuard');
-    expect(protectedDeal).toContain('<P7DealWorkspaceTabs deal={deal} runtimeBinding={binding}/>');
-    expect(protectedDeal).toContain('<DealGuaranteesBlock');
-    expect(protectedDeal).toContain('<DealChangeHistory dealId={deal.id}/>');
+  it('keeps the protected Deal on the authoritative execution workspace and governed command boundary',()=>{
+    expect(protectedDealRoute).toContain('<CanonicalDealWorkspace role={role} dealId={id} />');
+    expect(cleanDealAlias).toContain('/execution');
+    expect(protectedDeal).toContain('/execution-workspace');
+    expect(protectedDeal).toContain('/commands/${encodeURIComponent(action.id)}');
+    expect(protectedDeal).toContain('expectedUpdatedAt: workspace.deal.updatedAt');
+    expect(protectedDeal).toContain('expectedVersion: workspace.deal.version');
+    expect(protectedDeal).toContain('applyCsrfHeader');
+    expect(protectedDeal).toContain('reason.status === 409');
+    expect(protectedDeal).toContain("action?.source === 'BANK_CALLBACK'");
+    expect(protectedDeal).toContain('CanonicalDealSpine');
+    expect(protectedDeal).toContain('CanonicalStateLens');
+    expect(protectedDeal).toContain('CanonicalTrustLedger');
     expect(protectedDeal).not.toContain('DL-9102');
   });
 
