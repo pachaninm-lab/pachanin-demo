@@ -565,32 +565,6 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
 }
 
 
-/* canonical home density — desktop authority geometry */
-@media(min-width:901px){
-  .pc-cp-page-home .pc-cp-hero{min-height:455px;padding:48px 0 34px}
-  .pc-cp-page-home .pc-cp-section{padding:40px 0}
-  .pc-cp-page-home .pc-cp-section--tight{padding:28px 0}
-  .pc-cp-page-home .pc-cp-section-head{margin-bottom:18px}
-  .pc-cp-page-home .pc-cp-role-grid,
-  .pc-cp-page-home .pc-cp-trust-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
-  .pc-cp-page-home .pc-cp-role-card{min-height:116px;padding:15px;gap:7px}
-  .pc-cp-page-home .pc-cp-role-card strong{font-size:19px}
-  .pc-cp-page-home .pc-cp-role-card p{font-size:12px;line-height:1.4}
-  .pc-cp-page-home .pc-cp-state-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
-  .pc-cp-page-home .pc-cp-state-cell:last-child{grid-column:auto}
-  .pc-cp-page-home .pc-cp-state-cell{padding:11px}
-  .pc-cp-page-home .pc-cp-trust-card{padding:15px;gap:7px;min-height:122px}
-  .pc-cp-page-home .pc-cp-trust-card strong{font-size:19px}
-  .pc-cp-page-home .pc-cp-trust-card p{font-size:12px;line-height:1.4}
-  .pc-cp-page-home .pc-cp-gekta-strip{padding:22px}
-  .pc-cp-page-home .pc-cp-capabilities{display:flex;overflow-x:auto;gap:9px;padding:2px 2px 10px;scroll-snap-type:x proximity}
-  .pc-cp-page-home .pc-cp-capability{flex:0 0 185px;min-height:112px;padding:14px;scroll-snap-align:start}
-  .pc-cp-page-home .pc-cp-final{min-height:245px}
-  .pc-cp-page-home .pc-cp-footer{padding-top:22px}
-  .pc-cp-page-home .pc-cp-empty{min-height:130px}
-}
-
-
 /* supporting canonical public hero artwork */
 .pc-cp-hero:not(:has(.pc-cp-hero-media)){
   background-image:linear-gradient(90deg,rgba(250,248,241,.96) 0%,rgba(250,248,241,.83) 45%,rgba(250,248,241,.18) 100%),url('/platform-v7/wheat-exact-background.svg');
