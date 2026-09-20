@@ -11,6 +11,7 @@
     ".github/workflows/platform-v7-canonical-visual-acceptance.yml",
     "DESIGN_AUTHORITY.md",
     "apps/api/src/modules/auctions/public-auction-market.spec.ts",
+    "apps/web/app/pc-public-entry/platform-v7/layout.tsx",
     "apps/web/app/platform-v7/**",
     "apps/web/components/platform-v7/**",
     "apps/web/lighthouserc.cjs",
@@ -32,7 +33,8 @@
     "The canonical repository logo asset remains the only brand mark.",
     "RU, EN and ZH use one shared design system and the canonical nine roles, seven Deal stages and Trust model.",
     "Visual acceptance uses exact-head production build evidence; no production release occurs before terminal acceptance.",
-    "No branch protection, security gate, governance guard or server authority is bypassed."
+    "No branch protection, security gate, governance guard or server authority is bypassed.",
+    "The canonical /platform-v7 landing does not hydrate hidden legacy contact/support surfaces; login/recovery and older public surfaces retain their existing support behavior."
   ],
   "acceptance": [
     "Exact-head web typecheck, unit, Node CI, API and security gates pass.",
