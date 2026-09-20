@@ -5,13 +5,13 @@
   "lastCompletedStep": "MASTER v2.1 R0 + IR-20 PRODUCTION_PASS 5da8e80744908413102214f91dd68018911b892e",
   "openPr": 5468,
   "blockedBy": [],
-  "nextStep": "R1.1 Server-side inventory of 13 cabinets and authority",
+  "nextStep": "R1 backend authority/data layer first; owner web handoff remains separately scoped after conflict recheck",
   "updatedAt": "2026-09-20T22:47:00+03:00",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
     "noAutoMerge": true,
-    "controlledPilotOnly": false,
+    "controlledPilotOnly": true,
     "serverAuthority": true,
     "noClientSelectedRole": true,
     "noParallelUxFgisBankImplementation": true
@@ -22,5 +22,6 @@
     "exactMain": "5da8e80744908413102214f91dd68018911b892e",
     "productionSha": "5da8e80744908413102214f91dd68018911b892e",
     "productionControllerRun": 35520784872
-  }
+  },
+  "currentTaskExecution": "R1.1 inventory complete enough to activate backend authority slice; R1 official points remain 0 until full PRODUCTION_PASS"
 }
