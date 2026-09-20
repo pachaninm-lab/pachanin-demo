@@ -9,6 +9,11 @@ INTAKE_CORRELATION_ID="${5:-}"
 API_IMAGE="${PC_API_IMAGE:-}"
 WEB_IMAGE="${PC_WEB_IMAGE:-}"
 MIGRATION_IMAGE="${PC_MIGRATION_IMAGE:-}"
+OUTBOX_WORKER_IMAGE="${PC_OUTBOX_WORKER_IMAGE:-}"
+OUTBOX_POLICY_FILE="${PC_OUTBOX_POLICY_FILE:-}"
+KAFKA_IMAGE='confluentinc/cp-kafka@sha256:24cdd3a7fa89d2bed150560ebea81ff1943badfa61e51d66bb541a6b0d7fb047'
+KAFKA_SERVICE='ir20-kafka'
+OUTBOX_SERVICE='outbox-worker'
 IMAGE_BINDING_VERIFIER="${PC_RELEASE_IMAGE_BINDING_VERIFIER:-${BASH_SOURCE[0]%/*}/release/verify-production-image-binding.py}"
 PROD_DIR_B64="${PC_PROD_DIR_B64:-}"
 PROD_COMPOSE_B64="${PC_PROD_COMPOSE_B64:-}"
@@ -16,6 +21,10 @@ PROD_PROJECT_B64="${PC_PROD_PROJECT_B64:-}"
 BACKUP_EVIDENCE_B64="${PC_PROD_BACKUP_EVIDENCE_FILE_B64:-${PC_BACKUP_EVIDENCE_FILE_B64:-}}"
 STATE_ROOT="/var/lib/pc-release-authority"
 STATE_FILE="$STATE_ROOT/full-stack-${RUN_ID}.state"
+outbox_runtime_env_file=""
+OUTBOX_RUNTIME_ENV_PREEXISTED=0
+BASELINE_WORKER_PRESENT=0
+BASELINE_BROKER_PRESENT=0
 
 RELEASE_ROLLBACK_ARMED=0
 RELEASE_ROLLBACK_ACTIVE=0
@@ -30,7 +39,7 @@ fail() {
 decode() { [[ -z "$1" ]] || printf '%s' "$1" | base64 -d; }
 trim() { local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
 
-[[ "$ACTION" =~ ^(audit|deploy|rollback|verify-intake)$ ]] || fail INVALID_ACTION 2
+[[ "$ACTION" =~ ^(audit|deploy|rollback|verify-intake|observe-ir20)$ ]] || fail INVALID_ACTION 2
 [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]] || fail INVALID_TARGET_SHA 3
 [[ "$RUN_ID" =~ ^[A-Za-z0-9._:-]{1,128}$ ]] || fail INVALID_RUN_ID 4
 
@@ -372,35 +381,43 @@ release_watchtower_ids() {
   printf '%s\n' "$ids" | LC_ALL=C sort
 }
 
+optional_release_service_id() {
+  local service="$1" ids id
+  ids="$(docker ps -aq --no-trunc --filter "label=com.docker.compose.project=$runtime_project" --filter "label=com.docker.compose.service=$service" 2>/dev/null)" || { runtime_isolation_error TARGET_DISCOVERY_FAILED; return 1; }
+  validate_container_ids "$ids" 1 || return 1
+  [[ "$ids" != *$'\n'* ]] || { runtime_isolation_error TARGET_RUNTIME_AMBIGUOUS; return 1; }
+  [[ -n "$ids" ]] || return 0
+  id="$ids"
+  verify_release_container "$id" "$service" || return 1
+  printf '%s\n' "$id"
+}
+
 snapshot_unrelated() {
-  local output="$1" require_retired="${2:-0}" all_ids target_api target_web watchtower_ids id
+  local output="$1" require_retired="${2:-0}" all_ids target_api target_web target_worker target_broker watchtower_ids id
   local -A targets=() running=()
   [[ "$require_retired" =~ ^[01]$ ]] || { runtime_isolation_error SNAPSHOT_MODE_INVALID; return 1; }
   all_ids="$(docker ps -q --no-trunc 2>/dev/null)" || { runtime_isolation_error RUNTIME_SNAPSHOT_FAILED; return 1; }
   validate_container_ids "$all_ids" || return 1
   target_api="$(release_service_id api)" || return 1
   target_web="$(release_service_id web)" || return 1
+  target_worker="$(optional_release_service_id "$OUTBOX_SERVICE")" || return 1
+  target_broker="$(optional_release_service_id "$KAFKA_SERVICE")" || return 1
   [[ "$target_api" != "$target_web" ]] || { runtime_isolation_error TARGET_IDENTITY_MISMATCH; return 1; }
   while IFS= read -r id; do running[$id]=1; done <<< "$all_ids"
   [[ -v "running[$target_api]" && -v "running[$target_web]" ]] || { runtime_isolation_error TARGET_SNAPSHOT_CHANGED; return 1; }
-  targets[$target_api]=1
-  targets[$target_web]=1
+  targets[$target_api]=1; targets[$target_web]=1
+  [[ -z "$target_worker" ]] || targets[$target_worker]=1
+  [[ -z "$target_broker" ]] || targets[$target_broker]=1
   watchtower_ids="$(release_watchtower_ids)" || return 1
   if [[ -n "$watchtower_ids" ]]; then
     while IFS= read -r id; do
-      if [[ "$require_retired" == 1 && -v "running[$id]" ]]; then
-        runtime_isolation_error WATCHTOWER_RUNNING_AFTER_RETIREMENT; return 1
-      fi
+      if [[ "$require_retired" == 1 && -v "running[$id]" ]]; then runtime_isolation_error WATCHTOWER_RUNNING_AFTER_RETIREMENT; return 1; fi
       targets[$id]=1
     done <<< "$watchtower_ids"
   fi
   if [[ "$require_retired" == 1 ]]; then verify_watchtower_retirement "$watchtower_ids" || return 1; fi
-  # Include other Compose projects even when they use api/web/watchtower names.
-  # Worker remains protected until a separately admitted topology/rollout exists.
   {
-    while IFS= read -r id; do
-      if [[ ! -v "targets[$id]" ]]; then printf '%s\n' "$id"; fi
-    done <<< "$all_ids"
+    while IFS= read -r id; do [[ -v "targets[$id]" ]] || printf '%s\n' "$id"; done <<< "$all_ids"
   } | LC_ALL=C sort > "$output"
 }
 
@@ -431,46 +448,96 @@ runtime_project=""
 resolve_release_runtime_project || fail RUNTIME_PROJECT_VALIDATION_FAILED 78
 
 write_override() {
-  local api_image="$1" web_image="$2" migration_image="$3" destination="$4" include_password_reset_runtime="${5:-0}"
+  local api_image="$1" web_image="$2" migration_image="$3" destination="$4"
+  local include_password_reset_runtime="${5:-0}" worker_image="${6:-}" include_ir20="${7:-0}"
   [[ "$include_password_reset_runtime" =~ ^[01]$ ]] || fail PASSWORD_RESET_RUNTIME_OVERRIDE_MODE_INVALID 67
+  [[ "$include_ir20" =~ ^[01]$ ]] || fail IR20_RUNTIME_OVERRIDE_MODE_INVALID 84
   umask 077
-  if [[ "$include_password_reset_runtime" == 1 ]]; then
-    cat > "$destination.tmp" <<YAML
+  cat > "$destination.tmp" <<YAML
 services:
   api:
     image: ${api_image}
     pull_policy: never
+    environment:
+      OUTBOX_WORKER_ENABLED: "false"
     env_file:
       - ${auth_opaque_token_env_file}
       - ${staff_database_env_file}
-      - ${password_reset_delivery_env_file}
-      - ${gekta_api_runtime_env_file}
+$(if [[ "$include_password_reset_runtime" == 1 ]]; then
+  printf '      - %s\n' "${password_reset_delivery_env_file}"
+  printf '      - %s\n' "${gekta_api_runtime_env_file}"
+fi)
   web:
     image: ${web_image}
     pull_policy: never
-    env_file:
-      - ${password_reset_delivery_env_file}
-      - ${transactional_mail_env_file}
-      - ${gekta_web_runtime_env_file}
+$(if [[ "$include_password_reset_runtime" == 1 ]]; then
+  printf '    env_file:\n'
+  printf '      - %s\n' "${password_reset_delivery_env_file}"
+  printf '      - %s\n' "${transactional_mail_env_file}"
+  printf '      - %s\n' "${gekta_web_runtime_env_file}"
+fi)
   ${migration_service}:
     image: ${migration_image}
     pull_policy: never
 YAML
-  else
-    cat > "$destination.tmp" <<YAML
-services:
-  api:
-    image: ${api_image}
+  if [[ "$include_ir20" == 1 ]]; then
+    [[ -n "$worker_image" && -n "$outbox_runtime_env_file" ]] || fail IR20_RUNTIME_INPUT_MISSING 85
+    cat >> "$destination.tmp" <<YAML
+  $KAFKA_SERVICE:
+    image: $KAFKA_IMAGE
     pull_policy: never
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://$KAFKA_SERVICE:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx512m
+    volumes:
+      - pc_ir20_kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server 127.0.0.1:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+  $OUTBOX_SERVICE:
+    image: $worker_image
+    pull_policy: never
+    restart: unless-stopped
     env_file:
-      - ${auth_opaque_token_env_file}
-      - ${staff_database_env_file}
-  web:
-    image: ${web_image}
-    pull_policy: never
-  ${migration_service}:
-    image: ${migration_image}
-    pull_policy: never
+      - $outbox_runtime_env_file
+    depends_on:
+      $KAFKA_SERVICE:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 90s
+    healthcheck:
+      test: ["CMD", "/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:3002/ready',{signal:AbortSignal.timeout(4000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 10s
+volumes:
+  pc_ir20_kafka_data:
+    name: pc_ir20_kafka_data
 YAML
   fi
   mv "$destination.tmp" "$destination"
@@ -556,6 +623,166 @@ wait_web() {
   done
   return 1
 }
+wait_broker() {
+  local id state attempt
+  for attempt in $(seq 1 60); do
+    id="$("${dc_target[@]}" ps -q "$KAFKA_SERVICE" | head -1)"
+    state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$id" 2>/dev/null || true)"
+    [[ "$state" == healthy ]] && return 0
+    sleep 2
+  done
+  return 1
+}
+
+wait_worker() {
+  local id state attempt
+  for attempt in $(seq 1 60); do
+    id="$("${dc_target[@]}" ps -q "$OUTBOX_SERVICE" | head -1)"
+    state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$id" 2>/dev/null || true)"
+    if [[ "$state" == healthy ]] && docker exec "$id" /nodejs/bin/node -e "fetch('http://127.0.0.1:3002/ready',{signal:AbortSignal.timeout(4000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1; then return 0; fi
+    sleep 2
+  done
+  return 1
+}
+
+verify_broker_image() {
+  docker pull "$KAFKA_IMAGE" >/dev/null 2>&1 || fail KAFKA_IMAGE_PULL_FAILED 86
+  python3 - "$KAFKA_IMAGE" <<'PY' || fail KAFKA_IMAGE_BINDING_FAILED 87
+import json,re,subprocess,sys
+ref=sys.argv[1]
+if not re.fullmatch(r'confluentinc/cp-kafka@sha256:[0-9a-f]{64}',ref): raise SystemExit(1)
+p=subprocess.run(['docker','image','inspect',ref],capture_output=True,text=True,timeout=30)
+if p.returncode: raise SystemExit(1)
+rows=json.loads(p.stdout)
+if len(rows)!=1 or ref not in (rows[0].get('RepoDigests') or []): raise SystemExit(1)
+PY
+}
+
+resolve_outbox_runtime_env_file() {
+  outbox_runtime_env_file="${PC_OUTBOX_RUNTIME_ENV_FILE:-$prod_dir/.pc-ir20-outbox-worker.env}"
+  [[ "$outbox_runtime_env_file" == "$prod_dir"/* ]] || fail OUTBOX_RUNTIME_ENV_FILE_OUTSIDE_PRODUCTION_DIRECTORY 88
+  [[ ! -L "$outbox_runtime_env_file" ]] || fail OUTBOX_RUNTIME_ENV_FILE_SYMLINK 89
+  [[ ! -f "$outbox_runtime_env_file" ]] || OUTBOX_RUNTIME_ENV_PREEXISTED=1
+}
+
+validate_outbox_runtime_env_file() {
+  [[ -f "$outbox_runtime_env_file" && ! -L "$outbox_runtime_env_file" ]] || return 1
+  [[ "$(stat -c '%a:%u:%g' "$outbox_runtime_env_file")" == '600:0:0' ]] || return 1
+  python3 - "$outbox_runtime_env_file" "$KAFKA_SERVICE" <<'PY'
+import re,sys
+from urllib.parse import urlsplit
+raw=open(sys.argv[1],encoding='utf-8').read()
+if not raw.endswith('\n') or '\r' in raw or '\0' in raw: raise SystemExit(1)
+pairs={}
+for line in raw.rstrip('\n').split('\n'):
+    k,sep,v=line.partition('=')
+    if not sep or k in pairs or not re.fullmatch(r'[A-Z][A-Z0-9_]*',k): raise SystemExit(1)
+    pairs[k]=v
+required={'DATABASE_URL','KAFKA_BROKERS','KAFKA_REQUIRED','OUTBOX_WORKER_ENABLED','RUNTIME_COMPONENT','NODE_ENV','OUTBOX_WORKER_HEALTH_PORT','OUTBOX_WORKER_INTERVAL_MS','OUTBOX_WORKER_BATCH_SIZE','OUTBOX_WORKER_HEARTBEAT_MS'}
+if set(pairs)!=required: raise SystemExit(1)
+u=urlsplit(pairs['DATABASE_URL'])
+if u.scheme not in ('postgresql','postgres') or u.username!='app_outbox' or not u.password or not u.hostname or not u.path.strip('/'): raise SystemExit(1)
+if pairs['KAFKA_BROKERS']!=sys.argv[2]+':9092' or pairs['KAFKA_REQUIRED']!='true' or pairs['OUTBOX_WORKER_ENABLED']!='true' or pairs['RUNTIME_COMPONENT']!='outbox-worker' or pairs['NODE_ENV']!='production': raise SystemExit(1)
+if pairs['OUTBOX_WORKER_HEALTH_PORT']!='3002' or pairs['OUTBOX_WORKER_INTERVAL_MS']!='1000' or pairs['OUTBOX_WORKER_BATCH_SIZE']!='25' or pairs['OUTBOX_WORKER_HEARTBEAT_MS']!='20000': raise SystemExit(1)
+PY
+}
+
+migration_database_url() {
+  local json rc
+  json="$(mktemp)"; "${dc[@]}" config --format json > "$json"
+  set +e
+  python3 - "$json" "$migration_service" <<'PY'
+import json,sys
+svc=(json.load(open(sys.argv[1],encoding='utf-8')).get('services') or {}).get(sys.argv[2]) or {}
+env=svc.get('environment') or {}
+if isinstance(env,list): env=dict(x.split('=',1) for x in env if isinstance(x,str) and '=' in x)
+v=str(env.get('DATABASE_URL') or '').strip()
+if not v or '\n' in v or '\r' in v or '\0' in v: raise SystemExit(1)
+print(v)
+PY
+  rc=$?; set -e; rm -f "$json"; return "$rc"
+}
+
+apply_outbox_policy() {
+  [[ -n "$OUTBOX_POLICY_FILE" && "$OUTBOX_POLICY_FILE" == /tmp/pc-ir20-outbox-policy-* && -f "$OUTBOX_POLICY_FILE" && ! -L "$OUTBOX_POLICY_FILE" ]] || fail OUTBOX_POLICY_FILE_INVALID 121
+  [[ "$(stat -c '%u:%g' "$OUTBOX_POLICY_FILE")" == '0:0' ]] || fail OUTBOX_POLICY_FILE_OWNER_INVALID 122
+  "${dc_target[@]}" run --rm --no-deps --pull never -T "$migration_service" node_modules/prisma/build/index.js db execute --stdin --schema prisma/schema.prisma < "$OUTBOX_POLICY_FILE" >/dev/null 2>&1 || fail OUTBOX_POLICY_APPLY_FAILED 123
+  printf 'IR20_OUTBOX_POLICY_APPLIED=1\n'
+}
+provision_outbox_runtime() {
+  resolve_outbox_runtime_env_file
+  if [[ "$OUTBOX_RUNTIME_ENV_PREEXISTED" == 1 ]]; then
+    validate_outbox_runtime_env_file || fail EXISTING_OUTBOX_RUNTIME_ENV_FILE_INVALID 90
+  else
+    local migration_url password worker_url sql temp
+    migration_url="$(migration_database_url)" || fail MIGRATION_DATABASE_URL_UNAVAILABLE_FOR_OUTBOX 91
+    password="$(python3 -c 'import secrets; print(secrets.token_hex(48))')"; [[ "$password" =~ ^[A-Fa-f0-9]{96}$ ]] || fail OUTBOX_PASSWORD_GENERATION_FAILED 92
+    worker_url="$(printf '%s\0%s' "$migration_url" "$password" | python3 -c '
+import sys
+from urllib.parse import quote,urlsplit,urlunsplit
+source,password=sys.stdin.buffer.read().split(b"\0",1); u=urlsplit(source.decode().strip()); password=password.decode().strip()
+if u.scheme not in ("postgresql","postgres") or not u.hostname or not u.path.strip("/") or not u.username or not u.password: raise SystemExit(1)
+host=u.hostname
+if ":" in host and not host.startswith("["): host="["+host+"]"
+if u.port: host=host+":"+str(u.port)
+print(urlunsplit((u.scheme,"app_outbox:"+quote(password,safe="")+"@"+host,u.path,u.query,"")))
+')" || fail OUTBOX_DATABASE_URL_BUILD_FAILED 93
+    sql="$(printf '%s\0' "$password" | python3 -c '
+import sys
+p=sys.stdin.buffer.read().split(b"\0",1)[0].decode()
+if len(p)!=96 or any(c not in "0123456789abcdefABCDEF" for c in p): raise SystemExit(1)
+print("DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '\''app_outbox'\'') THEN RAISE EXCEPTION '\''app_outbox missing'\''; END IF; IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '\''app_outbox'\'' AND (rolinherit OR rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole OR rolreplication)) THEN RAISE EXCEPTION '\''app_outbox unsafe'\''; END IF; ALTER ROLE app_outbox LOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD '\''"+p+"'\''; END $$;")
+')" || fail OUTBOX_RUNTIME_SQL_BUILD_FAILED 94
+    printf '%s\n' "$sql" | "${dc_target[@]}" run --rm --no-deps --pull never -T "$migration_service" node_modules/prisma/build/index.js db execute --stdin --schema prisma/schema.prisma >/dev/null 2>&1 || fail OUTBOX_RUNTIME_PASSWORD_PROVISION_FAILED 95
+    temp="$(mktemp "$prod_dir/.pc-ir20-outbox-worker.env.XXXXXX")"
+    {
+      printf 'DATABASE_URL=%s\n' "$worker_url"; printf 'KAFKA_BROKERS=%s:9092\n' "$KAFKA_SERVICE"
+      printf 'KAFKA_REQUIRED=true\nOUTBOX_WORKER_ENABLED=true\nRUNTIME_COMPONENT=outbox-worker\nNODE_ENV=production\n'
+      printf 'OUTBOX_WORKER_HEALTH_PORT=3002\nOUTBOX_WORKER_INTERVAL_MS=1000\nOUTBOX_WORKER_BATCH_SIZE=25\nOUTBOX_WORKER_HEARTBEAT_MS=20000\n'
+    } > "$temp"
+    chown 0:0 "$temp"; chmod 0600 "$temp"; mv "$temp" "$outbox_runtime_env_file"
+    unset migration_url password worker_url sql temp
+    validate_outbox_runtime_env_file || fail OUTBOX_RUNTIME_ENV_FILE_VERIFICATION_FAILED 96
+  fi
+}
+
+worker_node() { "${dc_target[@]}" run --rm --no-deps --pull never -T --entrypoint /nodejs/bin/node "$OUTBOX_SERVICE" - "$@"; }
+
+worker_principal_smoke() {
+  worker_node <<'NODE' >/dev/null 2>&1
+const {PrismaClient}=require('@prisma/client'); const p=new PrismaClient();
+(async()=>{const rows=await p.$queryRawUnsafe(`
+SELECT current_user='app_outbox' AS u,current_setting('row_security')='on' AS rls,r.rolsuper AS su,r.rolbypassrls AS br,r.rolcreatedb AS cdb,r.rolcreaterole AS cr,r.rolreplication AS rep,r.rolinherit AS inh,
+has_table_privilege(current_user,'public.outbox_entries','SELECT') AS sel,
+has_table_privilege(current_user,'public.outbox_entries','INSERT') OR has_any_column_privilege(current_user,'public.outbox_entries','INSERT') AS ins,
+has_table_privilege(current_user,'public.outbox_entries','DELETE') AS del,
+has_table_privilege(current_user,'public.deals','SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR has_any_column_privilege(current_user,'public.deals','SELECT,INSERT,UPDATE,REFERENCES') AS deal,
+has_schema_privilege(current_user,'auth','USAGE') AS auth,
+(SELECT bool_and(has_column_privilege(current_user,'public.outbox_entries',n,'UPDATE')) FROM unnest(ARRAY['status','retryCount','nextRetryAt','lastError','lastErrorCode','lastErrorCategory','lastAttemptAt','manualReviewAt','sentAt','confirmedAt','failedAt','deadLetterAt','leaseOwner','leaseToken','leaseExpiresAt','heartbeatAt']) n) AS upd FROM pg_roles r WHERE r.rolname=current_user`);
+const x=rows[0]; if(!x||!x.u||!x.rls||x.su||x.br||x.cdb||x.cr||x.rep||x.inh||!x.sel||!x.upd||x.ins||x.del||x.deal||x.auth) throw Error('BOUNDARY');
+const cat=await p.$queryRawUnsafe(`SELECT c.relrowsecurity AS rls,c.relforcerowsecurity AS force,to_regprocedure('public.outbox_expired_attempt_reclaim_guard()') IS NOT NULL AS fence FROM pg_class c WHERE c.oid=to_regclass('public.outbox_entries')`);
+if(cat.length!==1||!cat[0].rls||!cat[0].force||!cat[0].fence) throw Error('CATALOG');
+})().catch(()=>process.exitCode=1).finally(()=>p.$disconnect());
+NODE
+}
+
+ensure_kafka_topics() {
+  local id; id="$("${dc_target[@]}" ps -q "$KAFKA_SERVICE" | head -1)"; [[ -n "$id" ]] || return 1
+  for topic in grainflow.domain.events grainflow.bank.events; do docker exec "$id" kafka-topics --bootstrap-server 127.0.0.1:9092 --create --if-not-exists --topic "$topic" --partitions 3 --replication-factor 1 >/dev/null 2>&1 || return 1; done
+  for topic in grainflow.domain.events grainflow.bank.events; do docker exec "$id" kafka-topics --bootstrap-server 127.0.0.1:9092 --describe --topic "$topic" >/dev/null 2>&1 || return 1; done
+}
+
+verify_first_broker_restart_persistence() {
+  [[ "$BASELINE_BROKER_PRESENT" == 0 ]] || return 0
+  local id before after; id="$("${dc_target[@]}" ps -q "$KAFKA_SERVICE" | head -1)"; [[ -n "$id" ]] || return 1
+  before="$(docker exec "$id" kafka-topics --bootstrap-server 127.0.0.1:9092 --list 2>/dev/null | grep -E '^(grainflow\.domain\.events|grainflow\.bank\.events)$' | sort)"
+  [[ "$before" == $'grainflow.bank.events\ngrainflow.domain.events' ]] || return 1
+  docker restart "$id" >/dev/null; wait_broker || return 1
+  id="$("${dc_target[@]}" ps -q "$KAFKA_SERVICE" | head -1)"
+  after="$(docker exec "$id" kafka-topics --bootstrap-server 127.0.0.1:9092 --list 2>/dev/null | grep -E '^(grainflow\.domain\.events|grainflow\.bank\.events)$' | sort)"
+  [[ "$after" == "$before" ]]
+}
+
 
 is_revision() {
   local revision="$1"
@@ -568,35 +795,40 @@ container_revision() {
 }
 
 rollback_images() {
-  local restored_api_id restored_web_id
+  local restored_api_id restored_web_id restored_worker_id worker_id broker_id
   [[ -f "$STATE_FILE" ]] || return 1
   # shellcheck disable=SC1090
   source "$STATE_FILE"
   is_revision "$BASELINE_API_REVISION" || return 1
   is_revision "$BASELINE_WEB_REVISION" || return 1
-  write_override "$BASELINE_API_IMAGE" "$BASELINE_WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override"
-  "${dc_target[@]}" config --quiet
-  "${dc_target[@]}" up -d --no-deps --pull never api web
-  wait_api && wait_web || return 1
-  restored_api_id="$("${dc_target[@]}" ps -q api | head -1)"
-  restored_web_id="$("${dc_target[@]}" ps -q web | head -1)"
+  resolve_outbox_runtime_env_file
+  if [[ "${BASELINE_WORKER_PRESENT:-0}" == 1 ]]; then
+    is_revision "${BASELINE_WORKER_REVISION:-}" || return 1
+    write_override "$BASELINE_API_IMAGE" "$BASELINE_WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override" 0 "$BASELINE_WORKER_IMAGE" 1
+    "${dc_target[@]}" config --quiet
+    "${dc_target[@]}" up -d --no-deps --pull never "$KAFKA_SERVICE" "$OUTBOX_SERVICE" api web
+    wait_broker && wait_worker && wait_api && wait_web || return 1
+    restored_worker_id="$("${dc_target[@]}" ps -q "$OUTBOX_SERVICE" | head -1)"
+    [[ "$(verify_runtime_image outbox-worker "$BASELINE_WORKER_IMAGE" "$restored_worker_id" 2>/dev/null)" == "$BASELINE_WORKER_REVISION" ]] || return 3
+  else
+    worker_id="$(optional_release_service_id "$OUTBOX_SERVICE")" || return 1
+    broker_id="$(optional_release_service_id "$KAFKA_SERVICE")" || return 1
+    [[ -z "$worker_id" ]] || docker rm -f "$worker_id" >/dev/null 2>&1 || return 1
+    [[ -z "$broker_id" ]] || docker rm -f "$broker_id" >/dev/null 2>&1 || return 1
+    write_override "$BASELINE_API_IMAGE" "$BASELINE_WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override"
+    "${dc_target[@]}" config --quiet
+    "${dc_target[@]}" up -d --no-deps --pull never api web
+    wait_api && wait_web || return 1
+    if [[ "${OUTBOX_RUNTIME_ENV_PREEXISTED:-0}" == 0 && -f "$outbox_runtime_env_file" ]]; then
+      printf '%s\n' "ALTER ROLE app_outbox NOLOGIN PASSWORD NULL;" | "${dc_target[@]}" run --rm --no-deps --pull never -T "$migration_service" node_modules/prisma/build/index.js db execute --stdin --schema prisma/schema.prisma >/dev/null 2>&1 || return 1
+      rm -f "$outbox_runtime_env_file"
+    fi
+  fi
+  restored_api_id="$("${dc_target[@]}" ps -q api | head -1)"; restored_web_id="$("${dc_target[@]}" ps -q web | head -1)"
   [[ -n "$restored_api_id" && -n "$restored_web_id" ]] || return 1
-  # The label name must reach Docker wrapped in real double quotes. Escaping
-  # them inside a single-quoted shell word does not escape anything — the shell
-  # passes the backslashes through literally and Go rejects the template with
-  # `unexpected "\" in operand`. That made both reads fail, left both variables
-  # empty, and so made the comparisons below unsatisfiable: this rollback path
-  # could never report success, whatever had actually happened to the
-  # containers. Every other template in this file already quotes it correctly.
-  restored_api_revision="$(container_revision "$restored_api_id")" || return 2
-  restored_web_revision="$(container_revision "$restored_web_id")" || return 2
-  # Unreadable and wrong are different failures and must not share an exit code.
-  # Conflating them is what let a broken verifier be reported as a failed
-  # restore, sending the investigation at the containers instead of the check.
-  is_revision "$restored_api_revision" || return 2
-  is_revision "$restored_web_revision" || return 2
-  [[ "$restored_api_revision" == "$BASELINE_API_REVISION" ]] || return 3
-  [[ "$restored_web_revision" == "$BASELINE_WEB_REVISION" ]] || return 3
+  restored_api_revision="$(container_revision "$restored_api_id")" || return 2; restored_web_revision="$(container_revision "$restored_web_id")" || return 2
+  is_revision "$restored_api_revision" || return 2; is_revision "$restored_web_revision" || return 2
+  [[ "$restored_api_revision" == "$BASELINE_API_REVISION" && "$restored_web_revision" == "$BASELINE_WEB_REVISION" ]] || return 3
 }
 
 rollback_and_exit() {
@@ -758,11 +990,50 @@ verify_durable_intake() {
   fi
 
   printf 'DURABLE_INTAKE_DB=PASS\n'
+  verify_live_outbox_delivery
+}
+
+verify_live_outbox_delivery() {
+  [[ "$INTAKE_CORRELATION_ID" =~ ^[A-Za-z0-9._:-]{8,128}$ ]] || fail LIVE_OUTBOX_CORRELATION_INVALID 98
+  worker_node "$INTAKE_CORRELATION_ID" <<'NODE' || fail LIVE_OUTBOX_DELIVERY_FAILED 99
+const {PrismaClient}=require('@prisma/client'); const correlation=process.argv[2]; const p=new PrismaClient(); const bad=new Set(['DEAD','DEAD_LETTER','MANUAL_REVIEW']);
+(async()=>{const deadline=Date.now()+120000; while(Date.now()<deadline){const rows=await p.$queryRawUnsafe('SELECT status FROM public.outbox_entries WHERE "correlationId"=$1 ORDER BY "createdAt" DESC LIMIT 1',correlation); if(rows.length===1){const s=String(rows[0].status); if(s==='SENT'||s==='CONFIRMED'){process.stdout.write('IR20_LIVE_OUTBOX_DELIVERY=PASS\\n');return;} if(bad.has(s)) throw Error('BAD');} await new Promise(r=>setTimeout(r,1000));} throw Error('TIMEOUT');})().catch(()=>process.exitCode=1).finally(()=>p.$disconnect());
+NODE
 }
 
 if [[ "$ACTION" == verify-intake ]]; then
   verify_durable_intake
   exit 0
+fi
+
+if [[ "$ACTION" == observe-ir20 ]]; then
+  resolve_outbox_runtime_env_file; validate_outbox_runtime_env_file || fail OUTBOX_RUNTIME_ENV_FILE_INVALID 100
+  local_worker="$(optional_release_service_id "$OUTBOX_SERVICE")" || fail IR20_WORKER_DISCOVERY_FAILED 101
+  local_broker="$(optional_release_service_id "$KAFKA_SERVICE")" || fail IR20_BROKER_DISCOVERY_FAILED 102
+  [[ -n "$local_worker" && -n "$local_broker" ]] || fail IR20_RUNTIME_MISSING 103
+  worker_revision="$(verify_runtime_image outbox-worker "$OUTBOX_WORKER_IMAGE" "$local_worker")" || fail IR20_WORKER_IMAGE_BINDING_FAILED 104
+  [[ "$worker_revision" == "$TARGET_SHA" ]] || fail IR20_WORKER_REVISION_MISMATCH 105
+  initial_worker_restarts="$(docker inspect --format '{{.RestartCount}}' "$local_worker")"; initial_broker_restarts="$(docker inspect --format '{{.RestartCount}}' "$local_broker")"
+  [[ "$initial_worker_restarts" =~ ^[0-9]+$ && "$initial_broker_restarts" =~ ^[0-9]+$ ]] || fail IR20_RESTART_COUNTER_INVALID 106
+  observation_started_at="$(date +%s)"
+  observation_deadline=$((observation_started_at + 1800))
+  while true; do
+    current_worker="$(optional_release_service_id "$OUTBOX_SERVICE")" || fail IR20_WORKER_DISCOVERY_FAILED 101
+    current_broker="$(optional_release_service_id "$KAFKA_SERVICE")" || fail IR20_BROKER_DISCOVERY_FAILED 102
+    [[ "$current_worker" == "$local_worker" && "$current_broker" == "$local_broker" ]] || fail IR20_RUNTIME_IDENTITY_CHANGED 107
+    [[ "$(docker inspect --format '{{.RestartCount}}' "$current_worker")" == "$initial_worker_restarts" ]] || fail IR20_WORKER_RESTARTED 108
+    [[ "$(docker inspect --format '{{.RestartCount}}' "$current_broker")" == "$initial_broker_restarts" ]] || fail IR20_BROKER_RESTARTED 109
+    docker exec "$current_worker" /nodejs/bin/node -e "fetch('http://127.0.0.1:3002/ready',{signal:AbortSignal.timeout(4000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" >/dev/null 2>&1 || fail IR20_WORKER_NOT_READY 110
+    docker exec "$current_broker" kafka-topics --bootstrap-server 127.0.0.1:9092 --list >/dev/null 2>&1 || fail IR20_BROKER_NOT_READY 111
+    observation_now="$(date +%s)"
+    (( observation_now >= observation_deadline )) && break
+    observation_sleep=$((observation_deadline - observation_now))
+    (( observation_sleep > 10 )) && observation_sleep=10
+    sleep "$observation_sleep"
+  done
+  observation_elapsed=$(( $(date +%s) - observation_started_at ))
+  (( observation_elapsed >= 1800 )) || fail IR20_OBSERVATION_TOO_SHORT 124
+  printf 'IR20_RUNTIME_OBSERVATION=PASS\nIR20_OBSERVATION_SECONDS=%s\n' "$observation_elapsed"; exit 0
 fi
 
 if [[ "$ACTION" == rollback ]]; then
@@ -796,10 +1067,8 @@ if [[ "$ACTION" == audit ]]; then
   exit 0
 fi
 
-[[ -n "$API_IMAGE" && -n "$WEB_IMAGE" && -n "$MIGRATION_IMAGE" ]] || fail EXACT_IMAGES_REQUIRED 21
-verify_image api "$API_IMAGE"
-verify_image web "$WEB_IMAGE"
-verify_image migration "$MIGRATION_IMAGE"
+[[ -n "$API_IMAGE" && -n "$WEB_IMAGE" && -n "$MIGRATION_IMAGE" && -n "$OUTBOX_WORKER_IMAGE" ]] || fail EXACT_IMAGES_REQUIRED 21
+verify_image api "$API_IMAGE"; verify_image web "$WEB_IMAGE"; verify_image migration "$MIGRATION_IMAGE"; verify_image outbox-worker "$OUTBOX_WORKER_IMAGE"; verify_broker_image
 
 # Shared release-authority root: traverse-only for the runner group. `chmod 0700`
 # here preserved the group and stripped its `--x`, which is exactly the state the
@@ -808,11 +1077,22 @@ verify_image migration "$MIGRATION_IMAGE"
 # cannot reach runner-input and activation dies before the controller is invoked.
 install -d -m 0710 -o root -g pcactions "$STATE_ROOT"
 umask 077
+baseline_worker_id="$(optional_release_service_id "$OUTBOX_SERVICE")" || fail OUTBOX_BASELINE_DISCOVERY_FAILED 112
+baseline_broker_id="$(optional_release_service_id "$KAFKA_SERVICE")" || fail KAFKA_BASELINE_DISCOVERY_FAILED 113
+if [[ -n "$baseline_worker_id" ]]; then BASELINE_WORKER_PRESENT=1; baseline_worker_image="$(docker inspect --format '{{.Config.Image}}' "$baseline_worker_id")"; baseline_worker_revision="$(container_revision "$baseline_worker_id")"; is_revision "$baseline_worker_revision" || fail OUTBOX_BASELINE_REVISION_INVALID 114; else baseline_worker_image=''; baseline_worker_revision=''; fi
+[[ -z "$baseline_broker_id" ]] || BASELINE_BROKER_PRESENT=1
+[[ "$BASELINE_WORKER_PRESENT" == "$BASELINE_BROKER_PRESENT" ]] || fail IR20_BASELINE_TOPOLOGY_PARTIAL 121
+resolve_outbox_runtime_env_file
 cat > "$STATE_FILE" <<STATE
 BASELINE_API_IMAGE='$baseline_api_image'
 BASELINE_WEB_IMAGE='$baseline_web_image'
 BASELINE_API_REVISION='$baseline_api_revision'
 BASELINE_WEB_REVISION='$baseline_web_revision'
+BASELINE_WORKER_PRESENT='$BASELINE_WORKER_PRESENT'
+BASELINE_WORKER_IMAGE='$baseline_worker_image'
+BASELINE_WORKER_REVISION='$baseline_worker_revision'
+BASELINE_BROKER_PRESENT='$BASELINE_BROKER_PRESENT'
+OUTBOX_RUNTIME_ENV_PREEXISTED='$OUTBOX_RUNTIME_ENV_PREEXISTED'
 MIGRATION_IMAGE='$MIGRATION_IMAGE'
 STATE
 chmod 0600 "$STATE_FILE"
@@ -860,19 +1140,24 @@ fi
 
 RELEASE_ROLLBACK_ARMED=1
 mutated=1
+if [[ "$BASELINE_WORKER_PRESENT" == 1 ]]; then docker stop "$baseline_worker_id" >/dev/null; fi
 write_override "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override" 1
 "${dc_target[@]}" config --quiet
 "${dc_target[@]}" run --rm --no-deps --pull never "$migration_service"
 printf 'MIGRATION_COMPLETE=1\n'
+apply_outbox_policy
+provision_outbox_runtime
+write_override "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override" 1 "$OUTBOX_WORKER_IMAGE" 1
+"${dc_target[@]}" config --quiet
+"${dc_target[@]}" up -d --no-deps --pull never "$KAFKA_SERVICE"; wait_broker || fail KAFKA_READINESS_FAILED 115
+ensure_kafka_topics || fail KAFKA_TOPIC_AUTHORITY_FAILED 116
+verify_first_broker_restart_persistence || fail KAFKA_PERSISTENCE_PROOF_FAILED 117
+"${dc_target[@]}" up -d --no-deps --pull never "$OUTBOX_SERVICE"; wait_worker || fail OUTBOX_WORKER_READINESS_FAILED 118
+worker_principal_smoke || fail OUTBOX_PRINCIPAL_BOUNDARY_FAILED 97
 "${dc_target[@]}" up -d --no-deps --pull never api
-if ! wait_api; then
-  emit_api_startup_diagnostics
-  fail API_READINESS_FAILED 30
-fi
-new_api_id="$("${dc_target[@]}" ps -q api | head -1)"
-verify_api_auth_hash_keys "$new_api_id" || fail API_AUTH_HASH_KEYS_INVALID 77
-"${dc_target[@]}" up -d --no-deps --pull never web
-wait_web || fail WEB_HEALTH_FAILED 31
+if ! wait_api; then emit_api_startup_diagnostics; fail API_READINESS_FAILED 30; fi
+new_api_id="$("${dc_target[@]}" ps -q api | head -1)"; verify_api_auth_hash_keys "$new_api_id" || fail API_AUTH_HASH_KEYS_INVALID 77
+"${dc_target[@]}" up -d --no-deps --pull never web; wait_web || fail WEB_HEALTH_FAILED 31
 
 retire_release_watchtower || fail WATCHTOWER_RETIREMENT_FAILED 80
 
@@ -880,19 +1165,19 @@ snapshot_unrelated "$after_ids" 1 || fail RUNTIME_ISOLATION_FAILED 79
 cmp -s "$before_ids" "$after_ids" || fail NON_TARGET_CONTAINER_CHANGED 32
 rm -f "$before_ids" "$after_ids"
 
-new_api_id="$("${dc_target[@]}" ps -q api | head -1)"
-new_web_id="$("${dc_target[@]}" ps -q web | head -1)"
+new_api_id="$("${dc_target[@]}" ps -q api | head -1)"; new_web_id="$("${dc_target[@]}" ps -q web | head -1)"
+new_worker_id="$("${dc_target[@]}" ps -q "$OUTBOX_SERVICE" | head -1)"; new_broker_id="$("${dc_target[@]}" ps -q "$KAFKA_SERVICE" | head -1)"
+[[ -n "$new_worker_id" && -n "$new_broker_id" ]] || fail IR20_RUNTIME_MISSING 103
 new_api_revision="$(verify_runtime_image api "$API_IMAGE" "$new_api_id")" || fail RUNNING_API_IMAGE_BINDING_FAILED 82
 new_web_revision="$(verify_runtime_image web "$WEB_IMAGE" "$new_web_id")" || fail RUNNING_WEB_IMAGE_BINDING_FAILED 83
-if [[ "$new_api_revision" != "$TARGET_SHA" || "$new_web_revision" != "$TARGET_SHA" ]]; then
-  printf 'RUNNING_API_REVISION=%s\n' "${new_api_revision:-unknown}" >&2
-  printf 'RUNNING_WEB_REVISION=%s\n' "${new_web_revision:-unknown}" >&2
-  fail RUNNING_REVISION_MISMATCH 33
+new_worker_revision="$(verify_runtime_image outbox-worker "$OUTBOX_WORKER_IMAGE" "$new_worker_id")" || fail RUNNING_OUTBOX_WORKER_IMAGE_BINDING_FAILED 119
+if [[ "$new_api_revision" != "$TARGET_SHA" || "$new_web_revision" != "$TARGET_SHA" || "$new_worker_revision" != "$TARGET_SHA" ]]; then
+  printf 'RUNNING_API_REVISION=%s\n' "${new_api_revision:-unknown}" >&2; printf 'RUNNING_WEB_REVISION=%s\n' "${new_web_revision:-unknown}" >&2; printf 'RUNNING_OUTBOX_WORKER_REVISION=%s\n' "${new_worker_revision:-unknown}" >&2; fail RUNNING_REVISION_MISMATCH 33
 fi
-RELEASE_ROLLBACK_ARMED=0
-mutated=0
-trap - ERR
-printf 'DEPLOYED_API_REVISION=%s\n' "$new_api_revision"
-printf 'DEPLOYED_WEB_REVISION=%s\n' "$new_web_revision"
+[[ "$(docker inspect --format '{{.Config.Image}}' "$new_broker_id")" == "$KAFKA_IMAGE" ]] || fail RUNNING_KAFKA_IMAGE_BINDING_FAILED 120
+RELEASE_ROLLBACK_ARMED=0; mutated=0; trap - ERR
+printf 'DEPLOYED_API_REVISION=%s\n' "$new_api_revision"; printf 'DEPLOYED_WEB_REVISION=%s\n' "$new_web_revision"; printf 'DEPLOYED_OUTBOX_WORKER_REVISION=%s\n' "$new_worker_revision"
+printf 'IR20_KAFKA_READY=1\n'
+printf 'IR20_OUTBOX_WORKER_READY=1\n'
 printf 'WATCHTOWER_RETIRED=1\n'
 printf 'DEPLOYMENT_COMPLETE=1\n'
