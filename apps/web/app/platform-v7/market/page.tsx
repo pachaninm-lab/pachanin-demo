@@ -31,7 +31,7 @@ export default async function PlatformV7MarketPage({searchParams}:{searchParams?
     :locale==='en'
       ?{e:'Market',t:'Public lots',p:'Only real anonymised data admitted by the server for publication. Seller identity, internal identifiers and private terms are not disclosed.',search:'Crop, grade or region',filters:'Filters',path:'Lot path through the Deal'}
       :{e:'市场',t:'公开批次',p:'仅展示服务器允许公开的真实匿名数据。卖方身份、内部标识和非公开条件不会披露。',search:'作物、等级或地区',filters:'筛选',path:'批次在交易中的路径'};
-  return <main className='pc-canonical-public'>
+  return <main className='pc-canonical-public pc-cp-page-market'>
     <CanonicalPublicHeader locale={locale} activePath='/platform-v7/market'/>
     <section className='pc-cp-section pc-cp-section--soft'>
       <div className='pc-cp-container'>
