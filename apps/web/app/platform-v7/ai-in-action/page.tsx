@@ -66,7 +66,7 @@ const ICONS=[Sparkles,ShieldCheck,FileCheck2,Route] as const;
 
 export default async function PublicGektaPage(){
  const locale=canonicalPublicLocale(await getLocale());const c=COPY[locale];
- return <main className='pc-canonical-public'>
+ return <main className='pc-canonical-public pc-cp-page-gekta'>
   <CanonicalPublicHeader locale={locale} activePath='/platform-v7/ai-in-action'/>
   <section style={{background:'#0b4f3a',color:'#fff',padding:'52px 0 30px'}}>
    <div className='pc-cp-container'>
