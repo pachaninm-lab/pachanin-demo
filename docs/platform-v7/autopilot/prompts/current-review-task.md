@@ -1,18 +1,7 @@
-# Independent review brief — MASTER v2.1 R1
+# Independent review brief — MASTER v2.1 R1.1
 
-Review the exact current R1 diff, not the implementation report.
+Review exact current-main inventory evidence, not historical claims.
 
-Block for:
-- client-selected role/tenant/organization authority;
-- production controlled-test/demo/fake fallback;
-- identity impersonation instead of actual-actor + effective-role context;
-- cross-tenant visibility;
-- VIEW_AS writes or high-risk authority bypass;
-- missing MFA/reason/expiry/audit;
-- fake Founder metrics or values without PostgreSQL source/drill-down;
-- stale #5182 code merged without current-main reconciliation;
-- overlap with active UX/FGIS/bank scope;
-- missing negative/concurrency/recovery tests;
-- weakened CI/security/review/release gates.
+Block for invented roles, missing 13th organization-employee cabinet, client-derived authority, hidden controlled-test/demo dependency, unproven tenant boundaries, stale PR #5182 assumptions, overlap with active UX/FGIS/bank work, or unsupported KEEP classifications.
 
-PASS requires exact-head scope review plus applicable green checks. Merge/release/live acceptance are separate gates.
+R1.1 is inventory only. Product/runtime changes are out of scope for this slice. R1 official points remain unchanged.
