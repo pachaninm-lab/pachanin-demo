@@ -654,3 +654,108 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-trust-hero{min-height:320px!important}.pc-cp-trust-hero .pc-cp-hero-grid{grid-template-columns:1fr}.pc-cp-trust-hero-quote{display:none}.pc-cp-trust-pillars{grid-template-columns:1fr}.pc-cp-trust-pillar{grid-template-rows:auto auto 92px auto;min-height:0}.pc-cp-trust-pillar-media{height:92px}.pc-cp-faq-row{grid-template-columns:1fr}
   .pc-cp-gekta-public-hero{min-height:300px}.pc-cp-gekta-hero-grid{grid-template-columns:1fr}.pc-cp-gekta-hero-quote{display:none}.pc-cp-gekta-benefits{grid-template-columns:1fr 1fr}.pc-cp-page-gekta .pc-cp-gekta-workspace{grid-template-columns:1fr;min-height:0}.pc-cp-page-gekta .pc-cp-gekta-context{order:1}.pc-cp-page-gekta .pc-cp-gekta-main-panel{order:2}.pc-cp-page-gekta .pc-cp-gekta-sources-panel{order:3}.pc-cp-page-gekta .pc-cp-gekta-cards{grid-template-columns:1fr 1fr}.pc-cp-gekta-prompts{overflow-x:auto;flex-wrap:nowrap}.pc-cp-gekta-prompts span{flex:0 0 auto;min-height:44px}.pc-cp-gekta-composer{min-height:52px}.pc-cp-gekta-composer button{width:44px;height:44px}
 }
+
+
+/* FINAL HOME AUTHORITY OVERRIDE — canonical desktop/mobile composition */
+.pc-cp-role-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:auto}
+.pc-cp-role-tags span{display:inline-flex;align-items:center;min-height:20px;padding:2px 6px;border:1px solid var(--pc-cp-line);border-radius:999px;background:#f8fbf9;color:#405149;font-size:8px;font-weight:750;line-height:1.1}
+
+@media(min-width:761px){
+  .pc-cp-page-home .pc-cp-hero{min-height:270px;padding:22px 0 14px}
+  .pc-cp-page-home .pc-cp-hero-grid{grid-template-columns:minmax(0,1fr) 300px;gap:24px}
+  .pc-cp-page-home .pc-cp-hero-copy h1{font-size:44px;line-height:.92;max-width:14ch}
+  .pc-cp-page-home .pc-cp-hero-copy p{font-size:12px;line-height:1.3}
+  .pc-cp-page-home .pc-cp-section{padding:13px 0}
+  .pc-cp-page-home .pc-cp-section--tight{padding:9px 0}
+  .pc-cp-page-home .pc-cp-section-head{margin-bottom:6px}
+  .pc-cp-page-home .pc-cp-section-head h2{font-size:24px}
+  .pc-cp-page-home .pc-cp-section-head p{font-size:9px;line-height:1.3}
+  .pc-cp-page-home .pc-cp-role-card{min-height:82px;padding:9px;gap:4px}
+  .pc-cp-page-home .pc-cp-role-card strong{font-size:14px}
+  .pc-cp-page-home .pc-cp-role-card p{font-size:8px;line-height:1.2}
+  .pc-cp-page-home .pc-cp-state-cell{padding:7px}
+  .pc-cp-page-home .pc-cp-state-cell strong{font-size:8px}
+  .pc-cp-page-home .pc-cp-trust-card{min-height:64px;padding:8px}
+  .pc-cp-page-home .pc-cp-trust-card p{font-size:7px}
+  .pc-cp-page-home .pc-cp-gekta-strip{padding:9px 12px}
+  .pc-cp-page-home .pc-cp-capability{min-height:48px;padding:7px}
+  .pc-cp-page-home .pc-cp-final{min-height:82px}
+  .pc-cp-page-home .pc-cp-final h2{font-size:23px}
+  .pc-cp-page-home .pc-cp-final p{font-size:8px}
+  .pc-cp-page-home .pc-cp-footer{padding:8px 0 12px}
+}
+
+@media(max-width:760px){
+  .pc-cp-page-home .pc-cp-hero{padding:12px 0 5px;min-height:0}
+  .pc-cp-page-home .pc-cp-hero-media{width:43%;max-width:185px;height:272px;object-position:center top}
+  .pc-cp-page-home .pc-cp-hero::after{height:272px}
+  .pc-cp-page-home .pc-cp-hero-copy{min-height:244px;gap:5px}
+  .pc-cp-page-home .pc-cp-hero-copy h1{font-size:33px;line-height:.91;max-width:9.7ch}
+  .pc-cp-page-home .pc-cp-hero-copy p{font-size:11px;line-height:1.2;max-width:250px}
+  .pc-cp-page-home .pc-cp-actions{gap:6px}
+  .pc-cp-page-home .pc-cp-deal-lens{margin-top:2px;padding:8px;border-radius:12px}
+  .pc-cp-page-home .pc-cp-deal-lens-head{padding-bottom:6px}
+  .pc-cp-page-home .pc-cp-deal-lens-head strong{font-size:16px}
+  .pc-cp-page-home .pc-cp-deal-lens-grid{display:none}
+  .pc-cp-page-home .pc-cp-deal-lens-next{margin-top:6px;padding:7px;border-radius:8px}
+  .pc-cp-page-home .pc-cp-deal-lens-next small{font-size:8px}
+  .pc-cp-page-home .pc-cp-deal-lens-next strong{font-size:9px;line-height:1.15}
+
+  .pc-cp-page-home .pc-cp-section{padding:9px 0}
+  .pc-cp-page-home .pc-cp-section--tight{padding:7px 0}
+  .pc-cp-page-home .pc-cp-section-head{margin-bottom:5px;gap:2px}
+  .pc-cp-page-home .pc-cp-section-head .pc-cp-eyebrow{display:none}
+  .pc-cp-page-home .pc-cp-section-head h2{font-size:23px;line-height:.98}
+  .pc-cp-page-home .pc-cp-section-head p{font-size:9px;line-height:1.2}
+  .pc-cp-page-home #market .pc-cp-actions{display:none}
+  .pc-cp-page-home .pc-cp-market-preview-alert{padding:5px 7px}
+  .pc-cp-page-home .pc-cp-market-grid--preview{gap:6px}
+  .pc-cp-page-home .pc-cp-market-grid--preview .pc-cp-lot-card{min-width:205px;grid-template-columns:72px 1fr}
+  .pc-cp-page-home .pc-cp-lot-media{min-height:88px}
+  .pc-cp-page-home .pc-cp-lot-body{padding:7px;gap:3px}
+  .pc-cp-page-home .pc-cp-lot-title{font-size:12px}
+  .pc-cp-page-home .pc-cp-lot-meta span{font-size:7px}
+  .pc-cp-page-home .pc-cp-lot-meta strong{font-size:8px}
+  .pc-cp-page-home .pc-cp-lot-foot{display:none}
+  .pc-cp-page-home .pc-cp-lot-card .pc-cp-actions{display:none}
+
+  .pc-cp-page-home .pc-cp-deal-spine{margin-top:4px;grid-template-columns:repeat(7,72px)}
+  .pc-cp-page-home .pc-cp-deal-spine::before{top:12px;left:36px;width:432px}
+  .pc-cp-page-home .pc-cp-stage{gap:2px}
+  .pc-cp-page-home .pc-cp-stage i{width:25px;height:25px;font-size:8px}
+  .pc-cp-page-home .pc-cp-stage strong{font-size:8px;line-height:1.05}
+
+  .pc-cp-page-home #participants,
+  .pc-cp-page-home #capabilities{display:none}
+
+  .pc-cp-page-home .pc-cp-state-shell{padding:7px}
+  .pc-cp-page-home .pc-cp-state-tabs{padding-bottom:4px}
+  .pc-cp-page-home .pc-cp-state-tab{min-height:30px;font-size:8px;padding:0 8px}
+  .pc-cp-page-home .pc-cp-state-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin-top:5px}
+  .pc-cp-page-home .pc-cp-state-cell{padding:7px}
+  .pc-cp-page-home .pc-cp-state-cell:last-child{grid-column:1/-1}
+  .pc-cp-page-home .pc-cp-state-cell span{font-size:7px}
+  .pc-cp-page-home .pc-cp-state-cell strong{font-size:8px;line-height:1.18}
+
+  .pc-cp-page-home .pc-cp-trust-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+  .pc-cp-page-home .pc-cp-trust-card{min-height:72px;padding:7px;gap:3px}
+  .pc-cp-page-home .pc-cp-trust-card i{width:22px;height:22px;font-size:8px}
+  .pc-cp-page-home .pc-cp-trust-card strong{font-size:10px}
+  .pc-cp-page-home .pc-cp-trust-card p{font-size:7px;line-height:1.08}
+
+  .pc-cp-page-home #gekta .pc-cp-section-head{margin-bottom:3px}
+  .pc-cp-page-home .pc-cp-gekta-strip{display:block;padding:7px 8px;background:#fff;color:var(--pc-cp-ink);border:1px solid var(--pc-cp-line);border-radius:9px}
+  .pc-cp-page-home .pc-cp-gekta-brand{display:none}
+  .pc-cp-page-home .pc-cp-gekta-chips{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+  .pc-cp-page-home .pc-cp-gekta-chips span{min-height:30px;padding:4px 5px;border-color:var(--pc-cp-line);background:#fff;color:#31473c;font-size:8px;text-align:center;justify-content:center}
+  .pc-cp-page-home .pc-cp-gekta-chips span:nth-child(n+4){display:none}
+
+  .pc-cp-page-home .pc-cp-final{min-height:72px}
+  .pc-cp-page-home .pc-cp-final-inner{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px}
+  .pc-cp-page-home .pc-cp-final h2{font-size:20px;max-width:12ch}
+  .pc-cp-page-home .pc-cp-final p{display:none}
+  .pc-cp-page-home .pc-cp-final .pc-cp-actions{display:block}
+  .pc-cp-page-home .pc-cp-final .pc-cp-button{min-height:44px;white-space:nowrap}
+  .pc-cp-page-home .pc-cp-final .pc-cp-button--secondary{display:none}
+  .pc-cp-page-home .pc-cp-footer{display:none}
+}
