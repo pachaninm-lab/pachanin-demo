@@ -4,7 +4,7 @@ Status: **CANONICAL / ACTIVE**
 
 Current UX implementation branch is required to remain rebased/merged to the current protected `main`; as of this authority revision it is `behind=0`.
 Authority date: 2026-09-20
-Authority base main: `5a73ca79dcf1c5645ba3ccfc49e036d4d092b0cf`
+Authority base main: `5da8e80744908413102214f91dd68018911b892e`
 
 ## Rule
 
@@ -61,3 +61,10 @@ Do not redraw, regenerate or replace the logo.
 - Use one shared design system; do not fork route-local visual systems.
 - Verify 320 / 375 / 390 / 768 / 1280 / 1440.
 - No production release until build, functional QA, accessibility, visual-regression and production acceptance pass.
+
+
+## Recorded minimal deviations
+
+- `02-home-mobile.jpg` is a presentation-scale phone composition. Runtime mobile acceptance keeps its hierarchy, crop, CTA order, bottom navigation and visual character, but does not compress interactive controls below the required 44×44 px touch target or reduce text below readable WCAG-safe sizing.
+- Public Market and Lot screens never invent inventory, counterparties, quality confirmations or documents to fill the mockup. When the PostgreSQL `ANONYMIZED_PUBLIC_MARKET` projection has no `PUBLIC_ALLOWED` data, the approved visual composition uses explicit empty/unavailable states.
+- Protected Deal screens bind to the real server-authoritative Deal workspace. Public visual acceptance exercises the non-sensitive explanatory state; authoritative financial state, role, tenant and private Deal data are never fabricated for a public screenshot.
