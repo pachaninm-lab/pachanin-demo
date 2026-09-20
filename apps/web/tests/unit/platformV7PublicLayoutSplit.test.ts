@@ -76,9 +76,11 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(isolatedLayout.indexOf('{children}')).toBeLessThan(isolatedLayout.indexOf('<HydrationSafeChatSupport renderDock={false} />'));
   });
 
-  it('renders one contact dock in initial entry HTML and forbids a deferred duplicate', () => {
+  it('keeps legacy dock support lazy off the canonical landing and forbids deferred duplicates', () => {
     expect(isolatedLayout).toContain("import './public-entry-contact-dock-mount.css'");
-    expect(isolatedLayout).toContain("import { PublicContactDock } from '@/components/platform-v7/PublicContactDock'");
+    expect(isolatedLayout).toContain("import('@/components/platform-v7/PublicContactDock')");
+    expect(isolatedLayout).toContain("import('@/components/platform-v7/HydrationSafeChatSupport')");
+    expect(isolatedLayout).toContain("if (isCanonicalLanding(pathname)) return children;");
     expect(isolatedLayout).toContain("data-public-entry-contact-dock-mounted='true'");
     expect(isolatedLayout).toContain("data-public-entry-contact-dock-end='true'");
     expect(isolatedLayout).toContain('<PublicContactDock />');
