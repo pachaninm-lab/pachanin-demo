@@ -139,6 +139,8 @@
 .pc-cp-final-inner{max-width:650px;display:grid;gap:16px}.pc-cp-final h2{margin:0;font-family:var(--pc-cp-display);font-size:clamp(38px,5vw,58px);font-weight:600;line-height:1}.pc-cp-final p{margin:0;color:#e2ebe6;line-height:1.55}
 .pc-cp-footer{padding:30px 0 96px;background:#10251b;color:#dbe6e0}.pc-cp-footer-grid{display:grid;grid-template-columns:1.2fr 2fr;gap:28px}.pc-cp-footer strong{font-family:var(--pc-cp-display);font-size:22px;font-weight:600}.pc-cp-footer p{color:#aebfb6;font-size:12px;line-height:1.5}.pc-cp-footer nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.pc-cp-footer a{color:#dbe6e0;text-decoration:none;font-size:12px;min-height:44px;display:flex;align-items:center}
 .pc-cp-bottom-nav{display:none}
+body:has(.pc-canonical-public) .p7-ai-trigger,
+body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
 
 /* public lot detail */
 .pc-cp-lot-hero{padding:48px 0 26px;background:#f7f4ea}.pc-cp-lot-layout{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(300px,.8fr);gap:22px}.pc-cp-lot-image{min-height:390px;display:grid;place-items:center;border-radius:20px;background:linear-gradient(150deg,#e8eadf,#cbd4c7 50%,#f1e3b8);color:#59675e;font-weight:800}.pc-cp-lot-summary{padding:22px;display:grid;gap:18px}.pc-cp-lot-summary h1{margin:0;font-family:var(--pc-cp-display);font-size:44px;font-weight:600}.pc-cp-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.pc-cp-detail-block{padding:18px;min-height:160px}.pc-cp-detail-block h3{margin:0;font-family:var(--pc-cp-display);font-size:22px;font-weight:600}.pc-cp-detail-block p{color:var(--pc-cp-muted);font-size:13px;line-height:1.55}
