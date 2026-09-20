@@ -68,7 +68,7 @@ export default async function PublicGektaPage(){
  const locale=canonicalPublicLocale(await getLocale());const c=COPY[locale];
  return <main className='pc-canonical-public pc-cp-page-gekta'>
   <CanonicalPublicHeader locale={locale} activePath='/platform-v7/ai-in-action'/>
-  <section style={{background:'#0b4f3a',color:'#fff',padding:'52px 0 30px'}}>
+  <section className='pc-cp-gekta-public-hero' style={{background:'#0b4f3a',color:'#fff',padding:'52px 0 30px'}}>
    <div className='pc-cp-container'>
     <div className='pc-cp-section-head' style={{maxWidth:900}}>
       <span className='pc-cp-eyebrow' style={{color:'#cce3d8'}}>{c.e}</span>
