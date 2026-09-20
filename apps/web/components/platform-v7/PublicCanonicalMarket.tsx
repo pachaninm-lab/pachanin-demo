@@ -120,9 +120,9 @@ export async function CanonicalPublicLotView({ locale, lotIndex }: { locale: str
   const lang = canonicalPublicLocale(locale);
   const copy = COPY[lang];
   const market = await getPublicMarketLots();
-  if (!market.available) return <MarketState locale={lang} kind='unavailable' />;
+  if (!market.available) return <PublicLotUnavailableView locale={lang} kind='unavailable' />;
   const lot = Number.isInteger(lotIndex) && lotIndex >= 0 ? market.items[lotIndex] : undefined;
-  if (!lot) return <MarketState locale={lang} kind='noMatch' />;
+  if (!lot) return <PublicLotUnavailableView locale={lang} kind='empty' />;
 
   const unavailable = lang === 'ru'
     ? 'Не опубликовано в публичном контуре'
@@ -170,6 +170,39 @@ export async function CanonicalPublicLotView({ locale, lotIndex }: { locale: str
         <Detail title={lang === 'ru' ? 'Качество' : lang === 'en' ? 'Quality' : '质量'} text={lot.independentVerification === null ? `${copy.quality}. ${unavailable}: ${lang === 'ru' ? 'независимое подтверждение' : lang === 'en' ? 'independent verification' : '独立核验'}.` : copy.quality} />
         <Detail title={lang === 'ru' ? 'Документы' : lang === 'en' ? 'Documents' : '文件'} text={`${unavailable}. ${lang === 'ru' ? 'Документы доступны только участникам с подтверждёнными полномочиями.' : lang === 'en' ? 'Documents are available only to participants with confirmed authority.' : '文件仅向具有已确认权限的参与方开放。'}`} />
         <Detail title={lang === 'ru' ? 'Контрагент' : lang === 'en' ? 'Counterparty' : '交易对手'} text={`${copy.hidden}. ${lang === 'ru' ? 'Название организации и внутренние идентификаторы не раскрываются.' : lang === 'en' ? 'Organisation name and internal identifiers are not disclosed.' : '机构名称和内部标识不会披露。'}`} />
+      </div>
+    </div>
+  );
+}
+
+
+function PublicLotUnavailableView({ locale, kind }: { locale: CanonicalPublicLocale; kind: 'empty' | 'unavailable' }) {
+  const copy=COPY[locale];
+  const title=kind==='unavailable'?copy.unavailableTitle:copy.emptyTitle;
+  const text=kind==='unavailable'?copy.unavailableText:copy.emptyText;
+  const hidden=locale==='ru'?'Недоступно в публичном контуре':locale==='en'?'Unavailable in the public circuit':'公开范围不可用';
+  return (
+    <div data-testid='canonical-public-lot-view' data-market-state={kind}>
+      <div className='pc-cp-lot-breadcrumb'>
+        <Link href={`/platform-v7?lang=${locale}`}>{locale==='ru'?'Главная':locale==='en'?'Home':'首页'}</Link><span>→</span>
+        <Link href={`/platform-v7/market?lang=${locale}`}>{locale==='ru'?'Рынок':locale==='en'?'Market':'市场'}</Link><span>→</span><strong>{hidden}</strong>
+      </div>
+      <div className='pc-cp-lot-layout'>
+        <div className='pc-cp-lot-image' role='img' aria-label={hidden}><span>{copy.photo}</span></div>
+        <article className='pc-cp-card pc-cp-lot-summary'>
+          <div><span className='pc-cp-chip pc-cp-chip--warn'>{hidden}</span><h1>{locale==='ru'?'Карточка лота':locale==='en'?'Lot card':'批次卡片'}</h1><p className='pc-cp-lead'>{title}</p></div>
+          <div className='pc-cp-lot-meta pc-cp-lot-meta--detail'>
+            <Metric label={copy.volume} value='—'/><Metric label={copy.price} value='—'/><Metric label={copy.region} value='—'/><Metric label={copy.ends} value='—'/>
+          </div>
+          <p className='pc-cp-lead'>{text}</p>
+          <div className='pc-cp-actions'><Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/market?lang=${locale}`}>{locale==='ru'?'Вернуться на рынок':locale==='en'?'Back to market':'返回市场'}</Link></div>
+        </article>
+      </div>
+      <div className='pc-cp-lot-detail-grid'>
+        <Detail title={locale==='ru'?'Основные параметры':locale==='en'?'Core parameters':'主要参数'} text={hidden}/>
+        <Detail title={locale==='ru'?'Качество':locale==='en'?'Quality':'质量'} text={hidden}/>
+        <Detail title={locale==='ru'?'Документы':locale==='en'?'Documents':'文件'} text={hidden}/>
+        <Detail title={locale==='ru'?'Контрагент':locale==='en'?'Counterparty':'交易对手'} text={copy.hidden}/>
       </div>
     </div>
   );
