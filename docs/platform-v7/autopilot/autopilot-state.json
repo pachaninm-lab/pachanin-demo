@@ -1506,6 +1506,13 @@
     ],
     "test/industrial-load-diagnostics-20260919": [
       "apps/api/test/industrial/load-proof.e2e-spec.ts"
+    ],
+    "ops/ir20-api-database-binding-20260919": [
+      "scripts/release/ir20-api-database-binding.py",
+      "scripts/release/test-ir20-api-database-binding.py",
+      "scripts/release/test-ir20-api-database-binding-integration.py",
+      ".github/workflows/ir20-api-database-binding.yml",
+      "docs/ops/ir20-api-database-binding.md"
     ]
   },
   "currentAcceptance": [
