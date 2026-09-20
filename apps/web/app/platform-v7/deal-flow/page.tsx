@@ -32,6 +32,11 @@ export default async function PlatformV7DealFlowPage(){
   <section className='pc-cp-deal-public-hero'>
    <div className='pc-cp-container'>
     <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{c.e}</span><h1>{c.t}</h1><p>{c.p}</p></div>
+    <div className='pc-cp-deal-mobile-summary' aria-label={locale==='ru'?'Краткая карточка Сделки':locale==='en'?'Deal summary':'交易摘要'}>
+      <div className='pc-cp-deal-mobile-summary-media' aria-hidden='true'><Wheat size={24}/></div>
+      <div><strong>{locale==='ru'?'Данные Сделки защищены':locale==='en'?'Deal data is protected':'交易数据受保护'}</strong><span>{locale==='ru'?'Приёмка / качество':locale==='en'?'Acceptance / quality':'验收 / 质量'}</span></div>
+      <span className='pc-cp-chip pc-cp-chip--ok'>{locale==='ru'?'В работе':locale==='en'?'In progress':'进行中'}</span>
+    </div>
     <CanonicalDealSpine locale={locale} currentIndex={4}/>
    </div>
   </section>
