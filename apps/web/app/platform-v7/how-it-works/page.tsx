@@ -1,7 +1,5 @@
 import '@/styles/platform-v7-canonical-public-v1.css';
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
 import { getLocale } from 'next-intl/server';
 import {
   CanonicalBottomNav,
