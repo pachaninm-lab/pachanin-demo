@@ -27,6 +27,7 @@ test.describe('canonical visual authority evidence', () => {
 
       const response = await page.goto(target.path, { waitUntil: 'networkidle' });
       expect(response?.ok()).toBe(true);
+      expect(new URL(page.url()).pathname, `Unexpected redirect for ${target.path}: ${page.url()}`).toBe(new URL(target.path, 'http://127.0.0.1:3000').pathname);
       await expect(page.locator(target.ready).first()).toBeVisible();
 
       const overflow = await page.evaluate(() => Math.max(
