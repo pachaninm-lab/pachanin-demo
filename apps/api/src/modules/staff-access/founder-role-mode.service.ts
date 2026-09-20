@@ -136,6 +136,9 @@ export class FounderRoleModeService {
 
   async session(user: RequestUser, context: StaffAccessContext) {
     await this.access.requireActivePlatformOwner(user);
+    if (context.actorUserId !== user.id || context.staffRole !== 'PLATFORM_OWNER') {
+      throw new ForbiddenException('Founder role-mode session must belong to the active platform owner');
+    }
     if (context.accessMode !== StaffAccessMode.VIEW_AS) {
       throw new ForbiddenException('Founder role-mode requires VIEW_AS');
     }
