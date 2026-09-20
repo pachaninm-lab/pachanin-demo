@@ -74,6 +74,9 @@ const privileged = (
 
 export const STAFF_ENDPOINT_POLICIES: readonly StaffEndpointPolicy[] = [
   policy('GET', '/staff/assignments/me', StaffAuthorizationClass.STAFF_SELF_AUTHORITY_READ, StaffAuditClass.STANDARD_READ),
+  policy('GET', '/staff/founder/role-mode/registry', StaffAuthorizationClass.STAFF_SELF_AUTHORITY_READ, StaffAuditClass.SENSITIVE_READ),
+  policy('POST', '/staff/founder/role-mode/requests', StaffAuthorizationClass.STAFF_SELF_GOVERNANCE_MUTATION, StaffAuditClass.MUTATION, { scopeContract: 'SERVER_VALIDATED_SCOPE' }),
+  privileged('GET', '/staff/founder/role-mode/session', StaffAuthorizationClass.STAFF_PRIVILEGED_READ, StaffAuditClass.SENSITIVE_READ, [StaffAccessMode.VIEW_AS], [StaffPermission.CABINET_VIEW_AS], 'SERVER_VALIDATED_SCOPE'),
   privileged('GET', '/staff/registration/applications', StaffAuthorizationClass.STAFF_PRIVILEGED_READ, StaffAuditClass.SENSITIVE_READ, [StaffAccessMode.CONTROL_PLANE], [StaffPermission.STAFF_REQUEST_READ]),
   privileged('POST', '/staff/registration/applications/:applicationId/decision', StaffAuthorizationClass.STAFF_CRITICAL_MUTATION, StaffAuditClass.CRITICAL_MUTATION, [StaffAccessMode.CONTROL_PLANE], [StaffPermission.STAFF_REQUEST_APPROVE]),
   privileged('GET', '/staff/assignments', StaffAuthorizationClass.STAFF_PRIVILEGED_READ, StaffAuditClass.SENSITIVE_READ, [StaffAccessMode.CONTROL_PLANE], [StaffPermission.STAFF_ASSIGNMENT_READ]),
