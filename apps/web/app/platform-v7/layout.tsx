@@ -78,7 +78,6 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/platform-v7/fgis-zerno',
 ]);
 const PUBLIC_PREFIX_PATHS = [
-  '/platform-v7/market/',
   '/platform-v7/role-preview',
   '/platform-v7/demo',
 ];
