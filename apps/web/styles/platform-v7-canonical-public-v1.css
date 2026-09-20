@@ -45,11 +45,11 @@
 
 /* hero */
 .pc-cp-hero{position:relative;min-height:610px;padding:90px 0 64px;background:#f4f1e8;isolation:isolate;overflow:hidden}
-.pc-cp-hero::before{content:"";position:absolute;inset:0;z-index:-2;background-image:url('/platform-v7/wheat-exact-background.svg');background-size:cover;background-position:center 54%;filter:saturate(.84) contrast(.94)}
+.pc-cp-hero-media{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 54%;z-index:-2;filter:saturate(.84) contrast(.94)}
 .pc-cp-hero::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,rgba(251,250,246,.98) 0%,rgba(251,250,246,.91) 38%,rgba(251,250,246,.58) 63%,rgba(251,250,246,.16) 100%)}
 .pc-cp-hero-grid{display:grid;grid-template-columns:minmax(0,1.04fr) minmax(340px,.72fr);gap:46px;align-items:center}
 .pc-cp-hero-copy{display:grid;gap:20px;max-width:690px}
-.pc-cp-hero-copy h1{margin:0;font-family:var(--pc-cp-display);font-size:clamp(52px,6.4vw,82px);font-weight:600;line-height:.96;letter-spacing:-.045em;max-width:12ch}
+.pc-cp-hero-copy h1{margin:0;font-family:var(--pc-cp-display);font-size:clamp(50px,5.6vw,72px);font-weight:600;line-height:.96;letter-spacing:-.045em;max-width:13.5ch}
 .pc-cp-hero-copy p{margin:0;max-width:620px;color:#4f5d55;font-size:18px;line-height:1.55}
 .pc-cp-hero-proof{display:flex;flex-wrap:wrap;gap:8px}
 .pc-cp-hero-proof span{min-height:34px;display:inline-flex;align-items:center;padding:0 11px;border:1px solid rgba(11,79,58,.19);border-radius:999px;background:rgba(255,255,255,.76);font-size:12px;font-weight:780;color:#294137}
