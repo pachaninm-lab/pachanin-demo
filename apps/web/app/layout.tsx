@@ -210,6 +210,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <meta name='google' content='notranslate' />
         <meta name='googlebot' content='notranslate' />
         <meta httpEquiv='Content-Language' content={HTML_LANG[locale] ?? 'ru'} />
+        {canonicalPublicHome ? <link rel='preload' as='image' href='/platform-v7/hero-farmer-canonical.webp' type='image/webp' /> : null}
       </head>
       <body translate='no' className='notranslate'>
         {TailwindRuntime ? <TailwindRuntime /> : null}
