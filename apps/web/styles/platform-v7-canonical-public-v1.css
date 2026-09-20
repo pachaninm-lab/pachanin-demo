@@ -547,12 +547,12 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
 .pc-site-locale-option:hover,.pc-site-locale-option:focus-visible{background:var(--pc-cp-green-soft);color:var(--pc-cp-green)}
 @media(max-width:760px){
   .pc-site-locale-cluster{gap:0}
-  .pc-site-locale-option{min-width:36px;min-height:44px;padding:0 3px;font-size:10px}
-  .pc-site-locale-option[lang='zh-CN']{min-width:44px}
+  .pc-site-locale-option{min-width:44px;min-height:44px;padding:0 2px;font-size:10px}
+   .pc-site-locale-option[lang='zh-CN']{min-width:44px}
 }
 @media(max-width:430px){
   .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-text strong{font-size:12px!important}
   .pc-site-header[data-public-site-header='canonical'] .pc-site-brand{min-width:118px!important}
-  .pc-site-locale-option{min-width:31px}
-  .pc-site-locale-option[lang='zh-CN']{min-width:39px}
+  .pc-site-locale-option{min-width:44px}
+  .pc-site-locale-option[lang='zh-CN']{min-width:44px}
 }
