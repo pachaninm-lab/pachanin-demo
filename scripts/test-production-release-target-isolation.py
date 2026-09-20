@@ -22,7 +22,13 @@ p=Path(os.environ['FIXTURE_PATH']); f=json.loads(p.read_text()); a=sys.argv[1:]
 with open(os.environ['DOCKER_CALLS'],'a') as log: log.write(json.dumps(a)+'\n')
 kind=a[0]
 if kind=='compose': kind='compose-'+a[-1]
-if kind=='ps': kind='watchtower-list' if '-aq' in a else 'all-list'
+if kind=='ps':
+    if '-aq' in a:
+        filters=[a[i+1] for i,v in enumerate(a) if v=='--filter']
+        service=next((v.split('=',2)[-1] for v in filters if v.startswith('label=com.docker.compose.service=')),None)
+        kind='watchtower-list' if service=='watchtower' else 'service-list'
+    else:
+        kind='all-list'
 if kind=='inspect':
     fmt=a[a.index('--format')+1]
     kind='state' if 'RestartPolicy' in fmt else ('identity' if '.Id' in fmt else 'project')
