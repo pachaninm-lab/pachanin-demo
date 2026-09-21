@@ -35,6 +35,17 @@ LOCKED:
 
 NEXT:
 - Layer: R1.4 Cash/runway, pipeline, client P&L, AR/DSO, forecast, retention, hiring and scale gates.
+- Allowed files:
+  - docs/platform-v7/autopilot/autopilot-state.json
+  - docs/platform-v7/autopilot/progress.json
+  - docs/platform-v7/autopilot/prompts/current-codex-task.md
+  - docs/platform-v7/autopilot/prompts/current-review-task.md
+  - docs/platform-v7/execution-queue.md
+  - docs/execution/**
+  - apps/api/src/modules/founder-control/**
+  - apps/api/prisma/migrations/*_founder_financial_control/**
+  - infra/kind/production-like/postgresql-runtime-grants.sql
+  - apps/api/test/staff-access/**
 - Success criteria:
   - actual/plan/forecast remain distinct;
   - cash/runway and AR/DSO derive from authoritative financial sources;
