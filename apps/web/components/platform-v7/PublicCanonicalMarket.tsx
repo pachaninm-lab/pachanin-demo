@@ -84,10 +84,12 @@ export async function CanonicalMarketPreview({ locale, limit = 4 }: { locale: st
 export async function CanonicalMarketResults({
   locale,
   query = '',
+  filters = {},
   selectedIndex,
 }: {
   locale: string;
   query?: string;
+  filters?: Readonly<{ crop?: string; region?: string; grade?: string }>;
   selectedIndex?: number | null;
 }) {
   const lang = canonicalPublicLocale(locale);
@@ -95,11 +97,21 @@ export async function CanonicalMarketResults({
   if (!market.available) return <MarketEmptyLayout locale={lang} kind='unavailable' />;
   if (market.items.length === 0) return <MarketEmptyLayout locale={lang} kind='empty' />;
 
-  const normalizedQuery = query.trim().toLocaleLowerCase(lang === 'ru' ? 'ru-RU' : lang === 'zh' ? 'zh-CN' : 'en-US');
+  const localeTag = lang === 'ru' ? 'ru-RU' : lang === 'zh' ? 'zh-CN' : 'en-US';
+  const normalizedQuery = query.trim().toLocaleLowerCase(localeTag);
+  const crop = normalizeCropFilter(filters.crop);
+  const region = String(filters.region || '').trim().toLocaleLowerCase(localeTag);
+  const grade = String(filters.grade || '').trim().toLocaleLowerCase(localeTag);
   const indexed = market.items.map((lot, index) => ({ lot, index }));
-  const items = normalizedQuery
-    ? indexed.filter(({ lot }) => [lot.culture, lot.grade || '', lot.region].some((value) => value.toLocaleLowerCase().includes(normalizedQuery)))
-    : indexed;
+  const items = indexed.filter(({ lot }) => {
+    const searchable = [lot.culture, cultureLabel(lot.culture, lang), lot.grade || '', lot.region]
+      .map((value) => value.toLocaleLowerCase(localeTag));
+    if (normalizedQuery && !searchable.some((value) => value.includes(normalizedQuery))) return false;
+    if (crop && cropVisualKey(lot.culture) !== crop) return false;
+    if (region && !lot.region.toLocaleLowerCase(localeTag).includes(region)) return false;
+    if (grade && !(lot.grade || '').toLocaleLowerCase(localeTag).includes(grade)) return false;
+    return true;
+  });
 
   if (items.length === 0) return <MarketState locale={lang} kind='noMatch' />;
 
@@ -140,7 +152,8 @@ export async function CanonicalPublicLotView({ locale, lotIndex }: { locale: str
       </div>
 
       <div className='pc-cp-lot-layout'>
-        <div className='pc-cp-lot-image' role='img' aria-label={lang === 'ru' ? 'Иллюстрация культуры, фото партии не опубликовано' : lang === 'en' ? 'Crop illustration; lot photo not published' : '作物示意图；批次照片未公开'}>
+        <div className='pc-cp-lot-image' data-crop={cropVisualKey(lot.culture)} role='img' aria-label={lang === 'ru' ? 'Иллюстрация культуры, фото партии не опубликовано' : lang === 'en' ? 'Crop illustration; lot photo not published' : '作物示意图；批次照片未公开'}>
+          <CropArt crop={cropVisualKey(lot.culture)} />
           <span>{lang === 'ru' ? 'Фото партии не опубликовано' : lang === 'en' ? 'Lot photo not published' : '批次照片未公开'}</span>
         </div>
 
@@ -213,7 +226,10 @@ function MarketCard({ lot, publicIndex, locale, selected = false }: { lot: Publi
   const detailHref = `/platform-v7/market?lang=${locale}&lot=${publicIndex}`;
   return (
     <article className='pc-cp-card pc-cp-lot-card' data-selected={selected ? 'true' : undefined}>
-      <div className='pc-cp-lot-media'>{copy.photo}</div>
+      <div className='pc-cp-lot-media' data-crop={cropVisualKey(lot.culture)} aria-hidden='true'>
+        <CropArt crop={cropVisualKey(lot.culture)} />
+        <span className='pc-cp-lot-media-caption'>{cultureLabel(lot.culture, locale)}</span>
+      </div>
       <div className='pc-cp-lot-body'>
         <div>
           <span className='pc-cp-chip'><LockKeyhole size={12} aria-hidden='true' />{copy.hidden}</span>
@@ -304,9 +320,10 @@ function MarketEmptyLayout({ locale, kind }: { locale: CanonicalPublicLocale; ki
 function EmptyLotCard({ locale, index }: { locale: CanonicalPublicLocale; index: number }) {
   const unavailable=locale==='ru'?'Данные лота недоступны':locale==='en'?'Lot data unavailable':'批次数据不可用';
   const waiting=locale==='ru'?'Ожидаем подтверждённую публикацию':locale==='en'?'Awaiting confirmed publication':'等待确认发布';
+  const crop=EMPTY_CROP_VISUALS[index % EMPTY_CROP_VISUALS.length]!;
   return (
     <article className='pc-cp-card pc-cp-lot-card pc-cp-lot-card--empty' aria-label={unavailable}>
-      <div className='pc-cp-lot-media pc-cp-lot-media--empty' data-visual-index={index} aria-hidden='true'/>
+      <div className='pc-cp-lot-media pc-cp-lot-media--empty' data-crop={crop} data-visual-index={index} aria-hidden='true'><CropArt crop={crop}/></div>
       <div className='pc-cp-lot-body'>
         <span className='pc-cp-chip pc-cp-chip--warn'>{unavailable}</span>
         <div className='pc-cp-lot-title'>{waiting}</div>
@@ -330,6 +347,69 @@ function MarketState({ locale, kind }: { locale: CanonicalPublicLocale; kind: 'e
         actionLabel={kind === 'noMatch' ? (locale === 'ru' ? 'Все лоты' : locale === 'en' ? 'All lots' : '全部批次') : undefined}
       />
     </div>
+  );
+}
+
+type CropVisual = 'wheat' | 'barley' | 'corn' | 'sunflower' | 'soybean' | 'rapeseed' | 'rye' | 'oats' | 'generic';
+
+const EMPTY_CROP_VISUALS: readonly CropVisual[] = ['wheat','sunflower','corn','soybean','rapeseed','barley','oats','rye'];
+
+function normalizeCropFilter(value: string | undefined): CropVisual | '' {
+  const normalized = String(value || '').trim().toLowerCase();
+  return EMPTY_CROP_VISUALS.includes(normalized as CropVisual) ? normalized as CropVisual : '';
+}
+
+function cropVisualKey(value: string): CropVisual {
+  const key=value.trim().toLowerCase();
+  if(key==='wheat'||key==='пшеница'||key==='小麦') return 'wheat';
+  if(key==='barley'||key==='ячмень'||key==='大麦') return 'barley';
+  if(key==='corn'||key==='maize'||key==='кукуруза'||key==='玉米') return 'corn';
+  if(key==='sunflower'||key==='подсолнечник'||key==='向日葵') return 'sunflower';
+  if(key==='soybean'||key==='soy'||key==='соя'||key==='大豆') return 'soybean';
+  if(key==='rapeseed'||key==='рапс'||key==='油菜籽') return 'rapeseed';
+  if(key==='rye'||key==='рожь'||key==='黑麦') return 'rye';
+  if(key==='oats'||key==='овёс'||key==='овес'||key==='燕麦') return 'oats';
+  return 'generic';
+}
+
+function CropArt({ crop }: { crop: CropVisual }) {
+  const cereal=crop==='wheat'||crop==='barley'||crop==='rye'||crop==='oats'||crop==='generic';
+  return (
+    <svg className='pc-cp-crop-art' viewBox='0 0 180 110' preserveAspectRatio='xMidYMid slice' focusable='false' aria-hidden='true'>
+      <path d='M0 82 C34 64 63 75 92 65 C123 54 150 61 180 45 V110 H0 Z' fill='#dceadb'/>
+      <path d='M0 92 C36 77 71 87 103 76 C137 65 159 72 180 62 V110 H0 Z' fill='#bdd5bf' opacity='.9'/>
+      {cereal ? <>
+        <g stroke='#4e704c' strokeWidth='2.4' strokeLinecap='round'>
+          <path d='M39 92 L48 35'/><path d='M66 96 L72 27'/><path d='M94 92 L101 39'/><path d='M124 96 L131 31'/><path d='M148 89 L151 45'/>
+        </g>
+        <g fill='#caa451'>
+          <ellipse cx='48' cy='35' rx='5' ry='12' transform='rotate(-16 48 35)'/><ellipse cx='72' cy='27' rx='5' ry='13' transform='rotate(8 72 27)'/>
+          <ellipse cx='101' cy='39' rx='5' ry='12' transform='rotate(-10 101 39)'/><ellipse cx='131' cy='31' rx='5' ry='13' transform='rotate(12 131 31)'/><ellipse cx='151' cy='45' rx='5' ry='11' transform='rotate(-5 151 45)'/>
+        </g>
+      </> : crop==='sunflower' ? <>
+        <path d='M91 96 C89 73 91 53 94 31' stroke='#3f704a' strokeWidth='4' fill='none' strokeLinecap='round'/>
+        <path d='M92 71 C77 62 68 62 58 65 C68 75 78 79 92 79' fill='#5f935e'/>
+        <path d='M93 60 C107 51 120 50 130 54 C121 65 109 69 94 68' fill='#4f8454'/>
+        <g fill='#e4bd3f' transform='translate(95 29)'>
+          <ellipse rx='8' ry='22' transform='rotate(0)'/><ellipse rx='8' ry='22' transform='rotate(45)'/><ellipse rx='8' ry='22' transform='rotate(90)'/><ellipse rx='8' ry='22' transform='rotate(135)'/>
+        </g>
+        <circle cx='95' cy='29' r='13' fill='#6c4b29'/><circle cx='95' cy='29' r='8' fill='#8d632d'/>
+      </> : crop==='corn' ? <>
+        <path d='M91 100 C87 78 88 50 91 25' stroke='#44784d' strokeWidth='5' fill='none' strokeLinecap='round'/>
+        <path d='M90 72 C70 58 55 56 43 61 C56 77 71 83 90 83' fill='#5e955f'/>
+        <path d='M91 62 C109 46 127 43 141 50 C128 67 110 74 91 74' fill='#4d8555'/>
+        <ellipse cx='95' cy='54' rx='11' ry='24' fill='#d9ad3d' transform='rotate(7 95 54)'/>
+        <path d='M84 69 C87 54 88 42 86 33 C78 43 75 58 84 69 M106 69 C105 54 105 42 109 34 C117 48 116 60 106 69' fill='#689b61'/>
+      </> : crop==='soybean' ? <>
+        <path d='M89 98 C88 78 87 58 90 37 M89 65 L67 49 M89 73 L113 55' stroke='#4b7a50' strokeWidth='3' fill='none' strokeLinecap='round'/>
+        <g fill='#6ea26b'><ellipse cx='63' cy='47' rx='14' ry='7' transform='rotate(25 63 47)'/><ellipse cx='117' cy='53' rx='14' ry='7' transform='rotate(-24 117 53)'/><ellipse cx='76' cy='69' rx='12' ry='6' transform='rotate(-16 76 69)'/></g>
+        <g fill='#98b36a' stroke='#54764c' strokeWidth='1'><rect x='57' y='55' width='24' height='9' rx='5' transform='rotate(18 57 55)'/><rect x='104' y='64' width='25' height='9' rx='5' transform='rotate(-18 104 64)'/></g>
+      </> : <>
+        <path d='M90 99 C88 77 90 55 92 34' stroke='#4a7b50' strokeWidth='3' fill='none' strokeLinecap='round'/>
+        <path d='M90 70 L69 55 M91 61 L113 48' stroke='#4a7b50' strokeWidth='2.5' fill='none' strokeLinecap='round'/>
+        <g fill='#e3c73a'><circle cx='66' cy='52' r='5'/><circle cx='73' cy='48' r='5'/><circle cx='111' cy='45' r='5'/><circle cx='118' cy='49' r='5'/><circle cx='91' cy='33' r='6'/></g>
+      </>}
+    </svg>
   );
 }
 
