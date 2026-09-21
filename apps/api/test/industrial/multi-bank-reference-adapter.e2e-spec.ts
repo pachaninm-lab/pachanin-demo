@@ -22,7 +22,10 @@ describe('multi-bank reference adapter industrial contract', () => {
     capabilityCode: 'BANK',
     maturity: 'CONTRACT_TESTED',
     bindingVersion: '4',
+    configurationVersion: 'cfg-4',
     evidenceMode: 'SERVER_HELD',
+    credentialReadiness: 'MISSING_OR_UNKNOWN',
+    callbackTrustReadiness: 'MISSING_OR_UNKNOWN',
     mayCarryRealTraffic: false,
   });
 
@@ -41,6 +44,7 @@ describe('multi-bank reference adapter industrial contract', () => {
       httpStatus: 201,
       rawStatus: 'DONE',
       providerOperationId: 'provider-op-1',
+      idempotencyKey: 'idem-1',
       providerEventId: 'provider-event-1',
       externalReceiptId: 'external-receipt-1',
       authenticationEvidenceRef: 'auth-evidence-1',
@@ -55,6 +59,7 @@ describe('multi-bank reference adapter industrial contract', () => {
     expect(validateBankReceiptCandidate({
       providerFamily: 'SBER',
       operationId: 'operation-1',
+      idempotencyKey: 'idem-1',
       providerOperationId: 'provider-op-1',
       amountMinor: '50000',
       currency: 'RUB',
@@ -71,6 +76,7 @@ describe('multi-bank reference adapter industrial contract', () => {
     const base = {
       httpStatus: 200,
       providerOperationId: 'provider-op-1',
+      idempotencyKey: 'idem-1',
       providerEventId: 'event-1',
       externalReceiptId: 'receipt-1',
       authenticationEvidenceRef: 'auth-1',
