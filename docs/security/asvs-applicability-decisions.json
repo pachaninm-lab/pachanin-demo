@@ -9871,6 +9871,35 @@
       "note": "Corrected on review: distroless solves a different problem than the one this requirement is about. It removes the shell and package manager an attacker could use post-compromise; it says nothing about which files were copied into the image in the first place, and this build copies compiled test code into it. apps/api/tsconfig.json includes both src/**/*.ts and test/**/*.ts, so pnpm --filter @pc/api build compiles both into the same dist tree (dist/apps/api/src/... and dist/apps/api/test/... side by side). The Dockerfile's cleanup step (rm -rf /prod/api/src /prod/api/test /prod/api/prisma /prod/api/dist) removes the pnpm-deployed source test/ directory, then immediately does cp -R /workspace/apps/api/dist /prod/api/dist - copying the whole compiled dist tree wholesale, compiled test output included, since that copy happens from the build stage's dist, not the just-cleaned /prod/api/dist. The runtime stage then does COPY --from=build ... /prod/api/ ./, so the compiled test files ship in the production image. This is exactly the extraneous functionality (test code) this requirement asks to be verified absent from production, and it is not."
     },
     {
+      "requirementId": "V15.2.4",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "repository-scan:no-declared-registry",
+        "pnpm-lock.yaml:integrity-pinned"
+      ],
+      "conditions": [
+        {
+          "condition": "no manifest declares the registry components must come from",
+          "check": "ABSENT_IN_MANIFESTS",
+          "patterns": [
+            "registry"
+          ]
+        },
+        {
+          "condition": "lockfile pins an integrity digest for every resolution",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "pnpm-lock.yaml"
+          ],
+          "patterns": [
+            "integrity: sha512-"
+          ]
+        }
+      ],
+      "note": "Two halves, and only one is met. Dependency confusion on internal names is closed by construction: all seven internal packages are private, none is declared as a dependency in any manifest, the workspace protocol is unused, and they are consumed through TypeScript path mapping to source - so no npm resolution path for these names exists that could fall back to a public registry. Substitution of a known third-party artifact is closed too: all 1193 lockfile resolutions carry an integrity digest. What is not met is the requirement's other half, that components come from the expected repository: no .npmrc is committed and no manifest names a registry, so resolution relies on whatever default the developer or runner happens to have configured. The lockfile would catch a substituted known package but not a newly added one resolved from an unexpected source. Remedy is a committed npm configuration pinning the registry, which changes resolution behaviour for every consumer and is therefore not bundled into this assessment."
+    },
+    {
       "requirementId": "V15.2.5",
       "applicability": "APPLICABLE",
       "status": "FAIL",
