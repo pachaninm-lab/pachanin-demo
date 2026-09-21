@@ -32,10 +32,10 @@ export async function generateMetadata():Promise<Metadata>{
 
 const COPY={
 ru:{
- e:'Аграрный интеллект',t:'Разобраться в Сделке по фактам',p:'Гекта собирает доступные факты в понятную картину: где находится Сделка, что мешает следующему шагу, какие риски требуют внимания и кто должен действовать дальше.',
+ e:'Аграрный интеллект',t:'Разобраться в Сделке по фактам',p:'Гекта показывает, на каком этапе Сделка, что мешает двигаться дальше, какие риски требуют внимания и кто отвечает за следующий шаг.',
  context:'Контекст Сделки',contextItems:['Стадия и доступные факты','Документы и основания','Логистика и приёмка','Качество и исключения','Финансовые блокеры','История решений'],
  ask:'Что нужно понять сейчас?',cards:[
- ['Что происходит','Собрать подтверждённые факты и коротко объяснить текущее состояние Сделки.'],
+ ['Что происходит','Показать подтверждённые факты и коротко объяснить текущее состояние Сделки.'],
  ['Что мешает двигаться дальше','Показать причину остановки и связанный с ней документ, событие или участника.'],
  ['На чём основан следующий шаг','Показать факт, документ или условие, на которое опирается доступное действие.'],
  ['Кто действует дальше','Показать следующего ответственного с учётом подтверждённых полномочий.'],
@@ -49,10 +49,10 @@ ru:{
  ],prompt:'Спроси, что происходит, где риск или что делать дальше',trust:'Открыть модель доверия',register:'Регистрация'
 },
 en:{
- e:'Agricultural intelligence',t:'Understand the Deal through the facts',p:'Gekta turns the facts available to you into a clear picture: where the Deal stands, what blocks progress, which risks need attention and who needs to act next.',
+ e:'Agricultural intelligence',t:'Understand the Deal through the facts',p:'Gekta shows where the Deal stands, what is blocking progress, which risks need attention and who is responsible for the next action.',
  context:'Deal context',contextItems:['Stage and available facts','Documents and evidence','Logistics and acceptance','Quality and exceptions','Financial blockers','Decision history'],
  ask:'What do you need to understand now?',cards:[
- ['What is happening','Pull confirmed facts together and explain the current Deal state in plain language.'],
+ ['What is happening','Review the confirmed facts and explain the current Deal state in plain language.'],
  ['What blocks progress','Show the reason progress stopped and the related document, event or participant.'],
  ['What supports the next step','Show the fact, document or condition behind the available action.'],
  ['Who acts next','Show the next responsible participant based on confirmed authority.'],
@@ -66,10 +66,10 @@ en:{
  ],prompt:'Ask what is happening, where the risk is or what to do next',trust:'Open trust model',register:'Register'
 },
 zh:{
- e:'农业智能',t:'按事实看懂一笔交易',p:'Gekta 把你有权查看的事实整理成清晰图景：交易进行到哪里、什么阻挡进展、哪些风险需要关注、下一步谁处理。',
+ e:'农业智能',t:'按事实看懂一笔交易',p:'Gekta 会显示交易进行到哪里、什么阻挡进展、哪些风险需要关注，以及下一步由谁处理。',
  context:'交易上下文',contextItems:['阶段和可用事实','文件和依据','物流和验收','质量和异常','金融阻断','决定历史'],
  ask:'现在需要理解什么？',cards:[
- ['发生了什么','汇总已确认事实，并用清晰语言解释当前交易状态。'],
+ ['发生了什么','查看已确认事实，并用清晰语言解释当前交易状态。'],
  ['什么在阻挡','说明进展停止的原因，以及相关文件、事件或参与方。'],
  ['下一步依据是什么','展示支持可用操作的事实、文件或条件。'],
  ['下一步谁处理','根据已确认权限显示下一责任方。'],
