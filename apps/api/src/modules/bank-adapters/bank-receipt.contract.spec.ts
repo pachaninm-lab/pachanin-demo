@@ -118,4 +118,23 @@ describe('bank receipt contract', () => {
       candidate({ providerEventId: 'event-2', payloadFingerprint: 'sha256:def' }),
     )).toMatchObject({ status: 'REJECTED', reason: 'EXTERNAL_RECEIPT_REPLAY' });
   });
+
+  it('cannot evade durable replay checks with transport whitespace around evidence identities', () => {
+    expect(validateBankReceiptCandidate(
+      { ...expected, alreadyConsumedProviderEventIds: ['event-1'] },
+      candidate({ providerEventId: '  event-1  ' }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'PROVIDER_EVENT_REPLAY' });
+    expect(validateBankReceiptCandidate(
+      { ...expected, alreadyConsumedPayloadFingerprints: ['sha256:abc'] },
+      candidate({ payloadFingerprint: '  sha256:abc  ' }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'PAYLOAD_REPLAY' });
+    expect(validateBankReceiptCandidate(
+      { ...expected, alreadyConsumedExternalReceiptIds: ['receipt-1'] },
+      candidate({
+        providerEventId: 'event-2',
+        payloadFingerprint: 'sha256:def',
+        externalReceiptId: '  receipt-1  ',
+      }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'EXTERNAL_RECEIPT_REPLAY' });
+  });
 });
