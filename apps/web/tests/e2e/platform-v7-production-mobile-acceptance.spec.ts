@@ -83,7 +83,7 @@ async function expectCanonicalHeader(page: Page, width: number) {
     await expectVisibleTargetsAtLeast(page, '.pc-site-mobile-menu > summary, .pc-site-locale-switch', 44);
   } else {
     await expect(header.locator('.pc-site-nav')).toBeVisible();
-    await expect(header.locator('.pc-site-nav a')).toHaveCount(6);
+    await expect(header.locator('.pc-site-nav > a:not(.pc-cp-mobile-only)')).toHaveCount(6);
     await expectVisibleTargetsAtLeast(page, '.pc-site-locale-switch, .entry-login, .pc-v6-header-cta', 44);
   }
 }
@@ -99,7 +99,8 @@ async function expectHomeContract(page: Page, width: number) {
   await expect(page.locator('#gekta')).toBeVisible();
   await expect(page.locator('#capabilities')).toBeVisible();
 
-  for (const role of canonicalRoles) await expect(page.getByText(role, { exact: true })).toBeVisible();
+  const roleSurface = page.locator('#participants .pc-cp-role-tags');
+  for (const role of canonicalRoles) await expect(roleSurface.getByText(role, { exact: true })).toBeVisible();
   for (const stage of canonicalStages) await expect(page.getByText(stage, { exact: true }).first()).toBeVisible();
 
   await expect(page.locator('#trust .pc-cp-trust-card')).toHaveCount(4);
@@ -173,7 +174,7 @@ test.describe('Platform V7 canonical linked pages RU EN ZH', () => {
           await expect(page.locator('.pc-cp-process-card')).toHaveCount(7);
         }
         if (target.name === 'trust') {
-          await expect(page.locator('.pc-cp-trust-card').first()).toBeVisible();
+          await expect(page.locator('.pc-cp-trust-pillar')).toHaveCount(4);
         }
         if (target.name === 'gekta') {
           await expect(page.locator('.pc-cp-gekta-workspace')).toBeVisible();
