@@ -10056,6 +10056,48 @@
       "note": "Same underlying fact as ASVS V3.2.3, assessed here against this requirement's specific text: tsconfig.base.json sets \"strict\": false, inherited by both apps/api/tsconfig.json and apps/web/tsconfig.json with no override. Strict mode is what would catch an implicit any or an unsound type assumption at compile time - exactly the class of bug this requirement is about (a variable silently being the wrong type, or a loose == comparison masking a type-confusion bug). Without it, the compiler gives no backstop for either."
     },
     {
+      "requirementId": "V15.3.6",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "repository-scan:no-prototype-sink",
+        "repository-scan:map-set-usage"
+      ],
+      "conditions": [
+        {
+          "condition": "no prototype-writing sink or recursive merge exists in product source",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src",
+            "apps/web/app",
+            "apps/web/lib",
+            "packages"
+          ],
+          "patterns": [
+            "__proto__",
+            "deepmerge",
+            "lodash.merge",
+            "setprototypeof"
+          ],
+          "exceptions": [
+            {
+              "path": "apps/api/src/modules/auth/organization-job-profile.spec.ts",
+              "pattern": "__proto__",
+              "line": "      '__proto__',",
+              "reason": "Test fixture listing __proto__ among the job-profile keys that must be rejected. It exercises the guard rather than writing to a prototype."
+            },
+            {
+              "path": "apps/api/src/modules/auth/organization-job-profile.spec.ts",
+              "pattern": "__proto__",
+              "line": "      expect(canAssignJobProfile(JobProfile.OWNER, '__proto__' as JobProfile)).toBe(false);",
+              "reason": "Assertion that assigning __proto__ as a job profile is refused. It proves the guard holds and is the opposite of a sink."
+            }
+          ]
+        }
+      ],
+      "note": "The vector is absent and the construct the requirement names is the one actually used. Across 1879 scanned product source files there is no recursive merge, no lodash.merge, no setPrototypeOf and no write to __proto__; the only occurrences of __proto__ anywhere are two lines in one spec that assert the key is refused, and both are named exceptions re-verified against the file on every run. The recommended construct is in wide use rather than token use: Map 28 sites, Set 308 sites, with Object.freeze at 399. Two limits, stated rather than left implicit. First, this scans first-party source only, so a dependency performing a recursive merge on attacker-controlled keys is outside what this condition can see. Second, a dynamic assignment of the shape obj[key] = value with an unvalidated key can still reach a prototype, and that shape is too generic to scan for; the finding is that no dedicated pollution sink exists, not that every dynamic write has been individually proven safe."
+    },
+    {
       "requirementId": "V15.3.7",
       "applicability": "APPLICABLE",
       "status": "PASS",
