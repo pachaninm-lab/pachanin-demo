@@ -253,10 +253,10 @@ export function CanonicalStateLens({
 export function CanonicalGektaStrip({ locale }: { locale: string }) {
   const lang = canonicalPublicLocale(locale);
   const c = lang === 'ru'
-    ? { k: 'Аграрный интеллект', t: 'Гекта', p: 'Собирает контекст Сделки, подсвечивает риски и объясняет, что важно проверить и какой шаг доступен дальше. Решение и ответственность остаются за участником.', chips: ['Контекст Сделки', 'Документы', 'Логистика', 'Качество', 'Расчёт', 'Риски'] }
+    ? { k: 'Аграрный интеллект', t: 'Гекта', p: 'Сводит доступные данные по Сделке и отмечает риски. Показывает, что стоит проверить перед следующим действием. Решение и ответственность остаются за участником.', chips: ['Данные Сделки', 'Документы', 'Логистика', 'Качество', 'Расчёт', 'Риски'] }
     : lang === 'en'
-      ? { k: 'Agricultural intelligence', t: 'Gekta', p: 'Pulls Deal context together, highlights risks and explains what to check and which step is available next. Decisions and accountability stay with the participant.', chips: ['Deal context', 'Documents', 'Logistics', 'Quality', 'Settlement', 'Risk'] }
-      : { k: '农业智能', t: 'Gekta', p: '汇总交易上下文、提示风险，并说明需要核验什么以及下一步可以做什么。决定和责任仍由参与方承担。', chips: ['交易上下文', '文件', '物流', '质量', '结算', '风险'] };
+      ? { k: 'Agricultural intelligence', t: 'Gekta', p: 'Uses the Deal data available to you to flag risks and show what should be checked before the next action. Decisions and accountability stay with the participant.', chips: ['Deal data', 'Documents', 'Logistics', 'Quality', 'Settlement', 'Risk'] }
+      : { k: '农业智能', t: 'Gekta', p: '使用参与方有权查看的交易数据标出风险，并提示下一次操作前需要核验的内容。决定和责任仍由参与方承担。', chips: ['交易数据', '文件', '物流', '质量', '结算', '风险'] };
   return (
     <section className='pc-cp-gekta-strip'>
       <div className='pc-cp-gekta-brand'>
@@ -306,10 +306,10 @@ export function CanonicalBottomNav({ locale, active }: { locale: string; active?
 export function CanonicalFooter({ locale }: { locale: string }) {
   const lang = canonicalPublicLocale(locale);
   const description = lang === 'ru'
-    ? 'Единый контур агросделки: от лота и торгов до исполнения, документов, расчёта и закрытия.'
+    ? 'Платформа связывает лот, торги, исполнение, документы, расчёт и закрытие одной Сделки.'
     : lang === 'en'
-      ? 'One agricultural Deal flow from lot and trading through execution, documents, settlement and closure.'
-      : '统一农业交易流程：从批次和交易到履约、文件、结算和关闭。';
+      ? 'The platform keeps lot, trading, execution, documents, settlement and closure tied to one Deal.'
+      : '平台把批次、交易、履约、文件、结算和关闭保持在同一笔交易中。';
   return (
     <footer className='pc-cp-footer'>
       <div className='pc-cp-container pc-cp-footer-grid'>
