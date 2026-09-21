@@ -1,4 +1,3 @@
-import { describe, expect, it } from '@jest/globals';
 import { BankCapabilityRouter, type BankRoutingAuthority } from '../../src/modules/bank-adapters/bank-capability.router';
 import { SberReferenceAdapter } from '../../src/modules/bank-adapters/sber-reference.adapter';
 import { AlfaReferenceAdapter } from '../../src/modules/bank-adapters/alfa-reference.adapter';
