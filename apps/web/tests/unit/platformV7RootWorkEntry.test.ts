@@ -252,7 +252,7 @@ describe('platform-v7 canonical public experience',()=>{
     ]) expect(home + primitives + market + linkedCopy).not.toContain(retired);
 
     for(const humanCopy of [
-      'Агросделка — от цены до закрытия.',
+      'Агросделка — от цены до закрытия.',
       'Экран сразу показывает, что произошло',
       'From price to closure — one Deal.',
       '从定价到结算，一笔交易贯穿全程。',
