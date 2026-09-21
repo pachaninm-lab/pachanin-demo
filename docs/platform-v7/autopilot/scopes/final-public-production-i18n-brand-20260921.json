@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/final-public-production-i18n-brand-20260921",
+  "status": "active",
+  "authorizedBy": "explicit-user-make-final-public-experience-perfect-20260921",
+  "purpose": "Bounded FINAL PUBLIC EXPERIENCE v1 production repair for the exact EN 320x700 mobile-header legibility defect proven on REG.RU by production i18n run 35602380754. Remove only the later canonical-home font-size overrides that lowered the visible brand below the unchanged 14px production acceptance floor.",
+  "authorityBaseExactMain": "a924286d5f012c827b003e3fd54007822121764f",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/styles/platform-v7-canonical-home-v1.css",
+    "docs/platform-v7/autopilot/scopes/final-public-production-i18n-brand-20260921.json"
+  ],
+  "requiredInvariants": [
+    "The production i18n brand font-size acceptance floor remains >=14px and is not weakened.",
+    "The homepage canonical brand remains visible, unclipped and overflow-free at 320, 375, 390 and 430 CSS pixels in Chromium and WebKit.",
+    "Public header interactive targets remain at least 44 by 44 CSS pixels.",
+    "Approved header composition, brand mark, locale control, mobile menu and CTA hierarchy are unchanged.",
+    "No backend, API, database, auth, RBAC, RLS, tenant, Deal, money, outbox, release-authority or production-runtime behavior changes.",
+    "RU, EN and ZH production acceptance remains fail-closed."
+  ],
+  "acceptance": [
+    "Exact-head source-controlled scope/autopilot guard passes.",
+    "Relevant public web unit/browser/design-system gates pass with no threshold weakening.",
+    "Fresh exact-head substantive CI/security gates are green.",
+    "Fresh exact-head complete-diff review finds no P0/P1/P2.",
+    "After exact-main REG.RU release, production i18n browser acceptance passes on Chromium and WebKit and production mobile acceptance remains green."
+  ]
+}
