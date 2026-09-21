@@ -351,7 +351,14 @@ for (const locale of ['ru', 'en', 'zh'] as const) {
           expect(box!.x + box!.width).toBeLessThanOrEqual(width + 1);
         }
         if (route !== 'register' && route !== 'gekta') {
-          await expect(header.locator('a[href*="/platform-v7/register"]')).toHaveAttribute('href', `/platform-v7/register?lang=${locale}`);
+          // Bind the href contract to the non-mobile action node. The same
+          // server-rendered action remains authoritative when responsive CSS
+          // hides it in favour of the native <details> mobile navigation.
+          const registerAction = header.locator(
+            ':scope > .pc-site-actions > a[href^="/platform-v7/register"], ' +
+            ':scope > .pc-site-actions > .pc-canonical-header-actions > a[href^="/platform-v7/register"]',
+          ).first();
+          await expect(registerAction).toHaveAttribute('href', `/platform-v7/register?lang=${locale}`);
         }
         if (route === 'terms' || route === 'privacy') {
           const legal = page.locator('.pc-linked-policy');
@@ -440,7 +447,8 @@ test('public registration locale cycle preserves both existing query tokens', as
   await page.setViewportSize({ width: 320, height: 800 });
   await page.goto(`/platform-v7/register?${new URLSearchParams({ lang: 'ru', verify, statusToken: status })}`, { waitUntil: 'load' });
   for (const next of ['en', 'zh', 'ru'] as const) {
-    const language = page.locator('[data-public-site-header] .pc-site-locale-switch');
+    const language = page.locator('[data-public-site-header="canonical"] > .pc-site-actions > .pc-site-locale-switch');
+    await expect(language).toHaveCount(1);
     const href = await language.getAttribute('href');
     expect(href).not.toBeNull();
     const target = new URL(href!, page.url());
