@@ -22,9 +22,9 @@
     "apps/web/styles/platform-v7-canonical-home-v1.css",
     "apps/web/styles/platform-v7-canonical-public-v1.css",
     "apps/web/styles/platform-v7-public-assistant-polish.css",
+    "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
     "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
     "apps/web/tests/unit/platformV7SpacingAndContactDock.regression.test.ts",
-    "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
     "docs/platform-v7/autopilot/scopes/final-public-typography-editorial-20260921.json"
   ],
   "requiredInvariants": [
@@ -48,6 +48,7 @@
     "Production i18n acceptance passes RU/EN/ZH and canonical brand >=14px.",
     "Manual editorial audit finds no obvious AI boilerplate, repetitive authority jargon, unsupported superlatives or unnatural translation phrasing in the edited public copy.",
     "Fresh exact-head CI and independent complete-diff review pass before merge.",
-    "Post-merge exact-current-main REG.RU acceptance is required before PUBLIC_EXPERIENCE_V1_FROZEN."
+    "Post-merge exact-current-main REG.RU acceptance is required before PUBLIC_EXPERIENCE_V1_FROZEN.",
+    "Canonical visual baseline hash may change only after manual inspection of the new screenshot; maxDistance remains unchanged."
   ]
 }
