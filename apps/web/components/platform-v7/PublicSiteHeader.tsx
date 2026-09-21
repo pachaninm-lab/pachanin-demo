@@ -49,8 +49,18 @@ const PUBLIC_SITE_HEADER_STYLES = `
 .pc-site-header[data-public-site-header='canonical'] .pc-site-nav>a{gap:5px;padding-inline:10px;border-radius:10px;transition:background-color .16s ease,color .16s ease}
 .pc-site-header[data-public-site-header='canonical'] .pc-site-nav>a:hover{background:#edf7f1;color:#0b6046}
 .pc-site-header[data-public-site-header='canonical'] .pc-site-nav>a[data-active='true']{background:#e3f2e8;color:#0a5a41}
-.pc-site-header[data-public-site-header='canonical'] .pc-site-nav-gekta{background:#edf8f2;color:#0a6548;font-weight:780}
+.pc-site-header[data-public-site-header='canonical'] .pc-site-nav-gekta{color:#0a6548;font-weight:750}
 .pc-site-header[data-public-site-header='canonical'] .pc-site-nav-gekta svg{color:#0b7452}
+.pc-site-mobile-primary-label{display:none}
+.pc-site-nav-item-icon{display:none;flex:0 0 auto}
+.pc-site-mobile-utility{display:none}
+.pc-site-mobile-nav .pc-site-mobile-primary-label,.pc-site-mobile-nav .pc-site-mobile-utility-label{display:block;padding:8px 12px 5px;color:#617068;font-size:12px;font-weight:780;letter-spacing:.06em;text-transform:uppercase}
+.pc-site-mobile-nav .pc-site-nav-item-icon{display:inline-grid;width:22px;height:22px;place-items:center;color:#0b6549}
+.pc-site-mobile-nav .pc-site-mobile-nav-links>a{display:flex;align-items:center;gap:11px}
+.pc-site-mobile-nav .pc-site-mobile-utility{display:grid;gap:4px;margin-top:6px;padding-top:6px;border-top:1px solid #e0ebe4}
+.pc-site-mobile-nav .pc-site-mobile-utility>a{display:flex;align-items:center;gap:11px;width:100%;min-height:48px;padding:0 13px;border-radius:11px;color:#17251f;text-decoration:none}
+.pc-site-mobile-nav .pc-site-mobile-utility>a svg{width:18px;height:18px;color:#0b6549}
+.pc-site-mobile-nav .pc-site-mobile-utility .pc-gekta-chat-button{width:100%;min-height:48px;justify-content:flex-start;padding:0 13px;border-radius:11px}
 .pc-site-header[data-public-site-header='canonical'] .pc-site-locale-option[data-active='true']{background:#e3f2e8;color:#0a5a41;box-shadow:inset 0 0 0 1px #cbe2d4}
 .pc-site-header[data-public-site-header='canonical'] .entry-login{border-color:#d6e5dc;background:#f7fbf8;color:#244338}
 .pc-site-header[data-public-site-header='canonical'] :is(.pc-v6-header-cta,.pc-ppe-primary-button,.p7-about-register,.p7-contact-register){background:#0b6046;border-color:#0b6046;border-radius:10px;font-size:13px}
