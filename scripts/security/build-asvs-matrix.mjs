@@ -169,17 +169,97 @@ export function evaluateCondition(condition, { tracked, readFile }) {
       roots.some((root) => path.startsWith(`${root}/`))
       && /\.(?:ts|tsx|js|jsx|mjs|cjs)$/u.test(path)
     ));
-    const hits = candidates.filter((path) => {
-      const raw = readFile(path) ?? '';
-      if (isOpaqueDataModule(raw)) return false;
-      const text = raw.toLowerCase();
-      return patterns.some((pattern) => text.includes(pattern));
+
+    // A substring scan cannot tell a control apart from a switch that disables one.
+    // V8.2.4 is the measured case: `'$geoip_disable': true` contains "geoip", so a
+    // flag that turns geolocation OFF read as evidence that an adaptive control
+    // exists, the condition failed, and the requirement fell to NOT_ASSESSED instead
+    // of the honest FAIL its author recorded. A silently wrong assessment is worse
+    // than an open one.
+    //
+    // An exception names one occurrence that is not an instance of the thing being
+    // detected. It is never a suppression: it must quote the exact line, the line is
+    // re-read from the real file on every run, and EVERY matching line in that file
+    // must be quoted -- one unquoted match and the file still counts. A quoted line
+    // that has changed, or that no longer matches, fails the condition rather than
+    // being ignored, so an exception cannot outlive the fact it records.
+    const exceptions = Array.isArray(condition.exceptions) ? condition.exceptions : [];
+    const defects = [];
+    exceptions.forEach((exception, index) => {
+      const at = `exceptions[${index}]`;
+      if (typeof exception?.path !== 'string' || !exception.path.trim()) defects.push(`${at} has no path`);
+      if (typeof exception?.line !== 'string' || !exception.line.trim()) defects.push(`${at} quotes no line`);
+      if (typeof exception?.pattern !== 'string' || !patterns.includes(exception.pattern.toLowerCase())) {
+        defects.push(`${at} names a pattern the condition does not declare`);
+      }
+      if (typeof exception?.reason !== 'string' || exception.reason.trim().length < 30) {
+        defects.push(`${at} has no substantive reason`);
+      }
+      if (typeof exception?.line === 'string' && typeof exception?.pattern === 'string'
+        && !exception.line.toLowerCase().includes(exception.pattern.toLowerCase())) {
+        defects.push(`${at} quotes a line that does not contain its own pattern`);
+      }
     });
+
+    const matchingLines = (raw) => raw
+      .split(/\r?\n/u)
+      .map((line, index) => ({ number: index + 1, text: line.trimEnd() }))
+      .filter((line) => patterns.some((pattern) => line.text.toLowerCase().includes(pattern)));
+
+    const excepted = new Map();
+    for (const exception of exceptions) {
+      if (typeof exception?.path !== 'string') continue;
+      if (!excepted.has(exception.path)) excepted.set(exception.path, []);
+      excepted.get(exception.path).push(exception);
+    }
+
+    const hits = [];
+    for (const path of candidates) {
+      const raw = readFile(path) ?? '';
+      if (isOpaqueDataModule(raw)) continue;
+      const lines = matchingLines(raw);
+      if (lines.length === 0) continue;
+      const quoted = (excepted.get(path) ?? []).map((exception) => String(exception.line).trimEnd());
+      const uncovered = lines.filter((line) => !quoted.includes(line.text));
+      if (uncovered.length === 0 && quoted.length > 0) continue;
+      hits.push(path);
+    }
+
+    // A quoted line that is no longer there is stale evidence, not a pass.
+    for (const [path, entries] of excepted) {
+      const raw = readFile(path);
+      if (raw === null || raw === undefined) {
+        defects.push(`exception names ${path}, which is not readable`);
+        continue;
+      }
+      if (!candidates.includes(path)) {
+        defects.push(`exception names ${path}, which this condition does not scan`);
+        continue;
+      }
+      const present = matchingLines(raw).map((line) => line.text);
+      for (const entry of entries) {
+        if (!present.includes(String(entry.line).trimEnd())) {
+          defects.push(`exception for ${path} quotes a line that no longer matches: ${String(entry.line).trim().slice(0, 60)}`);
+        }
+      }
+    }
+
+    if (defects.length > 0) {
+      return {
+        condition: condition.condition,
+        holds: false,
+        evidence: `exception evidence is defective: ${defects.slice(0, 3).join('; ')}`,
+      };
+    }
+
+    const exceptionNote = exceptions.length > 0
+      ? `, ${exceptions.length} named exception(s) re-verified`
+      : '';
     return {
       condition: condition.condition,
       holds: hits.length === 0,
       evidence: hits.length === 0
-        ? `${candidates.length} source files scanned, no match`
+        ? `${candidates.length} source files scanned, no match${exceptionNote}`
         : `matched in ${hits.slice(0, 3).join(', ')}`,
     };
   }

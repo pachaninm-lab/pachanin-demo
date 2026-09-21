@@ -5531,10 +5531,24 @@
           "roots": [
             "apps",
             "packages"
+          ],
+          "exceptions": [
+            {
+              "path": "apps/web/app/layout.tsx",
+              "pattern": "geoip",
+              "line": "          '$geoip_disable': true,",
+              "reason": "PostHog initialisation flag that disables GeoIP collection outright. A switch that turns location collection off is the opposite of an adaptive control reading location as an access input, and the requirement is still recorded FAIL."
+            },
+            {
+              "path": "apps/web/tests/unit/publicAnalyticsBoundary.test.ts",
+              "pattern": "geoip",
+              "line": "    expect(layout).toContain(\"'$geoip_disable': true\");",
+              "reason": "Unit assertion that the disable flag stays present in the layout. It is a guard protecting the absence of location collection, not a control that reads location as an access input."
+            }
           ]
         }
       ],
-      "note": "No adaptive or contextual security control exists. The only geolocation reference in the application is a Permissions-Policy header that disables it. The requirement is unmet, not inapplicable - an application making authorization decisions could use these inputs and this one does not."
+      "note": "No adaptive or contextual security control exists. The only geolocation references in the application are a PostHog flag that disables GeoIP and the unit test guarding it; both are named exceptions re-verified against the real file on every run, and any other occurrence still fails this condition. The requirement is unmet, not inapplicable - an application making authorization decisions could use these inputs and this one does not."
     },
     {
       "requirementId": "V8.3.1",
