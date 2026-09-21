@@ -3,27 +3,35 @@
   "branch": "fix/final-public-production-i18n-brand-20260921",
   "status": "active",
   "authorizedBy": "explicit-user-make-final-public-experience-perfect-20260921",
-  "purpose": "Bounded FINAL PUBLIC EXPERIENCE v1 production repair for the exact EN 320x700 mobile-header legibility defect proven on REG.RU by production i18n run 35602380754. Remove only the later canonical-home font-size overrides that lowered the visible brand below the unchanged 14px production acceptance floor.",
+  "purpose": "FINAL PUBLIC EXPERIENCE v1 visual polish and exact production repair: unify canonical public typography and green-forward palette, raise small mobile text, replace the generic farmer portrait on the homepage with a bespoke field-to-elevator-to-logistics hero, and preserve the proven >=14px brand floor. No product authority or acceptance threshold is weakened.",
   "authorityBaseExactMain": "a924286d5f012c827b003e3fd54007822121764f",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "allowedPaths": [
+    "apps/web/app/layout.tsx",
+    "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
+    "apps/web/public/platform-v7/hero-agro-infrastructure.svg",
     "apps/web/styles/platform-v7-canonical-home-v1.css",
+    "apps/web/styles/platform-v7-canonical-public-v1.css",
     "docs/platform-v7/autopilot/scopes/final-public-production-i18n-brand-20260921.json"
   ],
   "requiredInvariants": [
     "The production i18n brand font-size acceptance floor remains >=14px and is not weakened.",
-    "The homepage canonical brand remains visible, unclipped and overflow-free at 320, 375, 390 and 430 CSS pixels in Chromium and WebKit.",
+    "Public typography uses one canonical system-font hierarchy across home and linked public pages; no remote font dependency is introduced.",
+    "Mobile explanatory text is not intentionally rendered below 12px; primary body/copy surfaces target >=13px where geometry permits.",
     "Public header interactive targets remain at least 44 by 44 CSS pixels.",
-    "Approved header composition, brand mark, locale control, mobile menu and CTA hierarchy are unchanged.",
+    "The public palette remains high-contrast and moves toward pale green/neutral surfaces without reducing readable contrast.",
+    "The homepage hero remains an optimized local asset, has no external copyright/CDN dependency, and keeps text/readability priority on mobile.",
+    "Approved information architecture, navigation, role/tenant authority and Deal semantics are unchanged.",
     "No backend, API, database, auth, RBAC, RLS, tenant, Deal, money, outbox, release-authority or production-runtime behavior changes.",
     "RU, EN and ZH production acceptance remains fail-closed."
   ],
   "acceptance": [
     "Exact-head source-controlled scope/autopilot guard passes.",
-    "Relevant public web unit/browser/design-system gates pass with no threshold weakening.",
+    "Canonical visual acceptance passes after typography/palette/hero changes.",
+    "Production mobile acceptance remains PASS on Chromium and WebKit with no horizontal overflow and >=44px targets.",
+    "Production i18n acceptance passes on RU/EN/ZH with the >=14px brand floor and no residual locale defects.",
     "Fresh exact-head substantive CI/security gates are green.",
-    "Fresh exact-head complete-diff review finds no P0/P1/P2.",
-    "After exact-main REG.RU release, production i18n browser acceptance passes on Chromium and WebKit and production mobile acceptance remains green."
+    "Exact-main REG.RU release and live revision verification pass before PUBLIC_EXPERIENCE_V1_FROZEN."
   ]
 }
