@@ -22,8 +22,8 @@ import { CanonicalMarketPreview } from './PublicCanonicalMarket';
 
 const COPY = {
   ru: {
-    heroKicker: 'Сделка от рынка до расчёта',
-    heroTitle: 'Агросделка. Всё важное — в одном контуре.',
+    heroKicker: 'Единый контур агросделки',
+    heroTitle: 'Агросделка. От товара и цены — до результата.',
     heroLead: 'Размести или найди лот, зафиксируй условия и веди доставку, качество, документы и расчёт в одной Сделке. На каждом этапе видно, кто отвечает, на каком основании и что делать дальше.',
     sell: 'Продать',
     buy: 'Купить',
@@ -90,8 +90,8 @@ const COPY = {
     contact: 'Контакты',
   },
   en: {
-    heroKicker: 'From market to settlement',
-    heroTitle: 'One Deal. From market to final outcome.',
+    heroKicker: 'One agricultural Deal flow',
+    heroTitle: 'The agricultural Deal. From product and price to outcome.',
     heroLead: 'List or find a lot, agree terms and carry delivery, quality, documents and settlement through one Deal. At every stage you can see who acts, why, and what comes next.',
     sell: 'Sell',
     buy: 'Buy',
@@ -158,8 +158,8 @@ const COPY = {
     contact: 'Contact',
   },
   zh: {
-    heroKicker: '从市场到结算',
-    heroTitle: '一笔交易，从市场走到最终结果。',
+    heroKicker: '统一农业交易流程',
+    heroTitle: '农业交易。从商品与价格，到最终结果。',
     heroLead: '发布或查找批次、确认条件，并在同一笔交易中完成交付、质量、文件和结算。每个阶段都能看到谁负责、依据是什么、下一步做什么。',
     sell: '出售',
     buy: '购买',
