@@ -88,7 +88,7 @@ async function proxyRegistry(request: NextRequest, accessToken: string, correlat
     return json({ ok: false, code: 'UPSTREAM_REDIRECT_REJECTED', correlationId: correlation }, 502);
   }
   const payload = await upstream.json().catch(() => ({})) as unknown;
-  const safePayload = payload && typeof payload === 'object' && !Array.isArray(payload)
+  const safePayload: JsonRecord = payload && typeof payload === 'object' && !Array.isArray(payload)
     ? { ...(payload as JsonRecord), correlationId: correlation }
     : { correlationId: correlation };
   delete safePayload.accessToken;
@@ -151,7 +151,7 @@ async function proxyRequest(request: NextRequest, accessToken: string, correlati
     return json({ ok: false, code: 'UPSTREAM_REDIRECT_REJECTED', correlationId: correlation }, 502);
   }
   const payload = await upstream.json().catch(() => ({})) as unknown;
-  const safePayload = payload && typeof payload === 'object' && !Array.isArray(payload)
+  const safePayload: JsonRecord = payload && typeof payload === 'object' && !Array.isArray(payload)
     ? { ...(payload as JsonRecord), correlationId: correlation }
     : { correlationId: correlation };
   delete safePayload.accessToken;
