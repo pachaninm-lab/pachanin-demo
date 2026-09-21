@@ -31,7 +31,7 @@ export class AlfaReferenceAdapter implements BankReferenceAdapter {
   ];
 
   describeRequest(input: BankAdapterOperationRequest): BankReferenceRequestEnvelope {
-    return buildReferenceRequestEnvelope(this.providerFamily, input);
+    return buildReferenceRequestEnvelope(this.providerFamily, this.capabilities, input);
   }
 
   mapDispatchResponse(response: BankProviderResponse): BankDispatchMapping {
