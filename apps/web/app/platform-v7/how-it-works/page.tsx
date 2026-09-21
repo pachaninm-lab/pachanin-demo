@@ -98,7 +98,7 @@ export default async function HowItWorksPage(){
   </div></section>
   <section className='pc-cp-section pc-cp-section--soft pc-cp-how-trust'><div className='pc-cp-container'>
    <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{c.trust}</span><h2>{c.trust}</h2><p>{c.trustLead}</p></div>
-   <div className='pc-cp-how-trust-layout'><CanonicalTrustLedger locale={locale}/><aside className='pc-cp-how-gekta-note'><strong>{locale==='ru'?'Гекта помогает разобраться':locale==='en'?'Gekta helps users understand the Deal':'Gekta 帮助理解交易'}</strong><p>{locale==='ru'?'Объясняет факты, риски и варианты дальнейших действий. Решение принимает участник.':locale==='en'?'Explains facts, risk and possible next actions. The participant makes the decision.':'解释事实、风险和可能的下一步；决定由参与方作出。'}</p></aside></div>
+   <div className='pc-cp-how-trust-layout'><CanonicalTrustLedger locale={locale}/><aside className='pc-cp-how-gekta-note'><strong>{locale==='ru'?'Гекта по данным Сделки':locale==='en'?'Gekta works from Deal data':'Gekta 基于交易数据'}</strong><p>{locale==='ru'?'Объясняет факты, риски и варианты дальнейших действий. Решение принимает участник.':locale==='en'?'Explains facts, risk and possible next actions. The participant makes the decision.':'解释事实、风险和可能的下一步；决定由参与方作出。'}</p></aside></div>
   </div></section>
   <section className='pc-cp-section pc-cp-section--tight pc-cp-how-gekta'><div className='pc-cp-container'><CanonicalGektaStrip locale={locale}/></div></section>
   <CanonicalFooter locale={locale}/><CanonicalBottomNav locale={locale} active='/platform-v7/how-it-works'/>
