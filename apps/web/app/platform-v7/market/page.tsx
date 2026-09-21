@@ -51,10 +51,12 @@ export default async function PlatformV7MarketPage({searchParams}:{searchParams?
   const params=(await searchParams)??{};
   const locale=canonicalPublicLocale(first(params.lang)??await getLocale());
   const query=String(first(params.q)??'').slice(0,120);
-  const crop=String(first(params.crop)??'').slice(0,32);
+  const rawCrop=String(first(params.crop)??'').slice(0,32);
+  const crop=CROP_OPTIONS.ru.some(([value])=>value===rawCrop)?rawCrop:'';
   const region=String(first(params.region)??'').slice(0,80);
   const grade=String(first(params.grade)??'').slice(0,80);
-  const sort=String(first(params.sort)??'').slice(0,32);
+  const rawSort=String(first(params.sort)??'').slice(0,32);
+  const sort=SORT_OPTIONS.ru.some(([value])=>value===rawSort)?rawSort:'';
   const lotRaw=String(first(params.lot)??'').slice(0,16);
   const lotIndex=/^\d{1,4}$/.test(lotRaw)?Number(lotRaw):null;
   const c=locale==='ru'
