@@ -44,7 +44,7 @@ ru:{
  ['Документы / расчёт','Стороны · Банк','Комплект документов и подтверждённые основания','Связанные документы, события и банковские правила','Платформа показывает, на чём основан расчёт. Внешнее финансовое событие должно быть подтверждено','Выполнить разрешённый финансовый шаг либо устранить блокер'],
  ['Закрытие / спор','Участники Сделки','Финальный статус либо зафиксированное расхождение','История фактов, документов, действий и решений','Закрытие возможно только при выполненных условиях; спор сохраняет влияние до решения','Закрыть Сделку или продолжить спор с сохранением всей связанной истории'],
  ],
- trust:'Доверие на каждом шаге',trustLead:'На каждом этапе проверяются полномочия, основание и источник, а принятое решение фиксируется.',
+ trust:'Проверки на каждом этапе',trustLead:'На каждом этапе проверяются полномочия, основание и источник, а принятое решение фиксируется.',
  cta:'Зарегистрироваться',market:'Открыть рынок'
 },
 en:{
@@ -59,7 +59,7 @@ en:{
  ['Documents / settlement','Parties · Bank','Document set and confirmed basis','Linked documents, events and banking rules','The platform shows what settlement is based on. The external financial event still requires confirmation','Perform the permitted financial step or clear the blocker'],
  ['Closure / dispute','Deal participants','Final status or recorded discrepancy','History of facts, documents, actions and decisions','Closure requires satisfied conditions; a dispute keeps its impact until resolved','Close the Deal or continue the dispute with the full history preserved'],
  ],
- trust:'Trust at every step',trustLead:'At every stage, authority, basis and source are checked, and the resulting decision is recorded.',
+ trust:'Checks at every stage',trustLead:'At every stage, authority, basis and source are checked, and the resulting decision is recorded.',
  cta:'Register',market:'Open market'
 },
 zh:{
@@ -74,7 +74,7 @@ zh:{
  ['文件 / 结算','交易方 · 银行','文件集和已确认依据','关联文件、事件和银行规则','平台会显示结算依据；外部金融事件仍需确认','执行允许的金融步骤或解除阻断'],
  ['关闭 / 争议','交易参与方','最终状态或已记录差异','事实、文件、操作和决定的历史','满足条件后才能关闭；争议在解决前持续影响交易','关闭交易，或在保留完整历史的情况下继续处理争议'],
  ],
- trust:'每一步都建立信任',trustLead:'每个阶段都会检查权限、依据和来源，并记录最终决定。',
+ trust:'每个阶段的检查',trustLead:'每个阶段都会检查权限、依据和来源，并记录最终决定。',
  cta:'注册',market:'打开市场'
 }} as const;
 
