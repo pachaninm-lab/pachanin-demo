@@ -15,7 +15,15 @@
     "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
     "apps/web/components/platform-v7/PublicCanonicalPrimitives.tsx",
     "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
-    "docs/platform-v7/autopilot/scopes/final-public-typography-human-copy-20260921.json"
+    "docs/platform-v7/autopilot/scopes/final-public-typography-human-copy-20260921.json",
+    "apps/web/app/platform-v7/gekta/page.tsx",
+    "apps/web/app/platform-v7/ai-in-action/page.tsx",
+    "apps/web/app/platform-v7/trust/page.tsx",
+    "apps/web/app/platform-v7/about/page.tsx",
+    "apps/web/app/platform-v7/capabilities/page.tsx",
+    "apps/web/app/platform-v7/how-it-works/page.tsx",
+    "apps/web/app/platform-v7/head.tsx",
+    "apps/web/app/platform-v7/loading.tsx"
   ],
   "requiredInvariants": [
     "Canonical public pages use one local system-font family; no remote font runtime dependency is introduced.",
@@ -25,7 +33,8 @@
     "Heading/body/label line-height and responsive transitions remain readable in RU, EN and ZH; CJK letter-spacing stays neutral.",
     "RU/EN/ZH copy may be shortened and naturalized but server-authority, role, tenant, financial-finality, external-confirmation and human-critical-decision semantics must remain intact.",
     "No hero composition, palette authority, navigation structure, backend, API, database, auth, RBAC, RLS, tenant, Deal, money, outbox or production-release semantics are changed.",
-    "No CI, security, accessibility, Lighthouse, CLS, browser, viewport, visual maxDistance or production acceptance threshold is weakened."
+    "No CI, security, accessibility, Lighthouse, CLS, browser, viewport, visual maxDistance or production acceptance threshold is weakened.",
+    "Public-facing RU/EN/ZH copy must avoid mixed internal terminology, repetitive AI-style sentence templates, unsupported maturity language and marketing claims that obscure exact authority boundaries."
   ],
   "acceptance": [
     "platformV7RootWorkEntry unit contract proves terminal typography authority has no px font size below 12, display/UI tokens are the same system stack, header has no 10-11px text, assistant terminal authority has no microtype, and retired templated copy remains absent.",
@@ -35,6 +44,7 @@
     "Strategic Home Lighthouse remains at the existing release threshold.",
     "Production mobile acceptance after merge passes Chromium + WebKit at 320/375/390/430 with zero horizontal overflow and >=44px controls.",
     "Production i18n acceptance passes RU/EN/ZH on the exact deployed SHA.",
-    "Human editorial review finds no material machine-like repetition, generic AI marketing phrasing, or unnatural sentence symmetry in the changed public copy."
+    "Human editorial review finds no material machine-like repetition, generic AI marketing phrasing, or unnatural sentence symmetry in the changed public copy.",
+    "Changed linked public pages contain none of the retired mixed/internal phrases such as authoritative financial state, public tenant wording, or the old repetitive Gekta context/next-step boilerplate."
   ]
 }
