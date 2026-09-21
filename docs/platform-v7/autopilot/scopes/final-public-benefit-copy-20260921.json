@@ -11,6 +11,7 @@
     "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
     "apps/web/components/platform-v7/PublicCanonicalPrimitives.tsx",
     "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+    "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
     "docs/platform-v7/autopilot/scopes/final-public-benefit-copy-20260921.json"
   ],
   "requiredInvariants": [
