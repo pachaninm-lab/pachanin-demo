@@ -45,6 +45,8 @@ describe('platform-v7 spacing and contact dock regression', () => {
     expect(header).not.toContain('font-family:Inter,ui-sans-serif');
     expect(header).toContain('font-family:-apple-system,BlinkMacSystemFont');
     expect(header).toContain("font-size:14px!important");
+    expect(header).toContain(".pc-site-locale-option{font-size:12px!important}");
+    expect(header).not.toContain(".pc-site-locale-option{font-size:11px!important}");
     expect(header).toContain('min-width:44px');
 
     const assistant = read('apps/web/styles/platform-v7-public-assistant-polish.css');
@@ -79,8 +81,20 @@ describe('platform-v7 spacing and contact dock regression', () => {
     }
 
     expect(copy).toContain('Проверяемые факты');
-    expect(copy).toContain('Trust starts with facts you can verify');
-    expect(copy).toContain('信任来自可核验的事实');
+    for (const phrase of [
+      'One system from market to Deal closure',
+      'turns the facts available to you into a clear picture',
+      'The whole Deal without hand-offs between disconnected tools',
+      'One control principle across every capability',
+      'Trust starts with facts you can verify',
+      'Pulls context together, highlights risks and explains available options',
+      '信任来自可核验的事实',
+    ]) {
+      expect(copy).not.toContain(phrase);
+    }
+
+    expect(copy).toContain('See who acted, why, and on what evidence.');
+    expect(copy).toContain('看清谁执行了操作、依据是什么、事实来自哪里。');
   });
 
 });
