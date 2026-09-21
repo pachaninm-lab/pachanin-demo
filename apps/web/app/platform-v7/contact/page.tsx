@@ -13,7 +13,7 @@ const META: Record<Locale, { title: string; description: string; locale: string 
   },
   en: {
     title: 'Contact — Transparent Price',
-    description: 'Official contact channel for Transparent Price: platform questions, partnerships, regional cooperation and technical connection.',
+    description: 'Contact Transparent Price about the platform, partnerships, regional cooperation or technical connection.',
     locale: 'en_US',
   },
   zh: {
