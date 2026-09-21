@@ -1637,7 +1637,7 @@ html[lang^='zh'] .pc-canonical-public :is(p,li,dd,.pc-cp-section-head p,.pc-cp-l
   border-radius:999px;
   background:rgba(255,255,255,.82);
   color:#17382a;
-  font-size:11px!important;
+  font-size:12px!important;
   line-height:1.15!important;
   font-weight:800;
   box-shadow:0 4px 14px rgba(20,54,39,.08);
@@ -1803,7 +1803,7 @@ html[lang^='zh'] .pc-canonical-public :is(p,li,dd,.pc-cp-section-head p,.pc-cp-l
     display:block;
     padding:0 10px 4px;
     color:#718078;
-    font-size:11px!important;
+    font-size:12px!important;
     font-weight:800;
     line-height:1.2!important;
     letter-spacing:.06em;
@@ -1849,7 +1849,7 @@ html[lang^='zh'] .pc-canonical-public :is(p,li,dd,.pc-cp-section-head p,.pc-cp-l
   .pc-cp-bottom-nav a[data-center='true']{
     min-height:48px!important;
     gap:4px!important;
-    font-size:11px!important;
+    font-size:12px!important;
     line-height:1.1!important;
   }
   .pc-cp-bottom-nav a svg{width:19px!important;height:19px!important}
@@ -1882,6 +1882,6 @@ html[lang^='zh'] .pc-canonical-public :is(p,li,dd,.pc-cp-section-head p,.pc-cp-l
   .pc-cp-trust-pillar-media{height:108px!important}
   .pc-cp-state-tabs{gap:7px!important}
   .pc-cp-state-tab{min-height:46px!important}
-  .pc-cp-lot-media-caption{font-size:10px!important}
+  .pc-cp-lot-media-caption{font-size:12px!important}
 }
 
