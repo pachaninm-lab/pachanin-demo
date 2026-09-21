@@ -415,42 +415,122 @@ function cropVisualKey(value: string): CropVisual {
 }
 
 function CropArt({ crop }: { crop: CropVisual }) {
-  const cereal=crop==='wheat'||crop==='barley'||crop==='rye'||crop==='oats'||crop==='generic';
+  const palette = crop === 'sunflower' || crop === 'rapeseed'
+    ? { sky:'#f6f2dc', far:'#dfe8cf', near:'#bfd7c1', stem:'#476f4e', leaf:'#6e9769', accent:'#dfbd48', accentDark:'#80602e' }
+    : crop === 'corn'
+      ? { sky:'#f2f2dd', far:'#dbe8cf', near:'#bdd6c0', stem:'#44734d', leaf:'#5f925d', accent:'#d8b24c', accentDark:'#8f6f2f' }
+      : crop === 'soybean'
+        ? { sky:'#eef4eb', far:'#d8e7d7', near:'#bfd6c4', stem:'#4c7652', leaf:'#6f9b6b', accent:'#9cb56d', accentDark:'#58734e' }
+        : { sky:'#eef4ec', far:'#d9e7d8', near:'#bdd4bf', stem:'#4e704f', leaf:'#73936a', accent:'#c8a451', accentDark:'#826d3f' };
+  const stems = [
+    {x:30,y:97,top:37,lean:-4},
+    {x:58,y:99,top:29,lean:2},
+    {x:88,y:96,top:42,lean:-2},
+    {x:121,y:99,top:31,lean:4},
+    {x:151,y:95,top:45,lean:-1},
+  ];
+  const cereal = crop==='wheat'||crop==='barley'||crop==='rye'||crop==='generic';
   return (
     <svg className='pc-cp-crop-art' viewBox='0 0 180 110' preserveAspectRatio='xMidYMid slice' focusable='false' aria-hidden='true'>
-      <path d='M0 82 C34 64 63 75 92 65 C123 54 150 61 180 45 V110 H0 Z' fill='#dceadb'/>
-      <path d='M0 92 C36 77 71 87 103 76 C137 65 159 72 180 62 V110 H0 Z' fill='#bdd5bf' opacity='.9'/>
-      {cereal ? <>
-        <g stroke='#4e704c' strokeWidth='2.4' strokeLinecap='round'>
-          <path d='M39 92 L48 35'/><path d='M66 96 L72 27'/><path d='M94 92 L101 39'/><path d='M124 96 L131 31'/><path d='M148 89 L151 45'/>
+      <rect width='180' height='110' fill={palette.sky}/>
+      <circle cx='144' cy='22' r='19' fill='#fff4bf' opacity='.72'/>
+      <path d='M0 67 C30 58 55 63 78 57 C105 49 128 55 180 41 V110 H0 Z' fill={palette.far}/>
+      <path d='M0 82 C31 69 65 76 97 66 C129 56 153 63 180 53 V110 H0 Z' fill={palette.near}/>
+      <path d='M0 102 C36 87 69 94 104 84 C139 74 161 80 180 73' fill='none' stroke='#8db395' strokeWidth='2' opacity='.5'/>
+      <path d='M8 109 C40 92 72 98 105 89 C137 80 158 84 177 78' fill='none' stroke='#ecf5ed' strokeWidth='1.5' opacity='.9'/>
+
+      {cereal ? (
+        <g>
+          {stems.map(({x,y,top,lean},index)=>(
+            <g key={x} transform={`translate(${x} 0)`}>
+              <path d={`M0 ${y} C${lean} 76 ${lean} 56 ${lean} ${top+5}`} fill='none' stroke={palette.stem} strokeWidth='2.4' strokeLinecap='round'/>
+              <path d={`M${lean-1} 72 C${lean-12} 65 ${lean-15} 61 ${lean-17} 56 C${lean-6} 58 ${lean} 63 ${lean+1} 69`} fill={palette.leaf} opacity='.9'/>
+              <g transform={`translate(${lean} ${top}) rotate(${index%2===0?-8:7})`}>
+                <path d='M0 15 V-13' stroke={palette.accentDark} strokeWidth='1.3' strokeLinecap='round'/>
+                {[-9,-5,-1,3,7].map((dy)=>(
+                  <g key={dy}>
+                    <ellipse cx='-3.8' cy={dy} rx='3.3' ry='6.5' fill={palette.accent} transform={`rotate(-35 -3.8 ${dy})`}/>
+                    <ellipse cx='3.8' cy={dy+1} rx='3.3' ry='6.5' fill={palette.accent} transform={`rotate(35 3.8 ${dy+1})`}/>
+                  </g>
+                ))}
+                {crop==='barley' ? <g stroke='#9c8248' strokeWidth='.8' opacity='.9'>
+                  {[-9,-5,-1,3,7].map((dy)=><path key={dy} d={`M-5 ${dy-2} L-13 ${dy-12} M5 ${dy-1} L13 ${dy-11}`}/>)}
+                </g> : null}
+                {crop==='rye' ? <path d='M0 -15 L0 -24' stroke='#6f673c' strokeWidth='1'/> : null}
+              </g>
+            </g>
+          ))}
         </g>
-        <g fill='#caa451'>
-          <ellipse cx='48' cy='35' rx='5' ry='12' transform='rotate(-16 48 35)'/><ellipse cx='72' cy='27' rx='5' ry='13' transform='rotate(8 72 27)'/>
-          <ellipse cx='101' cy='39' rx='5' ry='12' transform='rotate(-10 101 39)'/><ellipse cx='131' cy='31' rx='5' ry='13' transform='rotate(12 131 31)'/><ellipse cx='151' cy='45' rx='5' ry='11' transform='rotate(-5 151 45)'/>
+      ) : crop==='oats' ? (
+        <g stroke={palette.stem} strokeLinecap='round'>
+          {[44,86,128].map((x,index)=>(
+            <g key={x} transform={`translate(${x} 0)`}>
+              <path d='M0 99 C-2 78 0 57 1 36' fill='none' strokeWidth='2.2'/>
+              <path d='M1 48 L-15 36 M2 54 L17 41 M1 61 L-12 54 M2 66 L14 58' fill='none' strokeWidth='1.3'/>
+              <g fill='#c9aa63' stroke='none'>
+                <ellipse cx='-17' cy='34' rx='3.5' ry='6' transform='rotate(-24 -17 34)'/>
+                <ellipse cx='19' cy='39' rx='3.5' ry='6' transform='rotate(22 19 39)'/>
+                <ellipse cx='-14' cy='52' rx='3.2' ry='5.5' transform='rotate(-20 -14 52)'/>
+                <ellipse cx='16' cy='56' rx='3.2' ry='5.5' transform='rotate(20 16 56)'/>
+              </g>
+              {index===1?<path d='M0 75 C-12 67 -17 65 -23 67 C-15 75 -8 78 0 80' fill={palette.leaf} stroke='none'/>:null}
+            </g>
+          ))}
         </g>
-      </> : crop==='sunflower' ? <>
-        <path d='M91 96 C89 73 91 53 94 31' stroke='#3f704a' strokeWidth='4' fill='none' strokeLinecap='round'/>
-        <path d='M92 71 C77 62 68 62 58 65 C68 75 78 79 92 79' fill='#5f935e'/>
-        <path d='M93 60 C107 51 120 50 130 54 C121 65 109 69 94 68' fill='#4f8454'/>
-        <g fill='#e4bd3f' transform='translate(95 29)'>
-          <ellipse rx='8' ry='22' transform='rotate(0)'/><ellipse rx='8' ry='22' transform='rotate(45)'/><ellipse rx='8' ry='22' transform='rotate(90)'/><ellipse rx='8' ry='22' transform='rotate(135)'/>
+      ) : crop==='sunflower' ? (
+        <g>
+          <path d='M92 101 C89 78 91 54 94 30' stroke={palette.stem} strokeWidth='4.5' fill='none' strokeLinecap='round'/>
+          <path d='M92 72 C75 62 64 61 54 65 C66 78 79 82 92 80' fill={palette.leaf}/>
+          <path d='M93 61 C108 50 122 49 134 54 C124 67 110 72 94 69' fill='#5f8e61'/>
+          <g transform='translate(95 29)' fill={palette.accent}>
+            {[0,30,60,90,120,150].map((angle)=><ellipse key={angle} rx='7' ry='20' transform={`rotate(${angle})`}/>)}
+          </g>
+          <circle cx='95' cy='29' r='13.5' fill='#76502d'/>
+          <circle cx='95' cy='29' r='9.5' fill='#94703c'/>
+          <g fill='#4f3927' opacity='.55'>
+            <circle cx='91' cy='25' r='1.2'/><circle cx='98' cy='24' r='1.2'/><circle cx='101' cy='30' r='1.2'/><circle cx='93' cy='32' r='1.2'/>
+          </g>
         </g>
-        <circle cx='95' cy='29' r='13' fill='#6c4b29'/><circle cx='95' cy='29' r='8' fill='#8d632d'/>
-      </> : crop==='corn' ? <>
-        <path d='M91 100 C87 78 88 50 91 25' stroke='#44784d' strokeWidth='5' fill='none' strokeLinecap='round'/>
-        <path d='M90 72 C70 58 55 56 43 61 C56 77 71 83 90 83' fill='#5e955f'/>
-        <path d='M91 62 C109 46 127 43 141 50 C128 67 110 74 91 74' fill='#4d8555'/>
-        <ellipse cx='95' cy='54' rx='11' ry='24' fill='#d9ad3d' transform='rotate(7 95 54)'/>
-        <path d='M84 69 C87 54 88 42 86 33 C78 43 75 58 84 69 M106 69 C105 54 105 42 109 34 C117 48 116 60 106 69' fill='#689b61'/>
-      </> : crop==='soybean' ? <>
-        <path d='M89 98 C88 78 87 58 90 37 M89 65 L67 49 M89 73 L113 55' stroke='#4b7a50' strokeWidth='3' fill='none' strokeLinecap='round'/>
-        <g fill='#6ea26b'><ellipse cx='63' cy='47' rx='14' ry='7' transform='rotate(25 63 47)'/><ellipse cx='117' cy='53' rx='14' ry='7' transform='rotate(-24 117 53)'/><ellipse cx='76' cy='69' rx='12' ry='6' transform='rotate(-16 76 69)'/></g>
-        <g fill='#98b36a' stroke='#54764c' strokeWidth='1'><rect x='57' y='55' width='24' height='9' rx='5' transform='rotate(18 57 55)'/><rect x='104' y='64' width='25' height='9' rx='5' transform='rotate(-18 104 64)'/></g>
-      </> : <>
-        <path d='M90 99 C88 77 90 55 92 34' stroke='#4a7b50' strokeWidth='3' fill='none' strokeLinecap='round'/>
-        <path d='M90 70 L69 55 M91 61 L113 48' stroke='#4a7b50' strokeWidth='2.5' fill='none' strokeLinecap='round'/>
-        <g fill='#e3c73a'><circle cx='66' cy='52' r='5'/><circle cx='73' cy='48' r='5'/><circle cx='111' cy='45' r='5'/><circle cx='118' cy='49' r='5'/><circle cx='91' cy='33' r='6'/></g>
-      </>}
+      ) : crop==='corn' ? (
+        <g>
+          <path d='M91 102 C88 77 89 50 92 22' stroke={palette.stem} strokeWidth='5' fill='none' strokeLinecap='round'/>
+          <path d='M90 79 C67 62 52 59 38 65 C53 82 69 88 91 89' fill={palette.leaf}/>
+          <path d='M91 65 C111 47 129 44 145 51 C132 70 112 78 91 77' fill='#54865b'/>
+          <path d='M91 48 C78 38 70 34 60 34 C69 47 78 52 91 55' fill='#6e9b66'/>
+          <ellipse cx='98' cy='54' rx='11.5' ry='25' fill={palette.accent} transform='rotate(7 98 54)'/>
+          <g fill='#b58e36' opacity='.7'>
+            {[43,50,57,64].map((cy)=><g key={cy}><circle cx='94' cy={cy} r='1.5'/><circle cx='100' cy={cy+1} r='1.5'/><circle cx='104' cy={cy-1} r='1.4'/></g>)}
+          </g>
+          <path d='M87 72 C89 55 90 42 87 31 C78 45 77 59 87 72 M108 72 C107 55 107 42 112 32 C120 48 118 62 108 72' fill='#699761'/>
+          <path d='M98 30 C103 23 107 20 112 18' stroke='#8b5f38' strokeWidth='1.5' fill='none'/>
+        </g>
+      ) : crop==='soybean' ? (
+        <g>
+          <path d='M89 101 C88 79 88 57 91 34 M89 66 L65 48 M90 72 L116 52 M89 82 L70 76' stroke={palette.stem} strokeWidth='3' fill='none' strokeLinecap='round'/>
+          <g fill={palette.leaf}>
+            <ellipse cx='61' cy='45' rx='15' ry='7.5' transform='rotate(26 61 45)'/><ellipse cx='72' cy='43' rx='13' ry='6.5' transform='rotate(-18 72 43)'/>
+            <ellipse cx='119' cy='49' rx='15' ry='7.5' transform='rotate(-25 119 49)'/><ellipse cx='108' cy='46' rx='13' ry='6.5' transform='rotate(18 108 46)'/>
+            <ellipse cx='67' cy='74' rx='13' ry='6.5' transform='rotate(12 67 74)'/>
+          </g>
+          <g fill='#9eb06d' stroke='#607550' strokeWidth='1'>
+            <rect x='54' y='54' width='25' height='9' rx='5' transform='rotate(19 54 54)'/><rect x='105' y='62' width='26' height='9' rx='5' transform='rotate(-19 105 62)'/><rect x='73' y='82' width='23' height='8' rx='4' transform='rotate(7 73 82)'/>
+          </g>
+          <g fill='#6f854f' opacity='.8'><circle cx='64' cy='60' r='1.3'/><circle cx='71' cy='61' r='1.3'/><circle cx='116' cy='68' r='1.3'/><circle cx='123' cy='66' r='1.3'/></g>
+        </g>
+      ) : (
+        <g>
+          <path d='M91 101 C89 78 91 55 93 31 M91 70 L67 54 M92 61 L118 46 M91 79 L112 70' stroke={palette.stem} strokeWidth='3' fill='none' strokeLinecap='round'/>
+          <path d='M91 75 C77 69 67 68 57 71 C67 79 78 82 91 83' fill={palette.leaf}/>
+          <path d='M92 63 C107 55 119 55 130 59 C120 68 107 71 93 70' fill='#668e62'/>
+          <g fill={palette.accent}>
+            {[[64,50],[71,46],[75,54],[114,42],[121,47],[116,53],[91,31],[96,36],[86,37]].map(([cx,cy])=><circle key={`${cx}-${cy}`} cx={cx} cy={cy} r='4.6'/>)}
+          </g>
+          <g fill='#fff2a8' opacity='.7'>
+            <circle cx='64' cy='50' r='1.5'/><circle cx='71' cy='46' r='1.5'/><circle cx='114' cy='42' r='1.5'/><circle cx='91' cy='31' r='1.5'/>
+          </g>
+        </g>
+      )}
+      <path d='M0 106 H180' stroke='rgba(255,255,255,.55)' strokeWidth='1'/>
     </svg>
   );
 }
