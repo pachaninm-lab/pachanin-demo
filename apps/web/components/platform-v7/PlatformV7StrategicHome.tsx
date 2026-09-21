@@ -248,7 +248,7 @@ export async function PlatformV7StrategicHome() {
             <p>{copy.heroLead}</p>
             <div className='pc-cp-actions'>
               <a className='pc-cp-button' href={`${registerBase}&intent=sell`}>{copy.sell}<ArrowRight size={17} aria-hidden='true' /></a>
-              <a className='pc-cp-button pc-cp-button--secondary' href={`${registerBase}&intent=buy`}>{copy.buy}</a>
+              <a className='pc-cp-button pc-cp-button--secondary' href={`${registerBase}&intent=buy`}>{copy.buy}<ArrowRight size={17} aria-hidden='true' /></a>
             </div>
             <div className='pc-cp-hero-proof'>{copy.proof.map((item) => <span key={item}>{item}</span>)}</div>
           </div>
@@ -316,6 +316,11 @@ export async function PlatformV7StrategicHome() {
             basis={copy.state.basis}
             settlement={copy.state.settlement}
             next={copy.state.next}
+            stateLinks={{
+              normal: `/platform-v7/deal-flow?lang=${locale}&state=normal`,
+              deviation: `/platform-v7/deal-flow?lang=${locale}&state=deviation`,
+              dispute: `/platform-v7/deal-flow?lang=${locale}&state=dispute`,
+            }}
           />
         </div>
       </section>
