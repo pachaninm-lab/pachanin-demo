@@ -1,4 +1,3 @@
-import { describe, expect, it } from '@jest/globals';
 import { AlfaReferenceAdapter } from './alfa-reference.adapter';
 
 describe('Alfa reference adapter', () => {
