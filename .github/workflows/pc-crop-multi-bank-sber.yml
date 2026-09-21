@@ -1,0 +1,88 @@
+name: PC-CROP Multi-Bank Reference Adapter Acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'packages/domain-core/src/bank-capability.ts'
+      - 'packages/domain-core/src/bank-capability.test.ts'
+      - 'apps/api/src/modules/bank-adapters/**'
+      - 'apps/api/test/industrial/multi-bank-reference-adapter.e2e-spec.ts'
+      - 'scripts/verify-pc-crop-multi-bank-sber-scope.test.mjs'
+      - '.github/workflows/pc-crop-multi-bank-sber.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'packages/domain-core/src/bank-capability.ts'
+      - 'packages/domain-core/src/bank-capability.test.ts'
+      - 'apps/api/src/modules/bank-adapters/**'
+      - 'apps/api/test/industrial/multi-bank-reference-adapter.e2e-spec.ts'
+      - 'scripts/verify-pc-crop-multi-bank-sber-scope.test.mjs'
+      - '.github/workflows/pc-crop-multi-bank-sber.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pc-crop-multi-bank-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXACT_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  reference-adapters:
+    name: Provider-neutral contracts · reference mappings · no live activation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_HEAD }}
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.2.1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify source truth boundaries
+        run: node scripts/verify-pc-crop-multi-bank-sber-scope.test.mjs
+
+      - name: Typecheck domain and API
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm typecheck:domain
+          pnpm --filter @pc/api typecheck
+
+      - name: Run provider-neutral domain contract
+        run: pnpm exec vitest run packages/domain-core/src/bank-capability.test.ts
+
+      - name: Run adapter and receipt contract tests
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath \
+            src/modules/bank-adapters/bank-capability.router.spec.ts \
+            src/modules/bank-adapters/bank-receipt.contract.spec.ts \
+            src/modules/bank-adapters/sber-reference.adapter.spec.ts \
+            src/modules/bank-adapters/alfa-reference.adapter.spec.ts \
+            src/modules/bank-adapters/tbank-reference.adapter.spec.ts
+
+      - name: Run multi-bank industrial conformance contract
+        run: >-
+          pnpm --filter @pc/api exec jest
+          --config test/industrial/jest.config.json
+          test/industrial/multi-bank-reference-adapter.e2e-spec.ts
+          --runInBand
