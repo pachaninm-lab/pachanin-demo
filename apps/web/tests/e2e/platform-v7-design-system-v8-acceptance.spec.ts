@@ -440,7 +440,8 @@ test('public registration locale cycle preserves both existing query tokens', as
   await page.setViewportSize({ width: 320, height: 800 });
   await page.goto(`/platform-v7/register?${new URLSearchParams({ lang: 'ru', verify, statusToken: status })}`, { waitUntil: 'load' });
   for (const next of ['en', 'zh', 'ru'] as const) {
-    const language = page.locator('[data-public-site-header] .pc-site-locale-switch');
+    const language = page.locator('[data-public-site-header="canonical"] > .pc-site-actions > .pc-site-locale-switch');
+    await expect(language).toHaveCount(1);
     const href = await language.getAttribute('href');
     expect(href).not.toBeNull();
     const target = new URL(href!, page.url());
