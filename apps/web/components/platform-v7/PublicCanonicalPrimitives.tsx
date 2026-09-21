@@ -298,6 +298,70 @@ export function CanonicalGektaStrip({ locale }: { locale: string }) {
   );
 }
 
+const CANONICAL_BOTTOM_NAV_CRITICAL_STYLES = `
+.pc-cp-bottom-nav{display:none}
+@media(max-width:760px){
+  .pc-cp-bottom-nav{
+    box-sizing:border-box;
+    position:fixed;
+    z-index:2550;
+    left:0;
+    right:0;
+    bottom:0;
+    min-height:calc(70px + env(safe-area-inset-bottom,0px));
+    padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px));
+    display:grid;
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    align-items:start;
+    gap:3px;
+    border-top:1px solid #d9e7de;
+    background:rgba(251,253,251,.98);
+    box-shadow:0 -8px 24px rgba(20,54,39,.06);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+  }
+  .pc-cp-bottom-nav>a{
+    box-sizing:border-box;
+    min-width:0;
+    min-height:50px;
+    display:grid;
+    grid-template-rows:22px minmax(14px,auto);
+    place-items:center;
+    align-content:center;
+    gap:2px;
+    padding:4px 2px;
+    border-radius:11px;
+    color:#52655c;
+    font-size:12px;
+    line-height:1.05;
+    font-weight:700;
+    text-align:center;
+    text-decoration:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .pc-cp-bottom-nav>a[data-active='true']{
+    background:#eaf5ed;
+    color:#0a6046;
+  }
+  .pc-cp-bottom-nav>a:focus-visible{
+    outline:3px solid rgba(25,117,82,.34);
+    outline-offset:1px;
+  }
+  .pc-cp-bottom-nav>a>svg{
+    width:19px;
+    height:19px;
+    color:currentColor;
+  }
+  .pc-cp-bottom-nav>a>span{
+    display:block;
+    max-width:100%;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+}
+`;
+
 export function CanonicalBottomNav({ locale, active }: { locale: string; active?: string }) {
   const lang = canonicalPublicLocale(locale);
   const items = lang === 'ru'
@@ -324,9 +388,12 @@ export function CanonicalBottomNav({ locale, active }: { locale: string; active?
         ['登录', '/platform-v7/login', LogIn, false],
       ] as const;
   return (
-    <nav className='pc-cp-bottom-nav' aria-label={lang === 'ru' ? 'Мобильная навигация' : lang === 'en' ? 'Mobile navigation' : '移动导航'}>
-      {items.map(([label, href, Icon, center]) => <a href={`${href}?lang=${lang}`} key={href} data-active={active === href ? 'true' : 'false'} data-center={center ? 'true' : 'false'} aria-current={active === href ? 'page' : undefined}><Icon aria-hidden='true' /><span>{label}</span></a>)}
-    </nav>
+    <>
+      <style>{CANONICAL_BOTTOM_NAV_CRITICAL_STYLES}</style>
+      <nav className='pc-cp-bottom-nav' aria-label={lang === 'ru' ? 'Мобильная навигация' : lang === 'en' ? 'Mobile navigation' : '移动导航'}>
+        {items.map(([label, href, Icon, center]) => <a href={`${href}?lang=${lang}`} key={href} data-active={active === href ? 'true' : 'false'} data-center={center ? 'true' : 'false'} aria-current={active === href ? 'page' : undefined}><Icon aria-hidden='true' /><span>{label}</span></a>)}
+      </nav>
+    </>
   );
 }
 
