@@ -155,7 +155,7 @@
 
   .pc-public-assistant .pc-public-assistant-panel #pc-public-assistant-title {
     font-size: 16px !important;
-    font-weight: 680 !important;
+    font-weight: 700 !important;
     line-height: 1.16 !important;
     letter-spacing: -0.018em !important;
   }
@@ -165,7 +165,7 @@
     display: -webkit-box !important;
     color: #2f7d5a !important;
     font-size: 12px !important;
-    font-weight: 580 !important;
+    font-weight: 600 !important;
     line-height: 1.2 !important;
     -webkit-box-orient: vertical !important;
     -webkit-line-clamp: 2 !important;
@@ -198,7 +198,7 @@
 
   .pc-public-assistant .pc-public-assistant-empty h2 {
     font-size: clamp(21px, 6vw, 26px) !important;
-    font-weight: 680 !important;
+    font-weight: 700 !important;
     line-height: 1.16 !important;
   }
 
@@ -265,7 +265,7 @@
     max-height: 96px !important;
     padding: 10px 0 8px !important;
     font-size: 16px !important;
-    font-weight: 430 !important;
+    font-weight: 400 !important;
     line-height: 1.35 !important;
     letter-spacing: -0.01em !important;
   }
@@ -426,7 +426,7 @@
 .pc-public-assistant .pc-public-assistant-identity-copy strong{
   color:#16382b!important;
   font-size:17px!important;
-  font-weight:780!important;
+  font-weight:700!important;
   letter-spacing:-.02em!important;
 }
 .pc-public-assistant .pc-public-assistant-identity-copy span{
@@ -447,7 +447,7 @@
 }
 .pc-public-assistant .pc-public-assistant-empty h2{
   color:#18382c!important;
-  font-weight:720!important;
+  font-weight:700!important;
   letter-spacing:-.025em!important;
 }
 .pc-public-assistant .pc-public-assistant-empty p{
