@@ -892,3 +892,11 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   }
 }
 
+
+
+/* MOBILE HERO PAINT ORDER — preserve authority pixels without negative LCP compositing */
+@media(max-width:760px){
+  .pc-cp-page-home .pc-cp-hero-media{z-index:0!important}
+  .pc-cp-page-home .pc-cp-hero::after{z-index:1!important}
+  .pc-cp-page-home .pc-cp-hero-grid{position:relative;z-index:2}
+}
