@@ -1,107 +1,274 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ComponentProps, type FormEvent } from 'react';
-import { PLATFORM_V7_ACTIVE_ROLE_KEY } from '@/components/platform-v7/PlatformV7SingleEntryGuard';
+import { useCallback, useEffect, useMemo, useState, type ComponentProps } from 'react';
+import type { AppLocale } from '@/i18n/locale';
 import type { OwnerAccessCenterCopy } from '@/i18n/owner-access-center-messages';
-import {
-  CONTROLLED_CABINET_CONTEXTS,
-  type ControlledCabinetRole,
-} from '@/lib/platform-v7/controlled-test-organizations';
 import { OwnerAccessCenter as OwnerAccessCenterV2 } from './OwnerAccessCenterV2';
 import styles from './OwnerAccessCenterV3.module.css';
 
 type StaffAssignment = { id: string; role: string; status: string };
 type Props = ComponentProps<typeof OwnerAccessCenterV2> & { csrfToken: string };
-type SurfaceRole = ControlledCabinetRole;
-type CabinetDefinition = {
-  role: SurfaceRole;
-  cabinetRole?: keyof OwnerAccessCenterCopy['cabinetRoles'];
-  icon: string;
+type FounderCabinet = {
+  key: string;
+  canonicalPath: string;
+  effectiveRole: string;
 };
-type OpenCabinetResponse = {
-  ok?: boolean;
+type RoleModeRegistry = {
+  schemaVersion: string;
+  mode: 'VIEW_AS';
+  readOnly: true;
+  returnPath: string;
+  restrictions: string[];
+  cabinets: FounderCabinet[];
+};
+type RoleModeInfo = {
+  cabinetKey: string;
+  canonicalPath: string;
+  effectiveRole: string;
+  effectiveOrganizationId: string;
+  effectiveTenantId?: string;
+  mode: 'VIEW_AS';
+  readOnly: true;
+  restrictions: string[];
+  returnPath: string;
+};
+type RoleModeRequestResponse = {
+  status?: string;
+  grantId?: string | null;
+  roleMode?: RoleModeInfo | null;
   code?: string;
   message?: string;
-  redirectTo?: string;
+};
+type SessionMetadata = {
+  accessSessionId: string;
+  accessMode: string;
+  permissions: string[];
+  effectiveOrganizationId?: string | null;
+  effectiveRole?: string | null;
+  expiresAt: string;
+};
+type SessionContext = {
+  active: boolean;
+  session: SessionMetadata | null;
+  code?: string;
+  message?: string;
+};
+type CabinetProjection = {
+  mode?: string;
+  effectiveOrganizationId?: string;
+  effectiveRole?: string;
+  expiresAt?: string;
+  deals?: Array<{
+    id: string;
+    deal_number?: string | null;
+    dealNumber?: string | null;
+    status?: string;
+    next_action?: string | null;
+    nextAction?: string | null;
+    updated_at?: string;
+    updatedAt?: string;
+  }>;
 };
 type CsrfRefreshResponse = {
   ok?: boolean;
   code?: string;
   csrfToken?: string;
 };
+type ApiErrorPayload = {
+  code?: string;
+  message?: string;
+};
 
-const CABINETS: ReadonlyArray<CabinetDefinition> = [
-  { role: 'operator', cabinetRole: 'ADMIN', icon: '01' },
-  { role: 'buyer', cabinetRole: 'BUYER', icon: '02' },
-  { role: 'seller', cabinetRole: 'FARMER', icon: '03' },
-  { role: 'logistics', cabinetRole: 'LOGISTICIAN', icon: '04' },
-  { role: 'driver', cabinetRole: 'DRIVER', icon: '05' },
-  { role: 'surveyor', cabinetRole: 'SURVEYOR', icon: '06' },
-  { role: 'elevator', cabinetRole: 'ELEVATOR', icon: '07' },
-  { role: 'lab', cabinetRole: 'LAB', icon: '08' },
-  { role: 'bank', cabinetRole: 'ACCOUNTING', icon: '09' },
-  { role: 'organization', icon: '10' },
-  { role: 'arbitrator', cabinetRole: 'ARBITRATOR', icon: '11' },
-  { role: 'compliance', cabinetRole: 'COMPLIANCE_OFFICER', icon: '12' },
-  { role: 'executive', cabinetRole: 'EXECUTIVE', icon: '13' },
-];
+const CABINET_ROLE_KEYS: Readonly<Record<string, keyof OwnerAccessCenterCopy['cabinetRoles'] | null>> = {
+  operator: 'ADMIN',
+  buyer: 'BUYER',
+  seller: 'FARMER',
+  logistics: 'LOGISTICIAN',
+  driver: 'DRIVER',
+  surveyor: 'SURVEYOR',
+  elevator: 'ELEVATOR',
+  lab: 'LAB',
+  bank: 'ACCOUNTING',
+  organization: null,
+  arbitrator: 'ARBITRATOR',
+  compliance: 'COMPLIANCE_OFFICER',
+  executive: 'EXECUTIVE',
+};
 
-const EMPLOYEE_LABEL = {
+const EMPLOYEE_LABEL: Record<AppLocale, string> = {
   ru: 'Сотрудник организации',
   en: 'Organization employee',
   zh: '组织员工',
-} as const;
+};
 
 const OWNER_COPY = {
   ru: {
     eyebrow: 'Владелец платформы',
-    title: 'Все кабинеты — без повторного входа',
-    description: 'Открывай любой рабочий кабинет одним нажатием. Повторный пароль, тикет, причина и отдельный запрос для просмотра не требуются.',
-    access: 'Максимальный обзор',
-    accessBody: 'Доступны все 13 рабочих кабинетов и их реальные интерфейсы. Переключение действует в пределах текущего входа владельца.',
-    testNetwork: 'Безопасный контур просмотра',
-    testNetworkBody: 'Каждый кабинет открывается в связанной контролируемой тестовой организации. Аккаунт владельца и MFA остаются настоящими; роль клиента не подменяется в API.',
-    safety: 'Деньги, банковские подтверждения, подпись, лабораторная финализация и решение арбитра не подменяются владельцем и остаются под отдельными серверными правилами.',
-    open: 'Открыть кабинет',
-    opening: 'Открываем кабинет…',
-    openFailed: 'Не удалось открыть кабинет. Повтори попытку.',
+    title: 'Открыть как роль — через серверную authority',
+    description: 'Control Center использует канонический VIEW_AS-контракт. Роль, tenant и разрешения назначает сервер; браузер передаёт только выбранный кабинет, реальную организацию, причину, тикет и срок.',
+    access: '13 серверных кабинетов',
+    accessBody: 'Список приходит из pc-crop.founder-role-mode.v1. Если сервер не подтверждает кабинет или организацию, просмотр не открывается.',
+    boundary: 'Режим только для чтения',
+    boundaryBody: 'Деньги, банковская финальность, подпись, лабораторная финализация, приёмка, арбитраж и удаление evidence остаются запрещены. Текущий web-контур пока показывает делегированную read-only проекцию внутри Control Center; canonicalPath не используется как локальная authority.',
+    organization: 'ID реальной организации',
+    organizationHint: 'Введите ID организации, доступной владельцу. Контролируемые тестовые организации сервер отклоняет.',
+    ticket: 'Тикет / основание',
+    reason: 'Причина просмотра',
+    duration: 'Срок',
+    minutes: 'мин',
+    open: 'Открыть read-only',
+    opening: 'Открываем…',
+    openFailed: 'Не удалось открыть read-only режим.',
     advanced: 'Управление сотрудниками и доступами',
     back: 'Вернуться ко всем кабинетам',
-    loading: 'Проверяем полномочия владельца…',
+    loading: 'Проверяем владельца и серверный реестр…',
+    active: 'Открыто как роль',
+    actor: 'Фактический actor',
+    effectiveOrganization: 'Эффективная организация',
+    effectiveRole: 'Эффективная роль',
+    expires: 'Действует до',
+    restrictions: 'Ограничения',
+    return: 'Завершить режим и вернуться в Control Center',
+    returning: 'Завершаем режим…',
+    canonicalPath: 'Канонический маршрут',
+    transportPending: 'Прямой переход на canonicalPath пока не используется: web-транспорт делегированной staff-сессии должен оставаться server-authoritative. Ни role, ни tenant не синтезируются в браузере.',
+    projection: 'Read-only проекция кабинета',
+    projectionEmpty: 'В доступной проекции нет сделок.',
+    projectionUnavailable: 'Проекция кабинета временно недоступна. Делегированная сессия остаётся read-only.',
+    statusPending: 'Запрос создан, но активный grant сервер не вернул. Режим не открыт.',
+    registryUnavailable: 'Канонический реестр role-mode временно недоступен.',
   },
   en: {
     eyebrow: 'Platform owner',
-    title: 'Every cabinet without signing in again',
-    description: 'Open any working cabinet with one tap. No repeated password, ticket, reason or separate read-access request is required.',
-    access: 'Maximum visibility',
-    accessBody: 'All 13 working cabinets and their real interfaces are available within the current owner sign-in.',
-    testNetwork: 'Safe review boundary',
-    testNetworkBody: 'Each cabinet opens against its fixed controlled test organization. The owner account and MFA stay real; the API business role is never impersonated.',
-    safety: 'Money movement, bank confirmations, signatures, laboratory finalization and arbitration decisions remain protected by separate server rules.',
-    open: 'Open cabinet',
-    opening: 'Opening cabinet…',
-    openFailed: 'The cabinet could not be opened. Try again.',
+    title: 'Open as role through server authority',
+    description: 'Control Center consumes the canonical VIEW_AS contract. The server assigns role, tenant and permissions; the browser sends only the selected cabinet, real organization, reason, ticket and duration.',
+    access: '13 server-owned cabinets',
+    accessBody: 'The list comes from pc-crop.founder-role-mode.v1. If the server cannot verify the cabinet or organization, the view stays closed.',
+    boundary: 'Read-only mode',
+    boundaryBody: 'Money movement, bank finality, signing, laboratory finalization, acceptance, arbitration and evidence deletion remain prohibited. The current web contour renders the delegated read-only projection inside Control Center; canonicalPath is not used as local authority.',
+    organization: 'Real organization ID',
+    organizationHint: 'Enter an organization ID available to the owner. Controlled test organizations are rejected by the server.',
+    ticket: 'Ticket / basis',
+    reason: 'Reason for access',
+    duration: 'Duration',
+    minutes: 'min',
+    open: 'Open read-only',
+    opening: 'Opening…',
+    openFailed: 'The read-only mode could not be opened.',
     advanced: 'Staff and access management',
     back: 'Back to all cabinets',
-    loading: 'Checking owner authority…',
+    loading: 'Checking owner authority and server registry…',
+    active: 'Open as role',
+    actor: 'Actual actor',
+    effectiveOrganization: 'Effective organization',
+    effectiveRole: 'Effective role',
+    expires: 'Expires',
+    restrictions: 'Restrictions',
+    return: 'End mode and return to Control Center',
+    returning: 'Ending mode…',
+    canonicalPath: 'Canonical route',
+    transportPending: 'Direct navigation to canonicalPath is not used yet: delegated staff-session transport must remain server-authoritative. The browser never synthesizes role or tenant.',
+    projection: 'Read-only cabinet projection',
+    projectionEmpty: 'No deals are present in the available projection.',
+    projectionUnavailable: 'The cabinet projection is temporarily unavailable. The delegated session remains read-only.',
+    statusPending: 'The request was created, but the server did not return an active grant. The mode was not opened.',
+    registryUnavailable: 'The canonical role-mode registry is temporarily unavailable.',
   },
   zh: {
     eyebrow: '平台所有者',
-    title: '无需重复登录即可进入全部工作台',
-    description: '一次点击即可打开任意工作台。只读访问无需再次输入密码、工单、原因或单独提交请求。',
-    access: '最大可见范围',
-    accessBody: '当前所有者登录期间可访问全部 13 个工作台及其真实界面。',
-    testNetwork: '安全查看边界',
-    testNetworkBody: '每个工作台都绑定到固定的受控测试组织。所有者账号与 MFA 保持真实，API 不会伪装客户业务角色。',
-    safety: '资金操作、银行确认、签署、实验室终审和仲裁决定仍受独立服务器规则保护。',
-    open: '打开工作台',
-    opening: '正在打开工作台…',
-    openFailed: '无法打开工作台，请重试。',
+    title: '通过服务器权限“以角色查看”',
+    description: 'Control Center 使用规范 VIEW_AS 合同。角色、租户和权限由服务器分配；浏览器只提交工作台、真实组织、原因、工单和时限。',
+    access: '13 个服务器工作台',
+    accessBody: '列表来自 pc-crop.founder-role-mode.v1。若服务器无法验证工作台或组织，则不会开启查看。',
+    boundary: '只读模式',
+    boundaryBody: '资金操作、银行最终状态、签署、实验室终审、验收、仲裁和 evidence 删除仍被禁止。当前 Web 仅在 Control Center 内显示委托的只读投影；canonicalPath 不作为本地权限。',
+    organization: '真实组织 ID',
+    organizationHint: '输入所有者可访问的组织 ID。服务器会拒绝受控测试组织。',
+    ticket: '工单 / 依据',
+    reason: '查看原因',
+    duration: '时限',
+    minutes: '分钟',
+    open: '打开只读视图',
+    opening: '正在打开…',
+    openFailed: '无法打开只读模式。',
     advanced: '员工与访问管理',
     back: '返回全部工作台',
-    loading: '正在检查所有者权限…',
+    loading: '正在检查所有者权限和服务器注册表…',
+    active: '以角色查看',
+    actor: '实际操作者',
+    effectiveOrganization: '有效组织',
+    effectiveRole: '有效角色',
+    expires: '有效期至',
+    restrictions: '限制',
+    return: '结束模式并返回 Control Center',
+    returning: '正在结束模式…',
+    canonicalPath: '规范路由',
+    transportPending: '暂不直接跳转 canonicalPath：委托 staff 会话的 Web 传输必须保持服务器权威。浏览器不会自行生成 role 或 tenant。',
+    projection: '工作台只读投影',
+    projectionEmpty: '当前可用投影中没有交易。',
+    projectionUnavailable: '工作台投影暂时不可用。委托会话仍保持只读。',
+    statusPending: '请求已创建，但服务器未返回可激活 grant，因此模式尚未开启。',
+    registryUnavailable: '规范 role-mode 注册表暂时不可用。',
   },
 } as const;
+
+function currentCsrfToken(fallback: string) {
+  if (typeof document === 'undefined') return fallback;
+  const row = document.cookie.split('; ').find((entry) => entry.startsWith('pc_csrf_token='));
+  return row ? decodeURIComponent(row.slice(row.indexOf('=') + 1)) : fallback;
+}
+
+function formatDate(value: string | null | undefined, locale: AppLocale) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return '—';
+  return new Intl.DateTimeFormat(locale === 'zh' ? 'zh-CN' : locale === 'en' ? 'en-GB' : 'ru-RU', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date);
+}
+
+function payloadMessage(payload: ApiErrorPayload | null | undefined, fallback: string) {
+  const message = typeof payload?.message === 'string' && payload.message.trim()
+    ? payload.message.trim()
+    : fallback;
+  return payload?.code ? `${message} (${payload.code})` : message;
+}
+
+function validRegistry(value: unknown): value is RoleModeRegistry {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const row = value as Partial<RoleModeRegistry>;
+  if (
+    row.schemaVersion !== 'pc-crop.founder-role-mode.v1'
+    || row.mode !== 'VIEW_AS'
+    || row.readOnly !== true
+    || typeof row.returnPath !== 'string'
+    || !row.returnPath.startsWith('/platform-v7/staff')
+    || !Array.isArray(row.restrictions)
+    || !Array.isArray(row.cabinets)
+    || row.cabinets.length !== 13
+  ) return false;
+  const seen = new Set<string>();
+  return row.cabinets.every((cabinet) => {
+    if (
+      !cabinet
+      || typeof cabinet.key !== 'string'
+      || typeof cabinet.canonicalPath !== 'string'
+      || !cabinet.canonicalPath.startsWith('/platform-v7/')
+      || typeof cabinet.effectiveRole !== 'string'
+      || seen.has(cabinet.key)
+    ) return false;
+    seen.add(cabinet.key);
+    return true;
+  });
+}
+
+function cabinetLabel(cabinet: FounderCabinet, copy: OwnerAccessCenterCopy, locale: AppLocale) {
+  if (cabinet.key === 'organization') return EMPLOYEE_LABEL[locale];
+  const key = CABINET_ROLE_KEYS[cabinet.key];
+  if (key) return copy.cabinetRoles[key];
+  return cabinet.effectiveRole || cabinet.key;
+}
 
 export function OwnerAccessCenter(props: Props) {
   const { csrfToken, ...baseProps } = props;
@@ -110,45 +277,29 @@ export function OwnerAccessCenter(props: Props) {
   const [checking, setChecking] = useState(apiAvailable);
   const [isOwner, setIsOwner] = useState(false);
   const [advanced, setAdvanced] = useState(false);
-  const [busyRole, setBusyRole] = useState<SurfaceRole | null>(null);
+  const [registry, setRegistry] = useState<RoleModeRegistry | null>(null);
+  const [sessionContext, setSessionContext] = useState<SessionContext>({ active: false, session: null });
+  const [activeMode, setActiveMode] = useState<RoleModeInfo | null>(null);
+  const [projection, setProjection] = useState<CabinetProjection | null>(null);
+  const [projectionUnavailable, setProjectionUnavailable] = useState(false);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
   const [openError, setOpenError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!apiAvailable) {
-      setChecking(false);
-      return;
-    }
-    let cancelled = false;
-    fetch('/api/staff/assignments/me', {
-      credentials: 'same-origin',
-      cache: 'no-store',
-      signal: AbortSignal.timeout(8_000),
-    })
-      .then(async (response) => response.ok ? response.json() : [])
-      .then((rows: StaffAssignment[]) => {
-        if (!cancelled) setIsOwner(Array.isArray(rows) && rows.some((item) => item.role === 'PLATFORM_OWNER' && item.status === 'ACTIVE'));
-      })
-      .catch(() => {
-        if (!cancelled) setIsOwner(false);
-      })
-      .finally(() => {
-        if (!cancelled) setChecking(false);
-      });
-    return () => { cancelled = true; };
-  }, [apiAvailable]);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [organizationId, setOrganizationId] = useState('');
+  const [ticketId, setTicketId] = useState('');
+  const [reason, setReason] = useState('');
+  const [durationSeconds, setDurationSeconds] = useState(15 * 60);
 
   const cabinetLabels = useMemo(
-    () => CABINETS.map((item) => ({
-      ...item,
-      label: item.role === 'organization'
-        ? EMPLOYEE_LABEL[locale]
-        : copy.cabinetRoles[item.cabinetRole!],
-      organization: CONTROLLED_CABINET_CONTEXTS[item.role],
-    })),
-    [copy, locale],
+    () => registry?.cabinets.map((cabinet, index) => ({
+      ...cabinet,
+      icon: String(index + 1).padStart(2, '0'),
+      label: cabinetLabel(cabinet, copy, locale),
+    })) ?? [],
+    [copy, locale, registry],
   );
 
-  async function refreshCsrf(signal: AbortSignal): Promise<string> {
+  const refreshCsrf = useCallback(async (signal: AbortSignal): Promise<string> => {
     const response = await fetch('/platform-v7/staff/prepare?format=json', {
       method: 'GET',
       credentials: 'same-origin',
@@ -158,19 +309,132 @@ export function OwnerAccessCenter(props: Props) {
     });
     const payload = await response.json().catch(() => null) as CsrfRefreshResponse | null;
     if (!response.ok || payload?.ok !== true || typeof payload.csrfToken !== 'string' || payload.csrfToken.length < 32) {
-      const code = payload?.code ? ` (${payload.code})` : '';
-      throw new Error(`${text.openFailed}${code}`);
+      throw new Error(payloadMessage(payload, text.openFailed));
     }
     return payload.csrfToken;
-  }
+  }, [text.openFailed]);
 
-  async function requestCabinet(
-    role: SurfaceRole,
-    organizationId: string,
-    token: string,
-    signal: AbortSignal,
-  ): Promise<{ response: Response; payload: OpenCabinetResponse | null }> {
-    const response = await fetch('/platform-v7/staff/open-cabinet', {
+  const loadProjection = useCallback(async (session: SessionMetadata) => {
+    if (!session.effectiveOrganizationId || !session.effectiveRole) {
+      setProjection(null);
+      setProjectionUnavailable(true);
+      return;
+    }
+    try {
+      const organization = encodeURIComponent(session.effectiveOrganizationId);
+      const role = encodeURIComponent(session.effectiveRole);
+      const response = await fetch(`/api/staff/organizations/${organization}/cabinet/${role}`, {
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(8_000),
+      });
+      const payload = await response.json().catch(() => null) as CabinetProjection | ApiErrorPayload | null;
+      if (!response.ok || !payload || typeof payload !== 'object') {
+        throw new Error(payloadMessage(payload as ApiErrorPayload | null, text.projectionUnavailable));
+      }
+      setProjection(payload as CabinetProjection);
+      setProjectionUnavailable(false);
+    } catch {
+      setProjection(null);
+      setProjectionUnavailable(true);
+    }
+  }, [text.projectionUnavailable]);
+
+  const loadRoleMode = useCallback(async () => {
+    if (!apiAvailable) {
+      setChecking(false);
+      return;
+    }
+    setChecking(true);
+    setOpenError(null);
+    try {
+      const [assignmentsResponse, registryResponse, sessionResponse] = await Promise.all([
+        fetch('/api/staff/assignments/me', {
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: { Accept: 'application/json' },
+          signal: AbortSignal.timeout(8_000),
+        }),
+        fetch('/platform-v7/staff/role-mode', {
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: { Accept: 'application/json' },
+          signal: AbortSignal.timeout(8_000),
+        }),
+        fetch('/api/staff/session-context', {
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: { Accept: 'application/json' },
+          signal: AbortSignal.timeout(8_000),
+        }),
+      ]);
+
+      const assignments = await assignmentsResponse.json().catch(() => []) as StaffAssignment[] | ApiErrorPayload;
+      const owner = assignmentsResponse.ok
+        && Array.isArray(assignments)
+        && assignments.some((item) => item.role === 'PLATFORM_OWNER' && item.status === 'ACTIVE');
+      setIsOwner(owner);
+      if (!owner) {
+        setRegistry(null);
+        setSessionContext({ active: false, session: null });
+        setActiveMode(null);
+        setProjection(null);
+        return;
+      }
+
+      const registryPayload = await registryResponse.json().catch(() => null) as unknown;
+      if (!registryResponse.ok || !validRegistry(registryPayload)) {
+        throw new Error(text.registryUnavailable);
+      }
+      setRegistry(registryPayload);
+
+      const sessionPayload = await sessionResponse.json().catch(() => null) as SessionContext | null;
+      if (
+        sessionResponse.ok
+        && sessionPayload?.active === true
+        && sessionPayload.session?.accessMode === 'VIEW_AS'
+        && sessionPayload.session.permissions.includes('cabinet:view-as')
+        && sessionPayload.session.effectiveOrganizationId
+        && sessionPayload.session.effectiveRole
+      ) {
+        const cabinet = registryPayload.cabinets.find((item) => item.effectiveRole === sessionPayload.session?.effectiveRole);
+        const mode: RoleModeInfo = {
+          cabinetKey: cabinet?.key || 'unknown',
+          canonicalPath: cabinet?.canonicalPath || '',
+          effectiveRole: sessionPayload.session.effectiveRole,
+          effectiveOrganizationId: sessionPayload.session.effectiveOrganizationId,
+          mode: 'VIEW_AS',
+          readOnly: true,
+          restrictions: registryPayload.restrictions,
+          returnPath: registryPayload.returnPath,
+        };
+        setSessionContext(sessionPayload);
+        setActiveMode(mode);
+        setOrganizationId(sessionPayload.session.effectiveOrganizationId);
+        await loadProjection(sessionPayload.session);
+      } else {
+        setSessionContext({ active: false, session: null });
+        setActiveMode(null);
+        setProjection(null);
+        setProjectionUnavailable(false);
+        if (!sessionResponse.ok && sessionResponse.status >= 500) {
+          setNotice(text.projectionUnavailable);
+        }
+      }
+    } catch (error) {
+      setOpenError(error instanceof Error ? error.message : text.registryUnavailable);
+    } finally {
+      setChecking(false);
+    }
+  }, [apiAvailable, loadProjection, text.projectionUnavailable, text.registryUnavailable]);
+
+  useEffect(() => {
+    void loadRoleMode();
+  }, [loadRoleMode]);
+
+  async function requestRoleMode(cabinet: FounderCabinet, token: string, signal: AbortSignal) {
+    const response = await fetch('/platform-v7/staff/role-mode', {
       method: 'POST',
       credentials: 'same-origin',
       cache: 'no-store',
@@ -179,56 +443,155 @@ export function OwnerAccessCenter(props: Props) {
         'Content-Type': 'application/json',
         'X-CSRF-Token': token,
       },
-      body: JSON.stringify({ role, organizationId }),
+      body: JSON.stringify({
+        cabinetKey: cabinet.key,
+        organizationId: organizationId.trim(),
+        reason: reason.trim(),
+        ticketId: ticketId.trim(),
+        durationSeconds,
+      }),
       signal,
     });
-    const payload = await response.json().catch(() => null) as OpenCabinetResponse | null;
+    const payload = await response.json().catch(() => null) as RoleModeRequestResponse | null;
     return { response, payload };
   }
 
-  async function openCabinet(
-    event: FormEvent<HTMLFormElement>,
-    role: SurfaceRole,
-    organizationId: string,
-  ) {
-    event.preventDefault();
-    if (busyRole) return;
+  async function openCabinet(cabinet: FounderCabinet) {
+    if (busyKey || sessionContext.active) return;
+    if (organizationId.trim().length < 3) {
+      setOpenError(text.organizationHint);
+      return;
+    }
+    if (ticketId.trim().length < 3 || reason.trim().length < 10) {
+      setOpenError(text.openFailed);
+      return;
+    }
 
-    setBusyRole(role);
+    setBusyKey(cabinet.key);
     setOpenError(null);
+    setNotice(null);
     const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), 18_000);
+    const timeoutId = window.setTimeout(() => controller.abort(), 20_000);
 
     try {
-      let freshToken = await refreshCsrf(controller.signal);
-      let result = await requestCabinet(role, organizationId, freshToken, controller.signal);
+      let token = await refreshCsrf(controller.signal);
+      let requested = await requestRoleMode(cabinet, token, controller.signal);
 
-      if (result.response.status === 403 && result.payload?.code === 'CSRF_REJECTED') {
-        freshToken = await refreshCsrf(controller.signal);
-        result = await requestCabinet(role, organizationId, freshToken, controller.signal);
+      if (requested.response.status === 403 && requested.payload?.code === 'CSRF_REJECTED') {
+        token = await refreshCsrf(controller.signal);
+        requested = await requestRoleMode(cabinet, token, controller.signal);
+      }
+      if (!requested.response.ok || !requested.payload) {
+        throw new Error(payloadMessage(requested.payload, text.openFailed));
       }
 
-      if (!result.response.ok || result.payload?.ok !== true) {
-        const detail = result.payload?.message || text.openFailed;
-        const code = result.payload?.code ? ` (${result.payload.code})` : '';
-        throw new Error(`${detail}${code}`);
+      const roleMode = requested.payload.roleMode;
+      if (
+        !roleMode
+        || roleMode.cabinetKey !== cabinet.key
+        || roleMode.effectiveOrganizationId !== organizationId.trim()
+        || roleMode.effectiveRole !== cabinet.effectiveRole
+        || roleMode.mode !== 'VIEW_AS'
+        || roleMode.readOnly !== true
+        || roleMode.canonicalPath !== cabinet.canonicalPath
+      ) {
+        throw new Error(text.openFailed);
       }
-      if (!result.payload.redirectTo || !result.payload.redirectTo.startsWith('/platform-v7/')) {
+      if (!requested.payload.grantId) {
+        setNotice(text.statusPending);
+        return;
+      }
+
+      const activationResponse = await fetch(`/api/staff/access/grants/${encodeURIComponent(requested.payload.grantId)}/activate`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': token,
+        },
+        body: '{}',
+        signal: controller.signal,
+      });
+      const activationPayload = await activationResponse.json().catch(() => null) as ApiErrorPayload | null;
+      if (!activationResponse.ok) {
+        throw new Error(payloadMessage(activationPayload, text.openFailed));
+      }
+
+      const sessionResponse = await fetch('/api/staff/session-context', {
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+        signal: controller.signal,
+      });
+      const sessionPayload = await sessionResponse.json().catch(() => null) as SessionContext | null;
+      const session = sessionPayload?.session;
+      if (
+        !sessionResponse.ok
+        || sessionPayload?.active !== true
+        || !session
+        || session.accessMode !== 'VIEW_AS'
+        || !session.permissions.includes('cabinet:view-as')
+        || session.effectiveOrganizationId !== roleMode.effectiveOrganizationId
+        || session.effectiveRole !== roleMode.effectiveRole
+      ) {
         throw new Error(text.openFailed);
       }
 
-      try {
-        if (role !== 'organization') window.sessionStorage.setItem(PLATFORM_V7_ACTIVE_ROLE_KEY, role);
-      } catch {
-        // The signed, HttpOnly cabinet session remains the authority. Navigation must not stop.
-      }
-      window.location.replace(result.payload.redirectTo);
+      setSessionContext(sessionPayload);
+      setActiveMode({
+        ...roleMode,
+        restrictions: Array.isArray(roleMode.restrictions) ? roleMode.restrictions : registry?.restrictions || [],
+        returnPath: roleMode.returnPath || registry?.returnPath || '',
+      });
+      await loadProjection(session);
     } catch (error) {
       const timedOut = error instanceof DOMException && error.name === 'AbortError';
       setOpenError(timedOut ? text.openFailed : error instanceof Error ? error.message : text.openFailed);
-      setBusyRole(null);
     } finally {
       window.clearTimeout(timeoutId);
+      setBusyKey(null);
+    }
+  }
+
+  async function returnToControlCenter() {
+    const sessionId = sessionContext.session?.accessSessionId;
+    if (!sessionId || busyKey) return;
+    setBusyKey('return');
+    setOpenError(null);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 12_000);
+    try {
+      const token = await refreshCsrf(controller.signal);
+      const response = await fetch(`/api/staff/access/sessions/${encodeURIComponent(sessionId)}/end`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': token,
+        },
+        body: JSON.stringify({ reason: 'Founder ended read-only role mode from Control Center' }),
+        signal: controller.signal,
+      });
+      const payload = await response.json().catch(() => null) as ApiErrorPayload | null;
+      if (!response.ok) throw new Error(payloadMessage(payload, text.openFailed));
+
+      const returnPath = activeMode?.returnPath || registry?.returnPath;
+      setSessionContext({ active: false, session: null });
+      setActiveMode(null);
+      setProjection(null);
+      setProjectionUnavailable(false);
+      if (returnPath?.startsWith('/platform-v7/staff')) {
+        window.location.assign(returnPath);
+      }
+    } catch (error) {
+      setOpenError(error instanceof Error ? error.message : text.openFailed);
+    } finally {
+      window.clearTimeout(timeoutId);
+      setBusyKey(null);
     }
   }
 
@@ -246,11 +609,11 @@ export function OwnerAccessCenter(props: Props) {
   }
 
   if (checking) {
-    return <main className={styles.page}><section className={styles.loadingCard}>{text.loading}</section></main>;
+    return <main className={styles.page}><section className={styles.loadingCard} aria-live="polite">{text.loading}</section></main>;
   }
 
   return (
-    <main className={styles.page} data-owner-direct-cabinet-access>
+    <main className={styles.page} data-founder-role-mode-consumer>
       <header className={styles.hero}>
         <div>
           <p className={styles.eyebrow}>{text.eyebrow}</p>
@@ -269,40 +632,134 @@ export function OwnerAccessCenter(props: Props) {
       </section>
 
       {openError && <section className={styles.error} role="alert" aria-live="assertive">{openError}</section>}
+      {notice && <section className={styles.notice} role="status" aria-live="polite">{notice}</section>}
 
-      <section className={styles.testNetwork} aria-label={text.testNetwork}>
-        <span>OWNER + MFA</span>
-        <div>
-          <strong>{text.testNetwork}</strong>
-          <p>{text.testNetworkBody}</p>
-        </div>
-      </section>
+      {sessionContext.active && sessionContext.session && activeMode ? (
+        <section className={styles.activeMode} data-founder-role-mode-active>
+          <div className={styles.activeModeHeader}>
+            <div>
+              <p className={styles.eyebrow}>{text.active}</p>
+              <h2>{cabinetLabel({ key: activeMode.cabinetKey, canonicalPath: activeMode.canonicalPath, effectiveRole: activeMode.effectiveRole }, copy, locale)}</h2>
+            </div>
+            <span className={styles.readOnlyBadge}>VIEW_AS · READ_ONLY</span>
+          </div>
+          <dl className={styles.modeFacts}>
+            <div><dt>{text.actor}</dt><dd>{identity?.fullName || identity?.email || identity?.id || '—'}</dd></div>
+            <div><dt>{text.effectiveOrganization}</dt><dd>{activeMode.effectiveOrganizationId}</dd></div>
+            <div><dt>{text.effectiveRole}</dt><dd>{activeMode.effectiveRole}</dd></div>
+            <div><dt>{text.expires}</dt><dd>{formatDate(sessionContext.session.expiresAt, locale)}</dd></div>
+          </dl>
+          <div className={styles.restrictions}>
+            <strong>{text.restrictions}</strong>
+            <ul>{activeMode.restrictions.map((item) => <li key={item}>{item}</li>)}</ul>
+          </div>
+          <div className={styles.routeMetadata}>
+            <span>{text.canonicalPath}</span>
+            <code>{activeMode.canonicalPath || '—'}</code>
+            <p>{text.transportPending}</p>
+          </div>
+          <button
+            type="button"
+            className={styles.returnButton}
+            onClick={() => void returnToControlCenter()}
+            disabled={busyKey === 'return'}
+          >
+            {busyKey === 'return' ? text.returning : text.return}
+          </button>
 
-      <section className={styles.cabinetGrid} aria-label={text.title} aria-busy={busyRole !== null}>
-        {cabinetLabels.map((item) => (
-          <article key={item.role} className={styles.cabinetCard}>
-            <span className={styles.number} aria-hidden="true">{item.icon}</span>
-            <h2>{item.label}</h2>
-            <p className={styles.organization}>
-              <span>Контролируемая организация</span>
-              <strong>{item.organization.organizationName}</strong>
-            </p>
-            <form
-              method="post"
-              action="/platform-v7/staff/open-cabinet/submit"
-              onSubmit={(event) => openCabinet(event, item.role, item.organization.organizationId)}
-            >
-              <input type="hidden" name="_csrf" value={csrfToken} />
-              <input type="hidden" name="organizationId" value={item.organization.organizationId} />
-              <button type="submit" name="role" value={item.role} disabled={!csrfToken || busyRole !== null}>
-                {busyRole === item.role ? text.opening : text.open}
-              </button>
-            </form>
-          </article>
-        ))}
-      </section>
+          <section className={styles.projection}>
+            <h3>{text.projection}</h3>
+            {projectionUnavailable ? <p className={styles.projectionState}>{text.projectionUnavailable}</p> : null}
+            {!projectionUnavailable && (projection?.deals?.length ?? 0) === 0 ? <p className={styles.projectionState}>{text.projectionEmpty}</p> : null}
+            {!projectionUnavailable && projection?.deals?.length ? (
+              <div className={styles.dealList}>
+                {projection.deals.map((deal) => (
+                  <article key={deal.id}>
+                    <strong>{deal.dealNumber || deal.deal_number || deal.id}</strong>
+                    <span>{deal.status || '—'}</span>
+                    <small>{deal.nextAction || deal.next_action || '—'} · {formatDate(deal.updatedAt || deal.updated_at, locale)}</small>
+                  </article>
+                ))}
+              </div>
+            ) : null}
+          </section>
+        </section>
+      ) : (
+        <>
+          <section className={styles.setupPanel} aria-label={text.boundary}>
+            <div className={styles.setupIntro}>
+              <strong>{text.boundary}</strong>
+              <p>{text.boundaryBody}</p>
+            </div>
+            <div className={styles.setupFields}>
+              <label>
+                <span>{text.organization}</span>
+                <input
+                  value={organizationId}
+                  onChange={(event) => setOrganizationId(event.target.value)}
+                  maxLength={128}
+                  autoComplete="off"
+                  inputMode="text"
+                />
+                <small>{text.organizationHint}</small>
+              </label>
+              <label>
+                <span>{text.ticket}</span>
+                <input
+                  value={ticketId}
+                  onChange={(event) => setTicketId(event.target.value)}
+                  maxLength={128}
+                  autoComplete="off"
+                />
+              </label>
+              <label>
+                <span>{text.duration}</span>
+                <select value={durationSeconds} onChange={(event) => setDurationSeconds(Number(event.target.value))}>
+                  {[5, 10, 15, 30, 60].map((minutes) => (
+                    <option key={minutes} value={minutes * 60}>{minutes} {text.minutes}</option>
+                  ))}
+                </select>
+              </label>
+              <label className={styles.reasonField}>
+                <span>{text.reason}</span>
+                <textarea
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
+                  rows={3}
+                  maxLength={2000}
+                />
+              </label>
+            </div>
+          </section>
 
-      <aside className={styles.safetyNote}>{text.safety}</aside>
+          <section className={styles.cabinetGrid} aria-label={text.title} aria-busy={busyKey !== null}>
+            {cabinetLabels.map((item) => (
+              <article key={item.key} className={styles.cabinetCard}>
+                <span className={styles.number} aria-hidden="true">{item.icon}</span>
+                <h2>{item.label}</h2>
+                <p className={styles.organization}>
+                  <span>{item.effectiveRole}</span>
+                  <strong>{item.canonicalPath}</strong>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void openCabinet(item)}
+                  disabled={
+                    busyKey !== null
+                    || organizationId.trim().length < 3
+                    || ticketId.trim().length < 3
+                    || reason.trim().length < 10
+                  }
+                >
+                  {busyKey === item.key ? text.opening : text.open}
+                </button>
+              </article>
+            ))}
+          </section>
+        </>
+      )}
+
+      <aside className={styles.safetyNote}>{text.boundaryBody}</aside>
     </main>
   );
 }
