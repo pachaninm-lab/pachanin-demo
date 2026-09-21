@@ -1735,3 +1735,299 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   }
 }
 
+/* FINAL PUBLIC TYPOGRAPHY AUTHORITY — 2026-09-21
+ * One scale for the canonical public experience. Historical dense rules stay
+ * below as implementation history; this terminal layer is the visual authority.
+ */
+.pc-canonical-public{
+  --pc-cp-ui:-apple-system,BlinkMacSystemFont,"Segoe UI Variable","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --pc-cp-display:-apple-system,BlinkMacSystemFont,"Segoe UI Variable","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-family:var(--pc-cp-ui)!important;
+  font-size:16px;
+  line-height:1.55;
+  font-kerning:normal;
+  text-rendering:optimizeLegibility;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+.pc-canonical-public :is(h1,h2,h3,strong,p,li,dt,dd,span,a,button,label,input,textarea,summary){
+  font-family:inherit;
+}
+.pc-canonical-public :is(h1,h2,h3){
+  text-wrap:balance;
+  font-weight:740;
+  letter-spacing:-.025em;
+}
+.pc-canonical-public :is(p,li,dd){text-wrap:pretty}
+.pc-canonical-public h1{
+  font-size:clamp(36px,4.2vw,54px)!important;
+  line-height:1.06!important;
+  letter-spacing:-.04em!important;
+}
+.pc-cp-page-home .pc-cp-hero-copy h1{
+  font-size:clamp(42px,5.4vw,68px)!important;
+  line-height:1.02!important;
+}
+.pc-canonical-public h2,
+.pc-canonical-public .pc-cp-section-head h2,
+.pc-canonical-public .pc-cp-final h2{
+  font-size:clamp(28px,3vw,40px)!important;
+  line-height:1.1!important;
+  letter-spacing:-.03em!important;
+}
+.pc-canonical-public h3,
+.pc-canonical-public .pc-cp-card h3{
+  font-size:18px!important;
+  line-height:1.25!important;
+  letter-spacing:-.015em!important;
+}
+.pc-canonical-public .pc-cp-hero-copy>p{
+  font-size:17px!important;
+  line-height:1.55!important;
+  max-width:66ch;
+}
+.pc-canonical-public .pc-cp-section-head p,
+.pc-canonical-public .pc-cp-lead,
+.pc-canonical-public .pc-cp-detail-block p,
+.pc-canonical-public .pc-cp-role-card p,
+.pc-canonical-public .pc-cp-trust-card p,
+.pc-canonical-public .pc-cp-capability p,
+.pc-canonical-public .pc-cp-deal-public-stage p,
+.pc-canonical-public .pc-cp-deal-public-lot p{
+  font-size:14px!important;
+  line-height:1.55!important;
+}
+.pc-canonical-public .pc-cp-section-head p{font-size:15px!important;max-width:72ch}
+.pc-canonical-public .pc-cp-eyebrow{
+  font-size:12px!important;
+  line-height:1.25!important;
+  letter-spacing:.075em!important;
+}
+.pc-site-header[data-public-site-header='canonical'] .pc-site-nav{
+  font-size:14px!important;
+  line-height:1.2!important;
+  gap:18px!important;
+}
+.pc-site-header[data-public-site-header='canonical'] :is(.entry-login,.pc-v6-header-cta,.pc-ppe-primary-button){
+  font-size:14px!important;
+  line-height:1.2!important;
+}
+.pc-site-locale-option{
+  min-width:44px!important;
+  min-height:44px!important;
+  font-size:12px!important;
+  line-height:1!important;
+}
+.pc-canonical-public .pc-cp-button{
+  min-height:44px!important;
+  font-size:14px!important;
+  line-height:1.2!important;
+}
+.pc-canonical-public .pc-cp-chip,
+.pc-canonical-public .pc-cp-role-tags span{
+  font-size:13px!important;
+  line-height:1.25!important;
+}
+.pc-canonical-public .pc-cp-hero-proof span{
+  min-height:34px!important;
+  font-size:13px!important;
+  line-height:1.2!important;
+}
+.pc-canonical-public .pc-cp-lot-title{font-size:15px!important;line-height:1.3!important}
+.pc-canonical-public .pc-cp-lot-meta span,
+.pc-canonical-public .pc-cp-market-aside dt,
+.pc-canonical-public .pc-cp-deal-public-lot dt,
+.pc-canonical-public .pc-cp-deal-side dt,
+.pc-canonical-public .pc-cp-process-meta span,
+.pc-canonical-public .pc-cp-deal-public-stage-facts small{
+  font-size:12px!important;
+  line-height:1.35!important;
+}
+.pc-canonical-public .pc-cp-lot-meta strong,
+.pc-canonical-public .pc-cp-market-aside dd,
+.pc-canonical-public .pc-cp-deal-public-lot dd,
+.pc-canonical-public .pc-cp-deal-side dd,
+.pc-canonical-public .pc-cp-process-meta strong,
+.pc-canonical-public .pc-cp-deal-public-stage-facts strong{
+  font-size:14px!important;
+  line-height:1.4!important;
+}
+.pc-canonical-public .pc-cp-lot-foot span,
+.pc-canonical-public .pc-cp-lot-foot strong,
+.pc-canonical-public .pc-cp-lot-source,
+.pc-canonical-public .pc-cp-gekta-source span{
+  font-size:12px!important;
+  line-height:1.4!important;
+}
+.pc-canonical-public .pc-cp-stage i{font-size:12px!important;line-height:1!important}
+.pc-canonical-public .pc-cp-stage strong{font-size:13px!important;line-height:1.3!important}
+.pc-canonical-public .pc-cp-state-tab{
+  min-height:44px!important;
+  font-size:13px!important;
+  line-height:1.2!important;
+}
+.pc-canonical-public .pc-cp-state-cell span,
+.pc-canonical-public .pc-cp-deal-lens-cell small{
+  font-size:12px!important;
+  line-height:1.35!important;
+  letter-spacing:.04em!important;
+}
+.pc-canonical-public .pc-cp-state-cell strong,
+.pc-canonical-public .pc-cp-deal-lens-cell strong,
+.pc-canonical-public .pc-cp-deal-lens-next strong{
+  font-size:14px!important;
+  line-height:1.45!important;
+}
+.pc-canonical-public .pc-cp-gekta-brand span,
+.pc-canonical-public .pc-cp-gekta-chips span,
+.pc-canonical-public .pc-cp-gekta-context li,
+.pc-canonical-public .pc-cp-gekta-source strong,
+.pc-canonical-public .pc-cp-gekta-prompts span,
+.pc-canonical-public .pc-cp-gekta-benefits>span{
+  font-size:13px!important;
+  line-height:1.4!important;
+}
+.pc-canonical-public .pc-cp-gekta-brand p,
+.pc-canonical-public .pc-cp-gekta-action p{
+  font-size:14px!important;
+  line-height:1.55!important;
+}
+.pc-canonical-public .pc-cp-capability strong{font-size:15px!important;line-height:1.3!important}
+.pc-canonical-public .pc-cp-footer p,
+.pc-canonical-public .pc-cp-footer a{
+  font-size:13px!important;
+  line-height:1.5!important;
+}
+.pc-canonical-public .pc-cp-bottom-nav a,
+.pc-canonical-public .pc-cp-bottom-nav a[data-center='true']{
+  font-size:12px!important;
+  line-height:1.2!important;
+}
+.pc-canonical-public .pc-cp-search,
+.pc-canonical-public input,
+.pc-canonical-public textarea,
+.pc-canonical-public select{
+  font-size:16px!important;
+  line-height:1.35!important;
+}
+
+html[lang^='zh'] .pc-canonical-public :is(h1,h2,h3){
+  letter-spacing:0!important;
+  line-height:1.18!important;
+}
+html[lang^='zh'] .pc-canonical-public :is(p,li,dd,.pc-cp-section-head p,.pc-cp-lead){
+  line-height:1.7!important;
+}
+
+/* FINAL PUBLIC LINKED-SURFACE TYPOGRAPHY — keep auth/about/contact/deal on the same rhythm */
+:is(.pc-auth-page,.p0-register-page,.p7-about-page,.p7-contact-page,.pc-canonical-deal){
+  --pc-cp-ui:-apple-system,BlinkMacSystemFont,"Segoe UI Variable","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --pc-cp-display:-apple-system,BlinkMacSystemFont,"Segoe UI Variable","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-family:var(--pc-cp-ui)!important;
+  font-size:15px!important;
+  line-height:1.55!important;
+  font-kerning:normal;
+  text-rendering:optimizeLegibility;
+}
+:is(.pc-auth-page,.p0-register-page,.p7-about-page,.p7-contact-page,.pc-canonical-deal) :is(h1,h2,h3,strong,p,li,dt,dd,span,a,button,label,input,textarea,select,summary){font-family:inherit!important}
+:is(.pc-auth-page,.p0-register-page,.p7-about-page,.p7-contact-page,.pc-canonical-deal) :is(p,li,dd){line-height:1.55!important;text-wrap:pretty}
+:is(.pc-auth-page,.p0-register-page,.p7-about-page,.p7-contact-page,.pc-canonical-deal) :is(.pc-cp-eyebrow,.p7-contact-kicker,.pc-cp-process-meta span,.pc-cp-deal-meta span,.pc-cp-deal-side dt){font-size:12px!important;line-height:1.35!important}
+:is(.pc-auth-page,.p0-register-page,.p7-about-page,.p7-contact-page,.pc-canonical-deal) :is(button,.pc-cp-button,.entry-login,.pc-v6-header-cta,.pc-ppe-primary-button,.p7-about-register,.p7-contact-register){font-size:14px!important;line-height:1.2!important}
+:is(.pc-auth-page,.p0-register-page,.p7-about-page,.p7-contact-page,.pc-canonical-deal) :is(input,textarea,select){font-size:16px!important;line-height:1.4!important}
+
+@media(max-width:980px){
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-nav{gap:12px!important;font-size:13px!important}
+}
+
+@media(max-width:760px){
+  .pc-canonical-public{font-size:15px;line-height:1.55}
+  .pc-canonical-public h1,
+  .pc-cp-page-home .pc-cp-hero-copy h1{
+    font-size:clamp(34px,9.6vw,46px)!important;
+    line-height:1.06!important;
+    letter-spacing:-.035em!important;
+  }
+  .pc-canonical-public h2,
+  .pc-canonical-public .pc-cp-section-head h2,
+  .pc-canonical-public .pc-cp-final h2{
+    font-size:clamp(26px,7.2vw,34px)!important;
+    line-height:1.12!important;
+  }
+  .pc-canonical-public h3,.pc-canonical-public .pc-cp-card h3{font-size:17px!important}
+  .pc-canonical-public .pc-cp-hero-copy>p{font-size:15px!important;line-height:1.55!important;max-width:34ch}
+  .pc-canonical-public .pc-cp-section-head p,
+  .pc-canonical-public .pc-cp-lead{font-size:14px!important;line-height:1.55!important}
+  .pc-canonical-public .pc-cp-role-card p,
+  .pc-canonical-public .pc-cp-trust-card p,
+  .pc-canonical-public .pc-cp-capability p,
+  .pc-canonical-public .pc-cp-detail-block p,
+  .pc-canonical-public .pc-cp-deal-public-stage p,
+  .pc-canonical-public .pc-cp-deal-public-lot p{font-size:14px!important;line-height:1.55!important}
+  .pc-canonical-public .pc-cp-chip,
+  .pc-canonical-public .pc-cp-role-tags span,
+  .pc-canonical-public .pc-cp-hero-proof span{font-size:13px!important}
+  .pc-canonical-public .pc-cp-stage strong{font-size:13px!important;line-height:1.3!important}
+  .pc-canonical-public .pc-cp-state-tab{min-height:44px!important;font-size:13px!important}
+  .pc-canonical-public .pc-cp-state-cell span,
+  .pc-canonical-public .pc-cp-deal-lens-cell small{font-size:12px!important}
+  .pc-canonical-public .pc-cp-state-cell strong,
+  .pc-canonical-public .pc-cp-deal-lens-cell strong,
+  .pc-canonical-public .pc-cp-deal-lens-next strong{font-size:14px!important;line-height:1.45!important}
+  .pc-canonical-public .pc-cp-lot-meta span,
+  .pc-canonical-public .pc-cp-market-aside dt,
+  .pc-canonical-public .pc-cp-deal-public-lot dt{font-size:12px!important}
+  .pc-canonical-public .pc-cp-lot-meta strong,
+  .pc-canonical-public .pc-cp-market-aside dd,
+  .pc-canonical-public .pc-cp-deal-public-lot dd{font-size:14px!important}
+  .pc-canonical-public .pc-cp-gekta-brand p,
+  .pc-canonical-public .pc-cp-gekta-action p,
+  .pc-canonical-public .pc-cp-gekta-context li{font-size:14px!important}
+  .pc-canonical-public .pc-cp-footer p,
+  .pc-canonical-public .pc-cp-footer a{font-size:13px!important}
+  html[lang^='zh'] .pc-canonical-public :is(h1,h2,h3){letter-spacing:0!important;line-height:1.22!important}
+}
+
+/* FINAL PUBLIC MICROTYPE COMPLETENESS — 2026-09-21 */
+.pc-canonical-public .pc-cp-lot-meta--detail span,
+.pc-canonical-public .pc-cp-market-preview-alert span,
+.pc-canonical-public .pc-cp-page-trust .pc-cp-trust-pillar>small,
+.pc-canonical-public .pc-cp-trust-pillar>small,
+.pc-canonical-public .pc-cp-deal-mobile-summary div span,
+.pc-canonical-public .pc-cp-page-market .pc-cp-lot-breadcrumb{
+  font-size:12px!important;
+  line-height:1.4!important;
+}
+.pc-canonical-public .pc-cp-market-preview-alert,
+.pc-canonical-public .pc-cp-how-hero-quote span,
+.pc-canonical-public .pc-cp-trust-hero-quote span,
+.pc-canonical-public .pc-cp-gekta-hero-quote span,
+.pc-canonical-public .pc-cp-gekta-stage-list span{
+  font-size:13px!important;
+  line-height:1.45!important;
+}
+.pc-canonical-public .pc-cp-market-preview-alert strong,
+.pc-canonical-public .pc-cp-how-gekta-note p,
+.pc-canonical-public .pc-cp-trust-pillar-head p,
+.pc-canonical-public .pc-cp-trust-pillar li,
+.pc-canonical-public .pc-cp-page-trust .pc-cp-trust-pillar-head p,
+.pc-canonical-public .pc-cp-page-trust .pc-cp-trust-pillar li,
+.pc-canonical-public .pc-cp-gekta-composer,
+.pc-canonical-public .pc-cp-gekta-stage-list strong,
+.pc-canonical-public .pc-cp-page-market .pc-cp-lot-meta--detail strong{
+  font-size:14px!important;
+  line-height:1.5!important;
+}
+.pc-canonical-public .pc-cp-faq-item summary{
+  font-size:15px!important;
+  line-height:1.35!important;
+}
+.pc-canonical-public .pc-cp-faq-item p,
+.pc-canonical-public .pc-cp-gekta-public-hero p{
+  font-size:14px!important;
+  line-height:1.55!important;
+}
+.pc-canonical-public .pc-cp-page-how .pc-cp-process-card>i,
+.pc-canonical-public .pc-cp-page-market .pc-cp-lot-media{
+  font-size:12px!important;
+  line-height:1.2!important;
+}
