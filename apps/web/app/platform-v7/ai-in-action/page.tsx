@@ -49,8 +49,8 @@ ru:{
  ],prompt:'Спроси про Сделку, риск или следующий шаг',trust:'Открыть модель доверия',register:'Регистрация'
 },
 en:{
- e:'Gekta AI',t:'Gekta',p:'Gekta works with the Deal data available to the participant. It identifies risks, sources and available actions; the decision remains with the participant.',
- context:'Deal context',contextItems:['Stage and available facts','Documents and evidence','Logistics and acceptance','Quality and exceptions','Financial blockers','Decision history'],
+ e:'Deal assistant',t:'Gekta',p:'Gekta works with the Deal data available to the participant. It identifies risks, sources and available actions; the decision remains with the participant.',
+ context:'Deal data',contextItems:['Stage and available facts','Documents and evidence','Logistics and acceptance','Quality and exceptions','Financial blockers','Decision history'],
  ask:'What do you need to understand now?',cards:[
  ['What is happening','Confirmed Deal facts and the current state.'],
  ['What blocks progress','The blocker and its related role, document or event.'],
@@ -66,8 +66,8 @@ en:{
  ],prompt:'Ask about the Deal, risk or the next step',trust:'Open trust model',register:'Register'
 },
 zh:{
- e:'Gekta AI',t:'Gekta',p:'Gekta 使用参与方可访问的交易数据，标明风险、来源和可执行操作；决定仍由参与方作出。',
- context:'交易上下文',contextItems:['阶段和可用事实','文件和依据','物流和验收','质量和异常','金融阻断','决定历史'],
+ e:'交易助手',t:'Gekta',p:'Gekta 使用参与方可访问的交易数据，标明风险、来源和可执行操作；决定仍由参与方作出。',
+ context:'交易数据',contextItems:['阶段和可用事实','文件和依据','物流和验收','质量和异常','金融阻断','决定历史'],
  ask:'现在需要理解什么？',cards:[
  ['发生了什么','已确认的交易事实和当前状态。'],
  ['什么在阻挡','阻塞原因及其关联角色、文件或事件。'],
@@ -80,7 +80,7 @@ zh:{
  ['文件','仅使用关联且允许读取的数据'],
  ['外部系统','仅在存在真实确认来源时使用'],
  ['决定','Gekta 负责解释；关键操作由有权限的参与方执行'],
- ],prompt:'询问上下文、风险或下一步',trust:'打开信任模型',register:'注册'
+ ],prompt:'询问交易、风险或下一步',trust:'打开信任模型',register:'注册'
 }} as const;
 const ICONS=[Search,ShieldCheck,BarChart3,FileCheck2,Calculator,Route] as const;
 
@@ -107,7 +107,7 @@ export default async function PublicGektaPage(){
     <div className='pc-cp-gekta-workspace'>
       <aside className='pc-cp-card pc-cp-gekta-panel pc-cp-gekta-context'>
         <Bot size={24}/><h2>{c.context}</h2>
-        <span className='pc-cp-chip'><ShieldCheck size={12}/>{locale==='ru'?'Только разрешённые данные':locale==='en'?'Authorised data only':'仅限授权上下文'}</span>
+        <span className='pc-cp-chip'><ShieldCheck size={12}/>{locale==='ru'?'Только разрешённые данные':locale==='en'?'Authorised data only':'仅限授权数据'}</span>
         <ul>{c.contextItems.map(x=><li key={x}>{x}</li>)}</ul>
       </aside>
       <section className='pc-cp-card pc-cp-gekta-panel pc-cp-gekta-main-panel'>
@@ -137,7 +137,7 @@ export default async function PublicGektaPage(){
   <section className='pc-cp-section pc-cp-section--soft'><div className='pc-cp-container'>
    <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{locale==='ru'?'Граница AI':locale==='en'?'AI boundary':'AI 边界'}</span><h2>{locale==='ru'?'Гекта не создаёт полномочия и не подменяет источник':locale==='en'?'Gekta creates no authority and does not replace a source':'Gekta 不创建权限，也不替代事实来源'}</h2></div>
    <div className='pc-cp-trust-grid'>
-    {[['01',locale==='ru'?'Читает только разрешённые данные':locale==='en'?'Reads only authorised data':'只读取授权上下文'],['02',locale==='ru'?'Отделяет факт от объяснения':locale==='en'?'Separates fact from explanation':'区分事实与解释'],['03',locale==='ru'?'Не заявляет внешнее событие без источника':locale==='en'?'Makes no external-event claim without a source':'没有来源就不声称外部事件'],['04',locale==='ru'?'Критическое решение принимает человек':locale==='en'?'People make critical decisions':'关键决定保持受控']].map(([n,t])=><article className='pc-cp-card pc-cp-trust-card' key={n}><i>{n}</i><strong>{t}</strong></article>)}
+    {[['01',locale==='ru'?'Читает только разрешённые данные':locale==='en'?'Reads only authorised data':'只读取授权数据'],['02',locale==='ru'?'Отделяет факт от объяснения':locale==='en'?'Separates fact from explanation':'区分事实与解释'],['03',locale==='ru'?'Не заявляет внешнее событие без источника':locale==='en'?'Makes no external-event claim without a source':'没有来源就不声称外部事件'],['04',locale==='ru'?'Критическое решение принимает человек':locale==='en'?'People make critical decisions':'关键决定由人作出']].map(([n,t])=><article className='pc-cp-card pc-cp-trust-card' key={n}><i>{n}</i><strong>{t}</strong></article>)}
    </div>
   </div></section>
   <CanonicalFooter locale={locale}/><CanonicalBottomNav locale={locale} active='/platform-v7/ai-in-action'/>
