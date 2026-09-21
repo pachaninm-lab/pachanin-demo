@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
     }
 
     const payload = await upstream.json().catch(() => ({})) as unknown;
-    const safePayload = payload && typeof payload === 'object' && !Array.isArray(payload)
+    const safePayload: Record<string, unknown> = payload && typeof payload === 'object' && !Array.isArray(payload)
       ? { ...(payload as Record<string, unknown>), correlationId: correlation }
       : { correlationId: correlation };
     delete safePayload.accessToken;
