@@ -225,9 +225,9 @@ test.describe('canonical visual authority evidence', () => {
 // informational route. These reads never create an authenticated role/session.
 test.describe('capabilities exact public route boundary', () => {
   const headings = {
-    ru: 'Вся Сделка — в одном рабочем контуре',
-    en: 'The whole Deal in one working flow',
-    zh: '整笔交易在一个工作流程中',
+    ru: 'Что платформа связывает в одной Сделке',
+    en: 'What the platform connects in one Deal',
+    zh: '平台如何连接整笔交易',
   } as const;
 
   for (const locale of ['ru', 'en', 'zh'] as const) {
