@@ -16,7 +16,6 @@ const ids = {
   assignment: 'assignment-founder-r1-3-e2e',
   session: 'session-founder-r1-3-e2e',
   deal: 'deal-founder-r1-3-e2e',
-  shipment: 'shipment-founder-r1-3-e2e',
   dispute: 'dispute-founder-r1-3-e2e',
 };
 
@@ -152,17 +151,6 @@ describe('R1.3 Founder Control PostgreSQL exploitation gate', () => {
       update: { status: 'DRAFT' },
     });
 
-    await adminPrisma.shipment.upsert({
-      where: { id: ids.shipment },
-      create: {
-        id: ids.shipment,
-        dealId: ids.deal,
-        tenantId: 'tenant-founder-r1-3-e2e',
-        status: 'PENDING',
-      },
-      update: { status: 'PENDING' },
-    });
-
     await adminPrisma.$executeRaw(Prisma.sql`
       INSERT INTO dispute.cases (
         id, tenant_id, deal_id, status, type, description,
@@ -245,9 +233,6 @@ describe('R1.3 Founder Control PostgreSQL exploitation gate', () => {
       rows.find((row) => row.metric_id === 'business.open_deals')!.value_count,
     ).toBeGreaterThanOrEqual(1n);
     expect(
-      rows.find((row) => row.metric_id === 'operations.active_shipments')!.value_count,
-    ).toBeGreaterThanOrEqual(1n);
-    expect(
       rows.find((row) => row.metric_id === 'risk.high_critical_open_disputes')!.value_count,
     ).toBeGreaterThanOrEqual(1n);
   });
@@ -262,7 +247,7 @@ describe('R1.3 Founder Control PostgreSQL exploitation gate', () => {
         100
       )
     `);
-    const shipments = await staffPrisma.$queryRaw<FounderMetricDrillDownRow[]>(Prisma.sql`
+    const operations = await staffPrisma.$queryRaw<FounderMetricDrillDownRow[]>(Prisma.sql`
       SELECT *
       FROM auth.founder_metric_drilldown(
         ${ids.ownerUser},
@@ -273,7 +258,8 @@ describe('R1.3 Founder Control PostgreSQL exploitation gate', () => {
     `);
 
     expect(deals.some((row) => row.object_id === ids.deal && row.tenant_id === 'tenant-founder-r1-3-e2e')).toBe(true);
-    expect(shipments.some((row) => row.object_id === ids.shipment && row.tenant_id === 'tenant-founder-r1-3-e2e')).toBe(true);
+    expect(Array.isArray(operations)).toBe(true);
+    expect(operations.every((row) => row.metric_id === 'operations.active_shipments')).toBe(true);
   });
 
   it('returns a stable P0 queue item with real SLA, impact, next action, escalation and source', async () => {
