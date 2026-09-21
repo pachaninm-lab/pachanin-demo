@@ -55,7 +55,7 @@ const COPY = {
     rolesLabel: '9 канонических ролей',
     liveEyebrow: 'Сделка в работе',
     liveTitle: 'Рабочий контекст без догадок',
-    liveLead: 'За несколько секунд понятно пять вещей: что произошло, кто отвечает, на каком основании, что происходит с расчётом и какой следующий шаг допустим.',
+    liveLead: 'Рабочий контекст отвечает на пять ключевых вопросов: что произошло, кто отвечает, на каком основании, что происходит с расчётом и какой следующий шаг допустим.',
     state: {
       happened: 'Рабочий экран показывает фактическое состояние без подмены серверных данных.',
       actor: 'Только участник с подтверждённой ролью и доступом к Сделке.',
@@ -123,7 +123,7 @@ const COPY = {
     rolesLabel: '9 canonical roles',
     liveEyebrow: 'Deal in progress',
     liveTitle: 'Working context without guesswork',
-    liveLead: 'In seconds, the workspace answers five questions: what happened, who owns the action, on what basis, what happens to settlement and which next step is permitted.',
+    liveLead: 'The working context answers five key questions: what happened, who owns the action, on what basis, what happens to settlement and which next step is permitted.',
     state: {
       happened: 'The workspace shows actual state without replacing server data.',
       actor: 'Only a participant with a confirmed role and Deal access.',
@@ -191,7 +191,7 @@ const COPY = {
     rolesLabel: '9 个规范角色',
     liveEyebrow: '进行中的交易',
     liveTitle: '无需猜测的工作上下文',
-    liveLead: '几秒钟内即可回答五个问题：发生了什么、谁负责、依据是什么、结算如何受影响，以及允许的下一步是什么。',
+    liveLead: '工作上下文回答五个关键问题：发生了什么、谁负责、依据是什么、结算如何受影响，以及允许的下一步是什么。',
     state: {
       happened: '工作空间展示真实状态，不替换服务器数据。',
       actor: '仅限具有已确认角色和交易访问权限的参与方。',
