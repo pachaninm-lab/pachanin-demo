@@ -58,6 +58,7 @@ export type BankProviderResponse = Readonly<{
   idempotencyKey: string | null;
   providerEventId: string | null;
   externalReceiptId: string | null;
+  authenticationAuthorityRef: string | null;
   authenticationEvidenceRef: string | null;
   payloadFingerprint: string | null;
   observedAt: string;
@@ -84,6 +85,7 @@ export type BankReceiptCandidate = Readonly<{
   idempotencyKey: string | null;
   providerEventId: string | null;
   externalReceiptId: string | null;
+  authenticationAuthorityRef: string | null;
   authenticationEvidenceRef: string | null;
   payloadFingerprint: string | null;
   amountMinor: string | null;
@@ -203,6 +205,7 @@ export function buildReceiptCandidate(
     idempotencyKey: response.idempotencyKey,
     providerEventId: response.providerEventId,
     externalReceiptId: response.externalReceiptId,
+    authenticationAuthorityRef: response.authenticationAuthorityRef,
     authenticationEvidenceRef: response.authenticationEvidenceRef,
     payloadFingerprint: response.payloadFingerprint,
     amountMinor: response.amountMinor,
