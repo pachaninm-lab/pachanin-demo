@@ -10,6 +10,7 @@ const expected: ExpectedBankOperationEvidence = {
   operationId: 'op-1',
   idempotencyKey: 'idem-1',
   providerOperationId: 'provider-op-1',
+  authenticationAuthorityRef: 'callback-key:v7',
   amountMinor: '12500',
   currency: 'RUB',
 };
@@ -21,6 +22,7 @@ const candidate = (overrides: Partial<BankReceiptCandidate> = {}): BankReceiptCa
   idempotencyKey: 'idem-1',
   providerEventId: 'event-1',
   externalReceiptId: 'receipt-1',
+  authenticationAuthorityRef: 'callback-key:v7',
   authenticationEvidenceRef: 'auth-evidence-1',
   payloadFingerprint: 'sha256:abc',
   amountMinor: '12500',
@@ -62,6 +64,7 @@ describe('bank receipt contract', () => {
     [{ amountMinor: 'not-money' }, 'AMOUNT_MISMATCH'],
     [{ currency: 'USD' }, 'CURRENCY_MISMATCH'],
     [{ currency: '??' }, 'CURRENCY_MISMATCH'],
+    [{ authenticationAuthorityRef: 'callback-key:old' }, 'AUTHENTICATION_AUTHORITY_MISMATCH'],
   ])('fails closed on exact or malformed evidence mismatch', (override, reason) => {
     expect(validateBankReceiptCandidate(expected, candidate(override))).toMatchObject({
       status: 'REJECTED',
