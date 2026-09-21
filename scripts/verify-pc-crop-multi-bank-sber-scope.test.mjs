@@ -36,6 +36,7 @@ for (const marker of [
   'REFERENCE_CONFORMANCE_ONLY',
   'liveRequestReady: false',
   'buildReferenceRequestEnvelope',
+  'BANK_CAPABILITY_NOT_SUPPORTED',
   'mapReferenceDispatch',
   'buildReceiptCandidate',
 ]) assert.ok(port.includes(marker), 'missing adapter-port boundary ' + marker);
@@ -45,6 +46,8 @@ for (const marker of [
   'SERVER_HELD_MATURITY_DOES_NOT_ALLOW_REAL_TRAFFIC',
   'REFERENCE_ADAPTER_HAS_NO_LIVE_TRANSPORT',
   'CREDENTIAL_OR_CALLBACK_TRUST_NOT_VERIFIED',
+  'PRODUCTION_ENVIRONMENT_NOT_CONFIRMED',
+  'productionEnvironmentConfirmed',
   'SERVER_HELD_CAPABILITY_NOT_AUTHORIZED',
   'authorizedBankCapabilities',
   "authority.maturity !== 'LIVE_ACCEPTED'",
