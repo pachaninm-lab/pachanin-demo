@@ -106,7 +106,7 @@ export class BankCapabilityRouter {
       };
     }
 
-    if (authority.maturity !== 'LIVE_ACCEPTED' || !authority.mayCarryRealTraffic) {
+    if (authority.maturity !== 'LIVE_ACCEPTED' || authority.mayCarryRealTraffic !== true) {
       return {
         status: 'NOT_ACTIVATED',
         adapter,
@@ -114,7 +114,7 @@ export class BankCapabilityRouter {
       };
     }
 
-    if (!authority.productionEnvironmentConfirmed) {
+    if (authority.productionEnvironmentConfirmed !== true) {
       return {
         status: 'NOT_ACTIVATED',
         adapter,
