@@ -9,6 +9,8 @@ export type ExpectedBankOperationEvidence = Readonly<{
   providerOperationId: string | null;
   amountMinor: string;
   currency: string;
+  alreadyConsumedProviderEventIds?: readonly string[];
+  alreadyConsumedPayloadFingerprints?: readonly string[];
 }>;
 
 export type BankReceiptValidation =
@@ -34,6 +36,8 @@ export type BankReceiptValidation =
         | 'PROVIDER_OPERATION_MISMATCH'
         | 'AMOUNT_MISMATCH'
         | 'CURRENCY_MISMATCH'
+        | 'PROVIDER_EVENT_REPLAY'
+        | 'PAYLOAD_REPLAY'
         | 'AUTHENTICATION_EVIDENCE_MISSING'
         | 'PAYLOAD_FINGERPRINT_MISSING'
         | 'EXTERNAL_RECEIPT_MISSING';
@@ -66,6 +70,18 @@ export function validateBankReceiptCandidate(
   }
   if (candidate.currency?.trim().toUpperCase() !== expected.currency.trim().toUpperCase()) {
     return rejected('CURRENCY_MISMATCH');
+  }
+  if (
+    candidate.providerEventId
+    && expected.alreadyConsumedProviderEventIds?.includes(candidate.providerEventId)
+  ) {
+    return rejected('PROVIDER_EVENT_REPLAY');
+  }
+  if (
+    candidate.payloadFingerprint
+    && expected.alreadyConsumedPayloadFingerprints?.includes(candidate.payloadFingerprint)
+  ) {
+    return rejected('PAYLOAD_REPLAY');
   }
 
   if (
