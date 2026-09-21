@@ -19,7 +19,7 @@ ru:{
  title:'О платформе — Прозрачная Цена',
  description:'Прозрачная Цена связывает участников и весь путь агросделки: лот, торги, обязательства, доставка, приёмка, качество, документы, расчёт и закрытие.',
  eyebrow:'О платформе',heading:'Одна система для всей агросделки.',
- lead:'«Прозрачная Цена» связывает рынок и исполнение в одной Сделке. Каждый участник видит только доступные ему данные и действия, а важные решения остаются привязаны к полномочиям, основаниям и источникам.',
+ lead:'«Прозрачная Цена» связывает рынок и исполнение в одной Сделке. Участник видит только данные и действия своей роли; важные решения остаются привязаны к проверяемым основаниям.',
  domain:'Процент-Агро.рф — публичный домен платформы «Прозрачная Цена».',
  what:'Что объединяет платформа',cards:[
  ['Одна Сделка','Товар, торги, обязательства, доставка, качество, документы, расчёт и закрытие остаются связанными.'],
@@ -35,7 +35,7 @@ en:{
  title:'About the platform — Transparent Price',
  description:'Transparent Price connects participants and the full agricultural Deal path: lot, trading, commitments, delivery, acceptance, quality, documents, settlement and closure.',
  eyebrow:'About the platform',heading:'One system for the whole agricultural Deal.',
- lead:'Transparent Price connects market and execution in one Deal. Each participant sees only the data and actions available to them, while important decisions stay tied to authority, evidence and source.',
+ lead:'Transparent Price connects market and execution in one Deal. Each participant sees only the data and actions available to their role; important decisions remain tied to verifiable evidence.',
  domain:'Процент-Агро.рф is the public domain of the Transparent Price platform.',
  what:'What the platform connects',cards:[
  ['One Deal','Product, trading, commitments, delivery, quality, documents, settlement and closure remain connected.'],
