@@ -303,7 +303,7 @@ const css = `
 .pc-public-contact-dock-icon svg { display: block; }
 .pc-public-contact-dock-action strong { display: block; font-size: 12px; line-height: 1.1; font-weight: 700; letter-spacing: -.005em; white-space: nowrap; }
 .pc-public-contact-dock-assistant .pc-public-contact-dock-icon { color: var(--pc-ppe-v5-green-dark, #07572e); background: linear-gradient(145deg, rgba(8, 122, 59, .19), rgba(8, 122, 59, .08)); box-shadow: inset 0 0 0 1px rgba(8, 122, 59, .22); }
-.pc-public-contact-dock-assistant strong { color: var(--pc-ppe-v5-green-dark, #07572e); font-weight: 780; }
+.pc-public-contact-dock-assistant strong { color: var(--pc-ppe-v5-green-dark, #07572e); font-weight: 700; }
 @media (hover: hover) {
   .pc-public-contact-dock-action:hover:not(:disabled) { background: rgba(8, 122, 59, .065); transform: translateY(-1px); }
   .pc-public-contact-dock-action:hover:not(:disabled) .pc-public-contact-dock-icon { color: #ffffff; background: var(--pc-ppe-v5-green, #087a3b); box-shadow: 0 4px 10px rgba(8, 122, 59, .18); }
@@ -406,7 +406,7 @@ const css = `
   white-space: nowrap !important;
   color: #0b4f3a !important;
   font-size: 13px !important;
-  font-weight: 820 !important;
+  font-weight: 800 !important;
 }
 @media (hover:hover) {
   .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] .pc-public-contact-dock-assistant:hover:not(:disabled) {
