@@ -8,6 +8,7 @@ const response = (rawStatus: string | null, httpStatus = 200) => ({
   idempotencyKey: 'idem-1',
   providerEventId: 'sber-event-1',
   externalReceiptId: 'sber-receipt-1',
+  authenticationAuthorityRef: 'callback-key:v7',
   authenticationEvidenceRef: 'mTLS+signature:evidence-1',
   payloadFingerprint: 'sha256:abc',
   observedAt: '2026-09-22T00:00:00.000Z',
