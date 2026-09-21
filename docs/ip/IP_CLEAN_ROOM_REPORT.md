@@ -29,7 +29,8 @@ node scripts/ip/build-license-map.mjs          artifacts/ip-clean-room/sbom arti
                                                docs/ip/third-party-license-overrides.json \
                                                docs/ip/registry-license-evidence.json
 node scripts/ip/build-sbom-coverage.mjs        artifacts/ip-clean-room docs/ip/sbom-coverage-scope.json
-IP_SIMILARITY_CORPUS=<corpus> IP_SIMILARITY_CORPUS_APPROVED=1 \
+node scripts/ip/stage-similarity-corpus.mjs    artifacts/ip-clean-room/similarity-corpus
+IP_SIMILARITY_CORPUS=artifacts/ip-clean-room/similarity-corpus IP_SIMILARITY_CORPUS_APPROVED=1 \
   IP_SIMILARITY_CORPUS_APPROVAL=docs/ip/similarity-corpus-approval.json \
   node scripts/ip/build-offline-similarity-evidence.mjs artifacts/ip-clean-room
 node scripts/ip/build-rospatent-package.mjs    artifacts/ip-clean-room/rospatent
@@ -38,6 +39,14 @@ node --test scripts/ip/*.test.mjs
 
 100 tests cover the decision logic. Every figure below comes from one of these
 scripts; none is hand-maintained.
+
+The corpus the similarity scan compares against is staged by
+`stage-similarity-corpus.mjs` above rather than assumed to exist. That step was missing when this report first
+claimed reproducibility: the staging lived in a throwaway script outside the
+repository, so the scan could be re-run but not re-pointed at the same corpus. The
+committed script is an independent reimplementation of it and reproduces the
+approved digest `083ec991…` exactly — 23 075 files across 881 packages — which is
+what binds the approval to the scan.
 
 ## 2. Required checks
 

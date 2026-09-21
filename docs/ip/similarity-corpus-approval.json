@@ -9,6 +9,8 @@
   "limits": [
     "A corpus of this project's own dependencies cannot detect copying from a source that is not a dependency.",
     "No match is screening evidence of originality, not proof of it.",
-    "The digest binds this approval to the exact file set that was compared; restaging a different set invalidates it."
-  ]
+    "The digest binds this approval to the exact file set that was compared; restaging a different set invalidates it.",
+    "The staging filters in scripts/ip/stage-similarity-corpus.mjs are fixed by this digest. Changing the extension set or the path exclusions restages a different corpus and invalidates this approval, which the scanner will report rather than ignore."
+  ],
+  "reproduce": "node scripts/ip/stage-similarity-corpus.mjs <destination> — stages exactly this file set from node_modules/.pnpm and reproduces corpusDigestSha256. Verified: an independent reimplementation of the original staging produced the identical digest."
 }
