@@ -1258,3 +1258,8 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-page-trust .pc-cp-trust-pillar li{font-size:8px!important;line-height:1.24!important}
   .pc-cp-page-trust .pc-cp-trust-pillar>small{font-size:7px!important;line-height:1.22!important}
 }
+
+/* FINAL MOBILE BRAND LEGIBILITY GATE — production i18n >=14px */
+@media(max-width:760px){
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-text strong{font-size:14px!important}
+}
