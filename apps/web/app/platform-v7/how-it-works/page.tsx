@@ -11,11 +11,25 @@ import {
   canonicalPublicLocale,
 } from '@/components/platform-v7/PublicCanonicalPrimitives';
 
-export const metadata:Metadata={
-  title:'Как проходит Сделка — Прозрачная Цена',
-  description:'Семь этапов Сделки: лот, торги, обязательства, доставка, приёмка и качество, документы и расчёт, закрытие или спор.',
-  alternates:{canonical:'/platform-v7/how-it-works'},robots:{index:true,follow:true},
-};
+const META={"ru":["Как проходит Сделка — Прозрачная Цена","Семь этапов Сделки: лот, торги, обязательства, доставка, приёмка и качество, документы и расчёт, закрытие или спор."],"en":["How the Deal works — Transparent Price","Seven Deal stages from lot and trading through commitments, delivery, acceptance and quality, documents, settlement, closure or dispute."],"zh":["交易如何进行 — 透明价格","交易的七个阶段：批次、交易、义务、交付、验收与质量、文件与结算、关闭或争议。"]} as const;
+
+export async function generateMetadata():Promise<Metadata>{
+  const locale=canonicalPublicLocale(await getLocale());
+  const copy=META[locale];
+  return {
+    title:copy[0],
+    description:copy[1],
+    alternates:{
+      canonical:'/platform-v7/how-it-works',
+      languages:{
+        ru:'/platform-v7/how-it-works?lang=ru',
+        en:'/platform-v7/how-it-works?lang=en',
+        zh:'/platform-v7/how-it-works?lang=zh',
+      },
+    },
+    robots:{index:true,follow:true},
+  };
+}
 
 const COPY={
 ru:{
