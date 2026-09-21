@@ -12,11 +12,25 @@ import {
   canonicalPublicLocale,
 } from '@/components/platform-v7/PublicCanonicalPrimitives';
 
-export const metadata:Metadata={
-  title:'Доверие — Прозрачная Цена',
-  description:'Модель доверия платформы: полномочия, основание, источник и решение в контексте каждой Сделки.',
-  alternates:{canonical:'/platform-v7/trust'},robots:{index:true,follow:true},
-};
+const META={"ru":["Доверие — Прозрачная Цена","Модель доверия платформы: полномочия, основание, источник и решение в контексте каждой Сделки."],"en":["Trust — Transparent Price","The platform trust model: authority, basis, source and decision in the context of every Deal."],"zh":["信任 — 透明价格","平台的信任模型：在每笔交易上下文中关联权限、依据、来源和决定。"]} as const;
+
+export async function generateMetadata():Promise<Metadata>{
+  const locale=canonicalPublicLocale(await getLocale());
+  const copy=META[locale];
+  return {
+    title:copy[0],
+    description:copy[1],
+    alternates:{
+      canonical:'/platform-v7/trust',
+      languages:{
+        ru:'/platform-v7/trust?lang=ru',
+        en:'/platform-v7/trust?lang=en',
+        zh:'/platform-v7/trust?lang=zh',
+      },
+    },
+    robots:{index:true,follow:true},
+  };
+}
 
 const COPY={
 ru:{
