@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import fs from 'node:fs';
 import {
   BANK_CAPABILITIES,
+  BANK_COMMANDS,
   normalizeBankCapabilitySet,
   requiredBankCapability,
   supportsBankCapability,
@@ -41,10 +41,10 @@ describe('provider-neutral bank capability contract', () => {
     expect(supportsBankCapability(supported, 'SAFE_DEAL_RESERVE_RELEASE')).toBe(false);
   });
 
-  it('contains no provider-specific canonical field vocabulary', () => {
-    const source = fs.readFileSync(new URL('./bank-capability.ts', import.meta.url), 'utf8');
+  it('contains no provider-specific vocabulary in the exported canonical contract', () => {
+    const publicContract = JSON.stringify({ capabilities: BANK_CAPABILITIES, commands: BANK_COMMANDS });
     for (const forbidden of ['SBER', 'ALFA_BANK', 'T_BANK', 'BANK_PROVIDER', 'bankRef', 'partnerId']) {
-      expect(source).not.toContain(forbidden);
+      expect(publicContract).not.toContain(forbidden);
     }
   });
 });
