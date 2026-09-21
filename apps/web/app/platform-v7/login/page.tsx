@@ -11,7 +11,7 @@ export default async function LoginPage() {
   return (
     <main id='main-content' className='pc-canonical-public pc-v7-public-entry pc-auth-page'>
       <a className='pc-skip-link' href='#pc-login-title'>{locale==='ru'?'Перейти ко входу':locale==='en'?'Skip to sign in':'跳到登录'}</a>
-      <CanonicalPublicHeader locale={locale} activePath='/platform-v7/login' actions={false}/>
+      <CanonicalPublicHeader locale={locale} activePath='/platform-v7/login'/>
       <section className='pc-cp-section pc-cp-section--soft' style={{minHeight:'calc(100dvh - 72px)'}}>
         <div className='pc-cp-container'>
           <LoginFormClient copy={form} />
