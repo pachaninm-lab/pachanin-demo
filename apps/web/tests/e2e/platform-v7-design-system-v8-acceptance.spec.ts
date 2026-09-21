@@ -351,8 +351,14 @@ for (const locale of ['ru', 'en', 'zh'] as const) {
           expect(box!.x + box!.width).toBeLessThanOrEqual(width + 1);
         }
         if (route !== 'register' && route !== 'gekta') {
-          // Bind the assertion to the visible desktop action; the mobile menu intentionally carries a duplicate CTA.
-      await expect(header.locator(':scope > .pc-site-actions .pc-v6-header-cta:visible').first()).toHaveAttribute('href', `/platform-v7/register?lang=${locale}`);
+          // Bind the href contract to the non-mobile action node. The same
+          // server-rendered action remains authoritative when responsive CSS
+          // hides it in favour of the native <details> mobile navigation.
+          const registerAction = header.locator(
+            ':scope > .pc-site-actions > a[href^="/platform-v7/register"], ' +
+            ':scope > .pc-site-actions > .pc-canonical-header-actions > a[href^="/platform-v7/register"]',
+          ).first();
+          await expect(registerAction).toHaveAttribute('href', `/platform-v7/register?lang=${locale}`);
         }
         if (route === 'terms' || route === 'privacy') {
           const legal = page.locator('.pc-linked-policy');
