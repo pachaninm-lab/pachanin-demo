@@ -14,12 +14,25 @@ import {
   canonicalPublicLocale,
 } from '@/components/platform-v7/PublicCanonicalPrimitives';
 
-export const metadata:Metadata={
-  title:'Возможности — Прозрачная Цена',
-  description:'Возможности платформы по всей цепочке агросделки: рынок, торги, исполнение, качество, документы, расчёт, спор, доверие и Гекта.',
-  alternates:{canonical:'/platform-v7/capabilities'},
-  robots:{index:true,follow:true},
-};
+const META={"ru":["Возможности — Прозрачная Цена","Возможности платформы по всей цепочке агросделки: рынок, торги, исполнение, качество, документы, расчёт, спор, доверие и Гекта."],"en":["Capabilities — Transparent Price","Platform capabilities across the agricultural Deal: market, trading, execution, quality, documents, settlement, dispute, trust and Gekta."],"zh":["功能 — 透明价格","覆盖整笔农业交易的能力：市场、交易、履约、质量、文件、结算、争议、信任与 Gekta。"]} as const;
+
+export async function generateMetadata():Promise<Metadata>{
+  const locale=canonicalPublicLocale(await getLocale());
+  const copy=META[locale];
+  return {
+    title:copy[0],
+    description:copy[1],
+    alternates:{
+      canonical:'/platform-v7/capabilities',
+      languages:{
+        ru:'/platform-v7/capabilities?lang=ru',
+        en:'/platform-v7/capabilities?lang=en',
+        zh:'/platform-v7/capabilities?lang=zh',
+      },
+    },
+    robots:{index:true,follow:true},
+  };
+}
 
 const COPY={
 ru:{e:'Возможности',t:'Вся Сделка — в одном рабочем контуре',p:'Не каталог функций ради функций, а связная последовательность: от публичного лота до исполнения, документов, расчёта и закрытия.',items:{
