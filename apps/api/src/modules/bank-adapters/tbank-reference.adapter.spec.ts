@@ -1,4 +1,3 @@
-import { describe, expect, it } from '@jest/globals';
 import { TBankReferenceAdapter } from './tbank-reference.adapter';
 
 describe('T-Bank reference adapter', () => {
