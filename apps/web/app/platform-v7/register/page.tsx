@@ -71,10 +71,31 @@ export default async function RegisterPage({
   const intent = registrationIntent(first(params.intent));
   const initialWorkspace = intent ? WORKSPACE_BY_INTENT[intent] : undefined;
   const copy = PAGE_COPY[locale];
+  const localeControl = (
+    <div className='pc-site-locale-cluster' aria-label={copy.language}>
+      {(['ru','en','zh'] as const).map((targetLocale) => {
+        const query = new URLSearchParams({ lang: targetLocale });
+        if (verifyToken) query.set('verify', verifyToken);
+        if (statusToken) query.set('statusToken', statusToken);
+        if (intent) query.set('intent', intent);
+        return (
+          <a
+            key={targetLocale}
+            className='pc-site-locale-option'
+            data-active={targetLocale === locale ? 'true' : 'false'}
+            aria-current={targetLocale === locale ? 'page' : undefined}
+            href={`/platform-v7/register?${query.toString()}`}
+          >
+            {targetLocale === 'zh' ? '中文' : targetLocale.toUpperCase()}
+          </a>
+        );
+      })}
+    </div>
+  );
   return (
     <main className='p0-register-page'>
       <div className='p0-register-shell'>
-        <CanonicalPublicHeader locale={locale} activePath='/platform-v7/register' />
+        <CanonicalPublicHeader locale={locale} activePath='/platform-v7/register' localeControl={localeControl} />
 
         <section className='p0-register-hero' aria-labelledby='p0-register-title'>
           <small>{copy.kicker}</small>
