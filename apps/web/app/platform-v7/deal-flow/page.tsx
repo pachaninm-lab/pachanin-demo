@@ -14,11 +14,25 @@ import {
   canonicalPublicLocale,
 } from '@/components/platform-v7/PublicCanonicalPrimitives';
 
-export const metadata:Metadata={
- title:'Контур сделки — Прозрачная Цена',
- description:'Как рабочий экран Сделки связывает этап, участника, основание, расчёт и следующий шаг без вымышленных production-данных.',
- alternates:{canonical:'/platform-v7/deal-flow'},robots:{index:true,follow:true},
-};
+const META={"ru":["Контур Сделки — Прозрачная Цена","Как рабочий экран Сделки связывает этап, участника, основание, расчёт и следующий шаг без вымышленных production-данных."],"en":["Deal workspace — Transparent Price","How the Deal workspace connects stage, participant, basis, settlement and the next step without fabricated production data."],"zh":["交易工作区 — 透明价格","交易工作区如何在不虚构生产数据的前提下关联阶段、参与方、依据、结算和下一步。"]} as const;
+
+export async function generateMetadata():Promise<Metadata>{
+  const locale=canonicalPublicLocale(await getLocale());
+  const copy=META[locale];
+  return {
+    title:copy[0],
+    description:copy[1],
+    alternates:{
+      canonical:'/platform-v7/deal-flow',
+      languages:{
+        ru:'/platform-v7/deal-flow?lang=ru',
+        en:'/platform-v7/deal-flow?lang=en',
+        zh:'/platform-v7/deal-flow?lang=zh',
+      },
+    },
+    robots:{index:true,follow:true},
+  };
+}
 
 export default async function PlatformV7DealFlowPage(){
  const locale=canonicalPublicLocale(await getLocale());
