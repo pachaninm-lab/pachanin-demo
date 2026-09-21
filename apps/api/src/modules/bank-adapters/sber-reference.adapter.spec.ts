@@ -38,6 +38,18 @@ describe('Sber reference adapter', () => {
     });
   });
 
+  it('fails closed when called directly for a capability this adapter does not support', () => {
+    expect(() => adapter.describeRequest({
+      command: 'BILLING',
+      operationId: 'op-billing',
+      idempotencyKey: 'idem-billing',
+      amountMinor: '10000',
+      currency: 'RUB',
+      sourceVersion: 'settlement:v9',
+      beneficiaryReference: null,
+    })).toThrow('BANK_CAPABILITY_NOT_SUPPORTED:SBER:BILLING');
+  });
+
   it('treats HTTP 201 as transport acceptance only, never settlement finality', () => {
     expect(adapter.mapDispatchResponse(response(null, 201))).toMatchObject({
       acknowledgement: 'ACCEPTED_NONFINAL',
