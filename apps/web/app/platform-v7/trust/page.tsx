@@ -34,7 +34,7 @@ export async function generateMetadata():Promise<Metadata>{
 
 const COPY={
 ru:{
- e:'Доверие',t:'Доверие. На основе фактов.',p:'Платформа не просит “верить интерфейсу”. Критическое действие должно быть объяснимо через полномочия, основание, источник и зафиксированное решение.',
+ e:'Доверие',t:'Доверие строится на проверяемых фактах.',p:'Для важного действия можно проверить четыре вещи: кто имел право действовать, на каком основании, откуда пришёл факт и какое решение записано в истории.',
  fact:'От факта к решению',factLead:'Ни один экран не должен превращать неизвестность в уверенный статус. Если данных нет, они остаются недоступными или требуют подтверждения.',
  rail:['Факт получен','Источник определён','Полномочия проверены','Основание связано','Решение зафиксировано','Следующий шаг разрешён'],
  boundaries:'Границы доверия',boundariesLead:'Что платформа принципиально не подменяет интерфейсом.',
@@ -42,7 +42,7 @@ ru:{
   ['Роль и tenant','Публичный выбор роли не выдаёт права. Авторитетный контекст формируется сервером после проверки.'],
   ['Финансовое состояние','Клиент не выбирает authoritative financial state; он показывает только серверно подтверждённый статус и основание.'],
   ['Внешняя система','Наличие интеграции или события не заявляется без фактического внешнего подтверждения.'],
-  ['Гекта','AI объясняет контекст и варианты, но не получает самостоятельного права на критическое решение.'],
+  ['Гекта','Гекта может объяснить данные и варианты, но не может сама подтвердить или выполнить критическое действие.'],
  ],
  faq:'Частые вопросы',
  faqs:[
@@ -54,15 +54,15 @@ ru:{
  register:'Регистрация',how:'Как проходит Сделка'
 },
 en:{
- e:'Trust',t:'Trust. Built on facts.',p:'The platform does not ask users to “trust the interface”. Every critical action must be explainable through authority, basis, source and a recorded decision.',
+ e:'Trust',t:'Trust is built on verifiable facts.',p:'For an important action you can check who had authority, why it was allowed, where the fact came from and what decision was recorded.',
  fact:'From fact to decision',factLead:'No screen turns uncertainty into a confident status. Missing data remains unavailable or explicitly awaits confirmation.',
  rail:['Fact received','Source identified','Authority checked','Basis linked','Decision recorded','Next step permitted'],
- boundaries:'Trust boundaries',boundariesLead:'What the platform deliberately refuses to replace with UI assumptions.',
+ boundaries:'What the interface cannot decide',boundariesLead:'Roles, financial state and external events stay tied to authoritative sources rather than UI assumptions.',
  boundary:[
   ['Role and tenant','A public role choice grants no rights. Authoritative context is server-issued after checks.'],
   ['Financial state','The client never selects authoritative financial state; it only presents server-confirmed status and basis.'],
   ['External system','An integration or external event is not claimed without actual external confirmation.'],
-  ['Gekta','AI explains context and options but receives no independent critical-decision authority.'],
+  ['Gekta','Gekta can explain data and options, but it cannot approve or execute a critical action on its own.'],
  ],
  faq:'Frequently asked questions',
  faqs:[
@@ -82,7 +82,7 @@ zh:{
   ['角色与 tenant','公开角色选择不会授予权限。权威上下文由服务器审核后签发。'],
   ['金融状态','客户端不能选择权威金融状态，只展示服务器确认的状态和依据。'],
   ['外部系统','没有真实外部确认时，不会宣称存在集成或外部事件。'],
-  ['Gekta','AI 解释上下文和选项，但不获得独立关键决策权。'],
+  ['Gekta','Gekta 可以解释数据和选项，但不能自行确认或执行关键操作。'],
  ],
  faq:'常见问题',
  faqs:[
@@ -127,7 +127,7 @@ export default async function TrustPage(){
    </div>
   </section>
   <section className='pc-cp-section pc-cp-trust-pillars-section'><div className='pc-cp-container'>
-    <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{locale==='ru'?'Четыре столпа доверия':locale==='en'?'Four trust pillars':'四个信任支柱'}</span><h2>{locale==='ru'?'Четыре столпа доверия':locale==='en'?'Four trust pillars':'四个信任支柱'}</h2><p>{locale==='ru'?'Каждый факт в Сделке проверяется по единым принципам.':locale==='en'?'Every Deal fact is evaluated through the same principles.':'每个交易事实都按同一套原则核验。'}</p></div>
+    <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{locale==='ru'?'Что проверяем':locale==='en'?'What we verify':'四个信任支柱'}</span><h2>{locale==='ru'?'Что проверяем':locale==='en'?'What we verify':'四个信任支柱'}</h2><p>{locale==='ru'?'Для каждого важного действия сохраняются четыре проверяемые опоры.':locale==='en'?'Every important action retains four verifiable checks.':'每个交易事实都按同一套原则核验。'}</p></div>
     <div className='pc-cp-trust-pillars'>
       {TRUST_MODEL[locale].map((item,index)=><article className='pc-cp-card pc-cp-trust-pillar' key={item[0]}>
         <div className='pc-cp-trust-pillar-head'><i>{index+1}</i><div><h3>{item[0]}</h3><p>{item[1]}</p></div></div>
