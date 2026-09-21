@@ -299,7 +299,7 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
     return (
       <>
         {publicContent}
-        {PublicContactDock ? <PublicContactDock assistantContext='public' publicMode='gekta' /> : null}
+        {PublicContactDock ? <PublicContactDock assistantContext='public' /> : null}
         {HydrationSafeChatSupport
           ? canonicalGekta
             ? <HydrationSafeChatSupport renderDock={false} legacyPublicPolish={false} />
