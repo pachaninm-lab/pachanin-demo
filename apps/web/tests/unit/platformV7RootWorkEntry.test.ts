@@ -34,6 +34,8 @@ describe('platform-v7 canonical public experience',()=>{
   const css=read('styles/platform-v7-canonical-public-v1.css');
   const brand=read('components/v7r/BrandMark.tsx');
   const siteHeader=read('components/platform-v7/PublicSiteHeader.tsx');
+  const gektaChatButton=read('components/platform-v7/PublicGektaChatButton.tsx');
+  const operatorLoading=read('app/platform-v7/operator/loading.tsx');
 
   it('binds visual implementation to the explicit final mockup authority',()=>{
     expect(authority).toContain('Everything else is superseded.');
@@ -54,6 +56,7 @@ describe('platform-v7 canonical public experience',()=>{
     expect(home).toContain('CanonicalDealSpine');
     expect(home).toContain('CanonicalTrustLedger');
     expect(home).toContain('CanonicalGektaStrip');
+    expect(primitives).toContain('PublicGektaChatButton');
     expect(home).not.toContain('<style jsx>');
   });
 
@@ -62,9 +65,28 @@ describe('platform-v7 canonical public experience',()=>{
       '/platform-v7/market','/platform-v7/how-it-works','/platform-v7/capabilities',
       '/platform-v7/gekta','/platform-v7/trust','/platform-v7/about',
     ]) expect(primitives).toContain(route);
-    for(const label of ['Рынок','Как проходит Сделка','Возможности','Гекта','Доверие','О платформе']) expect(primitives).toContain(label);
-    for(const label of ['Market','How the Deal works','Capabilities','Trust','About']) expect(primitives).toContain(label);
-    for(const label of ['市场','交易如何进行','功能','信任','关于平台']) expect(primitives).toContain(label);
+    for(const label of ['Рынок','Сделка','Возможности','Гекта','Доверие','О платформе']) expect(primitives).toContain(label);
+    for(const label of ['Market','Deal','Capabilities','Gekta','Trust','About']) expect(primitives).toContain(label);
+    for(const label of ['市场','交易','功能','Gekta','信任','关于平台']) expect(primitives).toContain(label);
+  });
+
+  it('keeps the protected operator route on the canonical neutral cockpit loading skeleton',()=>{
+    expect(operatorLoading).toContain("from '@/components/platform-v7/RoleCockpitLoading'");
+    expect(operatorLoading).toContain('<RoleCockpitLoading />');
+    expect(operatorLoading).toContain("className='p7-route-loading'");
+    expect(layout).toContain(".pc-shell-root-v4 .p7-route-loading{min-height:calc(100dvh - 136px)}");
+    expect(operatorLoading).not.toContain('CanonicalUxState');
+    expect(operatorLoading).not.toContain('pc-canonical-public');
+  });
+
+  it('opens Gekta through the existing public assistant authority without private context',()=>{
+    expect(gektaChatButton).toContain("new CustomEvent('pc:public-assistant-context'");
+    expect(gektaChatButton).toContain("context: 'platform'");
+    expect(gektaChatButton).not.toContain('tenantId');
+    expect(gektaChatButton).not.toContain('dealId');
+    expect(gektaChatButton).not.toContain('documentId');
+    expect(layout).toContain("<PublicContactDock assistantContext='public' publicMode='gekta' />");
+    expect(layout).toContain('<HydrationSafeChatSupport renderDock={false} legacyPublicPolish={false} />');
   });
 
   it('locks the nine canonical roles and seven Deal stages',()=>{
