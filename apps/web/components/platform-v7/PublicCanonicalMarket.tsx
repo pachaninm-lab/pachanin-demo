@@ -91,11 +91,13 @@ export async function CanonicalMarketResults({
   locale,
   query = '',
   filters = {},
+  sort = '',
   selectedIndex,
 }: {
   locale: string;
   query?: string;
   filters?: Readonly<{ crop?: string; region?: string; grade?: string }>;
+  sort?: string;
   selectedIndex?: number | null;
 }) {
   const lang = canonicalPublicLocale(locale);
@@ -109,7 +111,7 @@ export async function CanonicalMarketResults({
   const region = String(filters.region || '').trim().toLocaleLowerCase(localeTag);
   const grade = String(filters.grade || '').trim().toLocaleLowerCase(localeTag);
   const indexed = market.items.map((lot, index) => ({ lot, index }));
-  const items = indexed.filter(({ lot }) => {
+  const filtered = indexed.filter(({ lot }) => {
     const searchable = [lot.culture, cultureLabel(lot.culture, lang), lot.grade || '', lot.region]
       .map((value) => value.toLocaleLowerCase(localeTag));
     if (normalizedQuery && !searchable.some((value) => value.includes(normalizedQuery))) return false;
@@ -118,6 +120,7 @@ export async function CanonicalMarketResults({
     if (grade && !(lot.grade || '').toLocaleLowerCase(localeTag).includes(grade)) return false;
     return true;
   });
+  const items = sortMarketItems(filtered, normalizeMarketSort(sort));
 
   if (items.length === 0) return <MarketState locale={lang} kind='noMatch' />;
 
@@ -358,6 +361,38 @@ function MarketState({ locale, kind }: { locale: CanonicalPublicLocale; kind: 'e
 }
 
 type CropVisual = 'wheat' | 'barley' | 'corn' | 'sunflower' | 'soybean' | 'rapeseed' | 'rye' | 'oats' | 'generic';
+type MarketSort = '' | 'closing' | 'price-asc' | 'price-desc' | 'volume-desc';
+
+function normalizeMarketSort(value: string | undefined): MarketSort {
+  return value === 'closing' || value === 'price-asc' || value === 'price-desc' || value === 'volume-desc' ? value : '';
+}
+
+function sortMarketItems<T extends { lot: PublicMarketLot; index: number }>(items: readonly T[], sort: MarketSort): T[] {
+  const result=[...items];
+  if (!sort) return result;
+  return result.sort((left,right)=>{
+    let order=0;
+    if(sort==='closing'){
+      const a=new Date(left.lot.auctionEndsAt).getTime();
+      const b=new Date(right.lot.auctionEndsAt).getTime();
+      order=(Number.isFinite(a)?a:Number.MAX_SAFE_INTEGER)-(Number.isFinite(b)?b:Number.MAX_SAFE_INTEGER);
+    } else if(sort==='volume-desc'){
+      const a=Number(left.lot.volumeTons);
+      const b=Number(right.lot.volumeTons);
+      order=(Number.isFinite(b)?b:0)-(Number.isFinite(a)?a:0);
+    } else {
+      try {
+        const a=BigInt(left.lot.startPriceKopecksPerTon);
+        const b=BigInt(right.lot.startPriceKopecksPerTon);
+        order=a===b?0:a<b?-1:1;
+      } catch {
+        order=0;
+      }
+      if(sort==='price-desc') order*=-1;
+    }
+    return order || left.index-right.index;
+  });
+}
 
 const EMPTY_CROP_VISUALS: readonly CropVisual[] = ['wheat','sunflower','corn','soybean','rapeseed','barley','oats','rye'];
 
