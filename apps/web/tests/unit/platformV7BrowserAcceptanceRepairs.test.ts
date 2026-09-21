@@ -23,6 +23,8 @@ const languageSwitch = read('apps/web/components/platform-v7/HeaderLanguageSwitc
 const platformFooter = read('apps/web/components/platform-v7/PlatformFooter.tsx');
 const tokenCss = read('packages/design-tokens/tokens.css');
 const tokenJson = read('packages/design-tokens/tokens.json');
+const canonicalHomeCss = read('apps/web/styles/platform-v7-canonical-home-v1.css');
+const canonicalPublicCss = read('apps/web/styles/platform-v7-canonical-public-v1.css');
 
 describe('platform-v7 browser acceptance repairs', () => {
   it('keeps protected route authority exclusively in the verified server layout', () => {
@@ -103,6 +105,19 @@ describe('platform-v7 browser acceptance repairs', () => {
     expect(headerCss).toContain('padding-inline: 6px');
     expect(headerCss).toContain('.pc-site-header .pc-site-locale-switch');
     expect(headerCss).toContain('min-width: 56px');
+  });
+
+  it('keeps the final canonical mobile brand at the production i18n 14px floor', () => {
+    const marker = '/* FINAL MOBILE BRAND LEGIBILITY GATE — production i18n >=14px */';
+    for (const css of [canonicalHomeCss, canonicalPublicCss]) {
+      const markerIndex = css.lastIndexOf(marker);
+      expect(markerIndex).toBeGreaterThan(0);
+      expect(markerIndex).toBeGreaterThan(css.lastIndexOf(".pc-site-brand-text strong{font-size:12px!important}"));
+      expect(markerIndex).toBeGreaterThan(css.lastIndexOf(".pc-site-brand-text strong{font-size:13px!important}"));
+      expect(css.slice(markerIndex)).toContain(
+        ".pc-site-header[data-public-site-header='canonical'] .pc-site-brand-text strong{font-size:14px!important}",
+      );
+    }
   });
 
   it('keeps Design System muted text and partner branding above WCAG AA contrast', () => {
