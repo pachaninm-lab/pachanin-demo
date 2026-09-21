@@ -83,8 +83,10 @@ async function expectCanonicalHeader(page: Page, width: number) {
     await expectVisibleTargetsAtLeast(page, '.pc-site-mobile-menu > summary, .pc-site-locale-switch', 44);
   } else {
     await expect(header.locator('.pc-site-nav')).toBeVisible();
-    await expect(header.locator('.pc-site-nav > a:not(.pc-cp-mobile-only)')).toHaveCount(6);
-    await expectVisibleTargetsAtLeast(page, '.pc-site-locale-switch, .entry-login, .pc-v6-header-cta', 44);
+    const primaryNavLinks = header.locator('.pc-site-nav > a:not(.pc-cp-mobile-only)');
+    await expect(primaryNavLinks).toHaveCount(5);
+    await expect(header.locator('.pc-gekta-chat-button--header')).toBeVisible();
+    await expectVisibleTargetsAtLeast(page, '.pc-site-locale-switch, .pc-gekta-chat-button--header, .entry-login, .pc-v6-header-cta', 44);
   }
 }
 
