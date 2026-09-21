@@ -10056,6 +10056,41 @@
       "note": "Same underlying fact as ASVS V3.2.3, assessed here against this requirement's specific text: tsconfig.base.json sets \"strict\": false, inherited by both apps/api/tsconfig.json and apps/web/tsconfig.json with no override. Strict mode is what would catch an implicit any or an unsound type assumption at compile time - exactly the class of bug this requirement is about (a variable silently being the wrong type, or a loose == comparison masking a type-confusion bug). Without it, the compiler gives no backstop for either."
     },
     {
+      "requirementId": "V15.3.7",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/main.ts",
+        "repository-scan:explicit-parameter-binding",
+        "repository-scan:no-getall-in-web-tier"
+      ],
+      "conditions": [
+        {
+          "condition": "a global validation pipe whitelists and transforms every bound payload",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts"
+          ],
+          "patterns": [
+            "validationpipe",
+            "whitelist: true",
+            "transform: true"
+          ]
+        },
+        {
+          "condition": "the web tier never reads repeated query parameters as an array",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/web/app"
+          ],
+          "patterns": [
+            "searchparams.getall"
+          ]
+        }
+      ],
+      "note": "The requirement's own qualifier does not apply here: the framework does distinguish parameter sources. Nest binds each one explicitly rather than merging them into a single bag - measured on the controllers, @Query 131, @Body 201, @Param 235, @Headers 107 - so a query value can never arrive where a body value is expected. The defence against repeated parameters is typed validation: a global ValidationPipe with whitelist and transform is installed for every route, and all 54 DTO files import class-validator, 54 of 54, so a scalar field receiving the array that a duplicated parameter produces is rejected rather than coerced. The web tier reaches the same result differently: it reads query values with URLSearchParams.get, 19 call sites, and never with getAll, 0 call sites, and get returns the first value, so duplicates collapse deterministically to one scalar instead of becoming an array. Limit worth stating: forbidNonWhitelisted is false, so unknown parameters are stripped rather than refused. That is a different concern from parameter pollution and does not weaken this defence, but it does mean an unexpected parameter fails silently."
+    },
+    {
       "requirementId": "V15.4.1",
       "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",

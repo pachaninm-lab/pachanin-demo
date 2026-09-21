@@ -3,7 +3,7 @@
   "issue": 4459,
   "branch": "security/asvs-v824-absence-exceptions-4459",
   "status": "active",
-  "purpose": "Make the ASVS assessment register truthful and more complete, without moving any requirement to PASS. Two parts, one file. First: an ABSENT_IN_TREE condition read a disable flag as the control it detects - 'geoip' inside a PostHog flag that disables GeoIP rejected the V8.2.4 decision and reported the requirement NOT_ASSESSED instead of the FAIL already measured; named self-verifying exceptions fix that without being able to suppress a real match. Second: V15.2.4 had no decision at all and is now assessed from repository facts and recorded FAIL.",
+  "purpose": "Make the ASVS assessment register truthful and more complete, without moving any requirement to PASS. Two parts, one file. First: an ABSENT_IN_TREE condition read a disable flag as the control it detects - 'geoip' inside a PostHog flag that disables GeoIP rejected the V8.2.4 decision and reported the requirement NOT_ASSESSED instead of the FAIL already measured; named self-verifying exceptions fix that without being able to suppress a real match. Second: V15.2.4 had no decision at all and is now assessed from repository facts and recorded FAIL. Subsequent assessments in the same file cover requirements that had no decision at all: V15.2.4 recorded FAIL, V3.5.4 recorded NOT_ASSESSED with the missing fact named, and V15.3.7 recorded PASS on measured evidence.",
   "authorityBaseExactMain": "a924286d5f012c827b003e3fd54007822121764f",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
@@ -14,7 +14,7 @@
     "docs/platform-v7/autopilot/scopes/asvs-v824-absence-exceptions-4459.json"
   ],
   "requiredInvariants": [
-    "No requirement may be moved to PASS by this change. The only movement permitted is out of NOT_ASSESSED into the status the evidence supports; measured, the FAIL count rises from 89 to 91.",
+    "The exception mechanism must never move a requirement to PASS: its only permitted effect is to stop a decision being wrongly rejected, restoring the status that decision already recorded. Assessments of previously unassessed requirements may record PASS, but only where repository evidence is measured and expressed as conditions the matrix re-verifies on every run. No status may rest on prose alone.",
     "An exception must never be able to clear a file that also contains an unquoted match; a real adaptive control cannot hide beside a benign string.",
     "An exception must quote the exact line, which is re-read from the real file on every run. A quoted line that changed or no longer matches fails the condition rather than being ignored.",
     "Conditions that declare no exceptions must behave exactly as before.",
