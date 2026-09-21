@@ -158,7 +158,7 @@ test.describe('canonical visual authority evidence', () => {
       const authority=AUTHORITY_AHASH[target.name];
       // Perceptual authority is Chromium-only. Other engines retain the same
       // route/runtime/a11y/overflow evidence without engine-specific pixel hashing.
-      if(authority && /chromium/i.test(testInfo.project.name)){
+      if(authority && (!testInfo.project.name || /chromium/i.test(testInfo.project.name))){
         const observed=await averageHashFromPng(page,png);
         const distance=hammingHex(authority.hash,observed);
         expect(distance,`${target.name} perceptual drift ${distance} > ${authority.maxDistance}; authority=${authority.hash} observed=${observed}`).toBeLessThanOrEqual(authority.maxDistance);
@@ -321,6 +321,24 @@ async function canonicalNoOverflow(page: Page) {
   ))).toBeLessThanOrEqual(1);
 }
 
+async function canonicalHeaderTargets(page: Page) {
+  const header=page.locator('[data-public-site-header="canonical"]');
+  if(await header.count()===0) return;
+  await expect(header).toBeVisible();
+  const viewport=page.viewportSize();
+  const mobile=Boolean(viewport&&viewport.width<=768);
+  for(const control of await header.locator('a:visible, summary:visible').all()){
+    const box=await control.boundingBox();
+    expect(box,'canonical header visible control').not.toBeNull();
+    expect(box!.height).toBeGreaterThanOrEqual(43.999);
+    if(mobile) expect(box!.width).toBeGreaterThanOrEqual(43.999);
+    if(viewport){
+      expect(box!.x).toBeGreaterThanOrEqual(-1);
+      expect(box!.x+box!.width).toBeLessThanOrEqual(viewport.width+1);
+    }
+  }
+}
+
 async function canonicalA11y(page: Page) {
   const report = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
@@ -405,7 +423,11 @@ test.describe('canonical cross-browser public smoke', () => {
     const response=await page.goto(`/platform-v7/register?${params}`,{waitUntil:'load'});
     expect(response?.ok()).toBe(true);
 
-    const links=page.locator('[data-public-site-header="canonical"] .pc-site-locale-option');
+    const header=page.locator('[data-public-site-header="canonical"]');
+    await expect(header.locator('.pc-site-brand')).toHaveAttribute('href','/platform-v7?lang=ru');
+    await expect(header.locator('.pc-site-action').first()).toHaveAttribute('href','/platform-v7/login?lang=ru');
+    await canonicalHeaderTargets(page);
+    const links=header.locator('.pc-site-locale-option');
     await expect(links).toHaveCount(3);
     for(const locale of ['ru','en','zh'] as const){
       const link=links.locator(`[lang="${locale==='zh'?'zh-CN':locale}"]`);
@@ -429,6 +451,7 @@ test.describe('canonical cross-browser public smoke', () => {
       await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
       await expect(page.locator('html')).toHaveAttribute('lang', new RegExp(`^${locale}`));
       await canonicalNoOverflow(page);
+      await canonicalHeaderTargets(page);
       await page.keyboard.press('Tab');
       expect(await page.evaluate(() => document.activeElement?.tagName || '')).not.toBe('BODY');
     }
@@ -455,6 +478,7 @@ test.describe('canonical cross-browser public smoke', () => {
           expect(response?.status()).toBe(200);
           await expectPublicRoute(page, requested, baseURL);
           await expect(page.locator('[data-public-site-header="canonical"]')).toBeVisible();
+          await canonicalHeaderTargets(page);
           await canonicalNoOverflow(page);
         }
       }
