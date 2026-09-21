@@ -19,6 +19,7 @@ const authority = (
   providerId: 'provider-1',
   providerCapabilityId: 'provider-cap-1',
   capabilityCode: 'BANK',
+  authorizedBankCapabilities: ['SAFE_DEAL_RESERVE_RELEASE', 'DIRECT_PAYMENT', 'BILLING', 'FINANCING_APPLICATION', 'STATEMENT_READ', 'STATUS_READ', 'AUTHENTICATED_CALLBACK', 'RECONCILIATION'],
   maturity: 'LIVE_ACCEPTED',
   bindingVersion: '7',
   configurationVersion: 'cfg-7',
@@ -102,7 +103,17 @@ describe('bank capability router', () => {
     });
   });
 
-  it('does not substitute one bank capability for another', () => {
+  it('requires the server-held provider binding to authorize the exact capability', () => {
+    expect(router.route(
+      authority('T_BANK', { authorizedBankCapabilities: ['STATUS_READ'] }),
+      'BILLING',
+    )).toMatchObject({
+      status: 'UNSUPPORTED',
+      reason: 'SERVER_HELD_CAPABILITY_NOT_AUTHORIZED:BILLING',
+    });
+  });
+
+  it('does not substitute one adapter capability for another', () => {
     for (const capability of ['BILLING', 'FINANCING_APPLICATION', 'STATEMENT_READ'] as const) {
       expect(router.route(authority('SBER'), capability)).toMatchObject({
         status: 'UNSUPPORTED',
