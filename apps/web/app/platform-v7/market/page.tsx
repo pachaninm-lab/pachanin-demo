@@ -14,12 +14,25 @@ import { CanonicalMarketResults, CanonicalPublicLotView } from '@/components/pla
 type Params=Record<string,string|string[]|undefined>;
 const first=(v:string|string[]|undefined)=>Array.isArray(v)?v[0]:v;
 
-export const metadata:Metadata={
-  title:'Рынок — Прозрачная Цена',
-  description:'Публичный обезличенный рынок лотов, которые сервер разрешил к публикации.',
-  alternates:{canonical:'/platform-v7/market'},
-  robots:{index:true,follow:true},
-};
+const META={"ru":["Рынок — Прозрачная Цена","Публичный обезличенный рынок лотов, которые сервер разрешил к публикации."],"en":["Market — Transparent Price","Public anonymised lots admitted by the server for publication, without seller identity or private terms."],"zh":["市场 — 透明价格","服务器允许公开的匿名批次市场，不披露卖方身份、内部标识或非公开条件。"]} as const;
+
+export async function generateMetadata():Promise<Metadata>{
+  const locale=canonicalPublicLocale(await getLocale());
+  const copy=META[locale];
+  return {
+    title:copy[0],
+    description:copy[1],
+    alternates:{
+      canonical:'/platform-v7/market',
+      languages:{
+        ru:'/platform-v7/market?lang=ru',
+        en:'/platform-v7/market?lang=en',
+        zh:'/platform-v7/market?lang=zh',
+      },
+    },
+    robots:{index:true,follow:true},
+  };
+}
 
 export default async function PlatformV7MarketPage({searchParams}:{searchParams?:Promise<Params>}){
   const params=(await searchParams)??{};
