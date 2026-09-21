@@ -50,6 +50,7 @@ for (const marker of [
   'productionEnvironmentConfirmed',
   'SERVER_HELD_CAPABILITY_NOT_AUTHORIZED',
   'authorizedBankCapabilities',
+  '!authority.capabilityCode.trim()',
   "authority.maturity !== 'LIVE_ACCEPTED'",
 ]) assert.ok(router.includes(marker), 'missing routing boundary ' + marker);
 
