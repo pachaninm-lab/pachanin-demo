@@ -180,13 +180,15 @@ export function mapReferenceDispatch(
 ): BankDispatchMapping {
   const status = response.rawStatus?.trim().toUpperCase() ?? null;
   const rejectSet = new Set(explicitRejectStatuses.map((value) => value.trim().toUpperCase()));
+  // Transport status alone is not business rejection evidence. In particular,
+  // 4xx can represent throttling, duplicate/conflict handling, auth/routing
+  // failures or other outcomes whose business effect is not established here.
+  // Only a provider status pinned by an adapter contract may classify REJECTED.
   const acknowledgement: BankTransportAcknowledgement = status && rejectSet.has(status)
     ? 'REJECTED'
     : response.httpStatus !== null && response.httpStatus >= 200 && response.httpStatus < 300
       ? 'ACCEPTED_NONFINAL'
-      : response.httpStatus !== null && response.httpStatus >= 400 && response.httpStatus < 500
-        ? 'REJECTED'
-        : 'UNKNOWN';
+      : 'UNKNOWN';
   return {
     providerFamily,
     acknowledgement,
