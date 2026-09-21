@@ -392,6 +392,36 @@ test.describe('canonical protected cabinet boundary', () => {
 });
 
 test.describe('canonical cross-browser public smoke', () => {
+
+  test('registration locale cluster preserves verification context without granting authority', async ({ page }) => {
+    const verify='canonical-verify+/=_';
+    const statusToken='canonical-status+/=_';
+    await page.route('**/api/auth/registration/status**', (route) => route.fulfill({
+      status:400,
+      contentType:'application/json',
+      body:JSON.stringify({ok:false,code:'INVALID_TOKEN'}),
+    }));
+    const params=new URLSearchParams({lang:'ru',verify,statusToken,intent:'buy'});
+    const response=await page.goto(`/platform-v7/register?${params}`,{waitUntil:'load'});
+    expect(response?.ok()).toBe(true);
+
+    const links=page.locator('[data-public-site-header="canonical"] .pc-site-locale-option');
+    await expect(links).toHaveCount(3);
+    for(const locale of ['ru','en','zh'] as const){
+      const link=links.locator(`[lang="${locale==='zh'?'zh-CN':locale}"]`);
+      const href=await link.getAttribute('href');
+      expect(href).toBeTruthy();
+      const target=new URL(href!,page.url());
+      expect(target.pathname).toBe('/platform-v7/register');
+      expect(target.searchParams.get('lang')).toBe(locale);
+      expect(target.searchParams.get('verify')).toBe(verify);
+      expect(target.searchParams.get('statusToken')).toBe(statusToken);
+      expect(target.searchParams.get('intent')).toBe('buy');
+      expect(target.searchParams.has('tenantId')).toBe(false);
+    }
+  });
+
+
   test('RU EN ZH home remains keyboard-usable, accessible and overflow-safe', async ({ page }) => {
     for (const locale of ['ru', 'en', 'zh'] as const) {
       const response = await page.goto(`/platform-v7?lang=${locale}`, { waitUntil: 'load' });

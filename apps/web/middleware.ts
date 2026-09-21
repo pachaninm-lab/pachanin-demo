@@ -301,6 +301,9 @@ function withRoleHeaders(req: NextRequest, role: string, protectedResponse = fal
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set('x-pc-role', role);
   requestHeaders.set('x-pc-pathname', req.nextUrl.pathname);
+  // Navigation-only query context lets zero-hydration locale links preserve
+  // registration/status tokens without turning query values into authority.
+  requestHeaders.set('x-pc-search', req.nextUrl.search);
   const queryLocale = resolveLocaleFromQuery(req);
   const pathLocale = resolveGektaPathLocale(req.nextUrl.pathname);
   const requestLocale = pathLocale || queryLocale;
