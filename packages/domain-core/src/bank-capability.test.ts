@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
-import path from 'node:path';
 import {
   BANK_CAPABILITIES,
   normalizeBankCapabilitySet,
@@ -43,7 +42,7 @@ describe('provider-neutral bank capability contract', () => {
   });
 
   it('contains no provider-specific canonical field vocabulary', () => {
-    const source = fs.readFileSync(path.join(process.cwd(), 'packages/domain-core/src/bank-capability.ts'), 'utf8');
+    const source = fs.readFileSync(new URL('./bank-capability.ts', import.meta.url), 'utf8');
     for (const forbidden of ['SBER', 'ALFA_BANK', 'T_BANK', 'BANK_PROVIDER', 'bankRef', 'partnerId']) {
       expect(source).not.toContain(forbidden);
     }
