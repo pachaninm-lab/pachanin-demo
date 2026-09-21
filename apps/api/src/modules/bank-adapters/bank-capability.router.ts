@@ -17,6 +17,7 @@ export type BankRoutingAuthority = Readonly<{
   providerId: string;
   providerCapabilityId: string;
   capabilityCode: string;
+  authorizedBankCapabilities: readonly BankCapability[];
   maturity: IntegrationCapabilityMaturity;
   bindingVersion: string;
   configurationVersion: string;
@@ -68,6 +69,14 @@ export class BankCapabilityRouter {
         status: 'UNAVAILABLE',
         adapter: null,
         reason: 'NO_ADAPTER_FOR_SERVER_HELD_PROVIDER',
+      };
+    }
+
+    if (!supportsBankCapability(authority.authorizedBankCapabilities, requiredCapability)) {
+      return {
+        status: 'UNSUPPORTED',
+        adapter,
+        reason: `SERVER_HELD_CAPABILITY_NOT_AUTHORIZED:${requiredCapability}`,
       };
     }
 
