@@ -1,6 +1,6 @@
 # PC-CROP MASTER v2.1 execution queue
 
-CURRENT: R1.2 Controlled open-as-role server authority
+CURRENT: R1.3 CEO overview and P0/P1 decision queue
 
 OFFICIAL OVERALL: 5/100 = 5%
 TARGET AFTER R1 PRODUCTION_PASS: 12/100 = 12%
@@ -12,45 +12,35 @@ CURRENT ALLOWED:
 - docs/platform-v7/autopilot/prompts/current-review-task.md
 - docs/platform-v7/execution-queue.md
 - docs/execution/**
-- apps/api/src/modules/staff-access/**
+- apps/api/src/app.module.ts
+- apps/api/src/modules/founder-control/**
+- apps/api/src/modules/staff-access/staff-access.types.ts
+- apps/api/prisma/migrations/*_founder_control_center/**
+- infra/kind/production-like/postgresql-runtime-grants.sql
 - apps/api/test/staff-access/**
+- .github/workflows/ci.yml
 
 CURRENT CRITERIA:
-- expose one server-owned canonical mapping for all 13 Founder role-mode cabinet intents;
-- preserve the authenticated Founder as actual actor and store effective organization/role only inside durable staff access context;
-- derive tenant server-side from the authorized organization; reject client-selected tenant/effective-role authority;
-- create role mode through existing PLATFORM_OWNER + recent MFA + VIEW_AS request/grant/session flow;
-- keep VIEW_AS read-only; high-risk actions remain behind ordinary authority, MFA and approval boundaries;
-- preserve reason, ticket, expiry, end/revoke and append-only audit evidence;
-- prove forged cabinet key, cross-tenant target, stale/revoked/expired session and write-in-VIEW_AS denials;
-- do not touch PRODUCT UX/FGIS/bank visual work.
+- Company Health combines business, operations, finance, risk and system health from real PostgreSQL/domain sources only;
+- every metric has source, asOf/freshness, grain/definition, availability and drill-down;
+- unavailable/stale/error remains explicit and never becomes fake/zero actual;
+- P0/P1 queue has stable identity/version, owner or UNASSIGNED, deadline, impact, next action, escalation and source/evidence;
+- PLATFORM_OWNER + current durable assignment + MFA are revalidated for every read;
+- no client-selected tenant/role/provider/finality authority and no cross-tenant leakage;
+- no PRODUCT UX/FGIS/bank visual implementation.
 
 LOCKED:
-- R1.3 CEO overview and P0/P1 decision queue until R1.2 is merged with exact-head evidence.
+- R1.4 financial/commercial Founder metrics until R1.3 is merged with exact-head evidence.
 - R1 official 7 points remain 0 until the whole block has PRODUCTION_PASS.
 
 NEXT:
-- Layer: R1.3 CEO overview and P0/P1 decision queue
-- Allowed files:
-  - docs/platform-v7/autopilot/autopilot-state.json
-  - docs/platform-v7/autopilot/progress.json
-  - docs/platform-v7/autopilot/prompts/current-codex-task.md
-  - docs/platform-v7/autopilot/prompts/current-review-task.md
-  - docs/platform-v7/execution-queue.md
-  - docs/execution/**
-  - apps/api/src/app.module.ts
-  - apps/api/src/modules/founder-control/**
-  - apps/api/src/modules/staff-access/staff-access.types.ts
-  - apps/api/prisma/migrations/*_founder_control_center/**
-  - infra/kind/production-like/postgresql-runtime-grants.sql
-  - apps/api/test/staff-access/**
-  - .github/workflows/ci.yml
+- Layer: R1.4 Cash/runway, pipeline, client P&L, AR/DSO, forecast, retention, hiring and scale gates.
 - Success criteria:
-  - Company Health contract combines business, operations, finance, risk and system health without fake numeric fallback
-  - every metric exposes source/freshness/grain/formula or an explicit unavailable state plus drill-down reference
-  - P0/P1 queue exposes owner, deadline, impact, next action, escalation and source
-  - Founder read authority is PLATFORM_OWNER-only and current durable assignment/MFA are revalidated
-  - empty/unavailable is honest; plan/forecast never masquerades as actual
+  - actual/plan/forecast remain distinct;
+  - cash/runway and AR/DSO derive from authoritative financial sources;
+  - client P&L/margin is reproducible from ledger/source rows;
+  - retention/pipeline/scale gates do not fabricate missing commercial evidence;
+  - all values keep source/freshness/drill-down and explicit unavailable semantics.
 - Readiness remains MASTER_R1_IN_PROGRESS.
 
 ## R1.1 closed evidence
