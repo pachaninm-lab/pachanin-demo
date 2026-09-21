@@ -550,7 +550,7 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
 /* CANONICAL LOCALE CLUSTER */
 .pc-site-locale-cluster{display:flex;align-items:center;justify-content:center;gap:2px;flex:0 0 auto}
 .pc-site-locale-option{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px;border-radius:8px;color:#5d6963;text-decoration:none;font-size:10px;font-weight:750;line-height:1}
-.pc-site-locale-option[data-active='true']{color:var(--pc-cp-ink);font-weight:900}
+.pc-site-locale-option[data-active='true']{background:#087a3b!important;color:#fff!important;font-weight:900}
 .pc-site-locale-option:hover,.pc-site-locale-option:focus-visible{background:var(--pc-cp-green-soft);color:var(--pc-cp-green)}
 @media(max-width:760px){
   .pc-site-locale-cluster{gap:0}
@@ -880,7 +880,7 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
 .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-mark[data-brand-mark='transparent-price-canonical']{width:30px!important;height:30px!important;flex-basis:30px!important}
 .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-text strong{font-size:14px!important}
 .pc-site-header[data-public-site-header='canonical'] .pc-site-nav{gap:16px!important;font-size:10px!important}
-.pc-site-header[data-public-site-header='canonical'] .pc-site-nav a{min-width:auto!important;padding-inline:2px!important}
+.pc-site-header[data-public-site-header='canonical'] .pc-site-nav a{min-width:44px!important;padding-inline:2px!important;justify-content:center!important}
 .pc-site-header[data-public-site-header='canonical'] .entry-login{font-size:11px!important;border:0!important}
 .pc-site-header[data-public-site-header='canonical'] :is(.pc-v6-header-cta,.pc-ppe-primary-button,.p7-about-register,.p7-contact-register){height:44px!important;min-height:44px!important;border-radius:7px!important;padding-inline:12px!important;font-size:10px!important}
 .pc-site-locale-option{min-width:44px;min-height:44px;padding-inline:4px;font-size:9px}
