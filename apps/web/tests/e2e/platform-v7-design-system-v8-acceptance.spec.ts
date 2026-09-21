@@ -381,9 +381,25 @@ for (const locale of ['ru', 'en', 'zh'] as const) {
         } else if (route === 'terms' || route === 'privacy' || route === 'docs' || route === 'oferta') {
           await expect(page.locator('.pc-public-contact-dock')).toBeVisible();
         } else {
-          // Canonical product surfaces intentionally retire the legacy dock.
-          // Registration, Trust and About keep their own canonical CTAs/header.
-          await expect(page.locator('.pc-public-contact-dock')).toHaveCount(0);
+          // FINAL PUBLIC canonical routes mount exactly one Gekta-only transport
+          // surface backed by the existing PublicPlatformAssistant. It replaces
+          // the legacy Support/Call dock; desktop opens from header/section
+          // actions while mobile retains one touch-safe launcher.
+          const gektaDock = page.locator('.pc-public-contact-dock[data-public-mode="gekta"]');
+          await expect(gektaDock).toHaveCount(1);
+          await expect(page.locator('.pc-public-contact-dock[data-public-mode="full"]')).toHaveCount(0);
+          await expect(gektaDock.locator('.pc-public-contact-dock-assistant')).toHaveCount(1);
+          await expect(gektaDock.locator('.pc-public-contact-dock-action:not(.pc-public-contact-dock-assistant)')).toHaveCount(0);
+          await expect(gektaDock.locator('.pc-public-contact-dock-call')).toHaveCount(0);
+          if (width >= 981) {
+            await expect(gektaDock).toBeHidden();
+          } else {
+            await expect(gektaDock).toBeVisible();
+            const assistantTarget = await gektaDock.locator('.pc-public-contact-dock-assistant').boundingBox();
+            expect(assistantTarget, `${path} ${width}px Gekta launcher`).not.toBeNull();
+            expect(assistantTarget!.width).toBeGreaterThanOrEqual(44);
+            expect(assistantTarget!.height).toBeGreaterThanOrEqual(44);
+          }
         }
         const toggle = header.locator('summary');
         if (await toggle.isVisible()) {
