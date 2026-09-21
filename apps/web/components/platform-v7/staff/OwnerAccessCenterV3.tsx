@@ -32,6 +32,29 @@ type RoleModeInfo = {
   restrictions: string[];
   returnPath: string;
 };
+type FounderRoleModeSession = {
+  schemaVersion: 'pc-crop.founder-role-mode.v1';
+  active: true;
+  accessSessionId: string;
+  actor: { displayName: string };
+  cabinetKey: string;
+  canonicalPath: string;
+  effectiveRole: string;
+  effectiveOrganizationId: string;
+  effectiveTenantId: string;
+  mode: 'VIEW_AS';
+  readOnly: true;
+  restrictions: string[];
+  expiresAt: string;
+  ticketId: string;
+  mfaRequired: true;
+  returnPath: string;
+};
+type ActiveRoleMode = RoleModeInfo & {
+  accessSessionId: string;
+  actorDisplayName: string;
+  expiresAt: string;
+};
 type RoleModeRequestResponse = {
   status?: string;
   grantId?: string | null;
@@ -137,6 +160,7 @@ const OWNER_COPY = {
     projectionUnavailable: 'Проекция кабинета временно недоступна. Делегированная сессия остаётся read-only.',
     statusPending: 'Запрос создан, но активный grant сервер не вернул. Режим не открыт.',
     registryUnavailable: 'Канонический реестр role-mode временно недоступен.',
+    protectedSessionActive: 'Уже активна другая защищённая staff-сессия. Завершите её перед открытием Founder role-mode.',
   },
   en: {
     eyebrow: 'Platform owner',
@@ -173,6 +197,7 @@ const OWNER_COPY = {
     projectionUnavailable: 'The cabinet projection is temporarily unavailable. The delegated session remains read-only.',
     statusPending: 'The request was created, but the server did not return an active grant. The mode was not opened.',
     registryUnavailable: 'The canonical role-mode registry is temporarily unavailable.',
+    protectedSessionActive: 'Another protected staff session is active. End it before opening Founder role mode.',
   },
   zh: {
     eyebrow: '平台所有者',
@@ -209,6 +234,7 @@ const OWNER_COPY = {
     projectionUnavailable: '工作台投影暂时不可用。委托会话仍保持只读。',
     statusPending: '请求已创建，但服务器未返回可激活 grant，因此模式尚未开启。',
     registryUnavailable: '规范 role-mode 注册表暂时不可用。',
+    protectedSessionActive: '已有其他受保护 staff 会话。请先结束该会话，再开启 Founder role-mode。',
   },
 } as const;
 
@@ -279,7 +305,7 @@ export function OwnerAccessCenter(props: Props) {
   const [advanced, setAdvanced] = useState(false);
   const [registry, setRegistry] = useState<RoleModeRegistry | null>(null);
   const [sessionContext, setSessionContext] = useState<SessionContext>({ active: false, session: null });
-  const [activeMode, setActiveMode] = useState<RoleModeInfo | null>(null);
+  const [activeMode, setActiveMode] = useState<ActiveRoleMode | null>(null);
   const [projection, setProjection] = useState<CabinetProjection | null>(null);
   const [projectionUnavailable, setProjectionUnavailable] = useState(false);
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -349,7 +375,7 @@ export function OwnerAccessCenter(props: Props) {
     setChecking(true);
     setOpenError(null);
     try {
-      const [assignmentsResponse, registryResponse, sessionResponse] = await Promise.all([
+      const [assignmentsResponse, registryResponse, sessionResponse, roleModeSessionResponse] = await Promise.all([
         fetch('/api/staff/assignments/me', {
           credentials: 'same-origin',
           cache: 'no-store',
@@ -363,6 +389,12 @@ export function OwnerAccessCenter(props: Props) {
           signal: AbortSignal.timeout(8_000),
         }),
         fetch('/api/staff/session-context', {
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: { Accept: 'application/json' },
+          signal: AbortSignal.timeout(8_000),
+        }),
+        fetch('/platform-v7/staff/role-mode?view=session', {
           credentials: 'same-origin',
           cache: 'no-store',
           headers: { Accept: 'application/json' },
@@ -390,36 +422,59 @@ export function OwnerAccessCenter(props: Props) {
       setRegistry(registryPayload);
 
       const sessionPayload = await sessionResponse.json().catch(() => null) as SessionContext | null;
-      if (
-        sessionResponse.ok
-        && sessionPayload?.active === true
-        && sessionPayload.session?.accessMode === 'VIEW_AS'
-        && sessionPayload.session.permissions.includes('cabinet:view-as')
-        && sessionPayload.session.effectiveOrganizationId
-        && sessionPayload.session.effectiveRole
-      ) {
-        const cabinet = registryPayload.cabinets.find((item) => item.effectiveRole === sessionPayload.session?.effectiveRole);
-        const mode: RoleModeInfo = {
-          cabinetKey: cabinet?.key || 'unknown',
-          canonicalPath: cabinet?.canonicalPath || '',
-          effectiveRole: sessionPayload.session.effectiveRole,
-          effectiveOrganizationId: sessionPayload.session.effectiveOrganizationId,
+      const roleModeSession = await roleModeSessionResponse.json().catch(() => null) as FounderRoleModeSession | ApiErrorPayload | null;
+      const protectedSessionActive = sessionResponse.ok && sessionPayload?.active === true && Boolean(sessionPayload.session);
+      setSessionContext(protectedSessionActive ? sessionPayload! : { active: false, session: null });
+
+      if (protectedSessionActive && roleModeSessionResponse.ok && roleModeSession && 'active' in roleModeSession) {
+        const session = sessionPayload!.session!;
+        const canonical = roleModeSession as FounderRoleModeSession;
+        const cabinet = registryPayload.cabinets.find((item) => item.key === canonical.cabinetKey);
+        const valid = canonical.schemaVersion === 'pc-crop.founder-role-mode.v1'
+          && canonical.active === true
+          && canonical.mode === 'VIEW_AS'
+          && canonical.readOnly === true
+          && canonical.mfaRequired === true
+          && typeof canonical.actor?.displayName === 'string'
+          && canonical.actor.displayName.trim().length > 0
+          && Array.isArray(canonical.restrictions)
+          && cabinet?.canonicalPath === canonical.canonicalPath
+          && cabinet?.effectiveRole === canonical.effectiveRole
+          && session.accessSessionId === canonical.accessSessionId
+          && session.accessMode === 'VIEW_AS'
+          && session.permissions.includes('cabinet:view-as')
+          && session.effectiveOrganizationId === canonical.effectiveOrganizationId
+          && session.effectiveRole === canonical.effectiveRole
+          && canonical.returnPath.startsWith('/platform-v7/staff');
+        if (!valid) throw new Error(text.openFailed);
+
+        setActiveMode({
+          cabinetKey: canonical.cabinetKey,
+          canonicalPath: canonical.canonicalPath,
+          effectiveRole: canonical.effectiveRole,
+          effectiveOrganizationId: canonical.effectiveOrganizationId,
+          effectiveTenantId: canonical.effectiveTenantId,
           mode: 'VIEW_AS',
           readOnly: true,
-          restrictions: registryPayload.restrictions,
-          returnPath: registryPayload.returnPath,
-        };
-        setSessionContext(sessionPayload);
-        setActiveMode(mode);
-        setOrganizationId(sessionPayload.session.effectiveOrganizationId);
-        await loadProjection(sessionPayload.session);
+          restrictions: canonical.restrictions,
+          returnPath: canonical.returnPath,
+          accessSessionId: canonical.accessSessionId,
+          actorDisplayName: canonical.actor.displayName,
+          expiresAt: canonical.expiresAt,
+        });
+        setOrganizationId(canonical.effectiveOrganizationId);
+        setNotice(null);
+        await loadProjection(session);
       } else {
-        setSessionContext({ active: false, session: null });
         setActiveMode(null);
         setProjection(null);
         setProjectionUnavailable(false);
-        if (!sessionResponse.ok && sessionResponse.status >= 500) {
+        if (protectedSessionActive) {
+          setNotice(text.protectedSessionActive);
+        } else if (!sessionResponse.ok && sessionResponse.status >= 500) {
           setNotice(text.projectionUnavailable);
+        } else {
+          setNotice(null);
         }
       }
     } catch (error) {
@@ -427,7 +482,7 @@ export function OwnerAccessCenter(props: Props) {
     } finally {
       setChecking(false);
     }
-  }, [apiAvailable, loadProjection, text.projectionUnavailable, text.registryUnavailable]);
+  }, [apiAvailable, loadProjection, text.openFailed, text.projectionUnavailable, text.protectedSessionActive, text.registryUnavailable]);
 
   useEffect(() => {
     void loadRoleMode();
@@ -519,31 +574,65 @@ export function OwnerAccessCenter(props: Props) {
         throw new Error(payloadMessage(activationPayload, text.openFailed));
       }
 
-      const sessionResponse = await fetch('/api/staff/session-context', {
-        credentials: 'same-origin',
-        cache: 'no-store',
-        headers: { Accept: 'application/json' },
-        signal: controller.signal,
-      });
+      const [sessionResponse, roleModeSessionResponse] = await Promise.all([
+        fetch('/api/staff/session-context', {
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: { Accept: 'application/json' },
+          signal: controller.signal,
+        }),
+        fetch('/platform-v7/staff/role-mode?view=session', {
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: { Accept: 'application/json' },
+          signal: controller.signal,
+        }),
+      ]);
       const sessionPayload = await sessionResponse.json().catch(() => null) as SessionContext | null;
+      const canonical = await roleModeSessionResponse.json().catch(() => null) as FounderRoleModeSession | null;
       const session = sessionPayload?.session;
       if (
         !sessionResponse.ok
+        || !roleModeSessionResponse.ok
         || sessionPayload?.active !== true
         || !session
+        || !canonical
+        || canonical.schemaVersion !== 'pc-crop.founder-role-mode.v1'
+        || canonical.active !== true
+        || canonical.mode !== 'VIEW_AS'
+        || canonical.readOnly !== true
+        || canonical.mfaRequired !== true
+        || canonical.accessSessionId !== session.accessSessionId
+        || canonical.cabinetKey !== roleMode.cabinetKey
+        || canonical.canonicalPath !== roleMode.canonicalPath
+        || canonical.effectiveOrganizationId !== roleMode.effectiveOrganizationId
+        || canonical.effectiveRole !== roleMode.effectiveRole
         || session.accessMode !== 'VIEW_AS'
         || !session.permissions.includes('cabinet:view-as')
-        || session.effectiveOrganizationId !== roleMode.effectiveOrganizationId
-        || session.effectiveRole !== roleMode.effectiveRole
+        || session.effectiveOrganizationId !== canonical.effectiveOrganizationId
+        || session.effectiveRole !== canonical.effectiveRole
+        || !Array.isArray(canonical.restrictions)
+        || typeof canonical.actor?.displayName !== 'string'
+        || !canonical.actor.displayName.trim()
+        || !canonical.returnPath.startsWith('/platform-v7/staff')
       ) {
         throw new Error(text.openFailed);
       }
 
       setSessionContext(sessionPayload);
       setActiveMode({
-        ...roleMode,
-        restrictions: Array.isArray(roleMode.restrictions) ? roleMode.restrictions : registry?.restrictions || [],
-        returnPath: roleMode.returnPath || registry?.returnPath || '',
+        cabinetKey: canonical.cabinetKey,
+        canonicalPath: canonical.canonicalPath,
+        effectiveRole: canonical.effectiveRole,
+        effectiveOrganizationId: canonical.effectiveOrganizationId,
+        effectiveTenantId: canonical.effectiveTenantId,
+        mode: 'VIEW_AS',
+        readOnly: true,
+        restrictions: canonical.restrictions,
+        returnPath: canonical.returnPath,
+        accessSessionId: canonical.accessSessionId,
+        actorDisplayName: canonical.actor.displayName,
+        expiresAt: canonical.expiresAt,
       });
       await loadProjection(session);
     } catch (error) {
@@ -644,10 +733,10 @@ export function OwnerAccessCenter(props: Props) {
             <span className={styles.readOnlyBadge}>VIEW_AS · READ_ONLY</span>
           </div>
           <dl className={styles.modeFacts}>
-            <div><dt>{text.actor}</dt><dd>{identity?.fullName || identity?.email || identity?.id || '—'}</dd></div>
+            <div><dt>{text.actor}</dt><dd>{activeMode.actorDisplayName}</dd></div>
             <div><dt>{text.effectiveOrganization}</dt><dd>{activeMode.effectiveOrganizationId}</dd></div>
             <div><dt>{text.effectiveRole}</dt><dd>{activeMode.effectiveRole}</dd></div>
-            <div><dt>{text.expires}</dt><dd>{formatDate(sessionContext.session.expiresAt, locale)}</dd></div>
+            <div><dt>{text.expires}</dt><dd>{formatDate(activeMode.expiresAt, locale)}</dd></div>
           </dl>
           <div className={styles.restrictions}>
             <strong>{text.restrictions}</strong>
@@ -746,6 +835,7 @@ export function OwnerAccessCenter(props: Props) {
                   onClick={() => void openCabinet(item)}
                   disabled={
                     busyKey !== null
+                    || sessionContext.active
                     || organizationId.trim().length < 3
                     || ticketId.trim().length < 3
                     || reason.trim().length < 10
