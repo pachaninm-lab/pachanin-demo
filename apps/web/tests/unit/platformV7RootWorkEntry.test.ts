@@ -68,6 +68,8 @@ describe('platform-v7 canonical public experience',()=>{
     for(const source of publicTypeSources){
       expect(source).not.toMatch(/font-size:\\s*(?:[1-9](?:\\.\\d+)?|1[01](?:\\.\\d+)?)px/i);
       expect(source).not.toMatch(/\\b(?:Inter|Georgia|Times New Roman)\\b/);
+      const weights=[...source.matchAll(/font-weight:\\s*(\\d+)/gi)].map((match)=>Number(match[1]));
+      expect(weights.every((weight)=>[400,500,600,700,800].includes(weight))).toBe(true);
     }
     expect(css).toContain('FINAL PUBLIC TYPOGRAPHY AUTHORITY v2');
     expect(homeCss).toContain('FINAL PUBLIC TYPOGRAPHY AUTHORITY v2');
