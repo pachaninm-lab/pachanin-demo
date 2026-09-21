@@ -1,4 +1,3 @@
-import { describe, expect, it } from '@jest/globals';
 import type { BankReceiptCandidate } from './bank-adapter.port';
 import {
   validateBankReceiptCandidate,
