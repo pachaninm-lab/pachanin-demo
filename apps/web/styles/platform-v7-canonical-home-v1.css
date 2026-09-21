@@ -730,7 +730,7 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
 
 @media(max-width:390px){
   :root{--pc-cp-shell:calc(100vw - 24px)}
-  .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-text strong{font-size:12px!important}
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-text strong{font-size:14px!important}
   .pc-cp-page-home .pc-cp-hero-copy h1{font-size:29px!important}
   .pc-cp-page-home .pc-cp-hero-copy p{max-width:220px!important;font-size:10px!important}
   .pc-cp-page-market .pc-cp-lot-card{grid-template-columns:112px minmax(0,1fr)!important}
