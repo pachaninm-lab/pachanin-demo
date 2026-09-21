@@ -1488,3 +1488,154 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-canonical-public .pc-cp-deal-spine{overflow-x:auto!important;overscroll-behavior-inline:contain}
 }
 
+/* FINAL PUBLIC EXPERIENCE v1 — readability + a11y authority 2026-09-21
+ * Content microtype is retired without weakening target, contrast, overflow or visual thresholds.
+ * Dense seven-stage views use internal rails on handheld screens.
+ */
+.pc-cp-page-home #gekta .pc-cp-gekta-brand>strong{
+  color:var(--pc-cp-ink)!important;
+}
+.pc-cp-page-home #gekta .pc-cp-gekta-actions>a{
+  color:#0a5d43!important;
+  font-size:13px!important;
+  line-height:1.3!important;
+}
+.pc-cp-page-home #gekta .pc-cp-gekta-actions>a:hover,
+.pc-cp-page-home #gekta .pc-cp-gekta-actions>a:focus-visible{
+  color:#064a35!important;
+}
+.pc-cp-page-home .pc-cp-deal-lens-cell small{
+  font-size:11px!important;
+  line-height:1.3!important;
+}
+.pc-cp-page-home .pc-cp-deal-lens-cell strong,
+.pc-cp-page-home .pc-cp-deal-lens-next strong{
+  font-size:13px!important;
+  line-height:1.4!important;
+}
+.pc-cp-footer p,.pc-cp-footer a{
+  font-size:12px!important;
+  line-height:1.4!important;
+}
+.pc-cp-bottom-nav a,.pc-cp-bottom-nav a[data-center='true']{
+  font-size:12px!important;
+}
+
+/* How it works */
+.pc-cp-page-how .pc-cp-stage strong{font-size:12px!important;line-height:1.3!important}
+.pc-cp-page-how .pc-cp-process-meta span{font-size:11px!important;line-height:1.3!important}
+.pc-cp-page-how .pc-cp-process-meta strong{font-size:12px!important;line-height:1.4!important}
+.pc-cp-page-how .pc-cp-trust-card p,
+.pc-cp-how-gekta-note p{font-size:13px!important;line-height:1.45!important}
+.pc-cp-how-hero-quote span{font-size:12px!important;line-height:1.4!important}
+
+/* Trust */
+.pc-cp-page-trust .pc-cp-trust-pillar-head p{font-size:12px!important;line-height:1.4!important}
+.pc-cp-page-trust .pc-cp-trust-pillar li{font-size:12px!important;line-height:1.4!important}
+.pc-cp-page-trust .pc-cp-trust-pillar>small{font-size:11px!important;line-height:1.35!important}
+.pc-cp-page-trust .pc-cp-stage strong{font-size:12px!important;line-height:1.3!important}
+.pc-cp-trust-hero-quote span{font-size:12px!important;line-height:1.4!important}
+.pc-cp-trust-gekta .pc-cp-gekta-brand p{font-size:13px!important;line-height:1.45!important}
+.pc-cp-page-trust .pc-cp-faq-item summary{font-size:13px!important;line-height:1.35!important}
+.pc-cp-page-trust .pc-cp-faq-item p,
+.pc-cp-page-trust .pc-cp-detail-block p{font-size:13px!important;line-height:1.45!important}
+
+/* Gekta public product/workspace */
+.pc-cp-page-gekta .pc-cp-gekta-public-hero p{font-size:13px!important;line-height:1.45!important}
+.pc-cp-page-gekta .pc-cp-gekta-hero-quote span{font-size:12px!important;line-height:1.4!important}
+.pc-cp-page-gekta .pc-cp-gekta-benefits>span{font-size:12px!important;line-height:1.35!important}
+.pc-cp-page-gekta .pc-cp-gekta-context li{font-size:12px!important;line-height:1.4!important}
+.pc-cp-page-gekta .pc-cp-gekta-action strong{font-size:13px!important;line-height:1.35!important}
+.pc-cp-page-gekta .pc-cp-gekta-action p{font-size:12px!important;line-height:1.4!important}
+.pc-cp-page-gekta .pc-cp-gekta-prompts span{font-size:12px!important;line-height:1.35!important}
+.pc-cp-page-gekta .pc-cp-gekta-source span{font-size:11px!important;line-height:1.35!important}
+.pc-cp-page-gekta .pc-cp-gekta-source strong{font-size:12px!important;line-height:1.4!important}
+
+/* Market */
+.pc-cp-page-market .pc-cp-lot-meta span,
+.pc-cp-page-market .pc-cp-market-aside dt{font-size:12px!important;line-height:1.35!important}
+.pc-cp-page-market .pc-cp-lot-meta strong,
+.pc-cp-page-market .pc-cp-market-aside dd{font-size:13px!important;line-height:1.4!important}
+.pc-cp-page-market .pc-cp-detail-block p{font-size:13px!important;line-height:1.45!important}
+
+/* Deal flow */
+.pc-cp-page-deal-flow .pc-cp-deal-public-hero .pc-cp-section-head p{font-size:14px!important;line-height:1.5!important}
+.pc-cp-page-deal-flow .pc-cp-stage strong{font-size:12px!important;line-height:1.3!important}
+.pc-cp-page-deal-flow .pc-cp-state-tab{font-size:12px!important}
+.pc-cp-page-deal-flow .pc-cp-state-cell span{font-size:11px!important;line-height:1.35!important}
+.pc-cp-page-deal-flow .pc-cp-state-cell strong{font-size:13px!important;line-height:1.4!important}
+.pc-cp-page-deal-flow .pc-cp-trust-card p{font-size:13px!important;line-height:1.45!important}
+.pc-cp-deal-public-lot dt{font-size:11px!important;line-height:1.35!important}
+.pc-cp-deal-public-lot dd{font-size:13px!important;line-height:1.4!important}
+.pc-cp-deal-public-lot p{font-size:12px!important;line-height:1.45!important}
+.pc-cp-deal-public-stage p{font-size:13px!important;line-height:1.45!important}
+.pc-cp-deal-public-stage-facts small{font-size:11px!important;line-height:1.3!important}
+.pc-cp-deal-public-stage-facts strong{font-size:12px!important;line-height:1.4!important}
+.pc-cp-deal-public-main .pc-cp-state-tab{font-size:12px!important}
+.pc-cp-deal-public-main .pc-cp-state-cell span{font-size:11px!important;line-height:1.35!important}
+.pc-cp-deal-public-main .pc-cp-state-cell strong{font-size:13px!important;line-height:1.4!important}
+.pc-cp-deal-public-trust .pc-cp-trust-card p{font-size:12px!important;line-height:1.4!important}
+.pc-cp-deal-public-gekta .pc-cp-gekta-brand p,
+.pc-cp-deal-public-gekta .pc-cp-gekta-chips span{font-size:12px!important;line-height:1.4!important}
+
+@media(max-width:760px){
+  .pc-cp-page-home #gekta .pc-cp-gekta-actions>a{font-size:14px!important}
+
+  .pc-cp-page-how .pc-cp-deal-spine,
+  .pc-cp-page-deal-flow .pc-cp-deal-spine,
+  .pc-cp-page-trust .pc-cp-deal-spine{
+    grid-template-columns:repeat(7,112px)!important;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    overscroll-behavior-inline:contain;
+    scroll-snap-type:x proximity;
+  }
+  .pc-cp-page-how .pc-cp-stage,
+  .pc-cp-page-deal-flow .pc-cp-stage,
+  .pc-cp-page-trust .pc-cp-stage{scroll-snap-align:start}
+
+  .pc-cp-page-how .pc-cp-process-cards{grid-template-columns:1fr!important;gap:10px!important}
+  .pc-cp-page-how .pc-cp-process-card{min-height:0!important;padding:14px!important}
+  .pc-cp-page-how .pc-cp-process-card h3{font-size:18px!important;line-height:1.2!important}
+  .pc-cp-page-how .pc-cp-process-meta{grid-template-columns:1fr 1fr!important;gap:7px!important}
+  .pc-cp-page-how .pc-cp-process-meta span{font-size:12px!important}
+  .pc-cp-page-how .pc-cp-process-meta strong{font-size:13px!important}
+
+  .pc-cp-page-trust .pc-cp-trust-pillars{grid-template-columns:1fr!important}
+  .pc-cp-page-trust .pc-cp-trust-pillar{
+    min-height:0!important;
+    grid-template-rows:auto auto 96px auto!important;
+    padding:14px!important;
+  }
+  .pc-cp-page-trust .pc-cp-trust-pillar-head p,
+  .pc-cp-page-trust .pc-cp-trust-pillar li,
+  .pc-cp-page-trust .pc-cp-trust-pillar>small{font-size:13px!important;line-height:1.45!important}
+  .pc-cp-page-trust .pc-cp-faq-row{grid-template-columns:1fr!important}
+  .pc-cp-page-trust .pc-cp-faq-item summary,
+  .pc-cp-page-trust .pc-cp-faq-item p{font-size:14px!important}
+
+  .pc-cp-page-gekta .pc-cp-gekta-public-hero p,
+  .pc-cp-page-gekta .pc-cp-gekta-context li,
+  .pc-cp-page-gekta .pc-cp-gekta-action p{font-size:14px!important;line-height:1.45!important}
+  .pc-cp-page-gekta .pc-cp-gekta-benefits>span,
+  .pc-cp-page-gekta .pc-cp-gekta-prompts span,
+  .pc-cp-page-gekta .pc-cp-gekta-source strong{font-size:13px!important}
+
+  .pc-cp-page-market .pc-cp-lot-meta span,
+  .pc-cp-page-market .pc-cp-market-aside dt{font-size:12px!important}
+  .pc-cp-page-market .pc-cp-lot-meta strong,
+  .pc-cp-page-market .pc-cp-market-aside dd,
+  .pc-cp-page-market .pc-cp-detail-block p{font-size:14px!important;line-height:1.45!important}
+
+  .pc-cp-page-deal-flow .pc-cp-state-cell span,
+  .pc-cp-deal-public-main .pc-cp-state-cell span,
+  .pc-cp-deal-public-stage-facts small{font-size:12px!important}
+  .pc-cp-page-deal-flow .pc-cp-state-cell strong,
+  .pc-cp-deal-public-main .pc-cp-state-cell strong,
+  .pc-cp-deal-public-stage-facts strong{font-size:14px!important;line-height:1.45!important}
+  .pc-cp-deal-public-lot p,
+  .pc-cp-deal-public-stage p,
+  .pc-cp-deal-public-trust .pc-cp-trust-card p,
+  .pc-cp-deal-public-gekta .pc-cp-gekta-brand p{font-size:14px!important;line-height:1.45!important}
+}
+
