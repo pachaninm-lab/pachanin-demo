@@ -1666,3 +1666,42 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   }
 }
 
+/* FINAL PUBLIC EXPERIENCE v1 — mobile Deal readability specificity lock */
+@media(max-width:760px){
+  .pc-cp-page-deal-flow .pc-cp-deal-public-hero .pc-cp-deal-spine{
+    grid-template-columns:repeat(7,112px)!important;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    padding-bottom:8px!important;
+    overscroll-behavior-inline:contain!important;
+    scroll-snap-type:x proximity!important;
+  }
+  .pc-cp-page-deal-flow .pc-cp-deal-public-hero .pc-cp-stage{
+    min-width:112px!important;
+    scroll-snap-align:start!important;
+  }
+  .pc-cp-page-deal-flow .pc-cp-deal-public-hero .pc-cp-stage strong{
+    font-size:13px!important;
+    line-height:1.25!important;
+    max-width:90px!important;
+  }
+  .pc-cp-page-deal-flow .pc-cp-deal-public-main .pc-cp-state-tab{
+    min-height:44px!important;
+    font-size:13px!important;
+    line-height:1.2!important;
+  }
+  .pc-cp-page-deal-flow .pc-cp-deal-public-main .pc-cp-state-cell span{
+    font-size:12px!important;
+    line-height:1.35!important;
+  }
+  .pc-cp-page-deal-flow .pc-cp-deal-public-main .pc-cp-state-cell strong{
+    font-size:14px!important;
+    line-height:1.45!important;
+  }
+  .pc-cp-page-deal-flow .pc-cp-deal-mobile-summary div span,
+  .pc-cp-page-deal-flow .pc-cp-deal-mobile-summary>.pc-cp-chip{
+    font-size:12px!important;
+    line-height:1.3!important;
+  }
+}
+

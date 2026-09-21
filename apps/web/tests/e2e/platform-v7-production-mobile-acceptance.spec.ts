@@ -175,6 +175,35 @@ test.describe('Platform V7 canonical linked pages RU EN ZH', () => {
         if (target.name === 'how-it-works') {
           await expect(page.locator('.pc-cp-process-card')).toHaveCount(7);
         }
+        if (target.name === 'deal-flow') {
+          const stageRail = page.locator('.pc-cp-deal-public-hero .pc-cp-deal-spine').first();
+          const stageLabels = page.locator('.pc-cp-deal-public-hero .pc-cp-stage strong');
+          await expect(stageLabels).toHaveCount(7);
+          const stageSizes = await stageLabels.evaluateAll((nodes) => nodes.map((node) => Number.parseFloat(getComputedStyle(node).fontSize)));
+          expect(Math.min(...stageSizes)).toBeGreaterThanOrEqual(12);
+          const rail = await stageRail.evaluate((node) => ({
+            clientWidth: node.clientWidth,
+            scrollWidth: node.scrollWidth,
+            overflowX: getComputedStyle(node).overflowX,
+          }));
+          expect(rail.scrollWidth).toBeGreaterThan(rail.clientWidth);
+          expect(['auto', 'scroll']).toContain(rail.overflowX);
+
+          const stateTabs = page.locator('.pc-cp-deal-public-main .pc-cp-state-tab');
+          const stateTabMetrics = await stateTabs.evaluateAll((nodes) => nodes.map((node) => {
+            const style = getComputedStyle(node);
+            const rect = node.getBoundingClientRect();
+            return { fontSize: Number.parseFloat(style.fontSize), height: rect.height };
+          }));
+          expect(stateTabMetrics.length).toBeGreaterThanOrEqual(3);
+          expect(Math.min(...stateTabMetrics.map((item) => item.fontSize))).toBeGreaterThanOrEqual(12);
+          expect(Math.min(...stateTabMetrics.map((item) => item.height))).toBeGreaterThanOrEqual(44);
+
+          const stateCopy = page.locator('.pc-cp-deal-public-main .pc-cp-state-cell span, .pc-cp-deal-public-main .pc-cp-state-cell strong');
+          const stateSizes = await stateCopy.evaluateAll((nodes) => nodes.map((node) => Number.parseFloat(getComputedStyle(node).fontSize)));
+          expect(stateSizes.length).toBeGreaterThan(0);
+          expect(Math.min(...stateSizes)).toBeGreaterThanOrEqual(12);
+        }
         if (target.name === 'trust') {
           await expect(page.locator('.pc-cp-trust-pillar')).toHaveCount(4);
         }
