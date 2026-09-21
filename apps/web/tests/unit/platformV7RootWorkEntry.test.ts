@@ -530,21 +530,17 @@ describe('canonical overview does not invent server progress', () => {
     });
   }
 
-  it('makes public Deal state scenarios navigable without changing the protected read-only default', () => {
+  it('keeps public Deal state indicators informational instead of fake navigation', () => {
     const dealFlowSource = read('app/platform-v7/deal-flow/page.tsx');
     const result = markup(createElement(CanonicalStateTabs, {
       locale: 'ru',
       state: 'normal',
-      links: {
-        normal: '/platform-v7/deal-flow?lang=ru&state=normal',
-        deviation: '/platform-v7/deal-flow?lang=ru&state=deviation',
-        dispute: '/platform-v7/deal-flow?lang=ru&state=dispute',
-      },
     }));
-    expect(result.querySelectorAll('a.pc-cp-state-tab')).toHaveLength(3);
-    expect(result.querySelector('[data-state="deviation"]')?.getAttribute('href')).toContain('state=deviation');
-    expect(dealFlowSource).toContain('stateLinks={{');
-    expect(dealFlowSource).toContain('publicState(first(params.state))');
+    expect(result.querySelectorAll('.pc-cp-state-tab')).toHaveLength(3);
+    expect(result.querySelectorAll('a.pc-cp-state-tab, button.pc-cp-state-tab')).toHaveLength(0);
+    expect(result.querySelector('[data-state="normal"]')?.getAttribute('aria-current')).toBe('true');
+    expect(dealFlowSource).not.toContain('stateLinks={{');
+    expect(dealFlowSource).not.toContain('publicState(first(params.state))');
   });
 
   function fixture(status: string, disputeStatus?: string) {
