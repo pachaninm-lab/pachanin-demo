@@ -26,13 +26,14 @@ describe('Sber reference adapter', () => {
       idempotencyKey: 'idem-1',
       amountMinor: '10000',
       currency: 'rub',
-      sourceVersion: 'settlement:v9',
+      sourceVersion: ' settlement:v9 ',
       beneficiaryReference: 'beneficiary-1',
     })).toMatchObject({
       providerFamily: 'SBER',
       capability: 'SAFE_DEAL_RESERVE_RELEASE',
       amountMinor: '10000',
       currency: 'RUB',
+      sourceVersion: 'settlement:v9',
       liveRequestReady: false,
       contractMode: 'REFERENCE_CONFORMANCE_ONLY',
     });
