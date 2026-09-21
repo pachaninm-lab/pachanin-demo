@@ -16,6 +16,7 @@ describe('T-Bank reference adapter', () => {
         httpStatus,
         rawStatus: null,
         providerOperationId: 'tbank-op-1',
+        idempotencyKey: 'idem-1',
         providerEventId: null,
         externalReceiptId: null,
         authenticationEvidenceRef: null,
@@ -35,6 +36,7 @@ describe('T-Bank reference adapter', () => {
     const base = {
       httpStatus: 200,
       providerOperationId: 'tbank-op-1',
+      idempotencyKey: 'idem-1',
       providerEventId: 'event-1',
       externalReceiptId: 'receipt-1',
       authenticationEvidenceRef: 'auth-1',
