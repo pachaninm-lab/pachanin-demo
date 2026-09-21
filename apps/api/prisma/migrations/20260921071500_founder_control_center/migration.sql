@@ -58,23 +58,14 @@ GRANT SELECT (
   currency, severity, owner_user_id, owner_org_id, sla_deadline, version, updated_at
 ) ON dispute.cases TO pc_founder_control_read_authority;
 
--- FORCE RLS remains enabled where already configured. The dedicated NOLOGIN
--- definer gets read-only all-row policies; the runtime principal gets none.
+-- Keep policies only on relations whose existing RLS surface is already active.
+-- Creating a policy on a non-RLS relation is rejected by the repository's inert-
+-- policy gate. Non-RLS relations below remain bounded by column-level SELECT on
+-- this isolated NOLOGIN definer; if RLS is enabled later, access fails closed
+-- until an explicit policy is added.
 DROP POLICY IF EXISTS users_founder_control_read_authority ON public."users";
 CREATE POLICY users_founder_control_read_authority
   ON public."users" FOR SELECT TO pc_founder_control_read_authority USING (true);
-
-DROP POLICY IF EXISTS auth_sessions_founder_control_read_authority ON auth.sessions;
-CREATE POLICY auth_sessions_founder_control_read_authority
-  ON auth.sessions FOR SELECT TO pc_founder_control_read_authority USING (true);
-
-DROP POLICY IF EXISTS credential_states_founder_control_read_authority ON auth.credential_states;
-CREATE POLICY credential_states_founder_control_read_authority
-  ON auth.credential_states FOR SELECT TO pc_founder_control_read_authority USING (true);
-
-DROP POLICY IF EXISTS staff_assignments_founder_control_read_authority ON auth.staff_assignments;
-CREATE POLICY staff_assignments_founder_control_read_authority
-  ON auth.staff_assignments FOR SELECT TO pc_founder_control_read_authority USING (true);
 
 DROP POLICY IF EXISTS deals_founder_control_read_authority ON public."deals";
 CREATE POLICY deals_founder_control_read_authority
@@ -83,11 +74,6 @@ CREATE POLICY deals_founder_control_read_authority
 DROP POLICY IF EXISTS shipments_founder_control_read_authority ON public."shipments";
 CREATE POLICY shipments_founder_control_read_authority
   ON public."shipments" FOR SELECT TO pc_founder_control_read_authority USING (true);
-
-DROP POLICY IF EXISTS bank_statement_entries_founder_control_read_authority
-  ON public."bank_statement_entries";
-CREATE POLICY bank_statement_entries_founder_control_read_authority
-  ON public."bank_statement_entries" FOR SELECT TO pc_founder_control_read_authority USING (true);
 
 DROP POLICY IF EXISTS outbox_entries_founder_control_read_authority ON public."outbox_entries";
 CREATE POLICY outbox_entries_founder_control_read_authority
