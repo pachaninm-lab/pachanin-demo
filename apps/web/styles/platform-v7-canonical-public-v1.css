@@ -387,7 +387,7 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-page-home .pc-cp-footer a{min-height:26px}
 
   /* How the Deal works: seven cards in one authority-width row. */
-  .pc-cp-page-how .pc-cp-hero{min-height:205px;padding:18px 0 12px;background-image:linear-gradient(90deg,rgba(250,249,245,.96),rgba(250,249,245,.58)),url('/platform-v7/hero-farmer-canonical.webp');background-size:cover;background-position:center 48%}
+  .pc-cp-page-how .pc-cp-hero{min-height:205px;padding:18px 0 12px;background-image:linear-gradient(90deg,rgba(250,249,245,.96),rgba(250,249,245,.58)),url('/platform-v7/hero-agro-infrastructure.svg');background-size:cover;background-position:center 48%}
   .pc-cp-page-how .pc-cp-hero::after{display:none}
   .pc-cp-page-how .pc-cp-hero-grid{grid-template-columns:minmax(0,.9fr) minmax(440px,1.1fr);gap:18px}
   .pc-cp-page-how .pc-cp-hero-copy{gap:6px}
@@ -415,7 +415,7 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-page-how .pc-cp-footer{padding:12px 0 18px}
 
   /* Trust: hero + four dense pillars + decision path. */
-  .pc-cp-page-trust .pc-cp-hero{min-height:265px;padding:26px 0 18px;background-image:linear-gradient(90deg,rgba(250,249,245,.97) 0%,rgba(250,249,245,.72) 43%,rgba(250,249,245,.10) 78%),url('/platform-v7/hero-farmer-canonical.webp');background-size:cover;background-position:center 45%}
+  .pc-cp-page-trust .pc-cp-hero{min-height:265px;padding:26px 0 18px;background-image:linear-gradient(90deg,rgba(250,249,245,.97) 0%,rgba(250,249,245,.72) 43%,rgba(250,249,245,.10) 78%),url('/platform-v7/hero-agro-infrastructure.svg');background-size:cover;background-position:center 45%}
   .pc-cp-page-trust .pc-cp-hero::after{display:none}
   .pc-cp-page-trust .pc-cp-hero-grid{grid-template-columns:minmax(0,.8fr) minmax(300px,.55fr);gap:34px}
   .pc-cp-page-trust .pc-cp-hero-copy h1{font-size:48px;max-width:10ch}
@@ -618,14 +618,14 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
 .pc-cp-deal-public-gekta{padding:7px 0 10px}.pc-cp-deal-public-gekta .pc-cp-gekta-strip{padding:9px 12px;grid-template-columns:250px 1fr;gap:10px}.pc-cp-deal-public-gekta .pc-cp-gekta-brand strong{font-size:21px}.pc-cp-deal-public-gekta .pc-cp-gekta-brand p{font-size:8px}.pc-cp-deal-public-gekta .pc-cp-gekta-chips span{font-size:8px;padding:4px 6px}
 
 /* How it works: hero, seven-stage rail, seven vertical stage cards, trust row + Gekta note. */
-.pc-cp-how-hero{min-height:178px!important;padding:20px 0 12px!important;background-image:linear-gradient(90deg,rgba(250,249,245,.98) 0%,rgba(250,249,245,.70) 42%,rgba(250,249,245,.06) 82%),url('/platform-v7/hero-farmer-canonical.webp')!important;background-size:cover!important;background-position:center 50%!important}
+.pc-cp-how-hero{min-height:178px!important;padding:20px 0 12px!important;background-image:linear-gradient(90deg,rgba(250,249,245,.98) 0%,rgba(250,249,245,.70) 42%,rgba(250,249,245,.06) 82%),url('/platform-v7/hero-agro-infrastructure.svg')!important;background-size:cover!important;background-position:center 50%!important}
 .pc-cp-how-hero::after{display:none!important}.pc-cp-how-hero-grid{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:30px;align-items:center}.pc-cp-how-hero .pc-cp-hero-copy{gap:5px}.pc-cp-how-hero .pc-cp-hero-copy h1{font-size:40px;line-height:.96;max-width:15ch}.pc-cp-how-hero .pc-cp-hero-copy p{font-size:11px;max-width:560px}.pc-cp-how-hero-quote{align-self:center;padding:13px 15px;border-left:2px solid rgba(255,255,255,.82);background:rgba(10,55,40,.64);color:#fff;backdrop-filter:blur(5px)}.pc-cp-how-hero-quote strong{display:block;font-family:var(--pc-cp-display);font-size:18px}.pc-cp-how-hero-quote span{display:block;margin-top:5px;font-size:9px;line-height:1.3;color:#dce8e2}
 .pc-cp-how-spine{padding:6px 0 7px;background:#fff;border-bottom:1px solid var(--pc-cp-line)}.pc-cp-how-spine .pc-cp-deal-spine{margin:0}.pc-cp-how-spine .pc-cp-stage i{width:34px;height:34px}.pc-cp-how-spine .pc-cp-stage strong{font-size:9px}
 .pc-cp-page-how>.pc-cp-section{padding:11px 0}.pc-cp-page-how .pc-cp-process-cards{grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}.pc-cp-page-how .pc-cp-process-card{padding:8px;display:block;min-height:250px;border-radius:8px}.pc-cp-page-how .pc-cp-process-card>i{width:24px;height:24px;font-size:8px;float:left;margin:0 5px 4px 0}.pc-cp-page-how .pc-cp-process-card h3{font-size:14px;line-height:1.02;min-height:28px}.pc-cp-page-how .pc-cp-process-meta{grid-template-columns:1fr;gap:3px;margin-top:5px;clear:both}.pc-cp-page-how .pc-cp-process-meta div{padding:4px;border:0;border-top:1px solid var(--pc-cp-line);border-radius:0}.pc-cp-page-how .pc-cp-process-meta span{font-size:6px}.pc-cp-page-how .pc-cp-process-meta strong{font-size:7px;line-height:1.15}
 .pc-cp-how-trust .pc-cp-section-head{margin-bottom:7px}.pc-cp-how-trust-layout{display:grid;grid-template-columns:minmax(0,4fr) minmax(190px,1fr);gap:8px}.pc-cp-how-trust-layout .pc-cp-trust-grid{gap:6px}.pc-cp-how-trust-layout .pc-cp-trust-card{padding:8px;min-height:94px}.pc-cp-how-trust-layout .pc-cp-trust-card strong{font-size:13px}.pc-cp-how-trust-layout .pc-cp-trust-card p{font-size:7px;line-height:1.18}.pc-cp-how-gekta-note{padding:10px;border:1px solid #d9cc9b;border-left:3px solid #b49a3d;border-radius:9px;background:#fffef9}.pc-cp-how-gekta-note strong{font-family:var(--pc-cp-display);font-size:14px}.pc-cp-how-gekta-note p{margin:5px 0 0;color:var(--pc-cp-muted);font-size:8px;line-height:1.3}.pc-cp-how-gekta{padding:6px 0!important}.pc-cp-how-gekta .pc-cp-gekta-strip{padding:8px 12px}.pc-cp-page-how .pc-cp-footer{padding:8px 0 12px}
 
 /* Trust: detailed pillars and compact decision/FAQ geometry. */
-.pc-cp-trust-hero{min-height:235px!important;padding:20px 0 14px!important;background-image:linear-gradient(90deg,rgba(250,249,245,.98) 0%,rgba(250,249,245,.70) 40%,rgba(250,249,245,.04) 78%),url('/platform-v7/hero-farmer-canonical.webp')!important;background-size:cover!important;background-position:center 46%!important}.pc-cp-trust-hero::after{display:none!important}.pc-cp-trust-hero .pc-cp-hero-grid{grid-template-columns:minmax(0,1fr) 250px;gap:32px}.pc-cp-trust-hero .pc-cp-hero-copy{gap:6px}.pc-cp-trust-hero .pc-cp-hero-copy h1{font-size:46px;max-width:11ch}.pc-cp-trust-hero .pc-cp-hero-copy p{font-size:11px;max-width:500px}.pc-cp-trust-hero .pc-cp-actions{gap:6px}.pc-cp-trust-hero-quote{padding:14px;border-left:3px solid var(--pc-cp-green);background:rgba(255,255,255,.86);box-shadow:var(--pc-cp-shadow);backdrop-filter:blur(5px)}.pc-cp-trust-hero-quote strong{display:block;font-family:var(--pc-cp-display);font-size:19px;line-height:1.08}.pc-cp-trust-hero-quote span{display:block;margin-top:7px;color:var(--pc-cp-muted);font-size:9px}
+.pc-cp-trust-hero{min-height:235px!important;padding:20px 0 14px!important;background-image:linear-gradient(90deg,rgba(250,249,245,.98) 0%,rgba(250,249,245,.70) 40%,rgba(250,249,245,.04) 78%),url('/platform-v7/hero-agro-infrastructure.svg')!important;background-size:cover!important;background-position:center 46%!important}.pc-cp-trust-hero::after{display:none!important}.pc-cp-trust-hero .pc-cp-hero-grid{grid-template-columns:minmax(0,1fr) 250px;gap:32px}.pc-cp-trust-hero .pc-cp-hero-copy{gap:6px}.pc-cp-trust-hero .pc-cp-hero-copy h1{font-size:46px;max-width:11ch}.pc-cp-trust-hero .pc-cp-hero-copy p{font-size:11px;max-width:500px}.pc-cp-trust-hero .pc-cp-actions{gap:6px}.pc-cp-trust-hero-quote{padding:14px;border-left:3px solid var(--pc-cp-green);background:rgba(255,255,255,.86);box-shadow:var(--pc-cp-shadow);backdrop-filter:blur(5px)}.pc-cp-trust-hero-quote strong{display:block;font-family:var(--pc-cp-display);font-size:19px;line-height:1.08}.pc-cp-trust-hero-quote span{display:block;margin-top:7px;color:var(--pc-cp-muted);font-size:9px}
 .pc-cp-trust-pillars-section{padding:10px 0!important}.pc-cp-trust-pillars-section .pc-cp-section-head{margin-bottom:7px}.pc-cp-trust-pillars{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.pc-cp-trust-pillar{padding:9px;display:grid;grid-template-rows:auto 1fr 56px auto;gap:6px;min-height:260px;border-radius:9px}.pc-cp-trust-pillar-head{display:grid;grid-template-columns:28px minmax(0,1fr);gap:6px}.pc-cp-trust-pillar-head i{width:28px;height:28px;display:grid;place-items:center;border-radius:50%;background:var(--pc-cp-green-soft);color:var(--pc-cp-green);font-style:normal;font-weight:900}.pc-cp-trust-pillar h3{margin:0;font-family:var(--pc-cp-display);font-size:16px}.pc-cp-trust-pillar-head p{margin:2px 0 0;color:var(--pc-cp-muted);font-size:8px;line-height:1.2}.pc-cp-trust-pillar ul{list-style:none;margin:0;padding:0;display:grid;gap:3px}.pc-cp-trust-pillar li{display:flex;gap:5px;align-items:flex-start;color:#3d4d45;font-size:8px;line-height:1.2}.pc-cp-trust-pillar li svg{flex:none;color:var(--pc-cp-green)}.pc-cp-trust-pillar-media{height:56px;border-radius:6px;background-image:linear-gradient(90deg,rgba(255,255,255,.02),rgba(11,79,58,.10)),url('/platform-v7/wheat-exact-background.svg');background-size:cover;background-position:center}.pc-cp-trust-pillar-media[data-visual-index='1']{background-position:20% 65%;filter:sepia(.2)}.pc-cp-trust-pillar-media[data-visual-index='2']{background-position:70% 40%;filter:saturate(.6)}.pc-cp-trust-pillar-media[data-visual-index='3']{background-position:50% 75%;filter:saturate(.75)}.pc-cp-trust-pillar>small{color:var(--pc-cp-muted);font-size:7px;line-height:1.18}
 .pc-cp-page-trust>.pc-cp-section{padding:10px 0}.pc-cp-page-trust .pc-cp-state-shell{padding:8px}.pc-cp-page-trust .pc-cp-deal-spine{margin:4px 0 0}.pc-cp-page-trust .pc-cp-stage i{width:27px;height:27px}.pc-cp-page-trust .pc-cp-stage strong{font-size:8px}.pc-cp-trust-gekta{padding:6px 0!important}.pc-cp-trust-gekta .pc-cp-gekta-strip{padding:8px 12px;grid-template-columns:280px 1fr}.pc-cp-trust-gekta .pc-cp-gekta-brand strong{font-size:20px}.pc-cp-trust-gekta .pc-cp-gekta-brand p{font-size:8px}.pc-cp-faq-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.pc-cp-faq-item{padding:0;border-radius:7px;box-shadow:none}.pc-cp-faq-item summary{list-style:none;min-height:38px;display:flex;align-items:center;justify-content:space-between;gap:7px;padding:7px 9px;font-size:8px;font-weight:750;cursor:pointer}.pc-cp-faq-item summary::-webkit-details-marker{display:none}.pc-cp-faq-item p{margin:0;padding:0 9px 9px;color:var(--pc-cp-muted);font-size:8px;line-height:1.25}.pc-cp-page-trust .pc-cp-footer{padding:8px 0 12px}
 
@@ -1423,3 +1423,115 @@ body:has(.pc-canonical-public) .pc-public-assistant-composer-button:not(:disable
   }
 }
 
+
+/* FINAL PUBLIC EXPERIENCE v1 — typography, palette and readability authority */
+:root{
+  --pc-cp-green:#0b6046;
+  --pc-cp-green-2:#137052;
+  --pc-cp-green-soft:#e7f4eb;
+  --pc-cp-ink:#17261f;
+  --pc-cp-muted:#5d7066;
+  --pc-cp-line:#d9e7de;
+  --pc-cp-line-strong:#bfd6c9;
+  --pc-cp-bg:#f3f8f5;
+  --pc-cp-card:#ffffff;
+  --pc-cp-display:-apple-system,BlinkMacSystemFont,"Segoe UI Variable","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --pc-cp-ui:-apple-system,BlinkMacSystemFont,"Segoe UI Variable","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+html:is([lang='zh-CN'],[lang^='zh']) :is(.pc-canonical-public,.pc-canonical-deal){
+  --pc-cp-display:"PingFang SC","Noto Sans SC","Microsoft YaHei","Segoe UI",sans-serif;
+  --pc-cp-ui:"PingFang SC","Noto Sans SC","Microsoft YaHei","Segoe UI",sans-serif;
+}
+.pc-canonical-public,.pc-canonical-deal{font-family:var(--pc-cp-ui);background:#fff;color:var(--pc-cp-ink);text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased}
+.pc-cp-section--soft{background:var(--pc-cp-bg)}
+.pc-cp-card{border-color:var(--pc-cp-line);box-shadow:0 10px 30px rgba(24,57,42,.045)}
+.pc-cp-section-head h1,.pc-cp-section-head h2,.pc-cp-display,.pc-cp-role-card strong,.pc-cp-trust-card strong,.pc-cp-lot-title,.pc-cp-final h2,.pc-cp-gekta-brand strong{font-family:var(--pc-cp-display)}
+.pc-cp-section-head h1,.pc-cp-section-head h2,.pc-cp-hero-copy h1{font-weight:720;letter-spacing:-.035em}
+.pc-cp-button{border-radius:11px;background:var(--pc-cp-green);border-color:var(--pc-cp-green)}
+.pc-cp-button--secondary{background:#fff;border-color:#c7dbcf;color:#244137}
+.pc-cp-chip,.pc-cp-role-tags span{background:#f7fbf8;border-color:#d4e5db;color:#40564b}
+.pc-cp-gekta-strip{background:linear-gradient(135deg,#e4f3e9 0%,#f4faf6 62%,#edf7f1 100%)!important;border:1px solid #c8e0d2;color:var(--pc-cp-ink)!important;box-shadow:0 18px 46px rgba(30,72,52,.07)}
+.pc-cp-gekta-brand span{color:#0c6a4c!important}
+.pc-cp-gekta-brand p{color:#4d665a!important}
+.pc-cp-gekta-chips span{border-color:#c9dfd2!important;background:rgba(255,255,255,.78)!important;color:#335247!important}
+.pc-cp-gekta-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:14px}
+.pc-cp-gekta-actions>a{min-height:44px;display:inline-flex;align-items:center;padding:0 12px;border:1px solid #c0d8ca;border-radius:10px;background:#fff;color:#174a37;font-size:13px;font-weight:720;text-decoration:none}
+.pc-gekta-chat-button--section{min-height:44px;padding-inline:13px;background:#0b6046;color:#fff;border-color:#0b6046}
+.pc-gekta-chat-button--section:hover{background:#094f3a;border-color:#094f3a}
+.pc-cp-hero::after{background:linear-gradient(90deg,rgba(249,253,250,.98) 0%,rgba(244,251,247,.92) 40%,rgba(229,244,235,.60) 67%,rgba(229,244,235,.08) 100%)!important}
+.pc-cp-hero-media{filter:saturate(.92) contrast(.98)!important}
+.pc-cp-market-preview-alert,.pc-cp-state-cell,.pc-cp-detail-block{background:#fbfdfc}
+.pc-cp-footer{background:#183328;color:#e7f1ec}
+.pc-cp-footer p{color:#bdd0c6!important}
+.pc-cp-footer a{color:#d5e5dd!important}
+
+@media(max-width:760px){
+  :root{--pc-cp-shell:calc(100vw - 28px)}
+  .pc-cp-page-home .pc-cp-hero-copy p{font-size:14px!important;line-height:1.42!important;max-width:270px!important}
+  .pc-cp-page-home .pc-cp-hero-copy .pc-cp-button{min-height:44px!important;font-size:14px!important}
+  .pc-cp-eyebrow,.pc-cp-page-home .pc-cp-eyebrow{font-size:11px!important;line-height:1.25!important;letter-spacing:.055em!important}
+  .pc-cp-section-head p,.pc-cp-lead,.pc-cp-page-home .pc-cp-section-head p{font-size:14px!important;line-height:1.48!important}
+  .pc-cp-page-home .pc-cp-section{padding:18px 0!important}
+  .pc-cp-page-home .pc-cp-section-head{gap:6px!important;margin-bottom:10px!important}
+  .pc-cp-page-home .pc-cp-section-head h2{font-size:27px!important;line-height:1.05!important}
+  .pc-cp-chip{font-size:12px!important;min-height:30px!important}
+  .pc-cp-market-preview-alert,.pc-cp-market-preview-alert span,.pc-cp-market-preview-alert strong{font-size:12px!important;line-height:1.35!important}
+  .pc-cp-page-home .pc-cp-market-grid--preview .pc-cp-chip{font-size:11px!important;min-height:26px!important}
+  .pc-cp-page-home .pc-cp-market-grid--preview .pc-cp-lot-title{font-size:14px!important;line-height:1.15!important}
+  .pc-cp-page-home .pc-cp-lot-meta span,.pc-cp-page-home .pc-cp-lot-foot span,.pc-cp-page-home .pc-cp-lot-foot strong{font-size:11px!important}
+  .pc-cp-page-home .pc-cp-role-card{min-height:112px!important;padding:13px!important;gap:6px!important}
+  .pc-cp-page-home .pc-cp-role-card strong{font-size:17px!important}
+  .pc-cp-page-home .pc-cp-role-card p{font-size:13px!important;line-height:1.42!important}
+  .pc-cp-role-tags span,.pc-cp-page-home #participants .pc-cp-role-tags span{min-height:28px!important;padding:4px 7px!important;font-size:11px!important;line-height:1.2!important}
+  .pc-cp-page-home .pc-cp-deal-spine,.pc-cp-page-deal-flow .pc-cp-deal-public-hero .pc-cp-deal-spine{
+    grid-template-columns:repeat(7,76px)!important;
+    justify-content:start!important;
+    overflow-x:auto!important;
+    overscroll-behavior-x:contain;
+    scrollbar-width:none;
+    padding:2px 2px 8px!important;
+    scroll-snap-type:x proximity;
+  }
+  .pc-cp-deal-spine::-webkit-scrollbar{display:none}
+  .pc-cp-stage{scroll-snap-align:start}
+  .pc-cp-page-home .pc-cp-stage i,.pc-cp-page-deal-flow .pc-cp-deal-public-hero .pc-cp-stage i{width:30px!important;height:30px!important;font-size:11px!important}
+  .pc-cp-page-home .pc-cp-stage strong,.pc-cp-page-deal-flow .pc-cp-deal-public-hero .pc-cp-stage strong{max-width:72px!important;font-size:11px!important;line-height:1.18!important}
+  .pc-cp-page-home .pc-cp-state-tab{min-height:44px!important;font-size:12px!important}
+  .pc-cp-page-home .pc-cp-state-cell{min-height:84px!important;padding:12px!important}
+  .pc-cp-page-home .pc-cp-state-cell span{font-size:11px!important;line-height:1.25!important}
+  .pc-cp-page-home .pc-cp-state-cell strong{font-size:13px!important;line-height:1.38!important}
+  .pc-cp-page-home .pc-cp-trust-card{min-height:118px!important;padding:13px!important}
+  .pc-cp-page-home .pc-cp-trust-card strong{font-size:16px!important}
+  .pc-cp-page-home .pc-cp-trust-card p{font-size:12px!important;line-height:1.4!important}
+  .pc-cp-page-home #gekta .pc-cp-gekta-strip{grid-template-columns:1fr!important;padding:18px!important;gap:14px!important;border-radius:16px!important}
+  .pc-cp-page-home #gekta .pc-cp-gekta-brand span{font-size:11px!important}
+  .pc-cp-page-home #gekta .pc-cp-gekta-brand strong{font-size:30px!important}
+  .pc-cp-page-home #gekta .pc-cp-gekta-brand p{font-size:13px!important;line-height:1.42!important}
+  .pc-cp-page-home #gekta .pc-cp-gekta-chips{gap:6px!important}
+  .pc-cp-page-home #gekta .pc-cp-gekta-chips span{padding:7px 9px!important;font-size:12px!important}
+  .pc-cp-page-home .pc-cp-capability{min-width:190px!important;min-height:104px!important;padding:13px!important}
+  .pc-cp-page-home .pc-cp-capability strong{font-size:14px!important;line-height:1.2!important}
+  .pc-cp-page-home .pc-cp-capability p{display:block!important;font-size:12px!important;line-height:1.38!important}
+  .pc-cp-page-home .pc-cp-final{min-height:190px!important}
+  .pc-cp-page-home .pc-cp-final p{font-size:13px!important;line-height:1.45!important}
+  .pc-cp-bottom-nav a{font-size:11px!important;line-height:1.1!important}
+  .pc-site-locale-option{font-size:11px!important}
+  .pc-cp-footer p,.pc-cp-footer a{font-size:12px!important;line-height:1.4!important}
+}
+
+/* FINAL PUBLIC EXPERIENCE v1 — linked public readability */
+@media(max-width:760px){
+  .pc-cp-page-market .pc-cp-market-hero .pc-cp-section-head p,.pc-cp-page-deal-flow .pc-cp-deal-public-hero .pc-cp-section-head p{font-size:13px!important;line-height:1.42!important}
+  .pc-cp-page-market .pc-cp-search,.pc-cp-page-market .pc-cp-market-toolbar .pc-cp-button{min-height:44px!important;font-size:13px!important}
+  .pc-cp-page-market .pc-cp-chip{font-size:11px!important}
+  .pc-cp-page-market .pc-cp-lot-title{font-size:17px!important}
+  .pc-cp-page-market .pc-cp-detail-block p,.pc-cp-page-market .pc-cp-lot-summary .pc-cp-lead{font-size:12px!important;line-height:1.42!important}
+  .pc-cp-page-deal-flow .pc-cp-deal-public-lot :is(dt,dd,p),.pc-cp-page-deal-flow .pc-cp-deal-public-stage p{font-size:12px!important;line-height:1.4!important}
+  .pc-cp-page-deal-flow .pc-cp-deal-public-main .pc-cp-state-cell strong{font-size:13px!important}
+  .pc-cp-page-gekta .pc-cp-gekta-context li,.pc-cp-page-gekta .pc-cp-gekta-action p,.pc-cp-gekta-prompts span,.pc-cp-gekta-composer,.pc-cp-page-gekta .pc-cp-gekta-source span,.pc-cp-page-gekta .pc-cp-gekta-source strong,.pc-cp-gekta-stage-list :is(strong,span){font-size:12px!important;line-height:1.4!important}
+  .pc-cp-page-trust .pc-cp-trust-pillar-head p,.pc-cp-page-trust .pc-cp-trust-pillar li,.pc-cp-page-trust .pc-cp-trust-pillar>small{font-size:12px!important;line-height:1.42!important}
+}
+@media(min-width:761px){
+  .pc-cp-process-meta span{font-size:11px!important}.pc-cp-process-meta strong{font-size:12px!important}
+  .pc-cp-page-trust .pc-cp-trust-pillar-head p,.pc-cp-page-trust .pc-cp-trust-pillar li,.pc-cp-page-trust .pc-cp-trust-pillar>small{font-size:12px!important;line-height:1.4!important}
+}
