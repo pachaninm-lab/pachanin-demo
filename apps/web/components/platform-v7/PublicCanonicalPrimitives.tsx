@@ -16,6 +16,7 @@ import {
   Store,
   UserRound,
 } from 'lucide-react';
+import { PublicGektaChatButton } from './PublicGektaChatButton';
 import { PublicLocaleLink } from './PublicLocaleLink';
 import { PublicSiteHeader } from './PublicSiteHeader';
 
@@ -31,34 +32,31 @@ export function canonicalPublicLocale(value: string): CanonicalPublicLocale {
 const NAV = {
   ru: [
     ['Рынок', '/platform-v7/market'],
-    ['Как проходит Сделка', '/platform-v7/how-it-works'],
+    ['Сделка', '/platform-v7/how-it-works'],
     ['Возможности', '/platform-v7/capabilities'],
     ['Гекта', '/platform-v7/gekta'],
     ['Доверие', '/platform-v7/trust'],
-    ['О платформе', '/platform-v7/about'],
   ],
   en: [
     ['Market', '/platform-v7/market'],
-    ['How the Deal works', '/platform-v7/how-it-works'],
+    ['Deal', '/platform-v7/how-it-works'],
     ['Capabilities', '/platform-v7/capabilities'],
     ['Gekta', '/platform-v7/gekta'],
     ['Trust', '/platform-v7/trust'],
-    ['About', '/platform-v7/about'],
   ],
   zh: [
     ['市场', '/platform-v7/market'],
-    ['交易如何进行', '/platform-v7/how-it-works'],
+    ['交易', '/platform-v7/how-it-works'],
     ['功能', '/platform-v7/capabilities'],
     ['Gekta', '/platform-v7/gekta'],
     ['信任', '/platform-v7/trust'],
-    ['关于平台', '/platform-v7/about'],
   ],
 } as const;
 
 const ACTIONS = {
-  ru: { login: 'Войти', register: 'Регистрация', brand: 'Прозрачная Цена — на главную', nav: 'Навигация платформы', menu: 'Открыть меню' },
-  en: { login: 'Sign in', register: 'Register', brand: 'Transparent Price — home', nav: 'Platform navigation', menu: 'Open menu' },
-  zh: { login: '登录', register: '注册', brand: '透明价格 — 首页', nav: '平台导航', menu: '打开菜单' },
+  ru: { login: 'Войти', register: 'Регистрация', about: 'О платформе', brand: 'Прозрачная Цена — на главную', nav: 'Навигация платформы', menu: 'Открыть меню' },
+  en: { login: 'Sign in', register: 'Register', about: 'About', brand: 'Transparent Price — home', nav: 'Platform navigation', menu: 'Open menu' },
+  zh: { login: '登录', register: '注册', about: '关于平台', brand: '透明价格 — 首页', nav: '平台导航', menu: '打开菜单' },
 } as const;
 
 export const CANONICAL_DEAL_STAGES = {
@@ -111,8 +109,18 @@ export function CanonicalPublicHeader({
   const nav = (
     <>
       {NAV[lang].map(([label, href]) => (
-        <a key={href} href={`${href}${suffix}`} data-active={activePath === href ? 'true' : undefined}>{label}</a>
+        <a
+          key={href}
+          className={href === '/platform-v7/gekta' ? 'pc-site-nav-gekta' : undefined}
+          href={`${href}${suffix}`}
+          data-active={activePath === href ? 'true' : undefined}
+        >
+          {href === '/platform-v7/gekta' ? <Bot size={14} aria-hidden='true' /> : null}
+          {label}
+        </a>
       ))}
+      <PublicGektaChatButton locale={lang} variant='mobile' className='pc-cp-mobile-only pc-site-mobile-gekta' />
+      <a className='pc-cp-mobile-only' href={`/platform-v7/about${suffix}`}><Building2 size={16} aria-hidden='true' />{copy.about}</a>
       <a className='pc-cp-mobile-only' href={`/platform-v7/login${suffix}`}><LogIn size={16} aria-hidden='true' />{copy.login}</a>
       <a className='pc-cp-mobile-only' href={`/platform-v7/register${suffix}`}><UserRound size={16} aria-hidden='true' />{copy.register}</a>
     </>
@@ -129,6 +137,7 @@ export function CanonicalPublicHeader({
       localeControl={localeControl ?? <PublicLocaleLink />}
       actions={actions === false ? <span className='pc-canonical-header-actions' /> : actions === true ? (
         <div className='pc-canonical-header-actions'>
+          <PublicGektaChatButton locale={lang} variant='header' />
           <a className='entry-login' href={`/platform-v7/login${suffix}`}>{copy.login}</a>
           <a className='pc-v6-header-cta' href={`/platform-v7/register${suffix}`}>{copy.register}</a>
         </div>
@@ -250,7 +259,13 @@ export function CanonicalGektaStrip({ locale }: { locale: string }) {
       : { k: '农业智能', t: 'Gekta', p: '解释交易上下文、风险、依据和允许的下一步。关键决定仍由人员和平台规则控制。', chips: ['交易上下文', '文件', '物流', '质量', '结算', '风险'] };
   return (
     <section className='pc-cp-gekta-strip'>
-      <div className='pc-cp-gekta-brand'><span>{c.k}</span><strong>{c.t}</strong><p>{c.p}</p></div>
+      <div className='pc-cp-gekta-brand'>
+        <span>{c.k}</span><strong>{c.t}</strong><p>{c.p}</p>
+        <div className='pc-cp-gekta-actions'>
+          <PublicGektaChatButton locale={lang} variant='section' />
+          <a href={`/platform-v7/gekta?lang=${lang}`}>{lang === 'ru' ? 'Открыть Гекту' : lang === 'en' ? 'Open Gekta' : '打开 Gekta'}</a>
+        </div>
+      </div>
       <div className='pc-cp-gekta-chips'>{c.chips.map((chip) => <span key={chip}>{chip}</span>)}</div>
     </section>
   );
