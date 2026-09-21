@@ -550,3 +550,66 @@
   }
 }
 
+/* FINAL PUBLIC TYPOGRAPHY AUTHORITY — assistant 2026-09-21 */
+.pc-public-assistant{
+  font-size:15px!important;
+  line-height:1.5!important;
+  font-kerning:normal;
+  text-rendering:optimizeLegibility;
+  -webkit-font-smoothing:antialiased;
+}
+.pc-public-assistant .pc-public-assistant-identity-copy strong{
+  font-size:18px!important;
+  line-height:1.2!important;
+  letter-spacing:-.02em!important;
+}
+.pc-public-assistant .pc-public-assistant-identity-copy span,
+.pc-public-assistant .pc-public-assistant-panel [data-pc-public-assistant-subtitle='true']{
+  font-size:13px!important;
+  line-height:1.4!important;
+}
+.pc-public-assistant .pc-public-assistant-empty h2{
+  font-size:clamp(22px,4vw,28px)!important;
+  line-height:1.15!important;
+  letter-spacing:-.025em!important;
+  text-wrap:balance;
+}
+.pc-public-assistant .pc-public-assistant-empty p{
+  font-size:14px!important;
+  line-height:1.55!important;
+  text-wrap:pretty;
+}
+.pc-public-assistant .pc-public-assistant-quick-actions button{
+  min-height:46px!important;
+  font-size:14px!important;
+  line-height:1.35!important;
+}
+.pc-public-assistant .pc-public-assistant-bubble,
+.pc-public-assistant .pc-public-assistant-answer{
+  font-size:15px!important;
+  line-height:1.55!important;
+}
+.pc-public-assistant .pc-public-assistant-answer-title{font-size:16px!important;line-height:1.3!important}
+.pc-public-assistant .pc-public-assistant-source-list a,
+.pc-public-assistant .pc-public-assistant-details,
+.pc-public-assistant .pc-public-assistant-answer-meta,
+.pc-public-assistant .pc-public-assistant-privacy{
+  font-size:13px!important;
+  line-height:1.45!important;
+}
+.pc-public-assistant .pc-public-assistant-composer textarea{
+  font-size:16px!important;
+  line-height:1.45!important;
+}
+@media(max-width:720px){
+  .pc-public-assistant .pc-public-assistant-identity-copy strong{font-size:17px!important}
+  .pc-public-assistant .pc-public-assistant-identity-copy span,
+  .pc-public-assistant .pc-public-assistant-panel [data-pc-public-assistant-subtitle='true']{font-size:13px!important}
+  .pc-public-assistant .pc-public-assistant-quick-actions button{font-size:14px!important}
+  .pc-public-assistant .pc-public-assistant-bubble,
+  .pc-public-assistant .pc-public-assistant-answer{font-size:15px!important}
+  .pc-public-assistant .pc-public-assistant-source-list a,
+  .pc-public-assistant .pc-public-assistant-details,
+  .pc-public-assistant .pc-public-assistant-answer-meta,
+  .pc-public-assistant .pc-public-assistant-privacy{font-size:13px!important}
+}
