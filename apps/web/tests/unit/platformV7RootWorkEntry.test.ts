@@ -78,7 +78,7 @@ describe('platform-v7 canonical public experience',()=>{
   it('keeps login and registration on the same canonical public shell',()=>{
     expect(loginPage).toContain("<CanonicalPublicHeader locale={locale} activePath='/platform-v7/login'/>");
     expect(loginPage).toContain("<CanonicalBottomNav locale={locale} active='/platform-v7/login'/>");
-    expect(registerPage).toContain("<CanonicalPublicHeader locale={locale} activePath='/platform-v7/register' />");
+    expect(registerPage).toContain("<CanonicalPublicHeader locale={locale} activePath='/platform-v7/register' localeControl={localeControl} />");
     expect(registerPage).toContain("<CanonicalBottomNav locale={locale} active='/platform-v7/register' />");
     expect(primitives).toContain("pc-site-mobile-utility");
     expect(primitives).toContain("Аккаунт и помощь");
