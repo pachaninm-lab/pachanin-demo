@@ -55,6 +55,7 @@ function liveTestAdapter(
       providerFamily,
       acknowledgement: 'ACCEPTED_NONFINAL',
       providerOperationId: response.providerOperationId,
+      idempotencyKey: response.idempotencyKey,
       rawStatus: response.rawStatus,
       observedAt: response.observedAt,
       canonicalFinality: 'NOT_DECIDED_HERE',
