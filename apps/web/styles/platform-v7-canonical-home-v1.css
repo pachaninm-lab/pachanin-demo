@@ -1576,3 +1576,18 @@ html[lang^='zh'] .pc-canonical-public :is(p,li,dd,.pc-cp-section-head p,.pc-cp-l
   .pc-canonical-public .pc-cp-footer a{font-size:13px!important}
   html[lang^='zh'] .pc-canonical-public :is(h1,h2,h3){letter-spacing:0!important;line-height:1.22!important}
 }
+
+/* FINAL PUBLIC MICROTYPE COMPLETENESS — 2026-09-21 */
+.pc-canonical-public .pc-cp-market-preview-alert{
+  font-size:13px!important;
+  line-height:1.45!important;
+}
+.pc-canonical-public .pc-cp-market-preview-alert strong{
+  font-size:14px!important;
+  line-height:1.35!important;
+}
+.pc-canonical-public .pc-cp-market-preview-alert span,
+.pc-canonical-public .pc-cp-page-trust .pc-cp-trust-pillar>small{
+  font-size:12px!important;
+  line-height:1.4!important;
+}
