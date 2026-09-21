@@ -309,7 +309,7 @@ describe('platform-v7 canonical public experience',()=>{
   });
 
   it('keeps Gekta inside source and authority boundaries',()=>{
-    expect(gekta).toContain('Решение принимает человек.');
+    expect(gekta).toContain('решение остаётся за человеком.');
     expect(gekta).toContain('Только данные, доступные текущему участнику');
     expect(gekta).toContain('Гекта объясняет; критическое действие выполняет уполномоченный участник');
     expect(gekta).not.toContain('автоматически переводит деньги');
