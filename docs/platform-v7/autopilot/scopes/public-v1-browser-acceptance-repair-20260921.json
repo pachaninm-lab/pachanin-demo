@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-v1-browser-acceptance-20260921",
+  "status": "active",
+  "operationalStatus": "FINAL_PUBLIC_EXPERIENCE_BROWSER_ACCEPTANCE_REPAIR",
+  "purpose": "Close the exact browser/a11y/MFA acceptance defects observed after FINAL PUBLIC EXPERIENCE v1 without changing the approved public design, lowering acceptance thresholds, changing browser coverage, weakening authentication, or touching backend business authority.",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/PublicSiteHeader.tsx",
+    "apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts",
+    "apps/web/tests/e2e/support/acceptance-login.ts",
+    "docs/platform-v7/autopilot/scopes/public-v1-browser-acceptance-repair-20260921.json"
+  ],
+  "evidence": {
+    "sourcePr": 5465,
+    "repairPr": 5491,
+    "observedDesignSystemRun": 35583446107,
+    "observedFailureClasses": [
+      "canonical header visible target width below 44px",
+      "registration locale selector matched duplicated mobile drawer control",
+      "replayed or rejected TOTP reused an invalidated pending MFA context"
+    ]
+  },
+  "boundaries": {
+    "approvedDesignChange": false,
+    "browserProjectRemoval": false,
+    "thresholdReduction": false,
+    "retryCountIncrease": false,
+    "authOrMfaBypass": false,
+    "apiImplementationChange": false,
+    "databaseChange": false,
+    "tenantIsolationChange": false,
+    "financialAuthorityChange": false,
+    "productionTopologyChange": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}
