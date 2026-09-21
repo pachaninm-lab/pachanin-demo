@@ -455,6 +455,12 @@ const css = `
 }
 
 
+@media (max-width:767px) {
+  body:has(.pc-cp-bottom-nav) .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] {
+    display: none !important;
+  }
+}
+
 /* FINAL PUBLIC EXPERIENCE v1 — desktop chat lives in the canonical header */
 @media (min-width:981px) {
   .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] {
