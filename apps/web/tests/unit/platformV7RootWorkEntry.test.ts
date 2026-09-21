@@ -308,6 +308,34 @@ describe('canonical overview does not invent server progress', () => {
     return result.container;
   }
 
+  it('keeps the Deal actor label server-authoritative when the client display role changes', async () => {
+    const buyerAction = DEAL_ACTIONS.find((candidate) => candidate.roles.includes('BUYER') && candidate.source !== 'BANK_CALLBACK');
+    expect(buyerAction).toBeTruthy();
+    const workspace = fixture(buyerAction!.from);
+    workspace.roleProjection.role = 'BUYER';
+    workspace.roleProjection.canAct = true;
+    workspace.roleProjection.primaryAction!.enabled = true;
+
+    const sourceSnapshot = JSON.stringify(workspace);
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => JSON.parse(sourceSnapshot) });
+    vi.stubGlobal('fetch', fetchMock);
+    const result = render(createElement(CanonicalDealWorkspace, { role: 'seller', dealId: workspace.deal.id }));
+    await waitFor(() => expect(result.container.querySelector('[data-canonical-seven-stage]')).toBeTruthy());
+
+    const actorCell = [...result.container.querySelectorAll('.pc-cp-state-cell')]
+      .find((cell) => cell.querySelector('span')?.textContent === 'Кто действует');
+    expect(actorCell?.querySelector('strong')?.textContent).toBe('Покупатель');
+    expect(actorCell?.textContent).not.toContain('Продавец');
+
+    result.rerender(createElement(CanonicalDealWorkspace, { role: 'operator', dealId: workspace.deal.id }));
+    expect(actorCell?.querySelector('strong')?.textContent).toBe('Покупатель');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    expect(protectedDeal).toContain('const canonicalActor = actionActor(workspace.roleProjection)');
+    expect(protectedDeal).toContain('serverRoleLabel(workspace.roleProjection.role)');
+    expect(protectedDeal).not.toContain('roleLabel(role)');
+  });
+
   for (const status of [...DEAL_ACTIONS.map((action) => action.from), 'CLOSED', 'UNRECOGNIZED_FUTURE_STATUS']) {
     it(`retains actual server steps without inferring seven-stage completion for ${status}`, async () => {
       const workspace = fixture(status);
