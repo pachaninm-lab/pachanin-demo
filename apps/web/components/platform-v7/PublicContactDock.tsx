@@ -415,30 +415,34 @@ const css = `
 }
 @media (max-width:767px) {
   .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] {
-    right: max(12px, env(safe-area-inset-right, 0px)) !important;
+    right: max(10px, env(safe-area-inset-right, 0px)) !important;
     bottom: max(74px, calc(env(safe-area-inset-bottom, 0px) + 72px)) !important;
-    width: 56px !important;
-    min-width: 56px !important;
-    height: 56px !important;
+    width: 118px !important;
+    min-width: 118px !important;
+    height: 54px !important;
     padding: 3px !important;
     border-radius: 18px !important;
   }
   .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] .pc-public-contact-dock-assistant {
-    width: 48px !important;
-    min-width: 48px !important;
+    width: 112px !important;
+    min-width: 112px !important;
     height: 48px !important;
     min-height: 48px !important;
-    padding: 0 !important;
+    padding: 0 11px 0 8px !important;
+    gap: 7px !important;
     border-radius: 15px !important;
   }
   .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] .pc-public-contact-dock-assistant strong {
-    position: absolute !important;
-    width: 1px !important;
-    height: 1px !important;
-    margin: -1px !important;
-    overflow: hidden !important;
-    clip: rect(0 0 0 0) !important;
-    clip-path: inset(50%) !important;
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    clip: auto !important;
+    clip-path: none !important;
+    white-space: nowrap !important;
+    font-size: 13px !important;
+    font-weight: 800 !important;
   }
 }
 
