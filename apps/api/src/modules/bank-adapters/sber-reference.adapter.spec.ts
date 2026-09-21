@@ -5,6 +5,7 @@ const response = (rawStatus: string | null, httpStatus = 200) => ({
   httpStatus,
   rawStatus,
   providerOperationId: 'sber-op-1',
+  idempotencyKey: 'idem-1',
   providerEventId: 'sber-event-1',
   externalReceiptId: 'sber-receipt-1',
   authenticationEvidenceRef: 'mTLS+signature:evidence-1',
