@@ -549,7 +549,7 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
 
 /* CANONICAL LOCALE CLUSTER */
 .pc-site-locale-cluster{display:flex;align-items:center;justify-content:center;gap:2px;flex:0 0 auto}
-.pc-site-locale-option{min-width:30px;min-height:36px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px;border-radius:8px;color:#5d6963;text-decoration:none;font-size:10px;font-weight:750;line-height:1}
+.pc-site-locale-option{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px;border-radius:8px;color:#5d6963;text-decoration:none;font-size:10px;font-weight:750;line-height:1}
 .pc-site-locale-option[data-active='true']{color:var(--pc-cp-ink);font-weight:900}
 .pc-site-locale-option:hover,.pc-site-locale-option:focus-visible{background:var(--pc-cp-green-soft);color:var(--pc-cp-green)}
 @media(max-width:760px){
