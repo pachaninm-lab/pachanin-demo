@@ -9,7 +9,7 @@ const paths = {
   middleware: 'apps/web/middleware.ts',
   executor: 'scripts/production-full-stack-exact-sha.sh',
   live: 'scripts/production-full-stack-live-acceptance.sh',
-  hero: 'apps/web/i18n/platform-v7-hero-message.ts',
+  hero: 'apps/web/components/platform-v7/PlatformV7StrategicHome.tsx',
   scope: 'docs/platform-v7/autopilot/scopes/production-full-stack-release-v1.json',
 };
 const failures = [];
