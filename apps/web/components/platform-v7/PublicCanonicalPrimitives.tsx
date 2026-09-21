@@ -54,9 +54,9 @@ const NAV = {
 } as const;
 
 const ACTIONS = {
-  ru: { login: 'Войти', register: 'Регистрация', about: 'О платформе', utility: 'Аккаунт и помощь', brand: 'Прозрачная Цена — на главную', nav: 'Навигация платформы', menu: 'Открыть меню' },
-  en: { login: 'Sign in', register: 'Register', about: 'About', utility: 'Account and help', brand: 'Transparent Price — home', nav: 'Platform navigation', menu: 'Open menu' },
-  zh: { login: '登录', register: '注册', about: '关于平台', utility: '账户与帮助', brand: '透明价格 — 首页', nav: '平台导航', menu: '打开菜单' },
+  ru: { login: 'Войти', register: 'Регистрация', about: 'О платформе', primary: 'Разделы', utility: 'Аккаунт и помощь', brand: 'Прозрачная Цена — на главную', nav: 'Навигация платформы', menu: 'Открыть меню' },
+  en: { login: 'Sign in', register: 'Register', about: 'About', primary: 'Sections', utility: 'Account and help', brand: 'Transparent Price — home', nav: 'Platform navigation', menu: 'Open menu' },
+  zh: { login: '登录', register: '注册', about: '关于平台', primary: '主要栏目', utility: '账户与帮助', brand: '透明价格 — 首页', nav: '平台导航', menu: '打开菜单' },
 } as const;
 
 export const CANONICAL_DEAL_STAGES = {
@@ -106,19 +106,30 @@ export function CanonicalPublicHeader({
   const lang = canonicalPublicLocale(locale);
   const copy = ACTIONS[lang];
   const suffix = `?lang=${encodeURIComponent(lang)}`;
+  const navIcons = {
+    '/platform-v7/market': Store,
+    '/platform-v7/how-it-works': Layers3,
+    '/platform-v7/capabilities': PackageSearch,
+    '/platform-v7/gekta': Bot,
+    '/platform-v7/trust': ShieldCheck,
+  } as const;
   const nav = (
     <>
-      {NAV[lang].map(([label, href]) => (
+      <span className='pc-site-mobile-primary-label'>{copy.primary}</span>
+      {NAV[lang].map(([label, href]) => {
+        const Icon = navIcons[href];
+        return (
         <a
           key={href}
           className={href === '/platform-v7/gekta' ? 'pc-site-nav-gekta' : undefined}
           href={`${href}${suffix}`}
           data-active={activePath === href ? 'true' : undefined}
         >
-          {href === '/platform-v7/gekta' ? <Bot size={14} aria-hidden='true' /> : null}
-          {label}
+          <span className='pc-site-nav-item-icon' aria-hidden='true'><Icon size={18} /></span>
+          <span>{label}</span>
         </a>
-      ))}
+        );
+      })}
       <div className='pc-site-mobile-utility pc-cp-mobile-only' aria-label={copy.utility}>
         <span className='pc-site-mobile-utility-label'>{copy.utility}</span>
         <PublicGektaChatButton locale={lang} variant='mobile' className='pc-site-mobile-gekta' />
