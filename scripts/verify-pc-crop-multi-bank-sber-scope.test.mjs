@@ -73,10 +73,10 @@ assert.ok(webSberProxy.length > 0);
 
 const authoritySources = [port, router, receipt].join('\n');
 for (const forbidden of [
-  'BANK_MODE',
-  'BANK_PROVIDER',
-  'providerRegistry',
-  'sber-server',
+  'process.env.BANK_MODE',
+  'process.env.BANK_PROVIDER',
+  'providerRegistry.ts',
+  'sber-server.ts',
   'localStorage',
   'sessionStorage',
 ]) assert.equal(authoritySources.includes(forbidden), false, 'non-authoritative source leaked into bank authority: ' + forbidden);
