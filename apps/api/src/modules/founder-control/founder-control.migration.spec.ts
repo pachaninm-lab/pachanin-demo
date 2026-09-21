@@ -5,7 +5,7 @@ import {
 } from './founder-control.types';
 
 describe('R1.3 Founder control PostgreSQL authority migration', () => {
-  const root = path.resolve(__dirname, '../../../..');
+  const root = path.resolve(__dirname, '../../../../..');
   const migration = fs.readFileSync(
     path.join(
       root,
