@@ -38,7 +38,8 @@
     "No hero composition, palette authority, navigation structure, backend, API, database, auth, RBAC, RLS, tenant, Deal, money, outbox or production-release semantics are changed.",
     "No CI, security, accessibility, Lighthouse, CLS, browser, viewport, visual maxDistance or production acceptance threshold is weakened.",
     "Public-facing RU/EN/ZH copy must avoid mixed internal terminology, repetitive AI-style sentence templates, unsupported maturity language and marketing claims that obscure exact authority boundaries.",
-    "Production full-stack live acceptance changes in this slice are limited to synchronizing the exact RU/EN/ZH homepage hero text literals with the approved human-copy source; exact-SHA authority, routes, commands, permissions, rollout, rollback, timeouts, durability and security semantics remain unchanged."
+    "Production full-stack live acceptance changes in this slice are limited to synchronizing the exact RU/EN/ZH homepage hero text literals with the approved human-copy source; exact-SHA authority, routes, commands, permissions, rollout, rollback, timeouts, durability and security semantics remain unchanged.",
+    "Canonical visual authority hashes may be refreshed only for manually inspected screenshots produced by this exact editorial/typography change; visual maxDistance thresholds remain unchanged."
   ],
   "acceptance": [
     "platformV7RootWorkEntry unit contract proves terminal typography authority has no px font size below 12, display/UI tokens are the same system stack, header has no 10-11px text, assistant terminal authority has no microtype, and retired templated copy remains absent.",
@@ -50,6 +51,7 @@
     "Production i18n acceptance passes RU/EN/ZH on the exact deployed SHA.",
     "Human editorial review finds no material machine-like repetition, generic AI marketing phrasing, or unnatural sentence symmetry in the changed public copy.",
     "Changed linked public pages contain none of the retired mixed/internal phrases such as authoritative financial state, public tenant wording, or the old repetitive Gekta context/next-step boilerplate.",
-    "Production full-stack acceptance expects the exact approved human-copy hero kicker/title for RU/EN/ZH while retaining every existing exact-SHA, route, durable-intake, rollback and IR-20 gate unchanged."
+    "Production full-stack acceptance expects the exact approved human-copy hero kicker/title for RU/EN/ZH while retaining every existing exact-SHA, route, durable-intake, rollback and IR-20 gate unchanged.",
+    "Manually inspected 01-home-desktop and 08-trust-desktop exact-head screenshots are accepted by hash refresh only; capabilities RU/EN/ZH H1 oracle matches approved factual copy; maxDistance remains unchanged."
   ]
 }
