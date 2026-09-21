@@ -98,7 +98,7 @@ export default async function HowItWorksPage(){
   </div></section>
   <section className='pc-cp-section pc-cp-section--soft pc-cp-how-trust'><div className='pc-cp-container'>
    <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{c.trust}</span><h2>{c.trust}</h2><p>{c.trustLead}</p></div>
-   <div className='pc-cp-how-trust-layout'><CanonicalTrustLedger locale={locale}/><aside className='pc-cp-how-gekta-note'><strong>{locale==='ru'?'Гекта помогает разобраться быстрее':locale==='en'?'Gekta helps you get to clarity faster':'Gekta 帮助理解，而不是替你决定'}</strong><p>{locale==='ru'?'Собирает факты, подсвечивает риски и объясняет доступные варианты. Решение остаётся за участником.':locale==='en'?'Pulls facts together, highlights risks and explains available options. The decision stays with the participant.':'汇总事实、提示风险并解释可用选项；决定仍由参与方作出。'}</p></aside></div>
+   <div className='pc-cp-how-trust-layout'><CanonicalTrustLedger locale={locale}/><aside className='pc-cp-how-gekta-note'><strong>{locale==='ru'?'Гекта помогает разобраться быстрее':locale==='en'?'Gekta helps you get to clarity faster':'Gekta 帮你更快理清交易'}</strong><p>{locale==='ru'?'Собирает факты, подсвечивает риски и объясняет доступные варианты. Решение остаётся за участником.':locale==='en'?'Pulls facts together, highlights risks and explains available options. The decision stays with the participant.':'汇总事实、提示风险并解释可用选项；决定仍由参与方作出。'}</p></aside></div>
   </div></section>
   <section className='pc-cp-section pc-cp-section--tight pc-cp-how-gekta'><div className='pc-cp-container'><CanonicalGektaStrip locale={locale}/></div></section>
   <CanonicalFooter locale={locale}/><CanonicalBottomNav locale={locale} active='/platform-v7/how-it-works'/>
