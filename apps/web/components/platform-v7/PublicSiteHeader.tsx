@@ -1,6 +1,5 @@
 import { Children, isValidElement, type ReactNode } from 'react';
 import { BrandMark } from '@/components/v7r/BrandMark';
-import { PublicLocaleSwitch } from '@/components/platform-v7/PublicLocaleSwitch';
 
 export const PUBLIC_SITE_HEADER_HEIGHT = 64;
 
@@ -101,7 +100,7 @@ export function PublicSiteHeader({
         {nav ? <nav className='pc-site-nav' aria-label={navLabel}>{nav}</nav> : null}
 
         <div className='pc-site-actions'>
-          {localeControl ?? <PublicLocaleSwitch />}
+          {localeControl ?? null}
           {nav && showMobileMenu ? (
             <details className='pc-site-mobile-menu'>
               <summary aria-label={menuLabel} title={menuLabel}>
@@ -110,7 +109,7 @@ export function PublicSiteHeader({
               </summary>
               <div className='pc-site-mobile-nav'>
                 <nav className='pc-site-mobile-nav-links' aria-label={navLabel}>{nav}</nav>
-                <div className='pc-site-mobile-locale'>{localeControl ?? <PublicLocaleSwitch />}</div>
+                <div className='pc-site-mobile-locale'>{localeControl ?? null}</div>
               </div>
             </details>
           ) : null}
