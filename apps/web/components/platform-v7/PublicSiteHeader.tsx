@@ -68,8 +68,8 @@ const PUBLIC_SITE_HEADER_STYLES = `
 }
 @media(max-width:760px){
   .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-text strong{font-size:14px!important}
-  .pc-site-header[data-public-site-header='canonical'] .pc-site-locale-option{font-size:11px!important}
-  .pc-site-header[data-public-site-header='canonical'] :is(.pc-v6-header-cta,.pc-ppe-primary-button,.p7-about-register,.p7-contact-register){font-size:12px!important}
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-locale-option{font-size:12px!important}
+  .pc-site-header[data-public-site-header='canonical'] :is(.pc-v6-header-cta,.pc-ppe-primary-button,.p7-about-register,.p7-contact-register){font-size:13px!important}
 }
 @media(max-width:430px){
   .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-text strong{font-size:14px!important}
