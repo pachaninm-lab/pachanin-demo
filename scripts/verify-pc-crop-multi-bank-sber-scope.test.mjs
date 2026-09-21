@@ -45,6 +45,8 @@ for (const marker of [
   'SERVER_HELD_MATURITY_DOES_NOT_ALLOW_REAL_TRAFFIC',
   'REFERENCE_ADAPTER_HAS_NO_LIVE_TRANSPORT',
   'CREDENTIAL_OR_CALLBACK_TRUST_NOT_VERIFIED',
+  'SERVER_HELD_CAPABILITY_NOT_AUTHORIZED',
+  'authorizedBankCapabilities',
   "authority.maturity !== 'LIVE_ACCEPTED'",
 ]) assert.ok(router.includes(marker), 'missing routing boundary ' + marker);
 
@@ -54,6 +56,7 @@ for (const marker of [
   'PAYLOAD_REPLAY',
   'AUTHENTICATION_EVIDENCE_MISSING',
   'IDEMPOTENCY_MISMATCH',
+  'AUTHENTICATION_EVIDENCE_MISSING',
   'READY_FOR_CANONICAL_RECONCILIATION',
 ]) assert.ok(receipt.includes(marker), 'missing receipt boundary ' + marker);
 
