@@ -195,12 +195,27 @@ describe('platform-v7 canonical public experience',()=>{
   });
 
   it('keeps indexable public metadata with explicit locale alternates',()=>{
-    expect(root).toContain("canonical:'/platform-v7'");
-    expect(root).toContain("ru:'/platform-v7?lang=ru'");
-    expect(root).toContain("en:'/platform-v7?lang=en'");
-    expect(root).toContain("zh:'/platform-v7?lang=zh'");
-    expect(root).toContain('index:true');
-    expect(root).toContain('follow:true');
+    const localizedMetadataRoutes=[
+      ['app/platform-v7/page.tsx','/platform-v7'],
+      ['app/platform-v7/market/page.tsx','/platform-v7/market'],
+      ['app/platform-v7/how-it-works/page.tsx','/platform-v7/how-it-works'],
+      ['app/platform-v7/capabilities/page.tsx','/platform-v7/capabilities'],
+      ['app/platform-v7/ai-in-action/page.tsx','/platform-v7/ai-in-action'],
+      ['app/platform-v7/gekta/page.tsx','/platform-v7/gekta'],
+      ['app/platform-v7/trust/page.tsx','/platform-v7/trust'],
+      ['app/platform-v7/deal-flow/page.tsx','/platform-v7/deal-flow'],
+      ['app/platform-v7/about/page.tsx','/platform-v7/about'],
+    ] as const;
+    for(const [sourcePath,route] of localizedMetadataRoutes){
+      const source=read(sourcePath);
+      expect(source,sourcePath).toContain('generateMetadata');
+      expect(source,sourcePath).toContain(`canonical:'${route}'`);
+      expect(source,sourcePath).toContain(`ru:'${route}?lang=ru'`);
+      expect(source,sourcePath).toContain(`en:'${route}?lang=en'`);
+      expect(source,sourcePath).toContain(`zh:'${route}?lang=zh'`);
+      expect(source,sourcePath).toContain('index:true');
+      expect(source,sourcePath).toContain('follow:true');
+    }
   });
 });
 
