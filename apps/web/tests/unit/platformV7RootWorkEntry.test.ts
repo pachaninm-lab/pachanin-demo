@@ -70,6 +70,24 @@ describe('platform-v7 canonical public experience',()=>{
     for(const label of ['市场','交易','功能','Gekta','信任','关于平台']) expect(primitives).toContain(label);
   });
 
+  it('keeps benefit-first public copy credible across RU EN ZH',()=>{
+    for(const message of [
+      'Доверие, которое можно проверить',
+      'Гекта. Быстрее понять контекст и следующий шаг',
+      'Начни с рынка или своей роли в Сделке',
+      'Trust you can verify',
+      'Gekta. Understand context and next steps faster',
+      '可验证的信任',
+      'Gekta：更快理解上下文和下一步',
+    ]) expect(home).toContain(message);
+    for(const overclaim of ['100%','без риска','гарантированная прибыль','risk-free','guaranteed profit','稳赚不赔']){
+      expect(home.toLowerCase()).not.toContain(overclaim.toLowerCase());
+    }
+    expect(home).toContain('После проверки организации и полномочий');
+    expect(home).toContain('After organisation and authority checks');
+    expect(home).toContain('机构与权限审核通过后');
+  });
+
   it('keeps the protected operator route on the canonical neutral cockpit loading skeleton',()=>{
     expect(operatorLoading).toContain("from '@/components/platform-v7/RoleCockpitLoading'");
     expect(operatorLoading).toContain('<RoleCockpitLoading />');
