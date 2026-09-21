@@ -1,6 +1,7 @@
-import type {
-  BankCapability,
-  BankCommand,
+import {
+  requiredBankCapability,
+  type BankCapability,
+  type BankCommand,
 } from '../../../../../packages/domain-core/src/bank-capability';
 
 export const BANK_PROVIDER_FAMILIES = [
@@ -139,4 +140,73 @@ export function normalizeObservedAt(value: string): string {
   const parsed = Date.parse(value);
   if (!Number.isFinite(parsed)) throw new Error('INVALID_BANK_OBSERVED_AT');
   return new Date(parsed).toISOString();
+}
+
+export function buildReferenceRequestEnvelope(
+  providerFamily: BankProviderFamily,
+  input: BankAdapterOperationRequest,
+): BankReferenceRequestEnvelope {
+  const normalized = normalizeBankOperationRequest(input);
+  return {
+    providerFamily,
+    capability: requiredBankCapability(normalized.command),
+    command: normalized.command,
+    operationId: normalized.operationId,
+    idempotencyKey: normalized.idempotencyKey,
+    amountMinor: normalized.amountMinor,
+    currency: normalized.currency,
+    sourceVersion: normalized.sourceVersion,
+    beneficiaryReference: normalized.beneficiaryReference,
+    contractMode: 'REFERENCE_CONFORMANCE_ONLY',
+    liveRequestReady: false,
+  };
+}
+
+export function mapReferenceDispatch(
+  providerFamily: BankProviderFamily,
+  response: BankProviderResponse,
+  explicitRejectStatuses: readonly string[] = [],
+): BankDispatchMapping {
+  const status = response.rawStatus?.trim().toUpperCase() ?? null;
+  const rejectSet = new Set(explicitRejectStatuses.map((value) => value.trim().toUpperCase()));
+  const acknowledgement: BankTransportAcknowledgement = status && rejectSet.has(status)
+    ? 'REJECTED'
+    : response.httpStatus !== null && response.httpStatus >= 200 && response.httpStatus < 300
+      ? 'ACCEPTED_NONFINAL'
+      : response.httpStatus !== null && response.httpStatus >= 400 && response.httpStatus < 500
+        ? 'REJECTED'
+        : 'UNKNOWN';
+  return {
+    providerFamily,
+    acknowledgement,
+    providerOperationId: response.providerOperationId,
+    rawStatus: response.rawStatus,
+    observedAt: normalizeObservedAt(response.observedAt),
+    canonicalFinality: 'NOT_DECIDED_HERE',
+    retryPolicy: acknowledgement === 'REJECTED'
+      ? 'NO_MUTATION_RECORDED'
+      : 'RECONCILE_BEFORE_RETRY',
+  };
+}
+
+export function buildReceiptCandidate(
+  providerFamily: BankProviderFamily,
+  response: BankProviderResponse,
+  evidenceState: BankReceiptEvidenceState,
+): BankReceiptCandidate {
+  return {
+    providerFamily,
+    operationId: response.operationId,
+    providerOperationId: response.providerOperationId,
+    providerEventId: response.providerEventId,
+    externalReceiptId: response.externalReceiptId,
+    authenticationEvidenceRef: response.authenticationEvidenceRef,
+    payloadFingerprint: response.payloadFingerprint,
+    amountMinor: response.amountMinor,
+    currency: response.currency,
+    evidenceState,
+    rawStatus: response.rawStatus,
+    observedAt: normalizeObservedAt(response.observedAt),
+    canonicalFinality: 'NOT_DECIDED_HERE',
+  };
 }
