@@ -165,8 +165,8 @@ export function buildReferenceRequestEnvelope(
     operationId: normalized.operationId,
     idempotencyKey: normalized.idempotencyKey,
     amountMinor: normalized.amountMinor,
-    currency: normalized.currency,
-    sourceVersion: normalized.sourceVersion,
+    currency,
+    sourceVersion,
     beneficiaryReference: normalized.beneficiaryReference,
     contractMode: 'REFERENCE_CONFORMANCE_ONLY',
     liveRequestReady: false,
@@ -180,14 +180,21 @@ export function mapReferenceDispatch(
 ): BankDispatchMapping {
   const status = response.rawStatus?.trim().toUpperCase() ?? null;
   const rejectSet = new Set(explicitRejectStatuses.map((value) => value.trim().toUpperCase()));
-  // Transport status alone is not business rejection evidence. In particular,
-  // 4xx can represent throttling, duplicate/conflict handling, auth/routing
-  // failures or other outcomes whose business effect is not established here.
-  // Only a provider status pinned by an adapter contract may classify REJECTED.
-  const acknowledgement: BankTransportAcknowledgement = status && rejectSet.has(status)
-    ? 'REJECTED'
-    : response.httpStatus !== null && response.httpStatus >= 200 && response.httpStatus < 300
-      ? 'ACCEPTED_NONFINAL'
+  const is2xx = response.httpStatus !== null
+    && response.httpStatus >= 200
+    && response.httpStatus < 300;
+
+  // Keep transport acknowledgement and provider business evidence separate.
+  // A 2xx response acknowledges the transport/API call only, even when a body
+  // also carries a provider-specific ERROR/DECLINED-like status. That status is
+  // interpreted by mapReceiptResponse and canonical reconciliation, never by
+  // transport acknowledgement. For non-2xx responses, only an explicitly
+  // pinned provider rejection status may classify REJECTED; otherwise the
+  // outcome remains UNKNOWN and must be reconciled before retry.
+  const acknowledgement: BankTransportAcknowledgement = is2xx
+    ? 'ACCEPTED_NONFINAL'
+    : status && rejectSet.has(status)
+      ? 'REJECTED'
       : 'UNKNOWN';
   return {
     providerFamily,
