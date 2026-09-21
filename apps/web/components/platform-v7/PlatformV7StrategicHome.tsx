@@ -106,7 +106,7 @@ const COPY = {
     ],
     lensNext: 'The platform shows what can happen next and who has authority to act.',
     marketEyebrow: 'Market',
-    marketTitle: 'Public lots you can actually act on',
+    marketTitle: 'Public lot market',
     marketLead: 'We show only anonymised lots confirmed for public listing. If current data is unavailable, the page says so plainly.',
     openMarket: 'Open market',
     dealEyebrow: 'End-to-end Deal',
