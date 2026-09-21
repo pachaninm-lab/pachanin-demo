@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/final-public-conversion-copy-20260921",
+  "status": "active",
+  "authorizedBy": "explicit-user-moderately-selling-copy-nlp-profile-psychology-20260921",
+  "purpose": "Bounded FINAL PUBLIC EXPERIENCE follow-up: strengthen RU/EN/ZH public-home conversion copy around control, clarity, reduced reconciliation and verifiable trust while preserving factual claims, server authority, visual authority, accessibility, security and release thresholds.",
+  "authorityBaseExactMain": "78a1d98ececba214489295c0574e4a8c3d3dd37b",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
+    "docs/platform-v7/autopilot/scopes/final-public-conversion-copy-20260921.json"
+  ],
+  "requiredInvariants": [
+    "Copy may increase commercial clarity but must not invent market liquidity, counterparties, integrations, savings, revenue, guaranteed outcomes or production capabilities.",
+    "No false urgency, artificial scarcity, hidden persuasion, pressure language or unverifiable social proof.",
+    "RU/EN/ZH preserve the same semantic claims: user value is framed through control, clarity, reduced manual reconciliation and verifiable trust.",
+    "No backend, API, database, auth, RBAC, RLS, tenant, Deal, money, outbox, release-authority or production-runtime semantics change.",
+    "Canonical visual structure, layout, hero asset, typography, palette, >=44px targets, mobile readability, no-overflow, Axe, Lighthouse and security thresholds remain unchanged.",
+    "Existing server-authoritative and fail-closed wording remains explicit where data, authority or financial state is not confirmed."
+  ],
+  "acceptance": [
+    "Exact-head source-controlled scope guard passes for only the two admitted paths.",
+    "Web unit, typecheck, build, security, Design System v8, canonical visual and Lighthouse gates remain at existing thresholds.",
+    "RU/EN/ZH home remains accessible, responsive and free of horizontal overflow.",
+    "Copy review confirms no fabricated commercial, integration, financial or availability claim.",
+    "Production release is forbidden until the currently active exact-main release/observation completes and this follow-up independently passes its own exact-head gates."
+  ]
+}
