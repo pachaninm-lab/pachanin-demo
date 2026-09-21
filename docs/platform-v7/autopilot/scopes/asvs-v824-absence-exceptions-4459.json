@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/asvs-v824-absence-exceptions-4459",
+  "status": "active",
+  "purpose": "Stop an ABSENT_IN_TREE condition from reading a disable flag as the control it is meant to detect. V8.2.4 records APPLICABLE / FAIL, but the substring 'geoip' in a PostHog flag that disables GeoIP made the absence condition fail, rejecting the decision and reporting the requirement as NOT_ASSESSED instead of the FAIL that had actually been measured. Adds named, self-verifying exceptions that cannot suppress a real match.",
+  "authorityBaseExactMain": "a924286d5f012c827b003e3fd54007822121764f",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "scripts/security/build-asvs-matrix.mjs",
+    "scripts/security/build-asvs-matrix.test.mjs",
+    "docs/security/asvs-applicability-decisions.json",
+    "docs/platform-v7/autopilot/scopes/asvs-v824-absence-exceptions-4459.json"
+  ],
+  "requiredInvariants": [
+    "No requirement may be moved to PASS by this change. The only status movement permitted is out of a false NOT_ASSESSED into the status the decision already recorded.",
+    "An exception must never be able to clear a file that also contains an unquoted match; a real adaptive control cannot hide beside a benign string.",
+    "An exception must quote the exact line, which is re-read from the real file on every run. A quoted line that changed or no longer matches fails the condition rather than being ignored.",
+    "Conditions that declare no exceptions must behave exactly as before.",
+    "No product code, dependency, workflow or production configuration may change.",
+    "Merge and CI success are not REG.RU production deployment evidence."
+  ],
+  "ownerRatificationRequired": [
+    "Scope authorization. This manifest was written by the implementation agent because no approved concurrent scope existed for this branch and scripts/p7-autopilot-guard.sh blocked. It is the repository's declared source-controlled mechanism, but it is self-declared and requires owner ratification in review before it counts as authorization.",
+    "Exception mechanism. Named exceptions are a new capability on ABSENT_IN_TREE conditions. They are constrained and mutation-tested, but they do let a recorded judgement stand against a literal scan, so the owner should confirm the mechanism as well as the two entries it is used for."
+  ],
+  "acceptance": [
+    "V8.2.4 reports FAIL rather than NOT_ASSESSED, and the FAIL count rises rather than falls.",
+    "Removing the exceptions restores the previous failure, so they are not vacuous.",
+    "Mutating either protection fails exactly the test that names it.",
+    "The full security suite and the matrix suite stay green."
+  ]
+}
