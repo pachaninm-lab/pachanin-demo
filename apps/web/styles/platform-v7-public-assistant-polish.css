@@ -542,3 +542,11 @@
   .pc-public-assistant .pc-public-assistant-privacy{font-size:12px!important}
 }
 
+/* FINAL PUBLIC EXPERIENCE v1 — mobile assistant microtype specificity lock */
+@media(max-width:720px){
+  .pc-public-assistant .pc-public-assistant-panel [data-pc-public-assistant-subtitle='true']{
+    font-size:12px!important;
+    line-height:1.35!important;
+  }
+}
+

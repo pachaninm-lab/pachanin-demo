@@ -115,6 +115,17 @@ async function expectHomeContract(page: Page, width: number) {
     await expect(page.locator('.pc-cp-bottom-nav')).toBeVisible();
     await expect(page.locator('.pc-cp-bottom-nav a')).toHaveCount(5);
     await expectVisibleTargetsAtLeast(page, '.pc-cp-bottom-nav a', 44);
+
+    const readableMarketPreview = page.locator(
+      '#market .pc-cp-market-grid--preview .pc-cp-chip:visible, ' +
+      '#market .pc-cp-market-grid--preview .pc-cp-lot-title:visible, ' +
+      '.pc-cp-deal-lens-next strong:visible',
+    );
+    const previewSizes = await readableMarketPreview.evaluateAll((nodes) =>
+      nodes.map((node) => Number.parseFloat(getComputedStyle(node).fontSize)),
+    );
+    expect(previewSizes.length).toBeGreaterThan(0);
+    expect(Math.min(...previewSizes)).toBeGreaterThanOrEqual(12);
   } else {
     await expect(page.locator('.pc-cp-bottom-nav')).toBeHidden();
   }
@@ -171,6 +182,15 @@ test.describe('Platform V7 canonical linked pages RU EN ZH', () => {
         if (!['login', 'register'].includes(target.name)) await expectCanonicalHeader(page, width);
         if (target.name === 'market') {
           await expect(page.locator('[data-testid="canonical-market-results"], [data-market-state]').first()).toBeVisible();
+          const readableMarketCopy = page.locator(
+            '.pc-cp-lot-card:visible .pc-cp-chip:visible, ' +
+            '.pc-cp-market-aside p:visible, .pc-cp-market-aside small:visible',
+          );
+          const marketSizes = await readableMarketCopy.evaluateAll((nodes) =>
+            nodes.map((node) => Number.parseFloat(getComputedStyle(node).fontSize)),
+          );
+          expect(marketSizes.length).toBeGreaterThan(0);
+          expect(Math.min(...marketSizes)).toBeGreaterThanOrEqual(12);
         }
         if (target.name === 'how-it-works') {
           await expect(page.locator('.pc-cp-process-card')).toHaveCount(7);
