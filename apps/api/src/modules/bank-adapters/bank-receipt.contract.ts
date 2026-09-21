@@ -102,6 +102,17 @@ export function validateBankReceiptCandidate(
     return rejected('PAYLOAD_REPLAY');
   }
 
+  // Even non-final/unknown provider facts must come from an authenticated,
+  // fingerprinted transport before they are allowed to influence reconciliation.
+  // They may remain pending, but untrusted bytes are rejected rather than queued
+  // as if they were provider evidence.
+  if (!candidate.authenticationEvidenceRef?.trim()) {
+    return rejected('AUTHENTICATION_EVIDENCE_MISSING');
+  }
+  if (!candidate.payloadFingerprint?.trim()) {
+    return rejected('PAYLOAD_FINGERPRINT_MISSING');
+  }
+
   if (
     candidate.evidenceState === 'NONFINAL_EVIDENCE'
     || candidate.evidenceState === 'UNKNOWN_EVIDENCE'
@@ -114,12 +125,6 @@ export function validateBankReceiptCandidate(
     };
   }
 
-  if (!candidate.authenticationEvidenceRef?.trim()) {
-    return rejected('AUTHENTICATION_EVIDENCE_MISSING');
-  }
-  if (!candidate.payloadFingerprint?.trim()) {
-    return rejected('PAYLOAD_FINGERPRINT_MISSING');
-  }
   if (!candidate.externalReceiptId?.trim()) {
     return rejected('EXTERNAL_RECEIPT_MISSING');
   }
