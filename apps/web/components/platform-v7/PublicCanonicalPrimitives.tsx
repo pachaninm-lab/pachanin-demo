@@ -198,23 +198,44 @@ const STATE_COPY = {
 export function CanonicalStateTabs({
   locale,
   state,
+  links,
 }: {
   locale: string;
   state: CanonicalDealState | null;
+  links?: Partial<Record<CanonicalDealState, string>>;
 }) {
   const lang = canonicalPublicLocale(locale);
+  const ariaLabel = lang === 'ru' ? 'Состояние Сделки' : lang === 'en' ? 'Deal state' : '交易状态';
   return (
-    <div className='pc-cp-state-tabs' role='list' aria-label={lang === 'ru' ? 'Состояние Сделки' : lang === 'en' ? 'Deal state' : '交易状态'}>
+    <div className='pc-cp-state-tabs' role={links ? 'navigation' : 'list'} aria-label={ariaLabel}>
       {(['normal', 'deviation', 'dispute'] as const).map((item) => {
-        const common = {
-          role: 'listitem',
-          className: 'pc-cp-state-tab',
-          'data-state': item,
-          'data-active': state === item ? 'true' : 'false',
-          'aria-current': state === item ? 'true' : undefined,
-        } as const;
         const label = STATE_COPY[lang][item];
-        return <span key={item} {...common}>{label}</span>;
+        const active = state === item;
+        return links?.[item]
+          ? (
+            <a
+              key={item}
+              className='pc-cp-state-tab'
+              data-state={item}
+              data-active={active ? 'true' : 'false'}
+              aria-current={active ? 'page' : undefined}
+              href={links[item]}
+            >
+              {label}
+            </a>
+          )
+          : (
+            <span
+              key={item}
+              role='listitem'
+              className='pc-cp-state-tab'
+              data-state={item}
+              data-active={active ? 'true' : 'false'}
+              aria-current={active ? 'true' : undefined}
+            >
+              {label}
+            </span>
+          );
       })}
     </div>
   );
@@ -228,6 +249,7 @@ export function CanonicalStateLens({
   basis,
   settlement,
   next,
+  stateLinks,
 }: {
   locale: string;
   state: CanonicalDealState | null;
@@ -236,6 +258,7 @@ export function CanonicalStateLens({
   basis: ReactNode;
   settlement: ReactNode;
   next: ReactNode;
+  stateLinks?: Partial<Record<CanonicalDealState, string>>;
 }) {
   const lang = canonicalPublicLocale(locale);
   const labels = lang === 'ru'
@@ -251,7 +274,7 @@ export function CanonicalStateLens({
         : lang === 'en'
           ? 'Overall state is unconfirmed. Review the facts and detailed Deal stages.'
           : '总体状态尚未确认。请查看事实和交易的详细阶段。'}</p> : null}
-      <CanonicalStateTabs locale={lang} state={state} />
+      <CanonicalStateTabs locale={lang} state={state} links={stateLinks} />
       <div className='pc-cp-state-grid'>
         {labels.map((label, index) => <div className='pc-cp-state-cell' key={label}><span>{label}</span><strong>{values[index]}</strong></div>)}
       </div>
