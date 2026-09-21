@@ -3,7 +3,7 @@
   "branch": "fix/final-public-postmerge-acceptance-20260921",
   "status": "active",
   "authorizedBy": "explicit-user-finish-final-public-experience-20260921",
-  "purpose": "Bounded post-merge repair for FINAL PUBLIC EXPERIENCE v1: close the concrete Design System v8 browser acceptance failures and the replayed MFA acceptance-context defect discovered after PR #5465 merged, while preserving current production-release oracle authority from main and changing no product/domain authority or acceptance threshold.",
+  "purpose": "Bounded post-merge repair for FINAL PUBLIC EXPERIENCE v1: close the concrete Design System v8 browser acceptance failures, replayed MFA acceptance-context defect, and stale full-stack release source-oracle binding discovered after PR #5465 merged, without changing product/domain authority or any acceptance threshold.",
   "authorityBaseExactMain": "7ed261caf1712e2fdf8a3ffd03b7f9bbe931a0f4",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
@@ -13,21 +13,24 @@
     "apps/web/styles/platform-v7-canonical-public-v1.css",
     "apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts",
     "docs/platform-v7/autopilot/scopes/final-public-postmerge-acceptance-20260921.json",
-    "apps/web/tests/e2e/support/acceptance-login.ts"
+    "apps/web/tests/e2e/support/acceptance-login.ts",
+    "scripts/check-production-full-stack-release.mjs"
   ],
   "requiredInvariants": [
-    "The repair changes no backend/API/database/middleware/RBAC/tenant/session/Deal/money/finality or production release authority.",
+    "The repair changes no backend/API/database/middleware/RBAC/tenant/session/Deal/money/finality behavior and does not widen production release authority.",
     "Public interactive targets remain at least 44 by 44 CSS pixels; no accessibility threshold is reduced.",
     "Active locale contrast must pass the existing serious/critical WCAG acceptance; Axe checks remain enabled.",
     "The Design System v8 browser oracle retains the existing five browser/device projects, workers, retries, timeouts and protected-cabinet authority checks.",
     "Only stale selectors for duplicate desktop/mobile canonical controls may be narrowed to the visible authoritative control; query-token assertions remain unchanged.",
     "Manual expected-head merge remains gated by exact-head CI, owner self-audit, independent review and zero unresolved threads.",
-    "A rejected or replayed TOTP retry must start from a fresh server-issued login/MFA context; the acceptance helper must not replay an invalidated MFA ticket or CSRF pair."
+    "A rejected or replayed TOTP retry must start from a fresh server-issued login/MFA context; the acceptance helper must not replay an invalidated MFA ticket or CSRF pair.",
+    "The full-stack release contract may only retarget its hero-copy source assertion from the retired i18n file to the current canonical PlatformV7StrategicHome source; deployment authority, permissions, concurrency, rollback, live checks and thresholds remain unchanged."
   ],
   "acceptance": [
     "Exact-head platform-v7 autopilot guard passes for exactly this bounded scope.",
     "Platform V7 Design System v8 Acceptance is terminal PASS with no threshold weakening.",
     "All applicable exact-head substantive CI/security gates are terminal green.",
-    "Fresh independent exact-head complete-diff review reports no P0/P1/P2 findings."
+    "Fresh independent exact-head complete-diff review reports no P0/P1/P2 findings.",
+    "The production full-stack release source contract passes against the current canonical public-home source before any production mutation."
   ]
 }
