@@ -48,6 +48,7 @@ describe('multi-bank reference adapter industrial contract', () => {
       idempotencyKey: 'idem-1',
       providerEventId: 'provider-event-1',
       externalReceiptId: 'external-receipt-1',
+      authenticationAuthorityRef: 'callback-key:v7',
       authenticationEvidenceRef: 'auth-evidence-1',
       payloadFingerprint: 'sha256:abc',
       observedAt: '2026-09-22T00:00:00.000Z',
@@ -62,6 +63,7 @@ describe('multi-bank reference adapter industrial contract', () => {
       operationId: 'operation-1',
       idempotencyKey: 'idem-1',
       providerOperationId: 'provider-op-1',
+      authenticationAuthorityRef: 'callback-key:v7',
       amountMinor: '50000',
       currency: 'RUB',
     }, receipt)).toMatchObject({
@@ -80,6 +82,7 @@ describe('multi-bank reference adapter industrial contract', () => {
       idempotencyKey: 'idem-1',
       providerEventId: 'event-1',
       externalReceiptId: 'receipt-1',
+      authenticationAuthorityRef: 'callback-key:v7',
       authenticationEvidenceRef: 'auth-1',
       payloadFingerprint: 'sha256:abc',
       observedAt: '2026-09-22T00:00:00.000Z',
