@@ -73,10 +73,10 @@ export const CANONICAL_ROLES = {
 
 export const TRUST_MODEL = {
   ru: [
-    ['Полномочия', 'Кто вправе действовать в этом контексте и от имени какой организации.'],
-    ['Основание', 'Какое условие, документ или подтверждённое событие разрешает действие.'],
-    ['Источник', 'Откуда получен факт и в какой версии он относится к Сделке.'],
-    ['Решение', 'Какое действие принято, кем и какой следующий шаг разрешён.'],
+    ['Полномочия', 'Кто вправе действовать и от имени какой организации.'],
+    ['Основание', 'Какой договор, документ или подтверждённое событие разрешает действие.'],
+    ['Источник', 'Откуда пришёл факт и к какой версии Сделки он относится.'],
+    ['Решение', 'Что зафиксировано, кем и что можно делать дальше.'],
   ],
   en: [
     ['Authority', 'Who may act in this context and for which organisation.'],
@@ -253,10 +253,10 @@ export function CanonicalStateLens({
 export function CanonicalGektaStrip({ locale }: { locale: string }) {
   const lang = canonicalPublicLocale(locale);
   const c = lang === 'ru'
-    ? { k: 'Аграрный интеллект', t: 'Гекта', p: 'Объясняет контекст Сделки, риски, основания и допустимый следующий шаг. Критическое решение остаётся за человеком и правилами платформы.', chips: ['Контекст Сделки', 'Документы', 'Логистика', 'Качество', 'Расчёт', 'Риски'] }
+    ? { k: 'Помощник по Сделке', t: 'Гекта', p: 'Собирает доступные факты, показывает риски и объясняет, что можно сделать дальше. Решение остаётся за участником и правилами платформы.', chips: ['Сделка', 'Документы', 'Логистика', 'Качество', 'Расчёт', 'Риски'] }
     : lang === 'en'
-      ? { k: 'Agricultural intelligence', t: 'Gekta', p: 'Explains Deal context, risks, evidence and the permitted next step. Critical decisions remain with people and platform rules.', chips: ['Deal context', 'Documents', 'Logistics', 'Quality', 'Settlement', 'Risk'] }
-      : { k: '农业智能', t: 'Gekta', p: '解释交易上下文、风险、依据和允许的下一步。关键决定仍由人员和平台规则控制。', chips: ['交易上下文', '文件', '物流', '质量', '结算', '风险'] };
+      ? { k: 'Deal assistant', t: 'Gekta', p: 'Brings together available facts, highlights risks and explains what can happen next. Decisions remain with the participant and platform rules.', chips: ['Deal', 'Documents', 'Logistics', 'Quality', 'Settlement', 'Risk'] }
+      : { k: '交易助手', t: 'Gekta', p: '汇总可用事实、提示风险，并解释下一步可以做什么。最终决定仍由参与方和平台规则控制。', chips: ['交易', '文件', '物流', '质量', '结算', '风险'] };
   return (
     <section className='pc-cp-gekta-strip'>
       <div className='pc-cp-gekta-brand'>
