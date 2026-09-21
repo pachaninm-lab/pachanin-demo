@@ -2663,9 +2663,10 @@ html[lang^='zh'] .pc-canonical-public :is(p,li,dd,.pc-cp-section-head p,.pc-cp-l
 }
 
 @media(max-width:760px){
-  .pc-site-header[data-public-site-header='canonical']{
+  .pc-site-header[data-public-site-header='canonical'].pc-site-header.pc-site-header{
     height:64px!important;
     min-height:64px!important;
+    max-height:64px!important;
   }
   .pc-site-header[data-public-site-header='canonical'] .pc-site-brand{
     min-width:0!important;
