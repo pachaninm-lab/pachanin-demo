@@ -1,9 +1,10 @@
 import '@/styles/platform-v7-public-register.css';
 import '@/styles/platform-v7-public-register-official.css';
 import '@/styles/platform-v7-public-register-reflow.css';
+import '@/styles/platform-v7-canonical-public-v1.css';
 import Link from 'next/link';
 import { Languages } from 'lucide-react';
-import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
+import { CanonicalPublicHeader } from '@/components/platform-v7/PublicCanonicalPrimitives';
 import { RegisterFormClientPublic } from './RegisterFormClientPublic';
 
 type Locale = 'ru' | 'en' | 'zh';
@@ -85,11 +86,9 @@ export default async function RegisterPage({
   return (
     <main className='p0-register-page'>
       <div className='p0-register-shell'>
-        <PublicSiteHeader
-          ariaLabel={copy.nav}
-          brandHomeLabel={copy.home}
-          brandHomeHref={`/platform-v7?lang=${locale}`}
-          showMobileMenu={false}
+        <CanonicalPublicHeader
+          locale={locale}
+          activePath='/platform-v7/register'
           localeControl={<a className='pc-site-locale-switch' href={`/platform-v7/register?${localeQuery.toString()}`} aria-label={copy.language} title={copy.language}><Languages size={17} aria-hidden='true' /><span>{locale.toUpperCase()}</span></a>}
           actions={<Link className='entry-login' href={`/platform-v7/login?lang=${locale}`} aria-label={copy.login}>{copy.login}</Link>}
         />

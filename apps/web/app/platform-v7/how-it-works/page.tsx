@@ -1,357 +1,107 @@
-import '@/styles/platform-v7-public-header.css';
-import '@/styles/platform-v7-public-mobile-safe-area.css';
-import '@/styles/platform-v7-i18n-cjk.css';
-import '@/styles/platform-v7-public-product-experience-v3.css';
-import '@/styles/platform-v7-public-product-experience-v3-refinement.css';
-import '@/styles/platform-v7-public-product-experience-v4.css';
-import '@/styles/platform-v7-public-product-entry-variants.css';
-import '@/styles/platform-v7-public-product-experience-v5.css';
-import '@/styles/platform-v7-public-deal-explorer-mobile.css';
-import '@/styles/platform-v7-public-deal-journey-v5.css';
+import '@/styles/platform-v7-canonical-public-v1.css';
 import type { Metadata } from 'next';
-import { getLocale, getTranslations } from 'next-intl/server';
-import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
-import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
-import { PublicDealEntryGate } from '@/components/platform-v7/PublicDealEntryGate';
-import { PublicExperienceIcon } from '@/components/platform-v7/PublicExperienceIcon';
-import { PublicExperienceScrollCoordinator } from '@/components/platform-v7/PublicExperienceAnalytics';
-import { getPublicProductEntryVariantsCopy } from '@/i18n/public-product-entry-variants';
-import { getPublicProductExperienceCopy } from '@/i18n/public-product-experience-v3';
-import { getPublicProductExperienceV4Copy } from '@/i18n/public-product-experience-v4';
-import { getPublicDealJourneyV5Copy } from '@/i18n/public-deal-journey-v5';
+import { getLocale } from 'next-intl/server';
 import {
-  DEFAULT_TOUR_STATE,
-  normalizeTourEntryVariant,
-  normalizeTourState,
-} from '@/lib/platform-v7/public-product-experience-state';
+  CanonicalBottomNav,
+  CanonicalDealSpine,
+  CanonicalFooter,
+  CanonicalGektaStrip,
+  CanonicalPublicHeader,
+  CanonicalTrustLedger,
+  canonicalPublicLocale,
+} from '@/components/platform-v7/PublicCanonicalPrimitives';
 
-type Locale = 'ru' | 'en' | 'zh';
+const META={"ru":["Как проходит Сделка — Прозрачная Цена","Семь этапов Сделки: лот, торги, обязательства, доставка, приёмка и качество, документы и расчёт, закрытие или спор."],"en":["How the Deal works — Transparent Price","Seven Deal stages from lot and trading through commitments, delivery, acceptance and quality, documents, settlement, closure or dispute."],"zh":["交易如何进行 — 透明价格","交易的七个阶段：批次、交易、义务、交付、验收与质量、文件与结算、关闭或争议。"]} as const;
 
-const PAGE_COPY: Record<Locale, Readonly<{
-  title: string;
-  description: string;
-  kicker: string;
-  heading: string;
-  lead: string;
-  exampleNotice: string;
-  register: string;
-  back: string;
-  trust: string;
-}>> = {
-  ru: {
-    title: 'Как проходит агросделка — Прозрачная Цена',
-    description: 'Путь одной сделки в растениеводстве: условия, выбор контрагента, договорённости, доставка, приёмка, качество, документы, расчёт и закрытие.',
-    kicker: 'Как работает Сделка',
-    heading: 'От условий до закрытия — один понятный путь',
-    lead: 'Сначала разберите обычное успешное исполнение. Затем при необходимости переключитесь на частичную приёмку или спор и посмотрите, как меняются действия, документы и расчётные основания.',
-    exampleNotice: 'Ниже используется вымышленный пример. Он объясняет механику платформы и не содержит реальных сделок, организаций или банковских операций.',
-    register: 'Зарегистрироваться',
-    back: 'На главную',
-    trust: 'Доверие',
-  },
-  en: {
-    title: 'How an agricultural Deal works — Transparent Price',
-    description: 'One crop-trade journey from terms and counterparty selection through delivery, acceptance, quality, documents, settlement and closure.',
-    kicker: 'How a Deal works',
-    heading: 'One clear path from terms to closure',
-    lead: 'Start with ordinary successful execution. If needed, switch to partial acceptance or dispute and see how actions, documents and settlement grounds change.',
-    exampleNotice: 'The flow below uses fictional data to explain platform mechanics. It contains no real deals, organisations or banking operations.',
-    register: 'Register',
-    back: 'Back to home',
-    trust: 'Trust',
-  },
-  zh: {
-    title: '农业交易如何运行 — 透明价格',
-    description: '一笔种植业交易从条件和交易方选择，到交付、验收、质量、文件、结算与关闭的完整路径。',
-    kicker: '交易如何运行',
-    heading: '从条件到关闭，一条清晰路径',
-    lead: '先查看普通成功履约流程。如有需要，再切换到部分验收或争议，了解操作、文件和结算依据如何变化。',
-    exampleNotice: '下方使用虚构数据说明平台机制，不包含真实交易、机构或银行操作。',
-    register: '注册',
-    back: '返回首页',
-    trust: '信任',
-  },
-};
-
-
-const SUMMARY_COPY = {
-  ru: {
-    stagesTitle: 'Семь этапов одной Сделки',
-    stages: [
-      ['Товар / потребность', 'Фиксируется исходный товар или потребность и относящиеся условия.'],
-      ['Торги', 'Предложения и коммерческие условия остаются связаны с исходным объектом.'],
-      ['Обязательства', 'Выбранные условия становятся основанием дальнейшего исполнения и документов.'],
-      ['Доставка', 'Маршрут, транспортная задача, водитель и события перевозки связаны со Сделкой.'],
-      ['Приёмка и качество', 'Вес, приёмка, проба, методика и результат относятся к конкретной партии.'],
-      ['Документы и расчёт', 'Документы и подтверждённые факты показывают, есть ли основание финансового действия.'],
-      ['Закрытие', 'Итог, решения, отклонения и доказательства остаются в единой истории Сделки.'],
-    ],
-    participantsTitle: 'Кто участвует',
-    participants: 'Продавец · Покупатель · Логистика · Водитель · Элеватор / хранение · Лаборатория · Сюрвейер · Банк / финансы · Сотрудник подключённой организации',
-    statesTitle: 'Норма, отклонение и спор',
-    states: [
-      ['Норма', 'Исполнение соответствует условиям; расчётное основание подтверждается предусмотренными фактами и документами.'],
-      ['Отклонение', 'Факт отличается от условия; уполномоченная сторона выбирает предусмотренный Сделкой вариант, а расчёт ждёт решения.'],
-      ['Спор', 'Источники или позиции расходятся; финансовое действие остаётся остановленным до достаточного основания и рассмотрения связанных доказательств.'],
-    ],
-    detailTitle: 'Подробный путь по ролям',
-    detailLead: 'Ниже можно посмотреть ту же Сделку глазами конкретного участника и разобрать документы, деньги, риск и следующий шаг.',
-  },
-  en: {
-    stagesTitle: 'Seven stages of one Deal',
-    stages: [
-      ['Product / demand', 'The originating product or demand and relevant terms are recorded.'],
-      ['Bidding', 'Offers and commercial terms stay linked to the originating object.'],
-      ['Obligations', 'Selected terms become the basis for subsequent execution and documents.'],
-      ['Delivery', 'Route, transport task, driver and transport events stay linked to the Deal.'],
-      ['Acceptance and quality', 'Weight, acceptance, sample, method and result relate to the specific lot.'],
-      ['Documents and settlement', 'Documents and confirmed facts show whether a financial action has sufficient basis.'],
-      ['Closure', 'Outcome, decisions, deviations and evidence remain in one Deal history.'],
-    ],
-    participantsTitle: 'Who participates',
-    participants: 'Seller · Buyer · Logistics · Driver · Elevator / storage · Laboratory · Surveyor · Bank / finance · Employee of a connected organisation',
-    statesTitle: 'Normal, deviation and dispute',
-    states: [
-      ['Normal', 'Execution matches the terms; the settlement basis is confirmed by the required facts and documents.'],
-      ['Deviation', 'A fact differs from a term; an authorised party chooses an allowed option while settlement awaits the decision.'],
-      ['Dispute', 'Sources or positions conflict; financial action remains paused until sufficient basis exists and linked evidence is reviewed.'],
-    ],
-    detailTitle: 'Detailed journey by role',
-    detailLead: 'Below you can view the same Deal from a participant perspective and inspect documents, money, risk and the next step.',
-  },
-  zh: {
-    stagesTitle: '同一笔交易的七个阶段',
-    stages: [
-      ['商品 / 需求', '记录原始商品或需求以及相关条件。'],
-      ['竞价', '报价和商业条件与原始对象保持关联。'],
-      ['义务', '选定条件成为后续履约和文件的依据。'],
-      ['交付', '路线、运输任务、司机和运输事件与交易关联。'],
-      ['验收与质量', '重量、验收、样品、方法和结果都对应具体批次。'],
-      ['文件与结算', '文件和已确认事实表明金融操作是否具备充分依据。'],
-      ['关闭', '结果、决定、偏差和证据保留在同一交易历史中。'],
-    ],
-    participantsTitle: '参与方',
-    participants: '卖方 · 买方 · 物流 · 司机 · 筒仓 / 仓储 · 实验室 · 检验机构 · 银行 / 金融 · 已接入机构员工',
-    statesTitle: '正常、偏差与争议',
-    states: [
-      ['正常', '履约符合条件；结算依据由规定的事实和文件确认。'],
-      ['偏差', '事实与条件不同；获授权一方选择交易允许的处理方案，结算等待决定。'],
-      ['争议', '来源或立场冲突；在具备充分依据并审查关联证据前，金融操作保持暂停。'],
-    ],
-    detailTitle: '按角色查看详细流程',
-    detailLead: '下方可以从具体参与方视角查看同一笔交易，并了解文件、资金、风险和下一步。',
-  },
-} as const;
-
-const HOW_IT_WORKS_PUBLIC_CSS = `
-.pc-hiw-summary{display:grid;gap:22px;margin:18px 0 30px;padding:26px;border:1px solid #d7e2dc;border-radius:22px;background:#fbfdfc}
-.pc-hiw-summary h2,.pc-hiw-summary h3{margin:0;color:#173429;letter-spacing:-.025em}.pc-hiw-summary h2{font-size:clamp(26px,3vw,38px)}.pc-hiw-summary h3{font-size:18px}
-.pc-hiw-stages{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin:0;padding:0;list-style:none}.pc-hiw-stages:focus-visible{outline:3px solid #7cc59a;outline-offset:3px}.pc-hiw-stages li{min-width:0;padding:14px;border:1px solid #dce6e0;border-radius:14px;background:#fff}.pc-hiw-stages i{width:26px;height:26px;display:grid;place-items:center;border-radius:8px;background:#edf6f0;color:#087a3b;font-style:normal;font-size:11px;font-weight:800}.pc-hiw-stages strong{display:block;margin-top:18px;color:#294237;font-size:12px;line-height:1.35}.pc-hiw-stages p{margin:7px 0 0;color:#65746c;font-size:11px;line-height:1.45}
-.pc-hiw-participants{padding:16px 18px;border-radius:14px;background:#edf5f0}.pc-hiw-participants p{margin:7px 0 0;color:#40584b;font-size:13px;line-height:1.55}
-.pc-hiw-states{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.pc-hiw-states article{padding:18px;border:1px solid #dce6e0;border-radius:15px;background:#fff}.pc-hiw-states strong{color:#173429;font-size:14px}.pc-hiw-states p{margin:8px 0 0;color:#63726a;font-size:12px;line-height:1.5}
-.pc-hiw-detail{padding-top:4px;border-top:1px solid #dce6e0}.pc-hiw-detail p{margin:8px 0 0;color:#63726a;font-size:13px;line-height:1.55}
-@media(max-width:960px){.pc-hiw-stages{grid-template-columns:repeat(4,minmax(0,1fr))}}
-@media(max-width:640px){.pc-hiw-summary{padding:18px 14px}.pc-hiw-stages{grid-auto-flow:column;grid-auto-columns:minmax(170px,78vw);grid-template-columns:none;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:8px}.pc-hiw-stages li{scroll-snap-align:start}.pc-hiw-states{grid-template-columns:1fr}}
-.pc-ppe-page[data-testid='platform-v7-deal-from-inside'] .pc-ppe-stage-nav > .pc-ppe-icon-button {
-  flex: 0 0 44px;
-  width: 44px;
-  min-width: 44px;
-  min-height: 44px;
-}
-/* Public exploration focuses on context, action and grounds instead of status
- * fields. Underlying route/state authority remains unchanged for navigation. */
-.pc-ppe-page[data-testid='platform-v7-deal-from-inside'] .pc-ppe-deal-state > div[data-tone='action'],
-.pc-ppe-page[data-testid='platform-v7-deal-from-inside'] .pc-ppe-v5-stage-main > p,
-.pc-ppe-page[data-testid='platform-v7-deal-from-inside'] .pc-ppe-document-card summary small {
-  display: none !important;
-}
-`;
-
-function localeOf(value: string): Locale {
-  if (value.startsWith('en')) return 'en';
-  if (value.startsWith('zh')) return 'zh';
-  return 'ru';
-}
-
-function sanitizeVisibleDealCopy<T>(value: T, locale: Locale): T {
-  const replacements: Record<Locale, readonly (readonly [string, string])[]> = {
-    ru: [
-      ['готовность расчёта', 'основание расчёта'],
-      ['Готовность расчёта', 'Основание расчёта'],
-      ['расчётный статус', 'расчётный контекст'],
-      ['статус партии', 'события партии'],
-      ['Активного блокера нет', 'Критического блокера нет'],
-      ['Полная готовность расчёта', 'Полное основание расчёта'],
-      ['Готовность финансового действия', 'Основание финансового действия'],
-    ],
-    en: [
-      ['settlement readiness', 'settlement basis'],
-      ['Settlement readiness', 'Settlement basis'],
-      ['settlement status', 'settlement context'],
-      ['lot status', 'lot events'],
-      ['No active blocker', 'No critical blocker'],
-      ['Full settlement readiness', 'Complete settlement basis'],
-    ],
-    zh: [
-      ['结算准备状态', '结算依据'],
-      ['完整结算准备', '完整结算依据'],
-      ['批次状态', '批次事件'],
-    ],
-  };
-
-  const transform = (node: unknown): unknown => {
-    if (typeof node === 'string') {
-      return replacements[locale].reduce((text, [from, to]) => text.replaceAll(from, to), node);
-    }
-    if (Array.isArray(node)) return node.map(transform);
-    if (node && typeof node === 'object') {
-      return Object.fromEntries(Object.entries(node).map(([key, child]) => [key, transform(child)]));
-    }
-    return node;
-  };
-
-  return transform(value) as T;
-}
-
-export async function generateMetadata(): Promise<Metadata> {
-  const locale = localeOf(await getLocale());
-  const copy = PAGE_COPY[locale];
+export async function generateMetadata():Promise<Metadata>{
+  const locale=canonicalPublicLocale(await getLocale());
+  const copy=META[locale];
   return {
-    title: copy.title,
-    description: copy.description,
-    alternates: {
-      canonical: '/platform-v7/how-it-works',
-      languages: {
-        ru: '/platform-v7/how-it-works?lang=ru',
-        en: '/platform-v7/how-it-works?lang=en',
-        zh: '/platform-v7/how-it-works?lang=zh',
+    title:copy[0],
+    description:copy[1],
+    alternates:{
+      canonical:'/platform-v7/how-it-works',
+      languages:{
+        ru:'/platform-v7/how-it-works?lang=ru',
+        en:'/platform-v7/how-it-works?lang=en',
+        zh:'/platform-v7/how-it-works?lang=zh',
       },
     },
-    robots: { index: true, follow: true },
+    robots:{index:true,follow:true},
   };
 }
 
-export default async function PublicDealFromInsidePage({
-  searchParams,
-}: {
-  searchParams?: Record<string, string | string[] | undefined>;
-}) {
-  const locale = await getLocale();
-  const normalizedLocale = localeOf(locale);
-  const pageCopy = PAGE_COPY[normalizedLocale];
-  const copy = sanitizeVisibleDealCopy(getPublicProductExperienceCopy(locale), normalizedLocale);
-  const ui = getPublicProductExperienceV4Copy(locale);
-  const journeyUi = getPublicDealJourneyV5Copy(locale);
-  const entryCopy = getPublicProductEntryVariantsCopy(locale);
-  const chrome = await getTranslations('publicEntry.chrome');
-  const initialEntry = normalizeTourEntryVariant(searchParams?.entry);
-  const initialState = normalizeTourState(searchParams ?? {}, {
-    ...DEFAULT_TOUR_STATE,
-    stage: 'terms',
-    perspective: 'buyer',
-  });
-  const localizedHref = (path: string) => `${path}?lang=${encodeURIComponent(normalizedLocale)}`;
-  const registerHref = localizedHref('/platform-v7/register');
-  const loginHref = localizedHref('/platform-v7/login');
-  const homeHref = localizedHref('/platform-v7');
-  void journeyUi;
-  const nav = (
-    <>
-      <a href={`${homeHref}#how-it-works`}>{ui.header.howItWorks}</a>
-      <a href={`${homeHref}#participants`}>{ui.header.participants}</a>
-      <a href={`${homeHref}#trust`}>{ui.header.reliability}</a>
-    </>
-  );
+const COPY={
+ru:{
+ e:'Как проходит Сделка',t:'Как проходит Сделка',p:'Семь прозрачных шагов — от товара до результата. Каждый этап фиксируется в системе, а участники видят связанные факты, документы и сроки.',
+ actor:'Участник',fact:'Факт',basis:'Основание',money:'Влияние на расчёт',next:'Следующий шаг',
+ stages:[
+ ['Лот','Продавец','Публичные и закрытые параметры товара','Подтверждённые данные лота и право организации действовать','Расчёт ещё не формируется','Допустить лот к разрешённому торговому контуру'],
+ ['Торги','Продавец · Покупатель','Ставки и зафиксированный результат торгов','Правила торгов и серверно подтверждённый результат','Фиксируются экономические условия будущей Сделки','Перейти к обязательствам сторон'],
+ ['Обязательства','Продавец · Покупатель','Условия, роли и ответственность сторон','Согласованные условия и подтверждённые полномочия','Появляются условия, от которых зависит будущий финансовый шаг','Запустить исполнение'],
+ ['Доставка','Логистика · Водитель','Рейс, маршрут и фактическое исполнение','Разрешённые действия логистической роли и события доставки','Сам факт доставки не даёт клиенту права менять финансовое состояние','Передать факт на приёмку'],
+ ['Приёмка / качество','Элеватор · Лаборатория · Сюрвейер','Вес, приёмка, показатели качества и подтверждения','Источники фактов и полномочия соответствующих участников','Отклонения могут изменить основание для расчёта или создать блокер','Зафиксировать принятый результат и необходимые действия'],
+ ['Документы / расчёт','Стороны · Банк','Комплект документов и подтверждённые основания','Связанные документы, события и банковские правила','Платформа показывает основание; внешнее финансовое событие требует подтверждения','Выполнить разрешённый финансовый шаг либо устранить блокер'],
+ ['Закрытие / спор','Участники Сделки','Финальный статус либо зафиксированное расхождение','История фактов, документов, действий и решений','Закрытие возможно только при выполненных условиях; спор сохраняет влияние до решения','Закрыть Сделку либо вести спор в связанном контексте'],
+ ],
+ trust:'Доверие на каждом шаге',trustLead:'Полномочия → Основание → Источник → Решение — не отдельный раздел, а сквозная модель всей Сделки.',
+ cta:'Зарегистрироваться',market:'Открыть рынок'
+},
+en:{
+ e:'How the Deal works',t:'Seven transparent steps — from product to outcome.',p:'Every stage answers the same questions: who acts, which fact is required, what basis permits progress and how it affects settlement.',
+ actor:'Participant',fact:'Fact',basis:'Basis',money:'Settlement impact',next:'Next step',
+ stages:[
+ ['Lot','Seller','Public and private product parameters','Confirmed lot data and organisation authority','No settlement basis yet','Admit the lot to the authorised trading circuit'],
+ ['Trading','Seller · Buyer','Bids and confirmed trading result','Trading rules and server-confirmed outcome','Economic terms of the future Deal are fixed','Move to commitments'],
+ ['Commitments','Seller · Buyer','Terms, roles and responsibilities','Agreed terms and confirmed authority','Conditions affecting the future financial step become explicit','Start execution'],
+ ['Delivery','Logistics · Driver','Trip, route and execution facts','Authorised logistics actions and delivery events','Delivery itself cannot let the client choose financial state','Pass confirmed facts to acceptance'],
+ ['Acceptance / quality','Elevator · Laboratory · Surveyor','Weight, acceptance, quality indicators and confirmations','Fact sources and participant authority','Deviation can change settlement basis or create a blocker','Fix the accepted result and required actions'],
+ ['Documents / settlement','Parties · Bank','Document set and confirmed basis','Linked documents, events and banking rules','The platform shows basis; the external financial event still requires confirmation','Perform the permitted financial step or clear the blocker'],
+ ['Closure / dispute','Deal participants','Final status or recorded discrepancy','History of facts, documents, actions and decisions','Closure requires satisfied conditions; a dispute keeps its impact until resolved','Close the Deal or handle the dispute in the same context'],
+ ],
+ trust:'Trust at every step',trustLead:'Authority → Basis → Source → Decision is not a separate feature; it is the control model across the Deal.',
+ cta:'Register',market:'Open market'
+},
+zh:{
+ e:'交易如何进行',t:'七个透明步骤——从商品到结果。',p:'每个阶段都回答同样的问题：谁处理、需要什么事实、依据是什么、对结算有什么影响。',
+ actor:'参与方',fact:'事实',basis:'依据',money:'结算影响',next:'下一步',
+ stages:[
+ ['批次','卖方','商品的公开和非公开参数','已确认的批次数据和机构权限','尚未形成结算依据','允许批次进入授权交易流程'],
+ ['交易','卖方 · 买方','报价和已确认交易结果','交易规则和服务器确认的结果','固定未来交易的经济条件','进入义务阶段'],
+ ['义务','卖方 · 买方','条件、角色和责任','已同意条件和已确认权限','明确影响未来金融步骤的条件','启动履约'],
+ ['交付','物流 · 司机','运输、路线和履约事实','获授权物流操作和交付事件','交付本身不能让客户端选择金融状态','将确认事实传递到验收'],
+ ['验收 / 质量','粮库 · 实验室 · 检验机构','重量、验收、质量指标和确认','事实来源及对应参与方权限','偏差可能改变结算依据或形成阻断','固定验收结果和所需操作'],
+ ['文件 / 结算','交易方 · 银行','文件集和已确认依据','关联文件、事件和银行规则','平台展示依据；外部金融事件仍需确认','执行允许的金融步骤或解除阻断'],
+ ['关闭 / 争议','交易参与方','最终状态或已记录差异','事实、文件、操作和决定的历史','满足条件后才能关闭；争议在解决前持续影响交易','关闭交易或在同一上下文处理争议'],
+ ],
+ trust:'每一步都建立信任',trustLead:'权限 → 依据 → 来源 → 决定不是独立功能，而是贯穿整笔交易的控制模型。',
+ cta:'注册',market:'打开市场'
+}} as const;
 
-  return (
-    <main id='main-content' className='pc-ppe-page' data-testid='platform-v7-deal-from-inside'>
-      <style>{HOW_IT_WORKS_PUBLIC_CSS}</style>
-      <a className='pc-skip-link' href='#pc-ppe-explorer-title'>{chrome('skipToContent')}</a>
-      <PublicExperienceScrollCoordinator />
-      <PublicSiteHeader
-        ariaLabel={copy.header.aria}
-        brandHomeLabel={copy.header.brandHome}
-        navLabel={copy.header.aria}
-        menuLabel={ui.header.menu}
-        nav={nav}
-        showMobileMenu
-        localeControl={<PublicLocaleLink />}
-        actions={
-          <div className='pc-v6-header-actions'>
-            <a href={loginHref} className='entry-login'>{copy.header.signIn}</a>
-            <a href={registerHref} className='pc-ppe-primary-button'>{pageCopy.register}</a>
-          </div>
-        }
-      />
-
-      <div className='pc-ppe-shell'>
-        <header className='pc-ppe-explorer-intro'>
-          <div>
-            <span className='pc-ppe-kicker'>{pageCopy.kicker}</span>
-            <h1 id='pc-ppe-explorer-title'>{pageCopy.heading}</h1>
-            <p>{pageCopy.lead}</p>
-            <div className='pc-ppe-demo-banner' role='note'>{pageCopy.exampleNotice}</div>
-          </div>
-          <div className='pc-ppe-explorer-intro-actions'>
-            <a href={homeHref} className='pc-ppe-back-link'>
-              <PublicExperienceIcon name='arrow' size={18} style={{ transform: 'rotate(180deg)' }} />
-              <span>{pageCopy.back}</span>
-            </a>
-          </div>
-        </header>
-
-        <section className='pc-hiw-summary' aria-labelledby='pc-hiw-stages-title'>
-          <h2 id='pc-hiw-stages-title'>{SUMMARY_COPY[normalizedLocale].stagesTitle}</h2>
-          <ol className='pc-hiw-stages' tabIndex={0} aria-labelledby='pc-hiw-stages-title'>
-            {SUMMARY_COPY[normalizedLocale].stages.map(([title, text], index) => (
-              <li key={title}><i>{index + 1}</i><strong>{title}</strong><p>{text}</p></li>
-            ))}
-          </ol>
-          <div className='pc-hiw-participants'>
-            <h3>{SUMMARY_COPY[normalizedLocale].participantsTitle}</h3>
-            <p>{SUMMARY_COPY[normalizedLocale].participants}</p>
-          </div>
-          <div>
-            <h3>{SUMMARY_COPY[normalizedLocale].statesTitle}</h3>
-            <div className='pc-hiw-states'>
-              {SUMMARY_COPY[normalizedLocale].states.map(([title, text]) => <article key={title}><strong>{title}</strong><p>{text}</p></article>)}
-            </div>
-          </div>
-          <div className='pc-hiw-detail'>
-            <h3>{SUMMARY_COPY[normalizedLocale].detailTitle}</h3>
-            <p>{SUMMARY_COPY[normalizedLocale].detailLead}</p>
-          </div>
-        </section>
-
-        <PublicDealEntryGate
-          copy={copy}
-          entryCopy={entryCopy}
-          locale={locale}
-          initialEntry={initialEntry}
-          initialState={initialState}
-        />
-        <noscript>
-          <a href={registerHref} className='pc-ppe-primary-button'>{pageCopy.register}</a>
-        </noscript>
-      </div>
-
-      <footer className='pc-ppe-footer'>
-        <div className='pc-ppe-shell pc-ppe-footer-grid'>
-          <div className='pc-ppe-footer-brand'>
-            <strong>Прозрачная Цена</strong>
-            <p>{ui.footer.note}</p>
-          </div>
-          <nav aria-label={copy.header.aria}>
-            <a href={localizedHref('/platform-v7/about')}>{ui.footer.about}</a>
-            <a href={localizedHref('/platform-v7/trust')}>{pageCopy.trust}</a>
-            <a href={localizedHref('/platform-v7/privacy')}>{ui.footer.privacy}</a>
-            <a href={localizedHref('/platform-v7/terms')}>{ui.footer.terms}</a>
-            <a href={localizedHref('/platform-v7/contact')}>{ui.footer.contact}</a>
-          </nav>
-          <small>{ui.footer.disclaimer}</small>
-          <span>© {new Date().getUTCFullYear()} Прозрачная Цена</span>
-        </div>
-      </footer>
-    </main>
-  );
+export default async function HowItWorksPage(){
+ const locale=canonicalPublicLocale(await getLocale()); const c=COPY[locale];
+ return <main className='pc-canonical-public pc-cp-page-how'>
+  <CanonicalPublicHeader locale={locale} activePath='/platform-v7/how-it-works'/>
+  <section className='pc-cp-hero pc-cp-how-hero'>
+   <div className='pc-cp-container pc-cp-how-hero-grid'>
+    <div className='pc-cp-hero-copy'><span className='pc-cp-eyebrow'>{c.e}</span><h1>{c.t}</h1><p>{c.p}</p></div>
+    <aside className='pc-cp-how-hero-quote'><strong>{locale==='ru'?'От поля до результата':locale==='en'?'From field to outcome':'从田间到结果'}</strong><span>{locale==='ru'?'Один контекст, семь этапов, проверяемые факты.':locale==='en'?'One context, seven stages, verifiable facts.':'一个上下文、七个阶段、可核验事实。'}</span></aside>
+   </div>
+  </section>
+  <section className='pc-cp-how-spine'><div className='pc-cp-container'><CanonicalDealSpine locale={locale} currentIndex={0}/></div></section>
+  <section className='pc-cp-section'><div className='pc-cp-container'>
+   <div className='pc-cp-process-cards'>
+    {c.stages.map((s,index)=><article className='pc-cp-card pc-cp-process-card' key={s[0]}><i>{index+1}</i><div><h3>{s[0]}</h3><div className='pc-cp-process-meta'>
+      <Meta l={c.actor} v={s[1]}/><Meta l={c.fact} v={s[2]}/><Meta l={c.basis} v={s[3]}/><Meta l={c.money} v={s[4]}/><Meta l={c.next} v={s[5]}/>
+    </div></div></article>)}
+   </div>
+  </div></section>
+  <section className='pc-cp-section pc-cp-section--soft pc-cp-how-trust'><div className='pc-cp-container'>
+   <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{c.trust}</span><h2>{c.trust}</h2><p>{c.trustLead}</p></div>
+   <div className='pc-cp-how-trust-layout'><CanonicalTrustLedger locale={locale}/><aside className='pc-cp-how-gekta-note'><strong>{locale==='ru'?'Гекта помогает понимать, а не решать':locale==='en'?'Gekta helps understand, not decide':'Gekta 帮助理解，而不是替你决定'}</strong><p>{locale==='ru'?'Объясняет факты и следующий допустимый шаг. Решение остаётся за участником и правилами Сделки.':locale==='en'?'Explains facts and the next permitted step. The decision stays with the participant and Deal rules.':'解释事实和允许的下一步；决定仍由参与方和交易规则控制。'}</p></aside></div>
+  </div></section>
+  <section className='pc-cp-section pc-cp-section--tight pc-cp-how-gekta'><div className='pc-cp-container'><CanonicalGektaStrip locale={locale}/></div></section>
+  <CanonicalFooter locale={locale}/><CanonicalBottomNav locale={locale} active='/platform-v7/how-it-works'/>
+ </main>
 }
+function Meta({l,v}:{l:string;v:string}){return <div><span>{l}</span><strong>{v}</strong></div>}
