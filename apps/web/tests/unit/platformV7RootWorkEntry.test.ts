@@ -185,16 +185,16 @@ describe('platform-v7 canonical public experience',()=>{
 
   it('removes fabricated public Deal examples while retaining an explanatory Deal state lens',()=>{
     expect(dealFlow).toContain('CanonicalStateLens');
-    expect(dealFlow).toContain('Платформа показывает основание для расчёта');
+    expect(dealFlow).toContain('финансовый статус нельзя назначить вручную');
     expect(dealFlow).not.toContain('DL-9102');
     expect(dealFlow).not.toContain('4 860 000');
     expect(dealFlow).not.toContain('ООО');
   });
 
   it('keeps Gekta inside source and authority boundaries',()=>{
-    expect(gekta).toContain('критическое решение остаётся за человеком и правилами платформы');
+    expect(gekta).toContain('решение и ответственность остаются за участником');
     expect(gekta).toContain('Только контекст, доступный текущему участнику');
-    expect(gekta).toContain('Гекта объясняет; критическое действие не исполняет самостоятельно');
+    expect(gekta).toContain('Гекта объясняет варианты; действие и ответственность остаются за участником');
     expect(gekta).not.toContain('автоматически переводит деньги');
   });
 
