@@ -49,6 +49,12 @@ function positiveMinorUnits(value: string | null): string | null {
   return /^\d+$/.test(normalized) && BigInt(normalized) > 0n ? normalized : null;
 }
 
+function currencyCode(value: string | null): string | null {
+  if (value === null) return null;
+  const normalized = value.trim().toUpperCase();
+  return /^[A-Z]{3}$/.test(normalized) ? normalized : null;
+}
+
 export function validateBankReceiptCandidate(
   expected: ExpectedBankOperationEvidence,
   candidate: BankReceiptCandidate,
@@ -56,7 +62,7 @@ export function validateBankReceiptCandidate(
   if (candidate.providerFamily !== expected.providerFamily) {
     return rejected('PROVIDER_MISMATCH');
   }
-  if (candidate.operationId !== expected.operationId) {
+  if (!expected.operationId.trim() || candidate.operationId !== expected.operationId) {
     return rejected('OPERATION_MISMATCH');
   }
   if (
@@ -65,12 +71,19 @@ export function validateBankReceiptCandidate(
   ) {
     return rejected('PROVIDER_OPERATION_MISMATCH');
   }
-  if (positiveMinorUnits(candidate.amountMinor) !== positiveMinorUnits(expected.amountMinor)) {
+
+  const expectedAmount = positiveMinorUnits(expected.amountMinor);
+  const candidateAmount = positiveMinorUnits(candidate.amountMinor);
+  if (!expectedAmount || !candidateAmount || candidateAmount !== expectedAmount) {
     return rejected('AMOUNT_MISMATCH');
   }
-  if (candidate.currency?.trim().toUpperCase() !== expected.currency.trim().toUpperCase()) {
+
+  const expectedCurrency = currencyCode(expected.currency);
+  const candidateCurrency = currencyCode(candidate.currency);
+  if (!expectedCurrency || !candidateCurrency || candidateCurrency !== expectedCurrency) {
     return rejected('CURRENCY_MISMATCH');
   }
+
   if (
     candidate.providerEventId
     && expected.alreadyConsumedProviderEventIds?.includes(candidate.providerEventId)
