@@ -70,6 +70,9 @@ describe('platform-v7 canonical public experience',()=>{
     for(const label of ['Рынок','Сделка','Возможности','Гекта','Доверие','О платформе']) expect(primitives).toContain(label);
     for(const label of ['Market','Deal','Capabilities','Gekta','Trust','About']) expect(primitives).toContain(label);
     for(const label of ['市场','交易','功能','Gekta','信任','关于平台']) expect(primitives).toContain(label);
+    expect(primitives).toContain("['Сделка', '/platform-v7/deal-flow', Layers3, false]");
+    expect(primitives).not.toContain("['Регистрация', '/platform-v7/register', UserRound, true]");
+    expect(dealFlow).toContain("<CanonicalBottomNav locale={locale} active='/platform-v7/deal-flow'/>");
   });
 
   it('keeps login and registration on the same canonical public shell',()=>{
