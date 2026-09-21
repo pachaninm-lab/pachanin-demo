@@ -2,7 +2,7 @@
   "schemaVersion": "platform-v7.concurrent-scope.v1",
   "branch": "fix/public-final-ux-polish-20260921",
   "status": "active",
-  "purpose": "Owner-directed FINAL PUBLIC UX polish: canonical header and bottom navigation, coherent burger, functional market filters and crop visuals, clickable public Deal scenarios, Trust readability, safe fixed-nav spacing, auth/registration polish and accessibility closure.",
+  "purpose": "Owner-directed FINAL PUBLIC UX polish: canonical header and bottom navigation, coherent burger, functional market filters and crop visuals, non-clickable public Deal status indicators, Trust readability, safe fixed-nav spacing, auth/registration polish and accessibility closure.",
   "approvedBy": "owner-public-ux-polish-2026-09-22",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
@@ -29,7 +29,7 @@
   ],
   "requiredInvariants": [
     "No API, database, auth, RBAC, RLS, tenant, Deal money/finality, outbox, infrastructure or release-authority semantics change.",
-    "Protected Deal workspace remains server-authoritative and read-only in its state summary; only public explanatory scenarios are navigable.",
+    "Protected Deal workspace remains server-authoritative and read-only in its state summary; Normal, Deviation and Dispute remain informational status indicators, not fake navigation.",
     "Public market remains real-data-only and fail-closed; crop visuals never fabricate lot facts.",
     "Visible final public typography remains at least 12px and interactive targets remain at least 44px.",
     "RU, EN and ZH use the same canonical header, burger and bottom navigation structure.",
