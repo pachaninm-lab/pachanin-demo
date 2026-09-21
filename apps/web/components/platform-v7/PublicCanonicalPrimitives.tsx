@@ -316,6 +316,7 @@ export function CanonicalFooter({ locale }: { locale: string }) {
         <div><strong>Прозрачная Цена</strong><p>{description}</p></div>
         <nav aria-label={ACTIONS[lang].nav}>
           {NAV[lang].map(([label, href]) => <a key={href} href={`${href}?lang=${lang}`}>{label}</a>)}
+          <a href={`/platform-v7/about?lang=${lang}`}>{ACTIONS[lang].about}</a>
           <a href={`/platform-v7/contact?lang=${lang}`}>{lang === 'ru' ? 'Контакты' : lang === 'en' ? 'Contact' : '联系'}</a>
           <a href={`/platform-v7/privacy?lang=${lang}`}>{lang === 'ru' ? 'Конфиденциальность' : lang === 'en' ? 'Privacy' : '隐私'}</a>
           <a href={`/platform-v7/terms?lang=${lang}`}>{lang === 'ru' ? 'Условия' : lang === 'en' ? 'Terms' : '条款'}</a>
