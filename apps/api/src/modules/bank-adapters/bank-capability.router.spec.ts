@@ -21,7 +21,10 @@ const authority = (
   capabilityCode: 'BANK',
   maturity: 'LIVE_ACCEPTED',
   bindingVersion: '7',
+  configurationVersion: 'cfg-7',
   evidenceMode: 'SERVER_HELD',
+  credentialReadiness: 'VERIFIED_CURRENT',
+  callbackTrustReadiness: 'VERIFIED_CURRENT',
   mayCarryRealTraffic: true,
   ...overrides,
 });
@@ -61,6 +64,7 @@ function liveTestAdapter(
       providerFamily,
       operationId: response.operationId,
       providerOperationId: response.providerOperationId,
+      idempotencyKey: response.idempotencyKey,
       providerEventId: response.providerEventId,
       externalReceiptId: response.externalReceiptId,
       authenticationEvidenceRef: response.authenticationEvidenceRef,
@@ -97,10 +101,45 @@ describe('bank capability router', () => {
     });
   });
 
-  it('does not substitute an unsupported bank capability', () => {
-    expect(router.route(authority('SBER'), 'BILLING')).toMatchObject({
-      status: 'UNSUPPORTED',
-      reason: 'CAPABILITY_NOT_SUPPORTED:BILLING',
+  it('does not substitute one bank capability for another', () => {
+    for (const capability of ['BILLING', 'FINANCING_APPLICATION', 'STATEMENT_READ'] as const) {
+      expect(router.route(authority('SBER'), capability)).toMatchObject({
+        status: 'UNSUPPORTED',
+        reason: `CAPABILITY_NOT_SUPPORTED:${capability}`,
+      });
+    }
+  });
+
+  it('ignores BANK_MODE/BANK_PROVIDER environment hints when server-held authority is absent', () => {
+    const priorMode = process.env.BANK_MODE;
+    const priorProvider = process.env.BANK_PROVIDER;
+    process.env.BANK_MODE = 'production';
+    process.env.BANK_PROVIDER = 'sber';
+    try {
+      expect(router.route(null, 'STATUS_READ')).toMatchObject({
+        status: 'NOT_ACTIVATED',
+        reason: 'SERVER_HELD_PROVIDER_BINDING_REQUIRED',
+      });
+    } finally {
+      if (priorMode === undefined) delete process.env.BANK_MODE; else process.env.BANK_MODE = priorMode;
+      if (priorProvider === undefined) delete process.env.BANK_PROVIDER; else process.env.BANK_PROVIDER = priorProvider;
+    }
+  });
+
+  it('requires current credential and callback-trust evidence before live routing', () => {
+    expect(router.route(
+      authority('T_BANK', { credentialReadiness: 'MISSING_OR_UNKNOWN' }),
+      'STATUS_READ',
+    )).toMatchObject({
+      status: 'NOT_ACTIVATED',
+      reason: 'CREDENTIAL_OR_CALLBACK_TRUST_NOT_VERIFIED',
+    });
+    expect(router.route(
+      authority('T_BANK', { callbackTrustReadiness: 'EXPIRED_OR_REVOKED' }),
+      'STATUS_READ',
+    )).toMatchObject({
+      status: 'NOT_ACTIVATED',
+      reason: 'CREDENTIAL_OR_CALLBACK_TRUST_NOT_VERIFIED',
     });
   });
 
