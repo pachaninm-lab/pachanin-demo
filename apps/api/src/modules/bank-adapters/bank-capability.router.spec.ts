@@ -104,7 +104,7 @@ describe('bank capability router', () => {
     });
   });
 
-  it('keeps all three reference adapters NOT_ACTIVATED even with a LIVE_ACCEPTED-looking authority because they have no live transport', () => {
+  it('keeps all three reference adapters NOT_ACTIVATED even with a LIVE_ACCEPTED authority because they have no live transport', () => {
     for (const provider of ['SBER', 'ALFA_BANK', 'T_BANK'] as const) {
       expect(router.route(authority(provider), 'STATUS_READ')).toMatchObject({
         status: 'NOT_ACTIVATED',
@@ -113,12 +113,21 @@ describe('bank capability router', () => {
     }
   });
 
-  it('fails closed when server-held maturity does not admit real traffic', () => {
-    expect(router.route(authority('T_BANK', { mayCarryRealTraffic: false }), 'BILLING'))
-      .toMatchObject({
-        status: 'NOT_ACTIVATED',
-        reason: 'SERVER_HELD_MATURITY_DOES_NOT_ALLOW_REAL_TRAFFIC',
-      });
+  it('fails closed when either maturity or server assessment does not admit real traffic', () => {
+    expect(router.route(
+      authority('T_BANK', { maturity: 'CONTRACT_TESTED', mayCarryRealTraffic: true }),
+      'BILLING',
+    )).toMatchObject({
+      status: 'NOT_ACTIVATED',
+      reason: 'SERVER_HELD_MATURITY_DOES_NOT_ALLOW_REAL_TRAFFIC',
+    });
+    expect(router.route(
+      authority('T_BANK', { mayCarryRealTraffic: false }),
+      'BILLING',
+    )).toMatchObject({
+      status: 'NOT_ACTIVATED',
+      reason: 'SERVER_HELD_MATURITY_DOES_NOT_ALLOW_REAL_TRAFFIC',
+    });
   });
 
   it('proves provider substitution through the same router contract with independent test doubles only', () => {
