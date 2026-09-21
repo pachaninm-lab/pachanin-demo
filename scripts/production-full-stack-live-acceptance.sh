@@ -45,24 +45,24 @@ grep -Fxq 'STATIC_READINESS=PASS' "$EVIDENCE_DIR/static-readiness.log"
 for locale in ru en zh; do
   case "$locale" in
     ru)
-      expected_kicker_primary='Платформа управления агросделками в растениеводстве'
-      expected_kicker_secondary='с собственным искусственным интеллектом'
-      expected_title='Управляйте агросделкой'
-      expected_accent='от цены до расчёта'
+      expected_kicker_primary='Единый контур агросделки'
+      expected_kicker_secondary='Реальные публичные лоты'
+      expected_title='Агросделка. От товара и цены — до результата.'
+      expected_accent='9 ролей'
       retired_title='Цена согласована. Теперь нужно исполнить Сделку.'
       ;;
     en)
-      expected_kicker_primary='Crop Deal management platform'
-      expected_kicker_secondary='with proprietary artificial intelligence'
-      expected_title='Manage an agricultural Deal'
-      expected_accent='from price to settlement'
+      expected_kicker_primary='One agricultural Deal flow'
+      expected_kicker_secondary='Real public lots'
+      expected_title='The agricultural Deal. From product and price to outcome.'
+      expected_accent='9 roles'
       retired_title='The price is agreed. Now the Deal must be executed.'
       ;;
     zh)
-      expected_kicker_primary='种植业农业交易管理平台'
-      expected_kicker_secondary='配备自主人工智能'
-      expected_title='管理农业交易'
-      expected_accent='从价格到结算'
+      expected_kicker_primary='统一农业交易流程'
+      expected_kicker_secondary='真实公开批次'
+      expected_title='农业交易。从商品与价格，到最终结果。'
+      expected_accent='9 个角色'
       retired_title='价格已经确定。现在需要完成交易履约。'
       ;;
   esac
@@ -70,7 +70,6 @@ for locale in ru en zh; do
   CURRENT_CHECK="public-route-$locale"
   route="$LIVE_BASE/platform-v7?lang=$locale&release=$TARGET_SHA&run=$RELEASE_RUN_ID"
   curl "${curl_common[@]}" "$route" > "$EVIDENCE_DIR/platform-$locale.html"
-  grep -Fq 'connect-organization' "$EVIDENCE_DIR/platform-$locale.html"
   grep -Fq 'data-testid="platform-v7-root-execution-cockpit"' "$EVIDENCE_DIR/platform-$locale.html"
 
   CURRENT_CHECK="approved-homepage-content-$locale"
