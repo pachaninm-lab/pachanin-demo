@@ -69,6 +69,7 @@ function liveTestAdapter(
       idempotencyKey: response.idempotencyKey,
       providerEventId: response.providerEventId,
       externalReceiptId: response.externalReceiptId,
+      authenticationAuthorityRef: response.authenticationAuthorityRef,
       authenticationEvidenceRef: response.authenticationEvidenceRef,
       payloadFingerprint: response.payloadFingerprint,
       amountMinor: response.amountMinor,
