@@ -10,7 +10,7 @@ import {
   canonicalPublicLocale,
 } from '@/components/platform-v7/PublicCanonicalPrimitives';
 
-const META={"ru":["Гекта в работе — Прозрачная Цена","Гекта объясняет контекст Сделки, документы, логистику, качество, расчёт, риски и допустимый следующий шаг в пределах доступных фактов и полномочий."],"en":["Gekta in action — Transparent Price","Gekta explains Deal context, documents, logistics, quality, settlement, risks and the next permitted step within available facts and authority."],"zh":["Gekta 实际运行 — 透明价格","Gekta 在可用事实和权限范围内解释交易上下文、文件、物流、质量、结算、风险和允许的下一步。"]} as const;
+const META={"ru":["Гекта в работе — Прозрачная Цена","Гекта помогает разобраться в Сделке по доступным участнику данным: показывает факты, риски, документы и доступные действия."],"en":["Gekta in action — Transparent Price","Gekta helps participants understand a Deal from the data they are allowed to see: facts, risks, documents and available actions."],"zh":["Gekta 实际运行 — 透明价格","Gekta 在可用事实和权限范围内解释交易上下文、文件、物流、质量、结算、风险和允许的下一步。"]} as const;
 
 export async function generateMetadata():Promise<Metadata>{
   const locale=canonicalPublicLocale(await getLocale());
@@ -49,7 +49,7 @@ ru:{
  ],prompt:'Спроси про контекст, риск или следующий шаг',trust:'Открыть модель доверия',register:'Регистрация'
 },
 en:{
- e:'Gekta AI',t:'Deal context in one window.',p:'Gekta organises facts already available to the participant into clear context: where the Deal is, what blocks the next step, which basis matters and who needs to act. Critical decisions remain with people and platform rules.',
+ e:'Gekta',t:'Understand the Deal without switching between screens.',p:'Gekta brings together Deal data available to the participant and explains what happened, what blocks progress and who needs to act. Critical decisions remain with participants.',
  context:'Deal context',contextItems:['Stage and available facts','Documents and evidence','Logistics and acceptance','Quality and exceptions','Financial blockers','Decision history'],
  ask:'What do you need to understand now?',cards:[
  ['What is happening','Bring together confirmed Deal facts and show current state without fabricated live data.'],
@@ -95,10 +95,10 @@ export default async function PublicGektaPage(){
         <span className='pc-cp-eyebrow'>{c.e}</span>
         <h1>{c.t}<span> AI</span></h1><p>{c.p}</p>
       </div>
-      <aside className='pc-cp-gekta-hero-quote'><strong>{locale==='ru'?'«Больше ясности на каждом этапе Сделки»':locale==='en'?'“More clarity at every Deal stage”':'“交易每个阶段都更清晰”'}</strong><span>— Гекта</span></aside>
+      <aside className='pc-cp-gekta-hero-quote'><strong>{locale==='ru'?'«Понимать, что происходит. Видеть, что делать дальше.»':locale==='en'?'“Understand what happened. See what can be done next.”':'“交易每个阶段都更清晰”'}</strong><span>Гекта</span></aside>
     </div>
     <div className='pc-cp-gekta-benefits'>
-      {[locale==='ru'?'На основе данных платформы':locale==='en'?'Based on platform data':'基于平台数据',locale==='ru'?'С указанием источников':locale==='en'?'With source references':'标明来源',locale==='ru'?'Учитывает правила и риски':locale==='en'?'Accounts for rules and risk':'考虑规则与风险',locale==='ru'?'Помогает принять решение быстрее':locale==='en'?'Helps decide faster':'帮助更快决策'].map((x,i)=><span key={x}><i>{i+1}</i>{x}</span>)}
+      {[locale==='ru'?'Работает с доступными данными Сделки':locale==='en'?'Uses Deal data available to you':'基于平台数据',locale==='ru'?'С указанием источников':locale==='en'?'With source references':'标明来源',locale==='ru'?'Учитывает правила и риски':locale==='en'?'Accounts for rules and risk':'考虑规则与风险',locale==='ru'?'Помогает быстрее разобраться в ситуации':locale==='en'?'Helps you understand the situation faster':'帮助更快决策'].map((x,i)=><span key={x}><i>{i+1}</i>{x}</span>)}
     </div>
    </div>
   </section>
@@ -111,7 +111,7 @@ export default async function PublicGektaPage(){
         <ul>{c.contextItems.map(x=><li key={x}>{x}</li>)}</ul>
       </aside>
       <section className='pc-cp-card pc-cp-gekta-panel pc-cp-gekta-main-panel'>
-        <div className='pc-cp-gekta-main-head'><Bot size={28}/><div><span className='pc-cp-eyebrow'>{c.e}</span><h2>{locale==='ru'?'Гекта работает с контекстом вашей Сделки':locale==='en'?'Gekta works with your Deal context':'Gekta 基于你的交易上下文工作'}</h2></div></div>
+        <div className='pc-cp-gekta-main-head'><Bot size={28}/><div><span className='pc-cp-eyebrow'>{c.e}</span><h2>{locale==='ru'?'Спросите Гекту о текущей Сделке':locale==='en'?'Ask Gekta about the current Deal':'Gekta 基于你的交易上下文工作'}</h2></div></div>
         <div className='pc-cp-gekta-cards'>{c.cards.map(([title,text],i)=>{const Icon=ICONS[i]!;return <article className='pc-cp-gekta-action' key={title}><Icon size={19}/><strong>{title}</strong><p>{text}</p></article>})}</div>
         <div className='pc-cp-gekta-prompts'>{[
           c.prompt,
@@ -135,7 +135,7 @@ export default async function PublicGektaPage(){
    </div>
   </section>
   <section className='pc-cp-section pc-cp-section--soft'><div className='pc-cp-container'>
-   <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{locale==='ru'?'Граница AI':locale==='en'?'AI boundary':'AI 边界'}</span><h2>{locale==='ru'?'Гекта не создаёт полномочия и не подменяет источник':locale==='en'?'Gekta creates no authority and does not replace a source':'Gekta 不创建权限，也不替代事实来源'}</h2></div>
+   <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{locale==='ru'?'Что Гекта не делает':locale==='en'?'What Gekta does not do':'AI 边界'}</span><h2>{locale==='ru'?'Не назначает права, не меняет статус Сделки и не подменяет источник данных':locale==='en'?'It does not grant authority, change Deal state or replace a data source':'Gekta 不创建权限，也不替代事实来源'}</h2></div>
    <div className='pc-cp-trust-grid'>
     {[['01',locale==='ru'?'Читает только разрешённый контекст':locale==='en'?'Reads only authorised context':'只读取授权上下文'],['02',locale==='ru'?'Отделяет факт от объяснения':locale==='en'?'Separates fact from explanation':'区分事实与解释'],['03',locale==='ru'?'Не заявляет внешнее событие без источника':locale==='en'?'Makes no external-event claim without a source':'没有来源就不声称外部事件'],['04',locale==='ru'?'Критическое решение остаётся контролируемым':locale==='en'?'Critical decisions remain controlled':'关键决定保持受控']].map(([n,t])=><article className='pc-cp-card pc-cp-trust-card' key={n}><i>{n}</i><strong>{t}</strong></article>)}
    </div>
