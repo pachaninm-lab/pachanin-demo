@@ -20,6 +20,7 @@ describe('multi-bank reference adapter industrial contract', () => {
     providerId: 'provider-1',
     providerCapabilityId: 'provider-capability-1',
     capabilityCode: 'BANK',
+    authorizedBankCapabilities: ['SAFE_DEAL_RESERVE_RELEASE', 'DIRECT_PAYMENT', 'BILLING', 'FINANCING_APPLICATION', 'STATEMENT_READ', 'STATUS_READ', 'AUTHENTICATED_CALLBACK', 'RECONCILIATION'],
     maturity: 'CONTRACT_TESTED',
     bindingVersion: '4',
     configurationVersion: 'cfg-4',
