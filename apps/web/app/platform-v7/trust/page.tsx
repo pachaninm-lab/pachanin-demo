@@ -139,8 +139,8 @@ export default async function TrustPage(){
   </div></section>
   <section className='pc-cp-section pc-cp-section--soft'><div className='pc-cp-container'>
    <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{c.fact}</span><h2>{c.fact}</h2><p>{c.factLead}</p></div>
-   <div className='pc-cp-card pc-cp-state-shell'><div className='pc-cp-deal-spine' style={{gridTemplateColumns:'repeat(6,minmax(0,1fr))'}}>
-    {c.rail.map((x,i)=><div className='pc-cp-stage' key={x} data-state={i===5?'current':'done'}><i>{i+1}</i><strong>{x}</strong></div>)}
+   <div className='pc-cp-card pc-cp-state-shell'><div className='pc-cp-deal-spine' role='list' tabIndex={0} aria-label={c.fact} style={{gridTemplateColumns:'repeat(6,minmax(0,1fr))'}}>
+    {c.rail.map((x,i)=><div className='pc-cp-stage' role='listitem' key={x} data-state={i===5?'current':'done'}><i>{i+1}</i><strong>{x}</strong></div>)}
    </div></div>
   </div></section>
   <section className='pc-cp-section pc-cp-section--tight pc-cp-trust-gekta'><div className='pc-cp-container'><CanonicalGektaStrip locale={locale}/></div></section>
