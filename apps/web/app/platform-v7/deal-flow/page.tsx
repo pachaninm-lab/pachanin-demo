@@ -12,7 +12,6 @@ import {
   CanonicalStateLens,
   CanonicalTrustLedger,
   canonicalPublicLocale,
-  type CanonicalDealState,
 } from '@/components/platform-v7/PublicCanonicalPrimitives';
 
 const META={"ru":["Контур Сделки — Прозрачная Цена","Как рабочий экран Сделки связывает этап, участника, основание, расчёт и следующий шаг без вымышленных production-данных."],"en":["Deal workspace — Transparent Price","How the Deal workspace connects stage, participant, basis, settlement and the next step without fabricated production data."],"zh":["交易工作区 — 透明价格","交易工作区如何在不虚构生产数据的前提下关联阶段、参与方、依据、结算和下一步。"]} as const;
@@ -37,14 +36,10 @@ export async function generateMetadata():Promise<Metadata>{
 
 type Params=Record<string,string|string[]|undefined>;
 const first=(value:string|string[]|undefined)=>Array.isArray(value)?value[0]:value;
-function publicState(value:string|undefined):CanonicalDealState{
-  return value==='deviation'||value==='dispute'?value:'normal';
-}
 
 export default async function PlatformV7DealFlowPage({searchParams}:{searchParams?:Promise<Params>}){
  const params=(await searchParams)??{};
  const locale=canonicalPublicLocale(first(params.lang)??await getLocale());
- const selectedState=publicState(first(params.state));
  const c=locale==='ru'
  ?{e:'Сделка в работе',t:'Сделка в работе',p:'Публичная страница показывает структуру рабочего экрана без вымышленных данных. После входа фактическое состояние приходит из разрешённого серверного контекста.',h:'Что показывает рабочий экран',lead:'Платформа показывает основание для расчёта, но не создаёт финансовое событие на клиенте.',state:['Фактическое состояние конкретной Сделки','Участник с подтверждёнными полномочиями','Связанный факт, условие или документ','Только серверно подтверждённое влияние на расчёт','Разрешённое действие для текущей роли'],login:'Войти',how:'Как проходит Сделка'}
  :locale==='en'
@@ -93,17 +88,12 @@ export default async function PlatformV7DealFlowPage({searchParams}:{searchParam
 
       <CanonicalStateLens
         locale={locale}
-        state={selectedState}
+        state={null}
         happened={c.state[0]}
         actor={c.state[1]}
         basis={c.state[2]}
         settlement={c.state[3]}
         next={c.state[4]}
-        stateLinks={{
-          normal:`/platform-v7/deal-flow?lang=${locale}&state=normal`,
-          deviation:`/platform-v7/deal-flow?lang=${locale}&state=deviation`,
-          dispute:`/platform-v7/deal-flow?lang=${locale}&state=dispute`,
-        }}
       />
 
       <div className='pc-cp-actions pc-cp-deal-public-actions'>
