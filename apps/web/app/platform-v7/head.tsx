@@ -8,8 +8,8 @@ const contactUrl = `${siteUrl}/platform-v7/contact`;
 const docsUrl = `${siteUrl}/platform-v7/docs`;
 const aboutUrl = `${siteUrl}/platform-v7/about`;
 const pageTitle = 'Прозрачная Цена — контроль исполнения агросделки от цены до расчёта';
-const pageDescription = 'Товар, логистика, качество, документы, деньги, спор и доказательства связаны в одной Сделке. Гекта объясняет блокеры, риски и следующий шаг.';
-const taiDescription = 'Гекта — отдельный AI-продукт для земли, урожая и агробизнеса, созданный «Прозрачной Ценой» для анализа контекста Сделки, документов, логистики, качества, денег, рисков и доказательств.';
+const pageDescription = 'Товар, логистика, качество, документы, расчёт и спор связаны в одной Сделке. Гекта помогает понять, что мешает двигаться дальше и какие действия доступны.';
+const taiDescription = 'Гекта — цифровой помощник для земли, урожая и агробизнеса. Он помогает разбирать данные Сделки, документы, логистику, качество, расчёт и риски.';
 
 const brandNames = ['Прозрачная Цена', 'Процент Агро', 'Процент-Агро.рф', 'Prozrachnaya Cena', 'Transparent Price', 'Percent Agro'];
 
@@ -26,9 +26,9 @@ const semanticTopics = [
   'документы СДИЗ ЭДО КЭП ГИС ЭПД',
   'основание для расчёта по агросделке',
   'спор и доказательства по качеству',
-  'Гекта Gekta аграрный интеллект',
-  'AI-продукт для земли урожая и агробизнеса',
-  'операционный интеллект агросделки',
+  'Гекта Gekta помощник по агросделке',
+  'цифровой помощник для земли урожая и агробизнеса',
+  'помощник по исполнению агросделки',
   'agricultural Deal execution platform',
   'OTC agricultural transaction control',
   'agri logistics quality documents settlement',
@@ -105,7 +105,7 @@ const structuredData = {
       '@type': 'SoftwareApplication',
       '@id': `${taiUrl}#software`,
       name: 'Гекта',
-      alternateName: ['Gekta', 'ГЕКТА', 'Аграрный интеллект для земли, урожая и решений'],
+      alternateName: ['Gekta', 'ГЕКТА', 'Помощник для земли, урожая и агробизнеса'],
       applicationCategory: 'BusinessApplication',
       operatingSystem: 'Web',
       url: taiUrl,
