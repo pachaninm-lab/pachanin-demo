@@ -39,6 +39,8 @@ for (const marker of [
   'BANK_CAPABILITY_NOT_SUPPORTED',
   'mapReferenceDispatch',
   'buildReceiptCandidate',
+  'currency: normalized.currency',
+  'sourceVersion: normalized.sourceVersion',
 ]) assert.ok(port.includes(marker), 'missing adapter-port boundary ' + marker);
 
 for (const marker of [
@@ -52,6 +54,8 @@ for (const marker of [
   'authorizedBankCapabilities',
   '!authority.capabilityCode.trim()',
   "authority.maturity !== 'LIVE_ACCEPTED'",
+  'authority.mayCarryRealTraffic !== true',
+  'authority.productionEnvironmentConfirmed !== true',
 ]) assert.ok(router.includes(marker), 'missing routing boundary ' + marker);
 
 for (const marker of [
