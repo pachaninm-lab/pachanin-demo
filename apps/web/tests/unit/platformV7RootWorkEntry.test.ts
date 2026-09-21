@@ -32,8 +32,11 @@ describe('platform-v7 canonical public experience',()=>{
   const trust=read('app/platform-v7/trust/page.tsx');
   const gekta=read('app/platform-v7/ai-in-action/page.tsx');
   const css=read('styles/platform-v7-canonical-public-v1.css');
+  const homeCss=read('styles/platform-v7-canonical-home-v1.css');
+  const assistantCss=read('styles/platform-v7-public-assistant-polish.css');
   const brand=read('components/v7r/BrandMark.tsx');
   const siteHeader=read('components/platform-v7/PublicSiteHeader.tsx');
+  const contactDock=read('components/platform-v7/PublicContactDock.tsx');
   const gektaChatButton=read('components/platform-v7/PublicGektaChatButton.tsx');
   const operatorLoading=read('app/platform-v7/operator/loading.tsx');
 
@@ -58,6 +61,21 @@ describe('platform-v7 canonical public experience',()=>{
     expect(home).toContain('CanonicalGektaStrip');
     expect(primitives).toContain('PublicGektaChatButton');
     expect(home).not.toContain('<style jsx>');
+  });
+
+  it('locks one readable public typography system across desktop and mobile',()=>{
+    const publicTypeSources=[css,homeCss,assistantCss,siteHeader,contactDock];
+    for(const source of publicTypeSources){
+      expect(source).not.toMatch(/font-size:\\s*(?:[1-9](?:\\.\\d+)?|1[01](?:\\.\\d+)?)px/i);
+      expect(source).not.toMatch(/\\b(?:Inter|Georgia|Times New Roman)\\b/);
+    }
+    expect(css).toContain('FINAL PUBLIC TYPOGRAPHY AUTHORITY v2');
+    expect(homeCss).toContain('FINAL PUBLIC TYPOGRAPHY AUTHORITY v2');
+    expect(assistantCss).toContain('FINAL PUBLIC TYPOGRAPHY AUTHORITY v2 — assistant');
+    expect(css).toContain('font-size:clamp(40px,5vw,64px)!important');
+    expect(css).toContain('font-size:clamp(36px,9.5vw,42px)!important');
+    expect(css).toContain('.pc-canonical-public .pc-cp-bottom-nav a{font-size:12px!important');
+    expect(siteHeader).toContain(".pc-site-header[data-public-site-header='canonical'] .pc-site-nav{gap:2px;font-size:14px");
   });
 
   it('keeps one canonical navigation contract in RU EN ZH',()=>{
