@@ -150,6 +150,29 @@ describe('platform-v7 canonical public experience',()=>{
       'Не каталог функций ради функций',
       'Один контекст, семь этапов, проверяемые факты.',
       'One context, seven stages, verifiable facts.',
+      'Одна система для всей агросделки.',
+      'One system for the whole agricultural Deal.',
+      '一套系统管理整笔农业交易。',
+      'Public lots without fabricated data',
+      '公开批次，不使用虚构数据',
+      'Seven stages in one context',
+      '七个阶段，一个上下文',
+      'One design language for every participant',
+      '所有参与方使用同一套设计语言',
+      'Intelligence inside context, never instead of authority',
+      '智能服务于上下文，而不是取代权限',
+      'One system instead of disconnected circuits',
+      '一个系统，替代分散的工作链路',
+      'Deal facts in one place.',
+      'Больше ясности на каждом этапе Сделки',
+      'More clarity at every Deal stage',
+      '交易每个阶段都更清晰',
+      'Помогает принять решение быстрее',
+      'Helps decide faster',
+      '帮助更快决策',
+      'От поля до результата',
+      'From field to outcome',
+      '从田间到结果',
     ]) expect(home + primitives + linkedCopy).not.toContain(retired);
 
     for(const humanCopy of [
@@ -166,7 +189,7 @@ describe('platform-v7 canonical public experience',()=>{
       '操作前的四项检查',
       '9 个角色',
       'Market, execution, documents, settlement and closure stay connected.',
-      'Семь этапов одной Сделки — с понятной ответственностью и документами.',
+      'На каждом этапе указаны участник, факты, основание и следующий шаг.',
       'Загружаем подтверждённые данные.',
     ]) expect(home + primitives + linkedCopy).toContain(humanCopy);
   });
