@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/final-public-typography-copy-polish-20260921",
+  "status": "active",
+  "authorizedBy": "explicit-user-final-public-typography-and-human-copy-polish-20260921",
+  "purpose": "FINAL PUBLIC EXPERIENCE typography and editorial refinement: unify visible public typography into one local system-font hierarchy, remove sub-12px public microtype, preserve responsive hierarchy and mobile readability, and rewrite public RU/EN/ZH copy to be direct, specific and natural without changing product authority or runtime semantics.",
+  "authorityBaseExactMain": "78a1d98ececba214489295c0574e4a8c3d3dd37b",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/app/platform-v7/about/page.tsx",
+    "apps/web/app/platform-v7/ai-in-action/page.tsx",
+    "apps/web/app/platform-v7/contact/page.tsx",
+    "apps/web/app/platform-v7/gekta/page.tsx",
+    "apps/web/app/platform-v7/how-it-works/page.tsx",
+    "apps/web/app/platform-v7/trust/page.tsx",
+    "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
+    "apps/web/components/platform-v7/PublicCanonicalPrimitives.tsx",
+    "apps/web/components/platform-v7/PublicContactDock.tsx",
+    "apps/web/components/platform-v7/PublicSiteHeader.tsx",
+    "apps/web/styles/platform-v7-canonical-home-v1.css",
+    "apps/web/styles/platform-v7-canonical-public-v1.css",
+    "apps/web/styles/platform-v7-public-assistant-polish.css",
+    "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+    "docs/platform-v7/autopilot/scopes/final-public-typography-copy-polish-20260921.json"
+  ],
+  "requiredInvariants": [
+    "Public typography uses only the local system-font stack; no remote font runtime dependency is introduced.",
+    "Visible public text in the governed canonical/header/assistant/dock surfaces does not use font sizes below 12 CSS px.",
+    "Body/supporting copy remains role-appropriate at 12-17px while headings scale with clamp() and retain a clear H1/H2/body hierarchy.",
+    "Mobile readability does not rely on page-level horizontal overflow; existing internal Deal-stage rail behavior remains unchanged.",
+    "Public controls retain >=44x44 CSS pixel targets where already required.",
+    "RU/EN/ZH copy remains semantically aligned and preserves fail-closed language around unavailable data, server authority, finance, roles and critical actions.",
+    "No API, database, Prisma, auth, RBAC, RLS, tenant, Deal state, money, outbox, infra, release authority or production workflow behavior is changed.",
+    "Existing accessibility, Lighthouse, CLS, browser, visual-regression, security and production thresholds are not weakened.",
+    "No visual baseline or maxDistance threshold may be changed until new screenshots are produced and manually inspected."
+  ],
+  "acceptance": [
+    "Exact-head web-unit, Node CI, security, scope guard, canonical visual and Design System v8 acceptance are terminal green.",
+    "Typography unit contract proves no governed visible public font size below 12px and no Inter/Georgia/Times New Roman legacy stack remains in governed surfaces.",
+    "RU/EN/ZH public copy is reviewed for repetition, generic AI-style phrasing, unnatural symmetry and vague marketing language while preserving factual and authority boundaries.",
+    "Mobile production-like screenshots are inspected at 320/375/390/430 and desktop at 1280/1440 before any visual baseline refresh.",
+    "No horizontal page overflow, clipped CTA/header copy or reduced touch targets are introduced."
+  ]
+}
