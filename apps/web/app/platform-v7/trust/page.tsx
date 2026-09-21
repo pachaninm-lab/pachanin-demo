@@ -34,7 +34,7 @@ export async function generateMetadata():Promise<Metadata>{
 
 const COPY={
 ru:{
- e:'Доверие',t:'Доверие. На основе фактов.',p:'Для важного действия всегда видно, кто вправе его выполнить, на каком основании, из какого источника взят факт и какое решение зафиксировано.',
+ e:'Доверие',t:'Доверие. На основе фактов.',p:'Для важного действия видно: кто может действовать, на каком основании, откуда получен факт и что решено.',
  fact:'От факта к решению',factLead:'Ни один экран не должен превращать неизвестность в уверенный статус. Если данных нет, они остаются недоступными или требуют подтверждения.',
  rail:['Факт получен','Источник определён','Полномочия проверены','Основание связано','Решение зафиксировано','Следующий шаг разрешён'],
  boundaries:'Границы доверия',boundariesLead:'Что интерфейс не может решить сам.',
@@ -97,22 +97,22 @@ zh:{
 
 const TRUST_DETAILS={
   ru:[
-    ['Проверка регистрации и статуса компании','Доверенности и роли в системе','Проверка ограничений и доступов'],
-    ['Договоры и приложения','Соответствие требованиям','Версии и первичные документы'],
-    ['Государственные реестры и API','Лабораторные протоколы','Логистические и банковские подтверждения'],
-    ['Фиксация результата и статуса','Прозрачная история изменений','Уведомление участников и аудит'],
+    ['Кто действует','От какой организации','Какие действия доступны'],
+    ['Какое условие выполняется','Какой документ это подтверждает','К какой версии условий относится'],
+    ['Откуда получен факт','Когда он был получен','Можно ли проверить источник'],
+    ['Кто принял решение','Что разрешено дальше','Что осталось в истории'],
   ],
   en:[
-    ['Organisation status verification','Authority and system roles','Access and restriction checks'],
-    ['Contracts and attachments','Requirement compliance','Versions and primary documents'],
-    ['Public registries and APIs','Laboratory protocols','Logistics and banking confirmations'],
-    ['Recorded outcome and status','Transparent change history','Participant notification and audit'],
+    ['Who is acting','For which organisation','Which actions are available'],
+    ['Which condition is met','Which document supports it','Which version of the terms applies'],
+    ['Where the fact came from','When it was received','Whether the source can be checked'],
+    ['Who made the decision','What is allowed next','What remains in the history'],
   ],
   zh:[
-    ['机构状态核验','授权与系统角色','访问和限制检查'],
-    ['合同及附件','要求合规性','版本与原始文件'],
-    ['公共登记与 API','实验室协议','物流与银行确认'],
-    ['记录结果与状态','透明变更历史','参与方通知与审计'],
+    ['谁在操作','代表哪个机构','可以执行哪些操作'],
+    ['满足哪个条件','由哪份文件证明','对应哪个条件版本'],
+    ['事实来自哪里','何时获得','来源是否可核验'],
+    ['谁作出决定','下一步允许什么','历史中保留什么'],
   ],
 } as const;
 
@@ -127,7 +127,7 @@ export default async function TrustPage(){
    </div>
   </section>
   <section className='pc-cp-section pc-cp-trust-pillars-section'><div className='pc-cp-container'>
-    <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{locale==='ru'?'Четыре проверки перед действием':locale==='en'?'Four checks before action':'操作前的四项检查'}</span><h2>{locale==='ru'?'Четыре проверки перед действием':locale==='en'?'Four checks before action':'操作前的四项检查'}</h2><p>{locale==='ru'?'Перед важным действием проверяются четыре вещи.':locale==='en'?'Four checks are made before an important action.':'每个重要操作前都会完成四项检查。'}</p></div>
+    <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{locale==='ru'?'Модель доверия':locale==='en'?'Trust model':'信任模型'}</span><h2>{locale==='ru'?'Четыре проверки перед действием':locale==='en'?'Four checks before action':'操作前的四项检查'}</h2><p>{locale==='ru'?'Полномочия, основание, источник и решение — без лишних обещаний.':locale==='en'?'Authority, basis, source and decision — without unsupported claims.':'权限、依据、来源和决定，不做无依据承诺。'}</p></div>
     <div className='pc-cp-trust-pillars'>
       {TRUST_MODEL[locale].map((item,index)=><article className='pc-cp-card pc-cp-trust-pillar' key={item[0]}>
         <div className='pc-cp-trust-pillar-head'><i>{index+1}</i><div><h3>{item[0]}</h3><p>{item[1]}</p></div></div>
