@@ -77,7 +77,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath             src/modules/bank-adapters/bank-capability.router.spec.ts             src/modules/bank-adapters/bank-receipt.contract.spec.ts             src/modules/bank-adapters/sber-reference.adapter.spec.ts             src/modules/bank-adapters/alfa-reference.adapter.spec.ts             src/modules/bank-adapters/tbank-reference.adapter.spec.ts
+          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath             src/modules/bank-adapters/bank-adapter.port.spec.ts             src/modules/bank-adapters/bank-capability.router.spec.ts             src/modules/bank-adapters/bank-receipt.contract.spec.ts             src/modules/bank-adapters/sber-reference.adapter.spec.ts             src/modules/bank-adapters/alfa-reference.adapter.spec.ts             src/modules/bank-adapters/tbank-reference.adapter.spec.ts
 
       - name: Run multi-bank industrial conformance contract
         run: >-
