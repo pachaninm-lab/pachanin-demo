@@ -449,6 +449,68 @@ test.describe('canonical cross-browser public smoke', () => {
   });
 
 
+  test('mobile auth chrome keeps one header, coherent burger and unobscured bottom actions', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    for (const route of ['/platform-v7/login?lang=ru', '/platform-v7/register?lang=ru'] as const) {
+      expect((await page.goto(route, { waitUntil: 'load' }))?.ok()).toBe(true);
+      const header=page.locator('[data-public-site-header="canonical"]');
+      const headerBox=await header.boundingBox();
+      expect(headerBox).not.toBeNull();
+      expect(headerBox!.height).toBeGreaterThanOrEqual(63.5);
+      expect(headerBox!.height).toBeLessThanOrEqual(64.5);
+
+      const menu=header.locator('details.pc-site-mobile-menu');
+      await menu.locator('summary').click();
+      await expect(menu).toHaveAttribute('open','');
+      const panel=menu.locator('.pc-site-mobile-nav');
+      await expect(panel).toBeVisible();
+      const rows=panel.locator('.pc-site-mobile-nav-links>a:visible, .pc-site-mobile-utility>a:visible, .pc-site-mobile-locale a:visible');
+      expect(await rows.count()).toBeGreaterThan(5);
+      for(const row of await rows.all()){
+        const box=await row.boundingBox();
+        expect(box).not.toBeNull();
+        expect(box!.height).toBeGreaterThanOrEqual(43.999);
+      }
+      await expect(panel.locator('.pc-site-mobile-locale a')).toHaveCount(3);
+      await menu.locator('summary').click();
+
+      const bottom=page.locator('.pc-cp-bottom-nav');
+      await expect(bottom).toBeVisible();
+      await expect(bottom.locator('a')).toHaveCount(5);
+      await expect(bottom.locator('a[aria-current="page"]')).toHaveCount(1);
+      for(const item of await bottom.locator('a').all()){
+        const box=await item.boundingBox();
+        expect(box).not.toBeNull();
+        expect(box!.height).toBeGreaterThanOrEqual(43.999);
+      }
+
+      await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
+      const bottomBox=await bottom.boundingBox();
+      expect(bottomBox).not.toBeNull();
+      const last=route.includes('/login')
+        ? page.locator('.pc-auth-register').last()
+        : page.locator('.p0-register-help-links').last();
+      await expect(last).toBeVisible();
+      const lastBox=await last.boundingBox();
+      expect(lastBox).not.toBeNull();
+      expect(lastBox!.y+lastBox!.height).toBeLessThanOrEqual(bottomBox!.y+1);
+      await canonicalNoOverflow(page);
+    }
+  });
+
+  test('market filter controls expose sorting and applied state without client-only UI', async ({ page, baseURL }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const route='/platform-v7/market?lang=ru&crop=wheat&sort=closing&region=%D0%A2%D0%B0%D0%BC%D0%B1%D0%BE%D0%B2';
+    expect((await page.goto(route,{waitUntil:'load'}))?.ok()).toBe(true);
+    await expectPublicRoute(page,route,baseURL);
+    await expect(page.locator('select[name="crop"]')).toHaveValue('wheat');
+    await expect(page.locator('select[name="sort"]')).toHaveValue('closing');
+    await expect(page.locator('input[name="region"]')).toHaveValue('Тамбов');
+    await expect(page.locator('.pc-cp-market-active-filters')).toContainText('Пшеница');
+    await expect(page.locator('.pc-cp-market-active-filters')).toContainText('Сначала закрывающиеся');
+    await canonicalNoOverflow(page);
+  });
+
   test('RU EN ZH home remains keyboard-usable, accessible and overflow-safe', async ({ page }) => {
     for (const locale of ['ru', 'en', 'zh'] as const) {
       const response = await page.goto(`/platform-v7?lang=${locale}`, { waitUntil: 'load' });
