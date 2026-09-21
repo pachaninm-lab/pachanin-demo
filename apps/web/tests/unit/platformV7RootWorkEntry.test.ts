@@ -54,6 +54,7 @@ describe('platform-v7 canonical public experience',()=>{
     expect(home).toContain('CanonicalDealSpine');
     expect(home).toContain('CanonicalTrustLedger');
     expect(home).toContain('CanonicalGektaStrip');
+    expect(primitives).toContain('PublicGektaChatButton');
     expect(home).not.toContain('<style jsx>');
   });
 
@@ -62,9 +63,9 @@ describe('platform-v7 canonical public experience',()=>{
       '/platform-v7/market','/platform-v7/how-it-works','/platform-v7/capabilities',
       '/platform-v7/gekta','/platform-v7/trust','/platform-v7/about',
     ]) expect(primitives).toContain(route);
-    for(const label of ['Рынок','Как проходит Сделка','Возможности','Гекта','Доверие','О платформе']) expect(primitives).toContain(label);
-    for(const label of ['Market','How the Deal works','Capabilities','Trust','About']) expect(primitives).toContain(label);
-    for(const label of ['市场','交易如何进行','功能','信任','关于平台']) expect(primitives).toContain(label);
+    for(const label of ['Рынок','Сделка','Возможности','Гекта','Доверие','О платформе']) expect(primitives).toContain(label);
+    for(const label of ['Market','Deal','Capabilities','Gekta','Trust','About']) expect(primitives).toContain(label);
+    for(const label of ['市场','交易','功能','Gekta','信任','关于平台']) expect(primitives).toContain(label);
   });
 
   it('locks the nine canonical roles and seven Deal stages',()=>{
