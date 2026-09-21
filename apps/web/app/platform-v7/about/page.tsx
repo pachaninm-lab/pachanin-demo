@@ -18,7 +18,7 @@ const COPY={
 ru:{
  title:'О платформе — Прозрачная Цена',
  description:'Прозрачная Цена связывает участников и весь путь агросделки: лот, торги, обязательства, доставка, приёмка, качество, документы, расчёт и закрытие.',
- eyebrow:'О платформе',heading:'Одна система для всей агросделки.',
+ eyebrow:'О платформе',heading:'Рынок и исполнение — в одной Сделке.',
  lead:'«Прозрачная Цена» связывает рынок и исполнение в одной Сделке. Участник видит только данные и действия своей роли; важные решения остаются привязаны к проверяемым основаниям.',
  domain:'Процент-Агро.рф — публичный домен платформы «Прозрачная Цена».',
  what:'Что объединяет платформа',cards:[
@@ -34,7 +34,7 @@ ru:{
 en:{
  title:'About the platform — Transparent Price',
  description:'Transparent Price connects participants and the full agricultural Deal path: lot, trading, commitments, delivery, acceptance, quality, documents, settlement and closure.',
- eyebrow:'About the platform',heading:'One system for the whole agricultural Deal.',
+ eyebrow:'About the platform',heading:'Market and execution stay in the same Deal.',
  lead:'Transparent Price connects market and execution in one Deal. Each participant sees only the data and actions available to their role; important decisions remain tied to verifiable evidence.',
  domain:'Процент-Агро.рф is the public domain of the Transparent Price platform.',
  what:'What the platform connects',cards:[
@@ -50,7 +50,7 @@ en:{
 zh:{
  title:'关于平台 — 透明价格',
  description:'透明价格把参与方和农业交易完整路径连接起来：批次、交易、义务、交付、验收、质量、文件、结算与关闭。',
- eyebrow:'关于平台',heading:'一套系统管理整笔农业交易。',
+ eyebrow:'关于平台',heading:'市场与履约贯穿同一笔交易。',
  lead:'“透明价格”把市场和履约连接在同一笔交易中。每个参与方只看到其角色和机构允许的数据与操作，重要决定始终与权限、依据和来源关联。',
  domain:'Процент-Агро.рф 是“透明价格”平台的公开域名。',
  what:'平台连接什么',cards:[
