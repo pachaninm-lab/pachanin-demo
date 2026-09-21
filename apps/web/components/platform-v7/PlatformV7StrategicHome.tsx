@@ -316,11 +316,6 @@ export async function PlatformV7StrategicHome() {
             basis={copy.state.basis}
             settlement={copy.state.settlement}
             next={copy.state.next}
-            stateLinks={{
-              normal: `/platform-v7/deal-flow?lang=${locale}&state=normal`,
-              deviation: `/platform-v7/deal-flow?lang=${locale}&state=deviation`,
-              dispute: `/platform-v7/deal-flow?lang=${locale}&state=dispute`,
-            }}
           />
         </div>
       </section>
