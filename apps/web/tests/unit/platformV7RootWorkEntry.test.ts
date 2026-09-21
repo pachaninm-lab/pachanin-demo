@@ -19,6 +19,8 @@ describe('platform-v7 canonical public experience',()=>{
   const home=read('components/platform-v7/PlatformV7StrategicHome.tsx');
   const primitives=read('components/platform-v7/PublicCanonicalPrimitives.tsx');
   const market=read('components/platform-v7/PublicCanonicalMarket.tsx');
+  const marketPage=read('app/platform-v7/market/page.tsx');
+  const capabilitiesPage=read('app/platform-v7/capabilities/page.tsx');
   const marketSource=read('lib/public-market-server.ts');
   const routeAliases=read('lib/platform-v7/route-canonicalization.ts');
   const dealFlow=read('app/platform-v7/deal-flow/page.tsx');
@@ -68,6 +70,33 @@ describe('platform-v7 canonical public experience',()=>{
     for(const label of ['Рынок','Сделка','Возможности','Гекта','Доверие','О платформе']) expect(primitives).toContain(label);
     for(const label of ['Market','Deal','Capabilities','Gekta','Trust','About']) expect(primitives).toContain(label);
     for(const label of ['市场','交易','功能','Gekta','信任','关于平台']) expect(primitives).toContain(label);
+  });
+
+  it('keeps login and registration on the same canonical public shell',()=>{
+    expect(loginPage).toContain("<CanonicalPublicHeader locale={locale} activePath='/platform-v7/login'/>");
+    expect(loginPage).toContain("<CanonicalBottomNav locale={locale} active='/platform-v7/login'/>");
+    expect(registerPage).toContain("<CanonicalPublicHeader locale={locale} activePath='/platform-v7/register' />");
+    expect(registerPage).toContain("<CanonicalBottomNav locale={locale} active='/platform-v7/register' />");
+    expect(primitives).toContain("pc-site-mobile-utility");
+    expect(primitives).toContain("Аккаунт и помощь");
+  });
+
+  it('keeps market filters functional and crop visuals explicit',()=>{
+    for(const name of ["name='q'","name='crop'","name='region'","name='grade'"]) expect(marketPage).toContain(name);
+    expect(marketPage).toContain("filters={{crop,region,grade}}");
+    expect(market).toContain('normalizeCropFilter');
+    expect(market).toContain('cropVisualKey');
+    expect(market).toContain('function CropArt');
+    expect(market).toContain("className='pc-cp-lot-media-caption'");
+    expect(css).toContain('FINAL PUBLIC UX POLISH');
+    expect(css).toContain('.pc-cp-market-filter-grid');
+  });
+
+  it('reserves mobile space for the fixed bottom navigation and capabilities',()=>{
+    expect(capabilitiesPage).toContain("pc-cp-page-capabilities");
+    expect(css).toContain("padding-bottom:calc(82px + env(safe-area-inset-bottom,0px))");
+    expect(css).toContain(".pc-cp-page-home #capabilities");
+    expect(css).toContain(".pc-cp-page-capabilities>.pc-cp-section:last-of-type");
   });
 
   it('keeps the protected operator route on the canonical neutral cockpit loading skeleton',()=>{
@@ -500,6 +529,22 @@ describe('canonical overview does not invent server progress', () => {
       expect(result.querySelectorAll('[role="tab"], [role="tablist"], button')).toHaveLength(0);
     });
   }
+
+  it('makes public Deal state scenarios navigable without changing the protected read-only default', () => {
+    const result = markup(createElement(CanonicalStateTabs, {
+      locale: 'ru',
+      state: 'normal',
+      links: {
+        normal: '/platform-v7/deal-flow?lang=ru&state=normal',
+        deviation: '/platform-v7/deal-flow?lang=ru&state=deviation',
+        dispute: '/platform-v7/deal-flow?lang=ru&state=dispute',
+      },
+    }));
+    expect(result.querySelectorAll('a.pc-cp-state-tab')).toHaveLength(3);
+    expect(result.querySelector('[data-state="deviation"]')?.getAttribute('href')).toContain('state=deviation');
+    expect(dealFlow).toContain('stateLinks={{');
+    expect(dealFlow).toContain('publicState(first(params.state))');
+  });
 
   function fixture(status: string, disputeStatus?: string) {
     const current = getCurrentDealAction(status);
