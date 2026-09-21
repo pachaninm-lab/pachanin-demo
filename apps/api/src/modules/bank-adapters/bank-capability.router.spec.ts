@@ -1,4 +1,3 @@
-import { describe, expect, it } from '@jest/globals';
 import type { BankCapability } from '../../../../../packages/domain-core/src/bank-capability';
 import type {
   BankReferenceAdapter,
