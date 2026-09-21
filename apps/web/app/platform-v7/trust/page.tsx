@@ -127,7 +127,7 @@ export default async function TrustPage(){
    </div>
   </section>
   <section className='pc-cp-section pc-cp-trust-pillars-section'><div className='pc-cp-container'>
-    <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{locale==='ru'?'Четыре столпа доверия':locale==='en'?'Four trust pillars':'四个信任支柱'}</span><h2>{locale==='ru'?'Четыре столпа доверия':locale==='en'?'Four trust pillars':'四个信任支柱'}</h2><p>{locale==='ru'?'Каждый факт в Сделке проверяется по единым принципам.':locale==='en'?'Every Deal fact is evaluated through the same principles.':'每个交易事实都按同一套原则核验。'}</p></div>
+    <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{locale==='ru'?'Что проверяем':locale==='en'?'What we check':'我们核验什么'}</span><h2>{locale==='ru'?'Что проверяем':locale==='en'?'What we check':'我们核验什么'}</h2><p>{locale==='ru'?'Для важного действия сохраняются полномочия, основание, источник и решение.':locale==='en'?'Important actions retain authority, basis, source and the recorded decision.':'重要操作会保留权限、依据、来源和已记录的决定。'}</p></div>
     <div className='pc-cp-trust-pillars'>
       {TRUST_MODEL[locale].map((item,index)=><article className='pc-cp-card pc-cp-trust-pillar' key={item[0]}>
         <div className='pc-cp-trust-pillar-head'><i>{index+1}</i><div><h3>{item[0]}</h3><p>{item[1]}</p></div></div>
