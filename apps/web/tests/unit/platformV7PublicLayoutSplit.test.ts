@@ -128,7 +128,6 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(dock).toContain('env(safe-area-inset-bottom');
     expect(dock).toContain(".pc-public-contact-dock-action:not(.pc-public-contact-dock-assistant)");
     expect(dock).toContain("data-public-mode={publicMode}");
-    expect(dock).toContain("data-public-mode='gekta'") === false; // JSX uses the dynamic attribute; CSS locks the value.
     expect(dock).toContain("[data-public-mode='gekta']");
   });
 
