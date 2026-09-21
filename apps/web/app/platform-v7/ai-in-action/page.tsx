@@ -10,7 +10,7 @@ import {
   canonicalPublicLocale,
 } from '@/components/platform-v7/PublicCanonicalPrimitives';
 
-const META={"ru":["Гекта в работе — Прозрачная Цена","Гекта помогает разобраться в Сделке: документах, логистике, качестве, расчёте и рисках. Показывает доступные варианты действий на основе данных и прав участника."],"en":["Gekta in action — Transparent Price","Gekta helps users understand the Deal: documents, logistics, quality, settlement and risk. It shows available options based on the data and authority the participant actually has."],"zh":["Gekta 实际运行 — 透明价格","Gekta 帮助用户理解交易中的文件、物流、质量、结算和风险，并根据参与方实际可用的数据与权限显示可执行选项。"]} as const;
+const META={"ru":["Гекта в работе — Прозрачная Цена","Гекта работает с данными Сделки, доступными участнику: документами, логистикой, качеством, расчётом и рисками, и показывает действия, разрешённые его роли."],"en":["Gekta in action — Transparent Price","Gekta works with Deal data available to the participant — documents, logistics, quality, settlement and risk — and shows the actions available to that role."],"zh":["Gekta 实际运行 — 透明价格","Gekta 根据参与方可访问的交易数据说明文件、物流、质量、结算和风险，并显示该角色可执行的操作。"]} as const;
 
 export async function generateMetadata():Promise<Metadata>{
   const locale=canonicalPublicLocale(await getLocale());
@@ -32,15 +32,15 @@ export async function generateMetadata():Promise<Metadata>{
 
 const COPY={
 ru:{
- e:'Помощник по Сделке',t:'Гекта',p:'Гекта собирает доступные факты по Сделке, объясняет риски и показывает варианты дальнейших действий. Решение принимает человек.',
+ e:'Помощник по Сделке',t:'Гекта',p:'Гекта работает с доступными участнику данными Сделки. Она указывает риски, источники и доступные действия; решение остаётся за человеком.',
  context:'Данные Сделки',contextItems:['Стадия и доступные факты','Документы и основания','Логистика и приёмка','Качество и исключения','Финансовые блокеры','История решений'],
  ask:'Что нужно понять сейчас?',cards:[
- ['Что происходит','Показать подтверждённые факты по Сделке и её текущее состояние.'],
- ['Что блокирует','Показать, что мешает двигаться дальше, и к какой роли, документу или событию это относится.'],
- ['Какое основание','Показать источник и условие, на которых основано доступное действие.'],
- ['Кто действует дальше','Показать, кто должен действовать дальше в пределах своих полномочий.'],
- ['Проверить риски','Собрать факты, ограничения и то, что ещё требует подтверждения.'],
- ['Что влияет на расчёт','Показать, какие условия и события влияют на расчёт, не меняя его статус в интерфейсе.'],
+ ['Что происходит','Подтверждённые факты по Сделке и её текущее состояние.'],
+ ['Что блокирует','Блокер и связанная с ним роль, документ или событие.'],
+ ['Какое основание','Источник и условие, на которых основано доступное действие.'],
+ ['Кто действует дальше','Участник, который отвечает за следующий доступный шаг.'],
+ ['Проверить риски','Факты, ограничения и то, что ещё требует подтверждения.'],
+ ['Что влияет на расчёт','Условия и события, влияющие на расчёт; интерфейс не меняет его статус.'],
  ],sources:'Источники и границы',sourceRows:[
  ['Сделка','Только данные, доступные текущему участнику'],
  ['Документы','Только данные Сделки, доступные для чтения'],
@@ -49,15 +49,15 @@ ru:{
  ],prompt:'Спроси про Сделку, риск или следующий шаг',trust:'Открыть модель доверия',register:'Регистрация'
 },
 en:{
- e:'Gekta AI',t:'Deal facts in one place.',p:'Gekta brings together the Deal facts a participant may see, explains what is blocking progress and shows who needs to act next. Critical decisions remain with people.',
+ e:'Gekta AI',t:'Gekta',p:'Gekta works with the Deal data available to the participant. It identifies risks, sources and available actions; the decision remains with the participant.',
  context:'Deal context',contextItems:['Stage and available facts','Documents and evidence','Logistics and acceptance','Quality and exceptions','Financial blockers','Decision history'],
  ask:'What do you need to understand now?',cards:[
- ['What is happening','Show confirmed Deal facts and the current state.'],
- ['What blocks progress','Show what is blocking progress and the related role, document or event.'],
- ['Which basis matters','Show the source and condition behind an available action.'],
- ['Who acts next','Show who needs to act next within their authority.'],
- ['Check risks','Bring together the facts, constraints and items that still need confirmation.'],
- ['What affects settlement','Show which terms and events affect settlement without changing its status in the interface.'],
+ ['What is happening','Confirmed Deal facts and the current state.'],
+ ['What blocks progress','The blocker and its related role, document or event.'],
+ ['Which basis matters','The source and condition behind an available action.'],
+ ['Who acts next','The participant responsible for the next available action.'],
+ ['Check risks','Facts, constraints and items still awaiting confirmation.'],
+ ['What affects settlement','Terms and events that affect settlement; the interface does not change its status.'],
  ],sources:'Sources and boundaries',sourceRows:[
  ['Deal','Only data available to the current participant'],
  ['Documents','Only Deal data authorised for reading'],
@@ -66,15 +66,15 @@ en:{
  ],prompt:'Ask about the Deal, risk or the next step',trust:'Open trust model',register:'Register'
 },
 zh:{
- e:'Gekta AI',t:'在一个窗口理解交易上下文。',p:'Gekta 汇总参与方有权查看的交易事实，说明阻塞原因，并显示下一责任方。关键决定仍由人员作出。',
+ e:'Gekta AI',t:'Gekta',p:'Gekta 使用参与方可访问的交易数据，标明风险、来源和可执行操作；决定仍由参与方作出。',
  context:'交易上下文',contextItems:['阶段和可用事实','文件和依据','物流和验收','质量和异常','金融阻断','决定历史'],
  ask:'现在需要理解什么？',cards:[
- ['发生了什么','显示已确认的交易事实和当前状态。'],
- ['什么在阻挡','显示阻塞原因及其关联角色、文件或事件。'],
- ['依据是什么','显示可执行操作所依据的来源和条件。'],
- ['下一步谁处理','显示在权限范围内应由谁继续处理。'],
- ['检查风险','汇总事实、限制和仍需确认的事项。'],
- ['什么影响结算','显示哪些条件和事件影响结算，但不在界面中更改其状态。'],
+ ['发生了什么','已确认的交易事实和当前状态。'],
+ ['什么在阻挡','阻塞原因及其关联角色、文件或事件。'],
+ ['依据是什么','可执行操作所依据的来源和条件。'],
+ ['下一步谁处理','负责下一项可执行操作的参与方。'],
+ ['检查风险','事实、限制和仍需确认的事项。'],
+ ['什么影响结算','影响结算的条件和事件；界面不会自行更改结算状态。'],
  ],sources:'来源与边界',sourceRows:[
  ['交易','仅使用当前参与方可访问的数据'],
  ['文件','仅使用关联且允许读取的数据'],
@@ -95,10 +95,10 @@ export default async function PublicGektaPage(){
         <span className='pc-cp-eyebrow'>{c.e}</span>
         <h1>{c.t}<span> AI</span></h1><p>{c.p}</p>
       </div>
-      <aside className='pc-cp-gekta-hero-quote'><strong>{locale==='ru'?'«Больше ясности на каждом этапе Сделки»':locale==='en'?'“More clarity at every Deal stage”':'“交易每个阶段都更清晰”'}</strong><span>— Гекта</span></aside>
+      <aside className='pc-cp-gekta-hero-quote'><strong>{locale==='ru'?'Факты, источники и границы':locale==='en'?'Facts, sources and boundaries':'事实、来源与边界'}</strong><span>— Гекта</span></aside>
     </div>
     <div className='pc-cp-gekta-benefits'>
-      {[locale==='ru'?'На основе данных платформы':locale==='en'?'Based on platform data':'基于平台数据',locale==='ru'?'С указанием источников':locale==='en'?'With source references':'标明来源',locale==='ru'?'Учитывает правила и риски':locale==='en'?'Accounts for rules and risk':'考虑规则与风险',locale==='ru'?'Помогает принять решение быстрее':locale==='en'?'Helps decide faster':'帮助更快决策'].map((x,i)=><span key={x}><i>{i+1}</i>{x}</span>)}
+      {[locale==='ru'?'На основе данных платформы':locale==='en'?'Based on platform data':'基于平台数据',locale==='ru'?'С указанием источников':locale==='en'?'With source references':'标明来源',locale==='ru'?'Учитывает правила и риски':locale==='en'?'Accounts for rules and risk':'考虑规则与风险',locale==='ru'?'Решение принимает участник':locale==='en'?'The participant makes the decision':'决定由参与方作出'].map((x,i)=><span key={x}><i>{i+1}</i>{x}</span>)}
     </div>
    </div>
   </section>
