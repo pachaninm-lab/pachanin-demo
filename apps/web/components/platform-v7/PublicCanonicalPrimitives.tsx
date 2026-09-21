@@ -54,9 +54,9 @@ const NAV = {
 } as const;
 
 const ACTIONS = {
-  ru: { login: 'Войти', register: 'Регистрация', about: 'О платформе', brand: 'Прозрачная Цена — на главную', nav: 'Навигация платформы', menu: 'Открыть меню' },
-  en: { login: 'Sign in', register: 'Register', about: 'About', brand: 'Transparent Price — home', nav: 'Platform navigation', menu: 'Open menu' },
-  zh: { login: '登录', register: '注册', about: '关于平台', brand: '透明价格 — 首页', nav: '平台导航', menu: '打开菜单' },
+  ru: { login: 'Войти', register: 'Регистрация', about: 'О платформе', utility: 'Аккаунт и помощь', brand: 'Прозрачная Цена — на главную', nav: 'Навигация платформы', menu: 'Открыть меню' },
+  en: { login: 'Sign in', register: 'Register', about: 'About', utility: 'Account and help', brand: 'Transparent Price — home', nav: 'Platform navigation', menu: 'Open menu' },
+  zh: { login: '登录', register: '注册', about: '关于平台', utility: '账户与帮助', brand: '透明价格 — 首页', nav: '平台导航', menu: '打开菜单' },
 } as const;
 
 export const CANONICAL_DEAL_STAGES = {
@@ -119,10 +119,13 @@ export function CanonicalPublicHeader({
           {label}
         </a>
       ))}
-      <PublicGektaChatButton locale={lang} variant='mobile' className='pc-cp-mobile-only pc-site-mobile-gekta' />
-      <a className='pc-cp-mobile-only' href={`/platform-v7/about${suffix}`}><Building2 size={16} aria-hidden='true' />{copy.about}</a>
-      <a className='pc-cp-mobile-only' href={`/platform-v7/login${suffix}`}><LogIn size={16} aria-hidden='true' />{copy.login}</a>
-      <a className='pc-cp-mobile-only' href={`/platform-v7/register${suffix}`}><UserRound size={16} aria-hidden='true' />{copy.register}</a>
+      <div className='pc-site-mobile-utility pc-cp-mobile-only' aria-label={copy.utility}>
+        <span className='pc-site-mobile-utility-label'>{copy.utility}</span>
+        <PublicGektaChatButton locale={lang} variant='mobile' className='pc-site-mobile-gekta' />
+        <a href={`/platform-v7/about${suffix}`}><Building2 size={16} aria-hidden='true' />{copy.about}</a>
+        <a href={`/platform-v7/login${suffix}`}><LogIn size={16} aria-hidden='true' />{copy.login}</a>
+        <a href={`/platform-v7/register${suffix}`}><UserRound size={16} aria-hidden='true' />{copy.register}</a>
+      </div>
     </>
   );
   return (
@@ -195,18 +198,28 @@ const STATE_COPY = {
 export function CanonicalStateTabs({
   locale,
   state,
+  links,
 }: {
   locale: string;
   state: CanonicalDealState | null;
+  links?: Partial<Record<CanonicalDealState, string>>;
 }) {
   const lang = canonicalPublicLocale(locale);
   return (
     <div className='pc-cp-state-tabs' role='list' aria-label={lang === 'ru' ? 'Состояние Сделки' : lang === 'en' ? 'Deal state' : '交易状态'}>
-      {(['normal', 'deviation', 'dispute'] as const).map((item) => (
-        <span key={item} role='listitem' aria-current={state === item ? 'true' : undefined} className='pc-cp-state-tab' data-state={item} data-active={state === item ? 'true' : 'false'}>
-          {STATE_COPY[lang][item]}
-        </span>
-      ))}
+      {(['normal', 'deviation', 'dispute'] as const).map((item) => {
+        const common = {
+          role: 'listitem',
+          className: 'pc-cp-state-tab',
+          'data-state': item,
+          'data-active': state === item ? 'true' : 'false',
+          'aria-current': state === item ? 'true' : undefined,
+        } as const;
+        const label = STATE_COPY[lang][item];
+        return links?.[item]
+          ? <a key={item} {...common} href={links[item]}>{label}</a>
+          : <span key={item} {...common}>{label}</span>;
+      })}
     </div>
   );
 }
@@ -219,6 +232,7 @@ export function CanonicalStateLens({
   basis,
   settlement,
   next,
+  stateLinks,
 }: {
   locale: string;
   state: CanonicalDealState | null;
@@ -227,6 +241,7 @@ export function CanonicalStateLens({
   basis: ReactNode;
   settlement: ReactNode;
   next: ReactNode;
+  stateLinks?: Partial<Record<CanonicalDealState, string>>;
 }) {
   const lang = canonicalPublicLocale(locale);
   const labels = lang === 'ru'
@@ -242,7 +257,7 @@ export function CanonicalStateLens({
         : lang === 'en'
           ? 'Overall state is unconfirmed. Review the facts and detailed Deal stages.'
           : '总体状态尚未确认。请查看事实和交易的详细阶段。'}</p> : null}
-      <CanonicalStateTabs locale={lang} state={state} />
+      <CanonicalStateTabs locale={lang} state={state} links={stateLinks} />
       <div className='pc-cp-state-grid'>
         {labels.map((label, index) => <div className='pc-cp-state-cell' key={label}><span>{label}</span><strong>{values[index]}</strong></div>)}
       </div>
