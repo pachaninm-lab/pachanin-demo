@@ -14,6 +14,8 @@ const COPY = {
     ends: 'До закрытия',
     details: 'Войти и посмотреть',
     access: 'Доступ к торгам',
+    buy: 'Купить',
+    sell: 'Продать',
     selected: 'Выбранный лот',
     source: 'Источник: обезличенные данные публичного рынка',
     declared: 'Наличие заявлено продавцом',
@@ -35,6 +37,8 @@ const COPY = {
     ends: 'Closes in',
     details: 'Sign in and view',
     access: 'Trading access',
+    buy: 'Buy',
+    sell: 'Sell',
     selected: 'Selected lot',
     source: 'Source: anonymised public market data',
     declared: 'Availability declared by seller',
@@ -56,6 +60,8 @@ const COPY = {
     ends: '距关闭',
     details: '登录查看',
     access: '获取交易权限',
+    buy: '购买',
+    sell: '出售',
     selected: '所选批次',
     source: '来源：公开市场匿名数据',
     declared: '库存由卖方申报',
@@ -222,7 +228,8 @@ function PublicLotUnavailableView({ locale, kind }: { locale: CanonicalPublicLoc
 
 function MarketCard({ lot, publicIndex, locale, selected = false }: { lot: PublicMarketLot; publicIndex: number; locale: CanonicalPublicLocale; selected?: boolean }) {
   const copy = COPY[locale];
-  const registerHref = `/platform-v7/register?lang=${locale}&intent=buy`;
+  const buyHref = `/platform-v7/register?lang=${locale}&intent=buy`;
+  const sellHref = `/platform-v7/register?lang=${locale}&intent=sell`;
   const detailHref = `/platform-v7/market?lang=${locale}&lot=${publicIndex}`;
   return (
     <article className='pc-cp-card pc-cp-lot-card' data-selected={selected ? 'true' : undefined}>
@@ -233,7 +240,7 @@ function MarketCard({ lot, publicIndex, locale, selected = false }: { lot: Publi
       <div className='pc-cp-lot-body'>
         <div>
           <span className='pc-cp-chip'><LockKeyhole size={12} aria-hidden='true' />{copy.hidden}</span>
-          <div className='pc-cp-lot-title'>{cultureLabel(lot.culture, locale)}{lot.grade ? ` · ${lot.grade}` : ''}</div>
+          <a className='pc-cp-lot-title' href={detailHref}>{cultureLabel(lot.culture, locale)}{lot.grade ? ` · ${lot.grade}` : ''}</a>
         </div>
         <div className='pc-cp-lot-meta'>
           <Metric label={copy.volume} value={formatVolume(lot.volumeTons, locale)} />
@@ -243,8 +250,8 @@ function MarketCard({ lot, publicIndex, locale, selected = false }: { lot: Publi
         </div>
         <div className='pc-cp-lot-foot'><span><ShieldCheck size={13} aria-hidden='true' /> {copy.declared}</span></div>
         <div className='pc-cp-actions' data-testid='canonical-public-market-lot-actions'>
-          <a className='pc-cp-button pc-cp-button--secondary' href={detailHref}>{locale === 'ru' ? 'Подробнее' : locale === 'en' ? 'Details' : '详情'}<ArrowRight size={15} aria-hidden='true' /></a>
-          <a className='pc-cp-button' href={registerHref}>{copy.access}</a>
+          <a className='pc-cp-button' href={buyHref}>{copy.buy}<ArrowRight size={15} aria-hidden='true' /></a>
+          <a className='pc-cp-button pc-cp-button--secondary' href={sellHref}>{copy.sell}<ArrowRight size={15} aria-hidden='true' /></a>
         </div>
       </div>
     </article>
