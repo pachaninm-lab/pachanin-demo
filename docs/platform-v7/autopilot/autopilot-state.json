@@ -1518,6 +1518,14 @@
     "bank/release-request-truth-20260920": [
       "apps/web/app/platform-v7/bank/release-safety/page.tsx",
       "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx"
+    ],
+    "product/r1-role-mode-consumer-20260921": [
+      "apps/web/app/platform-v7/staff/role-mode/route.ts",
+      "apps/web/components/platform-v7/staff/OwnerAccessCenter.tsx",
+      "apps/web/components/platform-v7/staff/OwnerAccessCenterV3.tsx",
+      "apps/web/components/platform-v7/staff/OwnerAccessCenterV3.module.css",
+      "apps/web/tests/unit/platformV7OwnerAccessCenterTaskUx.test.ts",
+      "apps/web/tests/unit/platformV7ControlledTestOrganizations.test.ts"
     ]
   },
   "currentAcceptance": [
@@ -1636,6 +1644,40 @@
         "external-success claim"
       ],
       "teamHubDependency": "5752421291"
+    },
+    "r1-role-mode-consumer-scope-20260921": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "R1.5 Founder role-mode consumer scope admission. Allows the existing PRODUCT branch to replace the legacy controlled-test owner selector with the accepted server-owned VIEW_AS contract and update the stale controlled-test regression without granting role/tenant authority.",
+      "authorityBaseExactMain": "51d63c5f7e2a22d1ccbbe38d15c475a7e93de863",
+      "implementationBranch": "product/r1-role-mode-consumer-20260921",
+      "allowedPaths": [
+        "apps/web/app/platform-v7/staff/role-mode/route.ts",
+        "apps/web/components/platform-v7/staff/OwnerAccessCenter.tsx",
+        "apps/web/components/platform-v7/staff/OwnerAccessCenterV3.tsx",
+        "apps/web/components/platform-v7/staff/OwnerAccessCenterV3.module.css",
+        "apps/web/tests/unit/platformV7OwnerAccessCenterTaskUx.test.ts",
+        "apps/web/tests/unit/platformV7ControlledTestOrganizations.test.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "Founder cabinet registry, effective role, organization, restrictions, expiry and session authority are server-derived; browser-selected tenant/effective-role authority is forbidden.",
+        "Controlled test organizations remain test fixtures and must not become R1 production role-mode authority.",
+        "The opaque staff access token remains HttpOnly under the accepted /api/staff boundary; PRODUCT must not widen its cookie Path or expose it to the browser.",
+        "canonicalPath remains navigation metadata until a separately accepted server-authoritative delegated route transport exists."
+      ],
+      "forbiddenAuthority": [
+        "backend/domain role or tenant authority",
+        "RLS or permission authority",
+        "payment, settlement or provider finality",
+        "registration semantics",
+        "controlled-test-as-production authority",
+        "cookie-path widening or client-held staff credential"
+      ],
+      "dependencies": [
+        "R1-PRESENTATION-CONTRACT-01",
+        "R1-ROLE-MODE-SESSION-VERIFICATION-TRANSPORT",
+        "R1-ROLE-MODE-CANONICAL-PATH-TRANSPORT-20260921"
+      ],
+      "teamHubDependency": "PRODUCT-R1-ROLE-MODE-CONSUMER-SCOPE-ADMISSION-20260921"
     }
   }
 }
