@@ -9,8 +9,7 @@ const entry = read('apps/web/components/platform-v7/staff/OwnerAccessCenter.tsx'
 const bootstrap = read('apps/web/components/platform-v7/staff/OwnerAccessCenterV4.tsx');
 const bootstrapCss = read('apps/web/components/platform-v7/staff/OwnerAccessCenterV4.module.css');
 const directCenter = read('apps/web/components/platform-v7/staff/OwnerAccessCenterV3.tsx');
-const directRoute = read('apps/web/app/platform-v7/staff/open-cabinet/route.ts');
-const submitRoute = read('apps/web/app/platform-v7/staff/open-cabinet/submit/route.ts');
+const roleModeRoute = read('apps/web/app/platform-v7/staff/role-mode/route.ts');
 const prepareRoute = read('apps/web/app/platform-v7/staff/prepare/route.ts');
 const directCss = read('apps/web/components/platform-v7/staff/OwnerAccessCenterV3.module.css');
 const center = read('apps/web/components/platform-v7/staff/OwnerAccessCenterV2.tsx');
@@ -25,71 +24,106 @@ function keys(value: unknown, prefix = ''): string[] {
 }
 
 describe('platform-v7 owner access center task UX', () => {
-  it('provides all twelve owner cabinet transitions', () => {
+  it('consumes the server-owned exact 13-cabinet role-mode registry', () => {
     expect(page).toContain('<OwnerAccessCenter');
     expect(entry).toContain("export { OwnerAccessCenter } from './OwnerAccessCenterV4'");
     expect(bootstrap).toContain('<OwnerAccessCenterV3 {...props} />');
-    for (const role of ['operator', 'buyer', 'seller', 'logistics', 'driver', 'surveyor', 'elevator', 'lab', 'bank', 'arbitrator', 'compliance', 'executive']) {
-      expect(directCenter).toContain(`role: '${role}'`);
-    }
-    expect(directCenter).toContain('action="/platform-v7/staff/open-cabinet/submit"');
-    expect(directCenter).toContain('name="organizationId"');
-    expect(directCenter).not.toContain('Рабочий тикет');
-    expect(directCenter).not.toContain('Причина доступа');
+    expect(directCenter).toContain("row.schemaVersion !== 'pc-crop.founder-role-mode.v1'");
+    expect(directCenter).toContain("row.mode !== 'VIEW_AS'");
+    expect(directCenter).toContain('row.readOnly !== true');
+    expect(directCenter).toContain('row.cabinets.length !== 13');
+    expect(directCenter).toContain('registry?.cabinets.map');
+    expect(directCenter).not.toContain('CONTROLLED_CABINET_CONTEXTS');
+    expect(directCenter).not.toContain('controlled-test-organizations');
+    expect(directCenter).not.toContain('action="/platform-v7/staff/open-cabinet/submit"');
+    expect(directCenter).not.toContain('window.sessionStorage');
+    expect(directCenter).not.toContain('PLATFORM_V7_ACTIVE_ROLE_KEY');
   });
 
-  it('repairs missing or stale CSRF before every owner transition', () => {
+  it('uses a bounded staff bridge that cannot accept client tenant or effective-role authority', () => {
+    expect(roleModeRoute).toContain('/staff/founder/role-mode/registry');
+    expect(roleModeRoute).toContain('/staff/founder/role-mode/requests');
+    expect(roleModeRoute).toContain('/staff/founder/role-mode/session');
+    expect(roleModeRoute).toContain("const STAFF_ACCESS_COOKIE = 'pc_staff_access_token'");
+    expect(roleModeRoute).toContain("'x-staff-access-session': staffAccessToken");
+    expect(roleModeRoute).toContain("request.nextUrl.searchParams.get('view') === 'session'");
+    expect(roleModeRoute).toContain('assertCsrf(request)');
+    expect(roleModeRoute).toContain('readBoundedBody(request.body, MAX_BODY_BYTES)');
+    expect(roleModeRoute).toContain('cabinetKey');
+    expect(roleModeRoute).toContain('organizationId');
+    expect(roleModeRoute).toContain('reason');
+    expect(roleModeRoute).toContain('ticketId');
+    expect(roleModeRoute).toContain('durationSeconds');
+    expect(roleModeRoute).not.toContain('targetTenantId');
+    expect(roleModeRoute).not.toContain('targetRole');
+    expect(roleModeRoute).not.toContain('effectiveTenantId:');
+    expect(roleModeRoute).toContain('requiresCanonicalControlHost(request)');
+    expect(roleModeRoute).toContain('delete safePayload.accessToken');
+  });
+
+  it('repairs missing or stale CSRF before every founder role-mode request', () => {
     expect(page).toContain("verification.status === 'verified' && !csrfToken");
     expect(page).toContain("redirect('/platform-v7/staff/prepare')");
     expect(prepareRoute).toContain("request.nextUrl.searchParams.get('format') === 'json'");
     expect(prepareRoute).toContain("NextResponse.json({ ok: true, csrfToken: token })");
     expect(prepareRoute).toContain('response.cookies.set(CSRF_COOKIE');
     expect(directCenter).toContain("fetch('/platform-v7/staff/prepare?format=json'");
-    expect(directCenter).toContain('let freshToken = await refreshCsrf(controller.signal)');
-    expect(directCenter).toContain("result.payload?.code === 'CSRF_REJECTED'");
-  });
-
-  it('handles the public custom-domain origin behind the hosting proxy and legacy duplicate cookies', () => {
-    expect(directRoute).toContain("request.headers.get('x-forwarded-host')");
-    expect(directRoute).toContain("request.headers.get('x-forwarded-proto')");
-    expect(directRoute).toContain('allowed.has(normalizedBrowserOrigin)');
-    expect(directRoute).toContain('request.cookies.getAll(CSRF_COOKIE)');
-    expect(directRoute).toContain('cookieTokens.some((cookieToken) => constantTimeEqual(cookieToken, token))');
-    expect(directRoute).toContain("csrfTokenValid(request, request.headers.get('x-csrf-token'))");
-  });
-
-  it('uses observable authenticated JSON transition with native fallback', () => {
-    expect(directCenter).toContain("fetch('/platform-v7/staff/open-cabinet'");
+    expect(directCenter).toContain('let token = await refreshCsrf(controller.signal)');
+    expect(directCenter).toContain("requested.payload?.code === 'CSRF_REJECTED'");
     expect(directCenter).toContain("'X-CSRF-Token': token");
-    expect(directCenter).toContain("credentials: 'same-origin'");
-    expect(directCenter).toContain('onSubmit={(event) => openCabinet');
-    expect(directCenter).toContain('busyRole === item.role ? text.opening : text.open');
-    expect(directCenter).toContain('role="alert"');
-    expect(directCenter).toContain('window.location.replace(result.payload.redirectTo)');
-    expect(submitRoute).toContain("import { POST as issueCabinetSession } from '../route'");
   });
 
-  it('creates the client role marker only after server success', () => {
-    const failureGate = directCenter.indexOf('if (!result.response.ok');
-    const roleMarker = directCenter.indexOf('window.sessionStorage.setItem');
-    const navigation = directCenter.indexOf('window.location.replace(result.payload.redirectTo)');
-    expect(failureGate).toBeGreaterThan(-1);
-    expect(roleMarker).toBeGreaterThan(failureGate);
-    expect(navigation).toBeGreaterThan(roleMarker);
-    expect(directCenter).toContain('Navigation must not stop');
+  it('activates the durable grant and re-verifies the canonical Founder session before display', () => {
+    expect(directCenter).toContain("fetch(`/api/staff/access/grants/${encodeURIComponent(requested.payload.grantId)}/activate`");
+    expect(directCenter).toContain("fetch('/api/staff/session-context'");
+    expect(directCenter).toContain("fetch('/platform-v7/staff/role-mode?view=session'");
+    expect(directCenter).toContain("canonical.schemaVersion !== 'pc-crop.founder-role-mode.v1'");
+    expect(directCenter).toContain("canonical.mode !== 'VIEW_AS'");
+    expect(directCenter).toContain('canonical.readOnly !== true');
+    expect(directCenter).toContain('canonical.mfaRequired !== true');
+    expect(directCenter).toContain('canonical.accessSessionId !== session.accessSessionId');
+    expect(directCenter).toContain('canonical.effectiveOrganizationId !== roleMode.effectiveOrganizationId');
+    expect(directCenter).toContain('canonical.effectiveRole !== roleMode.effectiveRole');
+    expect(directCenter).toContain("session.permissions.includes('cabinet:view-as')");
+    expect(directCenter).toContain('session.effectiveOrganizationId !== canonical.effectiveOrganizationId');
+    expect(directCenter).toContain('session.effectiveRole !== canonical.effectiveRole');
+    expect(directCenter).toContain('actorDisplayName: canonical.actor.displayName');
+    expect(directCenter).toContain('<dd>{activeMode.actorDisplayName}</dd>');
+    expect(directCenter).toContain('data-founder-role-mode-active');
+    expect(directCenter).toContain('activeMode.restrictions.map');
   });
 
-  it('keeps owner authority and cabinet session server verified', () => {
-    expect(directRoute).toContain('requestOriginAllowed(request)');
-    expect(directRoute).toContain('csrfTokenValid(request');
-    expect(directRoute).toContain('claims.owner !== true');
-    expect(directRoute).toContain("item.role === 'PLATFORM_OWNER' && item.status === 'ACTIVE'");
-    expect(directRoute).toContain('signCabinetSession(parsed.role, secret');
-    expect(directRoute).toContain('response.cookies.set(CABINET_SESSION_COOKIE');
-    expect(directRoute).not.toContain('response.cookies.set(ACCESS_COOKIE');
+  it('renders only the delegated cabinet projection and keeps canonicalPath as non-authoritative metadata', () => {
+    expect(directCenter).toContain("fetch(`/api/staff/organizations/${organization}/cabinet/${role}`");
+    expect(directCenter).toContain('activeMode.canonicalPath');
+    expect(directCenter).toContain('text.transportPending');
+    expect(directCenter).not.toContain('window.location.replace(activeMode.canonicalPath)');
+    expect(directCenter).not.toContain('window.location.assign(activeMode.canonicalPath)');
+    expect(directCenter).not.toContain('window.location.href = activeMode.canonicalPath');
+    expect(directCenter).toContain('projection?.deals?.length');
+    expect(directCenter).toContain('sessionContext.active');
+    expect(directCenter).toContain('text.protectedSessionActive');
   });
 
-  it('retains the protected advanced staff surface', () => {
+  it('ends the exact delegated session before using the server return path', () => {
+    expect(directCenter).toContain("fetch(`/api/staff/access/sessions/${encodeURIComponent(sessionId)}/end`");
+    expect(directCenter).toContain("body: JSON.stringify({ reason: 'Founder ended read-only role mode from Control Center' })");
+    expect(directCenter).toContain('const returnPath = activeMode?.returnPath || registry?.returnPath');
+    expect(directCenter).toContain("returnPath?.startsWith('/platform-v7/staff')");
+    expect(directCenter).toContain('window.location.assign(returnPath)');
+  });
+
+  it('keeps owner authority server verified and refuses a fake or partial registry', () => {
+    expect(directCenter).toContain("item.role === 'PLATFORM_OWNER' && item.status === 'ACTIVE'");
+    expect(directCenter).toContain('!cabinet.canonicalPath.startsWith');
+    expect(directCenter).toContain('seen.has(cabinet.key)');
+    expect(directCenter).toContain("roleMode.mode !== 'VIEW_AS'");
+    expect(directCenter).toContain('roleMode.readOnly !== true');
+    expect(roleModeRoute).toContain("Authorization: `Bearer ${accessToken}`");
+    expect(roleModeRoute).toContain("redirect: 'manual'");
+  });
+
+  it('retains the protected advanced staff surface without merging its authority into role mode', () => {
     expect(directCenter).toContain('<OwnerAccessCenterV2 {...baseProps} />');
     expect(page).toContain('accessCatalog={staffAccessTaskCatalog()}');
     expect(catalog).toContain("id: 'view_cabinet'");
@@ -98,7 +132,7 @@ describe('platform-v7 owner access center task UX', () => {
     expect(deferred).toContain('if (!ready || !active) return null');
   });
 
-  it('opens only the existing bounded manage-staff control-plane authority', () => {
+  it('keeps the separate bounded manage-staff CONTROL_PLANE bootstrap unchanged', () => {
     expect(bootstrap).toContain("item.role === 'PLATFORM_OWNER' && item.status === 'ACTIVE'");
     expect(bootstrap).toContain("accessMode: 'CONTROL_PLANE'");
     expect(bootstrap).toContain("'staff-request:read'");
@@ -107,21 +141,21 @@ describe('platform-v7 owner access center task UX', () => {
     expect(bootstrap).toContain('durationSeconds: 30 * 60');
     expect(bootstrap).toContain("fetch('/api/staff/access/requests'");
     expect(bootstrap).toContain("fetch(`/api/staff/access/grants/${encodeURIComponent(grantId)}/activate`");
-    expect(bootstrap).toContain("'X-CSRF-Token': token");
-    expect(bootstrap).toContain("credentials: 'same-origin'");
     expect(bootstrap).not.toContain('break-glass');
     expect(bootstrap).not.toContain('localStorage');
     expect(bootstrap).not.toContain('sessionStorage');
   });
 
-  it('remains mobile-first and multilingual', () => {
+  it('remains RU/EN/ZH, mobile-first, keyboard-visible and safe-area aware', () => {
+    expect(directCenter).toContain('ru: {');
+    expect(directCenter).toContain('en: {');
+    expect(directCenter).toContain('zh: {');
     expect(directCss).toContain('@media (max-width: 520px)');
     expect(directCss).toContain('grid-template-columns: 1fr');
     expect(directCss).toContain('min-height: 54px');
+    expect(directCss).toContain(':focus-visible');
+    expect(directCss).toContain('env(safe-area-inset-bottom)');
     expect(bootstrapCss).toContain('@media (max-width: 640px)');
-    expect(bootstrap).toContain('ru: {');
-    expect(bootstrap).toContain('en: {');
-    expect(bootstrap).toContain('zh: {');
     expect(keys(ownerAccessCenterMessages.en)).toEqual(keys(ownerAccessCenterMessages.ru));
     expect(keys(ownerAccessCenterMessages.zh)).toEqual(keys(ownerAccessCenterMessages.ru));
   });
