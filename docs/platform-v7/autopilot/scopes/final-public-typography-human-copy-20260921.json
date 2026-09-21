@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/final-public-typography-human-copy-20260921",
+  "status": "active",
+  "authorizedBy": "explicit-user-final-public-typography-and-human-copy-20260921",
+  "purpose": "FINAL PUBLIC EXPERIENCE typography and editorial refinement: unify all public surfaces on one local system-font hierarchy, remove effective visible microtype below 12px, normalize responsive type rhythm, and rewrite RU/EN/ZH public copy to natural human product language without changing product semantics or technical authority.",
+  "authorityBaseExactMain": "78a1d98ececba214489295c0574e4a8c3d3dd37b",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/styles/platform-v7-canonical-home-v1.css",
+    "apps/web/styles/platform-v7-canonical-public-v1.css",
+    "apps/web/styles/platform-v7-public-assistant-polish.css",
+    "apps/web/components/platform-v7/PublicSiteHeader.tsx",
+    "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
+    "apps/web/components/platform-v7/PublicCanonicalPrimitives.tsx",
+    "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+    "docs/platform-v7/autopilot/scopes/final-public-typography-human-copy-20260921.json"
+  ],
+  "requiredInvariants": [
+    "Canonical public pages use one local system-font family; no remote font runtime dependency is introduced.",
+    "Terminal public typography authority sets both UI and display font tokens to the same system stack so card titles, headings, footer and Gekta no longer split between serif and sans-serif.",
+    "Effective visible public microcopy is >=12 CSS px; primary body copy is >=14 CSS px and form fields remain >=16 CSS px where mobile zoom prevention applies.",
+    "Canonical mobile brand remains >=14 CSS px and interactive controls remain >=44x44 CSS px.",
+    "Heading/body/label line-height and responsive transitions remain readable in RU, EN and ZH; CJK letter-spacing stays neutral.",
+    "RU/EN/ZH copy may be shortened and naturalized but server-authority, role, tenant, financial-finality, external-confirmation and human-critical-decision semantics must remain intact.",
+    "No hero composition, palette authority, navigation structure, backend, API, database, auth, RBAC, RLS, tenant, Deal, money, outbox or production-release semantics are changed.",
+    "No CI, security, accessibility, Lighthouse, CLS, browser, viewport, visual maxDistance or production acceptance threshold is weakened."
+  ],
+  "acceptance": [
+    "platformV7RootWorkEntry unit contract proves terminal typography authority has no px font size below 12, display/UI tokens are the same system stack, header has no 10-11px text, assistant terminal authority has no microtype, and retired templated copy remains absent.",
+    "Exact-head web unit/typecheck/build and source-controlled scope guard pass.",
+    "Canonical Visual Acceptance passes without increasing maxDistance thresholds.",
+    "Design System v8 browser/accessibility matrix passes with existing CLS <=0.1 and Axe rules unchanged.",
+    "Strategic Home Lighthouse remains at the existing release threshold.",
+    "Production mobile acceptance after merge passes Chromium + WebKit at 320/375/390/430 with zero horizontal overflow and >=44px controls.",
+    "Production i18n acceptance passes RU/EN/ZH on the exact deployed SHA.",
+    "Human editorial review finds no material machine-like repetition, generic AI marketing phrasing, or unnatural sentence symmetry in the changed public copy."
+  ]
+}
