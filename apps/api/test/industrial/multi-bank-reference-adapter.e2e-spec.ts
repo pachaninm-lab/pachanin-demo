@@ -26,6 +26,7 @@ describe('multi-bank reference adapter industrial contract', () => {
     evidenceMode: 'SERVER_HELD',
     credentialReadiness: 'MISSING_OR_UNKNOWN',
     callbackTrustReadiness: 'MISSING_OR_UNKNOWN',
+    productionEnvironmentConfirmed: false,
     mayCarryRealTraffic: false,
   });
 
