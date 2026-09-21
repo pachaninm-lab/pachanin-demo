@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/final-public-mobile-brand-legibility-20260921",
+  "status": "active",
+  "authorizedBy": "explicit-user-make-final-public-experience-perfect-20260921",
+  "purpose": "Bounded production i18n legibility repair. Restore the canonical mobile public brand to the existing >=14px production threshold after late 12/13px responsive overrides won the cascade. Preserve approved composition, 60px header geometry, >=44px controls, localization, overflow, browser coverage and all acceptance thresholds.",
+  "authorityBaseExactMain": "a924286d5f012c827b003e3fd54007822121764f",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/styles/platform-v7-canonical-home-v1.css",
+    "apps/web/styles/platform-v7-canonical-public-v1.css",
+    "apps/web/tests/unit/platformV7BrowserAcceptanceRepairs.test.ts",
+    "docs/platform-v7/autopilot/scopes/final-public-mobile-brand-legibility-20260921.json"
+  ],
+  "requiredInvariants": [
+    "No backend, API, database, middleware, RBAC, tenant, auth, Deal, money, finality, Gekta runtime, release authority or production topology change.",
+    "Do not lower the production i18n >=14px brand threshold or any accessibility, overflow, browser, viewport, Lighthouse or security threshold.",
+    "Approved header height, logo geometry, navigation structure, locale controls, colors, spacing hierarchy and touch target floor remain unchanged.",
+    "The final canonical route CSS cascade must leave the mobile brand text at >=14px after every earlier 12/13px responsive override.",
+    "Homepage and linked public canonical styles remain aligned on the same brand legibility floor.",
+    "A unit regression must fail if a later 12px or 13px canonical brand override is appended after the final legibility gate."
+  ],
+  "acceptance": [
+    "Diff is exactly two canonical CSS files, one unit regression and this scope manifest.",
+    "Relevant unit/type/CI/a11y/security/canonical visual gates remain green.",
+    "Production i18n exact-SHA browser matrix passes RU/EN/ZH on Chromium and WebKit with the unchanged >=14px threshold.",
+    "Production mobile acceptance and Gekta SSE remain PASS after exact-main REG.RU release."
+  ]
+}
