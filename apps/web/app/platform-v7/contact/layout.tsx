@@ -1,3 +1,4 @@
+import '@/styles/platform-v7-canonical-public-v1.css';
 import type { ReactNode } from 'react';
 import { getLocale } from 'next-intl/server';
 import { ContactFixedHeader } from '@/components/platform-v7/ContactFixedHeader';
