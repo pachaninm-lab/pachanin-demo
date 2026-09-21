@@ -1,3 +1,4 @@
+import '@/styles/platform-v7-canonical-public-v1.css';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { CanonicalBottomNav, CanonicalPublicHeader } from './PublicCanonicalPrimitives';
