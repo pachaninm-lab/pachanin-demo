@@ -33,37 +33,37 @@ export async function generateMetadata():Promise<Metadata>{
 
 const COPY={
 ru:{
- e:'Как проходит Сделка',t:'Как проходит Сделка',p:'Семь прозрачных шагов — от товара до результата. Каждый этап фиксируется в системе, а участники видят связанные факты, документы и сроки.',
+ e:'7 этапов Сделки',t:'Понятный путь от лота до закрытия',p:'На каждом этапе видно, кто отвечает, какие факты нужны, что влияет на расчёт и что можно делать дальше.',
  actor:'Участник',fact:'Факт',basis:'Основание',money:'Влияние на расчёт',next:'Следующий шаг',
  stages:[
- ['Лот','Продавец','Публичные и закрытые параметры товара','Подтверждённые данные лота и право организации действовать','Расчёт ещё не формируется','Допустить лот к разрешённому торговому контуру'],
- ['Торги','Продавец · Покупатель','Ставки и зафиксированный результат торгов','Правила торгов и серверно подтверждённый результат','Фиксируются экономические условия будущей Сделки','Перейти к обязательствам сторон'],
- ['Обязательства','Продавец · Покупатель','Условия, роли и ответственность сторон','Согласованные условия и подтверждённые полномочия','Появляются условия, от которых зависит будущий финансовый шаг','Запустить исполнение'],
- ['Доставка','Логистика · Водитель','Рейс, маршрут и фактическое исполнение','Разрешённые действия логистической роли и события доставки','Сам факт доставки не даёт клиенту права менять финансовое состояние','Передать факт на приёмку'],
- ['Приёмка / качество','Элеватор · Лаборатория · Сюрвейер','Вес, приёмка, показатели качества и подтверждения','Источники фактов и полномочия соответствующих участников','Отклонения могут изменить основание для расчёта или создать блокер','Зафиксировать принятый результат и необходимые действия'],
- ['Документы / расчёт','Стороны · Банк','Комплект документов и подтверждённые основания','Связанные документы, события и банковские правила','Платформа показывает основание; внешнее финансовое событие требует подтверждения','Выполнить разрешённый финансовый шаг либо устранить блокер'],
- ['Закрытие / спор','Участники Сделки','Финальный статус либо зафиксированное расхождение','История фактов, документов, действий и решений','Закрытие возможно только при выполненных условиях; спор сохраняет влияние до решения','Закрыть Сделку либо вести спор в связанном контексте'],
+ ['Лот','Продавец','Параметры товара и условия публикации','Данные лота и подтверждённые полномочия организации','Расчёт ещё не формируется','Опубликовать лот и перейти к торгам'],
+ ['Торги','Продавец · Покупатель','Ставки и итог торгов','Правила торгов и зафиксированный результат','Фиксируются цена и ключевые экономические условия','Зафиксировать обязательства сторон'],
+ ['Обязательства','Продавец · Покупатель','Условия, роли и ответственность сторон','Согласованные условия и подтверждённые полномочия','Понятно, какие условия будут влиять на расчёт','Перейти к исполнению'],
+ ['Доставка','Логистика · Водитель','Рейс, маршрут и фактическое исполнение','Подтверждённые события доставки и полномочия исполнителей','Доставка сама по себе не меняет расчёт','Передать результат на приёмку'],
+ ['Приёмка / качество','Элеватор · Лаборатория · Сюрвейер','Вес, приёмка, показатели качества и подтверждения','Источник каждого факта и полномочия участника','Отклонения могут изменить основание для расчёта','Зафиксировать результат и нужные действия'],
+ ['Документы / расчёт','Стороны · Банк','Документы и подтверждённые основания','Связанные документы, события и банковские правила','Платформа показывает, почему финансовый шаг доступен или заблокирован','Выполнить финансовый шаг или устранить причину блокировки'],
+ ['Закрытие / спор','Участники Сделки','Финальный статус или зафиксированное расхождение','История фактов, документов, действий и решений','Сделка закрывается после выполнения условий; спор остаётся видимым до решения','Закрыть Сделку или продолжить разбор спора'],
  ],
- trust:'Доверие на каждом шаге',trustLead:'Полномочия → Основание → Источник → Решение — не отдельный раздел, а сквозная модель всей Сделки.',
+ trust:'Доверие на каждом шаге',trustLead:'На каждом этапе работает один принцип: кто вправе действовать, на каком основании, откуда взят факт и какое решение принято.',
  cta:'Зарегистрироваться',market:'Открыть рынок'
 },
 en:{
- e:'How the Deal works',t:'Seven transparent steps — from product to outcome.',p:'Every stage answers the same questions: who acts, which fact is required, what basis permits progress and how it affects settlement.',
+ e:'7 Deal stages',t:'A clear path from lot to closure',p:'At every stage you can see who acts, which facts matter, what affects settlement and what can happen next.',
  actor:'Participant',fact:'Fact',basis:'Basis',money:'Settlement impact',next:'Next step',
  stages:[
- ['Lot','Seller','Public and private product parameters','Confirmed lot data and organisation authority','No settlement basis yet','Admit the lot to the authorised trading circuit'],
- ['Trading','Seller · Buyer','Bids and confirmed trading result','Trading rules and server-confirmed outcome','Economic terms of the future Deal are fixed','Move to commitments'],
- ['Commitments','Seller · Buyer','Terms, roles and responsibilities','Agreed terms and confirmed authority','Conditions affecting the future financial step become explicit','Start execution'],
- ['Delivery','Logistics · Driver','Trip, route and execution facts','Authorised logistics actions and delivery events','Delivery itself cannot let the client choose financial state','Pass confirmed facts to acceptance'],
- ['Acceptance / quality','Elevator · Laboratory · Surveyor','Weight, acceptance, quality indicators and confirmations','Fact sources and participant authority','Deviation can change settlement basis or create a blocker','Fix the accepted result and required actions'],
- ['Documents / settlement','Parties · Bank','Document set and confirmed basis','Linked documents, events and banking rules','The platform shows basis; the external financial event still requires confirmation','Perform the permitted financial step or clear the blocker'],
- ['Closure / dispute','Deal participants','Final status or recorded discrepancy','History of facts, documents, actions and decisions','Closure requires satisfied conditions; a dispute keeps its impact until resolved','Close the Deal or handle the dispute in the same context'],
+ ['Lot','Seller','Product parameters and publication terms','Lot data and confirmed organisation authority','No settlement basis yet','Publish the lot and move to trading'],
+ ['Trading','Seller · Buyer','Bids and trading result','Trading rules and recorded outcome','Price and key economic terms are fixed','Record the parties’ commitments'],
+ ['Commitments','Seller · Buyer','Terms, roles and responsibilities','Agreed terms and confirmed authority','The conditions that may affect settlement are clear','Move into execution'],
+ ['Delivery','Logistics · Driver','Trip, route and execution facts','Confirmed delivery events and executor authority','Delivery alone does not change settlement','Pass the result to acceptance'],
+ ['Acceptance / quality','Elevator · Laboratory · Surveyor','Weight, acceptance, quality indicators and confirmations','The source of each fact and participant authority','A deviation may change settlement basis','Record the result and required actions'],
+ ['Documents / settlement','Parties · Bank','Documents and confirmed basis','Linked documents, events and banking rules','The platform shows why a financial step is available or blocked','Perform the financial step or clear the blocking reason'],
+ ['Closure / dispute','Deal participants','Final status or recorded discrepancy','History of facts, documents, actions and decisions','The Deal closes when conditions are met; a dispute stays visible until resolved','Close the Deal or continue resolving the dispute'],
  ],
- trust:'Trust at every step',trustLead:'Authority → Basis → Source → Decision is not a separate feature; it is the control model across the Deal.',
+ trust:'Trust at every step',trustLead:'The same principle applies at every stage: who may act, what permits it, where the fact came from and what decision was recorded.',
  cta:'Register',market:'Open market'
 },
 zh:{
- e:'交易如何进行',t:'七个透明步骤——从商品到结果。',p:'每个阶段都回答同样的问题：谁处理、需要什么事实、依据是什么、对结算有什么影响。',
+ e:'交易的 7 个阶段',t:'从批次到关闭，一条清晰路径',p:'每个阶段都能看到谁负责、需要哪些事实、什么影响结算，以及下一步可以做什么。',
  actor:'参与方',fact:'事实',basis:'依据',money:'结算影响',next:'下一步',
  stages:[
  ['批次','卖方','商品的公开和非公开参数','已确认的批次数据和机构权限','尚未形成结算依据','允许批次进入授权交易流程'],
@@ -74,7 +74,7 @@ zh:{
  ['文件 / 结算','交易方 · 银行','文件集和已确认依据','关联文件、事件和银行规则','平台展示依据；外部金融事件仍需确认','执行允许的金融步骤或解除阻断'],
  ['关闭 / 争议','交易参与方','最终状态或已记录差异','事实、文件、操作和决定的历史','满足条件后才能关闭；争议在解决前持续影响交易','关闭交易或在同一上下文处理争议'],
  ],
- trust:'每一步都建立信任',trustLead:'权限 → 依据 → 来源 → 决定不是独立功能，而是贯穿整笔交易的控制模型。',
+ trust:'每一步都建立信任',trustLead:'每个阶段都遵循同一原则：谁有权操作、依据是什么、事实来自哪里、最终记录了什么决定。',
  cta:'注册',market:'打开市场'
 }} as const;
 
@@ -98,7 +98,7 @@ export default async function HowItWorksPage(){
   </div></section>
   <section className='pc-cp-section pc-cp-section--soft pc-cp-how-trust'><div className='pc-cp-container'>
    <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{c.trust}</span><h2>{c.trust}</h2><p>{c.trustLead}</p></div>
-   <div className='pc-cp-how-trust-layout'><CanonicalTrustLedger locale={locale}/><aside className='pc-cp-how-gekta-note'><strong>{locale==='ru'?'Гекта помогает понимать, а не решать':locale==='en'?'Gekta helps understand, not decide':'Gekta 帮助理解，而不是替你决定'}</strong><p>{locale==='ru'?'Объясняет факты и следующий допустимый шаг. Решение остаётся за участником и правилами Сделки.':locale==='en'?'Explains facts and the next permitted step. The decision stays with the participant and Deal rules.':'解释事实和允许的下一步；决定仍由参与方和交易规则控制。'}</p></aside></div>
+   <div className='pc-cp-how-trust-layout'><CanonicalTrustLedger locale={locale}/><aside className='pc-cp-how-gekta-note'><strong>{locale==='ru'?'Гекта помогает разобраться быстрее':locale==='en'?'Gekta helps you get to clarity faster':'Gekta 帮助理解，而不是替你决定'}</strong><p>{locale==='ru'?'Собирает факты, подсвечивает риски и объясняет доступные варианты. Решение остаётся за участником.':locale==='en'?'Pulls facts together, highlights risks and explains available options. The decision stays with the participant.':'汇总事实、提示风险并解释可用选项；决定仍由参与方作出。'}</p></aside></div>
   </div></section>
   <section className='pc-cp-section pc-cp-section--tight pc-cp-how-gekta'><div className='pc-cp-container'><CanonicalGektaStrip locale={locale}/></div></section>
   <CanonicalFooter locale={locale}/><CanonicalBottomNav locale={locale} active='/platform-v7/how-it-works'/>
