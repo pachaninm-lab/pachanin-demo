@@ -357,6 +357,7 @@ const css = `
 
 /* Canonical public Gekta entry: one visible communication surface. */
 .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] {
+  display: grid !important;
   right: max(18px, env(safe-area-inset-right, 0px)) !important;
   bottom: max(18px, calc(env(safe-area-inset-bottom, 0px) + 16px)) !important;
   width: auto !important;

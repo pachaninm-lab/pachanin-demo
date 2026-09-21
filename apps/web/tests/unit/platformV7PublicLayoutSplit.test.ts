@@ -129,6 +129,9 @@ describe('platform-v7 public/protected runtime split', () => {
     expect(dock).toContain(".pc-public-contact-dock-action:not(.pc-public-contact-dock-assistant)");
     expect(dock).toContain("data-public-mode={publicMode}");
     expect(dock).toContain("[data-public-mode='gekta']");
+    expect(dock).toContain("display:grid!important");
+    expect(dock).toContain("@media(min-width:981px)");
+    expect(dock).toContain("display:none!important");
   });
 
   it('keeps the route template server-only and free of historical patching', () => {
