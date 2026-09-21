@@ -1,5 +1,6 @@
 import {
   requiredBankCapability,
+  supportsBankCapability,
   type BankCapability,
   type BankCommand,
 } from '../../../../../packages/domain-core/src/bank-capability';
@@ -149,12 +150,17 @@ export function normalizeObservedAt(value: string): string {
 
 export function buildReferenceRequestEnvelope(
   providerFamily: BankProviderFamily,
+  supportedCapabilities: readonly BankCapability[],
   input: BankAdapterOperationRequest,
 ): BankReferenceRequestEnvelope {
   const normalized = normalizeBankOperationRequest(input);
+  const capability = requiredBankCapability(normalized.command);
+  if (!supportsBankCapability(supportedCapabilities, capability)) {
+    throw new Error(`BANK_CAPABILITY_NOT_SUPPORTED:${providerFamily}:${capability}`);
+  }
   return {
     providerFamily,
-    capability: requiredBankCapability(normalized.command),
+    capability,
     command: normalized.command,
     operationId: normalized.operationId,
     idempotencyKey: normalized.idempotencyKey,
