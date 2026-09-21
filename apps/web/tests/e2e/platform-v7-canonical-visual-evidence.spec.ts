@@ -433,11 +433,13 @@ test.describe('canonical cross-browser public smoke', () => {
     await expect(header.locator('.entry-login')).toHaveAttribute('href','/platform-v7/login?lang=ru');
     await canonicalHeaderTargets(page);
 
-    const localeSwitch=header.locator(':scope > .pc-site-actions > .pc-site-locale-switch');
-    await expect(localeSwitch).toHaveCount(1);
-    const href=await localeSwitch.getAttribute('href');
-    expect(href).toBeTruthy();
-    const target=new URL(href!,page.url());
+    const localeCluster=header.locator(':scope > .pc-site-actions > .pc-site-locale-cluster');
+    await expect(localeCluster).toHaveCount(1);
+    const localeLinks=localeCluster.locator('a.pc-site-locale-option');
+    await expect(localeLinks).toHaveCount(3);
+    const enHref=await localeLinks.filter({hasText:'EN'}).getAttribute('href');
+    expect(enHref).toBeTruthy();
+    const target=new URL(enHref!,page.url());
     expect(target.pathname).toBe('/platform-v7/register');
     expect(target.searchParams.get('lang')).toBe('en');
     expect(target.searchParams.get('verify')).toBe(verify);
