@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-label="Поле, элеватор и логистика в едином цифровом агроконтуре">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fbfdfb"/><stop offset=".55" stop-color="#eaf5ee"/><stop offset="1" stop-color="#d9eadf"/></linearGradient>
+    <linearGradient id="fieldA" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f1e8c6"/><stop offset=".5" stop-color="#d7c47d"/><stop offset="1" stop-color="#aac184"/></linearGradient>
+    <linearGradient id="fieldB" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#d8eadf"/><stop offset="1" stop-color="#91b79f"/></linearGradient>
+    <linearGradient id="metal" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#eef4f0"/><stop offset=".5" stop-color="#b9cbc1"/><stop offset="1" stop-color="#f8fbf9"/></linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#17382a" flood-opacity=".13"/></filter>
+  </defs>
+  <rect width="1440" height="900" fill="url(#sky)"/>
+  <circle cx="1170" cy="158" r="88" fill="#fff" opacity=".62"/>
+  <path d="M0 492C232 438 470 450 705 507C938 563 1177 532 1440 448V900H0Z" fill="url(#fieldB)"/>
+  <path d="M0 584C258 520 525 538 790 607C1023 667 1234 640 1440 584V900H0Z" fill="url(#fieldA)"/>
+  <g fill="none" stroke="#b79343" stroke-width="2" opacity=".33"><path d="M0 655C330 594 700 626 1050 744"/><path d="M0 706C350 650 735 689 1100 820"/><path d="M85 900C327 674 522 593 733 578"/><path d="M286 900C470 694 645 620 820 604"/></g>
+  <path d="M826 900C914 756 1015 671 1144 626C1246 590 1340 584 1440 596V900Z" fill="#d8e2dc"/>
+  <path d="M928 900C1007 756 1091 686 1197 650C1276 624 1356 621 1440 632V900Z" fill="#71857b" opacity=".86"/>
+  <path d="M958 900C1030 773 1110 709 1210 676C1282 652 1360 650 1440 660" fill="none" stroke="#e9efe9" stroke-width="5" stroke-dasharray="18 18" opacity=".8"/>
+  <g transform="translate(1010 284)" filter="url(#shadow)">
+    <rect x="0" y="138" width="242" height="154" rx="9" fill="#eef4f0" stroke="#9eb3a7"/>
+    <rect x="22" y="88" width="54" height="204" rx="24" fill="url(#metal)" stroke="#9cafaa"/>
+    <rect x="83" y="66" width="54" height="226" rx="24" fill="url(#metal)" stroke="#9cafaa"/>
+    <rect x="144" y="98" width="54" height="194" rx="24" fill="url(#metal)" stroke="#9cafaa"/>
+    <path d="M15 138H212L176 95H48Z" fill="#d7e2dc" stroke="#9cafaa"/>
+    <rect x="204" y="176" width="64" height="116" rx="6" fill="#d4e2da" stroke="#9cafaa"/>
+    <rect x="218" y="145" width="12" height="31" fill="#0b5f46"/>
+    <path d="M50 88V32M110 66V8M171 98V44" stroke="#71877b" stroke-width="5"/>
+    <circle cx="50" cy="28" r="6" fill="#0b5f46"/><circle cx="110" cy="7" r="6" fill="#0b5f46"/><circle cx="171" cy="41" r="6" fill="#0b5f46"/>
+  </g>
+  <g transform="translate(1115 668)" filter="url(#shadow)">
+    <rect x="0" y="24" width="132" height="58" rx="10" fill="#f9fbfa" stroke="#9fb3a8"/>
+    <rect x="132" y="36" width="66" height="46" rx="9" fill="#0b5f46"/>
+    <rect x="147" y="47" width="29" height="18" rx="3" fill="#dff0e7"/>
+    <circle cx="37" cy="87" r="18" fill="#24352e"/><circle cx="37" cy="87" r="8" fill="#c8d6ce"/>
+    <circle cx="157" cy="87" r="18" fill="#24352e"/><circle cx="157" cy="87" r="8" fill="#c8d6ce"/>
+  </g>
+  <g fill="none" stroke="#0b6a4c" stroke-width="2.5" opacity=".42">
+    <path d="M768 322C880 250 988 246 1095 298"/><path d="M770 322C850 398 957 422 1092 408"/><path d="M1095 298C1188 260 1278 281 1360 338"/>
+  </g>
+  <g fill="#0b6a4c"><circle cx="768" cy="322" r="7"/><circle cx="1095" cy="298" r="7"/><circle cx="1092" cy="408" r="7"/><circle cx="1360" cy="338" r="7"/></g>
+  <g opacity=".3" stroke="#789a86" stroke-width="3"><path d="M682 478l28-62 18 62M720 478l30-78 24 78M759 478l22-52 17 52"/></g>
+</svg>
