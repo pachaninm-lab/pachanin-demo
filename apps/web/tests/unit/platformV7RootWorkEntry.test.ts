@@ -34,6 +34,7 @@ describe('platform-v7 canonical public experience',()=>{
   const css=read('styles/platform-v7-canonical-public-v1.css');
   const brand=read('components/v7r/BrandMark.tsx');
   const siteHeader=read('components/platform-v7/PublicSiteHeader.tsx');
+  const gektaChatButton=read('components/platform-v7/PublicGektaChatButton.tsx');
 
   it('binds visual implementation to the explicit final mockup authority',()=>{
     expect(authority).toContain('Everything else is superseded.');
@@ -66,6 +67,16 @@ describe('platform-v7 canonical public experience',()=>{
     for(const label of ['Рынок','Сделка','Возможности','Гекта','Доверие','О платформе']) expect(primitives).toContain(label);
     for(const label of ['Market','Deal','Capabilities','Gekta','Trust','About']) expect(primitives).toContain(label);
     for(const label of ['市场','交易','功能','Gekta','信任','关于平台']) expect(primitives).toContain(label);
+  });
+
+  it('opens Gekta through the existing public assistant authority without private context',()=>{
+    expect(gektaChatButton).toContain("new CustomEvent('pc:public-assistant-context'");
+    expect(gektaChatButton).toContain("context: 'platform'");
+    expect(gektaChatButton).not.toContain('tenantId');
+    expect(gektaChatButton).not.toContain('dealId');
+    expect(gektaChatButton).not.toContain('documentId');
+    expect(layout).toContain("<PublicContactDock assistantContext='public' publicMode='gekta' />");
+    expect(layout).toContain('<HydrationSafeChatSupport renderDock={false} legacyPublicPolish={false} />');
   });
 
   it('locks the nine canonical roles and seven Deal stages',()=>{
