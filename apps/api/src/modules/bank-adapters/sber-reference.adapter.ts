@@ -1,10 +1,8 @@
+import type { BankCapability } from '../../../../../packages/domain-core/src/bank-capability';
 import {
-  requiredBankCapability,
-  type BankCapability,
-} from '../../../../../packages/domain-core/src/bank-capability';
-import {
-  normalizeBankOperationRequest,
-  normalizeObservedAt,
+  buildReceiptCandidate,
+  buildReferenceRequestEnvelope,
+  mapReferenceDispatch,
   type BankAdapterOperationRequest,
   type BankDispatchMapping,
   type BankProviderResponse,
@@ -35,40 +33,11 @@ export class SberReferenceAdapter implements BankReferenceAdapter {
   ];
 
   describeRequest(input: BankAdapterOperationRequest): BankReferenceRequestEnvelope {
-    const normalized = normalizeBankOperationRequest(input);
-    return {
-      providerFamily: this.providerFamily,
-      capability: requiredBankCapability(normalized.command),
-      command: normalized.command,
-      operationId: normalized.operationId,
-      idempotencyKey: normalized.idempotencyKey,
-      amountMinor: normalized.amountMinor,
-      currency: normalized.currency,
-      sourceVersion: normalized.sourceVersion,
-      beneficiaryReference: normalized.beneficiaryReference,
-      contractMode: this.contractMode,
-      liveRequestReady: false,
-    };
+    return buildReferenceRequestEnvelope(this.providerFamily, input);
   }
 
   mapDispatchResponse(response: BankProviderResponse): BankDispatchMapping {
-    const status = response.rawStatus?.trim().toUpperCase() ?? null;
-    const acknowledgement = status === 'ERROR'
-      ? 'REJECTED'
-      : response.httpStatus !== null && response.httpStatus >= 200 && response.httpStatus < 300
-        ? 'ACCEPTED_NONFINAL'
-        : response.httpStatus !== null && response.httpStatus >= 400 && response.httpStatus < 500
-          ? 'REJECTED'
-          : 'UNKNOWN';
-    return {
-      providerFamily: this.providerFamily,
-      acknowledgement,
-      providerOperationId: response.providerOperationId,
-      rawStatus: response.rawStatus,
-      observedAt: normalizeObservedAt(response.observedAt),
-      canonicalFinality: 'NOT_DECIDED_HERE',
-      retryPolicy: acknowledgement === 'REJECTED' ? 'NO_MUTATION_RECORDED' : 'RECONCILE_BEFORE_RETRY',
-    };
+    return mapReferenceDispatch(this.providerFamily, response, ['ERROR']);
   }
 
   mapReceiptResponse(response: BankProviderResponse): BankReceiptCandidate {
@@ -80,20 +49,6 @@ export class SberReferenceAdapter implements BankReferenceAdapter {
         : status === 'CREATED' || status === 'PENDING'
           ? 'NONFINAL_EVIDENCE'
           : 'UNKNOWN_EVIDENCE';
-    return {
-      providerFamily: this.providerFamily,
-      operationId: response.operationId,
-      providerOperationId: response.providerOperationId,
-      providerEventId: response.providerEventId,
-      externalReceiptId: response.externalReceiptId,
-      authenticationEvidenceRef: response.authenticationEvidenceRef,
-      payloadFingerprint: response.payloadFingerprint,
-      amountMinor: response.amountMinor,
-      currency: response.currency,
-      evidenceState,
-      rawStatus: response.rawStatus,
-      observedAt: normalizeObservedAt(response.observedAt),
-      canonicalFinality: 'NOT_DECIDED_HERE',
-    };
+    return buildReceiptCandidate(this.providerFamily, response, evidenceState);
   }
 }
