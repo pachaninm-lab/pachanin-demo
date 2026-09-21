@@ -57,7 +57,6 @@ for (const marker of [
   'AUTHENTICATION_EVIDENCE_MISSING',
   'AUTHENTICATION_AUTHORITY_MISMATCH',
   'IDEMPOTENCY_MISMATCH',
-  'AUTHENTICATION_EVIDENCE_MISSING',
   'READY_FOR_CANONICAL_RECONCILIATION',
 ]) assert.ok(receipt.includes(marker), 'missing receipt boundary ' + marker);
 
