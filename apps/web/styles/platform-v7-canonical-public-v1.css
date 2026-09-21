@@ -73,7 +73,7 @@
 .pc-cp-lot-card{overflow:hidden;display:flex;flex-direction:column;min-height:310px;text-decoration:none;color:inherit}
 .pc-cp-lot-media{height:126px;display:grid;place-items:center;padding:12px;background:linear-gradient(150deg,#e8eadf,#ced6c8 48%,#f2e6c1);color:#506057;font-size:12px;font-weight:760}
 .pc-cp-lot-body{display:grid;gap:10px;padding:16px;flex:1}
-.pc-cp-lot-title{font-family:var(--pc-cp-display);font-size:23px;line-height:1.06;font-weight:600}
+.pc-cp-lot-title{font-family:var(--pc-cp-display);font-size:23px;line-height:1.06;font-weight:600}.pc-cp-lot-title[href]{color:inherit;text-decoration:none}.pc-cp-lot-title[href]:hover{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px}.pc-cp-lot-title[href]:focus-visible{outline:3px solid rgba(25,117,82,.28);outline-offset:3px;border-radius:4px}
 .pc-cp-lot-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .pc-cp-lot-meta div{display:grid;gap:3px}.pc-cp-lot-meta span{color:var(--pc-cp-muted);font-size:11px}.pc-cp-lot-meta strong{font-size:13px;line-height:1.28}
 .pc-cp-lot-foot{margin-top:auto;display:flex;justify-content:space-between;gap:8px;align-items:center;padding-top:10px;border-top:1px solid var(--pc-cp-line)}
