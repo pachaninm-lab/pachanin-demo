@@ -483,6 +483,15 @@ test.describe('canonical cross-browser public smoke', () => {
         expect(box).not.toBeNull();
         expect(box!.height).toBeGreaterThanOrEqual(43.999);
       }
+      const gektaDock=page.locator(".pc-public-contact-dock[data-public-mode='gekta']");
+      if(await gektaDock.isVisible()){
+        const dockBox=await gektaDock.boundingBox();
+        const navBox=await bottom.boundingBox();
+        expect(dockBox).not.toBeNull();
+        expect(navBox).not.toBeNull();
+        expect(dockBox!.width).toBeLessThanOrEqual(56);
+        expect(dockBox!.y+dockBox!.height).toBeLessThanOrEqual(navBox!.y-3);
+      }
 
       await page.evaluate(()=>window.scrollTo(0,document.documentElement.scrollHeight));
       const bottomBox=await bottom.boundingBox();
