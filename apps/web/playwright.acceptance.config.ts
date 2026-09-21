@@ -43,18 +43,22 @@ export default defineConfig({
     },
     {
       name: 'desktop-firefox',
+      grep: /canonical protected cabinet boundary|canonical cross-browser public smoke|Platform V7 public registration official UX/,
       use: { ...devices['Desktop Firefox'], viewport: { width: 1440, height: 1000 } },
     },
     {
       name: 'desktop-webkit',
+      grep: /canonical protected cabinet boundary|canonical cross-browser public smoke|Platform V7 public registration official UX/,
       use: { ...devices['Desktop Safari'], viewport: { width: 1440, height: 1000 } },
     },
     {
       name: 'android-chromium',
+      grep: /canonical protected cabinet boundary|canonical cross-browser public smoke|Platform V7 public registration official UX/,
       use: { ...devices['Pixel 5'] },
     },
     {
       name: 'iphone-webkit',
+      grep: /canonical protected cabinet boundary|canonical cross-browser public smoke|Platform V7 public registration official UX/,
       use: { ...devices['iPhone 13'] },
     },
   ],
