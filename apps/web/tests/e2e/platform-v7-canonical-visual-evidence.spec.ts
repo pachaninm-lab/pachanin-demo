@@ -298,7 +298,7 @@ test.describe('capabilities exact public route boundary', () => {
 });
 
 
-const ACCEPTANCE_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'https://localhost:3000';
+const ACCEPTANCE_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || '';
 const CANONICAL_ROLE_ROUTES: ReadonlyArray<readonly [CabinetRole, string]> = [
   ['operator', '/platform-v7/operator'],
   ['buyer', '/platform-v7/buyer'],
@@ -354,7 +354,8 @@ async function rotateCabinetRole(page: Page, role: CabinetRole, baseURL: string)
 test.describe('canonical protected cabinet boundary', () => {
   const operatorRoute = '/platform-v7/operator';
 
-  test('anonymous and forged sessions never enter protected cabinet', async ({ page }) => {
+  test('anonymous and forged sessions never enter protected cabinet', async ({ page, baseURL }) => {
+    test.skip(!baseURL?.startsWith('https://'), 'Protected cabinet authority runs in the Design System acceptance matrix.');
     await page.context().clearCookies();
     await page.goto(operatorRoute, { waitUntil: 'load' });
     await expect(page).toHaveURL(/\/platform-v7\/login/);
@@ -368,9 +369,9 @@ test.describe('canonical protected cabinet boundary', () => {
     await page.context().addCookies([{
       name: 'pc_v7_cabinet',
       value: `${header}.${payload}.${Buffer.from('forged-signature').toString('base64url')}`,
-      url: ACCEPTANCE_BASE_URL,
+      url: baseURL!,
       httpOnly: true,
-      secure: ACCEPTANCE_BASE_URL.startsWith('https://'),
+      secure: true,
       sameSite: 'Lax',
     }]);
     await page.goto(operatorRoute, { waitUntil: 'load' });
