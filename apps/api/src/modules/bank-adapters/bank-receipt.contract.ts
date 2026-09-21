@@ -61,6 +61,19 @@ function currencyCode(value: string | null): string | null {
   return /^[A-Z]{3}$/.test(normalized) ? normalized : null;
 }
 
+function evidenceIdentity(value: string | null): string | null {
+  if (value === null) return null;
+  return value.trim() || null;
+}
+
+function consumedEvidenceIncludes(
+  values: readonly string[] | undefined,
+  candidate: string | null,
+): boolean {
+  return candidate !== null
+    && values?.some((value) => value.trim() === candidate) === true;
+}
+
 export function validateBankReceiptCandidate(
   expected: ExpectedBankOperationEvidence,
   candidate: BankReceiptCandidate,
@@ -100,23 +113,20 @@ export function validateBankReceiptCandidate(
     return rejected('AUTHENTICATION_AUTHORITY_MISMATCH');
   }
 
-  if (
-    candidate.providerEventId
-    && expected.alreadyConsumedProviderEventIds?.includes(candidate.providerEventId)
-  ) {
+  const providerEventId = evidenceIdentity(candidate.providerEventId);
+  const payloadFingerprint = evidenceIdentity(candidate.payloadFingerprint);
+  const externalReceiptId = evidenceIdentity(candidate.externalReceiptId);
+
+  // Compare canonical evidence identities, not raw transport padding. Otherwise a
+  // replayed callback could evade durable-history checks by changing only leading
+  // or trailing whitespace around an already consumed identifier/fingerprint.
+  if (consumedEvidenceIncludes(expected.alreadyConsumedProviderEventIds, providerEventId)) {
     return rejected('PROVIDER_EVENT_REPLAY');
   }
-  if (
-    candidate.payloadFingerprint
-    && expected.alreadyConsumedPayloadFingerprints?.includes(candidate.payloadFingerprint)
-  ) {
+  if (consumedEvidenceIncludes(expected.alreadyConsumedPayloadFingerprints, payloadFingerprint)) {
     return rejected('PAYLOAD_REPLAY');
   }
-  const externalReceiptId = candidate.externalReceiptId?.trim() || null;
-  if (
-    externalReceiptId
-    && expected.alreadyConsumedExternalReceiptIds?.some((value) => value.trim() === externalReceiptId)
-  ) {
+  if (consumedEvidenceIncludes(expected.alreadyConsumedExternalReceiptIds, externalReceiptId)) {
     return rejected('EXTERNAL_RECEIPT_REPLAY');
   }
 
@@ -127,7 +137,7 @@ export function validateBankReceiptCandidate(
   if (!candidate.authenticationEvidenceRef?.trim()) {
     return rejected('AUTHENTICATION_EVIDENCE_MISSING');
   }
-  if (!candidate.payloadFingerprint?.trim()) {
+  if (!payloadFingerprint) {
     return rejected('PAYLOAD_FINGERPRINT_MISSING');
   }
 
