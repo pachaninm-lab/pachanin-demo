@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/final-public-benefit-copy-20260921",
+  "status": "active",
+  "authorizedBy": "owner-direct-moderately-persuasive-nlp-profile-psychology-copy-20260921",
+  "purpose": "FINAL PUBLIC EXPERIENCE v1 bounded copy polish. Make existing RU/EN/ZH public messaging moderately persuasive and benefit-first for agribusiness audiences using cognitive fluency, clear outcomes, verifiable proof, reduced uncertainty and explicit next actions, while avoiding hype, coercion, unsupported guarantees or any change to visual authority, architecture, business authority, Gekta runtime or release semantics.",
+  "authorityBaseExactMain": "78a1d98ececba214489295c0574e4a8c3d3dd37b",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
+    "apps/web/components/platform-v7/PublicCanonicalPrimitives.tsx",
+    "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+    "docs/platform-v7/autopilot/scopes/final-public-benefit-copy-20260921.json"
+  ],
+  "requiredInvariants": [
+    "The approved FINAL PUBLIC visual authority, local hero asset, system typography, palette, spacing, layout, mobile rail, header IA and component structure remain unchanged.",
+    "The exact canonical hero titles and task-first primary actions remain unchanged so production release truth-oracles and visual authority are not rewritten for copy preference.",
+    "RU/EN/ZH copy is benefit-first but must remain factually supportable: control, clarity, evidence, role context and next-step framing are permitted; guaranteed outcomes, guaranteed profit, risk-free claims, fabricated urgency and invented adoption proof are forbidden.",
+    "Registration remains a request for connection; copy must preserve that actual rights appear only after server-side organisation and authority checks.",
+    "Gekta remains the existing PublicPlatformAssistant authority and may explain available facts, risk and permitted next steps without independent critical authority.",
+    "No backend, API, database, auth, RBAC, RLS, tenant, Deal, money, outbox, workflow, infra or production release semantics change.",
+    "No CI, security, Axe, CLS, Lighthouse, mobile viewport, >=44px target, >=14px brand, no-overflow or visual maxDistance threshold is weakened."
+  ],
+  "acceptance": [
+    "Focused unit coverage proves the benefit-first RU/EN/ZH value propositions and preserves server-checked registration boundaries while rejecting obvious guarantee/risk-free overclaims.",
+    "Exact-head web-unit, Node CI, security, CodeQL, canonical visual, Design System v8, Strategic Home Lighthouse and production-like Kubernetes gates remain terminal green.",
+    "If intended text reflow changes canonical visual evidence, any baseline refresh is allowed only after manual screenshot inspection and without increasing maxDistance.",
+    "No horizontal page overflow or mobile readability regression at 320/375/390/430/768/1280/1440.",
+    "After merge, exact-current-main full-stack REG.RU release and production mobile/i18n/Gekta acceptance must pass before PUBLIC_EXPERIENCE_V1_FROZEN."
+  ]
+}
