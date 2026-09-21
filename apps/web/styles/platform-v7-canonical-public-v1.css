@@ -2034,3 +2034,19 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
 .pc-cp-deal-mobile-summary div span,
 .pc-cp-deal-mobile-summary>.pc-cp-chip{font-size:12px!important;line-height:1.35!important}
 
+/* FINAL PUBLIC EXPERIENCE v1 — trust linked-page hierarchy correction */
+
+.pc-cp-page-trust .pc-cp-trust-hero .pc-cp-hero-copy h1{
+  font-size:clamp(46px,4.2vw,58px)!important;
+  line-height:1.04!important;
+  letter-spacing:-.03em!important;
+  max-width:13ch!important;
+}
+@media(max-width:760px){
+  .pc-cp-page-trust .pc-cp-trust-hero .pc-cp-hero-copy h1{
+    font-size:clamp(34px,9vw,40px)!important;
+    line-height:1.06!important;
+    max-width:15ch!important;
+  }
+}
+
