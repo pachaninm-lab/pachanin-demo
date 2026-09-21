@@ -34,61 +34,61 @@ export async function generateMetadata():Promise<Metadata>{
 
 const COPY={
 ru:{
- e:'Доверие',t:'Доверие. На основе фактов.',p:'Платформа не просит “верить интерфейсу”. Критическое действие должно быть объяснимо через полномочия, основание, источник и зафиксированное решение.',
- fact:'От факта к решению',factLead:'Ни один экран не должен превращать неизвестность в уверенный статус. Если данных нет, они остаются недоступными или требуют подтверждения.',
+ e:'Доверие',t:'Доверие начинается с проверяемых фактов.',p:'Для критического действия должно быть понятно, кто его выполняет, на каком основании, откуда пришёл факт и что было зафиксировано.',
+ fact:'От факта к решению',factLead:'Если данных нет или они устарели, интерфейс показывает это прямо. Неизвестность не превращается в подтверждённый статус.',
  rail:['Факт получен','Источник определён','Полномочия проверены','Основание связано','Решение зафиксировано','Следующий шаг разрешён'],
- boundaries:'Границы доверия',boundariesLead:'Что платформа принципиально не подменяет интерфейсом.',
+ boundaries:'Границы доверия',boundariesLead:'Что интерфейс не решает за сервер и внешние системы.',
  boundary:[
-  ['Роль и tenant','Публичный выбор роли не выдаёт права. Авторитетный контекст формируется сервером после проверки.'],
-  ['Финансовое состояние','Клиент не выбирает authoritative financial state; он показывает только серверно подтверждённый статус и основание.'],
+  ['Роль и организация','Выбор роли на сайте не выдаёт права. Доступ появляется только после серверной проверки.'],
+  ['Статус расчёта','Интерфейс не назначает статус расчёта. Он показывает только состояние и основание, подтверждённые сервером.'],
   ['Внешняя система','Наличие интеграции или события не заявляется без фактического внешнего подтверждения.'],
-  ['Гекта','AI объясняет контекст и варианты, но не получает самостоятельного права на критическое решение.'],
+  ['Гекта','Гекта объясняет факты и варианты, но не принимает критические решения за участника.'],
  ],
  faq:'Частые вопросы',
  faqs:[
   ['Можно ли увидеть закрытые данные лота без регистрации?','Нет. Публичный рынок раскрывает только разрешённую обезличенную проекцию.'],
-  ['Может ли интерфейс сам назначить роль?','Нет. Роль, организация и tenant приходят из серверно проверенного контекста.'],
-  ['Что происходит при недоступном источнике?','UI показывает unavailable/stale и не подменяет факт последним известным или примерным значением без явной маркировки.'],
+  ['Может ли интерфейс сам назначить роль?','Нет. Роль и организация берутся из проверенного серверного профиля.'],
+  ['Что происходит при недоступном источнике?','Интерфейс показывает, что источник недоступен или данные устарели. Он не подставляет пример или последнее значение молча.'],
   ['Как фиксируется спор?','Спор остаётся связан с конкретной Сделкой, основаниями, документами и журналом действий.'],
  ],
  register:'Регистрация',how:'Как проходит Сделка'
 },
 en:{
- e:'Trust',t:'Trust. Built on facts.',p:'The platform does not ask users to “trust the interface”. Every critical action must be explainable through authority, basis, source and a recorded decision.',
- fact:'From fact to decision',factLead:'No screen turns uncertainty into a confident status. Missing data remains unavailable or explicitly awaits confirmation.',
+ e:'Trust',t:'Trust starts with verifiable facts.',p:'For every critical action, users can see who acts, what permits it, where the fact came from and what was recorded.',
+ fact:'From fact to decision',factLead:'If data is missing or stale, the interface says so. Uncertainty is never presented as a confirmed status.',
  rail:['Fact received','Source identified','Authority checked','Basis linked','Decision recorded','Next step permitted'],
- boundaries:'Trust boundaries',boundariesLead:'What the platform deliberately refuses to replace with UI assumptions.',
+ boundaries:'Trust boundaries',boundariesLead:'What the interface never decides on behalf of the server or an external system.',
  boundary:[
-  ['Role and tenant','A public role choice grants no rights. Authoritative context is server-issued after checks.'],
-  ['Financial state','The client never selects authoritative financial state; it only presents server-confirmed status and basis.'],
+  ['Role and organisation','Choosing a role on the public site grants no rights. Access appears only after server-side checks.'],
+  ['Settlement status','The interface never assigns settlement status. It only displays server-confirmed state and evidence.'],
   ['External system','An integration or external event is not claimed without actual external confirmation.'],
-  ['Gekta','AI explains context and options but receives no independent critical-decision authority.'],
+  ['Gekta','Gekta explains facts and options but does not make critical decisions for the participant.'],
  ],
  faq:'Frequently asked questions',
  faqs:[
   ['Can private lot data be viewed without registration?','No. The public market exposes only the permitted anonymised projection.'],
-  ['Can the interface assign a role?','No. Role, organisation and tenant come from a server-verified context.'],
-  ['What happens when a source is unavailable?','The UI shows unavailable/stale and does not silently replace the fact with sample or last-known data.'],
+  ['Can the interface assign a role?','No. Role and organisation come from the verified server profile.'],
+  ['What happens when a source is unavailable?','The interface marks the source as unavailable or stale and does not silently substitute sample or last-known data.'],
   ['How is a dispute recorded?','The dispute remains linked to the specific Deal, evidence, documents and action log.'],
  ],
  register:'Register',how:'How the Deal works'
 },
 zh:{
- e:'信任',t:'信任，建立在事实之上。',p:'平台不会要求用户“相信界面”。每个关键操作都必须能够通过权限、依据、来源和已记录决定来解释。',
- fact:'从事实到决定',factLead:'任何界面都不会把未知变成确定状态。缺失数据会保持不可用或明确等待确认。',
+ e:'信任',t:'信任从可核验事实开始。',p:'每个关键操作都能看到谁在执行、依据是什么、事实来自哪里，以及最终记录了什么。',
+ fact:'从事实到决定',factLead:'数据缺失或过期时，界面会直接说明，不会把未知状态显示成已确认。',
  rail:['获得事实','识别来源','核验权限','关联依据','记录决定','允许下一步'],
- boundaries:'信任边界',boundariesLead:'平台不会用界面假设替代以下权威事实。',
+ boundaries:'信任边界',boundariesLead:'界面不会替服务器或外部系统做以下决定。',
  boundary:[
-  ['角色与 tenant','公开角色选择不会授予权限。权威上下文由服务器审核后签发。'],
-  ['金融状态','客户端不能选择权威金融状态，只展示服务器确认的状态和依据。'],
+  ['角色与机构','在公开页面选择角色不会获得权限；访问权只在服务器审核后生效。'],
+  ['结算状态','界面不能指定结算状态，只展示服务器确认的状态和依据。'],
   ['外部系统','没有真实外部确认时，不会宣称存在集成或外部事件。'],
-  ['Gekta','AI 解释上下文和选项，但不获得独立关键决策权。'],
+  ['Gekta','Gekta 解释事实和可选方案，但不会替参与方作出关键决定。'],
  ],
  faq:'常见问题',
  faqs:[
   ['未注册能查看批次私有数据吗？','不能。公开市场只展示获准的匿名投影。'],
-  ['界面能自行分配角色吗？','不能。角色、机构和 tenant 来自服务器验证的上下文。'],
-  ['数据源不可用时怎么办？','UI 明确显示 unavailable/stale，不会用示例或旧数据悄悄替代事实。'],
+  ['界面能自行分配角色吗？','不能。角色和机构来自服务器已验证的用户资料。'],
+  ['数据源不可用时怎么办？','界面会明确标记来源不可用或数据过期，不会悄悄用示例或旧数据替代。'],
   ['争议如何记录？','争议始终与具体交易、依据、文件和操作日志关联。'],
  ],
  register:'注册',how:'交易如何进行'
@@ -123,11 +123,11 @@ export default async function TrustPage(){
   <section className='pc-cp-hero pc-cp-trust-hero'>
    <div className='pc-cp-container pc-cp-hero-grid'>
     <div className='pc-cp-hero-copy'><span className='pc-cp-eyebrow'>{c.e}</span><h1>{c.t}</h1><p>{c.p}</p><div className='pc-cp-actions'><Link className='pc-cp-button' href={`/platform-v7/register?lang=${locale}`}>{c.register}<ArrowRight size={16}/></Link><Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/how-it-works?lang=${locale}`}>{c.how}</Link></div></div>
-    <aside className='pc-cp-trust-hero-quote'><strong>{locale==='ru'?'Надёжные данные. Сильный АПК России.':locale==='en'?'Reliable data. Strong agriculture.':'可靠数据。更强农业。'}</strong><span>{locale==='ru'?'Проверяемые факты вместо обещаний.':locale==='en'?'Verifiable facts instead of promises.':'用可核验事实替代空泛承诺。'}</span></aside>
+    <aside className='pc-cp-trust-hero-quote'><strong>{locale==='ru'?'Статус без источника не считаем подтверждённым.':locale==='en'?'A status without a source is not treated as confirmed.':'没有来源的状态不会被视为已确认。'}</strong><span>{locale==='ru'?'Неподтверждённые данные помечаем явно.':locale==='en'?'Unconfirmed data is marked clearly.':'未确认数据会被明确标记。'}</span></aside>
    </div>
   </section>
   <section className='pc-cp-section pc-cp-trust-pillars-section'><div className='pc-cp-container'>
-    <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{locale==='ru'?'Четыре столпа доверия':locale==='en'?'Four trust pillars':'四个信任支柱'}</span><h2>{locale==='ru'?'Четыре столпа доверия':locale==='en'?'Four trust pillars':'四个信任支柱'}</h2><p>{locale==='ru'?'Каждый факт в Сделке проверяется по единым принципам.':locale==='en'?'Every Deal fact is evaluated through the same principles.':'每个交易事实都按同一套原则核验。'}</p></div>
+    <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{locale==='ru'?'Четыре проверки перед действием':locale==='en'?'Four checks before an action':'操作前的四项检查'}</span><h2>{locale==='ru'?'Четыре столпа доверия':locale==='en'?'Four trust pillars':'四个信任支柱'}</h2><p>{locale==='ru'?'Один и тот же порядок проверки действует на всех этапах Сделки.':locale==='en'?'The same verification order applies at every Deal stage.':'交易各阶段都使用同一套核验顺序。'}</p></div>
     <div className='pc-cp-trust-pillars'>
       {TRUST_MODEL[locale].map((item,index)=><article className='pc-cp-card pc-cp-trust-pillar' key={item[0]}>
         <div className='pc-cp-trust-pillar-head'><i>{index+1}</i><div><h3>{item[0]}</h3><p>{item[1]}</p></div></div>
