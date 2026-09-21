@@ -48,7 +48,7 @@ ru:{
  cta:'Зарегистрироваться',market:'Открыть рынок'
 },
 en:{
- e:'How the Deal works',t:'Seven transparent steps — from product to outcome.',p:'Every stage answers the same questions: who acts, which fact is required, what basis permits progress and how it affects settlement.',
+ e:'Deal stages',t:'Seven stages from lot to closure.',p:'At every stage you can see who is responsible, what data is required, what allows progress and whether the event affects settlement.',
  actor:'Participant',fact:'Fact',basis:'Basis',money:'Settlement impact',next:'Next step',
  stages:[
  ['Lot','Seller','Public and private product parameters','Confirmed lot data and organisation authority','No settlement basis yet','Admit the lot to the authorised trading circuit'],
@@ -59,7 +59,7 @@ en:{
  ['Documents / settlement','Parties · Bank','Document set and confirmed basis','Linked documents, events and banking rules','The platform shows basis; the external financial event still requires confirmation','Perform the permitted financial step or clear the blocker'],
  ['Closure / dispute','Deal participants','Final status or recorded discrepancy','History of facts, documents, actions and decisions','Closure requires satisfied conditions; a dispute keeps its impact until resolved','Close the Deal or handle the dispute in the same context'],
  ],
- trust:'Trust at every step',trustLead:'Authority → Basis → Source → Decision is not a separate feature; it is the control model across the Deal.',
+ trust:'How an action is checked',trustLead:'Important actions retain authority, basis, fact source and the recorded decision.',
  cta:'Register',market:'Open market'
 },
 zh:{
@@ -85,7 +85,7 @@ export default async function HowItWorksPage(){
   <section className='pc-cp-hero pc-cp-how-hero'>
    <div className='pc-cp-container pc-cp-how-hero-grid'>
     <div className='pc-cp-hero-copy'><span className='pc-cp-eyebrow'>{c.e}</span><h1>{c.t}</h1><p>{c.p}</p></div>
-    <aside className='pc-cp-how-hero-quote'><strong>{locale==='ru'?'От поля до результата':locale==='en'?'From field to outcome':'从田间到结果'}</strong><span>{locale==='ru'?'Один контекст, семь этапов, проверяемые факты.':locale==='en'?'One context, seven stages, verifiable facts.':'一个上下文、七个阶段、可核验事实。'}</span></aside>
+    <aside className='pc-cp-how-hero-quote'><strong>{locale==='ru'?'От лота до закрытия':locale==='en'?'From field to outcome':'从田间到结果'}</strong><span>{locale==='ru'?'Семь этапов, понятные ответственные и проверяемые факты.':locale==='en'?'Seven stages, clear responsibility and verifiable facts.':'一个上下文、七个阶段、可核验事实。'}</span></aside>
    </div>
   </section>
   <section className='pc-cp-how-spine'><div className='pc-cp-container'><CanonicalDealSpine locale={locale} currentIndex={0}/></div></section>
@@ -98,7 +98,7 @@ export default async function HowItWorksPage(){
   </div></section>
   <section className='pc-cp-section pc-cp-section--soft pc-cp-how-trust'><div className='pc-cp-container'>
    <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{c.trust}</span><h2>{c.trust}</h2><p>{c.trustLead}</p></div>
-   <div className='pc-cp-how-trust-layout'><CanonicalTrustLedger locale={locale}/><aside className='pc-cp-how-gekta-note'><strong>{locale==='ru'?'Гекта помогает понимать, а не решать':locale==='en'?'Gekta helps understand, not decide':'Gekta 帮助理解，而不是替你决定'}</strong><p>{locale==='ru'?'Объясняет факты и следующий допустимый шаг. Решение остаётся за участником и правилами Сделки.':locale==='en'?'Explains facts and the next permitted step. The decision stays with the participant and Deal rules.':'解释事实和允许的下一步；决定仍由参与方和交易规则控制。'}</p></aside></div>
+   <div className='pc-cp-how-trust-layout'><CanonicalTrustLedger locale={locale}/><aside className='pc-cp-how-gekta-note'><strong>{locale==='ru'?'Гекта объясняет данные, решение принимает участник':locale==='en'?'Gekta explains the data; the participant decides':'Gekta 帮助理解，而不是替你决定'}</strong><p>{locale==='ru'?'Объясняет факты, риски и доступные действия. Критическое решение остаётся за участником.':locale==='en'?'Explains facts, risks and available actions. Critical decisions stay with the participant.':'解释事实和允许的下一步；决定仍由参与方和交易规则控制。'}</p></aside></div>
   </div></section>
   <section className='pc-cp-section pc-cp-section--tight pc-cp-how-gekta'><div className='pc-cp-container'><CanonicalGektaStrip locale={locale}/></div></section>
   <CanonicalFooter locale={locale}/><CanonicalBottomNav locale={locale} active='/platform-v7/how-it-works'/>
