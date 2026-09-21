@@ -73,16 +73,16 @@ export const CANONICAL_ROLES = {
 
 export const TRUST_MODEL = {
   ru: [
-    ['Полномочия', 'Кто вправе действовать в этом контексте и от имени какой организации.'],
-    ['Основание', 'Какое условие, документ или подтверждённое событие разрешает действие.'],
-    ['Источник', 'Откуда получен факт и в какой версии он относится к Сделке.'],
-    ['Решение', 'Какое действие принято, кем и какой следующий шаг разрешён.'],
+    ['Полномочия', 'Кто имеет право выполнить действие и от имени какой организации.'],
+    ['Основание', 'Какое условие, документ или событие разрешает действие.'],
+    ['Источник', 'Откуда пришёл факт и к какой версии Сделки он относится.'],
+    ['Решение', 'Что зафиксировано, кем и какое действие доступно дальше.'],
   ],
   en: [
-    ['Authority', 'Who may act in this context and for which organisation.'],
-    ['Basis', 'Which condition, document or confirmed event permits the action.'],
+    ['Authority', 'Who may perform the action and for which organisation.'],
+    ['Basis', 'Which condition, document or event permits the action.'],
     ['Source', 'Where the fact came from and which Deal version it belongs to.'],
-    ['Decision', 'What was decided, by whom, and which next step is permitted.'],
+    ['Decision', 'What was recorded, by whom, and what action is available next.'],
   ],
   zh: [
     ['权限', '谁有权在当前上下文中代表哪个机构执行操作。'],
@@ -238,9 +238,9 @@ export function CanonicalStateLens({
   return (
     <section className='pc-cp-card pc-cp-state-shell'>
       {state === null ? <p data-canonical-state='unconfirmed'>{lang === 'ru'
-        ? 'Общее состояние не подтверждено. Проверяйте факты и подробные этапы сделки.'
+        ? 'Общий статус пока не подтверждён. Смотрите факты и этапы Сделки.'
         : lang === 'en'
-          ? 'Overall state is unconfirmed. Review the facts and detailed Deal stages.'
+          ? 'The overall status is not confirmed yet. Check the facts and Deal stages.'
           : '总体状态尚未确认。请查看事实和交易的详细阶段。'}</p> : null}
       <CanonicalStateTabs locale={lang} state={state} />
       <div className='pc-cp-state-grid'>
@@ -253,9 +253,9 @@ export function CanonicalStateLens({
 export function CanonicalGektaStrip({ locale }: { locale: string }) {
   const lang = canonicalPublicLocale(locale);
   const c = lang === 'ru'
-    ? { k: 'Аграрный интеллект', t: 'Гекта', p: 'Объясняет контекст Сделки, риски, основания и допустимый следующий шаг. Критическое решение остаётся за человеком и правилами платформы.', chips: ['Контекст Сделки', 'Документы', 'Логистика', 'Качество', 'Расчёт', 'Риски'] }
+    ? { k: 'Аграрный помощник', t: 'Гекта', p: 'Помогает понять, что происходит со Сделкой: показывает риски, основания и доступные действия. Решение и ответственность остаются у человека.', chips: ['Сделка', 'Документы', 'Логистика', 'Качество', 'Расчёт', 'Риски'] }
     : lang === 'en'
-      ? { k: 'Agricultural intelligence', t: 'Gekta', p: 'Explains Deal context, risks, evidence and the permitted next step. Critical decisions remain with people and platform rules.', chips: ['Deal context', 'Documents', 'Logistics', 'Quality', 'Settlement', 'Risk'] }
+      ? { k: 'Agricultural assistant', t: 'Gekta', p: 'Helps you understand what is happening in the Deal: it surfaces risks, evidence and available actions. Decisions and accountability stay with people.', chips: ['Deal', 'Documents', 'Logistics', 'Quality', 'Settlement', 'Risk'] }
       : { k: '农业智能', t: 'Gekta', p: '解释交易上下文、风险、依据和允许的下一步。关键决定仍由人员和平台规则控制。', chips: ['交易上下文', '文件', '物流', '质量', '结算', '风险'] };
   return (
     <section className='pc-cp-gekta-strip'>
@@ -306,9 +306,9 @@ export function CanonicalBottomNav({ locale, active }: { locale: string; active?
 export function CanonicalFooter({ locale }: { locale: string }) {
   const lang = canonicalPublicLocale(locale);
   const description = lang === 'ru'
-    ? 'Единый контур агросделки: от лота и торгов до исполнения, документов, расчёта и закрытия.'
+    ? 'Платформа ведёт Сделку от лота и торгов до доставки, документов, расчёта и закрытия.'
     : lang === 'en'
-      ? 'One agricultural Deal flow from lot and trading through execution, documents, settlement and closure.'
+      ? 'The platform keeps the Deal together from lot and trading through delivery, documents, settlement and closure.'
       : '统一农业交易流程：从批次和交易到履约、文件、结算和关闭。';
   return (
     <footer className='pc-cp-footer'>
