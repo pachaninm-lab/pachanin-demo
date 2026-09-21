@@ -34,7 +34,7 @@ export async function generateMetadata():Promise<Metadata>{
 
 const COPY={
 ru:{
- e:'Доверие',t:'Доверие строится на проверяемых фактах.',p:'Для каждого важного действия можно понять четыре вещи: кто вправе действовать, на каком основании, откуда взят факт и какое решение зафиксировано.',
+ e:'Доверие',t:'Видно, кто действовал, на каком основании и по каким фактам.',p:'Платформа связывает важное действие с участником, основанием, источником и зафиксированным решением.',
  fact:'От факта к решению',factLead:'Если данных недостаточно, платформа не маскирует это уверенным статусом: показывает, что известно, а что ещё нужно подтвердить.',
  rail:['Факт получен','Источник определён','Полномочия проверены','Основание связано','Решение зафиксировано','Следующий шаг разрешён'],
  boundaries:'Границы доверия',boundariesLead:'Что платформа не выдаёт за факт без подтверждения.',
@@ -54,7 +54,7 @@ ru:{
  register:'Регистрация',how:'Как проходит Сделка'
 },
 en:{
- e:'Trust',t:'Trust starts with facts you can verify.',p:'For every important action you can see who may act, what permits it, where the fact came from and what decision was recorded.',
+ e:'Trust',t:'See who acted, why, and on what evidence.',p:'The platform links each important action to the participant, the basis, the source and the recorded decision.',
  fact:'From fact to decision',factLead:'When information is incomplete, the platform does not disguise uncertainty as certainty. It shows what is known and what still needs confirmation.',
  rail:['Fact received','Source identified','Authority checked','Basis linked','Decision recorded','Next step permitted'],
  boundaries:'Trust boundaries',boundariesLead:'What the platform never presents as fact without confirmation.',
@@ -74,7 +74,7 @@ en:{
  register:'Register',how:'How the Deal works'
 },
 zh:{
- e:'信任',t:'信任来自可核验的事实。',p:'每个重要操作都能看到：谁有权操作、依据是什么、事实来自哪里、最终记录了什么决定。',
+ e:'信任',t:'看清谁执行了操作、依据是什么、事实来自哪里。',p:'平台把每个重要操作与参与方、依据、来源和已记录的决定关联起来。',
  fact:'从事实到决定',factLead:'信息不完整时，平台不会把不确定包装成确定结果，而是明确显示已知内容和仍待确认的部分。',
  rail:['获得事实','识别来源','核验权限','关联依据','记录决定','允许下一步'],
  boundaries:'信任边界',boundariesLead:'没有确认时，平台不会把这些内容当成事实。',
