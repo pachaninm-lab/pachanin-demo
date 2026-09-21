@@ -1986,3 +1986,48 @@ html[lang^='zh'] .pc-canonical-public :is(p,li,dd,.pc-cp-section-head p,.pc-cp-l
   .pc-canonical-public .pc-cp-footer a{font-size:13px!important}
   html[lang^='zh'] .pc-canonical-public :is(h1,h2,h3){letter-spacing:0!important;line-height:1.22!important}
 }
+
+/* FINAL PUBLIC MICROTYPE COMPLETENESS — 2026-09-21 */
+.pc-canonical-public .pc-cp-lot-meta--detail span,
+.pc-canonical-public .pc-cp-market-preview-alert span,
+.pc-canonical-public .pc-cp-page-trust .pc-cp-trust-pillar>small,
+.pc-canonical-public .pc-cp-trust-pillar>small,
+.pc-canonical-public .pc-cp-deal-mobile-summary div span,
+.pc-canonical-public .pc-cp-page-market .pc-cp-lot-breadcrumb{
+  font-size:12px!important;
+  line-height:1.4!important;
+}
+.pc-canonical-public .pc-cp-market-preview-alert,
+.pc-canonical-public .pc-cp-how-hero-quote span,
+.pc-canonical-public .pc-cp-trust-hero-quote span,
+.pc-canonical-public .pc-cp-gekta-hero-quote span,
+.pc-canonical-public .pc-cp-gekta-stage-list span{
+  font-size:13px!important;
+  line-height:1.45!important;
+}
+.pc-canonical-public .pc-cp-market-preview-alert strong,
+.pc-canonical-public .pc-cp-how-gekta-note p,
+.pc-canonical-public .pc-cp-trust-pillar-head p,
+.pc-canonical-public .pc-cp-trust-pillar li,
+.pc-canonical-public .pc-cp-page-trust .pc-cp-trust-pillar-head p,
+.pc-canonical-public .pc-cp-page-trust .pc-cp-trust-pillar li,
+.pc-canonical-public .pc-cp-gekta-composer,
+.pc-canonical-public .pc-cp-gekta-stage-list strong,
+.pc-canonical-public .pc-cp-page-market .pc-cp-lot-meta--detail strong{
+  font-size:14px!important;
+  line-height:1.5!important;
+}
+.pc-canonical-public .pc-cp-faq-item summary{
+  font-size:15px!important;
+  line-height:1.35!important;
+}
+.pc-canonical-public .pc-cp-faq-item p,
+.pc-canonical-public .pc-cp-gekta-public-hero p{
+  font-size:14px!important;
+  line-height:1.55!important;
+}
+.pc-canonical-public .pc-cp-page-how .pc-cp-process-card>i,
+.pc-canonical-public .pc-cp-page-market .pc-cp-lot-media{
+  font-size:12px!important;
+  line-height:1.2!important;
+}
