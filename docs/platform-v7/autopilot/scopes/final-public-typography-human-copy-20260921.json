@@ -15,6 +15,7 @@
     "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
     "apps/web/components/platform-v7/PublicCanonicalPrimitives.tsx",
     "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+    "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
     "docs/platform-v7/autopilot/scopes/final-public-typography-human-copy-20260921.json",
     "apps/web/app/platform-v7/gekta/page.tsx",
     "apps/web/app/platform-v7/ai-in-action/page.tsx",
@@ -42,7 +43,7 @@
   "acceptance": [
     "platformV7RootWorkEntry unit contract proves terminal typography authority has no px font size below 12, display/UI tokens are the same system stack, header has no 10-11px text, assistant terminal authority has no microtype, and retired templated copy remains absent.",
     "Exact-head web unit/typecheck/build and source-controlled scope guard pass.",
-    "Canonical Visual Acceptance passes without increasing maxDistance thresholds.",
+    "Canonical Visual Acceptance passes without increasing maxDistance thresholds; manually inspected typography/editorial reflow may refresh authority hashes only when the observed screenshot is visually accepted.",
     "Design System v8 browser/accessibility matrix passes with existing CLS <=0.1 and Axe rules unchanged.",
     "Strategic Home Lighthouse remains at the existing release threshold.",
     "Production mobile acceptance after merge passes Chromium + WebKit at 320/375/390/430 with zero horizontal overflow and >=44px controls.",
