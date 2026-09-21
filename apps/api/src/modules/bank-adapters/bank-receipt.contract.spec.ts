@@ -82,6 +82,17 @@ describe('bank receipt contract', () => {
     )).toMatchObject({ status: 'REJECTED', reason: 'CURRENCY_MISMATCH' });
   });
 
+  it('rejects unauthenticated or unfingerprinted evidence even when provider status is non-final/unknown', () => {
+    expect(validateBankReceiptCandidate(
+      expected,
+      candidate({ evidenceState: 'UNKNOWN_EVIDENCE', authenticationEvidenceRef: null }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'AUTHENTICATION_EVIDENCE_MISSING' });
+    expect(validateBankReceiptCandidate(
+      expected,
+      candidate({ evidenceState: 'NONFINAL_EVIDENCE', payloadFingerprint: null }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'PAYLOAD_FINGERPRINT_MISSING' });
+  });
+
   it('requires authentication evidence, payload fingerprint and an external receipt for terminal evidence classes', () => {
     expect(validateBankReceiptCandidate(expected, candidate({ authenticationEvidenceRef: null })))
       .toMatchObject({ status: 'REJECTED', reason: 'AUTHENTICATION_EVIDENCE_MISSING' });
