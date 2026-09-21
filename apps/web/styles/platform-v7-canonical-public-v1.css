@@ -1639,3 +1639,30 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-deal-public-gekta .pc-cp-gekta-brand p{font-size:14px!important;line-height:1.45!important}
 }
 
+/* FINAL PUBLIC EXPERIENCE v1 — Gekta dark-surface readability correction */
+.pc-cp-page-gekta .pc-cp-gekta-public-hero .pc-cp-eyebrow{
+  color:#bfe3d2!important;
+}
+.pc-cp-page-gekta .pc-cp-gekta-public-hero .pc-cp-section-head p{
+  color:#e4f2eb!important;
+}
+.pc-cp-page-gekta .pc-cp-gekta-stage-list strong,
+.pc-cp-page-gekta .pc-cp-gekta-stage-list span{
+  font-size:12px!important;
+  line-height:1.4!important;
+}
+.pc-cp-page-gekta .pc-cp-gekta-stage-list span{
+  color:#53665b!important;
+}
+.pc-cp-page-gekta .pc-cp-gekta-composer{
+  font-size:12px!important;
+  line-height:1.35!important;
+}
+@media(max-width:760px){
+  .pc-cp-page-gekta .pc-cp-gekta-stage-list strong,
+  .pc-cp-page-gekta .pc-cp-gekta-stage-list span,
+  .pc-cp-page-gekta .pc-cp-gekta-composer{
+    font-size:13px!important;
+  }
+}
+
