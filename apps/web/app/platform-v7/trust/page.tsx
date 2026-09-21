@@ -133,7 +133,6 @@ export default async function TrustPage(){
         <div className='pc-cp-trust-pillar-head'><i>{index+1}</i><div><h3>{item[0]}</h3><p>{item[1]}</p></div></div>
         <ul>{TRUST_DETAILS[locale][index].map(bullet=><li key={bullet}><CheckCircle2 size={12} aria-hidden='true'/><span>{bullet}</span></li>)}</ul>
         <div className='pc-cp-trust-pillar-media' data-visual-index={index} aria-hidden='true'/>
-        <small>{c.boundary[index]?.[1]}</small>
       </article>)}
     </div>
   </div></section>
