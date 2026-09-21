@@ -72,7 +72,7 @@ export type BankDispatchMapping = Readonly<{
   rawStatus: string | null;
   observedAt: string;
   canonicalFinality: 'NOT_DECIDED_HERE';
-  retryPolicy: 'RECONCILE_BEFORE_RETRY' | 'NO_MUTATION_RECORDED';
+  retryPolicy: 'RECONCILE_BEFORE_RETRY';
 }>;
 
 export type BankReceiptCandidate = Readonly<{
@@ -183,9 +183,7 @@ export function mapReferenceDispatch(
     rawStatus: response.rawStatus,
     observedAt: normalizeObservedAt(response.observedAt),
     canonicalFinality: 'NOT_DECIDED_HERE',
-    retryPolicy: acknowledgement === 'REJECTED'
-      ? 'NO_MUTATION_RECORDED'
-      : 'RECONCILE_BEFORE_RETRY',
+    retryPolicy: 'RECONCILE_BEFORE_RETRY',
   };
 }
 
