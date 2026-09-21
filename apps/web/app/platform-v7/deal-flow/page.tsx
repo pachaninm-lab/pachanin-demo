@@ -14,7 +14,7 @@ import {
   canonicalPublicLocale,
 } from '@/components/platform-v7/PublicCanonicalPrimitives';
 
-const META={"ru":["Контур Сделки — Прозрачная Цена","Как рабочий экран Сделки связывает этап, участника, основание, расчёт и следующий шаг без вымышленных production-данных."],"en":["Deal workspace — Transparent Price","How the Deal workspace connects stage, participant, basis, settlement and the next step without fabricated production data."],"zh":["交易工作区 — 透明价格","交易工作区如何在不虚构生产数据的前提下关联阶段、参与方、依据、结算和下一步。"]} as const;
+const META={"ru":["Сделка в работе — Прозрачная Цена","Рабочий экран показывает текущее состояние Сделки, ответственного участника, основание для действия, статус расчёта и доступный следующий шаг."],"en":["Deal in progress — Transparent Price","The workspace shows the current Deal state, the responsible participant, supporting evidence, settlement status and the next available action."],"zh":["进行中的交易 — 透明价格","工作区展示当前交易状态、责任方、操作依据、结算状态和下一步可执行操作。"]} as const;
 
 export async function generateMetadata():Promise<Metadata>{
   const locale=canonicalPublicLocale(await getLocale());
@@ -37,10 +37,10 @@ export async function generateMetadata():Promise<Metadata>{
 export default async function PlatformV7DealFlowPage(){
  const locale=canonicalPublicLocale(await getLocale());
  const c=locale==='ru'
- ?{e:'Сделка в работе',t:'Сделка в работе',p:'Публичная страница показывает структуру рабочего экрана без вымышленных данных. После входа фактическое состояние приходит из разрешённого серверного контекста.',h:'Что показывает рабочий экран',lead:'Платформа показывает основание для расчёта, но не создаёт финансовое событие на клиенте.',state:['Фактическое состояние конкретной Сделки','Участник с подтверждёнными полномочиями','Связанный факт, условие или документ','Только серверно подтверждённое влияние на расчёт','Разрешённое действие для текущей роли'],login:'Войти',how:'Как проходит Сделка'}
+ ?{e:'Сделка в работе',t:'Рабочий экран Сделки',p:'Публичная страница показывает устройство рабочего экрана без подстановки примерных данных. После входа состояние Сделки приходит с сервера в пределах доступных пользователю прав.',h:'Что показывает рабочий экран',lead:'Платформа показывает подтверждённое основание для расчёта; банковское событие подтверждается отдельно.',state:['Текущее состояние конкретной Сделки','Участник с подтверждёнными правами','Связанный факт, условие или документ','Подтверждённое сервером влияние на расчёт','Действие, доступное текущей роли'],login:'Войти',how:'Как проходит Сделка'}
  :locale==='en'
- ?{e:'Deal workspace',t:'A Deal in progress without losing context',p:'This public page shows the structure of the workspace but never presents an example as a real Deal. After sign-in, actual data comes from authorised server context.',h:'What the workspace shows',lead:'The platform shows settlement basis but does not create a financial event on the client.',state:['Actual state of the specific Deal','Participant with confirmed authority','Linked fact, condition or document','Only server-confirmed settlement impact','Permitted action for the current role'],login:'Sign in',how:'How the Deal works'}
- :{e:'交易工作区',t:'进行中的交易，不丢失上下文',p:'公开页面只展示工作区结构，不会把示例冒充真实交易。登录后，实际数据来自获授权的服务器上下文。',h:'工作区展示什么',lead:'平台展示结算依据，但不会在客户端创建金融事件。',state:['具体交易的真实状态','具有已确认权限的参与方','关联事实、条件或文件','仅展示服务器确认的结算影响','当前角色允许的操作'],login:'登录',how:'交易如何进行'};
+ ?{e:'Deal workspace',t:'The Deal workspace',p:'This public page shows how the workspace is organised without presenting sample data as a real Deal. After sign-in, Deal state comes from the server within the user’s permissions.',h:'What the workspace shows',lead:'The platform shows confirmed settlement evidence; the banking event is confirmed separately.',state:['Current state of the specific Deal','Participant with confirmed permissions','Linked fact, condition or document','Server-confirmed settlement impact','Action available to the current role'],login:'Sign in',how:'How the Deal works'}
+ :{e:'交易工作区',t:'交易工作区',p:'公开页面只展示工作区如何组织，不会把示例数据当成真实交易。登录后，交易状态由服务器按用户权限提供。',h:'工作区展示什么',lead:'平台展示已确认的结算依据；银行事件单独确认。',state:['具体交易的当前状态','具有已确认权限的参与方','关联事实、条件或文件','服务器确认的结算影响','当前角色可执行的操作'],login:'登录',how:'交易如何进行'};
  return <main className='pc-canonical-public pc-cp-page-deal-flow p7-deal-flow-page'>
   <CanonicalPublicHeader locale={locale}/>
   <section className='pc-cp-deal-public-hero'>
