@@ -25,6 +25,7 @@
     "apps/web/styles/platform-v7-canonical-public-v1.css",
     "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
     "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+    "apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts",
     "docs/platform-v7/autopilot/scopes/public-final-ux-polish-20260921.json"
   ],
   "requiredInvariants": [
