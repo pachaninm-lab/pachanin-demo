@@ -73,22 +73,22 @@ export const CANONICAL_ROLES = {
 
 export const TRUST_MODEL = {
   ru: [
-    ['Полномочия', 'Кто вправе действовать в этом контексте и от имени какой организации.'],
-    ['Основание', 'Какое условие, документ или подтверждённое событие разрешает действие.'],
-    ['Источник', 'Откуда получен факт и в какой версии он относится к Сделке.'],
-    ['Решение', 'Какое действие принято, кем и какой следующий шаг разрешён.'],
+    ['Полномочия', 'Кто может действовать и от имени какой организации.'],
+    ['Основание', 'Какой документ, условие или событие разрешает действие.'],
+    ['Источник', 'Откуда взят факт и к какой версии Сделки он относится.'],
+    ['Решение', 'Что решено, кем и что разрешено делать дальше.'],
   ],
   en: [
-    ['Authority', 'Who may act in this context and for which organisation.'],
-    ['Basis', 'Which condition, document or confirmed event permits the action.'],
+    ['Authority', 'Who may act and for which organisation.'],
+    ['Basis', 'Which document, condition or event permits the action.'],
     ['Source', 'Where the fact came from and which Deal version it belongs to.'],
-    ['Decision', 'What was decided, by whom, and which next step is permitted.'],
+    ['Decision', 'What was decided, by whom, and what may happen next.'],
   ],
   zh: [
-    ['权限', '谁有权在当前上下文中代表哪个机构执行操作。'],
-    ['依据', '哪个条件、文件或已确认事件允许该操作。'],
-    ['来源', '事实来自哪里，以及属于交易的哪个版本。'],
-    ['决定', '作出了什么决定、由谁作出，以及允许的下一步是什么。'],
+    ['权限', '谁可以操作，以及代表哪个机构。'],
+    ['依据', '哪个文件、条件或事件允许该操作。'],
+    ['来源', '事实来自哪里，以及对应交易的哪个版本。'],
+    ['决定', '做出了什么决定、由谁决定，以及接下来可以做什么。'],
   ],
 } as const;
 
@@ -253,10 +253,10 @@ export function CanonicalStateLens({
 export function CanonicalGektaStrip({ locale }: { locale: string }) {
   const lang = canonicalPublicLocale(locale);
   const c = lang === 'ru'
-    ? { k: 'Аграрный интеллект', t: 'Гекта', p: 'Объясняет контекст Сделки, риски, основания и допустимый следующий шаг. Критическое решение остаётся за человеком и правилами платформы.', chips: ['Контекст Сделки', 'Документы', 'Логистика', 'Качество', 'Расчёт', 'Риски'] }
+    ? { k: 'Помощник по Сделке', t: 'Гекта', p: 'Показывает состояние Сделки, риски и основания по доступным данным. Критическое решение принимает человек по правилам платформы.', chips: ['Данные Сделки', 'Документы', 'Логистика', 'Качество', 'Расчёт', 'Риски'] }
     : lang === 'en'
-      ? { k: 'Agricultural intelligence', t: 'Gekta', p: 'Explains Deal context, risks, evidence and the permitted next step. Critical decisions remain with people and platform rules.', chips: ['Deal context', 'Documents', 'Logistics', 'Quality', 'Settlement', 'Risk'] }
-      : { k: '农业智能', t: 'Gekta', p: '解释交易上下文、风险、依据和允许的下一步。关键决定仍由人员和平台规则控制。', chips: ['交易上下文', '文件', '物流', '质量', '结算', '风险'] };
+      ? { k: 'Deal assistant', t: 'Gekta', p: 'Shows Deal state, risk and evidence from data available to the user. Critical decisions remain with people under platform rules.', chips: ['Deal data', 'Documents', 'Logistics', 'Quality', 'Settlement', 'Risk'] }
+      : { k: '交易助手', t: 'Gekta', p: '基于参与方可访问的数据展示交易状态、风险和依据。关键决定由人员按平台规则作出。', chips: ['交易数据', '文件', '物流', '质量', '结算', '风险'] };
   return (
     <section className='pc-cp-gekta-strip'>
       <div className='pc-cp-gekta-brand'>
@@ -306,10 +306,10 @@ export function CanonicalBottomNav({ locale, active }: { locale: string; active?
 export function CanonicalFooter({ locale }: { locale: string }) {
   const lang = canonicalPublicLocale(locale);
   const description = lang === 'ru'
-    ? 'Единый контур агросделки: от лота и торгов до исполнения, документов, расчёта и закрытия.'
+    ? 'Одна Сделка — от лота и торгов до исполнения, документов, расчёта и закрытия.'
     : lang === 'en'
-      ? 'One agricultural Deal flow from lot and trading through execution, documents, settlement and closure.'
-      : '统一农业交易流程：从批次和交易到履约、文件、结算和关闭。';
+      ? 'One Deal from lot and trading through execution, documents, settlement and closure.'
+      : '一笔交易贯穿批次、交易、履约、文件、结算和关闭。';
   return (
     <footer className='pc-cp-footer'>
       <div className='pc-cp-container pc-cp-footer-grid'>

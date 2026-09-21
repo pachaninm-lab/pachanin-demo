@@ -4,7 +4,7 @@ import { loginAs, type CabinetRole } from './support/acceptance-login';
 
 
 const AUTHORITY_AHASH: Record<string,{hash:string;maxDistance:number}> = {
-  '01-home-desktop': { hash:'3fd80602000e000af001fffffffffffffffff7fffff9fffdfffdbfff00009fff', maxDistance:90 },
+  '01-home-desktop': { hash:'ffffffff4fc9ff0b1f02fec0ffffffff51353fff6fffbfff7ffff7ffdf7fffff', maxDistance:90 },
   '02-home-mobile': { hash:'7ff1ffffd3ffe1fffffce020f13cffff807fffff87ff8001ffffdfffffff9b6f', maxDistance:125 },
   '03-market-desktop': { hash:'7ffc1ff31800f800ffefff0f001f3e3fffffffff003f003fffffffff8003003f', maxDistance:130 },
   '04-lot-desktop': { hash:'3ffc0800000005ef05ff07ff07ff07ff07e0ffffffffffffffffffffffffffff', maxDistance:135 },
@@ -12,7 +12,7 @@ const AUTHORITY_AHASH: Record<string,{hash:string;maxDistance:number}> = {
   '06-deal-mobile': { hash:'3fff80ff807f07ff83ff03ffffffcfffdfffdfffffff00008000ffffffffffff', maxDistance:125 },
   '06-market-mobile': { hash:'bfffafffffffffff83ff01ff83ff83ff03ff03ff01ff01ff03ff83ff01ffffff', maxDistance:115 },
   '07-how-it-works-desktop': { hash:'32b8ffd83f38fffffffffeafefffffffffedfae7ff955fffffffffffffff0000', maxDistance:90 },
-  '08-trust-desktop': { hash:'fff89f808300f4009c02ffffffb7ffffbf3f8801ffffbfc9ffc7ffffbfffffff', maxDistance:95 },
+  '08-trust-desktop': { hash:'0038ffff7fdf3e97fc303c0084ffffffbff7ffff8001fffffffffffffffff5ed', maxDistance:95 },
   '09-gekta-desktop': { hash:'00fc0003000000000000ffffffffffffffffffffffffffffffffffffffffffff', maxDistance:65 },
 };
 
@@ -225,9 +225,9 @@ test.describe('canonical visual authority evidence', () => {
 // informational route. These reads never create an authenticated role/session.
 test.describe('capabilities exact public route boundary', () => {
   const headings = {
-    ru: 'Вся Сделка — в одном рабочем контуре',
-    en: 'The whole Deal in one working flow',
-    zh: '整笔交易在一个工作流程中',
+    ru: 'Этапы Сделки связаны между собой',
+    en: 'Deal stages stay connected',
+    zh: '交易各阶段保持关联',
   } as const;
 
   for (const locale of ['ru', 'en', 'zh'] as const) {
