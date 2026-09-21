@@ -5,12 +5,10 @@ import './platform-v7/_styles/public-supporting-shell.css';
 import './platform-v7/_styles/public-header-accessibility.css';
 import type { Metadata, Viewport } from 'next';
 import { ReactNode } from 'react';
-import { PublicAnalytics } from '../components/analytics/PublicAnalytics';
 import { headers } from 'next/headers';
 import { Inter, Manrope, JetBrains_Mono } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
-import { FeatureFlagsDevPanel } from '@/components/platform-v7/FeatureFlagsDevPanel';
 import {
   buildPublicBrandRuntimeScript,
   normalizePublicBrandText,
@@ -193,6 +191,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const showDevPanel = !leanPublicEntry && process.env.NEXT_PUBLIC_DEV_MODE === 'true';
   const fontVariables = leanPublicEntry ? '' : `${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`;
   const posthogConfigured = posthogCaptureConfiguration() !== null;
+  const FeatureFlagsDevPanel = showDevPanel
+    ? (await import('@/components/platform-v7/FeatureFlagsDevPanel')).FeatureFlagsDevPanel
+    : null;
+  const PublicAnalytics = (YM_ID || posthogConfigured)
+    ? (await import('../components/analytics/PublicAnalytics')).PublicAnalytics
+    : null;
 
   return (
     <html
@@ -215,8 +219,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <body translate='no' className='notranslate'>
         {TailwindRuntime ? <TailwindRuntime /> : null}
         {content}
-        {showDevPanel ? <FeatureFlagsDevPanel /> : null}
-        {(YM_ID || posthogConfigured) ? (
+        {FeatureFlagsDevPanel ? <FeatureFlagsDevPanel /> : null}
+        {PublicAnalytics ? (
           <PublicAnalytics
             counterId={YM_ID}
             locale={locale}
