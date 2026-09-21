@@ -56,13 +56,27 @@ describe('bank receipt contract', () => {
     [{ operationId: 'op-other' }, 'OPERATION_MISMATCH'],
     [{ providerOperationId: 'provider-other' }, 'PROVIDER_OPERATION_MISMATCH'],
     [{ amountMinor: '12501' }, 'AMOUNT_MISMATCH'],
+    [{ amountMinor: 'not-money' }, 'AMOUNT_MISMATCH'],
     [{ currency: 'USD' }, 'CURRENCY_MISMATCH'],
-  ])('fails closed on exact evidence mismatch', (override, reason) => {
+    [{ currency: '??' }, 'CURRENCY_MISMATCH'],
+  ])('fails closed on exact or malformed evidence mismatch', (override, reason) => {
     expect(validateBankReceiptCandidate(expected, candidate(override))).toMatchObject({
       status: 'REJECTED',
       reason,
       canonicalFinality: 'NOT_DECIDED_HERE',
     });
+  });
+
+  it('rejects malformed canonical comparison evidence instead of accepting equal invalid values', () => {
+    expect(validateBankReceiptCandidate(
+      { ...expected, amountMinor: 'invalid' },
+      candidate({ amountMinor: 'invalid' }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'AMOUNT_MISMATCH' });
+
+    expect(validateBankReceiptCandidate(
+      { ...expected, currency: '??' },
+      candidate({ currency: '??' }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'CURRENCY_MISMATCH' });
   });
 
   it('requires authentication evidence, payload fingerprint and an external receipt for terminal evidence classes', () => {
