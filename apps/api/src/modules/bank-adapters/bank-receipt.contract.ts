@@ -8,6 +8,7 @@ export type ExpectedBankOperationEvidence = Readonly<{
   operationId: string;
   idempotencyKey: string;
   providerOperationId: string | null;
+  authenticationAuthorityRef: string;
   amountMinor: string;
   currency: string;
   alreadyConsumedProviderEventIds?: readonly string[];
@@ -38,6 +39,7 @@ export type BankReceiptValidation =
         | 'PROVIDER_OPERATION_MISMATCH'
         | 'AMOUNT_MISMATCH'
         | 'CURRENCY_MISMATCH'
+        | 'AUTHENTICATION_AUTHORITY_MISMATCH'
         | 'PROVIDER_EVENT_REPLAY'
         | 'PAYLOAD_REPLAY'
         | 'AUTHENTICATION_EVIDENCE_MISSING'
@@ -87,6 +89,13 @@ export function validateBankReceiptCandidate(
   const candidateCurrency = currencyCode(candidate.currency);
   if (!expectedCurrency || !candidateCurrency || candidateCurrency !== expectedCurrency) {
     return rejected('CURRENCY_MISMATCH');
+  }
+
+  if (
+    !expected.authenticationAuthorityRef.trim()
+    || candidate.authenticationAuthorityRef !== expected.authenticationAuthorityRef
+  ) {
+    return rejected('AUTHENTICATION_AUTHORITY_MISMATCH');
   }
 
   if (
