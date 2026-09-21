@@ -331,9 +331,10 @@ describe('canonical overview does not invent server progress', () => {
     expect(actorCell?.querySelector('strong')?.textContent).toBe('Покупатель');
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    expect(protectedDeal).toContain('const canonicalActor = actionActor(workspace.roleProjection)');
-    expect(protectedDeal).toContain('serverRoleLabel(workspace.roleProjection.role)');
-    expect(protectedDeal).not.toContain('roleLabel(role)');
+    const workspaceSource = read('components/platform-v7/CanonicalDealWorkspace.tsx');
+    expect(workspaceSource).toContain('const canonicalActor = actionActor(workspace.roleProjection)');
+    expect(workspaceSource).toContain('serverRoleLabel(workspace.roleProjection.role)');
+    expect(workspaceSource).not.toContain('roleLabel(role)');
   });
 
   for (const status of [...DEAL_ACTIONS.map((action) => action.from), 'CLOSED', 'UNRECOGNIZED_FUTURE_STATUS']) {
