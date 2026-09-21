@@ -433,7 +433,7 @@ test.describe('canonical cross-browser public smoke', () => {
     await expect(header.locator('.entry-login')).toHaveAttribute('href','/platform-v7/login?lang=ru');
     await canonicalHeaderTargets(page);
 
-    const localeSwitch=header.locator('.pc-site-locale-switch');
+    const localeSwitch=header.locator(':scope > .pc-site-actions > .pc-site-locale-switch');
     await expect(localeSwitch).toHaveCount(1);
     const href=await localeSwitch.getAttribute('href');
     expect(href).toBeTruthy();
