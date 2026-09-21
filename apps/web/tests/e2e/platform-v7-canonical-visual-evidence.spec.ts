@@ -346,9 +346,9 @@ async function canonicalA11y(page: Page) {
   expect(report.violations.filter((item) => item.impact === 'critical' || item.impact === 'serious')).toEqual([]);
 }
 
-async function rotateCabinetRole(page: Page, role: CabinetRole) {
+async function rotateCabinetRole(page: Page, role: CabinetRole, baseURL: string) {
   await page.goto('about:blank', { waitUntil: 'load' });
-  await loginAs(page, role, ACCEPTANCE_BASE_URL);
+  await loginAs(page, role, baseURL);
 }
 
 test.describe('canonical protected cabinet boundary', () => {
@@ -378,20 +378,24 @@ test.describe('canonical protected cabinet boundary', () => {
     await expect(page.locator('.pc-shell-root-v4')).toHaveCount(0);
   });
 
-  test('verified operator enters and valid FARMER remains role-bounded', async ({ page }) => {
-    await loginAs(page, 'operator', ACCEPTANCE_BASE_URL);
+  test('verified operator enters and valid FARMER remains role-bounded', async ({ page, baseURL }) => {
+    test.skip(!baseURL?.startsWith('https://'), 'Protected login authority runs in the TLS Design System acceptance workflow.');
+    const loginBase = baseURL!;
+    await loginAs(page, 'operator', loginBase);
     expect((await page.goto(operatorRoute, { waitUntil: 'load' }))?.status()).toBe(200);
     await expect(page.locator('.pc-shell-root-v4')).toBeVisible();
 
-    await rotateCabinetRole(page, 'seller');
+    await rotateCabinetRole(page, 'seller', loginBase);
     await page.goto(operatorRoute, { waitUntil: 'load' });
     await expect(page).not.toHaveURL(new RegExp(`${operatorRoute}$`));
   });
 
-  test('all twelve server-verified role shells retain fixed cabinet chrome', async ({ page }) => {
+  test('all twelve server-verified role shells retain fixed cabinet chrome', async ({ page, baseURL }) => {
+    test.skip(!baseURL?.startsWith('https://'), 'Protected login authority runs in the TLS Design System acceptance workflow.');
     test.setTimeout(180_000);
+    const loginBase = baseURL!;
     for (const [role, route] of CANONICAL_ROLE_ROUTES) {
-      await rotateCabinetRole(page, role);
+      await rotateCabinetRole(page, role, loginBase);
       const response = await page.goto(route, { waitUntil: 'load' });
       expect(response?.ok(), `${role} response`).toBe(true);
       await expect(page).not.toHaveURL(/\/platform-v7\/login/);
@@ -411,7 +415,7 @@ test.describe('canonical protected cabinet boundary', () => {
 
 test.describe('canonical cross-browser public smoke', () => {
 
-  test('registration locale cluster preserves verification context without granting authority', async ({ page }) => {
+  test('registration locale switch preserves verification context without granting authority', async ({ page }) => {
     const verify='canonical-verify+/=_';
     const statusToken='canonical-status+/=_';
     await page.route('**/api/auth/registration/status**', (route) => route.fulfill({
@@ -425,22 +429,20 @@ test.describe('canonical cross-browser public smoke', () => {
 
     const header=page.locator('[data-public-site-header="canonical"]');
     await expect(header.locator('.pc-site-brand')).toHaveAttribute('href','/platform-v7?lang=ru');
-    await expect(header.locator('.pc-site-action').first()).toHaveAttribute('href','/platform-v7/login?lang=ru');
+    await expect(header.locator('.entry-login')).toHaveAttribute('href','/platform-v7/login?lang=ru');
     await canonicalHeaderTargets(page);
-    const links=header.locator('.pc-site-locale-option');
-    await expect(links).toHaveCount(3);
-    for(const locale of ['ru','en','zh'] as const){
-      const link=links.locator(`[lang="${locale==='zh'?'zh-CN':locale}"]`);
-      const href=await link.getAttribute('href');
-      expect(href).toBeTruthy();
-      const target=new URL(href!,page.url());
-      expect(target.pathname).toBe('/platform-v7/register');
-      expect(target.searchParams.get('lang')).toBe(locale);
-      expect(target.searchParams.get('verify')).toBe(verify);
-      expect(target.searchParams.get('statusToken')).toBe(statusToken);
-      expect(target.searchParams.get('intent')).toBe('buy');
-      expect(target.searchParams.has('tenantId')).toBe(false);
-    }
+
+    const localeSwitch=header.locator('.pc-site-locale-switch');
+    await expect(localeSwitch).toHaveCount(1);
+    const href=await localeSwitch.getAttribute('href');
+    expect(href).toBeTruthy();
+    const target=new URL(href!,page.url());
+    expect(target.pathname).toBe('/platform-v7/register');
+    expect(target.searchParams.get('lang')).toBe('en');
+    expect(target.searchParams.get('verify')).toBe(verify);
+    expect(target.searchParams.get('statusToken')).toBe(statusToken);
+    expect(target.searchParams.get('intent')).toBe('buy');
+    expect(target.searchParams.has('tenantId')).toBe(false);
   });
 
 
