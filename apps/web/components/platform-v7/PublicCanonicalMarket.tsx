@@ -15,13 +15,13 @@ const COPY = {
     details: 'Войти и посмотреть',
     access: 'Доступ к торгам',
     selected: 'Выбранный лот',
-    source: 'Источник: публичная обезличенная проекция PostgreSQL',
+    source: 'Источник: обезличенные данные публичного рынка',
     declared: 'Наличие заявлено продавцом',
     quality: 'Качество — по данным продавца',
     emptyTitle: 'Активных опубликованных лотов сейчас нет',
-    emptyText: 'Публичный рынок показывает только лоты, которые сервер разрешил к обезличенной публикации.',
+    emptyText: 'Публичный рынок показывает только разрешённые к публикации обезличенные лоты.',
     unavailableTitle: 'Рынок временно недоступен',
-    unavailableText: 'Сервер не подтвердил актуальную публичную проекцию. Мы не подменяем её примерными данными.',
+    unavailableText: 'Актуальные данные рынка сейчас недоступны. Мы не показываем неподтверждённые данные.',
     noMatchTitle: 'По запросу ничего не найдено',
     noMatchText: 'Измени запрос или вернись ко всем опубликованным лотам.',
   },
@@ -36,13 +36,13 @@ const COPY = {
     details: 'Sign in and view',
     access: 'Trading access',
     selected: 'Selected lot',
-    source: 'Source: public anonymised PostgreSQL projection',
+    source: 'Source: anonymised public market data',
     declared: 'Availability declared by seller',
     quality: 'Quality — seller-provided data',
     emptyTitle: 'No active published lots right now',
-    emptyText: 'The public market shows only lots the server has admitted to anonymised publication.',
+    emptyText: 'The public market shows only anonymised lots permitted for publication.',
     unavailableTitle: 'Market is temporarily unavailable',
-    unavailableText: 'The server did not confirm a current public projection. We do not replace it with sample data.',
+    unavailableText: 'Current market data is unavailable. We do not show unconfirmed data.',
     noMatchTitle: 'No matching lots',
     noMatchText: 'Change the query or return to all published lots.',
   },
@@ -57,13 +57,13 @@ const COPY = {
     details: '登录查看',
     access: '获取交易权限',
     selected: '所选批次',
-    source: '来源：PostgreSQL 公共匿名投影',
+    source: '来源：公开市场匿名数据',
     declared: '库存由卖方申报',
     quality: '质量 — 卖方提供的数据',
     emptyTitle: '当前没有有效的公开批次',
-    emptyText: '公开市场仅展示服务器允许匿名公开的批次。',
+    emptyText: '公开市场仅展示获准发布的匿名批次。',
     unavailableTitle: '市场暂时不可用',
-    unavailableText: '服务器未确认当前公共投影；我们不会用示例数据替代。',
+    unavailableText: '当前市场数据暂不可用；我们不会展示未经确认的数据。',
     noMatchTitle: '未找到匹配批次',
     noMatchText: '修改搜索条件或返回全部已发布批次。',
   },
@@ -124,10 +124,10 @@ export async function CanonicalPublicLotView({ locale, lotIndex }: { locale: str
   if (!lot) return <PublicLotUnavailableView locale={lang} kind='empty' />;
 
   const unavailable = lang === 'ru'
-    ? 'Не опубликовано в публичном контуре'
+    ? 'Не опубликовано для публичного просмотра'
     : lang === 'en'
-      ? 'Not published in the public circuit'
-      : '未在公开范围发布';
+      ? 'Not published for public view'
+      : '未公开发布';
 
   return (
     <div data-testid='canonical-public-lot-view'>
@@ -179,7 +179,7 @@ function PublicLotUnavailableView({ locale, kind }: { locale: CanonicalPublicLoc
   const copy=COPY[locale];
   const title=kind==='unavailable'?copy.unavailableTitle:copy.emptyTitle;
   const text=kind==='unavailable'?copy.unavailableText:copy.emptyText;
-  const hidden=locale==='ru'?'Недоступно в публичном контуре':locale==='en'?'Unavailable in the public circuit':'公开范围不可用';
+  const hidden=locale==='ru'?'Недоступно для публичного просмотра':locale==='en'?'Unavailable for public view':'暂无公开数据';
   return (
     <div data-testid='canonical-public-lot-view' data-market-state={kind}>
       <div className='pc-cp-lot-breadcrumb'>
