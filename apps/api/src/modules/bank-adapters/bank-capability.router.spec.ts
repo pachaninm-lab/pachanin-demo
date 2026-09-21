@@ -1,0 +1,136 @@
+import { describe, expect, it } from '@jest/globals';
+import type { BankCapability } from '../../../../../packages/domain-core/src/bank-capability';
+import type {
+  BankReferenceAdapter,
+  BankProviderFamily,
+} from './bank-adapter.port';
+import { BankCapabilityRouter, type BankRoutingAuthority } from './bank-capability.router';
+import { SberReferenceAdapter } from './sber-reference.adapter';
+import { AlfaReferenceAdapter } from './alfa-reference.adapter';
+import { TBankReferenceAdapter } from './tbank-reference.adapter';
+
+const authority = (
+  providerFamily: BankProviderFamily,
+  overrides: Partial<BankRoutingAuthority> = {},
+): BankRoutingAuthority => ({
+  providerFamily,
+  integrationBindingId: 'binding-1',
+  bindingKey: 'bank-primary',
+  providerId: 'provider-1',
+  providerCapabilityId: 'provider-cap-1',
+  capabilityCode: 'BANK',
+  maturity: 'LIVE_ACCEPTED',
+  bindingVersion: '7',
+  evidenceMode: 'SERVER_HELD',
+  mayCarryRealTraffic: true,
+  ...overrides,
+});
+
+function liveTestAdapter(
+  providerFamily: 'TEST_DOUBLE_A' | 'TEST_DOUBLE_B',
+  capabilities: readonly BankCapability[],
+): BankReferenceAdapter {
+  return {
+    providerFamily,
+    capabilities,
+    contractMode: 'REFERENCE_CONFORMANCE_ONLY',
+    liveTransportImplemented: true,
+    describeRequest: (input) => ({
+      providerFamily,
+      capability: capabilities[0]!,
+      command: input.command,
+      operationId: input.operationId,
+      idempotencyKey: input.idempotencyKey,
+      amountMinor: input.amountMinor,
+      currency: input.currency,
+      sourceVersion: input.sourceVersion,
+      beneficiaryReference: input.beneficiaryReference,
+      contractMode: 'REFERENCE_CONFORMANCE_ONLY',
+      liveRequestReady: false,
+    }),
+    mapDispatchResponse: (response) => ({
+      providerFamily,
+      acknowledgement: 'ACCEPTED_NONFINAL',
+      providerOperationId: response.providerOperationId,
+      rawStatus: response.rawStatus,
+      observedAt: response.observedAt,
+      canonicalFinality: 'NOT_DECIDED_HERE',
+      retryPolicy: 'RECONCILE_BEFORE_RETRY',
+    }),
+    mapReceiptResponse: (response) => ({
+      providerFamily,
+      operationId: response.operationId,
+      providerOperationId: response.providerOperationId,
+      providerEventId: response.providerEventId,
+      externalReceiptId: response.externalReceiptId,
+      authenticationEvidenceRef: response.authenticationEvidenceRef,
+      payloadFingerprint: response.payloadFingerprint,
+      amountMinor: response.amountMinor,
+      currency: response.currency,
+      evidenceState: 'SUCCESS_EVIDENCE',
+      rawStatus: response.rawStatus,
+      observedAt: response.observedAt,
+      canonicalFinality: 'NOT_DECIDED_HERE',
+    }),
+  };
+}
+
+describe('bank capability router', () => {
+  const router = new BankCapabilityRouter([
+    new SberReferenceAdapter(),
+    new AlfaReferenceAdapter(),
+    new TBankReferenceAdapter(),
+  ]);
+
+  it('requires an exact server-held provider/binding authority', () => {
+    expect(router.route(null, 'STATUS_READ')).toEqual({
+      status: 'NOT_ACTIVATED',
+      adapter: null,
+      reason: 'SERVER_HELD_PROVIDER_BINDING_REQUIRED',
+    });
+    expect(router.route(
+      authority('SBER', { integrationBindingId: '' }),
+      'STATUS_READ',
+    )).toMatchObject({
+      status: 'CONTRADICTORY',
+      reason: 'INCOMPLETE_SERVER_HELD_BINDING_AUTHORITY',
+    });
+  });
+
+  it('does not substitute an unsupported bank capability', () => {
+    expect(router.route(authority('SBER'), 'BILLING')).toMatchObject({
+      status: 'UNSUPPORTED',
+      reason: 'CAPABILITY_NOT_SUPPORTED:BILLING',
+    });
+  });
+
+  it('keeps all three reference adapters NOT_ACTIVATED even with a LIVE_ACCEPTED-looking authority because they have no live transport', () => {
+    for (const provider of ['SBER', 'ALFA_BANK', 'T_BANK'] as const) {
+      expect(router.route(authority(provider), 'STATUS_READ')).toMatchObject({
+        status: 'NOT_ACTIVATED',
+        reason: 'REFERENCE_ADAPTER_HAS_NO_LIVE_TRANSPORT',
+      });
+    }
+  });
+
+  it('fails closed when server-held maturity does not admit real traffic', () => {
+    expect(router.route(authority('T_BANK', { mayCarryRealTraffic: false }), 'BILLING'))
+      .toMatchObject({
+        status: 'NOT_ACTIVATED',
+        reason: 'SERVER_HELD_MATURITY_DOES_NOT_ALLOW_REAL_TRAFFIC',
+      });
+  });
+
+  it('proves provider substitution through the same router contract with independent test doubles only', () => {
+    const testRouter = new BankCapabilityRouter([
+      liveTestAdapter('TEST_DOUBLE_A', ['DIRECT_PAYMENT']),
+      liveTestAdapter('TEST_DOUBLE_B', ['DIRECT_PAYMENT']),
+    ]);
+    for (const provider of ['TEST_DOUBLE_A', 'TEST_DOUBLE_B'] as const) {
+      expect(testRouter.route(authority(provider), 'DIRECT_PAYMENT')).toMatchObject({
+        status: 'READY_FOR_REAL_TRAFFIC',
+        authority: { providerFamily: provider },
+      });
+    }
+  });
+});
