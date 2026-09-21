@@ -1,33 +1,23 @@
-import { ArrowLeft } from 'lucide-react';
-import { getLocale, getTranslations } from 'next-intl/server';
-import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
-import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
+import { getLocale } from 'next-intl/server';
+import { CanonicalBottomNav, CanonicalPublicHeader, canonicalPublicLocale } from '@/components/platform-v7/PublicCanonicalPrimitives';
 import { getPublicLoginCopy } from '@/i18n/public-login-copy';
 import { LoginFormClient } from './LoginFormClient';
 
 export default async function LoginPage() {
-  const locale = await getLocale();
-  const { publicNav, brandTagline, backHome, form } = getPublicLoginCopy(locale);
-  const chrome = await getTranslations('publicEntry.chrome');
+  const rawLocale=await getLocale();
+  const locale=canonicalPublicLocale(rawLocale);
+  const { form }=getPublicLoginCopy(locale);
 
   return (
-    <main id='main-content' className='pc-v7-public-entry pc-auth-page'>
-      <a className='pc-skip-link' href='#pc-login-title'>{chrome('skipToContent')}</a>
-      <PublicSiteHeader
-        ariaLabel={publicNav}
-        tagline={brandTagline}
-        brandHomeLabel={chrome('brandHomeLabel')}
-        navLabel={chrome('navLabel')}
-        menuLabel={chrome('menuLabel')}
-        localeControl={<PublicLocaleLink />}
-        actions={(
-          <a className='pc-site-action' href='/platform-v7' aria-label={backHome} title={backHome}>
-            <ArrowLeft size={20} aria-hidden='true' />
-            <span>{backHome}</span>
-          </a>
-        )}
-      />
-      <LoginFormClient copy={form} />
+    <main id='main-content' className='pc-canonical-public pc-v7-public-entry pc-auth-page'>
+      <a className='pc-skip-link' href='#pc-login-title'>{locale==='ru'?'Перейти ко входу':locale==='en'?'Skip to sign in':'跳到登录'}</a>
+      <CanonicalPublicHeader locale={locale} activePath='/platform-v7/login' actions={false}/>
+      <section className='pc-cp-section pc-cp-section--soft' style={{minHeight:'calc(100dvh - 72px)'}}>
+        <div className='pc-cp-container'>
+          <LoginFormClient copy={form} />
+        </div>
+      </section>
+      <CanonicalBottomNav locale={locale} active='/platform-v7/login'/>
     </main>
   );
 }

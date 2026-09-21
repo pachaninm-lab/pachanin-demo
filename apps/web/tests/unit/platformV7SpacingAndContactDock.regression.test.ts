@@ -5,10 +5,12 @@ describe('platform-v7 spacing and contact dock regression', () => {
   const root = resolve(process.cwd());
   const read = (path: string) => readFileSync(resolve(root, path), 'utf8');
 
-  it('keeps the unified AI/support/call dock mounted on public entry', () => {
+  it('keeps the unified AI/support/call dock available off the canonical landing', () => {
     const layout = read('apps/web/app/pc-public-entry/platform-v7/layout.tsx');
 
-    expect(layout).toContain("import { PublicContactDock } from '@/components/platform-v7/PublicContactDock'");
+    expect(layout).toContain("import('@/components/platform-v7/PublicContactDock')");
+    expect(layout).toContain("import('@/components/platform-v7/HydrationSafeChatSupport')");
+    expect(layout).toContain("if (isCanonicalLanding(pathname)) return children;");
     expect(layout).toContain('<PublicContactDock />');
     expect(layout).toContain('<HydrationSafeChatSupport renderDock={false} />');
   });
