@@ -371,8 +371,12 @@ for (const locale of ['ru', 'en', 'zh'] as const) {
         // boundary mounts; this test exercises hydrated keyboard interaction.
         if (route === 'gekta') {
           await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue('--gekta-visual-viewport-height'))).not.toBe('');
-        } else {
+        } else if (route === 'terms' || route === 'privacy' || route === 'docs' || route === 'oferta') {
           await expect(page.locator('.pc-public-contact-dock')).toBeVisible();
+        } else {
+          // Canonical product surfaces intentionally retire the legacy dock.
+          // Registration, Trust and About keep their own canonical CTAs/header.
+          await expect(page.locator('.pc-public-contact-dock')).toHaveCount(0);
         }
         const toggle = header.locator('summary');
         if (await toggle.isVisible()) {
