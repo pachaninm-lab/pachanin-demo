@@ -127,7 +127,7 @@ export default async function TrustPage(){
    </div>
   </section>
   <section className='pc-cp-section pc-cp-trust-pillars-section'><div className='pc-cp-container'>
-    <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{locale==='ru'?'Четыре проверки перед действием':locale==='en'?'Four checks before action':'四个信任支柱'}</span><h2>{locale==='ru'?'Четыре проверки перед действием':locale==='en'?'Four checks before action':'四个信任支柱'}</h2><p>{locale==='ru'?'Перед важным действием проверяются четыре вещи.':locale==='en'?'Four checks are made before an important action.':'每个重要操作前都会完成四项检查。'}</p></div>
+    <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{locale==='ru'?'Четыре проверки перед действием':locale==='en'?'Four checks before action':'操作前的四项检查'}</span><h2>{locale==='ru'?'Четыре проверки перед действием':locale==='en'?'Four checks before action':'操作前的四项检查'}</h2><p>{locale==='ru'?'Перед важным действием проверяются четыре вещи.':locale==='en'?'Four checks are made before an important action.':'每个重要操作前都会完成四项检查。'}</p></div>
     <div className='pc-cp-trust-pillars'>
       {TRUST_MODEL[locale].map((item,index)=><article className='pc-cp-card pc-cp-trust-pillar' key={item[0]}>
         <div className='pc-cp-trust-pillar-head'><i>{index+1}</i><div><h3>{item[0]}</h3><p>{item[1]}</p></div></div>
