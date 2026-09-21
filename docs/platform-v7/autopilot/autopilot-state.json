@@ -8,14 +8,14 @@
   },
   "baseline": {
     "branch": "main",
-    "commit": "5da8e80744908413102214f91dd68018911b892e",
-    "verifiedAt": "2026-09-20",
-    "gitObjectDatabase": "exact-current-main-and-production"
+    "commit": "51d63c5f7e2a22d1ccbbe38d15c475a7e93de863",
+    "verifiedAt": "2026-09-21",
+    "gitObjectDatabase": "exact-current-main"
   },
   "mode": "master-v2.1-r1-founder-ceo",
   "status": "active",
-  "currentStatus": "ready",
-  "current": "R1.2 Controlled open-as-role server authority",
+  "currentStatus": "implementation",
+  "current": "R1.3 CEO overview and P0/P1 decision queue",
   "fullTzReadinessPercent": 5,
   "readinessScoring": "Binary GO completion only; 0 means the Industrial Integration-Ready gate is not yet accepted. It is not an implementation-progress estimate.",
   "openPr": null,
@@ -42,7 +42,8 @@
     "IR-10.5 Disputes PostgreSQL Authority exact-main revalidation 397e98955d9f98704c40befd0088a1390556e0fa",
     "IR-20 Canonical Durable Outbox PRODUCTION_PASS 5da8e80744908413102214f91dd68018911b892e",
     "MASTER v2.1 R0 PRODUCTION_PASS 5da8e80744908413102214f91dd68018911b892e / controller 35520784872 / 5 of 100",
-    "R1.1 Server-side inventory of 13 cabinets and authority — docs/execution/R1_1_EXACT_INVENTORY_2026-09-20.md"
+    "R1.1 Server-side inventory of 13 cabinets and authority — docs/execution/R1_1_EXACT_INVENTORY_2026-09-20.md",
+    "R1.2 Controlled open-as-role server authority — PR #5473 / exact head 5423e1777d0d5cbc22d8b8440a92f901dbfdd734 / merged main 51d63c5f7e2a22d1ccbbe38d15c475a7e93de863"
   ],
   "closedCapabilities": {
     "persistentIdentityAndMfa": {
@@ -144,16 +145,24 @@
       "status": "merged-ci-scale-only",
       "pr": "#2404",
       "productionCapacityAcceptance": false
+    },
+    "founderRoleModeAuthority": {
+      "status": "merged-exact-head-independent-review-pass",
+      "pr": "#5473",
+      "verifiedHead": "5423e1777d0d5cbc22d8b8440a92f901dbfdd734",
+      "mergeCommit": "51d63c5f7e2a22d1ccbbe38d15c475a7e93de863",
+      "consumerContract": "READY_FOR_CONSUMER via Team Hub #5469",
+      "remainingBoundary": "R1.5 PRODUCT presentation + exact-SHA 13/13 REG.RU live acceptance"
     }
   },
   "openBlockers": [
-    "R1.2: current production owner direct-cabinet shortcut is controlled-test-bound and not R1 evidence.",
-    "R1.2: canonical 13 role-mode registry and server-derived role intent must be added on top of the existing durable Staff Access VIEW_AS authority without creating a domain Founder role.",
-    "R1.5 visual banner/return remains a PRODUCT dependency in Team Hub #5469 and does not block this backend slice."
+    "R1.3: Company Health must use real PostgreSQL sources only; legacy analytics mock/fixed economics are explicitly excluded.",
+    "R1.3: P0/P1 decision queue requires server-normalized owner/deadline/impact/nextAction/escalation/source and must not reuse staff pendingApprovals as business truth.",
+    "R1 remains 0/7 points until R1.3, R1.4 and R1.5 complete and exact-SHA REG.RU live acceptance passes."
   ],
-  "blockerNotes": "R0 and IR-20 are production-accepted on exact main 5da8e80744908413102214f91dd68018911b892e. R1 starts with a backend-only server-authority slice because apps/web remains a protected/parallel-account zone. A later owner handoff change requires its own trusted scope after conflict recheck.",
+  "blockerNotes": "R1.2 is merged on current main via #5473. R1.3 is the active backend/data authority slice claimed in Team Hub #5469 as R1-3-CEO-OVERVIEW-DECISION-QUEUE-20260921. PRODUCT UX/FGIS/bank lanes remain separate; no UI implementation is authorized here.",
   "lockedUntilCurrentGreen": [
-    "R1.3 CEO overview and P0/P1 decision queue"
+    "R1.4 Cash/runway, pipeline, client P&L, AR/DSO, forecast, retention, hiring and scale gates"
   ],
   "allowedCurrentScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
@@ -162,8 +171,13 @@
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
     "docs/execution/**",
-    "apps/api/src/modules/staff-access/**",
-    "apps/api/test/staff-access/**"
+    "apps/api/src/app.module.ts",
+    "apps/api/src/modules/founder-control/**",
+    "apps/api/src/modules/staff-access/staff-access.types.ts",
+    "apps/api/prisma/migrations/*_founder_control_center/**",
+    "infra/kind/production-like/postgresql-runtime-grants.sql",
+    "apps/api/test/staff-access/**",
+    ".github/workflows/ci.yml"
   ],
   "agentWritableScope": [
     "docs/platform-v7/autopilot/autopilot-state.json",
@@ -172,8 +186,13 @@
     "docs/platform-v7/autopilot/prompts/current-review-task.md",
     "docs/platform-v7/execution-queue.md",
     "docs/execution/**",
-    "apps/api/src/modules/staff-access/**",
-    "apps/api/test/staff-access/**"
+    "apps/api/src/app.module.ts",
+    "apps/api/src/modules/founder-control/**",
+    "apps/api/src/modules/staff-access/staff-access.types.ts",
+    "apps/api/prisma/migrations/*_founder_control_center/**",
+    "infra/kind/production-like/postgresql-runtime-grants.sql",
+    "apps/api/test/staff-access/**",
+    ".github/workflows/ci.yml"
   ],
   "approvedConcurrentScopes": {
     "governance/ir20-binding-immutable-scope-20260919": [
