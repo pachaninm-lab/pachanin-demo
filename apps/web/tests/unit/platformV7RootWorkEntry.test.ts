@@ -93,6 +93,16 @@ describe('platform-v7 canonical public experience',()=>{
   it('keeps final public typography readable, consistent and free of templated copy',()=>{
     const homeCss=read('styles/platform-v7-canonical-home-v1.css');
     const assistantCss=read('styles/platform-v7-public-assistant-polish.css');
+    const linkedCopy=[
+      read('app/platform-v7/gekta/page.tsx'),
+      read('app/platform-v7/ai-in-action/page.tsx'),
+      read('app/platform-v7/trust/page.tsx'),
+      read('app/platform-v7/about/page.tsx'),
+      read('app/platform-v7/capabilities/page.tsx'),
+      read('app/platform-v7/how-it-works/page.tsx'),
+      read('app/platform-v7/head.tsx'),
+      read('app/platform-v7/loading.tsx'),
+    ].join('\n');
     const finalTypographyMarker='/* FINAL PUBLIC TYPOGRAPHY AUTHORITY — 2026-09-21';
     const assistantTypographyMarker='/* FINAL PUBLIC TYPOGRAPHY AUTHORITY — assistant 2026-09-21 */';
 
@@ -126,7 +136,15 @@ describe('platform-v7 canonical public experience',()=>{
       'Аграрный интеллект',
       'Agricultural intelligence',
       '农业智能',
-    ]) expect(home + primitives).not.toContain(retired);
+      'authoritative financial state',
+      'Роль и tenant',
+      'Role and tenant',
+      'Контекст. Аналитика. Обоснованные следующие шаги.',
+      'Not a feature catalogue for its own sake',
+      'Не каталог функций ради функций',
+      'Один контекст, семь этапов, проверяемые факты.',
+      'One context, seven stages, verifiable facts.',
+    ]) expect(home + primitives + linkedCopy).not.toContain(retired);
 
     for(const humanCopy of [
       'Агросделка — от цены до закрытия.',
@@ -136,7 +154,11 @@ describe('platform-v7 canonical public experience',()=>{
       'Помощник по Сделке',
       'Deal assistant',
       '交易助手',
-    ]) expect(home + primitives).toContain(humanCopy);
+      'Статус расчёта приходит с сервера и меняется только по подтверждённым событиям.',
+      'Market, execution, documents, settlement and closure stay connected.',
+      'Семь этапов одной Сделки — с понятной ответственностью и документами.',
+      'Загружаем подтверждённые данные.',
+    ]) expect(home + primitives + linkedCopy).toContain(humanCopy);
   });
 
   it('locks the nine canonical roles and seven Deal stages',()=>{
