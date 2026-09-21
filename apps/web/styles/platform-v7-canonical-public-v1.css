@@ -2276,7 +2276,8 @@ html[lang^='zh'] .pc-canonical-public :is(p,li,dd,.pc-cp-section-head p,.pc-cp-l
 
 @media(max-width:760px){
   .pc-canonical-public,
-  .p0-register-page{
+  .p0-register-page,
+  .p7-contact-page{
     padding-bottom:calc(82px + env(safe-area-inset-bottom,0px))!important;
     scroll-padding-bottom:calc(96px + env(safe-area-inset-bottom,0px));
   }
