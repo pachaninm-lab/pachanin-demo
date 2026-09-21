@@ -12,7 +12,7 @@ const AUTHORITY_AHASH: Record<string,{hash:string;maxDistance:number}> = {
   '06-deal-mobile': { hash:'3fff80ff807f07ff83ff03ffffffcfffdfffdfffffff00008000ffffffffffff', maxDistance:125 },
   '06-market-mobile': { hash:'bfffafffffffffff83ff01ff83ff83ff03ff03ff01ff01ff03ff83ff01ffffff', maxDistance:115 },
   '07-how-it-works-desktop': { hash:'32b8ffd83f38fffffffffeafefffffffffedfae7ff955fffffffffffffff0000', maxDistance:90 },
-  '08-trust-desktop': { hash:'fff89f808300f4009c02ffffffb7ffffbf3f8801ffffbfc9ffc7ffffbfffffff', maxDistance:95 },
+  '08-trust-desktop': { hash:'32b8ffff3fffff973c197010f804ffffffffffffffffffff8101f373ffffffff', maxDistance:95 },
   '09-gekta-desktop': { hash:'00fc0003000000000000ffffffffffffffffffffffffffffffffffffffffffff', maxDistance:65 },
 };
 
