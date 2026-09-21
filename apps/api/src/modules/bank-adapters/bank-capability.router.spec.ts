@@ -154,6 +154,29 @@ describe('bank capability router', () => {
     });
   });
 
+  it('fails closed on truthy non-boolean live-routing flags at runtime', () => {
+    const testRouter = new BankCapabilityRouter([
+      liveTestAdapter('TEST_DOUBLE_A', ['DIRECT_PAYMENT']),
+    ]);
+    const malformedTraffic = {
+      ...authority('TEST_DOUBLE_A'),
+      mayCarryRealTraffic: 'true',
+    } as unknown as BankRoutingAuthority;
+    expect(testRouter.route(malformedTraffic, 'DIRECT_PAYMENT')).toMatchObject({
+      status: 'NOT_ACTIVATED',
+      reason: 'SERVER_HELD_MATURITY_DOES_NOT_ALLOW_REAL_TRAFFIC',
+    });
+
+    const malformedEnvironment = {
+      ...authority('TEST_DOUBLE_A'),
+      productionEnvironmentConfirmed: 'true',
+    } as unknown as BankRoutingAuthority;
+    expect(testRouter.route(malformedEnvironment, 'DIRECT_PAYMENT')).toMatchObject({
+      status: 'NOT_ACTIVATED',
+      reason: 'PRODUCTION_ENVIRONMENT_NOT_CONFIRMED',
+    });
+  });
+
   it('requires current credential and callback-trust evidence before live routing', () => {
     expect(router.route(
       authority('T_BANK', { credentialReadiness: 'MISSING_OR_UNKNOWN' }),
