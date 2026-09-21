@@ -18,8 +18,8 @@ const COPY={
 ru:{
  title:'О платформе — Прозрачная Цена',
  description:'Прозрачная Цена связывает участников и весь путь агросделки: лот, торги, обязательства, доставка, приёмка, качество, документы, расчёт и закрытие.',
- eyebrow:'О платформе',heading:'Одна система — от рынка до закрытия Сделки.',
- lead:'«Прозрачная Цена» связывает рынок, исполнение, качество, документы и расчёт в одной Сделке. Каждый участник видит свой рабочий контур, а важные действия остаются привязаны к фактам, полномочиям и основаниям.',
+ eyebrow:'О платформе',heading:'Рынок, исполнение, документы и расчёт — в одной Сделке.',
+ lead:'«Прозрачная Цена» связывает рынок, исполнение, качество, документы и расчёт в одной Сделке. Каждый участник видит свои задачи и доступные данные, а важные действия остаются привязаны к фактам, полномочиям и основаниям.',
  domain:'Процент-Агро.рф — публичный домен платформы «Прозрачная Цена».',
  what:'Что объединяет платформа',cards:[
  ['Одна Сделка','Товар, торги, обязательства, доставка, качество, документы, расчёт и закрытие остаются связанными.'],
@@ -34,8 +34,8 @@ ru:{
 en:{
  title:'About the platform — Transparent Price',
  description:'Transparent Price connects participants and the full agricultural Deal path: lot, trading, commitments, delivery, acceptance, quality, documents, settlement and closure.',
- eyebrow:'About the platform',heading:'One system from market to Deal closure.',
- lead:'Transparent Price connects market, execution, quality, documents and settlement in one Deal. Each participant sees a focused workspace, while important actions stay tied to facts, authority and evidence.',
+ eyebrow:'About the platform',heading:'Market, execution, documents and settlement stay in the same Deal.',
+ lead:'Transparent Price keeps market, execution, quality, documents and settlement tied to the same Deal. Each participant sees the tasks and data allowed by their role, while important actions stay linked to facts, authority and evidence.',
  domain:'Процент-Агро.рф is the public domain of the Transparent Price platform.',
  what:'What the platform connects',cards:[
  ['One Deal','Product, trading, commitments, delivery, quality, documents, settlement and closure remain connected.'],
@@ -50,8 +50,8 @@ en:{
 zh:{
  title:'关于平台 — 透明价格',
  description:'透明价格把参与方和农业交易完整路径连接起来：批次、交易、义务、交付、验收、质量、文件、结算与关闭。',
- eyebrow:'关于平台',heading:'一套系统，从市场一直到交易关闭。',
- lead:'“透明价格”把市场、履约、质量、文件和结算连接在同一笔交易中。每个参与方都有清晰的工作区，重要操作始终与事实、权限和依据关联。',
+ eyebrow:'关于平台',heading:'市场、履约、文件和结算都在同一笔交易中。',
+ lead:'“透明价格”把市场、履约、质量、文件和结算连接在同一笔交易中。每个参与方只看到其角色允许的任务和数据，重要操作始终与事实、权限和依据关联。',
  domain:'Процент-Агро.рф 是“透明价格”平台的公开域名。',
  what:'平台连接什么',cards:[
  ['一笔交易','商品、交易、义务、交付、质量、文件、结算和关闭保持关联。'],
