@@ -253,10 +253,10 @@ export function CanonicalStateLens({
 export function CanonicalGektaStrip({ locale }: { locale: string }) {
   const lang = canonicalPublicLocale(locale);
   const c = lang === 'ru'
-    ? { k: 'Помощник по Сделке', t: 'Гекта', p: 'Помогает понять состояние Сделки, риски и основания. Критическое решение принимает человек по правилам платформы.', chips: ['Контекст Сделки', 'Документы', 'Логистика', 'Качество', 'Расчёт', 'Риски'] }
+    ? { k: 'Помощник по Сделке', t: 'Гекта', p: 'Показывает состояние Сделки, риски и основания по доступным данным. Критическое решение принимает человек по правилам платформы.', chips: ['Контекст Сделки', 'Документы', 'Логистика', 'Качество', 'Расчёт', 'Риски'] }
     : lang === 'en'
-      ? { k: 'Deal assistant', t: 'Gekta', p: 'Helps the user understand Deal state, risk and evidence. Critical decisions remain with people under platform rules.', chips: ['Deal context', 'Documents', 'Logistics', 'Quality', 'Settlement', 'Risk'] }
-      : { k: '交易助手', t: 'Gekta', p: '帮助理解交易状态、风险和依据。关键决定由人员按照平台规则作出。', chips: ['交易上下文', '文件', '物流', '质量', '结算', '风险'] };
+      ? { k: 'Deal assistant', t: 'Gekta', p: 'Shows Deal state, risk and evidence from data available to the user. Critical decisions remain with people under platform rules.', chips: ['Deal context', 'Documents', 'Logistics', 'Quality', 'Settlement', 'Risk'] }
+      : { k: '交易助手', t: 'Gekta', p: '基于参与方可访问的数据展示交易状态、风险和依据。关键决定由人员按平台规则作出。', chips: ['交易上下文', '文件', '物流', '质量', '结算', '风险'] };
   return (
     <section className='pc-cp-gekta-strip'>
       <div className='pc-cp-gekta-brand'>
