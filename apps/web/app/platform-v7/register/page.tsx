@@ -2,9 +2,8 @@ import '@/styles/platform-v7-public-register.css';
 import '@/styles/platform-v7-public-register-official.css';
 import '@/styles/platform-v7-public-register-reflow.css';
 import '@/styles/platform-v7-canonical-public-v1.css';
-import Link from 'next/link';
 import { Languages } from 'lucide-react';
-import { CanonicalPublicHeader } from '@/components/platform-v7/PublicCanonicalPrimitives';
+import { CanonicalBottomNav, CanonicalPublicHeader } from '@/components/platform-v7/PublicCanonicalPrimitives';
 import { RegisterFormClientPublic } from './RegisterFormClientPublic';
 
 type Locale = 'ru' | 'en' | 'zh';
@@ -90,7 +89,6 @@ export default async function RegisterPage({
           locale={locale}
           activePath='/platform-v7/register'
           localeControl={<a className='pc-site-locale-switch' href={`/platform-v7/register?${localeQuery.toString()}`} aria-label={copy.language} title={copy.language}><Languages size={17} aria-hidden='true' /><span>{locale.toUpperCase()}</span></a>}
-          actions={<Link className='entry-login' href={`/platform-v7/login?lang=${locale}`} aria-label={copy.login}>{copy.login}</Link>}
         />
 
         <section className='p0-register-hero' aria-labelledby='p0-register-title'>
@@ -106,6 +104,7 @@ export default async function RegisterPage({
           initialWorkspace={initialWorkspace}
         />
       </div>
+      <CanonicalBottomNav locale={locale} active='/platform-v7/register' />
     </main>
   );
 }
