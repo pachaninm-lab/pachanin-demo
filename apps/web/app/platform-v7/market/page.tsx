@@ -41,10 +41,10 @@ export default async function PlatformV7MarketPage({searchParams}:{searchParams?
   const lotRaw=String(first(params.lot)??'').slice(0,16);
   const lotIndex=/^\d{1,4}$/.test(lotRaw)?Number(lotRaw):null;
   const c=locale==='ru'
-    ?{e:'Рынок',t:'Рынок',p:'Опубликованные обезличенные лоты. Личность продавца, внутренние идентификаторы и закрытые условия не раскрываются.',search:'Культура, класс или регион',filters:'Фильтры',path:'Путь лота в Сделке'}
+    ?{e:'Рынок',t:'Рынок',p:'Показываем только опубликованные обезличенные лоты. Данные продавца, внутренние идентификаторы и закрытые условия остаются скрыты.',search:'Культура, класс или регион',filters:'Фильтры',path:'Путь лота в Сделке'}
     :locale==='en'
-      ?{e:'Market',t:'Public lots',p:'Only real anonymised data admitted by the server for publication. Seller identity, internal identifiers and private terms are not disclosed.',search:'Crop, grade or region',filters:'Filters',path:'Lot path through the Deal'}
-      :{e:'市场',t:'公开批次',p:'仅展示服务器允许公开的真实匿名数据。卖方身份、内部标识和非公开条件不会披露。',search:'作物、等级或地区',filters:'筛选',path:'批次在交易中的路径'};
+      ?{e:'Market',t:'Public lots',p:'We show only published anonymised lots. Seller identity, internal identifiers and private terms remain hidden.',search:'Crop, grade or region',filters:'Filters',path:'Lot path through the Deal'}
+      :{e:'市场',t:'公开批次',p:'只展示已发布的匿名批次。卖方身份、内部标识和非公开条件保持隐藏。',search:'作物、等级或地区',filters:'筛选',path:'批次在交易中的路径'};
   if(lotIndex!==null){
     return <main className='pc-canonical-public pc-cp-page-market'>
       <CanonicalPublicHeader locale={locale} activePath='/platform-v7/market'/>

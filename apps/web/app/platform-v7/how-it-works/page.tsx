@@ -33,48 +33,48 @@ export async function generateMetadata():Promise<Metadata>{
 
 const COPY={
 ru:{
- e:'Как проходит Сделка',t:'Как проходит Сделка',p:'Семь прозрачных шагов — от товара до результата. Каждый этап фиксируется в системе, а участники видят связанные факты, документы и сроки.',
+ e:'Как проходит Сделка',t:'Семь этапов одной Сделки',p:'На каждом этапе видно, кто отвечает, какие данные нужны, что разрешает переход дальше и как это влияет на расчёт.',
  actor:'Участник',fact:'Факт',basis:'Основание',money:'Влияние на расчёт',next:'Следующий шаг',
  stages:[
- ['Лот','Продавец','Публичные и закрытые параметры товара','Подтверждённые данные лота и право организации действовать','Расчёт ещё не формируется','Допустить лот к разрешённому торговому контуру'],
+ ['Лот','Продавец','Публичные и закрытые параметры товара','Подтверждённые данные лота и право организации действовать','Расчёт ещё не формируется','Опубликовать лот и открыть торги, если все проверки пройдены'],
  ['Торги','Продавец · Покупатель','Ставки и зафиксированный результат торгов','Правила торгов и серверно подтверждённый результат','Фиксируются экономические условия будущей Сделки','Перейти к обязательствам сторон'],
  ['Обязательства','Продавец · Покупатель','Условия, роли и ответственность сторон','Согласованные условия и подтверждённые полномочия','Появляются условия, от которых зависит будущий финансовый шаг','Запустить исполнение'],
- ['Доставка','Логистика · Водитель','Рейс, маршрут и фактическое исполнение','Разрешённые действия логистической роли и события доставки','Сам факт доставки не даёт клиенту права менять финансовое состояние','Передать факт на приёмку'],
+ ['Доставка','Логистика · Водитель','Рейс, маршрут и фактическое исполнение','Разрешённые действия логистической роли и события доставки','Доставка сама по себе не меняет статус расчёта','Передать подтверждённые данные на приёмку'],
  ['Приёмка / качество','Элеватор · Лаборатория · Сюрвейер','Вес, приёмка, показатели качества и подтверждения','Источники фактов и полномочия соответствующих участников','Отклонения могут изменить основание для расчёта или создать блокер','Зафиксировать принятый результат и необходимые действия'],
- ['Документы / расчёт','Стороны · Банк','Комплект документов и подтверждённые основания','Связанные документы, события и банковские правила','Платформа показывает основание; внешнее финансовое событие требует подтверждения','Выполнить разрешённый финансовый шаг либо устранить блокер'],
- ['Закрытие / спор','Участники Сделки','Финальный статус либо зафиксированное расхождение','История фактов, документов, действий и решений','Закрытие возможно только при выполненных условиях; спор сохраняет влияние до решения','Закрыть Сделку либо вести спор в связанном контексте'],
+ ['Документы / расчёт','Стороны · Банк','Комплект документов и подтверждённые основания','Связанные документы, события и банковские правила','Платформа показывает основание; банковское событие подтверждается отдельно','Провести доступный финансовый шаг или устранить блокировку'],
+ ['Закрытие / спор','Участники Сделки','Финальный статус либо зафиксированное расхождение','История фактов, документов, действий и решений','Закрытие возможно только после выполнения условий; спор остаётся открытым до решения','Закрыть Сделку или продолжить разбор спора'],
  ],
- trust:'Доверие на каждом шаге',trustLead:'Полномочия → Основание → Источник → Решение — не отдельный раздел, а сквозная модель всей Сделки.',
+ trust:'Проверка на каждом этапе',trustLead:'На каждом этапе проверяем одно и то же: кто действует, на каком основании, откуда пришёл факт и что было зафиксировано.',
  cta:'Зарегистрироваться',market:'Открыть рынок'
 },
 en:{
- e:'How the Deal works',t:'Seven transparent steps — from product to outcome.',p:'Every stage answers the same questions: who acts, which fact is required, what basis permits progress and how it affects settlement.',
+ e:'How the Deal works',t:'Seven stages of one Deal',p:'At every stage, users can see who is responsible, which data is required, what permits the next step and how settlement may be affected.',
  actor:'Participant',fact:'Fact',basis:'Basis',money:'Settlement impact',next:'Next step',
  stages:[
- ['Lot','Seller','Public and private product parameters','Confirmed lot data and organisation authority','No settlement basis yet','Admit the lot to the authorised trading circuit'],
+ ['Lot','Seller','Public and private product parameters','Confirmed lot data and organisation authority','No settlement basis yet','Publish the lot and open trading once checks pass'],
  ['Trading','Seller · Buyer','Bids and confirmed trading result','Trading rules and server-confirmed outcome','Economic terms of the future Deal are fixed','Move to commitments'],
  ['Commitments','Seller · Buyer','Terms, roles and responsibilities','Agreed terms and confirmed authority','Conditions affecting the future financial step become explicit','Start execution'],
- ['Delivery','Logistics · Driver','Trip, route and execution facts','Authorised logistics actions and delivery events','Delivery itself cannot let the client choose financial state','Pass confirmed facts to acceptance'],
+ ['Delivery','Logistics · Driver','Trip, route and execution facts','Authorised logistics actions and delivery events','Delivery by itself does not change settlement status','Pass confirmed delivery data to acceptance'],
  ['Acceptance / quality','Elevator · Laboratory · Surveyor','Weight, acceptance, quality indicators and confirmations','Fact sources and participant authority','Deviation can change settlement basis or create a blocker','Fix the accepted result and required actions'],
- ['Documents / settlement','Parties · Bank','Document set and confirmed basis','Linked documents, events and banking rules','The platform shows basis; the external financial event still requires confirmation','Perform the permitted financial step or clear the blocker'],
- ['Closure / dispute','Deal participants','Final status or recorded discrepancy','History of facts, documents, actions and decisions','Closure requires satisfied conditions; a dispute keeps its impact until resolved','Close the Deal or handle the dispute in the same context'],
+ ['Documents / settlement','Parties · Bank','Document set and confirmed basis','Linked documents, events and banking rules','The platform shows the basis; the banking event is confirmed separately','Complete the available financial step or clear the blocker'],
+ ['Closure / dispute','Deal participants','Final status or recorded discrepancy','History of facts, documents, actions and decisions','Closure requires all conditions to be met; a dispute remains open until resolved','Close the Deal or continue resolving the dispute'],
  ],
- trust:'Trust at every step',trustLead:'Authority → Basis → Source → Decision is not a separate feature; it is the control model across the Deal.',
+ trust:'Checks at every stage',trustLead:'The same four checks apply throughout the Deal: who acts, what permits it, where the fact came from and what was recorded.',
  cta:'Register',market:'Open market'
 },
 zh:{
- e:'交易如何进行',t:'七个透明步骤——从商品到结果。',p:'每个阶段都回答同样的问题：谁处理、需要什么事实、依据是什么、对结算有什么影响。',
+ e:'交易如何进行',t:'一笔交易的七个阶段',p:'每个阶段都能看到谁负责、需要哪些数据、什么条件允许进入下一步，以及可能如何影响结算。',
  actor:'参与方',fact:'事实',basis:'依据',money:'结算影响',next:'下一步',
  stages:[
- ['批次','卖方','商品的公开和非公开参数','已确认的批次数据和机构权限','尚未形成结算依据','允许批次进入授权交易流程'],
+ ['批次','卖方','商品的公开和非公开参数','已确认的批次数据和机构权限','尚未形成结算依据','检查通过后发布批次并开启交易'],
  ['交易','卖方 · 买方','报价和已确认交易结果','交易规则和服务器确认的结果','固定未来交易的经济条件','进入义务阶段'],
  ['义务','卖方 · 买方','条件、角色和责任','已同意条件和已确认权限','明确影响未来金融步骤的条件','启动履约'],
- ['交付','物流 · 司机','运输、路线和履约事实','获授权物流操作和交付事件','交付本身不能让客户端选择金融状态','将确认事实传递到验收'],
+ ['交付','物流 · 司机','运输、路线和履约事实','获授权物流操作和交付事件','交付本身不会改变结算状态','把已确认的交付数据传递到验收'],
  ['验收 / 质量','粮库 · 实验室 · 检验机构','重量、验收、质量指标和确认','事实来源及对应参与方权限','偏差可能改变结算依据或形成阻断','固定验收结果和所需操作'],
- ['文件 / 结算','交易方 · 银行','文件集和已确认依据','关联文件、事件和银行规则','平台展示依据；外部金融事件仍需确认','执行允许的金融步骤或解除阻断'],
- ['关闭 / 争议','交易参与方','最终状态或已记录差异','事实、文件、操作和决定的历史','满足条件后才能关闭；争议在解决前持续影响交易','关闭交易或在同一上下文处理争议'],
+ ['文件 / 结算','交易方 · 银行','文件集和已确认依据','关联文件、事件和银行规则','平台展示结算依据；银行事件需单独确认','完成可执行的金融步骤或解除阻断'],
+ ['关闭 / 争议','交易参与方','最终状态或已记录差异','事实、文件、操作和决定的历史','满足全部条件后才能关闭；争议在解决前保持开放','关闭交易或继续处理争议'],
  ],
- trust:'每一步都建立信任',trustLead:'权限 → 依据 → 来源 → 决定不是独立功能，而是贯穿整笔交易的控制模型。',
+ trust:'每个阶段都要核验',trustLead:'整笔交易都使用同样四项检查：谁在操作、依据是什么、事实来自哪里、最终记录了什么。',
  cta:'注册',market:'打开市场'
 }} as const;
 

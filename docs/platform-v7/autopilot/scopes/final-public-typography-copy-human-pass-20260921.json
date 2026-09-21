@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/final-public-typography-copy-human-pass-20260921",
+  "status": "active",
+  "authorizedBy": "explicit-user-final-public-typography-and-human-copy-pass-20260921",
+  "purpose": "Bounded FINAL PUBLIC EXPERIENCE v1 typography and editorial pass: unify the public system-font hierarchy across home, linked pages, header, login, Gekta chat and contact dock; retire visible microtype; keep mobile body/supporting copy readable; and rewrite public RU/EN/ZH copy to be concise, natural and free of repetitive machine-like phrasing while preserving server-authoritative product truth.",
+  "authorityBaseExactMain": "78a1d98ececba214489295c0574e4a8c3d3dd37b",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/web/app/platform-v7/about/page.tsx",
+    "apps/web/app/platform-v7/ai-in-action/page.tsx",
+    "apps/web/app/platform-v7/capabilities/page.tsx",
+    "apps/web/app/platform-v7/deal-flow/page.tsx",
+    "apps/web/app/platform-v7/how-it-works/page.tsx",
+    "apps/web/app/platform-v7/market/page.tsx",
+    "apps/web/app/platform-v7/trust/page.tsx",
+    "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
+    "apps/web/components/platform-v7/PublicCanonicalPrimitives.tsx",
+    "apps/web/components/platform-v7/PublicContactDock.tsx",
+    "apps/web/components/platform-v7/PublicSiteHeader.tsx",
+    "apps/web/styles/platform-v7-canonical-home-v1.css",
+    "apps/web/styles/platform-v7-canonical-public-v1.css",
+    "apps/web/styles/platform-v7-public-assistant-polish.css",
+    "apps/web/styles/platform-v7-public-auth.css",
+    "docs/platform-v7/autopilot/scopes/final-public-typography-copy-human-pass-20260921.json",
+    "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts"
+  ],
+  "requiredInvariants": [
+    "Use one local system sans-serif stack across the canonical public experience; no runtime font CDN or paid font dependency.",
+    "Visible public microcopy is >=12 CSS px; semantic supporting copy is >=14 CSS px on handheld layouts; body/lead copy uses a readable 15-16px scale.",
+    "Public headings use a consistent fluid hierarchy and do not jump between serif and sans-serif families.",
+    "Header, navigation, login, Gekta assistant, contact dock, home and linked pages share the same typography family and proportional hierarchy.",
+    "Existing >=44px target, zero horizontal overflow, CLS <=0.1, Axe, Lighthouse, RU/EN/ZH, security and browser thresholds are unchanged.",
+    "Editorial changes preserve server-authoritative semantics: no client-selected role/tenant, no invented live data, no invented integration or financial state, no claim of external confirmation without evidence.",
+    "Public copy removes repetitive machine-like phrasing, unnecessary jargon, English technical leakage in RU/ZH, and promotional filler without weakening factual precision.",
+    "No apps/api, Prisma, domain-core, auth, RBAC/RLS, tenant, Deal state machine, money, outbox, infrastructure, workflow or production release semantics are changed.",
+    "Canonical visual copy assertions may change only to match the approved RU/EN/ZH copy; perceptual maxDistance thresholds and route/admission assertions remain unchanged."
+  ],
+  "acceptance": [
+    "Exact-head web unit/typecheck/build and source-controlled scope guard pass.",
+    "Canonical visual acceptance is reviewed for the intended typography/copy change without increasing perceptual maxDistance thresholds.",
+    "Design System v8 browser/accessibility matrix passes with CLS <=0.1 and existing Axe/browser thresholds unchanged.",
+    "Strategic Home Lighthouse retains the existing mobile and desktop thresholds.",
+    "Mobile 320/375/390/430 renders readable text, >=44px interactive targets and zero page-level horizontal overflow.",
+    "RU/EN/ZH public home and linked pages contain natural, idiomatic copy with no English implementation-status tokens leaking into RU/ZH user-facing text.",
+    "Gekta assistant, public header, contact dock and login use the same local system-font stack and no visible text below 12px.",
+    "No production/FROZEN claim is made from this branch until merged exact main is separately released and accepted on REG.RU."
+  ]
+}
