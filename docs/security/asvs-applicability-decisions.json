@@ -1835,6 +1835,41 @@
       "note": "Sensitive functionality is reached through POST/PUT/PATCH/DELETE handlers, not GET/HEAD/OPTIONS: every route file in apps/web/app that exports a mutating operation does so under one of the four unsafe method names, confirmed by direct enumeration (59 files), and no GET handler carrying a state-changing side effect was found. A subset of routes additionally validate the sec-fetch-site request header directly (agro-chat, restricted-public-platform-assistant, gekta/entitlement, public-platform-assistant and its attachments route all check for sec-fetch-site: cross-site) - named as a real, additional layer where it exists, not claimed as universal. This requirement is specifically about method choice (or Sec-Fetch validation as an alternative), which the codebase satisfies structurally; it is answered independently of the anti-forgery-token coverage gap recorded under V3.5.1, which is a different requirement about a different mechanism."
     },
     {
+      "requirementId": "V3.5.4",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "apps/web/lib/platform-v7/control-host.ts",
+        "repository-scan:host-only-cookies"
+      ],
+      "conditions": [
+        {
+          "condition": "both platform hostnames are declared in one place",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/control-host.ts"
+          ],
+          "patterns": [
+            "primary_platform_host",
+            "control_platform_host"
+          ]
+        },
+        {
+          "condition": "no session cookie declares a domain attribute, so cookies stay host-only",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/platform-v7/cabinet-session/route.ts",
+            "apps/web/app/api/platform-v7/cabinet-lock-login/route.ts",
+            "apps/web/app/api/auth/demo/route.ts"
+          ],
+          "patterns": [
+            "domain:"
+          ]
+        }
+      ],
+      "note": "Half measurable, half blocked, so no verdict is claimed. Measurable and recorded: the platform declares two hostnames, the apex and control.<apex>, in control-host.ts, and no session cookie anywhere sets a domain attribute, so every cookie is host-only and the two hostnames are isolated for cookies as well as by same-origin policy. That is the substance the requirement asks for and it holds. Not measurable here: which applications are actually served on which hostname in production is decided by the Caddy edge on the REG.RU virtual server, whose configuration is not in the repository - the same blocker recorded under V12, V13 and V4. Recording PASS would credit a routing arrangement this repository cannot show, and recording FAIL would deny a cookie isolation it can."
+    },
+    {
       "requirementId": "V3.5.5",
       "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
