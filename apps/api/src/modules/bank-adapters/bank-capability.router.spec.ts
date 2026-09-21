@@ -25,6 +25,7 @@ const authority = (
   evidenceMode: 'SERVER_HELD',
   credentialReadiness: 'VERIFIED_CURRENT',
   callbackTrustReadiness: 'VERIFIED_CURRENT',
+  productionEnvironmentConfirmed: true,
   mayCarryRealTraffic: true,
   ...overrides,
 });
@@ -136,6 +137,16 @@ describe('bank capability router', () => {
       if (priorMode === undefined) delete process.env.BANK_MODE; else process.env.BANK_MODE = priorMode;
       if (priorProvider === undefined) delete process.env.BANK_PROVIDER; else process.env.BANK_PROVIDER = priorProvider;
     }
+  });
+
+  it('requires server-confirmed production environment before live routing', () => {
+    expect(router.route(
+      authority('T_BANK', { productionEnvironmentConfirmed: false }),
+      'STATUS_READ',
+    )).toMatchObject({
+      status: 'NOT_ACTIVATED',
+      reason: 'PRODUCTION_ENVIRONMENT_NOT_CONFIRMED',
+    });
   });
 
   it('requires current credential and callback-trust evidence before live routing', () => {
