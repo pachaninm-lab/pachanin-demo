@@ -41,7 +41,7 @@ ru:{
  boundary:[
   ['Роль и организация','Выбор роли в публичном интерфейсе не даёт доступ. Права появляются только после проверки организации и полномочий.'],
   ['Финансовое состояние','Статус расчёта приходит с сервера и меняется только по подтверждённым событиям.'],
-  ['Внешняя система','Интеграция или внешнее событие считаются подтверждёнными только после ответа внешней системы.'],
+  ['Внешняя система','Интеграция или внешнее событие считаются подтверждёнными только после фактического подтверждения внешней системой.'],
   ['Гекта','Гекта объясняет данные и варианты действий, но не принимает критические решения.'],
  ],
  faq:'Частые вопросы',
@@ -79,7 +79,7 @@ zh:{
  rail:['获得事实','识别来源','核验权限','关联依据','记录决定','允许下一步'],
  boundaries:'信任边界',boundariesLead:'平台不会用界面假设替代以下权威事实。',
  boundary:[
-  ['角色与 tenant','在公开界面选择角色不会获得访问权限。机构和权限审核通过后才会开放相应权利。'],
+  ['角色与机构','在公开界面选择角色不会获得访问权限。机构和权限审核通过后才会开放相应权利。'],
   ['金融状态','结算状态来自服务器，只会根据已确认事件发生变化。'],
   ['外部系统','只有外部系统确认后，集成或外部事件才被视为已确认。'],
   ['Gekta','Gekta 解释数据和可选操作，但不替人做关键决定。'],
@@ -123,7 +123,7 @@ export default async function TrustPage(){
   <section className='pc-cp-hero pc-cp-trust-hero'>
    <div className='pc-cp-container pc-cp-hero-grid'>
     <div className='pc-cp-hero-copy'><span className='pc-cp-eyebrow'>{c.e}</span><h1>{c.t}</h1><p>{c.p}</p><div className='pc-cp-actions'><Link className='pc-cp-button' href={`/platform-v7/register?lang=${locale}`}>{c.register}<ArrowRight size={16}/></Link><Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/how-it-works?lang=${locale}`}>{c.how}</Link></div></div>
-    <aside className='pc-cp-trust-hero-quote'><strong>{locale==='ru'?'Факты, права и решения можно проверить.':locale==='en'?'Facts, authority and decisions can be verified.':'可靠数据。更强农业。'}</strong><span>{locale==='ru'?'Проверяемые факты и история действий.':locale==='en'?'Verifiable facts and an action history.':'用可核验事实替代空泛承诺。'}</span></aside>
+    <aside className='pc-cp-trust-hero-quote'><strong>{locale==='ru'?'Факты, права и решения можно проверить.':locale==='en'?'Facts, authority and decisions can be verified.':'事实、权限和决定都可核验。'}</strong><span>{locale==='ru'?'Проверяемые факты и история действий.':locale==='en'?'Verifiable facts and an action history.':'可核验事实和操作记录。'}</span></aside>
    </div>
   </section>
   <section className='pc-cp-section pc-cp-trust-pillars-section'><div className='pc-cp-container'>
