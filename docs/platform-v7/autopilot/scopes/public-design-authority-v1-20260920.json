@@ -18,6 +18,7 @@
     "apps/web/app/platform-v7/**",
     "apps/web/components/platform-v7/**",
     "apps/web/lighthouserc.cjs",
+    "apps/web/playwright.acceptance.config.ts",
     "apps/web/middleware.ts",
     "apps/web/playwright.canonical-visual.config.ts",
     "apps/web/public/platform-v7/hero-farmer-canonical.webp",
@@ -47,7 +48,8 @@
     "The canonical /platform-v7 landing does not hydrate hidden legacy contact/support surfaces; login/recovery and older public surfaces retain their existing support behavior.",
     "The canonical landing may use a route-scoped stylesheet derived from the shared design system so linked-page CSS does not block home rendering; visual authority and shared tokens/primitives remain unchanged.",
     "Tailwind utilities remain available to non-canonical routes through a server-gated style boundary, while /platform-v7 does not download the application-wide Tailwind bundle.",
-    "Design System v8 acceptance oracles must target the current canonical public DOM and preserve the existing browser, accessibility, touch-target, overflow, role/tenant and fail-closed semantics; obsolete pc-v6 selectors are not acceptance authority."
+    "Design System v8 acceptance oracles must target the current canonical public DOM and preserve the existing browser, accessibility, touch-target, overflow, role/tenant and fail-closed semantics; obsolete pc-v6 selectors are not acceptance authority.",
+    "The shared Design System v8 browser matrix may route superseded public V5 oracles to the canonical visual evidence oracle, while preserving the unchanged five browser/device projects, retries, workers, WCAG serious/critical checks, responsive widths, protected cabinet authority checks and registration-official acceptance."
   ],
   "acceptance": [
     "Exact-head web typecheck, unit, Node CI, API and security gates pass.",
