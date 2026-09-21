@@ -149,7 +149,7 @@ const COPY = {
       dispute: ['Dispute', 'Exceptions are reviewed using connected facts, evidence and the action log.'],
       trust: ['Trust', 'Authority, basis, source and decision remain visible in context.'],
       gekta: ['Gekta', 'Explains the data and risks but does not make critical decisions.'],
-      roles: ['Roles', 'Each participant sees only its authorised working context.'],
+      roles: ['Roles', 'Each participant sees only the data and actions allowed for the confirmed role.'],
       history: ['History', 'Deal events remain linked to fact, participant and basis.'],
     },
     finalTitle: 'Start with the market or your role in the Deal',
