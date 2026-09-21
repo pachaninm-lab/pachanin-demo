@@ -6,6 +6,7 @@ import type {
 export type ExpectedBankOperationEvidence = Readonly<{
   providerFamily: BankProviderFamily;
   operationId: string;
+  idempotencyKey: string;
   providerOperationId: string | null;
   amountMinor: string;
   currency: string;
@@ -33,6 +34,7 @@ export type BankReceiptValidation =
       reason:
         | 'PROVIDER_MISMATCH'
         | 'OPERATION_MISMATCH'
+        | 'IDEMPOTENCY_MISMATCH'
         | 'PROVIDER_OPERATION_MISMATCH'
         | 'AMOUNT_MISMATCH'
         | 'CURRENCY_MISMATCH'
@@ -64,6 +66,9 @@ export function validateBankReceiptCandidate(
   }
   if (!expected.operationId.trim() || candidate.operationId !== expected.operationId) {
     return rejected('OPERATION_MISMATCH');
+  }
+  if (!expected.idempotencyKey.trim() || candidate.idempotencyKey !== expected.idempotencyKey) {
+    return rejected('IDEMPOTENCY_MISMATCH');
   }
   if (
     expected.providerOperationId
