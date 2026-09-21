@@ -11,7 +11,7 @@ const COPY = {
     price: 'Стартовая цена',
     region: 'Регион',
     grade: 'Класс / сорт',
-    ends: 'Торги до',
+    ends: 'До закрытия',
     details: 'Войти и посмотреть',
     access: 'Доступ к торгам',
     selected: 'Выбранный лот',
@@ -32,7 +32,7 @@ const COPY = {
     price: 'Starting price',
     region: 'Region',
     grade: 'Grade',
-    ends: 'Bidding until',
+    ends: 'Closes in',
     details: 'Sign in and view',
     access: 'Trading access',
     selected: 'Selected lot',
@@ -53,7 +53,7 @@ const COPY = {
     price: '起始价格',
     region: '地区',
     grade: '等级',
-    ends: '竞价截止',
+    ends: '距关闭',
     details: '登录查看',
     access: '获取交易权限',
     selected: '所选批次',
@@ -167,7 +167,7 @@ export async function CanonicalPublicLotView({ locale, lotIndex }: { locale: str
             <Metric label={copy.volume} value={formatVolume(lot.volumeTons, lang)} />
             <Metric label={copy.price} value={formatPrice(lot.startPriceKopecksPerTon, lang)} />
             <Metric label={copy.region} value={lot.region} />
-            <Metric label={copy.ends} value={formatDate(lot.auctionEndsAt, lang)} />
+            <Metric label={copy.ends} value={formatRemaining(lot.auctionEndsAt, lang)} />
           </div>
           <div className='pc-cp-actions'>
             <a className='pc-cp-button' href={`/platform-v7/register?lang=${lang}&intent=buy`}>{copy.access}<ArrowRight size={16} aria-hidden='true' /></a>
@@ -178,7 +178,7 @@ export async function CanonicalPublicLotView({ locale, lotIndex }: { locale: str
       </div>
 
       <div className='pc-cp-lot-detail-grid'>
-        <Detail title={lang === 'ru' ? 'Основные параметры' : lang === 'en' ? 'Core parameters' : '主要参数'} text={`${copy.volume}: ${formatVolume(lot.volumeTons, lang)} · ${copy.region}: ${lot.region} · ${copy.ends}: ${formatDate(lot.auctionEndsAt, lang)}`} />
+        <Detail title={lang === 'ru' ? 'Основные параметры' : lang === 'en' ? 'Core parameters' : '主要参数'} text={`${copy.volume}: ${formatVolume(lot.volumeTons, lang)} · ${copy.region}: ${lot.region} · ${copy.ends}: ${formatRemaining(lot.auctionEndsAt, lang)}`} />
         <Detail title={lang === 'ru' ? 'Качество' : lang === 'en' ? 'Quality' : '质量'} text={lot.independentVerification === null ? `${copy.quality}. ${unavailable}: ${lang === 'ru' ? 'независимое подтверждение' : lang === 'en' ? 'independent verification' : '独立核验'}.` : copy.quality} />
         <Detail title={lang === 'ru' ? 'Документы' : lang === 'en' ? 'Documents' : '文件'} text={`${unavailable}. ${lang === 'ru' ? 'Документы доступны только участникам с подтверждёнными полномочиями.' : lang === 'en' ? 'Documents are available only to participants with confirmed authority.' : '文件仅向具有已确认权限的参与方开放。'}`} />
         <Detail title={lang === 'ru' ? 'Контрагент' : lang === 'en' ? 'Counterparty' : '交易对手'} text={`${copy.hidden}. ${lang === 'ru' ? 'Название организации и внутренние идентификаторы не раскрываются.' : lang === 'en' ? 'Organisation name and internal identifiers are not disclosed.' : '机构名称和内部标识不会披露。'}`} />
@@ -239,7 +239,7 @@ function MarketCard({ lot, publicIndex, locale, selected = false }: { lot: Publi
           <Metric label={copy.volume} value={formatVolume(lot.volumeTons, locale)} />
           <Metric label={copy.price} value={formatPrice(lot.startPriceKopecksPerTon, locale)} />
           <Metric label={copy.region} value={lot.region} />
-          <Metric label={copy.ends} value={formatDate(lot.auctionEndsAt, locale)} />
+          <Metric label={copy.ends} value={formatRemaining(lot.auctionEndsAt, locale)} />
         </div>
         <div className='pc-cp-lot-foot'><span><ShieldCheck size={13} aria-hidden='true' /> {copy.declared}</span></div>
         <div className='pc-cp-actions' data-testid='canonical-public-market-lot-actions'>
@@ -261,7 +261,7 @@ function MarketAside({ lot, publicIndex, locale, authority }: { lot: PublicMarke
         <Row label={copy.volume} value={formatVolume(lot.volumeTons, locale)} />
         <Row label={copy.price} value={formatPrice(lot.startPriceKopecksPerTon, locale)} />
         <Row label={copy.region} value={lot.region} />
-        <Row label={copy.ends} value={formatDate(lot.auctionEndsAt, locale)} />
+        <Row label={copy.ends} value={formatRemaining(lot.auctionEndsAt, locale)} />
       </dl>
       <div className='pc-cp-chip pc-cp-chip--ok'><ShieldCheck size={13} aria-hidden='true' />{copy.declared}</div>
       <p className='pc-cp-lead' style={{ fontSize: 12 }}>{copy.quality}</p>
@@ -447,8 +447,29 @@ function formatPrice(value: string, locale: CanonicalPublicLocale) {
     return locale === 'ru' ? 'Недоступно' : locale === 'en' ? 'Unavailable' : '不可用';
   }
 }
-function formatDate(value: string, locale: CanonicalPublicLocale) {
-  return new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : locale === 'zh' ? 'zh-CN' : 'ru-RU', { day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Moscow' }).format(new Date(value));
+function formatRemaining(value: string, locale: CanonicalPublicLocale) {
+  const target = new Date(value).getTime();
+  const remaining = target - Date.now();
+  if (!Number.isFinite(target) || remaining <= 0) {
+    return locale === 'ru' ? 'Закрыто' : locale === 'en' ? 'Closed' : '已关闭';
+  }
+  const totalMinutes = Math.max(1, Math.ceil(remaining / 60000));
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+  if (locale === 'zh') {
+    if (days > 0) return `${days}天 ${hours}小时`;
+    if (hours > 0) return `${hours}小时 ${minutes}分`;
+    return `${minutes}分`;
+  }
+  if (locale === 'en') {
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
+  }
+  if (days > 0) return `${days} д ${hours} ч`;
+  if (hours > 0) return `${hours} ч ${minutes} мин`;
+  return `${minutes} мин`;
 }
 function formatObserved(value: string, locale: CanonicalPublicLocale) {
   return new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : locale === 'zh' ? 'zh-CN' : 'ru-RU', { day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Moscow' }).format(new Date(value));
