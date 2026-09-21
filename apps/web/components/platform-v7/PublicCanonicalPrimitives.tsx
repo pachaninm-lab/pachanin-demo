@@ -73,22 +73,22 @@ export const CANONICAL_ROLES = {
 
 export const TRUST_MODEL = {
   ru: [
-    ['Полномочия', 'Кто может действовать и от имени какой организации.'],
-    ['Основание', 'Какой документ, условие или событие разрешает действие.'],
-    ['Источник', 'Откуда взят факт и к какой версии Сделки он относится.'],
-    ['Решение', 'Что решено, кем и что разрешено делать дальше.'],
+    ['Полномочия', 'Видно, кто вправе действовать и от какой организации.'],
+    ['Основание', 'У важного действия есть понятное основание: документ, условие или событие.'],
+    ['Источник', 'Понятно, откуда пришёл факт и к какой версии Сделки он относится.'],
+    ['Решение', 'Зафиксировано, кто принял решение и какой следующий шаг разрешён.'],
   ],
   en: [
-    ['Authority', 'Who may act and for which organisation.'],
-    ['Basis', 'Which document, condition or event permits the action.'],
-    ['Source', 'Where the fact came from and which Deal version it belongs to.'],
-    ['Decision', 'What was decided, by whom, and what may happen next.'],
+    ['Authority', 'See who is allowed to act and for which organisation.'],
+    ['Basis', 'Every important action has a clear basis: a document, condition or event.'],
+    ['Source', 'See where a fact came from and which Deal version it belongs to.'],
+    ['Decision', 'See who made the decision and which next step is allowed.'],
   ],
   zh: [
-    ['权限', '谁可以操作，以及代表哪个机构。'],
-    ['依据', '哪个文件、条件或事件允许该操作。'],
-    ['来源', '事实来自哪里，以及对应交易的哪个版本。'],
-    ['决定', '做出了什么决定、由谁决定，以及接下来可以做什么。'],
+    ['权限', '清楚看到谁有权操作，以及代表哪个机构。'],
+    ['依据', '每个重要操作都有明确依据：文件、条件或事件。'],
+    ['来源', '清楚看到事实来自哪里，以及对应哪个交易版本。'],
+    ['决定', '记录谁作出决定，以及允许执行的下一步。'],
   ],
 } as const;
 
