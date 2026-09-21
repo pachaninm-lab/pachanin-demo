@@ -23,7 +23,8 @@
     "apps/web/styles/platform-v7-canonical-public-v1.css",
     "apps/web/styles/platform-v7-public-assistant-polish.css",
     "apps/web/styles/platform-v7-public-auth.css",
-    "docs/platform-v7/autopilot/scopes/final-public-typography-copy-human-pass-20260921.json"
+    "docs/platform-v7/autopilot/scopes/final-public-typography-copy-human-pass-20260921.json",
+    "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts"
   ],
   "requiredInvariants": [
     "Use one local system sans-serif stack across the canonical public experience; no runtime font CDN or paid font dependency.",
@@ -33,7 +34,8 @@
     "Existing >=44px target, zero horizontal overflow, CLS <=0.1, Axe, Lighthouse, RU/EN/ZH, security and browser thresholds are unchanged.",
     "Editorial changes preserve server-authoritative semantics: no client-selected role/tenant, no invented live data, no invented integration or financial state, no claim of external confirmation without evidence.",
     "Public copy removes repetitive machine-like phrasing, unnecessary jargon, English technical leakage in RU/ZH, and promotional filler without weakening factual precision.",
-    "No apps/api, Prisma, domain-core, auth, RBAC/RLS, tenant, Deal state machine, money, outbox, infrastructure, workflow or production release semantics are changed."
+    "No apps/api, Prisma, domain-core, auth, RBAC/RLS, tenant, Deal state machine, money, outbox, infrastructure, workflow or production release semantics are changed.",
+    "Canonical visual copy assertions may change only to match the approved RU/EN/ZH copy; perceptual maxDistance thresholds and route/admission assertions remain unchanged."
   ],
   "acceptance": [
     "Exact-head web unit/typecheck/build and source-controlled scope guard pass.",
