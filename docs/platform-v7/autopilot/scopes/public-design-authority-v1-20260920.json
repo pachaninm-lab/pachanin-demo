@@ -30,7 +30,11 @@
     "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
     "docs/security/cryptographic-inventory.json",
     "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
-    "docs/platform-v7/autopilot/scopes/public-design-authority-v1-20260920.json"
+    "docs/platform-v7/autopilot/scopes/public-design-authority-v1-20260920.json",
+    "apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts",
+    "apps/web/tests/e2e/platform-v7-hero-card-min14.spec.ts",
+    "apps/web/tests/e2e/platform-v7-home-brand-visibility.spec.ts",
+    "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts"
   ],
   "requiredInvariants": [
     "Existing backend/API/security/role/tenant/registration/Deal semantics remain authoritative and are not replaced by client state.",
@@ -42,7 +46,8 @@
     "No branch protection, security gate, governance guard or server authority is bypassed.",
     "The canonical /platform-v7 landing does not hydrate hidden legacy contact/support surfaces; login/recovery and older public surfaces retain their existing support behavior.",
     "The canonical landing may use a route-scoped stylesheet derived from the shared design system so linked-page CSS does not block home rendering; visual authority and shared tokens/primitives remain unchanged.",
-    "Tailwind utilities remain available to non-canonical routes through a server-gated style boundary, while /platform-v7 does not download the application-wide Tailwind bundle."
+    "Tailwind utilities remain available to non-canonical routes through a server-gated style boundary, while /platform-v7 does not download the application-wide Tailwind bundle.",
+    "Design System v8 acceptance oracles must target the current canonical public DOM and preserve the existing browser, accessibility, touch-target, overflow, role/tenant and fail-closed semantics; obsolete pc-v6 selectors are not acceptance authority."
   ],
   "acceptance": [
     "Exact-head web typecheck, unit, Node CI, API and security gates pass.",
