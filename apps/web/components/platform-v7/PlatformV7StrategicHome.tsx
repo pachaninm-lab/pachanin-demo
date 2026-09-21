@@ -24,7 +24,7 @@ const COPY = {
   ru: {
     heroKicker: 'Платформа для агросделок',
     heroTitle: 'Агросделка — от цены до закрытия.',
-    heroLead: 'Лот, торги, доставка, качество, документы и расчёт — в одной Сделке. Каждый участник видит свои задачи, основания и следующий шаг.',
+    heroLead: 'В одной Сделке собраны торги, доставка, качество, документы и расчёт. Участник видит свои задачи и доступные действия.',
     sell: 'Продать',
     buy: 'Купить',
     proof: ['Публичные лоты', '9 ролей', '7 этапов', 'Факты и основания'],
@@ -123,7 +123,7 @@ const COPY = {
     rolesLabel: '9 roles',
     liveEyebrow: 'Deal in progress',
     liveTitle: 'Normal, deviation and dispute in one working context',
-    liveLead: 'The screen shows what happened, who acts, the basis, the settlement status and what can happen next.',
+    liveLead: 'The screen shows what happened, who is responsible, the settlement status and what can happen next.',
     state: {
       happened: 'Only confirmed Deal state is shown.',
       actor: 'A participant with a confirmed role and Deal access.',
@@ -160,7 +160,7 @@ const COPY = {
   zh: {
     heroKicker: '农业交易平台',
     heroTitle: '从定价到结算，一笔交易贯穿全程。',
-    heroLead: '批次、交易、交付、质量、文件与结算统一在一笔交易中。每个参与方只看到自己的任务、依据和下一步。',
+    heroLead: '交易、交付、质量、文件与结算都在同一笔交易中。每个参与方只看到自己的任务和可执行操作。',
     sell: '出售',
     buy: '购买',
     proof: ['公开批次', '9 个角色', '7 个阶段', '事实与依据'],
@@ -191,7 +191,7 @@ const COPY = {
     rolesLabel: '9 个角色',
     liveEyebrow: '进行中的交易',
     liveTitle: '正常、偏差和争议在同一工作上下文中',
-    liveLead: '页面直接显示发生了什么、谁负责、依据是什么、结算状态以及下一步。',
+    liveLead: '页面直接显示发生了什么、谁负责、结算状态以及接下来可以做什么。',
     state: {
       happened: '只展示已确认的交易状态。',
       actor: '由具备已确认角色和交易权限的参与方处理。',
