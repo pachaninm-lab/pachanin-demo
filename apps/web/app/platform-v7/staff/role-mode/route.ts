@@ -11,6 +11,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 12;
 
 const API_BASE_URL = resolveServerApiBaseUrl();
+const STAFF_ACCESS_COOKIE = 'pc_staff_access_token';
 const MAX_BODY_BYTES = 16 * 1024;
 
 type JsonRecord = Record<string, unknown>;
@@ -80,6 +81,31 @@ async function readJsonBody(request: NextRequest): Promise<JsonRecord | null> {
 async function proxyRegistry(request: NextRequest, accessToken: string, correlation: string) {
   const upstream = await fetch(`${API_BASE_URL}/staff/founder/role-mode/registry`, {
     headers: baseHeaders(request, accessToken, correlation),
+    cache: 'no-store',
+    redirect: 'manual',
+    signal: AbortSignal.timeout(8_000),
+  });
+  if (upstream.status >= 300 && upstream.status < 400) {
+    return json({ ok: false, code: 'UPSTREAM_REDIRECT_REJECTED', correlationId: correlation }, 502);
+  }
+  const payload = await upstream.json().catch(() => ({})) as unknown;
+  const safePayload: JsonRecord = payload && typeof payload === 'object' && !Array.isArray(payload)
+    ? { ...(payload as JsonRecord), correlationId: correlation }
+    : { correlationId: correlation };
+  delete safePayload.accessToken;
+  return json(safePayload, upstream.status);
+}
+
+async function proxySession(request: NextRequest, accessToken: string, correlation: string) {
+  const staffAccessToken = request.cookies.get(STAFF_ACCESS_COOKIE)?.value || '';
+  if (!staffAccessToken) {
+    return json({ ok: false, code: 'ROLE_MODE_SESSION_INACTIVE', correlationId: correlation }, 401);
+  }
+  const upstream = await fetch(`${API_BASE_URL}/staff/founder/role-mode/session`, {
+    headers: {
+      ...baseHeaders(request, accessToken, correlation),
+      'x-staff-access-session': staffAccessToken,
+    },
     cache: 'no-store',
     redirect: 'manual',
     signal: AbortSignal.timeout(8_000),
@@ -189,11 +215,16 @@ export async function GET(request: NextRequest) {
   const checked = preflight(request);
   if (checked.response) return checked.response;
   try {
+    if (request.nextUrl.searchParams.get('view') === 'session') {
+      return await proxySession(request, checked.accessToken, checked.correlation);
+    }
     return await proxyRegistry(request, checked.accessToken, checked.correlation);
   } catch {
     return json({
       ok: false,
-      code: 'ROLE_MODE_REGISTRY_UNAVAILABLE',
+      code: request.nextUrl.searchParams.get('view') === 'session'
+        ? 'ROLE_MODE_SESSION_UNAVAILABLE'
+        : 'ROLE_MODE_REGISTRY_UNAVAILABLE',
       correlationId: checked.correlation,
     }, 503);
   }
