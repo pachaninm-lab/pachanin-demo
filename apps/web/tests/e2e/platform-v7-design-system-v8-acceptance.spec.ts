@@ -351,7 +351,8 @@ for (const locale of ['ru', 'en', 'zh'] as const) {
           expect(box!.x + box!.width).toBeLessThanOrEqual(width + 1);
         }
         if (route !== 'register' && route !== 'gekta') {
-          await expect(header.locator(':scope > .pc-site-actions .pc-v6-header-cta:visible').first()).toHaveAttribute('href', `/platform-v7/register?lang=${locale}`);
+          // Bind the assertion to the visible desktop action; the mobile menu intentionally carries a duplicate CTA.
+      await expect(header.locator(':scope > .pc-site-actions .pc-v6-header-cta:visible').first()).toHaveAttribute('href', `/platform-v7/register?lang=${locale}`);
         }
         if (route === 'terms' || route === 'privacy') {
           const legal = page.locator('.pc-linked-policy');
