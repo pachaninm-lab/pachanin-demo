@@ -24,6 +24,7 @@
     "apps/web/styles/platform-v7-public-assistant-polish.css",
     "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
     "apps/web/tests/unit/platformV7SpacingAndContactDock.regression.test.ts",
+    "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
     "docs/platform-v7/autopilot/scopes/final-public-typography-editorial-20260921.json"
   ],
   "requiredInvariants": [
@@ -37,7 +38,8 @@
     "RU/EN/ZH public copy remains semantically aligned, fact-bounded and free of fabricated performance, partner, market or product claims.",
     "Persuasion is benefit-led and trust-led: concrete value, uncertainty reduction, proof/basis language and clear next action; no coercive scarcity, false social proof or guaranteed outcomes.",
     "Existing Gekta PublicPlatformAssistant authority and STREAM/SSE path are unchanged.",
-    "CI/security/a11y/Lighthouse/CLS/visual thresholds are not weakened."
+    "CI/security/a11y/Lighthouse/CLS/visual thresholds are not weakened.",
+    "Canonical visual authority may refresh only manually inspected hashes for intended typography/editorial reflow; all existing maxDistance values remain numerically unchanged."
   ],
   "acceptance": [
     "Exact-head unit/source scope guards pass.",
