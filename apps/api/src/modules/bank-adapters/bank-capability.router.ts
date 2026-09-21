@@ -8,6 +8,8 @@ import type {
   BankReferenceAdapter,
 } from './bank-adapter.port';
 
+export type BankRoutingReadiness = 'VERIFIED_CURRENT' | 'MISSING_OR_UNKNOWN' | 'EXPIRED_OR_REVOKED';
+
 export type BankRoutingAuthority = Readonly<{
   providerFamily: BankProviderFamily;
   integrationBindingId: string;
@@ -17,7 +19,10 @@ export type BankRoutingAuthority = Readonly<{
   capabilityCode: string;
   maturity: IntegrationCapabilityMaturity;
   bindingVersion: string;
+  configurationVersion: string;
   evidenceMode: 'SERVER_HELD';
+  credentialReadiness: BankRoutingReadiness;
+  callbackTrustReadiness: BankRoutingReadiness;
   mayCarryRealTraffic: boolean;
 }>;
 
@@ -81,6 +86,7 @@ export class BankCapabilityRouter {
       || !authority.providerCapabilityId.trim()
       || !authority.bindingKey.trim()
       || !authority.bindingVersion.trim()
+      || !authority.configurationVersion.trim()
     ) {
       return {
         status: 'CONTRADICTORY',
@@ -94,6 +100,17 @@ export class BankCapabilityRouter {
         status: 'NOT_ACTIVATED',
         adapter,
         reason: 'SERVER_HELD_MATURITY_DOES_NOT_ALLOW_REAL_TRAFFIC',
+      };
+    }
+
+    if (
+      authority.credentialReadiness !== 'VERIFIED_CURRENT'
+      || authority.callbackTrustReadiness !== 'VERIFIED_CURRENT'
+    ) {
+      return {
+        status: 'NOT_ACTIVATED',
+        adapter,
+        reason: 'CREDENTIAL_OR_CALLBACK_TRUST_NOT_VERIFIED',
       };
     }
 
