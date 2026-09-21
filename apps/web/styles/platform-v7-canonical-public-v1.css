@@ -2034,19 +2034,6 @@ html[lang^='zh'] .pc-canonical-public :is(p,li,dd,.pc-cp-section-head p,.pc-cp-l
 
 /* FINAL PUBLIC UX POLISH — 2026-09-21 owner feedback pass */
 .pc-site-mobile-nav-links>.pc-site-mobile-utility{display:none!important}
-.pc-cp-state-tab:is(a){
-  cursor:pointer;
-  text-decoration:none;
-  transition:background-color .16s ease,border-color .16s ease,color .16s ease,transform .16s ease;
-}
-.pc-cp-state-tab:is(a):hover,
-.pc-cp-state-tab:is(a):focus-visible{
-  border-color:#9fcbb4;
-  background:#eef8f2;
-  color:#0a5a41;
-}
-.pc-cp-state-tab:is(a):active{transform:translateY(1px)}
-
 .pc-cp-lot-media{
   position:relative;
   isolation:isolate;
