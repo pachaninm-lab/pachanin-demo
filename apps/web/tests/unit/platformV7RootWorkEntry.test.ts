@@ -89,6 +89,56 @@ describe('platform-v7 canonical public experience',()=>{
     expect(layout).toContain('<HydrationSafeChatSupport renderDock={false} legacyPublicPolish={false} />');
   });
 
+
+  it('keeps final public typography readable, consistent and free of templated copy',()=>{
+    const homeCss=read('styles/platform-v7-canonical-home-v1.css');
+    const assistantCss=read('styles/platform-v7-public-assistant-polish.css');
+    const finalTypographyMarker='/* FINAL PUBLIC TYPOGRAPHY AUTHORITY — 2026-09-21';
+    const assistantTypographyMarker='/* FINAL PUBLIC TYPOGRAPHY AUTHORITY — assistant 2026-09-21 */';
+
+    for(const sheet of [homeCss,css]){
+      const markerIndex=sheet.lastIndexOf(finalTypographyMarker);
+      expect(markerIndex).toBeGreaterThan(0);
+      const authority=sheet.slice(markerIndex);
+      const pxSizes=[...authority.matchAll(/font-size:\s*(\d+(?:\.\d+)?)px/g)].map((match)=>Number(match[1]));
+      expect(pxSizes.length).toBeGreaterThan(0);
+      expect(Math.min(...pxSizes)).toBeGreaterThanOrEqual(12);
+      expect(authority).toContain('--pc-cp-ui:-apple-system');
+      expect(authority).toContain('--pc-cp-display:-apple-system');
+      expect(authority).not.toMatch(/Georgia|Times New Roman/);
+      expect(authority).toContain('FINAL PUBLIC MICROTYPE COMPLETENESS');
+    }
+
+    const headerPxSizes=[...siteHeader.matchAll(/font-size:\s*(\d+(?:\.\d+)?)px/g)].map((match)=>Number(match[1]));
+    expect(Math.min(...headerPxSizes)).toBeGreaterThanOrEqual(12);
+
+    const assistantMarkerIndex=assistantCss.lastIndexOf(assistantTypographyMarker);
+    expect(assistantMarkerIndex).toBeGreaterThan(0);
+    const assistantAuthority=assistantCss.slice(assistantMarkerIndex);
+    const assistantPxSizes=[...assistantAuthority.matchAll(/font-size:\s*(\d+(?:\.\d+)?)px/g)].map((match)=>Number(match[1]));
+    expect(Math.min(...assistantPxSizes)).toBeGreaterThanOrEqual(12);
+
+    for(const retired of [
+      'Критическое состояние отвечает на пять вопросов',
+      'Прозрачные сделки создают устойчивое будущее АПК',
+      'The workspace shows actual state without replacing server data.',
+      '关键状态回答五个问题',
+      'Аграрный интеллект',
+      'Agricultural intelligence',
+      '农业智能',
+    ]) expect(home + primitives).not.toContain(retired);
+
+    for(const humanCopy of [
+      'Агросделка — от цены до закрытия.',
+      'Экран сразу показывает, что произошло',
+      'From price to closure — one Deal.',
+      '从定价到结算，一笔交易贯穿全程。',
+      'Помощник по Сделке',
+      'Deal assistant',
+      '交易助手',
+    ]) expect(home + primitives).toContain(humanCopy);
+  });
+
   it('locks the nine canonical roles and seven Deal stages',()=>{
     for(const role of ['Продавец','Покупатель','Логистика','Водитель','Элеватор','Лаборатория','Сюрвейер','Банк','Сотрудник подключённой организации']){
       expect(primitives).toContain(role);
