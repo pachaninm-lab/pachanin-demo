@@ -104,7 +104,7 @@ describe('bank receipt contract', () => {
       .toMatchObject({ status: 'REJECTED', reason: 'EXTERNAL_RECEIPT_MISSING' });
   });
 
-  it('fails closed on provider-event and payload replay evidence supplied by durable inbox history', () => {
+  it('fails closed on provider-event, payload and external-receipt replay evidence supplied by durable inbox history', () => {
     expect(validateBankReceiptCandidate(
       { ...expected, alreadyConsumedProviderEventIds: ['event-1'] },
       candidate(),
@@ -113,5 +113,9 @@ describe('bank receipt contract', () => {
       { ...expected, alreadyConsumedPayloadFingerprints: ['sha256:abc'] },
       candidate(),
     )).toMatchObject({ status: 'REJECTED', reason: 'PAYLOAD_REPLAY' });
+    expect(validateBankReceiptCandidate(
+      { ...expected, alreadyConsumedExternalReceiptIds: ['receipt-1'] },
+      candidate({ providerEventId: 'event-2', payloadFingerprint: 'sha256:def' }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'EXTERNAL_RECEIPT_REPLAY' });
   });
 });

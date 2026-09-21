@@ -13,6 +13,7 @@ export type ExpectedBankOperationEvidence = Readonly<{
   currency: string;
   alreadyConsumedProviderEventIds?: readonly string[];
   alreadyConsumedPayloadFingerprints?: readonly string[];
+  alreadyConsumedExternalReceiptIds?: readonly string[];
 }>;
 
 export type BankReceiptValidation =
@@ -42,6 +43,7 @@ export type BankReceiptValidation =
         | 'AUTHENTICATION_AUTHORITY_MISMATCH'
         | 'PROVIDER_EVENT_REPLAY'
         | 'PAYLOAD_REPLAY'
+        | 'EXTERNAL_RECEIPT_REPLAY'
         | 'AUTHENTICATION_EVIDENCE_MISSING'
         | 'PAYLOAD_FINGERPRINT_MISSING'
         | 'EXTERNAL_RECEIPT_MISSING';
@@ -110,6 +112,13 @@ export function validateBankReceiptCandidate(
   ) {
     return rejected('PAYLOAD_REPLAY');
   }
+  const externalReceiptId = candidate.externalReceiptId?.trim() || null;
+  if (
+    externalReceiptId
+    && expected.alreadyConsumedExternalReceiptIds?.some((value) => value.trim() === externalReceiptId)
+  ) {
+    return rejected('EXTERNAL_RECEIPT_REPLAY');
+  }
 
   // Even non-final/unknown provider facts must come from an authenticated,
   // fingerprinted transport before they are allowed to influence reconciliation.
@@ -134,7 +143,7 @@ export function validateBankReceiptCandidate(
     };
   }
 
-  if (!candidate.externalReceiptId?.trim()) {
+  if (!externalReceiptId) {
     return rejected('EXTERNAL_RECEIPT_MISSING');
   }
 
