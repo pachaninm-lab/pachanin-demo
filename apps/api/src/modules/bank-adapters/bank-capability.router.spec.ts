@@ -95,13 +95,18 @@ describe('bank capability router', () => {
       adapter: null,
       reason: 'SERVER_HELD_PROVIDER_BINDING_REQUIRED',
     });
-    expect(router.route(
-      authority('SBER', { integrationBindingId: '' }),
-      'STATUS_READ',
-    )).toMatchObject({
-      status: 'CONTRADICTORY',
-      reason: 'INCOMPLETE_SERVER_HELD_BINDING_AUTHORITY',
-    });
+    for (const broken of [
+      { integrationBindingId: '' },
+      { capabilityCode: '' },
+    ] as const) {
+      expect(router.route(
+        authority('SBER', broken),
+        'STATUS_READ',
+      )).toMatchObject({
+        status: 'CONTRADICTORY',
+        reason: 'INCOMPLETE_SERVER_HELD_BINDING_AUTHORITY',
+      });
+    }
   });
 
   it('requires the server-held provider binding to authorize the exact capability', () => {
