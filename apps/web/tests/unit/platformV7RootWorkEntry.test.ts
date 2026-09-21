@@ -173,6 +173,12 @@ describe('platform-v7 canonical public experience',()=>{
       'От поля до результата',
       'From field to outcome',
       '从田间到结果',
+      'Правила торгов и серверно подтверждённый результат',
+      'Trading rules and server-confirmed outcome',
+      '交易规则和服务器确认的结果',
+      'Сам факт доставки не даёт клиенту права менять финансовое состояние',
+      'Delivery itself cannot let the client choose financial state',
+      '交付本身不能让客户端选择金融状态',
     ]) expect(home + primitives + linkedCopy).not.toContain(retired);
 
     for(const humanCopy of [
@@ -190,6 +196,12 @@ describe('platform-v7 canonical public experience',()=>{
       '9 个角色',
       'Market, execution, documents, settlement and closure stay connected.',
       'На каждом этапе указаны участник, факты, основание и следующий шаг.',
+      'Правила торгов и подтверждённый результат торгов',
+      'Trading rules and confirmed trading result',
+      '交易规则和已确认的交易结果',
+      'Доставка сама по себе не подтверждает финансовое событие и не меняет статус расчёта',
+      'Delivery alone does not confirm a financial event or change settlement status',
+      '仅完成交付不会确认金融事件，也不会改变结算状态',
       'Загружаем подтверждённые данные.',
     ]) expect(home + primitives + linkedCopy).toContain(humanCopy);
   });
