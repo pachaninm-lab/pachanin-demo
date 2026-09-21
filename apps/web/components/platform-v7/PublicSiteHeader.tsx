@@ -12,7 +12,7 @@ export const PUBLIC_SITE_HEADER_HEIGHT = 64;
  */
 const PUBLIC_SITE_HEADER_STYLES = `
 .pc-visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
-.pc-site-header{--pc-site-control-height:44px;position:fixed;inset:0 0 auto;z-index:2600;height:64px;display:flex;align-items:center;gap:12px;padding:0 clamp(12px,3vw,30px);background:#fff;border-bottom:1px solid rgba(7,22,17,.08);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.pc-site-header{--pc-site-control-height:44px;position:fixed;inset:0 0 auto;z-index:2600;height:64px;display:flex;align-items:center;gap:12px;padding:0 clamp(12px,3vw,30px);background:#fff;border-bottom:1px solid rgba(7,22,17,.08);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI Variable","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
 .pc-site-brand{min-height:44px;display:inline-flex;align-items:center;gap:8px;min-width:0;flex:0 0 auto;color:#071611;text-decoration:none}
 .pc-site-brand-mark{width:34px;height:34px;flex:0 0 34px;display:inline-grid;place-items:center}
 .pc-site-brand-mark>span,.pc-site-brand-mark img{width:100%!important;height:100%!important;display:block!important;object-fit:contain!important}
