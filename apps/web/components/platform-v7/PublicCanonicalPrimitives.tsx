@@ -73,22 +73,22 @@ export const CANONICAL_ROLES = {
 
 export const TRUST_MODEL = {
   ru: [
-    ['Полномочия', 'Кто вправе действовать в этом контексте и от имени какой организации.'],
-    ['Основание', 'Какое условие, документ или подтверждённое событие разрешает действие.'],
-    ['Источник', 'Откуда получен факт и в какой версии он относится к Сделке.'],
-    ['Решение', 'Какое действие принято, кем и какой следующий шаг разрешён.'],
+    ['Полномочия', 'Кто может действовать и от имени какой организации.'],
+    ['Основание', 'Какое условие, документ или событие позволяет сделать этот шаг.'],
+    ['Источник', 'Откуда взят факт и к какой версии Сделки он относится.'],
+    ['Решение', 'Что решено, кем и что можно делать дальше.'],
   ],
   en: [
-    ['Authority', 'Who may act in this context and for which organisation.'],
-    ['Basis', 'Which condition, document or confirmed event permits the action.'],
+    ['Authority', 'Who can act and on behalf of which organisation.'],
+    ['Basis', 'Which condition, document or event allows this step.'],
     ['Source', 'Where the fact came from and which Deal version it belongs to.'],
-    ['Decision', 'What was decided, by whom, and which next step is permitted.'],
+    ['Decision', 'What was decided, by whom, and what can happen next.'],
   ],
   zh: [
-    ['权限', '谁有权在当前上下文中代表哪个机构执行操作。'],
-    ['依据', '哪个条件、文件或已确认事件允许该操作。'],
+    ['权限', '谁可以操作，以及代表哪个机构。'],
+    ['依据', '哪个条件、文件或事件允许执行这一步。'],
     ['来源', '事实来自哪里，以及属于交易的哪个版本。'],
-    ['决定', '作出了什么决定、由谁作出，以及允许的下一步是什么。'],
+    ['决定', '作出了什么决定、由谁作出，以及接下来可以做什么。'],
   ],
 } as const;
 
@@ -253,10 +253,10 @@ export function CanonicalStateLens({
 export function CanonicalGektaStrip({ locale }: { locale: string }) {
   const lang = canonicalPublicLocale(locale);
   const c = lang === 'ru'
-    ? { k: 'Аграрный интеллект', t: 'Гекта', p: 'Объясняет контекст Сделки, риски, основания и допустимый следующий шаг. Критическое решение остаётся за человеком и правилами платформы.', chips: ['Контекст Сделки', 'Документы', 'Логистика', 'Качество', 'Расчёт', 'Риски'] }
+    ? { k: 'Аграрный интеллект', t: 'Гекта', p: 'Собирает контекст Сделки, подсвечивает риски и объясняет, что важно проверить и какой шаг доступен дальше. Решение и ответственность остаются за участником.', chips: ['Контекст Сделки', 'Документы', 'Логистика', 'Качество', 'Расчёт', 'Риски'] }
     : lang === 'en'
-      ? { k: 'Agricultural intelligence', t: 'Gekta', p: 'Explains Deal context, risks, evidence and the permitted next step. Critical decisions remain with people and platform rules.', chips: ['Deal context', 'Documents', 'Logistics', 'Quality', 'Settlement', 'Risk'] }
-      : { k: '农业智能', t: 'Gekta', p: '解释交易上下文、风险、依据和允许的下一步。关键决定仍由人员和平台规则控制。', chips: ['交易上下文', '文件', '物流', '质量', '结算', '风险'] };
+      ? { k: 'Agricultural intelligence', t: 'Gekta', p: 'Pulls Deal context together, highlights risks and explains what to check and which step is available next. Decisions and accountability stay with the participant.', chips: ['Deal context', 'Documents', 'Logistics', 'Quality', 'Settlement', 'Risk'] }
+      : { k: '农业智能', t: 'Gekta', p: '汇总交易上下文、提示风险，并说明需要核验什么以及下一步可以做什么。决定和责任仍由参与方承担。', chips: ['交易上下文', '文件', '物流', '质量', '结算', '风险'] };
   return (
     <section className='pc-cp-gekta-strip'>
       <div className='pc-cp-gekta-brand'>
