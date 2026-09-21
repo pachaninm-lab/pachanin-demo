@@ -322,3 +322,69 @@
   .retryButton,
   .refreshButton { border: 1px solid CanvasText; }
 }
+
+
+.canonicalOverview {
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--pc-border);
+  border-radius: 20px;
+  background: var(--pc-shell-surface);
+  padding: clamp(16px, 2.4vw, 22px);
+}
+
+.canonicalOverview :global(.pc-cp-deal-spine) {
+  margin-top: 0;
+}
+
+.canonicalOverview :global(.pc-cp-state-shell) {
+  box-shadow: none;
+}
+
+.canonicalTrust {
+  border: 1px solid var(--pc-border);
+  border-radius: 20px;
+  background: var(--pc-shell-surface);
+  padding: clamp(16px, 2.4vw, 22px);
+  display: grid;
+  gap: 14px;
+}
+
+.canonicalTrustHead {
+  display: grid;
+  gap: 5px;
+}
+
+.canonicalTrustHead > span {
+  color: var(--pc-accent);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.canonicalTrustHead h2 {
+  margin: 0;
+  font-size: clamp(22px, 3vw, 30px);
+  line-height: 1.08;
+  letter-spacing: -.03em;
+}
+
+.canonicalTrust :global(.pc-cp-trust-grid) {
+  gap: 10px;
+}
+
+.canonicalTrust :global(.pc-cp-trust-card) {
+  box-shadow: none;
+}
+
+@media (max-width: 800px) {
+  .canonicalOverview,
+  .canonicalTrust { border-radius: 18px; padding: 15px; }
+}
+
+@media (max-width: 430px) {
+  .canonicalOverview,
+  .canonicalTrust { padding: 13px; gap: 11px; }
+  .canonicalTrustHead h2 { font-size: 22px; }
+}

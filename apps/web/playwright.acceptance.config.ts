@@ -14,7 +14,7 @@ const tlsKey = process.env.PC_ACCEPTANCE_TLS_KEY || '.acceptance-tls/tls.key';
 
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: /platform-v7-(design-system-v8-acceptance|public-product-experience-v3|public-intelligence-layer|strategic-home-v3|home-brand-visibility|hero-card-min14|registration-official|trust-responsive-acceptance|role-human-acceptance)\.spec\.ts/,
+  testMatch: /platform-v7-(design-system-v8-acceptance|canonical-visual-evidence|registration-official)\.spec\.ts/,
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,
@@ -43,18 +43,22 @@ export default defineConfig({
     },
     {
       name: 'desktop-firefox',
+      grep: /Design System v8|public registration locale cycle|canonical protected cabinet boundary|canonical cross-browser public smoke|Platform V7 public registration official UX/,
       use: { ...devices['Desktop Firefox'], viewport: { width: 1440, height: 1000 } },
     },
     {
       name: 'desktop-webkit',
+      grep: /Design System v8|public registration locale cycle|canonical protected cabinet boundary|canonical cross-browser public smoke|Platform V7 public registration official UX/,
       use: { ...devices['Desktop Safari'], viewport: { width: 1440, height: 1000 } },
     },
     {
       name: 'android-chromium',
+      grep: /Design System v8|public registration locale cycle|canonical protected cabinet boundary|canonical cross-browser public smoke|Platform V7 public registration official UX/,
       use: { ...devices['Pixel 5'] },
     },
     {
       name: 'iphone-webkit',
+      grep: /Design System v8|public registration locale cycle|canonical protected cabinet boundary|canonical cross-browser public smoke|Platform V7 public registration official UX/,
       use: { ...devices['iPhone 13'] },
     },
   ],

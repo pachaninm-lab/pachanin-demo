@@ -1,0 +1,71 @@
+name: Platform V7 Canonical Visual Acceptance
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'DESIGN_AUTHORITY.md'
+      - 'apps/web/app/globals.css'
+      - 'apps/web/app/layout.tsx'
+      - 'apps/web/app/platform-v7/**'
+      - 'apps/web/components/platform-v7/**'
+      - 'apps/web/components/v7r/BrandMark.tsx'
+      - 'apps/web/styles/platform-v7-canonical-public-v1.css'
+      - 'apps/web/styles/platform-v7-canonical-home-v1.css'
+      - 'apps/web/styles/platform-v7-tailwind-runtime.css'
+      - 'apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts'
+      - 'apps/web/playwright.canonical-visual.config.ts'
+      - '.github/workflows/platform-v7-canonical-visual-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platform-v7-canonical-visual-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  canonical-visual:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      JWT_SECRET: canonical-visual-acceptance-secret
+      PC_CABINET_SESSION_SECRET: canonical-visual-acceptance-secret
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with:
+          version: 10.2.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install frozen dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck exact head
+        run: pnpm --filter @pc/web typecheck
+      - name: Build production web bundle
+        run: pnpm --filter @pc/web build
+      - name: Install Chromium
+        run: pnpm --filter @pc/web exec playwright install --with-deps chromium
+      - name: Capture canonical visual evidence
+        working-directory: apps/web
+        run: pnpm exec playwright test --config=playwright.canonical-visual.config.ts
+      - name: Upload canonical visual evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: platform-v7-canonical-visual-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            apps/web/test-results/canonical-visual
+            apps/web/playwright-report-canonical-visual
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
