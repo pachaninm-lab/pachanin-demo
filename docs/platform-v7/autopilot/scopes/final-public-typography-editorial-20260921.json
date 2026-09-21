@@ -22,6 +22,7 @@
     "apps/web/styles/platform-v7-canonical-home-v1.css",
     "apps/web/styles/platform-v7-canonical-public-v1.css",
     "apps/web/styles/platform-v7-public-assistant-polish.css",
+    "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
     "apps/web/tests/unit/platformV7SpacingAndContactDock.regression.test.ts",
     "docs/platform-v7/autopilot/scopes/final-public-typography-editorial-20260921.json"
   ],
