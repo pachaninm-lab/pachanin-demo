@@ -52,4 +52,28 @@ describe('Alfa reference adapter', () => {
       canonicalFinality: 'NOT_DECIDED_HERE',
     });
   });
+
+  it('does not turn an unpinned generic 4xx into business rejection', () => {
+    for (const httpStatus of [408, 409, 429]) {
+      expect(adapter.mapDispatchResponse({
+        httpStatus,
+        rawStatus: null,
+        providerOperationId: null,
+        idempotencyKey: 'idem-1',
+        providerEventId: null,
+        externalReceiptId: null,
+        authenticationAuthorityRef: 'callback-key:v7',
+        authenticationEvidenceRef: null,
+        payloadFingerprint: null,
+        observedAt: '2026-09-22T00:00:00.000Z',
+        operationId: 'op-1',
+        amountMinor: '10000',
+        currency: 'RUB',
+      })).toMatchObject({
+        acknowledgement: 'UNKNOWN',
+        canonicalFinality: 'NOT_DECIDED_HERE',
+        retryPolicy: 'RECONCILE_BEFORE_RETRY',
+      });
+    }
+  });
 });
