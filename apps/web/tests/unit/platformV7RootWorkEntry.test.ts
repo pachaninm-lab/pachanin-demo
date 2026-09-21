@@ -35,6 +35,7 @@ describe('platform-v7 canonical public experience',()=>{
   const brand=read('components/v7r/BrandMark.tsx');
   const siteHeader=read('components/platform-v7/PublicSiteHeader.tsx');
   const gektaChatButton=read('components/platform-v7/PublicGektaChatButton.tsx');
+  const operatorLoading=read('app/platform-v7/operator/loading.tsx');
 
   it('binds visual implementation to the explicit final mockup authority',()=>{
     expect(authority).toContain('Everything else is superseded.');
@@ -67,6 +68,13 @@ describe('platform-v7 canonical public experience',()=>{
     for(const label of ['Рынок','Сделка','Возможности','Гекта','Доверие','О платформе']) expect(primitives).toContain(label);
     for(const label of ['Market','Deal','Capabilities','Gekta','Trust','About']) expect(primitives).toContain(label);
     for(const label of ['市场','交易','功能','Gekta','信任','关于平台']) expect(primitives).toContain(label);
+  });
+
+  it('keeps the protected operator route on the canonical neutral cockpit loading skeleton',()=>{
+    expect(operatorLoading).toContain("from '@/components/platform-v7/RoleCockpitLoading'");
+    expect(operatorLoading).toContain('<RoleCockpitLoading />');
+    expect(operatorLoading).not.toContain('CanonicalUxState');
+    expect(operatorLoading).not.toContain('pc-canonical-public');
   });
 
   it('opens Gekta through the existing public assistant authority without private context',()=>{

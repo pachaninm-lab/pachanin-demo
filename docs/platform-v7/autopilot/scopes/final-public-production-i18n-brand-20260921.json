@@ -11,6 +11,7 @@
     "apps/web/app/layout.tsx",
     "apps/web/app/pc-public-entry/platform-v7/layout.tsx",
     "apps/web/app/platform-v7/layout.tsx",
+    "apps/web/app/platform-v7/operator/loading.tsx",
     "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
     "apps/web/components/platform-v7/PublicCanonicalPrimitives.tsx",
     "apps/web/components/platform-v7/PublicContactDock.tsx",
@@ -48,9 +49,11 @@
     "The paired repository-generated cryptographic inventory JSON/Markdown may change only to record the deterministic tracked production-source count caused by this PR; operation classes, algorithms, call sites and key-material inventory remain unchanged.",
     "Canonical visual baseline refresh is limited to inspected screenshots produced by the approved FINAL PUBLIC visual authority; every existing maxDistance perceptual threshold remains numerically unchanged.",
     "Design System v8 linked-shell oracle must require the new canonical Gekta-only runtime dock on Register/Trust/About: exactly one assistant entry, zero Support/Call actions, hidden on desktop and >=44px when visible on mobile; no browser, retry, timeout, Axe, CLS or other threshold is weakened.",
-    "Final mobile specificity locks must defeat legacy <=10px !important rules for home market preview title/chips, Deal lens next-step text, linked Market chip/aside copy and public-assistant subtitle; visible user-facing text covered here remains >=12px without weakening density, overflow or target gates."
+    "Final mobile specificity locks must defeat legacy <=10px !important rules for home market preview title/chips, Deal lens next-step text, linked Market chip/aside copy and public-assistant subtitle; visible user-facing text covered here remains >=12px without weakening density, overflow or target gates.",
+    "The protected operator route may add only a route-level loading.tsx that reuses the existing neutral RoleCockpitLoading skeleton to preserve initial shell geometry; it must not add business data, role authority, API calls or cabinet behavior."
   ],
   "acceptance": [
+    "Design System v8 retains the unchanged CLS <=0.1 threshold and proves the operator protected shell stays within budget using the canonical neutral route loading skeleton; the test is not reset, delayed or weakened.",
     "Production mobile acceptance proves visible home-market preview and linked-market microcopy remain >=12px on the configured mobile viewports while page overflow and >=44px targets remain unchanged.",
     "Design System v8 exact-head browser/accessibility matrix passes with the canonical Gekta-only dock contract and the existing CLS <=0.1 / Axe / browser / viewport thresholds unchanged.",
     "Canonical visual exact-head rerun passes against the inspected approved hashes with the original maxDistance values unchanged.",
