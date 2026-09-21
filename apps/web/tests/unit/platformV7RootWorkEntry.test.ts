@@ -264,9 +264,9 @@ describe('platform-v7 canonical public experience',()=>{
   });
 
   it('keeps Gekta inside source and authority boundaries',()=>{
-    expect(gekta).toContain('критическое решение остаётся за человеком и правилами платформы');
-    expect(gekta).toContain('Только контекст, доступный текущему участнику');
-    expect(gekta).toContain('Гекта объясняет; критическое действие не исполняет самостоятельно');
+    expect(gekta).toContain('Решение принимает человек.');
+    expect(gekta).toContain('Только данные, доступные текущему участнику');
+    expect(gekta).toContain('Гекта объясняет; критическое действие выполняет уполномоченный участник');
     expect(gekta).not.toContain('автоматически переводит деньги');
   });
 
