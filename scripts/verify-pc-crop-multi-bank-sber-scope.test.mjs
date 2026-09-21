@@ -11,6 +11,9 @@ const sber = read('apps/api/src/modules/bank-adapters/sber-reference.adapter.ts'
 const alfa = read('apps/api/src/modules/bank-adapters/alfa-reference.adapter.ts');
 const tbank = read('apps/api/src/modules/bank-adapters/tbank-reference.adapter.ts');
 const workflow = read('.github/workflows/pc-crop-multi-bank-sber.yml');
+const envExample = read('config/integration/integration.env.example');
+const webProviderRegistry = read('apps/web/lib/platform-v7/integrations/providerRegistry.ts');
+const webSberProxy = read('apps/web/lib/sber-server.ts');
 
 for (const forbidden of ['SBER', 'ALFA_BANK', 'T_BANK', 'BANK_PROVIDER', 'bankRef', 'partnerId']) {
   assert.equal(domain.includes(forbidden), false, 'domain core leaked provider vocabulary: ' + forbidden);
@@ -41,6 +44,7 @@ for (const marker of [
   'SERVER_HELD_PROVIDER_BINDING_REQUIRED',
   'SERVER_HELD_MATURITY_DOES_NOT_ALLOW_REAL_TRAFFIC',
   'REFERENCE_ADAPTER_HAS_NO_LIVE_TRANSPORT',
+  'CREDENTIAL_OR_CALLBACK_TRUST_NOT_VERIFIED',
   "authority.maturity !== 'LIVE_ACCEPTED'",
 ]) assert.ok(router.includes(marker), 'missing routing boundary ' + marker);
 
@@ -49,6 +53,7 @@ for (const marker of [
   'PROVIDER_EVENT_REPLAY',
   'PAYLOAD_REPLAY',
   'AUTHENTICATION_EVIDENCE_MISSING',
+  'IDEMPOTENCY_MISMATCH',
   'READY_FOR_CANONICAL_RECONCILIATION',
 ]) assert.ok(receipt.includes(marker), 'missing receipt boundary ' + marker);
 
@@ -61,6 +66,21 @@ assert.ok(tbank.includes("status === 'PAYMENT_FAILED'"));
 assert.ok(tbank.includes("'BILLING'"));
 assert.ok(tbank.includes("'FINANCING_APPLICATION'"));
 
+assert.ok(envExample.includes('BANK_MODE='));
+assert.ok(envExample.includes('BANK_PROVIDER='));
+assert.ok(webProviderRegistry.length > 0);
+assert.ok(webSberProxy.length > 0);
+
+const authoritySources = [port, router, receipt].join('\n');
+for (const forbidden of [
+  'BANK_MODE',
+  'BANK_PROVIDER',
+  'providerRegistry',
+  'sber-server',
+  'localStorage',
+  'sessionStorage',
+]) assert.equal(authoritySources.includes(forbidden), false, 'non-authoritative source leaked into bank authority: ' + forbidden);
+
 for (const source of [sber, alfa, tbank]) {
   assert.ok(source.includes('buildReferenceRequestEnvelope'));
   assert.ok(source.includes('mapReferenceDispatch'));
@@ -68,7 +88,10 @@ for (const source of [sber, alfa, tbank]) {
   assert.doesNotMatch(source, /fetch\s*\(/u);
   assert.doesNotMatch(source, /axios/u);
   assert.doesNotMatch(source, /process\.env/u);
+  assert.doesNotMatch(source, /mock/i);
 }
+
+assert.doesNotMatch(router, /session/i);
 
 for (const marker of [
   'name: PC-CROP Multi-Bank Reference Adapter Acceptance',
