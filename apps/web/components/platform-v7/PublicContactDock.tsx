@@ -244,7 +244,7 @@ const css = `
   background: color-mix(in srgb, var(--pc-ppe-v5-surface, #ffffff) 96%, transparent);
   box-shadow: 0 12px 30px rgba(9, 33, 24, .11), 0 2px 8px rgba(8, 122, 59, .05), inset 0 1px 0 rgba(255, 255, 255, .94);
   color: var(--pc-ppe-v5-ink, #092118);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   backdrop-filter: blur(14px) saturate(125%);
   -webkit-backdrop-filter: blur(14px) saturate(125%);
   transform: translateY(0);
@@ -301,7 +301,7 @@ const css = `
   box-shadow: inset 0 0 0 1px rgba(8, 122, 59, .13);
 }
 .pc-public-contact-dock-icon svg { display: block; }
-.pc-public-contact-dock-action strong { display: block; font-size: 12px; line-height: 1.1; font-weight: 700; letter-spacing: -.005em; white-space: nowrap; }
+.pc-public-contact-dock-action strong { display: block; font-size: 13px; line-height: 1.2; font-weight: 700; letter-spacing: -.005em; white-space: nowrap; }
 .pc-public-contact-dock-assistant .pc-public-contact-dock-icon { color: var(--pc-ppe-v5-green-dark, #07572e); background: linear-gradient(145deg, rgba(8, 122, 59, .19), rgba(8, 122, 59, .08)); box-shadow: inset 0 0 0 1px rgba(8, 122, 59, .22); }
 .pc-public-contact-dock-assistant strong { color: var(--pc-ppe-v5-green-dark, #07572e); font-weight: 780; }
 @media (hover: hover) {
@@ -315,7 +315,7 @@ const css = `
   .pc-public-contact-dock-action { gap: 4px; padding-inline: 3px; }
   .pc-public-contact-dock-icon { width: 24px; height: 24px; flex-basis: 24px; }
   .pc-public-contact-dock-icon svg { width: 16px; height: 16px; }
-  .pc-public-contact-dock-action strong { font-size: 10.5px; }
+  .pc-public-contact-dock-action strong { font-size: 12px; line-height: 1.2; }
 }
 @media (prefers-reduced-motion: reduce) {
   .pc-public-contact-dock,
