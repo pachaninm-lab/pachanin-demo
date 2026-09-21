@@ -110,6 +110,6 @@ export default async function PlatformV7DealFlowPage({searchParams}:{searchParam
     <CanonicalTrustLedger locale={locale}/>
   </div></section>
   <section className='pc-cp-deal-public-gekta'><div className='pc-cp-container'><CanonicalGektaStrip locale={locale}/></div></section>
-  <CanonicalFooter locale={locale}/><CanonicalBottomNav locale={locale} active='/platform-v7/how-it-works'/>
+  <CanonicalFooter locale={locale}/><CanonicalBottomNav locale={locale} active='/platform-v7/deal-flow'/>
  </main>;
 }
