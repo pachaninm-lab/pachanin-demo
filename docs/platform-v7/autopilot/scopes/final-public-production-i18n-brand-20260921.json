@@ -20,6 +20,7 @@
     "apps/web/styles/platform-v7-canonical-home-v1.css",
     "apps/web/styles/platform-v7-canonical-public-v1.css",
     "apps/web/styles/platform-v7-public-assistant-polish.css",
+    "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
     "apps/web/tests/e2e/platform-v7-production-mobile-acceptance.spec.ts",
     "apps/web/tests/unit/platformV7PublicLayoutSplit.test.ts",
     "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
@@ -43,9 +44,11 @@
     "The homepage hero follows FINAL-PUBLIC-HERO-AUTHORITY-20260921: FIELD -> ELEVATOR -> LOGISTICS + subtle digital network, implemented as a local bespoke SVG with no external CDN/license dependency.",
     "Canonical public typography uses a local system-font stack and does not rely on a remote font at runtime; readable mobile body/supporting text is not compressed into 6–10px microtype.",
     "Pale-green surfaces remain restrained and preserve WCAG contrast; green is used as an agribusiness accent rather than a full-surface neon treatment.",
-    "The paired repository-generated cryptographic inventory JSON/Markdown may change only to record the deterministic tracked production-source count caused by this PR; operation classes, algorithms, call sites and key-material inventory remain unchanged."
+    "The paired repository-generated cryptographic inventory JSON/Markdown may change only to record the deterministic tracked production-source count caused by this PR; operation classes, algorithms, call sites and key-material inventory remain unchanged.",
+    "Canonical visual baseline refresh is limited to inspected screenshots produced by the approved FINAL PUBLIC visual authority; every existing maxDistance perceptual threshold remains numerically unchanged."
   ],
   "acceptance": [
+    "Canonical visual exact-head rerun passes against the inspected approved hashes with the original maxDistance values unchanged.",
     "Canonical visual evidence proves the new local agribusiness hero, unified system typography, readable mobile hierarchy and pale-green palette without horizontal page overflow or serious/critical accessibility violations.",
     "Exact-head source-controlled scope/autopilot guard passes for exactly the changed paths.",
     "Focused unit contracts prove the Gekta button opens pc:public-assistant-context without tenantId, dealId or documentId and the isolated landing mounts Gekta-only rather than a duplicate full dock.",
