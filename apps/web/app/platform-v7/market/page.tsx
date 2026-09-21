@@ -78,7 +78,7 @@ export default async function PlatformV7MarketPage({searchParams}:{searchParams?
             <span>{c.search}</span>
             <span className='pc-cp-market-search-control'><Search size={18} aria-hidden='true'/><input className='pc-cp-search' name='q' defaultValue={query} placeholder={c.search}/></span>
           </label>
-          <div className='pc-cp-market-filter-grid' aria-label={c.filters}>
+          <div className='pc-cp-market-filter-grid' role='group' aria-label={c.filters}>
             <label className='pc-cp-market-field'><span>{c.crop}</span><select name='crop' defaultValue={crop}>{CROP_OPTIONS[locale].map(([value,label])=><option value={value} key={value||'all'}>{label}</option>)}</select></label>
             <label className='pc-cp-market-field'><span>{c.region}</span><input name='region' defaultValue={region} placeholder={c.regionHint}/></label>
             <label className='pc-cp-market-field'><span>{c.grade}</span><input name='grade' defaultValue={grade} placeholder={c.gradeHint}/></label>
