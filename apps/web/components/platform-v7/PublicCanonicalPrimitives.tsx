@@ -303,23 +303,23 @@ export function CanonicalBottomNav({ locale, active }: { locale: string; active?
     ? [
       ['Главная', '/platform-v7', Home, false],
       ['Рынок', '/platform-v7/market', Store, false],
-      ['Регистрация', '/platform-v7/register', UserRound, true],
-      ['Сделка', '/platform-v7/how-it-works', Layers3, false],
+      ['Регистрация', '/platform-v7/register', UserRound, false],
+      ['Сделка', '/platform-v7/deal-flow', Layers3, false],
       ['Войти', '/platform-v7/login', LogIn, false],
     ] as const
     : lang === 'en'
       ? [
         ['Home', '/platform-v7', Home, false],
         ['Market', '/platform-v7/market', Store, false],
-        ['Register', '/platform-v7/register', UserRound, true],
-        ['Deal', '/platform-v7/how-it-works', Layers3, false],
+        ['Register', '/platform-v7/register', UserRound, false],
+        ['Deal', '/platform-v7/deal-flow', Layers3, false],
         ['Sign in', '/platform-v7/login', LogIn, false],
       ] as const
       : [
         ['首页', '/platform-v7', Home, false],
         ['市场', '/platform-v7/market', Store, false],
-        ['注册', '/platform-v7/register', UserRound, true],
-        ['交易', '/platform-v7/how-it-works', Layers3, false],
+        ['注册', '/platform-v7/register', UserRound, false],
+        ['交易', '/platform-v7/deal-flow', Layers3, false],
         ['登录', '/platform-v7/login', LogIn, false],
       ] as const;
   return (
