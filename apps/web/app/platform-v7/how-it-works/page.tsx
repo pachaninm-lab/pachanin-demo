@@ -85,7 +85,7 @@ export default async function HowItWorksPage(){
   <section className='pc-cp-hero pc-cp-how-hero'>
    <div className='pc-cp-container pc-cp-how-hero-grid'>
     <div className='pc-cp-hero-copy'><span className='pc-cp-eyebrow'>{c.e}</span><h1>{c.t}</h1><p>{c.p}</p></div>
-    <aside className='pc-cp-how-hero-quote'><strong>{locale==='ru'?'От поля до результата':locale==='en'?'From field to outcome':'从田间到结果'}</strong><span>{locale==='ru'?'Один контекст, семь этапов, проверяемые факты.':locale==='en'?'One context, seven stages, verifiable facts.':'一个上下文、七个阶段、可核验事实。'}</span></aside>
+    <aside className='pc-cp-how-hero-quote'><strong>{locale==='ru'?'От лота до закрытия':locale==='en'?'From lot to closure':'从批次到关闭'}</strong><span>{locale==='ru'?'Семь этапов, связанные факты и понятные ответственные.':locale==='en'?'Seven stages, linked facts and clear responsibility.':'七个阶段，事实相互关联，责任方清晰。'}</span></aside>
    </div>
   </section>
   <section className='pc-cp-how-spine'><div className='pc-cp-container'><CanonicalDealSpine locale={locale} currentIndex={0}/></div></section>
@@ -98,7 +98,7 @@ export default async function HowItWorksPage(){
   </div></section>
   <section className='pc-cp-section pc-cp-section--soft pc-cp-how-trust'><div className='pc-cp-container'>
    <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{c.trust}</span><h2>{c.trust}</h2><p>{c.trustLead}</p></div>
-   <div className='pc-cp-how-trust-layout'><CanonicalTrustLedger locale={locale}/><aside className='pc-cp-how-gekta-note'><strong>{locale==='ru'?'Гекта помогает собрать картину Сделки':locale==='en'?'Gekta helps bring the Deal picture together':'Gekta 帮你把交易信息串起来'}</strong><p>{locale==='ru'?'Собирает факты, подсвечивает риски и объясняет доступные варианты. Решение остаётся за участником.':locale==='en'?'Pulls facts together, highlights risks and explains available options. The decision stays with the participant.':'汇总事实、提示风险并解释可用选项；决定仍由参与方作出。'}</p></aside></div>
+   <div className='pc-cp-how-trust-layout'><CanonicalTrustLedger locale={locale}/><aside className='pc-cp-how-gekta-note'><strong>{locale==='ru'?'Гекта помогает сверить факты по Сделке':locale==='en'?'Gekta helps you check the Deal facts':'Gekta 帮你核对交易事实'}</strong><p>{locale==='ru'?'Показывает связанные факты и риски. Решение остаётся за участником.':locale==='en'?'Shows the linked facts and risks. The participant makes the decision.':'展示相关事实和风险；决定仍由参与方作出。'}</p></aside></div>
   </div></section>
   <section className='pc-cp-section pc-cp-section--tight pc-cp-how-gekta'><div className='pc-cp-container'><CanonicalGektaStrip locale={locale}/></div></section>
   <CanonicalFooter locale={locale}/><CanonicalBottomNav locale={locale} active='/platform-v7/how-it-works'/>
