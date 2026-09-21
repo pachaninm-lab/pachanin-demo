@@ -207,7 +207,20 @@ describe('platform-v7 canonical public experience',()=>{
       'Роль, организация и доступ определяются сервером после проверки.',
       'Role, organisation and access are assigned after server-side verification.',
       '角色、机构和访问权限在服务器完成审核后确定。',
-    ]) expect(home + primitives + linkedCopy).not.toContain(retired);
+      'Источник: публичная обезличенная проекция PostgreSQL',
+      'Публичный рынок показывает только лоты, которые сервер разрешил к обезличенной публикации.',
+      'Сервер не подтвердил актуальную публичную проекцию.',
+      'Source: public anonymised PostgreSQL projection',
+      'The public market shows only lots the server has admitted to anonymised publication.',
+      'The server did not confirm a current public projection.',
+      '来源：PostgreSQL 公共匿名投影',
+      '公开市场仅展示服务器允许匿名公开的批次。',
+      '服务器未确认当前公共投影',
+      'Не опубликовано в публичном контуре',
+      'Not published in the public circuit',
+      'Недоступно в публичном контуре',
+      'Unavailable in the public circuit',
+    ]) expect(home + primitives + market + linkedCopy).not.toContain(retired);
 
     for(const humanCopy of [
       'Агросделка — от цены до закрытия.',
@@ -257,7 +270,16 @@ describe('platform-v7 canonical public experience',()=>{
       'Access is granted only after role, organisation and authority verification.',
       '角色、机构和权限审核通过后才会开放访问。',
       'Загружаем подтверждённые данные.',
-    ]) expect(home + primitives + linkedCopy).toContain(humanCopy);
+      'Источник: обезличенные данные публичного рынка',
+      'Публичный рынок показывает только разрешённые к публикации обезличенные лоты.',
+      'Актуальные данные рынка сейчас недоступны. Мы не показываем неподтверждённые данные.',
+      'Source: anonymised public market data',
+      'The public market shows only anonymised lots permitted for publication.',
+      'Current market data is unavailable. We do not show unconfirmed data.',
+      '来源：公开市场匿名数据',
+      '公开市场仅展示获准发布的匿名批次。',
+      '当前市场数据暂不可用；我们不会展示未经确认的数据。',
+    ]) expect(home + primitives + market + linkedCopy).toContain(humanCopy);
   });
 
   it('locks the nine canonical roles and seven Deal stages',()=>{
