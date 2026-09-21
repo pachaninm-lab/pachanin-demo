@@ -91,6 +91,10 @@ describe('platform-v7 canonical public experience',()=>{
     expect(market).toContain('cropVisualKey');
     expect(market).toContain('function CropArt');
     expect(market).toContain("className='pc-cp-lot-media-caption'");
+    expect(market).toContain("intent=buy");
+    expect(market).toContain("intent=sell");
+    expect(market).toContain("buy: 'Купить'");
+    expect(market).toContain("sell: 'Продать'");
     expect(css).toContain('FINAL PUBLIC UX POLISH');
     expect(css).toContain('.pc-cp-market-filter-grid');
   });
