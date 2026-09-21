@@ -53,8 +53,8 @@ describe('Alfa reference adapter', () => {
     });
   });
 
-  it('does not turn an unpinned generic 4xx into business rejection', () => {
-    for (const httpStatus of [408, 409, 429]) {
+  it('does not turn unpinned transport failures into business rejection', () => {
+    for (const httpStatus of [400, 401, 403, 408, 409, 422, 429, 500, 503]) {
       expect(adapter.mapDispatchResponse({
         httpStatus,
         rawStatus: null,
