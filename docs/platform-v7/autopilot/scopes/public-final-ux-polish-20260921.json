@@ -19,6 +19,7 @@
     "apps/web/components/platform-v7/PublicCanonicalPrimitives.tsx",
     "apps/web/components/platform-v7/PublicContactDock.tsx",
     "apps/web/components/platform-v7/PublicGektaChatButton.tsx",
+    "apps/web/components/platform-v7/PublicLinkedSurfaceShell.tsx",
     "apps/web/components/platform-v7/PublicSiteHeader.tsx",
     "apps/web/styles/platform-v7-canonical-home-v1.css",
     "apps/web/styles/platform-v7-canonical-public-v1.css",
