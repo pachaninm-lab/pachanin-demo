@@ -95,10 +95,10 @@ export default async function PublicGektaPage(){
         <span className='pc-cp-eyebrow'>{c.e}</span>
         <h1>{c.t}</h1><p>{c.p}</p>
       </div>
-      <aside className='pc-cp-gekta-hero-quote'><strong>{locale==='ru'?'Ясно, что происходит. Понятно, что делать дальше.':locale==='en'?'See what is happening. Know what to do next.':'“看清发生了什么，知道下一步怎么做。”'}</strong><span>{locale==='ru'?'Контекст · риски · следующий шаг':locale==='en'?'Context · risk · next step':'上下文 · 风险 · 下一步'}</span></aside>
+      <aside className='pc-cp-gekta-hero-quote'><strong>{locale==='ru'?'Ясно, что происходит. Понятно, что делать дальше.':locale==='en'?'See what is happening. Know what to do next.':'看清发生了什么，知道下一步怎么做。'}</strong><span>{locale==='ru'?'Контекст · риски · следующий шаг':locale==='en'?'Context · risk · next step':'上下文 · 风险 · 下一步'}</span></aside>
     </div>
     <div className='pc-cp-gekta-benefits'>
-      {[locale==='ru'?'Работает с данными платформы':locale==='en'?'Works with platform data':'基于平台数据',locale==='ru'?'С указанием источников':locale==='en'?'With source references':'标明来源',locale==='ru'?'Учитывает правила и риски':locale==='en'?'Accounts for rules and risk':'考虑规则与风险',locale==='ru'?'Сокращает время на разбор контекста':locale==='en'?'Cuts time spent piecing context together':'帮助更快决策'].map((x,i)=><span key={x}><i>{i+1}</i>{x}</span>)}
+      {[locale==='ru'?'Работает с данными платформы':locale==='en'?'Works with platform data':'使用平台数据',locale==='ru'?'С указанием источников':locale==='en'?'With source references':'标明来源',locale==='ru'?'Учитывает правила и риски':locale==='en'?'Accounts for rules and risk':'考虑规则与风险',locale==='ru'?'Сокращает время на разбор контекста':locale==='en'?'Cuts time spent piecing context together':'减少整理交易上下文的时间'].map((x,i)=><span key={x}><i>{i+1}</i>{x}</span>)}
     </div>
    </div>
   </section>
@@ -135,9 +135,9 @@ export default async function PublicGektaPage(){
    </div>
   </section>
   <section className='pc-cp-section pc-cp-section--soft'><div className='pc-cp-container'>
-   <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{locale==='ru'?'Границы Гекты':locale==='en'?'What Gekta does — and does not do':'AI 边界'}</span><h2>{locale==='ru'?'Гекта объясняет — решение остаётся за участником':locale==='en'?'Gekta explains the options; the participant remains in control':'Gekta 不创建权限，也不替代事实来源'}</h2></div>
+   <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{locale==='ru'?'Границы Гекты':locale==='en'?'What Gekta does — and does not do':'Gekta 能做什么、不能做什么'}</span><h2>{locale==='ru'?'Гекта объясняет — решение остаётся за участником':locale==='en'?'Gekta explains the options; the participant remains in control':'Gekta 负责解释，决定仍由参与方作出'}</h2></div>
    <div className='pc-cp-trust-grid'>
-    {[['01',locale==='ru'?'Читает только разрешённый контекст':locale==='en'?'Reads only authorised context':'只读取授权上下文'],['02',locale==='ru'?'Отделяет факт от объяснения':locale==='en'?'Separates fact from explanation':'区分事实与解释'],['03',locale==='ru'?'Не заявляет внешнее событие без источника':locale==='en'?'Makes no external-event claim without a source':'没有来源就不声称外部事件'],['04',locale==='ru'?'Решение и ответственность остаются за участником':locale==='en'?'Decisions and accountability stay with the participant':'关键决定保持受控']].map(([n,t])=><article className='pc-cp-card pc-cp-trust-card' key={n}><i>{n}</i><strong>{t}</strong></article>)}
+    {[['01',locale==='ru'?'Читает только разрешённый контекст':locale==='en'?'Reads only authorised context':'只读取授权上下文'],['02',locale==='ru'?'Отделяет факт от объяснения':locale==='en'?'Separates fact from explanation':'区分事实与解释'],['03',locale==='ru'?'Не заявляет внешнее событие без источника':locale==='en'?'Makes no external-event claim without a source':'没有来源就不声称外部事件'],['04',locale==='ru'?'Решение и ответственность остаются за участником':locale==='en'?'Decisions and accountability stay with the participant':'决定和责任仍由参与方承担']].map(([n,t])=><article className='pc-cp-card pc-cp-trust-card' key={n}><i>{n}</i><strong>{t}</strong></article>)}
    </div>
   </div></section>
   <CanonicalFooter locale={locale}/><CanonicalBottomNav locale={locale} active='/platform-v7/ai-in-action'/>
