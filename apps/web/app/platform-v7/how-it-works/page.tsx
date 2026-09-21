@@ -85,7 +85,7 @@ export default async function HowItWorksPage(){
   <section className='pc-cp-hero pc-cp-how-hero'>
    <div className='pc-cp-container pc-cp-how-hero-grid'>
     <div className='pc-cp-hero-copy'><span className='pc-cp-eyebrow'>{c.e}</span><h1>{c.t}</h1><p>{c.p}</p></div>
-    <aside className='pc-cp-how-hero-quote'><strong>{locale==='ru'?'От поля до результата':locale==='en'?'From field to outcome':'从田间到结果'}</strong><span>{locale==='ru'?'Семь этапов одной Сделки — с понятной ответственностью и документами.':locale==='en'?'Seven stages of one Deal, with clear responsibility and documents.':'一笔交易七个阶段，责任与文件都清晰可见。'}</span></aside>
+    <aside className='pc-cp-how-hero-quote'><strong>{locale==='ru'?'Семь этапов Сделки':locale==='en'?'Seven Deal stages':'交易七个阶段'}</strong><span>{locale==='ru'?'На каждом этапе указаны участник, факты, основание и следующий шаг.':locale==='en'?'Each stage shows the participant, facts, basis and next step.':'每个阶段都标明参与方、事实、依据和下一步。'}</span></aside>
    </div>
   </section>
   <section className='pc-cp-how-spine'><div className='pc-cp-container'><CanonicalDealSpine locale={locale} currentIndex={0}/></div></section>
