@@ -3,7 +3,7 @@ import { getLocale } from 'next-intl/server';
 import { canonicalPublicLocale } from '@/components/platform-v7/PublicCanonicalPrimitives';
 import PublicGektaPage from '../ai-in-action/page';
 
-const META={"ru":["Гекта — Прозрачная Цена","Гекта объясняет контекст Сделки, документы, логистику, качество, расчёт, риски и допустимый следующий шаг в пределах доступных фактов и полномочий."],"en":["Gekta — Transparent Price","Gekta explains Deal context, documents, logistics, quality, settlement, risks and the next permitted step within available facts and authority."],"zh":["Gekta — 透明价格","Gekta 在可用事实和权限范围内解释交易上下文、文件、物流、质量、结算、风险和允许的下一步。"]} as const;
+const META={"ru":["Гекта — Прозрачная Цена","Гекта помогает разобраться в Сделке по доступным участнику данным: показывает факты, риски, документы и доступные действия."],"en":["Gekta — Transparent Price","Gekta helps participants understand a Deal from the data they are allowed to see: facts, risks, documents and available actions."],"zh":["Gekta — 透明价格","Gekta 在可用事实和权限范围内解释交易上下文、文件、物流、质量、结算、风险和允许的下一步。"]} as const;
 
 export async function generateMetadata():Promise<Metadata>{
   const locale=canonicalPublicLocale(await getLocale());
