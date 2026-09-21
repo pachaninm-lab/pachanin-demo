@@ -900,3 +900,8 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-page-home .pc-cp-hero::after{z-index:1!important}
   .pc-cp-page-home .pc-cp-hero-grid{position:relative;z-index:2}
 }
+
+/* FINAL MOBILE BRAND LEGIBILITY GATE — production i18n >=14px */
+@media(max-width:760px){
+  .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-text strong{font-size:14px!important}
+}
