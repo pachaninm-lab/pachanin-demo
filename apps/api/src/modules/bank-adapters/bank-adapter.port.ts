@@ -70,6 +70,7 @@ export type BankDispatchMapping = Readonly<{
   providerFamily: BankProviderFamily;
   acknowledgement: BankTransportAcknowledgement;
   providerOperationId: string | null;
+  idempotencyKey: string | null;
   rawStatus: string | null;
   observedAt: string;
   canonicalFinality: 'NOT_DECIDED_HERE';
@@ -182,6 +183,7 @@ export function mapReferenceDispatch(
     providerFamily,
     acknowledgement,
     providerOperationId: response.providerOperationId,
+    idempotencyKey: response.idempotencyKey,
     rawStatus: response.rawStatus,
     observedAt: normalizeObservedAt(response.observedAt),
     canonicalFinality: 'NOT_DECIDED_HERE',
