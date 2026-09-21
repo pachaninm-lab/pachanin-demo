@@ -24,6 +24,7 @@ export type BankRoutingAuthority = Readonly<{
   evidenceMode: 'SERVER_HELD';
   credentialReadiness: BankRoutingReadiness;
   callbackTrustReadiness: BankRoutingReadiness;
+  productionEnvironmentConfirmed: boolean;
   mayCarryRealTraffic: boolean;
 }>;
 
@@ -109,6 +110,14 @@ export class BankCapabilityRouter {
         status: 'NOT_ACTIVATED',
         adapter,
         reason: 'SERVER_HELD_MATURITY_DOES_NOT_ALLOW_REAL_TRAFFIC',
+      };
+    }
+
+    if (!authority.productionEnvironmentConfirmed) {
+      return {
+        status: 'NOT_ACTIVATED',
+        adapter,
+        reason: 'PRODUCTION_ENVIRONMENT_NOT_CONFIRMED',
       };
     }
 
