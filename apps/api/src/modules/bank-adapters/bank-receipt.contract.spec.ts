@@ -8,6 +8,7 @@ import {
 const expected: ExpectedBankOperationEvidence = {
   providerFamily: 'SBER',
   operationId: 'op-1',
+  idempotencyKey: 'idem-1',
   providerOperationId: 'provider-op-1',
   amountMinor: '12500',
   currency: 'RUB',
@@ -17,6 +18,7 @@ const candidate = (overrides: Partial<BankReceiptCandidate> = {}): BankReceiptCa
   providerFamily: 'SBER',
   operationId: 'op-1',
   providerOperationId: 'provider-op-1',
+  idempotencyKey: 'idem-1',
   providerEventId: 'event-1',
   externalReceiptId: 'receipt-1',
   authenticationEvidenceRef: 'auth-evidence-1',
@@ -54,6 +56,7 @@ describe('bank receipt contract', () => {
   it.each([
     [{ providerFamily: 'T_BANK' as const }, 'PROVIDER_MISMATCH'],
     [{ operationId: 'op-other' }, 'OPERATION_MISMATCH'],
+    [{ idempotencyKey: 'idem-other' }, 'IDEMPOTENCY_MISMATCH'],
     [{ providerOperationId: 'provider-other' }, 'PROVIDER_OPERATION_MISMATCH'],
     [{ amountMinor: '12501' }, 'AMOUNT_MISMATCH'],
     [{ amountMinor: 'not-money' }, 'AMOUNT_MISMATCH'],
