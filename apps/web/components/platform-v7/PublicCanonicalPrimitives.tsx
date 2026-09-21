@@ -124,6 +124,7 @@ export function CanonicalPublicHeader({
           className={href === '/platform-v7/gekta' ? 'pc-site-nav-gekta' : undefined}
           href={`${href}${suffix}`}
           data-active={activePath === href ? 'true' : undefined}
+          aria-current={activePath === href ? 'page' : undefined}
         >
           <span className='pc-site-nav-item-icon' aria-hidden='true'><Icon size={18} /></span>
           <span>{label}</span>
@@ -133,9 +134,9 @@ export function CanonicalPublicHeader({
       <div className='pc-site-mobile-utility pc-cp-mobile-only' aria-label={copy.utility}>
         <span className='pc-site-mobile-utility-label'>{copy.utility}</span>
         <PublicGektaChatButton locale={lang} variant='mobile' className='pc-site-mobile-gekta' />
-        <a href={`/platform-v7/about${suffix}`}><Building2 size={16} aria-hidden='true' />{copy.about}</a>
-        <a href={`/platform-v7/login${suffix}`}><LogIn size={16} aria-hidden='true' />{copy.login}</a>
-        <a href={`/platform-v7/register${suffix}`}><UserRound size={16} aria-hidden='true' />{copy.register}</a>
+        <a href={`/platform-v7/about${suffix}`} data-active={activePath === '/platform-v7/about' ? 'true' : undefined} aria-current={activePath === '/platform-v7/about' ? 'page' : undefined}><Building2 size={16} aria-hidden='true' />{copy.about}</a>
+        <a href={`/platform-v7/login${suffix}`} data-active={activePath === '/platform-v7/login' ? 'true' : undefined} aria-current={activePath === '/platform-v7/login' ? 'page' : undefined}><LogIn size={16} aria-hidden='true' />{copy.login}</a>
+        <a href={`/platform-v7/register${suffix}`} data-active={activePath === '/platform-v7/register' ? 'true' : undefined} aria-current={activePath === '/platform-v7/register' ? 'page' : undefined}><UserRound size={16} aria-hidden='true' />{copy.register}</a>
       </div>
     </>
   );
@@ -324,7 +325,7 @@ export function CanonicalBottomNav({ locale, active }: { locale: string; active?
       ] as const;
   return (
     <nav className='pc-cp-bottom-nav' aria-label={lang === 'ru' ? 'Мобильная навигация' : lang === 'en' ? 'Mobile navigation' : '移动导航'}>
-      {items.map(([label, href, Icon, center]) => <a href={`${href}?lang=${lang}`} key={href} data-active={active === href ? 'true' : 'false'} data-center={center ? 'true' : 'false'}><Icon aria-hidden='true' /><span>{label}</span></a>)}
+      {items.map(([label, href, Icon, center]) => <a href={`${href}?lang=${lang}`} key={href} data-active={active === href ? 'true' : 'false'} data-center={center ? 'true' : 'false'} aria-current={active === href ? 'page' : undefined}><Icon aria-hidden='true' /><span>{label}</span></a>)}
     </nav>
   );
 }
