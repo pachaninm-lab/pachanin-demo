@@ -1,5 +1,8 @@
-import type { BankCapability } from '../../../../../packages/domain-core/src/bank-capability';
-import { supportsBankCapability } from '../../../../../packages/domain-core/src/bank-capability';
+import {
+  supportsBankCapability,
+  type BankCapability,
+} from '../../../../../packages/domain-core/src/bank-capability';
+import type { IntegrationCapabilityMaturity } from '../../../../../packages/domain-core/src/integration-capability';
 import type {
   BankProviderFamily,
   BankReferenceAdapter,
@@ -12,7 +15,7 @@ export type BankRoutingAuthority = Readonly<{
   providerId: string;
   providerCapabilityId: string;
   capabilityCode: string;
-  maturity: string;
+  maturity: IntegrationCapabilityMaturity;
   bindingVersion: string;
   evidenceMode: 'SERVER_HELD';
   mayCarryRealTraffic: boolean;
@@ -86,13 +89,19 @@ export class BankCapabilityRouter {
       };
     }
 
-    if (!authority.mayCarryRealTraffic || !adapter.liveTransportImplemented) {
+    if (authority.maturity !== 'LIVE_ACCEPTED' || !authority.mayCarryRealTraffic) {
       return {
         status: 'NOT_ACTIVATED',
         adapter,
-        reason: !authority.mayCarryRealTraffic
-          ? 'SERVER_HELD_MATURITY_DOES_NOT_ALLOW_REAL_TRAFFIC'
-          : 'REFERENCE_ADAPTER_HAS_NO_LIVE_TRANSPORT',
+        reason: 'SERVER_HELD_MATURITY_DOES_NOT_ALLOW_REAL_TRAFFIC',
+      };
+    }
+
+    if (!adapter.liveTransportImplemented) {
+      return {
+        status: 'NOT_ACTIVATED',
+        adapter,
+        reason: 'REFERENCE_ADAPTER_HAS_NO_LIVE_TRANSPORT',
       };
     }
 
