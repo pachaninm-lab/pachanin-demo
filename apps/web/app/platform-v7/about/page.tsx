@@ -33,18 +33,18 @@ ru:{
 },
 en:{
  title:'About the platform — Transparent Price',
- description:'Transparent Price connects participants and the full agricultural Deal path: lot, trading, commitments, delivery, acceptance, quality, documents, settlement and closure.',
- eyebrow:'About the platform',heading:'One system for the whole agricultural Deal.',
- lead:'Transparent Price connects market and execution in one Deal. Every participant works in a confirmed context, while each critical action stays tied to authority, basis, source and decision.',
+ description:'Transparent Price keeps the agricultural Deal together from lot and trading through delivery, quality, documents, settlement and closure.',
+ eyebrow:'About the platform',heading:'One place to run the agricultural Deal.',
+ lead:'Transparent Price connects the market with execution. Each participant sees the data and actions available to their role, while important actions keep a clear basis and source.',
  domain:'Процент-Агро.рф is the public domain of the Transparent Price platform.',
  what:'What the platform connects',cards:[
- ['One Deal','Product, trading, commitments, delivery, quality, documents, settlement and closure remain connected.'],
- ['9 roles','A participant sees only the working context permitted by server-confirmed authority.'],
- ['7 stages','The Deal path is consistent between public explanation and the working context; only available facts and actions differ.'],
+ ['One Deal','Lot, trading, delivery, quality, documents, settlement and closure stay connected.'],
+ ['9 roles','Each participant sees only the data and actions allowed for the confirmed role.'],
+ ['7 stages','The same Deal sequence is used in the public explanation and in the workspace.'],
  ['Fact control','When a source is unavailable or a fact is unconfirmed, the interface states that explicitly instead of substituting a value.'],
  ],
  roles:'9 canonical roles',trust:'How trust works',legal:'Rules and documents',
- legalText:'Legal and information materials remain on separate pages. The Deal workspace does not mix them with participant actions.',
+ legalText:'Legal and reference materials stay on separate pages so they do not get mixed with Deal actions.',
  register:'Register',contact:'Contact',how:'How the Deal works'
 },
 zh:{
