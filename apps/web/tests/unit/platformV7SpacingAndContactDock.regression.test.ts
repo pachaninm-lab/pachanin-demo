@@ -88,12 +88,19 @@ describe('platform-v7 spacing and contact dock regression', () => {
       'One control principle across every capability',
       'Trust starts with facts you can verify',
       'Pulls context together, highlights risks and explains available options',
+      'Pulls Deal context together, highlights risks',
+      'One context, seven stages, verifiable facts.',
+      'Один контекст, семь этапов, проверяемые факты.',
+      'Four trust pillars',
+      'Четыре столпа доверия',
       '信任来自可核验的事实',
     ]) {
       expect(copy).not.toContain(phrase);
     }
 
     expect(copy).toContain('See who acted, why, and on what evidence.');
+    expect(copy).toContain('Seven stages, linked facts and clear responsibility.');
+    expect(copy).toContain('What we check');
     expect(copy).toContain('看清谁执行了操作、依据是什么、事实来自哪里。');
   });
 
