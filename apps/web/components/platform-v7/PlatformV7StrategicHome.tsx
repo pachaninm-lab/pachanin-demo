@@ -23,7 +23,7 @@ import { CanonicalMarketPreview } from './PublicCanonicalMarket';
 const COPY = {
   ru: {
     heroKicker: 'Платформа для агросделок',
-    heroTitle: 'Агросделка — от цены до закрытия.',
+    heroTitle: 'Агросделка — от цены до закрытия.',
     heroLead: 'В одной Сделке собраны торги, доставка, качество, документы и расчёт. Участник видит свои задачи и доступные действия.',
     sell: 'Продать',
     buy: 'Купить',
