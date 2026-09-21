@@ -43,6 +43,10 @@ describe('platform-v7 owner access center task UX', () => {
   it('uses a bounded staff bridge that cannot accept client tenant or effective-role authority', () => {
     expect(roleModeRoute).toContain('/staff/founder/role-mode/registry');
     expect(roleModeRoute).toContain('/staff/founder/role-mode/requests');
+    expect(roleModeRoute).toContain('/staff/founder/role-mode/session');
+    expect(roleModeRoute).toContain("const STAFF_ACCESS_COOKIE = 'pc_staff_access_token'");
+    expect(roleModeRoute).toContain("'x-staff-access-session': staffAccessToken");
+    expect(roleModeRoute).toContain("request.nextUrl.searchParams.get('view') === 'session'");
     expect(roleModeRoute).toContain('assertCsrf(request)');
     expect(roleModeRoute).toContain('readBoundedBody(request.body, MAX_BODY_BYTES)');
     expect(roleModeRoute).toContain('cabinetKey');
@@ -69,13 +73,22 @@ describe('platform-v7 owner access center task UX', () => {
     expect(directCenter).toContain("'X-CSRF-Token': token");
   });
 
-  it('activates the durable grant and re-verifies the delegated server session before display', () => {
+  it('activates the durable grant and re-verifies the canonical Founder session before display', () => {
     expect(directCenter).toContain("fetch(`/api/staff/access/grants/${encodeURIComponent(requested.payload.grantId)}/activate`");
     expect(directCenter).toContain("fetch('/api/staff/session-context'");
-    expect(directCenter).toContain("session.accessMode !== 'VIEW_AS'");
+    expect(directCenter).toContain("fetch('/platform-v7/staff/role-mode?view=session'");
+    expect(directCenter).toContain("canonical.schemaVersion !== 'pc-crop.founder-role-mode.v1'");
+    expect(directCenter).toContain("canonical.mode !== 'VIEW_AS'");
+    expect(directCenter).toContain('canonical.readOnly !== true');
+    expect(directCenter).toContain('canonical.mfaRequired !== true');
+    expect(directCenter).toContain('canonical.accessSessionId !== session.accessSessionId');
+    expect(directCenter).toContain('canonical.effectiveOrganizationId !== roleMode.effectiveOrganizationId');
+    expect(directCenter).toContain('canonical.effectiveRole !== roleMode.effectiveRole');
     expect(directCenter).toContain("session.permissions.includes('cabinet:view-as')");
-    expect(directCenter).toContain('session.effectiveOrganizationId !== roleMode.effectiveOrganizationId');
-    expect(directCenter).toContain('session.effectiveRole !== roleMode.effectiveRole');
+    expect(directCenter).toContain('session.effectiveOrganizationId !== canonical.effectiveOrganizationId');
+    expect(directCenter).toContain('session.effectiveRole !== canonical.effectiveRole');
+    expect(directCenter).toContain('actorDisplayName: canonical.actor.displayName');
+    expect(directCenter).toContain('<dd>{activeMode.actorDisplayName}</dd>');
     expect(directCenter).toContain('data-founder-role-mode-active');
     expect(directCenter).toContain('activeMode.restrictions.map');
   });
@@ -88,6 +101,8 @@ describe('platform-v7 owner access center task UX', () => {
     expect(directCenter).not.toContain('window.location.assign(activeMode.canonicalPath)');
     expect(directCenter).not.toContain('window.location.href = activeMode.canonicalPath');
     expect(directCenter).toContain('projection?.deals?.length');
+    expect(directCenter).toContain('sessionContext.active');
+    expect(directCenter).toContain('text.protectedSessionActive');
   });
 
   it('ends the exact delegated session before using the server return path', () => {
