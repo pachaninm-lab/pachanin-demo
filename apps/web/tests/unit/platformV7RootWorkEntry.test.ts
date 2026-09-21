@@ -179,6 +179,16 @@ describe('platform-v7 canonical public experience',()=>{
       'Сам факт доставки не даёт клиенту права менять финансовое состояние',
       'Delivery itself cannot let the client choose financial state',
       '交付本身不能让客户端选择金融状态',
+      'Gekta AI',
+      'Deal context',
+      '交易上下文',
+      '仅限授权上下文',
+      '只读取授权上下文',
+      '询问上下文、风险或下一步',
+      '关键决定保持受控',
+      'Доверие на каждом шаге',
+      'Trust at every step',
+      '每一步都建立信任',
     ]) expect(home + primitives + linkedCopy).not.toContain(retired);
 
     for(const humanCopy of [
@@ -202,6 +212,17 @@ describe('platform-v7 canonical public experience',()=>{
       'Доставка сама по себе не подтверждает финансовое событие и не меняет статус расчёта',
       'Delivery alone does not confirm a financial event or change settlement status',
       '仅完成交付不会确认金融事件，也不会改变结算状态',
+      'Deal assistant',
+      '交易助手',
+      'Deal data',
+      '交易数据',
+      '仅限授权数据',
+      '只读取授权数据',
+      '询问交易、风险或下一步',
+      '关键决定由人作出',
+      'Проверки на каждом этапе',
+      'Checks at every stage',
+      '每个阶段的检查',
       'Загружаем подтверждённые данные.',
     ]) expect(home + primitives + linkedCopy).toContain(humanCopy);
   });
