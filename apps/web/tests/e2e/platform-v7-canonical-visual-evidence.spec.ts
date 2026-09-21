@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { loginAs, type CabinetRole } from './support/acceptance-login';
 
 
 const AUTHORITY_AHASH: Record<string,{hash:string;maxDistance:number}> = {
@@ -155,7 +156,9 @@ test.describe('canonical visual authority evidence', () => {
         animations: 'disabled',
       });
       const authority=AUTHORITY_AHASH[target.name];
-      if(authority){
+      // Perceptual authority is Chromium-only. Other engines retain the same
+      // route/runtime/a11y/overflow evidence without engine-specific pixel hashing.
+      if(authority && /chromium/i.test(testInfo.project.name)){
         const observed=await averageHashFromPng(page,png);
         const distance=hammingHex(authority.hash,observed);
         expect(distance,`${target.name} perceptual drift ${distance} > ${authority.maxDistance}; authority=${authority.hash} observed=${observed}`).toBeLessThanOrEqual(authority.maxDistance);
@@ -291,5 +294,140 @@ test.describe('capabilities exact public route boundary', () => {
     await expectPublicRoute(page, publicRoute, baseURL);
     await page.goto('/platform-v7/bank');
     await expect(page).toHaveURL((url) => url.pathname === '/platform-v7/login' && url.searchParams.get('next') === '/platform-v7/bank');
+  });
+});
+
+
+const ACCEPTANCE_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'https://localhost:3000';
+const CANONICAL_ROLE_ROUTES: ReadonlyArray<readonly [CabinetRole, string]> = [
+  ['operator', '/platform-v7/operator'],
+  ['buyer', '/platform-v7/buyer'],
+  ['seller', '/platform-v7/seller'],
+  ['logistics', '/platform-v7/logistics'],
+  ['driver', '/platform-v7/driver'],
+  ['surveyor', '/platform-v7/surveyor'],
+  ['elevator', '/platform-v7/elevator'],
+  ['lab', '/platform-v7/lab'],
+  ['bank', '/platform-v7/bank'],
+  ['arbitrator', '/platform-v7/arbitrator'],
+  ['compliance', '/platform-v7/compliance'],
+  ['executive', '/platform-v7/executive'],
+];
+
+async function canonicalNoOverflow(page: Page) {
+  expect(await page.evaluate(() => Math.max(
+    document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    document.body.scrollWidth - document.body.clientWidth,
+  ))).toBeLessThanOrEqual(1);
+}
+
+async function canonicalA11y(page: Page) {
+  const report = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+    .analyze();
+  expect(report.violations.filter((item) => item.impact === 'critical' || item.impact === 'serious')).toEqual([]);
+}
+
+async function rotateCabinetRole(page: Page, role: CabinetRole) {
+  await page.goto('about:blank', { waitUntil: 'load' });
+  await loginAs(page, role, ACCEPTANCE_BASE_URL);
+}
+
+test.describe('canonical protected cabinet boundary', () => {
+  const operatorRoute = '/platform-v7/operator';
+
+  test('anonymous and forged sessions never enter protected cabinet', async ({ page }) => {
+    await page.context().clearCookies();
+    await page.goto(operatorRoute, { waitUntil: 'load' });
+    await expect(page).toHaveURL(/\/platform-v7\/login/);
+    await expect(page.locator('.pc-shell-root-v4')).toHaveCount(0);
+
+    const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+    const payload = Buffer.from(JSON.stringify({
+      cab: 'operator', sub: 'forged-user', membership: 'forged-membership',
+      org: 'forged-org', tenant: 'forged-tenant', exp: Math.floor(Date.now() / 1000) + 3600,
+    })).toString('base64url');
+    await page.context().addCookies([{
+      name: 'pc_v7_cabinet',
+      value: `${header}.${payload}.${Buffer.from('forged-signature').toString('base64url')}`,
+      url: ACCEPTANCE_BASE_URL,
+      httpOnly: true,
+      secure: ACCEPTANCE_BASE_URL.startsWith('https://'),
+      sameSite: 'Lax',
+    }]);
+    await page.goto(operatorRoute, { waitUntil: 'load' });
+    await expect(page).toHaveURL(/\/platform-v7\/login/);
+    await expect(page.locator('.pc-shell-root-v4')).toHaveCount(0);
+  });
+
+  test('verified operator enters and valid FARMER remains role-bounded', async ({ page }) => {
+    await loginAs(page, 'operator', ACCEPTANCE_BASE_URL);
+    expect((await page.goto(operatorRoute, { waitUntil: 'load' }))?.status()).toBe(200);
+    await expect(page.locator('.pc-shell-root-v4')).toBeVisible();
+
+    await rotateCabinetRole(page, 'seller');
+    await page.goto(operatorRoute, { waitUntil: 'load' });
+    await expect(page).not.toHaveURL(new RegExp(`${operatorRoute}$`));
+  });
+
+  test('all twelve server-verified role shells retain fixed cabinet chrome', async ({ page }) => {
+    test.setTimeout(180_000);
+    for (const [role, route] of CANONICAL_ROLE_ROUTES) {
+      await rotateCabinetRole(page, role);
+      const response = await page.goto(route, { waitUntil: 'load' });
+      expect(response?.ok(), `${role} response`).toBe(true);
+      await expect(page).not.toHaveURL(/\/platform-v7\/login/);
+      const shell = page.locator('.pc-shell-root-v4');
+      const header = shell.locator(':scope > header');
+      const main = page.locator('main#main-content');
+      const bottomNav = page.getByRole('navigation', { name: 'Основные действия кабинета' });
+      await expect(shell).toBeVisible();
+      await expect(header).toBeVisible();
+      await expect(main).toBeVisible();
+      await expect(bottomNav).toBeVisible();
+      expect(await bottomNav.locator('a').count()).toBeLessThanOrEqual(5);
+      await canonicalNoOverflow(page);
+    }
+  });
+});
+
+test.describe('canonical cross-browser public smoke', () => {
+  test('RU EN ZH home remains keyboard-usable, accessible and overflow-safe', async ({ page }) => {
+    for (const locale of ['ru', 'en', 'zh'] as const) {
+      const response = await page.goto(`/platform-v7?lang=${locale}`, { waitUntil: 'load' });
+      expect(response?.ok()).toBe(true);
+      await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
+      await expect(page.locator('html')).toHaveAttribute('lang', new RegExp(`^${locale}`));
+      await canonicalNoOverflow(page);
+      await page.keyboard.press('Tab');
+      expect(await page.evaluate(() => document.activeElement?.tagName || '')).not.toBe('BODY');
+    }
+    await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
+    await canonicalA11y(page);
+  });
+
+  test('canonical login is accessible and overflow-safe', async ({ page }) => {
+    expect((await page.goto('/platform-v7/login?lang=ru', { waitUntil: 'load' }))?.ok()).toBe(true);
+    await expect(page.getByRole('main')).toBeVisible();
+    await canonicalNoOverflow(page);
+    await canonicalA11y(page);
+    await page.keyboard.press('Tab');
+    expect(await page.evaluate(() => document.activeElement?.tagName || '')).not.toBe('BODY');
+  });
+
+  test('mobile and desktop canonical linked pages retain chrome and route truth', async ({ page, baseURL }) => {
+    for (const width of [390, 1440] as const) {
+      await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+      for (const locale of ['ru', 'en', 'zh'] as const) {
+        for (const route of ['/platform-v7/how-it-works', '/platform-v7/trust', '/platform-v7/about', '/platform-v7/contact']) {
+          const requested = `${route}?lang=${locale}`;
+          const response = await page.goto(requested, { waitUntil: 'domcontentloaded' });
+          expect(response?.status()).toBe(200);
+          await expectPublicRoute(page, requested, baseURL);
+          await expect(page.locator('[data-public-site-header="canonical"]')).toBeVisible();
+          await canonicalNoOverflow(page);
+        }
+      }
+    }
   });
 });
