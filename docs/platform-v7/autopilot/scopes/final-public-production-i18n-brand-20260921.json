@@ -24,7 +24,9 @@
     "apps/web/tests/unit/platformV7PublicLayoutSplit.test.ts",
     "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
     "apps/web/tests/unit/platformV7SpacingAndContactDock.regression.test.ts",
-    "docs/platform-v7/autopilot/scopes/final-public-production-i18n-brand-20260921.json"
+    "docs/platform-v7/autopilot/scopes/final-public-production-i18n-brand-20260921.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-inventory.json"
   ],
   "requiredInvariants": [
     "The production i18n canonical-brand font-size floor remains >=14 CSS px and is not weakened.",
@@ -40,7 +42,8 @@
     "RU, EN and ZH production acceptance remains fail-closed; security, accessibility, browser and Lighthouse thresholds are not lowered.",
     "The homepage hero follows FINAL-PUBLIC-HERO-AUTHORITY-20260921: FIELD -> ELEVATOR -> LOGISTICS + subtle digital network, implemented as a local bespoke SVG with no external CDN/license dependency.",
     "Canonical public typography uses a local system-font stack and does not rely on a remote font at runtime; readable mobile body/supporting text is not compressed into 6–10px microtype.",
-    "Pale-green surfaces remain restrained and preserve WCAG contrast; green is used as an agribusiness accent rather than a full-surface neon treatment."
+    "Pale-green surfaces remain restrained and preserve WCAG contrast; green is used as an agribusiness accent rather than a full-surface neon treatment.",
+    "The paired repository-generated cryptographic inventory JSON/Markdown may change only to record the deterministic tracked production-source count caused by this PR; operation classes, algorithms, call sites and key-material inventory remain unchanged."
   ],
   "acceptance": [
     "Canonical visual evidence proves the new local agribusiness hero, unified system typography, readable mobile hierarchy and pale-green palette without horizontal page overflow or serious/critical accessibility violations.",
