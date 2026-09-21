@@ -85,9 +85,12 @@ describe('platform-v7 canonical public experience',()=>{
   });
 
   it('keeps market filters functional and crop visuals explicit',()=>{
-    for(const name of ["name='q'","name='crop'","name='region'","name='grade'"]) expect(marketPage).toContain(name);
-    expect(marketPage).toContain("filters={{crop,region,grade}}");
+    for(const name of ["name='q'","name='crop'","name='region'","name='grade'","name='sort'"]) expect(marketPage).toContain(name);
+    expect(marketPage).toContain("filters={{crop,region,grade}} sort={sort}");
+    expect(marketPage).toContain("className='pc-cp-market-active-filters'");
     expect(market).toContain('normalizeCropFilter');
+    expect(market).toContain('normalizeMarketSort');
+    expect(market).toContain('sortMarketItems');
     expect(market).toContain('cropVisualKey');
     expect(market).toContain('function CropArt');
     expect(market).toContain("className='pc-cp-lot-media-caption'");
@@ -97,6 +100,9 @@ describe('platform-v7 canonical public experience',()=>{
     expect(market).toContain("sell: 'Продать'");
     expect(css).toContain('FINAL PUBLIC UX POLISH');
     expect(css).toContain('.pc-cp-market-filter-grid');
+    expect(css).toContain('.pc-cp-market-active-filters');
+    expect(siteHeader).not.toContain('.pc-site-header{height:60px;');
+    expect(css).toContain('OWNER UX SYSTEM CLOSURE — 2026-09-22');
   });
 
   it('reserves mobile space for the fixed bottom navigation and capabilities',()=>{
