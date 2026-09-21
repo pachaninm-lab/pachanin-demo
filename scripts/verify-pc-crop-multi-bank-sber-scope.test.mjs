@@ -31,12 +31,17 @@ for (const marker of [
   'ACCEPTED_NONFINAL',
   "canonicalFinality: 'NOT_DECIDED_HERE'",
   'REFERENCE_CONFORMANCE_ONLY',
+  'liveRequestReady: false',
+  'buildReferenceRequestEnvelope',
+  'mapReferenceDispatch',
+  'buildReceiptCandidate',
 ]) assert.ok(port.includes(marker), 'missing adapter-port boundary ' + marker);
 
 for (const marker of [
   'SERVER_HELD_PROVIDER_BINDING_REQUIRED',
   'SERVER_HELD_MATURITY_DOES_NOT_ALLOW_REAL_TRAFFIC',
   'REFERENCE_ADAPTER_HAS_NO_LIVE_TRANSPORT',
+  "authority.maturity !== 'LIVE_ACCEPTED'",
 ]) assert.ok(router.includes(marker), 'missing routing boundary ' + marker);
 
 for (const marker of [
@@ -44,20 +49,22 @@ for (const marker of [
   'PROVIDER_EVENT_REPLAY',
   'PAYLOAD_REPLAY',
   'AUTHENTICATION_EVIDENCE_MISSING',
+  'READY_FOR_CANONICAL_RECONCILIATION',
 ]) assert.ok(receipt.includes(marker), 'missing receipt boundary ' + marker);
 
 assert.ok(sber.includes('readonly liveTransportImplemented = false'));
 assert.ok(sber.includes("status === 'DONE'"));
 assert.ok(sber.includes("status === 'CREATED' || status === 'PENDING'"));
-assert.ok(alfa.includes("evidenceState: 'UNKNOWN_EVIDENCE'"));
+assert.ok(alfa.includes("'UNKNOWN_EVIDENCE'"));
 assert.ok(alfa.includes('no pinned exact Alfa status schema/hash'));
 assert.ok(tbank.includes("status === 'PAYMENT_FAILED'"));
 assert.ok(tbank.includes("'BILLING'"));
 assert.ok(tbank.includes("'FINANCING_APPLICATION'"));
 
 for (const source of [sber, alfa, tbank]) {
-  assert.ok(source.includes("canonicalFinality: 'NOT_DECIDED_HERE'"));
-  assert.ok(source.includes('liveRequestReady: false'));
+  assert.ok(source.includes('buildReferenceRequestEnvelope'));
+  assert.ok(source.includes('mapReferenceDispatch'));
+  assert.ok(source.includes('buildReceiptCandidate'));
   assert.doesNotMatch(source, /fetch\s*\(/u);
   assert.doesNotMatch(source, /axios/u);
   assert.doesNotMatch(source, /process\.env/u);
