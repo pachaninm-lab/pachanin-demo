@@ -28,7 +28,7 @@ export function PublicGektaChatButton({
 }) {
   const lang = canonicalLocale(locale);
   const copy = COPY[lang];
-  const label = variant === 'header' ? copy.short : copy.ask;
+  const label = copy.ask;
 
   const openGekta = () => {
     window.dispatchEvent(new CustomEvent('pc:public-assistant-context', {
