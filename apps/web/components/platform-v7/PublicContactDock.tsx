@@ -7,6 +7,7 @@ import { trackEvent } from '@/lib/analytics/track';
 type Locale = 'ru' | 'en' | 'zh';
 type Surface = 'assistant' | 'support';
 type AssistantContext = 'public' | 'private' | 'workspace';
+type PublicMode = 'full' | 'gekta';
 
 const SUPPORT_PHONE_DISPLAY = '8 916 277-89-89';
 const SUPPORT_PHONE_HREF = 'tel:+79162778989';
@@ -34,7 +35,7 @@ function restoreAttribute(node: HTMLElement, name: string, value: string | null)
   else node.setAttribute(name, value);
 }
 
-export function PublicContactDock({ assistantContext = 'public' }: { assistantContext?: AssistantContext }) {
+export function PublicContactDock({ assistantContext = 'public', publicMode = 'full' }: { assistantContext?: AssistantContext; publicMode?: PublicMode }) {
   const [locale, setLocale] = React.useState<Locale>('ru');
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [hiddenByScroll, setHiddenByScroll] = React.useState(assistantContext === 'public');
@@ -43,6 +44,7 @@ export function PublicContactDock({ assistantContext = 'public' }: { assistantCo
   const returnFocusRef = React.useRef<Surface | null>(null);
   const openStateRef = React.useRef({ assistant: false, support: false });
   const ui = COPY[locale];
+  const gektaOnly = assistantContext === 'public' && publicMode === 'gekta';
   const assistantTriggerSelector = assistantContext === 'workspace'
     ? null
     : assistantContext === 'private'
@@ -182,19 +184,24 @@ export function PublicContactDock({ assistantContext = 'public' }: { assistantCo
       data-dialog-open={dialogOpen ? 'true' : 'false'}
       data-scroll-hidden={scrollHidden ? 'true' : 'false'}
       data-assistant-context={assistantContext}
+      data-public-mode={publicMode}
     >
       <button ref={assistantButtonRef} type='button' disabled={hidden} tabIndex={hidden ? -1 : 0} className='pc-public-contact-dock-action pc-public-contact-dock-assistant' aria-label={ui.assistantAria} aria-haspopup={assistantContext === 'workspace' ? undefined : 'dialog'} aria-controls={assistantPanelSelector.slice(1)} onClick={() => openSurface('assistant')}>
         <span className='pc-public-contact-dock-icon' aria-hidden='true'><Sparkles size={17} strokeWidth={2.15} /></span>
         <strong>{ui.assistant}</strong>
       </button>
-      <button ref={supportButtonRef} type='button' disabled={hidden} tabIndex={hidden ? -1 : 0} className='pc-public-contact-dock-action' aria-label={ui.support} aria-haspopup='dialog' onClick={() => openSurface('support')}>
-        <span className='pc-public-contact-dock-icon' aria-hidden='true'><MessageCircle size={17} strokeWidth={2.1} /></span>
-        <strong>{ui.support}</strong>
-      </button>
-      <a className='pc-public-contact-dock-action pc-public-contact-dock-call' tabIndex={hidden ? -1 : 0} href={SUPPORT_PHONE_HREF} aria-label={ui.callAria} onClick={() => trackEvent('public_support_phone_clicked', { source: 'unified_contact_dock', assistantContext })}>
-        <span className='pc-public-contact-dock-icon' aria-hidden='true'><Phone size={17} strokeWidth={2.1} /></span>
-        <strong>{ui.call}</strong>
-      </a>
+      {!gektaOnly ? (
+        <>
+          <button ref={supportButtonRef} type='button' disabled={hidden} tabIndex={hidden ? -1 : 0} className='pc-public-contact-dock-action' aria-label={ui.support} aria-haspopup='dialog' onClick={() => openSurface('support')}>
+            <span className='pc-public-contact-dock-icon' aria-hidden='true'><MessageCircle size={17} strokeWidth={2.1} /></span>
+            <strong>{ui.support}</strong>
+          </button>
+          <a className='pc-public-contact-dock-action pc-public-contact-dock-call' tabIndex={hidden ? -1 : 0} href={SUPPORT_PHONE_HREF} aria-label={ui.callAria} onClick={() => trackEvent('public_support_phone_clicked', { source: 'unified_contact_dock', assistantContext })}>
+            <span className='pc-public-contact-dock-icon' aria-hidden='true'><Phone size={17} strokeWidth={2.1} /></span>
+            <strong>{ui.call}</strong>
+          </a>
+        </>
+      ) : null}
       <style>{css}</style>
     </nav>
   );
@@ -347,4 +354,105 @@ const css = `
 @media (forced-colors: active) {
   .pc-public-contact-dock[data-assistant-context='public'] { border:1px solid ButtonText;background:Canvas;outline:1px solid ButtonText;outline-offset:1px; }
 }
+
+/* Canonical public Gekta entry: one visible communication surface. */
+.pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] {
+  display: grid !important;
+  right: max(18px, env(safe-area-inset-right, 0px)) !important;
+  bottom: max(18px, calc(env(safe-area-inset-bottom, 0px) + 16px)) !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: auto !important;
+  grid-template-columns: 1fr !important;
+  grid-template-rows: 1fr !important;
+  padding: 4px !important;
+  overflow: visible !important;
+  border: 1px solid rgba(11, 95, 67, .2) !important;
+  border-radius: 999px !important;
+  background: rgba(255,255,255,.97) !important;
+  box-shadow: 0 14px 34px rgba(22, 55, 41, .13), 0 2px 8px rgba(11, 95, 67, .08) !important;
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+}
+.pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] .pc-public-contact-dock-assistant {
+  width: auto !important;
+  min-width: 148px !important;
+  height: 50px !important;
+  min-height: 50px !important;
+  padding: 0 16px 0 10px !important;
+  gap: 9px !important;
+  border-radius: 999px !important;
+  background: #edf7f1 !important;
+  color: #0b4f3a !important;
+}
+.pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] .pc-public-contact-dock-assistant .pc-public-contact-dock-icon {
+  width: 32px !important;
+  height: 32px !important;
+  flex-basis: 32px !important;
+  border-radius: 50% !important;
+  color: #fff !important;
+  background: #0b5f43 !important;
+  box-shadow: none !important;
+}
+.pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] .pc-public-contact-dock-assistant strong {
+  position: static !important;
+  width: auto !important;
+  height: auto !important;
+  margin: 0 !important;
+  overflow: visible !important;
+  clip: auto !important;
+  clip-path: none !important;
+  white-space: nowrap !important;
+  color: #0b4f3a !important;
+  font-size: 13px !important;
+  font-weight: 820 !important;
+}
+@media (hover:hover) {
+  .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] .pc-public-contact-dock-assistant:hover:not(:disabled) {
+    background: #e1f1e8 !important;
+    transform: translateY(-1px);
+  }
+}
+@media (max-width:767px) {
+  .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] {
+    right: max(10px, env(safe-area-inset-right, 0px)) !important;
+    bottom: max(74px, calc(env(safe-area-inset-bottom, 0px) + 72px)) !important;
+    width: 118px !important;
+    min-width: 118px !important;
+    height: 54px !important;
+    padding: 3px !important;
+    border-radius: 18px !important;
+  }
+  .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] .pc-public-contact-dock-assistant {
+    width: 112px !important;
+    min-width: 112px !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    padding: 0 11px 0 8px !important;
+    gap: 7px !important;
+    border-radius: 15px !important;
+  }
+  .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] .pc-public-contact-dock-assistant strong {
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    clip: auto !important;
+    clip-path: none !important;
+    white-space: nowrap !important;
+    font-size: 13px !important;
+    font-weight: 800 !important;
+  }
+}
+
+
+/* FINAL PUBLIC EXPERIENCE v1 — desktop chat lives in the canonical header */
+@media (min-width:981px) {
+  .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] {
+    display: none !important;
+  }
+}
+
 `;

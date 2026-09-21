@@ -21,7 +21,7 @@ function isCanonicalLanding(pathname: string): boolean {
  */
 export default async function PublicEntryLayout({ children }: { children: ReactNode }) {
   const pathname = normalizePath((await headers()).get('x-pc-pathname'));
-  if (isCanonicalLanding(pathname)) return children;
+  const canonicalLanding = isCanonicalLanding(pathname);
 
   const [{ HydrationSafeChatSupport }, { PublicContactDock }] = await Promise.all([
     import('@/components/platform-v7/HydrationSafeChatSupport'),
@@ -32,9 +32,9 @@ export default async function PublicEntryLayout({ children }: { children: ReactN
     <>
       {children}
       <span data-public-entry-contact-dock-mounted='true' hidden />
-      <PublicContactDock />
+      <PublicContactDock assistantContext='public' publicMode={canonicalLanding ? 'gekta' : 'full'} />
       <span data-public-entry-contact-dock-end='true' hidden />
-      <HydrationSafeChatSupport renderDock={false} />
+      <HydrationSafeChatSupport renderDock={false} legacyPublicPolish={!canonicalLanding} />
     </>
   );
 }
