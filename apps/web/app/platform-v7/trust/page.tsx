@@ -12,7 +12,7 @@ import {
   canonicalPublicLocale,
 } from '@/components/platform-v7/PublicCanonicalPrimitives';
 
-const META={"ru":["Доверие — Прозрачная Цена","Модель доверия платформы: полномочия, основание, источник и решение в контексте каждой Сделки."],"en":["Trust — Transparent Price","The platform trust model: authority, basis, source and decision in the context of every Deal."],"zh":["信任 — 透明价格","平台的信任模型：在每笔交易上下文中关联权限、依据、来源和决定。"]} as const;
+const META={"ru":["Доверие — Прозрачная Цена","Для важного действия платформа связывает полномочия, основание, источник и зафиксированное решение."],"en":["Trust — Transparent Price","For an important action, the platform links authority, basis, source and the recorded decision."],"zh":["信任 — 透明价格","对于重要操作，平台会关联权限、依据、来源和已记录的决定。"]} as const;
 
 export async function generateMetadata():Promise<Metadata>{
   const locale=canonicalPublicLocale(await getLocale());
@@ -42,7 +42,7 @@ ru:{
   ['Роль и организация','Выбор роли в интерфейсе не даёт доступ. Права появляются только после проверки организации и полномочий.'],
   ['Расчёт','Пользователь не может вручную назначить финансовый статус. Платформа показывает только подтверждённое состояние и основание.'],
   ['Внешние системы','Интеграция или внешнее событие считается подтверждённым только при наличии фактического источника.'],
-  ['Гекта','Гекта объясняет контекст и варианты, но решение и ответственность остаются за участником.'],
+  ['Гекта','Гекта объясняет доступные факты и варианты; решение и ответственность остаются за участником.'],
  ],
  faq:'Частые вопросы',
  faqs:[
@@ -62,7 +62,7 @@ en:{
   ['Role and organisation','Choosing a role in the interface grants no access. Rights appear only after the organisation and authority are verified.'],
   ['Settlement','A user cannot assign financial status manually. The platform shows only confirmed state and basis.'],
   ['External systems','An integration or external event is treated as confirmed only when there is a real source behind it.'],
-  ['Gekta','Gekta explains context and options; decisions and accountability stay with the participant.'],
+  ['Gekta','Gekta explains the available facts and options; decisions and accountability stay with the participant.'],
  ],
  faq:'Frequently asked questions',
  faqs:[
@@ -82,7 +82,7 @@ zh:{
   ['角色与机构','在界面选择角色不会获得访问权限；机构和权限通过审核后才会开放。'],
   ['结算','用户不能手动指定金融状态；平台只展示已确认的状态和依据。'],
   ['外部系统','只有存在真实来源时，集成或外部事件才会被视为已确认。'],
-  ['Gekta','Gekta 解释上下文和可用选项；决定和责任仍由参与方承担。'],
+  ['Gekta','Gekta 解释可用事实和选项；决定和责任仍由参与方承担。'],
  ],
  faq:'常见问题',
  faqs:[
@@ -123,7 +123,7 @@ export default async function TrustPage(){
   <section className='pc-cp-hero pc-cp-trust-hero'>
    <div className='pc-cp-container pc-cp-hero-grid'>
     <div className='pc-cp-hero-copy'><span className='pc-cp-eyebrow'>{c.e}</span><h1>{c.t}</h1><p>{c.p}</p><div className='pc-cp-actions'><Link className='pc-cp-button' href={`/platform-v7/register?lang=${locale}`}>{c.register}<ArrowRight size={16}/></Link><Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/how-it-works?lang=${locale}`}>{c.how}</Link></div></div>
-    <aside className='pc-cp-trust-hero-quote'><strong>{locale==='ru'?'Надёжные данные. Сильный АПК России.':locale==='en'?'Reliable data. Strong agriculture.':'可靠数据。更强农业。'}</strong><span>{locale==='ru'?'Проверяемые факты вместо обещаний.':locale==='en'?'Verifiable facts instead of promises.':'用可核验事实替代空泛承诺。'}</span></aside>
+    <aside className='pc-cp-trust-hero-quote'><strong>{locale==='ru'?'Факт · источник · полномочие · решение':locale==='en'?'Fact · source · authority · decision':'事实 · 来源 · 权限 · 决定'}</strong><span>{locale==='ru'?'Если подтверждения нет — статус остаётся неподтверждённым.':locale==='en'?'If evidence is missing, the status stays unconfirmed.':'没有确认依据时，状态保持未确认。'}</span></aside>
    </div>
   </section>
   <section className='pc-cp-section pc-cp-trust-pillars-section'><div className='pc-cp-container'>

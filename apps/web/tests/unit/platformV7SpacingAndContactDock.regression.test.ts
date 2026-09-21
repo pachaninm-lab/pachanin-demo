@@ -39,6 +39,9 @@ describe('platform-v7 spacing and contact dock regression', () => {
       expect(css.slice(authority)).toContain('.pc-cp-bottom-nav a{font-size:12px!important');
       expect(css.slice(authority)).toContain('grid-template-columns:repeat(6,minmax(0,1fr))!important');
       expect(css.slice(authority)).toContain('grid-template-columns:repeat(7,112px)!important');
+      const finalFontSizes = [...css.slice(authority).matchAll(/font-size\\s*:\\s*([0-9.]+)px/g)].map((match) => Number(match[1]));
+      expect(finalFontSizes.length).toBeGreaterThan(0);
+      expect(Math.min(...finalFontSizes)).toBeGreaterThanOrEqual(12);
     }
 
     const header = read('apps/web/components/platform-v7/PublicSiteHeader.tsx');
@@ -61,6 +64,7 @@ describe('platform-v7 spacing and contact dock regression', () => {
       'apps/web/components/platform-v7/PublicCanonicalPrimitives.tsx',
       'apps/web/app/platform-v7/about/page.tsx',
       'apps/web/app/platform-v7/ai-in-action/page.tsx',
+      'apps/web/app/platform-v7/gekta/page.tsx',
       'apps/web/app/platform-v7/capabilities/page.tsx',
       'apps/web/app/platform-v7/deal-flow/page.tsx',
       'apps/web/app/platform-v7/how-it-works/page.tsx',
@@ -94,13 +98,24 @@ describe('platform-v7 spacing and contact dock regression', () => {
       'Four trust pillars',
       'Четыре столпа доверия',
       '信任来自可核验的事实',
+      'Reliable data. Strong agriculture.',
+      'Verifiable facts instead of promises.',
+      'Everything needed to execute the Deal',
+      'A clear path from lot to closure',
+      'Gekta works with your Deal context',
+      'Authorised context only',
+      'Gekta pulls available Deal facts together',
+      'Сводит контекст в одном месте',
+      '可靠数据。更强农业。',
     ]) {
       expect(copy).not.toContain(phrase);
     }
 
     expect(copy).toContain('See who acted, why, and on what evidence.');
-    expect(copy).toContain('Seven stages, linked facts and clear responsibility.');
+    expect(copy).toContain('Each stage shows its facts and responsible participant.');
     expect(copy).toContain('What we check');
+    expect(copy).toContain('Fact · source · authority · decision');
+    expect(copy).toContain('Gekta works with the Deal data you can access');
     expect(copy).toContain('看清谁执行了操作、依据是什么、事实来自哪里。');
   });
 

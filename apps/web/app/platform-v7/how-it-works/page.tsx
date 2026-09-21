@@ -33,7 +33,7 @@ export async function generateMetadata():Promise<Metadata>{
 
 const COPY={
 ru:{
- e:'7 этапов Сделки',t:'Понятный путь от лота до закрытия',p:'На каждом этапе видно, кто отвечает, какие факты нужны, что влияет на расчёт и что можно делать дальше.',
+ e:'7 этапов Сделки',t:'От лота до закрытия — по этапам',p:'На каждом этапе видно, кто отвечает, какие факты нужны, что влияет на расчёт и что можно делать дальше.',
  actor:'Участник',fact:'Факт',basis:'Основание',money:'Влияние на расчёт',next:'Следующий шаг',
  stages:[
  ['Лот','Продавец','Параметры товара и условия публикации','Данные лота и подтверждённые полномочия организации','Расчёт ещё не формируется','Опубликовать лот и перейти к торгам'],
@@ -48,7 +48,7 @@ ru:{
  cta:'Зарегистрироваться',market:'Открыть рынок'
 },
 en:{
- e:'7 Deal stages',t:'A clear path from lot to closure',p:'At every stage you can see who acts, which facts matter, what affects settlement and what can happen next.',
+ e:'7 Deal stages',t:'From lot to closure, stage by stage',p:'At every stage you can see who acts, which facts matter, what affects settlement and what can happen next.',
  actor:'Participant',fact:'Fact',basis:'Basis',money:'Settlement impact',next:'Next step',
  stages:[
  ['Lot','Seller','Product parameters and publication terms','Lot data and confirmed organisation authority','No settlement basis yet','Publish the lot and move to trading'],
@@ -63,7 +63,7 @@ en:{
  cta:'Register',market:'Open market'
 },
 zh:{
- e:'交易的 7 个阶段',t:'从批次到关闭，一条清晰路径',p:'每个阶段都能看到谁负责、需要哪些事实、什么影响结算，以及下一步可以做什么。',
+ e:'交易的 7 个阶段',t:'从批次到关闭，按阶段执行',p:'每个阶段都能看到谁负责、需要哪些事实、什么影响结算，以及下一步可以做什么。',
  actor:'参与方',fact:'事实',basis:'依据',money:'结算影响',next:'下一步',
  stages:[
  ['批次','卖方','商品的公开和非公开参数','已确认的批次数据和机构权限','尚未形成结算依据','允许批次进入授权交易流程'],
@@ -85,7 +85,7 @@ export default async function HowItWorksPage(){
   <section className='pc-cp-hero pc-cp-how-hero'>
    <div className='pc-cp-container pc-cp-how-hero-grid'>
     <div className='pc-cp-hero-copy'><span className='pc-cp-eyebrow'>{c.e}</span><h1>{c.t}</h1><p>{c.p}</p></div>
-    <aside className='pc-cp-how-hero-quote'><strong>{locale==='ru'?'От лота до закрытия':locale==='en'?'From lot to closure':'从批次到关闭'}</strong><span>{locale==='ru'?'Семь этапов, связанные факты и понятные ответственные.':locale==='en'?'Seven stages, linked facts and clear responsibility.':'七个阶段，事实相互关联，责任方清晰。'}</span></aside>
+    <aside className='pc-cp-how-hero-quote'><strong>{locale==='ru'?'От лота до закрытия':locale==='en'?'From lot to closure':'从批次到关闭'}</strong><span>{locale==='ru'?'На каждом этапе видны факты и ответственный участник.':locale==='en'?'Each stage shows its facts and responsible participant.':'每个阶段都显示相关事实和责任方。'}</span></aside>
    </div>
   </section>
   <section className='pc-cp-how-spine'><div className='pc-cp-container'><CanonicalDealSpine locale={locale} currentIndex={0}/></div></section>
@@ -98,7 +98,7 @@ export default async function HowItWorksPage(){
   </div></section>
   <section className='pc-cp-section pc-cp-section--soft pc-cp-how-trust'><div className='pc-cp-container'>
    <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{c.trust}</span><h2>{c.trust}</h2><p>{c.trustLead}</p></div>
-   <div className='pc-cp-how-trust-layout'><CanonicalTrustLedger locale={locale}/><aside className='pc-cp-how-gekta-note'><strong>{locale==='ru'?'Гекта помогает сверить факты по Сделке':locale==='en'?'Gekta helps you check the Deal facts':'Gekta 帮你核对交易事实'}</strong><p>{locale==='ru'?'Показывает связанные факты и риски. Решение остаётся за участником.':locale==='en'?'Shows the linked facts and risks. The participant makes the decision.':'展示相关事实和风险；决定仍由参与方作出。'}</p></aside></div>
+   <div className='pc-cp-how-trust-layout'><CanonicalTrustLedger locale={locale}/><aside className='pc-cp-how-gekta-note'><strong>{locale==='ru'?'Гекта показывает, какие факты Сделки нужно проверить':locale==='en'?'Gekta shows which Deal facts need checking':'Gekta 显示需要核验的交易事实'}</strong><p>{locale==='ru'?'Показывает связанные факты и риски. Решение остаётся за участником.':locale==='en'?'Shows the linked facts and risks. The participant makes the decision.':'展示相关事实和风险；决定仍由参与方作出。'}</p></aside></div>
   </div></section>
   <section className='pc-cp-section pc-cp-section--tight pc-cp-how-gekta'><div className='pc-cp-container'><CanonicalGektaStrip locale={locale}/></div></section>
   <CanonicalFooter locale={locale}/><CanonicalBottomNav locale={locale} active='/platform-v7/how-it-works'/>
