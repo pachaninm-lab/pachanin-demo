@@ -113,7 +113,7 @@ describe('platform-v7 owner access center task UX', () => {
     expect(page).toContain('accessCatalog={staffAccessTaskCatalog()}');
     expect(catalog).toContain("id: 'view_cabinet'");
     expect(center).toContain('permissions: selectedPermissions');
-    expect(deferred).toContain("hetch('/api/staff/session-context'");
+    expect(deferred).toContain("fetch('/api/staff/session-context'");
     expect(deferred).toContain('if (!ready || !active) return null');
   });
 
