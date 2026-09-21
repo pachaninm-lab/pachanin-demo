@@ -192,7 +192,7 @@ describe('platform-v7 canonical public experience',()=>{
   });
 
   it('keeps Gekta inside source and authority boundaries',()=>{
-    expect(gekta).toContain('решение и ответственность остаются за участником');
+    expect(gekta).toContain('Решение и ответственность остаются за участником');
     expect(gekta).toContain('Только контекст, доступный текущему участнику');
     expect(gekta).toContain('Гекта объясняет варианты; действие и ответственность остаются за участником');
     expect(gekta).not.toContain('автоматически переводит деньги');
