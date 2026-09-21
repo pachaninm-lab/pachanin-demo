@@ -16,6 +16,7 @@ import {
   Store,
   UserRound,
 } from 'lucide-react';
+import { PublicGektaChatButton } from './PublicGektaChatButton';
 import { PublicLocaleLink } from './PublicLocaleLink';
 import { PublicSiteHeader } from './PublicSiteHeader';
 
@@ -31,34 +32,31 @@ export function canonicalPublicLocale(value: string): CanonicalPublicLocale {
 const NAV = {
   ru: [
     ['Рынок', '/platform-v7/market'],
-    ['Как проходит Сделка', '/platform-v7/how-it-works'],
+    ['Сделка', '/platform-v7/how-it-works'],
     ['Возможности', '/platform-v7/capabilities'],
     ['Гекта', '/platform-v7/gekta'],
     ['Доверие', '/platform-v7/trust'],
-    ['О платформе', '/platform-v7/about'],
   ],
   en: [
     ['Market', '/platform-v7/market'],
-    ['How the Deal works', '/platform-v7/how-it-works'],
+    ['Deal', '/platform-v7/how-it-works'],
     ['Capabilities', '/platform-v7/capabilities'],
     ['Gekta', '/platform-v7/gekta'],
     ['Trust', '/platform-v7/trust'],
-    ['About', '/platform-v7/about'],
   ],
   zh: [
     ['市场', '/platform-v7/market'],
-    ['交易如何进行', '/platform-v7/how-it-works'],
+    ['交易', '/platform-v7/how-it-works'],
     ['功能', '/platform-v7/capabilities'],
     ['Gekta', '/platform-v7/gekta'],
     ['信任', '/platform-v7/trust'],
-    ['关于平台', '/platform-v7/about'],
   ],
 } as const;
 
 const ACTIONS = {
-  ru: { login: 'Войти', register: 'Регистрация', brand: 'Прозрачная Цена — на главную', nav: 'Навигация платформы', menu: 'Открыть меню' },
-  en: { login: 'Sign in', register: 'Register', brand: 'Transparent Price — home', nav: 'Platform navigation', menu: 'Open menu' },
-  zh: { login: '登录', register: '注册', brand: '透明价格 — 首页', nav: '平台导航', menu: '打开菜单' },
+  ru: { login: 'Войти', register: 'Регистрация', about: 'О платформе', brand: 'Прозрачная Цена — на главную', nav: 'Навигация платформы', menu: 'Открыть меню' },
+  en: { login: 'Sign in', register: 'Register', about: 'About', brand: 'Transparent Price — home', nav: 'Platform navigation', menu: 'Open menu' },
+  zh: { login: '登录', register: '注册', about: '关于平台', brand: '透明价格 — 首页', nav: '平台导航', menu: '打开菜单' },
 } as const;
 
 export const CANONICAL_DEAL_STAGES = {
@@ -75,22 +73,22 @@ export const CANONICAL_ROLES = {
 
 export const TRUST_MODEL = {
   ru: [
-    ['Полномочия', 'Кто вправе действовать в этом контексте и от имени какой организации.'],
-    ['Основание', 'Какое условие, документ или подтверждённое событие разрешает действие.'],
-    ['Источник', 'Откуда получен факт и в какой версии он относится к Сделке.'],
-    ['Решение', 'Какое действие принято, кем и какой следующий шаг разрешён.'],
+    ['Полномочия', 'Кто может действовать и от имени какой организации.'],
+    ['Основание', 'Какой документ, условие или событие разрешает действие.'],
+    ['Источник', 'Откуда взят факт и к какой версии Сделки он относится.'],
+    ['Решение', 'Что решено, кем и что разрешено делать дальше.'],
   ],
   en: [
-    ['Authority', 'Who may act in this context and for which organisation.'],
-    ['Basis', 'Which condition, document or confirmed event permits the action.'],
+    ['Authority', 'Who may act and for which organisation.'],
+    ['Basis', 'Which document, condition or event permits the action.'],
     ['Source', 'Where the fact came from and which Deal version it belongs to.'],
-    ['Decision', 'What was decided, by whom, and which next step is permitted.'],
+    ['Decision', 'What was decided, by whom, and what may happen next.'],
   ],
   zh: [
-    ['权限', '谁有权在当前上下文中代表哪个机构执行操作。'],
-    ['依据', '哪个条件、文件或已确认事件允许该操作。'],
-    ['来源', '事实来自哪里，以及属于交易的哪个版本。'],
-    ['决定', '作出了什么决定、由谁作出，以及允许的下一步是什么。'],
+    ['权限', '谁可以操作，以及代表哪个机构。'],
+    ['依据', '哪个文件、条件或事件允许该操作。'],
+    ['来源', '事实来自哪里，以及对应交易的哪个版本。'],
+    ['决定', '做出了什么决定、由谁决定，以及接下来可以做什么。'],
   ],
 } as const;
 
@@ -111,8 +109,18 @@ export function CanonicalPublicHeader({
   const nav = (
     <>
       {NAV[lang].map(([label, href]) => (
-        <a key={href} href={`${href}${suffix}`} data-active={activePath === href ? 'true' : undefined}>{label}</a>
+        <a
+          key={href}
+          className={href === '/platform-v7/gekta' ? 'pc-site-nav-gekta' : undefined}
+          href={`${href}${suffix}`}
+          data-active={activePath === href ? 'true' : undefined}
+        >
+          {href === '/platform-v7/gekta' ? <Bot size={14} aria-hidden='true' /> : null}
+          {label}
+        </a>
       ))}
+      <PublicGektaChatButton locale={lang} variant='mobile' className='pc-cp-mobile-only pc-site-mobile-gekta' />
+      <a className='pc-cp-mobile-only' href={`/platform-v7/about${suffix}`}><Building2 size={16} aria-hidden='true' />{copy.about}</a>
       <a className='pc-cp-mobile-only' href={`/platform-v7/login${suffix}`}><LogIn size={16} aria-hidden='true' />{copy.login}</a>
       <a className='pc-cp-mobile-only' href={`/platform-v7/register${suffix}`}><UserRound size={16} aria-hidden='true' />{copy.register}</a>
     </>
@@ -129,6 +137,7 @@ export function CanonicalPublicHeader({
       localeControl={localeControl ?? <PublicLocaleLink />}
       actions={actions === false ? <span className='pc-canonical-header-actions' /> : actions === true ? (
         <div className='pc-canonical-header-actions'>
+          <PublicGektaChatButton locale={lang} variant='header' />
           <a className='entry-login' href={`/platform-v7/login${suffix}`}>{copy.login}</a>
           <a className='pc-v6-header-cta' href={`/platform-v7/register${suffix}`}>{copy.register}</a>
         </div>
@@ -244,13 +253,19 @@ export function CanonicalStateLens({
 export function CanonicalGektaStrip({ locale }: { locale: string }) {
   const lang = canonicalPublicLocale(locale);
   const c = lang === 'ru'
-    ? { k: 'Аграрный интеллект', t: 'Гекта', p: 'Объясняет контекст Сделки, риски, основания и допустимый следующий шаг. Критическое решение остаётся за человеком и правилами платформы.', chips: ['Контекст Сделки', 'Документы', 'Логистика', 'Качество', 'Расчёт', 'Риски'] }
+    ? { k: 'Помощник по Сделке', t: 'Гекта', p: 'Показывает состояние Сделки, риски и основания по доступным данным. Критическое решение принимает человек по правилам платформы.', chips: ['Данные Сделки', 'Документы', 'Логистика', 'Качество', 'Расчёт', 'Риски'] }
     : lang === 'en'
-      ? { k: 'Agricultural intelligence', t: 'Gekta', p: 'Explains Deal context, risks, evidence and the permitted next step. Critical decisions remain with people and platform rules.', chips: ['Deal context', 'Documents', 'Logistics', 'Quality', 'Settlement', 'Risk'] }
-      : { k: '农业智能', t: 'Gekta', p: '解释交易上下文、风险、依据和允许的下一步。关键决定仍由人员和平台规则控制。', chips: ['交易上下文', '文件', '物流', '质量', '结算', '风险'] };
+      ? { k: 'Deal assistant', t: 'Gekta', p: 'Shows Deal state, risk and evidence from data available to the user. Critical decisions remain with people under platform rules.', chips: ['Deal data', 'Documents', 'Logistics', 'Quality', 'Settlement', 'Risk'] }
+      : { k: '交易助手', t: 'Gekta', p: '基于参与方可访问的数据展示交易状态、风险和依据。关键决定由人员按平台规则作出。', chips: ['交易数据', '文件', '物流', '质量', '结算', '风险'] };
   return (
     <section className='pc-cp-gekta-strip'>
-      <div className='pc-cp-gekta-brand'><span>{c.k}</span><strong>{c.t}</strong><p>{c.p}</p></div>
+      <div className='pc-cp-gekta-brand'>
+        <span>{c.k}</span><strong>{c.t}</strong><p>{c.p}</p>
+        <div className='pc-cp-gekta-actions'>
+          <PublicGektaChatButton locale={lang} variant='section' />
+          <a href={`/platform-v7/gekta?lang=${lang}`}>{lang === 'ru' ? 'Открыть Гекту' : lang === 'en' ? 'Open Gekta' : '打开 Gekta'}</a>
+        </div>
+      </div>
       <div className='pc-cp-gekta-chips'>{c.chips.map((chip) => <span key={chip}>{chip}</span>)}</div>
     </section>
   );
@@ -291,16 +306,17 @@ export function CanonicalBottomNav({ locale, active }: { locale: string; active?
 export function CanonicalFooter({ locale }: { locale: string }) {
   const lang = canonicalPublicLocale(locale);
   const description = lang === 'ru'
-    ? 'Единый контур агросделки: от лота и торгов до исполнения, документов, расчёта и закрытия.'
+    ? 'Одна Сделка — от лота и торгов до исполнения, документов, расчёта и закрытия.'
     : lang === 'en'
-      ? 'One agricultural Deal flow from lot and trading through execution, documents, settlement and closure.'
-      : '统一农业交易流程：从批次和交易到履约、文件、结算和关闭。';
+      ? 'One Deal from lot and trading through execution, documents, settlement and closure.'
+      : '一笔交易贯穿批次、交易、履约、文件、结算和关闭。';
   return (
     <footer className='pc-cp-footer'>
       <div className='pc-cp-container pc-cp-footer-grid'>
         <div><strong>Прозрачная Цена</strong><p>{description}</p></div>
         <nav aria-label={ACTIONS[lang].nav}>
           {NAV[lang].map(([label, href]) => <a key={href} href={`${href}?lang=${lang}`}>{label}</a>)}
+          <a href={`/platform-v7/about?lang=${lang}`}>{ACTIONS[lang].about}</a>
           <a href={`/platform-v7/contact?lang=${lang}`}>{lang === 'ru' ? 'Контакты' : lang === 'en' ? 'Contact' : '联系'}</a>
           <a href={`/platform-v7/privacy?lang=${lang}`}>{lang === 'ru' ? 'Конфиденциальность' : lang === 'en' ? 'Privacy' : '隐私'}</a>
           <a href={`/platform-v7/terms?lang=${lang}`}>{lang === 'ru' ? 'Условия' : lang === 'en' ? 'Terms' : '条款'}</a>

@@ -83,8 +83,10 @@ async function expectCanonicalHeader(page: Page, width: number) {
     await expectVisibleTargetsAtLeast(page, '.pc-site-mobile-menu > summary, .pc-site-locale-switch', 44);
   } else {
     await expect(header.locator('.pc-site-nav')).toBeVisible();
-    await expect(header.locator('.pc-site-nav > a:not(.pc-cp-mobile-only)')).toHaveCount(6);
-    await expectVisibleTargetsAtLeast(page, '.pc-site-locale-switch, .entry-login, .pc-v6-header-cta', 44);
+    const primaryNavLinks = header.locator('.pc-site-nav > a:not(.pc-cp-mobile-only)');
+    await expect(primaryNavLinks).toHaveCount(5);
+    await expect(header.locator('.pc-gekta-chat-button--header')).toBeVisible();
+    await expectVisibleTargetsAtLeast(page, '.pc-site-locale-switch, .pc-gekta-chat-button--header, .entry-login, .pc-v6-header-cta', 44);
   }
 }
 
@@ -113,6 +115,17 @@ async function expectHomeContract(page: Page, width: number) {
     await expect(page.locator('.pc-cp-bottom-nav')).toBeVisible();
     await expect(page.locator('.pc-cp-bottom-nav a')).toHaveCount(5);
     await expectVisibleTargetsAtLeast(page, '.pc-cp-bottom-nav a', 44);
+
+    const readableMarketPreview = page.locator(
+      '#market .pc-cp-market-grid--preview .pc-cp-chip:visible, ' +
+      '#market .pc-cp-market-grid--preview .pc-cp-lot-title:visible, ' +
+      '.pc-cp-deal-lens-next strong:visible',
+    );
+    const previewSizes = await readableMarketPreview.evaluateAll((nodes) =>
+      nodes.map((node) => Number.parseFloat(getComputedStyle(node).fontSize)),
+    );
+    expect(previewSizes.length).toBeGreaterThan(0);
+    expect(Math.min(...previewSizes)).toBeGreaterThanOrEqual(12);
   } else {
     await expect(page.locator('.pc-cp-bottom-nav')).toBeHidden();
   }
@@ -169,9 +182,47 @@ test.describe('Platform V7 canonical linked pages RU EN ZH', () => {
         if (!['login', 'register'].includes(target.name)) await expectCanonicalHeader(page, width);
         if (target.name === 'market') {
           await expect(page.locator('[data-testid="canonical-market-results"], [data-market-state]').first()).toBeVisible();
+          const readableMarketCopy = page.locator(
+            '.pc-cp-lot-card:visible .pc-cp-chip:visible, ' +
+            '.pc-cp-market-aside p:visible, .pc-cp-market-aside small:visible',
+          );
+          const marketSizes = await readableMarketCopy.evaluateAll((nodes) =>
+            nodes.map((node) => Number.parseFloat(getComputedStyle(node).fontSize)),
+          );
+          expect(marketSizes.length).toBeGreaterThan(0);
+          expect(Math.min(...marketSizes)).toBeGreaterThanOrEqual(12);
         }
         if (target.name === 'how-it-works') {
           await expect(page.locator('.pc-cp-process-card')).toHaveCount(7);
+        }
+        if (target.name === 'deal-flow') {
+          const stageRail = page.locator('.pc-cp-deal-public-hero .pc-cp-deal-spine').first();
+          const stageLabels = page.locator('.pc-cp-deal-public-hero .pc-cp-stage strong');
+          await expect(stageLabels).toHaveCount(7);
+          const stageSizes = await stageLabels.evaluateAll((nodes) => nodes.map((node) => Number.parseFloat(getComputedStyle(node).fontSize)));
+          expect(Math.min(...stageSizes)).toBeGreaterThanOrEqual(12);
+          const rail = await stageRail.evaluate((node) => ({
+            clientWidth: node.clientWidth,
+            scrollWidth: node.scrollWidth,
+            overflowX: getComputedStyle(node).overflowX,
+          }));
+          expect(rail.scrollWidth).toBeGreaterThan(rail.clientWidth);
+          expect(['auto', 'scroll']).toContain(rail.overflowX);
+
+          const stateTabs = page.locator('.pc-cp-deal-public-main .pc-cp-state-tab');
+          const stateTabMetrics = await stateTabs.evaluateAll((nodes) => nodes.map((node) => {
+            const style = getComputedStyle(node);
+            const rect = node.getBoundingClientRect();
+            return { fontSize: Number.parseFloat(style.fontSize), height: rect.height };
+          }));
+          expect(stateTabMetrics.length).toBeGreaterThanOrEqual(3);
+          expect(Math.min(...stateTabMetrics.map((item) => item.fontSize))).toBeGreaterThanOrEqual(12);
+          expect(Math.min(...stateTabMetrics.map((item) => item.height))).toBeGreaterThanOrEqual(44);
+
+          const stateCopy = page.locator('.pc-cp-deal-public-main .pc-cp-state-cell span, .pc-cp-deal-public-main .pc-cp-state-cell strong');
+          const stateSizes = await stateCopy.evaluateAll((nodes) => nodes.map((node) => Number.parseFloat(getComputedStyle(node).fontSize)));
+          expect(stateSizes.length).toBeGreaterThan(0);
+          expect(Math.min(...stateSizes)).toBeGreaterThanOrEqual(12);
         }
         if (target.name === 'trust') {
           await expect(page.locator('.pc-cp-trust-pillar')).toHaveCount(4);

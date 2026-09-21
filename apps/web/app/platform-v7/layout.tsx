@@ -208,14 +208,14 @@ function isPublicPath(pathname: string) {
   return PUBLIC_EXACT_PATHS.has(pathname) || PUBLIC_PREFIX_PATHS.some((prefix) => pathname.startsWith(prefix));
 }
 
-const CANONICAL_PUBLIC_NO_LEGACY_DOCK = new Set([
+const CANONICAL_PUBLIC_GEKTA_PATHS = new Set([
   '/platform-v7', '/platform-v7/market', '/platform-v7/how-it-works', '/platform-v7/capabilities',
   '/platform-v7/ai-in-action', '/platform-v7/gekta', '/platform-v7/trust', '/platform-v7/about', '/platform-v7/contact',
   '/platform-v7/register', '/platform-v7/login', '/platform-v7/deal-flow',
 ]);
 
 function shouldMountLegacyPublicDock(pathname: string) {
-  if (CANONICAL_PUBLIC_NO_LEGACY_DOCK.has(pathname)) return false;
+  if (CANONICAL_PUBLIC_GEKTA_PATHS.has(pathname)) return false;
   return true;
 }
 
@@ -286,8 +286,12 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
     const PublicLinkedSurfaceShell = linkedSurfacePath
       ? (await import('@/components/platform-v7/PublicLinkedSurfaceShell')).PublicLinkedSurfaceShell
       : null;
-    const HydrationSafeChatSupport = shouldMountLegacyPublicDock(pathname)
+    const canonicalGekta = CANONICAL_PUBLIC_GEKTA_PATHS.has(pathname);
+    const HydrationSafeChatSupport = (canonicalGekta || shouldMountLegacyPublicDock(pathname))
       ? (await import('@/components/platform-v7/HydrationSafeChatSupport')).HydrationSafeChatSupport
+      : null;
+    const PublicContactDock = canonicalGekta
+      ? (await import('@/components/platform-v7/PublicContactDock')).PublicContactDock
       : null;
     const publicContent = PublicLinkedSurfaceShell && linkedSurfacePath
       ? <PublicLinkedSurfaceShell pathname={linkedSurfacePath} locale={await getLocale()}>{children}</PublicLinkedSurfaceShell>
@@ -295,7 +299,12 @@ export default async function PlatformV7Layout({ children }: { children: ReactNo
     return (
       <>
         {publicContent}
-        {HydrationSafeChatSupport ? <HydrationSafeChatSupport /> : null}
+        {PublicContactDock ? <PublicContactDock assistantContext='public' publicMode='gekta' /> : null}
+        {HydrationSafeChatSupport
+          ? canonicalGekta
+            ? <HydrationSafeChatSupport renderDock={false} legacyPublicPolish={false} />
+            : <HydrationSafeChatSupport />
+          : null}
       </>
     );
   }
