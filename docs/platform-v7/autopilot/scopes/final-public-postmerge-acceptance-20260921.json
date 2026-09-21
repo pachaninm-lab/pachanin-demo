@@ -9,6 +9,7 @@
   "newRecurringCostRub": 0,
   "allowedPaths": [
     "apps/web/components/platform-v7/PublicSiteHeader.tsx",
+    "apps/web/app/platform-v7/trust/page.tsx",
     "apps/web/styles/platform-v7-canonical-home-v1.css",
     "apps/web/styles/platform-v7-canonical-public-v1.css",
     "apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts",
@@ -20,6 +21,7 @@
     "The repair changes no backend/API/database/middleware/RBAC/tenant/session/Deal/money/finality behavior and does not widen production release authority.",
     "Public interactive targets remain at least 44 by 44 CSS pixels; no accessibility threshold is reduced.",
     "Active locale contrast must pass the existing serious/critical WCAG acceptance; Axe checks remain enabled.",
+    "Scrollable canonical Deal spines on public pages must remain keyboard focusable; the fix may add semantic list roles/tabIndex only and must not suppress Axe findings.",
     "The Design System v8 browser oracle retains the existing five browser/device projects, workers, retries, timeouts and protected-cabinet authority checks.",
     "Only stale selectors for duplicate desktop/mobile canonical controls may be narrowed to the visible authoritative control; query-token assertions remain unchanged.",
     "Manual expected-head merge remains gated by exact-head CI, owner self-audit, independent review and zero unresolved threads.",
