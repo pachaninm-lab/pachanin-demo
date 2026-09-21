@@ -68,6 +68,9 @@ for (const marker of [
   'AUTHENTICATION_AUTHORITY_MISMATCH',
   'IDEMPOTENCY_MISMATCH',
   'READY_FOR_CANONICAL_RECONCILIATION',
+  'function evidenceIdentity',
+  'function consumedEvidenceIncludes',
+  'value.trim() === candidate',
 ]) assert.ok(receipt.includes(marker), 'missing receipt boundary ' + marker);
 
 assert.ok(sber.includes('readonly liveTransportImplemented = false'));
