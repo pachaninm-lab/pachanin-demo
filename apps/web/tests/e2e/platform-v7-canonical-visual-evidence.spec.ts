@@ -4,7 +4,7 @@ import { loginAs, type CabinetRole } from './support/acceptance-login';
 
 
 const AUTHORITY_AHASH: Record<string,{hash:string;maxDistance:number}> = {
-  '01-home-desktop': { hash:'3fd80602000e000af001fffffffffffffffff7fffff9fffdfffdbfff00009fff', maxDistance:90 },
+  '01-home-desktop': { hash:'ffffffffffebef0b31004200ffffffff7777ffffffff9e3febb57fffff9fb7f7', maxDistance:90 },
   '02-home-mobile': { hash:'7ff1ffffd3ffe1fffffce020f13cffff807fffff87ff8001ffffdfffffff9b6f', maxDistance:125 },
   '03-market-desktop': { hash:'7ffc1ff31800f800ffefff0f001f3e3fffffffff003f003fffffffff8003003f', maxDistance:130 },
   '04-lot-desktop': { hash:'3ffc0800000005ef05ff07ff07ff07ff07e0ffffffffffffffffffffffffffff', maxDistance:135 },
@@ -225,9 +225,9 @@ test.describe('canonical visual authority evidence', () => {
 // informational route. These reads never create an authenticated role/session.
 test.describe('capabilities exact public route boundary', () => {
   const headings = {
-    ru: 'Вся Сделка — в одном рабочем контуре',
-    en: 'The whole Deal in one working flow',
-    zh: '整笔交易在一个工作流程中',
+    ru: 'Весь путь Сделки — без разрывов между этапами',
+    en: 'The whole Deal without hand-offs between disconnected tools',
+    zh: '整笔交易，不再被分散工具切断',
   } as const;
 
   for (const locale of ['ru', 'en', 'zh'] as const) {
