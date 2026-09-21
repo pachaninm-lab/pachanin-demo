@@ -102,6 +102,7 @@ assert.doesNotMatch(router, /session/i);
 for (const marker of [
   'name: PC-CROP Multi-Bank Reference Adapter Acceptance',
   'pnpm exec vitest run packages/domain-core/src/bank-capability.test.ts',
+  'bank-adapter.port.spec.ts',
   'bank-capability.router.spec.ts',
   'bank-receipt.contract.spec.ts',
   'sber-reference.adapter.spec.ts',
