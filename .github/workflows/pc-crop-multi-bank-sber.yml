@@ -7,6 +7,8 @@ on:
       - 'packages/domain-core/src/bank-capability.test.ts'
       - 'apps/api/src/modules/bank-adapters/**'
       - 'apps/api/test/industrial/multi-bank-reference-adapter.e2e-spec.ts'
+      - 'docs/security/CRYPTOGRAPHIC_INVENTORY.md'
+      - 'docs/security/cryptographic-inventory.json'
       - 'scripts/verify-pc-crop-multi-bank-sber-scope.test.mjs'
       - '.github/workflows/pc-crop-multi-bank-sber.yml'
   push:
@@ -16,6 +18,8 @@ on:
       - 'packages/domain-core/src/bank-capability.test.ts'
       - 'apps/api/src/modules/bank-adapters/**'
       - 'apps/api/test/industrial/multi-bank-reference-adapter.e2e-spec.ts'
+      - 'docs/security/CRYPTOGRAPHIC_INVENTORY.md'
+      - 'docs/security/cryptographic-inventory.json'
       - 'scripts/verify-pc-crop-multi-bank-sber-scope.test.mjs'
       - '.github/workflows/pc-crop-multi-bank-sber.yml'
   workflow_dispatch:
