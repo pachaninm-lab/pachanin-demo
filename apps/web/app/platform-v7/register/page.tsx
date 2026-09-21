@@ -2,7 +2,6 @@ import '@/styles/platform-v7-public-register.css';
 import '@/styles/platform-v7-public-register-official.css';
 import '@/styles/platform-v7-public-register-reflow.css';
 import '@/styles/platform-v7-canonical-public-v1.css';
-import { Languages } from 'lucide-react';
 import { CanonicalBottomNav, CanonicalPublicHeader } from '@/components/platform-v7/PublicCanonicalPrimitives';
 import { RegisterFormClientPublic } from './RegisterFormClientPublic';
 
@@ -60,10 +59,6 @@ function registrationIntent(value: string | undefined): PublicRegistrationIntent
   return value === 'sell' || value === 'buy' || value === 'execution' || value === 'finance' ? value : null;
 }
 
-function nextLocale(locale: Locale): Locale {
-  return locale === 'ru' ? 'en' : locale === 'en' ? 'zh' : 'ru';
-}
-
 export default async function RegisterPage({
   searchParams,
 }: {
@@ -76,20 +71,10 @@ export default async function RegisterPage({
   const intent = registrationIntent(first(params.intent));
   const initialWorkspace = intent ? WORKSPACE_BY_INTENT[intent] : undefined;
   const copy = PAGE_COPY[locale];
-  const next = nextLocale(locale);
-  const localeQuery = new URLSearchParams({ lang: next });
-  if (verifyToken) localeQuery.set('verify', verifyToken);
-  if (statusToken) localeQuery.set('statusToken', statusToken);
-  if (intent) localeQuery.set('intent', intent);
-
   return (
     <main className='p0-register-page'>
       <div className='p0-register-shell'>
-        <CanonicalPublicHeader
-          locale={locale}
-          activePath='/platform-v7/register'
-          localeControl={<a className='pc-site-locale-switch' href={`/platform-v7/register?${localeQuery.toString()}`} aria-label={copy.language} title={copy.language}><Languages size={17} aria-hidden='true' /><span>{locale.toUpperCase()}</span></a>}
-        />
+        <CanonicalPublicHeader locale={locale} activePath='/platform-v7/register' />
 
         <section className='p0-register-hero' aria-labelledby='p0-register-title'>
           <small>{copy.kicker}</small>
