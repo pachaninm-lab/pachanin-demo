@@ -1,4 +1,3 @@
-import { describe, expect, it } from '@jest/globals';
 import { SberReferenceAdapter } from './sber-reference.adapter';
 
 const response = (rawStatus: string | null, httpStatus = 200) => ({
