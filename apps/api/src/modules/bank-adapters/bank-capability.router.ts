@@ -94,6 +94,7 @@ export class BankCapabilityRouter {
       || !authority.integrationBindingId.trim()
       || !authority.providerId.trim()
       || !authority.providerCapabilityId.trim()
+      || !authority.capabilityCode.trim()
       || !authority.bindingKey.trim()
       || !authority.bindingVersion.trim()
       || !authority.configurationVersion.trim()
