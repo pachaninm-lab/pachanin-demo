@@ -73,6 +73,8 @@ describe('platform-v7 canonical public experience',()=>{
   it('keeps the protected operator route on the canonical neutral cockpit loading skeleton',()=>{
     expect(operatorLoading).toContain("from '@/components/platform-v7/RoleCockpitLoading'");
     expect(operatorLoading).toContain('<RoleCockpitLoading />');
+    expect(operatorLoading).toContain("className='p7-route-loading'");
+    expect(layout).toContain(".pc-shell-root-v4 .p7-route-loading{min-height:calc(100dvh - 136px)}");
     expect(operatorLoading).not.toContain('CanonicalUxState');
     expect(operatorLoading).not.toContain('pc-canonical-public');
   });
