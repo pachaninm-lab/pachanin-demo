@@ -712,8 +712,8 @@ export function RegisterFormClient({
         <h2 id='p0-register-status-title'>{copy.statusTitle}</h2>
         <dl className='p0-register-status-list'>
           <div><dt>{copy.applicationId}</dt><dd>{status.applicationId || '—'}</dd></div>
-          <div><dt>{copy.status}</dt><dd>{copy.statusLabels[statusCode]}</dd></div>
-          <div><dt>{copy.nextAction}</dt><dd>{copy.nextLabels[nextCode]}</dd></div>
+          <div><dt>{copy.status}</dt><dd>{copy.statusLabels[statusCode] || copy.statusUpdating}</dd></div>
+          <div><dt>{copy.nextAction}</dt><dd>{copy.nextLabels[nextCode] || copy.waitForUpdate}</dd></div>
           {status.reason ? <div><dt>{copy.reason}</dt><dd>{status.reason}</dd></div> : null}
         </dl>
         {error ? <p className='p0-register-error' role='alert'>{error}</p> : null}

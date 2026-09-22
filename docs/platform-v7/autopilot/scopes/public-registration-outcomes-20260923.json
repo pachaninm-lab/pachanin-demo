@@ -12,7 +12,8 @@
     "apps/web/app/api/auth/register/route.ts",
     "apps/web/lib/platform-v7/registration-outcome.ts",
     "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
-    "docs/platform-v7/autopilot/scopes/public-registration-outcomes-20260923.json"
+    "docs/platform-v7/autopilot/scopes/public-registration-outcomes-20260923.json",
+    "docs/security/cryptographic-inventory.json"
   ],
   "requiredInvariants": [
     "A browser/network timeout or BFF upstream transport loss never claims the registration was rejected; it produces an explicit unknown UI outcome.",
