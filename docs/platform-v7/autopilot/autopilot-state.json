@@ -1530,9 +1530,7 @@
       "apps/web/tests/unit/platformV7PrimaryRoleCockpit.test.tsx",
       "apps/web/tests/unit/platformV7RoleUxRegressions.test.ts",
       "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
-      "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
-      "apps/web/lib/first-customer-workspace-server.ts",
-      "apps/web/tests/unit/p0FirstCustomerCompletion.test.ts"
+      "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx"
     ]
   },
   "currentAcceptance": [
@@ -1680,7 +1678,7 @@
     },
     "seller-truthful-first-screen-20260922": {
       "owner": "ACCOUNT_2_PRODUCT",
-      "purpose": "Truthful production seller workspace slice: remove fabricated seller business facts, keep the production FirstCustomerWorkspace fail-closed, prevent recency/list order from becoming next-action authority, support RU/EN/ZH presentation, and update the stale Design System v8 seller test contract without changing backend/domain authority.",
+      "purpose": "Truthful production seller workspace slice: remove fabricated seller business facts, prevent the production FirstCustomerWorkspace from promoting recency/list order into seller next-action authority, preserve RU/EN/ZH user meaning, and update the stale Design System v8 seller test contract without changing backend/domain authority.",
       "authorityBaseExactMain": "76d2dda7c2eb11a62a45261d40cd6d0d32a259ad",
       "implementationBranch": "ux/seller-truthful-first-screen-20260922",
       "allowedPaths": [
@@ -1689,9 +1687,7 @@
         "apps/web/tests/unit/platformV7PrimaryRoleCockpit.test.tsx",
         "apps/web/tests/unit/platformV7RoleUxRegressions.test.ts",
         "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
-        "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
-        "apps/web/lib/first-customer-workspace-server.ts",
-        "apps/web/tests/unit/p0FirstCustomerCompletion.test.ts"
+        "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx"
       ],
       "requiredTruthBoundaries": [
         "Seller business facts must come from existing canonical server reads; absence of a canonical Deal must render explicit empty/degraded/unknown state rather than static LOT/DL/money/document facts.",
