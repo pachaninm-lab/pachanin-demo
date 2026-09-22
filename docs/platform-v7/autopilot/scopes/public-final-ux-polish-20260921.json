@@ -7,7 +7,10 @@
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
   "acceptanceRepair": "Owner completion instruction: repair public dock overlap and migrate the existing Design System v8 registration locale acceptance to the canonical three-link control; retain all Axe, browser, token-preservation and authority-boundary assertions.",
+  "ownerSpecification": "PC_CROP_PUBLIC_CORRECTIONS_TZ_2026-09-22 v1.0, sections 5.1 and 6.2: /about and /how-it-works are explicitly included public page corrections. Path reconciliation recorded in Team Hub #5469 comment 5775460766; ordinary guard, review and release admission remain required.",
   "allowedPaths": [
+    "apps/web/app/platform-v7/about/page.tsx",
+    "apps/web/app/platform-v7/how-it-works/page.tsx",
     "apps/web/app/platform-v7/capabilities/page.tsx",
     "apps/web/app/platform-v7/contact/layout.tsx",
     "apps/web/app/platform-v7/deal-flow/page.tsx",
