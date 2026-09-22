@@ -265,10 +265,10 @@ describe('platform-v7 canonical public experience',()=>{
     ]) expect(home + primitives + market + linkedCopy).not.toContain(retired);
 
     for(const humanCopy of [
-      'Агросделка — от цены до закрытия.',
+      'Продавайте и покупайте урожай. Держите сделку под контролем.',
       'Экран сразу показывает, что произошло',
-      'From price to closure — one Deal.',
-      '从定价到结算，一笔交易贯穿全程。',
+      'Sell and buy crops. Keep your Deal under control.',
+      '销售与采购农产品，掌握交易进展。',
       'Помощник по Сделке',
       'Deal assistant',
       '交易助手',
@@ -282,9 +282,9 @@ describe('platform-v7 canonical public experience',()=>{
       'Правила торгов и подтверждённый результат торгов',
       'Trading rules and confirmed trading result',
       '交易规则和已确认的交易结果',
-      'Доставка сама по себе не подтверждает финансовое событие и не меняет статус расчёта',
-      'Delivery alone does not confirm a financial event or change settlement status',
-      '仅完成交付不会确认金融事件，也不会改变结算状态',
+      'Доставка не означает завершение расчёта: сначала нужны приёмка и документы',
+      'Delivery does not complete settlement: acceptance and documents are still needed.',
+      '交付不代表结算已完成，还需要验收和相关文件。',
       'Deal assistant',
       '交易助手',
       'Deal data',
@@ -473,6 +473,47 @@ describe('platform-v7 canonical public experience',()=>{
       expect(source,sourcePath).toContain('index:true');
       expect(source,sourcePath).toContain('follow:true');
     }
+  });
+
+  for (const sourcePath of [
+    'components/platform-v7/PlatformV7StrategicHome.tsx',
+    'app/platform-v7/market/page.tsx',
+    'app/platform-v7/deal-flow/page.tsx',
+    'app/platform-v7/about/page.tsx',
+    'app/platform-v7/how-it-works/page.tsx',
+    'app/platform-v7/capabilities/page.tsx',
+  ]) {
+    it(`${sourcePath}: every public outline is unbound to invented Deal progress`, () => {
+      const calls = [...read(sourcePath).matchAll(/<CanonicalDealSpine\b[^>]*\/>/g)];
+      expect(calls.length).toBeGreaterThan(0);
+      for (const [call] of calls) expect(call).toContain('currentIndex={null}');
+    });
+  }
+
+  it('keeps the home state explanatory and four participation actions application-only', () => {
+    expect(home).toContain("presentation='explanation'");
+    expect(home).toContain('state={null}');
+    expect(home).not.toContain("state='normal'");
+    expect(home).toContain("const GROUP_INTENTS = ['sell', 'buy', 'execution', 'finance'] as const");
+    expect(home).toContain('`${registerBase}&intent=${GROUP_INTENTS[index]!}`');
+    expect(home).not.toContain('tenantId');
+    expect(home).not.toContain('setDirectRole');
+  });
+
+  it('keeps linked-page actions distinct and removes forced inline hero sizing', () => {
+    const about = read('app/platform-v7/about/page.tsx');
+    const how = read('app/platform-v7/how-it-works/page.tsx');
+    expect(about).toContain('Продажа, закупка и исполнение — в одной сделке');
+    expect(about).not.toContain('c.domain');
+    expect(about).not.toMatch(/minHeight:\s*\d/);
+    expect(capabilitiesPage).not.toMatch(/minHeight:\s*\d/);
+    expect(capabilitiesPage).not.toContain("maxWidth:'14ch'");
+    expect(capabilitiesPage).toContain('Всё, что нужно для работы со сделкой');
+    expect(capabilitiesPage).toContain('/platform-v7?lang=${locale}#participants');
+    expect(capabilitiesPage).toContain('CAPABILITIES.map');
+    expect(how).toContain('От предложения до завершения сделки');
+    expect(how).toContain('Рабочий экран сделки');
+    expect(how).toContain('/platform-v7/deal-flow?lang=${locale}');
   });
 });
 
