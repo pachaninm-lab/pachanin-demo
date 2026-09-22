@@ -143,9 +143,17 @@ export function normalizeBankOperationRequest(
 }
 
 export function normalizeObservedAt(value: string): string {
+  if (typeof value !== 'string' || !value.trim()) throw new Error('INVALID_BANK_OBSERVED_AT');
   const parsed = Date.parse(value);
   if (!Number.isFinite(parsed)) throw new Error('INVALID_BANK_OBSERVED_AT');
   return new Date(parsed).toISOString();
+}
+
+function isRuntimeHttp2xx(value: unknown): value is number {
+  return typeof value === 'number'
+    && Number.isInteger(value)
+    && value >= 200
+    && value < 300;
 }
 
 export function buildReferenceRequestEnvelope(
@@ -180,9 +188,9 @@ export function mapReferenceDispatch(
 ): BankDispatchMapping {
   const status = response.rawStatus?.trim().toUpperCase() ?? null;
   const rejectSet = new Set(explicitRejectStatuses.map((value) => value.trim().toUpperCase()));
-  const is2xx = response.httpStatus !== null
-    && response.httpStatus >= 200
-    && response.httpStatus < 300;
+  // Provider responses are runtime data. Do not let JavaScript numeric coercion
+  // turn malformed values such as string "201" into a transport acknowledgement.
+  const is2xx = isRuntimeHttp2xx(response.httpStatus);
 
   // Keep transport acknowledgement and provider business evidence separate.
   // A 2xx response acknowledges the transport/API call only, even when a body
