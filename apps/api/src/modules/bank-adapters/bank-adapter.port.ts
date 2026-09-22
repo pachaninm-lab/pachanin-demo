@@ -117,7 +117,12 @@ function runtimeTrimmedString(value: unknown, errorCode: string): string {
 
 function identifier(value: unknown, field: string): string {
   const normalized = runtimeTrimmedString(value, `INVALID_BANK_IDENTIFIER:${field}`);
-  if (!normalized || normalized.length > 240 || !/^[A-Za-z0-9:_.-]+$/.test(normalized)) {
+  if (
+    !normalized
+    || normalized !== value
+    || normalized.length > 240
+    || !/^[A-Za-z0-9:_.-]+$/.test(normalized)
+  ) {
     throw new Error(`INVALID_BANK_IDENTIFIER:${field}`);
   }
   return normalized;
