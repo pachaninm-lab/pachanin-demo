@@ -186,7 +186,7 @@ export function PublicContactDock({ assistantContext = 'public', publicMode = 'f
       data-assistant-context={assistantContext}
       data-public-mode={publicMode}
     >
-      <button ref={assistantButtonRef} type='button' disabled={hidden} tabIndex={hidden ? -1 : 0} className='pc-public-contact-dock-action pc-public-contact-dock-assistant' aria-label={ui.assistantAria} aria-haspopup={assistantContext === 'workspace' ? undefined : 'dialog'} aria-controls={assistantPanelSelector.slice(1)} onClick={() => openSurface('assistant')}>
+      <button ref={assistantButtonRef} type='button' disabled={hidden} tabIndex={hidden ? -1 : 0} className='pc-public-contact-dock-action pc-public-contact-dock-assistant' aria-label={ui.assistant} aria-haspopup={assistantContext === 'workspace' ? undefined : 'dialog'} aria-controls={assistantPanelSelector.slice(1)} onClick={() => openSurface('assistant')}>
         <span className='pc-public-contact-dock-icon' aria-hidden='true'><Sparkles size={17} strokeWidth={2.15} /></span>
         <strong>{ui.assistant}</strong>
       </button>
@@ -417,36 +417,50 @@ const css = `
 @media (max-width:767px) {
   .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] {
     right: max(10px, env(safe-area-inset-right, 0px)) !important;
-    bottom: max(74px, calc(env(safe-area-inset-bottom, 0px) + 72px)) !important;
-    width: 118px !important;
-    min-width: 118px !important;
-    height: 54px !important;
-    padding: 3px !important;
-    border-radius: 18px !important;
+    bottom: max(78px, calc(env(safe-area-inset-bottom, 0px) + 76px)) !important;
+    width: 52px !important;
+    min-width: 52px !important;
+    max-width: 52px !important;
+    height: 52px !important;
+    padding: 2px !important;
+    border-radius: 17px !important;
   }
   .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] .pc-public-contact-dock-assistant {
-    width: 112px !important;
-    min-width: 112px !important;
-    height: 48px !important;
-    min-height: 48px !important;
-    padding: 0 11px 0 8px !important;
-    gap: 7px !important;
-    border-radius: 15px !important;
+    width: 46px !important;
+    min-width: 46px !important;
+    max-width: 46px !important;
+    height: 46px !important;
+    min-height: 46px !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    border-radius: 14px !important;
+  }
+  .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] .pc-public-contact-dock-assistant .pc-public-contact-dock-icon {
+    width: 32px !important;
+    height: 32px !important;
+    flex-basis: 32px !important;
   }
   .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] .pc-public-contact-dock-assistant strong {
-    position: static !important;
-    width: auto !important;
-    height: auto !important;
-    margin: 0 !important;
-    overflow: visible !important;
-    clip: auto !important;
-    clip-path: none !important;
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0,0,0,0) !important;
+    clip-path: inset(50%) !important;
     white-space: nowrap !important;
-    font-size: 13px !important;
-    font-weight: 800 !important;
+    border: 0 !important;
   }
 }
 
+
+/* Canonical mobile navigation owns the bottom edge; chat remains available in the header menu. */
+@media (max-width:760px) {
+  body:has(.pc-cp-bottom-nav) .pc-public-contact-dock[data-assistant-context='public'] {
+    display: none !important;
+  }
+}
 
 /* FINAL PUBLIC EXPERIENCE v1 — desktop chat lives in the canonical header */
 @media (min-width:981px) {

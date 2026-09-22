@@ -1,13 +1,20 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createElement } from 'react';
+import { createElement, isValidElement, type ReactNode, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { cleanup, render, waitFor } from '@testing-library/react';
+import { act, cleanup, render, waitFor } from '@testing-library/react';
 import { CanonicalDealWorkspace } from '@/components/platform-v7/CanonicalDealWorkspace';
 import { CanonicalDealSpine, CanonicalStateLens, CanonicalStateTabs } from '@/components/platform-v7/PublicCanonicalPrimitives';
 // Fixtures use the existing pure server policy; product code does not import it.
 import { DEAL_ACTIONS, buildDealSpine, getCurrentDealAction } from '../../../api/src/modules/deals/deal-command.policy';
+
+import { PUBLIC_CROPS, PUBLIC_CROP_LABELS, findPublicLot, publicLotReference, marketApplicationHref, publicMarketContext, marketHref, publicMarketLocaleHref, publicMarketRegistrationContext } from '@/lib/platform-v7/public-market-navigation';
+import { CanonicalCropCatalogue, CanonicalMarketPreview, CanonicalMarketResults, CanonicalPublicLotView } from '@/components/platform-v7/PublicCanonicalMarket';
+import { PublicMarketDeadline } from '@/components/platform-v7/PublicMarketDeadline';
+import RegisterPage from '@/app/platform-v7/register/page';
+import { RegisterFormClientPublic } from '@/app/platform-v7/register/RegisterFormClientPublic';
+import type { PublicMarketLot, PublicMarketReadResult } from '@/lib/public-market-server';
 
 const read=(relativePath:string)=>readFileSync(join(process.cwd(),relativePath),'utf8');
 
@@ -19,6 +26,8 @@ describe('platform-v7 canonical public experience',()=>{
   const home=read('components/platform-v7/PlatformV7StrategicHome.tsx');
   const primitives=read('components/platform-v7/PublicCanonicalPrimitives.tsx');
   const market=read('components/platform-v7/PublicCanonicalMarket.tsx');
+  const marketPage=read('app/platform-v7/market/page.tsx');
+  const capabilitiesPage=read('app/platform-v7/capabilities/page.tsx');
   const marketSource=read('lib/public-market-server.ts');
   const routeAliases=read('lib/platform-v7/route-canonicalization.ts');
   const dealFlow=read('app/platform-v7/deal-flow/page.tsx');
@@ -68,6 +77,47 @@ describe('platform-v7 canonical public experience',()=>{
     for(const label of ['Рынок','Сделка','Возможности','Гекта','Доверие','О платформе']) expect(primitives).toContain(label);
     for(const label of ['Market','Deal','Capabilities','Gekta','Trust','About']) expect(primitives).toContain(label);
     for(const label of ['市场','交易','功能','Gekta','信任','关于平台']) expect(primitives).toContain(label);
+    expect(primitives).toContain("['Сделка', '/platform-v7/deal-flow', Layers3, false]");
+    expect(primitives).not.toContain("['Регистрация', '/platform-v7/register', UserRound, true]");
+    expect(dealFlow).toContain("<CanonicalBottomNav locale={locale} active='/platform-v7/deal-flow'/>");
+  });
+
+  it('keeps login and registration on the same canonical public shell',()=>{
+    expect(loginPage).toContain("<CanonicalPublicHeader locale={locale} activePath='/platform-v7/login'/>");
+    expect(loginPage).toContain("<CanonicalBottomNav locale={locale} active='/platform-v7/login'/>");
+    expect(registerPage).toContain("<CanonicalPublicHeader locale={locale} activePath='/platform-v7/register' localeControl={localeControl} />");
+    expect(registerPage).toContain("<CanonicalBottomNav locale={locale} active='/platform-v7/register' />");
+    expect(primitives).toContain("pc-site-mobile-utility");
+    expect(primitives).toContain("Аккаунт и помощь");
+  });
+
+  it('keeps market filters functional and crop visuals explicit',()=>{
+    for(const name of ["name='q'","name='crop'","name='region'","name='grade'","name='sort'"]) expect(marketPage).toContain(name);
+    expect(marketPage).toContain("filters={{crop,region,grade}} sort={sort}");
+    expect(marketPage).toContain("className='pc-cp-market-active-filters'");
+    expect(market).toContain('filterPublicLots(market.items, context, lang)');
+    expect(market).toContain('cropForCulture');
+    expect(market).toContain('function CropPhoto');
+    expect(market).not.toContain('function CropArt');
+    expect(market).toContain('/platform-v7/crops/${crop}-640.webp');
+    expect(market).toContain("loading='lazy'");
+    expect(market).toContain("className='pc-cp-lot-media-caption'");
+    expect(market).toContain("marketApplicationHref(lang, 'buy'");
+    expect(market).toContain("marketApplicationHref(lang, 'sell'");
+    expect(market).toContain("buy: 'Купить'");
+    expect(market).toContain("sell: 'Продать'");
+    expect(css).toContain('FINAL PUBLIC UX POLISH');
+    expect(css).toContain('.pc-cp-market-filter-grid');
+    expect(css).toContain('.pc-cp-market-active-filters');
+    expect(siteHeader).not.toContain('.pc-site-header{height:60px;');
+    expect(css).toContain('OWNER UX SYSTEM CLOSURE — 2026-09-22');
+  });
+
+  it('reserves mobile space for the fixed bottom navigation and capabilities',()=>{
+    expect(capabilitiesPage).toContain("pc-cp-page-capabilities");
+    expect(css).toContain("padding-bottom:calc(82px + env(safe-area-inset-bottom,0px))");
+    expect(css).toContain(".pc-cp-page-home #capabilities");
+    expect(css).toContain(".pc-cp-page-capabilities>.pc-cp-section:last-of-type");
   });
 
   it('keeps the protected operator route on the canonical neutral cockpit loading skeleton',()=>{
@@ -223,10 +273,10 @@ describe('platform-v7 canonical public experience',()=>{
     ]) expect(home + primitives + market + linkedCopy).not.toContain(retired);
 
     for(const humanCopy of [
-      'Агросделка — от цены до закрытия.',
+      'Продавайте и покупайте урожай. Держите сделку под контролем.',
       'Экран сразу показывает, что произошло',
-      'From price to closure — one Deal.',
-      '从定价到结算，一笔交易贯穿全程。',
+      'Sell and buy crops. Keep your Deal under control.',
+      '销售与采购农产品，掌握交易进展。',
       'Помощник по Сделке',
       'Deal assistant',
       '交易助手',
@@ -240,9 +290,9 @@ describe('platform-v7 canonical public experience',()=>{
       'Правила торгов и подтверждённый результат торгов',
       'Trading rules and confirmed trading result',
       '交易规则和已确认的交易结果',
-      'Доставка сама по себе не подтверждает финансовое событие и не меняет статус расчёта',
-      'Delivery alone does not confirm a financial event or change settlement status',
-      '仅完成交付不会确认金融事件，也不会改变结算状态',
+      'Доставка не означает завершение расчёта: сначала нужны приёмка и документы',
+      'Delivery does not complete settlement: acceptance and documents are still needed.',
+      '交付不代表结算已完成，还需要验收和相关文件。',
       'Deal assistant',
       '交易助手',
       'Deal data',
@@ -271,14 +321,14 @@ describe('platform-v7 canonical public experience',()=>{
       '角色、机构和权限审核通过后才会开放访问。',
       'Загружаем подтверждённые данные.',
       'Источник: обезличенные данные публичного рынка',
-      'Публичный рынок показывает только разрешённые к публикации обезличенные лоты.',
-      'Актуальные данные рынка сейчас недоступны. Мы не показываем неподтверждённые данные.',
+      'Опубликованных предложений пока нет',
+      'Не удалось загрузить предложения',
       'Source: anonymised public market data',
-      'The public market shows only anonymised lots permitted for publication.',
-      'Current market data is unavailable. We do not show unconfirmed data.',
+      'No published offers yet',
+      'Could not load offers',
       '来源：公开市场匿名数据',
-      '公开市场仅展示获准发布的匿名批次。',
-      '当前市场数据暂不可用；我们不会展示未经确认的数据。',
+      '暂无已发布的供求信息',
+      '未能加载供求信息',
     ]) expect(home + primitives + market + linkedCopy).toContain(humanCopy);
   });
 
@@ -316,14 +366,15 @@ describe('platform-v7 canonical public experience',()=>{
     expect(market).not.toContain('DL-9102');
   });
 
-  it('renders the canonical lot screen without exposing raw public identifiers or private seller data',()=>{
+  it('renders the canonical lot screen by public reference without positional fallback or private seller data',()=>{
     expect(market).toContain('CanonicalPublicLotView');
     expect(market).toContain("data-testid='canonical-public-lot-view'");
-    expect(market).toContain('lotIndex: number');
-    expect(market).toContain('&lot=${publicIndex}');
-    expect(market).not.toContain('encodeURIComponent(lot.publicRef)');
+    expect(market).toContain('findPublicLot(market.items, lotRef)');
+    expect(market).toContain('marketHref(locale, context, lot.publicRef)');
+    expect(market).not.toContain('publicIndex');
+    expect(market).not.toContain('market.items[lotIndex]');
     expect(marketSource).toContain("sellerIdentity: 'REDACTED'");
-    expect(market).toContain('Фото партии не опубликовано');
+    expect(market).toContain('Фото культуры, не партии');
     expect(market).toContain('Документы доступны только участникам с подтверждёнными полномочиями.');
   });
   it('keeps public market public without weakening protected Deal routes',()=>{
@@ -432,6 +483,47 @@ describe('platform-v7 canonical public experience',()=>{
       expect(source,sourcePath).toContain('follow:true');
     }
   });
+
+  for (const sourcePath of [
+    'components/platform-v7/PlatformV7StrategicHome.tsx',
+    'app/platform-v7/market/page.tsx',
+    'app/platform-v7/deal-flow/page.tsx',
+    'app/platform-v7/about/page.tsx',
+    'app/platform-v7/how-it-works/page.tsx',
+    'app/platform-v7/capabilities/page.tsx',
+  ]) {
+    it(`${sourcePath}: every public outline is unbound to invented Deal progress`, () => {
+      const calls = [...read(sourcePath).matchAll(/<CanonicalDealSpine\b[^>]*\/>/g)];
+      expect(calls.length).toBeGreaterThan(0);
+      for (const [call] of calls) expect(call).toContain('currentIndex={null}');
+    });
+  }
+
+  it('keeps the home state explanatory and four participation actions application-only', () => {
+    expect(home).toContain("presentation='explanation'");
+    expect(home).toContain('state={null}');
+    expect(home).not.toContain("state='normal'");
+    expect(home).toContain("const GROUP_INTENTS = ['sell', 'buy', 'execution', 'finance'] as const");
+    expect(home).toContain('`${registerBase}&intent=${GROUP_INTENTS[index]!}`');
+    expect(home).not.toContain('tenantId');
+    expect(home).not.toContain('setDirectRole');
+  });
+
+  it('keeps linked-page actions distinct and removes forced inline hero sizing', () => {
+    const about = read('app/platform-v7/about/page.tsx');
+    const how = read('app/platform-v7/how-it-works/page.tsx');
+    expect(about).toContain('Продажа, закупка и исполнение — в одной сделке');
+    expect(about).not.toContain('c.domain');
+    expect(about).not.toMatch(/minHeight:\s*\d/);
+    expect(capabilitiesPage).not.toMatch(/minHeight:\s*\d/);
+    expect(capabilitiesPage).not.toContain("maxWidth:'14ch'");
+    expect(capabilitiesPage).toContain('Всё, что нужно для работы со сделкой');
+    expect(capabilitiesPage).toContain('/platform-v7?lang=${locale}#participants');
+    expect(capabilitiesPage).toContain('CAPABILITIES.map');
+    expect(how).toContain('От предложения до завершения сделки');
+    expect(how).toContain('Рабочий экран сделки');
+    expect(how).toContain('/platform-v7/deal-flow?lang=${locale}');
+  });
 });
 
 describe('canonical overview does not invent server progress', () => {
@@ -480,10 +572,12 @@ describe('canonical overview does not invent server progress', () => {
     });
   }
 
-  it('preserves the default public outline without using that default in a private Deal', () => {
+  it('keeps the default public outline neutral without using that default in a private Deal', () => {
     const result = markup(createElement(CanonicalDealSpine, { locale: 'ru' }));
     expect(result.querySelectorAll('[data-state="done"]')).toHaveLength(0);
-    expect(result.querySelectorAll('[data-state="current"]')).toHaveLength(1);
+    expect(result.querySelectorAll('[data-state="current"]')).toHaveLength(0);
+    expect(result.querySelectorAll('[data-state="unknown"]')).toHaveLength(7);
+    expect(result.querySelectorAll('[aria-current]')).toHaveLength(0);
     const workspaceSource = read('components/platform-v7/CanonicalDealWorkspace.tsx');
     expect(workspaceSource).toContain("<CanonicalDealSpine locale='ru' currentIndex={null}");
     expect(workspaceSource).toContain('state={null}');
@@ -500,6 +594,19 @@ describe('canonical overview does not invent server progress', () => {
       expect(result.querySelectorAll('[role="tab"], [role="tablist"], button')).toHaveLength(0);
     });
   }
+
+  it('keeps public Deal state indicators informational instead of fake navigation', () => {
+    const dealFlowSource = read('app/platform-v7/deal-flow/page.tsx');
+    const result = markup(createElement(CanonicalStateTabs, {
+      locale: 'ru',
+      state: 'normal',
+    }));
+    expect(result.querySelectorAll('.pc-cp-state-tab')).toHaveLength(3);
+    expect(result.querySelectorAll('a.pc-cp-state-tab, button.pc-cp-state-tab')).toHaveLength(0);
+    expect(result.querySelector('[data-state="normal"]')?.getAttribute('aria-current')).toBe('true');
+    expect(dealFlowSource).not.toContain('stateLinks={{');
+    expect(dealFlowSource).not.toContain('publicState(first(params.state))');
+  });
 
   function fixture(status: string, disputeStatus?: string) {
     const current = getCurrentDealAction(status);
@@ -601,5 +708,158 @@ describe('canonical overview does not invent server progress', () => {
     expect(container.querySelector('article[title="RELEASED"]')).toBeTruthy();
     expect(container.textContent).toContain('1 234 567 890 123 456 789,01 ₽');
     expect(container.querySelectorAll('[data-canonical-seven-stage] [data-state="done"]')).toHaveLength(0);
+  });
+});
+
+// Public-market fixtures remain in this unit process; no published data is created.
+const publicMarketReadMock = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/public-market-server', () => ({ getPublicMarketLots: publicMarketReadMock }));
+
+describe('public market identity, context and truthful states', () => {
+  const A = 'market-11111111-1111-4111-8111-111111111111';
+  const B = 'market-22222222-2222-4222-8222-222222222222';
+  const observedAt = '2026-09-22T12:00:00Z';
+  const lot = (publicRef: string, overrides: Partial<PublicMarketLot> = {}): PublicMarketLot => ({
+    publicRef, culture: 'wheat', grade: '3 класс', volumeTons: '100', startPriceKopecksPerTon: '1234567890123456789', region: 'Тамбовская область', auctionEndsAt: '2026-09-23T12:00:00Z', status: 'BIDDING', verificationStatus: 'DECLARED', tradePermission: 'PUBLIC_ALLOWED', independentVerification: null, disclosureCode: 'SELLER_DECLARED_NOT_INDEPENDENTLY_VERIFIED', version: '1', ...overrides,
+  });
+  const result = (items: readonly PublicMarketLot[], available = true): PublicMarketReadResult => ({
+    available, items: available ? items : [], error: available ? null : 'unavailable',
+    authority: available ? { source: 'POSTGRESQL', scope: 'PUBLIC_MARKET', projection: 'ANONYMIZED_PUBLIC_MARKET', sellerIdentity: 'REDACTED', observedAt, version: '1' } : null,
+  });
+  const markup = (tree: Parameters<typeof renderToStaticMarkup>[0]) => {
+    const root = document.createElement('div'); root.innerHTML = renderToStaticMarkup(tree); return root;
+  };
+  function elements(node: ReactNode): ReactElement<Record<string, any>>[] {
+    if (Array.isArray(node)) return node.flatMap(elements);
+    return isValidElement<Record<string, any>>(node) ? [node, ...elements(node.props.children)] : [];
+  }
+  afterEach(() => { cleanup(); publicMarketReadMock.mockReset(); vi.restoreAllMocks(); vi.useRealTimers(); });
+
+  it('binds one public reference across reordering and never substitutes a missing or duplicate entry', () => {
+    const a = lot(A); const b = lot(B, { culture: 'barley' });
+    for (const rows of [[a, b], [b, a]]) expect(findPublicLot(rows, A)).toBe(a);
+    expect(findPublicLot([b], A)).toBeNull();
+    expect(findPublicLot([a, { ...a }], A)).toBeNull();
+    expect(findPublicLot([a], A.toUpperCase())).toBe(a);
+  });
+  it.each([undefined, null, '', '0', '1', '0000', '-1', A + '/extra', A + '\n', ' ' + A, [A], { publicRef: A }, 'https://external.invalid/' + A].map(value=>({value})))('rejects invalid or legacy identifier %j without a read', async ({value}) => {
+    expect(publicLotReference(value)).toBeNull();
+    const view = markup(await CanonicalPublicLotView({ locale: 'ru', lotRef: value }));
+    expect(view.querySelector('[data-market-state="invalidLink"]')).toBeTruthy();
+    expect(view.querySelectorAll('.pc-cp-lot-summary, time')).toHaveLength(0);
+    expect(publicMarketReadMock).not.toHaveBeenCalled();
+  });
+
+  for (const locale of ['ru', 'en', 'zh'] as const) {
+    for (const crop of PUBLIC_CROPS) {
+      for (const intent of ['sell', 'buy'] as const) {
+        it(`${locale} / ${crop} / ${intent}: carries selection separately from the original return filters`, async () => {
+          const filters = publicMarketContext({ q: 'урожай', region: 'Тамбовская область', grade: '3 класс', sort: 'price-asc' });
+          const link = new URL(marketApplicationHref(locale, intent, filters, A, crop), 'https://example.invalid');
+          const params = Object.fromEntries(link.searchParams);
+          expect(link.pathname).toBe('/platform-v7/register');
+          expect(params).toMatchObject({ lang: locale, intent, lot: A, crop });
+          const context = publicMarketRegistrationContext(params)!;
+          expect(context.selectedCrop).toBe(crop);
+          expect(context.filters).toEqual(filters);
+          const back = new URL(marketHref(locale, context.filters), 'https://example.invalid');
+          expect(Object.fromEntries(back.searchParams)).toEqual({ lang: locale, q: filters.q, region: filters.region, grade: filters.grade, sort: filters.sort });
+          const tree = await RegisterPage({ searchParams: Promise.resolve({ ...params, role: 'PLATFORM_OWNER', tenantId: 'untrusted' }) });
+          const all = elements(tree);
+          const form = all.find(node => node.type === RegisterFormClientPublic)!;
+          expect(form.props.initialWorkspace).toBe(intent === 'sell' ? 'seller' : 'buyer');
+          for (const key of ['role', 'tenantId', 'lot', 'crop', 'selectedCrop', 'returnTo']) expect(form.props).not.toHaveProperty(key);
+          const header = all.find(node => node.props.localeControl)!;
+          const languageLinks = elements(header.props.localeControl).filter(node => node.type === 'a');
+          expect(languageLinks).toHaveLength(3);
+          for (const anchor of languageLinks) {
+            const query = new URL(anchor.props.href, 'https://example.invalid').searchParams;
+            expect(query.get('lot')).toBe(A); expect(query.get('intent')).toBe(intent); expect(query.get('crop')).toBe(crop); expect(publicMarketRegistrationContext(Object.fromEntries(query))!.filters).toEqual(filters);
+            for (const key of ['role', 'tenantId']) expect(query.has(key)).toBe(false);
+            expect(query.get('returnTo')).toBe(marketHref(query.get('lang') as 'ru'|'en'|'zh', filters));
+          }
+          const contextPanel = all.find(node => node.props['data-testid'] === 'public-application-context')!;
+          expect(elements(contextPanel).find(node => node.type === 'a')!.props.href).toBe(back.pathname + back.search);
+        });
+      }
+    }
+    it(`${locale}: category cards remain useful without fabricating offers or timers`, () => {
+      const view = markup(createElement(CanonicalCropCatalogue, { locale }));
+      const cards = view.querySelectorAll('[data-crop-category]');
+      expect(cards).toHaveLength(8);
+      for (const card of cards) {
+        expect(card.textContent).toContain(PUBLIC_CROP_LABELS[locale][card.getAttribute('data-crop-category') as typeof PUBLIC_CROPS[number]]);
+        expect(card.querySelectorAll(`a[href^="/platform-v7/register?"]`)).toHaveLength(2);
+        expect(card.querySelectorAll('time, .pc-cp-lot-meta, .pc-cp-chip')).toHaveLength(0);
+        const photo=card.querySelector('img')!;
+        expect(photo.getAttribute('src')).toBe(`/platform-v7/crops/${card.getAttribute('data-crop-category')}-640.webp`);
+        expect(photo.getAttribute('loading')).toBe('lazy');
+        expect(photo.getAttribute('width')).toBe('640');
+        expect(photo.getAttribute('height')).toBe('400');
+      }
+      expect(view.textContent).not.toContain('Данные лота недоступны');
+      expect(publicMarketReadMock).not.toHaveBeenCalled();
+    });
+    it(`${locale}: unavailable and empty projections each retain eight categories and one distinct message`, async () => {
+      for (const [available, state] of [[true, 'empty'], [false, 'unavailable']] as const) {
+        publicMarketReadMock.mockResolvedValue(result([], available));
+        const view = markup(await CanonicalMarketPreview({ locale }));
+        expect(view.querySelectorAll('[data-crop-category]')).toHaveLength(8);
+        expect(view.querySelectorAll('[data-market-state]')).toHaveLength(1);
+        expect(view.querySelector('[data-market-state]')?.getAttribute('data-market-state')).toBe(state);
+        expect(view.querySelectorAll('.pc-cp-lot-card, time')).toHaveLength(0);
+        expect(view.querySelector('[data-market-state] a')).toBeTruthy();
+      }
+    });
+  }
+  it('strips unsafe paths, role hints, tokens, oversized text and repeated query values', () => {
+    const url = new URL(marketApplicationHref('ru', 'buy', { q: ['bad'], crop: '__proto__', grade: 'x'.repeat(81), region: 'safe\nunsafe', sort: 'evil', returnTo: '//external.invalid', role: 'bank', verify: 'secret', tenantId: 'private' }, A + 'trailing'), 'https://example.invalid');
+    expect(Object.fromEntries(url.searchParams)).toEqual({ lang: 'ru', intent: 'buy', returnTo:'/platform-v7/market?lang=ru' });
+    expect(() => marketApplicationHref('ru', 'owner' as 'buy')).toThrow();
+    expect(publicMarketRegistrationContext({ selectedCrop: 'wheat', role: 'seller' })).toBeNull();
+    expect(publicMarketLocaleHref('zh', { lot: ['0', A], q: 'grain', role: 'bank' })).toBe('/platform-v7/market?lang=zh&q=grain&lot=invalid');
+  });
+  it('combines all filters with sorting and keeps exact public identity in every card link', async () => {
+    publicMarketReadMock.mockResolvedValue(result([lot(A), lot(B, { startPriceKopecksPerTon: '900', volumeTons: '200' }), lot('market-33333333-3333-4333-8333-333333333333', { culture: 'barley' })]));
+    const view = markup(await CanonicalMarketResults({ locale: 'ru', query: 'пшеница', filters: { crop: 'wheat', region: 'тамбов', grade: '3' }, sort: 'price-asc' }));
+    const titles = [...view.querySelectorAll<HTMLAnchorElement>('.pc-cp-lot-title')];
+    expect(titles).toHaveLength(2);
+    expect(titles.map(a => new URL(a.getAttribute('href')!, 'https://example.invalid').searchParams.get('lot'))).toEqual([B, A]);
+    for (const a of titles) expect(new URL(a.getAttribute('href')!, 'https://example.invalid').searchParams.get('q')).toBe('пшеница');
+    const unfiltered=markup(await CanonicalMarketResults({locale:'ru',query:'3',sort:'closing'}));
+    const entry=unfiltered.querySelector<HTMLAnchorElement>('.pc-cp-lot-card a[href^="/platform-v7/register?"]')!;
+    const entryQuery=new URL(entry.getAttribute('href')!,'https://example.invalid').searchParams;
+    expect(entryQuery.get('crop')).toBe('wheat');
+    expect(publicMarketRegistrationContext(Object.fromEntries(entryQuery))!.filters).toEqual(publicMarketContext({q:'3',sort:'closing'}));
+    expect(view.textContent).toContain('12 345 678 901 234 567,89 ₽/т');
+    const miss = markup(await CanonicalMarketResults({ locale: 'ru', filters: { crop: 'oats' } }));
+    expect(miss.querySelector('[data-market-state="noMatch"]')).toBeTruthy();
+    expect(miss.querySelector('a')?.getAttribute('href')).toBe('/platform-v7/market?lang=ru');
+  });
+  it('renders only the requested published offer after reordering and shows missing after removal', async () => {
+    const a=lot(A); const b=lot(B,{culture:'barley'});
+    for (const items of [[a,b],[b,a],[b]]) {
+      publicMarketReadMock.mockResolvedValue(result(items));
+      const view=markup(await CanonicalPublicLotView({locale:'ru',lotRef:A,context:publicMarketContext({q:'зерно',sort:'closing'})}));
+      if(items.includes(a)) {
+        expect(view.querySelector('h1')?.textContent).toContain('Пшеница');
+        expect(view.querySelector('h1')?.textContent).not.toContain('Ячмень');
+        expect(view.querySelector('.pc-cp-lot-breadcrumb a:last-of-type')?.getAttribute('href')).toBe('/platform-v7/market?lang=ru&q=%D0%B7%D0%B5%D1%80%D0%BD%D0%BE&sort=closing');
+      } else expect(view.querySelector('[data-market-state="notPublished"]')).toBeTruthy();
+    }
+  });
+  it('updates a deadline to expiry without negative values or an invented auction status', () => {
+    vi.useFakeTimers(); let now=0;
+    vi.spyOn(performance,'now').mockImplementation(()=>now);
+    vi.spyOn(document,'hidden','get').mockReturnValue(false);
+    const view=render(createElement(PublicMarketDeadline,{endsAt:'2026-09-22T12:00:02Z',initialNow:Date.parse(observedAt),locale:'ru'}));
+    expect(view.container.textContent).toBe('00:01');
+    act(()=>{now=1000;vi.advanceTimersByTime(1000);});
+    expect(view.container.textContent).toBe('00:01');
+    act(()=>{now=3000;vi.advanceTimersByTime(2000);});
+    expect(view.container.textContent).toBe('Время вышло');
+    expect(view.container.querySelector('time')?.dateTime).toBe('2026-09-22T12:00:02Z');
+    expect(view.container.querySelector('[data-state]')).toBeNull();
+    view.unmount(); expect(vi.getTimerCount()).toBe(0);
   });
 });

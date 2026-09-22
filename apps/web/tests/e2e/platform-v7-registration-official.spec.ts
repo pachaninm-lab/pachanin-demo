@@ -36,7 +36,7 @@ test.describe('Platform V7 public registration official UX', () => {
     const response = await page.goto('/platform-v7/register?lang=ru', { waitUntil: 'load' });
     expect(response?.ok()).toBe(true);
 
-    await expect(page.getByRole('heading', { level: 1, name: 'Регистрация организации и пользователя' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Подключение организации', exact: true })).toBeVisible();
     await expect(page.getByText('Поля со знаком * обязательны для заполнения.')).toBeVisible();
     await expect(page.getByLabel('Формат участия *', { exact: true })).toBeVisible();
     await expect(page.getByLabel('Адрес электронной почты *', { exact: true })).toBeVisible();
