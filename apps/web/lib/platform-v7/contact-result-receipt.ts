@@ -5,21 +5,14 @@ export type ContactResult = 'delivered' | 'failed';
 export const CONTACT_RESULT_COOKIE = 'pc_contact_result_v1';
 export const CONTACT_RESULT_TTL_SECONDS = 5 * 60;
 
-const PURPOSE = 'pc-contact-result-receipt:v1';
 const NONCE_PATTERN = /^[A-Za-z0-9_-]{24}$/u;
 const SIGNATURE_PATTERN = /^[0-9a-f]{64}$/u;
 const MAX_TOKEN_LENGTH = 256;
 const MAX_CLOCK_SKEW_SECONDS = 30;
 
 function rootSecret(environment: NodeJS.ProcessEnv = process.env): string | null {
-  const secret = String(environment.JWT_SECRET || environment.PC_CABINET_SESSION_SECRET || '').trim();
-  return secret.length >= 32 ? secret : null;
-}
-
-function signingKey(secret: string): Buffer {
-  // Derive a purpose-bound key instead of using the platform signing secret
-  // directly for another token class.
-  return createHmac('sha256', secret).update(`${PURPOSE}:key`, 'utf8').digest();
+  const secret = String(environment.CONTACT_RESULT_HMAC_SECRET || '').trim();
+  return /^[A-Za-z0-9_-]{43,128}$/u.test(secret) ? secret : null;
 }
 
 function unsigned(result: ContactResult, issuedAt: number, expiresAt: number, nonce: string): string {
@@ -27,7 +20,7 @@ function unsigned(result: ContactResult, issuedAt: number, expiresAt: number, no
 }
 
 function signature(value: string, secret: string): string {
-  return createHmac('sha256', signingKey(secret)).update(value, 'utf8').digest('hex');
+  return createHmac('sha256', secret).update(value, 'utf8').digest('hex');
 }
 
 export function createContactResultReceipt(

@@ -132,11 +132,11 @@
     {
       "operation": "mac",
       "label": "Message authentication",
-      "sites": 25,
+      "sites": 24,
       "algorithms": [
         {
           "algorithm": "sha256",
-          "sites": 24,
+          "sites": 23,
           "files": [
             "apps/api/src/common/security/rate-limit.service.ts",
             "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts",
@@ -599,6 +599,13 @@
       "kind": "secret",
       "files": [
         "apps/api/src/modules/settlement-engine/bank-key-registry.service.ts"
+      ]
+    },
+    {
+      "name": "CONTACT_RESULT_HMAC_SECRET",
+      "kind": "secret",
+      "files": [
+        "apps/web/lib/platform-v7/contact-result-receipt.ts"
       ]
     },
     {

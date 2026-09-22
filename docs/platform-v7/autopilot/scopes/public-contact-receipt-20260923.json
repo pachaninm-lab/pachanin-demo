@@ -13,16 +13,18 @@
     "apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts",
     "docs/platform-v7/autopilot/scopes/public-contact-receipt-20260923.json",
     "docs/security/cryptographic-inventory.json",
-    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
+    "docs/security/cryptographic-key-usage.json"
   ],
   "requiredInvariants": [
     "sent=1, sent=true, repeated sent and arbitrary error query parameters never establish success or failure.",
     "Native POST preserves a truthful positive path only through a short-lived server-signed result receipt; token content contains no form fields or PII.",
-    "Receipt verification is purpose-bound, time-bounded, constant-time for signatures and scoped to an HttpOnly SameSite contact-page cookie.",
+    "Receipt verification uses a dedicated CONTACT_RESULT_HMAC_SECRET, is time-bounded, constant-time for signatures and scoped to an HttpOnly SameSite contact-page cookie.",
     "Malformed, tampered, expired, future-issued and wrong-key receipts fail closed to the ordinary form.",
     "Existing JSON client success still requires response.ok plus accepted=true, sent=true and delivered=true; no automatic POST retry is added.",
     "No API backend, database, auth, role, tenant, RLS, provider, mail credential, release workflow or production mutation is authorized.",
-    "Generated cryptographic inventory paths may change only if the unchanged repository scanner deterministically requires them."
+    "Generated cryptographic inventory paths may change only if the unchanged repository scanner deterministically requires them.",
+    "CONTACT_RESULT_HMAC_SECRET is dedicated to this receipt class; auth/cabinet/registration/provider secrets are not reused."
   ],
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0

@@ -547,11 +547,11 @@ describe('public locale navigation does not silently erase a filled form', () =>
 
 describe('contact native result receipt authority', () => {
   const env = {
-    JWT_SECRET: 'contact-receipt-unit-secret-that-is-long-enough-for-purpose-derivation',
+    CONTACT_RESULT_HMAC_SECRET: 'contact_receipt_secret_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     NODE_ENV: 'production',
   } as NodeJS.ProcessEnv;
   const otherEnv = {
-    JWT_SECRET: 'different-contact-receipt-unit-secret-that-is-also-long-enough',
+    CONTACT_RESULT_HMAC_SECRET: 'contact_receipt_secret_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
     NODE_ENV: 'production',
   } as NodeJS.ProcessEnv;
   const now = 1_790_000_000;
@@ -595,7 +595,7 @@ describe('contact native result receipt authority', () => {
     }
   });
 
-  it('fails closed when no platform signing secret is configured', () => {
+  it('fails closed when no dedicated contact-result signing secret is configured', () => {
     expect(createContactResultReceipt('delivered', now, {}, nonce)).toBeNull();
     expect(contactResultFromRequest({ receipt: '1' }, 'forged', now, {})).toBeNull();
   });
