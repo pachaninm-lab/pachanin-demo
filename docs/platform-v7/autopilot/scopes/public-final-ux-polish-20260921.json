@@ -6,6 +6,7 @@
   "approvedBy": "owner-public-ux-polish-2026-09-22",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
+  "acceptanceRepair": "Owner completion instruction: repair public dock overlap and migrate the existing Design System v8 registration locale acceptance to the canonical three-link control; retain all Axe, browser, token-preservation and authority-boundary assertions.",
   "allowedPaths": [
     "apps/web/app/platform-v7/capabilities/page.tsx",
     "apps/web/app/platform-v7/contact/layout.tsx",
@@ -24,6 +25,7 @@
     "apps/web/styles/platform-v7-canonical-home-v1.css",
     "apps/web/styles/platform-v7-canonical-public-v1.css",
     "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
+    "apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts",
     "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
     "apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts",
     "docs/platform-v7/autopilot/scopes/public-final-ux-polish-20260921.json"
