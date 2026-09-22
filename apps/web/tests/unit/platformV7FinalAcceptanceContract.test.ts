@@ -11,6 +11,14 @@ import { ContactClient } from '../../app/platform-v7/contact/ContactClient';
 import { PublicHeaderInteractions } from '../../components/platform-v7/PublicHeaderInteractions';
 import { RegisterFormClientPublic } from '../../app/platform-v7/register/RegisterFormClientPublic';
 import {
+  CONTACT_RESULT_COOKIE,
+  CONTACT_RESULT_TTL_SECONDS,
+  contactResultCookieOptions,
+  contactResultFromRequest,
+  createContactResultReceipt,
+  verifyContactResultReceipt,
+} from '../../lib/platform-v7/contact-result-receipt';
+import {
   CanonicalBottomNav,
   CanonicalDealSpine,
   CanonicalPublicHeader,
@@ -533,5 +541,86 @@ describe('public locale navigation does not silently erase a filled form', () =>
     const source = read('apps/web/components/platform-v7/PublicHeaderInteractions.tsx');
     expect(source).toContain('WeakSet<HTMLFormElement>');
     for (const forbidden of ['localStorage', 'sessionStorage', 'new FormData', '.value', 'JSON.stringify']) expect(source).not.toContain(forbidden);
+  });
+});
+
+
+describe('contact native result receipt authority', () => {
+  const env = {
+    JWT_SECRET: 'contact-receipt-unit-secret-that-is-long-enough-for-purpose-derivation',
+    NODE_ENV: 'production',
+  } as NodeJS.ProcessEnv;
+  const otherEnv = {
+    JWT_SECRET: 'different-contact-receipt-unit-secret-that-is-also-long-enough',
+    NODE_ENV: 'production',
+  } as NodeJS.ProcessEnv;
+  const now = 1_790_000_000;
+  const nonce = 'abcdefghijklmnopqrstuvwx';
+
+  it('ignores forged sent/error query parameters without a verified receipt marker and cookie', () => {
+    for (const query of [
+      { sent: '1' }, { sent: 'true' }, { sent: ['1', 'true'] }, { error: 'provider_failure' },
+      { sent: '1', error: 'anything' }, { receipt: 'true' }, { receipt: ['1'] },
+    ]) {
+      expect(contactResultFromRequest(query, undefined, now, env)).toBeNull();
+    }
+  });
+
+  it.each(['delivered', 'failed'] as const)('round-trips a signed %s result without PII', (result) => {
+    const receipt = createContactResultReceipt(result, now, env, nonce);
+    expect(receipt).toBeTruthy();
+    expect(receipt).not.toContain('QA User');
+    expect(receipt).not.toContain('qa@example.invalid');
+    expect(verifyContactResultReceipt(receipt, now, env)).toBe(result);
+    expect(contactResultFromRequest({ receipt: '1', sent: '1', error: 'forged' }, receipt, now, env)).toBe(result);
+  });
+
+  it('rejects tampering, the wrong key, expiry, future issue time and malformed tokens', () => {
+    const receipt = createContactResultReceipt('delivered', now, env, nonce)!;
+    const parts = receipt.split('.');
+    expect(verifyContactResultReceipt(receipt, now, otherEnv)).toBeNull();
+    expect(verifyContactResultReceipt(receipt, now + CONTACT_RESULT_TTL_SECONDS, env)).toBeNull();
+    expect(verifyContactResultReceipt(createContactResultReceipt('delivered', now + 31, env, nonce), now, env)).toBeNull();
+
+    const changedStatus = [...parts];
+    changedStatus[1] = 'failed';
+    expect(verifyContactResultReceipt(changedStatus.join('.'), now, env)).toBeNull();
+
+    const changedSignature = [...parts];
+    changedSignature[5] = '0'.repeat(64);
+    expect(verifyContactResultReceipt(changedSignature.join('.'), now, env)).toBeNull();
+
+    for (const malformed of ['', 'v1.delivered', receipt + '.extra', 'x'.repeat(300)]) {
+      expect(verifyContactResultReceipt(malformed, now, env)).toBeNull();
+    }
+  });
+
+  it('fails closed when no platform signing secret is configured', () => {
+    expect(createContactResultReceipt('delivered', now, {}, nonce)).toBeNull();
+    expect(contactResultFromRequest({ receipt: '1' }, 'forged', now, {})).toBeNull();
+  });
+
+  it('uses a short-lived HttpOnly same-site cookie scoped only to the contact page', () => {
+    expect(contactResultCookieOptions(env)).toEqual({
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      path: '/platform-v7/contact',
+      maxAge: CONTACT_RESULT_TTL_SECONDS,
+    });
+    expect(CONTACT_RESULT_COOKIE).toBe('pc_contact_result_v1');
+  });
+
+  it('keeps GET success/error authority out of user-controlled sent/error parameters', () => {
+    const pageSource = read('apps/web/app/platform-v7/contact/page.tsx');
+    const routeSource = read('apps/web/app/api/platform-v7/inquiries/route.ts');
+    expect(pageSource).toContain('contactResultFromRequest(');
+    expect(pageSource).toContain('cookieStore.get(CONTACT_RESULT_COOKIE)?.value');
+    expect(pageSource).not.toContain('isSent(params)');
+    expect(pageSource).not.toContain('hasDeliveryError(params)');
+    expect(routeSource).toContain("url.searchParams.set('receipt', '1')");
+    expect(routeSource).toContain('response.cookies.set(CONTACT_RESULT_COOKIE');
+    expect(routeSource).not.toContain("url.searchParams.set('sent'");
+    expect(routeSource).not.toContain("url.searchParams.set('error'");
   });
 });

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-contact-receipt-20260923",
+  "status": "active",
+  "approvedBy": "owner-public-ux-repair-v2.0-2026-09-23",
+  "purpose": "UX-01 / T04-T05: remove user-controlled contact GET result authority while preserving the existing native POST fallback with a short-lived signed no-PII browser receipt.",
+  "ownerSpecification": "Прозрачная Цена — инженерное ТЗ быстрого UX-ремонта v2.0, 23.09.2026, sections 3.1-3.2 and UX-01/T04/T05. Bounded contact-result slice only.",
+  "coordination": "Team Hub #5469 claim 5785980132. Parallel-safe with #5536 market search and Claude Code work order #5537; their paths are excluded.",
+  "allowedPaths": [
+    "apps/web/app/platform-v7/contact/page.tsx",
+    "apps/web/app/api/platform-v7/inquiries/route.ts",
+    "apps/web/lib/platform-v7/contact-result-receipt.ts",
+    "apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts",
+    "docs/platform-v7/autopilot/scopes/public-contact-receipt-20260923.json",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+  ],
+  "requiredInvariants": [
+    "sent=1, sent=true, repeated sent and arbitrary error query parameters never establish success or failure.",
+    "Native POST preserves a truthful positive path only through a short-lived server-signed result receipt; token content contains no form fields or PII.",
+    "Receipt verification is purpose-bound, time-bounded, constant-time for signatures and scoped to an HttpOnly SameSite contact-page cookie.",
+    "Malformed, tampered, expired, future-issued and wrong-key receipts fail closed to the ordinary form.",
+    "Existing JSON client success still requires response.ok plus accepted=true, sent=true and delivered=true; no automatic POST retry is added.",
+    "No API backend, database, auth, role, tenant, RLS, provider, mail credential, release workflow or production mutation is authorized.",
+    "Generated cryptographic inventory paths may change only if the unchanged repository scanner deterministically requires them."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
