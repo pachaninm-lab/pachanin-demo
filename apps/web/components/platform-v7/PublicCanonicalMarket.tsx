@@ -3,7 +3,7 @@ import { ArrowRight, Info, LockKeyhole, PackageSearch } from 'lucide-react';
 import { getPublicMarketLots, type PublicMarketLot, type PublicMarketReadResult } from '@/lib/public-market-server';
 import {
   PUBLIC_CROPS, cropForCulture, filterPublicLots, findPublicLot,
-  marketApplicationHref, marketHref, publicMarketContext,
+  marketApplicationHref, marketHref, publicMarketContext, publicLotReference,
   type PublicCrop, type PublicMarketContext,
 } from '@/lib/platform-v7/public-market-navigation';
 import { canonicalPublicLocale, type CanonicalPublicLocale } from './PublicCanonicalPrimitives';
@@ -23,8 +23,8 @@ const COPY = {
     unavailableText: 'Повторите попытку. Каталог культур доступен независимо от загрузки предложений.',
     noMatchTitle: 'По выбранным условиям предложений нет',
     noMatchText: 'Измените условия поиска или сбросьте фильтры.',
-    missingTitle: 'Это предложение больше не опубликовано',
-    missingText: 'Вернитесь к результатам поиска, чтобы выбрать другое предложение.',
+    missingTitle: 'Предложение не найдено в текущей подборке',
+    missingText: 'Вернитесь к результатам поиска, чтобы выбрать доступное предложение.',
     invalidTitle: 'Ссылка на предложение устарела',
     invalidText: 'Этот адрес не определяет конкретный лот. Выберите предложение на рынке.',
     retry: 'Повторить', reset: 'Сбросить фильтры', back: 'Вернуться к предложениям',
@@ -44,8 +44,8 @@ const COPY = {
     unavailableText: 'Please try again. The crop catalogue remains available while offers cannot be loaded.',
     noMatchTitle: 'No offers match the selected conditions',
     noMatchText: 'Change your search conditions or reset the filters.',
-    missingTitle: 'This offer is no longer published',
-    missingText: 'Return to your search results to choose another offer.',
+    missingTitle: 'Offer not found in the current selection',
+    missingText: 'Return to your search results to choose an available offer.',
     invalidTitle: 'This offer link is out of date',
     invalidText: 'This address does not identify a specific lot. Choose an offer from the market.',
     retry: 'Try again', reset: 'Reset filters', back: 'Back to offers',
@@ -65,8 +65,8 @@ const COPY = {
     unavailableText: '请重试。供求信息无法加载时，仍可浏览作物目录。',
     noMatchTitle: '没有符合所选条件的供求信息',
     noMatchText: '请修改搜索条件或重置筛选。',
-    missingTitle: '此供求信息已不再公开',
-    missingText: '请返回搜索结果，选择其他供求信息。',
+    missingTitle: '当前展示的信息中未找到此项',
+    missingText: '请返回搜索结果，选择可用的供求信息。',
     invalidTitle: '此供求信息链接已失效',
     invalidText: '此地址无法确定具体批次。请在市场中重新选择。',
     retry: '重试', reset: '重置筛选', back: '返回供求信息',
@@ -143,14 +143,15 @@ export async function CanonicalMarketResults({ locale, query = '', filters = {},
 }
 
 export async function CanonicalPublicLotView({ locale, lotRef, context = publicMarketContext() }: {
-  locale: string; lotRef: string | null; context?: PublicMarketContext;
+  locale: string; lotRef: unknown; context?: PublicMarketContext;
 }) {
   const lang = canonicalPublicLocale(locale);
   const copy = COPY[lang];
   // Numeric legacy addresses have no stable identity. Never resolve them by position.
-  if (!lotRef) return <PublicLotUnavailableView locale={lang} kind='invalidLink' context={context} />;
+  const reference = publicLotReference(lotRef);
+  if (!reference) return <PublicLotUnavailableView locale={lang} kind='invalidLink' context={context} />;
   const market = await getPublicMarketLots();
-  if (!market.available) return <PublicLotUnavailableView locale={lang} kind='unavailable' context={context} lotRef={lotRef} />;
+  if (!market.available) return <PublicLotUnavailableView locale={lang} kind='unavailable' context={context} lotRef={reference} />;
   const lot = findPublicLot(market.items, lotRef);
   if (!lot) return <PublicLotUnavailableView locale={lang} kind='notPublished' context={context} />;
   const applicationContext = publicMarketContext({ ...context, crop: cropForCulture(lot.culture) || context.crop });
@@ -176,7 +177,7 @@ export async function CanonicalPublicLotView({ locale, lotRef, context = publicM
         </div>
         <p className='pc-cp-lot-disclosure'>{copy.declared}. {copy.quality}.</p>
         <div className='pc-cp-actions'>
-          <a className='pc-cp-button' href={marketApplicationHref(lang, 'buy', applicationContext, lot.publicRef)}>{copy.access}<ArrowRight size={16} aria-hidden='true' /></a>
+          <a className='pc-cp-button' href={marketApplicationHref(lang, 'buy', context, lot.publicRef, applicationContext.crop)}>{copy.access}<ArrowRight size={16} aria-hidden='true' /></a>
           <a className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/login?lang=${lang}`}>{copy.details}</a>
         </div>
         <p className='pc-cp-lot-source'>{copy.source}{market.authority?.observedAt ? ` · ${formatObserved(market.authority.observedAt, lang)}` : ''}</p>
@@ -223,7 +224,7 @@ function MarketCard({ lot, locale, context, selected = false }: { lot: PublicMar
       </div>
       <div className='pc-cp-lot-foot'><span><Info size={15} aria-hidden='true' />{copy.declared}</span></div>
       <div className='pc-cp-actions' data-testid='canonical-public-market-lot-actions'>
-        <a className='pc-cp-button' href={marketApplicationHref(locale, 'buy', applicationContext, lot.publicRef)}>{copy.buy}<ArrowRight size={16} aria-hidden='true' /></a>
+        <a className='pc-cp-button' href={marketApplicationHref(locale, 'buy', context, lot.publicRef, applicationContext.crop)}>{copy.buy}<ArrowRight size={16} aria-hidden='true' /></a>
         <a className='pc-cp-button pc-cp-button--secondary' href={detailHref}>{locale === 'ru' ? 'Условия' : locale === 'en' ? 'Details' : '详情'}<ArrowRight size={16} aria-hidden='true' /></a>
       </div>
     </div>

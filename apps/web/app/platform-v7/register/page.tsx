@@ -3,7 +3,7 @@ import '@/styles/platform-v7-public-register-official.css';
 import '@/styles/platform-v7-public-register-reflow.css';
 import '@/styles/platform-v7-canonical-public-v1.css';
 import { CanonicalBottomNav, CanonicalPublicHeader } from '@/components/platform-v7/PublicCanonicalPrimitives';
-import { marketHref, publicCrop, publicLotReference, publicMarketContext, publicMarketReturn, type PublicCrop } from '@/lib/platform-v7/public-market-navigation';
+import { marketHref, publicMarketContext, publicMarketRegistrationContext, type PublicCrop } from '@/lib/platform-v7/public-market-navigation';
 import { RegisterFormClientPublic } from './RegisterFormClientPublic';
 
 type Locale = 'ru' | 'en' | 'zh';
@@ -54,13 +54,13 @@ export default async function RegisterPage({ searchParams }: { searchParams?: Pr
   const statusToken = String(first(params.statusToken) || '').trim().slice(0, 512);
   const intent = registrationIntent(first(params.intent));
   const initialWorkspace = intent ? WORKSPACE_BY_INTENT[intent] : undefined;
-  // Public navigation hints stay outside the registration/authentication payload.
-  const selectedCrop = publicCrop(params.crop);
-  const selectedLot = publicLotReference(params.lot);
-  const marketReturn = publicMarketReturn(params.returnTo, locale);
-  const fallbackReturn = marketHref(locale, publicMarketContext({ crop: selectedCrop }), selectedLot);
-  const returnHref = marketReturn ?? fallbackReturn;
-  const hasPublicSelection = Boolean(selectedCrop || selectedLot || marketReturn);
+  // Selection and original return filters are separate public hints, outside the auth payload.
+  const marketSelection = publicMarketRegistrationContext(params);
+  const selectedCrop = marketSelection?.selectedCrop || '';
+  const selectedLot = marketSelection?.lotRef || null;
+  const returnContext = marketSelection?.filters ?? publicMarketContext();
+  const returnHref = marketHref(locale, returnContext);
+  const hasPublicSelection = marketSelection !== null;
   const copy = PAGE_COPY[locale];
   const localeControl = <div className='pc-site-locale-cluster' aria-label={copy.language}>
     {(['ru','en','zh'] as const).map((targetLocale) => {
@@ -70,7 +70,7 @@ export default async function RegisterPage({ searchParams }: { searchParams?: Pr
       if (intent) query.set('intent', intent);
       if (selectedCrop) query.set('crop', selectedCrop);
       if (selectedLot) query.set('lot', selectedLot);
-      if (hasPublicSelection) query.set('returnTo', publicMarketReturn(returnHref, targetLocale) ?? marketHref(targetLocale, publicMarketContext({ crop: selectedCrop }), selectedLot));
+      if (hasPublicSelection) query.set('returnTo', marketHref(targetLocale, returnContext));
       return <a key={targetLocale} className='pc-site-locale-option' data-active={targetLocale === locale ? 'true' : 'false'} aria-current={targetLocale === locale ? 'page' : undefined} href={`/platform-v7/register?${query.toString()}`}>{targetLocale === 'zh' ? '中文' : targetLocale.toUpperCase()}</a>;
     })}
   </div>;
@@ -83,7 +83,8 @@ export default async function RegisterPage({ searchParams }: { searchParams?: Pr
       {hasPublicSelection ? <aside className='pc-cp-application-context' aria-label={copy.selection} data-testid='public-application-context'>
         <strong>{copy.selection}{intent === 'sell' || intent === 'buy' ? `: ${copy[intent]}` : ''}{selectedCrop ? ` · ${CROP_LABELS[locale][selectedCrop]}` : ''}</strong>
         <p>{copy.contextNote}</p>
-        <a href={returnHref}>{selectedLot ? copy.backOffer : copy.back}</a>
+        <a href={returnHref}>{copy.back}</a>
+        {selectedLot ? <a href={marketHref(locale, returnContext, selectedLot)}>{copy.backOffer}</a> : null}
       </aside> : null}
       <RegisterFormClientPublic locale={locale} verifyToken={verifyToken || undefined} initialStatusToken={statusToken || undefined} initialWorkspace={initialWorkspace} />
     </div>
