@@ -1529,6 +1529,10 @@
       "apps/web/tests/unit/sellerExecutionPolish.test.tsx",
       "apps/web/tests/unit/platformV7PrimaryRoleCockpit.test.tsx",
       "apps/web/tests/unit/platformV7RoleUxRegressions.test.ts"
+    ],
+    "r1-role-mode-session-bff-authority-20260921": [
+      "apps/web/app/api/staff/[...path]/route.ts",
+      "apps/web/tests/unit/platformV7FounderRoleModeSessionBff.test.ts"
     ]
   },
   "currentAcceptance": [
