@@ -1,4 +1,4 @@
-name: One-shot Copilot review request 5291
+name: One-shot Copilot review request 5517
 
 on:
   pull_request:
@@ -20,8 +20,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-          TARGET_PR: '5291'
-          EXPECTED_HEAD: '053c48ecb971dce291565475cff7f03ad6169357'
+          TARGET_PR: '5517'
+          EXPECTED_HEAD: 'e34b8121a3120075e82c32bad029fffb2fc1d73c'
         run: |
           set -euo pipefail
 
