@@ -11,6 +11,11 @@ const viewports = [
 ] as const;
 
 const locales = ['ru', 'en', 'zh'] as const;
+const canonicalBrand = {
+  ru: 'Прозрачная Цена',
+  en: 'Transparent Price',
+  zh: '透明价格',
+} as const;
 const canonicalRoles = [
   'Продавец',
   'Покупатель',
@@ -69,11 +74,11 @@ async function expectVisibleTargetsAtLeast(page: Page, selector: string, minimum
   expect(boxes.every((box) => box.width >= minimum && box.height >= minimum), JSON.stringify(boxes, null, 2)).toBe(true);
 }
 
-async function expectCanonicalHeader(page: Page, width: number) {
+async function expectCanonicalHeader(page: Page, width: number, locale: (typeof locales)[number] = 'ru') {
   const header = page.locator('.pc-site-header[data-public-site-header="canonical"]');
   await expect(header).toBeVisible();
   await expect(header.locator('.pc-site-brand-mark[data-brand-mark="transparent-price-canonical"]')).toBeVisible();
-  await expect(header.locator('.pc-site-brand-text strong')).toHaveText('Прозрачная Цена');
+  await expect(header.locator('.pc-site-brand-text strong')).toHaveText(canonicalBrand[locale]);
   const headerBox = await header.boundingBox();
   expect(headerBox?.height ?? 0).toBeGreaterThanOrEqual(60);
   expect(headerBox?.height ?? 100).toBeLessThanOrEqual(72);
@@ -150,7 +155,7 @@ test.describe('Platform V7 canonical production responsive acceptance', () => {
       const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
       expect(response?.ok()).toBe(true);
 
-      await expectCanonicalHeader(page, viewport.width);
+      await expectCanonicalHeader(page, viewport.width, 'ru');
       await expectHomeContract(page, viewport.width);
       await expectNoHorizontalOverflow(page);
       expect(runtimeFailures).toEqual([]);
@@ -179,7 +184,7 @@ test.describe('Platform V7 canonical linked pages RU EN ZH', () => {
         await expectNoHorizontalOverflow(page);
         await expectLocaleContinuity(page, locale);
 
-        if (!['login', 'register'].includes(target.name)) await expectCanonicalHeader(page, width);
+        if (!['login', 'register'].includes(target.name)) await expectCanonicalHeader(page, width, locale);
         if (target.name === 'market') {
           await expect(page.locator('[data-testid="canonical-market-results"], [data-market-state]').first()).toBeVisible();
           const readableMarketCopy = page.locator(
