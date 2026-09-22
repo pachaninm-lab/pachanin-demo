@@ -45,7 +45,7 @@ market:['市场','已发布批次的匿名公开数据。'],trading:['交易','�
 
 export default async function CapabilitiesPage(){
  const locale=canonicalPublicLocale(await getLocale()); const c=COPY[locale];
- return <main className='pc-canonical-public'>
+ return <main className='pc-canonical-public pc-cp-page-capabilities'>
   <CanonicalPublicHeader locale={locale} activePath='/platform-v7/capabilities'/>
   <section className='pc-cp-hero' style={{minHeight:460}}>
    <div className='pc-cp-container pc-cp-hero-grid'>
