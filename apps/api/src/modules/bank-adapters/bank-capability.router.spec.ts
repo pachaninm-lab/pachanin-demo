@@ -109,6 +109,42 @@ describe('bank capability router', () => {
     }
   });
 
+  it('fails closed when server-held capabilities are not a validated capability array', () => {
+    const testRouter = new BankCapabilityRouter([
+      liveTestAdapter('TEST_DOUBLE_A', ['DIRECT_PAYMENT']),
+    ]);
+    const stringInsteadOfArray = {
+      ...authority('TEST_DOUBLE_A'),
+      authorizedBankCapabilities: 'DIRECT_PAYMENT',
+    } as unknown as BankRoutingAuthority;
+    expect(testRouter.route(stringInsteadOfArray, 'DIRECT_PAYMENT')).toMatchObject({
+      status: 'CONTRADICTORY',
+      reason: 'INVALID_SERVER_HELD_CAPABILITY_SET',
+    });
+
+    const unknownCapability = {
+      ...authority('TEST_DOUBLE_A'),
+      authorizedBankCapabilities: ['DIRECT_PAYMENT', 'UNPINNED_CAPABILITY'],
+    } as unknown as BankRoutingAuthority;
+    expect(testRouter.route(unknownCapability, 'DIRECT_PAYMENT')).toMatchObject({
+      status: 'CONTRADICTORY',
+      reason: 'INVALID_SERVER_HELD_CAPABILITY_SET',
+    });
+  });
+
+  it('fails closed when adapter capabilities are not a validated capability array', () => {
+    const malformedAdapter = {
+      ...liveTestAdapter('TEST_DOUBLE_A', ['DIRECT_PAYMENT']),
+      capabilities: 'DIRECT_PAYMENT',
+    } as unknown as BankReferenceAdapter;
+    const testRouter = new BankCapabilityRouter([malformedAdapter]);
+
+    expect(testRouter.route(authority('TEST_DOUBLE_A'), 'DIRECT_PAYMENT')).toMatchObject({
+      status: 'UNAVAILABLE',
+      reason: 'INVALID_ADAPTER_CAPABILITY_SET',
+    });
+  });
+
   it('requires the server-held provider binding to authorize the exact capability', () => {
     expect(router.route(
       authority('T_BANK', { authorizedBankCapabilities: ['STATUS_READ'] }),
