@@ -19,6 +19,8 @@ describe('platform-v7 canonical public experience',()=>{
   const home=read('components/platform-v7/PlatformV7StrategicHome.tsx');
   const primitives=read('components/platform-v7/PublicCanonicalPrimitives.tsx');
   const market=read('components/platform-v7/PublicCanonicalMarket.tsx');
+  const marketPage=read('app/platform-v7/market/page.tsx');
+  const capabilitiesPage=read('app/platform-v7/capabilities/page.tsx');
   const marketSource=read('lib/public-market-server.ts');
   const routeAliases=read('lib/platform-v7/route-canonicalization.ts');
   const dealFlow=read('app/platform-v7/deal-flow/page.tsx');
@@ -68,6 +70,46 @@ describe('platform-v7 canonical public experience',()=>{
     for(const label of ['Рынок','Сделка','Возможности','Гекта','Доверие','О платформе']) expect(primitives).toContain(label);
     for(const label of ['Market','Deal','Capabilities','Gekta','Trust','About']) expect(primitives).toContain(label);
     for(const label of ['市场','交易','功能','Gekta','信任','关于平台']) expect(primitives).toContain(label);
+    expect(primitives).toContain("['Сделка', '/platform-v7/deal-flow', Layers3, false]");
+    expect(primitives).not.toContain("['Регистрация', '/platform-v7/register', UserRound, true]");
+    expect(dealFlow).toContain("<CanonicalBottomNav locale={locale} active='/platform-v7/deal-flow'/>");
+  });
+
+  it('keeps login and registration on the same canonical public shell',()=>{
+    expect(loginPage).toContain("<CanonicalPublicHeader locale={locale} activePath='/platform-v7/login'/>");
+    expect(loginPage).toContain("<CanonicalBottomNav locale={locale} active='/platform-v7/login'/>");
+    expect(registerPage).toContain("<CanonicalPublicHeader locale={locale} activePath='/platform-v7/register' localeControl={localeControl} />");
+    expect(registerPage).toContain("<CanonicalBottomNav locale={locale} active='/platform-v7/register' />");
+    expect(primitives).toContain("pc-site-mobile-utility");
+    expect(primitives).toContain("Аккаунт и помощь");
+  });
+
+  it('keeps market filters functional and crop visuals explicit',()=>{
+    for(const name of ["name='q'","name='crop'","name='region'","name='grade'","name='sort'"]) expect(marketPage).toContain(name);
+    expect(marketPage).toContain("filters={{crop,region,grade}} sort={sort}");
+    expect(marketPage).toContain("className='pc-cp-market-active-filters'");
+    expect(market).toContain('normalizeCropFilter');
+    expect(market).toContain('normalizeMarketSort');
+    expect(market).toContain('sortMarketItems');
+    expect(market).toContain('cropVisualKey');
+    expect(market).toContain('function CropArt');
+    expect(market).toContain("className='pc-cp-lot-media-caption'");
+    expect(market).toContain("intent=buy");
+    expect(market).toContain("intent=sell");
+    expect(market).toContain("buy: 'Купить'");
+    expect(market).toContain("sell: 'Продать'");
+    expect(css).toContain('FINAL PUBLIC UX POLISH');
+    expect(css).toContain('.pc-cp-market-filter-grid');
+    expect(css).toContain('.pc-cp-market-active-filters');
+    expect(siteHeader).not.toContain('.pc-site-header{height:60px;');
+    expect(css).toContain('OWNER UX SYSTEM CLOSURE — 2026-09-22');
+  });
+
+  it('reserves mobile space for the fixed bottom navigation and capabilities',()=>{
+    expect(capabilitiesPage).toContain("pc-cp-page-capabilities");
+    expect(css).toContain("padding-bottom:calc(82px + env(safe-area-inset-bottom,0px))");
+    expect(css).toContain(".pc-cp-page-home #capabilities");
+    expect(css).toContain(".pc-cp-page-capabilities>.pc-cp-section:last-of-type");
   });
 
   it('keeps the protected operator route on the canonical neutral cockpit loading skeleton',()=>{
@@ -223,7 +265,7 @@ describe('platform-v7 canonical public experience',()=>{
     ]) expect(home + primitives + market + linkedCopy).not.toContain(retired);
 
     for(const humanCopy of [
-      'Агросделка — от цены до закрытия.',
+      'Агросделка — от цены до закрытия.',
       'Экран сразу показывает, что произошло',
       'From price to closure — one Deal.',
       '从定价到结算，一笔交易贯穿全程。',
@@ -500,6 +542,19 @@ describe('canonical overview does not invent server progress', () => {
       expect(result.querySelectorAll('[role="tab"], [role="tablist"], button')).toHaveLength(0);
     });
   }
+
+  it('keeps public Deal state indicators informational instead of fake navigation', () => {
+    const dealFlowSource = read('app/platform-v7/deal-flow/page.tsx');
+    const result = markup(createElement(CanonicalStateTabs, {
+      locale: 'ru',
+      state: 'normal',
+    }));
+    expect(result.querySelectorAll('.pc-cp-state-tab')).toHaveLength(3);
+    expect(result.querySelectorAll('a.pc-cp-state-tab, button.pc-cp-state-tab')).toHaveLength(0);
+    expect(result.querySelector('[data-state="normal"]')?.getAttribute('aria-current')).toBe('true');
+    expect(dealFlowSource).not.toContain('stateLinks={{');
+    expect(dealFlowSource).not.toContain('publicState(first(params.state))');
+  });
 
   function fixture(status: string, disputeStatus?: string) {
     const current = getCurrentDealAction(status);
