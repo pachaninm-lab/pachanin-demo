@@ -14,8 +14,7 @@ import { CanonicalMarketResults, CanonicalPublicLotView } from '@/components/pla
 type Params=Record<string,string|string[]|undefined>;
 const first=(v:string|string[]|undefined)=>Array.isArray(v)?v[0]:v;
 
-const META={"ru":["Рынок — Прозрачная Цена","Публичный обезличенный рынок лотов, которые сервер разрешил к публикации."],"en":["Market — Transparent Price","Public anonymised lots admitted by the server for publication, without seller identity or private terms."],"zh":["市场 — 透明价格","服务器允许公开的匿名批次市场，不披露卖方身份、内部标识或非公开条件。"]} as const;
-
+const META={"ru":["Рынок продукции растениеводства — Прозрачная Цена","Предложения по продаже и закупке продукции растениеводства. Поиск по культуре, классу и региону, сравнение опубликованных условий."],"en":["Crop market — Transparent Price","Crop offers for sale and purchase. Search by crop, grade and region and compare published terms."],"zh":["农产品市场 — 透明价格","查看农产品供求信息，按作物、等级和地区搜索，并比较已发布的条件。"]} as const;
 
 const CROP_OPTIONS={
   ru:[['','Все культуры'],['wheat','Пшеница'],['barley','Ячмень'],['corn','Кукуруза'],['sunflower','Подсолнечник'],['soybean','Соя'],['rapeseed','Рапс'],['rye','Рожь'],['oats','Овёс']],
@@ -60,10 +59,10 @@ export default async function PlatformV7MarketPage({searchParams}:{searchParams?
   const lotRaw=String(first(params.lot)??'').slice(0,16);
   const lotIndex=/^\d{1,4}$/.test(lotRaw)?Number(lotRaw):null;
   const c=locale==='ru'
-    ?{e:'Рынок',t:'Рынок',p:'Опубликованные обезличенные лоты. Личность продавца, внутренние идентификаторы и закрытые условия не раскрываются.',search:'Культура, класс или регион',query:'Поиск',filters:'Фильтры',activeFilters:'Применённые фильтры',crop:'Культура',region:'Регион',regionHint:'Например, Тамбовская область',grade:'Класс / сорт',gradeHint:'Например, 3 класс',sort:'Сортировка',apply:'Применить',reset:'Сбросить',path:'Путь лота в Сделке'}
+    ?{e:'Продажа и закупка',t:'Рынок продукции растениеводства',p:'Выберите культуру и регион, уточните класс продукции и сравните опубликованные предложения.',search:'Культура, класс или регион',query:'Поиск',filters:'Фильтры',activeFilters:'Применённые фильтры',crop:'Культура',region:'Регион',regionHint:'Например, Тамбовская область',grade:'Класс / сорт',gradeHint:'Например, 3 класс',sort:'Сортировка',apply:'Применить',reset:'Сбросить',path:'От лота до завершения сделки'}
     :locale==='en'
-      ?{e:'Market',t:'Public lots',p:'Only real anonymised data admitted by the server for publication. Seller identity, internal identifiers and private terms are not disclosed.',search:'Crop, grade or region',query:'Search',filters:'Filters',activeFilters:'Applied filters',crop:'Crop',region:'Region',regionHint:'For example, Tambov Region',grade:'Grade',gradeHint:'For example, grade 3',sort:'Sort',apply:'Apply',reset:'Reset',path:'Lot path through the Deal'}
-      :{e:'市场',t:'公开批次',p:'仅展示服务器允许公开的真实匿名数据。卖方身份、内部标识和非公开条件不会披露。',search:'作物、等级或地区',query:'搜索',filters:'筛选',activeFilters:'已应用筛选',crop:'作物',region:'地区',regionHint:'例如：坦波夫州',grade:'等级',gradeHint:'例如：3 级',sort:'排序',apply:'应用',reset:'重置',path:'批次在交易中的路径'};
+      ?{e:'Sale and purchase',t:'Crop market',p:'Choose a crop and region, specify the grade and compare published offers.',search:'Crop, grade or region',query:'Search',filters:'Filters',activeFilters:'Applied filters',crop:'Crop',region:'Region',regionHint:'For example, Tambov Region',grade:'Grade',gradeHint:'For example, grade 3',sort:'Sort',apply:'Apply',reset:'Reset',path:'From a lot to a completed Deal'}
+      :{e:'销售与采购',t:'农产品市场',p:'选择作物和地区，指定产品等级，并比较已发布的供求信息。',search:'作物、等级或地区',query:'搜索',filters:'筛选',activeFilters:'已应用筛选',crop:'作物',region:'地区',regionHint:'例如：坦波夫州',grade:'等级',gradeHint:'例如：3 级',sort:'排序',apply:'应用',reset:'重置',path:'从批次到交易完成'};
   const cropLabel=CROP_OPTIONS[locale].find(([value])=>value===crop)?.[1]??crop;
   const sortLabel=SORT_OPTIONS[locale].find(([value])=>value===sort)?.[1]??sort;
   const hasActiveFilters=Boolean(query||crop||region||grade||sort);
@@ -71,7 +70,7 @@ export default async function PlatformV7MarketPage({searchParams}:{searchParams?
     return <main className='pc-canonical-public pc-cp-page-market'>
       <CanonicalPublicHeader locale={locale} activePath='/platform-v7/market'/>
       <section className='pc-cp-lot-hero'><div className='pc-cp-container'><CanonicalPublicLotView locale={locale} lotIndex={lotIndex}/></div></section>
-      <section className='pc-cp-section pc-cp-section--soft'><div className='pc-cp-container'><div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{c.path}</span><h2>{locale==='ru'?'Лот — первый этап одной Сделки':locale==='en'?'The lot is the first stage of one Deal':'批次是一笔交易的第一阶段'}</h2></div><CanonicalDealSpine locale={locale} currentIndex={0}/></div></section>
+      <section className='pc-cp-section pc-cp-section--soft'><div className='pc-cp-container'><div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{c.path}</span><h2>{locale==='ru'?'Лот — первый этап одной Сделки':locale==='en'?'The lot is the first stage of one Deal':'批次是一笔交易的第一阶段'}</h2></div><CanonicalDealSpine locale={locale} currentIndex={null}/></div></section>
       <CanonicalFooter locale={locale}/><CanonicalBottomNav locale={locale} active='/platform-v7/market'/>
     </main>;
   }
@@ -112,7 +111,7 @@ export default async function PlatformV7MarketPage({searchParams}:{searchParams?
       </div>
     </section>
     <section className='pc-cp-section pc-cp-section--tight'>
-      <div className='pc-cp-container'><div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{c.path}</span></div><CanonicalDealSpine locale={locale} currentIndex={0}/></div>
+      <div className='pc-cp-container'><div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{c.path}</span></div><CanonicalDealSpine locale={locale} currentIndex={null}/></div>
     </section>
     <CanonicalFooter locale={locale}/>
     <CanonicalBottomNav locale={locale} active='/platform-v7/market'/>
