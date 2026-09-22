@@ -49,14 +49,14 @@ describe('platform-v7 seller execution polish', () => {
 
     render(await PlatformV7SellerPage());
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Рабочий кабинет продавца без выдуманной finality' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Рабочий кабинет продавца по подтверждённым данным' })).toBeInTheDocument();
     expect(screen.getAllByText('PC-42').length).toBeGreaterThan(0);
     expect(screen.getAllByText('DOCUMENTS_PENDING').length).toBeGreaterThan(0);
     expect(screen.getByRole('link', { name: 'Открыть сделку' })).toHaveAttribute(
       'href',
       '/platform-v7/deals/deal-canonical-42/clean',
     );
-    expect(screen.getByText(/participant-scoped ответ \/deals/i)).toBeInTheDocument();
+    expect(screen.getByText(/данные получены из серверного списка сделок/i)).toBeInTheDocument();
   });
 
   it('fails closed when the canonical deal registry is unavailable', async () => {
