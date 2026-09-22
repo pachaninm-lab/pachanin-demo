@@ -57,6 +57,11 @@ for (const marker of [
   'authority.mayCarryRealTraffic !== true',
   'authority.productionEnvironmentConfirmed !== true',
   'adapter.liveTransportImplemented !== true',
+  'function isRuntimeCapabilitySet',
+  'Array.isArray(values)',
+  'isBankCapability(value)',
+  'INVALID_SERVER_HELD_CAPABILITY_SET',
+  'INVALID_ADAPTER_CAPABILITY_SET',
 ]) assert.ok(router.includes(marker), 'missing routing boundary ' + marker);
 
 for (const marker of [
