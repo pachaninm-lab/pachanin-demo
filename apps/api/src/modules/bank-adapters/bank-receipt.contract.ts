@@ -1,6 +1,7 @@
-import type {
-  BankProviderFamily,
-  BankReceiptCandidate,
+import {
+  BANK_PROVIDER_FAMILIES,
+  type BankProviderFamily,
+  type BankReceiptCandidate,
 } from './bank-adapter.port';
 
 export type ExpectedBankOperationEvidence = Readonly<{
@@ -34,6 +35,7 @@ export type BankReceiptValidation =
       reconciliationState: 'MANUAL_REVIEW_REQUIRED';
       canonicalFinality: 'NOT_DECIDED_HERE';
       reason:
+        | 'INVALID_PROVIDER_FAMILY'
         | 'PROVIDER_MISMATCH'
         | 'OPERATION_MISMATCH'
         | 'IDEMPOTENCY_MISMATCH'
@@ -44,6 +46,7 @@ export type BankReceiptValidation =
         | 'INVALID_EVIDENCE_STATE'
         | 'INVALID_CANONICAL_FINALITY'
         | 'INVALID_OBSERVED_AT'
+        | 'INVALID_CONSUMED_EVIDENCE_HISTORY'
         | 'PROVIDER_EVENT_REPLAY'
         | 'PAYLOAD_REPLAY'
         | 'EXTERNAL_RECEIPT_REPLAY'
@@ -69,12 +72,26 @@ function evidenceIdentity(value: unknown): string | null {
   return value.trim() || null;
 }
 
+function isBankProviderFamily(value: unknown): value is BankProviderFamily {
+  return typeof value === 'string'
+    && (BANK_PROVIDER_FAMILIES as readonly string[]).includes(value);
+}
+
+function isRuntimeConsumedEvidenceHistory(
+  values: unknown,
+): values is readonly string[] | undefined {
+  return values === undefined
+    || (Array.isArray(values)
+      && values.every((value) => typeof value === 'string' && value.trim().length > 0));
+}
+
 function consumedEvidenceIncludes(
-  values: readonly string[] | undefined,
+  values: unknown,
   candidate: string | null,
 ): boolean {
   return candidate !== null
-    && values?.some((value) => typeof value === 'string' && value.trim() === candidate) === true;
+    && Array.isArray(values)
+    && values.some((value) => typeof value === 'string' && value.trim() === candidate);
 }
 
 function isReceiptEvidenceState(value: unknown): value is BankReceiptCandidate['evidenceState'] {
@@ -94,13 +111,24 @@ export function validateBankReceiptCandidate(
   expected: ExpectedBankOperationEvidence,
   candidate: BankReceiptCandidate,
 ): BankReceiptValidation {
+  if (!isBankProviderFamily(expected.providerFamily) || !isBankProviderFamily(candidate.providerFamily)) {
+    return rejected('INVALID_PROVIDER_FAMILY');
+  }
   if (candidate.providerFamily !== expected.providerFamily) {
     return rejected('PROVIDER_MISMATCH');
   }
-  if (!expected.operationId.trim() || candidate.operationId !== expected.operationId) {
+  if (
+    typeof expected.operationId !== 'string'
+    || !expected.operationId.trim()
+    || candidate.operationId !== expected.operationId
+  ) {
     return rejected('OPERATION_MISMATCH');
   }
-  if (!expected.idempotencyKey.trim() || candidate.idempotencyKey !== expected.idempotencyKey) {
+  if (
+    typeof expected.idempotencyKey !== 'string'
+    || !expected.idempotencyKey.trim()
+    || candidate.idempotencyKey !== expected.idempotencyKey
+  ) {
     return rejected('IDEMPOTENCY_MISMATCH');
   }
   if (
@@ -123,7 +151,8 @@ export function validateBankReceiptCandidate(
   }
 
   if (
-    !expected.authenticationAuthorityRef.trim()
+    typeof expected.authenticationAuthorityRef !== 'string'
+    || !expected.authenticationAuthorityRef.trim()
     || candidate.authenticationAuthorityRef !== expected.authenticationAuthorityRef
   ) {
     return rejected('AUTHENTICATION_AUTHORITY_MISMATCH');
@@ -140,6 +169,14 @@ export function validateBankReceiptCandidate(
   }
   if (!isReceiptObservedAt(candidate.observedAt)) {
     return rejected('INVALID_OBSERVED_AT');
+  }
+
+  if (
+    !isRuntimeConsumedEvidenceHistory(expected.alreadyConsumedProviderEventIds)
+    || !isRuntimeConsumedEvidenceHistory(expected.alreadyConsumedPayloadFingerprints)
+    || !isRuntimeConsumedEvidenceHistory(expected.alreadyConsumedExternalReceiptIds)
+  ) {
+    return rejected('INVALID_CONSUMED_EVIDENCE_HISTORY');
   }
 
   const providerEventId = evidenceIdentity(candidate.providerEventId);
