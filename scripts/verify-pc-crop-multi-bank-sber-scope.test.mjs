@@ -82,7 +82,9 @@ for (const marker of [
   'PROVIDER_EVENT_REPLAY',
   'PAYLOAD_REPLAY',
   'EXTERNAL_RECEIPT_REPLAY',
-  'alreadyConsumedExternalReceiptIds',
+  'alreadyConsumedProviderEventIds: readonly string[]',
+  'alreadyConsumedPayloadFingerprints: readonly string[]',
+  'alreadyConsumedExternalReceiptIds: readonly string[]',
   'AUTHENTICATION_EVIDENCE_MISSING',
   'AUTHENTICATION_AUTHORITY_MISMATCH',
   'IDEMPOTENCY_MISMATCH',
@@ -98,7 +100,14 @@ for (const marker of [
   'INVALID_CANONICAL_FINALITY',
   'function isReceiptObservedAt',
   'INVALID_OBSERVED_AT',
+  'Replay protection is a required durable input, not an optional hint.',
 ]) assert.ok(receipt.includes(marker), 'missing receipt boundary ' + marker);
+
+for (const forbidden of [
+  'alreadyConsumedProviderEventIds?:',
+  'alreadyConsumedPayloadFingerprints?:',
+  'alreadyConsumedExternalReceiptIds?:',
+]) assert.equal(receipt.includes(forbidden), false, 'replay history must not be optional: ' + forbidden);
 
 assert.ok(sber.includes('readonly liveTransportImplemented = false'));
 assert.ok(sber.includes("status === 'DONE'"));
