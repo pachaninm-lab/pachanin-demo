@@ -54,9 +54,9 @@ const NAV = {
 } as const;
 
 const ACTIONS = {
-  ru: { login: 'Войти', register: 'Регистрация', about: 'О платформе', brand: 'Прозрачная Цена — на главную', nav: 'Навигация платформы', menu: 'Открыть меню' },
-  en: { login: 'Sign in', register: 'Register', about: 'About', brand: 'Transparent Price — home', nav: 'Platform navigation', menu: 'Open menu' },
-  zh: { login: '登录', register: '注册', about: '关于平台', brand: '透明价格 — 首页', nav: '平台导航', menu: '打开菜单' },
+  ru: { login: 'Войти', register: 'Регистрация', about: 'О платформе', primary: 'Разделы', utility: 'Аккаунт и помощь', brand: 'Прозрачная Цена — на главную', nav: 'Навигация платформы', menu: 'Открыть меню' },
+  en: { login: 'Sign in', register: 'Register', about: 'About', primary: 'Sections', utility: 'Account and help', brand: 'Transparent Price — home', nav: 'Platform navigation', menu: 'Open menu' },
+  zh: { login: '登录', register: '注册', about: '关于平台', primary: '主要栏目', utility: '账户与帮助', brand: '透明价格 — 首页', nav: '平台导航', menu: '打开菜单' },
 } as const;
 
 export const CANONICAL_DEAL_STAGES = {
@@ -73,22 +73,22 @@ export const CANONICAL_ROLES = {
 
 export const TRUST_MODEL = {
   ru: [
-    ['Полномочия', 'Кто может действовать и от имени какой организации.'],
-    ['Основание', 'Какой документ, условие или событие разрешает действие.'],
-    ['Источник', 'Откуда взят факт и к какой версии Сделки он относится.'],
-    ['Решение', 'Что решено, кем и что разрешено делать дальше.'],
+    ['Полномочия', 'Видно, кто вправе действовать и от какой организации.'],
+    ['Основание', 'У важного действия есть понятное основание: документ, условие или событие.'],
+    ['Источник', 'Понятно, откуда пришёл факт и к какой версии Сделки он относится.'],
+    ['Решение', 'Зафиксировано, кто принял решение и какой следующий шаг разрешён.'],
   ],
   en: [
-    ['Authority', 'Who may act and for which organisation.'],
-    ['Basis', 'Which document, condition or event permits the action.'],
-    ['Source', 'Where the fact came from and which Deal version it belongs to.'],
-    ['Decision', 'What was decided, by whom, and what may happen next.'],
+    ['Authority', 'See who is allowed to act and for which organisation.'],
+    ['Basis', 'Every important action has a clear basis: a document, condition or event.'],
+    ['Source', 'See where a fact came from and which Deal version it belongs to.'],
+    ['Decision', 'See who made the decision and which next step is allowed.'],
   ],
   zh: [
-    ['权限', '谁可以操作，以及代表哪个机构。'],
-    ['依据', '哪个文件、条件或事件允许该操作。'],
-    ['来源', '事实来自哪里，以及对应交易的哪个版本。'],
-    ['决定', '做出了什么决定、由谁决定，以及接下来可以做什么。'],
+    ['权限', '清楚看到谁有权操作，以及代表哪个机构。'],
+    ['依据', '每个重要操作都有明确依据：文件、条件或事件。'],
+    ['来源', '清楚看到事实来自哪里，以及对应哪个交易版本。'],
+    ['决定', '记录谁作出决定，以及允许执行的下一步。'],
   ],
 } as const;
 
@@ -106,23 +106,38 @@ export function CanonicalPublicHeader({
   const lang = canonicalPublicLocale(locale);
   const copy = ACTIONS[lang];
   const suffix = `?lang=${encodeURIComponent(lang)}`;
+  const navIcons = {
+    '/platform-v7/market': Store,
+    '/platform-v7/how-it-works': Layers3,
+    '/platform-v7/capabilities': PackageSearch,
+    '/platform-v7/gekta': Bot,
+    '/platform-v7/trust': ShieldCheck,
+  } as const;
   const nav = (
     <>
-      {NAV[lang].map(([label, href]) => (
+      <span className='pc-site-mobile-primary-label'>{copy.primary}</span>
+      {NAV[lang].map(([label, href]) => {
+        const Icon = navIcons[href];
+        return (
         <a
           key={href}
           className={href === '/platform-v7/gekta' ? 'pc-site-nav-gekta' : undefined}
           href={`${href}${suffix}`}
           data-active={activePath === href ? 'true' : undefined}
+          aria-current={activePath === href ? 'page' : undefined}
         >
-          {href === '/platform-v7/gekta' ? <Bot size={14} aria-hidden='true' /> : null}
-          {label}
+          <span className='pc-site-nav-item-icon' aria-hidden='true'><Icon size={18} /></span>
+          <span>{label}</span>
         </a>
-      ))}
-      <PublicGektaChatButton locale={lang} variant='mobile' className='pc-cp-mobile-only pc-site-mobile-gekta' />
-      <a className='pc-cp-mobile-only' href={`/platform-v7/about${suffix}`}><Building2 size={16} aria-hidden='true' />{copy.about}</a>
-      <a className='pc-cp-mobile-only' href={`/platform-v7/login${suffix}`}><LogIn size={16} aria-hidden='true' />{copy.login}</a>
-      <a className='pc-cp-mobile-only' href={`/platform-v7/register${suffix}`}><UserRound size={16} aria-hidden='true' />{copy.register}</a>
+        );
+      })}
+      <div className='pc-site-mobile-utility pc-cp-mobile-only' aria-label={copy.utility}>
+        <span className='pc-site-mobile-utility-label'>{copy.utility}</span>
+        <PublicGektaChatButton locale={lang} variant='mobile' className='pc-site-mobile-gekta' />
+        <a href={`/platform-v7/about${suffix}`} data-active={activePath === '/platform-v7/about' ? 'true' : undefined} aria-current={activePath === '/platform-v7/about' ? 'page' : undefined}><Building2 size={16} aria-hidden='true' />{copy.about}</a>
+        <a href={`/platform-v7/login${suffix}`} data-active={activePath === '/platform-v7/login' ? 'true' : undefined} aria-current={activePath === '/platform-v7/login' ? 'page' : undefined}><LogIn size={16} aria-hidden='true' />{copy.login}</a>
+        <a href={`/platform-v7/register${suffix}`} data-active={activePath === '/platform-v7/register' ? 'true' : undefined} aria-current={activePath === '/platform-v7/register' ? 'page' : undefined}><UserRound size={16} aria-hidden='true' />{copy.register}</a>
+      </div>
     </>
   );
   return (
@@ -200,13 +215,25 @@ export function CanonicalStateTabs({
   state: CanonicalDealState | null;
 }) {
   const lang = canonicalPublicLocale(locale);
+  const ariaLabel = lang === 'ru' ? 'Состояние Сделки' : lang === 'en' ? 'Deal state' : '交易状态';
   return (
-    <div className='pc-cp-state-tabs' role='list' aria-label={lang === 'ru' ? 'Состояние Сделки' : lang === 'en' ? 'Deal state' : '交易状态'}>
-      {(['normal', 'deviation', 'dispute'] as const).map((item) => (
-        <span key={item} role='listitem' aria-current={state === item ? 'true' : undefined} className='pc-cp-state-tab' data-state={item} data-active={state === item ? 'true' : 'false'}>
-          {STATE_COPY[lang][item]}
-        </span>
-      ))}
+    <div className='pc-cp-state-tabs' role='list' aria-label={ariaLabel}>
+      {(['normal', 'deviation', 'dispute'] as const).map((item) => {
+        const label = STATE_COPY[lang][item];
+        const active = state === item;
+        return (
+          <span
+            key={item}
+            role='listitem'
+            className='pc-cp-state-tab'
+            data-state={item}
+            data-active={active ? 'true' : 'false'}
+            aria-current={active ? 'true' : undefined}
+          >
+            {label}
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -271,35 +298,102 @@ export function CanonicalGektaStrip({ locale }: { locale: string }) {
   );
 }
 
+const CANONICAL_BOTTOM_NAV_CRITICAL_STYLES = `
+.pc-cp-bottom-nav{display:none}
+@media(max-width:760px){
+  .pc-cp-bottom-nav{
+    box-sizing:border-box;
+    position:fixed;
+    z-index:2550;
+    left:0;
+    right:0;
+    bottom:0;
+    min-height:calc(70px + env(safe-area-inset-bottom,0px));
+    padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px));
+    display:grid;
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    align-items:start;
+    gap:3px;
+    border-top:1px solid #d9e7de;
+    background:rgba(251,253,251,.98);
+    box-shadow:0 -8px 24px rgba(20,54,39,.06);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+  }
+  .pc-cp-bottom-nav>a{
+    box-sizing:border-box;
+    min-width:0;
+    min-height:50px;
+    display:grid;
+    grid-template-rows:22px minmax(14px,auto);
+    place-items:center;
+    align-content:center;
+    gap:2px;
+    padding:4px 2px;
+    border-radius:11px;
+    color:#52655c;
+    font-size:12px;
+    line-height:1.05;
+    font-weight:700;
+    text-align:center;
+    text-decoration:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .pc-cp-bottom-nav>a[data-active='true']{
+    background:#eaf5ed;
+    color:#0a6046;
+  }
+  .pc-cp-bottom-nav>a:focus-visible{
+    outline:3px solid rgba(25,117,82,.34);
+    outline-offset:1px;
+  }
+  .pc-cp-bottom-nav>a>svg{
+    width:19px;
+    height:19px;
+    color:currentColor;
+  }
+  .pc-cp-bottom-nav>a>span{
+    display:block;
+    max-width:100%;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+}
+`;
+
 export function CanonicalBottomNav({ locale, active }: { locale: string; active?: string }) {
   const lang = canonicalPublicLocale(locale);
   const items = lang === 'ru'
     ? [
       ['Главная', '/platform-v7', Home, false],
       ['Рынок', '/platform-v7/market', Store, false],
-      ['Регистрация', '/platform-v7/register', UserRound, true],
-      ['Сделка', '/platform-v7/how-it-works', Layers3, false],
+      ['Регистрация', '/platform-v7/register', UserRound, false],
+      ['Сделка', '/platform-v7/deal-flow', Layers3, false],
       ['Войти', '/platform-v7/login', LogIn, false],
     ] as const
     : lang === 'en'
       ? [
         ['Home', '/platform-v7', Home, false],
         ['Market', '/platform-v7/market', Store, false],
-        ['Register', '/platform-v7/register', UserRound, true],
-        ['Deal', '/platform-v7/how-it-works', Layers3, false],
+        ['Register', '/platform-v7/register', UserRound, false],
+        ['Deal', '/platform-v7/deal-flow', Layers3, false],
         ['Sign in', '/platform-v7/login', LogIn, false],
       ] as const
       : [
         ['首页', '/platform-v7', Home, false],
         ['市场', '/platform-v7/market', Store, false],
-        ['注册', '/platform-v7/register', UserRound, true],
-        ['交易', '/platform-v7/how-it-works', Layers3, false],
+        ['注册', '/platform-v7/register', UserRound, false],
+        ['交易', '/platform-v7/deal-flow', Layers3, false],
         ['登录', '/platform-v7/login', LogIn, false],
       ] as const;
   return (
-    <nav className='pc-cp-bottom-nav' aria-label={lang === 'ru' ? 'Мобильная навигация' : lang === 'en' ? 'Mobile navigation' : '移动导航'}>
-      {items.map(([label, href, Icon, center]) => <a href={`${href}?lang=${lang}`} key={href} data-active={active === href ? 'true' : 'false'} data-center={center ? 'true' : 'false'}><Icon aria-hidden='true' /><span>{label}</span></a>)}
-    </nav>
+    <>
+      <style>{CANONICAL_BOTTOM_NAV_CRITICAL_STYLES}</style>
+      <nav className='pc-cp-bottom-nav' aria-label={lang === 'ru' ? 'Мобильная навигация' : lang === 'en' ? 'Mobile navigation' : '移动导航'}>
+        {items.map(([label, href, Icon, center]) => <a href={`${href}?lang=${lang}`} key={href} data-active={active === href ? 'true' : 'false'} data-center={center ? 'true' : 'false'} aria-current={active === href ? 'page' : undefined}><Icon aria-hidden='true' /><span>{label}</span></a>)}
+      </nav>
+    </>
   );
 }
 

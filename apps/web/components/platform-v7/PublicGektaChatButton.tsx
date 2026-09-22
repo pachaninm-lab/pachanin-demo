@@ -5,10 +5,10 @@ import { Sparkles } from 'lucide-react';
 type Locale = 'ru' | 'en' | 'zh';
 type Variant = 'header' | 'mobile' | 'section';
 
-const COPY: Record<Locale, { short: string; ask: string; aria: string }> = {
-  ru: { short: 'Гекта', ask: 'Спросить Гекту', aria: 'Открыть чат Гекта' },
-  en: { short: 'Gekta', ask: 'Ask Gekta', aria: 'Open Gekta chat' },
-  zh: { short: 'Gekta', ask: '询问 Gekta', aria: '打开 Gekta 聊天' },
+const COPY: Record<Locale, { short: string; ask: string }> = {
+  ru: { short: 'Гекта', ask: 'Спросить Гекту' },
+  en: { short: 'Gekta', ask: 'Ask Gekta' },
+  zh: { short: 'Gekta', ask: '询问 Gekta' },
 };
 
 function canonicalLocale(value: string): Locale {
@@ -41,7 +41,6 @@ export function PublicGektaChatButton({
       type='button'
       className={`pc-gekta-chat-button pc-gekta-chat-button--${variant} ${className}`.trim()}
       data-gekta-chat-entry='true'
-      aria-label={copy.aria}
       onClick={openGekta}
     >
       <Sparkles size={variant === 'section' ? 17 : 15} strokeWidth={2.2} aria-hidden='true' />

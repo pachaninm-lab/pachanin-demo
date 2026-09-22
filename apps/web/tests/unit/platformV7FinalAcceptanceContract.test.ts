@@ -126,7 +126,8 @@ describe('platform-v7 Design System v8 final acceptance contract', () => {
     expect(registrationPage).toContain("buy: 'buyer'");
     expect(registrationPage).toContain("execution: 'logistics'");
     expect(registrationPage).toContain("finance: 'bank'");
-    expect(registrationPage).toContain("localeQuery.set('intent', intent)");
+    expect(registrationPage).toContain("if (intent) query.set('intent', intent)");
+    expect(registrationPage).toContain("className='pc-site-locale-cluster'");
     expect(registrationPage).toContain('initialWorkspace={initialWorkspace}');
     expect(registrationClient).toContain("React.useState<RegistrationWorkspace>(initialWorkspace || 'seller')");
     expect(registrationBaseClient).toContain("defaultValue={initialWorkspace || 'seller'}");
@@ -199,12 +200,19 @@ describe('public registration intent and locale behaviour', () => {
         expect(form.props).not.toHaveProperty('role');
         expect(form.props).not.toHaveProperty('tenantId');
         const header = all.find((node) => node.props.localeControl)!;
-        const link = header.props.localeControl as React.ReactElement<{ href: string }>;
+        const control = header.props.localeControl as React.ReactElement<Record<string, any>>;
+        const localeLinks = elements(control).filter((node) => typeof node.props.href === 'string');
+        expect(localeLinks).toHaveLength(3);
+        const nextLocale = locale === 'ru' ? 'en' : locale === 'en' ? 'zh' : 'ru';
+        const link = localeLinks.find((node) => new URL(node.props.href, 'https://example.invalid').searchParams.get('lang') === nextLocale)!;
+        expect(link).toBeDefined();
         const query = new URL(link.props.href, 'https://example.invalid').searchParams;
         expect(query.get('intent')).toBe(intent);
         expect(query.get('verify')).toBe('token-v');
         expect(query.get('statusToken')).toBe('token-s');
-        expect(query.get('lang')).toBe(locale === 'ru' ? 'en' : locale === 'en' ? 'zh' : 'ru');
+        expect(query.get('lang')).toBe(nextLocale);
+        expect(query.has('role')).toBe(false);
+        expect(query.has('tenantId')).toBe(false);
         const html = renderToStaticMarkup(createElement(RegisterFormClientPublic, { locale, initialWorkspace: workspace }));
         expect(html).toMatch(new RegExp(`<option[^>]*value="${workspace}"[^>]*selected=""`));
       });
@@ -213,7 +221,9 @@ describe('public registration intent and locale behaviour', () => {
   it.each(['owner', '__proto__', 'constructor', '<script>', 'BUY'])('rejects unknown intent %s', async (intent) => {
     const all = elements(await RegisterPage({ searchParams: Promise.resolve({ intent }) }));
     expect(all.find((node) => node.type === RegisterFormClientPublic)!.props.initialWorkspace).toBeUndefined();
-    const control = all.find((node) => node.props.localeControl)!.props.localeControl;
-    expect(control.props.href).not.toContain('intent=');
+    const control = all.find((node) => node.props.localeControl)!.props.localeControl as React.ReactElement<Record<string, any>>;
+    const localeLinks = elements(control).filter((node) => typeof node.props.href === 'string');
+    expect(localeLinks).toHaveLength(3);
+    for (const link of localeLinks) expect(link.props.href).not.toContain('intent=');
   });
 });
