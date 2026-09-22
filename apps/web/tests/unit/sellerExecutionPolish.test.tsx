@@ -74,7 +74,7 @@ describe('platform-v7 seller execution polish', () => {
 
     expect(screen.getByText('Серверный реестр доступен · итоговое число UNKNOWN')).toBeInTheDocument();
     expect(screen.getByText('1+')).toBeInTheDocument();
-    expect(screen.getByText(/минимум 1 сделок в текущем ответе · итоговое число UNKNOWN/i)).toBeInTheDocument();
+    expect(screen.getByText(/в текущем ответе: 1\+ · итоговое число сделок UNKNOWN/i)).toBeInTheDocument();
     expect(screen.getByText(/достигнут предел серверного ответа; итоговое число не выводится как факт/i)).toBeInTheDocument();
   });
 
