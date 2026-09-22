@@ -45,6 +45,7 @@ for (const marker of [
   "typeof value === 'number'",
   'Number.isInteger(value)',
   "typeof value !== 'string' || !value.trim()",
+  'function runtimeStringOrNull',
 ]) assert.ok(port.includes(marker), 'missing adapter-port boundary ' + marker);
 
 for (const marker of [
@@ -56,7 +57,9 @@ for (const marker of [
   'productionEnvironmentConfirmed',
   'SERVER_HELD_CAPABILITY_NOT_AUTHORIZED',
   'authorizedBankCapabilities',
-  '!authority.capabilityCode.trim()',
+  'function isRuntimeNonBlankString',
+  "typeof value === 'string' && value.trim().length > 0",
+  '!isRuntimeNonBlankString(authority.capabilityCode)',
   "authority.maturity !== 'LIVE_ACCEPTED'",
   'authority.mayCarryRealTraffic !== true',
   'authority.productionEnvironmentConfirmed !== true',
