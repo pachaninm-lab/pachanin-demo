@@ -1,5 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { runInNewContext } from 'node:vm';
+import { ModuleKind, ScriptTarget, transpileModule } from 'typescript';
 import { describe, expect, it } from 'vitest';
 
 const root = process.cwd();
@@ -69,5 +71,78 @@ describe('platform-v7 role-scoped AI assistant', () => {
     expect(panel).toContain("href='/platform-v7/assistant'");
     expect(panel).toContain('@media(max-width:720px)');
     expect(assistantPage).toContain("<AiAssistantPanel variant='workspace' />");
+  });
+
+  it('does not eagerly import legacy dictionaries on locale-native public pages', () => {
+    expect(hydration).not.toMatch(/import\s*\{[^}]*\bPlatformV7TranslationRuntimeBridge\b[^}]*\}\s*from/u);
+    expect(hydration).not.toContain('dictionaries.json');
+    expect(hydration).not.toContain('manual-dictionary-overrides');
+    const start = hydration.indexOf('const PlatformV7TranslationRuntimeBridge = dynamic(');
+    const end = hydration.indexOf('const ContextualSupportOrAssistant = dynamic<');
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const loader = hydration.slice(start, end);
+    expect(loader).toContain("() => import('@/components/platform-v7/PlatformV7TranslationRuntimeBridge')");
+    expect(loader).toContain('.then((module) => module.PlatformV7TranslationRuntimeBridge)');
+    expect(loader).toContain('ssr: false');
+    expect(loader).toContain('loading: () => null');
+  });
+
+  it('keeps existing translation routes and the immediate single chat mount unchanged', () => {
+    expect(hydration).toContain("return clean === '/platform-v7/deal-flow' || clean === '/platform-v7/demo';");
+    expect(hydration).toContain("return clean === '/platform-v7' || clean === '/pc-public-entry/platform-v7';");
+    expect(hydration).toContain('loadLegacyPublicPolish = legacyPublicPolish ?? !isStrategicHomepage(pathname)');
+    expect(hydration).toContain('{loadTranslationBridge ? <PlatformV7TranslationRuntimeBridge /> : null}');
+    expect(hydration.match(/<ContextualSupportOrAssistant\s+\{\.\.\.supportProps\}\s*\/>/gu)).toHaveLength(1);
+    expect(hydration).toContain('<PublicAssistantMobileLayoutAuthority />');
+    for (const deferredChatMechanism of ['requestIdleCallback', 'setTimeout(', 'IntersectionObserver', 'pointerdown']) {
+      expect(hydration).not.toContain(deferredChatMechanism);
+    }
+  });
+});
+
+
+describe('public assistant bootstrap boundaries', () => {
+  it('loads private-only assistant components only through their existing branches', () => {
+    expect(contextual).toContain("import dynamic from 'next/dynamic'");
+    for (const name of ['AiAssistantPanel', 'CabinetContactDock']) {
+      expect(contextual).not.toContain(`import { ${name} } from './${name}'`);
+      const start = contextual.indexOf(`const ${name} = dynamic(`);
+      expect(start).toBeGreaterThanOrEqual(0);
+      const loader = contextual.slice(start, contextual.indexOf('\n);', start) + 3);
+      expect(loader).toContain(`() => import('./${name}').then((module) => module.${name})`);
+      expect(loader).toContain('ssr: false');
+      expect(loader).toContain('loading: () => null');
+    }
+    for (const name of ['PublicPlatformAssistant', 'PublicAssistantAttachmentBridge', 'ChatSupportWidget']) {
+      expect(contextual).toContain(`import { ${name} } from './${name}'`);
+      expect(contextual).not.toContain(`const ${name} = dynamic(`);
+    }
+    for (const forbidden of ['requestIdleCallback', 'setTimeout(', 'IntersectionObserver']) {
+      expect(contextual).not.toContain(forbidden);
+    }
+  });
+
+  it('selects public chat for the three canonical pages without opening private prefixes', () => {
+    const start = contextual.indexOf('const ASSISTANT_WORKSPACE');
+    const end = contextual.indexOf('export function ContextualSupportOrAssistant');
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const source = `${contextual.slice(start, end)}\nexports.isPrivateWorkspace = isPrivateWorkspace;`;
+    const context = { exports: {} as { isPrivateWorkspace: (pathname: string) => boolean } };
+    runInNewContext(transpileModule(source, {
+      compilerOptions: { target: ScriptTarget.ES2022, module: ModuleKind.CommonJS },
+    }).outputText, context, { timeout: 1000 });
+
+    for (const prefix of ['', '/pc-public-entry']) {
+      for (const suffix of ['', '/', '?lang=ru', '?lang=en', '?lang=zh']) {
+        for (const page of ['market', 'capabilities', 'gekta', 'login', 'register', 'how-it-works', 'ai-in-action']) {
+          expect(context.exports.isPrivateWorkspace(`${prefix}/platform-v7/${page}${suffix}`)).toBe(false);
+        }
+        for (const page of ['seller', 'buyer', 'logistics', 'driver', 'elevator', 'lab', 'surveyor', 'bank', 'staff', 'assistant', 'deals/private', 'market/private', 'capabilities/private', 'gekta/private']) {
+          expect(context.exports.isPrivateWorkspace(`${prefix}/platform-v7/${page}${suffix}`)).toBe(true);
+        }
+      }
+    }
   });
 });

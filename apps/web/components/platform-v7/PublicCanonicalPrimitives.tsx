@@ -29,6 +29,12 @@ export function canonicalPublicLocale(value: string): CanonicalPublicLocale {
   return 'ru';
 }
 
+// Both public Deal surfaces belong to one navigation group. Resolve existing
+// route keys through this function for destinations as well as active states.
+export function canonicalPublicNavigationPath(path?: string): string | undefined {
+  return path === '/platform-v7/deal-flow' ? '/platform-v7/how-it-works' : path;
+}
+
 const NAV = {
   ru: [
     ['Рынок', '/platform-v7/market'],
@@ -54,9 +60,9 @@ const NAV = {
 } as const;
 
 const ACTIONS = {
-  ru: { login: 'Войти', register: 'Регистрация', about: 'О платформе', primary: 'Разделы', utility: 'Аккаунт и помощь', brand: 'Прозрачная Цена — на главную', nav: 'Навигация платформы', menu: 'Открыть меню' },
-  en: { login: 'Sign in', register: 'Register', about: 'About', primary: 'Sections', utility: 'Account and help', brand: 'Transparent Price — home', nav: 'Platform navigation', menu: 'Open menu' },
-  zh: { login: '登录', register: '注册', about: '关于平台', primary: '主要栏目', utility: '账户与帮助', brand: '透明价格 — 首页', nav: '平台导航', menu: '打开菜单' },
+  ru: { login: 'Войти', register: 'Подать заявку', application: 'Подать заявку на подключение', about: 'О платформе', primary: 'Разделы', utility: 'Аккаунт и помощь', brand: 'Прозрачная Цена — на главную', nav: 'Навигация платформы', menu: 'Открыть меню' },
+  en: { login: 'Sign in', register: 'Apply for access', application: 'Apply for platform access', about: 'About', primary: 'Sections', utility: 'Account and help', brand: 'Transparent Price — home', nav: 'Platform navigation', menu: 'Open menu' },
+  zh: { login: '登录', register: '申请接入', application: '申请接入平台', about: '关于平台', primary: '主要栏目', utility: '账户与帮助', brand: '透明价格 — 首页', nav: '平台导航', menu: '打开菜单' },
 } as const;
 
 export const CANONICAL_DEAL_STAGES = {
@@ -105,6 +111,7 @@ export function CanonicalPublicHeader({
 }) {
   const lang = canonicalPublicLocale(locale);
   const copy = ACTIONS[lang];
+  const activeGroup = canonicalPublicNavigationPath(activePath);
   const suffix = `?lang=${encodeURIComponent(lang)}`;
   const navIcons = {
     '/platform-v7/market': Store,
@@ -123,8 +130,8 @@ export function CanonicalPublicHeader({
           key={href}
           className={href === '/platform-v7/gekta' ? 'pc-site-nav-gekta' : undefined}
           href={`${href}${suffix}`}
-          data-active={activePath === href ? 'true' : undefined}
-          aria-current={activePath === href ? 'page' : undefined}
+          data-active={activeGroup === href ? 'true' : undefined}
+          aria-current={activePath === href ? 'page' : activeGroup === href ? 'true' : undefined}
         >
           <span className='pc-site-nav-item-icon' aria-hidden='true'><Icon size={18} /></span>
           <span>{label}</span>
@@ -136,7 +143,7 @@ export function CanonicalPublicHeader({
         <PublicGektaChatButton locale={lang} variant='mobile' className='pc-site-mobile-gekta' />
         <a href={`/platform-v7/about${suffix}`} data-active={activePath === '/platform-v7/about' ? 'true' : undefined} aria-current={activePath === '/platform-v7/about' ? 'page' : undefined}><Building2 size={16} aria-hidden='true' />{copy.about}</a>
         <a href={`/platform-v7/login${suffix}`} data-active={activePath === '/platform-v7/login' ? 'true' : undefined} aria-current={activePath === '/platform-v7/login' ? 'page' : undefined}><LogIn size={16} aria-hidden='true' />{copy.login}</a>
-        <a href={`/platform-v7/register${suffix}`} data-active={activePath === '/platform-v7/register' ? 'true' : undefined} aria-current={activePath === '/platform-v7/register' ? 'page' : undefined}><UserRound size={16} aria-hidden='true' />{copy.register}</a>
+        <a href={`/platform-v7/register${suffix}`} aria-label={copy.application} data-active={activePath === '/platform-v7/register' ? 'true' : undefined} aria-current={activePath === '/platform-v7/register' ? 'page' : undefined}><UserRound size={16} aria-hidden='true' />{copy.register}</a>
       </div>
     </>
   );
@@ -154,7 +161,7 @@ export function CanonicalPublicHeader({
         <div className='pc-canonical-header-actions'>
           <PublicGektaChatButton locale={lang} variant='header' />
           <a className='entry-login' href={`/platform-v7/login${suffix}`}>{copy.login}</a>
-          <a className='pc-v6-header-cta' href={`/platform-v7/register${suffix}`}>{copy.register}</a>
+          <a className='pc-v6-header-cta' href={`/platform-v7/register${suffix}`} aria-label={copy.application}>{copy.register}</a>
         </div>
       ) : actions}
     />
@@ -163,7 +170,7 @@ export function CanonicalPublicHeader({
 
 export function CanonicalDealSpine({
   locale,
-  currentIndex = 0,
+  currentIndex = null,
   id,
 }: {
   locale: string;
@@ -175,7 +182,7 @@ export function CanonicalDealSpine({
   const safeIndex = typeof currentIndex === 'number' && Number.isInteger(currentIndex)
     && currentIndex >= 0 && currentIndex < stages.length ? currentIndex : null;
   const label = safeIndex === null
-    ? (lang === 'ru' ? 'Схема из семи этапов; прогресс не подтверждён' : lang === 'en' ? 'Seven-stage outline; progress unconfirmed' : '七阶段示意；进度未确认')
+    ? (lang === 'ru' ? 'Схема из семи этапов' : lang === 'en' ? 'Seven-stage outline' : '七阶段流程图')
     : (lang === 'ru' ? 'Семь этапов Сделки' : lang === 'en' ? 'Seven Deal stages' : '交易七个阶段');
   return (
     <div className='pc-cp-deal-spine' role='list' tabIndex={0} aria-label={label} id={id}>
@@ -241,6 +248,7 @@ export function CanonicalStateTabs({
 export function CanonicalStateLens({
   locale,
   state,
+  presentation = 'live',
   happened,
   actor,
   basis,
@@ -249,6 +257,7 @@ export function CanonicalStateLens({
 }: {
   locale: string;
   state: CanonicalDealState | null;
+  presentation?: 'live' | 'explanation';
   happened: ReactNode;
   actor: ReactNode;
   basis: ReactNode;
@@ -262,14 +271,15 @@ export function CanonicalStateLens({
       ? ['What happened', 'Who acts', 'Basis', 'Settlement', 'Next step']
       : ['发生了什么', '谁来处理', '依据', '结算影响', '下一步'];
   const values = [happened, actor, basis, settlement, next];
+  const visibleState = presentation === 'explanation' ? null : state;
   return (
     <section className='pc-cp-card pc-cp-state-shell'>
-      {state === null ? <p data-canonical-state='unconfirmed'>{lang === 'ru'
+      {presentation === 'live' && state === null ? <p data-canonical-state='unconfirmed'>{lang === 'ru'
         ? 'Общее состояние не подтверждено. Проверяйте факты и подробные этапы сделки.'
         : lang === 'en'
           ? 'Overall state is unconfirmed. Review the facts and detailed Deal stages.'
           : '总体状态尚未确认。请查看事实和交易的详细阶段。'}</p> : null}
-      <CanonicalStateTabs locale={lang} state={state} />
+      <CanonicalStateTabs locale={lang} state={visibleState} />
       <div className='pc-cp-state-grid'>
         {labels.map((label, index) => <div className='pc-cp-state-cell' key={label}><span>{label}</span><strong>{values[index]}</strong></div>)}
       </div>
@@ -333,7 +343,7 @@ const CANONICAL_BOTTOM_NAV_CRITICAL_STYLES = `
     border-radius:11px;
     color:#52655c;
     font-size:12px;
-    line-height:1.05;
+    line-height:1.2;
     font-weight:700;
     text-align:center;
     text-decoration:none;
@@ -355,20 +365,20 @@ const CANONICAL_BOTTOM_NAV_CRITICAL_STYLES = `
   .pc-cp-bottom-nav>a>span{
     display:block;
     max-width:100%;
-    overflow:hidden;
-    text-overflow:ellipsis;
-    white-space:nowrap;
+    white-space:normal;
+    overflow-wrap:anywhere;
   }
 }
 `;
 
 export function CanonicalBottomNav({ locale, active }: { locale: string; active?: string }) {
   const lang = canonicalPublicLocale(locale);
+  const activeGroup = canonicalPublicNavigationPath(active);
   const items = lang === 'ru'
     ? [
       ['Главная', '/platform-v7', Home, false],
       ['Рынок', '/platform-v7/market', Store, false],
-      ['Регистрация', '/platform-v7/register', UserRound, false],
+      ['Заявка', '/platform-v7/register', UserRound, false],
       ['Сделка', '/platform-v7/deal-flow', Layers3, false],
       ['Войти', '/platform-v7/login', LogIn, false],
     ] as const
@@ -376,14 +386,14 @@ export function CanonicalBottomNav({ locale, active }: { locale: string; active?
       ? [
         ['Home', '/platform-v7', Home, false],
         ['Market', '/platform-v7/market', Store, false],
-        ['Register', '/platform-v7/register', UserRound, false],
+        ['Apply', '/platform-v7/register', UserRound, false],
         ['Deal', '/platform-v7/deal-flow', Layers3, false],
         ['Sign in', '/platform-v7/login', LogIn, false],
       ] as const
       : [
         ['首页', '/platform-v7', Home, false],
         ['市场', '/platform-v7/market', Store, false],
-        ['注册', '/platform-v7/register', UserRound, false],
+        ['申请', '/platform-v7/register', UserRound, false],
         ['交易', '/platform-v7/deal-flow', Layers3, false],
         ['登录', '/platform-v7/login', LogIn, false],
       ] as const;
@@ -391,7 +401,11 @@ export function CanonicalBottomNav({ locale, active }: { locale: string; active?
     <>
       <style>{CANONICAL_BOTTOM_NAV_CRITICAL_STYLES}</style>
       <nav className='pc-cp-bottom-nav' aria-label={lang === 'ru' ? 'Мобильная навигация' : lang === 'en' ? 'Mobile navigation' : '移动导航'}>
-        {items.map(([label, href, Icon, center]) => <a href={`${href}?lang=${lang}`} key={href} data-active={active === href ? 'true' : 'false'} data-center={center ? 'true' : 'false'} aria-current={active === href ? 'page' : undefined}><Icon aria-hidden='true' /><span>{label}</span></a>)}
+        {items.map(([label, path, Icon, center]) => {
+          const href = canonicalPublicNavigationPath(path)!;
+          const isActive = activeGroup === href;
+          return <a href={`${href}?lang=${lang}`} key={path} aria-label={path === '/platform-v7/register' ? ACTIONS[lang].application : undefined} data-active={isActive ? 'true' : 'false'} data-center={center ? 'true' : 'false'} aria-current={isActive ? (active === href ? 'page' : 'true') : undefined}><Icon aria-hidden='true' /><span>{label}</span></a>;
+        })}
       </nav>
     </>
   );
