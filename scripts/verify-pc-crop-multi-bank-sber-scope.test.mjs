@@ -49,6 +49,7 @@ for (const marker of [
   'sourceVersion: normalized.sourceVersion',
   'function runtimeTrimmedString',
   "typeof value !== 'string'",
+  'normalized !== value',
   'INVALID_BANK_AMOUNT_MINOR',
   'INVALID_BANK_CURRENCY',
   'INVALID_BANK_SOURCE_VERSION',
