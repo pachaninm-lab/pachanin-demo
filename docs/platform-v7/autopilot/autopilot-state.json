@@ -1524,13 +1524,11 @@
       "apps/web/components/crop-platform/IntegrationControlTowerClient.module.css",
       "apps/web/tests/unit/platformV7IntegrationControlTower.test.ts"
     ],
-    "product/r1-role-mode-consumer-20260921": [
-      "apps/web/app/platform-v7/staff/role-mode/route.ts",
-      "apps/web/components/platform-v7/staff/OwnerAccessCenter.tsx",
-      "apps/web/components/platform-v7/staff/OwnerAccessCenterV3.tsx",
-      "apps/web/components/platform-v7/staff/OwnerAccessCenterV3.module.css",
-      "apps/web/tests/unit/platformV7OwnerAccessCenterTaskUx.test.ts",
-      "apps/web/tests/unit/platformV7ControlledTestOrganizations.test.ts"
+    "ux/seller-truthful-first-screen-20260922": [
+      "apps/web/app/platform-v7/seller/page.tsx",
+      "apps/web/tests/unit/sellerExecutionPolish.test.tsx",
+      "apps/web/tests/unit/platformV7PrimaryRoleCockpit.test.tsx",
+      "apps/web/tests/unit/platformV7RoleUxRegressions.test.ts"
     ]
   },
   "currentAcceptance": [
@@ -1676,39 +1674,32 @@
       ],
       "teamHubDependency": "PRODUCT-REGULATORY-APPLICABILITY-READ-CONTRACT-20260921"
     },
-    "r1-role-mode-consumer-scope-20260921": {
+    "seller-truthful-first-screen-20260922": {
       "owner": "ACCOUNT_2_PRODUCT",
-      "purpose": "R1.5 Founder role-mode consumer scope admission. Allows the existing PRODUCT branch to replace the legacy controlled-test owner selector with the accepted server-owned VIEW_AS contract and update the stale controlled-test regression without granting role/tenant authority.",
+      "purpose": "Truthfulness-only first seller workspace slice: remove fabricated lot/deal/money/document/blocker facts when canonical authority is absent, while preserving the existing shared shell and current canonical Deal/dispute reads.",
       "authorityBaseExactMain": "6553cdd4a5c3ce638d2832fac361cf710a46067b",
-      "implementationBranch": "product/r1-role-mode-consumer-20260921",
+      "implementationBranch": "ux/seller-truthful-first-screen-20260922",
       "allowedPaths": [
-        "apps/web/app/platform-v7/staff/role-mode/route.ts",
-        "apps/web/components/platform-v7/staff/OwnerAccessCenter.tsx",
-        "apps/web/components/platform-v7/staff/OwnerAccessCenterV3.tsx",
-        "apps/web/components/platform-v7/staff/OwnerAccessCenterV3.module.css",
-        "apps/web/tests/unit/platformV7OwnerAccessCenterTaskUx.test.ts",
-        "apps/web/tests/unit/platformV7ControlledTestOrganizations.test.ts"
+        "apps/web/app/platform-v7/seller/page.tsx",
+        "apps/web/tests/unit/sellerExecutionPolish.test.tsx",
+        "apps/web/tests/unit/platformV7PrimaryRoleCockpit.test.tsx",
+        "apps/web/tests/unit/platformV7RoleUxRegressions.test.ts"
       ],
       "requiredTruthBoundaries": [
-        "Founder cabinet registry, effective role, organization, restrictions, expiry and session authority are server-derived; browser-selected tenant/effective-role authority is forbidden.",
-        "Controlled test organizations remain test fixtures and must not become R1 production role-mode authority.",
-        "The opaque staff access token remains HttpOnly under the accepted /api/staff boundary; PRODUCT must not widen its cookie Path or expose it to the browser.",
-        "canonicalPath remains navigation metadata until a separately accepted server-authoritative delegated route transport exists."
+        "Seller business facts must come from existing canonical server reads; absence of a canonical Deal must render explicit empty/degraded/unknown state rather than static LOT/DL/money/document facts.",
+        "No hard-coded reserve, payout, bank-review amount, SDIZ/ETRN/document readiness, offer state, next actor or regulatory status may be presented as current business truth.",
+        "Unknown authority remains unknown; transport ACK/HTTP success is never promoted to money, regulatory or business completion.",
+        "The seller surface reuses the existing shared Platform V7 shell/design system and must not create a second frontend architecture."
       ],
       "forbiddenAuthority": [
-        "backend/domain role or tenant authority",
-        "RLS or permission authority",
-        "payment, settlement or provider finality",
-        "registration semantics",
-        "controlled-test-as-production authority",
-        "cookie-path widening or client-held staff credential"
+        "backend/domain/DB/RLS/tenant/role authority",
+        "Inventory/Deal/Settlement command or finality authority",
+        "FGIS applicability, SDIZ completion or legal/regulatory evaluation",
+        "bank/provider/payment finality or concrete provider inference",
+        "homepage/public landing implementation",
+        "Founder role-mode transport or authority"
       ],
-      "dependencies": [
-        "R1-PRESENTATION-CONTRACT-01",
-        "R1-ROLE-MODE-SESSION-VERIFICATION-TRANSPORT",
-        "R1-ROLE-MODE-CANONICAL-PATH-TRANSPORT-20260921"
-      ],
-      "teamHubDependency": "PRODUCT-R1-ROLE-MODE-CONSUMER-SCOPE-ADMISSION-20260921"
+      "teamHubDependency": "PRODUCT-SELLER-TRUTHFUL-FIRST-SCREEN-20260922"
     }
   }
 }
