@@ -38,6 +38,11 @@ const malformedCandidate = (overrides: Record<string, unknown>): BankReceiptCand
   ...overrides,
 } as unknown as BankReceiptCandidate);
 
+const malformedExpected = (overrides: Record<string, unknown>): ExpectedBankOperationEvidence => ({
+  ...expected,
+  ...overrides,
+} as unknown as ExpectedBankOperationEvidence);
+
 describe('bank receipt contract', () => {
   it('accepts exact authenticated success evidence only for reconciliation, never as canonical finality', () => {
     expect(validateBankReceiptCandidate(expected, candidate())).toEqual({
@@ -128,6 +133,28 @@ describe('bank receipt contract', () => {
     )).toMatchObject({ status: 'REJECTED', reason: 'AUTHENTICATION_EVIDENCE_MISSING' });
   });
 
+  it('fails closed on malformed runtime canonical expectations instead of throwing or self-matching invalid values', () => {
+    expect(validateBankReceiptCandidate(
+      malformedExpected({ providerFamily: 'NOT_A_BANK' }),
+      malformedCandidate({ providerFamily: 'NOT_A_BANK' }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'INVALID_PROVIDER_FAMILY' });
+
+    expect(validateBankReceiptCandidate(
+      malformedExpected({ operationId: 42 }),
+      malformedCandidate({ operationId: 42 }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'OPERATION_MISMATCH' });
+
+    expect(validateBankReceiptCandidate(
+      malformedExpected({ idempotencyKey: true }),
+      malformedCandidate({ idempotencyKey: true }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'IDEMPOTENCY_MISMATCH' });
+
+    expect(validateBankReceiptCandidate(
+      malformedExpected({ authenticationAuthorityRef: { key: 'v7' } }),
+      malformedCandidate({ authenticationAuthorityRef: { key: 'v7' } }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'AUTHENTICATION_AUTHORITY_MISMATCH' });
+  });
+
   it('rejects unauthenticated or unfingerprinted evidence even when provider status is non-final/unknown', () => {
     expect(validateBankReceiptCandidate(
       expected,
@@ -161,6 +188,19 @@ describe('bank receipt contract', () => {
       { ...expected, alreadyConsumedExternalReceiptIds: ['receipt-1'] },
       candidate({ providerEventId: 'event-2', payloadFingerprint: 'sha256:def' }),
     )).toMatchObject({ status: 'REJECTED', reason: 'EXTERNAL_RECEIPT_REPLAY' });
+  });
+
+  it('rejects malformed durable replay history instead of ignoring it or throwing', () => {
+    for (const overrides of [
+      { alreadyConsumedProviderEventIds: 'event-1' },
+      { alreadyConsumedPayloadFingerprints: [null] },
+      { alreadyConsumedExternalReceiptIds: [''] },
+    ]) {
+      expect(validateBankReceiptCandidate(
+        malformedExpected(overrides),
+        candidate(),
+      )).toMatchObject({ status: 'REJECTED', reason: 'INVALID_CONSUMED_EVIDENCE_HISTORY' });
+    }
   });
 
   it('cannot evade durable replay checks with transport whitespace around evidence identities', () => {
