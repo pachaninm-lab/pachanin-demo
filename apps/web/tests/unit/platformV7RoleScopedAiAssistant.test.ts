@@ -70,4 +70,31 @@ describe('platform-v7 role-scoped AI assistant', () => {
     expect(panel).toContain('@media(max-width:720px)');
     expect(assistantPage).toContain("<AiAssistantPanel variant='workspace' />");
   });
+
+  it('does not eagerly import legacy dictionaries on locale-native public pages', () => {
+    expect(hydration).not.toMatch(/import\s*\{[^}]*\bPlatformV7TranslationRuntimeBridge\b[^}]*\}\s*from/u);
+    expect(hydration).not.toContain('dictionaries.json');
+    expect(hydration).not.toContain('manual-dictionary-overrides');
+    const start = hydration.indexOf('const PlatformV7TranslationRuntimeBridge = dynamic(');
+    const end = hydration.indexOf('const ContextualSupportOrAssistant = dynamic<');
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const loader = hydration.slice(start, end);
+    expect(loader).toContain("() => import('@/components/platform-v7/PlatformV7TranslationRuntimeBridge')");
+    expect(loader).toContain('.then((module) => module.PlatformV7TranslationRuntimeBridge)');
+    expect(loader).toContain('ssr: false');
+    expect(loader).toContain('loading: () => null');
+  });
+
+  it('keeps existing translation routes and the immediate single chat mount unchanged', () => {
+    expect(hydration).toContain("return clean === '/platform-v7/deal-flow' || clean === '/platform-v7/demo';");
+    expect(hydration).toContain("return clean === '/platform-v7' || clean === '/pc-public-entry/platform-v7';");
+    expect(hydration).toContain('loadLegacyPublicPolish = legacyPublicPolish ?? !isStrategicHomepage(pathname)');
+    expect(hydration).toContain('{loadTranslationBridge ? <PlatformV7TranslationRuntimeBridge /> : null}');
+    expect(hydration.match(/<ContextualSupportOrAssistant\s+\{\.\.\.supportProps\}\s*\/>/gu)).toHaveLength(1);
+    expect(hydration).toContain('<PublicAssistantMobileLayoutAuthority />');
+    for (const deferredChatMechanism of ['requestIdleCallback', 'setTimeout(', 'IntersectionObserver', 'pointerdown']) {
+      expect(hydration).not.toContain(deferredChatMechanism);
+    }
+  });
 });
