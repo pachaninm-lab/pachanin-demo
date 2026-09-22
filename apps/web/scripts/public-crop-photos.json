@@ -3,18 +3,19 @@
   "license": "CC0-1.0",
   "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
   "licenseCheckedOn": "2026-09-22",
+  "sourceDigestEvidence": "GitHub run 35726204964, job 106740652667, exact preparation head c6279b5531fabeef615af3cd3caa39aed761d7a2; all eight original JPEG byte digests and dimensions recorded before processing.",
   "use": "Crop category illustrations only. Not photographs of an offered lot, a counterparty or platform-owned property.",
   "delivery": "Local static WebP renditions, generated during the existing web build. Browsers never fetch these original images from Wikimedia.",
   "sizes": [320, 640, 960],
   "aspectRatio": [8, 5],
   "photos": [
-    {"crop":"wheat","page":"https://commons.wikimedia.org/wiki/File:Wheat_field,_Idstein.jpg","original":"https://upload.wikimedia.org/wikipedia/commons/d/d0/Wheat_field%2C_Idstein.jpg","credit":"Gerda Arendt","sha256":null},
-    {"crop":"barley","page":"https://commons.wikimedia.org/wiki/File:Barley_field,_Ehrenbach,_detail.jpg","original":"https://upload.wikimedia.org/wikipedia/commons/f/f8/Barley_field%2C_Ehrenbach%2C_detail.jpg","credit":"Gerda Arendt","sha256":null},
-    {"crop":"corn","page":"https://commons.wikimedia.org/wiki/File:Maize_-_Corn.jpg","original":"https://upload.wikimedia.org/wikipedia/commons/4/4b/Maize_-_Corn.jpg","credit":"WiseMan42","sha256":null},
-    {"crop":"sunflower","page":"https://commons.wikimedia.org/wiki/File:Sunflower_Fields.jpg","original":"https://upload.wikimedia.org/wikipedia/commons/b/b2/Sunflower_Fields.jpg","credit":"Wenchieh Yang","sha256":null},
-    {"crop":"soybean","page":"https://commons.wikimedia.org/wiki/File:Soybeans_(marketed)_1.jpg","original":"https://upload.wikimedia.org/wikipedia/commons/6/6b/Soybeans_%28marketed%29_1.jpg","credit":"David E Mead","sha256":null},
-    {"crop":"rapeseed","page":"https://commons.wikimedia.org/wiki/File:Rapeseed_field,_Ehrenbach.jpg","original":"https://upload.wikimedia.org/wikipedia/commons/4/45/Rapeseed_field%2C_Ehrenbach.jpg","credit":"Gerda Arendt","sha256":null},
-    {"crop":"rye","page":"https://commons.wikimedia.org/wiki/File:Rye_Mature_Grain_Summer.jpg","original":"https://upload.wikimedia.org/wikipedia/commons/7/70/Rye_Mature_Grain_Summer.jpg","credit":"Tappancs / Pixabay; CC0 review recorded on the source page","sha256":null},
-    {"crop":"oats","page":"https://commons.wikimedia.org/wiki/File:Avena-sativa-Ruedershausen.jpg","original":"https://upload.wikimedia.org/wikipedia/commons/6/69/Avena-sativa-Ruedershausen.jpg","credit":"Francisco Welter-Schultes","sha256":null}
+    {"crop":"wheat","page":"https://commons.wikimedia.org/wiki/File:Wheat_field,_Idstein.jpg","original":"https://upload.wikimedia.org/wikipedia/commons/d/d0/Wheat_field%2C_Idstein.jpg","credit":"Gerda Arendt","sha256":"81d78bbdf8625afd7647b9439cb8bf78f8f8ff39a05e9457dd44754a52de8b43"},
+    {"crop":"barley","page":"https://commons.wikimedia.org/wiki/File:Barley_field,_Ehrenbach,_detail.jpg","original":"https://upload.wikimedia.org/wikipedia/commons/f/f8/Barley_field%2C_Ehrenbach%2C_detail.jpg","credit":"Gerda Arendt","sha256":"45db37e6b48e927c7c1e96d1c6b1d9ce6c62a96b31af408a9fb48296332743d8"},
+    {"crop":"corn","page":"https://commons.wikimedia.org/wiki/File:Maize_-_Corn.jpg","original":"https://upload.wikimedia.org/wikipedia/commons/4/4b/Maize_-_Corn.jpg","credit":"WiseMan42","sha256":"bae1ec008527eab05b848e3822bd1343924956a8a1bd35c7f404f03607434e8e"},
+    {"crop":"sunflower","page":"https://commons.wikimedia.org/wiki/File:Sunflower_Fields.jpg","original":"https://upload.wikimedia.org/wikipedia/commons/b/b2/Sunflower_Fields.jpg","credit":"Wenchieh Yang","sha256":"06eff3547d9dd8ee442d25169f86a4cd46674d5ab354dfe7609dcc62337b6b55"},
+    {"crop":"soybean","page":"https://commons.wikimedia.org/wiki/File:Soybeans_(marketed)_1.jpg","original":"https://upload.wikimedia.org/wikipedia/commons/6/6b/Soybeans_%28marketed%29_1.jpg","credit":"David E Mead","sha256":"28d25e32030a76616438300a96c302331166683990e060e9b936872206e34d97"},
+    {"crop":"rapeseed","page":"https://commons.wikimedia.org/wiki/File:Rapeseed_field,_Ehrenbach.jpg","original":"https://upload.wikimedia.org/wikipedia/commons/4/45/Rapeseed_field%2C_Ehrenbach.jpg","credit":"Gerda Arendt","sha256":"b650bd297edf6f17c25e508d9cb604bfd3e7c23fa7714a28aa152eed1f733fd4"},
+    {"crop":"rye","page":"https://commons.wikimedia.org/wiki/File:Rye_Mature_Grain_Summer.jpg","original":"https://upload.wikimedia.org/wikipedia/commons/7/70/Rye_Mature_Grain_Summer.jpg","credit":"Tappancs / Pixabay; CC0 review recorded on the source page","sha256":"b212039312bf0bd7506235d313c671b99a85be90257028ee69c388c2f2979f99"},
+    {"crop":"oats","page":"https://commons.wikimedia.org/wiki/File:Avena-sativa-Ruedershausen.jpg","original":"https://upload.wikimedia.org/wikipedia/commons/6/69/Avena-sativa-Ruedershausen.jpg","credit":"Francisco Welter-Schultes","sha256":"61a43a019400c29a5ed5dd9cac1e69bc84dc9fd81b48067e2b2ddd3d86a891c3"}
   ]
 }
