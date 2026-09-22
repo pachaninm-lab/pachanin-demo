@@ -503,7 +503,8 @@ describe('public locale navigation does not silently erase a filled form', () =>
   for (const route of ['/platform-v7/register?lang=ru', '/platform-v7/login?lang=ru', '/platform-v7/forgot-password?lang=ru']) {
     it(`${route}: cancellation retains the form and never places its secret in navigation`, () => {
       const view = header(route);
-      const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+      const confirm = vi.fn<(message?: string) => boolean>().mockReturnValue(false);
+      vi.stubGlobal('confirm', confirm);
       fireEvent.input(view.input, { target: { value: 'Synthetic-local-secret-01!' } });
       const click = new MouseEvent('click', { bubbles: true, cancelable: true });
       view.other.dispatchEvent(click);
@@ -518,7 +519,8 @@ describe('public locale navigation does not silently erase a filled form', () =>
 
   it('opens the language choice instead of reloading the current locale inside the menu', async () => {
     const view = header('/platform-v7/register?lang=ru');
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const confirm = vi.fn<(message?: string) => boolean>().mockReturnValue(false);
+    vi.stubGlobal('confirm', confirm);
     const click = new MouseEvent('click', { bubbles: true, cancelable: true });
     view.active.dispatchEvent(click);
     expect(click.defaultPrevented).toBe(true);
