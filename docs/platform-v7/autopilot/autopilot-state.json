@@ -1519,6 +1519,11 @@
       "apps/web/app/platform-v7/bank/release-safety/page.tsx",
       "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx"
     ],
+    "fgis/regulatory-truth-ux-20260921": [
+      "apps/web/components/crop-platform/IntegrationControlTowerClient.tsx",
+      "apps/web/components/crop-platform/IntegrationControlTowerClient.module.css",
+      "apps/web/tests/unit/platformV7IntegrationControlTower.test.ts"
+    ],
     "product/r1-role-mode-consumer-20260921": [
       "apps/web/app/platform-v7/staff/role-mode/route.ts",
       "apps/web/components/platform-v7/staff/OwnerAccessCenter.tsx",
@@ -1645,10 +1650,36 @@
       ],
       "teamHubDependency": "5752421291"
     },
+    "fgis-regulatory-truth-ux-20260921": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Truthfulness-only Regulatory/FGIS Control Tower presentation correction using existing canonical read fields; no regulatory authority, applicability inference, external acceptance or provider activation.",
+      "authorityBaseExactMain": "bdb2bb25ca7095741ccfd7da67190a65f3648079",
+      "implementationBranch": "fgis/regulatory-truth-ux-20260921",
+      "allowedPaths": [
+        "apps/web/components/crop-platform/IntegrationControlTowerClient.tsx",
+        "apps/web/components/crop-platform/IntegrationControlTowerClient.module.css",
+        "apps/web/tests/unit/platformV7IntegrationControlTower.test.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "freshnessAt is the timestamp of the latest server-held integration fact and must not be presented as proof that the authoritative external source is CURRENT",
+        "provider acknowledgement / HTTP success is not business acceptance",
+        "current Control Tower DTO does not expose per-Deal applicability, regulatory rule/version/source/evidence or blocking stage; PRODUCT must render that absence explicitly and never infer it",
+        "server-provided capabilities may be displayed but do not prove live provider connectivity"
+      ],
+      "forbiddenAuthority": [
+        "regulatory applicability or obligation authority",
+        "FGIS/SDIZ mutation or business acceptance",
+        "API/DTO/database/inbox/outbox/reconciliation authority",
+        "role/tenant/RLS authority",
+        "external-success/live-integration claim",
+        "regulatory override authority"
+      ],
+      "teamHubDependency": "PRODUCT-REGULATORY-APPLICABILITY-READ-CONTRACT-20260921"
+    },
     "r1-role-mode-consumer-scope-20260921": {
       "owner": "ACCOUNT_2_PRODUCT",
       "purpose": "R1.5 Founder role-mode consumer scope admission. Allows the existing PRODUCT branch to replace the legacy controlled-test owner selector with the accepted server-owned VIEW_AS contract and update the stale controlled-test regression without granting role/tenant authority.",
-      "authorityBaseExactMain": "51d63c5f7e2a22d1ccbbe38d15c475a7e93de863",
+      "authorityBaseExactMain": "6553cdd4a5c3ce638d2832fac361cf710a46067b",
       "implementationBranch": "product/r1-role-mode-consumer-20260921",
       "allowedPaths": [
         "apps/web/app/platform-v7/staff/role-mode/route.ts",
