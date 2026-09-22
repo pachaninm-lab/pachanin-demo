@@ -1,5 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { runInNewContext } from 'node:vm';
+import { ModuleKind, ScriptTarget, transpileModule } from 'typescript';
 import { describe, expect, it } from 'vitest';
 
 const root = process.cwd();
@@ -95,6 +97,52 @@ describe('platform-v7 role-scoped AI assistant', () => {
     expect(hydration).toContain('<PublicAssistantMobileLayoutAuthority />');
     for (const deferredChatMechanism of ['requestIdleCallback', 'setTimeout(', 'IntersectionObserver', 'pointerdown']) {
       expect(hydration).not.toContain(deferredChatMechanism);
+    }
+  });
+});
+
+
+describe('public assistant bootstrap boundaries', () => {
+  it('loads private-only assistant components only through their existing branches', () => {
+    expect(contextual).toContain("import dynamic from 'next/dynamic'");
+    for (const name of ['AiAssistantPanel', 'CabinetContactDock']) {
+      expect(contextual).not.toContain(`import { ${name} } from './${name}'`);
+      const start = contextual.indexOf(`const ${name} = dynamic(`);
+      expect(start).toBeGreaterThanOrEqual(0);
+      const loader = contextual.slice(start, contextual.indexOf('\n);', start) + 3);
+      expect(loader).toContain(`() => import('./${name}').then((module) => module.${name})`);
+      expect(loader).toContain('ssr: false');
+      expect(loader).toContain('loading: () => null');
+    }
+    for (const name of ['PublicPlatformAssistant', 'PublicAssistantAttachmentBridge', 'ChatSupportWidget']) {
+      expect(contextual).toContain(`import { ${name} } from './${name}'`);
+      expect(contextual).not.toContain(`const ${name} = dynamic(`);
+    }
+    for (const forbidden of ['requestIdleCallback', 'setTimeout(', 'IntersectionObserver']) {
+      expect(contextual).not.toContain(forbidden);
+    }
+  });
+
+  it('selects public chat for the three canonical pages without opening private prefixes', () => {
+    const start = contextual.indexOf('const ASSISTANT_WORKSPACE');
+    const end = contextual.indexOf('export function ContextualSupportOrAssistant');
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const source = `${contextual.slice(start, end)}\nexports.isPrivateWorkspace = isPrivateWorkspace;`;
+    const context = { exports: {} as { isPrivateWorkspace: (pathname: string) => boolean } };
+    runInNewContext(transpileModule(source, {
+      compilerOptions: { target: ScriptTarget.ES2022, module: ModuleKind.CommonJS },
+    }).outputText, context, { timeout: 1000 });
+
+    for (const prefix of ['', '/pc-public-entry']) {
+      for (const suffix of ['', '/', '?lang=ru', '?lang=en', '?lang=zh']) {
+        for (const page of ['market', 'capabilities', 'gekta', 'login', 'register', 'how-it-works', 'ai-in-action']) {
+          expect(context.exports.isPrivateWorkspace(`${prefix}/platform-v7/${page}${suffix}`)).toBe(false);
+        }
+        for (const page of ['seller', 'buyer', 'logistics', 'driver', 'elevator', 'lab', 'surveyor', 'bank', 'staff', 'assistant', 'deals/private', 'market/private', 'capabilities/private', 'gekta/private']) {
+          expect(context.exports.isPrivateWorkspace(`${prefix}/platform-v7/${page}${suffix}`)).toBe(true);
+        }
+      }
     }
   });
 });
