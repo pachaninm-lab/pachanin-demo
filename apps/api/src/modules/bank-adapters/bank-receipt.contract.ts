@@ -43,6 +43,7 @@ export type BankReceiptValidation =
         | 'AUTHENTICATION_AUTHORITY_MISMATCH'
         | 'INVALID_EVIDENCE_STATE'
         | 'INVALID_CANONICAL_FINALITY'
+        | 'INVALID_OBSERVED_AT'
         | 'PROVIDER_EVENT_REPLAY'
         | 'PAYLOAD_REPLAY'
         | 'EXTERNAL_RECEIPT_REPLAY'
@@ -51,20 +52,20 @@ export type BankReceiptValidation =
         | 'EXTERNAL_RECEIPT_MISSING';
     }>;
 
-function positiveMinorUnits(value: string | null): string | null {
-  if (value === null) return null;
+function positiveMinorUnits(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
   const normalized = value.trim();
   return /^\d+$/.test(normalized) && BigInt(normalized) > 0n ? normalized : null;
 }
 
-function currencyCode(value: string | null): string | null {
-  if (value === null) return null;
+function currencyCode(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
   const normalized = value.trim().toUpperCase();
   return /^[A-Z]{3}$/.test(normalized) ? normalized : null;
 }
 
-function evidenceIdentity(value: string | null): string | null {
-  if (value === null) return null;
+function evidenceIdentity(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
   return value.trim() || null;
 }
 
@@ -73,7 +74,7 @@ function consumedEvidenceIncludes(
   candidate: string | null,
 ): boolean {
   return candidate !== null
-    && values?.some((value) => value.trim() === candidate) === true;
+    && values?.some((value) => typeof value === 'string' && value.trim() === candidate) === true;
 }
 
 function isReceiptEvidenceState(value: unknown): value is BankReceiptCandidate['evidenceState'] {
@@ -81,6 +82,12 @@ function isReceiptEvidenceState(value: unknown): value is BankReceiptCandidate['
     || value === 'FAILURE_EVIDENCE'
     || value === 'NONFINAL_EVIDENCE'
     || value === 'UNKNOWN_EVIDENCE';
+}
+
+function isReceiptObservedAt(value: unknown): value is string {
+  return typeof value === 'string'
+    && value.trim().length > 0
+    && Number.isFinite(Date.parse(value));
 }
 
 export function validateBankReceiptCandidate(
@@ -131,6 +138,9 @@ export function validateBankReceiptCandidate(
   if (candidate.canonicalFinality !== 'NOT_DECIDED_HERE') {
     return rejected('INVALID_CANONICAL_FINALITY');
   }
+  if (!isReceiptObservedAt(candidate.observedAt)) {
+    return rejected('INVALID_OBSERVED_AT');
+  }
 
   const providerEventId = evidenceIdentity(candidate.providerEventId);
   const payloadFingerprint = evidenceIdentity(candidate.payloadFingerprint);
@@ -153,7 +163,7 @@ export function validateBankReceiptCandidate(
   // fingerprinted transport before they are allowed to influence reconciliation.
   // They may remain pending, but untrusted bytes are rejected rather than queued
   // as if they were provider evidence.
-  if (!candidate.authenticationEvidenceRef?.trim()) {
+  if (!evidenceIdentity(candidate.authenticationEvidenceRef)) {
     return rejected('AUTHENTICATION_EVIDENCE_MISSING');
   }
   if (!payloadFingerprint) {
