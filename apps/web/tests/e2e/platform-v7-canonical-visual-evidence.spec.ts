@@ -4,9 +4,9 @@ import { loginAs, type CabinetRole } from './support/acceptance-login';
 
 
 const AUTHORITY_AHASH: Record<string,{hash:string;maxDistance:number}> = {
-  '01-home-desktop': { hash:'ffffffff4fc9ff0b1f02fec0ffffffff51353fff6fffbfff7ffff7ffdf7fffff', maxDistance:90 },
+  '01-home-desktop': { hash:'ffffffff1fff7ffd17f7f5e01ffcffff23ffffffff00c0000000fffff1f1ff00', maxDistance:90 },
   '02-home-mobile': { hash:'7ff1ffffd3ffe1fffffce020f13cffff807fffff87ff8001ffffdfffffff9b6f', maxDistance:125 },
-  '03-market-desktop': { hash:'7ffc1ff31800f800ffefff0f001f3e3fffffffff003f003fffffffff8003003f', maxDistance:130 },
+  '03-market-desktop': { hash:'3ddcfffffffffffffffff8f3f0f000b0ffffffffffff000000000000ffff8cc5', maxDistance:130 },
   '04-lot-desktop': { hash:'3ffc0800000005ef05ff07ff07ff07ff07e0ffffffffffffffffffffffffffff', maxDistance:135 },
   '05-deal-desktop': { hash:'1ff8cff01fdf1ff7e3ffe7ffff21a9e8ef68f9efbfffe3fceda8fff80bfd1fff', maxDistance:130 },
   '06-deal-mobile': { hash:'3fff80ff807f07ff83ff03ffffffcfffdfffdfffffff00008000ffffffffffff', maxDistance:125 },
