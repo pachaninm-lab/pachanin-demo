@@ -1,3 +1,4 @@
+import type { BankProviderResponse } from './bank-adapter.port';
 import { SberReferenceAdapter } from './sber-reference.adapter';
 
 const response = (rawStatus: string | null, httpStatus = 200) => ({
@@ -15,6 +16,11 @@ const response = (rawStatus: string | null, httpStatus = 200) => ({
   amountMinor: '10000',
   currency: 'RUB',
 });
+
+const malformedResponse = (overrides: Record<string, unknown>): BankProviderResponse => ({
+  ...response(null),
+  ...overrides,
+} as unknown as BankProviderResponse);
 
 describe('Sber reference adapter', () => {
   const adapter = new SberReferenceAdapter();
@@ -57,6 +63,21 @@ describe('Sber reference adapter', () => {
       canonicalFinality: 'NOT_DECIDED_HERE',
       retryPolicy: 'RECONCILE_BEFORE_RETRY',
     });
+  });
+
+  it('does not coerce malformed runtime HTTP status values into transport acceptance', () => {
+    for (const httpStatus of ['201', 201.5]) {
+      expect(adapter.mapDispatchResponse(malformedResponse({ httpStatus }))).toMatchObject({
+        acknowledgement: 'UNKNOWN',
+        canonicalFinality: 'NOT_DECIDED_HERE',
+        retryPolicy: 'RECONCILE_BEFORE_RETRY',
+      });
+    }
+  });
+
+  it('rejects malformed runtime observation timestamps instead of coercing them', () => {
+    expect(() => adapter.mapDispatchResponse(malformedResponse({ observedAt: 0 })))
+      .toThrow('INVALID_BANK_OBSERVED_AT');
   });
 
   it('maps documented CREATED/PENDING/DONE/ERROR into evidence classes without deciding canonical finality', () => {
