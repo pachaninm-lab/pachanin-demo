@@ -133,6 +133,19 @@ describe('bank capability router', () => {
     }
   });
 
+  it('rejects a server-held binding for a non-bank integration capability', () => {
+    const testRouter = new BankCapabilityRouter([
+      liveTestAdapter('TEST_DOUBLE_A', ['DIRECT_PAYMENT']),
+    ]);
+    expect(testRouter.route(
+      authority('TEST_DOUBLE_A', { capabilityCode: 'EDO' }),
+      'DIRECT_PAYMENT',
+    )).toMatchObject({
+      status: 'CONTRADICTORY',
+      reason: 'SERVER_HELD_CAPABILITY_CODE_MISMATCH',
+    });
+  });
+
   it('fails closed when server-held capabilities are not a validated capability array', () => {
     const testRouter = new BankCapabilityRouter([
       liveTestAdapter('TEST_DOUBLE_A', ['DIRECT_PAYMENT']),
