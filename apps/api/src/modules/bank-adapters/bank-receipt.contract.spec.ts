@@ -183,6 +183,29 @@ describe('bank receipt contract', () => {
     )).toMatchObject({ status: 'REJECTED', reason: 'AUTHENTICATION_AUTHORITY_MISMATCH' });
   });
 
+  it('validates provider-operation identity shape even before the expected provider identity is known', () => {
+    const withoutKnownProviderOperation = { ...expected, providerOperationId: null };
+
+    expect(validateBankReceiptCandidate(
+      withoutKnownProviderOperation,
+      malformedCandidate({ providerOperationId: 42 }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'PROVIDER_OPERATION_MISMATCH' });
+
+    expect(validateBankReceiptCandidate(
+      withoutKnownProviderOperation,
+      candidate({ providerOperationId: ' provider-op-1 ' }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'PROVIDER_OPERATION_MISMATCH' });
+
+    expect(validateBankReceiptCandidate(
+      withoutKnownProviderOperation,
+      candidate({ providerOperationId: 'provider-op-new' }),
+    )).toMatchObject({
+      status: 'MATCHED',
+      reconciliationState: 'READY_FOR_CANONICAL_RECONCILIATION',
+      canonicalFinality: 'NOT_DECIDED_HERE',
+    });
+  });
+
   it('rejects unauthenticated or unfingerprinted evidence even when provider status is non-final/unknown', () => {
     expect(validateBankReceiptCandidate(
       expected,
