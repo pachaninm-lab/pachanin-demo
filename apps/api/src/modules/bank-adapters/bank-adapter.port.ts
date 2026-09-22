@@ -108,8 +108,13 @@ export interface BankReferenceAdapter {
   mapReceiptResponse(response: BankProviderResponse): BankReceiptCandidate;
 }
 
-function identifier(value: string, field: string): string {
-  const normalized = value.trim();
+function runtimeTrimmedString(value: unknown, errorCode: string): string {
+  if (typeof value !== 'string') throw new Error(errorCode);
+  return value.trim();
+}
+
+function identifier(value: unknown, field: string): string {
+  const normalized = runtimeTrimmedString(value, `INVALID_BANK_IDENTIFIER:${field}`);
   if (!normalized || normalized.length > 240 || !/^[A-Za-z0-9:_.-]+$/.test(normalized)) {
     throw new Error(`INVALID_BANK_IDENTIFIER:${field}`);
   }
@@ -123,17 +128,24 @@ function runtimeStringOrNull(value: unknown): string | null {
 export function normalizeBankOperationRequest(
   input: BankAdapterOperationRequest,
 ): BankAdapterOperationRequest {
-  const amount = input.amountMinor.trim();
+  const amount = runtimeTrimmedString(input.amountMinor, 'INVALID_BANK_AMOUNT_MINOR');
   if (!/^\d+$/.test(amount) || BigInt(amount) <= 0n) {
     throw new Error('INVALID_BANK_AMOUNT_MINOR');
   }
-  const currency = input.currency.trim().toUpperCase();
+  const currency = runtimeTrimmedString(input.currency, 'INVALID_BANK_CURRENCY').toUpperCase();
   if (!/^[A-Z]{3}$/.test(currency)) {
     throw new Error('INVALID_BANK_CURRENCY');
   }
-  const sourceVersion = input.sourceVersion.trim();
+  const sourceVersion = runtimeTrimmedString(input.sourceVersion, 'INVALID_BANK_SOURCE_VERSION');
   if (!sourceVersion || sourceVersion.length > 160) {
     throw new Error('INVALID_BANK_SOURCE_VERSION');
+  }
+  let beneficiaryReference: string | null = null;
+  if (input.beneficiaryReference !== null) {
+    beneficiaryReference = runtimeTrimmedString(
+      input.beneficiaryReference,
+      'INVALID_BANK_BENEFICIARY_REFERENCE',
+    ) || null;
   }
   return {
     ...input,
@@ -142,7 +154,7 @@ export function normalizeBankOperationRequest(
     amountMinor: amount,
     currency,
     sourceVersion,
-    beneficiaryReference: input.beneficiaryReference?.trim() || null,
+    beneficiaryReference,
   };
 }
 
