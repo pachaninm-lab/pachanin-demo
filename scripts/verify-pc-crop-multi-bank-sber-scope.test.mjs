@@ -30,6 +30,10 @@ for (const marker of [
   'RECONCILIATION',
 ]) assert.ok(domain.includes(marker), 'missing domain capability ' + marker);
 
+for (const forbidden of ['TEST_DOUBLE_A', 'TEST_DOUBLE_B']) {
+  assert.equal(port.includes(forbidden), false, 'test-only provider family leaked into runtime adapter contract: ' + forbidden);
+}
+
 for (const marker of [
   'REAL_BANK_PROVIDER_FAMILIES',
   'RealBankProviderFamily',
