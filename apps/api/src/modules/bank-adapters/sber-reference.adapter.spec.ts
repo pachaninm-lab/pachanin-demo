@@ -63,7 +63,9 @@ describe('Sber reference adapter', () => {
   it('fails closed on malformed runtime request strings instead of invoking string methods', () => {
     for (const [overrides, errorCode] of [
       [{ operationId: 42 }, 'INVALID_BANK_IDENTIFIER:operationId'],
+      [{ operationId: ' op-1 ' }, 'INVALID_BANK_IDENTIFIER:operationId'],
       [{ idempotencyKey: null }, 'INVALID_BANK_IDENTIFIER:idempotencyKey'],
+      [{ idempotencyKey: ' idem-1 ' }, 'INVALID_BANK_IDENTIFIER:idempotencyKey'],
       [{ amountMinor: 10000 }, 'INVALID_BANK_AMOUNT_MINOR'],
       [{ currency: ['RUB'] }, 'INVALID_BANK_CURRENCY'],
       [{ sourceVersion: { version: 9 } }, 'INVALID_BANK_SOURCE_VERSION'],
