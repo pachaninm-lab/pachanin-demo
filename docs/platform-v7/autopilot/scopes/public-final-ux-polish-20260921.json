@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-final-ux-polish-20260921",
+  "status": "active",
+  "purpose": "Owner-directed FINAL PUBLIC UX polish: canonical header and bottom navigation, coherent burger, functional market filters and crop visuals, non-clickable public Deal status indicators, Trust readability, safe fixed-nav spacing, auth/registration polish and accessibility closure.",
+  "approvedBy": "owner-public-ux-polish-2026-09-22",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "acceptanceRepair": "Owner completion instruction: repair public dock overlap and migrate the existing Design System v8 registration locale acceptance to the canonical three-link control; retain all Axe, browser, token-preservation and authority-boundary assertions.",
+  "allowedPaths": [
+    "apps/web/app/platform-v7/capabilities/page.tsx",
+    "apps/web/app/platform-v7/contact/layout.tsx",
+    "apps/web/app/platform-v7/deal-flow/page.tsx",
+    "apps/web/app/platform-v7/login/page.tsx",
+    "apps/web/app/platform-v7/market/page.tsx",
+    "apps/web/app/platform-v7/register/page.tsx",
+    "apps/web/app/platform-v7/trust/page.tsx",
+    "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
+    "apps/web/components/platform-v7/PublicCanonicalMarket.tsx",
+    "apps/web/components/platform-v7/PublicCanonicalPrimitives.tsx",
+    "apps/web/components/platform-v7/PublicContactDock.tsx",
+    "apps/web/components/platform-v7/PublicGektaChatButton.tsx",
+    "apps/web/components/platform-v7/PublicLinkedSurfaceShell.tsx",
+    "apps/web/components/platform-v7/PublicSiteHeader.tsx",
+    "apps/web/styles/platform-v7-canonical-home-v1.css",
+    "apps/web/styles/platform-v7-canonical-public-v1.css",
+    "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
+    "apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts",
+    "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+    "apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts",
+    "docs/platform-v7/autopilot/scopes/public-final-ux-polish-20260921.json"
+  ],
+  "requiredInvariants": [
+    "No API, database, auth, RBAC, RLS, tenant, Deal money/finality, outbox, infrastructure or release-authority semantics change.",
+    "Protected Deal workspace remains server-authoritative and read-only in its state summary; Normal, Deviation and Dispute remain informational status indicators, not fake navigation.",
+    "Public market remains real-data-only and fail-closed; crop visuals never fabricate lot facts.",
+    "Visible final public typography remains at least 12px and interactive targets remain at least 44px.",
+    "RU, EN and ZH use the same canonical header, burger and bottom navigation structure.",
+    "No CI, security, accessibility, Lighthouse, CLS, mobile or visual threshold is weakened."
+  ]
+}
