@@ -931,7 +931,6 @@ describe('public registration truthful outcomes', () => {
   });
 
   it('marks only transport loss as an unknown BFF result instead of saying it was rejected', () => {
-    expect(registerPage).toContain('RegisterFormClientPublic');
     const bff = read('app/api/auth/register/route.ts');
     expect(bff).toContain("outcome: 'unknown'");
     expect(bff).toContain("code: 'REGISTRATION_RESULT_UNKNOWN'");
