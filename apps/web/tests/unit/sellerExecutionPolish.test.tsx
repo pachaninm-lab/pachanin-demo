@@ -177,6 +177,7 @@ describe('platform-v7 seller execution polish', () => {
     const priority = screen.getByLabelText('Главная задача');
     expect(within(priority).getByRole('heading', { name: 'Следующий обязательный шаг не опубликован' })).toBeInTheDocument();
     expect(within(priority).getByText('UNKNOWN')).toBeInTheDocument();
+    expect(within(priority).queryByText('Ответственный')).not.toBeInTheDocument();
     expect(within(priority).getByRole('link', { name: 'Рабочая очередь' })).toHaveAttribute('href', '#first-customer-work-queue');
     expect(within(priority).queryByRole('link', { name: /deal-most-recent/i })).not.toBeInTheDocument();
 
