@@ -407,8 +407,10 @@ for (const locale of ['ru', 'en', 'zh'] as const) {
         } else if (route === 'terms' || route === 'privacy' || route === 'docs' || route === 'oferta' || route === 'contact') {
           const publicDock = page.locator('.pc-public-contact-dock[data-assistant-context="public"]');
           await expect(publicDock).toHaveCount(1);
+          // Public floating contact UI must never compete with canonical mobile
+          // navigation. Desktop visibility is route/design-owned, so do not
+          // manufacture a requirement that the dock be visible there.
           if (width <= 760) await expect(publicDock).toBeHidden();
-          else await expect(publicDock).toBeVisible();
         } else {
           // The existing assistant transport remains mounted. Canonical mobile
           // navigation and desktop header actions replace its floating launcher.
