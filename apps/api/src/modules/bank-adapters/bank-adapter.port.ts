@@ -13,13 +13,9 @@ export const REAL_BANK_PROVIDER_FAMILIES = [
 
 export type RealBankProviderFamily = (typeof REAL_BANK_PROVIDER_FAMILIES)[number];
 
-export const BANK_PROVIDER_FAMILIES = [
-  ...REAL_BANK_PROVIDER_FAMILIES,
-  'TEST_DOUBLE_A',
-  'TEST_DOUBLE_B',
-] as const;
+export const BANK_PROVIDER_FAMILIES = REAL_BANK_PROVIDER_FAMILIES;
 
-export type BankProviderFamily = (typeof BANK_PROVIDER_FAMILIES)[number];
+export type BankProviderFamily = RealBankProviderFamily;
 
 export type BankTransportAcknowledgement =
   | 'ACCEPTED_NONFINAL'
