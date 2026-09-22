@@ -91,7 +91,7 @@ export function CanonicalCropCatalogue({ locale, context = publicMarketContext()
       {PUBLIC_CROPS.map((crop) => {
         const selectedContext = publicMarketContext({ ...context, crop });
         return <article className='pc-cp-card pc-cp-crop-card' key={crop} data-crop-category={crop}>
-          <a className='pc-cp-crop-photo-link' href={marketHref(lang, selectedContext)} aria-label={CROP_LABELS[lang][crop]}><CropPhoto crop={crop} locale={lang} /></a>
+          <a className='pc-cp-crop-photo-link' href={marketHref(lang, selectedContext)} aria-label={CROP_LABELS[lang][crop]}><CropPhoto crop={crop} locale={lang} catalogue /></a>
           <div className='pc-cp-crop-body'>
             <h3><a href={marketHref(lang, selectedContext)}>{CROP_LABELS[lang][crop]}</a></h3><p>{copy.category}</p>
             <div className='pc-cp-actions'>
@@ -222,9 +222,14 @@ function MarketState({ locale, kind, context }: { locale: CanonicalPublicLocale;
   const label = kind === 'unavailable' ? copy.retry : kind === 'noMatch' ? copy.reset : copy.sell;
   return <article className='pc-cp-card pc-cp-market-state' data-market-state={kind}><div><h3>{title}</h3><p>{description}</p></div><a className='pc-cp-button pc-cp-button--secondary' href={href}>{label}<ArrowRight size={16} aria-hidden='true' /></a></article>;
 }
-function CropPhoto({ crop, locale }: { crop: PublicCrop | ''; locale: CanonicalPublicLocale }) {
+function CropPhoto({ crop, locale, catalogue = false }: { crop: PublicCrop | ''; locale: CanonicalPublicLocale; catalogue?: boolean }) {
   if (!crop) return <div className='pc-cp-crop-photo pc-cp-crop-photo--missing'><PackageSearch size={32} aria-hidden='true' /><span>{COPY[locale].noPhoto}</span></div>;
-  return <img className='pc-cp-crop-photo' src={`/platform-v7/crops/${crop}-640.webp`} srcSet={`/platform-v7/crops/${crop}-320.webp 320w, /platform-v7/crops/${crop}-640.webp 640w, /platform-v7/crops/${crop}-960.webp 960w`} sizes='(max-width: 600px) calc(100vw - 40px), (max-width: 1000px) 45vw, 300px' width={640} height={400} loading='lazy' decoding='async' fetchPriority='low' alt={CROP_LABELS[locale][crop]} />;
+  // Match the existing min(82vw,320px) carousel and the 1100px grid breakpoint.
+  // A 320px card at DPR 1.75 needs the 640px variant, not a full-width 960px download.
+  const sizes = catalogue
+    ? '(max-width: 390px) 82vw, (max-width: 760px) 320px, (max-width: 1100px) 45vw, 300px'
+    : '(max-width: 600px) calc(100vw - 40px), (max-width: 1000px) 45vw, 300px';
+  return <img className='pc-cp-crop-photo' src={`/platform-v7/crops/${crop}-640.webp`} srcSet={`/platform-v7/crops/${crop}-320.webp 320w, /platform-v7/crops/${crop}-640.webp 640w, /platform-v7/crops/${crop}-960.webp 960w`} sizes={sizes} width={640} height={400} loading='lazy' decoding='async' fetchPriority='low' alt={CROP_LABELS[locale][crop]} />;
 }
 function Metric({ label, value }: { label: string; value: ReactNode }) { return <div><span>{label}</span><strong>{value}</strong></div>; }
 function Row({ label, value }: { label: string; value: ReactNode }) { return <div><dt>{label}</dt><dd>{value}</dd></div>; }
