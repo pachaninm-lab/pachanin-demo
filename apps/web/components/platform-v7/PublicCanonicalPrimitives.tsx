@@ -16,6 +16,7 @@ import {
   Store,
   UserRound,
 } from 'lucide-react';
+import { PublicGektaChatButton } from './PublicGektaChatButton';
 import { PublicLocaleLink } from './PublicLocaleLink';
 import { PublicSiteHeader } from './PublicSiteHeader';
 
@@ -31,34 +32,31 @@ export function canonicalPublicLocale(value: string): CanonicalPublicLocale {
 const NAV = {
   ru: [
     ['Рынок', '/platform-v7/market'],
-    ['Как проходит Сделка', '/platform-v7/how-it-works'],
+    ['Сделка', '/platform-v7/how-it-works'],
     ['Возможности', '/platform-v7/capabilities'],
     ['Гекта', '/platform-v7/gekta'],
     ['Доверие', '/platform-v7/trust'],
-    ['О платформе', '/platform-v7/about'],
   ],
   en: [
     ['Market', '/platform-v7/market'],
-    ['How the Deal works', '/platform-v7/how-it-works'],
+    ['Deal', '/platform-v7/how-it-works'],
     ['Capabilities', '/platform-v7/capabilities'],
     ['Gekta', '/platform-v7/gekta'],
     ['Trust', '/platform-v7/trust'],
-    ['About', '/platform-v7/about'],
   ],
   zh: [
     ['市场', '/platform-v7/market'],
-    ['交易如何进行', '/platform-v7/how-it-works'],
+    ['交易', '/platform-v7/how-it-works'],
     ['功能', '/platform-v7/capabilities'],
     ['Gekta', '/platform-v7/gekta'],
     ['信任', '/platform-v7/trust'],
-    ['关于平台', '/platform-v7/about'],
   ],
 } as const;
 
 const ACTIONS = {
-  ru: { login: 'Войти', register: 'Регистрация', brand: 'Прозрачная Цена — на главную', nav: 'Навигация платформы', menu: 'Открыть меню' },
-  en: { login: 'Sign in', register: 'Register', brand: 'Transparent Price — home', nav: 'Platform navigation', menu: 'Open menu' },
-  zh: { login: '登录', register: '注册', brand: '透明价格 — 首页', nav: '平台导航', menu: '打开菜单' },
+  ru: { login: 'Войти', register: 'Регистрация', about: 'О платформе', primary: 'Разделы', utility: 'Аккаунт и помощь', brand: 'Прозрачная Цена — на главную', nav: 'Навигация платформы', menu: 'Открыть меню' },
+  en: { login: 'Sign in', register: 'Register', about: 'About', primary: 'Sections', utility: 'Account and help', brand: 'Transparent Price — home', nav: 'Platform navigation', menu: 'Open menu' },
+  zh: { login: '登录', register: '注册', about: '关于平台', primary: '主要栏目', utility: '账户与帮助', brand: '透明价格 — 首页', nav: '平台导航', menu: '打开菜单' },
 } as const;
 
 export const CANONICAL_DEAL_STAGES = {
@@ -75,22 +73,22 @@ export const CANONICAL_ROLES = {
 
 export const TRUST_MODEL = {
   ru: [
-    ['Полномочия', 'Кто вправе действовать в этом контексте и от имени какой организации.'],
-    ['Основание', 'Какое условие, документ или подтверждённое событие разрешает действие.'],
-    ['Источник', 'Откуда получен факт и в какой версии он относится к Сделке.'],
-    ['Решение', 'Какое действие принято, кем и какой следующий шаг разрешён.'],
+    ['Полномочия', 'Видно, кто вправе действовать и от какой организации.'],
+    ['Основание', 'У важного действия есть понятное основание: документ, условие или событие.'],
+    ['Источник', 'Понятно, откуда пришёл факт и к какой версии Сделки он относится.'],
+    ['Решение', 'Зафиксировано, кто принял решение и какой следующий шаг разрешён.'],
   ],
   en: [
-    ['Authority', 'Who may act in this context and for which organisation.'],
-    ['Basis', 'Which condition, document or confirmed event permits the action.'],
-    ['Source', 'Where the fact came from and which Deal version it belongs to.'],
-    ['Decision', 'What was decided, by whom, and which next step is permitted.'],
+    ['Authority', 'See who is allowed to act and for which organisation.'],
+    ['Basis', 'Every important action has a clear basis: a document, condition or event.'],
+    ['Source', 'See where a fact came from and which Deal version it belongs to.'],
+    ['Decision', 'See who made the decision and which next step is allowed.'],
   ],
   zh: [
-    ['权限', '谁有权在当前上下文中代表哪个机构执行操作。'],
-    ['依据', '哪个条件、文件或已确认事件允许该操作。'],
-    ['来源', '事实来自哪里，以及属于交易的哪个版本。'],
-    ['决定', '作出了什么决定、由谁作出，以及允许的下一步是什么。'],
+    ['权限', '清楚看到谁有权操作，以及代表哪个机构。'],
+    ['依据', '每个重要操作都有明确依据：文件、条件或事件。'],
+    ['来源', '清楚看到事实来自哪里，以及对应哪个交易版本。'],
+    ['决定', '记录谁作出决定，以及允许执行的下一步。'],
   ],
 } as const;
 
@@ -108,13 +106,38 @@ export function CanonicalPublicHeader({
   const lang = canonicalPublicLocale(locale);
   const copy = ACTIONS[lang];
   const suffix = `?lang=${encodeURIComponent(lang)}`;
+  const navIcons = {
+    '/platform-v7/market': Store,
+    '/platform-v7/how-it-works': Layers3,
+    '/platform-v7/capabilities': PackageSearch,
+    '/platform-v7/gekta': Bot,
+    '/platform-v7/trust': ShieldCheck,
+  } as const;
   const nav = (
     <>
-      {NAV[lang].map(([label, href]) => (
-        <a key={href} href={`${href}${suffix}`} data-active={activePath === href ? 'true' : undefined}>{label}</a>
-      ))}
-      <a className='pc-cp-mobile-only' href={`/platform-v7/login${suffix}`}><LogIn size={16} aria-hidden='true' />{copy.login}</a>
-      <a className='pc-cp-mobile-only' href={`/platform-v7/register${suffix}`}><UserRound size={16} aria-hidden='true' />{copy.register}</a>
+      <span className='pc-site-mobile-primary-label'>{copy.primary}</span>
+      {NAV[lang].map(([label, href]) => {
+        const Icon = navIcons[href];
+        return (
+        <a
+          key={href}
+          className={href === '/platform-v7/gekta' ? 'pc-site-nav-gekta' : undefined}
+          href={`${href}${suffix}`}
+          data-active={activePath === href ? 'true' : undefined}
+          aria-current={activePath === href ? 'page' : undefined}
+        >
+          <span className='pc-site-nav-item-icon' aria-hidden='true'><Icon size={18} /></span>
+          <span>{label}</span>
+        </a>
+        );
+      })}
+      <div className='pc-site-mobile-utility pc-cp-mobile-only' aria-label={copy.utility}>
+        <span className='pc-site-mobile-utility-label'>{copy.utility}</span>
+        <PublicGektaChatButton locale={lang} variant='mobile' className='pc-site-mobile-gekta' />
+        <a href={`/platform-v7/about${suffix}`} data-active={activePath === '/platform-v7/about' ? 'true' : undefined} aria-current={activePath === '/platform-v7/about' ? 'page' : undefined}><Building2 size={16} aria-hidden='true' />{copy.about}</a>
+        <a href={`/platform-v7/login${suffix}`} data-active={activePath === '/platform-v7/login' ? 'true' : undefined} aria-current={activePath === '/platform-v7/login' ? 'page' : undefined}><LogIn size={16} aria-hidden='true' />{copy.login}</a>
+        <a href={`/platform-v7/register${suffix}`} data-active={activePath === '/platform-v7/register' ? 'true' : undefined} aria-current={activePath === '/platform-v7/register' ? 'page' : undefined}><UserRound size={16} aria-hidden='true' />{copy.register}</a>
+      </div>
     </>
   );
   return (
@@ -129,6 +152,7 @@ export function CanonicalPublicHeader({
       localeControl={localeControl ?? <PublicLocaleLink />}
       actions={actions === false ? <span className='pc-canonical-header-actions' /> : actions === true ? (
         <div className='pc-canonical-header-actions'>
+          <PublicGektaChatButton locale={lang} variant='header' />
           <a className='entry-login' href={`/platform-v7/login${suffix}`}>{copy.login}</a>
           <a className='pc-v6-header-cta' href={`/platform-v7/register${suffix}`}>{copy.register}</a>
         </div>
@@ -191,13 +215,25 @@ export function CanonicalStateTabs({
   state: CanonicalDealState | null;
 }) {
   const lang = canonicalPublicLocale(locale);
+  const ariaLabel = lang === 'ru' ? 'Состояние Сделки' : lang === 'en' ? 'Deal state' : '交易状态';
   return (
-    <div className='pc-cp-state-tabs' role='list' aria-label={lang === 'ru' ? 'Состояние Сделки' : lang === 'en' ? 'Deal state' : '交易状态'}>
-      {(['normal', 'deviation', 'dispute'] as const).map((item) => (
-        <span key={item} role='listitem' aria-current={state === item ? 'true' : undefined} className='pc-cp-state-tab' data-state={item} data-active={state === item ? 'true' : 'false'}>
-          {STATE_COPY[lang][item]}
-        </span>
-      ))}
+    <div className='pc-cp-state-tabs' role='list' aria-label={ariaLabel}>
+      {(['normal', 'deviation', 'dispute'] as const).map((item) => {
+        const label = STATE_COPY[lang][item];
+        const active = state === item;
+        return (
+          <span
+            key={item}
+            role='listitem'
+            className='pc-cp-state-tab'
+            data-state={item}
+            data-active={active ? 'true' : 'false'}
+            aria-current={active ? 'true' : undefined}
+          >
+            {label}
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -244,17 +280,87 @@ export function CanonicalStateLens({
 export function CanonicalGektaStrip({ locale }: { locale: string }) {
   const lang = canonicalPublicLocale(locale);
   const c = lang === 'ru'
-    ? { k: 'Аграрный интеллект', t: 'Гекта', p: 'Объясняет контекст Сделки, риски, основания и допустимый следующий шаг. Критическое решение остаётся за человеком и правилами платформы.', chips: ['Контекст Сделки', 'Документы', 'Логистика', 'Качество', 'Расчёт', 'Риски'] }
+    ? { k: 'Помощник по Сделке', t: 'Гекта', p: 'Показывает состояние Сделки, риски и основания по доступным данным. Критическое решение принимает человек по правилам платформы.', chips: ['Данные Сделки', 'Документы', 'Логистика', 'Качество', 'Расчёт', 'Риски'] }
     : lang === 'en'
-      ? { k: 'Agricultural intelligence', t: 'Gekta', p: 'Explains Deal context, risks, evidence and the permitted next step. Critical decisions remain with people and platform rules.', chips: ['Deal context', 'Documents', 'Logistics', 'Quality', 'Settlement', 'Risk'] }
-      : { k: '农业智能', t: 'Gekta', p: '解释交易上下文、风险、依据和允许的下一步。关键决定仍由人员和平台规则控制。', chips: ['交易上下文', '文件', '物流', '质量', '结算', '风险'] };
+      ? { k: 'Deal assistant', t: 'Gekta', p: 'Shows Deal state, risk and evidence from data available to the user. Critical decisions remain with people under platform rules.', chips: ['Deal data', 'Documents', 'Logistics', 'Quality', 'Settlement', 'Risk'] }
+      : { k: '交易助手', t: 'Gekta', p: '基于参与方可访问的数据展示交易状态、风险和依据。关键决定由人员按平台规则作出。', chips: ['交易数据', '文件', '物流', '质量', '结算', '风险'] };
   return (
     <section className='pc-cp-gekta-strip'>
-      <div className='pc-cp-gekta-brand'><span>{c.k}</span><strong>{c.t}</strong><p>{c.p}</p></div>
+      <div className='pc-cp-gekta-brand'>
+        <span>{c.k}</span><strong>{c.t}</strong><p>{c.p}</p>
+        <div className='pc-cp-gekta-actions'>
+          <PublicGektaChatButton locale={lang} variant='section' />
+          <a href={`/platform-v7/gekta?lang=${lang}`}>{lang === 'ru' ? 'Открыть Гекту' : lang === 'en' ? 'Open Gekta' : '打开 Gekta'}</a>
+        </div>
+      </div>
       <div className='pc-cp-gekta-chips'>{c.chips.map((chip) => <span key={chip}>{chip}</span>)}</div>
     </section>
   );
 }
+
+const CANONICAL_BOTTOM_NAV_CRITICAL_STYLES = `
+.pc-cp-bottom-nav{display:none}
+@media(max-width:760px){
+  .pc-cp-bottom-nav{
+    box-sizing:border-box;
+    position:fixed;
+    z-index:2550;
+    left:0;
+    right:0;
+    bottom:0;
+    min-height:calc(70px + env(safe-area-inset-bottom,0px));
+    padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px));
+    display:grid;
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    align-items:start;
+    gap:3px;
+    border-top:1px solid #d9e7de;
+    background:rgba(251,253,251,.98);
+    box-shadow:0 -8px 24px rgba(20,54,39,.06);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+  }
+  .pc-cp-bottom-nav>a{
+    box-sizing:border-box;
+    min-width:0;
+    min-height:50px;
+    display:grid;
+    grid-template-rows:22px minmax(14px,auto);
+    place-items:center;
+    align-content:center;
+    gap:2px;
+    padding:4px 2px;
+    border-radius:11px;
+    color:#52655c;
+    font-size:12px;
+    line-height:1.05;
+    font-weight:700;
+    text-align:center;
+    text-decoration:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .pc-cp-bottom-nav>a[data-active='true']{
+    background:#eaf5ed;
+    color:#0a6046;
+  }
+  .pc-cp-bottom-nav>a:focus-visible{
+    outline:3px solid rgba(25,117,82,.34);
+    outline-offset:1px;
+  }
+  .pc-cp-bottom-nav>a>svg{
+    width:19px;
+    height:19px;
+    color:currentColor;
+  }
+  .pc-cp-bottom-nav>a>span{
+    display:block;
+    max-width:100%;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+}
+`;
 
 export function CanonicalBottomNav({ locale, active }: { locale: string; active?: string }) {
   const lang = canonicalPublicLocale(locale);
@@ -262,45 +368,49 @@ export function CanonicalBottomNav({ locale, active }: { locale: string; active?
     ? [
       ['Главная', '/platform-v7', Home, false],
       ['Рынок', '/platform-v7/market', Store, false],
-      ['Регистрация', '/platform-v7/register', UserRound, true],
-      ['Сделка', '/platform-v7/how-it-works', Layers3, false],
+      ['Регистрация', '/platform-v7/register', UserRound, false],
+      ['Сделка', '/platform-v7/deal-flow', Layers3, false],
       ['Войти', '/platform-v7/login', LogIn, false],
     ] as const
     : lang === 'en'
       ? [
         ['Home', '/platform-v7', Home, false],
         ['Market', '/platform-v7/market', Store, false],
-        ['Register', '/platform-v7/register', UserRound, true],
-        ['Deal', '/platform-v7/how-it-works', Layers3, false],
+        ['Register', '/platform-v7/register', UserRound, false],
+        ['Deal', '/platform-v7/deal-flow', Layers3, false],
         ['Sign in', '/platform-v7/login', LogIn, false],
       ] as const
       : [
         ['首页', '/platform-v7', Home, false],
         ['市场', '/platform-v7/market', Store, false],
-        ['注册', '/platform-v7/register', UserRound, true],
-        ['交易', '/platform-v7/how-it-works', Layers3, false],
+        ['注册', '/platform-v7/register', UserRound, false],
+        ['交易', '/platform-v7/deal-flow', Layers3, false],
         ['登录', '/platform-v7/login', LogIn, false],
       ] as const;
   return (
-    <nav className='pc-cp-bottom-nav' aria-label={lang === 'ru' ? 'Мобильная навигация' : lang === 'en' ? 'Mobile navigation' : '移动导航'}>
-      {items.map(([label, href, Icon, center]) => <a href={`${href}?lang=${lang}`} key={href} data-active={active === href ? 'true' : 'false'} data-center={center ? 'true' : 'false'}><Icon aria-hidden='true' /><span>{label}</span></a>)}
-    </nav>
+    <>
+      <style>{CANONICAL_BOTTOM_NAV_CRITICAL_STYLES}</style>
+      <nav className='pc-cp-bottom-nav' aria-label={lang === 'ru' ? 'Мобильная навигация' : lang === 'en' ? 'Mobile navigation' : '移动导航'}>
+        {items.map(([label, href, Icon, center]) => <a href={`${href}?lang=${lang}`} key={href} data-active={active === href ? 'true' : 'false'} data-center={center ? 'true' : 'false'} aria-current={active === href ? 'page' : undefined}><Icon aria-hidden='true' /><span>{label}</span></a>)}
+      </nav>
+    </>
   );
 }
 
 export function CanonicalFooter({ locale }: { locale: string }) {
   const lang = canonicalPublicLocale(locale);
   const description = lang === 'ru'
-    ? 'Единый контур агросделки: от лота и торгов до исполнения, документов, расчёта и закрытия.'
+    ? 'Одна Сделка — от лота и торгов до исполнения, документов, расчёта и закрытия.'
     : lang === 'en'
-      ? 'One agricultural Deal flow from lot and trading through execution, documents, settlement and closure.'
-      : '统一农业交易流程：从批次和交易到履约、文件、结算和关闭。';
+      ? 'One Deal from lot and trading through execution, documents, settlement and closure.'
+      : '一笔交易贯穿批次、交易、履约、文件、结算和关闭。';
   return (
     <footer className='pc-cp-footer'>
       <div className='pc-cp-container pc-cp-footer-grid'>
         <div><strong>Прозрачная Цена</strong><p>{description}</p></div>
         <nav aria-label={ACTIONS[lang].nav}>
           {NAV[lang].map(([label, href]) => <a key={href} href={`${href}?lang=${lang}`}>{label}</a>)}
+          <a href={`/platform-v7/about?lang=${lang}`}>{ACTIONS[lang].about}</a>
           <a href={`/platform-v7/contact?lang=${lang}`}>{lang === 'ru' ? 'Контакты' : lang === 'en' ? 'Contact' : '联系'}</a>
           <a href={`/platform-v7/privacy?lang=${lang}`}>{lang === 'ru' ? 'Конфиденциальность' : lang === 'en' ? 'Privacy' : '隐私'}</a>
           <a href={`/platform-v7/terms?lang=${lang}`}>{lang === 'ru' ? 'Условия' : lang === 'en' ? 'Terms' : '条款'}</a>

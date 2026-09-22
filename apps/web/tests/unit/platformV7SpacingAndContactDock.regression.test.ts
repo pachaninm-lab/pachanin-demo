@@ -5,14 +5,15 @@ describe('platform-v7 spacing and contact dock regression', () => {
   const root = resolve(process.cwd());
   const read = (path: string) => readFileSync(resolve(root, path), 'utf8');
 
-  it('keeps the unified AI/support/call dock available off the canonical landing', () => {
+  it('mounts Gekta-only communication on the canonical landing and full support elsewhere', () => {
     const layout = read('apps/web/app/pc-public-entry/platform-v7/layout.tsx');
 
     expect(layout).toContain("import('@/components/platform-v7/PublicContactDock')");
     expect(layout).toContain("import('@/components/platform-v7/HydrationSafeChatSupport')");
-    expect(layout).toContain("if (isCanonicalLanding(pathname)) return children;");
-    expect(layout).toContain('<PublicContactDock />');
-    expect(layout).toContain('<HydrationSafeChatSupport renderDock={false} />');
+    expect(layout).toContain('const canonicalLanding = isCanonicalLanding(pathname);');
+    expect(layout).not.toContain('if (isCanonicalLanding(pathname)) return children;');
+    expect(layout).toContain("<PublicContactDock assistantContext='public' publicMode={canonicalLanding ? 'gekta' : 'full'} />");
+    expect(layout).toContain('<HydrationSafeChatSupport renderDock={false} legacyPublicPolish={!canonicalLanding} />');
   });
 
   it('does not let the canonical spacing layer hide or reposition the contact dock', () => {

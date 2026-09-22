@@ -45,23 +45,23 @@ grep -Fxq 'STATIC_READINESS=PASS' "$EVIDENCE_DIR/static-readiness.log"
 for locale in ru en zh; do
   case "$locale" in
     ru)
-      expected_hero_kicker='Единый контур агросделки'
+      expected_hero_kicker='Платформа для агросделок'
       expected_sell='Продать'
-      expected_hero_title='Агросделка. От товара и цены — до результата.'
+      expected_hero_title='Агросделка — от цены до закрытия.'
       expected_buy='Купить'
       retired_title='Цена согласована. Теперь нужно исполнить Сделку.'
       ;;
     en)
-      expected_hero_kicker='One agricultural Deal flow'
+      expected_hero_kicker='A platform for agricultural Deals'
       expected_sell='Sell'
-      expected_hero_title='The agricultural Deal. From product and price to outcome.'
+      expected_hero_title='From price to closure — one Deal.'
       expected_buy='Buy'
       retired_title='The price is agreed. Now the Deal must be executed.'
       ;;
     zh)
-      expected_hero_kicker='统一农业交易流程'
+      expected_hero_kicker='农业交易平台'
       expected_sell='出售'
-      expected_hero_title='农业交易。从商品与价格，到最终结果。'
+      expected_hero_title='从定价到结算，一笔交易贯穿全程。'
       expected_buy='购买'
       retired_title='价格已经确定。现在需要完成交易履约。'
       ;;

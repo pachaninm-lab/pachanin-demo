@@ -19,6 +19,8 @@ describe('platform-v7 canonical public experience',()=>{
   const home=read('components/platform-v7/PlatformV7StrategicHome.tsx');
   const primitives=read('components/platform-v7/PublicCanonicalPrimitives.tsx');
   const market=read('components/platform-v7/PublicCanonicalMarket.tsx');
+  const marketPage=read('app/platform-v7/market/page.tsx');
+  const capabilitiesPage=read('app/platform-v7/capabilities/page.tsx');
   const marketSource=read('lib/public-market-server.ts');
   const routeAliases=read('lib/platform-v7/route-canonicalization.ts');
   const dealFlow=read('app/platform-v7/deal-flow/page.tsx');
@@ -34,6 +36,8 @@ describe('platform-v7 canonical public experience',()=>{
   const css=read('styles/platform-v7-canonical-public-v1.css');
   const brand=read('components/v7r/BrandMark.tsx');
   const siteHeader=read('components/platform-v7/PublicSiteHeader.tsx');
+  const gektaChatButton=read('components/platform-v7/PublicGektaChatButton.tsx');
+  const operatorLoading=read('app/platform-v7/operator/loading.tsx');
 
   it('binds visual implementation to the explicit final mockup authority',()=>{
     expect(authority).toContain('Everything else is superseded.');
@@ -54,6 +58,7 @@ describe('platform-v7 canonical public experience',()=>{
     expect(home).toContain('CanonicalDealSpine');
     expect(home).toContain('CanonicalTrustLedger');
     expect(home).toContain('CanonicalGektaStrip');
+    expect(primitives).toContain('PublicGektaChatButton');
     expect(home).not.toContain('<style jsx>');
   });
 
@@ -62,9 +67,261 @@ describe('platform-v7 canonical public experience',()=>{
       '/platform-v7/market','/platform-v7/how-it-works','/platform-v7/capabilities',
       '/platform-v7/gekta','/platform-v7/trust','/platform-v7/about',
     ]) expect(primitives).toContain(route);
-    for(const label of ['Рынок','Как проходит Сделка','Возможности','Гекта','Доверие','О платформе']) expect(primitives).toContain(label);
-    for(const label of ['Market','How the Deal works','Capabilities','Trust','About']) expect(primitives).toContain(label);
-    for(const label of ['市场','交易如何进行','功能','信任','关于平台']) expect(primitives).toContain(label);
+    for(const label of ['Рынок','Сделка','Возможности','Гекта','Доверие','О платформе']) expect(primitives).toContain(label);
+    for(const label of ['Market','Deal','Capabilities','Gekta','Trust','About']) expect(primitives).toContain(label);
+    for(const label of ['市场','交易','功能','Gekta','信任','关于平台']) expect(primitives).toContain(label);
+    expect(primitives).toContain("['Сделка', '/platform-v7/deal-flow', Layers3, false]");
+    expect(primitives).not.toContain("['Регистрация', '/platform-v7/register', UserRound, true]");
+    expect(dealFlow).toContain("<CanonicalBottomNav locale={locale} active='/platform-v7/deal-flow'/>");
+  });
+
+  it('keeps login and registration on the same canonical public shell',()=>{
+    expect(loginPage).toContain("<CanonicalPublicHeader locale={locale} activePath='/platform-v7/login'/>");
+    expect(loginPage).toContain("<CanonicalBottomNav locale={locale} active='/platform-v7/login'/>");
+    expect(registerPage).toContain("<CanonicalPublicHeader locale={locale} activePath='/platform-v7/register' localeControl={localeControl} />");
+    expect(registerPage).toContain("<CanonicalBottomNav locale={locale} active='/platform-v7/register' />");
+    expect(primitives).toContain("pc-site-mobile-utility");
+    expect(primitives).toContain("Аккаунт и помощь");
+  });
+
+  it('keeps market filters functional and crop visuals explicit',()=>{
+    for(const name of ["name='q'","name='crop'","name='region'","name='grade'","name='sort'"]) expect(marketPage).toContain(name);
+    expect(marketPage).toContain("filters={{crop,region,grade}} sort={sort}");
+    expect(marketPage).toContain("className='pc-cp-market-active-filters'");
+    expect(market).toContain('normalizeCropFilter');
+    expect(market).toContain('normalizeMarketSort');
+    expect(market).toContain('sortMarketItems');
+    expect(market).toContain('cropVisualKey');
+    expect(market).toContain('function CropArt');
+    expect(market).toContain("className='pc-cp-lot-media-caption'");
+    expect(market).toContain("intent=buy");
+    expect(market).toContain("intent=sell");
+    expect(market).toContain("buy: 'Купить'");
+    expect(market).toContain("sell: 'Продать'");
+    expect(css).toContain('FINAL PUBLIC UX POLISH');
+    expect(css).toContain('.pc-cp-market-filter-grid');
+    expect(css).toContain('.pc-cp-market-active-filters');
+    expect(siteHeader).not.toContain('.pc-site-header{height:60px;');
+    expect(css).toContain('OWNER UX SYSTEM CLOSURE — 2026-09-22');
+  });
+
+  it('reserves mobile space for the fixed bottom navigation and capabilities',()=>{
+    expect(capabilitiesPage).toContain("pc-cp-page-capabilities");
+    expect(css).toContain("padding-bottom:calc(82px + env(safe-area-inset-bottom,0px))");
+    expect(css).toContain(".pc-cp-page-home #capabilities");
+    expect(css).toContain(".pc-cp-page-capabilities>.pc-cp-section:last-of-type");
+  });
+
+  it('keeps the protected operator route on the canonical neutral cockpit loading skeleton',()=>{
+    expect(operatorLoading).toContain("from '@/components/platform-v7/RoleCockpitLoading'");
+    expect(operatorLoading).toContain('<RoleCockpitLoading />');
+    expect(operatorLoading).toContain("className='p7-route-loading'");
+    expect(layout).toContain(".pc-shell-root-v4 .p7-route-loading{min-height:calc(100dvh - 136px)}");
+    expect(operatorLoading).not.toContain('CanonicalUxState');
+    expect(operatorLoading).not.toContain('pc-canonical-public');
+  });
+
+  it('opens Gekta through the existing public assistant authority without private context',()=>{
+    expect(gektaChatButton).toContain("new CustomEvent('pc:public-assistant-context'");
+    expect(gektaChatButton).toContain("context: 'platform'");
+    expect(gektaChatButton).not.toContain('tenantId');
+    expect(gektaChatButton).not.toContain('dealId');
+    expect(gektaChatButton).not.toContain('documentId');
+    expect(layout).toContain("<PublicContactDock assistantContext='public' publicMode='gekta' />");
+    expect(layout).toContain('<HydrationSafeChatSupport renderDock={false} legacyPublicPolish={false} />');
+  });
+
+
+  it('keeps final public typography readable, consistent and free of templated copy',()=>{
+    const homeCss=read('styles/platform-v7-canonical-home-v1.css');
+    const assistantCss=read('styles/platform-v7-public-assistant-polish.css');
+    const linkedCopy=[
+      read('app/platform-v7/gekta/page.tsx'),
+      read('app/platform-v7/ai-in-action/page.tsx'),
+      read('app/platform-v7/trust/page.tsx'),
+      read('app/platform-v7/about/page.tsx'),
+      read('app/platform-v7/capabilities/page.tsx'),
+      read('app/platform-v7/how-it-works/page.tsx'),
+      read('app/platform-v7/head.tsx'),
+      read('app/platform-v7/loading.tsx'),
+    ].join('\n');
+    const finalTypographyMarker='/* FINAL PUBLIC TYPOGRAPHY AUTHORITY — 2026-09-21';
+    const assistantTypographyMarker='/* FINAL PUBLIC TYPOGRAPHY AUTHORITY — assistant 2026-09-21 */';
+
+    for(const sheet of [homeCss,css]){
+      const markerIndex=sheet.lastIndexOf(finalTypographyMarker);
+      expect(markerIndex).toBeGreaterThan(0);
+      const authority=sheet.slice(markerIndex);
+      const pxSizes=[...authority.matchAll(/font-size:\s*(\d+(?:\.\d+)?)px/g)].map((match)=>Number(match[1]));
+      expect(pxSizes.length).toBeGreaterThan(0);
+      expect(Math.min(...pxSizes)).toBeGreaterThanOrEqual(12);
+      expect(authority).toContain('--pc-cp-ui:-apple-system');
+      expect(authority).toContain('--pc-cp-display:-apple-system');
+      expect(authority).not.toMatch(/Georgia|Times New Roman/);
+      expect(authority).toContain('FINAL PUBLIC MICROTYPE COMPLETENESS');
+    }
+
+    const headerPxSizes=[...siteHeader.matchAll(/font-size:\s*(\d+(?:\.\d+)?)px/g)].map((match)=>Number(match[1]));
+    expect(Math.min(...headerPxSizes)).toBeGreaterThanOrEqual(12);
+
+    const assistantMarkerIndex=assistantCss.lastIndexOf(assistantTypographyMarker);
+    expect(assistantMarkerIndex).toBeGreaterThan(0);
+    const assistantAuthority=assistantCss.slice(assistantMarkerIndex);
+    const assistantPxSizes=[...assistantAuthority.matchAll(/font-size:\s*(\d+(?:\.\d+)?)px/g)].map((match)=>Number(match[1]));
+    expect(Math.min(...assistantPxSizes)).toBeGreaterThanOrEqual(12);
+
+    for(const retired of [
+      'Критическое состояние отвечает на пять вопросов',
+      'Прозрачные сделки создают устойчивое будущее АПК',
+      'The workspace shows actual state without replacing server data.',
+      '关键状态回答五个问题',
+      'Аграрный интеллект',
+      'Agricultural intelligence',
+      '农业智能',
+      'authoritative financial state',
+      'Роль и tenant',
+      'Role and tenant',
+      '角色与 tenant',
+      'Интеграция или внешнее событие считаются подтверждёнными только после ответа внешней системы.',
+      '可靠数据。更强农业。',
+      '用可核验事实替代空泛承诺。',
+      '四个信任支柱',
+      '9 个规范角色',
+      'Контекст. Аналитика. Обоснованные следующие шаги.',
+      'Not a feature catalogue for its own sake',
+      'Не каталог функций ради функций',
+      'Один контекст, семь этапов, проверяемые факты.',
+      'One context, seven stages, verifiable facts.',
+      'Одна система для всей агросделки.',
+      'One system for the whole agricultural Deal.',
+      '一套系统管理整笔农业交易。',
+      'Public lots without fabricated data',
+      '公开批次，不使用虚构数据',
+      'Seven stages in one context',
+      '七个阶段，一个上下文',
+      'One design language for every participant',
+      '所有参与方使用同一套设计语言',
+      'Intelligence inside context, never instead of authority',
+      '智能服务于上下文，而不是取代权限',
+      'One system instead of disconnected circuits',
+      '一个系统，替代分散的工作链路',
+      'Deal facts in one place.',
+      'Больше ясности на каждом этапе Сделки',
+      'More clarity at every Deal stage',
+      '交易每个阶段都更清晰',
+      'Помогает принять решение быстрее',
+      'Helps decide faster',
+      '帮助更快决策',
+      'От поля до результата',
+      'From field to outcome',
+      '从田间到结果',
+      'Правила торгов и серверно подтверждённый результат',
+      'Trading rules and server-confirmed outcome',
+      '交易规则和服务器确认的结果',
+      'Сам факт доставки не даёт клиенту права менять финансовое состояние',
+      'Delivery itself cannot let the client choose financial state',
+      '交付本身不能让客户端选择金融状态',
+      'Gekta AI',
+      'Deal context',
+      '交易上下文',
+      '仅限授权上下文',
+      '只读取授权上下文',
+      '询问上下文、风险或下一步',
+      '关键决定保持受控',
+      'Доверие на каждом шаге',
+      'Trust at every step',
+      '每一步都建立信任',
+      'Сквозная Сделка',
+      'End-to-end Deal',
+      '端到端交易',
+      'подтверждённой серверной проекции',
+      'admitted by the server for public publication',
+      '服务器允许公开发布',
+      '公共匿名投影',
+      'Права определяются сервером после проверки роли и организации.',
+      'Rights are assigned by the server after role and organisation checks.',
+      '角色和机构审核完成后，由服务器确定访问权限。',
+      'Публичный рынок раскрывает только разрешённую обезличенную проекцию.',
+      'The public market exposes only the permitted anonymised projection.',
+      '公开市场只展示获准的匿名投影。',
+      'Settlement status comes from the server and changes only after confirmed events.',
+      '结算状态来自服务器，只会根据已确认事件发生变化。',
+      'Роль, организация и доступ определяются сервером после проверки.',
+      'Role, organisation and access are assigned after server-side verification.',
+      '角色、机构和访问权限在服务器完成审核后确定。',
+      'Источник: публичная обезличенная проекция PostgreSQL',
+      'Публичный рынок показывает только лоты, которые сервер разрешил к обезличенной публикации.',
+      'Сервер не подтвердил актуальную публичную проекцию.',
+      'Source: public anonymised PostgreSQL projection',
+      'The public market shows only lots the server has admitted to anonymised publication.',
+      'The server did not confirm a current public projection.',
+      '来源：PostgreSQL 公共匿名投影',
+      '公开市场仅展示服务器允许匿名公开的批次。',
+      '服务器未确认当前公共投影',
+      'Не опубликовано в публичном контуре',
+      'Not published in the public circuit',
+      'Недоступно в публичном контуре',
+      'Unavailable in the public circuit',
+    ]) expect(home + primitives + market + linkedCopy).not.toContain(retired);
+
+    for(const humanCopy of [
+      'Агросделка — от цены до закрытия.',
+      'Экран сразу показывает, что произошло',
+      'From price to closure — one Deal.',
+      '从定价到结算，一笔交易贯穿全程。',
+      'Помощник по Сделке',
+      'Deal assistant',
+      '交易助手',
+      'Статус расчёта меняется только по подтверждённым событиям.',
+      'Интеграция или внешнее событие считаются подтверждёнными только после фактического подтверждения внешней системой.',
+      '事实、权限和决定都可核验。',
+      '操作前的四项检查',
+      '9 个角色',
+      'Market, execution, documents, settlement and closure stay connected.',
+      'На каждом этапе указаны участник, факты, основание и следующий шаг.',
+      'Правила торгов и подтверждённый результат торгов',
+      'Trading rules and confirmed trading result',
+      '交易规则和已确认的交易结果',
+      'Доставка сама по себе не подтверждает финансовое событие и не меняет статус расчёта',
+      'Delivery alone does not confirm a financial event or change settlement status',
+      '仅完成交付不会确认金融事件，也不会改变结算状态',
+      'Deal assistant',
+      '交易助手',
+      'Deal data',
+      '交易数据',
+      '仅限授权数据',
+      '只读取授权数据',
+      '询问交易、风险或下一步',
+      '关键决定由人作出',
+      'Проверки на каждом этапе',
+      'Checks at every stage',
+      '每个阶段的检查',
+      'Показываются только разрешённые к публикации обезличенные лоты.',
+      'Only anonymised lots permitted for public publication are shown.',
+      '仅展示获准公开发布的匿名批次',
+      'Этапы Сделки',
+      'Deal stages',
+      '交易阶段',
+      'Статус расчёта меняется только по подтверждённым событиям.',
+      'Settlement status changes only after confirmed events.',
+      '结算状态只会根据已确认事件发生变化。',
+      'Публичный рынок показывает только разрешённые обезличенные данные.',
+      'The public market shows only permitted anonymised data.',
+      '公开市场只展示获准公开的匿名数据。',
+      'Доступ появляется только после проверки роли, организации и полномочий.',
+      'Access is granted only after role, organisation and authority verification.',
+      '角色、机构和权限审核通过后才会开放访问。',
+      'Загружаем подтверждённые данные.',
+      'Источник: обезличенные данные публичного рынка',
+      'Публичный рынок показывает только разрешённые к публикации обезличенные лоты.',
+      'Актуальные данные рынка сейчас недоступны. Мы не показываем неподтверждённые данные.',
+      'Source: anonymised public market data',
+      'The public market shows only anonymised lots permitted for publication.',
+      'Current market data is unavailable. We do not show unconfirmed data.',
+      '来源：公开市场匿名数据',
+      '公开市场仅展示获准发布的匿名批次。',
+      '当前市场数据暂不可用；我们不会展示未经确认的数据。',
+    ]) expect(home + primitives + market + linkedCopy).toContain(humanCopy);
   });
 
   it('locks the nine canonical roles and seven Deal stages',()=>{
@@ -170,9 +427,9 @@ describe('platform-v7 canonical public experience',()=>{
   });
 
   it('keeps Gekta inside source and authority boundaries',()=>{
-    expect(gekta).toContain('критическое решение остаётся за человеком и правилами платформы');
-    expect(gekta).toContain('Только контекст, доступный текущему участнику');
-    expect(gekta).toContain('Гекта объясняет; критическое действие не исполняет самостоятельно');
+    expect(gekta).toContain('решение остаётся за человеком.');
+    expect(gekta).toContain('Только данные, доступные текущему участнику');
+    expect(gekta).toContain('Гекта объясняет; критическое действие выполняет уполномоченный участник');
     expect(gekta).not.toContain('автоматически переводит деньги');
   });
 
@@ -285,6 +542,19 @@ describe('canonical overview does not invent server progress', () => {
       expect(result.querySelectorAll('[role="tab"], [role="tablist"], button')).toHaveLength(0);
     });
   }
+
+  it('keeps public Deal state indicators informational instead of fake navigation', () => {
+    const dealFlowSource = read('app/platform-v7/deal-flow/page.tsx');
+    const result = markup(createElement(CanonicalStateTabs, {
+      locale: 'ru',
+      state: 'normal',
+    }));
+    expect(result.querySelectorAll('.pc-cp-state-tab')).toHaveLength(3);
+    expect(result.querySelectorAll('a.pc-cp-state-tab, button.pc-cp-state-tab')).toHaveLength(0);
+    expect(result.querySelector('[data-state="normal"]')?.getAttribute('aria-current')).toBe('true');
+    expect(dealFlowSource).not.toContain('stateLinks={{');
+    expect(dealFlowSource).not.toContain('publicState(first(params.state))');
+  });
 
   function fixture(status: string, disputeStatus?: string) {
     const current = getCurrentDealAction(status);
