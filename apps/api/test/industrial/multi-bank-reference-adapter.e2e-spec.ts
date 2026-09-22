@@ -66,6 +66,9 @@ describe('multi-bank reference adapter industrial contract', () => {
       authenticationAuthorityRef: 'callback-key:v7',
       amountMinor: '50000',
       currency: 'RUB',
+      alreadyConsumedProviderEventIds: [],
+      alreadyConsumedPayloadFingerprints: [],
+      alreadyConsumedExternalReceiptIds: [],
     }, receipt)).toMatchObject({
       status: 'MATCHED',
       reconciliationState: 'READY_FOR_CANONICAL_RECONCILIATION',
