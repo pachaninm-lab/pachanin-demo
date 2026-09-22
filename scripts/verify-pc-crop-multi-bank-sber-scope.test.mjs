@@ -77,6 +77,10 @@ for (const marker of [
   'function evidenceIdentity',
   'function consumedEvidenceIncludes',
   'value.trim() === candidate',
+  'function isReceiptEvidenceState',
+  'INVALID_EVIDENCE_STATE',
+  "candidate.canonicalFinality !== 'NOT_DECIDED_HERE'",
+  'INVALID_CANONICAL_FINALITY',
 ]) assert.ok(receipt.includes(marker), 'missing receipt boundary ' + marker);
 
 assert.ok(sber.includes('readonly liveTransportImplemented = false'));
