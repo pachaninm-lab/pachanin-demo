@@ -89,7 +89,7 @@ describe('bank receipt contract', () => {
     )).toMatchObject({ status: 'REJECTED', reason: 'CURRENCY_MISMATCH' });
   });
 
-  it('rejects malformed runtime evidence state or canonical-finality claims', () => {
+  it('rejects malformed runtime evidence state, canonical-finality or evidence time claims', () => {
     expect(validateBankReceiptCandidate(
       expected,
       malformedCandidate({ evidenceState: 'DELIVERED' }),
@@ -99,6 +99,38 @@ describe('bank receipt contract', () => {
       expected,
       malformedCandidate({ canonicalFinality: 'FINAL' }),
     )).toMatchObject({ status: 'REJECTED', reason: 'INVALID_CANONICAL_FINALITY' });
+
+    expect(validateBankReceiptCandidate(
+      expected,
+      malformedCandidate({ observedAt: 0 }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'INVALID_OBSERVED_AT' });
+
+    expect(validateBankReceiptCandidate(
+      expected,
+      candidate({ observedAt: 'not-a-date' }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'INVALID_OBSERVED_AT' });
+  });
+
+  it('turns malformed transport value shapes into controlled rejection instead of runtime exceptions', () => {
+    expect(validateBankReceiptCandidate(
+      expected,
+      malformedCandidate({ amountMinor: 12500 }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'AMOUNT_MISMATCH' });
+
+    expect(validateBankReceiptCandidate(
+      expected,
+      malformedCandidate({ currency: 643 }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'CURRENCY_MISMATCH' });
+
+    expect(validateBankReceiptCandidate(
+      expected,
+      malformedCandidate({ authenticationEvidenceRef: true }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'AUTHENTICATION_EVIDENCE_MISSING' });
+
+    expect(validateBankReceiptCandidate(
+      { ...expected, alreadyConsumedProviderEventIds: ['event-1'] },
+      malformedCandidate({ providerEventId: 1 }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'PROVIDER_EVENT_REPLAY' });
   });
 
   it('rejects unauthenticated or unfingerprinted evidence even when provider status is non-final/unknown', () => {
