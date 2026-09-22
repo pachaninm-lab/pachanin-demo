@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "pc-crop.public-photographs.v1",
+  "license": "CC0-1.0",
+  "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "licenseCheckedOn": "2026-09-22",
+  "use": "Crop category illustrations only. Not photographs of an offered lot, a counterparty or platform-owned property.",
+  "delivery": "Local static WebP renditions, generated during the existing web build. Browsers never fetch these original images from Wikimedia.",
+  "sizes": [320, 640, 960],
+  "aspectRatio": [8, 5],
+  "photos": [
+    {"crop":"wheat","page":"https://commons.wikimedia.org/wiki/File:Wheat_field,_Idstein.jpg","original":"https://upload.wikimedia.org/wikipedia/commons/d/d0/Wheat_field%2C_Idstein.jpg","credit":"Gerda Arendt","sha256":null},
+    {"crop":"barley","page":"https://commons.wikimedia.org/wiki/File:Barley_field,_Ehrenbach,_detail.jpg","original":"https://upload.wikimedia.org/wikipedia/commons/f/f8/Barley_field%2C_Ehrenbach%2C_detail.jpg","credit":"Gerda Arendt","sha256":null},
+    {"crop":"corn","page":"https://commons.wikimedia.org/wiki/File:Maize_-_Corn.jpg","original":"https://upload.wikimedia.org/wikipedia/commons/4/4b/Maize_-_Corn.jpg","credit":"WiseMan42","sha256":null},
+    {"crop":"sunflower","page":"https://commons.wikimedia.org/wiki/File:Sunflower_Fields.jpg","original":"https://upload.wikimedia.org/wikipedia/commons/b/b2/Sunflower_Fields.jpg","credit":"Wenchieh Yang","sha256":null},
+    {"crop":"soybean","page":"https://commons.wikimedia.org/wiki/File:Soybeans_(marketed)_1.jpg","original":"https://upload.wikimedia.org/wikipedia/commons/6/6b/Soybeans_%28marketed%29_1.jpg","credit":"David E Mead","sha256":null},
+    {"crop":"rapeseed","page":"https://commons.wikimedia.org/wiki/File:Rapeseed_field,_Ehrenbach.jpg","original":"https://upload.wikimedia.org/wikipedia/commons/4/45/Rapeseed_field%2C_Ehrenbach.jpg","credit":"Gerda Arendt","sha256":null},
+    {"crop":"rye","page":"https://commons.wikimedia.org/wiki/File:Rye_Mature_Grain_Summer.jpg","original":"https://upload.wikimedia.org/wikipedia/commons/7/70/Rye_Mature_Grain_Summer.jpg","credit":"Tappancs / Pixabay; CC0 review recorded on the source page","sha256":null},
+    {"crop":"oats","page":"https://commons.wikimedia.org/wiki/File:Avena-sativa-Ruedershausen.jpg","original":"https://upload.wikimedia.org/wikipedia/commons/6/69/Avena-sativa-Ruedershausen.jpg","credit":"Francisco Welter-Schultes","sha256":null}
+  ]
+}
