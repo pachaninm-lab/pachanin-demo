@@ -89,12 +89,16 @@ describe('platform-v7 role UX regressions', () => {
       expect(buyerPage).not.toContain('Оплата в кредит');
     });
 
-    it('seller hero retains primary CTA Создать партию', () => {
+    it('seller keeps create-batch as navigation without promoting it to server priority', () => {
       expect(sellerPage).toContain('Создать партию');
+      expect(sellerPage).toContain('Приоритет бизнес-действия не опубликован');
+      expect(sellerPage).toContain('Рабочие маршруты');
     });
 
-    it('seller hero retains secondary CTA Открыть сделку', () => {
-      expect(sellerPage).toContain('Открыть сделку');
+    it('seller does not expose a client-ranked open-deal priority CTA', () => {
+      expect(sellerPage).not.toContain('Открыть сделку');
+      expect(sellerPage).toContain('Список сделок');
+      expect(sellerPage).toContain('Порядок записей в ответе не превращается в бизнес-приоритет');
     });
 
     it('disputes hero retains 2 action link targets', () => {
