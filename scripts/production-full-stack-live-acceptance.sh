@@ -47,7 +47,7 @@ for locale in ru en zh; do
     ru)
       expected_hero_kicker='Платформа для агросделок'
       expected_sell='Продать'
-      expected_hero_title='Агросделка — от цены до закрытия.'
+      expected_hero_title='Агросделка — от цены до закрытия.'
       expected_buy='Купить'
       retired_title='Цена согласована. Теперь нужно исполнить Сделку.'
       ;;
