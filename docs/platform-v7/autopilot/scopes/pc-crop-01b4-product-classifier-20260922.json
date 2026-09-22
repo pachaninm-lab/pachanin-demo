@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/pc-crop-01b4-product-classifier-20260922",
+  "status": "active",
+  "issue": 5469,
+  "operationalStatus": "NOT_ATTESTED",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-01b4.yml",
+    "docs/platform-v7/autopilot/scopes/pc-crop-01b4-product-classifier-20260922.json"
+  ],
+  "purpose": "Repair the PC-CROP-01B.4 owned-slice classifier so unrelated crop-platform PRODUCT files still trigger compatibility acceptance but do not become commodity-profile remediation authority.",
+  "boundaries": {
+    "acceptanceThresholdChange": false,
+    "databaseOrDomainAuthorityChange": false,
+    "productRuntimeChange": false,
+    "roleTenantRlsChange": false,
+    "externalIntegrationChange": false,
+    "productionDeploymentEvidence": false,
+    "operationalStatus": "NOT_ATTESTED"
+  }
+}
