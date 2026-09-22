@@ -1,4 +1,4 @@
-import type { BankProviderResponse } from './bank-adapter.port';
+import type { BankAdapterOperationRequest, BankProviderResponse } from './bank-adapter.port';
 import { SberReferenceAdapter } from './sber-reference.adapter';
 
 const response = (rawStatus: string | null, httpStatus = 200) => ({
@@ -22,6 +22,21 @@ const malformedResponse = (overrides: Record<string, unknown>): BankProviderResp
   ...overrides,
 } as unknown as BankProviderResponse);
 
+const validRequest: BankAdapterOperationRequest = {
+  command: 'RELEASE',
+  operationId: 'op-1',
+  idempotencyKey: 'idem-1',
+  amountMinor: '10000',
+  currency: 'RUB',
+  sourceVersion: 'settlement:v9',
+  beneficiaryReference: 'beneficiary-1',
+};
+
+const malformedRequest = (overrides: Record<string, unknown>): BankAdapterOperationRequest => ({
+  ...validRequest,
+  ...overrides,
+} as unknown as BankAdapterOperationRequest);
+
 describe('Sber reference adapter', () => {
   const adapter = new SberReferenceAdapter();
 
@@ -43,6 +58,19 @@ describe('Sber reference adapter', () => {
       liveRequestReady: false,
       contractMode: 'REFERENCE_CONFORMANCE_ONLY',
     });
+  });
+
+  it('fails closed on malformed runtime request strings instead of invoking string methods', () => {
+    for (const [overrides, errorCode] of [
+      [{ operationId: 42 }, 'INVALID_BANK_IDENTIFIER:operationId'],
+      [{ idempotencyKey: null }, 'INVALID_BANK_IDENTIFIER:idempotencyKey'],
+      [{ amountMinor: 10000 }, 'INVALID_BANK_AMOUNT_MINOR'],
+      [{ currency: ['RUB'] }, 'INVALID_BANK_CURRENCY'],
+      [{ sourceVersion: { version: 9 } }, 'INVALID_BANK_SOURCE_VERSION'],
+      [{ beneficiaryReference: false }, 'INVALID_BANK_BENEFICIARY_REFERENCE'],
+    ] as const) {
+      expect(() => adapter.describeRequest(malformedRequest(overrides))).toThrow(errorCode);
+    }
   });
 
   it('fails closed when called directly for a capability this adapter does not support', () => {
