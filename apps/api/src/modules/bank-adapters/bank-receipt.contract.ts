@@ -41,6 +41,8 @@ export type BankReceiptValidation =
         | 'AMOUNT_MISMATCH'
         | 'CURRENCY_MISMATCH'
         | 'AUTHENTICATION_AUTHORITY_MISMATCH'
+        | 'INVALID_EVIDENCE_STATE'
+        | 'INVALID_CANONICAL_FINALITY'
         | 'PROVIDER_EVENT_REPLAY'
         | 'PAYLOAD_REPLAY'
         | 'EXTERNAL_RECEIPT_REPLAY'
@@ -72,6 +74,13 @@ function consumedEvidenceIncludes(
 ): boolean {
   return candidate !== null
     && values?.some((value) => value.trim() === candidate) === true;
+}
+
+function isReceiptEvidenceState(value: unknown): value is BankReceiptCandidate['evidenceState'] {
+  return value === 'SUCCESS_EVIDENCE'
+    || value === 'FAILURE_EVIDENCE'
+    || value === 'NONFINAL_EVIDENCE'
+    || value === 'UNKNOWN_EVIDENCE';
 }
 
 export function validateBankReceiptCandidate(
@@ -111,6 +120,16 @@ export function validateBankReceiptCandidate(
     || candidate.authenticationAuthorityRef !== expected.authenticationAuthorityRef
   ) {
     return rejected('AUTHENTICATION_AUTHORITY_MISMATCH');
+  }
+
+  // TypeScript unions disappear at runtime. A malformed/future adapter must not
+  // be able to turn an arbitrary evidence state into terminal matched evidence
+  // simply by carrying an external receipt ID.
+  if (!isReceiptEvidenceState(candidate.evidenceState)) {
+    return rejected('INVALID_EVIDENCE_STATE');
+  }
+  if (candidate.canonicalFinality !== 'NOT_DECIDED_HERE') {
+    return rejected('INVALID_CANONICAL_FINALITY');
   }
 
   const providerEventId = evidenceIdentity(candidate.providerEventId);
