@@ -59,6 +59,25 @@ describe('platform-v7 seller execution polish', () => {
     expect(screen.getByText(/данные получены из серверного списка сделок/i)).toBeInTheDocument();
   });
 
+  it('keeps the total deal count unknown when the canonical snapshot is truncated', async () => {
+    mockDealsSnapshot.mockResolvedValue({
+      deals: [{
+        id: 'deal-window-1',
+        dealNumber: 'PC-WINDOW-1',
+        status: 'ACTIVE',
+      }],
+      isApiAvailable: true,
+      isComplete: false,
+    });
+
+    render(await PlatformV7SellerPage());
+
+    expect(screen.getByText('Серверный реестр доступен · итоговое число UNKNOWN')).toBeInTheDocument();
+    expect(screen.getByText('1+')).toBeInTheDocument();
+    expect(screen.getByText(/минимум 1 сделок в текущем ответе · итоговое число UNKNOWN/i)).toBeInTheDocument();
+    expect(screen.getByText(/достигнут предел серверного ответа; итоговое число не выводится как факт/i)).toBeInTheDocument();
+  });
+
   it('fails closed when the canonical deal registry is unavailable', async () => {
     mockDealsSnapshot.mockResolvedValue({ deals: [], isApiAvailable: false, isComplete: false });
     mockDisputesSnapshot.mockResolvedValue({ disputes: [], isApiAvailable: false });
@@ -99,7 +118,8 @@ describe('platform-v7 seller execution polish', () => {
 
     expect(source).toContain('getDealsSnapshot');
     expect(source).toContain('getDisputesSnapshot');
-    expect(source).toContain("value: dealCount === null ? 'UNKNOWN'");
+    expect(source).toContain("? 'UNKNOWN'");
+    expect(source).toContain('dealRegistryComplete');
     expect(source).not.toContain('RoleExecutionCockpitContent');
     expect(source).not.toContain('MoneyGateRing');
     expect(source).not.toContain('buildDemoPaymentHeatmapData');
