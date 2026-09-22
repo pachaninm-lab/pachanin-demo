@@ -12,6 +12,9 @@ const expected: ExpectedBankOperationEvidence = {
   authenticationAuthorityRef: 'callback-key:v7',
   amountMinor: '12500',
   currency: 'RUB',
+  alreadyConsumedProviderEventIds: [],
+  alreadyConsumedPayloadFingerprints: [],
+  alreadyConsumedExternalReceiptIds: [],
 };
 
 const candidate = (overrides: Partial<BankReceiptCandidate> = {}): BankReceiptCandidate => ({
@@ -173,6 +176,19 @@ describe('bank receipt contract', () => {
       .toMatchObject({ status: 'REJECTED', reason: 'PAYLOAD_FINGERPRINT_MISSING' });
     expect(validateBankReceiptCandidate(expected, candidate({ externalReceiptId: null })))
       .toMatchObject({ status: 'REJECTED', reason: 'EXTERNAL_RECEIPT_MISSING' });
+  });
+
+  it('fails closed when durable replay history is absent instead of treating missing history as empty', () => {
+    for (const overrides of [
+      { alreadyConsumedProviderEventIds: undefined },
+      { alreadyConsumedPayloadFingerprints: undefined },
+      { alreadyConsumedExternalReceiptIds: undefined },
+    ]) {
+      expect(validateBankReceiptCandidate(
+        malformedExpected(overrides),
+        candidate(),
+      )).toMatchObject({ status: 'REJECTED', reason: 'INVALID_CONSUMED_EVIDENCE_HISTORY' });
+    }
   });
 
   it('fails closed on provider-event, payload and external-receipt replay evidence supplied by durable inbox history', () => {
