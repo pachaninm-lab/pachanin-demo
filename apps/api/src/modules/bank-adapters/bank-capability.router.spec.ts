@@ -109,6 +109,30 @@ describe('bank capability router', () => {
     }
   });
 
+  it('fails closed on malformed runtime binding identity values instead of calling string methods', () => {
+    const testRouter = new BankCapabilityRouter([
+      liveTestAdapter('TEST_DOUBLE_A', ['DIRECT_PAYMENT']),
+    ]);
+    for (const broken of [
+      { integrationBindingId: 42 },
+      { providerId: null },
+      { providerCapabilityId: {} },
+      { capabilityCode: false },
+      { bindingKey: ['bank-primary'] },
+      { bindingVersion: 7 },
+      { configurationVersion: undefined },
+    ]) {
+      const malformed = {
+        ...authority('TEST_DOUBLE_A'),
+        ...broken,
+      } as unknown as BankRoutingAuthority;
+      expect(testRouter.route(malformed, 'DIRECT_PAYMENT')).toMatchObject({
+        status: 'CONTRADICTORY',
+        reason: 'INCOMPLETE_SERVER_HELD_BINDING_AUTHORITY',
+      });
+    }
+  });
+
   it('fails closed when server-held capabilities are not a validated capability array', () => {
     const testRouter = new BankCapabilityRouter([
       liveTestAdapter('TEST_DOUBLE_A', ['DIRECT_PAYMENT']),
