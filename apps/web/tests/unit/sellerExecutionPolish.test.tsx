@@ -4,8 +4,13 @@ import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 
+vi.mock('next-intl/server', () => ({
+  getLocale: vi.fn(async () => 'ru'),
+}));
+
 vi.mock('@/lib/first-customer-workspace-server', () => ({
   firstCustomerWorkspaceRequired: () => false,
+  getFirstCustomerWorkspace: vi.fn(),
 }));
 
 vi.mock('@/lib/deals-server', () => ({
@@ -19,15 +24,19 @@ vi.mock('@/lib/disputes-server', () => ({
 }));
 
 import PlatformV7SellerPage from '@/app/platform-v7/seller/page';
+import { FirstCustomerWorkspace } from '@/components/platform-v7/FirstCustomerWorkspace';
+import { getFirstCustomerWorkspace } from '@/lib/first-customer-workspace-server';
 import { getDealsSnapshot } from '@/lib/deals-server';
 import { getDisputesSnapshot } from '@/lib/disputes-server';
 
 const source = readFileSync(resolve(__dirname, '../../app/platform-v7/seller/page.tsx'), 'utf8');
+const mockFirstCustomerWorkspace = vi.mocked(getFirstCustomerWorkspace);
 const mockDealsSnapshot = vi.mocked(getDealsSnapshot);
 const mockDisputesSnapshot = vi.mocked(getDisputesSnapshot);
 
 describe('platform-v7 seller execution polish', () => {
   beforeEach(() => {
+    mockFirstCustomerWorkspace.mockReset();
     mockDealsSnapshot.mockReset();
     mockDisputesSnapshot.mockReset();
     mockDealsSnapshot.mockResolvedValue({ deals: [], isApiAvailable: true, isComplete: true });
@@ -120,6 +129,60 @@ describe('platform-v7 seller execution polish', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: 'Состояние сделок сейчас не подтверждено' })).toBeInTheDocument();
     expect(screen.queryByText('SETTLED')).not.toBeInTheDocument();
+  });
+
+  it('keeps the live seller workspace priority unknown while preserving Deal navigation', async () => {
+    mockFirstCustomerWorkspace.mockResolvedValue({
+      available: true,
+      forbidden: false,
+      ownerControlled: false,
+      correlationId: 'seller-live-test',
+      profile: {
+        available: true,
+        id: 'seller-user',
+        email: 'seller@example.test',
+        role: 'FARMER',
+        surfaceRole: 'seller',
+        orgId: 'org-seller',
+        tenantId: 'tenant-seller',
+        membershipId: 'membership-seller',
+        isOrgAdmin: false,
+        fullName: 'Seller Test',
+        mfaVerified: true,
+        mfaVerifiedAt: '2026-09-23T00:00:00.000Z',
+      },
+      organization: {
+        available: true,
+        organizationId: 'org-seller',
+        tenantId: 'tenant-seller',
+        currentMembershipId: 'membership-seller',
+        organizationName: 'Seller Org',
+        currentRole: 'FARMER',
+        isOrganizationAdmin: false,
+        hasFreshMfa: true,
+        members: [],
+      },
+      items: [{
+        id: 'deal-most-recent',
+        dealId: 'deal-most-recent',
+        status: 'DOCUMENTS_PENDING',
+        nextAction: 'Серверная подсказка строки',
+        href: '/platform-v7/deals/deal-most-recent/execution',
+      }],
+    });
+
+    render(await FirstCustomerWorkspace({ surface: 'seller' }));
+
+    expect(screen.getByText('Сервер подтвердил доступ к рабочей очереди продавца. Здесь показаны только доступные продавцу серверные факты; неподтверждённые данные остаются UNKNOWN.')).toBeInTheDocument();
+    const priority = screen.getByLabelText('Главная задача');
+    expect(within(priority).getByRole('heading', { name: 'Следующий обязательный шаг не опубликован' })).toBeInTheDocument();
+    expect(within(priority).getByText('UNKNOWN')).toBeInTheDocument();
+    expect(within(priority).getByRole('link', { name: 'Рабочая очередь' })).toHaveAttribute('href', '#first-customer-work-queue');
+    expect(within(priority).queryByRole('link', { name: /deal-most-recent/i })).not.toBeInTheDocument();
+
+    const dealRow = screen.getByRole('link', { name: /deal-most-recent/i });
+    expect(dealRow).toHaveAttribute('href', '/platform-v7/deals/deal-most-recent/execution');
+    expect(screen.getByText('Серверная подсказка строки')).toBeInTheDocument();
   });
 
   it('removes the previous hard-coded seller story and demo-derived authority', () => {
