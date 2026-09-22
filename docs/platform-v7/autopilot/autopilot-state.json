@@ -1523,6 +1523,12 @@
       "apps/web/components/crop-platform/IntegrationControlTowerClient.tsx",
       "apps/web/components/crop-platform/IntegrationControlTowerClient.module.css",
       "apps/web/tests/unit/platformV7IntegrationControlTower.test.ts"
+    ],
+    "ux/seller-truthful-first-screen-20260922": [
+      "apps/web/app/platform-v7/seller/page.tsx",
+      "apps/web/tests/unit/sellerExecutionPolish.test.tsx",
+      "apps/web/tests/unit/platformV7PrimaryRoleCockpit.test.tsx",
+      "apps/web/tests/unit/platformV7RoleUxRegressions.test.ts"
     ]
   },
   "currentAcceptance": [
@@ -1667,6 +1673,33 @@
         "regulatory override authority"
       ],
       "teamHubDependency": "PRODUCT-REGULATORY-APPLICABILITY-READ-CONTRACT-20260921"
+    },
+    "seller-truthful-first-screen-20260922": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Truthfulness-only first seller workspace slice: remove fabricated lot/deal/money/document/blocker facts when canonical authority is absent, while preserving the existing shared shell and current canonical Deal/dispute reads.",
+      "authorityBaseExactMain": "6553cdd4a5c3ce638d2832fac361cf710a46067b",
+      "implementationBranch": "ux/seller-truthful-first-screen-20260922",
+      "allowedPaths": [
+        "apps/web/app/platform-v7/seller/page.tsx",
+        "apps/web/tests/unit/sellerExecutionPolish.test.tsx",
+        "apps/web/tests/unit/platformV7PrimaryRoleCockpit.test.tsx",
+        "apps/web/tests/unit/platformV7RoleUxRegressions.test.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "Seller business facts must come from existing canonical server reads; absence of a canonical Deal must render explicit empty/degraded/unknown state rather than static LOT/DL/money/document facts.",
+        "No hard-coded reserve, payout, bank-review amount, SDIZ/ETRN/document readiness, offer state, next actor or regulatory status may be presented as current business truth.",
+        "Unknown authority remains unknown; transport ACK/HTTP success is never promoted to money, regulatory or business completion.",
+        "The seller surface reuses the existing shared Platform V7 shell/design system and must not create a second frontend architecture."
+      ],
+      "forbiddenAuthority": [
+        "backend/domain/DB/RLS/tenant/role authority",
+        "Inventory/Deal/Settlement command or finality authority",
+        "FGIS applicability, SDIZ completion or legal/regulatory evaluation",
+        "bank/provider/payment finality or concrete provider inference",
+        "homepage/public landing implementation",
+        "Founder role-mode transport or authority"
+      ],
+      "teamHubDependency": "PRODUCT-SELLER-TRUTHFUL-FIRST-SCREEN-20260922"
     }
   }
 }
