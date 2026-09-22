@@ -158,6 +158,26 @@ describe('bank receipt contract', () => {
     )).toMatchObject({ status: 'REJECTED', reason: 'IDEMPOTENCY_MISMATCH' });
 
     expect(validateBankReceiptCandidate(
+      malformedExpected({ operationId: ' op-1 ' }),
+      malformedCandidate({ operationId: ' op-1 ' }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'OPERATION_MISMATCH' });
+
+    expect(validateBankReceiptCandidate(
+      malformedExpected({ idempotencyKey: 'idem 1' }),
+      malformedCandidate({ idempotencyKey: 'idem 1' }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'IDEMPOTENCY_MISMATCH' });
+
+    expect(validateBankReceiptCandidate(
+      malformedExpected({ providerOperationId: '' }),
+      candidate({ providerOperationId: 'provider-other' }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'PROVIDER_OPERATION_MISMATCH' });
+
+    expect(validateBankReceiptCandidate(
+      malformedExpected({ providerOperationId: ' provider-op-1 ' }),
+      candidate({ providerOperationId: 'provider-op-1' }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'PROVIDER_OPERATION_MISMATCH' });
+
+    expect(validateBankReceiptCandidate(
       malformedExpected({ authenticationAuthorityRef: { key: 'v7' } }),
       malformedCandidate({ authenticationAuthorityRef: { key: 'v7' } }),
     )).toMatchObject({ status: 'REJECTED', reason: 'AUTHENTICATION_AUTHORITY_MISMATCH' });
