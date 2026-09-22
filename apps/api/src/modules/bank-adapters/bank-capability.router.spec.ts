@@ -31,7 +31,7 @@ const authority = (
 });
 
 function liveTestAdapter(
-  providerFamily: 'TEST_DOUBLE_A' | 'TEST_DOUBLE_B',
+  providerFamily: BankProviderFamily,
   capabilities: readonly BankCapability[],
 ): BankReferenceAdapter {
   return {
@@ -111,7 +111,7 @@ describe('bank capability router', () => {
 
   it('fails closed on malformed runtime binding identity values instead of calling string methods', () => {
     const testRouter = new BankCapabilityRouter([
-      liveTestAdapter('TEST_DOUBLE_A', ['DIRECT_PAYMENT']),
+      liveTestAdapter('SBER', ['DIRECT_PAYMENT']),
     ]);
     for (const broken of [
       { integrationBindingId: 42 },
@@ -123,7 +123,7 @@ describe('bank capability router', () => {
       { configurationVersion: undefined },
     ]) {
       const malformed = {
-        ...authority('TEST_DOUBLE_A'),
+        ...authority('SBER'),
         ...broken,
       } as unknown as BankRoutingAuthority;
       expect(testRouter.route(malformed, 'DIRECT_PAYMENT')).toMatchObject({
@@ -135,10 +135,10 @@ describe('bank capability router', () => {
 
   it('rejects a server-held binding for a non-bank integration capability', () => {
     const testRouter = new BankCapabilityRouter([
-      liveTestAdapter('TEST_DOUBLE_A', ['DIRECT_PAYMENT']),
+      liveTestAdapter('SBER', ['DIRECT_PAYMENT']),
     ]);
     expect(testRouter.route(
-      authority('TEST_DOUBLE_A', { capabilityCode: 'EDO' }),
+      authority('SBER', { capabilityCode: 'EDO' }),
       'DIRECT_PAYMENT',
     )).toMatchObject({
       status: 'CONTRADICTORY',
@@ -148,10 +148,10 @@ describe('bank capability router', () => {
 
   it('fails closed when server-held capabilities are not a validated capability array', () => {
     const testRouter = new BankCapabilityRouter([
-      liveTestAdapter('TEST_DOUBLE_A', ['DIRECT_PAYMENT']),
+      liveTestAdapter('SBER', ['DIRECT_PAYMENT']),
     ]);
     const stringInsteadOfArray = {
-      ...authority('TEST_DOUBLE_A'),
+      ...authority('SBER'),
       authorizedBankCapabilities: 'DIRECT_PAYMENT',
     } as unknown as BankRoutingAuthority;
     expect(testRouter.route(stringInsteadOfArray, 'DIRECT_PAYMENT')).toMatchObject({
@@ -160,7 +160,7 @@ describe('bank capability router', () => {
     });
 
     const unknownCapability = {
-      ...authority('TEST_DOUBLE_A'),
+      ...authority('SBER'),
       authorizedBankCapabilities: ['DIRECT_PAYMENT', 'UNPINNED_CAPABILITY'],
     } as unknown as BankRoutingAuthority;
     expect(testRouter.route(unknownCapability, 'DIRECT_PAYMENT')).toMatchObject({
@@ -171,12 +171,12 @@ describe('bank capability router', () => {
 
   it('fails closed when adapter capabilities are not a validated capability array', () => {
     const malformedAdapter = {
-      ...liveTestAdapter('TEST_DOUBLE_A', ['DIRECT_PAYMENT']),
+      ...liveTestAdapter('SBER', ['DIRECT_PAYMENT']),
       capabilities: 'DIRECT_PAYMENT',
     } as unknown as BankReferenceAdapter;
     const testRouter = new BankCapabilityRouter([malformedAdapter]);
 
-    expect(testRouter.route(authority('TEST_DOUBLE_A'), 'DIRECT_PAYMENT')).toMatchObject({
+    expect(testRouter.route(authority('SBER'), 'DIRECT_PAYMENT')).toMatchObject({
       status: 'UNAVAILABLE',
       reason: 'INVALID_ADAPTER_CAPABILITY_SET',
     });
@@ -229,10 +229,10 @@ describe('bank capability router', () => {
 
   it('fails closed on truthy non-boolean live-routing flags at runtime', () => {
     const testRouter = new BankCapabilityRouter([
-      liveTestAdapter('TEST_DOUBLE_A', ['DIRECT_PAYMENT']),
+      liveTestAdapter('SBER', ['DIRECT_PAYMENT']),
     ]);
     const malformedTraffic = {
-      ...authority('TEST_DOUBLE_A'),
+      ...authority('SBER'),
       mayCarryRealTraffic: 'true',
     } as unknown as BankRoutingAuthority;
     expect(testRouter.route(malformedTraffic, 'DIRECT_PAYMENT')).toMatchObject({
@@ -241,7 +241,7 @@ describe('bank capability router', () => {
     });
 
     const malformedEnvironment = {
-      ...authority('TEST_DOUBLE_A'),
+      ...authority('SBER'),
       productionEnvironmentConfirmed: 'true',
     } as unknown as BankRoutingAuthority;
     expect(testRouter.route(malformedEnvironment, 'DIRECT_PAYMENT')).toMatchObject({
@@ -252,12 +252,12 @@ describe('bank capability router', () => {
 
   it('fails closed when adapter live-transport readiness is truthy but not boolean true', () => {
     const malformedAdapter = {
-      ...liveTestAdapter('TEST_DOUBLE_A', ['DIRECT_PAYMENT']),
+      ...liveTestAdapter('SBER', ['DIRECT_PAYMENT']),
       liveTransportImplemented: 'true',
     } as unknown as BankReferenceAdapter;
     const testRouter = new BankCapabilityRouter([malformedAdapter]);
 
-    expect(testRouter.route(authority('TEST_DOUBLE_A'), 'DIRECT_PAYMENT')).toMatchObject({
+    expect(testRouter.route(authority('SBER'), 'DIRECT_PAYMENT')).toMatchObject({
       status: 'NOT_ACTIVATED',
       reason: 'REFERENCE_ADAPTER_HAS_NO_LIVE_TRANSPORT',
     });
@@ -308,10 +308,10 @@ describe('bank capability router', () => {
 
   it('proves provider substitution through the same router contract with independent test doubles only', () => {
     const testRouter = new BankCapabilityRouter([
-      liveTestAdapter('TEST_DOUBLE_A', ['DIRECT_PAYMENT']),
-      liveTestAdapter('TEST_DOUBLE_B', ['DIRECT_PAYMENT']),
+      liveTestAdapter('SBER', ['DIRECT_PAYMENT']),
+      liveTestAdapter('ALFA_BANK', ['DIRECT_PAYMENT']),
     ]);
-    for (const provider of ['TEST_DOUBLE_A', 'TEST_DOUBLE_B'] as const) {
+    for (const provider of ['SBER', 'ALFA_BANK'] as const) {
       expect(testRouter.route(authority(provider), 'DIRECT_PAYMENT')).toMatchObject({
         status: 'READY_FOR_REAL_TRAFFIC',
         authority: { providerFamily: provider },
