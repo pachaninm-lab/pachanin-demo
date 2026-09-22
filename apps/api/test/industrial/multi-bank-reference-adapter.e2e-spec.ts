@@ -95,4 +95,41 @@ describe('multi-bank reference adapter industrial contract', () => {
     expect(tbank.mapReceiptResponse({ ...base, rawStatus: 'PAYMENT_FAILED' }).evidenceState)
       .toBe('FAILURE_EVIDENCE');
   });
+
+  it('fails closed on malformed runtime provider status values without inventing provider evidence', () => {
+    const sber = adapters[0]!;
+    const tbank = adapters[2]!;
+    const malformed = {
+      httpStatus: 500,
+      rawStatus: 503 as unknown as string,
+      providerOperationId: 'provider-op-1',
+      idempotencyKey: 'idem-1',
+      providerEventId: 'event-1',
+      externalReceiptId: 'receipt-1',
+      authenticationAuthorityRef: 'callback-key:v7',
+      authenticationEvidenceRef: 'auth-1',
+      payloadFingerprint: 'sha256:abc',
+      observedAt: '2026-09-22T00:00:00.000Z',
+      operationId: 'operation-1',
+      amountMinor: '100',
+      currency: 'RUB',
+    };
+
+    expect(sber.mapDispatchResponse(malformed)).toMatchObject({
+      acknowledgement: 'UNKNOWN',
+      rawStatus: null,
+      canonicalFinality: 'NOT_DECIDED_HERE',
+      retryPolicy: 'RECONCILE_BEFORE_RETRY',
+    });
+    expect(sber.mapReceiptResponse(malformed)).toMatchObject({
+      evidenceState: 'UNKNOWN_EVIDENCE',
+      rawStatus: null,
+      canonicalFinality: 'NOT_DECIDED_HERE',
+    });
+    expect(tbank.mapReceiptResponse(malformed)).toMatchObject({
+      evidenceState: 'UNKNOWN_EVIDENCE',
+      rawStatus: null,
+      canonicalFinality: 'NOT_DECIDED_HERE',
+    });
+  });
 });
