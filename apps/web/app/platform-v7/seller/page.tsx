@@ -76,7 +76,6 @@ export default async function PlatformV7SellerPage() {
   const dealRegistryComplete = dealRegistryAvailable && dealSnapshot.isComplete;
   const disputeRegistryAvailable = disputeSnapshot.isApiAvailable;
   const disputeCount = disputeRegistryAvailable ? openDisputeCount(disputeSnapshot.disputes) : null;
-  const firstDeal = dealRegistryAvailable ? canonicalDeals[0] ?? null : null;
   const dealCount = dealRegistryAvailable ? canonicalDeals.length : null;
   const dealCountLabel = dealCount === null
     ? 'UNKNOWN'
@@ -86,8 +85,9 @@ export default async function PlatformV7SellerPage() {
 
   const priority: MoneyPriority = !dealRegistryAvailable
     ? {
+        eyebrow: 'Техническое восстановление данных',
         title: 'Проверить доступность серверного реестра сделок',
-        description: 'Канонический список сделок сейчас не подтверждён. Кабинет не подставляет демонстрационные лоты, суммы, документы, регуляторные статусы или банковские результаты.',
+        description: 'Канонический список сделок сейчас не подтверждён. Это техническое восстановление данных, а не назначенное бизнес-действие. Кабинет не подставляет демонстрационные лоты, суммы, документы, регуляторные статусы или банковские результаты.',
         state: 'waiting',
         blocker: 'канонический список сделок недоступен или содержит неприемлемые данные',
         owner: 'серверный контур сделки',
@@ -95,31 +95,20 @@ export default async function PlatformV7SellerPage() {
         primaryAction: <Link className={moneyCockpitClasses.primaryLink} href='/platform-v7/seller'>Обновить данные</Link>,
         secondaryAction: <Link className={moneyCockpitClasses.secondaryLink} href='/platform-v7/seller/lots'>Партии и лоты</Link>,
       }
-    : firstDeal
-      ? {
-          title: `Открыть подтверждённую сервером сделку ${firstDeal.label}`,
-          description: 'Кабинет показывает только факты, которые пришли из канонического списка сделок. Статусы документов, ФГИС, банка и движения денег здесь не выводятся без отдельного подтверждённого серверного источника.',
-          state: 'ready',
-          owner: 'продавец',
-          result: 'открыть рабочую поверхность сделки',
-          primaryAction: (
-            <Link
-              className={moneyCockpitClasses.primaryLink}
-              href={`/platform-v7/deals/${encodeURIComponent(firstDeal.id)}/clean`}
-            >
-              Открыть сделку
-            </Link>
-          ),
-          secondaryAction: <Link className={moneyCockpitClasses.secondaryLink} href='/platform-v7/seller/lots'>Партии и лоты</Link>,
-        }
-      : {
-          title: 'Создать партию или перейти к рабочим маршрутам продавца',
-          description: 'Серверный реестр доступен и не вернул сделок. Это честное пустое состояние, а не замена демонстрационным LOT/DL, суммам или документным статусам.',
-          owner: 'продавец',
-          result: 'новая партия или переход к существующим маршрутам',
-          primaryAction: <Link className={moneyCockpitClasses.primaryLink} href='/platform-v7/seller/batches/new'>Создать партию</Link>,
-          secondaryAction: <Link className={moneyCockpitClasses.secondaryLink} href='/platform-v7/seller/lots'>Партии и лоты</Link>,
-        };
+    : {
+        eyebrow: 'Серверный приоритет действия',
+        title: 'Приоритет бизнес-действия не опубликован',
+        description: dealCount === 0
+          ? 'Серверный реестр доступен и пуст, но отдельный приоритет следующего действия сервер не опубликовал. Кабинет не назначает создание партии как обязательный следующий шаг без серверной state/policy/permission authority.'
+          : 'Сервер подтвердил список сделок, но не опубликовал приоритет следующего действия. Порядок записей в ответе не превращается в бизнес-приоритет; сделки ниже остаются обычной навигацией.',
+        state: 'waiting',
+        primaryAction: (
+          <a className={moneyCockpitClasses.primaryLink} href={dealCount === 0 ? '#routes' : '#overview'}>
+            {dealCount === 0 ? 'Рабочие маршруты' : 'Список сделок'}
+          </a>
+        ),
+        secondaryAction: <Link className={moneyCockpitClasses.secondaryLink} href='/platform-v7/seller/lots'>Партии и лоты</Link>,
+      };
 
   const statusLabel = !dealRegistryAvailable
     ? 'Состояние сделок не подтверждено'
@@ -155,14 +144,11 @@ export default async function PlatformV7SellerPage() {
               : 'достигнут предел серверного ответа; итоговое число не выводится как факт',
         },
         {
-          label: 'Текущая карточка',
-          value: firstDeal?.label ?? (dealRegistryAvailable ? 'Нет сделки' : 'UNKNOWN'),
-          hint: firstDeal ? 'идентификатор получен с сервера' : 'локальный идентификатор не подставляется',
-        },
-        {
-          label: 'Статус сделки',
-          value: firstDeal?.status ?? (dealRegistryAvailable && dealCount === 0 ? 'Нет сделки' : 'UNKNOWN'),
-          hint: firstDeal?.status ? 'канонический статус сделки' : 'статус не выводится без серверного факта',
+          label: 'Серверный приоритет',
+          value: 'UNKNOWN',
+          hint: dealRegistryAvailable
+            ? 'контракт списка сделок не публикует next-best-action; порядок ответа не используется как authority'
+            : 'нет валидного серверного ответа, из которого можно определить приоритет',
         },
         {
           label: 'Открытые споры',
@@ -187,17 +173,22 @@ export default async function PlatformV7SellerPage() {
                 Сервер подтвердил пустой список сделок для текущего участника. Демонстрационные сделки не подставляются.
               </p>
             ) : (
-              <MoneyQueue>
-                {canonicalDeals.slice(0, 5).map((deal) => (
-                  <MoneyQueueLink
-                    key={deal.id}
-                    href={`/platform-v7/deals/${encodeURIComponent(deal.id)}/clean`}
-                    title={deal.label}
-                    detail={dealDetail(deal)}
-                    status={<StatusChip tone='information'>{deal.status ?? 'UNKNOWN'}</StatusChip>}
-                  />
-                ))}
-              </MoneyQueue>
+              <>
+                <p className={moneyCockpitClasses.muted}>
+                  Список — навигация по подтверждённым сделкам, а не ранжирование следующего действия.
+                </p>
+                <MoneyQueue>
+                  {canonicalDeals.slice(0, 5).map((deal) => (
+                    <MoneyQueueLink
+                      key={deal.id}
+                      href={`/platform-v7/deals/${encodeURIComponent(deal.id)}/clean`}
+                      title={deal.label}
+                      detail={dealDetail(deal)}
+                      status={<StatusChip tone='information'>{deal.status ?? 'UNKNOWN'}</StatusChip>}
+                    />
+                  ))}
+                </MoneyQueue>
+              </>
             )}
           </div>
         </CollapsibleSection>
