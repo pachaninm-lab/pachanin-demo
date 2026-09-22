@@ -18,39 +18,39 @@ type Locale = 'ru' | 'en' | 'zh';
 
 const COPY = {
   ru: {
-    title: 'Рабочий кабинет', description: 'Пользователь, организация, membership и очередь получены из текущей серверной сессии и PostgreSQL.',
+    title: 'Рабочий кабинет', description: 'Пользователь, организация, membership и очередь получены из текущей серверной сессии и PostgreSQL.', sellerDescription: 'Сервер подтвердил доступ к рабочей очереди продавца. Здесь показаны только доступные продавцу серверные факты; неподтверждённые данные остаются UNKNOWN.',
     ownerDescription: 'Реальный вход владельца с MFA. Интерфейс кабинета открыт в фиксированной контролируемой тестовой организации; клиентская роль в API не подменяется.',
     ownerReady: 'владелец · контролируемый доступ', ownerReadyTitle: 'Открыть рабочий раздел кабинета', ownerReadyDescription: 'Это настоящий защищённый маршрут кабинета. Данные для просмотра контролируемые; боевые действия продолжают проверяться сервером по реальной личности владельца.',
     ready: 'сервер подтверждён', empty: 'очередь пуста', degraded: 'серверная очередь недоступна', forbidden: 'доступ запрещён',
     blocker: 'Блокер', owner: 'Ответственный', impact: 'Влияние', result: 'Результат', next: 'Следующее действие', priority: 'Главная задача', facts: 'Подтверждённые данные',
     readyTitle: 'Открыть первый доступный объект', readyDescription: 'Объект уже ограничен текущим tenant, membership и ролью на API.',
-    sellerPriorityUnknownTitle: 'Приоритет действия не опубликован', sellerPriorityUnknownDescription: 'Сервер подтвердил очередь сделок, но не опубликовал приоритет. Порядок записей не превращается в бизнес-приоритет; нужная сделка открывается из очереди.', sellerPriorityUnknownResult: 'UNKNOWN · не опубликован', sellerQueue: 'Открыть очередь сделок',
+    sellerPriorityUnknownTitle: 'Следующий обязательный шаг не опубликован', sellerPriorityUnknownDescription: 'Сервер подтвердил очередь сделок, но не выбрал, какая сделка должна быть первой. Порядок списка — это навигация, а не бизнес-приоритет.', sellerPriorityUnknownResult: 'UNKNOWN', sellerQueue: 'Рабочая очередь',
     emptyTitle: 'Рабочих объектов пока нет', emptyDescription: 'Это реальное пустое состояние. Демо-сделки, рейсы и заявки не подставляются.',
     degradedTitle: 'Не подменять недоступный backend', degradedDescription: 'Сервер не подтвердил очередь. Доступ и локальные данные не создаются.',
     forbiddenTitle: 'Роль не соответствует кабинету', forbiddenDescription: 'URL не меняет серверную роль. Вернись в назначенное рабочее пространство.',
     organization: 'Организация', membership: 'Контекст просмотра', identity: 'Пользователь', role: 'Роль кабинета', queue: 'Рабочая очередь', profile: 'Профиль доступа', team: 'Команда организации', status: 'Состояние системы', open: 'Открыть', noNext: 'следующее действие определит сервер', correlation: 'Correlation ID',
   },
   en: {
-    title: 'Work cabinet', description: 'User, organization, membership and queue come from the current server session and PostgreSQL.',
+    title: 'Work cabinet', description: 'User, organization, membership and queue come from the current server session and PostgreSQL.', sellerDescription: 'The server confirmed access to the seller work queue. This view shows only server facts available to the current seller; unconfirmed data remains UNKNOWN.',
     ownerDescription: 'Real platform-owner sign-in with MFA. The cabinet interface is opened against a fixed controlled test organization; the API business role is not impersonated.',
     ownerReady: 'owner · controlled access', ownerReadyTitle: 'Open the cabinet work area', ownerReadyDescription: 'This is the real protected cabinet route. Review data is controlled; production actions still authorize the real owner identity on the server.',
     ready: 'server confirmed', empty: 'queue is empty', degraded: 'server queue unavailable', forbidden: 'access denied',
     blocker: 'Blocker', owner: 'Owner', impact: 'Impact', result: 'Result', next: 'Next action', priority: 'Primary task', facts: 'Confirmed data',
     readyTitle: 'Open the first accessible object', readyDescription: 'The API has already scoped this object to the current tenant, membership and role.',
-    sellerPriorityUnknownTitle: 'Action priority is not published', sellerPriorityUnknownDescription: 'The server confirmed the Deal queue but did not publish a priority. List order is not business priority; open the needed Deal from the queue.', sellerPriorityUnknownResult: 'UNKNOWN · not published', sellerQueue: 'Open Deal queue',
+    sellerPriorityUnknownTitle: 'Required next step is not published', sellerPriorityUnknownDescription: 'The server confirmed the Deal queue but did not choose which Deal comes first. List order is navigation, not business priority.', sellerPriorityUnknownResult: 'UNKNOWN', sellerQueue: 'Work queue',
     emptyTitle: 'No work objects yet', emptyDescription: 'This is a real empty state. No demo Deals, trips or applications are substituted.',
     degradedTitle: 'Do not substitute an unavailable backend', degradedDescription: 'The server did not confirm the queue. No access or local data is created.',
     forbiddenTitle: 'Role does not match this cabinet', forbiddenDescription: 'A URL cannot change the server role. Return to the assigned workspace.',
     organization: 'Organization', membership: 'Review context', identity: 'User', role: 'Cabinet role', queue: 'Work queue', profile: 'Access profile', team: 'Organization team', status: 'System status', open: 'Open', noNext: 'the server will determine the next action', correlation: 'Correlation ID',
   },
   zh: {
-    title: '工作空间', description: '用户、组织、membership 和队列均来自当前服务器会话与 PostgreSQL。',
+    title: '工作空间', description: '用户、组织、membership 和队列均来自当前服务器会话与 PostgreSQL。', sellerDescription: '服务器已确认卖方工作队列的访问权限。这里只显示当前卖方可见的服务器事实；未确认的数据保持为 UNKNOWN。',
     ownerDescription: '平台所有者使用真实账号与 MFA 登录。工作台绑定固定受控测试组织，API 中不会伪装客户业务角色。',
     ownerReady: '所有者 · 受控访问', ownerReadyTitle: '打开工作台功能区', ownerReadyDescription: '这是实际受保护的工作台路由。查看数据受控；生产操作仍按所有者真实身份由服务器授权。',
     ready: '服务器已确认', empty: '队列为空', degraded: '服务器队列不可用', forbidden: '禁止访问',
     blocker: '阻塞项', owner: '负责人', impact: '影响', result: '结果', next: '下一步', priority: '主要任务', facts: '已确认数据',
     readyTitle: '打开第一个可访问对象', readyDescription: 'API 已按当前 tenant、membership 和角色限制该对象。',
-    sellerPriorityUnknownTitle: '操作优先级未发布', sellerPriorityUnknownDescription: '服务器已确认交易队列，但没有发布优先级。列表顺序不是业务优先级；请从队列中打开所需交易。', sellerPriorityUnknownResult: 'UNKNOWN · 未发布', sellerQueue: '打开交易队列',
+    sellerPriorityUnknownTitle: '服务器未提供必须执行的下一步', sellerPriorityUnknownDescription: '服务器已确认交易队列，但没有选择哪一笔交易应排在第一位。列表顺序仅用于导航，不代表业务优先级。', sellerPriorityUnknownResult: 'UNKNOWN', sellerQueue: '工作队列',
     emptyTitle: '暂时没有工作对象', emptyDescription: '这是真实的空状态，不会替换为演示交易、行程或申请。',
     degradedTitle: '不得替换不可用的 backend', degradedDescription: '服务器未确认队列，不会创建访问权限或本地数据。',
     forbiddenTitle: '角色与此工作空间不匹配', forbiddenDescription: 'URL 不能更改服务器角色。请返回分配的工作空间。',
@@ -72,7 +72,7 @@ export async function FirstCustomerWorkspace({ surface }: { surface: FirstCustom
   const workspace = await getFirstCustomerWorkspace(surface);
   const first = workspace.items[0];
   const state = workspace.forbidden ? 'forbidden' : !workspace.available ? 'degraded' : workspace.items.length ? 'ready' : 'empty';
-  const description = workspace.ownerControlled ? copy.ownerDescription : copy.description;
+  const description = workspace.ownerControlled ? copy.ownerDescription : surface === 'seller' ? copy.sellerDescription : copy.description;
   const sellerPriorityUnknown = surface === 'seller' && state === 'ready' && !workspace.ownerControlled;
   const priority: OperationalPriority = {
     state: sellerPriorityUnknown ? 'readonly' : state === 'ready' ? 'active' : state === 'empty' ? 'readonly' : 'critical',
