@@ -455,8 +455,9 @@ const css = `
 }
 
 
-@media (max-width:767px) {
-  body:has(.pc-cp-bottom-nav) .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] {
+/* Canonical mobile navigation owns the bottom edge; chat remains available in the header menu. */
+@media (max-width:760px) {
+  body:has(.pc-cp-bottom-nav) .pc-public-contact-dock[data-assistant-context='public'] {
     display: none !important;
   }
 }

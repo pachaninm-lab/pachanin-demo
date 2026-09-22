@@ -107,6 +107,34 @@ async function expectLayoutShiftWithinBudget(page: Page) {
   expect(cls).toBeLessThanOrEqual(0.1);
 }
 
+async function expectUnobscuredPublicBottomNav(page: Page) {
+  const nav = page.locator('.pc-cp-bottom-nav');
+  await expect(nav).toHaveCount(1);
+  await expect(nav).toBeVisible();
+  await expect(nav.locator('a')).toHaveCount(5);
+  for (const link of await nav.locator('a').all()) {
+    const target = await link.evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      const points = [
+        [box.left + box.width / 2, box.top + box.height / 2],
+        [box.left + 6, box.top + 6],
+        [box.right - 6, box.bottom - 6],
+      ];
+      return {
+        width: box.width,
+        height: box.height,
+        unobscured: points.every(([x, y]) => {
+          const hit = document.elementFromPoint(x!, y!);
+          return hit !== null && element.contains(hit);
+        }),
+      };
+    });
+    expect(target.width).toBeGreaterThanOrEqual(44);
+    expect(target.height).toBeGreaterThanOrEqual(44);
+    expect(target.unobscured, `bottom navigation target ${await link.getAttribute('href')}`).toBe(true);
+  }
+}
+
 test.describe('Design System v8 cabinet access boundary', () => {
   const OPERATOR_ROUTE = '/platform-v7/operator';
 
@@ -323,7 +351,7 @@ test.describe('Design System v8 final browser acceptance', () => {
     expect(runtimeFailures).toEqual([]);
   });
 });
-const LINKED_SHELL_ROUTES = ['terms', 'privacy', 'docs', 'oferta', 'register', 'trust', 'about', 'gekta'] as const;
+const LINKED_SHELL_ROUTES = ['terms', 'privacy', 'docs', 'oferta', 'register', 'trust', 'about', 'contact', 'gekta'] as const;
 for (const locale of ['ru', 'en', 'zh'] as const) {
   for (const route of LINKED_SHELL_ROUTES) {
     test(`public linked shell ${route} ${locale} preserves canonical chrome and content`, async ({ page }, testInfo) => {
@@ -374,24 +402,23 @@ for (const locale of ['ru', 'en', 'zh'] as const) {
           await expect(legal).not.toContainText('Состояние сервисов', { useInnerText: true });
           if (route === 'privacy') await expect(legal).toContainText('не показывает вымышленные персональные записи', { useInnerText: true });
         }
-        // Do not mutate server-rendered details before the existing client
-        // boundary mounts; this test exercises hydrated keyboard interaction.
         if (route === 'gekta') {
           await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue('--gekta-visual-viewport-height'))).not.toBe('');
-        } else if (route === 'terms' || route === 'privacy' || route === 'docs' || route === 'oferta') {
-          await expect(page.locator('.pc-public-contact-dock')).toBeVisible();
+        } else if (route === 'terms' || route === 'privacy' || route === 'docs' || route === 'oferta' || route === 'contact') {
+          const publicDock = page.locator('.pc-public-contact-dock[data-assistant-context="public"]');
+          await expect(publicDock).toHaveCount(1);
+          if (width <= 760) await expect(publicDock).toBeHidden();
+          else await expect(publicDock).toBeVisible();
         } else {
-          // FINAL PUBLIC canonical routes mount exactly one Gekta-only transport
-          // surface backed by the existing PublicPlatformAssistant. It replaces
-          // the legacy Support/Call dock; desktop opens from header/section
-          // actions while mobile retains one touch-safe launcher.
+          // The existing assistant transport remains mounted. Canonical mobile
+          // navigation and desktop header actions replace its floating launcher.
           const gektaDock = page.locator('.pc-public-contact-dock[data-public-mode="gekta"]');
           await expect(gektaDock).toHaveCount(1);
           await expect(page.locator('.pc-public-contact-dock[data-public-mode="full"]')).toHaveCount(0);
           await expect(gektaDock.locator('.pc-public-contact-dock-assistant')).toHaveCount(1);
           await expect(gektaDock.locator('.pc-public-contact-dock-action:not(.pc-public-contact-dock-assistant)')).toHaveCount(0);
           await expect(gektaDock.locator('.pc-public-contact-dock-call')).toHaveCount(0);
-          if (width >= 981) {
+          if (width <= 760 || width >= 981) {
             await expect(gektaDock).toBeHidden();
           } else {
             await expect(gektaDock).toBeVisible();
@@ -406,9 +433,19 @@ for (const locale of ['ru', 'en', 'zh'] as const) {
           await toggle.focus(); await toggle.press('Enter');
           await expect(header.locator('details')).toHaveAttribute('open', '');
           await expect(header.locator('.pc-site-mobile-nav')).toBeVisible();
+          if (route !== 'gekta') {
+            const chatEntry = header.locator('.pc-site-mobile-nav [data-gekta-chat-entry="true"]');
+            await expect(chatEntry).toBeVisible();
+            await expect(chatEntry).toBeEnabled();
+            const chatBox = await chatEntry.boundingBox();
+            expect(chatBox).not.toBeNull();
+            expect(chatBox!.width).toBeGreaterThanOrEqual(44);
+            expect(chatBox!.height).toBeGreaterThanOrEqual(44);
+          }
           await toggle.press('Enter');
           await expect(header.locator('details')).not.toHaveAttribute('open', '');
         }
+        if (route !== 'gekta' && width <= 760) await expectUnobscuredPublicBottomNav(page);
         await expectNoHorizontalOverflow(page);
         if (width === widths[0]) {
           const scan = new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']);
@@ -461,10 +498,32 @@ test('public registration locale cycle preserves both existing query tokens', as
   const status = 'homepage-5111-synthetic-status+/=_';
   await page.route('**/api/auth/registration/status**', route => route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ ok: false, code: 'INVALID_TOKEN' }) }));
   await page.setViewportSize({ width: 320, height: 800 });
-  await page.goto(`/platform-v7/register?${new URLSearchParams({ lang: 'ru', verify, statusToken: status })}`, { waitUntil: 'load' });
+  await page.goto(`/platform-v7/register?${new URLSearchParams({ lang: 'ru', verify, statusToken: status, intent: 'buy', role: 'owner', tenantId: 'untrusted' })}`, { waitUntil: 'load' });
   for (const next of ['en', 'zh', 'ru'] as const) {
-    const language = page.locator('[data-public-site-header="canonical"] > .pc-site-actions > .pc-site-locale-switch');
-    await expect(language).toHaveCount(1);
+    const header = page.locator('[data-public-site-header="canonical"]');
+    const localeLinks = header.locator(':scope > .pc-site-actions > .pc-site-locale-cluster > .pc-site-locale-option');
+    await expect(localeLinks).toHaveCount(3);
+    for (const [index, locale] of (['ru', 'en', 'zh'] as const).entries()) {
+      const href = await localeLinks.nth(index).getAttribute('href');
+      expect(href).not.toBeNull();
+      const target = new URL(href!, page.url());
+      expect(target.pathname).toBe('/platform-v7/register');
+      expect(target.searchParams.get('lang')).toBe(locale);
+      expect(target.searchParams.get('verify')).toBe(verify);
+      expect(target.searchParams.get('statusToken')).toBe(status);
+      expect(target.searchParams.get('intent')).toBe('buy');
+      expect(target.searchParams.has('role')).toBe(false);
+      expect(target.searchParams.has('tenantId')).toBe(false);
+    }
+    // On mobile the header shows the current language; all three choices live
+    // in the same native menu. Exercise the visible control rather than a hidden link.
+    const menu = header.locator('details.pc-site-mobile-menu');
+    await menu.locator('summary').click();
+    await expect(menu).toHaveAttribute('open', '');
+    const choices = menu.locator('.pc-site-mobile-locale .pc-site-locale-option');
+    await expect(choices).toHaveCount(3);
+    const language = choices.locator(`xpath=self::a[contains(@href,"lang=${next}")]`);
+    await expect(language).toBeVisible();
     const href = await language.getAttribute('href');
     expect(href).not.toBeNull();
     const target = new URL(href!, page.url());
@@ -472,7 +531,12 @@ test('public registration locale cycle preserves both existing query tokens', as
     expect(target.searchParams.get('lang')).toBe(next);
     expect(target.searchParams.get('verify')).toBe(verify);
     expect(target.searchParams.get('statusToken')).toBe(status);
+    expect(target.searchParams.get('intent')).toBe('buy');
+    expect(target.searchParams.has('role')).toBe(false);
+    expect(target.searchParams.has('tenantId')).toBe(false);
     await language.click();
     await expect(page).toHaveURL(target.href);
+    await expectUnobscuredPublicBottomNav(page);
+    await expectNoHorizontalOverflow(page);
   }
 });
