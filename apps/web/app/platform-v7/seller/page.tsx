@@ -92,7 +92,7 @@ export default async function PlatformV7SellerPage() {
     : firstDeal
       ? {
           title: `Открыть подтверждённую сервером сделку ${firstDeal.label}`,
-          description: 'Кабинет показывает только факты, которые пришли из канонического списка сделок. Статусы документов, ФГИС, банка и движения денег здесь не выводятся без отдельной серверной authority.',
+          description: 'Кабинет показывает только факты, которые пришли из канонического списка сделок. Статусы документов, ФГИС, банка и движения денег здесь не выводятся без отдельного подтверждённого серверного источника.',
           state: 'ready',
           owner: 'продавец',
           result: 'открыть рабочую поверхность сделки',
@@ -117,7 +117,7 @@ export default async function PlatformV7SellerPage() {
 
   const statusLabel = dealRegistryAvailable
     ? 'Серверный реестр сделок доступен'
-    : 'Состояние сделок UNKNOWN';
+    : 'Состояние сделок не подтверждено';
 
   const overviewSummary = !dealRegistryAvailable
     ? 'канонические данные недоступны'
@@ -129,8 +129,8 @@ export default async function PlatformV7SellerPage() {
     <MoneyObligationCockpit
       testId='platform-v7-seller-cockpit'
       eyebrow='Продавец · серверные факты сделки'
-      title={dealRegistryAvailable ? 'Рабочий кабинет продавца без выдуманной finality' : 'Состояние сделок сейчас не подтверждено'}
-      description='Первый экран строится только из participant-scoped серверного реестра сделок и серверного реестра споров. Отсутствующая authority остаётся UNKNOWN.'
+      title={dealRegistryAvailable ? 'Рабочий кабинет продавца по подтверждённым данным' : 'Состояние сделок сейчас не подтверждено'}
+      description='Первый экран строится только из серверного реестра сделок и серверного реестра споров, уже ограниченных правами текущего участника. Данные без подтверждения остаются UNKNOWN.'
       statusLabel={statusLabel}
       statusTone={dealRegistryAvailable ? 'success' : 'warning'}
       priority={priority}
@@ -138,7 +138,7 @@ export default async function PlatformV7SellerPage() {
         {
           label: 'Сделки',
           value: dealCount === null ? 'UNKNOWN' : String(dealCount),
-          hint: dealRegistryAvailable ? 'participant-scoped ответ /deals' : 'серверный ответ не подтверждён',
+          hint: dealRegistryAvailable ? 'данные получены из серверного списка сделок' : 'серверный ответ не подтверждён',
         },
         {
           label: 'Текущая карточка',
@@ -153,12 +153,12 @@ export default async function PlatformV7SellerPage() {
         {
           label: 'Открытые споры',
           value: disputeCount === null ? 'UNKNOWN' : String(disputeCount),
-          hint: disputeRegistryAvailable ? 'participant-scoped реестр споров' : 'реестр споров недоступен',
+          hint: disputeRegistryAvailable ? 'данные получены из серверного реестра споров' : 'реестр споров недоступен',
         },
       ]}
     >
       <MoneyBoundary>
-        Кабинет не делает выводов о резерве, выплате, СДИЗ, ЭТрН, применимости ФГИС, провайдере или статусе банка без соответствующей серверной authority. HTTP/ACK сами по себе не являются finality.
+        Кабинет не делает выводов о резерве, выплате, СДИЗ, ЭТрН, применимости ФГИС, провайдере или статусе банка без подтверждённых серверных данных. Технический ответ внешнего сервиса сам по себе не означает завершение операции.
       </MoneyBoundary>
 
       <MoneyCockpitSection id='overview'>
