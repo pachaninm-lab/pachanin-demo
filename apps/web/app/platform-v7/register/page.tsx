@@ -2,6 +2,7 @@ import '@/styles/platform-v7-public-register.css';
 import '@/styles/platform-v7-public-register-official.css';
 import '@/styles/platform-v7-public-register-reflow.css';
 import '@/styles/platform-v7-canonical-public-v1.css';
+import '@/styles/platform-v7-public-market.css';
 import { CanonicalBottomNav, CanonicalPublicHeader } from '@/components/platform-v7/PublicCanonicalPrimitives';
 import { marketHref, publicMarketContext, publicMarketRegistrationContext, type PublicCrop } from '@/lib/platform-v7/public-market-navigation';
 import { RegisterFormClientPublic } from './RegisterFormClientPublic';

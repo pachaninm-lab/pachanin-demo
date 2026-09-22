@@ -1,3 +1,4 @@
+import '@/styles/platform-v7-public-market.css';
 import type { ReactNode } from 'react';
 import { ArrowRight, Info, LockKeyhole, PackageSearch } from 'lucide-react';
 import { getPublicMarketLots, type PublicMarketLot, type PublicMarketReadResult } from '@/lib/public-market-server';
@@ -74,7 +75,6 @@ const COPY = {
     unpublished: '未公开发布',
   },
 } as const;
-
 const CROP_LABELS: Record<CanonicalPublicLocale, Record<PublicCrop, string>> = {
   ru: { wheat:'Пшеница', barley:'Ячмень', corn:'Кукуруза', sunflower:'Подсолнечник', soybean:'Соя', rapeseed:'Рапс', rye:'Рожь', oats:'Овёс' },
   en: { wheat:'Wheat', barley:'Barley', corn:'Corn', sunflower:'Sunflower', soybean:'Soybean', rapeseed:'Rapeseed', rye:'Rye', oats:'Oats' },
@@ -87,16 +87,13 @@ export function CanonicalCropCatalogue({ locale, context = publicMarketContext()
   const copy = COPY[lang];
   return <section className='pc-cp-crop-catalog' aria-label={copy.catalogue} data-testid='canonical-crop-catalogue'>
     <h2 className='pc-cp-market-subtitle'>{copy.catalogue}</h2>
-    <div className='pc-cp-crop-grid'>
+    <div className='pc-cp-crop-grid' tabIndex={0} aria-label={copy.catalogue}>
       {PUBLIC_CROPS.map((crop) => {
         const selectedContext = publicMarketContext({ ...context, crop });
         return <article className='pc-cp-card pc-cp-crop-card' key={crop} data-crop-category={crop}>
-          <a className='pc-cp-crop-photo-link' href={marketHref(lang, selectedContext)} aria-label={CROP_LABELS[lang][crop]}>
-            <CropPhoto crop={crop} locale={lang} />
-          </a>
+          <a className='pc-cp-crop-photo-link' href={marketHref(lang, selectedContext)} aria-label={CROP_LABELS[lang][crop]}><CropPhoto crop={crop} locale={lang} /></a>
           <div className='pc-cp-crop-body'>
-            <h3><a href={marketHref(lang, selectedContext)}>{CROP_LABELS[lang][crop]}</a></h3>
-            <p>{copy.category}</p>
+            <h3><a href={marketHref(lang, selectedContext)}>{CROP_LABELS[lang][crop]}</a></h3><p>{copy.category}</p>
             <div className='pc-cp-actions'>
               <a className='pc-cp-button pc-cp-button--secondary' href={marketApplicationHref(lang, 'sell', selectedContext)}>{copy.sell}<ArrowRight size={16} aria-hidden='true' /></a>
               <a className='pc-cp-button' href={marketApplicationHref(lang, 'buy', selectedContext)}>{copy.buy}<ArrowRight size={16} aria-hidden='true' /></a>
@@ -107,7 +104,6 @@ export function CanonicalCropCatalogue({ locale, context = publicMarketContext()
     </div>
   </section>;
 }
-
 export async function CanonicalMarketPreview({ locale, limit = 4 }: { locale: string; limit?: number }) {
   const lang = canonicalPublicLocale(locale);
   const context = publicMarketContext();
@@ -123,7 +119,6 @@ export async function CanonicalMarketPreview({ locale, limit = 4 }: { locale: st
     </section>
   </div>;
 }
-
 export async function CanonicalMarketResults({ locale, query = '', filters = {}, sort = '', selectedRef = null }: {
   locale: string; query?: string; filters?: Readonly<{ crop?: string; region?: string; grade?: string }>;
   sort?: string; selectedRef?: string | null;
@@ -141,7 +136,6 @@ export async function CanonicalMarketResults({ locale, query = '', filters = {},
     <MarketAside lot={selected} locale={lang} context={context} authority={market} />
   </div>;
 }
-
 export async function CanonicalPublicLotView({ locale, lotRef, context = publicMarketContext() }: {
   locale: string; lotRef: unknown; context?: PublicMarketContext;
 }) {
@@ -154,30 +148,22 @@ export async function CanonicalPublicLotView({ locale, lotRef, context = publicM
   if (!market.available) return <PublicLotUnavailableView locale={lang} kind='unavailable' context={context} lotRef={reference} />;
   const lot = findPublicLot(market.items, lotRef);
   if (!lot) return <PublicLotUnavailableView locale={lang} kind='notPublished' context={context} />;
-  const applicationContext = publicMarketContext({ ...context, crop: cropForCulture(lot.culture) || context.crop });
   const now = Date.now();
   return <div data-testid='canonical-public-lot-view'>
     <nav className='pc-cp-lot-breadcrumb' aria-label={lang === 'ru' ? 'Путь к предложению' : lang === 'en' ? 'Offer path' : '供求信息路径'}>
       <a href={`/platform-v7?lang=${lang}`}>{lang === 'ru' ? 'Главная' : lang === 'en' ? 'Home' : '首页'}</a><span aria-hidden='true'>→</span>
-      <a href={marketHref(lang, context)}>{copy.back}</a><span aria-hidden='true'>→</span>
-      <strong>{cultureLabel(lot.culture, lang)}{lot.grade ? `, ${lot.grade}` : ''}</strong>
+      <a href={marketHref(lang, context)}>{copy.back}</a><span aria-hidden='true'>→</span><strong>{cultureLabel(lot.culture, lang)}{lot.grade ? `, ${lot.grade}` : ''}</strong>
     </nav>
     <div className='pc-cp-lot-layout'>
-      <figure className='pc-cp-lot-image' data-crop={cropForCulture(lot.culture) || 'generic'}>
-        <CropPhoto crop={cropForCulture(lot.culture)} locale={lang} />
-        <figcaption>{copy.photo}</figcaption>
-      </figure>
+      <figure className='pc-cp-lot-image' data-crop={cropForCulture(lot.culture) || 'generic'}><CropPhoto crop={cropForCulture(lot.culture)} locale={lang} /><figcaption>{copy.photo}</figcaption></figure>
       <article className='pc-cp-card pc-cp-lot-summary'>
         <div><span className='pc-cp-chip'>{copy.selected}</span><h1>{cultureLabel(lot.culture, lang)}{lot.grade ? `, ${lot.grade}` : ''}</h1><p className='pc-cp-lead'><LockKeyhole size={15} aria-hidden='true' /> {copy.hidden}</p></div>
         <div className='pc-cp-lot-meta pc-cp-lot-meta--detail'>
-          <Metric label={copy.volume} value={formatVolume(lot.volumeTons, lang)} />
-          <Metric label={copy.price} value={formatPrice(lot.startPriceKopecksPerTon, lang)} />
-          <Metric label={copy.region} value={lot.region} />
-          <Metric label={copy.ends} value={<PublicMarketDeadline endsAt={lot.auctionEndsAt} initialNow={now} locale={lang} />} />
+          <Metric label={copy.volume} value={formatVolume(lot.volumeTons, lang)} /><Metric label={copy.price} value={formatPrice(lot.startPriceKopecksPerTon, lang)} /><Metric label={copy.region} value={lot.region} /><Metric label={copy.ends} value={<PublicMarketDeadline endsAt={lot.auctionEndsAt} initialNow={now} locale={lang} />} />
         </div>
         <p className='pc-cp-lot-disclosure'>{copy.declared}. {copy.quality}.</p>
         <div className='pc-cp-actions'>
-          <a className='pc-cp-button' href={marketApplicationHref(lang, 'buy', context, lot.publicRef, applicationContext.crop)}>{copy.access}<ArrowRight size={16} aria-hidden='true' /></a>
+          <a className='pc-cp-button' href={marketApplicationHref(lang, 'buy', context, lot.publicRef, cropForCulture(lot.culture))}>{copy.access}<ArrowRight size={16} aria-hidden='true' /></a>
           <a className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/login?lang=${lang}`}>{copy.details}</a>
         </div>
         <p className='pc-cp-lot-source'>{copy.source}{market.authority?.observedAt ? ` · ${formatObserved(market.authority.observedAt, lang)}` : ''}</p>
@@ -191,46 +177,33 @@ export async function CanonicalPublicLotView({ locale, lotRef, context = publicM
     </div>
   </div>;
 }
-
 function PublicLotUnavailableView({ locale, kind, context, lotRef }: {
   locale: CanonicalPublicLocale; kind: 'unavailable' | 'notPublished' | 'invalidLink'; context: PublicMarketContext; lotRef?: string;
 }) {
   const copy = COPY[locale];
   const title = kind === 'invalidLink' ? copy.invalidTitle : kind === 'notPublished' ? copy.missingTitle : copy.unavailableTitle;
   const description = kind === 'invalidLink' ? copy.invalidText : kind === 'notPublished' ? copy.missingText : copy.unavailableText;
-  return <div data-testid='canonical-public-lot-view' data-market-state={kind}>
-    <article className='pc-cp-card pc-cp-market-state'><h1>{title}</h1><p>{description}</p>
-      <div className='pc-cp-actions'>
-        {kind === 'unavailable' ? <a className='pc-cp-button' href={marketHref(locale, context, lotRef)}>{copy.retry}</a> : null}
-        <a className='pc-cp-button pc-cp-button--secondary' href={marketHref(locale, context)}>{copy.back}</a>
-      </div>
-    </article>
-  </div>;
+  return <div data-testid='canonical-public-lot-view' data-market-state={kind}><article className='pc-cp-card pc-cp-market-state'>
+    <div><h1>{title}</h1><p>{description}</p></div>
+    <div className='pc-cp-actions'>{kind === 'unavailable' ? <a className='pc-cp-button' href={marketHref(locale, context, lotRef)}>{copy.retry}</a> : null}<a className='pc-cp-button pc-cp-button--secondary' href={marketHref(locale, context)}>{copy.back}</a></div>
+  </article></div>;
 }
-
 function MarketCard({ lot, locale, context, selected = false }: { lot: PublicMarketLot; locale: CanonicalPublicLocale; context: PublicMarketContext; selected?: boolean }) {
   const copy = COPY[locale];
   const detailHref = marketHref(locale, context, lot.publicRef);
-  const applicationContext = publicMarketContext({ ...context, crop: cropForCulture(lot.culture) || context.crop });
   return <article className='pc-cp-card pc-cp-lot-card' data-selected={selected ? 'true' : undefined}>
     <div className='pc-cp-lot-media' data-crop={cropForCulture(lot.culture) || 'generic'}><CropPhoto crop={cropForCulture(lot.culture)} locale={locale} /><span className='pc-cp-lot-media-caption'>{copy.photo}</span></div>
     <div className='pc-cp-lot-body'>
       <div><span className='pc-cp-chip'><LockKeyhole size={12} aria-hidden='true' />{copy.hidden}</span><a className='pc-cp-lot-title' href={detailHref}>{cultureLabel(lot.culture, locale)}{lot.grade ? ` · ${lot.grade}` : ''}</a></div>
-      <div className='pc-cp-lot-meta'>
-        <Metric label={copy.volume} value={formatVolume(lot.volumeTons, locale)} />
-        <Metric label={copy.price} value={formatPrice(lot.startPriceKopecksPerTon, locale)} />
-        <Metric label={copy.region} value={lot.region} />
-        <Metric label={copy.ends} value={<PublicMarketDeadline endsAt={lot.auctionEndsAt} initialNow={Date.now()} locale={locale} />} />
-      </div>
+      <div className='pc-cp-lot-meta'><Metric label={copy.volume} value={formatVolume(lot.volumeTons, locale)} /><Metric label={copy.price} value={formatPrice(lot.startPriceKopecksPerTon, locale)} /><Metric label={copy.region} value={lot.region} /><Metric label={copy.ends} value={<PublicMarketDeadline endsAt={lot.auctionEndsAt} initialNow={Date.now()} locale={locale} />} /></div>
       <div className='pc-cp-lot-foot'><span><Info size={15} aria-hidden='true' />{copy.declared}</span></div>
       <div className='pc-cp-actions' data-testid='canonical-public-market-lot-actions'>
-        <a className='pc-cp-button' href={marketApplicationHref(locale, 'buy', context, lot.publicRef, applicationContext.crop)}>{copy.buy}<ArrowRight size={16} aria-hidden='true' /></a>
+        <a className='pc-cp-button' href={marketApplicationHref(locale, 'buy', context, lot.publicRef, cropForCulture(lot.culture))}>{copy.buy}<ArrowRight size={16} aria-hidden='true' /></a>
         <a className='pc-cp-button pc-cp-button--secondary' href={detailHref}>{locale === 'ru' ? 'Условия' : locale === 'en' ? 'Details' : '详情'}<ArrowRight size={16} aria-hidden='true' /></a>
       </div>
     </div>
   </article>;
 }
-
 function MarketAside({ lot, locale, context, authority }: { lot: PublicMarketLot; locale: CanonicalPublicLocale; context: PublicMarketContext; authority: PublicMarketReadResult }) {
   const copy = COPY[locale];
   return <aside className='pc-cp-card pc-cp-market-aside' aria-label={copy.selected}>
@@ -241,21 +214,17 @@ function MarketAside({ lot, locale, context, authority }: { lot: PublicMarketLot
     <p className='pc-cp-lot-source'>{copy.source}{authority.authority?.observedAt ? ` · ${formatObserved(authority.authority.observedAt, locale)}` : ''}</p>
   </aside>;
 }
-
 function MarketState({ locale, kind, context }: { locale: CanonicalPublicLocale; kind: 'empty' | 'unavailable' | 'noMatch'; context: PublicMarketContext }) {
   const copy = COPY[locale];
   const title = kind === 'empty' ? copy.emptyTitle : kind === 'unavailable' ? copy.unavailableTitle : copy.noMatchTitle;
   const description = kind === 'empty' ? copy.emptyText : kind === 'unavailable' ? copy.unavailableText : copy.noMatchText;
   const href = kind === 'unavailable' ? marketHref(locale, context) : kind === 'noMatch' ? marketHref(locale, publicMarketContext()) : marketApplicationHref(locale, 'sell', context);
   const label = kind === 'unavailable' ? copy.retry : kind === 'noMatch' ? copy.reset : copy.sell;
-  return <article className='pc-cp-card pc-cp-market-state' data-market-state={kind}>
-    <div><h3>{title}</h3><p>{description}</p></div><a className='pc-cp-button pc-cp-button--secondary' href={href}>{label}<ArrowRight size={16} aria-hidden='true' /></a>
-  </article>;
+  return <article className='pc-cp-card pc-cp-market-state' data-market-state={kind}><div><h3>{title}</h3><p>{description}</p></div><a className='pc-cp-button pc-cp-button--secondary' href={href}>{label}<ArrowRight size={16} aria-hidden='true' /></a></article>;
 }
-
 function CropPhoto({ crop, locale }: { crop: PublicCrop | ''; locale: CanonicalPublicLocale }) {
   if (!crop) return <div className='pc-cp-crop-photo pc-cp-crop-photo--missing'><PackageSearch size={32} aria-hidden='true' /><span>{COPY[locale].noPhoto}</span></div>;
-  return <img className='pc-cp-crop-photo' src={`/platform-v7/crops/${crop}-640.webp`} srcSet={`/platform-v7/crops/${crop}-320.webp 320w, /platform-v7/crops/${crop}-640.webp 640w, /platform-v7/crops/${crop}-960.webp 960w`} sizes='(max-width: 600px) calc(100vw - 40px), (max-width: 1000px) 45vw, 300px' width={640} height={400} loading='lazy' decoding='async' alt={CROP_LABELS[locale][crop]} />;
+  return <img className='pc-cp-crop-photo' src={`/platform-v7/crops/${crop}-640.webp`} srcSet={`/platform-v7/crops/${crop}-320.webp 320w, /platform-v7/crops/${crop}-640.webp 640w, /platform-v7/crops/${crop}-960.webp 960w`} sizes='(max-width: 600px) calc(100vw - 40px), (max-width: 1000px) 45vw, 300px' width={640} height={400} loading='lazy' decoding='async' fetchPriority='low' alt={CROP_LABELS[locale][crop]} />;
 }
 function Metric({ label, value }: { label: string; value: ReactNode }) { return <div><span>{label}</span><strong>{value}</strong></div>; }
 function Row({ label, value }: { label: string; value: ReactNode }) { return <div><dt>{label}</dt><dd>{value}</dd></div>; }
