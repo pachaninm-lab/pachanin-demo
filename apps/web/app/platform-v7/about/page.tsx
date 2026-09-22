@@ -73,9 +73,9 @@ export default async function AboutPage(){
  const locale=canonicalPublicLocale(await getLocale());const c=COPY[locale];
  return <main className='pc-canonical-public p7-about-page'>
   <CanonicalPublicHeader locale={locale} activePath='/platform-v7/about'/>
-  <section className='pc-cp-hero'>
+  <section className='pc-cp-hero' style={{minHeight:'auto'}}>
    <div className='pc-cp-container pc-cp-hero-grid'>
-    <div className='pc-cp-hero-copy'>
+    <div className='pc-cp-hero-copy' style={{minHeight:'auto'}}>
       <span className='pc-cp-eyebrow'>{c.eyebrow}</span><h1>{c.heading}</h1><p>{c.lead}</p>
       <div className='pc-cp-actions'><Link className='pc-cp-button' href={`/platform-v7/register?lang=${locale}`}>{c.register}<ArrowRight size={16} aria-hidden='true'/></Link><Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/how-it-works?lang=${locale}`}>{c.how}</Link></div>
       <p>{c.application}</p>
