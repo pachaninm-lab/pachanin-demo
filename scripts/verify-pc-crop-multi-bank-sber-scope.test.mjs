@@ -66,6 +66,8 @@ for (const marker of [
   'function isRuntimeNonBlankString',
   "typeof value === 'string' && value.trim().length > 0",
   '!isRuntimeNonBlankString(authority.capabilityCode)',
+  "authority.capabilityCode !== 'BANK'",
+  'SERVER_HELD_CAPABILITY_CODE_MISMATCH',
   "authority.maturity !== 'LIVE_ACCEPTED'",
   'authority.mayCarryRealTraffic !== true',
   'authority.productionEnvironmentConfirmed !== true',
