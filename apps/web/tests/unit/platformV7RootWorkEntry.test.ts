@@ -522,10 +522,12 @@ describe('canonical overview does not invent server progress', () => {
     });
   }
 
-  it('preserves the default public outline without using that default in a private Deal', () => {
+  it('keeps the default public outline neutral without using that default in a private Deal', () => {
     const result = markup(createElement(CanonicalDealSpine, { locale: 'ru' }));
     expect(result.querySelectorAll('[data-state="done"]')).toHaveLength(0);
-    expect(result.querySelectorAll('[data-state="current"]')).toHaveLength(1);
+    expect(result.querySelectorAll('[data-state="current"]')).toHaveLength(0);
+    expect(result.querySelectorAll('[data-state="unknown"]')).toHaveLength(7);
+    expect(result.querySelectorAll('[aria-current]')).toHaveLength(0);
     const workspaceSource = read('components/platform-v7/CanonicalDealWorkspace.tsx');
     expect(workspaceSource).toContain("<CanonicalDealSpine locale='ru' currentIndex={null}");
     expect(workspaceSource).toContain('state={null}');
