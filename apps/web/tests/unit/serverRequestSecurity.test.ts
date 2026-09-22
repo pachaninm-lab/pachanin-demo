@@ -3,6 +3,7 @@ import {
   assertCsrf,
   assertSameOriginIfPresent,
   resolveRequestTargetOrigin,
+  resolveSameOriginRedirectTarget,
 } from '../../lib/server-request-security';
 
 const TOKEN = 'a'.repeat(48);
@@ -229,5 +230,67 @@ describe('server request security target-origin resolution', () => {
 
     expect(resolveRequestTargetOrigin(req)).toBe('');
     expect(assertCsrf(req)).toEqual({ ok: false, reason: 'origin_mismatch' });
+  });
+});
+
+// A "to"/"next" query parameter is exactly the kind of request-supplied input an
+// open-redirect exploit steers. These routes previously trusted `raw.startsWith('/')`,
+// which a protocol-relative or backslash form defeats: both start with one slash and
+// both resolve to a foreign origin under the WHATWG URL algorithm every browser
+// implements. Every case here is the concrete shape such an exploit takes, checked
+// against the actual resolver rather than against the string prefix that let it
+// through before.
+describe('resolveSameOriginRedirectTarget', () => {
+  const BASE_URL = 'https://web.example/api/auth/demo';
+  const req = () => request({ url: BASE_URL });
+
+  it('keeps a same-origin path, including its query and fragment', () => {
+    const target = resolveSameOriginRedirectTarget('/lots?campaign=1#top', '/', req());
+    expect(target.toString()).toBe('https://web.example/lots?campaign=1#top');
+  });
+
+  it('falls back for a missing destination', () => {
+    const target = resolveSameOriginRedirectTarget(null, '/cabinet', req());
+    expect(target.toString()).toBe('https://web.example/cabinet');
+  });
+
+  it('falls back for an empty-string destination', () => {
+    const target = resolveSameOriginRedirectTarget('', '/cabinet', req());
+    expect(target.toString()).toBe('https://web.example/cabinet');
+  });
+
+  // The load-bearing case: a single leading slash is not evidence of a same-origin
+  // path. `//evil.com` is a protocol-relative network-path reference and resolves
+  // to https://evil.com under the same request.
+  it('rejects a protocol-relative destination and falls back', () => {
+    const target = resolveSameOriginRedirectTarget('//evil.example/steal', '/', req());
+    expect(target.toString()).toBe('https://web.example/');
+  });
+
+  // A backslash is normalized to a forward slash for special schemes (http, https)
+  // by the URL parser, so `/\evil.com` is the protocol-relative form in disguise.
+  it('rejects a backslash-prefixed destination and falls back', () => {
+    const target = resolveSameOriginRedirectTarget('/\\evil.example/steal', '/', req());
+    expect(target.toString()).toBe('https://web.example/');
+  });
+
+  it('rejects an absolute cross-origin destination and falls back', () => {
+    const target = resolveSameOriginRedirectTarget('https://evil.example/steal', '/', req());
+    expect(target.toString()).toBe('https://web.example/');
+  });
+
+  it('rejects a same-hostname destination on a different scheme and falls back', () => {
+    const target = resolveSameOriginRedirectTarget('http://web.example/lots', '/', req());
+    expect(target.toString()).toBe('https://web.example/');
+  });
+
+  it('rejects a non-http destination (opaque origin) and falls back', () => {
+    const target = resolveSameOriginRedirectTarget('javascript:alert(1)', '/', req());
+    expect(target.toString()).toBe('https://web.example/');
+  });
+
+  it('rejects an unparseable destination and falls back', () => {
+    const target = resolveSameOriginRedirectTarget('https://[::not-an-address', '/', req());
+    expect(target.toString()).toBe('https://web.example/');
   });
 });

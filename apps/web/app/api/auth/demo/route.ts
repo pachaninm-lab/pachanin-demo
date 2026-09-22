@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE, REFRESH_COOKIE, SESSION_COOKIE, CSRF_COOKIE, cookieSecurity, sessionMarkerCookie, csrfCookieSecurity } from '../../../../lib/auth-cookies';
-import { generateCsrfToken } from '../../../../lib/server-request-security';
+import { generateCsrfToken, resolveSameOriginRedirectTarget } from '../../../../lib/server-request-security';
 import { demoLoginAllowed } from '../../../../lib/platform-v7/demo-login-policy';
 
 function detectDemoRole(email: string): string {
@@ -28,15 +28,13 @@ export async function GET(request: NextRequest) {
   }
   const { searchParams } = request.nextUrl;
   const email = searchParams.get('email') || 'farmer@demo.ru';
-  const to = searchParams.get('to') || '/';
-
-  const destination = to.startsWith('/') ? to : '/';
+  const to = searchParams.get('to');
 
   const role = detectDemoRole(email);
   const exp = Math.floor(Date.now() / 1000) + 8 * 3600;
   const sessionValue = JSON.stringify({ role, exp, email });
 
-  const url = new URL(destination, request.url);
+  const url = resolveSameOriginRedirectTarget(to, '/', request);
   const res = NextResponse.redirect(url);
 
   res.cookies.set(SESSION_COOKIE, sessionValue, sessionMarkerCookie());
