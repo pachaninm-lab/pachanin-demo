@@ -542,3 +542,69 @@ test('public registration locale cycle preserves both existing query tokens', as
     await expectNoHorizontalOverflow(page);
   }
 });
+
+
+test.describe('public header intermediate-width collision guard', () => {
+  const widths = [980, 1024, 1055, 1100, 1280] as const;
+  const locales = ['ru', 'en', 'zh'] as const;
+
+  for (const locale of locales) {
+    for (const width of widths) {
+      test(`canonical public header switches before collision: ${locale} ${width}px`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 900 });
+        const response = await page.goto(`/platform-v7/about?lang=${locale}`, { waitUntil: 'load' });
+        expect(response?.ok()).toBe(true);
+
+        const header = page.locator('[data-public-site-header="canonical"]');
+        await expect(header).toHaveCount(1);
+        await expect(header).toBeVisible();
+
+        const nav = header.locator(':scope > .pc-site-nav');
+        const menu = header.locator(':scope > .pc-site-actions > details.pc-site-mobile-menu');
+        if (width <= 1100) {
+          await expect(nav).toBeHidden();
+          await expect(menu.locator('summary')).toBeVisible();
+        } else {
+          await expect(nav).toBeVisible();
+          await expect(menu.locator('summary')).toBeHidden();
+        }
+
+        const rectangles = await header.locator('a:visible,button:visible,summary:visible').evaluateAll((nodes) =>
+          nodes.map((node) => {
+            const rect = (node as HTMLElement).getBoundingClientRect();
+            return {
+              label: ((node.getAttribute('aria-label') || node.textContent || node.tagName).trim()).slice(0, 80),
+              left: rect.left,
+              right: rect.right,
+              top: rect.top,
+              bottom: rect.bottom,
+              width: rect.width,
+              height: rect.height,
+            };
+          })
+        );
+        expect(rectangles.length).toBeGreaterThan(0);
+        for (const rect of rectangles) {
+          expect(rect.width, `${locale} ${width} ${rect.label} width`).toBeGreaterThanOrEqual(44);
+          expect(rect.height, `${locale} ${width} ${rect.label} height`).toBeGreaterThanOrEqual(44);
+          expect(rect.left, `${locale} ${width} ${rect.label} left`).toBeGreaterThanOrEqual(-1);
+          expect(rect.right, `${locale} ${width} ${rect.label} right`).toBeLessThanOrEqual(width + 1);
+        }
+        for (let left = 0; left < rectangles.length; left += 1) {
+          for (let right = left + 1; right < rectangles.length; right += 1) {
+            const a = rectangles[left]!;
+            const b = rectangles[right]!;
+            const overlapX = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
+            const overlapY = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+            expect(overlapX * overlapY, `${locale} ${width}: ${a.label} overlaps ${b.label}`).toBeLessThanOrEqual(1);
+          }
+        }
+        const overflow = await page.evaluate(() => Math.max(
+          document.documentElement.scrollWidth - document.documentElement.clientWidth,
+          document.body.scrollWidth - document.body.clientWidth,
+        ));
+        expect(overflow, `${locale} ${width}: document overflow`).toBeLessThanOrEqual(1);
+      });
+    }
+  }
+});

@@ -56,7 +56,7 @@ export function PublicHeaderInteractions({ locale }: { locale: 'ru' | 'en' | 'zh
       if (language?.dataset.active === 'true') {
         event.preventDefault();
         returnTarget = language;
-        if (menu.contains(language) || window.matchMedia('(max-width:980px)').matches) {
+        if (menu.contains(language) || window.matchMedia('(max-width:1100px)').matches) {
           menu.open = true;
           window.cancelAnimationFrame(frame);
           frame = window.requestAnimationFrame(() => panel?.querySelector<HTMLElement>('.pc-site-mobile-locale .pc-site-locale-option:not([data-active="true"])')?.focus());
@@ -80,7 +80,7 @@ export function PublicHeaderInteractions({ locale }: { locale: 'ru' | 'en' | 'zh
     const onFocus = (event: FocusEvent) => {
       if (menu.open && event.target instanceof Node && !header.contains(event.target)) close(false);
     };
-    const onResize = () => { if (!window.matchMedia('(max-width:980px)').matches) close(false); };
+    const onResize = () => { if (!window.matchMedia('(max-width:1100px)').matches) close(false); };
     menu.addEventListener('toggle', sync);
     header.addEventListener('click', onClick);
     document.addEventListener('input', changed);
