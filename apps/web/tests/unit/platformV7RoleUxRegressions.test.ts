@@ -113,6 +113,15 @@ describe('platform-v7 role UX regressions', () => {
       expect(sellerPage).toContain('/platform-v7/seller/lots');
       expect(sellerPage).toContain('/platform-v7/seller/matches');
     });
+
+    it('uses canonical snapshots and removes the old static seller deal story', () => {
+      expect(sellerPage).toContain('getDealsSnapshot');
+      expect(sellerPage).toContain('getDisputesSnapshot');
+      expect(sellerPage).toContain("dealCount === null ? 'UNKNOWN'");
+      for (const literal of ['LOT-2403', 'LOT-2405', 'DL-9106', '9_648_000', '9,65 млн ₽', '16 120 ₽/т']) {
+        expect(sellerPage).not.toContain(literal);
+      }
+    });
   });
 
   describe('elevator quality wording stays pilot-safe', () => {
