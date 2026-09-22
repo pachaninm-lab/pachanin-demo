@@ -1,9 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createElement, isValidElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { getLocale } from 'next-intl/server';
 import RegisterPage from '../../app/platform-v7/register/page';
+import TrustPage from '../../app/platform-v7/trust/page';
 import { RegisterFormClientPublic } from '../../app/platform-v7/register/RegisterFormClientPublic';
 import {
   CanonicalBottomNav,
@@ -12,6 +14,11 @@ import {
   CanonicalStateLens,
   canonicalPublicNavigationPath,
 } from '../../components/platform-v7/PublicCanonicalPrimitives';
+
+vi.mock('next-intl/server', async (importOriginal) => ({
+  ...await importOriginal<typeof import('next-intl/server')>(),
+  getLocale: vi.fn().mockResolvedValue('ru'),
+}));
 
 const root = path.resolve(process.cwd(), '../..');
 const read = (relativePath: string) => fs.readFileSync(path.join(root, relativePath), 'utf8');
@@ -312,5 +319,51 @@ describe('public application navigation and explanatory Deal states', () => {
     for (const text of ['currentIndex={4}', "?'В работе'", 'production-данных', 'серверного контекста', 'финансовое событие на клиенте']) {
       expect(source).not.toContain(text);
     }
+  });
+});
+
+describe('public Trust explains checks without claiming they have happened', () => {
+  const copy = {
+    ru: { heading: 'Понятно, что согласовано и кто отвечает', application: 'Подать заявку' },
+    en: { heading: 'Know what is agreed and who is responsible', application: 'Apply for access' },
+    zh: { heading: '了解已约定的事项及责任分工', application: '申请接入' },
+  } as const;
+
+  for (const locale of ['ru', 'en', 'zh'] as const) {
+    it(`${locale}: renders approved wording, an application link and six neutral checks`, async () => {
+      vi.mocked(getLocale).mockResolvedValue(locale);
+      try {
+        const all = elements(await TrustPage());
+        expect(all.filter((node) => node.type === 'h1').map((node) => node.props.children)).toEqual([copy[locale].heading]);
+        const application = all.find((node) => node.props.href === `/platform-v7/register?lang=${locale}`);
+        expect(application).toBeDefined();
+        expect(application!.props.children).toContain(copy[locale].application);
+        const checklist = all.find((node) => node.props['data-testid'] === 'public-trust-checklist');
+        expect(checklist).toBeDefined();
+        const items = elements(checklist).filter((node) => node.props.role === 'listitem');
+        expect(items).toHaveLength(6);
+        for (const item of items) {
+          expect(item.props['data-state']).toBe('unknown');
+          expect(item.props['aria-current']).toBeUndefined();
+        }
+        expect(elements(checklist).filter((node) => node.type === 'button' || node.type === 'a')).toHaveLength(0);
+        expect(checklist!.props.style.gridTemplateColumns).toBe('repeat(auto-fit,minmax(min(100%,140px),1fr))');
+        expect(all.filter((node) => node.props.className === 'pc-cp-card pc-cp-trust-pillar')).toHaveLength(4);
+        expect(all.find((node) => node.type === CanonicalPublicHeader)?.props.activePath).toBe('/platform-v7/trust');
+        expect(all.find((node) => node.type === CanonicalBottomNav)?.props.active).toBe('/platform-v7/trust');
+      } finally {
+        vi.mocked(getLocale).mockResolvedValue('ru');
+      }
+    });
+  }
+
+  it('retains the shared one-column mobile Trust rule and the permission and settlement boundaries', () => {
+    const css = read('apps/web/styles/platform-v7-canonical-public-v1.css');
+    expect(css).toContain('.pc-cp-page-trust .pc-cp-trust-pillars{grid-template-columns:1fr!important}');
+    const source = read('apps/web/app/platform-v7/trust/page.tsx');
+    expect(source).toContain('Статус расчёта меняется только по подтверждённым событиям.');
+    expect(source).toContain('Доступ появляется только после проверки роли, организации и полномочий.');
+    expect(source).not.toContain("data-state={i===5?'current':'done'}");
+    expect(source).not.toContain("<span className='pc-cp-eyebrow'>{c.faq}</span>");
   });
 });
