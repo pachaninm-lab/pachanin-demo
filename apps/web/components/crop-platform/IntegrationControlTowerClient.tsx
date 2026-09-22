@@ -66,6 +66,7 @@ type Copy = Readonly<{
   freshnessBoundary: string;
   capabilities: string;
   capabilitiesBoundary: string;
+  noCapabilities: string;
   regulatoryApplicability: string;
   regulatoryBoundary: string;
   eventFinalityBoundary: string;
@@ -125,6 +126,7 @@ const COPY: Record<IntegrationControlTowerLocale, Copy> = {
     freshnessBoundary: 'Это время последнего integration fact, зафиксированного платформой. Оно не подтверждает, что данные во внешней государственной системе актуальны сейчас.',
     capabilities: 'Возможности по данным сервера',
     capabilitiesBoundary: 'Список capabilities передан сервером. Он не доказывает наличие credentials, активного binding или live-соединения с провайдером.',
+    noCapabilities: 'Сервер не сообщил ни одной возможности.',
     regulatoryApplicability: 'Применимость к сделке',
     regulatoryBoundary: 'UNKNOWN / NOT EXPOSED: текущий read contract не передаёт per-Deal applicability, rule/version/source/evidence или blocking stage. Клиент не выводит их из наличия системы, capabilities, ACK или статуса адаптера.',
     eventFinalityBoundary: 'ACK провайдера или HTTP 2xx — только транспортное/провайдерское подтверждение. Бизнес-принятие фиксируется отдельно; отсутствие такого факта не превращается в success/finality.',
@@ -133,7 +135,7 @@ const COPY: Record<IntegrationControlTowerLocale, Copy> = {
     quarantine: 'Карантин',
     dead: 'Dead',
     conflicts: 'Конфликты',
-    lastSuccess: 'Последний успех',
+    lastSuccess: 'Последнее обработанное событие',
     lastError: 'Последняя ошибка',
     reconciliation: 'Сверка',
     environment: 'Контур',
@@ -172,11 +174,12 @@ const COPY: Record<IntegrationControlTowerLocale, Copy> = {
     freshnessBoundary: 'This is the time of the latest integration fact held by the platform. It does not prove that the authoritative external government source is current now.',
     capabilities: 'Server-provided capabilities',
     capabilitiesBoundary: 'Capabilities are supplied by the server. They do not prove credentials, an active binding or live provider connectivity.',
+    noCapabilities: 'The server reported no capabilities.',
     regulatoryApplicability: 'Deal applicability',
     regulatoryBoundary: 'UNKNOWN / NOT EXPOSED: the current read contract does not expose per-Deal applicability, rule/version/source/evidence or blocking stage. The client does not infer them from system presence, capabilities, ACK or adapter status.',
     eventFinalityBoundary: 'Provider ACK or HTTP 2xx is only transport/provider acknowledgement. Business acceptance is recorded separately; missing business evidence is never promoted to success/finality.',
     inbox: 'Inbox', retries: 'Retry', quarantine: 'Quarantine', dead: 'Dead', conflicts: 'Conflicts',
-    lastSuccess: 'Last success', lastError: 'Last error', reconciliation: 'Reconciliation', environment: 'Environment',
+    lastSuccess: 'Last processed event', lastError: 'Last error', reconciliation: 'Reconciliation', environment: 'Environment',
     versions: 'Schema / mapping versions', recentEvents: 'Recent events', noEvents: 'No events found.', event: 'Event', received: 'Received',
     attempts: 'Attempts', providerAck: 'Provider ACK', businessAcceptance: 'Business acceptance', notAvailable: 'none',
     notRecorded: 'UNKNOWN / NOT RECORDED', notExposed: 'UNKNOWN / NOT EXPOSED',
@@ -197,10 +200,11 @@ const COPY: Record<IntegrationControlTowerLocale, Copy> = {
     freshnessBoundary: '这是平台持有的最新集成事实时间，不证明外部政府权威数据此刻仍为最新。',
     capabilities: '服务器提供的能力',
     capabilitiesBoundary: '能力列表由服务器提供，但不证明凭证、有效绑定或与提供方的实时连接已经存在。',
+    noCapabilities: '服务器未报告任何能力。',
     regulatoryApplicability: '交易适用性',
     regulatoryBoundary: 'UNKNOWN / NOT EXPOSED：当前读取契约未提供逐交易 applicability、rule/version/source/evidence 或 blocking stage。客户端不会根据系统存在、capabilities、ACK 或适配器状态自行推断。',
     eventFinalityBoundary: '提供方 ACK 或 HTTP 2xx 仅表示传输/提供方确认。业务接受单独记录；缺少业务证据时绝不提升为 success/finality。',
-    inbox: '队列', retries: '重试', quarantine: '隔离', dead: '死信', conflicts: '冲突', lastSuccess: '最近成功',
+    inbox: '队列', retries: '重试', quarantine: '隔离', dead: '死信', conflicts: '冲突', lastSuccess: '最近处理的事件',
     lastError: '最近错误', reconciliation: '核对', environment: '环境', versions: 'Schema / mapping 版本', recentEvents: '最近事件', noEvents: '未找到事件。',
     event: '事件', received: '接收时间', attempts: '尝试次数', providerAck: '提供方 ACK', businessAcceptance: '业务接受', notAvailable: '无',
     notRecorded: 'UNKNOWN / 未记录', notExposed: 'UNKNOWN / NOT EXPOSED',
@@ -544,7 +548,7 @@ export function IntegrationControlTowerClient({
               </InlineNotice>
               <div data-capabilities-authority='server-provided-non-live-proof'>
                 <InlineNotice tone='neutral' title={copy.capabilities} icon={<ShieldCheck size={18} />}>
-                  {copy.capabilitiesBoundary} {selected.capabilities.length > 0 ? selected.capabilities.join(' · ') : copy.notExposed}
+                  {copy.capabilitiesBoundary} {selected.capabilities.length > 0 ? selected.capabilities.join(' · ') : copy.noCapabilities}
                 </InlineNotice>
               </div>
               <div data-regulatory-applicability='UNKNOWN_NOT_EXPOSED'>
