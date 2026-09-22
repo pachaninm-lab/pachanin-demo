@@ -1,4 +1,5 @@
 import {
+  isBankCapability,
   supportsBankCapability,
   type BankCapability,
 } from '../../../../../packages/domain-core/src/bank-capability';
@@ -40,6 +41,11 @@ export type BankRouteDecision =
       reason: string;
     }>;
 
+function isRuntimeCapabilitySet(values: unknown): values is readonly BankCapability[] {
+  return Array.isArray(values)
+    && values.every((value) => typeof value === 'string' && isBankCapability(value));
+}
+
 export class BankCapabilityRouter {
   private readonly byProvider = new Map<BankProviderFamily, BankReferenceAdapter>();
 
@@ -70,6 +76,22 @@ export class BankCapabilityRouter {
         status: 'UNAVAILABLE',
         adapter: null,
         reason: 'NO_ADAPTER_FOR_SERVER_HELD_PROVIDER',
+      };
+    }
+
+    if (!isRuntimeCapabilitySet(authority.authorizedBankCapabilities)) {
+      return {
+        status: 'CONTRADICTORY',
+        adapter,
+        reason: 'INVALID_SERVER_HELD_CAPABILITY_SET',
+      };
+    }
+
+    if (!isRuntimeCapabilitySet(adapter.capabilities)) {
+      return {
+        status: 'UNAVAILABLE',
+        adapter,
+        reason: 'INVALID_ADAPTER_CAPABILITY_SET',
       };
     }
 
