@@ -47,9 +47,9 @@ export default async function CapabilitiesPage(){
  const locale=canonicalPublicLocale(await getLocale()); const c=COPY[locale];
  return <main className='pc-canonical-public pc-cp-page-capabilities'>
   <CanonicalPublicHeader locale={locale} activePath='/platform-v7/capabilities'/>
-  <section className='pc-cp-hero'>
+  <section className='pc-cp-hero' style={{minHeight:'auto'}}>
    <div className='pc-cp-container pc-cp-hero-grid'>
-    <div className='pc-cp-hero-copy'><span className='pc-cp-eyebrow'>{c.e}</span><h1>{c.t}</h1><p>{c.p}</p><div className='pc-cp-actions'><Link className='pc-cp-button' href={`/platform-v7?lang=${locale}#participants`}>{c.cta}<ArrowRight size={16} aria-hidden='true'/></Link><Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/how-it-works?lang=${locale}`}>{c.more}</Link></div></div>
+    <div className='pc-cp-hero-copy' style={{minHeight:'auto'}}><span className='pc-cp-eyebrow'>{c.e}</span><h1>{c.t}</h1><p>{c.p}</p><div className='pc-cp-actions'><Link className='pc-cp-button' href={`/platform-v7?lang=${locale}#participants`}>{c.cta}<ArrowRight size={16} aria-hidden='true'/></Link><Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/how-it-works?lang=${locale}`}>{c.more}</Link></div></div>
     <div className='pc-cp-card pc-cp-state-shell'><CanonicalDealSpine locale={locale} currentIndex={null}/></div>
    </div>
   </section>
