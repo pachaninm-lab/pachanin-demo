@@ -74,6 +74,41 @@ describe('Platform V7 Integration Control Tower vertical', () => {
     expect(client).toContain("aria-modal='true'");
   });
 
+  it('keeps FGIS freshness, capabilities, applicability and finality truth boundaries explicit in RU EN ZH', () => {
+    const client = read('components/crop-platform/IntegrationControlTowerClient.tsx');
+
+    expect(client).toContain("freshness: 'Последний серверный факт'");
+    expect(client).toContain("freshness: 'Latest server-held fact'");
+    expect(client).toContain("freshness: '服务器持有的最新事实'");
+    expect(client).toContain('does not prove that the authoritative external government source is current now');
+    expect(client).toContain('не подтверждает, что данные во внешней государственной системе актуальны сейчас');
+
+    expect(client).toContain("data-capabilities-authority='server-provided-non-live-proof'");
+    expect(client).toContain('They do not prove credentials, an active binding or live provider connectivity.');
+    expect(client).toContain('не доказывает наличие credentials, активного binding или live-соединения с провайдером');
+
+    expect(client).toContain("data-regulatory-applicability='UNKNOWN_NOT_EXPOSED'");
+    expect(client).toContain('UNKNOWN / NOT EXPOSED');
+    expect(client).toContain('per-Deal applicability, rule/version/source/evidence or blocking stage');
+    expect(client).toContain('客户端不会根据系统存在、capabilities、ACK 或适配器状态自行推断');
+
+    expect(client).toContain('Provider ACK or HTTP 2xx is only transport/provider acknowledgement.');
+    expect(client).toContain('ACK провайдера или HTTP 2xx — только транспортное/провайдерское подтверждение.');
+    expect(client).toContain('业务接受单独记录');
+    expect(client).toContain("notRecorded: 'UNKNOWN / NOT RECORDED'");
+    expect(client).toContain('formatDate(event.providerAcknowledgedAt, locale, copy.notRecorded)');
+    expect(client).toContain('formatDate(event.businessAcceptedAt, locale, copy.notRecorded)');
+  });
+
+  it('does not infer legal applicability or business finality from capabilities or acknowledgement', () => {
+    const client = read('components/crop-platform/IntegrationControlTowerClient.tsx');
+    expect(client).toContain('selected.capabilities.join');
+    expect(client).not.toContain('selected.capabilities.includes');
+    expect(client).not.toMatch(/providerAcknowledgedAt\s*\?\s*[^:\n]*(success|final|accepted)/iu);
+    expect(client).not.toMatch(/capabilities\.(includes|some).*NOT_APPLICABLE/iu);
+    expect(client).not.toContain("data-regulatory-applicability='NOT_APPLICABLE'");
+  });
+
   it('limits cabinet access to operator, compliance and executive', () => {
     expect(PLATFORM_V7_INTEGRATIONS_ROUTE).toBe('/platform-v7/integrations');
     expect(canRoleAccessCabinet('operator', PLATFORM_V7_INTEGRATIONS_ROUTE)).toBe(true);
