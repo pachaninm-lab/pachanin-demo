@@ -41,6 +41,10 @@ for (const marker of [
   'buildReceiptCandidate',
   'currency: normalized.currency',
   'sourceVersion: normalized.sourceVersion',
+  'function isRuntimeHttp2xx',
+  "typeof value === 'number'",
+  'Number.isInteger(value)',
+  "typeof value !== 'string' || !value.trim()",
 ]) assert.ok(port.includes(marker), 'missing adapter-port boundary ' + marker);
 
 for (const marker of [
