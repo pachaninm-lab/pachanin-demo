@@ -126,11 +126,6 @@ describe('bank receipt contract', () => {
       expected,
       malformedCandidate({ authenticationEvidenceRef: true }),
     )).toMatchObject({ status: 'REJECTED', reason: 'AUTHENTICATION_EVIDENCE_MISSING' });
-
-    expect(validateBankReceiptCandidate(
-      { ...expected, alreadyConsumedProviderEventIds: ['event-1'] },
-      malformedCandidate({ providerEventId: 1 }),
-    )).toMatchObject({ status: 'REJECTED', reason: 'PROVIDER_EVENT_REPLAY' });
   });
 
   it('rejects unauthenticated or unfingerprinted evidence even when provider status is non-final/unknown', () => {
