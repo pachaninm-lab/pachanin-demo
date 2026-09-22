@@ -177,6 +177,19 @@ describe('bank capability router', () => {
     });
   });
 
+  it('fails closed when adapter live-transport readiness is truthy but not boolean true', () => {
+    const malformedAdapter = {
+      ...liveTestAdapter('TEST_DOUBLE_A', ['DIRECT_PAYMENT']),
+      liveTransportImplemented: 'true',
+    } as unknown as BankReferenceAdapter;
+    const testRouter = new BankCapabilityRouter([malformedAdapter]);
+
+    expect(testRouter.route(authority('TEST_DOUBLE_A'), 'DIRECT_PAYMENT')).toMatchObject({
+      status: 'NOT_ACTIVATED',
+      reason: 'REFERENCE_ADAPTER_HAS_NO_LIVE_TRANSPORT',
+    });
+  });
+
   it('requires current credential and callback-trust evidence before live routing', () => {
     expect(router.route(
       authority('T_BANK', { credentialReadiness: 'MISSING_OR_UNKNOWN' }),
