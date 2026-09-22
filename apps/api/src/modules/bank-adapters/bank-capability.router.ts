@@ -46,6 +46,10 @@ function isRuntimeCapabilitySet(values: unknown): values is readonly BankCapabil
     && values.every((value) => typeof value === 'string' && isBankCapability(value));
 }
 
+function isRuntimeNonBlankString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
 export class BankCapabilityRouter {
   private readonly byProvider = new Map<BankProviderFamily, BankReferenceAdapter>();
 
@@ -113,13 +117,13 @@ export class BankCapabilityRouter {
 
     if (
       authority.evidenceMode !== 'SERVER_HELD'
-      || !authority.integrationBindingId.trim()
-      || !authority.providerId.trim()
-      || !authority.providerCapabilityId.trim()
-      || !authority.capabilityCode.trim()
-      || !authority.bindingKey.trim()
-      || !authority.bindingVersion.trim()
-      || !authority.configurationVersion.trim()
+      || !isRuntimeNonBlankString(authority.integrationBindingId)
+      || !isRuntimeNonBlankString(authority.providerId)
+      || !isRuntimeNonBlankString(authority.providerCapabilityId)
+      || !isRuntimeNonBlankString(authority.capabilityCode)
+      || !isRuntimeNonBlankString(authority.bindingKey)
+      || !isRuntimeNonBlankString(authority.bindingVersion)
+      || !isRuntimeNonBlankString(authority.configurationVersion)
     ) {
       return {
         status: 'CONTRADICTORY',
