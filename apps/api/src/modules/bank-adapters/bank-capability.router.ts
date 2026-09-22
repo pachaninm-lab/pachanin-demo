@@ -132,6 +132,17 @@ export class BankCapabilityRouter {
       };
     }
 
+    // A server-held binding for another integration capability must never be
+    // reusable as bank-routing authority merely because it carries a bank-like
+    // capability list. Keep the integration-capability identity exact.
+    if (authority.capabilityCode !== 'BANK') {
+      return {
+        status: 'CONTRADICTORY',
+        adapter,
+        reason: 'SERVER_HELD_CAPABILITY_CODE_MISMATCH',
+      };
+    }
+
     if (authority.maturity !== 'LIVE_ACCEPTED' || authority.mayCarryRealTraffic !== true) {
       return {
         status: 'NOT_ACTIVATED',
