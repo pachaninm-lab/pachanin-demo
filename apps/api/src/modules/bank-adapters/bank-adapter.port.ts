@@ -116,6 +116,10 @@ function identifier(value: string, field: string): string {
   return normalized;
 }
 
+function runtimeStringOrNull(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
+}
+
 export function normalizeBankOperationRequest(
   input: BankAdapterOperationRequest,
 ): BankAdapterOperationRequest {
@@ -186,7 +190,8 @@ export function mapReferenceDispatch(
   response: BankProviderResponse,
   explicitRejectStatuses: readonly string[] = [],
 ): BankDispatchMapping {
-  const status = response.rawStatus?.trim().toUpperCase() ?? null;
+  const rawStatus = runtimeStringOrNull(response.rawStatus);
+  const status = rawStatus?.trim().toUpperCase() ?? null;
   const rejectSet = new Set(explicitRejectStatuses.map((value) => value.trim().toUpperCase()));
   // Provider responses are runtime data. Do not let JavaScript numeric coercion
   // turn malformed values such as string "201" into a transport acknowledgement.
@@ -209,7 +214,7 @@ export function mapReferenceDispatch(
     acknowledgement,
     providerOperationId: response.providerOperationId,
     idempotencyKey: response.idempotencyKey,
-    rawStatus: response.rawStatus,
+    rawStatus,
     observedAt: normalizeObservedAt(response.observedAt),
     canonicalFinality: 'NOT_DECIDED_HERE',
     retryPolicy: 'RECONCILE_BEFORE_RETRY',
@@ -234,7 +239,7 @@ export function buildReceiptCandidate(
     amountMinor: response.amountMinor,
     currency: response.currency,
     evidenceState,
-    rawStatus: response.rawStatus,
+    rawStatus: runtimeStringOrNull(response.rawStatus),
     observedAt: normalizeObservedAt(response.observedAt),
     canonicalFinality: 'NOT_DECIDED_HERE',
   };
