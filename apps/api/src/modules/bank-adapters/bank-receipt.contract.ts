@@ -72,6 +72,26 @@ function evidenceIdentity(value: unknown): string | null {
   return value.trim() || null;
 }
 
+function canonicalInternalIdentity(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim();
+  return normalized
+    && normalized === value
+    && normalized.length <= 240
+    && /^[A-Za-z0-9:_.-]+$/.test(normalized)
+    ? normalized
+    : null;
+}
+
+function expectedProviderOperationIdentity(value: unknown): string | null | undefined {
+  if (value === null) return null;
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim();
+  return normalized && normalized === value && normalized.length <= 240
+    ? normalized
+    : undefined;
+}
+
 function isBankProviderFamily(value: unknown): value is RealBankProviderFamily {
   return typeof value === 'string'
     && (REAL_BANK_PROVIDER_FAMILIES as readonly string[]).includes(value);
@@ -116,23 +136,26 @@ export function validateBankReceiptCandidate(
   if (candidate.providerFamily !== expected.providerFamily) {
     return rejected('PROVIDER_MISMATCH');
   }
-  if (
-    typeof expected.operationId !== 'string'
-    || !expected.operationId.trim()
-    || candidate.operationId !== expected.operationId
-  ) {
+  const expectedOperationId = canonicalInternalIdentity(expected.operationId);
+  const candidateOperationId = canonicalInternalIdentity(candidate.operationId);
+  if (!expectedOperationId || candidateOperationId !== expectedOperationId) {
     return rejected('OPERATION_MISMATCH');
   }
-  if (
-    typeof expected.idempotencyKey !== 'string'
-    || !expected.idempotencyKey.trim()
-    || candidate.idempotencyKey !== expected.idempotencyKey
-  ) {
+
+  const expectedIdempotencyKey = canonicalInternalIdentity(expected.idempotencyKey);
+  const candidateIdempotencyKey = canonicalInternalIdentity(candidate.idempotencyKey);
+  if (!expectedIdempotencyKey || candidateIdempotencyKey !== expectedIdempotencyKey) {
     return rejected('IDEMPOTENCY_MISMATCH');
   }
+
+  // null means the provider operation identity is genuinely not yet known.
+  // Empty/malformed server-held values must not be treated as equivalent to null,
+  // because that would silently disable provider-operation correlation.
+  const expectedProviderOperationId = expectedProviderOperationIdentity(expected.providerOperationId);
   if (
-    expected.providerOperationId
-    && candidate.providerOperationId !== expected.providerOperationId
+    expectedProviderOperationId === undefined
+    || (expectedProviderOperationId !== null
+      && candidate.providerOperationId !== expectedProviderOperationId)
   ) {
     return rejected('PROVIDER_OPERATION_MISMATCH');
   }
