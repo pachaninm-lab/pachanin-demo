@@ -2,7 +2,6 @@
 
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
-import { PlatformV7TranslationRuntimeBridge } from '@/components/platform-v7/PlatformV7TranslationRuntimeBridge';
 import { PublicAssistantMobileLayoutAuthority } from '@/components/platform-v7/PublicAssistantMobileLayoutAuthority';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import '@/styles/platform-v7-public-cjk-runtime.css';
@@ -16,6 +15,13 @@ export type HydrationSafeChatSupportProps = {
 };
 
 type ContextualSupportProps = Omit<HydrationSafeChatSupportProps, 'legacyPublicPolish'>;
+
+// Locale-native pages do not use the legacy DOM translator. Keep its embedded
+// dictionaries out of their initial client graph, not merely out of the JSX.
+const PlatformV7TranslationRuntimeBridge = dynamic(
+  () => import('@/components/platform-v7/PlatformV7TranslationRuntimeBridge').then((module) => module.PlatformV7TranslationRuntimeBridge),
+  { ssr: false, loading: () => null },
+);
 
 const ContextualSupportOrAssistant = dynamic<ContextualSupportProps>(
   () => import('@/components/platform-v7/ContextualSupportOrAssistant').then((module) => module.ContextualSupportOrAssistant),
