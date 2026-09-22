@@ -12,9 +12,9 @@ export type ExpectedBankOperationEvidence = Readonly<{
   authenticationAuthorityRef: string;
   amountMinor: string;
   currency: string;
-  alreadyConsumedProviderEventIds?: readonly string[];
-  alreadyConsumedPayloadFingerprints?: readonly string[];
-  alreadyConsumedExternalReceiptIds?: readonly string[];
+  alreadyConsumedProviderEventIds: readonly string[];
+  alreadyConsumedPayloadFingerprints: readonly string[];
+  alreadyConsumedExternalReceiptIds: readonly string[];
 }>;
 
 export type BankReceiptValidation =
@@ -79,10 +79,9 @@ function isBankProviderFamily(value: unknown): value is BankProviderFamily {
 
 function isRuntimeConsumedEvidenceHistory(
   values: unknown,
-): values is readonly string[] | undefined {
-  return values === undefined
-    || (Array.isArray(values)
-      && values.every((value) => typeof value === 'string' && value.trim().length > 0));
+): values is readonly string[] {
+  return Array.isArray(values)
+    && values.every((value) => typeof value === 'string' && value.trim().length > 0);
 }
 
 function consumedEvidenceIncludes(
@@ -171,6 +170,9 @@ export function validateBankReceiptCandidate(
     return rejected('INVALID_OBSERVED_AT');
   }
 
+  // Replay protection is a required durable input, not an optional hint. If the
+  // caller cannot supply all consumed-evidence sets, receipt matching must fail
+  // closed rather than silently accepting evidence with unknown replay history.
   if (
     !isRuntimeConsumedEvidenceHistory(expected.alreadyConsumedProviderEventIds)
     || !isRuntimeConsumedEvidenceHistory(expected.alreadyConsumedPayloadFingerprints)
