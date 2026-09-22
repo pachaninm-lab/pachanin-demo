@@ -33,6 +33,11 @@ const candidate = (overrides: Partial<BankReceiptCandidate> = {}): BankReceiptCa
   ...overrides,
 });
 
+const malformedCandidate = (overrides: Record<string, unknown>): BankReceiptCandidate => ({
+  ...candidate(),
+  ...overrides,
+} as unknown as BankReceiptCandidate);
+
 describe('bank receipt contract', () => {
   it('accepts exact authenticated success evidence only for reconciliation, never as canonical finality', () => {
     expect(validateBankReceiptCandidate(expected, candidate())).toEqual({
@@ -82,6 +87,18 @@ describe('bank receipt contract', () => {
       { ...expected, currency: '??' },
       candidate({ currency: '??' }),
     )).toMatchObject({ status: 'REJECTED', reason: 'CURRENCY_MISMATCH' });
+  });
+
+  it('rejects malformed runtime evidence state or canonical-finality claims', () => {
+    expect(validateBankReceiptCandidate(
+      expected,
+      malformedCandidate({ evidenceState: 'DELIVERED' }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'INVALID_EVIDENCE_STATE' });
+
+    expect(validateBankReceiptCandidate(
+      expected,
+      malformedCandidate({ canonicalFinality: 'FINAL' }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'INVALID_CANONICAL_FINALITY' });
   });
 
   it('rejects unauthenticated or unfingerprinted evidence even when provider status is non-final/unknown', () => {
