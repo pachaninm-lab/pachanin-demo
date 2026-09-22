@@ -1,11 +1,11 @@
 import {
-  BANK_PROVIDER_FAMILIES,
-  type BankProviderFamily,
+  REAL_BANK_PROVIDER_FAMILIES,
   type BankReceiptCandidate,
+  type RealBankProviderFamily,
 } from './bank-adapter.port';
 
 export type ExpectedBankOperationEvidence = Readonly<{
-  providerFamily: BankProviderFamily;
+  providerFamily: RealBankProviderFamily;
   operationId: string;
   idempotencyKey: string;
   providerOperationId: string | null;
@@ -72,9 +72,9 @@ function evidenceIdentity(value: unknown): string | null {
   return value.trim() || null;
 }
 
-function isBankProviderFamily(value: unknown): value is BankProviderFamily {
+function isBankProviderFamily(value: unknown): value is RealBankProviderFamily {
   return typeof value === 'string'
-    && (BANK_PROVIDER_FAMILIES as readonly string[]).includes(value);
+    && (REAL_BANK_PROVIDER_FAMILIES as readonly string[]).includes(value);
 }
 
 function isRuntimeConsumedEvidenceHistory(
