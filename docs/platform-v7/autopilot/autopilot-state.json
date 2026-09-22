@@ -1645,7 +1645,7 @@
     "fgis-regulatory-truth-ux-20260921": {
       "owner": "ACCOUNT_2_PRODUCT",
       "purpose": "Truthfulness-only Regulatory/FGIS Control Tower presentation correction using existing canonical read fields; no regulatory authority, applicability inference, external acceptance or provider activation.",
-      "authorityBaseExactMain": "3a8d7efe07097d78f70e6bba714f8daba7d1c1e2",
+      "authorityBaseExactMain": "46fcc9d10d5df0c35b92a5907133a85cbccf12ec",
       "implementationBranch": "fgis/regulatory-truth-ux-20260921",
       "allowedPaths": [
         "apps/web/components/crop-platform/IntegrationControlTowerClient.tsx",
