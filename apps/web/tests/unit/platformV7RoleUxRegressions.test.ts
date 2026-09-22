@@ -117,7 +117,8 @@ describe('platform-v7 role UX regressions', () => {
     it('uses canonical snapshots and removes the old static seller deal story', () => {
       expect(sellerPage).toContain('getDealsSnapshot');
       expect(sellerPage).toContain('getDisputesSnapshot');
-      expect(sellerPage).toContain("dealCount === null ? 'UNKNOWN'");
+      expect(sellerPage).toContain('dealRegistryComplete');
+      expect(sellerPage).toContain("? 'UNKNOWN'");
       for (const literal of ['LOT-2403', 'LOT-2405', 'DL-9106', '9_648_000', '9,65 млн ₽', '16 120 ₽/т']) {
         expect(sellerPage).not.toContain(literal);
       }
