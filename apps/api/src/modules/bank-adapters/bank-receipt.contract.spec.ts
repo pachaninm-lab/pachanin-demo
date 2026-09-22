@@ -143,6 +143,11 @@ describe('bank receipt contract', () => {
     )).toMatchObject({ status: 'REJECTED', reason: 'INVALID_PROVIDER_FAMILY' });
 
     expect(validateBankReceiptCandidate(
+      malformedExpected({ providerFamily: 'TEST_DOUBLE_A' }),
+      malformedCandidate({ providerFamily: 'TEST_DOUBLE_A' }),
+    )).toMatchObject({ status: 'REJECTED', reason: 'INVALID_PROVIDER_FAMILY' });
+
+    expect(validateBankReceiptCandidate(
       malformedExpected({ operationId: 42 }),
       malformedCandidate({ operationId: 42 }),
     )).toMatchObject({ status: 'REJECTED', reason: 'OPERATION_MISMATCH' });
