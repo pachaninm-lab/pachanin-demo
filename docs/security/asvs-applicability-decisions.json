@@ -1600,6 +1600,51 @@
       "note": "Cookies that carry a value not meant to be readable by client-side script (the session token in auth-session-response.ts, the MFA ticket in gekta-mfa-ticket.ts, the membership-selection cookie) are all set with httpOnly: true, and those values are only ever transferred via the Set-Cookie response header, never echoed into a response body or script. The one cookie that is deliberately client-readable, the CSRF token, is exactly the case this requirement is not about - it exists to be read by client JavaScript so it can be echoed back as a header (assessed under V3.5.1)."
     },
     {
+      "requirementId": "V3.3.5",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/modules/auth/opaque-token-authority.ts",
+        "apps/web/app/api/auth/mfa-step-up/start/route.ts",
+        "apps/web/lib/server/gekta-mfa-ticket.ts",
+        "repository-scan:all-18-cookie-set-call-sites"
+      ],
+      "conditions": [
+        {
+          "condition": "the shared opaque-credential factory backing seven cookie-issued token types uses fixed-length random bytes, not variable input",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/opaque-token-authority.ts"
+          ],
+          "patterns": [
+            "randombytes(18)",
+            "randombytes(32)"
+          ]
+        },
+        {
+          "condition": "the MFA step-up route rejects a challenge token outside an explicit length bound before it reaches a cookie",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/auth/mfa-step-up/start/route.ts"
+          ],
+          "patterns": [
+            "challengetoken.length < 40 || challengetoken.length > 512"
+          ]
+        },
+        {
+          "condition": "the Gekta email-verification ticket seal rejects input outside an explicit length bound before it reaches a cookie",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/server/gekta-mfa-ticket.ts"
+          ],
+          "patterns": [
+            "token.length < 32 || token.length > 1_024"
+          ]
+        }
+      ],
+      "note": "Traced every distinct cookie name the web BFF sets -- 14 names across 22 files -- to how its value is constructed, rather than sampled a few. All fall into a small number of bounded patterns: (1) a shared opaque-credential factory, issueCredential in opaque-token-authority.ts, backing REFRESH, MFA challenge, membership-selection, password-reset, MFA-recovery, invitation and email-verification tokens, all built from randomBytes(18) + '.' + randomBytes(32), fixed length regardless of any request content; (2) signed JWTs (ACCESS_COOKIE, CABINET_SESSION_COOKIE) whose claims are only short ids, a role from a closed set, and small numbers -- never free text; (3) randomBytes(24)-derived state values for the government-identity bridge (GOV_ID_STATE_COOKIE, GOV_ID_NONCE_COOKIE); (4) a small fixed-shape session object for the Gekta anonymous surface (GEKTA_ANONYMOUS_COOKIE): sid, a usage counter, an optional opaque pending-ticket string, a timestamp, and a small consent record -- confirmed against its type declaration, and the one place a client-supplied 'ticket' value is compared (completeAnswer) never writes that client value back into the cookie, only clears the existing small one on an exact match. Two of those patterns are not merely small by convention but explicitly bounded in code, which is what the three conditions check: the shared factory's fixed byte lengths, and the two places where a value that is not purely server-generated -- a client-echoed MFA step-up challenge, and the input to the Gekta email-ticket seal -- carries an explicit numeric ceiling (512 and 1024 characters) that rejects the request before any cookie is set. Every one of the 14 cookie values, summed with its name, base64url and signature overhead, resolves to at most a few hundred bytes -- nowhere near the 4096-byte limit. Scope stated rather than left implicit: this covers cookies the application itself sets. It does not cover a cookie set by infrastructure in front of the application (a load balancer or CDN session cookie), which is outside this repository the same way the Caddy edge is for other requirements."
+    },
+    {
       "requirementId": "V3.4.1",
       "applicability": "APPLICABLE",
       "status": "PASS",
