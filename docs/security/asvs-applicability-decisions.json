@@ -9992,6 +9992,105 @@
       "note": "Additional protections (sandboxing, encapsulation, containerization, network isolation) around parts of the application documented as risky or dangerous cannot be verified when no such documentation exists (V15.1.4, V15.1.5). This fails as a direct consequence, not an independent finding."
     },
     {
+      "requirementId": "V15.3.1",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/modules/auth/auth.service.ts",
+        "repository-scan:no-controller-touches-credential-fields"
+      ],
+      "conditions": [
+        {
+          "condition": "no HTTP controller anywhere in the API references a credential or MFA-secret field",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/health.controller.ts",
+            "apps/api/src/modules/accounting/accounting.controller.ts",
+            "apps/api/src/modules/admin/admin.controller.ts",
+            "apps/api/src/modules/ai-insights/ai-assistant.controller.ts",
+            "apps/api/src/modules/ai-insights/ai-insights.controller.ts",
+            "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts",
+            "apps/api/src/modules/analytics/analytics.controller.ts",
+            "apps/api/src/modules/anti-fraud/anti-fraud.controller.ts",
+            "apps/api/src/modules/arbitrator/arbitrator.controller.ts",
+            "apps/api/src/modules/auctions/auctions.controller.ts",
+            "apps/api/src/modules/auctions/public-auction-market.controller.ts",
+            "apps/api/src/modules/audit/audit.controller.ts",
+            "apps/api/src/modules/auth/auth.controller.ts",
+            "apps/api/src/modules/auth/gekta-registration.controller.ts",
+            "apps/api/src/modules/bank-reconciliation/bank-reconciliation.controller.ts",
+            "apps/api/src/modules/business-reputation/business-reputation.controller.ts",
+            "apps/api/src/modules/certificate-monitor/certificate-monitor.controller.ts",
+            "apps/api/src/modules/commercial-rules/commercial-rules.controller.ts",
+            "apps/api/src/modules/commodity-profiles/commodity-profiles.controller.ts",
+            "apps/api/src/modules/compliance/compliance.controller.ts",
+            "apps/api/src/modules/deals/deals.controller.ts",
+            "apps/api/src/modules/disputes/disputes.controller.ts",
+            "apps/api/src/modules/documents/documents.controller.ts",
+            "apps/api/src/modules/elevator/elevator.controller.ts",
+            "apps/api/src/modules/evidence-pack/evidence-pack.controller.ts",
+            "apps/api/src/modules/export-trade/export-trade.controller.ts",
+            "apps/api/src/modules/exports/exports.controller.ts",
+            "apps/api/src/modules/factoring/factoring.controller.ts",
+            "apps/api/src/modules/gekta/gekta-anonymous-admission.controller.ts",
+            "apps/api/src/modules/gekta/gekta.controller.ts",
+            "apps/api/src/modules/integration-events/integration-events.controller.ts",
+            "apps/api/src/modules/integrations/edo-webhook.controller.ts",
+            "apps/api/src/modules/integrations/integrations.controller.ts",
+            "apps/api/src/modules/inventory/inventory.controller.ts",
+            "apps/api/src/modules/kyc/kyc.controller.ts",
+            "apps/api/src/modules/labs/labs.controller.ts",
+            "apps/api/src/modules/logistics/logistics.controller.ts",
+            "apps/api/src/modules/lots/lots.controller.ts",
+            "apps/api/src/modules/notifications/notifications.controller.ts",
+            "apps/api/src/modules/organization-capabilities/organization-capabilities.controller.ts",
+            "apps/api/src/modules/organization-intake/organization-intake.controller.ts",
+            "apps/api/src/modules/organizations/organizations.controller.ts",
+            "apps/api/src/modules/partner-api/partner-api.controller.ts",
+            "apps/api/src/modules/railway/railway.controller.ts",
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.controller.ts",
+            "apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.controller.ts",
+            "apps/api/src/modules/role-eligibility/role-eligibility.controller.ts",
+            "apps/api/src/modules/route-planner/route-planner.controller.ts",
+            "apps/api/src/modules/runtime-snapshot/runtime-snapshot.controller.ts",
+            "apps/api/src/modules/saga/saga.controller.ts",
+            "apps/api/src/modules/search/search.controller.ts",
+            "apps/api/src/modules/service-marketplace/service-marketplace.controller.ts",
+            "apps/api/src/modules/service-providers/integration-bindings.controller.ts",
+            "apps/api/src/modules/service-providers/service-providers.controller.ts",
+            "apps/api/src/modules/settlement-engine/settlement-engine.controller.ts",
+            "apps/api/src/modules/staff-access/registration-cancellation.controller.ts",
+            "apps/api/src/modules/staff-access/staff-access.controller.ts",
+            "apps/api/src/modules/staff-access/staff-capabilities.controller.ts",
+            "apps/api/src/modules/staff-access/staff-workspace.controller.ts",
+            "apps/api/src/modules/storage/storage.controller.ts",
+            "apps/api/src/modules/support/support.controller.ts",
+            "apps/api/src/modules/tai-tools/tai-tools.controller.ts"
+          ],
+          "patterns": [
+            "passwordhash",
+            "password_hash",
+            "mfasecret",
+            "mfabackup",
+            "mfa_secret_ciphertext",
+            "mfa_backup"
+          ]
+        },
+        {
+          "condition": "login and session issuance build the user-facing response through one named, explicit field projection",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.service.ts"
+          ],
+          "patterns": [
+            "private userprojection(",
+            "user: this.userprojection("
+          ]
+        }
+      ],
+      "note": "Checked against the schema's most sensitive fields rather than assumed from the requirement's generic wording. User.passwordHash, User.mfaSecret and User.mfaBackup (and their internal SQL projections password_hash, mfa_secret_ciphertext, mfa_backup) are the fields whose leak would matter most, and they are the concrete test of whether the application returns a data object wholesale or an explicit subset. All 62 *.controller.ts files under apps/api/src were checked and none references any of them; they are used in exactly six files, all under modules/auth, all for hashing, writing or verifying a credential, never for constructing a response. The credential comparison in auth.service.ts reads the fields from a three-column SQL projection (auth.resolve_login_credential returns user_id, email, password_hash only, not the whole row) and never assigns them into the returned session object; the returned object is built field by field through a single named method, userProjection, called from every session-issuing path including the MFA-pending branch, which the code comments explicitly note must not disclose organization, tenant or membership authority before MFA proof. There is no global ClassSerializerInterceptor or @Exclude() convention in this API; nothing at the framework level would catch a future controller that spreads a raw Prisma entity into a response. Safety here rests on the discipline the first condition measures directly, not on a serialization layer, and the check that condition performs is bounded: it covers the controller files that exist today, not any added afterward, and it covers this one field family (authentication credentials) rather than every field of every model."
+    },
+    {
       "requirementId": "V15.3.2",
       "applicability": "APPLICABLE",
       "status": "FAIL",
