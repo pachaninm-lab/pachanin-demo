@@ -78,13 +78,17 @@ for (const marker of [
   'AUTHENTICATION_AUTHORITY_MISMATCH',
   'IDEMPOTENCY_MISMATCH',
   'READY_FOR_CANONICAL_RECONCILIATION',
-  'function evidenceIdentity',
+  'function evidenceIdentity(value: unknown)',
+  'function positiveMinorUnits(value: unknown)',
+  'function currencyCode(value: unknown)',
   'function consumedEvidenceIncludes',
-  'value.trim() === candidate',
+  "typeof value === 'string' && value.trim() === candidate",
   'function isReceiptEvidenceState',
   'INVALID_EVIDENCE_STATE',
   "candidate.canonicalFinality !== 'NOT_DECIDED_HERE'",
   'INVALID_CANONICAL_FINALITY',
+  'function isReceiptObservedAt',
+  'INVALID_OBSERVED_AT',
 ]) assert.ok(receipt.includes(marker), 'missing receipt boundary ' + marker);
 
 assert.ok(sber.includes('readonly liveTransportImplemented = false'));
