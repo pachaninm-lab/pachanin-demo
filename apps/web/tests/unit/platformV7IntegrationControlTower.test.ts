@@ -86,11 +86,23 @@ describe('Platform V7 Integration Control Tower vertical', () => {
     expect(client).toContain("data-capabilities-authority='server-provided-non-live-proof'");
     expect(client).toContain('They do not prove credentials, an active binding or live provider connectivity.');
     expect(client).toContain('не доказывает наличие credentials, активного binding или live-соединения с провайдером');
+    expect(client).toContain("noCapabilities: 'Сервер не сообщил ни одной возможности.'");
+    expect(client).toContain("noCapabilities: 'The server reported no capabilities.'");
+    expect(client).toContain("noCapabilities: '服务器未报告任何能力。'");
+    expect(client).toContain("selected.capabilities.length > 0 ? selected.capabilities.join(' · ') : copy.noCapabilities");
+    expect(client).not.toContain("selected.capabilities.length > 0 ? selected.capabilities.join(' · ') : copy.notExposed");
 
     expect(client).toContain("data-regulatory-applicability='UNKNOWN_NOT_EXPOSED'");
     expect(client).toContain('UNKNOWN / NOT EXPOSED');
     expect(client).toContain('per-Deal applicability, rule/version/source/evidence or blocking stage');
     expect(client).toContain('客户端不会根据系统存在、capabilities、ACK 或适配器状态自行推断');
+
+    expect(client).toContain("lastSuccess: 'Последнее обработанное событие'");
+    expect(client).toContain("lastSuccess: 'Last processed event'");
+    expect(client).toContain("lastSuccess: '最近处理的事件'");
+    expect(client).not.toContain("lastSuccess: 'Последний успех'");
+    expect(client).not.toContain("lastSuccess: 'Last success'");
+    expect(client).not.toContain("lastSuccess: '最近成功'");
 
     expect(client).toContain('Provider ACK or HTTP 2xx is only transport/provider acknowledgement.');
     expect(client).toContain('ACK провайдера или HTTP 2xx — только транспортное/провайдерское подтверждение.');
