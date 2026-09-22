@@ -31,6 +31,8 @@ for (const marker of [
 ]) assert.ok(domain.includes(marker), 'missing domain capability ' + marker);
 
 for (const marker of [
+  'REAL_BANK_PROVIDER_FAMILIES',
+  'RealBankProviderFamily',
   'ACCEPTED_NONFINAL',
   "canonicalFinality: 'NOT_DECIDED_HERE'",
   'REFERENCE_CONFORMANCE_ONLY',
@@ -81,6 +83,8 @@ for (const marker of [
 
 for (const marker of [
   'PENDING_RECONCILIATION',
+  'REAL_BANK_PROVIDER_FAMILIES',
+  'RealBankProviderFamily',
   'PROVIDER_EVENT_REPLAY',
   'PAYLOAD_REPLAY',
   'EXTERNAL_RECEIPT_REPLAY',
