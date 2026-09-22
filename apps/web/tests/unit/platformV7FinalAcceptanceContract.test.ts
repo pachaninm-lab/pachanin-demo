@@ -1,11 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createElement, isValidElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { getLocale } from 'next-intl/server';
 import RegisterPage from '../../app/platform-v7/register/page';
 import TrustPage from '../../app/platform-v7/trust/page';
+import { ContactClient } from '../../app/platform-v7/contact/ContactClient';
 import { RegisterFormClientPublic } from '../../app/platform-v7/register/RegisterFormClientPublic';
 import {
   CanonicalBottomNav,
@@ -365,5 +367,108 @@ describe('public Trust explains checks without claiming they have happened', () 
     expect(source).toContain('Доступ появляется только после проверки роли, организации и полномочий.');
     expect(source).not.toContain("data-state={i===5?'current':'done'}");
     expect(source).not.toContain("<span className='pc-cp-eyebrow'>{c.faq}</span>");
+  });
+});
+
+describe('contact inquiry uses the existing endpoint without losing a draft', () => {
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+  function contactForm(locale: 'ru' | 'en' | 'zh' = 'ru') {
+    const view = render(createElement(ContactClient, { sent: false, failed: false, locale }));
+    const form = view.container.querySelector<HTMLFormElement>('form')!;
+    for (const [name, value] of Object.entries({ name: 'QA User', organization: 'QA Organisation', contact: 'qa@example.invalid', message: 'A question about joining the platform.' })) {
+      fireEvent.change(form.querySelector(`[name="${name}"]`)!, { target: { value } });
+    }
+    fireEvent.click(form.querySelector('[name="consent"]')!);
+    return { ...view, form };
+  }
+
+  for (const locale of ['ru', 'en', 'zh'] as const) {
+    it(`${locale}: exposes phone and policy before an error and retains the native fallback`, () => {
+      const { container, form } = contactForm(locale);
+      expect(container.querySelector('a[href="tel:+79162778989"]')).not.toBeNull();
+      expect(container.querySelector(`a[href="/platform-v7/privacy?lang=${locale}"]`)).not.toBeNull();
+      expect(form.getAttribute('action')).toBe('/api/platform-v7/inquiries');
+      expect(form.method).toBe('post');
+      expect(form.querySelector<HTMLInputElement>('[name="consent"]')!.required).toBe(true);
+      expect(form.querySelector<HTMLInputElement>('[name="name"]')!.maxLength).toBe(80);
+      expect(form.querySelector<HTMLInputElement>('[name="contact"]')!.maxLength).toBe(120);
+      expect(form.querySelector<HTMLTextAreaElement>('textarea')!.maxLength).toBe(2000);
+      expect(form.querySelector<HTMLInputElement>('[name="website"]')!.tabIndex).toBe(-1);
+    });
+  }
+
+  it('prevents duplicate requests and retains every field after a confirmed failure', async () => {
+    let settle!: (value: unknown) => void;
+    const fetchMock = vi.fn().mockImplementation(() => new Promise((resolve) => { settle = resolve; }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { container, form } = contactForm('en');
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(form.querySelector<HTMLButtonElement>('button')!.disabled).toBe(true);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('/api/platform-v7/inquiries');
+    expect(init.method).toBe('POST');
+    expect(init.credentials).toBe('same-origin');
+    expect(JSON.parse(init.body)).toEqual({ type: 'platform', name: 'QA User', organization: 'QA Organisation', contact: 'qa@example.invalid', message: 'A question about joining the platform.', consent: 'yes', website: '', source: 'platform_v7_contact_page', locale: 'en' });
+    settle({ ok: false, json: async () => ({ accepted: true, sent: false, delivered: false, next: 'private-provider-detail' }) });
+    await waitFor(() => expect(container.querySelector('[role="alert"]')).not.toBeNull());
+    expect(container.querySelector('.p7-contact-success')).toBeNull();
+    expect(form.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('A question about joining the platform.');
+    expect(form.querySelector<HTMLInputElement>('[name="contact"]')!.value).toBe('qa@example.invalid');
+    expect(form.querySelector<HTMLInputElement>('[name="consent"]')!.checked).toBe(true);
+    expect(form.querySelector<HTMLButtonElement>('button')!.disabled).toBe(false);
+    expect(container.textContent).not.toContain('private-provider-detail');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    { accepted: true },
+    { accepted: true, sent: false, ignored: true },
+    { accepted: true, sent: 'true', delivered: 'true' },
+    { accepted: true, sent: true, delivered: false },
+    null,
+  ])('never turns an incomplete HTTP success into confirmed delivery: %j', async (body) => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => body });
+    vi.stubGlobal('fetch', fetchMock);
+    const { container, form } = contactForm();
+    fireEvent.submit(form);
+    await waitFor(() => expect(container.querySelector('[role="alert"]')).not.toBeNull());
+    expect(container.querySelector('.p7-contact-success')).toBeNull();
+    expect(form.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('A question about joining the platform.');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports a network outcome as unconfirmed, without retry or draft deletion', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError('Network unavailable'));
+    vi.stubGlobal('fetch', fetchMock);
+    const { container, form } = contactForm();
+    fireEvent.submit(form);
+    await waitFor(() => expect(container.querySelector('[role="alert"]')?.textContent).toContain('Отправка не подтверждена'));
+    expect(form.querySelector<HTMLInputElement>('[name="name"]')!.value).toBe('QA User');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const unload = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(true);
+  });
+
+  it('shows success only after the existing server confirms sending and removes the draft guard', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ accepted: true, sent: true, delivered: true }) }));
+    const { container, form } = contactForm();
+    fireEvent.submit(form);
+    await waitFor(() => expect(container.querySelector('.p7-contact-success')?.textContent).toContain('Обращение отправлено'));
+    expect(container.querySelector('form')).toBeNull();
+    const unload = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(false);
+  });
+
+  it('retains input values when the component locale changes without navigation', () => {
+    const view = contactForm('ru');
+    view.rerender(createElement(ContactClient, { sent: false, failed: false, locale: 'zh' }));
+    expect(view.container.querySelector<HTMLInputElement>('[name="name"]')!.value).toBe('QA User');
+    expect(view.container.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('A question about joining the platform.');
+    expect(view.container.querySelector<HTMLInputElement>('[name="locale"]')!.value).toBe('zh');
   });
 });
