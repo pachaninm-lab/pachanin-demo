@@ -44,7 +44,9 @@ export class TBankReferenceAdapter implements BankReferenceAdapter {
   }
 
   mapReceiptResponse(response: BankProviderResponse): BankReceiptCandidate {
-    const status = response.rawStatus?.trim().toUpperCase() ?? '';
+    const status = typeof response.rawStatus === 'string'
+      ? response.rawStatus.trim().toUpperCase()
+      : '';
     return buildReceiptCandidate(
       this.providerFamily,
       response,
