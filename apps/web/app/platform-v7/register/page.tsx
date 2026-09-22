@@ -19,31 +19,31 @@ const WORKSPACE_BY_INTENT: Record<PublicRegistrationIntent, PublicWorkspace> = {
 
 const PAGE_COPY = {
   ru: {
-    nav: 'Навигация страницы регистрации',
+    nav: 'Навигация страницы подключения',
     login: 'Войти',
     home: 'На главную',
     language: 'Сменить язык',
-    kicker: 'Регистрация на платформе',
-    title: 'Регистрация организации и пользователя',
-    lead: 'Укажите достоверные сведения об организации и заявителе. После отправки заявки подтвердите адрес электронной почты и дождитесь результата проверки. Выберите предполагаемый формат участия — права доступа предоставляются только после проверки и одобрения заявки.',
+    kicker: 'Заявка на подключение',
+    title: 'Подключение организации',
+    lead: 'Укажите данные организации и контакт для связи. После проверки заявки мы сообщим о доступе. После отправки потребуется подтвердить адрес электронной почты.',
   },
   en: {
-    nav: 'Registration page navigation',
+    nav: 'Application page navigation',
     login: 'Sign in',
     home: 'Home',
     language: 'Change language',
-    kicker: 'Platform registration',
-    title: 'Organization and user registration',
-    lead: 'Provide accurate organization and applicant details. After submitting the application, confirm the email address and wait for the review result. Select the intended participation type; access rights are granted only after the application has been reviewed and approved.',
+    kicker: 'Apply for platform access',
+    title: 'Connect your organisation',
+    lead: 'Enter your organisation details and a contact. We will let you know about access after reviewing your application. You will need to confirm your email address after submitting it.',
   },
   zh: {
-    nav: '注册页面导航',
+    nav: '接入申请页面导航',
     login: '登录',
     home: '首页',
     language: '切换语言',
-    kicker: '平台注册',
-    title: '组织和用户注册',
-    lead: '请填写真实、准确的组织和申请人信息。提交申请后，请确认电子邮箱并等待审核结果。请选择计划参与的平台身份；访问权限仅在申请审核并获批准后授予。',
+    kicker: '申请接入平台',
+    title: '机构接入',
+    lead: '请填写机构信息及联系方式。审核申请后，我们会通知您访问权限的情况。提交申请后，您需要确认电子邮箱。',
   },
 } satisfies Record<Locale, Record<string, string>>;
 
