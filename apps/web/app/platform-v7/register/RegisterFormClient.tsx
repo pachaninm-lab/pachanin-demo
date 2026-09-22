@@ -3,22 +3,20 @@
 import * as React from 'react';
 import { CheckCircle2, Eye, EyeOff, RefreshCw, ShieldCheck } from 'lucide-react';
 import { applyCsrfHeader } from '@/lib/csrf';
+import {
+  classifyRegistrationStatusResponse,
+  classifyRegistrationSubmitResponse,
+  parseRegistrationStatusSnapshot,
+  registrationOperationForPayload,
+  type RegistrationStatusSnapshot,
+  type RegistrationUnknownOperation,
+} from '@/lib/platform-v7/registration-outcome';
 
 type Locale = 'ru' | 'en' | 'zh';
 type PublicWorkspace = 'seller' | 'buyer' | 'logistics' | 'bank';
 
-type RegistrationStatus = {
-  applicationId?: string;
-  status?: string;
-  nextAction?: string;
-  submittedAt?: string;
-  updatedAt?: string;
-  reason?: string | null;
-  version?: string;
-  correlationId?: string;
-  statusToken?: string;
-  ok?: boolean;
-};
+type RegistrationStatus = RegistrationStatusSnapshot;
+type StatusReadState = 'idle' | 'loading' | 'available' | 'unavailable' | 'invalid';
 
 type Copy = {
   requiredNote: string;
@@ -55,6 +53,10 @@ type Copy = {
   submitting: string;
   unavailable: string;
   invalid: string;
+  submissionUnknown: string;
+  statusLoadingMessage: string;
+  statusUnavailableMessage: string;
+  statusInvalidMessage: string;
   submissionAccepted: string;
   verifyTitle: string;
   verifyLead: string;
@@ -122,6 +124,10 @@ const COPY: Record<Locale, Copy> = {
     submitting: 'Заявка отправляется…',
     unavailable: 'Сейчас не удалось выполнить действие. Повторите попытку позднее.',
     invalid: 'Заполните обязательные поля и проверьте введённые данные.',
+    submissionUnknown: 'Результат отправки пока не подтверждён. Повторная отправка без изменения данных проверит ту же операцию; при изменении данных будет создана новая операция.',
+    statusLoadingMessage: 'Получаем актуальный статус заявки…',
+    statusUnavailableMessage: 'Сейчас не удалось получить статус заявки. Повторите попытку позднее.',
+    statusInvalidMessage: 'Ссылка для проверки статуса недействительна или срок её действия истёк.',
     submissionAccepted: 'На указанный адрес будет направлено письмо, если он может быть использован для регистрации. Если учётная запись уже существует, воспользуйтесь входом или восстановлением доступа.',
     verifyTitle: 'Подтверждение электронной почты',
     verifyLead: 'После подтверждения адреса заявка будет направлена на проверку. Доступ к личному кабинету предоставляется только после одобрения и активации заявки.',
@@ -220,6 +226,10 @@ const COPY: Record<Locale, Copy> = {
     submitting: 'Submitting application…',
     unavailable: 'The requested action is temporarily unavailable. Please try again later.',
     invalid: 'Complete the required fields and check the entered information.',
+    submissionUnknown: 'The submission result is not confirmed yet. Resubmitting unchanged data checks the same operation; changing the data creates a new operation.',
+    statusLoadingMessage: 'Loading the current application status…',
+    statusUnavailableMessage: 'The application status is currently unavailable. Try again later.',
+    statusInvalidMessage: 'The status link is invalid or has expired.',
     submissionAccepted: 'An email will be sent to the address provided if it can be used for registration. If an account already exists, use sign in or access recovery.',
     verifyTitle: 'Email confirmation',
     verifyLead: 'After the email address is confirmed, the application will be sent for review. Account access is provided only after the application has been approved and activated.',
@@ -318,6 +328,10 @@ const COPY: Record<Locale, Copy> = {
     submitting: '正在提交申请…',
     unavailable: '当前无法完成该操作。请稍后重试。',
     invalid: '请填写必填项并检查所填信息。',
+    submissionUnknown: '尚未确认提交结果。若数据未更改，再次提交会检查同一操作；若修改数据，则会创建新的操作。',
+    statusLoadingMessage: '正在获取当前申请状态…',
+    statusUnavailableMessage: '目前无法获取申请状态，请稍后重试。',
+    statusInvalidMessage: '状态查询链接无效或已过期。',
     submissionAccepted: '如果该电子邮箱可用于注册，我们会向该地址发送确认邮件。如果账户已存在，请直接登录或恢复访问权限。',
     verifyTitle: '确认电子邮箱',
     verifyLead: '确认电子邮箱后，申请将进入审核。只有在申请获批准并完成激活后，才会提供账户访问权限。',
@@ -399,13 +413,15 @@ export function RegisterFormClient({
   initialWorkspace?: PublicWorkspace;
 }) {
   const copy = COPY[locale];
-  const idempotencyKey = React.useRef<string>(globalThis.crypto?.randomUUID?.() || `reg-${Date.now()}-${Math.random()}`);
+  const submitLockRef = React.useRef(false);
+  const unknownOperationRef = React.useRef<RegistrationUnknownOperation | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState('');
   const [correlationId, setCorrelationId] = React.useState('');
   const [statusToken, setStatusToken] = React.useState(initialStatusToken || '');
   const [status, setStatus] = React.useState<RegistrationStatus | null>(null);
   const [statusLoading, setStatusLoading] = React.useState(Boolean(initialStatusToken));
+  const [statusReadState, setStatusReadState] = React.useState<StatusReadState>(initialStatusToken ? 'loading' : 'idle');
   const [verificationCompleted, setVerificationCompleted] = React.useState(false);
   const [submissionAccepted, setSubmissionAccepted] = React.useState(false);
   const [submittedEmail, setSubmittedEmail] = React.useState('');
@@ -418,22 +434,31 @@ export function RegisterFormClient({
   const loadStatus = React.useCallback(async (token: string) => {
     if (!token) return;
     setStatusLoading(true);
+    setStatusReadState('loading');
+    setStatus(null);
     setError('');
     try {
       const response = await fetch(`/api/auth/registration/status?token=${encodeURIComponent(token)}`, {
         cache: 'no-store',
         credentials: 'same-origin',
       });
-      const payload = await response.json().catch(() => ({} as RegistrationStatus & { code?: string }));
-      setCorrelationId(String(payload.correlationId || ''));
-      if (!response.ok || payload.ok === false) throw new Error('status_failed');
-      setStatus(payload);
+      const payload: unknown = await response.json().catch(() => null);
+      const row = payload && typeof payload === 'object' && !Array.isArray(payload)
+        ? payload as Record<string, unknown> : null;
+      setCorrelationId(typeof row?.correlationId === 'string' ? row.correlationId : '');
+      const verdict = classifyRegistrationStatusResponse(response, payload);
+      if (verdict.kind === 'available') {
+        setStatus(verdict.status);
+        setStatusReadState('available');
+      } else {
+        setStatusReadState(verdict.kind);
+      }
     } catch {
-      setError(copy.unavailable);
+      setStatusReadState('unavailable');
     } finally {
       setStatusLoading(false);
     }
-  }, [copy.unavailable]);
+  }, []);
 
   React.useEffect(() => {
     if (initialStatusToken) void loadStatus(initialStatusToken);
@@ -441,7 +466,7 @@ export function RegisterFormClient({
 
   async function submitRegistration(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitting) return;
+    if (submitLockRef.current) return;
     const element = event.currentTarget;
     if (!element.checkValidity()) {
       element.reportValidity();
@@ -478,7 +503,13 @@ export function RegisterFormClient({
       acceptPrivacy: true,
       locale,
     };
-
+    const serializedPayload = JSON.stringify(payload);
+    const operation = registrationOperationForPayload(
+      serializedPayload,
+      unknownOperationRef.current,
+      () => globalThis.crypto?.randomUUID?.() || `reg-${Date.now()}-${Math.random()}`,
+    );
+    submitLockRef.current = true;
     setSubmitting(true);
     setError('');
     setCorrelationId('');
@@ -491,28 +522,40 @@ export function RegisterFormClient({
           method: 'POST',
           headers: applyCsrfHeader({
             'Content-Type': 'application/json',
-            'idempotency-key': idempotencyKey.current,
+            'idempotency-key': operation.idempotencyKey,
           }),
-          body: JSON.stringify(payload),
+          body: operation.serializedPayload,
           cache: 'no-store',
           credentials: 'same-origin',
           signal: controller.signal,
         });
+      } catch {
+        unknownOperationRef.current = operation;
+        setError(copy.submissionUnknown);
+        return;
       } finally {
         window.clearTimeout(timer);
       }
-      const result = await response.json().catch(() => ({} as RegistrationStatus & { accepted?: boolean; code?: string }));
-      setCorrelationId(String(result.correlationId || ''));
-      if (!response.ok || result.accepted !== true) {
-        if (response.status === 400) throw new Error('invalid');
-        throw new Error('unavailable');
+      const result: unknown = await response.json().catch(() => null);
+      const row = result && typeof result === 'object' && !Array.isArray(result)
+        ? result as Record<string, unknown> : null;
+      setCorrelationId(typeof row?.correlationId === 'string' ? row.correlationId : '');
+      const verdict = classifyRegistrationSubmitResponse(response, result);
+      if (verdict === 'accepted') {
+        unknownOperationRef.current = null;
+        setSubmittedEmail(payload.email);
+        setSubmissionAccepted(true);
+        return;
       }
-      setSubmittedEmail(payload.email);
-      setSubmissionAccepted(true);
-    } catch (cause) {
-      const reason = cause instanceof Error ? cause.message : 'unavailable';
-      setError(reason === 'invalid' ? copy.invalid : copy.unavailable);
+      if (verdict === 'unknown') {
+        unknownOperationRef.current = operation;
+        setError(copy.submissionUnknown);
+        return;
+      }
+      unknownOperationRef.current = null;
+      setError(verdict === 'invalid' ? copy.invalid : copy.unavailable);
     } finally {
+      submitLockRef.current = false;
       setSubmitting(false);
     }
   }
@@ -557,9 +600,12 @@ export function RegisterFormClient({
       const result = await response.json().catch(() => ({} as RegistrationStatus & { ok?: boolean; code?: string }));
       setCorrelationId(String(result.correlationId || ''));
       if (!response.ok || result.ok !== true || !result.statusToken) throw new Error('verify_failed');
+      const verifiedStatus = parseRegistrationStatusSnapshot(result);
+      if (!verifiedStatus) throw new Error('verify_failed');
       setVerificationCompleted(true);
       setStatusToken(result.statusToken);
-      setStatus(result);
+      setStatus(verifiedStatus);
+      setStatusReadState('available');
       window.history.replaceState(null, '', `/platform-v7/register?statusToken=${encodeURIComponent(result.statusToken)}&lang=${locale}`);
     } catch {
       setError(copy.verifyInvalid);
@@ -638,17 +684,37 @@ export function RegisterFormClient({
   }
 
   if (statusToken || status) {
-    const statusCode = String(status?.status || 'EMAIL_VERIFICATION_REQUIRED');
-    const nextCode = String(status?.nextAction || 'VERIFY_EMAIL');
+    if (statusReadState !== 'available' || !status) {
+      const statusMessage = statusReadState === 'loading'
+        ? copy.statusLoadingMessage
+        : statusReadState === 'invalid'
+          ? copy.statusInvalidMessage
+          : copy.statusUnavailableMessage;
+      return (
+        <section className='p0-register-card p0-register-state' aria-labelledby='p0-register-status-title' aria-live='polite'>
+          <ShieldCheck size={40} aria-hidden='true' />
+          <h2 id='p0-register-status-title'>{copy.statusTitle}</h2>
+          <p role={statusReadState === 'unavailable' ? 'alert' : 'status'}>{statusMessage}</p>
+          {reference ? <p className='p0-register-correlation'><strong>{copy.reference}:</strong> {reference}</p> : null}
+          {statusReadState === 'unavailable' && statusToken ? (
+            <button type='button' className='p0-register-secondary' onClick={() => void loadStatus(statusToken)} disabled={statusLoading}>
+              <RefreshCw size={17} aria-hidden='true' />{statusLoading ? '…' : copy.refresh}
+            </button>
+          ) : null}
+        </section>
+      );
+    }
+    const statusCode = status.status;
+    const nextCode = status.nextAction;
     return (
       <section className='p0-register-card p0-register-state' aria-labelledby='p0-register-status-title' aria-live='polite'>
         {statusCode === 'ACTIVATED' ? <CheckCircle2 size={40} aria-hidden='true' /> : <ShieldCheck size={40} aria-hidden='true' />}
         <h2 id='p0-register-status-title'>{copy.statusTitle}</h2>
         <dl className='p0-register-status-list'>
-          <div><dt>{copy.applicationId}</dt><dd>{status?.applicationId || '—'}</dd></div>
-          <div><dt>{copy.status}</dt><dd>{copy.statusLabels[statusCode] || copy.statusUpdating}</dd></div>
-          <div><dt>{copy.nextAction}</dt><dd>{copy.nextLabels[nextCode] || copy.waitForUpdate}</dd></div>
-          {status?.reason ? <div><dt>{copy.reason}</dt><dd>{status.reason}</dd></div> : null}
+          <div><dt>{copy.applicationId}</dt><dd>{status.applicationId || '—'}</dd></div>
+          <div><dt>{copy.status}</dt><dd>{copy.statusLabels[statusCode]}</dd></div>
+          <div><dt>{copy.nextAction}</dt><dd>{copy.nextLabels[nextCode]}</dd></div>
+          {status.reason ? <div><dt>{copy.reason}</dt><dd>{status.reason}</dd></div> : null}
         </dl>
         {error ? <p className='p0-register-error' role='alert'>{error}</p> : null}
         {informationMessage ? <p role='status'>{informationMessage}</p> : null}

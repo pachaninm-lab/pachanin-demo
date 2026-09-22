@@ -1,6 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  classifyRegistrationStatusResponse,
+  classifyRegistrationSubmitResponse,
+  parseRegistrationStatusSnapshot,
+  registrationOperationForPayload,
+} from '@/lib/platform-v7/registration-outcome';
 import { createElement, isValidElement, type ReactNode, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { act, cleanup, render, waitFor } from '@testing-library/react';
@@ -861,5 +867,74 @@ describe('public market identity, context and truthful states', () => {
     expect(view.container.querySelector('time')?.dateTime).toBe('2026-09-22T12:00:02Z');
     expect(view.container.querySelector('[data-state]')).toBeNull();
     view.unmount(); expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+
+describe('public registration truthful outcomes', () => {
+  it('preserves the same idempotency key only for the exact unknown payload', () => {
+    let sequence = 0;
+    const makeKey = () => `key-${++sequence}`;
+    const first = registrationOperationForPayload('{"email":"a@example.test"}', null, makeKey);
+    const retry = registrationOperationForPayload('{"email":"a@example.test"}', first, makeKey);
+    const changed = registrationOperationForPayload('{"email":"b@example.test"}', first, makeKey);
+    expect(retry).toBe(first);
+    expect(retry.idempotencyKey).toBe('key-1');
+    expect(changed.idempotencyKey).toBe('key-2');
+  });
+
+  it('classifies accepted, confirmed invalid, unavailable and indeterminate mutation results without inventing success', () => {
+    expect(classifyRegistrationSubmitResponse({ ok: true, status: 202 }, { accepted: true })).toBe('accepted');
+    expect(classifyRegistrationSubmitResponse({ ok: false, status: 400 }, { accepted: false })).toBe('invalid');
+    expect(classifyRegistrationSubmitResponse({ ok: false, status: 503 }, { accepted: false })).toBe('unavailable');
+    expect(classifyRegistrationSubmitResponse({ ok: false, status: 503 }, { outcome: 'unknown' })).toBe('unknown');
+    expect(classifyRegistrationSubmitResponse({ ok: true, status: 200 }, {})).toBe('unknown');
+    expect(classifyRegistrationSubmitResponse({ ok: false, status: 503 }, null)).toBe('unknown');
+  });
+
+  it('accepts business status only when both server status and next action are allowlisted', () => {
+    expect(parseRegistrationStatusSnapshot({
+      ok: true,
+      applicationId: 'APP-1',
+      status: 'ORGANIZATION_VERIFICATION_PENDING',
+      nextAction: 'WAIT_FOR_REVIEW',
+      reason: null,
+    })).toMatchObject({
+      applicationId: 'APP-1',
+      status: 'ORGANIZATION_VERIFICATION_PENDING',
+      nextAction: 'WAIT_FOR_REVIEW',
+    });
+    expect(parseRegistrationStatusSnapshot({ ok: true, status: 'APPROVED', nextAction: 'FORGED_ACTION' })).toBeNull();
+    expect(parseRegistrationStatusSnapshot({ ok: true, status: 'FORGED_STATUS', nextAction: 'WAIT' })).toBeNull();
+    expect(parseRegistrationStatusSnapshot({ ok: true, status: 'APPROVED' })).toBeNull();
+  });
+
+  it('keeps invalid/unavailable transport truth separate from business status', () => {
+    expect(classifyRegistrationStatusResponse({ ok: false, status: 404 }, { ok: false, code: 'REGISTRATION_APPLICATION_NOT_FOUND' })).toEqual({ kind: 'invalid' });
+    expect(classifyRegistrationStatusResponse({ ok: false, status: 503 }, { ok: false, code: 'REGISTRATION_SERVICE_UNAVAILABLE' })).toEqual({ kind: 'unavailable' });
+    expect(classifyRegistrationStatusResponse({ ok: true, status: 200 }, { ok: true, status: 'APPROVED' })).toEqual({ kind: 'unavailable' });
+    expect(classifyRegistrationStatusResponse({ ok: true, status: 200 }, {
+      ok: true, status: 'ACTIVATED', nextAction: 'LOGIN',
+    })).toMatchObject({ kind: 'available', status: { status: 'ACTIVATED', nextAction: 'LOGIN' } });
+  });
+
+  it('does not retain the old VERIFY_EMAIL fallback in either public registration component', () => {
+    const publicForm = read('app/platform-v7/register/RegisterFormClientPublic.tsx');
+    const localizedForm = read('app/platform-v7/register/RegisterFormClient.tsx');
+    for (const source of [publicForm, localizedForm]) {
+      expect(source).not.toContain("status?.status || 'EMAIL_VERIFICATION_REQUIRED'");
+      expect(source).not.toContain("status?.nextAction || 'VERIFY_EMAIL'");
+      expect(source).toContain("statusReadState !== 'available'");
+      expect(source).toContain('registrationOperationForPayload(');
+      expect(source).toContain('submitLockRef.current = true');
+    }
+  });
+
+  it('marks only transport loss as an unknown BFF result instead of saying it was rejected', () => {
+    expect(registerPage).toContain('RegisterFormClientPublic');
+    const bff = read('app/api/auth/register/route.ts');
+    expect(bff).toContain("outcome: 'unknown'");
+    expect(bff).toContain("code: 'REGISTRATION_RESULT_UNKNOWN'");
+    expect(bff).toContain("if (!apiResponse.ok || payload.accepted !== true)");
   });
 });

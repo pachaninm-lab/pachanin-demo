@@ -236,6 +236,6 @@ export async function POST(request: Request) {
       accountHash: accountHash(email),
       reason: error instanceof Error ? error.name : 'unknown',
     }));
-    return json({ accepted: false, code: 'REGISTRATION_SERVICE_UNAVAILABLE', correlationId }, 503);
+    return json({ outcome: 'unknown', code: 'REGISTRATION_RESULT_UNKNOWN', correlationId }, 503);
   }
 }
