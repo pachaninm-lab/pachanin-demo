@@ -133,7 +133,7 @@ export default async function PlatformV7SellerPage() {
       ? 'канонический реестр пуст'
       : dealRegistryComplete
         ? `${dealCount} подтверждённых сервером сделок`
-        : `минимум ${dealCount} сделок в текущем ответе · итоговое число UNKNOWN`;
+        : `в текущем ответе: ${dealCount}+ · итоговое число сделок UNKNOWN`;
 
   return (
     <MoneyObligationCockpit
@@ -142,7 +142,7 @@ export default async function PlatformV7SellerPage() {
       title={dealRegistryAvailable ? 'Рабочий кабинет продавца по подтверждённым данным' : 'Состояние сделок сейчас не подтверждено'}
       description='Первый экран строится только из серверного реестра сделок и серверного реестра споров, уже ограниченных правами текущего участника. Данные без подтверждения остаются UNKNOWN.'
       statusLabel={statusLabel}
-      statusTone={dealRegistryAvailable ? 'success' : 'warning'}
+      statusTone={dealRegistryComplete ? 'success' : 'warning'}
       priority={priority}
       facts={[
         {
