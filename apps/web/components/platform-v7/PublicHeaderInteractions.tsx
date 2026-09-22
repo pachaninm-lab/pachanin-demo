@@ -12,6 +12,25 @@ export function PublicHeaderInteractions({ locale }: { locale: 'ru' | 'en' | 'zh
     if (!header || !menu || !summary) return;
     const panel = menu.querySelector<HTMLElement>('.pc-site-mobile-nav');
     const labels = locale === 'ru' ? ['Открыть меню', 'Закрыть меню'] : locale === 'en' ? ['Open menu', 'Close menu'] : ['打开菜单', '关闭菜单'];
+    const discard = locale === 'ru'
+      ? 'При смене языка введённые данные будут очищены. Продолжить? Нажмите «Отмена», чтобы остаться в заполненной форме.'
+      : locale === 'en'
+        ? 'Changing language clears the entries in this form. Continue? Choose Cancel to keep the completed form.'
+        : '切换语言会清空已填写的内容。是否继续？选择取消可保留当前表单。';
+    // Remember only whether the form changed, never values or credentials.
+    // ContactClient already guards its document navigation with beforeunload.
+    const dirtyForms = new WeakSet<HTMLFormElement>();
+    const formRoute = () => ['/platform-v7/register', '/platform-v7/login', '/platform-v7/forgot-password'].includes(window.location.pathname.replace(/\/$/, ''));
+    const changed = (event: Event) => {
+      const control = event.target;
+      if (!formRoute() || !(control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement || control instanceof HTMLSelectElement)) return;
+      if (control instanceof HTMLInputElement && ['hidden', 'button', 'submit', 'reset'].includes(control.type)) return;
+      if (control.form) dirtyForms.add(control.form);
+    };
+    const reset = (event: Event) => {
+      const form = event.target;
+      if (form instanceof HTMLFormElement) queueMicrotask(() => { if (!event.defaultPrevented) dirtyForms.delete(form); });
+    };
     let returnTarget: HTMLElement = summary;
     let frame = 0;
     const close = (restore: boolean) => {
@@ -33,17 +52,21 @@ export function PublicHeaderInteractions({ locale }: { locale: 'ru' | 'en' | 'zh
       if (!(event.target instanceof Element)) return;
       const target = event.target;
       if (target.closest('.pc-site-menu-close')) { event.preventDefault(); close(true); return; }
-      const language = target.closest<HTMLElement>('.pc-site-locale-option[data-active="true"]');
-      if (language && !menu.contains(language)) {
+      const language = target.closest<HTMLAnchorElement>('a.pc-site-locale-option');
+      if (language?.dataset.active === 'true') {
         event.preventDefault();
         returnTarget = language;
-        if (window.matchMedia('(max-width:980px)').matches) {
+        if (menu.contains(language) || window.matchMedia('(max-width:980px)').matches) {
           menu.open = true;
+          window.cancelAnimationFrame(frame);
           frame = window.requestAnimationFrame(() => panel?.querySelector<HTMLElement>('.pc-site-mobile-locale .pc-site-locale-option:not([data-active="true"])')?.focus());
         } else {
           header.querySelector<HTMLElement>('.pc-site-actions>.pc-site-locale-cluster .pc-site-locale-option:not([data-active="true"])')?.focus();
         }
         return;
+      }
+      if (language && formRoute() && Array.from(document.forms).some((form) => dirtyForms.has(form))) {
+        if (!window.confirm(discard)) { event.preventDefault(); return; }
       }
       if (target.closest('summary') === summary) returnTarget = summary;
       if (panel?.contains(target) && target.closest('a[href], [data-gekta-chat-entry]')) close(false);
@@ -60,6 +83,9 @@ export function PublicHeaderInteractions({ locale }: { locale: 'ru' | 'en' | 'zh
     const onResize = () => { if (!window.matchMedia('(max-width:980px)').matches) close(false); };
     menu.addEventListener('toggle', sync);
     header.addEventListener('click', onClick);
+    document.addEventListener('input', changed);
+    document.addEventListener('change', changed);
+    document.addEventListener('reset', reset);
     document.addEventListener('pointerdown', onOutside);
     document.addEventListener('keydown', onKey);
     document.addEventListener('focusin', onFocus);
@@ -69,6 +95,9 @@ export function PublicHeaderInteractions({ locale }: { locale: 'ru' | 'en' | 'zh
       window.cancelAnimationFrame(frame);
       menu.removeEventListener('toggle', sync);
       header.removeEventListener('click', onClick);
+      document.removeEventListener('input', changed);
+      document.removeEventListener('change', changed);
+      document.removeEventListener('reset', reset);
       document.removeEventListener('pointerdown', onOutside);
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('focusin', onFocus);

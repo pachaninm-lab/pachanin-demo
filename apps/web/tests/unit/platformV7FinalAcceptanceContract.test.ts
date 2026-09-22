@@ -8,6 +8,7 @@ import { getLocale } from 'next-intl/server';
 import RegisterPage from '../../app/platform-v7/register/page';
 import TrustPage from '../../app/platform-v7/trust/page';
 import { ContactClient } from '../../app/platform-v7/contact/ContactClient';
+import { PublicHeaderInteractions } from '../../components/platform-v7/PublicHeaderInteractions';
 import { RegisterFormClientPublic } from '../../app/platform-v7/register/RegisterFormClientPublic';
 import {
   CanonicalBottomNav,
@@ -470,5 +471,65 @@ describe('contact inquiry uses the existing endpoint without losing a draft', ()
     expect(view.container.querySelector<HTMLInputElement>('[name="name"]')!.value).toBe('QA User');
     expect(view.container.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('A question about joining the platform.');
     expect(view.container.querySelector<HTMLInputElement>('[name="locale"]')!.value).toBe('zh');
+  });
+});
+
+describe('public locale navigation does not silently erase a filled form', () => {
+  const originalUrl = window.location.pathname + window.location.search + window.location.hash;
+  const fixtures: HTMLElement[] = [];
+  afterEach(() => {
+    cleanup();
+    for (const fixture of fixtures.splice(0)) fixture.remove();
+    window.history.replaceState({}, '', originalUrl);
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+  function header(route: string) {
+    window.history.replaceState({}, '', route);
+    const fixture = document.createElement('div');
+    fixture.innerHTML = '<header data-public-site-header="canonical"><div class="pc-site-actions"><details class="pc-site-mobile-menu" open><summary>Menu</summary><div class="pc-site-mobile-nav"><div class="pc-site-mobile-locale"><a class="pc-site-locale-option" data-active="true" href="?lang=ru">RU</a><a class="pc-site-locale-option" data-active="false" href="?lang=en">EN</a></div></div></details></div><div data-hook></div></header><form><input name="password" type="password"><input name="state" type="hidden" value="unchanged"></form>';
+    document.body.appendChild(fixture);
+    fixtures.push(fixture);
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }));
+    render(createElement(PublicHeaderInteractions, { locale: 'ru' }), { container: fixture.querySelector('[data-hook]') as HTMLElement });
+    return {
+      fixture, input: fixture.querySelector<HTMLInputElement>('input[name="password"]')!,
+      active: fixture.querySelector<HTMLAnchorElement>('a[data-active="true"]')!,
+      other: fixture.querySelector<HTMLAnchorElement>('a[data-active="false"]')!,
+      menu: fixture.querySelector<HTMLDetailsElement>('details')!,
+    };
+  }
+
+  for (const route of ['/platform-v7/register?lang=ru', '/platform-v7/login?lang=ru', '/platform-v7/forgot-password?lang=ru']) {
+    it(`${route}: cancellation retains the form and never places its secret in navigation`, () => {
+      const view = header(route);
+      const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+      fireEvent.input(view.input, { target: { value: 'Synthetic-local-secret-01!' } });
+      const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+      view.other.dispatchEvent(click);
+      expect(click.defaultPrevented).toBe(true);
+      expect(confirm).toHaveBeenCalledTimes(1);
+      expect(confirm.mock.calls[0]![0]).not.toContain('Synthetic-local-secret-01!');
+      expect(view.input.value).toBe('Synthetic-local-secret-01!');
+      expect(window.location.pathname + window.location.search).toBe(route);
+      expect(view.other.href).not.toContain('Synthetic-local-secret-01!');
+    });
+  }
+
+  it('opens the language choice instead of reloading the current locale inside the menu', async () => {
+    const view = header('/platform-v7/register?lang=ru');
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+    view.active.dispatchEvent(click);
+    expect(click.defaultPrevented).toBe(true);
+    expect(view.menu.open).toBe(true);
+    expect(confirm).not.toHaveBeenCalled();
+    await waitFor(() => expect(document.activeElement).toBe(view.other));
+  });
+
+  it('does not serialize field values or use browser storage for locale protection', () => {
+    const source = read('apps/web/components/platform-v7/PublicHeaderInteractions.tsx');
+    expect(source).toContain('WeakSet<HTMLFormElement>');
+    for (const forbidden of ['localStorage', 'sessionStorage', 'new FormData', '.value', 'JSON.stringify']) expect(source).not.toContain(forbidden);
   });
 });
