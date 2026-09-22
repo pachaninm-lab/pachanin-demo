@@ -73,10 +73,16 @@ export default async function PlatformV7SellerPage() {
     .filter((deal): deal is CanonicalDealSummary => deal !== null);
   const dealPayloadValid = canonicalDeals.length === dealSnapshot.deals.length;
   const dealRegistryAvailable = dealSnapshot.isApiAvailable && dealPayloadValid;
+  const dealRegistryComplete = dealRegistryAvailable && dealSnapshot.isComplete;
   const disputeRegistryAvailable = disputeSnapshot.isApiAvailable;
   const disputeCount = disputeRegistryAvailable ? openDisputeCount(disputeSnapshot.disputes) : null;
   const firstDeal = dealRegistryAvailable ? canonicalDeals[0] ?? null : null;
   const dealCount = dealRegistryAvailable ? canonicalDeals.length : null;
+  const dealCountLabel = dealCount === null
+    ? 'UNKNOWN'
+    : dealRegistryComplete
+      ? String(dealCount)
+      : `${dealCount}+`;
 
   const priority: MoneyPriority = !dealRegistryAvailable
     ? {
@@ -115,15 +121,19 @@ export default async function PlatformV7SellerPage() {
           secondaryAction: <Link className={moneyCockpitClasses.secondaryLink} href='/platform-v7/seller/lots'>Партии и лоты</Link>,
         };
 
-  const statusLabel = dealRegistryAvailable
-    ? 'Серверный реестр сделок доступен'
-    : 'Состояние сделок не подтверждено';
+  const statusLabel = !dealRegistryAvailable
+    ? 'Состояние сделок не подтверждено'
+    : dealRegistryComplete
+      ? 'Серверный реестр сделок доступен'
+      : 'Серверный реестр доступен · итоговое число UNKNOWN';
 
   const overviewSummary = !dealRegistryAvailable
     ? 'канонические данные недоступны'
     : dealCount === 0
       ? 'канонический реестр пуст'
-      : `${dealCount} подтверждённых сервером сделок`;
+      : dealRegistryComplete
+        ? `${dealCount} подтверждённых сервером сделок`
+        : `минимум ${dealCount} сделок в текущем ответе · итоговое число UNKNOWN`;
 
   return (
     <MoneyObligationCockpit
@@ -136,9 +146,13 @@ export default async function PlatformV7SellerPage() {
       priority={priority}
       facts={[
         {
-          label: 'Сделки',
-          value: dealCount === null ? 'UNKNOWN' : String(dealCount),
-          hint: dealRegistryAvailable ? 'данные получены из серверного списка сделок' : 'серверный ответ не подтверждён',
+          label: dealRegistryComplete ? 'Сделки' : 'Сделки в ответе',
+          value: dealCountLabel,
+          hint: !dealRegistryAvailable
+            ? 'серверный ответ не подтверждён'
+            : dealRegistryComplete
+              ? 'данные получены из серверного списка сделок'
+              : 'достигнут предел серверного ответа; итоговое число не выводится как факт',
         },
         {
           label: 'Текущая карточка',
