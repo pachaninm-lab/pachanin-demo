@@ -132,11 +132,11 @@
     {
       "operation": "mac",
       "label": "Message authentication",
-      "sites": 23,
+      "sites": 25,
       "algorithms": [
         {
           "algorithm": "sha256",
-          "sites": 22,
+          "sites": 24,
           "files": [
             "apps/api/src/common/security/rate-limit.service.ts",
             "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts",
@@ -255,11 +255,11 @@
     {
       "operation": "csprng",
       "label": "Cryptographic randomness",
-      "sites": 30,
+      "sites": 31,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 30,
+          "sites": 31,
           "files": [
             "apps/api/src/common/config/secrets.ts",
             "apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
@@ -471,11 +471,11 @@
     {
       "operation": "constant-time",
       "label": "Constant-time comparison",
-      "sites": 24,
+      "sites": 25,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 24,
+          "sites": 25,
           "files": [
             "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts",
             "apps/api/src/modules/auth/auth-crypto.ts",
