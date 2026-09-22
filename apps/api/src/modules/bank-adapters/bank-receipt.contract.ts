@@ -149,13 +149,15 @@ export function validateBankReceiptCandidate(
   }
 
   // null means the provider operation identity is genuinely not yet known.
-  // Empty/malformed server-held values must not be treated as equivalent to null,
-  // because that would silently disable provider-operation correlation.
+  // Empty/malformed server-held or provider-returned values must not be treated
+  // as equivalent to null, because that would silently disable correlation.
   const expectedProviderOperationId = expectedProviderOperationIdentity(expected.providerOperationId);
+  const candidateProviderOperationId = expectedProviderOperationIdentity(candidate.providerOperationId);
   if (
     expectedProviderOperationId === undefined
+    || candidateProviderOperationId === undefined
     || (expectedProviderOperationId !== null
-      && candidate.providerOperationId !== expectedProviderOperationId)
+      && candidateProviderOperationId !== expectedProviderOperationId)
   ) {
     return rejected('PROVIDER_OPERATION_MISMATCH');
   }
