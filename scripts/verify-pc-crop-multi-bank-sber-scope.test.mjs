@@ -103,6 +103,8 @@ for (const marker of [
   'function evidenceIdentity(value: unknown)',
   'function canonicalInternalIdentity(value: unknown)',
   'function expectedProviderOperationIdentity(value: unknown)',
+  'const candidateProviderOperationId = expectedProviderOperationIdentity(candidate.providerOperationId)',
+  'candidateProviderOperationId === undefined',
   'expectedProviderOperationId === undefined',
   'function positiveMinorUnits(value: unknown)',
   'function currencyCode(value: unknown)',
