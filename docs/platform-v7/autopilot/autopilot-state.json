@@ -1683,7 +1683,8 @@
         "apps/web/app/platform-v7/seller/page.tsx",
         "apps/web/tests/unit/sellerExecutionPolish.test.tsx",
         "apps/web/tests/unit/platformV7PrimaryRoleCockpit.test.tsx",
-        "apps/web/tests/unit/platformV7RoleUxRegressions.test.ts"
+        "apps/web/tests/unit/platformV7RoleUxRegressions.test.ts",
+        "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts"
       ],
       "requiredTruthBoundaries": [
         "Seller business facts must come from existing canonical server reads; absence of a canonical Deal must render explicit empty/degraded/unknown state rather than static LOT/DL/money/document facts.",
