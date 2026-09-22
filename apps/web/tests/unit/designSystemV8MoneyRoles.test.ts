@@ -50,9 +50,12 @@ describe('Design System v8 money role reference slice', () => {
     expect(firstCustomerWorkspace).toContain("surface === 'seller' && state === 'ready' && !workspace.ownerControlled");
     expect(firstCustomerWorkspace).toContain("href='#first-customer-work-queue'");
     expect(firstCustomerWorkspace).toContain('sellerPriorityUnknownResult');
-    expect(firstCustomerWorkspace).toContain('Приоритет действия не опубликован');
-    expect(firstCustomerWorkspace).toContain('Action priority is not published');
-    expect(firstCustomerWorkspace).toContain('操作优先级未发布');
+    expect(firstCustomerWorkspace).toContain('Следующий обязательный шаг не опубликован');
+    expect(firstCustomerWorkspace).toContain('Required next step is not published');
+    expect(firstCustomerWorkspace).toContain('服务器未提供必须执行的下一步');
+    expect(firstCustomerWorkspace).toContain('Сервер подтвердил доступ к рабочей очереди продавца.');
+    expect(firstCustomerWorkspace).toContain('The server confirmed access to the seller work queue.');
+    expect(firstCustomerWorkspace).toContain('服务器已确认卖方工作队列的访问权限。');
   });
 
   it('keeps buyer reserve, hold, SDIZ and escrow boundaries', () => {
