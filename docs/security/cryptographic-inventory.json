@@ -47,7 +47,7 @@
       "algorithms": [
         {
           "algorithm": "sha256",
-          "sites": 84,
+          "sites": 85,
           "files": [
             "apps/api/src/common/outbox/outbox.service.ts",
             "apps/api/src/common/security/rate-limit.service.ts",
