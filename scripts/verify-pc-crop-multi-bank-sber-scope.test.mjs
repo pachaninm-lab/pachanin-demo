@@ -56,6 +56,7 @@ for (const marker of [
   "authority.maturity !== 'LIVE_ACCEPTED'",
   'authority.mayCarryRealTraffic !== true',
   'authority.productionEnvironmentConfirmed !== true',
+  'adapter.liveTransportImplemented !== true',
 ]) assert.ok(router.includes(marker), 'missing routing boundary ' + marker);
 
 for (const marker of [
