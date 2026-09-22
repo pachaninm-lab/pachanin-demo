@@ -1528,7 +1528,9 @@
       "apps/web/app/platform-v7/seller/page.tsx",
       "apps/web/tests/unit/sellerExecutionPolish.test.tsx",
       "apps/web/tests/unit/platformV7PrimaryRoleCockpit.test.tsx",
-      "apps/web/tests/unit/platformV7RoleUxRegressions.test.ts"
+      "apps/web/tests/unit/platformV7RoleUxRegressions.test.ts",
+      "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
+      "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx"
     ],
     "r1-role-mode-session-bff-authority-20260921": [
       "apps/web/app/api/staff/[...path]/route.ts",
@@ -1680,20 +1682,24 @@
     },
     "seller-truthful-first-screen-20260922": {
       "owner": "ACCOUNT_2_PRODUCT",
-      "purpose": "Truthfulness-only first seller workspace slice: remove fabricated lot/deal/money/document/blocker facts when canonical authority is absent, while preserving the existing shared shell and current canonical Deal/dispute reads.",
-      "authorityBaseExactMain": "6553cdd4a5c3ce638d2832fac361cf710a46067b",
+      "purpose": "Truthful production seller workspace slice: remove fabricated seller business facts, prevent the production FirstCustomerWorkspace from promoting recency/list order into seller next-action authority, preserve RU/EN/ZH user meaning, and update the stale Design System v8 seller test contract without changing backend/domain authority.",
+      "authorityBaseExactMain": "76d2dda7c2eb11a62a45261d40cd6d0d32a259ad",
       "implementationBranch": "ux/seller-truthful-first-screen-20260922",
       "allowedPaths": [
         "apps/web/app/platform-v7/seller/page.tsx",
         "apps/web/tests/unit/sellerExecutionPolish.test.tsx",
         "apps/web/tests/unit/platformV7PrimaryRoleCockpit.test.tsx",
-        "apps/web/tests/unit/platformV7RoleUxRegressions.test.ts"
+        "apps/web/tests/unit/platformV7RoleUxRegressions.test.ts",
+        "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
+        "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx"
       ],
       "requiredTruthBoundaries": [
         "Seller business facts must come from existing canonical server reads; absence of a canonical Deal must render explicit empty/degraded/unknown state rather than static LOT/DL/money/document facts.",
         "No hard-coded reserve, payout, bank-review amount, SDIZ/ETRN/document readiness, offer state, next actor or regulatory status may be presented as current business truth.",
         "Unknown authority remains unknown; transport ACK/HTTP success is never promoted to money, regulatory or business completion.",
-        "The seller surface reuses the existing shared Platform V7 shell/design system and must not create a second frontend architecture."
+        "The seller surface reuses the existing shared Platform V7 shell/design system and must not create a second frontend architecture.",
+        "The production FirstCustomerWorkspace must not promote /deals response order or the first returned Deal into next-action authority; Deal rows remain navigation until a server-published priority contract exists.",
+        "Seller production presentation preserves RU/EN/ZH meaning and may localize labels/copy only; raw server business values and UNKNOWN/degraded semantics must not be strengthened by translation."
       ],
       "forbiddenAuthority": [
         "backend/domain/DB/RLS/tenant/role authority",
