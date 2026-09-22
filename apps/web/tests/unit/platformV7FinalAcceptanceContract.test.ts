@@ -5,6 +5,13 @@ import { createElement, isValidElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import RegisterPage from '../../app/platform-v7/register/page';
 import { RegisterFormClientPublic } from '../../app/platform-v7/register/RegisterFormClientPublic';
+import {
+  CanonicalBottomNav,
+  CanonicalDealSpine,
+  CanonicalPublicHeader,
+  CanonicalStateLens,
+  canonicalPublicNavigationPath,
+} from '../../components/platform-v7/PublicCanonicalPrimitives';
 
 const root = path.resolve(process.cwd(), '../..');
 const read = (relativePath: string) => fs.readFileSync(path.join(root, relativePath), 'utf8');
@@ -106,7 +113,8 @@ describe('platform-v7 Design System v8 final acceptance contract', () => {
     expect(registrationUxSpec).toContain('320, 375, 390, 430, 768, 1280');
     expect(registrationUxSpec).toContain('AxeBuilder');
     expect(registrationUxSpec).toContain('box.width >= 44 && box.height >= 44');
-    expect(registrationPage).toContain('Регистрация организации и пользователя');
+    expect(registrationPage).toContain('Подключение организации');
+    expect(registrationPage).toContain('После проверки заявки мы сообщим о доступе');
     expect(registrationPage).not.toContain('P0 · Первый клиентский доступ');
     expect(registrationPage).not.toContain('доступ назначается сервером');
     expect(registrationLayout).toContain('return children;');
@@ -225,5 +233,84 @@ describe('public registration intent and locale behaviour', () => {
     const localeLinks = elements(control).filter((node) => typeof node.props.href === 'string');
     expect(localeLinks).toHaveLength(3);
     for (const link of localeLinks) expect(link.props.href).not.toContain('intent=');
+  });
+});
+
+// Owner's public-corrections TZ, 2026-09-22: assert rendered behaviour,
+// not only the legacy route keys stored in the navigation arrays.
+describe('public application navigation and explanatory Deal states', () => {
+  const labels = {
+    ru: ['Главная', 'Рынок', 'Заявка', 'Сделка', 'Войти'],
+    en: ['Home', 'Market', 'Apply', 'Deal', 'Sign in'],
+    zh: ['首页', '市场', '申请', '交易', '登录'],
+  } as const;
+  const applicationNames = {
+    ru: 'Подать заявку на подключение',
+    en: 'Apply for platform access',
+    zh: '申请接入平台',
+  } as const;
+
+  for (const locale of ['ru', 'en', 'zh'] as const) {
+    for (const active of ['/platform-v7/how-it-works', '/platform-v7/deal-flow']) {
+      it(`${locale}: ${active} has one shared Deal destination and active group`, () => {
+        const tree = CanonicalBottomNav({ locale, active });
+        const links = elements(tree).filter((node) => node.type === 'a');
+        expect(links).toHaveLength(5);
+        expect(links.map((link) => elements(link).find((node) => node.type === 'span')!.props.children)).toEqual(labels[locale]);
+        expect(links[2]!.props['aria-label']).toBe(applicationNames[locale]);
+        expect(links[2]!.props.href).toBe(`/platform-v7/register?lang=${locale}`);
+        expect(links[3]!.props.href).toBe(`/platform-v7/how-it-works?lang=${locale}`);
+        expect(links.filter((link) => link.props['data-active'] === 'true')).toEqual([links[3]]);
+        expect(links[3]!.props['aria-current']).toBe(active.endsWith('/how-it-works') ? 'page' : 'true');
+        for (const link of links) expect(new URL(link.props.href, 'https://example.invalid').searchParams.get('lang')).toBe(locale);
+        const header = CanonicalPublicHeader({ locale, activePath: active });
+        const headerLinks = elements(header.props.nav).filter((node) => node.type === 'a');
+        expect(headerLinks.filter((link) => link.props['data-active'] === 'true')).toHaveLength(1);
+        expect(headerLinks.find((link) => link.props['data-active'] === 'true')!.props.href).toBe(links[3]!.props.href);
+        const criticalCss = elements(tree).find((node) => node.type === 'style')!.props.children;
+        expect(criticalCss).not.toContain('text-overflow:ellipsis');
+        expect(criticalCss).not.toContain('white-space:nowrap');
+        expect(criticalCss).toContain('overflow-wrap:anywhere');
+        expect(criticalCss).toContain('min-height:50px');
+      });
+    }
+    it(`${locale}: an unbound public spine never invents a current or completed stage`, () => {
+      const stages = elements(CanonicalDealSpine({ locale })).filter((node) => node.props.role === 'listitem');
+      expect(stages).toHaveLength(7);
+      for (const stage of stages) {
+        expect(stage.props['data-state']).toBe('unknown');
+        expect(stage.props['aria-current']).toBeUndefined();
+      }
+    });
+    it(`${locale}: a real explicit current stage still renders from its supplied index`, () => {
+      const stages = elements(CanonicalDealSpine({ locale, currentIndex: 4 })).filter((node) => node.props.role === 'listitem');
+      expect(stages.map((stage) => stage.props['data-state'])).toEqual(['done', 'done', 'done', 'done', 'current', 'pending', 'pending']);
+      expect(stages.filter((stage) => stage.props['aria-current'] === 'step')).toHaveLength(1);
+    });
+    it(`${locale}: an explanation is a legend, while a missing live status still warns`, () => {
+      const props = { locale, happened: 'Event description', actor: 'Task owner', basis: 'Document', settlement: 'Payment terms', next: 'Next task' };
+      const explanation = renderToStaticMarkup(createElement(CanonicalStateLens, { ...props, state: 'normal', presentation: 'explanation' }));
+      expect(explanation).not.toContain('data-canonical-state="unconfirmed"');
+      expect(explanation).not.toContain('data-active="true"');
+      expect(explanation).not.toContain('<button');
+      const live = renderToStaticMarkup(createElement(CanonicalStateLens, { ...props, state: null }));
+      expect(live).toContain('data-canonical-state="unconfirmed"');
+    });
+  }
+
+  it('does not alias protected Deal or unrelated routes into public navigation', () => {
+    expect(canonicalPublicNavigationPath(undefined)).toBeUndefined();
+    for (const route of ['/platform-v7/deals/private/execution', '/platform-v7/register', '/platform-v7/market', '/platform-v7/deal-flow-extra']) {
+      expect(canonicalPublicNavigationPath(route)).toBe(route);
+    }
+  });
+
+  it('removes hard-coded public progress and internal copy from the Deal explanation', () => {
+    const source = read('apps/web/app/platform-v7/deal-flow/page.tsx');
+    expect(source).toContain('currentIndex={null}');
+    expect(source).toContain("presentation='explanation'");
+    for (const text of ['currentIndex={4}', "?'В работе'", 'production-данных', 'серверного контекста', 'финансовое событие на клиенте']) {
+      expect(source).not.toContain(text);
+    }
   });
 });
