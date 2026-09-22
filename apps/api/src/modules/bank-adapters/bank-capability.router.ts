@@ -133,7 +133,7 @@ export class BankCapabilityRouter {
       };
     }
 
-    if (!adapter.liveTransportImplemented) {
+    if (adapter.liveTransportImplemented !== true) {
       return {
         status: 'NOT_ACTIVATED',
         adapter,
