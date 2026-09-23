@@ -47,6 +47,7 @@ test.describe('UX-29 legal language and reflow', () => {
               .filter((node) => node.childElementCount === 0 && getComputedStyle(node).display !== 'none')
               .map((node) => ({ left: node.getBoundingClientRect().left,
                 right: node.getBoundingClientRect().right,
+                display: getComputedStyle(node).display,
                 scroll: node.scrollWidth - node.clientWidth }));
             return { documentOverflow: Math.max(document.documentElement.scrollWidth - innerWidth,
               document.body.scrollWidth - innerWidth), left: rect.left, right: rect.right, text };
@@ -57,7 +58,12 @@ test.describe('UX-29 legal language and reflow', () => {
           for (const item of geometry.text) {
             expect(item.left).toBeGreaterThanOrEqual(-1);
             expect(item.right).toBeLessThanOrEqual(width + 1);
-            expect(item.scroll).toBeLessThanOrEqual(1);
+            // Firefox reports scrollWidth for inline text while clientWidth is
+            // always zero. Its inline box rect and the containing block bounds
+            // remain checked; scroll metrics apply to boxes with layout width.
+            if (item.display !== 'inline' && item.display !== 'contents') {
+              expect(item.scroll).toBeLessThanOrEqual(1);
+            }
           }
         }
       });
