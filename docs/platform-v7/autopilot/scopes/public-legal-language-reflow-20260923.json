@@ -12,7 +12,9 @@
     "docs/platform-v7/autopilot/scopes/public-legal-language-reflow-20260923.json",
     "apps/web/components/platform-v7/PublicLegalLanguageFrame.tsx",
     "apps/web/app/platform-v7/terms/layout.tsx",
-    "apps/web/app/platform-v7/privacy/layout.tsx"
+    "apps/web/app/platform-v7/privacy/layout.tsx",
+    "docs/security/cryptographic-inventory.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
   ],
   "requiredInvariants": [
     "Terms and privacy page source bytes stay identical to the versioned consent artifacts; portal wording and actions stay unchanged.",
