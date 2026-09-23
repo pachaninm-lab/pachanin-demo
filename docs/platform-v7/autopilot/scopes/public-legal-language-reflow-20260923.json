@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-legal-language-reflow-20260923",
+  "status": "active",
+  "approvedBy": "owner-public-ux-repair-v2.0-2026-09-23",
+  "purpose": "UX-29: mark Russian-only legal content on non-Russian routes and verify reflow under 200% text enlargement without editing legal wording.",
+  "ownerSpecification": "Прозрачная Цена — инженерное ТЗ быстрого UX-ремонта v2.0, UX-29/T18/T20.",
+  "allowedPaths": [
+    "apps/web/app/platform-v7/terms/page.tsx",
+    "apps/web/app/platform-v7/privacy/page.tsx",
+    "apps/web/playwright.acceptance.config.ts",
+    "apps/web/tests/e2e/platform-v7-legal-language-reflow.spec.ts",
+    "docs/platform-v7/autopilot/scopes/public-legal-language-reflow-20260923.json"
+  ],
+  "requiredInvariants": [
+    "Terms/privacy source wording and PrivacyPortalPanel unchanged.",
+    "Visible EN/ZH notice describes the Russian original; lang=ru marks the Russian source for assistive technology.",
+    "Browser reflow covers 320/390 and 200% text; no CSS overflow suppression.",
+    "No API, auth, money, role, tenant or release change."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

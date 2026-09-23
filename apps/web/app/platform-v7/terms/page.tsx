@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { getLocale } from 'next-intl/server';
 
 export const metadata: Metadata = {
   title: 'Условия использования — Прозрачная Цена',
@@ -65,9 +66,14 @@ const MODULE_LINKS = [
   },
 ];
 
-export default function TermsPage() {
+export default async function TermsPage() {
+  const locale = await getLocale();
+  const language = locale.startsWith('zh') ? 'zh' : locale.startsWith('en') ? 'en' : 'ru';
   return (
-    <div style={{ display: 'grid', gap: 16, maxWidth: 1040, margin: '0 auto' }}>
+    <div lang='ru' data-public-legal-original='ru' style={{ display: 'grid', gap: 16, maxWidth: 1040, margin: '0 auto', overflowWrap: 'anywhere' }}>
+      {language !== 'ru' ? <p lang={language} role='note' style={{ margin: 0, padding: '12px 16px', borderRadius: 12, background: '#F8FAFB', color: '#334155', lineHeight: 1.5 }}>
+        {language === 'zh' ? '本页法律说明目前提供俄语原文。' : 'This legal information is currently available in Russian.'}
+      </p> : null}
       <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
         <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Условия использования</div>
         <div style={{ marginTop: 8, fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7 }}>
