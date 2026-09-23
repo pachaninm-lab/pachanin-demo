@@ -238,3 +238,38 @@ it('keeps the retired registration DOM patch absent', () => {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
   expect(fs.existsSync(path.join(root, 'apps/web/components/platform-v7/PublicRegistrationEntryPatch.tsx'))).toBe(false);
 });
+
+
+describe('owner UX v2 public content truth', () => {
+  it('names price behavior as sorting rather than a missing price filter in RU EN ZH', () => {
+    const market = read('apps/web/app/platform-v7/market/page.tsx');
+    expect(market).toContain('по региону и классу, а затем отсортировать по цене');
+    expect(market).toContain('Filter published offers by region and grade, then sort them by price.');
+    expect(market).toContain('先按地区和等级筛选已发布的供求信息，再按价格排序');
+    expect(market).not.toContain('по региону, классу и цене');
+    expect(market).not.toContain('Filter published offers by region, grade and price.');
+    expect(market).not.toContain('按地区、等级和价格筛选');
+  });
+
+  it('keeps the twelve capability cards as an honest overview unless a real destination exists', () => {
+    const capabilities = read('apps/web/app/platform-v7/capabilities/page.tsx');
+    expect(capabilities).toContain('Ниже — обзор двенадцати задач');
+    expect(capabilities).toContain('Below is an overview of twelve tasks');
+    expect(capabilities).toContain('以下概览介绍支持交易工作的十二项任务');
+    expect(capabilities).not.toContain('Выберите задачу и узнайте, как она устроена.');
+    expect(capabilities).not.toContain('Choose a task to see how it works.');
+    expect(capabilities).not.toContain('选择任务，了解其具体流程。');
+    const itemKeys = ['market','trading','commitments','delivery','acceptance','documents','settlement','dispute','trust','gekta','roles','history'];
+    for (const key of itemKeys) expect(capabilities).toContain(`${key}:[`);
+  });
+
+  it('keeps public Normal Deviation Dispute explanatory and non-interactive', () => {
+    const deal = read('apps/web/app/platform-v7/deal-flow/page.tsx');
+    expect(deal).toContain("role='list'");
+    expect(deal).toContain("className='pc-cp-state-tab'");
+    expect(deal).toContain("role='listitem'");
+    expect(deal).not.toContain("<button className='pc-cp-state-tab'");
+    expect(deal).not.toContain("aria-selected='true'");
+    expect(deal).not.toContain('aria-pressed=');
+  });
+});
