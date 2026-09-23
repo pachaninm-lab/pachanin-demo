@@ -542,3 +542,65 @@ test('public registration locale cycle preserves both existing query tokens', as
     await expectNoHorizontalOverflow(page);
   }
 });
+
+for (const locale of ['ru', 'en', 'zh'] as const) {
+  test(`UX-26 Deal stages expose primary result and keyboard details at ${locale} reflow widths`, async ({ page }, testInfo) => {
+    const failures = collectRuntimeFailures(page);
+    for (const width of [320, 390, 1280]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.goto(`/platform-v7/how-it-works?lang=${locale}`, { waitUntil: 'load' });
+      const cards = page.locator('.pc-cp-process-cards > article.pc-cp-process-card');
+      await expect(cards).toHaveCount(7);
+      for (const card of await cards.all()) {
+        await expect(card.locator('h3')).toBeVisible();
+        await expect(card.locator('.pc-cp-process-result strong')).toBeVisible();
+        const details = card.locator('details.pc-cp-process-details');
+        await expect(details).not.toHaveAttribute('open', '');
+        await expect(details.locator('.pc-cp-process-meta')).toBeHidden();
+        const summary = details.locator('summary');
+        const bounds = await summary.boundingBox();
+        expect(bounds, `${locale}/${width}: missing summary bounds`).not.toBeNull();
+        expect(bounds!.height, `${locale}/${width}: detail target height`).toBeGreaterThanOrEqual(44);
+        expect(bounds!.width, `${locale}/${width}: detail target width`).toBeGreaterThanOrEqual(44);
+        expect(bounds!.x, `${locale}/${width}: left viewport bound`).toBeGreaterThanOrEqual(0);
+        expect(bounds!.x + bounds!.width, `${locale}/${width}: right viewport bound`).toBeLessThanOrEqual(width + 1);
+      }
+      const first = cards.first().locator('details.pc-cp-process-details');
+      await first.locator('summary').focus();
+      await expect(first.locator('summary')).toBeFocused();
+      await page.keyboard.press('Enter');
+      await expect(first).toHaveAttribute('open', '');
+      await expect(first.locator('.pc-cp-process-meta > div')).toHaveCount(4);
+      for (const value of await first.locator('.pc-cp-process-meta strong').all()) await expect(value).toBeVisible();
+      await expectNoHorizontalOverflow(page);
+      await page.keyboard.press('Enter');
+      await expect(first).not.toHaveAttribute('open', '');
+      if (width === 390) {
+        // Enlarge each text node once; resizing both parents and descendants would
+        // accidentally simulate 400% and would invalidate the 200% evidence.
+        await page.evaluate(() => {
+          for (const node of document.querySelectorAll<HTMLElement>('.pc-cp-process-card h3, .pc-cp-process-result strong, .pc-cp-process-details summary, .pc-cp-process-meta span, .pc-cp-process-meta strong')) {
+            node.style.fontSize = `${parseFloat(getComputedStyle(node).fontSize) * 2}px`;
+          }
+        });
+        for (const card of await cards.all()) {
+          const summary = card.locator('summary');
+          const bounds = await summary.boundingBox();
+          expect(bounds, `${locale}: enlarged target missing`).not.toBeNull();
+          expect(bounds!.height, `${locale}: enlarged target height`).toBeGreaterThanOrEqual(44);
+          const box = await card.boundingBox();
+          expect(box, `${locale}: enlarged card missing`).not.toBeNull();
+          expect(box!.x + box!.width, `${locale}: enlarged card outside viewport`).toBeLessThanOrEqual(width + 1);
+          await summary.click();
+          await expect(card.locator('.pc-cp-process-meta > div')).toHaveCount(4);
+          await expectNoHorizontalOverflow(page);
+          await summary.click();
+        }
+      }
+      if (testInfo.project.name === 'desktop-chromium') {
+        await page.screenshot({ path: testInfo.outputPath(`ux26-deal-${locale}-${width}.png`), fullPage: true, animations: 'disabled' });
+      }
+    }
+    expect(failures).toEqual([]);
+  });
+}
