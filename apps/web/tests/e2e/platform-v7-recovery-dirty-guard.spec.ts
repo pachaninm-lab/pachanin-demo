@@ -70,3 +70,47 @@ test.describe('UX-05 recovery unsaved-entry guard', () => {
     await expect(page).toHaveURL(/forgot-password\?lang=ru/);
   });
 });
+
+test.describe('UX-04 canonical recovery shell', () => {
+  for (const locale of ['ru', 'en', 'zh'] as const) {
+    for (const width of [320, 390, 1280] as const) {
+      test(`normal and token recovery share public navigation: ${locale} ${width}px`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 844 });
+        for (const token of [false, true]) {
+          const route = `/platform-v7/forgot-password?lang=${locale}${token ? '&token=acceptance-token' : ''}`;
+          const response = await page.goto(route, { waitUntil: 'networkidle' });
+          expect(response?.status()).toBe(200);
+          await expect(page.locator('header[data-public-site-header="canonical"]')).toHaveCount(1);
+          await expect(page.locator('.pc-site-header nav.pc-site-nav')).toHaveCount(1);
+          const bottom = page.locator('nav.pc-cp-bottom-nav');
+          await expect(bottom).toHaveCount(1);
+          await expect(bottom.locator('a')).toHaveCount(5);
+          await expect(bottom.locator('[data-active="true"]')).toHaveCount(0);
+          await expect(page.locator('.pc-site-locale-cluster a.pc-site-locale-option')).toHaveCount(6);
+          const localeLinks = page.locator('.pc-site-actions > .pc-site-locale-cluster a.pc-site-locale-option');
+          await expect(localeLinks).toHaveCount(3);
+          const enHref = await localeLinks.filter({ hasText: 'EN' }).getAttribute('href');
+          expect(enHref).toContain('lang=en');
+          if (token) expect(enHref).toContain('token=acceptance-token');
+
+          if (width <= 760) {
+            await expect(bottom).toBeVisible();
+            await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+            const button = page.locator('form.pc-recovery-card button.pc-recovery-submit');
+            const buttonBox = await button.boundingBox();
+            const bottomBox = await bottom.boundingBox();
+            expect(buttonBox).not.toBeNull();
+            expect(bottomBox).not.toBeNull();
+            expect(buttonBox!.bottom).toBeLessThanOrEqual(bottomBox!.y + 1);
+            expect(buttonBox!.height).toBeGreaterThanOrEqual(44);
+          }
+          const overflow = await page.evaluate(() => Math.max(
+            document.documentElement.scrollWidth - document.documentElement.clientWidth,
+            document.body.scrollWidth - document.body.clientWidth,
+          ));
+          expect(overflow).toBeLessThanOrEqual(1);
+        }
+      });
+    }
+  }
+});
