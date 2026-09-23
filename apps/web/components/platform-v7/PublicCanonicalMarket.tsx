@@ -82,7 +82,7 @@ const CROP_LABELS: Record<CanonicalPublicLocale, Record<PublicCrop, string>> = {
 };
 
 /** Categories are navigation, not offers. They never carry price, seller, status or time. */
-export function CanonicalCropCatalogue({ locale, context = publicMarketContext() }: { locale: string; context?: PublicMarketContext }) {
+export function CanonicalCropCatalogue({ locale, context = publicMarketContext(), offersAnchor = false }: { locale: string; context?: PublicMarketContext; offersAnchor?: boolean }) {
   const lang = canonicalPublicLocale(locale);
   const copy = COPY[lang];
   return <section className='pc-cp-crop-catalog' aria-label={copy.catalogue} data-testid='canonical-crop-catalogue'>
@@ -90,10 +90,11 @@ export function CanonicalCropCatalogue({ locale, context = publicMarketContext()
     <div className='pc-cp-crop-grid' tabIndex={0} aria-label={copy.catalogue}>
       {PUBLIC_CROPS.map((crop) => {
         const selectedContext = publicMarketContext({ ...context, crop });
+        const cropHref = `${marketHref(lang, selectedContext)}${offersAnchor ? '#offers' : ''}`;
         return <article className='pc-cp-card pc-cp-crop-card' key={crop} data-crop-category={crop}>
-          <a className='pc-cp-crop-photo-link' href={marketHref(lang, selectedContext)} aria-label={CROP_LABELS[lang][crop]}><CropPhoto crop={crop} locale={lang} catalogue /></a>
+          <a className='pc-cp-crop-photo-link' href={cropHref} aria-label={CROP_LABELS[lang][crop]}><CropPhoto crop={crop} locale={lang} catalogue /></a>
           <div className='pc-cp-crop-body'>
-            <h3><a href={marketHref(lang, selectedContext)}>{CROP_LABELS[lang][crop]}</a></h3><p>{copy.category}</p>
+            <h3><a href={cropHref}>{CROP_LABELS[lang][crop]}</a></h3><p>{copy.category}</p>
             <div className='pc-cp-actions'>
               <a className='pc-cp-button pc-cp-button--secondary' href={marketApplicationHref(lang, 'sell', selectedContext)}>{copy.sell}<ArrowRight size={16} aria-hidden='true' /></a>
               <a className='pc-cp-button' href={marketApplicationHref(lang, 'buy', selectedContext)}>{copy.buy}<ArrowRight size={16} aria-hidden='true' /></a>
