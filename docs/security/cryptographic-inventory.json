@@ -602,6 +602,13 @@
       ]
     },
     {
+      "name": "CONTACT_RESULT_HMAC_SECRET",
+      "kind": "secret",
+      "files": [
+        "apps/web/lib/platform-v7/contact-result-receipt.ts"
+      ]
+    },
+    {
       "name": "CRM_WEBHOOK_TOKEN",
       "kind": "secret",
       "files": [

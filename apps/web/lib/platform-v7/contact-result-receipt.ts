@@ -11,7 +11,10 @@ const MAX_TOKEN_LENGTH = 256;
 const MAX_CLOCK_SKEW_SECONDS = 30;
 
 function rootSecret(environment: NodeJS.ProcessEnv = process.env): string | null {
-  const secret = String(environment.CONTACT_RESULT_HMAC_SECRET || '').trim();
+  const configured = environment === process.env
+    ? process.env.CONTACT_RESULT_HMAC_SECRET
+    : environment.CONTACT_RESULT_HMAC_SECRET;
+  const secret = String(configured || '').trim();
   return /^[A-Za-z0-9_-]{43,128}$/u.test(secret) ? secret : null;
 }
 
