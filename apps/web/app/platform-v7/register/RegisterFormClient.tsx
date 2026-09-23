@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { CheckCircle2, Eye, EyeOff, RefreshCw, ShieldCheck } from 'lucide-react';
 import { applyCsrfHeader } from '@/lib/csrf';
+import { verifiedRegistrationContinuationHref } from '@/lib/platform-v7/public-registration-continuation';
 import {
   classifyRegistrationStatusResponse,
   classifyRegistrationSubmitResponse,
@@ -606,7 +607,7 @@ export function RegisterFormClient({
       setStatusToken(result.statusToken);
       setStatus(verifiedStatus);
       setStatusReadState('available');
-      window.history.replaceState(null, '', `/platform-v7/register?statusToken=${encodeURIComponent(result.statusToken)}&lang=${locale}`);
+      window.history.replaceState(null, '', verifiedRegistrationContinuationHref(window.location.search, result.statusToken, locale));
     } catch {
       setError(copy.verifyInvalid);
     } finally {
