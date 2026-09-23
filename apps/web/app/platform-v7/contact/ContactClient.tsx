@@ -234,11 +234,6 @@ export function ContactClient({ sent, failed, locale }: { sent: boolean; failed:
           <h1>{copy.title}</h1>
           <p>{copy.lead}</p>
           <p>{copy.phone}: <a href='tel:+79162778989' style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>+7 916 277-89-89</a></p>
-          <div className='p7-contact-cards'>
-            <Card icon={<MessageSquareText size={22} aria-hidden='true' />} title={copy.cards[0][0]} text={copy.cards[0][1]} />
-            <Card icon={<ShieldCheck size={22} aria-hidden='true' />} title={copy.cards[1][0]} text={copy.cards[1][1]} />
-            <Card icon={<HelpCircle size={22} aria-hidden='true' />} title={copy.cards[2][0]} text={copy.cards[2][1]} />
-          </div>
         </div>
 
         <section className='p7-contact-form-card' aria-label={copy.formTitle}>
@@ -282,6 +277,12 @@ export function ContactClient({ sent, failed, locale }: { sent: boolean; failed:
             </>
           )}
         </section>
+
+          <div className='p7-contact-cards'>
+            <Card icon={<MessageSquareText size={22} aria-hidden='true' />} title={copy.cards[0][0]} text={copy.cards[0][1]} />
+            <Card icon={<ShieldCheck size={22} aria-hidden='true' />} title={copy.cards[1][0]} text={copy.cards[1][1]} />
+            <Card icon={<HelpCircle size={22} aria-hidden='true' />} title={copy.cards[2][0]} text={copy.cards[2][1]} />
+          </div>
       </section>
     </main>
   );
