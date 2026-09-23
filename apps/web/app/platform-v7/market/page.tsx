@@ -43,10 +43,10 @@ export default async function PlatformV7MarketPage({ searchParams }: { searchPar
   const hasLotParameter = params.lot !== undefined;
   const lotRef = publicLotReference(params.lot);
   const c = locale === 'ru'
-    ? {e:'Продажа и закупка',t:'Рынок продукции растениеводства',p:'Выберите культуру для продажи или закупки. Опубликованные предложения можно отобрать по региону и классу, а затем отсортировать по цене.',offers:'Опубликованные предложения',search:'Культура, класс или регион',query:'Поиск',filters:'Фильтры',activeFilters:'Применённые фильтры',crop:'Культура',region:'Регион',regionHint:'Например, Тамбовская область',grade:'Класс / сорт',gradeHint:'Например, 3 класс',sort:'Сортировка',apply:'Применить',reset:'Сбросить фильтры',remove:'Убрать фильтр',path:'От лота до завершения сделки'}
+    ? {e:'Продажа и закупка',t:'Рынок продукции растениеводства',p:'Выберите культуру для продажи или закупки. Опубликованные предложения можно отобрать по региону и классу, а затем отсортировать по цене.',offers:'Опубликованные предложения',jump:'К предложениям',search:'Культура, класс или регион',query:'Поиск',filters:'Фильтры',activeFilters:'Применённые фильтры',crop:'Культура',region:'Регион',regionHint:'Например, Тамбовская область',grade:'Класс / сорт',gradeHint:'Например, 3 класс',sort:'Сортировка',apply:'Применить',reset:'Сбросить фильтры',remove:'Убрать фильтр',path:'От лота до завершения сделки'}
     : locale === 'en'
-      ? {e:'Sale and purchase',t:'Crop market',p:'Choose a crop to sell or buy. Filter published offers by region and grade, then sort them by price.',offers:'Published offers',search:'Crop, grade or region',query:'Search',filters:'Filters',activeFilters:'Applied filters',crop:'Crop',region:'Region',regionHint:'For example, Tambov Region',grade:'Grade',gradeHint:'For example, grade 3',sort:'Sort',apply:'Apply',reset:'Reset filters',remove:'Remove filter',path:'From a lot to a completed Deal'}
-      : {e:'销售与采购',t:'农产品市场',p:'选择要销售或采购的作物，先按地区和等级筛选已发布的供求信息，再按价格排序。',offers:'已发布的供求信息',search:'作物、等级或地区',query:'搜索',filters:'筛选',activeFilters:'已应用筛选',crop:'作物',region:'地区',regionHint:'例如：坦波夫州',grade:'等级',gradeHint:'例如：3 级',sort:'排序',apply:'应用',reset:'重置筛选',remove:'移除筛选',path:'从批次到交易完成'};
+      ? {e:'Sale and purchase',t:'Crop market',p:'Choose a crop to sell or buy. Filter published offers by region and grade, then sort them by price.',offers:'Published offers',jump:'Go to offers',search:'Crop, grade or region',query:'Search',filters:'Filters',activeFilters:'Applied filters',crop:'Crop',region:'Region',regionHint:'For example, Tambov Region',grade:'Grade',gradeHint:'For example, grade 3',sort:'Sort',apply:'Apply',reset:'Reset filters',remove:'Remove filter',path:'From a lot to a completed Deal'}
+      : {e:'销售与采购',t:'农产品市场',p:'选择要销售或采购的作物，先按地区和等级筛选已发布的供求信息，再按价格排序。',offers:'已发布的供求信息',jump:'查看供求信息',search:'作物、等级或地区',query:'搜索',filters:'筛选',activeFilters:'已应用筛选',crop:'作物',region:'地区',regionHint:'例如：坦波夫州',grade:'等级',gradeHint:'例如：3 级',sort:'排序',apply:'应用',reset:'重置筛选',remove:'移除筛选',path:'从批次到交易完成'};
   const cropLabel = CROP_OPTIONS[locale].find(([value]) => value === crop)?.[1] ?? crop;
   const sortLabel = SORT_OPTIONS[locale].find(([value]) => value === sort)?.[1] ?? sort;
   const chips = [
@@ -63,12 +63,12 @@ export default async function PlatformV7MarketPage({ searchParams }: { searchPar
   }
   return <main className='pc-canonical-public pc-cp-page-market'>
     <CanonicalPublicHeader locale={locale} activePath='/platform-v7/market' />
-    <section className='pc-cp-market-hero'><div className='pc-cp-container'><div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{c.e}</span><h1>{c.t}</h1><p>{c.p}</p></div></div></section>
-    <section className='pc-cp-section pc-cp-section--tight'><div className='pc-cp-container'><CanonicalCropCatalogue locale={locale} context={context} /></div></section>
-    <section className='pc-cp-section pc-cp-section--tight' id='offers' aria-labelledby='pc-market-offers-title'>
+    <section className='pc-cp-market-hero'><div className='pc-cp-container'><div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{c.e}</span><h1>{c.t}</h1><p>{c.p}</p><a className='pc-cp-button pc-cp-button--secondary pc-cp-market-jump' href='#offers'>{c.jump}</a></div></div></section>
+    <section className='pc-cp-section pc-cp-section--tight'><div className='pc-cp-container'><CanonicalCropCatalogue locale={locale} context={context} offersAnchor /></div></section>
+    <section className='pc-cp-section pc-cp-section--tight' id='offers' tabIndex={-1} aria-labelledby='pc-market-offers-title'>
       <div className='pc-cp-container'>
         <div className='pc-cp-section-head'><h2 id='pc-market-offers-title'>{c.offers}</h2></div>
-        <form className='pc-cp-market-toolbar pc-cp-market-toolbar--filters' action='/platform-v7/market' method='get' role='search' aria-label={c.filters}>
+        <form className='pc-cp-market-toolbar pc-cp-market-toolbar--filters' action='/platform-v7/market#offers' method='get' role='search' aria-label={c.filters}>
           <input type='hidden' name='lang' value={locale} />
           <label className='pc-cp-market-field pc-cp-market-field--search'><span>{c.search}</span><span className='pc-cp-market-search-control'><Search size={18} aria-hidden='true' /><input className='pc-cp-search' type='search' name='q' defaultValue={query} placeholder={c.search} maxLength={120} /></span></label>
           <div className='pc-cp-market-filter-grid' role='group' aria-label={c.filters}>
@@ -77,9 +77,9 @@ export default async function PlatformV7MarketPage({ searchParams }: { searchPar
             <label className='pc-cp-market-field'><span>{c.grade}</span><input name='grade' defaultValue={grade} placeholder={c.gradeHint} maxLength={80} /></label>
             <label className='pc-cp-market-field'><span>{c.sort}</span><select name='sort' defaultValue={sort}>{SORT_OPTIONS[locale].map(([value,label]) => <option value={value} key={value || 'default'}>{label}</option>)}</select></label>
           </div>
-          <div className='pc-cp-market-filter-actions'><button className='pc-cp-button' type='submit'><SlidersHorizontal size={16} aria-hidden='true' />{c.apply}</button><a className='pc-cp-button pc-cp-button--secondary' href={marketHref(locale, publicMarketContext())}>{c.reset}</a></div>
+          <div className='pc-cp-market-filter-actions'><button className='pc-cp-button' type='submit'><SlidersHorizontal size={16} aria-hidden='true' />{c.apply}</button><a className='pc-cp-button pc-cp-button--secondary' href={`${marketHref(locale, publicMarketContext())}#offers`}>{c.reset}</a></div>
           {chips.some(([, , value]) => Boolean(value)) ? <div className='pc-cp-market-active-filters' aria-label={c.activeFilters}>
-            {chips.filter(([, , value]) => Boolean(value)).map(([key, label, value]) => <a key={key} href={marketHref(locale, publicMarketContext({ ...context, [key]: '' }))} aria-label={`${c.remove}: ${label} — ${value}`}><strong>{label}</strong><span>{value}</span><span aria-hidden='true'>×</span></a>)}
+            {chips.filter(([, , value]) => Boolean(value)).map(([key, label, value]) => <a key={key} href={`${marketHref(locale, publicMarketContext({ ...context, [key]: '' }))}#offers`} aria-label={`${c.remove}: ${label} — ${value}`}><strong>{label}</strong><span>{value}</span><span aria-hidden='true'>×</span></a>)}
           </div> : null}
         </form>
         <CanonicalMarketResults locale={locale} query={query} filters={{crop,region,grade}} sort={sort} selectedRef={null} />
