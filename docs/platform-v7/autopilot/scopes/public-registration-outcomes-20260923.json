@@ -8,6 +8,7 @@
   "coordination": "Team Hub #5469 claim 5786100911. No overlap with #5538 contact, #5536 market, Claude #5537 Gekta or seller/Founder work.",
   "allowedPaths": [
     ".gitleaksignore",
+    "apps/tai/tests/test_gitleaks_release_authority.py",
     "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
     "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
     "apps/web/app/api/auth/register/route.ts",

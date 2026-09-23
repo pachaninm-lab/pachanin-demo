@@ -62,6 +62,10 @@ def test_gitleaks_exceptions_are_exact_and_release_attested() -> None:
         ".github/workflows/pc-crop-08f-sync-main.yml:generic-api-key:126",
         "bcc5ba620f5e8cfec4e540c4b9fab4e236393c63:"
         "apps/web/tests/unit/platformV7RootWorkEntry.test.ts:generic-api-key:227",
+        "db4f0a50b8df0a5e1045d3b9dc6a6fdc9d2806b0:"
+        "apps/web/tests/unit/platformV7RootWorkEntry.test.ts:generic-api-key:1005",
+        "db4f0a50b8df0a5e1045d3b9dc6a6fdc9d2806b0:"
+        "apps/web/tests/unit/platformV7RootWorkEntry.test.ts:generic-api-key:1018",
         "25f4fa23451d9b2fd58ff60ba9badfc063055796:"
         ".github/workflows/pc-crop-w1-production-acceptance.yml:generic-api-key:391",
         "ba4e7b26a34f95ebc5636c6a18785a6a2d63b0b1:"
