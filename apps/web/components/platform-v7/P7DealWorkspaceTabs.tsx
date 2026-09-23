@@ -118,7 +118,7 @@ export function P7DealWorkspaceTabs({ deal, runtimeBinding }: { deal: DomainDeal
         {active === 'logistics' ? <Logistics /> : null}
         {active === 'documents' ? <Documents deal={deal} /> : null}
         {active === 'fgis' ? <Fgis deal={deal} /> : null}
-        {active === 'evidence' ? <Evidence deal={deal} /> : null}
+        {active === 'evidence' ? <Evidence /> : null}
         {active === 'dispute' ? <Dispute deal={deal} /> : null}
       </div>
     </section>
@@ -157,9 +157,9 @@ function Money({ deal }: { deal: DomainDeal }) {
         <Cell label='К банковскому основанию' value={money(bankBasisAmount)} color={bankBasisBlocked ? M : BRAND} />
       </Grid>
       <Notice danger={bankBasisBlocked} title={bankBasisBlocked ? 'Банковское основание заблокировано' : 'Внутренние условия для банковского основания'}>
-        {bankBasisBlocked ? 'В данных сделки есть блокеры подготовки банковского основания. Применимость ФГИС, подписание документов и внешний банк требуют отдельного подтверждения.' : 'Можно подготовить основание для банка; это ещё не движение денег и не подтверждение внешнего банка. Внешние факты и банк-исполнитель не опубликованы для этой операции.'}
+        {bankBasisBlocked ? 'В данных сделки есть блокеры подготовки банковского основания. Применимость ФГИС, подписание документов и внешний банк требуют отдельного подтверждения.' : 'Можно подготовить основание для банка; это ещё не движение денег и не подтверждение внешнего банка. Внешние факты и банк-исполнитель не опубликованы для этой сделки.'}
       </Notice>
-      <Cell label='Банк-исполнитель по операции' value={UNKNOWN_EXTERNAL_FACT} />
+      <Cell label='Привязка банка к сделке' value={UNKNOWN_EXTERNAL_FACT} />
       <RuntimeActionRow>
         <P7DealWorkspaceRuntimeActionButton dealId={deal.id} intent={intent} />
         <Link href='/platform-v7/bank' style={linkButton()}>Банковый контур →</Link>
@@ -205,11 +205,10 @@ function Fgis({ deal }: { deal: DomainDeal }) {
   );
 }
 
-function Evidence({ deal }: { deal: DomainDeal }) {
-  const weak = deal.blockers.length > 0 || deal.holdAmount > 0;
+function Evidence() {
   return (
     <Stack>
-      <Notice danger={weak} title='Пакет доказательств'>{UNKNOWN_EXTERNAL_FACT}. Этот read сделки не подтверждает количество файлов, протокол качества или внешний банковский результат. Наличие блокера или удержания требует проверки, а отсутствие не означает готовность пакета.</Notice>
+      <Notice title='Пакет доказательств'>{UNKNOWN_EXTERNAL_FACT}. Этот read сделки не подтверждает количество файлов, протокол качества или внешний банковский результат. Наличие блокера или удержания требует проверки, а отсутствие не означает готовность пакета.</Notice>
     </Stack>
   );
 }

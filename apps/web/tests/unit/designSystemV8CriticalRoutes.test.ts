@@ -142,7 +142,8 @@ describe('Design System v8 critical transaction routes', () => {
     expect(dealWorkspace).toContain('UNKNOWN / NOT EXPOSED');
     expect(dealWorkspace).toContain('Отсутствие документного блокера не подтверждает подписание');
     expect(dealWorkspace).toContain('Отсутствие блокера не подтверждает применимость');
-    expect(dealWorkspace).toContain('Внешние факты и банк-исполнитель не опубликованы');
+    expect(dealWorkspace).toContain('Внешние факты и банк-исполнитель не опубликованы для этой сделки');
+    expect(dealWorkspace).not.toContain('Банк-исполнитель по операции');
     expect(dealWorkspace).toContain('это ещё не движение денег и не подтверждение внешнего банка');
     expect(dealWorkspace).toContain('request_bank_basis');
   });
