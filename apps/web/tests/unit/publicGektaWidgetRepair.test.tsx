@@ -8,6 +8,7 @@ import { PublicGektaChatButton } from '@/components/platform-v7/PublicGektaChatB
 import { PublicContactDock } from '@/components/platform-v7/PublicContactDock';
 import {
   PUBLIC_GEKTA_OPEN_STALL_MS,
+  usePublicGektaEntry,
   bindPublicGektaOwner,
   readPublicGektaOpenStatus,
   reportPublicGektaUnavailable,
@@ -462,6 +463,104 @@ describe('G05/G08 fetch resilience boundary', () => {
     expect(payload.actionAllowed).toBe(false);
     expect(native).toHaveBeenCalledTimes(2);
     delete (window as unknown as Record<string, unknown>).__p7PublicAssistantFetchResilienceInstalled__;
+  });
+});
+
+describe('review follow-ups on 41800d8', () => {
+  it('the contact dock shows the opening state on a cold tap and explicit recovery after a failure', () => {
+    render(<PublicContactDock assistantContext='public' publicMode='gekta' />);
+    const dock = document.querySelector<HTMLButtonElement>('.pc-public-contact-dock-assistant')!;
+    fireEvent.click(dock);
+    expect(dock.getAttribute('aria-busy')).toBe('true');
+    expect(dock.textContent).toContain('Открываем');
+    act(() => { reportPublicGektaUnavailable(); });
+    expect(dock.getAttribute('data-gekta-open-state')).toBe('failed');
+    expect(dock.getAttribute('aria-label')).toBe('Гекта не загрузилась. Обновить страницу');
+    expect(dock.textContent).toContain('Обновить');
+  });
+
+  it('every entry built on the shared hook reloads (and sends nothing) once the open failed', () => {
+    const reload = vi.fn();
+    const original = window.location;
+    Object.defineProperty(window, 'location', { configurable: true, value: { ...original, reload } });
+    try {
+      function Entry() {
+        const { state, open } = usePublicGektaEntry();
+        return <button type='button' data-state={state} onClick={() => open({ source: 'probe' })}>entry</button>;
+      }
+      render(<Entry />);
+      const entry = screen.getByRole('button', { name: 'entry' });
+      fireEvent.click(entry);
+      expect(entry.getAttribute('data-state')).toBe('opening');
+      act(() => { reportPublicGektaUnavailable(); });
+      expect(entry.getAttribute('data-state')).toBe('failed');
+      fireEvent.click(entry);
+      expect(reload).toHaveBeenCalledTimes(1);
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: original });
+    }
+  });
+
+  it('New dialog asks before discarding even a single exchange; Cancel keeps it', async () => {
+    installFetch((url) => (url.includes('locale=') ? catalogResponse() : sse([meta(), token('Единственный ответ.'), done(true)])));
+    const { user } = await openAndType('Один вопрос');
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(screen.getByText('Единственный ответ.')).toBeInTheDocument());
+    const confirm = stubConfirm(false);
+    await user.click(screen.getByRole('button', { name: 'Новый диалог' }));
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Единственный ответ.')).toBeInTheDocument();
+  });
+
+  it('a row saved while still streaming is restored as a partial answer, not a complete one', async () => {
+    window.sessionStorage.setItem('pc-gekta-assistant-v1:ru', JSON.stringify([
+      { id: 'u1', role: 'user', text: 'Вопрос', createdAt: '2026-09-23T00:00:00.000Z' },
+      { id: 'a1', role: 'assistant', text: 'Незаконченный ответ', createdAt: '2026-09-23T00:00:01.000Z', stream: { status: 'streaming' } },
+    ]));
+    installFetch(() => catalogResponse());
+    const user = userEvent.setup();
+    render(<PublicPlatformAssistant />);
+    await user.click(screen.getByRole('button', { name: /Спросить Гекту/ }));
+    await waitFor(() => expect(screen.getByText('Незаконченный ответ')).toBeInTheDocument());
+    expect(screen.getByText('Ответ прерван и не завершён')).toBeInTheDocument();
+  });
+
+  it('a clipboard failure is not reported as a connection failure and offers no request retry', async () => {
+    const spy = installFetch((url) => (url.includes('locale=') ? catalogResponse() : sse([meta(), token('Ответ для копии.'), done(true)])));
+    const { user } = await openAndType('Вопрос');
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(screen.getByText('Ответ для копии.')).toBeInTheDocument());
+    // userEvent.setup() installs its own clipboard; replace it after setup.
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: vi.fn(async () => { throw new Error('denied'); }) } });
+    await user.click(screen.getAllByRole('button', { name: 'Копировать ответ' })[0]);
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Не удалось скопировать'));
+    expect(document.querySelector('.pc-public-assistant-error-retry')).toBeNull();
+    expect(posts(spy)).toHaveLength(1);
+  });
+
+  it('reports a 4xx as a rejected request without offering a retry that would fail the same way', async () => {
+    const spy = installFetch((url) => (url.includes('locale=') ? catalogResponse() : new Response('{}', { status: 413 })));
+    const { user } = await openAndType('Вопрос');
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(screen.getByRole('alert').getAttribute('data-gekta-failure')).toBe('rejected'));
+    expect(document.querySelector('.pc-public-assistant-error-retry')).toBeNull();
+    expect(posts(spy)).toHaveLength(1);
+  });
+
+  it('Retry after a failure replaces a trailing answer instead of appending a second one', async () => {
+    let call = 0;
+    installFetch((url) => {
+      if (url.includes('locale=')) return catalogResponse();
+      call += 1;
+      return call === 1 ? new Response('{}', { status: 503 }) : sse([meta(), token('Со второй попытки.'), done(true)]);
+    });
+    const { user } = await openAndType('Вопрос');
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(screen.getByRole('alert').getAttribute('data-gekta-failure')).toBe('server_error'));
+    await user.click(document.querySelector<HTMLButtonElement>('.pc-public-assistant-error-retry')!);
+    await waitFor(() => expect(screen.getByText('Со второй попытки.')).toBeInTheDocument());
+    expect(document.querySelectorAll(".pc-public-assistant-message[data-role='user']")).toHaveLength(1);
+    expect(document.querySelectorAll(".pc-public-assistant-message[data-role='assistant']")).toHaveLength(1);
   });
 });
 

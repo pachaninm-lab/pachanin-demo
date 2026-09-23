@@ -86,7 +86,7 @@ type Message = {
   /** The partial answer ended because the reader (or the page) stopped it. */
   stopped?: boolean;
 };
-type Failure = 'offline' | 'rate_limited' | 'server_error' | 'unknown';
+type Failure = 'offline' | 'rate_limited' | 'server_error' | 'rejected' | 'unknown';
 type Announcement = '' | 'sending' | 'complete' | 'refused' | 'interrupted';
 type ContextPayload = { context: string; prompts: string[] };
 type HistoryTurn = { role: 'user' | 'assistant'; text: string };
@@ -113,6 +113,7 @@ type Copy = {
   processing: string;
   copy: string;
   copied: string;
+  copyFailed: string;
   retry: string;
   useful: string;
   inaccurate: string;
@@ -152,6 +153,7 @@ const COPY: Record<Locale, Copy> = {
     processing: 'Гекта анализирует…',
     copy: 'Копировать ответ',
     copied: 'Скопировано',
+    copyFailed: 'Не удалось скопировать ответ. Выделите текст и скопируйте вручную.',
     retry: 'Повторить запрос',
     useful: 'Ответ полезен',
     inaccurate: 'Сообщить об ошибке',
@@ -163,6 +165,7 @@ const COPY: Record<Locale, Copy> = {
       offline: 'Нет соединения с сетью. Запрос не выполнен — проверьте подключение и повторите.',
       rate_limited: 'Слишком много запросов. Подождите немного и повторите.',
       server_error: 'Сервис временно не ответил. Повторите запрос позже.',
+      rejected: 'Запрос не принят: он слишком большой или некорректный. Сократите вопрос или уберите вложение.',
       unknown: 'Ответ не получен. Проверь соединение и повтори запрос.',
     },
     announce: {
@@ -199,6 +202,7 @@ const COPY: Record<Locale, Copy> = {
     processing: 'Gekta is analysing…',
     copy: 'Copy answer',
     copied: 'Copied',
+    copyFailed: 'The answer could not be copied. Select the text and copy it manually.',
     retry: 'Retry request',
     useful: 'Useful answer',
     inaccurate: 'Report an error',
@@ -210,6 +214,7 @@ const COPY: Record<Locale, Copy> = {
       offline: 'You are offline. The request was not sent — check the connection and retry.',
       rate_limited: 'Too many requests. Wait a moment and retry.',
       server_error: 'The service did not respond. Retry later.',
+      rejected: 'The request was not accepted: it is too large or malformed. Shorten the question or remove the attachment.',
       unknown: 'No answer was received. Check the connection and try again.',
     },
     announce: {
@@ -246,6 +251,7 @@ const COPY: Record<Locale, Copy> = {
     processing: 'Gekta 正在分析…',
     copy: '复制回答',
     copied: '已复制',
+    copyFailed: '无法复制回答。请选中文字手动复制。',
     retry: '重试问题',
     useful: '回答有用',
     inaccurate: '报告错误',
@@ -257,6 +263,7 @@ const COPY: Record<Locale, Copy> = {
       offline: '网络未连接。请求未完成，请检查连接后重试。',
       rate_limited: '请求过多。请稍后重试。',
       server_error: '服务暂时没有响应。请稍后重试。',
+      rejected: '请求未被接受：内容过大或格式不正确。请缩短问题或移除附件。',
       unknown: '未收到回答。请检查连接后重试。',
     },
     announce: {
@@ -489,7 +496,8 @@ function safeStoredMessages(value: unknown): Message[] {
         ? row.origin
         : undefined,
       // A partial answer stays marked as partial after a reload.
-      interrupted: row.interrupted === true ? true : undefined,
+      // A row saved while it was still streaming is a partial answer.
+      interrupted: row.interrupted === true || (row.stream as { status?: unknown } | undefined)?.status === 'streaming' ? true : undefined,
       stopped: row.stopped === true ? true : undefined,
     } satisfies Message];
   });
@@ -719,7 +727,7 @@ export function PublicPlatformAssistant() {
     // A new conversation is explicit. An unsent draft or a real conversation is
     // never discarded without confirmation; Cancel leaves both untouched.
     if (input.trim() && !window.confirm(ui.newChatDraftConfirm)) return;
-    if (!input.trim() && messages.length > 2 && !window.confirm(ui.resetConfirm)) return;
+    if (!input.trim() && messages.length > 0 && !window.confirm(ui.resetConfirm)) return;
     generationRef.current += 1;
     const controller = abortRef.current;
     abortRef.current = null;
@@ -844,6 +852,8 @@ export function PublicPlatformAssistant() {
     if (!response.ok) {
       if (response.status === 429) return { failure: 'rate_limited' };
       if (response.status >= 500) return { failure: 'server_error' };
+      // 4xx: repeating the same request would fail the same way.
+      if (response.status >= 400) return { failure: 'rejected' };
       return { failure: 'unknown' };
     }
 
@@ -973,7 +983,10 @@ export function PublicPlatformAssistant() {
       if (!await knowledgeFallback(question, history, controller, generation)) throw new Error('knowledge_fallback_failed');
       if (generationRef.current === generation) setAnnouncement('complete');
     } catch (reason) {
-      if (reason instanceof DOMException && reason.name === 'AbortError') return;
+      if (reason instanceof DOMException && reason.name === 'AbortError') {
+        if (generationRef.current === generation) setAnnouncement('interrupted');
+        return;
+      }
       if (generationRef.current !== generation) return;
       setFailure('unknown');
       setError(ui.error);
@@ -1031,7 +1044,9 @@ export function PublicPlatformAssistant() {
       window.setTimeout(() => setCopiedId((current) => current === message.id ? '' : current), 1_500);
       trackEvent('public_platform_assistant_answer_copied', { origin: message.origin || 'unknown' });
     } catch {
-      setError(ui.error);
+      // A clipboard problem is not a connection problem and has nothing to retry.
+      setFailure(null);
+      setError(ui.copyFailed);
     }
   };
 
@@ -1294,10 +1309,14 @@ export function PublicPlatformAssistant() {
             ) : null}
 
             {error ? (
-              <div className='pc-public-assistant-error' role='alert' data-gekta-failure={failure ?? 'unknown'}>
+              <div className='pc-public-assistant-error' role='alert' data-gekta-failure={failure ?? undefined}>
                 <span>{error}</span>
-                {!sending && messages.some((message) => message.role === 'user') ? (
-                  <button type='button' className='pc-public-assistant-error-retry' onClick={() => void regenerateAnswer(messages.length)}>
+                {!sending && failure && failure !== 'rejected' && messages.some((message) => message.role === 'user') ? (
+                  <button
+                    type='button'
+                    className='pc-public-assistant-error-retry'
+                    onClick={() => void regenerateAnswer(messages[messages.length - 1]?.role === 'assistant' ? messages.length - 1 : messages.length)}
+                  >
                     {ui.retry}
                   </button>
                 ) : null}

@@ -19,8 +19,11 @@ describe('platform-v7 public assistant mobile layout authority', () => {
     expect(mount).toContain("import { PublicAssistantMobileLayoutAuthority }");
     expect(mount).toContain('<PublicAssistantMobileLayoutAuthority />');
     expect(mount.match(/<PublicAssistantMobileLayoutAuthority \/>/gu)).toHaveLength(1);
-    expect(mount.indexOf('<PublicAssistantMobileLayoutAuthority />'))
-      .toBeLessThan(mount.indexOf('<PublicPlatformAssistant />'));
+    // It must be in the public branch (the last return), not a private one.
+    const publicBranch = mount.slice(mount.lastIndexOf('return ('));
+    expect(publicBranch).toContain('<PublicAssistantMobileLayoutAuthority />');
+    expect(publicBranch.indexOf('<PublicAssistantMobileLayoutAuthority />'))
+      .toBeLessThan(publicBranch.indexOf('<PublicPlatformAssistant />'));
     expect(hydration).not.toContain('PublicAssistantMobileLayoutAuthority');
   });
 

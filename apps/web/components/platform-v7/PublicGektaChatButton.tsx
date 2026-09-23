@@ -1,12 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import { Sparkles } from 'lucide-react';
-import {
-  requestPublicGektaOpen,
-  subscribePublicGektaOpenStatus,
-  type PublicGektaOpenStatus,
-} from '@/lib/platform-v7/public-gekta-open';
+import { usePublicGektaEntry } from '@/lib/platform-v7/public-gekta-open';
 
 type Locale = 'ru' | 'en' | 'zh';
 type Variant = 'header' | 'mobile' | 'section';
@@ -26,20 +22,10 @@ export function PublicGektaChatButton({ locale, variant = 'header', className = 
 }) {
   const lang = canonicalLocale(locale);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const [requested, setRequested] = useState(false);
-  const [status, setStatus] = useState<PublicGektaOpenStatus>('idle');
+  const { state, open } = usePublicGektaEntry();
   const question = typeof prompt === 'string' && prompt.length <= 240 && !/[\u0000-\u001f\u007f]/u.test(prompt) ? prompt.trim() : '';
-  useEffect(() => subscribePublicGektaOpenStatus(setStatus), []);
-  const state = requested ? status : 'idle';
   const openGekta = () => {
-    if (state === 'failed') {
-      // Explicit recovery: reload fetches the assistant code again. No request
-      // to the assistant API is repeated.
-      window.location.reload();
-      return;
-    }
-    setRequested(true);
-    requestPublicGektaOpen({
+    open({
       source: question ? 'public_prompt_card' : `public_entry_${variant}`,
       context: 'platform',
       prompts: [],

@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { MessageCircle, Phone, Sparkles } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics/track';
-import { requestPublicGektaOpen } from '@/lib/platform-v7/public-gekta-open';
+import { usePublicGektaEntry } from '@/lib/platform-v7/public-gekta-open';
 
 type Locale = 'ru' | 'en' | 'zh';
 type Surface = 'assistant' | 'support';
@@ -16,9 +16,9 @@ const PUBLIC_MOBILE_QUERY = '(max-width: 767px)';
 const PUBLIC_HERO_THRESHOLD = 120;
 
 const COPY = {
-  ru: { assistant: 'Гекта', assistantAria: 'Открыть Гекту', support: 'Поддержка', supportAria: 'Открыть поддержку', call: 'Позвонить', callAria: `Позвонить по номеру ${SUPPORT_PHONE_DISPLAY}`, group: 'Связь и помощь' },
-  en: { assistant: 'Gekta', assistantAria: 'Open Gekta', support: 'Support', supportAria: 'Open support', call: 'Call', callAria: `Call ${SUPPORT_PHONE_DISPLAY}`, group: 'Help and contact' },
-  zh: { assistant: 'Gekta', assistantAria: '打开 Gekta', support: '支持', supportAria: '打开支持', call: '致电', callAria: `拨打 ${SUPPORT_PHONE_DISPLAY}`, group: '帮助与联系' },
+  ru: { assistant: 'Гекта', assistantOpening: 'Открываем…', assistantFailed: 'Обновить', assistantFailedAria: 'Гекта не загрузилась. Обновить страницу', assistantAria: 'Открыть Гекту', support: 'Поддержка', supportAria: 'Открыть поддержку', call: 'Позвонить', callAria: `Позвонить по номеру ${SUPPORT_PHONE_DISPLAY}`, group: 'Связь и помощь' },
+  en: { assistant: 'Gekta', assistantOpening: 'Opening…', assistantFailed: 'Reload', assistantFailedAria: 'Gekta did not load. Reload the page', assistantAria: 'Open Gekta', support: 'Support', supportAria: 'Open support', call: 'Call', callAria: `Call ${SUPPORT_PHONE_DISPLAY}`, group: 'Help and contact' },
+  zh: { assistant: 'Gekta', assistantOpening: '正在打开…', assistantFailed: '刷新', assistantFailedAria: 'Gekta 未能加载。刷新页面', assistantAria: '打开 Gekta', support: '支持', supportAria: '打开支持', call: '致电', callAria: `拨打 ${SUPPORT_PHONE_DISPLAY}`, group: '帮助与联系' },
 } as const;
 
 function resolveLocale(): Locale {
@@ -45,6 +45,7 @@ export function PublicContactDock({ assistantContext = 'public', publicMode = 'f
   const returnFocusRef = React.useRef<Surface | null>(null);
   const openStateRef = React.useRef({ assistant: false, support: false });
   const ui = COPY[locale];
+  const gekta = usePublicGektaEntry();
   const gektaOnly = assistantContext === 'public' && publicMode === 'gekta';
   const assistantTriggerSelector = assistantContext === 'workspace'
     ? null
@@ -169,7 +170,7 @@ export function PublicContactDock({ assistantContext = 'public', publicMode = 'f
     if (surface === 'assistant' && assistantContext === 'public') {
       // The public assistant has one open operation; no hidden-button click.
       returnFocusRef.current = surface;
-      requestPublicGektaOpen({ source: 'public_contact_dock', opener: assistantButtonRef.current });
+      gekta.open({ source: 'public_contact_dock', opener: assistantButtonRef.current });
       return;
     }
     const selector = surface === 'assistant' ? assistantTriggerSelector : '.p7-support-chat-button';
@@ -193,9 +194,9 @@ export function PublicContactDock({ assistantContext = 'public', publicMode = 'f
       data-assistant-context={assistantContext}
       data-public-mode={publicMode}
     >
-      <button ref={assistantButtonRef} type='button' disabled={hidden} tabIndex={hidden ? -1 : 0} className='pc-public-contact-dock-action pc-public-contact-dock-assistant' aria-label={ui.assistant} aria-haspopup={assistantContext === 'workspace' ? undefined : 'dialog'} aria-controls={assistantPanelSelector.slice(1)} onClick={() => openSurface('assistant')}>
+      <button ref={assistantButtonRef} type='button' disabled={hidden} tabIndex={hidden ? -1 : 0} className='pc-public-contact-dock-action pc-public-contact-dock-assistant' data-gekta-open-state={gekta.state} aria-busy={gekta.state === 'opening' || undefined} aria-label={gekta.state === 'failed' ? ui.assistantFailedAria : ui.assistant} aria-haspopup={assistantContext === 'workspace' ? undefined : 'dialog'} aria-controls={assistantPanelSelector.slice(1)} onClick={() => openSurface('assistant')}>
         <span className='pc-public-contact-dock-icon' aria-hidden='true'><Sparkles size={17} strokeWidth={2.15} /></span>
-        <strong>{ui.assistant}</strong>
+        <strong>{gekta.state === 'opening' ? ui.assistantOpening : gekta.state === 'failed' ? ui.assistantFailed : ui.assistant}</strong>
       </button>
       {!gektaOnly ? (
         <>

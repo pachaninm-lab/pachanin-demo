@@ -11,6 +11,8 @@
  * Those remain owned by the assistant component.
  */
 
+import { useCallback, useEffect, useState } from 'react';
+
 export type PublicGektaOpenIntent = {
   readonly source: string;
   /** Public page context label; never a tenant, deal or document identifier. */
@@ -92,3 +94,26 @@ export function subscribePublicGektaOpenStatus(listener: StatusListener): () => 
     listeners.delete(listener);
   };
 }
+
+/**
+ * Shared entry-point state: every public entry shows the same opening state
+ * while the assistant loads, and the same explicit recovery (a reload that
+ * fetches the assistant code again; no assistant request is repeated) once
+ * the open could not be delivered.
+ */
+export function usePublicGektaEntry() {
+  const [requested, setRequested] = useState(false);
+  const [status, setStatus] = useState<PublicGektaOpenStatus>('idle');
+  useEffect(() => subscribePublicGektaOpenStatus(setStatus), []);
+  const state: PublicGektaOpenStatus = requested ? status : 'idle';
+  const open = useCallback((intent: PublicGektaOpenIntent) => {
+    if (state === 'failed') {
+      window.location.reload();
+      return;
+    }
+    setRequested(true);
+    requestPublicGektaOpen(intent);
+  }, [state]);
+  return { state, open };
+}
+
