@@ -89,6 +89,9 @@ export function classifyRegistrationSubmitResponse(
   if (row?.outcome === 'unknown') return 'unknown';
   if (response.ok && row?.accepted === true) return 'accepted';
   if (response.ok) return 'unknown';
+  // A 5xx (or an idempotency conflict) can arrive after the upstream mutation.
+  // Retain the exact operation key until its outcome is reconciled.
+  if (response.status >= 500 || response.status === 409) return 'unknown';
   if (row?.accepted === false) return response.status === 400 ? 'invalid' : 'unavailable';
   return 'unknown';
 }
