@@ -580,6 +580,15 @@ describe('registered confirmation mismatch UX-13', () => {
       expect(confirm.getAttribute('aria-invalid')).toBe('false');
       expect(password.value).toBe('StrongPassword#123');
       expect(form.querySelector('#p0-register-confirm-error')).toBeNull();
+
+      fireEvent.change(confirm, { target: { value: 'DifferentPassword#123' } });
+      await act(async () => { fireEvent.submit(form); });
+      expect(confirm.getAttribute('aria-invalid')).toBe('true');
+      fireEvent.change(password, { target: { value: 'DifferentPassword#123' } });
+      expect(confirm.getAttribute('aria-invalid')).toBe('false');
+      expect(form.querySelector('#p0-register-confirm-error')).toBeNull();
+      expect(password.value).toBe(confirm.value);
+      expect(post).not.toHaveBeenCalled();
     });
   }
 });
