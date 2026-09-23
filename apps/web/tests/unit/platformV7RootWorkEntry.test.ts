@@ -1,6 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { POST as registrationBffPOST } from '@/app/api/auth/register/route';
+import { sendTransactionalMail } from '../../lib/server/transactional-mail';
+
+vi.mock('../../lib/server-request-security', () => ({ assertCsrf: () => ({ ok: true }) }));
+vi.mock('../../lib/server/transactional-mail', () => ({ sendTransactionalMail: vi.fn() }));
 import {
   classifyRegistrationStatusResponse,
   classifyRegistrationSubmitResponse,
@@ -941,5 +946,56 @@ describe('public registration truthful outcomes', () => {
     expect(bff).toContain("code: 'REGISTRATION_DELIVERY_CONTRACT_UNKNOWN'");
     expect(bff).toContain("code: 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE'");
     expect(bff).toContain("if (!apiResponse.ok || payload.accepted !== true)");
+  });
+});
+
+
+describe('post-acceptance registration uncertainty at the actual BFF boundary', () => {
+  const names = ['API_URL', 'REGISTRATION_DELIVERY_KEY', 'RESEND_API_KEY', 'RESEND_FROM_EMAIL'] as const;
+  const previous = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+  afterEach(() => {
+    for (const name of names) {
+      if (previous[name] === undefined) delete process.env[name];
+      else process.env[name] = previous[name];
+    }
+    vi.unstubAllGlobals();
+    vi.mocked(sendTransactionalMail).mockReset();
+  });
+
+  it.each([
+    ['missing delivery contract', { accepted: true, applicationId: 'APP-1' }, 'REGISTRATION_DELIVERY_CONTRACT_UNKNOWN'],
+    ['unconfirmed mail delivery', {
+      accepted: true, applicationId: 'APP-1', statusToken: 'status-token',
+      emailDelivery: { email: 'fixture@example.test', token: 'verify-token' },
+    }, 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE'],
+  ])('keeps %s UNKNOWN after an upstream accepted registration', async (_, upstream, code) => {
+    process.env.API_URL = 'http://api.example.test';
+    process.env.REGISTRATION_DELIVERY_KEY = 'fixture-delivery-key-0123456789abcdef';
+    process.env.RESEND_API_KEY = 'fixture-mail-key';
+    process.env.RESEND_FROM_EMAIL = 'sender@example.test';
+    const upstreamFetch = vi.fn(async () => Response.json(upstream, { status: 202 }));
+    vi.stubGlobal('fetch', upstreamFetch);
+    vi.mocked(sendTransactionalMail).mockResolvedValue({
+      delivered: false, provider: 'resend', reason: 'unconfirmed',
+    });
+    const key = 'fixed-operation-key-0123456789';
+    const request = new Request('http://localhost:3000/api/auth/register', {
+      method: 'POST',
+      headers: { 'idempotency-key': key, 'content-type': 'application/json' },
+      body: JSON.stringify({ workspace: 'seller', email: 'fixture@example.test', locale: 'ru' }),
+    });
+    const response = await registrationBffPOST(request);
+    const result = await response.json();
+    expect(upstreamFetch).toHaveBeenCalledTimes(1);
+    expect(upstreamFetch.mock.calls[0]?.[1]).toMatchObject({
+      method: 'POST', headers: { 'idempotency-key': key },
+    });
+    expect(response.status).toBe(503);
+    expect(result).toMatchObject({ outcome: 'unknown', code });
+    expect(result).not.toHaveProperty('accepted', false);
+    expect(classifyRegistrationSubmitResponse(response, result)).toBe('unknown');
+    expect(sendTransactionalMail).toHaveBeenCalledTimes(
+      code === 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE' ? 1 : 0,
+    );
   });
 });
