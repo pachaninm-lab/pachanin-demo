@@ -34,7 +34,7 @@ export async function generateMetadata():Promise<Metadata>{
 const COPY={
 ru:{
  e:'Как проходит сделка',t:'От предложения до завершения сделки',p:'Семь этапов: кто выполняет задачу, какой результат фиксируется и что нужно для следующего шага.',
- actor:'Участник',fact:'Результат',basis:'Документ или условие',money:'Что с расчётом',next:'Следующий шаг',
+ actor:'Участник',fact:'Результат',basis:'Документ или условие',money:'Что с расчётом',next:'Следующий шаг',details:'Подробнее',
  stages:[
  ['Лот','Продавец','Культура, объём, качество и место отгрузки','Данные продукции и полномочия организации','Условия оплаты ещё предстоит согласовать','Опубликовать предложение и перейти к торгам'],
  ['Торги','Продавец · Покупатель','Согласованная цена и результат торгов','Правила торгов и подтверждённый результат торгов','Цена становится частью условий сделки','Согласовать обязательства сторон'],
@@ -49,7 +49,7 @@ ru:{
 },
 en:{
  e:'How the Deal works',t:'From an offer to a completed Deal',p:'Seven stages: who handles the task, which result is recorded and what is needed for the next step.',
- actor:'Participant',fact:'Result',basis:'Document or condition',money:'Settlement',next:'Next step',
+ actor:'Participant',fact:'Result',basis:'Document or condition',money:'Settlement',next:'Next step',details:'Details',
  stages:[
  ['Lot','Seller','Crop, quantity, quality and loading location','Product information and organisation permissions','Payment terms still need to be agreed','Publish the offer and move to trading'],
  ['Trading','Seller · Buyer','Agreed price and trading result','Trading rules and confirmed trading result','The price becomes part of the Deal terms','Agree the parties’ commitments'],
@@ -64,7 +64,7 @@ en:{
 },
 zh:{
  e:'交易如何进行',t:'从供求信息到交易完成',p:'七个阶段：谁负责处理任务、记录什么结果，以及下一步需要什么。',
- actor:'参与方',fact:'结果',basis:'文件或条件',money:'结算',next:'下一步',
+ actor:'参与方',fact:'结果',basis:'文件或条件',money:'结算',next:'下一步',details:'详情',
  stages:[
  ['批次','卖方','作物、数量、质量和装货地点','产品信息和机构权限','付款条件尚需约定','发布供求信息并进入交易阶段'],
  ['交易','卖方 · 买方','约定价格和交易结果','交易规则和已确认的交易结果','价格成为交易条款的一部分','约定各方义务'],
@@ -91,9 +91,12 @@ export default async function HowItWorksPage(){
   <section className='pc-cp-how-spine'><div className='pc-cp-container'><CanonicalDealSpine locale={locale} currentIndex={null}/></div></section>
   <section className='pc-cp-section'><div className='pc-cp-container'>
    <div className='pc-cp-process-cards'>
-    {c.stages.map((s,index)=><article className='pc-cp-card pc-cp-process-card' key={s[0]}><i>{index+1}</i><div><h3>{s[0]}</h3><div className='pc-cp-process-meta'>
-      <Meta l={c.actor} v={s[1]}/><Meta l={c.fact} v={s[2]}/><Meta l={c.basis} v={s[3]}/><Meta l={c.money} v={s[4]}/><Meta l={c.next} v={s[5]}/>
-    </div></div></article>)}
+    {c.stages.map((s,index)=><article className='pc-cp-card pc-cp-process-card' key={s[0]}><i>{index+1}</i><div className='pc-cp-process-body'><h3>{s[0]}</h3>
+      <p className='pc-cp-process-result'><span>{c.fact}</span><strong>{s[2]}</strong></p>
+      <details className='pc-cp-process-details'><summary>{c.details}</summary><div className='pc-cp-process-meta'>
+        <Meta l={c.actor} v={s[1]}/><Meta l={c.basis} v={s[3]}/><Meta l={c.money} v={s[4]}/><Meta l={c.next} v={s[5]}/>
+      </div></details>
+    </div></article>)}
    </div>
   </div></section>
   <section className='pc-cp-section pc-cp-section--soft pc-cp-how-trust'><div className='pc-cp-container'>

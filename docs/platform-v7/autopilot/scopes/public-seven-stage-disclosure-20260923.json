@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-seven-stage-disclosure-20260923",
+  "status": "active",
+  "approvedBy": "owner-public-ux-repair-v2.0-2026-09-23",
+  "purpose": "UX-26: progressive disclosure for the existing seven Deal stages, using native details without changing stage order or business semantics.",
+  "ownerSpecification": "Прозрачная Цена — инженерное ТЗ быстрого UX-ремонта v2.0, 23.09.2026, section 5.3 and UX-26/T20/T25.",
+  "coordination": "Team Hub #5469 claim for fix/public-seven-stage-disclosure-20260923. Runtime branch only until a focused canonical test is added; no PR or PASS before that.",
+  "allowedPaths": [
+    "apps/web/app/platform-v7/how-it-works/page.tsx",
+    "apps/web/styles/platform-v7-canonical-public-v1.css",
+    "docs/platform-v7/autopilot/scopes/public-seven-stage-disclosure-20260923.json"
+  ],
+  "requiredInvariants": [
+    "All seven stages and their existing source copy remain in the same order.",
+    "Stage title and existing Result value are visible without expanding details.",
+    "Participant, document/condition, settlement and next step are second-level native details content.",
+    "Details summary has at least a 44px target and remains native keyboard-accessible; no custom state machine or dependency is introduced.",
+    "Mobile primary meaning uses one-column layout and does not require horizontal dragging.",
+    "No Deal authority, business status, registration, Gekta, backend, API, role, tenant, money or release semantics change.",
+    "Focused tests are required before opening a PR; this runtime commit alone is not PASS."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
