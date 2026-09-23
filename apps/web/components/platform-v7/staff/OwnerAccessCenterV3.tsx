@@ -394,7 +394,7 @@ export function OwnerAccessCenter(props: Props) {
           headers: { Accept: 'application/json' },
           signal: AbortSignal.timeout(8_000),
         }),
-        fetch('/platform-v7/staff/role-mode?view=session', {
+        fetch('/api/staff/founder/role-mode/session', {
           credentials: 'same-origin',
           cache: 'no-store',
           headers: { Accept: 'application/json' },
@@ -581,7 +581,7 @@ export function OwnerAccessCenter(props: Props) {
           headers: { Accept: 'application/json' },
           signal: controller.signal,
         }),
-        fetch('/platform-v7/staff/role-mode?view=session', {
+        fetch('/api/staff/founder/role-mode/session', {
           credentials: 'same-origin',
           cache: 'no-store',
           headers: { Accept: 'application/json' },

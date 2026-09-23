@@ -10,6 +10,7 @@ const bootstrap = read('apps/web/components/platform-v7/staff/OwnerAccessCenterV
 const bootstrapCss = read('apps/web/components/platform-v7/staff/OwnerAccessCenterV4.module.css');
 const directCenter = read('apps/web/components/platform-v7/staff/OwnerAccessCenterV3.tsx');
 const roleModeRoute = read('apps/web/app/platform-v7/staff/role-mode/route.ts');
+const canonicalStaffBff = read('apps/web/app/api/staff/[...path]/route.ts');
 const prepareRoute = read('apps/web/app/platform-v7/staff/prepare/route.ts');
 const directCss = read('apps/web/components/platform-v7/staff/OwnerAccessCenterV3.module.css');
 const center = read('apps/web/components/platform-v7/staff/OwnerAccessCenterV2.tsx');
@@ -43,10 +44,12 @@ describe('platform-v7 owner access center task UX', () => {
   it('uses a bounded staff bridge that cannot accept client tenant or effective-role authority', () => {
     expect(roleModeRoute).toContain('/staff/founder/role-mode/registry');
     expect(roleModeRoute).toContain('/staff/founder/role-mode/requests');
-    expect(roleModeRoute).toContain('/staff/founder/role-mode/session');
-    expect(roleModeRoute).toContain("const STAFF_ACCESS_COOKIE = 'pc_staff_access_token'");
-    expect(roleModeRoute).toContain("'x-staff-access-session': staffAccessToken");
     expect(roleModeRoute).toContain("request.nextUrl.searchParams.get('view') === 'session'");
+    expect(roleModeRoute).toContain("code: 'ROLE_MODE_SESSION_USE_STAFF_BFF'");
+    expect(roleModeRoute).not.toContain('pc_staff_access_token');
+    expect(roleModeRoute).not.toContain("'x-staff-access-session'");
+    expect(canonicalStaffBff).toContain("'founder/role-mode/session'");
+    expect(canonicalStaffBff).toContain("'x-staff-access-session': staffAccessToken");
     expect(roleModeRoute).toContain('assertCsrf(request)');
     expect(roleModeRoute).toContain('readBoundedBody(request.body, MAX_BODY_BYTES)');
     expect(roleModeRoute).toContain('cabinetKey');
@@ -76,7 +79,8 @@ describe('platform-v7 owner access center task UX', () => {
   it('activates the durable grant and re-verifies the canonical Founder session before display', () => {
     expect(directCenter).toContain("fetch(`/api/staff/access/grants/${encodeURIComponent(requested.payload.grantId)}/activate`");
     expect(directCenter).toContain("fetch('/api/staff/session-context'");
-    expect(directCenter).toContain("fetch('/platform-v7/staff/role-mode?view=session'");
+    expect(directCenter.match(/fetch\('\/api\/staff\/founder\/role-mode\/session'/g)).toHaveLength(2);
+    expect(directCenter).not.toContain('/platform-v7/staff/role-mode?view=session');
     expect(directCenter).toContain("canonical.schemaVersion !== 'pc-crop.founder-role-mode.v1'");
     expect(directCenter).toContain("canonical.mode !== 'VIEW_AS'");
     expect(directCenter).toContain('canonical.readOnly !== true');

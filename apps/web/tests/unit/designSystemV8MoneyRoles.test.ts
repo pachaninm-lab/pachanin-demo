@@ -8,6 +8,7 @@ const read = (relativePath: string) => fs.readFileSync(path.join(repoRoot, relat
 const seller = read('apps/web/app/platform-v7/seller/page.tsx');
 const buyer = read('apps/web/app/platform-v7/buyer/page.tsx');
 const bank = read('apps/web/app/platform-v7/bank/page.tsx');
+const firstCustomerWorkspace = read('apps/web/components/platform-v7/FirstCustomerWorkspace.tsx');
 const cockpit = read('apps/web/components/transaction-ux/MoneyObligationCockpit.tsx');
 const cockpitCss = read('apps/web/components/transaction-ux/MoneyObligationCockpit.module.css');
 const governance = JSON.parse(read('design-governance-v8.json'));
@@ -26,16 +27,35 @@ describe('Design System v8 money role reference slice', () => {
     expect(cockpitCss).not.toMatch(forbiddenPresentation);
   });
 
-  it('keeps seller operational and financial tools without claiming payment release', () => {
-    expect(seller).toContain('SellerInlineLotEditor');
-    expect(seller).toContain('DocumentReadinessMiniMatrix');
-    expect(seller).toContain('MoneyGateRing');
-    expect(seller).toContain('FactoringPanel');
-    expect(seller).toContain('CommissionCalculator');
-    expect(seller).toContain('DocumentTemplatesPanel');
-    expect(seller).toContain('EdoDocflowPanel');
-    expect(seller).toContain('Резерв не называется выплатой');
-    expect(seller).toContain('банк подтверждает проверку и движение денег');
+  it('keeps seller truth server-derived and fails closed when priority is unpublished', () => {
+    expect(seller).toContain('getDealsSnapshot');
+    expect(seller).toContain('getDisputesSnapshot');
+    expect(seller).toContain('dealRegistryComplete');
+    expect(seller).toContain("value: 'UNKNOWN'");
+    expect(seller).toContain('порядок ответа не используется как authority');
+    expect(seller).toContain('Список — навигация по подтверждённым сделкам, а не ранжирование следующего действия.');
+    expect(seller).toContain('Кабинет не делает выводов о резерве, выплате, СДИЗ, ЭТрН');
+    for (const retiredStaticTool of [
+      'SellerInlineLotEditor',
+      'DocumentReadinessMiniMatrix',
+      'MoneyGateRing',
+      'FactoringPanel',
+      'CommissionCalculator',
+      'DocumentTemplatesPanel',
+      'EdoDocflowPanel',
+    ]) {
+      expect(seller).not.toContain(retiredStaticTool);
+    }
+
+    expect(firstCustomerWorkspace).toContain("surface === 'seller' && state === 'ready' && !workspace.ownerControlled");
+    expect(firstCustomerWorkspace).toContain("href='#first-customer-work-queue'");
+    expect(firstCustomerWorkspace).toContain('sellerPriorityUnknownResult');
+    expect(firstCustomerWorkspace).toContain('Следующий обязательный шаг не опубликован');
+    expect(firstCustomerWorkspace).toContain('Required next step is not published');
+    expect(firstCustomerWorkspace).toContain('服务器未提供必须执行的下一步');
+    expect(firstCustomerWorkspace).toContain('Сервер подтвердил доступ к рабочей очереди продавца.');
+    expect(firstCustomerWorkspace).toContain('The server confirmed access to the seller work queue.');
+    expect(firstCustomerWorkspace).toContain('服务器已确认卖方工作队列的访问权限。');
   });
 
   it('keeps buyer reserve, hold, SDIZ and escrow boundaries', () => {
