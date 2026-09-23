@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-registration-safe-continuation-20260923",
+  "status": "active",
+  "approvedBy": "owner-public-ux-repair-v2.0-2026-09-23",
+  "purpose": "UX-14 verified registration continuation retains only validated public navigation context after removing spent verify token.",
+  "ownerSpecification": "Прозрачная Цена — инженерное ТЗ быстрого UX-ремонта v2.0, 23.09.2026, UX-14 T13 and section 3.4.",
+  "coordination": "Team Hub #5469 CLAIM 5789964197. Stacked on #5539 exact head d5a2acb60e2046e4ccbcc88e92a4ca29fdbb842d. Retarget after accepted parent merge.",
+  "allowedPaths": [
+    "apps/web/lib/platform-v7/public-registration-continuation.ts",
+    "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
+    "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
+    "apps/web/tests/unit/platformV7RegistrationContinuation.test.ts",
+    "docs/platform-v7/autopilot/scopes/public-registration-safe-continuation-20260923.json"
+  ],
+  "requiredInvariants": [
+    "After a verified response, both RU and EN/ZH clients replace the used verify query with the server statusToken and preserve only allowlisted public intent/crop/lot/returnTo/lang.",
+    "Duplicate, malformed or external hints and role/tenant/error query values cannot survive sanitization.",
+    "Existing pure marketHref/publicMarketReturn/publicLotReference authority remains unchanged, with no new auth, backend, DB, role or tenant semantics.",
+    "Exact-head CI, browser fixture T13 and independent review remain required before UX-14 PASS."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
