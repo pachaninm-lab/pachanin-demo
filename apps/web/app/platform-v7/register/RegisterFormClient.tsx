@@ -526,6 +526,7 @@ export function RegisterFormClient({
     );
     submitLockRef.current = true;
     element.dataset.registrationSubmitting = 'true';
+    window.dispatchEvent(new CustomEvent('pc-registration-pending', { detail: true }));
     setSubmitting(true);
     setError('');
     setCorrelationId('');
@@ -560,6 +561,7 @@ export function RegisterFormClient({
       if (verdict === 'accepted') {
         unknownOperationRef.current = null;
         setSubmittedEmail(payload.email);
+        window.dispatchEvent(new Event('pc-registration-accepted'));
         setSubmissionAccepted(true);
         return;
       }
@@ -572,6 +574,8 @@ export function RegisterFormClient({
       setError(verdict === 'invalid' ? copy.invalid : copy.unavailable);
     } finally {
       submitLockRef.current = false;
+      delete element.dataset.registrationSubmitting;
+      window.dispatchEvent(new CustomEvent('pc-registration-pending', { detail: false }));
       setSubmitting(false);
     }
   }

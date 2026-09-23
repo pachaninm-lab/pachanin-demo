@@ -564,10 +564,16 @@ describe('registration snapshot remains immutable while the request is pending',
   for (const locale of ['ru', 'en', 'zh'] as const) {
     it(locale + ': snapshots the entire request before disabling editable controls', async () => {
       vi.stubGlobal('crypto', { randomUUID: () => 'fixture-submit-key' });
-      let complete!: (response: unknown) => void;
-      const post = vi.fn(() => new Promise((resolve) => { complete = resolve; }));
+      let rejectFirst!: (error: Error) => void;
+      const post = vi.fn()
+        .mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectFirst = reject; }))
+        .mockResolvedValue({ ok: true, status: 202, json: async () => ({ accepted: true }) });
       vi.stubGlobal('fetch', post);
-      const { container } = render(createElement(RegisterFormClientPublic, { locale }));
+      const { container } = render(createElement('div', null,
+        createElement(EmployeeParticipationEntry, { label: 'Join' }),
+        createElement(RegisterFormClientPublic, { locale }),
+      ));
+      const entry = container.querySelector<HTMLButtonElement>('button.p0-register-secondary')!;
       const form = container.querySelector<HTMLFormElement>('form.p0-register-form')!;
       const fill = (name: string, value: string) =>
         fireEvent.change(form.querySelector<HTMLInputElement>('[name="' + name + '"]')!, { target: { value } });
@@ -607,10 +613,21 @@ describe('registration snapshot remains immutable while the request is pending',
       // The pending POST retains the immutable snapshot, while real-browser
       // coverage verifies disabled interaction and omission from FormData.
       expect(body.email).toBe('fixture@example.invalid');
+      expect(entry.disabled).toBe(true);
+      fireEvent.click(entry);
+      expect(form.querySelector<HTMLSelectElement>('[name="workspace"]')?.value).toBe('seller');
 
-      complete({ ok: true, status: 202, json: async () => ({ accepted: true }) });
+      await act(async () => rejectFirst(new Error('network result unknown')));
+      await waitFor(() => expect(entry.disabled).toBe(false));
+      expect(form.dataset.registrationSubmitting).toBeUndefined();
+      expect(form.querySelector('[role="alert"]')?.textContent).toBeTruthy();
+      fireEvent.submit(form);
+      await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
+      const [, retryOptions] = post.mock.calls[1] as unknown as [string, RequestInit];
+      expect(retryOptions.body).toBe(options.body);
+      expect(new Headers(retryOptions.headers).get('idempotency-key')).toBe('fixture-submit-key');
       await waitFor(() => expect(container.querySelector('.p0-register-state')).toBeTruthy());
-      expect(post).toHaveBeenCalledTimes(1);
+      expect(entry.disabled).toBe(true);
     });
   }
 });

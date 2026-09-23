@@ -163,6 +163,7 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
     );
     submitLockRef.current = true;
     element.dataset.registrationSubmitting = 'true';
+    window.dispatchEvent(new CustomEvent('pc-registration-pending', { detail: true }));
     setSubmitting(true);
     setError('');
     setCorrelationId('');
@@ -191,6 +192,7 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
       if (verdict === 'accepted') {
         unknownOperationRef.current = null;
         setSubmittedEmail(payload.email);
+        window.dispatchEvent(new Event('pc-registration-accepted'));
         setSubmissionAccepted(true);
         return;
       }
@@ -205,6 +207,8 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
         : 'Сейчас не удалось отправить заявку. Сервер не подтвердил её принятие. Повторите попытку позднее.');
     } finally {
       submitLockRef.current = false;
+      delete element.dataset.registrationSubmitting;
+      window.dispatchEvent(new CustomEvent('pc-registration-pending', { detail: false }));
       setSubmitting(false);
     }
   }
@@ -339,23 +343,24 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
 /** Select the employee path in place so entered data and market context remain intact. */
 export function EmployeeParticipationEntry({ label }: { label: string }) {
   const [pending, setPending] = React.useState(false);
+  const [accepted, setAccepted] = React.useState(false);
   React.useEffect(() => {
+    const onPending = (event: Event) => setPending((event as CustomEvent<boolean>).detail === true);
+    const onAccepted = () => setAccepted(true);
+    window.addEventListener('pc-registration-pending', onPending);
+    window.addEventListener('pc-registration-accepted', onAccepted);
     const form = document.querySelector<HTMLFormElement>('form.p0-register-form');
-    if (!form) return;
-    const fieldset = form.querySelector<HTMLFieldSetElement>('fieldset.p0-register-fields');
-    const sync = () => setPending(!form.isConnected ||
-      form.dataset.registrationSubmitting === 'true' || Boolean(fieldset?.disabled));
-    const observer = new MutationObserver(sync);
-    observer.observe(form, { attributes: true, attributeFilter: ['data-registration-submitting'] });
-    if (fieldset) observer.observe(fieldset, { attributes: true, attributeFilter: ['disabled'] });
-    if (form.parentElement) observer.observe(form.parentElement, { childList: true });
-    sync();
-    return () => observer.disconnect();
+    setPending(form?.dataset.registrationSubmitting === 'true' ||
+      Boolean(form?.querySelector<HTMLFieldSetElement>('fieldset.p0-register-fields')?.disabled));
+    return () => {
+      window.removeEventListener('pc-registration-pending', onPending);
+      window.removeEventListener('pc-registration-accepted', onAccepted);
+    };
   }, []);
-  return <button type='button' className='p0-register-secondary' disabled={pending} aria-busy={pending} onClick={() => {
+  return <button type='button' className='p0-register-secondary' disabled={pending || accepted} aria-busy={pending} onClick={() => {
     const form = document.querySelector<HTMLFormElement>('form.p0-register-form');
     const select = form?.querySelector<HTMLSelectElement>('select[name="workspace"]');
-    if (!select || pending || form?.dataset.registrationSubmitting === 'true' ||
+    if (!select || pending || accepted || form?.dataset.registrationSubmitting === 'true' ||
       select.disabled || select.closest('fieldset')?.disabled) return;
     select.value = 'employee';
     select.dispatchEvent(new Event('change', { bubbles: true }));
