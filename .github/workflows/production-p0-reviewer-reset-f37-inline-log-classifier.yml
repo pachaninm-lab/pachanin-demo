@@ -1,0 +1,234 @@
+name: Production P0 Reviewer Reset F37 Inline Log Classifier
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/production-p0-reviewer-reset-f37-inline-log-classifier.yml'
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-p0-reviewer-reset-f37-inline-log-classifier
+  cancel-in-progress: false
+
+env:
+  COMMAND: /production p0-reviewer-reset-log-classify f37
+  RESET_REVISION: f37cbb81ae485b48bd6e7a6e2c7b96e2b4c8bf1c
+  RESET_EVIDENCE_ID: '5325471181'
+  ATTEMPT_SINCE: '2026-08-18T07:55:00Z'
+  ATTEMPT_UNTIL: '2026-08-18T08:05:00Z'
+  LIVE_DOMAIN: xn----8sbjf4befbjgs9b.xn--p1ai
+  DEFAULT_HOST: 195.19.12.120
+  TRUSTED_CONNECTOR_APP_ID: '1144995'
+
+jobs:
+  contract:
+    name: Validate bounded inline read-only classifier contract
+    if: >-
+      github.event_name == 'pull_request' ||
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.number == 3072 &&
+        github.event.comment.user.login == github.repository_owner &&
+        github.event.comment.author_association == 'OWNER' &&
+        (
+          (github.actor == github.repository_owner && github.triggering_actor == github.repository_owner) ||
+          github.event.comment.performed_via_github_app.id == 1144995
+        ) &&
+        github.event.comment.body == '/production p0-reviewer-reset-log-classify f37'
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && github.event.repository.default_branch || github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate immutable read-only surface
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('.github/workflows/production-p0-reviewer-reset-f37-inline-log-classifier.yml')
+          t=p.read_text(encoding='utf-8')
+          required=['docker logs --since','Password reset challenge/outbox transaction failed','StrictHostKeyChecking=yes','PRODUCTION_MUTATION=NONE','/production p0-reviewer-reset-log-classify f37']
+          missing=[x for x in required if x not in t]
+          if missing: raise SystemExit('missing invariant: '+' | '.join(missing))
+          remote=t.split("<<'REMOTE'",1)[1].split('\n          REMOTE',1)[0]
+          forbidden=['docker restart','docker rm','docker stop','docker kill','docker compose','docker service','curl ','wget ','INSERT INTO','UPDATE ','DELETE FROM','TRUNCATE ','ALTER ROLE','CREATE ROLE','DROP ROLE','MAIL FROM','RCPT TO','forgot-password']
+          bad=[x for x in forbidden if x in remote]
+          if bad: raise SystemExit('mutation surface: '+' | '.join(bad))
+          PY
+
+      - name: Verify exact owner-issued provenance
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          set -Eeuo pipefail
+          owner="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.owner.login')"
+          user="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.user.login')"
+          assoc="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.author_association')"
+          body="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.body')"
+          app="$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID" --jq '.performed_via_github_app.id // 0')"
+          [[ "$user" == "$owner" && "$assoc" == OWNER && "$body" == "$COMMAND" ]]
+          if [[ "$GITHUB_ACTOR" == "$owner" && "${{ github.triggering_actor }}" == "$owner" ]]; then
+            echo OWNER_DIRECT_PROVENANCE_OK=1
+          else
+            [[ "$app" == "$TRUSTED_CONNECTOR_APP_ID" ]]
+            echo OWNER_CONNECTOR_PROVENANCE_OK=1
+          fi
+
+      - name: Resolve exact current main
+        id: target
+        if: github.event_name == 'issue_comment'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          sha="$(git rev-parse origin/main)"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$sha" == "$(git rev-parse HEAD)" ]]
+          [[ "$sha" == "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" ]]
+          git cat-file -e "${RESET_REVISION}^{commit}"
+          git merge-base --is-ancestor "$RESET_REVISION" "$sha"
+          [[ -z "$(git status --porcelain=v1)" ]]
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+  classify:
+    name: Classify consumed reset from exact-revision API logs
+    needs: contract
+    if: github.event_name == 'issue_comment' && needs.contract.result == 'success' && needs.contract.outputs.target_sha != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_SHA: ${{ needs.contract.outputs.target_sha }}
+      PC_PROD_HOST: ${{ secrets.PC_PROD_HOST }}
+      PC_PROD_SSH_USER: ${{ secrets.PC_PROD_SSH_USER }}
+      PC_PROD_SSH_PORT: ${{ secrets.PC_PROD_SSH_PORT }}
+      PC_PROD_SSH_KEY: ${{ secrets.PC_PROD_SSH_KEY }}
+      PC_PROD_SSH_PRIVATE_KEY: ${{ secrets.PC_PROD_SSH_PRIVATE_KEY }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Classify without exposing raw logs
+        id: diag
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main
+          [[ "$(git rev-parse HEAD)" == "$TARGET_SHA" ]]
+          [[ "$(git rev-parse origin/main)" == "$TARGET_SHA" ]]
+          [[ "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" == "$TARGET_SHA" ]]
+
+          key="$RUNNER_TEMP/reset-f37-key"; known="$RUNNER_TEMP/reset-f37-known"; safe="$RUNNER_TEMP/reset-f37-safe"
+          scan="$RUNNER_TEMP/reset-f37-scan"; match="$RUNNER_TEMP/reset-f37-match"
+          trap 'rm -f -- "$key" "$known" "$safe" "$scan" "$match"' EXIT
+          trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
+          host="$(trim "${PC_PROD_HOST:-$DEFAULT_HOST}")"; user="$(trim "${PC_PROD_SSH_USER:-}")"; port="$(trim "${PC_PROD_SSH_PORT:-22}")"; expected="$(trim "${PC_PROD_SSH_HOST_FINGERPRINT:-}")"
+          [[ "$host" == "$DEFAULT_HOST" && -n "$user" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ && "$port" =~ ^[0-9]+$ && "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          getent ahostsv4 "$LIVE_DOMAIN" | awk '{print $1}' | sort -u | grep -Fxq "$DEFAULT_HOST"
+          validate(){ local src="$1" pub; tr -d '\r' < "$src" > "$key"; chmod 0600 "$key"; grep -Eq '^(ssh-|ecdsa-|sk-)' "$key" && return 1; pub="$(mktemp)"; ssh-keygen -y -P '' -f "$key" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }; rm -f "$pub"; }
+          slot(){ local raw="$1" a b c; [[ -n "$raw" ]] || return 1; a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"; printf '%s\n' "$raw" > "$a"; validate "$a" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "${raw//\\n/$'\n'}" > "$b"; validate "$b" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "$raw" | base64 --decode > "$c" 2>/dev/null && validate "$c" && { rm -f "$a" "$b" "$c"; return 0; }; rm -f "$a" "$b" "$c"; return 1; }
+          slot "${PC_PROD_SSH_KEY:-}" || slot "${PC_PROD_SSH_PRIVATE_KEY:-}" || slot "${VPS_SSH_KEY:-}"
+          pinned=0
+          for attempt in 1 2 3; do
+            : > "$scan"; : > "$match"; ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
+            while IFS= read -r line; do [[ -n "$line" ]] || continue; fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"; [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"; done < "$scan"
+            sort -u -o "$match" "$match"; [[ "$(grep -c . "$match" || true)" == 1 ]] && { pinned=1; break; }; (( attempt == 3 )) || sleep "$attempt"
+          done
+          [[ "$pinned" == 1 ]]; mv "$match" "$known"; chmod 0600 "$known"
+
+          ssh -i "$key" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known" -o ConnectTimeout=15 \
+            "$user@$host" "bash -s -- '$RESET_REVISION' '$ATTEMPT_SINCE' '$ATTEMPT_UNTIL'" > "$safe" <<'REMOTE'
+          set -Eeuo pipefail
+          rev="$1"; since="$2"; until="$3"; emit(){ printf '%s\n' "$1"; }
+          [[ "$rev" =~ ^[0-9a-f]{40}$ && "$since" == '2026-08-18T07:55:00Z' && "$until" == '2026-08-18T08:05:00Z' && "$(id -u)" -eq 0 ]]
+          command -v docker >/dev/null 2>&1
+          mapfile -t ids < <(docker ps -aq --filter 'label=com.docker.compose.service=api' | sort -u)
+          matching=()
+          for id in "${ids[@]:-}"; do [[ -n "$id" ]] || continue; r="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$id" 2>/dev/null || true)"; [[ "$r" != "$rev" ]] || matching+=("$id"); done
+          (( ${#matching[@]} >= 1 && ${#matching[@]} <= 6 ))
+          logs=''
+          for id in "${matching[@]}"; do part="$(docker logs --since "$since" --until "$until" "$id" 2>&1 || true)"; logs+="${logs:+$'\n'}$part"; done
+          marker='Password reset challenge/outbox transaction failed'; count="$(grep -Fc "$marker" <<< "$logs" || true)"
+          if (( count == 0 )); then emit "CLASS|NOT_OBSERVED|UNKNOWN|NONE|NO_FAILURE_MARKER|0|${#matching[@]}"; emit 'PRODUCTION_MUTATION=NONE'; exit 0; fi
+          (( count <= 6 ))
+          n="$(grep -Fn "$marker" <<< "$logs" | head -n1 | cut -d: -f1)"; [[ "$n" =~ ^[0-9]+$ ]]; end=$((n+40)); block="$(sed -n "${n},${end}p" <<< "$logs")"
+          error=UNKNOWN; grep -Fq 'PrismaClientKnownRequestError' <<< "$block" && error=PRISMA_KNOWN; grep -Fq 'PrismaClientUnknownRequestError' <<< "$block" && error=PRISMA_UNKNOWN; grep -Fq 'PrismaClientValidationError' <<< "$block" && error=PRISMA_VALIDATION; grep -Fq 'PrismaClientInitializationError' <<< "$block" && error=PRISMA_INITIALIZATION
+          stage=UNKNOWN
+          if grep -Eqi 'auth-mail-outbox\.service|AuthMailOutboxService|enqueue_mail_outbox' <<< "$block"; then stage=AUTH_MAIL_ENQUEUE; elif grep -Eqi 'password-reset\.repository|PasswordResetRepository|password_reset_challenges' <<< "$block"; then stage=PASSWORD_RESET_REPOSITORY; elif grep -Eqi 'password-reset\.service|PasswordResetService' <<< "$block"; then stage=PASSWORD_RESET_SERVICE; elif grep -Eqi 'auth-mail-crypto|encryptAuthMailEnvelope|authMailReplayDigest' <<< "$block"; then stage=AUTH_MAIL_CRYPTO; fi
+          code=NONE
+          for pair in 'P2034:PRISMA_P2034' 'P2002:PRISMA_P2002' 'P2010:PRISMA_P2010' 'P2028:PRISMA_P2028' 'P1010:PRISMA_P1010' 'P1001:PRISMA_P1001' '42501:SQLSTATE_42501' '23505:SQLSTATE_23505' '40001:SQLSTATE_40001' '25006:SQLSTATE_25006' '42P01:SQLSTATE_42P01' '42883:SQLSTATE_42883' '22023:SQLSTATE_22023' '22P02:SQLSTATE_22P02'; do needle="${pair%%:*}"; label="${pair#*:}"; if grep -Fq "$needle" <<< "$block"; then code="$label"; break; fi; done
+          reason=OTHER
+          if grep -Eqi 'permission denied|insufficient privilege' <<< "$block"; then reason=PERMISSION_DENIED; elif grep -Eqi 'row-level security|row level security' <<< "$block"; then reason=ROW_LEVEL_SECURITY; elif grep -Eqi 'read-only transaction|read only transaction' <<< "$block"; then reason=READ_ONLY_TRANSACTION; elif grep -Eqi 'function .*enqueue_mail_outbox.* does not exist|undefined function' <<< "$block"; then reason=ENQUEUE_FUNCTION_MISSING; elif grep -Eqi 'relation .*mail_outbox.* does not exist|undefined table' <<< "$block"; then reason=MAIL_OUTBOX_RELATION_MISSING; elif grep -Eqi 'duplicate key|unique constraint|unique violation' <<< "$block"; then reason=UNIQUE_VIOLATION; elif grep -Eqi 'could not serialize|serialization failure|deadlock' <<< "$block"; then reason=SERIALIZATION_OR_DEADLOCK; elif grep -Eqi 'operator does not exist|invalid input syntax|cannot cast' <<< "$block"; then reason=SQL_TYPE_MISMATCH; elif grep -Eqi 'Auth-mail key|AUTH_MAIL_OUTBOX|key version|keyring' <<< "$block"; then reason=AUTH_MAIL_KEY_RUNTIME; elif grep -Eqi 'idempotency key reused|idempotency row disappeared|invalid result' <<< "$block"; then reason=AUTH_MAIL_IDEMPOTENCY; fi
+          emit "CLASS|$error|$stage|$code|$reason|$count|${#matching[@]}"; emit 'PRODUCTION_MUTATION=NONE'
+          REMOTE
+          class="$(grep '^CLASS|' "$safe" | tail -n1 || true)"; mutation="$(grep '^PRODUCTION_MUTATION=' "$safe" | tail -n1 || true)"
+          [[ "$class" =~ ^CLASS\|[A-Z0-9_]+\|[A-Z0-9_]+\|[A-Z0-9_]+\|[A-Z0-9_]+\|[0-9]+\|[0-9]+$ && "$mutation" == 'PRODUCTION_MUTATION=NONE' ]]
+          IFS='|' read -r _ error stage code reason markers containers <<< "$class"
+          echo "error=$error" >> "$GITHUB_OUTPUT"; echo "stage=$stage" >> "$GITHUB_OUTPUT"; echo "code=$code" >> "$GITHUB_OUTPUT"; echo "reason=$reason" >> "$GITHUB_OUTPUT"; echo "markers=$markers" >> "$GITHUB_OUTPUT"; echo "containers=$containers" >> "$GITHUB_OUTPUT"
+
+      - name: Publish sanitized classification
+        shell: bash
+        env:
+          ERROR: ${{ steps.diag.outputs.error }}
+          STAGE: ${{ steps.diag.outputs.stage }}
+          CODE: ${{ steps.diag.outputs.code }}
+          REASON: ${{ steps.diag.outputs.reason }}
+          MARKERS: ${{ steps.diag.outputs.markers }}
+          CONTAINERS: ${{ steps.diag.outputs.containers }}
+        run: |
+          set -Eeuo pipefail
+          body="$(mktemp)"
+          printf '%s\n' '## Production P0 reviewer reset consumed-attempt inline classifier' '' \
+            "- reset evidence id: \`$RESET_EVIDENCE_ID\`" \
+            "- diagnostic main: \`$TARGET_SHA\`" \
+            "- reset runtime revision: \`$RESET_REVISION\`" \
+            "- error type: \`${ERROR:-UNKNOWN}\`" \
+            "- source stage: \`${STAGE:-UNKNOWN}\`" \
+            "- code class: \`${CODE:-NONE}\`" \
+            "- reason class: \`${REASON:-OTHER}\`" \
+            "- matching marker/API containers: \`${MARKERS:-0}/${CONTAINERS:-0}\`" \
+            '- raw logs / PII / credentials / reset material: `NOT_PUBLISHED`' \
+            '- reset replay / mail send: `NONE`' \
+            '- production mutation: `NONE`' > "$body"
+          gh issue comment 3072 --repo "$GITHUB_REPOSITORY" --body-file "$body"
+          rm -f "$body"
+
+      - name: Enforce useful classification
+        shell: bash
+        env:
+          ERROR: ${{ steps.diag.outputs.error }}
+          REASON: ${{ steps.diag.outputs.reason }}
+          MARKERS: ${{ steps.diag.outputs.markers }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$MARKERS" =~ ^[1-9][0-9]*$ ]]
+          [[ "$ERROR" != NOT_OBSERVED && "$REASON" != NO_FAILURE_MARKER ]]
