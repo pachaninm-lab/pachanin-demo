@@ -1,33 +1,213 @@
 import React from 'react';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, within } from '@testing-library/react';
+
+vi.mock('next-intl/server', () => ({
+  getLocale: vi.fn(async () => 'ru'),
+}));
+
+vi.mock('@/lib/first-customer-workspace-server', () => ({
+  firstCustomerWorkspaceRequired: () => false,
+  getFirstCustomerWorkspace: vi.fn(),
+}));
+
+vi.mock('@/lib/deals-server', () => ({
+  getDealsSnapshot: vi.fn(),
+}));
+
+vi.mock('@/lib/disputes-server', () => ({
+  getDisputesSnapshot: vi.fn(),
+  openDisputeCount: (disputes: Array<{ status: string }>) =>
+    disputes.filter((dispute) => dispute.status === 'OPEN' || dispute.status === 'UNDER_REVIEW').length,
+}));
+
 import PlatformV7SellerPage from '@/app/platform-v7/seller/page';
+import { FirstCustomerWorkspace } from '@/components/platform-v7/FirstCustomerWorkspace';
+import { getFirstCustomerWorkspace } from '@/lib/first-customer-workspace-server';
+import { getDealsSnapshot } from '@/lib/deals-server';
+import { getDisputesSnapshot } from '@/lib/disputes-server';
 
 const source = readFileSync(resolve(__dirname, '../../app/platform-v7/seller/page.tsx'), 'utf8');
+const mockFirstCustomerWorkspace = vi.mocked(getFirstCustomerWorkspace);
+const mockDealsSnapshot = vi.mocked(getDealsSnapshot);
+const mockDisputesSnapshot = vi.mocked(getDisputesSnapshot);
 
 describe('platform-v7 seller execution polish', () => {
-  it('renders seller execution screen with bank-boundary money language', async () => {
-    render(await PlatformV7SellerPage());
-
-    expect(screen.getByText('Кабинет продавца · сделка → документы → деньги')).toBeInTheDocument();
-    expect(screen.getByText(/контур исполнения: партия, лот, резерв покупателя, СДИЗ, ЭТрН, приёмка/i)).toBeInTheDocument();
-    expect(screen.getByText('На проверку банку')).toBeInTheDocument();
-    expect(screen.getAllByText(/проверку банку 0 ₽/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/закрыть СДИЗ и ЭТрН для передачи основания банку на проверку/i)).toBeInTheDocument();
-    expect(screen.getByText(/сделка передаёт основание банку/i)).toBeInTheDocument();
+  beforeEach(() => {
+    mockFirstCustomerWorkspace.mockReset();
+    mockDealsSnapshot.mockReset();
+    mockDisputesSnapshot.mockReset();
+    mockDealsSnapshot.mockResolvedValue({ deals: [], isApiAvailable: true, isComplete: true });
+    mockDisputesSnapshot.mockResolvedValue({ disputes: [], isApiAvailable: true });
   });
 
-  it('keeps seller source free from direct payout framing and overclaims', () => {
-    expect(source).not.toMatch(/К выплате сейчас/);
-    expect(source).not.toMatch(/к выплате 0 ₽/);
-    expect(source).not.toMatch(/передачи выплаты/);
-    expect(source).not.toMatch(/платформа выпускает деньги/i);
-    expect(source).not.toMatch(/деньги автоматически выпускаются/i);
-    expect(source).not.toMatch(/production-ready/i);
-    expect(source).not.toMatch(/fully live/i);
-    expect(source).not.toMatch(/callback/i);
-    expect(source).not.toMatch(/runtime/i);
+  it('renders canonical server deals as navigation without inventing next-best-action priority', async () => {
+    mockDealsSnapshot.mockResolvedValue({
+      deals: [{
+        id: 'deal-canonical-42',
+        dealNumber: 'PC-42',
+        status: 'DOCUMENTS_PENDING',
+        culture: 'Пшеница',
+        region: 'Тамбовская область',
+      }],
+      isApiAvailable: true,
+      isComplete: true,
+    });
+
+    render(await PlatformV7SellerPage());
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Рабочий кабинет продавца по подтверждённым данным' })).toBeInTheDocument();
+    expect(screen.getAllByText('PC-42').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('DOCUMENTS_PENDING').length).toBeGreaterThan(0);
+    expect(screen.getByRole('link', { name: /PC-42/i })).toHaveAttribute(
+      'href',
+      '/platform-v7/deals/deal-canonical-42/clean',
+    );
+    expect(screen.getByText(/данные получены из серверного списка сделок/i)).toBeInTheDocument();
+    expect(screen.getByText(/Список — навигация по подтверждённым сделкам, а не ранжирование следующего действия/i)).toBeInTheDocument();
+
+    const priority = screen.getByLabelText('Главное обязательство');
+    expect(within(priority).getByText('Серверный приоритет действия')).toBeInTheDocument();
+    expect(within(priority).getByRole('heading', { name: 'Приоритет бизнес-действия не опубликован' })).toBeInTheDocument();
+    expect(within(priority).getByText(/Порядок записей в ответе не превращается в бизнес-приоритет/i)).toBeInTheDocument();
+    expect(within(priority).getByRole('link', { name: 'Список сделок' })).toHaveAttribute('href', '#overview');
+    expect(within(priority).queryByRole('link', { name: 'Открыть сделку' })).not.toBeInTheDocument();
+  });
+
+  it('does not promote create-batch navigation to server priority when the canonical registry is empty', async () => {
+    render(await PlatformV7SellerPage());
+
+    const priority = screen.getByLabelText('Главное обязательство');
+    expect(within(priority).getByRole('heading', { name: 'Приоритет бизнес-действия не опубликован' })).toBeInTheDocument();
+    expect(within(priority).getByText(/не назначает создание партии как обязательный следующий шаг/i)).toBeInTheDocument();
+    expect(within(priority).getByRole('link', { name: 'Рабочие маршруты' })).toHaveAttribute('href', '#routes');
+    expect(within(priority).queryByRole('link', { name: 'Создать партию' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the total deal count unknown when the canonical snapshot is truncated', async () => {
+    mockDealsSnapshot.mockResolvedValue({
+      deals: [{
+        id: 'deal-window-1',
+        dealNumber: 'PC-WINDOW-1',
+        status: 'ACTIVE',
+      }],
+      isApiAvailable: true,
+      isComplete: false,
+    });
+
+    render(await PlatformV7SellerPage());
+
+    expect(screen.getByText('Серверный реестр доступен · итоговое число UNKNOWN')).toBeInTheDocument();
+    expect(screen.getByText('1+')).toBeInTheDocument();
+    expect(screen.getByText(/в текущем ответе: 1\+ · итоговое число сделок UNKNOWN/i)).toBeInTheDocument();
+    expect(screen.getByText(/достигнут предел серверного ответа; итоговое число не выводится как факт/i)).toBeInTheDocument();
+  });
+
+  it('fails closed when the canonical deal registry is unavailable', async () => {
+    mockDealsSnapshot.mockResolvedValue({ deals: [], isApiAvailable: false, isComplete: false });
+    mockDisputesSnapshot.mockResolvedValue({ disputes: [], isApiAvailable: false });
+
+    render(await PlatformV7SellerPage());
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Состояние сделок сейчас не подтверждено' })).toBeInTheDocument();
+    expect(screen.getAllByText('UNKNOWN').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText(/Деловые факты скрыты до получения валидного серверного ответа/i)).toBeInTheDocument();
+    expect(screen.queryByText('0 ₽')).not.toBeInTheDocument();
+    expect(screen.getByText(/Это техническое восстановление данных, а не назначенное бизнес-действие/i)).toBeInTheDocument();
+  });
+
+  it('rejects a malformed deal payload instead of rendering its status as authority', async () => {
+    mockDealsSnapshot.mockResolvedValue({
+      deals: [{ status: 'SETTLED' }],
+      isApiAvailable: true,
+      isComplete: true,
+    });
+
+    render(await PlatformV7SellerPage());
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Состояние сделок сейчас не подтверждено' })).toBeInTheDocument();
+    expect(screen.queryByText('SETTLED')).not.toBeInTheDocument();
+  });
+
+  it('keeps the live seller workspace priority unknown while preserving Deal navigation', async () => {
+    mockFirstCustomerWorkspace.mockResolvedValue({
+      available: true,
+      forbidden: false,
+      ownerControlled: false,
+      correlationId: 'seller-live-test',
+      profile: {
+        available: true,
+        id: 'seller-user',
+        email: 'seller@example.test',
+        role: 'FARMER',
+        surfaceRole: 'seller',
+        orgId: 'org-seller',
+        tenantId: 'tenant-seller',
+        membershipId: 'membership-seller',
+        isOrgAdmin: false,
+        fullName: 'Seller Test',
+        mfaVerified: true,
+        mfaVerifiedAt: '2026-09-23T00:00:00.000Z',
+      },
+      organization: {
+        available: true,
+        organizationId: 'org-seller',
+        tenantId: 'tenant-seller',
+        currentMembershipId: 'membership-seller',
+        organizationName: 'Seller Org',
+        currentRole: 'FARMER',
+        isOrganizationAdmin: false,
+        hasFreshMfa: true,
+        members: [],
+      },
+      items: [{
+        id: 'deal-most-recent',
+        dealId: 'deal-most-recent',
+        status: 'DOCUMENTS_PENDING',
+        nextAction: 'Серверная подсказка строки',
+        href: '/platform-v7/deals/deal-most-recent/execution',
+      }],
+    });
+
+    render(await FirstCustomerWorkspace({ surface: 'seller' }));
+
+    expect(screen.getByText('Сервер подтвердил доступ к рабочей очереди продавца. Здесь показаны только доступные продавцу серверные факты; неподтверждённые данные остаются UNKNOWN.')).toBeInTheDocument();
+    const priority = screen.getByLabelText('Главная задача');
+    expect(within(priority).getByRole('heading', { name: 'Следующий обязательный шаг не опубликован' })).toBeInTheDocument();
+    expect(within(priority).getByText('UNKNOWN')).toBeInTheDocument();
+    expect(within(priority).queryByText('Ответственный')).not.toBeInTheDocument();
+    expect(within(priority).getByRole('link', { name: 'Рабочая очередь' })).toHaveAttribute('href', '#first-customer-work-queue');
+    expect(within(priority).queryByRole('link', { name: /deal-most-recent/i })).not.toBeInTheDocument();
+
+    const dealRow = screen.getByRole('link', { name: /deal-most-recent/i });
+    expect(dealRow).toHaveAttribute('href', '/platform-v7/deals/deal-most-recent/execution');
+    expect(screen.getByText('Серверная подсказка строки')).toBeInTheDocument();
+  });
+
+  it('removes the previous hard-coded seller story and demo-derived authority', () => {
+    for (const literal of [
+      'LOT-2403',
+      'LOT-2405',
+      'DL-9106',
+      '9_648_000',
+      '9,65 млн ₽',
+      '16 120 ₽/т',
+      '624 тыс. ₽',
+    ]) {
+      expect(source).not.toContain(literal);
+    }
+
+    expect(source).toContain('getDealsSnapshot');
+    expect(source).toContain('getDisputesSnapshot');
+    expect(source).toContain("? 'UNKNOWN'");
+    expect(source).toContain('dealRegistryComplete');
+    expect(source).toContain('Приоритет бизнес-действия не опубликован');
+    expect(source).not.toContain('const firstDeal');
+    expect(source).not.toContain('RoleExecutionCockpitContent');
+    expect(source).not.toContain('MoneyGateRing');
+    expect(source).not.toContain('buildDemoPaymentHeatmapData');
+    expect(source).not.toContain('DocumentReadinessMiniMatrix');
   });
 });
