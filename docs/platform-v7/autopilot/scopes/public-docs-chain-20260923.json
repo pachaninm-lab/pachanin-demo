@@ -3,14 +3,15 @@
   "branch": "test/public-docs-chain-20260923",
   "status": "active",
   "approvedBy": "owner-public-ux-repair-v2.0-2026-09-23",
-  "purpose": "UX-35/T19 verification-only: prove the current docs URL, public route authority, SSR output, hydrated DOM and client navigation are the same candidate page.",
+  "purpose": "UX-35/T19: repair reproduced template child suppression and prove direct SSR, hydration and client navigation share one docs page.",
   "ownerSpecification": "Прозрачная Цена — инженерное ТЗ быстрого UX-ремонта v2.0, 23.09.2026, sections 1.3, 5.4, 6.2 and UX-35/T19.",
-  "coordination": "Team Hub #5469 claim for test/public-docs-chain-20260923. Current source already excludes docs from the legacy translator; no runtime repair is admitted without a failing candidate-head test.",
+  "coordination": "Team Hub #5469 claim for test/public-docs-chain-20260923. Current source already excludes docs from the legacy translator; no runtime repair is admitted without a failing candidate-head test. Candidate dcc5462 CI reproduced a real mismatch: docs/template.tsx ignores children and renders legacy DocsCleanClient, so SSR shows stale content despite a current page RSC payload. Runtime admission limited to rendering children.",
   "allowedPaths": [
     "apps/web/playwright.acceptance.config.ts",
     "apps/web/tests/e2e/platform-v7-docs-chain.spec.ts",
     "apps/web/tests/unit/platformV7ProductionI18nRuntimeBridge.test.tsx",
-    "docs/platform-v7/autopilot/scopes/public-docs-chain-20260923.json"
+    "docs/platform-v7/autopilot/scopes/public-docs-chain-20260923.json",
+    "apps/web/app/platform-v7/docs/template.tsx"
   ],
   "requiredInvariants": [
     "Existing acceptance tests remain included; docs-chain is additive to testMatch.",
@@ -18,7 +19,8 @@
     "A real Next Link from About to Docs must produce the same visible docs text as direct navigation.",
     "The legacy DOM translation bridge remains disabled for /platform-v7/docs.",
     "Screenshot evidence is named with the candidate GitHub SHA when available.",
-    "No middleware, docs runtime copy, application route, auth, backend, release workflow or threshold changes."
+    "The docs template renders its route children; no replacement docs UI or translation fallback is mounted.",
+    "No middleware, docs page copy, auth, backend, release workflow or threshold changes."
   ],
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0
