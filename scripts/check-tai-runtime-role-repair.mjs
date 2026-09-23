@@ -6,7 +6,7 @@ const paths = {
   wrapper: 'scripts/pc-tai-release-controller.sh',
   repair: 'scripts/tai-runtime-role-repair.sh',
   checker: 'scripts/check-tai-runtime-role-repair.mjs',
-  scope: 'docs/platform-v7/autopilot/scopes/tai-orphan-runtime-role-repair-20260803.json',
+  scope: 'docs/platform-v7/autopilot/scopes/tai-runtime-role-direct-acl-repair-20260803.json',
 };
 const workflow = readFileSync(paths.workflow, 'utf8');
 const wrapper = readFileSync(paths.wrapper, 'utf8');
@@ -75,20 +75,37 @@ for (const fragment of [
   'WHERE roleid=role_row.oid',
   "WHERE usename='${ROLE_NAME}'",
   "relation.relname NOT LIKE 'tai\\\\_%' ESCAPE '\\\\'",
-  'if [[ "$memberships" != 0 || "$grants_to_others" != 0 || "$sessions" != 0 || "$non_tai" != 0 ]]',
+  'direct_acl_relations AS (',
+  'public_acl_relations AS (',
+  'pg_catalog.aclexplode(relation.relacl)',
+  'acl.grantee=role_row.oid',
+  'acl.grantee=0',
+  'relowner=role_row.oid',
+  "'directNonTaiAclRelationCount'",
+  "'publicNonTaiAclRelationCount'",
+  "'ownedNonTaiRelationCount'",
+  '[[ "$owned_non_tai" == 0 ]] || boundary_safe=0',
+  '[[ "$public_non_tai" == 0 ]] || boundary_safe=0',
+  '[[ "$direct_non_tai" == "$non_tai" ]] || boundary_safe=0',
   "<<'PY_BLOCKED_EVIDENCE'",
   "'status':'BLOCKED_BOUNDARY'",
   "'errorCode':'TAI_RUNTIME_ROLE_REPAIR_BOUNDARY_INVALID'",
   "'mutationPerformed':False",
-  "'passed':False",
+  "'directNonTaiAclRevoked':False",
   "os.chown(path,0,grp.getgrnam('pcactions').gr_gid)",
   'TAI_RUNTIME_ROLE_REPAIR_BOUNDARY_INVALID',
   'BEGIN;',
   'ALTER ROLE ${ROLE_NAME} NOLOGIN;',
+  "relation.relname NOT LIKE 'tai\\\\_%' ESCAPE '\\\\'",
+  "'REVOKE ALL PRIVILEGES ON TABLE %I.%I FROM %I;'",
+  'AND EXISTS (',
+  'acl.grantee=(SELECT oid FROM pg_catalog.pg_roles WHERE rolname=\'${ROLE_NAME}\')',
+  'DO \\$repair_non_tai\\$',
+  'remaining <> 0',
+  'tai_runtime retains non-TAI relation authority after bounded direct ACL revocation',
   'REVOKE CONNECT ON DATABASE ${DB_NAME} FROM ${ROLE_NAME};',
   'REVOKE USAGE ON SCHEMA public FROM ${ROLE_NAME};',
   "relation.relname LIKE 'tai\\\\_%' ESCAPE '\\\\'",
-  "'REVOKE ALL PRIVILEGES ON TABLE %I.%I FROM %I;'",
   "'REVOKE ALL PRIVILEGES ON SEQUENCE %I.%I FROM %I;'",
   'DROP ROLE ${ROLE_NAME};',
   'COMMIT;',
@@ -97,6 +114,8 @@ for (const fragment of [
   "'schemaVersion':'tai.runtime-role-repair.v1'",
   "'newRecurringCostRub':0",
   "'mutationPerformed': status == 'REMOVED_SAFE_ORPHAN'",
+  "'directNonTaiAclRevoked': status == 'REMOVED_SAFE_ORPHAN'",
+  "'nonTaiTableGrantCountAfter':0",
   "'dropOwnedUsed':False",
   "'reassignOwnedUsed':False",
   'runtimeHealthDiagnostic',
@@ -117,49 +136,63 @@ forbid(repair, /docker\s+compose[^\n]+\bdown\b/iu, `${paths.repair}: Compose shu
 forbid(repair, /network_mode:\s*host|privileged:\s*true|\/var\/run\/docker[.]sock/iu, `${paths.repair}: privileged runtime mutation is forbidden`);
 forbid(repair, /\b(?:netlify|vercel|railway|openai[.]com|anthropic[.]com)\b/iu, `${paths.repair}: external hosting or paid LLM dependency is forbidden`);
 forbid(repair, /set\s+-[^\n]*x/iu, `${paths.repair}: shell tracing is forbidden`);
+forbid(repair, /relationNames|otherRoleNames|tenantIds|businessData|connectionString|sqlText|password|secret/iu,
+  `${paths.repair}: evidence may not expose sensitive names or values`);
 
 if (scope.schemaVersion !== 'platform-v7.concurrent-scope.v1') violations.push(`${paths.scope}: invalid schemaVersion`);
-if (scope.branch !== 'fix/tai-runtime-role-boundary-evidence-20260803') violations.push(`${paths.scope}: branch mismatch`);
-if (scope.baselineExactMain !== 'd4e79a9f2f460fcf2d5da1c5c8eed2993d0e273e') violations.push(`${paths.scope}: baseline mismatch`);
+if (scope.branch !== 'fix/tai-runtime-role-direct-acl-repair-20260803') violations.push(`${paths.scope}: branch mismatch`);
+if (scope.baselineExactMain !== 'bea9a2e71bfb6b69050285b5347cf1834eb09b37') violations.push(`${paths.scope}: baseline mismatch`);
 if (scope.productionHosting !== 'REG_RU_VPS_ONLY' || scope.newRecurringCostRub !== 0) {
   violations.push(`${paths.scope}: hosting or cost boundary changed`);
 }
-const expectedPaths = Object.values(paths).sort();
+const expectedPaths = [paths.repair, paths.checker, paths.scope].sort();
 const allowedPaths = Array.isArray(scope.allowedPaths) ? [...scope.allowedPaths].sort() : [];
 if (JSON.stringify(expectedPaths) !== JSON.stringify(allowedPaths)) {
-  violations.push(`${paths.scope}: allowedPaths must exactly match the governed implementation`);
+  violations.push(`${paths.scope}: allowedPaths must exactly match the modified governed implementation`);
 }
 
-const transactionStart = repair.indexOf('\nBEGIN;\nALTER ROLE ${ROLE_NAME} NOLOGIN;');
-const dropRole = repair.indexOf('\nDROP ROLE ${ROLE_NAME};', transactionStart);
-const commit = repair.indexOf('\nCOMMIT;\n', dropRole);
-if (transactionStart < 0 || dropRole < 0 || commit < 0 || !(transactionStart < dropRole && dropRole < commit)) {
-  violations.push(`${paths.repair}: role disable, scoped revoke and DROP ROLE must remain in one transaction`);
-}
-const nonTaiCheck = repair.indexOf("relation.relname NOT LIKE 'tai\\\\_%' ESCAPE '\\\\'");
-if (nonTaiCheck < 0 || nonTaiCheck > transactionStart) {
-  violations.push(`${paths.repair}: non-TAI privilege attestation must precede mutation`);
-}
+const classificationStart = repair.indexOf('direct_acl_relations AS (');
 const boundaryJson = repair.indexOf('role_boundary_json="$(python3 -');
-const blockedCondition = repair.indexOf('if [[ "$memberships" != 0 || "$grants_to_others" != 0 || "$sessions" != 0 || "$non_tai" != 0 ]]');
-const blockedEvidence = repair.indexOf("<<'PY_BLOCKED_EVIDENCE'", blockedCondition);
+const boundaryDecision = repair.indexOf('boundary_safe=1');
+const blockedEvidence = repair.indexOf("<<'PY_BLOCKED_EVIDENCE'", boundaryDecision);
 const blockedExit = repair.indexOf("echo 'TAI_RUNTIME_ROLE_REPAIR_BOUNDARY_INVALID' >&2", blockedEvidence);
-if ([boundaryJson, blockedCondition, blockedEvidence, blockedExit].some(index => index < 0)
-  || !(nonTaiCheck < boundaryJson
-    && boundaryJson < blockedCondition
-    && blockedCondition < blockedEvidence
+const transactionStart = repair.indexOf('\nBEGIN;\nALTER ROLE ${ROLE_NAME} NOLOGIN;');
+const directRevoke = repair.indexOf("relation.relname NOT LIKE 'tai\\\\_%' ESCAPE '\\\\'", transactionStart);
+const postRevokeVerification = repair.indexOf('DO \\$repair_non_tai\\$', directRevoke);
+const taiRevoke = repair.indexOf('REVOKE CONNECT ON DATABASE ${DB_NAME} FROM ${ROLE_NAME};', postRevokeVerification);
+const dropRole = repair.indexOf('\nDROP ROLE ${ROLE_NAME};', taiRevoke);
+const commit = repair.indexOf('\nCOMMIT;\n', dropRole);
+if ([classificationStart, boundaryJson, boundaryDecision, blockedEvidence, blockedExit, transactionStart, directRevoke, postRevokeVerification, taiRevoke, dropRole, commit].some(index => index < 0)
+  || !(classificationStart < boundaryJson
+    && boundaryJson < boundaryDecision
+    && boundaryDecision < blockedEvidence
     && blockedEvidence < blockedExit
-    && blockedExit < transactionStart)) {
-  violations.push(`${paths.repair}: redacted blocked evidence must be assembled and written before every mutation`);
+    && blockedExit < transactionStart
+    && transactionStart < directRevoke
+    && directRevoke < postRevokeVerification
+    && postRevokeVerification < taiRevoke
+    && taiRevoke < dropRole
+    && dropRole < commit)) {
+  violations.push(`${paths.repair}: classification, blocked evidence, direct ACL revoke, post-verification and role removal order is invalid`);
 }
+
 const blockedEvidenceEnd = repair.indexOf('\nPY_BLOCKED_EVIDENCE', blockedEvidence);
 if (blockedEvidenceEnd < 0) {
   violations.push(`${paths.repair}: blocked evidence heredoc is incomplete`);
 } else {
   const blockedEvidenceBody = repair.slice(blockedEvidence, blockedEvidenceEnd);
-  forbid(blockedEvidenceBody, /password|connectionString|sqlText|relationNames|roleNames|tenantId|businessData|secret/iu,
+  forbid(blockedEvidenceBody, /password|connectionString|sqlText|relationNames|otherRoleNames|tenantIds|businessData|secret/iu,
     `${paths.repair}: blocked evidence contains a prohibited sensitive field`);
 }
+
+const directRevokeBlock = repair.slice(transactionStart, postRevokeVerification);
+for (const fragment of [
+  "relation.relname NOT LIKE 'tai\\\\_%' ESCAPE '\\\\'",
+  'relation.relacl IS NOT NULL',
+  "acl.grantee=(SELECT oid FROM pg_catalog.pg_roles WHERE rolname='${ROLE_NAME}')",
+]) requireFragment(directRevokeBlock, fragment, `${paths.repair}: direct ACL revoke`);
+forbid(directRevokeBlock, /acl[.]grantee\s*=\s*0/u, `${paths.repair}: PUBLIC ACL may not be revoked`);
+
 const absenceChecks = [
   repair.indexOf('TAI_RUNTIME_ROLE_REPAIR_ENV_PRESENT'),
   repair.indexOf('TAI_RUNTIME_ROLE_REPAIR_OVERRIDE_PRESENT'),
@@ -170,8 +203,8 @@ if (absenceChecks.some(index => index < 0 || index > transactionStart)) {
 }
 
 if (violations.length) {
-  console.error('TAI orphan runtime role repair contract failed:');
+  console.error('TAI orphan runtime role direct ACL repair contract failed:');
   for (const violation of violations) console.error(`- ${violation}`);
   process.exit(1);
 }
-console.log('TAI orphan runtime role repair contract PASS: exact owner command, count-only blocked evidence before mutation, strict orphan attestation, scoped transactional revocation, no DROP OWNED and idempotent role absence.');
+console.log('TAI orphan runtime role direct ACL repair contract PASS: exact owner authority, source classification before mutation, direct-only scoped revoke, post-revoke zero proof, transactional role removal, no DROP OWNED and no authority expansion.');
