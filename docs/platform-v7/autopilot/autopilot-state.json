@@ -1535,6 +1535,16 @@
     "r1-role-mode-session-bff-authority-20260921": [
       "apps/web/app/api/staff/[...path]/route.ts",
       "apps/web/tests/unit/platformV7FounderRoleModeSessionBff.test.ts"
+    ],
+    "product/r1-role-mode-consumer-20260921": [
+      "apps/web/app/platform-v7/staff/role-mode/route.ts",
+      "apps/web/components/platform-v7/staff/OwnerAccessCenter.tsx",
+      "apps/web/components/platform-v7/staff/OwnerAccessCenterV3.tsx",
+      "apps/web/components/platform-v7/staff/OwnerAccessCenterV3.module.css",
+      "apps/web/tests/unit/platformV7OwnerAccessCenterTaskUx.test.ts",
+      "apps/web/tests/unit/platformV7ControlledTestOrganizations.test.ts",
+      "docs/security/cryptographic-inventory.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
     ]
   },
   "currentAcceptance": [
@@ -1710,6 +1720,36 @@
         "Founder role-mode transport or authority"
       ],
       "teamHubDependency": "PRODUCT-SELLER-TRUTHFUL-FIRST-SCREEN-20260922"
+    },
+    "r1-role-mode-consumer-ci-repair-20260923": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Reconcile the existing controlled-test selector assertion with the accepted server-owned Founder VIEW_AS registry and regenerate the cryptographic inventory for the new BFF correlation UUID. Keep the existing five PRODUCT files and admit only these three evidence repairs.",
+      "authorityBaseExactMain": "afe240dd22fa8b4c5945a8d7f5bf369902ab7323",
+      "implementationBranch": "product/r1-role-mode-consumer-20260921",
+      "allowedPaths": [
+        "apps/web/app/platform-v7/staff/role-mode/route.ts",
+        "apps/web/components/platform-v7/staff/OwnerAccessCenter.tsx",
+        "apps/web/components/platform-v7/staff/OwnerAccessCenterV3.tsx",
+        "apps/web/components/platform-v7/staff/OwnerAccessCenterV3.module.css",
+        "apps/web/tests/unit/platformV7OwnerAccessCenterTaskUx.test.ts",
+        "apps/web/tests/unit/platformV7ControlledTestOrganizations.test.ts",
+        "docs/security/cryptographic-inventory.json",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+      ],
+      "requiredTruthBoundaries": [
+        "The controlled-test cabinet fixture remains server-bound, but its prior owner selector assertion is stale; Founder role-mode uses the canonical 13-cabinet registry and a real server-validated organization ID.",
+        "The generated cryptographic inventory must exactly reflect the new role-mode route UUID operation and tracked source count; no scanner or policy change is admitted.",
+        "Founder VIEW_AS transport uses the accepted /api/staff/founder/role-mode/session BFF under the existing cookie Path; canonicalPath remains metadata until separate transport acceptance.",
+        "No browser-synthesized role, tenant, organization, permission, MFA, session or external business authority."
+      ],
+      "forbiddenAuthority": [
+        "homepage/public implementation",
+        "backend/domain/DB/RLS/tenant/role/payment authority",
+        "cryptographic or security gate weakening",
+        "controlled-test organization as production Founder target",
+        "bank/provider/regulatory/FGIS completion or finality claim"
+      ],
+      "teamHubDependency": "CORE #5479 READY_FOR_CONSUMER at Team Hub #5469 comment 5791259431"
     }
   }
 }
