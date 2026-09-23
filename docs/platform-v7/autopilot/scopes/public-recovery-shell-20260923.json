@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-recovery-shell-20260923",
+  "status": "active",
+  "approvedBy": "owner-public-ux-repair-v2.0-2026-09-23",
+  "purpose": "UX-04: use the existing canonical public header, locale control and bottom navigation on both recovery branches.",
+  "ownerSpecification": "Прозрачная Цена — инженерное ТЗ быстрого UX-ремонта v2.0, 23.09.2026, UX-04/T01/T02/T03/T26.",
+  "coordination": "Stacked on UX-05 #5550 exact head 27ccfe5f56c2e1d4f9b3c52070aca009c1064ca6. Do not merge this branch before the parent is accepted and merged; retarget main and recheck exact head after parent merge. The old recovery page used PublicSiteHeader with no nav, no bottom nav and a cyclic token locale link. Reuse CanonicalPublicHeader/CanonicalBottomNav and PublicLocaleLink.",
+  "allowedPaths": [
+    "apps/web/app/platform-v7/forgot-password/page.tsx",
+    "apps/web/styles/platform-v7-public-auth.css",
+    "apps/web/tests/e2e/platform-v7-recovery-dirty-guard.spec.ts",
+    "docs/platform-v7/autopilot/scopes/public-recovery-shell-20260923.json"
+  ],
+  "requiredInvariants": [
+    "Exactly one canonical header and bottom nav on normal and token recovery; no second nav owner.",
+    "Locale links preserve the current path and safe token parameter; action links preserve locale.",
+    "No active mobile navigation item on recovery because it is outside the five destinations.",
+    "The final form button remains reachable and unoccluded above the fixed bottom nav at mobile widths.",
+    "No change to recovery or reset API, token handling, password policy, auth, role, tenant, or form submission.",
+    "UX-05 dirty guard from parent branch remains effective with the menu mounted; no duplicate prompts.",
+    "Existing acceptance thresholds remain; browser test covers RU/EN/ZH and 320/390/1280."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
