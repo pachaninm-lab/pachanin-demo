@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { CheckCircle2, Eye, EyeOff, RefreshCw, ShieldCheck } from 'lucide-react';
 import { applyCsrfHeader } from '@/lib/csrf';
+import { verifiedRegistrationContinuationHref } from '@/lib/platform-v7/public-registration-continuation';
 import {
   classifyRegistrationStatusResponse,
   classifyRegistrationSubmitResponse,
@@ -236,7 +237,7 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
       const verifiedStatus = parseRegistrationStatusSnapshot(result);
       if (!verifiedStatus) throw new Error('failed');
       setVerificationCompleted(true); setStatusToken(result.statusToken); setStatus(verifiedStatus); setStatusReadState('available');
-      window.history.replaceState(null, '', `/platform-v7/register?statusToken=${encodeURIComponent(result.statusToken)}&lang=ru`);
+      window.history.replaceState(null, '', verifiedRegistrationContinuationHref(window.location.search, result.statusToken, 'ru'));
     } catch {
       setError('Ссылка недействительна, срок её действия истёк или она уже была использована.');
     } finally { setSubmitting(false); }
