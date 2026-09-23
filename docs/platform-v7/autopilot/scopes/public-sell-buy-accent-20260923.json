@@ -1,0 +1,23 @@
+{
+  "schemaVersion":"platform-v7.concurrent-scope.v1",
+  "branch":"fix/public-sell-buy-accent-20260923",
+  "status":"active",
+  "approvedBy":"owner-public-ux-repair-v2.0-2026-09-23",
+  "purpose":"UX-20: equal anonymous Sell/Buy visual emphasis and iconography while language remains a utility control.",
+  "ownerSpecification":"Прозрачная Цена — инженерное ТЗ быстрого UX-ремонта v2.0, UX-20 / T09 T12 T26.",
+  "allowedPaths":[
+    "apps/web/components/platform-v7/PlatformV7StrategicHome.tsx",
+    "apps/web/components/platform-v7/PublicCanonicalMarket.tsx",
+    "apps/web/tests/unit/platformV7HomeFinalPolish.test.ts",
+    "docs/platform-v7/autopilot/scopes/public-sell-buy-accent-20260923.json"
+  ],
+  "requiredInvariants":[
+    "Sell and Buy remain distinct navigation intents only; neither grants or guesses a role.",
+    "Both anonymous actions use the same primary button class and both retain ArrowRight.",
+    "Existing hrefs, intent values, public market context and registration authority do not change.",
+    "Locale active state remains utility styling and does not become the primary CTA treatment.",
+    "No protected cabinet, backend, auth, role, tenant, money or release semantics change."
+  ],
+  "productionHosting":"REG_RU_VPS_ONLY",
+  "newRecurringCostRub":0
+}

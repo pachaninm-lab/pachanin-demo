@@ -95,7 +95,7 @@ export function CanonicalCropCatalogue({ locale, context = publicMarketContext()
           <div className='pc-cp-crop-body'>
             <h3><a href={marketHref(lang, selectedContext)}>{CROP_LABELS[lang][crop]}</a></h3><p>{copy.category}</p>
             <div className='pc-cp-actions'>
-              <a className='pc-cp-button pc-cp-button--secondary' href={marketApplicationHref(lang, 'sell', selectedContext)}>{copy.sell}<ArrowRight size={16} aria-hidden='true' /></a>
+              <a className='pc-cp-button' href={marketApplicationHref(lang, 'sell', selectedContext)}>{copy.sell}<ArrowRight size={16} aria-hidden='true' /></a>
               <a className='pc-cp-button' href={marketApplicationHref(lang, 'buy', selectedContext)}>{copy.buy}<ArrowRight size={16} aria-hidden='true' /></a>
             </div>
           </div>
