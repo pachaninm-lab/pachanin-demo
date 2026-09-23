@@ -129,12 +129,17 @@ test.describe('Platform V7 public registration official UX', () => {
       await page.setViewportSize({ width: 390, height: 844 });
       let release!: () => void;
       const pending = new Promise<void>((resolve) => { release = () => resolve(); });
-      let posted: Record<string, unknown> | null = null;
-      let postCount = 0;
+      const attempts: Array<{ payload: Record<string, unknown>; key: string }> = [];
       await page.route('**/api/auth/register', async (route) => {
-        postCount += 1;
-        posted = route.request().postDataJSON() as Record<string, unknown>;
-        await pending;
+        attempts.push({
+          payload: route.request().postDataJSON() as Record<string, unknown>,
+          key: route.request().headers()['idempotency-key'],
+        });
+        if (attempts.length === 1) {
+          await pending;
+          await route.abort('failed');
+          return;
+        }
         await route.fulfill({ status: 202, contentType: 'application/json', body: '{"accepted":true}' });
       });
       await page.goto('/platform-v7/register?lang=' + locale, { waitUntil: 'load' });
@@ -154,16 +159,31 @@ test.describe('Platform V7 public registration official UX', () => {
       await form.locator('[name="acceptPrivacy"]').check();
       expect(await form.evaluate((node) => (node as HTMLFormElement).checkValidity())).toBe(true);
       await form.locator('button[type="submit"]').click();
-      await expect.poll(() => postCount).toBe(1);
+      await expect.poll(() => attempts.length).toBe(1);
       await expect(form.locator('fieldset.p0-register-fields')).toHaveAttribute('disabled', '');
       await expect(form.locator('[name="email"]')).toBeDisabled();
-      expect(posted).toMatchObject({
-        orgLegalName: 'Fixture Organisation', email: 'fixture@example.invalid',
+      expect(attempts[0].payload).toMatchObject({
+        workspace: 'seller', orgLegalName: 'Fixture Organisation', email: 'fixture@example.invalid',
         password: 'StrongPassword#123', acceptTerms: true, acceptPrivacy: true,
       });
+      const entry = page.getByRole('button', { name: {
+        ru: 'Присоединиться к организации',
+        en: 'Join an existing organisation',
+        zh: '加入已有机构',
+      }[locale], exact: true });
+      await expect(entry).toBeDisabled();
+      await entry.evaluate((node) => node.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+      await expect(form.locator('[name="workspace"]')).toHaveValue('seller');
       release();
+      await expect(form.getByRole('alert')).toContainText(
+        locale === 'ru' ? 'Результат отправки пока не подтверждён' : /not confirmed|未确认/i,
+      );
+      await expect(entry).toBeEnabled();
+      await form.locator('button[type="submit"]').click();
+      await expect.poll(() => attempts.length).toBe(2);
+      expect(attempts[1].payload).toEqual(attempts[0].payload);
+      expect(attempts[1].key).toBe(attempts[0].key);
       await expect(page.locator('.p0-register-state')).toBeVisible();
-      expect(postCount).toBe(1);
       await expectNoHorizontalOverflow(page);
     });
   }

@@ -162,6 +162,7 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
       () => globalThis.crypto.randomUUID(),
     );
     submitLockRef.current = true;
+    element.dataset.registrationSubmitting = 'true';
     setSubmitting(true);
     setError('');
     setCorrelationId('');
@@ -337,9 +338,25 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
 
 /** Select the employee path in place so entered data and market context remain intact. */
 export function EmployeeParticipationEntry({ label }: { label: string }) {
-  return <button type='button' className='p0-register-secondary' onClick={() => {
-    const select = document.querySelector<HTMLSelectElement>('form.p0-register-form select[name="workspace"]');
-    if (!select) return;
+  const [pending, setPending] = React.useState(false);
+  React.useEffect(() => {
+    const form = document.querySelector<HTMLFormElement>('form.p0-register-form');
+    if (!form) return;
+    const fieldset = form.querySelector<HTMLFieldSetElement>('fieldset.p0-register-fields');
+    const sync = () => setPending(!form.isConnected ||
+      form.dataset.registrationSubmitting === 'true' || Boolean(fieldset?.disabled));
+    const observer = new MutationObserver(sync);
+    observer.observe(form, { attributes: true, attributeFilter: ['data-registration-submitting'] });
+    if (fieldset) observer.observe(fieldset, { attributes: true, attributeFilter: ['disabled'] });
+    if (form.parentElement) observer.observe(form.parentElement, { childList: true });
+    sync();
+    return () => observer.disconnect();
+  }, []);
+  return <button type='button' className='p0-register-secondary' disabled={pending} aria-busy={pending} onClick={() => {
+    const form = document.querySelector<HTMLFormElement>('form.p0-register-form');
+    const select = form?.querySelector<HTMLSelectElement>('select[name="workspace"]');
+    if (!select || pending || form?.dataset.registrationSubmitting === 'true' ||
+      select.disabled || select.closest('fieldset')?.disabled) return;
     select.value = 'employee';
     select.dispatchEvent(new Event('change', { bubbles: true }));
     select.focus();

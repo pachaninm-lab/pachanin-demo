@@ -525,6 +525,7 @@ export function RegisterFormClient({
       () => globalThis.crypto?.randomUUID?.() || `reg-${Date.now()}-${Math.random()}`,
     );
     submitLockRef.current = true;
+    element.dataset.registrationSubmitting = 'true';
     setSubmitting(true);
     setError('');
     setCorrelationId('');
