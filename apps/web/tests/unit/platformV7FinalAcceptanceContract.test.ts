@@ -580,7 +580,7 @@ describe('registration snapshot remains immutable while the request is pending',
         orgLegalName: 'Fixture Organisation', email: 'fixture@example.invalid',
         password: 'StrongPassword#123', acceptTerms: true, acceptPrivacy: true,
       });
-      expect(options.headers).toMatchObject({ 'idempotency-key': 'fixture-submit-key' });
+      expect(new Headers(options.headers).get('idempotency-key')).toBe('fixture-submit-key');
       // Disabled controls disappear from a new FormData read; the POST still has
       // the full immutable snapshot captured before React applied disabled.
       expect(new FormData(form).has('email')).toBe(false);
