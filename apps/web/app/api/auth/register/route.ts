@@ -188,7 +188,7 @@ export async function POST(request: Request) {
         registrationApplicationRef: payload.applicationId,
         accountHash: accountHash(email),
       }));
-      return json({ accepted: false, code: 'REGISTRATION_SERVICE_UNAVAILABLE', correlationId: payload.correlationId || correlationId }, 503);
+      return json({ outcome: 'unknown', code: 'REGISTRATION_DELIVERY_CONTRACT_UNKNOWN', correlationId: payload.correlationId || correlationId }, 503);
     }
     const verifyUrl = new URL('/platform-v7/register', normalizeOrigin(request));
     verifyUrl.searchParams.set('verify', delivery.token);
@@ -218,7 +218,7 @@ export async function POST(request: Request) {
         attempts: deliveryAttempt.attempts,
       }));
       return json({
-        accepted: false,
+        outcome: 'unknown',
         code: 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE',
         correlationId: payload.correlationId || correlationId,
       }, 503);
