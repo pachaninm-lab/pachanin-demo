@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { CheckCircle2, Eye, EyeOff, RefreshCw, ShieldCheck } from 'lucide-react';
 import { applyCsrfHeader } from '@/lib/csrf';
-import { verifiedRegistrationContinuationHref } from '@/lib/platform-v7/public-registration-continuation';
+import { registrationContextEndpoint, verifiedRegistrationContinuationHref } from '@/lib/platform-v7/public-registration-continuation';
 import {
   classifyRegistrationStatusResponse,
   classifyRegistrationSubmitResponse,
@@ -59,6 +59,7 @@ type Copy = {
   statusUnavailableMessage: string;
   statusInvalidMessage: string;
   submissionAccepted: string;
+  deliveryUnconfirmed: string;
   verifyTitle: string;
   verifyLead: string;
   verifyButton: string;
@@ -130,6 +131,7 @@ const COPY: Record<Locale, Copy> = {
     statusUnavailableMessage: 'Сейчас не удалось получить статус заявки. Повторите попытку позднее.',
     statusInvalidMessage: 'Ссылка для проверки статуса недействительна или срок её действия истёк.',
     submissionAccepted: 'На указанный адрес будет направлено письмо, если он может быть использован для регистрации. Если учётная запись уже существует, воспользуйтесь входом или восстановлением доступа.',
+    deliveryUnconfirmed: 'Доставка письма не подтверждена. Если письма нет, запросите его повторно кнопкой ниже.',
     verifyTitle: 'Подтверждение электронной почты',
     verifyLead: 'После подтверждения адреса заявка будет направлена на проверку. Доступ к личному кабинету предоставляется только после одобрения и активации заявки.',
     verifyButton: 'Подтвердить адрес электронной почты',
@@ -232,6 +234,7 @@ const COPY: Record<Locale, Copy> = {
     statusUnavailableMessage: 'The application status is currently unavailable. Try again later.',
     statusInvalidMessage: 'The status link is invalid or has expired.',
     submissionAccepted: 'An email will be sent to the address provided if it can be used for registration. If an account already exists, use sign in or access recovery.',
+    deliveryUnconfirmed: 'Email delivery has not been confirmed. If it has not arrived, request another message below.',
     verifyTitle: 'Email confirmation',
     verifyLead: 'After the email address is confirmed, the application will be sent for review. Account access is provided only after the application has been approved and activated.',
     verifyButton: 'Confirm email address',
@@ -334,6 +337,7 @@ const COPY: Record<Locale, Copy> = {
     statusUnavailableMessage: '目前无法获取申请状态，请稍后重试。',
     statusInvalidMessage: '状态查询链接无效或已过期。',
     submissionAccepted: '如果该电子邮箱可用于注册，我们会向该地址发送确认邮件。如果账户已存在，请直接登录或恢复访问权限。',
+    deliveryUnconfirmed: '尚未确认邮件送达。如未收到，请使用下方按钮重新发送。',
     verifyTitle: '确认电子邮箱',
     verifyLead: '确认电子邮箱后，申请将进入审核。只有在申请获批准并完成激活后，才会提供账户访问权限。',
     verifyButton: '确认电子邮箱',
@@ -426,6 +430,7 @@ export function RegisterFormClient({
   const [statusReadState, setStatusReadState] = React.useState<StatusReadState>(initialStatusToken ? 'loading' : 'idle');
   const [verificationCompleted, setVerificationCompleted] = React.useState(false);
   const [submissionAccepted, setSubmissionAccepted] = React.useState(false);
+  const [deliveryUnconfirmed, setDeliveryUnconfirmed] = React.useState(false);
   const [submittedEmail, setSubmittedEmail] = React.useState('');
   const [resendMessage, setResendMessage] = React.useState('');
   const [additionalInformation, setAdditionalInformation] = React.useState('');
@@ -521,7 +526,7 @@ export function RegisterFormClient({
       const timer = window.setTimeout(() => controller.abort(), 15_000);
       let response: Response;
       try {
-        response = await fetch('/api/auth/register', {
+        response = await fetch(registrationContextEndpoint('register', window.location.search, locale), {
           method: 'POST',
           headers: applyCsrfHeader({
             'Content-Type': 'application/json',
@@ -547,6 +552,7 @@ export function RegisterFormClient({
       if (verdict === 'accepted') {
         unknownOperationRef.current = null;
         setSubmittedEmail(payload.email);
+        setDeliveryUnconfirmed(row?.deliveryConfirmed === false);
         setSubmissionAccepted(true);
         return;
       }
@@ -569,7 +575,7 @@ export function RegisterFormClient({
     setError('');
     setResendMessage('');
     try {
-      const response = await fetch('/api/auth/registration/resend', {
+      const response = await fetch(registrationContextEndpoint('resend', window.location.search, locale), {
         method: 'POST',
         headers: applyCsrfHeader({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ email: submittedEmail, locale }),
@@ -642,7 +648,13 @@ export function RegisterFormClient({
       if (!response.ok || result.ok !== true) throw new Error('information_failed');
       setAdditionalInformation('');
       setInformationMessage(copy.informationSent);
-      setStatus((current) => ({ ...current, ...result, reason: null }));
+      const updated = parseRegistrationStatusSnapshot(result);
+      if (updated) {
+        setStatus(updated);
+        setStatusReadState('available');
+      } else {
+        await loadStatus(statusToken);
+      }
     } catch {
       setError(copy.unavailable);
     } finally {
@@ -673,6 +685,7 @@ export function RegisterFormClient({
         <ShieldCheck size={40} aria-hidden='true' />
         <h2 id='p0-register-status-title'>{copy.statusTitle}</h2>
         <p>{copy.submissionAccepted}</p>
+        {deliveryUnconfirmed ? <p role='status'>{copy.deliveryUnconfirmed}</p> : null}
         {resendMessage ? <p role='status'>{resendMessage}</p> : null}
         {error ? <p className='p0-register-error' role='alert'>{error}</p> : null}
         {reference ? <p className='p0-register-correlation'><strong>{copy.reference}:</strong> {reference}</p> : null}

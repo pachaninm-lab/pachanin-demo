@@ -10,11 +10,17 @@
     "apps/web/lib/platform-v7/public-registration-continuation.ts",
     "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
     "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
+    "apps/web/app/api/auth/register/route.ts",
+    "apps/web/app/api/auth/registration/resend/route.ts",
     "apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts",
+    "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+    "apps/web/tests/unit/platformV7FirstCustomerRegistrationBoundary.test.ts",
     "docs/platform-v7/autopilot/scopes/public-registration-safe-continuation-20260923.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
     "docs/security/cryptographic-inventory.json"
   ],
   "requiredInvariants": [
+    "Real registration and resend email links carry only server-revalidated public intent/crop/lot/returnTo/lang; no role, tenant or external destination is forwarded.",
     "After a verified response, both RU and EN/ZH clients replace the used verify query with the server statusToken and preserve only allowlisted public intent/crop/lot/returnTo/lang.",
     "Duplicate, malformed or external hints and role/tenant/error query values cannot survive sanitization.",
     "Existing pure marketHref/publicMarketReturn/publicLotReference authority remains unchanged, with no new auth, backend, DB, role or tenant semantics.",
