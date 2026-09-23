@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { CheckCircle2, Eye, EyeOff, RefreshCw, ShieldCheck } from 'lucide-react';
 import { applyCsrfHeader } from '@/lib/csrf';
-import { verifiedRegistrationContinuationHref } from '@/lib/platform-v7/public-registration-continuation';
+import { registrationContextEndpoint, verifiedRegistrationContinuationHref } from '@/lib/platform-v7/public-registration-continuation';
 import {
   classifyRegistrationStatusResponse,
   classifyRegistrationSubmitResponse,
@@ -59,6 +59,7 @@ type Copy = {
   statusUnavailableMessage: string;
   statusInvalidMessage: string;
   submissionAccepted: string;
+  deliveryUnconfirmed: string;
   verifyTitle: string;
   verifyLead: string;
   verifyButton: string;
@@ -133,6 +134,7 @@ const COPY: Record<Locale, Copy> = {
     statusUnavailableMessage: 'Сейчас не удалось получить статус заявки. Повторите попытку позднее.',
     statusInvalidMessage: 'Ссылка для проверки статуса недействительна или срок её действия истёк.',
     submissionAccepted: 'Если адрес может быть использован для регистрации, откройте ссылку из письма и подтвердите почту. После подтверждения здесь появятся проверенный статус заявки и следующий шаг. Доступ предоставляется только после проверки и одобрения заявки. Если письмо не пришло, запросите повторную отправку или обратитесь в поддержку. Если учётная запись уже существует, воспользуйтесь входом или восстановлением доступа.',
+    deliveryUnconfirmed: 'Доставка письма не подтверждена. Если письма нет, запросите его повторно кнопкой ниже.',
     verifyTitle: 'Подтверждение электронной почты',
     verifyLead: 'После подтверждения адреса заявка будет направлена на проверку. Доступ к личному кабинету предоставляется только после одобрения и активации заявки.',
     verifyButton: 'Подтвердить адрес электронной почты',
@@ -238,6 +240,7 @@ const COPY: Record<Locale, Copy> = {
     statusUnavailableMessage: 'The application status is currently unavailable. Try again later.',
     statusInvalidMessage: 'The status link is invalid or has expired.',
     submissionAccepted: 'If the address can be used for registration, open the link in the email and confirm your address. After confirmation, this page shows the verified application status and next step. Access is granted only after the application is reviewed and approved. If the email does not arrive, request it again or contact support. If an account already exists, use sign in or access recovery.',
+    deliveryUnconfirmed: 'Email delivery has not been confirmed. If it has not arrived, request another message below.',
     verifyTitle: 'Email confirmation',
     verifyLead: 'After the email address is confirmed, the application will be sent for review. Account access is provided only after the application has been approved and activated.',
     verifyButton: 'Confirm email address',
@@ -343,6 +346,7 @@ const COPY: Record<Locale, Copy> = {
     statusUnavailableMessage: '目前无法获取申请状态，请稍后重试。',
     statusInvalidMessage: '状态查询链接无效或已过期。',
     submissionAccepted: '如果该邮箱可用于注册，请打开邮件中的链接确认邮箱。确认后，此页面会显示已核实的申请状态和下一步。只有申请经过审核并获批准后才会开放访问权限。如未收到邮件，可请求重新发送或联系支持。如果账户已存在，请登录或恢复访问权限。',
+    deliveryUnconfirmed: '尚未确认邮件送达。如未收到，请使用下方按钮重新发送。',
     verifyTitle: '确认电子邮箱',
     verifyLead: '确认电子邮箱后，申请将进入审核。只有在申请获批准并完成激活后，才会提供账户访问权限。',
     verifyButton: '确认电子邮箱',
@@ -438,6 +442,7 @@ export function RegisterFormClient({
   const [statusReadState, setStatusReadState] = React.useState<StatusReadState>(initialStatusToken ? 'loading' : 'idle');
   const [verificationCompleted, setVerificationCompleted] = React.useState(false);
   const [submissionAccepted, setSubmissionAccepted] = React.useState(false);
+  const [deliveryUnconfirmed, setDeliveryUnconfirmed] = React.useState(false);
   const [submittedEmail, setSubmittedEmail] = React.useState('');
   const [resendMessage, setResendMessage] = React.useState('');
   const [additionalInformation, setAdditionalInformation] = React.useState('');
@@ -535,7 +540,7 @@ export function RegisterFormClient({
       const timer = window.setTimeout(() => controller.abort(), 15_000);
       let response: Response;
       try {
-        response = await fetch('/api/auth/register', {
+        response = await fetch(registrationContextEndpoint('register', window.location.search, locale), {
           method: 'POST',
           headers: applyCsrfHeader({
             'Content-Type': 'application/json',
@@ -561,6 +566,7 @@ export function RegisterFormClient({
       if (verdict === 'accepted') {
         unknownOperationRef.current = null;
         setSubmittedEmail(payload.email);
+        setDeliveryUnconfirmed(row?.deliveryConfirmed === false);
         window.dispatchEvent(new Event('pc-registration-accepted'));
         setSubmissionAccepted(true);
         return;
@@ -586,7 +592,7 @@ export function RegisterFormClient({
     setError('');
     setResendMessage('');
     try {
-      const response = await fetch('/api/auth/registration/resend', {
+      const response = await fetch(registrationContextEndpoint('resend', window.location.search, locale), {
         method: 'POST',
         headers: applyCsrfHeader({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ email: submittedEmail, locale }),
@@ -659,7 +665,13 @@ export function RegisterFormClient({
       if (!response.ok || result.ok !== true) throw new Error('information_failed');
       setAdditionalInformation('');
       setInformationMessage(copy.informationSent);
-      setStatus((current) => ({ ...current, ...result, reason: null }));
+      const updated = parseRegistrationStatusSnapshot(result);
+      if (updated) {
+        setStatus(updated);
+        setStatusReadState('available');
+      } else {
+        await loadStatus(statusToken);
+      }
     } catch {
       setError(copy.unavailable);
     } finally {
@@ -690,6 +702,7 @@ export function RegisterFormClient({
         <ShieldCheck size={40} aria-hidden='true' />
         <h2 id='p0-register-status-title'>{copy.statusTitle}</h2>
         <p>{copy.submissionAccepted}</p>
+        {deliveryUnconfirmed ? <p role='status'>{copy.deliveryUnconfirmed}</p> : null}
         {resendMessage ? <p role='status'>{resendMessage}</p> : null}
         {error ? <p className='p0-register-error' role='alert'>{error}</p> : null}
         {reference ? <p className='p0-register-correlation'><strong>{copy.reference}:</strong> {reference}</p> : null}
@@ -801,7 +814,7 @@ export function RegisterFormClient({
           <label><span>{copy.position} *</span><input name='position' minLength={2} maxLength={200} required autoComplete='organization-title' /></label>
           <label><span>{copy.phone} *</span><input name='phone' type='tel' minLength={7} maxLength={24} pattern='\+?[0-9()\-\s]{7,24}' required autoComplete='tel' /></label>
           <label><span>{copy.email} *</span><input name='email' type='email' maxLength={254} required autoComplete='email' autoCapitalize='none' spellCheck={false} /></label>
-          <label className='p0-register-wide'><span>{copy.password} *</span><div className='p0-register-password-control'><input name='password' type={passwordVisible ? 'text' : 'password'} minLength={12} maxLength={128} required autoComplete='new-password' aria-describedby='p0-register-password-hint' /><button type='button' className='p0-register-password-toggle' onClick={() => setPasswordVisible((value) => !value)} aria-label={passwordVisible ? copy.hidePassword : copy.showPassword} title={passwordVisible ? copy.hidePassword : copy.showPassword}>{passwordVisible ? <EyeOff size={18} aria-hidden='true' /> : <Eye size={18} aria-hidden='true' />}</button></div><small id='p0-register-password-hint'>{copy.passwordHint}</small></label>
+          <label className='p0-register-wide'><span>{copy.password} *</span><div className='p0-register-password-control'><input name='password' type={passwordVisible ? 'text' : 'password'} minLength={12} maxLength={128} required autoComplete='new-password' aria-describedby='p0-register-password-hint' onChange={() => { if (error === copy.passwordMismatch) setError(''); }} /><button type='button' className='p0-register-password-toggle' onClick={() => setPasswordVisible((value) => !value)} aria-label={passwordVisible ? copy.hidePassword : copy.showPassword} title={passwordVisible ? copy.hidePassword : copy.showPassword}>{passwordVisible ? <EyeOff size={18} aria-hidden='true' /> : <Eye size={18} aria-hidden='true' />}</button></div><small id='p0-register-password-hint'>{copy.passwordHint}</small></label>
           <label className='p0-register-wide'><span>{copy.confirmPassword} *</span><input ref={confirmPasswordRef} name='confirmPassword' type={passwordVisible ? 'text' : 'password'} minLength={12} maxLength={128} required autoComplete='new-password' aria-invalid={error === copy.passwordMismatch} aria-describedby={error === copy.passwordMismatch ? 'p0-register-confirm-error' : undefined} onChange={() => { if (error === copy.passwordMismatch) setError(''); }} />{error === copy.passwordMismatch ? <small id='p0-register-confirm-error' className='p0-register-error'>{error}</small> : null}</label>
         </div>
       </section>

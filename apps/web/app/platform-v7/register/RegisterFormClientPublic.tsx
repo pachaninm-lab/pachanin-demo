@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { CheckCircle2, Eye, EyeOff, RefreshCw, ShieldCheck } from 'lucide-react';
 import { applyCsrfHeader } from '@/lib/csrf';
-import { verifiedRegistrationContinuationHref } from '@/lib/platform-v7/public-registration-continuation';
+import { registrationContextEndpoint, verifiedRegistrationContinuationHref } from '@/lib/platform-v7/public-registration-continuation';
 import {
   classifyRegistrationStatusResponse,
   classifyRegistrationSubmitResponse,
@@ -81,6 +81,7 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
   const [statusReadState, setStatusReadState] = React.useState<StatusReadState>(initialStatusToken ? 'loading' : 'idle');
   const [verificationCompleted, setVerificationCompleted] = React.useState(false);
   const [submissionAccepted, setSubmissionAccepted] = React.useState(false);
+  const [deliveryUnconfirmed, setDeliveryUnconfirmed] = React.useState(false);
   const [submittedEmail, setSubmittedEmail] = React.useState('');
   const [resendMessage, setResendMessage] = React.useState('');
   const [additionalInformation, setAdditionalInformation] = React.useState('');
@@ -172,7 +173,7 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
       const timer = window.setTimeout(() => controller.abort(), 15_000);
       let response: Response;
       try {
-        response = await fetch('/api/auth/register', {
+        response = await fetch(registrationContextEndpoint('register', window.location.search, 'ru'), {
           method: 'POST',
           headers: applyCsrfHeader({ 'Content-Type': 'application/json', 'idempotency-key': operation.idempotencyKey }),
           body: operation.serializedPayload, cache: 'no-store', credentials: 'same-origin', signal: controller.signal,
@@ -192,6 +193,7 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
       if (verdict === 'accepted') {
         unknownOperationRef.current = null;
         setSubmittedEmail(payload.email);
+        setDeliveryUnconfirmed(row?.deliveryConfirmed === false);
         window.dispatchEvent(new Event('pc-registration-accepted'));
         setSubmissionAccepted(true);
         return;
@@ -217,7 +219,7 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
     if (!submittedEmail || submitting) return;
     setSubmitting(true); setError(''); setResendMessage('');
     try {
-      const response = await fetch('/api/auth/registration/resend', {
+      const response = await fetch(registrationContextEndpoint('resend', window.location.search, 'ru'), {
         method: 'POST', headers: applyCsrfHeader({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ email: submittedEmail, locale: 'ru' }), cache: 'no-store', credentials: 'same-origin', signal: AbortSignal.timeout(15_000),
       });
@@ -267,7 +269,13 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
       setCorrelationId(String(result.correlationId || ''));
       if (!response.ok || result.ok !== true) throw new Error('failed');
       setAdditionalInformation(''); setInformationMessage('Дополнительные сведения сохранены. Заявка снова направлена на проверку.');
-      setStatus((current) => ({ ...current, ...result, reason: null }));
+      const updated = parseRegistrationStatusSnapshot(result);
+      if (updated) {
+        setStatus(updated);
+        setStatusReadState('available');
+      } else {
+        await loadStatus(statusToken);
+      }
     } catch {
       setError('Сейчас не удалось сохранить дополнительные сведения. Повторите попытку позднее.');
     } finally { setInformationSubmitting(false); }
@@ -290,6 +298,7 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
       <ShieldCheck size={40} aria-hidden='true' />
       <h2 id='p0-register-status-title'>Заявка принята</h2>
       <p>Если адрес может быть использован для регистрации, откройте ссылку из письма и подтвердите почту. После подтверждения здесь появятся проверенный статус заявки и следующий шаг. Доступ предоставляется только после проверки и одобрения заявки. Если письмо не пришло, запросите повторную отправку или обратитесь в поддержку. Если учётная запись уже существует, воспользуйтесь входом или восстановлением доступа.</p>
+      {deliveryUnconfirmed ? <p role='status'>Доставка письма не подтверждена. Если письма нет, запросите его повторно кнопкой ниже.</p> : null}
       {resendMessage ? <p role='status'>{resendMessage}</p> : null}{error ? <p className='p0-register-error' role='alert'>{error}</p> : null}<Reference value={reference} />
       <div className='p0-register-actions'><button type='button' className='p0-register-primary' onClick={() => void resendEmail()} disabled={submitting}>{submitting ? 'Письмо отправляется…' : 'Отправить письмо повторно'}</button><a className='p0-register-secondary' href='/platform-v7/login'>Войти</a><a className='p0-register-secondary' href='/platform-v7/forgot-password'>Восстановить доступ</a><a className='p0-register-secondary' href='/platform-v7/contact?lang=ru'>Связаться с поддержкой</a></div>
     </section>;
@@ -329,7 +338,7 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
 
     <section className='p0-register-card'><div className='p0-register-section-heading'><h2>2. Сведения об организации</h2><p>{workspace === 'employee' ? 'Укажите сведения существующей организации, к которой вы запрашиваете присоединение. Новая организация при этом не создаётся.' : 'Укажите сведения, по которым можно однозначно идентифицировать организацию или предпринимателя.'}</p></div><div className='p0-register-grid'><label className='p0-register-wide'><span>Наименование организации / ФИО предпринимателя *</span><input name='orgLegalName' minLength={2} maxLength={300} required autoComplete='organization' /></label><label><span>ИНН *</span><input name='orgInn' inputMode='numeric' pattern='(?:[0-9]{10}|[0-9]{12})' required aria-describedby='p0-register-inn-hint' /><small id='p0-register-inn-hint'>10 цифр для юридического лица или 12 цифр для ИП / физического лица.</small></label><label><span>КПП (при наличии)</span><input name='orgKpp' inputMode='numeric' pattern='[0-9]{9}' aria-describedby='p0-register-kpp-hint' /><small id='p0-register-kpp-hint'>9 цифр. Для ИП и самозанятых обычно не указывается.</small></label><label><span>ОГРН / ОГРНИП (при наличии)</span><input name='orgOgrn' inputMode='numeric' pattern='(?:[0-9]{13}|[0-9]{15})' aria-describedby='p0-register-ogrn-hint' /><small id='p0-register-ogrn-hint'>13 цифр для ОГРН или 15 цифр для ОГРНИП.</small></label><label><span>Регион *</span><input name='region' minLength={2} maxLength={160} required autoComplete='address-level1' /></label></div></section>
 
-    <section className='p0-register-card'><div className='p0-register-section-heading'><h2>3. Заявитель и доступ</h2><p>Укажите данные заявителя и задайте пароль для последующего входа в личный кабинет.</p></div><div className='p0-register-grid'><label><span>ФИО заявителя *</span><input name='fullName' minLength={2} maxLength={200} required autoComplete='name' /></label><label><span>Должность или статус *</span><input name='position' minLength={2} maxLength={200} required autoComplete='organization-title' /></label><label><span>Телефон *</span><input name='phone' type='tel' minLength={7} maxLength={24} pattern='\+?[0-9()\-\s]{7,24}' required autoComplete='tel' placeholder='+7 900 000-00-00' /></label><label><span>Адрес электронной почты *</span><input name='email' type='email' maxLength={254} required autoComplete='email' autoCapitalize='none' spellCheck={false} placeholder='name@company.ru' /></label><label className='p0-register-wide'><span>Пароль *</span><div className='p0-register-password-control'><input name='password' aria-label='Пароль *' type={passwordVisible ? 'text' : 'password'} minLength={12} maxLength={128} required autoComplete='new-password' aria-describedby='p0-register-password-hint' /><button type='button' className='p0-register-password-toggle' onClick={() => setPasswordVisible((value) => !value)} aria-label={passwordVisible ? 'Скрыть пароль' : 'Показать пароль'} title={passwordVisible ? 'Скрыть пароль' : 'Показать пароль'}>{passwordVisible ? <EyeOff size={18} aria-hidden='true' /> : <Eye size={18} aria-hidden='true' />}</button></div><small id='p0-register-password-hint'>12–128 символов. Используйте как минимум три группы: строчные буквы, прописные буквы, цифры, специальные знаки. Не используйте очевидные последовательности.</small></label><label className='p0-register-wide'><span>Повторите пароль *</span><input ref={confirmPasswordRef} name='confirmPassword' type={passwordVisible ? 'text' : 'password'} minLength={12} maxLength={128} required autoComplete='new-password' aria-invalid={error === 'Пароли не совпадают. Введите одинаковый пароль в обоих полях.'} aria-describedby={error === 'Пароли не совпадают. Введите одинаковый пароль в обоих полях.' ? 'p0-register-confirm-error' : undefined} onChange={() => { if (error === 'Пароли не совпадают. Введите одинаковый пароль в обоих полях.') setError(''); }} />{error === 'Пароли не совпадают. Введите одинаковый пароль в обоих полях.' ? <small id='p0-register-confirm-error' className='p0-register-error'>{error}</small> : null}</label></div></section>
+    <section className='p0-register-card'><div className='p0-register-section-heading'><h2>3. Заявитель и доступ</h2><p>Укажите данные заявителя и задайте пароль для последующего входа в личный кабинет.</p></div><div className='p0-register-grid'><label><span>ФИО заявителя *</span><input name='fullName' minLength={2} maxLength={200} required autoComplete='name' /></label><label><span>Должность или статус *</span><input name='position' minLength={2} maxLength={200} required autoComplete='organization-title' /></label><label><span>Телефон *</span><input name='phone' type='tel' minLength={7} maxLength={24} pattern='\+?[0-9()\-\s]{7,24}' required autoComplete='tel' placeholder='+7 900 000-00-00' /></label><label><span>Адрес электронной почты *</span><input name='email' type='email' maxLength={254} required autoComplete='email' autoCapitalize='none' spellCheck={false} placeholder='name@company.ru' /></label><label className='p0-register-wide'><span>Пароль *</span><div className='p0-register-password-control'><input name='password' aria-label='Пароль *' type={passwordVisible ? 'text' : 'password'} minLength={12} maxLength={128} required autoComplete='new-password' aria-describedby='p0-register-password-hint' onChange={() => { if (error === 'Пароли не совпадают. Введите одинаковый пароль в обоих полях.') setError(''); }} /><button type='button' className='p0-register-password-toggle' onClick={() => setPasswordVisible((value) => !value)} aria-label={passwordVisible ? 'Скрыть пароль' : 'Показать пароль'} title={passwordVisible ? 'Скрыть пароль' : 'Показать пароль'}>{passwordVisible ? <EyeOff size={18} aria-hidden='true' /> : <Eye size={18} aria-hidden='true' />}</button></div><small id='p0-register-password-hint'>12–128 символов. Используйте как минимум три группы: строчные буквы, прописные буквы, цифры, специальные знаки. Не используйте очевидные последовательности.</small></label><label className='p0-register-wide'><span>Повторите пароль *</span><input ref={confirmPasswordRef} name='confirmPassword' type={passwordVisible ? 'text' : 'password'} minLength={12} maxLength={128} required autoComplete='new-password' aria-invalid={error === 'Пароли не совпадают. Введите одинаковый пароль в обоих полях.'} aria-describedby={error === 'Пароли не совпадают. Введите одинаковый пароль в обоих полях.' ? 'p0-register-confirm-error' : undefined} onChange={() => { if (error === 'Пароли не совпадают. Введите одинаковый пароль в обоих полях.') setError(''); }} />{error === 'Пароли не совпадают. Введите одинаковый пароль в обоих полях.' ? <small id='p0-register-confirm-error' className='p0-register-error'>{error}</small> : null}</label></div></section>
 
     <section className='p0-register-card p0-register-consents'><div className='p0-register-section-heading'><h2>4. Подтверждение условий</h2><p>Перед отправкой проверьте сведения. Они будут использованы для рассмотрения заявки и предоставления доступа.</p></div><label><input name='acceptTerms' type='checkbox' value='yes' required /><span>Я принимаю условия <a href='/platform-v7/terms' target='_blank' rel='noreferrer'>Пользовательского соглашения</a>.</span></label><label><input name='acceptPrivacy' type='checkbox' value='yes' required /><span>Я ознакомлен(а) с <a href='/platform-v7/privacy' target='_blank' rel='noreferrer'>Политикой обработки персональных данных</a>.</span></label></section>
       </fieldset>

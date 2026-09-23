@@ -130,7 +130,8 @@ test.describe('Platform V7 public registration official UX', () => {
       let release!: () => void;
       const pending = new Promise<void>((resolve) => { release = () => resolve(); });
       const attempts: Array<{ payload: Record<string, unknown>; key: string }> = [];
-      await page.route('**/api/auth/register', async (route) => {
+      await page.route('**/api/auth/register*', async (route) => {
+        expect(new URL(route.request().url()).searchParams.get('lang')).toBe(locale);
         attempts.push({
           payload: route.request().postDataJSON() as Record<string, unknown>,
           key: route.request().headers()['idempotency-key'],
