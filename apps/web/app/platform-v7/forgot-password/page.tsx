@@ -3,10 +3,9 @@ import '@/styles/platform-v7-public-auth.css';
 import '@/styles/platform-v7-public-mobile-safe-area.css';
 import '@/styles/platform-v7-i18n-cjk.css';
 import '@/styles/platform-v7-public-webkit-safe.css';
-import { ArrowLeft, Languages } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { getLocale, getTranslations } from 'next-intl/server';
-import { PublicLocaleLink } from '@/components/platform-v7/PublicLocaleLink';
-import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
+import { CanonicalBottomNav, CanonicalPublicHeader } from '@/components/platform-v7/PublicCanonicalPrimitives';
 import { ForgotPasswordFormClient, type ForgotPasswordCopy } from './ForgotPasswordFormClient';
 import { ResetPasswordFormClient, type ResetPasswordCopy } from '../reset-password/ResetPasswordFormClient';
 
@@ -124,27 +123,12 @@ export default async function ForgotPasswordPage({
 
     return (
       <main className='pc-v7-public-entry pc-recovery-page'>
-        <PublicSiteHeader
-          ariaLabel={copy.publicNav}
-          tagline={copy.brandTagline}
-          localeControl={(
-            <a
-              className='pc-site-locale-switch'
-              href={`/platform-v7/forgot-password?${localeQuery.toString()}`}
-              aria-label={copy.language}
-              title={copy.language}
-            >
-              <Languages size={16} strokeWidth={2.35} aria-hidden='true' />
-              <span>{locale.toUpperCase()}</span>
-            </a>
-          )}
-          actions={(
-            <a className='pc-site-action' href='/platform-v7' aria-label={copy.backHome} title={copy.backHome}>
-              <ArrowLeft size={20} aria-hidden='true' />
-              <span>{copy.backHome}</span>
-            </a>
-          )}
-        />
+        <CanonicalPublicHeader locale={locale} actions={(
+          <a className='pc-site-action' href={`/platform-v7?lang=${locale}`} aria-label={copy.backHome} title={copy.backHome}>
+            <ArrowLeft size={20} aria-hidden='true' />
+            <span>{copy.backHome}</span>
+          </a>
+        )} />
 
         <section className='pc-recovery-shell' aria-labelledby='pc-reset-title'>
           <div className='pc-recovery-heading'>
@@ -153,6 +137,7 @@ export default async function ForgotPasswordPage({
           </div>
           <ResetPasswordFormClient token={token} copy={copy} locale={locale} />
         </section>
+        <CanonicalBottomNav locale={locale} />
       </main>
     );
   }
@@ -176,17 +161,12 @@ export default async function ForgotPasswordPage({
 
   return (
     <main className='pc-v7-public-entry pc-recovery-page'>
-      <PublicSiteHeader
-        ariaLabel={t('publicNav')}
-        tagline={ru ? 'Восстановление доступа' : t('brandTagline')}
-        localeControl={<PublicLocaleLink />}
-        actions={(
-          <a className='pc-site-action' href='/platform-v7' aria-label={t('backHome')} title={t('backHome')}>
-            <ArrowLeft size={20} aria-hidden='true' />
-            <span>{t('backHome')}</span>
-          </a>
-        )}
-      />
+      <CanonicalPublicHeader locale={locale} actions={(
+        <a className='pc-site-action' href={`/platform-v7?lang=${locale}`} aria-label={t('backHome')} title={t('backHome')}>
+          <ArrowLeft size={20} aria-hidden='true' />
+          <span>{t('backHome')}</span>
+        </a>
+      )} />
 
       <section className='pc-recovery-shell' aria-labelledby='pc-recovery-title'>
         <div className='pc-recovery-heading'>
@@ -195,6 +175,7 @@ export default async function ForgotPasswordPage({
         </div>
         <ForgotPasswordFormClient copy={copy} />
       </section>
+      <CanonicalBottomNav locale={locale} />
     </main>
   );
 }
