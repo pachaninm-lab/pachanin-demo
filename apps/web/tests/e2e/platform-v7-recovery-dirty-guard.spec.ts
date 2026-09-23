@@ -62,7 +62,11 @@ test.describe('UX-05 recovery unsaved-entry guard', () => {
     await page.goto('/platform-v7/forgot-password?lang=ru', { waitUntil: 'networkidle' });
     const email = page.locator('form.pc-recovery-card input[type="email"]');
     await email.fill('acceptance@example.invalid');
-    const otherLocale = page.locator('.pc-site-header a.pc-site-locale-option[href*="lang=en"]').first();
+    const compact = (page.viewportSize()?.width ?? 1280) <= 1100;
+    if (compact) await page.locator('.pc-site-mobile-menu > summary').click();
+    const otherLocale = compact
+      ? page.locator('.pc-site-mobile-nav a.pc-site-locale-option[href*="lang=en"]').first()
+      : page.locator('.pc-site-actions > .pc-site-locale-cluster a.pc-site-locale-option[href*="lang=en"]').first();
     await expect(otherLocale).toBeVisible();
     page.once('dialog', (dialog) => dialog.dismiss());
     await otherLocale.click();
@@ -101,7 +105,7 @@ test.describe('UX-04 canonical recovery shell', () => {
             const bottomBox = await bottom.boundingBox();
             expect(buttonBox).not.toBeNull();
             expect(bottomBox).not.toBeNull();
-            expect(buttonBox!.bottom).toBeLessThanOrEqual(bottomBox!.y + 1);
+            expect(buttonBox!.y + buttonBox!.height).toBeLessThanOrEqual(bottomBox!.y + 1);
             expect(buttonBox!.height).toBeGreaterThanOrEqual(44);
           }
           const overflow = await page.evaluate(() => Math.max(
