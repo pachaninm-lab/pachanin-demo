@@ -8,6 +8,16 @@ test.describe('UX-05 recovery unsaved-entry guard', () => {
         const url = `/platform-v7/forgot-password?lang=${locale}&token=acceptance-token`;
         const response = await page.goto(url, { waitUntil: 'networkidle' });
         expect(response?.status()).toBe(200);
+        await expect(page.locator('header[data-public-site-header="canonical"]')).toHaveCount(1);
+        await expect(page.locator('nav.pc-cp-bottom-nav')).toHaveCount(1);
+        const next = locale === 'ru' ? 'en' : locale === 'en' ? 'zh' : 'ru';
+        async function localeChoice() {
+          if (width <= 1100) {
+            await page.locator('.pc-site-mobile-menu > summary').click();
+            return page.locator(`.pc-site-mobile-nav a.pc-site-locale-option[href*="lang=${next}"]`).first();
+          }
+          return page.locator(`.pc-site-actions > .pc-site-locale-cluster a.pc-site-locale-option[href*="lang=${next}"]`).first();
+        }
         const fields = page.locator('form.pc-recovery-card input[autocomplete="new-password"]');
         await expect(fields).toHaveCount(2);
         await fields.nth(0).fill('AcceptanceOnly#123');
@@ -19,7 +29,7 @@ test.describe('UX-05 recovery unsaved-entry guard', () => {
           prompts += 1;
           await dialog.dismiss();
         });
-        await page.locator('.pc-site-locale-switch').click();
+        await (await localeChoice()).click();
         expect(prompts).toBe(1);
         await expect(page).toHaveURL(new RegExp(`lang=${locale}&token=acceptance-token`));
         await expect(fields.nth(0)).toHaveValue('AcceptanceOnly#123');
@@ -41,8 +51,7 @@ test.describe('UX-05 recovery unsaved-entry guard', () => {
         expect(overflow).toBeLessThanOrEqual(1);
 
         page.once('dialog', (dialog) => dialog.accept());
-        await page.locator('.pc-site-locale-switch').click();
-        const next = locale === 'ru' ? 'en' : locale === 'en' ? 'zh' : 'ru';
+        await (await localeChoice()).click();
         await expect(page).toHaveURL(new RegExp(`lang=${next}&token=acceptance-token`));
         await expect(fields.nth(0)).toHaveValue('');
       });
