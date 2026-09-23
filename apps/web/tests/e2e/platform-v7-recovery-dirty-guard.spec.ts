@@ -53,11 +53,9 @@ test.describe('UX-05 recovery unsaved-entry guard', () => {
     await page.goto('/platform-v7/forgot-password?lang=ru', { waitUntil: 'networkidle' });
     const email = page.locator('form.pc-recovery-card input[type="email"]');
     await email.fill('acceptance@example.invalid');
-    const compact = (page.viewportSize()?.width ?? 1280) <= 1100;
-    if (compact) await page.locator('.pc-site-mobile-menu > summary').click();
-    const otherLocale = compact
-      ? page.locator('.pc-site-mobile-nav a.pc-site-locale-option[href*="lang=en"]').first()
-      : page.locator('.pc-site-actions > .pc-site-locale-cluster a.pc-site-locale-option[href*="lang=en"]').first();
+    // This recovery-only header exposes a direct language switch on every width.
+    // The dependent canonical-shell branch tests its three-choice mobile menu.
+    const otherLocale = page.locator('.pc-site-locale-switch');
     await expect(otherLocale).toBeVisible();
     page.once('dialog', (dialog) => dialog.dismiss());
     await otherLocale.click();
