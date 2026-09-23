@@ -17,7 +17,7 @@ test.describe('public market result navigation UX-10 UX-17', () => {
         expect(response?.status()).toBe(200);
         const offers = page.locator('#offers');
         const expectResultFocus = async () => {
-          await expectResultFocus();
+          await expect(offers).toBeInViewport();
           await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe('offers');
         };
         const cropCards = page.locator('[data-testid="canonical-crop-catalogue"] [data-crop-category]');
