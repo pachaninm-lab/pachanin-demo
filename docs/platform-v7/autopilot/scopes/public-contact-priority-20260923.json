@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-contact-priority-20260923",
+  "status": "active",
+  "approvedBy": "owner-public-ux-repair-v2.0-2026-09-23",
+  "purpose": "UX-24/T05/T20: put phone and inquiry form before repeated explanatory cards in the existing public contact layout.",
+  "ownerSpecification": "Прозрачная Цена — инженерное ТЗ быстрого UX-ремонта v2.0, 23.09.2026, UX-24 T05/T20.",
+  "coordination": "Main 2365c9b38cbb366cda628904d4f11da4cb4afff9. #5538 changes contact page/route receipt, but this branch only moves existing ContactClient overview and scoped CSS. Same stylesheet as active visual PRs needs non-destructive forward-sync after merge.",
+  "allowedPaths": [
+    "apps/web/app/platform-v7/contact/ContactClient.tsx",
+    "apps/web/styles/platform-v7-canonical-public-v1.css",
+    "apps/web/playwright.acceptance.config.ts",
+    "apps/web/tests/e2e/platform-v7-contact-priority.spec.ts",
+    "docs/platform-v7/autopilot/scopes/public-contact-priority-20260923.json"
+  ],
+  "requiredInvariants": [
+    "Existing contact phone and form precede all three repeated explanatory cards in DOM and on mobile; desktop remains intro left/form right with cards below intro.",
+    "No new form, endpoint, contact submission, provider, role, auth, storage or query success authority.",
+    "RU/EN/ZH at 390 and 1280 prove DOM order, geometry, 44 CSS px phone/submit hit testing, no whole-document overflow and candidate SHA screenshots.",
+    "Existing acceptance projects, thresholds, security and accessibility checks remain; no real production inquiry.",
+    "CI, independent review and visual T20 evidence required before UX-24 PASS."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
