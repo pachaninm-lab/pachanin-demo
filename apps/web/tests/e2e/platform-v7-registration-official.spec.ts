@@ -78,6 +78,11 @@ test.describe('Platform V7 public registration official UX', () => {
     await page.goto('/platform-v7/register?lang=ru', { waitUntil: 'load' });
     const legalName = page.getByLabel('Наименование организации / ФИО предпринимателя *', { exact: true });
     expect(await legalName.evaluate((node) => (node as HTMLInputElement).checkValidity())).toBe(false);
+    const workspace = page.locator('form.p0-register-form select[name="workspace"]');
+    await expect(workspace).toHaveValue('');
+    await page.getByRole('button', { name: 'Отправить заявку на регистрацию', exact: true }).click();
+    await expect(workspace).toBeFocused();
+    await workspace.selectOption('seller');
     await page.getByRole('button', { name: 'Отправить заявку на регистрацию', exact: true }).click();
     await expect(legalName).toBeFocused();
     expect(mutations.filter((item) => item.includes('/api/auth/register'))).toEqual([]);
