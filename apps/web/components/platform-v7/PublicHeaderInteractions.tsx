@@ -108,7 +108,8 @@ export function PublicHeaderInteractions({ locale }: { locale: 'ru' | 'en' | 'zh
   // unsaved-form navigation guard independent of menu enhancement.
   useEffect(() => {
     if (window.location.pathname.replace(/\/$/, '') !== '/platform-v7/forgot-password') return;
-    const form = document.querySelector<HTMLFormElement>('.pc-recovery-page form.pc-recovery-card');
+    const form = document.querySelector<HTMLFormElement>('.pc-recovery-page form.pc-recovery-card')
+      ?? Array.from(document.forms).find((candidate) => candidate.querySelector('input[type="password"], input[type="email"]'));
     if (!form) return;
     let dirty = false;
     let confirmedNavigation = false;
