@@ -760,6 +760,7 @@ export function RegisterFormClient({
   return (
     <form className='p0-register-form' onSubmit={submitRegistration}>
       <p className='p0-register-required-note'>{copy.requiredNote}</p>
+      <fieldset className='p0-register-fields' disabled={submitting}>
 
       <section className='p0-register-card'>
         <div className='p0-register-section-heading'><h2>1. {copy.participationSection}</h2><p>{copy.participationLead}</p></div>
@@ -797,6 +798,7 @@ export function RegisterFormClient({
         <label><input name='acceptTerms' type='checkbox' value='yes' required /><span>{copy.acceptTerms} <a href='/platform-v7/terms' target='_blank' rel='noreferrer'>{copy.terms}</a>.</span></label>
         <label><input name='acceptPrivacy' type='checkbox' value='yes' required /><span>{copy.acceptPrivacy} <a href='/platform-v7/privacy' target='_blank' rel='noreferrer'>{copy.privacy}</a>.</span></label>
       </section>
+      </fieldset>
 
       {error ? <p className='p0-register-error' role='alert'>{error}</p> : null}
       {reference ? <p className='p0-register-correlation'><strong>{copy.reference}:</strong> {reference}</p> : null}
