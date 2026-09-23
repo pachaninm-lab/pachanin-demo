@@ -1757,7 +1757,7 @@
     "r1-role-mode-consumer-ci-repair-20260923": {
       "owner": "ACCOUNT_2_PRODUCT",
       "purpose": "Reconcile the existing controlled-test selector assertion with the accepted server-owned Founder VIEW_AS registry and regenerate the cryptographic inventory for the new BFF correlation UUID. Keep the existing five PRODUCT files and admit only these three evidence repairs.",
-      "authorityBaseExactMain": "afe240dd22fa8b4c5945a8d7f5bf369902ab7323",
+      "authorityBaseExactMain": "61b03d6e2bd3c3a6ba99f2c1e9030c548be4d418",
       "implementationBranch": "product/r1-role-mode-consumer-20260921",
       "allowedPaths": [
         "apps/web/app/platform-v7/staff/role-mode/route.ts",
@@ -1773,6 +1773,7 @@
         "The controlled-test cabinet fixture remains server-bound, but its prior owner selector assertion is stale; Founder role-mode uses the canonical 13-cabinet registry and a real server-validated organization ID.",
         "The generated cryptographic inventory must exactly reflect the new role-mode route UUID operation and tracked source count; no scanner or policy change is admitted.",
         "Founder VIEW_AS transport uses the accepted /api/staff/founder/role-mode/session BFF under the existing cookie Path; canonicalPath remains metadata until separate transport acceptance.",
+        "An unavailable or contradictory protected session after activation blocks another grant until canonical reconciliation; stale overlapping reads cannot restore an older VIEW_AS session.",
         "No browser-synthesized role, tenant, organization, permission, MFA, session or external business authority."
       ],
       "forbiddenAuthority": [
