@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { createElement } from 'react';
 import { RegisterFormClientPublic } from '@/app/platform-v7/register/RegisterFormClientPublic';
 
