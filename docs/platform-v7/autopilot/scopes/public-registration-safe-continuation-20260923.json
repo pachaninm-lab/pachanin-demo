@@ -11,7 +11,8 @@
     "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
     "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
     "apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts",
-    "docs/platform-v7/autopilot/scopes/public-registration-safe-continuation-20260923.json"
+    "docs/platform-v7/autopilot/scopes/public-registration-safe-continuation-20260923.json",
+    "docs/security/cryptographic-inventory.json"
   ],
   "requiredInvariants": [
     "After a verified response, both RU and EN/ZH clients replace the used verify query with the server statusToken and preserve only allowlisted public intent/crop/lot/returnTo/lang.",
