@@ -3,12 +3,13 @@
   "branch": "test/public-about-trust-geometry-20260923",
   "status": "active",
   "approvedBy": "owner-public-ux-repair-v2.0-2026-09-23",
-  "purpose": "UX-06/UX-38 T09/T24 verification-first: prove current About CTA and Trust-card geometry before any runtime repair.",
+  "purpose": "UX-06/UX-38 T09/T24: prove About CTA geometry and repair the reproduced Trust 200%-text grid min-content overflow without clipping or arbitrary word breaking.",
   "ownerSpecification": "Прозрачная Цена — инженерное ТЗ быстрого UX-ремонта v2.0, 23.09.2026, sections 4.1-4.4, UX-06/UX-38 and T09/T24.",
-  "coordination": "Team Hub #5469 claim 5786260598. Test-only exact scope until browser evidence proves a runtime defect.",
+  "coordination": "Team Hub #5469 claim 5786260598. Test-only exact scope until browser evidence proves a runtime defect. Candidate b2ae7ae6 reproduced UX-38: Trust first card expanded to 453.42 CSS px on a 320px RU viewport and 387.98px on 320px EN under 200% text; About CTA cases passed. Runtime CSS admission is therefore evidence-driven.",
   "allowedPaths": [
     "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
-    "docs/platform-v7/autopilot/scopes/public-about-trust-geometry-20260923.json"
+    "docs/platform-v7/autopilot/scopes/public-about-trust-geometry-20260923.json",
+    "apps/web/styles/platform-v7-canonical-public-v1.css"
   ],
   "requiredInvariants": [
     "No runtime code changes are admitted until current-main browser evidence reproduces a defect.",
@@ -16,7 +17,8 @@
     "All four Trust cards remain in the viewport horizontally with natural height and every visible text node remains unclipped at the same widths/locales.",
     "The same checks are repeated after explicit 200-percent text enlargement to exercise reflow pressure.",
     "Whole-document horizontal overflow remains at most one CSS pixel.",
-    "No acceptance threshold, retry, screenshot authority, application code, API, auth or production behavior changes."
+    "No acceptance threshold, retry, screenshot authority, application code, API, auth or production behavior changes.",
+    "The reproduced Trust repair may only remove grid/flex min-content expansion with min-width:0/max-width:100%; it must not use overflow:hidden, global overflow-x suppression, line-clamp or arbitrary word breaking."
   ],
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0
