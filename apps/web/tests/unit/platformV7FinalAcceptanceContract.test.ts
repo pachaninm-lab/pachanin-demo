@@ -11,7 +11,7 @@ import RegisterPage from '../../app/platform-v7/register/page';
 import TrustPage from '../../app/platform-v7/trust/page';
 import { ContactClient } from '../../app/platform-v7/contact/ContactClient';
 import { PublicHeaderInteractions } from '../../components/platform-v7/PublicHeaderInteractions';
-import { RegisterFormClientPublic } from '../../app/platform-v7/register/RegisterFormClientPublic';
+import { EmployeeParticipationEntry, RegisterFormClientPublic } from '../../app/platform-v7/register/RegisterFormClientPublic';
 import {
   CanonicalBottomNav,
   CanonicalDealSpine,
@@ -243,6 +243,17 @@ describe('public registration intent and locale behaviour', () => {
       });
     }
   }
+  it('offers employee participation only when the editable registration form is shown', async () => {
+    for (const locale of ['ru', 'en', 'zh'] as const) {
+      const form = elements(await RegisterPage({ searchParams: Promise.resolve({ lang: locale }) }));
+      expect(form.some((node) => node.type === EmployeeParticipationEntry)).toBe(true);
+      for (const context of [{ verify: 'token-v' }, { statusToken: 'token-s' }, { intent: 'employee' }]) {
+        const screen = elements(await RegisterPage({ searchParams: Promise.resolve({ lang: locale, ...context }) }));
+        expect(screen.some((node) => node.type === EmployeeParticipationEntry)).toBe(false);
+      }
+    }
+  });
+
   it.each(['owner', '__proto__', 'constructor', '<script>', 'BUY'])('rejects unknown intent %s', async (intent) => {
     const all = elements(await RegisterPage({ searchParams: Promise.resolve({ intent }) }));
     expect(all.find((node) => node.type === RegisterFormClientPublic)!.props.initialWorkspace).toBeUndefined();

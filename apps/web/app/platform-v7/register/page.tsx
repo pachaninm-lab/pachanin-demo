@@ -83,7 +83,7 @@ export default async function RegisterPage({ searchParams }: { searchParams?: Pr
       <CanonicalPublicHeader locale={locale} activePath='/platform-v7/register' localeControl={localeControl} />
       <section className='p0-register-hero' aria-labelledby='p0-register-title'>
         <small>{copy.kicker}</small><h1 id='p0-register-title'>{copy.title}</h1><p>{copy.lead}</p>
-        {intent !== 'employee' ? <EmployeeParticipationEntry label={copy.employeeEntry} /> : null}
+        {!verifyToken && !statusToken && intent !== 'employee' ? <EmployeeParticipationEntry label={copy.employeeEntry} /> : null}
       </section>
       {hasPublicSelection ? <aside className='pc-cp-application-context' aria-label={copy.selection} data-testid='public-application-context'>
         <strong>{copy.selection}{intent === 'sell' || intent === 'buy' ? `: ${copy[intent]}` : ''}{selectedCrop ? ` · ${CROP_LABELS[locale][selectedCrop]}` : ''}</strong>
