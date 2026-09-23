@@ -16,7 +16,7 @@
   ],
   "requiredInvariants": [
     "Execution intent does not choose logistics or any other participation automatically; no-intent remains unselected and native required validation blocks submission until an explicit choice.",
-    "The nine existing participation values remain unchanged; employee joining an existing organisation is a separate visible optgroup and not a bank subtype.",
+    "The nine existing participation values remain unchanged; employee joining an existing organisation has its own visible entry link and a separate option group, never a bank subtype.",
     "Explicit sell, buy and finance intent hints remain bounded and do not grant role, tenant or auth authority.",
     "No new server role, endpoint or registration POST; existing idempotency and status semantics stay intact.",
     "RU/EN/ZH browser and unit acceptance, exact-head CI and independent review required before PASS."

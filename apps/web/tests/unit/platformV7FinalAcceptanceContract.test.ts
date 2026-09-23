@@ -141,11 +141,12 @@ describe('platform-v7 Design System v8 final acceptance contract', () => {
   });
 
   it('prefills only a bounded public participation class without granting role authority', () => {
-    expect(registrationPage).toContain("type PublicRegistrationIntent = 'sell' | 'buy' | 'execution' | 'finance'");
+    expect(registrationPage).toContain("type PublicRegistrationIntent = 'sell' | 'buy' | 'execution' | 'finance' | 'employee'");
     expect(registrationPage).toContain("sell: 'seller'");
     expect(registrationPage).toContain("buy: 'buyer'");
     expect(registrationPage).not.toContain("execution: 'logistics'");
     expect(registrationPage).toContain("finance: 'bank'");
+    expect(registrationPage).toContain("employee: 'employee'");
     expect(registrationPage).toContain("if (intent) query.set('intent', intent)");
     expect(registrationPage).toContain("className='pc-site-locale-cluster'");
     expect(registrationPage).toContain('initialWorkspace={initialWorkspace}');
@@ -214,7 +215,7 @@ function elements(node: ReactNode): Array<React.ReactElement<Record<string, any>
 
 describe('public registration intent and locale behaviour', () => {
   for (const locale of ['ru', 'en', 'zh'] as const) {
-    for (const [intent, workspace] of [['sell', 'seller'], ['buy', 'buyer'], ['execution', ''], ['finance', 'bank']] as const) {
+    for (const [intent, workspace] of [['sell', 'seller'], ['buy', 'buyer'], ['execution', ''], ['finance', 'bank'], ['employee', 'employee']] as const) {
       it(`${locale}: ${intent} reaches the actual form and survives locale change without new authority`, async () => {
         const tree = await RegisterPage({ searchParams: Promise.resolve({ lang: locale, intent, verify: 'token-v', statusToken: 'token-s', role: 'PLATFORM_OWNER', tenantId: 'untrusted' }) });
         const all = elements(tree);

@@ -180,12 +180,15 @@ test.describe('Platform V7 public registration official UX', () => {
       await expect(workspace).toHaveValue('employee');
       expect(await workspace.evaluate((node) => (node as HTMLSelectElement).validity.valueMissing)).toBe(false);
       if (locale === 'ru') await expect(page.getByText('Новая организация при этом не создаётся.', { exact: false })).toBeVisible();
-      for (const [intent, expected] of [['sell', 'seller'], ['buy', 'buyer'], ['finance', 'bank']] as const) {
+      for (const [intent, expected] of [['sell', 'seller'], ['buy', 'buyer'], ['finance', 'bank'], ['employee', 'employee']] as const) {
         await page.goto('/platform-v7/register?lang=' + locale + '&intent=' + intent, { waitUntil: 'load' });
         await expect(page.locator('form.p0-register-form select[name="workspace"]')).toHaveValue(expected);
       }
       await page.goto('/platform-v7/register?lang=' + locale, { waitUntil: 'load' });
       await expect(page.locator('form.p0-register-form select[name="workspace"]')).toHaveValue('');
+      await page.getByRole('link', { name: joinLabels[locale], exact: true }).click();
+      await expect(page).toHaveURL(new RegExp('[?&]intent=employee(?:&|$)'));
+      await expect(page.locator('form.p0-register-form select[name="workspace"]')).toHaveValue('employee');
     });
   }
 
