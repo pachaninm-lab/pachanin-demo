@@ -21,6 +21,7 @@ const dealsServer = read('apps/web/lib/deals-server.ts');
 const disputesServer = read('apps/web/lib/disputes-server.ts');
 const outboxServer = read('apps/web/lib/outbox-server.ts');
 const releaseSafety = read('apps/web/app/platform-v7/bank/release-safety/page.tsx');
+const dealWorkspace = read('apps/web/components/platform-v7/P7DealWorkspaceTabs.tsx');
 const designSystemIndex = read('packages/design-system-v8/src/index.ts');
 const governance = JSON.parse(read('design-governance-v8.json')) as { migratedFiles: string[] };
 
@@ -121,6 +122,29 @@ describe('Design System v8 critical transaction routes', () => {
     expect(releaseSafety).not.toContain('DL-9106');
     expect(releaseSafety).not.toMatch(releaseMutation);
     expect(releaseSafety).not.toMatch(forbiddenPresentation);
+  });
+
+  it('does not attribute external bank, FGIS, documents or sandbox logistics to a Deal without source evidence', () => {
+    for (const unsupportedSource of [
+      'FactSourceBadge',
+      'sber_safe_deals',
+      'fgis_grain',
+      'edo_saby',
+      'SANDBOX_LOGISTICS_ORDERS',
+      'SANDBOX_INCIDENTS',
+      'подписан в ручном контуре',
+      'связан с контуром',
+      'подписан в контуре',
+      '3 файла в контуре',
+      'протокол в контуре',
+    ]) expect(dealWorkspace).not.toContain(unsupportedSource);
+
+    expect(dealWorkspace).toContain('UNKNOWN / NOT EXPOSED');
+    expect(dealWorkspace).toContain('Отсутствие документного блокера не подтверждает подписание');
+    expect(dealWorkspace).toContain('Отсутствие блокера не подтверждает применимость');
+    expect(dealWorkspace).toContain('Внешние факты и банк-исполнитель не опубликованы');
+    expect(dealWorkspace).toContain('это ещё не движение денег и не подтверждение внешнего банка');
+    expect(dealWorkspace).toContain('request_bank_basis');
   });
 
   it('registers all critical routes in v8 governance', () => {
