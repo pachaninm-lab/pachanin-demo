@@ -150,7 +150,7 @@ test.describe('Platform V7 public registration official UX', () => {
       expect(await form.evaluate((node) => (node as HTMLFormElement).checkValidity())).toBe(true);
       await form.locator('button[type="submit"]').click();
       await expect.poll(() => postCount).toBe(1);
-      await expect(form.locator('fieldset.p0-register-fields')).toBeDisabled();
+      await expect(form.locator('fieldset.p0-register-fields')).toHaveAttribute('disabled', '');
       await expect(form.locator('[name="email"]')).toBeDisabled();
       expect(posted).toMatchObject({
         orgLegalName: 'Fixture Organisation', email: 'fixture@example.invalid',
