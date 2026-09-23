@@ -580,7 +580,7 @@ for (const locale of ['ru', 'en', 'zh'] as const) {
         // accidentally simulate 400% and would invalidate the 200% evidence.
         await page.evaluate(() => {
           for (const node of document.querySelectorAll<HTMLElement>('.pc-cp-process-card h3, .pc-cp-process-result strong, .pc-cp-process-details summary, .pc-cp-process-meta span, .pc-cp-process-meta strong')) {
-            node.style.fontSize = `${parseFloat(getComputedStyle(node).fontSize) * 2}px`;
+            node.style.setProperty('font-size', `${parseFloat(getComputedStyle(node).fontSize) * 2}px`, 'important');
           }
         });
         for (const card of await cards.all()) {
