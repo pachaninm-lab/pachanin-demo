@@ -15,7 +15,7 @@ import {
 import { RegisterFormClient } from './RegisterFormClient';
 
 type Locale = 'ru' | 'en' | 'zh';
-type PublicWorkspace = 'seller' | 'buyer' | 'logistics' | 'bank';
+type PublicWorkspace = 'seller' | 'buyer' | 'logistics' | 'bank' | 'employee';
 type RegistrationWorkspace = 'seller' | 'buyer' | 'logistics' | 'driver' | 'elevator' | 'lab' | 'surveyor' | 'bank' | 'employee';
 type RegistrationStatus = RegistrationStatusSnapshot;
 type StatusReadState = 'idle' | 'loading' | 'available' | 'unavailable' | 'invalid';

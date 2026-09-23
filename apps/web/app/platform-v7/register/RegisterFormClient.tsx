@@ -14,7 +14,7 @@ import {
 } from '@/lib/platform-v7/registration-outcome';
 
 type Locale = 'ru' | 'en' | 'zh';
-type PublicWorkspace = 'seller' | 'buyer' | 'logistics' | 'bank';
+type PublicWorkspace = 'seller' | 'buyer' | 'logistics' | 'bank' | 'employee';
 
 type RegistrationStatus = RegistrationStatusSnapshot;
 type StatusReadState = 'idle' | 'loading' | 'available' | 'unavailable' | 'invalid';
