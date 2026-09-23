@@ -173,3 +173,39 @@ describe('Public Product Experience V4/V5 compatibility under the canonical home
     expect(acceptanceE2e).toContain('expect(metrics.primaryHeight).toBeGreaterThanOrEqual(44)');
   });
 });
+
+
+describe('owner UX v2 seven-stage progressive disclosure', () => {
+  it('keeps exactly seven stages in the existing order and exposes the existing Result as the primary level', () => {
+    expect(explorerPage).toContain("['Лот','Продавец'");
+    expect(explorerPage).toContain("['Торги','Продавец · Покупатель'");
+    expect(explorerPage).toContain("['Обязательства','Продавец · Покупатель'");
+    expect(explorerPage).toContain("['Доставка','Логистика · Водитель'");
+    expect(explorerPage).toContain("['Приёмка и качество','Элеватор · Лаборатория · Сюрвейер'");
+    expect(explorerPage).toContain("['Документы и расчёт','Стороны сделки; банк — в рамках согласованного участия'");
+    expect(explorerPage).toContain("['Закрытие или спор','Участники сделки'");
+    expect(explorerPage).toContain("className='pc-cp-process-result'");
+    expect(explorerPage).toContain('<strong>{s[2]}</strong>');
+  });
+
+  it('moves participant basis settlement and next step behind native details without inventing a client state machine', () => {
+    expect(explorerPage).toContain("className='pc-cp-process-details'");
+    expect(explorerPage).toContain('<details');
+    expect(explorerPage).toContain('<summary>{c.details}</summary>');
+    expect(explorerPage).toContain('<Meta l={c.actor} v={s[1]}/>');
+    expect(explorerPage).toContain('<Meta l={c.basis} v={s[3]}/>');
+    expect(explorerPage).toContain('<Meta l={c.money} v={s[4]}/>');
+    expect(explorerPage).toContain('<Meta l={c.next} v={s[5]}/>');
+    expect(explorerPage).not.toContain('useState(');
+    expect(explorerPage).not.toContain('useReducer(');
+    expect(explorerPage).not.toContain('onClick={() => set');
+  });
+
+  it('keeps disclosure controls touch-sized and mobile details single-column', () => {
+    const canonicalCss = readFileSync('styles/platform-v7-canonical-public-v1.css', 'utf8');
+    expect(canonicalCss).toContain('.pc-cp-page-how .pc-cp-process-details>summary');
+    expect(canonicalCss).toContain('min-height:44px');
+    expect(canonicalCss).toContain('.pc-cp-page-how .pc-cp-process-meta{grid-template-columns:1fr!important');
+    expect(canonicalCss).not.toContain('.pc-cp-page-how .pc-cp-process-details{overflow:hidden');
+  });
+});

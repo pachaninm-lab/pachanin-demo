@@ -5,11 +5,12 @@
   "approvedBy": "owner-public-ux-repair-v2.0-2026-09-23",
   "purpose": "UX-26: progressive disclosure for the existing seven Deal stages, using native details without changing stage order or business semantics.",
   "ownerSpecification": "Прозрачная Цена — инженерное ТЗ быстрого UX-ремонта v2.0, 23.09.2026, section 5.3 and UX-26/T20/T25.",
-  "coordination": "Team Hub #5469 claim for fix/public-seven-stage-disclosure-20260923. Runtime branch only until a focused canonical test is added; no PR or PASS before that.",
+  "coordination": "Team Hub #5469 claim for fix/public-seven-stage-disclosure-20260923. Runtime branch only until a focused canonical test is added; no PR or PASS before that. Focused unit/source contract is now in an existing executed acceptance suite. Browser T20 evidence is still required before UX-26 PASS.",
   "allowedPaths": [
     "apps/web/app/platform-v7/how-it-works/page.tsx",
     "apps/web/styles/platform-v7-canonical-public-v1.css",
-    "docs/platform-v7/autopilot/scopes/public-seven-stage-disclosure-20260923.json"
+    "docs/platform-v7/autopilot/scopes/public-seven-stage-disclosure-20260923.json",
+    "apps/web/tests/unit/platformV7PublicExperienceV4.test.ts"
   ],
   "requiredInvariants": [
     "All seven stages and their existing source copy remain in the same order.",
