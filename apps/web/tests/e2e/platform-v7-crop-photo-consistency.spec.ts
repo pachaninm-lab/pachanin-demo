@@ -47,8 +47,19 @@ test.describe('UX-18 public crop photograph consistency', () => {
         });
 
         expect(state.complete, crop).toBe(true);
-        expect(state.naturalWidth, crop).toBeGreaterThanOrEqual(320);
-        expect(state.naturalHeight, crop).toBeGreaterThanOrEqual(200);
+        expect(state.naturalWidth, crop).toBeGreaterThan(0);
+        expect(state.naturalHeight, crop).toBeGreaterThan(0);
+        // Chromium may downsample naturalWidth under device pressure; inspect the encoded resource.
+        const encodedSize = await image.evaluate(async (node) => {
+          const response = await fetch((node as HTMLImageElement).currentSrc);
+          if (!response.ok) throw new Error(`Crop image returned ${response.status}`);
+          const bitmap = await createImageBitmap(await response.blob());
+          const size = { width: bitmap.width, height: bitmap.height };
+          bitmap.close();
+          return size;
+        });
+        expect([320, 640, 960], crop).toContain(encodedSize.width);
+        expect(encodedSize.height, crop).toBe(encodedSize.width * 5 / 8);
         expect(state.currentSrc, crop).toContain(`/platform-v7/crops/${crop}-`);
         expect(state.currentSrc, crop).toMatch(/\.webp(?:$|\?)/u);
         expect(state.src, crop).toBe(`/platform-v7/crops/${crop}-640.webp`);
