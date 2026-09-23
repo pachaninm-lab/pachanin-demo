@@ -100,7 +100,7 @@ test.describe('Platform V7 public registration official UX', () => {
         const form = page.locator('form.p0-register-form');
         await expect(form).toHaveCount(1);
         const headings = await form.locator('section.p0-register-card h2').allTextContents();
-        expect(headings.map((heading) => heading.replace(/^\\d+\\.\\s*/u, '').trim())).toEqual(sectionTitles[locale]);
+        expect(headings.map((heading) => heading.replace(/^\d+\.\s*/u, '').trim())).toEqual(sectionTitles[locale]);
         for (const name of ['workspace', 'orgType', 'orgLegalName', 'orgInn', 'region',
           'fullName', 'position', 'phone', 'email', 'password', 'confirmPassword',
           'acceptTerms', 'acceptPrivacy']) {
