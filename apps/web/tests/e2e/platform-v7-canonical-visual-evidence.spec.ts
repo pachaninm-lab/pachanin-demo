@@ -677,7 +677,7 @@ test.describe('owner UX v2 About and Trust geometry', () => {
           document.body.scrollWidth - document.body.clientWidth,
         ))).toBeLessThanOrEqual(1);
 
-        await page.addStyleTag({ content: '.pc-cp-page-trust .pc-cp-trust-pillar :is(h3,p,li,small,strong,span){font-size:200%!important;line-height:1.45!important;white-space:normal!important}' });
+        await page.addStyleTag({ content: '.pc-cp-page-trust .pc-cp-trust-pillar h3,.pc-cp-page-trust .pc-cp-trust-pillar-head p,.pc-cp-page-trust .pc-cp-trust-pillar li>span,.pc-cp-page-trust .pc-cp-trust-pillar>small{font-size:200%!important;line-height:1.45!important;white-space:normal!important}' });
         await assertTrustCardsReadable(page, `Trust 200% ${locale} ${width}`);
         expect(await page.evaluate(() => Math.max(
           document.documentElement.scrollWidth - document.documentElement.clientWidth,
