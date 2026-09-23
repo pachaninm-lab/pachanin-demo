@@ -1536,6 +1536,10 @@
       "apps/web/app/api/staff/[...path]/route.ts",
       "apps/web/tests/unit/platformV7FounderRoleModeSessionBff.test.ts"
     ],
+    "ux/deal360-truthful-external-facts-20260923": [
+      "apps/web/components/platform-v7/P7DealWorkspaceTabs.tsx",
+      "apps/web/tests/unit/designSystemV8CriticalRoutes.test.ts"
+    ],
     "product/r1-role-mode-consumer-20260921": [
       "apps/web/app/platform-v7/staff/role-mode/route.ts",
       "apps/web/components/platform-v7/staff/OwnerAccessCenter.tsx",
@@ -1720,6 +1724,35 @@
         "Founder role-mode transport or authority"
       ],
       "teamHubDependency": "PRODUCT-SELLER-TRUTHFUL-FIRST-SCREEN-20260922"
+    },
+    "deal360-truthful-external-facts-20260923": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Presentation-only fail-closed Deal 360 truth repair: remove unsupported concrete bank/provider, FGIS/regulatory and document-completion claims from the existing Deal workspace without creating parallel server authority.",
+      "authorityBaseExactMain": "2365c9b38cbb366cda628904d4f11da4cb4afff9",
+      "implementationBranch": "ux/deal360-truthful-external-facts-20260923",
+      "allowedPaths": [
+        "apps/web/components/platform-v7/P7DealWorkspaceTabs.tsx",
+        "apps/web/tests/unit/designSystemV8CriticalRoutes.test.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "Concrete Sber/Alfa/T-Bank attribution for a Deal or BankOperation remains UNKNOWN / NOT EXPOSED until canonical BankOperation -> IntegrationBinding -> Provider evidence is accepted from CORE #5525.",
+        "Per-Deal regulatory applicability remains UNKNOWN / NOT EXPOSED until CORE #5526 publishes an accepted server-derived applicability projection; system/capability presence is not applicability.",
+        "FGIS Grain -> Inventory/source reconciliation remains UNKNOWN / NOT EXPOSED until #5370 publishes an accepted MATCH / CONFLICT / UNKNOWN projection.",
+        "Absence of a local blocker does not prove a contract, SDIZ or ETRN is signed, linked, accepted, applicable or complete.",
+        "HTTP 2xx, ACK, QUEUED or PROCESSED is non-final; an unknown external mutation outcome remains UNKNOWN / PENDING_RECONCILIATION and requires same-operation reconciliation before retry.",
+        "The existing Deal 360 component remains presentation-only and must not create a second Deal, Settlement, regulatory, provider, document or logistics authority."
+      ],
+      "forbiddenAuthority": [
+        "homepage/public landing implementation",
+        "API/backend/domain/DB/RLS/tenant/role authority",
+        "Settlement/payment/finality authority",
+        "provider binding/credential/callback-trust authority",
+        "regulatory applicability/legal evaluation authority",
+        "FGIS/SDIZ mutation or legal completion authority",
+        "logistics source authority",
+        "CI/workflow/threshold/security policy changes"
+      ],
+      "teamHubDependency": "PRODUCT-DEAL360-TRUTHFUL-EXTERNAL-FACTS-20260923"
     },
     "r1-role-mode-consumer-ci-repair-20260923": {
       "owner": "ACCOUNT_2_PRODUCT",
