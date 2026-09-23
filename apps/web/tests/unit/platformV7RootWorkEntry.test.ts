@@ -130,7 +130,12 @@ describe('platform-v7 canonical public experience',()=>{
   });
 
   it('opens Gekta through the existing public assistant authority without private context',()=>{
-    expect(gektaChatButton).toContain("new CustomEvent('pc:public-assistant-context'");
+    // One open operation that survives a cold first click (assistant chunk not
+    // yet mounted); no hidden-DOM lookup or synthetic click.
+    expect(gektaChatButton).toContain('usePublicGektaEntry()');
+    expect(gektaChatButton).toContain('open({');
+    expect(gektaChatButton).not.toContain('MutationObserver');
+    expect(gektaChatButton).not.toContain('.click()');
     expect(gektaChatButton).toContain("context: 'platform'");
     expect(gektaChatButton).not.toContain('tenantId');
     expect(gektaChatButton).not.toContain('dealId');

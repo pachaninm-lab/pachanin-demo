@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
-import { PublicAssistantMobileLayoutAuthority } from '@/components/platform-v7/PublicAssistantMobileLayoutAuthority';
+import { reportPublicGektaUnavailable } from '@/lib/platform-v7/public-gekta-open';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import '@/styles/platform-v7-public-cjk-runtime.css';
 import '@/styles/platform-v7-home-mobile-brand.css';
@@ -23,8 +23,19 @@ const PlatformV7TranslationRuntimeBridge = dynamic(
   { ssr: false, loading: () => null },
 );
 
+function AssistantUnavailable(): null {
+  return null;
+}
+
+// A chunk that fails to load must not replace the whole public page with the
+// global error screen. The entry points show an explicit recovery instead.
 const ContextualSupportOrAssistant = dynamic<ContextualSupportProps>(
-  () => import('@/components/platform-v7/ContextualSupportOrAssistant').then((module) => module.ContextualSupportOrAssistant),
+  () => import('@/components/platform-v7/ContextualSupportOrAssistant')
+    .then((module) => module.ContextualSupportOrAssistant)
+    .catch(() => {
+      reportPublicGektaUnavailable();
+      return AssistantUnavailable;
+    }),
   { ssr: false, loading: () => null },
 );
 
@@ -69,7 +80,6 @@ export function HydrationSafeChatSupport({
     <>
       {loadTranslationBridge ? <PlatformV7TranslationRuntimeBridge /> : null}
       {loadLegacyPublicPolish ? <LegacyPublicMobileExperiencePolish /> : null}
-      <PublicAssistantMobileLayoutAuthority />
       <ContextualSupportOrAssistant {...supportProps} />
       {loadLegacyPublicPolish ? <style>{terminalPublicSpacingCss}</style> : null}
     </>
