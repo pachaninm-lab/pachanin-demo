@@ -604,10 +604,11 @@ export function RegisterFormClient({
       const verifiedStatus = parseRegistrationStatusSnapshot(result);
       if (!verifiedStatus) throw new Error('verify_failed');
       setVerificationCompleted(true);
+      const continuationHref = verifiedRegistrationContinuationHref(window.location.search, result.statusToken, locale);
       setStatusToken(result.statusToken);
       setStatus(verifiedStatus);
       setStatusReadState('available');
-      window.history.replaceState(null, '', verifiedRegistrationContinuationHref(window.location.search, result.statusToken, locale));
+      window.history.replaceState(null, '', continuationHref);
     } catch {
       setError(copy.verifyInvalid);
     } finally {
