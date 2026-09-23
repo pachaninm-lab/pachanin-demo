@@ -284,9 +284,9 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
     return <section className='p0-register-card p0-register-state' aria-labelledby='p0-register-status-title' aria-live='polite'>
       <ShieldCheck size={40} aria-hidden='true' />
       <h2 id='p0-register-status-title'>Заявка принята</h2>
-      <p>На указанный адрес будет направлено письмо, если он может быть использован для регистрации. Если учётная запись уже существует, воспользуйтесь входом или восстановлением доступа.</p>
+      <p>Если адрес может быть использован для регистрации, откройте ссылку из письма и подтвердите почту. После подтверждения здесь появятся проверенный статус заявки и следующий шаг. Доступ предоставляется только после проверки и одобрения заявки. Если письмо не пришло, запросите повторную отправку или обратитесь в поддержку. Если учётная запись уже существует, воспользуйтесь входом или восстановлением доступа.</p>
       {resendMessage ? <p role='status'>{resendMessage}</p> : null}{error ? <p className='p0-register-error' role='alert'>{error}</p> : null}<Reference value={reference} />
-      <div className='p0-register-actions'><button type='button' className='p0-register-primary' onClick={() => void resendEmail()} disabled={submitting}>{submitting ? 'Письмо отправляется…' : 'Отправить письмо повторно'}</button><a className='p0-register-secondary' href='/platform-v7/login'>Войти</a><a className='p0-register-secondary' href='/platform-v7/forgot-password'>Восстановить доступ</a></div>
+      <div className='p0-register-actions'><button type='button' className='p0-register-primary' onClick={() => void resendEmail()} disabled={submitting}>{submitting ? 'Письмо отправляется…' : 'Отправить письмо повторно'}</button><a className='p0-register-secondary' href='/platform-v7/login'>Войти</a><a className='p0-register-secondary' href='/platform-v7/forgot-password'>Восстановить доступ</a><a className='p0-register-secondary' href='/platform-v7/contact?lang=ru'>Связаться с поддержкой</a></div>
     </section>;
   }
 
