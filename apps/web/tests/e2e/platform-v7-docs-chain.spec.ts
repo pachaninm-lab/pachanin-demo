@@ -59,7 +59,7 @@ test.describe('T19 docs SSR/hydration identity', () => {
       await expect(clientDocs).toBeVisible();
       await expect(clientDocs.locator('h1')).toHaveText(item.title);
       const clientText = await semanticText(clientDocs);
-      expect(clientText).toBe(directText);
+      expect(clientText).toEqual(directText);
 
       const overflow = await page.evaluate(() => Math.max(
         document.documentElement.scrollWidth - document.documentElement.clientWidth,
