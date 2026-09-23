@@ -836,6 +836,53 @@ describe('public market identity, context and truthful states', () => {
     expect(miss.querySelector('[data-market-state="noMatch"]')).toBeTruthy();
     expect(miss.querySelector('a')?.getAttribute('href')).toBe('/platform-v7/market?lang=ru');
   });
+  it('binds a published card to its exact detail and application context in all public locales', async () => {
+    const a = lot(A);
+    const b = lot(B, { culture: 'barley' });
+    const filters = publicMarketContext({ q: 'wheat', region: 'Тамбов', grade: '3', sort: 'price-asc' });
+    for (const locale of ['ru', 'en', 'zh'] as const) {
+      publicMarketReadMock.mockResolvedValue(result([a, b]));
+      const results = markup(await CanonicalMarketResults({
+        locale, query: filters.q, filters: { crop: filters.crop, region: filters.region, grade: filters.grade }, sort: filters.sort,
+      }));
+      const cards = [...results.querySelectorAll<HTMLAnchorElement>('.pc-cp-lot-title')];
+      expect(cards).toHaveLength(1);
+      const offerUrl = new URL(cards[0]!.getAttribute('href')!, 'https://example.invalid');
+      expect(offerUrl.pathname).toBe('/platform-v7/market');
+      expect(offerUrl.searchParams.get('lot')).toBe(A);
+      expect(publicMarketContext(Object.fromEntries(offerUrl.searchParams))).toEqual(filters);
+
+      publicMarketReadMock.mockResolvedValue(result([b, a]));
+      const detail = markup(await CanonicalPublicLotView({
+        locale, lotRef: offerUrl.searchParams.get('lot'),
+        context: publicMarketContext(Object.fromEntries(offerUrl.searchParams)),
+      }));
+      expect(detail.querySelector('[data-market-state]')).toBeNull();
+      expect(detail.querySelector('.pc-cp-lot-summary h1')?.textContent).toContain(PUBLIC_CROP_LABELS[locale].wheat);
+      expect(detail.querySelector('.pc-cp-lot-summary h1')?.textContent).not.toContain(PUBLIC_CROP_LABELS[locale].barley);
+      const apply = detail.querySelector<HTMLAnchorElement>('.pc-cp-lot-summary a[href^="/platform-v7/register?"]');
+      expect(apply).toBeTruthy();
+      const application = new URL(apply!.getAttribute('href')!, 'https://example.invalid');
+      const next = publicMarketRegistrationContext(Object.fromEntries(application.searchParams));
+      expect(application.searchParams.get('intent')).toBe('buy');
+      expect(application.searchParams.get('lot')).toBe(A);
+      expect(next).toEqual({ filters, lotRef: A, selectedCrop: 'wheat' });
+      expect(application.searchParams.get('returnTo')).toBe(marketHref(locale, filters));
+
+      for (const items of [[b], [a, { ...a }]]) {
+        publicMarketReadMock.mockResolvedValue(result(items));
+        const absent = markup(await CanonicalPublicLotView({ locale, lotRef: A, context: filters }));
+        expect(absent.querySelector('[data-market-state="notPublished"]')).toBeTruthy();
+        expect(absent.querySelector('.pc-cp-lot-summary, .pc-cp-lot-meta--detail')).toBeNull();
+      }
+      publicMarketReadMock.mockClear();
+      for (const invalid of ['0', '1', [A, A], [A, B], A + '/extra']) {
+        const rejected = markup(await CanonicalPublicLotView({ locale, lotRef: invalid, context: filters }));
+        expect(rejected.querySelector('[data-market-state="invalidLink"]')).toBeTruthy();
+      }
+      expect(publicMarketReadMock).not.toHaveBeenCalled();
+    }
+  });
   it('renders only the requested published offer after reordering and shows missing after removal', async () => {
     const a=lot(A); const b=lot(B,{culture:'barley'});
     for (const items of [[a,b],[b,a],[b]]) {
