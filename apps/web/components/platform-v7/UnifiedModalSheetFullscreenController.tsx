@@ -219,9 +219,11 @@ function alignLatestAssistantAnswer(panel: HTMLElement) {
     const answers = scrollHost.querySelectorAll<HTMLElement>(".pc-public-assistant-message[data-role='assistant']");
     const latest = answers.item(answers.length - 1);
     if (!latest || latest === latestAligned || !latest.querySelector('.pc-public-assistant-answer')) return;
+    // Handled either way. An answer that completed while the reader was scrolled
+    // up must not be aligned later, when the reader has moved on.
+    latestAligned = latest;
     // The reader scrolled up to read earlier messages: keep their position.
     if (scrollHost.dataset.follow === 'false') return;
-    latestAligned = latest;
     window.clearTimeout(timer);
     timer = window.setTimeout(() => {
       const top = Math.max(0, latest.offsetTop - 8);
@@ -468,6 +470,9 @@ function enhancePublicAssistant(panel: HTMLElement) {
     clearWatchdogTimer();
   };
   const onEscapeCapture = (event: KeyboardEvent) => {
+    // Escape during IME composition cancels the composition; the dialog stays
+    // open, so the answer must not be stopped either.
+    if (event.isComposing || event.keyCode === 229) return;
     if (event.key === 'Escape' && panel.dataset.fullscreen !== 'true') onCloseCapture();
   };
   const onSubmitCapture = () => clearTimeoutState();

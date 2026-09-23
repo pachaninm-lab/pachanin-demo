@@ -6,6 +6,7 @@ import { encodeFrame, type GatewayFrame } from '@pc/ai-assistant-stream-contract
 import { PublicPlatformAssistant } from '@/components/platform-v7/PublicPlatformAssistant';
 import { PublicGektaChatButton } from '@/components/platform-v7/PublicGektaChatButton';
 import { PublicContactDock } from '@/components/platform-v7/PublicContactDock';
+import { UnifiedModalSheetFullscreenController } from '@/components/platform-v7/UnifiedModalSheetFullscreenController';
 import {
   PUBLIC_GEKTA_OPEN_STALL_MS,
   usePublicGektaEntry,
@@ -564,3 +565,215 @@ describe('review follow-ups on 41800d8', () => {
   });
 });
 
+
+describe('review of 10b71baba: focus return, reader position, stop trace', () => {
+  const knowledgePayload = (answer: string) => JSON.stringify({
+    requestId: 'k-late', generatedAt: '2026-09-23T00:00:00.000Z', knowledgeVersion: 'v1', dataMode: 'public_knowledge',
+    mode: 'read_only', topic: 't', title: 'Т', answer, facts: [], maturity: '', confidence: 'high', actionAllowed: false,
+    sources: [], suggestions: [], limitations: [],
+  });
+  const featureDisabled = () => sse([meta(), { event: 'error', streamId: STREAM, refusal: 'FEATURE_DISABLED', message: 'off' } as unknown as GatewayFrame, done(false)]);
+  const heldUntilAbort = (init?: RequestInit) => new Promise<Response>((_, reject) => {
+    init?.signal?.addEventListener('abort', () => reject(new DOMException('The operation was aborted.', 'AbortError')));
+  });
+  const stoppedRow = () => document.querySelector<HTMLElement>(".pc-public-assistant-message[data-role='assistant'][data-interrupted='true']");
+
+  it('returns focus to an opener that is hidden and disabled while the dialog is open, once it is shown again', async () => {
+    installFetch(() => catalogResponse());
+    const user = userEvent.setup();
+    render(<><PublicGektaChatButton locale='ru' variant='header' /><PublicPlatformAssistant /></>);
+    const entry = document.querySelector<HTMLButtonElement>('[data-gekta-chat-entry="true"]')!;
+    await user.click(entry);
+    await screen.findByRole('dialog');
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('textbox')));
+    // The contact dock hides itself behind the sheet and stays disabled until it fades back in.
+    entry.disabled = true;
+    entry.style.visibility = 'hidden';
+    await user.keyboard('{Escape}');
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(document.activeElement).not.toBe(entry);
+    entry.disabled = false;
+    entry.style.visibility = '';
+    await waitFor(() => expect(document.activeElement).toBe(entry));
+  });
+
+  it('keeps the dialog open on Escape during IME composition, and closes it on a plain Escape', async () => {
+    installFetch(() => catalogResponse());
+    const user = userEvent.setup();
+    render(<PublicPlatformAssistant />);
+    await user.click(screen.getByRole('button', { name: /Спросить Гекту/ }));
+    const box = await screen.findByRole('textbox');
+    fireEvent.compositionStart(box);
+    fireEvent.keyDown(box, { key: 'Escape', isComposing: true });
+    fireEvent.keyDown(box, { key: 'Escape', keyCode: 229 });
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    fireEvent.compositionEnd(box);
+    fireEvent.keyDown(box, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('forgets a composition cut short by closing, so Enter sends after reopening', async () => {
+    const spy = installFetch((url) => (url.includes('locale=') ? catalogResponse() : sse([meta(), token('Ответ.'), done(true)])));
+    const user = userEvent.setup();
+    render(<PublicPlatformAssistant />);
+    const trigger = screen.getByRole('button', { name: /Спросить Гекту/ });
+    await user.click(trigger);
+    fireEvent.compositionStart(await screen.findByRole('textbox'));
+    fireEvent.click(document.querySelector<HTMLButtonElement>('#pc-public-assistant-panel .pc-public-assistant-header > .pc-public-assistant-icon-button:last-child')!);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await user.click(trigger);
+    await user.type(await screen.findByRole('textbox'), 'Вопрос');
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(screen.getByText('Ответ.')).toBeInTheDocument());
+    expect(posts(spy)).toHaveLength(1);
+  });
+
+  it('keeps a visible stopped answer when the reader stops before the first word, and never sends that question as history', async () => {
+    let call = 0;
+    const spy = installFetch((url, init) => {
+      if (url.includes('locale=')) return catalogResponse();
+      call += 1;
+      return call === 1 ? heldUntilAbort(init) : sse([meta(), token('Второй ответ.'), done(true)]);
+    });
+    const { user, box } = await openAndType('Первый вопрос');
+    await user.keyboard('{Enter}');
+    await user.click(await screen.findByRole('button', { name: 'Остановить ответ' }));
+    await waitFor(() => expect(stoppedRow()).not.toBeNull());
+    const row = stoppedRow()!;
+    expect(row.textContent).toContain('Ответ остановлен и не завершён');
+    expect(row.querySelector('button[aria-label="Повторить запрос"]')).not.toBeNull();
+    expect(row.querySelector('button[aria-label="Копировать ответ"]')).toBeNull();
+    await user.type(box, 'Второй вопрос');
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(screen.getByText('Второй ответ.')).toBeInTheDocument());
+    expect(JSON.parse(String(posts(spy)[1][1]?.body)).history).toEqual([]);
+  });
+
+  it('keeps the stopped answer after a same-tab reload', async () => {
+    window.sessionStorage.setItem('pc-gekta-assistant-v1:ru', JSON.stringify([
+      { id: 'u1', role: 'user', text: 'Вопрос', createdAt: '2026-09-23T00:00:00.000Z' },
+      { id: 'a1', role: 'assistant', text: '', createdAt: '2026-09-23T00:00:01.000Z', interrupted: true, stopped: true },
+    ]));
+    installFetch(() => catalogResponse());
+    const user = userEvent.setup();
+    render(<PublicPlatformAssistant />);
+    await user.click(screen.getByRole('button', { name: /Спросить Гекту/ }));
+    await waitFor(() => expect(stoppedRow()?.textContent).toContain('Ответ остановлен и не завершён'));
+  });
+
+  it('does not send a question that failed as history for the next one', async () => {
+    let call = 0;
+    const spy = installFetch((url) => {
+      if (url.includes('locale=')) return catalogResponse();
+      call += 1;
+      return call === 1 ? new Response('{}', { status: 503 }) : sse([meta(), token('Ответ.'), done(true)]);
+    });
+    const { user, box } = await openAndType('Вопрос без ответа');
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(screen.getByRole('alert').getAttribute('data-gekta-failure')).toBe('server_error'));
+    await user.type(box, 'Следующий вопрос');
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(screen.getByText('Ответ.')).toBeInTheDocument());
+    expect(JSON.parse(String(posts(spy)[1][1]?.body)).history).toEqual([]);
+  });
+
+  it('does not show a knowledge answer that resolves after Stop, and says the answer was stopped', async () => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    installFetch(async (url) => {
+      if (url.includes('locale=')) return catalogResponse();
+      if (url.includes('stream=1')) return featureDisabled();
+      // A local answer that ignores the abort signal and resolves late.
+      await held;
+      return new Response(knowledgePayload('Поздний ответ.'), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    });
+    const { user } = await openAndType('Вопрос');
+    await user.keyboard('{Enter}');
+    await user.click(await screen.findByRole('button', { name: 'Остановить ответ' }));
+    release();
+    await waitFor(() => expect(stoppedRow()).not.toBeNull());
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.queryByText('Поздний ответ.')).toBeNull();
+  });
+
+  it('does not move focus away from a composer the visitor already uses on a touch screen', async () => {
+    installFetch(() => catalogResponse());
+    const original = window.matchMedia;
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: (query: string) => ({ matches: true, media: query, onchange: null, addListener: () => undefined, removeListener: () => undefined, addEventListener: () => undefined, removeEventListener: () => undefined, dispatchEvent: () => false }),
+    });
+    try {
+      render(<PublicPlatformAssistant />);
+      fireEvent.click(screen.getByRole('button', { name: /Спросить Гекту/ }));
+      const box = await screen.findByRole('textbox');
+      box.focus();
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      expect(document.activeElement).toBe(box);
+    } finally {
+      Object.defineProperty(window, 'matchMedia', { configurable: true, writable: true, value: original });
+    }
+  });
+
+  it('does not pull the reader back to an answer that completed while they were reading above', async () => {
+    render(<UnifiedModalSheetFullscreenController />);
+    const panel = document.createElement('section');
+    panel.className = 'pc-public-assistant-panel';
+    const host = document.createElement('div');
+    host.className = 'pc-public-assistant-messages';
+    host.dataset.follow = 'false';
+    const scrollTo = vi.fn();
+    host.scrollTo = scrollTo as unknown as typeof host.scrollTo;
+    panel.append(host);
+    document.body.append(panel);
+    const row = (role: 'user' | 'assistant', text: string) => {
+      const article = document.createElement('article');
+      article.className = 'pc-public-assistant-message';
+      article.dataset.role = role;
+      const body = document.createElement('div');
+      body.className = role === 'assistant' ? 'pc-public-assistant-answer' : 'pc-public-assistant-bubble';
+      body.textContent = text;
+      article.append(body);
+      return article;
+    };
+    try {
+      // A1 completes while the reader is reading earlier messages.
+      host.append(row('assistant', 'A1'));
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      expect(scrollTo).not.toHaveBeenCalled();
+      // The reader returns to the end and asks the next question: no jump back to A1.
+      host.dataset.follow = 'true';
+      host.append(row('user', 'Q2'));
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      expect(scrollTo).not.toHaveBeenCalled();
+      // The new answer is aligned as before.
+      host.append(row('assistant', 'A2'));
+      await waitFor(() => expect(scrollTo).toHaveBeenCalledTimes(1));
+    } finally {
+      panel.remove();
+    }
+  });
+
+  it('does not stop a running answer when Escape only cancels an IME composition', async () => {
+    render(<UnifiedModalSheetFullscreenController />);
+    const panel = document.createElement('section');
+    panel.className = 'pc-public-assistant-panel';
+    panel.innerHTML = "<div class='pc-public-assistant-messages' aria-busy='true'></div><form class='pc-public-assistant-composer'><textarea></textarea><button type='button' class='pc-public-assistant-composer-button' data-kind='stop'></button></form>";
+    document.body.append(panel);
+    const stop = panel.querySelector<HTMLButtonElement>("[data-kind='stop']")!;
+    const clicked = vi.fn();
+    stop.addEventListener('click', clicked);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const textarea = panel.querySelector('textarea')!;
+      fireEvent.keyDown(textarea, { key: 'Escape', isComposing: true });
+      fireEvent.keyDown(textarea, { key: 'Escape', keyCode: 229 });
+      expect(clicked).not.toHaveBeenCalled();
+      fireEvent.keyDown(textarea, { key: 'Escape' });
+      expect(clicked).toHaveBeenCalledTimes(1);
+    } finally {
+      panel.remove();
+    }
+  });
+});

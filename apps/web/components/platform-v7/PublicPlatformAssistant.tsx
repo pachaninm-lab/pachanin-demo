@@ -356,6 +356,40 @@ function isVisible(node: HTMLElement | null): node is HTMLElement {
   return Boolean(node && node.isConnected && node.getClientRects().length > 0);
 }
 
+/** Rendered, not visibility-hidden, not disabled and not inside an inert region. */
+function canTakeFocus(node: HTMLElement): boolean {
+  if (!isVisible(node) || node.closest('[inert]')) return false;
+  if ((node as HTMLButtonElement).disabled === true) return false;
+  return window.getComputedStyle(node).visibility !== 'hidden';
+}
+
+/**
+ * Give focus back to the element that opened the dialog. An opener that hides
+ * itself while the dialog is open (the contact dock slides away and is disabled
+ * until it fades back in) is waited for briefly instead of leaving focus on the
+ * page body. Returns a function that cancels a return still waiting.
+ */
+function returnFocusTo(opener: HTMLElement | null): () => void {
+  // An opener inside a collapsed menu returns focus to that menu.
+  const summary = opener?.closest('details')?.querySelector<HTMLElement>(':scope > summary') ?? null;
+  const target = isVisible(opener) ? opener : isVisible(summary) ? summary : null;
+  if (!target) return () => undefined;
+  const deadline = Date.now() + 700;
+  let frame = 0;
+  const attempt = () => {
+    const active = document.activeElement;
+    // Done, or the visitor has already moved focus somewhere else: leave it.
+    if (active === target || (active && active !== document.body && active !== document.documentElement)) return;
+    if (canTakeFocus(target)) target.focus({ preventScroll: true });
+    if (document.activeElement !== target && Date.now() < deadline) frame = window.requestAnimationFrame(attempt);
+  };
+  const timer = window.setTimeout(attempt, 0);
+  return () => {
+    window.clearTimeout(timer);
+    window.cancelAnimationFrame(frame);
+  };
+}
+
 /**
  * Make everything outside the dialog inert while the modal panel is open, and
  * return a function that restores exactly what was changed.
@@ -482,7 +516,8 @@ function safeStoredMessages(value: unknown): Message[] {
     if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
     const row = item as Record<string, unknown>;
     if (row.role !== 'user' && row.role !== 'assistant') return [];
-    if (typeof row.text !== 'string' || !row.text.trim()) return [];
+    // An answer stopped before its first word is kept: empty, marked as stopped.
+    if (typeof row.text !== 'string' || (!row.text.trim() && row.interrupted !== true)) return [];
     return [{
       id: typeof row.id === 'string' ? row.id : messageId(String(row.role)),
       role: row.role,
@@ -524,6 +559,8 @@ export function PublicPlatformAssistant() {
   const panelRef = React.useRef<HTMLElement>(null);
   const hostRef = React.useRef<HTMLDivElement>(null);
   const openerRef = React.useRef<HTMLElement | null>(null);
+  /** Cancels a focus return that is still waiting for its opener. */
+  const cancelFocusReturnRef = React.useRef<() => void>(() => undefined);
   const inputRef = React.useRef('');
   /** Identity of the current conversation + request; late results of older ones are dropped. */
   const generationRef = React.useRef(0);
@@ -671,6 +708,8 @@ export function PublicPlatformAssistant() {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        // Escape during IME composition cancels the composition, not the dialog.
+        if (event.isComposing || event.keyCode === 229) return;
         event.preventDefault();
         if (fullscreen) setFullscreen(false);
         else setOpen(false);
@@ -697,24 +736,25 @@ export function PublicPlatformAssistant() {
   // not per fullscreen toggle.
   React.useEffect(() => {
     if (!open) return;
+    // A return still waiting from the previous close must not pull focus out
+    // of the reopened dialog.
+    cancelFocusReturnRef.current();
+    // A composition cut short by closing never reported its end.
+    composingRef.current = false;
     const restoreInert = hostRef.current ? inertOutside(hostRef.current) : () => undefined;
     // On a narrow/touch screen focusing the textarea would raise the keyboard
     // over the history; the dialog itself receives focus there instead.
     const touchFirst = window.matchMedia?.('(max-width: 720px), (pointer: coarse)').matches === true;
     const timer = window.setTimeout(() => {
+      // The visitor is already inside the dialog (for example typing): keep it.
+      if (panelRef.current?.contains(document.activeElement)) return;
       if (touchFirst) panelRef.current?.focus({ preventScroll: true });
       else textareaRef.current?.focus();
     }, 60);
     return () => {
       window.clearTimeout(timer);
       restoreInert();
-      const opener = openerRef.current;
-      window.setTimeout(() => {
-        // An opener inside a collapsed menu returns focus to that menu.
-        const summary = opener?.closest('details')?.querySelector<HTMLElement>(':scope > summary') ?? null;
-        const target = isVisible(opener) ? opener : summary;
-        if (isVisible(target)) target.focus({ preventScroll: true });
-      }, 0);
+      cancelFocusReturnRef.current = returnFocusTo(openerRef.current);
     };
   }, [open]);
 
@@ -757,12 +797,16 @@ export function PublicPlatformAssistant() {
   };
 
   // A partial (interrupted or stopped) answer is never sent back to the model
-  // as if it were a complete assistant turn, and neither is the question it
-  // failed to answer: the model would otherwise see two questions in a row.
+  // as if it were a complete assistant turn, and neither is a question that
+  // has no complete answer (failed, stopped or interrupted): the model would
+  // otherwise see two questions in a row.
   const historyFrom = (items: Message[]): HistoryTurn[] => items
-    .filter((message, index) => message.text.trim().length > 0
-      && !message.interrupted
-      && !(message.role === 'user' && items[index + 1]?.interrupted))
+    .filter((message, index) => {
+      if (!message.text.trim() || message.interrupted) return false;
+      if (message.role !== 'user') return true;
+      const answer = items[index + 1];
+      return answer?.role === 'assistant' && !answer.interrupted && answer.text.trim().length > 0;
+    })
     .slice(-12)
     .map((message) => ({ role: message.role, text: message.text.slice(0, 2_000) }));
 
@@ -842,8 +886,11 @@ export function PublicPlatformAssistant() {
         body: JSON.stringify({ message: question, locale, context: contextName, history }),
       });
     } catch (reason) {
-      if (controller.signal.aborted) return 'handled';
-      if (reason instanceof DOMException && reason.name === 'AbortError') return 'handled';
+      if (controller.signal.aborted || (reason instanceof DOMException && reason.name === 'AbortError')) {
+        // Stopped (or closed) before any answer arrived: the conversation says so.
+        if (current()) keepPartial('CANCELLED', '', defaultAssessment());
+        return 'handled';
+      }
       return { failure: typeof navigator !== 'undefined' && navigator.onLine === false ? 'offline' : 'unknown' };
     }
 
@@ -871,11 +918,8 @@ export function PublicPlatformAssistant() {
 
     // Stopping keeps what the reader already saw, marked as not complete.
     if (snapshot.refusal === 'CANCELLED') {
+      // Stopped before the first word, the row stays too: empty, marked stopped.
       const partial = sanitizeDisplayText(snapshot.text) || lastVisibleText;
-      if (!partial) {
-        dropProvisional();
-        return 'handled';
-      }
       keepPartial('CANCELLED', partial, parseAssessment(snapshot.assessment));
       return 'handled';
     }
@@ -933,6 +977,8 @@ export function PublicPlatformAssistant() {
     });
     const payload = await response.json().catch(() => null) as Answer | null;
     if (generationRef.current !== generation) return true;
+    // Stop keeps the same generation: an answer that resolves after Stop is not shown.
+    if (controller.signal.aborted) throw new DOMException('The operation was aborted.', 'AbortError');
     if (!response.ok || !payload || payload.dataMode !== 'public_knowledge' || typeof payload.answer !== 'string') {
       return false;
     }
@@ -984,7 +1030,18 @@ export function PublicPlatformAssistant() {
       if (generationRef.current === generation) setAnnouncement('complete');
     } catch (reason) {
       if (reason instanceof DOMException && reason.name === 'AbortError') {
-        if (generationRef.current === generation) setAnnouncement('interrupted');
+        if (generationRef.current === generation) {
+          // Stopped (or closed) during the knowledge answer: the conversation says so.
+          setMessages((items) => [...items, {
+            id: messageId('assistant'),
+            role: 'assistant',
+            text: '',
+            createdAt: new Date().toISOString(),
+            interrupted: true,
+            stopped: true,
+          }]);
+          setAnnouncement('interrupted');
+        }
         return;
       }
       if (generationRef.current !== generation) return;
@@ -1276,18 +1333,25 @@ export function PublicPlatformAssistant() {
                         ) : null}
 
                         <div className='pc-public-assistant-message-actions' style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                          <button type='button' style={actionStyle} onClick={() => void copyMessage(message)} aria-label={ui.copy} title={ui.copy}>
-                            <CopyIcon size={15} aria-hidden='true' />{copiedId === message.id ? ui.copied : ui.copy}
-                          </button>
+                          {message.text ? (
+                            <button type='button' style={actionStyle} onClick={() => void copyMessage(message)} aria-label={ui.copy} title={ui.copy}>
+                              <CopyIcon size={15} aria-hidden='true' />{copiedId === message.id ? ui.copied : ui.copy}
+                            </button>
+                          ) : null}
                           <button type='button' style={actionStyle} onClick={() => void regenerateAnswer(index)} aria-label={ui.retry} title={ui.retry}>
                             <RefreshCw size={15} aria-hidden='true' />{ui.retry}
                           </button>
-                          <button type='button' style={actionStyle} onClick={() => trackEvent('public_platform_assistant_feedback', { value: 'useful', origin: origin || 'unknown' })} aria-label={ui.useful} title={ui.useful}>
-                            <ThumbsUp size={15} aria-hidden='true' />
-                          </button>
-                          <button type='button' style={actionStyle} onClick={() => trackEvent('public_platform_assistant_feedback', { value: 'inaccurate', origin: origin || 'unknown' })} aria-label={ui.inaccurate} title={ui.inaccurate}>
-                            <ThumbsDown size={15} aria-hidden='true' />
-                          </button>
+                          {/* An answer stopped before its first word has nothing to copy or rate. */}
+                          {message.text ? (
+                            <>
+                              <button type='button' style={actionStyle} onClick={() => trackEvent('public_platform_assistant_feedback', { value: 'useful', origin: origin || 'unknown' })} aria-label={ui.useful} title={ui.useful}>
+                                <ThumbsUp size={15} aria-hidden='true' />
+                              </button>
+                              <button type='button' style={actionStyle} onClick={() => trackEvent('public_platform_assistant_feedback', { value: 'inaccurate', origin: origin || 'unknown' })} aria-label={ui.inaccurate} title={ui.inaccurate}>
+                                <ThumbsDown size={15} aria-hidden='true' />
+                              </button>
+                            </>
+                          ) : null}
                         </div>
                       </div>
                     ) : null}
@@ -1345,6 +1409,7 @@ export function PublicPlatformAssistant() {
                   onChange={(event) => setInput(event.target.value.slice(0, 1_200))}
                   onCompositionStart={() => { composingRef.current = true; }}
                   onCompositionEnd={() => { composingRef.current = false; }}
+                  onBlur={() => { composingRef.current = false; }}
                   onKeyDown={(event) => {
                     // Enter that commits an IME composition (Chinese, Japanese,
                     // Korean input) is not a send. Safari reports it as keyCode 229.
