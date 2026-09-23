@@ -3,8 +3,8 @@
   "branch": "fix/public-registration-next-steps-20260923",
   "status": "active",
   "approvedBy": "owner-public-ux-repair-v2.0-2026-09-23",
-  "purpose": "UX-30 conditional next steps and UX-15 immutable in-flight registration snapshot in the existing RU/EN/ZH form.",
-  "ownerSpecification": "Прозрачная Цена — инженерное ТЗ быстрого UX-ремонта v2.0, 23.09.2026, UX-30 T07/T08. UX-15 T06/T08.",
+  "purpose": "UX-30 truthful next steps, UX-15 immutable in-flight snapshot, and UX-21 verification of existing four-section RU/EN/ZH form.",
+  "ownerSpecification": "Прозрачная Цена — инженерное ТЗ быстрого UX-ремонта v2.0, 23.09.2026, UX-30 T07/T08. UX-15 T06/T08. UX-21 T08/T15.",
   "coordination": "Team Hub #5469 CLAIM 5790054227. Stacked on #5555 exact head a253b7e0eb3afc942925704ebfb9ebdf8b3899d4; parents #5554 and #5539 must merge sequentially.",
   "allowedPaths": [
     "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
@@ -20,7 +20,8 @@
     "Registration FormData and serialized POST body are captured before disabling the fieldset; all editable controls are disabled only while submitting, and exact payload/idempotency operation remains intact.",
     "Account enumeration, invented timing, automatic retry or any new registration POST are forbidden.",
     "Contact support is an existing public route and existing login/recovery/resend actions remain available.",
-    "No server status, role, tenant, auth or DB semantics change; CI/browser acceptance and independent review required before PASS."
+    "No server status, role, tenant, auth or DB semantics change; CI/browser acceptance and independent review required before PASS.",
+    "The existing single registration form keeps four clear sections and all existing required fields and consents; optional organization identifiers remain optional across RU/EN/ZH."
   ],
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0
