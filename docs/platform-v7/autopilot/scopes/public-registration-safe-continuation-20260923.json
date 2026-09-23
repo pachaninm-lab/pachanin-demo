@@ -10,7 +10,7 @@
     "apps/web/lib/platform-v7/public-registration-continuation.ts",
     "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
     "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
-    "apps/web/tests/unit/platformV7RegistrationContinuation.test.ts",
+    "apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts",
     "docs/platform-v7/autopilot/scopes/public-registration-safe-continuation-20260923.json"
   ],
   "requiredInvariants": [
