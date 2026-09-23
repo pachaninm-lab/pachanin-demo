@@ -13,7 +13,8 @@
     "apps/web/styles/platform-v7-public-market.css",
     "apps/web/playwright.acceptance.config.ts",
     "apps/web/tests/e2e/platform-v7-market-result-navigation.spec.ts",
-    "docs/platform-v7/autopilot/scopes/public-market-result-navigation-20260923.json"
+    "docs/platform-v7/autopilot/scopes/public-market-result-navigation-20260923.json",
+    "docs/security/cryptographic-inventory.json"
   ],
   "requiredInvariants": [
     "Apply, chip removal, reset and market crop category links return to the offers section using the existing safe GET market URLs.",
