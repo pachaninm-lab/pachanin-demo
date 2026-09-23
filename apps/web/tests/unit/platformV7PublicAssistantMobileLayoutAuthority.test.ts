@@ -6,16 +6,22 @@ const root = process.cwd();
 const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'utf8');
 
 const authority = read('apps/web/components/platform-v7/PublicAssistantMobileLayoutAuthority.tsx');
-const mount = read('apps/web/components/platform-v7/HydrationSafeChatSupport.tsx');
+const hydration = read('apps/web/components/platform-v7/HydrationSafeChatSupport.tsx');
 const contextual = read('apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx');
+// The authority acts only on the public assistant panel, so it is mounted in
+// the public branch of the on-demand assistant chunk, right before the panel
+// owner, instead of in every page's entry bundle (#5537, G08).
+const mount = contextual;
 const hotfixCss = read('apps/web/styles/platform-v7-public-assistant-mobile-hotfix.css');
 
 describe('platform-v7 public assistant mobile layout authority', () => {
   it('is mounted on every public assistant surface before the assistant appears', () => {
     expect(mount).toContain("import { PublicAssistantMobileLayoutAuthority }");
     expect(mount).toContain('<PublicAssistantMobileLayoutAuthority />');
+    expect(mount.match(/<PublicAssistantMobileLayoutAuthority \/>/gu)).toHaveLength(1);
     expect(mount.indexOf('<PublicAssistantMobileLayoutAuthority />'))
-      .toBeLessThan(mount.indexOf('<ContextualSupportOrAssistant'));
+      .toBeLessThan(mount.indexOf('<PublicPlatformAssistant />'));
+    expect(hydration).not.toContain('PublicAssistantMobileLayoutAuthority');
   });
 
   it('has exactly one runtime keyboard geometry controller', () => {

@@ -7,11 +7,13 @@ import { PublicPlatformAssistant } from '@/components/platform-v7/PublicPlatform
 import { PublicGektaChatButton } from '@/components/platform-v7/PublicGektaChatButton';
 import { PublicContactDock } from '@/components/platform-v7/PublicContactDock';
 import {
+  PUBLIC_GEKTA_OPEN_STALL_MS,
   bindPublicGektaOwner,
   readPublicGektaOpenStatus,
   reportPublicGektaUnavailable,
   requestPublicGektaOpen,
 } from '@/lib/platform-v7/public-gekta-open';
+import { installPublicAssistantFetchResilience } from '@/lib/platform-v7/install-public-assistant-fetch-resilience';
 
 // GEKTA-01 / UX-12 / UX-28: one open operation, draft-only prompts, honest
 // stream outcomes, one POST per question and late responses kept out.
@@ -110,6 +112,28 @@ describe('G01/G02 one open operation', () => {
     expect(entry.getAttribute('data-gekta-open-state')).toBe('failed');
     expect(entry.textContent).toContain('Гекта не загрузилась');
     expect(requestPublicGektaOpen({ source: 'test' })).toBe('failed');
+  });
+
+  it('abandons a pending open when the assistant never arrives, so a late load cannot open it by surprise', async () => {
+    vi.useFakeTimers();
+    try {
+      render(<PublicGektaChatButton locale='ru' variant='header' />);
+      const entry = screen.getByRole('button');
+      fireEvent.click(entry);
+      expect(entry.getAttribute('data-gekta-open-state')).toBe('opening');
+      act(() => { vi.advanceTimersByTime(PUBLIC_GEKTA_OPEN_STALL_MS); });
+      expect(entry.getAttribute('data-gekta-open-state')).toBe('failed');
+      expect(entry.getAttribute('aria-busy')).toBeNull();
+      // The chunk finally arrives: nothing opens, and the entry is usable again.
+      const opened = vi.fn();
+      let unbind = () => undefined as void;
+      act(() => { unbind = bindPublicGektaOwner(opened); });
+      expect(opened).not.toHaveBeenCalled();
+      expect(entry.getAttribute('data-gekta-open-state')).toBe('idle');
+      unbind();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('mounts one dialog under StrictMode and repeated opens', async () => {
@@ -357,6 +381,8 @@ describe('review follow-ups: partial answers stay visibly partial', () => {
     const calls = (globalThis.fetch as unknown as ReturnType<typeof installFetch>).mock.calls.filter(([, init]) => init?.method === 'POST');
     const history = JSON.parse(String(calls[0][1]?.body)).history as { role: string; text: string }[];
     expect(history.some((turn) => turn.text === 'обрыв')).toBe(false);
+    // Nor the question that partial answer failed to answer.
+    expect(history.some((turn) => turn.text === 'Вопрос один')).toBe(false);
     expect(posts(spy)).toHaveLength(1);
   });
 
@@ -417,3 +443,25 @@ describe('review follow-ups: partial answers stay visibly partial', () => {
     expect(screen.getByText('Безопасная').closest('a')?.getAttribute('href')).toBe('/platform-v7/trust');
   });
 });
+
+describe('G05/G08 fetch resilience boundary', () => {
+  it('passes the stream through untouched and loads the local knowledge only on the failure path', async () => {
+    const native = vi.fn(async () => new Response('{}', { status: 503 }));
+    Object.defineProperty(globalThis, 'fetch', { configurable: true, writable: true, value: native });
+    delete (window as unknown as Record<string, unknown>).__p7PublicAssistantFetchResilienceInstalled__;
+    installPublicAssistantFetchResilience();
+
+    const stream = await window.fetch('/api/public-platform-assistant?stream=1', { method: 'POST', body: JSON.stringify({ message: 'Как работает платформа?' }) });
+    expect(stream.status).toBe(503);
+
+    const local = await window.fetch('/api/public-platform-assistant', { method: 'POST', body: JSON.stringify({ message: 'Как работает платформа?', locale: 'ru' }) });
+    expect(local.status).toBe(200);
+    const payload = await local.json() as { dataMode: string; answer: string; actionAllowed: boolean };
+    expect(payload.dataMode).toBe('public_knowledge');
+    expect(payload.answer.length).toBeGreaterThan(40);
+    expect(payload.actionAllowed).toBe(false);
+    expect(native).toHaveBeenCalledTimes(2);
+    delete (window as unknown as Record<string, unknown>).__p7PublicAssistantFetchResilienceInstalled__;
+  });
+});
+

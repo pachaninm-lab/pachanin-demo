@@ -2,7 +2,6 @@
 
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
-import { PublicAssistantMobileLayoutAuthority } from '@/components/platform-v7/PublicAssistantMobileLayoutAuthority';
 import { reportPublicGektaUnavailable } from '@/lib/platform-v7/public-gekta-open';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import '@/styles/platform-v7-public-cjk-runtime.css';
@@ -81,7 +80,6 @@ export function HydrationSafeChatSupport({
     <>
       {loadTranslationBridge ? <PlatformV7TranslationRuntimeBridge /> : null}
       {loadLegacyPublicPolish ? <LegacyPublicMobileExperiencePolish /> : null}
-      <PublicAssistantMobileLayoutAuthority />
       <ContextualSupportOrAssistant {...supportProps} />
       {loadLegacyPublicPolish ? <style>{terminalPublicSpacingCss}</style> : null}
     </>

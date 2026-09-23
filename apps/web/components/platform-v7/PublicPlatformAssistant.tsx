@@ -749,9 +749,12 @@ export function PublicPlatformAssistant() {
   };
 
   // A partial (interrupted or stopped) answer is never sent back to the model
-  // as if it were a complete assistant turn.
+  // as if it were a complete assistant turn, and neither is the question it
+  // failed to answer: the model would otherwise see two questions in a row.
   const historyFrom = (items: Message[]): HistoryTurn[] => items
-    .filter((message) => message.text.trim().length > 0 && !message.interrupted)
+    .filter((message, index) => message.text.trim().length > 0
+      && !message.interrupted
+      && !(message.role === 'user' && items[index + 1]?.interrupted))
     .slice(-12)
     .map((message) => ({ role: message.role, text: message.text.slice(0, 2_000) }));
 

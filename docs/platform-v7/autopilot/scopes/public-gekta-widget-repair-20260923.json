@@ -6,6 +6,7 @@
   "approvedBy": "owner-work-order-5537-2026-09-23",
   "authorityBaseExactMain": "2365c9b38cbb366cda628904d4f11da4cb4afff9",
   "allowedPaths": [
+    "apps/web/components/platform-v7/ContextualSupportOrAssistant.tsx",
     "apps/web/components/platform-v7/HydrationSafeChatSupport.tsx",
     "apps/web/components/platform-v7/PublicContactDock.tsx",
     "apps/web/components/platform-v7/PublicDealExplorerV4.tsx",
@@ -15,9 +16,12 @@
     "apps/web/lib/platform-v7/install-public-assistant-fetch-resilience.ts",
     "apps/web/lib/platform-v7/public-gekta-open.ts",
     "apps/web/styles/platform-v7-public-assistant.css",
+    "apps/web/tests/unit/platformV7PublicAssistantMobileLayoutAuthority.test.ts",
     "apps/web/tests/unit/platformV7PublicAssistantStreamBinding.test.tsx",
+    "apps/web/tests/unit/platformV7PublicAssistantTransportResilience.test.ts",
     "apps/web/tests/unit/platformV7PublicDealExplorerMobileUx.test.ts",
     "apps/web/tests/unit/platformV7PublicIntelligenceLayer.test.ts",
+    "apps/web/tests/unit/platformV7RoleScopedAiAssistant.test.ts",
     "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
     "apps/web/tests/unit/publicGektaWidgetRepair.test.tsx",
     "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts",
@@ -32,7 +36,9 @@
     "late responses of an older request or conversation never change the current one",
     "close keeps draft and history; New dialog requires confirmation when a draft or conversation would be lost",
     "auto-scroll only while the reader is at the end; otherwise offer a jump to new messages",
-    "modal dialog makes the background inert, returns focus to the opener and announces send/complete/interrupted/error once"
+    "modal dialog makes the background inert, returns focus to the opener and announces send/complete/interrupted/error once",
+    "the initial public entry JS and the JS fetched on opening Gekta stay within the base measurement (gzip); the bundled local knowledge base loads only on the network/provider failure path and the viewport authority travels with the on-demand assistant chunk",
+    "a pending open that is not delivered within the stall window is dropped, so a late assistant load never opens the dialog after the entry reported failure"
   ],
   "forbiddenCapabilities": [
     "second chat store, controller, context or state machine",
