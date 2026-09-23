@@ -10,6 +10,7 @@
     "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
     "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
     "apps/web/styles/platform-v7-public-register.css",
+    "apps/web/tests/e2e/platform-v7-registration-official.spec.ts",
     "apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts",
     "apps/web/tests/unit/platformV7RegistrationNextSteps.test.tsx",
     "docs/platform-v7/autopilot/scopes/public-registration-next-steps-20260923.json"
