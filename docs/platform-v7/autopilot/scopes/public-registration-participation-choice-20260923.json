@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-registration-participation-choice-20260923",
+  "status": "active",
+  "approvedBy": "owner-public-ux-repair-v2.0-2026-09-23",
+  "purpose": "UX-22/23: require explicit execution participation and expose joining an existing organisation as a separate employee path in the existing registration form.",
+  "ownerSpecification": "Прозрачная Цена — инженерное ТЗ быстрого UX-ремонта v2.0, 23.09.2026, UX-22/23 T15.",
+  "coordination": "Stacked on PR #5557 exact head c0e16bae19aeb4958641763b5575e8cd3334b497. Parent registration chain #5555 → #5554 → #5539 must merge first.",
+  "allowedPaths": [
+    "apps/web/app/platform-v7/register/page.tsx",
+    "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
+    "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
+    "apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts",
+    "apps/web/tests/e2e/platform-v7-registration-official.spec.ts",
+    "docs/platform-v7/autopilot/scopes/public-registration-participation-choice-20260923.json"
+  ],
+  "requiredInvariants": [
+    "Execution intent does not choose logistics or any other participation automatically; no-intent remains unselected and native required validation blocks submission until an explicit choice.",
+    "The nine existing participation values remain unchanged; employee joining an existing organisation is a separate visible optgroup and not a bank subtype.",
+    "Explicit sell, buy and finance intent hints remain bounded and do not grant role, tenant or auth authority.",
+    "No new server role, endpoint or registration POST; existing idempotency and status semantics stay intact.",
+    "RU/EN/ZH browser and unit acceptance, exact-head CI and independent review required before PASS."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

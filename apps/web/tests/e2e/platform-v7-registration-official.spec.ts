@@ -135,6 +135,7 @@ test.describe('Platform V7 public registration official UX', () => {
       await page.goto('/platform-v7/register?lang=' + locale, { waitUntil: 'load' });
       const form = page.locator('form.p0-register-form');
       const fill = (name: string, value: string) => form.locator('[name="' + name + '"]').fill(value);
+      await form.locator('[name="workspace"]').selectOption('seller');
       await fill('orgLegalName', 'Fixture Organisation');
       await fill('orgInn', '1234567890');
       await fill('region', 'Tambov');
@@ -159,6 +160,32 @@ test.describe('Platform V7 public registration official UX', () => {
       await expect(page.locator('.p0-register-state')).toBeVisible();
       expect(postCount).toBe(1);
       await expectNoHorizontalOverflow(page);
+    });
+  }
+
+  for (const locale of ['ru', 'en', 'zh'] as const) {
+    test('T15 ' + locale + ': execution requires an explicit participation choice and employee joins an organisation', async ({ page }, testInfo) => {
+      test.skip(testInfo.project.name !== 'desktop-chromium', 'Focused registration intent contract in Chromium.');
+      const response = await page.goto('/platform-v7/register?lang=' + locale + '&intent=execution', { waitUntil: 'load' });
+      expect(response?.status()).toBe(200);
+      const workspace = page.locator('form.p0-register-form select[name="workspace"]');
+      await expect(workspace).toHaveValue('');
+      expect(await workspace.evaluate((node) => (node as HTMLSelectElement).validity.valueMissing)).toBe(true);
+      const options = await workspace.locator('option:not([disabled])').evaluateAll((nodes) =>
+        nodes.map((node) => (node as HTMLOptionElement).value));
+      expect(options).toEqual(['seller', 'buyer', 'logistics', 'driver', 'elevator', 'lab', 'surveyor', 'bank', 'employee']);
+      const joinLabels = { ru: 'Присоединиться к организации', en: 'Join an existing organisation', zh: '加入已有机构' } as const;
+      await expect(workspace.locator('optgroup')).toHaveAttribute('label', joinLabels[locale]);
+      await workspace.selectOption('employee');
+      await expect(workspace).toHaveValue('employee');
+      expect(await workspace.evaluate((node) => (node as HTMLSelectElement).validity.valueMissing)).toBe(false);
+      if (locale === 'ru') await expect(page.getByText('Новая организация при этом не создаётся.', { exact: false })).toBeVisible();
+      for (const [intent, expected] of [['sell', 'seller'], ['buy', 'buyer'], ['finance', 'bank']] as const) {
+        await page.goto('/platform-v7/register?lang=' + locale + '&intent=' + intent, { waitUntil: 'load' });
+        await expect(page.locator('form.p0-register-form select[name="workspace"]')).toHaveValue(expected);
+      }
+      await page.goto('/platform-v7/register?lang=' + locale, { waitUntil: 'load' });
+      await expect(page.locator('form.p0-register-form select[name="workspace"]')).toHaveValue('');
     });
   }
 

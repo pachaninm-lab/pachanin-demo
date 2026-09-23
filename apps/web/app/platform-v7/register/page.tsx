@@ -11,8 +11,8 @@ type Locale = 'ru' | 'en' | 'zh';
 type RegisterSearchParams = Record<string, string | string[] | undefined>;
 type PublicRegistrationIntent = 'sell' | 'buy' | 'execution' | 'finance';
 type PublicWorkspace = 'seller' | 'buyer' | 'logistics' | 'bank';
-const WORKSPACE_BY_INTENT: Record<PublicRegistrationIntent, PublicWorkspace> = {
-  sell: 'seller', buy: 'buyer', execution: 'logistics', finance: 'bank',
+const WORKSPACE_BY_INTENT: Partial<Record<PublicRegistrationIntent, PublicWorkspace>> = {
+  sell: 'seller', buy: 'buyer', finance: 'bank',
 };
 const PAGE_COPY = {
   ru: {

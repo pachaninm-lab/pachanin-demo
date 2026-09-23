@@ -144,14 +144,18 @@ describe('platform-v7 Design System v8 final acceptance contract', () => {
     expect(registrationPage).toContain("type PublicRegistrationIntent = 'sell' | 'buy' | 'execution' | 'finance'");
     expect(registrationPage).toContain("sell: 'seller'");
     expect(registrationPage).toContain("buy: 'buyer'");
-    expect(registrationPage).toContain("execution: 'logistics'");
+    expect(registrationPage).not.toContain("execution: 'logistics'");
     expect(registrationPage).toContain("finance: 'bank'");
     expect(registrationPage).toContain("if (intent) query.set('intent', intent)");
     expect(registrationPage).toContain("className='pc-site-locale-cluster'");
     expect(registrationPage).toContain('initialWorkspace={initialWorkspace}');
-    expect(registrationClient).toContain("React.useState<RegistrationWorkspace>(initialWorkspace || 'seller')");
-    expect(registrationBaseClient).toContain("defaultValue={initialWorkspace || 'seller'}");
+    expect(registrationClient).toContain("React.useState<RegistrationWorkspace | ''>(initialWorkspace || '')");
+    expect(registrationBaseClient).toContain("defaultValue={initialWorkspace || ''}");
     expect(registrationClient).toContain("event.target.value as RegistrationWorkspace");
+    expect(registrationClient).toContain("<option value='' disabled>Выберите формат участия</option>");
+    expect(registrationClient).toContain("<optgroup label='Присоединиться к организации'>");
+    expect(registrationBaseClient).toContain("<optgroup label={copy.employeeJoinLabel}>");
+    expect(registrationUxSpec).toContain("T15 ");
     expect(registrationClient).not.toContain('requestedRole');
     expect(registrationBaseClient).not.toContain('requestedRole');
   });
@@ -210,13 +214,13 @@ function elements(node: ReactNode): Array<React.ReactElement<Record<string, any>
 
 describe('public registration intent and locale behaviour', () => {
   for (const locale of ['ru', 'en', 'zh'] as const) {
-    for (const [intent, workspace] of [['sell', 'seller'], ['buy', 'buyer'], ['execution', 'logistics'], ['finance', 'bank']] as const) {
+    for (const [intent, workspace] of [['sell', 'seller'], ['buy', 'buyer'], ['execution', ''], ['finance', 'bank']] as const) {
       it(`${locale}: ${intent} reaches the actual form and survives locale change without new authority`, async () => {
         const tree = await RegisterPage({ searchParams: Promise.resolve({ lang: locale, intent, verify: 'token-v', statusToken: 'token-s', role: 'PLATFORM_OWNER', tenantId: 'untrusted' }) });
         const all = elements(tree);
         const form = all.find((node) => node.type === RegisterFormClientPublic)!;
         expect(form).toBeDefined();
-        expect(form.props).toMatchObject({ locale, initialWorkspace: workspace, verifyToken: 'token-v', initialStatusToken: 'token-s' });
+        expect(form.props).toMatchObject({ locale, initialWorkspace: workspace || undefined, verifyToken: 'token-v', initialStatusToken: 'token-s' });
         expect(form.props).not.toHaveProperty('role');
         expect(form.props).not.toHaveProperty('tenantId');
         const header = all.find((node) => node.props.localeControl)!;
@@ -233,7 +237,7 @@ describe('public registration intent and locale behaviour', () => {
         expect(query.get('lang')).toBe(nextLocale);
         expect(query.has('role')).toBe(false);
         expect(query.has('tenantId')).toBe(false);
-        const html = renderToStaticMarkup(createElement(RegisterFormClientPublic, { locale, initialWorkspace: workspace }));
+        const html = renderToStaticMarkup(createElement(RegisterFormClientPublic, { locale, initialWorkspace: workspace || undefined }));
         expect(html).toMatch(new RegExp(`<option[^>]*value="${workspace}"[^>]*selected=""`));
       });
     }
@@ -555,6 +559,7 @@ describe('registration snapshot remains immutable while the request is pending',
       const form = container.querySelector<HTMLFormElement>('form.p0-register-form')!;
       const fill = (name: string, value: string) =>
         fireEvent.change(form.querySelector<HTMLInputElement>('[name="' + name + '"]')!, { target: { value } });
+      fireEvent.change(form.querySelector<HTMLSelectElement>('[name="workspace"]')!, { target: { value: 'seller' } });
       fill('orgLegalName', 'Fixture Organisation');
       fill('orgInn', '1234567890');
       fill('region', 'Tambov');
@@ -612,6 +617,7 @@ describe('canonical public registration confirmation error UX-13', () => {
         fireEvent.change(input, { target: { value } });
         return input;
       };
+      fireEvent.change(form.querySelector<HTMLSelectElement>('[name="workspace"]')!, { target: { value: 'seller' } });
       fill('orgLegalName', 'Fixture Organisation');
       fill('orgInn', '1234567890');
       fill('region', 'Tambov');
@@ -663,6 +669,7 @@ describe('canonical public registration accepted next step UX-30', () => {
       const form = container.querySelector<HTMLFormElement>('form.p0-register-form')!;
       const fill = (name: string, value: string) =>
         fireEvent.change(form.querySelector<HTMLInputElement>(`[name="${name}"]`)!, { target: { value } });
+      fireEvent.change(form.querySelector<HTMLSelectElement>('[name="workspace"]')!, { target: { value: 'seller' } });
       fill('orgLegalName', 'Fixture Organisation');
       fill('orgInn', '1234567890');
       fill('region', 'Tambov');
