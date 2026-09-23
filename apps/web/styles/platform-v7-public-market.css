@@ -47,3 +47,9 @@ figure.pc-cp-lot-image>figcaption{position:relative;padding:12px 16px;background
 }
 @media(prefers-reduced-motion:reduce){.pc-cp-crop-grid{scroll-behavior:auto;scroll-snap-type:none}}
 @media(forced-colors:active){.pc-cp-crop-card,.pc-cp-market-state,.pc-cp-market-active-filters>a,.pc-cp-application-context{border:1px solid CanvasText}}
+
+/* Results remain visible after GET filtering and native fragment navigation. */
+.pc-cp-page-market #offers{scroll-margin-top:80px}
+.pc-cp-page-market #offers:focus{outline:none}
+.pc-cp-page-market #offers:focus-visible{outline:3px solid var(--pc-cp-green-2);outline-offset:3px}
+.pc-cp-market-jump{display:inline-flex;align-items:center;justify-content:center;justify-self:start;min-height:44px;max-width:100%;white-space:normal}
