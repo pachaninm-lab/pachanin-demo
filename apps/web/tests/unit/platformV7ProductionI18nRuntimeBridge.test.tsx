@@ -81,7 +81,28 @@ describe('Platform V7 production i18n runtime bridge', () => {
     expect(boundary).toContain("clean === '/platform-v7/deal-flow'");
     expect(boundary).toContain("clean === '/platform-v7/demo'");
     expect(boundary).not.toContain("clean === '/platform-v7/contact'");
+    expect(boundary).not.toContain("clean === '/platform-v7/docs'");
     expect(boundary).not.toContain("clean === '/platform-v7'");
     expect(boundary).not.toContain("clean === '/pc-public-entry/platform-v7'");
+  });
+});
+
+
+describe('Platform V7 docs source chain', () => {
+  it('keeps docs as a locale-native direct public page rather than a legacy rewrite/translator surface', () => {
+    const docs = read('apps/web/app/platform-v7/docs/page.tsx');
+    const middleware = read('apps/web/middleware.ts');
+    const seo = read('apps/web/lib/platform-v7/public-seo-routes.json');
+    const layout = read('apps/web/app/platform-v7/layout.tsx');
+
+    expect(docs).toContain("data-testid='platform-v7-public-docs-page'");
+    expect(docs).toContain("title: 'Документы связывают условия, исполнение и расчёт'");
+    expect(docs).toContain("title: 'Documents connect terms, execution and settlement'");
+    expect(docs).toContain("title: '文件连接约定条件、履约和结算'");
+    expect(seo).toContain('"path": "/platform-v7/docs"');
+    expect(layout).toContain("'/platform-v7/docs'");
+    expect(middleware).toContain('...PLATFORM_V7_INDEXABLE_EXACT');
+    expect(middleware).toContain('if (isPlatformV7PublicPath(p) || isPlatformV7StaffPath(p))');
+    expect(middleware).not.toContain("target.pathname = '/pc-public-entry/platform-v7/docs'");
   });
 });
