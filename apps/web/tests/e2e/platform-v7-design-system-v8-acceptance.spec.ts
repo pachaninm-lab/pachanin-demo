@@ -558,6 +558,7 @@ for (const locale of ['ru', 'en', 'zh'] as const) {
         await expect(details).not.toHaveAttribute('open', '');
         await expect(details.locator('.pc-cp-process-meta')).toBeHidden();
         const summary = details.locator('summary');
+        await expect(summary).toHaveAttribute('aria-label', `${(await card.locator('h3').innerText()).trim()} — ${(await summary.innerText()).trim()}`);
         const bounds = await summary.boundingBox();
         expect(bounds, `${locale}/${width}: missing summary bounds`).not.toBeNull();
         expect(bounds!.height, `${locale}/${width}: detail target height`).toBeGreaterThanOrEqual(44);

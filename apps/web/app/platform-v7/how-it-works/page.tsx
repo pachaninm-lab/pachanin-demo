@@ -93,7 +93,7 @@ export default async function HowItWorksPage(){
    <div className='pc-cp-process-cards'>
     {c.stages.map((s,index)=><article className='pc-cp-card pc-cp-process-card' key={s[0]}><i>{index+1}</i><div className='pc-cp-process-body'><h3>{s[0]}</h3>
       <p className='pc-cp-process-result'><span>{c.fact}</span><strong>{s[2]}</strong></p>
-      <details className='pc-cp-process-details'><summary>{c.details}</summary><div className='pc-cp-process-meta'>
+      <details className='pc-cp-process-details'><summary aria-label={`${s[0]} — ${c.details}`}>{c.details}</summary><div className='pc-cp-process-meta'>
         <Meta l={c.actor} v={s[1]}/><Meta l={c.basis} v={s[3]}/><Meta l={c.money} v={s[4]}/><Meta l={c.next} v={s[5]}/>
       </div></details>
     </div></article>)}

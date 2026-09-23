@@ -191,7 +191,7 @@ describe('owner UX v2 seven-stage progressive disclosure', () => {
   it('moves participant basis settlement and next step behind native details without inventing a client state machine', () => {
     expect(explorerPage).toContain("className='pc-cp-process-details'");
     expect(explorerPage).toContain('<details');
-    expect(explorerPage).toContain('<summary>{c.details}</summary>');
+    expect(explorerPage).toContain('<summary aria-label={`${s[0]} — ${c.details}`}>{c.details}</summary>');
     expect(explorerPage).toContain('<Meta l={c.actor} v={s[1]}/>');
     expect(explorerPage).toContain('<Meta l={c.basis} v={s[3]}/>');
     expect(explorerPage).toContain('<Meta l={c.money} v={s[4]}/>');
