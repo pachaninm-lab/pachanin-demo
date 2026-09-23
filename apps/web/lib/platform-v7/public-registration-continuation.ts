@@ -4,7 +4,7 @@ import {
 } from './public-market-navigation';
 
 const REGISTER_PATH = '/platform-v7/register';
-const INTENTS = new Set(['sell', 'buy', 'execution', 'finance']);
+const INTENTS = new Set(['sell', 'buy', 'execution', 'finance', 'employee']);
 
 /** Keep navigation hints after email verification without carrying its spent secret. */
 export function verifiedRegistrationContinuationHref(

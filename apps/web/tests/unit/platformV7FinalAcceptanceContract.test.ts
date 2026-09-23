@@ -611,6 +611,11 @@ describe('public registration verified continuation UX-14', () => {
       expect(Object.fromEntries(result.searchParams)).toEqual({ lang: locale, statusToken: STATUS, intent: 'execution' });
     });
 
+    it(`${locale}: retains an explicit employee entry after verification without promoting role or tenant hints`, () => {
+      const result = new URL(verifiedRegistrationContinuationHref('?intent=employee&role=owner&tenantId=foreign&verify=spent', STATUS, locale), 'https://example.invalid');
+      expect(Object.fromEntries(result.searchParams)).toEqual({ lang: locale, statusToken: STATUS, intent: 'employee' });
+    });
+
     it(`${locale}: rejects duplicate, malformed and external context independently`, () => {
       const malicious = new URLSearchParams({
         verify: 'spent', intent: 'owner', crop: '__proto__', lot: '0',
