@@ -1394,7 +1394,6 @@
       "apps/web/middleware.ts",
       "apps/web/tests/unit/companyOsControlHostBoundary.test.ts",
       "apps/web/tests/unit/companyOsOwnerCabinetControlHost.test.ts",
-      "apps/web/tests/unit/platformV7OwnerRealCabinets.test.ts",
       ".github/workflows/ci.yml",
       ".github/workflows/web-unit.yml",
       "apps/web/tests/unit/platformV7RoleIntentDashboard.test.ts",
@@ -1539,6 +1538,14 @@
     "ux/deal360-truthful-external-facts-20260923": [
       "apps/web/components/platform-v7/P7DealWorkspaceTabs.tsx",
       "apps/web/tests/unit/designSystemV8CriticalRoutes.test.ts"
+    ],
+    "core/seller-next-action-authority-20260923": [
+      "apps/api/src/modules/deals/deals.controller.ts",
+      "apps/api/src/modules/deals/deals.module.ts",
+      "apps/api/src/modules/deals/seller-next-action-query.service.ts",
+      "apps/api/src/modules/deals/seller-next-action-query.service.spec.ts",
+      "apps/api/src/modules/deals/dto/seller-next-action-projection.dto.ts",
+      "apps/api/test/industrial/seller-next-action-postgresql.e2e-spec.ts"
     ]
   },
   "currentAcceptance": [
@@ -1743,6 +1750,38 @@
         "CI/workflow/threshold/security policy changes"
       ],
       "teamHubDependency": "PRODUCT-DEAL360-TRUTHFUL-EXTERNAL-FACTS-20260923"
+    },
+    "seller-next-action-authority-20260923": {
+      "owner": "ACCOUNT_1_CORE",
+      "purpose": "Additive read-only seller next-action projection from existing PostgreSQL/RLS Deal participant scope and canonical Deal action policy; no second Deal, Inventory, Settlement, regulatory or provider authority.",
+      "authorityBaseExactMain": "748aeea9c940f300a00ea851c6bd00135c15697b",
+      "implementationBranch": "core/seller-next-action-authority-20260923",
+      "allowedPaths": [
+        "apps/api/src/modules/deals/deals.controller.ts",
+        "apps/api/src/modules/deals/deals.module.ts",
+        "apps/api/src/modules/deals/seller-next-action-query.service.ts",
+        "apps/api/src/modules/deals/seller-next-action-query.service.spec.ts",
+        "apps/api/src/modules/deals/dto/seller-next-action-projection.dto.ts",
+        "apps/api/test/industrial/seller-next-action-postgresql.e2e-spec.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "Seller and organization context is derived only from trusted RequestUser plus PostgreSQL/RLS participant scope; browser-selected tenant, organization or role never becomes authority.",
+        "getCurrentDealAction(status) remains the canonical per-Deal action policy; updatedAt, response/list/UI order, hard-coded IDs, price/value, money, FGIS, provider or regulatory state must never rank Deals or select the primary action.",
+        "AVAILABLE is permitted only when a complete consistent server read yields exactly one seller-executable candidate; multiple executable candidates fail closed as UNKNOWN / AMBIGUOUS_PRIORITY.",
+        "Partial, truncated, stale or contradictory source reads fail closed as UNKNOWN. A complete-source sentinel must query beyond any display bound; truncation can never be interpreted as NONE or BLOCKED.",
+        "Executable projection evidence binds the selected Deal version and updatedAt/source versions. Existing server command paths continue to revalidate tenant, state and optimistic concurrency before mutation.",
+        "BANK_CALLBACK is never exposed as a user-executable action. Money/payment/settlement finality, bank/provider identity or callback trust, FGIS reconciliation and regulatory applicability remain outside this projection and stay with their canonical authorities."
+      ],
+      "forbiddenAuthority": [
+        "homepage/public or PRODUCT UX implementation",
+        "Deal command/state-machine mutation or a second Deal repository authority",
+        "client-selected tenant/organization/role authority or RLS bypass",
+        "Inventory/Settlement/payment/money finality authority",
+        "bank/provider binding, credential, callback-trust or external-success authority",
+        "FGIS/SDIZ reconciliation or regulatory applicability/legal-evaluation authority",
+        "CI/workflow/threshold/security-policy weakening"
+      ],
+      "teamHubDependency": "ACCOUNT_2_PRODUCT seller next-action dependency #5534 / Team Hub 5801747730"
     }
   }
 }
