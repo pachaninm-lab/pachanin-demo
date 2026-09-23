@@ -44,7 +44,7 @@ test.describe('T19 docs SSR/hydration identity', () => {
       // Compare each meaningful element separately: innerText joins adjacent links differently
       // after a client transition even when both links and their copy are identical.
       const semanticText = (root: typeof docs) => root.locator('h1, h2, h3, p, a, li').evaluateAll((elements) =>
-        elements.map((element) => element.textContent?.replace(/\\s+/gu, ' ').trim()).filter(Boolean),
+        elements.map((element) => element.textContent?.replace(/\s+/gu, ' ').trim()).filter(Boolean),
       );
       const directText = await semanticText(docs);
       expect(directText).toContain(item.title);
