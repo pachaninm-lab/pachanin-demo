@@ -21,6 +21,17 @@ test.describe('UX-29 legal language and reflow', () => {
             await expect(notice).toContainText(locale === 'zh' ? '俄语原文' : 'Russian');
           }
 
+          if (route === 'privacy') {
+            const panel = original.getByRole('tablist', { name: 'Разделы о персональных данных' });
+            for (const tab of await panel.getByRole('tab').all()) {
+              expect(await tab.evaluate((node) => parseFloat(getComputedStyle(node).fontSize))).toBeGreaterThanOrEqual(14);
+            }
+            const portalBody = original.getByRole('tabpanel').locator('p');
+            for (const paragraph of await portalBody.all()) {
+              expect(await paragraph.evaluate((node) => parseFloat(getComputedStyle(node).fontSize))).toBeGreaterThanOrEqual(16);
+            }
+          }
+
           if (width === 320) {
             await original.evaluate((container) => {
               const leaves = [...container.querySelectorAll<HTMLElement>('div,p,span,a,button,strong')]
