@@ -7,6 +7,7 @@ import {
   CanonicalPublicHeader, canonicalPublicLocale,
 } from '@/components/platform-v7/PublicCanonicalPrimitives';
 import { CanonicalCropCatalogue, CanonicalMarketResults, CanonicalPublicLotView } from '@/components/platform-v7/PublicCanonicalMarket';
+import { PublicMarketOffersAnchor } from '@/components/platform-v7/PublicMarketOffersAnchor';
 import { marketHref, publicLotReference, publicMarketContext } from '@/lib/platform-v7/public-market-navigation';
 
 type Params = Record<string, string | string[] | undefined>;
@@ -66,6 +67,7 @@ export default async function PlatformV7MarketPage({ searchParams }: { searchPar
     <section className='pc-cp-market-hero'><div className='pc-cp-container'><div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{c.e}</span><h1>{c.t}</h1><p>{c.p}</p><a className='pc-cp-button pc-cp-button--secondary pc-cp-market-jump' href='#offers'>{c.jump}</a></div></div></section>
     <section className='pc-cp-section pc-cp-section--tight'><div className='pc-cp-container'><CanonicalCropCatalogue locale={locale} context={context} offersAnchor /></div></section>
     <section className='pc-cp-section pc-cp-section--tight' id='offers' tabIndex={-1} aria-labelledby='pc-market-offers-title'>
+      <PublicMarketOffersAnchor />
       <div className='pc-cp-container'>
         <div className='pc-cp-section-head'><h2 id='pc-market-offers-title'>{c.offers}</h2></div>
         <form className='pc-cp-market-toolbar pc-cp-market-toolbar--filters' action='/platform-v7/market#offers' method='get' role='search' aria-label={c.filters}>
