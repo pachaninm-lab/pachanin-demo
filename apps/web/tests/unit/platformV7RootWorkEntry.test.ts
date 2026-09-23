@@ -1053,7 +1053,7 @@ describe('post-acceptance registration uncertainty at the actual BFF boundary', 
 
   it.each(['ru', 'en', 'zh'] as const)('%s: carries a real public selection through initial and resend email links', async (locale) => {
     process.env.API_URL = 'http://api.example.test';
-    process.env.REGISTRATION_DELIVERY_KEY = 'fixture-delivery-key-0123456789abcdef';
+    process.env.REGISTRATION_DELIVERY_KEY = 'x'.repeat(32);
     process.env.RESEND_API_KEY = 'fixture-mail-key';
     process.env.RESEND_FROM_EMAIL = 'sender@example.test';
     const upstreamFetch = vi.fn(async () => Response.json({
