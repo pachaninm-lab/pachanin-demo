@@ -335,6 +335,17 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
   </form>;
 }
 
+/** Select the employee path in place so entered data and market context remain intact. */
+export function EmployeeParticipationEntry({ label }: { label: string }) {
+  return <button type='button' className='p0-register-secondary' onClick={() => {
+    const select = document.querySelector<HTMLSelectElement>('form.p0-register-form select[name="workspace"]');
+    if (!select) return;
+    select.value = 'employee';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    select.focus();
+  }}>{label}</button>;
+}
+
 export function RegisterFormClientPublic(props: { locale: Locale; verifyToken?: string; initialStatusToken?: string; initialWorkspace?: PublicWorkspace }) {
   if (props.locale !== 'ru') return <RegisterFormClient {...props} />;
   return <RussianRegistration verifyToken={props.verifyToken} initialStatusToken={props.initialStatusToken} initialWorkspace={props.initialWorkspace} />;

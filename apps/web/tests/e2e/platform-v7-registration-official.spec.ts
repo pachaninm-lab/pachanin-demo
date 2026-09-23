@@ -191,8 +191,12 @@ test.describe('Platform V7 public registration official UX', () => {
       }
       await page.goto('/platform-v7/register?lang=' + locale, { waitUntil: 'load' });
       await expect(page.locator('form.p0-register-form select[name="workspace"]')).toHaveValue('');
-      await page.getByRole('link', { name: joinLabels[locale], exact: true }).click();
-      await expect(page).toHaveURL(new RegExp('[?&]intent=employee(?:&|$)'));
+      const currentUrl = page.url();
+      const legalName = page.locator('form.p0-register-form [name="orgLegalName"]');
+      await legalName.fill('Existing Organisation');
+      await page.getByRole('button', { name: joinLabels[locale], exact: true }).click();
+      await expect(page).toHaveURL(currentUrl);
+      await expect(legalName).toHaveValue('Existing Organisation');
       await expect(page.locator('form.p0-register-form select[name="workspace"]')).toHaveValue('employee');
     });
   }
