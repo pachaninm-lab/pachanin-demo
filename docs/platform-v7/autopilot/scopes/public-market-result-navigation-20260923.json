@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-market-result-navigation-20260923",
+  "status": "active",
+  "approvedBy": "owner-public-ux-repair-v2.0-2026-09-23",
+  "purpose": "UX-10/UX-17: GET filter/chip/reset and category navigation reaches results, with quick access and history restoration.",
+  "ownerSpecification": "Прозрачная Цена — инженерное ТЗ быстрого UX-ремонта v2.0, 23.09.2026, section 5.1 UX-10/UX-17 T12/T13.",
+  "coordination": "Team Hub #5469 CLAIM 5789863578. Stacked on #5546 exact head 8d0cda8ed91be3b028bf24e0a7d0c921c390710b because its market copy touches the same page. Retarget after #5546 merge.",
+  "allowedPaths": [
+    "apps/web/app/platform-v7/market/page.tsx",
+    "apps/web/components/platform-v7/PublicCanonicalMarket.tsx",
+    "apps/web/components/platform-v7/PublicMarketOffersAnchor.tsx",
+    "apps/web/styles/platform-v7-public-market.css",
+    "apps/web/playwright.acceptance.config.ts",
+    "apps/web/tests/e2e/platform-v7-market-result-navigation.spec.ts",
+    "docs/platform-v7/autopilot/scopes/public-market-result-navigation-20260923.json",
+    "docs/security/cryptographic-inventory.json"
+  ],
+  "requiredInvariants": [
+    "Apply, chip removal, reset and market crop category links return to the offers section using the existing safe GET market URLs.",
+    "Eight crop categories remain visible and the existing compact crop select near results remains available.",
+    "Back and Forward restore GET query values and an anchored result view; no client-side duplicate submission or POST.",
+    "No market filtering/publicRef identity, server/API, role, tenant, auth, money, registration, Gekta or release authority change.",
+    "Full exact-head CI, browser acceptance and independent complete-diff review required before PASS or merge."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
