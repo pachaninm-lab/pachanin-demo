@@ -20,7 +20,7 @@ export function PublicHeaderInteractions({ locale }: { locale: 'ru' | 'en' | 'zh
     // Remember only whether the form changed, never values or credentials.
     // ContactClient already guards its document navigation with beforeunload.
     const dirtyForms = new WeakSet<HTMLFormElement>();
-    const formRoute = () => ['/platform-v7/register', '/platform-v7/login', '/platform-v7/forgot-password'].includes(window.location.pathname.replace(/\/$/, ''));
+    const formRoute = () => ['/platform-v7/register', '/platform-v7/login'].includes(window.location.pathname.replace(/\/$/, ''));
     const changed = (event: Event) => {
       const control = event.target;
       if (!formRoute() || !(control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement || control instanceof HTMLSelectElement)) return;
