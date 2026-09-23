@@ -79,6 +79,7 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
   const [statusReadState, setStatusReadState] = React.useState<StatusReadState>(initialStatusToken ? 'loading' : 'idle');
   const [verificationCompleted, setVerificationCompleted] = React.useState(false);
   const [submissionAccepted, setSubmissionAccepted] = React.useState(false);
+  const [deliveryUnconfirmed, setDeliveryUnconfirmed] = React.useState(false);
   const [submittedEmail, setSubmittedEmail] = React.useState('');
   const [resendMessage, setResendMessage] = React.useState('');
   const [additionalInformation, setAdditionalInformation] = React.useState('');
@@ -187,6 +188,7 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
       if (verdict === 'accepted') {
         unknownOperationRef.current = null;
         setSubmittedEmail(payload.email);
+        setDeliveryUnconfirmed(row?.deliveryConfirmed === false);
         setSubmissionAccepted(true);
         return;
       }
@@ -258,7 +260,13 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
       setCorrelationId(String(result.correlationId || ''));
       if (!response.ok || result.ok !== true) throw new Error('failed');
       setAdditionalInformation(''); setInformationMessage('Дополнительные сведения сохранены. Заявка снова направлена на проверку.');
-      setStatus((current) => ({ ...current, ...result, reason: null }));
+      const updated = parseRegistrationStatusSnapshot(result);
+      if (updated) {
+        setStatus(updated);
+        setStatusReadState('available');
+      } else {
+        await loadStatus(statusToken);
+      }
     } catch {
       setError('Сейчас не удалось сохранить дополнительные сведения. Повторите попытку позднее.');
     } finally { setInformationSubmitting(false); }
@@ -281,6 +289,7 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
       <ShieldCheck size={40} aria-hidden='true' />
       <h2 id='p0-register-status-title'>Заявка принята</h2>
       <p>На указанный адрес будет направлено письмо, если он может быть использован для регистрации. Если учётная запись уже существует, воспользуйтесь входом или восстановлением доступа.</p>
+      {deliveryUnconfirmed ? <p role='status'>Доставка письма не подтверждена. Если письма нет, запросите его повторно кнопкой ниже.</p> : null}
       {resendMessage ? <p role='status'>{resendMessage}</p> : null}{error ? <p className='p0-register-error' role='alert'>{error}</p> : null}<Reference value={reference} />
       <div className='p0-register-actions'><button type='button' className='p0-register-primary' onClick={() => void resendEmail()} disabled={submitting}>{submitting ? 'Письмо отправляется…' : 'Отправить письмо повторно'}</button><a className='p0-register-secondary' href='/platform-v7/login'>Войти</a><a className='p0-register-secondary' href='/platform-v7/forgot-password'>Восстановить доступ</a></div>
     </section>;

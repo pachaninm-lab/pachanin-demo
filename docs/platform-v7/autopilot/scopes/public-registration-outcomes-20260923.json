@@ -10,6 +10,7 @@
     "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
     "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
     "apps/web/app/api/auth/register/route.ts",
+    "apps/web/app/api/auth/registration/status/route.ts",
     "apps/web/lib/platform-v7/registration-outcome.ts",
     "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
     "docs/platform-v7/autopilot/scopes/public-registration-outcomes-20260923.json",

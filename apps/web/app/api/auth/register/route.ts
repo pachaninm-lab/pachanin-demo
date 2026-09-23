@@ -183,12 +183,12 @@ export async function POST(request: Request) {
 
     const delivery = payload.emailDelivery;
     if (!delivery?.email || !delivery.token || !payload.statusToken) {
-      console.error('registration_delivery_contract_invalid', JSON.stringify({
+      console.info('registration_delivery_unconfirmed', JSON.stringify({
         correlationId,
         registrationApplicationRef: payload.applicationId,
         accountHash: accountHash(email),
       }));
-      return json({ outcome: 'unknown', code: 'REGISTRATION_DELIVERY_CONTRACT_UNKNOWN', correlationId: payload.correlationId || correlationId }, 503);
+      return json({ accepted: true, deliveryConfirmed: false, code: 'REGISTRATION_DELIVERY_UNCONFIRMED', correlationId: payload.correlationId || correlationId }, 202);
     }
     const verifyUrl = new URL('/platform-v7/register', normalizeOrigin(request));
     verifyUrl.searchParams.set('verify', delivery.token);

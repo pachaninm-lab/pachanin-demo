@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { POST as registrationBffPOST } from '@/app/api/auth/register/route';
+import { GET as registrationStatusGET } from '@/app/api/auth/registration/status/route';
 import { sendTransactionalMail } from '../../lib/server/transactional-mail';
 
 vi.mock('../../lib/server-request-security', () => ({ assertCsrf: () => ({ ok: true }) }));
@@ -921,6 +922,8 @@ describe('public registration truthful outcomes', () => {
   it('keeps invalid/unavailable transport truth separate from business status', () => {
     expect(classifyRegistrationStatusResponse({ ok: false, status: 404 }, { ok: false, code: 'REGISTRATION_APPLICATION_NOT_FOUND' })).toEqual({ kind: 'invalid' });
     expect(classifyRegistrationStatusResponse({ ok: false, status: 503 }, { ok: false, code: 'REGISTRATION_SERVICE_UNAVAILABLE' })).toEqual({ kind: 'unavailable' });
+    expect(classifyRegistrationStatusResponse({ ok: false, status: 429 }, { ok: false, code: 'REGISTRATION_STATUS_RATE_LIMITED' })).toEqual({ kind: 'unavailable' });
+    expect(classifyRegistrationStatusResponse({ ok: false, status: 429 }, { ok: false, code: 'REGISTRATION_APPLICATION_NOT_FOUND' })).toEqual({ kind: 'unavailable' });
     expect(classifyRegistrationStatusResponse({ ok: true, status: 200 }, { ok: true, status: 'APPROVED' })).toEqual({ kind: 'unavailable' });
     expect(classifyRegistrationStatusResponse({ ok: true, status: 200 }, {
       ok: true, status: 'ACTIVATED', nextAction: 'LOGIN',
@@ -943,8 +946,9 @@ describe('public registration truthful outcomes', () => {
     const bff = read('app/api/auth/register/route.ts');
     expect(bff).toContain("outcome: 'unknown'");
     expect(bff).toContain("code: 'REGISTRATION_RESULT_UNKNOWN'");
-    expect(bff).toContain("code: 'REGISTRATION_DELIVERY_CONTRACT_UNKNOWN'");
+    expect(bff).toContain("code: 'REGISTRATION_DELIVERY_UNCONFIRMED'");
     expect(bff).toContain("code: 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE'");
+    expect(read('app/api/auth/registration/status/route.ts')).toContain("'REGISTRATION_STATUS_RATE_LIMITED'");
     expect(bff).toContain("if (!apiResponse.ok || payload.accepted !== true)");
   });
 });
@@ -963,7 +967,6 @@ describe('post-acceptance registration uncertainty at the actual BFF boundary', 
   });
 
   it.each([
-    ['missing delivery contract', { accepted: true, applicationId: 'APP-1' }, 'REGISTRATION_DELIVERY_CONTRACT_UNKNOWN'],
     ['unconfirmed mail delivery', {
       accepted: true, applicationId: 'APP-1', statusToken: 'status-token',
       emailDelivery: { email: 'fixture@example.test', token: 'verify-token' },
@@ -994,8 +997,55 @@ describe('post-acceptance registration uncertainty at the actual BFF boundary', 
     expect(result).toMatchObject({ outcome: 'unknown', code });
     expect(result).not.toHaveProperty('accepted', false);
     expect(classifyRegistrationSubmitResponse(response, result)).toBe('unknown');
-    expect(sendTransactionalMail).toHaveBeenCalledTimes(
-      code === 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE' ? 1 : 0,
-    );
+    expect(sendTransactionalMail).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves an uncertain mail attempt through the same-key replay and offers resend without claiming delivery', async () => {
+    process.env.API_URL = 'http://api.example.test';
+    process.env.REGISTRATION_DELIVERY_KEY = 'fixture-delivery-key-0123456789abcdef';
+    process.env.RESEND_API_KEY = 'fixture-mail-key';
+    process.env.RESEND_FROM_EMAIL = 'sender@example.test';
+    const upstreamFetch = vi.fn()
+      .mockResolvedValueOnce(Response.json({
+        accepted: true, applicationId: 'APP-1', statusToken: 'rst_reg_fixture',
+        emailDelivery: { email: 'fixture@example.test', token: 'verify-token' },
+      }, { status: 202 }))
+      .mockResolvedValueOnce(Response.json({ accepted: true, applicationId: 'APP-1' }, { status: 202 }));
+    vi.stubGlobal('fetch', upstreamFetch);
+    vi.mocked(sendTransactionalMail).mockResolvedValue({
+      delivered: false, provider: 'resend', reason: 'unconfirmed',
+    });
+    const key = 'fixed-operation-key-0123456789';
+    const request = () => new Request('http://localhost:3000/api/auth/register', {
+      method: 'POST',
+      headers: { 'idempotency-key': key, 'content-type': 'application/json' },
+      body: JSON.stringify({ workspace: 'seller', email: 'fixture@example.test', locale: 'ru' }),
+    });
+    const first = await registrationBffPOST(request());
+    expect(first.status).toBe(503);
+    expect(classifyRegistrationSubmitResponse(first, await first.json())).toBe('unknown');
+    const replay = await registrationBffPOST(request());
+    const result = await replay.json();
+    expect(replay.status).toBe(202);
+    expect(result).toMatchObject({ accepted: true, deliveryConfirmed: false, code: 'REGISTRATION_DELIVERY_UNCONFIRMED' });
+    expect(classifyRegistrationSubmitResponse(replay, result)).toBe('accepted');
+    expect(upstreamFetch).toHaveBeenCalledTimes(2);
+    expect(upstreamFetch.mock.calls.map((call) => (call[1] as RequestInit).headers)).toEqual([
+      expect.objectContaining({ 'idempotency-key': key }),
+      expect.objectContaining({ 'idempotency-key': key }),
+    ]);
+    expect(sendTransactionalMail).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves temporary status rate limiting instead of rejecting a valid token', async () => {
+    process.env.API_URL = 'http://api.example.test';
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ statusCode: 429 }, { status: 429 })));
+    const response = await registrationStatusGET(new Request(
+      'http://localhost:3000/api/auth/registration/status?token=rst_reg_fixture',
+    ));
+    const result = await response.json();
+    expect(response.status).toBe(429);
+    expect(result).toMatchObject({ ok: false, code: 'REGISTRATION_STATUS_RATE_LIMITED' });
+    expect(classifyRegistrationStatusResponse(response, result)).toEqual({ kind: 'unavailable' });
   });
 });
