@@ -83,6 +83,51 @@ test.describe('Platform V7 public registration official UX', () => {
     expect(mutations.filter((item) => item.includes('/api/auth/register'))).toEqual([]);
   });
 
+
+  for (const locale of ['ru', 'en', 'zh'] as const) {
+    test('T08 ' + locale + ': pending POST locks the visible version after snapshot', async ({ page }, testInfo) => {
+      test.skip(testInfo.project.name !== 'desktop-chromium', 'Focused registration mutation evidence in Chromium; existing browser matrix remains.');
+      await page.setViewportSize({ width: 390, height: 844 });
+      let release!: () => void;
+      const pending = new Promise<void>((resolve) => { release = resolve; });
+      let posted: Record<string, unknown> | null = null;
+      let postCount = 0;
+      await page.route('**/api/auth/register', async (route) => {
+        postCount += 1;
+        posted = route.request().postDataJSON() as Record<string, unknown>;
+        await pending;
+        await route.fulfill({ status: 202, contentType: 'application/json', body: '{"accepted":true}' });
+      });
+      await page.goto('/platform-v7/register?lang=' + locale, { waitUntil: 'load' });
+      const form = page.locator('form.p0-register-form');
+      const fill = (name: string, value: string) => form.locator('[name="' + name + '"]').fill(value);
+      await fill('orgLegalName', 'Fixture Organisation');
+      await fill('orgInn', '1234567890');
+      await fill('region', 'Tambov');
+      await fill('fullName', 'Fixture Person');
+      await fill('position', 'Director');
+      await fill('phone', '+79990000000');
+      await fill('email', 'fixture@example.invalid');
+      await fill('password', 'StrongPassword#123');
+      await fill('confirmPassword', 'StrongPassword#123');
+      await form.locator('[name="acceptTerms"]').check();
+      await form.locator('[name="acceptPrivacy"]').check();
+      expect(await form.evaluate((node) => (node as HTMLFormElement).checkValidity())).toBe(true);
+      await form.locator('button[type="submit"]').click();
+      await expect.poll(() => postCount).toBe(1);
+      await expect(form.locator('fieldset.p0-register-fields')).toBeDisabled();
+      await expect(form.locator('[name="email"]')).toBeDisabled();
+      expect(posted).toMatchObject({
+        orgLegalName: 'Fixture Organisation', email: 'fixture@example.invalid',
+        password: 'StrongPassword#123', acceptTerms: true, acceptPrivacy: true,
+      });
+      release();
+      await expect(page.locator('.p0-register-state')).toBeVisible();
+      expect(postCount).toBe(1);
+      await expectNoHorizontalOverflow(page);
+    });
+  }
+
   test('captures bounded Russian registration visual evidence', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop-chromium', 'Visual evidence is captured once in Chromium.');
     for (const width of [320, 390, 768, 1280]) {
