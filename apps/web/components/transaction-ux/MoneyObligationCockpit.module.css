@@ -1,7 +1,7 @@
 .root {
   min-width: 0;
   display: grid;
-  gap: var(--ds-space-4);
+  gap: var(--ds-text-gap-action);
 }
 
 .header {
@@ -14,13 +14,13 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
-  gap: var(--ds-space-4);
+  gap: var(--ds-text-gap-action);
 }
 
 .heading {
   min-width: 0;
   display: grid;
-  gap: var(--ds-space-2);
+  gap: var(--ds-text-gap-title);
 }
 
 .eyebrow {
@@ -57,7 +57,7 @@
   border-radius: var(--ds-radius-xl);
   background: var(--ds-color-warning-bg);
   display: grid;
-  gap: var(--ds-space-4);
+  gap: var(--ds-text-gap-action);
 }
 
 .priorityReady {
@@ -100,7 +100,7 @@
   margin: 0;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--ds-space-2);
+  gap: var(--ds-text-gap-title);
 }
 
 .metaItem,
@@ -111,7 +111,7 @@
   border-radius: var(--ds-radius-md);
   background: var(--ds-color-surface);
   display: grid;
-  gap: var(--ds-space-1);
+  gap: var(--ds-text-gap-label);
 }
 
 .metaItem dt,
@@ -143,7 +143,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--ds-space-2);
+  gap: var(--ds-text-gap-title);
 }
 
 .primaryLink,
@@ -180,7 +180,7 @@
 .toolGrid {
   min-width: 0;
   display: grid;
-  gap: var(--ds-space-3);
+  gap: var(--ds-text-gap-paragraph);
 }
 
 .sectionAnchor { scroll-margin-top: calc(98px + var(--ds-space-4)); }
@@ -195,7 +195,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--ds-space-3);
+  gap: var(--ds-text-gap-paragraph);
   text-align: left;
 }
 .queueLink:hover { border-color: var(--ds-color-action-primary); }
@@ -203,7 +203,7 @@
 .queueCopy {
   min-width: 0;
   display: grid;
-  gap: var(--ds-space-1);
+  gap: var(--ds-text-gap-label);
 }
 .queueCopy strong,
 .queueCopy span,
