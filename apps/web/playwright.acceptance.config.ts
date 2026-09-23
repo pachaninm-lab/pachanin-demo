@@ -43,22 +43,22 @@ export default defineConfig({
     },
     {
       name: 'desktop-firefox',
-      grep: /Design System v8|public registration locale cycle|canonical protected cabinet boundary|canonical cross-browser public smoke|Platform V7 public registration official UX|UX-04\/05 recovery unsaved-entry guard/,
+      grep: /Design System v8|public registration locale cycle|canonical protected cabinet boundary|canonical cross-browser public smoke|Platform V7 public registration official UX|UX-05 recovery unsaved-entry guard/,
       use: { ...devices['Desktop Firefox'], viewport: { width: 1440, height: 1000 } },
     },
     {
       name: 'desktop-webkit',
-      grep: /Design System v8|public registration locale cycle|canonical protected cabinet boundary|canonical cross-browser public smoke|Platform V7 public registration official UX|UX-04\/05 recovery unsaved-entry guard/,
+      grep: /Design System v8|public registration locale cycle|canonical protected cabinet boundary|canonical cross-browser public smoke|Platform V7 public registration official UX|UX-05 recovery unsaved-entry guard/,
       use: { ...devices['Desktop Safari'], viewport: { width: 1440, height: 1000 } },
     },
     {
       name: 'android-chromium',
-      grep: /Design System v8|public registration locale cycle|canonical protected cabinet boundary|canonical cross-browser public smoke|Platform V7 public registration official UX|UX-04\/05 recovery unsaved-entry guard/,
+      grep: /Design System v8|public registration locale cycle|canonical protected cabinet boundary|canonical cross-browser public smoke|Platform V7 public registration official UX|UX-05 recovery unsaved-entry guard/,
       use: { ...devices['Pixel 5'] },
     },
     {
       name: 'iphone-webkit',
-      grep: /Design System v8|public registration locale cycle|canonical protected cabinet boundary|canonical cross-browser public smoke|Platform V7 public registration official UX|UX-04\/05 recovery unsaved-entry guard/,
+      grep: /Design System v8|public registration locale cycle|canonical protected cabinet boundary|canonical cross-browser public smoke|Platform V7 public registration official UX|UX-05 recovery unsaved-entry guard/,
       use: { ...devices['iPhone 13'] },
     },
   ],
