@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test.describe('UX-04/05 recovery unsaved-entry guard', () => {
+test.describe('UX-05 recovery unsaved-entry guard', () => {
   for (const locale of ['ru', 'en', 'zh'] as const) {
     for (const width of [320, 390, 1280] as const) {
       test(`reset form retains passwords when navigation is cancelled: ${locale} ${width}px`, async ({ page }) => {
