@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-release-oracle-final-v1-20260921",
+  "status": "active",
+  "operationalStatus": "FINAL_PUBLIC_EXPERIENCE_PRODUCTION_ACCEPTANCE_REPAIR",
+  "purpose": "Repair the stale exact-SHA REG.RU live acceptance oracle after FINAL PUBLIC EXPERIENCE v1 replaced the retired organization-connect marker and Strategic Home hero copy. Keep release acceptance fail-closed by binding it to the current canonical public root, sections, Sell/Buy registration intents, and RU/EN/ZH hero authority.",
+  "allowedPaths": [
+    "scripts/production-full-stack-live-acceptance.sh",
+    "scripts/check-production-full-stack-release.mjs",
+    "docs/platform-v7/autopilot/scopes/public-release-oracle-final-v1-20260921.json"
+  ],
+  "evidence": {
+    "issue": 4637,
+    "failedReleaseRun": 35584185434,
+    "failedReleaseTarget": "617deb2c4263d00f76164ab3d58655690c80b263",
+    "failedStage": "public-route-ru",
+    "staleRequiredMarker": "connect-organization",
+    "exactDeployedRevisionMatchedTarget": true
+  },
+  "boundaries": {
+    "homepageDesignChange": false,
+    "homepageCopyChange": false,
+    "apiImplementationChange": false,
+    "databaseChange": false,
+    "tenantIsolationChange": false,
+    "protectedAuthOrRbacChange": false,
+    "financialAuthorityChange": false,
+    "securityThresholdChange": false,
+    "browserOrLighthouseThresholdChange": false,
+    "productionTopologyChange": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY"
+}

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import { DealCommandForm } from '@/components/platform-v7/DealCommandForm';
+import { CanonicalDealSpine, CanonicalStateLens, CanonicalTrustLedger } from '@/components/platform-v7/PublicCanonicalPrimitives';
 import { applyCsrfHeader } from '@/lib/csrf';
 import styles from './CanonicalDealWorkspace.module.css';
 
@@ -118,22 +119,26 @@ function formatDecimal(value: string | null | undefined, suffix: string): string
   return `${grouped}${significant ? `,${significant}` : ''} ${suffix}`;
 }
 
-function roleLabel(role: PlatformRole): string {
-  const labels: Record<PlatformRole, string> = {
-    operator: 'Оператор',
-    buyer: 'Покупатель',
-    seller: 'Продавец',
-    logistics: 'Логистика',
-    driver: 'Водитель',
-    surveyor: 'Сюрвейер',
-    elevator: 'Элеватор',
-    lab: 'Лаборатория',
-    bank: 'Банк',
-    arbitrator: 'Арбитр',
-    compliance: 'Комплаенс',
-    executive: 'Руководитель',
-  };
-  return labels[role];
+const SERVER_ROLE_LABELS: Record<string, string> = {
+  FARMER: 'Продавец',
+  BUYER: 'Покупатель',
+  LOGISTICIAN: 'Логистика',
+  DRIVER: 'Водитель',
+  SURVEYOR: 'Сюрвейер',
+  ELEVATOR: 'Элеватор',
+  LAB: 'Лаборатория',
+  ACCOUNTING: 'Бухгалтерия',
+  COMPLIANCE_OFFICER: 'Комплаенс',
+  ARBITRATOR: 'Арбитр',
+  SUPPORT_MANAGER: 'Поддержка',
+  EXECUTIVE: 'Руководитель',
+  ADMIN: 'Администратор',
+  BANK_CALLBACK: 'Банк',
+};
+
+function serverRoleLabel(role: string | null | undefined): string {
+  if (!role) return 'Не определён сервером';
+  return SERVER_ROLE_LABELS[role] ?? 'Не определён сервером';
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -165,7 +170,22 @@ function waitingLabel(action: Workspace['roleProjection']['primaryAction']): str
   if (!action) return '';
   if (action.source === 'BANK_CALLBACK' || action.waitingForRoles.includes('BANK_CALLBACK')) return 'подтверждение банка';
   if (action.waitingForRoles.length === 0) return 'другой участник сделки';
-  return action.waitingForRoles.map((role) => humanStatus(role)).join(', ');
+  const roles = action.waitingForRoles
+    .map((role) => serverRoleLabel(role))
+    .filter((label) => label !== 'Не определён сервером');
+  return roles.length > 0 ? roles.join(', ') : 'другой участник сделки';
+}
+
+function actionActor(roleProjection: Workspace['roleProjection']): string {
+  const action = roleProjection.primaryAction;
+  if (!action) return 'Не определён сервером';
+  if (action.source === 'BANK_CALLBACK' || action.waitingForRoles.includes('BANK_CALLBACK')) return 'Банк';
+  if (action.enabled) return serverRoleLabel(roleProjection.role);
+
+  const actors = action.waitingForRoles
+    .map((role) => serverRoleLabel(role))
+    .filter((label) => label !== 'Не определён сервером');
+  return actors.length > 0 ? actors.join(', ') : 'Не определён сервером';
 }
 
 function stepStateLabel(state: SpineState): string {
@@ -204,7 +224,7 @@ function commandInitialValues(actionId: string, workspace: Workspace): Record<st
   return values;
 }
 
-export function CanonicalDealWorkspace({ role, dealId }: { role: PlatformRole; dealId: string }) {
+export function CanonicalDealWorkspace({ role: _role, dealId }: { role: PlatformRole; dealId: string }) {
   const [workspace, setWorkspace] = React.useState<Workspace | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [submitting, setSubmitting] = React.useState(false);
@@ -340,9 +360,19 @@ export function CanonicalDealWorkspace({ role, dealId }: { role: PlatformRole; d
           : 'Сделка завершена или ожидает системного события.';
 
   const TaskIcon = hasBlockers ? AlertTriangle : systemAction ? Banknote : ArrowRight;
+  // The server supplies detailed action states, not verified seven-stage totals
+  // or an aggregate normal/deviation/dispute status. Keep this overview unknown.
+  // Compatibility contract: Team Hub #5469 / PRODUCT-5465-DEAL-STAGE-TRUTH.
+  const canonicalActor = actionActor(workspace.roleProjection);
+  const canonicalBasis = workspace.documents.length > 0
+    ? `${workspace.documents.length} связанных документов · версия Сделки ${workspace.deal.version}`
+    : `Версия Сделки ${workspace.deal.version} · связанных документов пока нет`;
+  const canonicalSettlement = workspace.money
+    ? humanStatus(workspace.money.status, 'Нет подтверждённого финансового статуса')
+    : 'Нет подтверждённого финансового статуса';
 
   return (
-    <section className={styles.workspace} data-canonical-deal={workspace.deal.id} data-role={role}>
+    <section className={styles.workspace} data-canonical-deal={workspace.deal.id} data-role={workspace.roleProjection.role}>
       <header className={styles.summary}>
         <div className={styles.summaryTop}>
           <div>
@@ -360,13 +390,26 @@ export function CanonicalDealWorkspace({ role, dealId }: { role: PlatformRole; d
           </div>
         </div>
         <div className={styles.roleLine}>
-          <span><ShieldCheck size={17} aria-hidden='true' />{roleLabel(role)}</span>
+          <span><ShieldCheck size={17} aria-hidden='true' />{serverRoleLabel(workspace.roleProjection.role)}</span>
           <strong>{workspace.roleProjection.focus}</strong>
           <button className={styles.refreshButton} type='button' onClick={() => void load()} aria-label='Обновить сделку' disabled={loading}>
             <RefreshCw size={18} className={loading ? styles.spin : undefined} aria-hidden='true' />
           </button>
         </div>
       </header>
+
+      <section className={styles.canonicalOverview} data-canonical-seven-stage='true' aria-label='Схема пути и подтверждённые факты Сделки'>
+        <CanonicalDealSpine locale='ru' currentIndex={null} />
+        <CanonicalStateLens
+          locale='ru'
+          state={null}
+          happened={activeStep?.label || workspace.attention || humanStatus(workspace.deal.status)}
+          actor={canonicalActor}
+          basis={canonicalBasis}
+          settlement={canonicalSettlement}
+          next={taskTitle}
+        />
+      </section>
 
       <section className={`${styles.nextTask} ${hasBlockers ? styles.nextTaskBlocked : ''}`} aria-labelledby='deal-next-task'>
         <div className={styles.taskHeading}>
@@ -446,6 +489,14 @@ export function CanonicalDealWorkspace({ role, dealId }: { role: PlatformRole; d
         </div>
       </details>
 
+      <section className={styles.canonicalTrust} data-canonical-trust-ledger='true' aria-labelledby='canonical-deal-trust-title'>
+        <div className={styles.canonicalTrustHead}>
+          <span>Доверие</span>
+          <h2 id='canonical-deal-trust-title'>Полномочия → Основание → Источник → Решение</h2>
+        </div>
+        <CanonicalTrustLedger locale='ru' />
+      </section>
+
       <details className={styles.details}>
         <summary>Факты и доказательства</summary>
         <div className={styles.detailsBody}>
@@ -462,3 +513,4 @@ export function CanonicalDealWorkspace({ role, dealId }: { role: PlatformRole; d
     </section>
   );
 }
+

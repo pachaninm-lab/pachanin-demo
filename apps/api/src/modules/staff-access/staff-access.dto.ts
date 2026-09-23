@@ -98,6 +98,34 @@ export class RequestStaffAccessDto {
   durationSeconds!: number;
 }
 
+export class RequestFounderRoleModeDto {
+  @IsString()
+  @MinLength(2)
+  @MaxLength(32)
+  cabinetKey!: string;
+
+  @IsString()
+  @MinLength(3)
+  @MaxLength(128)
+  organizationId!: string;
+
+  @IsString()
+  @MinLength(10)
+  @MaxLength(2000)
+  reason!: string;
+
+  @IsString()
+  @MinLength(3)
+  @MaxLength(128)
+  ticketId!: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(60)
+  @Max(3600)
+  durationSeconds?: number;
+}
+
 export class DecideStaffAccessDto {
   @IsIn(['APPROVE', 'DENY'])
   decision!: 'APPROVE' | 'DENY';
