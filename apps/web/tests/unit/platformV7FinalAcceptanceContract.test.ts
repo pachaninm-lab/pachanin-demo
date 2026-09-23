@@ -179,8 +179,8 @@ describe('platform-v7 Design System v8 final acceptance contract', () => {
     expect(registrationClient).toContain("name='confirmPassword'");
     expect(registrationClient).toContain("password !== field(form, 'confirmPassword')");
     for (const marker of [
-      "fetch('/api/auth/register'",
-      "fetch('/api/auth/registration/resend'",
+      "registrationContextEndpoint('register'",
+      "registrationContextEndpoint('resend'",
       "fetch('/api/auth/registration/verify'",
       "fetch('/api/auth/registration/additional-information'",
       '/api/auth/registration/status?token=',
@@ -192,7 +192,7 @@ describe('platform-v7 Design System v8 final acceptance contract', () => {
     expect(registrationClient).not.toContain('role:');
     expect(registrationClient).not.toContain('requestedRole');
     expect(registrationClient).not.toContain('/platform-v7/onboarding');
-    expect(registrationBaseClient).toContain("fetch('/api/auth/register'");
+    expect(registrationBaseClient).toContain("registrationContextEndpoint('register'");
     for (const route of [registrationRoute, registrationResendRoute]) {
       expect(route).toContain('подтвердите адрес электронной почты');
       expect(route).not.toContain('подтвердите email');
