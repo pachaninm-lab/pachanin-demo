@@ -89,7 +89,7 @@ test.describe('Platform V7 public registration official UX', () => {
       test.skip(testInfo.project.name !== 'desktop-chromium', 'Focused registration mutation evidence in Chromium; existing browser matrix remains.');
       await page.setViewportSize({ width: 390, height: 844 });
       let release!: () => void;
-      const pending = new Promise<void>((resolve) => { release = resolve; });
+      const pending = new Promise<void>((resolve) => { release = () => resolve(); });
       let posted: Record<string, unknown> | null = null;
       let postCount = 0;
       await page.route('**/api/auth/register', async (route) => {
