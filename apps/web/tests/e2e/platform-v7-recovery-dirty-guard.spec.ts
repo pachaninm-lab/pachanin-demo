@@ -49,16 +49,21 @@ test.describe('UX-05 recovery unsaved-entry guard', () => {
     }
   }
 
-  test('recovery request email is retained on cancelled locale navigation', async ({ page }) => {
+  test('recovery request email is retained on cancelled public navigation', async ({ page }) => {
     await page.goto('/platform-v7/forgot-password?lang=ru', { waitUntil: 'networkidle' });
     const email = page.locator('form.pc-recovery-card input[type="email"]');
     await email.fill('acceptance@example.invalid');
     // Normal recovery uses the three-choice PublicLocaleLink; the token branch
     // above uses its dedicated cyclic switch until the canonical-shell PR lands.
-    const otherLocale = page.locator('.pc-site-locale-cluster a.pc-site-locale-option[href*="lang=en"]');
-    await expect(otherLocale).toBeVisible();
+    const otherLocale = page.locator('.pc-site-actions > .pc-site-locale-cluster a.pc-site-locale-option[href*="lang=en"]');
+    // The current normal recovery header has no mobile menu: its non-active
+    // locale links are hidden below 760px. UX-04 adds the shared menu separately.
+    const navigation = await otherLocale.isVisible()
+      ? otherLocale
+      : page.locator('.pc-site-header .pc-site-action');
+    await expect(navigation).toBeVisible();
     page.once('dialog', (dialog) => dialog.dismiss());
-    await otherLocale.click();
+    await navigation.click();
     await expect(email).toHaveValue('acceptance@example.invalid');
     await expect(page).toHaveURL(/forgot-password\?lang=ru/);
   });
