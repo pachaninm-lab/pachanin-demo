@@ -637,7 +637,7 @@ describe('contact native result receipt authority', () => {
     expect(page.querySelector<HTMLInputElement>('input[name="name"]')?.value).toBe('Анна <script>alert(1)</script>');
     expect(page.querySelector<HTMLInputElement>('input[name="organization"]')?.value).toBe('КФХ & партнёры');
     expect(page.querySelector<HTMLTextAreaElement>('textarea[name="message"]')?.value).toBe('Заявка </textarea><script>alert(2)</script>');
-    expect(page.querySelector<HTMLSelectElement>('select[name="type"]')?.value).toBe('bank_partner');
+    expect(page.querySelector('select[name="type"] option[selected]')?.getAttribute('value')).toBe('bank_partner');
     expect(page.querySelector<HTMLInputElement>('input[name="consent"]')?.checked).toBe(true);
     expect(page.querySelector('a[href^="tel:"]')).toBeTruthy();
     expect(html).not.toContain('name="message" value=');
