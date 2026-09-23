@@ -10,7 +10,7 @@ test.describe('public market result navigation UX-10 UX-17', () => {
   test.setTimeout(150_000);
 
   for (const [lang, copy] of Object.entries(locales)) {
-    for (const width of [390, 1280]) {
+    for (const width of [390, 1440]) {
       test(`${lang} at ${width}px: category, Apply, chip, Reset, Back and Forward`, async ({ page }, testInfo) => {
         await page.setViewportSize({ width, height: 850 });
         const response = await page.goto(`/platform-v7/market?lang=${lang}`, { waitUntil: 'networkidle' });
