@@ -494,6 +494,83 @@ for (const locale of ['ru', 'en', 'zh'] as const) {
   });
 }
 
+// #5537 GEKTA-01 / UX-12 / UX-28: the public Gekta widget in every acceptance
+// engine, including WebKit (desktop Safari, iPhone 13) and Android Chromium.
+// The assistant request is answered inside the test; nothing leaves the server.
+test('Design System v8 public Gekta widget opens a prompt as an editable draft inside the viewport and returns focus', async ({ page }, testInfo) => {
+  const failures = collectRuntimeFailures(page);
+  const posts: string[] = [];
+  const frame = (value: Record<string, unknown>) => `event: ${String(value.event)}\ndata: ${JSON.stringify({ streamId: 'stream-abcdef12', ...value })}\n\n`;
+  await page.route('**/api/public-platform-assistant**', async (route) => {
+    if (route.request().method() !== 'POST') return route.continue();
+    posts.push(route.request().url());
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/event-stream',
+      body: frame({ event: 'meta', mode: 'public', modelIdentity: null })
+        + frame({ event: 'token', text: 'Проверочный ответ Гекты.' })
+        + frame({ event: 'done', complete: true }),
+    });
+  });
+
+  await page.goto('/platform-v7/gekta?lang=ru', { waitUntil: 'load' });
+  const card = page.locator('button.pc-gekta-question').first();
+  await expect(card).toBeVisible();
+  // Click once the entry is interactive; the assistant chunk itself may still be loading.
+  await expect.poll(() => card.evaluate((node) => Object.keys(node).some((key) => key.startsWith('__reactProps$')))).toBe(true);
+  const prompt = (await card.textContent())?.trim() ?? '';
+  expect(prompt.length).toBeGreaterThan(0);
+  await card.click();
+
+  const panel = page.locator('#pc-public-assistant-panel');
+  const composer = panel.locator('textarea');
+  await expect(panel).toBeVisible();
+  await expect(panel).toHaveCount(1);
+  await expect(composer).toHaveValue(prompt);
+  expect(posts, 'a prompt card fills the composer and sends nothing').toEqual([]);
+  await expect.poll(() => card.evaluate((node) => Boolean(node.closest('[inert]')))).toBe(true);
+
+  const geometry = await page.evaluate(() => {
+    const viewport = window.visualViewport;
+    const width = viewport?.width ?? window.innerWidth;
+    const height = viewport?.height ?? window.innerHeight;
+    const inside = (selector: string) => {
+      const node = document.querySelector(selector);
+      if (!node) return false;
+      const box = node.getBoundingClientRect();
+      return box.top >= -1 && box.left >= -1 && box.bottom <= height + 1 && box.right <= width + 1;
+    };
+    return {
+      panel: inside('#pc-public-assistant-panel'),
+      close: inside('#pc-public-assistant-panel .pc-public-assistant-header > .pc-public-assistant-icon-button:last-child'),
+      composer: inside('#pc-public-assistant-panel textarea'),
+    };
+  });
+  expect(geometry, `${testInfo.project.name}: dialog controls inside the visible viewport`).toEqual({ panel: true, close: true, composer: true });
+  await expectNoHorizontalOverflow(page);
+  const axe = await new AxeBuilder({ page })
+    .include('#pc-public-assistant-panel')
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+    .analyze();
+  const blocking = axe.violations.filter((violation) => violation.impact === 'serious' || violation.impact === 'critical');
+  expect(blocking, JSON.stringify(blocking, null, 2)).toEqual([]);
+  await testInfo.attach(`gekta-dialog-${testInfo.project.name}`, { body: await page.screenshot(), contentType: 'image/png' });
+
+  await page.keyboard.press('Escape');
+  await expect(panel).toHaveCount(0);
+  await expect(card).toBeFocused();
+  await expect.poll(() => card.evaluate((node) => Boolean(node.closest('[inert]')))).toBe(false);
+
+  // Reopen: the draft is still there; one explicit send makes exactly one request.
+  await card.click();
+  await expect(panel).toBeVisible();
+  await expect(composer).toHaveValue(prompt);
+  await panel.locator('button[type="submit"]').click();
+  await expect(panel.getByText('Проверочный ответ Гекты.')).toBeVisible();
+  expect(posts).toHaveLength(1);
+  expect(failures).toEqual([]);
+});
+
 test('public registration locale cycle preserves both existing query tokens', async ({ page }) => {
   // Synthetic, non-authorizing values; this checks navigation only, not verification.
   const verify = 'homepage-5111-synthetic-verify+/=_';

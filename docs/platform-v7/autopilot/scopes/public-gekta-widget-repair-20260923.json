@@ -16,6 +16,7 @@
     "apps/web/lib/platform-v7/install-public-assistant-fetch-resilience.ts",
     "apps/web/lib/platform-v7/public-gekta-open.ts",
     "apps/web/styles/platform-v7-public-assistant.css",
+    "apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts",
     "apps/web/tests/unit/platformV7PublicAssistantMobileLayoutAuthority.test.ts",
     "apps/web/tests/unit/platformV7PublicAssistantStreamBinding.test.tsx",
     "apps/web/tests/unit/platformV7PublicAssistantTransportResilience.test.ts",
