@@ -58,6 +58,6 @@ test.describe('UX-04/05 recovery unsaved-entry guard', () => {
     page.once('dialog', (dialog) => dialog.dismiss());
     await otherLocale.click();
     await expect(email).toHaveValue('acceptance@example.invalid');
-    await expect(page).toHaveURL(/forgot-password\\?lang=ru/);
+    await expect(page).toHaveURL(/forgot-password\?lang=ru/);
   });
 });
