@@ -41,7 +41,12 @@ test.describe('T19 docs SSR/hydration identity', () => {
       await expect(docs.locator('h1')).toHaveText(item.title);
       await expect(docs.getByRole('heading', { name: item.layer, exact: true })).toBeVisible();
 
-      const directText = (await docs.innerText()).replace(/\s+/gu, ' ').trim();
+      // Compare each meaningful element separately: innerText joins adjacent links differently
+      // after a client transition even when both links and their copy are identical.
+      const semanticText = (root: typeof docs) => root.locator('h1, h2, h3, p, a, li').evaluateAll((elements) =>
+        elements.map((element) => element.textContent?.replace(/\\s+/gu, ' ').trim()).filter(Boolean),
+      );
+      const directText = await semanticText(docs);
       expect(directText).toContain(item.title);
       expect(directText).toContain(item.layer);
 
@@ -53,7 +58,7 @@ test.describe('T19 docs SSR/hydration identity', () => {
       const clientDocs = page.getByTestId('platform-v7-public-docs-page');
       await expect(clientDocs).toBeVisible();
       await expect(clientDocs.locator('h1')).toHaveText(item.title);
-      const clientText = (await clientDocs.innerText()).replace(/\s+/gu, ' ').trim();
+      const clientText = await semanticText(clientDocs);
       expect(clientText).toBe(directText);
 
       const overflow = await page.evaluate(() => Math.max(
