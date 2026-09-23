@@ -886,8 +886,12 @@ describe('public registration truthful outcomes', () => {
   it('classifies accepted, confirmed invalid, unavailable and indeterminate mutation results without inventing success', () => {
     expect(classifyRegistrationSubmitResponse({ ok: true, status: 202 }, { accepted: true })).toBe('accepted');
     expect(classifyRegistrationSubmitResponse({ ok: false, status: 400 }, { accepted: false })).toBe('invalid');
-    expect(classifyRegistrationSubmitResponse({ ok: false, status: 503 }, { accepted: false })).toBe('unavailable');
+    expect(classifyRegistrationSubmitResponse({ ok: false, status: 503 }, { accepted: false })).toBe('unknown');
     expect(classifyRegistrationSubmitResponse({ ok: false, status: 503 }, { outcome: 'unknown' })).toBe('unknown');
+    expect(classifyRegistrationSubmitResponse({ ok: false, status: 503 }, { outcome: 'unknown', code: 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE' })).toBe('unknown');
+    expect(classifyRegistrationSubmitResponse({ ok: false, status: 503 }, { outcome: 'unknown', code: 'REGISTRATION_DELIVERY_CONTRACT_UNKNOWN' })).toBe('unknown');
+    expect(classifyRegistrationSubmitResponse({ ok: false, status: 409 }, { accepted: false })).toBe('unknown');
+    expect(classifyRegistrationSubmitResponse({ ok: false, status: 429 }, { accepted: false })).toBe('unavailable');
     expect(classifyRegistrationSubmitResponse({ ok: true, status: 200 }, {})).toBe('unknown');
     expect(classifyRegistrationSubmitResponse({ ok: false, status: 503 }, null)).toBe('unknown');
   });
@@ -934,6 +938,8 @@ describe('public registration truthful outcomes', () => {
     const bff = read('app/api/auth/register/route.ts');
     expect(bff).toContain("outcome: 'unknown'");
     expect(bff).toContain("code: 'REGISTRATION_RESULT_UNKNOWN'");
+    expect(bff).toContain("code: 'REGISTRATION_DELIVERY_CONTRACT_UNKNOWN'");
+    expect(bff).toContain("code: 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE'");
     expect(bff).toContain("if (!apiResponse.ok || payload.accepted !== true)");
   });
 });
