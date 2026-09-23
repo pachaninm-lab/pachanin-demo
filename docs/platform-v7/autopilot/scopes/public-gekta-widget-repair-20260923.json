@@ -26,7 +26,8 @@
     "apps/web/tests/unit/publicGektaWidgetRepair.test.tsx",
     "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts",
     "docs/platform-v7/autopilot/scopes/public-gekta-widget-repair-20260923.json",
-    "docs/platform-v7/qa/web-unit-coverage-registry.json"
+    "docs/platform-v7/qa/web-unit-coverage-registry.json",
+    "docs/security/cryptographic-inventory.json"
   ],
   "requiredBehavior": [
     "one open operation for every public Gekta entry point; a cold first click before the assistant chunk mounts is kept and delivered once",
@@ -39,7 +40,8 @@
     "auto-scroll only while the reader is at the end; otherwise offer a jump to new messages",
     "modal dialog makes the background inert, returns focus to the opener and announces send/complete/interrupted/error once",
     "the initial public entry JS and the JS fetched on opening Gekta stay within the base measurement (gzip); the bundled local knowledge base loads only on the network/provider failure path and the viewport authority travels with the on-demand assistant chunk",
-    "a pending open that is not delivered within the stall window is dropped, so a late assistant load never opens the dialog after the entry reported failure"
+    "a pending open that is not delivered within the stall window is dropped, so a late assistant load never opens the dialog after the entry reported failure",
+    "cryptographic inventory is regenerated for the added source file; unrelated autopilot state and prompt files remain identical to live main"
   ],
   "forbiddenCapabilities": [
     "second chat store, controller, context or state machine",

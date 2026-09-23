@@ -2,17 +2,26 @@
   "project": "platform-v7 / Прозрачная Цена",
   "fullTzReadinessPercent": 5,
   "currentStep": "R1.2 Controlled open-as-role server authority",
-  "lastCompletedStep": "R1.1 Server-side inventory of 13 cabinets and authority — docs/execution/R1_1_EXACT_INVENTORY_2026-09-20.md",
+  "lastCompletedStep": "R1.1 exact 13-cabinet inventory admitted by PR #5468",
   "openPr": null,
-  "blockedBy": [
-    "R1.2 Controlled open-as-role server authority is not green/closed/mergeable. Dispatcher will not advance to R1.3 CEO overview and P0/P1 decision queue."
-  ],
-  "nextStep": "R1.2 Controlled open-as-role server authority",
-  "updatedAt": "2026-09-23T05:04:56.226Z",
+  "blockedBy": [],
+  "nextStep": "R1.2 canonical 13 role-mode API/server authority; no visual implementation",
+  "updatedAt": "2026-09-20T23:20:00+03:00",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
     "noAutoMerge": true,
-    "controlledPilotOnly": true
-  }
+    "controlledPilotOnly": true,
+    "serverAuthority": true,
+    "noClientSelectedRole": true,
+    "noParallelUxFgisBankImplementation": true
+  },
+  "masterV21": {
+    "overallProductionProgress": "5/100=5%",
+    "r1TargetAfterProductionPass": "12/100=12%",
+    "exactMain": "5da8e80744908413102214f91dd68018911b892e",
+    "productionSha": "5da8e80744908413102214f91dd68018911b892e",
+    "productionControllerRun": 35520784872
+  },
+  "currentTaskExecution": "R1.1 inventory complete in this admission; main should start at R1.2 after merge; R1 points remain uncredited until full PRODUCTION_PASS"
 }
