@@ -127,6 +127,6 @@ export function classifyRegistrationStatusResponse(
     return status ? { kind: 'available', status } : { kind: 'unavailable' };
   }
   const row = object(payload);
-  if (response.status === 404 || row?.code === 'REGISTRATION_APPLICATION_NOT_FOUND') return { kind: 'invalid' };
+  if (response.status === 404 && row?.code === 'REGISTRATION_APPLICATION_NOT_FOUND') return { kind: 'invalid' };
   return { kind: 'unavailable' };
 }

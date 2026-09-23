@@ -7,12 +7,16 @@
   "ownerSpecification": "Прозрачная Цена — инженерное ТЗ быстрого UX-ремонта v2.0, 23.09.2026, sections 3.1, 3.3, 3.4 and UX-02/UX-03 T06/T07.",
   "coordination": "Team Hub #5469 claim 5786100911. No overlap with #5538 contact, #5536 market, Claude #5537 Gekta or seller/Founder work.",
   "allowedPaths": [
+    ".gitleaksignore",
+    "apps/tai/tests/test_gitleaks_release_authority.py",
     "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
     "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
     "apps/web/app/api/auth/register/route.ts",
+    "apps/web/app/api/auth/registration/status/route.ts",
     "apps/web/lib/platform-v7/registration-outcome.ts",
     "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
     "docs/platform-v7/autopilot/scopes/public-registration-outcomes-20260923.json",
+    "docs/security/CRYPTOGRAPHIC_INVENTORY.md",
     "docs/security/cryptographic-inventory.json"
   ],
   "requiredInvariants": [

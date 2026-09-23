@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
+import { appendPublicRegistrationContext } from '@/lib/platform-v7/public-registration-continuation';
 import { sendTransactionalMail } from '../../../../lib/server/transactional-mail';
 import { assertCsrf } from '../../../../lib/server-request-security';
 
@@ -183,17 +184,18 @@ export async function POST(request: Request) {
 
     const delivery = payload.emailDelivery;
     if (!delivery?.email || !delivery.token || !payload.statusToken) {
-      console.error('registration_delivery_contract_invalid', JSON.stringify({
+      console.info('registration_delivery_contract_invalid', JSON.stringify({
         correlationId,
         registrationApplicationRef: payload.applicationId,
         accountHash: accountHash(email),
       }));
-      return json({ outcome: 'unknown', code: 'REGISTRATION_DELIVERY_CONTRACT_UNKNOWN', correlationId: payload.correlationId || correlationId }, 503);
+      return json({ accepted: true, deliveryConfirmed: false, code: 'REGISTRATION_DELIVERY_UNCONFIRMED', correlationId: payload.correlationId || correlationId }, 202);
     }
     const verifyUrl = new URL('/platform-v7/register', normalizeOrigin(request));
     verifyUrl.searchParams.set('verify', delivery.token);
     verifyUrl.searchParams.set('statusToken', payload.statusToken);
     verifyUrl.searchParams.set('lang', locale);
+    appendPublicRegistrationContext(verifyUrl, new URL(request.url).search, locale);
     const copy = mailCopy[locale];
     const deliveryAttempt = await deliverRegistrationMail({
       to: delivery.email,

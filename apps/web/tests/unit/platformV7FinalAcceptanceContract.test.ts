@@ -179,8 +179,8 @@ describe('platform-v7 Design System v8 final acceptance contract', () => {
     expect(registrationClient).toContain("name='confirmPassword'");
     expect(registrationClient).toContain("password !== field(form, 'confirmPassword')");
     for (const marker of [
-      "fetch('/api/auth/register'",
-      "fetch('/api/auth/registration/resend'",
+      "registrationContextEndpoint('register'",
+      "registrationContextEndpoint('resend'",
       "fetch('/api/auth/registration/verify'",
       "fetch('/api/auth/registration/additional-information'",
       '/api/auth/registration/status?token=',
@@ -192,7 +192,7 @@ describe('platform-v7 Design System v8 final acceptance contract', () => {
     expect(registrationClient).not.toContain('role:');
     expect(registrationClient).not.toContain('requestedRole');
     expect(registrationClient).not.toContain('/platform-v7/onboarding');
-    expect(registrationBaseClient).toContain("fetch('/api/auth/register'");
+    expect(registrationBaseClient).toContain("registrationContextEndpoint('register'");
     for (const route of [registrationRoute, registrationResendRoute]) {
       expect(route).toContain('подтвердите адрес электронной почты');
       expect(route).not.toContain('подтвердите email');
@@ -579,7 +579,9 @@ describe('registration snapshot remains immutable while the request is pending',
         expect(control.closest('fieldset')).toBe(fieldset);
       }
       const [url, options] = post.mock.calls[0] as unknown as [string, RequestInit];
-      expect(url).toBe('/api/auth/register');
+      const registrationUrl = new URL(url, 'http://localhost');
+      expect(registrationUrl.pathname).toBe('/api/auth/register');
+      expect(Object.fromEntries(registrationUrl.searchParams)).toEqual({ lang: locale });
       const body = JSON.parse(String(options.body)) as Record<string, unknown>;
       expect(body).toMatchObject({
         orgLegalName: 'Fixture Organisation', email: 'fixture@example.invalid',
@@ -640,6 +642,15 @@ describe('canonical public registration confirmation error UX-13', () => {
       expect(confirm.getAttribute('aria-invalid')).toBe('false');
       expect(password.value).toBe('StrongPassword#123');
       expect(form.querySelector('#p0-register-confirm-error')).toBeNull();
+
+      fireEvent.change(confirm, { target: { value: 'DifferentPassword#123' } });
+      await act(async () => { fireEvent.submit(form); });
+      expect(confirm.getAttribute('aria-invalid')).toBe('true');
+      fireEvent.change(password, { target: { value: 'DifferentPassword#123' } });
+      expect(confirm.getAttribute('aria-invalid')).toBe('false');
+      expect(form.querySelector('#p0-register-confirm-error')).toBeNull();
+      expect(password.value).toBe(confirm.value);
+      expect(post).not.toHaveBeenCalled();
     });
   }
 });

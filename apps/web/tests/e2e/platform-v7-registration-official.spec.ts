@@ -126,7 +126,8 @@ test.describe('Platform V7 public registration official UX', () => {
       const pending = new Promise<void>((resolve) => { release = () => resolve(); });
       let posted: Record<string, unknown> | null = null;
       let postCount = 0;
-      await page.route('**/api/auth/register', async (route) => {
+      await page.route('**/api/auth/register*', async (route) => {
+        expect(new URL(route.request().url()).searchParams.get('lang')).toBe(locale);
         postCount += 1;
         posted = route.request().postDataJSON() as Record<string, unknown>;
         await pending;
