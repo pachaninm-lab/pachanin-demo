@@ -535,3 +535,59 @@ describe('public locale navigation does not silently erase a filled form', () =>
     for (const forbidden of ['localStorage', 'sessionStorage', 'new FormData', '.value', 'JSON.stringify']) expect(source).not.toContain(forbidden);
   });
 });
+
+
+describe('registration snapshot remains immutable while the request is pending', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  for (const locale of ['ru', 'en', 'zh'] as const) {
+    it(locale + ': snapshots the entire request before disabling editable controls', async () => {
+      vi.stubGlobal('crypto', { randomUUID: () => 'fixture-submit-key' });
+      let complete!: (response: unknown) => void;
+      const post = vi.fn(() => new Promise((resolve) => { complete = resolve; }));
+      vi.stubGlobal('fetch', post);
+      const { container } = render(createElement(RegisterFormClientPublic, { locale }));
+      const form = container.querySelector<HTMLFormElement>('form.p0-register-form')!;
+      const fill = (name: string, value: string) =>
+        fireEvent.change(form.querySelector<HTMLInputElement>('[name="' + name + '"]')!, { target: { value } });
+      fill('orgLegalName', 'Fixture Organisation');
+      fill('orgInn', '1234567890');
+      fill('region', 'Tambov');
+      fill('fullName', 'Fixture Person');
+      fill('position', 'Director');
+      fill('phone', '+79990000000');
+      fill('email', 'fixture@example.invalid');
+      fill('password', 'StrongPassword#123');
+      fill('confirmPassword', 'StrongPassword#123');
+      fireEvent.click(form.querySelector<HTMLInputElement>('[name="acceptTerms"]')!);
+      fireEvent.click(form.querySelector<HTMLInputElement>('[name="acceptPrivacy"]')!);
+      expect(form.checkValidity()).toBe(true);
+
+      fireEvent.submit(form);
+      await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+      const fieldset = form.querySelector<HTMLFieldSetElement>('fieldset.p0-register-fields')!;
+      expect(fieldset.disabled).toBe(true);
+      for (const control of fieldset.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select')) {
+        expect(control.matches(':disabled')).toBe(true);
+      }
+      const [url, options] = post.mock.calls[0] as unknown as [string, RequestInit];
+      expect(url).toBe('/api/auth/register');
+      const body = JSON.parse(String(options.body)) as Record<string, unknown>;
+      expect(body).toMatchObject({
+        orgLegalName: 'Fixture Organisation', email: 'fixture@example.invalid',
+        password: 'StrongPassword#123', acceptTerms: true, acceptPrivacy: true,
+      });
+      expect(options.headers).toMatchObject({ 'idempotency-key': 'fixture-submit-key' });
+      // Disabled controls disappear from a new FormData read; the POST still has
+      // the full immutable snapshot captured before React applied disabled.
+      expect(new FormData(form).has('email')).toBe(false);
+
+      complete({ ok: true, status: 202, json: async () => ({ accepted: true }) });
+      await waitFor(() => expect(container.querySelector('.p0-register-state')).toBeTruthy());
+      expect(post).toHaveBeenCalledTimes(1);
+    });
+  }
+});
