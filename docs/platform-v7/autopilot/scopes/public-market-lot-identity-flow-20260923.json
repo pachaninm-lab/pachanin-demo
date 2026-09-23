@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "test/public-market-lot-identity-flow-20260923",
+  "status": "active",
+  "approvedBy": "owner-public-ux-repair-v2.0-2026-09-23",
+  "purpose": "UX-31: verify positive publicRef card/detail/application fixture and fail-closed negative cases.",
+  "ownerSpecification": "Прозрачная Цена — инженерное ТЗ быстрого UX-ремонта v2.0, 23.09.2026, UX-31 T13/T14.",
+  "coordination": "Team Hub #5469 CLAIM 5789893188. Verification only; browser acceptance remains pending.",
+  "allowedPaths": [
+    "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+    "docs/platform-v7/autopilot/scopes/public-market-lot-identity-flow-20260923.json"
+  ],
+  "requiredInvariants": [
+    "Rendered card href selects the exact published publicRef after reordering and carries only public filter context.",
+    "Published lot detail keeps the same identity in the application link, including the safe market return context.",
+    "Missing, duplicate, numeric, repeated and malformed lot references fail closed without positional fallback or private seller disclosure.",
+    "Runtime API, market filtering, registry, role, tenant, money and authentication semantics remain unchanged.",
+    "A unit fixture is engineering evidence, not full browser T13/T14 acceptance or independent review."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
