@@ -16,6 +16,7 @@ const COPY: Record<Locale, { short: string; ask: string; opening: string; failed
   en: { short: 'Gekta', ask: 'Ask Gekta', opening: 'Opening Gekta…', failed: 'Gekta did not load. Reload the page' },
   zh: { short: 'Gekta', ask: '询问 Gekta', opening: '正在打开 Gekta…', failed: 'Gekta 未能加载。刷新页面' },
 };
+const OPEN_STALL_MS = 15_000;
 function canonicalLocale(value: string): Locale {
   if (value.startsWith('en')) return 'en';
   if (value.startsWith('zh')) return 'zh';
@@ -29,12 +30,22 @@ export function PublicGektaChatButton({ locale, variant = 'header', className = 
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [requested, setRequested] = useState(false);
   const [status, setStatus] = useState<PublicGektaOpenStatus>('idle');
+  const [stalled, setStalled] = useState(false);
   const question = typeof prompt === 'string' && prompt.length <= 240 && !/[\u0000-\u001f\u007f]/u.test(prompt) ? prompt.trim() : '';
   useEffect(() => {
     setStatus(readPublicGektaOpenStatus());
     return subscribePublicGektaOpenStatus(setStatus);
   }, []);
-  const state = requested ? status : 'idle';
+  const state = requested ? (status === 'opening' && stalled ? 'failed' : status) : 'idle';
+  // A chunk that never arrives must not leave the entry busy forever.
+  useEffect(() => {
+    if (!requested || status !== 'opening') {
+      setStalled(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setStalled(true), OPEN_STALL_MS);
+    return () => window.clearTimeout(timer);
+  }, [requested, status]);
   const openGekta = () => {
     if (state === 'failed') {
       // Explicit recovery: reload fetches the assistant code again. No request

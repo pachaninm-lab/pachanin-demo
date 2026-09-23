@@ -83,9 +83,11 @@ type Message = {
   origin?: AnswerOrigin;
   /** Set when the stream stopped before a valid completion; text is partial. */
   interrupted?: boolean;
+  /** The partial answer ended because the reader (or the page) stopped it. */
+  stopped?: boolean;
 };
 type Failure = 'offline' | 'rate_limited' | 'server_error' | 'unknown';
-type Announcement = '' | 'sending' | 'complete' | 'interrupted' | 'error';
+type Announcement = '' | 'sending' | 'complete' | 'refused' | 'interrupted';
 type ContextPayload = { context: string; prompts: string[] };
 type HistoryTurn = { role: 'user' | 'assistant'; text: string };
 
@@ -117,6 +119,7 @@ type Copy = {
   truncated: string;
   currentLimited: string;
   interrupted: string;
+  stopped: string;
   failures: Record<Failure, string>;
   announce: Record<Exclude<Announcement, ''>, string>;
   jumpToLatest: string;
@@ -155,6 +158,7 @@ const COPY: Record<Locale, Copy> = {
     truncated: 'Ответ ограничен по длине',
     currentLimited: 'Нет подтверждённых актуальных данных',
     interrupted: 'Ответ прерван и не завершён',
+    stopped: 'Ответ остановлен и не завершён',
     failures: {
       offline: 'Нет соединения с сетью. Запрос не выполнен — проверьте подключение и повторите.',
       rate_limited: 'Слишком много запросов. Подождите немного и повторите.',
@@ -164,8 +168,8 @@ const COPY: Record<Locale, Copy> = {
     announce: {
       sending: 'Запрос отправлен. Гекта отвечает.',
       complete: 'Ответ Гекты получен.',
+      refused: 'Гекта не дала ответа на этот вопрос.',
       interrupted: 'Ответ прерван.',
-      error: 'Ответ не получен.',
     },
     jumpToLatest: 'К новым сообщениям',
     draftKept: 'Ваш черновик сохранён. Заменить его вопросом:',
@@ -201,6 +205,7 @@ const COPY: Record<Locale, Copy> = {
     truncated: 'Length-limited response',
     currentLimited: 'No verified current data',
     interrupted: 'The answer was interrupted and is incomplete',
+    stopped: 'The answer was stopped and is incomplete',
     failures: {
       offline: 'You are offline. The request was not sent — check the connection and retry.',
       rate_limited: 'Too many requests. Wait a moment and retry.',
@@ -210,8 +215,8 @@ const COPY: Record<Locale, Copy> = {
     announce: {
       sending: 'Request sent. Gekta is answering.',
       complete: 'Gekta answered.',
+      refused: 'Gekta did not answer this question.',
       interrupted: 'The answer was interrupted.',
-      error: 'No answer was received.',
     },
     jumpToLatest: 'Jump to new messages',
     draftKept: 'Your draft is kept. Replace it with:',
@@ -247,6 +252,7 @@ const COPY: Record<Locale, Copy> = {
     truncated: '回答受长度限制',
     currentLimited: '没有经过验证的当前数据',
     interrupted: '回答被中断，内容不完整',
+    stopped: '回答已停止，内容不完整',
     failures: {
       offline: '网络未连接。请求未完成，请检查连接后重试。',
       rate_limited: '请求过多。请稍后重试。',
@@ -256,8 +262,8 @@ const COPY: Record<Locale, Copy> = {
     announce: {
       sending: '已发送。Gekta 正在回答。',
       complete: 'Gekta 已回答。',
+      refused: 'Gekta 未回答这个问题。',
       interrupted: '回答已中断。',
-      error: '未收到回答。',
     },
     jumpToLatest: '查看新消息',
     draftKept: '您的草稿已保留。是否替换为：',
@@ -482,6 +488,9 @@ function safeStoredMessages(value: unknown): Message[] {
         || row.origin === 'local_qwen'
         ? row.origin
         : undefined,
+      // A partial answer stays marked as partial after a reload.
+      interrupted: row.interrupted === true ? true : undefined,
+      stopped: row.stopped === true ? true : undefined,
     } satisfies Message];
   });
 }
@@ -664,7 +673,7 @@ export function PublicPlatformAssistant() {
       if (!items.length) return;
       const first = items[0];
       const last = items[items.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) {
         event.preventDefault();
         last.focus();
       } else if (!event.shiftKey && document.activeElement === last) {
@@ -739,8 +748,10 @@ export function PublicPlatformAssistant() {
     setSending(false);
   };
 
+  // A partial (interrupted or stopped) answer is never sent back to the model
+  // as if it were a complete assistant turn.
   const historyFrom = (items: Message[]): HistoryTurn[] => items
-    .filter((message) => message.text.trim().length > 0)
+    .filter((message) => message.text.trim().length > 0 && !message.interrupted)
     .slice(-12)
     .map((message) => ({ role: message.role, text: message.text.slice(0, 2_000) }));
 
@@ -798,7 +809,8 @@ export function PublicPlatformAssistant() {
         text: partial,
         origin: assessment.source,
         createdAt: new Date().toISOString(),
-        interrupted: refusal !== 'CANCELLED',
+        interrupted: true,
+        stopped: refusal === 'CANCELLED' ? true : undefined,
         stream: {
           status: 'refused',
           refusal,
@@ -946,11 +958,13 @@ export function PublicPlatformAssistant() {
       if (generationRef.current !== generation) return;
       if (result === 'answered') { setAnnouncement('complete'); return; }
       if (result === 'interrupted') { setAnnouncement('interrupted'); return; }
-      if (result === 'handled') { setAnnouncement(controller.signal.aborted ? 'interrupted' : 'complete'); return; }
+      if (result === 'handled') { setAnnouncement(controller.signal.aborted ? 'interrupted' : 'refused'); return; }
       if (typeof result === 'object') {
         setFailure(result.failure);
         setError(ui.failures[result.failure]);
-        setAnnouncement('error');
+        // The role=alert banner announces the error; the status region is cleared
+        // so it is not spoken twice.
+        setAnnouncement('');
         return;
       }
       if (!await knowledgeFallback(question, history, controller, generation)) throw new Error('knowledge_fallback_failed');
@@ -960,7 +974,7 @@ export function PublicPlatformAssistant() {
       if (generationRef.current !== generation) return;
       setFailure('unknown');
       setError(ui.error);
-      setAnnouncement('error');
+      setAnnouncement('');
     } finally {
       if (abortRef.current === controller) {
         abortRef.current = null;
@@ -1095,7 +1109,7 @@ export function PublicPlatformAssistant() {
 
       {open ? (
         <>
-          <button className='pc-public-assistant-backdrop' type='button' aria-label={ui.close} onClick={close} />
+          <button className='pc-public-assistant-backdrop' type='button' tabIndex={-1} aria-label={ui.close} onClick={close} />
           <section
             ref={panelRef}
             id='pc-public-assistant-panel'
@@ -1203,7 +1217,7 @@ export function PublicPlatformAssistant() {
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                           {assessment?.currentDataRequired ? <span style={badgeStyle}>{ui.currentLimited}</span> : null}
                           {assessment?.truncated ? <span style={badgeStyle}>{ui.truncated}</span> : null}
-                          {message.interrupted ? <span style={badgeStyle} data-gekta-interrupted='true'>{ui.interrupted}</span> : null}
+                          {message.interrupted ? <span style={badgeStyle} data-gekta-interrupted='true'>{message.stopped ? ui.stopped : ui.interrupted}</span> : null}
                         </div>
 
                         {sources.length ? (

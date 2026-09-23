@@ -17,6 +17,7 @@
     "apps/web/styles/platform-v7-public-assistant.css",
     "apps/web/tests/unit/platformV7PublicAssistantStreamBinding.test.tsx",
     "apps/web/tests/unit/platformV7PublicDealExplorerMobileUx.test.ts",
+    "apps/web/tests/unit/platformV7PublicIntelligenceLayer.test.ts",
     "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
     "apps/web/tests/unit/publicGektaWidgetRepair.test.tsx",
     "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts",

@@ -325,3 +325,95 @@ describe('G07/G08 accessibility and public boundary', () => {
     for (const link of document.querySelectorAll('a')) expect(link.getAttribute('href') || '').not.toMatch(/^javascript:/iu);
   });
 });
+
+describe('review follow-ups: partial answers stay visibly partial', () => {
+  it('a stopped partial answer is marked as stopped and incomplete', async () => {
+    let release!: () => void;
+    const hold = new Promise<void>((resolve) => { release = resolve; });
+    installFetch((url) => (url.includes('locale=')
+      ? catalogResponse()
+      : sseChunks([encodeFrame(meta()), encodeFrame(token('начало ответа'))], { holdOpen: hold })));
+    const { user } = await openAndType('Вопрос');
+    await user.keyboard('{Enter}');
+    await user.click(await screen.findByRole('button', { name: 'Остановить ответ' }));
+    release();
+    await waitFor(() => expect(screen.getByText('Ответ остановлен и не завершён')).toBeInTheDocument());
+    expect(screen.getByText('начало ответа')).toBeInTheDocument();
+  });
+
+  it('keeps the interrupted marker across a reload and never sends a partial answer as history', async () => {
+    const spy = installFetch((url) => (url.includes('locale=') ? catalogResponse() : sse([meta(), token('обрыв')])));
+    const first = await openAndType('Вопрос один');
+    await first.user.keyboard('{Enter}');
+    await waitFor(() => expect(screen.getByText('Ответ прерван и не завершён')).toBeInTheDocument());
+    cleanup();
+
+    installFetch((url) => (url.includes('locale=') ? catalogResponse() : sse([meta(), token('целый ответ'), done(true)])));
+    const second = await openAndType('Вопрос два');
+    expect(screen.getByText('обрыв')).toBeInTheDocument();
+    expect(screen.getByText('Ответ прерван и не завершён')).toBeInTheDocument();
+    await second.user.keyboard('{Enter}');
+    await waitFor(() => expect(screen.getByText('целый ответ')).toBeInTheDocument());
+    const calls = (globalThis.fetch as unknown as ReturnType<typeof installFetch>).mock.calls.filter(([, init]) => init?.method === 'POST');
+    const history = JSON.parse(String(calls[0][1]?.body)).history as { role: string; text: string }[];
+    expect(history.some((turn) => turn.text === 'обрыв')).toBe(false);
+    expect(posts(spy)).toHaveLength(1);
+  });
+
+  it('announces a refusal as a refusal, not as an answer', async () => {
+    installFetch((url) => (url.includes('locale=') ? catalogResponse() : sse([meta(), done(true)])));
+    const { user } = await openAndType('Вопрос');
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(screen.getByText('Гекта не дала ответа на этот вопрос.')).toBeInTheDocument());
+  });
+
+  it('a knowledge answer from an older conversation that ignores abort never lands in the new one', async () => {
+    let releaseA!: (response: Response) => void;
+    const knowledgeA = new Promise<Response>((resolve) => { releaseA = resolve; });
+    let knowledgeCalls = 0;
+    installFetch((url) => {
+      if (url.includes('locale=')) return catalogResponse();
+      if (url.includes('stream=1')) {
+        return knowledgeCalls === 0
+          ? sse([meta(), { event: 'error', streamId: STREAM, refusal: 'FEATURE_DISABLED', message: 'off' } as unknown as GatewayFrame, done(false)])
+          : sse([meta(), token('Ответ B.'), done(true)]);
+      }
+      knowledgeCalls += 1;
+      return knowledgeA; // resolves late and ignores the abort signal
+    });
+    const { user, box } = await openAndType('Вопрос A');
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(knowledgeCalls).toBe(1));
+    stubConfirm(true);
+    await user.click(screen.getByRole('button', { name: 'Новый диалог' }));
+    await user.type(box, 'Вопрос B');
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(screen.getByText('Ответ B.')).toBeInTheDocument());
+    releaseA(new Response(JSON.stringify({
+      requestId: 'late-a', generatedAt: '2026-09-23T00:00:00.000Z', knowledgeVersion: 'v1', dataMode: 'public_knowledge',
+      mode: 'read_only', topic: 't', title: 'Поздний A', answer: 'Поздний ответ A.', facts: [], maturity: '', confidence: 'high',
+      actionAllowed: false, sources: [], suggestions: [], limitations: [],
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(screen.queryByText('Поздний ответ A.')).toBeNull();
+    expect(document.querySelectorAll('.pc-public-assistant-message')).toHaveLength(2);
+  });
+
+  it('renders a javascript: source from a knowledge answer as plain text, not a link', async () => {
+    installFetch((url) => {
+      if (url.includes('locale=')) return catalogResponse();
+      if (url.includes('stream=1')) return sse([meta(), { event: 'error', streamId: STREAM, refusal: 'FEATURE_DISABLED', message: 'off' } as unknown as GatewayFrame, done(false)]);
+      return new Response(JSON.stringify({
+        requestId: 'k1', generatedAt: '2026-09-23T00:00:00.000Z', knowledgeVersion: 'v1', dataMode: 'public_knowledge',
+        mode: 'read_only', topic: 't', title: 'Т', answer: 'Знание.', facts: [], maturity: '', confidence: 'high', actionAllowed: false,
+        sources: [{ label: 'Опасная', href: 'javascript:alert(1)' }, { label: 'Безопасная', href: '/platform-v7/trust' }],
+        suggestions: [], limitations: [],
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    });
+    const { user } = await openAndType('Вопрос');
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(screen.getByText('Знание.')).toBeInTheDocument());
+    expect(screen.getByText('Опасная').tagName).not.toBe('A');
+    expect(screen.getByText('Безопасная').closest('a')?.getAttribute('href')).toBe('/platform-v7/trust');
+  });
+});
