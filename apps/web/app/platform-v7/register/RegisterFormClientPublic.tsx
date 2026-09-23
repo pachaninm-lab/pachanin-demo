@@ -236,8 +236,9 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
       if (!response.ok || result.ok !== true || !result.statusToken) throw new Error('failed');
       const verifiedStatus = parseRegistrationStatusSnapshot(result);
       if (!verifiedStatus) throw new Error('failed');
+      const continuationHref = verifiedRegistrationContinuationHref(window.location.search, result.statusToken, 'ru');
       setVerificationCompleted(true); setStatusToken(result.statusToken); setStatus(verifiedStatus); setStatusReadState('available');
-      window.history.replaceState(null, '', verifiedRegistrationContinuationHref(window.location.search, result.statusToken, 'ru'));
+      window.history.replaceState(null, '', continuationHref);
     } catch {
       setError('Ссылка недействительна, срок её действия истёк или она уже была использована.');
     } finally { setSubmitting(false); }
