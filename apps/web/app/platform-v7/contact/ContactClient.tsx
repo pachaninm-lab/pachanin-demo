@@ -278,11 +278,11 @@ export function ContactClient({ sent, failed, locale }: { sent: boolean; failed:
           )}
         </section>
 
-          <div className='p7-contact-cards'>
-            <Card icon={<MessageSquareText size={22} aria-hidden='true' />} title={copy.cards[0][0]} text={copy.cards[0][1]} />
-            <Card icon={<ShieldCheck size={22} aria-hidden='true' />} title={copy.cards[1][0]} text={copy.cards[1][1]} />
-            <Card icon={<HelpCircle size={22} aria-hidden='true' />} title={copy.cards[2][0]} text={copy.cards[2][1]} />
-          </div>
+        <div className='p7-contact-cards'>
+          <Card icon={<MessageSquareText size={22} aria-hidden='true' />} title={copy.cards[0][0]} text={copy.cards[0][1]} />
+          <Card icon={<ShieldCheck size={22} aria-hidden='true' />} title={copy.cards[1][0]} text={copy.cards[1][1]} />
+          <Card icon={<HelpCircle size={22} aria-hidden='true' />} title={copy.cards[2][0]} text={copy.cards[2][1]} />
+        </div>
       </section>
     </main>
   );
