@@ -260,7 +260,7 @@ export function ContactClient({ sent, failed, locale }: { sent: boolean; failed:
                 <input type='hidden' name='locale' value={locale} />
                 <h2>{copy.formTitle}</h2>
                 <p>{copy.formLead}</p>
-                <label>
+                <label className='p7-contact-full'>
                   <span>{copy.type} *</span>
                   <select name='type' required defaultValue='platform' disabled={sending}>
                     {QUESTION_TYPES[locale].map(([value, label]) => <option key={value} value={value}>{label}</option>)}

@@ -19,6 +19,15 @@ test.describe('UX-24 contact actions precede explanations', () => {
         await expect(form).toBeVisible();
         await expect(submit).toBeVisible();
         await expect(layout.locator('.p7-contact-info-card')).toHaveCount(3);
+        const fullSelectedLabel = await form.locator('select[name="type"]').evaluate((select: HTMLSelectElement) => {
+          const style = getComputedStyle(select);
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d')!;
+          context.font = style.font;
+          return select.getBoundingClientRect().width >=
+            context.measureText(select.selectedOptions[0]?.textContent ?? '').width + 55;
+        });
+        expect(fullSelectedLabel, locale + ' ' + width + ': selected inquiry type is not clipped').toBe(true);
         const boxes = await Promise.all([
           layout.locator('.p7-contact-copy').boundingBox(),
           layout.locator('.p7-contact-form-card').boundingBox(),
