@@ -4,6 +4,7 @@ import {
   CONTACT_RESULT_COOKIE,
   contactResultCookieOptions,
   createContactResultReceipt,
+  renderNativeContactResult,
   type ContactResult,
 } from '@/lib/platform-v7/contact-result-receipt';
 
@@ -263,11 +264,29 @@ function formRedirect(request: Request, result: ContactResult | null, locale: In
   const url = new URL('/platform-v7/contact', request.url);
   url.searchParams.set('lang', locale);
   const receipt = result ? createContactResultReceipt(result) : null;
+  if (result === 'delivered' && !receipt) return nativeResult(locale, 'delivered', null);
   if (receipt) url.searchParams.set('receipt', '1');
 
   const response = NextResponse.redirect(url, 303);
   if (receipt) response.cookies.set(CONTACT_RESULT_COOKIE, receipt, contactResultCookieOptions());
   return response;
+}
+
+function nativeResult(
+  locale: InquiryLocale,
+  outcome: 'delivered' | 'invalid' | 'unknown',
+  draft: Inquiry | null,
+) {
+  return new Response(renderNativeContactResult(locale, outcome, draft), {
+    status: outcome === 'delivered' ? 200 : outcome === 'invalid' ? 400 : 503,
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      'Referrer-Policy': 'no-referrer',
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'",
+    },
+  });
 }
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
@@ -283,6 +302,7 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
 export async function POST(request: Request) {
   let formMode = true;
   let formLocale: InquiryLocale = 'ru';
+  let formDraft: Inquiry | null = null;
 
   try {
     const read = await readPayload(request);
@@ -290,10 +310,11 @@ export async function POST(request: Request) {
     if (read.payload) formLocale = localeOf(read.payload.locale);
 
     if (!read.payload) {
-      return formMode ? formRedirect(request, 'failed', formLocale) : jsonResponse({ accepted: false, sent: false, error: 'invalid_payload' }, 400);
+      return formMode ? nativeResult(formLocale, 'invalid', null) : jsonResponse({ accepted: false, sent: false, error: 'invalid_payload' }, 400);
     }
 
     const inquiry = normalizeInquiry(read.payload);
+    if (formMode) formDraft = inquiry;
     const error = validate(inquiry);
 
     if (error === 'bot_trap') {
@@ -302,13 +323,16 @@ export async function POST(request: Request) {
     }
 
     if (error) {
-      return formMode ? formRedirect(request, 'failed', inquiry.locale) : jsonResponse({ accepted: false, sent: false, error }, 400);
+      return formMode ? nativeResult(inquiry.locale, 'invalid', inquiry) : jsonResponse({ accepted: false, sent: false, error }, 400);
     }
 
     const delivery = await sendEmail(inquiry);
     console.info('platform_v7_inquiry_received', JSON.stringify({ ...inquiry, emailSent: delivery.sent, emailReason: delivery.reason, emailTo: recipients() }));
 
-    if (formMode) return formRedirect(request, delivery.sent ? 'delivered' : 'failed', inquiry.locale);
+    if (formMode) {
+      if (!delivery.sent) return nativeResult(inquiry.locale, 'unknown', inquiry);
+      return formRedirect(request, 'delivered', inquiry.locale);
+    }
 
     return jsonResponse({
       accepted: true,
@@ -318,7 +342,7 @@ export async function POST(request: Request) {
     }, delivery.sent ? 200 : 503);
   } catch (error) {
     console.error('platform_v7_inquiry_failed', safeErrorReason(error));
-    return formMode ? formRedirect(request, 'failed', formLocale) : jsonResponse({ accepted: false, sent: false, error: 'provider_failure' }, 503);
+    return formMode ? nativeResult(formLocale, 'unknown', formDraft) : jsonResponse({ accepted: false, sent: false, error: 'provider_failure' }, 503);
   }
 }
 
