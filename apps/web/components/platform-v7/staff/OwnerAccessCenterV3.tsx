@@ -369,6 +369,11 @@ export function OwnerAccessCenter(props: Props) {
 
   const loadRoleMode = useCallback(async () => {
     if (!apiAvailable) {
+      setRegistry(null);
+      setSessionContext({ active: false, session: null });
+      setActiveMode(null);
+      setProjection(null);
+      setProjectionUnavailable(true);
       setChecking(false);
       return;
     }
@@ -478,6 +483,11 @@ export function OwnerAccessCenter(props: Props) {
         }
       }
     } catch (error) {
+      setRegistry(null);
+      setSessionContext({ active: false, session: null });
+      setActiveMode(null);
+      setProjection(null);
+      setProjectionUnavailable(true);
       setOpenError(error instanceof Error ? error.message : text.registryUnavailable);
     } finally {
       setChecking(false);

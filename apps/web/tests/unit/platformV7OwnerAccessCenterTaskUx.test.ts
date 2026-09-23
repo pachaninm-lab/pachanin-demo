@@ -1,7 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { createElement } from 'react';
+import { cleanup, render, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ownerAccessCenterMessages } from '../../i18n/owner-access-center-messages';
+import { OwnerAccessCenter as RoleModeCenter } from '../../components/platform-v7/staff/OwnerAccessCenterV3';
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
 const page = read('apps/web/app/platform-v7/staff/page.tsx');
@@ -25,6 +28,56 @@ function keys(value: unknown, prefix = ''): string[] {
 }
 
 describe('platform-v7 owner access center task UX', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it('removes an active VIEW_AS projection when canonical revalidation fails', async () => {
+    const cabinets = [
+      'operator', 'buyer', 'seller', 'logistics', 'driver', 'surveyor', 'elevator',
+      'lab', 'bank', 'organization', 'arbitrator', 'compliance', 'executive',
+    ].map((key) => ({ key, canonicalPath: `/platform-v7/${key}`, effectiveRole: 'BUYER' }));
+    const session = {
+      accessSessionId: 'session-1', accessMode: 'VIEW_AS', permissions: ['cabinet:view-as'],
+      effectiveOrganizationId: 'organization-1', effectiveRole: 'BUYER', expiresAt: '2026-09-24T00:00:00Z',
+    };
+    const registry = {
+      schemaVersion: 'pc-crop.founder-role-mode.v1', mode: 'VIEW_AS', readOnly: true,
+      returnPath: '/platform-v7/staff', restrictions: [], cabinets,
+    };
+    const canonical = {
+      ...registry, active: true, accessSessionId: 'session-1', actor: { displayName: 'Owner' },
+      cabinetKey: 'buyer', canonicalPath: '/platform-v7/buyer', effectiveRole: 'BUYER',
+      effectiveOrganizationId: 'organization-1', effectiveTenantId: 'tenant-1',
+      expiresAt: session.expiresAt, ticketId: 'ticket-1', mfaRequired: true,
+    };
+    let registryUnavailable = false;
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
+      if (path === '/api/staff/assignments/me') return json([{ id: 'owner-1', role: 'PLATFORM_OWNER', status: 'ACTIVE' }]);
+      if (path === '/platform-v7/staff/role-mode') return json(registryUnavailable ? { code: 'UNAVAILABLE' } : registry, registryUnavailable ? 503 : 200);
+      if (path === '/api/staff/session-context') return json({ active: true, session });
+      if (path === '/api/staff/founder/role-mode/session') return json(canonical);
+      if (path === '/api/staff/organizations/organization-1/cabinet/BUYER') return json({ deals: [] });
+      throw new Error(`Unexpected staff request: ${path}`);
+    }));
+
+    const props = {
+      locale: 'ru' as const, copy: ownerAccessCenterMessages.ru,
+      identity: { email: 'owner@example.test' }, apiAvailable: true, accessCatalog: [], csrfToken: '',
+    };
+    const view = render(createElement(RoleModeCenter, props));
+    await waitFor(() => expect(view.container.querySelector('[data-founder-role-mode-active]')).not.toBeNull());
+
+    registryUnavailable = true;
+    view.rerender(createElement(RoleModeCenter, { ...props, locale: 'en', copy: ownerAccessCenterMessages.en }));
+    await waitFor(() => expect(view.container.querySelector('[role="alert"]')).not.toBeNull());
+    expect(view.container.querySelector('[data-founder-role-mode-active]')).toBeNull();
+    expect(view.container.querySelectorAll('article')).toHaveLength(0);
+  });
+
   it('consumes the server-owned exact 13-cabinet role-mode registry', () => {
     expect(page).toContain('<OwnerAccessCenter');
     expect(entry).toContain("export { OwnerAccessCenter } from './OwnerAccessCenterV4'");
