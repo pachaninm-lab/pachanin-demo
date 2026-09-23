@@ -76,7 +76,7 @@ export default async function TermsPage() {
       </p> : null}
       <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
         <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Условия использования</div>
-        <div style={{ marginTop: 8, fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7 }}>
+        <div style={{ marginTop: 8, fontSize: 16, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7 }}>
           Основные правила регистрации, доступа и работы с цифровой платформой «Прозрачная Цена».
         </div>
       </section>
@@ -85,7 +85,7 @@ export default async function TermsPage() {
         {BLOCKS.map((block) => (
           <section key={block.title} style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18 }}>
             <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{block.title}</div>
-            <div style={{ marginTop: 8, fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.7 }}>{block.body}</div>
+            <div style={{ marginTop: 8, fontSize: 16, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.7 }}>{block.body}</div>
           </section>
         ))}
       </div>
@@ -93,7 +93,7 @@ export default async function TermsPage() {
       <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 14 }}>
         <div>
           <div style={{ fontSize: 20, lineHeight: 1.2, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Связанные разделы платформы</div>
-          <div style={{ fontSize: 13, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7, marginTop: 8 }}>
+          <div style={{ fontSize: 16, color: 'var(--pc-text-muted, #6B778C)', lineHeight: 1.7, marginTop: 8 }}>
             Правила использования применяются к связанным пользовательским и операционным разделам платформы.
           </div>
         </div>
@@ -101,8 +101,8 @@ export default async function TermsPage() {
           {MODULE_LINKS.map((item) => (
             <Link key={item.href} href={item.href} style={{ textDecoration: 'none', display: 'grid', gap: 8, padding: 16, borderRadius: 14, background: '#F8FAFB', border: '1px solid var(--pc-border, #E4E6EA)' }}>
               <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>{item.title}</div>
-              <div style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--pc-text-secondary, #475569)' }}>{item.note}</div>
-              <div style={{ fontSize: 12, fontWeight: 800, color: '#0A7A5F' }}>Открыть →</div>
+              <div style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--pc-text-secondary, #475569)' }}>{item.note}</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#0A7A5F' }}>Открыть →</div>
             </Link>
           ))}
         </div>
@@ -110,16 +110,16 @@ export default async function TermsPage() {
 
       <section style={{ background: '#fff', border: '1px solid var(--pc-border, #E4E6EA)', borderRadius: 18, padding: 18, display: 'grid', gap: 10 }}>
         <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--pc-text-primary, #0F1419)' }}>Принцип работы</div>
-        <div style={{ fontSize: 13, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.7 }}>
+        <div style={{ fontSize: 16, color: 'var(--pc-text-secondary, #475569)', lineHeight: 1.7 }}>
           Платформа помогает участникам видеть состояние сделки, следующий шаг, документы и события в одном месте. Она не должна подменять решения, которые по закону или договору принимает конкретная сторона, банк, государственный орган или иной уполномоченный участник.
         </div>
       </section>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <Link href='/platform-v7/privacy' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 13, fontWeight: 800 }}>
+        <Link href='/platform-v7/privacy' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, background: '#0A7A5F', border: '1px solid #0A7A5F', color: '#fff', fontSize: 14, fontWeight: 800 }}>
           Политика конфиденциальности
         </Link>
-        <Link href='/platform-v7/security' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff', color: 'var(--pc-text-primary, #0F1419)', fontSize: 13, fontWeight: 700 }}>
+        <Link href='/platform-v7/security' style={{ textDecoration: 'none', padding: '10px 14px', borderRadius: 12, border: '1px solid var(--pc-border, #E4E6EA)', background: '#fff', color: 'var(--pc-text-primary, #0F1419)', fontSize: 14, fontWeight: 700 }}>
           Безопасность
         </Link>
       </div>

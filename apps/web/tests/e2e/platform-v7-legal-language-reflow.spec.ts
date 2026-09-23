@@ -11,6 +11,8 @@ test.describe('UX-29 legal language and reflow', () => {
           const original = page.locator('[data-public-legal-original="ru"]');
           await expect(original).toBeVisible();
           await expect(original).toHaveAttribute('lang', 'ru');
+          const firstBody = original.locator(':scope > div > section').first().locator('div').last();
+          expect(await firstBody.evaluate((node) => parseFloat(getComputedStyle(node).fontSize))).toBeGreaterThanOrEqual(16);
           const notice = original.getByRole('note');
           if (locale === 'ru') await expect(notice).toHaveCount(0);
           else {
