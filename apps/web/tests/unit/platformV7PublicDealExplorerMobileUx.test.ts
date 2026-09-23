@@ -60,7 +60,9 @@ describe('platform-v7 public Deal journey UX', () => {
   });
 
   it('uses the existing public assistant as a stage-aware TAI layer', () => {
-    expect(source).toContain("window.dispatchEvent(new CustomEvent('pc:public-assistant-context'");
+    // One open operation: works before the assistant chunk has mounted.
+    expect(source).toContain('requestPublicGektaOpen({ source: \'public_deal_explorer\'');
+    expect(source).not.toContain("window.dispatchEvent(new CustomEvent('pc:public-assistant-context'");
     expect(source).toContain('journey.taiPrompts[historyState.stage]');
     expect(source).toContain("context: `deal-${historyState.stage}`");
     expect(source).toContain("name: 'tai_stage_prompt_opened'");

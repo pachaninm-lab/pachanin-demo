@@ -5,6 +5,7 @@ import { PublicDealExplorer } from '@/components/platform-v7/PublicDealExplorer'
 import { PublicExperienceIcon } from '@/components/platform-v7/PublicExperienceIcon';
 import type { PublicProductExperienceCopy } from '@/i18n/public-product-experience-v3';
 import { getPublicProductExperienceV4Copy } from '@/i18n/public-product-experience-v4';
+import { requestPublicGektaOpen } from '@/lib/platform-v7/public-gekta-open';
 import {
   DEAL_JOURNEY_INTENTS,
   getPublicDealJourneyV5Copy,
@@ -329,7 +330,7 @@ export function PublicDealExplorerV4({ copy, locale, initialState }: {
   const openTai = (selectedPrompt: string) => {
     const prompts = journey.taiPrompts[historyState.stage];
     const ordered = [selectedPrompt, ...prompts.filter((prompt) => prompt !== selectedPrompt)];
-    window.dispatchEvent(new CustomEvent('pc:public-assistant-context', { detail: { context: `deal-${historyState.stage}`, prompts: ordered } }));
+    requestPublicGektaOpen({ source: 'public_deal_explorer', context: `deal-${historyState.stage}`, prompts: ordered, draft: selectedPrompt });
     window.dispatchEvent(new CustomEvent('pc:public-product-analytics', { detail: { name: 'tai_stage_prompt_opened', locale, perspective: historyState.perspective, stage: historyState.stage, scenario: historyState.scenario, source: 'public_v5_quick_journey' } }));
   };
 

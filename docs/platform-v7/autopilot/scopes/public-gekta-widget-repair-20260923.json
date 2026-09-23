@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "claude/public-gekta-widget-repair-xtaej9",
+  "status": "active",
+  "purpose": "Work order #5537 (GEKTA-01, UX-12, UX-28): repair the existing public Gekta widget — lossless cold first open through one open operation, draft-only prompts, IME-safe composer with one POST per question, honest stream outcomes without automatic re-requests, generation-bound late responses, close/reopen and new-dialog safety, reader-controlled scroll, focus/modality and live-region feedback.",
+  "approvedBy": "owner-work-order-5537-2026-09-23",
+  "authorityBaseExactMain": "2365c9b38cbb366cda628904d4f11da4cb4afff9",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/HydrationSafeChatSupport.tsx",
+    "apps/web/components/platform-v7/PublicContactDock.tsx",
+    "apps/web/components/platform-v7/PublicDealExplorerV4.tsx",
+    "apps/web/components/platform-v7/PublicGektaChatButton.tsx",
+    "apps/web/components/platform-v7/PublicPlatformAssistant.tsx",
+    "apps/web/components/platform-v7/UnifiedModalSheetFullscreenController.tsx",
+    "apps/web/lib/platform-v7/install-public-assistant-fetch-resilience.ts",
+    "apps/web/lib/platform-v7/public-gekta-open.ts",
+    "apps/web/styles/platform-v7-public-assistant.css",
+    "apps/web/tests/unit/platformV7PublicAssistantStreamBinding.test.tsx",
+    "apps/web/tests/unit/platformV7PublicDealExplorerMobileUx.test.ts",
+    "apps/web/tests/unit/platformV7RootWorkEntry.test.ts",
+    "apps/web/tests/unit/publicGektaWidgetRepair.test.tsx",
+    "apps/web/tests/unit/taiSemanticRelevanceRouter.test.ts",
+    "docs/platform-v7/autopilot/scopes/public-gekta-widget-repair-20260923.json"
+  ],
+  "requiredBehavior": [
+    "one open operation for every public Gekta entry point; a cold first click before the assistant chunk mounts is kept and delivered once",
+    "assistant chunk load failure shows explicit recovery instead of replacing the page with the global error screen",
+    "prompt and suggestion cards fill the editable composer and never submit; an existing draft is never replaced silently",
+    "Enter submits, Shift+Enter inserts a newline, IME composition Enter never submits; one user message and one POST per submit",
+    "EOF without done, network loss, timeout, malformed frames, 429, 5xx and offline are shown as interrupted or failed, never as complete, and never re-requested automatically",
+    "late responses of an older request or conversation never change the current one",
+    "close keeps draft and history; New dialog requires confirmation when a draft or conversation would be lost",
+    "auto-scroll only while the reader is at the end; otherwise offer a jump to new messages",
+    "modal dialog makes the background inert, returns focus to the opener and announces send/complete/interrupted/error once"
+  ],
+  "forbiddenCapabilities": [
+    "second chat store, controller, context or state machine",
+    "apps/api, prisma, migrations, auth, RBAC, RLS, tenant or role authority",
+    "bank, money, finality or FGIS behaviour",
+    "private tenant, deal or document identifiers in the public assistant",
+    "conversation content in URL or localStorage",
+    "CI, Lighthouse, security or acceptance threshold changes",
+    "production deployment or production chat POST"
+  ],
+  "acceptance": {
+    "exactHeadRequired": true,
+    "independentReviewRequired": true,
+    "operationalStatus": "NOT_DEPLOYED"
+  }
+}

@@ -87,7 +87,10 @@ export function installPublicAssistantFetchResilience(): void {
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = requestUrl(input);
     const isPublicAssistant = url?.origin === window.location.origin && url.pathname === '/api/public-platform-assistant';
-    if (!isPublicAssistant) return nativeFetch(input, init);
+    // The streaming request reports its own transport outcome (offline, 429,
+    // 5xx) to the assistant. Rewriting it into a 200 JSON body made every such
+    // failure look like a broken stream and triggered a second request.
+    if (!isPublicAssistant || url?.searchParams.get('stream') === '1') return nativeFetch(input, init);
 
     try {
       const response = await nativeFetch(input, init);

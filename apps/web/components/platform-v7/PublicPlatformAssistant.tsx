@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics/track';
+import { bindPublicGektaOwner, type PublicGektaOpenIntent } from '@/lib/platform-v7/public-gekta-open';
 import {
   readGatewayStream,
   refusalCopy,
@@ -80,7 +81,11 @@ type Message = {
   answer?: Answer;
   stream?: StreamedAnswer;
   origin?: AnswerOrigin;
+  /** Set when the stream stopped before a valid completion; text is partial. */
+  interrupted?: boolean;
 };
+type Failure = 'offline' | 'rate_limited' | 'server_error' | 'unknown';
+type Announcement = '' | 'sending' | 'complete' | 'interrupted' | 'error';
 type ContextPayload = { context: string; prompts: string[] };
 type HistoryTurn = { role: 'user' | 'assistant'; text: string };
 
@@ -111,6 +116,14 @@ type Copy = {
   inaccurate: string;
   truncated: string;
   currentLimited: string;
+  interrupted: string;
+  failures: Record<Failure, string>;
+  announce: Record<Exclude<Announcement, ''>, string>;
+  jumpToLatest: string;
+  draftKept: string;
+  draftReplace: string;
+  draftKeep: string;
+  newChatDraftConfirm: string;
 };
 
 const COPY: Record<Locale, Copy> = {
@@ -141,6 +154,24 @@ const COPY: Record<Locale, Copy> = {
     inaccurate: 'Сообщить об ошибке',
     truncated: 'Ответ ограничен по длине',
     currentLimited: 'Нет подтверждённых актуальных данных',
+    interrupted: 'Ответ прерван и не завершён',
+    failures: {
+      offline: 'Нет соединения с сетью. Запрос не выполнен — проверьте подключение и повторите.',
+      rate_limited: 'Слишком много запросов. Подождите немного и повторите.',
+      server_error: 'Сервис временно не ответил. Повторите запрос позже.',
+      unknown: 'Ответ не получен. Проверь соединение и повтори запрос.',
+    },
+    announce: {
+      sending: 'Запрос отправлен. Гекта отвечает.',
+      complete: 'Ответ Гекты получен.',
+      interrupted: 'Ответ прерван.',
+      error: 'Ответ не получен.',
+    },
+    jumpToLatest: 'К новым сообщениям',
+    draftKept: 'Ваш черновик сохранён. Заменить его вопросом:',
+    draftReplace: 'Заменить',
+    draftKeep: 'Оставить черновик',
+    newChatDraftConfirm: 'Начать новый диалог? Текущий диалог и неотправленный текст будут удалены.',
   },
   en: {
     open: 'Ask Gekta',
@@ -169,6 +200,24 @@ const COPY: Record<Locale, Copy> = {
     inaccurate: 'Report an error',
     truncated: 'Length-limited response',
     currentLimited: 'No verified current data',
+    interrupted: 'The answer was interrupted and is incomplete',
+    failures: {
+      offline: 'You are offline. The request was not sent — check the connection and retry.',
+      rate_limited: 'Too many requests. Wait a moment and retry.',
+      server_error: 'The service did not respond. Retry later.',
+      unknown: 'No answer was received. Check the connection and try again.',
+    },
+    announce: {
+      sending: 'Request sent. Gekta is answering.',
+      complete: 'Gekta answered.',
+      interrupted: 'The answer was interrupted.',
+      error: 'No answer was received.',
+    },
+    jumpToLatest: 'Jump to new messages',
+    draftKept: 'Your draft is kept. Replace it with:',
+    draftReplace: 'Replace',
+    draftKeep: 'Keep draft',
+    newChatDraftConfirm: 'Start a new chat? The current conversation and unsent text will be removed.',
   },
   zh: {
     open: '询问 Gekta',
@@ -197,6 +246,24 @@ const COPY: Record<Locale, Copy> = {
     inaccurate: '报告错误',
     truncated: '回答受长度限制',
     currentLimited: '没有经过验证的当前数据',
+    interrupted: '回答被中断，内容不完整',
+    failures: {
+      offline: '网络未连接。请求未完成，请检查连接后重试。',
+      rate_limited: '请求过多。请稍后重试。',
+      server_error: '服务暂时没有响应。请稍后重试。',
+      unknown: '未收到回答。请检查连接后重试。',
+    },
+    announce: {
+      sending: '已发送。Gekta 正在回答。',
+      complete: 'Gekta 已回答。',
+      interrupted: '回答已中断。',
+      error: '未收到回答。',
+    },
+    jumpToLatest: '查看新消息',
+    draftKept: '您的草稿已保留。是否替换为：',
+    draftReplace: '替换',
+    draftKeep: '保留草稿',
+    newChatDraftConfirm: '开始新对话？当前对话和未发送的文字将被删除。',
   },
 };
 
@@ -247,6 +314,56 @@ function messageId(prefix: string) {
 function focusable(root: HTMLElement) {
   return Array.from(root.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),textarea:not([disabled]),summary,[tabindex]:not([tabindex="-1"])'))
     .filter((node) => !node.hasAttribute('hidden') && node.getAttribute('aria-hidden') !== 'true');
+}
+
+const SR_ONLY: React.CSSProperties = {
+  position: 'absolute',
+  width: 1,
+  height: 1,
+  margin: -1,
+  padding: 0,
+  overflow: 'hidden',
+  clip: 'rect(0 0 0 0)',
+  whiteSpace: 'nowrap',
+  border: 0,
+};
+
+/** Only same-site paths and http(s) links are rendered as active links. */
+function safeHref(value: string): string | null {
+  if (value.startsWith('/') && !value.startsWith('//')) return value;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function isVisible(node: HTMLElement | null): node is HTMLElement {
+  return Boolean(node && node.isConnected && node.getClientRects().length > 0);
+}
+
+/**
+ * Make everything outside the dialog inert while the modal panel is open, and
+ * return a function that restores exactly what was changed.
+ */
+function inertOutside(host: HTMLElement): () => void {
+  const changed: HTMLElement[] = [];
+  let node: HTMLElement | null = host;
+  while (node && node !== document.body) {
+    const parent: HTMLElement | null = node.parentElement;
+    if (!parent) break;
+    for (const sibling of Array.from(parent.children)) {
+      if (sibling === node || !(sibling instanceof HTMLElement)) continue;
+      if (sibling.tagName === 'SCRIPT' || sibling.tagName === 'STYLE' || sibling.inert) continue;
+      sibling.inert = true;
+      changed.push(sibling);
+    }
+    node = parent;
+  }
+  return () => {
+    for (const item of changed) item.inert = false;
+  };
 }
 
 function formatTime(value: string, locale: Locale) {
@@ -381,7 +498,19 @@ export function PublicPlatformAssistant() {
   const [copiedId, setCopiedId] = React.useState('');
   const [contextualPrompts, setContextualPrompts] = React.useState<string[]>([]);
   const [contextName, setContextName] = React.useState('platform');
+  const [failure, setFailure] = React.useState<Failure | null>(null);
+  const [announcement, setAnnouncement] = React.useState<Announcement>('');
+  const [showJump, setShowJump] = React.useState(false);
+  /** Whether the reader is at the end of the history (auto-follow allowed). */
+  const [following, setFollowing] = React.useState(true);
+  const [offeredDraft, setOfferedDraft] = React.useState<string | null>(null);
   const panelRef = React.useRef<HTMLElement>(null);
+  const hostRef = React.useRef<HTMLDivElement>(null);
+  const openerRef = React.useRef<HTMLElement | null>(null);
+  const inputRef = React.useRef('');
+  /** Identity of the current conversation + request; late results of older ones are dropped. */
+  const generationRef = React.useRef(0);
+  const composingRef = React.useRef(false);
   const triggerRef = React.useRef<HTMLButtonElement>(null);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const messagesRef = React.useRef<HTMLDivElement>(null);
@@ -441,18 +570,47 @@ export function PublicPlatformAssistant() {
     }
   }, [locale, messages]);
 
+  inputRef.current = input;
+
+  /**
+   * The single open operation. Every entry point ends here, directly or via the
+   * open mailbox; nothing is ever submitted on open.
+   */
+  const openWith = React.useCallback((intent: PublicGektaOpenIntent) => {
+    if (typeof intent.context === 'string') setContextName(intent.context.slice(0, 80));
+    if (Array.isArray(intent.prompts)) {
+      setContextualPrompts(intent.prompts.filter((prompt) => typeof prompt === 'string').slice(0, 3));
+    }
+    const draft = typeof intent.draft === 'string' ? intent.draft.trim().slice(0, 1_200) : '';
+    if (draft) {
+      const current = inputRef.current.trim();
+      if (!current || current === draft) {
+        setInput(draft);
+        setOfferedDraft(null);
+      } else {
+        // An unsent draft is never replaced silently.
+        setOfferedDraft(draft);
+      }
+    }
+    const active = typeof document === 'undefined' ? null : document.activeElement;
+    openerRef.current = intent.opener ?? (active instanceof HTMLElement && active !== document.body ? active : null);
+    setOpen(true);
+    trackEvent('public_platform_assistant_opened', { source: intent.source, context: intent.context || 'platform' });
+  }, []);
+
+  React.useEffect(() => bindPublicGektaOwner(openWith), [openWith]);
+
+  // Compatibility adapter for the existing window event; it only forwards to
+  // the same open operation and holds no state of its own.
   React.useEffect(() => {
     const handleContext = (event: Event) => {
       const detail = (event as CustomEvent<ContextPayload>).detail;
       if (!detail || !Array.isArray(detail.prompts)) return;
-      setContextName(typeof detail.context === 'string' ? detail.context : 'platform');
-      setContextualPrompts(detail.prompts.filter((prompt) => typeof prompt === 'string').slice(0, 3));
-      setOpen(true);
-      trackEvent('contextual_ai_prompt_opened', { context: detail.context || 'platform', source: 'public_contact_dock' });
+      openWith({ source: 'public_context_event', context: typeof detail.context === 'string' ? detail.context : 'platform', prompts: detail.prompts });
     };
     window.addEventListener('pc:public-assistant-context', handleContext);
     return () => window.removeEventListener('pc:public-assistant-context', handleContext);
-  }, []);
+  }, [openWith]);
 
   React.useEffect(() => {
     if (!open || catalog) return;
@@ -470,9 +628,20 @@ export function PublicPlatformAssistant() {
   }, [catalog, locale, open]);
 
   React.useEffect(() => {
-    if (!stickToBottomRef.current) return;
+    if (!stickToBottomRef.current) {
+      // The reader is reading earlier messages: do not take the position away.
+      if (messages.length) setShowJump(true);
+      return;
+    }
     messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight, behavior: sending ? 'auto' : 'smooth' });
   }, [messages, sending]);
+
+  const jumpToLatest = () => {
+    stickToBottomRef.current = true;
+    setFollowing(true);
+    setShowJump(false);
+    messagesRef.current?.scrollTo({ top: messagesRef.current.scrollHeight, behavior: 'smooth' });
+  };
 
   React.useEffect(() => {
     const textarea = textareaRef.current;
@@ -504,13 +673,33 @@ export function PublicPlatformAssistant() {
       }
     };
     document.addEventListener('keydown', onKeyDown);
-    const timer = window.setTimeout(() => textareaRef.current?.focus(), 60);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [fullscreen, open]);
+
+  // Focus on open, modal background, and focus return on close. Runs per open,
+  // not per fullscreen toggle.
+  React.useEffect(() => {
+    if (!open) return;
+    const restoreInert = hostRef.current ? inertOutside(hostRef.current) : () => undefined;
+    // On a narrow/touch screen focusing the textarea would raise the keyboard
+    // over the history; the dialog itself receives focus there instead.
+    const touchFirst = window.matchMedia?.('(max-width: 720px), (pointer: coarse)').matches === true;
+    const timer = window.setTimeout(() => {
+      if (touchFirst) panelRef.current?.focus({ preventScroll: true });
+      else textareaRef.current?.focus();
+    }, 60);
     return () => {
       window.clearTimeout(timer);
-      document.removeEventListener('keydown', onKeyDown);
-      window.setTimeout(() => triggerRef.current?.focus(), 0);
+      restoreInert();
+      const opener = openerRef.current;
+      window.setTimeout(() => {
+        // An opener inside a collapsed menu returns focus to that menu.
+        const summary = opener?.closest('details')?.querySelector<HTMLElement>(':scope > summary') ?? null;
+        const target = isVisible(opener) ? opener : summary;
+        if (isVisible(target)) target.focus({ preventScroll: true });
+      }, 0);
     };
-  }, [fullscreen, open]);
+  }, [open]);
 
   const close = () => {
     setFullscreen(false);
@@ -518,7 +707,11 @@ export function PublicPlatformAssistant() {
   };
 
   const reset = () => {
-    if (messages.length > 2 && !window.confirm(ui.resetConfirm)) return;
+    // A new conversation is explicit. An unsent draft or a real conversation is
+    // never discarded without confirmation; Cancel leaves both untouched.
+    if (input.trim() && !window.confirm(ui.newChatDraftConfirm)) return;
+    if (!input.trim() && messages.length > 2 && !window.confirm(ui.resetConfirm)) return;
+    generationRef.current += 1;
     const controller = abortRef.current;
     abortRef.current = null;
     sendingRef.current = false;
@@ -527,6 +720,9 @@ export function PublicPlatformAssistant() {
     setMessages([]);
     setInput('');
     setError('');
+    setFailure(null);
+    setOfferedDraft(null);
+    setShowJump(false);
     setSending(false);
     setCopiedId('');
     window.sessionStorage.removeItem(sessionKey(locale));
@@ -548,16 +744,26 @@ export function PublicPlatformAssistant() {
     .slice(-12)
     .map((message) => ({ role: message.role, text: message.text.slice(0, 2_000) }));
 
+  type StreamResult = 'answered' | 'fallback' | 'handled' | 'interrupted' | { failure: Failure };
+
   const streamAnswer = async (
     question: string,
     history: HistoryTurn[],
     controller: AbortController,
-  ): Promise<'answered' | 'fallback' | 'handled'> => {
+    generation: number,
+  ): Promise<StreamResult> => {
     const id = messageId('assistant');
-    let opened = false;
+    // Last text the reader actually saw. The parser blanks text when it seals
+    // an unfinished stream; the component keeps it, marked as interrupted.
+    let lastVisibleText = '';
+    const current = () => generationRef.current === generation;
 
     const paint = (snapshot: GatewayStreamSnapshot) => {
+      if (!current()) return;
       const assessment = parseAssessment(snapshot.assessment);
+      const text = sanitizeDisplayText(snapshot.text);
+      if (snapshot.status === 'streaming') lastVisibleText = text;
+      else if (!text) return;
       const stream: StreamedAnswer = {
         status: snapshot.status,
         refusal: snapshot.refusal,
@@ -569,23 +775,38 @@ export function PublicPlatformAssistant() {
         modelIdentity: assessment.modelIdentity || snapshot.modelIdentity,
         assessment,
       };
-      setMessages((current) => {
-        const next = opened ? current.filter((message) => message.id !== id) : current;
-        opened = true;
-        return [...next, {
-          id,
-          role: 'assistant',
-          text: sanitizeDisplayText(snapshot.text),
-          stream,
-          origin: assessment.source,
-          createdAt: new Date().toISOString(),
-        }];
-      });
+      // Always replace by id: the updater runs later than this callback, so a
+      // flag set inside it cannot tell the next step whether a row exists.
+      setMessages((items) => [...items.filter((message) => message.id !== id), {
+        id,
+        role: 'assistant',
+        text,
+        stream,
+        origin: assessment.source,
+        createdAt: new Date().toISOString(),
+      }]);
     };
 
     const dropProvisional = () => {
-      if (opened) setMessages((current) => current.filter((message) => message.id !== id));
-      opened = false;
+      if (current()) setMessages((items) => items.filter((message) => message.id !== id));
+    };
+
+    const keepPartial = (refusal: GatewayRefusal, partial: string, assessment: StreamAssessment) => {
+      setMessages((items) => [...items.filter((message) => message.id !== id), {
+        id,
+        role: 'assistant',
+        text: partial,
+        origin: assessment.source,
+        createdAt: new Date().toISOString(),
+        interrupted: refusal !== 'CANCELLED',
+        stream: {
+          status: 'refused',
+          refusal,
+          citations: [],
+          modelIdentity: null,
+          assessment,
+        },
+      }]);
     };
 
     let response: Response;
@@ -597,11 +818,22 @@ export function PublicPlatformAssistant() {
         signal: controller.signal,
         body: JSON.stringify({ message: question, locale, context: contextName, history }),
       });
-    } catch {
-      return 'fallback';
+    } catch (reason) {
+      if (controller.signal.aborted) return 'handled';
+      if (reason instanceof DOMException && reason.name === 'AbortError') return 'handled';
+      return { failure: typeof navigator !== 'undefined' && navigator.onLine === false ? 'offline' : 'unknown' };
+    }
+
+    // Transport status is reported as what it is. None of these is retried
+    // automatically; the reader decides.
+    if (!response.ok) {
+      if (response.status === 429) return { failure: 'rate_limited' };
+      if (response.status >= 500) return { failure: 'server_error' };
+      return { failure: 'unknown' };
     }
 
     const snapshot = await readGatewayStream(response, { mode: 'public', onSnapshot: paint, signal: controller.signal });
+    if (!current()) return 'handled';
 
     if (snapshot.status === 'answered') {
       trackEvent('public_platform_assistant_stream_answer', {
@@ -612,74 +844,60 @@ export function PublicPlatformAssistant() {
       return 'answered';
     }
 
-    // Stopping keeps what the reader already saw.
-    //
-    // Cancellation used to be handled like every other non-answer: drop the
-    // provisional message and return. But a reader who presses Stop has already
-    // read the text on screen, and erasing it makes Stop look like a failure
-    // that lost the answer rather than a deliberate halt. Text that arrived is
-    // text the model produced; only its continuation was cancelled. It is left
-    // in place, marked `refused` so nothing downstream mistakes a halted answer
-    // for a complete one, and so the streaming indicator ends.
+    // Stopping keeps what the reader already saw, marked as not complete.
     if (snapshot.refusal === 'CANCELLED') {
-      const partial = sanitizeDisplayText(snapshot.text);
+      const partial = sanitizeDisplayText(snapshot.text) || lastVisibleText;
       if (!partial) {
         dropProvisional();
         return 'handled';
       }
-      setMessages((current) => {
-        const next = opened ? current.filter((message) => message.id !== id) : current;
-        opened = true;
-        return [...next, {
-          id,
-          role: 'assistant',
-          text: partial,
-          origin: parseAssessment(snapshot.assessment).source,
-          createdAt: new Date().toISOString(),
-          stream: {
-            status: 'refused',
-            refusal: 'CANCELLED',
-            citations: [],
-            modelIdentity: null,
-            assessment: parseAssessment(snapshot.assessment),
-          },
-        }];
-      });
+      keepPartial('CANCELLED', partial, parseAssessment(snapshot.assessment));
       return 'handled';
     }
 
-    dropProvisional();
-    if (
-      snapshot.refusal === 'FEATURE_DISABLED'
-      || snapshot.refusal === 'MODEL_NOT_ADMITTED'
-      || snapshot.refusal === 'UPSTREAM_ERROR'
-      || snapshot.refusal === null
-    ) {
+    // The gateway is switched off or has no admitted model: the stream carried
+    // no generation at all, and the public knowledge answer is the designed path.
+    if (snapshot.refusal === 'FEATURE_DISABLED' || snapshot.refusal === 'MODEL_NOT_ADMITTED') {
+      dropProvisional();
       return 'fallback';
     }
 
-    setMessages((current) => [...current, {
+    // EOF without `done`, a network break, a timeout or a malformed frame: this
+    // is an interruption, never a success, and it is not silently re-requested.
+    if (snapshot.refusal === 'UPSTREAM_ERROR' || snapshot.refusal === null) {
+      if (lastVisibleText) {
+        keepPartial('UPSTREAM_ERROR', lastVisibleText, parseAssessment(snapshot.assessment));
+        return 'interrupted';
+      }
+      dropProvisional();
+    } else {
+      dropProvisional();
+    }
+
+    setMessages((items) => [...items, {
       id,
       role: 'assistant',
-      text: refusalCopy(locale, snapshot.refusal),
+      text: refusalCopy(locale, snapshot.refusal ?? 'UPSTREAM_ERROR'),
       origin: 'refusal',
       createdAt: new Date().toISOString(),
+      interrupted: snapshot.refusal === 'UPSTREAM_ERROR' || snapshot.refusal === null,
       stream: {
         status: 'refused',
-        refusal: snapshot.refusal,
+        refusal: snapshot.refusal ?? 'UPSTREAM_ERROR',
         citations: [],
         modelIdentity: snapshot.modelIdentity,
         assessment: { ...defaultAssessment(), source: 'refusal' },
       },
     }]);
-    trackEvent('public_platform_assistant_stream_refusal', { refusal: snapshot.refusal, locale });
-    return 'handled';
+    trackEvent('public_platform_assistant_stream_refusal', { refusal: snapshot.refusal ?? 'UPSTREAM_ERROR', locale });
+    return snapshot.refusal === 'UPSTREAM_ERROR' || snapshot.refusal === null ? 'interrupted' : 'handled';
   };
 
   const knowledgeFallback = async (
     question: string,
     history: readonly HistoryTurn[],
     controller: AbortController,
+    generation: number,
   ): Promise<boolean> => {
     const response = await fetch('/api/public-platform-assistant', {
       method: 'POST',
@@ -689,6 +907,7 @@ export function PublicPlatformAssistant() {
       body: JSON.stringify({ message: question, locale, context: contextName, history }),
     });
     const payload = await response.json().catch(() => null) as Answer | null;
+    if (generationRef.current !== generation) return true;
     if (!response.ok || !payload || payload.dataMode !== 'public_knowledge' || typeof payload.answer !== 'string') {
       return false;
     }
@@ -708,28 +927,46 @@ export function PublicPlatformAssistant() {
    * Run one generation for a question that is already on screen.
    *
    * Shared by asking and regenerating so the two cannot drift: the only thing
-   * that differs between them is whether a user turn is added first.
+   * that differs between them is whether a user turn is added first. The caller
+   * has already taken the synchronous submit lock.
    */
   const runGeneration = async (question: string, history: HistoryTurn[]) => {
+    generationRef.current += 1;
+    const generation = generationRef.current;
     setError('');
+    setFailure(null);
+    setAnnouncement('sending');
     sendingRef.current = true;
     setSending(true);
     const controller = new AbortController();
     abortRef.current = controller;
 
     try {
-      const result = await streamAnswer(question, history, controller);
-      if (result === 'answered' || result === 'handled') return;
-      if (!await knowledgeFallback(question, history, controller)) throw new Error('knowledge_fallback_failed');
+      const result = await streamAnswer(question, history, controller, generation);
+      if (generationRef.current !== generation) return;
+      if (result === 'answered') { setAnnouncement('complete'); return; }
+      if (result === 'interrupted') { setAnnouncement('interrupted'); return; }
+      if (result === 'handled') { setAnnouncement(controller.signal.aborted ? 'interrupted' : 'complete'); return; }
+      if (typeof result === 'object') {
+        setFailure(result.failure);
+        setError(ui.failures[result.failure]);
+        setAnnouncement('error');
+        return;
+      }
+      if (!await knowledgeFallback(question, history, controller, generation)) throw new Error('knowledge_fallback_failed');
+      if (generationRef.current === generation) setAnnouncement('complete');
     } catch (reason) {
       if (reason instanceof DOMException && reason.name === 'AbortError') return;
+      if (generationRef.current !== generation) return;
+      setFailure('unknown');
       setError(ui.error);
+      setAnnouncement('error');
     } finally {
       if (abortRef.current === controller) {
         abortRef.current = null;
         sendingRef.current = false;
         setSending(false);
-        window.setTimeout(() => textareaRef.current?.focus(), 0);
+        window.setTimeout(() => textareaRef.current?.focus({ preventScroll: true }), 0);
       }
     }
   };
@@ -737,6 +974,9 @@ export function PublicPlatformAssistant() {
   const submit = async (value: string) => {
     const normalized = value.replace(/\s+/gu, ' ').trim().slice(0, 1_200);
     if (!normalized || sendingRef.current) return;
+    // Synchronous lock before the first await: a second Enter or click in the
+    // same tick sees it and sends nothing.
+    sendingRef.current = true;
     const history = freshConversationRef.current ? [] : historyFrom(messages);
     freshConversationRef.current = false;
     const userMessage: Message = {
@@ -746,10 +986,25 @@ export function PublicPlatformAssistant() {
       createdAt: new Date().toISOString(),
     };
     stickToBottomRef.current = true;
+    setFollowing(true);
+    setShowJump(false);
+    setOfferedDraft(null);
     setMessages((current) => [...current, userMessage]);
     setInput('');
+    inputRef.current = '';
     trackEvent('public_platform_assistant_question', { length: normalized.length, locale, context: contextName });
     await runGeneration(normalized, history);
+  };
+
+  /** A prompt card fills the editable composer. It is never sent by itself. */
+  const draftSuggestion = (text: string) => {
+    const draft = text.trim().slice(0, 1_200);
+    if (!draft) return;
+    const current = inputRef.current.trim();
+    if (current && current !== draft) setOfferedDraft(draft);
+    else setInput(draft);
+    trackEvent('contextual_ai_prompt_opened', { context: contextName, action: 'drafted' });
+    window.setTimeout(() => textareaRef.current?.focus({ preventScroll: true }), 0);
   };
 
   const copyMessage = async (message: Message) => {
@@ -801,6 +1056,8 @@ export function PublicPlatformAssistant() {
     const history = historyFrom(messages.slice(0, userIndex));
 
     stickToBottomRef.current = true;
+    setFollowing(true);
+    setShowJump(false);
     setMessages((current) => current.slice(0, index));
     freshConversationRef.current = false;
     trackEvent('public_platform_assistant_retry', { length: question.length, locale, context: contextName });
@@ -822,7 +1079,7 @@ export function PublicPlatformAssistant() {
   } : undefined;
 
   return (
-    <div className='pc-public-assistant' data-public-platform-assistant='true'>
+    <div ref={hostRef} className='pc-public-assistant' data-public-platform-assistant='true'>
       <button
         ref={triggerRef}
         type='button'
@@ -830,11 +1087,7 @@ export function PublicPlatformAssistant() {
         aria-haspopup='dialog'
         aria-expanded={open}
         aria-controls='pc-public-assistant-panel'
-        onClick={() => {
-          window.dispatchEvent(new CustomEvent('pc:public-assistant-context-request'));
-          setOpen(true);
-          trackEvent('public_platform_assistant_opened', { source: 'home_shortcut' });
-        }}
+        onClick={() => openWith({ source: 'home_shortcut', opener: triggerRef.current })}
       >
         <span className='pc-public-assistant-shortcut-icon' aria-hidden='true'><Sparkles size={20} /></span>
         <span className='pc-public-assistant-shortcut-copy'><strong>{ui.open}</strong><small>{ui.shortcutHint}</small></span>
@@ -849,6 +1102,7 @@ export function PublicPlatformAssistant() {
             role='dialog'
             aria-modal='true'
             aria-labelledby='pc-public-assistant-title'
+            tabIndex={-1}
             className='pc-public-assistant-panel'
             data-knowledge-version={catalog?.knowledgeVersion || 'loading'}
             data-context={contextName}
@@ -884,9 +1138,13 @@ export function PublicPlatformAssistant() {
               ref={messagesRef}
               className='pc-public-assistant-messages'
               aria-busy={sending}
+              data-follow={following ? 'true' : 'false'}
               onScroll={(event) => {
                 const node = event.currentTarget;
-                stickToBottomRef.current = node.scrollHeight - node.scrollTop - node.clientHeight < 80;
+                const nearEnd = node.scrollHeight - node.scrollTop - node.clientHeight < 80;
+                stickToBottomRef.current = nearEnd;
+                setFollowing(nearEnd);
+                if (nearEnd) setShowJump(false);
               }}
             >
               {!hasConversation ? (
@@ -901,10 +1159,8 @@ export function PublicPlatformAssistant() {
                         <button
                           key={prompt}
                           type='button'
-                          onClick={() => {
-                            trackEvent('contextual_ai_prompt_opened', { context: contextName, action: 'selected' });
-                            void submit(prompt);
-                          }}
+                          data-gekta-prompt-card='draft'
+                          onClick={() => draftSuggestion(prompt)}
                         >
                           {prompt}
                         </button>
@@ -924,6 +1180,7 @@ export function PublicPlatformAssistant() {
                     className='pc-public-assistant-message'
                     data-role={message.role}
                     data-stream-status={message.stream?.status}
+                    data-interrupted={message.interrupted ? 'true' : undefined}
                   >
                     {message.text || message.answer?.title ? (
                       <div className='pc-public-assistant-bubble'>
@@ -933,7 +1190,7 @@ export function PublicPlatformAssistant() {
                     ) : null}
 
                     {message.stream?.status === 'streaming' ? (
-                      <p className='pc-public-assistant-stream-provisional' role='status' aria-live='polite'>
+                      <p className='pc-public-assistant-stream-provisional'>
                         <Loader2 size={15} aria-hidden='true' />
                         {ui.processing}
                       </p>
@@ -946,14 +1203,18 @@ export function PublicPlatformAssistant() {
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                           {assessment?.currentDataRequired ? <span style={badgeStyle}>{ui.currentLimited}</span> : null}
                           {assessment?.truncated ? <span style={badgeStyle}>{ui.truncated}</span> : null}
+                          {message.interrupted ? <span style={badgeStyle} data-gekta-interrupted='true'>{ui.interrupted}</span> : null}
                         </div>
 
                         {sources.length ? (
                           <div className='pc-public-assistant-source-list' role='navigation' aria-label={ui.sources}>
                             {sources.map((source) => {
-                              const href = 'uri' in source ? source.uri : source.href;
+                              const raw = 'uri' in source ? source.uri : source.href;
                               const label = 'title' in source ? source.title : source.label;
-                              return <a key={`${href}-${label}`} href={href}>{label}</a>;
+                              const href = safeHref(raw);
+                              return href
+                                ? <a key={`${raw}-${label}`} href={href} rel='noopener noreferrer'>{label}</a>
+                                : <span key={`${raw}-${label}`}>{label}</span>;
                             })}
                           </div>
                         ) : null}
@@ -977,7 +1238,7 @@ export function PublicPlatformAssistant() {
                         {message.answer?.suggestions.length ? (
                           <div className='pc-public-assistant-followups'>
                             {message.answer.suggestions.slice(0, 3).map((suggestion) => (
-                              <button key={suggestion} type='button' onClick={() => void submit(suggestion)}>{suggestion}</button>
+                              <button key={suggestion} type='button' data-gekta-prompt-card='draft' onClick={() => draftSuggestion(suggestion)}>{suggestion}</button>
                             ))}
                           </div>
                         ) : null}
@@ -1003,13 +1264,42 @@ export function PublicPlatformAssistant() {
               })}
 
               {sending && !hasStreamingMessage ? (
-                <div className='pc-public-assistant-processing' role='status' aria-live='polite'>
+                <div className='pc-public-assistant-processing'>
                   <Loader2 size={17} aria-hidden='true' /><span>{ui.processing}</span>
                 </div>
               ) : null}
             </div>
 
-            {error ? <div className='pc-public-assistant-error' role='alert'>{error}</div> : null}
+            {showJump ? (
+              <button type='button' className='pc-public-assistant-jump' data-gekta-jump-latest='true' onClick={jumpToLatest}>
+                {ui.jumpToLatest}
+              </button>
+            ) : null}
+
+            {error ? (
+              <div className='pc-public-assistant-error' role='alert' data-gekta-failure={failure ?? 'unknown'}>
+                <span>{error}</span>
+                {!sending && messages.some((message) => message.role === 'user') ? (
+                  <button type='button' className='pc-public-assistant-error-retry' onClick={() => void regenerateAnswer(messages.length)}>
+                    {ui.retry}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+
+            {offeredDraft ? (
+              <div className='pc-public-assistant-draft-offer' data-gekta-draft-offer='true'>
+                <p>{ui.draftKept} <q>{offeredDraft}</q></p>
+                <div>
+                  <button type='button' onClick={() => { setInput(offeredDraft); setOfferedDraft(null); textareaRef.current?.focus({ preventScroll: true }); }}>{ui.draftReplace}</button>
+                  <button type='button' onClick={() => { setOfferedDraft(null); textareaRef.current?.focus({ preventScroll: true }); }}>{ui.draftKeep}</button>
+                </div>
+              </div>
+            ) : null}
+
+            <p style={SR_ONLY} role='status' aria-live='polite' aria-atomic='true' data-gekta-announcer='true'>
+              {announcement ? ui.announce[announcement] : ''}
+            </p>
 
             <form className='pc-public-assistant-composer' onSubmit={(event) => { event.preventDefault(); void submit(input); }}>
               <div className='pc-public-assistant-composer-shell'>
@@ -1017,7 +1307,12 @@ export function PublicPlatformAssistant() {
                   ref={textareaRef}
                   value={input}
                   onChange={(event) => setInput(event.target.value.slice(0, 1_200))}
+                  onCompositionStart={() => { composingRef.current = true; }}
+                  onCompositionEnd={() => { composingRef.current = false; }}
                   onKeyDown={(event) => {
+                    // Enter that commits an IME composition (Chinese, Japanese,
+                    // Korean input) is not a send. Safari reports it as keyCode 229.
+                    if (event.nativeEvent.isComposing || composingRef.current || event.keyCode === 229) return;
                     if (event.key === 'Enter' && !event.shiftKey) {
                       event.preventDefault();
                       void submit(input);

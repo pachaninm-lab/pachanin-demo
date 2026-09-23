@@ -219,6 +219,8 @@ function alignLatestAssistantAnswer(panel: HTMLElement) {
     const answers = scrollHost.querySelectorAll<HTMLElement>(".pc-public-assistant-message[data-role='assistant']");
     const latest = answers.item(answers.length - 1);
     if (!latest || latest === latestAligned || !latest.querySelector('.pc-public-assistant-answer')) return;
+    // The reader scrolled up to read earlier messages: keep their position.
+    if (scrollHost.dataset.follow === 'false') return;
     latestAligned = latest;
     window.clearTimeout(timer);
     timer = window.setTimeout(() => {

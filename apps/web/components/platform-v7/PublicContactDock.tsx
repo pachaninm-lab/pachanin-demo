@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { MessageCircle, Phone, Sparkles } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics/track';
+import { requestPublicGektaOpen } from '@/lib/platform-v7/public-gekta-open';
 
 type Locale = 'ru' | 'en' | 'zh';
 type Surface = 'assistant' | 'support';
@@ -163,6 +164,12 @@ export function PublicContactDock({ assistantContext = 'public', publicMode = 'f
       if (!workspace) return;
       workspace.scrollIntoView({ block: 'start', behavior: 'smooth' });
       window.requestAnimationFrame(() => workspace.focus({ preventScroll: true }));
+      return;
+    }
+    if (surface === 'assistant' && assistantContext === 'public') {
+      // The public assistant has one open operation; no hidden-button click.
+      returnFocusRef.current = surface;
+      requestPublicGektaOpen({ source: 'public_contact_dock', opener: assistantButtonRef.current });
       return;
     }
     const selector = surface === 'assistant' ? assistantTriggerSelector : '.p7-support-chat-button';
