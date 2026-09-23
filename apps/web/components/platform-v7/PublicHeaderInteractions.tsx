@@ -107,7 +107,7 @@ export function PublicHeaderInteractions({ locale }: { locale: 'ru' | 'en' | 'zh
   // Recovery pages render the same header without a mobile menu. Keep their
   // unsaved-form navigation guard independent of menu enhancement.
   useEffect(() => {
-    if (window.location.pathname.replace(/\\/$/, '') !== '/platform-v7/forgot-password') return;
+    if (window.location.pathname.replace(/\/$/, '') !== '/platform-v7/forgot-password') return;
     const form = document.querySelector<HTMLFormElement>('.pc-recovery-page form.pc-recovery-card');
     if (!form) return;
     let dirty = false;
