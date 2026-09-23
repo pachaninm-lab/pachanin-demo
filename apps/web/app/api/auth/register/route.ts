@@ -183,7 +183,7 @@ export async function POST(request: Request) {
 
     const delivery = payload.emailDelivery;
     if (!delivery?.email || !delivery.token || !payload.statusToken) {
-      console.info('registration_delivery_unconfirmed', JSON.stringify({
+      console.info('registration_delivery_contract_invalid', JSON.stringify({
         correlationId,
         registrationApplicationRef: payload.applicationId,
         accountHash: accountHash(email),
