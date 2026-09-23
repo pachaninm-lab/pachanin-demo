@@ -5,7 +5,7 @@
   "approvedBy": "owner-public-ux-repair-v2.0-2026-09-23",
   "purpose": "UX-06/UX-38 T09/T24 verification-first: prove current About CTA and Trust-card geometry at real 200% text enlargement before any runtime repair.",
   "ownerSpecification": "Прозрачная Цена — инженерное ТЗ быстрого UX-ремонта v2.0, 23.09.2026, sections 4.1-4.4, UX-06/UX-38 and T09/T24.",
-  "coordination": "Team Hub #5469 claim 5786260598. Test-only exact scope until browser evidence proves a runtime defect. Candidate b2ae7ae6 reproduced UX-38: Trust first card expanded to 453.42 CSS px on a 320px RU viewport and 387.98px on 320px EN under 200% text; About CTA cases passed. Runtime CSS admission is therefore evidence-driven. CORRECTION: the first 200% rule targeted both li and its child span, compounding percentage font sizing to 400% for list text. That evidence is invalid for UX-38. Runtime CSS repair is reverted; corrected leaf-text-only 200% acceptance must decide whether a current defect exists. Corrected 200% exact-head evidence on 5527733c leaves one RU/320 failure only: Decision description scrollWidth 226 vs clientWidth 224. All other Trust/locale/width cases and About CTA pass. Runtime admission is limited to +2px content width via 14px padding-inline at <=360px; no word breaking or overflow hiding.",
+  "coordination": "Team Hub #5469 claim 5786260598. Test-only exact scope until browser evidence proves a runtime defect. Candidate b2ae7ae6 reproduced UX-38: Trust first card expanded to 453.42 CSS px on a 320px RU viewport and 387.98px on 320px EN under 200% text; About CTA cases passed. Runtime CSS admission is therefore evidence-driven. CORRECTION: the first 200% rule targeted both li and its child span, compounding percentage font sizing to 400% for list text. That evidence is invalid for UX-38. Runtime CSS repair is reverted; corrected leaf-text-only 200% acceptance must decide whether a current defect exists. Corrected 200% exact-head evidence on 5527733c leaves one RU/320 failure only: Decision description scrollWidth 226 vs clientWidth 224. All other Trust/locale/width cases and About CTA pass. Runtime admission is limited to +2px content width via 14px padding-inline at <=360px; no word breaking or overflow hiding. Exact head 6e7e44de still measured scrollWidth 226 vs clientWidth 224 for RU/320 at 200% text; 12px inline padding admitted for a further 4px of text space. Canonical Visual also encountered a mobile auth smoke failure, which remains open for independent root-cause check.",
   "allowedPaths": [
     "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
     "docs/platform-v7/autopilot/scopes/public-about-trust-geometry-20260923.json",
@@ -18,7 +18,7 @@
     "The same checks are repeated after explicit 200-percent text enlargement to exercise reflow pressure.",
     "Whole-document horizontal overflow remains at most one CSS pixel.",
     "No acceptance threshold, retry, screenshot authority, application code, API, auth or production behavior changes.",
-    "At <=360px Trust pillar horizontal padding may reduce from 15px to 14px to resolve the measured 2px RU/200%-text overflow while preserving normal word wrapping and typography."
+    "At <=360px Trust pillar horizontal padding may reduce from 15px to 12px to resolve the measured 2px RU/200%-text overflow while preserving normal word wrapping and typography."
   ],
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0
