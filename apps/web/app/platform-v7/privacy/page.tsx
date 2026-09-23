@@ -70,7 +70,7 @@ export default async function PrivacyPage() {
   const locale = await getLocale();
   const language = locale.startsWith('zh') ? 'zh' : locale.startsWith('en') ? 'en' : 'ru';
   return (
-    <div lang='ru' data-public-legal-original='ru' style={{ display: 'grid', gap: 16, maxWidth: 1040, margin: '0 auto', overflowWrap: 'anywhere' }}>
+    <div lang='ru' data-public-legal-original='ru' style={{ display: 'grid', gap: 16, maxWidth: 1040, margin: '0 auto', overflowWrap: 'normal', hyphens: 'auto' }}>
       {language !== 'ru' ? <p lang={language} role='note' style={{ margin: 0, padding: '12px 16px', borderRadius: 12, background: '#F8FAFB', color: '#334155', lineHeight: 1.5 }}>
         {language === 'zh' ? '本页法律说明目前提供俄语原文。' : 'This legal information is currently available in Russian.'}
       </p> : null}
