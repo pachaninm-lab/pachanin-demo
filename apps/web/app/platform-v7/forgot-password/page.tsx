@@ -101,10 +101,6 @@ function localeFrom(value: string | undefined): Locale {
   return value === 'en' || value === 'zh' ? value : 'ru';
 }
 
-function nextLocale(locale: Locale): Locale {
-  return locale === 'ru' ? 'en' : locale === 'en' ? 'zh' : 'ru';
-}
-
 export default async function ForgotPasswordPage({
   searchParams,
 }: {
@@ -118,8 +114,6 @@ export default async function ForgotPasswordPage({
   if (token) {
     const locale = localeFrom(langValue);
     const copy = RESET_COPY[locale];
-    const next = nextLocale(locale);
-    const localeQuery = new URLSearchParams({ lang: next, token });
 
     return (
       <main className='pc-v7-public-entry pc-recovery-page'>
