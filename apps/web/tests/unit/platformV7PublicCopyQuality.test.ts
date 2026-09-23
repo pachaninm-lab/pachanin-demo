@@ -147,16 +147,16 @@ describe('platform-v7 public copy quality', () => {
     const contactPage = read('apps/web/app/platform-v7/contact/page.tsx');
     const contactLayout = read('apps/web/app/platform-v7/contact/layout.tsx');
     const contactHeader = read('apps/web/components/platform-v7/ContactFixedHeader.tsx');
+    const canonicalHeader = read('apps/web/components/platform-v7/PublicCanonicalPrimitives.tsx');
 
-    expect(about).toContain('PublicSiteHeader');
-    expect(about).toContain('p7-about-register');
-    expect(about).toContain('/platform-v7/register');
-    expect(about).toContain('Одна система для всей агросделки');
-    expect(about).toContain("brandHome: 'Прозрачная Цена — на главную'");
-    expect(about).toContain("journey: ['Товар и условия', 'Рынок и контрагент'");
-    expect(about).toContain("className='p7-about-journey'");
-    expect(about).toContain("href: '/platform-v7/ai-in-action'");
-    expect(about).toContain('href={`/platform-v7/trust${lang}`}');
+    expect(about).toContain('CanonicalPublicHeader');
+    expect(about).toContain("activePath='/platform-v7/about'");
+    expect(about).toContain('href={`/platform-v7/register?lang=${locale}`}');
+    expect(about).toContain("application:'Подайте заявку на подключение организации.");
+    expect(about).toContain("application:'Apply to connect your organisation.");
+    expect(about).toContain("application:'请提交机构接入申请。");
+    expect(about).toContain('href={`/platform-v7/how-it-works?lang=${locale}`}');
+    expect(about).toContain("className='pc-cp-trust-grid'");
     expect(about).not.toContain('ABOUT_HEADER_CSS');
     expect(about).not.toContain('Что подтверждено, а что требует подключения');
     expect(about).not.toContain('статусы подключений');
@@ -171,16 +171,14 @@ describe('platform-v7 public copy quality', () => {
     expect(contact).not.toContain("className='p7-contact-header'");
     expect(contact).toContain("id='main-content' tabIndex={-1}");
     expect(contact).toContain("action='/api/platform-v7/inquiries'");
-    expect(contact).toContain('Отправка обращения не открывает сделки, документы и закрытые разделы платформы.');
+    expect(contact).toContain('Задайте вопрос о платформе, подключении организации или сотрудничестве.');
     expect(contact).toContain('Обращение не отправлено');
     expect(contact).toContain("href='tel:+79162778989'");
     expect(contactPage).toContain('failed={hasDeliveryError(params)}');
     expect(contactLayout).toContain('<ContactFixedHeader locale={locale} />');
     expect(contactHeader).toContain("href='#main-content'");
-    expect(contactHeader).toContain('p7-contact-register');
-    expect(contactHeader).toContain('const suffix = `?lang=${normalizedLocale}`;');
-    expect(contactHeader).toContain('href={`/platform-v7/register${suffix}`}');
-    expect(contactHeader).toContain('html body .p7-contact-page{padding-top:78px!important}');
+    expect(contactHeader).toContain('<CanonicalPublicHeader locale={lang} />');
+    expect(canonicalHeader).toContain("className='pc-v6-header-cta' href={`/platform-v7/register${suffix}`}");
     expect(contactHeader).not.toContain('useSearchParams');
     expect(contactHeader).not.toContain('.pc-shell-root-v4');
     for (const providerDetail of ['provider_failure', 'smtp_failed', 'resend_failed']) {
@@ -203,26 +201,29 @@ describe('platform-v7 public copy quality', () => {
     expect(story).toContain('Ниже показан вымышленный пример Сделки');
     expect(story).toContain('The section below is a fictional Deal example');
     expect(story).toContain('下面展示的是虚构交易示例');
-    expect(howItWorks).toContain("kicker: 'Как работает Сделка'");
-    expect(howItWorks).toContain('вымышленный пример');
-    expect(home).toContain('const normalState = story.demo.states[0]!;');
+    expect(howItWorks).toContain("e:'Как проходит сделка'");
+    expect(howItWorks).toContain("p:'Семь этапов: кто выполняет задачу");
+    expect(howItWorks).toContain('<CanonicalDealSpine locale={locale} currentIndex={null}/>');
+    expect(home).toContain('<CanonicalDealSpine locale={locale} currentIndex={null} />');
   });
 
   it('exposes distinct protected registration entry points', () => {
     const home = read('apps/web/components/platform-v7/PlatformV7StrategicHome.tsx');
-    expect(home.match(/href=\{registerHref\}/g)).toHaveLength(3);
-    expect(home).toContain("className='pc-v6-header-cta'");
-    expect(home).toContain("className='pc-v6-primary'");
-    expect(home).toContain('const registerHref = `/platform-v7/register?lang=');
-    expect(home).toContain("eventName='registration_open'");
+    expect(home).toContain('const registerBase = `/platform-v7/register?lang=${locale}`;');
+    expect(home).toContain('href={`${registerBase}&intent=sell`}');
+    expect(home).toContain('href={`${registerBase}&intent=buy`}');
+    expect(home).toContain("GROUP_INTENTS = ['sell', 'buy', 'execution', 'finance']");
+    expect(home).toContain('href={`${registerBase}&intent=${GROUP_INTENTS[index]!}`');
+    expect(home).toContain('href={`/platform-v7/register?lang=${locale}`}');
+
   });
 
   it('keeps the public Deal-path exploration secondary to registration', () => {
     const home = read('apps/web/components/platform-v7/PlatformV7StrategicHome.tsx');
-    expect(home).toMatch(/href='#live'\s+className='pc-v6-secondary'/);
-    expect(home).toMatch(/href=\{registerHref\}\s+className='pc-v6-primary'/);
-    expect(home).toContain("href='#live'");
-    expect(home).toContain("href='/downloads/prozrachnaya-tsena-presentation.pdf'");
+    expect(home).toContain("className='pc-cp-button' href={`${registerBase}&intent=sell`}");
+    expect(home).toContain("className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/how-it-works?lang=${locale}`}");
+    expect(home).toContain("className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/contact?lang=${locale}`}");
+
   });
 
   it('keeps protected role navigation understandable', () => {
@@ -265,11 +266,18 @@ describe('owner UX v2 public content truth', () => {
 
   it('keeps public Normal Deviation Dispute explanatory and non-interactive', () => {
     const deal = read('apps/web/app/platform-v7/deal-flow/page.tsx');
-    expect(deal).toContain("role='list'");
-    expect(deal).toContain("className='pc-cp-state-tab'");
-    expect(deal).toContain("role='listitem'");
-    expect(deal).not.toContain("<button className='pc-cp-state-tab'");
-    expect(deal).not.toContain("aria-selected='true'");
-    expect(deal).not.toContain('aria-pressed=');
+    const states = read('apps/web/components/platform-v7/PublicCanonicalPrimitives.tsx');
+    expect(deal).toContain('<CanonicalStateLens');
+    expect(deal).toContain('state={null}');
+    expect(deal).toContain("presentation='explanation'");
+    expect(states).toContain("presentation === 'explanation' ? null : state");
+    expect(states).toContain("<CanonicalStateTabs locale={lang} state={visibleState} />");
+    expect(states).toContain("role='list'");
+    expect(states).toContain("className='pc-cp-state-tab'");
+    expect(states).toContain("role='listitem'");
+    expect(states).toContain("data-active={active ? 'true' : 'false'}");
+    expect(states).not.toContain("<button className='pc-cp-state-tab'");
+    expect(states).not.toContain("aria-selected='true'");
+    expect(states).not.toContain('aria-pressed=');
   });
 });
