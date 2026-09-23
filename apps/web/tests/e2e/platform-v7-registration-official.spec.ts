@@ -84,6 +84,40 @@ test.describe('Platform V7 public registration official UX', () => {
   });
 
 
+
+  const sectionTitles = {
+    ru: ['Формат участия', 'Сведения об организации', 'Заявитель и доступ', 'Подтверждение условий'],
+    en: ['Participation type', 'Organization details', 'Applicant and access', 'Terms and privacy'],
+    zh: ['参与方式', '组织信息', '申请人与访问设置', '条款与个人信息'],
+  } as const;
+  for (const locale of ['ru', 'en', 'zh'] as const) {
+    for (const width of [390, 1280] as const) {
+      test('UX-21 ' + locale + ' ' + width + ': one form keeps four sections and all required fields', async ({ page }, testInfo) => {
+        test.skip(testInfo.project.name !== 'desktop-chromium', 'Focused form sections and reflow evidence in Chromium.');
+        await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+        const response = await page.goto('/platform-v7/register?lang=' + locale, { waitUntil: 'load' });
+        expect(response?.status()).toBe(200);
+        const form = page.locator('form.p0-register-form');
+        await expect(form).toHaveCount(1);
+        const headings = await form.locator('section.p0-register-card h2').allTextContents();
+        expect(headings.map((heading) => heading.replace(/^\\d+\\.\\s*/u, '').trim())).toEqual(sectionTitles[locale]);
+        for (const name of ['workspace', 'orgType', 'orgLegalName', 'orgInn', 'region',
+          'fullName', 'position', 'phone', 'email', 'password', 'confirmPassword',
+          'acceptTerms', 'acceptPrivacy']) {
+          await expect(form.locator('[name="' + name + '"]')).toHaveAttribute('required', '');
+        }
+        for (const name of ['orgKpp', 'orgOgrn']) {
+          await expect(form.locator('[name="' + name + '"]')).not.toHaveAttribute('required', '');
+        }
+        await expectNoHorizontalOverflow(page);
+        await page.screenshot({
+          path: testInfo.outputPath('registration-sections-' + (process.env.GITHUB_SHA || 'local') + '-' + locale + '-' + width + '.png'),
+          fullPage: true, animations: 'disabled',
+        });
+      });
+    }
+  }
+
   for (const locale of ['ru', 'en', 'zh'] as const) {
     test('T08 ' + locale + ': pending POST locks the visible version after snapshot', async ({ page }, testInfo) => {
       test.skip(testInfo.project.name !== 'desktop-chromium', 'Focused registration mutation evidence in Chromium; existing browser matrix remains.');
