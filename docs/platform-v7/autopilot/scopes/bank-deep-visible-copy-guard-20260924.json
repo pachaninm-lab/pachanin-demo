@@ -4,7 +4,7 @@
   "status": "active",
   "issue": 5565,
   "purpose": "Repair stale deep bank/deal visible-copy guard and clarify negative safety copy in RU/EN/ZH without changing payment authority.",
-  "authorityBaseExactMain": "7cd253fccbae3f87a06ff9aa2df27558be884246",
+  "authorityBaseExactMain": "83d84e37447c65133c3d6d9dbec7f4d9d4b8d68b",
   "allowedPaths": [
     "apps/web/app/platform-v7/bank/escrow/page.tsx",
     "apps/web/app/platform-v7/bank/factoring/page.tsx",
