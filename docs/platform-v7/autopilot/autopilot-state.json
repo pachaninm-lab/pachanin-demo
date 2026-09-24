@@ -1815,7 +1815,7 @@
     "product-trusted-guard-reassignment-20260924": {
       "owner": "ACCOUNT_2_PRODUCT",
       "purpose": "Reassign the existing base-routed PC-CROP governance ref to one bounded PRODUCT immutable-scope guard repair; revoke its historical state and W1 workflow edit paths.",
-      "authorityBaseExactMain": "ae944187008b829885497d8343683d2c7ae23c28",
+      "authorityBaseExactMain": "1f0411296b7727fc1a55c49addfd689e2a7f9090",
       "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
       "allowedPaths": [
         "scripts/p7-autopilot-guard.sh",
@@ -1837,7 +1837,7 @@
     "product-source-admission-prerequisite-20260924": {
       "owner": "ACCOUNT_2_PRODUCT",
       "purpose": "Pre-admit one state-only PRODUCT source-scope admission branch after the base-controlled guard repair; implementation paths remain absent.",
-      "authorityBaseExactMain": "fa1eaadbc2264d69c46404606c701ecc5239a11e",
+      "authorityBaseExactMain": "23fb74db351abda78a056467dbe3f4286adaafaf",
       "implementationBranch": "governance/product-bank-fgis-ux-source-admission-20260924",
       "allowedPaths": [
         "docs/platform-v7/autopilot/autopilot-state.json"
