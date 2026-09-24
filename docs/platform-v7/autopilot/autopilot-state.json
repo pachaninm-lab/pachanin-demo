@@ -238,11 +238,9 @@
       "scripts/fixtures/pc-crop-w1-lineage/20260717170000_deal_cross_tenant_participation.sql"
     ],
     "governance/pc-crop-post-registration-progress-scope-4997": [
-      "docs/platform-v7/autopilot/autopilot-state.json",
       "scripts/p7-autopilot-guard.sh",
       "scripts/p7-autopilot-guard.test.mjs",
-      ".github/workflows/platform-v7-autopilot-guard.yml",
-      ".github/workflows/pc-crop-w1-production-acceptance.yml"
+      ".github/workflows/platform-v7-autopilot-guard.yml"
     ],
     "governance/extend-role-eligibility-fns-registry-hardening-5064-v2": [
       "docs/platform-v7/autopilot/scopes/role-eligibility-fns-registry-coverage-authority-5064.json"
@@ -1551,11 +1549,6 @@
       "docs/security/cryptographic-inventory.json",
       "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
     ],
-    "governance/product-immutable-scope-guard-20260924": [
-      "scripts/p7-autopilot-guard.sh",
-      "scripts/p7-autopilot-guard.test.mjs",
-      ".github/workflows/platform-v7-autopilot-guard.yml"
-    ],
     "governance/product-bank-fgis-ux-source-admission-20260924": [
       "docs/platform-v7/autopilot/autopilot-state.json"
     ],
@@ -1842,10 +1835,51 @@
       ],
       "teamHubDependency": "#5477 current-head P1/P2 review findings; CORE server concurrency policy #5580; Team Hub #5469 comments 5816128897 and 5816539865"
     },
+    "product-trusted-guard-reassignment-20260924": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Reassign the existing base-routed PC-CROP governance ref to one bounded PRODUCT immutable-scope guard repair; revoke its historical state and W1 workflow edit paths.",
+      "authorityBaseExactMain": "ae944187008b829885497d8343683d2c7ae23c28",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "requiredTruthBoundaries": [
+        "The reassigned guard PR must use the trusted base's existing immutable workflow and exact three-path state scope; candidate guard code is not privileged authority.",
+        "Admit the bank, FGIS and UX source scopes only in a later state-only PR after the guard is merged and base-controlled.",
+        "The historical post-registration and W1 workflow permissions are revoked for this ref before any PRODUCT guard change."
+      ],
+      "forbiddenAuthority": [
+        "PRODUCT source implementation or external bank/FGIS runtime authority in the guard PR",
+        "historical state/W1 workflow edit authority on the reassigned ref",
+        "CI/security gate weakening"
+      ],
+      "teamHubDependency": "#5590 current-head trusted-bootstrap P1; PRODUCT source PRs #5587, #5588 and #5589"
+    },
+    "product-source-admission-prerequisite-20260924": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Pre-admit one state-only PRODUCT source-scope admission branch after the base-controlled guard repair; implementation paths remain absent.",
+      "authorityBaseExactMain": "fa1eaadbc2264d69c46404606c701ecc5239a11e",
+      "implementationBranch": "governance/product-bank-fgis-ux-source-admission-20260924",
+      "allowedPaths": [
+        "docs/platform-v7/autopilot/autopilot-state.json"
+      ],
+      "requiredTruthBoundaries": [
+        "The accepted guard from the prior step classifies this admission branch immutable and validates its exact state delta from the trusted base.",
+        "Only a later separately reviewed admission may grant the three implementation branches their exact 7/6/4 source paths."
+      ],
+      "forbiddenAuthority": [
+        "bank, FGIS or UX implementation scope in this prerequisite",
+        "global mutable scope or candidate guard/workflow authority",
+        "CI/security gate weakening"
+      ],
+      "teamHubDependency": "#5590 trusted ref reassignment; #5593 immutable PRODUCT guard"
+    },
     "bank-deep-visible-copy-guard-20260924-coordination": {
       "owner": "ACCOUNT_2_PRODUCT",
       "purpose": "Presentation-only bank/deal copy guard and negative release safety wording; no provider or payment finality.",
-      "authorityBaseExactMain": "fbfc81efa6de0935ea190337d48ceedb7c3c8301",
+      "authorityBaseExactMain": "9964daa3abe288ba74ce25d4693a618832d15e13",
       "implementationBranch": "bank/deep-visible-copy-guard-20260924",
       "allowedPaths": [
         "apps/web/app/platform-v7/bank/escrow/page.tsx",
@@ -1871,7 +1905,7 @@
     "fgis-zsn-public-document-source-lock-20260924-coordination": {
       "owner": "ACCOUNT_2_PRODUCT",
       "purpose": "Lock public operator-linked EFGIS ZSN document identity and PDF bytes as provenance only.",
-      "authorityBaseExactMain": "fbfc81efa6de0935ea190337d48ceedb7c3c8301",
+      "authorityBaseExactMain": "9964daa3abe288ba74ce25d4693a618832d15e13",
       "implementationBranch": "fgis/zsn-public-document-source-lock-20260924",
       "allowedPaths": [
         ".github/workflows/pc-crop-zsn-source-lock.yml",
@@ -1896,7 +1930,7 @@
     "ux-first-customer-next-action-unknown-20260924-coordination": {
       "owner": "ACCOUNT_2_PRODUCT",
       "purpose": "Keep recency-sorted first customer queues as navigation for seven roles while server priority is absent.",
-      "authorityBaseExactMain": "fbfc81efa6de0935ea190337d48ceedb7c3c8301",
+      "authorityBaseExactMain": "9964daa3abe288ba74ce25d4693a618832d15e13",
       "implementationBranch": "ux/first-customer-next-action-unknown-20260924",
       "allowedPaths": [
         "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
