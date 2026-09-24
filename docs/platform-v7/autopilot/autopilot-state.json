@@ -1812,7 +1812,7 @@
     "product-trusted-guard-reassignment-20260924": {
       "owner": "ACCOUNT_2_PRODUCT",
       "purpose": "Reassign the existing base-routed PC-CROP governance ref to one bounded PRODUCT immutable-scope guard repair; revoke its historical state and W1 workflow edit paths.",
-      "authorityBaseExactMain": "ae944187008b829885497d8343683d2c7ae23c28",
+      "authorityBaseExactMain": "1f0411296b7727fc1a55c49addfd689e2a7f9090",
       "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
       "allowedPaths": [
         "scripts/p7-autopilot-guard.sh",
