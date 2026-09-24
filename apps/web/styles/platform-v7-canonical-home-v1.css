@@ -1892,3 +1892,23 @@ html[lang^='zh'] .pc-canonical-public :is(p,li,dd,.pc-cp-section-head p,.pc-cp-l
   .pc-cp-lot-media-caption{font-size:12px!important}
 }
 
+/* Canonical homepage: retain readable deal details and Chinese typography. */
+.pc-canonical-public.pc-cp-page-home .pc-cp-deal-lens :is(.pc-cp-eyebrow,small){
+  font-size:14px!important;
+  line-height:1.4!important;
+}
+@media(max-width:760px){
+  .pc-canonical-public.pc-cp-page-home .pc-cp-deal-lens-head strong{
+    font-size:14px!important;
+    line-height:1.4!important;
+  }
+}
+html:lang(zh) .pc-canonical-public.pc-cp-page-home{
+  --pc-cp-ui:"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;
+  --pc-cp-display:var(--pc-cp-ui);
+  letter-spacing:normal!important;
+}
+html:lang(zh) .pc-canonical-public.pc-cp-page-home :is(h1,h2,h3){
+  letter-spacing:normal!important;
+  line-height:1.2!important;
+}

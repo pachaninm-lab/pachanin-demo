@@ -3,16 +3,17 @@
   "branch": "test/public-i18n-header-current-20260924",
   "status": "active",
   "approvedBy": "owner-public-ux-repair-v2.0-2026-09-24",
-  "purpose": "Bind existing production i18n geometry checks to the accepted canonical homepage and native mobile menu proven by exact-live artifact10796043028, without reducing thresholds or browser/locale/route coverage.",
+  "purpose": "Repair canonical homepage i18n acceptance selectors and the independently identified Chinese font and deal-detail readability defects without reducing thresholds or browser/locale/route coverage.",
   "allowedPaths": [
     "apps/web/tests/e2e/platform-v7-production-i18n-acceptance.spec.ts",
+    "apps/web/styles/platform-v7-canonical-home-v1.css",
     "docs/platform-v7/autopilot/scopes/public-i18n-header-current-20260924.json"
   ],
   "requiredInvariants": [
     "Keep 44px targets, 14px brand and deal-copy floors, <=5 hero lines, first-viewport primary CTA and no horizontal overflow.",
     "Require current language and menu controls, open the actual mobile menu, inspect all three language links and login, close and restore focus.",
     "Retain all EN/ZH routes, viewports, Chromium/WebKit, residual Cyrillic, Chinese typography, persistence and runtime checks.",
-    "No runtime, workflow, security, authority or production POST changes."
+    "Runtime change limited to canonical homepage typography: Chinese system-font fallbacks and readable deal-detail text. No workflow, security, authority or production POST changes."
   ],
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0

@@ -125,6 +125,7 @@ async function expectChineseTypography(page: Page) {
 async function expectProductionHomepageDesignGates(
   page: Page,
   viewport: AcceptanceViewport,
+  expectedLocale: 'ru' | 'en' | 'zh',
   expectedBrand?: string,
 ) {
   const brand = page.locator("[data-testid='platform-v7-root-execution-cockpit'] .pc-site-brand-text strong");
@@ -178,6 +179,8 @@ async function expectProductionHomepageDesignGates(
     };
     await expectTarget(summary, 'mobile menu');
     await expectTarget(activeLocale, 'current language');
+    await expect(activeLocale).toHaveAttribute('lang', expectedLocale === 'zh' ? 'zh-CN' : expectedLocale);
+    await expect(activeLocale).toHaveAttribute('href', new RegExp(`[?&]lang=${expectedLocale}(?:&|$)`));
     await summary.click();
     await expect(menu).toHaveAttribute('open', '');
     const languageLinks = menu.locator('.pc-site-mobile-locale .pc-site-locale-option');
@@ -280,7 +283,7 @@ test.describe('Platform V7 exact production i18n acceptance', () => {
           const response = await page.goto(localizedUrl(route.path, locale.code, marker), { waitUntil: 'load' });
           expect(response?.ok(), `${route.path} did not return a successful final response`).toBe(true);
           await expectLocalizedSurface(page, locale.htmlLang);
-          if (route.name === 'home') await expectProductionHomepageDesignGates(page, viewport);
+          if (route.name === 'home') await expectProductionHomepageDesignGates(page, viewport, locale.code);
           if (locale.code === 'zh' && route.name === 'home') await expectChineseTypography(page);
           await captureEvidence(page, testInfo, locale.code, viewport.name, route.name);
         }
@@ -302,7 +305,7 @@ test.describe('Platform V7 exact production i18n acceptance', () => {
     );
     expect(response?.ok()).toBe(true);
     await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
-    await expectProductionHomepageDesignGates(page, viewport, 'Прозрачная Цена');
+    await expectProductionHomepageDesignGates(page, viewport, 'ru', 'Прозрачная Цена');
     await captureEvidence(page, testInfo, 'ru', viewport.name, 'home');
     expect(pageErrors).toEqual([]);
   });
