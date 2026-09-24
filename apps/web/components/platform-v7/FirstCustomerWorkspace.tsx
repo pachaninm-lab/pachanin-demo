@@ -23,8 +23,7 @@ const COPY = {
     ownerReady: 'владелец · контролируемый доступ', ownerReadyTitle: 'Открыть рабочий раздел кабинета', ownerReadyDescription: 'Это настоящий защищённый маршрут кабинета. Данные для просмотра контролируемые; боевые действия продолжают проверяться сервером по реальной личности владельца.',
     ready: 'сервер подтверждён', empty: 'очередь пуста', degraded: 'серверная очередь недоступна', forbidden: 'доступ запрещён',
     blocker: 'Блокер', owner: 'Ответственный', impact: 'Влияние', result: 'Результат', next: 'Следующее действие', priority: 'Главная задача', facts: 'Подтверждённые данные',
-    readyTitle: 'Открыть первый доступный объект', readyDescription: 'Объект уже ограничен текущим tenant, membership и ролью на API.',
-    sellerPriorityUnknownTitle: 'Следующий обязательный шаг не опубликован', sellerPriorityUnknownDescription: 'Сервер подтвердил очередь сделок, но не выбрал, какая сделка должна быть первой. Порядок списка — это навигация, а не бизнес-приоритет.', sellerPriorityUnknownResult: 'UNKNOWN', sellerQueue: 'Рабочая очередь',
+    sellerPriorityUnknownTitle: 'Следующий обязательный шаг не опубликован', sellerPriorityUnknownDescription: 'Сервер подтвердил очередь сделок, но не выбрал, какая сделка должна быть первой. Порядок списка — это навигация, а не бизнес-приоритет.', priorityUnknownTitle: 'Следующее обязательное действие не опубликовано', priorityUnknownDescription: 'Сервер подтвердил рабочую очередь, но не назначил приоритетное действие. Порядок списка помогает найти объект и не определяет срочность.', priorityUnknownResult: 'UNKNOWN', workQueue: 'Рабочая очередь',
     emptyTitle: 'Рабочих объектов пока нет', emptyDescription: 'Это реальное пустое состояние. Демо-сделки, рейсы и заявки не подставляются.',
     degradedTitle: 'Не подменять недоступный backend', degradedDescription: 'Сервер не подтвердил очередь. Доступ и локальные данные не создаются.',
     forbiddenTitle: 'Роль не соответствует кабинету', forbiddenDescription: 'URL не меняет серверную роль. Вернись в назначенное рабочее пространство.',
@@ -36,8 +35,7 @@ const COPY = {
     ownerReady: 'owner · controlled access', ownerReadyTitle: 'Open the cabinet work area', ownerReadyDescription: 'This is the real protected cabinet route. Review data is controlled; production actions still authorize the real owner identity on the server.',
     ready: 'server confirmed', empty: 'queue is empty', degraded: 'server queue unavailable', forbidden: 'access denied',
     blocker: 'Blocker', owner: 'Owner', impact: 'Impact', result: 'Result', next: 'Next action', priority: 'Primary task', facts: 'Confirmed data',
-    readyTitle: 'Open the first accessible object', readyDescription: 'The API has already scoped this object to the current tenant, membership and role.',
-    sellerPriorityUnknownTitle: 'Required next step is not published', sellerPriorityUnknownDescription: 'The server confirmed the Deal queue but did not choose which Deal comes first. List order is navigation, not business priority.', sellerPriorityUnknownResult: 'UNKNOWN', sellerQueue: 'Work queue',
+    sellerPriorityUnknownTitle: 'Required next step is not published', sellerPriorityUnknownDescription: 'The server confirmed the Deal queue but did not choose which Deal comes first. List order is navigation, not business priority.', priorityUnknownTitle: 'Required next action is not published', priorityUnknownDescription: 'The server confirmed the work queue but did not assign a priority action. List order helps you find an object and does not indicate urgency.', priorityUnknownResult: 'UNKNOWN', workQueue: 'Work queue',
     emptyTitle: 'No work objects yet', emptyDescription: 'This is a real empty state. No demo Deals, trips or applications are substituted.',
     degradedTitle: 'Do not substitute an unavailable backend', degradedDescription: 'The server did not confirm the queue. No access or local data is created.',
     forbiddenTitle: 'Role does not match this cabinet', forbiddenDescription: 'A URL cannot change the server role. Return to the assigned workspace.',
@@ -49,8 +47,7 @@ const COPY = {
     ownerReady: '所有者 · 受控访问', ownerReadyTitle: '打开工作台功能区', ownerReadyDescription: '这是实际受保护的工作台路由。查看数据受控；生产操作仍按所有者真实身份由服务器授权。',
     ready: '服务器已确认', empty: '队列为空', degraded: '服务器队列不可用', forbidden: '禁止访问',
     blocker: '阻塞项', owner: '负责人', impact: '影响', result: '结果', next: '下一步', priority: '主要任务', facts: '已确认数据',
-    readyTitle: '打开第一个可访问对象', readyDescription: 'API 已按当前 tenant、membership 和角色限制该对象。',
-    sellerPriorityUnknownTitle: '服务器未提供必须执行的下一步', sellerPriorityUnknownDescription: '服务器已确认交易队列，但没有选择哪一笔交易应排在第一位。列表顺序仅用于导航，不代表业务优先级。', sellerPriorityUnknownResult: 'UNKNOWN', sellerQueue: '工作队列',
+    sellerPriorityUnknownTitle: '服务器未提供必须执行的下一步', sellerPriorityUnknownDescription: '服务器已确认交易队列，但没有选择哪一笔交易应排在第一位。列表顺序仅用于导航，不代表业务优先级。', priorityUnknownTitle: '服务器未提供优先执行的操作', priorityUnknownDescription: '服务器已确认工作队列，但未指定优先操作。列表顺序仅帮助查找对象，不代表紧急程度。', priorityUnknownResult: 'UNKNOWN', workQueue: '工作队列',
     emptyTitle: '暂时没有工作对象', emptyDescription: '这是真实的空状态，不会替换为演示交易、行程或申请。',
     degradedTitle: '不得替换不可用的 backend', degradedDescription: '服务器未确认队列，不会创建访问权限或本地数据。',
     forbiddenTitle: '角色与此工作空间不匹配', forbiddenDescription: 'URL 不能更改服务器角色。请返回分配的工作空间。',
@@ -73,22 +70,18 @@ export async function FirstCustomerWorkspace({ surface }: { surface: FirstCustom
   const first = workspace.items[0];
   const state = workspace.forbidden ? 'forbidden' : !workspace.available ? 'degraded' : workspace.items.length ? 'ready' : 'empty';
   const description = workspace.ownerControlled ? copy.ownerDescription : surface === 'seller' ? copy.sellerDescription : copy.description;
-  const sellerPriorityUnknown = surface === 'seller' && state === 'ready' && !workspace.ownerControlled;
+  const priorityUnknown = state === 'ready' && !workspace.ownerControlled;
+  const unknownTitle = surface === 'seller' ? copy.sellerPriorityUnknownTitle : copy.priorityUnknownTitle;
+  const unknownDescription = surface === 'seller' ? copy.sellerPriorityUnknownDescription : copy.priorityUnknownDescription;
   const priority: OperationalPriority = {
-    state: sellerPriorityUnknown ? 'readonly' : state === 'ready' ? 'active' : state === 'empty' ? 'readonly' : 'critical',
-    title: workspace.ownerControlled && state === 'ready'
-      ? copy.ownerReadyTitle
-      : sellerPriorityUnknown ? copy.sellerPriorityUnknownTitle
-        : state === 'ready' ? copy.readyTitle : state === 'empty' ? copy.emptyTitle : state === 'forbidden' ? copy.forbiddenTitle : copy.degradedTitle,
-    description: workspace.ownerControlled && state === 'ready'
-      ? copy.ownerReadyDescription
-      : sellerPriorityUnknown ? copy.sellerPriorityUnknownDescription
-        : state === 'ready' ? copy.readyDescription : state === 'empty' ? copy.emptyDescription : state === 'forbidden' ? copy.forbiddenDescription : copy.degradedDescription,
+    state: priorityUnknown ? 'readonly' : state === 'ready' ? 'active' : state === 'empty' ? 'readonly' : 'critical',
+    title: priorityUnknown ? unknownTitle : state === 'ready' ? copy.ownerReadyTitle : state === 'empty' ? copy.emptyTitle : state === 'forbidden' ? copy.forbiddenTitle : copy.degradedTitle,
+    description: priorityUnknown ? unknownDescription : state === 'ready' ? copy.ownerReadyDescription : state === 'empty' ? copy.emptyDescription : state === 'forbidden' ? copy.forbiddenDescription : copy.degradedDescription,
     blocker: state === 'degraded' || state === 'forbidden' ? (workspace.correlationId || copy.degradedDescription) : undefined,
-    owner: sellerPriorityUnknown ? undefined : state === 'degraded' ? copy.status : ROLE_LABEL[locale][surface],
-    result: sellerPriorityUnknown ? copy.sellerPriorityUnknownResult : state === 'ready' ? first?.status : state === 'empty' ? copy.empty : copy.degraded,
-    primaryAction: sellerPriorityUnknown
-      ? <a className={operationalCockpitClasses.primaryLink} href='#first-customer-work-queue'>{copy.sellerQueue}</a>
+    owner: priorityUnknown ? undefined : state === 'degraded' ? copy.status : ROLE_LABEL[locale][surface],
+    result: priorityUnknown ? copy.priorityUnknownResult : state === 'ready' ? first?.status : state === 'empty' ? copy.empty : copy.degraded,
+    primaryAction: priorityUnknown
+      ? <a className={operationalCockpitClasses.primaryLink} href='#first-customer-work-queue'>{copy.workQueue}</a>
       : first?.href
         ? <Link className={operationalCockpitClasses.primaryLink} href={first.href}>{copy.open}</Link>
         : <Link className={operationalCockpitClasses.primaryLink} href='/platform-v7/profile'>{copy.profile}</Link>,

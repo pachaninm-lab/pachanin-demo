@@ -47,9 +47,9 @@ describe('Design System v8 money role reference slice', () => {
       expect(seller).not.toContain(retiredStaticTool);
     }
 
-    expect(firstCustomerWorkspace).toContain("surface === 'seller' && state === 'ready' && !workspace.ownerControlled");
+    expect(firstCustomerWorkspace).toContain("state === 'ready' && !workspace.ownerControlled");
     expect(firstCustomerWorkspace).toContain("href='#first-customer-work-queue'");
-    expect(firstCustomerWorkspace).toContain('sellerPriorityUnknownResult');
+    expect(firstCustomerWorkspace).toContain('priorityUnknownResult');
     expect(firstCustomerWorkspace).toContain('Следующий обязательный шаг не опубликован');
     expect(firstCustomerWorkspace).toContain('Required next step is not published');
     expect(firstCustomerWorkspace).toContain('服务器未提供必须执行的下一步');

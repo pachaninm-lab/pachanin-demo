@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "ux/first-customer-next-action-unknown-20260924",
+  "status": "active",
+  "issue": 5535,
+  "purpose": "Keep recency-ordered first customer queues as navigation for seven roles, with UNKNOWN primary next action until accepted server priority; preserve seller and owner-controlled showroom.",
+  "authorityBaseExactMain": "4637f6e05d2c24e7f20782014de9c6b25985a194",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
+    "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
+    "apps/web/tests/unit/firstCustomerWorkspacePriority.test.tsx",
+    "apps/web/tests/unit/sellerExecutionPolish.test.tsx",
+    "docs/platform-v7/autopilot/scopes/first-customer-next-action-unknown-20260924.json"
+  ],
+  "requiredInvariants": [
+    "No first list item or row order becomes a business-priority decision for non-owner buyer, bank, logistics, driver, elevator, lab or surveyor.",
+    "RU/EN/ZH display UNKNOWN priority with an in-page queue navigation link; server-scoped row links remain available.",
+    "Controlled owner showroom navigation and seller fail-closed behavior remain intact; no backend or external finality authority changes."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
