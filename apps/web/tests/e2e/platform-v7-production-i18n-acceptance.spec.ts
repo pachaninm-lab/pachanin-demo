@@ -1,4 +1,4 @@
-import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
 
 const LIVE_BASE = process.env.PLAYWRIGHT_BASE_URL || 'https://xn----8sbjf4befbjgs9b.xn--p1ai';
 
@@ -99,7 +99,7 @@ async function expectLocalizedSurface(page: Page, htmlLang: string) {
 }
 
 async function expectChineseTypography(page: Page) {
-  const root = page.locator('.pc-v7-public-entry').first();
+  const root = page.locator('.pc-canonical-public.pc-cp-page-home').first();
   await expect(root).toBeVisible();
   const rootStyle = await root.evaluate((node) => {
     const style = window.getComputedStyle(node);
@@ -108,7 +108,7 @@ async function expectChineseTypography(page: Page) {
   expect(rootStyle.fontFamily).toMatch(/PingFang SC|Noto Sans SC|Microsoft YaHei/u);
   expect(['0px', 'normal']).toContain(rootStyle.letterSpacing);
 
-  const heading = page.locator('.pc-v7-public-entry h1:visible, .pc-v7-public-entry h2:visible').first();
+  const heading = page.locator('.pc-canonical-public.pc-cp-page-home h1:visible, .pc-canonical-public.pc-cp-page-home h2:visible').first();
   await expect(heading).toBeVisible();
   const headingStyle = await heading.evaluate((node) => {
     const style = window.getComputedStyle(node);
@@ -164,17 +164,35 @@ async function expectProductionHomepageDesignGates(
   expect(brandGeometry.scrollFits).toBe(true);
 
   if (viewport.width <= 430) {
-    for (const selector of ['.pc-site-mobile-menu > summary', '.pc-site-locale-switch', '.entry-login']) {
-      const control = page.locator(selector).first();
+    const header = page.locator('[data-public-site-header="canonical"]');
+    const menu = header.locator('details.pc-site-mobile-menu');
+    const summary = menu.locator(':scope > summary');
+    const activeLocale = header.locator(':scope > .pc-site-actions > .pc-site-locale-cluster .pc-site-locale-option[data-active="true"]');
+    const expectTarget = async (control: Locator, label: string) => {
+      await expect(control).toHaveCount(1);
       await expect(control).toBeVisible();
       const box = await control.boundingBox();
-      expect(box, `${selector} production bounding box`).not.toBeNull();
-      expect(box!.width, `${selector} production width`).toBeGreaterThanOrEqual(44 - TARGET_SIZE_EPSILON);
-      expect(box!.height, `${selector} production height`).toBeGreaterThanOrEqual(44 - TARGET_SIZE_EPSILON);
+      expect(box, `${label} production bounding box`).not.toBeNull();
+      expect(box!.width, `${label} production width`).toBeGreaterThanOrEqual(44 - TARGET_SIZE_EPSILON);
+      expect(box!.height, `${label} production height`).toBeGreaterThanOrEqual(44 - TARGET_SIZE_EPSILON);
+    };
+    await expectTarget(summary, 'mobile menu');
+    await expectTarget(activeLocale, 'current language');
+    await summary.click();
+    await expect(menu).toHaveAttribute('open', '');
+    const languageLinks = menu.locator('.pc-site-mobile-locale .pc-site-locale-option');
+    await expect(languageLinks).toHaveCount(3);
+    for (const locale of ['ru', 'en', 'zh']) {
+      await expectTarget(menu.locator(`.pc-site-mobile-locale .pc-site-locale-option[href*='lang=${locale}']`), `menu language ${locale}`);
     }
+    await expectTarget(menu.locator('.pc-site-mobile-utility a[href^="/platform-v7/login?"]'), 'menu login');
+    await menu.locator('.pc-site-menu-close').click();
+    await expect(menu).not.toHaveAttribute('open');
+    await expect(summary).toBeFocused();
   }
 
-  const card = page.locator('[data-testid="platform-v7-deal-card"]');
+  const card = page.locator('.pc-cp-hero .pc-cp-deal-lens');
+  await expect(card).toHaveCount(1);
   await expect(card).toBeVisible();
   const tinyText = await card.evaluate((root) => {
     const offenders: Array<{ text: string; fontSize: number; tag: string }> = [];
@@ -201,7 +219,7 @@ async function expectProductionHomepageDesignGates(
   expect(tinyText, JSON.stringify(tinyText, null, 2)).toEqual([]);
 
   if (viewport.width === 320 && viewport.height === 700) {
-    const heading = page.locator('#pc-v6-title');
+    const heading = page.locator('#pc-cp-home-title');
     await expect(heading).toBeVisible();
     const lineCount = await heading.evaluate((node) => {
       // Count only rendered text fragments. A Range over the H1 parent also
@@ -226,7 +244,7 @@ async function expectProductionHomepageDesignGates(
     expect(lineCount, 'production 320px Hero H1 line count').toBeGreaterThanOrEqual(1);
     expect(lineCount, 'production 320px Hero H1 line count').toBeLessThanOrEqual(5);
 
-    const primary = page.locator('.pc-v6-actions .pc-v6-primary').first();
+    const primary = page.locator('.pc-cp-hero .pc-cp-actions a[href*="intent=sell"]').first();
     await expect(primary).toBeVisible();
     const primaryBox = await primary.boundingBox();
     expect(primaryBox, 'production primary Hero CTA bounding box').not.toBeNull();
