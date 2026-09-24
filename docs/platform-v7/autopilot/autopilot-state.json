@@ -1845,7 +1845,7 @@
     "bank-deep-visible-copy-guard-20260924-coordination": {
       "owner": "ACCOUNT_2_PRODUCT",
       "purpose": "Presentation-only bank/deal copy guard and negative release safety wording; no provider or payment finality.",
-      "authorityBaseExactMain": "961ff311d7beb9088774208c40a4f5f7cc83af25",
+      "authorityBaseExactMain": "fbfc81efa6de0935ea190337d48ceedb7c3c8301",
       "implementationBranch": "bank/deep-visible-copy-guard-20260924",
       "allowedPaths": [
         "apps/web/app/platform-v7/bank/escrow/page.tsx",
@@ -1871,7 +1871,7 @@
     "fgis-zsn-public-document-source-lock-20260924-coordination": {
       "owner": "ACCOUNT_2_PRODUCT",
       "purpose": "Lock public operator-linked EFGIS ZSN document identity and PDF bytes as provenance only.",
-      "authorityBaseExactMain": "961ff311d7beb9088774208c40a4f5f7cc83af25",
+      "authorityBaseExactMain": "fbfc81efa6de0935ea190337d48ceedb7c3c8301",
       "implementationBranch": "fgis/zsn-public-document-source-lock-20260924",
       "allowedPaths": [
         ".github/workflows/pc-crop-zsn-source-lock.yml",
@@ -1896,7 +1896,7 @@
     "ux-first-customer-next-action-unknown-20260924-coordination": {
       "owner": "ACCOUNT_2_PRODUCT",
       "purpose": "Keep recency-sorted first customer queues as navigation for seven roles while server priority is absent.",
-      "authorityBaseExactMain": "961ff311d7beb9088774208c40a4f5f7cc83af25",
+      "authorityBaseExactMain": "fbfc81efa6de0935ea190337d48ceedb7c3c8301",
       "implementationBranch": "ux/first-customer-next-action-unknown-20260924",
       "allowedPaths": [
         "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
