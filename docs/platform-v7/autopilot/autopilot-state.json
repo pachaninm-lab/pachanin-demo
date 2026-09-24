@@ -1551,6 +1551,12 @@
       "docs/security/cryptographic-inventory.json",
       "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
     ],
+    "governance/product-bank-fgis-ux-scopes-20260924": [
+      "docs/platform-v7/autopilot/autopilot-state.json",
+      "scripts/p7-autopilot-guard.sh",
+      "scripts/p7-autopilot-guard.test.mjs",
+      ".github/workflows/platform-v7-autopilot-guard.yml"
+    ],
     "bank/deep-visible-copy-guard-20260924": [
       "apps/web/app/platform-v7/bank/escrow/page.tsx",
       "apps/web/app/platform-v7/bank/factoring/page.tsx",

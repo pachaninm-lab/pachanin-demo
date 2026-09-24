@@ -35,11 +35,14 @@ INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH="governance/industrial-load-diagnostics-
 INDUSTRIAL_DIAGNOSTIC_BRANCH="test/industrial-load-diagnostics-20260919"
 IR20_BINDING_PREREQUISITE_BRANCH="governance/ir20-binding-immutable-scope-20260919"
 IR20_BINDING_IMPLEMENTATION_BRANCH="ops/ir20-api-database-binding-20260919"
+PRODUCT_BANK_COPY_BRANCH="bank/deep-visible-copy-guard-20260924"
+PRODUCT_ZSN_SOURCE_BRANCH="fgis/zsn-public-document-source-lock-20260924"
+PRODUCT_NEXT_ACTION_BRANCH="ux/first-customer-next-action-unknown-20260924"
 CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
 
 is_immutable_scope_branch() {
   case "$1" in
-    "$IR20_BINDING_PREREQUISITE_BRANCH"|"$IR20_BINDING_IMPLEMENTATION_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_BRANCH") return 0 ;;
+    "$IR20_BINDING_PREREQUISITE_BRANCH"|"$IR20_BINDING_IMPLEMENTATION_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_BRANCH"|"$PRODUCT_BANK_COPY_BRANCH"|"$PRODUCT_ZSN_SOURCE_BRANCH"|"$PRODUCT_NEXT_ACTION_BRANCH") return 0 ;;
     "$REGISTRATION_ROLLOVER_BRANCH"|"$OWNER_AUDIT_LOCK_BRANCH"|"$POST_REGISTRATION_PROGRESS_BRANCH"|"$INVENTORY_RESERVATION_BRANCH"|"$AUCTION_INVENTORY_BRANCH"|"$W1_PRODUCTION_ACCEPTANCE_BRANCH"|"$SCOPE_GOVERNANCE_BRANCH"|"$INVENTORY_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_IMPLEMENTATION_BRANCH"|"$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH"|"$POISON_ISOLATION_IMPLEMENTATION_BRANCH"|"$OWNER_HANDOFF_IMPLEMENTATION_BRANCH"|"$QWEN_FAILED_EVIDENCE_BRANCH"|"$KIND_MINIO_IMAGE_SOURCE_BRANCH"|"$GITLEAKS_RELEASE_ATTESTATION_BRANCH"|"$FINAL_PUBLIC_HOME_BRANCH"|"$FINAL_PUBLIC_MARKET_BRANCH"|"$FINAL_PUBLIC_REGISTRATION_BRANCH"|"$FINAL_PUBLIC_HOW_BRANCH"|"$FINAL_PUBLIC_PRODUCT_COPY_BRANCH"|"$FINAL_PUBLIC_RELEASE_BRANCH"|"$FINAL_PUBLIC_GOVERNANCE_BRANCH") return 0 ;;
     *) return 1 ;;
   esac
@@ -697,6 +700,17 @@ fi
 
 if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INVENTORY_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$FINAL_PUBLIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$IR20_BINDING_PREREQUISITE_BRANCH" ]; then
   MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$DIFF_FILES" | grep -E '^(AGENTS\.md|docs/platform-v7/autopilot/|scripts/p7-autopilot-guard\.sh$|scripts/p7-autopilot-guard\.test\.mjs$|scripts/p7-source-controlled-scope\.mjs$|\.github/workflows/platform-v7-autopilot-guard\.yml$|\.github/workflows/automerge\.yml$)' || true)
+  # These manifests document the exact accepted path sets. They are not scope
+  # authority: only approvedConcurrentScopes from the trusted base is used.
+  case "$CURRENT_BRANCH" in
+    "$PRODUCT_BANK_COPY_BRANCH") PRODUCT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json' ;;
+    "$PRODUCT_ZSN_SOURCE_BRANCH") PRODUCT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/fgis-zsn-public-document-source-lock-20260924.json' ;;
+    "$PRODUCT_NEXT_ACTION_BRANCH") PRODUCT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/first-customer-next-action-unknown-20260924.json' ;;
+    *) PRODUCT_SCOPE_MANIFEST='' ;;
+  esac
+  if [ -n "$PRODUCT_SCOPE_MANIFEST" ]; then
+    MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES" | grep -Fxv "$PRODUCT_SCOPE_MANIFEST" || true)
+  fi
   if [ "$CURRENT_BRANCH" = "$QWEN_FAILED_EVIDENCE_BRANCH" ]; then
     # This diagnostic regression file is still subject to exact base-approved scope.
     MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES" | grep -Fxv 'docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs' || true)
