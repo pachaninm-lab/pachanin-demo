@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
-import { OwnerAccessCenter as OwnerAccessCenterV3 } from './OwnerAccessCenterV3';
+import { OwnerAccessCenter as OwnerAccessCenterV3, isOwnerAccessOpening, reserveOwnerAccessOpening, releaseOwnerAccessOpening } from './OwnerAccessCenterV3';
 import styles from './OwnerAccessCenterV4.module.css';
 
 type Props = ComponentProps<typeof OwnerAccessCenterV3>;
@@ -116,6 +116,10 @@ export function OwnerAccessCenter(props: Props) {
   const checkGeneration = useRef(0);
 
   const check = useCallback(async (): Promise<boolean> => {
+    if (isOwnerAccessOpening()) {
+      setState('occupied');
+      return false;
+    }
     const generation = ++checkGeneration.current;
     const isCurrent = () => generation === checkGeneration.current;
     setState('checking');
@@ -163,6 +167,10 @@ export function OwnerAccessCenter(props: Props) {
         throw new Error(copy.failed);
       }
       if (!isCurrent()) return false;
+      if (isOwnerAccessOpening()) {
+        setState('occupied');
+        return false;
+      }
       if (context.active || sessions.length > 0) {
         const sameSession = context.session && sessions.length === 1
           && sessions[0].id === context.session.accessSessionId;
@@ -189,10 +197,19 @@ export function OwnerAccessCenter(props: Props) {
     window.addEventListener('pc:staff-session-changed', recheck);
     return () => window.removeEventListener('pc:staff-session-changed', recheck);
   }, [check]);
+  useEffect(() => {
+    const opening = () => {
+      checkGeneration.current += 1;
+      setState('occupied');
+    };
+    window.addEventListener('pc:staff-session-opening', opening);
+    return () => window.removeEventListener('pc:staff-session-opening', opening);
+  }, []);
 
   async function openAccess() {
     if (!assignmentId || state !== 'ready') return;
     if (!await check()) return;
+    if (!reserveOwnerAccessOpening()) return;
     setState('opening');
     setError('');
     const token = currentCsrfToken(csrfToken);
@@ -247,6 +264,8 @@ export function OwnerAccessCenter(props: Props) {
     } catch (openError) {
       setError(openError instanceof Error ? openError.message : copy.failed);
       setState('error');
+    } finally {
+      releaseOwnerAccessOpening();
     }
   }
 

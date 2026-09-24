@@ -103,6 +103,21 @@ type ApiErrorPayload = {
   message?: string;
 };
 
+// Both mounted owner surfaces share one synchronous tab-local reservation. CORE
+// enforces the actor-wide invariant for concurrent tabs and direct API callers.
+let ownerAccessOpening = false;
+export function isOwnerAccessOpening() { return ownerAccessOpening; }
+export function reserveOwnerAccessOpening() {
+  if (ownerAccessOpening) return false;
+  ownerAccessOpening = true;
+  window.dispatchEvent(new Event('pc:staff-session-opening'));
+  return true;
+}
+export function releaseOwnerAccessOpening() {
+  ownerAccessOpening = false;
+  window.dispatchEvent(new Event('pc:staff-session-changed'));
+}
+
 const CABINET_ROLE_KEYS: Readonly<Record<string, keyof OwnerAccessCenterCopy['cabinetRoles'] | null>> = {
   operator: 'ADMIN',
   buyer: 'BUYER',
@@ -505,6 +520,9 @@ export function OwnerAccessCenter(props: Props) {
           && session.effectiveOrganizationId === canonical.effectiveOrganizationId
           && session.effectiveRole === canonical.effectiveRole
           && canonical.returnPath.startsWith('/platform-v7/staff');
+        if (!Number.isFinite(Date.parse(canonical.expiresAt)) || Date.parse(canonical.expiresAt) <= Date.now()) {
+          throw new Error(text.sessionUnknown);
+        }
         if (!valid) throw new Error(text.openFailed);
 
         setActiveMode({
@@ -559,6 +577,35 @@ export function OwnerAccessCenter(props: Props) {
     window.addEventListener('pc:staff-session-changed', recheck);
     return () => window.removeEventListener('pc:staff-session-changed', recheck);
   }, [loadRoleMode]);
+  useEffect(() => {
+    const opening = () => {
+      loadGeneration.current += 1;
+      setSessionKnown(false);
+      setProjection(null);
+    };
+    window.addEventListener('pc:staff-session-opening', opening);
+    return () => window.removeEventListener('pc:staff-session-opening', opening);
+  }, []);
+  useEffect(() => {
+    if (!activeMode) return;
+    const reconcile = () => {
+      setSessionKnown(false);
+      setActiveMode(null);
+      setProjection(null);
+      setProjectionUnavailable(true);
+      void loadRoleMode();
+    };
+    const onResume = () => { if (document.visibilityState === 'visible') reconcile(); };
+    const expiresIn = Date.parse(activeMode.expiresAt) - Date.now();
+    const timeoutId = window.setTimeout(reconcile, Math.max(0, Math.min(expiresIn, 2_147_483_647)));
+    document.addEventListener('visibilitychange', onResume);
+    window.addEventListener('focus', reconcile);
+    return () => {
+      window.clearTimeout(timeoutId);
+      document.removeEventListener('visibilitychange', onResume);
+      window.removeEventListener('focus', reconcile);
+    };
+  }, [activeMode, loadRoleMode]);
 
   async function requestRoleMode(cabinet: FounderCabinet, token: string, signal: AbortSignal) {
     const response = await fetch('/platform-v7/staff/role-mode', {
@@ -593,6 +640,7 @@ export function OwnerAccessCenter(props: Props) {
       setOpenError(text.openFailed);
       return;
     }
+    if (!reserveOwnerAccessOpening()) return;
 
     setBusyKey(cabinet.key);
     setSessionKnown(false);
@@ -690,6 +738,8 @@ export function OwnerAccessCenter(props: Props) {
         || typeof canonical.actor?.displayName !== 'string'
         || !canonical.actor.displayName.trim()
         || !canonical.returnPath.startsWith('/platform-v7/staff')
+        || !Number.isFinite(Date.parse(canonical.expiresAt))
+        || Date.parse(canonical.expiresAt) <= Date.now()
       ) {
         throw new Error(text.openFailed);
       }
@@ -726,6 +776,7 @@ export function OwnerAccessCenter(props: Props) {
       if (!activationAttempted) setSessionKnown(true);
       window.clearTimeout(timeoutId);
       setBusyKey(null);
+      releaseOwnerAccessOpening();
     }
   }
 

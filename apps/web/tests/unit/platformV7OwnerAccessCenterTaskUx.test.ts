@@ -4,7 +4,7 @@ import { createElement } from 'react';
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ownerAccessCenterMessages } from '../../i18n/owner-access-center-messages';
-import { OwnerAccessCenter as RoleModeCenter } from '../../components/platform-v7/staff/OwnerAccessCenterV3';
+import { OwnerAccessCenter as RoleModeCenter, releaseOwnerAccessOpening } from '../../components/platform-v7/staff/OwnerAccessCenterV3';
 import { OwnerAccessCenter as BootstrapCenter } from '../../components/platform-v7/staff/OwnerAccessCenterV4';
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
@@ -35,7 +35,7 @@ function roleModeFixtures() {
   ].map((key) => ({ key, canonicalPath: `/platform-v7/${key}`, effectiveRole: 'BUYER' }));
   const session = {
     accessSessionId: 'session-1', accessMode: 'VIEW_AS', permissions: ['cabinet:view-as'],
-    effectiveOrganizationId: 'organization-1', effectiveRole: 'BUYER', expiresAt: '2026-09-24T00:00:00Z',
+    effectiveOrganizationId: 'organization-1', effectiveRole: 'BUYER', expiresAt: '2099-09-24T00:00:00Z',
   };
   const registry = {
     schemaVersion: 'pc-crop.founder-role-mode.v1', mode: 'VIEW_AS', readOnly: true,
@@ -61,6 +61,7 @@ function json(body: unknown, status = 200) {
 describe('platform-v7 owner access center task UX', () => {
   afterEach(() => {
     cleanup();
+    releaseOwnerAccessOpening();
     vi.unstubAllGlobals();
   });
 
@@ -242,6 +243,61 @@ describe('platform-v7 owner access center task UX', () => {
     await waitFor(() => expect(view.queryByRole('button', { name: 'Открыть доступ на 30 минут' })).toBeNull());
     expect(view.container.querySelector('[data-p0-registration-access-bootstrap]')?.textContent).toContain('Другая защищённая сессия уже открыта');
     expect(fetchMock.mock.calls.some(([path]) => String(path).includes('/activate'))).toBe(false);
+  });
+
+  it('reserves both mounted activators while a role-mode request is still in flight', async () => {
+    const { registry, props } = roleModeFixtures();
+    let completeRequest!: (response: Response) => void;
+    const pendingRequest = new Promise<Response>((resolve) => { completeRequest = resolve; });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input);
+      if (path === '/api/staff/assignments/me') return json([{ id: 'owner-1', role: 'PLATFORM_OWNER', status: 'ACTIVE' }]);
+      if (path === '/platform-v7/staff/role-mode' && init?.method === 'POST') return pendingRequest;
+      if (path === '/platform-v7/staff/role-mode') return json(registry);
+      if (path === '/platform-v7/staff/prepare?format=json') return json({ ok: true, csrfToken: 'a'.repeat(32) });
+      if (path === '/api/staff/session-context') return json({ active: false, session: null });
+      if (path === '/api/staff/access/sessions') return json([]);
+      if (path === '/api/staff/founder/role-mode/session') return json({ code: 'ROLE_MODE_SESSION_INACTIVE' }, 401);
+      throw new Error(`Unexpected staff request: ${path}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const view = render(createElement(BootstrapCenter, props));
+    await waitFor(() => expect(view.getByRole('button', { name: 'Открыть доступ на 30 минут' })).toBeEnabled());
+    fireEvent.change(view.getByLabelText(/ID реальной организации/), { target: { value: 'organization-1' } });
+    fireEvent.change(view.getByLabelText(/Тикет/), { target: { value: 'ticket-1' } });
+    fireEvent.change(view.getByLabelText(/Причина просмотра/), { target: { value: 'Проверка работы кабинета' } });
+    fireEvent.click(view.getAllByRole('button', { name: 'Открыть read-only' })[1]);
+    await waitFor(() => expect(fetchMock.mock.calls.some(([path, init]) => String(path) === '/platform-v7/staff/role-mode' && init?.method === 'POST')).toBe(true));
+    expect(view.queryByRole('button', { name: 'Открыть доступ на 30 минут' })).toBeNull();
+    fireEvent.click(view.getByRole('button', { name: 'Проверить ещё раз' }));
+    expect(fetchMock.mock.calls.some(([path]) => String(path) === '/api/staff/access/requests')).toBe(false);
+    await act(async () => { completeRequest(json({ status: 'PENDING', grantId: null, roleMode: {
+      cabinetKey: 'buyer', canonicalPath: '/platform-v7/buyer', effectiveRole: 'BUYER',
+      effectiveOrganizationId: 'organization-1', mode: 'VIEW_AS', readOnly: true,
+    } })); });
+  });
+
+  it('removes a protected projection at expiry and reconciles durable authority', async () => {
+    const { session, registry, canonical, props } = roleModeFixtures();
+    const expiresAt = new Date(Date.now() + 600).toISOString();
+    session.expiresAt = expiresAt;
+    canonical.expiresAt = expiresAt;
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      const active = Date.now() < Date.parse(expiresAt);
+      if (path === '/api/staff/assignments/me') return json([{ id: 'owner-1', role: 'PLATFORM_OWNER', status: 'ACTIVE' }]);
+      if (path === '/platform-v7/staff/role-mode') return json(registry);
+      if (path === '/api/staff/session-context') return json(active ? { active: true, session } : { active: false, session: null });
+      if (path === '/api/staff/access/sessions') return json(active ? [{ id: session.accessSessionId, status: 'ACTIVE' }] : []);
+      if (path === '/api/staff/founder/role-mode/session') return active ? json(canonical) : json({ code: 'ROLE_MODE_SESSION_INACTIVE' }, 401);
+      if (path === '/api/staff/organizations/organization-1/cabinet/BUYER') return json({ deals: [{ id: 'private-deal' }] });
+      throw new Error(`Unexpected staff request: ${path}`);
+    }));
+    const view = render(createElement(RoleModeCenter, props));
+    await waitFor(() => expect(view.container.querySelector('[data-founder-role-mode-active]')).not.toBeNull());
+    await waitFor(() => expect(view.container.textContent).toContain('private-deal'));
+    await waitFor(() => expect(view.container.querySelector('[data-founder-role-mode-active]')).toBeNull(), { timeout: 2500 });
+    expect(view.container.textContent).not.toContain('private-deal');
   });
 
   it('treats an inactive cookie with a durable own session as unresolved', async () => {
