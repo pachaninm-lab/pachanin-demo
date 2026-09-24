@@ -324,13 +324,44 @@ api_id="$(compose_id api)"
 web_id="$(compose_id web)"
 [[ -n "$api_id" && -n "$web_id" ]] || fail TARGET_RUNTIME_MISSING 16
 api_runtime_network_name=""
+api_runtime_proxy_cidrs=""
 resolve_api_runtime_network_authority() {
   local -a network_names
+  local network_ipam
   mapfile -t network_names < <(docker inspect --format '{{range $name, $_ := .NetworkSettings.Networks}}{{println $name}}{{end}}' "$api_id" | sed '/^[[:space:]]*$/d' | sort -u)
   (( ${#network_names[@]} == 1 )) || fail API_RUNTIME_NETWORK_CARDINALITY_INVALID 125
   api_runtime_network_name="${network_names[0]}"
   [[ "$api_runtime_network_name" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$ ]] || fail API_RUNTIME_NETWORK_NAME_INVALID 126
-  docker network inspect "$api_runtime_network_name" >/dev/null 2>&1 || fail API_RUNTIME_NETWORK_NOT_FOUND 127
+  network_ipam="$(docker network inspect --format '{{json .IPAM.Config}}' "$api_runtime_network_name" 2>/dev/null)" || fail API_RUNTIME_NETWORK_NOT_FOUND 127
+  api_runtime_proxy_cidrs="$(python3 - "$network_ipam" <<'PY'
+import ipaddress
+import json
+import sys
+
+rows = json.loads(sys.argv[1])
+if not isinstance(rows, list) or not 1 <= len(rows) <= 4:
+    raise SystemExit(1)
+private_v4 = tuple(ipaddress.ip_network(value) for value in ('10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'))
+private_v6 = ipaddress.ip_network('fc00::/7')
+cidrs = []
+for row in rows:
+    if not isinstance(row, dict) or not isinstance(row.get('Subnet'), str):
+        raise SystemExit(1)
+    network = ipaddress.ip_network(row['Subnet'], strict=False)
+    if network.prefixlen == 0:
+        raise SystemExit(1)
+    if network.version == 4:
+        if not any(network.subnet_of(parent) for parent in private_v4):
+            raise SystemExit(1)
+    elif not network.subnet_of(private_v6):
+        raise SystemExit(1)
+    cidrs.append(network.with_prefixlen)
+if len(set(cidrs)) != len(cidrs):
+    raise SystemExit(1)
+print(','.join(cidrs))
+PY
+)" || fail API_RUNTIME_PROXY_CIDR_INVALID 129
+  [[ -n "$api_runtime_proxy_cidrs" ]] || fail API_RUNTIME_PROXY_CIDR_INVALID 129
 }
 if [[ "$ACTION" == deploy || "$ACTION" == rollback ]]; then
   resolve_api_runtime_network_authority
@@ -467,6 +498,7 @@ write_override() {
   local include_password_reset_runtime="${5:-0}" worker_image="${6:-}" include_ir20="${7:-0}"
   [[ "$include_password_reset_runtime" =~ ^[01]$ ]] || fail PASSWORD_RESET_RUNTIME_OVERRIDE_MODE_INVALID 67
   [[ "$include_ir20" =~ ^[01]$ ]] || fail IR20_RUNTIME_OVERRIDE_MODE_INVALID 84
+  [[ -n "$api_runtime_proxy_cidrs" ]] || fail API_RUNTIME_PROXY_CIDR_INVALID 129
   umask 077
   cat > "$destination.tmp" <<YAML
 services:
@@ -475,6 +507,8 @@ services:
     pull_policy: never
     environment:
       OUTBOX_WORKER_ENABLED: "false"
+      TRUST_PROXY_MODE: "cidr"
+      TRUSTED_PROXY_CIDRS: "$api_runtime_proxy_cidrs"
     env_file:
       - ${auth_opaque_token_env_file}
       - ${staff_database_env_file}
