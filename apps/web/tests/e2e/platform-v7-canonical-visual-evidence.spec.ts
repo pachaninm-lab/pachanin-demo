@@ -4,9 +4,9 @@ import { loginAs, type CabinetRole } from './support/acceptance-login';
 
 
 const AUTHORITY_AHASH: Record<string,{hash:string;maxDistance:number}> = {
-  '01-home-desktop': { hash:'ffffffff4fc9ff0b1f02fec0ffffffff51353fff6fffbfff7ffff7ffdf7fffff', maxDistance:90 },
+  '01-home-desktop': { hash:'ffffffff1fff7ffd17f7f5e01ffcffff23ffffffff00c0000000fffff1f1ff00', maxDistance:90 },
   '02-home-mobile': { hash:'7ff1ffffd3ffe1fffffce020f13cffff807fffff87ff8001ffffdfffffff9b6f', maxDistance:125 },
-  '03-market-desktop': { hash:'7ffc1ff31800f800ffefff0f001f3e3fffffffff003f003fffffffff8003003f', maxDistance:130 },
+  '03-market-desktop': { hash:'3ddcfffffffffffffffff8f3f0f000b0ffffffffffff000000000000ffff8cc5', maxDistance:130 },
   '04-lot-desktop': { hash:'3ffc0800000005ef05ff07ff07ff07ff07e0ffffffffffffffffffffffffffff', maxDistance:135 },
   '05-deal-desktop': { hash:'1ff8cff01fdf1ff7e3ffe7ffff21a9e8ef68f9efbfffe3fceda8fff80bfd1fff', maxDistance:130 },
   '06-deal-mobile': { hash:'3fff80ff807f07ff83ff03ffffffcfffdfffdfffffff00008000ffffffffffff', maxDistance:125 },
@@ -225,9 +225,9 @@ test.describe('canonical visual authority evidence', () => {
 // informational route. These reads never create an authenticated role/session.
 test.describe('capabilities exact public route boundary', () => {
   const headings = {
-    ru: 'Этапы Сделки связаны между собой',
-    en: 'Deal stages stay connected',
-    zh: '交易各阶段保持关联',
+    ru: 'Всё, что нужно для работы со сделкой',
+    en: 'What you need to work on a Deal',
+    zh: '处理交易所需的各项任务',
   } as const;
 
   for (const locale of ['ru', 'en', 'zh'] as const) {
@@ -554,3 +554,42 @@ test.describe('canonical cross-browser public smoke', () => {
     }
   });
 });
+
+for (const width of [320, 390, 430] as const) {
+  for (const locale of ['ru', 'en', 'zh'] as const) {
+    test(`canonical cross-browser public smoke: home single footer reserve ${width} ${locale}`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 844 });
+      expect((await page.goto(`/platform-v7?lang=${locale}`, { waitUntil: 'load' }))?.ok()).toBe(true);
+      const home = page.locator('main.pc-cp-page-home');
+      const capabilities = home.locator('#capabilities');
+      const nav = home.locator('.pc-cp-bottom-nav');
+      await expect(nav).toBeVisible();
+      await expect(home.locator('.pc-cp-footer')).toBeHidden();
+      expect(await home.evaluate(node => Number.parseFloat(getComputedStyle(node).paddingBottom))).toBeLessThanOrEqual(1);
+      await capabilities.scrollIntoViewIfNeeded();
+      await expect.poll(async () => page.evaluate(() => {
+        window.scrollTo(0, document.documentElement.scrollHeight);
+        const last = document.querySelector('#capabilities .pc-cp-capabilities')!.getBoundingClientRect();
+        const navBox = document.querySelector('.pc-cp-bottom-nav')!.getBoundingClientRect();
+        return last.bottom <= navBox.top + 1 && last.bottom > 0;
+      })).toBe(true);
+      const geometry = await home.evaluate(node => {
+        const last = node.querySelector('#capabilities')!;
+        const final = node.querySelector('.pc-cp-final')!;
+        return {
+          display: getComputedStyle(node).display,
+          lastOrder: Number(getComputedStyle(last).order),
+          finalOrder: Number(getComputedStyle(final).order),
+          reserve: Number.parseFloat(getComputedStyle(last).paddingBottom),
+          navBottomPadding: Number.parseFloat(getComputedStyle(node.querySelector('.pc-cp-bottom-nav')!).paddingBottom),
+        };
+      });
+      expect(geometry.display).toBe('flex');
+      expect(geometry.lastOrder).toBeGreaterThan(geometry.finalOrder);
+      expect(geometry.reserve).toBeGreaterThanOrEqual(96);
+      // Navigation has 6px base padding plus the same actual safe-area inset.
+      expect(Math.abs(geometry.reserve - (90 + geometry.navBottomPadding))).toBeLessThanOrEqual(1);
+      await canonicalNoOverflow(page);
+    });
+  }
+}
