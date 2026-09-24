@@ -78,7 +78,7 @@ describe('Platform V7 production i18n runtime bridge', () => {
     expect(source).toContain("() => import('@/components/platform-v7/PlatformV7TranslationRuntimeBridge').then((module) => module.PlatformV7TranslationRuntimeBridge)");
     expect(source).toContain('{loadTranslationBridge ? <PlatformV7TranslationRuntimeBridge /> : null}');
     expect(source).toContain('<PlatformV7TranslationRuntimeBridge />');
-    expect(boundary).toContain("clean === '/platform-v7/deal-flow'");
+    expect(boundary).not.toContain("clean === '/platform-v7/deal-flow'");
     expect(boundary).toContain("clean === '/platform-v7/demo'");
     expect(boundary).not.toContain("clean === '/platform-v7/contact'");
     expect(boundary).not.toContain("clean === '/platform-v7'");
