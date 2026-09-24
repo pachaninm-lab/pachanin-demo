@@ -403,6 +403,14 @@ requireAll('executor', [
   'fail RUNNING_REVISION_MISMATCH 33',
 ]);
 const executorSource = text.executor ?? '';
+const explicitRollbackStart = executorSource.indexOf('if [[ "$ACTION" == rollback ]]');
+const explicitRollbackEnd = executorSource.indexOf("printf 'COMPOSE_AUTHORITY_RESOLVED=1\\n'", explicitRollbackStart);
+const explicitRollbackSource = explicitRollbackStart >= 0 && explicitRollbackEnd > explicitRollbackStart
+  ? executorSource.slice(explicitRollbackStart, explicitRollbackEnd) : '';
+if (!(explicitRollbackSource.indexOf('API_WEB_MUTATED=1') >= 0
+  && explicitRollbackSource.indexOf('API_WEB_MUTATED=1') < explicitRollbackSource.indexOf('rollback_images'))) {
+  failures.push(`${paths.executor}: explicit rollback must restore API/Web even in its fresh process`);
+}
 const deployStart = executorSource.indexOf('provision_outbox_runtime\nwrite_override');
 const deploySource = deployStart >= 0 ? executorSource.slice(deployStart) : '';
 const brokerStartIndex = deploySource.indexOf('\"${dc_target[@]}\" up -d --no-deps --pull never \"$KAFKA_SERVICE\"');
