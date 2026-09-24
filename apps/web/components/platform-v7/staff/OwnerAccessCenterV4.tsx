@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
 import { OwnerAccessCenter as OwnerAccessCenterV3, isOwnerAccessOpening, reserveOwnerAccessOpening, releaseOwnerAccessOpening } from './OwnerAccessCenterV3';
+import type { OwnerAccessOpeningCoordinator } from './OwnerAccessCenterV3';
 import styles from './OwnerAccessCenterV4.module.css';
 
 type Props = ComponentProps<typeof OwnerAccessCenterV3>;
@@ -114,9 +115,10 @@ export function OwnerAccessCenter(props: Props) {
   const [assignmentId, setAssignmentId] = useState('');
   const [error, setError] = useState('');
   const checkGeneration = useRef(0);
+  const openingCoordinator = useRef<OwnerAccessOpeningCoordinator>({ opening: false });
 
   const check = useCallback(async (): Promise<boolean> => {
-    if (isOwnerAccessOpening()) {
+    if (isOwnerAccessOpening(openingCoordinator.current)) {
       setState('occupied');
       return false;
     }
@@ -167,7 +169,7 @@ export function OwnerAccessCenter(props: Props) {
         throw new Error(copy.failed);
       }
       if (!isCurrent()) return false;
-      if (isOwnerAccessOpening()) {
+      if (isOwnerAccessOpening(openingCoordinator.current)) {
         setState('occupied');
         return false;
       }
@@ -209,7 +211,7 @@ export function OwnerAccessCenter(props: Props) {
   async function openAccess() {
     if (!assignmentId || state !== 'ready') return;
     if (!await check()) return;
-    if (!reserveOwnerAccessOpening()) return;
+    if (!reserveOwnerAccessOpening(openingCoordinator.current)) return;
     setState('opening');
     setError('');
     const token = currentCsrfToken(csrfToken);
@@ -265,7 +267,7 @@ export function OwnerAccessCenter(props: Props) {
       setError(openError instanceof Error ? openError.message : copy.failed);
       setState('error');
     } finally {
-      releaseOwnerAccessOpening();
+      releaseOwnerAccessOpening(openingCoordinator.current);
     }
   }
 
@@ -295,7 +297,7 @@ export function OwnerAccessCenter(props: Props) {
           <button type="button" className={styles.secondary} onClick={() => void check()}>{copy.retry}</button>
         ) : null}
       </section>
-      <OwnerAccessCenterV3 {...props} />
+      <OwnerAccessCenterV3 {...props} openingCoordinator={openingCoordinator.current} />
     </>
   );
 }

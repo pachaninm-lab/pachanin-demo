@@ -7,7 +7,7 @@ import { OwnerAccessCenter as OwnerAccessCenterV2 } from './OwnerAccessCenterV2'
 import styles from './OwnerAccessCenterV3.module.css';
 
 type StaffAssignment = { id: string; role: string; status: string };
-type Props = ComponentProps<typeof OwnerAccessCenterV2> & { csrfToken: string };
+type Props = ComponentProps<typeof OwnerAccessCenterV2> & { csrfToken: string; openingCoordinator?: OwnerAccessOpeningCoordinator };
 type FounderCabinet = {
   key: string;
   canonicalPath: string;
@@ -103,18 +103,18 @@ type ApiErrorPayload = {
   message?: string;
 };
 
-// Both mounted owner surfaces share one synchronous tab-local reservation. CORE
-// enforces the actor-wide invariant for concurrent tabs and direct API callers.
-let ownerAccessOpening = false;
-export function isOwnerAccessOpening() { return ownerAccessOpening; }
-export function reserveOwnerAccessOpening() {
-  if (ownerAccessOpening) return false;
-  ownerAccessOpening = true;
+// The wrapper supplies one explicit coordinator to both mounted owner surfaces.
+// CORE enforces the actor-wide invariant for concurrent tabs and API callers.
+export type OwnerAccessOpeningCoordinator = { opening: boolean };
+export function isOwnerAccessOpening(coordinator: OwnerAccessOpeningCoordinator) { return coordinator.opening; }
+export function reserveOwnerAccessOpening(coordinator: OwnerAccessOpeningCoordinator) {
+  if (coordinator.opening) return false;
+  coordinator.opening = true;
   window.dispatchEvent(new Event('pc:staff-session-opening'));
   return true;
 }
-export function releaseOwnerAccessOpening() {
-  ownerAccessOpening = false;
+export function releaseOwnerAccessOpening(coordinator: OwnerAccessOpeningCoordinator) {
+  coordinator.opening = false;
   window.dispatchEvent(new Event('pc:staff-session-changed'));
 }
 
@@ -319,7 +319,9 @@ function cabinetLabel(cabinet: FounderCabinet, copy: OwnerAccessCenterCopy, loca
 }
 
 export function OwnerAccessCenter(props: Props) {
-  const { csrfToken, ...baseProps } = props;
+  const { csrfToken, openingCoordinator, ...baseProps } = props;
+  const localOpeningCoordinator = useRef<OwnerAccessOpeningCoordinator>({ opening: false });
+  const coordinator = openingCoordinator ?? localOpeningCoordinator.current;
   const { locale, copy, identity, apiAvailable } = baseProps;
   const text = OWNER_COPY[locale];
   const [checking, setChecking] = useState(apiAvailable);
@@ -640,7 +642,7 @@ export function OwnerAccessCenter(props: Props) {
       setOpenError(text.openFailed);
       return;
     }
-    if (!reserveOwnerAccessOpening()) return;
+    if (!reserveOwnerAccessOpening(coordinator)) return;
 
     setBusyKey(cabinet.key);
     setSessionKnown(false);
@@ -776,7 +778,7 @@ export function OwnerAccessCenter(props: Props) {
       if (!activationAttempted) setSessionKnown(true);
       window.clearTimeout(timeoutId);
       setBusyKey(null);
-      releaseOwnerAccessOpening();
+      releaseOwnerAccessOpening(coordinator);
     }
   }
 

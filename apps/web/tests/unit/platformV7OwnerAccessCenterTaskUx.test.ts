@@ -4,7 +4,7 @@ import { createElement } from 'react';
 import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ownerAccessCenterMessages } from '../../i18n/owner-access-center-messages';
-import { OwnerAccessCenter as RoleModeCenter, releaseOwnerAccessOpening } from '../../components/platform-v7/staff/OwnerAccessCenterV3';
+import { OwnerAccessCenter as RoleModeCenter } from '../../components/platform-v7/staff/OwnerAccessCenterV3';
 import { OwnerAccessCenter as BootstrapCenter } from '../../components/platform-v7/staff/OwnerAccessCenterV4';
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
@@ -61,7 +61,6 @@ function json(body: unknown, status = 200) {
 describe('platform-v7 owner access center task UX', () => {
   afterEach(() => {
     cleanup();
-    releaseOwnerAccessOpening();
     vi.unstubAllGlobals();
   });
 
@@ -331,7 +330,7 @@ describe('platform-v7 owner access center task UX', () => {
   it('consumes the server-owned exact 13-cabinet role-mode registry', () => {
     expect(page).toContain('<OwnerAccessCenter');
     expect(entry).toContain("export { OwnerAccessCenter } from './OwnerAccessCenterV4'");
-    expect(bootstrap).toContain('<OwnerAccessCenterV3 {...props} />');
+    expect(bootstrap).toContain('<OwnerAccessCenterV3 {...props} openingCoordinator={openingCoordinator.current} />');
     expect(directCenter).toContain("row.schemaVersion !== 'pc-crop.founder-role-mode.v1'");
     expect(directCenter).toContain("row.mode !== 'VIEW_AS'");
     expect(directCenter).toContain('row.readOnly !== true');
