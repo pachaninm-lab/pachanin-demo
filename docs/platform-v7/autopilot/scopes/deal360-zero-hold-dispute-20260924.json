@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "ux/deal360-zero-hold-dispute-20260924",
+  "status": "active",
+  "issue": 5543,
+  "purpose": "Presentation-only Deal 360 correction: dispute presence remains visible when holdAmount is zero, while stale bank/FGIS/document assertions become UNKNOWN.",
+  "authorityBaseExactMain": "4637f6e05d2c24e7f20782014de9c6b25985a194",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/P7DealWorkspaceTabs.tsx",
+    "apps/web/tests/unit/p7DealWorkspaceTabs.test.tsx",
+    "apps/web/tests/unit/platformV7DealMoneyTabGate.test.ts",
+    "docs/platform-v7/autopilot/scopes/deal360-zero-hold-dispute-20260924.json"
+  ],
+  "requiredInvariants": [
+    "A canonical Deal dispute object and hold amount are distinct; either can show attention without asserting external arbitration outcome.",
+    "No local absence proves regulatory applicability, signed documents, provider attribution or money finality.",
+    "Open-dispute runtime intent, money blockers and server authority remain unchanged."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

@@ -89,7 +89,8 @@ function runtimeIntentsFor(deal: DomainDeal, bankBasisBlockedReason: string | nu
 
 export function P7DealWorkspaceTabs({ deal, runtimeBinding }: { deal: DomainDeal; runtimeBinding?: P7WorkspaceRuntimeBinding }) {
   const [active, setActive] = React.useState<Tab>('overview');
-  const blockers = deal.blockers.length + (deal.holdAmount > 0 ? 1 : 0);
+  const disputeAttention = Boolean(deal.dispute) || deal.holdAmount > 0;
+  const blockers = deal.blockers.length + (disputeAttention ? 1 : 0);
 
   return (
     <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, overflow: 'hidden' }}>
@@ -107,7 +108,7 @@ export function P7DealWorkspaceTabs({ deal, runtimeBinding }: { deal: DomainDeal
       <div style={{ display: 'flex', gap: 0, overflowX: 'auto', borderBottom: `1px solid ${B}`, padding: '0 12px' }}>
         {TABS.map((tab) => (
           <button key={tab.id} type='button' onClick={() => setActive(tab.id)} style={{ border: 0, background: 'transparent', cursor: 'pointer', padding: '13px 12px', fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', color: active === tab.id ? BRAND : M, borderBottom: active === tab.id ? `2px solid ${BRAND}` : '2px solid transparent' }}>
-            {tab.label}{tab.id === 'dispute' && deal.holdAmount > 0 ? <Badge>{1}</Badge> : null}{tab.id === 'documents' && deal.blockers.includes('docs') ? <Badge>{1}</Badge> : null}
+            {tab.label}{tab.id === 'dispute' && disputeAttention ? <Badge>{1}</Badge> : null}{tab.id === 'documents' && deal.blockers.includes('docs') ? <Badge>{1}</Badge> : null}
           </button>
         ))}
       </div>
@@ -215,10 +216,21 @@ function Evidence() {
 
 function Dispute({ deal }: { deal: DomainDeal }) {
   const hasHold = deal.holdAmount > 0;
+  const hasDispute = Boolean(deal.dispute);
   const intent = p7DealWorkspaceRuntimeIntentById(runtimeIntentsFor(deal, null), 'open_dispute');
+  const title = hasDispute
+    ? 'Спор указан в данных сделки'
+    : hasHold ? 'Удержание без опубликованного спора' : 'Спор не указан в данных сделки';
+  const detail = hasDispute
+    ? hasHold
+      ? `В данных сделки указан спор; ${money(deal.holdAmount)} удержано. Исход спора и внешний арбитраж здесь не подтверждены.`
+      : 'В данных сделки указан спор, но удержанная сумма равна нулю. Исход спора и внешний арбитраж здесь не подтверждены.'
+    : hasHold
+      ? `${money(deal.holdAmount)} удержано. Сведения о споре в этом чтении сделки не опубликованы.`
+      : 'В этом чтении сделки не указаны спор и удержание. Это не подтверждает отсутствие внешнего разбирательства.';
   return (
     <Stack>
-      <Notice danger={hasHold} title={hasHold ? 'Активное удержание' : 'Спора нет'}>{hasHold ? `${money(deal.holdAmount)} удержано до решения.` : 'По сделке нет активного удержания.'}</Notice>
+      <Notice danger={hasDispute || hasHold} title={title}>{detail}</Notice>
       <RuntimeActionRow>
         <P7DealWorkspaceRuntimeActionButton dealId={deal.id} intent={intent} />
         <Link href='/platform-v7/disputes' style={linkButton('danger')}>Арбитражный кабинет →</Link>

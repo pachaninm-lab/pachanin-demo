@@ -13,13 +13,14 @@ describe('platform-v7 deal money tab gate', () => {
     expect(source).toContain('acceptance-not-confirmed');
     expect(source).toContain('quality-not-approved');
     expect(source).toContain('open-dispute');
-    expect(source).toContain('const releaseBlocked = blockerLabels.length > 0');
-    expect(source).not.toContain('const releaseBlocked = deal.blockers.length > 0 || deal.holdAmount > 0');
+    expect(source).toContain('const bankBasisBlocked = blockerLabels.length > 0');
+    expect(source).not.toContain('const bankBasisBlocked = deal.blockers.length > 0 || deal.holdAmount > 0');
   });
 
   it('does not call a bank-check request a money movement', () => {
-    expect(source).toContain('Можно подготовить запрос банковской проверки');
+    expect(source).toContain('Можно подготовить основание для банка');
     expect(source).toContain('это ещё не движение денег');
-    expect(source).toContain('внешнего банковского подтверждения');
+    expect(source).toContain('не подтверждение внешнего банка');
+    expect(source).toContain('Внешние факты и банк-исполнитель не опубликованы для этой сделки');
   });
 });
