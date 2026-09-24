@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useState, type ComponentProps } from 'react';
-import { OwnerAccessCenter as OwnerAccessCenterV3 } from './OwnerAccessCenterV3';
+import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
+import { OwnerAccessCenter as OwnerAccessCenterV3, isOwnerAccessOpening, reserveOwnerAccessOpening, releaseOwnerAccessOpening } from './OwnerAccessCenterV3';
+import type { OwnerAccessOpeningCoordinator } from './OwnerAccessCenterV3';
 import styles from './OwnerAccessCenterV4.module.css';
 
 type Props = ComponentProps<typeof OwnerAccessCenterV3>;
@@ -9,6 +10,7 @@ type Assignment = { id: string; role: string; status: string };
 type SessionContext = {
   active?: boolean;
   session?: {
+    accessSessionId?: string;
     accessMode?: string;
     permissions?: string[];
   } | null;
@@ -21,7 +23,7 @@ type ApiPayload = {
   code?: string;
   message?: string;
 };
-type BootstrapState = 'checking' | 'ready' | 'opening' | 'active' | 'forbidden' | 'error';
+type BootstrapState = 'checking' | 'ready' | 'opening' | 'active' | 'occupied' | 'forbidden' | 'error';
 
 const MANAGE_STAFF_PERMISSIONS = [
   'staff-assignment:read',
@@ -45,6 +47,7 @@ const COPY = {
     reload: 'Обновить очередь',
     checking: 'Проверяем назначение владельца и защищённую сессию…',
     forbidden: 'Активное назначение владельца не подтверждено. Доступ не открыт.',
+    occupied: 'Другая защищённая сессия уже открыта. Завершите её в управлении доступами перед открытием очереди.',
     retry: 'Проверить ещё раз',
     failed: 'Не удалось открыть защищённый доступ.',
   },
@@ -59,6 +62,7 @@ const COPY = {
     reload: 'Reload queue',
     checking: 'Checking the owner assignment and protected session…',
     forbidden: 'An active owner assignment was not confirmed. Access was not opened.',
+    occupied: 'Another protected session is active. End it in access management before opening the queue.',
     retry: 'Check again',
     failed: 'Protected access could not be opened.',
   },
@@ -73,6 +77,7 @@ const COPY = {
     reload: '刷新审核队列',
     checking: '正在检查所有者任命和受保护会话…',
     forbidden: '未确认有效的平台所有者任命，未打开访问。',
+    occupied: '另一个受保护会话仍在使用。请先在访问管理中结束该会话，再打开审核队列。',
     retry: '重新检查',
     failed: '无法打开受保护访问。',
   },
@@ -109,8 +114,16 @@ export function OwnerAccessCenter(props: Props) {
   const [state, setState] = useState<BootstrapState>('checking');
   const [assignmentId, setAssignmentId] = useState('');
   const [error, setError] = useState('');
+  const checkGeneration = useRef(0);
+  const openingCoordinator = useRef<OwnerAccessOpeningCoordinator>({ opening: false });
 
-  const check = useCallback(async () => {
+  const check = useCallback(async (): Promise<boolean> => {
+    if (isOwnerAccessOpening(openingCoordinator.current)) {
+      setState('occupied');
+      return false;
+    }
+    const generation = ++checkGeneration.current;
+    const isCurrent = () => generation === checkGeneration.current;
     setState('checking');
     setError('');
     try {
@@ -125,43 +138,80 @@ export function OwnerAccessCenter(props: Props) {
         throw new Error(errorMessage(assignmentsPayload as ApiPayload, copy.failed));
       }
       const owner = assignmentsPayload.find((item) => item.role === 'PLATFORM_OWNER' && item.status === 'ACTIVE');
+      if (!isCurrent()) return false;
       if (!owner) {
         setAssignmentId('');
         setState('forbidden');
-        return;
+        return false;
       }
       setAssignmentId(owner.id);
 
-      try {
-        const contextResponse = await fetch('/api/staff/session-context', {
+      const [contextResponse, sessionsResponse] = await Promise.all([
+        fetch('/api/staff/session-context', {
           credentials: 'same-origin',
           cache: 'no-store',
           headers: { Accept: 'application/json' },
           signal: AbortSignal.timeout(8_000),
-        });
-        const context = await contextResponse.json().catch(() => ({})) as SessionContext;
-        if (contextResponse.ok && hasRegistrationReviewSession(context)) {
-          setState('active');
-          return;
-        }
-      } catch {
-        // The owner assignment remains authoritative. The activation POST below
-        // is still server-validated and will reject any conflicting session.
+        }),
+        fetch('/api/staff/access/sessions', {
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: { Accept: 'application/json' },
+          signal: AbortSignal.timeout(8_000),
+        }),
+      ]);
+      const context = await contextResponse.json().catch(() => null) as SessionContext | null;
+      const sessions = await sessionsResponse.json().catch(() => null) as Array<{ id?: string }> | null;
+      if (!contextResponse.ok || !sessionsResponse.ok || typeof context?.active !== 'boolean'
+        || (context.active && !context.session) || (!context.active && context.session)
+        || !Array.isArray(sessions) || sessions.length >= 200
+        || sessions.some((row) => !row || typeof row.id !== 'string' || !row.id)) {
+        throw new Error(copy.failed);
       }
-
+      if (!isCurrent()) return false;
+      if (isOwnerAccessOpening(openingCoordinator.current)) {
+        setState('occupied');
+        return false;
+      }
+      if (context.active || sessions.length > 0) {
+        const sameSession = context.session && sessions.length === 1
+          && sessions[0].id === context.session.accessSessionId;
+        if (context.active && !sameSession) throw new Error(copy.failed);
+        setState(sameSession && hasRegistrationReviewSession(context) ? 'active' : 'occupied');
+        return false;
+      }
       setState('ready');
+      return true;
     } catch (checkError) {
+      if (!isCurrent()) return false;
       setError(checkError instanceof Error ? checkError.message : copy.failed);
       setState('error');
+      return false;
     }
   }, [copy.failed]);
 
   useEffect(() => {
     void check();
+    return () => { checkGeneration.current += 1; };
   }, [check]);
+  useEffect(() => {
+    const recheck = () => { void check(); };
+    window.addEventListener('pc:staff-session-changed', recheck);
+    return () => window.removeEventListener('pc:staff-session-changed', recheck);
+  }, [check]);
+  useEffect(() => {
+    const opening = () => {
+      checkGeneration.current += 1;
+      setState('occupied');
+    };
+    window.addEventListener('pc:staff-session-opening', opening);
+    return () => window.removeEventListener('pc:staff-session-opening', opening);
+  }, []);
 
   async function openAccess() {
-    if (!assignmentId || state === 'opening') return;
+    if (!assignmentId || state !== 'ready') return;
+    if (!await check()) return;
+    if (!reserveOwnerAccessOpening(openingCoordinator.current)) return;
     setState('opening');
     setError('');
     const token = currentCsrfToken(csrfToken);
@@ -216,6 +266,8 @@ export function OwnerAccessCenter(props: Props) {
     } catch (openError) {
       setError(openError instanceof Error ? openError.message : copy.failed);
       setState('error');
+    } finally {
+      releaseOwnerAccessOpening(openingCoordinator.current);
     }
   }
 
@@ -230,6 +282,7 @@ export function OwnerAccessCenter(props: Props) {
 
         {state === 'checking' ? <p className={styles.status}>{copy.checking}</p> : null}
         {state === 'forbidden' ? <p className={styles.error}>{copy.forbidden}</p> : null}
+        {state === 'occupied' ? <p className={styles.status}>{copy.occupied}</p> : null}
         {state === 'error' && error ? <p className={styles.error}>{error}</p> : null}
 
         {state === 'ready' || state === 'opening' ? (
@@ -240,11 +293,11 @@ export function OwnerAccessCenter(props: Props) {
         {state === 'active' ? (
           <button type="button" onClick={() => window.location.reload()}>{copy.reload}</button>
         ) : null}
-        {state === 'forbidden' || state === 'error' ? (
+        {state === 'forbidden' || state === 'error' || state === 'occupied' ? (
           <button type="button" className={styles.secondary} onClick={() => void check()}>{copy.retry}</button>
         ) : null}
       </section>
-      <OwnerAccessCenterV3 {...props} />
+      <OwnerAccessCenterV3 {...props} openingCoordinator={openingCoordinator.current} />
     </>
   );
 }
