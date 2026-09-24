@@ -28,6 +28,9 @@ BASELINE_BROKER_PRESENT=0
 
 RELEASE_ROLLBACK_ARMED=0
 RELEASE_ROLLBACK_ACTIVE=0
+API_WEB_MUTATED=0
+ROLLBACK_API_WEB_COMPLETE=0
+ROLLBACK_IR20_COMPLETE=0
 fail() {
   local code="$1" rc="${2:-1}"
   printf 'ERROR_CODE=%s\n' "$code" >&2
@@ -633,6 +636,70 @@ emit_api_startup_diagnostics() {
   printf 'API_STARTUP_DIAGNOSTICS_END\n' >&2
 }
 
+classify_broker_startup_failure() {
+  local id="$1" sample reason=UNKNOWN
+  sample="$(docker logs --tail 160 "$id" 2>&1 || true)"
+  if grep -Eqi 'InconsistentClusterIdException|cluster[._ -]?id.*(mismatch|does not match)|Expected .*cluster' <<< "$sample"; then
+    reason=CLUSTER_ID_MISMATCH
+  elif grep -Eqi 'No space left on device|ENOSPC' <<< "$sample"; then
+    reason=NO_SPACE_LEFT
+  elif grep -Eqi 'Permission denied|AccessDeniedException|EACCES' <<< "$sample"; then
+    reason=PERMISSION_DENIED
+  elif grep -Eqi 'OutOfMemoryError|Cannot allocate memory|Killed process' <<< "$sample"; then
+    reason=MEMORY_EXHAUSTED
+  elif grep -Eqi 'Address already in use|BindException' <<< "$sample"; then
+    reason=PORT_BIND_CONFLICT
+  elif grep -Eqi 'meta\.properties|KRaft|quorum|controller' <<< "$sample"; then
+    reason=KRAFT_METADATA_OR_CONTROLLER
+  fi
+  printf '%s' "$reason"
+}
+
+emit_broker_startup_diagnostics() {
+  local id state health restart_count exit_code oom_killed reason
+  id="$("${dc_target[@]}" ps -aq "$KAFKA_SERVICE" | head -1)"
+  printf 'KAFKA_STARTUP_DIAGNOSTICS_BEGIN\n' >&2
+  if [[ -z "$id" ]]; then
+    printf 'KAFKA_STARTUP_CONTAINER=missing\n' >&2
+    printf 'KAFKA_STARTUP_REASON_CLASS=CONTAINER_MISSING\n' >&2
+    printf 'KAFKA_STARTUP_LOG_TAIL_BEGIN\nKAFKA_STARTUP_LOG_TAIL_END\n' >&2
+    printf 'KAFKA_STARTUP_DIAGNOSTICS_END\n' >&2
+    return 0
+  fi
+  state="$(docker inspect --format '{{.State.Status}}' "$id" 2>/dev/null || true)"
+  health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$id" 2>/dev/null || true)"
+  restart_count="$(docker inspect --format '{{.RestartCount}}' "$id" 2>/dev/null || true)"
+  exit_code="$(docker inspect --format '{{.State.ExitCode}}' "$id" 2>/dev/null || true)"
+  oom_killed="$(docker inspect --format '{{.State.OOMKilled}}' "$id" 2>/dev/null || true)"
+  reason="$(classify_broker_startup_failure "$id")"
+  [[ "$reason" =~ ^(UNKNOWN|CLUSTER_ID_MISMATCH|NO_SPACE_LEFT|PERMISSION_DENIED|MEMORY_EXHAUSTED|PORT_BIND_CONFLICT|KRAFT_METADATA_OR_CONTROLLER)$ ]] || reason=UNKNOWN
+  printf 'KAFKA_STARTUP_CONTAINER_STATE=%s\n' "${state:-unknown}" >&2
+  printf 'KAFKA_STARTUP_HEALTH=%s\n' "${health:-unknown}" >&2
+  printf 'KAFKA_STARTUP_RESTART_COUNT=%s\n' "${restart_count:-unknown}" >&2
+  printf 'KAFKA_STARTUP_EXIT_CODE=%s\n' "${exit_code:-unknown}" >&2
+  printf 'KAFKA_STARTUP_OOM_KILLED=%s\n' "${oom_killed:-unknown}" >&2
+  printf 'KAFKA_STARTUP_REASON_CLASS=%s\n' "$reason" >&2
+  printf 'KAFKA_STARTUP_LOG_TAIL_BEGIN\n' >&2
+  docker logs --tail 120 "$id" 2>&1 | redact_api_startup_log >&2 || true
+  printf 'KAFKA_STARTUP_LOG_TAIL_END\n' >&2
+  printf 'KAFKA_STARTUP_DIAGNOSTICS_END\n' >&2
+}
+
+recover_broker_once() {
+  printf 'IR20_BROKER_RECOVERY=ATTEMPTED\n' >&2
+  "${dc_target[@]}" up -d --no-deps --pull never --force-recreate "$KAFKA_SERVICE" || {
+    printf 'IR20_BROKER_RECOVERY=FAILED\n' >&2
+    return 1
+  }
+  if wait_broker; then
+    printf 'IR20_BROKER_RECOVERY=PASS\n' >&2
+    return 0
+  fi
+  emit_broker_startup_diagnostics
+  printf 'IR20_BROKER_RECOVERY=FAILED\n' >&2
+  return 1
+}
+
 emit_worker_startup_diagnostics() {
   local id state health restart_count exit_code oom_killed
   id="$("${dc_target[@]}" ps -q "$OUTBOX_SERVICE" | head -1)"
@@ -859,39 +926,60 @@ container_revision() {
 
 rollback_images() {
   local restored_api_id restored_web_id restored_worker_id worker_id broker_id
+  ROLLBACK_API_WEB_COMPLETE=0
+  ROLLBACK_IR20_COMPLETE=0
   [[ -f "$STATE_FILE" ]] || return 1
   # shellcheck disable=SC1090
   source "$STATE_FILE"
   is_revision "$BASELINE_API_REVISION" || return 1
   is_revision "$BASELINE_WEB_REVISION" || return 1
   resolve_outbox_runtime_env_file
+
   if [[ "${BASELINE_WORKER_PRESENT:-0}" == 1 ]]; then
     is_revision "${BASELINE_WORKER_REVISION:-}" || return 1
     write_override "$BASELINE_API_IMAGE" "$BASELINE_WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override" 0 "$BASELINE_WORKER_IMAGE" 1
-    "${dc_target[@]}" config --quiet
-    "${dc_target[@]}" up -d --no-deps --pull never "$KAFKA_SERVICE" "$OUTBOX_SERVICE" api web
-    wait_broker && wait_worker && wait_api && wait_web || return 1
+  else
+    write_override "$BASELINE_API_IMAGE" "$BASELINE_WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override"
+  fi
+  "${dc_target[@]}" config --quiet
+
+  if [[ "$ACTION" == rollback || "${API_WEB_MUTATED:-0}" == 1 ]]; then
+    "${dc_target[@]}" up -d --no-deps --pull never api web
+    wait_api && wait_web || return 1
+  fi
+
+  restored_api_id="$("${dc_target[@]}" ps -q api | head -1)"
+  restored_web_id="$("${dc_target[@]}" ps -q web | head -1)"
+  [[ -n "$restored_api_id" && -n "$restored_web_id" ]] || return 1
+  restored_api_revision="$(container_revision "$restored_api_id")" || return 2
+  restored_web_revision="$(container_revision "$restored_web_id")" || return 2
+  is_revision "$restored_api_revision" || return 2
+  is_revision "$restored_web_revision" || return 2
+  [[ "$restored_api_revision" == "$BASELINE_API_REVISION" && "$restored_web_revision" == "$BASELINE_WEB_REVISION" ]] || return 3
+  ROLLBACK_API_WEB_COMPLETE=1
+
+  if [[ "${BASELINE_WORKER_PRESENT:-0}" == 1 ]]; then
+    "${dc_target[@]}" up -d --no-deps --pull never "$KAFKA_SERVICE"
+    if ! wait_broker; then
+      emit_broker_startup_diagnostics
+      recover_broker_once || return 4
+    fi
+    "${dc_target[@]}" up -d --no-deps --pull never "$OUTBOX_SERVICE"
+    wait_worker || return 1
     restored_worker_id="$("${dc_target[@]}" ps -q "$OUTBOX_SERVICE" | head -1)"
     [[ "$(verify_runtime_image outbox-worker "$BASELINE_WORKER_IMAGE" "$restored_worker_id" 2>/dev/null)" == "$BASELINE_WORKER_REVISION" ]] || return 3
+    ROLLBACK_IR20_COMPLETE=1
   else
     worker_id="$(optional_release_service_id "$OUTBOX_SERVICE")" || return 1
     broker_id="$(optional_release_service_id "$KAFKA_SERVICE")" || return 1
     [[ -z "$worker_id" ]] || docker rm -f "$worker_id" >/dev/null 2>&1 || return 1
     [[ -z "$broker_id" ]] || docker rm -f "$broker_id" >/dev/null 2>&1 || return 1
-    write_override "$BASELINE_API_IMAGE" "$BASELINE_WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override"
-    "${dc_target[@]}" config --quiet
-    "${dc_target[@]}" up -d --no-deps --pull never api web
-    wait_api && wait_web || return 1
     if [[ "${OUTBOX_RUNTIME_ENV_PREEXISTED:-0}" == 0 && -f "$outbox_runtime_env_file" ]]; then
       printf '%s\n' "ALTER ROLE app_outbox NOLOGIN PASSWORD NULL;" | "${dc_target[@]}" run --rm --no-deps --pull never -T "$migration_service" node_modules/prisma/build/index.js db execute --stdin --schema prisma/schema.prisma >/dev/null 2>&1 || return 1
       rm -f "$outbox_runtime_env_file"
     fi
+    ROLLBACK_IR20_COMPLETE=1
   fi
-  restored_api_id="$("${dc_target[@]}" ps -q api | head -1)"; restored_web_id="$("${dc_target[@]}" ps -q web | head -1)"
-  [[ -n "$restored_api_id" && -n "$restored_web_id" ]] || return 1
-  restored_api_revision="$(container_revision "$restored_api_id")" || return 2; restored_web_revision="$(container_revision "$restored_web_id")" || return 2
-  is_revision "$restored_api_revision" || return 2; is_revision "$restored_web_revision" || return 2
-  [[ "$restored_api_revision" == "$BASELINE_API_REVISION" && "$restored_web_revision" == "$BASELINE_WEB_REVISION" ]] || return 3
 }
 
 rollback_and_exit() {
@@ -904,7 +992,9 @@ rollback_and_exit() {
   rollback_images || rollback_status=$?
   printf 'DEPLOYMENT_COMPLETE=0\n' >&2
   printf 'ROLLBACK_ATTEMPTED=1\n' >&2
-  if [[ "$rollback_status" == 0 ]]; then
+  printf 'ROLLBACK_API_WEB_COMPLETE=%s\n' "${ROLLBACK_API_WEB_COMPLETE:-0}" >&2
+  printf 'ROLLBACK_IR20_COMPLETE=%s\n' "${ROLLBACK_IR20_COMPLETE:-0}" >&2
+  if [[ "$rollback_status" == 0 && "${ROLLBACK_API_WEB_COMPLETE:-0}" == 1 && "${ROLLBACK_IR20_COMPLETE:-0}" == 1 ]]; then
     printf 'ROLLBACK_COMPLETE=1\n' >&2
     printf 'ROLLBACK_FAILED=0\n' >&2
     printf 'RESTORED_API_REVISION=%s\n' "${restored_api_revision:-unknown}" >&2
@@ -1100,6 +1190,10 @@ if [[ "$ACTION" == observe-ir20 ]]; then
 fi
 
 if [[ "$ACTION" == rollback ]]; then
+  # This action is a fresh process invoked only after the deploy action already
+  # advanced API/Web and later acceptance failed. Restore API/Web unconditionally
+  # to the baseline recorded by that deployment run.
+  API_WEB_MUTATED=1
   # Distinguished on purpose. A rollback that restored the wrong revision and a
   # rollback whose verification could not run are different incidents with
   # different responses, and reporting both as AUTOMATIC_ROLLBACK_FAILED cost an
@@ -1212,13 +1306,20 @@ apply_outbox_policy
 provision_outbox_runtime
 write_override "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override" 1 "$OUTBOX_WORKER_IMAGE" 1
 "${dc_target[@]}" config --quiet
-"${dc_target[@]}" up -d --no-deps --pull never "$KAFKA_SERVICE"; wait_broker || fail KAFKA_READINESS_FAILED 115
+"${dc_target[@]}" up -d --no-deps --pull never "$KAFKA_SERVICE"
+if wait_broker; then
+  printf 'IR20_BROKER_RECOVERY=NOT_REQUIRED\n'
+else
+  emit_broker_startup_diagnostics
+  recover_broker_once || fail KAFKA_READINESS_FAILED 115
+fi
 ensure_kafka_topics || fail KAFKA_TOPIC_AUTHORITY_FAILED 116
 verify_first_broker_restart_persistence || fail KAFKA_PERSISTENCE_PROOF_FAILED 117
 "${dc_target[@]}" up -d --no-deps --pull never "$OUTBOX_SERVICE"
 if ! wait_worker; then emit_worker_startup_diagnostics; fail OUTBOX_WORKER_READINESS_FAILED 118; fi
 verify_ir20_runtime_network_parity || fail IR20_RUNTIME_NETWORK_PARITY_FAILED 128
 worker_principal_smoke || fail OUTBOX_PRINCIPAL_BOUNDARY_FAILED 97
+API_WEB_MUTATED=1
 "${dc_target[@]}" up -d --no-deps --pull never api
 if ! wait_api; then emit_api_startup_diagnostics; fail API_READINESS_FAILED 30; fi
 new_api_id="$("${dc_target[@]}" ps -q api | head -1)"; verify_api_auth_hash_keys "$new_api_id" || fail API_AUTH_HASH_KEYS_INVALID 77
