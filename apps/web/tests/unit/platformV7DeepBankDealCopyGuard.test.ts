@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 const webRoot = existsSync(join(process.cwd(), 'app/platform-v7')) ? process.cwd() : join(process.cwd(), 'apps/web');
 
 const read = (relativePath: string) => readFileSync(join(webRoot, relativePath), 'utf8');
+const absentLegacyQueue = 'lib/platform-v7/operator-execution-queue.ts';
 
 const guardedFiles = [
   'app/platform-v7/ai/page.tsx',
@@ -137,6 +138,10 @@ const forbiddenVisibleCopy = [
 ];
 
 describe('platform-v7 deep bank and deal copy guard', () => {
+  it('keeps the removed legacy execution queue absent from this contour', () => {
+    expect(existsSync(join(webRoot, absentLegacyQueue))).toBe(false);
+  });
+
   it('keeps deep bank, deal and evidence surfaces on execution-contour wording', () => {
     const source = guardedFiles.map(read).join('\n');
 
