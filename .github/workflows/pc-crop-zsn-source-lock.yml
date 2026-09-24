@@ -1,0 +1,34 @@
+name: PC-CROP EFGIS ZSN Public Document Source Lock
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/pc-crop-zsn-source-lock.yml'
+      - 'docs/platform-v7/crop-platform/efgis-zsn-api-document.source-lock.json'
+      - 'docs/platform-v7/crop-platform/efgis-zsn-api-document.source-lock.schema.json'
+      - 'scripts/pc-crop-zsn/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pc-crop-zsn-source-lock.yml'
+      - 'docs/platform-v7/crop-platform/efgis-zsn-api-document.source-lock.json'
+      - 'docs/platform-v7/crop-platform/efgis-zsn-api-document.source-lock.schema.json'
+      - 'scripts/pc-crop-zsn/**'
+
+permissions:
+  contents: read
+
+jobs:
+  public-document-lock:
+    name: Source hash · schema · disabled runtime boundaries
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - run: node --test scripts/pc-crop-zsn/verify-source-lock.test.mjs
+      - run: node scripts/pc-crop-zsn/verify-source-lock.mjs
