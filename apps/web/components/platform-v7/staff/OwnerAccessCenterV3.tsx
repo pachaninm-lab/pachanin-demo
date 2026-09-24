@@ -76,6 +76,7 @@ type SessionContext = {
   code?: string;
   message?: string;
 };
+type OwnSession = { id: string; status?: string };
 type CabinetProjection = {
   mode?: string;
   effectiveOrganizationId?: string;
@@ -397,7 +398,7 @@ export function OwnerAccessCenter(props: Props) {
     setChecking(true);
     setOpenError(null);
     try {
-      const [assignmentsResponse, registryResponse, sessionResponse, roleModeSessionResponse] = await Promise.all([
+      const [assignmentsResponse, registryResponse, sessionResponse, roleModeSessionResponse, ownSessionsResponse] = await Promise.all([
         fetch('/api/staff/assignments/me', {
           credentials: 'same-origin',
           cache: 'no-store',
@@ -417,6 +418,12 @@ export function OwnerAccessCenter(props: Props) {
           signal: AbortSignal.timeout(8_000),
         }),
         fetch('/api/staff/founder/role-mode/session', {
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: { Accept: 'application/json' },
+          signal: AbortSignal.timeout(8_000),
+        }),
+        fetch('/api/staff/access/sessions', {
           credentials: 'same-origin',
           cache: 'no-store',
           headers: { Accept: 'application/json' },
@@ -446,17 +453,39 @@ export function OwnerAccessCenter(props: Props) {
       setRegistry(registryPayload);
 
       const sessionPayload = await sessionResponse.json().catch(() => null) as SessionContext | null;
-      const roleModeSession = await roleModeSessionResponse.json().catch(() => null) as FounderRoleModeSession | ApiErrorPayload | null;
+      const roleModeSession = await roleModeSessionResponse.json().catch(() => null) as FounderRoleModeSession | { active: false } | ApiErrorPayload | null;
+      const ownSessions = await ownSessionsResponse.json().catch(() => null) as OwnSession[] | null;
       if (!isCurrent()) return;
+      const protectedSessionActive = sessionResponse.ok && sessionPayload?.active === true && Boolean(sessionPayload.session);
+      const canonicalActive = roleModeSessionResponse.ok && roleModeSession && 'active' in roleModeSession
+        && roleModeSession.active === true;
+      const canonicalInactive = (roleModeSessionResponse.status === 401
+        && roleModeSession && 'code' in roleModeSession && roleModeSession.code === 'ROLE_MODE_SESSION_INACTIVE')
+        || (roleModeSessionResponse.ok && roleModeSession && 'active' in roleModeSession
+          && roleModeSession.active === false);
       if (!sessionResponse.ok || typeof sessionPayload?.active !== 'boolean'
         || (sessionPayload.active && !sessionPayload.session)
-        || (!sessionPayload.active && sessionPayload.session)) {
+        || (!sessionPayload.active && sessionPayload.session)
+        || (protectedSessionActive ? !canonicalActive : !canonicalInactive)
+        || !ownSessionsResponse.ok || !Array.isArray(ownSessions) || ownSessions.length >= 200
+        || ownSessions.some((row) => !row || typeof row.id !== 'string' || !row.id || (row.status && row.status !== 'ACTIVE'))) {
         throw new Error(text.sessionUnknown);
       }
-      const protectedSessionActive = sessionResponse.ok && sessionPayload?.active === true && Boolean(sessionPayload.session);
       setSessionContext(protectedSessionActive ? sessionPayload! : { active: false, session: null });
+      if (!protectedSessionActive && ownSessions.length > 0) {
+        setActiveMode(null);
+        setProjection(null);
+        setProjectionUnavailable(true);
+        setSessionKnown(false);
+        setNotice(text.sessionUnknown);
+        return;
+      }
+      if (protectedSessionActive && (ownSessions.length !== 1
+        || ownSessions[0].id !== sessionPayload!.session!.accessSessionId)) {
+        throw new Error(text.sessionUnknown);
+      }
 
-      if (protectedSessionActive && roleModeSessionResponse.ok && roleModeSession && 'active' in roleModeSession) {
+      if (protectedSessionActive) {
         const session = sessionPayload!.session!;
         const canonical = roleModeSession as FounderRoleModeSession;
         const cabinet = registryPayload.cabinets.find((item) => item.key === canonical.cabinetKey);
@@ -524,6 +553,11 @@ export function OwnerAccessCenter(props: Props) {
   useEffect(() => {
     void loadRoleMode();
     return () => { loadGeneration.current += 1; };
+  }, [loadRoleMode]);
+  useEffect(() => {
+    const recheck = () => { void loadRoleMode(); };
+    window.addEventListener('pc:staff-session-changed', recheck);
+    return () => window.removeEventListener('pc:staff-session-changed', recheck);
   }, [loadRoleMode]);
 
   async function requestRoleMode(cabinet: FounderCabinet, token: string, signal: AbortSignal) {
@@ -676,7 +710,7 @@ export function OwnerAccessCenter(props: Props) {
         actorDisplayName: canonical.actor.displayName,
         expiresAt: canonical.expiresAt,
       });
-      await loadProjection(session);
+      window.dispatchEvent(new Event('pc:staff-session-changed'));
     } catch (error) {
       if (activationAttempted) {
         setSessionContext({ active: false, session: null });
@@ -724,6 +758,8 @@ export function OwnerAccessCenter(props: Props) {
       setActiveMode(null);
       setProjection(null);
       setProjectionUnavailable(false);
+      setSessionKnown(false);
+      window.dispatchEvent(new Event('pc:staff-session-changed'));
       if (returnPath?.startsWith('/platform-v7/staff')) {
         window.location.assign(returnPath);
       }
@@ -739,7 +775,7 @@ export function OwnerAccessCenter(props: Props) {
     return (
       <div className={styles.advancedWrap}>
         {isOwner && (
-          <button type="button" className={styles.backButton} onClick={() => setAdvanced(false)}>
+          <button type="button" className={styles.backButton} onClick={() => { setAdvanced(false); void loadRoleMode(); }}>
             ← {text.back}
           </button>
         )}

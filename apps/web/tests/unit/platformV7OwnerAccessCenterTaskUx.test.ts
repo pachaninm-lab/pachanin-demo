@@ -5,6 +5,7 @@ import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ownerAccessCenterMessages } from '../../i18n/owner-access-center-messages';
 import { OwnerAccessCenter as RoleModeCenter } from '../../components/platform-v7/staff/OwnerAccessCenterV3';
+import { OwnerAccessCenter as BootstrapCenter } from '../../components/platform-v7/staff/OwnerAccessCenterV4';
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
 const page = read('apps/web/app/platform-v7/staff/page.tsx');
@@ -71,6 +72,7 @@ describe('platform-v7 owner access center task UX', () => {
       if (path === '/api/staff/assignments/me') return json([{ id: 'owner-1', role: 'PLATFORM_OWNER', status: 'ACTIVE' }]);
       if (path === '/platform-v7/staff/role-mode') return json(registryUnavailable ? { code: 'UNAVAILABLE' } : registry, registryUnavailable ? 503 : 200);
       if (path === '/api/staff/session-context') return json({ active: true, session });
+      if (path === '/api/staff/access/sessions') return json([{ id: session.accessSessionId, status: 'ACTIVE' }]);
       if (path === '/api/staff/founder/role-mode/session') return json(canonical);
       if (path === '/api/staff/organizations/organization-1/cabinet/BUYER') return json({ deals: [] });
       throw new Error(`Unexpected staff request: ${path}`);
@@ -96,6 +98,7 @@ describe('platform-v7 owner access center task UX', () => {
       if (path === '/api/staff/assignments/me') return json([{ id: 'owner-1', role: 'PLATFORM_OWNER', status: 'ACTIVE' }]);
       if (path === '/platform-v7/staff/role-mode') return ++registryReads === 1 ? firstRegistry : json({ code: 'UNAVAILABLE' }, 503);
       if (path === '/api/staff/session-context') return json({ active: true, session });
+      if (path === '/api/staff/access/sessions') return json([{ id: session.accessSessionId, status: 'ACTIVE' }]);
       if (path === '/api/staff/founder/role-mode/session') return json(canonical);
       throw new Error(`Unexpected staff request: ${path}`);
     }));
@@ -117,7 +120,8 @@ describe('platform-v7 owner access center task UX', () => {
       if (path === '/api/staff/assignments/me') return json([{ id: 'owner-1', role: 'PLATFORM_OWNER', status: 'ACTIVE' }]);
       if (path === '/platform-v7/staff/role-mode') return json(registry);
       if (path === '/api/staff/session-context') return json({ code: 'UNAVAILABLE' }, 503);
-      if (path === '/api/staff/founder/role-mode/session') return json({ active: false });
+      if (path === '/api/staff/access/sessions') return json([]);
+      if (path === '/api/staff/founder/role-mode/session') return json({ code: 'ROLE_MODE_SESSION_INACTIVE' }, 401);
       throw new Error(`Unexpected staff request: ${path}`);
     }));
 
@@ -148,8 +152,9 @@ describe('platform-v7 owner access center task UX', () => {
         activationAttempted = true;
         return json({ ok: true });
       }
-      if (path === '/api/staff/session-context') return activationAttempted ? json({ code: 'UNAVAILABLE' }, 503) : json({ active: false, session: null });
-      if (path === '/api/staff/founder/role-mode/session') return activationAttempted ? json({ code: 'UNAVAILABLE' }, 503) : json({ active: false });
+      if (path === '/api/staff/session-context') return json({ active: false, session: null });
+      if (path === '/api/staff/access/sessions') return json(activationAttempted ? [{ id: canonical.accessSessionId, status: 'ACTIVE' }] : []);
+      if (path === '/api/staff/founder/role-mode/session') return json({ code: 'ROLE_MODE_SESSION_INACTIVE' }, 401);
       if (path === '/api/staff/organizations/organization-1/cabinet/BUYER') return json({ deals: [] });
       throw new Error(`Unexpected staff request: ${path}`);
     }));
@@ -181,6 +186,7 @@ describe('platform-v7 owner access center task UX', () => {
         effectiveOrganizationId: canonical.effectiveOrganizationId, effectiveRole: canonical.effectiveRole,
         expiresAt: canonical.expiresAt,
       } });
+      if (path === '/api/staff/access/sessions') return json([{ id: canonical.accessSessionId, status: 'ACTIVE' }]);
       if (path === '/api/staff/founder/role-mode/session') return json(canonical);
       if (path === '/api/staff/organizations/organization-1/cabinet/BUYER') return json({ deals: [] });
       throw new Error(`Unexpected staff request: ${path}`);
@@ -188,6 +194,82 @@ describe('platform-v7 owner access center task UX', () => {
     fireEvent.click(view.getByRole('button', { name: 'Повторить проверку сессии' }));
     await waitFor(() => expect(view.container.querySelector('[data-founder-role-mode-active]')).not.toBeNull());
     expect(requestCount).toBe(1);
+  });
+
+  it('revalidates the V3 projection after advanced access management ends its session', async () => {
+    const { session, registry, canonical, props } = roleModeFixtures();
+    let active = true;
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path === '/api/staff/assignments/me') return json([{ id: 'owner-1', role: 'PLATFORM_OWNER', status: 'ACTIVE' }]);
+      if (path === '/platform-v7/staff/role-mode') return json(registry);
+      if (path === '/api/staff/session-context') return json(active ? { active: true, session } : { active: false, session: null });
+      if (path === '/api/staff/access/sessions') return json(active ? [{ id: session.accessSessionId, status: 'ACTIVE' }] : []);
+      if (path === '/api/staff/founder/role-mode/session') return active ? json(canonical) : json({ code: 'ROLE_MODE_SESSION_INACTIVE' }, 401);
+      if (path === '/api/staff/organizations/organization-1/cabinet/BUYER') return json({ deals: [] });
+      if (path.startsWith('/api/staff/')) return json([]);
+      throw new Error(`Unexpected staff request: ${path}`);
+    }));
+
+    const view = render(createElement(RoleModeCenter, props));
+    await waitFor(() => expect(view.container.querySelector('[data-founder-role-mode-active]')).not.toBeNull());
+    fireEvent.click(view.getByRole('button', { name: 'Управление сотрудниками и доступами' }));
+    active = false;
+    await act(async () => { window.dispatchEvent(new Event('pc:staff-session-changed')); });
+    fireEvent.click(view.getByRole('button', { name: /Вернуться ко всем кабинетам/ }));
+    await waitFor(() => expect(view.container.querySelector('[data-founder-role-mode-active]')).toBeNull());
+  });
+
+  it('blocks CONTROL_PLANE bootstrap when a VIEW_AS session becomes active', async () => {
+    const { session, registry, canonical, props } = roleModeFixtures();
+    let active = false;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path === '/api/staff/assignments/me') return json([{ id: 'owner-1', role: 'PLATFORM_OWNER', status: 'ACTIVE' }]);
+      if (path === '/platform-v7/staff/role-mode') return json(registry);
+      if (path === '/api/staff/session-context') return json(active ? { active: true, session } : { active: false, session: null });
+      if (path === '/api/staff/access/sessions') return json(active ? [{ id: session.accessSessionId, status: 'ACTIVE' }] : []);
+      if (path === '/api/staff/founder/role-mode/session') return active ? json(canonical) : json({ code: 'ROLE_MODE_SESSION_INACTIVE' }, 401);
+      if (path === '/api/staff/organizations/organization-1/cabinet/BUYER') return json({ deals: [] });
+      throw new Error(`Unexpected staff request: ${path}`);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const view = render(createElement(BootstrapCenter, props));
+    await waitFor(() => expect(view.getByRole('button', { name: 'Открыть доступ на 30 минут' })).toBeEnabled());
+    active = true;
+    await act(async () => { window.dispatchEvent(new Event('pc:staff-session-changed')); });
+    await waitFor(() => expect(view.queryByRole('button', { name: 'Открыть доступ на 30 минут' })).toBeNull());
+    expect(view.container.querySelector('[data-p0-registration-access-bootstrap]')?.textContent).toContain('Другая защищённая сессия уже открыта');
+    expect(fetchMock.mock.calls.some(([path]) => String(path).includes('/activate'))).toBe(false);
+  });
+
+  it('treats an inactive cookie with a durable own session as unresolved', async () => {
+    const { registry, props } = roleModeFixtures();
+    let ownSessions = [{ id: 'committed-without-cookie', status: 'ACTIVE' }];
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path === '/api/staff/assignments/me') return json([{ id: 'owner-1', role: 'PLATFORM_OWNER', status: 'ACTIVE' }]);
+      if (path === '/platform-v7/staff/role-mode') return json(registry);
+      if (path === '/api/staff/session-context') return json({ active: false, session: null });
+      if (path === '/api/staff/access/sessions') return json(ownSessions);
+      if (path === '/api/staff/founder/role-mode/session') return json({ code: 'ROLE_MODE_SESSION_INACTIVE' }, 401);
+      throw new Error(`Unexpected staff request: ${path}`);
+    }));
+
+    const view = render(createElement(BootstrapCenter, props));
+    await waitFor(() => expect(view.container.querySelector('[data-p0-registration-access-bootstrap]')?.textContent)
+      .toContain('Другая защищённая сессия уже открыта'));
+    expect(view.queryByRole('button', { name: 'Открыть доступ на 30 минут' })).toBeNull();
+    expect(view.queryAllByRole('button', { name: 'Открыть read-only' }).every((button) => button.hasAttribute('disabled'))).toBe(true);
+
+    ownSessions = [];
+    await act(async () => { window.dispatchEvent(new Event('pc:staff-session-changed')); });
+    await waitFor(() => expect(view.getByRole('button', { name: 'Открыть доступ на 30 минут' })).toBeEnabled());
+    fireEvent.change(view.getByLabelText(/ID реальной организации/), { target: { value: 'organization-1' } });
+    fireEvent.change(view.getByLabelText(/Тикет/), { target: { value: 'ticket-1' } });
+    fireEvent.change(view.getByLabelText(/Причина просмотра/), { target: { value: 'Проверка работы кабинета' } });
+    await waitFor(() => expect(view.getAllByRole('button', { name: 'Открыть read-only' }).every((button) => !button.hasAttribute('disabled'))).toBe(true));
   });
 
   it('consumes the server-owned exact 13-cabinet role-mode registry', () => {
