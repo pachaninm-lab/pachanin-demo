@@ -274,6 +274,7 @@ requireAll('executor', [
   '--force-recreate "$KAFKA_SERVICE"',
   'API_WEB_MUTATED=0',
   'API_WEB_MUTATED=1',
+  'if [[ "$ACTION" == rollback || "${API_WEB_MUTATED:-0}" == 1 ]]; then',
   'docker logs --tail 120',
   'docker logs --tail 80',
   'wait_web',
