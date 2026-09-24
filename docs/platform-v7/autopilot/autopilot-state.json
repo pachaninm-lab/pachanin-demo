@@ -238,11 +238,9 @@
       "scripts/fixtures/pc-crop-w1-lineage/20260717170000_deal_cross_tenant_participation.sql"
     ],
     "governance/pc-crop-post-registration-progress-scope-4997": [
-      "docs/platform-v7/autopilot/autopilot-state.json",
       "scripts/p7-autopilot-guard.sh",
       "scripts/p7-autopilot-guard.test.mjs",
-      ".github/workflows/platform-v7-autopilot-guard.yml",
-      ".github/workflows/pc-crop-w1-production-acceptance.yml"
+      ".github/workflows/platform-v7-autopilot-guard.yml"
     ],
     "governance/extend-role-eligibility-fns-registry-hardening-5064-v2": [
       "docs/platform-v7/autopilot/scopes/role-eligibility-fns-registry-coverage-authority-5064.json"
@@ -1810,6 +1808,28 @@
         "CI/workflow/threshold/security gate weakening"
       ],
       "teamHubDependency": "#5477 current-head P1/P2 review findings; CORE server concurrency policy #5580; Team Hub #5469 comments 5816128897 and 5816539865"
+    },
+    "product-trusted-guard-reassignment-20260924": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Reassign the existing base-routed PC-CROP governance ref to one bounded PRODUCT immutable-scope guard repair; revoke its historical state and W1 workflow edit paths.",
+      "authorityBaseExactMain": "1f0411296b7727fc1a55c49addfd689e2a7f9090",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "requiredTruthBoundaries": [
+        "The reassigned guard PR must use the trusted base's existing immutable workflow and exact three-path state scope; candidate guard code is not privileged authority.",
+        "Admit the bank, FGIS and UX source scopes only in a later state-only PR after the guard is merged and base-controlled.",
+        "The historical post-registration and W1 workflow permissions are revoked for this ref before any PRODUCT guard change."
+      ],
+      "forbiddenAuthority": [
+        "PRODUCT source implementation or external bank/FGIS runtime authority in the guard PR",
+        "historical state/W1 workflow edit authority on the reassigned ref",
+        "CI/security gate weakening"
+      ],
+      "teamHubDependency": "#5590 current-head trusted-bootstrap P1; PRODUCT source PRs #5587, #5588 and #5589"
     }
   }
 }
