@@ -3,20 +3,21 @@
 import * as React from 'react';
 import { CheckCircle2, Eye, EyeOff, RefreshCw, ShieldCheck } from 'lucide-react';
 import { applyCsrfHeader } from '@/lib/csrf';
+import {
+  classifyRegistrationStatusResponse,
+  classifyRegistrationSubmitResponse,
+  parseRegistrationStatusSnapshot,
+  registrationOperationForPayload,
+  type RegistrationStatusSnapshot,
+  type RegistrationUnknownOperation,
+} from '@/lib/platform-v7/registration-outcome';
 import { RegisterFormClient } from './RegisterFormClient';
 
 type Locale = 'ru' | 'en' | 'zh';
 type PublicWorkspace = 'seller' | 'buyer' | 'logistics' | 'bank';
 type RegistrationWorkspace = 'seller' | 'buyer' | 'logistics' | 'driver' | 'elevator' | 'lab' | 'surveyor' | 'bank' | 'employee';
-type RegistrationStatus = {
-  applicationId?: string;
-  status?: string;
-  nextAction?: string;
-  reason?: string | null;
-  correlationId?: string;
-  statusToken?: string;
-  ok?: boolean;
-};
+type RegistrationStatus = RegistrationStatusSnapshot;
+type StatusReadState = 'idle' | 'loading' | 'available' | 'unavailable' | 'invalid';
 
 const STATUS_LABELS: Record<string, string> = {
   EMAIL_VERIFICATION_REQUIRED: 'Ожидается подтверждение электронной почты',
@@ -66,7 +67,8 @@ function Reference({ value }: { value: string }) {
 }
 
 function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace }: { verifyToken?: string; initialStatusToken?: string; initialWorkspace?: PublicWorkspace }) {
-  const idempotencyKey = React.useRef<string>(globalThis.crypto.randomUUID());
+  const submitLockRef = React.useRef(false);
+  const unknownOperationRef = React.useRef<RegistrationUnknownOperation | null>(null);
   const [workspace, setWorkspace] = React.useState<RegistrationWorkspace>(initialWorkspace || 'seller');
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState('');
@@ -74,8 +76,10 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
   const [statusToken, setStatusToken] = React.useState(initialStatusToken || '');
   const [status, setStatus] = React.useState<RegistrationStatus | null>(null);
   const [statusLoading, setStatusLoading] = React.useState(Boolean(initialStatusToken));
+  const [statusReadState, setStatusReadState] = React.useState<StatusReadState>(initialStatusToken ? 'loading' : 'idle');
   const [verificationCompleted, setVerificationCompleted] = React.useState(false);
   const [submissionAccepted, setSubmissionAccepted] = React.useState(false);
+  const [deliveryUnconfirmed, setDeliveryUnconfirmed] = React.useState(false);
   const [submittedEmail, setSubmittedEmail] = React.useState('');
   const [resendMessage, setResendMessage] = React.useState('');
   const [additionalInformation, setAdditionalInformation] = React.useState('');
@@ -86,17 +90,26 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
   const loadStatus = React.useCallback(async (token: string) => {
     if (!token) return;
     setStatusLoading(true);
+    setStatusReadState('loading');
+    setStatus(null);
     setError('');
     try {
       const response = await fetch(`/api/auth/registration/status?token=${encodeURIComponent(token)}`, {
         cache: 'no-store', credentials: 'same-origin',
       });
-      const payload = await response.json().catch(() => ({} as RegistrationStatus));
-      setCorrelationId(String(payload.correlationId || ''));
-      if (!response.ok || payload.ok === false) throw new Error('status_failed');
-      setStatus(payload);
+      const payload: unknown = await response.json().catch(() => null);
+      const row = payload && typeof payload === 'object' && !Array.isArray(payload)
+        ? payload as Record<string, unknown> : null;
+      setCorrelationId(typeof row?.correlationId === 'string' ? row.correlationId : '');
+      const verdict = classifyRegistrationStatusResponse(response, payload);
+      if (verdict.kind === 'available') {
+        setStatus(verdict.status);
+        setStatusReadState('available');
+      } else {
+        setStatusReadState(verdict.kind);
+      }
     } catch {
-      setError('Сейчас не удалось обновить статус заявки. Повторите попытку позднее.');
+      setStatusReadState('unavailable');
     } finally {
       setStatusLoading(false);
     }
@@ -108,7 +121,7 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
 
   async function submitRegistration(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitting) return;
+    if (submitLockRef.current) return;
     const element = event.currentTarget;
     if (!element.checkValidity()) {
       element.reportValidity();
@@ -140,6 +153,13 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
       acceptPrivacy: true,
       locale: 'ru',
     };
+    const serializedPayload = JSON.stringify(payload);
+    const operation = registrationOperationForPayload(
+      serializedPayload,
+      unknownOperationRef.current,
+      () => globalThis.crypto.randomUUID(),
+    );
+    submitLockRef.current = true;
     setSubmitting(true);
     setError('');
     setCorrelationId('');
@@ -150,25 +170,39 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
       try {
         response = await fetch('/api/auth/register', {
           method: 'POST',
-          headers: applyCsrfHeader({ 'Content-Type': 'application/json', 'idempotency-key': idempotencyKey.current }),
-          body: JSON.stringify(payload), cache: 'no-store', credentials: 'same-origin', signal: controller.signal,
+          headers: applyCsrfHeader({ 'Content-Type': 'application/json', 'idempotency-key': operation.idempotencyKey }),
+          body: operation.serializedPayload, cache: 'no-store', credentials: 'same-origin', signal: controller.signal,
         });
+      } catch {
+        unknownOperationRef.current = operation;
+        setError('Результат отправки пока не подтверждён. Повторная отправка без изменения данных проверит ту же операцию; если изменить данные, будет создана новая операция.');
+        return;
       } finally {
         window.clearTimeout(timer);
       }
-      const result = await response.json().catch(() => ({} as RegistrationStatus & { accepted?: boolean }));
-      setCorrelationId(String(result.correlationId || ''));
-      if (!response.ok || result.accepted !== true) {
-        if (response.status === 400) throw new Error('invalid');
-        throw new Error('unavailable');
+      const result: unknown = await response.json().catch(() => null);
+      const row = result && typeof result === 'object' && !Array.isArray(result)
+        ? result as Record<string, unknown> : null;
+      setCorrelationId(typeof row?.correlationId === 'string' ? row.correlationId : '');
+      const verdict = classifyRegistrationSubmitResponse(response, result);
+      if (verdict === 'accepted') {
+        unknownOperationRef.current = null;
+        setSubmittedEmail(payload.email);
+        setDeliveryUnconfirmed(row?.deliveryConfirmed === false);
+        setSubmissionAccepted(true);
+        return;
       }
-      setSubmittedEmail(payload.email);
-      setSubmissionAccepted(true);
-    } catch (cause) {
-      setError(cause instanceof Error && cause.message === 'invalid'
+      if (verdict === 'unknown') {
+        unknownOperationRef.current = operation;
+        setError('Результат отправки пока не подтверждён. Повторная отправка без изменения данных проверит ту же операцию; если изменить данные, будет создана новая операция.');
+        return;
+      }
+      unknownOperationRef.current = null;
+      setError(verdict === 'invalid'
         ? 'Проверьте правильность заполнения обязательных полей.'
-        : 'Сейчас не удалось отправить заявку. Данные не были приняты. Повторите попытку позднее.');
+        : 'Сейчас не удалось отправить заявку. Сервер не подтвердил её принятие. Повторите попытку позднее.');
     } finally {
+      submitLockRef.current = false;
       setSubmitting(false);
     }
   }
@@ -201,7 +235,9 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
       const result = await response.json().catch(() => ({} as RegistrationStatus));
       setCorrelationId(String(result.correlationId || ''));
       if (!response.ok || result.ok !== true || !result.statusToken) throw new Error('failed');
-      setVerificationCompleted(true); setStatusToken(result.statusToken); setStatus(result);
+      const verifiedStatus = parseRegistrationStatusSnapshot(result);
+      if (!verifiedStatus) throw new Error('failed');
+      setVerificationCompleted(true); setStatusToken(result.statusToken); setStatus(verifiedStatus); setStatusReadState('available');
       window.history.replaceState(null, '', `/platform-v7/register?statusToken=${encodeURIComponent(result.statusToken)}&lang=ru`);
     } catch {
       setError('Ссылка недействительна, срок её действия истёк или она уже была использована.');
@@ -224,7 +260,13 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
       setCorrelationId(String(result.correlationId || ''));
       if (!response.ok || result.ok !== true) throw new Error('failed');
       setAdditionalInformation(''); setInformationMessage('Дополнительные сведения сохранены. Заявка снова направлена на проверку.');
-      setStatus((current) => ({ ...current, ...result, reason: null }));
+      const updated = parseRegistrationStatusSnapshot(result);
+      if (updated) {
+        setStatus(updated);
+        setStatusReadState('available');
+      } else {
+        await loadStatus(statusToken);
+      }
     } catch {
       setError('Сейчас не удалось сохранить дополнительные сведения. Повторите попытку позднее.');
     } finally { setInformationSubmitting(false); }
@@ -247,18 +289,33 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
       <ShieldCheck size={40} aria-hidden='true' />
       <h2 id='p0-register-status-title'>Заявка принята</h2>
       <p>На указанный адрес будет направлено письмо, если он может быть использован для регистрации. Если учётная запись уже существует, воспользуйтесь входом или восстановлением доступа.</p>
+      {deliveryUnconfirmed ? <p role='status'>Доставка письма не подтверждена. Если письма нет, запросите его повторно кнопкой ниже.</p> : null}
       {resendMessage ? <p role='status'>{resendMessage}</p> : null}{error ? <p className='p0-register-error' role='alert'>{error}</p> : null}<Reference value={reference} />
       <div className='p0-register-actions'><button type='button' className='p0-register-primary' onClick={() => void resendEmail()} disabled={submitting}>{submitting ? 'Письмо отправляется…' : 'Отправить письмо повторно'}</button><a className='p0-register-secondary' href='/platform-v7/login'>Войти</a><a className='p0-register-secondary' href='/platform-v7/forgot-password'>Восстановить доступ</a></div>
     </section>;
   }
 
   if (statusToken || status) {
-    const statusCode = String(status?.status || 'EMAIL_VERIFICATION_REQUIRED');
-    const nextCode = String(status?.nextAction || 'VERIFY_EMAIL');
+    if (statusReadState !== 'available' || !status) {
+      const statusMessage = statusReadState === 'loading'
+        ? 'Получаем актуальный статус заявки…'
+        : statusReadState === 'invalid'
+          ? 'Ссылка для проверки статуса недействительна или срок её действия истёк.'
+          : 'Сейчас не удалось получить статус заявки. Повторите попытку позднее.';
+      return <section className='p0-register-card p0-register-state' aria-labelledby='p0-register-status-title' aria-live='polite'>
+        <ShieldCheck size={40} aria-hidden='true' />
+        <h2 id='p0-register-status-title'>Статус регистрации</h2>
+        <p role={statusReadState === 'unavailable' ? 'alert' : 'status'}>{statusMessage}</p>
+        <Reference value={reference} />
+        {statusReadState === 'unavailable' && statusToken ? <button type='button' className='p0-register-secondary' onClick={() => void loadStatus(statusToken)} disabled={statusLoading}><RefreshCw size={17} aria-hidden='true' />{statusLoading ? '…' : 'Обновить статус'}</button> : null}
+      </section>;
+    }
+    const statusCode = status.status;
+    const nextCode = status.nextAction;
     return <section className='p0-register-card p0-register-state' aria-labelledby='p0-register-status-title' aria-live='polite'>
       {statusCode === 'ACTIVATED' ? <CheckCircle2 size={40} aria-hidden='true' /> : <ShieldCheck size={40} aria-hidden='true' />}
       <h2 id='p0-register-status-title'>Статус регистрации</h2>
-      <dl className='p0-register-status-list'><div><dt>Номер заявки</dt><dd>{status?.applicationId || '—'}</dd></div><div><dt>Статус</dt><dd>{STATUS_LABELS[statusCode] || 'Информация по заявке обновляется'}</dd></div><div><dt>Следующий шаг</dt><dd>{NEXT_LABELS[nextCode] || 'Ожидайте обновления информации по заявке.'}</dd></div>{status?.reason ? <div><dt>Комментарий по заявке</dt><dd>{status.reason}</dd></div> : null}</dl>
+      <dl className='p0-register-status-list'><div><dt>Номер заявки</dt><dd>{status.applicationId || '—'}</dd></div><div><dt>Статус</dt><dd>{STATUS_LABELS[statusCode]}</dd></div><div><dt>Следующий шаг</dt><dd>{NEXT_LABELS[nextCode]}</dd></div>{status.reason ? <div><dt>Комментарий по заявке</dt><dd>{status.reason}</dd></div> : null}</dl>
       {error ? <p className='p0-register-error' role='alert'>{error}</p> : null}{informationMessage ? <p role='status'>{informationMessage}</p> : null}<Reference value={reference} />
       {statusCode === 'ADDITIONAL_INFORMATION_REQUIRED' ? <form className='p0-register-additional-form' onSubmit={submitAdditionalInformation}><label><span>Дополнительные сведения</span><textarea value={additionalInformation} onChange={(event) => setAdditionalInformation(event.target.value)} minLength={8} maxLength={4000} placeholder='Введите сведения, которые были запрошены. Не указывайте пароль, коды подтверждения и другие секретные данные.' required disabled={informationSubmitting} /></label><button type='submit' className='p0-register-primary' disabled={informationSubmitting || additionalInformation.trim().length < 8}>{informationSubmitting ? 'Сведения отправляются…' : 'Отправить сведения'}</button></form> : null}
       <div className='p0-register-actions'><button type='button' className='p0-register-secondary' onClick={() => void loadStatus(statusToken)} disabled={statusLoading || !statusToken}><RefreshCw size={17} aria-hidden='true' />{statusLoading ? '…' : 'Обновить статус'}</button>{statusCode === 'ACTIVATED' ? <a className='p0-register-primary' href='/platform-v7/login'>Войти</a> : null}</div>
