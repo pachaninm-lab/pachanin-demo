@@ -554,3 +554,39 @@ test.describe('canonical cross-browser public smoke', () => {
     }
   });
 });
+
+for (const width of [320, 390, 430] as const) {
+  for (const locale of ['ru', 'en', 'zh'] as const) {
+    test(`canonical cross-browser public smoke: home single footer reserve ${width} ${locale}`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 844 });
+      expect((await page.goto(`/platform-v7?lang=${locale}`, { waitUntil: 'load' }))?.ok()).toBe(true);
+      const home = page.locator('main.pc-cp-page-home');
+      const capabilities = home.locator('#capabilities');
+      const nav = home.locator('.pc-cp-bottom-nav');
+      await expect(nav).toBeVisible();
+      await expect(home.locator('.pc-cp-footer')).toBeHidden();
+      expect(await home.evaluate(node => Number.parseFloat(getComputedStyle(node).paddingBottom))).toBeLessThanOrEqual(1);
+      await capabilities.scrollIntoViewIfNeeded();
+      await expect.poll(async () => page.evaluate(() => {
+        window.scrollTo(0, document.documentElement.scrollHeight);
+        const last = document.querySelector('#capabilities .pc-cp-capabilities')!.getBoundingClientRect();
+        const navBox = document.querySelector('.pc-cp-bottom-nav')!.getBoundingClientRect();
+        return last.bottom <= navBox.top + 1 && last.bottom > 0;
+      })).toBe(true);
+      const geometry = await home.evaluate(node => {
+        const last = node.querySelector('#capabilities')!;
+        const final = node.querySelector('.pc-cp-final')!;
+        return {
+          display: getComputedStyle(node).display,
+          lastOrder: Number(getComputedStyle(last).order),
+          finalOrder: Number(getComputedStyle(final).order),
+          reserve: Number.parseFloat(getComputedStyle(last).paddingBottom),
+        };
+      });
+      expect(geometry.display).toBe('flex');
+      expect(geometry.lastOrder).toBeGreaterThan(geometry.finalOrder);
+      expect(geometry.reserve).toBeGreaterThanOrEqual(96);
+      await canonicalNoOverflow(page);
+    });
+  }
+}

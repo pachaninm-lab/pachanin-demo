@@ -2286,7 +2286,14 @@ html[lang^='zh'] .pc-canonical-public :is(p,li,dd,.pc-cp-section-head p,.pc-cp-l
   .p0-register-page .p0-register-shell{
     padding-bottom:calc(92px + env(safe-area-inset-bottom,0px))!important;
   }
-  .pc-cp-page-home #capabilities,
+  /* Home already reserves space in its last mobile flex section. */
+  .pc-canonical-public.pc-cp-page-home{
+    padding-bottom:0!important;
+  }
+  .pc-cp-page-home #capabilities{
+    scroll-margin-bottom:110px;
+    padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))!important;
+  }
   .pc-cp-page-capabilities>.pc-cp-section:last-of-type{
     scroll-margin-bottom:110px;
     padding-bottom:96px!important;

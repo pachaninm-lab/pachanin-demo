@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-home-single-reserve-20260924",
+  "status": "active",
+  "approvedBy": "owner-public-ux-repair-v2.0-2026-09-24",
+  "purpose": "Remove duplicated home mobile footer reserve while keeping last content clear of fixed navigation.",
+  "ownerSpecification": "Public UX repair v2.0; production mobile run35939028603 failure on exact3807.",
+  "coordination": "Team Hub claim5807638533. Home-only CSS reserve; reconcile shared CSS with #5547 on next main integration.",
+  "allowedPaths": [
+    "apps/web/styles/platform-v7-canonical-public-v1.css",
+    "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
+    "docs/platform-v7/autopilot/scopes/public-home-single-reserve-20260924.json"
+  ],
+  "requiredInvariants": [
+    "Home main has no duplicate mobile bottom padding; final flex section retains96px plus safe-area reserve.",
+    "Last home content clears fixed navigation across320/390/430 RU/EN/ZH.",
+    "Other page reserves, desktop geometry, existing tests and thresholds remain unchanged.",
+    "No backend, auth, Gekta, provider, data or release authority change."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
