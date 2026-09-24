@@ -4,6 +4,7 @@ import {
   assertSameOriginIfPresent,
   resolveRequestTargetOrigin,
   resolveSameOriginRedirectTarget,
+  toPathAbsoluteReference,
 } from '../../lib/server-request-security';
 
 const TOKEN = 'a'.repeat(48);
@@ -292,5 +293,30 @@ describe('resolveSameOriginRedirectTarget', () => {
   it('rejects an unparseable destination and falls back', () => {
     const target = resolveSameOriginRedirectTarget('https://[::not-an-address', '/', req());
     expect(target.toString()).toBe('https://web.example/');
+  });
+});
+
+// A same-origin URL is safe as an absolute Location header, but a client-side
+// navigation resolves a relative reference against the current page. The
+// serialized reference must therefore itself be path-absolute (exactly one
+// leading slash), which dot-segment removal can silently break.
+describe('toPathAbsoluteReference', () => {
+  const BASE_URL = 'https://web.example/api/auth/demo';
+
+  it('keeps the path, query and fragment of a same-origin target', () => {
+    const target = new URL('/lots?campaign=1&b=2#top', BASE_URL);
+    expect(toPathAbsoluteReference(target, '/')).toBe('/lots?campaign=1&b=2#top');
+  });
+
+  it('falls back when dot-segment removal leaves a protocol-relative pathname', () => {
+    const target = new URL('/.//evil.example/steal', BASE_URL);
+    expect(target.origin).toBe('https://web.example');
+    expect(target.pathname).toBe('//evil.example/steal');
+    expect(toPathAbsoluteReference(target, '/lots')).toBe('/lots');
+  });
+
+  it('falls back for a percent-encoded dot segment with the same effect', () => {
+    const target = new URL('/%2e//evil.example/steal', BASE_URL);
+    expect(toPathAbsoluteReference(target, '/lots')).toBe('/lots');
   });
 });

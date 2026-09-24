@@ -143,6 +143,22 @@ export function resolveSameOriginRedirectTarget(
   return candidate.origin === requestOrigin ? candidate : toFallback();
 }
 
+/**
+ * Serialize a same-origin redirect target as a path-absolute reference, for
+ * client-side navigation such as `location.replace()` in an inline script,
+ * where the browser resolves it against the page it is on.
+ *
+ * Re-serializing a resolved URL is not automatically safe. The URL parser
+ * removes dot segments, so `/.//evil.com` resolves same-origin with the
+ * pathname `//evil.com`; emitted as a relative reference, that pathname is a
+ * protocol-relative reference to evil.com. Anything that does not start with
+ * exactly one slash therefore falls back.
+ */
+export function toPathAbsoluteReference(target: URL, fallback: string): string {
+  const reference = `${target.pathname}${target.search}${target.hash}`;
+  return reference.startsWith('/') && !reference.startsWith('//') ? reference : fallback;
+}
+
 export function assertCsrf(request: Request) {
   if (!isUnsafeMethod(request.method)) return { ok: true as const };
   const sameOrigin = assertSameOriginIfPresent(request);

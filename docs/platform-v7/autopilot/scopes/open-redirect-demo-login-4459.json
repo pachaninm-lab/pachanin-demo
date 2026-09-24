@@ -3,7 +3,7 @@
   "issue": 4459,
   "branch": "security/open-redirect-demo-login-4459",
   "status": "active",
-  "purpose": "Close an open-redirect defect found while assessing ASVS V3.7.2. Both non-production demo-login routes accepted a caller-supplied 'to' destination and validated it with `raw.startsWith('/')`, which a protocol-relative ('//evil.example') or backslash-prefixed ('/\\evil.example') value defeats: both start with one slash and both resolve, under the WHATWG URL algorithm every browser implements, to a foreign origin. Both routes are fail-closed in production (demoLoginAllowed() checks NODE_ENV unconditionally first), so this was not reachable in production as currently deployed, but it is a real defect and is fixed rather than left for the gate that happened to mask it.",
+  "purpose": "Close an open-redirect defect found while assessing ASVS V3.7.2. All three non-production demo-login routes accepted a caller-supplied 'to' destination and validated it with `raw.startsWith('/')`, which a protocol-relative ('//evil.example') or backslash-prefixed ('/\\\\evil.example') value defeats: both start with one slash and both resolve, under the WHATWG URL algorithm every browser implements, to a foreign origin. /api/auth/demo and /api/auth/demo/role/[role] answer with a Location header; /api/auth/demo/instant/[role] instead writes the destination into an inline script that calls window.location.replace(), so it additionally needs a path-absolute serialization (dot-segment removal turns '/.//evil.example' into the pathname '//evil.example') and JavaScript-string rather than HTML-entity encoding. All three routes are fail-closed in production (demoLoginAllowed() checks NODE_ENV unconditionally first), so this was not reachable in production as currently deployed, but it is a real defect and is fixed rather than left for the gate that happened to mask it.",
   "authorityBaseExactMain": "76d2dda7c2eb11a62a45261d40cd6d0d32a259ad",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
@@ -11,6 +11,7 @@
     "apps/web/lib/server-request-security.ts",
     "apps/web/app/api/auth/demo/route.ts",
     "apps/web/app/api/auth/demo/role/[role]/route.ts",
+    "apps/web/app/api/auth/demo/instant/[role]/route.ts",
     "apps/web/tests/unit/serverRequestSecurity.test.ts",
     "apps/web/tests/unit/authDemoOpenRedirect.test.ts",
     ".github/workflows/ci.yml",
@@ -18,7 +19,7 @@
     "docs/platform-v7/autopilot/scopes/open-redirect-demo-login-4459.json"
   ],
   "requiredInvariants": [
-    "The fix changes only how a redirect destination is validated. It must not change behaviour for any destination that was already a genuinely same-origin path.",
+    "The fix changes only how a redirect destination is validated and serialized. It must not change where any genuinely same-origin destination navigates. The one intended serialization change is on the instant route: its destination was HTML-entity escaped inside a <script> element, where entities are not decoded, so every '&' in a query string reached the browser as a literal '&amp;'; it is now encoded as a JavaScript string literal and arrives intact.",
     "The check must be on the resolved result (does the candidate's resolved origin match the request's own origin), never on a prefix of the raw string; a prefix check is exactly the class of defect being closed.",
     "demoLoginAllowed() and its production fail-closed behaviour are untouched.",
     "New or modified test files must be wired into the CI-gated web-unit step in .github/workflows/ci.yml, per scripts/security/verify-web-unit-coverage.mjs, not silently left unexecuted or added to the exclusion registry.",
@@ -29,10 +30,11 @@
     "Scope authorization. This manifest was written by the implementation agent because no approved concurrent scope existed for this branch and scripts/p7-autopilot-guard.sh blocked. It is the repository's declared source-controlled mechanism, but it is self-declared and requires owner ratification in review before it counts as authorization."
   ],
   "acceptance": [
-    "A protocol-relative or backslash-prefixed destination no longer produces a cross-origin redirect from either route; both fall back to the safe default.",
-    "A genuinely same-origin destination, including its query string and fragment, is preserved exactly as before.",
-    "The mutation check (temporarily restoring the old startsWith('/') prefix logic) makes the new tests fail; restoring the fix makes them pass again.",
+    "A protocol-relative or backslash-prefixed destination no longer produces a cross-origin navigation from any of the three routes; each falls back to its safe default.",
+    "On the instant route, a destination whose normalized pathname begins with '//' (for example '/.//evil.example') falls back instead of being emitted as a protocol-relative reference, and the destination cannot close the inline script element.",
+    "A genuinely same-origin destination, including its query string and fragment, still navigates to the same place.",
+    "The mutation checks (restoring the old startsWith('/') prefix logic; removing the '//' guard from toPathAbsoluteReference; restoring the HTML-escaped single-quoted literal) each make the new tests fail; restoring the fix makes them pass again.",
     "node scripts/security/verify-web-unit-coverage.mjs passes with both new/modified test files executed, not excluded.",
-    "The exact CI web-unit vitest command (24 files) passes in full."
+    "The exact CI web-unit vitest command (25 files after merging main) passes in full."
   ]
 }
