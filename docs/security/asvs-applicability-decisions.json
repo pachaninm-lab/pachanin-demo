@@ -2087,6 +2087,51 @@
       "note": "A genuine open redirect, found while assessing this requirement rather than assumed from its text. /api/auth/demo, /api/auth/demo/role/[role] and /api/auth/demo/instant/[role] all accept a caller-supplied 'to' destination and validate it with raw.startsWith('/'); the first two hand it to new URL(to, request.url) for a Location header, the third writes it into an inline script that calls window.location.replace(). That check is insufficient: //evil.example and /\\evil.example both start with exactly one slash and both resolve, under the WHATWG URL algorithm every browser implements, to a foreign origin (confirmed directly against Node's URL constructor). A leading // is a network-path reference; a leading backslash is normalized to a forward slash for special schemes such as http(s). The one legitimate cross-origin redirect in the application, the government identity provider's authorization URL in govIdentityBridge.ts, is not affected - its destination comes from an operator-configured environment variable, never from a request. All three vulnerable routes are fail-closed in production regardless: demoLoginAllowed() checks NODE_ENV unconditionally before anything else runs, and no environment flag can override that, so this is not reachable in the current production deployment. It is still recorded FAIL rather than NOT_APPLICABLE or deferred: the requirement asks about the application's own behaviour, and a prefix-check pattern that fails exactly this way is the kind of thing that gets copied into the next route. The fix is prepared, not merged: branch security/open-redirect-demo-login-4459 replaces the prefix check with resolveSameOriginRedirectTarget, which validates the RESOLVED origin rather than a string prefix, covered by mutation-tested unit and route-level tests. The instant route was found in a later pass and needed one more step: a same-origin URL is not automatically safe to re-serialize for client-side navigation, because dot-segment removal turns /.//evil.example into the pathname //evil.example, which as a relative reference is protocol-relative again; the branch emits it only through toPathAbsoluteReference, which refuses any reference that does not start with exactly one slash. It is not bundled into this assessment because this repository's automated merging is disabled and no PR of this agent's may be assumed merged; the second condition above names the fix by its function name specifically so that once it lands on this tree, that condition stops holding, this decision is automatically revoked by the matrix rather than sitting stale, and V3.7.2 falls back to NOT_ASSESSED until it is deliberately re-assessed against the fixed code."
     },
     {
+      "requirementId": "V3.7.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "external-redirect:apps/web/app/api/platform-v7/gov-id/start/route.ts",
+        "destination:apps/web/lib/platform-v7/govIdentityBridge.ts",
+        "entry-point:apps/web/app/platform-v7/fgis-access/page.tsx"
+      ],
+      "conditions": [
+        {
+          "condition": "the government identity start route still answers with an immediate redirect to the externally hosted authorization URL, with no intermediate page",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/platform-v7/gov-id/start/route.ts"
+          ],
+          "patterns": [
+            "const response = nextresponse.redirect(starturl);"
+          ]
+        },
+        {
+          "condition": "that redirect target is still the operator-configured external identity provider's authorization URL",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/govIdentityBridge.ts"
+          ],
+          "patterns": [
+            "const url = new url(config.authorizationurl as string);"
+          ]
+        },
+        {
+          "condition": "the only page that links to the start route still carries exactly the copy assessed here, which does not say the user is about to leave the platform",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/platform-v7/fgis-access/page.tsx"
+          ],
+          "patterns": [
+            "href='/api/platform-v7/gov-id/start?flow=fgis'",
+            "description: 'бизнес-вход подтверждает организацию и полномочия. он не заменяет доступ к фгис «зерно» и не создаёт локальный лот.',",
+            "action: 'подтвердить организацию',"
+          ]
+        }
+      ],
+      "note": "One redirect in the application leaves it for a destination outside its control, and it has neither of the two things this requirement asks for. The farmer page /platform-v7/fgis-access links 'Подтвердить организацию' to /api/platform-v7/gov-id/start, which answers with an immediate 307 to the government identity provider's authorization URL (operator-configured through PLATFORM_V7_GOV_ID_AUTHORIZATION_URL). Nothing before that redirect tells the user they are about to leave the platform for an external service, and there is no intermediate step at which they could cancel: the click is the redirect. The page copy speaks of 'business login' confirming the organization, which describes the purpose, not the fact of leaving. Interpretation used, stated so a reviewer can overturn it: an identity provider chosen by the operator is still a URL outside the application's control, because the application controls neither its content nor its availability; the requirement's own words ('outside of the application's control') are about control of the destination, not about who chose it. What this is not: it is not an open redirect. The destination comes from configuration, never from the request, so V3.7.2 is unaffected by it. Every other server or middleware redirect in apps/web builds its URL from the request's own URL or goes to the platform's own control host; apps/api issues no redirects. Gekta's source citations are ordinary user-clicked links that show the destination hostname and open in a new tab, not redirects, and are not relied on either way. Reachability in production depends on PLATFORM_V7_GOV_ID_ENABLED and the other bridge variables, which are server-side configuration not in this repository; when they are absent the route falls back to a same-origin page. It is recorded FAIL on the application's behaviour whenever the bridge is configured, which is the behaviour the requirement asks about. Not fixed here: the remedy is user-facing copy or an interstitial in platform-v7 UI, which this programme's scope does not permit it to change. The third condition pins the exact assessed copy, so any change to that page's wording or link revokes this decision for deliberate re-assessment instead of leaving a stale FAIL."
+    },
+    {
       "requirementId": "V4.1.1",
       "applicability": "APPLICABLE",
       "status": "PASS",
