@@ -8,7 +8,6 @@
   "allowedPaths": [
     "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
     "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
-    "apps/web/tests/unit/firstCustomerWorkspacePriority.test.tsx",
     "apps/web/tests/unit/sellerExecutionPolish.test.tsx",
     "docs/platform-v7/autopilot/scopes/first-customer-next-action-unknown-20260924.json"
   ],
