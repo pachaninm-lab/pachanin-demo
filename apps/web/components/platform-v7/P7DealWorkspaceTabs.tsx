@@ -90,7 +90,7 @@ function runtimeIntentsFor(deal: DomainDeal, bankBasisBlockedReason: string | nu
 export function P7DealWorkspaceTabs({ deal, runtimeBinding }: { deal: DomainDeal; runtimeBinding?: P7WorkspaceRuntimeBinding }) {
   const [active, setActive] = React.useState<Tab>('overview');
   const disputeAttention = Boolean(deal.dispute) || deal.holdAmount > 0;
-  const blockers = deal.blockers.length + (disputeAttention ? 1 : 0);
+  const blockers = deal.blockers.length + (disputeAttention && !deal.blockers.includes('dispute') ? 1 : 0);
 
   return (
     <section style={{ background: S, border: `1px solid ${B}`, borderRadius: 18, overflow: 'hidden' }}>

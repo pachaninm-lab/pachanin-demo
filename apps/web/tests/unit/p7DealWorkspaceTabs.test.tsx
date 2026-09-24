@@ -83,4 +83,12 @@ describe('P7DealWorkspaceTabs', () => {
     expect(screen.getByText(detail)).toBeInTheDocument();
     expect(screen.queryByText('Спора нет')).not.toBeInTheDocument();
   });
+
+  it('counts an existing dispute blocker once even when a hold is also present', () => {
+    render(<P7DealWorkspaceTabs deal={{ ...deal, dispute: { id: 'DSP-1' }, holdAmount: 120000, blockers: ['dispute', 'docs'] }} />);
+
+    expect(screen.getByText('2 блок. в данных сделки')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Спор 1' })).toBeInTheDocument();
+    expect(screen.queryByText('3 блок. в данных сделки')).not.toBeInTheDocument();
+  });
 });
