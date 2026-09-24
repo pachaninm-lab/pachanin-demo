@@ -1190,6 +1190,10 @@ if [[ "$ACTION" == observe-ir20 ]]; then
 fi
 
 if [[ "$ACTION" == rollback ]]; then
+  # This action is a fresh process invoked only after the deploy action already
+  # advanced API/Web and later acceptance failed. Restore API/Web unconditionally
+  # to the baseline recorded by that deployment run.
+  API_WEB_MUTATED=1
   # Distinguished on purpose. A rollback that restored the wrong revision and a
   # rollback whose verification could not run are different incidents with
   # different responses, and reporting both as AUTOMATIC_ROLLBACK_FAILED cost an
