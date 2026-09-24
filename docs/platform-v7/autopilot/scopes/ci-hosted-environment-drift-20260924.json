@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/ci-hosted-environment-drift-20260924",
+  "status": "active",
+  "approvedBy": "owner-public-ux-repair-v2.0-2026-09-24",
+  "purpose": "Recover exact-head CI from two externally introduced hosted-environment drifts without weakening security or acceptance: Quay returns 401 for the pinned MinIO manifest, and hosted CodeQL advanced from CLI 2.27.0 / javascript-queries 2.4.5 to CLI 2.27.1 / javascript-queries 2.4.6.",
+  "authorityBaseExactMain": "d61e42bcd2cd5d0a31fdbf440965621cafeaeac8",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "infra/kind/production-like/dependencies.yaml",
+    "codeql/insufficient-password-hash-corrected/upstream.lock.json",
+    "docs/platform-v7/autopilot/scopes/ci-hosted-environment-drift-20260924.json"
+  ],
+  "requiredInvariants": [
+    "MinIO release tag and OCI index digest remain exactly unchanged; only registry hostname changes from quay.io to docker.io.",
+    "The Docker Hub tag resolves to index digest sha256:420663b8685c5396f06405ad516d611db4465939a141cc7d40266342d0f2632d.",
+    "No Kubernetes timeout, probe, resource, security context, network, database, application or acceptance threshold changes.",
+    "CodeQL upstream InsufficientPasswordHash.ql, InsufficientPasswordHashQuery.qll and InsufficientPasswordHashCustomizations.qll at 2.27.1 remain byte-identical to 2.27.0 and retain the recorded blob SHAs.",
+    "Only CodeQL provenance versions advance to CLI 2.27.1, javascript-queries 2.4.6 and javascript-all 2.10.2; replacement query, barrier, workflow and security gates remain unchanged and fail closed.",
+    "No production deployment or customer-data mutation is performed by this PR."
+  ]
+}
