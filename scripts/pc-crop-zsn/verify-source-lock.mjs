@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const prefix = 'docs/platform-v7/crop-platform/efgis-zsn-api-document.source-lock';
 const expectedSha256 = '8d9b2fdd8a5c560347e08b8bd5bfd118a163b3f1636dbe4ff63bfc9a5742cdd7';
+const expectedSchemaSha256 = 'b469837188630237b62470a1b107d0261fb5cb5976e89cb15eba7b0f4b087cbc';
 const expectedRegistrySha256 = '2d97def86f5554e0076d89bb01f79c920e948a50d0e34ccc77187ce3038fc391';
 const sourceTruth = Object.freeze({
   schemaVersion: 'pc-crop.efgis-zsn-api-document-source-lock.v1',
@@ -47,6 +48,7 @@ function validUtcTimestamp(value) {
 
 export function verifySourceLock(lock, schema, registry, artifactBytes, registryBytes) {
   assert(schema.$schema === 'https://json-schema.org/draft/2020-12/schema', 'source-lock schema draft mismatch');
+  assert(createHash('sha256').update(JSON.stringify(schema)).digest('hex') === expectedSchemaSha256, 'source-lock schema structural drift');
   assert(schema.additionalProperties === false, 'source-lock schema must reject extra properties');
   sameKeys(lock, schema.required, 'source lock');
   sameKeys(schema.properties, schema.required, 'source-lock schema');

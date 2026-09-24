@@ -24,13 +24,24 @@ test('rejects altered artifact, invented version and enabled runtime', () => {
   assert.throws(() => verifySourceLock(lock, schema, { ...registry, systems: registry.systems.map((system) => system.systemCode === 'EFGIS_ZSN' ? { ...system, platformReadEnabled: true } : system) }), /runtime enablement/);
 });
 
-test('rejects coordinated schema and source changes that would promote document evidence', () => {
+test('rejects complete schema drift and coordinated changes that would promote document evidence', () => {
   const alteredSchema = structuredClone(schema);
   alteredSchema.properties.status.const = 'CONTRACT_PINNED';
   alteredSchema.properties.boundaries.properties.platformReadEnabled.const = true;
   const alteredLock = { ...lock, status: 'CONTRACT_PINNED', boundaries: { ...lock.boundaries, platformReadEnabled: true } };
-  assert.throws(() => verifySourceLock(alteredLock, alteredSchema, registry), /independent source truth status/);
-  assert.throws(() => verifySourceLock({ ...lock, boundaries: alteredLock.boundaries }, alteredSchema, registry), /status differs from pinned schema/);
+  assert.throws(() => verifySourceLock(alteredLock, alteredSchema, registry), /source-lock schema structural drift/);
+  assert.throws(() => verifySourceLock({ ...lock, boundaries: alteredLock.boundaries }, schema, registry), /boundary platformReadEnabled drifted/);
+});
+
+test('rejects schema type drift that previously let the unchanged lock pass', () => {
+  for (const mutate of [
+    (altered) => { altered.type = 'array'; },
+    (altered) => { altered.properties.boundaries.type = 'array'; },
+  ]) {
+    const altered = structuredClone(schema);
+    mutate(altered);
+    assert.throws(() => verifySourceLock(lock, altered, registry), /source-lock schema structural drift/);
+  }
 });
 
 test('rejects invalid UTC dates and historical registry byte drift', () => {
