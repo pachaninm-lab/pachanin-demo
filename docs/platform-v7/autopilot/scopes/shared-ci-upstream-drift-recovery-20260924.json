@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/shared-ci-upstream-drift-recovery-20260924",
+  "status": "active",
+  "approvedBy": "owner-public-ux-repair-v2.0-2026-09-24",
+  "purpose": "Restore exact-head CI after two independently reproduced external upstream drifts: Quay rejecting the pinned MinIO image and hosted CodeQL advancing to 2.27.1.",
+  "authorityBaseExactMain": "d61e42bcd2cd5d0a31fdbf440965621cafeaeac8",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "infra/kind/production-like/dependencies.yaml",
+    "codeql/insufficient-password-hash-corrected/upstream.lock.json",
+    "apps/api/src/modules/auth/codeqlPasswordHashModel.spec.ts",
+    "docs/platform-v7/autopilot/scopes/shared-ci-upstream-drift-recovery-20260924.json"
+  ],
+  "requiredInvariants": [
+    "MinIO change is registry hostname only; release tag and pinned OCI index digest remain unchanged.",
+    "No Kubernetes timeout, probe, resource, security-context, network, DB, application or acceptance threshold changes.",
+    "CodeQL query, barrier, workflow, fixture corpus, selection rule and security thresholds remain unchanged.",
+    "CodeQL upstream query, flow configuration and customizations retain the previously reviewed blob SHAs while only CLI and bundled pack provenance advances to 2.27.1 / 2.4.6 / 2.10.2.",
+    "The existing provenance unit assertions advance only to the same pinned versions as the lock.",
+    "Exact-head Production-like Kubernetes and full CodeQL compile/regression/selection/drift/SARIF must both pass before merge."
+  ]
+}
