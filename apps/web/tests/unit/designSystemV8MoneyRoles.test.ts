@@ -1,3 +1,4 @@
+import React from 'react';
 import fs from 'node:fs';
 import path from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,6 +10,13 @@ vi.mock('@/lib/first-customer-workspace-server', () => ({
   firstCustomerWorkspaceRequired: () => false,
   getFirstCustomerWorkspace: vi.fn(),
 }));
+vi.mock('@pc/design-system-v8', async () => {
+  const { createElement } = await import('react');
+  return {
+    InlineNotice: ({ title, children }: { title: string; children?: React.ReactNode }) => createElement('div', null, title, children),
+    StatusChip: ({ children }: { children?: React.ReactNode }) => createElement('span', null, children),
+  };
+});
 
 import { getLocale } from 'next-intl/server';
 import { FirstCustomerWorkspace } from '@/components/platform-v7/FirstCustomerWorkspace';
