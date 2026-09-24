@@ -143,6 +143,9 @@ requireAll('workflow', [
   'steps.ir20_observation.outcome',
   'deployed_outbox_worker_revision',
   'steps.database.outcome',
+  'IR20_BROKER_RECOVERY',
+  'ROLLBACK_API_WEB_COMPLETE',
+  'ROLLBACK_IR20_COMPLETE',
   'Publish release evidence',
   'gh issue comment',
   'gh issue close',
@@ -261,10 +264,22 @@ requireAll('executor', [
   'OUTBOX_WORKER_STARTUP_DIAGNOSTICS_BEGIN',
   'OUTBOX_WORKER_READY_BODY_BEGIN',
   'OUTBOX_WORKER_STARTUP_LOG_TAIL_BEGIN',
+  'emit_broker_startup_diagnostics',
+  'KAFKA_STARTUP_DIAGNOSTICS_BEGIN',
+  'KAFKA_STARTUP_REASON_CLASS=',
+  'KAFKA_STARTUP_LOG_TAIL_BEGIN',
+  'IR20_BROKER_RECOVERY=ATTEMPTED',
+  'IR20_BROKER_RECOVERY=PASS',
+  'IR20_BROKER_RECOVERY=FAILED',
+  '--force-recreate "$KAFKA_SERVICE"',
+  'API_WEB_MUTATED=0',
+  'API_WEB_MUTATED=1',
   'docker logs --tail 120',
   'docker logs --tail 80',
   'wait_web',
   'rollback_images',
+  'ROLLBACK_API_WEB_COMPLETE=',
+  'ROLLBACK_IR20_COMPLETE=',
   'verify_durable_intake',
   'DURABLE_INTAKE_DB=PASS',
   'public_organization_connection_requests',
@@ -388,6 +403,16 @@ requireAll('executor', [
   'fail RUNNING_REVISION_MISMATCH 33',
 ]);
 const executorSource = text.executor ?? '';
+const brokerStartIndex = executorSource.indexOf('\"${dc_target[@]}\" up -d --no-deps --pull never \"$KAFKA_SERVICE\"');
+const brokerRecoveryIndex = executorSource.indexOf('--force-recreate \"$KAFKA_SERVICE\"');
+const apiMutationIndex = executorSource.indexOf('API_WEB_MUTATED=1');
+const apiStartIndex = executorSource.indexOf('\"${dc_target[@]}\" up -d --no-deps --pull never api');
+if (!(brokerStartIndex >= 0 && brokerRecoveryIndex > brokerStartIndex && apiMutationIndex > brokerRecoveryIndex && apiStartIndex > apiMutationIndex)) {
+  failures.push(`${paths.executor}: broker recovery must precede the first API/Web mutation`);
+}
+if (executorSource.includes('docker volume rm') || executorSource.includes('docker volume prune')) {
+  failures.push(`${paths.executor}: Kafka recovery must not delete or prune the durable broker volume`);
+}
 const rollbackHandlerIndex = executorSource.indexOf('rollback_and_exit()');
 const rollbackArmIndex = executorSource.indexOf('RELEASE_ROLLBACK_ARMED=1');
 const targetOverrideIndex = executorSource.indexOf('write_override "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override" 1 "$OUTBOX_WORKER_IMAGE" 1');
