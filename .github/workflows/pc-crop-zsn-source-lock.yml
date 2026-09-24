@@ -6,6 +6,7 @@ on:
       - '.github/workflows/pc-crop-zsn-source-lock.yml'
       - 'docs/platform-v7/crop-platform/efgis-zsn-api-document.source-lock.json'
       - 'docs/platform-v7/crop-platform/efgis-zsn-api-document.source-lock.schema.json'
+      - 'docs/platform-v7/crop-platform/agricultural-government-systems.registry.v1.json'
       - 'scripts/pc-crop-zsn/**'
   push:
     branches: [main]
@@ -13,6 +14,7 @@ on:
       - '.github/workflows/pc-crop-zsn-source-lock.yml'
       - 'docs/platform-v7/crop-platform/efgis-zsn-api-document.source-lock.json'
       - 'docs/platform-v7/crop-platform/efgis-zsn-api-document.source-lock.schema.json'
+      - 'docs/platform-v7/crop-platform/agricultural-government-systems.registry.v1.json'
       - 'scripts/pc-crop-zsn/**'
 
 permissions:
@@ -31,4 +33,14 @@ jobs:
         with:
           node-version: '24'
       - run: node --test scripts/pc-crop-zsn/verify-source-lock.test.mjs
-      - run: node scripts/pc-crop-zsn/verify-source-lock.mjs
+      - name: Fetch and verify operator-linked public PDF bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact_path="$(mktemp)"
+          trap 'rm -f "$artifact_path"' EXIT
+          download_url="$(curl --fail --silent --show-error --location --retry 3 --get \
+            --data-urlencode 'public_key=https://disk.yandex.ru/i/blNZsdLcAxJsHg' \
+            'https://cloud-api.yandex.net/v1/disk/public/resources/download' | jq -er '.href')"
+          curl --fail --silent --show-error --location --retry 3 "$download_url" --output "$artifact_path"
+          node scripts/pc-crop-zsn/verify-source-lock.mjs --artifact "$artifact_path"
