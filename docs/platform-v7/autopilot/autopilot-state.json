@@ -1838,7 +1838,7 @@
     "product-trusted-guard-reassignment-20260924": {
       "owner": "ACCOUNT_2_PRODUCT",
       "purpose": "Reassign the existing base-routed PC-CROP governance ref to one bounded PRODUCT immutable-scope guard repair; revoke its historical state and W1 workflow edit paths.",
-      "authorityBaseExactMain": "ae944187008b829885497d8343683d2c7ae23c28",
+      "authorityBaseExactMain": "1f0411296b7727fc1a55c49addfd689e2a7f9090",
       "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
       "allowedPaths": [
         "scripts/p7-autopilot-guard.sh",
@@ -1860,7 +1860,7 @@
     "product-source-admission-prerequisite-20260924": {
       "owner": "ACCOUNT_2_PRODUCT",
       "purpose": "Pre-admit one state-only PRODUCT source-scope admission branch after the base-controlled guard repair; implementation paths remain absent.",
-      "authorityBaseExactMain": "fa1eaadbc2264d69c46404606c701ecc5239a11e",
+      "authorityBaseExactMain": "23fb74db351abda78a056467dbe3f4286adaafaf",
       "implementationBranch": "governance/product-bank-fgis-ux-source-admission-20260924",
       "allowedPaths": [
         "docs/platform-v7/autopilot/autopilot-state.json"
@@ -1879,7 +1879,7 @@
     "bank-deep-visible-copy-guard-20260924-coordination": {
       "owner": "ACCOUNT_2_PRODUCT",
       "purpose": "Presentation-only bank/deal copy guard and negative release safety wording; no provider or payment finality.",
-      "authorityBaseExactMain": "9964daa3abe288ba74ce25d4693a618832d15e13",
+      "authorityBaseExactMain": "5d2fb28c0957b7c03928102b2a4ec353a49b3f79",
       "implementationBranch": "bank/deep-visible-copy-guard-20260924",
       "allowedPaths": [
         "apps/web/app/platform-v7/bank/escrow/page.tsx",
@@ -1905,7 +1905,7 @@
     "fgis-zsn-public-document-source-lock-20260924-coordination": {
       "owner": "ACCOUNT_2_PRODUCT",
       "purpose": "Lock public operator-linked EFGIS ZSN document identity and PDF bytes as provenance only.",
-      "authorityBaseExactMain": "9964daa3abe288ba74ce25d4693a618832d15e13",
+      "authorityBaseExactMain": "5d2fb28c0957b7c03928102b2a4ec353a49b3f79",
       "implementationBranch": "fgis/zsn-public-document-source-lock-20260924",
       "allowedPaths": [
         ".github/workflows/pc-crop-zsn-source-lock.yml",
@@ -1930,7 +1930,7 @@
     "ux-first-customer-next-action-unknown-20260924-coordination": {
       "owner": "ACCOUNT_2_PRODUCT",
       "purpose": "Keep recency-sorted first customer queues as navigation for seven roles while server priority is absent.",
-      "authorityBaseExactMain": "9964daa3abe288ba74ce25d4693a618832d15e13",
+      "authorityBaseExactMain": "5d2fb28c0957b7c03928102b2a4ec353a49b3f79",
       "implementationBranch": "ux/first-customer-next-action-unknown-20260924",
       "allowedPaths": [
         "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",

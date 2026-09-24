@@ -183,12 +183,12 @@ export async function POST(request: Request) {
 
     const delivery = payload.emailDelivery;
     if (!delivery?.email || !delivery.token || !payload.statusToken) {
-      console.error('registration_delivery_contract_invalid', JSON.stringify({
+      console.info('registration_delivery_contract_invalid', JSON.stringify({
         correlationId,
         registrationApplicationRef: payload.applicationId,
         accountHash: accountHash(email),
       }));
-      return json({ accepted: false, code: 'REGISTRATION_SERVICE_UNAVAILABLE', correlationId: payload.correlationId || correlationId }, 503);
+      return json({ accepted: true, deliveryConfirmed: false, code: 'REGISTRATION_DELIVERY_UNCONFIRMED', correlationId: payload.correlationId || correlationId }, 202);
     }
     const verifyUrl = new URL('/platform-v7/register', normalizeOrigin(request));
     verifyUrl.searchParams.set('verify', delivery.token);
@@ -218,7 +218,7 @@ export async function POST(request: Request) {
         attempts: deliveryAttempt.attempts,
       }));
       return json({
-        accepted: false,
+        outcome: 'unknown',
         code: 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE',
         correlationId: payload.correlationId || correlationId,
       }, 503);
@@ -236,6 +236,6 @@ export async function POST(request: Request) {
       accountHash: accountHash(email),
       reason: error instanceof Error ? error.name : 'unknown',
     }));
-    return json({ accepted: false, code: 'REGISTRATION_SERVICE_UNAVAILABLE', correlationId }, 503);
+    return json({ outcome: 'unknown', code: 'REGISTRATION_RESULT_UNKNOWN', correlationId }, 503);
   }
 }
