@@ -1757,7 +1757,7 @@
     "r1-role-mode-consumer-ci-repair-20260923": {
       "owner": "ACCOUNT_2_PRODUCT",
       "purpose": "Reconcile the existing controlled-test selector assertion with the accepted server-owned Founder VIEW_AS registry and regenerate the cryptographic inventory for the new BFF correlation UUID. Keep the existing five PRODUCT files and admit only these three evidence repairs.",
-      "authorityBaseExactMain": "61b03d6e2bd3c3a6ba99f2c1e9030c548be4d418",
+      "authorityBaseExactMain": "3807bded6508238c9c4096b4a7c02a0d8c76862e",
       "implementationBranch": "product/r1-role-mode-consumer-20260921",
       "allowedPaths": [
         "apps/web/app/platform-v7/staff/role-mode/route.ts",
