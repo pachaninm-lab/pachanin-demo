@@ -2132,6 +2132,39 @@
       "note": "One redirect in the application leaves it for a destination outside its control, and it has neither of the two things this requirement asks for. The farmer page /platform-v7/fgis-access links 'Подтвердить организацию' to /api/platform-v7/gov-id/start, which answers with an immediate 307 to the government identity provider's authorization URL (operator-configured through PLATFORM_V7_GOV_ID_AUTHORIZATION_URL). Nothing before that redirect tells the user they are about to leave the platform for an external service, and there is no intermediate step at which they could cancel: the click is the redirect. The page copy speaks of 'business login' confirming the organization, which describes the purpose, not the fact of leaving. Interpretation used, stated so a reviewer can overturn it: an identity provider chosen by the operator is still a URL outside the application's control, because the application controls neither its content nor its availability; the requirement's own words ('outside of the application's control') are about control of the destination, not about who chose it. What this is not: it is not an open redirect. The destination comes from configuration, never from the request, so V3.7.2 is unaffected by it. Every other server or middleware redirect in apps/web builds its URL from the request's own URL or goes to the platform's own control host; apps/api issues no redirects. Gekta's source citations are ordinary user-clicked links that show the destination hostname and open in a new tab, not redirects, and are not relied on either way. Reachability in production depends on PLATFORM_V7_GOV_ID_ENABLED and the other bridge variables, which are server-side configuration not in this repository; when they are absent the route falls back to a same-origin page. It is recorded FAIL on the application's behaviour whenever the bridge is configured, which is the behaviour the requirement asks about. Not fixed here: the remedy is user-facing copy or an interstitial in platform-v7 UI, which this programme's scope does not permit it to change. The third condition pins the exact assessed copy, so any change to that page's wording or link revokes this decision for deliberate re-assessment instead of leaving a stale FAIL."
     },
     {
+      "requirementId": "V3.7.4",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "external-list:chromium-hsts-preload-list@4aeb64ba80e179af87b4b7b16d067c88ef95a526",
+        "host:apps/web/lib/platform-v7/control-host.ts",
+        "header:apps/web/middleware.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the application's registrable domain is still the host the preload list was searched for",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/control-host.ts"
+          ],
+          "patterns": [
+            "export const primary_platform_host = 'xn----8sbjf4befbjgs9b.xn--p1ai';"
+          ]
+        },
+        {
+          "condition": "the application still asks to be preloaded, so what is missing is the listing itself rather than the header",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/middleware.ts"
+          ],
+          "patterns": [
+            "'strict-transport-security', 'max-age=31536000; includesubdomains; preload'"
+          ]
+        }
+      ],
+      "note": "Measured, not assumed: the domain is not on the public HSTS preload list. The list searched is Chromium's net/http/transport_security_state_static.json at chromium/chromium commit 4aeb64ba80e179af87b4b7b16d067c88ef95a526, fetched on 2026-09-24 from raw.githubusercontent.com (10,534,637 bytes, sha256 22a2a6e72ea571ba80ec478fda90c65fcfad54b1d2b3f8015008bc3c8b88c9d6); it is the list the other major browsers base their own preload lists on. It has no entry for xn----8sbjf4befbjgs9b.xn--p1ai (процент-агро.рф), and the .рф top-level domain (xn--p1ai) has no entry of its own either, so nothing covers the domain. The search form is confirmed by the file itself: it carries 62 other .рф hosts, all in the same punycode form. Reproduce with the commit above: fetch that path and search for \"name\": \"xn----8sbjf4befbjgs9b.xn--p1ai\". hstspreload.org, which would also show a pending submission, answered 403 through this environment's egress proxy and was not observed; a pending submission would not change the result, because the requirement is that the domain is on the list. What the repository already does: middleware sends Strict-Transport-Security with max-age=31536000, includeSubDomains and preload on every response (credited under V3.4.1). What it cannot show: the other listing prerequisites, a same-host HTTP-to-HTTPS redirect and HTTPS on every subdomain, sit at the Caddy edge on the REG.RU server, whose configuration is not in the repository. Remedy, for the owner and not this programme: submission at hstspreload.org by the domain owner, costing 0 roubles, but deliberately hard to undo, since removal takes months to reach browsers and every subdomain is then HTTPS-only. Limitation of this record: the register can re-check the repository conditions above, but not the external list. A later listing would leave this FAIL stale in the conservative direction, so re-measure before relying on it either way."
+    },
+    {
       "requirementId": "V4.1.1",
       "applicability": "APPLICABLE",
       "status": "PASS",
