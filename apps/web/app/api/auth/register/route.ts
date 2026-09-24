@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
+import { appendPublicRegistrationContext } from '@/lib/platform-v7/public-registration-continuation';
 import { sendTransactionalMail } from '../../../../lib/server/transactional-mail';
 import { assertCsrf } from '../../../../lib/server-request-security';
 
@@ -194,6 +195,7 @@ export async function POST(request: Request) {
     verifyUrl.searchParams.set('verify', delivery.token);
     verifyUrl.searchParams.set('statusToken', payload.statusToken);
     verifyUrl.searchParams.set('lang', locale);
+    appendPublicRegistrationContext(verifyUrl, new URL(request.url).search, locale);
     const copy = mailCopy[locale];
     const deliveryAttempt = await deliverRegistrationMail({
       to: delivery.email,

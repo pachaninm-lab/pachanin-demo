@@ -3,6 +3,8 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { POST as registrationBffPOST } from '@/app/api/auth/register/route';
 import { GET as registrationStatusGET } from '@/app/api/auth/registration/status/route';
+import { POST as registrationResendPOST } from '@/app/api/auth/registration/resend/route';
+import { registrationContextEndpoint, verifiedRegistrationContinuationHref } from '@/lib/platform-v7/public-registration-continuation';
 import { sendTransactionalMail } from '../../lib/server/transactional-mail';
 
 vi.mock('../../lib/server-request-security', () => ({ assertCsrf: () => ({ ok: true }) }));
@@ -1047,5 +1049,64 @@ describe('post-acceptance registration uncertainty at the actual BFF boundary', 
     expect(response.status).toBe(429);
     expect(result).toMatchObject({ ok: false, code: 'REGISTRATION_STATUS_RATE_LIMITED' });
     expect(classifyRegistrationStatusResponse(response, result)).toEqual({ kind: 'unavailable' });
+  });
+
+  it.each(['ru', 'en', 'zh'] as const)('%s: carries a real public selection through initial and resend email links', async (locale) => {
+    process.env.API_URL = 'http://api.example.test';
+    process.env.REGISTRATION_DELIVERY_KEY = 'x'.repeat(32);
+    process.env.RESEND_API_KEY = 'fixture-mail-key';
+    process.env.RESEND_FROM_EMAIL = 'sender@example.test';
+    const upstreamFetch = vi.fn(async () => Response.json({
+      accepted: true,
+      applicationId: 'APP-1',
+      statusToken: 'rst_reg_fixture',
+      emailDelivery: { email: 'fixture@example.test', token: 'verify-token' },
+    }, { status: 202 }));
+    vi.stubGlobal('fetch', upstreamFetch);
+    vi.mocked(sendTransactionalMail).mockResolvedValue({
+      delivered: true, provider: 'resend', reason: 'sent',
+    });
+    const lot = 'market-11111111-1111-4111-8111-111111111111';
+    const returnTo = marketHref(locale, { crop: 'wheat', sort: 'price-asc' });
+    const source = new URLSearchParams({
+      intent: 'buy', crop: 'wheat', lot, returnTo,
+      verify: 'spent-secret', role: 'owner', tenantId: 'foreign',
+    });
+    const query = `?${source.toString()}`;
+    for (const action of ['register', 'resend'] as const) {
+      const endpoint = registrationContextEndpoint(action, query, locale);
+      expect(endpoint).not.toMatch(/verify=|tenantId=|role=/);
+      const url = `http://localhost:3000${endpoint}&role=admin&redirect=https%3A%2F%2Fexternal.invalid`;
+      const response = action === 'register'
+        ? await registrationBffPOST(new Request(url, {
+          method: 'POST', headers: { 'idempotency-key': 'fixed-operation-key-0123456789', 'content-type': 'application/json' },
+          body: JSON.stringify({ workspace: 'buyer', email: 'fixture@example.test', locale }),
+        }))
+        : await registrationResendPOST(new Request(url, {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ email: 'fixture@example.test', locale }),
+        }));
+      expect(response.status).toBe(202);
+      const text = String(vi.mocked(sendTransactionalMail).mock.calls.at(-1)?.[0].text || '');
+      const link = text.match(/https?:\/\/[^\s]+/)?.[0];
+      expect(link).toBeTruthy();
+      const verify = new URL(link!);
+      expect(verify.pathname).toBe('/platform-v7/register');
+      expect(verify.searchParams.get('verify')).toBe('verify-token');
+      expect(verify.searchParams.get('lang')).toBe(locale);
+      expect(verify.searchParams.get('intent')).toBe('buy');
+      expect(verify.searchParams.get('crop')).toBe('wheat');
+      expect(verify.searchParams.get('lot')).toBe(lot);
+      expect(verify.searchParams.get('returnTo')).toBe(returnTo);
+      expect(verify.searchParams.has('role')).toBe(false);
+      expect(verify.searchParams.has('tenantId')).toBe(false);
+      expect(verify.searchParams.has('redirect')).toBe(false);
+      const continuation = new URL(verifiedRegistrationContinuationHref(verify.search, 'rst_reg_fixture', locale), 'https://example.test');
+      expect(continuation.searchParams.has('verify')).toBe(false);
+      expect(continuation.searchParams.get('returnTo')).toBe(returnTo);
+      expect(continuation.searchParams.get('lot')).toBe(lot);
+    }
+    expect(upstreamFetch).toHaveBeenCalledTimes(2);
+    expect(sendTransactionalMail).toHaveBeenCalledTimes(2);
   });
 });
