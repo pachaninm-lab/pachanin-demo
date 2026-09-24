@@ -403,12 +403,14 @@ requireAll('executor', [
   'fail RUNNING_REVISION_MISMATCH 33',
 ]);
 const executorSource = text.executor ?? '';
-const brokerStartIndex = executorSource.indexOf('\"${dc_target[@]}\" up -d --no-deps --pull never \"$KAFKA_SERVICE\"');
-const brokerRecoveryIndex = executorSource.indexOf('--force-recreate \"$KAFKA_SERVICE\"');
-const apiMutationIndex = executorSource.indexOf('API_WEB_MUTATED=1');
-const apiStartIndex = executorSource.indexOf('\"${dc_target[@]}\" up -d --no-deps --pull never api');
-if (!(brokerStartIndex >= 0 && brokerRecoveryIndex > brokerStartIndex && apiMutationIndex > brokerRecoveryIndex && apiStartIndex > apiMutationIndex)) {
-  failures.push(`${paths.executor}: broker recovery must precede the first API/Web mutation`);
+const deployStart = executorSource.indexOf('provision_outbox_runtime\nwrite_override');
+const deploySource = deployStart >= 0 ? executorSource.slice(deployStart) : '';
+const brokerStartIndex = deploySource.indexOf('\"${dc_target[@]}\" up -d --no-deps --pull never \"$KAFKA_SERVICE\"');
+const brokerRecoveryIndex = deploySource.indexOf('recover_broker_once || fail KAFKA_READINESS_FAILED 115');
+const apiMutationIndex = deploySource.indexOf('API_WEB_MUTATED=1');
+const apiStartIndex = deploySource.indexOf('\"${dc_target[@]}\" up -d --no-deps --pull never api');
+if (!(deployStart >= 0 && brokerStartIndex >= 0 && brokerRecoveryIndex > brokerStartIndex && apiMutationIndex > brokerRecoveryIndex && apiStartIndex > apiMutationIndex)) {
+  failures.push(`${paths.executor}: broker recovery must precede the first API/Web mutation in deploy phase`);
 }
 if (executorSource.includes('docker volume rm') || executorSource.includes('docker volume prune')) {
   failures.push(`${paths.executor}: Kafka recovery must not delete or prune the durable broker volume`);
