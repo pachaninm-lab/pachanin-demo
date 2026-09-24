@@ -2165,6 +2165,42 @@
       "note": "Measured, not assumed: the domain is not on the public HSTS preload list. The list searched is Chromium's net/http/transport_security_state_static.json at chromium/chromium commit 4aeb64ba80e179af87b4b7b16d067c88ef95a526, fetched on 2026-09-24 from raw.githubusercontent.com (10,534,637 bytes, sha256 22a2a6e72ea571ba80ec478fda90c65fcfad54b1d2b3f8015008bc3c8b88c9d6); it is the list the other major browsers base their own preload lists on. It has no entry for xn----8sbjf4befbjgs9b.xn--p1ai (процент-агро.рф), and the .рф top-level domain (xn--p1ai) has no entry of its own either, so nothing covers the domain. The search form is confirmed by the file itself: it carries 62 other .рф hosts, all in the same punycode form. Reproduce with the commit above: fetch that path and search for \"name\": \"xn----8sbjf4befbjgs9b.xn--p1ai\". hstspreload.org, which would also show a pending submission, answered 403 through this environment's egress proxy and was not observed; a pending submission would not change the result, because the requirement is that the domain is on the list. What the repository already does: middleware sends Strict-Transport-Security with max-age=31536000, includeSubDomains and preload on every response (credited under V3.4.1). What it cannot show: the other listing prerequisites, a same-host HTTP-to-HTTPS redirect and HTTPS on every subdomain, sit at the Caddy edge on the REG.RU server, whose configuration is not in the repository. Remedy, for the owner and not this programme: submission at hstspreload.org by the domain owner, costing 0 roubles, but deliberately hard to undo, since removal takes months to reach browsers and every subdomain is then HTTPS-only. Limitation of this record: the register can re-check the repository conditions above, but not the external list. A later listing would leave this FAIL stale in the conservative direction, so re-measure before relying on it either way."
     },
     {
+      "requirementId": "V3.7.5",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "depends-on:V3.1.1",
+        "documentation-set:SECURITY.md",
+        "roadmap:packages/domain-core/src/problem-closure-matrix.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "SECURITY.md still documents no browser security features or fallback behaviour, so there is still nothing for the application to behave as",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "browser security feature",
+            "if hsts is not supported",
+            "if csp is not supported"
+          ]
+        },
+        {
+          "condition": "the product's own problem register still lists a browser support matrix and capability checks as work not yet done",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "packages/domain-core/src/problem-closure-matrix.ts"
+          ],
+          "patterns": [
+            "title: 'барьер доступа из-за требований к браузеру',",
+            "hardeningnow: ['browser support matrix', 'graceful degradation', 'capability checks'],"
+          ]
+        }
+      ],
+      "note": "Follows from V3.1.1 rather than being judged separately from it. This requirement asks that the application behave as documented when a browser lacks the expected security features; V3.1.1 is FAIL because no such documentation exists, so there is no documented behaviour to verify against. The code agrees with the documents: apps/web has no capability check for any security feature it relies on (HSTS, CSP, SameSite cookies, the Secure-context APIs behind crypto.subtle) and no warning or block for a browser without them. Its feature detection is for the service worker, which is not a security control. The product's own problem register says the same: entry 14, 'Барьер доступа из-за требований к браузеру', lists a browser support matrix and capability checks as hardening still to do. This is not a claim that the application is unsafe in such a browser. Several controls hold without browser cooperation: the server-side Origin check and double-submit token behind CSRF, and the API's own HSTS. What is missing is the documented contract and a behaviour matching it. The first condition is the same one V3.1.1 uses, so writing that documentation revokes both decisions together for re-assessment against it."
+    },
+    {
       "requirementId": "V4.1.1",
       "applicability": "APPLICABLE",
       "status": "PASS",
