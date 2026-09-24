@@ -1551,6 +1551,29 @@
     ],
     "governance/product-bank-fgis-ux-source-admission-20260924": [
       "docs/platform-v7/autopilot/autopilot-state.json"
+    ],
+    "bank/deep-visible-copy-guard-20260924": [
+      "apps/web/app/platform-v7/bank/escrow/page.tsx",
+      "apps/web/app/platform-v7/bank/factoring/page.tsx",
+      "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+      "apps/web/app/platform-v7/profile/page.tsx",
+      "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+      "apps/web/tests/unit/platformV7DeepBankDealCopyGuard.test.ts",
+      "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json"
+    ],
+    "fgis/zsn-public-document-source-lock-20260924": [
+      ".github/workflows/pc-crop-zsn-source-lock.yml",
+      "docs/platform-v7/crop-platform/efgis-zsn-api-document.source-lock.json",
+      "docs/platform-v7/crop-platform/efgis-zsn-api-document.source-lock.schema.json",
+      "scripts/pc-crop-zsn/verify-source-lock.mjs",
+      "scripts/pc-crop-zsn/verify-source-lock.test.mjs",
+      "docs/platform-v7/autopilot/scopes/fgis-zsn-public-document-source-lock-20260924.json"
+    ],
+    "ux/first-customer-next-action-unknown-20260924": [
+      "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
+      "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
+      "apps/web/tests/unit/sellerExecutionPolish.test.tsx",
+      "docs/platform-v7/autopilot/scopes/first-customer-next-action-unknown-20260924.json"
     ]
   },
   "currentAcceptance": [
@@ -1852,6 +1875,80 @@
         "CI/security gate weakening"
       ],
       "teamHubDependency": "#5590 trusted ref reassignment; #5593 immutable PRODUCT guard"
+    },
+    "bank-deep-visible-copy-guard-20260924-coordination": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Presentation-only bank/deal copy guard and negative release safety wording; no provider or payment finality.",
+      "authorityBaseExactMain": "5d2fb28c0957b7c03928102b2a4ec353a49b3f79",
+      "implementationBranch": "bank/deep-visible-copy-guard-20260924",
+      "allowedPaths": [
+        "apps/web/app/platform-v7/bank/escrow/page.tsx",
+        "apps/web/app/platform-v7/bank/factoring/page.tsx",
+        "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+        "apps/web/app/platform-v7/profile/page.tsx",
+        "apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx",
+        "apps/web/tests/unit/platformV7DeepBankDealCopyGuard.test.ts",
+        "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json"
+      ],
+      "requiredTruthBoundaries": [
+        "Preserve the forbidden money-finality and demo vocabulary guard, including absence of the removed operator execution queue source.",
+        "A recorded release request is not external execution; unresolved outcome requires same-operation reconciliation before retry.",
+        "RU/EN/ZH bank copy does not attribute a concrete provider or claim factoring, release or debit finality."
+      ],
+      "forbiddenAuthority": [
+        "API/DB/settlement/ledger/provider/callback or money-finality authority",
+        "tenant/role/session authority",
+        "CI/security gate weakening"
+      ],
+      "teamHubDependency": "#5565; Team Hub #5469 scope correction 5818641448"
+    },
+    "fgis-zsn-public-document-source-lock-20260924-coordination": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Lock public operator-linked EFGIS ZSN document identity and PDF bytes as provenance only.",
+      "authorityBaseExactMain": "5d2fb28c0957b7c03928102b2a4ec353a49b3f79",
+      "implementationBranch": "fgis/zsn-public-document-source-lock-20260924",
+      "allowedPaths": [
+        ".github/workflows/pc-crop-zsn-source-lock.yml",
+        "docs/platform-v7/crop-platform/efgis-zsn-api-document.source-lock.json",
+        "docs/platform-v7/crop-platform/efgis-zsn-api-document.source-lock.schema.json",
+        "scripts/pc-crop-zsn/verify-source-lock.mjs",
+        "scripts/pc-crop-zsn/verify-source-lock.test.mjs",
+        "docs/platform-v7/autopilot/scopes/fgis-zsn-public-document-source-lock-20260924.json"
+      ],
+      "requiredTruthBoundaries": [
+        "Pin official public operator-linked PDF identity, 906732-byte payload and SHA-256; title/year are not an API contract version.",
+        "Keep historical government-system registry v1 byte-immutable and mutation capability disabled.",
+        "Do not claim organization access, credentials, signature, legal acceptance, delegated access, live mutation or E2E."
+      ],
+      "forbiddenAuthority": [
+        "FGIS credentials/API write/signature/legal finality",
+        "government registry v1 mutation",
+        "CI/security gate weakening"
+      ],
+      "teamHubDependency": "#5532; Team Hub #5469 scope correction 5818641448"
+    },
+    "ux-first-customer-next-action-unknown-20260924-coordination": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Keep recency-sorted first customer queues as navigation for seven roles while server priority is absent.",
+      "authorityBaseExactMain": "5d2fb28c0957b7c03928102b2a4ec353a49b3f79",
+      "implementationBranch": "ux/first-customer-next-action-unknown-20260924",
+      "allowedPaths": [
+        "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
+        "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
+        "apps/web/tests/unit/sellerExecutionPolish.test.tsx",
+        "docs/platform-v7/autopilot/scopes/first-customer-next-action-unknown-20260924.json"
+      ],
+      "requiredTruthBoundaries": [
+        "Buyer, bank, logistics, driver, elevator, lab and surveyor must display UNKNOWN primary next action until accepted server-derived priority.",
+        "RU/EN/ZH and keyboard-visible in-page queue navigation remain available; server-scoped item links are preserved.",
+        "Owner-controlled showroom navigation and seller fail-closed behavior stay intact."
+      ],
+      "forbiddenAuthority": [
+        "API/DB/tenant/role/priority authority",
+        "bank/FGIS/provider/settlement finality",
+        "CI/security gate weakening"
+      ],
+      "teamHubDependency": "#5535; Team Hub #5469 scope correction 5818641448"
     }
   }
 }
