@@ -25,6 +25,42 @@ const ir20BindingImplementationPaths = [
   '.github/workflows/ir20-api-database-binding.yml',
   'docs/ops/ir20-api-database-binding.md',
 ];
+const productImplementationManifests = new Map([
+  ['bank/deep-visible-copy-guard-20260924', 'docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json'],
+  ['fgis/zsn-public-document-source-lock-20260924', 'docs/platform-v7/autopilot/scopes/fgis-zsn-public-document-source-lock-20260924.json'],
+  ['ux/first-customer-next-action-unknown-20260924', 'docs/platform-v7/autopilot/scopes/first-customer-next-action-unknown-20260924.json'],
+]);
+const productAdmissionBranch = 'governance/product-bank-fgis-ux-source-admission-20260924';
+const productAdmissionPaths = new Map([
+  ['bank/deep-visible-copy-guard-20260924', [
+    'apps/web/app/platform-v7/bank/escrow/page.tsx',
+    'apps/web/app/platform-v7/bank/factoring/page.tsx',
+    'apps/web/app/platform-v7/bank/release-safety/page.tsx',
+    'apps/web/app/platform-v7/profile/page.tsx',
+    'apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx',
+    'apps/web/tests/unit/platformV7DeepBankDealCopyGuard.test.ts',
+    'docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json',
+  ]],
+  ['fgis/zsn-public-document-source-lock-20260924', [
+    '.github/workflows/pc-crop-zsn-source-lock.yml',
+    'docs/platform-v7/crop-platform/efgis-zsn-api-document.source-lock.json',
+    'docs/platform-v7/crop-platform/efgis-zsn-api-document.source-lock.schema.json',
+    'scripts/pc-crop-zsn/verify-source-lock.mjs',
+    'scripts/pc-crop-zsn/verify-source-lock.test.mjs',
+    'docs/platform-v7/autopilot/scopes/fgis-zsn-public-document-source-lock-20260924.json',
+  ]],
+  ['ux/first-customer-next-action-unknown-20260924', [
+    'apps/web/components/platform-v7/FirstCustomerWorkspace.tsx',
+    'apps/web/tests/unit/designSystemV8MoneyRoles.test.ts',
+    'apps/web/tests/unit/sellerExecutionPolish.test.tsx',
+    'docs/platform-v7/autopilot/scopes/first-customer-next-action-unknown-20260924.json',
+  ]],
+]);
+const productAdmissionCoordinationKeys = new Map([
+  ['bank/deep-visible-copy-guard-20260924', 'bank-deep-visible-copy-guard-20260924-coordination'],
+  ['fgis/zsn-public-document-source-lock-20260924', 'fgis-zsn-public-document-source-lock-20260924-coordination'],
+  ['ux/first-customer-next-action-unknown-20260924', 'ux-first-customer-next-action-unknown-20260924-coordination'],
+]);
 const industrialDiagnosticPaths = ['apps/api/test/industrial/load-proof.e2e-spec.ts'];
 const industrialGovernancePaths = [
   'docs/platform-v7/autopilot/autopilot-state.json',
@@ -1439,6 +1475,138 @@ test('industrial bootstrap retains base defense and read-only candidate tests wi
   assert.ok(candidate.includes('run: bash scripts/p7-autopilot-guard.sh'));
   const paths = workflow.split('\n  pull_request:\n')[1].split('\nconcurrency:')[0];
   assert.ok(paths.includes(`'${industrialDiagnosticPaths[0]}'`));
+});
+
+for (const [branch, manifest] of productImplementationManifests) {
+  test(`${branch}: accepted base controls scope and permits only its own manifest`, (t) => {
+    const context = fixture(t, branch);
+    const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+    const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+    state.approvedConcurrentScopes[branch] = ['allowed.txt', manifest];
+    write(context.root, statePath, JSON.stringify(state));
+    commit(context.root, 'accepted product scope');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+    write(context.root, 'allowed.txt', 'accepted product change\n');
+    write(context.root, manifest, '{"status":"active"}\n');
+    commit(context.root, 'bounded product change');
+    const accepted = runGuard(context);
+    assert.equal(accepted.status, 0, output(accepted));
+
+    write(context.root, 'apps/api/src/app.module.ts', 'unauthorized server authority\n');
+    commit(context.root, 'attempt protected backend change');
+    const result = runGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /Files outside current autopilot scope/u);
+  });
+
+  test(`${branch}: head-only scope expansion cannot approve itself`, (t) => {
+    const context = fixture(t, branch);
+    const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+    const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+    state.approvedConcurrentScopes[branch] = ['allowed.txt', manifest];
+    write(context.root, statePath, JSON.stringify(state));
+    commit(context.root, 'accepted product scope');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+    state.allowedCurrentScope.push('apps/api/src/app.module.ts');
+    state.approvedConcurrentScopes[branch].push('apps/api/src/app.module.ts');
+    write(context.root, statePath, JSON.stringify(state));
+    write(context.root, 'apps/api/src/app.module.ts', 'unauthorized server authority\n');
+    commit(context.root, 'attempt mutable product scope');
+    const result = runGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /Mutable scope authority changed/u);
+  });
+}
+
+test('product branches run the immutable guard from the accepted base in both workflow entry points', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const trusted = workflow.split('  trusted-immutable-scope:')[1].split('  guard:')[0];
+  const prHead = workflow.split('      - name: Validate immutable scope with trusted base guard on PR head')[1]
+    .split('      - name: Validate owner-authorized industrial diagnostic bootstrap candidate')[0];
+  const standard = workflow.split('      - name: Validate standard branch scope on PR head')[1]
+    .split('  standard_validation:')[0];
+  for (const branch of productImplementationManifests.keys()) {
+    assert.ok(trusted.includes(`github.event.pull_request.head.ref == '${branch}'`));
+    assert.ok(trusted.includes(`|${branch})`) || trusted.includes(`|${branch}|`));
+    assert.ok(prHead.includes(`github.head_ref == '${branch}'`));
+    assert.ok(prHead.includes(`|${branch})`) || prHead.includes(`|${branch}|`));
+    assert.ok(standard.includes(`github.head_ref != '${branch}'`));
+  }
+  assert.ok(prHead.includes('git show "$BASE_SHA:scripts/p7-autopilot-guard.sh"'));
+  assert.ok(trusted.includes('ref: ${{ github.event.pull_request.base.sha }}'));
+});
+
+for (const mutation of ['accepted', 'unrelated global scope', 'bank path expansion', 'wrong base identity', 'unapproved fourth branch']) {
+  test(`product source admission accepts only exact base-bound state: ${mutation}`, (t) => {
+    const context = fixture(t, productAdmissionBranch);
+    const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+    const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+    state.approvedConcurrentScopes[productAdmissionBranch] = [statePath];
+    state.coordinationAdmissions = {};
+    write(context.root, statePath, JSON.stringify(state));
+    commit(context.root, 'accepted prior product governance scope');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+    for (const [branch, paths] of productAdmissionPaths) {
+      state.approvedConcurrentScopes[branch] = [...paths];
+      state.coordinationAdmissions[productAdmissionCoordinationKeys.get(branch)] = {
+        owner: 'ACCOUNT_2_PRODUCT', implementationBranch: branch,
+        authorityBaseExactMain: context.baseline, allowedPaths: [...paths],
+        requiredTruthBoundaries: ['No external finality'],
+        forbiddenAuthority: ['Server authority'],
+      };
+    }
+    if (mutation === 'unrelated global scope') state.allowedCurrentScope.push('apps/api/**');
+    if (mutation === 'bank path expansion') state.approvedConcurrentScopes['bank/deep-visible-copy-guard-20260924'].push('apps/api/src/app.module.ts');
+    if (mutation === 'wrong base identity') state.coordinationAdmissions[productAdmissionCoordinationKeys.get('bank/deep-visible-copy-guard-20260924')].authorityBaseExactMain = '0'.repeat(40);
+    if (mutation === 'unapproved fourth branch') state.approvedConcurrentScopes['bank/parallel-core'] = ['apps/api/**'];
+    write(context.root, statePath, JSON.stringify(state));
+    commit(context.root, `candidate ${mutation}`);
+    const result = runGuard(context);
+    if (mutation === 'accepted') assert.equal(result.status, 0, output(result));
+    else {
+      assert.notEqual(result.status, 0, output(result));
+      assert.match(output(result), /PRODUCT_SCOPE_ADMISSION_(PATH_MISMATCH|COORDINATION_MISMATCH|STATE_MUTATION)/u);
+    }
+  });
+}
+
+test('product source admission cannot authorize its own missing base scope', (t) => {
+  const context = fixture(t, productAdmissionBranch);
+  const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+  delete state.approvedConcurrentScopes[productAdmissionBranch];
+  write(context.root, statePath, JSON.stringify(state));
+  commit(context.root, 'base without admission authority');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  state.approvedConcurrentScopes[productAdmissionBranch] = [statePath];
+  state.coordinationAdmissions = {};
+  for (const [branch, paths] of productAdmissionPaths) {
+    state.approvedConcurrentScopes[branch] = [...paths];
+    state.coordinationAdmissions[productAdmissionCoordinationKeys.get(branch)] = {
+      owner: 'ACCOUNT_2_PRODUCT', implementationBranch: branch,
+      authorityBaseExactMain: context.baseline, allowedPaths: [...paths],
+      requiredTruthBoundaries: ['No external finality'], forbiddenAuthority: ['Server authority'],
+    };
+  }
+  write(context.root, statePath, JSON.stringify(state));
+  commit(context.root, 'attempt self-admission');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /PRODUCT_SCOPE_ADMISSION_STATE_MUTATION|no immutable approved scope/u);
+});
+
+test('product source admission uses both trusted-base workflow routes', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const trusted = workflow.split('  trusted-immutable-scope:')[1].split('  guard:')[0];
+  const prHead = workflow.split('      - name: Validate immutable scope with trusted base guard on PR head')[1]
+    .split('      - name: Validate owner-authorized industrial diagnostic bootstrap candidate')[0];
+  const standard = workflow.split('      - name: Validate standard branch scope on PR head')[1]
+    .split('  standard_validation:')[0];
+  assert.ok(trusted.includes(`github.event.pull_request.head.ref == '${productAdmissionBranch}'`));
+  assert.ok(trusted.includes(`|${productAdmissionBranch})`));
+  assert.ok(prHead.includes(`github.head_ref == '${productAdmissionBranch}'`));
+  assert.ok(prHead.includes(`|${productAdmissionBranch})`));
+  assert.ok(standard.includes(`github.head_ref != '${productAdmissionBranch}'`));
 });
 
 test('security remediation pins the three affected dependency families', () => {
