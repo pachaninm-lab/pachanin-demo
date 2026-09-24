@@ -101,7 +101,9 @@ export function filterPublicLots<T extends PublicSortableLot>(lots: readonly T[]
   const safe = publicMarketContext(context);
   const tag = locale === 'ru' ? 'ru-RU' : locale === 'zh' ? 'zh-CN' : 'en-US';
   const lower = (value: string) => value.toLocaleLowerCase(tag);
-  const query = lower(safe.q);
+  // The existing 120-character query boundary also bounds token work. Keep every
+  // term: truncating a query could silently match a different set of offers.
+  const queryTokens = [...new Set(lower(safe.q).split(/\s+/u).filter(Boolean))];
   const labels: Record<PublicCrop, readonly string[]> = {
     wheat: ['wheat', 'пшеница', '小麦'], barley: ['barley', 'ячмень', '大麦'], corn: ['corn', 'maize', 'кукуруза', '玉米'],
     sunflower: ['sunflower', 'подсолнечник', '向日葵'], soybean: ['soybean', 'soy', 'соя', '大豆'],
@@ -110,7 +112,7 @@ export function filterPublicLots<T extends PublicSortableLot>(lots: readonly T[]
   const filtered = lots.filter((lot) => {
     const crop = cropForCulture(lot.culture);
     const searchable = [lot.culture, lot.grade ?? '', lot.region, ...(crop ? labels[crop] : [])].map(lower);
-    return (!query || searchable.some((part) => part.includes(query)))
+    return queryTokens.every((token) => searchable.some((part) => part.includes(token)))
       && (!safe.crop || crop === safe.crop)
       && (!safe.region || lower(lot.region).includes(lower(safe.region)))
       && (!safe.grade || lower(lot.grade ?? '').includes(lower(safe.grade)));
