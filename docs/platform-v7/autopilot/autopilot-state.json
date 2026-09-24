@@ -1544,6 +1544,7 @@
       "apps/web/app/platform-v7/staff/role-mode/route.ts",
       "apps/web/components/platform-v7/staff/OwnerAccessCenter.tsx",
       "apps/web/components/platform-v7/staff/OwnerAccessCenterV3.tsx",
+      "apps/web/components/platform-v7/staff/OwnerAccessCenterV4.tsx",
       "apps/web/components/platform-v7/staff/OwnerAccessCenterV3.module.css",
       "apps/web/tests/unit/platformV7OwnerAccessCenterTaskUx.test.ts",
       "apps/web/tests/unit/platformV7ControlledTestOrganizations.test.ts",
@@ -1784,6 +1785,31 @@
         "bank/provider/regulatory/FGIS completion or finality claim"
       ],
       "teamHubDependency": "CORE #5479 READY_FOR_CONSUMER at Team Hub #5469 comment 5791259431"
+    },
+    "r1-role-mode-session-coordination-20260924": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Repair independent exact-head P1/P2 review findings in #5477: block the mounted CONTROL_PLANE bootstrap during another protected session, reconcile cookie-less durable state and clear stale cabinet projection after advanced management.",
+      "authorityBaseExactMain": "fe60735edcc36ed017adac99f8e383d370c12f79",
+      "implementationBranch": "product/r1-role-mode-consumer-20260921",
+      "allowedPaths": [
+        "apps/web/components/platform-v7/staff/OwnerAccessCenterV3.tsx",
+        "apps/web/components/platform-v7/staff/OwnerAccessCenterV4.tsx",
+        "apps/web/tests/unit/platformV7OwnerAccessCenterTaskUx.test.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "CONTROL_PLANE bootstrap must fail closed for any other durable protected session or uncertain session read, including VIEW_AS activation in the same mounted Control Center.",
+        "An inactive browser cookie is not evidence of no active durable Staff Access session; owner-scoped server session reads must reconcile before another grant can be requested.",
+        "V3 must revalidate when advanced V2 session management changes the session and before returning to cabinet projection; stale or contradictory reads do not restore access.",
+        "Client preflight does not enforce cross-tab activation atomicity; CORE owns the server concurrency policy in #5580, and this consumer must not claim global mutual exclusion without its accepted handoff.",
+        "The current eight-path #5560 consumer and its canonical server/BFF authority remain unchanged outside the three admitted repair paths."
+      ],
+      "forbiddenAuthority": [
+        "API/backend/domain/DB/RLS/tenant/role/session issuance authority",
+        "money, settlement, bank/provider, FGIS or legal finality",
+        "homepage/public landing implementation",
+        "CI/workflow/threshold/security gate weakening"
+      ],
+      "teamHubDependency": "#5477 current-head P1/P2 review findings; CORE server concurrency policy #5580; Team Hub #5469 comments 5816128897 and 5816539865"
     }
   }
 }

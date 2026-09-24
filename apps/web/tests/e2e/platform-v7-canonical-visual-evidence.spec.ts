@@ -593,3 +593,136 @@ for (const width of [320, 390, 430] as const) {
     });
   }
 }
+
+
+test.describe('owner UX v2 About and Trust geometry', () => {
+  const widths = [320, 375, 390, 430] as const;
+  const locales = ['ru', 'en', 'zh'] as const;
+
+  async function assertElementFullyUsable(page: Page, locator: ReturnType<Page['locator']>, label: string) {
+    await locator.scrollIntoViewIfNeeded();
+    await expect(locator, label).toBeVisible();
+    const result = await locator.evaluate((element) => {
+      const node = element as HTMLElement;
+      const rect = node.getBoundingClientRect();
+      const viewportWidth = document.documentElement.clientWidth;
+      const viewportHeight = window.innerHeight;
+      const points = [
+        [rect.left + rect.width / 2, rect.top + rect.height / 2],
+        [rect.left + Math.min(8, rect.width / 4), rect.top + rect.height / 2],
+        [rect.right - Math.min(8, rect.width / 4), rect.top + rect.height / 2],
+      ];
+      return {
+        rect: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height },
+        viewportWidth,
+        viewportHeight,
+        scrollWidth: node.scrollWidth,
+        clientWidth: node.clientWidth,
+        scrollHeight: node.scrollHeight,
+        clientHeight: node.clientHeight,
+        overflowX: getComputedStyle(node).overflowX,
+        overflowY: getComputedStyle(node).overflowY,
+        hits: points.map(([x, y]) => {
+          const hit = document.elementFromPoint(x!, y!);
+          return Boolean(hit && (hit === node || node.contains(hit)));
+        }),
+      };
+    });
+    expect(result.rect.left, `${label}: left bound`).toBeGreaterThanOrEqual(-1);
+    expect(result.rect.right, `${label}: right bound`).toBeLessThanOrEqual(result.viewportWidth + 1);
+    expect(result.rect.width, `${label}: width`).toBeGreaterThanOrEqual(44);
+    expect(result.rect.height, `${label}: height`).toBeGreaterThanOrEqual(44);
+    expect(result.scrollWidth, `${label}: horizontal clipping`).toBeLessThanOrEqual(result.clientWidth + 1);
+    expect(result.scrollHeight, `${label}: vertical clipping`).toBeLessThanOrEqual(result.clientHeight + 1);
+    expect(result.hits.every(Boolean), `${label}: hit testing`).toBe(true);
+  }
+
+  async function assertTrustCardsReadable(page: Page, label: string) {
+    const cards = page.locator('.pc-cp-page-trust .pc-cp-trust-pillar');
+    await expect(cards).toHaveCount(4);
+    for (let index = 0; index < 4; index += 1) {
+      const card = cards.nth(index);
+      await card.scrollIntoViewIfNeeded();
+      await expect(card, `${label}: trust card ${index + 1}`).toBeVisible();
+      const result = await card.evaluate((element) => {
+        const node = element as HTMLElement;
+        const rect = node.getBoundingClientRect();
+        const textNodes = Array.from(node.querySelectorAll<HTMLElement>('h3,p,li,small,strong,span'))
+          .filter((item) => (item.textContent || '').trim().length > 0)
+          .map((item) => ({
+            text: (item.textContent || '').trim().slice(0, 80),
+            scrollWidth: item.scrollWidth,
+            clientWidth: item.clientWidth,
+            scrollHeight: item.scrollHeight,
+            clientHeight: item.clientHeight,
+            overflow: getComputedStyle(item).overflow,
+          }));
+        return {
+          rect: { left: rect.left, right: rect.right, width: rect.width, height: rect.height },
+          viewportWidth: document.documentElement.clientWidth,
+          overflow: getComputedStyle(node).overflow,
+          textNodes,
+        };
+      });
+      expect(result.rect.left, `${label}: card ${index + 1} left`).toBeGreaterThanOrEqual(-1);
+      expect(result.rect.right, `${label}: card ${index + 1} right`).toBeLessThanOrEqual(result.viewportWidth + 1);
+      expect(result.rect.width).toBeGreaterThan(0);
+      expect(result.rect.height).toBeGreaterThan(0);
+      expect(result.overflow).not.toBe('hidden');
+      expect(result.textNodes.length).toBeGreaterThan(0);
+      for (const text of result.textNodes) {
+        expect(text.scrollWidth, `${label}: card ${index + 1} horizontal text clip: ${text.text}`).toBeLessThanOrEqual(text.clientWidth + 1);
+        expect(text.scrollHeight, `${label}: card ${index + 1} vertical text clip: ${text.text}`).toBeLessThanOrEqual(text.clientHeight + 1);
+        expect(text.overflow, `${label}: card ${index + 1} hidden text: ${text.text}`).not.toBe('hidden');
+      }
+    }
+  }
+
+  for (const locale of locales) {
+    for (const width of widths) {
+      test(`About CTAs remain whole and clickable: ${locale} ${width}px`, async ({ page, baseURL }) => {
+        await page.setViewportSize({ width, height: 900 });
+        const route = `/platform-v7/about?lang=${locale}`;
+        const response = await page.goto(route, { waitUntil: 'networkidle' });
+        expect(response?.status()).toBe(200);
+        await expectPublicRoute(page, route, baseURL);
+        const actions = page.locator('.p7-about-page .pc-cp-hero-copy .pc-cp-actions .pc-cp-button');
+        await expect(actions).toHaveCount(2);
+        await assertElementFullyUsable(page, actions.nth(0), `About primary ${locale} ${width}`);
+        await assertElementFullyUsable(page, actions.nth(1), `About secondary ${locale} ${width}`);
+        expect(await page.evaluate(() => Math.max(
+          document.documentElement.scrollWidth - document.documentElement.clientWidth,
+          document.body.scrollWidth - document.body.clientWidth,
+        ))).toBeLessThanOrEqual(1);
+
+        await page.addStyleTag({ content: '.p7-about-page .pc-cp-actions .pc-cp-button{font-size:200%!important;line-height:1.4!important;white-space:normal!important}' });
+        await assertElementFullyUsable(page, actions.nth(0), `About primary 200% ${locale} ${width}`);
+        await assertElementFullyUsable(page, actions.nth(1), `About secondary 200% ${locale} ${width}`);
+        expect(await page.evaluate(() => Math.max(
+          document.documentElement.scrollWidth - document.documentElement.clientWidth,
+          document.body.scrollWidth - document.body.clientWidth,
+        ))).toBeLessThanOrEqual(1);
+      });
+
+      test(`Trust cards keep complete readable text: ${locale} ${width}px`, async ({ page, baseURL }) => {
+        await page.setViewportSize({ width, height: 900 });
+        const route = `/platform-v7/trust?lang=${locale}`;
+        const response = await page.goto(route, { waitUntil: 'networkidle' });
+        expect(response?.status()).toBe(200);
+        await expectPublicRoute(page, route, baseURL);
+        await assertTrustCardsReadable(page, `Trust ${locale} ${width}`);
+        expect(await page.evaluate(() => Math.max(
+          document.documentElement.scrollWidth - document.documentElement.clientWidth,
+          document.body.scrollWidth - document.body.clientWidth,
+        ))).toBeLessThanOrEqual(1);
+
+        await page.addStyleTag({ content: '.pc-cp-page-trust .pc-cp-trust-pillar h3,.pc-cp-page-trust .pc-cp-trust-pillar-head p,.pc-cp-page-trust .pc-cp-trust-pillar li>span,.pc-cp-page-trust .pc-cp-trust-pillar>small{font-size:200%!important;line-height:1.45!important;white-space:normal!important}' });
+        await assertTrustCardsReadable(page, `Trust 200% ${locale} ${width}`);
+        expect(await page.evaluate(() => Math.max(
+          document.documentElement.scrollWidth - document.documentElement.clientWidth,
+          document.body.scrollWidth - document.body.clientWidth,
+        ))).toBeLessThanOrEqual(1);
+      });
+    }
+  }
+});
