@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createElement } from 'react';
-import { cleanup, render, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ownerAccessCenterMessages } from '../../i18n/owner-access-center-messages';
 import { OwnerAccessCenter as RoleModeCenter } from '../../components/platform-v7/staff/OwnerAccessCenterV3';
@@ -27,6 +27,36 @@ function keys(value: unknown, prefix = ''): string[] {
     .sort();
 }
 
+function roleModeFixtures() {
+  const cabinets = [
+    'operator', 'buyer', 'seller', 'logistics', 'driver', 'surveyor', 'elevator',
+    'lab', 'bank', 'organization', 'arbitrator', 'compliance', 'executive',
+  ].map((key) => ({ key, canonicalPath: `/platform-v7/${key}`, effectiveRole: 'BUYER' }));
+  const session = {
+    accessSessionId: 'session-1', accessMode: 'VIEW_AS', permissions: ['cabinet:view-as'],
+    effectiveOrganizationId: 'organization-1', effectiveRole: 'BUYER', expiresAt: '2026-09-24T00:00:00Z',
+  };
+  const registry = {
+    schemaVersion: 'pc-crop.founder-role-mode.v1', mode: 'VIEW_AS', readOnly: true,
+    returnPath: '/platform-v7/staff', restrictions: [], cabinets,
+  };
+  const canonical = {
+    ...registry, active: true, accessSessionId: 'session-1', actor: { displayName: 'Owner' },
+    cabinetKey: 'buyer', canonicalPath: '/platform-v7/buyer', effectiveRole: 'BUYER',
+    effectiveOrganizationId: 'organization-1', effectiveTenantId: 'tenant-1',
+    expiresAt: session.expiresAt, ticketId: 'ticket-1', mfaRequired: true,
+  };
+  const props = {
+    locale: 'ru' as const, copy: ownerAccessCenterMessages.ru,
+    identity: { email: 'owner@example.test' }, apiAvailable: true, accessCatalog: [], csrfToken: '',
+  };
+  return { cabinets, session, registry, canonical, props };
+}
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), { status });
+}
+
 describe('platform-v7 owner access center task UX', () => {
   afterEach(() => {
     cleanup();
@@ -34,28 +64,10 @@ describe('platform-v7 owner access center task UX', () => {
   });
 
   it('removes an active VIEW_AS projection when canonical revalidation fails', async () => {
-    const cabinets = [
-      'operator', 'buyer', 'seller', 'logistics', 'driver', 'surveyor', 'elevator',
-      'lab', 'bank', 'organization', 'arbitrator', 'compliance', 'executive',
-    ].map((key) => ({ key, canonicalPath: `/platform-v7/${key}`, effectiveRole: 'BUYER' }));
-    const session = {
-      accessSessionId: 'session-1', accessMode: 'VIEW_AS', permissions: ['cabinet:view-as'],
-      effectiveOrganizationId: 'organization-1', effectiveRole: 'BUYER', expiresAt: '2026-09-24T00:00:00Z',
-    };
-    const registry = {
-      schemaVersion: 'pc-crop.founder-role-mode.v1', mode: 'VIEW_AS', readOnly: true,
-      returnPath: '/platform-v7/staff', restrictions: [], cabinets,
-    };
-    const canonical = {
-      ...registry, active: true, accessSessionId: 'session-1', actor: { displayName: 'Owner' },
-      cabinetKey: 'buyer', canonicalPath: '/platform-v7/buyer', effectiveRole: 'BUYER',
-      effectiveOrganizationId: 'organization-1', effectiveTenantId: 'tenant-1',
-      expiresAt: session.expiresAt, ticketId: 'ticket-1', mfaRequired: true,
-    };
+    const { session, registry, canonical, props } = roleModeFixtures();
     let registryUnavailable = false;
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
-      const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
       if (path === '/api/staff/assignments/me') return json([{ id: 'owner-1', role: 'PLATFORM_OWNER', status: 'ACTIVE' }]);
       if (path === '/platform-v7/staff/role-mode') return json(registryUnavailable ? { code: 'UNAVAILABLE' } : registry, registryUnavailable ? 503 : 200);
       if (path === '/api/staff/session-context') return json({ active: true, session });
@@ -64,10 +76,6 @@ describe('platform-v7 owner access center task UX', () => {
       throw new Error(`Unexpected staff request: ${path}`);
     }));
 
-    const props = {
-      locale: 'ru' as const, copy: ownerAccessCenterMessages.ru,
-      identity: { email: 'owner@example.test' }, apiAvailable: true, accessCatalog: [], csrfToken: '',
-    };
     const view = render(createElement(RoleModeCenter, props));
     await waitFor(() => expect(view.container.querySelector('[data-founder-role-mode-active]')).not.toBeNull());
 
@@ -76,6 +84,110 @@ describe('platform-v7 owner access center task UX', () => {
     await waitFor(() => expect(view.container.querySelector('[role="alert"]')).not.toBeNull());
     expect(view.container.querySelector('[data-founder-role-mode-active]')).toBeNull();
     expect(view.container.querySelectorAll('article')).toHaveLength(0);
+  });
+
+  it('ignores an older successful read after a newer session revalidation fails', async () => {
+    const { session, registry, canonical, props } = roleModeFixtures();
+    let releaseFirstRegistry!: (response: Response) => void;
+    const firstRegistry = new Promise<Response>((resolve) => { releaseFirstRegistry = resolve; });
+    let registryReads = 0;
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path === '/api/staff/assignments/me') return json([{ id: 'owner-1', role: 'PLATFORM_OWNER', status: 'ACTIVE' }]);
+      if (path === '/platform-v7/staff/role-mode') return ++registryReads === 1 ? firstRegistry : json({ code: 'UNAVAILABLE' }, 503);
+      if (path === '/api/staff/session-context') return json({ active: true, session });
+      if (path === '/api/staff/founder/role-mode/session') return json(canonical);
+      throw new Error(`Unexpected staff request: ${path}`);
+    }));
+
+    const view = render(createElement(RoleModeCenter, props));
+    await waitFor(() => expect(registryReads).toBe(1));
+    view.rerender(createElement(RoleModeCenter, { ...props, locale: 'en', copy: ownerAccessCenterMessages.en }));
+    await waitFor(() => expect(view.container.querySelector('[role="alert"]')).not.toBeNull());
+    await act(async () => { releaseFirstRegistry(json(registry)); });
+
+    expect(view.container.querySelector('[data-founder-role-mode-active]')).toBeNull();
+    expect(view.container.querySelectorAll('article')).toHaveLength(0);
+  });
+
+  it('blocks every cabinet when the initial protected-session read is unavailable', async () => {
+    const { registry, props } = roleModeFixtures();
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path === '/api/staff/assignments/me') return json([{ id: 'owner-1', role: 'PLATFORM_OWNER', status: 'ACTIVE' }]);
+      if (path === '/platform-v7/staff/role-mode') return json(registry);
+      if (path === '/api/staff/session-context') return json({ code: 'UNAVAILABLE' }, 503);
+      if (path === '/api/staff/founder/role-mode/session') return json({ active: false });
+      throw new Error(`Unexpected staff request: ${path}`);
+    }));
+
+    const view = render(createElement(RoleModeCenter, props));
+    await waitFor(() => expect(view.container.querySelector('[role="alert"]')).not.toBeNull());
+    expect(view.container.textContent).toContain('Состояние защищённой сессии не подтверждено');
+    expect(view.queryAllByRole('button', { name: 'Открыть read-only' })).toHaveLength(0);
+    expect(view.getByRole('button', { name: 'Повторить проверку сессии' })).toBeEnabled();
+  });
+
+  it('requires reconciliation before another open when activation succeeds but canonical verification fails', async () => {
+    const { registry, canonical, props } = roleModeFixtures();
+    let activationAttempted = false;
+    let requestCount = 0;
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input);
+      if (path === '/api/staff/assignments/me') return json([{ id: 'owner-1', role: 'PLATFORM_OWNER', status: 'ACTIVE' }]);
+      if (path === '/platform-v7/staff/role-mode' && init?.method === 'POST') {
+        requestCount += 1;
+        return json({ grantId: 'grant-1', roleMode: {
+          cabinetKey: 'buyer', canonicalPath: '/platform-v7/buyer', effectiveRole: 'BUYER',
+          effectiveOrganizationId: 'organization-1', mode: 'VIEW_AS', readOnly: true,
+        } });
+      }
+      if (path === '/platform-v7/staff/role-mode') return json(registry);
+      if (path === '/platform-v7/staff/prepare?format=json') return json({ ok: true, csrfToken: 'a'.repeat(32) });
+      if (path === '/api/staff/access/grants/grant-1/activate') {
+        activationAttempted = true;
+        return json({ ok: true });
+      }
+      if (path === '/api/staff/session-context') return activationAttempted ? json({ code: 'UNAVAILABLE' }, 503) : json({ active: false, session: null });
+      if (path === '/api/staff/founder/role-mode/session') return activationAttempted ? json({ code: 'UNAVAILABLE' }, 503) : json({ active: false });
+      if (path === '/api/staff/organizations/organization-1/cabinet/BUYER') return json({ deals: [] });
+      throw new Error(`Unexpected staff request: ${path}`);
+    }));
+
+    const view = render(createElement(RoleModeCenter, props));
+    await waitFor(() => expect(view.getByText('ID реальной организации')).toBeInTheDocument());
+    fireEvent.change(view.getByLabelText(/ID реальной организации/), { target: { value: 'organization-1' } });
+    fireEvent.change(view.getByLabelText(/Тикет/), { target: { value: 'ticket-1' } });
+    fireEvent.change(view.getByLabelText(/Причина просмотра/), { target: { value: 'Проверка работы кабинета' } });
+    const buyer = view.getAllByRole('button', { name: 'Открыть read-only' })[1];
+    expect(buyer).toBeEnabled();
+    fireEvent.click(buyer);
+
+    await waitFor(() => expect(view.getByRole('button', { name: 'Повторить проверку сессии' })).toBeEnabled());
+    expect(activationAttempted).toBe(true);
+    expect(view.container.querySelector('[data-founder-role-mode-active]')).toBeNull();
+    expect(view.container.textContent).toContain('Состояние защищённой сессии не подтверждено');
+    expect(view.getAllByRole('button', { name: 'Открыть read-only' }).every((button) => button.hasAttribute('disabled'))).toBe(true);
+    fireEvent.click(view.getAllByRole('button', { name: 'Открыть read-only' })[1]);
+    expect(requestCount).toBe(1);
+
+    // The next read may discover the durable session; it must not create another grant.
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path === '/api/staff/assignments/me') return json([{ id: 'owner-1', role: 'PLATFORM_OWNER', status: 'ACTIVE' }]);
+      if (path === '/platform-v7/staff/role-mode') return json(registry);
+      if (path === '/api/staff/session-context') return json({ active: true, session: {
+        accessSessionId: canonical.accessSessionId, accessMode: 'VIEW_AS', permissions: ['cabinet:view-as'],
+        effectiveOrganizationId: canonical.effectiveOrganizationId, effectiveRole: canonical.effectiveRole,
+        expiresAt: canonical.expiresAt,
+      } });
+      if (path === '/api/staff/founder/role-mode/session') return json(canonical);
+      if (path === '/api/staff/organizations/organization-1/cabinet/BUYER') return json({ deals: [] });
+      throw new Error(`Unexpected staff request: ${path}`);
+    }));
+    fireEvent.click(view.getByRole('button', { name: 'Повторить проверку сессии' }));
+    await waitFor(() => expect(view.container.querySelector('[data-founder-role-mode-active]')).not.toBeNull());
+    expect(requestCount).toBe(1);
   });
 
   it('consumes the server-owned exact 13-cabinet role-mode registry', () => {

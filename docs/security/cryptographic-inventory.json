@@ -1,6 +1,6 @@
 {
   "schemaVersion": "pc-crop.cryptographic-inventory.v1",
-  "scannedFiles": 2283,
+  "scannedFiles": 2287,
   "operations": [
     {
       "operation": "encryption",
@@ -286,11 +286,11 @@
     {
       "operation": "uuid",
       "label": "UUID generation",
-      "sites": 240,
+      "sites": 241,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 240,
+          "sites": 241,
           "files": [
             "apps/api/src/modules/accounting/connection-attestation.repository.ts",
             "apps/api/src/modules/ai-insights/ai-assistant.controller.ts",
@@ -395,6 +395,7 @@
             "apps/web/app/platform-v7/profile/team/OrganizationTeamAdminClient.tsx",
             "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
             "apps/web/app/platform-v7/staff/open-cabinet/route.ts",
+            "apps/web/app/platform-v7/staff/role-mode/route.ts",
             "apps/web/apps/web/middleware.ts",
             "apps/web/components/crop-platform/CommodityProfileRegistryClient.tsx",
             "apps/web/components/crop-platform/IntegrationControlTowerClient.tsx",

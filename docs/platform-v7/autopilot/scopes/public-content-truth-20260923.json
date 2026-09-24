@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-content-truth-20260923",
+  "status": "active",
+  "approvedBy": "owner-public-ux-repair-v2.0-2026-09-23",
+  "purpose": "UX-08/UX-11 and UX-27 verification: truthful public market sort wording and overview-only capability cards without fake interaction promises.",
+  "ownerSpecification": "Прозрачная Цена — инженерное ТЗ быстрого UX-ремонта v2.0, 23.09.2026, section 5.1/5.3 and UX-08/UX-11/UX-27 T12/T25.",
+  "coordination": "Team Hub #5469 claim 5786327847. Runtime copy commit may proceed while canonical test file remains reserved by #5536; PR is not opened until focused tests are added. Focused tests are now in the already-executed platformV7PublicCopyQuality.test.ts suite; PR may be opened.",
+  "allowedPaths": [
+    "apps/web/app/platform-v7/market/page.tsx",
+    "apps/web/app/platform-v7/capabilities/page.tsx",
+    "apps/web/tests/unit/platformV7BrowserAcceptanceRepairs.test.ts",
+    "docs/platform-v7/autopilot/scopes/public-content-truth-20260923.json",
+    "apps/web/tests/unit/platformV7PublicCopyQuality.test.ts"
+  ],
+  "requiredInvariants": [
+    "Market copy names the existing price behavior as sorting and does not promise a missing price-range filter.",
+    "All twelve capability cards remain overview content unless they have a real public destination; overview copy does not instruct users to click or choose non-interactive cards.",
+    "Public Normal/Deviation/Dispute remain non-interactive list-item status explanations and explanatory screens select none of them.",
+    "No API, market filtering semantics, publicRef identity, registration, Gekta, auth, role, tenant, money, provider or release authority changes.",
+    "Focused tests must be added before PR creation; no card receives PASS from copy-only source edits."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type ComponentProps } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
 import type { AppLocale } from '@/i18n/locale';
 import type { OwnerAccessCenterCopy } from '@/i18n/owner-access-center-messages';
 import { OwnerAccessCenter as OwnerAccessCenterV2 } from './OwnerAccessCenterV2';
@@ -161,6 +161,8 @@ const OWNER_COPY = {
     statusPending: 'Запрос создан, но активный grant сервер не вернул. Режим не открыт.',
     registryUnavailable: 'Канонический реестр role-mode временно недоступен.',
     protectedSessionActive: 'Уже активна другая защищённая staff-сессия. Завершите её перед открытием Founder role-mode.',
+    sessionUnknown: 'Состояние защищённой сессии не подтверждено. Повторите проверку перед открытием кабинета.',
+    retry: 'Повторить проверку сессии',
   },
   en: {
     eyebrow: 'Platform owner',
@@ -198,6 +200,8 @@ const OWNER_COPY = {
     statusPending: 'The request was created, but the server did not return an active grant. The mode was not opened.',
     registryUnavailable: 'The canonical role-mode registry is temporarily unavailable.',
     protectedSessionActive: 'Another protected staff session is active. End it before opening Founder role mode.',
+    sessionUnknown: 'The protected session state is unverified. Check it again before opening a cabinet.',
+    retry: 'Check session again',
   },
   zh: {
     eyebrow: '平台所有者',
@@ -235,6 +239,8 @@ const OWNER_COPY = {
     statusPending: '请求已创建，但服务器未返回可激活 grant，因此模式尚未开启。',
     registryUnavailable: '规范 role-mode 注册表暂时不可用。',
     protectedSessionActive: '已有其他受保护 staff 会话。请先结束该会话，再开启 Founder role-mode。',
+    sessionUnknown: '受保护会话状态尚未确认。请重新检查后再打开工作台。',
+    retry: '重新检查会话',
   },
 } as const;
 
@@ -305,6 +311,8 @@ export function OwnerAccessCenter(props: Props) {
   const [advanced, setAdvanced] = useState(false);
   const [registry, setRegistry] = useState<RoleModeRegistry | null>(null);
   const [sessionContext, setSessionContext] = useState<SessionContext>({ active: false, session: null });
+  const [sessionKnown, setSessionKnown] = useState(false);
+  const loadGeneration = useRef(0);
   const [activeMode, setActiveMode] = useState<ActiveRoleMode | null>(null);
   const [projection, setProjection] = useState<CabinetProjection | null>(null);
   const [projectionUnavailable, setProjectionUnavailable] = useState(false);
@@ -340,10 +348,12 @@ export function OwnerAccessCenter(props: Props) {
     return payload.csrfToken;
   }, [text.openFailed]);
 
-  const loadProjection = useCallback(async (session: SessionMetadata) => {
+  const loadProjection = useCallback(async (session: SessionMetadata, isCurrent: () => boolean = () => true) => {
     if (!session.effectiveOrganizationId || !session.effectiveRole) {
-      setProjection(null);
-      setProjectionUnavailable(true);
+      if (isCurrent()) {
+        setProjection(null);
+        setProjectionUnavailable(true);
+      }
       return;
     }
     try {
@@ -359,15 +369,22 @@ export function OwnerAccessCenter(props: Props) {
       if (!response.ok || !payload || typeof payload !== 'object') {
         throw new Error(payloadMessage(payload as ApiErrorPayload | null, text.projectionUnavailable));
       }
-      setProjection(payload as CabinetProjection);
-      setProjectionUnavailable(false);
+      if (isCurrent()) {
+        setProjection(payload as CabinetProjection);
+        setProjectionUnavailable(false);
+      }
     } catch {
-      setProjection(null);
-      setProjectionUnavailable(true);
+      if (isCurrent()) {
+        setProjection(null);
+        setProjectionUnavailable(true);
+      }
     }
   }, [text.projectionUnavailable]);
 
   const loadRoleMode = useCallback(async () => {
+    const generation = ++loadGeneration.current;
+    const isCurrent = () => generation === loadGeneration.current;
+    setSessionKnown(false);
     if (!apiAvailable) {
       setRegistry(null);
       setSessionContext({ active: false, session: null });
@@ -411,6 +428,7 @@ export function OwnerAccessCenter(props: Props) {
       const owner = assignmentsResponse.ok
         && Array.isArray(assignments)
         && assignments.some((item) => item.role === 'PLATFORM_OWNER' && item.status === 'ACTIVE');
+      if (!isCurrent()) return;
       setIsOwner(owner);
       if (!owner) {
         setRegistry(null);
@@ -421,6 +439,7 @@ export function OwnerAccessCenter(props: Props) {
       }
 
       const registryPayload = await registryResponse.json().catch(() => null) as unknown;
+      if (!isCurrent()) return;
       if (!registryResponse.ok || !validRegistry(registryPayload)) {
         throw new Error(text.registryUnavailable);
       }
@@ -428,6 +447,12 @@ export function OwnerAccessCenter(props: Props) {
 
       const sessionPayload = await sessionResponse.json().catch(() => null) as SessionContext | null;
       const roleModeSession = await roleModeSessionResponse.json().catch(() => null) as FounderRoleModeSession | ApiErrorPayload | null;
+      if (!isCurrent()) return;
+      if (!sessionResponse.ok || typeof sessionPayload?.active !== 'boolean'
+        || (sessionPayload.active && !sessionPayload.session)
+        || (!sessionPayload.active && sessionPayload.session)) {
+        throw new Error(text.sessionUnknown);
+      }
       const protectedSessionActive = sessionResponse.ok && sessionPayload?.active === true && Boolean(sessionPayload.session);
       setSessionContext(protectedSessionActive ? sessionPayload! : { active: false, session: null });
 
@@ -469,33 +494,36 @@ export function OwnerAccessCenter(props: Props) {
         });
         setOrganizationId(canonical.effectiveOrganizationId);
         setNotice(null);
-        await loadProjection(session);
+        setSessionKnown(true);
+        await loadProjection(session, isCurrent);
       } else {
         setActiveMode(null);
         setProjection(null);
         setProjectionUnavailable(false);
         if (protectedSessionActive) {
           setNotice(text.protectedSessionActive);
-        } else if (!sessionResponse.ok && sessionResponse.status >= 500) {
-          setNotice(text.projectionUnavailable);
         } else {
           setNotice(null);
         }
+        setSessionKnown(true);
       }
     } catch (error) {
+      if (!isCurrent()) return;
       setRegistry(null);
       setSessionContext({ active: false, session: null });
+      setSessionKnown(false);
       setActiveMode(null);
       setProjection(null);
       setProjectionUnavailable(true);
       setOpenError(error instanceof Error ? error.message : text.registryUnavailable);
     } finally {
-      setChecking(false);
+      if (isCurrent()) setChecking(false);
     }
-  }, [apiAvailable, loadProjection, text.openFailed, text.projectionUnavailable, text.protectedSessionActive, text.registryUnavailable]);
+  }, [apiAvailable, loadProjection, text.openFailed, text.protectedSessionActive, text.registryUnavailable, text.sessionUnknown]);
 
   useEffect(() => {
     void loadRoleMode();
+    return () => { loadGeneration.current += 1; };
   }, [loadRoleMode]);
 
   async function requestRoleMode(cabinet: FounderCabinet, token: string, signal: AbortSignal) {
@@ -522,7 +550,7 @@ export function OwnerAccessCenter(props: Props) {
   }
 
   async function openCabinet(cabinet: FounderCabinet) {
-    if (busyKey || sessionContext.active) return;
+    if (busyKey || sessionContext.active || !sessionKnown) return;
     if (organizationId.trim().length < 3) {
       setOpenError(text.organizationHint);
       return;
@@ -533,10 +561,12 @@ export function OwnerAccessCenter(props: Props) {
     }
 
     setBusyKey(cabinet.key);
+    setSessionKnown(false);
     setOpenError(null);
     setNotice(null);
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 20_000);
+    let activationAttempted = false;
 
     try {
       let token = await refreshCsrf(controller.signal);
@@ -567,6 +597,7 @@ export function OwnerAccessCenter(props: Props) {
         return;
       }
 
+      activationAttempted = true;
       const activationResponse = await fetch(`/api/staff/access/grants/${encodeURIComponent(requested.payload.grantId)}/activate`, {
         method: 'POST',
         credentials: 'same-origin',
@@ -630,6 +661,7 @@ export function OwnerAccessCenter(props: Props) {
       }
 
       setSessionContext(sessionPayload);
+      setSessionKnown(true);
       setActiveMode({
         cabinetKey: canonical.cabinetKey,
         canonicalPath: canonical.canonicalPath,
@@ -646,9 +678,18 @@ export function OwnerAccessCenter(props: Props) {
       });
       await loadProjection(session);
     } catch (error) {
+      if (activationAttempted) {
+        setSessionContext({ active: false, session: null });
+        setSessionKnown(false);
+        setActiveMode(null);
+        setProjection(null);
+        setProjectionUnavailable(true);
+        setNotice(text.sessionUnknown);
+      }
       const timedOut = error instanceof DOMException && error.name === 'AbortError';
       setOpenError(timedOut ? text.openFailed : error instanceof Error ? error.message : text.openFailed);
     } finally {
+      if (!activationAttempted) setSessionKnown(true);
       window.clearTimeout(timeoutId);
       setBusyKey(null);
     }
@@ -732,6 +773,11 @@ export function OwnerAccessCenter(props: Props) {
 
       {openError && <section className={styles.error} role="alert" aria-live="assertive">{openError}</section>}
       {notice && <section className={styles.notice} role="status" aria-live="polite">{notice}</section>}
+      {!sessionKnown && !checking && apiAvailable && (
+        <button type="button" className={styles.advancedButton} onClick={() => void loadRoleMode()} disabled={busyKey !== null}>
+          {text.retry}
+        </button>
+      )}
 
       {sessionContext.active && sessionContext.session && activeMode ? (
         <section className={styles.activeMode} data-founder-role-mode-active>
@@ -846,6 +892,7 @@ export function OwnerAccessCenter(props: Props) {
                   disabled={
                     busyKey !== null
                     || sessionContext.active
+                    || !sessionKnown
                     || organizationId.trim().length < 3
                     || ticketId.trim().length < 3
                     || reason.trim().length < 10
