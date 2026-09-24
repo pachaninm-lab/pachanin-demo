@@ -1548,6 +1548,9 @@
       "apps/web/tests/unit/platformV7ControlledTestOrganizations.test.ts",
       "docs/security/cryptographic-inventory.json",
       "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+    ],
+    "governance/product-bank-fgis-ux-source-admission-20260924": [
+      "docs/platform-v7/autopilot/autopilot-state.json"
     ]
   },
   "currentAcceptance": [
@@ -1830,6 +1833,25 @@
         "CI/security gate weakening"
       ],
       "teamHubDependency": "#5590 current-head trusted-bootstrap P1; PRODUCT source PRs #5587, #5588 and #5589"
+    },
+    "product-source-admission-prerequisite-20260924": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Pre-admit one state-only PRODUCT source-scope admission branch after the base-controlled guard repair; implementation paths remain absent.",
+      "authorityBaseExactMain": "fa1eaadbc2264d69c46404606c701ecc5239a11e",
+      "implementationBranch": "governance/product-bank-fgis-ux-source-admission-20260924",
+      "allowedPaths": [
+        "docs/platform-v7/autopilot/autopilot-state.json"
+      ],
+      "requiredTruthBoundaries": [
+        "The accepted guard from the prior step classifies this admission branch immutable and validates its exact state delta from the trusted base.",
+        "Only a later separately reviewed admission may grant the three implementation branches their exact 7/6/4 source paths."
+      ],
+      "forbiddenAuthority": [
+        "bank, FGIS or UX implementation scope in this prerequisite",
+        "global mutable scope or candidate guard/workflow authority",
+        "CI/security gate weakening"
+      ],
+      "teamHubDependency": "#5590 trusted ref reassignment; #5593 immutable PRODUCT guard"
     }
   }
 }
