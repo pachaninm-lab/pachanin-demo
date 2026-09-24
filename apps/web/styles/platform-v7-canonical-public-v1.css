@@ -2782,6 +2782,8 @@ html[lang^='zh'] .pc-canonical-public :is(p,li,dd,.pc-cp-section-head p,.pc-cp-l
 }
 
 @media(max-width:360px){
+  .pc-cp-page-trust .pc-cp-trust-pillar{padding-inline:12px!important}
+
   .pc-site-header[data-public-site-header='canonical'] .pc-site-brand-text strong{
     font-size:13px!important;
   }

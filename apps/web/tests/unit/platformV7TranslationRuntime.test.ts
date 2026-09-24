@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
 import {
   DICTIONARY_CACHE_KEY,
   LANGUAGE_CHANGE_EVENT,
@@ -107,6 +110,22 @@ describe('translateValue', () => {
 });
 
 describe('applyTranslationToDom', () => {
+  it('preserves the rendered canonical wordmark while translating surrounding header copy', () => {
+    document.body.innerHTML = renderToStaticMarkup(createElement(PublicSiteHeader, {
+      actions: createElement('a', { href: '/platform-v7/login?lang=ru' }, 'Войти'),
+      tagline: 'Подключить организацию',
+    }));
+    const wordmark = document.querySelector('.pc-site-brand-text strong');
+    for (const language of ['en', 'zh', 'ru', 'en'] as const) {
+      applyTranslationToDom(language, dictionaries);
+      expect(wordmark?.textContent).toBe('Прозрачная Цена');
+      expect(document.querySelector('.pc-site-actions a')?.textContent)
+        .toBe(translateValue('Войти', language, dictionaries));
+      expect(document.querySelector('.pc-site-brand-text small')?.textContent)
+        .toBe(translateValue('Подключить организацию', language, dictionaries));
+    }
+  });
+
   function mountSample() {
     document.body.innerHTML = `
       <div id="page">
