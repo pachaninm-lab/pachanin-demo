@@ -30,7 +30,7 @@ async function fetchOriginal(photo) {
   const url = new URL(photo.original);
   if (url.protocol !== 'https:' || url.hostname !== 'upload.wikimedia.org' || url.port
     || url.username || url.password || url.search || url.hash
-    || !url.pathname.startsWith('/wikipedia/commons/') || !url.pathname.endsWith('.jpg')) {
+    || !url.pathname.startsWith('/wikipedia/commons/') || !url.pathname.toLowerCase().endsWith('.jpg')) {
     throw new Error(`Crop ${photo.crop}: original must be a fixed Wikimedia JPEG URL.`);
   }
   const cachedPath = join(cache, `${photo.crop}.jpg`);

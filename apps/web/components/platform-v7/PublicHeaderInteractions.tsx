@@ -20,7 +20,7 @@ export function PublicHeaderInteractions({ locale }: { locale: 'ru' | 'en' | 'zh
     // Remember only whether the form changed, never values or credentials.
     // ContactClient already guards its document navigation with beforeunload.
     const dirtyForms = new WeakSet<HTMLFormElement>();
-    const formRoute = () => ['/platform-v7/register', '/platform-v7/login', '/platform-v7/forgot-password'].includes(window.location.pathname.replace(/\/$/, ''));
+    const formRoute = () => ['/platform-v7/register', '/platform-v7/login'].includes(window.location.pathname.replace(/\/$/, ''));
     const changed = (event: Event) => {
       const control = event.target;
       if (!formRoute() || !(control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement || control instanceof HTMLSelectElement)) return;
@@ -104,5 +104,53 @@ export function PublicHeaderInteractions({ locale }: { locale: 'ru' | 'en' | 'zh
       window.removeEventListener('resize', onResize);
     };
   }, [locale]);
+  // Recovery pages render the same header without a mobile menu. Keep their
+  // unsaved-form navigation guard independent of menu enhancement.
+  useEffect(() => {
+    if (window.location.pathname.replace(/\/$/, '') !== '/platform-v7/forgot-password') return;
+    const form = document.querySelector<HTMLFormElement>('.pc-recovery-page form.pc-recovery-card')
+      ?? Array.from(document.forms).find((candidate) => candidate.querySelector('input[type="password"], input[type="email"]'));
+    if (!form) return;
+    let dirty = false;
+    let confirmedNavigation = false;
+    const hasUnsavedEntry = () => dirty && form.isConnected;
+    const onEntry = (event: Event) => {
+      if (event.target instanceof HTMLInputElement && event.target.form === form) dirty = true;
+    };
+    const onClick = (event: MouseEvent) => {
+      if (!hasUnsavedEntry() || event.defaultPrevented || event.button !== 0
+        || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey
+        || !(event.target instanceof Element)) return;
+      const link = event.target.closest<HTMLAnchorElement>('a[href]');
+      if (!link || link.hasAttribute('download') || (link.target && link.target !== '_self')) return;
+      const destination = new URL(link.href);
+      if (destination.href === window.location.href
+        || (destination.pathname === window.location.pathname && destination.search === window.location.search)) return;
+      const lang = document.documentElement.lang.toLowerCase();
+      const warning = lang.startsWith('zh')
+        ? '离开此页面将丢失已填写的内容。是否继续？'
+        : lang.startsWith('en')
+          ? 'Leaving this page will clear your entries. Continue?'
+          : 'При переходе введённые данные будут потеряны. Продолжить?';
+      if (!window.confirm(warning)) { event.preventDefault(); return; }
+      confirmedNavigation = true;
+      window.setTimeout(() => { confirmedNavigation = false; }, 0);
+    };
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!hasUnsavedEntry() || confirmedNavigation) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    document.addEventListener('input', onEntry, true);
+    document.addEventListener('change', onEntry, true);
+    document.addEventListener('click', onClick, true);
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => {
+      document.removeEventListener('input', onEntry, true);
+      document.removeEventListener('change', onEntry, true);
+      document.removeEventListener('click', onClick, true);
+      window.removeEventListener('beforeunload', onBeforeUnload);
+    };
+  }, []);
   return <span ref={anchor} hidden data-public-header-interactions='true' />;
 }

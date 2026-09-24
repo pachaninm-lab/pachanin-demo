@@ -1528,7 +1528,27 @@
       "apps/web/app/platform-v7/seller/page.tsx",
       "apps/web/tests/unit/sellerExecutionPolish.test.tsx",
       "apps/web/tests/unit/platformV7PrimaryRoleCockpit.test.tsx",
-      "apps/web/tests/unit/platformV7RoleUxRegressions.test.ts"
+      "apps/web/tests/unit/platformV7RoleUxRegressions.test.ts",
+      "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
+      "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx"
+    ],
+    "r1-role-mode-session-bff-authority-20260921": [
+      "apps/web/app/api/staff/[...path]/route.ts",
+      "apps/web/tests/unit/platformV7FounderRoleModeSessionBff.test.ts"
+    ],
+    "ux/deal360-truthful-external-facts-20260923": [
+      "apps/web/components/platform-v7/P7DealWorkspaceTabs.tsx",
+      "apps/web/tests/unit/designSystemV8CriticalRoutes.test.ts"
+    ],
+    "product/r1-role-mode-consumer-20260921": [
+      "apps/web/app/platform-v7/staff/role-mode/route.ts",
+      "apps/web/components/platform-v7/staff/OwnerAccessCenter.tsx",
+      "apps/web/components/platform-v7/staff/OwnerAccessCenterV3.tsx",
+      "apps/web/components/platform-v7/staff/OwnerAccessCenterV3.module.css",
+      "apps/web/tests/unit/platformV7OwnerAccessCenterTaskUx.test.ts",
+      "apps/web/tests/unit/platformV7ControlledTestOrganizations.test.ts",
+      "docs/security/cryptographic-inventory.json",
+      "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
     ]
   },
   "currentAcceptance": [
@@ -1676,20 +1696,24 @@
     },
     "seller-truthful-first-screen-20260922": {
       "owner": "ACCOUNT_2_PRODUCT",
-      "purpose": "Truthfulness-only first seller workspace slice: remove fabricated lot/deal/money/document/blocker facts when canonical authority is absent, while preserving the existing shared shell and current canonical Deal/dispute reads.",
-      "authorityBaseExactMain": "6553cdd4a5c3ce638d2832fac361cf710a46067b",
+      "purpose": "Truthful production seller workspace slice: remove fabricated seller business facts, prevent the production FirstCustomerWorkspace from promoting recency/list order into seller next-action authority, preserve RU/EN/ZH user meaning, and update the stale Design System v8 seller test contract without changing backend/domain authority.",
+      "authorityBaseExactMain": "76d2dda7c2eb11a62a45261d40cd6d0d32a259ad",
       "implementationBranch": "ux/seller-truthful-first-screen-20260922",
       "allowedPaths": [
         "apps/web/app/platform-v7/seller/page.tsx",
         "apps/web/tests/unit/sellerExecutionPolish.test.tsx",
         "apps/web/tests/unit/platformV7PrimaryRoleCockpit.test.tsx",
-        "apps/web/tests/unit/platformV7RoleUxRegressions.test.ts"
+        "apps/web/tests/unit/platformV7RoleUxRegressions.test.ts",
+        "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
+        "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx"
       ],
       "requiredTruthBoundaries": [
         "Seller business facts must come from existing canonical server reads; absence of a canonical Deal must render explicit empty/degraded/unknown state rather than static LOT/DL/money/document facts.",
         "No hard-coded reserve, payout, bank-review amount, SDIZ/ETRN/document readiness, offer state, next actor or regulatory status may be presented as current business truth.",
         "Unknown authority remains unknown; transport ACK/HTTP success is never promoted to money, regulatory or business completion.",
-        "The seller surface reuses the existing shared Platform V7 shell/design system and must not create a second frontend architecture."
+        "The seller surface reuses the existing shared Platform V7 shell/design system and must not create a second frontend architecture.",
+        "The production FirstCustomerWorkspace must not promote /deals response order or the first returned Deal into next-action authority; Deal rows remain navigation until a server-published priority contract exists.",
+        "Seller production presentation preserves RU/EN/ZH meaning and may localize labels/copy only; raw server business values and UNKNOWN/degraded semantics must not be strengthened by translation."
       ],
       "forbiddenAuthority": [
         "backend/domain/DB/RLS/tenant/role authority",
@@ -1700,6 +1724,66 @@
         "Founder role-mode transport or authority"
       ],
       "teamHubDependency": "PRODUCT-SELLER-TRUTHFUL-FIRST-SCREEN-20260922"
+    },
+    "deal360-truthful-external-facts-20260923": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Presentation-only fail-closed Deal 360 truth repair: remove unsupported concrete bank/provider, FGIS/regulatory and document-completion claims from the existing Deal workspace without creating parallel server authority.",
+      "authorityBaseExactMain": "2365c9b38cbb366cda628904d4f11da4cb4afff9",
+      "implementationBranch": "ux/deal360-truthful-external-facts-20260923",
+      "allowedPaths": [
+        "apps/web/components/platform-v7/P7DealWorkspaceTabs.tsx",
+        "apps/web/tests/unit/designSystemV8CriticalRoutes.test.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "Concrete Sber/Alfa/T-Bank attribution for a Deal or BankOperation remains UNKNOWN / NOT EXPOSED until canonical BankOperation -> IntegrationBinding -> Provider evidence is accepted from CORE #5525.",
+        "Per-Deal regulatory applicability remains UNKNOWN / NOT EXPOSED until CORE #5526 publishes an accepted server-derived applicability projection; system/capability presence is not applicability.",
+        "FGIS Grain -> Inventory/source reconciliation remains UNKNOWN / NOT EXPOSED until #5370 publishes an accepted MATCH / CONFLICT / UNKNOWN projection.",
+        "Absence of a local blocker does not prove a contract, SDIZ or ETRN is signed, linked, accepted, applicable or complete.",
+        "HTTP 2xx, ACK, QUEUED or PROCESSED is non-final; an unknown external mutation outcome remains UNKNOWN / PENDING_RECONCILIATION and requires same-operation reconciliation before retry.",
+        "The existing Deal 360 component remains presentation-only and must not create a second Deal, Settlement, regulatory, provider, document or logistics authority."
+      ],
+      "forbiddenAuthority": [
+        "homepage/public landing implementation",
+        "API/backend/domain/DB/RLS/tenant/role authority",
+        "Settlement/payment/finality authority",
+        "provider binding/credential/callback-trust authority",
+        "regulatory applicability/legal evaluation authority",
+        "FGIS/SDIZ mutation or legal completion authority",
+        "logistics source authority",
+        "CI/workflow/threshold/security policy changes"
+      ],
+      "teamHubDependency": "PRODUCT-DEAL360-TRUTHFUL-EXTERNAL-FACTS-20260923"
+    },
+    "r1-role-mode-consumer-ci-repair-20260923": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Reconcile the existing controlled-test selector assertion with the accepted server-owned Founder VIEW_AS registry and regenerate the cryptographic inventory for the new BFF correlation UUID. Keep the existing five PRODUCT files and admit only these three evidence repairs.",
+      "authorityBaseExactMain": "3807bded6508238c9c4096b4a7c02a0d8c76862e",
+      "implementationBranch": "product/r1-role-mode-consumer-20260921",
+      "allowedPaths": [
+        "apps/web/app/platform-v7/staff/role-mode/route.ts",
+        "apps/web/components/platform-v7/staff/OwnerAccessCenter.tsx",
+        "apps/web/components/platform-v7/staff/OwnerAccessCenterV3.tsx",
+        "apps/web/components/platform-v7/staff/OwnerAccessCenterV3.module.css",
+        "apps/web/tests/unit/platformV7OwnerAccessCenterTaskUx.test.ts",
+        "apps/web/tests/unit/platformV7ControlledTestOrganizations.test.ts",
+        "docs/security/cryptographic-inventory.json",
+        "docs/security/CRYPTOGRAPHIC_INVENTORY.md"
+      ],
+      "requiredTruthBoundaries": [
+        "The controlled-test cabinet fixture remains server-bound, but its prior owner selector assertion is stale; Founder role-mode uses the canonical 13-cabinet registry and a real server-validated organization ID.",
+        "The generated cryptographic inventory must exactly reflect the new role-mode route UUID operation and tracked source count; no scanner or policy change is admitted.",
+        "Founder VIEW_AS transport uses the accepted /api/staff/founder/role-mode/session BFF under the existing cookie Path; canonicalPath remains metadata until separate transport acceptance.",
+        "An unavailable or contradictory protected session after activation blocks another grant until canonical reconciliation; stale overlapping reads cannot restore an older VIEW_AS session.",
+        "No browser-synthesized role, tenant, organization, permission, MFA, session or external business authority."
+      ],
+      "forbiddenAuthority": [
+        "homepage/public implementation",
+        "backend/domain/DB/RLS/tenant/role/payment authority",
+        "cryptographic or security gate weakening",
+        "controlled-test organization as production Founder target",
+        "bank/provider/regulatory/FGIS completion or finality claim"
+      ],
+      "teamHubDependency": "CORE #5479 READY_FOR_CONSUMER at Team Hub #5469 comment 5791259431"
     }
   }
 }
