@@ -79,7 +79,6 @@ const guardedFiles = [
   'lib/platform-v7/execution-command-contracts.ts',
   'lib/platform-v7/integrations/providerRegistry.ts',
   'lib/platform-v7/logistics-receiving-gate.ts',
-  'lib/platform-v7/operator-execution-queue.ts',
 ];
 
 const forbiddenVisibleCopy = [
@@ -144,5 +143,14 @@ describe('platform-v7 deep bank and deal copy guard', () => {
     for (const copy of forbiddenVisibleCopy) {
       expect(source, `deep platform-v7 copy must not contain "${copy}"`).not.toContain(copy);
     }
+  });
+
+  it('rejects positive money and demo claims without rejecting explicit safety boundaries', () => {
+    const offending = (source: string) => forbiddenVisibleCopy.filter((copy) => source.includes(copy));
+
+    expect(offending('Запрос на выпуск денег · Деньги выпущены · демо-контур'))
+      .toEqual(expect.arrayContaining(['Запрос на выпуск денег', 'Деньги выпущены', 'демо-контур']));
+    expect(offending('Платформа не может вручную менять денежный статус. Профиль не содержит фиктивных секретов.'))
+      .toEqual([]);
   });
 });

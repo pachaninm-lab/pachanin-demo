@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "bank/deep-visible-copy-guard-20260924",
+  "status": "active",
+  "issue": 5565,
+  "purpose": "Repair stale deep bank/deal visible-copy guard and clarify negative safety copy in RU/EN/ZH without changing payment authority.",
+  "authorityBaseExactMain": "4637f6e05d2c24e7f20782014de9c6b25985a194",
+  "allowedPaths": [
+    "apps/web/app/platform-v7/bank/escrow/page.tsx",
+    "apps/web/app/platform-v7/bank/factoring/page.tsx",
+    "apps/web/app/platform-v7/bank/release-safety/page.tsx",
+    "apps/web/app/platform-v7/profile/page.tsx",
+    "apps/web/tests/unit/platformV7DeepBankDealCopyGuard.test.ts",
+    "docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json"
+  ],
+  "requiredInvariants": [
+    "The forbidden money-finality and demo vocabulary remains intact; the removed source path does not exist.",
+    "Plain-language duplicate-operation copy does not assert a live factoring or provider result.",
+    "Release request remains non-final until verified bank callback and same-operation reconciliation."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
