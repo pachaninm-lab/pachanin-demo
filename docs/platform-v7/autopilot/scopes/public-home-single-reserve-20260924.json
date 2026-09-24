@@ -5,9 +5,9 @@
   "approvedBy": "owner-public-ux-repair-v2.0-2026-09-24",
   "purpose": "Remove duplicated home mobile footer reserve while keeping last content clear of fixed navigation.",
   "ownerSpecification": "Public UX repair v2.0; production mobile run35939028603 failure on exact3807.",
-  "coordination": "Team Hub claim5807638533. Home-only CSS reserve; reconcile shared CSS with #5547 on next main integration.",
+  "coordination": "Team Hub claim5807638533; review5807714300 corrects route-scoped stylesheet identity. Home imports canonical-home-v1.css; public CSS remains unchanged.",
   "allowedPaths": [
-    "apps/web/styles/platform-v7-canonical-public-v1.css",
+    "apps/web/styles/platform-v7-canonical-home-v1.css",
     "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
     "docs/platform-v7/autopilot/scopes/public-home-single-reserve-20260924.json"
   ],

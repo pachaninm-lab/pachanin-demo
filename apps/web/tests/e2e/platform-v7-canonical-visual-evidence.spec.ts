@@ -581,11 +581,14 @@ for (const width of [320, 390, 430] as const) {
           lastOrder: Number(getComputedStyle(last).order),
           finalOrder: Number(getComputedStyle(final).order),
           reserve: Number.parseFloat(getComputedStyle(last).paddingBottom),
+          navBottomPadding: Number.parseFloat(getComputedStyle(node.querySelector('.pc-cp-bottom-nav')!).paddingBottom),
         };
       });
       expect(geometry.display).toBe('flex');
       expect(geometry.lastOrder).toBeGreaterThan(geometry.finalOrder);
       expect(geometry.reserve).toBeGreaterThanOrEqual(96);
+      // Navigation has 6px base padding plus the same actual safe-area inset.
+      expect(Math.abs(geometry.reserve - (90 + geometry.navBottomPadding))).toBeLessThanOrEqual(1);
       await canonicalNoOverflow(page);
     });
   }
