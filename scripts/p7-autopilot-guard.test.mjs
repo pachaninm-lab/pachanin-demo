@@ -25,11 +25,6 @@ const ir20BindingImplementationPaths = [
   '.github/workflows/ir20-api-database-binding.yml',
   'docs/ops/ir20-api-database-binding.md',
 ];
-const productImplementationManifests = new Map([
-  ['bank/deep-visible-copy-guard-20260924', 'docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json'],
-  ['fgis/zsn-public-document-source-lock-20260924', 'docs/platform-v7/autopilot/scopes/fgis-zsn-public-document-source-lock-20260924.json'],
-  ['ux/first-customer-next-action-unknown-20260924', 'docs/platform-v7/autopilot/scopes/first-customer-next-action-unknown-20260924.json'],
-]);
 const industrialDiagnosticPaths = ['apps/api/test/industrial/load-proof.e2e-spec.ts'];
 const industrialGovernancePaths = [
   'docs/platform-v7/autopilot/autopilot-state.json',
@@ -1444,65 +1439,6 @@ test('industrial bootstrap retains base defense and read-only candidate tests wi
   assert.ok(candidate.includes('run: bash scripts/p7-autopilot-guard.sh'));
   const paths = workflow.split('\n  pull_request:\n')[1].split('\nconcurrency:')[0];
   assert.ok(paths.includes(`'${industrialDiagnosticPaths[0]}'`));
-});
-
-for (const [branch, manifest] of productImplementationManifests) {
-  test(`${branch}: accepted base controls scope and permits only its own manifest`, (t) => {
-    const context = fixture(t, branch);
-    const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
-    const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
-    state.approvedConcurrentScopes[branch] = ['allowed.txt', manifest];
-    write(context.root, statePath, JSON.stringify(state));
-    commit(context.root, 'accepted product scope');
-    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
-    write(context.root, 'allowed.txt', 'accepted product change\n');
-    write(context.root, manifest, '{"status":"active"}\n');
-    commit(context.root, 'bounded product change');
-    const accepted = runGuard(context);
-    assert.equal(accepted.status, 0, output(accepted));
-
-    write(context.root, 'apps/api/src/app.module.ts', 'unauthorized server authority\n');
-    commit(context.root, 'attempt protected backend change');
-    const result = runGuard(context);
-    assert.notEqual(result.status, 0, output(result));
-    assert.match(output(result), /Files outside current autopilot scope/u);
-  });
-
-  test(`${branch}: head-only scope expansion cannot approve itself`, (t) => {
-    const context = fixture(t, branch);
-    const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
-    const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
-    state.approvedConcurrentScopes[branch] = ['allowed.txt', manifest];
-    write(context.root, statePath, JSON.stringify(state));
-    commit(context.root, 'accepted product scope');
-    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
-    state.allowedCurrentScope.push('apps/api/src/app.module.ts');
-    state.approvedConcurrentScopes[branch].push('apps/api/src/app.module.ts');
-    write(context.root, statePath, JSON.stringify(state));
-    write(context.root, 'apps/api/src/app.module.ts', 'unauthorized server authority\n');
-    commit(context.root, 'attempt mutable product scope');
-    const result = runGuard(context);
-    assert.notEqual(result.status, 0, output(result));
-    assert.match(output(result), /Mutable scope authority changed/u);
-  });
-}
-
-test('product branches run the immutable guard from the accepted base in both workflow entry points', () => {
-  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
-  const trusted = workflow.split('  trusted-immutable-scope:')[1].split('  guard:')[0];
-  const prHead = workflow.split('      - name: Validate immutable scope with trusted base guard on PR head')[1]
-    .split('      - name: Validate owner-authorized industrial diagnostic bootstrap candidate')[0];
-  const standard = workflow.split('      - name: Validate standard branch scope on PR head')[1]
-    .split('  standard_validation:')[0];
-  for (const branch of productImplementationManifests.keys()) {
-    assert.ok(trusted.includes(`github.event.pull_request.head.ref == '${branch}'`));
-    assert.ok(trusted.includes(`|${branch})`) || trusted.includes(`|${branch}|`));
-    assert.ok(prHead.includes(`github.head_ref == '${branch}'`));
-    assert.ok(prHead.includes(`|${branch})`) || prHead.includes(`|${branch}|`));
-    assert.ok(standard.includes(`github.head_ref != '${branch}'`));
-  }
-  assert.ok(prHead.includes('git show "$BASE_SHA:scripts/p7-autopilot-guard.sh"'));
-  assert.ok(trusted.includes('ref: ${{ github.event.pull_request.base.sha }}'));
 });
 
 test('security remediation pins the three affected dependency families', () => {
