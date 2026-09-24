@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/codeql-v2-27-1-provenance-20260924",
+  "status": "active",
+  "approvedBy": "owner-public-ux-repair-v2.0-2026-09-24",
+  "purpose": "Refresh the fail-closed CodeQL replacement provenance lock after the hosted CLI advanced from 2.27.0 to 2.27.1.",
+  "authorityBaseExactMain": "d61e42bcd2cd5d0a31fdbf440965621cafeaeac8",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "codeql/insufficient-password-hash-corrected/upstream.lock.json",
+    "docs/platform-v7/autopilot/scopes/codeql-v2-27-1-provenance-20260924.json"
+  ],
+  "requiredInvariants": [
+    "No CodeQL query, barrier, workflow, selection rule, fixture, expectation or security threshold changes.",
+    "The upstream CWE-916 query, flow configuration and customizations at codeql-cli/v2.27.1 remain byte-identical to v2.27.0.",
+    "Recorded git blob SHAs remain 1cfc3111ad9138f0c0be3bc294d8d8f0480c7865, c295925698802511a21679e28940f25e11e9d593 and 8901be9962f84fe7b1b7a7930cebe120bc326048.",
+    "Only CodeQL CLI / bundled pack provenance versions advance to 2.27.1, javascript-queries 2.4.6 and javascript-all 2.10.2.",
+    "Exact-head replacement compile, positive/negative fixtures, selection, drift and SARIF/product analysis remain fail-closed and must pass before merge."
+  ]
+}
