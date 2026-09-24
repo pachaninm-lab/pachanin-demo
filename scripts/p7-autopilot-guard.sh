@@ -513,6 +513,18 @@ if (branch === publicHomeGovernanceBranch) {
     const expected = new Map([
       ['bank/deep-visible-copy-guard-20260924', {
         key: 'bank-deep-visible-copy-guard-20260924-coordination',
+        purpose: 'Presentation-only bank/deal copy guard and negative release safety wording; no provider or payment finality.',
+        requiredTruthBoundaries: [
+          'Preserve the forbidden money-finality and demo vocabulary guard, including absence of the removed operator execution queue source.',
+          'A recorded release request is not external execution; unresolved outcome requires same-operation reconciliation before retry.',
+          'RU/EN/ZH bank copy does not attribute a concrete provider or claim factoring, release or debit finality.',
+        ],
+        forbiddenAuthority: [
+          'API/DB/settlement/ledger/provider/callback or money-finality authority',
+          'tenant/role/session authority',
+          'CI/security gate weakening',
+        ],
+        teamHubDependency: '#5565; Team Hub #5469 scope correction 5818641448',
         paths: [
           'apps/web/app/platform-v7/bank/escrow/page.tsx',
           'apps/web/app/platform-v7/bank/factoring/page.tsx',
@@ -525,6 +537,18 @@ if (branch === publicHomeGovernanceBranch) {
       }],
       ['fgis/zsn-public-document-source-lock-20260924', {
         key: 'fgis-zsn-public-document-source-lock-20260924-coordination',
+        purpose: 'Lock public operator-linked EFGIS ZSN document identity and PDF bytes as provenance only.',
+        requiredTruthBoundaries: [
+          'Pin official public operator-linked PDF identity, 906732-byte payload and SHA-256; title/year are not an API contract version.',
+          'Keep historical government-system registry v1 byte-immutable and mutation capability disabled.',
+          'Do not claim organization access, credentials, signature, legal acceptance, delegated access, live mutation or E2E.',
+        ],
+        forbiddenAuthority: [
+          'FGIS credentials/API write/signature/legal finality',
+          'government registry v1 mutation',
+          'CI/security gate weakening',
+        ],
+        teamHubDependency: '#5532; Team Hub #5469 scope correction 5818641448',
         paths: [
           '.github/workflows/pc-crop-zsn-source-lock.yml',
           'docs/platform-v7/crop-platform/efgis-zsn-api-document.source-lock.json',
@@ -536,6 +560,18 @@ if (branch === publicHomeGovernanceBranch) {
       }],
       ['ux/first-customer-next-action-unknown-20260924', {
         key: 'ux-first-customer-next-action-unknown-20260924-coordination',
+        purpose: 'Keep recency-sorted first customer queues as navigation for seven roles while server priority is absent.',
+        requiredTruthBoundaries: [
+          'Buyer, bank, logistics, driver, elevator, lab and surveyor must display UNKNOWN primary next action until accepted server-derived priority.',
+          'RU/EN/ZH and keyboard-visible in-page queue navigation remain available; server-scoped item links are preserved.',
+          'Owner-controlled showroom navigation and seller fail-closed behavior stay intact.',
+        ],
+        forbiddenAuthority: [
+          'API/DB/tenant/role/priority authority',
+          'bank/FGIS/provider/settlement finality',
+          'CI/security gate weakening',
+        ],
+        teamHubDependency: '#5535; Team Hub #5469 scope correction 5818641448',
         paths: [
           'apps/web/components/platform-v7/FirstCustomerWorkspace.tsx',
           'apps/web/tests/unit/designSystemV8MoneyRoles.test.ts',
@@ -546,7 +582,8 @@ if (branch === publicHomeGovernanceBranch) {
     ]);
     const baseline = structuredClone(state);
     if (!baseline.coordinationAdmissions) baseline.coordinationAdmissions = {};
-    for (const [implementationBranch, { key, paths }] of expected) {
+    const baseSha = execFileSync('git', ['rev-parse', baseRef], { encoding: 'utf8' }).trim();
+    for (const [implementationBranch, { key, paths, purpose, requiredTruthBoundaries, forbiddenAuthority, teamHubDependency }] of expected) {
       if (Object.hasOwn(state.approvedConcurrentScopes, implementationBranch) ||
           Object.hasOwn(state.coordinationAdmissions || {}, key)) {
         throw new Error('PRODUCT_SCOPE_ADMISSION_ALREADY_PRESENT');
@@ -555,12 +592,12 @@ if (branch === publicHomeGovernanceBranch) {
         throw new Error(`PRODUCT_SCOPE_ADMISSION_PATH_MISMATCH:${implementationBranch}`);
       }
       const record = candidate.coordinationAdmissions?.[key];
-      if (!record || record.owner !== 'ACCOUNT_2_PRODUCT' ||
-          record.implementationBranch !== implementationBranch ||
-          record.authorityBaseExactMain !== execFileSync('git', ['rev-parse', baseRef], { encoding: 'utf8' }).trim() ||
-          !isDeepStrictEqual(record.allowedPaths, paths) ||
-          !Array.isArray(record.requiredTruthBoundaries) || record.requiredTruthBoundaries.length === 0 ||
-          !Array.isArray(record.forbiddenAuthority) || record.forbiddenAuthority.length === 0) {
+      const exactRecord = {
+        owner: 'ACCOUNT_2_PRODUCT', purpose, authorityBaseExactMain: baseSha,
+        implementationBranch, allowedPaths: paths, requiredTruthBoundaries,
+        forbiddenAuthority, teamHubDependency,
+      };
+      if (!isDeepStrictEqual(record, exactRecord)) {
         throw new Error(`PRODUCT_SCOPE_ADMISSION_COORDINATION_MISMATCH:${implementationBranch}`);
       }
       baseline.approvedConcurrentScopes[implementationBranch] = paths;
@@ -773,6 +810,24 @@ if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE
     *) PRODUCT_SCOPE_MANIFEST='' ;;
   esac
   if [ -n "$PRODUCT_SCOPE_MANIFEST" ]; then
+    PRODUCT_MANIFEST_BASE_SCOPE="$APPROVED_BRANCH_SCOPE" PRODUCT_MANIFEST_PATH="$PRODUCT_SCOPE_MANIFEST" \
+      PRODUCT_MANIFEST_BRANCH="$CURRENT_BRANCH" PRODUCT_MANIFEST_HEAD="$HEAD_REF" node - <<'JS'
+const { execFileSync } = require('node:child_process');
+const { isDeepStrictEqual } = require('node:util');
+const branch = process.env.PRODUCT_MANIFEST_BRANCH;
+const path = process.env.PRODUCT_MANIFEST_PATH;
+const head = process.env.PRODUCT_MANIFEST_HEAD;
+const acceptedPaths = process.env.PRODUCT_MANIFEST_BASE_SCOPE.split(/\r?\n/u).filter(Boolean);
+if (!acceptedPaths.includes(path)) throw new Error('PRODUCT_MANIFEST_NOT_ACCEPTED_IN_BASE');
+const raw = execFileSync('git', ['show', `${head}:${path}`], { encoding: 'utf8', maxBuffer: 64 * 1024 });
+const manifest = JSON.parse(raw);
+if (!manifest || Array.isArray(manifest) || typeof manifest !== 'object' ||
+    manifest.schemaVersion !== 'platform-v7.concurrent-scope.v1' ||
+    manifest.status !== 'active' || manifest.branch !== branch ||
+    !isDeepStrictEqual(manifest.allowedPaths, acceptedPaths)) {
+  throw new Error('PRODUCT_MANIFEST_BASE_SCOPE_MISMATCH');
+}
+JS
     MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$MUTABLE_SCOPE_AUTHORITIES" | grep -Fxv "$PRODUCT_SCOPE_MANIFEST" || true)
   fi
   if [ "$CURRENT_BRANCH" = "$QWEN_FAILED_EVIDENCE_BRANCH" ]; then
