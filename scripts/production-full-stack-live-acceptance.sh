@@ -86,6 +86,15 @@ for locale in ru en zh; do
     printf 'Retired homepage hero is still live for locale %s.\n' "$locale" >&2
     exit 29
   fi
+
+  CURRENT_CHECK="public-market-$locale"
+  market_route="$LIVE_BASE/platform-v7/market?lang=$locale&release=$TARGET_SHA&run=$RELEASE_RUN_ID"
+  curl "${curl_common[@]}" "$market_route" > "$EVIDENCE_DIR/market-$locale.html"
+  grep -Fq 'data-testid="canonical-crop-catalogue"' "$EVIDENCE_DIR/market-$locale.html"
+  if grep -Fq 'data-market-state="unavailable"' "$EVIDENCE_DIR/market-$locale.html"; then
+    printf 'Public market is unavailable for locale %s.\n' "$locale" >&2
+    exit 31
+  fi
 done
 
 CURRENT_CHECK="web-readiness"
@@ -161,6 +170,7 @@ printf 'LIVE_CORRELATION_ID=%s\n' "$response_correlation"
 printf 'LIVE_STATIC_READINESS=PASS\n'
 printf 'LIVE_APPROVED_HERO=PASS\n'
 printf 'LIVE_RU_EN_ZH=PASS\n'
+printf 'LIVE_PUBLIC_MARKET=PASS\n'
 printf 'LIVE_EXACT_REPLAY=PASS\n'
 printf 'LIVE_CONFLICT_REPLAY=PASS\n'
 printf 'LIVE_ACCEPTANCE_STAGE=complete\n'
