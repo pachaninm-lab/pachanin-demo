@@ -4,7 +4,7 @@
   "status": "active",
   "issue": 5535,
   "purpose": "Keep recency-ordered first customer queues as navigation for seven roles, with UNKNOWN primary next action until accepted server priority; preserve seller and owner-controlled showroom.",
-  "authorityBaseExactMain": "7cd253fccbae3f87a06ff9aa2df27558be884246",
+  "authorityBaseExactMain": "a071599db4f8706c1a48670aa6142084a6edb628",
   "allowedPaths": [
     "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
     "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",

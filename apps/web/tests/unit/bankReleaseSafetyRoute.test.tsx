@@ -17,7 +17,8 @@ describe('BankReleaseSafetyPage', () => {
   const authority = read('apps/web/lib/bank-release-server.ts');
 
   it('presents payout readiness as a verification flow, not a payment mechanism', () => {
-    expect(page).toContain('Проверка выплаты не является кнопкой выпуска денег');
+    expect(page).toContain('Проверка условий выплаты без перечисления средств в браузере');
+    expect(page).toContain('Платформа не может вручную присвоить RESERVED или RELEASED');
     expect(page).toContain('Payout readiness is not a release button');
     expect(page).toContain('付款就绪检查不是放款按钮');
     expect(page).toContain('MoneyObligationCockpit');
