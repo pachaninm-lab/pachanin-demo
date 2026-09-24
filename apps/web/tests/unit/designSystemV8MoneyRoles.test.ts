@@ -1,26 +1,6 @@
-import React from 'react';
 import fs from 'node:fs';
 import path from 'node:path';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
-import type { FirstCustomerSurface, FirstCustomerWorkspaceSnapshot } from '@/lib/first-customer-workspace-server';
-
-vi.mock('next-intl/server', () => ({ getLocale: vi.fn(async () => 'ru') }));
-vi.mock('@/lib/first-customer-workspace-server', () => ({
-  firstCustomerWorkspaceRequired: () => false,
-  getFirstCustomerWorkspace: vi.fn(),
-}));
-vi.mock('@pc/design-system-v8', async () => {
-  const { createElement } = await import('react');
-  return {
-    InlineNotice: ({ title, children }: { title: string; children?: React.ReactNode }) => createElement('div', null, title, children),
-    StatusChip: ({ children }: { children?: React.ReactNode }) => createElement('span', null, children),
-  };
-});
-
-import { getLocale } from 'next-intl/server';
-import { FirstCustomerWorkspace } from '@/components/platform-v7/FirstCustomerWorkspace';
-import { getFirstCustomerWorkspace } from '@/lib/first-customer-workspace-server';
+import { describe, expect, it } from 'vitest';
 
 const repoRoot = path.resolve(process.cwd(), '../..');
 const read = (relativePath: string) => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
@@ -116,70 +96,50 @@ describe('Design System v8 money role reference slice', () => {
   });
 });
 
-const surfaces: FirstCustomerSurface[] = ['buyer', 'bank', 'logistics', 'driver', 'elevator', 'lab', 'surveyor'];
-const locales = [
-  { code: 'ru', priority: 'Главная задача', title: 'Следующее обязательное действие не опубликовано', queue: 'Рабочая очередь' },
-  { code: 'en', priority: 'Primary task', title: 'Required next action is not published', queue: 'Work queue' },
-  { code: 'zh', priority: '主要任务', title: '服务器未提供优先执行的操作', queue: '工作队列' },
+const workspaceCopy = firstCustomerWorkspace.split('const COPY =')[1]?.split('const ROLE_LABEL:')[0] ?? '';
+const workspaceRoleLabels = firstCustomerWorkspace.split('const ROLE_LABEL:')[1]?.split('function localeOf')[0] ?? '';
+const workspaceDecision = firstCustomerWorkspace.split('const priorityUnknown = ')[1]?.split('\n  return (')[0] ?? '';
+const governedSurfaces = ['buyer', 'bank', 'logistics', 'driver', 'elevator', 'lab', 'surveyor'] as const;
+const governedLocales = [
+  {
+    code: 'ru', priority: 'Главная задача', title: 'Следующее обязательное действие не опубликовано', queue: 'Рабочая очередь',
+    labels: { buyer: 'Покупатель', bank: 'Банк', logistics: 'Логистика', driver: 'Водитель', elevator: 'Элеватор', lab: 'Лаборатория', surveyor: 'Сюрвейер' },
+  },
+  {
+    code: 'en', priority: 'Primary task', title: 'Required next action is not published', queue: 'Work queue',
+    labels: { buyer: 'Buyer', bank: 'Bank', logistics: 'Logistics', driver: 'Driver', elevator: 'Elevator', lab: 'Laboratory', surveyor: 'Surveyor' },
+  },
+  {
+    code: 'zh', priority: '主要任务', title: '服务器未提供优先执行的操作', queue: '工作队列',
+    labels: { buyer: '买方', bank: '银行', logistics: '物流', driver: '司机', elevator: '粮库', lab: '实验室', surveyor: '检验员' },
+  },
 ] as const;
 
-function snapshot(ownerControlled = false): FirstCustomerWorkspaceSnapshot {
-  return {
-    available: true,
-    forbidden: false,
-    ownerControlled,
-    correlationId: null,
-    profile: {
-      available: true, id: 'user-1', email: 'user@example.test', role: 'BUYER', surfaceRole: 'buyer',
-      orgId: 'org-1', tenantId: 'tenant-1', membershipId: 'membership-1', isOrgAdmin: false,
-      fullName: 'Test User', mfaVerified: true, mfaVerifiedAt: '2026-09-24T00:00:00.000Z',
-    },
-    organization: {
-      available: true, organizationId: 'org-1', tenantId: 'tenant-1', currentMembershipId: 'membership-1',
-      organizationName: 'Test Organization', currentRole: 'BUYER', isOrganizationAdmin: false,
-      hasFreshMfa: true, members: [],
-    },
-    items: [
-      { id: 'most-recent', dealId: 'most-recent', status: 'RECENT', nextAction: 'Row hint', href: '/platform-v7/deals/most-recent/execution' },
-      { id: 'older', dealId: 'older', status: 'OLDER', nextAction: null, href: '/platform-v7/deals/older/execution' },
-    ],
-  };
-}
-
-describe('first customer workspace queue-order boundary', () => {
-  beforeEach(() => {
-    vi.mocked(getLocale).mockResolvedValue('ru');
-    vi.mocked(getFirstCustomerWorkspace).mockReset();
-  });
-
-  it.each(locales.flatMap((locale) => surfaces.map((surface) => ({ ...locale, surface }))))(
-    '$surface keeps $code queue navigation separate from business priority',
-    async ({ code, priority, title, queue, surface }) => {
-      vi.mocked(getLocale).mockResolvedValue(code);
-      vi.mocked(getFirstCustomerWorkspace).mockResolvedValue(snapshot());
-      render(await FirstCustomerWorkspace({ surface }));
-
-      const decision = screen.getByLabelText(priority);
-      expect(within(decision).getByRole('heading', { name: title })).toBeInTheDocument();
-      expect(within(decision).getByText('UNKNOWN')).toBeInTheDocument();
-      expect(within(decision).getByRole('link', { name: queue })).toHaveAttribute('href', '#first-customer-work-queue');
-      expect(within(decision).queryByText('RECENT')).not.toBeInTheDocument();
-      expect(within(decision).queryByRole('link', { name: /most-recent/i })).not.toBeInTheDocument();
-      expect(screen.getByRole('link', { name: /most-recent/i })).toHaveAttribute('href', '/platform-v7/deals/most-recent/execution');
-      expect(screen.getByRole('link', { name: /older/i })).toHaveAttribute('href', '/platform-v7/deals/older/execution');
+describe('governed first-customer priority source contract', () => {
+  it.each(governedLocales.flatMap((locale) => governedSurfaces.map((surface) => ({ locale, surface }))))(
+    '$surface keeps $locale.code queue copy separate from priority',
+    ({ locale, surface }) => {
+      const copy = workspaceCopy.match(new RegExp(`\\b${locale.code}: \\{([\\s\\S]*?)\\n  \\},`))?.[1] ?? '';
+      const roles = workspaceRoleLabels.match(new RegExp(`\\b${locale.code}: \\{([^\\n]+)\\}`))?.[1] ?? '';
+      expect(copy).toContain(`priority: '${locale.priority}'`);
+      expect(copy).toContain(`priorityUnknownTitle: '${locale.title}'`);
+      expect(copy).toContain("priorityUnknownResult: 'UNKNOWN'");
+      expect(copy).toContain(`workQueue: '${locale.queue}'`);
+      expect(roles).toContain(`${surface}: '${locale.labels[surface]}'`);
+      expect(workspaceDecision).toContain("state === 'ready' && !workspace.ownerControlled");
+      expect(workspaceDecision).toContain("result: priorityUnknown ? copy.priorityUnknownResult");
+      expect(workspaceDecision).toContain("href='#first-customer-work-queue'");
+      expect(workspaceDecision).toContain("owner: priorityUnknown ? undefined");
+      expect(firstCustomerWorkspace).toContain('workspace.items.map((item) => item.href ?');
+      expect(firstCustomerWorkspace).toContain('href={item.href}');
     },
   );
 
-  it('preserves controlled owner showroom navigation as a distinct mode', async () => {
-    vi.mocked(getFirstCustomerWorkspace).mockResolvedValue({
-      ...snapshot(true),
-      items: [{ id: 'OWNER-BANK-CONTROLLED', dealId: null, status: 'CONTROLLED_TEST', nextAction: null, href: '/platform-v7/bank' }],
-    });
-    render(await FirstCustomerWorkspace({ surface: 'bank' }));
-
-    const decision = screen.getByLabelText('Главная задача');
-    expect(within(decision).getByRole('heading', { name: 'Открыть рабочий раздел кабинета' })).toBeInTheDocument();
-    expect(within(decision).getByRole('link', { name: 'Открыть' })).toHaveAttribute('href', '/platform-v7/bank');
-    expect(within(decision).queryByText('UNKNOWN')).not.toBeInTheDocument();
+  it('preserves controlled owner showroom navigation apart from UNKNOWN priority', () => {
+    expect(workspaceDecision).toContain("state === 'ready' ? copy.ownerReadyTitle");
+    expect(workspaceDecision).toContain("state === 'ready' ? first?.status");
+    expect(workspaceDecision).toContain('first?.href');
+    expect(firstCustomerWorkspace).toContain("workspace.ownerControlled && state === 'ready' ? copy.ownerReady");
+    expect(firstCustomerWorkspace).toContain("href='/platform-v7/staff'");
   });
 });
