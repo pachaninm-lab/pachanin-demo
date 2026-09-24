@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/k8-minio-dockerhub-registry-20260924",
+  "status": "active",
+  "approvedBy": "owner-public-ux-repair-v2.0-2026-09-24",
+  "purpose": "Restore production-like Kubernetes acceptance after Quay began returning 401 for the pinned MinIO image, while preserving the exact release tag and OCI index digest.",
+  "authorityBaseExactMain": "d61e42bcd2cd5d0a31fdbf440965621cafeaeac8",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "infra/kind/production-like/dependencies.yaml",
+    "docs/platform-v7/autopilot/scopes/k8-minio-dockerhub-registry-20260924.json"
+  ],
+  "requiredInvariants": [
+    "Only the MinIO registry hostname may change in dependencies.yaml.",
+    "Release tag RELEASE.2024-05-10T01-41-38Z and OCI index digest sha256:420663b8685c5396f06405ad516d611db4465939a141cc7d40266342d0f2632d remain unchanged.",
+    "No Kubernetes timeout, probe, resource, security context, network, database, application, acceptance threshold or production runtime behavior changes.",
+    "Docker Hub must expose the same exact index digest before merge.",
+    "This repair affects disposable production-like CI only and is not production deployment evidence."
+  ]
+}
