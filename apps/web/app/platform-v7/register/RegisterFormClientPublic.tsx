@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { CheckCircle2, Eye, EyeOff, RefreshCw, ShieldCheck } from 'lucide-react';
 import { applyCsrfHeader } from '@/lib/csrf';
+import { registrationContextEndpoint, verifiedRegistrationContinuationHref } from '@/lib/platform-v7/public-registration-continuation';
 import {
   classifyRegistrationStatusResponse,
   classifyRegistrationSubmitResponse,
@@ -168,7 +169,7 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
       const timer = window.setTimeout(() => controller.abort(), 15_000);
       let response: Response;
       try {
-        response = await fetch('/api/auth/register', {
+        response = await fetch(registrationContextEndpoint('register', window.location.search, 'ru'), {
           method: 'POST',
           headers: applyCsrfHeader({ 'Content-Type': 'application/json', 'idempotency-key': operation.idempotencyKey }),
           body: operation.serializedPayload, cache: 'no-store', credentials: 'same-origin', signal: controller.signal,
@@ -211,7 +212,7 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
     if (!submittedEmail || submitting) return;
     setSubmitting(true); setError(''); setResendMessage('');
     try {
-      const response = await fetch('/api/auth/registration/resend', {
+      const response = await fetch(registrationContextEndpoint('resend', window.location.search, 'ru'), {
         method: 'POST', headers: applyCsrfHeader({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ email: submittedEmail, locale: 'ru' }), cache: 'no-store', credentials: 'same-origin', signal: AbortSignal.timeout(15_000),
       });
@@ -237,8 +238,9 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
       if (!response.ok || result.ok !== true || !result.statusToken) throw new Error('failed');
       const verifiedStatus = parseRegistrationStatusSnapshot(result);
       if (!verifiedStatus) throw new Error('failed');
+      const continuationHref = verifiedRegistrationContinuationHref(window.location.search, result.statusToken, 'ru');
       setVerificationCompleted(true); setStatusToken(result.statusToken); setStatus(verifiedStatus); setStatusReadState('available');
-      window.history.replaceState(null, '', `/platform-v7/register?statusToken=${encodeURIComponent(result.statusToken)}&lang=ru`);
+      window.history.replaceState(null, '', continuationHref);
     } catch {
       setError('Ссылка недействительна, срок её действия истёк или она уже была использована.');
     } finally { setSubmitting(false); }

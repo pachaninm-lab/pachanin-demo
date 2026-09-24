@@ -5,6 +5,8 @@ import { createElement, isValidElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { getLocale } from 'next-intl/server';
+import { marketHref, publicMarketContext } from '@/lib/platform-v7/public-market-navigation';
+import { verifiedRegistrationContinuationHref } from '@/lib/platform-v7/public-registration-continuation';
 import RegisterPage from '../../app/platform-v7/register/page';
 import TrustPage from '../../app/platform-v7/trust/page';
 import { ContactClient } from '../../app/platform-v7/contact/ContactClient';
@@ -177,8 +179,8 @@ describe('platform-v7 Design System v8 final acceptance contract', () => {
     expect(registrationClient).toContain("name='confirmPassword'");
     expect(registrationClient).toContain("password !== field(form, 'confirmPassword')");
     for (const marker of [
-      "fetch('/api/auth/register'",
-      "fetch('/api/auth/registration/resend'",
+      "registrationContextEndpoint('register'",
+      "registrationContextEndpoint('resend'",
       "fetch('/api/auth/registration/verify'",
       "fetch('/api/auth/registration/additional-information'",
       '/api/auth/registration/status?token=',
@@ -190,7 +192,7 @@ describe('platform-v7 Design System v8 final acceptance contract', () => {
     expect(registrationClient).not.toContain('role:');
     expect(registrationClient).not.toContain('requestedRole');
     expect(registrationClient).not.toContain('/platform-v7/onboarding');
-    expect(registrationBaseClient).toContain("fetch('/api/auth/register'");
+    expect(registrationBaseClient).toContain("registrationContextEndpoint('register'");
     for (const route of [registrationRoute, registrationResendRoute]) {
       expect(route).toContain('подтвердите адрес электронной почты');
       expect(route).not.toContain('подтвердите email');
@@ -533,5 +535,61 @@ describe('public locale navigation does not silently erase a filled form', () =>
     const source = read('apps/web/components/platform-v7/PublicHeaderInteractions.tsx');
     expect(source).toContain('WeakSet<HTMLFormElement>');
     for (const forbidden of ['localStorage', 'sessionStorage', 'new FormData', '.value', 'JSON.stringify']) expect(source).not.toContain(forbidden);
+  });
+});
+
+
+const REF = 'market-11111111-1111-4111-8111-111111111111';
+const STATUS = 'fixture-status-token';
+
+describe('public registration verified continuation UX-14', () => {
+  for (const locale of ['ru', 'en', 'zh'] as const) {
+    it(`${locale}: drops the spent verify secret and preserves only a valid public selection`, () => {
+      const filters = publicMarketContext({ q: 'wheat', region: 'Тамбов', sort: 'price-asc' });
+      const before = new URLSearchParams({
+        lang: 'ru', verify: 'spent-secret', intent: 'buy', crop: 'wheat', lot: REF,
+        returnTo: marketHref('ru', filters), role: 'admin', tenantId: 'private',
+        redirect: 'https://external.invalid/', error: 'success',
+      });
+      const result = new URL(verifiedRegistrationContinuationHref(`?${before}`, STATUS, locale), 'https://example.invalid');
+      expect(result.pathname).toBe('/platform-v7/register');
+      expect(Object.fromEntries(result.searchParams)).toEqual({
+        lang: locale, statusToken: STATUS, intent: 'buy', crop: 'wheat', lot: REF,
+        returnTo: marketHref(locale, filters),
+      });
+      expect(result.hash).toBe('');
+    });
+
+    it(`${locale}: preserves execution intent without inventing a role or market lot`, () => {
+      const result = new URL(verifiedRegistrationContinuationHref('?lang=ru&intent=execution&verify=spent', STATUS, locale), 'https://example.invalid');
+      expect(Object.fromEntries(result.searchParams)).toEqual({ lang: locale, statusToken: STATUS, intent: 'execution' });
+    });
+
+    it(`${locale}: retains an explicit employee entry after verification without promoting role or tenant hints`, () => {
+      const result = new URL(verifiedRegistrationContinuationHref('?intent=employee&role=owner&tenantId=foreign&verify=spent', STATUS, locale), 'https://example.invalid');
+      expect(Object.fromEntries(result.searchParams)).toEqual({ lang: locale, statusToken: STATUS, intent: 'employee' });
+    });
+
+    it(`${locale}: rejects duplicate, malformed and external context independently`, () => {
+      const malicious = new URLSearchParams({
+        verify: 'spent', intent: 'owner', crop: '__proto__', lot: '0',
+        returnTo: 'https://external.invalid/platform-v7/market?lang=ru#offers',
+        statusToken: 'attacker-token', role: 'bank', tenantId: 'foreign',
+      });
+      malicious.append('intent', 'buy');
+      malicious.append('lot', REF);
+      const result = new URL(verifiedRegistrationContinuationHref(`?${malicious}`, STATUS, locale), 'https://example.invalid');
+      expect(Object.fromEntries(result.searchParams)).toEqual({ lang: locale, statusToken: STATUS });
+      const duplicateReturn = new URLSearchParams({ returnTo: marketHref('ru', { crop: 'wheat' }) });
+      duplicateReturn.append('returnTo', marketHref('ru', { crop: 'barley' }));
+      expect(new URL(verifiedRegistrationContinuationHref(`?${duplicateReturn}`, STATUS, locale), 'https://example.invalid')
+        .searchParams.has('returnTo')).toBe(false);
+    });
+  }
+
+  it('never writes an empty or malformed server status token into navigation', () => {
+    for (const token of ['', 'x'.repeat(513), 'bad\nheader']) {
+      expect(() => verifiedRegistrationContinuationHref('?verify=spent', token, 'ru')).toThrow(TypeError);
+    }
   });
 });
