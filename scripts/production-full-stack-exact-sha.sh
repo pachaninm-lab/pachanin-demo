@@ -943,7 +943,7 @@ rollback_images() {
   fi
   "${dc_target[@]}" config --quiet
 
-  if [[ "${API_WEB_MUTATED:-0}" == 1 ]]; then
+  if [[ "$ACTION" == rollback || "${API_WEB_MUTATED:-0}" == 1 ]]; then
     "${dc_target[@]}" up -d --no-deps --pull never api web
     wait_api && wait_web || return 1
   fi
