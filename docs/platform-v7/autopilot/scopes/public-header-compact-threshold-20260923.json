@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-header-compact-threshold-20260923",
+  "status": "active",
+  "approvedBy": "owner-public-ux-repair-v2.0-2026-09-23",
+  "purpose": "UX-07/T10: unify the canonical public header compact breakpoint so navigation collapses before intermediate-width collisions.",
+  "ownerSpecification": "Прозрачная Цена — инженерное ТЗ быстрого UX-ремонта v2.0, 23.09.2026, section 4.2 and UX-07/T10.",
+  "coordination": "Team Hub #5469 claim 5786430224. No overlap with Gekta panel #5537 or other active public repair branches.",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/PublicSiteHeader.tsx",
+    "apps/web/components/platform-v7/PublicHeaderInteractions.tsx",
+    "apps/web/styles/platform-v7-public-header.css",
+    "apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts",
+    "docs/platform-v7/autopilot/scopes/public-header-compact-threshold-20260923.json"
+  ],
+  "requiredInvariants": [
+    "Critical CSS, external header CSS and header interaction JS use one 1100px compact threshold.",
+    "At 980/1024/1055/1100 the desktop nav is hidden and the existing native details menu is visible; at 1280 desktop nav is visible.",
+    "All visible header interactive controls stay at least 44x44 CSS px, inside the viewport and mutually non-overlapping in RU/EN/ZH.",
+    "No whole-document horizontal overflow is introduced.",
+    "No Gekta controller, navigation destinations, auth, role, tenant, API, backend, release workflow or acceptance threshold changes."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
