@@ -125,8 +125,9 @@ export async function POST(request: Request) {
   if (
     idempotencyKey.length < 16
     || idempotencyKey.length > 128
-    || !/^\S+@\S+\.\S+$/.test(email)
+    // Length before pattern, so the pattern only ever sees a bounded string.
     || email.length > 254
+    || !/^\S+@\S+\.\S+$/.test(email)
     || !PUBLIC_WORKSPACES.has(workspace)
     || Object.prototype.hasOwnProperty.call(body, 'role')
     || Object.prototype.hasOwnProperty.call(body, 'requestedRole')
