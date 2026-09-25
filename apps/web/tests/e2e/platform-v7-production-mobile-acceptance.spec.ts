@@ -37,6 +37,7 @@ const linkedPages = [
   { name: 'how-it-works', path: '/platform-v7/how-it-works', ready: 'main h1' },
   { name: 'capabilities', path: '/platform-v7/capabilities', ready: 'main h1' },
   { name: 'gekta', path: '/platform-v7/gekta', ready: 'main h1' },
+  { name: 'ai-in-action', path: '/platform-v7/ai-in-action', ready: 'main h1' },
   { name: 'trust', path: '/platform-v7/trust', ready: 'main h1' },
   { name: 'about', path: '/platform-v7/about', ready: 'main h1' },
   { name: 'contact', path: '/platform-v7/contact', ready: '[data-testid="platform-v7-question-form-page"]' },
@@ -181,10 +182,23 @@ test.describe('Platform V7 canonical linked pages RU EN ZH', () => {
 
         if (!['login', 'register'].includes(target.name)) await expectCanonicalHeader(page, width);
         if (target.name === 'market') {
-          await expect(page.locator('[data-testid="canonical-market-results"], [data-market-state]').first()).toBeVisible();
+          const results = page.getByTestId('canonical-market-results');
+          const state = page.locator('.pc-cp-market-state[data-market-state]');
+          await expect(results.or(state)).toBeVisible();
+          // Empty/no-match are valid public states; an upstream outage is not
+          // a successful production smoke and must remain explicitly blocking.
+          if (await state.count()) {
+            await expect(state).toHaveAttribute('data-market-state', /^(empty|noMatch)$/);
+            await expect(state.locator('h3')).toBeVisible();
+            await expect(state.locator('p')).toBeVisible();
+            await expectVisibleTargetsAtLeast(page, '.pc-cp-market-state[data-market-state] a', 44);
+          } else {
+            await expect(results.locator('.pc-cp-lot-card').first()).toBeVisible();
+          }
           const readableMarketCopy = page.locator(
             '.pc-cp-lot-card:visible .pc-cp-chip:visible, ' +
-            '.pc-cp-market-aside p:visible, .pc-cp-market-aside small:visible',
+            '.pc-cp-market-aside p:visible, .pc-cp-market-aside small:visible, ' +
+            '.pc-cp-market-state:visible h3, .pc-cp-market-state:visible p',
           );
           const marketSizes = await readableMarketCopy.evaluateAll((nodes) =>
             nodes.map((node) => Number.parseFloat(getComputedStyle(node).fontSize)),
@@ -228,7 +242,17 @@ test.describe('Platform V7 canonical linked pages RU EN ZH', () => {
           await expect(page.locator('.pc-cp-trust-pillar')).toHaveCount(4);
         }
         if (target.name === 'gekta') {
+          const entry = page.getByTestId('gekta-public-entry');
+          await expect(entry).toBeVisible();
+          await expect(entry.locator('.pc-cp-detail-block')).toHaveCount(3);
+          await expect(entry.locator('.pc-gekta-question')).toHaveCount(3);
+          await expectVisibleTargetsAtLeast(page, '[data-testid="gekta-public-entry"] .pc-gekta-question', 44);
+          await expect(entry.locator('a[href="/platform-v7/ai-in-action?lang=' + locale + '"]')).toBeVisible();
+        }
+        if (target.name === 'ai-in-action') {
+          await expect(page.getByTestId('gekta-deal-explanation')).toBeVisible();
           await expect(page.locator('.pc-cp-gekta-workspace')).toBeVisible();
+          await expect(page.locator('.pc-cp-gekta-source > div')).toHaveCount(4);
         }
         if (target.name === 'contact') {
           await expect(page.locator('form[action="/api/platform-v7/inquiries"]')).toBeVisible();

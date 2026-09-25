@@ -415,7 +415,7 @@ jobs:
           sed -E 's#postgres(ql)?://[^[:space:]@]+@#postgresql://[REDACTED]@#g; /(_PATH|_DIR|COMPOSE|CONFIG_FILES)=/ s#=.*#=[REDACTED]#' "$raw" > "$clean"
           rm -f "$raw"
           cat "$clean"
-          for field in DEPLOYMENT_COMPLETE MIGRATION_COMPLETE DEPLOYED_API_REVISION DEPLOYED_WEB_REVISION DEPLOYED_OUTBOX_WORKER_REVISION IR20_KAFKA_READY IR20_OUTBOX_WORKER_READY BASELINE_API_REVISION BASELINE_WEB_REVISION WATCHTOWER_RETIRED BACKUP_MODE; do
+          for field in DEPLOYMENT_COMPLETE MIGRATION_COMPLETE DEPLOYED_API_REVISION DEPLOYED_WEB_REVISION DEPLOYED_OUTBOX_WORKER_REVISION IR20_KAFKA_READY IR20_OUTBOX_WORKER_READY IR20_BROKER_RECOVERY BASELINE_API_REVISION BASELINE_WEB_REVISION WATCHTOWER_RETIRED BACKUP_MODE ROLLBACK_ATTEMPTED ROLLBACK_API_WEB_COMPLETE ROLLBACK_IR20_COMPLETE ROLLBACK_COMPLETE ROLLBACK_FAILED; do
             value="$(sed -n "s/^${field}=//p" "$clean" | tail -1)"
             echo "$(printf '%s' "$field" | tr '[:upper:]' '[:lower:]')=${value:-unknown}" >> "$GITHUB_OUTPUT"
           done
@@ -514,6 +514,12 @@ jobs:
           DEPLOYED_OUTBOX_WORKER_REVISION: ${{ steps.production.outputs.deployed_outbox_worker_revision }}
           IR20_KAFKA_READY: ${{ steps.production.outputs.ir20_kafka_ready }}
           IR20_OUTBOX_WORKER_READY: ${{ steps.production.outputs.ir20_outbox_worker_ready }}
+          IR20_BROKER_RECOVERY: ${{ steps.production.outputs.ir20_broker_recovery }}
+          ROLLBACK_ATTEMPTED: ${{ steps.production.outputs.rollback_attempted }}
+          ROLLBACK_API_WEB_COMPLETE: ${{ steps.production.outputs.rollback_api_web_complete }}
+          ROLLBACK_IR20_COMPLETE: ${{ steps.production.outputs.rollback_ir20_complete }}
+          ROLLBACK_COMPLETE: ${{ steps.production.outputs.rollback_complete }}
+          ROLLBACK_FAILED: ${{ steps.production.outputs.rollback_failed }}
           BASELINE_API_REVISION: ${{ steps.production.outputs.baseline_api_revision }}
           BASELINE_WEB_REVISION: ${{ steps.production.outputs.baseline_web_revision }}
           WATCHTOWER_RETIRED: ${{ steps.production.outputs.watchtower_retired }}
@@ -533,7 +539,9 @@ jobs:
           observation="$(sed -n 's/^IR20_RUNTIME_OBSERVATION=//p' "$EVIDENCE_DIR/ir20-observation.log" 2>/dev/null | tail -1 || true)"
           audit_id="$(sed -n 's/^DURABLE_INTAKE_AUDIT_ID=//p' "$EVIDENCE_DIR/durable-intake-db.log" 2>/dev/null | tail -1 || true)"
           outbox_id="$(sed -n 's/^DURABLE_INTAKE_OUTBOX_ID=//p' "$EVIDENCE_DIR/durable-intake-db.log" 2>/dev/null | tail -1 || true)"
-          rollback=not-required; [[ ! -f "$EVIDENCE_DIR/live-failure-rollback.log" ]] || rollback=attempted
+          rollback=not-required
+          [[ "${ROLLBACK_ATTEMPTED:-0}" != 1 ]] || rollback=deploy-failure-attempted
+          [[ ! -f "$EVIDENCE_DIR/live-failure-rollback.log" ]] || rollback=acceptance-failure-attempted
           record="$EVIDENCE_DIR/issue-record.md"
           {
             echo "## Full-stack release run \`$GITHUB_RUN_ID\`"
@@ -547,7 +555,11 @@ jobs:
             echo "- web revision: \`${DEPLOYED_WEB_REVISION:-unknown}\`"
             echo "- outbox worker revision: \`${DEPLOYED_OUTBOX_WORKER_REVISION:-unknown}\`"
             echo "- Kafka ready: \`${IR20_KAFKA_READY:-0}\`"
+            echo "- Kafka bounded recovery: \`${IR20_BROKER_RECOVERY:-unknown}\`"
             echo "- outbox worker ready: \`${IR20_OUTBOX_WORKER_READY:-0}\`"
+            echo "- rollback API/Web restored: \`${ROLLBACK_API_WEB_COMPLETE:-unknown}\`"
+            echo "- rollback IR-20 restored: \`${ROLLBACK_IR20_COMPLETE:-unknown}\`"
+            echo "- rollback complete/failed: \`${ROLLBACK_COMPLETE:-unknown}/${ROLLBACK_FAILED:-unknown}\`"
             echo "- live acceptance: \`${live:-${LIVE_OUTCOME:-skipped}}\`"
             echo "- durable intake DB/audit/outbox: \`${durable:-${DATABASE_OUTCOME:-skipped}}\`"
             echo "- canonical outbox delivery: \`${outbox_delivery:-skipped}\`"

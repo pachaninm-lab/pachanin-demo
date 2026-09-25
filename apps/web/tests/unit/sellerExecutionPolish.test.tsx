@@ -173,7 +173,7 @@ describe('platform-v7 seller execution polish', () => {
 
     render(await FirstCustomerWorkspace({ surface: 'seller' }));
 
-    expect(screen.getByText('Сервер подтвердил доступ к рабочей очереди продавца. Здесь показаны только доступные продавцу серверные факты; неподтверждённые данные остаются UNKNOWN.')).toBeInTheDocument();
+    expect(screen.getAllByText('Сервер подтвердил доступ к рабочей очереди продавца. Здесь показаны только доступные продавцу серверные факты; неподтверждённые данные остаются UNKNOWN.')).toHaveLength(2);
     const priority = screen.getByLabelText('Главная задача');
     expect(within(priority).getByRole('heading', { name: 'Следующий обязательный шаг не опубликован' })).toBeInTheDocument();
     expect(within(priority).getByText('UNKNOWN')).toBeInTheDocument();
