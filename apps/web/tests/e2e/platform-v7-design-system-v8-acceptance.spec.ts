@@ -494,6 +494,83 @@ for (const locale of ['ru', 'en', 'zh'] as const) {
   });
 }
 
+// #5537 GEKTA-01 / UX-12 / UX-28: the public Gekta widget in every acceptance
+// engine, including WebKit (desktop Safari, iPhone 13) and Android Chromium.
+// The assistant request is answered inside the test; nothing leaves the server.
+test('Design System v8 public Gekta widget opens a prompt as an editable draft inside the viewport and returns focus', async ({ page }, testInfo) => {
+  const failures = collectRuntimeFailures(page);
+  const posts: string[] = [];
+  const frame = (value: Record<string, unknown>) => `event: ${String(value.event)}\ndata: ${JSON.stringify({ streamId: 'stream-abcdef12', ...value })}\n\n`;
+  await page.route('**/api/public-platform-assistant**', async (route) => {
+    if (route.request().method() !== 'POST') return route.continue();
+    posts.push(route.request().url());
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/event-stream',
+      body: frame({ event: 'meta', mode: 'public', modelIdentity: null })
+        + frame({ event: 'token', text: 'Проверочный ответ Гекты.' })
+        + frame({ event: 'done', complete: true }),
+    });
+  });
+
+  await page.goto('/platform-v7/gekta?lang=ru', { waitUntil: 'load' });
+  const card = page.locator('button.pc-gekta-question').first();
+  await expect(card).toBeVisible();
+  // Click once the entry is interactive; the assistant chunk itself may still be loading.
+  await expect.poll(() => card.evaluate((node) => Object.keys(node).some((key) => key.startsWith('__reactProps$')))).toBe(true);
+  const prompt = (await card.textContent())?.trim() ?? '';
+  expect(prompt.length).toBeGreaterThan(0);
+  await card.click();
+
+  const panel = page.locator('#pc-public-assistant-panel');
+  const composer = panel.locator('textarea');
+  await expect(panel).toBeVisible();
+  await expect(panel).toHaveCount(1);
+  await expect(composer).toHaveValue(prompt);
+  expect(posts, 'a prompt card fills the composer and sends nothing').toEqual([]);
+  await expect.poll(() => card.evaluate((node) => Boolean(node.closest('[inert]')))).toBe(true);
+
+  const geometry = await page.evaluate(() => {
+    const viewport = window.visualViewport;
+    const width = viewport?.width ?? window.innerWidth;
+    const height = viewport?.height ?? window.innerHeight;
+    const inside = (selector: string) => {
+      const node = document.querySelector(selector);
+      if (!node) return false;
+      const box = node.getBoundingClientRect();
+      return box.top >= -1 && box.left >= -1 && box.bottom <= height + 1 && box.right <= width + 1;
+    };
+    return {
+      panel: inside('#pc-public-assistant-panel'),
+      close: inside('#pc-public-assistant-panel .pc-public-assistant-header > .pc-public-assistant-icon-button:last-child'),
+      composer: inside('#pc-public-assistant-panel textarea'),
+    };
+  });
+  expect(geometry, `${testInfo.project.name}: dialog controls inside the visible viewport`).toEqual({ panel: true, close: true, composer: true });
+  await expectNoHorizontalOverflow(page);
+  const axe = await new AxeBuilder({ page })
+    .include('#pc-public-assistant-panel')
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+    .analyze();
+  const blocking = axe.violations.filter((violation) => violation.impact === 'serious' || violation.impact === 'critical');
+  expect(blocking, JSON.stringify(blocking, null, 2)).toEqual([]);
+  await testInfo.attach(`gekta-dialog-${testInfo.project.name}`, { body: await page.screenshot(), contentType: 'image/png' });
+
+  await page.keyboard.press('Escape');
+  await expect(panel).toHaveCount(0);
+  await expect(card).toBeFocused();
+  await expect.poll(() => card.evaluate((node) => Boolean(node.closest('[inert]')))).toBe(false);
+
+  // Reopen: the draft is still there; one explicit send makes exactly one request.
+  await card.click();
+  await expect(panel).toBeVisible();
+  await expect(composer).toHaveValue(prompt);
+  await panel.locator('button[type="submit"]').click();
+  await expect(panel.getByText('Проверочный ответ Гекты.')).toBeVisible();
+  expect(posts).toHaveLength(1);
+  expect(failures).toEqual([]);
+});
+
 test('public registration locale cycle preserves both existing query tokens', async ({ page }) => {
   // Synthetic, non-authorizing values; this checks navigation only, not verification.
   const verify = 'homepage-5111-synthetic-verify+/=_';
@@ -542,3 +619,131 @@ test('public registration locale cycle preserves both existing query tokens', as
     await expectNoHorizontalOverflow(page);
   }
 });
+
+
+test.describe('public header intermediate-width collision guard', () => {
+  const widths = [980, 1024, 1055, 1100, 1280] as const;
+  const locales = ['ru', 'en', 'zh'] as const;
+
+  for (const locale of locales) {
+    for (const width of widths) {
+      test(`canonical public header switches before collision: ${locale} ${width}px`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 900 });
+        const response = await page.goto(`/platform-v7/about?lang=${locale}`, { waitUntil: 'load' });
+        expect(response?.ok()).toBe(true);
+
+        const header = page.locator('[data-public-site-header="canonical"]');
+        await expect(header).toHaveCount(1);
+        await expect(header).toBeVisible();
+
+        const nav = header.locator(':scope > .pc-site-nav');
+        const menu = header.locator(':scope > .pc-site-actions > details.pc-site-mobile-menu');
+        if (width <= 1100) {
+          await expect(nav).toBeHidden();
+          await expect(menu.locator('summary')).toBeVisible();
+        } else {
+          await expect(nav).toBeVisible();
+          await expect(menu.locator('summary')).toBeHidden();
+        }
+
+        const rectangles = await header.locator('a:visible,button:visible,summary:visible').evaluateAll((nodes) =>
+          nodes.map((node) => {
+            const rect = (node as HTMLElement).getBoundingClientRect();
+            return {
+              label: ((node.getAttribute('aria-label') || node.textContent || node.tagName).trim()).slice(0, 80),
+              left: rect.left,
+              right: rect.right,
+              top: rect.top,
+              bottom: rect.bottom,
+              width: rect.width,
+              height: rect.height,
+            };
+          })
+        );
+        expect(rectangles.length).toBeGreaterThan(0);
+        for (const rect of rectangles) {
+          expect(rect.width, `${locale} ${width} ${rect.label} width`).toBeGreaterThanOrEqual(44);
+          expect(rect.height, `${locale} ${width} ${rect.label} height`).toBeGreaterThanOrEqual(44);
+          expect(rect.left, `${locale} ${width} ${rect.label} left`).toBeGreaterThanOrEqual(-1);
+          expect(rect.right, `${locale} ${width} ${rect.label} right`).toBeLessThanOrEqual(width + 1);
+        }
+        for (let left = 0; left < rectangles.length; left += 1) {
+          for (let right = left + 1; right < rectangles.length; right += 1) {
+            const a = rectangles[left]!;
+            const b = rectangles[right]!;
+            const overlapX = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
+            const overlapY = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+            expect(overlapX * overlapY, `${locale} ${width}: ${a.label} overlaps ${b.label}`).toBeLessThanOrEqual(1);
+          }
+        }
+        const overflow = await page.evaluate(() => Math.max(
+          document.documentElement.scrollWidth - document.documentElement.clientWidth,
+          document.body.scrollWidth - document.body.clientWidth,
+        ));
+        expect(overflow, `${locale} ${width}: document overflow`).toBeLessThanOrEqual(1);
+      });
+    }
+  }
+});
+for (const locale of ['ru', 'en', 'zh'] as const) {
+  test(`UX-26 Deal stages expose primary result and keyboard details at ${locale} reflow widths`, async ({ page }, testInfo) => {
+    const failures = collectRuntimeFailures(page);
+    for (const width of [320, 390, 1280]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.goto(`/platform-v7/how-it-works?lang=${locale}`, { waitUntil: 'load' });
+      const cards = page.locator('.pc-cp-process-cards > article.pc-cp-process-card');
+      await expect(cards).toHaveCount(7);
+      for (const card of await cards.all()) {
+        await expect(card.locator('h3')).toBeVisible();
+        await expect(card.locator('.pc-cp-process-result strong')).toBeVisible();
+        const details = card.locator('details.pc-cp-process-details');
+        await expect(details).not.toHaveAttribute('open', '');
+        await expect(details.locator('.pc-cp-process-meta')).toBeHidden();
+        const summary = details.locator('summary');
+        await expect(summary).toHaveAttribute('aria-label', `${(await card.locator('h3').innerText()).trim()} — ${(await summary.innerText()).trim()}`);
+        const bounds = await summary.boundingBox();
+        expect(bounds, `${locale}/${width}: missing summary bounds`).not.toBeNull();
+        expect(bounds!.height, `${locale}/${width}: detail target height`).toBeGreaterThanOrEqual(44);
+        expect(bounds!.width, `${locale}/${width}: detail target width`).toBeGreaterThanOrEqual(44);
+        expect(bounds!.x, `${locale}/${width}: left viewport bound`).toBeGreaterThanOrEqual(0);
+        expect(bounds!.x + bounds!.width, `${locale}/${width}: right viewport bound`).toBeLessThanOrEqual(width + 1);
+      }
+      const first = cards.first().locator('details.pc-cp-process-details');
+      await first.locator('summary').focus();
+      await expect(first.locator('summary')).toBeFocused();
+      await page.keyboard.press('Enter');
+      await expect(first).toHaveAttribute('open', '');
+      await expect(first.locator('.pc-cp-process-meta > div')).toHaveCount(4);
+      for (const value of await first.locator('.pc-cp-process-meta strong').all()) await expect(value).toBeVisible();
+      await expectNoHorizontalOverflow(page);
+      await page.keyboard.press('Enter');
+      await expect(first).not.toHaveAttribute('open', '');
+      if (width === 390) {
+        // Enlarge each text node once; resizing both parents and descendants would
+        // accidentally simulate 400% and would invalidate the 200% evidence.
+        await page.evaluate(() => {
+          for (const node of document.querySelectorAll<HTMLElement>('.pc-cp-process-card h3, .pc-cp-process-result strong, .pc-cp-process-details summary, .pc-cp-process-meta span, .pc-cp-process-meta strong')) {
+            node.style.setProperty('font-size', `${parseFloat(getComputedStyle(node).fontSize) * 2}px`, 'important');
+          }
+        });
+        for (const card of await cards.all()) {
+          const summary = card.locator('summary');
+          const bounds = await summary.boundingBox();
+          expect(bounds, `${locale}: enlarged target missing`).not.toBeNull();
+          expect(bounds!.height, `${locale}: enlarged target height`).toBeGreaterThanOrEqual(44);
+          const box = await card.boundingBox();
+          expect(box, `${locale}: enlarged card missing`).not.toBeNull();
+          expect(box!.x + box!.width, `${locale}: enlarged card outside viewport`).toBeLessThanOrEqual(width + 1);
+          await summary.click();
+          await expect(card.locator('.pc-cp-process-meta > div')).toHaveCount(4);
+          await expectNoHorizontalOverflow(page);
+          await summary.click();
+        }
+      }
+      if (testInfo.project.name === 'desktop-chromium') {
+        await page.screenshot({ path: testInfo.outputPath(`ux26-deal-${locale}-${width}.png`), fullPage: true, animations: 'disabled' });
+      }
+    }
+    expect(failures).toEqual([]);
+  });
+}

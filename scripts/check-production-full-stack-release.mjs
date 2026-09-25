@@ -156,6 +156,46 @@ requireAll('workflow', [
   'production-full-stack-release-${{ github.run_id }}-${{ github.run_attempt }}',
 ]);
 const workflowSource = text.workflow ?? '';
+for (const marker of [
+  '- name: Transfer exact images over pinned SSH',
+  'pc-crop-transfer/api:$TARGET_SHA',
+  'pc-crop-transfer/web:$TARGET_SHA',
+  'pc-crop-transfer/migration:$TARGET_SHA',
+  'pc-crop-transfer/outbox-worker:$TARGET_SHA',
+  'docker save "${transfer_tags[@]}" | gzip -1 > "$archive"',
+  'archive_bytes="$(stat -c \'%s\' "$archive")"',
+  '(( archive_bytes > 0 && archive_bytes <= 8589934592 ))',
+  'archive_sha="$(sha256sum "$archive"',
+  'scp "${scp_common[@]}" "$archive"',
+  'remote_archive_bytes="$(stat -c \'%s\' "$archive")"',
+  '[[ "$remote_archive_bytes" == "$archive_bytes" ]]',
+  'actual_archive_sha="$(sha256sum "$archive"',
+  '[[ "$actual_archive_sha" == "$archive_sha" ]]',
+  'gzip -dc "$archive" | docker load >/dev/null',
+  'PINNED_SSH_EXACT_IMAGES=PASS',
+  'echo "${output_key}_runtime_image=$runtime_image" >> "$GITHUB_OUTPUT"',
+  'echo "${output_key}_remote_image_id=$remote_id" >> "$GITHUB_OUTPUT"',
+  'API_IMAGE: ${{ steps.transfer.outputs.api_runtime_image }}',
+  "PC_EXACT_IMAGE_SOURCE='pinned-ssh'",
+  "PC_OUTBOX_WORKER_IMAGE_ID='$OUTBOX_WORKER_IMAGE_ID'",
+  "steps.transfer.outputs.archive_sha }}' =~ ^[0-9a-f]{64}$",
+  "steps.transfer.outputs.archive_bytes }}' =~ ^[0-9]+$",
+  "steps.transfer.outputs.archive_bytes }} > 0",
+  "steps.transfer.outputs.archive_bytes }} <= 8589934592",
+  "steps.production.outputs.exact_image_source }}' == pinned-ssh",
+]) {
+  if (!workflowSource.includes(marker)) failures.push(`${paths.workflow}: missing pinned-SSH exact-image invariant ${JSON.stringify(marker)}`);
+}
+if (workflowSource.includes('- name: Authenticate production host to exact private registry')
+  || workflowSource.includes("DOCKER_CONFIG='/tmp/pc-registry-")) {
+  failures.push(`${paths.workflow}: production host must not depend on remote GHCR login for exact release images`);
+}
+const transferIndex = workflowSource.indexOf('- name: Transfer exact images over pinned SSH');
+const redisRepairIndex = workflowSource.indexOf('- name: Repair confirmed stale Redis network attachment');
+const rolloutIndex = workflowSource.indexOf('- name: Execute migration and exact API/web rollout');
+if (!(transferIndex >= 0 && redisRepairIndex > transferIndex && rolloutIndex > redisRepairIndex)) {
+  failures.push(`${paths.workflow}: pinned-SSH exact-image transfer must complete before production mutations`);
+}
 if ((workflowSource.match(/^\s+queue: max$/gmu) || []).length !== 2) {
   failures.push(`${paths.workflow}: workflow and production job must both retain every serialized pending invocation`);
 }
@@ -413,6 +453,47 @@ requireAll('executor', [
   'fail RUNNING_REVISION_MISMATCH 33',
 ]);
 const executorSource = text.executor ?? '';
+for (const marker of [
+  'EXACT_IMAGE_SOURCE="${PC_EXACT_IMAGE_SOURCE:-registry}"',
+  'OUTBOX_WORKER_IMAGE_ID="${PC_OUTBOX_WORKER_IMAGE_ID:-}"',
+  '[[ "$EXACT_IMAGE_SOURCE" =~ ^(registry|pinned-ssh)$ ]]',
+  'if [[ "$EXACT_IMAGE_SOURCE" == registry ]]; then',
+  'expected_ref="pc-crop-transfer/$component:$TARGET_SHA"',
+  'PRELOADED_IMAGE_REFERENCE_INVALID',
+  'PRELOADED_IMAGE_ID_REQUIRED',
+  'PRELOADED_IMAGE_ID_MISMATCH',
+  'configured_ref="$(docker inspect --format',
+  'container_image_id="$(docker inspect --format',
+  '[[ "$configured_ref" == "$image" && "$revision" == "$TARGET_SHA" && "$state" == true ]]',
+  'verify_image outbox-worker "$OUTBOX_WORKER_IMAGE" "$OUTBOX_WORKER_IMAGE_ID"',
+  'verify_local_runtime_revision()',
+  'verify_local_runtime_revision "$BASELINE_WORKER_IMAGE" "$restored_worker_id" "$BASELINE_WORKER_REVISION"',
+  "printf 'EXACT_IMAGE_SOURCE=%s\\n' \"$EXACT_IMAGE_SOURCE\"",
+]) {
+  if (!executorSource.includes(marker)) failures.push(`${paths.executor}: missing pinned-SSH executor invariant ${JSON.stringify(marker)}`);
+}
+const imageVerifierStart = executorSource.indexOf('verify_image() {');
+const imageVerifierEnd = executorSource.indexOf('\n}\n\nverify_runtime_image()', imageVerifierStart);
+const imageVerifierSource = imageVerifierStart >= 0 && imageVerifierEnd > imageVerifierStart
+  ? executorSource.slice(imageVerifierStart, imageVerifierEnd) : '';
+const registryBranchIndex = imageVerifierSource.indexOf('if [[ "$EXACT_IMAGE_SOURCE" == registry ]]');
+const remotePullIndex = imageVerifierSource.indexOf('pull-verify', registryBranchIndex);
+const registryReturnIndex = imageVerifierSource.indexOf('return', remotePullIndex);
+if (!(registryBranchIndex >= 0 && remotePullIndex > registryBranchIndex && registryReturnIndex > remotePullIndex)) {
+  failures.push(`${paths.executor}: remote registry pull must remain confined to explicit legacy registry mode`);
+}
+if (registryReturnIndex >= 0 && imageVerifierSource.slice(registryReturnIndex + 'return'.length).includes('pull-verify')) {
+  failures.push(`${paths.executor}: pinned-SSH exact-image verification must not contact the registry`);
+}
+if (!executorSource.includes('pc-crop-transfer/$component:$TARGET_SHA')) {
+  failures.push(`${paths.executor}: pinned runtime must bind deterministic target-SHA transfer tags`);
+}
+if (!executorSource.includes('container_image_id="$(docker inspect --format')) {
+  failures.push(`${paths.executor}: pinned runtime must bind the running container to the remote-local image ID`);
+}
+if (!executorSource.includes('verify_local_runtime_revision "$BASELINE_WORKER_IMAGE" "$restored_worker_id" "$BASELINE_WORKER_REVISION"')) {
+  failures.push(`${paths.executor}: rollback must verify the baseline worker by its own local reference and revision`);
+}
 const explicitRollbackStart = executorSource.indexOf('if [[ "$ACTION" == rollback ]]');
 const explicitRollbackEnd = executorSource.indexOf("printf 'COMPOSE_AUTHORITY_RESOLVED=1\\n'", explicitRollbackStart);
 const explicitRollbackSource = explicitRollbackStart >= 0 && explicitRollbackEnd > explicitRollbackStart
