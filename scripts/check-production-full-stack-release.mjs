@@ -158,12 +158,23 @@ requireAll('workflow', [
 const workflowSource = text.workflow ?? '';
 for (const marker of [
   '- name: Transfer exact images over pinned SSH',
-  'docker save "${images[@]}" | gzip -1',
-  "'set -euo pipefail; gzip -dc | docker load >/dev/null'",
+  'pc-crop-transfer/api:$TARGET_SHA',
+  'pc-crop-transfer/web:$TARGET_SHA',
+  'pc-crop-transfer/migration:$TARGET_SHA',
+  'pc-crop-transfer/outbox-worker:$TARGET_SHA',
+  'docker save "${transfer_tags[@]}" | gzip -1 > "$archive"',
+  'archive_sha="$(sha256sum "$archive"',
+  'scp "${scp_common[@]}" "$archive"',
+  'actual_archive_sha="$(sha256sum "$archive"',
+  '[[ "$actual_archive_sha" == "$archive_sha" ]]',
+  'gzip -dc "$archive" | docker load >/dev/null',
   'PINNED_SSH_EXACT_IMAGES=PASS',
-  'OUTBOX_WORKER_IMAGE_ID: ${{ steps.images.outputs.outbox_worker_image_id }}',
+  'api_runtime_image=$runtime_image',
+  'api_remote_image_id=$remote_id',
+  'API_IMAGE: ${{ steps.transfer.outputs.api_runtime_image }}',
   "PC_EXACT_IMAGE_SOURCE='pinned-ssh'",
   "PC_OUTBOX_WORKER_IMAGE_ID='$OUTBOX_WORKER_IMAGE_ID'",
+  "steps.transfer.outputs.archive_sha }}' =~ ^[0-9a-f]{64}$",
   "steps.production.outputs.exact_image_source }}' == pinned-ssh",
 ]) {
   if (!workflowSource.includes(marker)) failures.push(`${paths.workflow}: missing pinned-SSH exact-image invariant ${JSON.stringify(marker)}`);
@@ -440,8 +451,13 @@ for (const marker of [
   'OUTBOX_WORKER_IMAGE_ID="${PC_OUTBOX_WORKER_IMAGE_ID:-}"',
   '[[ "$EXACT_IMAGE_SOURCE" =~ ^(registry|pinned-ssh)$ ]]',
   'if [[ "$EXACT_IMAGE_SOURCE" == registry ]]; then',
+  'expected_ref="pc-crop-transfer/$component:$TARGET_SHA"',
+  'PRELOADED_IMAGE_REFERENCE_INVALID',
   'PRELOADED_IMAGE_ID_REQUIRED',
   'PRELOADED_IMAGE_ID_MISMATCH',
+  'configured_ref="$(docker inspect --format',
+  'container_image_id="$(docker inspect --format',
+  '[[ "$configured_ref" == "$image" && "$revision" == "$TARGET_SHA" && "$state" == true ]]',
   'verify_image outbox-worker "$OUTBOX_WORKER_IMAGE" "$OUTBOX_WORKER_IMAGE_ID"',
   "printf 'EXACT_IMAGE_SOURCE=%s\\n' \"$EXACT_IMAGE_SOURCE\"",
 ]) {
@@ -459,6 +475,12 @@ if (!(registryBranchIndex >= 0 && remotePullIndex > registryBranchIndex && regis
 }
 if (registryReturnIndex >= 0 && imageVerifierSource.slice(registryReturnIndex + 'return'.length).includes('pull-verify')) {
   failures.push(`${paths.executor}: pinned-SSH exact-image verification must not contact the registry`);
+}
+if (!executorSource.includes('pc-crop-transfer/$component:$TARGET_SHA')) {
+  failures.push(`${paths.executor}: pinned runtime must bind deterministic target-SHA transfer tags`);
+}
+if (!executorSource.includes('container_image_id="$(docker inspect --format')) {
+  failures.push(`${paths.executor}: pinned runtime must bind the running container to the remote-local image ID`);
 }
 const explicitRollbackStart = executorSource.indexOf('if [[ "$ACTION" == rollback ]]');
 const explicitRollbackEnd = executorSource.indexOf("printf 'COMPOSE_AUTHORITY_RESOLVED=1\\n'", explicitRollbackStart);
