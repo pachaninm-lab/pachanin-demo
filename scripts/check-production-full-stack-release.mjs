@@ -163,8 +163,12 @@ for (const marker of [
   'pc-crop-transfer/migration:$TARGET_SHA',
   'pc-crop-transfer/outbox-worker:$TARGET_SHA',
   'docker save "${transfer_tags[@]}" | gzip -1 > "$archive"',
+  'archive_bytes="$(stat -c \'%s\' "$archive")"',
+  '(( archive_bytes > 0 && archive_bytes <= 8589934592 ))',
   'archive_sha="$(sha256sum "$archive"',
   'scp "${scp_common[@]}" "$archive"',
+  'remote_archive_bytes="$(stat -c \'%s\' "$archive")"',
+  '[[ "$remote_archive_bytes" == "$archive_bytes" ]]',
   'actual_archive_sha="$(sha256sum "$archive"',
   '[[ "$actual_archive_sha" == "$archive_sha" ]]',
   'gzip -dc "$archive" | docker load >/dev/null',
@@ -175,6 +179,9 @@ for (const marker of [
   "PC_EXACT_IMAGE_SOURCE='pinned-ssh'",
   "PC_OUTBOX_WORKER_IMAGE_ID='$OUTBOX_WORKER_IMAGE_ID'",
   "steps.transfer.outputs.archive_sha }}' =~ ^[0-9a-f]{64}$",
+  "steps.transfer.outputs.archive_bytes }}' =~ ^[0-9]+$",
+  "steps.transfer.outputs.archive_bytes }} > 0",
+  "steps.transfer.outputs.archive_bytes }} <= 8589934592",
   "steps.production.outputs.exact_image_source }}' == pinned-ssh",
 ]) {
   if (!workflowSource.includes(marker)) failures.push(`${paths.workflow}: missing pinned-SSH exact-image invariant ${JSON.stringify(marker)}`);
@@ -459,6 +466,8 @@ for (const marker of [
   'container_image_id="$(docker inspect --format',
   '[[ "$configured_ref" == "$image" && "$revision" == "$TARGET_SHA" && "$state" == true ]]',
   'verify_image outbox-worker "$OUTBOX_WORKER_IMAGE" "$OUTBOX_WORKER_IMAGE_ID"',
+  'verify_local_runtime_revision()',
+  'verify_local_runtime_revision "$BASELINE_WORKER_IMAGE" "$restored_worker_id" "$BASELINE_WORKER_REVISION"',
   "printf 'EXACT_IMAGE_SOURCE=%s\\n' \"$EXACT_IMAGE_SOURCE\"",
 ]) {
   if (!executorSource.includes(marker)) failures.push(`${paths.executor}: missing pinned-SSH executor invariant ${JSON.stringify(marker)}`);
@@ -481,6 +490,9 @@ if (!executorSource.includes('pc-crop-transfer/$component:$TARGET_SHA')) {
 }
 if (!executorSource.includes('container_image_id="$(docker inspect --format')) {
   failures.push(`${paths.executor}: pinned runtime must bind the running container to the remote-local image ID`);
+}
+if (!executorSource.includes('verify_local_runtime_revision "$BASELINE_WORKER_IMAGE" "$restored_worker_id" "$BASELINE_WORKER_REVISION"')) {
+  failures.push(`${paths.executor}: rollback must verify the baseline worker by its own local reference and revision`);
 }
 const explicitRollbackStart = executorSource.indexOf('if [[ "$ACTION" == rollback ]]');
 const explicitRollbackEnd = executorSource.indexOf("printf 'COMPOSE_AUTHORITY_RESOLVED=1\\n'", explicitRollbackStart);
