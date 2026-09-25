@@ -1,6 +1,20 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { POST as registrationBffPOST } from '@/app/api/auth/register/route';
+import { GET as registrationStatusGET } from '@/app/api/auth/registration/status/route';
+import { POST as registrationResendPOST } from '@/app/api/auth/registration/resend/route';
+import { registrationContextEndpoint, verifiedRegistrationContinuationHref } from '@/lib/platform-v7/public-registration-continuation';
+import { sendTransactionalMail } from '../../lib/server/transactional-mail';
+
+vi.mock('../../lib/server-request-security', () => ({ assertCsrf: () => ({ ok: true }) }));
+vi.mock('../../lib/server/transactional-mail', () => ({ sendTransactionalMail: vi.fn() }));
+import {
+  classifyRegistrationStatusResponse,
+  classifyRegistrationSubmitResponse,
+  parseRegistrationStatusSnapshot,
+  registrationOperationForPayload,
+} from '@/lib/platform-v7/registration-outcome';
 import { createElement, isValidElement, type ReactNode, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { act, cleanup, render, waitFor } from '@testing-library/react';
@@ -861,5 +875,238 @@ describe('public market identity, context and truthful states', () => {
     expect(view.container.querySelector('time')?.dateTime).toBe('2026-09-22T12:00:02Z');
     expect(view.container.querySelector('[data-state]')).toBeNull();
     view.unmount(); expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+
+describe('public registration truthful outcomes', () => {
+  it('preserves the same idempotency key only for the exact unknown payload', () => {
+    let sequence = 0;
+    const makeKey = () => `key-${++sequence}`;
+    const first = registrationOperationForPayload('{"email":"a@example.test"}', null, makeKey);
+    const retry = registrationOperationForPayload('{"email":"a@example.test"}', first, makeKey);
+    const changed = registrationOperationForPayload('{"email":"b@example.test"}', first, makeKey);
+    expect(retry).toBe(first);
+    expect(retry.idempotencyKey).toBe('key-1');
+    expect(changed.idempotencyKey).toBe('key-2');
+  });
+
+  it('classifies accepted, confirmed invalid, unavailable and indeterminate mutation results without inventing success', () => {
+    expect(classifyRegistrationSubmitResponse({ ok: true, status: 202 }, { accepted: true })).toBe('accepted');
+    expect(classifyRegistrationSubmitResponse({ ok: false, status: 400 }, { accepted: false })).toBe('invalid');
+    expect(classifyRegistrationSubmitResponse({ ok: false, status: 503 }, { accepted: false })).toBe('unknown');
+    expect(classifyRegistrationSubmitResponse({ ok: false, status: 503 }, { outcome: 'unknown' })).toBe('unknown');
+    expect(classifyRegistrationSubmitResponse({ ok: false, status: 503 }, { outcome: 'unknown', code: 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE' })).toBe('unknown');
+    expect(classifyRegistrationSubmitResponse({ ok: false, status: 503 }, { outcome: 'unknown', code: 'REGISTRATION_DELIVERY_CONTRACT_UNKNOWN' })).toBe('unknown');
+    expect(classifyRegistrationSubmitResponse({ ok: false, status: 409 }, { accepted: false })).toBe('unknown');
+    expect(classifyRegistrationSubmitResponse({ ok: false, status: 429 }, { accepted: false })).toBe('unavailable');
+    expect(classifyRegistrationSubmitResponse({ ok: true, status: 200 }, {})).toBe('unknown');
+    expect(classifyRegistrationSubmitResponse({ ok: false, status: 503 }, null)).toBe('unknown');
+  });
+
+  it('accepts business status only when both server status and next action are allowlisted', () => {
+    expect(parseRegistrationStatusSnapshot({
+      ok: true,
+      applicationId: 'APP-1',
+      status: 'ORGANIZATION_VERIFICATION_PENDING',
+      nextAction: 'WAIT_FOR_REVIEW',
+      reason: null,
+    })).toMatchObject({
+      applicationId: 'APP-1',
+      status: 'ORGANIZATION_VERIFICATION_PENDING',
+      nextAction: 'WAIT_FOR_REVIEW',
+    });
+    expect(parseRegistrationStatusSnapshot({ ok: true, status: 'APPROVED', nextAction: 'FORGED_ACTION' })).toBeNull();
+    expect(parseRegistrationStatusSnapshot({ ok: true, status: 'FORGED_STATUS', nextAction: 'WAIT' })).toBeNull();
+    expect(parseRegistrationStatusSnapshot({ ok: true, status: 'APPROVED' })).toBeNull();
+  });
+
+  it('keeps invalid/unavailable transport truth separate from business status', () => {
+    expect(classifyRegistrationStatusResponse({ ok: false, status: 404 }, { ok: false, code: 'REGISTRATION_APPLICATION_NOT_FOUND' })).toEqual({ kind: 'invalid' });
+    expect(classifyRegistrationStatusResponse({ ok: false, status: 503 }, { ok: false, code: 'REGISTRATION_SERVICE_UNAVAILABLE' })).toEqual({ kind: 'unavailable' });
+    expect(classifyRegistrationStatusResponse({ ok: false, status: 429 }, { ok: false, code: 'REGISTRATION_STATUS_RATE_LIMITED' })).toEqual({ kind: 'unavailable' });
+    expect(classifyRegistrationStatusResponse({ ok: false, status: 429 }, { ok: false, code: 'REGISTRATION_APPLICATION_NOT_FOUND' })).toEqual({ kind: 'unavailable' });
+    expect(classifyRegistrationStatusResponse({ ok: true, status: 200 }, { ok: true, status: 'APPROVED' })).toEqual({ kind: 'unavailable' });
+    expect(classifyRegistrationStatusResponse({ ok: true, status: 200 }, {
+      ok: true, status: 'ACTIVATED', nextAction: 'LOGIN',
+    })).toMatchObject({ kind: 'available', status: { status: 'ACTIVATED', nextAction: 'LOGIN' } });
+  });
+
+  it('does not retain the old VERIFY_EMAIL fallback in either public registration component', () => {
+    const publicForm = read('app/platform-v7/register/RegisterFormClientPublic.tsx');
+    const localizedForm = read('app/platform-v7/register/RegisterFormClient.tsx');
+    for (const source of [publicForm, localizedForm]) {
+      expect(source).not.toContain("status?.status || 'EMAIL_VERIFICATION_REQUIRED'");
+      expect(source).not.toContain("status?.nextAction || 'VERIFY_EMAIL'");
+      expect(source).toContain("statusReadState !== 'available'");
+      expect(source).toContain('registrationOperationForPayload(');
+      expect(source).toContain('submitLockRef.current = true');
+    }
+  });
+
+  it('marks only transport loss as an unknown BFF result instead of saying it was rejected', () => {
+    const bff = read('app/api/auth/register/route.ts');
+    expect(bff).toContain("outcome: 'unknown'");
+    expect(bff).toContain("code: 'REGISTRATION_RESULT_UNKNOWN'");
+    expect(bff).toContain("code: 'REGISTRATION_DELIVERY_UNCONFIRMED'");
+    expect(bff).toContain("code: 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE'");
+    expect(read('app/api/auth/registration/status/route.ts')).toContain("'REGISTRATION_STATUS_RATE_LIMITED'");
+    expect(bff).toContain("if (!apiResponse.ok || payload.accepted !== true)");
+  });
+});
+
+
+describe('post-acceptance registration uncertainty at the actual BFF boundary', () => {
+  const names = ['API_URL', 'REGISTRATION_DELIVERY_KEY', 'RESEND_API_KEY', 'RESEND_FROM_EMAIL'] as const;
+  const previous = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+  afterEach(() => {
+    for (const name of names) {
+      if (previous[name] === undefined) delete process.env[name];
+      else process.env[name] = previous[name];
+    }
+    vi.unstubAllGlobals();
+    vi.mocked(sendTransactionalMail).mockReset();
+  });
+
+  it.each([
+    ['unconfirmed mail delivery', {
+      accepted: true, applicationId: 'APP-1', statusToken: 'status-token',
+      emailDelivery: { email: 'fixture@example.test', token: 'verify-token' },
+    }, 'REGISTRATION_EMAIL_DELIVERY_UNAVAILABLE'],
+  ])('keeps %s UNKNOWN after an upstream accepted registration', async (_, upstream, code) => {
+    process.env.API_URL = 'http://api.example.test';
+    process.env.REGISTRATION_DELIVERY_KEY = 'fixture-delivery-key-0123456789abcdef';
+    process.env.RESEND_API_KEY = 'fixture-mail-key';
+    process.env.RESEND_FROM_EMAIL = 'sender@example.test';
+    const upstreamFetch = vi.fn(async () => Response.json(upstream, { status: 202 }));
+    vi.stubGlobal('fetch', upstreamFetch);
+    vi.mocked(sendTransactionalMail).mockResolvedValue({
+      delivered: false, provider: 'resend', reason: 'unconfirmed',
+    });
+    const key = 'fixed-operation-key-0123456789';
+    const request = new Request('http://localhost:3000/api/auth/register', {
+      method: 'POST',
+      headers: { 'idempotency-key': key, 'content-type': 'application/json' },
+      body: JSON.stringify({ workspace: 'seller', email: 'fixture@example.test', locale: 'ru' }),
+    });
+    const response = await registrationBffPOST(request);
+    const result = await response.json();
+    expect(upstreamFetch).toHaveBeenCalledTimes(1);
+    expect(upstreamFetch.mock.calls[0]?.[1]).toMatchObject({
+      method: 'POST', headers: { 'idempotency-key': key },
+    });
+    expect(response.status).toBe(503);
+    expect(result).toMatchObject({ outcome: 'unknown', code });
+    expect(result).not.toHaveProperty('accepted', false);
+    expect(classifyRegistrationSubmitResponse(response, result)).toBe('unknown');
+    expect(sendTransactionalMail).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves an uncertain mail attempt through the same-key replay and offers resend without claiming delivery', async () => {
+    process.env.API_URL = 'http://api.example.test';
+    process.env.REGISTRATION_DELIVERY_KEY = 'fixture-delivery-key-0123456789abcdef';
+    process.env.RESEND_API_KEY = 'fixture-mail-key';
+    process.env.RESEND_FROM_EMAIL = 'sender@example.test';
+    const upstreamFetch = vi.fn()
+      .mockResolvedValueOnce(Response.json({
+        accepted: true, applicationId: 'APP-1', statusToken: 'rst_reg_fixture',
+        emailDelivery: { email: 'fixture@example.test', token: 'verify-token' },
+      }, { status: 202 }))
+      .mockResolvedValueOnce(Response.json({ accepted: true, applicationId: 'APP-1' }, { status: 202 }));
+    vi.stubGlobal('fetch', upstreamFetch);
+    vi.mocked(sendTransactionalMail).mockResolvedValue({
+      delivered: false, provider: 'resend', reason: 'unconfirmed',
+    });
+    const key = 'fixed-operation-key-0123456789';
+    const request = () => new Request('http://localhost:3000/api/auth/register', {
+      method: 'POST',
+      headers: { 'idempotency-key': key, 'content-type': 'application/json' },
+      body: JSON.stringify({ workspace: 'seller', email: 'fixture@example.test', locale: 'ru' }),
+    });
+    const first = await registrationBffPOST(request());
+    expect(first.status).toBe(503);
+    expect(classifyRegistrationSubmitResponse(first, await first.json())).toBe('unknown');
+    const replay = await registrationBffPOST(request());
+    const result = await replay.json();
+    expect(replay.status).toBe(202);
+    expect(result).toMatchObject({ accepted: true, deliveryConfirmed: false, code: 'REGISTRATION_DELIVERY_UNCONFIRMED' });
+    expect(classifyRegistrationSubmitResponse(replay, result)).toBe('accepted');
+    expect(upstreamFetch).toHaveBeenCalledTimes(2);
+    expect(upstreamFetch.mock.calls.map((call) => (call[1] as RequestInit).headers)).toEqual([
+      expect.objectContaining({ 'idempotency-key': key }),
+      expect.objectContaining({ 'idempotency-key': key }),
+    ]);
+    expect(sendTransactionalMail).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves temporary status rate limiting instead of rejecting a valid token', async () => {
+    process.env.API_URL = 'http://api.example.test';
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ statusCode: 429 }, { status: 429 })));
+    const response = await registrationStatusGET(new Request(
+      'http://localhost:3000/api/auth/registration/status?token=rst_reg_fixture',
+    ));
+    const result = await response.json();
+    expect(response.status).toBe(429);
+    expect(result).toMatchObject({ ok: false, code: 'REGISTRATION_STATUS_RATE_LIMITED' });
+    expect(classifyRegistrationStatusResponse(response, result)).toEqual({ kind: 'unavailable' });
+  });
+
+  it.each(['ru', 'en', 'zh'] as const)('%s: carries a real public selection through initial and resend email links', async (locale) => {
+    process.env.API_URL = 'http://api.example.test';
+    process.env.REGISTRATION_DELIVERY_KEY = 'x'.repeat(32);
+    process.env.RESEND_API_KEY = 'fixture-mail-key';
+    process.env.RESEND_FROM_EMAIL = 'sender@example.test';
+    const upstreamFetch = vi.fn(async () => Response.json({
+      accepted: true,
+      applicationId: 'APP-1',
+      statusToken: 'rst_reg_fixture',
+      emailDelivery: { email: 'fixture@example.test', token: 'verify-token' },
+    }, { status: 202 }));
+    vi.stubGlobal('fetch', upstreamFetch);
+    vi.mocked(sendTransactionalMail).mockResolvedValue({
+      delivered: true, provider: 'resend', reason: 'sent',
+    });
+    const lot = 'market-11111111-1111-4111-8111-111111111111';
+    const returnTo = marketHref(locale, { crop: 'wheat', sort: 'price-asc' });
+    const source = new URLSearchParams({
+      intent: 'buy', crop: 'wheat', lot, returnTo,
+      verify: 'spent-secret', role: 'owner', tenantId: 'foreign',
+    });
+    const query = `?${source.toString()}`;
+    for (const action of ['register', 'resend'] as const) {
+      const endpoint = registrationContextEndpoint(action, query, locale);
+      expect(endpoint).not.toMatch(/verify=|tenantId=|role=/);
+      const url = `http://localhost:3000${endpoint}&role=admin&redirect=https%3A%2F%2Fexternal.invalid`;
+      const response = action === 'register'
+        ? await registrationBffPOST(new Request(url, {
+          method: 'POST', headers: { 'idempotency-key': 'fixed-operation-key-0123456789', 'content-type': 'application/json' },
+          body: JSON.stringify({ workspace: 'buyer', email: 'fixture@example.test', locale }),
+        }))
+        : await registrationResendPOST(new Request(url, {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ email: 'fixture@example.test', locale }),
+        }));
+      expect(response.status).toBe(202);
+      const text = String(vi.mocked(sendTransactionalMail).mock.calls.at(-1)?.[0].text || '');
+      const link = text.match(/https?:\/\/[^\s]+/)?.[0];
+      expect(link).toBeTruthy();
+      const verify = new URL(link!);
+      expect(verify.pathname).toBe('/platform-v7/register');
+      expect(verify.searchParams.get('verify')).toBe('verify-token');
+      expect(verify.searchParams.get('lang')).toBe(locale);
+      expect(verify.searchParams.get('intent')).toBe('buy');
+      expect(verify.searchParams.get('crop')).toBe('wheat');
+      expect(verify.searchParams.get('lot')).toBe(lot);
+      expect(verify.searchParams.get('returnTo')).toBe(returnTo);
+      expect(verify.searchParams.has('role')).toBe(false);
+      expect(verify.searchParams.has('tenantId')).toBe(false);
+      expect(verify.searchParams.has('redirect')).toBe(false);
+      const continuation = new URL(verifiedRegistrationContinuationHref(verify.search, 'rst_reg_fixture', locale), 'https://example.test');
+      expect(continuation.searchParams.has('verify')).toBe(false);
+      expect(continuation.searchParams.get('returnTo')).toBe(returnTo);
+      expect(continuation.searchParams.get('lot')).toBe(lot);
+    }
+    expect(upstreamFetch).toHaveBeenCalledTimes(2);
+    expect(sendTransactionalMail).toHaveBeenCalledTimes(2);
   });
 });

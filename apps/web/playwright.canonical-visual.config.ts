@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: /platform-v7-canonical-visual-evidence\.spec\.ts/,
+  testMatch: /platform-v7-(canonical-visual-evidence|crop-photo-consistency)\.spec\.ts/,
   fullyParallel: false,
   forbidOnly: true,
   retries: 0,

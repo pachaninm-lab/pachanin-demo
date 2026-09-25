@@ -3,13 +3,15 @@ import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createElement, isValidElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { getLocale } from 'next-intl/server';
+import { marketHref, publicMarketContext } from '@/lib/platform-v7/public-market-navigation';
+import { verifiedRegistrationContinuationHref } from '@/lib/platform-v7/public-registration-continuation';
 import RegisterPage from '../../app/platform-v7/register/page';
 import TrustPage from '../../app/platform-v7/trust/page';
 import { ContactClient } from '../../app/platform-v7/contact/ContactClient';
 import { PublicHeaderInteractions } from '../../components/platform-v7/PublicHeaderInteractions';
-import { RegisterFormClientPublic } from '../../app/platform-v7/register/RegisterFormClientPublic';
+import { EmployeeParticipationEntry, RegisterFormClientPublic } from '../../app/platform-v7/register/RegisterFormClientPublic';
 import {
   CanonicalBottomNav,
   CanonicalDealSpine,
@@ -139,17 +141,22 @@ describe('platform-v7 Design System v8 final acceptance contract', () => {
   });
 
   it('prefills only a bounded public participation class without granting role authority', () => {
-    expect(registrationPage).toContain("type PublicRegistrationIntent = 'sell' | 'buy' | 'execution' | 'finance'");
+    expect(registrationPage).toContain("type PublicRegistrationIntent = 'sell' | 'buy' | 'execution' | 'finance' | 'employee'");
     expect(registrationPage).toContain("sell: 'seller'");
     expect(registrationPage).toContain("buy: 'buyer'");
-    expect(registrationPage).toContain("execution: 'logistics'");
+    expect(registrationPage).not.toContain("execution: 'logistics'");
     expect(registrationPage).toContain("finance: 'bank'");
+    expect(registrationPage).toContain("employee: 'employee'");
     expect(registrationPage).toContain("if (intent) query.set('intent', intent)");
     expect(registrationPage).toContain("className='pc-site-locale-cluster'");
     expect(registrationPage).toContain('initialWorkspace={initialWorkspace}');
-    expect(registrationClient).toContain("React.useState<RegistrationWorkspace>(initialWorkspace || 'seller')");
-    expect(registrationBaseClient).toContain("defaultValue={initialWorkspace || 'seller'}");
+    expect(registrationClient).toContain("React.useState<RegistrationWorkspace | ''>(initialWorkspace || '')");
+    expect(registrationBaseClient).toContain("defaultValue={initialWorkspace || ''}");
     expect(registrationClient).toContain("event.target.value as RegistrationWorkspace");
+    expect(registrationClient).toContain("<option value='' disabled>Выберите формат участия</option>");
+    expect(registrationClient).toContain("<optgroup label='Присоединиться к организации'>");
+    expect(registrationBaseClient).toContain("<optgroup label={copy.employeeJoinLabel}>");
+    expect(registrationUxSpec).toContain("T15 ");
     expect(registrationClient).not.toContain('requestedRole');
     expect(registrationBaseClient).not.toContain('requestedRole');
   });
@@ -177,8 +184,8 @@ describe('platform-v7 Design System v8 final acceptance contract', () => {
     expect(registrationClient).toContain("name='confirmPassword'");
     expect(registrationClient).toContain("password !== field(form, 'confirmPassword')");
     for (const marker of [
-      "fetch('/api/auth/register'",
-      "fetch('/api/auth/registration/resend'",
+      "registrationContextEndpoint('register'",
+      "registrationContextEndpoint('resend'",
       "fetch('/api/auth/registration/verify'",
       "fetch('/api/auth/registration/additional-information'",
       '/api/auth/registration/status?token=',
@@ -190,7 +197,7 @@ describe('platform-v7 Design System v8 final acceptance contract', () => {
     expect(registrationClient).not.toContain('role:');
     expect(registrationClient).not.toContain('requestedRole');
     expect(registrationClient).not.toContain('/platform-v7/onboarding');
-    expect(registrationBaseClient).toContain("fetch('/api/auth/register'");
+    expect(registrationBaseClient).toContain("registrationContextEndpoint('register'");
     for (const route of [registrationRoute, registrationResendRoute]) {
       expect(route).toContain('подтвердите адрес электронной почты');
       expect(route).not.toContain('подтвердите email');
@@ -208,13 +215,13 @@ function elements(node: ReactNode): Array<React.ReactElement<Record<string, any>
 
 describe('public registration intent and locale behaviour', () => {
   for (const locale of ['ru', 'en', 'zh'] as const) {
-    for (const [intent, workspace] of [['sell', 'seller'], ['buy', 'buyer'], ['execution', 'logistics'], ['finance', 'bank']] as const) {
+    for (const [intent, workspace] of [['sell', 'seller'], ['buy', 'buyer'], ['execution', ''], ['finance', 'bank'], ['employee', 'employee']] as const) {
       it(`${locale}: ${intent} reaches the actual form and survives locale change without new authority`, async () => {
         const tree = await RegisterPage({ searchParams: Promise.resolve({ lang: locale, intent, verify: 'token-v', statusToken: 'token-s', role: 'PLATFORM_OWNER', tenantId: 'untrusted' }) });
         const all = elements(tree);
         const form = all.find((node) => node.type === RegisterFormClientPublic)!;
         expect(form).toBeDefined();
-        expect(form.props).toMatchObject({ locale, initialWorkspace: workspace, verifyToken: 'token-v', initialStatusToken: 'token-s' });
+        expect(form.props).toMatchObject({ locale, initialWorkspace: workspace || undefined, verifyToken: 'token-v', initialStatusToken: 'token-s' });
         expect(form.props).not.toHaveProperty('role');
         expect(form.props).not.toHaveProperty('tenantId');
         const header = all.find((node) => node.props.localeControl)!;
@@ -231,11 +238,22 @@ describe('public registration intent and locale behaviour', () => {
         expect(query.get('lang')).toBe(nextLocale);
         expect(query.has('role')).toBe(false);
         expect(query.has('tenantId')).toBe(false);
-        const html = renderToStaticMarkup(createElement(RegisterFormClientPublic, { locale, initialWorkspace: workspace }));
+        const html = renderToStaticMarkup(createElement(RegisterFormClientPublic, { locale, initialWorkspace: workspace || undefined }));
         expect(html).toMatch(new RegExp(`<option[^>]*value="${workspace}"[^>]*selected=""`));
       });
     }
   }
+  it('offers employee participation only when the editable registration form is shown', async () => {
+    for (const locale of ['ru', 'en', 'zh'] as const) {
+      const form = elements(await RegisterPage({ searchParams: Promise.resolve({ lang: locale }) }));
+      expect(form.some((node) => node.type === EmployeeParticipationEntry)).toBe(true);
+      for (const context of [{ verify: 'token-v' }, { statusToken: 'token-s' }, { intent: 'employee' }]) {
+        const screen = elements(await RegisterPage({ searchParams: Promise.resolve({ lang: locale, ...context }) }));
+        expect(screen.some((node) => node.type === EmployeeParticipationEntry)).toBe(false);
+      }
+    }
+  });
+
   it.each(['owner', '__proto__', 'constructor', '<script>', 'BUY'])('rejects unknown intent %s', async (intent) => {
     const all = elements(await RegisterPage({ searchParams: Promise.resolve({ intent }) }));
     expect(all.find((node) => node.type === RegisterFormClientPublic)!.props.initialWorkspace).toBeUndefined();
@@ -533,5 +551,241 @@ describe('public locale navigation does not silently erase a filled form', () =>
     const source = read('apps/web/components/platform-v7/PublicHeaderInteractions.tsx');
     expect(source).toContain('WeakSet<HTMLFormElement>');
     for (const forbidden of ['localStorage', 'sessionStorage', 'new FormData', '.value', 'JSON.stringify']) expect(source).not.toContain(forbidden);
+  });
+});
+
+
+describe('registration snapshot remains immutable while the request is pending', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  for (const locale of ['ru', 'en', 'zh'] as const) {
+    it(locale + ': snapshots the entire request before disabling editable controls', async () => {
+      vi.stubGlobal('crypto', { randomUUID: () => 'fixture-submit-key' });
+      let rejectFirst!: (error: Error) => void;
+      const post = vi.fn()
+        .mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectFirst = reject; }))
+        .mockResolvedValue({ ok: true, status: 202, json: async () => ({ accepted: true }) });
+      vi.stubGlobal('fetch', post);
+      const { container } = render(createElement('div', null,
+        createElement(EmployeeParticipationEntry, { label: 'Join' }),
+        createElement(RegisterFormClientPublic, { locale }),
+      ));
+      const entry = container.querySelector<HTMLButtonElement>('button.p0-register-secondary')!;
+      const form = container.querySelector<HTMLFormElement>('form.p0-register-form')!;
+      const fill = (name: string, value: string) =>
+        fireEvent.change(form.querySelector<HTMLInputElement>('[name="' + name + '"]')!, { target: { value } });
+      fireEvent.change(form.querySelector<HTMLSelectElement>('[name="workspace"]')!, { target: { value: 'seller' } });
+      fill('orgLegalName', 'Fixture Organisation');
+      fill('orgInn', '1234567890');
+      fill('region', 'Tambov');
+      fill('fullName', 'Fixture Person');
+      fill('position', 'Director');
+      fill('phone', '+79990000000');
+      fill('email', 'fixture@example.invalid');
+      fill('password', 'StrongPassword#123');
+      fill('confirmPassword', 'StrongPassword#123');
+      fireEvent.click(form.querySelector<HTMLInputElement>('[name="acceptTerms"]')!);
+      fireEvent.click(form.querySelector<HTMLInputElement>('[name="acceptPrivacy"]')!);
+      expect(form.checkValidity()).toBe(true);
+
+      fireEvent.submit(form);
+      await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+      const fieldset = form.querySelector<HTMLFieldSetElement>('fieldset.p0-register-fields')!;
+      expect(fieldset.disabled).toBe(true);
+      // jsdom does not consistently implement fieldset-inherited :disabled;
+      // assert containment here and FormData exclusion below. Browser tests
+      // exercise the actual disabled interaction against a real engine.
+      for (const control of fieldset.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select')) {
+        expect(control.closest('fieldset')).toBe(fieldset);
+      }
+      const [url, options] = post.mock.calls[0] as unknown as [string, RequestInit];
+      const registrationUrl = new URL(url, 'http://localhost');
+      expect(registrationUrl.pathname).toBe('/api/auth/register');
+      expect(Object.fromEntries(registrationUrl.searchParams)).toEqual({ lang: locale });
+      const body = JSON.parse(String(options.body)) as Record<string, unknown>;
+      expect(body).toMatchObject({
+        orgLegalName: 'Fixture Organisation', email: 'fixture@example.invalid',
+        password: 'StrongPassword#123', acceptTerms: true, acceptPrivacy: true,
+      });
+      expect(new Headers(options.headers).get('idempotency-key')).toBe('fixture-submit-key');
+      // jsdom does not model fieldset-inherited FormData exclusion consistently.
+      // The pending POST retains the immutable snapshot, while real-browser
+      // coverage verifies disabled interaction and omission from FormData.
+      expect(body.email).toBe('fixture@example.invalid');
+      expect(entry.disabled).toBe(true);
+      fireEvent.click(entry);
+      expect(form.querySelector<HTMLSelectElement>('[name="workspace"]')?.value).toBe('seller');
+
+      await act(async () => rejectFirst(new Error('network result unknown')));
+      await waitFor(() => expect(entry.disabled).toBe(false));
+      expect(form.dataset.registrationSubmitting).toBeUndefined();
+      expect(form.querySelector('[role="alert"]')?.textContent).toBeTruthy();
+      fireEvent.submit(form);
+      await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
+      const [, retryOptions] = post.mock.calls[1] as unknown as [string, RequestInit];
+      expect(retryOptions.body).toBe(options.body);
+      expect(new Headers(retryOptions.headers).get('idempotency-key')).toBe('fixture-submit-key');
+      await waitFor(() => expect(container.querySelector('.p0-register-state')).toBeTruthy());
+      expect(entry.disabled).toBe(true);
+    });
+  }
+});
+
+
+describe('canonical public registration confirmation error UX-13', () => {
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+  for (const locale of ['ru', 'en', 'zh'] as const) {
+    it(`${locale}: focuses the mismatched field, explains it and keeps all entries`, async () => {
+      const post = vi.fn(() => { throw new Error('No registration POST on a client mismatch'); });
+      vi.stubGlobal('fetch', post);
+      const { container } = render(createElement(RegisterFormClientPublic, { locale }));
+      const form = container.querySelector<HTMLFormElement>('form.p0-register-form')!;
+      const fill = (name: string, value: string) => {
+        const input = form.querySelector<HTMLInputElement>(`[name="${name}"]`)!;
+        fireEvent.change(input, { target: { value } });
+        return input;
+      };
+      fireEvent.change(form.querySelector<HTMLSelectElement>('[name="workspace"]')!, { target: { value: 'seller' } });
+      fill('orgLegalName', 'Fixture Organisation');
+      fill('orgInn', '1234567890');
+      fill('region', 'Tambov');
+      fill('fullName', 'Fixture Person');
+      fill('position', 'Director');
+      fill('phone', '+79990000000');
+      fill('email', 'fixture@example.invalid');
+      const password = fill('password', 'StrongPassword#123');
+      const confirm = fill('confirmPassword', 'DifferentPassword#123');
+      fireEvent.click(form.querySelector<HTMLInputElement>('[name="acceptTerms"]')!);
+      fireEvent.click(form.querySelector<HTMLInputElement>('[name="acceptPrivacy"]')!);
+      expect(form.checkValidity()).toBe(true);
+      await act(async () => { fireEvent.submit(form); });
+      expect(document.activeElement).toBe(confirm);
+      expect(confirm.getAttribute('aria-invalid')).toBe('true');
+      const hintId = confirm.getAttribute('aria-describedby');
+      expect(hintId).toBe('p0-register-confirm-error');
+      expect(container.querySelector(`#${hintId}`)?.textContent).toBeTruthy();
+      expect(form.querySelector('[role="alert"]')?.textContent).toBeTruthy();
+      expect(password.value).toBe('StrongPassword#123');
+      expect(confirm.value).toBe('DifferentPassword#123');
+      expect(post).not.toHaveBeenCalled();
+
+      fireEvent.change(confirm, { target: { value: 'StrongPassword#123' } });
+      expect(confirm.getAttribute('aria-invalid')).toBe('false');
+      expect(password.value).toBe('StrongPassword#123');
+      expect(form.querySelector('#p0-register-confirm-error')).toBeNull();
+
+      fireEvent.change(confirm, { target: { value: 'DifferentPassword#123' } });
+      await act(async () => { fireEvent.submit(form); });
+      expect(confirm.getAttribute('aria-invalid')).toBe('true');
+      fireEvent.change(password, { target: { value: 'DifferentPassword#123' } });
+      expect(confirm.getAttribute('aria-invalid')).toBe('false');
+      expect(form.querySelector('#p0-register-confirm-error')).toBeNull();
+      expect(password.value).toBe(confirm.value);
+      expect(post).not.toHaveBeenCalled();
+    });
+  }
+});
+
+
+describe('canonical public registration accepted next step UX-30', () => {
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+  const next = {
+    ru: ['подтвердите почту', 'проверенный статус заявки', 'после проверки и одобрения'],
+    en: ['confirm your address', 'verified application status', 'reviewed and approved'],
+    zh: ['确认邮箱', '已核实的申请状态', '审核并获批准'],
+  } as const;
+  for (const locale of ['ru', 'en', 'zh'] as const) {
+    it(`${locale}: accepted response explains conditional email, verification, status and support`, async () => {
+      vi.stubGlobal('crypto', { randomUUID: () => 'fixture-idempotency-key' });
+      const post = vi.fn().mockResolvedValue({
+        ok: true, status: 202, json: async () => ({ accepted: true }),
+      });
+      vi.stubGlobal('fetch', post);
+      const { container } = render(createElement(RegisterFormClientPublic, { locale }));
+      const form = container.querySelector<HTMLFormElement>('form.p0-register-form')!;
+      const fill = (name: string, value: string) =>
+        fireEvent.change(form.querySelector<HTMLInputElement>(`[name="${name}"]`)!, { target: { value } });
+      fireEvent.change(form.querySelector<HTMLSelectElement>('[name="workspace"]')!, { target: { value: 'seller' } });
+      fill('orgLegalName', 'Fixture Organisation');
+      fill('orgInn', '1234567890');
+      fill('region', 'Tambov');
+      fill('fullName', 'Fixture Person');
+      fill('position', 'Director');
+      fill('phone', '+79990000000');
+      fill('email', 'fixture@example.invalid');
+      fill('password', 'StrongPassword#123');
+      fill('confirmPassword', 'StrongPassword#123');
+      fireEvent.click(form.querySelector<HTMLInputElement>('[name="acceptTerms"]')!);
+      fireEvent.click(form.querySelector<HTMLInputElement>('[name="acceptPrivacy"]')!);
+      expect(form.checkValidity()).toBe(true);
+      await act(async () => { fireEvent.submit(form); });
+      expect(post).toHaveBeenCalledTimes(1);
+      const state = container.querySelector('.p0-register-state')!;
+      expect(state).toBeTruthy();
+      for (const phrase of next[locale]) expect(state.textContent).toContain(phrase);
+      expect(state.querySelector(`a[href="/platform-v7/contact?lang=${locale}"]`)).toBeTruthy();
+      expect(state.textContent).not.toMatch(/24 hours|48 hours|сутки|小时内/);
+    });
+  }
+});
+
+
+const REF = 'market-11111111-1111-4111-8111-111111111111';
+const STATUS = 'fixture-status-token';
+
+describe('public registration verified continuation UX-14', () => {
+  for (const locale of ['ru', 'en', 'zh'] as const) {
+    it(`${locale}: drops the spent verify secret and preserves only a valid public selection`, () => {
+      const filters = publicMarketContext({ q: 'wheat', region: 'Тамбов', sort: 'price-asc' });
+      const before = new URLSearchParams({
+        lang: 'ru', verify: 'spent-secret', intent: 'buy', crop: 'wheat', lot: REF,
+        returnTo: marketHref('ru', filters), role: 'admin', tenantId: 'private',
+        redirect: 'https://external.invalid/', error: 'success',
+      });
+      const result = new URL(verifiedRegistrationContinuationHref(`?${before}`, STATUS, locale), 'https://example.invalid');
+      expect(result.pathname).toBe('/platform-v7/register');
+      expect(Object.fromEntries(result.searchParams)).toEqual({
+        lang: locale, statusToken: STATUS, intent: 'buy', crop: 'wheat', lot: REF,
+        returnTo: marketHref(locale, filters),
+      });
+      expect(result.hash).toBe('');
+    });
+
+    it(`${locale}: preserves execution intent without inventing a role or market lot`, () => {
+      const result = new URL(verifiedRegistrationContinuationHref('?lang=ru&intent=execution&verify=spent', STATUS, locale), 'https://example.invalid');
+      expect(Object.fromEntries(result.searchParams)).toEqual({ lang: locale, statusToken: STATUS, intent: 'execution' });
+    });
+
+    it(`${locale}: retains an explicit employee entry after verification without promoting role or tenant hints`, () => {
+      const result = new URL(verifiedRegistrationContinuationHref('?intent=employee&role=owner&tenantId=foreign&verify=spent', STATUS, locale), 'https://example.invalid');
+      expect(Object.fromEntries(result.searchParams)).toEqual({ lang: locale, statusToken: STATUS, intent: 'employee' });
+    });
+
+    it(`${locale}: rejects duplicate, malformed and external context independently`, () => {
+      const malicious = new URLSearchParams({
+        verify: 'spent', intent: 'owner', crop: '__proto__', lot: '0',
+        returnTo: 'https://external.invalid/platform-v7/market?lang=ru#offers',
+        statusToken: 'attacker-token', role: 'bank', tenantId: 'foreign',
+      });
+      malicious.append('intent', 'buy');
+      malicious.append('lot', REF);
+      const result = new URL(verifiedRegistrationContinuationHref(`?${malicious}`, STATUS, locale), 'https://example.invalid');
+      expect(Object.fromEntries(result.searchParams)).toEqual({ lang: locale, statusToken: STATUS });
+      const duplicateReturn = new URLSearchParams({ returnTo: marketHref('ru', { crop: 'wheat' }) });
+      duplicateReturn.append('returnTo', marketHref('ru', { crop: 'barley' }));
+      expect(new URL(verifiedRegistrationContinuationHref(`?${duplicateReturn}`, STATUS, locale), 'https://example.invalid')
+        .searchParams.has('returnTo')).toBe(false);
+    });
+  }
+
+  it('never writes an empty or malformed server status token into navigation', () => {
+    for (const token of ['', 'x'.repeat(513), 'bad\nheader']) {
+      expect(() => verifiedRegistrationContinuationHref('?verify=spent', token, 'ru')).toThrow(TypeError);
+    }
   });
 });
