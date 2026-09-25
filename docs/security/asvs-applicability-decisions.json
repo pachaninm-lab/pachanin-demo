@@ -616,6 +616,53 @@
       "note": "The application never dynamically executes code from a string. A scan for eval( and new Function( across apps/api/src, apps/web/lib and apps/web/app returns zero matches."
     },
     {
+      "requirementId": "V1.3.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "depends-on:V1.2.2",
+        "unrestricted-segment:apps/web/app/api/staff/[...path]/route.ts",
+        "unrestricted-segment:apps/web/app/api/proxy/[...path]/route.ts",
+        "safe-charset:apps/web/app/api/platform-v7/accounting/[[...path]]/route.ts",
+        "safe-charset:apps/web/lib/gekta/account-bridge.ts",
+        "branch:security/bff-upstream-path-encoding-4459"
+      ],
+      "conditions": [
+        {
+          "condition": "the staff proxy still concatenates the decoded, allowlisted path into the upstream URL without encoding it",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/staff/[...path]/route.ts"
+          ],
+          "patterns": [
+            "const targeturl = `${api_base_url}/staff/${path}${query ? `?${query}` : ''}`;"
+          ]
+        },
+        {
+          "condition": "the generic proxy still joins the decoded segments and concatenates them into the upstream URL without encoding them",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/proxy/[...path]/route.ts"
+          ],
+          "patterns": [
+            "const path = params.path.join('/');",
+            "const target = `${api_url}/${path}`;"
+          ]
+        },
+        {
+          "condition": "the per-segment encoder that fixes this has not landed on this tree",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/web"
+          ],
+          "patterns": [
+            "encodeupstreampath"
+          ]
+        }
+      ],
+      "note": "Assessed across the dangerous contexts the register has already inventoried one by one, rather than re-derived: SQL (V1.2.4 PASS), XML (V1.2.1 PASS), CSV (V1.2.10 PASS), dynamic regular expressions (V1.2.9 PASS; V1.3.12 FAIL), SMTP headers (V1.3.11 PASS), outbound fetch destinations (V1.3.6 PASS), with no OS command, LDAP, XPath, LaTeX, template or memcache context at all. One context fails: the path of an upstream URL built by a web BFF. /api/staff/[...path] admits a segment through [^/]+, and /api/proxy/[...path] admits any segment. Neither restricts the characters that are dangerous in that context ('?', '#', '%', and dot-segments) and neither bounds segment length, and neither encodes instead; that is the gap measured under V1.2.2, reaching /api/staff/users and the API's unprefixed /metrics. The control this requirement describes is already done right beside them: accounting, commodity-profiles, integrations, commodity-profile-registry and integration-control-tower admit only [A-Za-z0-9][A-Za-z0-9:_.@-]{0,239}-style identifiers, bounded in length, and the Gekta bridge admits [A-Za-z0-9_-]{1,64}. The conditions are the V1.2.2 ones, including the name of the fix's encoder, so when branch security/bff-upstream-path-encoding-4459 lands this decision is revoked for re-assessment. Encoding is the primary control for a URL path, so that re-assessment is expected to credit it rather than demand a charset allowlist as well."
+    },
+    {
       "requirementId": "V1.3.4",
       "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
@@ -1020,6 +1067,78 @@
         }
       ],
       "note": "The application deserializes untrusted input with JSON.parse and nothing else - no YAML loader, no node-serialize or unserialize-style library is a dependency. JSON.parse builds plain data objects and cannot itself instantiate arbitrary classes or execute code, which is the mechanism the deserialization attacks this requirement targets rely on; there is no unsafe deserialization surface here."
+    },
+    {
+      "requirementId": "V1.5.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "depends-on:V1.2.2",
+        "depends-on:V3.7.2",
+        "parser-mismatch:apps/web/app/api/staff/[...path]/route.ts",
+        "parser-mismatch:apps/web/app/api/proxy/[...path]/route.ts",
+        "parser-mismatch:apps/web/app/api/auth/demo/route.ts",
+        "parser-mismatch:apps/web/app/api/auth/demo/role/[role]/route.ts",
+        "parser-mismatch:apps/web/app/api/auth/demo/instant/[role]/route.ts",
+        "branch:security/bff-upstream-path-encoding-4459",
+        "branch:security/open-redirect-demo-login-4459"
+      ],
+      "conditions": [
+        {
+          "condition": "the staff proxy still concatenates the decoded, allowlisted path into the upstream URL without encoding it",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/staff/[...path]/route.ts"
+          ],
+          "patterns": [
+            "const targeturl = `${api_base_url}/staff/${path}${query ? `?${query}` : ''}`;"
+          ]
+        },
+        {
+          "condition": "the generic proxy still joins the decoded segments and concatenates them into the upstream URL without encoding them",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/proxy/[...path]/route.ts"
+          ],
+          "patterns": [
+            "const path = params.path.join('/');",
+            "const target = `${api_url}/${path}`;"
+          ]
+        },
+        {
+          "condition": "the per-segment encoder that fixes this has not landed on this tree",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/web"
+          ],
+          "patterns": [
+            "encodeupstreampath"
+          ]
+        },
+        {
+          "condition": "all three demo-login routes still gate their redirect destination with only a startsWith prefix check",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/auth/demo/route.ts",
+            "apps/web/app/api/auth/demo/role/[role]/route.ts",
+            "apps/web/app/api/auth/demo/instant/[role]/route.ts"
+          ],
+          "patterns": [
+            "startswith('/')"
+          ]
+        },
+        {
+          "condition": "the same-origin redirect resolver that fixes this has not landed on this tree",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/web"
+          ],
+          "patterns": [
+            "resolvesameoriginredirecttarget"
+          ]
+        }
+      ],
+      "note": "Two measured instances of exactly the failure this requirement names, a check and a consumer that parse the same URL differently. First, the web BFF proxies. The allowlist in /api/staff/[...path] and the denylist in /api/proxy/[...path] judge a decoded string with regular expressions and equality, but the value they pass on is parsed again by fetch() under the WHATWG URL algorithm, which reads '?' and '#' as delimiters and '%2e%2e' as a dot-segment. The check and the consumer therefore see different paths: organizations/%2e%2e/users passed as an allowlisted path and was fetched as /api/staff/users, and %2e%2e/metrics was fetched as /metrics outside the /api prefix (V1.2.2). Second, the three non-production demo-login routes. They judged a redirect destination with raw.startsWith('/'), a string test, while the browser that follows the redirect parses it as a URL, under which //evil.example and /\\evil.example are foreign origins (V3.7.2). In both cases the fix prepared on its branch makes the check operate on what the consumer will actually parse: encoding each segment so fetch() receives exactly the checked segments, and comparing the resolved origin instead of a string prefix. What is consistent: JSON is parsed with JSON.parse on both sides of every hop (request.json() in the web tier; express body-parser, registered in configureRequestBodyLimits, in the API), and the proxies forward the body text rather than a re-serialization, so neither side accepts a value the other would read differently. One seam, recorded rather than smoothed over: the web tier reads a proxied body as UTF-8 text, while body-parser decodes by the declared charset, and the generic proxy forwards the caller's Content-Type unchanged. A caller declaring a different utf- charset therefore sends bytes re-encoded as UTF-8 but labelled otherwise. Not measured here. The expected consequence is a parse failure rather than a divergent accepted value, because the web tier does not inspect the body it forwards, and it is not relied on for this FAIL. Both instances are pinned by conditions, including each fix's function name. Merging either fix revokes this decision for re-assessment, which should then find the other instance if it is still open."
     },
     {
       "requirementId": "V2.1.1",
