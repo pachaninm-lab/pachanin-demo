@@ -1574,6 +1574,10 @@
       "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
       "apps/web/tests/unit/sellerExecutionPolish.test.tsx",
       "docs/platform-v7/autopilot/scopes/first-customer-next-action-unknown-20260924.json"
+    ],
+    "ux/deal-command-unknown-20260925": [
+      "apps/web/components/platform-v7/CanonicalDealWorkspace.tsx",
+      "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts"
     ]
   },
   "currentAcceptance": [
@@ -1971,6 +1975,28 @@
         "CI/security gate weakening"
       ],
       "teamHubDependency": "#5596; #5597; Team Hub #5469"
+    },
+    "ux-deal-command-unknown-20260925-coordination": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Truthful active Deal command UX when the POST response is lost or unverifiable; preserve server-owned Deal authority.",
+      "authorityBaseExactMain": "c0845a9c0d1b8ee7c2717c295bd150a5e897d30d",
+      "implementationBranch": "ux/deal-command-unknown-20260925",
+      "allowedPaths": [
+        "apps/web/components/platform-v7/CanonicalDealWorkspace.tsx",
+        "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "A network or ambiguous HTTP failure after POST does not prove that the server rejected or did not commit the command.",
+        "Show UNKNOWN with the command identifier and block a fresh identifier in the mounted Deal screen until server-state reconciliation; a page remount is not a durable command queue.",
+        "Show success only for a matching server command receipt; keep definite conflict or validation outcomes distinct.",
+        "Accepted guard #5598 routes this implementation branch through trusted-base immutable scope in both workflow entry points."
+      ],
+      "forbiddenAuthority": [
+        "Deal/API/DB/tenant/role/idempotency or command authority",
+        "payment/provider/FGIS mutation or finality",
+        "CI/security gate weakening"
+      ],
+      "teamHubDependency": "#5596; #5598; Team Hub #5469"
     }
   }
 }
