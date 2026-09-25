@@ -11,7 +11,7 @@ import subprocess
 import sys
 import tempfile
 
-COMPONENTS = {"api", "web", "migration"}
+COMPONENTS = {"api", "web", "migration", "outbox-worker"}
 MAX_INSPECT_BYTES = 4 * 1024 * 1024
 
 
@@ -105,7 +105,7 @@ def resolve_discovery(component, sha, reference):
 
 
 def verify_runtime(component, sha, reference, container_id):
-    require(component in {"api", "web"}, "RUNTIME_COMPONENT_INVALID")
+    require(component in {"api", "web", "outbox-worker"}, "RUNTIME_COMPONENT_INVALID")
     immutable_reference(component, sha, reference)
     require(isinstance(container_id, str) and re.fullmatch(r"[0-9a-f]{64}", container_id), "RUNTIME_CONTAINER_ID_INVALID")
     verified = verify_image(component, sha, reference)
