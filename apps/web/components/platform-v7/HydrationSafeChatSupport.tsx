@@ -44,10 +44,11 @@ function isStrategicHomepage(pathname: string): boolean {
 
 function needsLegacyTranslationBridge(pathname: string): boolean {
   const clean = normalizePath(pathname);
-  // The homepage and contact route now own complete RU/EN/ZH source copy.
-  // Keep the legacy DOM translator only where older public surfaces still rely
-  // on dictionary-based post-hydration translation.
-  return clean === '/platform-v7/deal-flow' || clean === '/platform-v7/demo';
+  // Locale-native public routes own complete RU/EN/ZH source copy. The
+  // deal-flow page was migrated to that SSR path as well; mounting the legacy
+  // DOM translator there races hydration and mutates text nodes. Keep the
+  // bridge only where the older demo surface still relies on it.
+  return clean === '/platform-v7/demo';
 }
 
 /**

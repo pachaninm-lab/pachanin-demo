@@ -173,7 +173,7 @@ export function PublicSiteHeader({
     <header className='pc-site-header' data-public-site-header='canonical' aria-label={ariaLabel}>
       <a href={resolvedBrandHomeHref} className='pc-site-brand' aria-label={brandHomeLabel}>
         <span className='pc-site-brand-mark' data-brand-mark='transparent-price-canonical'><BrandMark size={34} /></span>
-        <span className='pc-site-brand-text'><strong>Прозрачная Цена</strong>{tagline ? <small>{tagline}</small> : null}</span>
+        <span className='pc-site-brand-text'><strong data-p7-no-translate='true' translate='no'>Прозрачная Цена</strong>{tagline ? <small>{tagline}</small> : null}</span>
       </a>
       {nav ? <nav className='pc-site-nav' aria-label={navLabel}>{nav}</nav> : null}
       <div className='pc-site-actions'>
