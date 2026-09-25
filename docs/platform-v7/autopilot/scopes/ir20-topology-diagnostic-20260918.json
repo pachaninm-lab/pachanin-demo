@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "ops/ir20-topology-diagnostic-20260918",
+  "status": "active",
+  "authorizedBy": "owner-request-complete-IR20-2026-09-18",
+  "purpose": "Extend the existing protected owner diagnostic with bounded, sanitized, read-only outbox runtime observations needed to plan the IR-20 REG.RU release.",
+  "allowedPaths": [
+    ".github/workflows/production-p0-runtime-revision-parity-diagnostic.yml",
+    "scripts/production-market-release-preflight.py",
+    "scripts/test-production-market-release-preflight.py",
+    "docs/platform-v7/autopilot/scopes/ir20-topology-diagnostic-20260918.json"
+  ],
+  "requiredInvariants": [
+    "Preserve existing owner-command authority, permissions, concurrency and pinned trusted checkout.",
+    "Do not mutate production topology, database rows, grants, migrations or claim protocol settings.",
+    "Do not publish protected paths, credentials, environment values or raw transport output.",
+    "Unknown or missing observations remain unproven; inventory is not production acceptance.",
+    "Fresh independent review and applicable CI precede a manual SHA-bound merge."
+  ]
+}

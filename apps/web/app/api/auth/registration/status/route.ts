@@ -37,10 +37,11 @@ export async function GET(request: Request) {
     });
     const payload = await response.json().catch(() => ({} as Record<string, unknown>));
     if (!response.ok) {
-      const status = response.status >= 500 ? 503 : 404;
+      const status = response.status === 404 ? 404 : response.status === 429 ? 429 : 503;
       return json({
         ok: false,
-        code: status === 503 ? 'REGISTRATION_SERVICE_UNAVAILABLE' : 'REGISTRATION_APPLICATION_NOT_FOUND',
+        code: status === 404 ? 'REGISTRATION_APPLICATION_NOT_FOUND'
+          : status === 429 ? 'REGISTRATION_STATUS_RATE_LIMITED' : 'REGISTRATION_SERVICE_UNAVAILABLE',
         correlationId,
       }, status);
     }
