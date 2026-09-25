@@ -1574,6 +1574,10 @@
       "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
       "apps/web/tests/unit/sellerExecutionPolish.test.tsx",
       "docs/platform-v7/autopilot/scopes/first-customer-next-action-unknown-20260924.json"
+    ],
+    "ux/deal-command-unknown-20260925": [
+      "apps/web/components/platform-v7/CanonicalDealWorkspace.tsx",
+      "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts"
     ]
   },
   "currentAcceptance": [
@@ -1949,6 +1953,27 @@
         "CI/security gate weakening"
       ],
       "teamHubDependency": "#5535; Team Hub #5469 scope correction 5818641448"
+    },
+    "ux-deal-command-unknown-20260925-coordination": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Truthful active Deal command UX when the POST response is lost or unverifiable; preserve server-owned Deal authority.",
+      "authorityBaseExactMain": "e28952748a8944626703227c9feed3870dc47b64",
+      "implementationBranch": "ux/deal-command-unknown-20260925",
+      "allowedPaths": [
+        "apps/web/components/platform-v7/CanonicalDealWorkspace.tsx",
+        "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts"
+      ],
+      "requiredTruthBoundaries": [
+        "A network or ambiguous HTTP failure after POST does not prove that the server rejected or did not commit the command.",
+        "Show UNKNOWN with the command identifier and block a fresh identifier in the mounted Deal screen until server-state reconciliation; a page remount is not a durable command queue.",
+        "Show success only for a matching server command receipt; keep definite conflict or validation outcomes distinct."
+      ],
+      "forbiddenAuthority": [
+        "Deal/API/DB/tenant/role/idempotency or command authority",
+        "payment/provider/FGIS mutation or finality",
+        "CI/security gate weakening"
+      ],
+      "teamHubDependency": "#5596 / Team Hub #5469"
     }
   }
 }
