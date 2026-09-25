@@ -59,6 +59,8 @@ describe('Design System v8 money role reference slice', () => {
   });
 
   it('keeps buyer reserve, hold, SDIZ and escrow boundaries', () => {
+    expect(firstCustomerWorkspace).toContain("surface === 'buyer' ? copy.buyerDescription");
+    expect(firstCustomerWorkspace).toContain("copy.buyerQueueNote");
     expect(buyer).toContain('P7ExecutionActionsPanel');
     expect(buyer).toContain('buyerSdizActionItems');
     expect(buyer).toContain('CreditBureauPanel');

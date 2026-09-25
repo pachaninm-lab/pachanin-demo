@@ -1,0 +1,6 @@
+.buyerQueueNote {
+  max-width: 72ch;
+  margin: 0 0 1rem;
+  color: var(--ds-text-secondary, currentColor);
+  line-height: 1.5;
+}

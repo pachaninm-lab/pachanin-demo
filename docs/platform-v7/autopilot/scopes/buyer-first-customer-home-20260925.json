@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "ux/buyer-first-customer-home-20260925",
+  "status": "active",
+  "purpose": "Buyer first-customer home explains its server-scoped facts and queue navigation in RU/EN/ZH without inferring an action, deadline or bank confirmation.",
+  "authorityBaseExactMain": "fc18741c187463bc7adebf66eabdb9bf913107ab",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
+    "apps/web/components/platform-v7/FirstCustomerWorkspace.module.css",
+    "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
+    "apps/web/tests/unit/platformV7BuyerFirstCustomerUx.test.tsx",
+    "docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json"
+  ],
+  "requiredInvariants": [
+    "Buyer facts remain server-scoped; list order and recency do not assign priority or deadline.",
+    "UNKNOWN, empty, forbidden and degraded states stay explicit; owner showroom stays separate.",
+    "No bank or regulatory finality is inferred from the queue."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
