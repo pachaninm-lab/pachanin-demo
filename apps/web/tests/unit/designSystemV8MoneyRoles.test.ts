@@ -9,6 +9,7 @@ const seller = read('apps/web/app/platform-v7/seller/page.tsx');
 const buyer = read('apps/web/app/platform-v7/buyer/page.tsx');
 const bank = read('apps/web/app/platform-v7/bank/page.tsx');
 const firstCustomerWorkspace = read('apps/web/components/platform-v7/FirstCustomerWorkspace.tsx');
+const firstCustomerWorkspaceCss = read('apps/web/components/platform-v7/FirstCustomerWorkspace.module.css');
 const cockpit = read('apps/web/components/transaction-ux/MoneyObligationCockpit.tsx');
 const cockpitCss = read('apps/web/components/transaction-ux/MoneyObligationCockpit.module.css');
 const governance = JSON.parse(read('design-governance-v8.json'));
@@ -61,6 +62,18 @@ describe('Design System v8 money role reference slice', () => {
   it('keeps buyer reserve, hold, SDIZ and escrow boundaries', () => {
     expect(firstCustomerWorkspace).toContain("surface === 'buyer' ? copy.buyerDescription");
     expect(firstCustomerWorkspace).toContain("copy.buyerQueueNote");
+    expect(firstCustomerWorkspace).toContain("surface === 'buyer' && !workspace.ownerControlled && state === 'ready'");
+    expect(firstCustomerWorkspace).toContain("result: priorityUnknown ? copy.priorityUnknownResult");
+    expect(firstCustomerWorkspaceCss).toContain('line-height: 1.5');
+    expect(firstCustomerWorkspaceCss).not.toMatch(forbiddenPresentation);
+    for (const phrase of [
+      'подтверждённой серверной сессии покупателя',
+      'buyer’s confirmed server session',
+      '买方已确认的服务器会话',
+      'банковское подтверждение',
+      'bank confirmation',
+      '银行确认',
+    ]) expect(firstCustomerWorkspace).toContain(phrase);
     expect(buyer).toContain('P7ExecutionActionsPanel');
     expect(buyer).toContain('buyerSdizActionItems');
     expect(buyer).toContain('CreditBureauPanel');
