@@ -1634,14 +1634,16 @@ test('Deal command source branch runs the trusted-base guard in both workflow en
 
 test('Deal command source cannot expand its own trusted-base scope', (t) => {
   const context = fixture(t, dealCommandImplementationBranch);
+  fs.mkdirSync(path.join(context.root, 'docs/platform-v7/autopilot/scopes'), { recursive: true });
   write(context.root, 'allowed.txt', 'admitted Deal UX change\n');
   commit(context.root, 'admitted Deal UX');
-  assert.equal(runGuard(context).status, 0);
+  const accepted = runGuard(context);
+  assert.equal(accepted.status, 0, output(accepted));
   context.baseline = git(context.root, ['rev-parse', 'HEAD']);
 
   const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
   const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
-  state.approvedConcurrentScopes[dealCommandImplementationBranch].push('apps/web/app/layout.tsx');
+  state.approvedConcurrentScopes[dealCommandImplementationBranch].push(statePath, 'apps/web/app/layout.tsx');
   write(context.root, statePath, JSON.stringify(state));
   write(context.root, 'apps/web/app/layout.tsx', 'self-authorized layout change\n');
   commit(context.root, 'attempt Deal source self-expansion');
