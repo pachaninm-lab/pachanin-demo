@@ -176,6 +176,14 @@
     "apps/api/test/staff-access/**"
   ],
   "approvedConcurrentScopes": {
+    "fix/public-registration-participation-choice-20260923": [
+      "apps/web/app/platform-v7/register/RegisterFormClient.tsx",
+      "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
+      "apps/web/app/platform-v7/register/page.tsx",
+      "apps/web/tests/e2e/platform-v7-registration-official.spec.ts",
+      "apps/web/tests/unit/platformV7FinalAcceptanceContract.test.ts",
+      "docs/platform-v7/autopilot/scopes/public-registration-participation-choice-20260923.json"
+    ],
     "governance/ir20-binding-immutable-scope-20260919": [
       "scripts/p7-autopilot-guard.sh",
       "scripts/p7-autopilot-guard.test.mjs",
