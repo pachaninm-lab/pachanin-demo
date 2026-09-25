@@ -147,3 +147,43 @@ describe('Gekta mobile UX red-team contracts', () => {
     expect(floating).toContain('padding-bottom: 0 !important');
   });
 });
+it('keeps the drawer focus session and latest Escape handler across parent rerenders', async () => {
+  const React = await import('react');
+  const { render, fireEvent, act, cleanup } = await import('@testing-library/react');
+  const { vi } = await import('vitest');
+  const { GektaMobileDrawer } = await import('../../components/gekta/GektaMobileDrawer');
+  const frames: FrameRequestCallback[] = [];
+  const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+    frames.push(callback);
+    return frames.length;
+  });
+  const flushFrames = () => act(() => { frames.splice(0).forEach(callback => callback(0)); });
+  const opener = document.createElement('button');
+  opener.textContent = 'Open history';
+  document.body.appendChild(opener);
+  opener.focus();
+  const initialClose = vi.fn();
+  const latestClose = vi.fn();
+  const view = (open: boolean, onClose: () => void) => React.createElement(GektaMobileDrawer, {
+    open, onClose, closeLabel: 'Close history',
+    children: React.createElement('button', null, 'History item'),
+  });
+  try {
+    const screen = render(view(true, initialClose));
+    const closeButton = screen.getAllByRole('button', { name: 'Close history' }).at(-1)!;
+    expect(document.activeElement).toBe(closeButton);
+    screen.rerender(view(true, latestClose));
+    flushFrames();
+    expect(document.activeElement, 'background updates must not release modal focus').toBe(closeButton);
+    fireEvent.keyDown(closeButton, { key: 'Escape' });
+    expect(initialClose).not.toHaveBeenCalled();
+    expect(latestClose).toHaveBeenCalledTimes(1);
+    screen.rerender(view(false, latestClose));
+    flushFrames();
+    expect(document.activeElement, 'closing restores the original opener').toBe(opener);
+  } finally {
+    cleanup();
+    raf.mockRestore();
+    opener.remove();
+  }
+});
