@@ -1,0 +1,120 @@
+import { expect, test } from '@playwright/test';
+
+test.describe('UX-05 recovery unsaved-entry guard', () => {
+  for (const locale of ['ru', 'en', 'zh'] as const) {
+    for (const width of [320, 390, 1280] as const) {
+      test(`reset form retains passwords when navigation is cancelled: ${locale} ${width}px`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 844 });
+        const url = `/platform-v7/forgot-password?lang=${locale}&token=acceptance-token`;
+        const response = await page.goto(url, { waitUntil: 'networkidle' });
+        expect(response?.status()).toBe(200);
+        await expect(page.locator('header[data-public-site-header="canonical"]')).toHaveCount(1);
+        await expect(page.locator('nav.pc-cp-bottom-nav')).toHaveCount(1);
+        const next = locale === 'ru' ? 'en' : locale === 'en' ? 'zh' : 'ru';
+        async function localeChoice() {
+          if (width <= 1100) {
+            await page.locator('.pc-site-mobile-menu > summary').click();
+            return page.locator(`.pc-site-mobile-nav a.pc-site-locale-option[href*="lang=${next}"]`).first();
+          }
+          return page.locator(`.pc-site-actions > .pc-site-locale-cluster a.pc-site-locale-option[href*="lang=${next}"]`).first();
+        }
+        const fields = page.locator('form.pc-recovery-card input[autocomplete="new-password"]');
+        await expect(fields).toHaveCount(2);
+        await fields.nth(0).fill('AcceptanceOnly#123');
+        await fields.nth(1).fill('AcceptanceOnly#123');
+
+        let prompts = 0;
+        page.once('dialog', async (dialog) => {
+          expect(dialog.type()).toBe('confirm');
+          prompts += 1;
+          await dialog.dismiss();
+        });
+        await (await localeChoice()).click();
+        expect(prompts).toBe(1);
+        await expect(page).toHaveURL(new RegExp(`lang=${locale}&token=acceptance-token`));
+        await expect(fields.nth(0)).toHaveValue('AcceptanceOnly#123');
+        await expect(fields.nth(1)).toHaveValue('AcceptanceOnly#123');
+
+        page.once('dialog', async (dialog) => {
+          expect(dialog.type()).toBe('confirm');
+          prompts += 1;
+          await dialog.dismiss();
+        });
+        await page.locator('.pc-site-header .pc-site-action').click();
+        expect(prompts).toBe(2);
+        await expect(fields.nth(0)).toHaveValue('AcceptanceOnly#123');
+
+        const overflow = await page.evaluate(() => Math.max(
+          document.documentElement.scrollWidth - document.documentElement.clientWidth,
+          document.body.scrollWidth - document.body.clientWidth,
+        ));
+        expect(overflow).toBeLessThanOrEqual(1);
+
+        page.once('dialog', (dialog) => dialog.accept());
+        await (await localeChoice()).click();
+        await expect(page).toHaveURL(new RegExp(`lang=${next}&token=acceptance-token`));
+        await expect(fields.nth(0)).toHaveValue('');
+      });
+    }
+  }
+
+  test('recovery request email is retained on cancelled locale navigation', async ({ page }) => {
+    await page.goto('/platform-v7/forgot-password?lang=ru', { waitUntil: 'networkidle' });
+    const email = page.locator('form.pc-recovery-card input[type="email"]');
+    await email.fill('acceptance@example.invalid');
+    const compact = (page.viewportSize()?.width ?? 1280) <= 1100;
+    if (compact) await page.locator('.pc-site-mobile-menu > summary').click();
+    const otherLocale = compact
+      ? page.locator('.pc-site-mobile-nav a.pc-site-locale-option[href*="lang=en"]').first()
+      : page.locator('.pc-site-actions > .pc-site-locale-cluster a.pc-site-locale-option[href*="lang=en"]').first();
+    await expect(otherLocale).toBeVisible();
+    page.once('dialog', (dialog) => dialog.dismiss());
+    await otherLocale.click();
+    await expect(email).toHaveValue('acceptance@example.invalid');
+    await expect(page).toHaveURL(/forgot-password\?lang=ru/);
+  });
+});
+
+test.describe('UX-04 canonical recovery shell', () => {
+  for (const locale of ['ru', 'en', 'zh'] as const) {
+    for (const width of [320, 390, 1280] as const) {
+      test(`normal and token recovery share public navigation: ${locale} ${width}px`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 844 });
+        for (const token of [false, true]) {
+          const route = `/platform-v7/forgot-password?lang=${locale}${token ? '&token=acceptance-token' : ''}`;
+          const response = await page.goto(route, { waitUntil: 'networkidle' });
+          expect(response?.status()).toBe(200);
+          await expect(page.locator('header[data-public-site-header="canonical"]')).toHaveCount(1);
+          await expect(page.locator('.pc-site-header nav.pc-site-nav')).toHaveCount(1);
+          const bottom = page.locator('nav.pc-cp-bottom-nav');
+          await expect(bottom).toHaveCount(1);
+          await expect(bottom.locator('a')).toHaveCount(5);
+          await expect(bottom.locator('[data-active="true"]')).toHaveCount(0);
+          await expect(page.locator('.pc-site-locale-cluster a.pc-site-locale-option')).toHaveCount(6);
+          const localeLinks = page.locator('.pc-site-actions > .pc-site-locale-cluster a.pc-site-locale-option');
+          await expect(localeLinks).toHaveCount(3);
+          const enHref = await localeLinks.filter({ hasText: 'EN' }).getAttribute('href');
+          expect(enHref).toContain('lang=en');
+          if (token) expect(enHref).toContain('token=acceptance-token');
+
+          if (width <= 760) {
+            await expect(bottom).toBeVisible();
+            await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+            const button = page.locator('form.pc-recovery-card button.pc-recovery-submit');
+            const buttonBox = await button.boundingBox();
+            const bottomBox = await bottom.boundingBox();
+            expect(buttonBox).not.toBeNull();
+            expect(bottomBox).not.toBeNull();
+            expect(buttonBox!.y + buttonBox!.height).toBeLessThanOrEqual(bottomBox!.y + 1);
+            expect(buttonBox!.height).toBeGreaterThanOrEqual(44);
+          }
+          const overflow = await page.evaluate(() => Math.max(
+            document.documentElement.scrollWidth - document.documentElement.clientWidth,
+            document.body.scrollWidth - document.body.clientWidth,
+          ));
+          expect(overflow).toBeLessThanOrEqual(1);
+        }
+      });
+    }
+  }
+});

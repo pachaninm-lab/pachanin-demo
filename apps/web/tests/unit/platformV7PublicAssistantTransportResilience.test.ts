@@ -26,7 +26,10 @@ describe('public assistant production transport resilience', () => {
 
   it('falls back on both network rejection and non-2xx response', () => {
     expect(resilience).toContain('if (response.ok) return response;');
-    expect(resilience).toContain('return localResponse(input, init);');
+    expect(resilience).toContain('return await localResponse(input, init);');
+    // The knowledge base is fetched only on the failure path, not with every page.
+    expect(resilience).toContain("import('./public-assistant-knowledge')");
+    expect(resilience).not.toMatch(/^import \{[^}]*answerPublicPlatformQuestion/mu);
     expect(resilience).toContain("url.pathname === '/api/public-platform-assistant'");
   });
 

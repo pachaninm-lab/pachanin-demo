@@ -1,7 +1,7 @@
 {
   "schemaVersion": "pc-crop.dangerous-functionality.v1",
-  "sourceSha": "3e661251d75fb60055b2ba1ce496ff10bb39d108",
-  "scannedFiles": 1286,
+  "sourceSha": "fe24cef7dd74a570b9c11d30838926d2fa108fd7",
+  "scannedFiles": 1298,
   "categories": [
     {
       "id": "raw_sql_execution",
