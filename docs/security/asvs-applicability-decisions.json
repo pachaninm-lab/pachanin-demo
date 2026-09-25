@@ -5,6 +5,62 @@
   "policy": "A decision must name what was examined and carry conditions re-evaluated on every run. Having a control is not evidence that a requirement is met: no PASS may be inferred from the presence of MFA, RLS, CodeQL, an SBOM or a passing test. Anything without a valid, currently-holding decision stays PENDING and NOT_ASSESSED.",
   "decisions": [
     {
+      "requirementId": "V1.1.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "measurement:next-15.5.24-production-server-param-decoding",
+        "second-decode:apps/web/app/api/platform-v7/accounting/[[...path]]/route.ts",
+        "second-decode:apps/web/app/api/platform-v7/commodity-profiles/[[...path]]/route.ts",
+        "second-decode:apps/web/app/api/platform-v7/integrations/[[...path]]/route.ts",
+        "second-decode:apps/web/app/api/staff/[...path]/route.ts",
+        "second-decode:apps/web/app/api/staff/commodity-profile-registry/[[...path]]/route.ts",
+        "second-decode:apps/web/app/api/staff/integration-control-tower/[[...path]]/route.ts",
+        "second-decode:apps/web/app/api/staff/workspaces/[...path]/route.ts",
+        "second-decode:apps/web/app/staff/[...path]/route.ts",
+        "framework-version:apps/web/package.json"
+      ],
+      "conditions": [
+        {
+          "condition": "seven catch-all route handlers still decode each segment again after Next.js has decoded it",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/platform-v7/accounting/[[...path]]/route.ts",
+            "apps/web/app/api/platform-v7/commodity-profiles/[[...path]]/route.ts",
+            "apps/web/app/api/platform-v7/integrations/[[...path]]/route.ts",
+            "apps/web/app/api/staff/[...path]/route.ts",
+            "apps/web/app/api/staff/commodity-profile-registry/[[...path]]/route.ts",
+            "apps/web/app/api/staff/integration-control-tower/[[...path]]/route.ts",
+            "apps/web/app/api/staff/workspaces/[...path]/route.ts"
+          ],
+          "patterns": [
+            "const decoded = segments.map((part) => decodeuricomponent(part).trim()).filter(boolean);"
+          ]
+        },
+        {
+          "condition": "the local staff mock route still decodes its already-decoded segments again",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/staff/[...path]/route.ts"
+          ],
+          "patterns": [
+            "return (parts || []).map((part) => decodeuricomponent(part)).join('/');"
+          ]
+        },
+        {
+          "condition": "the framework is still the version whose param decoding was measured",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/package.json"
+          ],
+          "patterns": [
+            "\"next\": \"15.5.24\""
+          ]
+        }
+      ],
+      "note": "Measured on a running server rather than inferred from source: a minimal app built and started with this repository's own next 15.5.24 in production mode, receiving raw requests. Route handlers receive catch-all segments already percent-decoded exactly once: /api/t/organizations/%252e%252e/users arrived as ['organizations','%2e%2e','users'], x%3Fa%3D1%23 as 'x?a=1#', %25 as '%', and a%2Fb as 'a/b'. Eight route handlers here decode every segment a second time (seven BFF proxies and the local staff mock route), so a request is decoded twice before it is used, which is what this requirement forbids. The measurement also corrected an assumption: page components are different. Their params arrive not decoded at all (/p/%252e%252e arrived as '%252e%252e'), so the decodeURIComponent(params.id) in deals/[id]/evidence-pack and logistics/[routeId] is the first and only decode and is correct. No exploit was found through the second decode itself. Each handler validates after its own decode, so the check sees the final value; four of the seven admit only a strict identifier charset that excludes '%'. The one path defect that did matter in these routes is URL building without encoding, recorded under V1.2.2. Observed and not relied on either way: cookie values read through next/headers or request.cookies also arrive decoded (the bundled @edge-runtime/cookies parser decodes them), and several readers of the session marker decode again; that matches the demo/role writer, which pre-encodes, and does not match the others. These markers are UI hints, not session authority, and their writers are the non-production demo routes. Remedy, not applied here: drop the redundant decode in the eight handlers. It is hygiene rather than an exploitable defect, so it is left for a separate narrow step after the V1.2.2 fix. The third condition ties this to the measured version, so a Next.js upgrade revokes the decision for re-measurement rather than letting it stand on a behaviour that may have changed."
+    },
+    {
       "requirementId": "V1.1.2",
       "applicability": "APPLICABLE",
       "status": "PASS",
