@@ -15,7 +15,7 @@ import {
 import { RegisterFormClient } from './RegisterFormClient';
 
 type Locale = 'ru' | 'en' | 'zh';
-type PublicWorkspace = 'seller' | 'buyer' | 'logistics' | 'bank';
+type PublicWorkspace = 'seller' | 'buyer' | 'logistics' | 'bank' | 'employee';
 type RegistrationWorkspace = 'seller' | 'buyer' | 'logistics' | 'driver' | 'elevator' | 'lab' | 'surveyor' | 'bank' | 'employee';
 type RegistrationStatus = RegistrationStatusSnapshot;
 type StatusReadState = 'idle' | 'loading' | 'available' | 'unavailable' | 'invalid';
@@ -71,7 +71,7 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
   const submitLockRef = React.useRef(false);
   const confirmPasswordRef = React.useRef<HTMLInputElement>(null);
   const unknownOperationRef = React.useRef<RegistrationUnknownOperation | null>(null);
-  const [workspace, setWorkspace] = React.useState<RegistrationWorkspace>(initialWorkspace || 'seller');
+  const [workspace, setWorkspace] = React.useState<RegistrationWorkspace | ''>(initialWorkspace || '');
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState('');
   const [correlationId, setCorrelationId] = React.useState('');
@@ -163,6 +163,8 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
       () => globalThis.crypto.randomUUID(),
     );
     submitLockRef.current = true;
+    element.dataset.registrationSubmitting = 'true';
+    window.dispatchEvent(new CustomEvent('pc-registration-pending', { detail: true }));
     setSubmitting(true);
     setError('');
     setCorrelationId('');
@@ -192,6 +194,7 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
         unknownOperationRef.current = null;
         setSubmittedEmail(payload.email);
         setDeliveryUnconfirmed(row?.deliveryConfirmed === false);
+        window.dispatchEvent(new Event('pc-registration-accepted'));
         setSubmissionAccepted(true);
         return;
       }
@@ -206,6 +209,8 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
         : 'Сейчас не удалось отправить заявку. Сервер не подтвердил её принятие. Повторите попытку позднее.');
     } finally {
       submitLockRef.current = false;
+      delete element.dataset.registrationSubmitting;
+      window.dispatchEvent(new CustomEvent('pc-registration-pending', { detail: false }));
       setSubmitting(false);
     }
   }
@@ -329,7 +334,7 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
   return <form className='p0-register-form' onSubmit={submitRegistration}>
     <p className='p0-register-required-note'>Поля со знаком * обязательны для заполнения.</p>
       <fieldset className='p0-register-fields' disabled={submitting}>
-    <section className='p0-register-card'><div className='p0-register-section-heading'><h2>1. Формат участия</h2><p>Выберите предполагаемый формат участия. Права доступа и доступные действия будут определены после проверки и одобрения заявки.</p></div><div className='p0-register-grid'><label><span>Формат участия *</span><select name='workspace' aria-label='Формат участия *' value={workspace} onChange={(event) => setWorkspace(event.target.value as RegistrationWorkspace)} required>{PARTICIPATION.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label><span>Правовой статус *</span><select name='orgType' aria-label='Правовой статус *' defaultValue='LEGAL' required>{ORG_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label></div></section>
+    <section className='p0-register-card'><div className='p0-register-section-heading'><h2>1. Формат участия</h2><p>Выберите предполагаемый формат участия. Права доступа и доступные действия будут определены после проверки и одобрения заявки.</p></div><div className='p0-register-grid'><label><span>Формат участия *</span><select name='workspace' aria-label='Формат участия *' value={workspace} onChange={(event) => setWorkspace(event.target.value as RegistrationWorkspace)} required><option value='' disabled>Выберите формат участия</option>{PARTICIPATION.filter(([value]) => value !== 'employee').map(([value, label]) => <option key={value} value={value}>{label}</option>)}<optgroup label='Присоединиться к организации'><option value='employee'>Сотрудник подключённой организации</option></optgroup></select></label><label><span>Правовой статус *</span><select name='orgType' aria-label='Правовой статус *' defaultValue='LEGAL' required>{ORG_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label></div></section>
 
     <section className='p0-register-card'><div className='p0-register-section-heading'><h2>2. Сведения об организации</h2><p>{workspace === 'employee' ? 'Укажите сведения существующей организации, к которой вы запрашиваете присоединение. Новая организация при этом не создаётся.' : 'Укажите сведения, по которым можно однозначно идентифицировать организацию или предпринимателя.'}</p></div><div className='p0-register-grid'><label className='p0-register-wide'><span>Наименование организации / ФИО предпринимателя *</span><input name='orgLegalName' minLength={2} maxLength={300} required autoComplete='organization' /></label><label><span>ИНН *</span><input name='orgInn' inputMode='numeric' pattern='(?:[0-9]{10}|[0-9]{12})' required aria-describedby='p0-register-inn-hint' /><small id='p0-register-inn-hint'>10 цифр для юридического лица или 12 цифр для ИП / физического лица.</small></label><label><span>КПП (при наличии)</span><input name='orgKpp' inputMode='numeric' pattern='[0-9]{9}' aria-describedby='p0-register-kpp-hint' /><small id='p0-register-kpp-hint'>9 цифр. Для ИП и самозанятых обычно не указывается.</small></label><label><span>ОГРН / ОГРНИП (при наличии)</span><input name='orgOgrn' inputMode='numeric' pattern='(?:[0-9]{13}|[0-9]{15})' aria-describedby='p0-register-ogrn-hint' /><small id='p0-register-ogrn-hint'>13 цифр для ОГРН или 15 цифр для ОГРНИП.</small></label><label><span>Регион *</span><input name='region' minLength={2} maxLength={160} required autoComplete='address-level1' /></label></div></section>
 
@@ -342,6 +347,34 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
     <button className='p0-register-primary p0-register-submit' type='submit' disabled={submitting} aria-busy={submitting}>{submitting ? 'Заявка отправляется…' : 'Отправить заявку на регистрацию'}</button>
     <div className='p0-register-help-links'><a href='/platform-v7/login'>Войти</a><a href='/platform-v7/forgot-password'>Восстановить доступ</a></div>
   </form>;
+}
+
+/** Select the employee path in place so entered data and market context remain intact. */
+export function EmployeeParticipationEntry({ label }: { label: string }) {
+  const [pending, setPending] = React.useState(false);
+  const [accepted, setAccepted] = React.useState(false);
+  React.useEffect(() => {
+    const onPending = (event: Event) => setPending((event as CustomEvent<boolean>).detail === true);
+    const onAccepted = () => setAccepted(true);
+    window.addEventListener('pc-registration-pending', onPending);
+    window.addEventListener('pc-registration-accepted', onAccepted);
+    const form = document.querySelector<HTMLFormElement>('form.p0-register-form');
+    setPending(form?.dataset.registrationSubmitting === 'true' ||
+      Boolean(form?.querySelector<HTMLFieldSetElement>('fieldset.p0-register-fields')?.disabled));
+    return () => {
+      window.removeEventListener('pc-registration-pending', onPending);
+      window.removeEventListener('pc-registration-accepted', onAccepted);
+    };
+  }, []);
+  return <button type='button' className='p0-register-secondary' disabled={pending || accepted} aria-busy={pending} onClick={() => {
+    const form = document.querySelector<HTMLFormElement>('form.p0-register-form');
+    const select = form?.querySelector<HTMLSelectElement>('select[name="workspace"]');
+    if (!select || pending || accepted || form?.dataset.registrationSubmitting === 'true' ||
+      select.disabled || select.closest('fieldset')?.disabled) return;
+    select.value = 'employee';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    select.focus();
+  }}>{label}</button>;
 }
 
 export function RegisterFormClientPublic(props: { locale: Locale; verifyToken?: string; initialStatusToken?: string; initialWorkspace?: PublicWorkspace }) {
