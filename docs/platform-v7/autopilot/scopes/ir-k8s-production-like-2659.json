@@ -1,4 +1,5 @@
 {
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
   "id": "IR-OUTBOX-RUNTIME-2649",
   "parentProgramIssue": 2597,
   "issue": 2649,
@@ -51,5 +52,21 @@
     "bounded backlog recovery with independent worker scale-out",
     "zero missing or duplicate Kafka deliveries for the measured backlog",
     "machine-readable evidence bound to exact head"
-  ]
+  ],
+  "continuation20260919": {
+    "parentBlock": "IR-20 Canonical Durable Outbox",
+    "pausedPrerequisitePr": 5429,
+    "pausedHead": "299b30f57f7fbb9eee027a28df5738c8ae94bee0",
+    "baseMain": "126f4b17f0be87eab07a238dc3ffee35a4b8ed8b",
+    "failureRun": 35422206321,
+    "failureArtifact": 10578161272,
+    "failureArtifactSha256": "074067ada20d3d42797b19acb54621c8f00a391a0998eb92d7606ce742d9d935",
+    "disposition": "EXTEND_EXISTING_DISPOSABLE_KAFKA_RESTART_FIXTURE",
+    "before": "Pod deletion also deleted the emptyDir broker log; 200 of 300 backlog rows were SENT and 100 were quarantined after sequence-order errors. The exclusive cause of that run is not yet proven.",
+    "after": "Initialize an existing-kind-local-path PVC before any application producer exists; retain broker metadata and a synthetic marker across the unchanged outage scenarios and independently verify PVC/PV identity and data hashes.",
+    "scopeUnchanged": true,
+    "constraints": "No application, database, release or Gekta changes; no auto-redrive, weaker SLA, skipped scenario, provider billing change or production invocation. Requested PVC size is 2Gi, not a claim of an enforced quota or HA/DR.",
+    "requiredResult": "All previous runtime assertions plus exact-run Kafka storage continuity, fresh substantive CI, actual independent diff review and manual SHA-bound admission.",
+    "officialRemainingProgress": 0
+  }
 }

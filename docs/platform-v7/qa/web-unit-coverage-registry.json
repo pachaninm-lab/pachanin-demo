@@ -3,9 +3,9 @@
   "issue": 4786,
   "purpose": "Every unit test file under apps/web/tests/unit must either run in CI or appear here with a reason. A file in neither state is what #4786 found: present in the repository, reading as a guarantee, checked by nothing. This registry is a work queue, not a permanent exemption list - the count is meant to reach zero.",
   "executedCount": 22,
-  "discoveredCount": 916,
+  "discoveredCount": 917,
   "exclusionCounts": {
-    "passed": 662,
+    "passed": 663,
     "failed": 232
   },
   "exclusions": [
@@ -4228,6 +4228,11 @@
       "file": "apps/web/tests/unit/publicContactDockRuntime.test.tsx",
       "status": "failed",
       "reason": "Red when measured on the inventory run for #4786. Must be classified first - whether the security contract still holds and the source drifted, or the test pins cancelled behaviour - before it can run."
+    },
+    {
+      "file": "apps/web/tests/unit/publicGektaWidgetRepair.test.tsx",
+      "status": "passed",
+      "reason": "Work order #5537 public Gekta widget repair contract (G01-G08/T16). Green locally on the exact head; not added to the CI web-unit step because CI workflow changes are outside this work order's scope."
     },
     {
       "file": "apps/web/tests/unit/publicPlatformAssistantDomainCopy.test.ts",
