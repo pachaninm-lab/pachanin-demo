@@ -419,6 +419,7 @@ export function RegisterFormClient({
 }) {
   const copy = COPY[locale];
   const submitLockRef = React.useRef(false);
+  const confirmPasswordRef = React.useRef<HTMLInputElement>(null);
   const unknownOperationRef = React.useRef<RegistrationUnknownOperation | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState('');
@@ -487,6 +488,7 @@ export function RegisterFormClient({
     const password = field(form, 'password');
     if (password !== field(form, 'confirmPassword')) {
       setError(copy.passwordMismatch);
+      confirmPasswordRef.current?.focus();
       return;
     }
 
@@ -793,8 +795,8 @@ export function RegisterFormClient({
           <label><span>{copy.position} *</span><input name='position' minLength={2} maxLength={200} required autoComplete='organization-title' /></label>
           <label><span>{copy.phone} *</span><input name='phone' type='tel' minLength={7} maxLength={24} pattern='\+?[0-9()\-\s]{7,24}' required autoComplete='tel' /></label>
           <label><span>{copy.email} *</span><input name='email' type='email' maxLength={254} required autoComplete='email' autoCapitalize='none' spellCheck={false} /></label>
-          <label className='p0-register-wide'><span>{copy.password} *</span><div className='p0-register-password-control'><input name='password' type={passwordVisible ? 'text' : 'password'} minLength={12} maxLength={128} required autoComplete='new-password' aria-describedby='p0-register-password-hint' /><button type='button' className='p0-register-password-toggle' onClick={() => setPasswordVisible((value) => !value)} aria-label={passwordVisible ? copy.hidePassword : copy.showPassword} title={passwordVisible ? copy.hidePassword : copy.showPassword}>{passwordVisible ? <EyeOff size={18} aria-hidden='true' /> : <Eye size={18} aria-hidden='true' />}</button></div><small id='p0-register-password-hint'>{copy.passwordHint}</small></label>
-          <label className='p0-register-wide'><span>{copy.confirmPassword} *</span><input name='confirmPassword' type={passwordVisible ? 'text' : 'password'} minLength={12} maxLength={128} required autoComplete='new-password' /></label>
+          <label className='p0-register-wide'><span>{copy.password} *</span><div className='p0-register-password-control'><input name='password' type={passwordVisible ? 'text' : 'password'} minLength={12} maxLength={128} required autoComplete='new-password' aria-describedby='p0-register-password-hint' onChange={() => { if (error === copy.passwordMismatch) setError(''); }} /><button type='button' className='p0-register-password-toggle' onClick={() => setPasswordVisible((value) => !value)} aria-label={passwordVisible ? copy.hidePassword : copy.showPassword} title={passwordVisible ? copy.hidePassword : copy.showPassword}>{passwordVisible ? <EyeOff size={18} aria-hidden='true' /> : <Eye size={18} aria-hidden='true' />}</button></div><small id='p0-register-password-hint'>{copy.passwordHint}</small></label>
+          <label className='p0-register-wide'><span>{copy.confirmPassword} *</span><input ref={confirmPasswordRef} name='confirmPassword' type={passwordVisible ? 'text' : 'password'} minLength={12} maxLength={128} required autoComplete='new-password' aria-invalid={error === copy.passwordMismatch} aria-describedby={error === copy.passwordMismatch ? 'p0-register-confirm-error' : undefined} onChange={() => { if (error === copy.passwordMismatch) setError(''); }} />{error === copy.passwordMismatch ? <small id='p0-register-confirm-error' className='p0-register-error'>{error}</small> : null}</label>
         </div>
       </section>
 
