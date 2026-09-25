@@ -418,9 +418,11 @@ test.describe('Gekta exact production mobile acceptance', () => {
       await expect(page.locator('.pc-gekta-floating')).not.toBeVisible();
     }
 
-    const footerLinks = page.locator('.pc-v7-public-entry .pc-v6-footer nav a:visible');
-    await expectTargetsAtLeast(footerLinks, 44);
-    const pageBottomReserve = await page.locator('.pc-v7-public-entry').evaluate((node) => Number.parseFloat(getComputedStyle(node).paddingBottom));
+    const mobileNavLinks = page.locator('.pc-cp-bottom-nav a:visible');
+    await expect(mobileNavLinks).toHaveCount(5);
+    await expectTargetsAtLeast(mobileNavLinks, 44);
+    await expect(page.locator('.pc-cp-footer')).toBeHidden();
+    const pageBottomReserve = await page.locator('main.pc-canonical-public').evaluate((node) => Number.parseFloat(getComputedStyle(node).paddingBottom));
     expect(pageBottomReserve).toBeLessThanOrEqual(1);
   });
 });

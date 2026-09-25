@@ -9,7 +9,7 @@ const paths = {
   middleware: 'apps/web/middleware.ts',
   executor: 'scripts/production-full-stack-exact-sha.sh',
   live: 'scripts/production-full-stack-live-acceptance.sh',
-  hero: 'apps/web/i18n/platform-v7-hero-message.ts',
+  hero: 'apps/web/components/platform-v7/PlatformV7StrategicHome.tsx',
   scope: 'docs/platform-v7/autopilot/scopes/production-full-stack-release-v1.json',
 };
 const failures = [];
@@ -143,6 +143,9 @@ requireAll('workflow', [
   'steps.ir20_observation.outcome',
   'deployed_outbox_worker_revision',
   'steps.database.outcome',
+  'IR20_BROKER_RECOVERY',
+  'ROLLBACK_API_WEB_COMPLETE',
+  'ROLLBACK_IR20_COMPLETE',
   'Publish release evidence',
   'gh issue comment',
   'gh issue close',
@@ -153,6 +156,46 @@ requireAll('workflow', [
   'production-full-stack-release-${{ github.run_id }}-${{ github.run_attempt }}',
 ]);
 const workflowSource = text.workflow ?? '';
+for (const marker of [
+  '- name: Transfer exact images over pinned SSH',
+  'pc-crop-transfer/api:$TARGET_SHA',
+  'pc-crop-transfer/web:$TARGET_SHA',
+  'pc-crop-transfer/migration:$TARGET_SHA',
+  'pc-crop-transfer/outbox-worker:$TARGET_SHA',
+  'docker save "${transfer_tags[@]}" | gzip -1 > "$archive"',
+  'archive_bytes="$(stat -c \'%s\' "$archive")"',
+  '(( archive_bytes > 0 && archive_bytes <= 8589934592 ))',
+  'archive_sha="$(sha256sum "$archive"',
+  'scp "${scp_common[@]}" "$archive"',
+  'remote_archive_bytes="$(stat -c \'%s\' "$archive")"',
+  '[[ "$remote_archive_bytes" == "$archive_bytes" ]]',
+  'actual_archive_sha="$(sha256sum "$archive"',
+  '[[ "$actual_archive_sha" == "$archive_sha" ]]',
+  'gzip -dc "$archive" | docker load >/dev/null',
+  'PINNED_SSH_EXACT_IMAGES=PASS',
+  'echo "${output_key}_runtime_image=$runtime_image" >> "$GITHUB_OUTPUT"',
+  'echo "${output_key}_remote_image_id=$remote_id" >> "$GITHUB_OUTPUT"',
+  'API_IMAGE: ${{ steps.transfer.outputs.api_runtime_image }}',
+  "PC_EXACT_IMAGE_SOURCE='pinned-ssh'",
+  "PC_OUTBOX_WORKER_IMAGE_ID='$OUTBOX_WORKER_IMAGE_ID'",
+  "steps.transfer.outputs.archive_sha }}' =~ ^[0-9a-f]{64}$",
+  "steps.transfer.outputs.archive_bytes }}' =~ ^[0-9]+$",
+  "steps.transfer.outputs.archive_bytes }} > 0",
+  "steps.transfer.outputs.archive_bytes }} <= 8589934592",
+  "steps.production.outputs.exact_image_source }}' == pinned-ssh",
+]) {
+  if (!workflowSource.includes(marker)) failures.push(`${paths.workflow}: missing pinned-SSH exact-image invariant ${JSON.stringify(marker)}`);
+}
+if (workflowSource.includes('- name: Authenticate production host to exact private registry')
+  || workflowSource.includes("DOCKER_CONFIG='/tmp/pc-registry-")) {
+  failures.push(`${paths.workflow}: production host must not depend on remote GHCR login for exact release images`);
+}
+const transferIndex = workflowSource.indexOf('- name: Transfer exact images over pinned SSH');
+const redisRepairIndex = workflowSource.indexOf('- name: Repair confirmed stale Redis network attachment');
+const rolloutIndex = workflowSource.indexOf('- name: Execute migration and exact API/web rollout');
+if (!(transferIndex >= 0 && redisRepairIndex > transferIndex && rolloutIndex > redisRepairIndex)) {
+  failures.push(`${paths.workflow}: pinned-SSH exact-image transfer must complete before production mutations`);
+}
 if ((workflowSource.match(/^\s+queue: max$/gmu) || []).length !== 2) {
   failures.push(`${paths.workflow}: workflow and production job must both retain every serialized pending invocation`);
 }
@@ -233,6 +276,21 @@ requireAll('executor', [
   "KAFKA_IMAGE='confluentinc/cp-kafka@sha256:",
   'KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"',
   'pc_ir20_kafka_data',
+  'resolve_api_runtime_network_authority',
+  'API_RUNTIME_NETWORK_CARDINALITY_INVALID',
+  'api_runtime_proxy_cidrs',
+  'API_RUNTIME_PROXY_CIDR_INVALID',
+  'TRUST_PROXY_MODE: "cidr"',
+  'TRUSTED_PROXY_CIDRS: "$api_runtime_proxy_cidrs"',
+  "'10.0.0.0/8'",
+  "'172.16.0.0/12'",
+  "'192.168.0.0/16'",
+  "'fc00::/7'",
+  'network.subnet_of',
+  'ir20_api_runtime',
+  'external: true',
+  'verify_ir20_runtime_network_parity',
+  'IR20_RUNTIME_NETWORK_PARITY_FAILED',
   'OUTBOX_WORKER_ENABLED: "false"',
   'RUNTIME_COMPONENT=outbox-worker',
   'ALTER ROLE app_outbox LOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION',
@@ -255,10 +313,23 @@ requireAll('executor', [
   'OUTBOX_WORKER_STARTUP_DIAGNOSTICS_BEGIN',
   'OUTBOX_WORKER_READY_BODY_BEGIN',
   'OUTBOX_WORKER_STARTUP_LOG_TAIL_BEGIN',
+  'emit_broker_startup_diagnostics',
+  'KAFKA_STARTUP_DIAGNOSTICS_BEGIN',
+  'KAFKA_STARTUP_REASON_CLASS=',
+  'KAFKA_STARTUP_LOG_TAIL_BEGIN',
+  'IR20_BROKER_RECOVERY=ATTEMPTED',
+  'IR20_BROKER_RECOVERY=PASS',
+  'IR20_BROKER_RECOVERY=FAILED',
+  '--force-recreate "$KAFKA_SERVICE"',
+  'API_WEB_MUTATED=0',
+  'API_WEB_MUTATED=1',
+  'if [[ "$ACTION" == rollback || "${API_WEB_MUTATED:-0}" == 1 ]]; then',
   'docker logs --tail 120',
   'docker logs --tail 80',
   'wait_web',
   'rollback_images',
+  'ROLLBACK_API_WEB_COMPLETE=',
+  'ROLLBACK_IR20_COMPLETE=',
   'verify_durable_intake',
   'DURABLE_INTAKE_DB=PASS',
   'public_organization_connection_requests',
@@ -268,19 +339,26 @@ requireAll('executor', [
   'WATCHTOWER_RETIRED=1',
   'DEPLOYMENT_COMPLETE=1',
 ]);
+const liveOutboxPassSource = String.raw`IR20_LIVE_OUTBOX_DELIVERY=PASS\n`;
+const doubleEscapedLiveOutboxPassSource = String.raw`IR20_LIVE_OUTBOX_DELIVERY=PASS\\n`;
+if (!(text.executor ?? '').includes(liveOutboxPassSource)) failures.push(`${paths.executor}: missing newline-terminated IR20 live delivery PASS marker`);
+if ((text.executor ?? '').includes(doubleEscapedLiveOutboxPassSource)) failures.push(`${paths.executor}: IR20 live delivery PASS marker must not be double-escaped`);
 requireAll('live', [
   'for locale in ru en zh',
   '?lang=$locale&release=$TARGET_SHA&run=$RELEASE_RUN_ID',
   'Cache-Control: no-cache, no-store, max-age=0',
-  'Платформа управления агросделками в растениеводстве',
-  'с собственным искусственным интеллектом',
-  'Управляйте агросделкой',
-  'от цены до расчёта',
-  'Crop Deal management platform',
-  'with proprietary artificial intelligence',
-  'Manage an agricultural Deal',
-  '种植业农业交易管理平台',
-  '配备自主人工智能',
+  'for canonical_anchor in market deal-path participants live trust gekta capabilities',
+  'intent=sell',
+  'intent=buy',
+  'Платформа для агросделок',
+  'Продать',
+  'Продавайте и покупайте урожай. Держите сделку под контролем.',
+  'Купить',
+  'A platform for agricultural Deals',
+  'Sell',
+  'Sell and buy crops. Keep your Deal under control.',
+  '农业交易平台',
+  '出售',
   'Цена согласована. Теперь нужно исполнить Сделку.',
   'if grep -Fq "$retired_title"',
   '/api/health/ready?release=$TARGET_SHA&run=$RELEASE_RUN_ID',
@@ -294,18 +372,18 @@ requireAll('live', [
   'LIVE_ACCEPTANCE=PASS',
 ]);
 requireAll('hero', [
-  'Платформа управления агросделками в растениеводстве',
-  'с собственным искусственным интеллектом',
-  'Управляйте агросделкой',
-  'от цены до расчёта',
-  'Crop Deal management platform',
-  'with proprietary artificial intelligence',
-  'Manage an agricultural Deal',
-  'from price to settlement',
-  '种植业农业交易管理平台',
-  '配备自主人工智能',
-  '管理农业交易',
-  '从价格到结算',
+  'Платформа для агросделок',
+  'Продать',
+  'Продавайте и покупайте урожай. Держите сделку под контролем.',
+  'Купить',
+  'A platform for agricultural Deals',
+  'Sell',
+  'Sell and buy crops. Keep your Deal under control.',
+  'Buy',
+  '农业交易平台',
+  '出售',
+  '销售与采购农产品，掌握交易进展。',
+  '购买',
 ]);
 forbid('hero', [/Crop Deal execution platform/]);
 
@@ -375,6 +453,67 @@ requireAll('executor', [
   'fail RUNNING_REVISION_MISMATCH 33',
 ]);
 const executorSource = text.executor ?? '';
+for (const marker of [
+  'EXACT_IMAGE_SOURCE="${PC_EXACT_IMAGE_SOURCE:-registry}"',
+  'OUTBOX_WORKER_IMAGE_ID="${PC_OUTBOX_WORKER_IMAGE_ID:-}"',
+  '[[ "$EXACT_IMAGE_SOURCE" =~ ^(registry|pinned-ssh)$ ]]',
+  'if [[ "$EXACT_IMAGE_SOURCE" == registry ]]; then',
+  'expected_ref="pc-crop-transfer/$component:$TARGET_SHA"',
+  'PRELOADED_IMAGE_REFERENCE_INVALID',
+  'PRELOADED_IMAGE_ID_REQUIRED',
+  'PRELOADED_IMAGE_ID_MISMATCH',
+  'configured_ref="$(docker inspect --format',
+  'container_image_id="$(docker inspect --format',
+  '[[ "$configured_ref" == "$image" && "$revision" == "$TARGET_SHA" && "$state" == true ]]',
+  'verify_image outbox-worker "$OUTBOX_WORKER_IMAGE" "$OUTBOX_WORKER_IMAGE_ID"',
+  'verify_local_runtime_revision()',
+  'verify_local_runtime_revision "$BASELINE_WORKER_IMAGE" "$restored_worker_id" "$BASELINE_WORKER_REVISION"',
+  "printf 'EXACT_IMAGE_SOURCE=%s\\n' \"$EXACT_IMAGE_SOURCE\"",
+]) {
+  if (!executorSource.includes(marker)) failures.push(`${paths.executor}: missing pinned-SSH executor invariant ${JSON.stringify(marker)}`);
+}
+const imageVerifierStart = executorSource.indexOf('verify_image() {');
+const imageVerifierEnd = executorSource.indexOf('\n}\n\nverify_runtime_image()', imageVerifierStart);
+const imageVerifierSource = imageVerifierStart >= 0 && imageVerifierEnd > imageVerifierStart
+  ? executorSource.slice(imageVerifierStart, imageVerifierEnd) : '';
+const registryBranchIndex = imageVerifierSource.indexOf('if [[ "$EXACT_IMAGE_SOURCE" == registry ]]');
+const remotePullIndex = imageVerifierSource.indexOf('pull-verify', registryBranchIndex);
+const registryReturnIndex = imageVerifierSource.indexOf('return', remotePullIndex);
+if (!(registryBranchIndex >= 0 && remotePullIndex > registryBranchIndex && registryReturnIndex > remotePullIndex)) {
+  failures.push(`${paths.executor}: remote registry pull must remain confined to explicit legacy registry mode`);
+}
+if (registryReturnIndex >= 0 && imageVerifierSource.slice(registryReturnIndex + 'return'.length).includes('pull-verify')) {
+  failures.push(`${paths.executor}: pinned-SSH exact-image verification must not contact the registry`);
+}
+if (!executorSource.includes('pc-crop-transfer/$component:$TARGET_SHA')) {
+  failures.push(`${paths.executor}: pinned runtime must bind deterministic target-SHA transfer tags`);
+}
+if (!executorSource.includes('container_image_id="$(docker inspect --format')) {
+  failures.push(`${paths.executor}: pinned runtime must bind the running container to the remote-local image ID`);
+}
+if (!executorSource.includes('verify_local_runtime_revision "$BASELINE_WORKER_IMAGE" "$restored_worker_id" "$BASELINE_WORKER_REVISION"')) {
+  failures.push(`${paths.executor}: rollback must verify the baseline worker by its own local reference and revision`);
+}
+const explicitRollbackStart = executorSource.indexOf('if [[ "$ACTION" == rollback ]]');
+const explicitRollbackEnd = executorSource.indexOf("printf 'COMPOSE_AUTHORITY_RESOLVED=1\\n'", explicitRollbackStart);
+const explicitRollbackSource = explicitRollbackStart >= 0 && explicitRollbackEnd > explicitRollbackStart
+  ? executorSource.slice(explicitRollbackStart, explicitRollbackEnd) : '';
+if (!(explicitRollbackSource.indexOf('API_WEB_MUTATED=1') >= 0
+  && explicitRollbackSource.indexOf('API_WEB_MUTATED=1') < explicitRollbackSource.indexOf('rollback_images'))) {
+  failures.push(`${paths.executor}: explicit rollback must restore API/Web even in its fresh process`);
+}
+const deployStart = executorSource.indexOf('provision_outbox_runtime\nwrite_override');
+const deploySource = deployStart >= 0 ? executorSource.slice(deployStart) : '';
+const brokerStartIndex = deploySource.indexOf('\"${dc_target[@]}\" up -d --no-deps --pull never \"$KAFKA_SERVICE\"');
+const brokerRecoveryIndex = deploySource.indexOf('recover_broker_once || fail KAFKA_READINESS_FAILED 115');
+const apiMutationIndex = deploySource.indexOf('API_WEB_MUTATED=1');
+const apiStartIndex = deploySource.indexOf('\"${dc_target[@]}\" up -d --no-deps --pull never api');
+if (!(deployStart >= 0 && brokerStartIndex >= 0 && brokerRecoveryIndex > brokerStartIndex && apiMutationIndex > brokerRecoveryIndex && apiStartIndex > apiMutationIndex)) {
+  failures.push(`${paths.executor}: broker recovery must precede the first API/Web mutation in deploy phase`);
+}
+if (executorSource.includes('docker volume rm') || executorSource.includes('docker volume prune')) {
+  failures.push(`${paths.executor}: Kafka recovery must not delete or prune the durable broker volume`);
+}
 const rollbackHandlerIndex = executorSource.indexOf('rollback_and_exit()');
 const rollbackArmIndex = executorSource.indexOf('RELEASE_ROLLBACK_ARMED=1');
 const targetOverrideIndex = executorSource.indexOf('write_override "$API_IMAGE" "$WEB_IMAGE" "$MIGRATION_IMAGE" "$full_override" 1 "$OUTBOX_WORKER_IMAGE" 1');

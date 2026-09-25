@@ -1,5 +1,7 @@
 'use client';
 
+import '@/styles/platform-v7-canonical-public-v1.css';
+
 import { useParams } from 'next/navigation';
 import { CanonicalDealWorkspace } from '@/components/platform-v7/CanonicalDealWorkspace';
 import { usePlatformV7RStore } from '@/stores/usePlatformV7RStore';
