@@ -1,6 +1,6 @@
 {
   "schemaVersion": "pc-crop.cryptographic-inventory.v1",
-  "scannedFiles": 2259,
+  "scannedFiles": 2293,
   "operations": [
     {
       "operation": "encryption",
@@ -43,11 +43,11 @@
     {
       "operation": "hash",
       "label": "Hashing",
-      "sites": 84,
+      "sites": 85,
       "algorithms": [
         {
           "algorithm": "sha256",
-          "sites": 84,
+          "sites": 85,
           "files": [
             "apps/api/src/common/outbox/outbox.service.ts",
             "apps/api/src/common/security/rate-limit.service.ts",
@@ -120,6 +120,7 @@
             "apps/web/lib/server/gekta-auth-route.ts",
             "apps/web/lib/server/mfa-login-ticket.ts",
             "apps/web/scripts/materialize-presentation-pdf.mjs",
+            "apps/web/scripts/materialize-public-crops.mjs",
             "packages/domain-core/src/audit-log.ts",
             "packages/domain-core/src/deal-event-chain.ts",
             "packages/domain-core/src/deal-signing-service.ts",
@@ -131,11 +132,11 @@
     {
       "operation": "mac",
       "label": "Message authentication",
-      "sites": 23,
+      "sites": 24,
       "algorithms": [
         {
           "algorithm": "sha256",
-          "sites": 22,
+          "sites": 23,
           "files": [
             "apps/api/src/common/security/rate-limit.service.ts",
             "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts",
@@ -152,6 +153,7 @@
             "apps/api/src/shared/integration-signature.ts",
             "apps/web/lib/gekta/anonymous-session.ts",
             "apps/web/lib/gekta/phone.ts",
+            "apps/web/lib/platform-v7/contact-result-receipt.ts",
             "apps/web/lib/platform-v7/marketing-attribution.server.ts",
             "apps/web/lib/platform-v7/tai-internal-stream.ts",
             "apps/web/lib/server-request-actor.ts",
@@ -253,11 +255,11 @@
     {
       "operation": "csprng",
       "label": "Cryptographic randomness",
-      "sites": 30,
+      "sites": 31,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 30,
+          "sites": 31,
           "files": [
             "apps/api/src/common/config/secrets.ts",
             "apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
@@ -273,6 +275,7 @@
             "apps/web/app/api/lots/route.ts",
             "apps/web/lib/gekta/anonymous-session.ts",
             "apps/web/lib/gekta/phone.ts",
+            "apps/web/lib/platform-v7/contact-result-receipt.ts",
             "apps/web/lib/platform-v7/govIdentityBridge.ts",
             "apps/web/lib/server-request-security.ts",
             "apps/web/lib/server/gekta-mfa-ticket.ts",
@@ -469,11 +472,11 @@
     {
       "operation": "constant-time",
       "label": "Constant-time comparison",
-      "sites": 24,
+      "sites": 25,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 24,
+          "sites": 25,
           "files": [
             "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts",
             "apps/api/src/modules/auth/auth-crypto.ts",
@@ -495,6 +498,7 @@
             "apps/web/app/platform-v7/staff/open-cabinet/route.ts",
             "apps/web/lib/gekta/anonymous-session.ts",
             "apps/web/lib/gekta/phone.ts",
+            "apps/web/lib/platform-v7/contact-result-receipt.ts",
             "apps/web/lib/platform-v7/marketing-attribution.server.ts",
             "apps/web/lib/server-request-actor.ts",
             "apps/web/lib/server-request-security.ts",
@@ -596,6 +600,13 @@
       "kind": "secret",
       "files": [
         "apps/api/src/modules/settlement-engine/bank-key-registry.service.ts"
+      ]
+    },
+    {
+      "name": "CONTACT_RESULT_HMAC_SECRET",
+      "kind": "secret",
+      "files": [
+        "apps/web/lib/platform-v7/contact-result-receipt.ts"
       ]
     },
     {

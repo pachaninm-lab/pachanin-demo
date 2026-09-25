@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 const webRoot = existsSync(join(process.cwd(), 'app/platform-v7')) ? process.cwd() : join(process.cwd(), 'apps/web');
 
 const read = (relativePath: string) => readFileSync(join(webRoot, relativePath), 'utf8');
+const absentLegacyQueue = 'lib/platform-v7/operator-execution-queue.ts';
 
 const guardedFiles = [
   'app/platform-v7/ai/page.tsx',
@@ -79,7 +80,6 @@ const guardedFiles = [
   'lib/platform-v7/execution-command-contracts.ts',
   'lib/platform-v7/integrations/providerRegistry.ts',
   'lib/platform-v7/logistics-receiving-gate.ts',
-  'lib/platform-v7/operator-execution-queue.ts',
 ];
 
 const forbiddenVisibleCopy = [
@@ -138,11 +138,24 @@ const forbiddenVisibleCopy = [
 ];
 
 describe('platform-v7 deep bank and deal copy guard', () => {
+  it('keeps the removed legacy execution queue absent from this contour', () => {
+    expect(existsSync(join(webRoot, absentLegacyQueue))).toBe(false);
+  });
+
   it('keeps deep bank, deal and evidence surfaces on execution-contour wording', () => {
     const source = guardedFiles.map(read).join('\n');
 
     for (const copy of forbiddenVisibleCopy) {
       expect(source, `deep platform-v7 copy must not contain "${copy}"`).not.toContain(copy);
     }
+  });
+
+  it('rejects positive money and demo claims without rejecting explicit safety boundaries', () => {
+    const offending = (source: string) => forbiddenVisibleCopy.filter((copy) => source.includes(copy));
+
+    expect(offending('Запрос на выпуск денег · Деньги выпущены · демо-контур'))
+      .toEqual(expect.arrayContaining(['Запрос на выпуск денег', 'Деньги выпущены', 'демо-контур']));
+    expect(offending('Платформа не может вручную менять денежный статус. Профиль не содержит фиктивных секретов.'))
+      .toEqual([]);
   });
 });

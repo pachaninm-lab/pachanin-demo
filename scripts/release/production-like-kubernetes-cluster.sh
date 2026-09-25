@@ -106,7 +106,7 @@ test "$(kubectl get deployment kafka -n "$NAMESPACE" -o jsonpath='{.status.ready
 test "$(kubectl get pods -n "$NAMESPACE" -l app.kubernetes.io/name=kafka --no-headers | wc -l | tr -d ' ')" = "1"
 
 kubectl run minio-init -n "$NAMESPACE" --restart=Never \
-  --image=minio/mc:RELEASE.2024-05-09T17-04-24Z \
+  --image=quay.io/minio/mc:RELEASE.2024-05-09T17-04-24Z@sha256:3e9666a093d0a8fcbbac606346c415ae9277a0ca96989a6bdddd3d03e90a21b4 \
   --env="MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}" \
   --env="MINIO_SECRET_KEY=${MINIO_SECRET_KEY}" \
   --command -- /bin/sh -ec \
