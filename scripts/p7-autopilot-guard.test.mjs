@@ -33,6 +33,16 @@ const productImplementationManifests = new Map([
   ['ux/buyer-first-customer-home-20260925', 'docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json'],
 ]);
 const productAdmissionBranch = 'governance/product-bank-fgis-ux-source-admission-20260924';
+const buyerAdmissionBranch = 'governance/product-buyer-home-admission-20260925';
+const buyerBranch = 'ux/buyer-first-customer-home-20260925';
+const buyerCoordinationKey = 'ux-buyer-first-customer-home-20260925-coordination';
+const buyerPaths = [
+  'apps/web/components/platform-v7/FirstCustomerWorkspace.tsx',
+  'apps/web/components/platform-v7/FirstCustomerWorkspace.module.css',
+  'apps/web/tests/unit/designSystemV8MoneyRoles.test.ts',
+  'apps/web/tests/unit/platformV7BuyerFirstCustomerUx.test.tsx',
+  'docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json',
+];
 const dealCommandImplementationBranch = 'ux/deal-command-unknown-20260925';
 const productAdmissionPaths = new Map([
   ['bank/deep-visible-copy-guard-20260924', [
@@ -1716,10 +1726,73 @@ test('product source admission uses both trusted-base workflow routes', () => {
   const standard = workflow.split('      - name: Validate standard branch scope on PR head')[1]
     .split('  standard_validation:')[0];
   assert.ok(trusted.includes(`github.event.pull_request.head.ref == '${productAdmissionBranch}'`));
-  assert.ok(trusted.includes(`|${productAdmissionBranch})`));
+  assert.ok(trusted.includes(`|${productAdmissionBranch}|${buyerAdmissionBranch})`));
   assert.ok(prHead.includes(`github.head_ref == '${productAdmissionBranch}'`));
-  assert.ok(prHead.includes(`|${productAdmissionBranch})`));
+  assert.ok(prHead.includes(`|${productAdmissionBranch}|${buyerAdmissionBranch})`));
   assert.ok(standard.includes(`github.head_ref != '${productAdmissionBranch}'`));
+});
+
+for (const mutation of ['accepted', 'wrong base', 'extra path', 'global scope', 'weakened boundary',
+  'unrelated admission', 'source file', 'missing state diff']) {
+  test(`buyer state-only admission is exact and base-bound: ${mutation}`, (t) => {
+    const context = fixture(t, buyerAdmissionBranch);
+    const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+    const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+    delete state.approvedConcurrentScopes[buyerAdmissionBranch];
+    state.coordinationAdmissions = {};
+    write(context.root, statePath, JSON.stringify(state));
+    commit(context.root, 'trusted base without buyer source authority');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+    state.approvedConcurrentScopes[buyerBranch] = [...buyerPaths];
+    state.coordinationAdmissions[buyerCoordinationKey] = {
+      owner: 'ACCOUNT_2_PRODUCT',
+      purpose: 'Buyer first-customer production-home information architecture and visual hierarchy from existing scoped server facts; one vertical after seller, not full 13-role acceptance.',
+      authorityBaseExactMain: context.baseline,
+      implementationBranch: buyerBranch,
+      allowedPaths: [...buyerPaths],
+      requiredTruthBoundaries: [
+        'Buyer shows only server-scoped organization, identity and Deal queue facts; list recency never becomes required next action, amount or deadline.',
+        'UNKNOWN next action, empty, forbidden and degraded remain explicit; no demo/static deal or fake bank/provider/FGIS status.',
+        'RU/EN/ZH, mobile, focus and seller plus other six role regressions stay covered; owner-controlled showroom does not gain customer authority.',
+        'Buyer source changes start only after the accepted immutable guard prerequisite and this state-only admission are merged.',
+      ],
+      forbiddenAuthority: [
+        'homepage/public implementation or parallel App Shell/design system',
+        'API/backend/domain/DB/RLS/tenant/role/priority or money/provider/FGIS finality',
+        'CI/security/readiness gate weakening',
+      ],
+      teamHubDependency: '#5372 inventory comment 5833248230; #5604 guard prerequisite; PUBLIC #5559 main serialization; #5535 CORE next-action dependency',
+    };
+    if (mutation === 'wrong base') state.coordinationAdmissions[buyerCoordinationKey].authorityBaseExactMain = '0'.repeat(40);
+    if (mutation === 'extra path') state.approvedConcurrentScopes[buyerBranch].push('apps/api/src/app.module.ts');
+    if (mutation === 'global scope') state.allowedCurrentScope.push('apps/api/**');
+    if (mutation === 'weakened boundary') state.coordinationAdmissions[buyerCoordinationKey].requiredTruthBoundaries.pop();
+    if (mutation === 'unrelated admission') state.coordinationAdmissions.extra = { owner: 'ACCOUNT_2_PRODUCT' };
+    if (mutation !== 'missing state diff') write(context.root, statePath, JSON.stringify(state));
+    if (mutation === 'source file') write(context.root, 'apps/api/src/app.module.ts', 'unapproved\n');
+    if (mutation === 'missing state diff') write(context.root, 'allowed.txt', 'changed\n');
+    commit(context.root, `buyer admission ${mutation}`);
+    const result = runGuard(context);
+    if (mutation === 'accepted') assert.equal(result.status, 0, output(result));
+    else {
+      assert.notEqual(result.status, 0, output(result));
+      assert.match(output(result), /PRODUCT_BUYER_ADMISSION_(STATE_MUTATION|DIFF_SCOPE)/u);
+    }
+  });
+}
+
+test('buyer admission uses trusted base guard in both workflow entry points', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const trusted = workflow.split('  trusted-immutable-scope:')[1].split('  guard:')[0];
+  const prHead = workflow.split('      - name: Validate immutable scope with trusted base guard on PR head')[1]
+    .split('      - name: Validate owner-authorized industrial diagnostic bootstrap candidate')[0];
+  const standard = workflow.split('      - name: Validate standard branch scope on PR head')[1]
+    .split('  standard_validation:')[0];
+  assert.ok(trusted.includes(`github.event.pull_request.head.ref == '${buyerAdmissionBranch}'`));
+  assert.ok(trusted.includes(`|${buyerAdmissionBranch})`));
+  assert.ok(prHead.includes(`github.head_ref == '${buyerAdmissionBranch}'`));
+  assert.ok(prHead.includes(`|${buyerAdmissionBranch})`));
+  assert.ok(standard.includes(`github.head_ref != '${buyerAdmissionBranch}'`));
 });
 
 test('security remediation pins the three affected dependency families', () => {
