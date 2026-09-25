@@ -339,7 +339,7 @@ describe('public assistant fallback and DOM privacy contract', () => {
     // исключений (#4786): контракт держится, дрейфнул исходник. Существо
     // утверждения - что при откате на проверенное знание история разговора
     // передаётся - проверяется вторым аргументом и сохранено.
-    expect(componentSource).toContain('knowledgeFallback(question, history, controller)');
+    expect(componentSource).toContain('knowledgeFallback(question, history, controller, generation)');
     expect(componentSource).toContain('JSON.stringify({ message: question, locale, context: contextName, history })');
   });
 

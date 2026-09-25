@@ -13,7 +13,7 @@ SCRIPT = Path(__file__).with_name('production-full-stack-exact-sha.sh')
 SOURCE = SCRIPT.read_text()
 HELPERS = SOURCE[SOURCE.index('runtime_isolation_error() {'):SOURCE.index('\nruntime_project=""')]
 CANARY = 'PRIVATE_VALUE_MUST_NOT_APPEAR'
-API, WEB, WATCH, FOREIGN_API, FOREIGN_WEB, FOREIGN_WATCH, WORKER, NEW_API = [c * 64 for c in '12345678']
+API, WEB, WATCH, FOREIGN_API, FOREIGN_WEB, FOREIGN_WATCH, WORKER, NEW_API, BROKER, FOREIGN_WORKER, FOREIGN_BROKER = [c * 64 for c in '123456789ab']
 
 DOCKER = r'''#!/usr/bin/env python3
 import json, os, sys
@@ -22,7 +22,13 @@ p=Path(os.environ['FIXTURE_PATH']); f=json.loads(p.read_text()); a=sys.argv[1:]
 with open(os.environ['DOCKER_CALLS'],'a') as log: log.write(json.dumps(a)+'\n')
 kind=a[0]
 if kind=='compose': kind='compose-'+a[-1]
-if kind=='ps': kind='watchtower-list' if '-aq' in a else 'all-list'
+if kind=='ps':
+    if '-aq' in a:
+        filters=[a[i+1] for i,v in enumerate(a) if v=='--filter']
+        service=next((v.split('=',2)[-1] for v in filters if v.startswith('label=com.docker.compose.service=')),None)
+        kind='watchtower-list' if service=='watchtower' else 'service-list'
+    else:
+        kind='all-list'
 if kind=='inspect':
     fmt=a[a.index('--format')+1]
     kind='state' if 'RestartPolicy' in fmt else ('identity' if '.Id' in fmt else 'project')
@@ -37,8 +43,10 @@ elif a[0]=='ps':
     if '-aq' in a:
         filters=[a[i+1] for i,v in enumerate(a) if v=='--filter']
         project=next((v.split('=',2)[-1] for v in filters if v.startswith('label=com.docker.compose.project=')),None)
-        ids=[i for i,c in containers.items() if c['service']=='watchtower' and (project is None or c['project']==project)]
-        ids=f.get('watchtower_override',ids)
+        service=next((v.split('=',2)[-1] for v in filters if v.startswith('label=com.docker.compose.service=')),None)
+        ids=[i for i,c in containers.items() if (project is None or c['project']==project) and (service is None or c['service']==service)]
+        if service=='watchtower': ids=f.get('watchtower_override',ids)
+        ids=f.get('service_override',{}).get(service,ids)
     else:
         ids=f.get('all_override',[i for i,c in containers.items() if c['running']])
     print('\n'.join(ids))
@@ -54,7 +62,7 @@ elif a[0]=='update':
 elif a[0]=='stop':
     if not f.get('ignore_stop'): containers[a[-1]]['running']=False
     if f.get('add_watchtower_after_stop'):
-        containers['9'*64]={'project':'production','service':'watchtower','running':True,'restart':'always'}
+        containers['c'*64]={'project':'production','service':'watchtower','running':True,'restart':'always'}
     p.write_text(json.dumps(f))
 else: sys.exit(25)
 '''
@@ -64,7 +72,8 @@ def fixture():
     values = [(API,'production','api'), (WEB,'production','web'),
               (WATCH,'production','watchtower'), (FOREIGN_API,'other','api'),
               (FOREIGN_WEB,'other','web'), (FOREIGN_WATCH,'other','watchtower'),
-              (WORKER,'production','outbox-worker')]
+              (WORKER,'production','outbox-worker'), (BROKER,'production','ir20-kafka'),
+              (FOREIGN_WORKER,'other','outbox-worker'), (FOREIGN_BROKER,'other','ir20-kafka')]
     return {'containers': {i:{'project':p,'service':s,'running':True,'restart':'always'}
                            for i,p,s in values}, 'compose': {'api':[API], 'web':[WEB]}}
 
@@ -78,7 +87,7 @@ class TargetIsolation(unittest.TestCase):
             (root/'next.json').write_text(json.dumps(next_data or {}))
             script=("set -Eeuo pipefail\n" + HELPERS + '\n' +
                     'dc=(docker compose --project-name production)\n' +
-                    f'api_id={API}\nweb_id={WEB}\nprod_project={shlex.quote(project)}\nruntime_project=""\n' +
+                    f'api_id={API}\nweb_id={WEB}\nprod_project={shlex.quote(project)}\nruntime_project=""\nOUTBOX_SERVICE=outbox-worker\nKAFKA_SERVICE=ir20-kafka\n' +
                     'resolve_release_runtime_project\n' + body)
             env={**os.environ, 'PATH':str(root)+os.pathsep+os.environ['PATH'],
                  'FIXTURE_PATH':str(root/'fixture.json'), 'DOCKER_CALLS':str(root/'calls')}
@@ -95,10 +104,10 @@ class TargetIsolation(unittest.TestCase):
         self.assertIn('ERROR_CODE='+code,result.stderr)
         return calls,outputs,state
 
-    def test_other_projects_and_worker_stay_in_snapshot(self):
+    def test_only_foreign_projects_stay_in_snapshot(self):
         r,_,files,_=self.run_shell('snapshot_unrelated before.snapshot')
         self.assertEqual(r.returncode,0,r.stderr)
-        self.assertEqual(files['before.snapshot'].splitlines(),[FOREIGN_API,FOREIGN_WEB,FOREIGN_WATCH,WORKER])
+        self.assertEqual(files['before.snapshot'].splitlines(),sorted([FOREIGN_API,FOREIGN_WEB,FOREIGN_WATCH,FOREIGN_WORKER,FOREIGN_BROKER]))
 
     def test_missing_explicit_project_uses_matching_runtime_authority(self):
         r,_,_,_=self.run_shell('snapshot_unrelated before.snapshot',project='')
@@ -179,10 +188,25 @@ class TargetIsolation(unittest.TestCase):
         self.assertNotEqual(r.returncode,0)
         self.assertNotEqual(files['before.snapshot'],files['after.snapshot'])
 
-    def test_recreated_worker_is_detected_until_rollout_authorized(self):
+    def test_recreated_owned_worker_is_allowed(self):
         after=fixture(); after['containers'][NEW_API]=after['containers'].pop(WORKER)
         r,_,_,_=self.run_shell('snapshot_unrelated before.snapshot\ncp next.json "$FIXTURE_PATH"\nsnapshot_unrelated after.snapshot\ncmp -s before.snapshot after.snapshot',next_data=after)
+        self.assertEqual(r.returncode,0,r.stderr)
+
+    def test_recreated_owned_broker_is_allowed(self):
+        after=fixture(); replacement='d'*64; after['containers'][replacement]=after['containers'].pop(BROKER)
+        r,_,_,_=self.run_shell('snapshot_unrelated before.snapshot\ncp next.json "$FIXTURE_PATH"\nsnapshot_unrelated after.snapshot\ncmp -s before.snapshot after.snapshot',next_data=after)
+        self.assertEqual(r.returncode,0,r.stderr)
+
+    def test_duplicate_owned_worker_is_rejected(self):
+        f=fixture(); duplicate='e'*64; f['containers'][duplicate]={'project':'production','service':'outbox-worker','running':True,'restart':'always'}
+        self.assert_failure('snapshot_unrelated before.snapshot',f,'TARGET_RUNTIME_AMBIGUOUS')
+
+    def test_foreign_worker_change_is_detected(self):
+        after=fixture(); after['containers'][FOREIGN_WORKER]['running']=False
+        r,_,files,_=self.run_shell('snapshot_unrelated before.snapshot\ncp next.json "$FIXTURE_PATH"\nsnapshot_unrelated after.snapshot\ncmp -s before.snapshot after.snapshot',next_data=after)
         self.assertNotEqual(r.returncode,0)
+        self.assertNotEqual(files['before.snapshot'],files['after.snapshot'])
 
     def test_only_own_watchtower_is_mutated_and_verified(self):
         r,calls,_,state=self.run_shell('retire_release_watchtower')
@@ -250,7 +274,7 @@ class TargetIsolation(unittest.TestCase):
 
     def test_new_watchtower_after_retirement_blocks_final_snapshot(self):
         after=fixture(); after['containers'][WATCH].update(running=False,restart='no')
-        after['containers']['9'*64]={'project':'production','service':'watchtower','running':True,'restart':'always'}
+        after['containers']['c'*64]={'project':'production','service':'watchtower','running':True,'restart':'always'}
         r,_,_,_=self.run_shell('retire_release_watchtower\ncp next.json "$FIXTURE_PATH"\nsnapshot_unrelated after.snapshot 1',next_data=after)
         self.assertNotEqual(r.returncode,0)
         self.assertIn('WATCHTOWER_RUNNING_AFTER_RETIREMENT',r.stderr)

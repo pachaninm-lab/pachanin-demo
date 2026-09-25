@@ -1,10 +1,10 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { AiAssistantPanel } from './AiAssistantPanel';
-import { CabinetContactDock } from './CabinetContactDock';
+import dynamic from 'next/dynamic';
 import { ChatSupportWidget } from './ChatSupportWidget';
 import { PublicAssistantAttachmentBridge } from './PublicAssistantAttachmentBridge';
+import { PublicAssistantMobileLayoutAuthority } from './PublicAssistantMobileLayoutAuthority';
 import { PublicContactDock } from './PublicContactDock';
 import { PublicPlatformAssistant } from './PublicPlatformAssistant';
 import { UnifiedModalSheetFullscreenController } from './UnifiedModalSheetFullscreenController';
@@ -18,6 +18,17 @@ import '@/styles/platform-v7-public-assistant-mobile-hotfix.css';
 import '@/styles/platform-v7-public-assistant-polish.css';
 import '@/styles/platform-v7-public-assistant-attachments.css';
 
+// Private-only components must not join the public chat bootstrap bundle.
+// Their existing route branches and verified-role props remain unchanged.
+const AiAssistantPanel = dynamic(
+  () => import('./AiAssistantPanel').then((module) => module.AiAssistantPanel),
+  { ssr: false, loading: () => null },
+);
+const CabinetContactDock = dynamic(
+  () => import('./CabinetContactDock').then((module) => module.CabinetContactDock),
+  { ssr: false, loading: () => null },
+);
+
 const ASSISTANT_WORKSPACE = '/platform-v7/assistant';
 const AI_IN_ACTION = '/platform-v7/ai-in-action';
 const PUBLIC_HOME = '/platform-v7';
@@ -26,6 +37,9 @@ const PUBLIC_ENTRY_REWRITE_PREFIX = '/pc-public-entry';
 const PUBLIC_EXACT = new Set([
   PUBLIC_HOME,
   '/platform-v7/open',
+  '/platform-v7/market',
+  '/platform-v7/capabilities',
+  '/platform-v7/gekta',
   '/platform-v7/login',
   '/platform-v7/register',
   '/platform-v7/forgot-password',
@@ -118,6 +132,10 @@ export function ContextualSupportOrAssistant({
   return (
     <>
       <UnifiedModalSheetFullscreenController />
+      {/* The only viewport authority. It acts only on the public assistant
+          panel, so it travels with that panel's on-demand chunk instead of
+          every page's entry bundle, and still mounts before the assistant. */}
+      <PublicAssistantMobileLayoutAuthority />
       <PublicPlatformAssistant />
       <PublicAssistantAttachmentBridge />
       <ChatSupportWidget />
