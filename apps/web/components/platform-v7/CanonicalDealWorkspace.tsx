@@ -75,6 +75,7 @@ type Workspace = {
 
 type CommandResult = {
   ok: boolean;
+  commandId?: string;
   duplicate?: boolean;
   status?: string;
   updatedAt?: string;
@@ -230,6 +231,11 @@ export function CanonicalDealWorkspace({ role: _role, dealId }: { role: Platform
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState('');
   const [notice, setNotice] = React.useState('');
+  const [unverifiedCommand, setUnverifiedCommand] = React.useState<{
+    dealId: string;
+    actionId: string;
+    commandId: string;
+  } | null>(null);
 
   const load = React.useCallback(async () => {
     if (!dealId) {
@@ -264,7 +270,8 @@ export function CanonicalDealWorkspace({ role: _role, dealId }: { role: Platform
   async function executePrimaryAction(payload: Record<string, unknown>) {
     const action = workspace?.roleProjection.primaryAction;
     const isSystemAction = action?.source === 'BANK_CALLBACK' || action?.waitingForRoles.includes('BANK_CALLBACK');
-    if (!workspace || !action?.enabled || isSystemAction || submitting || workspace.blockers.length > 0) return;
+    const outcomeUnknown = unverifiedCommand?.dealId === workspace?.deal.id && unverifiedCommand.actionId === action?.id;
+    if (!workspace || !action?.enabled || isSystemAction || submitting || workspace.blockers.length > 0 || outcomeUnknown) return;
 
     const commandId = globalThis.crypto?.randomUUID?.() ?? `command-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const idempotencyKey = `${workspace.deal.id}:${action.id}:${commandId}`;
@@ -286,17 +293,21 @@ export function CanonicalDealWorkspace({ role: _role, dealId }: { role: Platform
         }),
       });
       const result = await readJson(response) as CommandResult;
+      if (result?.ok !== true || result.commandId !== commandId) {
+        setUnverifiedCommand({ dealId: workspace.deal.id, actionId: action.id, commandId });
+        return;
+      }
       setNotice(result.duplicate ? 'Это действие уже было выполнено. Показан сохранённый результат.' : 'Готово. Результат записан в сделку.');
       await load();
     } catch (reason) {
       if (reason instanceof HttpError && reason.status === 409) {
         setNotice('Данные изменились другим участником. Экран обновлён — проверь состояние и повтори действие.');
         await load();
-      } else if (reason instanceof TypeError) {
-        setError('Нет связи. Действие не отправлено и не сохранено на устройстве. Проверь данные и повтори после восстановления сети.');
-      } else {
+      } else if (reason instanceof HttpError && [400, 401, 403, 404, 422].includes(reason.status)) {
         const field = reason instanceof HttpError && reason.field ? `Поле «${reason.field}»: ` : '';
         setError(`${field}${reason instanceof Error ? reason.message : 'Команда не выполнена.'}`);
+      } else {
+        setUnverifiedCommand({ dealId: workspace.deal.id, actionId: action.id, commandId });
       }
     } finally {
       setSubmitting(false);
@@ -333,33 +344,40 @@ export function CanonicalDealWorkspace({ role: _role, dealId }: { role: Platform
 
   const activeStep = workspace.spine.find((step) => step.state === 'active');
   const action = workspace.roleProjection.primaryAction;
+  const activeUnknown = unverifiedCommand?.dealId === workspace.deal.id && unverifiedCommand.actionId === action?.id
+    ? unverifiedCommand
+    : null;
   const systemAction = action?.source === 'BANK_CALLBACK' || action?.waitingForRoles.includes('BANK_CALLBACK');
   const shipment = workspace.shipments[0];
   const acceptance = workspace.acceptance[0];
   const signedDocuments = workspace.documents.filter((item) => item.status === 'SIGNED').length;
   const hasBlockers = workspace.blockers.length > 0;
 
-  const taskTitle = hasBlockers
-    ? workspace.blockers[0]
-    : systemAction
-      ? 'Жди подтверждение банка'
-      : action?.enabled
-        ? action.label
-        : action
-          ? `Жди: ${waitingLabel(action)}`
-          : 'Сейчас ничего делать не нужно';
+  const taskTitle = activeUnknown
+    ? 'Проверь исход предыдущей команды'
+    : hasBlockers
+      ? workspace.blockers[0]
+      : systemAction
+        ? 'Жди подтверждение банка'
+        : action?.enabled
+          ? action.label
+          : action
+            ? `Жди: ${waitingLabel(action)}`
+            : 'Сейчас ничего делать не нужно';
 
-  const taskExplanation = hasBlockers
-    ? 'Сначала устрани указанный стоп-фактор. До этого следующий шаг сделки заблокирован.'
-    : systemAction
-      ? 'Банк проверяет операцию. Состояние изменится автоматически после подтверждённого callback.'
-      : action?.enabled
-        ? workspace.attention || 'Заполни только обязательные поля и подтверди действие.'
-        : action
-          ? `Следующий шаг выполняет ${waitingLabel(action)}. Экран обновится после подтверждения.`
-          : 'Сделка завершена или ожидает системного события.';
+  const taskExplanation = activeUnknown
+    ? 'Связь прервалась или сервер не вернул проверяемое подтверждение. Команда могла быть выполнена. Повторная отправка с новым кодом заблокирована на этом экране до проверки исхода.'
+    : hasBlockers
+      ? 'Сначала устрани указанный стоп-фактор. До этого следующий шаг сделки заблокирован.'
+      : systemAction
+        ? 'Банк проверяет операцию. Состояние изменится автоматически после подтверждённого callback.'
+        : action?.enabled
+          ? workspace.attention || 'Заполни только обязательные поля и подтверди действие.'
+          : action
+            ? `Следующий шаг выполняет ${waitingLabel(action)}. Экран обновится после подтверждения.`
+            : 'Сделка завершена или ожидает системного события.';
 
-  const TaskIcon = hasBlockers ? AlertTriangle : systemAction ? Banknote : ArrowRight;
+  const TaskIcon = hasBlockers || activeUnknown ? AlertTriangle : systemAction ? Banknote : ArrowRight;
   // The server supplies detailed action states, not verified seven-stage totals
   // or an aggregate normal/deviation/dispute status. Keep this overview unknown.
   // Compatibility contract: Team Hub #5469 / PRODUCT-5465-DEAL-STAGE-TRUTH.
@@ -411,15 +429,19 @@ export function CanonicalDealWorkspace({ role: _role, dealId }: { role: Platform
         />
       </section>
 
-      <section className={`${styles.nextTask} ${hasBlockers ? styles.nextTaskBlocked : ''}`} aria-labelledby='deal-next-task'>
+      <section className={`${styles.nextTask} ${hasBlockers || activeUnknown ? styles.nextTaskBlocked : ''}`} aria-labelledby='deal-next-task'>
         <div className={styles.taskHeading}>
           <div className={styles.taskIcon}><TaskIcon size={24} aria-hidden='true' /></div>
           <div>
-            <span className={styles.taskLabel}>{hasBlockers ? 'Сначала реши проблему' : systemAction ? 'Сейчас делать ничего не нужно' : 'Твоё следующее действие'}</span>
+            <span className={styles.taskLabel}>{activeUnknown ? 'Сначала проверь исход' : hasBlockers ? 'Сначала реши проблему' : systemAction ? 'Сейчас делать ничего не нужно' : 'Твоё следующее действие'}</span>
             <h2 id='deal-next-task'>{taskTitle}</h2>
             <p className={styles.taskExplanation}>{taskExplanation}</p>
           </div>
         </div>
+
+        {activeUnknown ? (
+          <p className={styles.taskExplanation} role='alert'>Исход команды неизвестен. Код попытки: {activeUnknown.commandId}. Обнови подтверждённое состояние сделки после восстановления связи; если результат неясен, передай этот код поддержке. Не отправляй новую команду до сверки.</p>
+        ) : null}
 
         {hasBlockers && workspace.blockers.length > 1 ? (
           <ul className={styles.blockerList}>
@@ -436,7 +458,7 @@ export function CanonicalDealWorkspace({ role: _role, dealId }: { role: Platform
             actionId={action.id}
             label={action.label}
             submitting={submitting}
-            disabled={false}
+            disabled={Boolean(activeUnknown)}
             initialValues={commandInitialValues(action.id, workspace)}
             onSubmit={executePrimaryAction}
           />
@@ -513,4 +535,3 @@ export function CanonicalDealWorkspace({ role: _role, dealId }: { role: Platform
     </section>
   );
 }
-

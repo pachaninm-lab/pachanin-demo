@@ -1,8 +1,22 @@
+import React from 'react';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { platformV7RoleCanOpenHref } from '@/lib/platform-v7/shellRoutes';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
+
+vi.mock('@/components/platform-v7/PublicCanonicalPrimitives', () => ({
+  CanonicalDealSpine: () => null,
+  CanonicalStateLens: () => null,
+  CanonicalTrustLedger: () => null,
+}));
+vi.mock('@/components/platform-v7/DealCommandForm', () => ({
+  DealCommandForm: ({ label, disabled, onSubmit }: { label: string; disabled?: boolean; onSubmit: (payload: {}) => Promise<void> }) =>
+    React.createElement('button', { type: 'button', disabled, onClick: () => void onSubmit({}) }, label),
+}));
+
+import { CanonicalDealWorkspace } from '@/components/platform-v7/CanonicalDealWorkspace';
 
 function source(path: string): string {
   return readFileSync(join(process.cwd(), path), 'utf8');
@@ -121,8 +135,9 @@ describe('platform-v7 canonical one-deal workspace', () => {
     expect(workspace).toContain('await load()');
   });
 
-  it('does not pretend an offline command was stored before the identity-bound IndexedDB queue exists', () => {
-    expect(workspace).toContain('Действие не отправлено и не сохранено на устройстве');
+  it('does not assert a transport failure means the command was never received', () => {
+    expect(workspace).toContain('Исход команды неизвестен');
+    expect(workspace).not.toContain('Действие не отправлено');
     expect(workspace).not.toContain('enqueueCommand');
     expect(workspace).not.toContain('pendingForDeal');
     expect(workspace).not.toContain('localStorage');
@@ -175,5 +190,78 @@ describe('platform-v7 canonical one-deal workspace', () => {
     expect(loginRoute).not.toContain('detectDemoRole');
     expect(loginClient).not.toContain('const workspaces');
     expect(loginClient).not.toContain('setDirectRole');
+  });
+});
+
+const dealSnapshot = {
+  deal: {
+    id: 'deal-unknown-1', number: 'PC-1', status: 'OPEN', version: '1', updatedAt: '2026-09-25T00:00:00Z',
+    culture: null, cropClass: null, volumeTons: null, pricePerTon: null, totalKopecks: null, currency: 'RUB',
+  },
+  roleProjection: {
+    role: 'FARMER', focus: 'Проверка', canAct: true,
+    primaryAction: { id: 'confirm_action', label: 'Подтвердить действие', enabled: true, source: 'USER', waitingForRoles: [] },
+  },
+  attention: '', blockers: [], money: null, spine: [], shipments: [], documents: [], laboratory: [],
+  acceptance: [], disputes: [], timeline: [],
+};
+
+describe('canonical Deal command outcome after an uncertain response', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it.each([
+    { name: 'connection loss after POST', reply: async () => { throw new TypeError('connection reset'); } },
+    { name: 'aborted response', reply: async () => { throw new DOMException('aborted', 'AbortError'); } },
+    { name: 'HTTP 503 after possible mutation', reply: async () => ({ ok: false, status: 503, json: async () => ({ message: 'backend unavailable' }) }) },
+    { name: 'rate limit after possible mutation', reply: async () => ({ ok: false, status: 429, json: async () => ({ message: 'retry later' }) }) },
+    { name: 'unverifiable HTTP 200 body', reply: async () => ({ ok: true, json: async () => ({ ok: true, commandId: 'another-command' }) }) },
+  ])('keeps $name UNKNOWN and blocks a new command identity even after refresh', async ({ reply }) => {
+    const fetchMock = vi.fn(async (_url: string, options?: { method?: string }) =>
+      options?.method === 'POST' ? reply() : { ok: true, json: async () => dealSnapshot });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(React.createElement(CanonicalDealWorkspace, { role: 'seller', dealId: dealSnapshot.deal.id }));
+    const submit = await screen.findByRole('button', { name: 'Подтвердить действие' });
+    fireEvent.click(submit);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Исход команды неизвестен');
+    expect(submit).toBeDisabled();
+    fireEvent.click(submit);
+    expect(fetchMock.mock.calls.filter(([, options]) => options?.method === 'POST')).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Обновить сделку' }));
+    await waitFor(() => expect(fetchMock.mock.calls.filter(([, options]) => options?.method !== 'POST')).toHaveLength(2));
+    expect(submit).toBeDisabled();
+  });
+
+  it('accepts only a success receipt bound to the submitted command id', async () => {
+    const fetchMock = vi.fn(async (_url: string, options?: { method?: string; body?: string }) =>
+      options?.method === 'POST'
+        ? { ok: true, json: async () => ({ ok: true, commandId: JSON.parse(options.body || '{}').commandId }) }
+        : { ok: true, json: async () => dealSnapshot });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(React.createElement(CanonicalDealWorkspace, { role: 'seller', dealId: dealSnapshot.deal.id }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Подтвердить действие' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Результат записан в сделку');
+    expect(screen.queryByText(/Исход команды неизвестен/)).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.filter(([, options]) => options?.method === 'POST')).toHaveLength(1);
+  });
+
+  it('keeps a definite validation rejection separate from UNKNOWN', async () => {
+    const fetchMock = vi.fn(async (_url: string, options?: { method?: string }) =>
+      options?.method === 'POST'
+        ? { ok: false, status: 422, json: async () => ({ message: 'Проверка не пройдена' }) }
+        : { ok: true, json: async () => dealSnapshot });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(React.createElement(CanonicalDealWorkspace, { role: 'seller', dealId: dealSnapshot.deal.id }));
+    const submit = await screen.findByRole('button', { name: 'Подтвердить действие' });
+    fireEvent.click(submit);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Проверка не пройдена');
+    expect(submit).not.toBeDisabled();
+    expect(screen.queryByText(/Исход команды неизвестен/)).not.toBeInTheDocument();
   });
 });
