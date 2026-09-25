@@ -310,6 +310,10 @@ function fixture(overrides = {}) {
     if (endpoint?.includes('/statuses?')) return [data.statuses];
     if (endpoint?.includes('/actions/runs?')) return data.runPages || [{ total_count: data.runs.length, workflow_runs: data.runs }];
     if (endpoint?.includes('/actions/runs/')) {
+      if (endpoint.includes('/attempts/')) {
+        if (!data.attempts?.[endpoint.split('/').at(-1)]) throw new Error('Attempt not found');
+        return data.attempts[endpoint.split('/').at(-1)];
+      }
       const id = endpoint.split('/').at(-1);
       if (data.fetchError) throw new Error('SYNTHETIC_SECRET_ERROR_SENTINEL');
       return Object.hasOwn(data, 'runOverride') ? data.runOverride : data.runs.find((row) => String(row.id) === id);
@@ -320,6 +324,131 @@ function fixture(overrides = {}) {
 }
 function verify(f) { return verifyManualReadiness({ argv: ['--manual-readiness'], env: f.env, readGitHubJson: f.read }); }
 function expectBlocked(f, code) { assert.throws(() => verify(f), { message: code }); }
+
+function scopeGuardFixture() {
+  const f = fixture();
+  const run = f.data.run;
+  Object.assign(run, { event: 'pull_request_target', run_attempt: 1, check_suite_id: 77,
+    repository: { id: 88, full_name: repo }, head_repository: { id: 88, full_name: repo },
+    run_started_at: '2026-09-18T12:00:00Z', updated_at: '2026-09-18T12:02:00Z',
+    pull_requests: [{ number: 5422, head: { sha: head, ref: exactHeadRef, repo: { id: 88 } }, base: { sha: oldHead, ref: 'main', repo: { id: 88 } } }],
+  });
+  const peer = f.data.checks[0];
+  Object.assign(peer, { name: 'PC-CROP implementation immutable scope · trusted base', app: { id: 15368, slug: 'github-actions' },
+    check_suite: { id: 77 }, completed_at: '2026-09-18T12:01:30Z' });
+  const native = { id: 101, name: 'guard', head_sha: head, app: { id: 15368, slug: 'github-actions' },
+    status: 'completed', conclusion: 'success', started_at: '2026-09-18T12:01:01Z', completed_at: '2026-09-18T12:01:01Z',
+    details_url: `https://github.com/${repo}/runs/101`,
+    external_id: `platform-v7.scope-guard.v1:pr:5422:head:${head}:base:${oldHead}:run:42:attempt:1`,
+    output: { title: 'PC-CROP immutable scope accepted', summary: 'The exact PR head satisfies the immutable scope recorded in the trusted base.', annotations_count: 0, text: null },
+  };
+  const status = { id: 102, context: 'scope-guard/exact-head', state: 'success', created_at: '2026-09-18T12:01:00Z',
+    description: 'Trusted-base immutable scope result; exact PR head and workflow run required',
+    target_url: `https://github.com/${repo}/actions/runs/42`, creator: { login: 'github-actions[bot]', id: 41898282, type: 'Bot' } };
+  f.data.checks.push(native); f.data.statuses.push(status);
+  return { ...f, native, peer, status };
+}
+
+test('bound native scope guard stays substantive and preserves manual-only readiness', () => {
+  const f = scopeGuardFixture();
+  const snapshot = fetchCheckSnapshot(repo, 5422, f.read);
+  assert.ok(Array.isArray(snapshot.checks));
+  assert.ok(snapshot.checks.some(check => check.name === 'guard' && check.workflowPath === '.github/workflows/platform-v7-autopilot-guard.yml'));
+  assert.deepEqual(checkRollupBlockers(snapshot.checks), []);
+  assert.equal(verify(f).automaticMergeAllowed, false);
+});
+
+test('native scope provenance rejects missing, forged, stale and ambiguous evidence', () => {
+  const mutations = [
+    f => { f.native.external_id = ''; },
+    f => { f.native.external_id = f.native.external_id.replace('pr:5422', 'pr:5423'); },
+    f => { f.native.external_id = f.native.external_id.replace('attempt:1', 'attempt:2'); },
+    f => { f.native.app.id = 1; },
+    f => { f.native.details_url += '?forged=1'; },
+    f => { f.native.output.summary = 'success'; },
+    f => { f.data.statuses = []; },
+    f => { f.status.creator.id = 1; },
+    f => { f.status.target_url = `https://github.com/${repo}/actions/runs/43`; },
+    f => { f.status.created_at = '2026-09-18T11:59:59Z'; },
+    f => { f.status.created_at = '2026-09-18T12:01:02Z'; },
+    f => { f.data.run.event = 'pull_request'; },
+    f => { f.data.run.path = '.github/workflows/other.yml'; },
+    f => { f.data.run.head_repository.full_name = 'attacker/fork'; },
+    f => { f.data.run.pull_requests[0].base.sha = head; },
+    f => { f.data.run.pull_requests[0].head.repo.id = 99; },
+    f => { f.peer.conclusion = 'skipped'; },
+    f => { f.peer.check_suite.id = 78; },
+    f => { f.peer.completed_at = '2026-09-18T12:00:59Z'; },
+    f => { f.data.checks.push({ ...f.peer, id: 103 }); },
+  ];
+  for (const mutate of mutations) {
+    const f = scopeGuardFixture(); mutate(f);
+    const snapshot = fetchCheckSnapshot(repo, 5422, f.read);
+    assert.equal(snapshot.checks, null, mutate.toString());
+    assert.equal(snapshot.metadataError, 'NATIVE_CHECK_PROVENANCE_INVALID', mutate.toString());
+  }
+});
+
+test('bound failed scope guard and unrelated pending CI still block', () => {
+  const f = scopeGuardFixture();
+  f.native.conclusion = f.peer.conclusion = f.status.state = 'failure';
+  f.native.output.title = 'PC-CROP immutable scope rejected';
+  f.native.output.summary = 'The base-controlled immutable scope check failed closed.';
+  f.data.run.conclusion = 'failure';
+  const snapshot = fetchCheckSnapshot(repo, 5422, f.read);
+  assert.ok(Array.isArray(snapshot.checks));
+  assert.ok(checkRollupBlockers(snapshot.checks).some(value => value.includes('guard:FAILURE')));
+  const pending = scopeGuardFixture();
+  pending.data.checks.push({ ...pending.peer, id: 103, name: 'security', status: 'in_progress', conclusion: null });
+  assert.ok(checkRollupBlockers(fetchCheckSnapshot(repo, 5422, pending.read).checks).some(value => value.includes('security:IN_PROGRESS')));
+});
+
+test('reruns verify historical native guard provenance before selecting latest attempt', () => {
+  const f = scopeGuardFixture();
+  f.data.attempts = { 1: structuredClone(f.data.run) };
+  f.data.run.run_attempt = 2;
+  f.data.run.run_started_at = '2026-09-18T12:03:00Z';
+  f.data.run.updated_at = '2026-09-18T12:05:00Z';
+  f.data.checks.push({ ...f.peer, id: 103, started_at: '2026-09-18T12:03:00Z', completed_at: '2026-09-18T12:04:30Z' });
+  f.data.checks.push({ ...structuredClone(f.native), id: 104, details_url: `https://github.com/${repo}/runs/104`,
+    external_id: f.native.external_id.replace('attempt:1', 'attempt:2'),
+    started_at: '2026-09-18T12:04:01Z', completed_at: '2026-09-18T12:04:01Z' });
+  f.data.statuses.push({ ...f.status, id: 105, created_at: '2026-09-18T12:04:00Z' });
+  const snapshot = fetchCheckSnapshot(repo, 5422, f.read);
+  assert.ok(Array.isArray(snapshot.checks));
+  assert.deepEqual(snapshot.checks.filter(check => check.name === 'guard').map(check => check.id), [104]);
+  assert.deepEqual(checkRollupBlockers(snapshot.checks), []);
+  // A proven historical failure can be superseded only by the later valid attempt.
+  f.native.conclusion = f.peer.conclusion = f.status.state = 'failure';
+  f.native.output.title = 'PC-CROP immutable scope rejected';
+  f.native.output.summary = 'The base-controlled immutable scope check failed closed.';
+  f.data.attempts[1].conclusion = 'failure';
+  assert.deepEqual(checkRollupBlockers(fetchCheckSnapshot(repo, 5422, f.read).checks), []);
+  f.native.conclusion = f.peer.conclusion = f.status.state = 'success';
+  f.native.output.title = 'PC-CROP immutable scope accepted';
+  f.native.output.summary = 'The exact PR head satisfies the immutable scope recorded in the trusted base.';
+  f.data.attempts[1].conclusion = 'success';
+  const latest = f.data.checks.find(check => check.id === 104);
+  latest.conclusion = f.data.checks.find(check => check.id === 103).conclusion = f.data.statuses[1].state = 'failure';
+  latest.output.title = 'PC-CROP immutable scope rejected';
+  latest.output.summary = 'The base-controlled immutable scope check failed closed.';
+  f.data.run.conclusion = 'failure';
+  assert.ok(checkRollupBlockers(fetchCheckSnapshot(repo, 5422, f.read).checks).some(value => value.includes('guard:FAILURE')));
+  f.data.attempts[1].head_sha = oldHead;
+  assert.equal(fetchCheckSnapshot(repo, 5422, f.read).metadataError, 'NATIVE_CHECK_PROVENANCE_INVALID');
+  delete f.data.attempts[1];
+  assert.deepEqual(fetchCheckSnapshot(repo, 5422, f.read).runFetchErrors, [{ runId: '42', code: 'ACTIONS_RUN_ATTEMPT_FETCH_FAILED' }]);
+});
+
+test('trusted-base emitter publishes matching bounded native scope provenance', () => {
+  const workflow = readFileSync(new URL('../../../.github/workflows/platform-v7-autopilot-guard.yml', import.meta.url), 'utf8');
+  const emitter = workflow.slice(workflow.indexOf('      - name: Emit required guard context from trusted base on the PR head'), workflow.indexOf('      - name: Enforce trusted immutable-scope result'));
+  assert.match(emitter, /platform-v7\.scope-guard\.v1:pr:\$PR_NUMBER:head:\$HEAD_SHA:base:\$BASE_SHA:run:\$GITHUB_RUN_ID:attempt:\$GITHUB_RUN_ATTEMPT/);
+  assert.match(emitter, /context='scope-guard\/exact-head'/);
+  assert.match(emitter, /-f "external_id=\$binding"/);
+  assert.ok(emitter.indexOf('statuses/$HEAD_SHA') < emitter.indexOf('check-runs'));
+  assert.match(workflow, /checks: write\n      statuses: write\n      contents: read/);
+});
 
 test('CLI legacy invocation fails before environment or network, with no PASS contract', () => {
   let reads = 0;

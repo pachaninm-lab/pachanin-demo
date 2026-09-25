@@ -1,7 +1,7 @@
+import '@/styles/platform-v7-canonical-public-v1.css';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { PublicSiteHeader } from './PublicSiteHeader';
-import { PublicLocaleLink } from './PublicLocaleLink';
+import { CanonicalBottomNav, CanonicalPublicHeader } from './PublicCanonicalPrimitives';
 
 type Locale = 'ru' | 'en' | 'zh';
 type SurfacePath = '/platform-v7/terms' | '/platform-v7/privacy' | '/platform-v7/oferta' | '/platform-v7/docs';
@@ -16,15 +16,15 @@ export function PublicLinkedSurfaceShell({ pathname, locale, children }: { pathn
   const copy = COPY[lang];
   const suffix = `?lang=${lang}`;
   const legal = pathname === '/platform-v7/terms' || pathname === '/platform-v7/privacy';
-  const nav = <><Link href={`/platform-v7/how-it-works${suffix}`}>{copy.how}</Link><Link href={`/platform-v7/trust${suffix}`}>{copy.trust}</Link><Link href={`/platform-v7/contact${suffix}`}>{copy.contact}</Link><Link href={`/platform-v7/login${suffix}`}>{copy.login}</Link></>;
   return <div className='pc-linked-surface' data-linked-surface={pathname}>
     <style>{CSS}</style>
     <a className='pc-linked-skip' href='#pc-linked-content'>{copy.skip}</a>
-    <PublicSiteHeader ariaLabel={copy.nav} brandHomeLabel={copy.home} brandHomeHref={`/platform-v7${suffix}`} navLabel={copy.nav} menuLabel={copy.menu} nav={nav} showMobileMenu localeControl={<PublicLocaleLink />} actions={<Link className='pc-v6-header-cta' href={`/platform-v7/register${suffix}`}>{copy.register}</Link>} />
+    <CanonicalPublicHeader locale={lang} />
     <div id='pc-linked-content' className='pc-linked-content' tabIndex={-1}>
       {legal ? <><h1 className={lang === 'ru' ? 'pc-linked-title pc-visually-hidden' : 'pc-linked-title'}>{pathname === '/platform-v7/terms' ? copy.terms : copy.privacy}</h1>{lang !== 'ru' ? <aside className='pc-linked-notice' lang={lang}><p>{copy.notice}</p><Link href={`/platform-v7/contact${suffix}`}>{copy.contact}</Link></aside> : null}<main className='pc-linked-policy' lang='ru'>{children}</main></> : children}
       <nav className='pc-linked-footer' aria-label={copy.nav}><Link href={`/platform-v7${suffix}`}>{copy.home}</Link><Link href={`/platform-v7/contact${suffix}`}>{copy.contact}</Link></nav>
     </div>
+    <CanonicalBottomNav locale={lang} />
   </div>;
 }
 

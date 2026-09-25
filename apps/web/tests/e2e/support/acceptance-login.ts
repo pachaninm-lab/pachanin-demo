@@ -82,47 +82,46 @@ async function csrfToken(context: BrowserContext, baseURL: string): Promise<stri
  */
 export async function loginAs(page: Page, role: CabinetRole, baseURL: string): Promise<void> {
   const context = page.context();
-  await context.clearCookies();
+  let authenticated = false;
+  let lastMfaStatus = 0;
 
-  // The login page is what issues the CSRF cookie in production.
-  await page.goto('/platform-v7/login', { waitUntil: 'load' });
-  const token = await csrfToken(context, baseURL);
-
-  const login = await context.request.post('/api/auth/login', {
-    headers: { 'content-type': 'application/json', 'x-csrf-token': token },
-    data: { email: acceptanceEmail(role), password: ACCEPTANCE_PASSWORD },
-  });
-  expect(login.status(), `login status for ${role}`).toBeLessThan(400);
-  const body = await login.json();
-
-  if (body.mfaRequired) {
-    // A generated secret is only returned when the account still has to enrol;
-    // the seeded accounts are already enrolled on the shared secret.
-    const secret = String(body.setupSecret || ACCEPTANCE_TOTP_SECRET);
-
-    // Entering the MFA-pending state intentionally rotates the browser session
-    // and its CSRF token. Read the server-minted replacement instead of
-    // replaying the pre-login token captured above.
-    const mfaToken = await csrfToken(context, baseURL);
-
-    // A TOTP code cannot be presented twice, so a login landing in the same
-    // 30-second window as a previous one for the same account has to wait for
-    // the next step rather than fail the matrix.
-    let verified = false;
-    let lastStatus = 0;
-    for (let attempt = 0; attempt < 3 && !verified; attempt += 1) {
-      if (attempt > 0) await page.waitForTimeout(30_000 - (Date.now() % 30_000) + 1_000);
-      const verify = await context.request.post('/api/auth/mfa-login', {
-        headers: { 'content-type': 'application/json', 'x-csrf-token': mfaToken },
-        data: { code: totp(secret) },
-      });
-      lastStatus = verify.status();
-      verified = lastStatus < 400 && (await verify.json()).ok === true;
+  // A rejected/replayed TOTP consumes the pending login context. Retrying the
+  // same MFA ticket/CSRF pair can only keep returning 401. Each retry therefore
+  // starts a fresh ordinary login and obtains a new server-issued MFA context.
+  for (let attempt = 0; attempt < 3 && !authenticated; attempt += 1) {
+    if (attempt > 0) {
+      await page.waitForTimeout(30_000 - (Date.now() % 30_000) + 1_000);
     }
-    expect(verified, `MFA verification for ${role} (last status ${lastStatus})`).toBe(true);
-  } else {
-    expect(body.ok, `login for ${role}`).toBe(true);
+
+    await context.clearCookies();
+    await page.goto('/platform-v7/login', { waitUntil: 'load' });
+    const token = await csrfToken(context, baseURL);
+
+    const login = await context.request.post('/api/auth/login', {
+      headers: { 'content-type': 'application/json', 'x-csrf-token': token },
+      data: { email: acceptanceEmail(role), password: ACCEPTANCE_PASSWORD },
+    });
+    expect(login.status(), `login status for ${role}`).toBeLessThan(400);
+    const body = await login.json();
+
+    if (!body.mfaRequired) {
+      expect(body.ok, `login for ${role}`).toBe(true);
+      authenticated = true;
+      break;
+    }
+
+    const secret = String(body.setupSecret || ACCEPTANCE_TOTP_SECRET);
+    const mfaToken = await csrfToken(context, baseURL);
+    const verify = await context.request.post('/api/auth/mfa-login', {
+      headers: { 'content-type': 'application/json', 'x-csrf-token': mfaToken },
+      data: { code: totp(secret) },
+    });
+    lastMfaStatus = verify.status();
+    const verifyBody = await verify.json().catch(() => ({}));
+    authenticated = lastMfaStatus < 400 && verifyBody.ok === true;
   }
+
+  expect(authenticated, `MFA/login verification for ${role} (last MFA status ${lastMfaStatus})`).toBe(true);
 
   const cookies = await context.cookies(baseURL);
   const names = cookies.map((cookie) => cookie.name);

@@ -5,6 +5,143 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
+const finalPublicBranches = [
+  'agent/platform-v7-strategic-rebuild-v3',
+  'p0/farmer-public-market-teaser-20260913',
+  'fix/public-registration-final-copy-4916',
+  'fix/public-deal-journey-10of10-current-main-20260808',
+  'agent/platform-v7-product-copy',
+  'ops/production-full-stack-release-v1',
+];
+const finalPublicGovernanceBranch = 'governance/final-public-experience-v1-20260919';
+const industrialGovernanceBranch = 'governance/industrial-load-diagnostics-20260919';
+const industrialDiagnosticBranch = 'test/industrial-load-diagnostics-20260919';
+const ir20BindingPrerequisiteBranch = 'governance/ir20-binding-immutable-scope-20260919';
+const ir20BindingImplementationBranch = 'ops/ir20-api-database-binding-20260919';
+const ir20BindingImplementationPaths = [
+  'scripts/release/ir20-api-database-binding.py',
+  'scripts/release/test-ir20-api-database-binding.py',
+  'scripts/release/test-ir20-api-database-binding-integration.py',
+  '.github/workflows/ir20-api-database-binding.yml',
+  'docs/ops/ir20-api-database-binding.md',
+];
+const productImplementationManifests = new Map([
+  ['bank/deep-visible-copy-guard-20260924', 'docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json'],
+  ['fgis/zsn-public-document-source-lock-20260924', 'docs/platform-v7/autopilot/scopes/fgis-zsn-public-document-source-lock-20260924.json'],
+  ['ux/first-customer-next-action-unknown-20260924', 'docs/platform-v7/autopilot/scopes/first-customer-next-action-unknown-20260924.json'],
+  ['fix/public-registration-participation-choice-20260923', 'docs/platform-v7/autopilot/scopes/public-registration-participation-choice-20260923.json'],
+  ['ux/buyer-first-customer-home-20260925', 'docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json'],
+]);
+const productAdmissionBranch = 'governance/product-bank-fgis-ux-source-admission-20260924';
+const buyerAdmissionBranch = 'governance/product-buyer-home-admission-20260925';
+const buyerBranch = 'ux/buyer-first-customer-home-20260925';
+const buyerCoordinationKey = 'ux-buyer-first-customer-home-20260925-coordination';
+const buyerPaths = [
+  'apps/web/components/platform-v7/FirstCustomerWorkspace.tsx',
+  'apps/web/components/platform-v7/FirstCustomerWorkspace.module.css',
+  'apps/web/tests/unit/designSystemV8MoneyRoles.test.ts',
+  'apps/web/tests/unit/platformV7BuyerFirstCustomerUx.test.tsx',
+  'docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json',
+];
+const dealCommandImplementationBranch = 'ux/deal-command-unknown-20260925';
+const productAdmissionPaths = new Map([
+  ['bank/deep-visible-copy-guard-20260924', [
+    'apps/web/app/platform-v7/bank/escrow/page.tsx',
+    'apps/web/app/platform-v7/bank/factoring/page.tsx',
+    'apps/web/app/platform-v7/bank/release-safety/page.tsx',
+    'apps/web/app/platform-v7/profile/page.tsx',
+    'apps/web/tests/unit/bankReleaseSafetyRoute.test.tsx',
+    'apps/web/tests/unit/platformV7DeepBankDealCopyGuard.test.ts',
+    'docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json',
+  ]],
+  ['fgis/zsn-public-document-source-lock-20260924', [
+    '.github/workflows/pc-crop-zsn-source-lock.yml',
+    'docs/platform-v7/crop-platform/efgis-zsn-api-document.source-lock.json',
+    'docs/platform-v7/crop-platform/efgis-zsn-api-document.source-lock.schema.json',
+    'scripts/pc-crop-zsn/verify-source-lock.mjs',
+    'scripts/pc-crop-zsn/verify-source-lock.test.mjs',
+    'docs/platform-v7/autopilot/scopes/fgis-zsn-public-document-source-lock-20260924.json',
+  ]],
+  ['ux/first-customer-next-action-unknown-20260924', [
+    'apps/web/components/platform-v7/FirstCustomerWorkspace.tsx',
+    'apps/web/tests/unit/designSystemV8MoneyRoles.test.ts',
+    'apps/web/tests/unit/sellerExecutionPolish.test.tsx',
+    'docs/platform-v7/autopilot/scopes/first-customer-next-action-unknown-20260924.json',
+  ]],
+]);
+const productAdmissionCoordinationKeys = new Map([
+  ['bank/deep-visible-copy-guard-20260924', 'bank-deep-visible-copy-guard-20260924-coordination'],
+  ['fgis/zsn-public-document-source-lock-20260924', 'fgis-zsn-public-document-source-lock-20260924-coordination'],
+  ['ux/first-customer-next-action-unknown-20260924', 'ux-first-customer-next-action-unknown-20260924-coordination'],
+]);
+const productAdmissionMetadata = new Map([
+  ['bank/deep-visible-copy-guard-20260924', {
+    purpose: 'Presentation-only bank/deal copy guard and negative release safety wording; no provider or payment finality.',
+    requiredTruthBoundaries: [
+      'Preserve the forbidden money-finality and demo vocabulary guard, including absence of the removed operator execution queue source.',
+      'A recorded release request is not external execution; unresolved outcome requires same-operation reconciliation before retry.',
+      'RU/EN/ZH bank copy does not attribute a concrete provider or claim factoring, release or debit finality.',
+    ],
+    forbiddenAuthority: [
+      'API/DB/settlement/ledger/provider/callback or money-finality authority',
+      'tenant/role/session authority',
+      'CI/security gate weakening',
+    ],
+    teamHubDependency: '#5565; Team Hub #5469 scope correction 5818641448',
+  }],
+  ['fgis/zsn-public-document-source-lock-20260924', {
+    purpose: 'Lock public operator-linked EFGIS ZSN document identity and PDF bytes as provenance only.',
+    requiredTruthBoundaries: [
+      'Pin official public operator-linked PDF identity, 906732-byte payload and SHA-256; title/year are not an API contract version.',
+      'Keep historical government-system registry v1 byte-immutable and mutation capability disabled.',
+      'Do not claim organization access, credentials, signature, legal acceptance, delegated access, live mutation or E2E.',
+    ],
+    forbiddenAuthority: [
+      'FGIS credentials/API write/signature/legal finality',
+      'government registry v1 mutation',
+      'CI/security gate weakening',
+    ],
+    teamHubDependency: '#5532; Team Hub #5469 scope correction 5818641448',
+  }],
+  ['ux/first-customer-next-action-unknown-20260924', {
+    purpose: 'Keep recency-sorted first customer queues as navigation for seven roles while server priority is absent.',
+    requiredTruthBoundaries: [
+      'Buyer, bank, logistics, driver, elevator, lab and surveyor must display UNKNOWN primary next action until accepted server-derived priority.',
+      'RU/EN/ZH and keyboard-visible in-page queue navigation remain available; server-scoped item links are preserved.',
+      'Owner-controlled showroom navigation and seller fail-closed behavior stay intact.',
+    ],
+    forbiddenAuthority: [
+      'API/DB/tenant/role/priority authority',
+      'bank/FGIS/provider/settlement finality',
+      'CI/security gate weakening',
+    ],
+    teamHubDependency: '#5535; Team Hub #5469 scope correction 5818641448',
+  }],
+]);
+function productCoordinationRecord(branch, paths, base) {
+  return {
+    owner: 'ACCOUNT_2_PRODUCT', ...productAdmissionMetadata.get(branch),
+    authorityBaseExactMain: base, implementationBranch: branch, allowedPaths: [...paths],
+  };
+}
+const industrialDiagnosticPaths = ['apps/api/test/industrial/load-proof.e2e-spec.ts'];
+const industrialGovernancePaths = [
+  'docs/platform-v7/autopilot/autopilot-state.json',
+  'docs/platform-v7/execution-queue.md',
+  'docs/platform-v7/autopilot/prompts/current-codex-task.md',
+  'docs/platform-v7/autopilot/prompts/current-review-task.md',
+  'scripts/p7-autopilot-guard.sh',
+  'scripts/p7-autopilot-guard.test.mjs',
+  '.github/workflows/platform-v7-autopilot-guard.yml',
+];
+const finalPublicGovernancePaths = [
+  'docs/platform-v7/autopilot/autopilot-state.json',
+  'docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json',
+  'docs/platform-v7/autopilot/scopes/public-registration-final-copy-4916.json',
+  'scripts/p7-autopilot-guard.sh',
+  'scripts/p7-autopilot-guard.test.mjs',
+  '.github/workflows/platform-v7-autopilot-guard.yml',
+];
 const implementationBranches = [
   'fix/p0-registration-authority-rollover-4637',
   'fix/p0-owner-control-plane-audit-lock-4698',
@@ -14,6 +151,8 @@ const implementationBranches = [
   'governance/pc-crop-post-registration-progress-scope-4997',
   'governance/pc-crop-inventory-reservation-scope-4997',
   'fix/owner-handoff-product-host-20260908',
+  ir20BindingImplementationBranch,
+  ...finalPublicBranches,
 ];
 const publicHomeGovernanceBranch = 'governance/public-home-role-clarity-scope-20260905';
 const publicHomeImplementationBranch = 'feat/public-home-role-clarity-20260905';
@@ -118,6 +257,18 @@ function fixture(t, implementationBranch) {
   git(root, ['switch', '-c', implementationBranch]);
   return { root, baseline, implementationBranch };
 }
+
+test('IR-20 binding prerequisite admits exactly the five non-authority implementation paths', () => {
+  const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+  assert.deepEqual(state.approvedConcurrentScopes[ir20BindingImplementationBranch], ir20BindingImplementationPaths);
+  assert.deepEqual(state.approvedConcurrentScopes[ir20BindingPrerequisiteBranch], [
+    'scripts/p7-autopilot-guard.sh',
+    'scripts/p7-autopilot-guard.test.mjs',
+    '.github/workflows/platform-v7-autopilot-guard.yml',
+    'docs/platform-v7/autopilot/autopilot-state.json',
+  ]);
+  assert.equal(ir20BindingImplementationPaths.some((file) => file.includes('/scopes/')), false);
+});
 
 function publicHomeImplementationFixture(t, { withManifest = true } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-public-home-immutable-scope-'));
@@ -348,6 +499,44 @@ for (const forbidden of ['README.md', '.github/workflows/ci.yml']) {
   });
 }
 
+function finalPublicManifestFallbackFixture(t) {
+  const implementationBranch = finalPublicBranches[1];
+  const manifestPath = 'docs/platform-v7/autopilot/scopes/farmer-public-market-teaser-20260913.json';
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-final-public-fallback-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
+  write(root, 'scripts/p7-autopilot-guard.sh', fs.readFileSync(sourceGuard, 'utf8'), 0o755);
+  write(root, 'scripts/p7-source-controlled-scope.mjs', fs.readFileSync(sourceResolver, 'utf8'), 0o755);
+  write(root, '.github/workflows/platform-v7-autopilot-guard.yml', 'name: fixture\n');
+  write(root, 'docs/platform-v7/autopilot/autopilot-state.json', '{"allowedCurrentScope":["README.md"],"approvedConcurrentScopes":{}}\n');
+  write(root, manifestPath, `${JSON.stringify({ schemaVersion: 'platform-v7.concurrent-scope.v1', branch: implementationBranch, status: 'active', allowedPaths: ['allowed.txt'] }, null, 2)}\n`);
+  write(root, 'README.md', 'baseline\n');
+  write(root, 'allowed.txt', 'baseline\n');
+  git(root, ['init', '--initial-branch=main']);
+  git(root, ['config', 'user.name', 'Final Public Guard Test']);
+  git(root, ['config', 'user.email', 'final-public-guard@example.invalid']);
+  commit(root, 'trusted base manifest');
+  const baseline = git(root, ['rev-parse', 'HEAD']);
+  git(root, ['switch', '-c', implementationBranch]);
+  return { root, baseline, implementationBranch, manifestPath };
+}
+
+test('Final Public immutable routing accepts only the trusted-base manifest before state admission lands', (t) => {
+  const allowed = finalPublicManifestFallbackFixture(t);
+  write(allowed.root, 'allowed.txt', 'accepted through base manifest\n');
+  commit(allowed.root, 'accepted bounded change');
+  const accepted = runGuard(allowed);
+  assert.equal(accepted.status, 0, output(accepted));
+
+  const rejected = finalPublicManifestFallbackFixture(t);
+  const manifest = JSON.parse(fs.readFileSync(path.join(rejected.root, rejected.manifestPath), 'utf8'));
+  manifest.allowedPaths = [rejected.manifestPath, 'README.md'];
+  write(rejected.root, rejected.manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  write(rejected.root, 'README.md', 'self-authorized through head manifest\n');
+  commit(rejected.root, 'attempt head manifest widening');
+  const denied = runGuard(rejected);
+  assert.notEqual(denied.status, 0, output(denied));
+  assert.match(output(denied), /Mutable scope authority changed|Files outside current autopilot scope/u);
+});
 for (const implementationBranch of implementationBranches) {
 test(`${implementationBranch}: accepts only a path approved by the immutable base state`, (t) => {
   const context = fixture(t, implementationBranch);
@@ -440,9 +629,112 @@ test(`${implementationBranch}: fails closed without immutable base authority`, (
   commit(context.root, 'attempt without authority');
   const result = runGuard({ ...context, baseline: unauthorizedBase });
   assert.notEqual(result.status, 0, output(result));
-  assert.match(output(result), /no immutable approved scope/u);
+  if (['agent/platform-v7-product-copy', 'ops/production-full-stack-release-v1'].includes(implementationBranch)) {
+    assert.match(output(result), /Files outside current autopilot scope/u);
+  } else if (finalPublicBranches.includes(implementationBranch)) {
+    assert.match(output(result), /cannot load accepted Final Public manifest/u);
+  } else {
+    assert.match(output(result), /no immutable approved scope/u);
+  }
 });
 }
+
+for (const [branch, allowed, rejected] of [
+  ['agent/platform-v7-product-copy', 'apps/web/tests/unit/platformV7HomepageProductCopy.test.ts', 'apps/web/tsconfig.json'],
+  ['ops/production-full-stack-release-v1', 'scripts/production-full-stack-live-acceptance.sh', 'scripts/production-full-stack-exact-sha.sh'],
+]) {
+  test(`${branch}: transitional fallback is exact and rejects broader legacy-manifest paths`, (t) => {
+    const context = fixture(t, branch);
+    const stateFile = path.join(context.root, 'docs/platform-v7/autopilot/autopilot-state.json');
+    const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+    delete state.approvedConcurrentScopes[branch];
+    fs.writeFileSync(stateFile, `${JSON.stringify(state, null, 2)}\n`);
+    commit(context.root, 'base without state admission');
+    const baseline = git(context.root, ['rev-parse', 'HEAD']);
+
+    write(context.root, allowed, 'accepted narrow fallback\n');
+    commit(context.root, 'change narrow fallback path');
+    assert.equal(runGuard({ ...context, baseline }).status, 0);
+
+    write(context.root, rejected, 'rejected legacy-manifest path\n');
+    commit(context.root, 'attempt broader legacy path');
+    const rejectedResult = runGuard({ ...context, baseline });
+    assert.notEqual(rejectedResult.status, 0, output(rejectedResult));
+    assert.match(output(rejectedResult), /Files outside current autopilot scope/u);
+  });
+}
+
+function finalPublicGovernanceFixture(t, admitted = true) {
+  const context = fixture(t, finalPublicGovernanceBranch);
+  for (const file of finalPublicGovernancePaths.slice(1, 3)) write(context.root, file, '{}\n');
+  write(context.root, 'scripts/p7-autopilot-guard.test.mjs', '// baseline regression\n');
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, finalPublicGovernancePaths[0]), 'utf8'));
+  if (admitted) state.approvedConcurrentScopes[finalPublicGovernanceBranch] = finalPublicGovernancePaths;
+  else delete state.approvedConcurrentScopes[finalPublicGovernanceBranch];
+  write(context.root, finalPublicGovernancePaths[0], JSON.stringify(state));
+  commit(context.root, 'accepted public governance authority');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  return context;
+}
+
+function runTrustedPublicGovernance(context) {
+  return spawnSync('bash', [sourceGuard], {
+    cwd: context.root,
+    env: { ...process.env, BASE_REF: context.baseline, HEAD_REF: 'HEAD', GITHUB_HEAD_REF: finalPublicGovernanceBranch },
+    encoding: 'utf8',
+  });
+}
+
+test('Final Public governance admission and trusted routing ship atomically', () => {
+  const state = JSON.parse(fs.readFileSync('docs/platform-v7/autopilot/autopilot-state.json', 'utf8'));
+  assert.deepEqual(state.approvedConcurrentScopes[finalPublicGovernanceBranch], finalPublicGovernancePaths);
+});
+
+test('Final Public governance accepts the two implementation entries and admitted manifest edits', (t) => {
+  const context = finalPublicGovernanceFixture(t);
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, finalPublicGovernancePaths[0]), 'utf8'));
+  state.approvedConcurrentScopes['agent/platform-v7-strategic-rebuild-v3'] = ['apps/web/components/platform-v7/PlatformV7StrategicHome.tsx'];
+  state.approvedConcurrentScopes['fix/public-registration-final-copy-4916'] = ['apps/web/app/platform-v7/register/page.tsx'];
+  write(context.root, finalPublicGovernancePaths[0], JSON.stringify(state));
+  write(context.root, finalPublicGovernancePaths[1], '{"status":"active"}\n');
+  write(context.root, finalPublicGovernancePaths[2], '{"status":"active"}\n');
+  commit(context.root, 'bounded public admission');
+  const result = runTrustedPublicGovernance(context);
+  assert.equal(result.status, 0, output(result));
+});
+
+for (const mutation of ['own scope', 'global scope', 'other branch', 'IR20 state', 'unapproved file', 'delete authority', 'rename authority', 'symlink authority', 'poison head guard']) {
+  test(`Final Public governance rejects ${mutation}`, (t) => {
+    const context = finalPublicGovernanceFixture(t);
+    const file = finalPublicGovernancePaths[0];
+    const state = JSON.parse(fs.readFileSync(path.join(context.root, file), 'utf8'));
+    if (mutation === 'own scope') state.approvedConcurrentScopes[finalPublicGovernanceBranch].push('UNAPPROVED.txt');
+    if (mutation === 'global scope') state.allowedCurrentScope.push('UNAPPROVED.txt');
+    if (mutation === 'other branch') state.approvedConcurrentScopes['unrelated/branch'] = ['UNAPPROVED.txt'];
+    if (mutation === 'IR20 state') state.status = 'closed';
+    if (['own scope', 'global scope', 'other branch', 'IR20 state'].includes(mutation)) write(context.root, file, JSON.stringify(state));
+    if (mutation === 'unapproved file' || mutation === 'poison head guard') write(context.root, 'UNAPPROVED.txt', 'not admitted\n');
+    if (mutation === 'poison head guard') write(context.root, 'scripts/p7-autopilot-guard.sh', '#!/bin/sh\nexit 0\n', 0o755);
+    if (mutation === 'delete authority') fs.unlinkSync(path.join(context.root, finalPublicGovernancePaths[1]));
+    if (mutation === 'rename authority') git(context.root, ['mv', finalPublicGovernancePaths[1], 'renamed.json']);
+    if (mutation === 'symlink authority') {
+      fs.unlinkSync(path.join(context.root, finalPublicGovernancePaths[1]));
+      fs.symlinkSync('autopilot-state.json', path.join(context.root, finalPublicGovernancePaths[1]));
+    }
+    commit(context.root, `attempt ${mutation}`);
+    const result = runTrustedPublicGovernance(context);
+    assert.notEqual(result.status, 0, output(result));
+  });
+}
+
+test('Final Public governance fails without prior base admission', (t) => {
+  const context = finalPublicGovernanceFixture(t, false);
+  write(context.root, finalPublicGovernancePaths[1], '{"status":"active"}\n');
+  commit(context.root, 'attempt unadmitted manifest change');
+  const result = runTrustedPublicGovernance(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /no immutable approved scope/u);
+});
 
 test('public-home governance branch accepts only the two manifest files', (t) => {
   const context = publicHomeGovernanceFixture(t);
@@ -615,8 +907,8 @@ test('runs immutable authority checks from a read-only trusted-base workflow', (
     "-f name='guard'",
     '-f head_sha="$HEAD_SHA"',
     "-f status='completed'",
-    `github.head_ref == '${publicHomeImplementationBranch}' || github.head_ref == 'governance/production-like-outbox-poison-isolation-scope-3793' || github.head_ref == 'fix/production-like-outbox-poison-isolation-3793' || github.head_ref == '${qwenFailedEvidenceBranch}' || github.head_ref == '${kindMinioImageSourceBranch}' || github.head_ref == '${gitleaksReleaseAttestationBranch}' || github.head_ref == 'fix/owner-handoff-product-host-20260908') && 'PC-CROP immutable scope · PR-head defense' || 'guard' }}`,
-    'needs: standard_validation',
+    "'PC-CROP immutable scope · PR-head defense' || 'guard' }}",
+    'needs: [standard_validation, public-home-contract]',
     "if: always() && github.event_name != 'pull_request_target'",
     'git show "$BASE_SHA:scripts/p7-autopilot-guard.sh" > "$TRUSTED_GUARD"',
     'standard_validation:',
@@ -624,6 +916,33 @@ test('runs immutable authority checks from a read-only trusted-base workflow', (
     "- '.github/workflows/production-full-stack-exact-sha.yml'",
     "- 'docs/ops/production-p0-all-role-registration.md'",
   ]) assert.ok(workflow.includes(marker), `missing trusted-base workflow marker: ${marker}`);
+});
+
+test('final public unit contracts run on unprivileged exact head and fail the guard closed', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const job = workflow.split('\n  public-home-contract:\n')[1].split('\n  trusted-kind-minio-governance-bootstrap:')[0];
+  assert.match(job, /github\.event_name == 'pull_request'/u);
+  assert.match(job, /head\.ref == 'agent\/platform-v7-strategic-rebuild-v3'/u);
+  assert.match(job, /ref: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/u);
+  assert.match(job, /permissions:\n      contents: read/u);
+  assert.match(job, /persist-credentials: false/u);
+  assert.match(job, /pnpm install --frozen-lockfile/u);
+  assert.doesNotMatch(job, /pull_request_target|continue-on-error|secrets\.|(?:checks|contents|pull-requests): write/u);
+  const manifest = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json'), 'utf8'));
+  for (const file of manifest.allowedPaths.filter(file => file.startsWith('apps/web/tests/unit/'))) {
+    assert.ok(job.includes(file.replace('apps/web/', '')), `Scoped unit suite is not executed: ${file}`);
+  }
+  const guard = workflow.split('\n  guard:\n')[1].split('\n  standard_validation:\n')[0];
+  assert.match(guard, /needs: \[standard_validation, public-home-contract\]/u);
+  const step = guard.split('      - name: Require final public unit contracts for homepage implementation\n')[1]
+    .split('      - name: Validate immutable scope')[0];
+  assert.match(step, /github\.event_name == 'pull_request' && github\.head_ref == 'agent\/platform-v7-strategic-rebuild-v3'/u);
+  assert.ok(step.includes('PUBLIC_HOME_RESULT: ${{ needs.public-home-contract.result }}'));
+  const shell = step.split('        run: |\n')[1].split('\n').map(line => line.replace(/^          /u, '')).join('\n');
+  for (const state of ['success', 'failure', 'cancelled', 'skipped', '']) {
+    const result = spawnSync('bash', ['-c', shell], { env: { ...process.env, PUBLIC_HOME_RESULT: state }, encoding: 'utf8' });
+    assert.equal(result.status, state === 'success' ? 0 : 1, state);
+  }
 });
 
 test('public-home workflow routing covers every non-glob presentation path that otherwise lacks a broad trigger', () => {
@@ -635,6 +954,21 @@ test('public-home workflow routing covers every non-glob presentation path that 
     'apps/web/i18n/platform-v7-home-v3-product.ts',
     'apps/web/i18n/platform-v7-organization-connect-product.ts',
   ]) assert.ok(workflow.includes(`- '${path}'`), `missing public-home head-validation trigger: ${path}`);
+});
+
+test('every trusted-base Final Public manifest path triggers unprivileged candidate-head validation', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  for (const manifestPath of [
+    'docs/platform-v7/autopilot/scopes/platform-v7-strategic-rebuild-v3.json',
+    'docs/platform-v7/autopilot/scopes/farmer-public-market-teaser-20260913.json',
+    'docs/platform-v7/autopilot/scopes/public-registration-final-copy-4916.json',
+    'docs/platform-v7/autopilot/scopes/public-deal-journey-10of10-20260808.json',
+  ]) {
+    const manifest = JSON.parse(fs.readFileSync(path.resolve(manifestPath), 'utf8'));
+    for (const allowedPath of manifest.allowedPaths) {
+      assert.ok(workflow.includes(`- '${allowedPath}'`), `missing pull_request path trigger: ${allowedPath}`);
+    }
+  }
 });
 
 for (const branch of implementationBranches.filter((name) => name.startsWith('governance/'))) {
@@ -669,7 +1003,7 @@ test('governance branches retain unprivileged head regression validation', () =>
   assert.ok(workflow.includes('run: node --test scripts/p7-autopilot-guard.test.mjs'));
 });
 
-for (const branch of ['feat/pc-crop-auction-inventory-authority-4997', 'ops/pc-crop-w1-production-acceptance-4997', qwenFailedEvidenceBranch, kindMinioImageSourceBranch, gitleaksReleaseAttestationBranch]) {
+for (const branch of ['feat/pc-crop-auction-inventory-authority-4997', 'ops/pc-crop-w1-production-acceptance-4997', qwenFailedEvidenceBranch, kindMinioImageSourceBranch, gitleaksReleaseAttestationBranch, ...finalPublicBranches, finalPublicGovernanceBranch, industrialGovernanceBranch, industrialDiagnosticBranch]) {
 test(`${branch}: trusted scope routing retains substantive head validation`, () => {
   const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
   const section = (start, end) => {
@@ -680,7 +1014,7 @@ test(`${branch}: trusted scope routing retains substantive head validation`, () 
   };
   const trusted = section('  trusted-immutable-scope:', '  guard:');
   assert.ok(trusted.includes(`github.event.pull_request.head.ref == '${branch}'`));
-  assert.ok(trusted.includes(`|${branch}|`));
+  assert.ok(trusted.includes(`|${branch}|`) || trusted.includes(`|${branch})`));
   assert.ok(trusted.includes('ref: ${{ github.event.pull_request.base.sha }}'));
   assert.ok(trusted.includes('test "$(git rev-parse HEAD)" = "$BASE_SHA"'));
   assert.ok(trusted.includes('bash scripts/p7-autopilot-guard.sh'));
@@ -691,7 +1025,7 @@ test(`${branch}: trusted scope routing retains substantive head validation`, () 
   assert.ok(guard.includes('permissions:\n      contents: read'));
   const defense = section('      - name: Validate immutable scope with trusted base guard on PR head', '      - name: Validate post-registration DoD register');
   assert.ok(defense.includes(`github.head_ref == '${branch}'`));
-  assert.ok(defense.includes(`|${branch}|`));
+  assert.ok(defense.includes(`|${branch}|`) || defense.includes(`|${branch})`));
   assert.ok(defense.includes('git show "$BASE_SHA:scripts/p7-autopilot-guard.sh" > "$TRUSTED_GUARD"'));
   const standardScope = section('      - name: Validate standard branch scope on PR head', '  standard_validation:');
   assert.ok(standardScope.includes(`github.head_ref != '${branch}'`));
@@ -728,9 +1062,9 @@ test('Qwen failed-evidence candidate regressions run unprivileged and block the 
   assert.match(standard.split('      - name:')[0], /persist-credentials: false/u);
   assert.doesNotMatch(standard, /continue-on-error:|secrets\.|(?:checks|contents|pull-requests): write/u);
   const guard = workflow.split('\n  guard:\n')[1].split('\n  standard_validation:\n')[0];
-  assert.match(guard, /needs: standard_validation/u);
+  assert.match(guard, /needs: \[standard_validation, public-home-contract\]/u);
   const required = guard.split('      - name: Require standard validations in the required guard context\n')[1]
-    .split('      - name: Validate immutable scope with trusted base guard on PR head')[0];
+    .split('      - name: Require final public unit contracts for homepage implementation')[0];
   assert.ok(required.includes('STANDARD_VALIDATION_RESULT: ${{ needs.standard_validation.result }}'));
   const enforce = required.split('        run: |\n')[1].split('\n').map(line => line.replace(/^          /u, '')).join('\n');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'p7-qwen-candidate-validation-'));
@@ -1064,6 +1398,402 @@ for (const mutation of ['unapproved file', 'candidate global scope']) {
     assert.match(output(result), /Files outside current autopilot scope|NEXT_SECURITY_PATCH_STATE_MUTATION/u);
   });
 }
+
+function industrialFixture(t, branch, admitted = true) {
+  const context = fixture(t, branch);
+  const statePath = industrialGovernancePaths[0];
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+  delete state.approvedConcurrentScopes[branch];
+  state.allowedCurrentScope.push('apps/api/src/outbox-worker.ts');
+  if (admitted) {
+    state.approvedConcurrentScopes[industrialGovernanceBranch] = industrialGovernancePaths;
+    state.approvedConcurrentScopes[industrialDiagnosticBranch] = industrialDiagnosticPaths;
+  }
+  write(context.root, statePath, JSON.stringify(state));
+  for (const file of [...industrialGovernancePaths.slice(1, 4), industrialGovernancePaths[5], ...industrialDiagnosticPaths,
+    'apps/api/src/outbox-worker.ts', 'scripts/p7-agent-runner.sh']) write(context.root, file, 'baseline\n');
+  commit(context.root, 'industrial admission fixture');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  return context;
+}
+
+function runIndustrialTrustedGuard(context, script) {
+  const trusted = script ?? git(context.root, ['show', `${context.baseline}:scripts/p7-autopilot-guard.sh`]);
+  return spawnSync('bash', ['-s'], {
+    cwd: context.root, input: trusted, encoding: 'utf8',
+    env: { ...process.env, BASE_REF: context.baseline, HEAD_REF: 'HEAD', GITHUB_HEAD_REF: context.implementationBranch },
+  });
+}
+
+for (const branch of [industrialGovernanceBranch, industrialDiagnosticBranch]) {
+  for (const mutation of ['allowed', 'global runtime', 'generic infrastructure', 'head scope', 'global scope',
+    'other branch', 'rename', 'delete', 'mode', 'symlink', 'poisoned guard and runtime', 'poisoned workflow and runtime']) {
+    test(`${branch}: trusted industrial scope rejects ${mutation}`, (t) => {
+      const context = industrialFixture(t, branch);
+      const allowed = branch === industrialGovernanceBranch ? industrialGovernancePaths[1] : industrialDiagnosticPaths[0];
+      write(context.root, allowed, 'changed\n');
+      if (mutation === 'global runtime') write(context.root, 'apps/api/src/outbox-worker.ts', 'changed\n');
+      if (mutation === 'generic infrastructure') write(context.root, 'scripts/p7-agent-runner.sh', 'changed\n');
+      if (['head scope', 'global scope', 'other branch'].includes(mutation)) {
+        const statePath = industrialGovernancePaths[0];
+        const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+        if (mutation === 'head scope') state.approvedConcurrentScopes[branch].push('scripts/p7-agent-runner.sh');
+        if (mutation === 'global scope') state.allowedCurrentScope.push('**');
+        if (mutation === 'other branch') state.approvedConcurrentScopes.unrelated = ['**'];
+        write(context.root, statePath, JSON.stringify(state));
+      }
+      if (mutation === 'rename') git(context.root, ['mv', allowed, `${allowed}.renamed`]);
+      if (mutation === 'delete') fs.unlinkSync(path.join(context.root, allowed));
+      if (mutation === 'mode') fs.chmodSync(path.join(context.root, allowed), 0o755);
+      if (mutation === 'symlink') {
+        fs.unlinkSync(path.join(context.root, allowed));
+        fs.symlinkSync('README.md', path.join(context.root, allowed));
+      }
+      if (mutation.startsWith('poisoned')) {
+        const target = mutation.includes('guard') ? 'scripts/p7-autopilot-guard.sh' : '.github/workflows/platform-v7-autopilot-guard.yml';
+        write(context.root, target, mutation.includes('guard') ? '#!/usr/bin/env bash\nexit 0\n' : 'name: bypass\n');
+        write(context.root, 'apps/api/src/outbox-worker.ts', 'changed\n');
+      }
+      commit(context.root, `candidate ${mutation}`);
+      const result = runIndustrialTrustedGuard(context);
+      if (mutation === 'allowed') assert.equal(result.status, 0, output(result));
+      else {
+        assert.notEqual(result.status, 0, output(result));
+        assert.match(output(result), /INDUSTRIAL_DIAGNOSTIC_(STATE_MUTATION|DIFF_SCOPE|FILE_MODE)/u);
+      }
+    });
+  }
+}
+
+for (const mutation of ['absent admission', 'self admission', 'expanded base admission']) {
+  test(`industrial diagnostic cannot bootstrap itself: ${mutation}`, (t) => {
+    const context = industrialFixture(t, industrialDiagnosticBranch, false);
+    const statePath = industrialGovernancePaths[0];
+    const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+    if (mutation !== 'absent admission') {
+      state.approvedConcurrentScopes[industrialDiagnosticBranch] = mutation === 'self admission'
+        ? industrialDiagnosticPaths : [...industrialDiagnosticPaths, 'scripts/p7-agent-runner.sh'];
+      write(context.root, statePath, JSON.stringify(state));
+      if (mutation === 'expanded base admission') {
+        commit(context.root, 'invalid accepted admission');
+        context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+      }
+    }
+    write(context.root, industrialDiagnosticPaths[0], 'changed\n');
+    commit(context.root, 'candidate diagnostic');
+    const result = runIndustrialTrustedGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /INDUSTRIAL_DIAGNOSTIC_ACCEPTED_SCOPE_MISMATCH/u);
+  });
+}
+
+for (const mutation of ['approved append', 'wrong base SHA', 'wrong state blob', 'existing diagnostic admission',
+  'expanded governance', 'expanded diagnostic', 'other state', 'unapproved file']) {
+  test(`industrial bootstrap is exact-base-bound: ${mutation}`, (t) => {
+    const context = industrialFixture(t, industrialGovernanceBranch, false);
+    const statePath = industrialGovernancePaths[0];
+    const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+    if (mutation === 'existing diagnostic admission') {
+      state.approvedConcurrentScopes[industrialDiagnosticBranch] = industrialDiagnosticPaths;
+      write(context.root, statePath, JSON.stringify(state));
+      commit(context.root, 'pre-existing diagnostic');
+      context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+    }
+    const blob = git(context.root, ['rev-parse', `${context.baseline}:${statePath}`]);
+    // Bind the frozen guard to this synthetic fixture, not to mutable inputs.
+    // Production literals are checked separately below; no runtime override exists.
+    let guard = fs.readFileSync(sourceGuard, 'utf8')
+      .replace('fe50e24d202bcd22d72dd15e4dc58f9ddc491331', mutation === 'wrong base SHA' ? '0'.repeat(40) : context.baseline)
+      .replace('ea92fc5f636efaf147ddeee34f81428cdd69a925', mutation === 'wrong state blob' ? '0'.repeat(40) : blob);
+    state.approvedConcurrentScopes[industrialGovernanceBranch] = [...industrialGovernancePaths];
+    state.approvedConcurrentScopes[industrialDiagnosticBranch] = [...industrialDiagnosticPaths];
+    if (mutation === 'expanded governance') state.approvedConcurrentScopes[industrialGovernanceBranch].push('**');
+    if (mutation === 'expanded diagnostic') state.approvedConcurrentScopes[industrialDiagnosticBranch].push('**');
+    if (mutation === 'other state') state.allowedCurrentScope.push('**');
+    write(context.root, statePath, JSON.stringify(state));
+    if (mutation === 'unapproved file') write(context.root, 'apps/api/src/outbox-worker.ts', 'changed\n');
+    commit(context.root, 'candidate atomic bootstrap');
+    const result = runIndustrialTrustedGuard(context, guard);
+    if (mutation === 'approved append') assert.equal(result.status, 0, output(result));
+    else {
+      assert.notEqual(result.status, 0, output(result));
+      assert.match(output(result), /INDUSTRIAL_DIAGNOSTIC_(BOOTSTRAP_BASE_MISMATCH|STATE_MUTATION|DIFF_SCOPE)/u);
+    }
+  });
+}
+
+test('industrial bootstrap retains base defense and read-only candidate tests without privileged head execution', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const source = fs.readFileSync(sourceGuard, 'utf8');
+  const state = JSON.parse(fs.readFileSync(industrialGovernancePaths[0], 'utf8'));
+  assert.deepEqual(state.approvedConcurrentScopes[industrialGovernanceBranch], industrialGovernancePaths);
+  assert.deepEqual(state.approvedConcurrentScopes[industrialDiagnosticBranch], industrialDiagnosticPaths);
+  assert.ok(source.includes("sha !== 'fe50e24d202bcd22d72dd15e4dc58f9ddc491331'"));
+  assert.ok(source.includes("blob !== 'ea92fc5f636efaf147ddeee34f81428cdd69a925'"));
+  const candidate = workflow.split('- name: Validate owner-authorized industrial diagnostic bootstrap candidate')[1]
+    .split('- name: Validate bounded security repair with trusted base authority')[0];
+  assert.ok(candidate.includes("github.event_name == 'pull_request'"));
+  assert.ok(candidate.includes(`github.head_ref == '${industrialGovernanceBranch}'`));
+  assert.ok(candidate.includes("github.event.pull_request.base.sha == 'fe50e24d202bcd22d72dd15e4dc58f9ddc491331'"));
+  assert.ok(candidate.includes('run: bash scripts/p7-autopilot-guard.sh'));
+  const paths = workflow.split('\n  pull_request:\n')[1].split('\nconcurrency:')[0];
+  assert.ok(paths.includes(`'${industrialDiagnosticPaths[0]}'`));
+});
+
+for (const [branch, manifest] of productImplementationManifests) {
+  test(`${branch}: accepted base controls scope and permits only its own manifest`, (t) => {
+    const context = fixture(t, branch);
+    const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+    const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+    state.approvedConcurrentScopes[branch] = ['allowed.txt', manifest];
+    write(context.root, statePath, JSON.stringify(state));
+    commit(context.root, 'accepted product scope');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+    write(context.root, 'allowed.txt', 'accepted product change\n');
+    write(context.root, manifest, JSON.stringify({
+      schemaVersion: 'platform-v7.concurrent-scope.v1', status: 'active', branch,
+      allowedPaths: ['allowed.txt', manifest],
+    }));
+    commit(context.root, 'bounded product change');
+    const accepted = runGuard(context);
+    assert.equal(accepted.status, 0, output(accepted));
+
+    write(context.root, 'apps/api/src/app.module.ts', 'unauthorized server authority\n');
+    commit(context.root, 'attempt protected backend change');
+    const result = runGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /Files outside current autopilot scope/u);
+  });
+
+  test(`${branch}: head-only scope expansion cannot approve itself`, (t) => {
+    const context = fixture(t, branch);
+    const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+    const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+    state.approvedConcurrentScopes[branch] = ['allowed.txt', manifest];
+    write(context.root, statePath, JSON.stringify(state));
+    commit(context.root, 'accepted product scope');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+    state.allowedCurrentScope.push('apps/api/src/app.module.ts');
+    state.approvedConcurrentScopes[branch].push('apps/api/src/app.module.ts');
+    write(context.root, statePath, JSON.stringify(state));
+    write(context.root, manifest, JSON.stringify({
+      schemaVersion: 'platform-v7.concurrent-scope.v1', status: 'active', branch,
+      allowedPaths: ['allowed.txt', manifest],
+    }));
+    write(context.root, 'apps/api/src/app.module.ts', 'unauthorized server authority\n');
+    commit(context.root, 'attempt mutable product scope');
+    const result = runGuard(context);
+    assert.notEqual(result.status, 0, output(result));
+    assert.match(output(result), /Mutable scope authority changed/u);
+  });
+
+  for (const mutation of ['foreign branch', 'expanded paths']) {
+    test(`${branch}: own manifest cannot grant ${mutation} authority`, (t) => {
+      const context = fixture(t, branch);
+      const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+      const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+      state.approvedConcurrentScopes[branch] = ['allowed.txt', manifest];
+      write(context.root, statePath, JSON.stringify(state));
+      commit(context.root, 'accepted product scope');
+      context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+      const candidate = {
+        schemaVersion: 'platform-v7.concurrent-scope.v1', status: 'active', branch,
+        allowedPaths: ['allowed.txt', manifest],
+      };
+      if (mutation === 'foreign branch') candidate.branch = 'agent/unrelated';
+      if (mutation === 'expanded paths') candidate.allowedPaths.push('apps/api/src/modules/auth/**');
+      write(context.root, manifest, JSON.stringify(candidate));
+      commit(context.root, 'attempt product manifest scope laundering');
+      const result = runGuard(context);
+      assert.notEqual(result.status, 0, output(result));
+      assert.match(output(result), /PRODUCT_MANIFEST_BASE_SCOPE_MISMATCH/u);
+    });
+  }
+}
+
+test('product branches run the immutable guard from the accepted base in both workflow entry points', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const trusted = workflow.split('  trusted-immutable-scope:')[1].split('  guard:')[0];
+  const prHead = workflow.split('      - name: Validate immutable scope with trusted base guard on PR head')[1]
+    .split('      - name: Validate owner-authorized industrial diagnostic bootstrap candidate')[0];
+  const standard = workflow.split('      - name: Validate standard branch scope on PR head')[1]
+    .split('  standard_validation:')[0];
+  for (const branch of productImplementationManifests.keys()) {
+    assert.ok(trusted.includes(`github.event.pull_request.head.ref == '${branch}'`));
+    assert.ok(trusted.includes(`|${branch})`) || trusted.includes(`|${branch}|`));
+    assert.ok(prHead.includes(`github.head_ref == '${branch}'`));
+    assert.ok(prHead.includes(`|${branch})`) || prHead.includes(`|${branch}|`));
+    assert.ok(standard.includes(`github.head_ref != '${branch}'`));
+  }
+  assert.ok(prHead.includes('git show "$BASE_SHA:scripts/p7-autopilot-guard.sh"'));
+  assert.ok(trusted.includes('ref: ${{ github.event.pull_request.base.sha }}'));
+});
+
+test('Deal command source branch runs the trusted-base guard in both workflow entry points', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const trusted = workflow.split('  trusted-immutable-scope:')[1].split('  guard:')[0];
+  const prHead = workflow.split('      - name: Validate immutable scope with trusted base guard on PR head')[1]
+    .split('      - name: Validate owner-authorized industrial diagnostic bootstrap candidate')[0];
+  const standard = workflow.split('      - name: Validate standard branch scope on PR head')[1]
+    .split('  standard_validation:')[0];
+  assert.ok(trusted.includes(`github.event.pull_request.head.ref == '${dealCommandImplementationBranch}'`));
+  assert.ok(trusted.includes(`|${dealCommandImplementationBranch}|`));
+  assert.ok(prHead.includes(`github.head_ref == '${dealCommandImplementationBranch}'`));
+  assert.ok(prHead.includes(`|${dealCommandImplementationBranch}|`));
+  assert.ok(standard.includes(`github.head_ref != '${dealCommandImplementationBranch}'`));
+  assert.ok(prHead.includes('git show "$BASE_SHA:scripts/p7-autopilot-guard.sh"'));
+});
+
+test('Deal command source cannot expand its own trusted-base scope', (t) => {
+  const context = fixture(t, dealCommandImplementationBranch);
+  fs.mkdirSync(path.join(context.root, 'docs/platform-v7/autopilot/scopes'), { recursive: true });
+  write(context.root, 'allowed.txt', 'admitted Deal UX change\n');
+  commit(context.root, 'admitted Deal UX');
+  const accepted = runGuard(context);
+  assert.equal(accepted.status, 0, output(accepted));
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+
+  const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+  state.approvedConcurrentScopes[dealCommandImplementationBranch].push(statePath, 'apps/web/app/layout.tsx');
+  write(context.root, statePath, JSON.stringify(state));
+  write(context.root, 'apps/web/app/layout.tsx', 'self-authorized layout change\n');
+  commit(context.root, 'attempt Deal source self-expansion');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /Mutable scope authority changed|Files outside current autopilot scope/u);
+});
+
+for (const mutation of ['accepted', 'unrelated global scope', 'bank path expansion', 'wrong base identity', 'unapproved fourth branch', 'weakened truth boundary', 'extra coordination authority']) {
+  test(`product source admission accepts only exact base-bound state: ${mutation}`, (t) => {
+    const context = fixture(t, productAdmissionBranch);
+    const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+    const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+    state.approvedConcurrentScopes[productAdmissionBranch] = [statePath];
+    state.coordinationAdmissions = {};
+    write(context.root, statePath, JSON.stringify(state));
+    commit(context.root, 'accepted prior product governance scope');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+    for (const [branch, paths] of productAdmissionPaths) {
+      state.approvedConcurrentScopes[branch] = [...paths];
+      state.coordinationAdmissions[productAdmissionCoordinationKeys.get(branch)] =
+        productCoordinationRecord(branch, paths, context.baseline);
+    }
+    if (mutation === 'unrelated global scope') state.allowedCurrentScope.push('apps/api/**');
+    if (mutation === 'bank path expansion') state.approvedConcurrentScopes['bank/deep-visible-copy-guard-20260924'].push('apps/api/src/app.module.ts');
+    if (mutation === 'wrong base identity') state.coordinationAdmissions[productAdmissionCoordinationKeys.get('bank/deep-visible-copy-guard-20260924')].authorityBaseExactMain = '0'.repeat(40);
+    if (mutation === 'unapproved fourth branch') state.approvedConcurrentScopes['bank/parallel-core'] = ['apps/api/**'];
+    if (mutation === 'weakened truth boundary') state.coordinationAdmissions[productAdmissionCoordinationKeys.get('bank/deep-visible-copy-guard-20260924')].requiredTruthBoundaries = [null];
+    if (mutation === 'extra coordination authority') state.coordinationAdmissions[productAdmissionCoordinationKeys.get('bank/deep-visible-copy-guard-20260924')].grantOtherBranch = 'apps/api/**';
+    write(context.root, statePath, JSON.stringify(state));
+    commit(context.root, `candidate ${mutation}`);
+    const result = runGuard(context);
+    if (mutation === 'accepted') assert.equal(result.status, 0, output(result));
+    else {
+      assert.notEqual(result.status, 0, output(result));
+      assert.match(output(result), /PRODUCT_SCOPE_ADMISSION_(PATH_MISMATCH|COORDINATION_MISMATCH|STATE_MUTATION)/u);
+    }
+  });
+}
+
+test('product source admission cannot authorize its own missing base scope', (t) => {
+  const context = fixture(t, productAdmissionBranch);
+  const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+  delete state.approvedConcurrentScopes[productAdmissionBranch];
+  write(context.root, statePath, JSON.stringify(state));
+  commit(context.root, 'base without admission authority');
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+  state.approvedConcurrentScopes[productAdmissionBranch] = [statePath];
+  state.coordinationAdmissions = {};
+  for (const [branch, paths] of productAdmissionPaths) {
+    state.approvedConcurrentScopes[branch] = [...paths];
+    state.coordinationAdmissions[productAdmissionCoordinationKeys.get(branch)] =
+      productCoordinationRecord(branch, paths, context.baseline);
+  }
+  write(context.root, statePath, JSON.stringify(state));
+  commit(context.root, 'attempt self-admission');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /PRODUCT_SCOPE_ADMISSION_STATE_MUTATION|no immutable approved scope/u);
+});
+
+test('product source admission uses both trusted-base workflow routes', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const trusted = workflow.split('  trusted-immutable-scope:')[1].split('  guard:')[0];
+  const prHead = workflow.split('      - name: Validate immutable scope with trusted base guard on PR head')[1]
+    .split('      - name: Validate owner-authorized industrial diagnostic bootstrap candidate')[0];
+  const standard = workflow.split('      - name: Validate standard branch scope on PR head')[1]
+    .split('  standard_validation:')[0];
+  assert.ok(trusted.includes(`github.event.pull_request.head.ref == '${productAdmissionBranch}'`));
+  assert.ok(trusted.includes(`|${productAdmissionBranch}|${buyerAdmissionBranch})`));
+  assert.ok(prHead.includes(`github.head_ref == '${productAdmissionBranch}'`));
+  assert.ok(prHead.includes(`|${productAdmissionBranch}|${buyerAdmissionBranch})`));
+  assert.ok(standard.includes(`github.head_ref != '${productAdmissionBranch}'`));
+});
+
+for (const mutation of ['accepted', 'wrong base', 'extra path', 'global scope', 'weakened boundary',
+  'unrelated admission', 'source file', 'missing state diff']) {
+  test(`buyer state-only admission is exact and base-bound: ${mutation}`, (t) => {
+    const context = fixture(t, buyerAdmissionBranch);
+    const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+    const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+    delete state.approvedConcurrentScopes[buyerAdmissionBranch];
+    state.coordinationAdmissions = {};
+    write(context.root, statePath, JSON.stringify(state));
+    commit(context.root, 'trusted base without buyer source authority');
+    context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+    state.approvedConcurrentScopes[buyerBranch] = [...buyerPaths];
+    state.coordinationAdmissions[buyerCoordinationKey] = {
+      owner: 'ACCOUNT_2_PRODUCT',
+      purpose: 'Buyer first-customer production-home information architecture and visual hierarchy from existing scoped server facts; one vertical after seller, not full 13-role acceptance.',
+      authorityBaseExactMain: context.baseline,
+      implementationBranch: buyerBranch,
+      allowedPaths: [...buyerPaths],
+      requiredTruthBoundaries: [
+        'Buyer shows only server-scoped organization, identity and Deal queue facts; list recency never becomes required next action, amount or deadline.',
+        'UNKNOWN next action, empty, forbidden and degraded remain explicit; no demo/static deal or fake bank/provider/FGIS status.',
+        'RU/EN/ZH, mobile, focus and seller plus other six role regressions stay covered; owner-controlled showroom does not gain customer authority.',
+        'Buyer source changes start only after the accepted immutable guard prerequisite and this state-only admission are merged.',
+      ],
+      forbiddenAuthority: [
+        'homepage/public implementation or parallel App Shell/design system',
+        'API/backend/domain/DB/RLS/tenant/role/priority or money/provider/FGIS finality',
+        'CI/security/readiness gate weakening',
+      ],
+      teamHubDependency: '#5372 inventory comment 5833248230; #5604 guard prerequisite; PUBLIC #5559 main serialization; #5535 CORE next-action dependency',
+    };
+    if (mutation === 'wrong base') state.coordinationAdmissions[buyerCoordinationKey].authorityBaseExactMain = '0'.repeat(40);
+    if (mutation === 'extra path') state.approvedConcurrentScopes[buyerBranch].push('apps/api/src/app.module.ts');
+    if (mutation === 'global scope') state.allowedCurrentScope.push('apps/api/**');
+    if (mutation === 'weakened boundary') state.coordinationAdmissions[buyerCoordinationKey].requiredTruthBoundaries.pop();
+    if (mutation === 'unrelated admission') state.coordinationAdmissions.extra = { owner: 'ACCOUNT_2_PRODUCT' };
+    if (mutation !== 'missing state diff') write(context.root, statePath, JSON.stringify(state));
+    if (mutation === 'source file') write(context.root, 'apps/api/src/app.module.ts', 'unapproved\n');
+    if (mutation === 'missing state diff') write(context.root, 'allowed.txt', 'changed\n');
+    commit(context.root, `buyer admission ${mutation}`);
+    const result = runGuard(context);
+    if (mutation === 'accepted') assert.equal(result.status, 0, output(result));
+    else {
+      assert.notEqual(result.status, 0, output(result));
+      assert.match(output(result), /PRODUCT_BUYER_ADMISSION_(STATE_MUTATION|DIFF_SCOPE)/u);
+    }
+  });
+}
+
+test('buyer admission uses trusted base guard in both workflow entry points', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const trusted = workflow.split('  trusted-immutable-scope:')[1].split('  guard:')[0];
+  const prHead = workflow.split('      - name: Validate immutable scope with trusted base guard on PR head')[1]
+    .split('      - name: Validate owner-authorized industrial diagnostic bootstrap candidate')[0];
+  const standard = workflow.split('      - name: Validate standard branch scope on PR head')[1]
+    .split('  standard_validation:')[0];
+  assert.ok(trusted.includes(`github.event.pull_request.head.ref == '${buyerAdmissionBranch}'`));
+  assert.ok(trusted.includes(`|${buyerAdmissionBranch})`));
+  assert.ok(prHead.includes(`github.head_ref == '${buyerAdmissionBranch}'`));
+  assert.ok(prHead.includes(`|${buyerAdmissionBranch})`));
+  assert.ok(standard.includes(`github.head_ref != '${buyerAdmissionBranch}'`));
+});
 
 test('security remediation pins the three affected dependency families', () => {
   const root = JSON.parse(fs.readFileSync('package.json', 'utf8'));

@@ -63,6 +63,13 @@ type Copy = Readonly<{
   all: string;
   adapters: string;
   freshness: string;
+  freshnessBoundary: string;
+  capabilities: string;
+  capabilitiesBoundary: string;
+  noCapabilities: string;
+  regulatoryApplicability: string;
+  regulatoryBoundary: string;
+  eventFinalityBoundary: string;
   inbox: string;
   retries: string;
   quarantine: string;
@@ -81,6 +88,8 @@ type Copy = Readonly<{
   providerAck: string;
   businessAcceptance: string;
   notAvailable: string;
+  notRecorded: string;
+  notExposed: string;
   primaryAction: string;
   serverAuthority: string;
   actionTitle: string;
@@ -113,13 +122,20 @@ const COPY: Record<IntegrationControlTowerLocale, Copy> = {
     status: 'Статус',
     all: 'Все',
     adapters: 'Адаптеры',
-    freshness: 'Актуальность',
+    freshness: 'Последний серверный факт',
+    freshnessBoundary: 'Это время последнего integration fact, зафиксированного платформой. Оно не подтверждает, что данные во внешней государственной системе актуальны сейчас.',
+    capabilities: 'Возможности по данным сервера',
+    capabilitiesBoundary: 'Список capabilities передан сервером. Он не доказывает наличие credentials, активного binding или live-соединения с провайдером.',
+    noCapabilities: 'Сервер не сообщил ни одной возможности.',
+    regulatoryApplicability: 'Применимость к сделке',
+    regulatoryBoundary: 'UNKNOWN / NOT EXPOSED: текущий read contract не передаёт per-Deal applicability, rule/version/source/evidence или blocking stage. Клиент не выводит их из наличия системы, capabilities, ACK или статуса адаптера.',
+    eventFinalityBoundary: 'ACK провайдера или HTTP 2xx — только транспортное/провайдерское подтверждение. Бизнес-принятие фиксируется отдельно; отсутствие такого факта не превращается в success/finality.',
     inbox: 'Очередь',
     retries: 'Retry',
     quarantine: 'Карантин',
     dead: 'Dead',
     conflicts: 'Конфликты',
-    lastSuccess: 'Последний успех',
+    lastSuccess: 'Последнее обработанное событие',
     lastError: 'Последняя ошибка',
     reconciliation: 'Сверка',
     environment: 'Контур',
@@ -132,6 +148,8 @@ const COPY: Record<IntegrationControlTowerLocale, Copy> = {
     providerAck: 'ACK провайдера',
     businessAcceptance: 'Бизнес-принятие',
     notAvailable: 'нет',
+    notRecorded: 'UNKNOWN / НЕ ЗАФИКСИРОВАНО',
+    notExposed: 'UNKNOWN / NOT EXPOSED',
     primaryAction: 'Следующее управляемое действие',
     serverAuthority: 'Действие, роль, tenant и organization определяются сервером.',
     actionTitle: 'Подтверждение управляемого действия',
@@ -152,10 +170,19 @@ const COPY: Record<IntegrationControlTowerLocale, Copy> = {
     conflict: 'The integration version changed. Server data will be reloaded.', stale: 'The server rejected a stale version. No local data is used.',
     reconnecting: 'Restoring connectivity and reconciling server authority…', degraded: 'Errors, retry, quarantine, dead-letter or hash conflicts require review.',
     retry: 'Refresh', search: 'Search', searchPlaceholder: 'Adapter code or provider', status: 'Status', all: 'All', adapters: 'Adapters',
-    freshness: 'Freshness', inbox: 'Inbox', retries: 'Retry', quarantine: 'Quarantine', dead: 'Dead', conflicts: 'Conflicts',
-    lastSuccess: 'Last success', lastError: 'Last error', reconciliation: 'Reconciliation', environment: 'Environment',
+    freshness: 'Latest server-held fact',
+    freshnessBoundary: 'This is the time of the latest integration fact held by the platform. It does not prove that the authoritative external government source is current now.',
+    capabilities: 'Server-provided capabilities',
+    capabilitiesBoundary: 'Capabilities are supplied by the server. They do not prove credentials, an active binding or live provider connectivity.',
+    noCapabilities: 'The server reported no capabilities.',
+    regulatoryApplicability: 'Deal applicability',
+    regulatoryBoundary: 'UNKNOWN / NOT EXPOSED: the current read contract does not expose per-Deal applicability, rule/version/source/evidence or blocking stage. The client does not infer them from system presence, capabilities, ACK or adapter status.',
+    eventFinalityBoundary: 'Provider ACK or HTTP 2xx is only transport/provider acknowledgement. Business acceptance is recorded separately; missing business evidence is never promoted to success/finality.',
+    inbox: 'Inbox', retries: 'Retry', quarantine: 'Quarantine', dead: 'Dead', conflicts: 'Conflicts',
+    lastSuccess: 'Last processed event', lastError: 'Last error', reconciliation: 'Reconciliation', environment: 'Environment',
     versions: 'Schema / mapping versions', recentEvents: 'Recent events', noEvents: 'No events found.', event: 'Event', received: 'Received',
     attempts: 'Attempts', providerAck: 'Provider ACK', businessAcceptance: 'Business acceptance', notAvailable: 'none',
+    notRecorded: 'UNKNOWN / NOT RECORDED', notExposed: 'UNKNOWN / NOT EXPOSED',
     primaryAction: 'Next governed action', serverAuthority: 'Action, role, tenant and organization are server-derived.',
     actionTitle: 'Governed action confirmation', reason: 'Reason', reasonPlaceholder: 'Enter a verifiable operational or regulatory reason…',
     cancel: 'Cancel', confirm: 'Confirm on server', executing: 'Committing command…', receipt: 'The server committed the command and authority was reloaded.',
@@ -169,9 +196,18 @@ const COPY: Record<IntegrationControlTowerLocale, Copy> = {
     error: '无法加载集成登记。', conflict: '集成版本已变化，将重新读取服务器数据。', stale: '服务器拒绝了过期版本，不使用本地数据。',
     reconnecting: '正在恢复连接并核对服务器权威数据…', degraded: '存在错误、重试、隔离、死信或哈希冲突，需要检查。',
     retry: '刷新', search: '搜索', searchPlaceholder: '适配器代码或提供方', status: '状态', all: '全部', adapters: '适配器',
-    freshness: '更新时间', inbox: '队列', retries: '重试', quarantine: '隔离', dead: '死信', conflicts: '冲突', lastSuccess: '最近成功',
+    freshness: '服务器持有的最新事实',
+    freshnessBoundary: '这是平台持有的最新集成事实时间，不证明外部政府权威数据此刻仍为最新。',
+    capabilities: '服务器提供的能力',
+    capabilitiesBoundary: '能力列表由服务器提供，但不证明凭证、有效绑定或与提供方的实时连接已经存在。',
+    noCapabilities: '服务器未报告任何能力。',
+    regulatoryApplicability: '交易适用性',
+    regulatoryBoundary: 'UNKNOWN / NOT EXPOSED：当前读取契约未提供逐交易 applicability、rule/version/source/evidence 或 blocking stage。客户端不会根据系统存在、capabilities、ACK 或适配器状态自行推断。',
+    eventFinalityBoundary: '提供方 ACK 或 HTTP 2xx 仅表示传输/提供方确认。业务接受单独记录；缺少业务证据时绝不提升为 success/finality。',
+    inbox: '队列', retries: '重试', quarantine: '隔离', dead: '死信', conflicts: '冲突', lastSuccess: '最近处理的事件',
     lastError: '最近错误', reconciliation: '核对', environment: '环境', versions: 'Schema / mapping 版本', recentEvents: '最近事件', noEvents: '未找到事件。',
     event: '事件', received: '接收时间', attempts: '尝试次数', providerAck: '提供方 ACK', businessAcceptance: '业务接受', notAvailable: '无',
+    notRecorded: 'UNKNOWN / 未记录', notExposed: 'UNKNOWN / NOT EXPOSED',
     primaryAction: '下一项受控操作', serverAuthority: '操作、角色、tenant 和 organization 均由服务器确定。', actionTitle: '确认受控操作',
     reason: '依据', reasonPlaceholder: '请输入可核验的运营或法规依据…', cancel: '取消', confirm: '在服务器确认', executing: '正在提交命令…',
     receipt: '服务器已记录命令并重新加载权威数据。', credentialBoundary: '没有安全的 credential metadata authority，因此不显示 reference 到期时间；绝不显示密钥或 secret。',
@@ -507,6 +543,19 @@ export function IntegrationControlTowerClient({
                 <span>{copy.quarantine}<strong>{selected.quarantineCount}</strong></span><span>{copy.dead}<strong>{selected.deadCount}</strong></span>
                 <span>{copy.conflicts}<strong>{selected.conflictCount}</strong></span>
               </div>
+              <InlineNotice tone='neutral' title={copy.freshness} icon={<Clock3 size={18} />}>
+                {copy.freshnessBoundary}
+              </InlineNotice>
+              <div data-capabilities-authority='server-provided-non-live-proof'>
+                <InlineNotice tone='neutral' title={copy.capabilities} icon={<ShieldCheck size={18} />}>
+                  {copy.capabilitiesBoundary} {selected.capabilities.length > 0 ? selected.capabilities.join(' · ') : copy.noCapabilities}
+                </InlineNotice>
+              </div>
+              <div data-regulatory-applicability='UNKNOWN_NOT_EXPOSED'>
+                <InlineNotice tone='warning' title={copy.regulatoryApplicability} icon={<TriangleAlert size={18} />}>
+                  {copy.regulatoryBoundary}
+                </InlineNotice>
+              </div>
               <InlineNotice tone='neutral' title={copy.environment} icon={<DatabaseZap size={18} />}>{copy.credentialBoundary}</InlineNotice>
             </Surface>
 
@@ -517,11 +566,12 @@ export function IntegrationControlTowerClient({
 
             <Surface className={styles.events} padded={false}>
               <header><strong>{copy.recentEvents}</strong><Clock3 size={18} /></header>
+              <InlineNotice tone='neutral' title={copy.providerAck}>{copy.eventFinalityBoundary}</InlineNotice>
               {selected.recentEvents.length === 0 ? <p className={styles.emptyEvents}>{copy.noEvents}</p> : (
                 <div className={styles.eventList}>{selected.recentEvents.map((event) => (
                   <article key={event.id} data-event-state={event.state}>
                     <div><StatusChip tone={event.state === 'PROCESSED' ? 'success' : event.state === 'DEAD' || event.state === 'QUARANTINED' ? 'critical' : event.state === 'RETRY' ? 'warning' : 'neutral'}>{event.state}</StatusChip><strong>{event.externalEventId}</strong></div>
-                    <dl><div><dt>{copy.received}</dt><dd>{formatDate(event.receivedAt, locale, copy.notAvailable)}</dd></div><div><dt>{copy.attempts}</dt><dd>{event.attempts}</dd></div><div><dt>{copy.providerAck}</dt><dd>{formatDate(event.providerAcknowledgedAt, locale, copy.notAvailable)}</dd></div><div><dt>{copy.businessAcceptance}</dt><dd>{formatDate(event.businessAcceptedAt, locale, copy.notAvailable)}</dd></div></dl>
+                    <dl><div><dt>{copy.received}</dt><dd>{formatDate(event.receivedAt, locale, copy.notAvailable)}</dd></div><div><dt>{copy.attempts}</dt><dd>{event.attempts}</dd></div><div><dt>{copy.providerAck}</dt><dd>{formatDate(event.providerAcknowledgedAt, locale, copy.notRecorded)}</dd></div><div><dt>{copy.businessAcceptance}</dt><dd>{formatDate(event.businessAcceptedAt, locale, copy.notRecorded)}</dd></div></dl>
                     {event.lastErrorCode ? <p><TriangleAlert size={16} />{event.lastErrorCode}{event.lastErrorCategory ? ` · ${event.lastErrorCategory}` : ''}</p> : null}
                   </article>
                 ))}</div>
