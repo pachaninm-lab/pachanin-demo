@@ -127,6 +127,14 @@ lacks(provision, 'local version="$1" key_file="$KEYRING_DIR/v${version}.key"', '
 has(provision, "user_domain != platform_domain and not user_domain.endswith('.' + platform_domain)", 'provision SMTP login must remain platform-domain bounded');
 has(provision, "values['PC_MAIL_FROM'] != f'access@{platform_domain}'", 'provision MAIL FROM must remain canonical');
 lacks(provision, "values['PC_SMTP_USER'] != 'access@xn----8sbjf4befbjgs9b.xn--p1ai' or values['PC_MAIL_FROM'] != values['PC_SMTP_USER']", 'provision must not collapse SMTP AUTH login into MAIL FROM');
+has(provision, "label=com.docker.compose.service=api", 'provision must resolve the running API datasource authority');
+has(provision, "sed -n 's/^DATABASE_URL=//p'", 'provision must read live API DATABASE_URL without publishing it');
+has(provision, "database_reconcile_required=0", 'provision must make DB credential reconciliation explicit');
+has(provision, 'if [[ "$ACTION" == rotate-db || ! -e "$DATABASE_URL_FILE" ]]', 'missing or explicit rotate-db must enter reconciliation');
+has(provision, 'if [[ "$database_reconcile_required" == 1 ]]', 'migration admin authority must be conditional');
+has(provision, 'AUTH_MAIL_PROVISION=FAIL_MIGRATION_API_DATASOURCE_MISMATCH', 'migration/API datasource parity fail-closed marker missing');
+has(provision, 'AUTH_MAIL_DATABASE_AUTHORITY=API_DATASOURCE_EXISTING', 'existing live API-bound DB authority evidence missing');
+lacks(provision, 'if [[ "$ACTION" == bootstrap || "$ACTION" == rotate-db ]]; then', 'bootstrap must not rotate DB credentials unconditionally');
 
 has(workflow, 'controller_target_sha:', 'direct controller target SHA input missing');
 has(workflow, 'controller_run_id:', 'direct controller run ID input missing');
