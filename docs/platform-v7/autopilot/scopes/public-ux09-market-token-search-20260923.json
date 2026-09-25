@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-ux09-market-token-search-20260923",
+  "status": "active",
+  "approvedBy": "owner-public-ux-repair-v2.0-2026-09-23",
+  "purpose": "UX-09 / T11: repair multiword search in the existing public market helper without changing offer identity, navigation, money or backend authority.",
+  "ownerSpecification": "Прозрачная Цена — инженерное ТЗ быстрого UX-ремонта v2.0, 23.09.2026, sections 1.4, 5.1, 6.1 and UX-09/T11. First bounded slice only; the other 38 cards remain open.",
+  "coordination": "Team Hub #5469, claim 5785694904; baseline 4cfd743a0fe307e4a8ee94452e3e7196ccd99546. No overlap with the seller/Founder/state-writer or older public page/CSS branches.",
+  "allowedPaths": [
+    "apps/web/lib/platform-v7/public-market-navigation.ts",
+    "apps/web/tests/unit/platformV7BrowserAcceptanceRepairs.test.ts",
+    "docs/platform-v7/autopilot/scopes/public-ux09-market-token-search-20260923.json"
+  ],
+  "requiredInvariants": [
+    "AND across all query tokens; each token may match any already-public culture/translation, region or grade field.",
+    "The existing 120-character accepted query boundary bounds token work. No silent truncation, fuzzy search, new dependency or private-field search.",
+    "Unspaced CJK remains substring search; accepted Unicode whitespace and case are normalized for matching only.",
+    "Existing explicit filters, exact bigint price/volume sorting, publicRef identity and navigation allowlists are unchanged.",
+    "Retain all existing tests and add behavioral cases to the suite already invoked by canonical ci.yml. No workflow, inventory, threshold, security or review-policy changes.",
+    "No API/BFF/auth/session/RLS/tenant/role/money/infrastructure or production mutation is authorized by this slice.",
+    "Local isolated tests are not full Vitest, browser, CI, independent review or production acceptance. The 39-card package remains unaccepted until its separate criteria are met."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

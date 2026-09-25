@@ -16,8 +16,10 @@ EXECUTOR = ROOT / "scripts/production-full-stack-exact-sha.sh"
 WORKFLOW = ROOT / ".github/workflows/production-full-stack-exact-sha.yml"
 SHA = "a" * 40
 CANARY = "SYNTHETIC_PROTECTED_IMAGE_CANARY"
-CID = {"api": "1" * 64, "web": "2" * 64}
-REPOS = {component: "ghcr.io/pachaninm-lab/grainflow-" + component for component in ("api", "web", "migration")}
+CID = {"api": "1" * 64, "web": "2" * 64, "outbox-worker": "3" * 64}
+BROKER_CID = "4" * 64
+KAFKA_IMAGE = "confluentinc/cp-kafka@sha256:24cdd3a7fa89d2bed150560ebea81ff1943badfa61e51d66bb541a6b0d7fb047"
+REPOS = {component: "ghcr.io/pachaninm-lab/grainflow-" + component for component in ("api", "web", "migration", "outbox-worker")}
 REFS = {component: repo + "@sha256:" + str(index) * 64 for index, (component, repo) in enumerate(REPOS.items(), 3)}
 
 
@@ -47,6 +49,10 @@ class BindingTests(unittest.TestCase):
                 self.data["containers"][CID[component]] = [{"Id": CID[component], "Image": image["Id"],
                     "Config": {"Image": REFS[component], "Labels": {"org.opencontainers.image.revision": SHA},
                                "Env": ["SECRET=" + CANARY]}, "State": {"Running": True}}]
+        self.data["images"][KAFKA_IMAGE] = [{"Id": "sha256:" + "f" * 64, "RepoDigests": [KAFKA_IMAGE],
+            "Config": {"Labels": {}, "Env": []}}]
+        self.data["containers"][BROKER_CID] = [{"Id": BROKER_CID, "Image": "sha256:" + "f" * 64,
+            "Config": {"Image": KAFKA_IMAGE, "Labels": {}, "Env": []}, "State": {"Running": True}}]
         fake = self.bin / "docker"
         fake.write_text("""#!/usr/bin/env python3
 import json, os, pathlib, sys
@@ -61,12 +67,22 @@ if args[:1] == ['pull']:
     print(os.environ['IMAGE_TEST_CANARY'], file=sys.stderr)
     sys.exit(data['pullStatus'])
 if args[:2] == ['compose', 'ps']:
-    print({'api': '1' * 64, 'web': '2' * 64}[args[-1]])
+    print({'api': '1' * 64, 'web': '2' * 64, 'outbox-worker': '3' * 64, 'ir20-kafka': '4' * 64}[args[-1]])
     sys.exit(0)
 if args[:2] == ['image', 'inspect']:
-    value = data['images'].get(args[2])
+    reference = args[-1] if '--format' in args else args[2]
+    value = data['images'].get(reference)
+    if value is not None and '--format' in args:
+        fmt = args[args.index('--format') + 1]
+        if fmt == '{{.Id}}':
+            print(value[0]['Id']); sys.exit(0)
+        if 'org.opencontainers.image.revision' in fmt:
+            print(value[0]['Config']['Labels'].get('org.opencontainers.image.revision', '')); sys.exit(0)
+        sys.exit(46)
 elif args[:2] == ['container', 'inspect']:
     value = data['containers'].get(args[2])
+elif args[:1] == ['inspect'] and '.Config.Image' in args[args.index('--format')+1]:
+    print(data['containers'][args[-1]][0]['Config']['Image']); sys.exit(0)
 else:
     value = None
 if value is None:
@@ -82,7 +98,9 @@ else:
         self.env = dict(os.environ, PATH=str(self.bin) + os.pathsep + os.environ["PATH"],
                         IMAGE_TEST_LOG=str(self.log), IMAGE_TEST_DATA=str(self.fixture),
                         IMAGE_TEST_CANARY=CANARY, TARGET_SHA=SHA, IMAGE_BINDING_VERIFIER=str(VERIFIER),
-                        API_IMAGE=REFS["api"], WEB_IMAGE=REFS["web"], MIGRATION_IMAGE=REFS["migration"])
+                        API_IMAGE=REFS["api"], WEB_IMAGE=REFS["web"], MIGRATION_IMAGE=REFS["migration"],
+                        OUTBOX_WORKER_IMAGE=REFS["outbox-worker"], KAFKA_IMAGE=KAFKA_IMAGE,
+                        OUTBOX_SERVICE="outbox-worker", KAFKA_SERVICE="ir20-kafka")
 
     def execute(self, command, env=None):
         self.fixture.write_text(json.dumps(self.data))
@@ -230,7 +248,14 @@ else:
         name = step.rsplit('      - name: ', 1)[1].split('\n', 1)[0]
         result = self.execute(["bash", "-c", shell_step(name)], env)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(output.read_text().splitlines(), [component + "_image=" + REFS[component] for component in REPOS])
+        expected_outputs = []
+        for index, component in enumerate(REPOS, 6):
+            key = component.replace("-", "_")
+            expected_outputs.extend([
+                key + "_image=" + REFS[component],
+                key + "_image_id=sha256:" + str(index) * 64,
+            ])
+        self.assertEqual(output.read_text().splitlines(), expected_outputs)
         for component in REPOS:
             raw = (evidence / (component + "-image.json")).read_text()
             self.assertNotIn(CANARY, raw)
@@ -239,16 +264,52 @@ else:
     def executor_functions(self):
         source = EXECUTOR.read_text()
         fail = source[source.index("fail() {"):source.index("decode() {")]
-        verify = source[source.index("verify_image() {"):source.index("wait_api() {")]
-        return "set -Eeuo pipefail\n" + fail + verify
+        verify = source[source.index("expected_pinned_image_id() {"):source.index("wait_api() {")]
+        broker = source[source.index("verify_broker_image() {"):source.index("resolve_outbox_runtime_env_file() {")]
+        defaults = (
+            'EXACT_IMAGE_SOURCE="${EXACT_IMAGE_SOURCE:-registry}"\n'
+            'API_IMAGE_ID="${API_IMAGE_ID:-}"\n'
+            'WEB_IMAGE_ID="${WEB_IMAGE_ID:-}"\n'
+            'MIGRATION_IMAGE_ID="${MIGRATION_IMAGE_ID:-}"\n'
+            'OUTBOX_WORKER_IMAGE_ID="${OUTBOX_WORKER_IMAGE_ID:-}"\n'
+        )
+        return "set -Eeuo pipefail\n" + defaults + fail + verify + broker
 
-    def test_actual_executor_preflight_checks_all_three_images(self):
+    def test_actual_executor_preflight_checks_all_four_images(self):
         source = EXECUTOR.read_text()
         preflight = source[source.index('[[ -n "$API_IMAGE" &&'):source.index('# Shared release-authority root:')]
         result = self.execute(["bash", "-c", self.executor_functions() + preflight + '\nprintf "PREFLIGHT_DONE\\n"\n'])
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout, "PREFLIGHT_DONE\n")
-        self.assertEqual([args for args in self.calls() if args[0] == "pull"], [["pull", ref] for ref in REFS.values()])
+        self.assertEqual(result.stdout, "EXACT_IMAGE_SOURCE=registry\nPREFLIGHT_DONE\n")
+        self.assertEqual([args for args in self.calls() if args[0] == "pull"], [["pull", ref] for ref in REFS.values()] + [["pull", KAFKA_IMAGE]])
+
+    def test_actual_executor_pinned_mode_requires_local_tags_and_remote_ids(self):
+        source = EXECUTOR.read_text()
+        preflight = source[source.index('[[ -n "$API_IMAGE" &&'):source.index('# Shared release-authority root:')]
+        env = dict(
+            self.env,
+            EXACT_IMAGE_SOURCE="pinned-ssh",
+            API_IMAGE="pc-crop-transfer/api:" + SHA,
+            WEB_IMAGE="pc-crop-transfer/web:" + SHA,
+            MIGRATION_IMAGE="pc-crop-transfer/migration:" + SHA,
+            OUTBOX_WORKER_IMAGE="pc-crop-transfer/outbox-worker:" + SHA,
+            API_IMAGE_ID="sha256:" + "6" * 64,
+            WEB_IMAGE_ID="sha256:" + "7" * 64,
+            MIGRATION_IMAGE_ID="sha256:" + "8" * 64,
+            OUTBOX_WORKER_IMAGE_ID="sha256:" + "9" * 64,
+        )
+        for index, component in enumerate(REPOS, 6):
+            tag = "pc-crop-transfer/" + component + ":" + SHA
+            image = copy.deepcopy(self.data["images"][REFS[component]][0])
+            image["Id"] = "sha256:" + str(index) * 64
+            self.data["images"][tag] = [image]
+        result = self.execute(
+            ["bash", "-c", self.executor_functions() + preflight + '\nprintf "PREFLIGHT_DONE\\n"\n'],
+            env,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "EXACT_IMAGE_SOURCE=pinned-ssh\nPREFLIGHT_DONE\n")
+        self.assertEqual([args for args in self.calls() if args[0] == "pull"], [["pull", KAFKA_IMAGE]])
 
     def test_actual_executor_rejects_migration_substitution_before_next_stage(self):
         source = EXECUTOR.read_text()
@@ -265,7 +326,7 @@ else:
         return (self.executor_functions() + '\ndc_target=(docker compose)\nRELEASE_ROLLBACK_ARMED=1\n'
                 'rollback_and_exit() { printf "ROLLBACK_INVOKED\\n" >&2; exit "$1"; }\n' + final)
 
-    def test_actual_executor_success_requires_both_runtime_bindings(self):
+    def test_actual_executor_success_requires_all_runtime_bindings(self):
         result = self.execute(["bash", "-c", self.final_verification()])
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("DEPLOYMENT_COMPLETE=1\n", result.stdout)
