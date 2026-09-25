@@ -70,7 +70,15 @@ if args[:2] == ['compose', 'ps']:
     print({'api': '1' * 64, 'web': '2' * 64, 'outbox-worker': '3' * 64, 'ir20-kafka': '4' * 64}[args[-1]])
     sys.exit(0)
 if args[:2] == ['image', 'inspect']:
-    value = data['images'].get(args[2])
+    reference = args[-1] if '--format' in args else args[2]
+    value = data['images'].get(reference)
+    if value is not None and '--format' in args:
+        fmt = args[args.index('--format') + 1]
+        if fmt == '{{.Id}}':
+            print(value[0]['Id']); sys.exit(0)
+        if 'org.opencontainers.image.revision' in fmt:
+            print(value[0]['Config']['Labels'].get('org.opencontainers.image.revision', '')); sys.exit(0)
+        sys.exit(46)
 elif args[:2] == ['container', 'inspect']:
     value = data['containers'].get(args[2])
 elif args[:1] == ['inspect'] and '.Config.Image' in args[args.index('--format')+1]:
