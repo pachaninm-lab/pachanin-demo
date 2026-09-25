@@ -2124,7 +2124,7 @@
           ]
         }
       ],
-      "note": "Half measurable, half blocked, so no verdict is claimed. Measurable and recorded: the platform declares two hostnames, the apex and control.<apex>, in control-host.ts, and no session cookie anywhere sets a domain attribute, so every cookie is host-only and the two hostnames are isolated for cookies as well as by same-origin policy. That is the substance the requirement asks for and it holds. Not measurable here: which applications are actually served on which hostname in production is decided by the Caddy edge on the REG.RU virtual server, whose configuration is not in the repository - the same blocker recorded under V12, V13 and V4. Recording PASS would credit a routing arrangement this repository cannot show, and recording FAIL would deny a cookie isolation it can."
+      "note": "Half measurable, half blocked, so no verdict is claimed. Measurable and recorded: the platform declares two hostnames, the apex and control.<apex>, in control-host.ts, and no session cookie anywhere sets a domain attribute, so every cookie is host-only and the two hostnames are isolated for cookies as well as by same-origin policy. That is the substance the requirement asks for and it holds. Not measurable here, and more precisely than before: the application enforces the split itself (middleware.ts redirects staff pages to the control host and refuses staff API paths elsewhere), but only when PC_CONTROL_HOST_ENABLED is true, and no versioned production configuration sets that flag; infra/compose/production-web-hardening.override.yml does not. Whether the split is on in production is therefore decided by server-side environment and the Caddy edge on the REG.RU virtual server, neither of which is in the repository - the same blocker recorded under V12, V13 and V4. PR #5102 recorded PASS on the middleware alone; that is not adopted here, because the enforcement it credits is conditional on a flag the repository cannot show is set. Recording PASS would credit a routing arrangement this repository cannot show, and recording FAIL would deny a cookie isolation it can."
     },
     {
       "requirementId": "V3.5.5",
@@ -10367,12 +10367,35 @@
     {
       "requirementId": "V15.3.1",
       "applicability": "APPLICABLE",
-      "status": "PASS",
+      "status": "FAIL",
       "evidence": [
+        "whole-row:apps/api/src/modules/compliance/compliance.service.ts",
+        "whole-row:apps/api/src/modules/organizations/organizations.service.ts",
+        "traced-by:PR#5102",
         "apps/api/src/modules/auth/auth.service.ts",
         "repository-scan:no-controller-touches-credential-fields"
       ],
       "conditions": [
+        {
+          "condition": "the compliance audit log still returns whole AuditEvent rows, with no select",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/compliance/compliance.service.ts"
+          ],
+          "patterns": [
+            "    return this.prisma.auditevent.findmany({\n      where: {\n        ...(filters?.dealid && { dealid: filters.dealid }),\n        ...(filters?.actorid && { actoruserid: filters.actorid }),\n        ...(filters?.action && { action: { contains: filters.action } }),\n      },\n      orderby: { createdat: 'desc' },\n      take: filters?.limit ?? 100,\n    });"
+          ]
+        },
+        {
+          "condition": "the organization list still returns whole Organization rows, with no select",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/organizations/organizations.service.ts"
+          ],
+          "patterns": [
+            "    return this.prisma.organization.findmany({\n      where: {\n        ...(filters?.status && { status: filters.status as any }),\n        ...(filters?.kycstatus && { kycstatus: filters.kycstatus as any }),\n      },\n      orderby: { createdat: 'desc' },\n      take: 500,\n    }).catch(() => []);"
+          ]
+        },
         {
           "condition": "no HTTP controller anywhere in the API references a credential or MFA-secret field",
           "check": "ABSENT_AT_PATH",
@@ -10461,7 +10484,7 @@
           ]
         }
       ],
-      "note": "Checked against the schema's most sensitive fields rather than assumed from the requirement's generic wording. User.passwordHash, User.mfaSecret and User.mfaBackup (and their internal SQL projections password_hash, mfa_secret_ciphertext, mfa_backup) are the fields whose leak would matter most, and they are the concrete test of whether the application returns a data object wholesale or an explicit subset. All 62 *.controller.ts files under apps/api/src were checked and none references any of them; they are used in exactly six files, all under modules/auth, all for hashing, writing or verifying a credential, never for constructing a response. The credential comparison in auth.service.ts reads the fields from a three-column SQL projection (auth.resolve_login_credential returns user_id, email, password_hash only, not the whole row) and never assigns them into the returned session object; the returned object is built field by field through a single named method, userProjection, called from every session-issuing path including the MFA-pending branch, which the code comments explicitly note must not disclose organization, tenant or membership authority before MFA proof. There is no global ClassSerializerInterceptor or @Exclude() convention in this API; nothing at the framework level would catch a future controller that spreads a raw Prisma entity into a response. Safety here rests on the discipline the first condition measures directly, not on a serialization layer, and the check that condition performs is bounded: it covers the controller files that exist today, not any added afterward, and it covers this one field family (authentication credentials) rather than every field of every model."
+      "note": "Corrected from PASS to FAIL. The earlier PASS measured the most sensitive fields - no controller returns passwordHash or MFA material, and user objects go through a projection, which the conditions below still verify - and read that as the whole requirement. It is not: the requirement is that the application does not return an entire data object, and two traced instances on main do exactly that. compliance.service.ts getAuditLog, behind GET compliance/audit-log, returns auditEvent.findMany with no select, so every AuditEvent column reaches the caller, including the free-form before/after state and metadata blobs and the hash chain. organizations.service.ts list returns organization.findMany with no select, so every Organization column reaches the caller, including tax identifiers and bank details. Both are behind role checks, so this is over-return to an authorised caller rather than an anonymous leak, and it is stated that way. The instances were traced first in PR #5102 (open, unmerged), whose own note records the same verdict; that measurement is credited here rather than repeated as if new. Not fixed here: narrowing a response changes its shape, and which fields the web client consumes has to be measured before a select is chosen. The first two conditions quote each query block verbatim, so adding a select to either revokes this decision for re-assessment."
     },
     {
       "requirementId": "V15.3.2",
@@ -10592,12 +10615,26 @@
     {
       "requirementId": "V15.3.6",
       "applicability": "APPLICABLE",
-      "status": "PASS",
+      "status": "FAIL",
       "evidence": [
+        "object-literal-aggregation:apps/api/src/modules/exports/exports.service.ts",
+        "traced-by:PR#5102",
+        "fix-prepared:PR#5102",
+        "fix-prepared:PR#5135",
         "repository-scan:no-prototype-sink",
         "repository-scan:map-set-usage"
       ],
       "conditions": [
+        {
+          "condition": "the 29-СХ regulatory export still aggregates volume into a plain object keyed by the deal's free-text culture",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/exports/exports.service.ts"
+          ],
+          "patterns": [
+            "      deals.reduce((acc, d) => {\n        const c = d.culture ?? 'не указана';\n        acc[c] = (acc[c] ?? 0) + (d.volumetons ?? 0);\n        return acc;\n      }, {} as record<string, number>)"
+          ]
+        },
         {
           "condition": "no prototype-writing sink or recursive merge exists in product source",
           "check": "ABSENT_IN_TREE",
@@ -10629,7 +10666,7 @@
           ]
         }
       ],
-      "note": "The vector is absent and the construct the requirement names is the one actually used. Across 1879 scanned product source files there is no recursive merge, no lodash.merge, no setPrototypeOf and no write to __proto__; the only occurrences of __proto__ anywhere are two lines in one spec that assert the key is refused, and both are named exceptions re-verified against the file on every run. The recommended construct is in wide use rather than token use: Map 28 sites, Set 308 sites, with Object.freeze at 399. Two limits, stated rather than left implicit. First, this scans first-party source only, so a dependency performing a recursive merge on attacker-controlled keys is outside what this condition can see. Second, a dynamic assignment of the shape obj[key] = value with an unvalidated key can still reach a prototype, and that shape is too generic to scan for; the finding is that no dedicated pollution sink exists, not that every dynamic write has been individually proven safe."
+      "note": "Corrected from PASS to FAIL. The earlier PASS rested on the absence of dedicated pollution sinks - no recursive merge, no setPrototypeOf, no write to __proto__, which the last condition still verifies - and its own note conceded that a dynamic obj[key] write with an unvalidated key is too generic to scan for. A traced instance of exactly that shape exists on main, and it is the construct this requirement names: buildRosstatCsv in exports.service.ts aggregates tonnage into an object literal keyed by the deal's culture, which reaches the key as free text. A key that names an inherited Object.prototype member does not create an own entry the way an ordinary key does, so the regulatory return can silently misreport volume. PR #5102 measured this against the real service, and it is credited here rather than re-derived. Fixes are prepared in two open PRs, #5102 and #5135, each replacing the literal with a Map; only one of them should land, and that choice is recorded for the owner. The first condition quotes the aggregation verbatim, so replacing it revokes this decision for re-assessment. Re-assessment then still has to consider the requirement codebase-wide, since the sink scan below cannot see a generic dynamic key write."
     },
     {
       "requirementId": "V15.3.7",
