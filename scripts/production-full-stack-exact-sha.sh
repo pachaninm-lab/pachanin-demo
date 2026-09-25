@@ -655,6 +655,20 @@ verify_runtime_image() {
   printf '%s\n' "$TARGET_SHA"
 }
 
+verify_local_runtime_revision() {
+  local image="$1" container_id="$2" expected_revision="$3" image_id container_image_id configured_ref image_revision container_revision_value state
+  is_revision "$expected_revision" || return 1
+  image_id="$(docker image inspect --format '{{.Id}}' "$image" 2>/dev/null || true)"
+  container_image_id="$(docker inspect --format '{{.Image}}' "$container_id" 2>/dev/null || true)"
+  configured_ref="$(docker inspect --format '{{.Config.Image}}' "$container_id" 2>/dev/null || true)"
+  image_revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image" 2>/dev/null || true)"
+  container_revision_value="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$container_id" 2>/dev/null || true)"
+  state="$(docker inspect --format '{{.State.Running}}' "$container_id" 2>/dev/null || true)"
+  [[ "$image_id" =~ ^sha256:[0-9a-f]{64}$ && "$container_image_id" == "$image_id" ]] || return 1
+  [[ "$configured_ref" == "$image" && "$image_revision" == "$expected_revision" && "$container_revision_value" == "$expected_revision" && "$state" == true ]] || return 1
+  printf '%s\n' "$expected_revision"
+}
+
 wait_api() {
   local id attempt
   for attempt in $(seq 1 30); do
@@ -1041,7 +1055,7 @@ rollback_images() {
     "${dc_target[@]}" up -d --no-deps --pull never "$OUTBOX_SERVICE"
     wait_worker || return 1
     restored_worker_id="$("${dc_target[@]}" ps -q "$OUTBOX_SERVICE" | head -1)"
-    [[ "$(verify_runtime_image outbox-worker "$BASELINE_WORKER_IMAGE" "$restored_worker_id" 2>/dev/null)" == "$BASELINE_WORKER_REVISION" ]] || return 3
+    [[ "$(verify_local_runtime_revision "$BASELINE_WORKER_IMAGE" "$restored_worker_id" "$BASELINE_WORKER_REVISION" 2>/dev/null)" == "$BASELINE_WORKER_REVISION" ]] || return 3
     ROLLBACK_IR20_COMPLETE=1
   else
     worker_id="$(optional_release_service_id "$OUTBOX_SERVICE")" || return 1
