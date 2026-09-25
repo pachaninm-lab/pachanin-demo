@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fgis/zsn-public-document-source-lock-20260924",
+  "status": "active",
+  "issue": 5532,
+  "purpose": "Pin the public operator-linked EFGIS ZSN PDF bytes and provenance in a strict additive source lock; preserve immutable historical registry v1.",
+  "authorityBaseExactMain": "c15a0217231dbd0978046791a0cf8096140c1606",
+  "allowedPaths": [
+    ".github/workflows/pc-crop-zsn-source-lock.yml",
+    "docs/platform-v7/crop-platform/efgis-zsn-api-document.source-lock.json",
+    "docs/platform-v7/crop-platform/efgis-zsn-api-document.source-lock.schema.json",
+    "scripts/pc-crop-zsn/verify-source-lock.mjs",
+    "scripts/pc-crop-zsn/verify-source-lock.test.mjs",
+    "docs/platform-v7/autopilot/scopes/fgis-zsn-public-document-source-lock-20260924.json"
+  ],
+  "requiredInvariants": [
+    "The public 906732-byte PDF is SHA-256 pinned; document year and metadata are not an API contract version.",
+    "Historical government-system registry remains byte-immutable; ZSN read/write, credentials, signature and external E2E stay disabled/unattested.",
+    "The dedicated additive workflow uses SHA-pinned actions and does not weaken any existing gate."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}
