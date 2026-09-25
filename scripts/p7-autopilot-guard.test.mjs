@@ -31,6 +31,7 @@ const productImplementationManifests = new Map([
   ['ux/first-customer-next-action-unknown-20260924', 'docs/platform-v7/autopilot/scopes/first-customer-next-action-unknown-20260924.json'],
 ]);
 const productAdmissionBranch = 'governance/product-bank-fgis-ux-source-admission-20260924';
+const dealCommandImplementationBranch = 'ux/deal-command-unknown-20260925';
 const productAdmissionPaths = new Map([
   ['bank/deep-visible-copy-guard-20260924', [
     'apps/web/app/platform-v7/bank/escrow/page.tsx',
@@ -1614,6 +1615,39 @@ test('product branches run the immutable guard from the accepted base in both wo
   }
   assert.ok(prHead.includes('git show "$BASE_SHA:scripts/p7-autopilot-guard.sh"'));
   assert.ok(trusted.includes('ref: ${{ github.event.pull_request.base.sha }}'));
+});
+
+test('Deal command source branch runs the trusted-base guard in both workflow entry points', () => {
+  const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
+  const trusted = workflow.split('  trusted-immutable-scope:')[1].split('  guard:')[0];
+  const prHead = workflow.split('      - name: Validate immutable scope with trusted base guard on PR head')[1]
+    .split('      - name: Validate owner-authorized industrial diagnostic bootstrap candidate')[0];
+  const standard = workflow.split('      - name: Validate standard branch scope on PR head')[1]
+    .split('  standard_validation:')[0];
+  assert.ok(trusted.includes(`github.event.pull_request.head.ref == '${dealCommandImplementationBranch}'`));
+  assert.ok(trusted.includes(`|${dealCommandImplementationBranch}|`));
+  assert.ok(prHead.includes(`github.head_ref == '${dealCommandImplementationBranch}'`));
+  assert.ok(prHead.includes(`|${dealCommandImplementationBranch}|`));
+  assert.ok(standard.includes(`github.head_ref != '${dealCommandImplementationBranch}'`));
+  assert.ok(prHead.includes('git show "$BASE_SHA:scripts/p7-autopilot-guard.sh"'));
+});
+
+test('Deal command source cannot expand its own trusted-base scope', (t) => {
+  const context = fixture(t, dealCommandImplementationBranch);
+  write(context.root, 'allowed.txt', 'admitted Deal UX change\n');
+  commit(context.root, 'admitted Deal UX');
+  assert.equal(runGuard(context).status, 0);
+  context.baseline = git(context.root, ['rev-parse', 'HEAD']);
+
+  const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+  const state = JSON.parse(fs.readFileSync(path.join(context.root, statePath), 'utf8'));
+  state.approvedConcurrentScopes[dealCommandImplementationBranch].push('apps/web/app/layout.tsx');
+  write(context.root, statePath, JSON.stringify(state));
+  write(context.root, 'apps/web/app/layout.tsx', 'self-authorized layout change\n');
+  commit(context.root, 'attempt Deal source self-expansion');
+  const result = runGuard(context);
+  assert.notEqual(result.status, 0, output(result));
+  assert.match(output(result), /Mutable scope authority changed|Files outside current autopilot scope/u);
 });
 
 for (const mutation of ['accepted', 'unrelated global scope', 'bank path expansion', 'wrong base identity', 'unapproved fourth branch', 'weakened truth boundary', 'extra coordination authority']) {
