@@ -609,24 +609,50 @@ YAML
 
 dc_target=("${dc[@]}" -f "$full_override")
 
+expected_pinned_image_id() {
+  case "$1" in
+    api) printf '%s\n' "$API_IMAGE_ID" ;;
+    web) printf '%s\n' "$WEB_IMAGE_ID" ;;
+    migration) printf '%s\n' "$MIGRATION_IMAGE_ID" ;;
+    outbox-worker) printf '%s\n' "$OUTBOX_WORKER_IMAGE_ID" ;;
+    *) return 1 ;;
+  esac
+}
+
 verify_image() {
-  local component="$1" image="$2" expected_id="${3:-}" actual_id revision
-  [[ -f "$IMAGE_BINDING_VERIFIER" ]] || fail IMAGE_BINDING_VERIFIER_MISSING 81
+  local component="$1" image="$2" expected_id="${3:-}" actual_id revision expected_ref
   if [[ "$EXACT_IMAGE_SOURCE" == registry ]]; then
+    [[ -f "$IMAGE_BINDING_VERIFIER" ]] || fail IMAGE_BINDING_VERIFIER_MISSING 81
     python3 "$IMAGE_BINDING_VERIFIER" pull-verify "$component" "$TARGET_SHA" "$image" >/dev/null 2>&1 || fail IMAGE_BINDING_FAILED 20
     return
   fi
-  [[ "$expected_id" =~ ^sha256:[0-9a-f]{64}$ ]] || fail PRELOADED_IMAGE_ID_REQUIRED 131
+  expected_ref="pc-crop-transfer/$component:$TARGET_SHA"
+  [[ "$image" == "$expected_ref" ]] || fail PRELOADED_IMAGE_REFERENCE_INVALID 131
+  [[ "$expected_id" =~ ^sha256:[0-9a-f]{64}$ ]] || fail PRELOADED_IMAGE_ID_REQUIRED 132
   actual_id="$(docker image inspect --format '{{.Id}}' "$image" 2>/dev/null || true)"
   revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image" 2>/dev/null || true)"
-  [[ "$actual_id" == "$expected_id" ]] || fail PRELOADED_IMAGE_ID_MISMATCH 132
+  [[ "$actual_id" == "$expected_id" ]] || fail PRELOADED_IMAGE_ID_MISMATCH 133
   [[ "$revision" == "$TARGET_SHA" ]] || fail IMAGE_REVISION_MISMATCH 20
 }
 
 verify_runtime_image() {
-  local component="$1" image="$2" container_id="$3"
-  [[ -f "$IMAGE_BINDING_VERIFIER" ]] || return 1
-  python3 "$IMAGE_BINDING_VERIFIER" runtime "$component" "$TARGET_SHA" "$image" "$container_id" 2>/dev/null
+  local component="$1" image="$2" container_id="$3" expected_id actual_id container_image_id configured_ref revision state
+  if [[ "$EXACT_IMAGE_SOURCE" == registry ]]; then
+    [[ -f "$IMAGE_BINDING_VERIFIER" ]] || return 1
+    python3 "$IMAGE_BINDING_VERIFIER" runtime "$component" "$TARGET_SHA" "$image" "$container_id" 2>/dev/null
+    return
+  fi
+  [[ "$image" == "pc-crop-transfer/$component:$TARGET_SHA" ]] || return 1
+  expected_id="$(expected_pinned_image_id "$component")" || return 1
+  [[ "$expected_id" =~ ^sha256:[0-9a-f]{64}$ ]] || return 1
+  actual_id="$(docker image inspect --format '{{.Id}}' "$image" 2>/dev/null || true)"
+  container_image_id="$(docker inspect --format '{{.Image}}' "$container_id" 2>/dev/null || true)"
+  configured_ref="$(docker inspect --format '{{.Config.Image}}' "$container_id" 2>/dev/null || true)"
+  revision="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$container_id" 2>/dev/null || true)"
+  state="$(docker inspect --format '{{.State.Running}}' "$container_id" 2>/dev/null || true)"
+  [[ "$actual_id" == "$expected_id" && "$container_image_id" == "$expected_id" ]] || return 1
+  [[ "$configured_ref" == "$image" && "$revision" == "$TARGET_SHA" && "$state" == true ]] || return 1
+  printf '%s\n' "$TARGET_SHA"
 }
 
 wait_api() {
