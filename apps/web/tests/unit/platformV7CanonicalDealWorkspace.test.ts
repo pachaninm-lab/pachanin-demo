@@ -213,7 +213,7 @@ describe('canonical Deal command outcome after an uncertain response', () => {
     { name: 'connection loss after POST', reply: async () => { throw new TypeError('connection reset'); } },
     { name: 'aborted response', reply: async () => { throw new DOMException('aborted', 'AbortError'); } },
     { name: 'HTTP 503 after possible mutation', reply: async () => ({ ok: false, status: 503, json: async () => ({ message: 'backend unavailable' }) }) },
-    { name: 'rate limit after possible mutation', reply: async () => ({ ok: false, status: 429, json: async () => ({ message: 'retry later' }) }) },
+    { name: 'unverified HTTP 429 after possible mutation', reply: async () => ({ ok: false, status: 429, json: async () => ({ message: 'retry later' }) }) },
     { name: 'unverifiable HTTP 200 body', reply: async () => ({ ok: true, json: async () => ({ ok: true, commandId: 'another-command' }) }) },
   ])('keeps $name UNKNOWN and blocks a new command identity even after refresh', async ({ reply }) => {
     const fetchMock = vi.fn(async (_url: string, options?: { method?: string }) =>
@@ -232,6 +232,22 @@ describe('canonical Deal command outcome after an uncertain response', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Обновить сделку' }));
     await waitFor(() => expect(fetchMock.mock.calls.filter(([, options]) => options?.method !== 'POST')).toHaveLength(2));
     expect(submit).toBeDisabled();
+  });
+
+  it('treats a verified pre-execution rate limit as a definite rejection', async () => {
+    const fetchMock = vi.fn(async (_url: string, options?: { method?: string }) =>
+      options?.method === 'POST'
+        ? { ok: false, status: 429, json: async () => ({ code: 'RATE_LIMITED', message: 'Request rate limit exceeded.', retryAfterSeconds: 30 }) }
+        : { ok: true, json: async () => dealSnapshot });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(React.createElement(CanonicalDealWorkspace, { role: 'seller', dealId: dealSnapshot.deal.id }));
+    const submit = await screen.findByRole('button', { name: 'Подтвердить действие' });
+    fireEvent.click(submit);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Повтори через 30 с.');
+    expect(submit).not.toBeDisabled();
+    expect(screen.queryByText(/Исход команды неизвестен/)).not.toBeInTheDocument();
   });
 
   it('accepts only a success receipt bound to the submitted command id', async () => {

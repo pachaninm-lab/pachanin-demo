@@ -83,7 +83,13 @@ type CommandResult = {
 };
 
 class HttpError extends Error {
-  constructor(message: string, readonly status: number, readonly field?: string) {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly field?: string,
+    readonly code?: string,
+    readonly retryAfterSeconds?: number,
+  ) {
     super(message);
   }
 }
@@ -92,7 +98,14 @@ function readError(payload: any, status: number): HttpError {
   const message = Array.isArray(payload?.message)
     ? payload.message.join(' · ')
     : payload?.message || payload?.error || `Ошибка ${status}`;
-  return new HttpError(typeof message === 'string' ? message : JSON.stringify(message), status, typeof payload?.field === 'string' ? payload.field : undefined);
+  const retryAfterSeconds = payload?.retryAfterSeconds;
+  return new HttpError(
+    typeof message === 'string' ? message : JSON.stringify(message),
+    status,
+    typeof payload?.field === 'string' ? payload.field : undefined,
+    typeof payload?.code === 'string' ? payload.code : undefined,
+    Number.isInteger(retryAfterSeconds) && retryAfterSeconds > 0 && retryAfterSeconds <= 86_400 ? retryAfterSeconds : undefined,
+  );
 }
 
 async function readJson(response: Response): Promise<any> {
@@ -303,6 +316,8 @@ export function CanonicalDealWorkspace({ role: _role, dealId }: { role: Platform
       if (reason instanceof HttpError && reason.status === 409) {
         setNotice('Данные изменились другим участником. Экран обновлён — проверь состояние и повтори действие.');
         await load();
+      } else if (reason instanceof HttpError && reason.status === 429 && reason.code === 'RATE_LIMITED') {
+        setError(reason.retryAfterSeconds ? `Слишком много попыток. Повтори через ${reason.retryAfterSeconds} с.` : 'Слишком много попыток. Подожди окончания ограничения и повтори действие.');
       } else if (reason instanceof HttpError && [400, 401, 403, 404, 422].includes(reason.status)) {
         const field = reason instanceof HttpError && reason.field ? `Поле «${reason.field}»: ` : '';
         setError(`${field}${reason instanceof Error ? reason.message : 'Команда не выполнена.'}`);
