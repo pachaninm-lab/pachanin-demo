@@ -2,8 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
-import { PlatformV7TranslationRuntimeBridge } from '@/components/platform-v7/PlatformV7TranslationRuntimeBridge';
-import { PublicAssistantMobileLayoutAuthority } from '@/components/platform-v7/PublicAssistantMobileLayoutAuthority';
+import { reportPublicGektaUnavailable } from '@/lib/platform-v7/public-gekta-open';
 import type { PlatformRole } from '@/stores/usePlatformV7RStore';
 import '@/styles/platform-v7-public-cjk-runtime.css';
 import '@/styles/platform-v7-home-mobile-brand.css';
@@ -17,8 +16,26 @@ export type HydrationSafeChatSupportProps = {
 
 type ContextualSupportProps = Omit<HydrationSafeChatSupportProps, 'legacyPublicPolish'>;
 
+// Locale-native pages do not use the legacy DOM translator. Keep its embedded
+// dictionaries out of their initial client graph, not merely out of the JSX.
+const PlatformV7TranslationRuntimeBridge = dynamic(
+  () => import('@/components/platform-v7/PlatformV7TranslationRuntimeBridge').then((module) => module.PlatformV7TranslationRuntimeBridge),
+  { ssr: false, loading: () => null },
+);
+
+function AssistantUnavailable(): null {
+  return null;
+}
+
+// A chunk that fails to load must not replace the whole public page with the
+// global error screen. The entry points show an explicit recovery instead.
 const ContextualSupportOrAssistant = dynamic<ContextualSupportProps>(
-  () => import('@/components/platform-v7/ContextualSupportOrAssistant').then((module) => module.ContextualSupportOrAssistant),
+  () => import('@/components/platform-v7/ContextualSupportOrAssistant')
+    .then((module) => module.ContextualSupportOrAssistant)
+    .catch(() => {
+      reportPublicGektaUnavailable();
+      return AssistantUnavailable;
+    }),
   { ssr: false, loading: () => null },
 );
 
@@ -38,10 +55,11 @@ function isStrategicHomepage(pathname: string): boolean {
 
 function needsLegacyTranslationBridge(pathname: string): boolean {
   const clean = normalizePath(pathname);
-  // The homepage and contact route now own complete RU/EN/ZH source copy.
-  // Keep the legacy DOM translator only where older public surfaces still rely
-  // on dictionary-based post-hydration translation.
-  return clean === '/platform-v7/deal-flow' || clean === '/platform-v7/demo';
+  // Locale-native public routes own complete RU/EN/ZH source copy. The
+  // deal-flow page was migrated to that SSR path as well; mounting the legacy
+  // DOM translator there races hydration and mutates text nodes. Keep the
+  // bridge only where the older demo surface still relies on it.
+  return clean === '/platform-v7/demo';
 }
 
 /**
@@ -63,7 +81,6 @@ export function HydrationSafeChatSupport({
     <>
       {loadTranslationBridge ? <PlatformV7TranslationRuntimeBridge /> : null}
       {loadLegacyPublicPolish ? <LegacyPublicMobileExperiencePolish /> : null}
-      <PublicAssistantMobileLayoutAuthority />
       <ContextualSupportOrAssistant {...supportProps} />
       {loadLegacyPublicPolish ? <style>{terminalPublicSpacingCss}</style> : null}
     </>

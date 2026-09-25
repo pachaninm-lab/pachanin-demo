@@ -40,6 +40,26 @@ const visibleBrandSources = [
 const allBrandSources = Object.values(sources).join('\n');
 
 describe('Gekta public brand contract', () => {
+  it('keeps the mobile menu target above the strict browser acceptance floor', () => {
+    const siteHeader = read('components/platform-v7/PublicSiteHeader.tsx');
+    const rule = siteHeader.match(/\.pc-site-header\[data-public-site-header='canonical'\] \.pc-site-mobile-menu > summary \{([^}]+)\}/);
+    expect(rule).not.toBeNull();
+    for (const property of ['width', 'min-width', 'height', 'min-height']) {
+      expect(rule![1]).toContain(`${property}: 48px !important`);
+    }
+  });
+
+
+  it('reserves narrow-screen room for the full registration label and 48px menu', () => {
+    const siteHeader = read('components/platform-v7/PublicSiteHeader.tsx');
+    const narrowRules = siteHeader.split('@media (max-width: 430px) {')[1]?.split('@media (max-width: 340px) {')[0];
+    expect(narrowRules).toBeDefined();
+    const primary = narrowRules!.match(/:is\(\.pc-v6-header-cta, \.pc-ppe-primary-button, \.p7-about-register, \.p7-contact-register\) \{([^}]+)\}/);
+    expect(primary).not.toBeNull();
+    expect(primary![1]).toContain('padding-inline: 8px !important');
+    expect(primary![1]).not.toMatch(/font-size|overflow|text-overflow|display/);
+  });
+
   it('uses the canonical Russian brand, descriptor and action language', () => {
     expect(sources.assistant).toContain("open: 'Спросить Гекту'");
     expect(sources.assistant).toContain("title: 'Гекта'");
@@ -48,10 +68,10 @@ describe('Gekta public brand contract', () => {
     expect(sources.contactDock).toContain("assistant: 'Гекта'");
     expect(sources.contactDock).toContain("assistantAria: 'Открыть Гекту'");
     expect(sources.dealJourney).toContain("askTai: 'Спросить Гекту об этом этапе'");
-    expect(sources.hero).toContain('Гекта сопоставляет доступные факты');
+    expect(sources.hero).toContain('Гекта помогает разобрать факты и риск, но не принимает решение вместо человека.');
     expect(sources.homeStory).toContain("label: 'Гекта'");
     expect(sources.homeStory).toContain("title: 'Контроль и Гекта'");
-    expect(sources.productPassport).toContain("title: 'Гекта объясняет состояние Сделки и следующий шаг по доступным основаниям'");
+    expect(sources.productPassport).toContain("title: 'Гекта объясняет, что происходит в Сделке и что делать дальше'");
     expect(sources.dealIntelligence).toContain("title: 'Гекта · Сводка для покупателя'");
   });
 
@@ -62,10 +82,10 @@ describe('Gekta public brand contract', () => {
     expect(sources.contactDock).toContain("assistantAria: 'Open Gekta'");
     expect(sources.dealJourney).toContain("askTai: 'Ask Gekta about this stage'");
     expect(sources.dealJourney).toContain("askTai: '向 Gekta 询问当前阶段'");
-    expect(sources.hero).toContain('Gekta compares available facts');
-    expect(sources.hero).toContain('Gekta 对照可用事实');
-    expect(sources.productPassport).toContain('Gekta explains Deal state and the next step from available evidence');
-    expect(sources.productPassport).toContain('Gekta 根据可用依据解释交易状态和下一步');
+    expect(sources.hero).toContain('Gekta helps interpret facts and risk but does not decide instead of the user.');
+    expect(sources.hero).toContain('Gekta 帮助理解事实和风险，但不会替用户作出决定。');
+    expect(sources.productPassport).toContain('Gekta explains what is happening in the Deal and what comes next');
+    expect(sources.productPassport).toContain('Gekta 解释交易中正在发生什么，以及下一步做什么');
   });
 
   it('publishes Gekta as a named SoftwareApplication and a human-readable public route', () => {

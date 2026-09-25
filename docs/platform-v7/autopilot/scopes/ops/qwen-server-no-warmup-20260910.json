@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "ops/qwen-server-no-warmup-20260910",
+  "status": "active",
+  "purpose": "Disable llama.cpp server warmup in the shared Local Qwen exact-head review provider after server startup/inference remained bounded by the default empty warmup pass; preserve complete diff coverage, immutable pins, strict JSON validation, fail-closed publication and the review gate.",
+  "authorityBaseExactMain": "0f9cb8b38be0605e522153e0ea779c5561c47e8d",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    ".github/workflows/local-qwen-independent-review.yml",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs",
+    "docs/platform-v7/autopilot/scopes/ops/qwen-server-no-warmup-20260910.json"
+  ],
+  "boundaries": {
+    "productBehaviorChange": false,
+    "securityGateWeakening": false,
+    "reviewGateWeakening": false,
+    "diffCoverageReduced": false,
+    "providerPinsChanged": false,
+    "failClosedPublicationPreserved": true
+  }
+}
