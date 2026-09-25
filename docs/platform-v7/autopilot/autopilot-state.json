@@ -1953,7 +1953,7 @@
     "deal-command-trusted-guard-reuse-20260925": {
       "owner": "ACCOUNT_2_PRODUCT",
       "purpose": "Reauthorize the existing accepted-base immutable guard ref for one bounded #5596 Deal command scope-route repair; source paths remain absent.",
-      "authorityBaseExactMain": "e28952748a8944626703227c9feed3870dc47b64",
+      "authorityBaseExactMain": "961bfc60059762a84c3a821087cf6e5fd13a54cd",
       "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
       "allowedPaths": [
         "scripts/p7-autopilot-guard.sh",
