@@ -10466,7 +10466,11 @@
       "status": "FAIL",
       "evidence": [
         "apps/api/src/modules/ml-client/ml-client.service.ts",
-        "redirect-guarded-counterexample:apps/api/src/modules/storage/object-storage.adapter.ts"
+        "redirect-guarded-counterexample:apps/api/src/modules/storage/object-storage.adapter.ts",
+        "follows-redirects:apps/api/src/modules/ai-insights/ai-assistant.service.ts",
+        "follows-redirects:apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+        "follows-redirects:apps/api/src/common/vault/vault-transit.service.ts",
+        "per-hop-revalidation:apps/api/src/common/security/safe-outbound-request.ts"
       ],
       "conditions": [
         {
@@ -10489,9 +10493,33 @@
           "patterns": [
             "redirect: 'error'"
           ]
+        },
+        {
+          "condition": "the three other internal-service clients still set no redirect option either",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
+            "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+            "apps/api/src/common/vault/vault-transit.service.ts"
+          ],
+          "patterns": [
+            "redirect: 'error'",
+            "redirect: 'manual'"
+          ]
+        },
+        {
+          "condition": "the partner-controlled destinations still go through the guard that re-checks every redirect hop, so they are not part of this gap",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/safe-outbound-request.ts"
+          ],
+          "patterns": [
+            "const max_redirects = 3;",
+            "for (let hop = 0; hop <= max_redirects; hop += 1) {"
+          ]
         }
       ],
-      "note": "Of the 11 outbound fetch() call sites in the API, only object-storage.adapter.ts (2 sites) explicitly sets redirect: 'error', which fails the request rather than silently following a redirect - the correct, safe configuration this requirement asks for. The other 9 - ml-client.service.ts, partner-api.controller.ts, webhook-dispatcher.service.ts, restricted-public-qwen.service.ts (x2), ai-assistant.service.ts (x2), and vault-transit.service.ts (x2) - set no redirect option at all, which means fetch's default (follow) applies: a 3xx response from any of those endpoints is followed automatically. This compounds the already-recorded SSRF-shaped gap in the partner webhook path (ASVS V13.2.4/V13.2.5, V1.2.2, V1.3.6): a partner-controlled webhook URL that responds with a redirect to an internal address would be followed, not rejected."
+      "note": "Corrected on re-measurement: the verdict stands, but the earlier note named the wrong sites and overstated the risk, and both errors ran in the alarming direction. Measured now across apps/api/src outside tests: twelve fetch() call sites plus one outbound guard. Five fetch sites set redirect: 'error', which fails on a 3xx instead of following it: object-storage.adapter.ts (2), telegram.publisher.ts, vk.publisher.ts and role-eligibility-security.ts. The two partner-controlled destinations, the webhook test endpoint in partner-api.controller.ts and webhook-dispatcher.service.ts, no longer call fetch at all. They go through safeOutboundRequest, which follows at most three redirects and puts each hop through the whole scheme and address check again (credited under V1.3.6). The earlier sentence that a partner webhook redirecting to an internal address would be followed is no longer true, and it is withdrawn. What fails: seven sites set no redirect option and so follow any redirect by fetch's default: ml-client.service.ts (1), ai-assistant.service.ts (2), restricted-public-qwen.service.ts (2) and vault-transit.service.ts (2). Each targets an operator-configured internal service rather than a caller-chosen URL, so the exposure is to a misconfigured or compromised internal endpoint redirecting the API's request elsewhere, not to a partner. Not fixed here: two of the four files are the AI gateway, which this programme may not change, and VaultTransitService has no runtime caller (V13.3.1). The conditions pin all four files, so setting redirect: 'error' on any of them revokes this decision for re-assessment."
     },
     {
       "requirementId": "V15.3.3",
