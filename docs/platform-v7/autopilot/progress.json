@@ -1,20 +1,27 @@
 {
   "project": "platform-v7 / Прозрачная Цена",
-  "fullTzReadinessPercent": 0,
-  "currentStep": "IR-10.4 Settlement PostgreSQL Authority",
-  "lastCompletedStep": "#2426 Labs PostgreSQL Authority",
+  "fullTzReadinessPercent": 5,
+  "currentStep": "R1.2 Controlled open-as-role server authority",
+  "lastCompletedStep": "R1.1 exact 13-cabinet inventory admitted by PR #5468",
   "openPr": null,
-  "blockedBy": [
-    "Production settlement still permits RuntimeCore, process-memory outbox, optional Prisma and repository selection; PostgreSQL authority is not yet exclusive."
-  ],
-  "nextStep": "IR-10.4 Settlement PostgreSQL Authority",
-  "updatedAt": "2026-07-13T12:27:00.000Z",
+  "blockedBy": [],
+  "nextStep": "R1.2 canonical 13 role-mode API/server authority; no visual implementation",
+  "updatedAt": "2026-09-20T23:20:00+03:00",
   "rules": {
     "noAppsLanding": true,
     "noFakeLiveClaims": true,
     "noAutoMerge": true,
     "controlledPilotOnly": true,
-    "noSelfModifyingWorkflow": true,
-    "noDirectPushToMain": true
-  }
+    "serverAuthority": true,
+    "noClientSelectedRole": true,
+    "noParallelUxFgisBankImplementation": true
+  },
+  "masterV21": {
+    "overallProductionProgress": "5/100=5%",
+    "r1TargetAfterProductionPass": "12/100=12%",
+    "exactMain": "5da8e80744908413102214f91dd68018911b892e",
+    "productionSha": "5da8e80744908413102214f91dd68018911b892e",
+    "productionControllerRun": 35520784872
+  },
+  "currentTaskExecution": "R1.1 inventory complete in this admission; main should start at R1.2 after merge; R1 points remain uncredited until full PRODUCTION_PASS"
 }
