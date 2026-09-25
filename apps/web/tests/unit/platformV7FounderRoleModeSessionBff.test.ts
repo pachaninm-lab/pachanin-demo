@@ -20,7 +20,8 @@ describe('Founder role-mode canonical session BFF', () => {
     expect(route).toContain('request.cookies.get(STAFF_ACCESS_COOKIE)');
     expect(route).toContain("'x-staff-access-session': staffAccessToken");
     expect(route).toContain('Authorization: `Bearer ${accessToken}`');
-    expect(route).toContain('const targetUrl = `${API_BASE_URL}/staff/${path}');
+    expect(route).toContain('const upstreamPath = encodeUpstreamPath(path.split(\'/\'));');
+    expect(route).toContain('const targetUrl = `${API_BASE_URL}/staff/${upstreamPath}');
     expect(route).toContain('requiresCanonicalControlHost(request)');
     expect(route).toContain("redirect: 'manual'");
     expect(route).toContain("cache: 'no-store'");

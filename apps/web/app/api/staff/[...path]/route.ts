@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE } from '@/lib/auth-cookies';
 import { requiresCanonicalControlHost } from '@/lib/platform-v7/control-host';
 import { resolveServerApiBaseUrl } from '@/lib/server/server-api-origin';
+import { encodeUpstreamPath } from '@/lib/server/upstream-path';
 import { assertCsrf } from '@/lib/server-request-security';
 import { readBoundedBody } from '../../../../lib/uploads/bounded-body';
 
@@ -363,8 +364,14 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path?: s
     return json({ ok: false, code: 'IDEMPOTENCY_KEY_REQUIRED', correlationId }, 400);
   }
 
+  // normalizePath() already refused dot-segments and separators, so the split is
+  // lossless; the upstream must receive these segments encoded, not reparsed.
+  const upstreamPath = encodeUpstreamPath(path.split('/'));
+  if (!upstreamPath) {
+    return json({ ok: false, code: 'STAFF_ROUTE_NOT_ALLOWED', message: 'Операция недоступна.', correlationId }, 404);
+  }
   const query = request.nextUrl.searchParams.toString();
-  const targetUrl = `${API_BASE_URL}/staff/${path}${query ? `?${query}` : ''}`;
+  const targetUrl = `${API_BASE_URL}/staff/${upstreamPath}${query ? `?${query}` : ''}`;
   const ip = requestIp(request);
   const userAgent = request.headers.get('user-agent');
 
