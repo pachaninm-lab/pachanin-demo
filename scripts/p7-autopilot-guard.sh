@@ -40,12 +40,14 @@ PRODUCT_ZSN_SOURCE_BRANCH="fgis/zsn-public-document-source-lock-20260924"
 PRODUCT_NEXT_ACTION_BRANCH="ux/first-customer-next-action-unknown-20260924"
 PRODUCT_DEAL_COMMAND_BRANCH="ux/deal-command-unknown-20260925"
 PUBLIC_REGISTRATION_PARTICIPATION_BRANCH="fix/public-registration-participation-choice-20260923"
+PRODUCT_BUYER_HOME_BRANCH="ux/buyer-first-customer-home-20260925"
+PRODUCT_BUYER_ADMISSION_BRANCH="governance/product-buyer-home-admission-20260925"
 PRODUCT_SCOPE_ADMISSION_BRANCH="governance/product-bank-fgis-ux-source-admission-20260924"
 CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
 
 is_immutable_scope_branch() {
   case "$1" in
-    "$IR20_BINDING_PREREQUISITE_BRANCH"|"$IR20_BINDING_IMPLEMENTATION_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_BRANCH"|"$PRODUCT_BANK_COPY_BRANCH"|"$PRODUCT_ZSN_SOURCE_BRANCH"|"$PRODUCT_NEXT_ACTION_BRANCH"|"$PRODUCT_DEAL_COMMAND_BRANCH"|"$PUBLIC_REGISTRATION_PARTICIPATION_BRANCH"|"$PRODUCT_SCOPE_ADMISSION_BRANCH") return 0 ;;
+    "$IR20_BINDING_PREREQUISITE_BRANCH"|"$IR20_BINDING_IMPLEMENTATION_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH"|"$INDUSTRIAL_DIAGNOSTIC_BRANCH"|"$PRODUCT_BANK_COPY_BRANCH"|"$PRODUCT_ZSN_SOURCE_BRANCH"|"$PRODUCT_NEXT_ACTION_BRANCH"|"$PRODUCT_DEAL_COMMAND_BRANCH"|"$PUBLIC_REGISTRATION_PARTICIPATION_BRANCH"|"$PRODUCT_BUYER_HOME_BRANCH"|"$PRODUCT_BUYER_ADMISSION_BRANCH"|"$PRODUCT_SCOPE_ADMISSION_BRANCH") return 0 ;;
     "$REGISTRATION_ROLLOVER_BRANCH"|"$OWNER_AUDIT_LOCK_BRANCH"|"$POST_REGISTRATION_PROGRESS_BRANCH"|"$INVENTORY_RESERVATION_BRANCH"|"$AUCTION_INVENTORY_BRANCH"|"$W1_PRODUCTION_ACCEPTANCE_BRANCH"|"$SCOPE_GOVERNANCE_BRANCH"|"$INVENTORY_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH"|"$PUBLIC_HOME_IMPLEMENTATION_BRANCH"|"$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH"|"$POISON_ISOLATION_IMPLEMENTATION_BRANCH"|"$OWNER_HANDOFF_IMPLEMENTATION_BRANCH"|"$QWEN_FAILED_EVIDENCE_BRANCH"|"$KIND_MINIO_IMAGE_SOURCE_BRANCH"|"$GITLEAKS_RELEASE_ATTESTATION_BRANCH"|"$FINAL_PUBLIC_HOME_BRANCH"|"$FINAL_PUBLIC_MARKET_BRANCH"|"$FINAL_PUBLIC_REGISTRATION_BRANCH"|"$FINAL_PUBLIC_HOW_BRANCH"|"$FINAL_PUBLIC_PRODUCT_COPY_BRANCH"|"$FINAL_PUBLIC_RELEASE_BRANCH"|"$FINAL_PUBLIC_GOVERNANCE_BRANCH") return 0 ;;
     *) return 1 ;;
   esac
@@ -508,6 +510,53 @@ if (branch === publicHomeGovernanceBranch) {
   }
   scopes = state.approvedConcurrentScopes?.[branch];
 
+  if (branch === 'governance/product-buyer-home-admission-20260925') {
+    const { isDeepStrictEqual } = require('node:util');
+    const statePath = 'docs/platform-v7/autopilot/autopilot-state.json';
+    const headRef = String(process.env.HEAD_REF || 'HEAD');
+    const implementationBranch = 'ux/buyer-first-customer-home-20260925';
+    const coordinationKey = 'ux-buyer-first-customer-home-20260925-coordination';
+    const paths = [
+      'apps/web/components/platform-v7/FirstCustomerWorkspace.tsx',
+      'apps/web/components/platform-v7/FirstCustomerWorkspace.module.css',
+      'apps/web/tests/unit/designSystemV8MoneyRoles.test.ts',
+      'apps/web/tests/unit/platformV7BuyerFirstCustomerUx.test.tsx',
+      'docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json',
+    ];
+    if (Object.hasOwn(state.approvedConcurrentScopes || {}, implementationBranch) ||
+        Object.hasOwn(state.coordinationAdmissions || {}, coordinationKey)) {
+      throw new Error('PRODUCT_BUYER_ADMISSION_ALREADY_PRESENT');
+    }
+    const candidate = JSON.parse(execFileSync('git', ['show', `${headRef}:${statePath}`], { encoding: 'utf8' }));
+    const expected = structuredClone(state);
+    if (!expected.coordinationAdmissions) expected.coordinationAdmissions = {};
+    const baseSha = execFileSync('git', ['rev-parse', baseRef], { encoding: 'utf8' }).trim();
+    expected.approvedConcurrentScopes[implementationBranch] = paths;
+    expected.coordinationAdmissions[coordinationKey] = {
+      owner: 'ACCOUNT_2_PRODUCT',
+      purpose: 'Buyer first-customer production-home information architecture and visual hierarchy from existing scoped server facts; one vertical after seller, not full 13-role acceptance.',
+      authorityBaseExactMain: baseSha,
+      implementationBranch,
+      allowedPaths: paths,
+      requiredTruthBoundaries: [
+        'Buyer shows only server-scoped organization, identity and Deal queue facts; list recency never becomes required next action, amount or deadline.',
+        'UNKNOWN next action, empty, forbidden and degraded remain explicit; no demo/static deal or fake bank/provider/FGIS status.',
+        'RU/EN/ZH, mobile, focus and seller plus other six role regressions stay covered; owner-controlled showroom does not gain customer authority.',
+        'Buyer source changes start only after the accepted immutable guard prerequisite and this state-only admission are merged.',
+      ],
+      forbiddenAuthority: [
+        'homepage/public implementation or parallel App Shell/design system',
+        'API/backend/domain/DB/RLS/tenant/role/priority or money/provider/FGIS finality',
+        'CI/security/readiness gate weakening',
+      ],
+      teamHubDependency: '#5372 inventory comment 5833248230; #5604 guard prerequisite; PUBLIC #5559 main serialization; #5535 CORE next-action dependency',
+    };
+    if (!isDeepStrictEqual(candidate, expected)) throw new Error('PRODUCT_BUYER_ADMISSION_STATE_MUTATION');
+    const diff = execFileSync('git', ['diff', '--no-renames', '--name-status', `${baseRef}...${headRef}`], { encoding: 'utf8' }).trim();
+    if (diff !== `M\t${statePath}`) throw new Error('PRODUCT_BUYER_ADMISSION_DIFF_SCOPE');
+    scopes = [statePath];
+  }
+
   if (branch === 'governance/product-bank-fgis-ux-source-admission-20260924') {
     const { isDeepStrictEqual } = require('node:util');
     const headRef = String(process.env.HEAD_REF || 'HEAD');
@@ -801,7 +850,7 @@ if [ -n "$SOURCE_CONTROLLED_SCOPE" ]; then
   ALLOWED_CURRENT=$(printf '%s\n%s\n' "$ALLOWED_CURRENT" "$SOURCE_CONTROLLED_SCOPE")
 fi
 
-if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INVENTORY_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$FINAL_PUBLIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$IR20_BINDING_PREREQUISITE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_SCOPE_ADMISSION_BRANCH" ]; then
+if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INVENTORY_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PUBLIC_HOME_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$POISON_ISOLATION_SCOPE_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$FINAL_PUBLIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$INDUSTRIAL_DIAGNOSTIC_GOVERNANCE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$IR20_BINDING_PREREQUISITE_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_SCOPE_ADMISSION_BRANCH" ] && [ "$CURRENT_BRANCH" != "$PRODUCT_BUYER_ADMISSION_BRANCH" ]; then
   MUTABLE_SCOPE_AUTHORITIES=$(printf '%s\n' "$DIFF_FILES" | grep -E '^(AGENTS\.md|docs/platform-v7/autopilot/|scripts/p7-autopilot-guard\.sh$|scripts/p7-autopilot-guard\.test\.mjs$|scripts/p7-source-controlled-scope\.mjs$|\.github/workflows/platform-v7-autopilot-guard\.yml$|\.github/workflows/automerge\.yml$)' || true)
   # These manifests document the exact accepted path sets. They are not scope
   # authority: only approvedConcurrentScopes from the trusted base is used.
@@ -810,6 +859,7 @@ if is_immutable_scope_branch "$CURRENT_BRANCH" && [ "$CURRENT_BRANCH" != "$SCOPE
     "$PRODUCT_ZSN_SOURCE_BRANCH") PRODUCT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/fgis-zsn-public-document-source-lock-20260924.json' ;;
     "$PRODUCT_NEXT_ACTION_BRANCH") PRODUCT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/first-customer-next-action-unknown-20260924.json' ;;
     "$PUBLIC_REGISTRATION_PARTICIPATION_BRANCH") PRODUCT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/public-registration-participation-choice-20260923.json' ;;
+    "$PRODUCT_BUYER_HOME_BRANCH") PRODUCT_SCOPE_MANIFEST='docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json' ;;
     *) PRODUCT_SCOPE_MANIFEST='' ;;
   esac
   if [ -n "$PRODUCT_SCOPE_MANIFEST" ]; then
