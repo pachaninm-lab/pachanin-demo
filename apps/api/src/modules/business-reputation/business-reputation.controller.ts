@@ -9,13 +9,16 @@ import { BusinessReputationService } from './business-reputation.service';
 export class BusinessReputationController {
   constructor(private readonly reputation: BusinessReputationService) {}
 
+  // Вызывающий приходил сюда и раньше — и отбрасывался как `_user`.
+  // Единственное, что отделяло оценку контрагента от оценки чужого
+  // юридического лица, это подчёркивание в имени параметра.
   @Get('orgs/:orgId')
-  getScore(@Param('orgId') orgId: string, @CurrentUser() _user: RequestUser) {
-    return this.reputation.getScore(orgId);
+  getScore(@Param('orgId') orgId: string, @CurrentUser() user: RequestUser) {
+    return this.reputation.getScore(orgId, user);
   }
 
   @Post('orgs/batch')
-  getScoreBatch(@Body() body: { orgIds: string[] }, @CurrentUser() _user: RequestUser) {
-    return this.reputation.getScoreBatch(body.orgIds ?? []);
+  getScoreBatch(@Body() body: { orgIds: string[] }, @CurrentUser() user: RequestUser) {
+    return this.reputation.getScoreBatch(body.orgIds ?? [], user);
   }
 }

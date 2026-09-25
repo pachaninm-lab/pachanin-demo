@@ -1,6 +1,6 @@
 {
   "schemaVersion": "pc-crop.cryptographic-inventory.v1",
-  "scannedFiles": 2202,
+  "scannedFiles": 2291,
   "operations": [
     {
       "operation": "encryption",
@@ -43,11 +43,11 @@
     {
       "operation": "hash",
       "label": "Hashing",
-      "sites": 79,
+      "sites": 85,
       "algorithms": [
         {
           "algorithm": "sha256",
-          "sites": 79,
+          "sites": 85,
           "files": [
             "apps/api/src/common/outbox/outbox.service.ts",
             "apps/api/src/common/security/rate-limit.service.ts",
@@ -60,6 +60,7 @@
             "apps/api/src/modules/auth/accounting-document-payload.builder.ts",
             "apps/api/src/modules/auth/auth-crypto.ts",
             "apps/api/src/modules/bank-reconciliation/bank-reconciliation.service.ts",
+            "apps/api/src/modules/commercial-rules/commercial-rules.contract.ts",
             "apps/api/src/modules/commodity-profiles/commodity-profile-command.contract.ts",
             "apps/api/src/modules/commodity-profiles/postgresql-commodity-profile-transaction.port.ts",
             "apps/api/src/modules/deals/canonical-test-deal.seed.ts",
@@ -80,6 +81,7 @@
             "apps/api/src/modules/marketing/connectors/vk.publisher.ts",
             "apps/api/src/modules/marketing/marketing-editorial-core.ts",
             "apps/api/src/modules/mfa/mfa.module.ts",
+            "apps/api/src/modules/organization-capabilities/organization-capability-command.contract.ts",
             "apps/api/src/modules/organization-intake/organization-intake.service.ts",
             "apps/api/src/modules/partner-api/partner-api.service.ts",
             "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-1.0.23.xml-codec.ts",
@@ -97,6 +99,9 @@
             "apps/api/src/modules/regulatory-integration/regulatory-integration.inbox-lifecycle.repository.ts",
             "apps/api/src/modules/regulatory-integration/regulatory-integration.reconciliation.repository.ts",
             "apps/api/src/modules/role-eligibility/role-eligibility-security.ts",
+            "apps/api/src/modules/service-marketplace/service-marketplace.contract.ts",
+            "apps/api/src/modules/service-providers/integration-binding.contract.ts",
+            "apps/api/src/modules/service-providers/provider-registry.contract.ts",
             "apps/api/src/modules/settlement-engine/settlement-engine.controller.ts",
             "apps/api/src/modules/settlement-engine/settlement-postgresql.repository.ts",
             "apps/api/src/modules/staff-access/staff-audit.service.ts",
@@ -115,6 +120,7 @@
             "apps/web/lib/server/gekta-auth-route.ts",
             "apps/web/lib/server/mfa-login-ticket.ts",
             "apps/web/scripts/materialize-presentation-pdf.mjs",
+            "apps/web/scripts/materialize-public-crops.mjs",
             "packages/domain-core/src/audit-log.ts",
             "packages/domain-core/src/deal-event-chain.ts",
             "packages/domain-core/src/deal-signing-service.ts",
@@ -126,11 +132,11 @@
     {
       "operation": "mac",
       "label": "Message authentication",
-      "sites": 23,
+      "sites": 24,
       "algorithms": [
         {
           "algorithm": "sha256",
-          "sites": 22,
+          "sites": 23,
           "files": [
             "apps/api/src/common/security/rate-limit.service.ts",
             "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts",
@@ -147,6 +153,7 @@
             "apps/api/src/shared/integration-signature.ts",
             "apps/web/lib/gekta/anonymous-session.ts",
             "apps/web/lib/gekta/phone.ts",
+            "apps/web/lib/platform-v7/contact-result-receipt.ts",
             "apps/web/lib/platform-v7/marketing-attribution.server.ts",
             "apps/web/lib/platform-v7/tai-internal-stream.ts",
             "apps/web/lib/server-request-actor.ts",
@@ -248,11 +255,11 @@
     {
       "operation": "csprng",
       "label": "Cryptographic randomness",
-      "sites": 30,
+      "sites": 31,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 30,
+          "sites": 31,
           "files": [
             "apps/api/src/common/config/secrets.ts",
             "apps/api/src/modules/auth-mail/auth-mail-crypto.ts",
@@ -268,6 +275,7 @@
             "apps/web/app/api/lots/route.ts",
             "apps/web/lib/gekta/anonymous-session.ts",
             "apps/web/lib/gekta/phone.ts",
+            "apps/web/lib/platform-v7/contact-result-receipt.ts",
             "apps/web/lib/platform-v7/govIdentityBridge.ts",
             "apps/web/lib/server-request-security.ts",
             "apps/web/lib/server/gekta-mfa-ticket.ts",
@@ -280,11 +288,11 @@
     {
       "operation": "uuid",
       "label": "UUID generation",
-      "sites": 238,
+      "sites": 241,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 238,
+          "sites": 241,
           "files": [
             "apps/api/src/modules/accounting/connection-attestation.repository.ts",
             "apps/api/src/modules/ai-insights/ai-assistant.controller.ts",
@@ -301,6 +309,7 @@
             "apps/api/src/modules/auth/password-reset.service.ts",
             "apps/api/src/modules/auth/product-session.service.ts",
             "apps/api/src/modules/auth/registration-application.service.ts",
+            "apps/api/src/modules/auth/registration-cancellation.service.ts",
             "apps/api/src/modules/auth/registration-decision.service.ts",
             "apps/api/src/modules/bank-reconciliation/bank-reconciliation.service.ts",
             "apps/api/src/modules/certificate-monitor/certificate-monitor.service.ts",
@@ -383,6 +392,7 @@
             "apps/web/app/api/staff/commodity-profiles/[profileId]/commands/[actionId]/route.ts",
             "apps/web/app/api/staff/integration-control-tower/[[...path]]/route.ts",
             "apps/web/app/api/staff/integrations/_command-proxy.ts",
+            "apps/web/app/api/staff/registration/applications/[applicationId]/cancel/route.ts",
             "apps/web/app/api/staff/workspaces/[...path]/route.ts",
             "apps/web/app/platform-v7/profile/team/OrganizationTeamAdminClient.tsx",
             "apps/web/app/platform-v7/register/RegisterFormClientPublic.tsx",
@@ -461,11 +471,11 @@
     {
       "operation": "constant-time",
       "label": "Constant-time comparison",
-      "sites": 24,
+      "sites": 25,
       "algorithms": [
         {
           "algorithm": "unspecified",
-          "sites": 24,
+          "sites": 25,
           "files": [
             "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts",
             "apps/api/src/modules/auth/auth-crypto.ts",
@@ -487,6 +497,7 @@
             "apps/web/app/platform-v7/staff/open-cabinet/route.ts",
             "apps/web/lib/gekta/anonymous-session.ts",
             "apps/web/lib/gekta/phone.ts",
+            "apps/web/lib/platform-v7/contact-result-receipt.ts",
             "apps/web/lib/platform-v7/marketing-attribution.server.ts",
             "apps/web/lib/server-request-actor.ts",
             "apps/web/lib/server-request-security.ts",
@@ -588,6 +599,13 @@
       "kind": "secret",
       "files": [
         "apps/api/src/modules/settlement-engine/bank-key-registry.service.ts"
+      ]
+    },
+    {
+      "name": "CONTACT_RESULT_HMAC_SECRET",
+      "kind": "secret",
+      "files": [
+        "apps/web/lib/platform-v7/contact-result-receipt.ts"
       ]
     },
     {

@@ -1,11 +1,12 @@
-import { PrismaClient } from '@prisma/client';
-import { randomUUID } from 'node:crypto';
+import { Prisma, PrismaClient } from '@prisma/client';
+import { createHash, randomUUID } from 'node:crypto';
 import { AuctionCommandService } from '../../src/modules/auctions/auction-command.service';
 import { PrismaDealRepository } from '../../src/modules/deals/prisma-deal.repository';
 import { RlsTransactionService } from '../../src/common/prisma/rls-transaction.service';
 import { FgisLegacyQuarantineAuditService } from '../../src/modules/regulatory-integration/fgis-grain/fgis-grain-legacy-quarantine.audit';
 import { PrismaService } from '../../src/common/prisma/prisma.service';
 import type { RequestUser } from '../../src/common/types/request-user';
+import { InventoryRepository } from '../../src/modules/inventory/inventory.repository';
 
 const ADMIN_URL = process.env.TEST_ADMIN_DATABASE_URL;
 const APP_URL = process.env.DATABASE_URL;
@@ -39,6 +40,8 @@ function actor(id: string, orgId: string, tenantId: string, role: RequestUser['r
     role,
     email: `${id}@example.test`,
     sessionId: `session:${id}`,
+    membershipId: `membership:${id}`,
+    isOrgAdmin: true,
   };
 }
 
@@ -65,6 +68,7 @@ describeAuctionAtomic('IR-AUCTION atomic execution', () => {
   let app: PrismaService;
   let commands: AuctionCommandService;
   let deals: PrismaDealRepository;
+  let inventory: InventoryRepository;
 
   beforeAll(async () => {
     if (!ADMIN_URL || !APP_URL) {
@@ -79,6 +83,7 @@ describeAuctionAtomic('IR-AUCTION atomic execution', () => {
     // against a live database rather than a double.
     commands = new AuctionCommandService(rls, new FgisLegacyQuarantineAuditService(app));
     deals = new PrismaDealRepository(rls);
+    inventory = new InventoryRepository(rls);
     await resetDatabase(admin);
     await seedActors(admin);
   }, 60_000);
@@ -88,6 +93,17 @@ describeAuctionAtomic('IR-AUCTION atomic execution', () => {
   });
 
   it('accepts atomic bids, deterministic winner, one close and one canonical Deal', async () => {
+    // Market role and organization administration are independent database axes.
+    // The seller must work as FARMER without a synthetic ADMIN membership.
+    expect(await admin.userOrg.findMany({ where: { userId: SELLER_USER }, select: { role: true, status: true, isOrgAdmin: true } }))
+      .toEqual([{ role: 'FARMER', status: 'ACTIVE', isOrgAdmin: true }]);
+    const profileVersionId = await seedStockProfile(admin);
+    const stock = await inventory.execute(seller, {
+      action: 'DECLARE', commandId: 'auction-atomic:declare', idempotencyKey: 'auction-atomic:declare',
+      correlationId: 'auction-atomic:stock', expectedVersion: '0', reason: 'Declare physical stock for the canonical auction scenario.',
+      stockKey: 'auction-atomic-physical-stock', profileVersionId, sourceType: 'MANUAL',
+      sourceReference: 'own-register:auction-atomic', unitCode: 'TON', quantity: '100',
+    });
     const lot = resultObject(await commands.registerLot({
       title: 'Пшеница 3 класс — атомарный тест',
       culture: 'WHEAT',
@@ -98,14 +114,24 @@ describeAuctionAtomic('IR-AUCTION atomic execution', () => {
       region: 'Тамбовская область',
       address: 'Элеватор атомарного теста',
       auctionEndsAt: new Date(Date.now() + 3_600_000).toISOString(),
-      sourceType: 'MANUAL_VERIFIED',
+      sourceType: 'OTHER',
       sourceExternalId: 'source:auction:atomic:1',
-      sourceCertificateId: 'certificate:auction:atomic:1',
+      inventoryPositionId: stock.position.positionId,
+      inventoryExpectedVersion: '1',
+      profileVersionId,
+      unitCode: 'TON',
+      quantity: '100.000000',
+      correlationId: 'auction-atomic:register',
+      reason: 'Offer declared physical stock through the canonical auction.',
       autoExtendEnabled: false,
       idempotencyKey: 'register:auction:atomic:1',
     }, seller));
     const lotId = String(lot.lotId);
     expect(lot.version).toBe('1');
+    expect(lot).toMatchObject({ bindingState: 'INVENTORY_BOUND', verificationStatus: 'DECLARED', tradePermission: 'PUBLIC_ALLOWED', independentVerification: null });
+    const inventoryBinding = resultObject(lot.binding);
+    const declaredSource = await admin.$queryRaw<Array<{ source_verified_at: Date | null; source_type: string }>>(Prisma.sql`SELECT source_verified_at, source_type FROM auction.lots WHERE id=${lotId}`);
+    expect(declaredSource[0]).toEqual({ source_verified_at: null, source_type: 'OTHER' });
 
     const admissionOne = resultObject(await commands.recordAdmission(lotId, {
       buyerOrgId: BUYER_ONE_ORG,
@@ -337,6 +363,17 @@ describeAuctionAtomic('IR-AUCTION atomic execution', () => {
         (SELECT count(*)::text FROM public.integration_events WHERE "adapterName" = 'auction' AND "eventType" = 'DEAL_BASIS_READY' AND "externalId" = '${lotId}:${firstBidId}') AS basis_events
     `);
     expect(finalState[0]).toMatchObject({ deals: '1', bound_awards: '1', basis_events: '1' });
+    const releaseAwarded = {
+      action: 'RELEASE', commandId: 'auction-atomic:release-awarded', idempotencyKey: 'auction-atomic:release-awarded',
+      correlationId: 'auction-atomic:release-awarded', expectedVersion: '2', reason: 'Attempt to release stock already backing the awarded Deal.',
+      positionId: stock.position.positionId, reservationId: String(inventoryBinding.reservationId),
+    };
+    await expect(new RlsTransactionService(app).withTrustedContext(seller, (tx) => tx.$queryRaw(Prisma.sql`
+      SELECT inventory.execute_command(${JSON.stringify(releaseAwarded)}::jsonb)`))).rejects.toThrow('AUCTION_BOUND_RESERVATION_RELEASE_DENIED');
+    const held = await admin.$queryRaw<Array<{ reserved_quantity: bigint; available_quantity: bigint; state_version: bigint; status: string }>>(Prisma.sql`
+      SELECT p.reserved_quantity,p.available_quantity,p.state_version,r.status FROM inventory.positions p
+      JOIN inventory.reservations r ON r.position_id=p.id WHERE p.id=${stock.position.positionId}`);
+    expect(held).toEqual([{ reserved_quantity: 100000000n, available_quantity: 0n, state_version: 2n, status: 'RESERVED' }]);
   }, 120_000);
 
   // Three live-database assertions were attempted here — the audit_events RLS
@@ -395,7 +432,7 @@ async function seedActors(admin: PrismaClient): Promise<void> {
         inn,
         name,
         tenantId,
-        status: 'VERIFIED',
+        status: 'ACTIVE',
         kycStatus: 'APPROVED',
         amlStatus: 'CLEAR',
         sanctionHit: false,
@@ -428,10 +465,29 @@ async function seedActors(admin: PrismaClient): Promise<void> {
         userId: id,
         organizationId,
         role,
+        status: 'ACTIVE',
         isDefault: true,
+        isOrgAdmin: true,
       },
     });
   }
+}
+
+async function seedStockProfile(admin: PrismaClient): Promise<string> {
+  const profileId = `auction-atomic-profile:${randomUUID()}`;
+  const versionId = `auction-atomic-profile-version:${randomUUID()}`;
+  const content = { canonicalCode: 'WHEAT', units: [
+    { code: 'KG', dimension: 'MASS', symbol: 'kg', isBase: true, precision: 3, numeratorToBase: '1', denominatorToBase: '1', sourceRef: 'test:si' },
+    { code: 'TON', dimension: 'MASS', symbol: 't', isBase: false, precision: 6, numeratorToBase: '1000', denominatorToBase: '1', sourceRef: 'test:si' },
+  ], qualityIndicators: [] };
+  await admin.commodityProfile.create({ data: { id: profileId, canonicalCode: `TEST.AUCTION.${randomUUID().replaceAll('-', '').toUpperCase()}`, archetype: 'DRY_BULK', authoritativeNameRu: 'Пшеница для атомарной проверки', createdByUserId: SELLER_USER, updatedByUserId: SELLER_USER } });
+  await admin.commodityProfileVersion.create({ data: { id: versionId, profileId, sequence: 1, content, contentHash: createHash('sha256').update(JSON.stringify(content)).digest('hex'), createdByUserId: SELLER_USER, updatedByUserId: SELLER_USER } });
+  for (const status of ['REVIEW', 'APPROVED', 'EFFECTIVE']) {
+    await admin.$executeRaw(Prisma.sql`UPDATE public.commodity_profile_versions SET status=${status},version=version+1,
+      "approvedByUserId"=${SELLER_USER},"approvedAt"=clock_timestamp(),"approvalReason"='Isolated auction stock acceptance',
+      "effectiveFrom"=clock_timestamp()-interval '1 minute',"updatedAt"=greatest(clock_timestamp(),"updatedAt"+interval '1 millisecond') WHERE id=${versionId}`);
+  }
+  return versionId;
 }
 
 async function lotVersion(admin: PrismaClient, lotId: string): Promise<string> {

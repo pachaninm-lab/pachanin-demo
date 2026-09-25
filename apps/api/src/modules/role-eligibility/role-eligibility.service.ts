@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type { StaffAccessContext } from '../staff-access/staff-access.types';
-import { RoleEligibilityPolicy } from './role-eligibility-policy';
+import { isValidRussianInn, RoleEligibilityPolicy } from './role-eligibility-policy';
 import { RoleEligibilityRepository } from './role-eligibility.repository';
 import { sha256 } from './role-eligibility-security';
 
@@ -111,6 +111,9 @@ export class RoleEligibilityService {
     }
     const candidate = await this.requireCandidate(applicationId, access);
     const semanticRole = this.policy.resolveSemanticRole(candidate);
+    if (!isValidRussianInn(candidate.inn)) {
+      throw new BadRequestException({ code: 'ROLE_ELIGIBILITY_IDENTIFIER_CHECKSUM_INVALID' });
+    }
     const fingerprint = await this.repository.activeGenerationFingerprint();
     const previous = await this.repository.latestCheck(applicationId);
     const requestDiscriminator = `manual:${sha256(normalizedKey)}`;

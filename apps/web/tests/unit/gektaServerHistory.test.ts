@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { chunkImport, importablePayload, toConversation, toProject } from '@/lib/gekta/server-workspace';
+import { IMPORT_CHUNK_BYTES, IMPORT_CHUNK_CONVERSATIONS, chunkImport, importablePayload, toConversation, toProject } from '@/lib/gekta/server-workspace';
 import type { GektaConversation } from '@/components/gekta/GektaChatTypes';
 
 const root = resolve(__dirname, '../..');
@@ -90,6 +90,32 @@ describe('Gekta imports anonymous history without inventing content', () => {
     const huge = [{ title: 'Огромный', locale: 'ru', createdAt: NOW, messages: [{ role: 'user', body: 'x'.repeat(50_000) }] }];
     expect(chunkImport(huge, 1_000).flat()).toHaveLength(1);
     expect(chunkImport([], 1_000)).toEqual([]);
+  });
+
+  /**
+   * Замерено до исправления: сто коротких диалогов весят 13 391 байт и
+   * укладывались в одну часть, а сервер импортирует не больше шестидесяти за
+   * запрос. Клиент получал ok на часть из ста, помечал перенос выполненным —
+   * и сорок диалогов истории исчезали молча.
+   */
+  it('never puts more conversations in one part than the server imports', () => {
+    const tiny = Array.from({ length: 100 }, (_, index) => ({
+      title: `Диалог ${index}`,
+      locale: 'ru',
+      createdAt: NOW,
+      messages: [{ role: 'user', body: 'Когда сеять пшеницу?' }],
+    }));
+    const chunks = chunkImport(tiny);
+    expect(JSON.stringify(tiny).length).toBeLessThan(IMPORT_CHUNK_BYTES);
+    expect(Math.max(...chunks.map((chunk) => chunk.length))).toBeLessThanOrEqual(IMPORT_CHUNK_CONVERSATIONS);
+    // Ничего не потеряно: части просто стали короче.
+    expect(chunks.flat()).toHaveLength(100);
+    expect(new Set(chunks.flat().map((item) => item.title)).size).toBe(100);
+  });
+
+  it('keeps the client part limit equal to what the API accepts', () => {
+    const dto = readFileSync(resolve(root, '../api/src/modules/gekta/gekta.contract.ts'), 'utf8');
+    expect(dto).toContain(`GEKTA_IMPORT_MAX_CONVERSATIONS = ${IMPORT_CHUNK_CONVERSATIONS}`);
   });
 
   it('skips an empty conversation instead of importing a blank chat', () => {

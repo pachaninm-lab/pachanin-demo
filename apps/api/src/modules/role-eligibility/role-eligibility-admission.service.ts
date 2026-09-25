@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { RoleEligibilityEnforcementRepository } from './role-eligibility-enforcement.repository';
 import { roleEligibilityEnforcementPolicyHash } from './role-eligibility-enforcement-policy';
 import type { RoleEligibilityAdmissionDecision, RoleEligibilityEnforcementState } from './role-eligibility-enforcement.types';
-import { RoleEligibilityPolicy } from './role-eligibility-policy';
+import { isValidRussianInn, RoleEligibilityPolicy } from './role-eligibility-policy';
 import { RoleEligibilityRepository } from './role-eligibility.repository';
 import { sourceManifestHash } from './role-eligibility-security';
 
@@ -35,6 +35,10 @@ export class RoleEligibilityAdmissionService {
         verdict: null,
         reasonCodes: ['ROLE_ELIGIBILITY_ENFORCEMENT_DISABLED'],
       };
+    }
+
+    if (!isValidRussianInn(candidate.inn)) {
+      return this.review(semanticRole, null, null, 'ROLE_ELIGIBILITY_IDENTIFIER_CHECKSUM_INVALID');
     }
 
     let state: RoleEligibilityEnforcementState;

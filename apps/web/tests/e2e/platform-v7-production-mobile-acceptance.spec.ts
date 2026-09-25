@@ -1,18 +1,49 @@
 import { expect, test, type Page } from '@playwright/test';
 
 const viewports = [
+  { width: 320, height: 700, name: '320x700' },
+  { width: 375, height: 812, name: '375x812' },
   { width: 390, height: 844, name: '390x844' },
   { width: 430, height: 932, name: '430x932' },
+  { width: 768, height: 1024, name: '768x1024' },
+  { width: 1280, height: 900, name: '1280x900' },
+  { width: 1440, height: 900, name: '1440x900' },
 ] as const;
 
-const currentPublicAnchorIds = [
-  'difference',
-  'functions',
-  'live',
-  'participants',
-  'tai',
-  'faq',
-  'connect-organization',
+const locales = ['ru', 'en', 'zh'] as const;
+const canonicalRoles = [
+  'Продавец',
+  'Покупатель',
+  'Логистика',
+  'Водитель',
+  'Элеватор',
+  'Лаборатория',
+  'Сюрвейер',
+  'Банк',
+  'Сотрудник подключённой организации',
+] as const;
+const canonicalStages = [
+  'Лот',
+  'Торги',
+  'Обязательства',
+  'Доставка',
+  'Приёмка / качество',
+  'Документы / расчёт',
+  'Закрытие / спор',
+] as const;
+
+const linkedPages = [
+  { name: 'market', path: '/platform-v7/market', ready: 'main h1' },
+  { name: 'how-it-works', path: '/platform-v7/how-it-works', ready: 'main h1' },
+  { name: 'capabilities', path: '/platform-v7/capabilities', ready: 'main h1' },
+  { name: 'gekta', path: '/platform-v7/gekta', ready: 'main h1' },
+  { name: 'ai-in-action', path: '/platform-v7/ai-in-action', ready: 'main h1' },
+  { name: 'trust', path: '/platform-v7/trust', ready: 'main h1' },
+  { name: 'about', path: '/platform-v7/about', ready: 'main h1' },
+  { name: 'contact', path: '/platform-v7/contact', ready: '[data-testid="platform-v7-question-form-page"]' },
+  { name: 'login', path: '/platform-v7/login', ready: 'main h1' },
+  { name: 'register', path: '/platform-v7/register', ready: 'main h1' },
+  { name: 'deal-flow', path: '/platform-v7/deal-flow', ready: 'main h1' },
 ] as const;
 
 async function expectNoHorizontalOverflow(page: Page) {
@@ -23,7 +54,7 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(1);
 }
 
-async function expectVisibleTargetsAtLeast(page: Page, selector: string, minimum: number) {
+async function expectVisibleTargetsAtLeast(page: Page, selector: string, minimum = 44) {
   const boxes = await page.locator(selector).evaluateAll((nodes) => nodes
     .filter((node) => {
       const element = node as HTMLElement;
@@ -35,48 +66,81 @@ async function expectVisibleTargetsAtLeast(page: Page, selector: string, minimum
       const box = (node as HTMLElement).getBoundingClientRect();
       return { width: box.width, height: box.height };
     }));
-
-  expect(boxes.length, `${selector} should expose visible controls`).toBeGreaterThan(0);
+  expect(boxes.length).toBeGreaterThan(0);
   expect(boxes.every((box) => box.width >= minimum && box.height >= minimum), JSON.stringify(boxes, null, 2)).toBe(true);
 }
 
-async function expectCurrentAnchorsBelowStickyHeader(page: Page) {
-  const selector = currentPublicAnchorIds.map((id) => `#${id}`).join(', ');
-  const headerHeight = await page.locator('.pc-site-header').evaluate((node) => node.getBoundingClientRect().height);
-  const anchors = await page.locator(selector).evaluateAll((nodes) => nodes.map((node) => {
-    const element = node as HTMLElement;
-    return {
-      id: element.id,
-      scrollMarginTop: Number.parseFloat(window.getComputedStyle(element).scrollMarginTop),
-    };
-  }));
+async function expectCanonicalHeader(page: Page, width: number) {
+  const header = page.locator('.pc-site-header[data-public-site-header="canonical"]');
+  await expect(header).toBeVisible();
+  await expect(header.locator('.pc-site-brand-mark[data-brand-mark="transparent-price-canonical"]')).toBeVisible();
+  await expect(header.locator('.pc-site-brand-text strong')).toHaveText('Прозрачная Цена');
+  const headerBox = await header.boundingBox();
+  expect(headerBox?.height ?? 0).toBeGreaterThanOrEqual(60);
+  expect(headerBox?.height ?? 100).toBeLessThanOrEqual(72);
 
-  expect(anchors.map((anchor) => anchor.id).sort()).toEqual([...currentPublicAnchorIds].sort());
-  expect(
-    anchors.every((anchor) => Number.isFinite(anchor.scrollMarginTop) && anchor.scrollMarginTop >= headerHeight),
-    JSON.stringify(anchors, null, 2),
-  ).toBe(true);
-
-  await page.evaluate(() => {
-    history.replaceState(null, '', `${location.pathname}${location.search}#live`);
-    document.getElementById('live')?.scrollIntoView();
-  });
-  await page.waitForTimeout(100);
-
-  const livePosition = await page.evaluate(() => {
-    const header = document.querySelector('.pc-site-header');
-    const target = document.getElementById('live');
-    return {
-      headerBottom: header?.getBoundingClientRect().bottom ?? 0,
-      targetTop: target?.getBoundingClientRect().top ?? -1,
-    };
-  });
-  expect(livePosition.targetTop, 'live anchor must not be hidden under the sticky header').toBeGreaterThanOrEqual(livePosition.headerBottom - 1);
+  if (width <= 900) {
+    await expect(header.locator('.pc-site-mobile-menu')).toBeVisible();
+    await expectVisibleTargetsAtLeast(page, '.pc-site-mobile-menu > summary, .pc-site-locale-switch', 44);
+  } else {
+    await expect(header.locator('.pc-site-nav')).toBeVisible();
+    const primaryNavLinks = header.locator('.pc-site-nav > a:not(.pc-cp-mobile-only)');
+    await expect(primaryNavLinks).toHaveCount(5);
+    await expect(header.locator('.pc-gekta-chat-button--header')).toBeVisible();
+    await expectVisibleTargetsAtLeast(page, '.pc-site-locale-switch, .pc-gekta-chat-button--header, .entry-login, .pc-v6-header-cta', 44);
+  }
 }
 
-test.describe('Platform V7 exact production mobile acceptance', () => {
+async function expectHomeContract(page: Page, width: number) {
+  await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
+  await expect(page.locator('.pc-cp-hero h1')).toBeVisible();
+  await expect(page.locator('#market')).toBeVisible();
+  await expect(page.locator('#deal-path')).toBeVisible();
+  await expect(page.locator('#participants')).toBeVisible();
+  await expect(page.locator('#live')).toBeVisible();
+  await expect(page.locator('#trust')).toBeVisible();
+  await expect(page.locator('#gekta')).toBeVisible();
+  await expect(page.locator('#capabilities')).toBeVisible();
+
+  const roleSurface = page.locator('#participants .pc-cp-role-tags');
+  for (const role of canonicalRoles) await expect(roleSurface.getByText(role, { exact: true })).toBeVisible();
+  for (const stage of canonicalStages) await expect(page.getByText(stage, { exact: true }).first()).toBeVisible();
+
+  await expect(page.locator('#trust .pc-cp-trust-card')).toHaveCount(4);
+  await expect(page.locator('#capabilities .pc-cp-capability')).toHaveCount(12);
+
+  const marketStates = page.locator('#market [data-testid="canonical-market-preview"], #market [data-market-state]');
+  await expect(marketStates.first()).toBeVisible();
+
+  if (width <= 760) {
+    await expect(page.locator('.pc-cp-bottom-nav')).toBeVisible();
+    await expect(page.locator('.pc-cp-bottom-nav a')).toHaveCount(5);
+    await expectVisibleTargetsAtLeast(page, '.pc-cp-bottom-nav a', 44);
+
+    const readableMarketPreview = page.locator(
+      '#market .pc-cp-market-grid--preview .pc-cp-chip:visible, ' +
+      '#market .pc-cp-market-grid--preview .pc-cp-lot-title:visible, ' +
+      '.pc-cp-deal-lens-next strong:visible',
+    );
+    const previewSizes = await readableMarketPreview.evaluateAll((nodes) =>
+      nodes.map((node) => Number.parseFloat(getComputedStyle(node).fontSize)),
+    );
+    expect(previewSizes.length).toBeGreaterThan(0);
+    expect(Math.min(...previewSizes)).toBeGreaterThanOrEqual(12);
+  } else {
+    await expect(page.locator('.pc-cp-bottom-nav')).toBeHidden();
+  }
+}
+
+async function expectLocaleContinuity(page: Page, locale: (typeof locales)[number]) {
+  expect(new URL(page.url()).searchParams.get('lang')).toBe(locale);
+  const localized = page.locator(`a[href*="lang=${locale}"]`);
+  expect(await localized.count()).toBeGreaterThan(0);
+}
+
+test.describe('Platform V7 canonical production responsive acceptance', () => {
   for (const viewport of viewports) {
-    test(`${viewport.name} keeps the public Deal workspace compact, accessible and anchored`, async ({ page }, testInfo) => {
+    test(`${viewport.name} keeps canonical public home usable and overflow-free`, async ({ page }, testInfo) => {
       const runtimeFailures: string[] = [];
       page.on('pageerror', (error) => runtimeFailures.push(error.message));
       page.on('console', (message) => {
@@ -86,56 +150,131 @@ test.describe('Platform V7 exact production mobile acceptance', () => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
       expect(response?.ok()).toBe(true);
-      await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
-      await expect(page.locator('#connect-organization form')).toHaveAttribute('data-ready', 'true');
 
-      const header = page.locator('.pc-site-header');
-      await expect(header).toBeVisible();
-      const headerHeight = await header.evaluate((node) => node.getBoundingClientRect().height);
-      expect(headerHeight).toBeGreaterThanOrEqual(47);
-      expect(headerHeight).toBeLessThanOrEqual(49);
-
-      await expectVisibleTargetsAtLeast(page, '.pc-site-mobile-menu > summary, .pc-site-locale-switch, .entry-login', 44);
-      await expectNoHorizontalOverflow(page);
-
-      const headings = await page.locator('.pc-v6-section-head h2, .pc-v6-final h2, #connect-organization h2').evaluateAll((nodes) => nodes
-        .filter((node) => {
-          const box = (node as HTMLElement).getBoundingClientRect();
-          return box.width > 0 && box.height > 0;
-        })
-        .map((node) => {
-          const style = window.getComputedStyle(node);
-          const fontSize = Number.parseFloat(style.fontSize);
-          const lineHeight = Number.parseFloat(style.lineHeight);
-          return { fontSize, ratio: lineHeight / fontSize };
-        }));
-      expect(headings.length).toBeGreaterThan(0);
-      expect(headings.every((heading) => heading.fontSize >= 32 && heading.fontSize <= 38), JSON.stringify(headings, null, 2)).toBe(true);
-      expect(headings.every((heading) => heading.ratio <= 1.11), JSON.stringify(headings, null, 2)).toBe(true);
-
-      await expect(page.getByRole('region', { name: 'Рабочее пространство Сделки' })).toBeVisible();
-      await expect(page.getByRole('list', { name: 'Этапы исполнения Сделки' })).toBeVisible();
-      await expect(page.getByRole('tablist', { name: 'Что видит каждый участник' })).toBeVisible();
-      await expect(page.getByRole('tab', { name: 'Банк' })).toBeVisible();
-      await expect(page.locator('#maturity, #integrations, #role-entry')).toHaveCount(0);
-
-      const formControlHeights = await page.locator('#connect-organization input:not([type="checkbox"]):not([tabindex="-1"]):visible, #connect-organization select:visible, #connect-organization button:visible').evaluateAll((nodes) => nodes.map((node) => (node as HTMLElement).getBoundingClientRect().height));
-      expect(formControlHeights.length).toBeGreaterThan(0);
-      expect(formControlHeights.every((height) => height >= 52 && height <= 56), JSON.stringify(formControlHeights, null, 2)).toBe(true);
-
-      await expectCurrentAnchorsBelowStickyHeader(page);
+      await expectCanonicalHeader(page, viewport.width);
+      await expectHomeContract(page, viewport.width);
       await expectNoHorizontalOverflow(page);
       expect(runtimeFailures).toEqual([]);
 
-      await page.evaluate(() => {
-        history.replaceState(null, '', `${location.pathname}${location.search}`);
-        window.scrollTo(0, 0);
-      });
       await page.screenshot({
-        path: testInfo.outputPath(`platform-v7-production-${viewport.name}.png`),
+        path: testInfo.outputPath(`canonical-home-${viewport.name}.png`),
         fullPage: true,
         animations: 'disabled',
       });
     });
   }
+});
+
+test.describe('Platform V7 canonical linked pages RU EN ZH', () => {
+  for (const locale of locales) {
+    for (const target of linkedPages) {
+      test(`${target.name} ${locale} renders without authority or layout drift`, async ({ page }, testInfo) => {
+        test.setTimeout(90_000);
+        const width = target.name === 'market' || target.name === 'deal-flow' ? 430 : 390;
+        const height = target.name === 'market' || target.name === 'deal-flow' ? 932 : 844;
+        await page.setViewportSize({ width, height });
+
+        const response = await page.goto(`${target.path}?lang=${locale}`, { waitUntil: 'load' });
+        expect(response?.ok()).toBe(true);
+        await expect(page.locator(target.ready).first()).toBeVisible();
+        await expectNoHorizontalOverflow(page);
+        await expectLocaleContinuity(page, locale);
+
+        if (!['login', 'register'].includes(target.name)) await expectCanonicalHeader(page, width);
+        if (target.name === 'market') {
+          const results = page.getByTestId('canonical-market-results');
+          const state = page.locator('.pc-cp-market-state[data-market-state]');
+          await expect(results.or(state)).toBeVisible();
+          // Empty/no-match are valid public states; an upstream outage is not
+          // a successful production smoke and must remain explicitly blocking.
+          if (await state.count()) {
+            await expect(state).toHaveAttribute('data-market-state', /^(empty|noMatch)$/);
+            await expect(state.locator('h3')).toBeVisible();
+            await expect(state.locator('p')).toBeVisible();
+            await expectVisibleTargetsAtLeast(page, '.pc-cp-market-state[data-market-state] a', 44);
+          } else {
+            await expect(results.locator('.pc-cp-lot-card').first()).toBeVisible();
+          }
+          const readableMarketCopy = page.locator(
+            '.pc-cp-lot-card:visible .pc-cp-chip:visible, ' +
+            '.pc-cp-market-aside p:visible, .pc-cp-market-aside small:visible, ' +
+            '.pc-cp-market-state:visible h3, .pc-cp-market-state:visible p',
+          );
+          const marketSizes = await readableMarketCopy.evaluateAll((nodes) =>
+            nodes.map((node) => Number.parseFloat(getComputedStyle(node).fontSize)),
+          );
+          expect(marketSizes.length).toBeGreaterThan(0);
+          expect(Math.min(...marketSizes)).toBeGreaterThanOrEqual(12);
+        }
+        if (target.name === 'how-it-works') {
+          await expect(page.locator('.pc-cp-process-card')).toHaveCount(7);
+        }
+        if (target.name === 'deal-flow') {
+          const stageRail = page.locator('.pc-cp-deal-public-hero .pc-cp-deal-spine').first();
+          const stageLabels = page.locator('.pc-cp-deal-public-hero .pc-cp-stage strong');
+          await expect(stageLabels).toHaveCount(7);
+          const stageSizes = await stageLabels.evaluateAll((nodes) => nodes.map((node) => Number.parseFloat(getComputedStyle(node).fontSize)));
+          expect(Math.min(...stageSizes)).toBeGreaterThanOrEqual(12);
+          const rail = await stageRail.evaluate((node) => ({
+            clientWidth: node.clientWidth,
+            scrollWidth: node.scrollWidth,
+            overflowX: getComputedStyle(node).overflowX,
+          }));
+          expect(rail.scrollWidth).toBeGreaterThan(rail.clientWidth);
+          expect(['auto', 'scroll']).toContain(rail.overflowX);
+
+          const stateTabs = page.locator('.pc-cp-deal-public-main .pc-cp-state-tab');
+          const stateTabMetrics = await stateTabs.evaluateAll((nodes) => nodes.map((node) => {
+            const style = getComputedStyle(node);
+            const rect = node.getBoundingClientRect();
+            return { fontSize: Number.parseFloat(style.fontSize), height: rect.height };
+          }));
+          expect(stateTabMetrics.length).toBeGreaterThanOrEqual(3);
+          expect(Math.min(...stateTabMetrics.map((item) => item.fontSize))).toBeGreaterThanOrEqual(12);
+          expect(Math.min(...stateTabMetrics.map((item) => item.height))).toBeGreaterThanOrEqual(44);
+
+          const stateCopy = page.locator('.pc-cp-deal-public-main .pc-cp-state-cell span, .pc-cp-deal-public-main .pc-cp-state-cell strong');
+          const stateSizes = await stateCopy.evaluateAll((nodes) => nodes.map((node) => Number.parseFloat(getComputedStyle(node).fontSize)));
+          expect(stateSizes.length).toBeGreaterThan(0);
+          expect(Math.min(...stateSizes)).toBeGreaterThanOrEqual(12);
+        }
+        if (target.name === 'trust') {
+          await expect(page.locator('.pc-cp-trust-pillar')).toHaveCount(4);
+        }
+        if (target.name === 'gekta') {
+          const entry = page.getByTestId('gekta-public-entry');
+          await expect(entry).toBeVisible();
+          await expect(entry.locator('.pc-cp-detail-block')).toHaveCount(3);
+          await expect(entry.locator('.pc-gekta-question')).toHaveCount(3);
+          await expectVisibleTargetsAtLeast(page, '[data-testid="gekta-public-entry"] .pc-gekta-question', 44);
+          await expect(entry.locator('a[href="/platform-v7/ai-in-action?lang=' + locale + '"]')).toBeVisible();
+        }
+        if (target.name === 'ai-in-action') {
+          await expect(page.getByTestId('gekta-deal-explanation')).toBeVisible();
+          await expect(page.locator('.pc-cp-gekta-workspace')).toBeVisible();
+          await expect(page.locator('.pc-cp-gekta-source > div')).toHaveCount(4);
+        }
+        if (target.name === 'contact') {
+          await expect(page.locator('form[action="/api/platform-v7/inquiries"]')).toBeVisible();
+        }
+        if (target.name === 'login') {
+          const body = (await page.locator('body').innerText()).toLowerCase();
+          expect(body).not.toContain('выберите роль');
+          expect(body).not.toContain('select role');
+        }
+
+        await page.screenshot({
+          path: testInfo.outputPath(`canonical-${target.name}-${locale}-mobile.png`),
+          fullPage: true,
+          animations: 'disabled',
+        });
+      });
+    }
+  }
+});
+
+test('protected Deal route remains server-gated without a verified cabinet', async ({ page }) => {
+  const response = await page.goto('/platform-v7/deals/nonexistent/clean', { waitUntil: 'load' });
+  expect(response?.status()).toBeLessThan(500);
+  expect(new URL(page.url()).pathname).toBe('/platform-v7/login');
 });

@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { assertLiveReady, resolveIntegrationConfig } from './integration-config';
 
 describe('integration-config', () => {
-  it('defaults to stub mode and none auth', () => {
+  it('defaults to disabled mode and none auth', () => {
     const c = resolveIntegrationConfig('BANK', {});
-    expect(c.mode).toBe('stub');
+    expect(c.mode).toBe('disabled');
     expect(c.auth).toBe('none');
     expect(c.timeoutMs).toBe(15000);
   });

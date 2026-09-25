@@ -1,0 +1,120 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import test from 'node:test';
+
+const root = path.resolve(import.meta.dirname, '..');
+const manifestPath = 'docs/platform-v7/autopilot/scopes/pc-crop-service-marketplace-authority-4997.json';
+const manifest = JSON.parse(fs.readFileSync(path.join(root, manifestPath), 'utf8'));
+
+function source(relativePath) {
+  return fs.readFileSync(path.join(root, relativePath), 'utf8');
+}
+
+function allowed(pathname) {
+  return manifest.allowedPaths.some((pattern) =>
+    pattern.endsWith('/**') ? pathname.startsWith(pattern.slice(0, -2)) : pathname === pattern);
+}
+
+test('scope is exact-head bound and excludes registration and accounting ownership', () => {
+  assert.equal(manifest.branch, 'feat/pc-crop-service-marketplace-authority-4997');
+  assert.equal(manifest.authorityBaseExactMain, '2f162c4f20b95cea4849c9c428c82ff9f952c122');
+  assert.equal(manifest.productionHosting, 'REG_RU_VPS_ONLY');
+  assert.equal(manifest.newRecurringCostRub, 0);
+  assert.equal(manifest.allowedPaths.includes('.gitleaksignore'), true);
+  for (const entry of manifest.allowedPaths) {
+    assert.doesNotMatch(entry, /(?:^|\/)(?:registration|role-eligibility|accounting)(?:\/|$)/u);
+  }
+});
+
+test('recursive scope entries stay component-bounded', () => {
+  assert.equal(allowed('apps/api/src/modules/service-marketplace/controller.ts'), true);
+  assert.equal(allowed('apps/api/src/modules/service-marketplace-shadow/controller.ts'), false);
+});
+
+test('pull-request diff stays inside the declared contour', { skip: !process.env.PC_CROP_BASE_REF }, () => {
+  const changed = execFileSync('git', ['diff', '--name-only', `${process.env.PC_CROP_BASE_REF}...HEAD`], {
+    cwd: root,
+    encoding: 'utf8',
+  }).trim().split('\n').filter(Boolean);
+  assert.deepEqual(changed.filter((entry) => !allowed(entry)), []);
+});
+
+test('lifecycle and commands are exact and payer consent is a distinct state', () => {
+  const domain = source('packages/domain-core/src/service-marketplace.ts');
+  for (const status of [
+    'REQUESTED', 'QUOTED', 'PROVIDER_SELECTED', 'PAYER_ASSIGNED', 'PAYER_CONFIRMED',
+    'EXECUTING', 'EVIDENCE_SUBMITTED', 'ACCEPTED', 'SETTLEMENT_RECORDED',
+  ]) assert.match(domain, new RegExp(`'${status}'`, 'u'));
+  for (const action of [
+    'CREATE_REQUEST', 'SUBMIT_QUOTE', 'SELECT_PROVIDER', 'ASSIGN_PAYER', 'CONFIRM_PAYER',
+    'START_EXECUTION', 'SUBMIT_EVIDENCE', 'ACCEPT_SERVICE', 'RECORD_SETTLEMENT',
+  ]) assert.match(domain, new RegExp(`'${action}'`, 'u'));
+  assert.match(domain, /ASSIGN_PAYER: \{ from: \['PROVIDER_SELECTED', 'PAYER_ASSIGNED'\], to: 'PAYER_ASSIGNED' \}/u);
+  assert.match(domain, /CONFIRM_PAYER: \{ from: \['PAYER_ASSIGNED'\], to: 'PAYER_CONFIRMED' \}/u);
+});
+
+test('PostgreSQL owns participant authority, immutable quotes and lifecycle evidence', () => {
+  const migration = source('apps/api/prisma/migrations/20260905030000_service_marketplace_authority/migration.sql');
+  for (const table of ['service_marketplace_requests', 'service_marketplace_quotes', 'service_marketplace_events']) {
+    assert.match(migration, new RegExp(`ALTER TABLE public\\."${table}" FORCE ROW LEVEL SECURITY;`, 'u'));
+  }
+  assert.match(migration, /PC_SERVICE_QUOTE_IMMUTABLE/u);
+  assert.match(migration, /PC_SERVICE_REQUEST_EVIDENCE_REQUIRED/u);
+  assert.match(migration, /PC_SERVICE_EVENT_AUDIT_MISMATCH/u);
+  assert.match(migration, /outbox_entries_service_marketplace_insert/u);
+  assert.match(migration, /"actorOrganizationId" = public\.app_identity_org_id\(\)[\s\S]+OR EXISTS/u);
+  assert.match(migration, /event\."commandId" = "outbox_entries"\."payload" #>> '\{event,commandId\}'/u);
+  assert.doesNotMatch(migration, /event\."(?:commandId|requestId|action|toStatus|aggregateVersion|requestFingerprint)"[^\n]+ = "payload"/u);
+  assert.match(migration, /SECURITY DEFINER SET search_path = pg_catalog, public/u);
+  assert.equal((migration.match(/REVOKE ALL ON public\."service_marketplace_(?:requests|quotes|events)" FROM %I/gu) ?? []).length, 6);
+  assert.match(migration, /GRANT SELECT, INSERT ON public\."service_marketplace_events" TO %I/u);
+  assert.doesNotMatch(migration, /GRANT [^;]*(?:UPDATE|DELETE)[^;]*service_marketplace_events/u);
+});
+
+test('commands use CAS, payload-bound replay, audit and outbox atomically', () => {
+  const repository = source('apps/api/src/modules/service-marketplace/service-marketplace.repository.ts');
+  assert.match(repository, /pg_advisory_xact_lock/u);
+  assert.match(repository, /requestFingerprint/u);
+  assert.match(repository, /"stateVersion" = "stateVersion" \+ 1/u);
+  assert.match(repository, /tx\.auditEvent\.create/u);
+  assert.match(repository, /INSERT INTO public\."service_marketplace_events"/u);
+  assert.match(repository, /INSERT INTO public\."outbox_entries"/u);
+  assert.match(repository, /TransactionIsolationLevel\.Serializable/u);
+  assert.match(repository, /SET CONSTRAINTS service_marketplace_request_evidence_guard IMMEDIATE/u);
+});
+
+test('quotes pin verified offerings and settlement stays non-financial', () => {
+  const migration = source('apps/api/prisma/migrations/20260905030000_service_marketplace_authority/migration.sql');
+  const repository = source('apps/api/src/modules/service-marketplace/service-marketplace.repository.ts');
+  const contract = source('apps/api/src/modules/service-marketplace/service-marketplace.contract.ts');
+  for (const field of ['serviceOfferingId', 'serviceOfferingVersion', 'commercialDecisionId', 'termsHash']) {
+    assert.match(contract, new RegExp(field, 'u'));
+  }
+  assert.match(migration, /offering_row\."status" <> 'ACTIVE'/u);
+  assert.match(migration, /capability\."status" = 'ACTIVE' AND provider\."status" = 'ACTIVE'/u);
+  assert.match(migration, /selected_quote\."expiresAt" <= clock_timestamp\(\)/u);
+  assert.match(repository, /createsFinancialObligation: false/u);
+  assert.doesNotMatch(repository, /accounting_(?:obligations|payments|advances)|ledger_entries/iu);
+});
+
+test('requesters can discover unexpired quotes and workflow commands fail fast', () => {
+  const controller = source('apps/api/src/modules/service-marketplace/service-marketplace.controller.ts');
+  const repository = source('apps/api/src/modules/service-marketplace/service-marketplace.repository.ts');
+  const workflow = source('.github/workflows/pc-crop-service-marketplace.yml');
+  assert.match(controller, /@Get\(':requestId\/quotes'\)/u);
+  assert.match(repository, /"requesterOrganizationId" = \$\{context\.orgId\}/u);
+  assert.match(repository, /"expiresAt" > clock_timestamp\(\)/u);
+  assert.doesNotMatch(workflow, /set -o pipefail/u);
+  assert.equal((workflow.match(/set -euo pipefail/gu) ?? []).length, 3);
+  const oneDeal = source('scripts/platform-v7-one-deal-e2e.sh');
+  assert.match(oneDeal, /REVOKE DELETE, TRUNCATE, REFERENCES, TRIGGER ON[\s\S]+public\.service_marketplace_requests[\s\S]+FROM one_deal_app/u);
+  assert.match(oneDeal, /REVOKE UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON[\s\S]+public\.service_marketplace_quotes,[\s\S]+public\.service_marketplace_events[\s\S]+FROM one_deal_app/u);
+});
+
+test('Gitleaks exception is exact and limited to the deterministic unit-test fixture', () => {
+  const ignore = source('.gitleaksignore');
+  const fingerprint = '8c08a3d3764b616f919a1e73828643dff95db5d4:apps/api/src/modules/service-marketplace/service-marketplace.contract.spec.ts:generic-api-key:11';
+  assert.equal(ignore.split('\n').filter((line) => line === fingerprint).length, 1);
+});

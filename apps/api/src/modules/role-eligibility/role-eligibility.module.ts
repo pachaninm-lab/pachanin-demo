@@ -9,6 +9,7 @@ import { RoleEligibilityAdmissionService } from './role-eligibility-admission.se
 import { RoleEligibilityController } from './role-eligibility.controller';
 import { RoleEligibilityEvidenceService } from './role-eligibility-evidence.service';
 import { RoleEligibilityEnforcementRepository } from './role-eligibility-enforcement.repository';
+import { RoleEligibilityFnsEgrulIngestRepository } from './role-eligibility-fns-egrul-ingest.repository';
 import { RoleEligibilityMetricsService } from './role-eligibility-metrics.service';
 import { RoleEligibilityRegistryRepository } from './role-eligibility-registry.repository';
 import { RoleEligibilityRegistrySyncService } from './role-eligibility-registry-sync.service';
@@ -24,6 +25,7 @@ import { RoleEligibilityWorkerService } from './role-eligibility-worker.service'
   providers: [
     RoleEligibilityRepository,
     RoleEligibilityRegistryRepository,
+    RoleEligibilityFnsEgrulIngestRepository,
     RoleEligibilityWorkerRepository,
     // Admission/enforcement providers remain dormant while ROLE_ELIGIBILITY_ENFORCEMENT=false.
     RoleEligibilityEnforcementRepository,
@@ -43,6 +45,7 @@ import { RoleEligibilityWorkerService } from './role-eligibility-worker.service'
   exports: [
     RoleEligibilityRepository,
     RoleEligibilityRegistryRepository,
+    RoleEligibilityFnsEgrulIngestRepository,
     RoleEligibilityWorkerRepository,
     RoleEligibilityEnforcementRepository,
     RoleEligibilityEvidenceService,

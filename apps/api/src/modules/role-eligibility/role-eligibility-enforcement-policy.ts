@@ -1,9 +1,9 @@
 import { sha256, stableJson } from './role-eligibility-security';
 import {
-  ELIGIBILITY_SOURCES,
+  ENFORCEMENT_AUTHORITY_SOURCES,
   ELIGIBILITY_VERDICTS,
-  type EligibilitySource,
   type EligibilityVerdict,
+  type EnforcementAuthoritySource,
   type SemanticEligibilityRole,
 } from './role-eligibility.types';
 import {
@@ -23,7 +23,7 @@ const SEMANTIC_ROLES: readonly SemanticEligibilityRole[] = [
   'DRIVER',
   'EMPLOYEE',
 ];
-const SOURCE_SET = new Set<string>(ELIGIBILITY_SOURCES);
+const AUTHORITY_SOURCE_SET = new Set<string>(ENFORCEMENT_AUTHORITY_SOURCES);
 const VERDICT_SET = new Set<string>(ELIGIBILITY_VERDICTS);
 const CODE = /^[A-Z0-9_:-]{3,120}$/;
 const VERSION = /^[A-Za-z0-9._-]{1,64}$/;
@@ -56,16 +56,16 @@ function parseRule(value: unknown): EnforcementRoleRule | null {
   const accepted = uniqueStrings(value.acceptedVerdicts);
   const sources = uniqueStrings(value.requiredSources);
   if (!accepted || !sources) return null;
-  if (accepted.some((item) => !VERDICT_SET.has(item)) || sources.some((item) => !SOURCE_SET.has(item))) return null;
-  // The first cutover contract never turns ambiguous/negative states into an
-  // automatic legal rejection. A role entitlement can only be granted from an
-  // immutable ELIGIBLE verdict with fresh, healthy authoritative provenance.
+  if (accepted.some((item) => !VERDICT_SET.has(item)) || sources.some((item) => !AUTHORITY_SOURCE_SET.has(item))) return null;
+  // Enforcement may depend only on explicitly approved authority sources.
+  // Supplementary evidence can enrich shadow/review context but can never become
+  // a mandatory admission authority merely by being added to the evidence model.
   if (accepted.length !== 1 || accepted[0] !== 'ELIGIBLE') return null;
   if (value.requireFreshEvidence !== true || value.requireHealthySource !== true) return null;
   return {
     mode: 'ENFORCE',
     acceptedVerdicts: accepted as EligibilityVerdict[],
-    requiredSources: sources as EligibilitySource[],
+    requiredSources: sources as EnforcementAuthoritySource[],
     requireFreshEvidence: true,
     requireHealthySource: true,
   };
@@ -106,7 +106,7 @@ export const ROLE_ELIGIBILITY_READINESS_POLICY_V1: Readonly<RoleEligibilityEnfor
     BANK: Object.freeze({
       mode: 'ENFORCE',
       acceptedVerdicts: ['ELIGIBLE'] as EligibilityVerdict[],
-      requiredSources: ['CBR'] as EligibilitySource[],
+      requiredSources: ['CBR'] as EnforcementAuthoritySource[],
       requireFreshEvidence: true,
       requireHealthySource: true,
     }),

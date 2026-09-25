@@ -3,11 +3,11 @@ import { expect, test, type Page } from '@playwright/test';
 
 function collectRuntimeFailures(page: Page) {
   const failures: string[] = [];
-  page.on('pageerror', (error) => failures.push(`pageerror: ${error.message}`));
+  page.on('pageerror', (error) => failures.push('pageerror: ' + error.message));
   page.on('console', (message) => {
     if (message.type() !== 'error') return;
     const text = message.text();
-    if (/hydration|failed to hydrate|uncaught|react error|error boundary/i.test(text)) failures.push(`console: ${text}`);
+    if (/hydration|failed to hydrate|uncaught|react error|error boundary/i.test(text)) failures.push('console: ' + text);
   });
   return failures;
 }
@@ -20,25 +20,7 @@ async function expectNoHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(1);
 }
 
-async function scrollAndFlush(page: Page, top: number) {
-  await page.evaluate(async (targetTop) => {
-    window.scrollTo({ top: targetTop, behavior: 'instant' });
-    window.dispatchEvent(new Event('scroll'));
-    await new Promise<void>((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve())));
-  }, top);
-}
-
-async function settleContactDock(page: Page) {
-  const dock = page.locator('.pc-public-contact-dock');
-  if (await dock.count() === 0) return;
-  await scrollAndFlush(page, 0);
-  await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
-  await expect(dock).toBeVisible();
-  await expect(dock.locator('.pc-public-contact-dock-assistant')).toBeEnabled();
-}
-
 async function expectNoSeriousAxeViolations(page: Page) {
-  await settleContactDock(page);
   const result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
   const blocking = result.violations.filter((violation) => violation.impact === 'serious' || violation.impact === 'critical');
   expect(blocking, JSON.stringify(blocking, null, 2)).toEqual([]);
@@ -47,7 +29,6 @@ async function expectNoSeriousAxeViolations(page: Page) {
 async function expectMinimumTargets(page: Page, locator: string) {
   const elements = page.locator(locator);
   await expect.poll(async () => {
-    if (!(await elements.first().isVisible())) await settleContactDock(page);
     const targets = await elements.evaluateAll((nodes) => nodes
       .filter((element) => {
         const style = window.getComputedStyle(element);
@@ -59,11 +40,11 @@ async function expectMinimumTargets(page: Page, locator: string) {
         return { width: box.width, height: box.height };
       }));
     return targets.length > 0 && targets.every((target) => target.width >= 44 && target.height >= 44);
-  }, { timeout: 15_000, intervals: [100, 250, 500], message: `${locator} must remain at least 44×44 CSS px` }).toBe(true);
+  }, { timeout: 15_000, intervals: [100, 250, 500], message: locator + ' must remain at least 44×44 CSS px' }).toBe(true);
 }
 
-test.describe('Final v4 public Deal and TAI intelligence layer', () => {
-  test('home presents the approved Deal-first argument and fails closed', async ({ page }) => {
+test.describe('Public Deal and Gekta intelligence layer', () => {
+  test('home presents the registration-first canonical Deal argument and fails closed', async ({ page }) => {
     const runtimeFailures = collectRuntimeFailures(page);
     const forbiddenRequests: string[] = [];
     page.on('request', (request) => {
@@ -73,108 +54,60 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
 
     const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
     expect(response?.ok()).toBe(true);
-    await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
-    await expect(page.locator('#pc-v6-title')).toContainText('Управляйте агросделкой');
-    await expect(page.locator('#pc-v6-title')).toContainText('от цены до расчёта');
-    await expect(page.locator('[data-testid="platform-v7-deal-card"]')).toContainText('Показатель белка ниже условия договора');
+    const root = page.locator('[data-testid="platform-v7-root-execution-cockpit"]');
+    await expect(root).toBeVisible();
+    await expect(page.locator('#pc-cp-home-title')).toContainText('Агросделка');
+    await expect(page.locator('#pc-cp-home-title')).toContainText('до результата');
 
-    await expect(page.locator('#difference')).toContainText('От согласования цены до закрытия Сделки — один управляемый процесс');
-    await expect(page.locator('#difference [role="table"]')).toHaveCount(1);
-    await expect(page.locator('#difference [data-comparison-row="true"]')).toHaveCount(6);
-    await expect(page.locator('#functions article')).toHaveCount(7);
-    await expect(page.locator('#functions')).toContainText('Показать шаги 5–7');
-    await expect(page.locator('#deal-path')).toHaveCount(0);
-    await expect(page.locator('#trust')).toBeVisible();
-    await expect(page.locator('#trust .pc-home-trust-grid article')).toHaveCount(4);
-    await expect(page.locator('#connection-process')).toBeVisible();
-    await expect(page.locator('#connection-process article')).toHaveCount(3);
-    if ((page.viewportSize()?.width ?? 1440) < 768) {
-      const disclosures = [
-        { id: '#difference-more-toggle', controls: 'difference-comparison-rows' },
-        { id: '#functions-more-toggle', controls: 'functions-more-cards' },
-      ] as const;
-      await expect(page.locator('#difference').getByRole('rowheader')).toHaveCount(2);
-      await expect(page.locator('#functions article').nth(6)).toBeHidden();
-      for (const disclosure of disclosures) {
-        const toggle = page.locator(disclosure.id);
-        const label = page.locator(`label[for="${disclosure.id.slice(1)}"]`);
-        await expect(toggle).toHaveAttribute('aria-controls', disclosure.controls);
-        await toggle.focus();
-        await expect(toggle).toBeFocused();
-        await expect(label).toHaveCSS('outline-style', 'solid');
-        await page.keyboard.press('Space');
-        await expect(toggle).toBeChecked();
-      }
-    }
-    await expect(page.locator('#difference').getByRole('rowheader')).toHaveCount(6);
-    await expect(page.locator('#functions article').nth(6)).toBeVisible();
-    await expect(page.getByRole('main')).toHaveAttribute('id', 'main-content');
-    await expect(page.getByRole('banner')).toHaveCount(1);
-    await expect(page.getByRole('contentinfo')).toHaveCount(1);
-    await expect(page.locator('.pc-v6-control-tower')).toHaveCount(1);
+    const headerRegister = page.locator('.pc-site-header .pc-v6-header-cta');
+    await expect(headerRegister).toBeVisible();
+    await expect(headerRegister).toHaveAttribute('href', '/platform-v7/register?lang=ru');
 
-    await expect(page.locator('#live [data-state]')).toHaveCount(3);
-    await expect(page.locator('#public-deal-state-deviation')).toBeChecked();
-    await expect(page.locator('#live [data-state="deviation"]')).toBeVisible();
-    await page.locator('label[for="public-deal-state-normal"]').click();
-    await expect(page.locator('#public-deal-state-normal')).toBeChecked();
-    await expect(page.locator('#live [data-state="normal"]')).toContainText('Поставка подтверждена');
-    await page.locator('label[for="public-deal-state-dispute"]').click();
-    await expect(page.locator('#live [data-state="dispute"]')).toContainText('Гекта воздержалась от вывода');
+    const heroActions = page.locator('.pc-cp-hero-copy .pc-cp-button');
+    await expect(heroActions).toHaveCount(2);
+    await expect(heroActions.nth(0)).toHaveAttribute('href', '/platform-v7/register?lang=ru&intent=sell');
+    await expect(heroActions.nth(1)).toHaveAttribute('href', '/platform-v7/register?lang=ru&intent=buy');
 
-    const perspectives = page.getByRole('tablist', { name: 'Что видит каждый участник' });
-    await expect(perspectives).toBeVisible();
-    await expect(perspectives.getByRole('tab')).toHaveCount(12);
-    await perspectives.getByRole('tab', { name: 'Арбитр' }).click();
-    await expect(page.getByRole('tabpanel')).toContainText('спорную сумму');
+    const lens = page.locator('.pc-cp-deal-lens');
+    await expect(lens).toContainText('Структура Сделки');
+    await expect(lens.locator('.pc-cp-deal-lens-cell')).toHaveCount(4);
 
-    await expect(page.locator('[data-testid="platform-v7-ai-analysis"]')).toContainText('Протокол лаборатории');
-    await expect(page.locator('[data-testid="platform-v7-ai-analysis"]')).toContainText('Готовность расчёта нельзя подтвердить');
-    const taiProductLink = page.getByRole('link', { name: 'Посмотреть Гекту в работе' }).first();
-    await expect(taiProductLink).toHaveAttribute('href', /\/platform-v7\/ai-in-action\?lang=ru/);
+    await expect(page.locator('#market')).toBeVisible();
+    await expect(page.locator('[data-testid="canonical-market-preview"]')).toBeVisible();
+    await expect(page.locator('#deal-path .pc-cp-stage')).toHaveCount(7);
+    await expect(page.locator('#participants .pc-cp-role-tags span')).toHaveCount(9);
+    await expect(page.locator('#live .pc-cp-state-cell')).toHaveCount(5);
+    await expect(page.locator('#trust .pc-cp-trust-card')).toHaveCount(4);
+    await expect(page.locator('#gekta .pc-cp-gekta-strip')).toBeVisible();
+    await expect(page.locator('#capabilities .pc-cp-capability')).toHaveCount(12);
 
-    await expect(page.locator('#maturity, #integrations, #role-entry')).toHaveCount(0);
-    await expect(page.locator('#faq details')).toHaveCount(5);
-
-    await settleContactDock(page);
-    await expect(page.locator('.pc-public-contact-dock-action')).toHaveCount(3);
-    await expectMinimumTargets(page, '.pc-public-contact-dock-action');
-    await expectMinimumTargets(
-      page,
-      '.pc-site-brand, .pc-skip-link, .pc-site-mobile-menu > summary, .pc-site-locale-switch, .entry-login, .pc-v6-header-cta, label[for="difference-more-toggle"], label[for="functions-more-toggle"]',
-    );
+    // The canonical landing intentionally does not hydrate the retired support dock.
+    await expect(page.locator('.pc-public-contact-dock')).toHaveCount(0);
+    await expectMinimumTargets(page, '.pc-site-brand, .pc-site-mobile-menu > summary, .pc-site-locale-option:visible, .pc-v6-header-cta:visible, .pc-cp-hero-copy .pc-cp-button');
     await expectNoHorizontalOverflow(page);
     await expectNoSeriousAxeViolations(page);
     expect(forbiddenRequests).toEqual([]);
     expect(runtimeFailures).toEqual([]);
   });
 
-  test('390×844 first viewport contains the category, result, primary action and compact public AI', async ({ page }) => {
+  test('390×844 first viewport keeps registration and canonical Deal context visible', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     const response = await page.goto('/platform-v7?lang=ru', { waitUntil: 'load' });
     expect(response?.ok()).toBe(true);
 
-    await expect(page.locator('#pc-v6-title')).toContainText('Управляйте агросделкой');
-    await expect(page.locator('#pc-v6-title')).toContainText('от цены до расчёта');
-    const primary = page.getByRole('link', { name: 'Посмотреть Сделку в работе' }).first();
+    const heading = page.locator('#pc-cp-home-title');
+    await expect(heading).toBeVisible();
+    const primary = page.locator('.pc-cp-hero-copy .pc-cp-button').first();
     await expect(primary).toBeVisible();
+    await expect(primary).toHaveAttribute('href', '/platform-v7/register?lang=ru&intent=sell');
     const primaryBox = await primary.boundingBox();
     expect(primaryBox).not.toBeNull();
     expect((primaryBox?.y ?? 9999) + (primaryBox?.height ?? 9999)).toBeLessThanOrEqual(844);
-    const dealCardBox = await page.locator('[data-testid="platform-v7-deal-card"]').boundingBox();
-    expect(dealCardBox).not.toBeNull();
-    expect(dealCardBox?.y ?? 9999).toBeLessThan(844);
-    const dock = page.locator('.pc-public-contact-dock');
-    await expect(dock).toHaveAttribute('data-scroll-hidden', 'false');
-    await expect(dock).toBeVisible();
-    await expect(dock.locator('.pc-public-contact-dock-assistant')).toBeEnabled();
-    const secondaryActions = dock.locator('.pc-public-contact-dock-action:not(.pc-public-contact-dock-assistant)');
-    await expect(secondaryActions).toHaveCount(2);
-    for (const action of await secondaryActions.all()) await expect(action).toBeHidden();
-    const dockBox = await dock.boundingBox();
-    expect(dockBox).not.toBeNull();
-    expect(dockBox?.width ?? 9999).toBeLessThanOrEqual(58);
-    expect(dockBox?.x ?? -1).toBeGreaterThanOrEqual(320);
+
+    await expect(page.locator('.pc-cp-deal-lens')).toBeVisible();
+    await expect(page.locator('.pc-public-contact-dock')).toHaveCount(0);
+    await expect(page.locator('.pc-cp-bottom-nav a')).toHaveCount(5);
+    await expectMinimumTargets(page, '.pc-cp-bottom-nav a');
     await expectNoHorizontalOverflow(page);
   });
 
@@ -182,74 +115,85 @@ test.describe('Final v4 public Deal and TAI intelligence layer', () => {
     const runtimeFailures = collectRuntimeFailures(page);
     const response = await page.goto('/platform-v7/trust?lang=ru', { waitUntil: 'load' });
     expect(response?.ok()).toBe(true);
-    await expect(page.locator('#pc-trust-title')).toBeVisible();
-    await expect(page.locator('.pc-trust-domains article')).toHaveCount(4);
-    await expect(page.locator('#controls')).toContainText('Критические решения подтверждает уполномоченный участник');
-    await expect(page.locator('#ai')).toContainText('нет самостоятельного права');
-    await expect(page.locator('#claims')).toContainText('не заявляет без доказательств');
+    const root = page.locator('.pc-cp-page-trust');
+    await expect(root.locator('h1')).toBeVisible();
+    await expect(root.locator('.pc-cp-trust-pillar')).toHaveCount(4);
+    await expect(root).toContainText('Проверяемые факты');
+    await expect(root).toContainText('Полномочия');
+    await expect(root).not.toContainText('сертифицирован');
+    await expect(page.locator('.pc-public-contact-dock')).toHaveCount(0);
     await expectNoHorizontalOverflow(page);
     await expectNoSeriousAxeViolations(page);
     expect(runtimeFailures).toEqual([]);
   });
 
-  test('TAI passport exposes controlled layers without overstating maturity', async ({ page }) => {
+  test('Gekta public page exposes human-readable boundaries without independent authority', async ({ page }) => {
     const runtimeFailures = collectRuntimeFailures(page);
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const response = await page.goto('/platform-v7/ai-in-action?lang=ru', { waitUntil: 'load' });
     expect(response?.ok()).toBe(true);
-    await expect(page.locator('[data-testid="platform-v7-ai-in-action-authority"]')).toBeVisible();
-    await expect(page.getByText('NOT_ATTESTED', { exact: true })).toBeVisible();
-    for (const selector of ['#role-analysis', '#documents', '#government-data', '#risks-money', '#prepared-actions', '#evidence', '#security', '#limitations', '#connection']) {
-      await expect(page.locator(selector)).toBeVisible();
-    }
-    const roleAnalysis = page.locator('#role-analysis');
-    await roleAnalysis.getByRole('tab', { name: 'Продавец' }).click();
-    await expect(roleAnalysis.locator('[role="tabpanel"]')).toContainText('Версия протокола не связана');
-
-    const government = page.locator('#government-data');
-    await expect(government.locator('[data-status="CONNECTED"]')).toHaveCount(0);
-    await expect(government.locator('.pc-public-government-result')).toContainText('Проверка не выполнялась');
-    await expect(page.locator('#limitations')).toContainText('Неподключённая государственная система не отображается как подключённая');
-    await settleContactDock(page);
-    await expect(page.locator('.pc-public-contact-dock-action')).toHaveCount(3);
-    const media = await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches);
-    expect(media).toBe(true);
+    const root = page.locator('.pc-cp-page-gekta');
+    await expect(root).toBeVisible();
+    await expect(root.locator('.pc-cp-gekta-workspace')).toBeVisible();
+    await expect(root).toContainText('Только разрешённый контекст');
+    await expect(root).toContainText('Гекта не создаёт полномочия');
+    await expect(root).toContainText('не подменяет источник');
+    await expect(root).not.toContainText('NOT_ATTESTED');
+    await expect(page.locator('.pc-public-contact-dock')).toHaveCount(0);
+    expect(await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true);
     await expectNoHorizontalOverflow(page);
     await expectNoSeriousAxeViolations(page);
     expect(runtimeFailures).toEqual([]);
   });
 
-  test('specified 320–1440 widths keep public routes inside the viewport', async ({ page }, testInfo) => {
+  test('specified 320–1440 widths keep canonical public routes inside the viewport', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop-chromium', 'Full width matrix runs once on Chromium.');
     const cases = [
       { width: 320, locale: 'ru' }, { width: 375, locale: 'en' }, { width: 390, locale: 'zh' },
-      { width: 430, locale: 'ru' }, { width: 768, locale: 'en' }, { width: 1024, locale: 'zh' }, { width: 1440, locale: 'ru' },
+      { width: 430, locale: 'ru' }, { width: 768, locale: 'en' }, { width: 1280, locale: 'zh' }, { width: 1440, locale: 'ru' },
     ] as const;
     for (const item of cases) {
       await page.setViewportSize({ width: item.width, height: 1000 });
-      const home = await page.goto(`/platform-v7?lang=${item.locale}`, { waitUntil: 'load' });
-      expect(home?.ok(), `home ${item.width}px ${item.locale}`).toBe(true);
-      await expect(page.locator('[data-testid="platform-v7-root-execution-cockpit"]')).toBeVisible();
-      await expect(page.locator('#difference')).toBeVisible();
-      await expect(page.locator('#functions')).toBeVisible();
-      await expect(page.locator('#live')).toBeVisible();
-      await expect(page.locator('#trust')).toBeVisible();
-      await expect(page.locator('#connection-process')).toBeVisible();
-      await expect(page.locator('#deal-path')).toHaveCount(0);
-      await expect(page.locator('#maturity, #integrations, #role-entry')).toHaveCount(0);
+      const home = await page.goto('/platform-v7?lang=' + item.locale, { waitUntil: 'load' });
+      expect(home?.ok(), 'home ' + item.width + 'px ' + item.locale).toBe(true);
+      for (const selector of ['#market', '#deal-path', '#participants', '#live', '#trust', '#gekta', '#capabilities']) await expect(page.locator(selector)).toBeVisible();
+      await expect(page.locator('.pc-public-contact-dock')).toHaveCount(0);
       await expectNoHorizontalOverflow(page);
-      await settleContactDock(page);
-      await expectMinimumTargets(page, '.pc-public-contact-dock-action');
-      const trust = await page.goto(`/platform-v7/trust?lang=${item.locale}`, { waitUntil: 'load' });
-      expect(trust?.ok(), `trust ${item.width}px ${item.locale}`).toBe(true);
-      await expect(page.locator('.pc-trust-domains article')).toHaveCount(4);
+
+      const trust = await page.goto('/platform-v7/trust?lang=' + item.locale, { waitUntil: 'load' });
+      expect(trust?.ok(), 'trust ' + item.width + 'px ' + item.locale).toBe(true);
+      await expect(page.locator('.pc-cp-page-trust .pc-cp-trust-pillar')).toHaveCount(4);
       await expectNoHorizontalOverflow(page);
-      const passport = await page.goto(`/platform-v7/ai-in-action?lang=${item.locale}`, { waitUntil: 'load' });
-      expect(passport?.ok(), `passport ${item.width}px ${item.locale}`).toBe(true);
-      await expect(page.locator('[data-testid="platform-v7-ai-in-action-authority"]')).toBeVisible();
+
+      const gekta = await page.goto('/platform-v7/ai-in-action?lang=' + item.locale, { waitUntil: 'load' });
+      expect(gekta?.ok(), 'gekta ' + item.width + 'px ' + item.locale).toBe(true);
+      await expect(page.locator('.pc-cp-page-gekta .pc-cp-gekta-workspace')).toBeVisible();
       await expectNoHorizontalOverflow(page);
-      await settleContactDock(page);
-      await expectMinimumTargets(page, '.pc-public-contact-dock-action');
+    }
+  });
+
+  test('About, Contact and How it works keep registration-first chrome on mobile and desktop', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop-chromium', 'Linked-page responsive matrix runs once on Chromium.');
+    const cases = [
+      { width: 320, locale: 'ru' },
+      { width: 390, locale: 'zh' },
+      { width: 1440, locale: 'en' },
+    ] as const;
+
+    for (const item of cases) {
+      await page.setViewportSize({ width: item.width, height: 1000 });
+      for (const path of ['about', 'contact', 'how-it-works'] as const) {
+        const response = await page.goto('/platform-v7/' + path + '?lang=' + item.locale, { waitUntil: 'load' });
+        expect(response?.ok(), path + ' ' + item.width + 'px ' + item.locale).toBe(true);
+        await expect(page.locator('h1')).toBeVisible();
+        const register = page.locator('.pc-site-header a[href="/platform-v7/register?lang=' + item.locale + '"]:visible').first();
+        await expect(register).toBeVisible();
+        const box = await register.boundingBox();
+        expect(box).not.toBeNull();
+        expect(box!.width).toBeGreaterThanOrEqual(44);
+        expect(box!.height).toBeGreaterThanOrEqual(44);
+        await expectNoHorizontalOverflow(page);
+      }
     }
   });
 });

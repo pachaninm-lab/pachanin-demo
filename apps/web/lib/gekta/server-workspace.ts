@@ -111,6 +111,17 @@ export function importablePayload(conversations: readonly GektaConversation[]): 
 export const IMPORT_CHUNK_BYTES = 64 * 1024;
 
 /**
+ * Сколько диалогов сервер принимает за один запрос переноса. Значение
+ * повторяет GEKTA_IMPORT_MAX_CONVERSATIONS в API.
+ *
+ * Размера части в байтах было недостаточно: сто коротких диалогов весят около
+ * 13 КБ и уходили одной частью, а сервер брал первые шестьдесят и возвращал
+ * ok. Клиент видел успех, помечал перенос выполненным — и сорок диалогов
+ * истории пропадали молча, без единой ошибки.
+ */
+export const IMPORT_CHUNK_CONVERSATIONS = 60;
+
+/**
  * Перенос идёт частями: целая история легко перерастает лимит тела запроса, а
  * молчаливо обрезать её нельзя — локальная копия после переноса удаляется.
  * Диалог, который сам по себе больше порога, всё равно уходит отдельной
@@ -119,13 +130,14 @@ export const IMPORT_CHUNK_BYTES = 64 * 1024;
 export function chunkImport(
   conversations: readonly ImportableConversation[],
   limitBytes: number = IMPORT_CHUNK_BYTES,
+  limitCount: number = IMPORT_CHUNK_CONVERSATIONS,
 ): ImportableConversation[][] {
   const chunks: ImportableConversation[][] = [];
   let current: ImportableConversation[] = [];
   let size = 0;
   for (const conversation of conversations) {
     const weight = JSON.stringify(conversation).length;
-    if (current.length > 0 && size + weight > limitBytes) {
+    if (current.length > 0 && (size + weight > limitBytes || current.length >= limitCount)) {
       chunks.push(current);
       current = [];
       size = 0;

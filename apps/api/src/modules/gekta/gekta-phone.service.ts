@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { createCipheriv, createDecipheriv, createHmac, randomBytes } from 'node:crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 
@@ -90,7 +90,7 @@ export class GektaPhoneService {
    */
   async declarePhone(accountId: string, rawPhone: string) {
     const e164 = this.normalize(rawPhone);
-    if (!e164) throw new Error('phone_invalid');
+    if (!e164) throw new BadRequestException('phone_invalid');
     const lookupHash = this.lookupHash(e164);
 
     return this.prisma.$transaction(async (tx) => {

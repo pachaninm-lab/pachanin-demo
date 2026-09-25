@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { LOCALE_COOKIE } from '@/i18n/locale';
+import { controlledCabinetContext } from '@/lib/platform-v7/controlled-test-organizations';
 import {
   controlHostEnabled,
   controlHostUrl,
   isControlHostRequest,
   isControlRealmPathAllowed,
   isPrimaryPlatformHostRequest,
+  ownerCabinetSessionMatchesRoot,
+  ownerControlledCabinetRole,
   primaryPlatformUrl,
 } from '@/lib/platform-v7/control-host';
 import { observeServerCabinetAccess } from '@/lib/platform-v7/server-cabinet-access';
@@ -90,6 +93,9 @@ const PLATFORM_V7_PUBLIC_EXACT = new Set([
   '/platform-v7/open',
   '/platform-v7/login',
   '/platform-v7/register',
+  '/platform-v7/market',
+  '/platform-v7/gekta',
+  '/platform-v7/capabilities',
   '/platform-v7/forgot-password',
   '/platform-v7/invitation',
   '/platform-v7/mfa-recovery',
@@ -295,6 +301,9 @@ function withRoleHeaders(req: NextRequest, role: string, protectedResponse = fal
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set('x-pc-role', role);
   requestHeaders.set('x-pc-pathname', req.nextUrl.pathname);
+  // Navigation-only query context lets zero-hydration locale links preserve
+  // registration/status tokens without turning query values into authority.
+  requestHeaders.set('x-pc-search', req.nextUrl.search);
   const queryLocale = resolveLocaleFromQuery(req);
   const pathLocale = resolveGektaPathLocale(req.nextUrl.pathname);
   const requestLocale = pathLocale || queryLocale;
@@ -403,8 +412,15 @@ export async function middleware(req: NextRequest) {
       if (p === '/platform-v7/register') {
         return applySecurityHeaders(NextResponse.redirect(primaryPlatformUrl(p, req.nextUrl.search), 308), true, false);
       }
-      if (!isControlRealmPathAllowed(p)) return controlRealmDenied(req);
-      return controlRealmResponse(req);
+
+      const ownerRole = ownerControlledCabinetRole(p);
+      if (ownerRole !== null) {
+        // Exact owner roots continue below to signed-session validation.
+      } else if (isControlRealmPathAllowed(p)) {
+        return controlRealmResponse(req);
+      } else {
+        return controlRealmDenied(req);
+      }
     }
 
     const staffPage = isPlatformV7StaffPath(p);
@@ -482,7 +498,7 @@ export async function middleware(req: NextRequest) {
 
   if (p === '/platform-v7' || p.startsWith('/platform-v7/')) {
     const isEntry = p === '/platform-v7';
-    const isIndexable = isEntry && PLATFORM_V7_INDEXABLE_EXACT.has(p) && !privateModeEnabled;
+    const isIndexable = PLATFORM_V7_INDEXABLE_EXACT.has(p) && !privateModeEnabled;
     if (isStaticFileRequest(p)) return applySecurityHeaders(NextResponse.next(), false);
     if (isPlatformV7PublicPath(p) || isPlatformV7StaffPath(p)) {
       const routeRole = isPublicRegistrationPath(p) ? 'organization' : presentationRole;
@@ -494,9 +510,30 @@ export async function middleware(req: NextRequest) {
     }
 
     const secret = String(process.env.JWT_SECRET || process.env.PC_CABINET_SESSION_SECRET || '').trim();
-    const context = secret
-      ? await readVerifiedCabinetSessionContext(req.cookies.get(CABINET_SESSION_COOKIE)?.value ?? null, secret, Math.floor(Date.now() / 1000))
+    const cabinetToken = req.cookies.get(CABINET_SESSION_COOKIE)?.value ?? '';
+    const context = secret.length >= 32 && secret.length <= 4096 && cabinetToken.length > 0 && cabinetToken.length <= 8192
+      ? await readVerifiedCabinetSessionContext(cabinetToken, secret, Math.floor(Date.now() / 1000))
       : null;
+
+    if (controlHostEnabled() && isControlHostRequest(req)) {
+      const ownerRole = ownerControlledCabinetRole(p);
+      const expected = ownerRole === null ? null : controlledCabinetContext(ownerRole);
+      if (
+        ownerRole === null
+        || !context
+        || !expected
+        || context.ownerAccess !== true
+        || typeof context.userId !== 'string'
+        || context.userId.trim().length === 0
+        || context.role !== ownerRole
+        || expected.role !== ownerRole
+        || context.organizationId !== expected.organizationId
+        || context.tenantId !== expected.tenantId
+        || !ownerCabinetSessionMatchesRoot(p, context, expected)
+      ) return controlRealmDenied(req);
+      return controlRealmResponse(req);
+    }
+
     if (context?.role === 'organization') {
       if (!isOrganizationCabinetPath(p)) {
         const target = req.nextUrl.clone();

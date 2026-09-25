@@ -7,7 +7,9 @@ import { ArrowRightFromLine, Banknote, BriefcaseBusiness, Building2, ClipboardCh
 import { useTranslations } from 'next-intl';
 import { PLATFORM_V7_ACTIVE_ROLE_KEY, platformV7RoleHome } from '@/components/platform-v7/PlatformV7SingleEntryGuard';
 import { PublicSiteHeader } from '@/components/platform-v7/PublicSiteHeader';
+import { PublicLocaleSwitch } from '@/components/platform-v7/PublicLocaleSwitch';
 import { usePlatformV7RStore, type PlatformRole } from '@/stores/usePlatformV7RStore';
+import { applyCsrfHeader } from '@/lib/csrf';
 
 type Item = { role: PlatformRole; Icon: LucideIcon };
 const ENTRY_COOKIE = 'pc_v7_entry_seen';
@@ -43,14 +45,17 @@ export function LoginLegacyOverlay() {
     sessionStorage.setItem(PLATFORM_V7_ACTIVE_ROLE_KEY, role);
     markEntrySeen();
     setStoreRole(role);
-    try { await fetch('/api/platform-v7/cabinet-session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role, company: company.trim() }), keepalive: true }); } catch {}
+    // Токен обязателен с тех пор, как маршрут закрыт assertCsrf: без него
+    // выпуск сессии кабинета вернул бы 403. Тот же helper, что у остальных
+    // вызывающих, своей схемы здесь не изобретаем.
+    try { await fetch('/api/platform-v7/cabinet-session', { method: 'POST', headers: applyCsrfHeader({ 'Content-Type': 'application/json' }), body: JSON.stringify({ role, company: company.trim() }), keepalive: true }); } catch {}
     router.replace(platformV7RoleHome(role));
   }
 
   return (
     <main className='p7-login-old'>
       <style>{css}</style>
-      <PublicSiteHeader ariaLabel={t('brand')} actions={<Link href='/platform-v7' className='exit' aria-label={t('back')}><ArrowRightFromLine size={22}/></Link>} />
+      <PublicSiteHeader ariaLabel={t('brand')} localeControl={<PublicLocaleSwitch />} actions={<Link href='/platform-v7' className='exit' aria-label={t('back')}><ArrowRightFromLine size={22}/></Link>} />
       <section className='card'>
         <span className='kicker'>{t('kicker')}</span>
         <h1>{t('title')}</h1>

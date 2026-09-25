@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "chore/strict-exact-head-review-gate-20260905",
+  "status": "active",
+  "authorizedBy": "explicit-user-instruction",
+  "purpose": "Implement and prove a repository review gate that requires exact-head Codex review, resolved current findings and terminal green CI before automated merge.",
+  "authorityBaseExactMain": "3b76d0f3473b986b6354aaac528994f7ac343df2",
+  "allowedPaths": [
+    ".github/workflows/automerge.yml",
+    ".github/workflows/platform-v7-autopilot-generated-merge.yml",
+    ".github/workflows/company-os-f2c-merge-controller.yml",
+    ".github/workflows/company-os-f3-foundation-merge-controller.yml",
+    ".github/workflows/company-os-f3a-application-merge-controller.yml",
+    ".github/workflows/company-os-f3b-authority-merge-controller.yml",
+    ".github/workflows/company-os-f3c-session-merge-controller.yml",
+    ".github/workflows/company-os-f3d-postgres-merge-controller.yml",
+    ".github/workflows/company-os-f3e-services-merge-controller.yml",
+    "AGENTS.md",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.mjs",
+    "docs/platform-v7/autopilot/verify-pr-review-gate.test.mjs",
+    "scripts/p7-autopilot-generated-merge-and-advance.mjs",
+    "scripts/p7-autopilot-generated-merge-reconcile.mjs"
+  ],
+  "requiredInvariants": [
+    "A completed Codex review must be bound to the exact current PR head SHA.",
+    "Current unresolved non-outdated review threads block automated merge.",
+    "CHANGES_REQUESTED remains blocking until approval or dismissal by that reviewer.",
+    "Pending or red substantive exact-head CI/status checks block automated merge.",
+    "Every generated or state-advance merge rechecks review and CI immediately before its SHA-bound merge mutation.",
+    "Every Company OS merge controller requires the same exact-head Codex review and current-thread clearance before its SHA-bound merge mutation.",
+    "A head change invalidates previous review evidence and stale gate labels cannot become final authority."
+  ],
+  "boundaries": {
+    "productBehaviorChange": false,
+    "registrationChange": false,
+    "databaseChange": false,
+    "productionMutation": false,
+    "securityGateWeakening": false
+  },
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

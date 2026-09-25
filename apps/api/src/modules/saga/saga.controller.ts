@@ -4,6 +4,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestUser, Role } from '../../common/types/request-user';
 import { DealSagaService, SagaStepId } from './deal-saga.service';
 import { FgisStepService } from './fgis-step.service';
+import { SagaReasonDto } from './dto/saga-reason.dto';
 import { ForbiddenException } from '@nestjs/common';
 
 @Controller('api/saga')
@@ -22,7 +23,7 @@ export class SagaController {
   @Post('deals/:dealId/pause')
   pause(
     @Param('dealId') dealId: string,
-    @Body() body: { reason: string },
+    @Body() body: SagaReasonDto,
     @CurrentUser() user: RequestUser,
   ) {
     this.assertAdmin(user);
@@ -49,7 +50,7 @@ export class SagaController {
   skip(
     @Param('dealId') dealId: string,
     @Param('stepId') stepId: string,
-    @Body() body: { reason: string },
+    @Body() body: SagaReasonDto,
     @CurrentUser() user: RequestUser,
   ) {
     this.assertAdmin(user);
