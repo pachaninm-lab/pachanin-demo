@@ -138,9 +138,77 @@ done
 dc=(docker compose --project-directory "$working_dir" --project-name "$project")
 for file in "${compose_files[@]}"; do dc+=(-f "$file"); done
 
-compose_json="$(mktemp "$AUTHORITY_DIR/.auth-mail-compose.XXXXXX")"; cleanup_files+=("$compose_json")
-"${dc[@]}" config --format json > "$compose_json"
-migration_inventory="$(python3 - "$compose_json" <<'PY'
+# The running API is the authoritative application datasource after an exact-SHA
+# release. Bootstrap must not require a one-shot migration service merely to
+# reuse an already-provisioned least-privilege worker credential.
+mapfile -t api_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=api')
+(( ${#api_ids[@]} == 1 )) || { echo 'AUTH_MAIL_PROVISION=FAIL_API_AUTHORITY_CARDINALITY'; exit 39; }
+api_id="${api_ids[0]}"
+api_database_url="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_id" \
+  | sed -n 's/^DATABASE_URL=//p' | head -1)"
+[[ -n "$api_database_url" ]] || { echo 'AUTH_MAIL_PROVISION=FAIL_API_DATABASE_URL_MISSING'; exit 40; }
+python3 - "$api_database_url" <<'PY' >/dev/null \
+  || { echo 'AUTH_MAIL_PROVISION=FAIL_API_DATABASE_URL_INVALID'; exit 41; }
+import sys
+from urllib.parse import urlsplit
+url=urlsplit(sys.argv[1])
+if url.scheme not in ('postgresql','postgres') or not url.username or not url.password or not url.hostname or not url.path.strip('/'):
+    raise SystemExit(1)
+PY
+
+# Key bootstrap is idempotent. Rotation is explicit and keeps all previous key
+# versions so already-enqueued ciphertext remains decryptable until retention
+# has redacted every row using the old version.
+if [[ ! -e "$CURRENT_VERSION_FILE" ]]; then
+  [[ "$ACTION" == bootstrap ]] || { echo 'AUTH_MAIL_PROVISION=FAIL_KEYRING_NOT_BOOTSTRAPPED'; exit 15; }
+  create_key_version 1
+  write_atomic_secret "$CURRENT_VERSION_FILE" '1'
+fi
+current_version="$(read_key_version)" || { echo 'AUTH_MAIL_PROVISION=FAIL_CURRENT_KEY_VERSION'; exit 16; }
+validate_key_file "$current_version" || { echo 'AUTH_MAIL_PROVISION=FAIL_CURRENT_KEY_FILE'; exit 17; }
+
+if [[ "$ACTION" == rotate-key ]]; then
+  next_version=$((current_version + 1))
+  (( next_version <= 999 )) || { echo 'AUTH_MAIL_PROVISION=FAIL_KEY_VERSION_EXHAUSTED'; exit 32; }
+  create_key_version "$next_version"
+  write_atomic_secret "$CURRENT_VERSION_FILE" "$next_version"
+  current_version="$next_version"
+fi
+
+# Reuse an existing worker credential when it is already bound to the live API
+# datasource. Only bootstrap of a missing/mismatched authority or explicit
+# rotate-db may require the one-shot migration admin authority.
+database_authority_state='API_DATASOURCE_EXISTING'
+database_reconcile_required=0
+if [[ "$ACTION" == rotate-db || ! -e "$DATABASE_URL_FILE" ]]; then
+  [[ "$ACTION" == bootstrap || "$ACTION" == rotate-db ]] \
+    || { echo 'AUTH_MAIL_PROVISION=FAIL_DATABASE_AUTHORITY_MISSING'; exit 18; }
+  database_reconcile_required=1
+elif ! validate_secret_file "$DATABASE_URL_FILE"; then
+  echo 'AUTH_MAIL_PROVISION=FAIL_DATABASE_SECRET_AUTHORITY'
+  exit 21
+elif ! python3 - "$DATABASE_URL_FILE" "$api_database_url" <<'PY' >/dev/null
+import sys
+from urllib.parse import urlsplit
+worker=urlsplit(open(sys.argv[1], encoding='utf-8').read().strip())
+api=urlsplit(sys.argv[2])
+def authority(url):
+    return ((url.hostname or '').lower(), url.port or 5432, url.path, url.query)
+if worker.scheme not in ('postgresql','postgres') or worker.username != 'pc_auth_mail_runtime' or not worker.password:
+    raise SystemExit(1)
+if authority(worker) != authority(api):
+    raise SystemExit(1)
+PY
+then
+  [[ "$ACTION" == bootstrap ]] \
+    || { echo 'AUTH_MAIL_PROVISION=FAIL_DATABASE_DATASOURCE_MISMATCH'; exit 38; }
+  database_reconcile_required=1
+fi
+
+if [[ "$database_reconcile_required" == 1 ]]; then
+  compose_json="$(mktemp "$AUTHORITY_DIR/.auth-mail-compose.XXXXXX")"; cleanup_files+=("$compose_json")
+  "${dc[@]}" config --format json > "$compose_json"
+  migration_inventory="$(python3 - "$compose_json" <<'PY'
 import json, re, sys
 from urllib.parse import urlsplit
 services=(json.load(open(sys.argv[1], encoding='utf-8')).get('services') or {})
@@ -165,36 +233,23 @@ print(name)
 print(value)
 PY
 )" || { echo 'AUTH_MAIL_PROVISION=FAIL_MIGRATION_DATABASE_AUTHORITY'; exit 14; }
-migration_service="$(printf '%s\n' "$migration_inventory" | sed -n '1p')"
-migration_database_url="$(printf '%s\n' "$migration_inventory" | sed -n '2p')"
-[[ -n "$migration_service" && -n "$migration_database_url" ]] \
-  || { echo 'AUTH_MAIL_PROVISION=FAIL_MIGRATION_DATABASE_AUTHORITY'; exit 14; }
+  migration_service="$(printf '%s\n' "$migration_inventory" | sed -n '1p')"
+  migration_database_url="$(printf '%s\n' "$migration_inventory" | sed -n '2p')"
+  [[ -n "$migration_service" && -n "$migration_database_url" ]] \
+    || { echo 'AUTH_MAIL_PROVISION=FAIL_MIGRATION_DATABASE_AUTHORITY'; exit 14; }
 
-# Key bootstrap is idempotent. Rotation is explicit and keeps all previous key
-# versions so already-enqueued ciphertext remains decryptable until retention
-# has redacted every row using the old version.
-if [[ ! -e "$CURRENT_VERSION_FILE" ]]; then
-  [[ "$ACTION" == bootstrap ]] || { echo 'AUTH_MAIL_PROVISION=FAIL_KEYRING_NOT_BOOTSTRAPPED'; exit 15; }
-  create_key_version 1
-  write_atomic_secret "$CURRENT_VERSION_FILE" '1'
-fi
-current_version="$(read_key_version)" || { echo 'AUTH_MAIL_PROVISION=FAIL_CURRENT_KEY_VERSION'; exit 16; }
-validate_key_file "$current_version" || { echo 'AUTH_MAIL_PROVISION=FAIL_CURRENT_KEY_FILE'; exit 17; }
+  python3 - "$migration_database_url" "$api_database_url" <<'PY' >/dev/null \
+    || { echo 'AUTH_MAIL_PROVISION=FAIL_MIGRATION_API_DATASOURCE_MISMATCH'; exit 42; }
+import sys
+from urllib.parse import urlsplit
+migration=urlsplit(sys.argv[1])
+api=urlsplit(sys.argv[2])
+def authority(url):
+    return ((url.hostname or '').lower(), url.port or 5432, url.path, url.query)
+if authority(migration) != authority(api):
+    raise SystemExit(1)
+PY
 
-if [[ "$ACTION" == rotate-key ]]; then
-  next_version=$((current_version + 1))
-  (( next_version <= 999 )) || { echo 'AUTH_MAIL_PROVISION=FAIL_KEY_VERSION_EXHAUSTED'; exit 32; }
-  create_key_version "$next_version"
-  write_atomic_secret "$CURRENT_VERSION_FILE" "$next_version"
-  current_version="$next_version"
-fi
-
-# Reconcile the dedicated worker credential against the exact migration
-# datasource. Bootstrap deliberately rotates this server-side credential:
-# it corrects stale/wrong datasource authority without accepting any secret
-# from CI, and the runtime projection is refreshed before the worker starts.
-database_authority_state='EXISTING'
-if [[ "$ACTION" == bootstrap || "$ACTION" == rotate-db ]]; then
   db_password="$(python3 - <<'PY'
 import secrets
 print(secrets.token_urlsafe(48))
@@ -204,11 +259,11 @@ PY
   DB_PASSWORD="$db_password" python3 - <<'PY' > "$sql_tmp"
 import os
 password=os.environ['DB_PASSWORD'].replace("'", "''")
-print("DO $$ BEGIN "
+print("DO $ BEGIN "
       "IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pc_auth_mail_runtime') THEN RAISE EXCEPTION 'pc_auth_mail_runtime missing'; END IF; "
       "IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pc_auth_mail_runtime' AND (rolinherit OR rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole)) THEN RAISE EXCEPTION 'pc_auth_mail_runtime unsafe'; END IF; "
       "ALTER ROLE pc_auth_mail_runtime LOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE PASSWORD '%s'; "
-      "END $$;" % password)
+      "END $;" % password)
 PY
   chmod 0600 "$sql_tmp"
   if ! "${dc[@]}" run --rm --no-deps --pull never -T "$migration_service" \
@@ -238,18 +293,15 @@ PY
   chmod 0600 "$database_tmp"; chown 0:0 "$database_tmp"
   mv -f "$database_tmp" "$DATABASE_URL_FILE"
   database_authority_state='MIGRATION_DATASOURCE_RECONCILED'
-elif [[ ! -e "$DATABASE_URL_FILE" ]]; then
-  echo 'AUTH_MAIL_PROVISION=FAIL_DATABASE_AUTHORITY_MISSING'
-  exit 18
 fi
 
 validate_secret_file "$DATABASE_URL_FILE" || { echo 'AUTH_MAIL_PROVISION=FAIL_DATABASE_SECRET_AUTHORITY'; exit 21; }
-python3 - "$DATABASE_URL_FILE" "$migration_database_url" <<'PY' >/dev/null \
+python3 - "$DATABASE_URL_FILE" "$api_database_url" <<'PY' >/dev/null \
   || { echo 'AUTH_MAIL_PROVISION=FAIL_DATABASE_DATASOURCE_MISMATCH'; exit 38; }
 import sys
 from urllib.parse import urlsplit
 worker=urlsplit(open(sys.argv[1], encoding='utf-8').read().strip())
-migration=urlsplit(sys.argv[2])
+api=urlsplit(sys.argv[2])
 def authority(url):
     return (
         (url.hostname or '').lower(),
@@ -259,7 +311,7 @@ def authority(url):
     )
 if worker.scheme not in ('postgresql','postgres') or worker.username != 'pc_auth_mail_runtime' or not worker.password:
     raise SystemExit(1)
-if authority(worker) != authority(migration):
+if authority(worker) != authority(api):
     raise SystemExit(1)
 PY
 
@@ -345,7 +397,7 @@ echo 'AUTH_MAIL_GITHUB_SECRET_REQUIRED=0'
 if [[ "$database_authority_state" == 'MIGRATION_DATASOURCE_RECONCILED' ]]; then
   echo 'AUTH_MAIL_DATABASE_AUTHORITY=MIGRATION_DATASOURCE_RECONCILED'
 else
-  echo 'AUTH_MAIL_DATABASE_AUTHORITY=MIGRATION_DATASOURCE_EXISTING'
+  echo 'AUTH_MAIL_DATABASE_AUTHORITY=API_DATASOURCE_EXISTING'
 fi
 if [[ "$ACTION" =~ ^rotate-(smtp|db|key)$ ]]; then
   echo 'AUTH_MAIL_RUNTIME_RESTART_REQUIRED=1'
