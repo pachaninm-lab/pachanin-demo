@@ -540,3 +540,71 @@ test('the committed V8.2.4 exceptions verify against the real tree and are not v
   const withoutExceptions = evaluateCondition({ ...condition, exceptions: undefined }, { tracked, readFile });
   assert.equal(withoutExceptions.holds, false, 'exceptions that excuse nothing must not be kept');
 });
+
+// A condition that cannot stop holding is a decision that can never revoke: it
+// keeps asserting a fact after the fact is gone. This breaks, in memory only, the
+// fact behind every condition in the committed register and requires each one to
+// stop holding. It evaluates the whole tree several hundred times, so it is opt-in
+// rather than part of every CI run: ASVS_CONDITION_MUTATION=1 node --test ...
+test('every committed condition holds now and stops holding when its fact is broken', {
+  skip: process.env.ASVS_CONDITION_MUTATION === '1'
+    ? false
+    : 'opt-in: set ASVS_CONDITION_MUTATION=1 (evaluates the whole tree per condition)',
+}, () => {
+  const tracked = execFileSync('git', ['ls-files'], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
+    .trim().split('\n');
+  const cache = new Map();
+  const readFile = (path) => {
+    if (!cache.has(path)) {
+      let text = null;
+      try {
+        text = readFileSync(path, 'utf8');
+      } catch {
+        text = null;
+      }
+      cache.set(path, text);
+    }
+    return cache.get(path);
+  };
+  const { decisions } = JSON.parse(readFileSync('docs/security/asvs-applicability-decisions.json', 'utf8'));
+  const vacuous = [];
+  for (const decision of decisions) {
+    (decision.conditions ?? []).forEach((condition, index) => {
+      const label = `${decision.requirementId} #${index} ${condition.check}`;
+      const patterns = condition.patterns.map((pattern) => String(pattern).toLowerCase());
+      assert.equal(evaluateCondition(condition, { tracked, readFile }).holds, true, `${label} must hold on the committed tree`);
+
+      let broken;
+      if (condition.check === 'ABSENT_IN_TREE' || condition.check === 'NO_RUNTIME_CALLER') {
+        // A new runtime file under the first root that carries the pattern. It is
+        // a function, not a lone exported literal, so the scan cannot set it aside
+        // as an opaque data module.
+        const probe = `${condition.roots[0]}/__condition_mutation_probe__.ts`;
+        const body = `export function conditionMutationProbe() {\n  // ${patterns[0]}\n  return 1;\n}\n`;
+        broken = evaluateCondition(condition, {
+          tracked: [...tracked, probe],
+          readFile: (path) => (path === probe ? body : readFile(path)),
+        });
+      } else if (condition.check === 'ABSENT_AT_PATH' || condition.check === 'ABSENT_IN_MANIFESTS') {
+        // The pattern appears in the first named file (every manifest, for manifests).
+        const target = (condition.paths ?? [])[0];
+        broken = evaluateCondition(condition, {
+          tracked,
+          readFile: (path) => ((condition.check === 'ABSENT_IN_MANIFESTS' || path === target)
+            ? `${readFile(path) ?? ''}\n${patterns[0]}\n`
+            : readFile(path)),
+        });
+      } else {
+        // PRESENT_*: every pattern, multi-line ones included, is removed from the first named file.
+        const target = condition.paths[0];
+        const strip = (text) => patterns.reduce((result, pattern) => result.split(pattern).join(''), text.toLowerCase());
+        broken = evaluateCondition(condition, {
+          tracked,
+          readFile: (path) => (path === target ? strip(readFile(path) ?? '') : readFile(path)),
+        });
+      }
+      if (broken.holds) vacuous.push(label);
+    });
+  }
+  assert.deepEqual(vacuous, [], `conditions that cannot stop holding: ${vacuous.join(', ')}`);
+});
