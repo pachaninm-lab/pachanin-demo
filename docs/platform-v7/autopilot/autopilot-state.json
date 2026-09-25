@@ -1949,6 +1949,28 @@
         "CI/security gate weakening"
       ],
       "teamHubDependency": "#5535; Team Hub #5469 scope correction 5818641448"
+    },
+    "deal-command-trusted-guard-reuse-20260925": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Reauthorize the existing accepted-base immutable guard ref for one bounded #5596 Deal command scope-route repair; source paths remain absent.",
+      "authorityBaseExactMain": "961bfc60059762a84c3a821087cf6e5fd13a54cd",
+      "implementationBranch": "governance/pc-crop-post-registration-progress-scope-4997",
+      "allowedPaths": [
+        "scripts/p7-autopilot-guard.sh",
+        "scripts/p7-autopilot-guard.test.mjs",
+        ".github/workflows/platform-v7-autopilot-guard.yml"
+      ],
+      "requiredTruthBoundaries": [
+        "The existing accepted main grants this ref only the guard script, guard tests and guard workflow; candidate code cannot expand that trusted-base path set.",
+        "Register the Deal command implementation branch in the immutable guard and PR-head trusted-base route, including negative self-expansion tests.",
+        "Admit the two Deal UX/test paths only in a later separate state-only PR after the guard repair is merged."
+      ],
+      "forbiddenAuthority": [
+        "Deal UX source files or product/server authority in this prerequisite",
+        "state or unrelated workflow edits on the guard ref",
+        "CI/security gate weakening"
+      ],
+      "teamHubDependency": "#5596; #5597; Team Hub #5469"
     }
   }
 }
