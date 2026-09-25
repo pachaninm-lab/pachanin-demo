@@ -322,23 +322,30 @@ jobs:
           rm -f "$archive"
           docker save "${transfer_tags[@]}" | gzip -1 > "$archive"
           [[ -s "$archive" ]] || { echo 'Exact image transfer archive is empty.' >&2; exit 2; }
+          archive_bytes="$(stat -c '%s' "$archive")"
+          [[ "$archive_bytes" =~ ^[0-9]+$ ]] && (( archive_bytes > 0 && archive_bytes <= 8589934592 )) \
+            || { echo 'Exact image transfer archive size is invalid.' >&2; exit 2; }
           archive_sha="$(sha256sum "$archive" | awk '{print $1}')"
           [[ "$archive_sha" =~ ^[0-9a-f]{64}$ ]] || { echo 'Exact image transfer archive digest is invalid.' >&2; exit 2; }
           printf '%s\n' "$archive_sha" > "$EVIDENCE_DIR/exact-image-transfer-archive.sha256"
           scp "${scp_common[@]}" "$archive" "$SSH_USER_SECRET@$HOST:$remote_archive" >/dev/null
           rm -f "$archive"
 
-          ssh "${ssh_common[@]}" "$SSH_USER_SECRET@$HOST"             "bash -s -- '$TARGET_SHA' '$archive_sha' '$remote_archive' '${components[0]}' '${transfer_tags[0]}' '${components[1]}' '${transfer_tags[1]}' '${components[2]}' '${transfer_tags[2]}' '${components[3]}' '${transfer_tags[3]}'" <<'REMOTE'             | tee "$EVIDENCE_DIR/remote-exact-images.log"
+          ssh "${ssh_common[@]}" "$SSH_USER_SECRET@$HOST"             "bash -s -- '$TARGET_SHA' '$archive_sha' '$archive_bytes' '$remote_archive' '${components[0]}' '${transfer_tags[0]}' '${components[1]}' '${transfer_tags[1]}' '${components[2]}' '${transfer_tags[2]}' '${components[3]}' '${transfer_tags[3]}'" <<'REMOTE'             | tee "$EVIDENCE_DIR/remote-exact-images.log"
           set -euo pipefail
           target_sha="$1"
           archive_sha="$2"
-          archive="$3"
-          shift 3
+          archive_bytes="$3"
+          archive="$4"
+          shift 4
           [[ "$target_sha" =~ ^[0-9a-f]{40}$ ]]
           [[ "$archive_sha" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$archive_bytes" =~ ^[0-9]+$ ]] && (( archive_bytes > 0 && archive_bytes <= 8589934592 ))
           [[ "$archive" == /tmp/pc-full-stack-exact-images-*.tar.gz ]]
           [[ -f "$archive" && ! -L "$archive" ]]
           trap 'rm -f -- "$archive"' EXIT
+          remote_archive_bytes="$(stat -c '%s' "$archive")"
+          [[ "$remote_archive_bytes" == "$archive_bytes" ]]
           actual_archive_sha="$(sha256sum "$archive" | awk '{print $1}')"
           [[ "$actual_archive_sha" == "$archive_sha" ]]
           gzip -t "$archive"
@@ -357,11 +364,13 @@ jobs:
             printf 'REMOTE_EXACT_IMAGE|%s|%s|%s|%s\n' "$component" "$image" "$actual_id" "$revision"
           done
           printf 'TRANSFER_ARCHIVE_SHA256=%s\n' "$archive_sha"
+          printf 'TRANSFER_ARCHIVE_BYTES=%s\n' "$archive_bytes"
           printf 'PINNED_SSH_EXACT_IMAGES=PASS\n'
           REMOTE
 
           grep -Fxq PINNED_SSH_EXACT_IMAGES=PASS "$EVIDENCE_DIR/remote-exact-images.log"
           grep -Fxq "TRANSFER_ARCHIVE_SHA256=$archive_sha" "$EVIDENCE_DIR/remote-exact-images.log"
+          grep -Fxq "TRANSFER_ARCHIVE_BYTES=$archive_bytes" "$EVIDENCE_DIR/remote-exact-images.log"
           for component in "${components[@]}"; do
             mapfile -t matches < <(awk -F'|' -v component="$component" '$1=="REMOTE_EXACT_IMAGE" && $2==component {print $0}' "$EVIDENCE_DIR/remote-exact-images.log")
             (( ${#matches[@]} == 1 )) || { echo "Remote exact image cardinality invalid: $component" >&2; exit 2; }
@@ -375,6 +384,7 @@ jobs:
             echo "${output_key}_remote_image_id=$remote_id" >> "$GITHUB_OUTPUT"
           done
           echo "archive_sha=$archive_sha" >> "$GITHUB_OUTPUT"
+          echo "archive_bytes=$archive_bytes" >> "$GITHUB_OUTPUT"
           echo 'source=pinned-ssh' >> "$GITHUB_OUTPUT"
 
       - name: Repair confirmed stale Redis network attachment
@@ -583,7 +593,7 @@ jobs:
           set -euo pipefail
           if [[ -n "${HOST:-}" && -n "${PORT:-}" && -f "$HOME/.ssh/id_pc_prod" && -f "$HOME/.ssh/known_hosts" ]]; then
             ssh -i "$HOME/.ssh/id_pc_prod" -p "$PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=12 -o TCPKeepAlive=yes "$SSH_USER_SECRET@$HOST" \
-              "rm -f '/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh' '/tmp/pc-full-stack-image-binding-${GITHUB_RUN_ID}.py' '/tmp/pc-ir20-outbox-policy-${GITHUB_RUN_ID}.sql'" \
+              "rm -f '/tmp/pc-full-stack-${GITHUB_RUN_ID}.sh' '/tmp/pc-full-stack-image-binding-${GITHUB_RUN_ID}.py' '/tmp/pc-ir20-outbox-policy-${GITHUB_RUN_ID}.sql' '/tmp/pc-full-stack-exact-images-${GITHUB_RUN_ID}.tar.gz'" \
               || true
           fi
           docker logout ghcr.io >/dev/null 2>&1 || true
@@ -597,6 +607,7 @@ jobs:
           EXACT_IMAGE_TRANSFER: ${{ steps.transfer.outcome }}
           EXACT_IMAGE_SOURCE: ${{ steps.production.outputs.exact_image_source }}
           EXACT_IMAGE_ARCHIVE_SHA: ${{ steps.transfer.outputs.archive_sha }}
+          EXACT_IMAGE_ARCHIVE_BYTES: ${{ steps.transfer.outputs.archive_bytes }}
           REDIS_NETWORK_REPAIR: ${{ steps.redis_network.outputs.status }}
           DEPLOYMENT_COMPLETE: ${{ steps.production.outputs.deployment_complete }}
           MIGRATION_COMPLETE: ${{ steps.production.outputs.migration_complete }}
@@ -641,6 +652,7 @@ jobs:
             echo "- exact-image transfer: \`${EXACT_IMAGE_TRANSFER:-unknown}\`"
             echo "- exact-image source: \`${EXACT_IMAGE_SOURCE:-unknown}\`"
             echo "- exact-image archive SHA-256: \`${EXACT_IMAGE_ARCHIVE_SHA:-unknown}\`"
+            echo "- exact-image archive bytes: \`${EXACT_IMAGE_ARCHIVE_BYTES:-unknown}\`"
             echo "- Redis network repair: \`${REDIS_NETWORK_REPAIR:-unknown}\`"
             echo "- backup: \`${BACKUP_MODE:-unknown}\`"
             echo "- migration complete: \`${MIGRATION_COMPLETE:-0}\`"
@@ -679,6 +691,8 @@ jobs:
           set -euo pipefail
           [[ '${{ steps.transfer.outcome }}' == success ]]
           [[ '${{ steps.transfer.outputs.archive_sha }}' =~ ^[0-9a-f]{64}$ ]]
+          [[ '${{ steps.transfer.outputs.archive_bytes }}' =~ ^[0-9]+$ ]]
+          (( ${{ steps.transfer.outputs.archive_bytes }} > 0 && ${{ steps.transfer.outputs.archive_bytes }} <= 8589934592 ))
           [[ '${{ steps.production.outputs.exact_image_source }}' == pinned-ssh ]]
           [[ '${{ steps.production.outputs.deployment_complete }}' == 1 ]]
           [[ '${{ steps.production.outputs.migration_complete }}' == 1 ]]
