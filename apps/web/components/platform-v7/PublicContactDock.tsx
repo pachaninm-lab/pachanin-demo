@@ -3,10 +3,12 @@
 import * as React from 'react';
 import { MessageCircle, Phone, Sparkles } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics/track';
+import { usePublicGektaEntry } from '@/lib/platform-v7/public-gekta-open';
 
 type Locale = 'ru' | 'en' | 'zh';
 type Surface = 'assistant' | 'support';
 type AssistantContext = 'public' | 'private' | 'workspace';
+type PublicMode = 'full' | 'gekta';
 
 const SUPPORT_PHONE_DISPLAY = '8 916 277-89-89';
 const SUPPORT_PHONE_HREF = 'tel:+79162778989';
@@ -14,9 +16,9 @@ const PUBLIC_MOBILE_QUERY = '(max-width: 767px)';
 const PUBLIC_HERO_THRESHOLD = 120;
 
 const COPY = {
-  ru: { assistant: 'Гекта', assistantAria: 'Открыть Гекту', support: 'Поддержка', supportAria: 'Открыть поддержку', call: 'Позвонить', callAria: `Позвонить по номеру ${SUPPORT_PHONE_DISPLAY}`, group: 'Связь и помощь' },
-  en: { assistant: 'Gekta', assistantAria: 'Open Gekta', support: 'Support', supportAria: 'Open support', call: 'Call', callAria: `Call ${SUPPORT_PHONE_DISPLAY}`, group: 'Help and contact' },
-  zh: { assistant: 'Gekta', assistantAria: '打开 Gekta', support: '支持', supportAria: '打开支持', call: '致电', callAria: `拨打 ${SUPPORT_PHONE_DISPLAY}`, group: '帮助与联系' },
+  ru: { assistant: 'Гекта', assistantOpening: 'Открываем…', assistantFailed: 'Обновить', assistantFailedAria: 'Гекта не загрузилась. Обновить страницу', assistantAria: 'Открыть Гекту', support: 'Поддержка', supportAria: 'Открыть поддержку', call: 'Позвонить', callAria: `Позвонить по номеру ${SUPPORT_PHONE_DISPLAY}`, group: 'Связь и помощь' },
+  en: { assistant: 'Gekta', assistantOpening: 'Opening…', assistantFailed: 'Reload', assistantFailedAria: 'Gekta did not load. Reload the page', assistantAria: 'Open Gekta', support: 'Support', supportAria: 'Open support', call: 'Call', callAria: `Call ${SUPPORT_PHONE_DISPLAY}`, group: 'Help and contact' },
+  zh: { assistant: 'Gekta', assistantOpening: '正在打开…', assistantFailed: '刷新', assistantFailedAria: 'Gekta 未能加载。刷新页面', assistantAria: '打开 Gekta', support: '支持', supportAria: '打开支持', call: '致电', callAria: `拨打 ${SUPPORT_PHONE_DISPLAY}`, group: '帮助与联系' },
 } as const;
 
 function resolveLocale(): Locale {
@@ -34,7 +36,7 @@ function restoreAttribute(node: HTMLElement, name: string, value: string | null)
   else node.setAttribute(name, value);
 }
 
-export function PublicContactDock({ assistantContext = 'public' }: { assistantContext?: AssistantContext }) {
+export function PublicContactDock({ assistantContext = 'public', publicMode = 'full' }: { assistantContext?: AssistantContext; publicMode?: PublicMode }) {
   const [locale, setLocale] = React.useState<Locale>('ru');
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [hiddenByScroll, setHiddenByScroll] = React.useState(assistantContext === 'public');
@@ -43,6 +45,8 @@ export function PublicContactDock({ assistantContext = 'public' }: { assistantCo
   const returnFocusRef = React.useRef<Surface | null>(null);
   const openStateRef = React.useRef({ assistant: false, support: false });
   const ui = COPY[locale];
+  const gekta = usePublicGektaEntry();
+  const gektaOnly = assistantContext === 'public' && publicMode === 'gekta';
   const assistantTriggerSelector = assistantContext === 'workspace'
     ? null
     : assistantContext === 'private'
@@ -163,6 +167,12 @@ export function PublicContactDock({ assistantContext = 'public' }: { assistantCo
       window.requestAnimationFrame(() => workspace.focus({ preventScroll: true }));
       return;
     }
+    if (surface === 'assistant' && assistantContext === 'public') {
+      // The public assistant has one open operation; no hidden-button click.
+      returnFocusRef.current = surface;
+      gekta.open({ source: 'public_contact_dock', opener: assistantButtonRef.current });
+      return;
+    }
     const selector = surface === 'assistant' ? assistantTriggerSelector : '.p7-support-chat-button';
     if (!selector) return;
     const trigger = document.querySelector<HTMLButtonElement>(selector);
@@ -182,19 +192,24 @@ export function PublicContactDock({ assistantContext = 'public' }: { assistantCo
       data-dialog-open={dialogOpen ? 'true' : 'false'}
       data-scroll-hidden={scrollHidden ? 'true' : 'false'}
       data-assistant-context={assistantContext}
+      data-public-mode={publicMode}
     >
-      <button ref={assistantButtonRef} type='button' disabled={hidden} tabIndex={hidden ? -1 : 0} className='pc-public-contact-dock-action pc-public-contact-dock-assistant' aria-label={ui.assistantAria} aria-haspopup={assistantContext === 'workspace' ? undefined : 'dialog'} aria-controls={assistantPanelSelector.slice(1)} onClick={() => openSurface('assistant')}>
+      <button ref={assistantButtonRef} type='button' disabled={hidden} tabIndex={hidden ? -1 : 0} className='pc-public-contact-dock-action pc-public-contact-dock-assistant' data-gekta-open-state={gekta.state} aria-busy={gekta.state === 'opening' || undefined} aria-label={gekta.state === 'failed' ? ui.assistantFailedAria : ui.assistant} aria-haspopup={assistantContext === 'workspace' ? undefined : 'dialog'} aria-controls={assistantPanelSelector.slice(1)} onClick={() => openSurface('assistant')}>
         <span className='pc-public-contact-dock-icon' aria-hidden='true'><Sparkles size={17} strokeWidth={2.15} /></span>
-        <strong>{ui.assistant}</strong>
+        <strong>{gekta.state === 'opening' ? ui.assistantOpening : gekta.state === 'failed' ? ui.assistantFailed : ui.assistant}</strong>
       </button>
-      <button ref={supportButtonRef} type='button' disabled={hidden} tabIndex={hidden ? -1 : 0} className='pc-public-contact-dock-action' aria-label={ui.support} aria-haspopup='dialog' onClick={() => openSurface('support')}>
-        <span className='pc-public-contact-dock-icon' aria-hidden='true'><MessageCircle size={17} strokeWidth={2.1} /></span>
-        <strong>{ui.support}</strong>
-      </button>
-      <a className='pc-public-contact-dock-action pc-public-contact-dock-call' tabIndex={hidden ? -1 : 0} href={SUPPORT_PHONE_HREF} aria-label={ui.callAria} onClick={() => trackEvent('public_support_phone_clicked', { source: 'unified_contact_dock', assistantContext })}>
-        <span className='pc-public-contact-dock-icon' aria-hidden='true'><Phone size={17} strokeWidth={2.1} /></span>
-        <strong>{ui.call}</strong>
-      </a>
+      {!gektaOnly ? (
+        <>
+          <button ref={supportButtonRef} type='button' disabled={hidden} tabIndex={hidden ? -1 : 0} className='pc-public-contact-dock-action' aria-label={ui.support} aria-haspopup='dialog' onClick={() => openSurface('support')}>
+            <span className='pc-public-contact-dock-icon' aria-hidden='true'><MessageCircle size={17} strokeWidth={2.1} /></span>
+            <strong>{ui.support}</strong>
+          </button>
+          <a className='pc-public-contact-dock-action pc-public-contact-dock-call' tabIndex={hidden ? -1 : 0} href={SUPPORT_PHONE_HREF} aria-label={ui.callAria} onClick={() => trackEvent('public_support_phone_clicked', { source: 'unified_contact_dock', assistantContext })}>
+            <span className='pc-public-contact-dock-icon' aria-hidden='true'><Phone size={17} strokeWidth={2.1} /></span>
+            <strong>{ui.call}</strong>
+          </a>
+        </>
+      ) : null}
       <style>{css}</style>
     </nav>
   );
@@ -322,4 +337,144 @@ const css = `
   .pc-public-contact-dock-icon,
   .pc-public-contact-dock-assistant .pc-public-contact-dock-icon { color: ButtonText; background: Canvas; box-shadow: inset 0 0 0 1px ButtonText; }
 }
+
+/* One public dock geometry on every public route. Private/workspace styles above are unchanged. */
+@media (min-width: 1180px) {
+  .pc-public-contact-dock[data-assistant-context='public'] { right:max(10px,env(safe-area-inset-right,0px))!important;left:auto!important;bottom:max(12px,calc(env(safe-area-inset-bottom,0px) + 10px))!important;width:54px!important;min-width:54px!important;max-width:54px!important;grid-template-columns:1fr!important;grid-template-rows:repeat(3,48px)!important;gap:2px!important;padding:2px!important;border-radius:16px!important; }
+  .pc-public-contact-dock[data-assistant-context='public'] .pc-public-contact-dock-action { width:48px!important;min-width:48px!important;height:48px!important;min-height:48px!important;padding:0!important;border-radius:12px!important; }
+  .pc-public-contact-dock[data-assistant-context='public'] .pc-public-contact-dock-action strong { position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;clip-path:inset(50%)!important;white-space:nowrap!important;border:0!important; }
+}
+
+@media (max-width: 767px) {
+  .pc-public-contact-dock[data-assistant-context='public'] { right:max(12px,env(safe-area-inset-right,0px))!important;left:auto!important;bottom:max(12px,calc(env(safe-area-inset-bottom,0px) + 10px))!important;width:56px!important;min-width:56px!important;height:56px!important;grid-template-columns:1fr!important;padding:3px!important;border-radius:18px!important; }
+  .pc-public-contact-dock[data-assistant-context='public'] .pc-public-contact-dock-action:not(.pc-public-contact-dock-assistant) { display:none!important; }
+  .pc-public-contact-dock[data-assistant-context='public'] .pc-public-contact-dock-assistant { width:48px!important;height:48px!important;min-height:48px!important;padding:0!important;border-radius:14px!important; }
+  .pc-public-contact-dock[data-assistant-context='public'] .pc-public-contact-dock-assistant .pc-public-contact-dock-icon { width:32px!important;height:32px!important;flex-basis:32px!important; }
+  .pc-public-contact-dock[data-assistant-context='public'] .pc-public-contact-dock-assistant strong { position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;clip-path:inset(50%)!important;white-space:nowrap!important;border:0!important; }
+}
+@media (max-width: 390px) {
+  .pc-public-contact-dock[data-assistant-context='public'] { right:max(8px,env(safe-area-inset-right,0px))!important;bottom:max(8px,calc(env(safe-area-inset-bottom,0px) + 8px))!important;width:48px!important;min-width:48px!important;height:48px!important;padding:1px!important;border-radius:16px!important; }
+  .pc-public-contact-dock[data-assistant-context='public'] .pc-public-contact-dock-assistant { width:44px!important;height:44px!important;min-height:44px!important;border-radius:13px!important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pc-public-contact-dock[data-assistant-context='public'] * { animation:none!important;transition-duration:0.01ms!important;scroll-behavior:auto!important; }
+}
+@media (forced-colors: active) {
+  .pc-public-contact-dock[data-assistant-context='public'] { border:1px solid ButtonText;background:Canvas;outline:1px solid ButtonText;outline-offset:1px; }
+}
+
+/* Canonical public Gekta entry: one visible communication surface. */
+.pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] {
+  display: grid !important;
+  right: max(18px, env(safe-area-inset-right, 0px)) !important;
+  bottom: max(18px, calc(env(safe-area-inset-bottom, 0px) + 16px)) !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: auto !important;
+  grid-template-columns: 1fr !important;
+  grid-template-rows: 1fr !important;
+  padding: 4px !important;
+  overflow: visible !important;
+  border: 1px solid rgba(11, 95, 67, .2) !important;
+  border-radius: 999px !important;
+  background: rgba(255,255,255,.97) !important;
+  box-shadow: 0 14px 34px rgba(22, 55, 41, .13), 0 2px 8px rgba(11, 95, 67, .08) !important;
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+}
+.pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] .pc-public-contact-dock-assistant {
+  width: auto !important;
+  min-width: 148px !important;
+  height: 50px !important;
+  min-height: 50px !important;
+  padding: 0 16px 0 10px !important;
+  gap: 9px !important;
+  border-radius: 999px !important;
+  background: #edf7f1 !important;
+  color: #0b4f3a !important;
+}
+.pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] .pc-public-contact-dock-assistant .pc-public-contact-dock-icon {
+  width: 32px !important;
+  height: 32px !important;
+  flex-basis: 32px !important;
+  border-radius: 50% !important;
+  color: #fff !important;
+  background: #0b5f43 !important;
+  box-shadow: none !important;
+}
+.pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] .pc-public-contact-dock-assistant strong {
+  position: static !important;
+  width: auto !important;
+  height: auto !important;
+  margin: 0 !important;
+  overflow: visible !important;
+  clip: auto !important;
+  clip-path: none !important;
+  white-space: nowrap !important;
+  color: #0b4f3a !important;
+  font-size: 13px !important;
+  font-weight: 820 !important;
+}
+@media (hover:hover) {
+  .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] .pc-public-contact-dock-assistant:hover:not(:disabled) {
+    background: #e1f1e8 !important;
+    transform: translateY(-1px);
+  }
+}
+@media (max-width:767px) {
+  .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] {
+    right: max(10px, env(safe-area-inset-right, 0px)) !important;
+    bottom: max(78px, calc(env(safe-area-inset-bottom, 0px) + 76px)) !important;
+    width: 52px !important;
+    min-width: 52px !important;
+    max-width: 52px !important;
+    height: 52px !important;
+    padding: 2px !important;
+    border-radius: 17px !important;
+  }
+  .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] .pc-public-contact-dock-assistant {
+    width: 46px !important;
+    min-width: 46px !important;
+    max-width: 46px !important;
+    height: 46px !important;
+    min-height: 46px !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    border-radius: 14px !important;
+  }
+  .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] .pc-public-contact-dock-assistant .pc-public-contact-dock-icon {
+    width: 32px !important;
+    height: 32px !important;
+    flex-basis: 32px !important;
+  }
+  .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] .pc-public-contact-dock-assistant strong {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0,0,0,0) !important;
+    clip-path: inset(50%) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
+}
+
+
+/* Canonical mobile navigation owns the bottom edge; chat remains available in the header menu. */
+@media (max-width:760px) {
+  body:has(.pc-cp-bottom-nav) .pc-public-contact-dock[data-assistant-context='public'] {
+    display: none !important;
+  }
+}
+
+/* FINAL PUBLIC EXPERIENCE v1 — desktop chat lives in the canonical header */
+@media (min-width:981px) {
+  .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] {
+    display: none !important;
+  }
+}
+
 `;

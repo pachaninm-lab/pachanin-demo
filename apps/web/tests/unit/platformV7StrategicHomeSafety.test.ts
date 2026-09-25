@@ -58,8 +58,13 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
     expect(form).toContain('disabled={!ready || submitting}');
     expect(form).toContain("data-ready={ready ? 'true' : 'false'}");
     expect(form).toContain('<noscript>');
-    expect(form).toContain('copy.jsRequired');
-    expect(form).toContain('copy.protectedContinue');
+    expect(form).toContain('.pc-v7-public-entry #connect-organization form{display:none!important}');
+    expect(form).toContain('Без JavaScript персональные данные здесь не собираются и не передаются.');
+    expect(form).toContain('Without JavaScript, personal data is not collected or transmitted here.');
+    expect(form).toContain('未启用 JavaScript 时，此页面不会收集或传输个人数据。');
+    for (const locale of ['ru', 'en', 'zh']) {
+      expect(form).toContain(`/platform-v7/register?entry=organization-connect&lang=${locale}`);
+    }
     expect(formBaseCopy).toContain('персональные данные не попали в URL');
     expect(form).not.toContain('localStorage');
     expect(form).not.toContain('sessionStorage');
@@ -94,15 +99,25 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
     expect(roleScenario).not.toContain('fetch(');
   });
 
-  it('prevents the contact dock from obscuring content during downward scrolling', () => {
+  it('preserves public Gekta access, private scroll hiding and modal collision protection', () => {
     expect(contactDock).toContain('const [hiddenByScroll, setHiddenByScroll]');
-    expect(contactDock).toContain("data-scroll-hidden={hiddenByScroll ? 'true' : 'false'}");
+    expect(contactDock).toContain("const scrollHidden = assistantContext === 'public' ? false : hiddenByScroll;");
+    expect(contactDock).toContain("data-scroll-hidden={scrollHidden ? 'true' : 'false'}");
+    expect(contactDock).toContain('const hidden = dialogOpen || scrollHidden;');
+    expect(contactDock).toContain("data-dialog-open={dialogOpen ? 'true' : 'false'}");
+    expect(contactDock).toContain('tabIndex={hidden ? -1 : 0}');
+    expect(contactDock).toContain('disabled={hidden}');
     expect(contactDock).toContain(".pc-public-contact-dock[data-scroll-hidden='true']");
     expect(contactDock).toContain('visibility: hidden');
   });
 
   it('preserves mobile touch targets, horizontal role navigation and reduced motion', () => {
-    expect(formCss).toMatch(/min-height:\s*48px/);
+    const inputHeight = formCss.match(/\.form input,\s*\.form select\s*\{[^}]*min-height:\s*(\d+)px/);
+    const actionHeight = formCss.match(/\.actions button,\s*\.noScript a\s*\{[^}]*min-height:\s*(\d+)px/);
+    expect(inputHeight).not.toBeNull();
+    expect(actionHeight).not.toBeNull();
+    expect(Number(inputHeight?.[1])).toBeGreaterThanOrEqual(48);
+    expect(Number(actionHeight?.[1])).toBeGreaterThanOrEqual(48);
     expect(formCss).toContain(':focus-visible');
     expect(formCss).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)/);
     expect(roleScenarioCss).toMatch(/min-height:\s*44px/);
@@ -122,7 +137,9 @@ describe('platform-v7 strategic homepage safety and accessibility contract', () 
   });
 
   it('emits indexable homepage metadata while preserving root recovery bootstrap', () => {
-    expect(publicAuthorityPage).toContain('export const metadata: Metadata =');
+    expect(publicAuthorityPage).toContain('export async function generateMetadata(): Promise<Metadata>');
+    expect(publicAuthorityPage).toContain('await getLocale()');
+    expect(publicAuthorityPage).not.toContain('export const metadata: Metadata');
     expect(publicAuthorityPage).toContain("canonical: '/platform-v7'");
     expect(publicAuthorityPage).toContain("ru: '/platform-v7?lang=ru'");
     expect(publicAuthorityPage).toContain("en: '/platform-v7?lang=en'");
