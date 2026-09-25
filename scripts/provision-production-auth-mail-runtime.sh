@@ -259,11 +259,11 @@ PY
   DB_PASSWORD="$db_password" python3 - <<'PY' > "$sql_tmp"
 import os
 password=os.environ['DB_PASSWORD'].replace("'", "''")
-print("DO $ BEGIN "
+print("DO $$ BEGIN "
       "IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pc_auth_mail_runtime') THEN RAISE EXCEPTION 'pc_auth_mail_runtime missing'; END IF; "
       "IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pc_auth_mail_runtime' AND (rolinherit OR rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole)) THEN RAISE EXCEPTION 'pc_auth_mail_runtime unsafe'; END IF; "
       "ALTER ROLE pc_auth_mail_runtime LOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE PASSWORD '%s'; "
-      "END $;" % password)
+      "END $$;" % password)
 PY
   chmod 0600 "$sql_tmp"
   if ! "${dc[@]}" run --rm --no-deps --pull never -T "$migration_service" \
