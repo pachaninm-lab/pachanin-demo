@@ -135,6 +135,8 @@ has(provision, 'if [[ "$database_reconcile_required" == 1 ]]', 'migration admin 
 has(provision, 'AUTH_MAIL_PROVISION=FAIL_MIGRATION_API_DATASOURCE_MISMATCH', 'migration/API datasource parity fail-closed marker missing');
 has(provision, 'AUTH_MAIL_DATABASE_AUTHORITY=API_DATASOURCE_EXISTING', 'existing live API-bound DB authority evidence missing');
 lacks(provision, 'if [[ "$ACTION" == bootstrap || "$ACTION" == rotate-db ]]; then', 'bootstrap must not rotate DB credentials unconditionally');
+has(provision, 'DO $$ BEGIN', 'PostgreSQL credential reconciliation DO block quoting missing');
+has(provision, 'END $$;', 'PostgreSQL credential reconciliation DO block terminator missing');
 
 has(workflow, 'controller_target_sha:', 'direct controller target SHA input missing');
 has(workflow, 'controller_run_id:', 'direct controller run ID input missing');
