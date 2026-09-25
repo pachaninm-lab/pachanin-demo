@@ -211,4 +211,3 @@ describe('platform-v7 seller execution polish', () => {
     expect(source).not.toContain('DocumentReadinessMiniMatrix');
   });
 });
-
