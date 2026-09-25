@@ -280,7 +280,7 @@ else:
         preflight = source[source.index('[[ -n "$API_IMAGE" &&'):source.index('# Shared release-authority root:')]
         result = self.execute(["bash", "-c", self.executor_functions() + preflight + '\nprintf "PREFLIGHT_DONE\\n"\n'])
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout, "PREFLIGHT_DONE\n")
+        self.assertEqual(result.stdout, "EXACT_IMAGE_SOURCE=registry\nPREFLIGHT_DONE\n")
         self.assertEqual([args for args in self.calls() if args[0] == "pull"], [["pull", ref] for ref in REFS.values()] + [["pull", KAFKA_IMAGE]])
 
     def test_actual_executor_pinned_mode_requires_local_tags_and_remote_ids(self):
