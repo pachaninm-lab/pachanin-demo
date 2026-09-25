@@ -1,119 +1,116 @@
+import '@/styles/platform-v7-canonical-public-v1.css';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, Banknote, Building2, ClipboardCheck, FileCheck2, FlaskConical, Landmark, MessageCircleQuestion, Scale, ShieldCheck, Truck, Wheat, type LucideIcon } from 'lucide-react';
-import { BrandMark } from '@/components/v7r/BrandMark';
+import { ArrowRight, LockKeyhole, Wheat } from 'lucide-react';
+import { getLocale } from 'next-intl/server';
+import {
+  CanonicalBottomNav,
+  CanonicalDealSpine,
+  CanonicalFooter,
+  CanonicalGektaStrip,
+  CanonicalPublicHeader,
+  CanonicalStateLens,
+  CanonicalTrustLedger,
+  canonicalPublicLocale
 
-export const metadata: Metadata = {
-  title: 'Контур сделки — Прозрачная Цена',
-  description: 'Рабочая карта исполнения зерновой сделки: цена, рейс, приёмка, качество, документы, расчёт, спор и доказательства.',
-  alternates: { canonical: 'https://xn----8sbjf4befbjgs9b.xn--p1ai/platform-v7/deal-flow' },
-};
+} from '@/components/platform-v7/PublicCanonicalPrimitives';
 
-type Stage = { title: string; owner: string; status: string; text: string; Icon: LucideIcon; state: 'done' | 'active' | 'pending' };
-type RoleLayer = { role: string; access: string; responsibility: string; Icon: LucideIcon };
+const META={"ru":["Рабочий экран сделки — Прозрачная Цена","Условия сделки, ответственные, документы и следующий шаг: узнайте, как устроен рабочий экран участника."],"en":["Deal workspace — Transparent Price","Deal terms, responsibilities, documents and the next step: see how the participant workspace is organised."],"zh":["交易工作区 — 透明价格","了解参与方如何在交易工作区查看条款、责任分工、文件及下一步任务。"]} as const;
 
-const deal = {
-  id: 'DL-9102',
-  crop: 'Пшеница 4 класс',
-  volume: '240 т',
-  amount: '2 964 000 ₽',
-  route: 'Хозяйство → элеватор → покупатель',
-  current: 'На контроле качество, документы и основание для расчёта',
-};
-
-const stages: Stage[] = [
-  { title: 'Условия сделки', owner: 'Продавец · покупатель', status: 'Зафиксировано', text: 'Цена, объём, базис поставки и допустимые показатели качества фиксируются до рейса.', Icon: Wheat, state: 'done' },
-  { title: 'Рейс', owner: 'Логистика', status: 'В работе', text: 'Маршрут, транспорт, водитель и контрольные точки исполнения находятся в едином контуре.', Icon: Truck, state: 'active' },
-  { title: 'Приёмка', owner: 'Элеватор', status: 'Ожидает факт', text: 'Вес, факт поставки, расхождения и связь партии с документами фиксируются до расчёта.', Icon: Building2, state: 'pending' },
-  { title: 'Качество', owner: 'Лаборатория', status: 'На проверке', text: 'Показатели качества учитываются до формирования окончательного основания для оплаты.', Icon: FlaskConical, state: 'pending' },
-  { title: 'Документы', owner: 'Стороны сделки', status: 'На сверке', text: 'СДИЗ, ЭДО, транспортные документы и акты сверяются с событиями исполнения.', Icon: FileCheck2, state: 'pending' },
-  { title: 'Расчёт', owner: 'Банк / финконтур', status: 'После оснований', text: 'Платформа показывает основание для расчёта, но не заявляет автоматический выпуск денег без банковского подтверждения.', Icon: Landmark, state: 'pending' },
-];
-
-const roles: RoleLayer[] = [
-  { role: 'Продавец', access: 'партия, рейс, приёмка, документы и основание для оплаты', responsibility: 'закрывает документы и устраняет расхождения', Icon: Wheat },
-  { role: 'Покупатель', access: 'факт поставки, качество, документы и финансовые условия', responsibility: 'подтверждает исполнение или инициирует разбор', Icon: ClipboardCheck },
-  { role: 'Элеватор', access: 'приёмка, вес, статус партии и связанные документы', responsibility: 'фиксирует фактические данные по партии', Icon: Building2 },
-  { role: 'Лаборатория', access: 'пробы, показатели качества и протокол исследования', responsibility: 'подтверждает показатели качества', Icon: FlaskConical },
-  { role: 'Банк', access: 'подтверждённые основания для расчёта', responsibility: 'проверяет условия для финансового шага', Icon: Banknote },
-  { role: 'Арбитр', access: 'доказательства, документы, события и журнал действий', responsibility: 'рассматривает спор на основании фактов', Icon: Scale },
-];
-
-const evidence = ['маршрут и контрольные точки рейса', 'данные приёмки и веса', 'протокол качества', 'СДИЗ, ЭДО, транспортные документы и акты', 'журнал действий участников'];
-
-export default function PlatformV7DealFlowPage() {
-  return (
-    <main className='p7-deal-flow-page' data-testid='platform-v7-deal-flow-page'>
-      <style>{css}</style>
-      <header className='p7-flow-header' aria-label='Навигация страницы контура сделки'>
-        <Link href='/platform-v7' className='p7-flow-brand' aria-label='Прозрачная Цена — на главную'>
-          <BrandMark size={40} />
-          <span><strong>Прозрачная Цена</strong><small>Рабочий контур исполнения сделки</small></span>
-        </Link>
-        <nav className='p7-flow-actions' aria-label='Действия страницы'>
-          <Link href='/platform-v7' aria-label='Назад на главную'><ArrowLeft size={21} /></Link>
-          <Link href='/platform-v7/contact' aria-label='Задать вопрос'><MessageCircleQuestion size={21} /></Link>
-        </nav>
-      </header>
-
-      <section className='p7-flow-hero' aria-labelledby='flow-title'>
-        <div className='p7-flow-hero-copy'>
-          <span className='p7-flow-kicker'>Карта исполнения сделки</span>
-          <h1 id='flow-title'>После цены начинается контроль исполнения</h1>
-          <p>Платформа связывает рейс, приёмку, качество, документы, расчёт, спор и доказательства в одном рабочем процессе. Каждое действие имеет ответственного, статус и основание.</p>
-          <div className='p7-flow-hero-actions'><Link href='/platform-v7/register'>Подключить организацию<ArrowRight size={18} /></Link><Link href='/platform-v7/contact'>Обсудить подключение</Link></div>
-        </div>
-        <aside className='p7-flow-status' aria-label='Состояние сделки'>
-          <span>Текущий статус</span>
-          <strong>{deal.current}</strong>
-          <p>{deal.id} · {deal.crop} · {deal.volume} · {deal.amount}</p>
-          <small>{deal.route}</small>
-        </aside>
-      </section>
-
-      <section className='p7-flow-section' aria-labelledby='stages-title'>
-        <SectionHead n='01' title='Этапы исполнения' text='Каждый этап показывает статус, ответственного участника и основание перехода к следующему действию.' id='stages-title' />
-        <div className='p7-stage-grid'>{stages.map((stage, index) => <StageCard key={stage.title} stage={stage} index={index} />)}</div>
-      </section>
-
-      <section className='p7-money-section' aria-labelledby='money-title'>
-        <div><span className='p7-flow-kicker'>Основание для расчёта</span><h2 id='money-title'>Оплата привязана к подтверждённым событиям</h2><p>Платформа показывает, какие условия закрыты и какие документы или данные требуются до расчёта. Финансовое действие выполняется только при подтверждённых основаниях и банковских правилах.</p></div>
-        <div className='p7-money-card'><Banknote size={28} /><strong>{deal.amount}</strong><p>Ожидается подтверждение качества и комплекта документов.</p><Link href='/platform-v7/bank'>Открыть банковский контур</Link></div>
-      </section>
-
-      <section className='p7-flow-section' aria-labelledby='roles-title'>
-        <SectionHead n='02' title='Ролевые слои' text='Участник получает только тот объём информации и действий, который относится к его зоне ответственности.' id='roles-title' />
-        <div className='p7-role-grid'>{roles.map((role) => <RoleCard key={role.role} role={role} />)}</div>
-      </section>
-
-      <section className='p7-proof-section' aria-labelledby='proof-title'>
-        <div><span className='p7-flow-kicker'>Доказательная база</span><h2 id='proof-title'>Спор разбирается по следу сделки</h2><p>Если возникают расхождения, участники работают не с разрозненной перепиской, а со связанным пакетом фактов.</p></div>
-        <ul>{evidence.map((item) => <li key={item}><ShieldCheck size={18} />{item}</li>)}</ul>
-      </section>
-
-      <footer className='p7-flow-footer'><Link href='/platform-v7'>На главную</Link><Link href='/platform-v7/contact'>Задать вопрос</Link></footer>
-    </main>
-  );
+export async function generateMetadata():Promise<Metadata>{
+  const locale=canonicalPublicLocale(await getLocale());
+  const copy=META[locale];
+  return {
+    title:copy[0],
+    description:copy[1],
+    alternates:{
+      canonical:'/platform-v7/deal-flow',
+      languages:{
+        ru:'/platform-v7/deal-flow?lang=ru',
+        en:'/platform-v7/deal-flow?lang=en',
+        zh:'/platform-v7/deal-flow?lang=zh',
+      },
+    },
+    robots:{index:true,follow:true},
+  };
 }
 
-function SectionHead({ n, title, text, id }: { n: string; title: string; text: string; id: string }) { return <div className='p7-section-head'><span>{n}</span><h2 id={id}>{title}</h2><p>{text}</p></div>; }
-function StageCard({ stage, index }: { stage: Stage; index: number }) { const Icon = stage.Icon; return <article className={`p7-stage-card ${stage.state}`}><span className='p7-stage-num'>{String(index + 1).padStart(2, '0')}</span><Icon size={24} /><strong>{stage.title}</strong><em>{stage.owner}</em><p>{stage.text}</p><small>{stage.status}</small></article>; }
-function RoleCard({ role }: { role: RoleLayer }) { const Icon = role.Icon; return <article className='p7-role-layer'><Icon size={24} /><strong>{role.role}</strong><p>{role.access}</p><small>{role.responsibility}</small></article>; }
+type Params=Record<string,string|string[]|undefined>;
+const first=(value:string|string[]|undefined)=>Array.isArray(value)?value[0]:value;
 
-const css = `
-.pc-shell-root-v4:has(.p7-deal-flow-page){--pc-header-offset:0px!important;background:#f6faf4!important}
-.pc-shell-root-v4:has(.p7-deal-flow-page) .pc-v4-header,.pc-shell-root-v4:has(.p7-deal-flow-page) .pc-v4-bottomnav,.pc-shell-root-v4:has(.p7-deal-flow-page) .pc-v4-drawer,.pc-shell-root-v4:has(.p7-deal-flow-page) .pc-v4-pilot-note,.pc-shell-root-v4:has(.p7-deal-flow-page) .pc-v7-role-dock,.pc-shell-root-v4:has(.p7-deal-flow-page) .p7-mobile-action-rail,.pc-shell-root-v4:has(.p7-deal-flow-page) .p7-mobile-tool-panel{display:none!important}
-.pc-shell-root-v4:has(.p7-deal-flow-page) .pc-v4-main{max-width:none!important;margin:0!important;padding:0!important;background:#f6faf4!important;min-height:100svh!important;overflow-x:hidden!important}
-.p7-deal-flow-page{width:100%;max-width:100%;min-width:0;min-height:100svh;padding:10px clamp(14px,4vw,56px) calc(env(safe-area-inset-bottom) + 112px);color:#071611;background:linear-gradient(180deg,#fbfcf9 0%,#f3f8f1 58%,#fff 100%);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;overflow-x:hidden}
-.p7-deal-flow-page *{box-sizing:border-box;min-width:0;overflow-wrap:anywhere}.p7-deal-flow-page a{color:inherit;text-decoration:none;max-width:100%}
-.p7-flow-header{position:sticky;top:max(8px,env(safe-area-inset-top));z-index:40;min-height:64px;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding:8px 12px;border:1px solid rgba(7,22,17,.08);border-radius:22px;background:rgba(255,255,255,.98);box-shadow:0 10px 24px rgba(7,22,17,.075);backdrop-filter:blur(18px)}
-.p7-flow-brand{display:flex;align-items:center;gap:10px;min-width:0}.p7-flow-brand svg,.p7-flow-brand img{flex:0 0 auto}.p7-flow-brand span{min-width:0}.p7-flow-brand strong{display:block;font-size:18px;line-height:1.05;font-weight:950;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.p7-flow-brand small{display:block;color:#61716b;font-size:12px;font-weight:760;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.p7-flow-actions{display:flex;gap:8px;flex:0 0 auto}.p7-flow-actions a{width:44px;height:44px;display:grid;place-items:center;border-radius:15px;border:1px solid rgba(7,22,17,.1);background:#fff}
-.p7-flow-hero{width:100%;max-width:1220px;margin:0 auto;padding:clamp(28px,5vw,72px) 0 26px;display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,.46fr);gap:22px;align-items:stretch}.p7-flow-hero-copy{min-width:0}
-.p7-flow-kicker{display:inline-flex;width:fit-content;max-width:100%;margin-bottom:14px;padding:8px 12px;border-radius:999px;background:rgba(0,122,47,.08);color:#087a3b;font-size:11px;font-weight:950;text-transform:uppercase;letter-spacing:.08em;line-height:1.2}.p7-flow-hero h1{margin:0;max-width:820px;font-size:clamp(40px,5.8vw,76px);line-height:.98;letter-spacing:-.056em}.p7-flow-hero p,.p7-section-head p,.p7-money-section p,.p7-proof-section p{color:#43514b;font-size:16px;line-height:1.52;font-weight:620}.p7-flow-hero-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}.p7-flow-hero-actions a{min-height:52px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 18px;border-radius:17px;border:1px solid rgba(7,22,17,.1);background:#fff;font-weight:950;text-align:center}.p7-flow-hero-actions a:first-child{background:#087a3b;color:#fff;border-color:#087a3b}
-.p7-flow-status,.p7-stage-card,.p7-role-layer,.p7-money-card{border:1px solid rgba(7,22,17,.08);border-radius:28px;background:rgba(255,255,255,.92);box-shadow:0 18px 44px rgba(7,22,17,.07);overflow:hidden}.p7-flow-status{padding:22px;display:grid;gap:10px}.p7-flow-status span,.p7-case-card span{color:#087a3b;font-weight:950;font-size:12px;text-transform:uppercase}.p7-flow-status strong{font-size:clamp(24px,3.4vw,34px);line-height:1.08}.p7-flow-status p{margin:0}.p7-flow-status small{color:#61716b;font-weight:800}
-.p7-flow-section,.p7-money-section,.p7-proof-section{width:100%;max-width:1220px;margin:20px auto 0}.p7-section-head{display:grid;gap:8px;margin-bottom:16px}.p7-section-head span{color:#087a3b;font-size:12px;font-weight:950}.p7-section-head h2,.p7-money-section h2,.p7-proof-section h2{margin:0;font-size:clamp(30px,4vw,52px);line-height:1.02;letter-spacing:-.05em}.p7-stage-grid,.p7-role-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.p7-stage-card,.p7-role-layer{padding:20px;display:grid;gap:10px}.p7-stage-card svg,.p7-role-layer svg{color:#071611}.p7-stage-num{font-size:12px;color:#087a3b;font-weight:950}.p7-stage-card strong,.p7-role-layer strong{font-size:20px;line-height:1.12;font-weight:950}.p7-stage-card em,.p7-role-layer small{font-style:normal;color:#61716b;font-weight:800}.p7-stage-card p,.p7-role-layer p{margin:0;color:#43514b;font-size:14px;line-height:1.45}.p7-stage-card small{width:fit-content;max-width:100%;padding:7px 10px;border-radius:999px;background:rgba(0,122,47,.08);color:#087a3b;font-weight:950;line-height:1.15}
-.p7-money-section{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:stretch;padding:22px;border-radius:30px;background:linear-gradient(135deg,rgba(0,122,47,.08),rgba(255,255,255,.82));border:1px solid rgba(7,22,17,.08);overflow:hidden}.p7-money-card{padding:20px}.p7-money-card strong{display:block;margin-top:8px;font-size:34px;line-height:1.05}.p7-money-card a{display:inline-flex;margin-top:10px;min-height:42px;align-items:center;justify-content:center;border-radius:14px;background:#087a3b;color:#fff;padding:0 14px;font-weight:950;text-align:center}.p7-proof-section{display:grid;grid-template-columns:minmax(0,.85fr) minmax(300px,.55fr);gap:18px;align-items:start}.p7-proof-section ul{margin:0;padding:0;list-style:none;display:grid;gap:10px}.p7-proof-section li{display:flex;gap:9px;align-items:center;border:1px solid rgba(7,22,17,.08);border-radius:17px;background:#fff;padding:12px;font-weight:850}.p7-proof-section li svg{color:#087a3b;flex:0 0 auto}.p7-flow-footer{max-width:1220px;margin:28px auto 0;display:flex;gap:10px;justify-content:center}.p7-flow-footer a{min-height:44px;display:inline-flex;align-items:center;justify-content:center;border-radius:15px;border:1px solid rgba(7,22,17,.1);padding:0 14px;background:#fff;font-weight:950;text-align:center}
-@media(max-width:900px){.p7-flow-hero,.p7-money-section,.p7-proof-section{grid-template-columns:1fr}.p7-stage-grid,.p7-role-grid{grid-template-columns:1fr 1fr}.p7-flow-hero{padding-top:28px}.p7-flow-status{max-width:100%}}
-@media(max-width:560px){.p7-deal-flow-page{padding:10px 12px calc(env(safe-area-inset-bottom) + 138px)}.p7-flow-header{min-height:64px;border-radius:20px;padding:8px 9px}.p7-flow-brand small{display:none}.p7-flow-brand strong{font-size:16px}.p7-flow-brand svg{width:40px!important;height:40px!important}.p7-flow-actions{gap:6px}.p7-flow-actions a{width:40px;height:40px;border-radius:14px}.p7-flow-hero{gap:14px;padding:22px 0 22px}.p7-flow-kicker{margin-bottom:12px;padding:7px 10px;font-size:10.5px;letter-spacing:.08em}.p7-flow-hero h1{font-size:clamp(36px,9.8vw,42px);line-height:1.02;letter-spacing:-.055em}.p7-flow-hero p,.p7-section-head p,.p7-money-section p,.p7-proof-section p{font-size:15px;line-height:1.44}.p7-flow-hero-actions{display:grid;grid-template-columns:1fr;gap:9px;margin-top:18px;max-width:100%}.p7-flow-hero-actions a{width:100%;min-height:52px;border-radius:17px;padding:0 14px}.p7-flow-status,.p7-stage-card,.p7-role-layer,.p7-money-card{border-radius:24px}.p7-flow-status{padding:18px;gap:8px}.p7-flow-status strong{font-size:clamp(26px,7.2vw,34px);line-height:1.12}.p7-flow-status p,.p7-flow-status small{font-size:13.5px;line-height:1.35}.p7-flow-section,.p7-money-section,.p7-proof-section{margin-top:18px}.p7-section-head{margin-bottom:12px}.p7-section-head h2,.p7-money-section h2,.p7-proof-section h2{font-size:clamp(32px,8.4vw,38px);line-height:1.04}.p7-stage-grid,.p7-role-grid{grid-template-columns:1fr;gap:12px}.p7-stage-card,.p7-role-layer{padding:18px;gap:9px}.p7-stage-card strong,.p7-role-layer strong{font-size:19px}.p7-stage-card p,.p7-role-layer p{font-size:14px;line-height:1.42}.p7-stage-card small{padding:7px 10px}.p7-money-section{padding:18px;border-radius:24px;gap:12px}.p7-money-card{padding:18px}.p7-money-card strong{font-size:30px}.p7-money-card a{width:100%;min-height:48px}.p7-proof-section{gap:12px}.p7-proof-section li{align-items:flex-start;line-height:1.35}.p7-flow-footer{flex-direction:column;margin-top:22px}.p7-flow-footer a{justify-content:center}}
-@media(max-width:380px){.p7-deal-flow-page{padding-left:10px;padding-right:10px}.p7-flow-header{gap:8px}.p7-flow-brand{gap:8px}.p7-flow-brand strong{font-size:15px}.p7-flow-actions a{width:38px;height:38px}.p7-flow-hero h1{font-size:34px}.p7-flow-status,.p7-stage-card,.p7-role-layer,.p7-money-section,.p7-money-card{border-radius:22px}.p7-stage-card,.p7-role-layer,.p7-flow-status,.p7-money-card{padding:16px}.p7-section-head h2,.p7-money-section h2,.p7-proof-section h2{font-size:30px}.p7-money-card strong{font-size:27px}}
-`;
+export default async function PlatformV7DealFlowPage({searchParams}:{searchParams?:Promise<Params>}){
+ const params=(await searchParams)??{};
+ const locale=canonicalPublicLocale(first(params.lang)??await getLocale());
+ const c=locale==='ru'
+ ?{e:'Рабочий экран сделки',t:'Условия, ответственные и следующий шаг — перед вами',p:'Здесь показано, как устроен рабочий экран. В своей сделке участник видит согласованные условия, документы и задачи, к которым у него есть доступ.',h:'Что показывает рабочий экран',lead:'Платформа показывает основание для расчёта: согласованные условия и связанные документы.',state:['События и изменения условий сделки','Участник, который отвечает за задачу','Документ или условие, на котором основано действие','Условия и документы, необходимые для расчёта','Задача, которую нужно выполнить дальше'],login:'Войти',how:'Как проходит сделка',overview:'Обзор',stages:'Семь связанных этапов',timing:'Что и когда выполнить',responsible:'Участник задачи',status:'По событиям сделки',lotValues:['Название продукции','Согласованный объём','Место отгрузки','Участники сделки','Условия оплаты']}
+ :locale==='en'
+ ?{e:'Deal workspace',t:'Terms, responsibilities and the next step in one view',p:'This page explains the workspace layout. In their own Deal, participants see the agreed terms, documents and tasks they are allowed to access.',h:'What the workspace shows',lead:'Settlement is linked to the agreed terms and supporting documents.',state:['Events and changes to Deal terms','The participant responsible for the task','The document or condition supporting an action','Terms and documents needed for settlement','The task to complete next'],login:'Sign in',how:'How the Deal works',overview:'Overview',stages:'Seven connected stages',timing:'What is due and when',responsible:'Task owner',status:'Based on Deal events',lotValues:['Product name','Agreed quantity','Loading location','Deal participants','Payment terms']}
+ :{e:'交易工作区',t:'条款、责任分工和下一步，一目了然',p:'本页介绍工作区的组成。参与方在自己的交易中查看有权访问的已约定条款、文件和任务。',h:'工作区展示什么',lead:'结算依据包括已约定的条款及相关文件。',state:['交易事件和条款变更','负责该任务的参与方','操作所依据的文件或条件','结算所需的条件和文件','接下来需要完成的任务'],login:'登录',how:'交易如何进行',overview:'概览',stages:'七个相互关联的阶段',timing:'任务及完成时间',responsible:'任务负责人',status:'根据交易事件确定',lotValues:['产品名称','约定数量','装货地点','交易参与方','付款条件']};
+ return <main className='pc-canonical-public pc-cp-page-deal-flow p7-deal-flow-page'>
+  <CanonicalPublicHeader locale={locale} activePath='/platform-v7/deal-flow'/>
+  <section className='pc-cp-deal-public-hero'>
+   <div className='pc-cp-container'>
+    <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{c.e}</span><h1>{c.t}</h1><p>{c.p}</p></div>
+    <div className='pc-cp-deal-mobile-summary' aria-label={c.e}>
+      <div className='pc-cp-deal-mobile-summary-media' aria-hidden='true'><Wheat size={24}/></div>
+      <div><strong>{c.e}</strong><span>{c.stages}</span></div>
+      <span className='pc-cp-chip'>{c.overview}</span>
+    </div>
+    <CanonicalDealSpine locale={locale} currentIndex={null}/>
+   </div>
+  </section>
+
+  <section className='pc-cp-deal-public-body'>
+   <div className='pc-cp-container pc-cp-deal-public-layout'>
+    <aside className='pc-cp-card pc-cp-deal-public-lot'>
+      <div className='pc-cp-deal-public-lot-media' aria-hidden='true'><Wheat size={26}/></div>
+      <span className='pc-cp-chip'><LockKeyhole size={12} aria-hidden='true'/>{locale==='ru'?'Данные вашей сделки':locale==='en'?'Your Deal data':'您的交易数据'}</span>
+      <h2>{locale==='ru'?'Карточка лота':locale==='en'?'Lot card':'批次卡片'}</h2>
+      <dl>
+       <div><dt>{locale==='ru'?'Культура':locale==='en'?'Crop':'作物'}</dt><dd>{c.lotValues[0]}</dd></div>
+       <div><dt>{locale==='ru'?'Объём':locale==='en'?'Volume':'数量'}</dt><dd>{c.lotValues[1]}</dd></div>
+       <div><dt>{locale==='ru'?'Регион':locale==='en'?'Region':'地区'}</dt><dd>{c.lotValues[2]}</dd></div>
+       <div><dt>{locale==='ru'?'Контрагент':locale==='en'?'Counterparty':'交易对手'}</dt><dd>{c.lotValues[3]}</dd></div>
+       <div><dt>{locale==='ru'?'Расчёт':locale==='en'?'Settlement':'结算'}</dt><dd>{c.lotValues[4]}</dd></div>
+      </dl>
+      <p>{locale==='ru'?'Чтобы увидеть данные своей сделки, войдите в платформу. Доступ зависит от вашего участия в ней.':locale==='en'?'Sign in to view your own Deal. Access depends on your participation in it.':'请登录查看自己的交易。可访问的内容取决于您在该交易中的参与权限。'}</p>
+      <Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/login?lang=${locale}`}>{c.login}</Link>
+    </aside>
+
+    <div className='pc-cp-deal-public-main'>
+      <header className='pc-cp-card pc-cp-deal-public-stage'>
+        <div><span className='pc-cp-eyebrow'>{c.overview}</span><h2>{c.h}</h2><p>{c.lead}</p></div>
+        <div className='pc-cp-deal-public-stage-facts'>
+          <span><small>{locale==='ru'?'Срок':locale==='en'?'Timing':'期限'}</small><strong>{c.timing}</strong></span>
+          <span><small>{locale==='ru'?'Ответственный':locale==='en'?'Responsible':'责任方'}</small><strong>{c.responsible}</strong></span>
+          <span><small>{locale==='ru'?'Статус':locale==='en'?'Status':'状态'}</small><strong>{c.status}</strong></span>
+        </div>
+      </header>
+
+      <CanonicalStateLens
+        locale={locale}
+        state={null}
+        presentation='explanation'
+        happened={c.state[0]}
+        actor={c.state[1]}
+        basis={c.state[2]}
+        settlement={c.state[3]}
+        next={c.state[4]}
+      />
+
+      <div className='pc-cp-actions pc-cp-deal-public-actions'>
+        <Link className='pc-cp-button' href={`/platform-v7/login?lang=${locale}`}>{c.login}<ArrowRight size={16} aria-hidden='true'/></Link>
+        <Link className='pc-cp-button pc-cp-button--secondary' href={`/platform-v7/how-it-works?lang=${locale}`}>{c.how}</Link>
+      </div>
+    </div>
+   </div>
+  </section>
+
+  <section className='pc-cp-deal-public-trust'><div className='pc-cp-container'>
+    <div className='pc-cp-section-head'><span className='pc-cp-eyebrow'>{locale==='ru'?'Условия и ответственность':locale==='en'?'Terms and responsibilities':'条款与责任'}</span><h2>{locale==='ru'?'Понятно, что согласовано и кто отвечает':locale==='en'?'Know what is agreed and who is responsible':'了解已约定的事项及责任分工'}</h2></div>
+    <CanonicalTrustLedger locale={locale}/>
+  </div></section>
+  <section className='pc-cp-deal-public-gekta'><div className='pc-cp-container'><CanonicalGektaStrip locale={locale}/></div></section>
+  <CanonicalFooter locale={locale}/><CanonicalBottomNav locale={locale} active='/platform-v7/deal-flow'/>
+ </main>;
+}
