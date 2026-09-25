@@ -5,17 +5,22 @@ import './platform-v7/_styles/public-supporting-shell.css';
 import './platform-v7/_styles/public-header-accessibility.css';
 import type { Metadata, Viewport } from 'next';
 import { ReactNode } from 'react';
-import { PublicAnalytics } from '../components/analytics/PublicAnalytics';
 import { headers } from 'next/headers';
 import { Inter, Manrope, JetBrains_Mono } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
-import { FeatureFlagsDevPanel } from '@/components/platform-v7/FeatureFlagsDevPanel';
 import {
   buildPublicBrandRuntimeScript,
   normalizePublicBrandText,
   PUBLIC_BRAND_ORIGIN,
 } from '@/lib/platform-v7/public-brand-domain';
+import {
+  isEphemeralPublicAnalyticsId,
+  normalizeAnalyticsPath,
+  posthogPublicAnalyticsAllowedForPath,
+  sanitizePublicProductAnalyticsDetail,
+  type PublicProductAnalyticsCaptureInput,
+} from '@/lib/analytics/analytics-boundary';
 
 const inter = Inter({
   subsets: ['latin', 'cyrillic'],
@@ -91,6 +96,10 @@ export const viewport: Viewport = {
 };
 
 const YM_ID = process.env.NEXT_PUBLIC_YM_ID;
+const POSTHOG_INGEST_ORIGINS = Object.freeze({
+  us: 'https://us.i.posthog.com',
+  eu: 'https://eu.i.posthog.com',
+});
 const HTML_LANG: Record<string, string> = { ru: 'ru', en: 'en', zh: 'zh-CN' };
 const LEAN_PUBLIC_ENTRY_PATHS = new Set([
   '/platform-v7',
@@ -108,9 +117,68 @@ function normalizePath(value: string | null) {
   return (value || '').split('?')[0].replace(/\/$/, '') || '/';
 }
 
+function posthogCaptureConfiguration(): { captureUrl: string; projectReference: string } | null {
+  const projectReference = String(process.env.POSTHOG_PROJECT_REFERENCE || '').trim();
+  const region = String(process.env.POSTHOG_INGEST_REGION || '').trim();
+  if (!/^phc_[A-Za-z0-9_-]{20,96}$/u.test(projectReference)) return null;
+  if (region !== 'us' && region !== 'eu') return null;
+  return {
+    captureUrl: `${POSTHOG_INGEST_ORIGINS[region]}/i/v0/e/`,
+    projectReference,
+  };
+}
+
+async function capturePublicProductAnalytics(input: PublicProductAnalyticsCaptureInput): Promise<void> {
+  'use server';
+
+  const configuration = posthogCaptureConfiguration();
+  if (!configuration || !isEphemeralPublicAnalyticsId(input?.distinctId)) return;
+
+  const requestHeaders = await headers();
+  const requestPath = requestHeaders.get('x-pc-pathname');
+  // middleware сам перезаписывает x-pc-pathname из req.nextUrl.pathname, поэтому
+  // клиент не выбирает, какой маршрут считать публичным.
+  if (!posthogPublicAnalyticsAllowedForPath(requestPath)) return;
+  const fetchSite = requestHeaders.get('sec-fetch-site');
+  if (fetchSite !== 'same-origin') return;
+
+  const rawProperties = input && typeof input.properties === 'object' && input.properties !== null && !Array.isArray(input.properties)
+    ? input.properties
+    : {};
+  const sanitized = sanitizePublicProductAnalyticsDetail({ name: input?.name, ...rawProperties });
+  if (!sanitized) return;
+  const pathname = normalizeAnalyticsPath(requestPath as string);
+
+  try {
+    await fetch(configuration.captureUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(2000),
+      body: JSON.stringify({
+        api_key: configuration.projectReference,
+        distinct_id: input.distinctId,
+        event: sanitized.name,
+        properties: {
+          ...sanitized.properties,
+          path: pathname,
+          '$process_person_profile': false,
+          '$geoip_disable': true,
+        },
+      }),
+    });
+  } catch {
+    // Аналитика не является authority и никогда не должна ухудшать доступность продукта.
+  }
+}
+
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const locale = await getLocale();
   const pathname = normalizePath((await headers()).get('x-pc-pathname'));
+  const canonicalPublicHome = pathname === '/platform-v7' || pathname === '/pc-public-entry/platform-v7';
+  const TailwindRuntime = canonicalPublicHome
+    ? null
+    : (await import('@/components/platform-v7/PlatformV7TailwindRuntime')).PlatformV7TailwindRuntime;
   const leanPublicEntry = LEAN_PUBLIC_ENTRY_PATHS.has(pathname)
     || pathname === '/platform-v7/staff'
     || pathname.startsWith('/platform-v7/staff/');
@@ -122,6 +190,13 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     : <NextIntlClientProvider locale={locale} messages={await getMessages()}>{children}</NextIntlClientProvider>;
   const showDevPanel = !leanPublicEntry && process.env.NEXT_PUBLIC_DEV_MODE === 'true';
   const fontVariables = leanPublicEntry ? '' : `${inter.variable} ${manrope.variable} ${jetbrainsMono.variable}`;
+  const posthogConfigured = posthogCaptureConfiguration() !== null;
+  const FeatureFlagsDevPanel = showDevPanel
+    ? (await import('@/components/platform-v7/FeatureFlagsDevPanel')).FeatureFlagsDevPanel
+    : null;
+  const PublicAnalytics = (YM_ID || posthogConfigured)
+    ? (await import('../components/analytics/PublicAnalytics')).PublicAnalytics
+    : null;
 
   return (
     <html
@@ -132,18 +207,25 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       className={`notranslate${fontVariables ? ` ${fontVariables}` : ''}`}
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: brandUrlAuthorityScript }} />
-        <script dangerouslySetInnerHTML={{ __html: serviceWorkerRecoveryScript }} />
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {!canonicalPublicHome ? <script dangerouslySetInnerHTML={{ __html: brandUrlAuthorityScript }} /> : null}
+        {!canonicalPublicHome ? <script dangerouslySetInnerHTML={{ __html: serviceWorkerRecoveryScript }} /> : null}
+        {!canonicalPublicHome ? <script dangerouslySetInnerHTML={{ __html: themeScript }} /> : null}
         <meta name='description' content={pageDescription} />
         <meta name='google' content='notranslate' />
         <meta name='googlebot' content='notranslate' />
         <meta httpEquiv='Content-Language' content={HTML_LANG[locale] ?? 'ru'} />
       </head>
       <body translate='no' className='notranslate'>
+        {TailwindRuntime ? <TailwindRuntime /> : null}
         {content}
-        {showDevPanel ? <FeatureFlagsDevPanel /> : null}
-        <PublicAnalytics counterId={YM_ID} />
+        {FeatureFlagsDevPanel ? <FeatureFlagsDevPanel /> : null}
+        {PublicAnalytics ? (
+          <PublicAnalytics
+            counterId={YM_ID}
+            locale={locale}
+            capturePublicProductAnalyticsAction={posthogConfigured ? capturePublicProductAnalytics : undefined}
+          />
+        ) : null}
       </body>
     </html>
   );

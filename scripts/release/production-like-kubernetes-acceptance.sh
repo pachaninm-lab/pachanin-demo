@@ -2,6 +2,142 @@
 set -Eeuo pipefail
 
 source scripts/release/production-like-kubernetes-build.sh
+
+MINIO_SERVER_RELEASE="RELEASE.2024-05-10T01-41-38Z"
+MINIO_SERVER_ASSET="minio.linux-amd64.${MINIO_SERVER_RELEASE}"
+MINIO_SERVER_SHA256="bd3a3e65c48d35613fe1c556e77a18bccb8aee911b6293ca5f6112f73376c105"
+MINIO_MC_RELEASE="RELEASE.2024-05-09T17-04-24Z"
+MINIO_MC_ASSET="mc.linux-amd64.${MINIO_MC_RELEASE}"
+MINIO_MC_SHA256="360196aa51e7664996abbd3a522bdf4749188744a4d36d9bc0c4068d7dfad9e2"
+MINIO_BUILD_BASE="alpine:3.20.3@sha256:1e42bbe2508154c9126d48c2b8a75420c3544343bf86fd041fb7527e017a4b4a"
+MINIO_SERVER_SOURCE_REF="quay.io/minio/minio:RELEASE.2024-05-10T01-41-38Z@sha256:420663b8685c5396f06405ad516d611db4465939a141cc7d40266342d0f2632d"
+MINIO_MC_SOURCE_REF="quay.io/minio/mc:RELEASE.2024-05-09T17-04-24Z@sha256:3e9666a093d0a8fcbbac606346c415ae9277a0ca96989a6bdddd3d03e90a21b4"
+
+prepare_minio_acceptance_images() {
+  local work_dir server_repo mc_repo server_tag mc_tag server_push_log mc_push_log
+  local server_digest mc_digest
+  work_dir="$(mktemp -d)"
+  server_repo="${REGISTRY}/pc-crop-minio-server"
+  mc_repo="${REGISTRY}/pc-crop-minio-mc"
+  server_tag="${server_repo}:release-2024-05-10"
+  mc_tag="${mc_repo}:release-2024-05-09"
+  server_push_log="$K8S_DIR/minio-server-push.log"
+  mc_push_log="$K8S_DIR/minio-mc-push.log"
+
+  test "$(grep -F -c "$MINIO_SERVER_SOURCE_REF" infra/kind/production-like/dependencies.yaml)" = "1"
+  test "$(grep -F -c "$MINIO_MC_SOURCE_REF" scripts/release/production-like-kubernetes-cluster.sh)" = "1"
+  test "$(grep -F -c "$MINIO_MC_SOURCE_REF" infra/kind/production-like/minio-tls-check.yaml)" = "1"
+
+  curl --fail --location --retry 5 \
+    "https://github.com/minio/minio/releases/download/${MINIO_SERVER_RELEASE}/${MINIO_SERVER_ASSET}" \
+    -o "$work_dir/minio"
+  printf '%s  %s\n' "$MINIO_SERVER_SHA256" "$work_dir/minio" | sha256sum --check
+
+  curl --fail --location --retry 5 \
+    "https://github.com/minio/mc/releases/download/${MINIO_MC_RELEASE}/${MINIO_MC_ASSET}" \
+    -o "$work_dir/mc"
+  printf '%s  %s\n' "$MINIO_MC_SHA256" "$work_dir/mc" | sha256sum --check
+
+  chmod 0755 "$work_dir/minio" "$work_dir/mc"
+  "$work_dir/minio" --version | tee "$K8S_DIR/minio-server-version.txt"
+  "$work_dir/mc" --version | tee "$K8S_DIR/minio-mc-version.txt"
+  grep -Fq "$MINIO_SERVER_RELEASE" "$K8S_DIR/minio-server-version.txt"
+  grep -Fq "$MINIO_MC_RELEASE" "$K8S_DIR/minio-mc-version.txt"
+
+  docker pull "$MINIO_BUILD_BASE" 2>&1 | tee "$K8S_DIR/minio-base-pull.log"
+
+  mkdir -p "$work_dir/server" "$work_dir/mc-image"
+  cp "$work_dir/minio" "$work_dir/server/minio"
+  cp "$work_dir/mc" "$work_dir/mc-image/mc"
+
+  cat > "$work_dir/server/Dockerfile" <<EOF
+FROM ${MINIO_BUILD_BASE}
+COPY --chmod=0755 minio /usr/local/bin/minio
+ENTRYPOINT ["/usr/local/bin/minio"]
+EOF
+  cat > "$work_dir/mc-image/Dockerfile" <<EOF
+FROM ${MINIO_BUILD_BASE}
+COPY --chmod=0755 mc /usr/local/bin/mc
+ENTRYPOINT ["/usr/local/bin/mc"]
+EOF
+
+  docker build --pull=false -t "$server_tag" "$work_dir/server" \
+    2>&1 | tee "$K8S_DIR/minio-server-build.log"
+  docker build --pull=false -t "$mc_tag" "$work_dir/mc-image" \
+    2>&1 | tee "$K8S_DIR/minio-mc-build.log"
+
+  docker push "$server_tag" 2>&1 | tee "$server_push_log"
+  docker push "$mc_tag" 2>&1 | tee "$mc_push_log"
+  server_digest="$(grep -Eo 'digest: sha256:[0-9a-f]{64}' "$server_push_log" | tail -1 | awk '{print $2}')"
+  mc_digest="$(grep -Eo 'digest: sha256:[0-9a-f]{64}' "$mc_push_log" | tail -1 | awk '{print $2}')"
+  [[ "$server_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+  [[ "$mc_digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+
+  MINIO_SERVER_IMAGE="${server_repo}@${server_digest}"
+  MINIO_MC_IMAGE="${mc_repo}@${mc_digest}"
+  export MINIO_SERVER_IMAGE MINIO_MC_IMAGE
+
+  jq -n \
+    --arg serverRelease "$MINIO_SERVER_RELEASE" \
+    --arg serverAssetSha256 "$MINIO_SERVER_SHA256" \
+    --arg mcRelease "$MINIO_MC_RELEASE" \
+    --arg mcAssetSha256 "$MINIO_MC_SHA256" \
+    --arg baseImage "$MINIO_BUILD_BASE" \
+    --arg serverImage "$MINIO_SERVER_IMAGE" \
+    --arg mcImage "$MINIO_MC_IMAGE" \
+    '{
+      source: "first-party GitHub release assets",
+      serverRelease: $serverRelease,
+      serverAssetSha256: $serverAssetSha256,
+      mcRelease: $mcRelease,
+      mcAssetSha256: $mcAssetSha256,
+      baseImage: $baseImage,
+      serverImage: $serverImage,
+      mcImage: $mcImage
+    }' > "$K8S_DIR/minio-local-image-provenance.json"
+
+  rm -rf "$work_dir"
+}
+
+prepare_minio_acceptance_images
+
+REAL_KUBECTL="$(command -v kubectl)"
+kubectl() {
+  if [[ "$#" -eq 3 && "$1" = "apply" && "$2" = "-f" && "$3" = "infra/kind/production-like/dependencies.yaml" ]]; then
+    local rendered="$K8S_DIR/rendered/dependencies-local-minio.yaml"
+    sed "s|${MINIO_SERVER_SOURCE_REF}|${MINIO_SERVER_IMAGE}|" "$3" > "$rendered"
+    test "$(grep -F -c "$MINIO_SERVER_IMAGE" "$rendered")" = "1"
+    test "$(grep -F -c "$MINIO_SERVER_SOURCE_REF" "$rendered")" = "0"
+    "$REAL_KUBECTL" apply -f "$rendered"
+    return
+  fi
+
+  if [[ "$#" -eq 3 && "$1" = "apply" && "$2" = "-f" && "$3" = "infra/kind/production-like/minio-tls-check.yaml" ]]; then
+    local rendered="$K8S_DIR/rendered/minio-tls-check-local-mc.yaml"
+    sed "s|${MINIO_MC_SOURCE_REF}|${MINIO_MC_IMAGE}|" "$3" > "$rendered"
+    test "$(grep -F -c "$MINIO_MC_IMAGE" "$rendered")" = "1"
+    test "$(grep -F -c "$MINIO_MC_SOURCE_REF" "$rendered")" = "0"
+    "$REAL_KUBECTL" apply -f "$rendered"
+    return
+  fi
+
+  if [[ "$#" -gt 2 && "$1" = "run" && "$2" = "minio-init" ]]; then
+    local -a rewritten=("$@")
+    local index replacements=0
+    for index in "${!rewritten[@]}"; do
+      if [[ "${rewritten[$index]}" = "--image=${MINIO_MC_SOURCE_REF}" ]]; then
+        rewritten[$index]="--image=${MINIO_MC_IMAGE}"
+        replacements=$((replacements + 1))
+      fi
+    done
+    test "$replacements" = "1"
+    "$REAL_KUBECTL" "${rewritten[@]}"
+    return
+  fi
+
+  "$REAL_KUBECTL" "$@"
+}
+
 node scripts/release/production-like-kubernetes-migration-runtime.mjs
 source scripts/release/production-like-kubernetes-evidence-collection.sh
 source scripts/release/production-like-kubernetes-cluster.sh
