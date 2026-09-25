@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+import json
+from pathlib import Path, PurePosixPath
+import re
+
+AUTHORITY_FILE_NAME = "local-mistral-authority.v1.json"
+AUTHORITY_MAX_BYTES = 32_768
+SHA256 = re.compile(r"[0-9a-f]{64}\Z")
+GIT_SHA = re.compile(r"[0-9a-f]{40}\Z")
+IDENTITY = re.compile(r"[A-Za-z0-9._-]{1,96}\Z")
+
+TOP_KEYS = {
+    "schemaVersion", "provider", "status", "modelIdentity",
+    "conversion", "model", "runtime", "authorityRules",
+}
+CONVERSION_KEYS = {
+    "exactMainSha", "workflowRunId", "workflowRunAttempt", "conversionRoot",
+    "reportRelativePath", "reportRawSha256", "reportSelfSha256", "githubArtifact",
+}
+MODEL_KEYS = {
+    "id", "revision", "sourceFilesSha256", "sourceManifestSha256",
+    "artifactRelativePath", "artifactSha256", "artifactSizeBytes", "quantization",
+}
+RUNTIME_KEYS = {
+    "toolchain", "release", "sourceCommit", "sourceArchiveSha256",
+    "acceptanceAuthoritySha256", "serverRelativePath", "serverSha256", "serverSizeBytes",
+}
+RULE_KEYS = {
+    "argumentsMayNarrowButNeverReplaceAuthority", "exactHeadBindingRequired",
+    "stalePassForbidden", "selfReviewForbidden", "mandatorySaasApiKeys",
+    "newRecurringCostRub", "productionAuthority",
+}
+EXPECTED_RULES = {
+    "argumentsMayNarrowButNeverReplaceAuthority": True,
+    "exactHeadBindingRequired": True,
+    "stalePassForbidden": True,
+    "selfReviewForbidden": True,
+    "mandatorySaasApiKeys": False,
+    "newRecurringCostRub": 0,
+    "productionAuthority": "REG_RU_VPS_ONLY",
+}
+
+class AuthorityBindingError(Exception):
+    pass
+
+def reject(code):
+    raise AuthorityBindingError(code)
+
+def exact_keys(value, expected, code):
+    if not isinstance(value, dict) or set(value) != expected:
+        reject(code)
+
+def positive_int(value, code):
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        reject(code)
+
+def git_sha(value, code):
+    if not isinstance(value, str) or not GIT_SHA.fullmatch(value):
+        reject(code)
+
+def sha256(value, code):
+    if not isinstance(value, str) or not SHA256.fullmatch(value):
+        reject(code)
+
+def fixed_relative(value, expected, code):
+    if value != expected or not isinstance(value, str):
+        reject(code)
+    parsed = PurePosixPath(value)
+    if parsed.is_absolute() or "." in parsed.parts or ".." in parsed.parts:
+        reject(code)
+
+def load_authority():
+    path = Path(__file__).with_name(AUTHORITY_FILE_NAME)
+    if not path.is_file() or path.is_symlink():
+        reject("AUTHORITY_FILE_INVALID")
+    try:
+        size = path.stat().st_size
+        if size <= 0 or size > AUTHORITY_MAX_BYTES:
+            reject("AUTHORITY_FILE_SIZE_INVALID")
+        authority = json.loads(path.read_text(encoding="utf-8"))
+    except AuthorityBindingError:
+        raise
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        reject("AUTHORITY_FILE_READ_INVALID")
+
+    exact_keys(authority, TOP_KEYS, "AUTHORITY_SCHEMA_INVALID")
+    if authority["schemaVersion"] != "platform-v7.local-mistral-review-authority.v1":
+        reject("AUTHORITY_VERSION_INVALID")
+    if authority["provider"] != "local-mistral" or authority["status"] != "INERT_NOT_WORKFLOW_BOUND":
+        reject("AUTHORITY_PROVIDER_STATE_INVALID")
+    if not isinstance(authority["modelIdentity"], str) or not IDENTITY.fullmatch(authority["modelIdentity"]):
+        reject("AUTHORITY_MODEL_IDENTITY_INVALID")
+
+    conversion = authority["conversion"]
+    model = authority["model"]
+    runtime = authority["runtime"]
+    rules = authority["authorityRules"]
+    exact_keys(conversion, CONVERSION_KEYS, "AUTHORITY_CONVERSION_SCHEMA_INVALID")
+    exact_keys(model, MODEL_KEYS, "AUTHORITY_MODEL_SCHEMA_INVALID")
+    exact_keys(runtime, RUNTIME_KEYS, "AUTHORITY_RUNTIME_SCHEMA_INVALID")
+    exact_keys(rules, RULE_KEYS, "AUTHORITY_RULES_SCHEMA_INVALID")
+    if rules != EXPECTED_RULES:
+        reject("AUTHORITY_RULES_INVALID")
+
+    git_sha(conversion["exactMainSha"], "AUTHORITY_CONVERSION_MAIN_INVALID")
+    positive_int(conversion["workflowRunId"], "AUTHORITY_CONVERSION_RUN_INVALID")
+    positive_int(conversion["workflowRunAttempt"], "AUTHORITY_CONVERSION_ATTEMPT_INVALID")
+    expected_root = (
+        "/srv/tai-models/conversion-runs/" + conversion["exactMainSha"] + "/"
+        + str(conversion["workflowRunId"]) + "-" + str(conversion["workflowRunAttempt"])
+    )
+    if conversion["conversionRoot"] != expected_root:
+        reject("AUTHORITY_CONVERSION_ROOT_INVALID")
+    fixed_relative(conversion["reportRelativePath"], "evidence/conversion-report.json", "AUTHORITY_REPORT_PATH_INVALID")
+    sha256(conversion["reportRawSha256"], "AUTHORITY_REPORT_SHA_INVALID")
+
+    git_sha(model["revision"], "AUTHORITY_MODEL_REVISION_INVALID")
+    fixed_relative(model["artifactRelativePath"], "artifacts/mistral-7b-instruct-v0.3-q4-k-m.gguf", "AUTHORITY_MODEL_PATH_INVALID")
+    sha256(model["artifactSha256"], "AUTHORITY_MODEL_SHA_INVALID")
+    positive_int(model["artifactSizeBytes"], "AUTHORITY_MODEL_SIZE_INVALID")
+
+    git_sha(runtime["sourceCommit"], "AUTHORITY_RUNTIME_COMMIT_INVALID")
+    fixed_relative(runtime["serverRelativePath"], "toolchain/bin/llama-server", "AUTHORITY_SERVER_PATH_INVALID")
+    sha256(runtime["serverSha256"], "AUTHORITY_SERVER_SHA_INVALID")
+    positive_int(runtime["serverSizeBytes"], "AUTHORITY_SERVER_SIZE_INVALID")
+    return authority
+
+def bind_runtime_arguments(authority, supplied):
+    if not isinstance(supplied, dict):
+        reject("SUPPLIED_ARGUMENTS_INVALID")
+    conversion = authority["conversion"]
+    model = authority["model"]
+    runtime = authority["runtime"]
+    expected = {
+        "conversion_exact_main": conversion["exactMainSha"],
+        "conversion_run_id": conversion["workflowRunId"],
+        "conversion_run_attempt": conversion["workflowRunAttempt"],
+        "model_revision": model["revision"],
+        "model_identity": authority["modelIdentity"],
+        "conversion_root": conversion["conversionRoot"],
+        "conversion_report_sha256": conversion["reportRawSha256"],
+        "server_sha256": runtime["serverSha256"],
+        "server_size": runtime["serverSizeBytes"],
+        "llama_commit": runtime["sourceCommit"],
+    }
+    if set(supplied) != set(expected):
+        reject("SUPPLIED_ARGUMENT_KEYS_INVALID")
+    for key, expected_value in expected.items():
+        value = supplied[key]
+        if type(value) is not type(expected_value) or value != expected_value:
+            reject("SUPPLIED_ARGUMENT_MISMATCH")
+    return expected.copy()

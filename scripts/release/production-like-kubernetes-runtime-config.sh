@@ -1,5 +1,11 @@
 FAILURE_REASON="production-like runtime configuration failed"
 
+# Preserve the disposable broker log across later outage/pod-replacement tests.
+# This runs before application producers exist; it is not a production migration.
+FAILURE_REASON="disposable Kafka storage preparation failed"
+bash scripts/release/production-like-kubernetes-kafka-storage.sh prepare
+FAILURE_REASON="production-like runtime configuration failed"
+
 # Bootstrap services exist only until migrations and the first PgBouncer
 # connectivity proof finish. Before application workloads start, PostgreSQL is
 # made headless and PgBouncer loses its compatibility port 5432. Runtime clients
