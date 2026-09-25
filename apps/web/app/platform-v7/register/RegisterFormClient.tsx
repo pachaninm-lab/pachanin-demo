@@ -76,6 +76,7 @@ type Copy = {
   waitForUpdate: string;
   login: string;
   recovery: string;
+  contactSupport: string;
   resend: string;
   resending: string;
   resendAccepted: string;
@@ -130,7 +131,7 @@ const COPY: Record<Locale, Copy> = {
     statusLoadingMessage: 'Получаем актуальный статус заявки…',
     statusUnavailableMessage: 'Сейчас не удалось получить статус заявки. Повторите попытку позднее.',
     statusInvalidMessage: 'Ссылка для проверки статуса недействительна или срок её действия истёк.',
-    submissionAccepted: 'На указанный адрес будет направлено письмо, если он может быть использован для регистрации. Если учётная запись уже существует, воспользуйтесь входом или восстановлением доступа.',
+    submissionAccepted: 'Если адрес может быть использован для регистрации, откройте ссылку из письма и подтвердите почту. После подтверждения здесь появятся проверенный статус заявки и следующий шаг. Доступ предоставляется только после проверки и одобрения заявки. Если письмо не пришло, запросите повторную отправку или обратитесь в поддержку. Если учётная запись уже существует, воспользуйтесь входом или восстановлением доступа.',
     deliveryUnconfirmed: 'Доставка письма не подтверждена. Если письма нет, запросите его повторно кнопкой ниже.',
     verifyTitle: 'Подтверждение электронной почты',
     verifyLead: 'После подтверждения адреса заявка будет направлена на проверку. Доступ к личному кабинету предоставляется только после одобрения и активации заявки.',
@@ -148,6 +149,7 @@ const COPY: Record<Locale, Copy> = {
     waitForUpdate: 'Ожидайте обновления информации по заявке.',
     login: 'Войти',
     recovery: 'Восстановить доступ',
+    contactSupport: 'Связаться с поддержкой',
     resend: 'Отправить письмо повторно',
     resending: 'Письмо отправляется…',
     resendAccepted: 'Если заявка ожидает подтверждения электронной почты, мы направим новое письмо на указанный адрес.',
@@ -233,7 +235,7 @@ const COPY: Record<Locale, Copy> = {
     statusLoadingMessage: 'Loading the current application status…',
     statusUnavailableMessage: 'The application status is currently unavailable. Try again later.',
     statusInvalidMessage: 'The status link is invalid or has expired.',
-    submissionAccepted: 'An email will be sent to the address provided if it can be used for registration. If an account already exists, use sign in or access recovery.',
+    submissionAccepted: 'If the address can be used for registration, open the link in the email and confirm your address. After confirmation, this page shows the verified application status and next step. Access is granted only after the application is reviewed and approved. If the email does not arrive, request it again or contact support. If an account already exists, use sign in or access recovery.',
     deliveryUnconfirmed: 'Email delivery has not been confirmed. If it has not arrived, request another message below.',
     verifyTitle: 'Email confirmation',
     verifyLead: 'After the email address is confirmed, the application will be sent for review. Account access is provided only after the application has been approved and activated.',
@@ -251,6 +253,7 @@ const COPY: Record<Locale, Copy> = {
     waitForUpdate: 'Wait for updated application information.',
     login: 'Sign in',
     recovery: 'Restore access',
+    contactSupport: 'Contact support',
     resend: 'Resend email',
     resending: 'Sending email…',
     resendAccepted: 'If the application is awaiting email confirmation, a new email will be sent to the address provided.',
@@ -336,7 +339,7 @@ const COPY: Record<Locale, Copy> = {
     statusLoadingMessage: '正在获取当前申请状态…',
     statusUnavailableMessage: '目前无法获取申请状态，请稍后重试。',
     statusInvalidMessage: '状态查询链接无效或已过期。',
-    submissionAccepted: '如果该电子邮箱可用于注册，我们会向该地址发送确认邮件。如果账户已存在，请直接登录或恢复访问权限。',
+    submissionAccepted: '如果该邮箱可用于注册，请打开邮件中的链接确认邮箱。确认后，此页面会显示已核实的申请状态和下一步。只有申请经过审核并获批准后才会开放访问权限。如未收到邮件，可请求重新发送或联系支持。如果账户已存在，请登录或恢复访问权限。',
     deliveryUnconfirmed: '尚未确认邮件送达。如未收到，请使用下方按钮重新发送。',
     verifyTitle: '确认电子邮箱',
     verifyLead: '确认电子邮箱后，申请将进入审核。只有在申请获批准并完成激活后，才会提供账户访问权限。',
@@ -354,6 +357,7 @@ const COPY: Record<Locale, Copy> = {
     waitForUpdate: '请等待申请信息更新。',
     login: '登录',
     recovery: '恢复访问权限',
+    contactSupport: '联系支持',
     resend: '重新发送邮件',
     resending: '正在发送邮件…',
     resendAccepted: '如果申请正在等待邮箱确认，我们会向所填地址重新发送邮件。',
@@ -695,6 +699,7 @@ export function RegisterFormClient({
           </button>
           <a className='p0-register-secondary' href='/platform-v7/login'>{copy.login}</a>
           <a className='p0-register-primary' href='/platform-v7/forgot-password'>{copy.recovery}</a>
+          <a className='p0-register-secondary' href={`/platform-v7/contact?lang=${locale}`}>{copy.contactSupport}</a>
         </div>
       </section>
     );
@@ -768,6 +773,7 @@ export function RegisterFormClient({
   return (
     <form className='p0-register-form' onSubmit={submitRegistration}>
       <p className='p0-register-required-note'>{copy.requiredNote}</p>
+      <fieldset className='p0-register-fields' disabled={submitting}>
 
       <section className='p0-register-card'>
         <div className='p0-register-section-heading'><h2>1. {copy.participationSection}</h2><p>{copy.participationLead}</p></div>
@@ -805,6 +811,7 @@ export function RegisterFormClient({
         <label><input name='acceptTerms' type='checkbox' value='yes' required /><span>{copy.acceptTerms} <a href='/platform-v7/terms' target='_blank' rel='noreferrer'>{copy.terms}</a>.</span></label>
         <label><input name='acceptPrivacy' type='checkbox' value='yes' required /><span>{copy.acceptPrivacy} <a href='/platform-v7/privacy' target='_blank' rel='noreferrer'>{copy.privacy}</a>.</span></label>
       </section>
+      </fieldset>
 
       {error ? <p className='p0-register-error' role='alert'>{error}</p> : null}
       {reference ? <p className='p0-register-correlation'><strong>{copy.reference}:</strong> {reference}</p> : null}
