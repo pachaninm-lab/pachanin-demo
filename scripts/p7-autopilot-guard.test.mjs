@@ -29,7 +29,6 @@ const productImplementationManifests = new Map([
   ['bank/deep-visible-copy-guard-20260924', 'docs/platform-v7/autopilot/scopes/bank-deep-visible-copy-guard-20260924.json'],
   ['fgis/zsn-public-document-source-lock-20260924', 'docs/platform-v7/autopilot/scopes/fgis-zsn-public-document-source-lock-20260924.json'],
   ['ux/first-customer-next-action-unknown-20260924', 'docs/platform-v7/autopilot/scopes/first-customer-next-action-unknown-20260924.json'],
-  ['fix/public-registration-participation-choice-20260923', 'docs/platform-v7/autopilot/scopes/public-registration-participation-choice-20260923.json'],
 ]);
 const productAdmissionBranch = 'governance/product-bank-fgis-ux-source-admission-20260924';
 const dealCommandImplementationBranch = 'ux/deal-command-unknown-20260925';
