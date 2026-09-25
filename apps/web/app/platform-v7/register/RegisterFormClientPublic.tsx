@@ -3,20 +3,22 @@
 import * as React from 'react';
 import { CheckCircle2, Eye, EyeOff, RefreshCw, ShieldCheck } from 'lucide-react';
 import { applyCsrfHeader } from '@/lib/csrf';
+import { registrationContextEndpoint, verifiedRegistrationContinuationHref } from '@/lib/platform-v7/public-registration-continuation';
+import {
+  classifyRegistrationStatusResponse,
+  classifyRegistrationSubmitResponse,
+  parseRegistrationStatusSnapshot,
+  registrationOperationForPayload,
+  type RegistrationStatusSnapshot,
+  type RegistrationUnknownOperation,
+} from '@/lib/platform-v7/registration-outcome';
 import { RegisterFormClient } from './RegisterFormClient';
 
 type Locale = 'ru' | 'en' | 'zh';
-type PublicWorkspace = 'seller' | 'buyer' | 'logistics' | 'bank';
+type PublicWorkspace = 'seller' | 'buyer' | 'logistics' | 'bank' | 'employee';
 type RegistrationWorkspace = 'seller' | 'buyer' | 'logistics' | 'driver' | 'elevator' | 'lab' | 'surveyor' | 'bank' | 'employee';
-type RegistrationStatus = {
-  applicationId?: string;
-  status?: string;
-  nextAction?: string;
-  reason?: string | null;
-  correlationId?: string;
-  statusToken?: string;
-  ok?: boolean;
-};
+type RegistrationStatus = RegistrationStatusSnapshot;
+type StatusReadState = 'idle' | 'loading' | 'available' | 'unavailable' | 'invalid';
 
 const STATUS_LABELS: Record<string, string> = {
   EMAIL_VERIFICATION_REQUIRED: 'Ожидается подтверждение электронной почты',
@@ -66,16 +68,20 @@ function Reference({ value }: { value: string }) {
 }
 
 function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace }: { verifyToken?: string; initialStatusToken?: string; initialWorkspace?: PublicWorkspace }) {
-  const idempotencyKey = React.useRef<string>(globalThis.crypto.randomUUID());
-  const [workspace, setWorkspace] = React.useState<RegistrationWorkspace>(initialWorkspace || 'seller');
+  const submitLockRef = React.useRef(false);
+  const confirmPasswordRef = React.useRef<HTMLInputElement>(null);
+  const unknownOperationRef = React.useRef<RegistrationUnknownOperation | null>(null);
+  const [workspace, setWorkspace] = React.useState<RegistrationWorkspace | ''>(initialWorkspace || '');
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState('');
   const [correlationId, setCorrelationId] = React.useState('');
   const [statusToken, setStatusToken] = React.useState(initialStatusToken || '');
   const [status, setStatus] = React.useState<RegistrationStatus | null>(null);
   const [statusLoading, setStatusLoading] = React.useState(Boolean(initialStatusToken));
+  const [statusReadState, setStatusReadState] = React.useState<StatusReadState>(initialStatusToken ? 'loading' : 'idle');
   const [verificationCompleted, setVerificationCompleted] = React.useState(false);
   const [submissionAccepted, setSubmissionAccepted] = React.useState(false);
+  const [deliveryUnconfirmed, setDeliveryUnconfirmed] = React.useState(false);
   const [submittedEmail, setSubmittedEmail] = React.useState('');
   const [resendMessage, setResendMessage] = React.useState('');
   const [additionalInformation, setAdditionalInformation] = React.useState('');
@@ -86,17 +92,26 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
   const loadStatus = React.useCallback(async (token: string) => {
     if (!token) return;
     setStatusLoading(true);
+    setStatusReadState('loading');
+    setStatus(null);
     setError('');
     try {
       const response = await fetch(`/api/auth/registration/status?token=${encodeURIComponent(token)}`, {
         cache: 'no-store', credentials: 'same-origin',
       });
-      const payload = await response.json().catch(() => ({} as RegistrationStatus));
-      setCorrelationId(String(payload.correlationId || ''));
-      if (!response.ok || payload.ok === false) throw new Error('status_failed');
-      setStatus(payload);
+      const payload: unknown = await response.json().catch(() => null);
+      const row = payload && typeof payload === 'object' && !Array.isArray(payload)
+        ? payload as Record<string, unknown> : null;
+      setCorrelationId(typeof row?.correlationId === 'string' ? row.correlationId : '');
+      const verdict = classifyRegistrationStatusResponse(response, payload);
+      if (verdict.kind === 'available') {
+        setStatus(verdict.status);
+        setStatusReadState('available');
+      } else {
+        setStatusReadState(verdict.kind);
+      }
     } catch {
-      setError('Сейчас не удалось обновить статус заявки. Повторите попытку позднее.');
+      setStatusReadState('unavailable');
     } finally {
       setStatusLoading(false);
     }
@@ -108,7 +123,7 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
 
   async function submitRegistration(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitting) return;
+    if (submitLockRef.current) return;
     const element = event.currentTarget;
     if (!element.checkValidity()) {
       element.reportValidity();
@@ -119,6 +134,7 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
     const password = field(form, 'password');
     if (password !== field(form, 'confirmPassword')) {
       setError('Пароли не совпадают. Введите одинаковый пароль в обоих полях.');
+      confirmPasswordRef.current?.focus();
       return;
     }
     const payload = {
@@ -140,6 +156,15 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
       acceptPrivacy: true,
       locale: 'ru',
     };
+    const serializedPayload = JSON.stringify(payload);
+    const operation = registrationOperationForPayload(
+      serializedPayload,
+      unknownOperationRef.current,
+      () => globalThis.crypto.randomUUID(),
+    );
+    submitLockRef.current = true;
+    element.dataset.registrationSubmitting = 'true';
+    window.dispatchEvent(new CustomEvent('pc-registration-pending', { detail: true }));
     setSubmitting(true);
     setError('');
     setCorrelationId('');
@@ -148,27 +173,44 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
       const timer = window.setTimeout(() => controller.abort(), 15_000);
       let response: Response;
       try {
-        response = await fetch('/api/auth/register', {
+        response = await fetch(registrationContextEndpoint('register', window.location.search, 'ru'), {
           method: 'POST',
-          headers: applyCsrfHeader({ 'Content-Type': 'application/json', 'idempotency-key': idempotencyKey.current }),
-          body: JSON.stringify(payload), cache: 'no-store', credentials: 'same-origin', signal: controller.signal,
+          headers: applyCsrfHeader({ 'Content-Type': 'application/json', 'idempotency-key': operation.idempotencyKey }),
+          body: operation.serializedPayload, cache: 'no-store', credentials: 'same-origin', signal: controller.signal,
         });
+      } catch {
+        unknownOperationRef.current = operation;
+        setError('Результат отправки пока не подтверждён. Повторная отправка без изменения данных проверит ту же операцию; если изменить данные, будет создана новая операция.');
+        return;
       } finally {
         window.clearTimeout(timer);
       }
-      const result = await response.json().catch(() => ({} as RegistrationStatus & { accepted?: boolean }));
-      setCorrelationId(String(result.correlationId || ''));
-      if (!response.ok || result.accepted !== true) {
-        if (response.status === 400) throw new Error('invalid');
-        throw new Error('unavailable');
+      const result: unknown = await response.json().catch(() => null);
+      const row = result && typeof result === 'object' && !Array.isArray(result)
+        ? result as Record<string, unknown> : null;
+      setCorrelationId(typeof row?.correlationId === 'string' ? row.correlationId : '');
+      const verdict = classifyRegistrationSubmitResponse(response, result);
+      if (verdict === 'accepted') {
+        unknownOperationRef.current = null;
+        setSubmittedEmail(payload.email);
+        setDeliveryUnconfirmed(row?.deliveryConfirmed === false);
+        window.dispatchEvent(new Event('pc-registration-accepted'));
+        setSubmissionAccepted(true);
+        return;
       }
-      setSubmittedEmail(payload.email);
-      setSubmissionAccepted(true);
-    } catch (cause) {
-      setError(cause instanceof Error && cause.message === 'invalid'
+      if (verdict === 'unknown') {
+        unknownOperationRef.current = operation;
+        setError('Результат отправки пока не подтверждён. Повторная отправка без изменения данных проверит ту же операцию; если изменить данные, будет создана новая операция.');
+        return;
+      }
+      unknownOperationRef.current = null;
+      setError(verdict === 'invalid'
         ? 'Проверьте правильность заполнения обязательных полей.'
-        : 'Сейчас не удалось отправить заявку. Данные не были приняты. Повторите попытку позднее.');
+        : 'Сейчас не удалось отправить заявку. Сервер не подтвердил её принятие. Повторите попытку позднее.');
     } finally {
+      submitLockRef.current = false;
+      delete element.dataset.registrationSubmitting;
+      window.dispatchEvent(new CustomEvent('pc-registration-pending', { detail: false }));
       setSubmitting(false);
     }
   }
@@ -177,7 +219,7 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
     if (!submittedEmail || submitting) return;
     setSubmitting(true); setError(''); setResendMessage('');
     try {
-      const response = await fetch('/api/auth/registration/resend', {
+      const response = await fetch(registrationContextEndpoint('resend', window.location.search, 'ru'), {
         method: 'POST', headers: applyCsrfHeader({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ email: submittedEmail, locale: 'ru' }), cache: 'no-store', credentials: 'same-origin', signal: AbortSignal.timeout(15_000),
       });
@@ -201,8 +243,11 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
       const result = await response.json().catch(() => ({} as RegistrationStatus));
       setCorrelationId(String(result.correlationId || ''));
       if (!response.ok || result.ok !== true || !result.statusToken) throw new Error('failed');
-      setVerificationCompleted(true); setStatusToken(result.statusToken); setStatus(result);
-      window.history.replaceState(null, '', `/platform-v7/register?statusToken=${encodeURIComponent(result.statusToken)}&lang=ru`);
+      const verifiedStatus = parseRegistrationStatusSnapshot(result);
+      if (!verifiedStatus) throw new Error('failed');
+      const continuationHref = verifiedRegistrationContinuationHref(window.location.search, result.statusToken, 'ru');
+      setVerificationCompleted(true); setStatusToken(result.statusToken); setStatus(verifiedStatus); setStatusReadState('available');
+      window.history.replaceState(null, '', continuationHref);
     } catch {
       setError('Ссылка недействительна, срок её действия истёк или она уже была использована.');
     } finally { setSubmitting(false); }
@@ -224,7 +269,13 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
       setCorrelationId(String(result.correlationId || ''));
       if (!response.ok || result.ok !== true) throw new Error('failed');
       setAdditionalInformation(''); setInformationMessage('Дополнительные сведения сохранены. Заявка снова направлена на проверку.');
-      setStatus((current) => ({ ...current, ...result, reason: null }));
+      const updated = parseRegistrationStatusSnapshot(result);
+      if (updated) {
+        setStatus(updated);
+        setStatusReadState('available');
+      } else {
+        await loadStatus(statusToken);
+      }
     } catch {
       setError('Сейчас не удалось сохранить дополнительные сведения. Повторите попытку позднее.');
     } finally { setInformationSubmitting(false); }
@@ -246,19 +297,34 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
     return <section className='p0-register-card p0-register-state' aria-labelledby='p0-register-status-title' aria-live='polite'>
       <ShieldCheck size={40} aria-hidden='true' />
       <h2 id='p0-register-status-title'>Заявка принята</h2>
-      <p>На указанный адрес будет направлено письмо, если он может быть использован для регистрации. Если учётная запись уже существует, воспользуйтесь входом или восстановлением доступа.</p>
+      <p>Если адрес может быть использован для регистрации, откройте ссылку из письма и подтвердите почту. После подтверждения здесь появятся проверенный статус заявки и следующий шаг. Доступ предоставляется только после проверки и одобрения заявки. Если письмо не пришло, запросите повторную отправку или обратитесь в поддержку. Если учётная запись уже существует, воспользуйтесь входом или восстановлением доступа.</p>
+      {deliveryUnconfirmed ? <p role='status'>Доставка письма не подтверждена. Если письма нет, запросите его повторно кнопкой ниже.</p> : null}
       {resendMessage ? <p role='status'>{resendMessage}</p> : null}{error ? <p className='p0-register-error' role='alert'>{error}</p> : null}<Reference value={reference} />
-      <div className='p0-register-actions'><button type='button' className='p0-register-primary' onClick={() => void resendEmail()} disabled={submitting}>{submitting ? 'Письмо отправляется…' : 'Отправить письмо повторно'}</button><a className='p0-register-secondary' href='/platform-v7/login'>Войти</a><a className='p0-register-secondary' href='/platform-v7/forgot-password'>Восстановить доступ</a></div>
+      <div className='p0-register-actions'><button type='button' className='p0-register-primary' onClick={() => void resendEmail()} disabled={submitting}>{submitting ? 'Письмо отправляется…' : 'Отправить письмо повторно'}</button><a className='p0-register-secondary' href='/platform-v7/login'>Войти</a><a className='p0-register-secondary' href='/platform-v7/forgot-password'>Восстановить доступ</a><a className='p0-register-secondary' href='/platform-v7/contact?lang=ru'>Связаться с поддержкой</a></div>
     </section>;
   }
 
   if (statusToken || status) {
-    const statusCode = String(status?.status || 'EMAIL_VERIFICATION_REQUIRED');
-    const nextCode = String(status?.nextAction || 'VERIFY_EMAIL');
+    if (statusReadState !== 'available' || !status) {
+      const statusMessage = statusReadState === 'loading'
+        ? 'Получаем актуальный статус заявки…'
+        : statusReadState === 'invalid'
+          ? 'Ссылка для проверки статуса недействительна или срок её действия истёк.'
+          : 'Сейчас не удалось получить статус заявки. Повторите попытку позднее.';
+      return <section className='p0-register-card p0-register-state' aria-labelledby='p0-register-status-title' aria-live='polite'>
+        <ShieldCheck size={40} aria-hidden='true' />
+        <h2 id='p0-register-status-title'>Статус регистрации</h2>
+        <p role={statusReadState === 'unavailable' ? 'alert' : 'status'}>{statusMessage}</p>
+        <Reference value={reference} />
+        {statusReadState === 'unavailable' && statusToken ? <button type='button' className='p0-register-secondary' onClick={() => void loadStatus(statusToken)} disabled={statusLoading}><RefreshCw size={17} aria-hidden='true' />{statusLoading ? '…' : 'Обновить статус'}</button> : null}
+      </section>;
+    }
+    const statusCode = status.status;
+    const nextCode = status.nextAction;
     return <section className='p0-register-card p0-register-state' aria-labelledby='p0-register-status-title' aria-live='polite'>
       {statusCode === 'ACTIVATED' ? <CheckCircle2 size={40} aria-hidden='true' /> : <ShieldCheck size={40} aria-hidden='true' />}
       <h2 id='p0-register-status-title'>Статус регистрации</h2>
-      <dl className='p0-register-status-list'><div><dt>Номер заявки</dt><dd>{status?.applicationId || '—'}</dd></div><div><dt>Статус</dt><dd>{STATUS_LABELS[statusCode] || 'Информация по заявке обновляется'}</dd></div><div><dt>Следующий шаг</dt><dd>{NEXT_LABELS[nextCode] || 'Ожидайте обновления информации по заявке.'}</dd></div>{status?.reason ? <div><dt>Комментарий по заявке</dt><dd>{status.reason}</dd></div> : null}</dl>
+      <dl className='p0-register-status-list'><div><dt>Номер заявки</dt><dd>{status.applicationId || '—'}</dd></div><div><dt>Статус</dt><dd>{STATUS_LABELS[statusCode]}</dd></div><div><dt>Следующий шаг</dt><dd>{NEXT_LABELS[nextCode]}</dd></div>{status.reason ? <div><dt>Комментарий по заявке</dt><dd>{status.reason}</dd></div> : null}</dl>
       {error ? <p className='p0-register-error' role='alert'>{error}</p> : null}{informationMessage ? <p role='status'>{informationMessage}</p> : null}<Reference value={reference} />
       {statusCode === 'ADDITIONAL_INFORMATION_REQUIRED' ? <form className='p0-register-additional-form' onSubmit={submitAdditionalInformation}><label><span>Дополнительные сведения</span><textarea value={additionalInformation} onChange={(event) => setAdditionalInformation(event.target.value)} minLength={8} maxLength={4000} placeholder='Введите сведения, которые были запрошены. Не указывайте пароль, коды подтверждения и другие секретные данные.' required disabled={informationSubmitting} /></label><button type='submit' className='p0-register-primary' disabled={informationSubmitting || additionalInformation.trim().length < 8}>{informationSubmitting ? 'Сведения отправляются…' : 'Отправить сведения'}</button></form> : null}
       <div className='p0-register-actions'><button type='button' className='p0-register-secondary' onClick={() => void loadStatus(statusToken)} disabled={statusLoading || !statusToken}><RefreshCw size={17} aria-hidden='true' />{statusLoading ? '…' : 'Обновить статус'}</button>{statusCode === 'ACTIVATED' ? <a className='p0-register-primary' href='/platform-v7/login'>Войти</a> : null}</div>
@@ -267,18 +333,48 @@ function RussianRegistration({ verifyToken, initialStatusToken, initialWorkspace
 
   return <form className='p0-register-form' onSubmit={submitRegistration}>
     <p className='p0-register-required-note'>Поля со знаком * обязательны для заполнения.</p>
-    <section className='p0-register-card'><div className='p0-register-section-heading'><h2>1. Формат участия</h2><p>Выберите предполагаемый формат участия. Права доступа и доступные действия будут определены после проверки и одобрения заявки.</p></div><div className='p0-register-grid'><label><span>Формат участия *</span><select name='workspace' aria-label='Формат участия *' value={workspace} onChange={(event) => setWorkspace(event.target.value as RegistrationWorkspace)} required>{PARTICIPATION.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label><span>Правовой статус *</span><select name='orgType' aria-label='Правовой статус *' defaultValue='LEGAL' required>{ORG_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label></div></section>
+      <fieldset className='p0-register-fields' disabled={submitting}>
+    <section className='p0-register-card'><div className='p0-register-section-heading'><h2>1. Формат участия</h2><p>Выберите предполагаемый формат участия. Права доступа и доступные действия будут определены после проверки и одобрения заявки.</p></div><div className='p0-register-grid'><label><span>Формат участия *</span><select name='workspace' aria-label='Формат участия *' value={workspace} onChange={(event) => setWorkspace(event.target.value as RegistrationWorkspace)} required><option value='' disabled>Выберите формат участия</option>{PARTICIPATION.filter(([value]) => value !== 'employee').map(([value, label]) => <option key={value} value={value}>{label}</option>)}<optgroup label='Присоединиться к организации'><option value='employee'>Сотрудник подключённой организации</option></optgroup></select></label><label><span>Правовой статус *</span><select name='orgType' aria-label='Правовой статус *' defaultValue='LEGAL' required>{ORG_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label></div></section>
 
     <section className='p0-register-card'><div className='p0-register-section-heading'><h2>2. Сведения об организации</h2><p>{workspace === 'employee' ? 'Укажите сведения существующей организации, к которой вы запрашиваете присоединение. Новая организация при этом не создаётся.' : 'Укажите сведения, по которым можно однозначно идентифицировать организацию или предпринимателя.'}</p></div><div className='p0-register-grid'><label className='p0-register-wide'><span>Наименование организации / ФИО предпринимателя *</span><input name='orgLegalName' minLength={2} maxLength={300} required autoComplete='organization' /></label><label><span>ИНН *</span><input name='orgInn' inputMode='numeric' pattern='(?:[0-9]{10}|[0-9]{12})' required aria-describedby='p0-register-inn-hint' /><small id='p0-register-inn-hint'>10 цифр для юридического лица или 12 цифр для ИП / физического лица.</small></label><label><span>КПП (при наличии)</span><input name='orgKpp' inputMode='numeric' pattern='[0-9]{9}' aria-describedby='p0-register-kpp-hint' /><small id='p0-register-kpp-hint'>9 цифр. Для ИП и самозанятых обычно не указывается.</small></label><label><span>ОГРН / ОГРНИП (при наличии)</span><input name='orgOgrn' inputMode='numeric' pattern='(?:[0-9]{13}|[0-9]{15})' aria-describedby='p0-register-ogrn-hint' /><small id='p0-register-ogrn-hint'>13 цифр для ОГРН или 15 цифр для ОГРНИП.</small></label><label><span>Регион *</span><input name='region' minLength={2} maxLength={160} required autoComplete='address-level1' /></label></div></section>
 
-    <section className='p0-register-card'><div className='p0-register-section-heading'><h2>3. Заявитель и доступ</h2><p>Укажите данные заявителя и задайте пароль для последующего входа в личный кабинет.</p></div><div className='p0-register-grid'><label><span>ФИО заявителя *</span><input name='fullName' minLength={2} maxLength={200} required autoComplete='name' /></label><label><span>Должность или статус *</span><input name='position' minLength={2} maxLength={200} required autoComplete='organization-title' /></label><label><span>Телефон *</span><input name='phone' type='tel' minLength={7} maxLength={24} pattern='\+?[0-9()\-\s]{7,24}' required autoComplete='tel' placeholder='+7 900 000-00-00' /></label><label><span>Адрес электронной почты *</span><input name='email' type='email' maxLength={254} required autoComplete='email' autoCapitalize='none' spellCheck={false} placeholder='name@company.ru' /></label><label className='p0-register-wide'><span>Пароль *</span><div className='p0-register-password-control'><input name='password' aria-label='Пароль *' type={passwordVisible ? 'text' : 'password'} minLength={12} maxLength={128} required autoComplete='new-password' aria-describedby='p0-register-password-hint' /><button type='button' className='p0-register-password-toggle' onClick={() => setPasswordVisible((value) => !value)} aria-label={passwordVisible ? 'Скрыть пароль' : 'Показать пароль'} title={passwordVisible ? 'Скрыть пароль' : 'Показать пароль'}>{passwordVisible ? <EyeOff size={18} aria-hidden='true' /> : <Eye size={18} aria-hidden='true' />}</button></div><small id='p0-register-password-hint'>12–128 символов. Используйте как минимум три группы: строчные буквы, прописные буквы, цифры, специальные знаки. Не используйте очевидные последовательности.</small></label><label className='p0-register-wide'><span>Повторите пароль *</span><input name='confirmPassword' type={passwordVisible ? 'text' : 'password'} minLength={12} maxLength={128} required autoComplete='new-password' /></label></div></section>
+    <section className='p0-register-card'><div className='p0-register-section-heading'><h2>3. Заявитель и доступ</h2><p>Укажите данные заявителя и задайте пароль для последующего входа в личный кабинет.</p></div><div className='p0-register-grid'><label><span>ФИО заявителя *</span><input name='fullName' minLength={2} maxLength={200} required autoComplete='name' /></label><label><span>Должность или статус *</span><input name='position' minLength={2} maxLength={200} required autoComplete='organization-title' /></label><label><span>Телефон *</span><input name='phone' type='tel' minLength={7} maxLength={24} pattern='\+?[0-9()\-\s]{7,24}' required autoComplete='tel' placeholder='+7 900 000-00-00' /></label><label><span>Адрес электронной почты *</span><input name='email' type='email' maxLength={254} required autoComplete='email' autoCapitalize='none' spellCheck={false} placeholder='name@company.ru' /></label><label className='p0-register-wide'><span>Пароль *</span><div className='p0-register-password-control'><input name='password' aria-label='Пароль *' type={passwordVisible ? 'text' : 'password'} minLength={12} maxLength={128} required autoComplete='new-password' aria-describedby='p0-register-password-hint' onChange={() => { if (error === 'Пароли не совпадают. Введите одинаковый пароль в обоих полях.') setError(''); }} /><button type='button' className='p0-register-password-toggle' onClick={() => setPasswordVisible((value) => !value)} aria-label={passwordVisible ? 'Скрыть пароль' : 'Показать пароль'} title={passwordVisible ? 'Скрыть пароль' : 'Показать пароль'}>{passwordVisible ? <EyeOff size={18} aria-hidden='true' /> : <Eye size={18} aria-hidden='true' />}</button></div><small id='p0-register-password-hint'>12–128 символов. Используйте как минимум три группы: строчные буквы, прописные буквы, цифры, специальные знаки. Не используйте очевидные последовательности.</small></label><label className='p0-register-wide'><span>Повторите пароль *</span><input ref={confirmPasswordRef} name='confirmPassword' type={passwordVisible ? 'text' : 'password'} minLength={12} maxLength={128} required autoComplete='new-password' aria-invalid={error === 'Пароли не совпадают. Введите одинаковый пароль в обоих полях.'} aria-describedby={error === 'Пароли не совпадают. Введите одинаковый пароль в обоих полях.' ? 'p0-register-confirm-error' : undefined} onChange={() => { if (error === 'Пароли не совпадают. Введите одинаковый пароль в обоих полях.') setError(''); }} />{error === 'Пароли не совпадают. Введите одинаковый пароль в обоих полях.' ? <small id='p0-register-confirm-error' className='p0-register-error'>{error}</small> : null}</label></div></section>
 
     <section className='p0-register-card p0-register-consents'><div className='p0-register-section-heading'><h2>4. Подтверждение условий</h2><p>Перед отправкой проверьте сведения. Они будут использованы для рассмотрения заявки и предоставления доступа.</p></div><label><input name='acceptTerms' type='checkbox' value='yes' required /><span>Я принимаю условия <a href='/platform-v7/terms' target='_blank' rel='noreferrer'>Пользовательского соглашения</a>.</span></label><label><input name='acceptPrivacy' type='checkbox' value='yes' required /><span>Я ознакомлен(а) с <a href='/platform-v7/privacy' target='_blank' rel='noreferrer'>Политикой обработки персональных данных</a>.</span></label></section>
+      </fieldset>
 
     {error ? <p className='p0-register-error' role='alert'>{error}</p> : null}
     <button className='p0-register-primary p0-register-submit' type='submit' disabled={submitting} aria-busy={submitting}>{submitting ? 'Заявка отправляется…' : 'Отправить заявку на регистрацию'}</button>
     <div className='p0-register-help-links'><a href='/platform-v7/login'>Войти</a><a href='/platform-v7/forgot-password'>Восстановить доступ</a></div>
   </form>;
+}
+
+/** Select the employee path in place so entered data and market context remain intact. */
+export function EmployeeParticipationEntry({ label }: { label: string }) {
+  const [pending, setPending] = React.useState(false);
+  const [accepted, setAccepted] = React.useState(false);
+  React.useEffect(() => {
+    const onPending = (event: Event) => setPending((event as CustomEvent<boolean>).detail === true);
+    const onAccepted = () => setAccepted(true);
+    window.addEventListener('pc-registration-pending', onPending);
+    window.addEventListener('pc-registration-accepted', onAccepted);
+    const form = document.querySelector<HTMLFormElement>('form.p0-register-form');
+    setPending(form?.dataset.registrationSubmitting === 'true' ||
+      Boolean(form?.querySelector<HTMLFieldSetElement>('fieldset.p0-register-fields')?.disabled));
+    return () => {
+      window.removeEventListener('pc-registration-pending', onPending);
+      window.removeEventListener('pc-registration-accepted', onAccepted);
+    };
+  }, []);
+  return <button type='button' className='p0-register-secondary' disabled={pending || accepted} aria-busy={pending} onClick={() => {
+    const form = document.querySelector<HTMLFormElement>('form.p0-register-form');
+    const select = form?.querySelector<HTMLSelectElement>('select[name="workspace"]');
+    if (!select || pending || accepted || form?.dataset.registrationSubmitting === 'true' ||
+      select.disabled || select.closest('fieldset')?.disabled) return;
+    select.value = 'employee';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    select.focus();
+  }}>{label}</button>;
 }
 
 export function RegisterFormClientPublic(props: { locale: Locale; verifyToken?: string; initialStatusToken?: string; initialWorkspace?: PublicWorkspace }) {
