@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-recovery-dirty-guard-20260923",
+  "status": "active",
+  "approvedBy": "owner-public-ux-repair-v2.0-2026-09-23",
+  "purpose": "UX-05: preserve unsaved recovery and reset form entries when public navigation is cancelled, without storing credentials.",
+  "ownerSpecification": "Прозрачная Цена — инженерное ТЗ быстрого UX-ремонта v2.0, 23.09.2026, UX-05.",
+  "coordination": "Current main 2365c9b38cbb366cda628904d4f11da4cb4afff9. Root cause in PublicHeaderInteractions: early return when recovery PublicSiteHeader has no mobile menu, so dirty-state listeners never mount. Separate effect is limited to /platform-v7/forgot-password. Potential same-file and acceptance-config integration with #5541/#5542 must be forward-synced after their merge.",
+  "allowedPaths": [
+    "apps/web/components/platform-v7/PublicHeaderInteractions.tsx",
+    "apps/web/playwright.acceptance.config.ts",
+    "apps/web/tests/e2e/platform-v7-recovery-dirty-guard.spec.ts",
+    "docs/platform-v7/autopilot/scopes/public-recovery-dirty-guard-20260923.json"
+  ],
+  "requiredInvariants": [
+    "No form value, token or password is persisted to storage, logs or URL by the guard.",
+    "Cancelled same-tab navigation from a dirty recovery form retains both entered passwords or the email address.",
+    "Confirmed navigation is allowed without duplicate custom prompts; direct reload/Back uses the browser's native beforeunload guard.",
+    "No change to reset/recovery API, token authority, password policy, submission semantics or auth roles.",
+    "Existing acceptance selections and thresholds remain; additive RU/EN/ZH and 320/390/1280 browser checks.",
+    "Contact and registration form navigation policy is unaffected.",
+    "UX-04 shared shell/header/bottom navigation remains a distinct acceptance item."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

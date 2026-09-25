@@ -5,6 +5,7 @@ import { PublicDealExplorer } from '@/components/platform-v7/PublicDealExplorer'
 import { PublicExperienceIcon } from '@/components/platform-v7/PublicExperienceIcon';
 import type { PublicProductExperienceCopy } from '@/i18n/public-product-experience-v3';
 import { getPublicProductExperienceV4Copy } from '@/i18n/public-product-experience-v4';
+import { usePublicGektaEntry } from '@/lib/platform-v7/public-gekta-open';
 import {
   DEAL_JOURNEY_INTENTS,
   getPublicDealJourneyV5Copy,
@@ -133,6 +134,12 @@ function stageIcon(stage: TourStage) {
   return 'execution';
 }
 
+const GEKTA_ENTRY_COPY = {
+  ru: { opening: 'Открываем Гекту…', failed: 'Гекта не загрузилась.', reload: 'Обновить страницу' },
+  en: { opening: 'Opening Gekta…', failed: 'Gekta did not load.', reload: 'Reload the page' },
+  zh: { opening: '正在打开 Gekta…', failed: 'Gekta 未能加载。', reload: '刷新页面' },
+} as const;
+
 export function PublicDealExplorerV4({ copy, locale, initialState }: {
   copy: PublicProductExperienceCopy;
   locale: string;
@@ -145,6 +152,8 @@ export function PublicDealExplorerV4({ copy, locale, initialState }: {
   const registerHref = `/platform-v7/register?lang=${encodeURIComponent(normalizedLocale)}`;
   const normalizedState = useMemo<TourState>(() => normalizePublicBusinessState(initialState), [initialState]);
   const [historyState, setHistoryState] = useState<TourState>(normalizedState);
+  const gekta = usePublicGektaEntry();
+  const [taiPrompt, setTaiPrompt] = useState<string | null>(null);
   const [historyRevision, setHistoryRevision] = useState(0);
   const [guideMode, setGuideMode] = useState<GuideMode>('idle');
   const [journeyMode, setJourneyMode] = useState<JourneyMode>('quick');
@@ -326,10 +335,11 @@ export function PublicDealExplorerV4({ copy, locale, initialState }: {
     emitGuideEvent('guided_tour_started', locale, first);
   };
 
-  const openTai = (selectedPrompt: string) => {
+  const openTai = (selectedPrompt: string, opener: HTMLElement) => {
     const prompts = journey.taiPrompts[historyState.stage];
     const ordered = [selectedPrompt, ...prompts.filter((prompt) => prompt !== selectedPrompt)];
-    window.dispatchEvent(new CustomEvent('pc:public-assistant-context', { detail: { context: `deal-${historyState.stage}`, prompts: ordered } }));
+    setTaiPrompt(selectedPrompt);
+    gekta.open({ source: 'public_deal_explorer', context: `deal-${historyState.stage}`, prompts: ordered, draft: selectedPrompt, opener });
     window.dispatchEvent(new CustomEvent('pc:public-product-analytics', { detail: { name: 'tai_stage_prompt_opened', locale, perspective: historyState.perspective, stage: historyState.stage, scenario: historyState.scenario, source: 'public_v5_quick_journey' } }));
   };
 
@@ -427,7 +437,9 @@ export function PublicDealExplorerV4({ copy, locale, initialState }: {
                 <div className='pc-ppe-v5-next'><span>{journey.labels.next}</span><strong>{nextStageKey ? adaptedCopy.explorer.stages[nextStageKey].label : journey.labels.completeTitle}</strong></div>
                 <div className='pc-ppe-v5-tai'>
                   <div className='pc-ppe-v5-tai-head'><PublicExperienceIcon name='intelligence' size={20} /><strong>{journey.labels.askTai}</strong></div>
-                  <div className='pc-ppe-v5-tai-prompts'>{journey.taiPrompts[historyState.stage].map((prompt) => <button key={prompt} type='button' className='pc-ppe-v5-tai-button' onClick={() => openTai(prompt)}>{prompt}</button>)}</div>
+                  <div className='pc-ppe-v5-tai-prompts'>{journey.taiPrompts[historyState.stage].map((prompt) => <button key={prompt} type='button' className='pc-ppe-v5-tai-button' aria-busy={(gekta.state === 'opening' && taiPrompt === prompt) || undefined} data-gekta-open-state={taiPrompt === prompt ? gekta.state : 'idle'} onClick={(event) => openTai(prompt, event.currentTarget)}>{prompt}</button>)}</div>
+                  {gekta.state === 'opening' ? <p className='pc-ppe-v5-tai-status' role='status'>{GEKTA_ENTRY_COPY[normalizedLocale].opening}</p> : null}
+                  {gekta.state === 'failed' ? <p className='pc-ppe-v5-tai-status' role='alert'>{GEKTA_ENTRY_COPY[normalizedLocale].failed} <button type='button' className='pc-ppe-v5-tai-button' onClick={() => window.location.reload()}>{GEKTA_ENTRY_COPY[normalizedLocale].reload}</button></p> : null}
                 </div>
                 <div className='pc-ppe-v5-stage-nav'>
                   <button type='button' className='secondary' disabled={currentStageIndex === 0} onClick={() => selectStage(TOUR_STAGES[Math.max(0, currentStageIndex - 1)] ?? 'terms')}>{journey.labels.previous}</button>
