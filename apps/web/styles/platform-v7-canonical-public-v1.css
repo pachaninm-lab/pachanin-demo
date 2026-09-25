@@ -1525,6 +1525,29 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
 .pc-cp-page-how .pc-cp-stage strong{font-size:12px!important;line-height:1.3!important}
 .pc-cp-page-how .pc-cp-process-meta span{font-size:11px!important;line-height:1.3!important}
 .pc-cp-page-how .pc-cp-process-meta strong{font-size:12px!important;line-height:1.4!important}
+
+.pc-cp-page-how .pc-cp-process-body{min-width:0;display:grid;align-content:start;gap:8px}
+.pc-cp-page-how .pc-cp-process-result{margin:0;display:grid;gap:3px;min-width:0}
+.pc-cp-page-how .pc-cp-process-result span{color:var(--pc-cp-muted);font-size:11px!important;line-height:1.3!important}
+.pc-cp-page-how .pc-cp-process-result strong{font-size:13px!important;line-height:1.4!important;font-weight:760}
+.pc-cp-page-how .pc-cp-process-details{min-width:0;margin-top:2px;border-top:1px solid var(--pc-cp-line)}
+.pc-cp-page-how .pc-cp-process-details>summary{
+  min-height:44px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  cursor:pointer;
+  color:var(--pc-cp-green);
+  font-size:13px!important;
+  line-height:1.35!important;
+  font-weight:760;
+  list-style:none;
+}
+.pc-cp-page-how .pc-cp-process-details>summary::-webkit-details-marker{display:none}
+.pc-cp-page-how .pc-cp-process-details>summary::after{content:'+';font-size:18px;line-height:1}
+.pc-cp-page-how .pc-cp-process-details[open]>summary::after{content:'−'}
+.pc-cp-page-how .pc-cp-process-details .pc-cp-process-meta{margin-top:4px}
 .pc-cp-page-how .pc-cp-trust-card p,
 .pc-cp-how-gekta-note p{font-size:13px!important;line-height:1.45!important}
 .pc-cp-how-hero-quote span{font-size:12px!important;line-height:1.4!important}
@@ -1597,7 +1620,9 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
   .pc-cp-page-how .pc-cp-process-cards{grid-template-columns:1fr!important;gap:10px!important}
   .pc-cp-page-how .pc-cp-process-card{min-height:0!important;padding:14px!important}
   .pc-cp-page-how .pc-cp-process-card h3{font-size:18px!important;line-height:1.2!important}
-  .pc-cp-page-how .pc-cp-process-meta{grid-template-columns:1fr 1fr!important;gap:7px!important}
+  .pc-cp-page-how .pc-cp-process-meta{grid-template-columns:1fr!important;gap:7px!important}
+  .pc-cp-page-how .pc-cp-process-body{min-width:0}
+  .pc-cp-page-how .pc-cp-process-details{grid-column:1/-1}
   .pc-cp-page-how .pc-cp-process-meta span{font-size:12px!important}
   .pc-cp-page-how .pc-cp-process-meta strong{font-size:13px!important}
 
