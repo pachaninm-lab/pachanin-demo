@@ -1586,6 +1586,13 @@
     "ux/deal-command-unknown-20260925": [
       "apps/web/components/platform-v7/CanonicalDealWorkspace.tsx",
       "apps/web/tests/unit/platformV7CanonicalDealWorkspace.test.ts"
+    ],
+    "ux/buyer-first-customer-home-20260925": [
+      "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
+      "apps/web/components/platform-v7/FirstCustomerWorkspace.module.css",
+      "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
+      "apps/web/tests/unit/platformV7BuyerFirstCustomerUx.test.tsx",
+      "docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json"
     ]
   },
   "currentAcceptance": [
@@ -2005,6 +2012,31 @@
         "CI/security gate weakening"
       ],
       "teamHubDependency": "#5596; #5598; Team Hub #5469"
+    },
+    "ux-buyer-first-customer-home-20260925-coordination": {
+      "owner": "ACCOUNT_2_PRODUCT",
+      "purpose": "Buyer first-customer production-home information architecture and visual hierarchy from existing scoped server facts; one vertical after seller, not full 13-role acceptance.",
+      "authorityBaseExactMain": "5a50e27405d9af415e192f6d731adf80dffa9701",
+      "implementationBranch": "ux/buyer-first-customer-home-20260925",
+      "allowedPaths": [
+        "apps/web/components/platform-v7/FirstCustomerWorkspace.tsx",
+        "apps/web/components/platform-v7/FirstCustomerWorkspace.module.css",
+        "apps/web/tests/unit/designSystemV8MoneyRoles.test.ts",
+        "apps/web/tests/unit/platformV7BuyerFirstCustomerUx.test.tsx",
+        "docs/platform-v7/autopilot/scopes/buyer-first-customer-home-20260925.json"
+      ],
+      "requiredTruthBoundaries": [
+        "Buyer shows only server-scoped organization, identity and Deal queue facts; list recency never becomes required next action, amount or deadline.",
+        "UNKNOWN next action, empty, forbidden and degraded remain explicit; no demo/static deal or fake bank/provider/FGIS status.",
+        "RU/EN/ZH, mobile, focus and seller plus other six role regressions stay covered; owner-controlled showroom does not gain customer authority.",
+        "Buyer source changes start only after the accepted immutable guard prerequisite and this state-only admission are merged."
+      ],
+      "forbiddenAuthority": [
+        "homepage/public implementation or parallel App Shell/design system",
+        "API/backend/domain/DB/RLS/tenant/role/priority or money/provider/FGIS finality",
+        "CI/security/readiness gate weakening"
+      ],
+      "teamHubDependency": "#5372 inventory comment 5833248230; #5604 guard prerequisite; PUBLIC #5559 main serialization; #5535 CORE next-action dependency"
     }
   }
 }
