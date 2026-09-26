@@ -11,7 +11,7 @@ import {
   ShieldCheck,
   TriangleAlert,
 } from 'lucide-react';
-import { Button, InlineNotice, StatusChip, Surface } from '@pc/design-system-v8';
+import { Button, InlineNotice, StatusChip, Surface } from '../../../../packages/design-system-v8/src';
 import {
   collectIntegrationControlTowerPages,
   parseIntegrationControlTowerRecord,

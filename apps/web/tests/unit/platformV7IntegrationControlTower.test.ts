@@ -8,6 +8,17 @@ import { canRoleAccessCabinet } from '@/lib/platform-v7/cabinet-access-policy';
 import { isDesignSystemV8Route } from '@/lib/platform-v7/design-system-v8-route-policy';
 import { PLATFORM_V7_INTEGRATIONS_ROUTE } from '@/lib/platform-v7/routes';
 
+vi.mock('../../../../packages/design-system-v8/src', async () => {
+  const React = await import('react');
+  return {
+    Button: ({ children, variant: _variant, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: string }) => React.createElement('button', props, children),
+    Surface: ({ children, variant: _variant, padded: _padded, ...props }: React.HTMLAttributes<HTMLDivElement> & { variant?: string; padded?: boolean }) => React.createElement('div', props, children),
+    InlineNotice: ({ children, title, tone, icon: _icon }: { children?: React.ReactNode; title: string; tone?: string; icon?: React.ReactNode }) =>
+      React.createElement('div', { role: tone === 'critical' ? 'alert' : undefined }, title, children),
+    StatusChip: ({ children }: { children?: React.ReactNode }) => React.createElement('span', null, children),
+  };
+});
+
 const root = process.cwd();
 const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'utf8');
 const exists = (relative: string) => fs.existsSync(path.join(root, relative));
@@ -228,14 +239,14 @@ describe('Integration Control Tower command outcome in the mounted screen', () =
     render(React.createElement(IntegrationControlTowerClient, { locale: 'ru', csrfToken: 'test-csrf' }));
     await submitReconcile();
 
-    expect(await screen.findByText('Исход команды не подтверждён')).toBeInTheDocument();
+    expect(await screen.findByText(/Исход команды не подтверждён/)).toBeInTheDocument();
     const warning = document.querySelector('[data-command-outcome="UNKNOWN"]');
     expect(warning).toHaveTextContent('Command ID');
     expect(warning).toHaveTextContent('Correlation ID');
     expect(screen.getByRole('button', { name: 'Запустить сверку' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Обновить' }));
     await waitFor(() => expect(fetchMock.mock.calls.filter(([, options]) => options?.method !== 'POST')).toHaveLength(4));
-    expect(screen.getByText('Исход команды не подтверждён')).toBeInTheDocument();
+    expect(screen.getByText(/Исход команды не подтверждён/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Запустить сверку' })).toBeDisabled();
     expect(fetchMock.mock.calls.filter(([, options]) => options?.method === 'POST')).toHaveLength(1);
   });
@@ -264,7 +275,7 @@ describe('Integration Control Tower command outcome in the mounted screen', () =
     expect(await screen.findByText('read failed after server receipt')).toBeInTheDocument();
     expect(screen.getByText(/Сервер подтвердил запись команды в audit\/outbox/)).toBeInTheDocument();
     expect(screen.getByText(/Это не подтверждает обработку внешней системой/)).toBeInTheDocument();
-    expect(screen.queryByText('Исход команды не подтверждён')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Исход команды не подтверждён/)).not.toBeInTheDocument();
     expect(fetchMock.mock.calls.filter(([, options]) => options?.method === 'POST')).toHaveLength(1);
   });
 });
