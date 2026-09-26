@@ -58,6 +58,8 @@ jobs:
             'PC_PROD_SSH_HOST_FINGERPRINT',
             'SOURCE_AUTHORITY_CLASS',
             'RUNTIME_PROJECTION_CLASS',
+            'SOURCE_REBASED_CONNECT_CLASS',
+            'PROJECTION_REBASED_CONNECT_CLASS',
             'MIGRATION_AUTHORITY_CLASS',
             'PREDICTED_BOOTSTRAP_PATH',
             'PRODUCTION_MUTATION=NONE',
@@ -282,6 +284,80 @@ jobs:
           fi
           emit RUNTIME_PROJECTION_CLASS "$projection_class"
 
+          probe_rebased_credential() {
+            local candidate="$1" candidate_class="$2" label="$3" rebased="$tmp/rebased-$label" result_file="$tmp/rebased-$label.result"
+            if [[ "$candidate_class" != 'VALID_STALE' && "$candidate_class" != 'VALID_PARITY' ]]; then
+              printf 'NOT_RUN'
+              return 0
+            fi
+            if ! python3 - "$candidate" "$api_auth" > "$rebased" <<'PY'
+          import sys
+          from urllib.parse import quote, unquote, urlsplit, urlunsplit
+          worker=urlsplit(open(sys.argv[1],encoding='utf-8').read().strip())
+          api=urlsplit(open(sys.argv[2],encoding='utf-8').read().strip())
+          if worker.scheme not in ('postgres','postgresql') or worker.username!='pc_auth_mail_runtime' or not worker.password:
+              raise SystemExit(1)
+          if api.scheme not in ('postgres','postgresql') or not api.hostname or not api.path.strip('/'):
+              raise SystemExit(1)
+          user=quote(unquote(worker.username or ''),safe='')
+          password=quote(unquote(worker.password or ''),safe='')
+          host=api.hostname or ''
+          if ':' in host and not host.startswith('['):
+              host=f'[{host}]'
+          if api.port:
+              host=f'{host}:{api.port}'
+          print(urlunsplit((api.scheme,f'{user}:{password}@{host}',api.path,api.query,'')))
+          PY
+            then
+              printf 'CANDIDATE_INVALID'
+              return 0
+            fi
+            chmod 0600 "$rebased"
+            set +e
+            cat "$rebased" | docker exec -i "$api_id" /nodejs/bin/node -e '
+              const fs=require("fs");
+              const {PrismaClient}=require("@prisma/client");
+              const url=fs.readFileSync(0,"utf8").trim();
+              const p=new PrismaClient({datasources:{db:{url}},log:[]});
+              const out=(v)=>process.stdout.write(String(v)+"\n");
+              const classify=(e)=>{
+                const m=String(e?.message||"");
+                if(/authentication failed|password/i.test(m)) return "AUTH_FAILED";
+                if(/can.t reach|connection refused|timed out|timeout/i.test(m)) return "NETWORK_FAILED";
+                if(/does not exist/i.test(m)) return "DATABASE_OR_ROLE_MISSING";
+                if(/ssl|tls|certificate/i.test(m)) return "TLS_FAILED";
+                return "OTHER_FAILURE";
+              };
+              (async()=>{
+                try {
+                  await p.$connect();
+                  const rows=await p.$queryRawUnsafe("SELECT current_user");
+                  out(rows?.[0]?.current_user==="pc_auth_mail_runtime" ? "PASS" : "WRONG_PRINCIPAL");
+                } catch(e) {
+                  out(classify(e));
+                } finally {
+                  await p.$disconnect().catch(()=>{});
+                }
+              })();
+            ' > "$result_file" 2>/dev/null
+            local rc=$?
+            set -e
+            rm -f -- "$rebased"
+            if (( rc != 0 )); then
+              printf 'NO_SAFE_RESULT'
+              return 0
+            fi
+            local value
+            value="$(sed -nE '/^(PASS|WRONG_PRINCIPAL|AUTH_FAILED|NETWORK_FAILED|DATABASE_OR_ROLE_MISSING|TLS_FAILED|OTHER_FAILURE)$/p' "$result_file" | head -1)"
+            [[ -n "$value" ]] || value='NO_SAFE_RESULT'
+            printf '%s' "$value"
+          }
+
+          source_rebased_connect="$(probe_rebased_credential "$source_file" "$source_class" source)"
+          projection_rebased_connect="$(probe_rebased_credential "$projection_file" "$projection_class" projection)"
+          emit SOURCE_REBASED_CONNECT_CLASS "$source_rebased_connect"
+          emit PROJECTION_REBASED_CONNECT_CLASS "$projection_rebased_connect"
+
           IFS=',' read -r -a raw_compose_files <<< "$config_files"
           compose_files=()
           for raw_file in "${raw_compose_files[@]}"; do
@@ -353,7 +429,7 @@ jobs:
           REMOTE
           rc=$?
           set -e
-          sed -nE '/^(DEPLOYED_REVISION|API_AUTHORITY_CLASS|SOURCE_AUTHORITY_CLASS|RUNTIME_PROJECTION_CLASS|MIGRATION_AUTHORITY_CLASS|PROJECTION_RECOVERY_CANDIDATE|PREDICTED_BOOTSTRAP_PATH|DIAGNOSTIC_RESULT|SAFE_ERROR|PRODUCTION_MUTATION|SECRETS_PUBLISHED)=[A-Za-z0-9_.:-]{1,160}$/p' "$raw" > "$clean"
+          sed -nE '/^(DEPLOYED_REVISION|API_AUTHORITY_CLASS|SOURCE_AUTHORITY_CLASS|RUNTIME_PROJECTION_CLASS|SOURCE_REBASED_CONNECT_CLASS|PROJECTION_REBASED_CONNECT_CLASS|MIGRATION_AUTHORITY_CLASS|PROJECTION_RECOVERY_CANDIDATE|PREDICTED_BOOTSTRAP_PATH|DIAGNOSTIC_RESULT|SAFE_ERROR|PRODUCTION_MUTATION|SECRETS_PUBLISHED)=[A-Za-z0-9_.:-]{1,160}$/p' "$raw" > "$clean"
           rm -f "$raw"
           cat "$clean"
           echo "rc=$rc" >> "$GITHUB_OUTPUT"
@@ -390,6 +466,8 @@ jobs:
           API_AUTHORITY_CLASS: ${{ steps.classify.outputs.api_authority_class }}
           SOURCE_AUTHORITY_CLASS: ${{ steps.classify.outputs.source_authority_class }}
           RUNTIME_PROJECTION_CLASS: ${{ steps.classify.outputs.runtime_projection_class }}
+          SOURCE_REBASED_CONNECT_CLASS: ${{ steps.classify.outputs.source_rebased_connect_class }}
+          PROJECTION_REBASED_CONNECT_CLASS: ${{ steps.classify.outputs.projection_rebased_connect_class }}
           MIGRATION_AUTHORITY_CLASS: ${{ steps.classify.outputs.migration_authority_class }}
           PROJECTION_RECOVERY_CANDIDATE: ${{ steps.classify.outputs.projection_recovery_candidate }}
           PREDICTED_BOOTSTRAP_PATH: ${{ steps.classify.outputs.predicted_bootstrap_path }}
