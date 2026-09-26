@@ -22,6 +22,7 @@ describe('platform-v7 mobile trust readability and Gekta return', () => {
     expect(dock).toContain(".pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta']");
     expect(dock).toContain('display: grid !important;');
     expect(dock).toContain("bottom: max(78px, calc(env(safe-area-inset-bottom, 0px) + 76px)) !important;");
+    expect(dock).toContain("body:has(.pc-site-mobile-menu[open]) .pc-public-contact-dock[data-assistant-context='public']");
   });
 
 
@@ -44,6 +45,8 @@ describe('platform-v7 mobile trust readability and Gekta return', () => {
     expect(designSystem).not.toContain("if (width <= 760) await expect(publicDock).toBeHidden()");
     expect(designSystem).toContain('await expect(assistantTarget).toBeVisible()');
     expect(designSystem).toContain('expect(assistantBox!.height).toBeGreaterThanOrEqual(44)');
+    expect(designSystem).toContain('await expect(floatingPublicDock).toBeHidden()');
+    expect(designSystem).toContain('await expect(floatingPublicDock).toBeVisible()');
     expect(intelligence).toContain(".pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta']");
     expect(intelligence).toContain('if (item.width <= 1100)');
     expect(visual).toContain(".pc-public-contact-dock[data-assistant-context='public']");

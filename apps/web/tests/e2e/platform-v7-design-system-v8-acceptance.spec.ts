@@ -447,9 +447,11 @@ for (const locale of ['ru', 'en', 'zh'] as const) {
         }
         const toggle = header.locator('summary');
         if (await toggle.isVisible()) {
+          const floatingPublicDock = page.locator('.pc-public-contact-dock[data-assistant-context="public"]');
           await toggle.focus(); await toggle.press('Enter');
           await expect(header.locator('details')).toHaveAttribute('open', '');
           await expect(header.locator('.pc-site-mobile-nav')).toBeVisible();
+          if (await floatingPublicDock.count()) await expect(floatingPublicDock).toBeHidden();
           if (route !== 'gekta') {
             const chatEntry = header.locator('.pc-site-mobile-nav [data-gekta-chat-entry="true"]');
             await expect(chatEntry).toBeVisible();
@@ -461,6 +463,7 @@ for (const locale of ['ru', 'en', 'zh'] as const) {
           }
           await toggle.press('Enter');
           await expect(header.locator('details')).not.toHaveAttribute('open', '');
+          if (width <= 760 && await floatingPublicDock.count()) await expect(floatingPublicDock).toBeVisible();
         }
         if (route !== 'gekta' && width <= 760) await expectUnobscuredPublicBottomNav(page);
         await expectNoHorizontalOverflow(page);
