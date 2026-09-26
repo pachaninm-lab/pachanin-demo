@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "fix/public-market-prisma-integer-binding-20260926",
+  "status": "active",
+  "authorizedBy": "explicit-user-finish-public-ux-release-20260926",
+  "purpose": "Repair the exact production Public Market HTTP 500 proven on deployed main 45343a799c6a8b0753ce5d29b77de9a3e30ef67e. Read-only production A/B diagnostics proved the literal PostgreSQL call auction.list_public_market_lot_cards(7) succeeds with a valid empty projection while the current Prisma tagged parameter call fails with SQLSTATE 42883 because Prisma binds the JavaScript integer as PostgreSQL bigint against the canonical integer function signature. Bind the existing bounded page-size parameter explicitly as integer without changing schema, RLS, API shape, rate limits, projection semantics, Web behavior or production topology.",
+  "authorityBaseExactMain": "45343a799c6a8b0753ce5d29b77de9a3e30ef67e",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "apps/api/src/modules/auctions/public-auction-market.service.ts",
+    "apps/api/src/modules/auctions/public-auction-market.spec.ts",
+    "docs/platform-v7/autopilot/scopes/public-market-prisma-integer-binding-20260926.json"
+  ],
+  "requiredInvariants": [
+    "The canonical PostgreSQL reader remains auction.list_public_market_lot_cards(integer); no migration, schema, RLS, role, grant or projection change is authorized.",
+    "The public market remains anonymous, rate-limited, fail-closed, bounded to six returned lots plus one lookahead row, PostgreSQL-authoritative and seller-identity-redacted.",
+    "The fix changes only the SQL parameter type binding from Prisma bigint inference to explicit PostgreSQL integer for the existing constant bounded limit.",
+    "No Web, Caddy, trusted-proxy, auth, tenant, money, deal, outbox, IR-20, mail, Kubernetes or public UX source may change.",
+    "Production diagnosis and PR CI remain read-only; deployment occurs only after exact-head review, fresh required gates and normal merge/release authority."
+  ],
+  "acceptance": [
+    "Exact-head unit contract proves the source calls auction.list_public_market_lot_cards(${PUBLIC_MARKET_LIMIT + 1}::integer) and keeps one PostgreSQL statement with the same single parameter value 7.",
+    "Fresh exact-head CI/security/governance gates are terminal green with zero unresolved review threads and complete-diff independent review P0/P1/P2=0/0/0.",
+    "After exact-SHA merge, REG.RU full-stack release proves API/Web/outbox exact revision, durable intake, PostgreSQL/audit/outbox and IR-20 observation.",
+    "Auth-mail cutover remains PASS on the same exact deployed SHA.",
+    "Production Mobile Acceptance passes Chromium + WebKit with exact public revision and Market RU/EN/ZH no longer unavailable before PUBLIC_EXPERIENCE_V1_FROZEN / FULL_SCOPE_ACCEPTED is recorded."
+  ]
+}
