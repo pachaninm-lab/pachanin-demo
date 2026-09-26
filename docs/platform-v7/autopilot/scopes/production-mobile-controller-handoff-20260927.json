@@ -17,7 +17,7 @@
     "A platform-v7 safe merge workflow_run is accepted only when its source event is issue_comment, actor and triggering actor are the repository owner, the run concluded success, and all seven production controller/full-stack/auth-mail/reviewer jobs exist exactly once and concluded success.",
     "The mobile target remains the exact source controller head SHA when no accepted web-release SHA exists.",
     "Fresh live manifest must equal the exact target SHA before browser execution.",
-    "Chromium + WebKit coverage, configured mobile viewports, retries=0, Market unavailable checks, linked public pages and Gekta/Trust runtime assertions remain unchanged.",
+    "Chromium + WebKit coverage, configured mobile viewports, retries=0, Market unavailable checks, linked public pages and existing Gekta/Trust runtime assertions remain unchanged; both engines additionally prove the public Gekta launcher is at least 44px, stays above bottom navigation, hides while the mobile burger is open, returns after close, and opens the real #pc-public-assistant-panel with a visible textarea.",
     "No web-only release or failed release evidence is reclassified as PASS."
   ],
   "acceptance": [
@@ -25,6 +25,6 @@
     "Independent complete-diff review reports P0/P1/P2=0/0/0.",
     "After merge, a fresh owner current-main production controller completes full-stack, IR-20, auth-mail and reviewer readiness successfully.",
     "That successful controller produces a fresh Platform V7 Production Mobile Acceptance run on the same exact SHA.",
-    "Exact public manifest, Chromium, WebKit, retries=0 and failures=0 all PASS before PUBLIC_EXPERIENCE_V1_FROZEN / FULL_SCOPE_ACCEPTED."
+    "Exact public manifest, Chromium, WebKit, retries=0, failures=0, explicit live burger-hide/return, bottom-nav separation, #pc-public-assistant-panel and textarea checks all PASS before PUBLIC_EXPERIENCE_V1_FROZEN / FULL_SCOPE_ACCEPTED."
   ]
 }
