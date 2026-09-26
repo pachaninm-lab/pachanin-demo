@@ -329,3 +329,91 @@ jobs:
       controller_run_id: ${{ github.run_id }}
       controller_issue_number: ${{ github.event.issue.number }}
     secrets: inherit
+
+
+  production-mobile-acceptance-3072:
+    needs:
+      - production-release-control-3072
+      - production-full-stack-execution-3072
+      - production-auth-mail-cutover-3072
+      - production-reviewer-readiness-3072
+    if: >-
+      needs.production-release-control-3072.result == 'success' &&
+      needs.production-full-stack-execution-3072.result == 'success' &&
+      needs.production-auth-mail-cutover-3072.result == 'success' &&
+      needs.production-reviewer-readiness-3072.result == 'success' &&
+      github.event_name == 'issue_comment' &&
+      (github.event.issue.number == 3072 || github.event.issue.number == 4637) &&
+      github.event.comment.user.login == github.repository_owner &&
+      github.event.comment.author_association == 'OWNER' &&
+      github.event.comment.body == '/production release current-main' &&
+      github.actor == github.repository_owner &&
+      github.triggering_actor == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Dispatch and enforce exact production mobile acceptance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TARGET_SHA: ${{ github.sha }}
+          CONTROLLER_ISSUE_NUMBER: ${{ github.event.issue.number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          [[ "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$CONTROLLER_ISSUE_NUMBER" == 3072 || "$CONTROLLER_ISSUE_NUMBER" == 4637 ]]
+
+          current_main="$(gh api "repos/$REPO/commits/main" --jq .sha)"
+          [[ "$current_main" == "$TARGET_SHA" ]] || {
+            echo "Main advanced before production mobile acceptance: expected=$TARGET_SHA actual=$current_main" >&2
+            exit 31
+          }
+
+          dispatch_started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          gh workflow run platform-v7-production-mobile-acceptance.yml \
+            --repo "$REPO" \
+            --ref main \
+            -f target_sha="$TARGET_SHA"
+
+          run_id=''
+          for attempt in $(seq 1 30); do
+            run_id="$(gh api \
+              -H 'Accept: application/vnd.github+json' \
+              "repos/$REPO/actions/workflows/platform-v7-production-mobile-acceptance.yml/runs?event=workflow_dispatch&branch=main&per_page=30" \
+              --jq ".workflow_runs
+                | map(select(.head_sha == \"$TARGET_SHA\" and .created_at >= \"$dispatch_started\"))
+                | sort_by(.created_at)
+                | reverse
+                | .[0].id // empty")"
+            [[ "$run_id" =~ ^[0-9]+$ ]] && break
+            sleep 2
+          done
+
+          [[ "$run_id" =~ ^[0-9]+$ ]] || {
+            echo 'Unable to resolve fresh production mobile acceptance run.' >&2
+            exit 32
+          }
+
+          gh run watch "$run_id" --repo "$REPO" --exit-status --interval 10
+
+          conclusion="$(gh run view "$run_id" --repo "$REPO" --json conclusion --jq '.conclusion // empty')"
+          [[ "$conclusion" == success ]] || {
+            echo "Production mobile acceptance failed: run=$run_id conclusion=${conclusion:-missing}" >&2
+            exit 33
+          }
+
+          mobile_job="$(gh api \
+            -H 'Accept: application/vnd.github+json' \
+            "repos/$REPO/actions/runs/$run_id/jobs?per_page=100" \
+            --jq '.jobs
+              | map(select(.name == "Chromium + WebKit 320x700, 375x812, 390x844 and 430x932 production acceptance"))
+              | .[0].conclusion // empty')"
+          [[ "$mobile_job" == success ]] || {
+            echo "Required Chromium + WebKit production mobile job did not succeed: ${mobile_job:-missing}" >&2
+            exit 34
+          }
+
+          run_url="$(gh run view "$run_id" --repo "$REPO" --json url --jq .url)"
+          gh issue comment "$CONTROLLER_ISSUE_NUMBER" --repo "$REPO" --body "Fresh exact-SHA Production Mobile Acceptance passed for `$TARGET_SHA`: $run_url"
