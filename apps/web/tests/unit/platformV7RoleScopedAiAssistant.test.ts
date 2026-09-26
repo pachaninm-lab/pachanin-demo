@@ -94,7 +94,9 @@ describe('platform-v7 role-scoped AI assistant', () => {
     expect(hydration).toContain('loadLegacyPublicPolish = legacyPublicPolish ?? !isStrategicHomepage(pathname)');
     expect(hydration).toContain('{loadTranslationBridge ? <PlatformV7TranslationRuntimeBridge /> : null}');
     expect(hydration.match(/<ContextualSupportOrAssistant\s+\{\.\.\.supportProps\}\s*\/>/gu)).toHaveLength(1);
-    expect(hydration).toContain('<PublicAssistantMobileLayoutAuthority />');
+    // The viewport authority now travels with the on-demand public assistant chunk.
+    expect(hydration).not.toContain('<PublicAssistantMobileLayoutAuthority />');
+    expect(contextual).toContain('<PublicAssistantMobileLayoutAuthority />');
     for (const deferredChatMechanism of ['requestIdleCallback', 'setTimeout(', 'IntersectionObserver', 'pointerdown']) {
       expect(hydration).not.toContain(deferredChatMechanism);
     }
