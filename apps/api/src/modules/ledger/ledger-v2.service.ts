@@ -75,6 +75,21 @@ export class LedgerV2Service {
     if (amountKopecks <= 0n) {
       throw new BadRequestException('Amount must be positive');
     }
+    // Двойная запись требует двух разных счетов. Доменная книга это уже
+    // запрещает (validateEntry, «debitAccount and creditAccount must differ»),
+    // а этот путь писал в БД без такой проверки. Самоперевод не меняет баланс,
+    // но одинаково завышает и дебетовый, и кредитовый итоги счёта, а на них
+    // опирается assertSufficientBalance.
+    //
+    // Ни один из пяти существующих вызовов record() так не делает: каждый
+    // спаривает системный счёт (`sys:*`) с org id либо два разных системных.
+    // Проверка закрывает путь для будущих вызовов, не ломая нынешние.
+    if (!params.debitAccount || !params.creditAccount) {
+      throw new BadRequestException('debitAccount and creditAccount are required');
+    }
+    if (params.debitAccount === params.creditAccount) {
+      throw new BadRequestException('debitAccount and creditAccount must differ');
+    }
 
     // Validate balance for debit operations
     const debitRequired: LedgerEntryType[] = ['RESERVE', 'HOLD', 'RELEASE', 'REFUND', 'COMMISSION', 'PLATFORM_FEE', 'PENALTY'];
@@ -203,14 +218,44 @@ export class LedgerV2Service {
     });
   }
 
-  // Verify double-entry balance: sum(debit) == sum(credit) for a deal.
-  // Entries are stored in compact form (one row = one debit/credit pair),
-  // so the same positive amount is posted to both sides by construction.
-  async verifyDealBalance(dealId: string): Promise<{ balanced: boolean; totalKopecks: bigint }> {
+  /**
+   * Проверка книги сделки по строкам, лежащим в БД.
+   *
+   * Прежняя версия вычисляла totalDebit и totalCredit БУКВАЛЬНО одним и тем же
+   * выражением — редукцией по amountKopecks, — и возвращала их равенство.
+   * То есть `balanced` было тождественно true: метод с именем verify не мог
+   * вернуть false ни при каких данных.
+   *
+   * Равенство дебета и кредита в этой схеме и правда структурно: одна строка
+   * несёт одну пару счетов и одну сумму. Поэтому проверяется не оно, а то, что
+   * в строках действительно может быть нарушено. Строки пишет record(), но
+   * колонки `debitAccount`/`creditAccount` объявлены лишь NOT NULL, а
+   * `amountKopecks` не имеет CHECK, так что строка из миграции, восстановления
+   * или ручной правки этих проверок не проходила.
+   */
+  async verifyDealBalance(dealId: string): Promise<{
+    balanced: boolean;
+    totalKopecks: bigint;
+    violations: string[];
+  }> {
     const entries = await this.prisma.ledgerEntry.findMany({ where: { dealId } });
-    const totalDebit = entries.reduce((s, e) => s + BigInt(e.amountKopecks), 0n);
-    const totalCredit = entries.reduce((s, e) => s + BigInt(e.amountKopecks), 0n);
-    return { balanced: totalDebit === totalCredit, totalKopecks: totalDebit };
+    const violations: string[] = [];
+    let totalKopecks = 0n;
+
+    for (const entry of entries) {
+      const amount = BigInt(entry.amountKopecks);
+      if (amount <= 0n) {
+        violations.push(`${entry.id}: непозитивная сумма ${amount}`);
+      }
+      if (!entry.debitAccount || !entry.creditAccount) {
+        violations.push(`${entry.id}: пустой счёт одной из сторон`);
+      } else if (entry.debitAccount === entry.creditAccount) {
+        violations.push(`${entry.id}: самоперевод по счёту ${entry.debitAccount}`);
+      }
+      totalKopecks += amount;
+    }
+
+    return { balanced: violations.length === 0, totalKopecks, violations };
   }
 
   /**
