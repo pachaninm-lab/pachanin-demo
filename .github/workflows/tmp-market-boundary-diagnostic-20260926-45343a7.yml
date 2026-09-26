@@ -1,4 +1,4 @@
-name: Temporary read-only market boundary diagnostic
+name: Temporary read-only market SQL diagnostic
 
 on:
   push:
@@ -22,162 +22,97 @@ jobs:
       VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
       PC_PROD_SSH_HOST_FINGERPRINT: ${{ secrets.PC_PROD_SSH_HOST_FINGERPRINT }}
     steps:
-      - name: Verify exact main and inspect market boundary read-only
+      - name: Classify market SQL under exact API runtime principal
         shell: bash
         run: |
           set -Eeuo pipefail
           DEFAULT_HOST='195.19.12.120'
-          DOMAIN='xn----8sbjf4befbjgs9b.xn--p1ai'
-          current="$(curl -fsSL -H 'Accept: application/vnd.github+json' -H 'User-Agent: pc-crop-market-diagnostic' "https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/main" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sha"])')"
+          current="$(curl -fsSL -H 'Accept: application/vnd.github+json' -H 'User-Agent: pc-crop-market-sql-diagnostic' "https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/main" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sha"])')"
           [[ "$current" == "$TARGET_SHA" ]]
-
           trim(){ local v="$1"; v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"; printf '%s' "$v"; }
-          host="$(trim "${PC_PROD_HOST:-$DEFAULT_HOST}")"
-          user="$(trim "${PC_PROD_SSH_USER:-}")"
-          port="$(trim "${PC_PROD_SSH_PORT:-22}")"
-          expected="$(trim "${PC_PROD_SSH_HOST_FINGERPRINT:-}")"
-          [[ "$host" == "$DEFAULT_HOST" ]]
-          [[ -n "$user" && "$user" =~ ^[A-Za-z_][A-Za-z0-9_-]{0,31}$ ]]
-          [[ "$port" =~ ^[0-9]+$ ]] && (( port >= 1 && port <= 65535 ))
-          [[ "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
-
-          key="$RUNNER_TEMP/prod-key"
-          known="$RUNNER_TEMP/prod-known"
-          scan="$RUNNER_TEMP/prod-scan"
-          match="$RUNNER_TEMP/prod-match"
-          umask 077
+          host="$(trim "${PC_PROD_HOST:-$DEFAULT_HOST}")"; user="$(trim "${PC_PROD_SSH_USER:-}")"; port="$(trim "${PC_PROD_SSH_PORT:-22}")"; expected="$(trim "${PC_PROD_SSH_HOST_FINGERPRINT:-}")"
+          [[ "$host" == "$DEFAULT_HOST" && -n "$user" && "$port" =~ ^[0-9]+$ && "$expected" =~ ^SHA256:[A-Za-z0-9+/=]+$ ]]
+          key="$RUNNER_TEMP/prod-key"; known="$RUNNER_TEMP/prod-known"; scan="$RUNNER_TEMP/prod-scan"; match="$RUNNER_TEMP/prod-match"; umask 077
           trap 'rm -f "$key" "$known" "$scan" "$match"' EXIT
-
-          validate_key(){
-            local src="$1" pub
-            tr -d '\r' < "$src" > "$key"
-            chmod 600 "$key"
-            pub="$(mktemp)"
-            ssh-keygen -y -P '' -f "$key" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }
-            rm -f "$pub"
-          }
-          try_key(){
-            local value="$1" plain escaped decoded
-            [[ -n "$value" ]] || return 1
-            plain="$(mktemp)"; escaped="$(mktemp)"; decoded="$(mktemp)"
-            printf '%s\n' "$value" > "$plain"
-            validate_key "$plain" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
-            printf '%s' "${value//\\n/$'\n'}" > "$escaped"
-            validate_key "$escaped" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
-            printf '%s' "$value" | base64 --decode > "$decoded" 2>/dev/null && validate_key "$decoded" && { rm -f "$plain" "$escaped" "$decoded"; return 0; }
-            rm -f "$plain" "$escaped" "$decoded"
-            return 1
-          }
+          validate_key(){ local src="$1" pub; tr -d '\r' < "$src" > "$key"; chmod 600 "$key"; pub="$(mktemp)"; ssh-keygen -y -P '' -f "$key" > "$pub" 2>/dev/null || { rm -f "$pub"; return 1; }; rm -f "$pub"; }
+          try_key(){ local value="$1" a b c; [[ -n "$value" ]] || return 1; a="$(mktemp)"; b="$(mktemp)"; c="$(mktemp)"; printf '%s\n' "$value" > "$a"; validate_key "$a" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "${value//\\n/$'\n'}" > "$b"; validate_key "$b" && { rm -f "$a" "$b" "$c"; return 0; }; printf '%s' "$value" | base64 --decode > "$c" 2>/dev/null && validate_key "$c" && { rm -f "$a" "$b" "$c"; return 0; }; rm -f "$a" "$b" "$c"; return 1; }
           try_key "${PC_PROD_SSH_KEY:-}" || try_key "${PC_PROD_SSH_PRIVATE_KEY:-}" || try_key "${VPS_SSH_KEY:-}"
-
           pinned=0
           for attempt in 1 2 3; do
             : > "$scan"; : > "$match"
             ssh-keyscan -T 10 -p "$port" "$host" 2>/dev/null | sort -u > "$scan" || true
-            while IFS= read -r line; do
-              [[ -n "$line" ]] || continue
-              fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"
-              [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"
-            done < "$scan"
-            sort -u -o "$match" "$match"
-            if [[ "$(grep -c . "$match" || true)" == 1 ]]; then pinned=1; break; fi
-            (( attempt == 3 )) || sleep "$attempt"
+            while IFS= read -r line; do [[ -n "$line" ]] || continue; fp="$(printf '%s\n' "$line" | ssh-keygen -lf - -E sha256 2>/dev/null | awk '{print $2}' || true)"; [[ "$fp" != "$expected" ]] || printf '%s\n' "$line" >> "$match"; done < "$scan"
+            sort -u -o "$match" "$match"; if [[ "$(grep -c . "$match" || true)" == 1 ]]; then pinned=1; break; fi; (( attempt == 3 )) || sleep "$attempt"
           done
-          [[ "$pinned" == 1 ]]
-          mv "$match" "$known"; chmod 600 "$known"
+          [[ "$pinned" == 1 ]]; mv "$match" "$known"; chmod 600 "$known"
 
           ssh -i "$key" -p "$port" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known" -o ConnectTimeout=15 "$user@$host" 'bash -s' <<'REMOTE'
           set -Eeuo pipefail
           TARGET_SHA='45343a799c6a8b0753ce5d29b77de9a3e30ef67e'
-          DOMAIN='xn----8sbjf4befbjgs9b.xn--p1ai'
-          mapfile -t web_ids < <(docker ps -q --filter 'label=com.docker.compose.service=web')
-          [[ "${#web_ids[@]}" == 1 ]]
-          web_id="${web_ids[0]}"
-          project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$web_id")"
-          [[ -n "$project" ]]
-          mapfile -t api_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=api')
+          mapfile -t api_ids < <(docker ps -q --filter 'label=com.docker.compose.service=api')
           [[ "${#api_ids[@]}" == 1 ]]
           api_id="${api_ids[0]}"
-          web_rev="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$web_id")"
           api_rev="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_id")"
-          [[ "$web_rev" == "$TARGET_SHA" && "$api_rev" == "$TARGET_SHA" ]]
-          echo 'RUNTIME_REVISION=PASS'
-
-          docker exec -i "$web_id" /nodejs/bin/node --input-type=commonjs - <<'NODE'
-          const safeCode = (value) => typeof value === 'string' && /^PUBLIC_MARKET_[A-Z0-9_]{1,80}$/.test(value) ? value : '';
-          (async()=>{
-            const started=Date.now();
-            try {
-              const r=await fetch('http://api:3001/api/market/lots',{
-                headers:{accept:'application/json','x-forwarded-for':'198.51.100.10'},
-                signal:AbortSignal.timeout(2000),
-                redirect:'error'
-              });
-              let body=null;
-              try { body=await r.json(); } catch {}
-              const code=safeCode(body?.code)||safeCode(body?.message?.code)||safeCode(body?.error?.code);
-              const authority=body?.authority;
-              const envelope=!!body && typeof body==='object' && !Array.isArray(body)
-                && authority?.source==='POSTGRESQL'
-                && authority?.scope==='PUBLIC_MARKET'
-                && authority?.projection==='ANONYMIZED_PUBLIC_MARKET'
-                && authority?.sellerIdentity==='REDACTED'
-                && Array.isArray(body?.items);
-              console.log('PRIVATE_API_HTTP='+r.status);
-              console.log('PRIVATE_API_2S='+(Date.now()-started<=2000?'PASS':'SLOW'));
-              console.log('PRIVATE_API_ENVELOPE='+(envelope?'VALID':'INVALID'));
-              console.log('PRIVATE_API_REASON='+(code||'NONE'));
-            } catch (e) {
-              const name=String(e?.name||'');
-              console.log('PRIVATE_API_HTTP=TRANSPORT');
-              console.log('PRIVATE_API_2S='+(name==='TimeoutError'?'TIMEOUT':'FAIL'));
-              console.log('PRIVATE_API_ENVELOPE=NOT_AVAILABLE');
-              console.log('PRIVATE_API_REASON=NONE');
-            }
-          })().catch(()=>process.exit(1));
-          NODE
-
-          docker exec -i "$web_id" /nodejs/bin/node --input-type=commonjs - <<'NODE'
+          [[ "$api_rev" == "$TARGET_SHA" ]]
+          docker exec -i "$api_id" /nodejs/bin/node --input-type=commonjs - <<'NODE'
+          const { PrismaClient } = require('@prisma/client');
+          const p = new PrismaClient();
+          const known = [
+            'PUBLIC_MARKET_RLS_AUTHORITY_INVALID','PUBLIC_MARKET_READER_DENIED','PUBLIC_MARKET_LIMIT_INVALID',
+            'PUBLIC_MARKET_PAGE_BOUND_EXCEEDED','PUBLIC_MARKET_POSTGRESQL_CLOCK_UNAVAILABLE',
+            'PUBLIC_MARKET_POSTGRESQL_CLOCK_DRIFT','PUBLIC_MARKET_EMPTY_ROW_INVALID',
+            'PUBLIC_MARKET_AUCTION_NOT_LIVE','PUBLIC_MARKET_PROJECTION_INVALID'
+          ];
+          const boundedText=(v,max)=>typeof v==='string'&&v.trim().length>0&&v.length<=max&&!/[\u0000-\u001F\u007F]/u.test(v);
           (async()=>{
             try {
-              const r=await fetch('http://127.0.0.1:3000/platform-v7/market?lang=ru',{
-                headers:{'x-forwarded-for':'198.51.100.10','host':'xn----8sbjf4befbjgs9b.xn--p1ai'},
-                signal:AbortSignal.timeout(12000),
-                redirect:'manual'
-              });
-              const text=await r.text();
-              const m=text.match(/data-market-state=["']([^"']+)["']/);
-              const state=m?.[1]||'MISSING';
-              console.log('INTERNAL_WEB_HTTP='+r.status);
-              console.log('INTERNAL_WEB_MARKET_STATE='+( /^(empty|noMatch|unavailable)$/.test(state) ? state : 'OTHER'));
-            } catch {
-              console.log('INTERNAL_WEB_HTTP=TRANSPORT');
-              console.log('INTERNAL_WEB_MARKET_STATE=NOT_AVAILABLE');
-            }
+              const rows=await p.$queryRawUnsafe(`
+                SELECT *
+                FROM auction.list_public_market_lot_cards(7)
+                ORDER BY projected_at DESC NULLS LAST, auction_ends_at ASC NULLS LAST, public_ref ASC NULLS LAST
+              `);
+              console.log('SQL_CALL=PASS');
+              if (!Array.isArray(rows) || rows.length<1 || rows.length>7) { console.log('SERVICE_SHAPE=ROW_BOUND_INVALID'); return; }
+              const observed=rows[0]?.observed_at;
+              if (!(observed instanceof Date) || !Number.isFinite(observed.getTime())) { console.log('SERVICE_SHAPE=CLOCK_UNAVAILABLE'); return; }
+              for (const row of rows) {
+                if (!(row.observed_at instanceof Date) || row.observed_at.getTime()!==observed.getTime()) { console.log('SERVICE_SHAPE=CLOCK_DRIFT'); return; }
+                if (row.public_ref===null) {
+                  const keys=['culture','grade','volume_tons','start_price_kopecks_per_ton','region','auction_ends_at','status','verification_status','trade_permission','lot_version','projected_at'];
+                  if (rows.length!==1 || keys.some(k=>row[k]!==null)) { console.log('SERVICE_SHAPE=EMPTY_ROW_INVALID'); return; }
+                  console.log('SERVICE_SHAPE=VALID_EMPTY');
+                  return;
+                }
+                if (typeof row.public_ref!=='string' || !/^market-[0-9a-f-]{36}$/i.test(row.public_ref)
+                    || !boundedText(row.culture,200) || (row.grade!==null && !boundedText(row.grade,200))
+                    || typeof row.volume_tons!=='string' || !/^(?:0|[1-9][0-9]{0,19})(?:\.[0-9]{1,6})?$/.test(row.volume_tons)
+                    || typeof row.start_price_kopecks_per_ton!=='string' || !/^(?:0|[1-9][0-9]{0,18})$/.test(row.start_price_kopecks_per_ton)
+                    || !boundedText(row.region,500) || !(row.auction_ends_at instanceof Date) || row.auction_ends_at.getTime()<=observed.getTime()
+                    || row.status!=='BIDDING' || row.verification_status!=='DECLARED' || row.trade_permission!=='PUBLIC_ALLOWED'
+                    || typeof row.lot_version!=='string' || !/^[1-9][0-9]{0,18}$/.test(row.lot_version)
+                    || !(row.projected_at instanceof Date)) {
+                  const types = [
+                    typeof row.public_ref, typeof row.culture, row.grade===null?'null':typeof row.grade,
+                    typeof row.volume_tons, typeof row.start_price_kopecks_per_ton, typeof row.region,
+                    row.auction_ends_at instanceof Date?'date':typeof row.auction_ends_at,
+                    typeof row.status, typeof row.verification_status, typeof row.trade_permission,
+                    typeof row.lot_version, row.projected_at instanceof Date?'date':typeof row.projected_at
+                  ];
+                  console.log('SERVICE_SHAPE=PROJECTION_INVALID');
+                  console.log('SAFE_TYPE_VECTOR='+types.join('|'));
+                  return;
+                }
+              }
+              console.log('SERVICE_SHAPE=VALID_LIVE');
+            } catch(e) {
+              const msg=String(e?.message||'');
+              const cls=known.find(k=>msg.includes(k)) || (/permission denied/i.test(msg)?'DB_PERMISSION_DENIED':(/does not exist/i.test(msg)?'DB_OBJECT_MISSING':'UNCLASSIFIED_DB_ERROR'));
+              const sqlstate=String(e?.meta?.code||'');
+              console.log('SQL_CALL=FAIL');
+              console.log('SQL_REASON='+cls);
+              console.log('SQLSTATE='+(/^[0-9A-Z]{5}$/.test(sqlstate)?sqlstate:'NOT_EXPOSED'));
+            } finally { await p.$disconnect(); }
           })().catch(()=>process.exit(1));
           NODE
-
-          edge_tmp="$(mktemp)"
-          edge_code="$(curl --silent --show-error --location --compressed --connect-timeout 8 --max-time 15 -o "$edge_tmp" -w '%{http_code}' "https://$DOMAIN/platform-v7/market?lang=ru&boundary-diagnostic=1" || true)"
-          edge_state="$(grep -oE 'data-market-state=["'"'](empty|noMatch|unavailable)["'"']' "$edge_tmp" | head -1 | sed -E 's/.*["'"'](empty|noMatch|unavailable)["'"'].*/\1/' || true)"
-          rm -f "$edge_tmp"
-          echo "EDGE_WEB_HTTP=${edge_code:-000}"
-          echo "EDGE_WEB_MARKET_STATE=${edge_state:-MISSING}"
-
-          caddy_file='ABSENT'
-          caddy_domain='NOT_OBSERVED'
-          caddy_custom_xff='NOT_OBSERVED'
-          if [[ -r /etc/caddy/Caddyfile ]]; then
-            caddy_file='PRESENT'
-            grep -Fq "$DOMAIN" /etc/caddy/Caddyfile && caddy_domain='PRESENT' || caddy_domain='ABSENT'
-            if grep -Eqi 'header_up[[:space:]]+[-+]?X-Forwarded-For|header[[:space:]]+.*X-Forwarded-For' /etc/caddy/Caddyfile; then
-              caddy_custom_xff='PRESENT'
-            else
-              caddy_custom_xff='ABSENT'
-            fi
-          fi
-          echo "CADDYFILE=$caddy_file"
-          echo "CADDY_DOMAIN=$caddy_domain"
-          echo "CADDY_CUSTOM_XFF=$caddy_custom_xff"
           echo 'PRODUCTION_MUTATION=NONE'
           REMOTE
