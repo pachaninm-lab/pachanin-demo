@@ -1664,6 +1664,10 @@
       "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
       "apps/web/tests/unit/platformV7MobileTrustAndGektaReturn.test.ts",
       "docs/platform-v7/autopilot/scopes/public-mobile-trust-gekta-return-20260926.json"
+    ],
+    "fix/post-release-mobile-acceptance-20260927": [
+      ".github/workflows/platform-v7-safe-merge.yml",
+      "docs/platform-v7/autopilot/scopes/post-release-mobile-acceptance-20260927.json"
     ]
   },
   "currentAcceptance": [
