@@ -989,7 +989,7 @@ body:has(.pc-canonical-public) .p7-support-chat-button{display:none!important}
 
   .pc-cp-page-home .pc-cp-deal-spine{grid-template-columns:repeat(7,minmax(0,1fr))!important;overflow:visible!important;padding:0!important}.pc-cp-page-home .pc-cp-deal-spine::before{left:7%!important;right:7%!important;width:auto!important;top:11px!important}.pc-cp-page-home .pc-cp-stage{min-width:0!important;gap:2px!important}.pc-cp-page-home .pc-cp-stage i{width:23px!important;height:23px!important;font-size:7px!important}.pc-cp-page-home .pc-cp-stage strong{font-size:7px!important;line-height:1.05!important;max-width:48px!important;word-break:normal}
 
-  .pc-cp-page-home #live .pc-cp-state-grid{grid-template-columns:1fr!important}.pc-cp-page-home #trust .pc-cp-trust-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  .pc-cp-page-home #live .pc-cp-state-grid{grid-template-columns:1fr!important}.pc-cp-page-home #trust .pc-cp-trust-grid{grid-template-columns:1fr!important}
   .pc-cp-page-home #participants,.pc-cp-page-home #capabilities{content-visibility:auto!important}
 
   .pc-cp-page-market .pc-cp-market-hero{min-height:112px!important;padding:18px 0 10px!important;background:#fff!important}.pc-cp-page-market .pc-cp-market-hero .pc-cp-section-head h1{font-size:33px!important}.pc-cp-page-market .pc-cp-market-hero .pc-cp-section-head p{font-size:11px!important;line-height:1.3}
