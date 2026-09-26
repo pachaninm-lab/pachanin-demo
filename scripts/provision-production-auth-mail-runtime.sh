@@ -171,13 +171,81 @@ if url.scheme not in ('postgresql','postgres') or not url.username or not url.pa
     raise SystemExit(1)
 PY
 
-validate_runtime_database_projection() {
+validate_runtime_database_projection_shape() {
   local projected="$RUNTIME_PROJECTION_DIR/database-url"
   [[ -d "$RUNTIME_PROJECTION_DIR" && ! -L "$RUNTIME_PROJECTION_DIR" ]] || return 1
   [[ "$(stat -c '%a:%u:%g' "$RUNTIME_PROJECTION_DIR")" == '700:0:0' ]] || return 1
   [[ -f "$projected" && ! -L "$projected" ]] || return 1
   [[ "$(stat -c '%a:%u:%g' "$projected")" == '444:0:0' ]] || return 1
-  python3 - "$projected" "$api_auth_database_url_file" <<'PY' >/dev/null
+  validate_source_database_shape "$projected"
+}
+
+validate_rebased_database_credential() {
+  local candidate="$1"
+  set +e
+  cat -- "$candidate" | docker exec -i "$api_id" /nodejs/bin/node -e '
+    const fs=require("fs");
+    const {PrismaClient}=require("@prisma/client");
+    const url=fs.readFileSync(0,"utf8").trim();
+    const p=new PrismaClient({datasources:{db:{url}},log:[]});
+    (async()=>{
+      try {
+        await p.$connect();
+        const rows=await p.$queryRaw`SELECT current_user`;
+        process.exit(rows?.[0]?.current_user==="pc_auth_mail_runtime" ? 0 : 2);
+      } catch {
+        process.exit(3);
+      } finally {
+        await p.$disconnect().catch(()=>{});
+      }
+    })();
+  ' >/dev/null 2>&1
+  local rc=$?
+  set -e
+  return "$rc"
+}
+
+rebase_database_authority_to_api() {
+  local candidate="$1" destination="$2" tmp
+  tmp="$(mktemp "$AUTHORITY_DIR/.auth-mail-db-rebased.XXXXXX")"
+  cleanup_files+=("$tmp")
+  python3 - "$candidate" "$api_auth_database_url_file" <<'PY' > "$tmp" || return 1
+import sys
+from urllib.parse import quote, unquote, urlsplit, urlunsplit
+worker=urlsplit(open(sys.argv[1], encoding='utf-8').read().strip())
+api=urlsplit(open(sys.argv[2], encoding='utf-8').read().strip())
+if worker.scheme not in ('postgresql','postgres') or unquote(worker.username or '') != 'pc_auth_mail_runtime' or not worker.password:
+    raise SystemExit(1)
+if api.scheme not in ('postgresql','postgres') or not api.hostname or not api.path.strip('/'):
+    raise SystemExit(1)
+user=quote(unquote(worker.username or ''), safe='')
+password=quote(unquote(worker.password or ''), safe='')
+host=api.hostname or ''
+if ':' in host and not host.startswith('['):
+    host=f'[{host}]'
+if api.port:
+    host=f'{host}:{api.port}'
+print(urlunsplit((api.scheme, f'{user}:{password}@{host}', api.path, api.query, '')))
+PY
+  [[ -s "$tmp" ]] || return 1
+  chmod 0600 "$tmp"; chown 0:0 "$tmp"
+  validate_rebased_database_credential "$tmp" || return 1
+  mv -f "$tmp" "$destination"
+}
+validate_source_database_shape() {
+  local candidate="$1"
+  python3 - "$candidate" <<'PY' >/dev/null
+import sys
+from urllib.parse import urlsplit
+worker=urlsplit(open(sys.argv[1], encoding='utf-8').read().strip())
+if worker.scheme not in ('postgresql','postgres') or worker.username != 'pc_auth_mail_runtime' or not worker.password or not worker.hostname or not worker.path.strip('/'):
+    raise SystemExit(1)
+PY
+}
+
+source_database_matches_api_auth() {
+  local candidate="$1"
+  python3 - "$candidate" "$api_auth_database_url_file" <<'PY' >/dev/null
 import sys
 from urllib.parse import parse_qsl, urlsplit
 worker=urlsplit(open(sys.argv[1], encoding='utf-8').read().strip())
@@ -216,13 +284,31 @@ if [[ "$ACTION" == rotate-key ]]; then
 fi
 
 # Reuse an existing worker credential when it is already bound to the live API
-# datasource. Only bootstrap of a missing/mismatched authority or explicit
-# rotate-db may require the one-shot migration admin authority.
+# datasource. During bootstrap only, a structurally valid stale credential may
+# be rebound to the live API auth endpoint after proving that the preserved
+# pc_auth_mail_runtime password still authenticates there as that exact role.
+# Explicit rotate-db never uses this path and remains migration-admin bounded.
 database_authority_state='API_DATASOURCE_EXISTING'
-if [[ "$ACTION" == bootstrap && ! -e "$DATABASE_URL_FILE" ]] && validate_runtime_database_projection; then
-  restore_atomic_secret_from_file "$RUNTIME_PROJECTION_DIR/database-url" "$DATABASE_URL_FILE" \
-    || { echo 'AUTH_MAIL_PROVISION=FAIL_RUNTIME_DATABASE_AUTHORITY_RECOVERY'; exit 43; }
-  database_authority_state='API_DATASOURCE_RUNTIME_PROJECTION_RECOVERED'
+database_source_recovery_candidate=0
+if [[ "$ACTION" == bootstrap ]]; then
+  if [[ ! -e "$DATABASE_URL_FILE" ]]; then
+    database_source_recovery_candidate=1
+  elif validate_secret_file "$DATABASE_URL_FILE" \
+    && validate_source_database_shape "$DATABASE_URL_FILE" \
+    && ! source_database_matches_api_auth "$DATABASE_URL_FILE"; then
+    database_source_recovery_candidate=1
+    if rebase_database_authority_to_api "$DATABASE_URL_FILE" "$DATABASE_URL_FILE"; then
+      database_source_recovery_candidate=0
+      database_authority_state='API_DATASOURCE_SOURCE_CREDENTIAL_REBASED'
+    fi
+  fi
+
+  if [[ "$database_source_recovery_candidate" == 1 ]] \
+    && validate_runtime_database_projection_shape \
+    && rebase_database_authority_to_api "$RUNTIME_PROJECTION_DIR/database-url" "$DATABASE_URL_FILE"; then
+    database_source_recovery_candidate=0
+    database_authority_state='API_DATASOURCE_RUNTIME_PROJECTION_CREDENTIAL_REBASED'
+  fi
 fi
 
 database_reconcile_required=0
@@ -452,8 +538,10 @@ echo "AUTH_MAIL_CURRENT_KEY_VERSION=$current_version"
 echo 'AUTH_MAIL_GITHUB_SECRET_REQUIRED=0'
 if [[ "$database_authority_state" == 'MIGRATION_DATASOURCE_RECONCILED' ]]; then
   echo 'AUTH_MAIL_DATABASE_AUTHORITY=MIGRATION_DATASOURCE_RECONCILED'
-elif [[ "$database_authority_state" == 'API_DATASOURCE_RUNTIME_PROJECTION_RECOVERED' ]]; then
-  echo 'AUTH_MAIL_DATABASE_AUTHORITY=API_DATASOURCE_RUNTIME_PROJECTION_RECOVERED'
+elif [[ "$database_authority_state" == 'API_DATASOURCE_SOURCE_CREDENTIAL_REBASED' ]]; then
+  echo 'AUTH_MAIL_DATABASE_AUTHORITY=API_DATASOURCE_SOURCE_CREDENTIAL_REBASED'
+elif [[ "$database_authority_state" == 'API_DATASOURCE_RUNTIME_PROJECTION_CREDENTIAL_REBASED' ]]; then
+  echo 'AUTH_MAIL_DATABASE_AUTHORITY=API_DATASOURCE_RUNTIME_PROJECTION_CREDENTIAL_REBASED'
 else
   echo 'AUTH_MAIL_DATABASE_AUTHORITY=API_DATASOURCE_EXISTING'
 fi
