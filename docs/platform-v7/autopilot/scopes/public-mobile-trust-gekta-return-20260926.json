@@ -26,16 +26,17 @@
     "On canonical mobile pages with bottom navigation, the Gekta launcher remains above the nav and safe-area inset without obscuring navigation controls.",
     "The homepage Trust ledger remains exactly four semantic cards but renders one readable card per row on <=760px; no text clipping or horizontal page overflow is accepted.",
     "No API, database, RLS, auth, tenant, market, deal, outbox, IR-20, mail, Kubernetes or production topology source may change.",
-    "Fresh exact-head review, CI/security/browser gates and exact-SHA REG.RU release remain mandatory; old 35ce384 evidence cannot close the new SHA."
+    "Fresh exact-head review, CI/security/browser gates and exact-SHA REG.RU release remain mandatory; old 35ce384 evidence cannot close the new SHA.",
+    "Isolated auth routes keep publicMode='full'; this repair may adjust only mobile geometry for the existing assistant action and must not convert auth routes to Gekta-only mode."
   ],
   "acceptance": [
     "Targeted unit contract proves stale mobile dock hiding rules are absent, the high-specificity Trust rule is one column, and production mobile acceptance contains runtime assertions for both defects.",
     "The new regression unit file is executed by both canonical CI and standalone web-unit workflows; it is not excluded from coverage.",
     "Fresh production-mobile Chromium + WebKit keeps retries=0 and proves the mobile Trust cards are one column, readable and unclipped at configured mobile viewports.",
     "Fresh production-mobile Chromium + WebKit proves the canonical Gekta launcher is visible above bottom navigation, >=44px, enabled, opens #pc-public-assistant-panel and exposes its composer.",
-    "Canonical Visual Acceptance requires the Gekta launcher to remain visible, enabled, >=44px and above bottom navigation on mobile login/register instead of preserving the retired hidden-launcher contract.",
     "The existing public-intelligence responsive matrix now requires the canonical Gekta dock through 1100px and the canonical header Gekta action from 1101px, preventing the previous hidden-chat contract from returning.",
     "Fresh exact-head CI/security/governance and independent complete-diff review have zero unresolved P0/P1/P2 findings before normal merge.",
-    "After merge, exact-main REG.RU full-stack release, auth-mail cutover, reviewer readiness and fresh production mobile acceptance all PASS before FULL_SCOPE_ACCEPTED is restored."
+    "After merge, exact-main REG.RU full-stack release, auth-mail cutover, reviewer readiness and fresh production mobile acceptance all PASS before FULL_SCOPE_ACCEPTED is restored.",
+    "Canonical login/register remain on the isolated public-entry shell with publicMode='full'; on <=767px the existing full public assistant dock must remain visible/enabled, >=44px and be lifted above canonical bottom navigation, while canonical home continues to use publicMode='gekta'."
   ]
 }
