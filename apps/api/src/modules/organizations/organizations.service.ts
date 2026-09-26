@@ -1,7 +1,8 @@
-import { ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { RequestUser, Role } from '../../common/types/request-user';
 import { integrationRegistry } from '../../../../../packages/integration-sdk/src/registry';
+import { ORGANIZATION_STATUSES } from './dto/update-organization-status.dto';
 
 export interface CreateOrgDto {
   inn: string;
@@ -99,10 +100,16 @@ export class OrganizationsService {
     if (user.role !== Role.ADMIN && user.role !== Role.COMPLIANCE_OFFICER) {
       throw new ForbiddenException('Только администратор или офицер комплаенса может обновлять статус организации');
     }
+    if (!ORGANIZATION_STATUSES.includes(status as (typeof ORGANIZATION_STATUSES)[number])) {
+      // Колонка — String, а не перечисление, поэтому произвольная строка
+      // записывалась бы дословно, а сравнения ниже по течению тихо уходили бы
+      // в else-ветку. Сторож стоит и здесь, а не только в DTO.
+      throw new BadRequestException('Недопустимый статус организации.');
+    }
     if (!this.prisma) throw new NotFoundException('Database not available');
     return this.prisma.organization.update({
       where: { id },
-      data: { status: status as any },
+      data: { status },
     });
   }
 }
