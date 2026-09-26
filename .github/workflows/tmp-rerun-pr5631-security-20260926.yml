@@ -1,0 +1,31 @@
+name: Temporary rerun PR5631 security workflows
+
+on:
+  push:
+    branches:
+      - ops/tmp-rerun-pr5631-security-20260926
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  rerun:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Rerun cancelled exact-head PR security workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SECURITY_QUALITY_RUN: '36264281537'
+          SECURITY_ABUSE_RUN: '36264281456'
+          EXPECTED_SHA: '70f9ebd4f7cfe56ffc728c26baea495c43b7fb2a'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for run_id in "$SECURITY_QUALITY_RUN" "$SECURITY_ABUSE_RUN"; do
+            run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
+            [[ "$(jq -r '.head_sha' <<<"$run")" == "$EXPECTED_SHA" ]]
+            [[ "$(jq -r '.conclusion' <<<"$run")" == "cancelled" ]]
+            gh api --method POST               -H 'Accept: application/vnd.github+json'               -H 'X-GitHub-Api-Version: 2022-11-28'               "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/rerun"
+          done
