@@ -19,7 +19,8 @@ describe('platform-v7 mobile trust readability and Gekta return', () => {
     const legacyHide = "body:has(.pc-canonical-public) .pc-public-contact-dock{display:none!important}";
     expect(homeCss).toContain(legacyHide);
     expect(publicCss).toContain(legacyHide);
-    expect(dock).not.toContain("body:has(.pc-cp-bottom-nav) .pc-public-contact-dock[data-assistant-context='public']");
+    expect(dock).toContain("body:has(.pc-cp-bottom-nav) .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='full']");
+    expect(dock).not.toContain("body:has(.pc-cp-bottom-nav) .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] {\\n    display: none !important;");
     expect(dock).toContain(".pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta']");
     expect(dock).toContain('display: grid !important;');
     expect(dock).toContain("bottom: max(78px, calc(env(safe-area-inset-bottom, 0px) + 76px)) !important;");
