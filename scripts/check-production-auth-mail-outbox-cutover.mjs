@@ -142,8 +142,13 @@ has(provision, 'AUTH_MAIL_DATABASE_AUTHORITY=API_DATASOURCE_EXISTING', 'existing
 has(provision, 'validate_runtime_database_projection() {', 'runtime DB projection validator missing');
 has(provision, '"$(stat -c \'%a:%u:%g\' "$RUNTIME_PROJECTION_DIR")" == \'700:0:0\'', 'runtime DB projection parent authority check missing');
 has(provision, '"$(stat -c \'%a:%u:%g\' "$projected")" == \'444:0:0\'', 'runtime DB projection file authority check missing');
-has(provision, 'if [[ "$ACTION" == bootstrap && ! -e "$DATABASE_URL_FILE" ]] && validate_runtime_database_projection; then', 'bootstrap-only runtime DB authority recovery missing');
+has(provision, 'database_source_recovery_candidate=0', 'bootstrap source-recovery classifier missing');
+has(provision, 'if [[ "$ACTION" == bootstrap ]]; then', 'runtime DB authority recovery must remain bootstrap-only');
+has(provision, 'validate_source_database_shape "$DATABASE_URL_FILE"', 'stale source recovery must require a well-formed least-privilege worker authority');
+has(provision, '! source_database_matches_api_auth "$DATABASE_URL_FILE"', 'bootstrap must classify a safe but endpoint-stale source authority');
+has(provision, 'if [[ "$database_source_recovery_candidate" == 1 ]] && validate_runtime_database_projection; then', 'missing or safe-stale source recovery must require an independently valid runtime projection');
 has(provision, 'restore_atomic_secret_from_file "$RUNTIME_PROJECTION_DIR/database-url" "$DATABASE_URL_FILE"', 'runtime DB authority must be recovered atomically into source authority');
+lacks(provision, 'if [[ "$ACTION" == rotate-db ]] && validate_runtime_database_projection', 'explicit rotate-db must never use runtime projection recovery');
 has(provision, 'AUTH_MAIL_PROVISION=FAIL_RUNTIME_DATABASE_AUTHORITY_RECOVERY', 'runtime DB authority recovery fail-closed marker missing');
 has(provision, 'AUTH_MAIL_DATABASE_AUTHORITY=API_DATASOURCE_RUNTIME_PROJECTION_RECOVERED', 'runtime projection recovery evidence missing');
 has(provision, 'cat -- "$source" > "$tmp" || return 1', 'runtime DB projection restore must abort on read failure before install');
