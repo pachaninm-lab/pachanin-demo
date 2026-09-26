@@ -10671,13 +10671,27 @@
     {
       "requirementId": "V15.3.7",
       "applicability": "APPLICABLE",
-      "status": "PASS",
+      "status": "FAIL",
       "evidence": [
+        "first-match-cookie-reader:apps/web/lib/server-request-security.ts",
+        "first-match-cookie-reader:apps/web/lib/server-request-actor.ts",
+        "traced-by:PR#5102",
+        "fix-prepared:PR#5102",
         "apps/api/src/main.ts",
         "repository-scan:explicit-parameter-binding",
         "repository-scan:no-getall-in-web-tier"
       ],
       "conditions": [
+        {
+          "condition": "the anti-forgery check still reads a repeated cookie name by first match, while the framework's cookie API resolves the same header by last match",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/server-request-security.ts"
+          ],
+          "patterns": [
+            "const part = raw.split(';').map((item) => item.trim()).find((item) => item.startswith(prefix));"
+          ]
+        },
         {
           "condition": "a global validation pipe whitelists and transforms every bound payload",
           "check": "PRESENT_ALL_AT_PATH",
@@ -10701,7 +10715,7 @@
           ]
         }
       ],
-      "note": "The requirement's own qualifier does not apply here: the framework does distinguish parameter sources. Nest binds each one explicitly rather than merging them into a single bag - measured on the controllers, @Query 131, @Body 201, @Param 235, @Headers 107 - so a query value can never arrive where a body value is expected. The defence against repeated parameters is typed validation: a global ValidationPipe with whitelist and transform is installed for every route, and all 54 DTO files import class-validator, 54 of 54, so a scalar field receiving the array that a duplicated parameter produces is rejected rather than coerced. The web tier reaches the same result differently: it reads query values with URLSearchParams.get, 19 call sites, and never with getAll, 0 call sites, and get returns the first value, so duplicates collapse deterministically to one scalar instead of becoming an array. Limit worth stating: forbidNonWhitelisted is false, so unknown parameters are stripped rather than refused. That is a different concern from parameter pollution and does not weaken this defence, but it does mean an unexpected parameter fails silently."
+      "note": "Corrected from PASS to FAIL. The earlier PASS assessed query and body parameters, where it still holds and is kept below as credit, and did not assess cookies, which the requirement names explicitly among the parameter sources. On main the same Cookie header is resolved two ways. readCookie in server-request-security.ts, which assertCsrf uses, and the equivalent readers in server-request-actor.ts and csrf.ts take the FIRST occurrence of a name. Next's RequestCookies, behind request.cookies and cookies(), keeps the LAST, because it builds a map by name. For a header that carries a name twice, which value decides depends on which code path a route uses. That is parameter pollution in the source this requirement calls out. Why it is reachable in principle: the control host is a subdomain of the public host, so a sibling under the same registrable domain can set a Domain-scoped cookie with the same name. PR #5102 (open, unmerged) measured the disagreement on the real parsers and prepares a single shared reader that refuses an ambiguous header instead of picking a side; it is credited here. The first condition quotes the first-match reader verbatim, so replacing it revokes this decision for re-assessment."
     },
     {
       "requirementId": "V15.4.1",
