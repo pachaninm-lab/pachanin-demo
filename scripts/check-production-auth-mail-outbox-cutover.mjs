@@ -136,6 +136,8 @@ has(provision, 'AUTH_MAIL_PROVISION=FAIL_MIGRATION_API_DATASOURCE_MISMATCH', 'mi
 has(provision, 'AUTH_MAIL_PROVISION=FAIL_API_AUTH_DATABASE_URL_MISSING', 'live API auth datasource missing marker absent');
 has(provision, 'AUTH_MAIL_PROVISION=FAIL_API_AUTH_DATABASE_URL_INVALID', 'live API auth datasource validation marker absent');
 has(provision, 'parse_qsl(url.query, keep_blank_values=True)', 'datasource query parity must be semantic and order-independent');
+assert((provision.match(/tuple\(sorted\(parse_qsl\(url\.query, keep_blank_values=True\)\)\)/g) || []).length >= 4,
+  'every datasource authority check, including final validation, must use semantic order-independent query parity');
 has(provision, 'AUTH_MAIL_DATABASE_AUTHORITY=API_DATASOURCE_EXISTING', 'existing live API-bound DB authority evidence missing');
 has(provision, 'validate_runtime_database_projection() {', 'runtime DB projection validator missing');
 has(provision, '"$(stat -c \'%a:%u:%g\' "$RUNTIME_PROJECTION_DIR")" == \'700:0:0\'', 'runtime DB projection parent authority check missing');
