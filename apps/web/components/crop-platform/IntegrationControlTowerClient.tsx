@@ -43,6 +43,8 @@ type PendingAction = Readonly<{
   correlationId: string;
 }>;
 
+type UnknownCommand = Readonly<Pick<PendingAction, 'commandId' | 'correlationId'>>;
+
 type Copy = Readonly<{
   eyebrow: string;
   title: string;
@@ -99,6 +101,10 @@ type Copy = Readonly<{
   confirm: string;
   executing: string;
   receipt: string;
+  unknownCommand: string;
+  unknownCommandBoundary: string;
+  commandId: string;
+  correlationId: string;
   credentialBoundary: string;
 }>;
 
@@ -158,7 +164,10 @@ const COPY: Record<IntegrationControlTowerLocale, Copy> = {
     cancel: 'Отмена',
     confirm: 'Подтвердить на сервере',
     executing: 'Фиксируем команду…',
-    receipt: 'Команда зафиксирована сервером; данные перечитаны из authority.',
+    receipt: 'Сервер подтвердил запись команды в audit/outbox. Это не подтверждает обработку внешней системой или бизнес-принятие.',
+    unknownCommand: 'Исход команды не подтверждён',
+    unknownCommandBoundary: 'Ответ на отправленную команду не удалось проверить. Не создавайте новую команду в этом экране; сверьте ту же операцию по серверному журналу и correlation ID. Обновление списка само по себе не подтверждает её исход.',
+    commandId: 'Command ID', correlationId: 'Correlation ID',
     credentialBoundary: 'Срок reference на credential не показывается: в принятом authority нет безопасной metadata-записи. Секреты и key references не выводятся.',
   },
   en: {
@@ -185,7 +194,11 @@ const COPY: Record<IntegrationControlTowerLocale, Copy> = {
     notRecorded: 'UNKNOWN / NOT RECORDED', notExposed: 'UNKNOWN / NOT EXPOSED',
     primaryAction: 'Next governed action', serverAuthority: 'Action, role, tenant and organization are server-derived.',
     actionTitle: 'Governed action confirmation', reason: 'Reason', reasonPlaceholder: 'Enter a verifiable operational or regulatory reason…',
-    cancel: 'Cancel', confirm: 'Confirm on server', executing: 'Committing command…', receipt: 'The server committed the command and authority was reloaded.',
+    cancel: 'Cancel', confirm: 'Confirm on server', executing: 'Submitting command…',
+    receipt: 'The server confirmed the command record in audit/outbox. This does not establish external processing or business acceptance.',
+    unknownCommand: 'Command outcome is unverified',
+    unknownCommandBoundary: 'The response to the submitted command could not be verified. Do not create a new command in this screen; reconcile the same operation in the server journal using the correlation ID. Refreshing the list alone does not establish its outcome.',
+    commandId: 'Command ID', correlationId: 'Correlation ID',
     credentialBoundary: 'Credential reference expiry is not displayed because no safe metadata authority exists. Secrets and key references are never rendered.',
   },
   zh: {
@@ -210,7 +223,11 @@ const COPY: Record<IntegrationControlTowerLocale, Copy> = {
     notRecorded: 'UNKNOWN / 未记录', notExposed: 'UNKNOWN / NOT EXPOSED',
     primaryAction: '下一项受控操作', serverAuthority: '操作、角色、tenant 和 organization 均由服务器确定。', actionTitle: '确认受控操作',
     reason: '依据', reasonPlaceholder: '请输入可核验的运营或法规依据…', cancel: '取消', confirm: '在服务器确认', executing: '正在提交命令…',
-    receipt: '服务器已记录命令并重新加载权威数据。', credentialBoundary: '没有安全的 credential metadata authority，因此不显示 reference 到期时间；绝不显示密钥或 secret。',
+    receipt: '服务器已确认 audit/outbox 中的命令记录；这不证明外部系统已处理或业务已接受。',
+    unknownCommand: '命令结果尚未确认',
+    unknownCommandBoundary: '无法核实已提交命令的响应。请勿在此页面创建新命令；请使用 correlation ID 在服务器日志中核对同一操作。刷新列表本身不能证明结果。',
+    commandId: 'Command ID', correlationId: 'Correlation ID',
+    credentialBoundary: '没有安全的 credential metadata authority，因此不显示 reference 到期时间；绝不显示密钥或 secret。',
   },
 };
 
@@ -260,6 +277,19 @@ async function readJson(response: Response): Promise<unknown> {
   return response.json().catch(() => null);
 }
 
+function matchesControlTowerCommandReceipt(payload: unknown, command: PendingAction): boolean {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return false;
+  const receipt = payload as JsonRecord;
+  if (receipt.kind !== 'APPLIED' && receipt.kind !== 'REPLAY') return false;
+  if (receipt.correlationId !== command.correlationId) return false;
+  if (typeof receipt.auditEventId !== 'string' || !receipt.auditEventId.trim()) return false;
+  if (typeof receipt.outboxEntryId !== 'string' || !receipt.outboxEntryId.trim()) return false;
+  return command.action === 'REDRIVE'
+    ? receipt.entryId === command.entryId && !!command.entryId
+    : receipt.adapterCode === command.adapterCode
+      && typeof receipt.aggregateVersion === 'string' && !!receipt.aggregateVersion.trim();
+}
+
 async function staffAwareGet(path: string, signal: AbortSignal): Promise<Response> {
   const staff = await fetch(`/api/staff/integration-control-tower${path}`, {
     cache: 'no-store', headers: { Accept: 'application/json' }, signal,
@@ -291,6 +321,7 @@ export function IntegrationControlTowerClient({
   const [pending, setPending] = React.useState<PendingAction | null>(null);
   const [executing, setExecuting] = React.useState(false);
   const [receipt, setReceipt] = React.useState('');
+  const [unknownCommand, setUnknownCommand] = React.useState<UnknownCommand | null>(null);
 
   const loadDetail = React.useCallback(async (
     adapterCode: string,
@@ -408,7 +439,7 @@ export function IntegrationControlTowerClient({
   }, [locale, query, state.records, statusFilter]);
 
   const prepareAction = () => {
-    if (!selected) return;
+    if (!selected || unknownCommand) return;
     const action = selected.primaryAction;
     const eventVersion = action.entryId
       ? selected.recentEvents.find((event) => event.id === action.entryId)?.version
@@ -427,12 +458,20 @@ export function IntegrationControlTowerClient({
   };
 
   const execute = async () => {
-    if (!pending || pending.reason.trim().length < 12 || !pending.ifMatch) return;
+    if (!pending || unknownCommand || pending.reason.trim().length < 12 || !pending.ifMatch) return;
+    const command = pending;
+    const markUnknown = () => {
+      setUnknownCommand({ commandId: command.commandId, correlationId: command.correlationId });
+      setPending(null);
+      setReceipt('');
+    };
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 12_000);
     setExecuting(true);
     try {
-      const path = pending.action === 'REDRIVE'
-        ? `/api/staff/integrations/inbox/${encodeURIComponent(pending.entryId || '')}/commands/redrive`
-        : `/api/staff/integrations/${encodeURIComponent(pending.adapterCode)}/commands/reconcile`;
+      const path = command.action === 'REDRIVE'
+        ? `/api/staff/integrations/inbox/${encodeURIComponent(command.entryId || '')}/commands/redrive`
+        : `/api/staff/integrations/${encodeURIComponent(command.adapterCode)}/commands/reconcile`;
       const response = await fetch(path, {
         method: 'POST',
         headers: {
@@ -440,41 +479,68 @@ export function IntegrationControlTowerClient({
           Accept: 'application/json',
           'X-CSRF-Token': csrfToken,
           'If-Match': `"${pending.ifMatch}"`,
-          'X-Correlation-Id': pending.correlationId,
+          'X-Correlation-Id': command.correlationId,
         },
         body: JSON.stringify({
-          commandId: pending.commandId,
-          idempotencyKey: pending.idempotencyKey,
-          correlationId: pending.correlationId,
-          reason: pending.reason.trim(),
+          commandId: command.commandId,
+          idempotencyKey: command.idempotencyKey,
+          correlationId: command.correlationId,
+          reason: command.reason.trim(),
         }),
         cache: 'no-store',
+        signal: controller.signal,
       });
       const payload = await readJson(response);
       if (!response.ok) {
+        // Only a definitive authorization/version rejection permits another command.
+        // A gateway timeout or server error may have followed a durable commit.
+        if (![400, 401, 403, 409, 412, 422, 428].includes(response.status)) {
+          markUnknown();
+          return;
+        }
         const phase = responsePhase(response.status);
         setLiveState(phase);
         setState((current) => ({ ...current, phase, message: payloadMessage(payload) ?? copy.error }));
+        setPending(null);
+        return;
+      }
+      if (!matchesControlTowerCommandReceipt(payload, command)) {
+        markUnknown();
         return;
       }
       setReceipt(copy.receipt);
       setPending(null);
       await load('retry');
+    } catch {
+      // A thrown fetch/read cannot prove whether the server committed the command.
+      markUnknown();
     } finally {
+      window.clearTimeout(timeoutId);
       setExecuting(false);
     }
   };
 
+  const unknownNotice = unknownCommand ? (
+    <div className={styles.unknownCommand} role='alert' data-command-outcome='UNKNOWN'>
+      <InlineNotice tone='critical' title={copy.unknownCommand} icon={<TriangleAlert size={18} />}>
+        {copy.unknownCommandBoundary} {copy.commandId}: <code>{unknownCommand.commandId}</code>. {copy.correlationId}: <code>{unknownCommand.correlationId}</code>.
+      </InlineNotice>
+    </div>
+  ) : null;
+
   if (state.phase !== 'ready') {
     const message = state.message || (state.phase === 'loading' ? copy.loading : state.phase === 'empty' ? copy.empty : copy.error);
     return (
-      <Surface className={styles.stateSurface} role={state.phase === 'error' || state.phase === 'conflict' ? 'alert' : undefined}>
-        {state.phase === 'loading' ? <RefreshCw className={styles.spin} size={28} /> : <AlertTriangle size={30} />}
-        <h1>{message}</h1>
-        {state.phase !== 'loading' && state.phase !== 'forbidden' && state.phase !== 'empty' ? (
-          <Button variant='secondary' onClick={() => void load('retry')}><RefreshCw size={18} />{copy.retry}</Button>
-        ) : null}
-      </Surface>
+      <div className={styles.root}>
+        {unknownNotice}
+        <Surface className={styles.stateSurface} role={state.phase === 'error' || state.phase === 'conflict' ? 'alert' : undefined}>
+          {state.phase === 'loading' ? <RefreshCw className={styles.spin} size={28} /> : <AlertTriangle size={30} />}
+          <h1>{message}</h1>
+          {state.phase !== 'loading' && state.phase !== 'forbidden' && state.phase !== 'empty' ? (
+            <Button variant='secondary' onClick={() => void load('retry')}><RefreshCw size={18} />{copy.retry}</Button>
+          ) : null}
+        </Surface>
+      </div>
     );
   }
 
@@ -498,7 +564,8 @@ export function IntegrationControlTowerClient({
 
       {liveState === 'reconnecting' ? <InlineNotice tone='information' title={copy.reconnecting}>{copy.serverAuthority}</InlineNotice> : null}
       {liveState === 'degraded' ? <InlineNotice tone='critical' title={copy.degraded}>{copy.serverAuthority}</InlineNotice> : null}
-      {receipt ? <InlineNotice tone='success' title={copy.primaryAction} icon={<CheckCircle2 size={18} />}>{receipt}</InlineNotice> : null}
+      {receipt ? <InlineNotice tone='information' title={copy.primaryAction} icon={<CheckCircle2 size={18} />}>{receipt}</InlineNotice> : null}
+      {unknownNotice}
 
       <Surface className={styles.toolbar} variant='subtle'>
         <label><span>{copy.search}</span><input type='search' value={query} onChange={(event) => setQuery(event.currentTarget.value)} placeholder={copy.searchPlaceholder} /></label>
@@ -561,7 +628,7 @@ export function IntegrationControlTowerClient({
 
             <Surface className={styles.actionCard}>
               <div><span>{copy.primaryAction}</span><h3>{selected.primaryAction.label}</h3><p>{selected.primaryAction.reason}</p><small>{copy.serverAuthority}</small></div>
-              <Button disabled={!selected.primaryAction.allowed} onClick={prepareAction}>{selected.primaryAction.label}</Button>
+              <Button disabled={!selected.primaryAction.allowed || !!unknownCommand} onClick={prepareAction}>{selected.primaryAction.label}</Button>
             </Surface>
 
             <Surface className={styles.events} padded={false}>

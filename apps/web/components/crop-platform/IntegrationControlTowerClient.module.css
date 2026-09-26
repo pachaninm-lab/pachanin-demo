@@ -5,6 +5,15 @@
   margin: 0 auto;
 }
 
+.unknownCommand {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.unknownCommand code {
+  overflow-wrap: anywhere;
+}
+
 .hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

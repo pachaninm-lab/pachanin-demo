@@ -121,6 +121,43 @@ describe('Platform V7 Integration Control Tower vertical', () => {
     expect(client).not.toContain("data-regulatory-applicability='NOT_APPLICABLE'");
   });
 
+  it('requires a matching server audit/outbox receipt, never a bare 2xx body', () => {
+    const client = read('components/crop-platform/IntegrationControlTowerClient.tsx');
+    expect(client).toContain("receipt.kind !== 'APPLIED' && receipt.kind !== 'REPLAY'");
+    expect(client).toContain('receipt.correlationId !== command.correlationId');
+    expect(client).toContain("typeof receipt.auditEventId !== 'string' || !receipt.auditEventId.trim()");
+    expect(client).toContain("typeof receipt.outboxEntryId !== 'string' || !receipt.outboxEntryId.trim()");
+    expect(client).toContain('receipt.entryId === command.entryId && !!command.entryId');
+    expect(client).toContain('receipt.adapterCode === command.adapterCode');
+    expect(client).toContain("typeof receipt.aggregateVersion === 'string' && !!receipt.aggregateVersion.trim()");
+    expect(client).toContain('if (!matchesControlTowerCommandReceipt(payload, command))');
+  });
+
+  it('keeps an ambiguous command outcome visible and blocks another command in the mounted screen', () => {
+    const client = read('components/crop-platform/IntegrationControlTowerClient.tsx');
+    expect(client).toContain("data-command-outcome='UNKNOWN'");
+    expect(client).toContain("role='alert'");
+    expect(client).toContain('const unknownNotice = unknownCommand ? (');
+    expect(client.match(/\{unknownNotice\}/g)).toHaveLength(2);
+    expect(client).toMatch(/if \(state\.phase !== 'ready'\)[\s\S]*?\{unknownNotice\}[\s\S]*?<Surface/);
+    expect(client).toContain('disabled={!selected.primaryAction.allowed || !!unknownCommand}');
+    expect(client).toContain('if (!selected || unknownCommand) return;');
+    expect(client).toContain('if (!matchesControlTowerCommandReceipt(payload, command))');
+    expect(client).toContain('signal: controller.signal');
+    expect(client).toContain('markUnknown();');
+    expect(client).toContain('setPending(null);');
+    expect(client).toContain("receipt: 'Сервер подтвердил запись команды в audit/outbox.");
+    expect(client).toContain("receipt: 'The server confirmed the command record in audit/outbox.");
+    expect(client).toContain("receipt: '服务器已确认 audit/outbox 中的命令记录");
+    expect(client).toContain('Refreshing the list alone does not establish its outcome.');
+    expect(client).toContain('Обновление списка само по себе не подтверждает её исход.');
+    expect(client).toContain('刷新列表本身不能证明结果。');
+    expect(client).not.toContain("setReceipt('The server committed the command");
+    const css = read('components/crop-platform/IntegrationControlTowerClient.module.css');
+    expect(css).toContain('.unknownCommand code');
+    expect(css).toContain('overflow-wrap: anywhere');
+  });
+
   it('limits cabinet access to operator, compliance and executive', () => {
     expect(PLATFORM_V7_INTEGRATIONS_ROUTE).toBe('/platform-v7/integrations');
     expect(canRoleAccessCabinet('operator', PLATFORM_V7_INTEGRATIONS_ROUTE)).toBe(true);
