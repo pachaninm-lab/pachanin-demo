@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { safeInternalPath } from '@/lib/safe-internal-path';
 import { demoLoginAllowed } from '../../../../../../lib/platform-v7/demo-login-policy';
 
 type DemoTarget = {
@@ -29,9 +28,8 @@ const ROLE_TARGETS: Record<string, DemoTarget> = {
 };
 
 function sanitizeDestination(raw: string | null | undefined, fallback: string): string {
-  // `startsWith('/')` пропускал '//evil.com', '////evil.com' и '/\\evil.com':
-  // все три начинаются со слэша и все три разрешаются на чужой хост.
-  return safeInternalPath(raw, fallback);
+  if (!raw) return fallback;
+  return raw.startsWith('/') ? raw : fallback;
 }
 
 function htmlEscape(value: string): string {

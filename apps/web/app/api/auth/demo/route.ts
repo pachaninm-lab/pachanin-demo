@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { safeInternalPath } from '@/lib/safe-internal-path';
 import { ACCESS_COOKIE, REFRESH_COOKIE, SESSION_COOKIE, CSRF_COOKIE, cookieSecurity, sessionMarkerCookie, csrfCookieSecurity } from '../../../../lib/auth-cookies';
 import { generateCsrfToken } from '../../../../lib/server-request-security';
 import { demoLoginAllowed } from '../../../../lib/platform-v7/demo-login-policy';
@@ -31,8 +30,7 @@ export async function GET(request: NextRequest) {
   const email = searchParams.get('email') || 'farmer@demo.ru';
   const to = searchParams.get('to') || '/';
 
-  // `startsWith('/')` пропускал протокол-относительный адрес: см. safeInternalPath.
-  const destination = safeInternalPath(to);
+  const destination = to.startsWith('/') ? to : '/';
 
   const role = detectDemoRole(email);
   const exp = Math.floor(Date.now() / 1000) + 8 * 3600;
