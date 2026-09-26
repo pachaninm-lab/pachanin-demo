@@ -208,9 +208,8 @@ fi
 if [[ "$database_reconcile_required" == 1 ]]; then
   compose_json="$(mktemp "$AUTHORITY_DIR/.auth-mail-compose.XXXXXX")"; cleanup_files+=("$compose_json")
   "${dc[@]}" config --format json > "$compose_json"
-  migration_inventory="$(python3 - "$compose_json" <<'PY'
+  migration_service="$(python3 - "$compose_json" <<'PY'
 import json, re, sys
-from urllib.parse import urlsplit
 services=(json.load(open(sys.argv[1], encoding='utf-8')).get('services') or {})
 candidates=[]
 for name, service in services.items():
@@ -221,34 +220,43 @@ for name, service in services.items():
         candidates.append(name)
 if len(candidates) != 1:
     raise SystemExit(1)
-name=candidates[0]
-env=services[name].get('environment') or {}
-if isinstance(env, list):
-    env=dict(item.split('=',1) for item in env if isinstance(item,str) and '=' in item)
-value=str(env.get('DATABASE_URL') or '').strip()
-url=urlsplit(value)
-if url.scheme not in ('postgresql','postgres') or not url.username or not url.password or not url.hostname or not url.path.strip('/'):
-    raise SystemExit(1)
-print(name)
-print(value)
+print(candidates[0])
 PY
 )" || { echo 'AUTH_MAIL_PROVISION=FAIL_MIGRATION_DATABASE_AUTHORITY'; exit 14; }
-  migration_service="$(printf '%s\n' "$migration_inventory" | sed -n '1p')"
-  migration_database_url="$(printf '%s\n' "$migration_inventory" | sed -n '2p')"
-  [[ -n "$migration_service" && -n "$migration_database_url" ]] \
+  [[ "$migration_service" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$ ]] \
     || { echo 'AUTH_MAIL_PROVISION=FAIL_MIGRATION_DATABASE_AUTHORITY'; exit 14; }
 
-  python3 - "$migration_database_url" "$api_database_url" <<'PY' >/dev/null \
-    || { echo 'AUTH_MAIL_PROVISION=FAIL_MIGRATION_API_DATASOURCE_MISMATCH'; exit 42; }
-import sys
+  api_authority_digest="$(python3 - "$api_database_url" <<'PY'
+import hashlib, json, sys
 from urllib.parse import urlsplit
-migration=urlsplit(sys.argv[1])
-api=urlsplit(sys.argv[2])
-def authority(url):
-    return ((url.hostname or '').lower(), url.port or 5432, url.path, url.query)
-if authority(migration) != authority(api):
+url=urlsplit(sys.argv[1])
+if url.scheme not in ('postgresql','postgres') or not url.username or not url.password or not url.hostname or not url.path.strip('/'):
     raise SystemExit(1)
+authority=((url.hostname or '').lower(), url.port or 5432, url.path, url.query)
+print(hashlib.sha256(json.dumps(authority,separators=(',',':')).encode('utf-8')).hexdigest())
 PY
+)" || { echo 'AUTH_MAIL_PROVISION=FAIL_MIGRATION_API_DATASOURCE_MISMATCH'; exit 42; }
+  [[ "$api_authority_digest" =~ ^[0-9a-f]{64}$ ]] \
+    || { echo 'AUTH_MAIL_PROVISION=FAIL_MIGRATION_API_DATASOURCE_MISMATCH'; exit 42; }
+
+  migration_authority_digest="$("${dc[@]}" run --rm --no-deps --pull never -T \
+      --entrypoint /nodejs/bin/node "$migration_service" - <<'NODE'
+const { createHash } = require('node:crypto');
+const raw = String(process.env.DATABASE_URL ?? '').trim();
+let url;
+try { url = new URL(raw); } catch { process.exit(1); }
+if (!['postgresql:', 'postgres:'].includes(url.protocol) || !url.username || !url.password || !url.hostname || !url.pathname.replace(/^\\/+/, '')) process.exit(1);
+const port = Number(url.port || '5432');
+if (!Number.isInteger(port) || port < 1 || port > 65535) process.exit(1);
+const query = url.search.startsWith('?') ? url.search.slice(1) : url.search;
+const authority = [url.hostname.toLowerCase(), port, url.pathname, query];
+process.stdout.write(createHash('sha256').update(JSON.stringify(authority)).digest('hex'));
+NODE
+)" || { echo 'AUTH_MAIL_PROVISION=FAIL_MIGRATION_DATABASE_AUTHORITY'; exit 14; }
+  [[ "$migration_authority_digest" =~ ^[0-9a-f]{64}$ ]] \
+    || { echo 'AUTH_MAIL_PROVISION=FAIL_MIGRATION_DATABASE_AUTHORITY'; exit 14; }
+  [[ "$migration_authority_digest" == "$api_authority_digest" ]] \
+    || { echo 'AUTH_MAIL_PROVISION=FAIL_MIGRATION_API_DATASOURCE_MISMATCH'; exit 42; }
 
   db_password="$(python3 - <<'PY'
 import secrets
@@ -275,7 +283,7 @@ PY
   fi
 
   database_tmp="$(mktemp "$AUTHORITY_DIR/.auth-mail-db.XXXXXX")"; cleanup_files+=("$database_tmp")
-  DB_PASSWORD="$db_password" python3 - "$migration_database_url" <<'PY' > "$database_tmp"
+  DB_PASSWORD="$db_password" python3 - "$api_database_url" <<'PY' > "$database_tmp"
 import os, sys
 from urllib.parse import quote, urlsplit, urlunsplit
 url=urlsplit(sys.argv[1])

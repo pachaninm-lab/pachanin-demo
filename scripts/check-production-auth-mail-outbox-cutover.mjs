@@ -133,6 +133,13 @@ has(provision, "database_reconcile_required=0", 'provision must make DB credenti
 has(provision, 'if [[ "$ACTION" == rotate-db || ! -e "$DATABASE_URL_FILE" ]]', 'missing or explicit rotate-db must enter reconciliation');
 has(provision, 'if [[ "$database_reconcile_required" == 1 ]]', 'migration admin authority must be conditional');
 has(provision, 'AUTH_MAIL_PROVISION=FAIL_MIGRATION_API_DATASOURCE_MISMATCH', 'migration/API datasource parity fail-closed marker missing');
+has(provision, '--entrypoint /nodejs/bin/node "$migration_service" -', 'migration datasource authority must be read from the one-shot migration runtime');
+has(provision, "String(process.env.DATABASE_URL ?? '').trim()", 'migration runtime DATABASE_URL must be inspected inside the protected container');
+has(provision, "createHash('sha256').update(JSON.stringify(authority)).digest('hex')", 'migration datasource authority must be reduced to a non-reversible digest');
+has(provision, '[[ "$migration_authority_digest" == "$api_authority_digest" ]]', 'migration/API datasource digest parity must fail closed before credential mutation');
+has(provision, 'DB_PASSWORD="$db_password" python3 - "$api_database_url"', 'worker credential URL must be built from the live API datasource authority');
+lacks(provision, "env.get('DATABASE_URL')", 'provision must not depend on Compose-rendered migration DATABASE_URL');
+lacks(provision, 'migration_database_url=', 'raw migration DATABASE_URL must not be materialized on the host');
 has(provision, 'AUTH_MAIL_DATABASE_AUTHORITY=API_DATASOURCE_EXISTING', 'existing live API-bound DB authority evidence missing');
 lacks(provision, 'if [[ "$ACTION" == bootstrap || "$ACTION" == rotate-db ]]; then', 'bootstrap must not rotate DB credentials unconditionally');
 has(provision, 'DO $$ BEGIN', 'PostgreSQL credential reconciliation DO block quoting missing');
