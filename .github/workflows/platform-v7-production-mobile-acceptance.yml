@@ -232,6 +232,80 @@ jobs:
           PLAYWRIGHT_BASE_URL: ${{ env.LIVE_BASE }}
         run: pnpm --filter @pc/web exec playwright test --config=playwright.production-mobile.config.ts
 
+      - name: Verify public Gekta burger handoff in Chromium and WebKit
+        id: burger-handoff
+        continue-on-error: true
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ env.LIVE_BASE }}
+          EVIDENCE_DIR: ${{ github.workspace }}/artifacts/platform-v7-production-mobile/burger-handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE_DIR"
+          trap 'printf "FAIL\n" > "$EVIDENCE_DIR/result.txt"' ERR
+          pnpm --filter @pc/web exec node --input-type=module <<'NODE'
+          import { chromium, webkit } from '@playwright/test';
+
+          const base = process.env.PLAYWRIGHT_BASE_URL;
+          const evidence = process.env.EVIDENCE_DIR;
+          if (!base || !evidence) throw new Error('burger handoff environment missing');
+
+          for (const [engine, browserType] of [['chromium', chromium], ['webkit', webkit]]) {
+            const browser = await browserType.launch({ headless: true });
+            try {
+              const page = await browser.newPage({
+                viewport: { width: 390, height: 844 },
+                locale: 'ru-RU',
+                timezoneId: 'Europe/Moscow',
+              });
+              const response = await page.goto(
+                `${base}/platform-v7?lang=ru&burger-handoff=${Date.now()}`,
+                { waitUntil: 'load', timeout: 30_000 },
+              );
+              if (!response?.ok()) throw new Error(`${engine}: public home HTTP ${response?.status() ?? 'missing'}`);
+
+              const dock = page.locator(".pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta']");
+              const launcher = dock.locator('.pc-public-contact-dock-assistant');
+              const bottomNav = page.locator('.pc-cp-bottom-nav');
+              await dock.waitFor({ state: 'visible', timeout: 15_000 });
+              await launcher.waitFor({ state: 'visible', timeout: 15_000 });
+              await bottomNav.waitFor({ state: 'visible', timeout: 15_000 });
+
+              const [launcherBox, bottomBox] = await Promise.all([launcher.boundingBox(), bottomNav.boundingBox()]);
+              if (!launcherBox || !bottomBox) throw new Error(`${engine}: launcher/nav geometry missing`);
+              if (launcherBox.width < 44 || launcherBox.height < 44) {
+                throw new Error(`${engine}: launcher below 44px (${launcherBox.width}x${launcherBox.height})`);
+              }
+              if (launcherBox.y + launcherBox.height > bottomBox.y - 4) {
+                throw new Error(`${engine}: launcher overlaps bottom navigation`);
+              }
+
+              const menu = page.locator('details.pc-site-mobile-menu');
+              const toggle = menu.locator('summary');
+              await toggle.click();
+              await page.waitForFunction(() => document.querySelector('details.pc-site-mobile-menu')?.hasAttribute('open'));
+              await dock.waitFor({ state: 'hidden', timeout: 5_000 });
+              await page.screenshot({ path: `${evidence}/${engine}-burger-open.png`, animations: 'disabled' });
+
+              await toggle.click();
+              await page.waitForFunction(() => !document.querySelector('details.pc-site-mobile-menu')?.hasAttribute('open'));
+              await dock.waitFor({ state: 'visible', timeout: 5_000 });
+              await launcher.waitFor({ state: 'visible', timeout: 5_000 });
+              await page.screenshot({ path: `${evidence}/${engine}-burger-closed.png`, animations: 'disabled' });
+
+              await launcher.click();
+              const panel = page.locator('#pc-public-assistant-panel');
+              await panel.waitFor({ state: 'visible', timeout: 15_000 });
+              await panel.locator('textarea').waitFor({ state: 'visible', timeout: 15_000 });
+              await page.screenshot({ path: `${evidence}/${engine}-assistant-panel.png`, animations: 'disabled' });
+            } finally {
+              await browser.close();
+            }
+          }
+          NODE
+          trap - ERR
+          printf 'PASS\n' > "$EVIDENCE_DIR/result.txt"
+
       - name: Publish mobile acceptance record
         if: always()
         env:
@@ -240,12 +314,14 @@ jobs:
           REVISION_OUTCOME: ${{ steps.revision.outcome }}
           MANIFEST_SHA: ${{ steps.revision.outputs.manifest_sha }}
           ACCEPTANCE_OUTCOME: ${{ steps.acceptance.outcome }}
+          BURGER_HANDOFF_OUTCOME: ${{ steps.burger-handoff.outcome }}
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p artifacts/platform-v7-production-mobile
           [[ "$REVISION_OUTCOME" == success ]] && revision_result=PASS || revision_result=FAIL
           case "$ACCEPTANCE_OUTCOME" in success) result=PASS ;; failure) result=FAIL ;; *) result=NOT_RUN ;; esac
+          case "$BURGER_HANDOFF_OUTCOME" in success) burger_result=PASS ;; failure) burger_result=FAIL ;; *) burger_result=NOT_RUN ;; esac
           record=artifacts/platform-v7-production-mobile/issue-comment.md
           {
             echo "## Platform V7 + Gekta production mobile acceptance \`$GITHUB_RUN_ID\` attempt \`$GITHUB_RUN_ATTEMPT\`"
@@ -285,6 +361,7 @@ jobs:
           printf '%s\n' '${{ steps.target.outputs.target_sha }}' > "$evidence_dir/target-sha.txt"
           printf '%s\n' '${{ steps.revision.outcome }}' > "$evidence_dir/revision-outcome.txt"
           printf '%s\n' '${{ steps.acceptance.outcome }}' > "$evidence_dir/outcome.txt"
+          printf '%s\n' '${{ steps.burger-handoff.outcome }}' > "$evidence_dir/burger-handoff-outcome.txt"
           printf '%s\n' "$GITHUB_RUN_ATTEMPT" > "$evidence_dir/run-attempt.txt"
           printf '%s\n' 'chromium' 'webkit' > "$evidence_dir/browser-engines.txt"
 
@@ -308,3 +385,4 @@ jobs:
           set -euo pipefail
           [[ '${{ steps.revision.outcome }}' == success ]] || exit 41
           [[ '${{ steps.acceptance.outcome }}' == success ]] || exit 40
+          [[ '${{ steps.burger-handoff.outcome }}' == success ]] || exit 42
