@@ -65,11 +65,15 @@ describe('Design System v8 money role reference slice', () => {
     expect(firstCustomerWorkspace).toContain("surface === 'buyer' && !workspace.ownerControlled && state === 'ready'");
     expect(firstCustomerWorkspace).toContain("result: priorityUnknown ? copy.priorityUnknownResult");
     expect(firstCustomerWorkspaceCss).toContain('line-height: 1.5');
+    expect(firstCustomerWorkspaceCss).toContain('var(--ds-color-text-secondary)');
     expect(firstCustomerWorkspaceCss).not.toMatch(forbiddenPresentation);
     for (const phrase of [
-      'подтверждённой серверной сессии покупателя',
-      'buyer’s confirmed server session',
-      '买方已确认的服务器会话',
+      'Сервер проверяет доступ к сделкам для роли покупателя',
+      'The server checks Deal access for the buyer role',
+      '服务器会核查买方角色的交易访问权限',
+      'Данные организации показываются при подтверждении',
+      'Organization details appear when confirmed',
+      '组织信息仅在确认后显示',
       'банковское подтверждение',
       'bank confirmation',
       '银行确认',

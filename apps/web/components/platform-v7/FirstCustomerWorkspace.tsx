@@ -20,7 +20,7 @@ type Locale = 'ru' | 'en' | 'zh';
 const COPY = {
   ru: {
     title: 'Рабочий кабинет', description: 'Пользователь, организация, membership и очередь получены из текущей серверной сессии и PostgreSQL.', sellerDescription: 'Сервер подтвердил доступ к рабочей очереди продавца. Здесь показаны только доступные продавцу серверные факты; неподтверждённые данные остаются UNKNOWN.',
-    buyerDescription: 'Сделки и организация доступны только из подтверждённой серверной сессии покупателя. Очередь помогает найти сделку; обязательное действие и срок здесь не назначаются.', buyerQueueNote: 'Проверяйте состояние в самой сделке. Порядок и дата обновления списка не означают приоритет, срок или банковское подтверждение.',
+    buyerDescription: 'Сервер проверяет доступ к сделкам для роли покупателя. Данные организации показываются при подтверждении; очередь помогает найти сделку, но не назначает обязательное действие или срок.', buyerQueueNote: 'Проверяйте состояние в самой сделке. Порядок и дата обновления списка не означают приоритет, срок или банковское подтверждение.',
     ownerDescription: 'Реальный вход владельца с MFA. Интерфейс кабинета открыт в фиксированной контролируемой тестовой организации; клиентская роль в API не подменяется.',
     ownerReady: 'владелец · контролируемый доступ', ownerReadyTitle: 'Открыть рабочий раздел кабинета', ownerReadyDescription: 'Это настоящий защищённый маршрут кабинета. Данные для просмотра контролируемые; боевые действия продолжают проверяться сервером по реальной личности владельца.',
     ready: 'сервер подтверждён', empty: 'очередь пуста', degraded: 'серверная очередь недоступна', forbidden: 'доступ запрещён',
@@ -33,7 +33,7 @@ const COPY = {
   },
   en: {
     title: 'Work cabinet', description: 'User, organization, membership and queue come from the current server session and PostgreSQL.', sellerDescription: 'The server confirmed access to the seller work queue. This view shows only server facts available to the current seller; unconfirmed data remains UNKNOWN.',
-    buyerDescription: 'Deals and organization come only from the buyer’s confirmed server session. The queue helps locate a Deal; it does not assign a required action or deadline.', buyerQueueNote: 'Check the Deal for its current state. List order and update time do not establish priority, a deadline or bank confirmation.',
+    buyerDescription: 'The server checks Deal access for the buyer role. Organization details appear when confirmed; the queue helps locate a Deal but does not assign a required action or deadline.', buyerQueueNote: 'Check the Deal for its current state. List order and update time do not establish priority, a deadline or bank confirmation.',
     ownerDescription: 'Real platform-owner sign-in with MFA. The cabinet interface is opened against a fixed controlled test organization; the API business role is not impersonated.',
     ownerReady: 'owner · controlled access', ownerReadyTitle: 'Open the cabinet work area', ownerReadyDescription: 'This is the real protected cabinet route. Review data is controlled; production actions still authorize the real owner identity on the server.',
     ready: 'server confirmed', empty: 'queue is empty', degraded: 'server queue unavailable', forbidden: 'access denied',
@@ -46,7 +46,7 @@ const COPY = {
   },
   zh: {
     title: '工作空间', description: '用户、组织、membership 和队列均来自当前服务器会话与 PostgreSQL。', sellerDescription: '服务器已确认卖方工作队列的访问权限。这里只显示当前卖方可见的服务器事实；未确认的数据保持为 UNKNOWN。',
-    buyerDescription: '交易和组织信息仅来自买方已确认的服务器会话。队列用于查找交易，不指定必须执行的操作或期限。', buyerQueueNote: '请在交易详情中核查状态。列表顺序和更新时间不代表优先级、期限或银行确认。',
+    buyerDescription: '服务器会核查买方角色的交易访问权限。组织信息仅在确认后显示；队列用于查找交易，不指定必须执行的操作或期限。', buyerQueueNote: '请在交易详情中核查状态。列表顺序和更新时间不代表优先级、期限或银行确认。',
     ownerDescription: '平台所有者使用真实账号与 MFA 登录。工作台绑定固定受控测试组织，API 中不会伪装客户业务角色。',
     ownerReady: '所有者 · 受控访问', ownerReadyTitle: '打开工作台功能区', ownerReadyDescription: '这是实际受保护的工作台路由。查看数据受控；生产操作仍按所有者真实身份由服务器授权。',
     ready: '服务器已确认', empty: '队列为空', degraded: '服务器队列不可用', forbidden: '禁止访问',
