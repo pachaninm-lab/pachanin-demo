@@ -127,13 +127,34 @@ lacks(provision, 'local version="$1" key_file="$KEYRING_DIR/v${version}.key"', '
 has(provision, "user_domain != platform_domain and not user_domain.endswith('.' + platform_domain)", 'provision SMTP login must remain platform-domain bounded');
 has(provision, "values['PC_MAIL_FROM'] != f'access@{platform_domain}'", 'provision MAIL FROM must remain canonical');
 lacks(provision, "values['PC_SMTP_USER'] != 'access@xn----8sbjf4befbjgs9b.xn--p1ai' or values['PC_MAIL_FROM'] != values['PC_SMTP_USER']", 'provision must not collapse SMTP AUTH login into MAIL FROM');
-has(provision, "label=com.docker.compose.service=api", 'provision must resolve the running API datasource authority');
-has(provision, "sed -n 's/^DATABASE_URL=//p'", 'provision must read live API DATABASE_URL without publishing it');
+has(provision, "label=com.docker.compose.service=api", 'provision must resolve the running API auth datasource authority');
+has(provision, "sed -n 's/^AUTH_DATABASE_URL=//p'", 'provision must read live API AUTH_DATABASE_URL without publishing it');
 has(provision, "database_reconcile_required=0", 'provision must make DB credential reconciliation explicit');
 has(provision, 'if [[ "$ACTION" == rotate-db || ! -e "$DATABASE_URL_FILE" ]]', 'missing or explicit rotate-db must enter reconciliation');
 has(provision, 'if [[ "$database_reconcile_required" == 1 ]]', 'migration admin authority must be conditional');
 has(provision, 'AUTH_MAIL_PROVISION=FAIL_MIGRATION_API_DATASOURCE_MISMATCH', 'migration/API datasource parity fail-closed marker missing');
+has(provision, 'AUTH_MAIL_PROVISION=FAIL_API_AUTH_DATABASE_URL_MISSING', 'live API auth datasource missing marker absent');
+has(provision, 'AUTH_MAIL_PROVISION=FAIL_API_AUTH_DATABASE_URL_INVALID', 'live API auth datasource validation marker absent');
+has(provision, 'parse_qsl(url.query, keep_blank_values=True)', 'datasource query parity must be semantic and order-independent');
+assert((provision.match(/tuple\(sorted\(parse_qsl\(url\.query, keep_blank_values=True\)\)\)/g) || []).length >= 4,
+  'every datasource authority check, including final validation, must use semantic order-independent query parity');
 has(provision, 'AUTH_MAIL_DATABASE_AUTHORITY=API_DATASOURCE_EXISTING', 'existing live API-bound DB authority evidence missing');
+has(provision, 'validate_runtime_database_projection() {', 'runtime DB projection validator missing');
+has(provision, '"$(stat -c \'%a:%u:%g\' "$RUNTIME_PROJECTION_DIR")" == \'700:0:0\'', 'runtime DB projection parent authority check missing');
+has(provision, '"$(stat -c \'%a:%u:%g\' "$projected")" == \'444:0:0\'', 'runtime DB projection file authority check missing');
+has(provision, 'if [[ "$ACTION" == bootstrap && ! -e "$DATABASE_URL_FILE" ]] && validate_runtime_database_projection; then', 'bootstrap-only runtime DB authority recovery missing');
+has(provision, 'restore_atomic_secret_from_file "$RUNTIME_PROJECTION_DIR/database-url" "$DATABASE_URL_FILE"', 'runtime DB authority must be recovered atomically into source authority');
+has(provision, 'AUTH_MAIL_PROVISION=FAIL_RUNTIME_DATABASE_AUTHORITY_RECOVERY', 'runtime DB authority recovery fail-closed marker missing');
+has(provision, 'AUTH_MAIL_DATABASE_AUTHORITY=API_DATASOURCE_RUNTIME_PROJECTION_RECOVERED', 'runtime projection recovery evidence missing');
+has(provision, 'cat -- "$source" > "$tmp" || return 1', 'runtime DB projection restore must abort on read failure before install');
+has(provision, 'api_auth_database_url_file="$(mktemp "$AUTHORITY_DIR/.auth-mail-api-datasource.XXXXXX")"', 'live auth datasource must be staged in a protected temporary file');
+has(provision, 'chmod 0600 "$api_auth_database_url_file"; chown 0:0 "$api_auth_database_url_file"', 'live auth datasource staging file must remain root-only');
+has(provision, 'unset api_database_url', 'live auth datasource shell value must be cleared after protected staging');
+lacks(provision, 'python3 - "$api_database_url"', 'live auth datasource secret must not be passed in process argv');
+lacks(provision, '"$DATABASE_URL_FILE" "$api_database_url"', 'worker/API parity must not pass live auth datasource secret in argv');
+lacks(provision, '"$migration_database_url" "$api_database_url"', 'migration/API parity must not pass live auth datasource secret in argv');
+assert((provision.match(/api=urlsplit\(open\(sys\.argv\[2\], encoding='utf-8'\)\.read\(\)\.strip\(\)\)/g) || []).length >= 4,
+  'all datasource parity checks must read live auth datasource from protected file rather than argv');
 lacks(provision, 'if [[ "$ACTION" == bootstrap || "$ACTION" == rotate-db ]]; then', 'bootstrap must not rotate DB credentials unconditionally');
 has(provision, 'DO $$ BEGIN', 'PostgreSQL credential reconciliation DO block quoting missing');
 has(provision, 'END $$;', 'PostgreSQL credential reconciliation DO block terminator missing');
