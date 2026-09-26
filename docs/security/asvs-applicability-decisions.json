@@ -5,6 +5,62 @@
   "policy": "A decision must name what was examined and carry conditions re-evaluated on every run. Having a control is not evidence that a requirement is met: no PASS may be inferred from the presence of MFA, RLS, CodeQL, an SBOM or a passing test. Anything without a valid, currently-holding decision stays PENDING and NOT_ASSESSED.",
   "decisions": [
     {
+      "requirementId": "V1.1.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "measurement:next-15.5.24-production-server-param-decoding",
+        "second-decode:apps/web/app/api/platform-v7/accounting/[[...path]]/route.ts",
+        "second-decode:apps/web/app/api/platform-v7/commodity-profiles/[[...path]]/route.ts",
+        "second-decode:apps/web/app/api/platform-v7/integrations/[[...path]]/route.ts",
+        "second-decode:apps/web/app/api/staff/[...path]/route.ts",
+        "second-decode:apps/web/app/api/staff/commodity-profile-registry/[[...path]]/route.ts",
+        "second-decode:apps/web/app/api/staff/integration-control-tower/[[...path]]/route.ts",
+        "second-decode:apps/web/app/api/staff/workspaces/[...path]/route.ts",
+        "second-decode:apps/web/app/staff/[...path]/route.ts",
+        "framework-version:apps/web/package.json"
+      ],
+      "conditions": [
+        {
+          "condition": "seven catch-all route handlers still decode each segment again after Next.js has decoded it",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/platform-v7/accounting/[[...path]]/route.ts",
+            "apps/web/app/api/platform-v7/commodity-profiles/[[...path]]/route.ts",
+            "apps/web/app/api/platform-v7/integrations/[[...path]]/route.ts",
+            "apps/web/app/api/staff/[...path]/route.ts",
+            "apps/web/app/api/staff/commodity-profile-registry/[[...path]]/route.ts",
+            "apps/web/app/api/staff/integration-control-tower/[[...path]]/route.ts",
+            "apps/web/app/api/staff/workspaces/[...path]/route.ts"
+          ],
+          "patterns": [
+            "const decoded = segments.map((part) => decodeuricomponent(part).trim()).filter(boolean);"
+          ]
+        },
+        {
+          "condition": "the local staff mock route still decodes its already-decoded segments again",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/staff/[...path]/route.ts"
+          ],
+          "patterns": [
+            "return (parts || []).map((part) => decodeuricomponent(part)).join('/');"
+          ]
+        },
+        {
+          "condition": "the framework is still the version whose param decoding was measured",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/package.json"
+          ],
+          "patterns": [
+            "\"next\": \"15.5.24\""
+          ]
+        }
+      ],
+      "note": "Measured on a running server rather than inferred from source: a minimal app built and started with this repository's own next 15.5.24 in production mode, receiving raw requests. Route handlers receive catch-all segments already percent-decoded exactly once: /api/t/organizations/%252e%252e/users arrived as ['organizations','%2e%2e','users'], x%3Fa%3D1%23 as 'x?a=1#', %25 as '%', and a%2Fb as 'a/b'. Eight route handlers here decode every segment a second time (seven BFF proxies and the local staff mock route), so a request is decoded twice before it is used, which is what this requirement forbids. The measurement also corrected an assumption: page components are different. Their params arrive not decoded at all (/p/%252e%252e arrived as '%252e%252e'), so the decodeURIComponent(params.id) in deals/[id]/evidence-pack and logistics/[routeId] is the first and only decode and is correct. No exploit was found through the second decode itself. Each handler validates after its own decode, so the check sees the final value; four of the seven admit only a strict identifier charset that excludes '%'. The one path defect that did matter in these routes is URL building without encoding, recorded under V1.2.2. Observed and not relied on either way: cookie values read through next/headers or request.cookies also arrive decoded (the bundled @edge-runtime/cookies parser decodes them), and several readers of the session marker decode again; that matches the demo/role writer, which pre-encodes, and does not match the others. These markers are UI hints, not session authority, and their writers are the non-production demo routes. Remedy, not applied here: drop the redundant decode in the eight handlers. It is hygiene rather than an exploitable defect, so it is left for a separate narrow step after the V1.2.2 fix. The third condition ties this to the measured version, so a Next.js upgrade revokes the decision for re-measurement rather than letting it stand on a behaviour that may have changed."
+    },
+    {
       "requirementId": "V1.1.2",
       "applicability": "APPLICABLE",
       "status": "PASS",
@@ -129,8 +185,11 @@
     {
       "requirementId": "V1.2.2",
       "applicability": "APPLICABLE",
-      "status": "PASS",
+      "status": "FAIL",
       "evidence": [
+        "unencoded-path:apps/web/app/api/staff/[...path]/route.ts",
+        "unencoded-path:apps/web/app/api/proxy/[...path]/route.ts",
+        "branch:security/bff-upstream-path-encoding-4459",
         "apps/api/src/common/security/outbound-url.ts",
         "apps/api/src/common/security/safe-outbound-request.ts",
         "apps/api/src/modules/partner-api/partner-api.service.ts",
@@ -139,6 +198,38 @@
         "apps/api/src/modules/partner-api/webhook-url-protocol.spec.ts"
       ],
       "conditions": [
+        {
+          "condition": "the staff proxy still joins its checked segments unencoded and concatenates that path into the upstream URL",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/staff/[...path]/route.ts"
+          ],
+          "patterns": [
+            "return decoded.join('/');",
+            "const targeturl = `${api_base_url}/staff/${path}${query ? `?${query}` : ''}`;"
+          ]
+        },
+        {
+          "condition": "the generic proxy still joins the decoded segments and concatenates them into the upstream URL without encoding them",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/proxy/[...path]/route.ts"
+          ],
+          "patterns": [
+            "const path = params.path.join('/');",
+            "const target = `${api_url}/${path}`;"
+          ]
+        },
+        {
+          "condition": "the per-segment encoder that fixes this has not landed on this tree",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/web"
+          ],
+          "patterns": [
+            "encodeupstreampath"
+          ]
+        },
         {
           "condition": "the allowlist is still an allowlist of safe schemes, not a denylist of known-bad ones",
           "check": "PRESENT_ALL_AT_PATH",
@@ -195,7 +286,7 @@
           ]
         }
       ],
-      "note": "A partner registers a webhook URL through the partner API and this application later fetches it. The URL was stored verbatim: the endpoint declares its body as an inline TypeScript type, which erases to Object at runtime, so ValidationPipe skipped the parameter and no validator ever saw the field. Reachability was established before anything was changed, and it corrected the earlier record. That record named one fetch site, WebhookDispatcherService.dispatch, and a grep for callers finds none anywhere in the tree - the method is exported from its module but nothing invokes it. The fetch a partner can actually reach is in the controller's test endpoint, POST webhooks/:id/test, and it was not named. So the requirement was failing on a path the evidence did not mention, which is the same failure mode as the requirement itself. The check is applied at three points, not one: at registration, so a bad scheme is refused at the door; in the test endpoint, because that is the live path; and in the dispatcher, because a subscription stored before this existed has never been through registration and refusing at the point of use makes that safe without a data migration. http is on the allowlist deliberately. This requirement asks that the scheme be of a safe kind and names javascript: and data:; transport confidentiality is V12, and narrowing to https alone would break every partner already registered over http, which is a product decision rather than this control's to make. That choice is written down rather than left implied by an omission. What is deliberately not claimed: this does not decide where the URL points. Loopback, link-local and private ranges still pass, and the test suite asserts that they do, so the boundary is visible in the suite and not only in prose. Blocking them, and the DNS rebinding that defeats a naive version of it, is server-side request forgery under V1.3.6, which stays FAIL. Mutation results at the time this was closed: removing the guard from the reachable fetch failed 8 of 22, removing it from registration failed 9, removing the allowlist failed 8, removing it from the dispatcher failed 1. The two call sites have since been moved from a bare fetch onto the SSRF guard for V1.3.6, which begins with this same scheme check, so the conditions here name that entry point rather than the fetch call that no longer exists. The scheme check remains a separate control from the address rules and is credited separately: it proves the URL is of a safe kind, and V1.3.6 proves where it may point."
+      "note": "Corrected from PASS to FAIL. The requirement has two halves, and the earlier PASS assessed only the second: that only safe URL schemes are permitted. The first half, that untrusted data is encoded according to its context when a URL is built dynamically, was never assessed, and it fails. Two web BFF proxies build their upstream URL by concatenating decoded catch-all segments: /api/staff/[...path] after an allowlist check, and /api/proxy/[...path] with no allowlist at all. fetch() parses that string again, so a segment containing '?' or '#' moves the rest of the path into a query or fragment, and a segment '%2e%2e' (the raw request '%252e%252e', which Next.js decodes once) is a dot-segment that walks the upstream path. Measured with the real handlers and fetch mocked: /api/staff forwarded organizations/%2e%2e/users, which its allowlist admits, as /api/staff/users; /api/proxy forwarded %2e%2e/metrics as /metrics, outside the API's /api prefix, reaching the unauthenticated Prometheus endpoint and /health/detailed that are meant to be reachable only inside the Compose network. Both routes require a signed-in session. Every other dynamic URL builder found was checked and holds: five other catch-all proxies either admit only a strict identifier charset (accounting, commodity-profiles, integrations, commodity-profile-registry, integration-control-tower) or already encode each segment (staff/workspaces); the Gekta bridge admits only [A-Za-z0-9_-] identifiers and builds its query with URLSearchParams; single-identifier calls such as /staff/access/sessions/:id/end use encodeURIComponent. The fix is prepared, not merged (PR #5614): the staff proxy re-encodes each checked segment where it normalizes the path, as /api/staff/workspaces already does, leaving the targetUrl line that the staff API origin contract pins unchanged; the generic proxy encodes each segment with encodeUpstreamPath() and refuses a literal dot-segment. Both are covered by mutation-tested route-level tests. The first and third conditions track those two changes, so when the fix lands this decision stops holding and V1.2.2 falls back to NOT_ASSESSED for deliberate re-assessment instead of sitting stale. The scheme half, which stays credited and whose conditions are kept below: A partner registers a webhook URL through the partner API and this application later fetches it. The URL was stored verbatim: the endpoint declares its body as an inline TypeScript type, which erases to Object at runtime, so ValidationPipe skipped the parameter and no validator ever saw the field. Reachability was established before anything was changed, and it corrected the earlier record. That record named one fetch site, WebhookDispatcherService.dispatch, and a grep for callers finds none anywhere in the tree - the method is exported from its module but nothing invokes it. The fetch a partner can actually reach is in the controller's test endpoint, POST webhooks/:id/test, and it was not named. So the requirement was failing on a path the evidence did not mention, which is the same failure mode as the requirement itself. The check is applied at three points, not one: at registration, so a bad scheme is refused at the door; in the test endpoint, because that is the live path; and in the dispatcher, because a subscription stored before this existed has never been through registration and refusing at the point of use makes that safe without a data migration. http is on the allowlist deliberately. This requirement asks that the scheme be of a safe kind and names javascript: and data:; transport confidentiality is V12, and narrowing to https alone would break every partner already registered over http, which is a product decision rather than this control's to make. That choice is written down rather than left implied by an omission. What is deliberately not claimed: this does not decide where the URL points. Loopback, link-local and private ranges still pass, and the test suite asserts that they do, so the boundary is visible in the suite and not only in prose. Blocking them, and the DNS rebinding that defeats a naive version of it, is server-side request forgery under V1.3.6, which stays FAIL. Mutation results at the time this was closed: removing the guard from the reachable fetch failed 8 of 22, removing it from registration failed 9, removing the allowlist failed 8, removing it from the dispatcher failed 1. The two call sites have since been moved from a bare fetch onto the SSRF guard for V1.3.6, which begins with this same scheme check, so the conditions here name that entry point rather than the fetch call that no longer exists. The scheme check remains a separate control from the address rules and is credited separately: it proves the URL is of a safe kind, and V1.3.6 proves where it may point."
     },
     {
       "requirementId": "V1.2.3",
@@ -526,6 +617,54 @@
       "note": "The application never dynamically executes code from a string. A scan for eval( and new Function( across apps/api/src, apps/web/lib and apps/web/app returns zero matches."
     },
     {
+      "requirementId": "V1.3.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "depends-on:V1.2.2",
+        "unrestricted-segment:apps/web/app/api/staff/[...path]/route.ts",
+        "unrestricted-segment:apps/web/app/api/proxy/[...path]/route.ts",
+        "safe-charset:apps/web/app/api/platform-v7/accounting/[[...path]]/route.ts",
+        "safe-charset:apps/web/lib/gekta/account-bridge.ts",
+        "branch:security/bff-upstream-path-encoding-4459"
+      ],
+      "conditions": [
+        {
+          "condition": "the staff proxy still joins its checked segments unencoded and concatenates that path into the upstream URL",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/staff/[...path]/route.ts"
+          ],
+          "patterns": [
+            "return decoded.join('/');",
+            "const targeturl = `${api_base_url}/staff/${path}${query ? `?${query}` : ''}`;"
+          ]
+        },
+        {
+          "condition": "the generic proxy still joins the decoded segments and concatenates them into the upstream URL without encoding them",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/proxy/[...path]/route.ts"
+          ],
+          "patterns": [
+            "const path = params.path.join('/');",
+            "const target = `${api_url}/${path}`;"
+          ]
+        },
+        {
+          "condition": "the per-segment encoder that fixes this has not landed on this tree",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/web"
+          ],
+          "patterns": [
+            "encodeupstreampath"
+          ]
+        }
+      ],
+      "note": "Assessed across the dangerous contexts the register has already inventoried one by one, rather than re-derived: SQL (V1.2.4 PASS), XML (V1.2.1 PASS), CSV (V1.2.10 PASS), dynamic regular expressions (V1.2.9 PASS; V1.3.12 FAIL), SMTP headers (V1.3.11 PASS), outbound fetch destinations (V1.3.6 PASS), with no OS command, LDAP, XPath, LaTeX, template or memcache context at all. One context fails: the path of an upstream URL built by a web BFF. /api/staff/[...path] admits a segment through [^/]+, and /api/proxy/[...path] admits any segment. Neither restricts the characters that are dangerous in that context ('?', '#', '%', and dot-segments) and neither bounds segment length, and neither encodes instead; that is the gap measured under V1.2.2, reaching /api/staff/users and the API's unprefixed /metrics. The control this requirement describes is already done right beside them: accounting, commodity-profiles, integrations, commodity-profile-registry and integration-control-tower admit only [A-Za-z0-9][A-Za-z0-9:_.@-]{0,239}-style identifiers, bounded in length, and the Gekta bridge admits [A-Za-z0-9_-]{1,64}. The conditions are the V1.2.2 ones, including the name of the fix's encoder, so when branch security/bff-upstream-path-encoding-4459 lands this decision is revoked for re-assessment. Encoding is the primary control for a URL path, so that re-assessment is expected to credit it rather than demand a charset allowlist as well."
+    },
+    {
       "requirementId": "V1.3.4",
       "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
@@ -810,7 +949,7 @@
           ]
         }
       ],
-      "note": "The traced instance is closed in #4835 and this requirement still fails, which is the point of recording it separately. That instance was real and was proven by running it: a key of (.*)*x fed into a per-key RegExp did not finish against an ordinary 1901-character contract in 120 seconds, and Node being single-threaded that stops every request on the pod. The substitution now compiles nothing from input, so that path is gone. What is not established is the requirement's other half - that the application's regular expressions are free from elements causing exponential backtracking. Sixteen further new RegExp call sites exist under apps/api/src and apps/web/lib, none of them examined in this pass, and no backtracking-analysis tool is declared in any manifest, so there is no sweep to point at. Claiming PASS here on the strength of one closed instance would be exactly the substitution this programme forbids: a requirement answered with the evidence of a different, narrower one. The condition therefore watches for the sweep rather than for the instance - adding such a tool revokes this decision and forces the verdict to be taken again."
+      "note": "The traced instance is closed in #4835 and this requirement still fails, which is the point of recording it separately. That instance was real and was proven by running it: a key of (.*)*x fed into a per-key RegExp did not finish against an ordinary 1901-character contract in 120 seconds, and Node being single-threaded that stops every request on the pod. The substitution now compiles nothing from input, so that path is gone. What is not established is the requirement's other half - that the application's regular expressions are free from elements causing exponential backtracking. Sixteen further new RegExp call sites exist under apps/api/src and apps/web/lib, none of them examined in this pass, and no backtracking-analysis tool is declared in any manifest, so there is no sweep to point at. Claiming PASS here on the strength of one closed instance would be exactly the substitution this programme forbids: a requirement answered with the evidence of a different, narrower one. The condition therefore watches for the sweep rather than for the instance - adding such a tool revokes this decision and forces the verdict to be taken again. Update, 2026-09-25: the sweep this note said was missing has now been run once, and it confirms the FAIL rather than closing it. Method, so it can be repeated: every regular-expression literal and every new RegExp with a literal source was extracted from the TypeScript AST (not by grep) across 2,218 runtime files in apps/api/src, apps/web/app, apps/web/lib, apps/web/components, apps/web/middleware.ts and packages/*/src, excluding tests, and each of the 1,346 was checked with recheck 4.x installed in a scratch directory outside the repository, so no manifest or lockfile changed and the condition below still holds. Result: none exponential; 107 with polynomial (super-linear) backtracking, 92 of them in server-side code. Polynomial backtracking matters only where an untrusted string of unbounded length reaches the pattern, so each server-side group was traced to its input. Bounded or unreachable, and not a finding: the public lead and inquiry forms slice every field to a fixed limit before matching; the API chat contact policy has no runtime caller; configuration trimming and number formatting run on short internal strings. One reachable class was found and is fixed on branch security/email-check-length-first-4459: four public auth routes read the body with request.json(), which sets no size bound, and tested the email pattern before the 254-character limit, so the pattern ran over the full string; the limit now comes first. Open, and the reason the verdict stays FAIL: the AI gateway's output filters (model output, bounded by generation length; changeable only under an explicitly authorized scope), the external registry parsers in role-eligibility adapters (feeds from named government sources; adapters are outside scope), the public assistant's attachment text extraction (file contents bounded by the upload limit; part of the assistant surface), and the API log-masking rules, whose input is whatever a log call passes and which were deliberately not altered because they are themselves a confidentiality control. Traced afterwards and bounded: the document-template placeholder pattern scans only the in-code TEMPLATES constants, never the substituted values, and the connection-attestation parser reads a PostgreSQL error message raised by the database's own guards. The four open groups need a traced bound and an owner decision each; they are named here so the next assessment starts from them rather than from zero."
     },
     {
       "requirementId": "V1.4.1",
@@ -930,6 +1069,79 @@
         }
       ],
       "note": "The application deserializes untrusted input with JSON.parse and nothing else - no YAML loader, no node-serialize or unserialize-style library is a dependency. JSON.parse builds plain data objects and cannot itself instantiate arbitrary classes or execute code, which is the mechanism the deserialization attacks this requirement targets rely on; there is no unsafe deserialization surface here."
+    },
+    {
+      "requirementId": "V1.5.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "depends-on:V1.2.2",
+        "depends-on:V3.7.2",
+        "parser-mismatch:apps/web/app/api/staff/[...path]/route.ts",
+        "parser-mismatch:apps/web/app/api/proxy/[...path]/route.ts",
+        "parser-mismatch:apps/web/app/api/auth/demo/route.ts",
+        "parser-mismatch:apps/web/app/api/auth/demo/role/[role]/route.ts",
+        "parser-mismatch:apps/web/app/api/auth/demo/instant/[role]/route.ts",
+        "branch:security/bff-upstream-path-encoding-4459",
+        "branch:security/open-redirect-demo-login-4459"
+      ],
+      "conditions": [
+        {
+          "condition": "the staff proxy still joins its checked segments unencoded and concatenates that path into the upstream URL",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/staff/[...path]/route.ts"
+          ],
+          "patterns": [
+            "return decoded.join('/');",
+            "const targeturl = `${api_base_url}/staff/${path}${query ? `?${query}` : ''}`;"
+          ]
+        },
+        {
+          "condition": "the generic proxy still joins the decoded segments and concatenates them into the upstream URL without encoding them",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/proxy/[...path]/route.ts"
+          ],
+          "patterns": [
+            "const path = params.path.join('/');",
+            "const target = `${api_url}/${path}`;"
+          ]
+        },
+        {
+          "condition": "the per-segment encoder that fixes this has not landed on this tree",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/web"
+          ],
+          "patterns": [
+            "encodeupstreampath"
+          ]
+        },
+        {
+          "condition": "all three demo-login routes still gate their redirect destination with only a startsWith prefix check",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/auth/demo/route.ts",
+            "apps/web/app/api/auth/demo/role/[role]/route.ts",
+            "apps/web/app/api/auth/demo/instant/[role]/route.ts"
+          ],
+          "patterns": [
+            "startswith('/')"
+          ]
+        },
+        {
+          "condition": "the same-origin redirect resolver that fixes this has not landed on this tree",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/web"
+          ],
+          "patterns": [
+            "resolvesameoriginredirecttarget"
+          ]
+        }
+      ],
+      "note": "Two measured instances of exactly the failure this requirement names, a check and a consumer that parse the same URL differently. First, the web BFF proxies. The allowlist in /api/staff/[...path] and the denylist in /api/proxy/[...path] judge a decoded string with regular expressions and equality, but the value they pass on is parsed again by fetch() under the WHATWG URL algorithm, which reads '?' and '#' as delimiters and '%2e%2e' as a dot-segment. The check and the consumer therefore see different paths: organizations/%2e%2e/users passed as an allowlisted path and was fetched as /api/staff/users, and %2e%2e/metrics was fetched as /metrics outside the /api prefix (V1.2.2). Second, the three non-production demo-login routes. They judged a redirect destination with raw.startsWith('/'), a string test, while the browser that follows the redirect parses it as a URL, under which //evil.example and /\\evil.example are foreign origins (V3.7.2). In both cases the fix prepared on its branch makes the check operate on what the consumer will actually parse: encoding each segment so fetch() receives exactly the checked segments, and comparing the resolved origin instead of a string prefix. What is consistent: JSON is parsed with JSON.parse on both sides of every hop (request.json() in the web tier; express body-parser, registered in configureRequestBodyLimits, in the API), and the proxies forward the body text rather than a re-serialization, so neither side accepts a value the other would read differently. One seam, recorded rather than smoothed over: the web tier reads a proxied body as UTF-8 text, while body-parser decodes by the declared charset, and the generic proxy forwards the caller's Content-Type unchanged. A caller declaring a different utf- charset therefore sends bytes re-encoded as UTF-8 but labelled otherwise. Not measured here. The expected consequence is a parse failure rather than a divergent accepted value, because the web tier does not inspect the body it forwards, and it is not relied on for this FAIL. Both instances are pinned by conditions, including each fix's function name. Merging either fix revokes this decision for re-assessment, which should then find the other instance if it is still open."
     },
     {
       "requirementId": "V2.1.1",
@@ -1600,6 +1812,51 @@
       "note": "Cookies that carry a value not meant to be readable by client-side script (the session token in auth-session-response.ts, the MFA ticket in gekta-mfa-ticket.ts, the membership-selection cookie) are all set with httpOnly: true, and those values are only ever transferred via the Set-Cookie response header, never echoed into a response body or script. The one cookie that is deliberately client-readable, the CSRF token, is exactly the case this requirement is not about - it exists to be read by client JavaScript so it can be echoed back as a header (assessed under V3.5.1)."
     },
     {
+      "requirementId": "V3.3.5",
+      "applicability": "APPLICABLE",
+      "status": "PASS",
+      "evidence": [
+        "apps/api/src/modules/auth/opaque-token-authority.ts",
+        "apps/web/app/api/auth/mfa-step-up/start/route.ts",
+        "apps/web/lib/server/gekta-mfa-ticket.ts",
+        "repository-scan:all-18-cookie-set-call-sites"
+      ],
+      "conditions": [
+        {
+          "condition": "the shared opaque-credential factory backing seven cookie-issued token types uses fixed-length random bytes, not variable input",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/opaque-token-authority.ts"
+          ],
+          "patterns": [
+            "randombytes(18)",
+            "randombytes(32)"
+          ]
+        },
+        {
+          "condition": "the MFA step-up route rejects a challenge token outside an explicit length bound before it reaches a cookie",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/auth/mfa-step-up/start/route.ts"
+          ],
+          "patterns": [
+            "challengetoken.length < 40 || challengetoken.length > 512"
+          ]
+        },
+        {
+          "condition": "the Gekta email-verification ticket seal rejects input outside an explicit length bound before it reaches a cookie",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "apps/web/lib/server/gekta-mfa-ticket.ts"
+          ],
+          "patterns": [
+            "token.length < 32 || token.length > 1_024"
+          ]
+        }
+      ],
+      "note": "Traced every distinct cookie name the web BFF sets -- 14 names across 22 files -- to how its value is constructed, rather than sampled a few. All fall into a small number of bounded patterns: (1) a shared opaque-credential factory, issueCredential in opaque-token-authority.ts, backing REFRESH, MFA challenge, membership-selection, password-reset, MFA-recovery, invitation and email-verification tokens, all built from randomBytes(18) + '.' + randomBytes(32), fixed length regardless of any request content; (2) signed JWTs (ACCESS_COOKIE, CABINET_SESSION_COOKIE) whose claims are only short ids, a role from a closed set, and small numbers -- never free text; (3) randomBytes(24)-derived state values for the government-identity bridge (GOV_ID_STATE_COOKIE, GOV_ID_NONCE_COOKIE); (4) a small fixed-shape session object for the Gekta anonymous surface (GEKTA_ANONYMOUS_COOKIE): sid, a usage counter, an optional opaque pending-ticket string, a timestamp, and a small consent record -- confirmed against its type declaration, and the one place a client-supplied 'ticket' value is compared (completeAnswer) never writes that client value back into the cookie, only clears the existing small one on an exact match. Two of those patterns are not merely small by convention but explicitly bounded in code, which is what the three conditions check: the shared factory's fixed byte lengths, and the two places where a value that is not purely server-generated -- a client-echoed MFA step-up challenge, and the input to the Gekta email-ticket seal -- carries an explicit numeric ceiling (512 and 1024 characters) that rejects the request before any cookie is set. Every one of the 14 cookie values, summed with its name, base64url and signature overhead, resolves to at most a few hundred bytes -- nowhere near the 4096-byte limit. Scope stated rather than left implicit: this covers cookies the application itself sets. It does not cover a cookie set by infrastructure in front of the application (a load balancer or CDN session cookie), which is outside this repository the same way the Caddy edge is for other requirements."
+    },
+    {
       "requirementId": "V3.4.1",
       "applicability": "APPLICABLE",
       "status": "PASS",
@@ -1835,6 +2092,41 @@
       "note": "Sensitive functionality is reached through POST/PUT/PATCH/DELETE handlers, not GET/HEAD/OPTIONS: every route file in apps/web/app that exports a mutating operation does so under one of the four unsafe method names, confirmed by direct enumeration (59 files), and no GET handler carrying a state-changing side effect was found. A subset of routes additionally validate the sec-fetch-site request header directly (agro-chat, restricted-public-platform-assistant, gekta/entitlement, public-platform-assistant and its attachments route all check for sec-fetch-site: cross-site) - named as a real, additional layer where it exists, not claimed as universal. This requirement is specifically about method choice (or Sec-Fetch validation as an alternative), which the codebase satisfies structurally; it is answered independently of the anti-forgery-token coverage gap recorded under V3.5.1, which is a different requirement about a different mechanism."
     },
     {
+      "requirementId": "V3.5.4",
+      "applicability": "APPLICABLE",
+      "status": "NOT_ASSESSED",
+      "evidence": [
+        "apps/web/lib/platform-v7/control-host.ts",
+        "repository-scan:host-only-cookies"
+      ],
+      "conditions": [
+        {
+          "condition": "both platform hostnames are declared in one place",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/control-host.ts"
+          ],
+          "patterns": [
+            "primary_platform_host",
+            "control_platform_host"
+          ]
+        },
+        {
+          "condition": "no session cookie declares a domain attribute, so cookies stay host-only",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/web/app/api/platform-v7/cabinet-session/route.ts",
+            "apps/web/app/api/platform-v7/cabinet-lock-login/route.ts",
+            "apps/web/app/api/auth/demo/route.ts"
+          ],
+          "patterns": [
+            "domain:"
+          ]
+        }
+      ],
+      "note": "Half measurable, half blocked, so no verdict is claimed. Measurable and recorded: the platform declares two hostnames, the apex and control.<apex>, in control-host.ts, and no session cookie anywhere sets a domain attribute, so every cookie is host-only and the two hostnames are isolated for cookies as well as by same-origin policy. That is the substance the requirement asks for and it holds. Not measurable here, and more precisely than before: the application enforces the split itself (middleware.ts redirects staff pages to the control host and refuses staff API paths elsewhere), but only when PC_CONTROL_HOST_ENABLED is true, and no versioned production configuration sets that flag; infra/compose/production-web-hardening.override.yml does not. Whether the split is on in production is therefore decided by server-side environment and the Caddy edge on the REG.RU virtual server, neither of which is in the repository - the same blocker recorded under V12, V13 and V4. PR #5102 recorded PASS on the middleware alone; that is not adopted here, because the enforcement it credits is conditional on a flag the repository cannot show is set. Recording PASS would credit a routing arrangement this repository cannot show, and recording FAIL would deny a cookie isolation it can."
+    },
+    {
       "requirementId": "V3.5.5",
       "applicability": "NOT_APPLICABLE_WITH_JUSTIFICATION",
       "status": "NOT_APPLICABLE",
@@ -1969,6 +2261,156 @@
         }
       ],
       "note": "The application is built entirely on React/Next.js/TypeScript. A scan for every legacy plugin technology this requirement names (ActiveX, Shockwave, Silverlight, NSAPI/NPAPI, Java applets) across the web app returns zero matches."
+    },
+    {
+      "requirementId": "V3.7.2",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "apps/web/app/api/auth/demo/route.ts",
+        "apps/web/app/api/auth/demo/role/[role]/route.ts",
+        "apps/web/app/api/auth/demo/instant/[role]/route.ts",
+        "branch:security/open-redirect-demo-login-4459"
+      ],
+      "conditions": [
+        {
+          "condition": "all three demo-login routes still gate their redirect destination with only a startsWith prefix check",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/auth/demo/route.ts",
+            "apps/web/app/api/auth/demo/role/[role]/route.ts",
+            "apps/web/app/api/auth/demo/instant/[role]/route.ts"
+          ],
+          "patterns": [
+            "startswith('/')"
+          ]
+        },
+        {
+          "condition": "the same-origin redirect resolver that fixes this has not landed on this tree",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/web"
+          ],
+          "patterns": [
+            "resolvesameoriginredirecttarget"
+          ]
+        }
+      ],
+      "note": "A genuine open redirect, found while assessing this requirement rather than assumed from its text. /api/auth/demo, /api/auth/demo/role/[role] and /api/auth/demo/instant/[role] all accept a caller-supplied 'to' destination and validate it with raw.startsWith('/'); the first two hand it to new URL(to, request.url) for a Location header, the third writes it into an inline script that calls window.location.replace(). That check is insufficient: //evil.example and /\\evil.example both start with exactly one slash and both resolve, under the WHATWG URL algorithm every browser implements, to a foreign origin (confirmed directly against Node's URL constructor). A leading // is a network-path reference; a leading backslash is normalized to a forward slash for special schemes such as http(s). The one legitimate cross-origin redirect in the application, the government identity provider's authorization URL in govIdentityBridge.ts, is not affected - its destination comes from an operator-configured environment variable, never from a request. All three vulnerable routes are fail-closed in production regardless: demoLoginAllowed() checks NODE_ENV unconditionally before anything else runs, and no environment flag can override that, so this is not reachable in the current production deployment. It is still recorded FAIL rather than NOT_APPLICABLE or deferred: the requirement asks about the application's own behaviour, and a prefix-check pattern that fails exactly this way is the kind of thing that gets copied into the next route. The fix is prepared, not merged: branch security/open-redirect-demo-login-4459 replaces the prefix check with resolveSameOriginRedirectTarget, which validates the RESOLVED origin rather than a string prefix, covered by mutation-tested unit and route-level tests. The instant route was found in a later pass and needed one more step: a same-origin URL is not automatically safe to re-serialize for client-side navigation, because dot-segment removal turns /.//evil.example into the pathname //evil.example, which as a relative reference is protocol-relative again; the branch emits it only through toPathAbsoluteReference, which refuses any reference that does not start with exactly one slash. It is not bundled into this assessment because this repository's automated merging is disabled and no PR of this agent's may be assumed merged; the second condition above names the fix by its function name specifically so that once it lands on this tree, that condition stops holding, this decision is automatically revoked by the matrix rather than sitting stale, and V3.7.2 falls back to NOT_ASSESSED until it is deliberately re-assessed against the fixed code."
+    },
+    {
+      "requirementId": "V3.7.3",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "external-redirect:apps/web/app/api/platform-v7/gov-id/start/route.ts",
+        "destination:apps/web/lib/platform-v7/govIdentityBridge.ts",
+        "entry-point:apps/web/app/platform-v7/fgis-access/page.tsx"
+      ],
+      "conditions": [
+        {
+          "condition": "the government identity start route still answers with an immediate redirect to the externally hosted authorization URL, with no intermediate page",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/api/platform-v7/gov-id/start/route.ts"
+          ],
+          "patterns": [
+            "const response = nextresponse.redirect(starturl);"
+          ]
+        },
+        {
+          "condition": "that redirect target is still the operator-configured external identity provider's authorization URL",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/govIdentityBridge.ts"
+          ],
+          "patterns": [
+            "const url = new url(config.authorizationurl as string);"
+          ]
+        },
+        {
+          "condition": "the only page that links to the start route still carries exactly the copy assessed here, which does not say the user is about to leave the platform",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/app/platform-v7/fgis-access/page.tsx"
+          ],
+          "patterns": [
+            "href='/api/platform-v7/gov-id/start?flow=fgis'",
+            "description: 'бизнес-вход подтверждает организацию и полномочия. он не заменяет доступ к фгис «зерно» и не создаёт локальный лот.',",
+            "action: 'подтвердить организацию',"
+          ]
+        }
+      ],
+      "note": "One redirect in the application leaves it for a destination outside its control, and it has neither of the two things this requirement asks for. The farmer page /platform-v7/fgis-access links 'Подтвердить организацию' to /api/platform-v7/gov-id/start, which answers with an immediate 307 to the government identity provider's authorization URL (operator-configured through PLATFORM_V7_GOV_ID_AUTHORIZATION_URL). Nothing before that redirect tells the user they are about to leave the platform for an external service, and there is no intermediate step at which they could cancel: the click is the redirect. The page copy speaks of 'business login' confirming the organization, which describes the purpose, not the fact of leaving. Interpretation used, stated so a reviewer can overturn it: an identity provider chosen by the operator is still a URL outside the application's control, because the application controls neither its content nor its availability; the requirement's own words ('outside of the application's control') are about control of the destination, not about who chose it. What this is not: it is not an open redirect. The destination comes from configuration, never from the request, so V3.7.2 is unaffected by it. Every other server or middleware redirect in apps/web builds its URL from the request's own URL or goes to the platform's own control host; apps/api issues no redirects. Gekta's source citations are ordinary user-clicked links that show the destination hostname and open in a new tab, not redirects, and are not relied on either way. Reachability in production depends on PLATFORM_V7_GOV_ID_ENABLED and the other bridge variables, which are server-side configuration not in this repository; when they are absent the route falls back to a same-origin page. It is recorded FAIL on the application's behaviour whenever the bridge is configured, which is the behaviour the requirement asks about. Not fixed here: the remedy is user-facing copy or an interstitial in platform-v7 UI, which this programme's scope does not permit it to change. The third condition pins the exact assessed copy, so any change to that page's wording or link revokes this decision for deliberate re-assessment instead of leaving a stale FAIL."
+    },
+    {
+      "requirementId": "V3.7.4",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "external-list:chromium-hsts-preload-list@4aeb64ba80e179af87b4b7b16d067c88ef95a526",
+        "host:apps/web/lib/platform-v7/control-host.ts",
+        "header:apps/web/middleware.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "the application's registrable domain is still the host the preload list was searched for",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/platform-v7/control-host.ts"
+          ],
+          "patterns": [
+            "export const primary_platform_host = 'xn----8sbjf4befbjgs9b.xn--p1ai';"
+          ]
+        },
+        {
+          "condition": "the application still asks to be preloaded, so what is missing is the listing itself rather than the header",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/middleware.ts"
+          ],
+          "patterns": [
+            "'strict-transport-security', 'max-age=31536000; includesubdomains; preload'"
+          ]
+        }
+      ],
+      "note": "Measured, not assumed: the domain is not on the public HSTS preload list. The list searched is Chromium's net/http/transport_security_state_static.json at chromium/chromium commit 4aeb64ba80e179af87b4b7b16d067c88ef95a526, fetched on 2026-09-24 from raw.githubusercontent.com (10,534,637 bytes, sha256 22a2a6e72ea571ba80ec478fda90c65fcfad54b1d2b3f8015008bc3c8b88c9d6); it is the list the other major browsers base their own preload lists on. It has no entry for xn----8sbjf4befbjgs9b.xn--p1ai (процент-агро.рф), and the .рф top-level domain (xn--p1ai) has no entry of its own either, so nothing covers the domain. The search form is confirmed by the file itself: it carries 62 other .рф hosts, all in the same punycode form. Reproduce with the commit above: fetch that path and search for \"name\": \"xn----8sbjf4befbjgs9b.xn--p1ai\". hstspreload.org, which would also show a pending submission, answered 403 through this environment's egress proxy and was not observed; a pending submission would not change the result, because the requirement is that the domain is on the list. What the repository already does: middleware sends Strict-Transport-Security with max-age=31536000, includeSubDomains and preload on every response (credited under V3.4.1). What it cannot show: the other listing prerequisites, a same-host HTTP-to-HTTPS redirect and HTTPS on every subdomain, sit at the Caddy edge on the REG.RU server, whose configuration is not in the repository. Remedy, for the owner and not this programme: submission at hstspreload.org by the domain owner, costing 0 roubles, but deliberately hard to undo, since removal takes months to reach browsers and every subdomain is then HTTPS-only. Limitation of this record: the register can re-check the repository conditions above, but not the external list. A later listing would leave this FAIL stale in the conservative direction, so re-measure before relying on it either way."
+    },
+    {
+      "requirementId": "V3.7.5",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "depends-on:V3.1.1",
+        "documentation-set:SECURITY.md",
+        "roadmap:packages/domain-core/src/problem-closure-matrix.ts"
+      ],
+      "conditions": [
+        {
+          "condition": "SECURITY.md still documents no browser security features or fallback behaviour, so there is still nothing for the application to behave as",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "SECURITY.md"
+          ],
+          "patterns": [
+            "browser security feature",
+            "if hsts is not supported",
+            "if csp is not supported"
+          ]
+        },
+        {
+          "condition": "the product's own problem register still lists a browser support matrix and capability checks as work not yet done",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "packages/domain-core/src/problem-closure-matrix.ts"
+          ],
+          "patterns": [
+            "title: 'барьер доступа из-за требований к браузеру',",
+            "hardeningnow: ['browser support matrix', 'graceful degradation', 'capability checks'],"
+          ]
+        }
+      ],
+      "note": "Follows from V3.1.1 rather than being judged separately from it. This requirement asks that the application behave as documented when a browser lacks the expected security features; V3.1.1 is FAIL because no such documentation exists, so there is no documented behaviour to verify against. The code agrees with the documents: apps/web has no capability check for any security feature it relies on (HSTS, CSP, SameSite cookies, the Secure-context APIs behind crypto.subtle) and no warning or block for a browser without them. Its feature detection is for the service worker, which is not a security control. The product's own problem register says the same: entry 14, 'Барьер доступа из-за требований к браузеру', lists a browser support matrix and capability checks as hardening still to do. This is not a claim that the application is unsafe in such a browser. Several controls hold without browser cooperation: the server-side Origin check and double-submit token behind CSRF, and the API's own HSTS. What is missing is the documented contract and a behaviour matching it. The first condition is the same one V3.1.1 uses, so writing that documentation revokes both decisions together for re-assessment against it."
     },
     {
       "requirementId": "V4.1.1",
@@ -5531,10 +5973,24 @@
           "roots": [
             "apps",
             "packages"
+          ],
+          "exceptions": [
+            {
+              "path": "apps/web/app/layout.tsx",
+              "pattern": "geoip",
+              "line": "          '$geoip_disable': true,",
+              "reason": "PostHog initialisation flag that disables GeoIP collection outright. A switch that turns location collection off is the opposite of an adaptive control reading location as an access input, and the requirement is still recorded FAIL."
+            },
+            {
+              "path": "apps/web/tests/unit/publicAnalyticsBoundary.test.ts",
+              "pattern": "geoip",
+              "line": "    expect(layout).toContain(\"'$geoip_disable': true\");",
+              "reason": "Unit assertion that the disable flag stays present in the layout. It is a guard protecting the absence of location collection, not a control that reads location as an access input."
+            }
           ]
         }
       ],
-      "note": "No adaptive or contextual security control exists. The only geolocation reference in the application is a Permissions-Policy header that disables it. The requirement is unmet, not inapplicable - an application making authorization decisions could use these inputs and this one does not."
+      "note": "No adaptive or contextual security control exists. The only geolocation references in the application are a PostHog flag that disables GeoIP and the unit test guarding it; both are named exceptions re-verified against the real file on every run, and any other occurrence still fails this condition. The requirement is unmet, not inapplicable - an application making authorization decisions could use these inputs and this one does not."
     },
     {
       "requirementId": "V8.3.1",
@@ -9857,6 +10313,35 @@
       "note": "Corrected on review: distroless solves a different problem than the one this requirement is about. It removes the shell and package manager an attacker could use post-compromise; it says nothing about which files were copied into the image in the first place, and this build copies compiled test code into it. apps/api/tsconfig.json includes both src/**/*.ts and test/**/*.ts, so pnpm --filter @pc/api build compiles both into the same dist tree (dist/apps/api/src/... and dist/apps/api/test/... side by side). The Dockerfile's cleanup step (rm -rf /prod/api/src /prod/api/test /prod/api/prisma /prod/api/dist) removes the pnpm-deployed source test/ directory, then immediately does cp -R /workspace/apps/api/dist /prod/api/dist - copying the whole compiled dist tree wholesale, compiled test output included, since that copy happens from the build stage's dist, not the just-cleaned /prod/api/dist. The runtime stage then does COPY --from=build ... /prod/api/ ./, so the compiled test files ship in the production image. This is exactly the extraneous functionality (test code) this requirement asks to be verified absent from production, and it is not."
     },
     {
+      "requirementId": "V15.2.4",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "repository-scan:no-declared-registry",
+        "pnpm-lock.yaml:integrity-pinned"
+      ],
+      "conditions": [
+        {
+          "condition": "no manifest declares the registry components must come from",
+          "check": "ABSENT_IN_MANIFESTS",
+          "patterns": [
+            "registry"
+          ]
+        },
+        {
+          "condition": "lockfile pins an integrity digest for every resolution",
+          "check": "PRESENT_AT_PATH",
+          "paths": [
+            "pnpm-lock.yaml"
+          ],
+          "patterns": [
+            "integrity: sha512-"
+          ]
+        }
+      ],
+      "note": "Two halves, and only one is met. Dependency confusion on internal names is closed by construction: all seven internal packages are private, none is declared as a dependency in any manifest, the workspace protocol is unused, and they are consumed through TypeScript path mapping to source - so no npm resolution path for these names exists that could fall back to a public registry. Substitution of a known third-party artifact is closed too: all 1193 lockfile resolutions carry an integrity digest. What is not met is the requirement's other half, that components come from the expected repository: no .npmrc is committed and no manifest names a registry, so resolution relies on whatever default the developer or runner happens to have configured. The lockfile would catch a substituted known package but not a newly added one resolved from an unexpected source. Remedy is a committed npm configuration pinning the registry, which changes resolution behaviour for every consumer and is therefore not bundled into this assessment."
+    },
+    {
       "requirementId": "V15.2.5",
       "applicability": "APPLICABLE",
       "status": "FAIL",
@@ -9880,12 +10365,138 @@
       "note": "Additional protections (sandboxing, encapsulation, containerization, network isolation) around parts of the application documented as risky or dangerous cannot be verified when no such documentation exists (V15.1.4, V15.1.5). This fails as a direct consequence, not an independent finding."
     },
     {
+      "requirementId": "V15.3.1",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "whole-row:apps/api/src/modules/compliance/compliance.service.ts",
+        "whole-row:apps/api/src/modules/organizations/organizations.service.ts",
+        "traced-by:PR#5102",
+        "apps/api/src/modules/auth/auth.service.ts",
+        "repository-scan:no-controller-touches-credential-fields"
+      ],
+      "conditions": [
+        {
+          "condition": "the compliance audit log still returns whole AuditEvent rows, with no select",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/compliance/compliance.service.ts"
+          ],
+          "patterns": [
+            "    return this.prisma.auditevent.findmany({\n      where: {\n        ...(filters?.dealid && { dealid: filters.dealid }),\n        ...(filters?.actorid && { actoruserid: filters.actorid }),\n        ...(filters?.action && { action: { contains: filters.action } }),\n      },\n      orderby: { createdat: 'desc' },\n      take: filters?.limit ?? 100,\n    });"
+          ]
+        },
+        {
+          "condition": "the organization list still returns whole Organization rows, with no select",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/organizations/organizations.service.ts"
+          ],
+          "patterns": [
+            "    return this.prisma.organization.findmany({\n      where: {\n        ...(filters?.status && { status: filters.status as any }),\n        ...(filters?.kycstatus && { kycstatus: filters.kycstatus as any }),\n      },\n      orderby: { createdat: 'desc' },\n      take: 500,\n    }).catch(() => []);"
+          ]
+        },
+        {
+          "condition": "no HTTP controller anywhere in the API references a credential or MFA-secret field",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/health.controller.ts",
+            "apps/api/src/modules/accounting/accounting.controller.ts",
+            "apps/api/src/modules/admin/admin.controller.ts",
+            "apps/api/src/modules/ai-insights/ai-assistant.controller.ts",
+            "apps/api/src/modules/ai-insights/ai-insights.controller.ts",
+            "apps/api/src/modules/ai-insights/restricted-public-qwen.controller.ts",
+            "apps/api/src/modules/analytics/analytics.controller.ts",
+            "apps/api/src/modules/anti-fraud/anti-fraud.controller.ts",
+            "apps/api/src/modules/arbitrator/arbitrator.controller.ts",
+            "apps/api/src/modules/auctions/auctions.controller.ts",
+            "apps/api/src/modules/auctions/public-auction-market.controller.ts",
+            "apps/api/src/modules/audit/audit.controller.ts",
+            "apps/api/src/modules/auth/auth.controller.ts",
+            "apps/api/src/modules/auth/gekta-registration.controller.ts",
+            "apps/api/src/modules/bank-reconciliation/bank-reconciliation.controller.ts",
+            "apps/api/src/modules/business-reputation/business-reputation.controller.ts",
+            "apps/api/src/modules/certificate-monitor/certificate-monitor.controller.ts",
+            "apps/api/src/modules/commercial-rules/commercial-rules.controller.ts",
+            "apps/api/src/modules/commodity-profiles/commodity-profiles.controller.ts",
+            "apps/api/src/modules/compliance/compliance.controller.ts",
+            "apps/api/src/modules/deals/deals.controller.ts",
+            "apps/api/src/modules/disputes/disputes.controller.ts",
+            "apps/api/src/modules/documents/documents.controller.ts",
+            "apps/api/src/modules/elevator/elevator.controller.ts",
+            "apps/api/src/modules/evidence-pack/evidence-pack.controller.ts",
+            "apps/api/src/modules/export-trade/export-trade.controller.ts",
+            "apps/api/src/modules/exports/exports.controller.ts",
+            "apps/api/src/modules/factoring/factoring.controller.ts",
+            "apps/api/src/modules/gekta/gekta-anonymous-admission.controller.ts",
+            "apps/api/src/modules/gekta/gekta.controller.ts",
+            "apps/api/src/modules/integration-events/integration-events.controller.ts",
+            "apps/api/src/modules/integrations/edo-webhook.controller.ts",
+            "apps/api/src/modules/integrations/integrations.controller.ts",
+            "apps/api/src/modules/inventory/inventory.controller.ts",
+            "apps/api/src/modules/kyc/kyc.controller.ts",
+            "apps/api/src/modules/labs/labs.controller.ts",
+            "apps/api/src/modules/logistics/logistics.controller.ts",
+            "apps/api/src/modules/lots/lots.controller.ts",
+            "apps/api/src/modules/notifications/notifications.controller.ts",
+            "apps/api/src/modules/organization-capabilities/organization-capabilities.controller.ts",
+            "apps/api/src/modules/organization-intake/organization-intake.controller.ts",
+            "apps/api/src/modules/organizations/organizations.controller.ts",
+            "apps/api/src/modules/partner-api/partner-api.controller.ts",
+            "apps/api/src/modules/railway/railway.controller.ts",
+            "apps/api/src/modules/regulatory-integration/fgis-grain/fgis-grain-tenant-read.controller.ts",
+            "apps/api/src/modules/regulatory-integration/regulatory-integration.control-tower.controller.ts",
+            "apps/api/src/modules/role-eligibility/role-eligibility.controller.ts",
+            "apps/api/src/modules/route-planner/route-planner.controller.ts",
+            "apps/api/src/modules/runtime-snapshot/runtime-snapshot.controller.ts",
+            "apps/api/src/modules/saga/saga.controller.ts",
+            "apps/api/src/modules/search/search.controller.ts",
+            "apps/api/src/modules/service-marketplace/service-marketplace.controller.ts",
+            "apps/api/src/modules/service-providers/integration-bindings.controller.ts",
+            "apps/api/src/modules/service-providers/service-providers.controller.ts",
+            "apps/api/src/modules/settlement-engine/settlement-engine.controller.ts",
+            "apps/api/src/modules/staff-access/registration-cancellation.controller.ts",
+            "apps/api/src/modules/staff-access/staff-access.controller.ts",
+            "apps/api/src/modules/staff-access/staff-capabilities.controller.ts",
+            "apps/api/src/modules/staff-access/staff-workspace.controller.ts",
+            "apps/api/src/modules/storage/storage.controller.ts",
+            "apps/api/src/modules/support/support.controller.ts",
+            "apps/api/src/modules/tai-tools/tai-tools.controller.ts"
+          ],
+          "patterns": [
+            "passwordhash",
+            "password_hash",
+            "mfasecret",
+            "mfabackup",
+            "mfa_secret_ciphertext",
+            "mfa_backup"
+          ]
+        },
+        {
+          "condition": "login and session issuance build the user-facing response through one named, explicit field projection",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/auth/auth.service.ts"
+          ],
+          "patterns": [
+            "private userprojection(",
+            "user: this.userprojection("
+          ]
+        }
+      ],
+      "note": "Corrected from PASS to FAIL. The earlier PASS measured the most sensitive fields - no controller returns passwordHash or MFA material, and user objects go through a projection, which the conditions below still verify - and read that as the whole requirement. It is not: the requirement is that the application does not return an entire data object, and two traced instances on main do exactly that. compliance.service.ts getAuditLog, behind GET compliance/audit-log, returns auditEvent.findMany with no select, so every AuditEvent column reaches the caller, including the free-form before/after state and metadata blobs and the hash chain. organizations.service.ts list returns organization.findMany with no select, so every Organization column reaches the caller, including tax identifiers and bank details. Both are behind role checks, so this is over-return to an authorised caller rather than an anonymous leak, and it is stated that way. The instances were traced first in PR #5102 (open, unmerged), whose own note records the same verdict; that measurement is credited here rather than repeated as if new. Not fixed here: narrowing a response changes its shape, and which fields the web client consumes has to be measured before a select is chosen. The first two conditions quote each query block verbatim, so adding a select to either revokes this decision for re-assessment."
+    },
+    {
       "requirementId": "V15.3.2",
       "applicability": "APPLICABLE",
       "status": "FAIL",
       "evidence": [
         "apps/api/src/modules/ml-client/ml-client.service.ts",
-        "redirect-guarded-counterexample:apps/api/src/modules/storage/object-storage.adapter.ts"
+        "redirect-guarded-counterexample:apps/api/src/modules/storage/object-storage.adapter.ts",
+        "follows-redirects:apps/api/src/modules/ai-insights/ai-assistant.service.ts",
+        "follows-redirects:apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+        "follows-redirects:apps/api/src/common/vault/vault-transit.service.ts",
+        "per-hop-revalidation:apps/api/src/common/security/safe-outbound-request.ts"
       ],
       "conditions": [
         {
@@ -9908,9 +10519,33 @@
           "patterns": [
             "redirect: 'error'"
           ]
+        },
+        {
+          "condition": "the three other internal-service clients still set no redirect option either",
+          "check": "ABSENT_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/ai-insights/ai-assistant.service.ts",
+            "apps/api/src/modules/ai-insights/restricted-public-qwen.service.ts",
+            "apps/api/src/common/vault/vault-transit.service.ts"
+          ],
+          "patterns": [
+            "redirect: 'error'",
+            "redirect: 'manual'"
+          ]
+        },
+        {
+          "condition": "the partner-controlled destinations still go through the guard that re-checks every redirect hop, so they are not part of this gap",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/common/security/safe-outbound-request.ts"
+          ],
+          "patterns": [
+            "const max_redirects = 3;",
+            "for (let hop = 0; hop <= max_redirects; hop += 1) {"
+          ]
         }
       ],
-      "note": "Of the 11 outbound fetch() call sites in the API, only object-storage.adapter.ts (2 sites) explicitly sets redirect: 'error', which fails the request rather than silently following a redirect - the correct, safe configuration this requirement asks for. The other 9 - ml-client.service.ts, partner-api.controller.ts, webhook-dispatcher.service.ts, restricted-public-qwen.service.ts (x2), ai-assistant.service.ts (x2), and vault-transit.service.ts (x2) - set no redirect option at all, which means fetch's default (follow) applies: a 3xx response from any of those endpoints is followed automatically. This compounds the already-recorded SSRF-shaped gap in the partner webhook path (ASVS V13.2.4/V13.2.5, V1.2.2, V1.3.6): a partner-controlled webhook URL that responds with a redirect to an internal address would be followed, not rejected."
+      "note": "Corrected on re-measurement: the verdict stands, but the earlier note named the wrong sites and overstated the risk, and both errors ran in the alarming direction. Measured now across apps/api/src outside tests: twelve fetch() call sites plus one outbound guard. Five fetch sites set redirect: 'error', which fails on a 3xx instead of following it: object-storage.adapter.ts (2), telegram.publisher.ts, vk.publisher.ts and role-eligibility-security.ts. The two partner-controlled destinations, the webhook test endpoint in partner-api.controller.ts and webhook-dispatcher.service.ts, no longer call fetch at all. They go through safeOutboundRequest, which follows at most three redirects and puts each hop through the whole scheme and address check again (credited under V1.3.6). The earlier sentence that a partner webhook redirecting to an internal address would be followed is no longer true, and it is withdrawn. What fails: seven sites set no redirect option and so follow any redirect by fetch's default: ml-client.service.ts (1), ai-assistant.service.ts (2), restricted-public-qwen.service.ts (2) and vault-transit.service.ts (2). Each targets an operator-configured internal service rather than a caller-chosen URL, so the exposure is to a misconfigured or compromised internal endpoint redirecting the API's request elsewhere, not to a partner. Not fixed on this branch. A fix for all seven sites is prepared in PR #5142 (security/outbound-redirect-and-surface-4459, open and unmerged), which sets redirect: 'error' on each of them; two of the four files are the AI gateway, which may change only under an explicitly authorized scope, which is why that PR carries its own scope for owner ratification. VaultTransitService has no runtime caller (V13.3.1). The conditions pin all four files, so when #5142 or any equivalent change lands, this decision revokes for re-assessment."
     },
     {
       "requirementId": "V15.3.3",
@@ -9976,6 +10611,110 @@
         }
       ],
       "note": "Same underlying fact as ASVS V3.2.3, assessed here against this requirement's specific text: tsconfig.base.json sets \"strict\": false, inherited by both apps/api/tsconfig.json and apps/web/tsconfig.json with no override. Strict mode is what would catch an implicit any or an unsound type assumption at compile time - exactly the class of bug this requirement is about (a variable silently being the wrong type, or a loose == comparison masking a type-confusion bug). Without it, the compiler gives no backstop for either."
+    },
+    {
+      "requirementId": "V15.3.6",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "object-literal-aggregation:apps/api/src/modules/exports/exports.service.ts",
+        "traced-by:PR#5102",
+        "fix-prepared:PR#5135",
+        "repository-scan:no-prototype-sink",
+        "repository-scan:map-set-usage"
+      ],
+      "conditions": [
+        {
+          "condition": "the 29-СХ regulatory export still aggregates volume into a plain object keyed by the deal's free-text culture",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/modules/exports/exports.service.ts"
+          ],
+          "patterns": [
+            "      deals.reduce((acc, d) => {\n        const c = d.culture ?? 'не указана';\n        acc[c] = (acc[c] ?? 0) + (d.volumetons ?? 0);\n        return acc;\n      }, {} as record<string, number>)"
+          ]
+        },
+        {
+          "condition": "no prototype-writing sink or recursive merge exists in product source",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/api/src",
+            "apps/web/app",
+            "apps/web/lib",
+            "packages"
+          ],
+          "patterns": [
+            "__proto__",
+            "deepmerge",
+            "lodash.merge",
+            "setprototypeof"
+          ],
+          "exceptions": [
+            {
+              "path": "apps/api/src/modules/auth/organization-job-profile.spec.ts",
+              "pattern": "__proto__",
+              "line": "      '__proto__',",
+              "reason": "Test fixture listing __proto__ among the job-profile keys that must be rejected. It exercises the guard rather than writing to a prototype."
+            },
+            {
+              "path": "apps/api/src/modules/auth/organization-job-profile.spec.ts",
+              "pattern": "__proto__",
+              "line": "      expect(canAssignJobProfile(JobProfile.OWNER, '__proto__' as JobProfile)).toBe(false);",
+              "reason": "Assertion that assigning __proto__ as a job profile is refused. It proves the guard holds and is the opposite of a sink."
+            }
+          ]
+        }
+      ],
+      "note": "Corrected from PASS to FAIL. The earlier PASS rested on the absence of dedicated pollution sinks - no recursive merge, no setPrototypeOf, no write to __proto__, which the last condition still verifies - and its own note conceded that a dynamic obj[key] write with an unvalidated key is too generic to scan for. A traced instance of exactly that shape exists on main, and it is the construct this requirement names: buildRosstatCsv in exports.service.ts aggregates tonnage into an object literal keyed by the deal's culture, which reaches the key as free text. A key that names an inherited Object.prototype member does not create an own entry the way an ordinary key does, so the regulatory return can silently misreport volume. PR #5102 measured this against the real service, and it is credited here rather than re-derived. The fix for the pinned instance is prepared in PR #5135, which replaces the literal with a Map and reconciles the totals. PR #5102 carried the same change until it was narrowed on 2026-09-26; it now fixes two further sites of the same class, the adapter statistics in compliance and integration-events. The first condition quotes the aggregation verbatim, so replacing it revokes this decision for re-assessment. Re-assessment then still has to consider the requirement codebase-wide, since the sink scan below cannot see a generic dynamic key write."
+    },
+    {
+      "requirementId": "V15.3.7",
+      "applicability": "APPLICABLE",
+      "status": "FAIL",
+      "evidence": [
+        "first-match-cookie-reader:apps/web/lib/server-request-security.ts",
+        "first-match-cookie-reader:apps/web/lib/server-request-actor.ts",
+        "traced-by:PR#5102",
+        "fix-prepared:PR#5625",
+        "apps/api/src/main.ts",
+        "repository-scan:explicit-parameter-binding",
+        "repository-scan:no-getall-in-web-tier"
+      ],
+      "conditions": [
+        {
+          "condition": "the anti-forgery check still reads a repeated cookie name by first match, while the framework's cookie API resolves the same header by last match",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/web/lib/server-request-security.ts"
+          ],
+          "patterns": [
+            "const part = raw.split(';').map((item) => item.trim()).find((item) => item.startswith(prefix));"
+          ]
+        },
+        {
+          "condition": "a global validation pipe whitelists and transforms every bound payload",
+          "check": "PRESENT_ALL_AT_PATH",
+          "paths": [
+            "apps/api/src/main.ts"
+          ],
+          "patterns": [
+            "validationpipe",
+            "whitelist: true",
+            "transform: true"
+          ]
+        },
+        {
+          "condition": "the web tier never reads repeated query parameters as an array",
+          "check": "ABSENT_IN_TREE",
+          "roots": [
+            "apps/web/app"
+          ],
+          "patterns": [
+            "searchparams.getall"
+          ]
+        }
+      ],
+      "note": "Corrected from PASS to FAIL. The earlier PASS assessed query and body parameters, where it still holds and is kept below as credit, and did not assess cookies, which the requirement names explicitly among the parameter sources. On main the same Cookie header is resolved two ways. readCookie in server-request-security.ts, which assertCsrf uses, and the equivalent readers in server-request-actor.ts and csrf.ts take the FIRST occurrence of a name. Next's RequestCookies, behind request.cookies and cookies(), keeps the LAST, because it builds a map by name. For a header that carries a name twice, which value decides depends on which code path a route uses. That is parameter pollution in the source this requirement calls out. Why it is reachable in principle: the control host is a subdomain of the public host, so a sibling under the same registrable domain can set a Domain-scoped cookie with the same name. PR #5102 measured the disagreement on the real parsers and prepared a single shared reader that refuses an ambiguous header instead of picking a side; that reader is now PR #5625, unchanged. Both are credited here. The first condition quotes the first-match reader verbatim, so replacing it revokes this decision for re-assessment."
     },
     {
       "requirementId": "V15.4.1",

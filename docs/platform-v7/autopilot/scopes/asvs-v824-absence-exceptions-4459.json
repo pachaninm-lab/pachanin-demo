@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "issue": 4459,
+  "branch": "security/asvs-v824-absence-exceptions-4459",
+  "status": "active",
+  "purpose": "Make the ASVS assessment register truthful and complete. One mechanism change and a set of assessments, all in the register and its builder. Mechanism: an ABSENT_IN_TREE condition read a disable flag as the control it detects ('geoip' inside a PostHog flag that disables GeoIP), which rejected the V8.2.4 decision and reported NOT_ASSESSED instead of the FAIL already measured; named self-verifying exceptions fix that without being able to suppress a real match. Assessments: all 13 requirements that had no decision now have one (V1.1.1, V1.3.3, V1.5.3, V3.5.4, V3.7.2, V3.7.3, V3.7.4, V3.7.5 and V15.2.4 as FAIL or NOT_ASSESSED; V3.3.5, V15.3.1, V15.3.6 and V15.3.7 as PASS on measured conditions), so the register covers 345 of 345. One correction: V1.2.2 moves from PASS to FAIL, because the earlier PASS assessed only its scheme half and the URL-encoding half fails in two web BFF proxies. FAIL decisions that correspond to a prepared fix name that fix's function, so they revoke themselves when it merges: V3.7.2 and V1.5.3 with security/open-redirect-demo-login-4459, and V1.2.2, V1.3.3 and V1.5.3 with security/bff-upstream-path-encoding-4459.",
+  "authorityBaseExactMain": "a924286d5f012c827b003e3fd54007822121764f",
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0,
+  "allowedPaths": [
+    "scripts/security/build-asvs-matrix.mjs",
+    "scripts/security/build-asvs-matrix.test.mjs",
+    "docs/security/asvs-applicability-decisions.json",
+    "docs/platform-v7/autopilot/scopes/asvs-v824-absence-exceptions-4459.json"
+  ],
+  "requiredInvariants": [
+    "The exception mechanism must never move a requirement to PASS: its only permitted effect is to stop a decision being wrongly rejected, restoring the status that decision already recorded. Assessments of previously unassessed requirements may record PASS, but only where repository evidence is measured and expressed as conditions the matrix re-verifies on every run. No status may rest on prose alone.",
+    "An exception must never be able to clear a file that also contains an unquoted match; a real adaptive control cannot hide beside a benign string.",
+    "An exception must quote the exact line, which is re-read from the real file on every run. A quoted line that changed or no longer matches fails the condition rather than being ignored.",
+    "Conditions that declare no exceptions must behave exactly as before.",
+    "No product code, dependency, workflow or production configuration may change.",
+    "Merge and CI success are not REG.RU production deployment evidence."
+  ],
+  "ownerRatificationRequired": [
+    "Scope authorization. This manifest was written by the implementation agent because no approved concurrent scope existed for this branch and scripts/p7-autopilot-guard.sh blocked. It is the repository's declared source-controlled mechanism, but it is self-declared and requires owner ratification in review before it counts as authorization.",
+    "Exception mechanism. Named exceptions are a new capability on ABSENT_IN_TREE conditions. They are constrained and mutation-tested, but they do let a recorded judgement stand against a literal scan, so the owner should confirm the mechanism as well as the two entries it is used for."
+  ],
+  "acceptance": [
+    "V8.2.4 reports FAIL rather than NOT_ASSESSED.",
+    "Removing the exceptions restores the previous failure, so they are not vacuous.",
+    "Mutating either exception protection fails exactly the test that names it.",
+    "Every requirement has a decision: 345 applied, 0 rejected, 0 pending applicability.",
+    "Every new decision carries conditions the matrix re-evaluates, not a bare assertion, and each was mutation-checked to revoke when the fact it rests on changes.",
+    "ASVS_CONDITION_MUTATION=1 node --test scripts/security/build-asvs-matrix.test.mjs passes: every one of the 662 committed conditions holds on the tree and stops holding when its fact is broken in memory. The test is opt-in (about 90 s), so default CI time does not change; making the builder's absence check always hold makes it fail and name every affected condition.",
+    "Simulated merges of the two prepared fix branches revoke exactly the dependent decisions and nothing else.",
+    "node scripts/security/verify-decision-evidence.mjs passes, and the full security suite and the matrix suite stay green."
+  ]
+}

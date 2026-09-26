@@ -419,3 +419,192 @@ test('a payload holding // inside its base64 is still recognised as data', () =>
 test('the detector reduces a documented, concatenated payload', () => {
   assert.equal(isOpaqueDataModule('/** doc */\nexport const P: string =\n  "AAAA" +\n  "BBBB";\n'), true);
 });
+
+// --- named exceptions on ABSENT_IN_TREE ------------------------------------
+//
+// A substring scan cannot tell a control apart from a switch that disables one.
+// These exist because `'$geoip_disable': true` matched "geoip" and pushed V8.2.4
+// out of its recorded FAIL into a silent NOT_ASSESSED. An exception must never be
+// able to do the reverse and hide a real control.
+
+const DISABLE_FLAG = "          '$geoip_disable': true,";
+const disableOnly = `const config = {\n${DISABLE_FLAG}\n};\n`;
+
+function geoCondition(exceptions) {
+  return {
+    condition: 'no adaptive control reads location',
+    check: 'ABSENT_IN_TREE',
+    roots: ['apps'],
+    patterns: ['geoip'],
+    ...(exceptions ? { exceptions } : {}),
+  };
+}
+const REASON = 'A flag that disables GeoIP collection is not an adaptive control reading location.';
+
+test('without an exception a disable flag still revokes the decision', () => {
+  const result = evaluateCondition(geoCondition(), {
+    tracked: ['apps/web/app/layout.tsx'],
+    readFile: () => disableOnly,
+  });
+  assert.equal(result.holds, false, 'unchanged behaviour when no exception is declared');
+});
+
+test('a named exception clears a match that is not an instance', () => {
+  const result = evaluateCondition(
+    geoCondition([{ path: 'apps/web/app/layout.tsx', pattern: 'geoip', line: DISABLE_FLAG, reason: REASON }]),
+    { tracked: ['apps/web/app/layout.tsx'], readFile: () => disableOnly },
+  );
+  assert.equal(result.holds, true);
+  assert.match(result.evidence, /1 named exception\(s\) re-verified/u);
+});
+
+// The load-bearing test: an exception must not launder a real control that happens
+// to sit in the same file as a benign match.
+test('an exception cannot hide a real control elsewhere in the same file', () => {
+  const smuggled = `${disableOnly}const region = geoipLookup(request.ip);\n`;
+  const result = evaluateCondition(
+    geoCondition([{ path: 'apps/web/app/layout.tsx', pattern: 'geoip', line: DISABLE_FLAG, reason: REASON }]),
+    { tracked: ['apps/web/app/layout.tsx'], readFile: () => smuggled },
+  );
+  assert.equal(result.holds, false, 'an unquoted match must still count');
+  assert.match(result.evidence, /matched in/u);
+});
+
+test('a quoted line that has changed fails rather than being ignored', () => {
+  const drifted = "const config = {\n          '$geoip_disable': false,\n};\n";
+  const result = evaluateCondition(
+    geoCondition([{ path: 'apps/web/app/layout.tsx', pattern: 'geoip', line: DISABLE_FLAG, reason: REASON }]),
+    { tracked: ['apps/web/app/layout.tsx'], readFile: () => drifted },
+  );
+  assert.equal(result.holds, false);
+  assert.match(result.evidence, /no longer matches/u);
+});
+
+test('an exception naming a pattern the condition does not declare is a defect', () => {
+  const result = evaluateCondition(
+    geoCondition([{ path: 'apps/web/app/layout.tsx', pattern: 'devicefingerprint', line: DISABLE_FLAG, reason: REASON }]),
+    { tracked: ['apps/web/app/layout.tsx'], readFile: () => disableOnly },
+  );
+  assert.equal(result.holds, false);
+  assert.match(result.evidence, /does not declare/u);
+});
+
+test('an exception without a substantive reason is a defect', () => {
+  const result = evaluateCondition(
+    geoCondition([{ path: 'apps/web/app/layout.tsx', pattern: 'geoip', line: DISABLE_FLAG, reason: 'benign' }]),
+    { tracked: ['apps/web/app/layout.tsx'], readFile: () => disableOnly },
+  );
+  assert.equal(result.holds, false);
+  assert.match(result.evidence, /substantive reason/u);
+});
+
+test('an exception quoting a line without its own pattern is a defect', () => {
+  const result = evaluateCondition(
+    geoCondition([{ path: 'apps/web/app/layout.tsx', pattern: 'geoip', line: 'const unrelated = 1;', reason: REASON }]),
+    { tracked: ['apps/web/app/layout.tsx'], readFile: () => disableOnly },
+  );
+  assert.equal(result.holds, false);
+  assert.match(result.evidence, /does not contain its own pattern/u);
+});
+
+test('an exception for a file the condition does not scan is a defect', () => {
+  const result = evaluateCondition(
+    geoCondition([{ path: 'docs/notes.tsx', pattern: 'geoip', line: DISABLE_FLAG, reason: REASON }]),
+    { tracked: ['apps/web/app/layout.tsx'], readFile: () => disableOnly },
+  );
+  assert.equal(result.holds, false);
+  assert.match(result.evidence, /does not scan/u);
+});
+
+test('the committed V8.2.4 exceptions verify against the real tree and are not vacuous', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { readFileSync } = await import('node:fs');
+  const tracked = execFileSync('git', ['ls-files'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+    .trim().split('\n');
+  const readFile = (path) => {
+    try {
+      return readFileSync(path, 'utf8');
+    } catch {
+      return null;
+    }
+  };
+  const decisions = JSON.parse(readFileSync('docs/security/asvs-applicability-decisions.json', 'utf8'));
+  const decision = decisions.decisions.find((entry) => entry.requirementId === 'V8.2.4');
+  const condition = decision.conditions[0];
+  assert.ok(condition.exceptions?.length > 0, 'the committed decision must declare its exceptions');
+  const result = evaluateCondition(condition, { tracked, readFile });
+  assert.equal(result.holds, true, `committed exceptions must verify: ${result.evidence}`);
+
+  // Vacuous if the tree no longer contains what they excuse: then the exceptions
+  // should be removed, not left standing.
+  const withoutExceptions = evaluateCondition({ ...condition, exceptions: undefined }, { tracked, readFile });
+  assert.equal(withoutExceptions.holds, false, 'exceptions that excuse nothing must not be kept');
+});
+
+// A condition that cannot stop holding is a decision that can never revoke: it
+// keeps asserting a fact after the fact is gone. This breaks, in memory only, the
+// fact behind every condition in the committed register and requires each one to
+// stop holding. It evaluates the whole tree several hundred times, so it is opt-in
+// rather than part of every CI run: ASVS_CONDITION_MUTATION=1 node --test ...
+test('every committed condition holds now and stops holding when its fact is broken', {
+  skip: process.env.ASVS_CONDITION_MUTATION === '1'
+    ? false
+    : 'opt-in: set ASVS_CONDITION_MUTATION=1 (evaluates the whole tree per condition)',
+}, () => {
+  const tracked = execFileSync('git', ['ls-files'], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
+    .trim().split('\n');
+  const cache = new Map();
+  const readFile = (path) => {
+    if (!cache.has(path)) {
+      let text = null;
+      try {
+        text = readFileSync(path, 'utf8');
+      } catch {
+        text = null;
+      }
+      cache.set(path, text);
+    }
+    return cache.get(path);
+  };
+  const { decisions } = JSON.parse(readFileSync('docs/security/asvs-applicability-decisions.json', 'utf8'));
+  const vacuous = [];
+  for (const decision of decisions) {
+    (decision.conditions ?? []).forEach((condition, index) => {
+      const label = `${decision.requirementId} #${index} ${condition.check}`;
+      const patterns = condition.patterns.map((pattern) => String(pattern).toLowerCase());
+      assert.equal(evaluateCondition(condition, { tracked, readFile }).holds, true, `${label} must hold on the committed tree`);
+
+      let broken;
+      if (condition.check === 'ABSENT_IN_TREE' || condition.check === 'NO_RUNTIME_CALLER') {
+        // A new runtime file under the first root that carries the pattern. It is
+        // a function, not a lone exported literal, so the scan cannot set it aside
+        // as an opaque data module.
+        const probe = `${condition.roots[0]}/__condition_mutation_probe__.ts`;
+        const body = `export function conditionMutationProbe() {\n  // ${patterns[0]}\n  return 1;\n}\n`;
+        broken = evaluateCondition(condition, {
+          tracked: [...tracked, probe],
+          readFile: (path) => (path === probe ? body : readFile(path)),
+        });
+      } else if (condition.check === 'ABSENT_AT_PATH' || condition.check === 'ABSENT_IN_MANIFESTS') {
+        // The pattern appears in the first named file (every manifest, for manifests).
+        const target = (condition.paths ?? [])[0];
+        broken = evaluateCondition(condition, {
+          tracked,
+          readFile: (path) => ((condition.check === 'ABSENT_IN_MANIFESTS' || path === target)
+            ? `${readFile(path) ?? ''}\n${patterns[0]}\n`
+            : readFile(path)),
+        });
+      } else {
+        // PRESENT_*: every pattern, multi-line ones included, is removed from the first named file.
+        const target = condition.paths[0];
+        const strip = (text) => patterns.reduce((result, pattern) => result.split(pattern).join(''), text.toLowerCase());
+        broken = evaluateCondition(condition, {
+          tracked,
+          readFile: (path) => (path === target ? strip(readFile(path) ?? '') : readFile(path)),
+        });
+      }
+      if (broken.holds) vacuous.push(label);
+    });
+  }
+  assert.deepEqual(vacuous, [], `conditions that cannot stop holding: ${vacuous.join(', ')}`);
+});
