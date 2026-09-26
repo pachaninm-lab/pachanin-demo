@@ -42,7 +42,8 @@ PRODUCT_DEAL_COMMAND_BRANCH="ux/deal-command-unknown-20260925"
 PUBLIC_REGISTRATION_PARTICIPATION_BRANCH="fix/public-registration-participation-choice-20260923"
 PRODUCT_BUYER_HOME_BRANCH="ux/buyer-first-customer-home-20260925"
 PRODUCT_BUYER_ADMISSION_BRANCH="governance/product-buyer-home-admission-20260925"
-PRODUCT_SCOPE_ADMISSION_BRANCH="governance/product-bank-fgis-ux-source-admission-20260924"\nPRODUCTION_MOBILE_CONTROLLER_HANDOFF_BRANCH="fix/production-mobile-controller-handoff-20260927"
+PRODUCT_SCOPE_ADMISSION_BRANCH="governance/product-bank-fgis-ux-source-admission-20260924"
+PRODUCTION_MOBILE_CONTROLLER_HANDOFF_BRANCH="fix/production-mobile-controller-handoff-20260927"
 CURRENT_BRANCH="${GITHUB_HEAD_REF:-}"
 
 is_immutable_scope_branch() {
