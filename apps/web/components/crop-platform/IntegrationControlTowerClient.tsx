@@ -478,7 +478,7 @@ export function IntegrationControlTowerClient({
           'Content-Type': 'application/json',
           Accept: 'application/json',
           'X-CSRF-Token': csrfToken,
-          'If-Match': `"${command.ifMatch}"`,
+          'If-Match': `"${pending.ifMatch}"`,
           'X-Correlation-Id': command.correlationId,
         },
         body: JSON.stringify({
