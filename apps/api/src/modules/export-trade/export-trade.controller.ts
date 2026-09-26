@@ -2,7 +2,13 @@ import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/co
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { ExportTradeService, Currency, IncotermsCode } from './export-trade.service';
+import { ExportTradeService } from './export-trade.service';
+import {
+  ApplyPhytoDto,
+  CalculateIncotermsDto,
+  ConvertCurrencyDto,
+  SubmitCustomsDto,
+} from './dto/export-trade.dto';
 
 @UseGuards(RolesGuard)
 @Roles('FARMER', 'BUYER', 'ADMIN', 'EXECUTIVE', 'ACCOUNTING', 'SUPPORT_MANAGER')
@@ -17,14 +23,7 @@ export class ExportTradeController {
 
   @Post('incoterms/calculate')
   calculateIncoterms(
-    @Body() body: {
-      priceRub: number;
-      incoterms: IncotermsCode;
-      currency: Currency;
-      distanceKm?: number;
-      volumeTons?: number;
-      includeInsurancePct?: number;
-    },
+    @Body() body: CalculateIncotermsDto,
   ) {
     return this.exportTrade.calculateIncotermsPrice(body);
   }
@@ -35,7 +34,7 @@ export class ExportTradeController {
   }
 
   @Post('convert')
-  convert(@Body() body: { amountRub: number; toCurrency: Currency }) {
+  convert(@Body() body: ConvertCurrencyDto) {
     return this.exportTrade.convertCurrency(body.amountRub, body.toCurrency);
   }
 
@@ -46,14 +45,14 @@ export class ExportTradeController {
 
   @Post('customs/submit')
   submitCustoms(
-    @Body() body: { goodsDescription: string; tnvedCode: string; totalValueRub: number },
+    @Body() body: SubmitCustomsDto,
   ) {
     return this.exportTrade.submitCustomsDeclaration(body);
   }
 
   @Post('phyto/apply')
   applyPhyto(
-    @Body() body: { culture: string; volumeTons: number; producerInn: string; destinationCountry: string },
+    @Body() body: ApplyPhytoDto,
     @CurrentUser() user: any,
   ) {
     return this.exportTrade.applyForPhytoCertificate(body);
