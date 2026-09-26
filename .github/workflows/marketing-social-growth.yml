@@ -82,8 +82,15 @@ jobs:
           src/modules/marketing/marketing-policy.service.spec.ts
           src/modules/marketing/connectors/telegram.publisher.spec.ts
           src/modules/marketing/connectors/vk.publisher.spec.ts
-          src/modules/marketing/marketing-outbox.contract.spec.ts
           src/modules/marketing/marketing-durable-outbox.worker.spec.ts
+
+      - name: Verify publication admission and durable anti-bypass contracts
+        run: >-
+          pnpm --filter @pc/api exec jest --runInBand --runTestsByPath
+          src/modules/marketing/marketing-publication-admission.spec.ts
+          src/modules/marketing/marketing-outbox.contract.spec.ts
+          src/modules/marketing/marketing-outbox.service.spec.ts
+          src/modules/marketing/marketing-publisher.service.spec.ts
 
       - name: Verify radar evidence, cadence and topic-planning contracts
         run: >-

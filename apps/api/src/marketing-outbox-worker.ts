@@ -7,6 +7,7 @@ import { MarketingOutboxWorkerModule } from './marketing-outbox-worker.module';
 import { MaskedLoggerService } from './common/logger/masked-logger.service';
 import { PrismaService } from './common/prisma/prisma.service';
 import { MarketingOutboxRunner } from './modules/marketing/marketing-outbox.runner';
+import { marketingPublicationAdmissionSecret } from './modules/marketing/marketing-publication-admission';
 
 function positivePort(value: string | undefined, fallback: number): number {
   const parsed = Number(value ?? fallback);
@@ -25,6 +26,11 @@ function assertWorkerStartup(): void {
   if (process.env.MARKETING_OUTBOX_WORKER_ENABLED !== 'true') {
     throw new Error(
       'Marketing outbox worker startup blocked: MARKETING_OUTBOX_WORKER_ENABLED must equal true',
+    );
+  }
+  if (process.env.MARKETING_OUTBOUND_ENABLED === 'true' && !marketingPublicationAdmissionSecret()) {
+    throw new Error(
+      'Marketing outbox worker startup blocked: MARKETING_PUBLICATION_ADMISSION_HMAC_SECRET is required when outbound is enabled',
     );
   }
   if (
