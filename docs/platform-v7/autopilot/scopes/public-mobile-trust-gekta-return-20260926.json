@@ -3,7 +3,7 @@
   "branch": "fix/public-mobile-trust-gekta-return-20260926",
   "status": "active",
   "authorizedBy": "explicit-user-fix-visible-mobile-ux-and-return-gekta-chat-20260926",
-  "purpose": "Repair two production-visible regressions on exact main 35ce3841f15572bfcba7c8d7e03afb858da0888d: the canonical mobile Trust ledger is forced into four unreadable columns by a stale high-specificity !important rule, and the existing canonical public Gekta contact dock is explicitly hidden on mobile even though PublicPlatformAssistant remains mounted. Restore the existing Gekta chat launcher above canonical bottom navigation and make Trust cards readable without creating a parallel assistant implementation or weakening any authority, security, market, IR-20, auth-mail or acceptance boundary.",
+  "purpose": "Repair production-visible regressions on exact main 35ce3841f15572bfcba7c8d7e03afb858da0888d: the canonical mobile Trust ledger is forced into four unreadable columns by a stale high-specificity !important rule, the existing canonical public Gekta contact dock is explicitly hidden on mobile even though PublicPlatformAssistant remains mounted, and the previous 981–1100px breakpoint handoff could leave no visible Gekta entry between the floating dock and header action. Restore the existing Gekta chat launcher above canonical bottom navigation and make Trust cards readable without creating a parallel assistant implementation or weakening any authority, security, market, IR-20, auth-mail or acceptance boundary.",
   "authorityBaseExactMain": "35ce3841f15572bfcba7c8d7e03afb858da0888d",
   "productionHosting": "REG_RU_VPS_ONLY",
   "newRecurringCostRub": 0,
