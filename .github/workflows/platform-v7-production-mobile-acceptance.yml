@@ -339,6 +339,13 @@ jobs:
             echo "- Gekta EN/ZH canonical mobile smoke: \`$result\`"
             echo "- horizontal overflow: \`$result\`"
             echo "- 44 px Gekta primary touch targets: \`$result\`"
+            echo "- public Gekta launcher hidden under open burger and restored after close (Chromium + WebKit): \`$burger_result\`"
+            echo "- real #pc-public-assistant-panel + textarea after restored launcher: \`$burger_result\`"
+            if [[ "$result" == PASS && "$burger_result" == PASS ]]; then
+              echo "- failures: \`0\`"
+            else
+              echo "- failures: \`nonzero-or-not-run\`"
+            fi
             echo "- Platform V7 sticky header, anchors and Deal workspace: \`$result\`"
             echo "- screenshots and traces: workflow artifact"
             echo "- workflow run ID: \`$GITHUB_RUN_ID\`"
