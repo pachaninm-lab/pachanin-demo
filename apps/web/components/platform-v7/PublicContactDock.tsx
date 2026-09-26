@@ -423,6 +423,12 @@ const css = `
   }
 }
 @media (max-width:767px) {
+  body:has(.pc-cp-bottom-nav) .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='full'] {
+    bottom: max(78px, calc(env(safe-area-inset-bottom, 0px) + 76px)) !important;
+  }
+}
+
+@media (max-width:767px) {
   .pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta'] {
     right: max(10px, env(safe-area-inset-right, 0px)) !important;
     bottom: max(78px, calc(env(safe-area-inset-bottom, 0px) + 76px)) !important;
