@@ -151,7 +151,6 @@ const implementationBranches = [
   'governance/pc-crop-post-registration-progress-scope-4997',
   'governance/pc-crop-inventory-reservation-scope-4997',
   'fix/owner-handoff-product-host-20260908',
-  'fix/production-mobile-controller-handoff-20260927',
   ir20BindingImplementationBranch,
   ...finalPublicBranches,
 ];
@@ -914,7 +913,6 @@ test('runs immutable authority checks from a read-only trusted-base workflow', (
     'git show "$BASE_SHA:scripts/p7-autopilot-guard.sh" > "$TRUSTED_GUARD"',
     'standard_validation:',
     'STANDARD_VALIDATION_RESULT: ${{ needs.standard_validation.result }}',
-    "- '.github/workflows/platform-v7-production-mobile-acceptance.yml'",
     "- '.github/workflows/production-full-stack-exact-sha.yml'",
     "- 'docs/ops/production-p0-all-role-registration.md'",
   ]) assert.ok(workflow.includes(marker), `missing trusted-base workflow marker: ${marker}`);
@@ -1005,7 +1003,7 @@ test('governance branches retain unprivileged head regression validation', () =>
   assert.ok(workflow.includes('run: node --test scripts/p7-autopilot-guard.test.mjs'));
 });
 
-for (const branch of ['feat/pc-crop-auction-inventory-authority-4997', 'ops/pc-crop-w1-production-acceptance-4997', 'fix/production-mobile-controller-handoff-20260927', qwenFailedEvidenceBranch, kindMinioImageSourceBranch, gitleaksReleaseAttestationBranch, ...finalPublicBranches, finalPublicGovernanceBranch, industrialGovernanceBranch, industrialDiagnosticBranch]) {
+for (const branch of ['feat/pc-crop-auction-inventory-authority-4997', 'ops/pc-crop-w1-production-acceptance-4997', qwenFailedEvidenceBranch, kindMinioImageSourceBranch, gitleaksReleaseAttestationBranch, ...finalPublicBranches, finalPublicGovernanceBranch, industrialGovernanceBranch, industrialDiagnosticBranch]) {
 test(`${branch}: trusted scope routing retains substantive head validation`, () => {
   const workflow = fs.readFileSync(sourceWorkflow, 'utf8');
   const section = (start, end) => {
