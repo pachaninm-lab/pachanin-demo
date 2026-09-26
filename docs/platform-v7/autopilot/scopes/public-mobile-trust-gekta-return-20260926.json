@@ -18,8 +18,7 @@
     "apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts",
     ".github/workflows/ci.yml",
     ".github/workflows/web-unit.yml",
-    "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
-    "apps/web/app/pc-public-entry/platform-v7/layout.tsx"
+    "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts"
   ],
   "requiredInvariants": [
     "Reuse the existing PublicPlatformAssistant/PublicContactDock/public-gekta-open path; do not create a second chat implementation or bypass the public assistant authority.",
@@ -36,9 +35,9 @@
     "The new regression unit file is executed by both canonical CI and standalone web-unit workflows; it is not excluded from coverage.",
     "Fresh production-mobile Chromium + WebKit keeps retries=0 and proves the mobile Trust cards are one column, readable and unclipped at configured mobile viewports.",
     "Fresh production-mobile Chromium + WebKit proves the canonical Gekta launcher is visible above bottom navigation, >=44px, enabled, opens #pc-public-assistant-panel and exposes its composer.",
+    "Canonical Visual Acceptance verifies both /platform-v7/login and /platform-v7/register expose the existing public Gekta-only dock (data-public-mode='gekta'), enabled and >=44px above canonical bottom navigation.",
     "The existing public-intelligence responsive matrix now requires the canonical Gekta dock through 1100px and the canonical header Gekta action from 1101px, preventing the previous hidden-chat contract from returning.",
     "Fresh exact-head CI/security/governance and independent complete-diff review have zero unresolved P0/P1/P2 findings before normal merge.",
-    "After merge, exact-main REG.RU full-stack release, auth-mail cutover, reviewer readiness and fresh production mobile acceptance all PASS before FULL_SCOPE_ACCEPTED is restored.",
-    "On 390x844 isolated /platform-v7/login, Canonical Visual Acceptance must observe publicMode='gekta', a visible/enabled >=44px Gekta action above canonical bottom navigation, while recovery remains on legacy publicMode='full'."
+    "After merge, exact-main REG.RU full-stack release, auth-mail cutover, reviewer readiness and fresh production mobile acceptance all PASS before FULL_SCOPE_ACCEPTED is restored."
   ]
 }
