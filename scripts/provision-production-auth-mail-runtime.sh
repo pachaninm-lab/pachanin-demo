@@ -358,7 +358,7 @@ def authority(url):
         (url.hostname or '').lower(),
         url.port or 5432,
         url.path,
-        url.query,
+        tuple(sorted(parse_qsl(url.query, keep_blank_values=True))),
     )
 if worker.scheme not in ('postgresql','postgres') or worker.username != 'pc_auth_mail_runtime' or not worker.password:
     raise SystemExit(1)
