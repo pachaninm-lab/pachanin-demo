@@ -339,6 +339,10 @@ jobs:
             echo "- Gekta EN/ZH canonical mobile smoke: \`$result\`"
             echo "- horizontal overflow: \`$result\`"
             echo "- 44 px Gekta primary touch targets: \`$result\`"
+            echo "- mobile Trust cards one-column/readable contract: \`$result\`"
+            echo "- Market RU/EN/ZH never accepts unavailable as PASS: \`$result\`"
+            echo "- linked public pages RU/EN/ZH: \`$result\`"
+            echo "- Gekta launcher above bottom navigation: \`$result\`"
             echo "- public Gekta launcher hidden under open burger and restored after close (Chromium + WebKit): \`$burger_result\`"
             echo "- real #pc-public-assistant-panel + textarea after restored launcher: \`$burger_result\`"
             if [[ "$result" == PASS && "$burger_result" == PASS ]]; then
