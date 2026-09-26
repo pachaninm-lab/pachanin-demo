@@ -41,6 +41,9 @@ describe('platform-v7 mobile trust readability and Gekta return', () => {
     expect(productionMobile).toContain("name: 'Закрыть Гекту'");
     expect(designSystem).toContain('if (width >= 1101)');
     expect(designSystem).not.toContain('if (width <= 760 || width >= 981)');
+    expect(designSystem).not.toContain("if (width <= 760) await expect(publicDock).toBeHidden()");
+    expect(designSystem).toContain('await expect(assistantTarget).toBeVisible()');
+    expect(designSystem).toContain('expect(assistantBox!.height).toBeGreaterThanOrEqual(44)');
     expect(intelligence).toContain(".pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta']");
     expect(intelligence).toContain('if (item.width <= 1100)');
     expect(visual).toContain(".pc-public-contact-dock[data-assistant-context='public']");
