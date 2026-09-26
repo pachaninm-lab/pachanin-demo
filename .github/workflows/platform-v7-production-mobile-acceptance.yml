@@ -33,7 +33,8 @@ jobs:
     name: Resolve accepted protected Web release
     if: >-
       github.event_name == 'workflow_run' &&
-      github.event.workflow_run.conclusion == 'success'
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.name != 'platform-v7 safe merge'
     permissions:
       contents: read
       actions: read
