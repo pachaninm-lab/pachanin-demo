@@ -148,19 +148,19 @@ done
 dc=(docker compose --project-directory "$working_dir" --project-name "$project")
 for file in "${compose_files[@]}"; do dc+=(-f "$file"); done
 
-# The running API is the authoritative application datasource after an exact-SHA
-# release. Bootstrap must not require a one-shot migration service merely to
-# reuse an already-provisioned least-privilege worker credential.
+# The running API AUTH_DATABASE_URL is the authoritative auth-mail datasource
+# after an exact-SHA release. Bootstrap must not require a one-shot migration
+# service merely to reuse an already-provisioned least-privilege worker credential.
 mapfile -t api_ids < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=api')
 (( ${#api_ids[@]} == 1 )) || { echo 'AUTH_MAIL_PROVISION=FAIL_API_AUTHORITY_CARDINALITY'; exit 39; }
 api_id="${api_ids[0]}"
 api_database_url="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$api_id" \
-  | sed -n 's/^DATABASE_URL=//p' | head -1)"
-[[ -n "$api_database_url" ]] || { echo 'AUTH_MAIL_PROVISION=FAIL_API_DATABASE_URL_MISSING'; exit 40; }
+  | sed -n 's/^AUTH_DATABASE_URL=//p' | head -1)"
+[[ -n "$api_database_url" ]] || { echo 'AUTH_MAIL_PROVISION=FAIL_API_AUTH_DATABASE_URL_MISSING'; exit 40; }
 python3 - "$api_database_url" <<'PY' >/dev/null \
-  || { echo 'AUTH_MAIL_PROVISION=FAIL_API_DATABASE_URL_INVALID'; exit 41; }
+  || { echo 'AUTH_MAIL_PROVISION=FAIL_API_AUTH_DATABASE_URL_INVALID'; exit 41; }
 import sys
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlsplit
 url=urlsplit(sys.argv[1])
 if url.scheme not in ('postgresql','postgres') or not url.username or not url.password or not url.hostname or not url.path.strip('/'):
     raise SystemExit(1)
@@ -174,11 +174,16 @@ validate_runtime_database_projection() {
   [[ "$(stat -c '%a:%u:%g' "$projected")" == '444:0:0' ]] || return 1
   python3 - "$projected" "$api_database_url" <<'PY' >/dev/null
 import sys
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlsplit
 worker=urlsplit(open(sys.argv[1], encoding='utf-8').read().strip())
 api=urlsplit(sys.argv[2])
 def authority(url):
-    return ((url.hostname or '').lower(), url.port or 5432, url.path, url.query)
+    return (
+        (url.hostname or '').lower(),
+        url.port or 5432,
+        url.path,
+        tuple(sorted(parse_qsl(url.query, keep_blank_values=True))),
+    )
 if worker.scheme not in ('postgresql','postgres') or worker.username != 'pc_auth_mail_runtime' or not worker.password:
     raise SystemExit(1)
 if authority(worker) != authority(api):
@@ -225,11 +230,16 @@ elif ! validate_secret_file "$DATABASE_URL_FILE"; then
   exit 21
 elif ! python3 - "$DATABASE_URL_FILE" "$api_database_url" <<'PY' >/dev/null
 import sys
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlsplit
 worker=urlsplit(open(sys.argv[1], encoding='utf-8').read().strip())
 api=urlsplit(sys.argv[2])
 def authority(url):
-    return ((url.hostname or '').lower(), url.port or 5432, url.path, url.query)
+    return (
+        (url.hostname or '').lower(),
+        url.port or 5432,
+        url.path,
+        tuple(sorted(parse_qsl(url.query, keep_blank_values=True))),
+    )
 if worker.scheme not in ('postgresql','postgres') or worker.username != 'pc_auth_mail_runtime' or not worker.password:
     raise SystemExit(1)
 if authority(worker) != authority(api):
@@ -246,7 +256,7 @@ if [[ "$database_reconcile_required" == 1 ]]; then
   "${dc[@]}" config --format json > "$compose_json"
   migration_inventory="$(python3 - "$compose_json" <<'PY'
 import json, re, sys
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlsplit
 services=(json.load(open(sys.argv[1], encoding='utf-8')).get('services') or {})
 candidates=[]
 for name, service in services.items():
@@ -277,11 +287,16 @@ PY
   python3 - "$migration_database_url" "$api_database_url" <<'PY' >/dev/null \
     || { echo 'AUTH_MAIL_PROVISION=FAIL_MIGRATION_API_DATASOURCE_MISMATCH'; exit 42; }
 import sys
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlsplit
 migration=urlsplit(sys.argv[1])
 api=urlsplit(sys.argv[2])
 def authority(url):
-    return ((url.hostname or '').lower(), url.port or 5432, url.path, url.query)
+    return (
+        (url.hostname or '').lower(),
+        url.port or 5432,
+        url.path,
+        tuple(sorted(parse_qsl(url.query, keep_blank_values=True))),
+    )
 if authority(migration) != authority(api):
     raise SystemExit(1)
 PY
@@ -335,7 +350,7 @@ validate_secret_file "$DATABASE_URL_FILE" || { echo 'AUTH_MAIL_PROVISION=FAIL_DA
 python3 - "$DATABASE_URL_FILE" "$api_database_url" <<'PY' >/dev/null \
   || { echo 'AUTH_MAIL_PROVISION=FAIL_DATABASE_DATASOURCE_MISMATCH'; exit 38; }
 import sys
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlsplit
 worker=urlsplit(open(sys.argv[1], encoding='utf-8').read().strip())
 api=urlsplit(sys.argv[2])
 def authority(url):
