@@ -15,7 +15,9 @@
     "apps/web/tests/e2e/platform-v7-public-intelligence-layer.spec.ts",
     "apps/web/tests/unit/platformV7MobileTrustAndGektaReturn.test.ts",
     "docs/platform-v7/autopilot/scopes/public-mobile-trust-gekta-return-20260926.json",
-    "apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts"
+    "apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts",
+    ".github/workflows/ci.yml",
+    ".github/workflows/web-unit.yml"
   ],
   "requiredInvariants": [
     "Reuse the existing PublicPlatformAssistant/PublicContactDock/public-gekta-open path; do not create a second chat implementation or bypass the public assistant authority.",
@@ -27,9 +29,10 @@
   ],
   "acceptance": [
     "Targeted unit contract proves stale mobile dock hiding rules are absent, the high-specificity Trust rule is one column, and production mobile acceptance contains runtime assertions for both defects.",
+    "The new regression unit file is executed by both canonical CI and standalone web-unit workflows; it is not excluded from coverage.",
     "Fresh production-mobile Chromium + WebKit keeps retries=0 and proves the mobile Trust cards are one column, readable and unclipped at configured mobile viewports.",
     "Fresh production-mobile Chromium + WebKit proves the canonical Gekta launcher is visible above bottom navigation, >=44px, enabled, opens #pc-public-assistant-panel and exposes its composer.",
-    "The existing public-intelligence responsive matrix now requires the canonical Gekta dock on <=900px and the canonical header Gekta action on desktop, preventing the previous hidden-chat contract from returning.",
+    "The existing public-intelligence responsive matrix now requires the canonical Gekta dock through 1100px and the canonical header Gekta action from 1101px, preventing the previous hidden-chat contract from returning.",
     "Fresh exact-head CI/security/governance and independent complete-diff review have zero unresolved P0/P1/P2 findings before normal merge.",
     "After merge, exact-main REG.RU full-stack release, auth-mail cutover, reviewer readiness and fresh production mobile acceptance all PASS before FULL_SCOPE_ACCEPTED is restored."
   ]
