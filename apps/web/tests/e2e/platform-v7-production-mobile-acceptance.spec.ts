@@ -116,6 +116,7 @@ async function expectHomeContract(page: Page, width: number) {
     await expect(page.locator('.pc-cp-bottom-nav')).toBeVisible();
     await expect(page.locator('.pc-cp-bottom-nav a')).toHaveCount(5);
     await expectVisibleTargetsAtLeast(page, '.pc-cp-bottom-nav a', 44);
+    await expectMobileTrustAndGekta(page);
 
     const readableMarketPreview = page.locator(
       '#market .pc-cp-market-grid--preview .pc-cp-chip:visible, ' +
@@ -130,6 +131,57 @@ async function expectHomeContract(page: Page, width: number) {
   } else {
     await expect(page.locator('.pc-cp-bottom-nav')).toBeHidden();
   }
+}
+
+async function expectMobileTrustAndGekta(page: Page) {
+  const trustGrid = page.locator('#trust .pc-cp-trust-grid');
+  await expect(trustGrid).toBeVisible();
+  const trustMetrics = await trustGrid.evaluate((node) => {
+    const grid = node as HTMLElement;
+    const gridBox = grid.getBoundingClientRect();
+    const columns = getComputedStyle(grid).gridTemplateColumns.split(/\s+/).filter(Boolean).length;
+    const cards = Array.from(grid.querySelectorAll<HTMLElement>('.pc-cp-trust-card')).map((card) => {
+      const box = card.getBoundingClientRect();
+      const strong = card.querySelector<HTMLElement>('strong');
+      const paragraph = card.querySelector<HTMLElement>('p');
+      return {
+        width: box.width,
+        scrollWidth: card.scrollWidth,
+        clientWidth: card.clientWidth,
+        titleSize: strong ? Number.parseFloat(getComputedStyle(strong).fontSize) : 0,
+        copySize: paragraph ? Number.parseFloat(getComputedStyle(paragraph).fontSize) : 0,
+      };
+    });
+    return { gridWidth: gridBox.width, columns, cards };
+  });
+  expect(trustMetrics.columns).toBe(1);
+  expect(trustMetrics.cards).toHaveLength(4);
+  expect(trustMetrics.cards.every((card) => card.width >= trustMetrics.gridWidth * 0.95)).toBe(true);
+  expect(trustMetrics.cards.every((card) => card.scrollWidth <= card.clientWidth + 1)).toBe(true);
+  expect(Math.min(...trustMetrics.cards.map((card) => card.titleSize))).toBeGreaterThanOrEqual(16);
+  expect(Math.min(...trustMetrics.cards.map((card) => card.copySize))).toBeGreaterThanOrEqual(13);
+
+  const dock = page.locator(".pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta']");
+  const assistant = dock.locator('.pc-public-contact-dock-assistant');
+  await expect(dock).toBeVisible();
+  await expect(assistant).toBeVisible();
+  await expect(assistant).toBeEnabled();
+  await expectVisibleTargetsAtLeast(page, ".pc-public-contact-dock[data-public-mode='gekta'] .pc-public-contact-dock-assistant", 44);
+
+  const [dockBox, bottomNavBox] = await Promise.all([
+    dock.boundingBox(),
+    page.locator('.pc-cp-bottom-nav').boundingBox(),
+  ]);
+  expect(dockBox).not.toBeNull();
+  expect(bottomNavBox).not.toBeNull();
+  expect((dockBox?.y ?? 0) + (dockBox?.height ?? 0)).toBeLessThanOrEqual((bottomNavBox?.y ?? 0) - 4);
+
+  await assistant.click();
+  const panel = page.locator('#pc-public-assistant-panel');
+  await expect(panel).toBeVisible({ timeout: 15_000 });
+  await expect(panel.locator('textarea')).toBeVisible();
+  await panel.getByRole('button', { name: 'Закрыть Гекту' }).click();
+  await expect(panel).toBeHidden();
 }
 
 async function expectLocaleContinuity(page: Page, locale: (typeof locales)[number]) {
