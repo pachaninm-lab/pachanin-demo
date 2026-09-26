@@ -137,6 +137,9 @@ describe('Platform V7 Integration Control Tower vertical', () => {
     const client = read('components/crop-platform/IntegrationControlTowerClient.tsx');
     expect(client).toContain("data-command-outcome='UNKNOWN'");
     expect(client).toContain("role='alert'");
+    expect(client).toContain('const unknownNotice = unknownCommand ? (');
+    expect(client.match(/\{unknownNotice\}/g)).toHaveLength(2);
+    expect(client).toMatch(/if \(state\.phase !== 'ready'\)[\s\S]*?\{unknownNotice\}[\s\S]*?<Surface/);
     expect(client).toContain('disabled={!selected.primaryAction.allowed || !!unknownCommand}');
     expect(client).toContain('if (!selected || unknownCommand) return;');
     expect(client).toContain('if (!matchesControlTowerCommandReceipt(payload, command))');

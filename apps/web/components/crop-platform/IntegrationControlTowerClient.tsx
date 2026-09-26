@@ -520,16 +520,27 @@ export function IntegrationControlTowerClient({
     }
   };
 
+  const unknownNotice = unknownCommand ? (
+    <div className={styles.unknownCommand} role='alert' data-command-outcome='UNKNOWN'>
+      <InlineNotice tone='critical' title={copy.unknownCommand} icon={<TriangleAlert size={18} />}>
+        {copy.unknownCommandBoundary} {copy.commandId}: <code>{unknownCommand.commandId}</code>. {copy.correlationId}: <code>{unknownCommand.correlationId}</code>.
+      </InlineNotice>
+    </div>
+  ) : null;
+
   if (state.phase !== 'ready') {
     const message = state.message || (state.phase === 'loading' ? copy.loading : state.phase === 'empty' ? copy.empty : copy.error);
     return (
-      <Surface className={styles.stateSurface} role={state.phase === 'error' || state.phase === 'conflict' ? 'alert' : undefined}>
-        {state.phase === 'loading' ? <RefreshCw className={styles.spin} size={28} /> : <AlertTriangle size={30} />}
-        <h1>{message}</h1>
-        {state.phase !== 'loading' && state.phase !== 'forbidden' && state.phase !== 'empty' ? (
-          <Button variant='secondary' onClick={() => void load('retry')}><RefreshCw size={18} />{copy.retry}</Button>
-        ) : null}
-      </Surface>
+      <div className={styles.root}>
+        {unknownNotice}
+        <Surface className={styles.stateSurface} role={state.phase === 'error' || state.phase === 'conflict' ? 'alert' : undefined}>
+          {state.phase === 'loading' ? <RefreshCw className={styles.spin} size={28} /> : <AlertTriangle size={30} />}
+          <h1>{message}</h1>
+          {state.phase !== 'loading' && state.phase !== 'forbidden' && state.phase !== 'empty' ? (
+            <Button variant='secondary' onClick={() => void load('retry')}><RefreshCw size={18} />{copy.retry}</Button>
+          ) : null}
+        </Surface>
+      </div>
     );
   }
 
@@ -554,13 +565,7 @@ export function IntegrationControlTowerClient({
       {liveState === 'reconnecting' ? <InlineNotice tone='information' title={copy.reconnecting}>{copy.serverAuthority}</InlineNotice> : null}
       {liveState === 'degraded' ? <InlineNotice tone='critical' title={copy.degraded}>{copy.serverAuthority}</InlineNotice> : null}
       {receipt ? <InlineNotice tone='information' title={copy.primaryAction} icon={<CheckCircle2 size={18} />}>{receipt}</InlineNotice> : null}
-      {unknownCommand ? (
-        <div className={styles.unknownCommand} role='alert' data-command-outcome='UNKNOWN'>
-          <InlineNotice tone='critical' title={copy.unknownCommand} icon={<TriangleAlert size={18} />}>
-            {copy.unknownCommandBoundary} {copy.commandId}: <code>{unknownCommand.commandId}</code>. {copy.correlationId}: <code>{unknownCommand.correlationId}</code>.
-          </InlineNotice>
-        </div>
-      ) : null}
+      {unknownNotice}
 
       <Surface className={styles.toolbar} variant='subtle'>
         <label><span>{copy.search}</span><input type='search' value={query} onChange={(event) => setQuery(event.currentTarget.value)} placeholder={copy.searchPlaceholder} /></label>
