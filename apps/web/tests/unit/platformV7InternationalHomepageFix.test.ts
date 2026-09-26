@@ -1,15 +1,18 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-const root = process.cwd();
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 const read = (relative: string) => fs.readFileSync(path.join(root, relative), 'utf8');
 
 const wrapper = read('apps/web/components/platform-v7/PlatformV7StrategicHomeInternational.tsx');
 const home = read('apps/web/components/platform-v7/PlatformV7StrategicHome.tsx');
+const siteHeader = read('apps/web/components/platform-v7/PublicSiteHeader.tsx');
 const page = read('apps/web/app/platform-v7/page.tsx');
 const story = read('apps/web/i18n/platform-v7-home-story-product.ts');
 const css = read('apps/web/styles/platform-v7-international-home-fix.css');
+const dock = read('apps/web/components/platform-v7/PublicContactDock.tsx').replace(/\s+/g, '');
 const tsconfig = read('apps/web/tsconfig.json');
 const trustContent = read('apps/web/app/trust/page.tsx');
 const trustRoute = read('apps/web/app/platform-v7/trust/page.tsx');
@@ -55,26 +58,27 @@ describe('platform-v7 international homepage completion', () => {
     expect(css).toContain('font-size: 14px !important');
   });
 
-  it('keeps the full brand and registration available together in the mobile fixed header', () => {
-    const authority = ".pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit']";
+  it('keeps full brand and registration together in one canonical 64px mobile header', () => {
     expect(home).toContain("<a href={registerHref} className='pc-v6-header-cta'>{copy.nav.connect}</a>");
-    expect(css).toContain('.pc-v7-public-entry .pc-v6-header-cta');
-    expect(css).toContain('display: inline-flex !important');
-    expect(css).toContain('@media (max-width: 430px)');
-    expect(css).toContain('--pc-public-header-total-height: 96px !important');
-    expect(css).toContain(`${authority} .pc-site-header`);
-    expect(css).toContain('flex-wrap: wrap !important');
-    expect(css).toContain('height: 96px !important');
-    expect(css).toContain(`${authority} .pc-site-brand`);
-    expect(css).toContain(`${authority} .pc-site-brand-text`);
-    expect(css).toContain(`${authority} .pc-site-brand-text strong`);
-    expect(css).toContain('display: grid !important');
-    expect(css).toContain('overflow: visible !important');
-    expect(css).toContain('white-space: nowrap !important');
-    expect(css).not.toContain('.pc-site-brand-text {\n    display: none !important;');
-    expect(css).toContain(`${authority} .pc-site-actions`);
-    expect(css).toContain('flex: 1 0 100% !important');
-    expect(css).toContain('@media (max-width: 359px)');
+    expect(siteHeader).toContain("data-public-site-header='canonical'");
+    expect(siteHeader).toContain(".pc-site-header[data-public-site-header='canonical'].pc-site-header.pc-site-header");
+    expect(siteHeader).toContain('flex-wrap: nowrap !important');
+    expect(siteHeader).toContain('height: 64px !important');
+    expect(siteHeader).toContain("<strong>Прозрачная Цена</strong>");
+    expect(siteHeader).toContain('font-size: 14px !important');
+    expect(siteHeader).toContain('white-space: normal !important');
+    expect(siteHeader).toContain('min-width: 84px !important');
+    expect(siteHeader).toContain(".pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .entry-login > span");
+    expect(siteHeader).toContain(".pc-v7-public-entry[data-testid='platform-v7-root-execution-cockpit'] .pc-v6-header-cta");
+    expect(siteHeader).toContain('min-width: 44px !important');
+    expect(siteHeader).not.toContain(".pc-site-brand-text {\n    display: none !important;");
+    expect(css).not.toContain('--pc-public-header-total-height: 96px !important');
+    expect(css).not.toContain('height: 96px !important');
+    expect(css).not.toContain('flex-wrap: wrap !important');
+    expect(page).not.toContain('--entry-public-header-base: 100px !important');
+    expect(page).not.toContain('height: 100px !important');
+    expect(page).not.toContain('--entry-public-header-base: 48px');
+    expect(css).toContain('scroll-margin-top: calc(var(--pc-public-header-total-height, 64px) + 18px) !important');
   });
 
   it('keeps semantic homepage copy in normal DOM instead of CSS substitution', () => {
@@ -107,13 +111,16 @@ describe('platform-v7 international homepage completion', () => {
     expect(css).not.toContain('content:');
     expect(css).not.toContain('font-size: 0');
     expect(css).toContain('.pc-v7-public-entry .pc-v6-footer');
-    expect(css).toContain(".pc-public-contact-dock[data-assistant-context='public']");
+    expect(css).not.toContain(".pc-public-contact-dock");
   });
 
   it('publishes the canonical public RU EN ZH Trust Center without unsupported certification claims', () => {
     expect(trustContent).toContain("type Locale = 'ru' | 'en' | 'zh'");
-    expect(trustRoute).toContain("import BaseTrustCenterPage from '../../trust/page'");
-    expect(trustRoute).toContain('rebrandTrustCopy(await BaseTrustCenterPage(), locale)');
+    expect(trustRoute).not.toContain("import BaseTrustCenterPage");
+    expect(trustRoute).toContain("export default async function PlatformV7TrustPage()");
+    expect(trustRoute).not.toContain('rebrandTrustCopy');
+    expect(trustRoute).toContain('const copy = COPY[locale];');
+    expect(trustRoute).toContain('brandHomeLabel={copy.brandHome}');
     expect(trustRoute).toContain("canonical: '/platform-v7/trust'");
     expect(platformLayout).toContain("'/platform-v7/trust',");
     const publicStart = platformLayout.indexOf('const PUBLIC_EXACT_PATHS');
@@ -127,9 +134,22 @@ describe('platform-v7 international homepage completion', () => {
     expect(trustContent).toContain('У Гекты нет самостоятельного права менять Сделку');
   });
 
+  it('keeps the wide-desktop dock geometry solely in its canonical component', () => {
+    expect(css).not.toContain('.pc-public-contact-dock');
+    expect(dock).toContain('@media(min-width:1180px)');
+    expect(dock).toContain(".pc-public-contact-dock[data-assistant-context='public']");
+    expect(dock).toContain('width:54px!important');
+    expect(dock).toContain('grid-template-rows:repeat(3,48px)!important');
+    expect(dock).toContain('width:48px!important');
+    expect(dock).toContain('min-height:48px!important');
+    expect(dock).toContain('.pc-public-contact-dock-actionstrong');
+    expect(dock).toContain('clip-path:inset(50%)!important');
+  });
+
   it('retains mobile dock sizing, reduced-motion and forced-colors resilience', () => {
-    expect(css).toContain('width: 56px !important');
-    expect(css).toContain('min-height: 48px !important');
+    expect(dock).toContain('width:56px!important');
+    expect(dock).toContain('min-height:48px!important');
+    expect(dock).toContain('min-height:44px!important');
     expect(css).toContain('@media (prefers-reduced-motion: reduce)');
     expect(css).toContain('@media (forced-colors: active)');
     expect(trustContent).toContain("aria-labelledby='pc-trust-title'");

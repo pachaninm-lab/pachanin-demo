@@ -142,7 +142,8 @@ jobs:
           cache: pnpm
 
       - name: Install locked dependencies
-        run: env -i PATH="$PATH" HOME="$HOME" CI=true pnpm install --frozen-lockfile --ignore-scripts
+        # Keep the store root used by setup-node while retaining environment isolation.
+        run: env -i PATH="$PATH" HOME="$HOME" PNPM_HOME="$PNPM_HOME" CI=true pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Verify pinned SBOM tool package integrity
         run: test "$(env -i PATH="$PATH" HOME="$HOME" npm view @cyclonedx/cdxgen@${CDXGEN_VERSION} dist.integrity)" = "${CDXGEN_INTEGRITY}"
@@ -150,7 +151,7 @@ jobs:
       - name: Generate canonical CycloneDX + SPDX SBOM
         run: |
           mkdir -p artifacts/sbom
-          env -i PATH="$PATH" HOME="$HOME" CI=true corepack pnpm dlx @cyclonedx/cdxgen@${CDXGEN_VERSION} \
+          env -i PATH="$PATH" HOME="$HOME" PNPM_HOME="$PNPM_HOME" CI=true corepack pnpm dlx @cyclonedx/cdxgen@${CDXGEN_VERSION} \
             -t pnpm \
             --format cyclonedx,spdx \
             --validate \
@@ -202,7 +203,7 @@ jobs:
         run: node --test scripts/ip/*.test.mjs
 
       - name: Install locked Node dependencies
-        run: env -i PATH="$PATH" HOME="$HOME" CI=true pnpm install --frozen-lockfile --ignore-scripts
+        run: env -i PATH="$PATH" HOME="$HOME" PNPM_HOME="$PNPM_HOME" CI=true pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Verify internal package no-publish policy
         run: node scripts/ip/verify-private-packages.mjs --baseline
@@ -240,7 +241,7 @@ jobs:
       - name: Generate Node/pnpm CycloneDX + SPDX SBOM
         run: |
           mkdir -p artifacts/ip-clean-room/sbom
-          env -i PATH="$PATH" HOME="$HOME" CI=true corepack pnpm dlx @cyclonedx/cdxgen@${CDXGEN_VERSION} \
+          env -i PATH="$PATH" HOME="$HOME" PNPM_HOME="$PNPM_HOME" CI=true corepack pnpm dlx @cyclonedx/cdxgen@${CDXGEN_VERSION} \
             -t pnpm \
             --format cyclonedx,spdx \
             --validate \
@@ -249,7 +250,7 @@ jobs:
 
       - name: Generate Python/TAI CycloneDX + SPDX SBOM
         run: |
-          env -i PATH="$PATH" HOME="$HOME" CI=true corepack pnpm dlx @cyclonedx/cdxgen@${CDXGEN_VERSION} \
+          env -i PATH="$PATH" HOME="$HOME" PNPM_HOME="$PNPM_HOME" CI=true corepack pnpm dlx @cyclonedx/cdxgen@${CDXGEN_VERSION} \
             -t python \
             --format cyclonedx,spdx \
             --validate \

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "platform-v7.concurrent-scope.v1",
+  "branch": "feat/local-mistral-segment-7-authority-binding-20260911",
+  "status": "active",
+  "purpose": "Stage and independently review only inert Local Mistral authority loading and exact runtime-argument binding. Conversion-evidence filesystem verification is intentionally deferred to a separate governed PR.",
+  "authorityBaseExactMain": "761d3954ea1b2691d7a0c2d627d89c4f2b5c8b8d",
+  "allowedPaths": [
+    "docs/platform-v7/autopilot/bootstrap/local-mistral-authority-binding.py.inert",
+    "docs/platform-v7/autopilot/scopes/local-mistral-segment-7-authority-binding-20260911.json"
+  ],
+  "requiredInvariants": [
+    "The staged authority-binding module is not executed or referenced by any workflow or product path in this PR.",
+    "The Local Mistral authority manifest is loaded only from the sibling bootstrap path, is bounded, regular, non-symlink JSON and must match the exact v1 top-level and nested key sets used by this layer.",
+    "Exact provider, inert state and fail-closed authority rules are mandatory before any binding result can be returned.",
+    "Git identities use 40-hex validation; SHA-256 authority values use 64-hex validation; booleans cannot satisfy integer fields.",
+    "Conversion root is derived from immutable exact-main/run/attempt authority and report/model/server relative paths are fixed rather than caller-selected.",
+    "Supplied runtime identity arguments must contain exactly the expected keys with exact Python types and values equal to immutable authority; callers cannot replace authority.",
+    "This segment does not verify conversion-report/model/server filesystem evidence; that larger surface is deliberately deferred to a separate independently reviewed inert segment.",
+    "No evidence, review, attestation, provider status or workflow publication is activated by this segment.",
+    "Local Qwen remains the independent reviewer for this Mistral-only authority change.",
+    "No product, API, database, RBAC, registration, cabinet, customer-data or production-routing behavior changes.",
+    "Production hosting remains REG_RU_VPS_ONLY and new recurring cost remains 0 RUB."
+  ],
+  "productionHosting": "REG_RU_VPS_ONLY",
+  "newRecurringCostRub": 0
+}

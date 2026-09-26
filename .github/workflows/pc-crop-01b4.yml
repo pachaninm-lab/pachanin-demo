@@ -120,12 +120,12 @@ jobs:
 
           # This workflow is triggered by its own slice files and by shared
           # dependencies it reads: staff-access.types.ts, the common guard and
-          # verifier scripts, and sibling pc-crop-01* workflows. A shared change
-          # must run acceptance because it can affect the contract, but it must
-          # not claim ownership of every unrelated file in the same pull request.
-          # Bounded remediation scope therefore applies only when an owned slice
-          # file below changed.
-          grep -E '^(apps/api/src/modules/commodity-profiles/|apps/web/app/api/platform-v7/commodity-profiles/|apps/web/app/api/staff/commodity-profile-registry/|apps/web/app/api/staff/commodity-profiles/|apps/web/app/platform-v7/commodity-profiles/|apps/web/components/crop-platform/|apps/web/lib/platform-v7/(routes|design-system-v8-route-policy|cabinet-access-policy)\.ts$|apps/web/tests/unit/(platformV7CommodityProfileLiveRegistry|commodityProfileLiveAdapter)\.test\.ts$|apps/web/tsconfig\.pc-crop\.json$|docs/platform-v7/autopilot/scopes/pc-crop-01b4-)' \
+          # verifier scripts, sibling pc-crop-01* workflows, and any crop-platform
+          # component. A shared change must run acceptance because it can affect
+          # compatibility, but it must not become commodity-profile remediation
+          # authority. Bounded remediation applies only when an owned 01B.4 file
+          # below changed.
+          grep -E '^(apps/api/src/modules/commodity-profiles/|apps/web/app/api/platform-v7/commodity-profiles/|apps/web/app/api/staff/commodity-profile-registry/|apps/web/app/api/staff/commodity-profiles/|apps/web/app/platform-v7/commodity-profiles/|apps/web/components/crop-platform/(CommodityProfileRegistry(Client|View)(\.module\.css|\.tsx)?|commodity-profile-live-adapter\.ts|css-modules\.d\.ts)|apps/web/lib/platform-v7/(routes|design-system-v8-route-policy|cabinet-access-policy)\.ts$|apps/web/tests/unit/(platformV7CommodityProfileLiveRegistry|commodityProfileLiveAdapter)\.test\.ts$|apps/web/tsconfig\.pc-crop\.json$|docs/platform-v7/autopilot/scopes/pc-crop-01b4-)' \
             "$EVIDENCE_DIR/changed-files.txt" > "$EVIDENCE_DIR/slice-files.txt" || true
 
           if [ ! -s "$EVIDENCE_DIR/slice-files.txt" ]; then
