@@ -151,6 +151,7 @@ const implementationBranches = [
   'governance/pc-crop-post-registration-progress-scope-4997',
   'governance/pc-crop-inventory-reservation-scope-4997',
   'fix/owner-handoff-product-host-20260908',
+  'fix/production-mobile-controller-handoff-20260927',
   ir20BindingImplementationBranch,
   ...finalPublicBranches,
 ];
