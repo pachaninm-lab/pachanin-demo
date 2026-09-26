@@ -12,6 +12,7 @@ describe('platform-v7 mobile trust readability and Gekta return', () => {
   const productionMobile = read('tests/e2e/platform-v7-production-mobile-acceptance.spec.ts');
   const designSystem = read('tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts');
   const intelligence = read('tests/e2e/platform-v7-public-intelligence-layer.spec.ts');
+  const visual = read('tests/e2e/platform-v7-canonical-visual-evidence.spec.ts');
 
   it('keeps legacy/full public dock hiding while restoring only the canonical Gekta launcher above mobile navigation', () => {
     const legacyHide = "body:has(.pc-canonical-public) .pc-public-contact-dock{display:none!important}";
@@ -41,5 +42,7 @@ describe('platform-v7 mobile trust readability and Gekta return', () => {
     expect(designSystem).not.toContain('if (width <= 760 || width >= 981)');
     expect(intelligence).toContain(".pc-public-contact-dock[data-assistant-context='public'][data-public-mode='gekta']");
     expect(intelligence).toContain('if (item.width <= 1100)');
+    expect(visual).toContain('await expect(gektaDock).toBeVisible()');
+    expect(visual).toContain("expect(gektaTarget!.height).toBeGreaterThanOrEqual(44)");
   });
 });
