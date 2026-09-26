@@ -18,7 +18,8 @@
     "apps/web/tests/e2e/platform-v7-design-system-v8-acceptance.spec.ts",
     ".github/workflows/ci.yml",
     ".github/workflows/web-unit.yml",
-    "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts"
+    "apps/web/tests/e2e/platform-v7-canonical-visual-evidence.spec.ts",
+    "apps/web/app/pc-public-entry/platform-v7/layout.tsx"
   ],
   "requiredInvariants": [
     "Reuse the existing PublicPlatformAssistant/PublicContactDock/public-gekta-open path; do not create a second chat implementation or bypass the public assistant authority.",
@@ -27,7 +28,8 @@
     "The homepage Trust ledger remains exactly four semantic cards but renders one readable card per row on <=760px; no text clipping or horizontal page overflow is accepted.",
     "No API, database, RLS, auth, tenant, market, deal, outbox, IR-20, mail, Kubernetes or production topology source may change.",
     "Fresh exact-head review, CI/security/browser gates and exact-SHA REG.RU release remain mandatory; old 35ce384 evidence cannot close the new SHA.",
-    "Isolated auth routes keep publicMode='full'; this repair may adjust only mobile geometry for the existing assistant action and must not convert auth routes to Gekta-only mode."
+    "Isolated auth routes keep publicMode='full'; this repair may adjust only mobile geometry for the existing assistant action and must not convert auth routes to Gekta-only mode.",
+    "The isolated /platform-v7/login rewrite uses the same Gekta-only public assistant entry as the canonical login layout, while forgot-password/recovery retains the legacy full support mode."
   ],
   "acceptance": [
     "Targeted unit contract proves stale mobile dock hiding rules are absent, the high-specificity Trust rule is one column, and production mobile acceptance contains runtime assertions for both defects.",
@@ -37,6 +39,7 @@
     "The existing public-intelligence responsive matrix now requires the canonical Gekta dock through 1100px and the canonical header Gekta action from 1101px, preventing the previous hidden-chat contract from returning.",
     "Fresh exact-head CI/security/governance and independent complete-diff review have zero unresolved P0/P1/P2 findings before normal merge.",
     "After merge, exact-main REG.RU full-stack release, auth-mail cutover, reviewer readiness and fresh production mobile acceptance all PASS before FULL_SCOPE_ACCEPTED is restored.",
-    "Canonical login/register remain on the isolated public-entry shell with publicMode='full'; on <=767px the existing full public assistant dock must remain visible/enabled, >=44px and be lifted above canonical bottom navigation, while canonical home continues to use publicMode='gekta'."
+    "Canonical login/register remain on the isolated public-entry shell with publicMode='full'; on <=767px the existing full public assistant dock must remain visible/enabled, >=44px and be lifted above canonical bottom navigation, while canonical home continues to use publicMode='gekta'.",
+    "Canonical Visual Acceptance on /platform-v7/login must observe data-public-mode='gekta' from the isolated rewrite layout, not a legacy full-mode dock."
   ]
 }
